@@ -138,7 +138,7 @@ command_route: gcs
 # grouped: each environment runs `iterations` times in a row (per-environment
 # count; total runs = iterations * 5). Spawn layout re-randomizes each run.
 environment_order: grouped
-iterations: 1
+iterations: 2
 
 # Redo an iteration (clean down→up→fly→down) if a step up to and including
 # semantic_search fails — i.e. the precondition steps fail, or semantic_search

@@ -570,6 +570,10 @@ class ConsensusAssigner:
             if picks_dbg:
                 passes_dbg.append({'pass': depth, 'picks': picks_dbg})
 
+        # Full-precision inputs + incoming retention state so an offline
+        # analyzer can replay this solve exactly (analyze_auction_solve.py).
+        prev_in = {str(a): [[float(c[0]), float(c[1])] for c in cs]
+                   for a, cs in self._prev.items()}
         prev_explored_in = set(self._prev_explored)
         self._prev = {a: [by_key[tk].centroid.copy() for tk in ks]
                       for a, ks in bundles.items() if ks}
@@ -584,18 +588,19 @@ class ConsensusAssigner:
                        'explore_markup': EXPLORE_MARKUP_M,
                        'detour_cap': BUNDLE_MAX_DETOUR_M},
             'agents': {str(a): {
-                'pos': [round(float(agent_pos[a][0]), 1),
-                        round(float(agent_pos[a][1]), 1)],
-                'w': round(w[a], 3),
-                'explore_dist': round(ex[a], 1) if a in ex else None,
+                'pos': [float(agent_pos[a][0]), float(agent_pos[a][1])],
+                'w': float(w[a]),
+                'explore_dist': float(ex[a]) if a in ex else None,
                 'explored_prev_tick': a in prev_explored_in} for a in aids},
             'tasks': [{'key': list(t.key), 'label': t.label,
                        'status': t.status,
-                       'xy': [round(float(t.centroid[0]), 1),
-                              round(float(t.centroid[1]), 1)],
+                       'xy': [float(t.centroid[0]), float(t.centroid[1])],
+                       'size': [float(t.size[0]), float(t.size[1])],
                        'owner': owner[t.key],
                        'owner_dist': round(owner_dist[t.key], 1)}
                       for t in tasks],
+            'prev': prev_in,
+            'prev_explored': sorted(prev_explored_in),
             'passes': passes_dbg,
             'result': {str(a): ('explore' if not ks else [list(k) for k in ks])
                        for a, ks in assigned.items()},

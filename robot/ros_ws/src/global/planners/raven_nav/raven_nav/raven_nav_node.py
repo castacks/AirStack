@@ -327,6 +327,11 @@ class RavenNavNode(Node):
         # Observing-but-not-visited boxes (own + peer), kept past live-track
         # age-out so consensus can route a drone back to finish them.
         self._observed_bbs: dict = {}
+        # Per-tick record of BBs filtered out of the task table (+ reason);
+        # dumped in the auction trace so "why was this never assigned" is
+        # answerable from a run's JSONL.
+        self._dropped_bbs: list = []
+        self._pending_trace: 'dict | None' = None
         # Consensus over the unified task table (ray-leads + confirmed BBs).
         # Every robot solves the same shared task set + agent positions -> same
         # conflict-free bundles.
@@ -667,7 +672,9 @@ class RavenNavNode(Node):
         c = np.round(np.asarray(center, dtype=float)[:3] / 2.0).astype(int)
         return (label, int(c[0]), int(c[1]), int(c[2]))
 
-    def _bb_is_visited(self, label, center, size=None) -> bool:
+    def _visited_match(self, label, center, size=None):
+        """The visited fragment this BB dedups against (same label within
+        _VISITED_DEDUP_M surface gap): (centre(3), size(3)), or None."""
         c = np.asarray(center, dtype=float)[:3]
         s = np.zeros(3) if size is None else np.asarray(size, dtype=float)[:3]
         for lab, ex in self._peer_visited_bbs:
@@ -675,8 +682,43 @@ class RavenNavNode(Node):
             es = ex[3:6] if ex.size >= 6 else np.zeros(3)
             if lab == label and aabb_surface_dist(
                     c, s, ex[:3], es) <= self._VISITED_DEDUP_M:
-                return True
-        return False
+                return ex[:3], es
+        return None
+
+    def _bb_is_visited(self, label, center, size=None) -> bool:
+        return self._visited_match(label, center, size) is not None
+
+    def _record_dropped_bb(self, label, center, size, reason, **extra) -> None:
+        c = np.asarray(center, dtype=float)
+        s = np.asarray(size, dtype=float)
+        self._dropped_bbs.append({
+            'label': str(label), 'reason': reason,
+            'xy': [float(c[0]), float(c[1])],
+            'size': [float(s[0]), float(s[1])], **extra})
+
+    def _flush_auction_trace(self) -> None:
+        """Append the pending solve trace (+ what the robot actually flew) as
+        one JSONL line under results_dir — local disk, so it survives comms
+        degradation and lands in the collected mission artifacts."""
+        dbg = self._pending_trace
+        if dbg is None:
+            return
+        self._pending_trace = None
+        dbg['mode'] = self._behavior_mode
+        dbg['waypoint'] = (
+            [float(x) for x in np.asarray(self._target_waypoint).ravel()[:3]]
+            if self._target_waypoint is not None else None)
+        if not self._results_dir:
+            return
+        try:
+            os.makedirs(self._results_dir, exist_ok=True)
+            path = os.path.join(self._results_dir,
+                                f'{self._robot_name}_auction_solve.jsonl')
+            with open(path, 'a') as f:
+                f.write(json.dumps(dbg) + '\n')
+        except OSError as e:
+            self.get_logger().warn(f'auction trace dump failed: {e}',
+                                   throttle_duration_sec=30.0)
 
     _VISITED_DEDUP_M = VISIT_MATCH_M
     # Floor (AGL, ground=0) below which a confirmed BB is a rayfronts mapping
@@ -741,7 +783,11 @@ class RavenNavNode(Node):
         for name, entries in self._peer_state.peer_confirmed_targets.items():
             for pct in entries:
                 if float(np.asarray(pct.center, dtype=float)[2]) < self._MIN_BB_CENTER_Z:
-                    continue   # underground (rayfronts mapping error) — drop it
+                    # underground (rayfronts mapping error) — drop it
+                    self._record_dropped_bb(
+                        pct.label, np.asarray(pct.center, dtype=float),
+                        np.asarray(pct.size, dtype=float), 'underground')
+                    continue
                 out.append(ConfirmedTarget(
                     label=pct.label,
                     center=np.asarray(pct.center, dtype=float),
@@ -1061,13 +1107,23 @@ class RavenNavNode(Node):
                      key=lambda ct: (str(ct.label), float(ct.center[0]),
                                      float(ct.center[1]), float(ct.center[2])))
         for i, ct in enumerate(cts):
-            if targets and ct.label not in targets:
-                continue
-            if ct.label in all_completed:
-                continue
             c = np.asarray(ct.center, dtype=float)
             size = np.asarray(ct.size, dtype=float)
-            if self._bb_is_visited(ct.label, c, size):
+            if targets and ct.label not in targets:
+                self._record_dropped_bb(ct.label, c, size, 'not-target-label')
+                continue
+            if ct.label in all_completed:
+                self._record_dropped_bb(ct.label, c, size, 'completed')
+                continue
+            m = self._visited_match(ct.label, c, size)
+            if m is not None:
+                mc, ms = m
+                self._record_dropped_bb(
+                    ct.label, c, size, 'visited-dedup',
+                    match_xy=[float(mc[0]), float(mc[1])],
+                    match_size=[float(ms[0]), float(ms[1])],
+                    centre_dist=float(np.linalg.norm(c[:2] - mc[:2])),
+                    surface_gap=float(aabb_surface_dist(c, size, mc, ms)))
                 continue
             known_bbs.append((i, ct.label, np.concatenate([c, size])))
             items.append((ct.label, c, size, 'bb-observing', None, None,
@@ -2256,6 +2312,8 @@ class RavenNavNode(Node):
         if self._mission_start_ts is None:
             self._mission_start_ts = self.get_clock().now().nanoseconds * 1e-9
 
+        self._dropped_bbs = []
+
         # Peer rays already converted to local frame in PeerState.
         merged_origins, merged_dirs, merged_scores = self._merge_own_and_peer_rays()
 
@@ -2340,7 +2398,20 @@ class RavenNavNode(Node):
             dbg = dict(self._consensus.last_debug)
             dbg.update(robot=self._robot_name, my_id=self._my_id,
                        ts=round(now, 2))
+            dbg['dropped_bbs'] = list(self._dropped_bbs)
+            dbg['visited_fragments'] = [
+                {'label': str(lab),
+                 'xy': [float(b[0]), float(b[1])],
+                 'size': ([float(b[3]), float(b[4])]
+                          if np.asarray(b).size >= 6 else [0.0, 0.0])}
+                for lab, b in self._peer_visited_bbs]
+            dbg['all_completed'] = sorted(all_completed)
+            dbg['my_task'] = (list(my_task.key) if my_task is not None
+                              else None)
             self._auction_solve_pub.publish(String(data=json.dumps(dbg)))
+            # mode/waypoint are decided later this tick; _flush_auction_trace
+            # appends the JSONL line at end of tick with them attached.
+            self._pending_trace = dbg
             tl = {t.key: (f'{t.label}@{t.centroid[0]:.0f},'
                           f'{t.centroid[1]:.0f}[{t.status}]') for t in tasks}
             parts = []
@@ -2713,6 +2784,7 @@ class RavenNavNode(Node):
             self._completed_targets_pub.publish(
                 String(data=json.dumps(completed)))
             self._last_completed = completed
+            self._flush_auction_trace()
             return
 
         self._waypoint_locked, self._target_waypoint, self._target_waypoint2 = \
@@ -2768,6 +2840,8 @@ class RavenNavNode(Node):
 
         # Keep the result file fresh so a cancel has current data to compile.
         self._maybe_dump_results()
+
+        self._flush_auction_trace()
 
 
 def main(args=None):

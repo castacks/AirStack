@@ -31,6 +31,7 @@ setup(
             'raven_nav_node = raven_nav.raven_nav_node:main',
             'view_ray_tables = raven_nav.view_ray_tables:main',
             'view_auction_tables = raven_nav.view_auction_tables:main',
+            'analyze_auction_solve = raven_nav.analyze_auction_solve:main',
             'compile_results = raven_nav.compile_results:main',
             'compare_to_groundtruth = raven_nav.compare_to_groundtruth:main',
         ],
