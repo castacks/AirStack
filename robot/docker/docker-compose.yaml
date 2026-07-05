@@ -26,6 +26,7 @@ services:
     # we use tmux sd-keys so that the session stays alive
     environment:
       - ROBOT_NAME_SOURCE=container_name # see .bashrc
+      - NUM_ROBOTS=${NUM_ROBOTS:-1}      # comms_model derives MAX_RELAY_HOPS = N-1
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - NVIDIA_DRIVER_CAPABILITIES=all
       - LAUNCH_PACKAGE=desktop_bringup  # desktop_bringup adds RViz; real robots use autonomy_bringup

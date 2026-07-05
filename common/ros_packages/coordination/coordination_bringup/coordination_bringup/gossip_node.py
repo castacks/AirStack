@@ -5,12 +5,12 @@ Each robot publishes its PeerProfile to /gossip/peers at 1 Hz (wall-clock,
 unaffected by sim time). A new waypoint triggers an immediate extra publish.
 """
 
+import copy
 import os
 import threading
 import time
 import traceback
 import yaml
-from collections import OrderedDict
 
 import rclpy
 from rclpy.node import Node
@@ -34,12 +34,11 @@ from coordination_bringup.peer_profile import PeerProfile
 from coordination_bringup.frame_utils import (
     gps_to_enu, heading_to_quat, transform_marker_array, transform_point_cloud2,
 )
+from coordination_bringup.comms_model import should_accept, MAX_RELAY_HOPS
 
 from visualization_msgs.msg import MarkerArray
 from sensor_msgs.msg import PointCloud2
 
-
-_GOSSIP_SEEN_SIZE = 50
 
 PEER_STALE_S = 10.0        # no PeerProfile from a peer for this long → log STALE
 PEER_LOG_PERIOD_S = 30.0   # period of the peer last-heard summary line
@@ -102,7 +101,8 @@ class GossipNode(Node):
         self._peer_inbox: dict[str, PeerProfileMsg] = {}
         self._peer_inbox_lock = threading.Lock()
 
-        self._seen: OrderedDict = OrderedDict()
+        self._tx_seq = 0
+        self._seen_seq: dict[str, int] = {}
         self._payload_cache: dict[str, object] = {}
         self._payload_names: dict[str, str] = {}  # topic → short name (last path segment)
         self._payload_rotations: dict[str, tuple] = {}  # topic → pre-translation quat, or None
@@ -245,26 +245,28 @@ class GossipNode(Node):
         if msg.robot_name == self._robot_name:
             return  # discard own messages echoed back from the gossip domain
 
-        msg_id = (msg.robot_name,
-                  msg.gps_fix.header.stamp.sec,
-                  msg.gps_fix.header.stamp.nanosec)
-        if msg_id in self._seen:
-            return
-        self._seen[msg_id] = None
-        self._peer_last_rx[msg.robot_name] = time.monotonic()  # heard a fresh msg
-        if len(self._seen) > _GOSSIP_SEEN_SIZE:
-            self._seen.popitem(last=False)
+        if self._boot_pos is not None:
+            own = gps_to_enu(self._profile.gps_fix.latitude,
+                             self._profile.gps_fix.longitude,
+                             self._profile.gps_fix.altitude)
+            if not should_accept(msg, own[:2]):
+                return
 
-        new_t = (msg.gps_fix.header.stamp.sec
-                 + msg.gps_fix.header.stamp.nanosec * 1e-9)
+        if msg.seq <= self._seen_seq.get(msg.robot_name, -1):
+            return
+        self._seen_seq[msg.robot_name] = msg.seq
+        self._peer_last_rx[msg.robot_name] = time.monotonic()
+
         with self._peer_inbox_lock:
-            existing = self._peer_inbox.get(msg.robot_name)
-            if existing is not None:
-                old_t = (existing.gps_fix.header.stamp.sec
-                         + existing.gps_fix.header.stamp.nanosec * 1e-9)
-                if new_t < old_t:
-                    return
             self._peer_inbox[msg.robot_name] = msg
+
+        if msg.relay_hops < MAX_RELAY_HOPS and self._boot_pos is not None:
+            relay = copy.deepcopy(msg)
+            relay.source = PeerProfileMsg.SOURCE_RELAYED
+            relay.relay_hops = msg.relay_hops + 1
+            relay.relay_lat = self._profile.gps_fix.latitude
+            relay.relay_lon = self._profile.gps_fix.longitude
+            self._gossip_pub.publish(relay)
 
     def _drain_peer_inbox(self) -> None:
         with self._peer_inbox_lock:
@@ -356,6 +358,8 @@ class GossipNode(Node):
         # Stamp with current ROS clock (not MAVROS GPS stamp) so receivers can
         # enforce monotonic ordering across ticks.
         self._profile.gps_fix.header.stamp = self.get_clock().now().to_msg()
+        self._tx_seq += 1
+        self._profile.seq = self._tx_seq
         self._gossip_pub.publish(self._profile.to_ros_msg())
 
     def _attach_coverage(self, msg, stamp, bx, by):

@@ -17,6 +17,7 @@ from geometry_msgs.msg import Point, PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 
 from coordination_bringup.frame_utils import gps_to_enu, dir_to_quat
+from coordination_bringup.comms_model import should_accept
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
 from coordination_msgs.msg import CoverageGrid
 from airstack_msgs.msg import BidVector
@@ -1722,6 +1723,10 @@ class RavenNavNode(Node):
                     f'[coord] dropped peer profile from {msg.robot_name}: '
                     'own boot GPS not received yet',
                     throttle_duration_sec=5.0)
+            return
+        rx_xy = (self._local_to_world(self._cur_pose)[:2]
+                 if self._cur_pose is not None else self._boot_enu[:2])
+        if not should_accept(msg, rx_xy):
             return
         new_peer = msg.robot_name not in self._peer_state.peer_last_seen
         now_sec = self.get_clock().now().nanoseconds * 1e-9
