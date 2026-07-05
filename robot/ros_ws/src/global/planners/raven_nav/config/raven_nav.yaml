@@ -38,7 +38,7 @@ raven_nav:
     commit_switch_margin_m: 8.0
     # Max tasks per robot in the consensus bundle (head executed, tail reserved
     # + replanned each tick). 1 = single-target.
-    bundle_len: 1
+    bundle_len: 3
     # Publish /debug/auction_solve JSON (full solve trace) + [auction] log lines.
     debug_auction: true
     # Run the frontier-only baseline: navigation ignores semantic cues.

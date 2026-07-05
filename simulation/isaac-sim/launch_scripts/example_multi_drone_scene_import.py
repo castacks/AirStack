@@ -121,7 +121,7 @@ WORLD_GPS_ORIGIN = DEFAULT_WORLD_ORIGIN
 
 # Per-environment override (mission runner sets SPAWN_HEIGHT_M per iteration);
 # falls back to 0.3 for standalone runs.
-SPAWN_HEIGHT_ABOVE_FLOOR_M = float(os.environ.get("SPAWN_HEIGHT_M") or 0.3)
+SPAWN_HEIGHT_ABOVE_FLOOR_M = float(os.environ.get("SPAWN_HEIGHT_M") or 0.5)
 LIDAR_MIN_RANGE_M = 0.75
 
 # _DEFAULT_DRONE_CONFIGS = [
