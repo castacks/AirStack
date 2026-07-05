@@ -89,17 +89,18 @@ _LOCAL_SCENES_DIR = os.path.normpath(os.path.join(_LAUNCH_SCRIPTS_DIR, "..", "as
 # URL (omniverse://… or file://…) OR just the path after the nucleus server,
 # e.g. "Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd" — in
 # which case the omniverse://{NUCLEUS_SERVER}/ prefix is prepended.
-_env_url_override = os.environ.get("ENV_URL")
-if _env_url_override:
-    ENV_URL = (_env_url_override if "://" in _env_url_override
-               else f"omniverse://{NUCLEUS_SERVER}/{_env_url_override.lstrip('/')}")
+
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/copy-rayfronts-planner/AbandonedCity.scene.usd"
-ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/downtown_edited_v3_818.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/downtown_edited_v3_818.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/copy-rayfronts-planner/environments_start_pos/SnowyVillage_t_x-152_y-80_z-2_o_x0_y0_z_90.scene.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/edit_v1_shipyard.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
 
+_env_url_override = os.environ.get("ENV_URL")
+if _env_url_override:
+    ENV_URL = (_env_url_override if "://" in _env_url_override
+               else f"omniverse://{NUCLEUS_SERVER}/{_env_url_override.lstrip('/')}")
 # Per-environment override (mission runner sets STAGE_SCALE per iteration);
 # falls back to 0.01 for standalone runs.
 STAGE_SCALE = float(os.environ.get("STAGE_SCALE") or 0.01)
