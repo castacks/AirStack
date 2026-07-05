@@ -269,15 +269,14 @@ def assign_global(
     return entry.label, entry
 
 
-# ── CBAA consensus over confirmed-target (BB) tasks ──────────────────────────
+# ── Consensus over the unified task table (BBs + ray-leads) ──────────────────
 #
-# Conflict-free assignment by *shared-solution equivalence*: with full gossip
-# every robot has the same agent positions + the same confirmed-target set, so
-# each robot solves the identical problem and reaches the identical assignment —
-# no bid gossip race, no reactive yields. Stability comes from retaining the
-# previous winner unless a challenger beats it by a margin (CBBA winner
-# retention), computed identically on every robot. Cost is plain xy distance
-# (diminishing-marginal-gain clean — no boosts).
+# Conflict-free assignment by *shared-solution equivalence*: every robot solves
+# the identical problem from gossiped inputs (positions, peer ages, explore
+# scalars) and reaches the identical bundles — no bid race, no reactive yields.
+# Stability from winner retention; robustness under degradation from
+# age-weighting (per-robot by design: w=1 under healthy comms, so the shared
+# solution only bends where consistency is already lost).
 
 
 # Task localization states, most-localized first (priority for proximity merge).
@@ -314,13 +313,16 @@ PEER_REPULSION_SCALE = 15.0
 # range is unknown). Sets the BB-vs-ray crossover distance (~this many m): a BB
 # within it beats a near ray; a farther BB loses to a near ray (no cross-map).
 RAY_COST_PENALTY = 25.0
-# Bundle growth: a task is only appended to a bundle if its route detour from the
-# bundle's last task is within this — so a bundle only picks up genuine cluster-mates.
+# Max chain distance from a bundle's last task to an appended one.
 BUNDLE_MAX_DETOUR_M = 20.0
-# Equity / diminishing marginal gain: cost added to the k-th (k>=2) task in a
-# bundle. Makes an agent's later tasks progressively more expensive, so agents
-# don't hoard — marginal tasks fall to idler drones.
-BUNDLE_SLOT_PENALTY = 12.0
+# Geo prior: non-closest agents pay their extra distance beyond the deadband.
+GEO_PRIOR_W = 1.0
+GEO_MARGIN_M = 15.0
+# Decline (outside option): markup over frontier distance so a comparable
+# real target still wins.
+EXPLORE_MARKUP_M = 10.0
+EXPLORE_KEY = ('~explore',)
+_W_EPS = 1e-3
 
 
 def build_bb_tasks(bb_list, match_m: float, key_grid: float) -> List[Task]:
@@ -414,70 +416,196 @@ def build_tasks(items, match_m: float, key_grid: float) -> List[Task]:
 
 
 class ConsensusAssigner:
-    """Stateful CBAA winner-retention assigner. assign() returns {agent_id:
-    task_key} — the same conflict-free 1:1 map on every robot given the same
-    inputs. my_task() extracts this robot's Task."""
+    """Stateful shared-solution assigner with CBBA-style ordered bundles.
 
-    def __init__(self) -> None:
-        # agent_id -> centroid(3) of its previously-assigned task (the incumbent).
-        self._prev: Dict[int, np.ndarray] = {}
+    assign() returns {agent_id: [task_key, ...]} — head is executed, tail is a
+    reservation replanned each tick; [] = declined in favour of local
+    exploration. Same map on every robot given the same inputs. Heads-first
+    (pass 1 gives every agent a head before any bundle grows), then strict
+    breadth-first growth to bundle_len, gated by BUNDLE_MAX_DETOUR_M; a bundle
+    never grows past a ray (unknown range — can't route through it). The
+    decline option is feasible only for an agent that owns none of the
+    remaining tasks, so no task is ever orphaned by exploration."""
+
+    def __init__(self, bundle_len: int = 1) -> None:
+        self.bundle_len = max(1, int(bundle_len))
+        # agent_id -> ordered centroids of its previous bundle ([0] = head:
+        # full switch_margin retention; tail: half).
+        self._prev: Dict[int, List[np.ndarray]] = {}
+        self._prev_explored: set = set()
+        # Inputs + per-pick cost breakdown of the last solve (JSON-safe).
+        self.last_debug: dict = {}
 
     def assign(self, tasks: List[Task], agent_pos: Dict[int, np.ndarray],
-               switch_margin: float, match_m: float) -> Dict[int, Tuple]:
+               switch_margin: float, match_m: float,
+               agent_weight: Optional[Dict[int, float]] = None,
+               explore_dist: Optional[Dict[int, float]] = None,
+               ) -> Dict[int, list]:
         if not tasks or not agent_pos:
             self._prev = {}
+            self._prev_explored = set()
+            self.last_debug = {}
             return {}
         aids = sorted(agent_pos)
+        w = {a: (float(agent_weight[a]) if agent_weight and a in agent_weight
+                 else 1.0) for a in aids}
+        ex = {a: float(explore_dist[a]) for a in aids
+              if explore_dist and explore_dist.get(a) is not None
+              and float(explore_dist[a]) >= 0.0}
         by_key = {t.key: t for t in tasks}
-        base: Dict[Tuple[int, Tuple], float] = {}
+
+        # Age-weighted distance: a stale peer's rows inflate, so it stops
+        # owning/winning tasks and a live agent inherits them (w=1 -> plain
+        # distance, shared solution preserved).
+        eff: Dict[Tuple[int, Tuple], float] = {}
         for a in aids:
             p = np.asarray(agent_pos[a], float)
-            inc = self._prev.get(a)
             for t in tasks:
-                c = _task_surface_dist_xy(p, t)
-                if str(t.status).startswith('ray'):
-                    c += RAY_COST_PENALTY   # soft BB preference
-                if inc is not None and float(
-                        np.linalg.norm(t.centroid[:2] - inc[:2])) <= match_m:
-                    c -= switch_margin   # incumbent retention (CBBA winner stickiness)
-                base[(a, t.key)] = c
-        used_a: set = set()
-        used_t: set = set()
-        assigned: Dict[int, Tuple] = {}
-        taken_centroids: List[np.ndarray] = []
-        # No absolute BB lock: stickiness comes from finite retention (the
-        # -switch_margin in base above), so a drone keeps its target unless a peer
-        # is clearly closer — a far BB never traps a drone (it does nearer work and
-        # a closer drone takes the BB). Greedy by cost + peer repulsion (spread).
-        while len(used_a) < len(aids) and len(used_t) < len(by_key):
-            best = None
-            for a in aids:
-                if a in used_a:
-                    continue
-                for t in tasks:
-                    if t.key in used_t:
-                        continue
-                    c = base[(a, t.key)]
-                    for ac in taken_centroids:
-                        d = float(np.linalg.norm(t.centroid[:2] - ac[:2]))
-                        c += PEER_REPULSION_W * float(
-                            np.exp(-d / PEER_REPULSION_SCALE))
-                    k = (c, a, t.key)
-                    if best is None or k < best:
-                        best = k
-            if best is None:
+                eff[(a, t.key)] = _task_surface_dist_xy(p, t) / max(w[a], _W_EPS)
+        owner = {t.key: min(aids, key=lambda a: (eff[(a, t.key)], a))
+                 for t in tasks}
+        owner_dist = {t.key: eff[(owner[t.key], t.key)] for t in tasks}
+
+        def _is_ray(tk) -> bool:
+            return str(by_key[tk].status).startswith('ray')
+
+        taken: List[Tuple[int, np.ndarray]] = []
+
+        def _breakdown(base, a, tk, is_head):
+            rp = RAY_COST_PENALTY if _is_ray(tk) else 0.0
+            gp = GEO_PRIOR_W * max(
+                0.0, eff[(a, tk)] - owner_dist[tk] - GEO_MARGIN_M)
+            rep = 0.0
+            c = by_key[tk].centroid[:2]
+            for ta, tc in taken:
+                d = float(np.linalg.norm(c - tc[:2]))
+                rep += w[ta] * PEER_REPULSION_W * float(
+                    np.exp(-d / PEER_REPULSION_SCALE))
+            ret = 0.0
+            for i, pc in enumerate(self._prev.get(a) or []):
+                if float(np.linalg.norm(c - np.asarray(pc)[:2])) <= match_m:
+                    ret = -switch_margin if (is_head and i == 0) \
+                        else -0.5 * switch_margin
+                    break
+            return base + rp + gp + rep + ret, {
+                'base': round(base, 2), 'ray_pen': round(rp, 2),
+                'geo_pen': round(gp, 2), 'repulsion': round(rep, 2),
+                'retention': round(ret, 2)}
+
+        def _fmt(tk):
+            return 'explore' if tk == EXPLORE_KEY else list(tk)
+
+        bundles: Dict[int, list] = {a: [] for a in aids}
+        explored: set = set()
+        remaining = set(by_key)
+        passes_dbg: list = []
+
+        # Pass 1 — heads (or decline).
+        pool = set(aids)
+        picks_dbg: list = []
+        while pool and remaining:
+            per_agent: dict = {}
+            for a in pool:
+                for tk in remaining:
+                    c, bd = _breakdown(eff[(a, tk)], a, tk, True)
+                    k = (c, a, tk)
+                    if a not in per_agent or k < per_agent[a][0]:
+                        per_agent[a] = (k, bd)
+                if a in ex and all(owner[tk] != a for tk in remaining):
+                    ret = -0.5 * switch_margin if a in self._prev_explored else 0.0
+                    k = (ex[a] + EXPLORE_MARKUP_M + ret, a, EXPLORE_KEY)
+                    bd = {'base': round(ex[a], 2), 'markup': EXPLORE_MARKUP_M,
+                          'retention': round(ret, 2)}
+                    if k < per_agent[a][0]:
+                        per_agent[a] = (k, bd)
+            if not per_agent:
                 break
-            _, a, tk = best
-            assigned[a] = tk
-            used_a.add(a)
-            used_t.add(tk)
-            taken_centroids.append(by_key[tk].centroid)
-        self._prev = {a: by_key[tk].centroid for a, tk in assigned.items()}
+            (c, a, tk), bd = min(per_agent.values(), key=lambda kb: kb[0])
+            if tk == EXPLORE_KEY:
+                explored.add(a)
+            else:
+                bundles[a].append(tk)
+                remaining.discard(tk)
+                taken.append((a, by_key[tk].centroid))
+            pool.discard(a)
+            picks_dbg.append({
+                'agent': a, 'pick': _fmt(tk), 'cost': round(c, 2), **bd,
+                'alts': [{'agent': a2, 'pick': _fmt(k2[2]),
+                          'cost': round(k2[0], 2)}
+                         for a2, (k2, _) in sorted(per_agent.items())
+                         if a2 != a]})
+        passes_dbg.append({'pass': 1, 'picks': picks_dbg})
+
+        # Passes 2..L — strict breadth-first growth, ray-terminal.
+        for depth in range(2, self.bundle_len + 1):
+            pool = {a for a in aids if len(bundles[a]) == depth - 1
+                    and not _is_ray(bundles[a][-1])}
+            picks_dbg = []
+            while pool and remaining:
+                per_agent = {}
+                for a in pool:
+                    last = by_key[bundles[a][-1]]
+                    for tk in remaining:
+                        chain = _task_surface_dist_xy(
+                            last.centroid, by_key[tk])
+                        if chain > BUNDLE_MAX_DETOUR_M:
+                            continue
+                        c, bd = _breakdown(chain, a, tk, False)
+                        k = (c, a, tk)
+                        if a not in per_agent or k < per_agent[a][0]:
+                            per_agent[a] = (k, bd)
+                if not per_agent:
+                    break
+                (c, a, tk), bd = min(per_agent.values(), key=lambda kb: kb[0])
+                bundles[a].append(tk)
+                remaining.discard(tk)
+                taken.append((a, by_key[tk].centroid))
+                pool.discard(a)
+                picks_dbg.append({
+                    'agent': a, 'pick': _fmt(tk), 'cost': round(c, 2), **bd,
+                    'alts': [{'agent': a2, 'pick': _fmt(k2[2]),
+                              'cost': round(k2[0], 2)}
+                             for a2, (k2, _) in sorted(per_agent.items())
+                             if a2 != a]})
+            if picks_dbg:
+                passes_dbg.append({'pass': depth, 'picks': picks_dbg})
+
+        prev_explored_in = set(self._prev_explored)
+        self._prev = {a: [by_key[tk].centroid.copy() for tk in ks]
+                      for a, ks in bundles.items() if ks}
+        self._prev_explored = set(explored)
+        assigned = {a: list(ks) for a, ks in bundles.items()
+                    if ks or a in explored}
+        self.last_debug = {
+            'params': {'bundle_len': self.bundle_len,
+                       'switch_margin': switch_margin, 'match_m': match_m,
+                       'ray_penalty': RAY_COST_PENALTY,
+                       'geo_w': GEO_PRIOR_W, 'geo_margin': GEO_MARGIN_M,
+                       'explore_markup': EXPLORE_MARKUP_M,
+                       'detour_cap': BUNDLE_MAX_DETOUR_M},
+            'agents': {str(a): {
+                'pos': [round(float(agent_pos[a][0]), 1),
+                        round(float(agent_pos[a][1]), 1)],
+                'w': round(w[a], 3),
+                'explore_dist': round(ex[a], 1) if a in ex else None,
+                'explored_prev_tick': a in prev_explored_in} for a in aids},
+            'tasks': [{'key': list(t.key), 'label': t.label,
+                       'status': t.status,
+                       'xy': [round(float(t.centroid[0]), 1),
+                              round(float(t.centroid[1]), 1)],
+                       'owner': owner[t.key],
+                       'owner_dist': round(owner_dist[t.key], 1)}
+                      for t in tasks],
+            'passes': passes_dbg,
+            'result': {str(a): ('explore' if not ks else [list(k) for k in ks])
+                       for a, ks in assigned.items()},
+            'unassigned_tasks': [list(k) for k in sorted(remaining, key=str)],
+        }
         return assigned
 
-    def my_task(self, assigned: Dict[int, Tuple], my_id: int,
+    def my_task(self, assigned: Dict[int, list], my_id: int,
                 tasks: List[Task]) -> Optional[Task]:
-        tk = assigned.get(my_id)
-        if tk is None:
+        ks = assigned.get(my_id)
+        if not ks:
             return None
-        return next((t for t in tasks if t.key == tk), None)
+        return next((t for t in tasks if t.key == ks[0]), None)

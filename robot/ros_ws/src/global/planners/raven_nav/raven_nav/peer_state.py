@@ -79,6 +79,8 @@ class PeerState:
     peer_served_leads: Dict[str, list]     = field(default_factory=dict)
     # name -> [{'o','d','label'}]: a peer's accumulated ray-lead bearings (local).
     peer_ray_leads: Dict[str, list]        = field(default_factory=dict)
+    # name -> distance (m) to that peer's nearest viable frontier; -1 = none.
+    peer_explore_dist: Dict[str, float]    = field(default_factory=dict)
     peer_last_seen:  Dict[str, float]      = field(default_factory=dict)
     peer_ids:        Dict[str, int]        = field(default_factory=dict)
 
@@ -162,6 +164,14 @@ class PeerState:
             except (ValueError, TypeError, KeyError):
                 pass
             self.peer_served_leads[name] = leads
+
+        eb_msg, _ = profile.get_payload_by_name_with_stamp("explore_bid")
+        if eb_msg is not None:
+            try:
+                self.peer_explore_dist[name] = float(
+                    json.loads(str(eb_msg.data)).get('d', -1.0))
+            except (ValueError, TypeError):
+                pass
 
         rl_msg, _ = profile.get_payload_by_name_with_stamp("ray_leads")
         if rl_msg is not None:

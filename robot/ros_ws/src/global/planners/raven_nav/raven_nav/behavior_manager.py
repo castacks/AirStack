@@ -59,7 +59,7 @@ class BehaviorManager:
                          committed_target_dir=None,
                          committed_target_origin=None,
                          completed_zones_xy=None, cell_size_m=0.5,
-                         committed_bb_center=None):
+                         committed_bb_center=None, peer_weights=None):
         if behavior_mode == 'Voxel-based':
             return self.voxel_behavior.execute(
                 vox_xyz, vox_scores, query_labels, cur_pose_np,
@@ -85,4 +85,5 @@ class BehaviorManager:
                 committed_target_dir=committed_target_dir,
                 committed_target_origin=committed_target_origin,
                 completed_zones_xy=completed_zones_xy,
-                cell_size_m=cell_size_m)
+                cell_size_m=cell_size_m,
+                peer_weight=peer_weights)

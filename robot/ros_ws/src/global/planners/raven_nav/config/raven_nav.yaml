@@ -36,6 +36,11 @@ raven_nav:
     # Assignment hysteresis: a different target must beat the committed one by this
     # much for the auction to switch (stops Hungarian swapping near-equal matchings).
     commit_switch_margin_m: 8.0
+    # Max tasks per robot in the consensus bundle (head executed, tail reserved
+    # + replanned each tick). 1 = single-target.
+    bundle_len: 1
+    # Publish /debug/auction_solve JSON (full solve trace) + [auction] log lines.
+    debug_auction: true
     # Run the frontier-only baseline: navigation ignores semantic cues.
     # (semantic_search_task spawns raven_nav with -p args, not this file,
     # and currently sets this to true — see semantic_search_task/node.py.)

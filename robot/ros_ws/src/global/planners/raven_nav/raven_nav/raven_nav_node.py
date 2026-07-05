@@ -22,7 +22,9 @@ from coordination_msgs.msg import CoverageGrid
 from airstack_msgs.msg import BidVector
 
 from raven_nav.behavior_manager import BehaviorManager
-from raven_nav.behaviors.frontier_behavior import _points_in_polygon
+from raven_nav.behaviors.frontier_behavior import (
+    BLACKLIST_RADIUS_M, _cells_observed_mask, _cells_set_from_xys,
+    _nearest_dist, _points_in_polygon)
 from raven_nav.behaviors.voxel_behavior import (
     VISIT_REACH_M, VISIT_MATCH_M, aabb_surface_dist)
 from raven_nav.peer_state import PeerState
@@ -277,6 +279,14 @@ class RavenNavNode(Node):
         # the persistent lead set is shared across the team.
         self._ray_leads_pub = self.create_publisher(
             String, f'{self._prefix}/raven_nav/ray_leads', 10)
+        # Outside option (JSON {"d": m}): distance to this robot's nearest
+        # viable frontier — gossiped so peers price this robot's decline
+        # identically in the shared solve. -1 = no viable frontier.
+        self._explore_bid_pub = self.create_publisher(
+            String, f'{self._prefix}/raven_nav/explore_bid', 10)
+        # Full solve trace (inputs + per-pick cost breakdown) for bag diffing.
+        self._auction_solve_pub = self.create_publisher(
+            String, f'{self._prefix}/debug/auction_solve', 10)
         self._prev_ray_group_marker_count = 0
         self._assigned_target: 'str | None' = None
         self._committed_to_assigned = False
@@ -317,10 +327,15 @@ class RavenNavNode(Node):
         # Observing-but-not-visited boxes (own + peer), kept past live-track
         # age-out so consensus can route a drone back to finish them.
         self._observed_bbs: dict = {}
-        # CBAA consensus over the unified task table (ray-leads + confirmed BBs).
+        # Consensus over the unified task table (ray-leads + confirmed BBs).
         # Every robot solves the same shared task set + agent positions -> same
-        # conflict-free assignment.
-        self._consensus = bid_manager.ConsensusAssigner()
+        # conflict-free bundles.
+        self._bundle_len = max(1, int(self.declare_parameter(
+            'bundle_len', 1).value))
+        # Publish /debug/auction_solve JSON + [auction] log lines each tick.
+        self._debug_auction = bool(self.declare_parameter(
+            'debug_auction', True).value)
+        self._consensus = bid_manager.ConsensusAssigner(self._bundle_len)
         # Ray-leads this robot has serviced (reached + rays cohered); persistent,
         # accumulated own + peer, so a completed lead isn't re-added (bounds table).
         self._served_leads: list = []   # [(label, point(3))] in local frame
@@ -846,6 +861,9 @@ class RavenNavNode(Node):
     # Drop a peer's commits/bids/BBs if not heard from within this long (sim s):
     # a crashed/landed peer must not block targets forever.
     _PEER_TTL_S = 8.0
+    # Age weight w: exactly 1.0 below this (>= 2 gossip periods, so healthy
+    # comms solve identically on every robot), then linear to 0 at the TTL.
+    _PEER_GRACE_S = 2.5
 
     def _ray_on_peer_bbs(self, origin, direction, label, bbs) -> bool:
         """True if the ray passes through a label-compatible BB. Padded 3D
@@ -1143,6 +1161,62 @@ class RavenNavNode(Node):
             if pid is not None and p is not None:
                 pos[pid] = np.asarray(p, dtype=float)
         return pos
+
+    def _peer_weights_by_name(self, now) -> dict:
+        """{name: w} age weight: 1.0 within the grace, linear to 0 at the TTL."""
+        ws = {}
+        for name, t in self._peer_state.peer_last_seen.items():
+            age = now - t
+            if age <= self._PEER_GRACE_S:
+                ws[name] = 1.0
+            elif age >= self._PEER_TTL_S:
+                ws[name] = 0.0
+            else:
+                ws[name] = (self._PEER_TTL_S - age) / (
+                    self._PEER_TTL_S - self._PEER_GRACE_S)
+        return ws
+
+    def _agent_weights(self, now, fresh_peers) -> dict:
+        """{agent_id: w} for me + fresh peers."""
+        by_name = self._peer_weights_by_name(now)
+        ws = {self._my_id: 1.0}
+        for name in fresh_peers:
+            pid = self._peer_state.peer_ids.get(name)
+            if pid is not None:
+                ws[pid] = by_name.get(name, 0.0)
+        return ws
+
+    def _explore_bid_dist(self) -> float:
+        """XY distance to my nearest viable frontier (altitude + polygon +
+        observed-zone + blacklist filtered). -1.0 = none."""
+        if (self._frontiers is None or self._frontiers.shape[0] == 0
+                or self._cur_pose is None):
+            return -1.0
+        fr = np.asarray(self._frontiers, dtype=np.float64)
+        pts = np.stack([fr[:, 2], -fr[:, 0], -fr[:, 1]], axis=1)   # RDF -> FLU
+        pts = pts[(pts[:, 2] >= self._min_altitude)
+                  & (pts[:, 2] <= self._max_altitude)]
+        if (pts.shape[0] > 0 and self._search_area_xy is not None
+                and len(self._search_area_xy) >= 3):
+            pts = pts[_points_in_polygon(pts[:, :2], self._search_area_xy)]
+        if pts.shape[0] > 0:
+            own = self._own_cell_centers_xy()
+            chunks = ([own] if own.shape[0] > 0 else []) + [
+                pz for pz in self._peer_state.peer_completed_zones.values()
+                if pz is not None and pz.shape[0] > 0]
+            if chunks:
+                cells = _cells_set_from_xys(
+                    np.vstack(chunks), self._cell_size_m)
+                if cells:
+                    pts = pts[~_cells_observed_mask(
+                        pts[:, :2], cells, self._cell_size_m)]
+        bl = self._behavior_manager.frontier_behavior._blacklist_array()
+        if pts.shape[0] > 0 and bl.shape[0] > 0:
+            pts = pts[_nearest_dist(pts[:, :2], bl) > BLACKLIST_RADIUS_M]
+        if pts.shape[0] == 0:
+            return -1.0
+        return float(np.min(np.linalg.norm(
+            pts[:, :2] - np.asarray(self._cur_pose)[:2][None, :], axis=1)))
 
     def _ray_point(self, origin, direction) -> np.ndarray:
         d = np.asarray(direction, dtype=float)
@@ -1859,7 +1933,13 @@ class RavenNavNode(Node):
         global ENU (X/Y + boot, Z kept AGL — same convention as confirmed_targets)
         so GCS can build the overlay; the terminal viewer + GCS read this topic.
         Pre-GPS (no boot_enu) it stays in the local frame."""
-        owner = {tk: aid for aid, tk in assigned_map.items()}
+        owner = {}
+        queued = set()
+        for aid, ks in assigned_map.items():
+            for i, tk in enumerate(ks):
+                owner[tk] = aid
+                if i > 0:
+                    queued.add(tk)
         to_world = (self._local_to_world if self._boot_enu is not None
                     else (lambda p: np.asarray(p, dtype=float)))
         frame = 'enu' if self._boot_enu is not None else 'local'
@@ -1880,7 +1960,8 @@ class RavenNavNode(Node):
             entry = {'label': t.label, 'status': t.status,
                      'x': float(c[0]), 'y': float(c[1]), 'z': float(c[2]),
                      'sx': float(s[0]), 'sy': float(s[1]), 'sz': float(s[2]),
-                     'conf': float(t.confidence), 'assigned': owner.get(t.key)}
+                     'conf': float(t.confidence), 'assigned': owner.get(t.key),
+                     'queued': bool(t.key in queued)}
             if t.direction is not None:
                 # Unit bearing (frame-invariant) so GCS draws a fixed-length
                 # arrow from the ray point — no projected far endpoint.
@@ -1891,9 +1972,13 @@ class RavenNavNode(Node):
         # Per-robot table snapshot to the log (throttled, global ENU so the three
         # robots' logs are directly comparable) — diff across robots to check
         # table agreement (existence, status, and assignment).
+        def _own(e):
+            if e['assigned'] is None:
+                return '_'
+            return 'r%d%s' % (e['assigned'], 'q' if e['queued'] else '')
         rows = " ".join(sorted(
             f"{e['label']}:{e['status']}@({e['x']:.0f},{e['y']:.0f})"
-            f"->{('r%d' % e['assigned']) if e['assigned'] is not None else '_'}"
+            f"->{_own(e)}"
             for e in available))
         self.get_logger().info(
             f"[table] avail={len(available)} visited={len(visited)} | {rows}",
@@ -2228,16 +2313,55 @@ class RavenNavNode(Node):
             if name in fresh_peers
         }
 
-        # CBAA consensus over the unified task table (ray-leads + confirmed BBs):
-        # every robot solves the same shared task set with the same agent
-        # positions, so all reach the same conflict-free 1:1 assignment (no bid
-        # race, no reactive yields). Winner retention keeps it stable tick-to-tick.
+        # Consensus over the unified task table (ray-leads + confirmed BBs):
+        # every robot solves the same shared task set with the same gossiped
+        # inputs (positions, ages, explore scalars), so all reach the same
+        # conflict-free bundles. Winner retention keeps it stable tick-to-tick.
         agent_pos = self._agent_positions(fresh_peers)
+        agent_w = self._agent_weights(now, fresh_peers)
+        my_explore = self._explore_bid_dist()
+        self._explore_bid_pub.publish(
+            String(data=json.dumps({'d': my_explore})))
+        explore_dists = {}
+        if my_explore >= 0.0:
+            explore_dists[self._my_id] = my_explore
+        for name in fresh_peers:
+            pid = self._peer_state.peer_ids.get(name)
+            d = self._peer_state.peer_explore_dist.get(name)
+            if pid is not None and d is not None and d >= 0.0:
+                explore_dists[pid] = d
         tasks = self._build_consensus_tasks(
             ray_groups, all_completed, polygon_xy, now, agent_pos)
         assigned_map = self._consensus.assign(
-            tasks, agent_pos, self._commit_switch_margin_m, self._TASK_MATCH_M)
+            tasks, agent_pos, self._commit_switch_margin_m, self._TASK_MATCH_M,
+            agent_weight=agent_w, explore_dist=explore_dists)
         my_task = self._consensus.my_task(assigned_map, self._my_id, tasks)
+        if self._debug_auction and self._consensus.last_debug:
+            dbg = dict(self._consensus.last_debug)
+            dbg.update(robot=self._robot_name, my_id=self._my_id,
+                       ts=round(now, 2))
+            self._auction_solve_pub.publish(String(data=json.dumps(dbg)))
+            tl = {t.key: (f'{t.label}@{t.centroid[0]:.0f},'
+                          f'{t.centroid[1]:.0f}[{t.status}]') for t in tasks}
+            parts = []
+            for a in sorted(agent_pos):
+                ks = assigned_map.get(a)
+                if ks:
+                    parts.append(f'r{a}:' + ' > '.join(
+                        tl.get(k, str(k)) for k in ks))
+                elif ks == []:
+                    parts.append(
+                        f'r{a}:explore(d={explore_dists.get(a, -1):.0f})')
+                else:
+                    parts.append(f'r{a}:-')
+            ages = ' '.join(
+                f'{n}:{now - self._peer_state.peer_last_seen[n]:.1f}s'
+                for n in sorted(fresh_peers))
+            self.get_logger().info(
+                f'[auction] L={self._bundle_len} ' + ' | '.join(parts)
+                + (f' | ages {ages}' if ages else '')
+                + f' | unassigned={len(dbg.get("unassigned_tasks", []))}',
+                throttle_duration_sec=5.0)
 
         won = None   # ray exploration is now a consensus task, not a side auction
         if my_task is not None:
@@ -2604,6 +2728,7 @@ class RavenNavNode(Node):
                 vox_scores=self._vox_scores,
                 query_labels=self._query_labels,
                 peer_state=self._peer_state,
+                peer_weights=self._peer_weights_by_name(now),
                 completed_zones_xy=completed_zones_xy,
                 cell_size_m=self._cell_size_m,
                 my_id=self._my_id,

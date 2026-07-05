@@ -113,6 +113,12 @@ payload_topics:
   - topic: "/{robot_name}/raven_nav/ray_leads"
     type: "std_msgs/msg/String"
 
+  # Explore bid (raven_nav) — JSON {"d": <m>}: distance to this robot's nearest
+  # viable frontier (-1 = none). Peers price this robot's decline ("outside
+  # option") in the shared task consensus.
+  - topic: "/{robot_name}/raven_nav/explore_bid"
+    type: "std_msgs/msg/String"
+
   # ── Add more payloads below ────────────────────────────────────────────────
   # - topic: "/{robot_name}/your/topic"
   #   type: "your_msgs/msg/YourType"

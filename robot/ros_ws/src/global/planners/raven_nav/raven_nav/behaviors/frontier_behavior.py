@@ -29,44 +29,53 @@ def _peer_penalty(viewpoints, peer_state, my_id,
                   repulsion_weight=50.0,
                   repulsion_scale=15.0,
                   tie_distance=10.0,
-                  tie_surcharge_mul=2.0):
+                  tie_surcharge_mul=2.0,
+                  peer_weight=None):
     """Returns (penalty(M,), breakdown). Lower penalty = better.
 
     Soft 2D-xy repulsion = weight * exp(-d / scale) around where each peer is
     (peer_positions) and is heading (peer_waypoints). Higher-id robot pays
     tie_surcharge near a peer waypoint so two robots can't both defer.
+    peer_weight ({name: 0..1} age weight) scales each peer's repulsion; a
+    stale/dead peer stops repelling. None = all 1 (legacy).
     """
     M = viewpoints.shape[0]
     pen = np.zeros(M, dtype=np.float64)
     breakdown = []
     if peer_state is None or M == 0:
         return pen, breakdown
+
+    def _pw(name):
+        return 1.0 if peer_weight is None else float(peer_weight.get(name, 0.0))
+
     vp_xy = viewpoints[:, :2]
     for name, wp in peer_state.peer_waypoints.items():
         peer_id = peer_state.peer_ids.get(name)
-        if peer_id is None:
+        pw = _pw(name)
+        if peer_id is None or pw <= 0.0:
             continue
         d = np.linalg.norm(vp_xy - np.asarray(wp, dtype=float)[None, :2], axis=1)
-        repulsion = repulsion_weight * np.exp(-d / repulsion_scale)
+        repulsion = pw * repulsion_weight * np.exp(-d / repulsion_scale)
         pen += repulsion
         surcharge = np.zeros(M, dtype=np.float64)
         applied_tb = my_id > peer_id
         if applied_tb:
             close = d < tie_distance
-            surcharge[close] = repulsion_weight * tie_surcharge_mul
+            surcharge[close] = pw * repulsion_weight * tie_surcharge_mul
             pen += surcharge
         breakdown.append({
-            'name': name, 'peer_id': peer_id,
+            'name': name, 'peer_id': peer_id, 'w': pw,
             'repulsion': repulsion, 'surcharge': surcharge,
             'nearest_d': float(d.min()) if d.size else float('inf'),
             'applied_tiebreak': applied_tb,
         })
     # Repel around where peers currently are, too (not just their waypoints).
     for name, pos in getattr(peer_state, 'peer_positions', {}).items():
-        if peer_state.peer_ids.get(name) is None:
+        pw = _pw(name)
+        if peer_state.peer_ids.get(name) is None or pw <= 0.0:
             continue
         d = np.linalg.norm(vp_xy - np.asarray(pos, dtype=float)[None, :2], axis=1)
-        pen += repulsion_weight * np.exp(-d / repulsion_scale)
+        pen += pw * repulsion_weight * np.exp(-d / repulsion_scale)
     return pen, breakdown
 
 
@@ -217,7 +226,8 @@ class FrontierBehavior:
         self._prev_pose_time_s = now
 
     def _score_point(self, pt, robot_pos, heading_xy, peer_state, my_id,
-                     completed_cells, cell_size_m, committed_target_dir):
+                     completed_cells, cell_size_m, committed_target_dir,
+                     peer_weight=None):
         pt = np.asarray(pt, dtype=np.float64).reshape(1, 3)
         d = float(np.linalg.norm(pt[0] - robot_pos))
         s = d - self.INFO_GAIN_WEIGHT * float(np.log1p(1.0))
@@ -228,7 +238,7 @@ class FrontierBehavior:
                 cs = float(v @ heading_xy) / n
                 s += self.MOMENTUM_WEIGHT * (1.0 - cs)
                 s += self.REVERSE_SURCHARGE * max(-cs, 0.0)
-        pen, _ = _peer_penalty(pt, peer_state, my_id)
+        pen, _ = _peer_penalty(pt, peer_state, my_id, peer_weight=peer_weight)
         s += float(pen[0])
         if completed_cells:
             density = _neighborhood_density(
@@ -348,7 +358,8 @@ class FrontierBehavior:
                 committed_target_dir=None,
                 committed_target_origin=None,
                 completed_zones_xy=None,
-                cell_size_m=0.5):
+                cell_size_m=0.5,
+                peer_weight=None):
         completed_cells = _cells_set_from_xys(completed_zones_xy, cell_size_m)
         viewpoint_publisher = publisher_dict['viewpoint']
         raw_frontier_publisher = publisher_dict.get('raw_frontiers')
@@ -538,7 +549,8 @@ class FrontierBehavior:
             scores = scores + self.REVERSE_SURCHARGE * np.clip(-cos_sim, 0.0, 1.0)
 
         base_scores = scores.copy()
-        peer_pen, peer_breakdown = _peer_penalty(viewpoints, peer_state, my_id)
+        peer_pen, peer_breakdown = _peer_penalty(
+            viewpoints, peer_state, my_id, peer_weight=peer_weight)
         scores = scores + peer_pen
 
         # Novelty: fraction of cells in a (2k+1)^2 window around each viewpoint
@@ -696,7 +708,8 @@ class FrontierBehavior:
         if not swap:
             cur_score = self._score_point(
                 target_waypoint, robot_pos, heading_xy, peer_state, my_id,
-                completed_cells, cell_size_m, committed_target_dir)
+                completed_cells, cell_size_m, committed_target_dir,
+                peer_weight=peer_weight)
             margin = self.SWAP_IMPROVEMENT_FRAC * (abs(cur_score) + 1e-6)
             beats = best_score < cur_score - margin
             if beats and locked_for_s >= self.MIN_LOCK_DURATION_S:
