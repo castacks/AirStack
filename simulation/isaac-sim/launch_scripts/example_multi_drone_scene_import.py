@@ -83,13 +83,6 @@ _LOCAL_SCENES_DIR = os.path.normpath(os.path.join(_LAUNCH_SCRIPTS_DIR, "..", "as
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
-
-# Env override (set by the mission runner per iteration; falls back to the
-# hardcoded ENV_URL above when running standalone). The override may be a full
-# URL (omniverse://… or file://…) OR just the path after the nucleus server,
-# e.g. "Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd" — in
-# which case the omniverse://{NUCLEUS_SERVER}/ prefix is prepended.
-
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/copy-rayfronts-planner/AbandonedCity.scene.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/downtown_edited_v3_818.usd"

@@ -108,7 +108,8 @@ class AuctionViewer(Node):
                 state = st[3:] if st.startswith('bb-') else ""
                 aid = t.get('assigned')
                 mine = (aid is not None and aid == my_id)
-                q = 'q' if t.get('queued') else ''
+                sl = t.get('slot')
+                q = f'#{sl + 1}' if sl else ''   # queued slot; head bare
                 who = (f"r{aid}{q}" if aid is not None else "-")
                 who_s = (f"{BOLD}{who}*{RESET}" if mine else who)
                 print(f"    {col}{str(t.get('label','')):<16}{RESET} {state:<10} "

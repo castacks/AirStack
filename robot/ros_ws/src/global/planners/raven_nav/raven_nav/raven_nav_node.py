@@ -1934,12 +1934,11 @@ class RavenNavNode(Node):
         so GCS can build the overlay; the terminal viewer + GCS read this topic.
         Pre-GPS (no boot_enu) it stays in the local frame."""
         owner = {}
-        queued = set()
+        slot = {}
         for aid, ks in assigned_map.items():
             for i, tk in enumerate(ks):
                 owner[tk] = aid
-                if i > 0:
-                    queued.add(tk)
+                slot[tk] = i
         to_world = (self._local_to_world if self._boot_enu is not None
                     else (lambda p: np.asarray(p, dtype=float)))
         frame = 'enu' if self._boot_enu is not None else 'local'
@@ -1961,7 +1960,8 @@ class RavenNavNode(Node):
                      'x': float(c[0]), 'y': float(c[1]), 'z': float(c[2]),
                      'sx': float(s[0]), 'sy': float(s[1]), 'sz': float(s[2]),
                      'conf': float(t.confidence), 'assigned': owner.get(t.key),
-                     'queued': bool(t.key in queued)}
+                     'slot': slot.get(t.key),
+                     'queued': bool(slot.get(t.key, 0) > 0)}
             if t.direction is not None:
                 # Unit bearing (frame-invariant) so GCS draws a fixed-length
                 # arrow from the ray point — no projected far endpoint.
