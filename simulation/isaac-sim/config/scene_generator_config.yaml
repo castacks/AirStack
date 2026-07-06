@@ -107,11 +107,14 @@ usds:
   houses:
     intact:
       - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/RetroNeighborhood/Props/SM_House_01.prop.usd"
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/Muyang/UnityTest/UrbanBuilding/urban_building_Prefab.usd"
+        scale: 1.0   # authored in meters; override the global asset_scale
+        axis-up: "Y"  # authored with Y-up; fix to Z-up for Isaac Sim
       - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/Muyang/ModernCityEnvironment/Collected_Building01/SM_MERGED_BP_MBuilding01.usd"
         scale: 1.0   # authored in meters; override the global asset_scale
-      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/Muyang/ModernCityEnvironment/Collected_Building02/SM_MERGED_BP_MBuilding02.usd"
-      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/Muyang/ModernCityEnvironment/Collected_Building03/SM_MERGED_BP_MBuilding03.usd"
-      - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/Muyang/ModernCityEnvironment/Collected_Building05/SM_MERGED_BP_MBuilding05.usd"
+      # - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/Muyang/ModernCityEnvironment/Collected_Building02/SM_MERGED_BP_MBuilding02.usd"
+      # - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/Muyang/ModernCityEnvironment/Collected_Building03/SM_MERGED_BP_MBuilding03.usd"
+      # - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/Muyang/ModernCityEnvironment/Collected_Building05/SM_MERGED_BP_MBuilding05.usd"
 
     # damaged:
     #   - "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/Muyang/RuinedModernBuildings/Flatten_Buildings/SM_Flatten_Building_01.usd"

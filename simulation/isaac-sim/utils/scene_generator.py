@@ -81,12 +81,16 @@ def load_config(config_path: str) -> dict:
 # USD footprint measurement (with graceful fallback to constants)
 # ---------------------------------------------------------------------------
 
-def _measure_footprint(usd_path: str, scale: float):
+def _measure_footprint(usd_path: str, scale: float, axis_up: str = "Z"):
     """Open *usd_path* and return its metric footprint as a dict, or None.
 
-    Returns ``{"sx", "sy", "sz", "base"}`` where sx/sy/sz are the world-aligned
-    bounding-box dimensions (meters, after *scale*) and ``base`` is the offset to
-    add to Z so the asset's lowest point sits at z=0 (= -min_z * scale).
+    Returns ``{"sx","sy","sz","base","cx","cy","cz"}`` in Z-up world space
+    (after *scale* and any axis correction). For Z-up assets cx/cy are the XY
+    bbox center offsets from the prim origin; cz is always 0. For Y-up assets
+    (``axis_up="Y"``) the measurements are remapped so that sx/sy reflect the
+    world-XY footprint, base reflects the local Y_min, and cz carries the local-Z
+    centroid that apply_placements folds into the centroid-correction offset vector
+    (local Z maps to world -Y after the +90° roll correction).
     """
     try:
         stage = Usd.Stage.Open(usd_path)
@@ -117,47 +121,67 @@ def _measure_footprint(usd_path: str, scale: float):
         return None
 
     mn, sz = rng.GetMin(), rng.GetSize()
+    if axis_up == "Y":
+        # Y-up asset: a +90° roll in apply_placements converts to Z-up.
+        # After rotateX(+90°): local X→world X, local Y→world Z, local Z→world -Y.
+        # sx/sy are the world XY footprint; base = -local_Y_min; cy=0 (height
+        # centroid doesn't affect XY layout); cz = local Z centroid (fed into the
+        # 3-component centroid offset so apply_placements rotates it to world -Y).
+        return {
+            "sx": sz[0] * scale,                       # local X  → world X footprint
+            "sy": sz[2] * scale,                       # local Z  → world Y footprint
+            "sz": sz[1] * scale,                       # local Y  → world height
+            "base": -mn[1] * scale,                    # local Y_min → world Z = 0 after roll
+            "cx": (mn[0] + sz[0] / 2) * scale,        # local X centroid (stays world X)
+            "cy": 0.0,                                 # height centroid; no XY correction needed
+            "cz": (mn[2] + sz[2] / 2) * scale,        # local Z centroid → world -Y via roll
+        }
     return {"sx": sz[0] * scale, "sy": sz[1] * scale,
             "sz": sz[2] * scale, "base": -mn[2] * scale,
             # XY offset of the bbox center from the asset's local origin.
             # Non-zero when the pivot isn't at the visual centroid; apply_placements
             # subtracts this so the *visual* center lands at the requested position.
             "cx": (mn[0] + sz[0] / 2) * scale,
-            "cy": (mn[1] + sz[1] / 2) * scale}
+            "cy": (mn[1] + sz[1] / 2) * scale,
+            "cz": 0.0}
 
 
 def _parse_usd_entry(entry, default_scale: float):
-    """Normalize a USD entry to ``(path, scale)``.
+    """Normalize a USD entry to ``(path, scale, axis_up)``.
 
-    Entries can be plain strings (use *default_scale*) or dicts with ``usd``
-    and an optional ``scale`` key that overrides the global ``asset_scale``::
+    Entries can be plain strings (use *default_scale*, Z-up) or dicts::
 
-        # plain — uses global asset_scale
+        # plain — uses global asset_scale, Z-up
         - "omniverse://host/Props/SM_Grass.usd"
 
-        # per-asset override
+        # per-asset overrides
         - usd: "omniverse://host/Props/SM_Building.usd"
-          scale: 1.0    # already in meters; global asset_scale is e.g. 0.01
+          scale: 1.0      # already in meters; global asset_scale is e.g. 0.01
+          axis-up: "Y"    # authored Y-up (e.g. Unity export); corrected via +90° roll
     """
     if isinstance(entry, dict):
-        return str(entry["usd"]), float(entry.get("scale", default_scale))
-    return str(entry), float(default_scale)
+        return (str(entry["usd"]),
+                float(entry.get("scale", default_scale)),
+                str(entry.get("axis-up", "Z")).upper())
+    return str(entry), float(default_scale), "Z"
 
 
 def _normalize_usd_list(lst, default_scale: float):
-    """Return ``(path_list, overrides_dict)`` from a raw YAML USD list.
+    """Return ``(path_list, scale_overrides, axis_up_overrides)`` from a raw YAML USD list.
 
     *path_list* is a plain list of USD paths suitable for ``rng.choice()``.
-    *overrides_dict* maps path → per-asset scale for any entry that has an
-    explicit ``scale`` key.
+    *scale_overrides* maps path → per-asset scale for entries with an explicit ``scale``.
+    *axis_up_overrides* maps path → axis_up string ("Y") for non-Z-up entries.
     """
-    paths, overrides = [], {}
+    paths, scale_ovr, axisup_ovr = [], {}, {}
     for entry in (lst or []):
-        path, sc = _parse_usd_entry(entry, default_scale)
+        path, sc, au = _parse_usd_entry(entry, default_scale)
         paths.append(path)
         if sc != default_scale:
-            overrides[path] = sc
-    return paths, overrides
+            scale_ovr[path] = sc
+        if au != "Z":
+            axisup_ovr[path] = au
+    return paths, scale_ovr, axisup_ovr
 
 
 class SizeResolver:
@@ -171,27 +195,34 @@ class SizeResolver:
         self.measure = bool(measure)
         self._cache: dict = {}
 
-    def get(self, usd_path: str, category: str, scale: float = None) -> dict:
-        """Return the metric footprint for *usd_path*.
+    def get(self, usd_path: str, category: str, scale: float = None,
+            axis_up: str = "Z") -> dict:
+        """Return the metric footprint for *usd_path* in Z-up world space.
 
-        *scale* overrides the resolver's default ``asset_scale`` for this
-        specific asset (use for per-asset scale entries in the YAML). The cache
-        key is ``(path, effective_scale)`` so mixed-scale assets don't collide.
+        *scale* overrides the resolver's default ``asset_scale``.
+        *axis_up* is ``"Y"`` for assets authored in Y-up coordinates (e.g. Unity
+        exports); the returned dict has corrected sx/sy/base and includes a ``cz``
+        field so apply_placements can handle the centroid offset correctly. The
+        cache key is ``(path, effective_scale, axis_up)`` so different corrections
+        don't collide.
         """
         effective_scale = float(scale) if scale is not None else self.scale
-        cache_key = (usd_path, effective_scale)
+        effective_axis_up = str(axis_up).upper() if axis_up else "Z"
+        cache_key = (usd_path, effective_scale, effective_axis_up)
         if cache_key in self._cache:
             return self._cache[cache_key]
 
-        fp = _measure_footprint(usd_path, effective_scale) if self.measure else None
+        fp = (_measure_footprint(usd_path, effective_scale, effective_axis_up)
+              if self.measure else None)
         if fp is not None:
             print(f"[scene_gen] measured {category}: {os.path.basename(usd_path)} "
-                  f"-> {fp['sx']:.2f} x {fp['sy']:.2f} m (scale={effective_scale})")
+                  f"-> {fp['sx']:.2f} x {fp['sy']:.2f} m "
+                  f"(scale={effective_scale}, up={effective_axis_up})")
         else:
             fb = self.fallback.get(category, [4.0, 4.0])
             fp = {"sx": float(fb[0]), "sy": float(fb[1]),
                   "sz": float(fb[2]) if len(fb) > 2 else 3.0, "base": 0.0,
-                  "cx": 0.0, "cy": 0.0}  # assume centered pivot for fallbacks
+                  "cx": 0.0, "cy": 0.0, "cz": 0.0}
             print(f"[scene_gen] fallback {category}: {os.path.basename(usd_path)} "
                   f"-> {fp['sx']:.2f} x {fp['sy']:.2f} m")
 
@@ -442,19 +473,25 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
     usds = config["usds"]
     tiles = usds.get("tiles", {})
 
-    # Normalize every USD list/dict to plain paths + a per-asset scale lookup.
-    # Entries can be plain strings (use global asset_scale) or dicts:
-    #   {usd: "omni://...", scale: 0.01}   # per-asset override
+    # Normalize every USD list/dict to plain paths + per-asset scale/axis_up lookups.
+    # Entries can be plain strings or dicts:
+    #   {usd: "omni://...", scale: 0.01, axis-up: "Y"}
     _scale_overrides: dict = {}
+    _axis_up_overrides: dict = {}
 
     def _nl(lst):
-        paths, ov = _normalize_usd_list(lst, asset_scale)
-        _scale_overrides.update(ov)
+        paths, sc_ov, au_ov = _normalize_usd_list(lst, asset_scale)
+        _scale_overrides.update(sc_ov)
+        _axis_up_overrides.update(au_ov)
         return paths
 
     def _sc(path):
         """Per-asset scale, falling back to global asset_scale."""
         return _scale_overrides.get(path, asset_scale)
+
+    def _au(path):
+        """Per-asset up-axis ("Y" or "Z"), falling back to "Z"."""
+        return _axis_up_overrides.get(path, "Z")
 
     grass_usds    = _nl(tiles["grass"])
     concrete_usds = _nl(tiles.get("concrete") or [])
@@ -464,13 +501,15 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
     tree_usds     = _nl(usds.get("trees") or [])
     light_usds    = _nl(usds.get("streetlights") or [])
 
-    # Road dict: values may also be plain strings or {usd:, scale:} dicts.
+    # Road dict: values may also be plain strings or {usd:, scale:, axis-up:} dicts.
     road: dict = {}
     for k, entry in (tiles.get("road") or {}).items():
-        path, sc = _parse_usd_entry(entry, asset_scale)
+        path, sc, au = _parse_usd_entry(entry, asset_scale)
         road[k] = path
         if sc != asset_scale:
             _scale_overrides[path] = sc
+        if au != "Z":
+            _axis_up_overrides[path] = au
 
     layout = config.get("layout", {})
     region_m = layout.get("region_m", [200.0, 200.0])
@@ -490,7 +529,7 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
     # --- Resolve footprints we need for layout (pass per-asset scale) ------
     grass_fp = resolver.get(grass_usds[0], "grass", scale=_sc(grass_usds[0]))
     road_fp  = resolver.get(road["straight"], "road", scale=_sc(road["straight"]))
-    house_fps = {u: resolver.get(u, "house", scale=_sc(u))
+    house_fps = {u: resolver.get(u, "house", scale=_sc(u), axis_up=_au(u))
                  for u in house_intact + house_damaged}
     concrete_fp = (resolver.get(concrete_usds[0], "concrete", scale=_sc(concrete_usds[0]))
                    if concrete_usds else None)
@@ -503,11 +542,11 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
 
     placements: list = []
 
-    def add(usd, x, y, z, yaw, category, scale, roll=0.0, pitch=0.0):
+    def add(usd, x, y, z, yaw, category, scale, roll=0.0, pitch=0.0, axis_up="Z"):
         placements.append({
             "usd": usd, "x_m": x, "y_m": y, "z_m": z,
             "yaw_deg": yaw, "roll_deg": roll, "pitch_deg": pitch,
-            "scale": scale, "category": category,
+            "scale": scale, "category": category, "axis_up": axis_up,
         })
 
     def _tile_rect(usd_choices, rect, tsx, tsy, z, category, skip=None):
@@ -751,10 +790,15 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
             usd, rot = rng.choice(tied)
             fp = house_fps[usd]
             cx, cy = (lx0 + lx1) / 2.0, (ly0 + ly1) / 2.0
-            roll = pitch = 0.0
+            # Y-up assets (e.g. Unity exports) need a +90° roll to stand upright
+            # in Isaac Sim's Z-up world. This is combined with any damage tilt.
+            axis_roll = 90.0 if _au(usd) == "Y" else 0.0
+            roll = axis_roll
+            pitch = 0.0
             z = fp["base"]
             if is_damaged:
-                roll, pitch = rng.uniform(-18.0, 18.0), rng.uniform(-18.0, 18.0)
+                roll = axis_roll + rng.uniform(-18.0, 18.0)
+                pitch = rng.uniform(-18.0, 18.0)
                 z -= rng.uniform(0.3, 0.9)
                 n_damaged += 1
             lot_rect = (lx0, ly0, lx1, ly1)
@@ -765,7 +809,7 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
                 _tile_rect(concrete_usds[0], lot_rect, concrete_fp["sx"], concrete_fp["sy"],
                            0.02, "concrete")
             add(usd, cx, cy, z, house_front_yaw + rot, "house", _sc(usd),
-                roll=roll, pitch=pitch)
+                roll=roll, pitch=pitch, axis_up=_au(usd))
             house_rects.append(lot_rect)
             n_buildings += 1
 
@@ -901,14 +945,20 @@ def apply_placements(stage,
         pitch = float(p.get("pitch_deg", 0.0))
         yaw = float(p["yaw_deg"])
 
-        cx_off, cy_off = 0.0, 0.0
+        cx_off, cy_off, cz_off = 0.0, 0.0, 0.0
         if resolver is not None:
-            fp = resolver.get(usd, p.get("category", "asset"), scale=float(p["scale"]))
-            cx_off, cy_off = fp.get("cx", 0.0), fp.get("cy", 0.0)
+            axis_up_p = p.get("axis_up", "Z")
+            fp = resolver.get(usd, p.get("category", "asset"),
+                              scale=float(p["scale"]), axis_up=axis_up_p)
+            cx_off = fp.get("cx", 0.0)
+            cy_off = fp.get("cy", 0.0)
+            cz_off = fp.get("cz", 0.0)
 
         # Rotate the anchor->centroid offset by the same XYZ rotation USD applies
         # (X, then Y, then Z). TransformDir keeps us off Gf's row-vector layout.
-        offset = Gf.Vec3d(cx_off, cy_off, 0.0)
+        # For Y-up assets: roll includes +90° correction so local Z (cz_off)
+        # rotates to world -Y, and local Y (cy_off=0) doesn't corrupt Z placement.
+        offset = Gf.Vec3d(cx_off, cy_off, cz_off)
         offset = Gf.Rotation(Gf.Vec3d(1, 0, 0), roll).TransformDir(offset)
         offset = Gf.Rotation(Gf.Vec3d(0, 1, 0), pitch).TransformDir(offset)
         offset = Gf.Rotation(Gf.Vec3d(0, 0, 1), yaw).TransformDir(offset)
