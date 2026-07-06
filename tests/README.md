@@ -283,9 +283,19 @@ returns to the ground.
 | `odometry_error_mean_m` | m | Mean 3-D position error vs ground-truth odom |
 | `odometry_error_max_m` | m | Peak 3-D error vs ground-truth odom |
 | `odometry_altitude_bias_m` | m | Signed z-axis bias vs ground-truth odom |
+| `ev_pose_error_max_{x,y,z}_m` | m | Peak per-axis \|mocap − PX4\| over the phase (vision profiles only) |
+| `ev_pose_error_mean_{x,y,z}_m` | m | Mean per-axis \|mocap − PX4\| over the phase (vision profiles only) |
 
 Metrics are recorded per robot as `robot_N.<key>` and written to
 `tests/results/<timestamp>/metrics.json`.
+
+**Mocap ↔ PX4 bound (vision/NatNet only):** for `LAUNCH_NATNET`/`px4-vision`
+profiles, each phase also asserts the per-axis gap between the mocap pose PX4
+fuses (NatNet `PoseStamped`) and PX4's own `local_position/odom` stays within
+`EV_POSE_ERROR_MAX_XY_M` (x, y) and `EV_POSE_ERROR_MAX_Z_M` (z — looser, baro
+fusion pulls PX4 z off the pure mocap z). Both are tunable constants in
+[`test_takeoff_hover_land.py`](system/test_takeoff_hover_land.py). Non-vision
+profiles don't publish mocap, so the check is skipped there.
 
 ### Running takeoff_hover_land tests
 

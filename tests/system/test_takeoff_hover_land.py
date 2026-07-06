@@ -8,6 +8,7 @@ advances to the next velocity.
 """
 import bisect
 import math
+import os
 import statistics
 import subprocess
 import time
@@ -43,6 +44,20 @@ MOTION_ABOVE_START_M = 0.3  # z threshold for "drone started moving" (relative t
 SETTLING_WINDOW_S = 1.0     # seconds of trailing samples used for steady-state altitude
 MAX_GT_MATCH_AGE_S = 0.1    # drop an odom sample if nearest GT is >100ms away
 
+# Vision profiles only: bound the gap between the mocap pose PX4 fuses and PX4's
+# own fused estimate, per axis, for the whole phase (per-axis MAX). z gets more
+# slack than xy (baro fusion pulls PX4 z off the pure mocap z). Bounds are
+# phase-aware: the tight steady-state bound applies during hover, where a close
+# mocap↔PX4 agreement is meaningful; the dynamic bound applies during takeoff
+# and landing, where fusion lag (EKF2_EV_DELAY) plus climb/attitude transients
+# briefly inflate the per-axis MAX even though the mean stays ~1cm. Tunable —
+# tighten as sim allows.
+EV_POSE_TOPIC = os.environ.get("NATNET_POSE_TOPIC", "perception/optitrack/drone")
+EV_POSE_ERROR_MAX_XY_M = 0.02          # steady-state (hover)
+EV_POSE_ERROR_MAX_Z_M = 0.05
+EV_POSE_ERROR_MAX_XY_DYNAMIC_M = 0.04  # dynamic (takeoff / landing)
+EV_POSE_ERROR_MAX_Z_DYNAMIC_M = 0.08
+
 # Parallel vision takeoffs slow the climb (mocap fusion under shared GPU/CPU
 # load). Non-vision keeps the original fixed budget to guard base performance.
 TAKEOFF_TIMEOUT_VISION_PER_ROBOT_FACTOR = 1.0  # extra budget per extra robot, vision only
@@ -62,6 +77,14 @@ ODOM_SCHEMA = (
        "twist.twist.angular.x", "twist.twist.angular.y", "twist.twist.angular.z"]
     + [f"twist.covariance[{i}]" for i in range(36)]
 )
+
+# Flattened CSV columns of the NatNet PoseStamped (mocap EV input to PX4).
+POSE_SCHEMA = [
+    "header.stamp.sec", "header.stamp.nanosec", "header.frame_id",
+    "pose.position.x", "pose.position.y", "pose.position.z",
+    "pose.orientation.x", "pose.orientation.y",
+    "pose.orientation.z", "pose.orientation.w",
+]
 
 METRIC_UNITS = {
     "ready_duration_sys_s": "s",
@@ -300,6 +323,71 @@ def _gt_metrics(odom, gt):
     }
 
 
+def _ev_pose_metrics(odom, ev):
+    """Per-axis |mocap − PX4| over the phase. Empty dict when EV pose missing.
+
+    Pairs the mocap PoseStamped (PX4's EV input) with PX4's fused
+    local_position/odom by nearest sim-time stamp. Both are world-ENU in sim, so
+    components compare directly — this bounds how far PX4's estimate drifts from
+    the mocap it fuses (plus baro pull on z)."""
+    if not ev:
+        return {}
+    ev_sorted = sorted(ev, key=_stamp)
+    ev_stamps = [_stamp(r) for r in ev_sorted]
+    ex, ey, ez = [], [], []
+    for row in odom:
+        t = _stamp(row)
+        i = bisect.bisect_left(ev_stamps, t)
+        candidates = []
+        if i > 0:
+            candidates.append(ev_sorted[i - 1])
+        if i < len(ev_sorted):
+            candidates.append(ev_sorted[i])
+        if not candidates:
+            continue
+        best = min(candidates, key=lambda r: abs(_stamp(r) - t))
+        if abs(_stamp(best) - t) > MAX_GT_MATCH_AGE_S:
+            continue  # stale mocap — pairing would conflate motion with error
+        ex.append(abs(row["pose.pose.position.x"] - best["pose.position.x"]))
+        ey.append(abs(row["pose.pose.position.y"] - best["pose.position.y"]))
+        ez.append(abs(row["pose.pose.position.z"] - best["pose.position.z"]))
+    if not ex:
+        return {}
+    return {
+        "ev_pose_error_max_x_m": round(max(ex), 3),
+        "ev_pose_error_max_y_m": round(max(ey), 3),
+        "ev_pose_error_max_z_m": round(max(ez), 3),
+        "ev_pose_error_mean_x_m": round(statistics.mean(ex), 3),
+        "ev_pose_error_mean_y_m": round(statistics.mean(ey), 3),
+        "ev_pose_error_mean_z_m": round(statistics.mean(ez), 3),
+    }
+
+
+def _check_ev_pose_bounds(n, odom, ev, phase):
+    """Record mocap↔PX4 pose error and fail if any axis exceeded its bound.
+
+    Bounds are phase-aware: hover (steady state) uses the tight bound; takeoff
+    and landing (dynamic) use a looser bound because fusion lag + climb
+    transients inflate the per-axis MAX while the vehicle moves.
+    No-op when EV pose is absent (non-vision profiles don't publish mocap)."""
+    metrics = _ev_pose_metrics(odom, ev)
+    if not metrics:
+        return
+    _record(n, metrics)
+    if phase == "hover":
+        xy_limit, z_limit = EV_POSE_ERROR_MAX_XY_M, EV_POSE_ERROR_MAX_Z_M
+    else:
+        xy_limit, z_limit = EV_POSE_ERROR_MAX_XY_DYNAMIC_M, EV_POSE_ERROR_MAX_Z_DYNAMIC_M
+    over = []
+    for axis, limit in (("x", xy_limit), ("y", xy_limit), ("z", z_limit)):
+        v = metrics[f"ev_pose_error_max_{axis}_m"]
+        if v > limit:
+            over.append(f"{axis}={v:.3f}m (>{limit:.3f}m)")
+    assert not over, (
+        f"robot_{n} {phase}: mocap↔PX4 pose error exceeded bounds: "
+        + ", ".join(over))
+
+
 def _record(robot_n, metrics_dict):
     """Record per-robot scalar metrics; unit inferred from the key suffix."""
     m = get_metrics()
@@ -314,46 +402,51 @@ def _record(robot_n, metrics_dict):
 
 # ── capture bundle helper ──────────────────────────────────────────────────
 
-def _start_captures(robot_container, setup_bash, domain, duration_s, tag):
-    """Start odom + ground-truth CSV streams for one robot. Returns a handle
-    that `_finish_captures` later consumes to wait for completion and parse
-    both CSVs. The handle carries `duration_s` so the caller-less `wait`
-    timeout matches what the in-container streams were capped at."""
-    odom_path = f"/tmp/auto_r{domain}_{tag}_odom.csv"
-    gt_path = f"/tmp/auto_r{domain}_{tag}_gt.csv"
-    odom_proc, odom_fh, odom_ef = _start_csv_stream(
-        robot_container, f"/robot_{domain}/interface/mavros/local_position/odom",
-        domain, setup_bash, duration_s, odom_path)
+def _start_captures(robot_container, setup_bash, domain, duration_s, tag,
+                    capture_ev=False):
+    """Start odom + ground-truth (and optionally mocap EV pose) CSV streams for
+    one robot. Returns a handle that `_finish_captures` consumes to wait for
+    completion and parse the CSVs. `capture_ev` adds the NatNet PoseStamped
+    stream (vision profiles only). The handle carries `duration_s` so the
+    caller-less `wait` matches what the in-container streams were capped at."""
+    specs = [
+        ("odom", f"/robot_{domain}/interface/mavros/local_position/odom"),
+        ("gt", f"/robot_{domain}/odom_ground_truth"),
+    ]
+    if capture_ev:
+        specs.append(("ev", f"/robot_{domain}/{EV_POSE_TOPIC}"))
+    handle = {"duration_s": duration_s}
+    started = []
     try:
-        gt_proc, gt_fh, gt_ef = _start_csv_stream(
-            robot_container, f"/robot_{domain}/odom_ground_truth",
-            domain, setup_bash, duration_s, gt_path)
+        for key, topic in specs:
+            path = f"/tmp/auto_r{domain}_{tag}_{key}.csv"
+            proc, fh, ef = _start_csv_stream(
+                robot_container, topic, domain, setup_bash, duration_s, path)
+            handle[key] = (proc, fh, ef, path)
+            started.append(handle[key])
     except BaseException:
-        odom_proc.terminate()
-        try:
-            odom_proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            odom_proc.kill()
-        odom_fh.close()
-        odom_ef.close()
+        for proc, fh, ef, _ in started:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+            fh.close()
+            ef.close()
         raise
-    return {
-        "duration_s": duration_s,
-        "odom": (odom_proc, odom_fh, odom_ef, odom_path),
-        "gt": (gt_proc, gt_fh, gt_ef, gt_path),
-    }
+    return handle
 
 
 def _finish_captures(streams):
-    """Stop capture subprocesses and return parsed (odom, gt) samples.
+    """Stop capture subprocesses and return parsed (odom, gt, ev) samples.
     Callers invoke this right after the action completes, so we actively
     terminate the captures instead of waiting for their internal `timeout N`
     to elapse — otherwise fast takeoffs would block until the full capture
-    window expires. gt will be empty if no ground-truth publisher exists."""
-    (odom_proc, odom_fh, odom_ef, odom_path) = streams["odom"]
-    (gt_proc, gt_fh, gt_ef, gt_path) = streams["gt"]
+    window expires. gt/ev are empty if their publisher isn't present."""
+    keys = [k for k in ("odom", "gt", "ev") if k in streams]
     try:
-        for proc in (odom_proc, gt_proc):
+        for k in keys:
+            proc = streams[k][0]
             proc.terminate()
             try:
                 proc.wait(timeout=5)
@@ -361,19 +454,20 @@ def _finish_captures(streams):
                 proc.kill()
                 proc.wait(timeout=5)
     finally:
-        odom_fh.close()
-        gt_fh.close()
-        odom_ef.close()
-        gt_ef.close()
-    odom = _parse_csv(odom_path, ODOM_SCHEMA)
-    gt = _parse_csv(gt_path, ODOM_SCHEMA)
+        for k in keys:
+            streams[k][1].close()
+            streams[k][2].close()
+    odom = _parse_csv(streams["odom"][3], ODOM_SCHEMA)
+    gt = _parse_csv(streams["gt"][3], ODOM_SCHEMA)
+    ev = _parse_csv(streams["ev"][3], POSE_SCHEMA) if "ev" in streams else []
     if not odom:
+        odom_path = streams["odom"][3]
         logger.warning("odom capture empty. stdout head=%r stderr head=%r",
                        Path(odom_path).read_text()[:500],
                        Path(odom_path + ".err").read_text()[:500])
     if not gt:
         logger.warning("ground truth not available — skipping state-estimation error metrics.")
-    return odom, gt
+    return odom, gt, ev
 
 
 # ── per-robot workers (run in parallel for multi-robot) ───────────────────
@@ -390,16 +484,18 @@ def _run_parallel(num_robots, fn):
 
 
 def _takeoff_one_robot(n, robot_container, cfg, velocity, num_robots=1):
-    timeout = _phase_timeout(velocity, num_robots, _is_vision_profile(cfg))
+    vision = _is_vision_profile(cfg)
+    timeout = _phase_timeout(velocity, num_robots, vision)
     target = TARGET_ALTITUDE_M
     goal = f"{{target_altitude_m: {target}, velocity_m_s: {velocity}}}"
 
     # Retry transient arm rejections. A slow climb raises TimeoutExpired (not an
     # arm rejection) and propagates without retrying.
-    odom, gt, result = [], [], None
+    odom, gt, ev, result = [], [], [], None
     for attempt in range(1, ARM_RETRY_ATTEMPTS + 1):
         streams = _start_captures(robot_container, cfg["robot_setup_bash"],
-                                  n, timeout + 5, f"v{velocity}_takeoff")
+                                  n, timeout + 5, f"v{velocity}_takeoff",
+                                  capture_ev=vision)
         try:
             result = ros2_exec(
                 robot_container,
@@ -409,7 +505,7 @@ def _takeoff_one_robot(n, robot_container, cfg, velocity, num_robots=1):
                 timeout=int(timeout + 10),
             )
         finally:
-            odom, gt = _finish_captures(streams)
+            odom, gt, ev = _finish_captures(streams)
         if _action_ok(result.stdout):
             break
         msg = _action_message(result.stdout)
@@ -429,15 +525,18 @@ def _takeoff_one_robot(n, robot_container, cfg, velocity, num_robots=1):
     assert abs(err) <= target * 0.1, (
         f"robot_{n} settled altitude {target + err:.2f}m differs from "
         f"target {target:.1f}m by more than 10%")
+    _check_ev_pose_bounds(n, odom, ev, "takeoff")
 
 
 def _hover_one_robot(n, robot_container, cfg, velocity):
+    vision = _is_vision_profile(cfg)
     streams = _start_captures(robot_container, cfg["robot_setup_bash"],
-                              n, HOVER_DURATION_S + 2, f"v{velocity}_hover")
+                              n, HOVER_DURATION_S + 2, f"v{velocity}_hover",
+                              capture_ev=vision)
     # Passive phase: no blocking action, so we sleep to let the capture
     # collect samples before _finish_captures terminates it.
     time.sleep(HOVER_DURATION_S)
-    odom, gt = _finish_captures(streams)
+    odom, gt, ev = _finish_captures(streams)
     if not odom:
         pytest.fail(f"robot_{n} hover: no odom samples captured")
     metrics = _tracking_metrics_hover(odom)
@@ -446,12 +545,15 @@ def _hover_one_robot(n, robot_container, cfg, velocity):
     drift = metrics["hover_altitude_mean_error_m"]
     assert drift < 0.5, (
         f"robot_{n} drifted {drift:.2f}m in altitude during hover (>0.5m tolerance)")
+    _check_ev_pose_bounds(n, odom, ev, "hover")
 
 
 def _landing_one_robot(n, robot_container, cfg, velocity, num_robots=1):
-    timeout = _phase_timeout(velocity, num_robots, _is_vision_profile(cfg))
+    vision = _is_vision_profile(cfg)
+    timeout = _phase_timeout(velocity, num_robots, vision)
     streams = _start_captures(robot_container, cfg["robot_setup_bash"],
-                              n, timeout + 5, f"v{velocity}_land")
+                              n, timeout + 5, f"v{velocity}_land",
+                              capture_ev=vision)
     goal = f"{{velocity_m_s: {velocity}}}"
     result = ros2_exec(
         robot_container,
@@ -460,7 +562,7 @@ def _landing_one_robot(n, robot_container, cfg, velocity, num_robots=1):
         domain_id=n, setup_bash=cfg["robot_setup_bash"],
         timeout=int(timeout + 10),
     )
-    odom, gt = _finish_captures(streams)
+    odom, gt, ev = _finish_captures(streams)
     if not _action_ok(result.stdout):
         pytest.fail(f"robot_{n} land failed: {_action_message(result.stdout)}")
     if not odom:
@@ -470,6 +572,7 @@ def _landing_one_robot(n, robot_container, cfg, velocity, num_robots=1):
     _record(n, metrics)
     final = metrics["final_altitude_m"]
     assert final < 0.5, f"robot_{n} final altitude {final:.2f}m > 0.5m"
+    _check_ev_pose_bounds(n, odom, ev, "landing")
 
 
 # ── tests ──────────────────────────────────────────────────────────────────
