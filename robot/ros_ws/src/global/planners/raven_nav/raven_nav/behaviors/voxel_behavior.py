@@ -8,6 +8,7 @@ from geometry_msgs.msg import PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA
 
+from raven_nav.discoveries import same_instance_xy
 from raven_nav.ray_targets import ray_aabb_hits
 from raven_nav.track_confirmation import TemporalConfirmer
 
@@ -43,11 +44,11 @@ STANDOFF_STEP_M = 0.5
 STANDOFF_MAX_M = 6.0
 
 # Visited geometry — ONE definition, shared with the auction AABBs in
-# raven_nav_node. Both sides use surface (cuboid) distance, not centre distance,
-# so "reached" and "same instance" mean the same thing for voxel_behavior and the
-# fused/published boxes.
+# raven_nav_node. Arrival is surface distance; same-INSTANCE is overlap-based
+# (discoveries.same_instance_xy) — a gap radius cascades visits across
+# adjacent buildings when boxes bloat.
 VISIT_REACH_M = 3.0   # drone within this of a target AABB *surface* (0 if inside) => reached
-VISIT_MATCH_M = 5.0   # two target AABBs within this surface gap => same instance
+VISIT_MATCH_M = 5.0   # point-feature (ray-lead) same-instance radius; boxes use overlap
 
 
 def aabb_surface_dist(ca, sa, cb, sb) -> float:
@@ -544,17 +545,15 @@ class VoxelBehavior:
 
         return waypoint_locked, target_waypoint, target_waypoint2
 
-    def _is_near_visited(self, center, size, visited_clusters, threshold=VISIT_MATCH_M):
+    def _is_near_visited(self, center, size, visited_clusters):
         return any(
-            self._cuboid_distance(center, size,
-                                  np.array(v[:3]), np.array(v[3:6])) < threshold
+            same_instance_xy(center, size, np.array(v[:3]), np.array(v[3:6]))
             for v in visited_clusters)
 
-    def _is_near_peer_visited(self, center, size, threshold=VISIT_MATCH_M):
-        """True if a peer already visited this target (within same-instance radius)."""
+    def _is_near_peer_visited(self, center, size):
+        """True if a peer already visited this target (same instance = overlap)."""
         return any(
-            self._cuboid_distance(center, size,
-                                  np.array(bb[:3]), np.array(bb[3:6])) < threshold
+            same_instance_xy(center, size, np.array(bb[:3]), np.array(bb[3:6]))
             for bb in self.peer_visited_bbs)
 
     def _cuboid_distance(self, ca, sa, cb, sb):
@@ -576,14 +575,13 @@ class VoxelBehavior:
             if self._cuboid_distance(cur, np.zeros(3), center, size) < radius_m:
                 self.visited_instances.append((label, center, size))
 
-    def is_visited(self, center, size, label, match_m=VISIT_MATCH_M):
+    def is_visited(self, center, size, label):
         """True if (center, size, label) matches a previously marked-visited
-        instance: same label and within match_m cuboid (surface) distance (the
-        system's same-physical-instance proximity, matching _is_near_visited)."""
+        instance: same label and same physical instance (xy overlap)."""
         for vlabel, vcenter, vsize in self.visited_instances:
             if vlabel != label:
                 continue
-            if self._cuboid_distance(center, size, vcenter, vsize) < match_m:
+            if same_instance_xy(center, size, vcenter, vsize):
                 return True
         return False
 

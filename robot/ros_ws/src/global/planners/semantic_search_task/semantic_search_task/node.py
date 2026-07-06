@@ -925,6 +925,7 @@ class SemanticSearchTaskNode(Node):
                 ('voxel_score_threshold', goal.voxel_score_threshold, 0.0),
                 ('voxel_min_confidence', goal.voxel_min_confidence, 0.0),
                 ('voxel_min_cluster_size', goal.voxel_min_cluster_size, 1),
+                ('bundle_len', int(getattr(goal, 'bundle_len', -1)), 1),
             ):
                 if gval >= sentinel:
                     raven_args += ['-p', f'{pname}:={gval}']

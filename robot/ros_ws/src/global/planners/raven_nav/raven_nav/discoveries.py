@@ -29,9 +29,40 @@ from raven_nav.ray_targets import RayTarget
 
 
 # Max surface gap (not centroid distance) for two same-label AABBs to count as
-# one instance. Small so fragments of one object glue without bridging to a
-# neighbour; size-independent, so large objects still merge from their parts.
-DEDUP_MARGIN_M = 3.0
+# one instance. Detected boxes run ~1-2 m oversized, so anything above ~1 m
+# bridges the street gap between adjacent buildings (RetroNeighborhood min
+# true gap: 5.5 m) and chains a row into one box.
+DEDUP_MARGIN_M = 1.0
+
+# Merged boxes never grow beyond this xy extent (> largest expected target):
+# blocks fragment-union chaining across neighbouring targets. A fragment that
+# would over-grow the union stays a separate box.
+MAX_TARGET_EXTENT_M = 28.0
+
+# Same-instance identity for VISITED transfer is overlap-based, not gap-based:
+# fragments of one large building sit farther apart (<= ~12 m for 25 m houses)
+# than two adjacent buildings' gap (5.5 m), so no distance radius separates
+# them. Small gap allowance for offset zero-overlap fragments only.
+SAME_INSTANCE_IOU = 0.15
+SAME_INSTANCE_CONTAIN = 0.5
+SAME_INSTANCE_GAP_M = 1.0
+
+
+def same_instance_xy(ca, sa, cb, sb) -> bool:
+    """True if two xy AABBs (centre, size) are one physical instance:
+    meaningful overlap, one mostly inside the other, or near-touching."""
+    ca, sa, cb, sb = (np.asarray(v, dtype=float) for v in (ca, sa, cb, sb))
+    lo = np.maximum(ca[:2] - sa[:2] / 2.0, cb[:2] - sb[:2] / 2.0)
+    hi = np.minimum(ca[:2] + sa[:2] / 2.0, cb[:2] + sb[:2] / 2.0)
+    inter = float(np.prod(np.clip(hi - lo, 0.0, None)))
+    if inter > 0.0:
+        va = float(np.prod(np.maximum(sa[:2], 1e-6)))
+        vb = float(np.prod(np.maximum(sb[:2], 1e-6)))
+        iou = inter / (va + vb - inter)
+        if iou >= SAME_INSTANCE_IOU or inter / min(va, vb) >= SAME_INSTANCE_CONTAIN:
+            return True
+    gap = np.maximum(np.abs(ca[:2] - cb[:2]) - (sa[:2] + sb[:2]) / 2.0, 0.0)
+    return float(np.linalg.norm(gap)) <= SAME_INSTANCE_GAP_M
 
 
 @dataclass
@@ -134,6 +165,16 @@ def _same_target(a: ConfirmedTarget, b: ConfirmedTarget) -> bool:
     return iou >= SIMILAR_IOU or contain >= SIMILAR_CONTAIN
 
 
+def _union_within_cap(a: ConfirmedTarget, b: ConfirmedTarget) -> bool:
+    """Union may not grow past MAX_TARGET_EXTENT_M in xy (absorbing a
+    contained fragment into an already-large box is fine — no growth)."""
+    lo = np.minimum(a.center - a.size / 2.0, b.center - b.size / 2.0)
+    hi = np.maximum(a.center + a.size / 2.0, b.center + b.size / 2.0)
+    ext = (hi - lo)[:2]
+    cur = np.maximum(a.size[:2], b.size[:2])
+    return bool(np.all((ext <= MAX_TARGET_EXTENT_M) | (ext <= cur + 1e-6)))
+
+
 def _greedy_merge(sources, predicate) -> List[ConfirmedTarget]:
     # Canonical sort so the greedy merge is order-independent (same set per robot).
     sources = sorted(
@@ -142,7 +183,8 @@ def _greedy_merge(sources, predicate) -> List[ConfirmedTarget]:
                         float(ct.center[1]), float(ct.center[2])))
     out: List[ConfirmedTarget] = []
     for ct in sources:
-        idx = next((i for i, e in enumerate(out) if predicate(e, ct)), None)
+        idx = next((i for i, e in enumerate(out)
+                    if predicate(e, ct) and _union_within_cap(e, ct)), None)
         if idx is None:
             out.append(ct)
         else:
@@ -162,25 +204,22 @@ def merge_similar_targets(sources: List[ConfirmedTarget]) -> List[ConfirmedTarge
     return _greedy_merge(sources, _same_target)
 
 
-# A visited box additionally glues to a NEAR same-label box (within this gap) so a
-# reached target flips to visited even when the visited fragment is offset (a
-# different peak, or a peer's view). Plain observing boxes still need real overlap.
-HOUSE_VISITED_GAP_M = 4.0
-
-
 def _house_pred(a: ConfirmedTarget, b: ConfirmedTarget) -> bool:
     if a.label != b.label:
         return False
     if _same_target(a, b):
         return True
     if a.status == 'visited' or b.status == 'visited':
-        return aabb_surface_gap(a, b) <= HOUSE_VISITED_GAP_M
+        # Overlap-based (xy): a visited fragment flips only the box it is
+        # actually part of — a gap radius here cascades visits across
+        # adjacent buildings (measured: 27-60% spurious visits).
+        return same_instance_xy(a.center, a.size, b.center, b.size)
     return False
 
 
 def merge_house_boxes(sources: List[ConfirmedTarget]) -> List[ConfirmedTarget]:
     """One box per house for display + visited-flip: same-target boxes coincide,
-    and a visited box flips a near same-label box even without overlap."""
+    and a visited fragment flips the same-instance (overlapping) box."""
     return _greedy_merge(sources, _house_pred)
 
 

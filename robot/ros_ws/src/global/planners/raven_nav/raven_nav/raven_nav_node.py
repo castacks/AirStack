@@ -40,6 +40,7 @@ from raven_nav.discoveries import (
     merge_confirmed_targets,
     merge_house_boxes,
     merge_similar_targets,
+    same_instance_xy,
 )
 
 
@@ -673,15 +674,14 @@ class RavenNavNode(Node):
         return (label, int(c[0]), int(c[1]), int(c[2]))
 
     def _visited_match(self, label, center, size=None):
-        """The visited fragment this BB dedups against (same label within
-        _VISITED_DEDUP_M surface gap): (centre(3), size(3)), or None."""
+        """The visited fragment this BB is the same instance as (same label +
+        xy overlap): (centre(3), size(3)), or None."""
         c = np.asarray(center, dtype=float)[:3]
         s = np.zeros(3) if size is None else np.asarray(size, dtype=float)[:3]
         for lab, ex in self._peer_visited_bbs:
             ex = np.asarray(ex, dtype=float)
             es = ex[3:6] if ex.size >= 6 else np.zeros(3)
-            if lab == label and aabb_surface_dist(
-                    c, s, ex[:3], es) <= self._VISITED_DEDUP_M:
+            if lab == label and same_instance_xy(c, s, ex[:3], es):
                 return ex[:3], es
         return None
 
@@ -726,15 +726,12 @@ class RavenNavNode(Node):
     _MIN_BB_CENTER_Z = -0.5
 
     def _add_visited(self, label, bb) -> None:
-        """Add a visited target to the persistent visited set, deduped by surface
-        distance (same VISIT_MATCH_M / geometry as voxel_behavior)."""
+        """Add a visited target to the persistent visited set, deduped by the
+        same-instance overlap test (same geometry as voxel_behavior)."""
         bb = np.asarray(bb, dtype=float)
         c, s = bb[:3], (bb[3:6] if bb.size >= 6 else np.zeros(3))
-        for lab, ex in self._peer_visited_bbs:
-            ex = np.asarray(ex, dtype=float)
-            es = ex[3:6] if ex.size >= 6 else np.zeros(3)
-            if lab == label and aabb_surface_dist(c, s, ex[:3], es) <= self._VISITED_DEDUP_M:
-                return
+        if self._visited_match(label, c, s) is not None:
+            return
         self._peer_visited_bbs.append((label, bb))
 
     def _house_boxes(self):

@@ -197,6 +197,7 @@ def _build_semantic_search_goal(d, ts):
     g.voxel_score_threshold = float(d.get('voxel_score_threshold', -1.0))
     g.voxel_min_confidence = float(d.get('voxel_min_confidence', -1.0))
     g.voxel_min_cluster_size = int(d.get('voxel_min_cluster_size', -1))
+    g.bundle_len = int(d.get('bundle_len', -1))
     area = d.get('search_area', {})
     g.search_area = _build_polygon_from_global(area.get('points', []), ts)
     return g

@@ -19,6 +19,8 @@ float32 score_threshold -1.0
 float32 voxel_score_threshold -1.0
 float32 voxel_min_confidence -1.0
 int32 voxel_min_cluster_size -1
+# Consensus bundle length (tasks per robot; head executed, tail reserved). 1-3.
+int32 bundle_len -1
 # Optional cap on accumulated instances. 0 = unlimited; task completes only on
 # coverage criterion or operator cancel.
 int32 max_instances 0

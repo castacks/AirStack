@@ -244,8 +244,31 @@ def dropped_bb_summary(traces):
                 victims.values(), key=lambda v: -v['ticks'])}
 
 
+def _rel_assignments(trace, tol=5.0):
+    """Frame-invariant view of a solve: agent -> assigned-head vector relative
+    to that agent's position (robot local frames differ only by translation,
+    which cancels), or 'explore'/'idle'."""
+    task_xy = {_key(t['key']): np.asarray(t['xy'], float)
+               for t in trace.get('tasks', [])}
+    out = {}
+    for a, d in trace.get('agents', {}).items():
+        aid = int(a)
+        ks = norm_logged(trace).get(aid)
+        if ks == 'explore':
+            out[aid] = 'explore'
+        elif not ks:
+            out[aid] = 'idle'
+        else:
+            xy = task_xy.get(ks[0])
+            out[aid] = (None if xy is None
+                        else tuple(np.round(
+                            (xy - np.asarray(d['pos'], float)) / tol)))
+    return out
+
+
 def cross_robot_divergence(traces, dt):
-    """Same-tick result diffs across robots, attributed to input diffs."""
+    """Same-tick result diffs across robots (frame-invariant: agent-relative
+    head vectors, coarse-quantized), attributed to input diffs."""
     buckets = defaultdict(list)
     for t in traces:
         buckets[round(float(t.get('ts', 0)) / dt)].append(t)
@@ -257,13 +280,12 @@ def cross_robot_divergence(traces, dt):
         base, rest = ts[0], ts[1:]
         for other in rest:
             compared += 1
-            shared = (set(norm_logged(base)) & set(norm_logged(other)))
-            if all(norm_logged(base)[a] == norm_logged(other)[a]
-                   for a in shared):
+            ra, rb = _rel_assignments(base), _rel_assignments(other)
+            shared = set(ra) & set(rb)
+            if all(ra[a] == rb[a] for a in shared):
                 agree += 1
                 continue
             deltas = {'task_set': _task_set_delta(base, other),
-                      'pos': _agent_delta(base, other, 'pos'),
                       'w': _agent_delta(base, other, 'w'),
                       'explore_dist': _agent_delta(base, other,
                                                    'explore_dist')}
@@ -274,9 +296,9 @@ def cross_robot_divergence(traces, dt):
 
 
 def _task_set_delta(a, b):
-    ka = {_key(t['key']) for t in a.get('tasks', [])}
-    kb = {_key(t['key']) for t in b.get('tasks', [])}
-    return float(len(ka ^ kb))
+    # Task keys are frame-local (grid indices in each robot's boot frame), so
+    # compare table sizes, not key identity.
+    return float(abs(len(a.get('tasks', [])) - len(b.get('tasks', []))))
 
 
 def _agent_delta(a, b, field):

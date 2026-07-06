@@ -204,4 +204,6 @@ steps:
         confidence_threshold: 0.95
         # Per-scene voxel similarity gate (see each environment block above).
         voxel_score_threshold: "{{env.voxel_score_threshold}}"
+        # Consensus bundle length (head executed, tail reserved + replanned).
+        bundle_len: 3
 
