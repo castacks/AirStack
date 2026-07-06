@@ -59,6 +59,19 @@ def aabb_surface_dist(ca, sa, cb, sb) -> float:
     return float(np.linalg.norm(gap))
 
 
+def waypoint_arrival_counts(cur_pose, wp2, c, s) -> bool:
+    """Near-waypoint arrival only counts for the cluster the waypoint serves:
+    standoffs sit within STANDOFF_MAX_M of their box, so a top-ranked cluster
+    farther than that from the waypoint is a different target (re-ranked after
+    a visit) and must not be marked visited from here."""
+    return (wp2 is not None
+            and float(np.linalg.norm(np.asarray(cur_pose, dtype=float)
+                                     - np.asarray(wp2, dtype=float)))
+            < VISIT_REACH_M
+            and aabb_surface_dist(wp2, np.zeros(3), c, s)
+            <= STANDOFF_MAX_M + 2.0)
+
+
 def _contained_frac(inner_bbox, outer_bbox) -> float:
     """Fraction of inner's AABB volume that lies within outer's AABB."""
     ci, hi = np.asarray(inner_bbox[:3]), np.asarray(inner_bbox[3:6]) / 2.0
@@ -533,8 +546,8 @@ class VoxelBehavior:
             c = np.array(arrived[:3], dtype=float)
             s = np.array(arrived[3:6], dtype=float)
             near_aabb = aabb_surface_dist(cur_pose_np, np.zeros(3), c, s) <= VISIT_REACH_M
-            near_wp = (waypoint_was_locked and target_waypoint2 is not None
-                       and np.linalg.norm(cur_pose_np - target_waypoint2) < VISIT_REACH_M)
+            near_wp = (waypoint_was_locked and waypoint_arrival_counts(
+                cur_pose_np, target_waypoint2, c, s))
             if near_aabb or near_wp:
                 label = self.cluster_query_map.get(arrived_idx, '')
                 if not self.is_visited(c, s, label):

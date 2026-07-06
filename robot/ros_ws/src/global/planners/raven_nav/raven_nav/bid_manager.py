@@ -500,13 +500,21 @@ class ConsensusAssigner:
         remaining = set(by_key)
         passes_dbg: list = []
 
-        # Pass 1 — heads (or decline).
+        # Pass 1 — heads (or decline). Poach gate: an agent that owns remaining
+        # tasks can neither decline NOR take a clearly-foreign task (geo excess
+        # beyond the margin) — otherwise "can't decline" degenerates into
+        # "grab the cheapest task anywhere", splitting clusters a nearby agent
+        # would have bundled (136/136 observed far-splits came from this).
         pool = set(aids)
         picks_dbg: list = []
         while pool and remaining:
             per_agent: dict = {}
             for a in pool:
+                a_owns = any(owner[tk] == a for tk in remaining)
                 for tk in remaining:
+                    if (a_owns and owner[tk] != a
+                            and eff[(a, tk)] - owner_dist[tk] > GEO_MARGIN_M):
+                        continue
                     c, bd = _breakdown(eff[(a, tk)], a, tk, True)
                     k = (c, a, tk)
                     if a not in per_agent or k < per_agent[a][0]:

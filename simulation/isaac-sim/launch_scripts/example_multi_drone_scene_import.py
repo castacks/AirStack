@@ -83,7 +83,7 @@ _LOCAL_SCENES_DIR = os.path.normpath(os.path.join(_LAUNCH_SCRIPTS_DIR, "..", "as
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
-#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd"
+ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/copy-rayfronts-planner/AbandonedCity.scene.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/downtown_edited_v3_818.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/copy-rayfronts-planner/environments_start_pos/SnowyVillage_t_x-152_y-80_z-2_o_x0_y0_z_90.scene.usd"
@@ -105,6 +105,14 @@ ADD_DOME_LIGHT = False
 DOME_LIGHT_PATH = "/World/DomeLight"
 DOME_LIGHT_INTENSITY = 3500.0
 DOME_LIGHT_EXPOSURE = -5.0
+
+# DowntownWest ships a baked SkySphere that renders black headless; swap it for a
+# dome light (SkySphere is deactivated after the stage loads).
+_IS_DOWNTOWNWEST = "downtown_edited" in ENV_URL
+if _IS_DOWNTOWNWEST:
+    ADD_DOME_LIGHT = True
+    DOME_LIGHT_INTENSITY = 3550.0
+    DOME_LIGHT_EXPOSURE = -2.0
 
 # GPS world anchor: what world (0, 0, 0) maps to in real GPS coordinates.
 # Matches the Lisbon default in px4_config.yaml — change here to relocate the sim world.
@@ -301,6 +309,13 @@ class PegasusApp:
 
         if ADD_DOME_LIGHT:
             add_dome_light(stage, DOME_LIGHT_PATH, DOME_LIGHT_INTENSITY, DOME_LIGHT_EXPOSURE)
+
+        if _IS_DOWNTOWNWEST:
+            sky = stage.GetPrimAtPath("/World/stage/SkySphere")
+            if sky.IsValid():
+                sky.SetActive(False)
+            else:
+                carb.log_warn("DowntownWest: /World/stage/SkySphere not found — not deactivated.")
 
         # Units
         mpu, s = get_stage_meters_per_unit(stage)
