@@ -52,7 +52,7 @@ workflow:
         # Behaviour switches consumed by entrypoint.sh and airstack.sh:
         AUTOLAUNCH: "true"             # boot AirStack on startup
         ISAAC_SIM_LIVESTREAM: "true"   # use the isaac-sim-livestream profile
-        NUM_ROBOTS: "3"
+        NUM_ROBOTS: "20"
         AIRSTACK_BRANCH: "multi-raven"        # branch entrypoint.sh clones
         AIRSTACK_REPO_URL: "https://github.com/castacks/AirStack.git"
         # SSH_PUB_KEY is supplied at submit time:
@@ -79,9 +79,9 @@ workflow:
 
   resources:
     default:
-      cpu: 16
-      gpu: 3
-      memory: 64Gi
+      cpu: 64
+      gpu: 5
+      memory: 256Gi
       # AirStack image set is large: airstack-dev-9 (2026-05-14) hit the
       # 100Gi container ephemeral cap during inner Compose's first image
       # extract, before the second image even started downloading. So the

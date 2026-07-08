@@ -4,6 +4,9 @@ Multi-drone PX4 Pegasus launcher, parametrized by NUM_ROBOTS.
 
 Env:
  - NUM_ROBOTS (default 1): how many drones to spawn
+ - GRID_COLS (default 5): number of columns in the spawn grid; rows are derived
+   from NUM_ROBOTS. With NUM_ROBOTS=20 this yields a 4x5 grid.
+ - GRID_SPACING (default 3.0): metres between adjacent drones in the grid.
  - ENABLE_LIDAR (default false): attach an Ouster lidar to each drone (``add_rtx_lidar_subgraph``;
    publishes ``point_cloud_raw`` under ``/robot_<i>/sensors/ouster/`` via OmniGraph). The
    single-drone example script always enables LiDAR; AirStack pytest ``isaacsim`` liveliness
@@ -12,6 +15,7 @@ Env:
 """
 
 import asyncio
+import math
 import os
 import sys
 import time
@@ -47,6 +51,8 @@ SAVE_SCENE_TO = None
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
 NUM_ROBOTS = int(os.environ.get("NUM_ROBOTS", "1"))
+GRID_COLS = int(os.environ.get("GRID_COLS", "5"))
+GRID_SPACING = float(os.environ.get("GRID_SPACING", "3.0"))
 ENABLE_LIDAR = os.environ.get("ENABLE_LIDAR", "false").lower() == "true"
 # ---------------------------------------------------------
 
@@ -87,8 +93,13 @@ def spawn_drone(index: int):
     """Spawn drone with vehicle_id=index (1-based), plus camera and optional lidar."""
     robot_name = f"robot_{index}"
     drone_prim = f"/World/drone{index}/base_link"
-    # Spread drones along X: -2, 0, 2, 4, ... centered near origin for small counts
-    init_x = 2.0 * (index - 1) - 2.0 * (NUM_ROBOTS - 1) / 2.0
+    # Arrange drones in a GRID_COLS-wide grid, GRID_SPACING metres apart, centered on
+    # the origin. With NUM_ROBOTS=20 and GRID_COLS=5 this is a 4x5 grid at 3 m spacing.
+    num_rows = math.ceil(NUM_ROBOTS / GRID_COLS)
+    col = (index - 1) % GRID_COLS
+    row = (index - 1) // GRID_COLS
+    init_x = (col - (GRID_COLS - 1) / 2.0) * GRID_SPACING
+    init_y = (row - (num_rows - 1) / 2.0) * GRID_SPACING
 
     graph_handle = spawn_px4_multirotor_node(
         pegasus_node_name=f"PX4Multirotor_{index}",
@@ -97,7 +108,7 @@ def spawn_drone(index: int):
         vehicle_id=index,
         domain_id=index,
         usd_file=DRONE_USD,
-        init_pos=[init_x, 0.0, 0.07],
+        init_pos=[init_x, init_y, 0.07],
         init_orient=[0.0, 0.0, 0.0, 1.0],
     )
 

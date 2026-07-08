@@ -83,8 +83,8 @@ environments:
     # 2nd fixed spawn (swap in): '[{"x_m": 25.052, "y_m": 12.711, "orient": [0,0,0.6342,0.7731]}, {"x_m": 28.86, "y_m": 12.714, "orient": [0,0,0.5051,0.8631]}, {"x_m": 27.83, "y_m": 8.978, "orient": [0,0,0.9986,0.0538]}]'
     RESULTS_SCENE: "FireAcademy"
     query: "red building water tower, radio tower"
-    voxel_score_threshold: 0.8
-    score_threshold: 0.75
+    voxel_score_threshold: 0.75
+    score_threshold: 0.8
     voxel_min_cluster_size: 20
     background_queries: "road, grass, mountain, parking lot, tree, utility pole, flood light, shipping container, gas tank, warehouse"
     search_area:
