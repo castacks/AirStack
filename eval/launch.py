@@ -24,6 +24,7 @@ import time
 from typing import Any, Dict, Optional
 
 import safe_core.utils.config as config
+from safe_core.utils import console
 
 # Path overrides — can be set via environment variables
 _ISAAC_ROOT = os.environ.get("ISAAC_PATH", os.path.expanduser("~/isaacsim"))
@@ -67,7 +68,7 @@ def setup(args: Any) -> Dict[str, Any]:
     from isaacsim import SimulationApp
 
     headless = bool(getattr(args, "headless", False))
-    simulation_app = SimulationApp({"headless": headless, "anti_aliasing": 0})
+    simulation_app = console.isaac_boot(lambda: SimulationApp({"headless": headless, "anti_aliasing": 0}))
 
     if config.DEBUG:
         print("[DEBUG] airstack.launch.setup: SimulationApp created", flush=True)
