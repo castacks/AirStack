@@ -1238,6 +1238,22 @@ class RavenNavNode(Node):
                 pos[pid] = np.asarray(p, dtype=float)
         return pos
 
+    def _agent_waypoints(self, fresh_peers):
+        """{agent_id: xyz} of where each agent is currently heading (its committed
+        waypoint), for me + fresh peers. Feeds the consensus peer-heading
+        repulsion so a drone isn't sent toward a target another drone is already
+        flying to. My own entry uses the last committed waypoint — the same value
+        peers hold for me via gossip at solve time (behavior runs after assign)."""
+        wps = {}
+        if self._target_waypoint is not None:
+            wps[self._my_id] = np.asarray(self._target_waypoint, dtype=float)
+        for name in fresh_peers:
+            pid = self._peer_state.peer_ids.get(name)
+            wp = self._peer_state.peer_waypoints.get(name)
+            if pid is not None and wp is not None:
+                wps[pid] = np.asarray(wp, dtype=float)
+        return wps
+
     def _peer_weights_by_name(self, now) -> dict:
         """{name: w} age weight: 1.0 within the grace, linear to 0 at the TTL."""
         ws = {}
@@ -2412,7 +2428,8 @@ class RavenNavNode(Node):
             ray_groups, all_completed, polygon_xy, now, agent_pos)
         assigned_map = self._consensus.assign(
             tasks, agent_pos, self._commit_switch_margin_m, self._TASK_MATCH_M,
-            agent_weight=agent_w, explore_dist=explore_dists)
+            agent_weight=agent_w, explore_dist=explore_dists,
+            agent_waypoints=self._agent_waypoints(fresh_peers))
         my_task = self._consensus.my_task(assigned_map, self._my_id, tasks)
         if self._debug_auction and self._consensus.last_debug:
             dbg = dict(self._consensus.last_debug)

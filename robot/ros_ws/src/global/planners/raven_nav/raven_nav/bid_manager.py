@@ -312,7 +312,8 @@ PEER_REPULSION_SCALE = 15.0
 # Soft BB preference: a ray costs this much more than a like-distance BB (its true
 # range is unknown). Sets the BB-vs-ray crossover distance (~this many m): a BB
 # within it beats a near ray; a farther BB loses to a near ray (no cross-map).
-RAY_COST_PENALTY = 25.0
+# Raised 25->50 to more strongly prefer confirmed BBs over rays.
+RAY_COST_PENALTY = 50.0
 # Max chain distance from a bundle's last task to an appended one.
 BUNDLE_MAX_DETOUR_M = 20.0
 # Poach guard: an agent that already owns tasks won't split off a foreign task a
@@ -321,8 +322,9 @@ BUNDLE_MAX_DETOUR_M = 20.0
 # decision — and was removed; this hard gate is the part that does real work.)
 GEO_MARGIN_M = 15.0
 # Decline (outside option): markup over frontier distance so a comparable
-# real target still wins.
-EXPLORE_MARKUP_M = 10.0
+# real target still wins. Raised 10->30 so a BB beats a frontier unless the
+# frontier is >=30 m closer (was only 10 m, so frontier stole picks from BBs).
+EXPLORE_MARKUP_M = 30.0
 EXPLORE_KEY = ('~explore',)
 _W_EPS = 1e-3
 
@@ -442,6 +444,7 @@ class ConsensusAssigner:
                switch_margin: float, match_m: float,
                agent_weight: Optional[Dict[int, float]] = None,
                explore_dist: Optional[Dict[int, float]] = None,
+               agent_waypoints: Optional[Dict[int, np.ndarray]] = None,
                ) -> Dict[int, list]:
         if not tasks or not agent_pos:
             self._prev = {}
@@ -481,15 +484,47 @@ class ConsensusAssigner:
                 d = float(np.linalg.norm(c - tc[:2]))
                 rep += w[ta] * PEER_REPULSION_W * float(
                     np.exp(-d / PEER_REPULSION_SCALE))
+            # Peer-heading repulsion: penalise a task sitting where another agent
+            # is already heading (its gossiped waypoint). For a ray, "where it
+            # heads" is along its bearing, so use the peer waypoint's perpendicular
+            # distance to the forward ray half-line (a peer behind the ray does not
+            # count); for a BB, the box centroid. Mirrors the frontier layer's
+            # exp(-d/scale), age-weighted so a stale peer stops repelling.
+            hd = 0.0
+            if agent_waypoints:
+                t = by_key[tk]
+                ray_dir = (_is_ray(tk) and t.origin is not None
+                           and t.direction is not None)
+                u2 = None
+                if ray_dir:
+                    o2 = np.asarray(t.origin, float)[:2]
+                    u2 = np.asarray(t.direction, float)[:2]
+                    nu = float(np.linalg.norm(u2))
+                    u2 = u2 / nu if nu > 1e-9 else None
+                for wid, wp in agent_waypoints.items():
+                    if wid == a:
+                        continue
+                    wxy = np.asarray(wp, float)[:2]
+                    if u2 is not None:
+                        v = wxy - o2
+                        proj = float(np.dot(v, u2))
+                        if proj <= 0.0:
+                            continue          # peer is behind the ray bearing
+                        d = float(np.linalg.norm(v - proj * u2))
+                    else:
+                        d = float(np.linalg.norm(wxy - c))
+                    hd += w.get(wid, 1.0) * PEER_REPULSION_W * float(
+                        np.exp(-d / PEER_REPULSION_SCALE))
             ret = 0.0
             for i, pc in enumerate(self._prev.get(a) or []):
                 if float(np.linalg.norm(c - np.asarray(pc)[:2])) <= match_m:
                     ret = -switch_margin if (is_head and i == 0) \
                         else -0.5 * switch_margin
                     break
-            return base + rp + rep + ret, {
+            return base + rp + rep + hd + ret, {
                 'base': round(base, 2), 'ray_pen': round(rp, 2),
                 'repulsion': round(rep, 2),
+                'peer_heading': round(hd, 2),
                 'retention': round(ret, 2)}
 
         def _fmt(tk):
