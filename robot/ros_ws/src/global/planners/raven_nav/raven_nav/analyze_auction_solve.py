@@ -27,7 +27,6 @@ from raven_nav.bid_manager import ConsensusAssigner, Task
 
 # variant -> module-constant overrides / replay flags.
 VARIANTS = {
-    'no_geo':        {'GEO_PRIOR_W': 0.0},
     'no_repulsion':  {'PEER_REPULSION_W': 0.0},
     'no_retention':  {'switch_margin': 0.0},
     'no_age_weight': {'unit_weights': True},
@@ -35,7 +34,7 @@ VARIANTS = {
     'no_decline':    {'no_explore': True},
     'no_markup':     {'EXPLORE_MARKUP_M': 0.0},
 }
-_CONST_KEYS = ('GEO_PRIOR_W', 'PEER_REPULSION_W', 'BUNDLE_MAX_DETOUR_M',
+_CONST_KEYS = ('PEER_REPULSION_W', 'BUNDLE_MAX_DETOUR_M',
                'EXPLORE_MARKUP_M')
 
 

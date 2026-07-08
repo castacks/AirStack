@@ -127,6 +127,10 @@ class VoxelBehavior:
         self.prev_voxel_cluster_ids = 0
         self._confirmer = TemporalConfirmer(
             confirm_hits=confirm_hits, max_misses=track_max_misses)
+        # Stuck-recovery: when the straight-back standoff is unreachable, rotate
+        # the approach azimuth around the held cluster instead of giving up.
+        # Cursor advanced by note_stuck(); 0 = head-on (unchanged behaviour).
+        self._approach_azimuth_variant = 0
 
     def reset(self):
         self.target_voxel_clusters.clear()
@@ -467,7 +471,12 @@ class VoxelBehavior:
                     if np.linalg.norm(cur_pose_np - np.array(cl[:3])) <= d_near + 5.0:
                         sorted_clusters.insert(0, sorted_clusters.pop(k))
                     break
-        self._held_center = np.array(sorted_clusters[0][1][:3], dtype=float)
+        new_held = np.array(sorted_clusters[0][1][:3], dtype=float)
+        # A different cluster is now the target -> restart approach head-on.
+        if (self._held_center is None
+                or float(np.linalg.norm(new_held - self._held_center)) > 3.0):
+            self._approach_azimuth_variant = 0
+        self._held_center = new_held
 
         path = Path()
         path.header.stamp = self.get_clock().now().to_msg()
@@ -501,16 +510,29 @@ class VoxelBehavior:
             surface_point = cur_pose_np + dir_norm * t_hit
             adjacent = surface_point - dir_norm * 1.0
 
+            # Stuck recovery: after a stuck strike (note_stuck) approach the
+            # cluster from a rotated azimuth instead of head-on. approach_dir
+            # points drone->cluster rotated about +Z; the standoff then sits on
+            # that side of the box surface (variant 0 == head-on == unchanged).
+            approach_dir = self._approach_dir(center, cur_pose_np)
+            if approach_dir is not None and self._approach_azimuth_variant % \
+                    len(self._APPROACH_AZIMUTHS) != 0:
+                half_extent = self._box_half_extent_along(half_sizes, approach_dir)
+                surface_point = center - approach_dir * half_extent
+                stand_dir = approach_dir
+            else:
+                stand_dir = dir_norm
+
             if i == 0:
                 if not waypoint_locked:
                     target_waypoint2 = self._clear_standoff(
-                        surface_point, dir_norm, vox_xyz)
+                        surface_point, stand_dir, vox_xyz)
                     if target_waypoint2 is None:
                         self.visited_clusters.append(cluster)
                         break
                     waypoint_locked = True
                 elif self._point_near_voxels(target_waypoint2, vox_xyz):
-                    new_wp = self._clear_standoff(surface_point, dir_norm, vox_xyz)
+                    new_wp = self._clear_standoff(surface_point, stand_dir, vox_xyz)
                     if new_wp is None:
                         self.visited_clusters.append(cluster)
                         waypoint_locked = False
@@ -605,6 +627,44 @@ class VoxelBehavior:
         d2 = ((np.asarray(vox_xyz, dtype=float)
                - np.asarray(point, dtype=float)) ** 2).sum(axis=1)
         return bool(d2.min() < clearance * clearance)
+
+    # Approach azimuths tried on successive stuck strikes (degrees around +Z,
+    # relative to head-on): head-on, then swing to either side, then behind.
+    _APPROACH_AZIMUTHS = (0.0, 40.0, -40.0, 80.0, -80.0, 140.0)
+
+    def note_stuck(self) -> None:
+        """Called by the node when the pursuit stuck monitor fires in voxel
+        mode: advance to the next approach azimuth for the held cluster so the
+        next standoff is computed from a different side. Force a re-plan by
+        clearing the hold so execute() recomputes the waypoint this tick."""
+        self._approach_azimuth_variant += 1
+
+    def _approach_dir(self, center, cur_pose_np):
+        """Unit drone->cluster bearing rotated by the current stuck azimuth
+        variant, so a blocked head-on corridor can be retried from the side."""
+        d = np.asarray(center, dtype=float) - np.asarray(cur_pose_np, dtype=float)
+        n = float(np.linalg.norm(d))
+        if n < 1e-6:
+            return None
+        d = d / n
+        idx = self._approach_azimuth_variant % len(self._APPROACH_AZIMUTHS)
+        deg = self._APPROACH_AZIMUTHS[idx]
+        if deg == 0.0:
+            return d
+        a = np.deg2rad(deg)
+        c, s = float(np.cos(a)), float(np.sin(a))
+        out = np.array([c * d[0] - s * d[1], s * d[0] + c * d[1], d[2]])
+        on = float(np.linalg.norm(out))
+        return out / on if on > 1e-6 else d
+
+    @staticmethod
+    def _box_half_extent_along(half_sizes, u) -> float:
+        """Distance from an AABB centre to its surface along unit direction u
+        (first face hit): min_i(h_i / |u_i|) over axes with |u_i|>0."""
+        h = np.asarray(half_sizes, dtype=float)
+        u = np.abs(np.asarray(u, dtype=float))
+        ts = [h[k] / u[k] for k in range(3) if u[k] > 1e-9]
+        return float(min(ts)) if ts else float(np.max(h))
 
     def _clear_standoff(self, surface_point, dir_norm, vox_xyz,
                         base=1.0, step=STANDOFF_STEP_M, max_standoff=STANDOFF_MAX_M):

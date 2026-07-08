@@ -251,48 +251,24 @@ class PayloadVisualizerNode(Node):
             tag = f' [{st[3:]}]' if st.startswith('bb-') else ''
             who = f' -> r{aid}' if aid is not None else ''
             sl = it.get('slot')
-            if aid is not None and sl:
-                who += f' #{sl + 1}'   # queued bundle slot (head has no suffix)
+            if aid is not None and sl is not None and _bundle_count.get(aid, 0) >= 2:
+                who += f' [{sl + 1}]'   # position in this robot's bundle (1 = head)
             txt.text = f'{lab}{tag}{who}'
             txt.lifetime = Duration(sec=0, nanosec=0)
             out.markers.append(txt)
             mid += 1
 
+        # Bundle position [1..N] is shown in each target's label (below); only a
+        # real bundle (>=2 tasks for one robot) gets the suffix.
+        _bundle_count = {}
+        for it in data.get('available', []):
+            aid = it.get('assigned')
+            if aid is not None:
+                _bundle_count[aid] = _bundle_count.get(aid, 0) + 1
         for it in data.get('available', []):
             st = str(it.get('status', 'ray'))
             _box(it, self._AUCTION_COLOR.get(st, (1.0, 1.0, 1.0)), 0.45,
                  st.startswith('bb'), 'available')
-        # Bundle chains: a line through each robot's bundle in slot order
-        # (head -> tail), colored like that robot's other overlays.
-        bundles = {}
-        for it in data.get('available', []):
-            aid, sl = it.get('assigned'), it.get('slot')
-            if aid is None or sl is None:
-                continue
-            try:
-                bundles.setdefault(int(aid), []).append(
-                    (int(sl), (float(it['x']), float(it['y']),
-                               float(it.get('z', 0.0)))))
-            except (KeyError, TypeError, ValueError):
-                continue
-        for aid, pts in bundles.items():
-            if len(pts) < 2:
-                continue
-            m = Marker()
-            m.header.frame_id = 'map'
-            m.header.stamp = now
-            m.ns = f'{robot_name}_auction_bundles'
-            m.id = mid
-            mid += 1
-            m.type = Marker.LINE_STRIP
-            m.action = Marker.ADD
-            m.scale.x = 0.25
-            rgb = ROBOT_COLORS[(aid - 1) % len(ROBOT_COLORS)]
-            m.color.r, m.color.g, m.color.b, m.color.a = (*rgb, 0.85)
-            m.points = [GPoint(x=x, y=y, z=z)
-                        for _sl, (x, y, z) in sorted(pts)]
-            m.lifetime = Duration(sec=0, nanosec=0)
-            out.markers.append(m)
         for it in data.get('visited_bbs', []):
             _box({**it, 'status': 'bb-visited'}, (0.4, 0.4, 0.4), 0.18,
                  True, 'visited')

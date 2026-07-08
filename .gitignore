@@ -99,6 +99,9 @@ tests/results/
 osmo/results/
 osmo-results/
 
+# Local analysis scripts + their generated outputs (ad-hoc / debugging)
+analysis_runs/
+
 # Local-only — embedded sibling repo, not part of this branch
 common/rayfronts/
 

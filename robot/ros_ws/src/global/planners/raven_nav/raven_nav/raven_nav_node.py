@@ -27,6 +27,7 @@ from raven_nav.behaviors.frontier_behavior import (
     _nearest_dist, _points_in_polygon)
 from raven_nav.behaviors.voxel_behavior import (
     VISIT_REACH_M, VISIT_MATCH_M, aabb_surface_dist)
+from raven_nav.behaviors.pursuit_stuck import PursuitStuckMonitor
 from raven_nav.peer_state import PeerState
 from raven_nav import bid_manager
 from raven_nav.ray_groups import RayGroup, compute_ray_groups, same_ray_group
@@ -380,6 +381,11 @@ class RavenNavNode(Node):
             TemporalConfirmer(confirm_hits=self._ray_confirm_hits,
                               max_misses=self._ray_track_max_misses)
             if self._ray_confirm_hits > 1 else None)
+
+        # Stuck monitor for target pursuit (ray/voxel): when the drone can't
+        # reach the current approach waypoint, the active behavior retries a
+        # different approach for the same (real) target instead of parking.
+        self._pursuit_stuck = PursuitStuckMonitor(self.get_clock)
 
         # rayfronts publishes _sim/all topics only when something subscribes.
         self.create_subscription(
@@ -2817,6 +2823,29 @@ class RavenNavNode(Node):
 
         self._nav_mode_pub.publish(
             String(data=_NAV_MODE_TAG.get(self._behavior_mode, 'idle')))
+
+        # Pursuit stuck watchdog: if the drone can't reach the current approach
+        # waypoint in a target-pursuit mode, tell the active behavior to try a
+        # different approach for the same target (a real target with a bad
+        # viewpoint) rather than sit against the obstacle. Frontier mode keeps
+        # its own blacklist watchdog, so this only covers ray/voxel.
+        if self._behavior_mode == 'Ray-based':
+            if self._pursuit_stuck.update(self._cur_pose, self._target_waypoint2):
+                self._behavior_manager.ray_behavior.note_stuck()
+                if self._debug_coord:
+                    self.get_logger().warn(
+                        '[stuck] ray approach unreachable — trying alternate '
+                        'approach for the same lead')
+        elif self._behavior_mode == 'Voxel-based':
+            if self._pursuit_stuck.update(self._cur_pose, self._target_waypoint2):
+                self._behavior_manager.voxel_behavior.note_stuck()
+                self._waypoint_locked = False   # force re-plan from new azimuth
+                if self._debug_coord:
+                    self.get_logger().warn(
+                        '[stuck] voxel standoff unreachable — rotating approach '
+                        'azimuth around the cluster')
+        else:
+            self._pursuit_stuck.reset()
 
         completed = sorted(self._behavior_manager.completed_queries)
         # Publish every tick (not just on change) so peers and any restarted

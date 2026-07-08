@@ -5,6 +5,8 @@ from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import String
 
 from raven_nav.behaviors.frontier_behavior import _points_in_polygon
+from raven_nav.behaviors.pursuit_stuck import (
+    RAY_APPROACH_VARIANTS, ray_variant_waypoints)
 from coordination_bringup.frame_utils import dir_to_quat
 
 
@@ -12,6 +14,12 @@ class RayBehavior:
     # Weight on bearing continuity (same direction as / origin moving along the
     # committed bearing) when picking which ray to follow.
     DIR_WEIGHT = 20.0
+
+    # When a ray approach is stuck, try alternate approach waypoints for the
+    # SAME lead (see pursuit_stuck). Only after all variants fail does the lead
+    # go on a cooldown so the drone stops orbiting an unreachable viewpoint.
+    STUCK_COOLDOWN_S = 60.0
+    STUCK_GROUP_RADIUS_M = 6.0
 
     def __init__(self, get_clock, current_target_publisher=None,
                  score_threshold=0.68,
@@ -29,9 +37,44 @@ class RayBehavior:
         self.ray_groups = []
         self.assigned_target = None
 
+        # Per-lead approach-variant cursor and cooldown, keyed by a coarse XY of
+        # the chosen investigation point. Advanced by note_stuck() (called by the
+        # node when the pursuit stuck monitor fires). {xy_key: {'variant','until'}}
+        self._approach_state: dict = {}
+
     def condition_check(self):
         return self.assigned_target is not None and any(
             g.label == self.assigned_target for g in self.ray_groups)
+
+    def _now_s(self) -> float:
+        return self.get_clock().now().nanoseconds * 1e-9
+
+    def _lead_key(self, origin):
+        # Coarse XY bucket so the same lead maps to one strike record across
+        # small origin jitter (rays for one target cluster within a few metres).
+        o = np.asarray(origin, dtype=float)
+        return (int(round(o[0] / self.STUCK_GROUP_RADIUS_M)),
+                int(round(o[1] / self.STUCK_GROUP_RADIUS_M)))
+
+    def note_stuck(self) -> None:
+        """Called by the node when the pursuit stuck monitor fires while in
+        ray mode: advance the current lead to its next approach variant, and
+        start a cooldown once every variant has been tried."""
+        best = getattr(self, '_last_best_group', None)
+        if best is None:
+            return
+        key = self._lead_key(best.avg_origin)
+        st = self._approach_state.setdefault(key, {'variant': 0, 'until': 0.0})
+        st['variant'] += 1
+        if st['variant'] >= RAY_APPROACH_VARIANTS:
+            # Exhausted all approaches — park this lead for a while and reset so
+            # it can be retried later (targets/obstacles may have changed).
+            st['until'] = self._now_s() + self.STUCK_COOLDOWN_S
+            st['variant'] = 0
+
+    def _lead_on_cooldown(self, origin) -> bool:
+        st = self._approach_state.get(self._lead_key(origin))
+        return bool(st and self._now_s() < st['until'])
 
     def execute(self, cur_pose_np, waypoint_locked, target_waypoint1,
                 target_waypoint2, publisher_dict, assigned_target=None,
@@ -66,6 +109,14 @@ class RayBehavior:
                       if oi and wi]
             if not groups:
                 return waypoint_locked, target_waypoint1, target_waypoint2
+
+        # Drop leads whose approaches all failed recently (cooldown from
+        # note_stuck) so the drone stops orbiting an unreachable viewpoint —
+        # unless every remaining lead is cooling down, in which case keep them
+        # (better a retry than no target at all).
+        reachable = [g for g in groups if not self._lead_on_cooldown(g.avg_origin)]
+        if reachable:
+            groups = reachable
 
         # Prefer groups whose investigation waypoint (origin + dir*6 m, where the
         # drone is actually sent) is ahead of the drone — don't backtrack to a ray
@@ -115,8 +166,17 @@ class RayBehavior:
             best = min(candidates,
                        key=lambda g: g.avg_dist_to_robot - k * g.num_rays)
 
-        target_waypoint1 = best.avg_origin + best.avg_dir * 6.0
-        target_waypoint2 = best.avg_origin + best.avg_dir * 12.0
+        # Approach variant for this lead: 0 = canonical (origin + dir*6/*12);
+        # higher variants sidestep / climb / stop short after stuck strikes.
+        self._last_best_group = best
+        st = self._approach_state.get(self._lead_key(best.avg_origin))
+        variant = st['variant'] if st else 0
+        bd = np.asarray(best.avg_dir, dtype=float)
+        bd = bd / (np.linalg.norm(bd) + 1e-6)
+        target_waypoint1, target_waypoint2 = ray_variant_waypoints(
+            best.avg_origin, bd, variant)
+        target_waypoint1 = self._clamp_alt(target_waypoint1)
+        target_waypoint2 = self._clamp_alt(target_waypoint2)
 
         path = Path()
         path.header.stamp = self.get_clock().now().to_msg()
@@ -134,6 +194,13 @@ class RayBehavior:
 
         self._visualize_filtered_rays(groups, publisher_dict)
         return waypoint_locked, target_waypoint1, target_waypoint2
+
+    def _clamp_alt(self, wp):
+        """Keep a variant waypoint inside the altitude band (a climb variant or
+        a downward bearing must not push the goal out of the flyable envelope)."""
+        wp = np.asarray(wp, dtype=float).copy()
+        wp[2] = float(np.clip(wp[2], self.min_altitude, self.max_altitude))
+        return wp
 
     def _visualize_filtered_rays(self, groups, publisher_dict):
         pub = publisher_dict['filtered_rays']

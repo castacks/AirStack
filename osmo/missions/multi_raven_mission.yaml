@@ -45,8 +45,8 @@ environments:
     RESULTS_SCENE: "RetroNeighborhood"
     query: "house"
     voxel_score_threshold: 0.85
-    score_threshold: 0.68
-    voxel_min_cluster_size: -1        # not tuned — raven_nav default (35)
+    score_threshold: 0.72
+    voxel_min_cluster_size: 45        # not tuned — raven_nav default (35)
     background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cables, container, utility pole, car garage, street light"
     search_area:
       points:
@@ -103,8 +103,8 @@ environments:
     # '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.7071,0.7071]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,1.0,0.0]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,-0.7071,0.7071]}]'
     RESULTS_SCENE: "ConstructionSite"
     query: "Forklift, Towercrane, blue tarp"
-    voxel_score_threshold: 0.80
-    score_threshold: 0.65
+    voxel_score_threshold: 0.78
+    score_threshold: 0.68
     voxel_min_cluster_size: 15
     background_queries: "road, grass, mountain, parking lot, building, scaffolding, fence, cement"
     search_area:
@@ -126,7 +126,7 @@ environments:
     query: "building, water tower"
     voxel_score_threshold: 0.85          # starting default — tune per scene
     score_threshold: -1                  # not tuned — raven_nav default (0.72)
-    voxel_min_cluster_size: -1           # not tuned — raven_nav default (35)
+    voxel_min_cluster_size: 30           # not tuned — raven_nav default (35)
     background_queries: "sky, ground, grass, road, tree"
     search_area:
       points:
@@ -143,8 +143,8 @@ environments:
     STAGE_SCALE: "1.0"
     RESULTS_SCENE: "MilitaryBase"
     query: "Guard Tower, Radio Tower, Bridge"
-    voxel_score_threshold: 0.75
-    score_threshold: 0.65
+    voxel_score_threshold: 0.72
+    score_threshold: 0.68
     voxel_min_cluster_size: 20
     background_queries: "sky, ground, grass, road, tree"
     search_area:
@@ -199,7 +199,7 @@ command_route: gcs
 # grouped: each environment runs `iterations` times in a row (per-environment
 # count; total runs = iterations * 8 environments). Fixed spawns per SPAWN_CONFIGS.
 environment_order: grouped
-iterations: 2
+iterations: 1
 
 # Redo an iteration (clean down→up→fly→down) if a step up to and including
 # semantic_search fails — i.e. the precondition steps fail, or semantic_search
@@ -258,7 +258,7 @@ steps:
         query: "{{env.query}}"
         background_queries: "{{env.background_queries}}"
         search_area: "{{env.search_area}}"
-        min_altitude_agl: 10.0
+        min_altitude_agl: 5.0
         max_altitude_agl: 20.0
         min_flight_speed: 0.5
         max_flight_speed: 1.0

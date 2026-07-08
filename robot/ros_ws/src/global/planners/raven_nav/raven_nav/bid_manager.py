@@ -315,8 +315,10 @@ PEER_REPULSION_SCALE = 15.0
 RAY_COST_PENALTY = 25.0
 # Max chain distance from a bundle's last task to an appended one.
 BUNDLE_MAX_DETOUR_M = 20.0
-# Geo prior: non-closest agents pay their extra distance beyond the deadband.
-GEO_PRIOR_W = 1.0
+# Poach guard: an agent that already owns tasks won't split off a foreign task a
+# closer agent owns by more than this margin. (The soft geo cost penalty was
+# inert — the winning pick is always its own owner, so it never flipped a
+# decision — and was removed; this hard gate is the part that does real work.)
 GEO_MARGIN_M = 15.0
 # Decline (outside option): markup over frontier distance so a comparable
 # real target still wins.
@@ -473,8 +475,6 @@ class ConsensusAssigner:
 
         def _breakdown(base, a, tk, is_head):
             rp = RAY_COST_PENALTY if _is_ray(tk) else 0.0
-            gp = GEO_PRIOR_W * max(
-                0.0, eff[(a, tk)] - owner_dist[tk] - GEO_MARGIN_M)
             rep = 0.0
             c = by_key[tk].centroid[:2]
             for ta, tc in taken:
@@ -487,9 +487,9 @@ class ConsensusAssigner:
                     ret = -switch_margin if (is_head and i == 0) \
                         else -0.5 * switch_margin
                     break
-            return base + rp + gp + rep + ret, {
+            return base + rp + rep + ret, {
                 'base': round(base, 2), 'ray_pen': round(rp, 2),
-                'geo_pen': round(gp, 2), 'repulsion': round(rep, 2),
+                'repulsion': round(rep, 2),
                 'retention': round(ret, 2)}
 
         def _fmt(tk):
@@ -592,7 +592,7 @@ class ConsensusAssigner:
             'params': {'bundle_len': self.bundle_len,
                        'switch_margin': switch_margin, 'match_m': match_m,
                        'ray_penalty': RAY_COST_PENALTY,
-                       'geo_w': GEO_PRIOR_W, 'geo_margin': GEO_MARGIN_M,
+                       'geo_margin': GEO_MARGIN_M,
                        'explore_markup': EXPLORE_MARKUP_M,
                        'detour_cap': BUNDLE_MAX_DETOUR_M},
             'agents': {str(a): {
