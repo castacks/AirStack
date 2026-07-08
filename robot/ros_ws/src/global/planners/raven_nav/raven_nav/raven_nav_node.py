@@ -940,12 +940,20 @@ class RavenNavNode(Node):
     _TASK_MATCH_M = 10.0
     _PEER_TARGET_MATCH_M = _TASK_MATCH_M
     _TASK_KEY_GRID = 6.0
-    # Persistent ray-lead memory: dedup radius + bearing-angle (matches the same
+    # Persistent ray-lead memory dedup radius + bearing-angle (matches the same
     # filtered ray across ticks; does NOT regroup — compute_ray_groups already
-    # clustered at 45deg), and BB pad for the "points at a known BB" test.
+    # clustered at 45deg), and BB pad for the "points at a known BB" test. These
+    # (looser) values are used for cross-robot peer-lead dedup and committed-lead
+    # matching.
     _RAY_LEAD_MATCH_M = 3.0
     _RAY_LEAD_DIR_COS = float(np.cos(np.deg2rad(12.0)))
     _RAY_LEAD_BB_PAD_M = 0.5
+    # Stricter thresholds for OWN-lead accumulation dedup only: only near-identical
+    # own rays fuse, so distinct filtered rays stay as separate auction entries.
+    # (Too strict → the same target re-adds across ticks as origin/bearing drift →
+    # duplicate leads; tune here.)
+    _RAY_LEAD_DEDUP_M = 1.5
+    _RAY_LEAD_DEDUP_DIR_COS = float(np.cos(np.deg2rad(6.0)))
 
     def _lead_points_at_known_bb(self, o, d, label) -> bool:
         """The ray (o, d) pierces a same-label BB that's already observed
@@ -969,9 +977,14 @@ class RavenNavNode(Node):
                 return True
         return False
 
-    def _lead_match(self, o, d, label, leads):
+    def _lead_match(self, o, d, label, leads, match_m=None, dir_cos=None):
         """A stored lead matching bearing (o, d): same label, origin within
-        _RAY_LEAD_MATCH_M, direction within the angle."""
+        match_m, direction within the angle (dir_cos). Defaults to the shared
+        _RAY_LEAD_MATCH_M / _RAY_LEAD_DIR_COS used for peer + committed matching;
+        _accumulate_ray_leads passes the stricter _RAY_LEAD_DEDUP_* so distinct
+        own rays stay as separate auction entries."""
+        match_m = self._RAY_LEAD_MATCH_M if match_m is None else match_m
+        dir_cos = self._RAY_LEAD_DIR_COS if dir_cos is None else dir_cos
         o2 = np.asarray(o, float)[:2]
         d2 = np.asarray(d, float)[:2]
         nd = np.linalg.norm(d2)
@@ -979,11 +992,11 @@ class RavenNavNode(Node):
         for L in leads:
             if L['label'] != label:
                 continue
-            if np.linalg.norm(o2 - np.asarray(L['o'], float)[:2]) > self._RAY_LEAD_MATCH_M:
+            if np.linalg.norm(o2 - np.asarray(L['o'], float)[:2]) > match_m:
                 continue
             ld = np.asarray(L['d'], float)[:2]
             ln = np.linalg.norm(ld)
-            if ln > 1e-9 and float(np.dot(d2, ld / ln)) >= self._RAY_LEAD_DIR_COS:
+            if ln > 1e-9 and float(np.dot(d2, ld / ln)) >= dir_cos:
                 return L
         return None
 
@@ -1054,8 +1067,10 @@ class RavenNavNode(Node):
 
     def _accumulate_ray_leads(self, ray_groups, all_completed, now, agent_pos) -> None:
         """Fold the current ray groups into the persistent lead memory (dedup by
-        bearing), then prune leads whose BB is observed/visited, that a drone has
-        reached, or whose label completed. No TTL — leads persist until resolved."""
+        bearing, using the stricter _RAY_LEAD_DEDUP_* so distinct filtered rays
+        stay as separate auction entries), then prune leads whose BB is
+        observed/visited, that a drone has reached, or whose label completed. No
+        TTL — leads persist until resolved."""
         targets = set(self._target_objects or [])
         for g in ray_groups:
             if g.num_rays <= 0 or g.label in all_completed:
@@ -1071,7 +1086,9 @@ class RavenNavNode(Node):
             # rays re-spawn it, else the drone oscillates back to it.
             if self._lead_served(g.label, o):
                 continue
-            m = self._lead_match(o, d, g.label, self._ray_leads)
+            m = self._lead_match(o, d, g.label, self._ray_leads,
+                                 match_m=self._RAY_LEAD_DEDUP_M,
+                                 dir_cos=self._RAY_LEAD_DEDUP_DIR_COS)
             if m is not None:
                 m['o'], m['d'], m['ts'], m['score'] = o, d, now, score
             else:

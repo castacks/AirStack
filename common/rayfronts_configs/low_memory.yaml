@@ -1,11 +1,10 @@
 defaults:
   - _self_
-  - dataset: "niceslam_replica"
-  - mapping: "semantic_voxel_map"
-  - encoder: "radseg"
-  - vis: "ros" # Set to null to disable
-  - messaging_service: null # Set to null to disable
-  - feat_compressor: null # Set to null to disable
+  - override mapping: "semantic_ray_frontiers_map"
+  - override encoder: "radseg"
+  - override vis: ros
+  - override messaging_service: ros
+  - override feat_compressor: null # Set to null to disable
   - extras
 
 # Disable logging to files
@@ -14,6 +13,8 @@ hydra:
   run:
     dir: .
 
+dataset:
+  frame_skip: 5
 # How many frames should be batched before processing.
 batch_size: 1
 

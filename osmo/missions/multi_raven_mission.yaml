@@ -66,7 +66,7 @@ environments:
     voxel_score_threshold: 0.85
     score_threshold: 0.75
     voxel_min_cluster_size: 20
-    background_queries: "road, grass, mountain, parking lot, tree, utility pole, flood light, shipping container, gas tank"
+    background_queries: "road, grass, mountain, parking lot, tree, utility pole, flood light, shipping container, gas tank, warehouse"
     search_area:
       points:
         - {x: 13.0, y: -135.0, z: 0.0}
@@ -86,7 +86,7 @@ environments:
     voxel_score_threshold: 0.8
     score_threshold: 0.75
     voxel_min_cluster_size: 15
-    background_queries: "road, grass, mountain, parking lot, tree, utility pole, flood light, shipping container, gas tank"
+    background_queries: "road, grass, mountain, parking lot, tree, utility pole, flood light, shipping container, gas tank, warehouse"
     search_area:
       points:
         - {x: 13.0, y: -135.0, z: 0.0}
