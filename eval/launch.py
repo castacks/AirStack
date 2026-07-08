@@ -106,7 +106,7 @@ def setup(args: Any) -> Dict[str, Any]:
         )
 
     try:
-        from safe_core.utils.isaacsim.simulator_manager import SimulatorManager
+        from integrations.utils.isaacsim.simulator_manager import SimulatorManager
         if config.DEBUG:
             print("[DEBUG] airstack.launch: SimulatorManager imported", flush=True)
     except ImportError as exc:

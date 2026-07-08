@@ -284,7 +284,7 @@ class _AirstackROSBridgePolicy(Policy):
             pass
 
 
-class AirstackDROAN(_AirstackROSBridgePolicy):
+class droan(_AirstackROSBridgePolicy):
     """DROAN local planner running inside the AirStack Docker container.
 
     Hook: eval/agent_hooks/airstackdroan.sh
@@ -296,7 +296,7 @@ class AirstackDROAN(_AirstackROSBridgePolicy):
     SIDECAR_PORT_DEFAULT = 8780
 
 
-class AirstackSuperPlanner(_AirstackROSBridgePolicy):
+class super(_AirstackROSBridgePolicy):
     """Super planner running inside the AirStack Docker container.
 
     Hook: eval/agent_hooks/airstacksuperplanner.sh

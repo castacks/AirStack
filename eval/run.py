@@ -55,6 +55,15 @@ class AirstackRunner(BaseRunner):
     def get_agents_dir(self) -> str:
         return os.path.join(os.path.dirname(__file__), "agents")
 
+    def get_available_agents(self) -> list[str]:
+        return [
+            "random",
+            "aggressive",
+            "conservative",
+            "droan",
+            "super",
+        ]
+
     def add_args(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
             "--direct-velocity",
@@ -95,6 +104,17 @@ class AirstackRunner(BaseRunner):
     def get_env_config_module(self):
         from .sim import environment_config
         return environment_config
+
+    def run_agent_hook(self, args: argparse.Namespace) -> None:
+        import subprocess
+        agent_name = args.agent or (args.agents[0] if args.agents else None)
+        if not agent_name:
+            return
+        hook = os.path.join(os.path.dirname(__file__), "agent_hooks", f"{agent_name.lower()}.sh")
+        if not os.path.isfile(hook):
+            return
+        print(f"[airstack] Starting agent hook in background: {hook}", flush=True)
+        subprocess.Popen(["bash", hook])
 
     def build_adapter(self, args: argparse.Namespace):
         from .adapter import Adapter

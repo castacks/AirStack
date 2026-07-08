@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 import numpy as np
+import omni.replicator.core as rep
 
 from safe_core.core.env_backend import BaseEnvBackend
 
@@ -65,6 +66,9 @@ class AirstackEnv(BaseEnvBackend):
         self._episode_start_time = 0.0
         self._current_scenario_seed = object()
         self._camera_ready = False
+        self._capture_camera_initialized = False
+        self._rgb_annotator = None
+        self._track_annotator = None
 
         self.np_random = np.random.RandomState()
         self.static_obstacle_aabbs = np.zeros((0, 4), dtype=np.float32)
@@ -167,6 +171,10 @@ class AirstackEnv(BaseEnvBackend):
             self.sim.set_static_cylinders(self._static_cylinder_locations)
         self.sim.set_goal_marker(self._target_location)
         self.sim.reset_vehicle(self._agent_location)
+
+        if not self._capture_camera_initialized:
+            self._setup_capture_camera()
+            self._capture_camera_initialized = True
 
         self._episode_start_time = time.time()
 
