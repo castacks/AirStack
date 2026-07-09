@@ -80,12 +80,12 @@ _LOCAL_SCENES_DIR = os.path.normpath(os.path.join(_LAUNCH_SCRIPTS_DIR, "..", "as
 #ENV_URL = f"file://{_LOCAL_SCENES_DIR}/Shipyard.usd"
 #ENV_URL = f"file://{_LOCAL_SCENES_DIR}/ModernCityDowntown.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
-ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/copy-rayfronts-planner/AbandonedCity.scene.usd"
-#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/downtown_edited_v3_818.usd"
+ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/downtown_edited_v3_818.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/copy-rayfronts-planner/environments_start_pos/SnowyVillage_t_x-152_y-80_z-2_o_x0_y0_z_90.scene.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/edit_v1_shipyard.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
@@ -96,7 +96,7 @@ if _env_url_override:
                else f"omniverse://{NUCLEUS_SERVER}/{_env_url_override.lstrip('/')}")
 # Per-environment override (mission runner sets STAGE_SCALE per iteration);
 # falls back to 0.01 for standalone runs.
-STAGE_SCALE = float(os.environ.get("STAGE_SCALE") or 0.01)
+STAGE_SCALE = float(os.environ.get("STAGE_SCALE") or 1.0)
 
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
@@ -105,14 +105,20 @@ ADD_DOME_LIGHT = False
 DOME_LIGHT_PATH = "/World/DomeLight"
 DOME_LIGHT_INTENSITY = 3500.0
 DOME_LIGHT_EXPOSURE = -5.0
+DOME_LIGHT_TEXTURE = None   # optional HDRI sky URL; None → plain uniform dome
 
-# DowntownWest ships a baked SkySphere that renders black headless; swap it for a
-# dome light (SkySphere is deactivated after the stage loads).
+# DowntownWest ships a baked SkySphere that renders black headless; deactivate it
+# (below, after the stage loads) and replace it with a dome light textured with a
+# clear-noon HDRI sky, which gives both a visible sky backdrop and its baked sun.
 _IS_DOWNTOWNWEST = "downtown_edited" in ENV_URL
 if _IS_DOWNTOWNWEST:
     ADD_DOME_LIGHT = True
-    DOME_LIGHT_INTENSITY = 3550.0
-    DOME_LIGHT_EXPOSURE = -2.0
+    DOME_LIGHT_TEXTURE = f"omniverse://{NUCLEUS_SERVER}/NVIDIA/Assets/Skies/Clear/noon_grass_4k.hdr"
+    # With a texture, intensity multiplies the HDRI's own radiance, so a bright
+    # clear-noon map needs far less than a plain white dome. Tune these two if the
+    # scene looks over-/under-exposed.
+    DOME_LIGHT_INTENSITY = 1000.0
+    DOME_LIGHT_EXPOSURE = 0.0
 
 # GPS world anchor: what world (0, 0, 0) maps to in real GPS coordinates.
 # Matches the Lisbon default in px4_config.yaml — change here to relocate the sim world.
@@ -141,12 +147,17 @@ LIDAR_MIN_RANGE_M = 0.75
 
 
 # Hardcoded fallback layout, used when SPAWN_POLY is not set (standalone runs).
-_DEFAULT_DRONE_CONFIGS = [
-    {"domain_id": 1, "x_m": 3.0, "y_m": 3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
-    {"domain_id": 2, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
-    {"domain_id": 3, "x_m": -3.0, "y_m": -3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
-    ]
+# _DEFAULT_DRONE_CONFIGS = [
+#     {"domain_id": 1, "x_m": 3.0, "y_m": 3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
+#     {"domain_id": 2, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
+#     {"domain_id": 3, "x_m": -3.0, "y_m": -3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
+#     ]
 
+_DEFAULT_DRONE_CONFIGS = [
+    {"domain_id": 1, "x_m": -1.0, "y_m": -41.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0,0,0.698,0.716], "lidar_min_range": LIDAR_MIN_RANGE_M},
+    {"domain_id": 2, "x_m": 3.0, "y_m": -35.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0,0,0.736,0.677], "lidar_min_range": LIDAR_MIN_RANGE_M},
+    {"domain_id": 3, "x_m": 7.0, "y_m": -30.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0,0,0.784,0.621], "lidar_min_range": LIDAR_MIN_RANGE_M},
+    ]
 # Spawn-area override: when SPAWN_POLY is set (the mission runner sets it per
 # iteration), generate a randomized, collision-free layout inside it instead of
 # using the fallback above. SPAWN_POLY is JSON — 2 opposite corners for an
@@ -257,8 +268,7 @@ def wait_for_stage(stage, timeout_s: float = 10.0):
             if non_physics:
                 return True
         time.sleep(0.1)
-    return False
-
+    return False_IS_DOWNTOWNWEST
 class PegasusApp:
 
     def __init__(self):
@@ -308,14 +318,15 @@ class PegasusApp:
             carb.log_warn("/World/stage not found — skipping scale and collision.")
 
         if ADD_DOME_LIGHT:
-            add_dome_light(stage, DOME_LIGHT_PATH, DOME_LIGHT_INTENSITY, DOME_LIGHT_EXPOSURE)
+            add_dome_light(stage, DOME_LIGHT_PATH, DOME_LIGHT_INTENSITY, DOME_LIGHT_EXPOSURE,
+                           texture_file=DOME_LIGHT_TEXTURE)
 
         if _IS_DOWNTOWNWEST:
-            sky = stage.GetPrimAtPath("/World/stage/SkySphere")
+            sky = stage.GetPrimAtPath("/World/stage/SM_SkySphere")
             if sky.IsValid():
                 sky.SetActive(False)
             else:
-                carb.log_warn("DowntownWest: /World/stage/SkySphere not found — not deactivated.")
+                carb.log_warn("DowntownWest: /World/stage/SM_SkySphere not found — not deactivated.")
 
         # Units
         mpu, s = get_stage_meters_per_unit(stage)

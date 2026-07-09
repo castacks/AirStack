@@ -144,14 +144,25 @@ def add_colliders(prim):
 # Lighting
 # ---------------------------------------------------------------------------
 
-def add_dome_light(stage, prim_path: str = "/World/DomeLight", intensity: float = 3500.0, exposure: float = -3.0):
+def add_dome_light(stage, prim_path: str = "/World/DomeLight", intensity: float = 3500.0,
+                   exposure: float = -3.0, texture_file: str = None,
+                   texture_format: str = "latlong"):
     """Add a dome light to the stage, or update it if it already exists.
 
     Args:
-        stage:     Active USD stage.
-        prim_path: Stage path for the dome light prim.
-        intensity: Light intensity value.
-        exposure:  Light exposure value.
+        stage:          Active USD stage.
+        prim_path:      Stage path for the dome light prim.
+        intensity:      Light intensity value. With a texture this is a
+                        multiplier on the HDRI's own radiance.
+        exposure:       Light exposure value (stops), applied on top of intensity.
+        texture_file:   Optional HDRI (.hdr/.exr) environment map URL. When set,
+                        the dome renders it as the visible sky *and* lights the
+                        scene from it (image-based lighting) — the sun baked into
+                        the image casts soft directional light. None → plain
+                        uniform sky.
+        texture_format: How the HDRI is projected. 'latlong' for standard
+                        equirectangular panoramas (the .hdr skies under
+                        NVIDIA/Assets/Skies are all latlong).
     """
     if stage.GetPrimAtPath(prim_path).IsValid():
         dome = UsdLux.DomeLight.Get(stage, prim_path)
@@ -159,7 +170,11 @@ def add_dome_light(stage, prim_path: str = "/World/DomeLight", intensity: float 
         dome = UsdLux.DomeLight.Define(stage, Sdf.Path(prim_path))
     dome.CreateIntensityAttr(intensity)
     dome.CreateExposureAttr(exposure)
-    print(f"[scene_prep] Dome light set at '{prim_path}' (intensity={intensity}, exposure={exposure})")
+    if texture_file:
+        dome.CreateTextureFileAttr().Set(Sdf.AssetPath(texture_file))
+        dome.CreateTextureFormatAttr().Set(texture_format)
+    print(f"[scene_prep] Dome light set at '{prim_path}' "
+          f"(intensity={intensity}, exposure={exposure}, texture={texture_file})")
 
 
 # ---------------------------------------------------------------------------
