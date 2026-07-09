@@ -14,7 +14,7 @@ hydra:
     dir: .
 
 dataset:
-  frame_skip: 5
+  frame_skip: 2
 # How many frames should be batched before processing.
 batch_size: 1
 

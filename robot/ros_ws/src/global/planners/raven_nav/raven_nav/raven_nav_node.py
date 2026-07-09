@@ -387,6 +387,16 @@ class RavenNavNode(Node):
         # different approach for the same (real) target instead of parking.
         self._pursuit_stuck = PursuitStuckMonitor(self.get_clock)
 
+        # Dead-assignment watchdog: the auction can hand a drone a confirmed BB
+        # its own behavior refuses to service (a fragment overlapping something
+        # already visited that the task-table merge didn't dedupe). Symptom: the
+        # drone is assigned a BB yet falls through to Frontier-based (explores)
+        # for this long — reconcile by releasing the BB (mark it visited) so the
+        # auction re-solves onto a real target instead of orbiting a phantom.
+        self._bb_dead_since: 'float | None' = None
+        self._bb_release_timeout_s = float(self.declare_parameter(
+            'bb_release_timeout_s', 8.0).value)
+
         # rayfronts publishes _sim/all topics only when something subscribes.
         self.create_subscription(
             PointCloud2,
@@ -1179,7 +1189,24 @@ class RavenNavNode(Node):
             d = np.asarray(L['d'], dtype=float)
             items.append((L['label'], o, np.zeros(3), 'ray', o, d,
                           float(L.get('score', 0.0))))
-        return bid_manager.build_tasks(items, self._TASK_MATCH_M, self._TASK_KEY_GRID)
+        tasks = bid_manager.build_tasks(
+            items, self._TASK_MATCH_M, self._TASK_KEY_GRID)
+        # Re-check merged BB boxes against the visited set. build_tasks unions BB
+        # fragments within TASK_MATCH_M, so the merged task box can grow to overlap
+        # an already-visited instance that each individual fragment did NOT match
+        # (per-fragment _visited_match ran before this union). Left in, that task
+        # is handed out as a live assignment the behavior refuses to service
+        # (it deems the box visited) — the drone then holds a dead assignment and
+        # explores instead. Drop it here so auction & behavior agree on 'visited'.
+        kept_tasks = []
+        for t in tasks:
+            if t.status == 'bb-observing' and self._bb_is_visited(
+                    t.label, t.centroid, t.size):
+                self._record_dropped_bb(
+                    t.label, t.centroid, t.size, 'visited-postmerge')
+                continue
+            kept_tasks.append(t)
+        return kept_tasks
 
     def _lead_served(self, label, point) -> bool:
         """True if this lead was already serviced (own or peer), within match."""
@@ -2880,6 +2907,36 @@ class RavenNavNode(Node):
                         'azimuth around the cluster')
         else:
             self._pursuit_stuck.reset()
+
+        # Dead-assignment watchdog: assigned a confirmed BB but the behavior fell
+        # through to Frontier (won't pursue it) for _bb_release_timeout_s. If the
+        # behavior's own visited test agrees the box is visited, the auction and
+        # behavior disagree on 'visited' (a merge/propagation gap) — reconcile by
+        # propagating visited so the task drops fleet-wide and the auction re-
+        # solves. Only release when the behavior itself deems it visited, so a
+        # genuinely-unvisited target is never dropped (that case is Ray/Voxel
+        # mode, not Frontier, and never trips this).
+        if (my_task is not None and my_task.status not in ('ray', 'ray-localized')
+                and self._behavior_mode == 'Frontier-based'):
+            if self._bb_dead_since is None:
+                self._bb_dead_since = now
+            elif now - self._bb_dead_since >= self._bb_release_timeout_s:
+                c = np.asarray(my_task.centroid, dtype=float)[:3]
+                s = np.asarray(my_task.size, dtype=float)[:3]
+                vb = self._behavior_manager.voxel_behavior
+                if (vb.is_visited(c, s, my_task.label)
+                        or self._bb_is_visited(my_task.label, c, s)):
+                    self._add_visited(my_task.label, np.concatenate([c, s]))
+                    if not vb.is_visited(c, s, my_task.label):
+                        vb.visited_instances.append((my_task.label, c, s))
+                    if self._debug_coord:
+                        self.get_logger().warn(
+                            f'[dead-bb] released already-visited assignment '
+                            f'{my_task.label} @ ({c[0]:.0f},{c[1]:.0f}) after '
+                            f'{self._bb_release_timeout_s:.0f}s parked in Frontier')
+                self._bb_dead_since = None
+        else:
+            self._bb_dead_since = None
 
         completed = sorted(self._behavior_manager.completed_queries)
         # Publish every tick (not just on change) so peers and any restarted

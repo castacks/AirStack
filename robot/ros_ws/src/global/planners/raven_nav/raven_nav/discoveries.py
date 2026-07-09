@@ -107,13 +107,30 @@ def aabb_surface_gap(a: ConfirmedTarget, b: ConfirmedTarget) -> float:
     return float(np.linalg.norm(gap))
 
 
+def _xy_inter_area(a: ConfirmedTarget, b: ConfirmedTarget) -> float:
+    """Intersection area of the two boxes' XY footprints. XY-projection (not 3D)
+    is deliberate: a tall structure that clusters into stacked z-layers (same xy,
+    disjoint z) is ONE physical instance — 3D intersection wrongly splits it and
+    inflates the detection count."""
+    lo = np.maximum(a.center[:2] - a.size[:2] / 2.0, b.center[:2] - b.size[:2] / 2.0)
+    hi = np.minimum(a.center[:2] + a.size[:2] / 2.0, b.center[:2] + b.size[:2] / 2.0)
+    return float(np.prod(np.clip(hi - lo, 0.0, None)))
+
+
+def _xy_surface_gap(a: ConfirmedTarget, b: ConfirmedTarget) -> float:
+    """Shortest distance between the two boxes' XY footprints (0 if they overlap)."""
+    gap = np.maximum(
+        np.abs(a.center[:2] - b.center[:2]) - (a.size[:2] + b.size[:2]) / 2.0, 0.0)
+    return float(np.linalg.norm(gap))
+
+
 def _should_merge(a: ConfirmedTarget, b: ConfirmedTarget,
                   margin: float = DEDUP_MARGIN_M) -> bool:
     if a.label != b.label:
         return False
-    if aabb_overlap(a, b):
+    if _xy_inter_area(a, b) > 0.0:
         return True
-    return aabb_surface_gap(a, b) <= margin
+    return _xy_surface_gap(a, b) <= margin
 
 
 def _merge_two(a: ConfirmedTarget, b: ConfirmedTarget) -> ConfirmedTarget:
@@ -155,11 +172,11 @@ def _aabb_inter_vol(a: ConfirmedTarget, b: ConfirmedTarget) -> float:
 def _same_target(a: ConfirmedTarget, b: ConfirmedTarget) -> bool:
     if a.label != b.label:
         return False
-    iv = _aabb_inter_vol(a, b)
+    iv = _xy_inter_area(a, b)          # XY-projected: fuse stacked z-fragments
     if iv <= 0.0:
         return False
-    va = float(np.prod(a.size))
-    vb = float(np.prod(b.size))
+    va = float(np.prod(np.maximum(a.size[:2], 1e-6)))
+    vb = float(np.prod(np.maximum(b.size[:2], 1e-6)))
     iou = iv / (va + vb - iv) if (va + vb - iv) > 0 else 0.0
     contain = iv / max(min(va, vb), 1e-9)
     return iou >= SIMILAR_IOU or contain >= SIMILAR_CONTAIN
@@ -192,16 +209,68 @@ def _greedy_merge(sources, predicate) -> List[ConfirmedTarget]:
     return out
 
 
+def _fold_into_rep(rep: ConfirmedTarget, other: ConfirmedTarget) -> ConfirmedTarget:
+    """Suppress `other` into representative `rep`: keep rep's GEOMETRY unchanged
+    (this is what makes the operator runaway-proof — a box is never grown by
+    union), but inherit the stronger evidence: 'visited' is sticky, confidence
+    and freshness take the max."""
+    status = ('visited'
+              if 'visited' in (str(rep.status).lower(), str(other.status).lower())
+              else rep.status)
+    return ConfirmedTarget(
+        label=rep.label, center=rep.center, size=rep.size, status=status,
+        confidence=max(rep.confidence, other.confidence),
+        ts=max(rep.ts, other.ts))
+
+
+def nms_dedupe(sources, predicate,
+               max_extent_by_label=None) -> List[ConfirmedTarget]:
+    """Non-Max-Suppression-style keep-representative dedupe (replaces union-merge).
+
+    Greedy agglomerative *union* chains: a box grows to touch the next fragment,
+    the grown box reaches the one after, and a whole row collapses into one
+    ballooned mega-box (only `MAX_TARGET_EXTENT_M` capped it). Here the merge
+    operator is SUPPRESSION instead: keep the strongest box per instance and
+    fold matching fragments/duplicates into it WITHOUT resizing it. The output
+    box is therefore always a real detection and can never balloon — distinct
+    neighbours (which don't match a *fixed* representative) always stay split.
+
+    Ranking: larger footprint first (most evidence / fullest extent, and lets a
+    visited/observing fragment inherit onto the fuller box), with the canonical
+    centre as a deterministic tie-break so every robot keeps the same rep.
+    `max_extent_by_label`: optional per-class hard cap — a box whose xy extent
+    exceeds its class prior is dropped as a mis-detection (a lattice tower can't
+    be 40 m wide)."""
+    def _rank(ct):
+        vol = float(np.prod(np.maximum(np.abs(ct.size), 1e-6)))
+        return (-vol, float(ct.center[0]), float(ct.center[1]), float(ct.center[2]))
+
+    kept: List[ConfirmedTarget] = []
+    for ct in sorted(sources, key=_rank):
+        if max_extent_by_label is not None:
+            cap = max_extent_by_label.get(ct.label)
+            if cap is not None and float(np.max(np.abs(ct.size[:2]))) > cap:
+                continue
+        idx = next((i for i, e in enumerate(kept) if predicate(e, ct)), None)
+        if idx is None:
+            kept.append(ct)
+        else:
+            kept[idx] = _fold_into_rep(kept[idx], ct)
+    return kept
+
+
 def merge_confirmed_targets(sources: List[ConfirmedTarget]) -> List[ConfirmedTarget]:
-    """Local combine: glue a robot's own nearby fragments (overlap or gap within
-    margin) into per-target boxes before transmit."""
-    return _greedy_merge(sources, _should_merge)
+    """Local combine: dedupe a robot's own fragments (xy-overlap or gap within
+    margin) into one box per target before transmit. Keep-representative (NMS) so
+    stacked z-fragments collapse without the union operator ballooning the box."""
+    return nms_dedupe(sources, _should_merge)
 
 
 def merge_similar_targets(sources: List[ConfirmedTarget]) -> List[ConfirmedTarget]:
-    """Cross-robot merge: fuse only boxes that are the SAME target (overlap /
-    containment). Dissimilar boxes are distinct targets and stay split."""
-    return _greedy_merge(sources, _same_target)
+    """Cross-robot merge: fuse boxes that are the SAME target (xy overlap /
+    containment); dissimilar boxes stay split. Keep-representative (NMS): the
+    kept box is a real detection, never a chained union across neighbours."""
+    return nms_dedupe(sources, _same_target)
 
 
 def _house_pred(a: ConfirmedTarget, b: ConfirmedTarget) -> bool:
@@ -219,8 +288,10 @@ def _house_pred(a: ConfirmedTarget, b: ConfirmedTarget) -> bool:
 
 def merge_house_boxes(sources: List[ConfirmedTarget]) -> List[ConfirmedTarget]:
     """One box per house for display + visited-flip: same-target boxes coincide,
-    and a visited fragment flips the same-instance (overlapping) box."""
-    return _greedy_merge(sources, _house_pred)
+    and a visited fragment flips the same-instance (overlapping) box. Keep-
+    representative (NMS): visited status is inherited onto the fuller box without
+    union growth (visited stays sticky via _fold_into_rep)."""
+    return nms_dedupe(sources, _house_pred)
 
 
 def _stable_id(label: str, center: np.ndarray) -> str:
