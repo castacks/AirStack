@@ -1,0 +1,87 @@
+{
+  "run_id": "20260708_114749",
+  "timestamp": "20260708_114749",
+  "machine": {
+    "hostname": "desk55",
+    "os": "Linux-6.8.0-117-generic-x86_64-with-glibc2.35",
+    "python": "3.11.13",
+    "gpu": "NVIDIA GeForce RTX 4090",
+    "gpu_driver": "580.159.03",
+    "gpu_memory": "24564 MiB",
+    "cpu": "Intel(R) Core(TM) i9-7920X CPU @ 2.90GHz",
+    "ram_gb": 125.5
+  },
+  "robot": {
+    "name": "starling",
+    "description": "",
+    "isaac_robot": "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Assets/ModalAI/starling_2_max/starling2max.usd",
+    "px4_airframe": "gazebo-classic_iris",
+    "hover_thrust": 0.49,
+    "mass_kg": 0.557,
+    "max_speed": 5.0
+  },
+  "num_env_domains": 1,
+  "env_domains": [
+    "empty"
+  ],
+  "disturbance": {
+    "name": "dynamic_obstacle_speed",
+    "element": "moving obstacles (pedestrians and service robots)",
+    "variable": "obstacle_speed_m_s",
+    "perturb_range": [
+      0.8,
+      1.2
+    ],
+    "description": "Independently moving pedestrians and service robots are the primary collision threat in AirStack's indoor and outdoor scenes. Their speed is resampled each perturbation within \u00b120% of the domain nominal, reflecting realistic crowd-density fluctuations and robot operational speed variance. Faster obstacles reduce time-to-collision from any given clearance distance, raising the tail risk of impacts."
+  },
+  "num_scenarios": 1,
+  "num_perturbations": 1,
+  "max_episodes": 1,
+  "total_episodes_per_agent": 1,
+  "benchmark_seed": 972072787,
+  "benchmark_config": {
+    "p_max": 0.05,
+    "tau_safety": 500.0,
+    "alpha": 0.1,
+    "phi_s": 0.95,
+    "phi_p": 0.8,
+    "eta": 0.1,
+    "gamma": 0.05
+  },
+  "integration": "airstack",
+  "agents": [
+    "droan"
+  ],
+  "env_name": "AirstackEnv",
+  "env_dt": 0.1,
+  "max_episode_time_s": 30.0,
+  "max_episode_steps": 300,
+  "domain": "empty",
+  "num_dynamic_obstacles_max": 0,
+  "ramp_dynamic_obstacles": true,
+  "physics_dynamic_obstacles": false,
+  "world_size_x": 15.0,
+  "world_size_y": 15.0,
+  "taxonomy": null,
+  "outcome_labels": [
+    "Safe Success",
+    "Risky Success",
+    "Unsafe Success",
+    "SHP",
+    "SR",
+    "SF-O",
+    "LVC",
+    "HVC",
+    "AR-LVC",
+    "AR-HVC",
+    "TO-US",
+    "TO-RP",
+    "TO-RD",
+    "UF-O"
+  ],
+  "RE_max": null,
+  "r_failure": null,
+  "total_seconds": 44,
+  "sim_seconds": 30.0,
+  "real_time_factor": 0.682
+}

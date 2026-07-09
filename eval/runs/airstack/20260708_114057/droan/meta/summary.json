@@ -1,0 +1,33 @@
+{
+  "agent": "droan",
+  "generated": "2026-07-08T11:41:39",
+  "total_episodes": 1,
+  "overall": {
+    "success": 0,
+    "collision": 0,
+    "timeout": 1,
+    "other": 0,
+    "degraded_resets": 0,
+    "success_rate": 0.0,
+    "success_ci95": [
+      0.0,
+      0.7934567085261071
+    ]
+  },
+  "per_domain": {
+    "empty": {
+      "episodes": 1,
+      "success": 0,
+      "collision": 0,
+      "timeout": 1,
+      "other": 0,
+      "degraded_resets": 0,
+      "success_rate": 0.0,
+      "success_ci95": [
+        0.0,
+        0.7934567085261071
+      ],
+      "mean_steps": 300.0
+    }
+  }
+}

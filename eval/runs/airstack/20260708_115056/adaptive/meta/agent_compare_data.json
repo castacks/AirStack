@@ -1,0 +1,334 @@
+{
+  "benchmark_data": {
+    "outcome": {
+      "distribution": {
+        "Safe Success": 0.0,
+        "Risky Success": 0.0,
+        "Unsafe Success": 0.0,
+        "SHP": 0.0,
+        "SR": 0.0,
+        "SF-O": 0.0,
+        "LVC": 0.0,
+        "HVC": 0.0,
+        "AR-LVC": 0.0,
+        "AR-HVC": 0.0,
+        "TO-US": 0.0,
+        "TO-RP": 0.0,
+        "TO-RD": 0.0,
+        "UF-O": 0.0
+      },
+      "std_distribution": {
+        "Safe Success": 0.0,
+        "Risky Success": 0.0,
+        "Unsafe Success": 0.0,
+        "SHP": 0.0,
+        "SR": 0.0,
+        "SF-O": 0.0,
+        "LVC": 0.0,
+        "HVC": 0.0,
+        "AR-LVC": 0.0,
+        "AR-HVC": 0.0,
+        "TO-US": 0.0,
+        "TO-RP": 0.0,
+        "TO-RD": 0.0,
+        "UF-O": 0.0
+      },
+      "nominal_distribution": {
+        "task_completed": 1.0,
+        "catastrophic_failure": 0.0,
+        "timeout": 0.0
+      },
+      "n_total": 1
+    },
+    "performance_metrics": {
+      "duration_s": {
+        "mean": 7.0,
+        "std": 0.0,
+        "values": [
+          7.0
+        ]
+      },
+      "mean_speed_m_s": {
+        "mean": 1.37259486524918,
+        "std": 0.0,
+        "values": [
+          1.37259486524918
+        ]
+      },
+      "mean_accel_m_s2": {
+        "mean": 2.76836811867357,
+        "std": 0.0,
+        "values": [
+          2.76836811867357
+        ]
+      }
+    },
+    "cost": {
+      "distribution": [
+        0.0
+      ],
+      "mean": 0.0,
+      "cvar": 0.0,
+      "tail_var": 0.0,
+      "cvar_se": 0.0,
+      "child_cvars": [
+        0.0
+      ],
+      "cvar_mean": 0.0,
+      "cvar_std": 0.0,
+      "cvar_variance": 0.0,
+      "cvar_cv": 0.0,
+      "alg_variance": 0.0,
+      "child_alg_variances": [
+        0.0
+      ],
+      "domain_cvar_cvs": [
+        0.0
+      ],
+      "per_scenario_cvars": [
+        0.0
+      ],
+      "per_scenario_cv_p": [
+        0.0
+      ]
+    },
+    "risk_metrics": {
+      "mean_re": Infinity,
+      "min_re": Infinity,
+      "mean_rp": Infinity,
+      "min_rp": Infinity,
+      "mean_ret": 0.0,
+      "max_ret": 0.0,
+      "mean_rpt": 0.0,
+      "max_rpt": 0.0,
+      "re_values": [
+        0.0
+      ],
+      "rp_values": [
+        0.0
+      ],
+      "ret_values": [
+        0.0
+      ],
+      "rpt_values": [
+        0.0
+      ],
+      "t_re_list": [
+        null
+      ],
+      "t_rp_list": [
+        null
+      ],
+      "child_mean_re": [
+        Infinity
+      ],
+      "child_min_re": [
+        Infinity
+      ],
+      "child_mean_rp": [
+        Infinity
+      ],
+      "child_min_rp": [
+        Infinity
+      ],
+      "child_mean_ret": [
+        0.0
+      ],
+      "child_max_ret": [
+        0.0
+      ],
+      "child_mean_rpt": [
+        0.0
+      ],
+      "child_max_rpt": [
+        0.0
+      ]
+    },
+    "trajectory_metrics": {
+      "re_series": [],
+      "rp_series": [],
+      "l_unsafe_series": [],
+      "l_failure_series": [],
+      "epsilon_unsafe": null,
+      "mean_l_unsafe_values": [
+        0.0
+      ],
+      "mean_l_unsafe": 0.0
+    },
+    "domain_summaries": [
+      {
+        "name": "empty",
+        "mean": 0.0,
+        "cvar": 0.0,
+        "cvar_cv": 0.0,
+        "dominant_outcome": "Safe Success",
+        "nominal_distribution": {
+          "task_completed": 1.0,
+          "catastrophic_failure": 0.0,
+          "timeout": 0.0
+        },
+        "performance_metrics": {
+          "duration_s": {
+            "mean": 7.0,
+            "std": 0.0,
+            "values": [
+              7.0
+            ]
+          },
+          "mean_speed_m_s": {
+            "mean": 1.37259486524918,
+            "std": 0.0,
+            "values": [
+              1.37259486524918
+            ]
+          },
+          "mean_accel_m_s2": {
+            "mean": 2.76836811867357,
+            "std": 0.0,
+            "values": [
+              2.76836811867357
+            ]
+          }
+        },
+        "num_episodes": 1
+      }
+    ],
+    "scenario_summaries_flat": [
+      {
+        "mean": 0.0,
+        "cvar": 0.0,
+        "cvar_cv": 0.0,
+        "dominant_outcome": "Safe Success",
+        "domain_idx": 0,
+        "domain_name": "empty",
+        "scenario_idx": 0
+      }
+    ],
+    "worst_episode": {
+      "perturbation_idx": 0,
+      "episode_idx": 0,
+      "cost": 0.0,
+      "outcome": "task_completed",
+      "scenario_idx": 0,
+      "domain_idx": 0,
+      "domain_name": "empty"
+    },
+    "asb": null,
+    "taxonomy": {
+      "label": "root",
+      "children": [
+        {
+          "label": "Safe Success",
+          "children": [],
+          "count": 0
+        },
+        {
+          "label": "Risky Success",
+          "children": [],
+          "count": 0
+        },
+        {
+          "label": "Unsafe Success",
+          "children": [],
+          "count": 0
+        },
+        {
+          "label": "Safe Failure",
+          "children": [
+            {
+              "label": "SHP",
+              "children": [],
+              "count": 0
+            },
+            {
+              "label": "SR",
+              "children": [],
+              "count": 0
+            },
+            {
+              "label": "SF-O",
+              "children": [],
+              "count": 0
+            }
+          ],
+          "count": 0
+        },
+        {
+          "label": "Unsafe Failure",
+          "children": [
+            {
+              "label": "Catastrophic Failure",
+              "children": [
+                {
+                  "label": "LVC",
+                  "children": [],
+                  "count": 0
+                },
+                {
+                  "label": "HVC",
+                  "children": [],
+                  "count": 0
+                },
+                {
+                  "label": "AR-LVC",
+                  "children": [],
+                  "count": 0
+                },
+                {
+                  "label": "AR-HVC",
+                  "children": [],
+                  "count": 0
+                }
+              ],
+              "count": 0
+            },
+            {
+              "label": "Timeout",
+              "children": [
+                {
+                  "label": "TO-US",
+                  "children": [],
+                  "count": 0
+                },
+                {
+                  "label": "TO-RP",
+                  "children": [],
+                  "count": 0
+                },
+                {
+                  "label": "TO-RD",
+                  "children": [],
+                  "count": 0
+                }
+              ],
+              "count": 0
+            },
+            {
+              "label": "UF-O",
+              "children": [],
+              "count": 0
+            }
+          ],
+          "count": 0
+        }
+      ],
+      "count": 0
+    },
+    "outcome_labels": [
+      "Safe Success",
+      "Risky Success",
+      "Unsafe Success",
+      "SHP",
+      "SR",
+      "SF-O",
+      "LVC",
+      "HVC",
+      "AR-LVC",
+      "AR-HVC",
+      "TO-US",
+      "TO-RP",
+      "TO-RD",
+      "UF-O"
+    ]
+  }
+}

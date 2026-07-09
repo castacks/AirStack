@@ -1,0 +1,33 @@
+{
+  "agent": "adaptive",
+  "generated": "2026-07-08T11:51:34",
+  "total_episodes": 1,
+  "overall": {
+    "success": 1,
+    "collision": 0,
+    "timeout": 0,
+    "other": 0,
+    "degraded_resets": 0,
+    "success_rate": 1.0,
+    "success_ci95": [
+      0.20654329147389294,
+      1.0
+    ]
+  },
+  "per_domain": {
+    "empty": {
+      "episodes": 1,
+      "success": 1,
+      "collision": 0,
+      "timeout": 0,
+      "other": 0,
+      "degraded_resets": 0,
+      "success_rate": 1.0,
+      "success_ci95": [
+        0.20654329147389294,
+        1.0
+      ],
+      "mean_steps": 70.0
+    }
+  }
+}

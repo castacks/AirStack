@@ -15,7 +15,7 @@ If you just want per-domain **success / collision / timeout rates** with no safe
 ~/isaacsim/python.sh eval/run.py --agent conservative --domains warehouse --simple -q
 
 # DROAN planner, simple outcome rates
-~/isaacsim/python.sh eval/run.py --agent airstackdroan --domains warehouse --simple
+~/isaacsim/python.sh eval/run.py --agent droan --domains warehouse --simple --headless
 ```
 
 `--simple` outputs an outcome bar chart and a performance metrics table. It's the fastest way to verify the integration is wired up correctly before running a full SAFE evaluation.

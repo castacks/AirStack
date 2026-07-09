@@ -60,6 +60,8 @@ class AirstackRunner(BaseRunner):
             "random",
             "aggressive",
             "conservative",
+            "adaptive",
+            "adaptiveapf",
             "droan",
             "super",
         ]

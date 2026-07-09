@@ -26,6 +26,11 @@ import numpy as np
 
 from safe_core.core.policy import Policy
 
+# Heuristic baselines are shared with aerial_nav — import, don't duplicate.
+from integrations.aerial_nav.agents.baselines import (  # noqa: F401
+    Random, Aggressive, Conservative, Adaptive, AdaptiveApf,
+)
+
 
 # ── TCP sidecar helpers ────────────────────────────────────────────────────────
 
@@ -101,123 +106,6 @@ class _TCPSidecarClient:
                 self._sock = None
 
 
-# ── Pure-Python baselines ──────────────────────────────────────────────────────
-
-def _wall_repulsion(pos, env_bounds, repulsion_radius=1.0, repulsion_gain=1.5):
-    dim = len(pos)
-    force = np.zeros(dim)
-    b = env_bounds
-    walls = [
-        (0, +1.0, b[0]),
-        (0, -1.0, b[3]),
-        (1, +1.0, b[1]),
-        (1, -1.0, b[4]),
-    ]
-    if dim > 2:
-        walls += [(2, +1.0, b[2]), (2, -1.0, b[5])]
-    for axis, sign, wall_coord in walls:
-        dist = max(sign * (pos[axis] - wall_coord), 1e-6)
-        if dist < repulsion_radius:
-            mag = repulsion_gain * (1.0 / dist - 1.0 / repulsion_radius) / dist
-            normal = np.zeros(dim)
-            normal[axis] = sign
-            force += mag * normal
-    return force
-
-
-class Random(Policy):
-    """Uniform random baseline — establishes worst-case risk exposure."""
-    sensors = ["full_state"]
-
-    def reset(self):
-        pass
-
-    def act(self, obs):
-        return np.random.uniform(-1.0, 1.0, size=len(obs["agent"])).astype(np.float32)
-
-
-class Aggressive(Policy):
-    """Full-speed beeline to goal with no obstacle avoidance."""
-    sensors = ["full_state"]
-
-    def reset(self):
-        pass
-
-    def act(self, obs):
-        direction = obs["target"] - obs["agent"]
-        dist = np.linalg.norm(direction)
-        if dist < 1e-8:
-            return np.zeros(len(obs["agent"]), dtype=np.float32)
-        goal_dir = direction / dist
-        if "env_bounds" in obs and obs["env_bounds"] is not None:
-            combined = goal_dir + _wall_repulsion(obs["agent"], obs["env_bounds"])
-            norm = np.linalg.norm(combined)
-            action = combined / norm if norm > 1e-8 else goal_dir
-        else:
-            action = goal_dir
-        return action.astype(np.float32)
-
-
-class Conservative(Policy):
-    """Slows down near obstacles, retreats when inside stop_radius.
-    Useful as a safety-aware baseline without any ROS dependency."""
-    sensors = ["full_state"]
-
-    def __init__(self, stop_radius: float = 1.2, slow_radius: float = 2.5):
-        self.stop_radius = stop_radius
-        self.slow_radius = slow_radius
-
-    def reset(self):
-        pass
-
-    def act(self, obs):
-        pos = obs["agent"]
-        goal = obs["target"]
-        dim = len(pos)
-
-        direction = goal - pos
-        dist_to_goal = np.linalg.norm(direction)
-        if dist_to_goal < 1e-8:
-            return np.zeros(dim, dtype=np.float32)
-        goal_dir = direction / dist_to_goal
-
-        # Gather all obstacle positions from both dynamic and static obs
-        obs_positions = []
-        for key in ("dynamic_obstacles", "static_obstacles", "static_cylinders"):
-            arr = obs.get(key)
-            if arr is not None and len(arr) > 0:
-                obs_positions.append(np.asarray(arr)[:, :dim])
-
-        repulsion = np.zeros(dim)
-        min_dist = float("inf")
-
-        if obs_positions:
-            all_obs = np.concatenate(obs_positions, axis=0)
-            dists = np.linalg.norm(all_obs - pos, axis=1)
-            min_dist = float(dists.min())
-            for i, d in enumerate(dists):
-                if d < self.slow_radius and d > 1e-6:
-                    away = pos - all_obs[i]
-                    away_norm = np.linalg.norm(away)
-                    if away_norm > 1e-6:
-                        magnitude = (1.0 - d / self.slow_radius) ** 2
-                        repulsion += magnitude * (away / away_norm)
-
-        if "env_bounds" in obs and obs["env_bounds"] is not None:
-            repulsion += _wall_repulsion(pos, obs["env_bounds"])
-
-        if min_dist < self.stop_radius:
-            # Retreat
-            combined = repulsion if np.linalg.norm(repulsion) > 1e-8 else -goal_dir
-        else:
-            speed = np.clip((min_dist - self.stop_radius) / (self.slow_radius - self.stop_radius), 0.1, 1.0)
-            combined = goal_dir * speed + repulsion * 0.5
-
-        norm = np.linalg.norm(combined)
-        return (combined / norm if norm > 1e-8 else goal_dir).astype(np.float32)
-
-
-# ── ROS bridge agents (AirStack planners via Docker sidecar) ───────────────────
 
 class _AirstackROSBridgePolicy(Policy):
     """Base for AirStack planner agents that communicate via a TCP ROS sidecar.

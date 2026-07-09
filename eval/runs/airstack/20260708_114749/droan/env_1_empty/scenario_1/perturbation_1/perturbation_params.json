@@ -1,0 +1,8 @@
+{
+  "perturbation_idx": 1,
+  "perturbation_seed": 480944479,
+  "scenario_seed": 2417399376,
+  "obstacle_speed": 0.9,
+  "n_active_dynamic_obstacles": 0,
+  "num_dynamic_obstacles_max": 0
+}
