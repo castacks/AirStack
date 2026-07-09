@@ -17,6 +17,9 @@ from pathlib import Path
 PARAM_RE = re.compile(r"\[(.+)\]$")
 ITER_RE = re.compile(r"-iter\d+$")
 ROBOT_METRIC_RE = re.compile(r"^robot_\d+\.(.+)$")
+# pytest nodeid path prefix (metrics.json) vs JUnit classname (results.xml)
+MODULE_RE = re.compile(r"(?:^|\.)(test_\w+)\.Test")
+PHASE_RE = re.compile(r"\.Test[A-Za-z0-9_]+\.(test_\w+)(?:\[|$)")
 
 # Ordered (metric_key, label) groups per test module. Only scalar metrics with
 # a numeric "value" field are emitted.
@@ -58,6 +61,27 @@ PHASE_ORDER = {
 }
 
 
+def _canonical_test_id(name: str) -> str:
+    """Unify metrics.json path slashes with JUnit classname dots.
+
+    metrics.json keys look like ``system/test_fixed_trajectory.Class.test_x[...]``
+    (pytest nodeid). results.xml uses ``system.test_fixed_trajectory.Class.test_x[...]``.
+    """
+    head, dot, rest = name.partition(".")
+    if "/" in head:
+        head = head.replace("/", ".")
+        return head + dot + rest if dot else head
+    return name
+
+
+def _normalize_keyed_map(raw: dict) -> dict:
+    """Merge entries that differ only by path-slash vs dot classname form."""
+    out: dict = {}
+    for key, value in raw.items():
+        out[_canonical_test_id(key)] = value
+    return out
+
+
 def _parse_results_xml(path: Path) -> tuple[dict[str, str], dict[str, float]]:
     """Return ({full_test_name: status}, {full_test_name: wall_time_s})."""
     if not path.exists():
@@ -65,7 +89,7 @@ def _parse_results_xml(path: Path) -> tuple[dict[str, str], dict[str, float]]:
     statuses: dict[str, str] = {}
     durations: dict[str, float] = {}
     for tc in ET.parse(path).iter("testcase"):
-        full = f"{tc.get('classname')}.{tc.get('name')}"
+        full = _canonical_test_id(f"{tc.get('classname')}.{tc.get('name')}")
         if tc.find("failure") is not None or tc.find("error") is not None:
             statuses[full] = "FAILED"
         elif tc.find("skipped") is not None:
@@ -83,7 +107,7 @@ def _parse_results_xml(path: Path) -> tuple[dict[str, str], dict[str, float]]:
 def _load_metrics(path: Path) -> dict:
     if not path.exists():
         return {}
-    return json.loads(path.read_text())
+    return _normalize_keyed_map(json.loads(path.read_text()))
 
 
 def _param_id(test_name: str) -> str:
@@ -92,16 +116,20 @@ def _param_id(test_name: str) -> str:
 
 
 def _module_name(test_name: str) -> str:
-    return test_name.split(".", 1)[0]
+    canonical = _canonical_test_id(test_name)
+    match = MODULE_RE.search(canonical)
+    if match:
+        return match.group(1)
+    return canonical.split(".", 1)[0]
 
 
 def _phase_name(test_name: str) -> str:
     """test_fixed_trajectory.TestFixedTrajectory.test_takeoff[...] -> test_takeoff"""
-    parts = test_name.split(".")
-    if len(parts) >= 3:
-        phase = parts[2]
-        return phase.split("[", 1)[0]
-    return test_name
+    canonical = _canonical_test_id(test_name)
+    match = PHASE_RE.search(canonical)
+    if match:
+        return match.group(1)
+    return canonical.split("[", 1)[0]
 
 
 def _base_param_id(param: str) -> str:
@@ -143,16 +171,24 @@ def _format_aggregated(key: str, values: list[float], unit: str) -> str:
     return f"{base} ± {std:.3g} {unit}".strip() if unit else f"{base} ± {std:.3g} (n={len(values)})"
 
 
-def _collect_scalar_metrics(metrics_blob: dict) -> dict[str, dict]:
-    """Flatten per-test metrics.json into {metric_key: entry}."""
-    out: dict[str, dict] = {}
+def _collect_scalar_metrics(metrics_blob: dict) -> dict[str, list[dict]]:
+    """Flatten per-test metrics.json into {metric_key: [entries]}.
+
+    Preserves one entry per robot for multi-robot runs (robot_N.metric_key).
+    """
+    out: dict[str, list[dict]] = {}
     for key, entry in metrics_blob.items():
         if not isinstance(entry, dict) or "value" not in entry:
             continue
-        m = ROBOT_METRIC_RE.match(key)
-        metric_key = m.group(1) if m else key
-        out[metric_key] = entry
+        match = ROBOT_METRIC_RE.match(key)
+        metric_key = match.group(1) if match else key
+        out.setdefault(metric_key, []).append(entry)
     return out
+
+
+def _metrics_blob(metrics: dict, test_name: str) -> dict:
+    canonical = _canonical_test_id(test_name)
+    return metrics.get(canonical, {})
 
 
 def _aggregate_metrics(
@@ -163,12 +199,13 @@ def _aggregate_metrics(
     """Collect numeric metric values across all test phases / iterations."""
     buckets: dict[str, list[float]] = {key: [] for key, _ in schema}
     for name in test_names:
-        for metric_key, entry in _collect_scalar_metrics(metrics.get(name, {})).items():
+        for metric_key, entries in _collect_scalar_metrics(_metrics_blob(metrics, name)).items():
             if metric_key not in buckets:
                 continue
-            value = entry.get("value")
-            if isinstance(value, (int, float)):
-                buckets[metric_key].append(float(value))
+            for entry in entries:
+                value = entry.get("value")
+                if isinstance(value, (int, float)):
+                    buckets[metric_key].append(float(value))
     return buckets
 
 
@@ -208,7 +245,7 @@ def _group_tests(
 ) -> dict[tuple[str, str], list[str]]:
     """Group full test names by (module, base_param_id) across stress iterations."""
     groups: dict[tuple[str, str], list[str]] = {}
-    all_names = set(metrics) | set(statuses)
+    all_names = {_canonical_test_id(name) for name in set(metrics) | set(statuses)}
     for name in sorted(all_names):
         module = _module_name(name)
         param = _base_param_id(_param_id(name))
@@ -289,13 +326,14 @@ def build_summary_lines(run_dir: Path) -> list[str]:
             unit = UNIT_OVERRIDES.get(
                 metric_key,
                 next(
-                    (e.get("unit", "") for name in test_names
-                     for k, e in _collect_scalar_metrics(metrics.get(name, {})).items()
-                     if k == metric_key and isinstance(e, dict)),
+                    (entry.get("unit", "")
+                     for name in test_names
+                     for entry in _collect_scalar_metrics(_metrics_blob(metrics, name)).get(
+                         metric_key, [])),
                     "",
                 ),
             )
-            if n_iter > 1:
+            if n_iter > 1 or len(values) > 1:
                 lines.append(f"{label}: {_format_aggregated(metric_key, values, unit)}")
             else:
                 entry = {"value": values[-1], "unit": unit}
