@@ -103,7 +103,7 @@ environments:
     # '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.7071,0.7071]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,1.0,0.0]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,-0.7071,0.7071]}]'
     RESULTS_SCENE: "ConstructionSite"
     query: "Forklift, Towercrane, blue tarp"
-    voxel_score_threshold: 0.78
+    voxel_score_threshold: 0.72
     score_threshold: 0.68
     voxel_min_cluster_size: 15
     background_queries: "road, grass, mountain, parking lot, building, scaffolding, fence, cement"
@@ -143,10 +143,10 @@ environments:
     STAGE_SCALE: "1.0"
     RESULTS_SCENE: "MilitaryBase"
     query: "Guard Tower, Radio Tower, Bridge"
-    voxel_score_threshold: 0.72
+    voxel_score_threshold: 0.75
     score_threshold: 0.68
     voxel_min_cluster_size: 20
-    background_queries: "sky, ground, grass, road, tree"
+    background_queries: "sky, ground, grass, road, tree, building"
     search_area:
       points:
         - {x: 1280.0, y: 320.0, z: 0.0}
