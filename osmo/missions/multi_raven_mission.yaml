@@ -127,7 +127,7 @@ environments:
     voxel_score_threshold: 0.85          # starting default — tune per scene
     score_threshold: -1                  # not tuned — raven_nav default (0.72)
     voxel_min_cluster_size: 30           # not tuned — raven_nav default (35)
-    background_queries: "sky, ground, grass, road, tree"
+    background_queries: "ground, grass, road, tree"
     search_area:
       points:
         - {x: 45.0, y: 102.0, z: 0.0}
@@ -146,7 +146,7 @@ environments:
     voxel_score_threshold: 0.75
     score_threshold: 0.68
     voxel_min_cluster_size: 20
-    background_queries: "sky, ground, grass, road, tree, building"
+    background_queries: "ground, grass, road, tree, building"
     search_area:
       points:
         - {x: 1280.0, y: 320.0, z: 0.0}
@@ -166,7 +166,7 @@ environments:
     voxel_score_threshold: 0.7
     score_threshold: 0.65
     voxel_min_cluster_size: 20
-    background_queries: "sky, ground, grass, road, tree, water tower, debris, industrial mill"
+    background_queries: "ground, grass, road, tree, water tower, debris, industrial mill"
     search_area:
       points:
         - {x: -150.0, y: 150.0, z: 0.0}
@@ -174,24 +174,24 @@ environments:
         - {x: 150.0, y: -150.0, z: 0.0}
         - {x: -150.0, y: -150.0, z: 0.0}
 
-  - name: downtownwest
-    ENV_URL: "Library/Stages/Dmytro/downtown_edited_v3_818.usd"
-    # Fixed spawn (pos + orient). Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
-    # SPAWN_POLY: "[[-3, -43], [9, -28]]"
-    SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0,0,0.698,0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0,0,0.736,0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0,0,0.784,0.621]}]'
-    STAGE_SCALE: "1.0"
-    RESULTS_SCENE: "DowntownWest"
-    query: "Traffic Light"
-    voxel_score_threshold: 0.75
-    score_threshold: 0.65
-    voxel_min_cluster_size: 20
-    background_queries: "sky, ground, grass, road, tree, building"
-    search_area:
-      points:
-        - {x: 150.0, y: 80.0, z: 0.0}
-        - {x: 150.0, y: -80.0, z: 0.0}
-        - {x: -150.0, y: -80.0, z: 0.0}
-        - {x: -150.0, y: 80.0, z: 0.0}
+  # - name: downtownwest
+  #   ENV_URL: "Library/Stages/Dmytro/downtown_edited_v3_818.usd"
+  #   # Fixed spawn (pos + orient). Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
+  #   # SPAWN_POLY: "[[-3, -43], [9, -28]]"
+  #   SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0,0,0.698,0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0,0,0.736,0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0,0,0.784,0.621]}]'
+  #   STAGE_SCALE: "1.0"
+  #   RESULTS_SCENE: "DowntownWest"
+  #   query: "Traffic Light"
+  #   voxel_score_threshold: 0.75
+  #   score_threshold: 0.65
+  #   voxel_min_cluster_size: 20
+  #   background_queries: "ground, grass, road, tree, building"
+  #   search_area:
+  #     points:
+  #       - {x: 150.0, y: 80.0, z: 0.0}
+  #       - {x: 150.0, y: -80.0, z: 0.0}
+  #       - {x: -150.0, y: -80.0, z: 0.0}
+  #       - {x: -150.0, y: 80.0, z: 0.0}
 
 # Send goals through the GCS action_relay — the exact path Foxglove uses.
 command_route: gcs
