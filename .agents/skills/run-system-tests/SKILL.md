@@ -1,6 +1,6 @@
 ---
 name: run-system-tests
-description: Run, interpret, and extend AirStack's pytest system test suite (build_packages, build_docker, liveliness, sensors, takeoff_hover_land), trigger runs via /pytest PR comments, and read metrics.json regression reports. Use for invoking tests, debugging failures from results.xml/metrics.json, or adding a new system test.
+description: Run, interpret, and extend AirStack's pytest system test suite (build_packages, build_docker, liveliness, sensors, takeoff_hover_land, autonomy), trigger runs via /pytest PR comments, and read metrics.json regression reports. Use for invoking tests, debugging failures from results.xml/metrics.json, or adding a new system test.
 license: Apache-2.0
 metadata:
   author: AirLab CMU
@@ -14,7 +14,7 @@ metadata:
 Use this skill when you need to:
 
 - Invoke the pytest system tests locally (via `airstack test`) or on CI (via `/pytest` PR comment or `workflow_dispatch`)
-- Diagnose a failing system test — interpret `results.xml`, per-test logs, and `metrics.json` from `tests/results/<timestamp>/`
+- Diagnose a failing system test — interpret `summary.txt`, `results.xml`, and `metrics.json` from `tests/results/<timestamp>/`
 - Compare metrics against a baseline run (`parse_metrics.py --baseline`) to confirm a regression or improvement
 - Add a new system test to `tests/`: pick the right mark, wire up `airstack_env` parametrization, and record metrics with `MetricsRecorder`
 
@@ -24,7 +24,7 @@ This skill is about the **test harness itself** — pytest marks, fixtures, the 
 
 The suite lives at `tests/` (repo root) and is fully pytest-based. Configuration is in `tests/pytest.ini` and shared infrastructure in `tests/conftest.py`.
 
-- **`tests/system/`** — Docker stack integration tests. Marks: `build_docker`, `build_packages`, `liveliness`, `sensors`, `takeoff_hover_land`.
+- **`tests/system/`** — Docker stack integration tests. Marks: `build_docker`, `build_packages`, `liveliness`, `sensors`, `takeoff_hover_land`, `autonomy`.
 - **`tests/robot/`** and **`tests/sim/`** — Hermetic **unit** tests (`@pytest.mark.unit`). These are **thin proxy files** that re-export tests from each ROS 2 package's own `test/` directory (co-located with the source, the ROS 2 / colcon convention). The proxy pattern keeps test source next to the code it tests while making tests discoverable by `pytest tests/`.
 
 ### Unit tests vs system tests
@@ -55,6 +55,7 @@ For details on the proxy pattern and adding new unit tests, see the
 | `tests/system/test_liveliness.py` | `liveliness` | Stack bring-up: containers Running, `/clock` readiness, tmux panes, sentinel ROS 2 nodes, compute, infra-only `test_stable` | Docker daemon, NVIDIA GPU + `nvidia-container-toolkit`, sim license / Omniverse creds |
 | `tests/system/test_sensors.py` | `sensors` | Topic Hz (Isaac: batched on sim + robot; LiDAR `echo-once` + cloud sanity), RTF, `test_sensor_streams_stable` | Docker daemon, NVIDIA GPU + `nvidia-container-toolkit`, sim license / Omniverse creds |
 | `tests/system/test_takeoff_hover_land.py` | `takeoff_hover_land` | 4-phase flight chain per `(sim, num_robots, iteration, velocity)`: `test_px4_ready` → `test_takeoff` → `test_hover` → `test_landing`. Records altitude error, overshoot, hover stability, landing accuracy, odometry drift | Docker daemon, NVIDIA GPU, sim license |
+| `tests/system/test_fixed_trajectory.py` | `autonomy` | 4-phase flight chain per `(sim, num_robots, iteration, trajectory_type)`: `test_px4_ready` → `test_takeoff` → `test_fixed_trajectory` → `test_landing`. Records cross-track error, path RMSE, trajectory success/time for Circle/Figure8/Racetrack/Line | Docker daemon, NVIDIA GPU, sim license |
 
 The marks are declared in `tests/pytest.ini`. **Do not invent new marks ad-hoc** — register any new mark there or pytest will warn about unknown marks.
 
@@ -63,10 +64,10 @@ The marks are declared in `tests/pytest.ini`. **Do not invent new marks ad-hoc**
 `conftest.py` enforces a deterministic global order so cheap-and-fast-failing tests surface first:
 
 ```
-system.test_build_docker → system.test_build_packages → system.test_liveliness → system.test_sensors → system.test_takeoff_hover_land
+system.test_build_docker → system.test_build_packages → system.test_liveliness → system.test_sensors → system.test_takeoff_hover_land → system.test_fixed_trajectory
 ```
 
-Within `system.test_takeoff_hover_land`, items are re-sorted to `(airstack_env, velocity, phase)` so each `(sim, robots, iter)` env brings the stack up once and the drone goes ground → air → ground per velocity before pytest moves to the next velocity.
+Within `system.test_takeoff_hover_land`, items are re-sorted to `(airstack_env, velocity, phase)` so each `(sim, robots, iter)` env brings the stack up once and the drone goes ground → air → ground per velocity before pytest moves to the next velocity. `system.test_fixed_trajectory` is re-sorted the same way by `(airstack_env, trajectory_type, phase)`.
 
 ### Isaac Sim (`sensors`): why Hz is batched and LiDAR uses `echo --once`
 
@@ -219,17 +220,17 @@ Every run (local or CI) produces a fresh timestamped directory under `tests/resu
 
 ```
 tests/results/2025-04-21_14-30-00/
+├── summary.txt        # Human-readable key metrics — open this first
 ├── results.xml        # JUnit XML — durations + pass/fail per test
-├── metrics.json       # Custom metrics keyed by test_node_id → metric_key
-└── logs/
-    ├── system.test_build_docker.TestDockerBuilds.test_build_robot_desktop.log
-    ├── system.test_sensors.TestSensors.test_sensor_streams_stable[msairsim-rob#1-iter0].log
-    ├── system.test_liveliness.TestLiveliness.test_stable[msairsim-rob#1-iter0].log
-    ├── airstack_env.system.test_liveliness.TestLiveliness.test_robot_containers_running[...].log
-    └── ...
+└── metrics.json       # Custom metrics keyed by test_node_id → metric_key
 ```
 
-**One log file per test execution**, plus separate `airstack_env.*.log` files for fixture narration (the `up`/`down` of each parametrize tuple). The fixture log file is named to track the rewritten test ID so it lands next to the triggering test.
+There is **no `logs/` subdirectory**. Live output streams to the terminal during
+the run (pytest `log_cli`), and each subprocess's combined stdout/stderr is held
+in memory so a failed assertion can include the tail of the last command's output
+inline. `summary.txt` is written once at session end by
+`run_summary.write_summary()`, so the key metrics land in one place without
+digging through raw output.
 
 ### `metrics.json` structure
 
@@ -345,7 +346,7 @@ Conventions:
 
 ### 6. Fixture extension
 
-If multiple tests need the same setup, add a fixture in `conftest.py` (not in your test file) so it's available repo-wide. Mirror the `airstack_env` pattern: yield a dict, narrate via `logger_to(log)`, record any setup/teardown timing as metrics.
+If multiple tests need the same setup, add a fixture in `conftest.py` (not in your test file) so it's available repo-wide. Mirror the `airstack_env` pattern: yield a dict, log progress via the shared `logger` (output streams to the terminal via `log_cli`), record any setup/teardown timing as metrics.
 
 ## Common Pitfalls
 
@@ -356,7 +357,7 @@ If multiple tests need the same setup, add a fixture in `conftest.py` (not in yo
 - **Not capturing metrics in a new test**. If a test fails silently (no metric recorded) the regression report has nothing to compare. Always record at least one scalar via `MetricsRecorder` so the test shows up in `metrics.json`.
 - **Letting parametrize cardinality explode**. Defaults `--sim msairsim,isaacsim --num-robots 1,3` with `--stress-iterations 3` multiply stack bring-ups for each selected mark (`liveliness`, `sensors`, `takeoff_hover_land`, …) — expensive. Override locally to a single tuple while iterating.
 - **Hardcoded container names**. Always use `find_container`, `get_robot_containers`, or `wait_for_container` — replica suffixes (`-1`, `-2`, `-3`) and compose project prefixes change.
-- **Asserting on stdout instead of using `read_log_tail`**. The conftest tees subprocess output to per-test log files; assertions should reference those logs (`f"airstack up failed:\n{read_log_tail()}"`) so failures attach the relevant context to the JUnit XML.
+- **Asserting on stdout instead of using `read_log_tail`**. The conftest captures each subprocess's combined stdout/stderr in memory; assertions should reference it via `read_log_tail()` (`f"airstack up failed:\n{read_log_tail()}"`) so failures attach the relevant context to the JUnit XML.
 - **Trying to SSH into a CI runner mid-job**. Workers are ephemeral OpenStack VMs destroyed within ~30s of job completion. Re-running the job creates a fresh VM. For genuine debugging on the runner, see `.github/orchestrator/README.md` (also exposed at `tests/ci-cd-orchestrator.md`) — but in 99% of cases, reproduce locally with `airstack test`.
 - **Forgetting to register a new mark**. Adding `@pytest.mark.my_new_mark` without updating `tests/pytest.ini` produces "PytestUnknownMarkWarning" and makes `-m my_new_mark` fail to filter as expected.
 
