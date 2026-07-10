@@ -4,14 +4,13 @@
 Each raven_nav node writes ``<results_dir>/<robot>.json`` (own AABBs + per-target
 event log + path length, all in **global ENU**). This script reads every such
 file, merges the AABBs across robots with the *same* dedup logic raven uses at
-runtime (``discoveries.merge_confirmed_targets`` — NMS keep-representative over
-xy-projected overlap/gap, so stacked z-fragments of one structure collapse and no
-box balloons by union), so boxes that refer to the same physical house collapse
-into one. It then aggregates discovery/confirmation/
+runtime (``discoveries.merge_confirmed_targets`` — overlap OR surface gap below
+margin), so two boxes that refer to the same physical house collapse into one.
+It then aggregates discovery/confirmation/
 visit timestamps and multi-robot path-cost metrics.
 
 Status matters: a merged AABB is ``visited`` if *any* contributing robot marked it
-visited (``_fold_into_rep`` keeps 'visited' sticky), else ``observing``. We report two
+visited (``_merge_two`` keeps 'visited' sticky), else ``observing``. We report two
 detection sets downstream:
   - **either**  — observing ∪ visited (all detections; the useful set for the
     frontier baseline, where nothing is ever visited).

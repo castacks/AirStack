@@ -28,6 +28,7 @@ install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 install(PROGRAMS
         scripts/odom_to_pose_stamped.py
         scripts/topic_keepalive_node.py
+        scripts/voxel_keepalive_node.py
         DESTINATION lib/${PROJECT_NAME})
 # install(DIRECTORY rviz DESTINATION share/${PROJECT_NAME})
 # install(DIRECTORY config DESTINATION share/${PROJECT_NAME})

@@ -85,9 +85,9 @@ _LOCAL_SCENES_DIR = os.path.normpath(os.path.join(_LAUNCH_SCRIPTS_DIR, "..", "as
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/copy-rayfronts-planner/AbandonedCity.scene.usd"
-ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/downtown_edited_v3_818.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/downtown_edited_v3_818.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/copy-rayfronts-planner/environments_start_pos/SnowyVillage_t_x-152_y-80_z-2_o_x0_y0_z_90.scene.usd"
-#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/edit_v1_shipyard.usd"
+ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/edit_v1_shipyard.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
 
 _env_url_override = os.environ.get("ENV_URL")
@@ -144,20 +144,19 @@ LIDAR_MIN_RANGE_M = 0.75
 #     {"domain_id": 3, "x_m": 32.0, "y_m": 19.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": LIDAR_MIN_RANGE_M}
 #     ]
 
+_DEFAULT_DRONE_CONFIGS = [
+    {"domain_id": 1, "x_m": 3.0, "y_m": 3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
+    {"domain_id": 2, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
+    {"domain_id": 3, "x_m": -3.0, "y_m": -3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
+    ]
 
-
-# Hardcoded fallback layout, used when SPAWN_POLY is not set (standalone runs).
 # _DEFAULT_DRONE_CONFIGS = [
-#     {"domain_id": 1, "x_m": 3.0, "y_m": 3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
-#     {"domain_id": 2, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
-#     {"domain_id": 3, "x_m": -3.0, "y_m": -3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
+#     {"domain_id": 1, "x_m": -1.0, "y_m": -41.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0,0,0.698,0.716], "lidar_min_range": LIDAR_MIN_RANGE_M},
+#     {"domain_id": 2, "x_m": 3.0, "y_m": -35.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0,0,0.736,0.677], "lidar_min_range": LIDAR_MIN_RANGE_M},
+#     {"domain_id": 3, "x_m": 7.0, "y_m": -30.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0,0,0.784,0.621], "lidar_min_range": LIDAR_MIN_RANGE_M},
 #     ]
 
-_DEFAULT_DRONE_CONFIGS = [
-    {"domain_id": 1, "x_m": -1.0, "y_m": -41.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0,0,0.698,0.716], "lidar_min_range": LIDAR_MIN_RANGE_M},
-    {"domain_id": 2, "x_m": 3.0, "y_m": -35.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0,0,0.736,0.677], "lidar_min_range": LIDAR_MIN_RANGE_M},
-    {"domain_id": 3, "x_m": 7.0, "y_m": -30.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0,0,0.784,0.621], "lidar_min_range": LIDAR_MIN_RANGE_M},
-    ]
+
 # Spawn-area override: when SPAWN_POLY is set (the mission runner sets it per
 # iteration), generate a randomized, collision-free layout inside it instead of
 # using the fallback above. SPAWN_POLY is JSON — 2 opposite corners for an

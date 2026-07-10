@@ -16,6 +16,8 @@ from std_msgs.msg import String, Empty
 from geometry_msgs.msg import Point, PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 
+from rcl_interfaces.msg import SetParametersResult
+
 from coordination_bringup.frame_utils import gps_to_enu, dir_to_quat
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
 from coordination_msgs.msg import CoverageGrid
@@ -68,6 +70,27 @@ _NAV_MODE_TAG = {
     'Voxel-based':    'voxel',
     'Complete':       'complete',
 }
+
+
+class _GatedPublisher:
+    """Wraps a real publisher so publish() is a no-op while disabled.
+
+    Lets us stop raven's outgoing navigation commands (the global_plan Path)
+    for debugging without tearing out the planning pipeline — perception, the
+    auction/consensus, gossip, and all viz keep running; only the command that
+    actually moves the drone is withheld. Any other publisher attribute
+    (get_subscription_count, etc.) delegates to the wrapped publisher."""
+
+    def __init__(self, pub, is_enabled) -> None:
+        self._pub = pub
+        self._is_enabled = is_enabled
+
+    def publish(self, msg) -> None:
+        if self._is_enabled():
+            self._pub.publish(msg)
+
+    def __getattr__(self, name):
+        return getattr(self._pub, name)
 
 
 def _polygon_area_xy(poly_xy: np.ndarray) -> float:
@@ -218,8 +241,20 @@ class RavenNavNode(Node):
         # column order. Filled lazily on first ray callback.
         self._detected_query_labels: 'list[str] | None' = None
 
-        self._path_pub = self.create_publisher(
-            Path, f'{self._prefix}/global_plan', 10)
+        # Navigation-command gate (debugging): when nav_output_enabled is False,
+        # raven plans normally but suppresses the global_plan Path so it never
+        # commands the drone. Toggle live with:
+        #   ros2 param set /<robot>/raven_nav nav_output_enabled false|true
+        self._nav_output_enabled = bool(self.declare_parameter(
+            'nav_output_enabled', True).value)
+        self.add_on_set_parameters_callback(self._on_set_parameters)
+        if not self._nav_output_enabled:
+            self.get_logger().warn(
+                '[raven] nav_output_enabled=False — SUPPRESSING global_plan '
+                '(planning still runs; drone will not be commanded)')
+        self._path_pub = _GatedPublisher(
+            self.create_publisher(Path, f'{self._prefix}/global_plan', 10),
+            lambda: self._nav_output_enabled)
         self._filtered_rays_pub = self.create_publisher(
             MarkerArray, f'{self._prefix}/filtered_rays', 10)
         self._viewpoint_pub = self.create_publisher(
@@ -1580,6 +1615,17 @@ class RavenNavNode(Node):
                 return
         self._last_results_dump_ts = now
         self._write_results()
+
+    def _on_set_parameters(self, params) -> SetParametersResult:
+        """Live-toggle the navigation-command gate via `ros2 param set`."""
+        for p in params:
+            if p.name == 'nav_output_enabled':
+                self._nav_output_enabled = bool(p.value)
+                self.get_logger().warn(
+                    f'[raven] nav_output_enabled -> {self._nav_output_enabled} '
+                    f'({"emitting" if self._nav_output_enabled else "SUPPRESSING"}'
+                    ' global_plan)')
+        return SetParametersResult(successful=True)
 
     def _local_to_world(self, p) -> np.ndarray:
         """Local 'map' point → annotation/world frame: add boot ENU in X/Y, but

@@ -12,7 +12,7 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
-from sensor_msgs.msg import NavSatFix, Image
+from sensor_msgs.msg import NavSatFix, Image, PointCloud2
 from nav_msgs.msg import Odometry, Path
 from visualization_msgs.msg import Marker, MarkerArray
 from builtin_interfaces.msg import Duration
@@ -22,7 +22,7 @@ from tf2_ros import StaticTransformBroadcaster
 
 from gcs_visualizer.gcs_utils import (
     gps_to_enu, multiply_quaternions, rotate_vector, transform_marker_array,
-    ORIGIN_LAT, ORIGIN_LON, ROBOT_COLORS,
+    transform_point_cloud2, ORIGIN_LAT, ORIGIN_LON, ROBOT_COLORS,
 )
 
 SENSOR_QOS = QoSProfile(
@@ -45,6 +45,17 @@ TRAJ_SUFFIX = '/trajectory_controller/trajectory_vis'
 PLAN_SUFFIX = '/global_plan'
 VDB_SUFFIX  = '/vdb_mapping/vdb_map_visualization'
 RAY_GROUPS_SUFFIX = '/ray_groups_viz'
+
+# rayfronts per-query voxel heatmap topics, bridged from the robot domain by the
+# DDS router (see onboard_all/config/dds_router.yaml). Names: /<robot>/rayfronts/
+# msg_serv/voxels_sim/{all|q{q}_{label}} — the robot segment is robot_${DOMAIN}.
+VOXELS_INFIX = '/rayfronts/msg_serv/'
+# rayfronts publishes voxels_sim clouds in RDF (right-down-forward, camera-
+# optical); raven converts to FLU as [z, -x, -y] (raven_nav_node._vox_all_cb).
+# That swap is a pure rotation — this is its quaternion (x, y, z, w), the same
+# one gossip_node applies to gossiped voxel clouds. Applied before the boot-ENU
+# translation so the republished cloud lands in the global 'map' frame.
+RDF_TO_FLU_QUAT = (-0.5, 0.5, -0.5, 0.5)
 
 # OBJ mesh axis correction quaternion (belly -Z, nose +X)
 AXIS_CORRECTION = (-0.5, -0.5, 0.5, 0.5)
@@ -82,6 +93,10 @@ class FoxgloveVisualizerNode(Node):
         self._plan_pattern = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(PLAN_SUFFIX)}$')
         self._vdb_pattern  = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(VDB_SUFFIX)}$')
         self._ray_groups_pattern = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(RAY_GROUPS_SUFFIX)}$')
+        # Captures (robot_name, voxel-topic suffix), e.g.
+        # /robot_1/rayfronts/msg_serv/voxels_sim/q0_car -> ('robot_1', 'voxels_sim/q0_car')
+        self._voxels_pattern = re.compile(
+            rf'^/({re.escape(self._prefix)}_\w+){re.escape(VOXELS_INFIX)}(voxels_sim/.+)$')
 
         self._gps_positions  = {}
         self._gps_boot       = {}
@@ -179,6 +194,8 @@ class FoxgloveVisualizerNode(Node):
         self._subscribed_vdb  = set()
         self._subscribed_ray_groups = set()
         self._ray_groups_pubs: dict = {}
+        self._subscribed_voxels = set()
+        self._voxels_pubs: dict = {}   # source topic -> republish publisher
 
         # Ground reference altitude (MSL of map z=0). Set once when we have
         # both GPS and odom from the same robot — see _try_lock_ground. Until
@@ -275,6 +292,22 @@ class FoxgloveVisualizerNode(Node):
                     )
                     self._subscribed_ray_groups.add(topic)
                     self.get_logger().info(f'Subscribed to ray_groups_viz: {topic}')
+
+            if topic not in self._subscribed_voxels:
+                m = self._voxels_pattern.match(topic)
+                if m and 'sensor_msgs/msg/PointCloud2' in type_list:
+                    name, suffix = m.group(1), m.group(2)
+                    out_topic = f'/rayfronts_debug/{name}/{suffix}'
+                    self._voxels_pubs[topic] = self.create_publisher(
+                        PointCloud2, out_topic, 5)
+                    self.create_subscription(
+                        PointCloud2, topic,
+                        lambda msg, n=name, t=topic: self._voxels_callback(msg, n, t),
+                        SENSOR_QOS,
+                    )
+                    self._subscribed_voxels.add(topic)
+                    self.get_logger().info(
+                        f'Subscribed to rayfronts voxels: {topic} -> {out_topic}')
 
     def _try_lock_ground(self, robot_name: str) -> None:
         """Lock _alt_ground = msl - odom_z for the first robot with both signals.
@@ -384,6 +417,35 @@ class FoxgloveVisualizerNode(Node):
         pub = self._ray_groups_pubs.get(robot_name)
         if pub is not None:
             pub.publish(out)
+
+    def _voxels_callback(self, msg: PointCloud2, robot_name: str, src_topic: str):
+        """Republish a bridged rayfronts voxel heatmap in the global ENU 'map' frame.
+
+        The bridged cloud is in RDF (camera-optical), robot-local. Apply the same
+        transform gossip_node uses for gossiped voxels — RDF→FLU rotation then
+        this robot's GPS boot-ENU translation — and republish under
+        /rayfronts_debug/<robot>/voxels_sim/... . Only xyz are moved; the sim /
+        sim_K similarity fields pass through untouched so Foxglove can colour the
+        cloud by similarity as a per-query heatmap.
+
+        Note: transform_point_cloud2 is a per-point Python loop; these clouds can
+        be large and there is one per query, so this is the heaviest handler here.
+        If GCS CPU becomes a concern, throttle per topic or subsample upstream."""
+        boot = self._gps_boot.get(robot_name)
+        pub = self._voxels_pubs.get(src_topic)
+        if pub is None:
+            return
+        if boot is None:
+            # No GPS boot offset yet → can't place the cloud globally. Skip;
+            # rayfronts keeps publishing, so we resume once the boot ENU is known.
+            self.get_logger().warn(
+                f'awaiting GPS boot for {robot_name} to place voxels',
+                throttle_duration_sec=10.0)
+            return
+        bx, by, bz = float(boot[0]), float(boot[1]), float(boot[2])
+        out = transform_point_cloud2(msg, bx, by, bz, q=RDF_TO_FLU_QUAT)
+        out.header.stamp = self.get_clock().now().to_msg()
+        pub.publish(out)
 
     def _publish_map_origin(self):
         m = NavSatFix()

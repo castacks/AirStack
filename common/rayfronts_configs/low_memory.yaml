@@ -20,7 +20,7 @@ batch_size: 1
 
 # Imposing a depth limit on the data such that to test limited depth scenarios
 # Set to a negative number to not use a limit
-depth_limit: 30
+depth_limit: 70
 
 # Which pytorch interpolation mode for rgb and feature interpolation 
 # (Depth and Segmentation always use nearest-exact)

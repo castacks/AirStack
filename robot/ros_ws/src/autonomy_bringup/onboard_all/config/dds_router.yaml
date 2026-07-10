@@ -42,6 +42,18 @@ allowlist:
   - name: "rt/$(env ROBOT_NAME)/filtered_frontiers"
   - name: "rt/$(env ROBOT_NAME)/debug/frontier_table"
 
+  # rayfronts per-query semantic voxel heatmaps → GCS (Foxglove debug viz).
+  # Wildcard covers voxels_sim/all (x,y,z,sim_0..N) and the per-query clouds
+  # voxels_sim/q{q}_{label} (x,y,z,sim), whose names are dynamic per mission
+  # query. NOTE: rayfronts uses the /robot_${ROS_DOMAIN_ID}/ prefix here (set in
+  # perception_bringup/rayfronts.launch.xml), NOT $(env ROBOT_NAME). rayfronts
+  # advertises these publishers every cycle but only sends data while a
+  # subscriber exists; the router's reader on the robot domain is that
+  # subscriber, so allowlisting them is enough to start the stream (no
+  # robot-side keepalive needed). The gcs_visualizer transforms the RDF/local
+  # cloud into the global ENU 'map' frame and republishes under /rayfronts_debug.
+  - name: "rt/robot_$(env ROS_DOMAIN_ID)/rayfronts/msg_serv/voxels_sim/*"
+
   # behavior tree
   - name: "rt/$(env ROBOT_NAME)/behavior/behavior_tree_commands"
   - name: "rt/$(env ROBOT_NAME)/behavior/behavior_tree_graphviz"

@@ -8,6 +8,7 @@
   <license>TODO</license>
 
   <depend>rclpy</depend>
+  <depend>rcl_interfaces</depend>
   <depend>python3-sklearn</depend>
   <depend>nav_msgs</depend>
   <depend>sensor_msgs</depend>
