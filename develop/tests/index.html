@@ -14,7 +14,7 @@
         <link rel="prev" href="../docs/development/intermediate/testing/unit_testing/">
       
       
-        <link rel="next" href="ci-cd-orchestrator/">
+        <link rel="next" href="../docs/development/intermediate/testing/end_to_end_testing/">
       
       
         
@@ -1076,6 +1076,8 @@
       
         
       
+        
+      
     
     
     
@@ -1447,6 +1449,78 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#fixed-trajectory-tests-systemtest_fixed_trajectorypy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed Trajectory Tests (system/test_fixed_trajectory.py)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Fixed Trajectory Tests (system/test_fixed_trajectory.py)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-order_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase order
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recorded-metrics_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recorded metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default-trajectory-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default trajectory parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#running-fixed-trajectory-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running fixed trajectory tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cli-option-reference-trajectory-specific" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI option reference (trajectory-specific)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#metrics-reporting-parse_metricspy" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1617,6 +1691,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docs/development/intermediate/testing/end_to_end_testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    End-to-End Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -5933,6 +6035,12 @@
 <td>End-to-end flight: PX4 readiness gate, takeoff to 10 m, hover stability, land — one chain per (sim, num_robots, iteration, velocity)</td>
 <td>Docker daemon, GPU, sim license</td>
 </tr>
+<tr>
+<td><a href="system/test_fixed_trajectory.py"><code>system/test_fixed_trajectory.py</code></a></td>
+<td><code>autonomy</code></td>
+<td>Fixed-pattern trajectory evaluation: takeoff, execute a trajectory (Circle, Figure8, Racetrack, Line), record path deviation metrics, land — one chain per (sim, num_robots, iteration, trajectory_type)</td>
+<td>Docker daemon, GPU, sim license</td>
+</tr>
 </tbody>
 </table>
 <h3 id="unit-tests-testsrobot-testssim">Unit tests (<code>tests/robot/</code>, <code>tests/sim/</code>)<a class="headerlink" href="#unit-tests-testsrobot-testssim" title="Permanent link">&para;</a></h3>
@@ -5949,9 +6057,9 @@ tests the numpy-only range validation rules in
 <p>See <a href="../docs/development/intermediate/testing/unit_testing/">Unit Testing Guide</a>
 and the <code>add-unit-tests</code> agent skill for full details.</p>
 <p>Marks can be combined with pytest logic:
-<code>-m unit</code>, <code>-m "build_docker or build_packages"</code>, <code>-m liveliness</code>, <code>-m sensors</code>, <code>-m takeoff_hover_land</code>, or e.g. <code>-m "liveliness or sensors"</code> (see <strong>Bring-up scope</strong> below).</p>
+<code>-m unit</code>, <code>-m "build_docker or build_packages"</code>, <code>-m liveliness</code>, <code>-m sensors</code>, <code>-m takeoff_hover_land</code>, <code>-m autonomy</code>, or e.g. <code>-m "liveliness or sensors"</code> (see <strong>Bring-up scope</strong> below).</p>
 <h3 id="bring-up-scope-airstack_env">Bring-up scope (<code>airstack_env</code>)<a class="headerlink" href="#bring-up-scope-airstack_env" title="Permanent link">&para;</a></h3>
-<p><code>airstack_env</code> is <strong>class-scoped</strong> and parametrized per <code>(sim, num_robots, iteration)</code>. Each test <strong>class</strong> that uses it (<code>TestLiveliness</code>, <code>TestSensors</code>, <code>TestTakeoffHoverLand</code>, …) performs its <strong>own</strong> <code>airstack up</code> / <code>airstack down</code> for that parametrization. Selecting both classes (for example, <code>-m "liveliness or sensors"</code>) runs <strong>two</strong> full stack cycles per tuple (liveliness class, then sensors class). Collection order (see <code>conftest.py</code>) runs <strong>liveliness before sensors</strong> when both are selected. To save wall time, run <code>-m liveliness</code> or <code>-m sensors</code> alone when one suite is enough.</p>
+<p><code>airstack_env</code> is <strong>class-scoped</strong> and parametrized per <code>(sim, num_robots, iteration)</code>. Each test <strong>class</strong> that uses it (<code>TestLiveliness</code>, <code>TestSensors</code>, <code>TestTakeoffHoverLand</code>, <code>TestFixedTrajectory</code>, …) performs its <strong>own</strong> <code>airstack up</code> / <code>airstack down</code> for that parametrization. Selecting both classes (for example, <code>-m "liveliness or sensors"</code>) runs <strong>two</strong> full stack cycles per tuple (liveliness class, then sensors class). Collection order (see <code>conftest.py</code>) runs <strong>liveliness before sensors</strong> when both are selected. To save wall time, run <code>-m liveliness</code> or <code>-m sensors</code> alone when one suite is enough.</p>
 <hr />
 <h2 id="test-infrastructure">Test Infrastructure<a class="headerlink" href="#test-infrastructure" title="Permanent link">&para;</a></h2>
 <p>All shared fixtures, helpers, and configuration live in <a href="conftest.py"><code>conftest.py</code></a>.</p>
@@ -6009,31 +6117,19 @@ and are driven by <a href="system/test_sensors.py"><code>system/test_sensors.py<
 <h3 id="metricsrecorder"><code>MetricsRecorder</code><a class="headerlink" href="#metricsrecorder" title="Permanent link">&para;</a></h3>
 <p>Writes custom metrics to <code>tests/results/&lt;timestamp&gt;/metrics.json</code> after each <code>record()</code> call. Keys follow the pattern <code>test_node_id → metric_key → {value, unit, direction}</code>. Time-series data (Hz samples, compute snapshots) are stored as <code>{key}_samples</code> lists and expanded into scalar aggregates (mean, min, max, start_mean, end_mean) by <code>parse_metrics.py</code>.</p>
 <h3 id="output-files">Output files<a class="headerlink" href="#output-files" title="Permanent link">&para;</a></h3>
-<p>Every test run produces a timestamped directory. <strong>Per-test logs</strong> — for each
-pytest function, <code>pytest_runtest_setup</code> in <code>conftest.py</code> attaches the shared
-logger to <code>logs/test_&lt;module&gt;.&lt;Class&gt;.&lt;test&gt;[&lt;param-id&gt;].log</code> (param ids are
-rewritten for readability, e.g. <code>msairsim-rob#1-iter0</code>; see
-<code>pytest_collection_modifyitems</code>).</p>
-<p><strong><code>airstack_env.&lt;…&gt;.log</code></strong> — the class-scoped <code>airstack_env</code> fixture wraps
-<code>airstack up</code> / <code>airstack down</code> in <code>logger_to("airstack_env." + &lt;current nodeid&gt;)</code>
-(see <code>conftest.py</code>). So you get an extra file whose name is the word
-<code>airstack_env.</code> plus the <strong>node id of whichever test was running when the
-fixture first ran</strong> for that class. For <code>TestLiveliness</code> that is almost always
-<code>test_robot_containers_running</code> (first test in the class), not <code>test_stable</code>.
-That file holds compose / <code>airstack</code> subprocess output; each test still has its
-own log for assertions and <code>docker exec</code> / <code>ros2</code> lines.</p>
+<p>Every test run produces a timestamped directory containing only <code>summary.txt</code>,
+<code>results.xml</code>, and <code>metrics.json</code> — there is <strong>no</strong> <code>logs/</code> subdirectory and no
+per-test log files are written under the run directory.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>tests/results/
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>└── 2025-04-21_14-30-00/
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    ├── results.xml        # JUnit XML — test durations and pass/fail status
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    ├── metrics.json       # Custom metrics (image sizes, Hz, compute, timing)
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    └── logs/
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        ├── system.test_build_docker.TestDockerBuilds.test_build_robot_desktop.log
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        ├── airstack_env.system.test_liveliness.TestLiveliness.test_robot_containers_running[msairsim-rob#1-iter0].log
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        ├── system.test_liveliness.TestLiveliness.test_robot_containers_running[msairsim-rob#1-iter0].log
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        ├── system.test_liveliness.TestLiveliness.test_stable[msairsim-rob#1-iter0].log
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        ├── system.test_sensors.TestSensors.test_sensor_streams_stable[msairsim-rob#1-iter0].log
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        └── ...            # More per-test logs; another airstack_env.* per class using the fixture
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    ├── summary.txt        # Human-readable key metrics — open this first
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    ├── results.xml        # JUnit XML — test durations and pass/fail status
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    └── metrics.json       # Custom metrics (image sizes, Hz, compute, timing)
 </span></code></pre></div>
+<p>Live test output goes to the terminal (pytest <code>log_cli</code>). On failure, assertion
+messages include the tail of the last subprocess output (the in-memory
+<code>read_log_tail</code> of the relevant <code>docker</code> / <code>ros2</code> subprocess) — no per-test log
+files are written under the run directory.</p>
 <hr />
 <h2 id="running-tests">Running Tests<a class="headerlink" href="#running-tests" title="Permanent link">&para;</a></h2>
 <h3 id="airstack-test-primary-interface"><code>airstack test</code> (primary interface)<a class="headerlink" href="#airstack-test-primary-interface" title="Permanent link">&para;</a></h3>
@@ -6080,7 +6176,7 @@ can reach the host X server; it is a no-op when <code>DISPLAY</code> is not set.
 <h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Docker daemon running with your user in the <code>docker</code> group</li>
-<li>NVIDIA drivers + <code>nvidia-container-toolkit</code> for liveliness, sensors, and takeoff_hover_land tests</li>
+<li>NVIDIA drivers + <code>nvidia-container-toolkit</code> for liveliness, sensors, takeoff_hover_land, and autonomy tests</li>
 <li><code>airstack setup</code> completed (adds <code>airstack</code> to <code>PATH</code>)</li>
 </ul>
 <h3 id="direct-pytest-for-development-debugging">Direct pytest (for development / debugging)<a class="headerlink" href="#direct-pytest-for-development-debugging" title="Permanent link">&para;</a></h3>
@@ -6287,19 +6383,194 @@ returns to the ground.</p>
 </span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">  </span>-v
 </span></code></pre></div>
 <hr />
+<h2 id="fixed-trajectory-tests-systemtest_fixed_trajectorypy">Fixed Trajectory Tests (<code>system/test_fixed_trajectory.py</code>)<a class="headerlink" href="#fixed-trajectory-tests-systemtest_fixed_trajectorypy" title="Permanent link">&para;</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Detailed guide</p>
+<p>For the full end-to-end testing guide — architecture, the fixed-trajectory benchmark, metrics, CLI reference, comparing trackers, and baselines — see <strong><a href="../docs/development/intermediate/testing/end_to_end_testing/">End-to-End Testing</a></strong>.</p>
+</div>
+<p><code>TestFixedTrajectory</code> runs a <strong>4-phase flight chain</strong> for every combination of
+<code>(sim, num_robots, iteration, trajectory_type)</code>. For each trajectory type the drone
+takes off, executes the pattern, then lands — regardless of whether the trajectory
+phase passes or fails (a trajectory failure does not skip landing).</p>
+<p>Supported trajectory types: <code>Circle</code>, <code>Figure8</code>, <code>Racetrack</code>, <code>Line</code> (same patterns as
+the <code>fixed_trajectory_task</code> ROS 2 action server in <code>trajectory_controller</code>).</p>
+<h3 id="phase-order_1">Phase order<a class="headerlink" href="#phase-order_1" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Test</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>test_px4_ready</code></td>
+<td>Waits for MAVROS + PX4 EKF ready; once per env</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>test_takeoff</code></td>
+<td>Takeoff to 10 m at 1 m/s; asserts altitude within 10 %</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>test_fixed_trajectory</code></td>
+<td>Sends <code>FixedTrajectoryTask</code>; captures odom; asserts cross-track error</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>test_landing</code></td>
+<td>Sends <code>LandTask</code>; asserts final altitude &lt; 0.5 m</td>
+</tr>
+</tbody>
+</table>
+<p>A failure in <code>test_fixed_trajectory</code> does <strong>not</strong> poison the chain — <code>test_landing</code> always
+runs so the drone returns to the ground before the next trajectory type starts.</p>
+<h3 id="recorded-metrics_1">Recorded metrics<a class="headerlink" href="#recorded-metrics_1" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric key</th>
+<th>Unit</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ready_duration_sys_s</code></td>
+<td>s</td>
+<td>Wall-clock time from test start until PX4 ready</td>
+</tr>
+<tr>
+<td><code>takeoff_duration_sim_s</code></td>
+<td>s</td>
+<td>Sim-time from first motion to 95 % of target altitude</td>
+</tr>
+<tr>
+<td><code>altitude_error_m</code></td>
+<td>m</td>
+<td>Signed steady-state altitude error after takeoff</td>
+</tr>
+<tr>
+<td><code>overshoot_m</code></td>
+<td>m</td>
+<td>Unsigned transient overshoot above target</td>
+</tr>
+<tr>
+<td><code>trajectory_success</code></td>
+<td>—</td>
+<td>1.0 if action returned <code>success: true</code>, 0.0 otherwise (<code>higher_is_better</code>)</td>
+</tr>
+<tr>
+<td><code>trajectory_execution_time_sim_s</code></td>
+<td>s</td>
+<td>Sim-time elapsed from action dispatch to completion</td>
+</tr>
+<tr>
+<td><code>cross_track_error_mean_m</code></td>
+<td>m</td>
+<td>Mean 2-D lateral distance from nearest ideal-path point</td>
+</tr>
+<tr>
+<td><code>cross_track_error_max_m</code></td>
+<td>m</td>
+<td>Worst-case lateral deviation</td>
+</tr>
+<tr>
+<td><code>path_rmse_m</code></td>
+<td>m</td>
+<td>2-D RMSE against the ideal path</td>
+</tr>
+<tr>
+<td><code>final_altitude_m</code></td>
+<td>m</td>
+<td>Altitude at landing action completion</td>
+</tr>
+<tr>
+<td><code>land_duration_sim_s</code></td>
+<td>s</td>
+<td>Sim-time from 80 % peak descent to &lt; 0.5 m</td>
+</tr>
+</tbody>
+</table>
+<p>Metrics reported in one .txt file called summary.txt which automatically populates once your run completes </p>
+<h3 id="default-trajectory-parameters">Default trajectory parameters<a class="headerlink" href="#default-trajectory-parameters" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Parameters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Circle</td>
+<td>radius=10 m, velocity=2 m/s</td>
+</tr>
+<tr>
+<td>Figure8</td>
+<td>length=15 m, width=8 m, height=0 m, velocity=2 m/s, max_acceleration=1 m/s²</td>
+</tr>
+<tr>
+<td>Racetrack</td>
+<td>length=30 m, width=10 m, height=0 m, velocity=3 m/s, turn_velocity=1.5 m/s, max_acceleration=1 m/s²</td>
+</tr>
+<tr>
+<td>Line</td>
+<td>length=20 m, height=0 m, velocity=2 m/s, max_acceleration=1 m/s²</td>
+</tr>
+</tbody>
+</table>
+<h3 id="running-fixed-trajectory-tests">Running fixed trajectory tests<a class="headerlink" href="#running-fixed-trajectory-tests" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># All four trajectory types; ms-airsim; 1 robot</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>autonomy<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span>--sim<span class="w"> </span>msairsim<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span>--trajectory-types<span class="w"> </span>Circle,Figure8,Racetrack,Line<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span>-v
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="c1"># Circle only (quick check of the known failure case)</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>autonomy<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">  </span>--sim<span class="w"> </span>msairsim<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">  </span>--trajectory-types<span class="w"> </span>Circle<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">  </span>-v
+</span></code></pre></div>
+<h3 id="cli-option-reference-trajectory-specific">CLI option reference (trajectory-specific)<a class="headerlink" href="#cli-option-reference-trajectory-specific" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--trajectory-types</code></td>
+<td><code>Circle,Figure8,Racetrack,Line</code></td>
+<td>Comma-separated trajectory types to sweep</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h2 id="metrics-reporting-parse_metricspy">Metrics Reporting (<code>parse_metrics.py</code>)<a class="headerlink" href="#metrics-reporting-parse_metricspy" title="Permanent link">&para;</a></h2>
 <p><a href="parse_metrics.py"><code>parse_metrics.py</code></a> reads <code>results.xml</code> and <code>metrics.json</code> from a run directory and produces a markdown report. It has two modes:</p>
 <h3 id="single-run-report">Single-run report<a class="headerlink" href="#single-run-report" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>tests/parse_metrics.py<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>--current<span class="w"> </span>tests/results/2025-04-21_14-30-00/
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>tests/parse_metrics.py<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>--current<span class="w"> </span>tests/results/2025-04-21_14-30-00/
 </span></code></pre></div>
 <p>Prints a markdown table of all recorded metrics. Always exits 0.</p>
 <h3 id="diff-regression-check">Diff / regression check<a class="headerlink" href="#diff-regression-check" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>tests/parse_metrics.py<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>--current<span class="w">  </span>tests/results/2025-04-21_14-30-00/<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>--baseline<span class="w"> </span>tests/results/2025-04-20_09-00-00/<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>--threshold<span class="w"> </span><span class="m">20</span><span class="w">          </span><span class="c1"># optional: regression if change% exceeds this (default 20)</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span>--output<span class="w">   </span>report.md<span class="w">    </span><span class="c1"># optional: also write to file</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>python<span class="w"> </span>tests/parse_metrics.py<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span>--current<span class="w">  </span>tests/results/2025-04-21_14-30-00/<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>--baseline<span class="w"> </span>tests/results/2025-04-20_09-00-00/<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span>--threshold<span class="w"> </span><span class="m">20</span><span class="w">          </span><span class="c1"># optional: regression if change% exceeds this (default 20)</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span>--output<span class="w">   </span>report.md<span class="w">    </span><span class="c1"># optional: also write to file</span>
 </span></code></pre></div>
 <p>Prints a side-by-side comparison. Exits <strong>1</strong> if any metric regresses beyond the threshold; exits 0 otherwise.</p>
 <p>The report has three sections per test module:</p>
@@ -6375,24 +6646,24 @@ returns to the ground.</p>
 <h2 id="cicd-orchestrator-openstack-backed-ephemeral-runners">CI/CD Orchestrator (OpenStack-backed ephemeral runners)<a class="headerlink" href="#cicd-orchestrator-openstack-backed-ephemeral-runners" title="Permanent link">&para;</a></h2>
 <p>AirStack's tests require a GPU, Docker, and a clean filesystem per run, so they execute on <strong>truly ephemeral OpenStack instances</strong> spawned per-job by an orchestrator. Each test job gets a fresh VM that is destroyed once the job completes — no Docker layer carryover, no leaked containers, no shared host state.</p>
 <h3 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h3>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>┌──────────────────────────────────────────────────────────────┐
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>│  Orchestrator VM  (airstack-ci-cd-orchestrator)              │
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>│   • polls GitHub for queued workflow_jobs                    │
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>│   • mints single-use JIT runner tokens                       │
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>│   • spawns / reaps ephemeral instances via OpenStack Nova    │
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>│   • holds the GitHub PAT and OpenStack application credential│
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>└────────────┬───────────────────────────────────┬─────────────┘
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>             │                                   │
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>             ▼                                   ▼
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>┌──────────────────────────────┐   ┌────────────────────────────────┐
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>│ Ephemeral worker (per job)   │   │ GitHub Actions queue           │
-</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>│ Image: Ubuntu-24.04-GPU-     │   │  workflow_job  status=queued   │
-</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>│        Headless              │   │  labels: [self-hosted,         │
-</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>│ cloud-init bootstraps Docker │   │           airstack-ephemeral]  │
-</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>│ + nvidia-container-toolkit + │   └────────────────────────────────┘
-</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>│ GH Actions runner; runs ONE  │
-</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>│ job, then is destroyed.      │
-</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>└──────────────────────────────┘
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>┌──────────────────────────────────────────────────────────────┐
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>│  Orchestrator VM  (airstack-ci-cd-orchestrator)              │
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>│   • polls GitHub for queued workflow_jobs                    │
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>│   • mints single-use JIT runner tokens                       │
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>│   • spawns / reaps ephemeral instances via OpenStack Nova    │
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>│   • holds the GitHub PAT and OpenStack application credential│
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>└────────────┬───────────────────────────────────┬─────────────┘
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>             │                                   │
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>             ▼                                   ▼
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>┌──────────────────────────────┐   ┌────────────────────────────────┐
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>│ Ephemeral worker (per job)   │   │ GitHub Actions queue           │
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>│ Image: Ubuntu-24.04-GPU-     │   │  workflow_job  status=queued   │
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>│        Headless              │   │  labels: [self-hosted,         │
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>│ cloud-init bootstraps Docker │   │           airstack-ephemeral]  │
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>│ + nvidia-container-toolkit + │   └────────────────────────────────┘
+</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>│ GH Actions runner; runs ONE  │
+</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>│ job, then is destroyed.      │
+</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>└──────────────────────────────┘
 </span></code></pre></div>
 <h3 id="why-this-instead-of-a-long-lived-self-hosted-runner">Why this instead of a long-lived self-hosted runner<a class="headerlink" href="#why-this-instead-of-a-long-lived-self-hosted-runner" title="Permanent link">&para;</a></h3>
 <table>
@@ -6492,13 +6763,13 @@ returns to the ground.</p>
         
         
           
-          <a href="ci-cd-orchestrator/" class="md-footer__link md-footer__link--next" aria-label="Next: CI/CD Orchestrator">
+          <a href="../docs/development/intermediate/testing/end_to_end_testing/" class="md-footer__link md-footer__link--next" aria-label="Next: End-to-End Testing">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                CI/CD Orchestrator
+                End-to-End Testing
               </div>
             </div>
             <div class="md-footer__button md-icon">

@@ -8,31 +8,31 @@
       
       
       
-        <link rel="canonical" href="https://docs.theairlab.org/docs/develop/docs/robot/autonomy/behavior/">
+        <link rel="canonical" href="https://docs.theairlab.org/docs/develop/docs/development/intermediate/testing/end_to_end_testing/">
       
       
-        <link rel="prev" href="../../../../robot/ros_ws/src/global/planners/exploration/">
+        <link rel="prev" href="../../../../../tests/">
       
       
-        <link rel="next" href="../integration_checklist/">
+        <link rel="next" href="../../../../../tests/ci-cd-orchestrator/">
       
       
         
       
       
-      <link rel="icon" href="../../../assets/StackedWhite.png">
+      <link rel="icon" href="../../../../assets/StackedWhite.png">
       <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.7.6">
     
     
       
-        <title>Behavior - AirStack</title>
+        <title>End-to-End Testing - AirStack</title>
       
     
     
-      <link rel="stylesheet" href="../../../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../../../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../../../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../../../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -51,9 +51,9 @@
       
     
     
-      <link rel="stylesheet" href="../../../../stylesheets/extra.css">
+      <link rel="stylesheet" href="../../../../../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("../../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#behavior" class="md-skip">
+        <a href="#end-to-end-testing" class="md-skip">
           Skip to content
         </a>
       
@@ -96,9 +96,9 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../../../.." title="AirStack" class="md-header__button md-logo" aria-label="AirStack" data-md-component="logo">
+    <a href="../../../../.." title="AirStack" class="md-header__button md-logo" aria-label="AirStack" data-md-component="logo">
       
-  <img src="../../../assets/airstack_white.png" alt="logo">
+  <img src="../../../../assets/airstack_white.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Behavior
+              End-to-End Testing
             
           </span>
         </div>
@@ -228,7 +228,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../../" class="md-tabs__link">
+      <a href="../../../../" class="md-tabs__link">
         
   
   
@@ -249,7 +249,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../getting_started/" class="md-tabs__link">
+        <a href="../../../../getting_started/" class="md-tabs__link">
           
   
   
@@ -267,11 +267,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../../development/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../../" class="md-tabs__link">
           
   
   
@@ -293,7 +295,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../simulation/" class="md-tabs__link">
+        <a href="../../../../simulation/" class="md-tabs__link">
           
   
   
@@ -311,13 +313,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../../../robot/" class="md-tabs__link">
           
   
   
@@ -339,7 +339,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../gcs/" class="md-tabs__link">
+        <a href="../../../../gcs/" class="md-tabs__link">
           
   
   
@@ -361,7 +361,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../real_world/" class="md-tabs__link">
+        <a href="../../../../real_world/" class="md-tabs__link">
           
   
   
@@ -381,7 +381,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../../about/" class="md-tabs__link">
+      <a href="../../../../about/" class="md-tabs__link">
         
   
   
@@ -418,9 +418,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../../../.." title="AirStack" class="md-nav__button md-logo" aria-label="AirStack" data-md-component="logo">
+    <a href="../../../../.." title="AirStack" class="md-nav__button md-logo" aria-label="AirStack" data-md-component="logo">
       
-  <img src="../../../assets/airstack_white.png" alt="logo">
+  <img src="../../../../assets/airstack_white.png" alt="logo">
 
     </a>
     AirStack
@@ -447,7 +447,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../" class="md-nav__link">
+      <a href="../../../../" class="md-nav__link">
         
   
   
@@ -501,7 +501,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../getting_started/" class="md-nav__link ">
+            <a href="../../../../getting_started/" class="md-nav__link ">
               
   
   
@@ -545,7 +545,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../tutorials/airstack_on_osmo/" class="md-nav__link">
+      <a href="../../../../tutorials/airstack_on_osmo/" class="md-nav__link">
         
   
   
@@ -573,7 +573,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../getting_started/tutorials_reference/" class="md-nav__link">
+      <a href="../../../../getting_started/tutorials_reference/" class="md-nav__link">
         
   
   
@@ -605,6 +605,8 @@
       
   
   
+    
+  
   
   
     
@@ -624,20 +626,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../development/" class="md-nav__link ">
+            <a href="../../../" class="md-nav__link ">
               
   
   
@@ -655,13 +660,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -697,17 +702,20 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
         
           
-          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="">
             
   
   
@@ -803,7 +811,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/beginner/key_concepts/" class="md-nav__link">
+      <a href="../../../beginner/key_concepts/" class="md-nav__link">
         
   
   
@@ -831,7 +839,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/beginner/airstack-cli/info.md" class="md-nav__link">
+      <a href="../../../beginner/airstack-cli/info.md" class="md-nav__link">
         
   
   
@@ -859,7 +867,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/beginner/airstack-cli/docker_usage/" class="md-nav__link">
+      <a href="../../../beginner/airstack-cli/docker_usage/" class="md-nav__link">
         
   
   
@@ -895,7 +903,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/beginner/development_environment/" class="md-nav__link">
+      <a href="../../../beginner/development_environment/" class="md-nav__link">
         
   
   
@@ -923,7 +931,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/beginner/vscode/vscode_debug/" class="md-nav__link">
+      <a href="../../../beginner/vscode/vscode_debug/" class="md-nav__link">
         
   
   
@@ -951,7 +959,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/beginner/fork_your_own_project/" class="md-nav__link">
+      <a href="../../../beginner/fork_your_own_project/" class="md-nav__link">
         
   
   
@@ -984,8 +992,10 @@
                 
   
   
+    
   
   
+  
     
     
       
@@ -1002,18 +1012,21 @@
     
       
       
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
         
           
-          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
             
   
   
@@ -1031,7 +1044,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1046,6 +1059,8 @@
                 
   
   
+    
+  
   
   
     
@@ -1072,15 +1087,15 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3_1" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3_1" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../development/intermediate/testing/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -1104,7 +1119,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_1_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_1_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_3_1">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1124,7 +1139,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/intermediate/testing/unit_testing/" class="md-nav__link">
+      <a href="../unit_testing/" class="md-nav__link">
         
   
   
@@ -1152,7 +1167,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../tests/" class="md-nav__link">
+      <a href="../../../../../tests/" class="md-nav__link">
         
   
   
@@ -1177,10 +1192,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../../development/intermediate/testing/end_to_end_testing/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    End-to-End Testing
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1196,6 +1238,420 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#fixed-trajectory-path-tracker-benchmark" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed-Trajectory Path-Tracker Benchmark
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-gets-tested" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What gets tested
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What gets tested">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#test-module" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test module
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parametrization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parametrization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#four-phase-flight-chain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Four-phase flight chain
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference-trajectories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference trajectories
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reference trajectories">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#circle-geometry-ideal-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Circle geometry (ideal path)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metrics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Metrics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flight-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flight metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-to-read-metrics-when-comparing-trackers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to read metrics when comparing trackers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#observed-baseline-circle-isaac-sim-10-headless-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Observed baseline (Circle, Isaac Sim, 10 headless runs)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-track-error-algorithm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-track error algorithm
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cross-track error algorithm">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-world-frame-alignment-matters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why world-frame alignment matters
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#results-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Results pipeline
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Results pipeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#regenerate-or-inspect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Regenerate or inspect
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-tests-complete-cli-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running tests (complete CLI reference)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Running tests (complete CLI reference)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#primary-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Primary interface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rebuild-after-c-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rebuild after C++ changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixed-trajectory-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed-trajectory commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#global-cli-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global CLI options
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#direct-pytest-local-python-env" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Direct pytest (local Python env)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ci-pytest-pr-comment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI: /pytest PR comment
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#comparing-path-trackers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comparing path trackers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Comparing path trackers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-to-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What to change
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recommended-ab-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommended A/B workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#manual-stack-usage-without-pytest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual stack usage (without pytest)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#source-file-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Source file reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related documentation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1208,7 +1664,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../tests/ci-cd-orchestrator/" class="md-nav__link">
+      <a href="../../../../../tests/ci-cd-orchestrator/" class="md-nav__link">
         
   
   
@@ -1244,7 +1700,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/intermediate/frame_conventions/" class="md-nav__link">
+      <a href="../../frame_conventions/" class="md-nav__link">
         
   
   
@@ -1272,7 +1728,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/intermediate/docker-build-profiles/" class="md-nav__link">
+      <a href="../../docker-build-profiles/" class="md-nav__link">
         
   
   
@@ -1358,7 +1814,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/intermediate/contributing/" class="md-nav__link">
+      <a href="../../contributing/" class="md-nav__link">
         
   
   
@@ -1386,7 +1842,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/intermediate/documentation/" class="md-nav__link">
+      <a href="../../documentation/" class="md-nav__link">
         
   
   
@@ -1442,17 +1898,20 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
         
           
-          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="">
             
   
   
@@ -1488,7 +1947,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/advanced/ai_agent_guide/" class="md-nav__link">
+      <a href="../../../advanced/ai_agent_guide/" class="md-nav__link">
         
   
   
@@ -1574,7 +2033,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/advanced/airstack-cli/extending/" class="md-nav__link">
+      <a href="../../../advanced/airstack-cli/extending/" class="md-nav__link">
         
   
   
@@ -1602,7 +2061,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/advanced/airstack-cli/architecture/" class="md-nav__link">
+      <a href="../../../advanced/airstack-cli/architecture/" class="md-nav__link">
         
   
   
@@ -1682,7 +2141,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../simulation/" class="md-nav__link ">
+            <a href="../../../../simulation/" class="md-nav__link ">
               
   
   
@@ -1761,7 +2220,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../simulation/isaac_sim/" class="md-nav__link ">
+            <a href="../../../../simulation/isaac_sim/" class="md-nav__link ">
               
   
   
@@ -1805,7 +2264,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/docker/" class="md-nav__link">
+      <a href="../../../../simulation/isaac_sim/docker/" class="md-nav__link">
         
   
   
@@ -1833,7 +2292,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/pegasus_scene_setup/" class="md-nav__link">
+      <a href="../../../../simulation/isaac_sim/pegasus_scene_setup/" class="md-nav__link">
         
   
   
@@ -1861,7 +2320,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/spawning_drones/" class="md-nav__link">
+      <a href="../../../../simulation/isaac_sim/spawning_drones/" class="md-nav__link">
         
   
   
@@ -1889,7 +2348,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/overhead_camera/" class="md-nav__link">
+      <a href="../../../../simulation/isaac_sim/overhead_camera/" class="md-nav__link">
         
   
   
@@ -1917,7 +2376,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/ascent_sitl_extension/" class="md-nav__link">
+      <a href="../../../../simulation/isaac_sim/ascent_sitl_extension/" class="md-nav__link">
         
   
   
@@ -1945,7 +2404,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/export_stages_from_unreal/" class="md-nav__link">
+      <a href="../../../../simulation/isaac_sim/export_stages_from_unreal/" class="md-nav__link">
         
   
   
@@ -2006,7 +2465,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../simulation/ms-airsim/" class="md-nav__link ">
+            <a href="../../../../simulation/ms-airsim/" class="md-nav__link ">
               
   
   
@@ -2050,7 +2509,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../simulation/ms-airsim/docker/" class="md-nav__link">
+      <a href="../../../../simulation/ms-airsim/docker/" class="md-nav__link">
         
   
   
@@ -2111,7 +2570,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../simulation/simple_sim/" class="md-nav__link ">
+            <a href="../../../../simulation/simple_sim/" class="md-nav__link ">
               
   
   
@@ -2155,7 +2614,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../simulation/simple_sim/docker/" class="md-nav__link">
+      <a href="../../../../simulation/simple_sim/docker/" class="md-nav__link">
         
   
   
@@ -2195,8 +2654,6 @@
       
   
   
-    
-  
   
   
     
@@ -2224,23 +2681,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../" class="md-nav__link ">
+            <a href="../../../../robot/" class="md-nav__link ">
               
   
   
@@ -2258,13 +2712,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2296,13 +2750,10 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
@@ -2310,7 +2761,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../configuration/" class="md-nav__link ">
+            <a href="../../../../robot/configuration/" class="md-nav__link ">
               
   
   
@@ -2371,13 +2822,10 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
@@ -2385,7 +2833,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../docker/" class="md-nav__link ">
+            <a href="../../../../robot/docker/" class="md-nav__link ">
               
   
   
@@ -2403,7 +2851,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5_3" id="__nav_5_3_label" tabindex="">
+              <label class="md-nav__link " for="__nav_5_3" id="__nav_5_3_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -2429,7 +2877,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../docker/robot_identity/" class="md-nav__link">
+      <a href="../../../../robot/docker/robot_identity/" class="md-nav__link">
         
   
   
@@ -2462,8 +2910,6 @@
                 
   
   
-    
-  
   
   
     
@@ -2499,21 +2945,18 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../../../robot/autonomy/" class="md-nav__link ">
               
   
   
@@ -2531,13 +2974,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5_4" id="__nav_5_4_label" tabindex="">
+              <label class="md-nav__link " for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2557,7 +3000,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../system_architecture/" class="md-nav__link">
+      <a href="../../../../robot/autonomy/system_architecture/" class="md-nav__link">
         
   
   
@@ -2585,7 +3028,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../tasks/" class="md-nav__link">
+      <a href="../../../../robot/autonomy/tasks/" class="md-nav__link">
         
   
   
@@ -2636,7 +3079,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../interface/" class="md-nav__link ">
+            <a href="../../../../robot/autonomy/interface/" class="md-nav__link ">
               
   
   
@@ -2708,7 +3151,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../sensors/" class="md-nav__link ">
+            <a href="../../../../robot/autonomy/sensors/" class="md-nav__link ">
               
   
   
@@ -2752,7 +3195,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sensors/gimbal/" class="md-nav__link">
+      <a href="../../../../robot/autonomy/sensors/gimbal/" class="md-nav__link">
         
   
   
@@ -2813,7 +3256,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../perception/" class="md-nav__link ">
+            <a href="../../../../robot/autonomy/perception/" class="md-nav__link ">
               
   
   
@@ -2857,7 +3300,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/perception/natnet_ros2/" class="md-nav__link">
+      <a href="../../../../../robot/ros_ws/src/perception/natnet_ros2/" class="md-nav__link">
         
   
   
@@ -2922,7 +3365,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../local/" class="md-nav__link ">
+            <a href="../../../../robot/autonomy/local/" class="md-nav__link ">
               
   
   
@@ -2991,7 +3434,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../local/world_model/" class="md-nav__link ">
+            <a href="../../../../robot/autonomy/local/world_model/" class="md-nav__link ">
               
   
   
@@ -3062,7 +3505,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link ">
+            <a href="../../../../../robot/ros_ws/src/local/world_models/disparity_expansion/" class="md-nav__link ">
               
   
   
@@ -3106,7 +3549,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
+      <a href="../../../../../robot/ros_ws/src/local/world_models/disparity_graph/" class="md-nav__link">
         
   
   
@@ -3134,7 +3577,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
+      <a href="../../../../../robot/ros_ws/src/local/world_models/disparity_graph_cost_map/" class="md-nav__link">
         
   
   
@@ -3209,7 +3652,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../local/planning/" class="md-nav__link ">
+            <a href="../../../../robot/autonomy/local/planning/" class="md-nav__link ">
               
   
   
@@ -3253,7 +3696,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/planners/trajectory_library/" class="md-nav__link">
+      <a href="../../../../../robot/ros_ws/src/local/planners/trajectory_library/" class="md-nav__link">
         
   
   
@@ -3306,7 +3749,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../../robot/ros_ws/src/local/planners/takeoff_landing_planner/" class="md-nav__link ">
+            <a href="../../../../../robot/ros_ws/src/local/planners/takeoff_landing_planner/" class="md-nav__link ">
               
   
   
@@ -3350,7 +3793,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/planners/takeoff_landing_planner/test/" class="md-nav__link">
+      <a href="../../../../../robot/ros_ws/src/local/planners/takeoff_landing_planner/test/" class="md-nav__link">
         
   
   
@@ -3386,7 +3829,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
+      <a href="../../../../../robot/ros_ws/src/local/planners/droan_local_planner/" class="md-nav__link">
         
   
   
@@ -3414,7 +3857,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
+      <a href="../../../../../robot/ros_ws/src/local/planners/droan_gl/" class="md-nav__link">
         
   
   
@@ -3475,7 +3918,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../local/controls/" class="md-nav__link ">
+            <a href="../../../../robot/autonomy/local/controls/" class="md-nav__link ">
               
   
   
@@ -3519,7 +3962,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/local/controls/trajectory_controller/" class="md-nav__link">
+      <a href="../../../../../robot/ros_ws/src/local/controls/trajectory_controller/" class="md-nav__link">
         
   
   
@@ -3590,7 +4033,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../global/" class="md-nav__link ">
+            <a href="../../../../robot/autonomy/global/" class="md-nav__link ">
               
   
   
@@ -3659,7 +4102,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../global/world_model/" class="md-nav__link ">
+            <a href="../../../../robot/autonomy/global/world_model/" class="md-nav__link ">
               
   
   
@@ -3703,7 +4146,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/global/world_models/vdb_mapping_ros2/README.md" class="md-nav__link">
+      <a href="../../../../../robot/ros_ws/src/global/world_models/vdb_mapping_ros2/README.md" class="md-nav__link">
         
   
   
@@ -3766,7 +4209,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../global/planning/" class="md-nav__link ">
+            <a href="../../../../robot/autonomy/global/planning/" class="md-nav__link ">
               
   
   
@@ -3810,7 +4253,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/global/planners/random_walk/" class="md-nav__link">
+      <a href="../../../../../robot/ros_ws/src/global/planners/random_walk/" class="md-nav__link">
         
   
   
@@ -3838,7 +4281,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/global/planners/exploration/" class="md-nav__link">
+      <a href="../../../../../robot/ros_ws/src/global/planners/exploration/" class="md-nav__link">
         
   
   
@@ -3879,8 +4322,6 @@
                 
   
   
-    
-  
   
   
     
@@ -3899,15 +4340,15 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_9" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_9" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="./" class="md-nav__link md-nav__link--active">
+            <a href="../../../../robot/autonomy/behavior/" class="md-nav__link ">
               
   
   
@@ -3926,7 +4367,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_9_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_9_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5_4_9">
             <span class="md-nav__icon md-icon"></span>
             
@@ -3954,7 +4395,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../integration_checklist/" class="md-nav__link">
+      <a href="../../../../robot/autonomy/integration_checklist/" class="md-nav__link">
         
   
   
@@ -4007,7 +4448,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../coordination/" class="md-nav__link ">
+            <a href="../../../../robot/autonomy/coordination/" class="md-nav__link ">
               
   
   
@@ -4051,7 +4492,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../coordination/payloads/" class="md-nav__link">
+      <a href="../../../../robot/autonomy/coordination/payloads/" class="md-nav__link">
         
   
   
@@ -4095,7 +4536,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../autonomy_modes/" class="md-nav__link">
+      <a href="../../../../robot/autonomy_modes/" class="md-nav__link">
         
   
   
@@ -4123,7 +4564,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../dds_router/" class="md-nav__link">
+      <a href="../../../../robot/autonomy/dds_router/" class="md-nav__link">
         
   
   
@@ -4163,13 +4604,10 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
@@ -4177,7 +4615,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../static_transforms/" class="md-nav__link ">
+            <a href="../../../../robot/static_transforms/" class="md-nav__link ">
               
   
   
@@ -4242,13 +4680,10 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
@@ -4256,7 +4691,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../logging/" class="md-nav__link ">
+            <a href="../../../../robot/logging/" class="md-nav__link ">
               
   
   
@@ -4274,7 +4709,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5_8" id="__nav_5_8_label" tabindex="">
+              <label class="md-nav__link " for="__nav_5_8" id="__nav_5_8_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -4300,7 +4735,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../logging/rosbags/" class="md-nav__link">
+      <a href="../../../../robot/logging/rosbags/" class="md-nav__link">
         
   
   
@@ -4328,7 +4763,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../logging/data_offloading/" class="md-nav__link">
+      <a href="../../../../robot/logging/data_offloading/" class="md-nav__link">
         
   
   
@@ -4356,7 +4791,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../common/ros_packages/bag_recorder_pid/README.md" class="md-nav__link">
+      <a href="../../../../../common/ros_packages/bag_recorder_pid/README.md" class="md-nav__link">
         
   
   
@@ -4434,7 +4869,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../gcs/" class="md-nav__link ">
+            <a href="../../../../gcs/" class="md-nav__link ">
               
   
   
@@ -4501,7 +4936,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../gcs/docker/" class="md-nav__link ">
+            <a href="../../../../gcs/docker/" class="md-nav__link ">
               
   
   
@@ -4604,7 +5039,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../gcs/usage/user_interface/" class="md-nav__link">
+      <a href="../../../../gcs/usage/user_interface/" class="md-nav__link">
         
   
   
@@ -4698,7 +5133,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../gcs/foxglove/" class="md-nav__link">
+      <a href="../../../../gcs/foxglove/" class="md-nav__link">
         
   
   
@@ -4726,7 +5161,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../gcs/waypoints_and_geofences/" class="md-nav__link">
+      <a href="../../../../gcs/waypoints_and_geofences/" class="md-nav__link">
         
   
   
@@ -4818,7 +5253,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../gcs/command_center/command_center/" class="md-nav__link">
+      <a href="../../../../gcs/command_center/command_center/" class="md-nav__link">
         
   
   
@@ -4910,7 +5345,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../gcs/casualty_assessment/casualty_assessment/" class="md-nav__link">
+      <a href="../../../../gcs/casualty_assessment/casualty_assessment/" class="md-nav__link">
         
   
   
@@ -5002,7 +5437,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../gcs/wintak/installation/" class="md-nav__link">
+      <a href="../../../../gcs/wintak/installation/" class="md-nav__link">
         
   
   
@@ -5076,7 +5511,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../real_world/" class="md-nav__link ">
+            <a href="../../../../real_world/" class="md-nav__link ">
               
   
   
@@ -5120,7 +5555,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../real_world/deploying_to_hardware/" class="md-nav__link">
+      <a href="../../../../real_world/deploying_to_hardware/" class="md-nav__link">
         
   
   
@@ -5171,7 +5606,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../real_world/installation/" class="md-nav__link ">
+            <a href="../../../../real_world/installation/" class="md-nav__link ">
               
   
   
@@ -5241,7 +5676,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../real_world/HITL/" class="md-nav__link ">
+            <a href="../../../../real_world/HITL/" class="md-nav__link ">
               
   
   
@@ -5311,7 +5746,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../real_world/data_offloading/" class="md-nav__link ">
+            <a href="../../../../real_world/data_offloading/" class="md-nav__link ">
               
   
   
@@ -5365,7 +5800,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../about/" class="md-nav__link">
+      <a href="../../../../about/" class="md-nav__link">
         
   
   
@@ -5411,14 +5846,40 @@
     
     
       <li class="md-path__item">
-        <a href="../../" class="md-path__link">
+        <a href="../../../" class="md-path__link">
           
   <span class="md-ellipsis">
-    Robot
+    Development
   </span>
 
         </a>
       </li>
+    
+  
+
+      
+        
+  
+  
+    
+    
+      
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Intermediate Tutorials
+  </span>
+
+        </a>
+      </li>
+    
+  
+
     
   
 
@@ -5432,25 +5893,7 @@
         <a href="../" class="md-path__link">
           
   <span class="md-ellipsis">
-    Autonomy Modules
-  </span>
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-    
-    
-      <li class="md-path__item">
-        <a href="./" class="md-path__link">
-          
-  <span class="md-ellipsis">
-    Behavior
+    Testing
   </span>
 
         </a>
@@ -5472,11 +5915,753 @@
   
 
 
-<h1 id="behavior">Behavior<a class="headerlink" href="#behavior" title="Permanent link">&para;</a></h1>
-<p>The behavior module is responsible for the high-level decision making of the robot. This includes deciding what actions to take based on the current state of the robot and the world around it. The behavior module is responsible for coordinating the actions of the local and global modules to achieve the robot's goals.</p>
-<h2 id="launch">Launch<a class="headerlink" href="#launch" title="Permanent link">&para;</a></h2>
-<p>Launch files are under <code>src/robot/autonomy/behavior/behavior_bringup/launch</code>.</p>
-<p>The main launch command is <code>ros2 launch behavior_bringup behavior.launch.xml</code>.</p>
+<h1 id="end-to-end-testing">End-to-End Testing<a class="headerlink" href="#end-to-end-testing" title="Permanent link">&para;</a></h1>
+<p>End-to-end (e2e) tests exercise the <strong>full autonomy stack in simulation</strong> — the drone takes off, performs an action, and lands — so one run validates the whole pipeline (interface → perception → planning → control → PX4) rather than a single module.</p>
+<p>AirStack currently has two e2e suites:</p>
+<ul>
+<li><strong>Takeoff / hover / land</strong> (<code>takeoff_hover_land</code> mark) — the basic flight chain, documented in <a href="../../../../../tests/"><code>tests/README.md</code></a>.</li>
+<li><strong>Fixed-trajectory path-tracker benchmark</strong> (<code>autonomy</code> mark) — takeoff → execute a fixed pattern (Circle / Figure8 / Racetrack / Line) → land, measuring cross-track error. Documented below.</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Future work: unify the e2e marks</p>
+<p><code>takeoff_hover_land</code> and <code>autonomy</code> are separate marks today. As the suite grows they can be consolidated into a single general <strong>e2e</strong> mark/pipeline. Tracked as follow-up — not part of this change.</p>
+</div>
+<hr />
+<h2 id="fixed-trajectory-path-tracker-benchmark">Fixed-Trajectory Path-Tracker Benchmark<a class="headerlink" href="#fixed-trajectory-path-tracker-benchmark" title="Permanent link">&para;</a></h2>
+<p>This section documents the <strong>fixed-trajectory evaluation test suite</strong> (<code>tests/system/test_fixed_trajectory.py</code>): why it exists, how it is implemented, how to run it, how to interpret results, and how to use it to <strong>compare path trackers</strong> without rewriting tests.</p>
+<hr />
+<h2 id="purpose">Purpose<a class="headerlink" href="#purpose" title="Permanent link">&para;</a></h2>
+<p>AirStack's local controls stack separates <strong>reference-path generation</strong>, <strong>path tracking</strong>, and <strong>low-level control</strong>:</p>
+<pre class="mermaid"><code>flowchart LR
+    FT[FixedTrajectoryTask] --&gt; TL[trajectory_library]
+    TL --&gt; TC[trajectory_controller&lt;br/&gt;path tracker]
+    TC --&gt;|~/tracking_point| PID[pid_controller]
+    PID --&gt; FC[Flight computer / PX4]
+    FC --&gt; ODOM[local_position/odom]
+    ODOM --&gt; TC</code></pre>
+<p>The benchmark harness holds the <strong>reference trajectory</strong> and <strong>flight procedure</strong> constant so maintainers can:</p>
+<ul>
+<li><strong>Swap or retune path trackers</strong> and measure the same metrics every time.</li>
+<li><strong>Compare execution time</strong> — how long does a standard pattern take in sim-time?</li>
+<li><strong>Compare tracking error</strong> — mean/max cross-track error and path RMSE against a known ideal path.</li>
+<li><strong>Detect regressions</strong> — action timeouts, stalls, or catastrophic drift via <code>trajectory_success</code> and assertion thresholds.</li>
+</ul>
+<p>Today the default tracker is the <strong>sphere-intersection pure-pursuit</strong> implementation in <code>trajectory_controller</code> + <code>trajectory_library</code>. The downstream <code>pid_controller</code> is held fixed so changes isolate tracker behavior. A different tracker can replace the <code>trajectory_controller</code> node (or its parameters) in launch; the pytest module does not need to change as long as <code>FixedTrajectoryTask</code> and odom topics remain the same.</p>
+<hr />
+<h2 id="what-gets-tested">What gets tested<a class="headerlink" href="#what-gets-tested" title="Permanent link">&para;</a></h2>
+<h3 id="test-module">Test module<a class="headerlink" href="#test-module" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>File</td>
+<td><a href="../../../../../tests/system/test_fixed_trajectory.py"><code>tests/system/test_fixed_trajectory.py</code></a></td>
+</tr>
+<tr>
+<td>Pytest mark</td>
+<td><code>autonomy</code></td>
+</tr>
+<tr>
+<td>Class</td>
+<td><code>TestFixedTrajectory</code></td>
+</tr>
+<tr>
+<td>Timeout</td>
+<td>2400 s per test class invocation</td>
+</tr>
+</tbody>
+</table>
+<h3 id="parametrization">Parametrization<a class="headerlink" href="#parametrization" title="Permanent link">&para;</a></h3>
+<p>Each run sweeps:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>(sim, num_robots, iteration, trajectory_type)
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>CLI flag</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Simulator</td>
+<td><code>--sim</code></td>
+<td><code>msairsim,isaacsim</code></td>
+</tr>
+<tr>
+<td>Robot count</td>
+<td><code>--num-robots</code></td>
+<td><code>1,3</code></td>
+</tr>
+<tr>
+<td>Repeat count</td>
+<td><code>--stress-iterations</code></td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td>Trajectory type</td>
+<td><code>--trajectory-types</code></td>
+<td><code>Circle,Figure8,Racetrack,Line</code></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition tip">
+<p class="admonition-title">Pin your sweep for local runs</p>
+<p>Defaults multiply configs and run for hours. For development, always set explicit values:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>autonomy<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span>--trajectory-types<span class="w"> </span>Circle<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span>-v
+</span></code></pre></div>
+</div>
+<h3 id="four-phase-flight-chain">Four-phase flight chain<a class="headerlink" href="#four-phase-flight-chain" title="Permanent link">&para;</a></h3>
+<p>For every <code>(sim, num_robots, iteration, trajectory_type)</code> tuple the drone runs:</p>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Test</th>
+<th>Action</th>
+<th>Pass criteria</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>test_px4_ready</code></td>
+<td>Wait for MAVROS + odom</td>
+<td>All robots connected and publishing within 300 s wall-clock</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>test_takeoff</code></td>
+<td><code>TakeoffTask</code> to 10 m @ 1 m/s</td>
+<td>Steady-state altitude within ±10% of target</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>test_fixed_trajectory</code></td>
+<td><code>FixedTrajectoryTask</code></td>
+<td>Cross-track mean &lt; 5 m; records success + timing</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>test_landing</code></td>
+<td><code>LandTask</code> @ 1 m/s</td>
+<td>Final altitude &lt; 0.5 m</td>
+</tr>
+</tbody>
+</table>
+<pre class="mermaid"><code>stateDiagram-v2
+    [*] --&gt; PX4Ready
+    PX4Ready --&gt; Takeoff
+    Takeoff --&gt; ExecuteTrajectory
+    ExecuteTrajectory --&gt; Land : always
+    ExecuteTrajectory --&gt; Land : even on trajectory failure
+    Land --&gt; [*]
+    Takeoff --&gt; Poisoned : takeoff fails
+    Land --&gt; Poisoned : landing fails
+    Poisoned --&gt; [*] : skip remaining types in env</code></pre>
+<p><strong>Chain guard:</strong> a failure in phase 3 (<code>test_fixed_trajectory</code>) does <strong>not</strong> poison the environment — landing always runs so the drone returns to the ground before the next trajectory type. Failures in takeoff or landing <strong>do</strong> poison the env and skip subsequent trajectory types for that <code>(sim, num_robots, iteration)</code>.</p>
+<p>Phase 1 (<code>test_px4_ready</code>) runs once per env regardless of how many trajectory types are swept.</p>
+<hr />
+<h2 id="reference-trajectories">Reference trajectories<a class="headerlink" href="#reference-trajectories" title="Permanent link">&para;</a></h2>
+<p>The test uses the same patterns as the <code>FixedTrajectoryTask</code> action server in <code>trajectory_controller</code> (<code>fixed_trajectory_task.cpp</code>). Default parameters are defined in <code>TRAJECTORY_CONFIGS</code> inside <code>test_fixed_trajectory.py</code> and must stay in sync with the C++ generators.</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Parameters</th>
+<th>Approx. path length</th>
+<th>Expected sim-time*</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Circle</strong></td>
+<td>radius=10 m, velocity=2 m/s</td>
+<td>~63 m loop + return segments</td>
+<td><strong>~45–50 s</strong></td>
+</tr>
+<tr>
+<td><strong>Figure8</strong></td>
+<td>length=15 m, width=8 m, v=2 m/s, max_accel=1 m/s²</td>
+<td>~100+ m</td>
+<td><strong>~50–70 s</strong></td>
+</tr>
+<tr>
+<td><strong>Racetrack</strong></td>
+<td>length=30 m, width=10 m, v=3 m/s, turn_v=1.5 m/s</td>
+<td>~80+ m</td>
+<td><strong>~30–50 s</strong></td>
+</tr>
+<tr>
+<td><strong>Line</strong></td>
+<td>length=20 m, v=2 m/s, max_accel=1 m/s²</td>
+<td>20 m</td>
+<td><strong>~12–15 s</strong></td>
+</tr>
+</tbody>
+</table>
+<p>*Sim-time from odom timestamps; wall-clock varies with sim real-time factor (RTF).</p>
+<h3 id="circle-geometry-ideal-path">Circle geometry (ideal path)<a class="headerlink" href="#circle-geometry-ideal-path" title="Permanent link">&para;</a></h3>
+<p>Python <code>_ideal_circle()</code> mirrors <code>generate_circle()</code> in C++:</p>
+<ul>
+<li>Start at origin, move to <code>(radius, 0, 0)</code>.</li>
+<li>Trace the circle in 10° steps.</li>
+<li>Return to <code>(radius, 0, 0)</code> then origin.</li>
+</ul>
+<p>The trajectory is defined in <strong><code>base_link</code></strong> at dispatch; the test transforms it to <strong>world frame</strong> using the robot pose snapshot (see below).</p>
+<hr />
+<h2 id="metrics">Metrics<a class="headerlink" href="#metrics" title="Permanent link">&para;</a></h2>
+<p>All metrics are recorded per robot as <code>robot_N.&lt;key&gt;</code> in <code>tests/results/&lt;timestamp&gt;/metrics.json</code> and rolled up into <code>summary.txt</code>.</p>
+<h3 id="flight-metrics">Flight metrics<a class="headerlink" href="#flight-metrics" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Unit</th>
+<th>Better</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ready_duration_sys_s</code></td>
+<td>s</td>
+<td>lower</td>
+<td>Wall-clock time until PX4/MAVROS ready</td>
+</tr>
+<tr>
+<td><code>takeoff_duration_sim_s</code></td>
+<td>s</td>
+<td>lower</td>
+<td>Sim-time from first motion to 95% of 10 m target</td>
+</tr>
+<tr>
+<td><code>altitude_error_m</code></td>
+<td>m</td>
+<td>lower</td>
+<td>Signed steady-state altitude error after takeoff</td>
+</tr>
+<tr>
+<td><code>overshoot_m</code></td>
+<td>m</td>
+<td>lower</td>
+<td>Unsigned overshoot above 10 m</td>
+</tr>
+<tr>
+<td><code>trajectory_success</code></td>
+<td>—</td>
+<td><strong>higher</strong></td>
+<td><code>1.0</code> if action returned <code>success: true</code>, else <code>0.0</code></td>
+</tr>
+<tr>
+<td><code>trajectory_execution_time_sim_s</code></td>
+<td>s</td>
+<td>lower</td>
+<td>Sim-time from action dispatch to completion</td>
+</tr>
+<tr>
+<td><code>cross_track_error_mean_m</code></td>
+<td>m</td>
+<td>lower</td>
+<td>Mean 2-D lateral distance to nearest ideal point</td>
+</tr>
+<tr>
+<td><code>cross_track_error_max_m</code></td>
+<td>m</td>
+<td>lower</td>
+<td>Worst 2-D lateral deviation</td>
+</tr>
+<tr>
+<td><code>path_rmse_m</code></td>
+<td>m</td>
+<td>lower</td>
+<td>2-D RMSE against ideal polyline</td>
+</tr>
+<tr>
+<td><code>land_duration_sim_s</code></td>
+<td>s</td>
+<td>lower</td>
+<td>Sim-time from 80% peak descent to &lt; 0.5 m</td>
+</tr>
+<tr>
+<td><code>final_altitude_m</code></td>
+<td>m</td>
+<td>lower</td>
+<td>Altitude when landing action completes</td>
+</tr>
+</tbody>
+</table>
+<h3 id="how-to-read-metrics-when-comparing-trackers">How to read metrics when comparing trackers<a class="headerlink" href="#how-to-read-metrics-when-comparing-trackers" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Observation</th>
+<th>Likely meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>High <code>cross_track_error_max_m</code>, moderate mean</td>
+<td>Turn/corner lag (common on Circle)</td>
+</tr>
+<tr>
+<td>High mean and max</td>
+<td>Tracker not keeping up or wrong frame</td>
+</tr>
+<tr>
+<td>Long <code>trajectory_execution_time_sim_s</code> at same velocity</td>
+<td>Virtual time stalling behind the robot</td>
+</tr>
+<tr>
+<td><code>trajectory_success = 0</code></td>
+<td>Action timed out or aborted — fix before interpreting error</td>
+</tr>
+<tr>
+<td>Good mean, bad max</td>
+<td>Occasional spikes — check sphere intersection on curves</td>
+</tr>
+</tbody>
+</table>
+<h3 id="observed-baseline-circle-isaac-sim-10-headless-runs">Observed baseline (Circle, Isaac Sim, 10 headless runs)<a class="headerlink" href="#observed-baseline-circle-isaac-sim-10-headless-runs" title="Permanent link">&para;</a></h3>
+<p>Measured on the <strong>AirStations</strong> (Linux workstations with GPU support):</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Typical value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tests</td>
+<td>40 passed / 0 failed (10 iter × 4 phases)</td>
+</tr>
+<tr>
+<td><code>trajectory_success</code></td>
+<td>yes (every run)</td>
+</tr>
+<tr>
+<td><code>trajectory_execution_time_sim_s</code></td>
+<td>~46 s</td>
+</tr>
+<tr>
+<td><code>cross_track_error_mean_m</code></td>
+<td>~0.98 m</td>
+</tr>
+<tr>
+<td><code>cross_track_error_max_m</code></td>
+<td>~5.0 m</td>
+</tr>
+<tr>
+<td><code>path_rmse_m</code></td>
+<td>~1.55 m</td>
+</tr>
+<tr>
+<td><code>final_altitude_m</code></td>
+<td>&lt; 0.05 m</td>
+</tr>
+</tbody>
+</table>
+<p>The assertion tolerance is <strong><code>CROSS_TRACK_TOLERANCE_M = 5.0</code></strong> in <code>test_fixed_trajectory.py</code> — intentionally loose while the default tracker matures. Tighten this constant as tracking improves.</p>
+<hr />
+<h2 id="cross-track-error-algorithm">Cross-track error algorithm<a class="headerlink" href="#cross-track-error-algorithm" title="Permanent link">&para;</a></h2>
+<p>The test measures <strong>end-to-end</strong> tracking (tracker + PID + sim physics), not the tracker in isolation.</p>
+<h3 id="steps">Steps<a class="headerlink" href="#steps" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Snapshot pose</strong> — immediately before sending <code>FixedTrajectoryTask</code>, read one odom sample: <code>(x₀, y₀, z₀, yaw₀)</code>.</li>
+<li><strong>Build ideal path</strong> — generate waypoints in <code>base_link</code> using the same equations as C++ (<code>_ideal_circle</code>, <code>_ideal_figure8</code>, etc.).</li>
+<li><strong>Transform to world</strong> — rotate by <code>yaw₀</code> and translate by <code>(x₀, y₀, z₀)</code>.</li>
+<li><strong>Capture odom</strong> — background <code>ros2 topic echo --csv</code> on <code>/robot_N/interface/mavros/local_position/odom</code> for the action duration (timeout 180 s).</li>
+<li><strong>Compute error</strong> — for each odom sample, find the nearest ideal waypoint in <strong>XY</strong>; record distance statistics.</li>
+</ol>
+<p>Altitude is not part of cross-track error (these patterns are flat; altitude is checked at takeoff).</p>
+<h3 id="why-world-frame-alignment-matters">Why world-frame alignment matters<a class="headerlink" href="#why-world-frame-alignment-matters" title="Permanent link">&para;</a></h3>
+<p><code>FixedTrajectoryTask</code> publishes the path in <code>base_link</code> relative to the robot at dispatch. Without transforming the ideal path to world frame, odom (world-fixed) would be compared against the wrong reference and error would be meaningless.</p>
+<hr />
+<h2 id="results-pipeline">Results pipeline<a class="headerlink" href="#results-pipeline" title="Permanent link">&para;</a></h2>
+<p>Every <code>airstack test</code> run writes:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>tests/results/&lt;YYYY-MM-DD_HH-MM-SS&gt;/
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>├── summary.txt      ← open this first (human-readable)
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>├── results.xml      ← JUnit pass/fail + durations
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>└── metrics.json     ← structured metrics for diff tools
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Artifact</th>
+<th>Producer</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>summary.txt</code></td>
+<td><code>tests/run_summary.py</code> (auto at session end via <code>conftest.py</code>)</td>
+<td>Quick pass/fail + key numbers per trajectory type</td>
+</tr>
+<tr>
+<td><code>results.xml</code></td>
+<td>pytest <code>--junitxml</code></td>
+<td>CI, phase wall times</td>
+</tr>
+<tr>
+<td><code>metrics.json</code></td>
+<td><code>MetricsRecorder</code> in <code>conftest.py</code></td>
+<td>Regression diffs</td>
+</tr>
+</tbody>
+</table>
+<h3 id="regenerate-or-inspect">Regenerate or inspect<a class="headerlink" href="#regenerate-or-inspect" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Latest run</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nv">LATEST</span><span class="o">=</span><span class="k">$(</span>ls<span class="w"> </span>-1t<span class="w"> </span>tests/results/<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-1<span class="k">)</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Human summary</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>cat<span class="w"> </span><span class="s2">&quot;tests/results/</span><span class="nv">$LATEST</span><span class="s2">/summary.txt&quot;</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Regenerate summary manually</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>python3<span class="w"> </span>tests/run_summary.py<span class="w"> </span><span class="s2">&quot;tests/results/</span><span class="nv">$LATEST</span><span class="s2">/&quot;</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1"># Markdown table of all metrics</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>python3<span class="w"> </span>tests/parse_metrics.py<span class="w"> </span>--current<span class="w"> </span><span class="s2">&quot;tests/results/</span><span class="nv">$LATEST</span><span class="s2">/&quot;</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="c1"># Compare two tracker configs</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>python3<span class="w"> </span>tests/parse_metrics.py<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">  </span>--current<span class="w">  </span><span class="s2">&quot;tests/results/</span><span class="nv">$NEW</span><span class="s2">/&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">  </span>--baseline<span class="w"> </span><span class="s2">&quot;tests/results/</span><span class="nv">$OLD</span><span class="s2">/&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">  </span>--threshold<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="w">  </span>--output<span class="w"> </span>report.md
+</span></code></pre></div>
+<p><code>parse_metrics.py</code> exits <strong>1</strong> when any metric regresses beyond the threshold percentage.</p>
+<hr />
+<h2 id="running-tests-complete-cli-reference">Running tests (complete CLI reference)<a class="headerlink" href="#running-tests-complete-cli-reference" title="Permanent link">&para;</a></h2>
+<h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
+<p>See <strong><a href="../#prerequisites">Testing → Prerequisites</a></strong> for the shared setup (Docker daemon, NVIDIA GPU + <code>nvidia-container-toolkit</code>, and Isaac Sim <code>omni_pass.env</code>).</p>
+<h3 id="primary-interface">Primary interface<a class="headerlink" href="#primary-interface" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span><span class="o">[</span>pytest<span class="w"> </span>options<span class="o">]</span>
+</span></code></pre></div>
+<p>All arguments are forwarded to pytest inside the containerized test runner (<code>tests/docker/</code>).</p>
+<h3 id="rebuild-after-c-changes">Rebuild after C++ changes<a class="headerlink" href="#rebuild-after-c-changes" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>build_packages<span class="w"> </span>-v
+</span></code></pre></div>
+<p>Always run this after modifying <code>trajectory_controller</code>, <code>trajectory_library</code>, or launch params before flight tests.</p>
+<h3 id="fixed-trajectory-commands">Fixed-trajectory commands<a class="headerlink" href="#fixed-trajectory-commands" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Quick Circle regression (recommended smoke test)</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;build_packages or autonomy&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span>--trajectory-types<span class="w"> </span>Circle<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span>-v
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="c1"># All four trajectory types, ms-airsim</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>autonomy<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">  </span>--sim<span class="w"> </span>msairsim<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">  </span>--trajectory-types<span class="w"> </span>Circle,Figure8,Racetrack,Line<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="w">  </span>-v
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>
+</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="c1"># Stress: 10 iterations (statistical stability)</span>
+</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>autonomy<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-19"><a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="w">  </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-20"><a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-21"><a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-22"><a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a><span class="w">  </span>--trajectory-types<span class="w"> </span>Circle<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-23"><a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a><span class="w">  </span>-v
+</span><span id="__span-6-24"><a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a>
+</span><span id="__span-6-25"><a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a><span class="c1"># Visual debug (sim GUI)</span>
+</span><span id="__span-6-26"><a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>autonomy<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-27"><a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a><span class="w">  </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-28"><a id="__codelineno-6-28" name="__codelineno-6-28" href="#__codelineno-6-28"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-29"><a id="__codelineno-6-29" name="__codelineno-6-29" href="#__codelineno-6-29"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-30"><a id="__codelineno-6-30" name="__codelineno-6-30" href="#__codelineno-6-30"></a><span class="w">  </span>--trajectory-types<span class="w"> </span>Circle<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-31"><a id="__codelineno-6-31" name="__codelineno-6-31" href="#__codelineno-6-31"></a><span class="w">  </span>--gui<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-32"><a id="__codelineno-6-32" name="__codelineno-6-32" href="#__codelineno-6-32"></a><span class="w">  </span>-v
+</span><span id="__span-6-33"><a id="__codelineno-6-33" name="__codelineno-6-33" href="#__codelineno-6-33"></a>
+</span><span id="__span-6-34"><a id="__codelineno-6-34" name="__codelineno-6-34" href="#__codelineno-6-34"></a><span class="c1"># Run only the trajectory phase (debugging)</span>
+</span><span id="__span-6-35"><a id="__codelineno-6-35" name="__codelineno-6-35" href="#__codelineno-6-35"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>autonomy<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-36"><a id="__codelineno-6-36" name="__codelineno-6-36" href="#__codelineno-6-36"></a><span class="w">  </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-37"><a id="__codelineno-6-37" name="__codelineno-6-37" href="#__codelineno-6-37"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-38"><a id="__codelineno-6-38" name="__codelineno-6-38" href="#__codelineno-6-38"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-39"><a id="__codelineno-6-39" name="__codelineno-6-39" href="#__codelineno-6-39"></a><span class="w">  </span>--trajectory-types<span class="w"> </span>Circle<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-40"><a id="__codelineno-6-40" name="__codelineno-6-40" href="#__codelineno-6-40"></a><span class="w">  </span>-k<span class="w"> </span>test_fixed_trajectory<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-41"><a id="__codelineno-6-41" name="__codelineno-6-41" href="#__codelineno-6-41"></a><span class="w">  </span>-v
+</span></code></pre></div>
+<h3 id="global-cli-options">Global CLI options<a class="headerlink" href="#global-cli-options" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--sim</code></td>
+<td><code>msairsim,isaacsim</code></td>
+<td>Comma-separated sim targets</td>
+</tr>
+<tr>
+<td><code>--num-robots</code></td>
+<td><code>1,3</code></td>
+<td>Comma-separated robot counts</td>
+</tr>
+<tr>
+<td><code>--stress-iterations</code></td>
+<td><code>1</code></td>
+<td>Repeat count per <code>(sim, num_robots)</code></td>
+</tr>
+<tr>
+<td><code>--trajectory-types</code></td>
+<td><code>Circle,Figure8,Racetrack,Line</code></td>
+<td>Trajectory sweep</td>
+</tr>
+<tr>
+<td><code>--gui</code></td>
+<td>off</td>
+<td>Show simulator windows</td>
+</tr>
+<tr>
+<td><code>-v</code></td>
+<td>—</td>
+<td>Verbose pytest</td>
+</tr>
+<tr>
+<td><code>-k EXPR</code></td>
+<td>—</td>
+<td>Filter test names</td>
+</tr>
+</tbody>
+</table>
+<h3 id="direct-pytest-local-python-env">Direct pytest (local Python env)<a class="headerlink" href="#direct-pytest-local-python-env" title="Permanent link">&para;</a></h3>
+<p>For faster iteration when editing test code:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AIRSTACK_ROOT</span><span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>tests/requirements.txt
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>pytest<span class="w"> </span>tests/<span class="w"> </span>-m<span class="w"> </span>autonomy<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">  </span>--trajectory-types<span class="w"> </span>Circle<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">  </span>-v
+</span></code></pre></div>
+<h3 id="ci-pytest-pr-comment">CI: <code>/pytest</code> PR comment<a class="headerlink" href="#ci-pytest-pr-comment" title="Permanent link">&para;</a></h3>
+<p>Core contributors can trigger runs by commenting on the PR:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>/pytest -m &quot;build_packages or autonomy&quot; --sim isaacsim --num-robots 1 --stress-iterations 1 --trajectory-types Circle -v
+</span></code></pre></div>
+<p>The workflow auto-prepends <code>build_packages</code> when not already specified.</p>
+<hr />
+<h2 id="comparing-path-trackers">Comparing path trackers<a class="headerlink" href="#comparing-path-trackers" title="Permanent link">&para;</a></h2>
+<h3 id="what-to-change">What to change<a class="headerlink" href="#what-to-change" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Location</th>
+<th>Examples</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tracker params</td>
+<td><code>robot/ros_ws/src/local/local_bringup/launch/local.launch.xml</code> (or <code>local_droan_cpu.launch.xml</code>)</td>
+<td><code>sphere_radius</code>, <code>look_ahead_time</code>, <code>search_ahead_factor</code>, <code>min_virtual_tracking_velocity</code></td>
+</tr>
+<tr>
+<td>Tracker implementation</td>
+<td>Replace or fork <code>trajectory_controller</code> node</td>
+<td>Alternative pure-pursuit, different intersection logic</td>
+</tr>
+<tr>
+<td>Low-level control</td>
+<td>Swap <code>pid_controller</code> for <code>attitude_controller</code> in launch</td>
+<td>Changes end-to-end error, not tracker-only</td>
+</tr>
+</tbody>
+</table>
+<p>Key <code>trajectory_controller</code> parameters today:</p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Current value</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sphere_radius</code></td>
+<td><code>2.0</code></td>
+<td>Lookahead sphere radius (m)</td>
+</tr>
+<tr>
+<td><code>look_ahead_time</code></td>
+<td><code>1.0</code></td>
+<td>Look-ahead horizon for local planner feed</td>
+</tr>
+<tr>
+<td><code>virtual_tracking_ahead_time</code></td>
+<td><code>0.5</code></td>
+<td>Virtual tracking search window</td>
+</tr>
+<tr>
+<td><code>min_virtual_tracking_velocity</code></td>
+<td><code>0.5</code></td>
+<td>Below this, time-advance mode instead of sphere mode</td>
+</tr>
+<tr>
+<td><code>search_ahead_factor</code></td>
+<td><code>1.5</code></td>
+<td>Multiplier on sphere radius when searching intersection</td>
+</tr>
+</tbody>
+</table>
+<h3 id="recommended-ab-workflow">Recommended A/B workflow<a class="headerlink" href="#recommended-ab-workflow" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># 1. Baseline run</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;build_packages or autonomy&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span>--stress-iterations<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span>--trajectory-types<span class="w"> </span>Circle<span class="w"> </span>-v
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="nv">BASELINE</span><span class="o">=</span><span class="k">$(</span>ls<span class="w"> </span>-1t<span class="w"> </span>tests/results/<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-1<span class="k">)</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="c1"># 2. Edit tracker params in local.launch.xml, rebuild</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>build_packages<span class="w"> </span>-v
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="c1"># 3. Candidate run</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>autonomy<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">  </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span>--stress-iterations<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">  </span>--trajectory-types<span class="w"> </span>Circle<span class="w"> </span>-v
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="nv">CURRENT</span><span class="o">=</span><span class="k">$(</span>ls<span class="w"> </span>-1t<span class="w"> </span>tests/results/<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-1<span class="k">)</span>
+</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>
+</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="c1"># 4. Diff</span>
+</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>python3<span class="w"> </span>tests/parse_metrics.py<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="w">  </span>--current<span class="w">  </span><span class="s2">&quot;tests/results/</span><span class="nv">$CURRENT</span><span class="s2">/&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-19"><a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="w">  </span>--baseline<span class="w"> </span><span class="s2">&quot;tests/results/</span><span class="nv">$BASELINE</span><span class="s2">/&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-20"><a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a><span class="w">  </span>--threshold<span class="w"> </span><span class="m">20</span>
+</span></code></pre></div>
+<p>Focus on: <code>cross_track_error_mean_m</code>, <code>cross_track_error_max_m</code>, <code>path_rmse_m</code>, <code>trajectory_execution_time_sim_s</code>, <code>trajectory_success</code>.</p>
+<hr />
+<h2 id="manual-stack-usage-without-pytest">Manual stack usage (without pytest)<a class="headerlink" href="#manual-stack-usage-without-pytest" title="Permanent link">&para;</a></h2>
+<p>Bring up the stack and take off as described in <strong><a href="../../../../getting_started/">Getting Started</a></strong> (<code>airstack up</code>, then use the RViz task panel). Once the drone is hovering, dispatch a fixed trajectory directly:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-it<span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="s1">  source /opt/ros/jazzy/setup.bash &amp;&amp;</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="s1">  source /root/AirStack/robot/ros_ws/install/setup.bash &amp;&amp;</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="s1">  ros2 action send_goal --feedback /robot_1/tasks/fixed_trajectory \</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="s1">    task_msgs/action/FixedTrajectoryTask \</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="s1">    &quot;{trajectory_spec: {type: Circle, attributes: [{key: radius, value: \&quot;10.0\&quot;}, {key: velocity, value: \&quot;2.0\&quot;}]}, loop: false}&quot;</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="s1">&#39;</span>
+</span></code></pre></div>
+<p>Action server: <code>/{robot_name}/tasks/fixed_trajectory</code> — see also <a href="../../../../robot/autonomy/tasks/">Tasks and Task Executors</a>.</p>
+<hr />
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Likely cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sentinel nodes missing</td>
+<td>Workspace not built in container</td>
+<td><code>-m "build_packages or autonomy"</code></td>
+</tr>
+<tr>
+<td>PX4 ready timeout</td>
+<td>Sim not running, GPU issue</td>
+<td>Check <code>nvidia-smi</code>, Isaac <code>omni_pass.env</code></td>
+</tr>
+<tr>
+<td><code>trajectory_success = 0</code></td>
+<td>Tracker stall or timeout</td>
+<td>Check trajectory_controller logs; rebuild the workspace (<code>-m build_packages</code>)</td>
+</tr>
+<tr>
+<td>Cross-track error &gt;&gt; 5 m</td>
+<td>Wrong tracker params or frame bug</td>
+<td>Compare launch params; check world-frame transform</td>
+</tr>
+<tr>
+<td>Tests run for hours</td>
+<td>Default <code>--sim</code> and <code>--num-robots</code> sweep</td>
+<td>Pin <code>--sim isaacsim --num-robots 1 --stress-iterations 1</code></td>
+</tr>
+<tr>
+<td>Unknown mark warning <code>autonomy</code></td>
+<td>Mark not in <code>pytest.ini</code></td>
+<td>Harmless; filter still works</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="source-file-reference">Source file reference<a class="headerlink" href="#source-file-reference" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../../../../../tests/system/test_fixed_trajectory.py"><code>tests/system/test_fixed_trajectory.py</code></a></td>
+<td>Test module, ideal paths, metrics</td>
+</tr>
+<tr>
+<td><a href="../../../../../tests/conftest.py"><code>tests/conftest.py</code></a></td>
+<td>Fixtures, <code>--trajectory-types</code>, summary hook, collection order</td>
+</tr>
+<tr>
+<td><a href="../../../../../tests/run_summary.py"><code>tests/run_summary.py</code></a></td>
+<td><code>summary.txt</code> generator</td>
+</tr>
+<tr>
+<td><a href="../../../../../tests/parse_metrics.py"><code>tests/parse_metrics.py</code></a></td>
+<td>Markdown reports + regression diff</td>
+</tr>
+<tr>
+<td><a href="../../../../../tests/pytest.ini"><code>tests/pytest.ini</code></a></td>
+<td>Registered marks</td>
+</tr>
+<tr>
+<td><a href="../../../../../robot/ros_ws/src/local/controls/trajectory_controller/src/fixed_trajectory_task.cpp"><code>robot/.../fixed_trajectory_task.cpp</code></a></td>
+<td>C++ reference path generators</td>
+</tr>
+<tr>
+<td><a href="../../../../../robot/ros_ws/src/local/controls/trajectory_controller/src/trajectory_controller.cpp"><code>robot/.../trajectory_controller.cpp</code></a></td>
+<td>Pure-pursuit path tracker</td>
+</tr>
+<tr>
+<td><a href="../../../../../robot/ros_ws/src/local/planners/trajectory_library/src/trajectory_library.cpp"><code>robot/.../trajectory_library.cpp</code></a></td>
+<td>Trajectory math, sphere intersection</td>
+</tr>
+<tr>
+<td><a href="../../../../../robot/ros_ws/src/local/local_bringup/launch/local.launch.xml"><code>robot/.../local.launch.xml</code></a></td>
+<td>Tracker + PID params</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="related-documentation">Related documentation<a class="headerlink" href="#related-documentation" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../../../../tests/">System tests overview (<code>tests/README.md</code>)</a></li>
+<li><a href="../../../../../robot/ros_ws/src/local/controls/trajectory_controller/">Trajectory Controller README</a></li>
+<li><a href="../../../../robot/autonomy/tasks/">Tasks and Task Executors</a></li>
+<li><a href="../../../../../tests/ci-cd-orchestrator/">CI/CD orchestrator</a></li>
+</ul>
 
 
 
@@ -5512,7 +6697,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../../../robot/ros_ws/src/global/planners/exploration/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Exploration">
+          <a href="../../../../../tests/" class="md-footer__link md-footer__link--prev" aria-label="Previous: System Tests">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -5522,20 +6707,20 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Exploration
+                System Tests
               </div>
             </div>
           </a>
         
         
           
-          <a href="../integration_checklist/" class="md-footer__link md-footer__link--next" aria-label="Next: Integration Guide">
+          <a href="../../../../../tests/ci-cd-orchestrator/" class="md-footer__link md-footer__link--next" aria-label="Next: CI/CD Orchestrator">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Integration Guide
+                CI/CD Orchestrator
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -5598,10 +6783,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../../../..", "features": ["navigation.indexes", "navigation.path", "navigation.tabs", "navigation.footer", "navigation.top", "navigation.sections", "search.highlight", "search.suggest", "toc.integrate", "toc.follow", "content.code.copy"], "search": "../../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../../../..", "features": ["navigation.indexes", "navigation.path", "navigation.tabs", "navigation.footer", "navigation.top", "navigation.sections", "search.highlight", "search.suggest", "toc.integrate", "toc.follow", "content.code.copy"], "search": "../../../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../../../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>
