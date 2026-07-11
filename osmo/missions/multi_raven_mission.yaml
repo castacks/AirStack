@@ -47,7 +47,7 @@ environments:
     voxel_score_threshold: -1
     score_threshold: -1
     voxel_min_cluster_size: -1
-    background_queries: "ground, grass, road, tree, water tower, debris, industrial mill"
+    background_queries: "ground, grass, road, tree, water tower, debris, warehouse"
     search_area:
       points:
         - {x: -150.0, y: 150.0, z: 0.0}
@@ -107,7 +107,7 @@ environments:
     voxel_score_threshold: -1
     score_threshold: -1
     voxel_min_cluster_size: -1
-    background_queries: "road, grass, mountain, parking lot, tree, utility pole, flood light, shipping container, gas tank, warehouse"
+    background_queries: "road, grass, mountain, parking lot, tree, utility pole, flood light, gas tank"
     search_area:
       points:
         - {x: 13.0, y: -135.0, z: 0.0}
