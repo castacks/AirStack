@@ -74,6 +74,11 @@ depth_limit: 20.0
 #   model_version: radio_v2.5-b
 #   lang_model: siglip
 
+querying:
+  compressed: False
+  compute_prob: True
+
+
 dataset:
   rgb_resolution: [480, 480]  #[480, 304]
   depth_resolution: [480, 480]  #[480, 304]
