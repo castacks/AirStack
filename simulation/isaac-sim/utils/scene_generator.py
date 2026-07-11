@@ -13,8 +13,20 @@ than forcing a uniform grid it packs each building into its own lot:
              and grass filling the remaining slack inside each lot.
     Step 2 — Buildings: one per cell, centered; a configurable fraction rendered
              damaged (tilted + sunk, preferring a damaged USD when provided).
-    Step 3 — Detail: trees scattered on open grass, streetlights at uniform
-             spacing along the roads.
+    Step 3 — Detail: trees + humans scattered on open ground; streetlights,
+             fire hydrants and trash cans along block frontages (sharing an
+             occupancy grid so categories never stack); traffic lights at
+             intersection corners, facing the intersection.
+    Step 4 — Cars + disaster: cars parked on the right-hand lane of straight
+             road segments. The disaster pass (tornado aftermath) is applied
+             inline: per-category topple fractions (streetlights, traffic
+             lights, trash cans, fire hydrants, cars), leaning traffic lights,
+             wind-scattered trash cans, prone humans, and extra car wrecks
+             strewn across open ground. See the placement sections and
+             ``disaster`` in the config.
+
+Relative USD paths in the config are prefixed with ``asset_root`` (URLs and
+absolute paths pass through unchanged).
 
 Asset footprints are **measured at generation time** from each USD's bounding
 box (``UsdGeom.BBoxCache``) so the layout tiles correctly regardless of prop
@@ -146,7 +158,17 @@ def _measure_footprint(usd_path: str, scale: float, axis_up: str = "Z"):
             "cz": 0.0}
 
 
-def _parse_usd_entry(entry, default_scale: float):
+def _join_asset_root(path: str, asset_root: str) -> str:
+    """Prefix *asset_root* onto relative asset paths. Paths with a URL scheme
+    (``omniverse://``, ``file://``, …) or a leading ``/`` / ``~`` are already
+    absolute and pass through unchanged.
+    """
+    if not asset_root or "://" in path or path.startswith(("/", "~")):
+        return path
+    return asset_root.rstrip("/") + "/" + path
+
+
+def _parse_usd_entry(entry, default_scale: float, asset_root: str = ""):
     """Normalize a USD entry to ``(path, scale, axis_up)``.
 
     Entries can be plain strings (use *default_scale*, Z-up) or dicts::
@@ -158,15 +180,17 @@ def _parse_usd_entry(entry, default_scale: float):
         - usd: "omniverse://host/Props/SM_Building.usd"
           scale: 1.0      # already in meters; global asset_scale is e.g. 0.01
           axis-up: "Y"    # authored Y-up (e.g. Unity export); corrected via +90° roll
+
+    Relative paths get *asset_root* prefixed (see :func:`_join_asset_root`).
     """
     if isinstance(entry, dict):
-        return (str(entry["usd"]),
+        return (_join_asset_root(str(entry["usd"]), asset_root),
                 float(entry.get("scale", default_scale)),
                 str(entry.get("axis-up", "Z")).upper())
-    return str(entry), float(default_scale), "Z"
+    return _join_asset_root(str(entry), asset_root), float(default_scale), "Z"
 
 
-def _normalize_usd_list(lst, default_scale: float):
+def _normalize_usd_list(lst, default_scale: float, asset_root: str = ""):
     """Return ``(path_list, scale_overrides, axis_up_overrides)`` from a raw YAML USD list.
 
     *path_list* is a plain list of USD paths suitable for ``rng.choice()``.
@@ -175,7 +199,7 @@ def _normalize_usd_list(lst, default_scale: float):
     """
     paths, scale_ovr, axisup_ovr = [], {}, {}
     for entry in (lst or []):
-        path, sc, au = _parse_usd_entry(entry, default_scale)
+        path, sc, au = _parse_usd_entry(entry, default_scale, asset_root)
         paths.append(path)
         if sc != default_scale:
             scale_ovr[path] = sc
@@ -467,6 +491,7 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
     """
     rng = random.Random(int(config.get("seed", 0)))
     asset_scale = float(config.get("asset_scale", 1.0))
+    asset_root = str(config.get("asset_root", "") or "")
     exclusions = config.get("exclusions", [])
     orient = config.get("orientation", {})
 
@@ -480,7 +505,7 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
     _axis_up_overrides: dict = {}
 
     def _nl(lst):
-        paths, sc_ov, au_ov = _normalize_usd_list(lst, asset_scale)
+        paths, sc_ov, au_ov = _normalize_usd_list(lst, asset_scale, asset_root)
         _scale_overrides.update(sc_ov)
         _axis_up_overrides.update(au_ov)
         return paths
@@ -500,11 +525,16 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
     house_damaged = _nl(usds["houses"].get("damaged") or [])
     tree_usds     = _nl(usds.get("trees") or [])
     light_usds    = _nl(usds.get("streetlights") or [])
+    car_usds      = _nl(usds.get("cars") or [])
+    trash_usds    = _nl(usds.get("trash_cans") or [])
+    tlight_usds   = _nl(usds.get("traffic_lights") or [])
+    hydrant_usds  = _nl(usds.get("fire_hydrants") or [])
+    human_usds    = _nl(usds.get("humans") or [])
 
     # Road dict: values may also be plain strings or {usd:, scale:, axis-up:} dicts.
     road: dict = {}
     for k, entry in (tiles.get("road") or {}).items():
-        path, sc, au = _parse_usd_entry(entry, asset_scale)
+        path, sc, au = _parse_usd_entry(entry, asset_scale, asset_root)
         road[k] = path
         if sc != asset_scale:
             _scale_overrides[path] = sc
@@ -548,6 +578,10 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
             "yaw_deg": yaw, "roll_deg": roll, "pitch_deg": pitch,
             "scale": scale, "category": category, "axis_up": axis_up,
         })
+
+    def _axis_roll(usd):
+        """+90° roll stands Y-up-authored assets upright in the Z-up world."""
+        return 90.0 if _au(usd) == "Y" else 0.0
 
     def _tile_rect(usd_choices, rect, tsx, tsy, z, category, skip=None):
         """Fill an axis-aligned *rect* (xmin,ymin,xmax,ymax) with tiles sized
@@ -696,12 +730,18 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
                 return road[k]
         return road["straight"]
 
+    straight_cells: list = []      # (i, j, "EW"|"NS") — car placement sites (step 4)
+    intersection_cells: list = []  # (i, j) of 4-way/tee cells — traffic light sites
     for (i, j) in road_cells:
         mask = ((_N if (i, j + 1) in road_cells else 0) |
                 (_E if (i + 1, j) in road_cells else 0) |
                 (_S if (i, j - 1) in road_cells else 0) |
                 (_W if (i - 1, j) in road_cells else 0))
         key, base_yaw = _road_tile_for_mask(mask)
+        if key == "straight":
+            straight_cells.append((i, j, "NS" if base_yaw == 90.0 else "EW"))
+        elif key in ("four_way", "tee"):
+            intersection_cells.append((i, j))
         usd = _resolve_road(key)
         cx, cy = _cell_center(i, j)
         add(usd, cx, cy, 0.0, base_yaw + road_off[key], "road", _sc(usd))
@@ -814,66 +854,288 @@ def build_city(config: dict, resolver: SizeResolver) -> list:
             n_buildings += 1
 
     # =======================================================================
-    # STEP 3 — TREES (open grass) + STREETLIGHTS (along block frontage)
+    # STEP 3 — DETAIL: trees + humans (open-ground scatter); streetlights +
+    # fire hydrants + trash cans (block frontage); traffic lights
+    # (intersection corners)
     # =======================================================================
-    if tree_usds:
-        tcfg = config.get("trees", {})
-        per_block = tcfg.get("per_block", tcfg.get("per_cell", [1, 3]))
-        tree_min_sep = float(tcfg.get("min_separation_m", 2.5))
-        tree_margin = float(tcfg.get("house_margin_m", 1.5))
+
+    # Disaster (tornado aftermath) parameters — consumed inline through
+    # steps 3-4 (per-category toppling, leaning, scattering, strewn wrecks).
+    dcfg = config.get("disaster", {})
+
+    def _scatter_in_blocks(count_range, min_sep, margin, place_fn):
+        """Rejection-sample points on each block's open ground — off building
+        lots by *margin*, off exclusions, *min_sep* apart — and call
+        ``place_fn(x, y)`` for each accepted point.
+        """
         for (bx0, by0, bx1, by1) in block_cells:
             x0, y0, x1, y1 = _cells_to_rect(bx0, by0, bx1, by1)
             local = [hr for hr in house_rects
                      if hr[0] >= x0 - 5 and hr[2] <= x1 + 5
                      and hr[1] >= y0 - 5 and hr[3] <= y1 + 5]
             placed: list = []
-            want = rng.randint(int(per_block[0]), int(per_block[1]))
+            want = rng.randint(int(count_range[0]), int(count_range[1]))
             for _ in range(want * 12):
                 if len(placed) >= want:
                     break
                 tx, ty = rng.uniform(x0, x1), rng.uniform(y0, y1)
-                if any(_in_rect(tx, ty, (hr[0] - tree_margin, hr[1] - tree_margin,
-                                         hr[2] + tree_margin, hr[3] + tree_margin))
+                if any(_in_rect(tx, ty, (hr[0] - margin, hr[1] - margin,
+                                         hr[2] + margin, hr[3] + margin))
                        for hr in local):
                     continue
                 if exclusions and _in_exclusion(tx, ty, exclusions):
                     continue
-                if any((tx - px) ** 2 + (ty - py) ** 2 < tree_min_sep ** 2
+                if any((tx - px) ** 2 + (ty - py) ** 2 < min_sep ** 2
                        for px, py in placed):
                     continue
-                usd = rng.choice(tree_usds)
-                jitter = rng.uniform(0.85, 1.2)
-                add(usd, tx, ty, resolver.get(usd, "tree", scale=_sc(usd))["base"],
-                    rng.uniform(0, 360), "tree", _sc(usd) * jitter)
+                place_fn(tx, ty)
                 placed.append((tx, ty))
 
+    # Frontage props (streetlights, fire hydrants, trash cans) share one 2 m
+    # occupancy grid so different categories never stack on the same spot.
+    frontage_seen: set = set()
+
+    def _frontage_positions(spacing, phase=0.0, jitter_frac=0.0):
+        """Yield (x, y) along every block's frontage ring at *spacing*,
+        skipping already-occupied slots and exclusion zones.
+
+        *phase* shifts every point along its edge by that fraction of a step
+        (phase 0 includes both corners; phase 0.5 emits step midpoints only).
+        Categories placed after the first would otherwise land exactly on the
+        corners/steps the first category already claimed in the occupancy
+        grid and get dropped wholesale. *jitter_frac* adds a random per-point
+        slide (fraction of a step) so sparse categories look hand-placed.
+        """
+        for (bx0, by0, bx1, by1) in block_cells:
+            x0, y0, x1, y1 = _cells_to_rect(bx0, by0, bx1, by1)
+            for ax, ay, bx, by in ((x0, y0, x1, y0), (x0, y1, x1, y1),
+                                   (x0, y0, x0, y1), (x1, y0, x1, y1)):
+                length = math.hypot(bx - ax, by - ay)
+                n = max(1, int(length / spacing))
+                step = length / n
+                for k in range(n + 1 if phase == 0.0 else n):
+                    s = (k + phase) * step
+                    if jitter_frac:
+                        s = min(length, max(0.0, s + rng.uniform(-1.0, 1.0)
+                                            * jitter_frac * step))
+                    t = s / length
+                    px, py = ax + (bx - ax) * t, ay + (by - ay) * t
+                    key = (round(px / 2.0), round(py / 2.0))
+                    if key in frontage_seen:
+                        continue
+                    frontage_seen.add(key)
+                    if exclusions and _in_exclusion(px, py, exclusions):
+                        continue
+                    yield px, py
+
+    def _topple_flat(usd, fp, x, y, category):
+        """Prop knocked flat: ~90° roll about its base pivot with a random
+        heading; z lifts the pivot by half the footprint width so the lying
+        prop rests on (not in) the ground."""
+        add(usd, x, y, max(fp["sx"], fp["sy"]) / 2.0, rng.uniform(0.0, 360.0),
+            category, _sc(usd),
+            roll=_axis_roll(usd) + rng.choice([-1.0, 1.0]) * rng.uniform(80.0, 100.0),
+            axis_up=_au(usd))
+
+    # ---- Trees: scattered on open grass.
+    if tree_usds:
+        tcfg = config.get("trees", {})
+
+        def _place_tree(tx, ty):
+            usd = rng.choice(tree_usds)
+            jitter = rng.uniform(0.85, 1.2)
+            add(usd, tx, ty, resolver.get(usd, "tree", scale=_sc(usd))["base"],
+                rng.uniform(0, 360), "tree", _sc(usd) * jitter)
+
+        _scatter_in_blocks(tcfg.get("per_block", tcfg.get("per_cell", [1, 3])),
+                           float(tcfg.get("min_separation_m", 2.5)),
+                           float(tcfg.get("house_margin_m", 1.5)),
+                           _place_tree)
+
+    # ---- Streetlights: uniform spacing along frontage; some snapped flat.
     if light_usds:
         spacing = float(config.get("streetlights", {}).get("spacing_m", 20.0))
-        _light0 = light_usds[0]
-        light_base = resolver.get(_light0, "streetlight", scale=_sc(_light0))["base"]
-        seen: set = set()
+        lights_toppled = float(dcfg.get("streetlights_toppled_fraction", 0.0))
+        for px, py in _frontage_positions(spacing):
+            lu = rng.choice(light_usds)
+            lfp = resolver.get(lu, "streetlight", scale=_sc(lu))
+            if rng.random() < lights_toppled:
+                _topple_flat(lu, lfp, px, py, "streetlight")
+            else:
+                add(lu, px, py, lfp["base"], 0.0, "streetlight", _sc(lu))
 
-        def _light_line(ax, ay, bx, by):
-            length = math.hypot(bx - ax, by - ay)
-            n = max(1, int(length / spacing))
-            for k in range(n + 1):
-                t = k / n
-                px, py = ax + (bx - ax) * t, ay + (by - ay) * t
-                key = (round(px / 2.0), round(py / 2.0))
-                if key in seen:
-                    continue
-                seen.add(key)
-                if exclusions and _in_exclusion(px, py, exclusions):
-                    continue
-                lu = rng.choice(light_usds)
-                add(lu, px, py, light_base, 0.0, "streetlight", _sc(lu))
+    # ---- Fire hydrants: sparse along frontage. Bolted to the water main, so
+    # a tornado rarely moves them — only a small sheared-off-and-flat fraction.
+    if hydrant_usds:
+        spacing = float(config.get("fire_hydrants", {}).get("spacing_m", 55.0))
+        sheared = float(dcfg.get("fire_hydrants_toppled_fraction", 0.0))
+        for px, py in _frontage_positions(spacing, phase=0.5, jitter_frac=0.2):
+            u = rng.choice(hydrant_usds)
+            fp = resolver.get(u, "fire_hydrant", scale=_sc(u), axis_up=_au(u))
+            if rng.random() < sheared:
+                _topple_flat(u, fp, px, py, "fire_hydrant")
+            else:
+                add(u, px, py, fp["base"], rng.uniform(0.0, 360.0),
+                    "fire_hydrant", _sc(u), roll=_axis_roll(u), axis_up=_au(u))
 
-        for (bx0, by0, bx1, by1) in block_cells:    # lights ring each block frontage
-            x0, y0, x1, y1 = _cells_to_rect(bx0, by0, bx1, by1)
-            _light_line(x0, y0, x1, y0)
-            _light_line(x0, y1, x1, y1)
-            _light_line(x0, y0, x0, y1)
-            _light_line(x1, y0, x1, y1)
+    # ---- Trash cans: along frontage. Light and unanchored, so tipped ones
+    # are also wind-blown up to trash_cans_scatter_m from where they stood.
+    if trash_usds:
+        spacing = float(config.get("trash_cans", {}).get("spacing_m", 25.0))
+        tipped = float(dcfg.get("trash_cans_toppled_fraction", 0.0))
+        scatter = float(dcfg.get("trash_cans_scatter_m", 0.0))
+        for px, py in _frontage_positions(spacing, phase=0.5, jitter_frac=0.35):
+            u = rng.choice(trash_usds)
+            fp = resolver.get(u, "trash_can", scale=_sc(u), axis_up=_au(u))
+            if rng.random() < tipped:
+                ang = rng.uniform(0.0, 2.0 * math.pi)
+                d = rng.uniform(0.0, scatter)
+                bx_, by_ = px + d * math.cos(ang), py + d * math.sin(ang)
+                if exclusions and _in_exclusion(bx_, by_, exclusions):
+                    bx_, by_ = px, py       # don't blow into a keep-out zone
+                _topple_flat(u, fp, bx_, by_, "trash_can")
+            else:
+                add(u, px, py, fp["base"], rng.uniform(0.0, 360.0),
+                    "trash_can", _sc(u), roll=_axis_roll(u), axis_up=_au(u))
+
+    # ---- Traffic lights: one per intersection cell (probabilistic), offset
+    # toward a random corner and yawed to face the intersection center.
+    # Disaster: snapped flat at the base, or left standing but bent/leaning.
+    if tlight_usds:
+        tlcfg = config.get("traffic_lights", {})
+        tl_chance = float(tlcfg.get("intersection_chance", 1.0))
+        corner_frac = float(tlcfg.get("corner_offset_frac", 0.85))
+        tl_front = float(orient.get("traffic_light_front", 0.0))
+        tl_toppled = float(dcfg.get("traffic_lights_toppled_fraction", 0.0))
+        tl_leaning = float(dcfg.get("traffic_lights_leaning_fraction", 0.0))
+        lean_lo, lean_hi = dcfg.get("traffic_lights_lean_deg", [8.0, 30.0])
+        corner_off = corner_frac * cell / 2.0
+        for (i, j) in intersection_cells:
+            if rng.random() >= tl_chance:
+                continue
+            ccx, ccy = _cell_center(i, j)
+            dx_, dy_ = rng.choice(((1, 1), (1, -1), (-1, 1), (-1, -1)))
+            x, y = ccx + dx_ * corner_off, ccy + dy_ * corner_off
+            if exclusions and _in_exclusion(x, y, exclusions):
+                continue
+            u = rng.choice(tlight_usds)
+            fp = resolver.get(u, "traffic_light", scale=_sc(u), axis_up=_au(u))
+            yaw = math.degrees(math.atan2(ccy - y, ccx - x)) + tl_front
+            if rng.random() < tl_toppled:
+                _topple_flat(u, fp, x, y, "traffic_light")
+            elif rng.random() < tl_leaning:
+                tilt = rng.uniform(float(lean_lo), float(lean_hi))
+                add(u, x, y, fp["base"], yaw, "traffic_light", _sc(u),
+                    roll=_axis_roll(u) + rng.choice([-1.0, 1.0]) * tilt,
+                    pitch=rng.choice([-1.0, 1.0]) * tilt * rng.uniform(0.0, 0.5),
+                    axis_up=_au(u))
+            else:
+                add(u, x, y, fp["base"], yaw, "traffic_light", _sc(u),
+                    roll=_axis_roll(u), axis_up=_au(u))
+
+    # ---- Humans: scattered on open ground; a prone fraction lies flat
+    # (casualties / taking cover), the rest stand with random headings.
+    if human_usds:
+        hcfg = config.get("humans", {})
+        prone = float(dcfg.get("humans_prone_fraction", 0.0))
+
+        def _place_human(tx, ty):
+            u = rng.choice(human_usds)
+            fp = resolver.get(u, "human", scale=_sc(u), axis_up=_au(u))
+            if rng.random() < prone:
+                _topple_flat(u, fp, tx, ty, "human")
+            else:
+                add(u, tx, ty, fp["base"], rng.uniform(0.0, 360.0),
+                    "human", _sc(u), roll=_axis_roll(u), axis_up=_au(u))
+
+        _scatter_in_blocks(hcfg.get("per_block", [0, 2]),
+                           float(hcfg.get("min_separation_m", 2.0)),
+                           float(hcfg.get("house_margin_m", 1.0)),
+                           _place_human)
+
+    # =======================================================================
+    # STEP 4 — CARS (right-hand traffic on straight roads) + STREWN WRECKS
+    # =======================================================================
+    if car_usds:
+        ccfg = config.get("cars", {})
+        car_density  = float(ccfg.get("density", 0.0))
+        lane_frac    = float(ccfg.get("lane_offset_frac", 0.5))
+        car_yaw_jit  = float(ccfg.get("yaw_jitter_deg", 4.0))
+        car_front    = float(orient.get("car_front", 0.0))
+        toppled_frac = float(dcfg.get("cars_toppled_fraction", 0.0))
+        # lane_offset_frac maps [0, 1] onto [road centerline, road edge].
+        lane_off = lane_frac * (cell / 2.0)
+
+        def _car_fp(usd):
+            return resolver.get(usd, "car", scale=_sc(usd), axis_up=_au(usd))
+
+        def _add_toppled_car(usd, fp, x, y):
+            """Car flipped on its side (~±90° roll) or roof (~180°), random
+            heading. z lifts the base pivot so the flipped body rests on the
+            ground: on-side height = body width (sy), on-roof height = sz.
+            """
+            if rng.random() < 0.5:
+                roll, z = rng.choice([-1.0, 1.0]) * rng.uniform(80.0, 100.0), fp["sy"] / 2.0
+            else:
+                roll, z = 180.0 + rng.uniform(-12.0, 12.0), fp["sz"]
+            add(usd, x, y, z, rng.uniform(0.0, 360.0), "car", _sc(usd),
+                roll=_axis_roll(usd) + roll, pitch=rng.uniform(-8.0, 8.0),
+                axis_up=_au(usd))
+
+        # ---- Lane cars: at most one per straight road cell (cars.density),
+        # offset to the right-hand side of a randomly chosen travel direction
+        # (right-hand traffic), staggered along the segment.
+        for (i, j, axis) in straight_cells:
+            if rng.random() >= car_density:
+                continue
+            ccx, ccy = _cell_center(i, j)
+            slide = rng.uniform(-0.35, 0.35) * cell
+            heading = rng.choice((1, -1))            # +1 = E or N, -1 = W or S
+            if axis == "EW":
+                x, y = ccx + slide, ccy - heading * lane_off
+                yaw = 0.0 if heading > 0 else 180.0
+            else:
+                x, y = ccx + heading * lane_off, ccy + slide
+                yaw = 90.0 if heading > 0 else 270.0
+            if exclusions and _in_exclusion(x, y, exclusions):
+                continue
+            usd = rng.choice(car_usds)
+            fp = _car_fp(usd)
+            if rng.random() < toppled_frac:
+                _add_toppled_car(usd, fp, x, y)
+            else:
+                add(usd, x, y, fp["base"],
+                    yaw + car_front + rng.uniform(-car_yaw_jit, car_yaw_jit),
+                    "car", _sc(usd), roll=_axis_roll(usd), axis_up=_au(usd))
+
+        # ---- Strewn wrecks: tornado-tossed cars anywhere in the region
+        # (roads included), off building footprints and exclusion zones.
+        strewn_range = dcfg.get("cars_strewn", [0, 0])
+        strewn_topple = float(dcfg.get("strewn_topple_fraction", 0.7))
+        strewn_margin = float(dcfg.get("strewn_margin_m", 1.5))
+        want = rng.randint(int(strewn_range[0]), int(strewn_range[1]))
+        half_w, half_h = nx * cell / 2.0, ny * cell / 2.0
+        strewn_pts: list = []
+        for _ in range(want * 15):
+            if len(strewn_pts) >= want:
+                break
+            x, y = rng.uniform(-half_w, half_w), rng.uniform(-half_h, half_h)
+            if exclusions and _in_exclusion(x, y, exclusions):
+                continue
+            if any(_in_rect(x, y, (hr[0] - strewn_margin, hr[1] - strewn_margin,
+                                   hr[2] + strewn_margin, hr[3] + strewn_margin))
+                   for hr in house_rects):
+                continue
+            if any((x - px) ** 2 + (y - py) ** 2 < 5.0 ** 2 for px, py in strewn_pts):
+                continue                              # don't stack wrecks
+            usd = rng.choice(car_usds)
+            fp = _car_fp(usd)
+            if rng.random() < strewn_topple:
+                _add_toppled_car(usd, fp, x, y)
+            else:
+                add(usd, x, y, fp["base"], rng.uniform(0.0, 360.0), "car",
+                    _sc(usd), roll=_axis_roll(usd), axis_up=_au(usd))
+            strewn_pts.append((x, y))
 
     # --- Summary -----------------------------------------------------------
     counts: dict = {}
@@ -927,7 +1189,6 @@ def apply_placements(stage,
         if not prim.GetReferences().AddReference(usd):
             print(f"[scene_gen] WARN: failed to reference {usd} at {prim_path}")
             continue
-        prim.SetInstanceable(True)
 
         z_m = p["z_m"]
         if ground_snap is not None:

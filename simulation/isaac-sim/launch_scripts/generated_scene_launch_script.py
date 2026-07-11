@@ -29,7 +29,7 @@ import omni.kit.app
 import omni.timeline
 import omni.usd
 
-from pxr import Sdf
+from pxr import Sdf, UsdGeom
 
 from omni.isaac.core.world import World
 
@@ -81,9 +81,37 @@ for ext in [
     "omni.graph.window.generic",
     "omni.graph.ui_nodes",
     "pegasus.simulator",
+    "omni.kit.window.script_editor",
 ]:
     if not ext_manager.is_extension_enabled(ext):
         ext_manager.set_extension_enabled_immediate(ext, True)
+
+
+_ENV_CLUTTER = {"GroundPlane", "Environment"}
+
+
+def _remove_env_clutter(stage):
+    """Remove or hide GroundPlane and Environment xforms added by the base
+    environment load. The scene generator lays its own ground, so these cause
+    z-fighting and an unwanted visual backdrop.
+
+    Tries RemovePrim first; falls back to MakeInvisible for prims that live in
+    a referenced layer and can't be deleted from the session layer.
+    """
+    for root_path in ("/World", "/World/stage"):
+        root = stage.GetPrimAtPath(root_path)
+        if not root.IsValid():
+            continue
+        for child in root.GetChildren():
+            if child.GetName() not in _ENV_CLUTTER:
+                continue
+            path = child.GetPath()
+            try:
+                stage.RemovePrim(path)
+                carb.log_info(f"[scene_gen] Removed {path}")
+            except Exception:
+                UsdGeom.Imageable(child).MakeInvisible()
+                carb.log_info(f"[scene_gen] Hid {path} (in referenced layer, can't delete)")
 
 
 def wait_for_stage(stage, timeout_s: float = 10.0):
@@ -123,15 +151,11 @@ class PegasusApp:
         if not wait_for_stage(stage):
             carb.log_warn("Stage load timed out — continuing anyway.")
 
-        # Remove the Isaac Sim default ground plane — the scene generator lays
-        # its own ground tiles, so the physics plane would cause a Z-fighting
-        # double-floor and block terrain snap raycasts.
-        for _gp_path in ("/World/GroundPlane", "/World/stage/GroundPlane"):
-            _gp = stage.GetPrimAtPath(_gp_path)
-            if _gp.IsValid():
-                stage.RemovePrim(Sdf.Path(_gp_path))
-                carb.log_info(f"[scene_gen] Removed default ground plane at {_gp_path}")
-                break
+        # Remove or hide the GroundPlane and Environment xforms that Isaac Sim /
+        # Pegasus adds when loading the base environment. The scene generator
+        # supplies its own ground tiles, so these would cause z-fighting and an
+        # unwanted visible skybox/backdrop at ground level.
+        _remove_env_clutter(stage)
 
         # ----- Scene preparation -----
         stage_prim = stage.GetPrimAtPath("/World/stage")
