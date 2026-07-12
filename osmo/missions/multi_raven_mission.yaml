@@ -44,7 +44,7 @@ environments:
     SPAWN_HEIGHT_M: "10.0"
     RESULTS_SCENE: "Shipyard"
     query: "ship, crane"
-    voxel_score_threshold: -1
+    voxel_score_threshold: -1 
     score_threshold: -1
     voxel_min_cluster_size: -1
     background_queries: "ground, grass, road, tree, water tower, debris, warehouse"
@@ -183,7 +183,7 @@ command_route: gcs
 # grouped: each environment runs `iterations` times in a row (per-environment
 # count; total runs = iterations * 8 environments). Fixed spawns per SPAWN_CONFIGS.
 environment_order: grouped
-iterations: 3
+iterations: 1
 
 # Redo an iteration (clean down→up→fly→down) if a step up to and including
 # semantic_search fails — i.e. the precondition steps fail, or semantic_search
@@ -210,6 +210,7 @@ record:
     - /gcs/payload/{robot}/voxel_rgb
     - /gcs/sim_ground
     - /gcs/annotations/bboxes
+    - /rayfronts_debug/{robot}/voxels_sim/all
 
 on_step_failure: abort_iteration
 

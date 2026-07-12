@@ -131,7 +131,7 @@ workflow:
       # exceeds 100Gi extracted), plus headroom for per-iteration mcap
       # recordings — bump if a mission records camera/LiDAR over many
       # iterations.
-      storage: 500Gi
+      storage: 200Gi
 
   timeout:
     # With keep-alive the pod sleeps after the mission until this expires (then
