@@ -6,6 +6,7 @@ Functions:
     scale_stage_prim            — Apply a uniform scale transform to a prim
     add_colliders               — Recursively apply CollisionAPI to all meshes
     add_dome_light              — Add or update a dome light on the stage
+    add_sky                     — Skybox from HDRI (dome texture) or borrowed stage prims
     save_scene_as_contained_usd — Collect all assets into a self-contained directory
 """
 
@@ -144,14 +145,18 @@ def add_colliders(prim):
 # Lighting
 # ---------------------------------------------------------------------------
 
-def add_dome_light(stage, prim_path: str = "/World/DomeLight", intensity: float = 3500.0, exposure: float = -3.0):
+def add_dome_light(stage, prim_path: str = "/World/DomeLight", intensity: float = 3500.0,
+                    exposure: float = -3.0, texture_file: str = None):
     """Add a dome light to the stage, or update it if it already exists.
 
     Args:
-        stage:     Active USD stage.
-        prim_path: Stage path for the dome light prim.
-        intensity: Light intensity value.
-        exposure:  Light exposure value.
+        stage:        Active USD stage.
+        prim_path:    Stage path for the dome light prim.
+        intensity:    Light intensity value.
+        exposure:     Light exposure value.
+        texture_file: Optional path/URL to an HDRI/.exr texture. When set,
+                      the dome renders that image as the skybox instead of a
+                      flat color.
     """
     if stage.GetPrimAtPath(prim_path).IsValid():
         dome = UsdLux.DomeLight.Get(stage, prim_path)
@@ -159,7 +164,40 @@ def add_dome_light(stage, prim_path: str = "/World/DomeLight", intensity: float 
         dome = UsdLux.DomeLight.Define(stage, Sdf.Path(prim_path))
     dome.CreateIntensityAttr(intensity)
     dome.CreateExposureAttr(exposure)
-    print(f"[scene_prep] Dome light set at '{prim_path}' (intensity={intensity}, exposure={exposure})")
+    if texture_file:
+        dome.CreateTextureFileAttr(Sdf.AssetPath(texture_file))
+        # Latitude-longitude mapping is the standard projection for full-sphere
+        # panoramic HDRIs (as opposed to "MirroredBall" or "Automatic" cross formats).
+        dome.CreateTextureFormatAttr(UsdLux.Tokens.latlong)
+    print(f"[scene_prep] Dome light set at '{prim_path}' "
+          f"(intensity={intensity}, exposure={exposure}, texture={texture_file})")
+
+
+def add_sky(stage, sky_path: str = "", prim_path: str = "/World/DomeLight",
+            intensity: float = 3500.0, exposure: float = -3.0):
+    """Set up sky + ambient lighting from a config-resolved *sky_path*.
+
+    Dispatches on the path:
+      - ``.usd``/``.usda``/``.usdc`` — borrow the sky: reference the stage's
+        root prims that sit *outside* its defaultPrim (sky sphere, sun,
+        environment lights) under /World. Only those subtrees are composed,
+        not the stage's main geometry, so this stays cheap. Skips the plain
+        dome light when it pulls something in (borrowed stages bring their
+        own lighting).
+      - anything else non-empty — treated as an equirect HDRI for the dome
+        light's skybox texture.
+      - empty — plain untextured dome light.
+    """
+    if sky_path and os.path.splitext(sky_path.split("?")[0])[1].lower() in (
+            ".usd", ".usda", ".usdc"):
+        pulled = reference_root_prims_under_world(stage, sky_path)
+        if pulled:
+            print(f"[scene_prep] Sky borrowed from {sky_path}: {pulled}")
+            return
+        print(f"[scene_prep] No borrowable root prims in {sky_path}; "
+              f"falling back to plain dome light")
+        sky_path = ""
+    add_dome_light(stage, prim_path, intensity, exposure, texture_file=sky_path or None)
 
 
 # ---------------------------------------------------------------------------

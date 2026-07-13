@@ -18,6 +18,10 @@
 #                  placeholder prisms; park_block_chance blocks stay grass;
 #                  damaged_fraction tilted + sunk; oversized buildings get
 #                  dedicated anchor blocks (block max auto-raised to fit)
+#   3b. parks    — park blocks get a meandering trail (tiles.trail) with
+#                  park-tagged benches/lamps/trash cans along it (parks.*);
+#                  rocks + plants scattered on park grass (usds.rocks, plants.*);
+#                  trees spread evenly at parks.tree_density_per_100m2
 #   4. detail    — trees + humans scattered on open ground (trees.*, humans.*);
 #                  streetlights, fire hydrants, trash cans along block
 #                  frontages (streetlights.*, fire_hydrants.*, trash_cans.*;
@@ -55,7 +59,9 @@ layout:
   min_block_m: 30           # m — never split a block smaller than this
   max_block_m: 70           # m — always split larger (auto-raised for oversized buildings)
   split_jitter: 0.25        # 0..1 — 0 = split at center, 1 = anywhere in valid range
-  tile_overlap: 1.05        # ground-tile scale nudge; >1 trades hairline gaps for slight z-fighting
+  tile_overlap: 1.02        # ground-tile seam overlap; tiles are stretched to exactly
+                            # cover their grid step, this inflates them a hair further
+                            # so neighbors overlap instead of meeting at a float-exact seam
 
 # ---- step 3: block packing ------------------------------------------------------
 packing:
@@ -74,14 +80,15 @@ damaged_fraction: 0.00      # 0..1 — buildings tilted + sunk; uses usds.houses
 
 # ---- step 4: detail ------------------------------------------------------------
 trees:
-  per_block: [2, 6]         # [min, max] — trees per block, on open grass
+  per_block: [2, 6]         # [min, max] — trees per non-park block (sidewalk-lining
+                            # scatter; parks use parks.tree_density_per_100m2)
   min_separation_m: 3.0     # m — minimum tree-to-tree distance
   house_margin_m: 1.5       # m — keep-out ring around building footprints
 
 plants:
-  per_block: [4, 12]        # [min, max] — plant clumps per block, on open grass
+  per_block: [4, 12]        # [min, max] — plant clumps per PARK block (park grass only)
   min_separation_m: 1.0     # m — minimum plant-to-plant distance
-  house_margin_m: 1.5       # m — keep-out ring around building footprints
+  house_margin_m: 1.5       # m — keep-out ring around trail tiles
 
 streetlights:
   spacing_m: 18.0           # m — spacing along block frontages
@@ -104,6 +111,23 @@ humans:
   per_block: [0, 3]         # [min, max] — humans per block, on open ground
   min_separation_m: 2.0     # m — minimum person-to-person distance
   house_margin_m: 1.0       # m — keep-out ring around building lots
+
+# ---- park blocks (see packing.park_block_chance) ---------------------------------
+# Each park gets a meandering trail (tiles.trail) edge to edge across its longer
+# axis, with park-tagged furniture (tags: ["park"] in usds entries) along the
+# sides — benches face the trail — and rocks scattered on the grass.
+parks:
+  trail_margin_m: 4.0       # m — meander lateral clearance from the park edge
+  trail_waypoints: [2, 4]   # [min, max] — interior meander waypoints
+  bench_spacing_m: 14.0     # m — along-trail spacing of park benches
+  streetlight_spacing_m: 22.0 # m — along-trail spacing of park lamps
+  trash_can_spacing_m: 30.0 # m — along-trail spacing of park trash cans
+  furniture_offset_m: 0.8   # m — gap between the trail edge and furniture
+  rocks_per_park: [3, 8]    # [min, max] — rocks scattered per park
+  rock_min_separation_m: 2.5 # m — minimum rock-to-rock distance
+  tree_density_per_100m2: 0.8 # park trees per 100 m² of park grass — evenly
+                            # spread (best-candidate sampling), off the trail
+  tree_min_separation_m: 4.0 # m — minimum park-tree-to-tree distance
 
 # ---- step 5: cars ----------------------------------------------------------------
 cars:
@@ -151,8 +175,10 @@ roads:
 
 # ---- footprints [x, y(, z)] m — used when measure_usds is false or a measure fails
 fallback_sizes:
-  concrete:      [4.0, 4.0]
-  sidewalk:      [2.0, 2.0]
+  concrete:      [4.0, 4.0, 0.1]   # thin slab — z feeds the walking-surface height
+  sidewalk:      [2.0, 2.0, 0.1]   # thin slab — z feeds the walking-surface height
+  trail:         [4.0, 3.0, 0.1]
+  rock:          [1.5, 1.5]
   house:         [48.0, 48.0]
   tree:          [3.0, 3.0]
   plant:         [1.0, 1.0]
@@ -170,10 +196,17 @@ fallback_sizes:
 # art, fixed via +90° roll), yaw-offset (deg — for art whose front isn't +X;
 # added to every computed yaw, e.g. a streetlight arm that points +Y needs -90).
 # Relative paths are resolved against asset_root.
+
+# sky: equirect HDRI (.exr/.hdr) applied to the dome light, OR a stage .usd
+# whose root sky/environment prims (outside its defaultPrim) get borrowed.
+# RetroNeighborhood's /Environment holds a dynamic-sky rig + dome light and
+# no geometry, so borrowing it costs almost nothing at load time.
+sky: "RetroNeighborhood/RetroNeighborhood.stage.usd"
+
 usds:
   tiles:
-    concrete: "Dmytro/Assets/Game/ModernCityEnvironment00/Meshes/SM_GroundModule01.usd"
-    sidewalk: "Dmytro/Assets/Game/ModernCityEnvironment00/Meshes/SM_GroundModule01.usd"
+    concrete: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_GroundModule01.usd"
+    sidewalk: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_GroundModule01.usd"
              # brick tiles used for sidewalk rings around each block; Dmytro asset, uses global default
     trail:
       usd: "RetroNeighborhood/Props/SM_DriveWay_01.prop.usd"
@@ -215,15 +248,20 @@ usds:
     - usd: "RetroNeighborhood/Props/SM_Tree_06.prop.usd"
       scale: 0.01
     - usd: "RetroNeighborhood/Props/SM_Tree_07.prop.usd"
-      scale: 0.0
+      scale: 0.01
     # - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Tree1.usd"
     # - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Tree2.usd"
     # - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Tree3.usd"
-    - "CityPark/Props/SM_Tree_01.prop.usd"
-    - "CityPark/Props/SM_Tree_03.prop.usd"
-    - "CityPark/Props/SM_Tree_04.prop.usd"
-    - "CityPark/Props/SM_Tree_05.prop.usd"
-    - "CityPark/Props/SM_Tree_08.prop.usd"
+    - usd: "CityPark/Props/SM_Tree_01.prop.usd"
+      scale: 0.01
+    - usd: "CityPark/Props/SM_Tree_03.prop.usd"
+      scale: 0.01
+    - usd: "CityPark/Props/SM_Tree_04.prop.usd"
+      scale: 0.01
+    - usd: "CityPark/Props/SM_Tree_05.prop.usd"
+      scale: 0.01
+    - usd: "CityPark/Props/SM_Tree_08.prop.usd"
+      scale: 0.01
 
   plants:
     - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Grass.usd"
@@ -232,16 +270,24 @@ usds:
     - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Grass_Flowers2.usd"
     - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bush_1.usd"
     - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bush_2.usd"
-    - "CityPark/Props/SM_Stump.prop.usd"
-    - "CityPark/Props/SM_Stump_02.prop.usd"
-    - "CityPark/Props/SM_Stump_03.prop.usd"
-  
+    - usd: "CityPark/Props/SM_Stump.prop.usd"
+      scale: 0.01
+    - usd: "CityPark/Props/SM_Stump_02.prop.usd"
+      scale: 0.01
+    - usd: "CityPark/Props/SM_Stump_03.prop.usd"
+      scale: 0.01
+
   rocks:
-    - "CityPark/Props/SM_Stone_04.prop.usd"
-    - "CityPark/Props/SM_Stone_05.prop.usd"
-    - "CityPark/Props/SM_Stone_06.prop.usd"
-    - "CityPark/Props/SM_Stone_08.prop.usd"
-    - "CityPark/Props/SM_Stone_09.prop.usd"
+    - usd: "CityPark/Props/SM_Stone_04.prop.usd"
+      scale: 0.01
+    - usd: "CityPark/Props/SM_Stone_05.prop.usd"
+      scale: 0.01
+    # - usd: "CityPark/Props/SM_Stone_06.prop.usd"
+    #   scale: 0.01
+    - usd: "CityPark/Props/SM_Stone_08.prop.usd"
+      scale: 0.01
+    - usd: "CityPark/Props/SM_Stone_09.prop.usd"
+      scale: 0.01
 
   streetlights:
     - usd: "RetroNeighborhood/Props/SM_StreetLight.prop.usd"
@@ -282,7 +328,8 @@ usds:
     - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_003_02.usd"
     - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_004.usd"
     - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_006.usd"
-    - usd: "CityPark/Props/SM_Trash_can.prop.usd"
+    - usd: "CityPark/Props/SM_Small_Trash_can.prop.usd"
+      scale: 0.01
       tags: ["park"]
   
   traffic_lights:
@@ -294,14 +341,18 @@ usds:
 
   benches:
     - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bench01.usd"
-      yaw-offset: 90.0
+      yaw-offset: -90.0
     - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bench02.usd"
-      yaw-offset: 90.0
+      yaw-offset: -90.0
     - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bench03.usd"
-      yaw-offset: 90.0
+      yaw-offset: -90.0
     - usd: "CityPark/Props/SM_Log_shop.prop.usd"
+      scale: 0.01
+      yaw-offset: 90.0
       tags: ["park"]
     - usd: "CityPark/Props/SM_Log_shop_02.prop.usd"
+      scale: 0.01
+      yaw-offset: 90.0
       tags: ["park"]
 
 

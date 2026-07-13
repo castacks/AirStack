@@ -41,8 +41,8 @@ from pegasus.simulator.ogn.api.spawn_zed_camera import add_zed_stereo_camera_sub
 from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
 
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
-from scene_prep import scale_stage_prim, add_colliders, add_dome_light, get_stage_meters_per_unit
-from scene_generator import generate_scene_on_stage
+from scene_prep import scale_stage_prim, add_colliders, add_sky, get_stage_meters_per_unit
+from scene_generator import generate_scene_on_stage, load_config, resolve_sky
 
 
 # --------------------- CONFIGURATION ---------------------
@@ -169,10 +169,11 @@ class PegasusApp:
 
         # ----- Procedural scene generation -----
         # Place metric coordinates into stage-space using the stage's unit scale.
+        config = load_config(SCENE_CONFIG)
         _, scene_scale_factor = get_stage_meters_per_unit(stage)
         generate_scene_on_stage(
             stage,
-            SCENE_CONFIG,
+            config,
             parent_path="/World/stage/generated",
             scene_scale_factor=scene_scale_factor,
             snap_to_ground=SNAP_TO_GROUND,
@@ -185,8 +186,8 @@ class PegasusApp:
         for _ in range(10):
             omni.kit.app.get_app().update()
 
-        # Dome light for uniform illumination.
-        add_dome_light(stage)
+        # Sky + ambient light: borrowed stage prims or HDRI dome per config `sky:`.
+        add_sky(stage, resolve_sky(config))
 
         # ----- Spawn drone OmniGraph -----
         graph_handle = spawn_px4_multirotor_node(

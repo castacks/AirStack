@@ -16,8 +16,12 @@ the sidewalk; leftover gaps are filled with placeholder prisms:
     Step 3 — Buildings: each block is *packed* with buildings out to the
              sidewalk via greedy guillotine packing (packing.*); gaps no
              library building fits get mild-colored placeholder box prisms;
-             a fraction of blocks stay as grassy parks; a configurable
-             fraction of buildings rendered damaged (tilted + sunk).
+             a fraction of blocks stay as grassy parks — each park gets a
+             meandering Catmull-Rom trail with park-tagged benches (facing
+             the trail), lamps and trash cans along it, plus rocks and
+             plants on the grass and evenly-spread trees (parks.*); a
+             configurable fraction of buildings rendered damaged
+             (tilted + sunk).
     Step 4 — Detail: trees + humans scattered on open grass; streetlights,
              fire hydrants and trash cans along block frontages (shared
              occupancy grid — categories never stack); traffic lights at
@@ -38,6 +42,7 @@ measurement and USD writing touch ``pxr`` / ``omni``.
 
 Public API:
     load_config              — Parse the city spec YAML into a dict
+    resolve_sky              — Resolve the config's ``sky`` entry against asset_root
     build_city               — Compute placements for a config (+ size resolver)
     apply_placements         — Write placements onto a USD stage as references
     generate_scene_usd       — Bake a standalone .usd from a config (offline)
@@ -78,9 +83,11 @@ def load_config(config_path: str) -> dict:
                          "(city extent in meters, e.g. [200, 200])")
 
     usds = config["usds"]
-    tiles = usds.get("tiles", {})
-    if not usds.get("houses", {}).get("intact"):
-        raise ValueError("usds.houses.intact must list at least one house USD")
+    # "buildings" is the current section name; "houses" accepted for
+    # backward compatibility.
+    bld = usds.get("buildings") or usds.get("houses") or {}
+    if not bld.get("intact"):
+        raise ValueError("usds.buildings.intact must list at least one building USD")
 
     return config
 
@@ -164,8 +171,24 @@ def _join_asset_root(path: str, asset_root: str) -> str:
     return asset_root.rstrip("/") + "/" + path
 
 
+def resolve_sky(config: dict) -> str:
+    """Resolve the top-level ``sky`` config entry against ``asset_root``.
+    Returns "" if no ``sky`` is configured.
+
+    The entry is either an equirect HDRI (``.exr``/``.hdr``) or a stage USD
+    whose root sky/environment prims should be borrowed. Callers pass the
+    result to ``scene_prep.add_sky(stage, ...)``, which dispatches on the
+    extension — this module stays sim-agnostic, so it only resolves the path
+    rather than touching the stage.
+    """
+    sky = str(config.get("sky", "") or "").strip()
+    if not sky:
+        return ""
+    return _join_asset_root(sky, str(config.get("asset_root", "") or ""))
+
+
 def _parse_usd_entry(entry, default_scale: float, asset_root: str = ""):
-    """Normalize a USD entry to ``(path, scale, axis_up, yaw_offset)``.
+    """Normalize a USD entry to ``(path, scale, axis_up, yaw_offset, tags)``.
 
     Entries can be plain strings (use *default_scale*, Z-up) or dicts::
 
@@ -177,6 +200,8 @@ def _parse_usd_entry(entry, default_scale: float, asset_root: str = ""):
           scale: 1.0      # already in meters; global asset_scale is e.g. 0.01
           axis-up: "Y"    # authored Y-up (e.g. Unity export); corrected via +90° roll
           yaw-offset: 90  # deg — art doesn't face +X; added to every computed yaw
+          tags: ["park"]  # placement context: "park" props go on park trails,
+                          # untagged ones on street frontage
 
     Relative paths get *asset_root* prefixed (see :func:`_join_asset_root`).
     """
@@ -184,24 +209,27 @@ def _parse_usd_entry(entry, default_scale: float, asset_root: str = ""):
         return (_join_asset_root(str(entry["usd"]), asset_root),
                 float(entry.get("scale", default_scale)),
                 str(entry.get("axis-up", "Z")).upper(),
-                float(entry.get("yaw-offset", 0.0)))
-    return _join_asset_root(str(entry), asset_root), float(default_scale), "Z", 0.0
+                float(entry.get("yaw-offset", 0.0)),
+                frozenset(str(t) for t in entry.get("tags", ())))
+    return (_join_asset_root(str(entry), asset_root), float(default_scale),
+            "Z", 0.0, frozenset())
 
 
 def _normalize_usd_list(lst, default_scale: float, asset_root: str = ""):
-    """Return ``(path_list, scale_overrides, axis_up_overrides, yaw_overrides)``
-    from a raw YAML USD list.
+    """Return ``(path_list, scale_overrides, axis_up_overrides, yaw_overrides,
+    tag_overrides)`` from a raw YAML USD list.
 
     *path_list* is a plain list of USD paths suitable for ``rng.choice()``.
     *scale_overrides* maps path → per-asset scale for entries with an explicit ``scale``.
     *axis_up_overrides* maps path → axis_up string ("Y") for non-Z-up entries.
     *yaw_overrides* maps path → yaw-offset degrees for entries that declare one.
+    *tag_overrides* maps path → frozenset of tags for entries that declare any.
     """
     if isinstance(lst, (str, dict)):
         lst = [lst]
-    paths, scale_ovr, axisup_ovr, yaw_ovr = [], {}, {}, {}
+    paths, scale_ovr, axisup_ovr, yaw_ovr, tag_ovr = [], {}, {}, {}, {}
     for entry in (lst or []):
-        path, sc, au, yo = _parse_usd_entry(entry, default_scale, asset_root)
+        path, sc, au, yo, tags = _parse_usd_entry(entry, default_scale, asset_root)
         paths.append(path)
         if sc != default_scale:
             scale_ovr[path] = sc
@@ -209,7 +237,9 @@ def _normalize_usd_list(lst, default_scale: float, asset_root: str = ""):
             axisup_ovr[path] = au
         if yo != 0.0:
             yaw_ovr[path] = yo
-    return paths, scale_ovr, axisup_ovr, yaw_ovr
+        if tags:
+            tag_ovr[path] = tags
+    return paths, scale_ovr, axisup_ovr, yaw_ovr, tag_ovr
 
 
 class SizeResolver:
@@ -388,6 +418,50 @@ def _subdivide_region_metric(w_m: float, h_m: float,
     _recurse(-half_w + border_w, -half_h + border_w,
               half_w - border_w,  half_h - border_w)
     return blocks, road_corridors
+
+
+def _catmull_rom_points(way, samples_per_seg: int = 8):
+    """Sample a Catmull-Rom spline through waypoints ``[(x, y), ...]``.
+
+    Endpoints are duplicated so the curve passes through the first and last
+    waypoint. Returns a dense polyline ``[(x, y), ...]``.
+    """
+    if len(way) < 3:
+        return list(way)
+    pts = [way[0]] + list(way) + [way[-1]]
+    out = []
+    for i in range(len(pts) - 3):
+        p0, p1, p2, p3 = pts[i], pts[i + 1], pts[i + 2], pts[i + 3]
+        for k in range(samples_per_seg):
+            t = k / samples_per_seg
+            t2, t3 = t * t, t * t * t
+            out.append(tuple(
+                0.5 * ((2.0 * p1[j]) + (-p0[j] + p2[j]) * t
+                       + (2.0 * p0[j] - 5.0 * p1[j] + 4.0 * p2[j] - p3[j]) * t2
+                       + (-p0[j] + 3.0 * p1[j] - 3.0 * p2[j] + p3[j]) * t3)
+                for j in (0, 1)))
+    out.append(way[-1])
+    return out
+
+
+def _walk_polyline(pts, step: float, phase: float = 0.0):
+    """Yield ``(x, y, yaw_deg)`` every *step* meters of arc length along the
+    polyline *pts*, starting *phase* × *step* in. Yaw is the local travel
+    direction (deg)."""
+    if len(pts) < 2 or step <= 1e-9:
+        return
+    next_s = phase * step
+    walked = 0.0
+    for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+        seg = math.hypot(bx - ax, by - ay)
+        if seg < 1e-9:
+            continue
+        yaw = math.degrees(math.atan2(by - ay, bx - ax))
+        while next_s <= walked + seg:
+            t = (next_s - walked) / seg
+            yield ax + (bx - ax) * t, ay + (by - ay) * t, yaw
+            next_s += step
+        walked += seg
 
 
 # Muted facade tones for placeholder buildings (filler prisms).
@@ -771,13 +845,26 @@ def build_city(config: dict, resolver: SizeResolver):
     _scale_overrides: dict = {}
     _axis_up_overrides: dict = {}
     _yaw_offset_overrides: dict = {}
+    _tag_overrides: dict = {}
 
     def _nl(lst):
-        paths, sc_ov, au_ov, yo_ov = _normalize_usd_list(lst, asset_scale, asset_root)
+        paths, sc_ov, au_ov, yo_ov, tag_ov = _normalize_usd_list(
+            lst, asset_scale, asset_root)
         _scale_overrides.update(sc_ov)
         _axis_up_overrides.update(au_ov)
         _yaw_offset_overrides.update(yo_ov)
+        _tag_overrides.update(tag_ov)
         return paths
+
+    def _pool(paths, tag):
+        """Paths carrying *tag*; falls back to the whole list if none do."""
+        tagged = [p for p in paths if tag in _tag_overrides.get(p, ())]
+        return tagged or paths
+
+    def _pool_not(paths, tag):
+        """Paths NOT carrying *tag*; falls back to the whole list if all do."""
+        untagged = [p for p in paths if tag not in _tag_overrides.get(p, ())]
+        return untagged or paths
 
     def _sc(path):
         """Per-asset scale, falling back to global asset_scale."""
@@ -793,10 +880,13 @@ def build_city(config: dict, resolver: SizeResolver):
 
     concrete_usds = _nl(tiles.get("concrete") or [])
     sidewalk_usds = _nl(tiles.get("sidewalk") or tiles.get("brick") or [])
-    house_intact  = _nl(usds["houses"]["intact"])
-    house_damaged = _nl(usds["houses"].get("damaged") or [])
+    trail_usds    = _nl(tiles.get("trail") or [])
+    bld_cfg = usds.get("buildings") or usds.get("houses") or {}
+    house_intact  = _nl(bld_cfg["intact"])
+    house_damaged = _nl(bld_cfg.get("damaged") or [])
     tree_usds     = _nl(usds.get("trees") or [])
     plant_usds    = _nl(usds.get("plants") or [])
+    rock_usds     = _nl(usds.get("rocks") or [])
     light_usds    = _nl(usds.get("streetlights") or [])
     bench_usds    = _nl(usds.get("benches") or [])
     car_usds      = _nl(usds.get("cars") or [])
@@ -804,6 +894,14 @@ def build_city(config: dict, resolver: SizeResolver):
     tlight_usds   = _nl(usds.get("traffic_lights") or [])
     hydrant_usds  = _nl(usds.get("fire_hydrants") or [])
     human_usds    = _nl(usds.get("humans") or [])
+
+    # Street vs park furniture pools (tags: ["park"] in the usds entry).
+    street_light_usds = _pool_not(light_usds, "park")
+    park_light_usds   = _pool(light_usds, "park")
+    street_bench_usds = _pool_not(bench_usds, "park")
+    park_bench_usds   = _pool(bench_usds, "park")
+    street_trash_usds = _pool_not(trash_usds, "park")
+    park_trash_usds   = _pool(trash_usds, "park")
 
     layout_cfg = config.get("layout", {})
     region_m = layout_cfg.get("region_m", [200.0, 200.0])
@@ -822,6 +920,16 @@ def build_city(config: dict, resolver: SizeResolver):
     ph_max_m    = float(ph_cfg.get("max_footprint_m", 20.0))
     ph_h_range  = ph_cfg.get("height_m", [8.0, 30.0])
 
+    parks_cfg          = config.get("parks", {})
+    trail_margin_m     = float(parks_cfg.get("trail_margin_m", 4.0))
+    trail_waypoints    = parks_cfg.get("trail_waypoints", [2, 4])
+    park_bench_sp      = float(parks_cfg.get("bench_spacing_m", 14.0))
+    park_light_sp      = float(parks_cfg.get("streetlight_spacing_m", 22.0))
+    park_trash_sp      = float(parks_cfg.get("trash_can_spacing_m", 30.0))
+    furniture_offset_m = float(parks_cfg.get("furniture_offset_m", 0.8))
+    rocks_per_park     = parks_cfg.get("rocks_per_park", [3, 8])
+    rock_min_sep_m     = float(parks_cfg.get("rock_min_separation_m", 2.5))
+
     roads_cfg = config.get("roads", {})
     lane_w_m = float(roads_cfg.get("lane_width_m", 3.5))
 
@@ -835,17 +943,31 @@ def build_city(config: dict, resolver: SizeResolver):
 
     sw_w = max(sidewalk_fp["sx"], sidewalk_fp["sy"]) if sidewalk_fp is not None else 0.0
 
+    # Walking-surface heights, so props sit ON the ground layer they stand on
+    # rather than poking out of it from z=0. Sidewalk tiles are placed at
+    # z=0.015 and their slab top sits (sz - base) above the pivot; the grass
+    # plane is at z=0.01 (see apply_ground_planes).
+    sidewalk_top = ((0.015 + sidewalk_fp["sz"] - sidewalk_fp["base"])
+                    if sidewalk_fp is not None else 0.0)
+    grass_top = 0.01
+
     placements: list = []
 
-    def add(usd, x, y, z, yaw, category, scale, roll=0.0, pitch=0.0, axis_up="Z"):
+    def add(usd, x, y, z, yaw, category, scale, roll=0.0, pitch=0.0, axis_up="Z",
+            stretch=None):
         # Per-asset yaw-offset is baked in here so every category gets it —
         # callers pass the *intended facing* and the offset corrects for art
-        # that isn't authored facing +X.
-        placements.append({
+        # that isn't authored facing +X. *stretch* is an optional (fx, fy)
+        # extra local-XY scale on top of *scale* — used by tiling to stretch
+        # each tile to exactly cover its grid step.
+        p = {
             "usd": usd, "x_m": x, "y_m": y, "z_m": z,
             "yaw_deg": yaw + _yo(usd), "roll_deg": roll, "pitch_deg": pitch,
             "scale": scale, "category": category, "axis_up": axis_up,
-        })
+        }
+        if stretch is not None:
+            p["stretch"] = stretch
+        placements.append(p)
 
     def _axis_roll(usd):
         """+90° roll stands Y-up-authored assets upright in the Z-up world."""
@@ -856,14 +978,14 @@ def build_city(config: dict, resolver: SizeResolver):
         ~(tsx, tsy), snapping the count so the fill is gap-free. Tiles whose
         center falls inside *skip* (a rect) are omitted.
 
-        The center-to-center spacing (``stepx``/``stepy``) is stretched so the
-        tile *count* divides the rect evenly, but each tile's own rendered size
-        is a fixed per-asset scale that doesn't adjust to match — the two only
-        agree when the rect happens to be an exact multiple of the tile size.
-        Otherwise this leaves a hairline gap (spacing > tile size) or overlap
-        (spacing < tile size). ``tile_overlap`` nudges every tile's scale up a
-        touch so any gap becomes a slight overlap instead — z-fighting is the
-        deliberately accepted tradeoff over visible cracks between tiles.
+        The center-to-center spacing (``stepx``/``stepy``) is chosen so the
+        tile *count* divides the rect evenly, and each tile is then stretched
+        per-axis to exactly cover its step — so the fill is gap-free no matter
+        how the rect relates to the authored tile size (the texture stretches
+        slightly instead). ``tile_overlap`` (>1) additionally inflates each
+        tile a hair so neighbors overlap rather than meet at a float-exact
+        seam; slight z-fighting at the seams is the accepted tradeoff over
+        visible cracks.
         """
         x0, y0, x1, y1 = rect
         w, h = x1 - x0, y1 - y0
@@ -872,6 +994,8 @@ def build_city(config: dict, resolver: SizeResolver):
         ntx = max(1, round(w / tsx)) if tsx > 1e-6 else 1
         nty = max(1, round(h / tsy)) if tsy > 1e-6 else 1
         stepx, stepy = w / ntx, h / nty
+        stx = stepx / tsx * tile_overlap if tsx > 1e-6 else 1.0
+        sty = stepy / tsy * tile_overlap if tsy > 1e-6 else 1.0
         for ix in range(ntx):
             for iy in range(nty):
                 px = x0 + (ix + 0.5) * stepx
@@ -879,7 +1003,7 @@ def build_city(config: dict, resolver: SizeResolver):
                 if skip is not None and _in_rect(px, py, skip):
                     continue
                 u = usd_choices if isinstance(usd_choices, str) else rng.choice(usd_choices)
-                add(u, px, py, z, 0.0, category, _sc(u) * tile_overlap)
+                add(u, px, py, z, 0.0, category, _sc(u), stretch=(stx, sty))
 
     # Auto-raise the block size bound so the BSP can produce a block whose
     # sidewalk inset fits the largest library building.
@@ -962,6 +1086,7 @@ def build_city(config: dict, resolver: SizeResolver):
     house_rects: list = []      # building footprint rects (for tree avoidance)
     placeholder_bldgs: list = []
     city_layout["placeholder_buildings"] = placeholder_bldgs
+    park_blocks: list = []      # (block, inset) rects of blocks kept as parks
     n_buildings = n_damaged = n_parks = 0
 
     pack_candidates = [(u, house_fps[u]["sx"], house_fps[u]["sy"])
@@ -1005,9 +1130,11 @@ def build_city(config: dict, resolver: SizeResolver):
             inset = (x0 + sw_w, y0 + sw_w, x1 - sw_w, y1 - sw_w)
 
         # A fraction of blocks stay as grassy parks — this is where trees,
-        # plants and humans end up (packed blocks have no open ground).
+        # plants, rocks and humans end up (packed blocks have no open ground).
+        # Trails + park furniture are laid in a dedicated pass afterwards.
         if blk not in anchor_for and rng.random() < park_chance:
             n_parks += 1
+            park_blocks.append((blk, inset))
             continue
 
         # Packed block: pave the interior wall-to-wall (buildings and filler
@@ -1059,41 +1186,133 @@ def build_city(config: dict, resolver: SizeResolver):
                 house_rects.append((rx0, ry0, rx1, ry1))
 
     # =======================================================================
-    # STEP 3 — DETAIL: trees + humans (open-ground scatter); streetlights +
-    # fire hydrants + trash cans (block frontage); traffic lights
-    # (intersection corners)
+    # PARKS — meandering trail through each park block, park furniture
+    # (benches facing the trail, trash cans, lamps) along its sides.
+    # Trail tile rects join house_rects so later scatter stays off the path.
+    # =======================================================================
+    if park_blocks and trail_usds:
+        tu = trail_usds[0]
+        tfp = resolver.get(tu, "trail", scale=_sc(tu))
+        t_len, t_w = tfp["sx"], tfp["sy"]     # art X runs along the path
+        wp_lo, wp_hi = int(trail_waypoints[0]), int(trail_waypoints[1])
+
+        for (pblk, pinset) in park_blocks:
+            ix0, iy0, ix1, iy1 = pinset
+            m = min(trail_margin_m, (ix1 - ix0) / 4.0, (iy1 - iy0) / 4.0)
+            # Meander crossing the park's longer axis, edge to edge.
+            horizontal = (ix1 - ix0) >= (iy1 - iy0)
+            n_way = rng.randint(wp_lo, wp_hi)
+            if horizontal:
+                lat = lambda: rng.uniform(iy0 + m, iy1 - m)
+                xs = [ix0 + (i + 1) / (n_way + 1) * (ix1 - ix0)
+                      + rng.uniform(-m, m) for i in range(n_way)]
+                way = ([(ix0, lat())] + [(min(max(x, ix0 + m), ix1 - m), lat())
+                                         for x in sorted(xs)] + [(ix1, lat())])
+            else:
+                lat = lambda: rng.uniform(ix0 + m, ix1 - m)
+                ys = [iy0 + (i + 1) / (n_way + 1) * (iy1 - iy0)
+                      + rng.uniform(-m, m) for i in range(n_way)]
+                way = ([(lat(), iy0)] + [(lat(), min(max(y, iy0 + m), iy1 - m))
+                                         for y in sorted(ys)] + [(lat(), iy1)])
+            dense = _catmull_rom_points(way, samples_per_seg=10)
+
+            # Trail tiles: slight step overlap keeps curves gap-free.
+            for tx, ty, tyaw in _walk_polyline(dense, t_len * 0.8):
+                add(tu, tx, ty, 0.015, tyaw, "trail", _sc(tu) * tile_overlap)
+                hl = max(t_len, t_w) / 2.0
+                house_rects.append((tx - hl, ty - hl, tx + hl, ty + hl))
+
+            # Furniture along the trail sides. Offsets/phases differ per
+            # category so they interleave rather than stack.
+            side_d = t_w / 2.0 + furniture_offset_m
+            for pool, cat, spacing, phase in (
+                    (park_bench_usds, "bench", park_bench_sp, 0.5),
+                    (park_light_usds, "streetlight", park_light_sp, 0.25),
+                    (park_trash_usds, "trash_can", park_trash_sp, 0.75)):
+                if not pool:
+                    continue
+                for fx, fy, fyaw in _walk_polyline(dense, spacing, phase=phase):
+                    side = rng.choice((-1.0, 1.0))
+                    rad = math.radians(fyaw)
+                    nx_, ny_ = -math.sin(rad) * side, math.cos(rad) * side
+                    px_, py_ = fx + nx_ * side_d, fy + ny_ * side_d
+                    if not _in_rect(px_, py_, pinset):
+                        continue
+                    if exclusions and _in_exclusion(px_, py_, exclusions):
+                        continue
+                    u = rng.choice(pool)
+                    fp = resolver.get(u, cat, scale=_sc(u), axis_up=_au(u))
+                    # Face back toward the trail (benches especially).
+                    face_yaw = math.degrees(math.atan2(-ny_, -nx_))
+                    add(u, px_, py_, grass_top + fp["base"], face_yaw, cat,
+                        _sc(u), roll=_axis_roll(u), axis_up=_au(u))
+
+    # =======================================================================
+    # STEP 3 — DETAIL: trees + humans (open-ground scatter); rocks (parks);
+    # streetlights + fire hydrants + trash cans (block frontage); traffic
+    # lights (intersection corners)
     # =======================================================================
 
     # Disaster (tornado aftermath) parameters — consumed inline through
     # steps 3-4 (per-category toppling, leaning, scattering, strewn wrecks).
     dcfg = config.get("disaster", {})
 
-    def _scatter_in_blocks(count_range, min_sep, margin, place_fn):
+    def _scatter_in_blocks(count_range, min_sep, margin, place_fn, in_blocks=None,
+                           density_per_100m2=None, even=False):
         """Rejection-sample points on each block's open ground — off building
         lots by *margin*, off exclusions, *min_sep* apart — and call
-        ``place_fn(x, y)`` for each accepted point.
+        ``place_fn(x, y)`` for each accepted point. *in_blocks* restricts the
+        pass to a subset of blocks (default: all).
+
+        *density_per_100m2*, if given, sizes each block's count from its area
+        instead of *count_range*. *even=True* switches to best-candidate
+        sampling — each point is the candidate farthest from those already
+        placed — for an even, blue-noise-like spread across the block.
         """
-        for (x0, y0, x1, y1) in blocks:
+        for (x0, y0, x1, y1) in (blocks if in_blocks is None else in_blocks):
             local = [hr for hr in house_rects
                      if hr[0] >= x0 - 5 and hr[2] <= x1 + 5
                      and hr[1] >= y0 - 5 and hr[3] <= y1 + 5]
             placed: list = []
-            want = rng.randint(int(count_range[0]), int(count_range[1]))
-            for _ in range(want * 12):
-                if len(placed) >= want:
-                    break
-                tx, ty = rng.uniform(x0, x1), rng.uniform(y0, y1)
+            if density_per_100m2 is not None:
+                want = max(1, round((x1 - x0) * (y1 - y0) / 100.0
+                                    * float(density_per_100m2)))
+            else:
+                want = rng.randint(int(count_range[0]), int(count_range[1]))
+
+            def _ok(tx, ty):
                 if any(_in_rect(tx, ty, (hr[0] - margin, hr[1] - margin,
                                          hr[2] + margin, hr[3] + margin))
                        for hr in local):
-                    continue
+                    return False
                 if exclusions and _in_exclusion(tx, ty, exclusions):
-                    continue
-                if any((tx - px) ** 2 + (ty - py) ** 2 < min_sep ** 2
-                       for px, py in placed):
-                    continue
-                place_fn(tx, ty)
-                placed.append((tx, ty))
+                    return False
+                return not any((tx - px) ** 2 + (ty - py) ** 2 < min_sep ** 2
+                               for px, py in placed)
+
+            if even:
+                for _ in range(want):
+                    best = None
+                    for _c in range(10):
+                        tx, ty = rng.uniform(x0, x1), rng.uniform(y0, y1)
+                        if not _ok(tx, ty):
+                            continue
+                        d = min(((tx - px) ** 2 + (ty - py) ** 2
+                                 for px, py in placed), default=float("inf"))
+                        if best is None or d > best[0]:
+                            best = (d, tx, ty)
+                    if best is not None:
+                        place_fn(best[1], best[2])
+                        placed.append((best[1], best[2]))
+            else:
+                for _ in range(want * 12):
+                    if len(placed) >= want:
+                        break
+                    tx, ty = rng.uniform(x0, x1), rng.uniform(y0, y1)
+                    if not _ok(tx, ty):
+                        continue
+                    place_fn(tx, ty)
+                    placed.append((tx, ty))
 
     # Frontage props (streetlights, fire hydrants, trash cans) share one 2 m
     # occupancy grid so different categories never stack on the same spot.
@@ -1136,45 +1355,78 @@ def build_city(config: dict, resolver: SizeResolver):
                         continue
                     yield px, py, out_yaw
 
-    def _topple_flat(usd, fp, x, y, category):
+    def _topple_flat(usd, fp, x, y, category, z0=0.0):
         """Prop knocked flat: ~90° roll about its base pivot with a random
         heading; z lifts the pivot by half the footprint width so the lying
-        prop rests on (not in) the ground."""
-        add(usd, x, y, max(fp["sx"], fp["sy"]) / 2.0, rng.uniform(0.0, 360.0),
+        prop rests on (not in) the ground surface at height *z0*."""
+        add(usd, x, y, z0 + max(fp["sx"], fp["sy"]) / 2.0, rng.uniform(0.0, 360.0),
             category, _sc(usd),
             roll=_axis_roll(usd) + rng.choice([-1.0, 1.0]) * rng.uniform(80.0, 100.0),
             axis_up=_au(usd))
 
-    # ---- Trees: scattered on open grass.
+    park_block_set = {b for (b, _i) in park_blocks}
+    park_insets = [inset for (_b, inset) in park_blocks]
+
+    # ---- Trees: sparse on non-park open ground (lining the sidewalks of
+    # packed blocks), denser and evenly spread across each park's grass.
     if tree_usds:
         tcfg = config.get("trees", {})
 
         def _place_tree(tx, ty):
             usd = rng.choice(tree_usds)
             jitter = rng.uniform(0.85, 1.2)
-            add(usd, tx, ty, resolver.get(usd, "tree", scale=_sc(usd))["base"],
+            add(usd, tx, ty,
+                grass_top + resolver.get(usd, "tree", scale=_sc(usd))["base"],
                 rng.uniform(0, 360), "tree", _sc(usd) * jitter)
 
         _scatter_in_blocks(tcfg.get("per_block", tcfg.get("per_cell", [1, 3])),
                            float(tcfg.get("min_separation_m", 2.5)),
                            float(tcfg.get("house_margin_m", 1.5)),
-                           _place_tree)
+                           _place_tree,
+                           in_blocks=[b for b in blocks
+                                      if b not in park_block_set])
+        if park_insets:
+            _scatter_in_blocks(None,
+                               float(parks_cfg.get("tree_min_separation_m", 4.0)),
+                               float(tcfg.get("house_margin_m", 1.5)),
+                               _place_tree,
+                               in_blocks=park_insets,
+                               density_per_100m2=float(
+                                   parks_cfg.get("tree_density_per_100m2", 0.8)),
+                               even=True)
 
-    # ---- Plants (grass clumps, flowers, bushes): denser scatter on open ground.
-    if plant_usds:
+    # ---- Plants (grass clumps, flowers, bushes): park grass only.
+    if plant_usds and park_insets:
         pcfg = config.get("plants", {})
 
         def _place_plant(tx, ty):
             usd = rng.choice(plant_usds)
             jitter = rng.uniform(0.8, 1.15)
-            add(usd, tx, ty, resolver.get(usd, "plant", scale=_sc(usd))["base"],
+            add(usd, tx, ty,
+                grass_top + resolver.get(usd, "plant", scale=_sc(usd))["base"],
                 rng.uniform(0, 360), "plant", _sc(usd) * jitter,
                 roll=_axis_roll(usd), axis_up=_au(usd))
 
         _scatter_in_blocks(pcfg.get("per_block", [4, 12]),
                            float(pcfg.get("min_separation_m", 1.0)),
                            float(pcfg.get("house_margin_m", 1.5)),
-                           _place_plant)
+                           _place_plant,
+                           in_blocks=park_insets)
+
+    # ---- Rocks: scattered on park grass only (off the trail — trail tiles
+    # are in house_rects).
+    if rock_usds and park_insets:
+
+        def _place_rock(tx, ty):
+            usd = rng.choice(rock_usds)
+            jitter = rng.uniform(0.7, 1.3)
+            add(usd, tx, ty,
+                grass_top + resolver.get(usd, "rock", scale=_sc(usd))["base"],
+                rng.uniform(0, 360), "rock", _sc(usd) * jitter,
+                roll=_axis_roll(usd), axis_up=_au(usd))
+
+        _scatter_in_blocks(rocks_per_park, rock_min_sep_m, 0.5, _place_rock,
+                           in_blocks=park_insets)
 
     # ---- Streetlights: uniform spacing along frontage, lamp arm reaching
     # over the roadway (street rule: light the street, not the block).
@@ -1182,21 +1434,22 @@ def build_city(config: dict, resolver: SizeResolver):
         spacing = float(config.get("streetlights", {}).get("spacing_m", 20.0))
         lights_toppled = float(dcfg.get("streetlights_toppled_fraction", 0.0))
         for px, py, street_yaw in _frontage_positions(spacing):
-            lu = rng.choice(light_usds)
+            lu = rng.choice(street_light_usds)
             lfp = resolver.get(lu, "streetlight", scale=_sc(lu))
             if rng.random() < lights_toppled:
-                _topple_flat(lu, lfp, px, py, "streetlight")
+                _topple_flat(lu, lfp, px, py, "streetlight", z0=sidewalk_top)
             else:
-                add(lu, px, py, lfp["base"], street_yaw, "streetlight", _sc(lu))
+                add(lu, px, py, sidewalk_top + lfp["base"], street_yaw,
+                    "streetlight", _sc(lu))
 
     # ---- Benches: along frontage, seat facing the street.
     if bench_usds:
         spacing = float(config.get("benches", {}).get("spacing_m", 30.0))
         for px, py, street_yaw in _frontage_positions(spacing, phase=0.25,
                                                       jitter_frac=0.3):
-            u = rng.choice(bench_usds)
+            u = rng.choice(street_bench_usds)
             fp = resolver.get(u, "bench", scale=_sc(u), axis_up=_au(u))
-            add(u, px, py, fp["base"], street_yaw, "bench", _sc(u),
+            add(u, px, py, sidewalk_top + fp["base"], street_yaw, "bench", _sc(u),
                 roll=_axis_roll(u), axis_up=_au(u))
 
     # ---- Fire hydrants: sparse along frontage, outlet toward the street.
@@ -1210,9 +1463,9 @@ def build_city(config: dict, resolver: SizeResolver):
             u = rng.choice(hydrant_usds)
             fp = resolver.get(u, "fire_hydrant", scale=_sc(u), axis_up=_au(u))
             if rng.random() < sheared:
-                _topple_flat(u, fp, px, py, "fire_hydrant")
+                _topple_flat(u, fp, px, py, "fire_hydrant", z0=sidewalk_top)
             else:
-                add(u, px, py, fp["base"], street_yaw,
+                add(u, px, py, sidewalk_top + fp["base"], street_yaw,
                     "fire_hydrant", _sc(u), roll=_axis_roll(u), axis_up=_au(u))
 
     # ---- Trash cans: along frontage. Light and unanchored, so tipped ones
@@ -1223,7 +1476,7 @@ def build_city(config: dict, resolver: SizeResolver):
         scatter = float(dcfg.get("trash_cans_scatter_m", 0.0))
         for px, py, _street_yaw in _frontage_positions(spacing, phase=0.5,
                                                        jitter_frac=0.35):
-            u = rng.choice(trash_usds)
+            u = rng.choice(street_trash_usds)
             fp = resolver.get(u, "trash_can", scale=_sc(u), axis_up=_au(u))
             if rng.random() < tipped:
                 ang = rng.uniform(0.0, 2.0 * math.pi)
@@ -1231,9 +1484,9 @@ def build_city(config: dict, resolver: SizeResolver):
                 bx_, by_ = px + d * math.cos(ang), py + d * math.sin(ang)
                 if exclusions and _in_exclusion(bx_, by_, exclusions):
                     bx_, by_ = px, py       # don't blow into a keep-out zone
-                _topple_flat(u, fp, bx_, by_, "trash_can")
+                _topple_flat(u, fp, bx_, by_, "trash_can", z0=sidewalk_top)
             else:
-                add(u, px, py, fp["base"], rng.uniform(0.0, 360.0),
+                add(u, px, py, sidewalk_top + fp["base"], rng.uniform(0.0, 360.0),
                     "trash_can", _sc(u), roll=_axis_roll(u), axis_up=_au(u))
 
     # ---- Traffic lights: one per road intersection (probabilistic), on a
@@ -1289,16 +1542,17 @@ def build_city(config: dict, resolver: SizeResolver):
                 fp = resolver.get(u, "traffic_light", scale=_sc(u), axis_up=_au(u))
                 yaw = math.degrees(math.atan2(icy - y, icx - x)) + tl_front
                 if rng.random() < tl_toppled:
-                    _topple_flat(u, fp, x, y, "traffic_light")
+                    _topple_flat(u, fp, x, y, "traffic_light", z0=sidewalk_top)
                 elif rng.random() < tl_leaning:
                     tilt = rng.uniform(float(lean_lo), float(lean_hi))
-                    add(u, x, y, fp["base"], yaw, "traffic_light", _sc(u),
+                    add(u, x, y, sidewalk_top + fp["base"], yaw, "traffic_light",
+                        _sc(u),
                         roll=_axis_roll(u) + rng.choice([-1.0, 1.0]) * tilt,
                         pitch=rng.choice([-1.0, 1.0]) * tilt * rng.uniform(0.0, 0.5),
                         axis_up=_au(u))
                 else:
-                    add(u, x, y, fp["base"], yaw, "traffic_light", _sc(u),
-                        roll=_axis_roll(u), axis_up=_au(u))
+                    add(u, x, y, sidewalk_top + fp["base"], yaw, "traffic_light",
+                        _sc(u), roll=_axis_roll(u), axis_up=_au(u))
 
     # ---- Humans: scattered on open ground; a prone fraction lies flat
     # (casualties / taking cover), the rest stand with random headings.
@@ -1310,9 +1564,9 @@ def build_city(config: dict, resolver: SizeResolver):
             u = rng.choice(human_usds)
             fp = resolver.get(u, "human", scale=_sc(u), axis_up=_au(u))
             if rng.random() < prone:
-                _topple_flat(u, fp, tx, ty, "human")
+                _topple_flat(u, fp, tx, ty, "human", z0=grass_top)
             else:
-                add(u, tx, ty, fp["base"], rng.uniform(0.0, 360.0),
+                add(u, tx, ty, grass_top + fp["base"], rng.uniform(0.0, 360.0),
                     "human", _sc(u), roll=_axis_roll(u), axis_up=_au(u))
 
         _scatter_in_blocks(hcfg.get("per_block", [0, 2]),
@@ -1507,13 +1761,18 @@ def apply_placements(stage,
         pitch = float(p.get("pitch_deg", 0.0))
         yaw = float(p["yaw_deg"])
 
+        # Optional per-axis local-XY stretch on top of the uniform scale
+        # (tiles stretched to exactly cover their grid step).
+        st = p.get("stretch")
+        stx, sty = (float(st[0]), float(st[1])) if st else (1.0, 1.0)
+
         cx_off, cy_off, cz_off = 0.0, 0.0, 0.0
         if resolver is not None:
             axis_up_p = p.get("axis_up", "Z")
             fp = resolver.get(usd, p.get("category", "asset"),
                               scale=float(p["scale"]), axis_up=axis_up_p)
-            cx_off = fp.get("cx", 0.0)
-            cy_off = fp.get("cy", 0.0)
+            cx_off = fp.get("cx", 0.0) * stx
+            cy_off = fp.get("cy", 0.0) * sty
             cz_off = fp.get("cz", 0.0)
 
         # Rotate the anchor->centroid offset by the same XYZ rotation USD applies
@@ -1538,7 +1797,7 @@ def apply_placements(stage,
             (z_m - offset[2]) * ssf))
         xform.AddRotateXYZOp().Set(Gf.Vec3f(roll, pitch, yaw))
         s = float(p["scale"])
-        xform.AddScaleOp().Set(Gf.Vec3d(s, s, s))
+        xform.AddScaleOp().Set(Gf.Vec3d(s * stx, s * sty, s))
 
     print(f"[scene_gen] Applied {len(placements)} placements under '{parent_path}' "
           f"({len(proto_index)} unique USDs, scale_factor={ssf})")

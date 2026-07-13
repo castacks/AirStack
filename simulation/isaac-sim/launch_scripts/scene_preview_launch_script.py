@@ -57,8 +57,8 @@ from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 _ISAAC_SIM_DIR = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 sys.path.insert(0, os.path.join(_ISAAC_SIM_DIR, "utils"))
-from scene_prep import scale_stage_prim, add_colliders, add_dome_light, get_stage_meters_per_unit
-from scene_generator import generate_scene_on_stage
+from scene_prep import scale_stage_prim, add_colliders, add_sky, get_stage_meters_per_unit
+from scene_generator import generate_scene_on_stage, load_config, resolve_sky
 
 # ----- CONFIGURATION -----
 ENV_URL     = SIMULATION_ENVIRONMENTS["Default Environment"]
@@ -134,8 +134,10 @@ class ScenePreviewApp:
         else:
             carb.log_warn("/World/stage not found — skipping scale and collision.")
 
+        config = load_config(SCENE_CONFIG)
+
         _, ssf = get_stage_meters_per_unit(stage)
-        generate_scene_on_stage(stage, SCENE_CONFIG,
+        generate_scene_on_stage(stage, config,
                                 parent_path="/World/stage/generated",
                                 scene_scale_factor=ssf)
 
@@ -145,7 +147,7 @@ class ScenePreviewApp:
         for _ in range(10):
             omni.kit.app.get_app().update()
 
-        add_dome_light(stage)
+        add_sky(stage, resolve_sky(config))
 
         _reload_script = os.path.join(_ISAAC_SIM_DIR, "reload_scene.py")
         print("\n" + "=" * 70)
