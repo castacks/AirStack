@@ -45,7 +45,7 @@ person:
   # cm scene + 100x character: ~100 cm/s reads as ~1 m/s and keeps the gait from
   # foot-sliding. 2 m then takes ~2 s of walking (after start_delay).
   walk_speed: 1.0
-  start_delay: 2.0             # seconds the person waits before walking
+  start_delay: 15.0             # seconds the person waits before walking
   # cm scene: stop within 20 cm of the target so the character settles into idle
   # instead of wandering (the built-in arrival logic assumes meters).
   arrival_threshold: 0.2
@@ -68,8 +68,8 @@ patch:
   board:
     plane: yz
     # specified by top-left and bottom-right corners in the face's local YZ plane:
-    top_left: [244.95841, 210.24986, 2.39153]
-    bottom_right: [244.95841, 207.77721, 0.05519]
+    top_left: [644.95841, 210.24986, 2.39153]
+    bottom_right: [644.95841, 207.77721, 0.65]
   # cm scene: explicit 100 cm (= 1 m) square so it's visible; scalar or [w, h].
   size: 1.0
   prim_path: /World/EvalPatch/TexturedMeshPlane

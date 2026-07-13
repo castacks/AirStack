@@ -28,7 +28,7 @@ scene:
   # which cooks at play time and can stall/crash PhysX on large scenes.
   collision_approximation: none   # none=triangle mesh; or convexHull / convexDecomposition
   # Collision precedence: non-empty names/paths, then z-range, then all meshes.
-  collision_prim_names: [/Environment/abandoned_factory_scene/AbandonedFactory/MergedMeshes/merged_38]       # exact prim names or absolute prim paths
+  collision_prim_names: []       # exact prim names or absolute prim paths
   collision_z_range: null        # [min_z, max_z], using world-AABB center Z
   # Cheap guaranteed floor: large static collider plane at this Z (stage units).
   # Set to the scene's floor height; null disables.
@@ -66,17 +66,17 @@ patch:
   square: true
   # Fixed-position patch. Set center null and configure board to sample a
   # fully-contained position; with both null, cube-face sampling is used.
-  center: [-9.840318565250117, 47.77759, 2.08185]
+  center: [-9.840318565250117, 47.77759, [2.054, 2.304]]
   # Board fields: plane plus center+size or top_left+bottom_right.
   board: null
   # cm scene: explicit 100 cm (= 1 m) square so it's visible; scalar or [w, h].
-  size: 1.0
+  size: null
   prim_path: /World/EvalPatch/TexturedMeshPlane
   material_path: /World/Looks/EvalPatchOmniPBR
   albedo_path: ""
   orientation_deg: [0.0, 90.0, 0.0]
   texture_scale: [1.0, 1.0]
-  size_range: [0.5, 1.0]
+  size_range: [0.7, 1.0]
   size_seed: 1234
   position_seed: 5678
   target_prim_name: Cube_01
@@ -93,7 +93,7 @@ drone:
   vehicle_id: 1
   domain_id: 1
   usd: "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
-  init_pos: [-6.943075288566938, 54.46963706545574, 0.53607]
+  init_pos: [-6.943075288566938, 54.46963706545574, 0.61118]
   orientation_deg: [0.0, 0.0, -90.0]   # yaw +90 deg, facing +Y
   # cm scene: scale the drone up 100x to match. WARNING: visual only -- this does
   # NOT rescale the PX4/PhysX flight dynamics, so free-flight behavior will be off.

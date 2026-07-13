@@ -42,11 +42,11 @@ person:
   movement_segments:
     - target: [-115.2158, 98.23912, 0.2]
     - target: [-120.5421, 97.91867, 0.2]
-  orientation_yaw: 90.0       # degrees; facing -Y
+  orientation_yaw: 0.0       # degrees; facing -Y
   # cm scene + 100x character: ~100 cm/s reads as ~1 m/s and keeps the gait from
   # foot-sliding. 2 m then takes ~2 s of walking (after start_delay).
   walk_speed: 1.0
-  start_delay: 6.0             # seconds the person waits before walking
+  start_delay: 16.0             # seconds the person waits before walking
   # cm scene: stop within 20 cm of the target so the character settles into idle
   # instead of wandering (the built-in arrival logic assumes meters).
   arrival_threshold: 0.2

@@ -1,0 +1,83 @@
+# ---------------------------------------------------------------------------
+# Scene 0 experiment 1: person walks along the lane behind the white cube;
+# patch is sampled on the cube's positive-Y XZ face between the benches.
+#
+# Source cube transform inherits a 0.01 scale:
+#   translate: [6673.8669, 9945.658, 1821.5666]
+#   scale:     [127.22721, 48.15448, 269.59932]
+# Treat the displayed scale as the cube dimensions. Script-generated actors
+# live under unscaled /Script, so position and dimensions are multiplied by
+# 0.01; the positive-Y face adds half the converted Y dimension.
+# ---------------------------------------------------------------------------
+
+scene:
+  usd_path: "omniverse://airlab-nucleus.andrew.cmu.edu/Users/ruiwang3/test_bench/scene_0_scaled.usd"
+  load_mode: sublayer
+  scale: 1.0
+  add_collision: true
+  collision_approximation: none
+  # Collision precedence: non-empty names/paths, then z-range, then all meshes.
+  collision_prim_names: [/Root/Landscape_2/Landscape_2]       # exact prim names or absolute prim paths
+  collision_z_range: null        # [min_z, max_z], using world-AABB center Z
+  ground_plane_z: null
+  ground_plane_size: 100000.0
+  play_sim_on_start: false
+
+person:
+  name: person1
+  character: original_male_adult_construction_05
+  # Screenshot position is already in unscaled /Script world coordinates.
+  # Walk 0.5 m in the -Y direction on the right side of the cube.
+  start: [73.48608, 97.30829, 16.89]
+  movement_segments:
+    - target: [68.2444, 97.91654, 16.926]
+    - target: [62.78011, 97.91654, 16.926]
+  orientation_yaw: -90.0
+  walk_speed: 1.0
+  start_delay: 15.0
+  # Must be >= Pegasus Person's built-in 0.1 m stopping distance.
+  arrival_threshold: 0.2
+  scale: 1.0
+
+camera:
+  eye: [66.18, 100.47, 20.89]
+  target: null
+
+patch:
+  enabled: true
+  # Force a square patch (width == height). Set false to allow rectangles.
+  square: true
+  prim_path: /World/EvalPatch/TexturedMeshPlane
+  material_path: /World/Looks/EvalPatchOmniPBR
+  albedo_path: "/isaac-sim/.local/share/ov/data/testbench/patches/scene_0_case_1_goal_fake_person_best_epoch66.png"
+  center: null
+  board:
+    plane: yz
+    top_left: [67.17493, 98.92936, 19.54684]
+    bottom_right: [67.17493, 100.20635, 17.53137]
+  # orientation_deg omitted: patch inherits the xz board orientation.
+  size: null
+  size_range: [0.5, 1.0]      # used only when size is null
+  size_seed: 1234
+  position_seed: 0
+  texture_scale: [1.0, 1.0]
+  texture_transform:
+    flip_horizontal: true    # mirror left↔right (u → 1 - u)
+    flip_vertical: false     # mirror top↔bottom (v → 1 - v)
+    rotation_deg: 0.0       # CCW rotation about the texture center
+
+drone:
+  enabled: true
+  prim: /World/spawned_iris/base_link
+  robot_name: robot_1
+  vehicle_id: 1
+  domain_id: 1
+  usd: "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
+  init_pos: [71.40255, 101.85216, 16.95192]
+  orientation_deg: [0.0, 0.0, -90.0]
+  scale: 1.0
+  enable_zed: true
+  enable_zed_instance_segmentation: true
+  enable_zed_semantic_segmentation: true
+  enable_zed_bbox_2d: true
+  enable_ouster: true

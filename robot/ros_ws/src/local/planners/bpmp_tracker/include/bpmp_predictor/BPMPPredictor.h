@@ -8,6 +8,7 @@
 #include "sensor_msgs/msg/image.hpp"
 #include "sensor_msgs/msg/camera_info.hpp"
 #include "std_msgs/msg/color_rgba.hpp"
+#include "std_msgs/msg/int32.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
 #include "bpmp_tracker/srv/set_target_id.hpp"
@@ -66,6 +67,7 @@ namespace bpmp_tracker{
         std::map<int, int> reid_id_mapping_;  // YOLO tracking_id -> global group_id
 
         rclcpp::Service<bpmp_tracker::srv::SetTargetId>::SharedPtr set_target_id_srv_;
+        rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr set_target_id_topic_sub_;
         rclcpp::Service<bpmp_tracker::srv::SetMode>::SharedPtr set_mode_srv_;
         rclcpp::TimerBase::SharedPtr timer_;
         rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr target_info_publisher_;
@@ -89,6 +91,7 @@ namespace bpmp_tracker{
         void SetTargetIdCallback(
             const bpmp_tracker::srv::SetTargetId::Request::SharedPtr req,
             bpmp_tracker::srv::SetTargetId::Response::SharedPtr res);
+        void SetTargetIdTopicCallback(const std_msgs::msg::Int32::SharedPtr msg);
         void SetModeCallback(
             const bpmp_tracker::srv::SetMode::Request::SharedPtr req,
             bpmp_tracker::srv::SetMode::Response::SharedPtr res);
