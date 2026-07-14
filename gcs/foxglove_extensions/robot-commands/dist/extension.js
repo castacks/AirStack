@@ -348,7 +348,7 @@ const TASK_TABS = [
     actionSuffix: null,   // not a task executor — no relay topics
     goalSchema: null,
     fields: [],           // custom renderer
-    defaultState: () => ({}),
+    defaultState: () => ({ targetId: 0 }),
     buildGoal: () => ({}),
     formatFeedback: () => "",
   },
@@ -664,7 +664,34 @@ function activate(extensionContext) {
 
           // Advertise at tab-init so DDS discovery completes before first button click
           const trackingEnableTopic = `/${state.robot}/bpmp/target_tracking_enable`;
+          const setTargetIdTopic = `/${state.robot}/bpmp/set_target_id`;
           panelContext.advertise(trackingEnableTopic, "std_msgs/msg/Bool");
+          panelContext.advertise(setTargetIdTopic, "std_msgs/msg/Int32");
+
+          // ── Target ReID group ID input ────────────────────────────────────────
+          const targetIdRow = document.createElement("div");
+          targetIdRow.style.cssText = "display:flex;align-items:center;gap:6px;";
+          const targetIdLabel = document.createElement("span");
+          targetIdLabel.textContent = "Target ReID ID:";
+          targetIdLabel.style.cssText = "font-size:12px;font-weight:bold;white-space:nowrap;";
+          const targetIdInput = document.createElement("input");
+          targetIdInput.type = "number";
+          targetIdInput.min = "0";
+          targetIdInput.step = "1";
+          targetIdInput.value = String(state.tracking_mode.targetId ?? 0);
+          targetIdInput.style.cssText =
+            "flex:1;padding:4px 6px;border-radius:4px;border:1px solid #555;background:transparent;color:inherit;";
+          function readTargetId() {
+            const v = parseInt(targetIdInput.value, 10);
+            const id = Number.isFinite(v) && v >= 0 ? v : 0;
+            state.tracking_mode.targetId = id;
+            targetIdInput.value = String(id);
+            persist();
+            return id;
+          }
+          targetIdInput.addEventListener("change", readTargetId);
+          targetIdRow.appendChild(targetIdLabel);
+          targetIdRow.appendChild(targetIdInput);
 
           const trackingBtn = document.createElement("button");
           trackingBtn.style.cssText =
@@ -691,6 +718,13 @@ function activate(extensionContext) {
 
           trackingBtn.addEventListener("click", () => {
             trackingEnabled = !trackingEnabled;
+            // When starting tracking, send the desired ReID group ID first so the
+            // predictor is targeting it before tracking is enabled.
+            if (trackingEnabled) {
+              const idMsg = { data: readTargetId() };
+              panelContext.publish(setTargetIdTopic, idMsg);
+              setTimeout(() => panelContext.publish(setTargetIdTopic, idMsg), 500);
+            }
             // Publish immediately; also retry after 1s and 2.5s in case
             // DDS subscriber hasn't finished discovery on first send.
             panelContext.publish(trackingEnableTopic, { data: trackingEnabled });
@@ -701,8 +735,9 @@ function activate(extensionContext) {
 
           const trackingHint = document.createElement("div");
           trackingHint.style.cssText = "font-size:10px;color:#666;text-align:center;margin-top:4px;";
-          trackingHint.textContent = "Requires 3D bbox detections and VDB map topics.";
+          trackingHint.textContent = "Type the ReID group ID to follow, then click to track.";
 
+          body.appendChild(targetIdRow);
           body.appendChild(trackingBtn);
           body.appendChild(trackingStatusEl);
           body.appendChild(trackingHint);

@@ -1,0 +1,8 @@
+{
+	"male": ["M_Medical_01", "male_adult_construction_01_new", "male_adult_construction_03", "male_adult_construction_05_new", "male_adult_police_04", "original_male_adult_construction_01", "original_male_adult_construction_02", "original_male_adult_construction_03", "original_male_adult_construction_05", "original_male_adult_medical_01", "original_male_adult_police_04"],
+	"female": ["F_Business_02", "F_Medical_01", "female_adult_police_01_new", "female_adult_police_02", "female_adult_police_03_new", "original_female_adult_business_02", "original_female_adult_medical_01", "original_female_adult_police_01","original_female_adult_police_02","original_female_adult_police_03"],
+	"medical": ["M_Medical_01", "original_male_adult_medical_01", "F_Medical_01", "original_female_adult_medical_01"],
+	"police": ["male_adult_police_04", "original_male_adult_police_04", "female_adult_police_01_new","female_adult_police_02", "female_adult_police_03_new","original_female_adult_police_01","original_female_adult_police_02","original_female_adult_police_03"],
+	"construction": ["male_adult_construction_01_new", "male_adult_construction_05_new", "original_male_adult_construction_01", "original_male_adult_construction_02", "original_male_adult_construction_03", "original_male_adult_construction_05"],
+	"business": ["F_Business_02", "male_adult_construction_03"]
+}

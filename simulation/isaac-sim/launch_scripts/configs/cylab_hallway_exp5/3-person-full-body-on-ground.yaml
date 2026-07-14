@@ -1,0 +1,87 @@
+# ---------------------------------------------------------------------------
+# Scene configuration for scene_drone_person_configuration.py
+#
+# Variant of 0-person-walk-fixed-patch.yaml (CyLab hallway / Rui_Office_Exp5.usd)
+# that replaces the plain grey 1x1 patch with the FULL-body person texture,
+# standing on the floor: 0.62 m wide x 1.55 m tall, with its lower edge at
+# z = 0.1.
+#
+# It keeps the base patch's X/Y position (-4.335, -9.425) but lowers the center
+# so the 1.55 m height puts the bottom at z = 0.1: center z = 0.1 + 1.55/2 = 0.875.
+#
+# Orientation note: the base config used orientation_deg [90, 0, 0] so the patch
+# lies in the XZ plane and faces the drone along Y. The loader's texture UVs are
+# tuned for the [0, 90, 0] (-X face) layout, so on a [90, 0, 0] patch the image
+# would render rotated 90 deg. orientation_deg [-90, -90, 0] keeps the patch
+# facing the same way but renders the person UPRIGHT, with local-X mapped to
+# world Z (height) and local-Y to world X (width) -- so size = [height, width].
+#
+# scene_10 is authored in METERS; all positions are meter-scale.
+#
+# Vectors and orientations are [x, y, z]; all orientations are in degrees.
+# ---------------------------------------------------------------------------
+
+script_root: /Script
+
+scene:
+  usd_path: "omniverse://airlab-nucleus.andrew.cmu.edu/Users/ruiwang3/Rui_Office_Exp5.usd"
+  load_mode: sublayer
+  scale: 1.0
+  add_collision: false
+  collision_approximation: none
+  collision_prim_names: []
+  collision_z_range: null
+  ground_plane_z: null
+  ground_plane_size: 100000.0
+  play_sim_on_start: false
+
+person:
+  name: person1
+  character: original_male_adult_construction_05
+  start: [-9.0, -10.5, 0.0]
+  movement_segments:
+    - target: [-4.4, -10.5, 0.0]
+  orientation_yaw: 90.0
+  walk_speed: 1.0
+  start_delay: 15.0
+  arrival_threshold: 0.2
+  scale: 1.0
+
+camera:
+  eye: [8.0, 8.0, 5.0]
+  target: null
+
+patch:
+  enabled: true
+  # Rectangular patch (portrait person texture), so allow non-square dimensions.
+  square: false
+  # Base patch X/Y, lowered so the 1.55 m height puts the bottom edge at z = 0.1
+  # (center z = 0.1 + 1.55/2 = 0.875).
+  center: [-4.335, -9.425, 0.875]
+  board: null
+  # size = [height, width] for the [-90, -90, 0] orientation below: 1.55 m tall,
+  # 0.62 m wide, matching the full-body texture's portrait aspect.
+  size: [1.55, 0.62]
+  prim_path: /World/CyLabPatchEval/TexturedMeshPlane
+  material_path: /World/Looks/CyLabPatchEvalOmniPBR
+  albedo_path: "omniverse://airlab-nucleus.andrew.cmu.edu/Users/ruiwang3/scene_10_person_full_body.png"
+  # Faces the drone (along Y) like the base config's [90, 0, 0], but rotated so
+  # the person renders upright (see header note).
+  orientation_deg: [-90.0, -90.0, 0.0]
+  texture_scale: [1.0, 1.0]
+
+drone:
+  enabled: true
+  prim: /World/spawned_iris/base_link
+  robot_name: robot_1
+  vehicle_id: 1
+  domain_id: 1
+  usd: "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
+  init_pos: [-6.8, -6.3, 0.07]
+  orientation_deg: [0.0, 0.0, -90.0]
+  scale: 1.0
+  enable_zed: true
+  enable_zed_instance_segmentation: true
+  enable_zed_semantic_segmentation: true
+  enable_zed_bbox_2d: true
+  enable_ouster: true

@@ -26,6 +26,7 @@ setup(
             'payload_visualizer_node = gcs_visualizer.payload_visualizer_node:main',
             'waypoint_collector_node = gcs_visualizer.waypoint_collector_node:main',
             'polygon_collector_node = gcs_visualizer.polygon_collector_node:main',
+            'topic_keepalive_node = gcs_visualizer.topic_keepalive_node:main',
         ],
     },
 )

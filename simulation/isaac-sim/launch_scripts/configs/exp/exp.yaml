@@ -1,0 +1,129 @@
+# ---------------------------------------------------------------------------
+# Scene configuration for scene_drone_person_configuration.py
+#
+# Point the scene script at this file with SCENE_CONFIG_PATH (an in-container
+# path, since the repo is mounted at /isaac-sim/AirStack). Copy this file to
+# describe a different scene -- a different USD file, person/patch positions,
+# seeds, ranges -- and set SCENE_CONFIG_PATH to the new copy.
+#
+# Vectors and orientations are [x, y, z]; all orientations are in degrees.
+# ---------------------------------------------------------------------------
+
+# Top-level prim that holds everything this script generates (drone, person,
+# patch, materials, ground collider), created parallel to the loaded scene's
+# own roots (/World, /Environment, ...). Set to /World for the legacy layout.
+script_root: /Script
+
+scene:
+  # If empty, falls back to the SCENE_USD_PATH then ISAAC_SIM_GUI env vars.
+  usd_path: "omniverse://airlab-nucleus.andrew.cmu.edu/Users/ruiwang3/Rui_Office_Exp6.usd"
+  load_mode: sublayer          # "sublayer" (preserve authored lighting) or "reference"
+  # Uniform scale for the loaded scene. Use to fix a units mismatch -- e.g. 0.01
+  # turns a centimeter-authored scene into meters so the meter-scale drone/person
+  # match. Works in both load modes; positions below must then be given in the
+  # scaled units. 1.0 = no rescale.
+  scale: 1.0
+  # Apply a static collider to every scene mesh on load (for assets that ship
+  # with no PhysX colliders). NOTE: doesn't scale -- large scenes have thousands
+  # of meshes and cooking them all stalls PhysX; prefer ground_plane_z there.
+  add_collision: false
+  collision_approximation: none   # none=triangle mesh; or convexHull / convexDecomposition
+  # Collision precedence: non-empty names/paths, then z-range, then all meshes.
+  collision_prim_names: []       # exact prim names or absolute prim paths
+  collision_z_range: null        # [min_z, max_z], using world-AABB center Z
+  # Cheap guaranteed floor: one large static collider plane at this Z (stage
+  # units). Set to the scene's floor height; null disables.
+  ground_plane_z: null
+  ground_plane_size: 100000.0
+  play_sim_on_start: false
+
+person:
+  name: person1
+  character: original_male_adult_construction_05
+  start: [-9.0, -10.5, 0.0]
+  # Ordered movement legs. Each entry may override the defaults below. A bare
+  # coordinate such as [-3.4, -10.5, 0.0] is also accepted. If this list is
+  # omitted, the legacy single `target: [x, y, z]` setting is still supported.
+  movement_segments:
+    - target: [-3.4, -10.5, 0.0]
+      pause_after: 0.0         # seconds to idle before starting the next leg
+    # - target: [-3.4, -5.0, 0.0]
+    #   walk_speed: 0.75
+    #   arrival_threshold: 0.2
+    #   pause_after: 2.0
+  orientation_yaw: 90.0        # degrees
+  walk_speed: 1.0              # default for all movement segments
+  start_delay: 15.0            # seconds the person waits before walking
+  arrival_threshold: 0.2      # default for all segments (stage units)
+  scale: 1.0                  # uniform character scale; e.g. 100 for a cm scene
+
+camera:
+  eye: [8.0, 8.0, 5.0]
+  # target: leave null to look at person.start, or set an explicit [x, y, z].
+  target: null
+
+patch:
+  enabled: true
+  # These shape controls apply only when size is null. square=true samples one
+  # side. With square=false, a positive aspect_ratio (width / height) samples
+  # only height and derives width; null samples width and height independently.
+  square: true
+  aspect_ratio: null
+  # Fixed-position patch: if center is set, the patch is placed exactly there and
+  # the cube-face sampling below is bypassed. A size scalar or [width, height]
+  # is always deterministic and overrides square, aspect_ratio, and size_range.
+  # Leave center and size null to use cube_center/cube_scale position sampling.
+  center: null
+  # Alternative to center: sample on an axis-aligned board using position_seed.
+  # Board size follows the plane's axis order: xy=[x,y], xz=[x,z], yz=[y,z].
+  # Board fields: plane plus center+size or top_left+bottom_right.
+  board: null
+  size: null
+  prim_path: /World/EvalPatch/TexturedMeshPlane
+  material_path: /World/Looks/EvalPatchOmniPBR
+  # Mounted in-container path or an omniverse:// URL. Empty -> plain grey patch.
+  albedo_path: "omniverse://airlab-nucleus.andrew.cmu.edu/Users/ruiwang3/sim_patch_office_tracking_scene2.png"
+  orientation_deg: [0.0, 90.0, 0.0]   # degrees; rotates the local-XY quad onto the -X face
+  texture_scale: [1.0, 1.0]
+  # Albedo-only transform; does not change patch position, pose, or dimensions.
+  # Flips are applied first, then rotation_deg counter-clockwise around the center.
+  texture_transform:
+    flip_horizontal: false
+    flip_vertical: false
+    rotation_deg: 0.0
+
+  # Randomized square patch size, sampled uniformly in [min, max] using size_seed.
+  size_range: [0.5, 1.0]
+  size_seed: 1234
+  position_seed: 5678
+
+  # The patch is placed on the -X face of this target cube. The sampling ranges
+  # for the patch center (Y and Z) are derived from the cube bounds unless you
+  # provide explicit y_range / z_range overrides below.
+  target_prim_name: Cube_01
+  cube_center: [-4.33508, -9.03413, 1.36348]
+  cube_scale: [1.51589, 1.65878, 2.77017]
+  negative_x_face_offset: 0.01
+
+  # Optional explicit patch-center sampling ranges. Leave null to derive from
+  # the cube bounds (inset by half the patch size so the patch stays on the face).
+  y_range: null                # e.g. [-9.5, -8.5]
+  z_range: null                # e.g. [0.6, 2.1]
+
+drone:
+  enabled: true
+  prim: /World/spawned_iris/base_link
+  robot_name: robot_1
+  vehicle_id: 1
+  domain_id: 1
+  usd: "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
+  init_pos: [-7.5, -6.3, 0.07]
+  orientation_deg: [0.0, 0.0, -90.0]  # yaw -90 deg
+  # Uniform drone scale; e.g. 100 for a cm scene. WARNING: visual only -- does not
+  # rescale PX4/PhysX flight dynamics. Keep at 1.0 if the drone must fly.
+  scale: 1.0
+  enable_zed: true
+  enable_zed_instance_segmentation: true
+  enable_zed_semantic_segmentation: true
+  enable_zed_bbox_2d: true
+  enable_ouster: true

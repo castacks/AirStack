@@ -60,6 +60,11 @@ namespace bpmp_tracker{
             "set_target_id",
             std::bind(&BPMPPredictor::SetTargetIdCallback, this,
                       std::placeholders::_1, std::placeholders::_2));
+        // Topic alternative to the service so the GCS Foxglove panel can set the
+        // target ReID group ID with a plain publish (shares the "set_target_id" remap).
+        set_target_id_topic_sub_ = this->create_subscription<std_msgs::msg::Int32>(
+            "set_target_id", 5,
+            std::bind(&BPMPPredictor::SetTargetIdTopicCallback, this, std::placeholders::_1));
         vdb_map_sub_ = this->create_subscription<visualization_msgs::msg::Marker>(
             "vdb_map", 5,
             std::bind(&BPMPPredictor::VDBMapCallback, this, std::placeholders::_1));
@@ -244,7 +249,10 @@ namespace bpmp_tracker{
             res->message = "target_id must be >= 0";
             return;
         }
-        if (last_detection_count_ > 0 && req->target_id >= last_detection_count_) {
+        // In Mode 2 (HumanFlow) target_id_ is a global ReID group ID, not an index
+        // into the detection array, so the detection-count bound does not apply.
+        if (current_mode_ != PredictorMode::BBOX_2D_MODE_2 &&
+            last_detection_count_ > 0 && req->target_id >= last_detection_count_) {
             res->success = false;
             res->message = "target_id " + std::to_string(req->target_id) +
                            " is out of range (last detection count: " +
@@ -255,6 +263,15 @@ namespace bpmp_tracker{
         res->success = true;
         res->message = "target_id set to " + std::to_string(target_id_);
         RCLCPP_INFO(this->get_logger(), "Target ID set to %d", target_id_);
+    }
+
+    void BPMPPredictor::SetTargetIdTopicCallback(const std_msgs::msg::Int32::SharedPtr msg){
+        if (msg->data < 0) {
+            RCLCPP_WARN(this->get_logger(), "Ignoring negative target_id %d", msg->data);
+            return;
+        }
+        target_id_ = msg->data;
+        RCLCPP_INFO(this->get_logger(), "Target ID set to %d (via topic)", target_id_);
     }
 
     void BPMPPredictor::ReIDGroupsCallback(const humanflow_msgs::msg::ReIDGroups::SharedPtr msg) {

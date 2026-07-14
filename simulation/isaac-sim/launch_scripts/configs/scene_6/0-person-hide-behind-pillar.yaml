@@ -1,0 +1,110 @@
+# ---------------------------------------------------------------------------
+#
+# NOTE: person / drone / patch positions below are INHERITED FROM scene_0 and
+# are almost certainly wrong for this scene -- geometry differs per scene. Tune
+# start/target/init_pos/camera (and the patch cube) to scene_3.usd.
+# Scene configuration for scene_drone_person_configuration.py
+#
+# test_bench/scene_3.usd background, with one drone and one person.
+#
+# NOTE: scene_3.usd is authored in centimeters. Instead of rescaling the scene
+# (which disturbs the lighting), the scene is left native and the meter-scale
+# Pegasus person and Iris drone are scaled UP by 100 to match. All positions
+# below are therefore in the scene's native centimeter frame.
+#
+# Vectors and orientations are [x, y, z]; all orientations are in degrees.
+# ---------------------------------------------------------------------------
+
+scene:
+  usd_path: "omniverse://airlab-nucleus.andrew.cmu.edu/Users/ruiwang3/test_bench/scene_6_scaled.usd"
+  load_mode: sublayer          # preserves the scene's authored lighting
+  scale: 1.0                   # scene left native; actors are scaled instead
+  # scene_3.usd's meshes have no PhysX colliders, so the drone falls through.
+  # Apply a static triangle-mesh collider to every (non-instanced) scene mesh.
+  # Per-mesh colliders don't scale to large scenes (cooking thousands of meshes
+  # stalls PhysX), so add_collision is off; use ground_plane_z for a cheap floor.
+  add_collision: true
+  collision_approximation: none   # none=triangle mesh; or convexHull / convexDecomposition
+  # Collision precedence: non-empty names/paths, then z-range, then all meshes.
+  collision_prim_names: []       # exact prim names or absolute prim paths
+  collision_z_range: null        # [min_z, max_z], using world-AABB center Z
+  # Cheap guaranteed floor: large static collider plane at this Z (stage units).
+  # Set to the scene's floor height; null disables.
+  ground_plane_z: 0.0
+  ground_plane_size: 100000.0
+  play_sim_on_start: false
+
+person:
+  name: person1
+  character: original_male_adult_construction_05
+  start: [-14.84603, 10.15628, -15.124]
+  # Walk 2 m (= 200 cm, this scene is in centimeters) forward along -Y.
+  movement_segments:
+    - target: [-16, 0.0, -15.124]
+    - target: [-19, 0.0, -15.124]
+  orientation_yaw: 0.0       # degrees; facing -Y
+  # cm scene + 100x character: ~100 cm/s reads as ~1 m/s and keeps the gait from
+  # foot-sliding. 2 m then takes ~2 s of walking (after start_delay).
+  walk_speed: 0.9
+  start_delay: 16.0             # seconds the person waits before walking
+  # cm scene: stop within 20 cm of the target so the character settles into idle
+  # instead of wandering (the built-in arrival logic assumes meters).
+  arrival_threshold: 0.2
+  scale: 1.0               # cm scene: meter-tall character scaled up 100x to match
+
+camera:
+  # Offset back and up from the person so the viewport frames the scene.
+  eye: [0.0, 0.0, 0.0]
+  # target: leave null to look at person.start, or set an explicit [x, y, z].
+  target: null
+
+patch:
+  # Disabled: the patch must be pinned to a real target cube in THIS scene.
+  # Set enabled: true and fill cube_center / cube_scale (and optionally
+  # y_range / z_range) with values from scene_3.usd to place it.
+  enabled: true
+  # Force a square patch (width == height). Set false to allow rectangles.
+  square: true
+  # Set center for a fixed position, or board to sample a fully-contained position.
+  center: [-11.20667, [3.7662, 4.16518], -14.4871]
+  # Board fields: plane plus center+size or top_left+bottom_right.
+  # board:
+  #   plane: yz
+  #   # specified by top-left and bottom-right corners in the face's local YZ plane:
+  #   top_left: [-11.1303, 6.1809, -11.89]
+  #   bottom_right: [-11.1303, 5.1809, -12.89]
+  # cm scene: explicit 100 cm (= 1 m) square so it's visible; scalar or [w, h].
+  # Set size for fixed dimensions, or leave null to sample size_range.
+  size: null                # fixed: must fit inside the 1.0 x 1.0 board above
+  prim_path: /World/EvalPatch/TexturedMeshPlane
+  material_path: /World/Looks/EvalPatchOmniPBR
+  albedo_path: ""
+  orientation_deg: [0.0, 90.0, 0.0]   # board-parallel for a yz board (normal +X)
+  texture_scale: [1.0, 1.0]
+  size_range: [1.0, 1.2]
+  size_seed: 1234
+  position_seed: 5678
+  target_prim_name: Cube_01
+  cube_center: [0.0, 0.0, 0.0]
+  cube_scale: [1.0, 1.0, 1.0]
+  negative_x_face_offset: 0.01
+  y_range: null
+  z_range: null
+
+drone:
+  enabled: true
+  prim: /World/spawned_iris/base_link
+  robot_name: robot_1
+  vehicle_id: 1
+  domain_id: 1
+  usd: "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
+  init_pos: [-21.75753, 7.73339, -15.08]
+  orientation_deg: [0.0, 0.0, 0.0]   # yaw +90 deg, facing +Y
+  # cm scene: scale the drone up 100x to match. WARNING: visual only -- this does
+  # NOT rescale the PX4/PhysX flight dynamics, so free-flight behavior will be off.
+  scale: 1.0
+  enable_zed: true
+  enable_zed_instance_segmentation: true
+  enable_zed_semantic_segmentation: true
+  enable_zed_bbox_2d: true
+  enable_ouster: true

@@ -1,0 +1,82 @@
+# ---------------------------------------------------------------------------
+# Scene 0 experiment: person hidden around the corner.
+#
+# The source scene transform shown in Isaac Sim is under a 0.01-scaled scene
+# root. Script-generated assets live under unscaled /Script, so their positions
+# use world-space translation = source translation * 0.01 and unit scale.
+# ---------------------------------------------------------------------------
+
+scene:
+  usd_path: "omniverse://airlab-nucleus.andrew.cmu.edu/Users/ruiwang3/test_bench/scene_0_scaled.usd"
+  load_mode: sublayer
+  scale: 1.0
+  add_collision: true
+  collision_approximation: none   # none=triangle mesh; or convexHull / convexDecomposition
+  # Collision precedence: non-empty names/paths, then z-range, then all meshes.
+  collision_prim_names: [/Root/SM_Wall_Small_Center_Model_14/SM_Wall_Small_Center]       # exact prim names or absolute prim paths
+  collision_z_range: null        # [min_z, max_z], using world-AABB center Z
+  ground_plane_z: null
+  ground_plane_size: 100000.0
+  play_sim_on_start: false
+
+person:
+  name: person1
+  character: original_male_adult_construction_05
+  # Source translations under the 0.01-scaled scene root:
+  #   start:  [6196.3461, 5526.327, 1173.1371]
+  #   target: [6913.1317, 5526.327, 1173.1371]
+  # Converted for the unscaled /Script parent:
+  start: [60.388, 65.54753, 11.731371]
+  movement_segments:
+    - target: [69.131317, 65.54753, 11.731371]
+  orientation_yaw: 0.0         # degrees; facing +X toward the target
+  walk_speed: 1.0
+  start_delay: 15.0
+  arrival_threshold: 0.2
+  scale: 1.0                   # /Script is unscaled
+
+camera:
+  eye: [66.18, 100.47, 20.89]
+  target: null
+
+patch:
+  enabled: true
+  # Force a square patch (width == height). Set false to allow rectangles.
+  square: true
+  prim_path: /World/EvalPatch/TexturedMeshPlane
+  material_path: /World/Looks/EvalPatchOmniPBR
+  albedo_path: ""
+  # Screenshot source transform:
+  #   translate: [6649.0502, 5799.4422, 1344.5074]
+  #   orient:    [0.0, -90.0, 0.0]
+  #   scale:     [100.0, 100.0, 100.0]
+  # Converted for the unscaled /Script parent:
+  # center: [66.490502, 68.11318, 13.445074]
+  center: null
+  # Board fields: plane plus center+size or top_left+bottom_right.
+  board:
+    plane: yz
+    top_left: [66.4905, 69.3524, 14.58331]
+    bottom_right: [66.4905, 67.51494, 12.95203]
+  orientation_deg: [0.0, -90.0, 0.0]
+  size: [1.0, 1.0]
+  size_range: [0.5, 1.0]      # used only when size is null
+  size_seed: 1234
+  position_seed: 5678
+  texture_scale: [1.0, 1.0]
+
+drone:
+  enabled: true
+  prim: /World/spawned_iris/base_link
+  robot_name: robot_1
+  vehicle_id: 1
+  domain_id: 1
+  usd: "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
+  init_pos: [60.525, 76.63, 17.3]
+  orientation_deg: [0.0, 0.0, -90.0]  # yaw +90 deg, facing +Y
+  scale: 1.0
+  enable_zed: true
+  enable_zed_instance_segmentation: true
+  enable_zed_semantic_segmentation: true
+  enable_zed_bbox_2d: true
+  enable_ouster: true

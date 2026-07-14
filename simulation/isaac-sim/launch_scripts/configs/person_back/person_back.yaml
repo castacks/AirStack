@@ -1,0 +1,115 @@
+# ---------------------------------------------------------------------------
+# Scene configuration for scene_person_back_patch_configuration.py
+#
+# Same schema as configs/exp/exp.yaml, plus a `person_patch` section that binds
+# an albedo image onto the adversarial patch mesh that is skinned onto the
+# PERSON (worn on the back), instead of / in addition to the scene-cube patch.
+#
+# Point the script at this file with SCENE_CONFIG_PATH (an in-container path,
+# since the repo is mounted at /isaac-sim/AirStack). Copy this file to describe a
+# different scene, person, or patch image.
+#
+# Vectors and orientations are [x, y, z]; all orientations are in degrees.
+# ---------------------------------------------------------------------------
+
+# Top-level prim holding everything this script generates (drone, person, patch,
+# materials, ground collider), parallel to the scene's roots. /World for legacy.
+script_root: /Script
+
+scene:
+  # If empty, falls back to the SCENE_USD_PATH then ISAAC_SIM_GUI env vars.
+  usd_path: "omniverse://airlab-nucleus.andrew.cmu.edu/Users/ruiwang3/Rui_Office_Exp6.usd"
+  load_mode: sublayer          # "sublayer" (preserve authored lighting) or "reference"
+  scale: 1.0
+  add_collision: false
+  collision_approximation: none
+  collision_prim_names: []
+  collision_z_range: null
+  ground_plane_z: null
+  ground_plane_size: 100000.0
+  play_sim_on_start: false
+
+person:
+  name: person1
+  # The character name is a Pegasus catalog name, but this fork's Person spawner
+  # always loads F_Business_02_with_skinned_patch.usd, which already carries the
+  # skinned back-patch mesh that person_patch (below) textures.
+  character: original_male_adult_construction_05
+  start: [-9.0, -10.5, 0.0]
+  movement_segments:
+    - target: [-3.4, -10.5, 0.0]
+      pause_after: 0.0
+  orientation_yaw: 90.0
+  walk_speed: 1.0
+  start_delay: 15.0
+  arrival_threshold: 0.2
+  scale: 1.0
+
+camera:
+  eye: [8.0, 8.0, 5.0]
+  target: null                 # null -> look at person.start
+
+# ---------------------------------------------------------------------------
+# Person-worn patch: bind an albedo image onto the skinned patch mesh inside the
+# spawned person USD. This is the point of this launch script.
+# ---------------------------------------------------------------------------
+person_patch:
+  enabled: true
+  # Mounted in-container path or an omniverse:// URL. Empty -> plain grey patch.
+  # Overridable with the PERSON_PATCH_ALBEDO_PATH env var.
+  albedo_path: "omniverse://airlab-nucleus.andrew.cmu.edu/Users/ruiwang3/sim_patch_office_tracking_scene2.png"
+  material_path: /World/Looks/PersonBackPatchOmniPBR
+
+  # How to locate the patch mesh inside the spawned person prim. Precedence:
+  #   abs_path  -> an absolute stage path to the Mesh.
+  #   patch_path -> a path relative to the person root, e.g. "Plane/Plane".
+  #   patch_names -> search the person subtree for a Mesh with one of these leaf
+  #                  names (the injected patch is typically Plane or BackPatch).
+  # Every Mesh under the person is logged on launch, so adjust these if the
+  # search picks the wrong mesh.
+  abs_path: null
+  patch_path: null
+  patch_names: [Plane, BackPatch]
+
+  # OmniPBR base-color multiplier; 2.0 brightens the albedo like the scene patch.
+  color: [2.0, 2.0, 2.0]
+  texture_scale: [1.0, 1.0]
+
+  # If the patch mesh is a single quad, author full-span UVs so one albedo image
+  # fills it. If false (or the mesh is not a quad), the mesh's own UVs are kept.
+  set_full_uvs: true
+
+  # Albedo-only transform applied to the patch UVs; does not move the mesh.
+  # Flips first, then rotation_deg counter-clockwise about the texture center.
+  texture_transform:
+    flip_horizontal: false
+    flip_vertical: false
+    rotation_deg: 0.0
+
+  # person_patch_records.jsonl is appended here (relative paths resolve against
+  # the launch_scripts directory).
+  output_dir: records
+
+# ---------------------------------------------------------------------------
+# Scene-cube patch (from scene_drone_person_configuration). Disabled here; the
+# person-worn patch above is used instead. Enable this to also place a scene
+# patch in the same launch -- see configs/exp/exp.yaml for its full schema.
+# ---------------------------------------------------------------------------
+patch:
+  enabled: false
+
+drone:
+  enabled: true
+  prim: /World/spawned_iris/base_link
+  robot_name: robot_1
+  vehicle_id: 1
+  domain_id: 1
+  usd: "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
+  init_pos: [-7.5, -6.3, 0.07]
+  orientation_deg: [0.0, 0.0, -90.0]
+  scale: 1.0
+  enable_zed: true
+  enable_zed_instance_segmentation: true
+  enable_zed_semantic_segmentation: true
+  enable_zed_bbox_2d: true
+  enable_ouster: true

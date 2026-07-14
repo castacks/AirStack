@@ -1,0 +1,89 @@
+# ---------------------------------------------------------------------------
+# Scene configuration for scene_drone_person_configuration.py
+#
+# Faithful translation of the hardcoded experiment in
+# scene_cylab_hallway_one_person.py (the CyLab hallway / Rui_Office_Exp5.usd
+# scene). Every HARDCODED_* value from that script is reproduced here in the
+# config schema, so launching this config with SCENE_CONFIG_PATH reproduces the
+# old standalone script.
+#
+# This scene is authored in METERS (no scene scale and no actor scaling) -- all
+# positions are meter-scale, exactly as in the hardcoded script.
+#
+# Point the launcher at this file with SCENE_CONFIG_PATH (an in-container path,
+# since the repo is mounted at /isaac-sim/AirStack).
+#
+# Vectors and orientations are [x, y, z]; all orientations are in degrees.
+# ---------------------------------------------------------------------------
+
+# The hardcoded script authored generated prims under /World; /Script is the
+# equivalent modern default and is functionally identical here.
+script_root: /Script
+
+scene:
+  usd_path: "omniverse://airlab-nucleus.andrew.cmu.edu/Users/ruiwang3/Rui_Office_Exp5.usd"   # HARDCODED_SCENE_USD_PATH
+  load_mode: sublayer          # HARDCODED_SCENE_LOAD_MODE; preserves authored lighting
+  scale: 1.0                   # meter scene; no rescale
+  # The hardcoded script applies no colliders, scene scale, or ground plane.
+  add_collision: false
+  collision_approximation: none
+  collision_prim_names: []
+  collision_z_range: null
+  ground_plane_z: null
+  ground_plane_size: 100000.0
+  play_sim_on_start: false     # PLAY_SIM_ON_START defaulted to false
+
+person:
+  name: person1                                       # HARDCODED_PERSON_NAME
+  character: original_male_adult_construction_05      # HARDCODED_PERSON_CHARACTER
+  start: [-9.0, -10.5, 0.0]                           # HARDCODED_PERSON_START
+  # Single straight-line leg to HARDCODED_PERSON_TARGET (StraightLinePersonController).
+  movement_segments:
+    - target: [-4.4, -10.5, 0.0]                      # HARDCODED_PERSON_TARGET
+  orientation_yaw: 90.0        # HARDCODED_PERSON_YAW = 1.5708 rad
+  walk_speed: 1.0              # HARDCODED_PERSON_WALK_SPEED
+  start_delay: 15.0            # HARDCODED_PERSON_START_DELAY
+  arrival_threshold: 0.2       # meter-scale default
+  scale: 1.0                   # meter scene; character not rescaled
+
+camera:
+  eye: [8.0, 8.0, 5.0]         # HARDCODED_CAMERA_EYE
+  # HARDCODED_CAMERA_TARGET == HARDCODED_PERSON_START, so leave null to look at start.
+  target: null
+
+patch:
+  enabled: true                # HARDCODED_MESH_PLANE_ENABLED
+  # HARDCODED_MESH_PLANE_SIZE is [1.0, 1.0] -- a square patch.
+  square: true
+  # Fixed-position patch (HARDCODED_MESH_PLANE_CENTER); no board/cube-face sampling.
+  # center: [-4.335, -9.425, 1.363]      # HARDCODED_MESH_PLANE_CENTER
+  center: [-2.1376, -11.83009, 1.363]
+  board: null
+  size: 1.0                            # HARDCODED_MESH_PLANE_SIZE [1.0, 1.0]
+  prim_path: /World/CyLabPatchEval/TexturedMeshPlane       # HARDCODED_MESH_PLANE_PATH
+  material_path: /World/Looks/CyLabPatchEvalOmniPBR        # HARDCODED_MESH_PLANE_MATERIAL_PATH
+  # HARDCODED_MESH_PLANE_ALBEDO_PATH was empty -> plain grey patch.
+  # albedo_path: "omniverse://airlab-nucleus.andrew.cmu.edu/Users/ruiwang3/sim-patch.png"
+  albedo_path: "/isaac-sim/.local/share/ov/data/sim_patch_office.png"
+  orientation_deg: [90.0, 0.0, 0.0]    # HARDCODED_MESH_PLANE_ORIENTATION_DEG
+  texture_scale: [1.0, 1.0]            # HARDCODED_MESH_PLANE_TEXTURE_SCALE
+  texture_transform:
+    flip_horizontal: false
+    flip_vertical: false
+    rotation_deg: -90.0
+
+drone:
+  enabled: true                        # HARDCODED_DRONE_ENABLED
+  prim: /World/spawned_iris/base_link  # HARDCODED_DRONE_PRIM
+  robot_name: robot_1                  # HARDCODED_DRONE_ROBOT_NAME
+  vehicle_id: 1                        # HARDCODED_DRONE_VEHICLE_ID
+  domain_id: 1                         # HARDCODED_DRONE_DOMAIN_ID
+  usd: "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
+  init_pos: [-6.8, -6.3, 0.07]         # HARDCODED_DRONE_INIT_POS
+  orientation_deg: [0.0, 0.0, -90.0]   # HARDCODED_DRONE_INIT_ORIENT [0,0,-0.7071,0.7071] = yaw -90
+  scale: 1.0                           # meter scene; drone not rescaled (and must fly)
+  enable_zed: true                              # HARDCODED_DRONE_ENABLE_ZED
+  enable_zed_instance_segmentation: true        # HARDCODED_DRONE_ENABLE_ZED_INSTANCE_SEGMENTATION
+  enable_zed_semantic_segmentation: true        # HARDCODED_DRONE_ENABLE_ZED_SEMANTIC_SEGMENTATION
+  enable_zed_bbox_2d: true                       # HARDCODED_DRONE_ENABLE_ZED_BBOX_2D
+  enable_ouster: true                            # HARDCODED_DRONE_ENABLE_OUSTER

@@ -4,6 +4,7 @@
 /parameter_events
 /robot_1/behavior/drone_safety_monitor/command
 /robot_1/behavior/drone_safety_monitor/state_estimate_timed_out
+/robot_1/bpmp/target_tracking_enable
 /robot_1/control/reset_integrators
 /robot_1/control/vx_pid_info
 /robot_1/control/vy_pid_info
@@ -11,7 +12,10 @@
 /robot_1/control/x_pid_info
 /robot_1/control/y_pid_info
 /robot_1/control/z_pid_info
+/robot_1/coordination/peer_registry
 /robot_1/cross_track_error
+/robot_1/demo/humanflow
+/robot_1/demo/reid_groups
 /robot_1/droan/background_expanded
 /robot_1/droan/clear_map
 /robot_1/droan/disparity_graph
@@ -123,6 +127,8 @@
 /robot_1/perception/stereo_image_proc/point_cloud
 /robot_1/random_walk_node/goal_point_viz
 /robot_1/random_walk_node/traj_viz
+/robot_1/reid_overlay
+/robot_1/reid_overlay_blur
 /robot_1/robot_description
 /robot_1/sensors/front_stereo/left/bbox_2d_loose
 /robot_1/sensors/front_stereo/left/bbox_2d_loose_labels
@@ -133,6 +139,8 @@
 /robot_1/sensors/front_stereo/left/image_rect
 /robot_1/sensors/front_stereo/left/instance_segmentation
 /robot_1/sensors/front_stereo/left/instance_segmentation_labels
+/robot_1/sensors/front_stereo/left/semantic_segmentation
+/robot_1/sensors/front_stereo/left/semantic_segmentation_labels
 /robot_1/sensors/front_stereo/right/bbox_2d_loose
 /robot_1/sensors/front_stereo/right/bbox_2d_loose_labels
 /robot_1/sensors/front_stereo/right/bbox_2d_tight
@@ -142,6 +150,8 @@
 /robot_1/sensors/front_stereo/right/image_rect
 /robot_1/sensors/front_stereo/right/instance_segmentation
 /robot_1/sensors/front_stereo/right/instance_segmentation_labels
+/robot_1/sensors/front_stereo/right/semantic_segmentation
+/robot_1/sensors/front_stereo/right/semantic_segmentation_labels
 /robot_1/sensors/lidar/point_cloud
 /robot_1/sensors/ouster/point_cloud
 /robot_1/sensors/ouster/point_cloud_raw

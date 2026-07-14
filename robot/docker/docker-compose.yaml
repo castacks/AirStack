@@ -67,6 +67,12 @@ services:
         tmux send-keys -t bringup:0.0 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE' ENTER;
       fi;
       sleep infinity"
+    # Mount the Isaac Sim launch_scripts tree (merged with robot_base's volumes)
+    # so the standalone command-timing recorder and its records/ output dir are
+    # reachable from this container. record_command_timing.py runs here because
+    # ROS 2 / rclpy cannot safely run inside the Isaac Sim process.
+    volumes:
+      - ../../simulation/isaac-sim/launch_scripts:/root/launch_scripts:rw
     # assumes you're connected to work internet, so creates a network to isolate from other developers on your work internet
     networks:
       - airstack_network
@@ -324,7 +330,7 @@ services:
       bash -c "
       tmux new -d -s humanflow;
       if [ $$AUTOLAUNCH == 'true' ]; then
-        tmux send-keys -t humanflow 'source /opt/ros/jazzy/setup.bash && cd /root/ros_ws && colcon build --packages-ignore PayloadSDK && source /root/ros_ws/install/setup.bash && ros2 launch humanflow_bringup rgb_airstack.launch.py' ENTER;
+        tmux send-keys -t humanflow 'source /opt/ros/jazzy/setup.bash && cd /root/ros_ws && colcon build --packages-ignore PayloadSDK && source /root/ros_ws/install/setup.bash && ros2 launch humanflow_bringup rgb_airstack_1stream.launch.py' ENTER;
       fi;
       sleep infinity"
 

@@ -1,0 +1,103 @@
+# ---------------------------------------------------------------------------
+# Scene configuration for scene_drone_person_configuration.py
+#
+# Faithful translation of the hardcoded experiment in
+# scene_cylab_hallway_one_person_track_scene.py. scene_10 IS that same scene
+# (the CyLab hallway / Rui_Office_Exp6.usd), so every HARDCODED_* value from the
+# track-scene script is reproduced here in the config schema.
+#
+# Unlike the other scene_N configs in this folder, this scene is authored in
+# METERS (not centimeters): no scene scale and no actor scaling -- all positions
+# are meter-scale, exactly as in the track-scene script.
+#
+# Point the launcher at this file with SCENE_CONFIG_PATH (an in-container path,
+# since the repo is mounted at /isaac-sim/AirStack).
+#
+# Vectors and orientations are [x, y, z]; all orientations are in degrees.
+# ---------------------------------------------------------------------------
+
+# Generated prims (drone, person, patch, materials) under one root parallel to
+# the scene's own roots. The track-scene script authored these under /World;
+# /Script is the equivalent modern default and is functionally identical here.
+script_root: /Script
+
+scene:
+  # HARDCODED_SCENE_USD_PATH. scene_10 == this scene; if test_bench/scene_10.usd
+  # is an identical copy you can swap to it, but it must remain meter-scale.
+  usd_path: "omniverse://airlab-nucleus.andrew.cmu.edu/Users/ruiwang3/test_bench/scene_10.usd"
+  load_mode: sublayer          # HARDCODED_SCENE_LOAD_MODE; preserves authored lighting
+  scale: 1.0                   # meter scene; no rescale
+  # The track-scene script applies no colliders, scene scale, or ground plane.
+  add_collision: false
+  collision_approximation: none
+  collision_prim_names: []
+  collision_z_range: null
+  ground_plane_z: null
+  ground_plane_size: 100000.0
+  play_sim_on_start: false     # PLAY_SIM_ON_START defaulted to false
+
+person:
+  name: person1                                       # HARDCODED_PERSON_NAME
+  character: original_male_adult_construction_05      # HARDCODED_PERSON_CHARACTER
+  start: [-9.0, -10.5, 0.0]                           # HARDCODED_PERSON_START
+  # Single straight-line leg to HARDCODED_PERSON_TARGET (StraightLinePersonController).
+  movement_segments:
+    - target: [-2.6, -10.5, 0.0]                      # HARDCODED_PERSON_TARGET
+  orientation_yaw: 90.0        # HARDCODED_PERSON_YAW = 1.5708 rad
+  walk_speed: 1.0              # HARDCODED_PERSON_WALK_SPEED
+  start_delay: 15.0           # HARDCODED_PERSON_START_DELAY
+  arrival_threshold: 0.2       # meter-scale default
+  scale: 1.0                   # meter scene; character not rescaled
+
+camera:
+  eye: [8.0, 8.0, 5.0]         # HARDCODED_CAMERA_EYE
+  # HARDCODED_CAMERA_TARGET == HARDCODED_PERSON_START, so leave null to look at start.
+  target: null
+
+patch:
+  enabled: true                # HARDCODED_MESH_PLANE_ENABLED
+  # Force a square patch (width == height). Set false to allow rectangles.
+  square: true
+  # Directory to append a one-line JSON record (patch_records.jsonl) of the
+  # resolved patch center/size/seeds on every launch. Relative paths resolve
+  # against the launch_scripts/ directory. null/empty disables recording.
+  output_dir: configs/scene_10/outputs
+  # Track-scene script samples the patch on the -X face of Cube_01 (no fixed
+  # center, no board), so leave center/board/size null to use cube-face sampling.
+  center: null
+  board:
+    plane: yz
+    # specified by top-left and bottom-right corners in the face's local YZ plane:
+    top_left: [-5.10302, -8.52203, 2.74545]
+    bottom_right: [-5.10302, -9.85635, 0.92691]
+  size: null
+  prim_path: /World/CyLabPatchEval/TexturedMeshPlane       # HARDCODED_MESH_PLANE_PATH
+  material_path: /World/Looks/CyLabPatchEvalOmniPBR        # HARDCODED_MESH_PLANE_MATERIAL_PATH
+  albedo_path: "omniverse://airlab-nucleus.andrew.cmu.edu/Users/ruiwang3/mixed_scene_0_case_2_scene_10_case_0_best_1.png"
+  orientation_deg: [0.0, 90.0, 0.0]    # HARDCODED_MESH_PLANE_ORIENTATION_DEG
+  texture_scale: [1.0, 1.0]            # HARDCODED_MESH_PLANE_TEXTURE_SCALE
+  size_range: [0.5, 1.0]               # HARDCODED_MESH_PLANE_SIZE_RANGE
+  size_seed: 42                      # HARDCODED_MESH_PLANE_SIZE_SEED
+  position_seed: 42                  # HARDCODED_MESH_PLANE_POSITION_SEED
+  target_prim_name: Cube_01            # HARDCODED_MESH_PLANE_TARGET_PRIM_NAME
+  cube_center: [-4.33508, -9.03413, 1.36348]   # HARDCODED_CUBE_01_CENTER
+  cube_scale: [1.51589, 1.65878, 2.77017]      # HARDCODED_CUBE_01_SCALE
+  negative_x_face_offset: 0.01         # HARDCODED_MESH_PLANE_NEGATIVE_X_FACE_OFFSET
+  y_range: null                        # derived from cube bounds (track-scene behavior)
+  z_range: null
+
+drone:
+  enabled: true                        # HARDCODED_DRONE_ENABLED
+  prim: /World/spawned_iris/base_link  # HARDCODED_DRONE_PRIM
+  robot_name: robot_1                  # HARDCODED_DRONE_ROBOT_NAME
+  vehicle_id: 1                        # HARDCODED_DRONE_VEHICLE_ID
+  domain_id: 1                         # HARDCODED_DRONE_DOMAIN_ID
+  usd: "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
+  init_pos: [-9.5, -6.3, 0.07]         # HARDCODED_DRONE_INIT_POS
+  orientation_deg: [0.0, 0.0, -90.0]   # HARDCODED_DRONE_INIT_ORIENT [0,0,-0.7071,0.7071] = yaw -90
+  scale: 1.0                           # meter scene; drone not rescaled (and must fly)
+  enable_zed: true                              # HARDCODED_DRONE_ENABLE_ZED
+  enable_zed_instance_segmentation: true        # HARDCODED_DRONE_ENABLE_ZED_INSTANCE_SEGMENTATION
+  enable_zed_semantic_segmentation: true        # HARDCODED_DRONE_ENABLE_ZED_SEMANTIC_SEGMENTATION
+  enable_zed_bbox_2d: true                       # HARDCODED_DRONE_ENABLE_ZED_BBOX_2D
+  enable_ouster: true                            # HARDCODED_DRONE_ENABLE_OUSTER
