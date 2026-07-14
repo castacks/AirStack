@@ -38,6 +38,16 @@ natnet:
     frame_id: "world"
     debug: false
 
+    # Per-message latency reporting. The node skips latency_sampling_warmup_s after
+    # the first frame, then accumulates transit latency (from the NatNet
+    # TransmitTimestamp) over latency_sampling_window_s and logs a one-shot mean/stdev.
+    # cube_orange_latency_ms models the extra hop through the PX4 flight controller
+    # hardware (MAVROS -> MAVLink over USB/serial -> uORB -> EKF2) and is added to the
+    # measured transport latency for the reported end-to-end figure.
+    latency_sampling_warmup_s: 5.0
+    latency_sampling_window_s: 20.0
+    cube_orange_latency_ms: 5.0
+
   # --- Per-robot profiles (selected by ROBOT_NAME) ---------------------------
   robots:
 

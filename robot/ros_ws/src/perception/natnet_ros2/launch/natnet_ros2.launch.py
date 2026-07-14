@@ -79,6 +79,9 @@ def _build_node_params(server: dict, profile: dict) -> dict:
         'multicast_address': str(server.get('multicast_address', '239.255.42.99')),
         'frame_id': str(server.get('frame_id', 'world')),
         'debug': bool(server.get('debug', False)),
+        'latency_sampling_warmup_s': float(server.get('latency_sampling_warmup_s', 5.0)),
+        'latency_sampling_window_s': float(server.get('latency_sampling_window_s', 20.0)),
+        'cube_orange_latency_ms': float(server.get('cube_orange_latency_ms', 5.0)),
     }
 
     body_names: list[str] = []

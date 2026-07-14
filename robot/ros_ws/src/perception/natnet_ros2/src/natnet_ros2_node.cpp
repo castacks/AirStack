@@ -18,6 +18,8 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <memory>
 #include <string>
@@ -69,6 +71,16 @@ public:
         this->declare_parameter("frame_id",          "world");
         this->declare_parameter("debug",             false);
 
+        // Latency sampling: skip a warm-up interval after the first frame (lets the
+        // SDK clock-sync settle and the stream reach steady state), then accumulate
+        // per-message transit latency over a fixed window and log a one-shot summary.
+        this->declare_parameter("latency_sampling_warmup_s", 5.0);
+        this->declare_parameter("latency_sampling_window_s", 20.0);
+        // Modeled latency for a pose to traverse the flight-controller hardware
+        // (MAVROS → MAVLink over USB/serial → PX4 uORB → EKF2). Added on top of the
+        // measured OptiTrack→ROS transport latency for the reported end-to-end figure.
+        this->declare_parameter("cube_orange_latency_ms", 5.0);
+
         // Parallel per-body arrays (flattened from natnet_config.yaml by the launch file).
         this->declare_parameter("body_names",   std::vector<std::string>{});
         this->declare_parameter("body_ids",     std::vector<int64_t>{});
@@ -97,6 +109,10 @@ public:
 
         frame_id_ = this->get_parameter("frame_id").as_string();
         debug_    = this->get_parameter("debug").as_bool();
+
+        latency_warmup_s_       = this->get_parameter("latency_sampling_warmup_s").as_double();
+        latency_window_s_       = this->get_parameter("latency_sampling_window_s").as_double();
+        cube_orange_latency_ms_ = this->get_parameter("cube_orange_latency_ms").as_double();
 
         const char * rn = std::getenv("ROBOT_NAME");
         robot_name_ = rn ? rn : "robot_1";
@@ -145,6 +161,8 @@ public:
         }
 
         const rclcpp::Time stamp = this->get_clock()->now();
+
+        maybe_sample_latency(frame, stamp);
 
         for (const auto & rb : frame.bodies) {
             if (!natnet_ros2::is_tracking_valid(rb.params)) {
@@ -301,10 +319,92 @@ private:
     }
 
     // -----------------------------------------------------------------------
+    // Accumulate per-message transit latency over a fixed window and log a
+    // one-shot mean/stdev summary. Called once per frame from on_frame() (the SDK
+    // receive thread); all sampling state is touched only here, so no locking.
+    void maybe_sample_latency(const natnet_ros2::FrameSample & frame,
+                              const rclcpp::Time & now)
+    {
+        if (latency_reported_ || !frame.has_latency) { return; }
+
+        if (!latency_first_seen_) {
+            latency_first_seen_ = true;
+            latency_first_time_ = now;
+            RCLCPP_INFO(get_logger(),
+                "Latency sampling armed: %.1fs warm-up, then %.1fs sampling window.",
+                latency_warmup_s_, latency_window_s_);
+            return;
+        }
+
+        const double elapsed = (now - latency_first_time_).seconds();
+        if (elapsed < latency_warmup_s_) { return; }                 // still warming up
+        if (elapsed > latency_warmup_s_ + latency_window_s_) {       // window closed
+            report_latency();
+            return;
+        }
+
+        const double lat = frame.transit_latency_s;
+        latency_count_    += 1;
+        latency_sum_s_    += lat;
+        latency_sum_sq_s_ += lat * lat;
+    }
+
+    // -----------------------------------------------------------------------
+    // Compute and log the latency summary once, then latch so it never repeats.
+    void report_latency()
+    {
+        latency_reported_ = true;
+
+        if (latency_count_ == 0) {
+            RCLCPP_WARN(get_logger(),
+                "Latency window elapsed but no timestamped frames were sampled "
+                "(server may not populate TransmitTimestamp).");
+            return;
+        }
+
+        const double n       = static_cast<double>(latency_count_);
+        const double mean_s  = latency_sum_s_ / n;
+        double       var_s2  = 0.0;
+        if (latency_count_ > 1) {
+            // Sample variance (Bessel-corrected); clamp tiny negatives from round-off.
+            var_s2 = (latency_sum_sq_s_ - n * mean_s * mean_s) / (n - 1.0);
+            if (var_s2 < 0.0) { var_s2 = 0.0; }
+        }
+
+        const double mean_ms  = mean_s * 1.0e3;
+        const double stdev_ms = std::sqrt(var_s2) * 1.0e3;
+        const double total_ms = mean_ms + cube_orange_latency_ms_;
+
+        RCLCPP_INFO(get_logger(),
+            "\n"
+            "========= OptiTrack -> drone message latency =========\n"
+            "  sampling window     : %.1f s (%llu frames)\n"
+            "  transport mean      : %.3f ms\n"
+            "  transport std dev   : %.3f ms\n"
+            "  Cube Orange (model) : %.3f ms\n"
+            "  estimated total     : %.3f ms  (to PX4 / EKF2 fusion)\n"
+            "======================================================",
+            latency_window_s_,
+            static_cast<unsigned long long>(latency_count_),
+            mean_ms, stdev_ms, cube_orange_latency_ms_, total_ms);
+    }
+
+    // -----------------------------------------------------------------------
     // Parameters / state
     std::string  frame_id_;
     bool         debug_     = false;
     std::string  robot_name_;
+
+    // Latency sampling parameters + running accumulators.
+    double   latency_warmup_s_       = 5.0;
+    double   latency_window_s_       = 20.0;
+    double   cube_orange_latency_ms_ = 5.0;
+    bool         latency_first_seen_ = false;
+    bool         latency_reported_   = false;
+    rclcpp::Time latency_first_time_{0, 0, RCL_ROS_TIME};
+    uint64_t     latency_count_      = 0;
+    double       latency_sum_s_      = 0.0;
+    double       latency_sum_sq_s_   = 0.0;
 
     std::unique_ptr<natnet_ros2::INatNetClient> client_;
     natnet_ros2::ConnectConfig connect_cfg_;

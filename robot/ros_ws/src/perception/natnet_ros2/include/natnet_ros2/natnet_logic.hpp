@@ -206,6 +206,13 @@ struct FrameSample
     int32_t frame_num = 0;
     float   timestamp = 0.f;
     int16_t params    = 0;   ///< NatNet frame.params bitmask
+    /// Seconds elapsed since the server transmitted this frame, as reported by
+    /// NatNetClient::SecondsSinceHostTimestamp(TransmitTimestamp). This is the
+    /// transit + client-processing latency the drone observes per message.
+    double  transit_latency_s = 0.0;
+    /// True when transit_latency_s is meaningful (server supplied a non-zero
+    /// TransmitTimestamp). Older servers / streams without timing info leave it false.
+    bool    has_latency = false;
     std::vector<RigidBodySample> bodies;
 };
 
