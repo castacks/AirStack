@@ -7,6 +7,7 @@ import threading
 import queue
 import signal
 import ctypes
+import time
 import typing
 
 
@@ -322,6 +323,14 @@ class NatNetServer:
 
     def _send_data_packet(self, client: Client, data_message: DataMessages.sFrameOfMocapData):
         # Serialize frame payload and send via the data socket.
+        #
+        # Stamp the transmit time in the server's high-resolution clock domain so
+        # the client can recover per-message transit latency via
+        # NatNetClient::SecondsSinceHostTimestamp(TransmitTimestamp). This must match
+        # the clock used in the NAT_ECHORESPONSE handshake (time.time() nanoseconds)
+        # and the advertised HighResClockFrequency (defaults to 1e9 ticks/s), so the
+        # SDK's server-clock estimate and this timestamp share one timeline.
+        data_message.TransmitTimestamp = int(time.time() * 1_000_000_000)
         try:
             packet_bytes = data_message.pack()
         except Exception as e:
