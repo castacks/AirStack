@@ -197,7 +197,7 @@ docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo <topic_name> --onc
    - Verify module behavior in isolation
    - Test with synthetic data
    - Located in module's `test/` directory
-   - **Run in the robot container** with `colcon test` (after `bws`), not via `airstack test -m unit`. The root [`tests/`](tests/) suite does **not** register a `unit` pytest mark; `airstack test -m <mark>` only selects marks declared in [`tests/pytest.ini`](tests/pytest.ini) (`unit`, `build_docker`, `build_packages`, `integration`, `liveliness`, `sensors`, `takeoff_hover_land`).
+   - **Run in the robot container** with `colcon test` (after `bws`) for the full ROS 2 build + test. The same co-located test source is re-exported to the root [`tests/`](tests/) suite via thin proxies (see Unit tests below), so `airstack test -m unit` runs it too. Marks are declared in [`tests/pytest.ini`](tests/pytest.ini) (`unit`, `build_docker`, `build_packages`, `integration`, `liveliness`, `sensors`, `takeoff_hover_land`, `autonomy`).
 
    ```bash
    docker exec airstack-robot-desktop-1 bash -c "sws && colcon test --packages-select natnet_ros2 --event-handlers console_direct+"
@@ -224,8 +224,9 @@ Pytest-based system tests live under [`tests/system/`](tests/system/). They brin
 | [`tests/system/test_liveliness.py`](tests/system/test_liveliness.py) | `liveliness` | Stack bring-up: containers, ``/clock`` readiness, tmux, sentinel ROS 2 nodes, compute, infra-only stability poll | Docker, GPU, sim license |
 | [`tests/system/test_sensors.py`](tests/system/test_sensors.py) | `sensors` | Topic Hz (Isaac: batched sim + robot ``ros2 topic hz``; filtered LiDAR ``echo-once`` + validation script), RTF, sensor stability time-series | Docker, GPU, sim license |
 | [`tests/system/test_takeoff_hover_land.py`](tests/system/test_takeoff_hover_land.py) | `takeoff_hover_land` | 4-phase flight chain (PX4 ready → takeoff → hover → land) per (sim, num_robots, iter, velocity) | Docker, GPU, sim license |
+| [`tests/system/test_fixed_trajectory.py`](tests/system/test_fixed_trajectory.py) | `autonomy` | 4-phase flight chain (PX4 ready → takeoff → execute Circle/Figure8/Racetrack/Line trajectory → land) per (sim, num_robots, iter, trajectory_type); records cross-track error and path RMSE | Docker, GPU, sim license |
 
-Shared fixtures, the `airstack_env` parametrized fixture, and `MetricsRecorder` live in [`tests/conftest.py`](tests/conftest.py). Each run produces a timestamped directory under `tests/results/<timestamp>/` with `results.xml`, `metrics.json`, and per-test logs. [`tests/parse_metrics.py`](tests/parse_metrics.py) generates a markdown report (single-run or diff-vs-baseline; exits 1 on regression).
+Shared fixtures, the `airstack_env` parametrized fixture, and `MetricsRecorder` live in [`tests/conftest.py`](tests/conftest.py). Each run produces a timestamped directory under `tests/results/<timestamp>/` with `summary.txt`, `results.xml`, and `metrics.json` (no per-test log files — live output streams to the terminal via `log_cli`). [`tests/parse_metrics.py`](tests/parse_metrics.py) generates a markdown report (single-run or diff-vs-baseline; exits 1 on regression).
 
 **Run via the CLI** (containerized runner — no local Python needed):
 
@@ -235,6 +236,7 @@ airstack test -m "build_docker or build_packages" -v
 airstack test -m liveliness --sim msairsim --num-robots 1 --stress-iterations 1 -v
 airstack test -m sensors --sim isaacsim --num-robots 1 --stress-iterations 1 -v
 airstack test -m takeoff_hover_land --sim msairsim --takeoff-velocities 0.5,1,2 -v
+airstack test -m autonomy --sim msairsim --trajectory-types Circle,Figure8,Racetrack,Line -v
 ```
 
 Full reference: [`tests/README.md`](tests/README.md) — including **liveliness vs
