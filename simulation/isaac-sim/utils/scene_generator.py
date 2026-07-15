@@ -18,10 +18,16 @@ the sidewalk; leftover gaps are filled with placeholder prisms:
              library building fits get mild-colored placeholder box prisms;
              a fraction of blocks stay as grassy parks — each park gets a
              meandering Catmull-Rom trail with park-tagged benches (facing
-             the trail), lamps and trash cans along it, plus rocks and
-             plants on the grass and evenly-spread trees (parks.*); a
-             configurable fraction of buildings rendered damaged
-             (tilted + sunk).
+             the trail), lamps and trash cans along it, a playground
+             cluster off the trail, plus rocks and plants on the grass and
+             evenly-spread trees (parks.*). Packing draws from the intact /
+             damaged / destroyed pools by fate weight (disaster.damaged_fraction
+             / destroyed_fraction), each building packed with its own
+             footprint; destroyed ruins get a debris field — piles hugging
+             the base, fragments physics-settled nearby — and sometimes
+             lean (slight tilt + sink) with rubble on the caved-in side.
+             All disaster knobs live under disaster.*; preset_file overlays
+             a preset YAML (deep merge) that can override any setting.
     Step 4 — Detail: humans on sidewalks/trails/grass; bus stops,
              streetlights, benches, planters (street trees + plant boxes),
              fire hydrants and trash cans along block frontages — every
@@ -65,8 +71,39 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, UsdSkel, Vt
 # Config loading
 # ---------------------------------------------------------------------------
 
+def _deep_merge(base: dict, override: dict) -> dict:
+    """Recursively merge *override* into *base* in place: nested dicts merge
+    key-by-key, everything else (scalars, lists) is replaced outright."""
+    for k, v in override.items():
+        if isinstance(v, dict) and isinstance(base.get(k), dict):
+            _deep_merge(base[k], v)
+        else:
+            base[k] = v
+    return base
+
+
+def _resolve_preset_path(config_path: str, presets_path: str,
+                         preset_file: str) -> str:
+    """Locate *preset_file*: try presets_path as given (absolute / relative
+    to cwd), relative to the config file's directory, and finally the
+    presets dir's basename next to the config file. Returns "" if not found.
+    """
+    config_dir = os.path.dirname(os.path.abspath(config_path))
+    for base in (presets_path,
+                 os.path.join(config_dir, presets_path),
+                 os.path.join(config_dir, os.path.basename(presets_path))):
+        candidate = os.path.join(base, preset_file) if base else preset_file
+        if os.path.isfile(candidate):
+            return candidate
+    return ""
+
+
 def load_config(config_path: str) -> dict:
     """Load and lightly validate a city-generator YAML spec.
+
+    If the spec names a ``preset_file`` (looked up in ``presets_path``), that
+    YAML is deep-merged on top — a preset can override any setting in the
+    config (nested keys merge; lists and scalars replace).
 
     Raises ValueError on missing required keys so a typo fails loudly at startup
     rather than producing an empty scene.
@@ -78,6 +115,21 @@ def load_config(config_path: str) -> dict:
 
     if not isinstance(config, dict):
         raise ValueError(f"City config {config_path!r} did not parse to a mapping")
+
+    preset_file = config.get("preset_file")
+    if preset_file:
+        path = _resolve_preset_path(config_path,
+                                    str(config.get("presets_path", "") or ""),
+                                    str(preset_file))
+        if not path:
+            raise ValueError(f"preset_file {preset_file!r} not found under "
+                             f"presets_path {config.get('presets_path')!r}")
+        with open(path) as f:
+            preset = yaml.safe_load(f)
+        if not isinstance(preset, dict):
+            raise ValueError(f"Preset {path!r} did not parse to a mapping")
+        _deep_merge(config, preset)
+        print(f"[scene_gen] Applied preset: {path}")
     if "usds" not in config:
         raise ValueError(f"City config {config_path!r} has no 'usds' library")
     if "layout" not in config or "region_m" not in config["layout"]:
@@ -478,7 +530,8 @@ _PLACEHOLDER_COLORS = (
 
 
 def _pack_block_with_buildings(rect, candidates, gap: float,
-                               min_leftover: float, rng, first=None):
+                               min_leftover: float, rng, first=None,
+                               pick_fn=None):
     """Greedily pack building *candidates* into *rect* (guillotine packing).
 
     Each step places a randomly chosen fitting building in the rect's min
@@ -490,6 +543,9 @@ def _pack_block_with_buildings(rect, candidates, gap: float,
     *candidates* is ``[(key, sx, sy), ...]`` footprints, reusable any number of
     times. *first*, if given, is a key that must be placed before random
     picking starts (used to guarantee big buildings their reserved block).
+    *pick_fn*, if given, replaces the uniform random pick: it receives the
+    fitting ``(key, w, h, yaw)`` options and returns one — used to weight the
+    choice between intact/damaged/destroyed pools.
 
     Returns ``(placed, leftovers)``: *placed* is
     ``[(key, cx, cy, fit_yaw, (bx0, by0, bx1, by1)), ...]``; *leftovers* are
@@ -516,9 +572,9 @@ def _pack_block_with_buildings(rect, candidates, gap: float,
         pick_from = [c for c in fits if c[0] == forced] if forced else []
         if pick_from:
             forced = None
+            key, bw, bh, yaw = rng.choice(pick_from)
         else:
-            pick_from = fits
-        key, bw, bh, yaw = rng.choice(pick_from)
+            key, bw, bh, yaw = (pick_fn or rng.choice)(fits)
         bx1, by1 = x0 + bw, y0 + bh
         placed.append((key, x0 + bw / 2.0, y0 + bh / 2.0, yaw,
                        (x0, y0, bx1, by1)))
@@ -884,8 +940,12 @@ def build_city(config: dict, resolver: SizeResolver):
     sidewalk_usds = _nl(tiles.get("sidewalk") or tiles.get("brick") or [])
     trail_usds    = _nl(tiles.get("trail") or [])
     bld_cfg = usds.get("buildings") or usds.get("houses") or {}
-    house_intact  = _nl(bld_cfg["intact"])
-    house_damaged = _nl(bld_cfg.get("damaged") or [])
+    house_intact    = _nl(bld_cfg["intact"])
+    house_damaged   = _nl(bld_cfg.get("damaged") or [])
+    house_destroyed = _nl(bld_cfg.get("destroyed") or [])
+    debris_usds_cfg   = usds.get("debris") or {}
+    debris_pile_usds  = _nl(debris_usds_cfg.get("piles") or [])
+    debris_piece_usds = _nl(debris_usds_cfg.get("pieces") or [])
     tree_usds     = _nl(usds.get("trees") or [])
     plant_usds    = _nl(usds.get("plants") or [])
     rock_usds     = _nl(usds.get("rocks") or [])
@@ -898,6 +958,7 @@ def build_city(config: dict, resolver: SizeResolver):
     human_usds    = _nl(usds.get("humans") or [])
     planter_usds  = _nl(usds.get("planters") or [])
     busstop_usds  = _nl(usds.get("bus_stops") or [])
+    play_usds     = _nl(usds.get("play_structures") or [])
 
     # Street vs park furniture pools (tags in the usds entry): "park" marks
     # park-only furniture, "sidewalk" marks street-frontage benches, "tree"
@@ -939,13 +1000,17 @@ def build_city(config: dict, resolver: SizeResolver):
     furniture_offset_m = float(parks_cfg.get("furniture_offset_m", 0.8))
     rocks_per_park     = parks_cfg.get("rocks_per_park", [3, 8])
     rock_min_sep_m     = float(parks_cfg.get("rock_min_separation_m", 2.5))
+    pg_chance          = float(parks_cfg.get("playground_chance", 0.6))
+    pg_count           = parks_cfg.get("playground_structures", [2, 3])
+    pg_spacing_m       = float(parks_cfg.get("playground_spacing_m", 5.0))
+    pg_margin_m        = float(parks_cfg.get("playground_margin_m", 2.0))
 
     roads_cfg = config.get("roads", {})
     lane_w_m = float(roads_cfg.get("lane_width_m", 3.5))
 
     # --- Resolve footprints (no grass/road tiles; only houses, concrete, sidewalk) ---
     house_fps = {u: resolver.get(u, "house", scale=_sc(u), axis_up=_au(u))
-                 for u in house_intact + house_damaged}
+                 for u in house_intact + house_damaged + house_destroyed}
     concrete_fp = (resolver.get(concrete_usds[0], "concrete", scale=_sc(concrete_usds[0]))
                    if concrete_usds else None)
     sidewalk_fp = (resolver.get(sidewalk_usds[0], "sidewalk", scale=_sc(sidewalk_usds[0]))
@@ -991,6 +1056,54 @@ def build_city(config: dict, resolver: SizeResolver):
         """+90° roll stands Y-up-authored assets upright in the Z-up world."""
         return 90.0 if _au(usd) == "Y" else 0.0
 
+    # Real-extent overlap rejection for furniture (street frontage AND park
+    # trails). Point grids space placements out, but props have footprints
+    # (a 4 m shelter, a 2 m bench) — placement passes reserve their world-XY
+    # bbox here and skip the spot when it intersects one already reserved.
+    # Deliberate composites (a tree inside its planter, plants in a box)
+    # simply don't reserve their contents.
+    _occ_cells: dict = {}
+    _OCC_CELL = 4.0
+
+    def _occ_reserve(rect, pad=0.1):
+        """Reserve XY bbox *rect*; False (nothing reserved) on overlap."""
+        r = (rect[0] - pad, rect[1] - pad, rect[2] + pad, rect[3] + pad)
+        keys = [(gx, gy)
+                for gx in range(int(math.floor(r[0] / _OCC_CELL)),
+                                int(math.floor(r[2] / _OCC_CELL)) + 1)
+                for gy in range(int(math.floor(r[1] / _OCC_CELL)),
+                                int(math.floor(r[3] / _OCC_CELL)) + 1)]
+        for k in keys:
+            for o in _occ_cells.get(k, ()):
+                if not (r[2] <= o[0] or r[0] >= o[2]
+                        or r[3] <= o[1] or r[1] >= o[3]):
+                    return False
+        for k in keys:
+            _occ_cells.setdefault(k, []).append(r)
+        return True
+
+    def _occ_reserve_square(x, y, fp):
+        """Reserve a conservative square (long-axis half — safe under any
+        yaw) around (x, y) for *fp*. For props at arbitrary headings, e.g.
+        park furniture along a curved trail."""
+        half = max(fp["sx"], fp["sy"]) / 2.0
+        return _occ_reserve((x - half, y - half, x + half, y + half))
+
+    def _prop_curb_rect(x, y, street_yaw, fp, pole_only=False):
+        """World-XY bbox of a prop centered at (x, y) with its long axis
+        along the curb. *pole_only* uses the short axis on both sides — for
+        streetlights / traffic lights whose bbox is mostly overhanging arm
+        (the arm may overlap freely; only the pole occupies the sidewalk)."""
+        half_long = max(fp["sx"], fp["sy"]) / 2.0
+        half_short = min(fp["sx"], fp["sy"]) / 2.0
+        if pole_only:
+            half_long = half_short
+        if abs(math.cos(math.radians(street_yaw))) < 0.5:
+            hx, hy = half_long, half_short     # edge runs E-W
+        else:
+            hx, hy = half_short, half_long     # edge runs N-S
+        return (x - hx, y - hy, x + hx, y + hy)
+
     def _tile_rect(usd_choices, rect, tsx, tsy, z, category, skip=None):
         """Fill an axis-aligned *rect* (xmin,ymin,xmax,ymax) with tiles sized
         ~(tsx, tsy), snapping the count so the fill is gap-free. Tiles whose
@@ -1023,9 +1136,23 @@ def build_city(config: dict, resolver: SizeResolver):
                 u = usd_choices if isinstance(usd_choices, str) else rng.choice(usd_choices)
                 add(u, px, py, z, 0.0, category, _sc(u), stretch=(stx, sty))
 
+    # Building pools with a nonzero fate weight are the only ones packing may
+    # draw from — an "untouched" city (both fractions 0) must never place a
+    # ruin even when a slot fits nothing else, and "total" (weights sum to 1)
+    # must never place an intact building.
+    dis_cfg = config.get("disaster", {})
+    damaged_fraction   = float(dis_cfg.get("damaged_fraction", 0.0))
+    destroyed_fraction = float(dis_cfg.get("destroyed_fraction", 0.0))
+    intact_weight = max(0.0, 1.0 - damaged_fraction - destroyed_fraction)
+    eligible_houses = (
+        (house_intact if intact_weight > 0.0 else [])
+        + (house_damaged if damaged_fraction > 0.0 else [])
+        + (house_destroyed if destroyed_fraction > 0.0 else []))
+
     # Auto-raise the block size bound so the BSP can produce a block whose
-    # sidewalk inset fits the largest library building.
-    h_max = max((max(fp["sx"], fp["sy"]) for fp in house_fps.values()), default=0.0)
+    # sidewalk inset fits the largest placeable building.
+    h_max = max((max(house_fps[u]["sx"], house_fps[u]["sy"])
+                 for u in eligible_houses), default=0.0)
     need_block = h_max + 2.0 * sw_w + 1e-3
     if need_block > max_block_m:
         print(f"[scene_gen] WARNING: largest building needs a {need_block:.1f}m block but "
@@ -1036,7 +1163,7 @@ def build_city(config: dict, resolver: SizeResolver):
     # dedicated anchor block reserved below. Packing picks randomly among
     # fitting candidates, so without a forced anchor the largest buildings
     # could go entirely unplaced.
-    big_buildings = [u for u in house_intact + house_damaged
+    big_buildings = [u for u in eligible_houses
                      if max(house_fps[u]["sx"], house_fps[u]["sy"]) + 2.0 * sw_w
                      > min_block_m]
 
@@ -1098,17 +1225,48 @@ def build_city(config: dict, resolver: SizeResolver):
     # BLOCKS -> PACKED BUILDINGS, plus per-block sidewalk
     # (grass and road asphalt are procedural planes from apply_ground_planes)
     # =======================================================================
-    house_front_yaw  = float(orient.get("house_front", 0.0))
-    damaged_fraction = float(config.get("damaged_fraction", 0.0))
+    house_front_yaw    = float(orient.get("house_front", 0.0))
+    # (dis_cfg / fate fractions / eligible_houses were read above, before the
+    # anchor pass, so anchors and packing share the same eligibility.)
+    debris_rules   = dis_cfg.get("debris", {})
+    piles_per      = debris_rules.get("piles_per_building", [2, 4])
+    pile_max_off   = float(debris_rules.get("pile_max_offset_m", 3.0))
+    pieces_per     = debris_rules.get("pieces_per_building", [10, 20])
+    pieces_scatter = float(debris_rules.get("pieces_scatter_m", 6.0))
+    tilt_chance    = float(debris_rules.get("tilt_chance", 0.35))
+    tilt_deg       = debris_rules.get("tilt_deg", [2.0, 6.0])
+    sink_m         = debris_rules.get("sink_m", [0.4, 1.2])
+    lean_piles     = debris_rules.get("lean_piles", [2, 3])
 
     house_rects: list = []      # building footprint rects (for tree avoidance)
     placeholder_bldgs: list = []
     city_layout["placeholder_buildings"] = placeholder_bldgs
     park_blocks: list = []      # (block, inset) rects of blocks kept as parks
-    n_buildings = n_damaged = n_parks = 0
+    n_buildings = n_damaged = n_destroyed = n_parks = 0
 
+    # Eligible pools pack directly with their own measured footprints; the
+    # fate weights (destroyed_fraction / damaged_fraction) drive the *choice*
+    # of pool at each packing pick via _pick_building below. Zero-weight
+    # pools are excluded from the candidates entirely, so e.g. an untouched
+    # city can never fall back onto a ruin (nor "total" onto an intact one).
     pack_candidates = [(u, house_fps[u]["sx"], house_fps[u]["sy"])
-                       for u in house_intact + house_damaged]
+                       for u in eligible_houses]
+    damaged_set   = set(house_damaged)
+    destroyed_set = set(house_destroyed)
+
+    def _pick_building(fits):
+        """Fate-weighted pick among fitting candidates: destroyed_fraction /
+        damaged_fraction / rest-intact, falling back to any (eligible) fit
+        when the rolled pool has no candidate that fits the slot."""
+        r_fate = rng.random()
+        if r_fate < destroyed_fraction:
+            pool_fits = [f for f in fits if f[0] in destroyed_set]
+        elif r_fate < destroyed_fraction + damaged_fraction:
+            pool_fits = [f for f in fits if f[0] in damaged_set]
+        else:
+            pool_fits = [f for f in fits
+                         if f[0] not in destroyed_set and f[0] not in damaged_set]
+        return rng.choice(pool_fits or fits)
 
     def _split_leftover(r, out):
         """Break an oversized leftover rect into a few varied prisms so a
@@ -1135,6 +1293,26 @@ def build_city(config: dict, resolver: SizeResolver):
             _split_leftover((rx0, ry0, rx1, q), out)
             _split_leftover((rx0, q + bld_gap_m, rx1, ry1), out)
 
+    # Park selection, up front so the count can be guaranteed: per-block
+    # chance roll first, then promote random extra blocks until
+    # packing.min_parks is met (or demote down to packing.max_parks).
+    # Anchored blocks are exempt — they must host their reserved building.
+    min_parks = int(pack_cfg.get("min_parks", 0))
+    max_parks = pack_cfg.get("max_parks")
+    park_candidates = [blk for blk in blocks if blk not in anchor_for]
+    park_set = {blk for blk in park_candidates if rng.random() < park_chance}
+    if len(park_set) < min_parks:
+        pool = [b for b in park_candidates if b not in park_set]
+        rng.shuffle(pool)
+        park_set.update(pool[:min_parks - len(park_set)])
+        if len(park_set) < min_parks:
+            print(f"[scene_gen] WARNING: min_parks={min_parks} but only "
+                  f"{len(park_set)} unanchored blocks available.")
+    if max_parks is not None and len(park_set) > int(max_parks):
+        chosen = sorted(park_set)       # deterministic order before shuffle
+        rng.shuffle(chosen)
+        park_set = set(chosen[:int(max_parks)])
+
     for blk in blocks:
         x0, y0, x1, y1 = blk
 
@@ -1147,10 +1325,11 @@ def build_city(config: dict, resolver: SizeResolver):
             _tile_rect(sidewalk_usds, (x1 - sw_w, y0 + sw_w, x1, y1 - sw_w), sw_w, sw_w, 0.015, "sidewalk")
             inset = (x0 + sw_w, y0 + sw_w, x1 - sw_w, y1 - sw_w)
 
-        # A fraction of blocks stay as grassy parks — this is where trees,
-        # plants, rocks and humans end up (packed blocks have no open ground).
-        # Trails + park furniture are laid in a dedicated pass afterwards.
-        if blk not in anchor_for and rng.random() < park_chance:
+        # Park blocks stay grassy — this is where trees, plants, rocks and
+        # humans end up (packed blocks have no open ground). Trails + park
+        # furniture are laid in a dedicated pass afterwards. Selection
+        # happens up front (park_set) so min_parks/max_parks can be honored.
+        if blk in park_set:
             n_parks += 1
             park_blocks.append((blk, inset))
             continue
@@ -1163,9 +1342,17 @@ def build_city(config: dict, resolver: SizeResolver):
 
         placed, leftovers = _pack_block_with_buildings(
             inset, pack_candidates, bld_gap_m, ph_min_m, rng,
-            first=anchor_for.get(blk))
+            first=anchor_for.get(blk), pick_fn=_pick_building)
 
         for (usd, cx, cy, rot, brect) in placed:
+            bw, bh = brect[2] - brect[0], brect[3] - brect[1]
+            is_destroyed = usd in destroyed_set
+            # No pre-damaged pool: fall back to tilting + sinking an intact
+            # building as a damaged stand-in with probability damaged_fraction.
+            tilt_standin = (not house_damaged and not is_destroyed
+                            and rng.random() < damaged_fraction)
+            is_damaged = usd in damaged_set or tilt_standin
+
             fp = house_fps[usd]
             # Y-up assets (e.g. Unity exports) need a +90° roll to stand upright
             # in Isaac Sim's Z-up world. This is combined with any damage tilt.
@@ -1173,19 +1360,103 @@ def build_city(config: dict, resolver: SizeResolver):
             roll = axis_roll
             pitch = 0.0
             z = fp["base"]
-            # Pre-damaged art always reads damaged; otherwise tilt + sink an
-            # intact building as a stand-in with probability damaged_fraction.
-            is_damaged = (usd in house_damaged or
-                          (not house_damaged and rng.random() < damaged_fraction))
-            if is_damaged:
+            yaw = house_front_yaw + rot
+            if tilt_standin:
                 roll = axis_roll + rng.uniform(-18.0, 18.0)
                 pitch = rng.uniform(-18.0, 18.0)
                 z -= rng.uniform(0.3, 0.9)
+
+            # Some destroyed ruins additionally lean: a slight tilt + sink,
+            # with rubble piled at the base of the side now overhanging.
+            lean_dir = None
+            if is_destroyed and rng.random() < tilt_chance:
+                t_roll = rng.choice([-1.0, 1.0]) * rng.uniform(
+                    float(tilt_deg[0]), float(tilt_deg[1]))
+                t_pitch = rng.choice([-1.0, 1.0]) * rng.uniform(
+                    float(tilt_deg[0]), float(tilt_deg[1]))
+                roll += t_roll
+                pitch += t_pitch
+                z -= rng.uniform(float(sink_m[0]), float(sink_m[1]))
+                # World-XY direction the top now overhangs: +pitch (about Y)
+                # tips the top toward +X, +roll (about X) toward -Y — both in
+                # the pre-yaw frame, so rotate by the building's yaw.
+                lx_ = math.sin(math.radians(t_pitch))
+                ly_ = -math.sin(math.radians(t_roll))
+                yr_ = math.radians(yaw)
+                wx_ = lx_ * math.cos(yr_) - ly_ * math.sin(yr_)
+                wy_ = lx_ * math.sin(yr_) + ly_ * math.cos(yr_)
+                n_ = math.hypot(wx_, wy_)
+                if n_ > 1e-9:
+                    lean_dir = (wx_ / n_, wy_ / n_)
+
+            if is_damaged:
                 n_damaged += 1
-            add(usd, cx, cy, z, house_front_yaw + rot, "house", _sc(usd),
+            add(usd, cx, cy, z, yaw, "house", _sc(usd),
                 roll=roll, pitch=pitch, axis_up=_au(usd))
             house_rects.append(brect)
             n_buildings += 1
+
+            # Destroyed building -> debris field. Rubble piles hug the ruin
+            # (overlap with the building, sidewalk or road is fine); smaller
+            # pieces land a bit farther and are physics-settled, so they come
+            # to rest against whatever they hit.
+            if is_destroyed:
+                n_destroyed += 1
+                hw_, hh_ = bw / 2.0, bh / 2.0
+
+                def _edge_r(ca, sa):
+                    """Center-to-footprint-edge distance along (ca, sa)."""
+                    return min(hw_ / max(abs(ca), 1e-6),
+                               hh_ / max(abs(sa), 1e-6))
+
+                def _ring_pos(extra_lo, extra_hi, ang=None):
+                    """Random point offset [extra_lo, extra_hi] m beyond the
+                    footprint edge — any direction, or around *ang*."""
+                    if ang is None:
+                        ang = rng.uniform(0.0, 2.0 * math.pi)
+                    ca, sa = math.cos(ang), math.sin(ang)
+                    r_ = _edge_r(ca, sa) + rng.uniform(extra_lo, extra_hi)
+                    return cx + ca * r_, cy + sa * r_
+
+                def _add_pile(dx_, dy_):
+                    if exclusions and _in_exclusion(dx_, dy_, exclusions):
+                        return
+                    du = rng.choice(debris_pile_usds)
+                    dfp = resolver.get(du, "debris_pile", scale=_sc(du),
+                                       axis_up=_au(du))
+                    add(du, dx_, dy_, dfp["base"] + 0.02,
+                        rng.uniform(0.0, 360.0), "debris_pile",
+                        _sc(du) * rng.uniform(0.8, 1.2),
+                        roll=_axis_roll(du), axis_up=_au(du))
+
+                if debris_pile_usds:
+                    for _ in range(rng.randint(int(piles_per[0]),
+                                               int(piles_per[1]))):
+                        _add_pile(*_ring_pos(-1.0, pile_max_off))
+                    # Leaning ruin: rubble hugging the base of the caved /
+                    # overhanging side, spread along that edge.
+                    if lean_dir is not None:
+                        base_ang = math.atan2(lean_dir[1], lean_dir[0])
+                        for _ in range(rng.randint(int(lean_piles[0]),
+                                                   int(lean_piles[1]))):
+                            ang = base_ang + rng.uniform(-0.5, 0.5)
+                            _add_pile(*_ring_pos(-1.5, 1.0, ang=ang))
+
+                if debris_piece_usds:
+                    for _ in range(rng.randint(int(pieces_per[0]),
+                                               int(pieces_per[1]))):
+                        dx_, dy_ = _ring_pos(0.3, pieces_scatter)
+                        if exclusions and _in_exclusion(dx_, dy_, exclusions):
+                            continue
+                        du = rng.choice(debris_piece_usds)
+                        dfp = resolver.get(du, "debris", scale=_sc(du),
+                                           axis_up=_au(du))
+                        # Dropped from slightly above with a random heading;
+                        # the settle pass finds the resting pose.
+                        add(du, dx_, dy_, dfp["base"] + 0.4,
+                            rng.uniform(0.0, 360.0), "debris",
+                            _sc(du) * rng.uniform(0.7, 1.2),
+                            roll=_axis_roll(du), axis_up=_au(du), settle=True)
 
         # Gaps nothing in the library fits: fill with placeholder prisms.
         if ph_enabled:
@@ -1264,10 +1535,52 @@ def build_city(config: dict, resolver: SizeResolver):
                         continue
                     u = rng.choice(pool)
                     fp = resolver.get(u, cat, scale=_sc(u), axis_up=_au(u))
+                    if not _occ_reserve_square(px_, py_, fp):
+                        continue
                     # Face back toward the trail (benches especially).
                     face_yaw = math.degrees(math.atan2(-ny_, -nx_))
                     add(u, px_, py_, grass_top + fp["base"], face_yaw, cat,
                         _sc(u), roll=_axis_roll(u), axis_up=_au(u))
+
+            # ---- Playground: a cluster of play structures (slide, swings)
+            # on a clear patch of grass away from the trail. Structures ring
+            # a common center facing inward; their footprints join
+            # house_rects so trees/rocks/humans keep clear.
+            if play_usds and rng.random() < pg_chance:
+                clear_r = pg_spacing_m + 3.0
+                spot = None
+                if (ix1 - ix0) > 2 * clear_r and (iy1 - iy0) > 2 * clear_r:
+                    for _try in range(30):
+                        cx_ = rng.uniform(ix0 + clear_r, ix1 - clear_r)
+                        cy_ = rng.uniform(iy0 + clear_r, iy1 - clear_r)
+                        if exclusions and _in_exclusion(cx_, cy_, exclusions):
+                            continue
+                        if min((cx_ - dx_) ** 2 + (cy_ - dy_) ** 2
+                               for dx_, dy_ in dense) < (clear_r + t_w) ** 2:
+                            continue
+                        spot = (cx_, cy_)
+                        break
+                if spot is not None:
+                    n_st = rng.randint(int(pg_count[0]), int(pg_count[1]))
+                    picks = play_usds[:]
+                    rng.shuffle(picks)
+                    picks = [picks[i % len(picks)] for i in range(n_st)]
+                    base_ang = rng.uniform(0.0, 360.0)
+                    for i, su in enumerate(picks):
+                        ang = base_ang + i * 360.0 / n_st
+                        rad_ = math.radians(ang)
+                        r_ = pg_spacing_m if n_st > 1 else 0.0
+                        sx_ = spot[0] + math.cos(rad_) * r_
+                        sy_ = spot[1] + math.sin(rad_) * r_
+                        sfp = resolver.get(su, "play_structure",
+                                           scale=_sc(su), axis_up=_au(su))
+                        add(su, sx_, sy_, grass_top + sfp["base"],
+                            ang + 180.0 + rng.uniform(-15.0, 15.0),
+                            "play_structure", _sc(su),
+                            roll=_axis_roll(su), axis_up=_au(su))
+                        hl_ = max(sfp["sx"], sfp["sy"]) / 2.0 + pg_margin_m
+                        house_rects.append((sx_ - hl_, sy_ - hl_,
+                                            sx_ + hl_, sy_ + hl_))
 
     # =======================================================================
     # STEP 3 — DETAIL: trees + humans (open-ground scatter); rocks (parks);
@@ -1483,6 +1796,8 @@ def build_city(config: dict, resolver: SizeResolver):
             u = rng.choice(busstop_usds)
             fp = resolver.get(u, "bus_stop", scale=_sc(u), axis_up=_au(u))
             bx, by = _inset_pos(px, py, street_yaw, _curb_inset(fp))
+            if not _occ_reserve(_prop_curb_rect(bx, by, street_yaw, fp)):
+                continue
             add(u, bx, by, sidewalk_top + fp["base"], street_yaw, "bus_stop",
                 _sc(u), roll=_axis_roll(u), axis_up=_au(u))
             # Claim the curb cells the shelter spans in the occupancy grid.
@@ -1502,6 +1817,9 @@ def build_city(config: dict, resolver: SizeResolver):
             lu = rng.choice(street_light_usds)
             lfp = resolver.get(lu, "streetlight", scale=_sc(lu))
             lx, ly = _inset_pos(px, py, street_yaw, _curb_inset(lfp))
+            if not _occ_reserve(_prop_curb_rect(lx, ly, street_yaw, lfp,
+                                                pole_only=True)):
+                continue
             if rng.random() < lights_toppled:
                 _topple_flat(lu, lfp, lx, ly, "streetlight", z0=sidewalk_top)
             else:
@@ -1516,6 +1834,8 @@ def build_city(config: dict, resolver: SizeResolver):
             u = rng.choice(street_bench_usds)
             fp = resolver.get(u, "bench", scale=_sc(u), axis_up=_au(u))
             bx, by = _inset_pos(px, py, street_yaw, _curb_inset(fp))
+            if not _occ_reserve(_prop_curb_rect(bx, by, street_yaw, fp)):
+                continue
             add(u, bx, by, sidewalk_top + fp["base"], street_yaw, "bench", _sc(u),
                 roll=_axis_roll(u), axis_up=_au(u))
 
@@ -1527,9 +1847,13 @@ def build_city(config: dict, resolver: SizeResolver):
 
     def _add_planter(px, py, street_yaw, pu):
         """Place planter *pu* inset from the curb; returns (x, y, soil_z,
-        along_x, along_y, usable_len) for whatever goes inside it."""
+        along_x, along_y, usable_len) for whatever goes inside it, or None
+        when the spot's bbox is already occupied. The greenery placed inside
+        deliberately skips occupancy — it shares the planter's footprint."""
         pfp = resolver.get(pu, "planter", scale=_sc(pu), axis_up=_au(pu))
         qx, qy = _inset_pos(px, py, street_yaw, _curb_inset(pfp))
+        if not _occ_reserve(_prop_curb_rect(qx, qy, street_yaw, pfp)):
+            return None
         # Long axis parallel to the curb (art long axis assumed X).
         pyaw = street_yaw + (90.0 if pfp["sx"] >= pfp["sy"] else 0.0)
         add(pu, qx, qy, sidewalk_top + pfp["base"], pyaw, "planter", _sc(pu),
@@ -1543,8 +1867,11 @@ def build_city(config: dict, resolver: SizeResolver):
         spacing = float(planters_cfg.get("tree_spacing_m", 30.0))
         for px, py, street_yaw in _frontage_positions(spacing, phase=0.7,
                                                       jitter_frac=0.2):
-            qx, qy, soil_z, _ax, _ay, _ln = _add_planter(
-                px, py, street_yaw, rng.choice(tree_planter_usds))
+            planted = _add_planter(px, py, street_yaw,
+                                   rng.choice(tree_planter_usds))
+            if planted is None:
+                continue
+            qx, qy, soil_z, _ax, _ay, _ln = planted
             tu_ = rng.choice(street_tree_usds)
             tfp_ = resolver.get(tu_, "tree", scale=_sc(tu_))
             add(tu_, qx, qy, soil_z + tfp_["base"], rng.uniform(0.0, 360.0),
@@ -1556,8 +1883,11 @@ def build_city(config: dict, resolver: SizeResolver):
         slot_m = float(planters_cfg.get("plant_slot_m", 0.7))
         for px, py, street_yaw in _frontage_positions(spacing, phase=0.15,
                                                       jitter_frac=0.25):
-            qx, qy, soil_z, ax_, ay_, ln_ = _add_planter(
-                px, py, street_yaw, rng.choice(plant_planter_usds))
+            planted = _add_planter(px, py, street_yaw,
+                                   rng.choice(plant_planter_usds))
+            if planted is None:
+                continue
+            qx, qy, soil_z, ax_, ay_, ln_ = planted
             n = max(1, min(3, int(ln_ / slot_m)))
             for k in range(n):
                 off = (k - (n - 1) / 2.0) * (ln_ * 0.7 / max(n, 1))
@@ -1579,6 +1909,8 @@ def build_city(config: dict, resolver: SizeResolver):
             u = rng.choice(hydrant_usds)
             fp = resolver.get(u, "fire_hydrant", scale=_sc(u), axis_up=_au(u))
             hx, hy = _inset_pos(px, py, street_yaw, _curb_inset(fp))
+            if not _occ_reserve(_prop_curb_rect(hx, hy, street_yaw, fp)):
+                continue
             if rng.random() < sheared:
                 _topple_flat(u, fp, hx, hy, "fire_hydrant", z0=sidewalk_top)
             else:
@@ -1596,6 +1928,8 @@ def build_city(config: dict, resolver: SizeResolver):
             u = rng.choice(street_trash_usds)
             fp = resolver.get(u, "trash_can", scale=_sc(u), axis_up=_au(u))
             tx_, ty_ = _inset_pos(px, py, street_yaw, _curb_inset(fp))
+            if not _occ_reserve(_prop_curb_rect(tx_, ty_, street_yaw, fp)):
+                continue
             if rng.random() < tipped:
                 ang = rng.uniform(0.0, 2.0 * math.pi)
                 d = rng.uniform(0.0, scatter)
@@ -1637,9 +1971,12 @@ def build_city(config: dict, resolver: SizeResolver):
                 if rng.random() >= tl_chance:
                     continue
                 icx, icy = (ox0 + ox1) / 2.0, (oy0 + oy1) / 2.0
+                u = rng.choice(tlight_usds)
+                fp = resolver.get(u, "traffic_light", scale=_sc(u), axis_up=_au(u))
                 # Pole on the sidewalk, corner_margin past the road corner.
                 # At a T-junction some corners fall inside the through road —
-                # try corners in random order and take the first on land.
+                # try corners in random order and take the first on land whose
+                # pole spot isn't already occupied by street furniture.
                 hw = (ox1 - ox0) / 2.0 + corner_margin
                 hh = (oy1 - oy0) / 2.0 + corner_margin
                 corners = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
@@ -1650,14 +1987,15 @@ def build_city(config: dict, resolver: SizeResolver):
                     if any(c["x0"] < cx_ < c["x1"] and c["y0"] < cy_ < c["y1"]
                            for c in road_corridors):
                         continue
+                    if not _occ_reserve(_prop_curb_rect(cx_, cy_, 0.0, fp,
+                                                        pole_only=True)):
+                        continue
                     x, y = cx_, cy_
                     break
                 if x is None:
                     continue
                 if exclusions and _in_exclusion(x, y, exclusions):
                     continue
-                u = rng.choice(tlight_usds)
-                fp = resolver.get(u, "traffic_light", scale=_sc(u), axis_up=_au(u))
                 yaw = math.degrees(math.atan2(icy - y, icx - x)) + tl_front
                 if rng.random() < tl_toppled:
                     _topple_flat(u, fp, x, y, "traffic_light", z0=sidewalk_top)
@@ -1711,6 +2049,10 @@ def build_city(config: dict, resolver: SizeResolver):
                 rad = math.radians(street_yaw)
                 hx = px - math.cos(rad) * inset_d
                 hy = py - math.sin(rad) * inset_d
+                # Don't spawn a pedestrian intersecting street furniture.
+                if not _occ_reserve((hx - 0.25, hy - 0.25,
+                                     hx + 0.25, hy + 0.25)):
+                    continue
                 _add_human(hx, hy, sidewalk_top,
                            street_yaw + rng.choice((90.0, -90.0)), "walk")
 
@@ -1865,7 +2207,7 @@ def build_city(config: dict, resolver: SizeResolver):
           f"({len(blocks)} blocks, {n_parks} parks, {len(road_corridors)} road corridors)")
     print(f"[scene_gen] Placements by category: {counts} "
           f"(total {len(placements)}, {n_buildings} buildings, {n_damaged} damaged, "
-          f"{len(placeholder_bldgs)} placeholder prisms)")
+          f"{n_destroyed} destroyed, {len(placeholder_bldgs)} placeholder prisms)")
     return placements, city_layout
 
 
