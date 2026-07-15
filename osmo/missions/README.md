@@ -36,6 +36,7 @@ osmo/results/<mission-name>/<UTC stamp>/
 └── iter_001/
     ├── bags/robot_1/*.mcap   # open directly in Foxglove (no conversion)
     ├── logs/<container>.log  # docker logs snapshot per container
+    ├── logs/<container>/     # raw /tmp stdout tees (gossip, ddsrouter, relay) + rcl control-stack logs
     ├── ready.json            # per-robot seconds-to-PX4-ready
     ├── steps.json            # per-step command, output tail, pass/fail
     └── iteration.json        # iteration summary
@@ -57,16 +58,22 @@ Top-level keys (everything except `steps` is optional):
 |---|---|---|
 | `name` | filename stem | Results directory name |
 | `env` | `{}` | Env vars exported before each `airstack up` (`NUM_ROBOTS`, `COMPOSE_PROFILES`, `ISAAC_SIM_SCRIPT_NAME`, …) |
-| `iterations` | `1` | Number of full up→fly→down cycles |
+| `iterations` | `1` | Full up→fly→down cycles. With `environments:` + `environment_order: grouped`, this is **per environment** (total = iterations × #environments) |
+| `iteration_attempts` | `1` | Max times to (re)run a single iteration until it passes. `>1`: a failed/errored iteration is redone (clean down→up→fly→down) up to this many attempts; a `passed`, manually `stopped`, or `abort_mission` outcome is never retried. Failed attempts' artifacts are preserved under `iter_NNN_failed_attempt_K`. With a fixed `SPAWN_SEED` the redo reproduces the same spawn layout |
+| `environment_order` | `round_robin` | With `environments:`: `round_robin` (iteration i → env[(i-1) % n], `iterations` is the total) \| `grouped` (each env runs `iterations` times in a row) |
 | `ready.timeout_s` | `600` | Max seconds to wait for PX4 readiness per iteration |
 | `ready.poll_interval_s` | `5` | Seconds between readiness polls |
 | `record.enabled` | `true` | Record an mcap per robot per iteration |
+| `record.scope` | `gcs` | `gcs` (one mcap on GCS domain 0) \| `robot` (one mcap per robot domain) \| `both` |
 | `record.topics` | tf + odom set | Topics to record; `{robot}` → `robot_N` |
 | `record.all` | `false` | Record **all** topics (`ros2 bag record -a`) — large |
+| `record.exclude` | — | With `all`: regex of topics to drop (`ros2 bag record -a --exclude-regex <regex>`) |
+| `record.required` | `false` | Abort the iteration if any recorder fails to start (don't fly unrecorded) |
 | `on_step_failure` | `abort_iteration` | `continue` \| `abort_iteration` \| `abort_mission` |
 | `up_timeout_s` | `3600` | `airstack up` timeout (first up on a fresh pod pulls images) |
 | `down_timeout_s` | `300` | `airstack down` timeout |
 | `robot_setup_bash` | robot ws `setup.bash` | Workspace sourced before `ros2` commands |
+| `nas_dest` | — | Base path on airlab-storage (e.g. `/volume3/<share>/airstack-missions`). When the `airlab-storage` OSMO credential is set (`airstack osmo:setup`), an OSMO pod rsyncs results to `<nas_dest>/<name>/<stamp>/` then tears itself down. Override per run with `osmo:mission --nas-dest PATH`; suppress with `--no-nas-upload`. Credentials never live in the spec |
 | `steps` | — | Ordered list of steps (below) |
 
 ### Steps
@@ -82,10 +89,36 @@ result. The step passes when the action result reports `success: true`.
 - action:
     task: takeoff                 # → /robot_N/tasks/<task>
     goal: {target_altitude_m: 10.0, velocity_m_s: 1.0}
-    timeout_s: 120                # default 120
+    timeout_s: 120                # default 120 (per attempt)
+    attempts: 3                   # per-robot retries on failure (default 3)
+    retry_delay_s: 10             # wait between attempts (default 10)
+    feedback_timeout_s: 15        # via gcs: no relay_feedback within this
+                                  # window ⇒ goal presumed lost, retried
+    pass_on_feedback: false       # via gcs: pass as soon as feedback is seen
+                                  # (the task RAN), regardless of success/fail;
+                                  # only "never ran" (no feedback + no result
+                                  # after retries) fails the step
     robots: all
     # type: task_msgs/action/TakeoffTask   # derived from task name if omitted
 ```
+
+Any step may also carry **`optional: true`** (a sibling key, not inside
+`action`/`run`/…): the step still runs and its result is recorded, but a
+failure neither trips `on_step_failure` nor counts toward an `iteration_attempts`
+redo. Use it for steps whose outcome doesn't gate the iteration — e.g. a `land`
+after the run is already done.
+
+**`pass_on_feedback` + `iteration_attempts` idiom** — to guarantee a task
+*runs* every iteration without caring whether it succeeds: set
+`pass_on_feedback: true` on that action and `iteration_attempts: >1` on the
+mission. If the task never gets feedback (goal lost / never started) after its
+`attempts` retries, the step fails and the whole iteration is redone; once
+feedback is seen the iteration is considered satisfied.
+
+Each robot's goal is logged per attempt and retried independently — a goal
+can be rejected transiently (relay has no GPS fix yet, PX4 position estimate
+not converged, action server still starting), so one robot failing its first
+attempt doesn't fail the step unless it exhausts all attempts.
 
 Available tasks (action type is derived as `task_msgs/action/<CamelCase>Task`):
 `takeoff`, `land`, `fixed_trajectory`, `navigate`, `exploration`, `coverage`,
@@ -101,7 +134,8 @@ Multi-robot action goals are sent **in parallel** across robots.
 
 **`run`** — arbitrary command; the escape hatch that makes any ROS 2 command
 work without runner changes. The step fails on non-zero exit unless
-`expect_success: false`.
+`expect_success: false`. Set `attempts` to retry on failure (e.g. a flaky
+model download) before the step is marked failed.
 
 ```yaml
 - run:
@@ -112,6 +146,8 @@ work without runner changes. The step fails on non-zero exit unless
     cmd: ros2 topic echo --once /{robot}/odometry
     timeout_s: 60
     expect_success: true
+    attempts: 1            # retries on failure (default 1 = no retry)
+    retry_delay_s: 10      # wait between attempts (default 10)
 ```
 
 **`topic_pub`** — `ros2 topic pub --once` per robot:

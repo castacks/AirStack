@@ -38,6 +38,10 @@
 # Set OSMO_MISSION_KEEP_ALIVE=false for fire-and-forget runs: the task exits
 # cleanly when the mission ends, which frees the GPU and triggers the
 # `outputs:` upload below (if a destination bucket is configured).
+#
+# NAS upload: if the airlab-storage credential is set (airstack osmo:setup) and
+# the mission spec has `nas_dest:`, the pod rsyncs results to airlab-storage
+# then tears itself down — no laptop fetch needed. See mission_launcher.sh.
 
 workflow:
   name: airstack-mission
@@ -59,12 +63,15 @@ workflow:
         set -uo pipefail
         log() { echo "[mission-bootstrap] $*"; }
         log "starting pod setup via baked entrypoint (OSMO_AIRSTACK_UP=false)"
-        # Tee the baked entrypoint's output so the launcher can wait for its
-        # terminal "sleeping forever" line (= setup + its own `airstack up`
-        # finished) before starting the mission — see mission_launcher.sh.
-        # The pipe keeps its logs in `osmo workflow logs` too.
+        # Baked entrypoint for pod setup, backgrounded. `tee` streams its logs to
+        # `osmo workflow logs` and to a file the launcher greps for the terminal
+        # "sleeping forever" line. `tee` holds THIS task's stdout pipe open, so
+        # mission_launcher.sh kills BAKED_PID before it exits — otherwise
+        # osmo_exec never sees pipe EOF on our exit and the pod never frees the
+        # GPU (it hangs at RUNNING until exec_timeout).
         OSMO_AIRSTACK_UP=false /usr/local/bin/entrypoint.sh 2>&1 \
           | tee /tmp/baked-entrypoint.log &
+        export BAKED_PID=$!
         LAUNCHER=/root/AirStack/osmo/workspace/mission_launcher.sh
         log "waiting for branch clone to provide $LAUNCHER"
         for i in $(seq 1 600); do [ -f "$LAUNCHER" ] && break; sleep 2; done
@@ -97,6 +104,8 @@ workflow:
       credentials:
         # Same per-user credentials as airstack-dev.yaml — see
         # docs/tutorials/airstack_on_osmo.md "Step 0" / `airstack osmo:setup`.
+        # These map OSMO credential fields → pod env vars; no secret values live
+        # in this file.
         airlab-nucleus:
           OMNI_USER: omni_user
           OMNI_PASS: omni_pass
@@ -104,6 +113,12 @@ workflow:
         airlab-docker-login:
           AIRLAB_REGISTRY_USER: username
           AIRLAB_REGISTRY_PASS: password
+        # Optional: NAS result upload. Absent credential → nothing injected →
+        # upload disabled. Enabled per-mission via `nas_dest:` in the spec.
+        airlab-storage:
+          AIRLAB_STORAGE_USER: username
+          AIRLAB_STORAGE_PASS: password
+          AIRLAB_STORAGE_HOST: host
 
   resources:
     default:
@@ -117,7 +132,7 @@ workflow:
       storage: 500Gi
 
   timeout:
-    # Missions run unattended and multi-iteration; 24h leaves room for long
-    # batches plus result download time in keep-alive mode. The pod is gone
-    # when this expires — fetch results first.
-    exec_timeout: 24h
+    # With keep-alive the pod sleeps after the mission until this expires (then
+    # it's gone — fetch first). Sized to stay up ~30h post-mission for
+    # osmo:fetch (mission itself runs in the first ~1-2h).
+    exec_timeout: 32h
