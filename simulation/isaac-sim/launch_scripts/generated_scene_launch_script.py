@@ -41,7 +41,8 @@ from pegasus.simulator.ogn.api.spawn_zed_camera import add_zed_stereo_camera_sub
 from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
 
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
-from scene_prep import scale_stage_prim, add_colliders, add_sky, get_stage_meters_per_unit
+from scene_prep import (scale_stage_prim, add_colliders, add_sky,
+                        get_stage_meters_per_unit, settle_rigid_props)
 from scene_generator import generate_scene_on_stage, load_config, resolve_sky
 
 
@@ -171,7 +172,7 @@ class PegasusApp:
         # Place metric coordinates into stage-space using the stage's unit scale.
         config = load_config(SCENE_CONFIG)
         _, scene_scale_factor = get_stage_meters_per_unit(stage)
-        generate_scene_on_stage(
+        placements = generate_scene_on_stage(
             stage,
             config,
             parent_path="/World/stage/generated",
@@ -185,6 +186,16 @@ class PegasusApp:
             add_colliders(generated_prim)
         for _ in range(10):
             omni.kit.app.get_app().update()
+
+        # Drop toppled/strewn props (flipped cars, downed poles) to a natural
+        # resting pose under physics, then freeze them. Must run before the
+        # drone graph is spawned since it briefly plays the timeline.
+        settle_rigid_props(
+            stage,
+            [p["prim_path"] for p in placements
+             if p.get("settle") and p.get("prim_path")],
+            ground_path="/World/stage/generated/ground",
+        )
 
         # Sky + ambient light: borrowed stage prims or HDRI dome per config `sky:`.
         add_sky(stage, resolve_sky(config))

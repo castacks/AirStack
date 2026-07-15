@@ -57,7 +57,8 @@ from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 _ISAAC_SIM_DIR = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 sys.path.insert(0, os.path.join(_ISAAC_SIM_DIR, "utils"))
-from scene_prep import scale_stage_prim, add_colliders, add_sky, get_stage_meters_per_unit
+from scene_prep import (scale_stage_prim, add_colliders, add_sky,
+                        get_stage_meters_per_unit, settle_rigid_props)
 from scene_generator import generate_scene_on_stage, load_config, resolve_sky
 
 # ----- CONFIGURATION -----
@@ -137,15 +138,23 @@ class ScenePreviewApp:
         config = load_config(SCENE_CONFIG)
 
         _, ssf = get_stage_meters_per_unit(stage)
-        generate_scene_on_stage(stage, config,
-                                parent_path="/World/stage/generated",
-                                scene_scale_factor=ssf)
+        placements = generate_scene_on_stage(stage, config,
+                                             parent_path="/World/stage/generated",
+                                             scene_scale_factor=ssf)
 
         generated_prim = stage.GetPrimAtPath("/World/stage/generated")
         if generated_prim.IsValid():
             add_colliders(generated_prim)
         for _ in range(10):
             omni.kit.app.get_app().update()
+
+        # Physics-settle toppled/strewn props so they rest naturally.
+        settle_rigid_props(
+            stage,
+            [p["prim_path"] for p in placements
+             if p.get("settle") and p.get("prim_path")],
+            ground_path="/World/stage/generated/ground",
+        )
 
         add_sky(stage, resolve_sky(config))
 

@@ -22,9 +22,10 @@
 #                  park-tagged benches/lamps/trash cans along it (parks.*);
 #                  rocks + plants scattered on park grass (usds.rocks, plants.*);
 #                  trees spread evenly at parks.tree_density_per_100m2
-#   4. detail    — trees + humans scattered on open ground (trees.*, humans.*);
-#                  streetlights, fire hydrants, trash cans along block
-#                  frontages (streetlights.*, fire_hydrants.*, trash_cans.*;
+#   4. detail    — humans on sidewalks/trails/grass (humans.*); bus stops,
+#                  streetlights, benches, planters (street trees + plant
+#                  boxes), fire hydrants, trash cans along block frontages,
+#                  each inset onto the sidewalk (frontage.curb_margin_m;
 #                  shared occupancy grid — categories never stack); traffic
 #                  lights at NS×EW corridor intersections (traffic_lights.*)
 #   5. cars      — cars parked along road corridors, right-hand traffic (cars.*)
@@ -79,22 +80,37 @@ damaged_fraction: 0.00      # 0..1 — buildings tilted + sunk; uses usds.houses
                             # else tilts an intact building as a stand-in
 
 # ---- step 4: detail ------------------------------------------------------------
+frontage:
+  curb_margin_m: 0.3        # m — gap between a street prop's mesh edge and the curb
+                            # line; every frontage prop is inset by half its short
+                            # footprint axis plus this, so nothing pokes into the road
+
 trees:
-  per_block: [2, 6]         # [min, max] — trees per non-park block (sidewalk-lining
-                            # scatter; parks use parks.tree_density_per_100m2)
-  min_separation_m: 3.0     # m — minimum tree-to-tree distance
-  house_margin_m: 1.5       # m — keep-out ring around building footprints
+  house_margin_m: 1.5       # m — keep-out ring around trail tiles (park scatter);
+                            # street trees are potted — see planters.tree_spacing_m
 
 plants:
-  per_block: [4, 12]        # [min, max] — plant clumps per PARK block (park grass only)
+  per_block: [4, 12]        # [min, max] — plant clumps per PARK block (park grass only);
+                            # sidewalk plants are potted — see planters.plant_spacing_m
   min_separation_m: 1.0     # m — minimum plant-to-plant distance
   house_margin_m: 1.5       # m — keep-out ring around trail tiles
+
+planters:
+  tree_spacing_m: 30.0      # m — street trees (in planters tagged "tree") along frontage
+  plant_spacing_m: 40.0     # m — plant boxes along frontage
+  plant_slot_m: 0.7         # m — planter length per plant clump (1-3 clumps per box)
+  soil_level_frac: 0.75     # 0..1 — greenery base sits at this fraction of the
+                            # planter's height (tall bush planters ≠ ground level)
+
+bus_stops:
+  spacing_m: 130.0          # m — shelter spacing along frontages (≈ one per block or two)
 
 streetlights:
   spacing_m: 18.0           # m — spacing along block frontages
 
 benches:
-  spacing_m: 30.0           # m — spacing along block frontages
+  spacing_m: 30.0           # m — spacing along block frontages (uses usds.benches
+                            # entries tagged "sidewalk")
 
 fire_hydrants:
   spacing_m: 55.0           # m — spacing along block frontages (one per ~half block)
@@ -108,7 +124,10 @@ traffic_lights:
                             # sidewalk; pole faces the intersection center
 
 humans:
-  per_block: [0, 3]         # [min, max] — humans per block, on open ground
+  per_block: [0, 3]         # [min, max] — idlers per block on open grass (parks mostly)
+  sidewalk_spacing_m: 45.0  # m — pedestrians along sidewalks, walking with the
+                            # street (0 disables)
+  trail_spacing_m: 30.0     # m — walkers along park trails (0 disables)
   min_separation_m: 2.0     # m — minimum person-to-person distance
   house_margin_m: 1.0       # m — keep-out ring around building lots
 
@@ -150,6 +169,9 @@ disaster:
   cars_strewn: [4, 10]                  # [min, max] — extra wrecks tossed onto open ground
   strewn_topple_fraction: 0.7           # 0..1 — strewn cars flipped (rest stay upright)
   strewn_margin_m: 1.5                  # m — keep strewn cars off building footprints
+  humans_prone_fraction: 0.35           # 0..1 — pedestrians/idlers lying flat where
+                                        # they stood (casualties / taking cover)
+  humans_strewn: [2, 6]                 # [min, max] — extra casualties on road asphalt
 
 # ---- per-family yaw offsets (deg), added to auto-computed rotations -----------
 # (for a single misaligned asset, prefer a per-USD yaw-offset in its usds entry)
@@ -188,6 +210,9 @@ fallback_sizes:
   fire_hydrant:  [0.5, 0.5, 0.9]
   trash_can:     [0.8, 0.8, 1.2]
   traffic_light: [1.0, 1.0, 6.0]
+  human:         [1.2, 0.35, 1.8]  # A-pose bbox; y = body depth (prone lift)
+  bus_stop:      [4.0, 1.5, 2.5]
+  planter:       [1.0, 1.0, 0.5]
 
 # ---- asset library --------------------------------------------------------------
 # Entry forms:  "path.usd"                                (global asset_scale, Z-up)
@@ -211,6 +236,7 @@ usds:
     trail:
       usd: "RetroNeighborhood/Props/SM_DriveWay_01.prop.usd"
       scale: 0.01   # RetroNeighborhood authored in cm; override the global default
+
   materials:
     grass: "Muyang/StandaloneMaterials/Grass/MI_Grass.usd"
     asphalt: "Muyang/StandaloneMaterials/Asphalt/MI_Asphalt.usd"
@@ -220,8 +246,8 @@ usds:
     # each entry keeps its original effective footprint, expressed against the
     # new global default (1.0)
     intact:
-      - usd: "RetroNeighborhood/Props/SM_House_01.prop.usd"
-        scale: 0.01   # RetroNeighborhood authored in cm; unchanged effective footprint
+      # - usd: "RetroNeighborhood/Props/SM_House_01.prop.usd"
+      #   scale: 0.01   # RetroNeighborhood authored in cm; unchanged effective footprint
       - "Muyang/ModernCityEnvironment/Collected_Building01/SM_MERGED_BP_MBuilding01.usd"
         # authored in meters; already matches the new global default (1.0)
       - usd: "Muyang/ModernCityEnvironment/Collected_Building02/SM_MERGED_BP_MBuilding02.usd"
@@ -230,9 +256,30 @@ usds:
         scale: 0.01   # unchanged effective footprint (was the old global default)
       - usd: "Muyang/ModernCityEnvironment/Collected_Building05/SM_MERGED_BP_MBuilding05.usd"
         scale: 0.01   # unchanged effective footprint (was the old global default)
+      - usd: "Muyang/DownTown/Assets/BG_Building_A.usd"
+        scale: 0.01   
+      - usd: "Muyang/DownTown/Assets/BG_Building_B.usd"
+        scale: 0.01   
+      - usd: "Muyang/DownTown/Assets/BG_Building_C.usd"
+        scale: 0.01   
+      - usd: "Muyang/DownTown/Assets/BG_Building_D.usd"
+        scale: 0.01   
+      - usd: "Muyang/DownTown/Assets/BG_Building_E.usd"
+        scale: 0.01   
+      - usd: "Muyang/DownTown/Assets/BG_Building_F.usd"
+        scale: 0.01   
 
     # damaged:
     #   - "Muyang/RuinedModernBuildings/Flatten_Buildings/SM_Flatten_Building_01.usd"
+  
+  play_structures:
+    - usd: "Muyang/CivilianArea/Assets/SM_PlaygroundSlide_01.usd"
+      scale: 0.01
+    - usd: "Muyang/CivilianArea/Assets/SM_PlaygroundSwings_01.usd"
+      scale: 0.01
+    - usd: "Muyang/CivilianArea/Assets/SM_PlaygroundSwings_02.usd"
+      scale: 0.01
+
 
   trees:
     # - usd: "RetroNeighborhood/Props/SM_Tree_01.prop.usd"
@@ -262,6 +309,21 @@ usds:
       scale: 0.01
     - usd: "CityPark/Props/SM_Tree_08.prop.usd"
       scale: 0.01
+    # - usd: "Muyang/DownTown/Assets/Tree_A.usd"
+    #   scale: 0.01
+    # - usd: "Muyang/DownTown/Assets/Tree_B.usd"
+    #   scale: 0.01
+    # - usd: "Muyang/DownTown/Assets/Tree_C.usd"
+    #   scale: 0.01
+    - usd: "CityPark/Props/SM_Stump.prop.usd"
+      scale: 0.01
+      tags: ["stump"]
+    - usd: "CityPark/Props/SM_Stump_02.prop.usd"
+      scale: 0.01
+      tags: ["stump"]
+    - usd: "CityPark/Props/SM_Stump_03.prop.usd"
+      scale: 0.01
+      tags: ["stump"]
 
   plants:
     - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Grass.usd"
@@ -270,11 +332,11 @@ usds:
     - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Grass_Flowers2.usd"
     - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bush_1.usd"
     - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bush_2.usd"
-    - usd: "CityPark/Props/SM_Stump.prop.usd"
+    - usd: "Muyang/DownTown/Assets/Plant_Red.usd"
       scale: 0.01
-    - usd: "CityPark/Props/SM_Stump_02.prop.usd"
+    - usd: "Muyang/DownTown/Assets/Plant_Purple.usd"
       scale: 0.01
-    - usd: "CityPark/Props/SM_Stump_03.prop.usd"
+    - usd: "Muyang/DownTown/Assets/Plant_Pink.usd"
       scale: 0.01
 
   rocks:
@@ -288,6 +350,25 @@ usds:
       scale: 0.01
     - usd: "CityPark/Props/SM_Stone_09.prop.usd"
       scale: 0.01
+    - usd: "Muyang/DownTown/Assets/Rock_A.usd"
+      scale: 0.01
+    - usd: "Muyang/DownTown/Assets/Rock_B.usd"
+      scale: 0.01
+    - usd: "Muyang/DownTown/Assets/Rock_C.usd"
+      scale: 0.01
+    - usd: "Muyang/DownTown/Assets/Rock_D.usd"
+      scale: 0.01
+    - usd: "Muyang/DownTown/Assets/Rock_E.usd"
+      scale: 0.01
+  
+  planters:
+    - usd: "Muyang/DownTown/Assets/Planter_A.usd"
+      scale: 0.01
+    - usd: "Muyang/DownTown/Assets/Planter_B.usd"
+      scale: 0.01
+    - usd: "Muyang/DownTown/Assets/PlanterLarge_A.usd"
+      scale: 0.01
+      tags: ["tree"]
 
   streetlights:
     - usd: "RetroNeighborhood/Props/SM_StreetLight.prop.usd"
@@ -297,6 +378,56 @@ usds:
     - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Lamp_005.usd"
     - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Lamp_006.usd"
       tags: ["park"]
+  
+  bus_stops:
+    - usd: "Muyang/DownTown/Assets/BusStop.usd"
+      scale: 0.01
+      yaw-offset: 180.0
+
+  trash_cans:
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_MTrashCan.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_003.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_003_01.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_003_02.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_004.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_006.usd"
+    - usd: "CityPark/Props/SM_Small_Trash_can.prop.usd"
+      scale: 0.01
+      tags: ["park"]
+    - usd: "Muyang/DownTown/Assets/garbageCan.usd"
+      scale: 0.01
+  
+  traffic_lights:
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_001.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_002.usd"
+
+  fire_hydrants:
+    - usd: "RetroNeighborhood/Props/SM_FireHydrant.prop.usd"
+      scale: 0.01
+
+  benches:
+    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bench01.usd"
+      yaw-offset: -90.0
+      tags: ["sidewalk"]
+    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bench02.usd"
+      yaw-offset: -90.0
+      tags: ["sidewalk"]
+    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bench03.usd"
+      yaw-offset: -90.0
+      tags: ["sidewalk"]
+    - usd: "Muyang/DownTown/Assets/Bench.usd"
+      scale: 0.01
+      yaw-offset: 0.0 # TODO?
+      tags: ["sidewalk", "park"]
+    - usd: "CityPark/Props/SM_Log_shop.prop.usd"
+      scale: 0.01
+      yaw-offset: 90.0
+      tags: ["park"]
+    - usd: "CityPark/Props/SM_Log_shop_02.prop.usd"
+      scale: 0.01
+      yaw-offset: 90.0
+      tags: ["park"]
+
   cars:
     - usd: "RetroNeighborhood/130.usdz"
       scale: 0.01
@@ -320,47 +451,28 @@ usds:
     #   scale: 0.01
     #   axis-up: "Y"
     - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SK_ConstructionTruck01FullyRigged.usd"
-
-  trash_cans:
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_MTrashCan.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_003.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_003_01.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_003_02.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_004.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_006.usd"
-    - usd: "CityPark/Props/SM_Small_Trash_can.prop.usd"
-      scale: 0.01
-      tags: ["park"]
-  
-  traffic_lights:
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_001.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_002.usd"
-  fire_hydrants:
-    - usd: "RetroNeighborhood/Props/SM_FireHydrant.prop.usd"
-      scale: 0.01
-
-  benches:
-    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bench01.usd"
-      yaw-offset: -90.0
-    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bench02.usd"
-      yaw-offset: -90.0
-    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bench03.usd"
-      yaw-offset: -90.0
-    - usd: "CityPark/Props/SM_Log_shop.prop.usd"
+    - usd: "Muyang/DownTown/Assets/Vehicle_A.usd"
       scale: 0.01
       yaw-offset: 90.0
-      tags: ["park"]
-    - usd: "CityPark/Props/SM_Log_shop_02.prop.usd"
+    - usd: "Muyang/DownTown/Assets/Vehicle_Police.usd"
       scale: 0.01
       yaw-offset: 90.0
-      tags: ["park"]
+    - usd: "Muyang/DownTown/Assets/Vehicle_Taxi.usd"
+      scale: 0.01
+      yaw-offset: 90.0
 
 
-  # humans:
-  #   - "PLACEHOLDER/Characters/SM_Human_01.usd"
+  # RenderPeople rigged humans: cm-authored (scale 0.01), art faces -Y
+  # (yaw-offset 90). UsdSkel rigs with no animation clip — the generator
+  # authors static idle/walk poses onto them (see _HUMAN_POSES).
+  humans:
+    - {usd: "Muyang/People/rp_carla_rigged_001_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "Muyang/People/rp_claudia_rigged_002_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "Muyang/People/rp_eric_rigged_001_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "Muyang/People/rp_manuel_rigged_001_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "Muyang/People/rp_nathan_rigged_003_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "Muyang/People/rp_sophia_rigged_003_ue4.usd", scale: 0.01, yaw-offset: 90}
 
-
-## Park assets
 
 
 

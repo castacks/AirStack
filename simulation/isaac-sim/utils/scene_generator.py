@@ -22,10 +22,12 @@ the sidewalk; leftover gaps are filled with placeholder prisms:
              plants on the grass and evenly-spread trees (parks.*); a
              configurable fraction of buildings rendered damaged
              (tilted + sunk).
-    Step 4 — Detail: trees + humans scattered on open grass; streetlights,
-             fire hydrants and trash cans along block frontages (shared
-             occupancy grid — categories never stack); traffic lights at
-             NS×EW corridor intersections.
+    Step 4 — Detail: humans on sidewalks/trails/grass; bus stops,
+             streetlights, benches, planters (street trees + plant boxes),
+             fire hydrants and trash cans along block frontages — every
+             street prop inset off the curb so it sits fully on the
+             sidewalk (shared occupancy grid — categories never stack);
+             traffic lights at NS×EW corridor intersections.
     Step 5 — Cars + disaster: cars parked along road corridors (right-hand
              traffic). Disaster pass (tornado aftermath) applied inline.
 
@@ -56,7 +58,7 @@ import math
 import os
 import random
 
-from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, Vt
+from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, UsdSkel, Vt
 
 
 # ---------------------------------------------------------------------------
@@ -894,14 +896,22 @@ def build_city(config: dict, resolver: SizeResolver):
     tlight_usds   = _nl(usds.get("traffic_lights") or [])
     hydrant_usds  = _nl(usds.get("fire_hydrants") or [])
     human_usds    = _nl(usds.get("humans") or [])
+    planter_usds  = _nl(usds.get("planters") or [])
+    busstop_usds  = _nl(usds.get("bus_stops") or [])
 
-    # Street vs park furniture pools (tags: ["park"] in the usds entry).
+    # Street vs park furniture pools (tags in the usds entry): "park" marks
+    # park-only furniture, "sidewalk" marks street-frontage benches, "tree"
+    # marks planters big enough for a street tree, "stump" marks tree stumps
+    # (park scatter only — never potted in a sidewalk planter).
     street_light_usds = _pool_not(light_usds, "park")
     park_light_usds   = _pool(light_usds, "park")
-    street_bench_usds = _pool_not(bench_usds, "park")
+    street_bench_usds = _pool(bench_usds, "sidewalk")
     park_bench_usds   = _pool(bench_usds, "park")
     street_trash_usds = _pool_not(trash_usds, "park")
     park_trash_usds   = _pool(trash_usds, "park")
+    street_tree_usds  = _pool_not(tree_usds, "stump")
+    tree_planter_usds  = _pool(planter_usds, "tree") if planter_usds else []
+    plant_planter_usds = _pool_not(planter_usds, "tree") if planter_usds else []
 
     layout_cfg = config.get("layout", {})
     region_m = layout_cfg.get("region_m", [200.0, 200.0])
@@ -954,12 +964,16 @@ def build_city(config: dict, resolver: SizeResolver):
     placements: list = []
 
     def add(usd, x, y, z, yaw, category, scale, roll=0.0, pitch=0.0, axis_up="Z",
-            stretch=None):
+            stretch=None, pose=None, settle=False):
         # Per-asset yaw-offset is baked in here so every category gets it —
         # callers pass the *intended facing* and the offset corrects for art
         # that isn't authored facing +X. *stretch* is an optional (fx, fy)
         # extra local-XY scale on top of *scale* — used by tiling to stretch
-        # each tile to exactly cover its grid step.
+        # each tile to exactly cover its grid step. *pose* names a
+        # _HUMAN_POSES entry to bind onto a rigged human. *settle=True* marks
+        # props placed at approximated fallen orientations (toppled poles,
+        # flipped cars) for a post-placement physics settle
+        # (scene_prep.settle_rigid_props) so they rest naturally.
         p = {
             "usd": usd, "x_m": x, "y_m": y, "z_m": z,
             "yaw_deg": yaw + _yo(usd), "roll_deg": roll, "pitch_deg": pitch,
@@ -967,6 +981,10 @@ def build_city(config: dict, resolver: SizeResolver):
         }
         if stretch is not None:
             p["stretch"] = stretch
+        if pose is not None:
+            p["pose"] = pose
+        if settle:
+            p["settle"] = True
         placements.append(p)
 
     def _axis_roll(usd):
@@ -1190,10 +1208,13 @@ def build_city(config: dict, resolver: SizeResolver):
     # (benches facing the trail, trash cans, lamps) along its sides.
     # Trail tile rects join house_rects so later scatter stays off the path.
     # =======================================================================
+    trail_paths: list = []      # dense (x, y) polylines, one per park trail
+    trail_top = 0.0             # z of the trail tiles' walking surface
     if park_blocks and trail_usds:
         tu = trail_usds[0]
         tfp = resolver.get(tu, "trail", scale=_sc(tu))
         t_len, t_w = tfp["sx"], tfp["sy"]     # art X runs along the path
+        trail_top = 0.015 + tfp["sz"] - tfp["base"]
         wp_lo, wp_hi = int(trail_waypoints[0]), int(trail_waypoints[1])
 
         for (pblk, pinset) in park_blocks:
@@ -1215,6 +1236,7 @@ def build_city(config: dict, resolver: SizeResolver):
                 way = ([(lat(), iy0)] + [(lat(), min(max(y, iy0 + m), iy1 - m))
                                          for y in sorted(ys)] + [(lat(), iy1)])
             dense = _catmull_rom_points(way, samples_per_seg=10)
+            trail_paths.append(dense)
 
             # Trail tiles: slight step overlap keeps curves gap-free.
             for tx, ty, tyaw in _walk_polyline(dense, t_len * 0.8):
@@ -1338,7 +1360,16 @@ def build_city(config: dict, resolver: SizeResolver):
                     (x0, y0, x1, y0, -90.0), (x0, y1, x1, y1, 90.0),
                     (x0, y0, x0, y1, 180.0), (x1, y0, x1, y1, 0.0)):
                 length = math.hypot(bx - ax, by - ay)
-                n = max(1, int(length / spacing))
+                if spacing > length:
+                    # Sparser than one per edge: emit a single point with
+                    # probability length/spacing so the average density still
+                    # matches the requested spacing (instead of every edge
+                    # getting one regardless).
+                    if rng.random() >= length / spacing:
+                        continue
+                    n = 1
+                else:
+                    n = int(length / spacing)
                 step = length / n
                 for k in range(n + 1 if phase == 0.0 else n):
                     s = (k + phase) * step
@@ -1355,21 +1386,41 @@ def build_city(config: dict, resolver: SizeResolver):
                         continue
                     yield px, py, out_yaw
 
-    def _topple_flat(usd, fp, x, y, category, z0=0.0):
+    # Frontage points sit exactly ON the curb line, so a prop centered there
+    # protrudes halfway into the road. Every street-furniture pass steps its
+    # prop inward (opposite the outward street yaw) by half the prop's short
+    # footprint axis plus this margin, so meshes sit fully on the sidewalk
+    # while staying close to the curb.
+    curb_margin = float(config.get("frontage", {}).get("curb_margin_m", 0.3))
+
+    def _inset_pos(px, py, street_yaw, dist):
+        """Step (px, py) *dist* meters from the curb onto the sidewalk."""
+        rad = math.radians(street_yaw)
+        return px - math.cos(rad) * dist, py - math.sin(rad) * dist
+
+    def _curb_inset(fp):
+        """Inset distance putting *fp*'s short axis fully on the sidewalk.
+        The short axis is the prop's depth toward the road (the long axis
+        runs along the curb — bench seats, shelter fronts, lamp arms)."""
+        return min(fp["sx"], fp["sy"]) / 2.0 + curb_margin
+
+    def _topple_flat(usd, fp, x, y, category, z0=0.0, pose=None):
         """Prop knocked flat: ~90° roll about its base pivot with a random
         heading; z lifts the pivot by half the footprint width so the lying
-        prop rests on (not in) the ground surface at height *z0*."""
+        prop roughly rests on the ground surface at height *z0* — marked for
+        the physics settle pass to find its true resting orientation."""
         add(usd, x, y, z0 + max(fp["sx"], fp["sy"]) / 2.0, rng.uniform(0.0, 360.0),
             category, _sc(usd),
             roll=_axis_roll(usd) + rng.choice([-1.0, 1.0]) * rng.uniform(80.0, 100.0),
-            axis_up=_au(usd))
+            axis_up=_au(usd), pose=pose, settle=True)
 
     park_block_set = {b for (b, _i) in park_blocks}
     park_insets = [inset for (_b, inset) in park_blocks]
 
-    # ---- Trees: sparse on non-park open ground (lining the sidewalks of
-    # packed blocks), denser and evenly spread across each park's grass.
-    if tree_usds:
+    # ---- Trees: parks get bare-ground trees, densely and evenly spread.
+    # Street trees are potted in tree-tagged planters along the frontage —
+    # see the planter passes in the street-furniture section below.
+    if tree_usds and park_insets:
         tcfg = config.get("trees", {})
 
         def _place_tree(tx, ty):
@@ -1379,21 +1430,14 @@ def build_city(config: dict, resolver: SizeResolver):
                 grass_top + resolver.get(usd, "tree", scale=_sc(usd))["base"],
                 rng.uniform(0, 360), "tree", _sc(usd) * jitter)
 
-        _scatter_in_blocks(tcfg.get("per_block", tcfg.get("per_cell", [1, 3])),
-                           float(tcfg.get("min_separation_m", 2.5)),
+        _scatter_in_blocks(None,
+                           float(parks_cfg.get("tree_min_separation_m", 4.0)),
                            float(tcfg.get("house_margin_m", 1.5)),
                            _place_tree,
-                           in_blocks=[b for b in blocks
-                                      if b not in park_block_set])
-        if park_insets:
-            _scatter_in_blocks(None,
-                               float(parks_cfg.get("tree_min_separation_m", 4.0)),
-                               float(tcfg.get("house_margin_m", 1.5)),
-                               _place_tree,
-                               in_blocks=park_insets,
-                               density_per_100m2=float(
-                                   parks_cfg.get("tree_density_per_100m2", 0.8)),
-                               even=True)
+                           in_blocks=park_insets,
+                           density_per_100m2=float(
+                               parks_cfg.get("tree_density_per_100m2", 0.8)),
+                           even=True)
 
     # ---- Plants (grass clumps, flowers, bushes): park grass only.
     if plant_usds and park_insets:
@@ -1428,6 +1472,27 @@ def build_city(config: dict, resolver: SizeResolver):
         _scatter_in_blocks(rocks_per_park, rock_min_sep_m, 0.5, _place_rock,
                            in_blocks=park_insets)
 
+    # ---- Bus stops: sparse along frontage, shelter opening toward the
+    # street. Placed before the other street furniture so the shelters claim
+    # their slots first — including the extra occupancy cells their length
+    # covers, so lamps/cans don't spawn inside them.
+    if busstop_usds:
+        spacing = float(config.get("bus_stops", {}).get("spacing_m", 130.0))
+        for px, py, street_yaw in _frontage_positions(spacing, phase=0.85,
+                                                      jitter_frac=0.3):
+            u = rng.choice(busstop_usds)
+            fp = resolver.get(u, "bus_stop", scale=_sc(u), axis_up=_au(u))
+            bx, by = _inset_pos(px, py, street_yaw, _curb_inset(fp))
+            add(u, bx, by, sidewalk_top + fp["base"], street_yaw, "bus_stop",
+                _sc(u), roll=_axis_roll(u), axis_up=_au(u))
+            # Claim the curb cells the shelter spans in the occupancy grid.
+            trad = math.radians(street_yaw + 90.0)
+            half_len = max(fp["sx"], fp["sy"]) / 2.0
+            for k in range(-int(half_len / 2.0) - 1, int(half_len / 2.0) + 2):
+                cx_ = px + math.cos(trad) * k * 2.0
+                cy_ = py + math.sin(trad) * k * 2.0
+                frontage_seen.add((round(cx_ / 2.0), round(cy_ / 2.0)))
+
     # ---- Streetlights: uniform spacing along frontage, lamp arm reaching
     # over the roadway (street rule: light the street, not the block).
     if light_usds:
@@ -1436,10 +1501,11 @@ def build_city(config: dict, resolver: SizeResolver):
         for px, py, street_yaw in _frontage_positions(spacing):
             lu = rng.choice(street_light_usds)
             lfp = resolver.get(lu, "streetlight", scale=_sc(lu))
+            lx, ly = _inset_pos(px, py, street_yaw, _curb_inset(lfp))
             if rng.random() < lights_toppled:
-                _topple_flat(lu, lfp, px, py, "streetlight", z0=sidewalk_top)
+                _topple_flat(lu, lfp, lx, ly, "streetlight", z0=sidewalk_top)
             else:
-                add(lu, px, py, sidewalk_top + lfp["base"], street_yaw,
+                add(lu, lx, ly, sidewalk_top + lfp["base"], street_yaw,
                     "streetlight", _sc(lu))
 
     # ---- Benches: along frontage, seat facing the street.
@@ -1449,8 +1515,58 @@ def build_city(config: dict, resolver: SizeResolver):
                                                       jitter_frac=0.3):
             u = rng.choice(street_bench_usds)
             fp = resolver.get(u, "bench", scale=_sc(u), axis_up=_au(u))
-            add(u, px, py, sidewalk_top + fp["base"], street_yaw, "bench", _sc(u),
+            bx, by = _inset_pos(px, py, street_yaw, _curb_inset(fp))
+            add(u, bx, by, sidewalk_top + fp["base"], street_yaw, "bench", _sc(u),
                 roll=_axis_roll(u), axis_up=_au(u))
+
+    # ---- Planters: fully on the sidewalk, close to the curb, long axis
+    # along the street. Tall planters carry their greenery at soil level —
+    # a fraction of the planter's height — never at the sidewalk itself.
+    planters_cfg = config.get("planters", {})
+    soil_frac = float(planters_cfg.get("soil_level_frac", 0.75))
+
+    def _add_planter(px, py, street_yaw, pu):
+        """Place planter *pu* inset from the curb; returns (x, y, soil_z,
+        along_x, along_y, usable_len) for whatever goes inside it."""
+        pfp = resolver.get(pu, "planter", scale=_sc(pu), axis_up=_au(pu))
+        qx, qy = _inset_pos(px, py, street_yaw, _curb_inset(pfp))
+        # Long axis parallel to the curb (art long axis assumed X).
+        pyaw = street_yaw + (90.0 if pfp["sx"] >= pfp["sy"] else 0.0)
+        add(pu, qx, qy, sidewalk_top + pfp["base"], pyaw, "planter", _sc(pu),
+            roll=_axis_roll(pu), axis_up=_au(pu))
+        trad = math.radians(street_yaw + 90.0)
+        return (qx, qy, sidewalk_top + pfp["sz"] * soil_frac,
+                math.cos(trad), math.sin(trad), max(pfp["sx"], pfp["sy"]))
+
+    # Street trees: one per tree-tagged planter.
+    if tree_planter_usds and street_tree_usds:
+        spacing = float(planters_cfg.get("tree_spacing_m", 30.0))
+        for px, py, street_yaw in _frontage_positions(spacing, phase=0.7,
+                                                      jitter_frac=0.2):
+            qx, qy, soil_z, _ax, _ay, _ln = _add_planter(
+                px, py, street_yaw, rng.choice(tree_planter_usds))
+            tu_ = rng.choice(street_tree_usds)
+            tfp_ = resolver.get(tu_, "tree", scale=_sc(tu_))
+            add(tu_, qx, qy, soil_z + tfp_["base"], rng.uniform(0.0, 360.0),
+                "tree", _sc(tu_) * rng.uniform(0.9, 1.1))
+
+    # Plant boxes: 1-3 plant clumps per planter, spread along its length.
+    if plant_planter_usds and plant_usds:
+        spacing = float(planters_cfg.get("plant_spacing_m", 40.0))
+        slot_m = float(planters_cfg.get("plant_slot_m", 0.7))
+        for px, py, street_yaw in _frontage_positions(spacing, phase=0.15,
+                                                      jitter_frac=0.25):
+            qx, qy, soil_z, ax_, ay_, ln_ = _add_planter(
+                px, py, street_yaw, rng.choice(plant_planter_usds))
+            n = max(1, min(3, int(ln_ / slot_m)))
+            for k in range(n):
+                off = (k - (n - 1) / 2.0) * (ln_ * 0.7 / max(n, 1))
+                pl = rng.choice(plant_usds)
+                plfp = resolver.get(pl, "plant", scale=_sc(pl), axis_up=_au(pl))
+                add(pl, qx + ax_ * off, qy + ay_ * off, soil_z + plfp["base"],
+                    rng.uniform(0.0, 360.0), "plant",
+                    _sc(pl) * rng.uniform(0.8, 1.0),
+                    roll=_axis_roll(pl), axis_up=_au(pl))
 
     # ---- Fire hydrants: sparse along frontage, outlet toward the street.
     # Bolted to the water main, so a tornado rarely moves them — only a
@@ -1462,10 +1578,11 @@ def build_city(config: dict, resolver: SizeResolver):
                                                       jitter_frac=0.2):
             u = rng.choice(hydrant_usds)
             fp = resolver.get(u, "fire_hydrant", scale=_sc(u), axis_up=_au(u))
+            hx, hy = _inset_pos(px, py, street_yaw, _curb_inset(fp))
             if rng.random() < sheared:
-                _topple_flat(u, fp, px, py, "fire_hydrant", z0=sidewalk_top)
+                _topple_flat(u, fp, hx, hy, "fire_hydrant", z0=sidewalk_top)
             else:
-                add(u, px, py, sidewalk_top + fp["base"], street_yaw,
+                add(u, hx, hy, sidewalk_top + fp["base"], street_yaw,
                     "fire_hydrant", _sc(u), roll=_axis_roll(u), axis_up=_au(u))
 
     # ---- Trash cans: along frontage. Light and unanchored, so tipped ones
@@ -1474,19 +1591,20 @@ def build_city(config: dict, resolver: SizeResolver):
         spacing = float(config.get("trash_cans", {}).get("spacing_m", 25.0))
         tipped = float(dcfg.get("trash_cans_toppled_fraction", 0.0))
         scatter = float(dcfg.get("trash_cans_scatter_m", 0.0))
-        for px, py, _street_yaw in _frontage_positions(spacing, phase=0.5,
-                                                       jitter_frac=0.35):
+        for px, py, street_yaw in _frontage_positions(spacing, phase=0.5,
+                                                      jitter_frac=0.35):
             u = rng.choice(street_trash_usds)
             fp = resolver.get(u, "trash_can", scale=_sc(u), axis_up=_au(u))
+            tx_, ty_ = _inset_pos(px, py, street_yaw, _curb_inset(fp))
             if rng.random() < tipped:
                 ang = rng.uniform(0.0, 2.0 * math.pi)
                 d = rng.uniform(0.0, scatter)
-                bx_, by_ = px + d * math.cos(ang), py + d * math.sin(ang)
+                bx_, by_ = tx_ + d * math.cos(ang), ty_ + d * math.sin(ang)
                 if exclusions and _in_exclusion(bx_, by_, exclusions):
-                    bx_, by_ = px, py       # don't blow into a keep-out zone
+                    bx_, by_ = tx_, ty_     # don't blow into a keep-out zone
                 _topple_flat(u, fp, bx_, by_, "trash_can", z0=sidewalk_top)
             else:
-                add(u, px, py, sidewalk_top + fp["base"], rng.uniform(0.0, 360.0),
+                add(u, tx_, ty_, sidewalk_top + fp["base"], rng.uniform(0.0, 360.0),
                     "trash_can", _sc(u), roll=_axis_roll(u), axis_up=_au(u))
 
     # ---- Traffic lights: one per road intersection (probabilistic), on a
@@ -1554,25 +1672,82 @@ def build_city(config: dict, resolver: SizeResolver):
                     add(u, x, y, sidewalk_top + fp["base"], yaw, "traffic_light",
                         _sc(u), roll=_axis_roll(u), axis_up=_au(u))
 
-    # ---- Humans: scattered on open ground; a prone fraction lies flat
-    # (casualties / taking cover), the rest stand with random headings.
+    # ---- Humans. Pedestrians walk the sidewalks (heading along the street),
+    # walkers follow the park trails, idlers stand on open grass. All are
+    # posed via their UsdSkel rigging (walk / idle — see _HUMAN_POSES) so
+    # they don't render in their authored T-pose.
+    # Disaster: a prone fraction lies flat where they stood (face-down/up,
+    # posed arms-down first so they read as casualties, not crosses), and
+    # humans_strewn extra casualties are thrown onto the road asphalt.
     if human_usds:
         hcfg = config.get("humans", {})
         prone = float(dcfg.get("humans_prone_fraction", 0.0))
 
-        def _place_human(tx, ty):
+        def _human_down(u, fp, x, y, z0):
+            """Casualty flat on the ground: face-down/up (±90° pitch about
+            the body's facing axis via roll on the pre-yaw frame), lifted by
+            half the body depth (sy — arms-down pose, not the T-pose span)."""
+            add(u, x, y, z0 + fp["sy"] / 2.0, rng.uniform(0.0, 360.0),
+                "human", _sc(u),
+                roll=_axis_roll(u) + rng.choice([-1.0, 1.0]) * rng.uniform(82.0, 98.0),
+                axis_up=_au(u), pose="idle")
+
+        def _add_human(tx, ty, z0, yaw, pose):
             u = rng.choice(human_usds)
             fp = resolver.get(u, "human", scale=_sc(u), axis_up=_au(u))
             if rng.random() < prone:
-                _topple_flat(u, fp, tx, ty, "human", z0=grass_top)
+                _human_down(u, fp, tx, ty, z0)
             else:
-                add(u, tx, ty, grass_top + fp["base"], rng.uniform(0.0, 360.0),
-                    "human", _sc(u), roll=_axis_roll(u), axis_up=_au(u))
+                add(u, tx, ty, z0 + fp["base"], yaw, "human", _sc(u),
+                    roll=_axis_roll(u), axis_up=_au(u), pose=pose)
 
+        # Sidewalk pedestrians: half a sidewalk in from the curb line,
+        # heading along the street (both directions).
+        sw_spacing = float(hcfg.get("sidewalk_spacing_m", 0.0))
+        if sw_spacing > 0.0:
+            inset_d = max(sw_w / 2.0, 0.4)
+            for px, py, street_yaw in _frontage_positions(sw_spacing, phase=0.4,
+                                                          jitter_frac=0.4):
+                rad = math.radians(street_yaw)
+                hx = px - math.cos(rad) * inset_d
+                hy = py - math.sin(rad) * inset_d
+                _add_human(hx, hy, sidewalk_top,
+                           street_yaw + rng.choice((90.0, -90.0)), "walk")
+
+        # Park trail walkers: on the trail itself, heading along it.
+        tr_spacing = float(hcfg.get("trail_spacing_m", 0.0))
+        if tr_spacing > 0.0:
+            for dense in trail_paths:
+                for hx, hy, hyaw in _walk_polyline(dense, tr_spacing, phase=0.6):
+                    if exclusions and _in_exclusion(hx, hy, exclusions):
+                        continue
+                    _add_human(hx, hy, trail_top,
+                               hyaw + rng.choice((0.0, 180.0)), "walk")
+
+        # Idlers on open grass (parks mostly — packed blocks have little
+        # open ground), random headings.
         _scatter_in_blocks(hcfg.get("per_block", [0, 2]),
                            float(hcfg.get("min_separation_m", 2.0)),
                            float(hcfg.get("house_margin_m", 1.0)),
-                           _place_human)
+                           lambda tx, ty: _add_human(
+                               tx, ty, grass_top, rng.uniform(0.0, 360.0), "idle"))
+
+        # Disaster: extra casualties strewn on the road asphalt.
+        strewn_range = dcfg.get("humans_strewn", [0, 0])
+        want = rng.randint(int(strewn_range[0]), int(strewn_range[1]))
+        n_strewn = 0
+        for _ in range(want * 10):
+            if n_strewn >= want or not road_corridors:
+                break
+            corr = rng.choice(road_corridors)
+            hx = rng.uniform(corr["x0"], corr["x1"])
+            hy = rng.uniform(corr["y0"], corr["y1"])
+            if exclusions and _in_exclusion(hx, hy, exclusions):
+                continue
+            u = rng.choice(human_usds)
+            fp = resolver.get(u, "human", scale=_sc(u), axis_up=_au(u))
+            _human_down(u, fp, hx, hy, 0.0)
+            n_strewn += 1
 
     # =======================================================================
     # STEP 4 — CARS (right-hand traffic along road corridors) + STREWN WRECKS
@@ -1599,7 +1774,7 @@ def build_city(config: dict, resolver: SizeResolver):
                 roll, z = 180.0 + rng.uniform(-12.0, 12.0), fp["sz"]
             add(usd, x, y, z, rng.uniform(0.0, 360.0), "car", _sc(usd),
                 roll=_axis_roll(usd) + roll, pitch=rng.uniform(-8.0, 8.0),
-                axis_up=_au(usd))
+                axis_up=_au(usd), settle=True)
 
         # ---- Lane cars: distributed along road corridors, right-hand traffic.
         for corr in road_corridors:
@@ -1676,8 +1851,10 @@ def build_city(config: dict, resolver: SizeResolver):
             if rng.random() < strewn_topple:
                 _add_toppled_car(usd, fp, x, y)
             else:
+                # Upright but tossed onto uneven ground — settle it too.
                 add(usd, x, y, fp["base"], rng.uniform(0.0, 360.0), "car",
-                    _sc(usd), roll=_axis_roll(usd), axis_up=_au(usd))
+                    _sc(usd), roll=_axis_roll(usd), axis_up=_au(usd),
+                    settle=True)
             strewn_pts.append((x, y))
 
     # --- Summary -----------------------------------------------------------
@@ -1690,6 +1867,131 @@ def build_city(config: dict, resolver: SizeResolver):
           f"(total {len(placements)}, {n_buildings} buildings, {n_damaged} damaged, "
           f"{len(placeholder_bldgs)} placeholder prisms)")
     return placements, city_layout
+
+
+# ---------------------------------------------------------------------------
+# Human posing (UsdSkel)
+# ---------------------------------------------------------------------------
+# The RenderPeople "*_rigged_*_ue4" humans are SkelRoots with a UE4-mannequin-
+# compatible Skeleton (pelvis / spine_01… / upperarm_l / thigh_r…, 95 joints)
+# carrying rest + bind transforms but *no* animation clip — composed as-is
+# they stand in a T-pose. Poses are authored procedurally: a static
+# UsdSkel.Animation is computed from the character's own rest transforms with
+# world-space rotation deltas applied to a few joints, then bound to the
+# instance's Skeleton via skel:animationSource. Joint names are shared across
+# the whole pack, so one pose spec works for every character.
+#
+# Spec format: {joint_basename: (world_axis_xyz, degrees)} — the delta rotates
+# the joint's rest frame about its own origin in world space; descendants
+# follow. Axis/sign constants were verified geometrically (joint world
+# positions after posing): the characters are authored facing -Y (hence the
+# yaw-offset: 90 in the config) in an A-pose — arms ~45° down along the X
+# axis — so lowering an arm to the side takes ~+45° more about world Y.
+
+_HUMAN_POSES = {
+    # Natural stand: arms lowered to the sides, slight elbow relaxation.
+    "idle": {
+        "upperarm_l": ((0.0, 1.0, 0.0), 45.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -45.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), 8.0),
+        "lowerarm_r": ((0.0, 1.0, 0.0), -8.0),
+    },
+    # Mid-stride walk: arms down (opposite swing), legs scissored.
+    # Facing is -Y, so "forward" deltas move joints toward -Y.
+    "walk": {
+        "upperarm_l": ((0.0, 1.0, 0.0), 42.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -42.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), 6.0),
+        "lowerarm_r": ((0.0, 1.0, 0.0), -6.0),
+        "upperarm_l+": ((1.0, 0.0, 0.0), 12.0),   # swing: left arm back
+        "upperarm_r+": ((1.0, 0.0, 0.0), -12.0),  # right arm forward
+        "thigh_l": ((1.0, 0.0, 0.0), -20.0),      # left leg forward
+        "thigh_r": ((1.0, 0.0, 0.0), 14.0),       # right leg back
+        "calf_r": ((1.0, 0.0, 0.0), 18.0),        # trailing knee bent
+    },
+}
+
+
+def _pose_joint_transforms(joints, rest, deltas):
+    """Compute posed joint transforms from a skeleton's rest pose.
+
+    *joints* is the UsdSkel joint-path list (parent-first order), *rest* the
+    matching local rest transforms (Gf.Matrix4d), *deltas* a pose spec dict
+    (see ``_HUMAN_POSES``; a trailing ``+`` on the joint name stacks a second
+    delta on the same joint). Returns ``(new_local, new_world)`` matrix lists.
+    """
+    idx = {str(p): i for i, p in enumerate(joints)}
+    n = len(joints)
+    new_local = [Gf.Matrix4d(m) for m in rest]
+    new_world: list = [None] * n
+    by_joint: dict = {}
+    for name, (axis, deg) in deltas.items():
+        by_joint.setdefault(name.rstrip("+"), []).append(
+            Gf.Matrix4d(1.0).SetRotate(Gf.Rotation(Gf.Vec3d(*axis), float(deg))))
+    for i in range(n):
+        path = str(joints[i])
+        pi = idx.get(path.rsplit("/", 1)[0], -1) if "/" in path else -1
+        pw = new_world[pi] if pi >= 0 else Gf.Matrix4d(1.0)
+        w = new_local[i] * pw
+        for rot in by_joint.get(path.rsplit("/", 1)[-1], []):
+            t = w.ExtractTranslation()
+            # Rotate the frame about its own origin by a world-space delta.
+            w = (w * Gf.Matrix4d(1.0).SetTranslate(Gf.Vec3d(t) * -1.0)
+                 * rot * Gf.Matrix4d(1.0).SetTranslate(t))
+            new_local[i] = w * pw.GetInverse()
+        new_world[i] = w
+    return new_local, new_world
+
+
+def _read_skeleton(asset_url: str):
+    """Open *asset_url* and return its (joints, rest_transforms), or None."""
+    try:
+        src = Usd.Stage.Open(asset_url)
+    except Exception:
+        src = None
+    if src is None:
+        return None
+    prim = next((p for p in src.Traverse() if p.GetTypeName() == "Skeleton"), None)
+    if prim is None:
+        return None
+    skel = UsdSkel.Skeleton(prim)
+    joints = skel.GetJointsAttr().Get()
+    rest = skel.GetRestTransformsAttr().Get()
+    if not joints or not rest or len(rest) != len(joints):
+        return None
+    return list(joints), list(rest)
+
+
+def _bind_human_pose(stage, prim, usd: str, pose: str, pose_cache: dict):
+    """Author a static pose animation under the placed human *prim* (a
+    reference to *usd*) and bind it to the composed Skeleton. Posed local
+    transforms are computed once per (asset, pose) and cached in
+    *pose_cache*; assets without a readable skeleton cache ``None`` and stay
+    in their authored pose.
+    """
+    key = (usd, pose)
+    if key not in pose_cache:
+        deltas = _HUMAN_POSES.get(pose)
+        skel_data = _read_skeleton(usd) if deltas else None
+        if skel_data is None:
+            pose_cache[key] = None
+        else:
+            joints, rest = skel_data
+            new_local, _ = _pose_joint_transforms(joints, rest, deltas)
+            pose_cache[key] = (Vt.TokenArray([str(j) for j in joints]),
+                               Vt.Matrix4dArray(new_local))
+    cached = pose_cache[key]
+    if cached is None:
+        return
+    skel_prim = next((c for c in Usd.PrimRange(prim)
+                      if c.GetTypeName() == "Skeleton"), None)
+    if skel_prim is None:
+        return
+    anim = UsdSkel.Animation.Define(stage, prim.GetPath().AppendChild("Pose"))
+    anim.GetJointsAttr().Set(cached[0])
+    anim.SetTransforms(cached[1], Usd.TimeCode.Default())
+    binding = UsdSkel.BindingAPI.Apply(skel_prim)
+    binding.CreateAnimationSourceRel().SetTargets([anim.GetPrim().GetPath()])
 
 
 # ---------------------------------------------------------------------------
@@ -1723,6 +2025,7 @@ def apply_placements(stage,
     """
     UsdGeom.Scope.Define(stage, Sdf.Path(parent_path))
     proto_index: dict = {}
+    pose_cache: dict = {}
     ssf = float(scene_scale_factor)
 
     for i, p in enumerate(placements):
@@ -1735,6 +2038,7 @@ def apply_placements(stage,
         # right) but the prim stops being a gprim and renders nothing. A
         # typeless def lets the referenced asset's own type win.
         prim = stage.DefinePrim(prim_path)
+        p["prim_path"] = prim_path      # so callers can post-process (settling)
         if not prim.GetReferences().AddReference(usd):
             print(f"[scene_gen] WARN: failed to reference {usd} at {prim_path}")
             continue
@@ -1744,6 +2048,11 @@ def apply_placements(stage,
         # so the reference lands with a correct bbox/transform but no visible
         # geometry unless we force-load it here.
         prim.Load()
+
+        # Rigged humans: bind a procedurally authored static pose so they
+        # don't compose in their T-shaped bind pose (see _HUMAN_POSES).
+        if p.get("pose"):
+            _bind_human_pose(stage, prim, usd, p["pose"], pose_cache)
 
         z_m = p["z_m"]
         if ground_snap is not None:

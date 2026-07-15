@@ -54,11 +54,20 @@ stage = omni.usd.get_context().get_stage()
 omni.timeline.get_timeline_interface().stop()
 
 _, ssf = scene_prep.get_stage_meters_per_unit(stage)
-scene_generator.reload_scene_on_stage(
+placements = scene_generator.reload_scene_on_stage(
     stage,
     os.path.join(_ISAAC_SIM_DIR, "config", "scene_generator_config.yaml"),
     scene_scale_factor=ssf,
     add_colliders_fn=scene_prep.add_colliders,
+)
+
+# Physics-settle toppled/strewn props (flipped cars, downed poles) so they
+# rest naturally instead of floating at their approximated orientations.
+scene_prep.settle_rigid_props(
+    stage,
+    [p["prim_path"] for p in placements
+     if p.get("settle") and p.get("prim_path")],
+    ground_path="/World/stage/generated/ground",
 )
 
 # Pump the app loop so the renderer processes change notifications for the
