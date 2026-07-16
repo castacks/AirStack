@@ -18,7 +18,7 @@
 
 diffaero_velocity_commander:
   ros__parameters:
-    drone_name: "drone_2"
+    drone_name: "drone_1"
     drone_mode: "sim"
 
     scenario: "hover"
@@ -30,8 +30,8 @@ diffaero_velocity_commander:
 
     # NUM_ROBOTS=1: drone_1 spawns at x=0, so offset=0 (raw odom == world frame).
     drone_position_offset: [0.0, 0.0, 0.0]
-    hover_positions: [0.0, -3.0, 1.2]
-    goal_position: [5.0, 3.0, 3.0]
+    hover_positions: [3.0, -3.0, 1.2]
+    goal_position: [3.0, 3.0, 3.0]
 
     control_rate_hz: 30.0
     hover_kp: 1.0
@@ -46,6 +46,9 @@ diffaero_velocity_commander:
     fence_min: [-10.0, -10.0, 0.0]
     fence_max: [10.0, 10.0, 3.0]
 
+    # Default checkpoint. To run a different trained policy without editing this
+    # file, pass policy:=<name> to the launch (planar_mlp | planar_cnn |
+    # planar_rcnn | sha2c) — it overlays checkpoint_path + velocity caps here.
     checkpoint_path: "/root/AirStack/robot/ros_ws/checkpoints/diffaero/sha2c_vel_cmd_oa/"
 
     # target_vel = (goal - pos) saturated to max_vel. Training sampled [3, 6] m/s

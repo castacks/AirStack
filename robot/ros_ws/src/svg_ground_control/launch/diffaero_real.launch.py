@@ -31,15 +31,38 @@ from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 
+# Policy presets — a short name maps to the parameter overlay applied on top of
+# the base config YAML (diffaero_vel_real.yaml). Empty `policy:=` keeps whatever
+# checkpoint_path the YAML declares (default: sha2c_vel_cmd_oa). Planar
+# checkpoints emit a 2-D action; keep conservative first-flight velocity caps for
+# real hardware (no max_vel_z — the planar wrapper ignores it).
+CKPT = "/root/AirStack/robot/ros_ws/checkpoints/diffaero"
+POLICIES = {
+    "sha2c":       {"checkpoint_path": f"{CKPT}/sha2c_vel_cmd_oa/"},
+    "planar_mlp":  {"checkpoint_path": f"{CKPT}/planar_mlp_sr0.96/",
+                    "max_vel": 1.5, "max_vel_xy": 1.0},
+    "planar_cnn":  {"checkpoint_path": f"{CKPT}/planar_cnn_sr0.97/",
+                    "max_vel": 1.5, "max_vel_xy": 1.0},
+    "planar_rcnn": {"checkpoint_path": f"{CKPT}/planar_rcnn_sr0.97/",
+                    "max_vel": 1.5, "max_vel_xy": 1.0},
+}
+
+
 def launch_setup(context, *args, **kwargs):
     config = LaunchConfiguration('config')
     scenario = LaunchConfiguration('scenario').perform(context)
+    policy = LaunchConfiguration('policy').perform(context)
     natnet_server = LaunchConfiguration('natnet_server_ip')
     natnet_client = LaunchConfiguration('natnet_client_ip')
 
     commander_params = [config]
     if scenario:
         commander_params.append({'scenario': scenario})
+    if policy:
+        if policy not in POLICIES:
+            raise RuntimeError(
+                f"Unknown policy '{policy}'. Valid: {', '.join(POLICIES)}")
+        commander_params.append(dict(POLICIES[policy]))
 
     natnet_launch = PathJoinSubstitution(
         [FindPackageShare('natnet_ros2'), 'launch', 'natnet_ros2.launch.py'])
@@ -95,6 +118,11 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'scenario', default_value='',
             description='Override scenario: hover, goal, random_walk, ...'),
+        DeclareLaunchArgument(
+            'policy', default_value='',
+            description='Policy preset (checkpoint + velocity caps) overlaid on '
+                        'the config: sha2c, planar_mlp, planar_cnn, planar_rcnn. '
+                        'Empty keeps the config YAML checkpoint.'),
         DeclareLaunchArgument(
             'drones', default_value='drone_1',
             description='Comma-separated names for real_interfaces (must match VOXL -n)'),

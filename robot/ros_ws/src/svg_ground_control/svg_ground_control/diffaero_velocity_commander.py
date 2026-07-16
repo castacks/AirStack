@@ -777,14 +777,30 @@ class DiffAeroVelocityCommander(Node):
                     f'{d.name}: facing goal (yaw={math.degrees(target_yaw):.1f}°) → ACTIVE')
 
         elif d.state == FlightState.ACTIVE:
-            if (self.mission_active and self.policy is not None
-                    and np.linalg.norm(self.policy_goal - d.position)
-                    < self.goal_arrival_threshold):
+            # Planar policies command no vertical velocity (vz=0), so they reach
+            # the goal's XY but never its Z — measure arrival in the horizontal
+            # plane only, otherwise the drone gets stuck hovering under/above the
+            # goal (running the policy with a noisy near-zero target velocity).
+            planar_policy = self.policy is not None and getattr(
+                self.policy, 'planar', False)
+            reached_goal = False
+            if self.mission_active and self.policy is not None:
+                offset = self.policy_goal - d.position
+                goal_dist = (np.linalg.norm(offset[:2]) if planar_policy
+                             else np.linalg.norm(offset))
+                reached_goal = goal_dist < self.goal_arrival_threshold
+            if reached_goal:
                 # The DiffAero policy is a cruise controller, not a position-hold
                 # controller — at the goal target_vel→0 but it overshoots and
                 # oscillates. Hand off to a stable pose-hold at the goal.
                 self.mission_active = False
-                d.hold_target = self.policy_goal.copy()
+                if planar_policy:
+                    # Hold the goal's XY but keep the current altitude — a planar
+                    # policy never controlled Z, so don't jump to the goal's Z.
+                    d.hold_target = np.array(
+                        [self.policy_goal[0], self.policy_goal[1], d.position[2]])
+                else:
+                    d.hold_target = self.policy_goal.copy()
                 d.hold_orientation = d.orientation.copy()
                 self.get_logger().info(
                     f'{d.name}: reached goal {self.policy_goal.round(2)} → HOLD')

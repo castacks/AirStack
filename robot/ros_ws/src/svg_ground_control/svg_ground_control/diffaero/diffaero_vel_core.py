@@ -62,10 +62,24 @@ class DiffAeroVelPolicy:
         self.uses_perception = cfg["env"]["name"] == "obstacle_avoidance"
         dyn = cfg["dynamics"]
 
+        # Network architecture (mlp | cnn | rnn | rcnn) selects the exported
+        # actor's call signature; planar policies emit a 2-D [vx, vy] action
+        # (the exported actor pads vz=0 internally), so the action-limit tensors
+        # must be 2-D to match.
+        self.network_name = str(cfg["network"]["name"]).lower()
+        self.planar = bool(dyn.get("planar", False))
+        self.action_dim = 2 if self.planar else 3
+
         # Defaults come from the training config unless overridden by the caller.
         self.vel_ema_factor = (
             vel_ema_factor if vel_ema_factor is not None
             else float(dyn["vel_ema_factor"]["default"]))
+        # Below this horizontal speed the travel direction is noisy/undefined, so
+        # the desired yaw is held instead of chasing the EMA — this stops the
+        # heading from spinning when hovering at/near the goal (matches training,
+        # dynamics/pointmass.py). Only planar configs define it; default to 0.3.
+        self.yaw_hold_speed = float(dyn.get("yaw_hold_speed", 0.3))
+        self._last_desired_yaw: float | None = None
         max_vel_xy = (max_vel_xy if max_vel_xy is not None
                       else float(dyn["max_vel"]["xy"]["default"]))
         max_vel_z = (max_vel_z if max_vel_z is not None
@@ -79,28 +93,61 @@ class DiffAeroVelPolicy:
         self.module.eval()
 
         # Action limits — these rescale the actor's [-1,1] tanh output to a
-        # velocity setpoint (matches min/max_action in exporter.py).
-        self.min_action = torch.tensor(
-            [[-max_vel_xy, -max_vel_xy, -max_vel_z]],
-            dtype=torch.float32, device=self.device)
-        self.max_action = torch.tensor(
-            [[max_vel_xy, max_vel_xy, max_vel_z]],
-            dtype=torch.float32, device=self.device)
+        # velocity setpoint (matches min/max_action in exporter.py). Planar
+        # policies omit the z-component (no vertical action).
+        if self.planar:
+            self.min_action = torch.tensor(
+                [[-max_vel_xy, -max_vel_xy]],
+                dtype=torch.float32, device=self.device)
+            self.max_action = torch.tensor(
+                [[max_vel_xy, max_vel_xy]],
+                dtype=torch.float32, device=self.device)
+        else:
+            self.min_action = torch.tensor(
+                [[-max_vel_xy, -max_vel_xy, -max_vel_z]],
+                dtype=torch.float32, device=self.device)
+            self.max_action = torch.tensor(
+                [[max_vel_xy, max_vel_xy, max_vel_z]],
+                dtype=torch.float32, device=self.device)
         self.max_vel_t = torch.tensor(max_vel, dtype=torch.float32, device=self.device)
         self.vel_ema: torch.Tensor | None = None
+
+        # Recurrent nets (rnn/rcnn) thread a GRU hidden state across ticks. Shape
+        # matches the exporter: (rnn_n_layers, batch=1, rnn_hidden_dim).
+        self.is_recurrent = self.network_name in ("rnn", "rcnn")
+        self.hidden_shape: tuple[int, int, int] | None = None
+        if self.is_recurrent:
+            net = cfg["network"]
+            self.hidden_shape = (
+                int(net["rnn_n_layers"]), 1, int(net["rnn_hidden_dim"]))
+        self.hidden: torch.Tensor | None = None
+        self._reset_hidden()
 
         self.perception_builder = PerceptionBuilder(
             intrinsics, grid=grid, flip_lr=flip_lr, flip_ud=flip_ud)
         self._up = torch.tensor([0.0, 0.0, 1.0], dtype=torch.float32, device=self.device)
 
+        kind = "planar (2-D action, vz=0)" if self.planar else "full 3-D"
         if self.uses_perception:
-            print("Velocity checkpoint uses obstacle-avoidance perception (state + grid).")
+            print(f"Velocity checkpoint: {self.network_name} net, {kind}, "
+                  "obstacle-avoidance perception (state + grid).")
         else:
-            print("Velocity checkpoint uses state-only observations (no perception).")
+            print(f"Velocity checkpoint: {self.network_name} net, {kind}, "
+                  "state-only observations (no perception).")
+
+    def _reset_hidden(self) -> None:
+        """Zero the GRU hidden state (recurrent nets only)."""
+        if self.is_recurrent:
+            self.hidden = torch.zeros(
+                self.hidden_shape, dtype=torch.float32, device=self.device)
+        else:
+            self.hidden = None
 
     def reset(self) -> None:
-        """Clear the velocity EMA accumulated from the previous episode."""
+        """Clear the velocity EMA (and GRU hidden state) from the previous episode."""
         self.vel_ema = None
+        self._last_desired_yaw = None
+        self._reset_hidden()
 
     @torch.no_grad()
     def compute(self, obs: DiffAeroObs) -> DiffAeroVelCmd:
@@ -143,15 +190,30 @@ class DiffAeroVelPolicy:
                 1, self.perception_builder.grid.H, self.perception_builder.grid.W,
                 dtype=torch.float32, device=self.device)
 
-        actor_state = (state6, perception_t) if self.uses_perception else state6
-
-        vel_cmd = self.module(
-            actor_state,
-            orientation,
-            Rz.unsqueeze(0),
-            self.min_action,
-            self.max_action,
-        )
+        # Dispatch on network type — each exported actor has a distinct call
+        # signature (see diffaero/utils/exporter.py forward_*_vel):
+        #   mlp/rnn : perception is packed into the state tuple
+        #   cnn/rcnn: perception is a separate positional arg
+        #   rnn/rcnn: additionally take/return a GRU hidden state
+        Rz_b = Rz.unsqueeze(0)
+        if self.network_name == "cnn":
+            vel_cmd = self.module(
+                state6, perception_t, orientation, Rz_b,
+                self.min_action, self.max_action)
+        elif self.network_name == "rcnn":
+            vel_cmd, self.hidden = self.module(
+                state6, perception_t, orientation, Rz_b,
+                self.min_action, self.max_action, self.hidden)
+        elif self.network_name == "rnn":
+            actor_state = (state6, perception_t) if self.uses_perception else state6
+            vel_cmd, self.hidden = self.module(
+                actor_state, orientation, Rz_b,
+                self.min_action, self.max_action, self.hidden)
+        else:  # mlp (default / current path)
+            actor_state = (state6, perception_t) if self.uses_perception else state6
+            vel_cmd = self.module(
+                actor_state, orientation, Rz_b,
+                self.min_action, self.max_action)
         vel_cmd_enu = vel_cmd.squeeze(0).cpu().numpy()
         vel_norm = float(np.linalg.norm(vel_cmd_enu))
         desired_yaw_enu = self._desired_yaw_enu(Rz)
@@ -163,10 +225,20 @@ class DiffAeroVelPolicy:
         )
 
     def _desired_yaw_enu(self, Rz: torch.Tensor) -> float:
-        """ENU yaw (CCW from +x/East) of the velocity EMA — the heading the drone
-        should nose into. Falls back to the current forward axis when near-still."""
-        if self.vel_ema is not None and self.vel_ema[:2].norm() >= 0.3:
-            return float(np.arctan2(self.vel_ema[1].item(), self.vel_ema[0].item()))
+        """ENU yaw (CCW from +x/East) the drone should nose into.
+
+        While travelling faster than ``yaw_hold_speed`` the heading tracks the
+        velocity EMA (direction of travel) and is latched. Below that speed the
+        EMA direction is noisy/undefined (e.g. hovering at the goal), so the yaw
+        is held at the last travel heading rather than chased — preventing the
+        heading vector from spinning near the goal. Non-planar policies keep the
+        previous behaviour (fall back to the current forward axis)."""
+        if self.vel_ema is not None and self.vel_ema[:2].norm() >= self.yaw_hold_speed:
+            yaw = float(np.arctan2(self.vel_ema[1].item(), self.vel_ema[0].item()))
+            self._last_desired_yaw = yaw
+            return yaw
+        if self.planar and self._last_desired_yaw is not None:
+            return self._last_desired_yaw
         fwd = Rz[:, 0]
         return float(np.arctan2(fwd[1].item(), fwd[0].item()))
 

@@ -58,6 +58,9 @@ diffaero_velocity_commander:
     fence_max: [4.0, 5.0, 2.8]
 
     # Obstacle-avoidance velocity checkpoint (consumes /{name}/perception/tof).
+    # To run a different trained policy without editing this file, pass
+    # policy:=<name> to the launch (planar_mlp | planar_cnn | planar_rcnn |
+    # sha2c) — it overlays checkpoint_path + conservative velocity caps here.
     checkpoint_path: "/root/AirStack/robot/ros_ws/checkpoints/diffaero/sha2c_vel_cmd_oa/"
 
     # Conservative first-flight caps (raise after hover test is stable).
