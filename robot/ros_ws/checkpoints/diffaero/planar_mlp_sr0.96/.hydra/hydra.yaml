@@ -1,0 +1,194 @@
+hydra:
+  run:
+    dir: ./outputs/train/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: ./outputs/train/${now:%Y-%m-%d}/multirun/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+  launcher:
+    _target_: hydra_plugins.hydra_joblib_launcher.joblib_launcher.JoblibLauncher
+    n_jobs: ${n_jobs}
+    backend: null
+    prefer: processes
+    require: null
+    verbose: 0
+    timeout: null
+    pre_dispatch: 2*n_jobs
+    batch_size: auto
+    temp_folder: null
+    max_nbytes: null
+    mmap_mode: r
+  sweeper:
+    _target_: hydra._internal.core_plugins.basic_sweeper.BasicSweeper
+    max_batch_size: null
+    params: null
+  help:
+    app_name: DiffAero Training Script
+    header: ===== ${hydra.help.app_name} =====
+    footer: 'View https://github.com/zxh0916/diffaero for more information.
+
+      Powered by Hydra (https://hydra.cc)
+
+      Use --hydra-help to view Hydra specific help and for Tab completion.'
+    template: '${hydra.help.header}
+
+      This is ${hydra.help.app_name}!
+
+      You can start the simulation and train a policy fully on GPU with this script!
+
+
+      Compose your configuration from those groups:
+
+
+      ↓↓↓↓↓ Configuration groups ↓↓↓↓↓
+
+      $APP_CONFIG_GROUPS↑↑↑↑↑ Configuration groups ↑↑↑↑↑
+
+
+      Feel free to override any of the configuration groups above by:
+
+      `python script/train.py env=pc algo=shac algo.actor_lr=0.003`
+
+
+      Run many experiments in parallel by:
+
+      `python script/train.py -m seed=0,1,2,3 n_jobs=4`
+
+
+      ${hydra.help.footer}'
+  hydra_help:
+    template: 'Hydra (${hydra.runtime.version})
+
+      See https://hydra.cc for more info.
+
+
+      == Flags ==
+
+      $FLAGS_HELP
+
+
+      == Configuration groups ==
+
+      Compose your configuration from those groups (For example, append hydra/job_logging=disabled
+      to command line)
+
+
+      $HYDRA_CONFIG_GROUPS
+
+
+      Use ''--cfg hydra'' to Show the Hydra config.
+
+      '
+    hydra_help: ???
+  hydra_logging:
+    version: 1
+    formatters:
+      colorlog:
+        (): colorlog.ColoredFormatter
+        format: '[%(cyan)s%(asctime)s%(reset)s][%(purple)sHYDRA%(reset)s] %(message)s'
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: colorlog
+        stream: ext://sys.stdout
+    root:
+      level: INFO
+      handlers:
+      - console
+    disable_existing_loggers: false
+  job_logging:
+    version: 1
+    formatters:
+      simple:
+        format: '[%(asctime)s][%(name)s][%(levelname)s] - %(message)s'
+      colorlog:
+        (): colorlog.ColoredFormatter
+        format: '[%(cyan)s%(asctime)s%(reset)s][%(blue)s%(name)s%(reset)s][%(log_color)s%(levelname)s%(reset)s]
+          - %(message)s'
+        log_colors:
+          DEBUG: purple
+          INFO: green
+          WARNING: yellow
+          ERROR: red
+          CRITICAL: red
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: colorlog
+        stream: ext://sys.stdout
+      file:
+        class: logging.FileHandler
+        formatter: simple
+        filename: ${hydra.job.name}.log
+    root:
+      level: INFO
+      handlers:
+      - console
+      - file
+    disable_existing_loggers: false
+  env: {}
+  mode: RUN
+  searchpath: []
+  callbacks: {}
+  output_subdir: .hydra
+  overrides:
+    hydra:
+    - hydra.mode=RUN
+    task:
+    - algo=sha2c
+    - env=oa_planar
+    - dynamics=pmv_planar
+    - sensor=camera
+    - network=mlp
+  job:
+    name: train
+    chdir: null
+    override_dirname: algo=sha2c,dynamics=pmv_planar,env=oa_planar,network=mlp,sensor=camera
+    id: ???
+    num: ???
+    config_name: config_train
+    env_set: {}
+    env_copy: []
+    config:
+      override_dirname:
+        kv_sep: '='
+        item_sep: ','
+        exclude_keys: []
+  runtime:
+    version: 1.3.3
+    version_base: '1.3'
+    cwd: /home/ubuntu/superfly/diffaero
+    config_sources:
+    - path: hydra.conf
+      schema: pkg
+      provider: hydra
+    - path: /home/ubuntu/superfly/diffaero/cfg
+      schema: file
+      provider: main
+    - path: hydra_plugins.hydra_colorlog.conf
+      schema: pkg
+      provider: hydra-colorlog
+    - path: ''
+      schema: structured
+      provider: schema
+    output_dir: /home/ubuntu/superfly/diffaero/outputs/train/2026-07-03/17-52-25
+    choices:
+      logger: tensorboard
+      sensor: camera
+      network: mlp
+      dynamics: pmv_planar
+      env: oa_planar
+      env/obstacles: outdoor_planar
+      env/imu: default_imu
+      env/randomizer: default_randomizer
+      env/render: oa_render
+      algo: sha2c
+      hydra/env: default
+      hydra/callbacks: null
+      hydra/job_logging: colorlog
+      hydra/hydra_logging: colorlog
+      hydra/hydra_help: default
+      hydra/help: train_help
+      hydra/sweeper: basic
+      hydra/launcher: joblib
+      hydra/output: default
+  verbose: false
