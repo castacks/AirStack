@@ -45,7 +45,7 @@ environments:
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "DowntownWest"
     query: "Traffic Light, fountain, "
-    voxel_score_threshold: -1
+    voxel_score_threshold: 0.7
     score_threshold: -1
     voxel_min_cluster_size: -1
     background_queries: "grass, road, tree, building, street lamp, electric cables"
