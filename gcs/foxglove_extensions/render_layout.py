@@ -7,10 +7,10 @@ canonical robot_1 template; we replicate it for robots 1..NUM_ROBOTS, mint
 unique panel IDs per tab, and patch the 3D panel's per-robot transforms /
 topics / namespaces to cover the same range.
 
-Also injects display settings for the /rayfronts_debug/<robot>/voxels_sim/*
-clouds (per-query topic names depend on the mission query, so they can't live
-in the static template): RAYFRONTS_QUERIES / VOXEL_SCORE_THRESHOLD env vars,
-see inject_rayfronts_debug.
+Also injects display settings for the /rayfronts_debug/<robot>/voxels_sim/all
+clouds (VOXEL_SCORE_THRESHOLD env var, see inject_rayfronts_debug). The
+per-query clouds need no layout settings — foxglove_visualizer_node republishes
+them as pre-colored CUBE_LIST markers.
 """
 
 import argparse
@@ -44,9 +44,7 @@ ROBOT_COLORS = [
 
 VOXEL_CUBE_SIZE = 0.5
 VOXEL_GRADIENT_LOW = '#404040ff'  # dark grey
-# raven_nav.yaml defaults; override per mission via env.
-DEFAULT_QUERIES = 'red building, water tower, radio tower'
-DEFAULT_VOXEL_THRESHOLD = 0.85
+DEFAULT_VOXEL_THRESHOLD = 0.85  # raven_nav voxel_score_threshold default
 
 
 def _robot_color_hex(n: int) -> str:
@@ -54,49 +52,31 @@ def _robot_color_hex(n: int) -> str:
     return f'#{round(r * 255):02x}{round(g * 255):02x}{round(b * 255):02x}ff'
 
 
-def _sanitize_query_label(s: str) -> str:
-    """Label → topic segment; must match rayfronts
-    messaging_services/ros.py _sanitize_topic_name."""
-    out = ''.join(c if (c.isalnum() or c == '_') else '_' for c in s)
-    while '__' in out:
-        out = out.replace('__', '_')
-    return out.strip('_')
-
-
 def inject_rayfronts_debug(layout: dict, num_robots: int,
-                           queries: list, voxel_threshold: float) -> None:
-    """Add per-robot settings for the /rayfronts_debug voxel clouds to every
-    3D panel: all clouds render as cubes on a dark-grey → robot-color gradient
-    spanning [voxel_threshold, 1.0]; per-query clouds are colored by their
-    'sim' field, while the 'all' cloud keeps the default color field (pick a
-    sim_<q> by hand — it has one per query)."""
-    suffixes = []
-    for i, q in enumerate(queries):
-        label = _sanitize_query_label(q)
-        suffixes.append(f'q{i}_{label}' if label else f'q{i}')
-
+                           voxel_threshold: float) -> None:
+    """Add per-robot settings for /rayfronts_debug/<robot>/voxels_sim/all to
+    every 3D panel: 0.5 m cubes on a dark-grey → robot-color gradient spanning
+    [voxel_threshold, 1.0]. colorField must be pinned (sim_0 here; the cloud
+    has one sim_<q> per query) — with no colorField in the layout, Foxglove
+    auto-selects one and force-resets colorMode to colormap/turbo."""
     for pid, cfg in layout.get('configById', {}).items():
         if not (pid.startswith('3D!') and isinstance(cfg, dict)):
             continue
         topics = cfg.setdefault('topics', {})
         for n in range(1, num_robots + 1):
-            base = f'/rayfronts_debug/robot_{n}/voxels_sim'
-            color = _robot_color_hex(n)
             # Overwrite (no setdefault): fully derived from env, and
             # re-rendering over own output must repair the per-robot
             # gradient colors that _expand_per_robot clones from robot_1.
-            common = {
+            topics[f'/rayfronts_debug/robot_{n}/voxels_sim/all'] = {
                 'visible': False,
                 'pointShape': 'cube',
                 'cubeSize': VOXEL_CUBE_SIZE,
+                'colorField': 'sim_0',
                 'colorMode': 'gradient',
-                'gradient': [VOXEL_GRADIENT_LOW, color],
+                'gradient': [VOXEL_GRADIENT_LOW, _robot_color_hex(n)],
                 'minValue': voxel_threshold,
                 'maxValue': 1.0,
             }
-            topics[f'{base}/all'] = dict(common)
-            for suffix in suffixes:
-                topics[f'{base}/{suffix}'] = {**common, 'colorField': 'sim'}
 
 
 def replace_robot_n(obj, src_n: int, dst_n: int):
@@ -251,12 +231,8 @@ def main():
                     default=os.environ.get('LAYOUT_OUTPUT'))
     ap.add_argument('--num-robots', type=int,
                     default=int(os.environ.get('NUM_ROBOTS', '1')))
-    ap.add_argument('--queries',
-                    help='Comma-separated rayfronts query labels, in query '
-                         'order (RAYFRONTS_QUERIES env)',
-                    default=os.environ.get('RAYFRONTS_QUERIES') or DEFAULT_QUERIES)
     ap.add_argument('--voxel-threshold', type=float,
-                    help='Gradient min for per-query sim coloring '
+                    help='Gradient min for voxels_sim/all sim coloring '
                          '(VOXEL_SCORE_THRESHOLD env)',
                     default=float(os.environ.get('VOXEL_SCORE_THRESHOLD')
                                   or DEFAULT_VOXEL_THRESHOLD))
@@ -267,9 +243,7 @@ def main():
     with open(args.input) as f:
         template = json.load(f)
     rendered = expand_layout(template, args.num_robots)
-    queries = [q.strip() for q in args.queries.split(',') if q.strip()]
-    inject_rayfronts_debug(rendered, args.num_robots, queries,
-                           args.voxel_threshold)
+    inject_rayfronts_debug(rendered, args.num_robots, args.voxel_threshold)
 
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
     tmp = args.output + '.tmp'

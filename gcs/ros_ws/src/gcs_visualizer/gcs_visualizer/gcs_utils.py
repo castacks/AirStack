@@ -109,4 +109,60 @@ def point_cloud2_to_cube_marker(cloud, bx, by, bz, ns, marker_id, stamp, lifetim
     return m
 
 
+def voxel_sim_cloud_to_cube_marker(cloud, bx, by, bz, q, ns, marker_id, stamp,
+                                   lifetime, robot_color, sim_min, scale,
+                                   grey=(0.25, 0.25, 0.25)):
+    """Convert a rayfronts per-query (x, y, z, sim) PointCloud2 into a
+    CUBE_LIST Marker in the global map frame: rotate xyz by quaternion q
+    (x, y, z, w), translate by the boot offset (bx, by, bz), and color each
+    cube on a grey → robot_color gradient with sim mapped over
+    [sim_min, 1.0] (clamped).
+
+    Returns a Marker, or None if the cloud lacks x/y/z/sim fields.
+    """
+    import numpy as np
+    from visualization_msgs.msg import Marker
+    from geometry_msgs.msg import Point as GPoint
+    from std_msgs.msg import ColorRGBA
+
+    field_map = {f.name: f.offset for f in cloud.fields}
+    if not all(k in field_map for k in ('x', 'y', 'z', 'sim')):
+        return None
+
+    n = cloud.width * cloud.height
+    dt = np.dtype({'names': ['x', 'y', 'z', 'sim'],
+                   'formats': [np.float32] * 4,
+                   'offsets': [field_map[k] for k in ('x', 'y', 'z', 'sim')],
+                   'itemsize': cloud.point_step})
+    rec = np.frombuffer(bytes(cloud.data), dtype=dt, count=n)
+    xyz = np.stack([rec['x'], rec['y'], rec['z']], axis=1).astype(np.float64)
+
+    qx, qy, qz, qw = q
+    rot = np.array([
+        [1 - 2 * (qy * qy + qz * qz), 2 * (qx * qy - qz * qw), 2 * (qx * qz + qy * qw)],
+        [2 * (qx * qy + qz * qw), 1 - 2 * (qx * qx + qz * qz), 2 * (qy * qz - qx * qw)],
+        [2 * (qx * qz - qy * qw), 2 * (qy * qz + qx * qw), 1 - 2 * (qx * qx + qy * qy)],
+    ])
+    xyz = xyz @ rot.T + (bx, by, bz)
+
+    span = max(1.0 - sim_min, 1e-6)
+    t = np.clip((rec['sim'].astype(np.float64) - sim_min) / span, 0.0, 1.0)
+    rgb = np.outer(1.0 - t, grey) + np.outer(t, robot_color)
+
+    m = Marker()
+    m.header.frame_id = 'map'
+    m.header.stamp = stamp
+    m.ns = ns
+    m.id = marker_id
+    m.pose.orientation.w = 1.0  # must be set or CUBE_LIST distorts positions
+    m.type = Marker.CUBE_LIST
+    m.action = Marker.ADD
+    m.scale.x = m.scale.y = m.scale.z = scale
+    m.lifetime = lifetime
+    m.points = [GPoint(x=float(p[0]), y=float(p[1]), z=float(p[2])) for p in xyz]
+    m.colors = [ColorRGBA(r=float(c[0]), g=float(c[1]), b=float(c[2]), a=1.0)
+                for c in rgb]
+    return m
+
+
 transform_point_cloud2 = _transform_pc2

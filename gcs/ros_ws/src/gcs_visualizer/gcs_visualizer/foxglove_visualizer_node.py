@@ -6,6 +6,7 @@ body-frame axes, local trajectory, global plan, and VDB occupancy map.
 All markers are published to /gcs/robot_markers in the global ENU 'map' frame.
 """
 
+import os
 import re
 
 import numpy as np
@@ -22,7 +23,8 @@ from tf2_ros import StaticTransformBroadcaster
 
 from gcs_visualizer.gcs_utils import (
     gps_to_enu, multiply_quaternions, rotate_vector, transform_marker_array,
-    transform_point_cloud2, ORIGIN_LAT, ORIGIN_LON, ROBOT_COLORS,
+    transform_point_cloud2, voxel_sim_cloud_to_cube_marker,
+    ORIGIN_LAT, ORIGIN_LON, ROBOT_COLORS,
 )
 
 SENSOR_QOS = QoSProfile(
@@ -59,6 +61,11 @@ RDF_TO_FLU_QUAT = (-0.5, 0.5, -0.5, 0.5)
 
 # OBJ mesh axis correction quaternion (belly -Z, nose +X)
 AXIS_CORRECTION = (-0.5, -0.5, 0.5, 0.5)
+
+# Per-query voxel cube markers: edge length and the gradient's dark-grey end
+# (#404040, matching the layout gradient render_layout.py sets for voxels_sim/all).
+VOXEL_CUBE_SIZE = 0.5
+VOXEL_GRADIENT_GREY = (0.25, 0.25, 0.25)
 
 
 def _translate_marker(msg: Marker, bx: float, by: float, bz: float) -> Marker:
@@ -196,6 +203,12 @@ class FoxgloveVisualizerNode(Node):
         self._ray_groups_pubs: dict = {}
         self._subscribed_voxels = set()
         self._voxels_pubs: dict = {}   # source topic -> republish publisher
+        # Gradient min for the per-query voxel cube markers — raven_nav's
+        # voxel_score_threshold sim gate. Env default so the mission runner can
+        # set it alongside the layout's (see gcs-base-docker-compose.yaml).
+        self._voxel_sim_min = float(self.declare_parameter(
+            'voxel_score_threshold',
+            float(os.environ.get('VOXEL_SCORE_THRESHOLD') or 0.85)).value)
 
         # Ground reference altitude (MSL of map z=0). Set once when we have
         # both GPS and odom from the same robot — see _try_lock_ground. Until
@@ -298,8 +311,13 @@ class FoxgloveVisualizerNode(Node):
                 if m and 'sensor_msgs/msg/PointCloud2' in type_list:
                     name, suffix = m.group(1), m.group(2)
                     out_topic = f'/rayfronts_debug/{name}/{suffix}'
+                    # 'all' passes through as PointCloud2 (styled by the
+                    # rendered layout); per-query clouds become pre-colored
+                    # CUBE_LIST markers so any query renders without settings.
+                    out_type = (PointCloud2 if suffix == 'voxels_sim/all'
+                                else Marker)
                     self._voxels_pubs[topic] = self.create_publisher(
-                        PointCloud2, out_topic, 5)
+                        out_type, out_topic, 5)
                     self.create_subscription(
                         PointCloud2, topic,
                         lambda msg, n=name, t=topic: self._voxels_callback(msg, n, t),
@@ -418,19 +436,30 @@ class FoxgloveVisualizerNode(Node):
         if pub is not None:
             pub.publish(out)
 
+    def _robot_color(self, robot_name: str):
+        """Color-wheel entry for a robot, by its trailing number (robot_1 → red)."""
+        m = re.search(r'(\d+)$', robot_name)
+        idx = int(m.group(1)) - 1 if m else 0
+        return ROBOT_COLORS[idx % len(ROBOT_COLORS)]
+
     def _voxels_callback(self, msg: PointCloud2, robot_name: str, src_topic: str):
         """Republish a bridged rayfronts voxel heatmap in the global ENU 'map' frame.
 
         The bridged cloud is in RDF (camera-optical), robot-local. Apply the same
         transform gossip_node uses for gossiped voxels — RDF→FLU rotation then
         this robot's GPS boot-ENU translation — and republish under
-        /rayfronts_debug/<robot>/voxels_sim/... . Only xyz are moved; the sim /
-        sim_K similarity fields pass through untouched so Foxglove can colour the
-        cloud by similarity as a per-query heatmap.
+        /rayfronts_debug/<robot>/voxels_sim/... .
 
-        Note: transform_point_cloud2 is a per-point Python loop; these clouds can
-        be large and there is one per query, so this is the heaviest handler here.
-        If GCS CPU becomes a concern, throttle per topic or subsample upstream."""
+        voxels_sim/all passes through as a PointCloud2 (xyz moved, sim_K fields
+        untouched) so Foxglove can color it by any query's similarity. The
+        per-query clouds become CUBE_LIST markers pre-colored on a dark-grey →
+        robot-color gradient over [voxel_score_threshold, 1.0]: their topic
+        names embed the mission query, so a static layout can't style them —
+        baking the style in makes every query render correctly on arrival.
+
+        Note: both paths loop per point in Python; these clouds can be large and
+        there is one per query, so this is the heaviest handler here. If GCS CPU
+        becomes a concern, throttle per topic or subsample upstream."""
         boot = self._gps_boot.get(robot_name)
         pub = self._voxels_pubs.get(src_topic)
         if pub is None:
@@ -443,9 +472,21 @@ class FoxgloveVisualizerNode(Node):
                 throttle_duration_sec=10.0)
             return
         bx, by, bz = float(boot[0]), float(boot[1]), float(boot[2])
-        out = transform_point_cloud2(msg, bx, by, bz, q=RDF_TO_FLU_QUAT)
-        out.header.stamp = self.get_clock().now().to_msg()
-        pub.publish(out)
+        now = self.get_clock().now().to_msg()
+        if src_topic.endswith('/voxels_sim/all'):
+            out = transform_point_cloud2(msg, bx, by, bz, q=RDF_TO_FLU_QUAT)
+            out.header.stamp = now
+            pub.publish(out)
+            return
+        marker = voxel_sim_cloud_to_cube_marker(
+            msg, bx, by, bz, q=RDF_TO_FLU_QUAT,
+            ns=f'{robot_name}_voxels_sim', marker_id=0, stamp=now,
+            lifetime=Duration(),  # persists until the next update
+            robot_color=self._robot_color(robot_name),
+            sim_min=self._voxel_sim_min, scale=VOXEL_CUBE_SIZE,
+            grey=VOXEL_GRADIENT_GREY)
+        if marker is not None:
+            pub.publish(marker)
 
     def _publish_map_origin(self):
         m = NavSatFix()
