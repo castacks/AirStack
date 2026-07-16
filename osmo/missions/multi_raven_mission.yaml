@@ -84,6 +84,7 @@ environments:
     SPAWN_CONFIGS: '[{"x_m": 27.34, "y_m": 5.359, "orient": [0,0,0.9757,0.2192]}, {"x_m": 25.982, "y_m": 12.241, "orient": [0,0,-0.2076,0.9782]}, {"x_m": 26.223, "y_m": 15.534, "orient": [0,0,-0.3285,0.9445]}]'
     # 2nd fixed spawn (swap in): '[{"x_m": 25.052, "y_m": 12.711, "orient": [0,0,0.6342,0.7731]}, {"x_m": 28.86, "y_m": 12.714, "orient": [0,0,0.5051,0.8631]}, {"x_m": 27.83, "y_m": 8.978, "orient": [0,0,0.9986,0.0538]}]'
     RESULTS_SCENE: "FireAcademy"
+    STAGE_SCALE: "0.01"
     query: "red building, water tower, radio tower"
     voxel_score_threshold: -1
     score_threshold: -1
