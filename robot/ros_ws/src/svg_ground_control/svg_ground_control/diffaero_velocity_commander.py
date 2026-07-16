@@ -108,6 +108,11 @@ class DiffAeroVelocityCommander(Node):
         self.declare_parameter('drone_name', 'drone_1')
         self.declare_parameter('drone_mode', 'sim')  # 'sim' | 'real'
 
+        # Frame of the odometry twist on state_topic_template. 'auto' picks the
+        # right one per interface (sim MAVROS = body, real px4_interface =
+        # world); override only to work around a nonstandard odometry source.
+        self.declare_parameter('odom_twist_frame', 'auto')  # 'auto' | 'body' | 'world'
+
         self.declare_parameter('scenario', 'hover')
         self.declare_parameter('scenario_speed_mps', 0.6)
         self.declare_parameter('scenario_seed', 7)
@@ -190,6 +195,17 @@ class DiffAeroVelocityCommander(Node):
         if mode not in ('sim', 'real'):
             raise ValueError(f'drone_mode must be sim|real, got "{mode}"')
         self.drone_mode = mode
+
+        # The two interfaces disagree on the odometry twist frame, so resolve it
+        # from the mode rather than trusting child_frame_id (see
+        # odometry_callback). 'auto': sim -> body, real -> world.
+        twist_frame = str(self.get_parameter('odom_twist_frame').value)
+        if twist_frame not in ('auto', 'body', 'world'):
+            raise ValueError(
+                f'odom_twist_frame must be auto|body|world, got "{twist_frame}"')
+        if twist_frame == 'auto':
+            twist_frame = 'body' if mode == 'sim' else 'world'
+        self.odom_twist_frame = twist_frame
 
         offset = list(self.get_parameter('drone_position_offset').value)
         if len(offset) != 3:
@@ -391,12 +407,18 @@ class DiffAeroVelocityCommander(Node):
         q = msg.pose.pose.orientation
         self.drone.position = np.array([p.x, p.y, p.z]) + self.drone.position_offset
         self.drone.orientation = np.array([q.x, q.y, q.z, q.w])
-        # nav_msgs/Odometry reports twist in child_frame_id (base_link, body FLU)
-        # per REP-145 — and mavros/local_position/odom does exactly that. The
-        # DiffAero policy expects world-ENU velocity, so rotate body -> world
-        # using the orientation (pose.orientation is FLU -> ENU).
-        R_flu_to_enu = Rotation.from_quat(self.drone.orientation).as_matrix()
-        self.drone.velocity = R_flu_to_enu @ np.array([v.x, v.y, v.z])
+        # The DiffAero policy expects world-ENU velocity. REP-145 says the twist
+        # is in child_frame_id (body FLU) and mavros/local_position/odom obeys
+        # that, but px4_interface publishes PX4's VELOCITY_FRAME_NED converted to
+        # world ENU while still stamping child_frame_id=base_link — so the label
+        # is not trustworthy and the frame comes from odom_twist_frame instead.
+        # Rotating an already-world velocity would double-apply yaw.
+        v_raw = np.array([v.x, v.y, v.z])
+        if self.odom_twist_frame == 'body':
+            R_flu_to_enu = Rotation.from_quat(self.drone.orientation).as_matrix()
+            self.drone.velocity = R_flu_to_enu @ v_raw
+        else:
+            self.drone.velocity = v_raw
         self.drone.last_odom_time = self.get_clock().now()
 
     def tof_callback(self, msg: Float32MultiArray):
@@ -829,7 +851,7 @@ class DiffAeroVelocityCommander(Node):
                 )
                 cmd = self.policy.compute(obs)
                 yaw_rate = self._yaw_rate_to(cmd.desired_yaw_enu, d.orientation)
-                self.publish_velocity(cmd.vel_cmd_enu, now)
+                self.publish_velocity(cmd.vel_cmd_enu, now, yaw_rate)
                 self.get_logger().info(
                     f'[policy] pos={np.round(d.position,2)} vel={np.round(d.velocity,2)} '
                     f'quat={np.round(d.orientation,3)} | '
