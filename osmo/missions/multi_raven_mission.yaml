@@ -43,7 +43,7 @@ environments:
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "10.0"
     RESULTS_SCENE: "Shipyard"
-    query: "ship, crane"
+    query: "ship, crane, white silo"
     voxel_score_threshold: -1 
     score_threshold: -1
     voxel_min_cluster_size: -1
@@ -62,6 +62,7 @@ environments:
     # SPAWN_POLY: "[[-3, -43], [9, -28]]"
     SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0,0,0.698,0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0,0,0.736,0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0,0,0.784,0.621]}]'
     STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "0.3"
     RESULTS_SCENE: "DowntownWest"
     query: "Traffic Light"
     voxel_score_threshold: -1

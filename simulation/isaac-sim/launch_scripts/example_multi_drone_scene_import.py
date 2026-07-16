@@ -111,6 +111,8 @@ DOME_LIGHT_TEXTURE = None   # optional HDRI sky URL; None → plain uniform dome
 # (below, after the stage loads) and replace it with a dome light textured with a
 # clear-noon HDRI sky, which gives both a visible sky backdrop and its baked sun.
 _IS_DOWNTOWNWEST = "downtown_edited" in ENV_URL
+_IS_SHIPYARD = "shipyard" in ENV_URL
+
 if _IS_DOWNTOWNWEST:
     ADD_DOME_LIGHT = True
     DOME_LIGHT_TEXTURE = f"omniverse://{NUCLEUS_SERVER}/NVIDIA/Assets/Skies/Clear/noon_grass_4k.hdr"
@@ -119,6 +121,13 @@ if _IS_DOWNTOWNWEST:
     # scene looks over-/under-exposed.
     DOME_LIGHT_INTENSITY = 1000.0
     DOME_LIGHT_EXPOSURE = 0.0
+
+if _IS_SHIPYARD:
+    ADD_DOME_LIGHT = True
+    DOME_LIGHT_TEXTURE = f"omniverse://{NUCLEUS_SERVER}/NVIDIA/Assets/Skies/Clear/noon_grass_4k.hdr"
+    DOME_LIGHT_INTENSITY = 0.0
+    DOME_LIGHT_EXPOSURE = -50.0
+
 
 # GPS world anchor: what world (0, 0, 0) maps to in real GPS coordinates.
 # Matches the Lisbon default in px4_config.yaml — change here to relocate the sim world.
