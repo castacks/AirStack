@@ -7,11 +7,11 @@ canonical robot_1 template; we replicate it for robots 1..NUM_ROBOTS, mint
 unique panel IDs per tab, and patch the 3D panel's per-robot transforms /
 topics / namespaces to cover the same range.
 
-Also injects display settings for the /rayfronts_debug/<robot>/voxels_sim/*
-clouds (VOXEL_SCORE_THRESHOLD env var, see inject_rayfronts_debug).
-foxglove_visualizer_node republishes the per-query clouds under static slot
-names (q0..qN, mission query labels stripped) precisely so they can be
-pre-styled here.
+Also injects display settings for the /rayfronts_debug/<robot>/voxels_sim/all
+clouds (VOXEL_SCORE_THRESHOLD env var, see inject_rayfronts_debug). The
+per-query clouds need no layout settings — their topic names embed the mission
+query, so foxglove_visualizer_node republishes them as pre-colored scene-entity
+cubes instead.
 """
 
 import argparse
@@ -45,11 +45,9 @@ ROBOT_COLORS = [
 ]
 
 VOXEL_CUBE_SIZE = 0.5
+# Keep both in sync with gcs_utils VOXEL_GRADIENT_LOW / fluorescent().
 VOXEL_GRADIENT_LOW = '#7d008aff'  # dark purple
 DEFAULT_VOXEL_THRESHOLD = 0.85  # raven_nav voxel_score_threshold default
-# Slots styled per robot for the label-stripped per-query republishes
-# (voxels_sim/q0..q<N-1>); must cover targets + background queries.
-MAX_QUERY_SLOTS = 16
 
 
 def _robot_color_hex(n: int) -> str:
@@ -63,36 +61,33 @@ def _robot_color_hex(n: int) -> str:
 
 def inject_rayfronts_debug(layout: dict, num_robots: int,
                            voxel_threshold: float) -> None:
-    """Add per-robot settings for the /rayfronts_debug/<robot>/voxels_sim/*
-    clouds to every 3D panel: 0.5 m outlined cubes (cubeOutline renders thin
+    """Add per-robot settings for /rayfronts_debug/<robot>/voxels_sim/all to
+    every 3D panel: 0.5 m outlined cubes (cubeOutline renders thin
     theme-colored edges — white in dark mode) on a dark-purple → fluorescent
-    robot-color gradient spanning [voxel_threshold, 1.0]. Per-query slots q0..
-    q<MAX_QUERY_SLOTS-1> color by their 'sim' field; 'all' pins sim_0 (it has
-    one sim_<q> per query — switch fields in the panel, the gradient stays).
-    colorField must be pinned: with no colorField in the layout, Foxglove
-    auto-selects one and force-resets colorMode to colormap/turbo."""
+    robot-color gradient spanning [voxel_threshold, 1.0]. colorField pins
+    sim_0 (the cloud has one sim_<q> per query — switch fields in the panel,
+    the gradient stays); it must be pinned, since with no colorField in the
+    layout Foxglove auto-selects one and force-resets colorMode to
+    colormap/turbo."""
     for pid, cfg in layout.get('configById', {}).items():
         if not (pid.startswith('3D!') and isinstance(cfg, dict)):
             continue
         topics = cfg.setdefault('topics', {})
         for n in range(1, num_robots + 1):
-            base = f'/rayfronts_debug/robot_{n}/voxels_sim'
             # Overwrite (no setdefault): fully derived from env, and
             # re-rendering over own output must repair the per-robot
             # gradient colors that _expand_per_robot clones from robot_1.
-            common = {
+            topics[f'/rayfronts_debug/robot_{n}/voxels_sim/all'] = {
                 'visible': False,
                 'pointShape': 'cube',
                 'cubeSize': VOXEL_CUBE_SIZE,
                 'cubeOutline': True,
+                'colorField': 'sim_0',
                 'colorMode': 'gradient',
                 'gradient': [VOXEL_GRADIENT_LOW, _robot_color_hex(n)],
                 'minValue': voxel_threshold,
                 'maxValue': 1.0,
             }
-            topics[f'{base}/all'] = {**common, 'colorField': 'sim_0'}
-            for q in range(MAX_QUERY_SLOTS):
-                topics[f'{base}/q{q}'] = {**common, 'colorField': 'sim'}
 
 
 def replace_robot_n(obj, src_n: int, dst_n: int):

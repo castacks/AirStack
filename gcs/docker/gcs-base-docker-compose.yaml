@@ -40,7 +40,7 @@ services:
       # Number of robots (used by action_relay to spawn per-robot relays)
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       # rayfronts_debug voxel sim-gradient min (raven_nav voxel_score_threshold),
-      # read by render_layout.py. Empty → 0.85.
+      # read by render_layout.py and foxglove_visualizer_node. Empty → 0.85.
       - VOXEL_SCORE_THRESHOLD=${VOXEL_SCORE_THRESHOLD:-}
       # GT annotation scene for the bbox overlay; set per environment by the
       # mission runner (osmo `environments:` RESULTS_SCENE) so the GCS shows the

@@ -57,10 +57,11 @@ EXPOSE 22
 RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm || \
     (sleep 5 && git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm)
 
-# install FoxGloveStudio and ros-jazzy-foxglove-bridge
+# install FoxGloveStudio, ros-jazzy-foxglove-bridge, and foxglove_msgs
+# (gcs_visualizer publishes rayfronts voxel debug cubes as SceneUpdates)
 RUN wget -q https://get.foxglove.dev/desktop/latest/foxglove-studio-latest-linux-amd64.deb -O /tmp/foxglove-studio.deb \
     && apt -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update \
-    && apt -o APT::Get::AllowUnauthenticated=true install -y --no-install-recommends /tmp/foxglove-studio.deb ros-jazzy-foxglove-bridge \
+    && apt -o APT::Get::AllowUnauthenticated=true install -y --no-install-recommends /tmp/foxglove-studio.deb ros-jazzy-foxglove-bridge ros-jazzy-foxglove-msgs \
     && rm /tmp/foxglove-studio.deb \
     && rm -rf /var/lib/apt/lists/*
 

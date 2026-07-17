@@ -6,6 +6,7 @@ body-frame axes, local trajectory, global plan, and VDB occupancy map.
 All markers are published to /gcs/robot_markers in the global ENU 'map' frame.
 """
 
+import os
 import re
 
 import numpy as np
@@ -22,8 +23,17 @@ from tf2_ros import StaticTransformBroadcaster
 
 from gcs_visualizer.gcs_utils import (
     gps_to_enu, multiply_quaternions, rotate_vector, transform_marker_array,
-    transform_point_cloud2, ORIGIN_LAT, ORIGIN_LON, ROBOT_COLORS,
+    transform_point_cloud2, voxel_sim_cloud_to_scene_update,
+    voxel_sim_cloud_to_cube_marker, fluorescent,
+    ORIGIN_LAT, ORIGIN_LON, ROBOT_COLORS,
 )
+
+# foxglove_msgs enters the GCS image via Dockerfile.gcs; older images predate
+# it, so fall back to CUBE_LIST markers (no cube outlines) when absent.
+try:
+    from foxglove_msgs.msg import SceneUpdate
+except ImportError:
+    SceneUpdate = None
 
 SENSOR_QOS = QoSProfile(
     reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -196,6 +206,22 @@ class FoxgloveVisualizerNode(Node):
         self._ray_groups_pubs: dict = {}
         self._subscribed_voxels = set()
         self._voxels_pubs: dict = {}   # source topic -> republish publisher
+        # Gradient min for the per-query voxel cubes — raven_nav's
+        # voxel_score_threshold sim gate. Env default so the mission runner can
+        # set it alongside the layout's (see gcs-base-docker-compose.yaml).
+        self._voxel_sim_min = float(self.declare_parameter(
+            'voxel_score_threshold',
+            float(os.environ.get('VOXEL_SCORE_THRESHOLD') or 0.85)).value)
+        # Per-query debug clouds are capped to the top-N voxels by sim (0 =
+        # off): building per-cube messages in Python is the node's heaviest
+        # work and clouds reach ~55k voxels late in a mission.
+        self._max_debug_voxels = int(self.declare_parameter(
+            'max_debug_voxels', 20000).value)
+        if SceneUpdate is None:
+            self.get_logger().warn(
+                'foxglove_msgs not installed — per-query voxels fall back to '
+                'CUBE_LIST markers without cube outlines (rebuild the GCS '
+                'image to get ros-jazzy-foxglove-msgs)')
 
         # Ground reference altitude (MSL of map z=0). Set once when we have
         # both GPS and odom from the same robot — see _try_lock_ground. Until
@@ -297,18 +323,18 @@ class FoxgloveVisualizerNode(Node):
                 m = self._voxels_pattern.match(topic)
                 if m and 'sensor_msgs/msg/PointCloud2' in type_list:
                     name, suffix = m.group(1), m.group(2)
-                    # Per-query topics are republished under static slot names
-                    # (voxels_sim/q0_red_building -> voxels_sim/q0): the query
-                    # labels vary per mission, and the rendered Foxglove layout
-                    # can only pre-style topic names known in advance (see
-                    # render_layout.py inject_rayfronts_debug). The q<i>→label
-                    # mapping is in the discovery log line below.
-                    sub = suffix[len('voxels_sim/'):]
-                    if sub != 'all':
-                        suffix = f'voxels_sim/{sub.split("_", 1)[0]}'
                     out_topic = f'/rayfronts_debug/{name}/{suffix}'
+                    # 'all' passes through as PointCloud2 (styled by the
+                    # rendered layout — its name is static). Per-query topic
+                    # names embed the mission query, so they carry their
+                    # styling in-data instead: scene-entity cubes (outlined by
+                    # Foxglove), or CUBE_LIST markers without foxglove_msgs.
+                    if suffix == 'voxels_sim/all':
+                        out_type = PointCloud2
+                    else:
+                        out_type = SceneUpdate if SceneUpdate else Marker
                     self._voxels_pubs[topic] = self.create_publisher(
-                        PointCloud2, out_topic, 5)
+                        out_type, out_topic, 5)
                     self.create_subscription(
                         PointCloud2, topic,
                         lambda msg, n=name, t=topic: self._voxels_callback(msg, n, t),
@@ -427,19 +453,29 @@ class FoxgloveVisualizerNode(Node):
         if pub is not None:
             pub.publish(out)
 
+    def _robot_color(self, robot_name: str):
+        """Color-wheel entry for a robot, by its trailing number (robot_1 → red)."""
+        m = re.search(r'(\d+)$', robot_name)
+        idx = int(m.group(1)) - 1 if m else 0
+        return ROBOT_COLORS[idx % len(ROBOT_COLORS)]
+
     def _voxels_callback(self, msg: PointCloud2, robot_name: str, src_topic: str):
         """Republish a bridged rayfronts voxel heatmap in the global ENU 'map' frame.
 
         The bridged cloud is in RDF (camera-optical), robot-local. Apply the same
         transform gossip_node uses for gossiped voxels — RDF→FLU rotation then
         this robot's GPS boot-ENU translation — and republish under
-        /rayfronts_debug/<robot>/voxels_sim/{all|q<i>}. Only xyz are moved; the
-        sim / sim_K similarity fields pass through untouched so the rendered
-        layout's per-slot settings can colour the cloud as a similarity heatmap.
+        /rayfronts_debug/<robot>/voxels_sim/... .
 
-        Note: transform_point_cloud2 is a per-point Python loop; these clouds can
-        be large and there is one per query, so this is the heaviest handler here.
-        If GCS CPU becomes a concern, throttle per topic or subsample upstream."""
+        voxels_sim/all passes through as a PointCloud2 (xyz moved, sim_K fields
+        untouched) so the rendered layout can color it by any query's
+        similarity. Per-query clouds become 0.5 m cubes pre-colored on a
+        dark-purple → fluorescent-robot-color gradient over
+        [voxel_score_threshold, 1.0], capped to the top max_debug_voxels by sim.
+
+        Note: every path here loops per point in Python; these clouds can be
+        large and there is one per query, so this is the heaviest handler here.
+        If GCS CPU becomes a concern, throttle per topic or lower the cap."""
         boot = self._gps_boot.get(robot_name)
         pub = self._voxels_pubs.get(src_topic)
         if pub is None:
@@ -452,8 +488,31 @@ class FoxgloveVisualizerNode(Node):
                 throttle_duration_sec=10.0)
             return
         bx, by, bz = float(boot[0]), float(boot[1]), float(boot[2])
-        out = transform_point_cloud2(msg, bx, by, bz, q=RDF_TO_FLU_QUAT)
-        out.header.stamp = self.get_clock().now().to_msg()
+        now = self.get_clock().now().to_msg()
+        if src_topic.endswith('/voxels_sim/all'):
+            out = transform_point_cloud2(msg, bx, by, bz, q=RDF_TO_FLU_QUAT)
+            out.header.stamp = now
+            pub.publish(out)
+            return
+        color = fluorescent(self._robot_color(robot_name))
+        if SceneUpdate:
+            res = voxel_sim_cloud_to_scene_update(
+                msg, bx, by, bz, q=RDF_TO_FLU_QUAT, entity_id='voxels',
+                stamp=now, robot_color=color, sim_min=self._voxel_sim_min,
+                scale=0.5, max_voxels=self._max_debug_voxels)
+        else:
+            res = voxel_sim_cloud_to_cube_marker(
+                msg, bx, by, bz, q=RDF_TO_FLU_QUAT,
+                ns=f'{robot_name}_voxels_sim', stamp=now, robot_color=color,
+                sim_min=self._voxel_sim_min, scale=0.5,
+                max_voxels=self._max_debug_voxels)
+        if res is None:
+            return
+        out, total = res
+        if self._max_debug_voxels and total > self._max_debug_voxels:
+            self.get_logger().info(
+                f'{src_topic}: showing top {self._max_debug_voxels} of '
+                f'{total} voxels by sim', throttle_duration_sec=30.0)
         pub.publish(out)
 
     def _publish_map_origin(self):
