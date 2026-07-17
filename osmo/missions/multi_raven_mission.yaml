@@ -44,7 +44,7 @@ environments:
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "DowntownWest"
-    query: "Traffic Light, fountain, "
+    query: "Traffic Light, fountain"
     voxel_score_threshold: 0.7
     score_threshold: -1
     voxel_min_cluster_size: -1
@@ -85,11 +85,11 @@ environments:
     # 2nd fixed spawn (swap in): '[{"x_m": 25.052, "y_m": 12.711, "orient": [0,0,0.6342,0.7731]}, {"x_m": 28.86, "y_m": 12.714, "orient": [0,0,0.5051,0.8631]}, {"x_m": 27.83, "y_m": 8.978, "orient": [0,0,0.9986,0.0538]}]'
     RESULTS_SCENE: "FireAcademy"
     STAGE_SCALE: "0.01"
-    query: "red building, water tower, radio tower"
-    voxel_score_threshold: -1
+    query: "red building, water tower, fuel tank, blue container, green container"
+    voxel_score_threshold: 0.7
     score_threshold: -1
     voxel_min_cluster_size: -1
-    background_queries: "road, grass, mountain, parking lot, tree, utility pole, flood light, gas tank"
+    background_queries: "road, grass, mountain, parking lot, tree, car"
     search_area:
       points:
         - {x: 13.0, y: -135.0, z: 0.0}
@@ -127,7 +127,7 @@ environments:
     SPAWN_HEIGHT_M: "1.0"
     RESULTS_SCENE: "AbandonedFactory"
     query: "building, water tower"
-    voxel_score_threshold: -1          # starting default — tune per scene
+    voxel_score_threshold: 0.7          # starting default — tune per scene
     score_threshold: -1
     voxel_min_cluster_size: -1
     background_queries: " grass, road, tree"
@@ -146,7 +146,7 @@ environments:
     STAGE_SCALE: "1.0"
     RESULTS_SCENE: "MilitaryBase"
     query: "Guard Tower, Radio Tower, Bridge"
-    voxel_score_threshold: -1
+    voxel_score_threshold: 0.7
     score_threshold: -1
     voxel_min_cluster_size: -1
     background_queries: "grass, road, tree, building"
@@ -166,7 +166,7 @@ environments:
     SPAWN_HEIGHT_M: "10.0"
     RESULTS_SCENE: "Shipyard"
     query: "ship, crane, white silo"
-    voxel_score_threshold: -1 
+    voxel_score_threshold: 0.7 
     score_threshold: -1
     voxel_min_cluster_size: -1
     background_queries: "grass, road, tree, water tower, debris, warehouse"
