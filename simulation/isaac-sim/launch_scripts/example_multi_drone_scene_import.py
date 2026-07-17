@@ -125,8 +125,8 @@ if _IS_DOWNTOWNWEST:
 if _IS_SHIPYARD:
     ADD_DOME_LIGHT = True
     DOME_LIGHT_TEXTURE = f"omniverse://{NUCLEUS_SERVER}/NVIDIA/Assets/Skies/Clear/noon_grass_4k.hdr"
-    DOME_LIGHT_INTENSITY = 0.0
-    DOME_LIGHT_EXPOSURE = -50.0
+    DOME_LIGHT_INTENSITY = 1000.0
+    DOME_LIGHT_EXPOSURE = 0.0
 
 
 # GPS world anchor: what world (0, 0, 0) maps to in real GPS coordinates.
