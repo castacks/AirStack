@@ -12,6 +12,8 @@ services:
       - QT_QPA_PLATFORM
       # Record bags
       - RECORD_BAGS=${RECORD_BAGS}
+      - RECORD_TARGET_TRACKING_BAG=${RECORD_TARGET_TRACKING_BAG:-false}
+      - SCENE_CONFIG_PATH=${SCENE_CONFIG_PATH:-}
       # docker compose interpolation to env variables
       - AUTONOMY_ROLE=${AUTONOMY_ROLE:-full}
       - URDF_FILE=${URDF_FILE}  
