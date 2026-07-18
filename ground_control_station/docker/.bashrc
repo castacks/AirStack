@@ -3,6 +3,10 @@
 # see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
 # for examples
 
+# ROS Domain ID should be set for both interactive and non-interactive shells.
+# Compose may also set ROS_DOMAIN_ID, but we keep this as a consistent default.
+export ROS_DOMAIN_ID=8
+
 # If not running interactively, don't do anything
 [ -z "$PS1" ] && return
 
@@ -158,4 +162,4 @@ sws # source the ROS2 workspace by default
 
 export RCUTILS_COLORIZED_OUTPUT=1
 
-export ROS_DOMAIN_ID=0
+ 

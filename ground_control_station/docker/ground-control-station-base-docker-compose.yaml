@@ -25,6 +25,7 @@ services:
     environment:
       - DISPLAY
       - QT_X11_NO_MITSHM=1
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
     deploy:
       # let it use the GPU
       resources:
