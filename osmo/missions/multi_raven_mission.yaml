@@ -64,7 +64,7 @@ environments:
     # 2nd fixed spawn (swap in): '[{"x_m": -11.323, "y_m": -3.956, "orient": [0,0,0.803,0.5959]}, {"x_m": 0.977, "y_m": 0.338, "orient": [0,0,-0.9754,0.2203]}, {"x_m": -3.943, "y_m": 2.377, "orient": [0,0,0.6611,0.7503]}]'
     # GT annotation file (annotations/<RESULTS_SCENE>.json) for finalize scoring.
     RESULTS_SCENE: "RetroNeighborhood"
-    STAGE_SCALE= "0.01"
+    STAGE_SCALE: "0.01"
     query: "house"
     voxel_score_threshold: 0.85
     score_threshold: 0.72
