@@ -66,8 +66,8 @@ environments:
     RESULTS_SCENE: "RetroNeighborhood"
     STAGE_SCALE: "0.01"
     query: "house"
-    voxel_score_threshold: 0.85
-    score_threshold: 0.72
+    voxel_score_threshold: 0.7
+    score_threshold: 0.7
     voxel_min_cluster_size: 45        # not tuned — raven_nav default (35)
     background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cables, container, utility pole, car garage, street light"
     search_area:
@@ -88,9 +88,9 @@ environments:
     STAGE_SCALE: "0.01"
     query: "red building, water tower, fuel tank, blue container, green container"
     voxel_score_threshold: 0.7
-    score_threshold: -1
+    score_threshold: 0.65
     voxel_min_cluster_size: -1
-    background_queries: "road, grass, mountain, parking lot, tree, car"
+    background_queries: "road, grass, parking lot, tree, car, flood light"
     search_area:
       points:
         - {x: 13.0, y: -135.0, z: 0.0}

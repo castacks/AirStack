@@ -9,9 +9,15 @@ services:
         - &gcs_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_gcs
       cache_from:
         - *gcs_image
+    # The foxglove_msgs install is a best-effort no-op once the image ships it
+    # (see Dockerfile.gcs) — it lets prebuilt images that predate the
+    # dependency still publish outlined voxel scene entities (gcs_visualizer).
     command: >
       bash -c "
       ssh service restart;
+      [ -d /opt/ros/jazzy/share/foxglove_msgs ] ||
+      { apt-get update -qq && apt-get install -y -qq ros-jazzy-foxglove-msgs; }
+      >/dev/null 2>&1 || true;
       python3 /root/AirStack/gcs/foxglove_extensions/install.py;
       python3 /root/AirStack/gcs/foxglove_extensions/render_layout.py;
       tmux new -d -s bringup;

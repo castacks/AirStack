@@ -110,9 +110,9 @@ def point_cloud2_to_cube_marker(cloud, bx, by, bz, ns, marker_id, stamp, lifetim
     return m
 
 
-# Low end of the voxel similarity gradient — dark purple #7d008a. Keep in sync
+# Low end of the voxel similarity gradient — dark purple #6e007a. Keep in sync
 # with render_layout.py VOXEL_GRADIENT_LOW (styles the voxels_sim/all cloud).
-VOXEL_GRADIENT_LOW = (0x7d / 255, 0.0, 0x8a / 255)
+VOXEL_GRADIENT_LOW = (0x6e / 255, 0.0, 0x7a / 255)
 
 
 def fluorescent(color):
