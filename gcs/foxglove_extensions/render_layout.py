@@ -47,7 +47,7 @@ ROBOT_COLORS = [
 VOXEL_CUBE_SIZE = 0.5
 # Keep both in sync with gcs_utils VOXEL_GRADIENT_LOW / fluorescent().
 VOXEL_GRADIENT_LOW = '#6e007aff'  # dark purple
-DEFAULT_VOXEL_THRESHOLD = 0.85  # raven_nav voxel_score_threshold default
+DEFAULT_VOXEL_THRESHOLD = 0.7  # raven_nav voxel_score_threshold default
 
 
 def _robot_color_hex(n: int) -> str:

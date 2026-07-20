@@ -56,6 +56,25 @@ environments:
         - {x: -150.0, y: -80.0, z: 0.0}
         - {x: -150.0, y: 80.0, z: 0.0}
 
+  - name: moderncitydowntown
+    ENV_URL: "Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
+    # Randomized spawn within the polygon (drop SPAWN_POLY + add SPAWN_CONFIGS to fix).
+    SPAWN_POLY: "[[-20, -63], [-11, -45]]"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "ModernCityDowntown"
+    query: "truck, obelisk, bankomat, cafe tables"
+    voxel_score_threshold: -1
+    score_threshold: -1
+    voxel_min_cluster_size: -1
+    background_queries: "road, building, car, parking lot, tree, traffic signal, fence"
+    search_area:
+      points:
+        - {x: -100.0, y: -110.0, z: 0.0}
+        - {x: -100.0, y: 100.0, z: 0.0}
+        - {x: 80.0, y: 100.0, z: 0.0}
+        - {x: 80.0, y: -110.0, z: 0.0}
+
   - name: retroneighborhood
     ENV_URL: "Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
     # Fixed spawn (pos + orient). Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
@@ -67,7 +86,7 @@ environments:
     STAGE_SCALE: "0.01"
     query: "house"
     voxel_score_threshold: 0.7
-    score_threshold: 0.7
+    score_threshold: -1
     voxel_min_cluster_size: 45        # not tuned — raven_nav default (35)
     background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cables, container, utility pole, car garage, street light"
     search_area:
@@ -86,9 +105,9 @@ environments:
     # 2nd fixed spawn (swap in): '[{"x_m": 25.052, "y_m": 12.711, "orient": [0,0,0.6342,0.7731]}, {"x_m": 28.86, "y_m": 12.714, "orient": [0,0,0.5051,0.8631]}, {"x_m": 27.83, "y_m": 8.978, "orient": [0,0,0.9986,0.0538]}]'
     RESULTS_SCENE: "FireAcademy"
     STAGE_SCALE: "0.01"
-    query: "red building, water tower, fuel tank, blue container, green container"
+    query: "red building, water tower, fuel tank"
     voxel_score_threshold: 0.7
-    score_threshold: 0.65
+    score_threshold: -1
     voxel_min_cluster_size: -1
     background_queries: "road, grass, parking lot, tree, car, flood light"
     search_area:
@@ -147,7 +166,7 @@ environments:
     STAGE_SCALE: "1.0"
     RESULTS_SCENE: "MilitaryBase"
     query: "Guard Tower, Radio Tower, Bridge, helicopter"
-    voxel_score_threshold: 0.7
+    voxel_score_threshold: -1
     score_threshold: -1
     voxel_min_cluster_size: -1
     background_queries: "grass, road, tree, building, mountain"

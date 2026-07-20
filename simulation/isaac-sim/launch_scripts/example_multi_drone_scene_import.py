@@ -79,7 +79,7 @@ _LOCAL_SCENES_DIR = os.path.normpath(os.path.join(_LAUNCH_SCRIPTS_DIR, "..", "as
 #ENV_URL = f"file://{_LOCAL_SCENES_DIR}/ModernCityDowntown.usd"
 #ENV_URL = f"file://{_LOCAL_SCENES_DIR}/Shipyard.usd"
 #ENV_URL = f"file://{_LOCAL_SCENES_DIR}/ModernCityDowntown.usd"
-ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
@@ -88,7 +88,7 @@ ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/scenes/urban/alleghen
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/downtown_edited_v3_818.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/copy-rayfronts-planner/environments_start_pos/SnowyVillage_t_x-152_y-80_z-2_o_x0_y0_z_90.scene.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/edit_v1_shipyard.usd"
-#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
+ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
 
 _env_url_override = os.environ.get("ENV_URL")
 if _env_url_override:
@@ -110,7 +110,7 @@ DOME_LIGHT_TEXTURE = None   # optional HDRI sky URL; None → plain uniform dome
 # DowntownWest ships a baked SkySphere that renders black headless; deactivate it
 # (below, after the stage loads) and replace it with a dome light textured with a
 # clear-noon HDRI sky, which gives both a visible sky backdrop and its baked sun.
-_IS_DOWNTOWNWEST = "downtown_edited" in ENV_URL
+_IS_DOWNTOWNWEST = "downtown_edited" in ENV_URL or "ModernCity" in ENV_URL
 _IS_SHIPYARD = "shipyard" in ENV_URL
 
 if _IS_DOWNTOWNWEST:
@@ -147,17 +147,17 @@ WORLD_GPS_ORIGIN = DEFAULT_WORLD_ORIGIN
 SPAWN_HEIGHT_ABOVE_FLOOR_M = float(os.environ.get("SPAWN_HEIGHT_M") or 0.5)
 LIDAR_MIN_RANGE_M = 0.75
 
-_DEFAULT_DRONE_CONFIGS = [
-    {"domain_id": 1, "x_m": 32.0, "y_m": 12.6, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": LIDAR_MIN_RANGE_M},
-    {"domain_id": 2, "x_m": 28.0, "y_m": 14.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": LIDAR_MIN_RANGE_M},
-    {"domain_id": 3, "x_m": 32.0, "y_m": 19.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": LIDAR_MIN_RANGE_M}
-    ]
-
 # _DEFAULT_DRONE_CONFIGS = [
-#     {"domain_id": 1, "x_m": 3.0, "y_m": 3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
-#     {"domain_id": 2, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
-#     {"domain_id": 3, "x_m": -3.0, "y_m": -3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
+#     {"domain_id": 1, "x_m": 32.0, "y_m": 12.6, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": LIDAR_MIN_RANGE_M},
+#     {"domain_id": 2, "x_m": 28.0, "y_m": 14.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": LIDAR_MIN_RANGE_M},
+#     {"domain_id": 3, "x_m": 32.0, "y_m": 19.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": LIDAR_MIN_RANGE_M}
 #     ]
+
+_DEFAULT_DRONE_CONFIGS = [
+    {"domain_id": 1, "x_m": 3.0, "y_m": 3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
+    {"domain_id": 2, "x_m": 0.0, "y_m": 0.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
+    {"domain_id": 3, "x_m": -3.0, "y_m": -3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": LIDAR_MIN_RANGE_M},
+    ]
 
 # _DEFAULT_DRONE_CONFIGS = [
 #     {"domain_id": 1, "x_m": -1.0, "y_m": -41.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0,0,0.698,0.716], "lidar_min_range": LIDAR_MIN_RANGE_M},
