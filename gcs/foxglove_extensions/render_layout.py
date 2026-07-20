@@ -43,16 +43,21 @@ ROBOT_COLORS = [
     (0.30, 0.30, 0.30),
     (0.95, 0.95, 0.95),
 ]
+# Robot 3's wheel blue fluoresces to a dark #0040ff; override with a brighter
+# blue. Keyed by robot number; keep in sync with foxglove_visualizer_node.
+VOXEL_HIGH_OVERRIDE = {3: '#3387ffff'}  # bright blue
 
 VOXEL_CUBE_SIZE = 0.5
-# Keep both in sync with gcs_utils VOXEL_GRADIENT_LOW / fluorescent().
-VOXEL_GRADIENT_LOW = '#6e007aff'  # dark purple
+VOXEL_GRADIENT_LOW = '#54005eff'  # dark purple; sync with gcs_utils VOXEL_GRADIENT_LOW
 DEFAULT_VOXEL_THRESHOLD = 0.7  # raven_nav voxel_score_threshold default
 
 
 def _robot_color_hex(n: int) -> str:
-    """Fluorescent take on the robot's wheel color: full value, boosted
-    saturation, so the gradient's high end pops against the dark-purple low."""
+    """High end of robot n's voxel gradient: a fluorescent take on its wheel
+    color (full value, boosted saturation), with a per-robot override (see
+    VOXEL_HIGH_OVERRIDE). Keep in sync with foxglove_visualizer_node."""
+    if n in VOXEL_HIGH_OVERRIDE:
+        return VOXEL_HIGH_OVERRIDE[n]
     r, g, b = ROBOT_COLORS[(n - 1) % len(ROBOT_COLORS)]
     h, s, _ = colorsys.rgb_to_hsv(r, g, b)
     r, g, b = colorsys.hsv_to_rgb(h, min(1.0, s * 1.25), 1.0)
@@ -63,20 +68,19 @@ def inject_rayfronts_debug(layout: dict, num_robots: int,
                            voxel_threshold: float) -> None:
     """Add per-robot settings for /rayfronts_debug/<robot>/voxels_sim/all to
     every 3D panel: 0.5 m outlined cubes (cubeOutline renders thin
-    theme-colored edges — white in dark mode) on a dark-purple → fluorescent
-    robot-color gradient spanning [voxel_threshold, 1.0]. colorField pins
-    sim_0 (the cloud has one sim_<q> per query — switch fields in the panel,
-    the gradient stays); it must be pinned, since with no colorField in the
-    layout Foxglove auto-selects one and force-resets colorMode to
-    colormap/turbo."""
+    theme-colored edges — white in dark mode) on a dark-purple → per-robot-color
+    gradient spanning [voxel_threshold, 1.0]. colorField pins sim_0 (the cloud
+    has one sim_<q> per query — switch fields in the panel, the gradient
+    stays); it must be pinned, since with no colorField in the layout Foxglove
+    auto-selects one and force-resets colorMode to colormap/turbo."""
     for pid, cfg in layout.get('configById', {}).items():
         if not (pid.startswith('3D!') and isinstance(cfg, dict)):
             continue
         topics = cfg.setdefault('topics', {})
         for n in range(1, num_robots + 1):
-            # Overwrite (no setdefault): fully derived from env, and
-            # re-rendering over own output must repair the per-robot
-            # gradient colors that _expand_per_robot clones from robot_1.
+            # Overwrite (no setdefault): fully derived from env, so re-rendering
+            # over own output repairs the per-robot gradient colors that
+            # _expand_per_robot clones from robot_1.
             topics[f'/rayfronts_debug/robot_{n}/voxels_sim/all'] = {
                 'visible': False,
                 'pointShape': 'cube',

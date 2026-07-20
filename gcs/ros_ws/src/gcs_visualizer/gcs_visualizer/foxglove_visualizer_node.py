@@ -35,6 +35,11 @@ try:
 except ImportError:
     SceneUpdate = None
 
+# Per-query voxel gradient high color = fluorescent robot wheel color, except
+# robot 3 — its wheel blue fluoresces to a dark #0040ff, so override with a
+# brighter blue. Keyed by robot number; keep in sync with render_layout.py.
+VOXEL_HIGH_OVERRIDE = {3: (0.20, 0.53, 1.0)}  # bright blue #3387ff
+
 SENSOR_QOS = QoSProfile(
     reliability=ReliabilityPolicy.BEST_EFFORT,
     durability=DurabilityPolicy.VOLATILE,
@@ -453,11 +458,14 @@ class FoxgloveVisualizerNode(Node):
         if pub is not None:
             pub.publish(out)
 
-    def _robot_color(self, robot_name: str):
-        """Color-wheel entry for a robot, by its trailing number (robot_1 → red)."""
+    def _voxel_high_color(self, robot_name: str):
+        """High end of this robot's voxel gradient: fluorescent wheel color,
+        with a per-robot override (see VOXEL_HIGH_OVERRIDE)."""
         m = re.search(r'(\d+)$', robot_name)
-        idx = int(m.group(1)) - 1 if m else 0
-        return ROBOT_COLORS[idx % len(ROBOT_COLORS)]
+        idx = int(m.group(1)) if m else 1
+        if idx in VOXEL_HIGH_OVERRIDE:
+            return VOXEL_HIGH_OVERRIDE[idx]
+        return fluorescent(ROBOT_COLORS[(idx - 1) % len(ROBOT_COLORS)])
 
     def _voxels_callback(self, msg: PointCloud2, robot_name: str, src_topic: str):
         """Republish a bridged rayfronts voxel heatmap in the global ENU 'map' frame.
@@ -470,8 +478,9 @@ class FoxgloveVisualizerNode(Node):
         voxels_sim/all passes through as a PointCloud2 (xyz moved, sim_K fields
         untouched) so the rendered layout can color it by any query's
         similarity. Per-query clouds become 0.5 m cubes pre-colored on a
-        dark-purple → fluorescent-robot-color gradient over
-        [voxel_score_threshold, 1.0], capped to the top max_debug_voxels by sim.
+        dark-purple → per-robot-color gradient over [voxel_score_threshold, 1.0],
+        capped to the top max_debug_voxels by sim. The entity id is distinct per
+        robot AND per query so enabling one cloud never replaces another's.
 
         Note: every path here loops per point in Python; these clouds can be
         large and there is one per query, so this is the heaviest handler here.
@@ -494,16 +503,21 @@ class FoxgloveVisualizerNode(Node):
             out.header.stamp = now
             pub.publish(out)
             return
-        color = fluorescent(self._robot_color(robot_name))
+        color = self._voxel_high_color(robot_name)
+        # Unique per robot AND per query (the topic segment after voxels_sim/,
+        # e.g. 'q0_red_building') so enabling one cloud never replaces another's.
+        query = src_topic.rsplit('/voxels_sim/', 1)[-1]
+        ent_id = f'{robot_name}_voxels_{query}'
         if SceneUpdate:
             res = voxel_sim_cloud_to_scene_update(
-                msg, bx, by, bz, q=RDF_TO_FLU_QUAT, entity_id='voxels',
-                stamp=now, robot_color=color, sim_min=self._voxel_sim_min,
-                scale=0.5, max_voxels=self._max_debug_voxels)
+                msg, bx, by, bz, q=RDF_TO_FLU_QUAT,
+                entity_id=ent_id, stamp=now, robot_color=color,
+                sim_min=self._voxel_sim_min, scale=0.5,
+                max_voxels=self._max_debug_voxels)
         else:
             res = voxel_sim_cloud_to_cube_marker(
                 msg, bx, by, bz, q=RDF_TO_FLU_QUAT,
-                ns=f'{robot_name}_voxels_sim', stamp=now, robot_color=color,
+                ns=ent_id, stamp=now, robot_color=color,
                 sim_min=self._voxel_sim_min, scale=0.5,
                 max_voxels=self._max_debug_voxels)
         if res is None:

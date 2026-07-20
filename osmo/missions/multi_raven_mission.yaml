@@ -36,25 +36,25 @@ env:
 # query) are templated into the steps via {{env.<key>}}.
 environments:
 
-  - name: downtownwest
-    ENV_URL: "Library/Stages/Dmytro/downtown_edited_v3_818.usd"
-    # Fixed spawn (pos + orient). Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
-    # SPAWN_POLY: "[[-3, -43], [9, -28]]"
-    SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0,0,0.698,0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0,0,0.736,0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0,0,0.784,0.621]}]'
-    STAGE_SCALE: "1.0"
-    SPAWN_HEIGHT_M: "0.2"
-    RESULTS_SCENE: "DowntownWest"
-    query: "Traffic Light, fountain, cafe table"
-    voxel_score_threshold: 0.7
-    score_threshold: -1
-    voxel_min_cluster_size: -1
-    background_queries: "grass, road, tree, building, street lamp, electric cables"
-    search_area:
-      points:
-        - {x: 150.0, y: 80.0, z: 0.0}
-        - {x: 150.0, y: -80.0, z: 0.0}
-        - {x: -150.0, y: -80.0, z: 0.0}
-        - {x: -150.0, y: 80.0, z: 0.0}
+  # - name: downtownwest
+  #   ENV_URL: "Library/Stages/Dmytro/downtown_edited_v3_818.usd"
+  #   # Fixed spawn (pos + orient). Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
+  #   # SPAWN_POLY: "[[-3, -43], [9, -28]]"
+  #   SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0,0,0.698,0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0,0,0.736,0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0,0,0.784,0.621]}]'
+  #   STAGE_SCALE: "1.0"
+  #   SPAWN_HEIGHT_M: "0.2"
+  #   RESULTS_SCENE: "DowntownWest"
+  #   query: "traffic light, fountain, cafe table"
+  #   voxel_score_threshold: 0.7
+  #   score_threshold: -1
+  #   voxel_min_cluster_size: -1
+  #   background_queries: "grass, road, tree, building, street lamp, electric cables"
+  #   search_area:
+  #     points:
+  #       - {x: 150.0, y: 80.0, z: 0.0}
+  #       - {x: 150.0, y: -80.0, z: 0.0}
+  #       - {x: -150.0, y: -80.0, z: 0.0}
+  #       - {x: -150.0, y: 80.0, z: 0.0}
 
   - name: moderncitydowntown
     ENV_URL: "Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
@@ -65,7 +65,7 @@ environments:
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "ModernCityDowntown"
-    query: "truck, obelisk, bankomat, cafe tables"
+    query: "truck, obelisk, bankomat, cafe tables, car"
     voxel_score_threshold: -1
     score_threshold: -1
     voxel_min_cluster_size: -1
@@ -127,7 +127,7 @@ environments:
     # 2nd fixed spawn (swap in): run-1 positions (known-good takeoff), different orientations.
     # '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.7071,0.7071]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,1.0,0.0]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,-0.7071,0.7071]}]'
     RESULTS_SCENE: "ConstructionSite"
-    query: "Forklift, Towercrane, blue tarp"
+    query: "forklift, yellow tower crane, blue tarp, orange tower crane"
     voxel_score_threshold: 0.7
     score_threshold: -1
     voxel_min_cluster_size: -1
@@ -152,7 +152,7 @@ environments:
     voxel_score_threshold: 0.7          # starting default — tune per scene
     score_threshold: -1
     voxel_min_cluster_size: -1
-    background_queries: " grass, road, tree"
+    background_queries: "grass, road, tree, pipe, fence"
     search_area:
       points:
         - {x: 45.0, y: 102.0, z: 0.0}
@@ -167,9 +167,9 @@ environments:
     SPAWN_CONFIGS: '[{"x_m": 1110.0, "y_m": 220.0, "orient": [0,0,-0.585,0.811]}, {"x_m": 1116.0, "y_m": 227.0, "orient": [0,0,-0.606,0.795]}, {"x_m": 1122.0, "y_m": 234.0, "orient": [0,0,-0.625,0.780]}]'
     STAGE_SCALE: "1.0"
     RESULTS_SCENE: "MilitaryBase"
-    query: "Guard Tower, Radio Tower, Bridge, helicopter"
+    query: "guard tower, radio tower, bridge, helicopter, atv"
     voxel_score_threshold: -1
-    score_threshold: -1
+    score_threshold: 0.7
     voxel_min_cluster_size: -1
     background_queries: "grass, road, tree, building, mountain"
     search_area:
@@ -181,11 +181,12 @@ environments:
     
   - name: shipyard
     ENV_URL: "Library/Stages/Dmytro/edit_v1_shipyard.usd"
-    # Fixed spawn (pos + orient; z from SPAWN_HEIGHT_M). Re-randomize: uncomment SPAWN_POLY.
-    # SPAWN_POLY: "[[76, -112], [61, -119]]"
-    SPAWN_CONFIGS: '[{"x_m": 64.0, "y_m": -118.0, "orient": [0,0,0.859,0.511]}, {"x_m": 68.0, "y_m": -115.0, "orient": [0,0,0.868,0.496]}, {"x_m": 73.0, "y_m": -113.0, "orient": [0,0,0.878,0.479]}]'
+    # Fixed spawn (pos + orient; z from SPAWN_HEIGHT_M) inside the
+    # [[-54,-9],[-72,-24]] rect. Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
+    # SPAWN_POLY: "[[-54, -9], [-72, -24]]"
+    SPAWN_CONFIGS: '[{"x_m": -66.066, "y_m": -11.867, "orient": [0,0,-0.9089,0.417]}, {"x_m": -68.796, "y_m": -14.581, "orient": [0,0,-0.6509,0.7591]}, {"x_m": -61.737, "y_m": -14.407, "orient": [0,0,0.2744,0.9616]}]'
     STAGE_SCALE: "1.0"
-    SPAWN_HEIGHT_M: "10.0"
+    SPAWN_HEIGHT_M: "2.0"
     RESULTS_SCENE: "Shipyard"
     query: "ship, water tower, white silo"
     voxel_score_threshold: 0.7 

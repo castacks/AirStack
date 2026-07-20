@@ -87,8 +87,8 @@ _LOCAL_SCENES_DIR = os.path.normpath(os.path.join(_LAUNCH_SCRIPTS_DIR, "..", "as
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/copy-rayfronts-planner/AbandonedCity.scene.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/downtown_edited_v3_818.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/copy-rayfronts-planner/environments_start_pos/SnowyVillage_t_x-152_y-80_z-2_o_x0_y0_z_90.scene.usd"
-#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/edit_v1_shipyard.usd"
-ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
+ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/edit_v1_shipyard.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
 
 _env_url_override = os.environ.get("ENV_URL")
 if _env_url_override:
@@ -107,24 +107,28 @@ DOME_LIGHT_INTENSITY = 3500.0
 DOME_LIGHT_EXPOSURE = -5.0
 DOME_LIGHT_TEXTURE = None   # optional HDRI sky URL; None → plain uniform dome
 
-# DowntownWest ships a baked SkySphere that renders black headless; deactivate it
-# (below, after the stage loads) and replace it with a dome light textured with a
-# clear-noon HDRI sky, which gives both a visible sky backdrop and its baked sun.
-_IS_DOWNTOWNWEST = "downtown_edited" in ENV_URL or "ModernCity" in ENV_URL
+# DowntownWest / ModernCityDowntown ship a baked SkySphere that renders black
+# headless; deactivate it (below, after the stage loads) and replace it with a
+# dome light textured with an HDRI sky, which gives both a visible sky backdrop
+# and its baked sun. Other scenes just get the dome-light sky.
+_IS_DOWNTOWNWEST = "downtown_edited" in ENV_URL
+_IS_MODERNCITY = "ModernCity" in ENV_URL
+_IS_CONSTRUCTIONSITE = "ConstructionSite" in ENV_URL
 _IS_SHIPYARD = "shipyard" in ENV_URL
 
+_SKIES = f"omniverse://{NUCLEUS_SERVER}/NVIDIA/Assets/Skies"
+# Per-scene HDRI sky (all under Skies/Clear/).
 if _IS_DOWNTOWNWEST:
-    ADD_DOME_LIGHT = True
-    DOME_LIGHT_TEXTURE = f"omniverse://{NUCLEUS_SERVER}/NVIDIA/Assets/Skies/Clear/noon_grass_4k.hdr"
-    # With a texture, intensity multiplies the HDRI's own radiance, so a bright
-    # clear-noon map needs far less than a plain white dome. Tune these two if the
-    # scene looks over-/under-exposed.
-    DOME_LIGHT_INTENSITY = 1000.0
-    DOME_LIGHT_EXPOSURE = 0.0
+    DOME_LIGHT_TEXTURE = f"{_SKIES}/Clear/noon_grass_4k.hdr"
+elif _IS_MODERNCITY or _IS_CONSTRUCTIONSITE:
+    DOME_LIGHT_TEXTURE = f"{_SKIES}/Clear/evening_road_01_4k.hdr"
+elif _IS_SHIPYARD:
+    DOME_LIGHT_TEXTURE = f"{_SKIES}/Clear/syferfontein_18d_clear_4k.hdr"
 
-if _IS_SHIPYARD:
+if DOME_LIGHT_TEXTURE is not None:
     ADD_DOME_LIGHT = True
-    DOME_LIGHT_TEXTURE = f"omniverse://{NUCLEUS_SERVER}/NVIDIA/Assets/Skies/Clear/noon_grass_4k.hdr"
+    # With a texture, intensity multiplies the HDRI's own radiance, so these maps
+    # need far less than a plain white dome. Tune per scene if over-/under-exposed.
     DOME_LIGHT_INTENSITY = 1000.0
     DOME_LIGHT_EXPOSURE = 0.0
 
@@ -329,12 +333,12 @@ class PegasusApp:
             add_dome_light(stage, DOME_LIGHT_PATH, DOME_LIGHT_INTENSITY, DOME_LIGHT_EXPOSURE,
                            texture_file=DOME_LIGHT_TEXTURE)
 
-        if _IS_DOWNTOWNWEST:
+        if _IS_DOWNTOWNWEST or _IS_MODERNCITY:
             sky = stage.GetPrimAtPath("/World/stage/SM_SkySphere")
             if sky.IsValid():
                 sky.SetActive(False)
             else:
-                carb.log_warn("DowntownWest: /World/stage/SM_SkySphere not found — not deactivated.")
+                carb.log_warn("/World/stage/SM_SkySphere not found — not deactivated.")
 
         # Units
         mpu, s = get_stage_meters_per_unit(stage)
