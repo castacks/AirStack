@@ -11,3 +11,7 @@
 [submodule "common/ros_packages/gui/rviz/rviz_polygon_selection_tool"]
 	path = common/ros_packages/gui/rviz/rviz_polygon_selection_tool
 	url = https://github.com/swri-robotics/rviz_polygon_selection_tool.git
+
+[submodule "ICRA_2027_AirStack_Paper"]
+	path = ICRA_2027_AirStack_Paper
+	url = git@github.com:andrewjong/ICRA_2027_AirStack_Paper.git
