@@ -209,15 +209,15 @@ services:
       - ROBOT_NAME_SOURCE=hostname
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - LAUNCH_PACKAGE=autonomy_bringup
-      - AUTONOMY_ROLE=full  # l4t profile: Jetson runs everything onboard
+      - AUTONOMY_ROLE=${AUTONOMY_ROLE:-full}
       - LAUNCH_NATNET=${LAUNCH_NATNET:-false}
       # mavros mavlink settings
-      - FCU_URL="/dev/ttyTHS4:115200"
+      - FCU_URL=${FCU_URL:-/dev/ttyTHS4:115200}
       - TGT_SYSTEM=1
     # assumes network isolation via a physical router, so uses network_mode=host
     network_mode: host
     volumes:
-      - /media/airlab/Storage/airstack_collection:/bags:rw
+      - ${BAG_STORAGE_PATH:-/media/airlab/Storage/airstack_collection}:/bags:rw
 
   # -----------------------
   # Jetson in lite mode: only local/perception/interface modules run onboard.
