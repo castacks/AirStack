@@ -12,6 +12,7 @@ ARG UPDATE_FLAGS="-o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDo
 ARG INSTALL_FLAGS="-o APT::Get::AllowUnauthenticated=true"
 ARG SKIP_MACVO=false
 ARG SKIP_TENSORRT=false
+ARG TARGET_ARCH=x86_64
 
 ARG PIP_VERSION=24.0
 ARG PYTHON_VERSION=3.12
@@ -65,7 +66,7 @@ RUN sudo add-apt-repository universe \
 
 ENV AMENT_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
 ENV COLCON_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
-ENV LD_LIBRARY_PATH=/opt/ros/${ROS_DISTRO}/lib/x86_64-linux-gnu:/opt/ros/${ROS_DISTRO}/lib
+ENV LD_LIBRARY_PATH=/opt/ros/${ROS_DISTRO}/lib/${TARGET_ARCH}-linux-gnu:/opt/ros/${ROS_DISTRO}/lib
 ENV PATH=/opt/ros/${ROS_DISTRO}/bin:$PATH
 ENV PYTHONPATH=/opt/ros/${ROS_DISTRO}/local/lib/python${PYTHON_VERSION}/dist-packages:/opt/ros/${ROS_DISTRO}/lib/python${PYTHON_VERSION}/site-packages
 ENV ROS_PYTHON_VERSION=3
@@ -96,6 +97,7 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages --ignore-insta
 RUN apt update -y && apt install -y --no-install-recommends \
   ros-dev-tools \
   ros-${ROS_DISTRO}-mavros \
+  ros-${ROS_DISTRO}-mavros-extras \
   ros-${ROS_DISTRO}-tf2* \
   ros-${ROS_DISTRO}-stereo-image-proc \
   ros-${ROS_DISTRO}-image-view \
@@ -245,6 +247,7 @@ ARG UPDATE_FLAGS="-o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDo
 ARG INSTALL_FLAGS="-o APT::Get::AllowUnauthenticated=true"
 ARG SKIP_MACVO=false
 ARG SKIP_TENSORRT=false
+ARG TARGET_ARCH=x86_64
 
 ARG PIP_VERSION=24.0
 ARG PYTHON_VERSION=3.12
@@ -297,7 +300,7 @@ RUN sudo add-apt-repository universe \
 
 ENV AMENT_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
 ENV COLCON_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
-ENV LD_LIBRARY_PATH=/opt/ros/${ROS_DISTRO}/lib/x86_64-linux-gnu:/opt/ros/${ROS_DISTRO}/lib
+ENV LD_LIBRARY_PATH=/opt/ros/${ROS_DISTRO}/lib/${TARGET_ARCH}-linux-gnu:/opt/ros/${ROS_DISTRO}/lib
 ENV PATH=/opt/ros/${ROS_DISTRO}/bin:$PATH
 ENV PYTHONPATH=/opt/ros/${ROS_DISTRO}/local/lib/python${PYTHON_VERSION}/dist-packages:/opt/ros/${ROS_DISTRO}/lib/python${PYTHON_VERSION}/site-packages
 ENV ROS_PYTHON_VERSION=3
@@ -328,6 +331,7 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages --ignore-insta
 RUN apt update -y && apt install -y --no-install-recommends \
   ros-dev-tools \
   ros-${ROS_DISTRO}-mavros \
+  ros-${ROS_DISTRO}-mavros-extras \
   ros-${ROS_DISTRO}-tf2* \
   ros-${ROS_DISTRO}-stereo-image-proc \
   ros-${ROS_DISTRO}-image-view \
