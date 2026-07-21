@@ -42,6 +42,15 @@ services:
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       - ENABLE_LIDAR=${ENABLE_LIDAR:-false}
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
+      # Per-environment scene + spawn overrides (set by the mission runner per
+      # iteration from a mission's `environments:` entry; read by
+      # example_multi_drone_scene_import.py). Empty by default → the launch
+      # script keeps its hardcoded fallbacks. Without this passthrough the
+      # launch script never sees them.
+      - ENV_URL=${ENV_URL:-}
+      - STAGE_SCALE=${STAGE_SCALE:-}
+      - SPAWN_CONFIGS=${SPAWN_CONFIGS:-}
+      - SPAWN_HEIGHT_M=${SPAWN_HEIGHT_M:-}
       # Pegasus physics tuning — read by pegasus/simulator/params.py
       - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}
       - ARDUPILOT_PHYSICS_HZ=${ARDUPILOT_PHYSICS_HZ:-800}

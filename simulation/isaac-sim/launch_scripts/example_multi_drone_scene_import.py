@@ -12,6 +12,7 @@ carb.settings.get_settings().set(
     "omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/5.1"
 )
 
+import json
 import os
 import sys
 import time
@@ -50,7 +51,16 @@ NUCLEUS_SERVER = "airlab-nucleus.andrew.cmu.edu"
 #env/stage path and scale
 ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
 
-STAGE_SCALE = 0.01
+# Per-environment overrides (the mission runner exports these per iteration
+# from a mission's `environments:` entry — see osmo/missions/README.md);
+# the hardcoded values above/below stay the standalone-run fallbacks.
+# ENV_URL accepts a full URL or just the path after the nucleus server.
+_env_url_override = os.environ.get("ENV_URL")
+if _env_url_override:
+    ENV_URL = (_env_url_override if "://" in _env_url_override
+               else f"omniverse://{NUCLEUS_SERVER}/{_env_url_override.lstrip('/')}")
+
+STAGE_SCALE = float(os.environ.get("STAGE_SCALE") or 0.01)
 
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
@@ -73,12 +83,34 @@ WORLD_GPS_ORIGIN = DEFAULT_WORLD_ORIGIN
 # {"domain_id": 1, "x_m": 20.0, "y_m": -7.0, ...}
 # {"domain_id": 2, "x_m": 17.0, "y_m":  1.5, ...}
 
-SPAWN_HEIGHT_ABOVE_FLOOR_M = 0.03
-DRONE_CONFIGS = [
-    {"domain_id": 1, "x_m": 32.0, "y_m": 12.6, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 0.75},
-    {"domain_id": 2, "x_m": 28.0, "y_m": 14.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 0.75},
-    {"domain_id": 3, "x_m": 32.0, "y_m": 19.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": 0.75}
+SPAWN_HEIGHT_ABOVE_FLOOR_M = float(os.environ.get("SPAWN_HEIGHT_M") or 0.03)
+LIDAR_MIN_RANGE_M = 0.75
+
+_DEFAULT_DRONE_CONFIGS = [
+    {"domain_id": 1, "x_m": 32.0, "y_m": 12.6, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": LIDAR_MIN_RANGE_M},
+    {"domain_id": 2, "x_m": 28.0, "y_m": 14.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": LIDAR_MIN_RANGE_M},
+    {"domain_id": 3, "x_m": 32.0, "y_m": 19.8, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, -0.937, 0.35], "lidar_min_range": LIDAR_MIN_RANGE_M}
 ]
+
+# Spawn-location override: JSON list of dicts, one per drone. Only x_m / y_m
+# are required — domain_id, z_m, orient, lidar_min_range default per drone.
+#   SPAWN_CONFIGS='[{"x_m": 32.0, "y_m": 12.6, "orient": [0, 0, -0.937, 0.35]}]'
+_SPAWN_CONFIGS = os.environ.get("SPAWN_CONFIGS")
+if _SPAWN_CONFIGS:
+    DRONE_CONFIGS = json.loads(_SPAWN_CONFIGS)
+    for _i, _c in enumerate(DRONE_CONFIGS, start=1):
+        _c.setdefault("domain_id", _i)
+        _c.setdefault("z_m", SPAWN_HEIGHT_ABOVE_FLOOR_M)
+        _c.setdefault("orient", [0.0, 0.0, 0.0, 1.0])
+        _c.setdefault("lidar_min_range", LIDAR_MIN_RANGE_M)
+else:
+    DRONE_CONFIGS = _DEFAULT_DRONE_CONFIGS
+
+# Logged so each iteration's chosen environment + layout is captured in the
+# isaac-sim container logs, which mission_runner snapshots per iteration.
+print(f"[spawn] ENV_URL={ENV_URL}", flush=True)
+print(f"[spawn] STAGE_SCALE={STAGE_SCALE}", flush=True)
+print(f"[spawn] DRONE_CONFIGS={json.dumps(DRONE_CONFIGS)}", flush=True)
 
 # Top-down "map" camera. Captures one aerial of the static scene that the
 # GCS visualizer turns into a textured ground in Foxglove's 3D panel. The

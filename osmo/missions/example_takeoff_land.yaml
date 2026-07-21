@@ -1,4 +1,5 @@
-# Example mission: takeoff → hover 30s → land, 3 times, Isaac Sim headless.
+# Example mission: takeoff → hover 30s → land, cycled across two Isaac Sim
+# scenes (headless), one iteration per scene.
 #
 # Run on OSMO:
 #   airstack osmo:mission osmo/missions/example_takeoff_land.yaml --pool <gpu-pool>
@@ -33,11 +34,50 @@ env:
   NUM_ROBOTS: 1
   ISAAC_SIM_HEADLESS: "true"
   ISAAC_SIM_USE_STANDALONE: "true"
-  # The default script only spawns one drone; for NUM_ROBOTS > 1 switch to
-  # example_multi_px4_pegasus_launch_script.py.
-  ISAAC_SIM_SCRIPT_NAME: example_one_px4_pegasus_launch_script.py
+  # Reads the per-environment overrides (ENV_URL, STAGE_SCALE, SPAWN_CONFIGS,
+  # SPAWN_HEIGHT_M) exported from `environments:` below. Without environments,
+  # use example_one_px4_pegasus_launch_script.py for a single default drone.
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
   # Missions are unattended — the sim must start playing without a GUI click.
   PLAY_SIM_ON_START: "true"
+
+# Environments cycled across iterations (optional — drop this list to run
+# every iteration in the launch script's default scene).
+#
+# UPPERCASE keys are exported as env vars before `airstack up`, so the
+# isaac-sim launch script picks them up:
+#   ENV_URL:       full omniverse://… URL, or just the path after the nucleus
+#                  server (the launch script prepends omniverse://<server>/)
+#   STAGE_SCALE:   stage meters-per-unit scale factor
+#   SPAWN_CONFIGS: fixed per-drone spawn list; only x_m / y_m required
+#                  (z_m, orient, lidar_min_range default per drone)
+#   SPAWN_HEIGHT_M: default spawn height above the floor
+#
+# lowercase keys are per-environment step arguments, referenced from any step
+# via {{env.<key>}} — e.g. takeoff_altitude_m below sets a different takeoff
+# height per scene.
+environments:
+  - name: fireacademy
+    ENV_URL: "Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
+    STAGE_SCALE: "0.01"
+    SPAWN_CONFIGS:
+      - {x_m: 32.0, y_m: 12.6, orient: [0.0, 0.0, -0.937, 0.35]}
+    SPAWN_HEIGHT_M: "0.03"
+    takeoff_altitude_m: 10.0
+
+  - name: retroneighborhood
+    ENV_URL: "Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
+    STAGE_SCALE: "0.01"
+    SPAWN_CONFIGS:
+      - {x_m: 6.764, y_m: -1.767, orient: [0.0, 0.0, -0.1193, 0.9929]}
+    SPAWN_HEIGHT_M: "0.3"
+    # Taller buildings — take off higher in this scene.
+    takeoff_altitude_m: 20.0
+
+# round_robin(default): iteration i runs environments[(i-1) % n], so
+# `iterations` is the TOTAL count — 2 here = one run per scene.
+# grouped: each environment runs `iterations` times in a row.
+environment_order: grouped
 
 # Where `action` steps are sent by default:
 #   gcs   — through the GCS action_relay, the same String-JSON → typed-goal
@@ -47,8 +87,9 @@ env:
 # Override per step with `via:`.
 command_route: gcs
 
-# Full up → fly → collect → down cycles.
-iterations: 3
+# Full up → fly → collect → down cycles (total across environments — see
+# environment_order above).
+iterations: 2
 
 # Gate before any steps run: per robot, MAVROS connected, then
 # local_position/odom publishing (PX4 EKF converged = ready to arm).
@@ -93,24 +134,25 @@ on_step_failure: abort_iteration
 steps:
   - action:
       task: takeoff                      # → /<robot>/tasks/takeoff (TakeoffTask)
-      goal: {target_altitude_m: 10.0, velocity_m_s: 1.0}
-      #to specify robot(s)   
-      #robots: [1]   (1st robot)
-      #robots: [1, 3]   (1st and 3rd robot)
-      #robots: all   (all robots)
+      # {{env.takeoff_altitude_m}} resolves per iteration from the current
+      # `environments:` entry above.
+      goal: {target_altitude_m: "{{env.takeoff_altitude_m}}", velocity_m_s: 1.0}
+      # robot selection (default all):
+      #robots: [1]
+      #robots: [1, 3]
+      #robots: all
 
   - wait: 30                             # hover
 
   - run:                                 # arbitrary command, that runs per robot
       cmd: ros2 topic echo --once /{robot}/odometry_conversion/odometry
       timeout_s: 20
-      #to specify robot(s):   
-      #robots: [1]   (1st robot)
-      #robots: [1, 3]   (1st and 3rd robot)
-
-      #To specify the container:
-      #container: gcs   (GCS container)
-      #container: <container name> 
+      # robot selection (default all):
+      #robots: [1]
+      #robots: [1, 3]
+      # container to run in (default robot_{n}):
+      #container: gcs
+      #container: <container name>
 
   - action:
       task: land                         # → /<robot>/tasks/land (LandTask)
