@@ -122,6 +122,7 @@ services:
         REAL_ROBOT: true
         SKIP_MACVO: true
         SKIP_TENSORRT: true
+        TARGET_ARCH: aarch64
         ROS_DISTRO: jazzy
       tags:
         - *voxl_image
@@ -179,6 +180,7 @@ services:
         REAL_ROBOT: true
         SKIP_MACVO: true
         SKIP_TENSORRT: true
+        TARGET_ARCH: aarch64
         ROS_DISTRO: jazzy
       tags:
         - *l4t_image

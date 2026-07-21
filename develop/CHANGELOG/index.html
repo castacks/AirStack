@@ -17,7 +17,7 @@
       
       
       <link rel="icon" href="../docs/assets/StackedWhite.png">
-      <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.7.7">
     
     
       
@@ -25,7 +25,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -5389,6 +5389,13 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Battery and telemetry display in GCS RQT control panel (voltage and percentage per robot when MAVROS battery topic is bridged)</li>
+<li><code>TARGET_ARCH</code> build arg (default <code>x86_64</code>) in <code>Dockerfile.robot</code> to arch-parametrize <code>LD_LIBRARY_PATH</code>; <code>docker-compose.yaml</code> passes <code>TARGET_ARCH: aarch64</code> to the <code>voxl</code> and <code>l4t</code> real-robot image builds</li>
+<li><code>ros-${ROS_DISTRO}-mavros-extras</code> in the robot image (provides the vision_pose plugin used for external-pose deployments)</li>
+</ul>
+<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Robot name resolution now honors a pre-set <code>ROBOT_NAME</code> (e.g. injected via docker compose) instead of always overriding it from the container/hostname mapping (<code>robot/docker/.bashrc</code>)</li>
+<li>Robot name-map catch-all fallback now maps to <code>unknown_robot</code> (valid ROS namespace token) instead of <code>unknown-robot</code> (<code>default_robot_name_map.yaml</code>)</li>
 </ul>
 <h2 id="100-2024-12-19">[1.0.0] - 2024-12-19<a class="headerlink" href="#100-2024-12-19" title="Permanent link">&para;</a></h2>
 <p>First official public release.</p>
@@ -5400,7 +5407,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>DROAN trajectory-library based local planner</li>
 <li>Initial GCS rviz capable of visualizing multiple robots</li>
 </ul>
-<h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
+<h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li>A bunch of stuff honestly</li>
 </ul>
@@ -5500,7 +5507,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.indexes", "navigation.path", "navigation.tabs", "navigation.footer", "navigation.top", "navigation.sections", "search.highlight", "search.suggest", "toc.integrate", "toc.follow", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
