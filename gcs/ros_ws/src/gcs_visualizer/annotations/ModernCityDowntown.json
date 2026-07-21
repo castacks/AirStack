@@ -103,5 +103,110 @@
         3.5
       ]
     }
+  },
+  {
+    "class": "car",
+    "bbox_world": {
+      "center_xyz_m": [
+        1.9,
+        -10.8,
+        0.92
+      ],
+      "size_xyz_m": [
+        4.24,
+        2.07,
+        1.44
+      ]
+    }
+  },
+  {
+    "class": "car",
+    "bbox_world": {
+      "center_xyz_m": [
+        -64.9,
+        -60.1,
+        0.92
+      ],
+      "size_xyz_m": [
+        2.07,
+        4.24,
+        1.44
+      ]
+    }
+  },
+  {
+    "class": "car",
+    "bbox_world": {
+      "center_xyz_m": [
+        -62.3,
+        -55.0,
+        0.92
+      ],
+      "size_xyz_m": [
+        2.07,
+        4.24,
+        1.44
+      ]
+    }
+  },
+  {
+    "class": "car",
+    "bbox_world": {
+      "center_xyz_m": [
+        -64.9,
+        -42.2,
+        0.92
+      ],
+      "size_xyz_m": [
+        2.07,
+        4.24,
+        1.44
+      ]
+    }
+  },
+  {
+    "class": "car",
+    "bbox_world": {
+      "center_xyz_m": [
+        -12.4,
+        -25.6,
+        0.92
+      ],
+      "size_xyz_m": [
+        2.07,
+        4.24,
+        1.44
+      ]
+    }
+  },
+  {
+    "class": "car",
+    "bbox_world": {
+      "center_xyz_m": [
+        18.1,
+        -8.6,
+        0.92
+      ],
+      "size_xyz_m": [
+        4.24,
+        2.07,
+        1.44
+      ]
+    }
+  },
+  {
+    "class": "yellow truck",
+    "bbox_world": {
+      "center_xyz_m": [
+        -64.5,
+        -22.08,
+        1.92
+      ],
+      "size_xyz_m": [
+        3.42,
+        8.24,
+        3.54
+      ]
+    }
   }
 ]
