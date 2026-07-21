@@ -1,18 +1,12 @@
-# frontier_exploration — 3-robot frontier-only semantic-search BASELINE,
-# cycled across three scenes (RetroNeighborhood, FireAcademy, ConstructionSite).
+# frontier_exploration — 3-robot frontier-only semantic-search BASELINE.
 #
-# semantic_search_task spawns raven_nav with frontier_only_baseline:=true
-# (see semantic_search_task/node.py): navigation is pure frontier exploration
-# with no semantic cues; target tracking still runs.
+# Same maps + spawns + queries + search areas + detection configs as
+# multi_raven_mission (kept in lockstep so the two are directly comparable);
+# the ONLY difference is FRONTIER_ONLY_BASELINE=true below, which makes
+# semantic_search_task spawn raven_nav with frontier-only navigation (no
+# semantic cues). Target tracking still runs with the same thresholds.
 #
-# Environment scheduling (see `environment_order` / `environments:` below):
-# grouped runs each scene `iterations` times in a row (retro×N → fireacademy×N →
-# constructionsite×N); total runs = iterations * 3. Each environment sets a
-# different ENV_URL + spawn rectangle (drones are randomized inside it every
-# bring-up — in-bounds, >=3 m apart, random yaw) and its own search_area.
-#
-# Run on OSMO (workflow resources are sized for this mission: 3 GPU / 24 CPU
-# / 96Gi / 500Gi):
+# Run on OSMO (3 GPU / 24 CPU / 96Gi / 500Gi):
 #   airstack osmo:mission osmo/missions/frontier_exploration.yaml --pool <gpu-pool>
 #
 # Or locally:
@@ -20,67 +14,106 @@
 #     --airstack-root "$(pwd)"
 #
 # Schema reference: osmo/missions/README.md
-
 name: frontier_exploration
 
+# Upload results (mcap bags + logs) to airlab-storage, then auto-teardown once
+# the upload succeeds (needs the airlab-storage OSMO credential — airstack
+# osmo:setup). Override the path with osmo:mission --nas-dest.
+nas_dest: /volume4/dsta/raven-multi/
+
 stack:
-  # Plain isaac-sim (headless via ISAAC_SIM_HEADLESS below): the livestream
-  # variant encodes a WebRTC viewport every frame, competing with the camera
-  # render products for the same render loop.
   services: [isaac-sim, robot-desktop, gcs]
 
 env:
   NUM_ROBOTS: 3
   ISAAC_SIM_HEADLESS: "true"
   ISAAC_SIM_USE_STANDALONE: "true"
-  # Reads ENV_URL + SPAWN_POLY (set per iteration from `environments:` below)
-  # and spawns one randomized drone per robot inside the spawn rectangle.
   ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
   PLAY_SIM_ON_START: "true"
   # Opt into the frontier-only baseline (default is full coordination).
   FRONTIER_ONLY_BASELINE: "true"
 
 # Environments cycled across iterations. UPPERCASE keys (ENV_URL, SPAWN_POLY)
-# are exported as env vars before `airstack up`, so the isaac-sim launch script
-# picks them up; lowercase keys (search_area) are templated into the steps via
-# {{env.search_area}}.
-#
-#   ENV_URL:    full omniverse://… URL, or just the path after the nucleus
-#               server (the launch script prepends omniverse://<server>/).
-#   SPAWN_POLY: JSON — 2 opposite corners for an axis-aligned rectangle, or
-#               >=3 corners for a convex polygon. Drones spawn randomly inside
-#               it (>=3 m apart, random heading) on every bring-up.
+# are exported as env vars before `airstack up`; lowercase keys (search_area,
+# query) are templated into the steps via {{env.<key>}}.
 environments:
+
+  - name: downtownwest
+    ENV_URL: "Library/Stages/Dmytro/downtown_edited_v3_818.usd"
+    # Fixed spawn (pos + orient). Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
+    # SPAWN_POLY: "[[-3, -43], [9, -28]]"
+    SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0,0,0.698,0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0,0,0.736,0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0,0,0.784,0.621]}]'
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "DowntownWest"
+    query: "traffic light, fountain, cafe table"
+    voxel_score_threshold: 0.65
+    score_threshold: -1
+    voxel_min_cluster_size: -1
+    background_queries: "grass, road, tree, building, street lamp, electric cables"
+    search_area:
+      points:
+        - {x: 150.0, y: 80.0, z: 0.0}
+        - {x: 150.0, y: -80.0, z: 0.0}
+        - {x: -150.0, y: -80.0, z: 0.0}
+        - {x: -150.0, y: 80.0, z: 0.0}
+
+  - name: moderncitydowntown
+    ENV_URL: "Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
+    # Fixed spawn (pos + orient) inside the [[-20,-63],[-11,-45]] rect.
+    # Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
+    # SPAWN_POLY: "[[-20, -63], [-11, -45]]"
+    SPAWN_CONFIGS: '[{"x_m": -17.273, "y_m": -57.947, "orient": [0,0,-0.9896,0.1438]}, {"x_m": -13.396, "y_m": -53.247, "orient": [0,0,0.4571,0.8894]}, {"x_m": -17.857, "y_m": -48.541, "orient": [0,0,-0.632,0.775]}]'
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "ModernCityDowntown"
+    query: "truck, obelisk, bankomat, cafe tables, car"
+    voxel_score_threshold: 0.65
+    score_threshold: -1
+    voxel_min_cluster_size: -1
+    background_queries: "road, building, car, parking lot, tree, traffic signal, fence"
+    search_area:
+      points:
+        - {x: -100.0, y: -110.0, z: 0.0}
+        - {x: -100.0, y: 100.0, z: 0.0}
+        - {x: 80.0, y: 100.0, z: 0.0}
+        - {x: 80.0, y: -110.0, z: 0.0}
+
   - name: retroneighborhood
     ENV_URL: "Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
     # Fixed spawn (pos + orient). Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
     # SPAWN_POLY: "[[11, 6.5], [-13, -6.5]]"
     SPAWN_CONFIGS: '[{"x_m": 6.764, "y_m": -1.767, "orient": [0,0,-0.1193,0.9929]}, {"x_m": -0.354, "y_m": 2.251, "orient": [0,0,0.8743,0.4854]}, {"x_m": 2.939, "y_m": 5.117, "orient": [0,0,-0.7931,0.6091]}]'
     # 2nd fixed spawn (swap in): '[{"x_m": -11.323, "y_m": -3.956, "orient": [0,0,0.803,0.5959]}, {"x_m": 0.977, "y_m": 0.338, "orient": [0,0,-0.9754,0.2203]}, {"x_m": -3.943, "y_m": 2.377, "orient": [0,0,0.6611,0.7503]}]'
-    STAGE_SCALE: "0.01"
-    SPAWN_HEIGHT_M: "0.3"
     # GT annotation file (annotations/<RESULTS_SCENE>.json) for finalize scoring.
     RESULTS_SCENE: "RetroNeighborhood"
-    query: "house"
-    background_queries: "sky, ground, grass, road, bus stop, shed, garage, tree"
+    STAGE_SCALE: "0.01"
+    query: "house, bus stop"
+    voxel_score_threshold: 0.65
+    score_threshold: -1
+    voxel_min_cluster_size: 45        # not tuned — raven_nav default (35)
+    background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cables, container, utility pole, car garage, street light"
     search_area:
       points:
         - {x: -150.0, y: -110.0, z: 0.0}
         - {x: -150.0, y: 70.0, z: 0.0}
         - {x: 170.0, y: 70.0, z: 0.0}
         - {x: 170.0, y: -110.0, z: 0.0}
-
+        
   - name: fireacademy
     ENV_URL: "Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
-    # Fixed spawn (pos + orient). Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
+    # Fixed spawn (pos + orient) — same fire-1 layout as the entry above, so this
+    # query variant runs on the same spawn. Re-randomize: uncomment SPAWN_POLY.
     # SPAWN_POLY: "[[27.5, 3.8], [23.8, 14.4], [26.1, 17.5], [30, 11.8]]"
     SPAWN_CONFIGS: '[{"x_m": 27.34, "y_m": 5.359, "orient": [0,0,0.9757,0.2192]}, {"x_m": 25.982, "y_m": 12.241, "orient": [0,0,-0.2076,0.9782]}, {"x_m": 26.223, "y_m": 15.534, "orient": [0,0,-0.3285,0.9445]}]'
     # 2nd fixed spawn (swap in): '[{"x_m": 25.052, "y_m": 12.711, "orient": [0,0,0.6342,0.7731]}, {"x_m": 28.86, "y_m": 12.714, "orient": [0,0,0.5051,0.8631]}, {"x_m": 27.83, "y_m": 8.978, "orient": [0,0,0.9986,0.0538]}]'
-    STAGE_SCALE: "0.01"
-    SPAWN_HEIGHT_M: "0.3"
     RESULTS_SCENE: "FireAcademy"
-    query: "red building, water tower, radio tower, blue container, red container"
-    background_queries: "sky, ground, grass, road, tree, container, gas tank"
+    STAGE_SCALE: "0.01"
+    query: "red building, water tower, fuel tank"
+    voxel_score_threshold: 0.65
+    score_threshold: -1
+    voxel_min_cluster_size: -1
+    background_queries: "road, grass, parking lot, tree, car, flood light"
     search_area:
       points:
         - {x: 13.0, y: -135.0, z: 0.0}
@@ -93,12 +126,14 @@ environments:
     # Fixed spawn (pos + orient). Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
     # SPAWN_POLY: "[[27.63, 2], [21, -5.8]]"
     SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.2886,0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,-0.2699,0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,0.9137,0.4063]}]'
-    # 2nd fixed spawn (swap in): '[{"x_m": 25.19, "y_m": -3.707, "orient": [0,0,-0.6227,0.7825]}, {"x_m": 24.078, "y_m": 0.6, "orient": [0,0,0.9756,0.2195]}, {"x_m": 22.347, "y_m": -1.95, "orient": [0,0,-0.8817,0.4718]}]'
-    STAGE_SCALE: "0.01"
-    SPAWN_HEIGHT_M: "0.3"
+    # 2nd fixed spawn (swap in): run-1 positions (known-good takeoff), different orientations.
+    # '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.7071,0.7071]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,1.0,0.0]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,-0.7071,0.7071]}]'
     RESULTS_SCENE: "ConstructionSite"
-    query: "Forklift, Towercrane, red container"
-    background_queries: "sky, ground, grass, road, Building, cabling winches, blue tarp"
+    query: "forklift, yellow tower crane, blue tarp, orange tower crane"
+    voxel_score_threshold: 0.65
+    score_threshold: -1
+    voxel_min_cluster_size: -1
+    background_queries: "road, grass, mountain, parking lot, building, fence, container, gravel"
     search_area:
       points:
         - {x: 76.0, y: 50.0, z: 0.0}
@@ -115,8 +150,11 @@ environments:
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "1.0"
     RESULTS_SCENE: "AbandonedFactory"
-    query: "building, water tower"
-    background_queries: "sky, ground, grass, road, tree"  
+    query: "building, water tower, silo"
+    voxel_score_threshold: 0.65          # starting default — tune per scene
+    score_threshold: -1
+    voxel_min_cluster_size: -1
+    background_queries: "grass, road, tree, pipe, fence"
     search_area:
       points:
         - {x: 45.0, y: 102.0, z: 0.0}
@@ -124,17 +162,55 @@ environments:
         - {x: -109.0, y: -97.0, z: 0.0}
         - {x: -109.0, y: 102.0, z: 0.0}
 
+  - name: militarybase
+    ENV_URL: "Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd"
+    # Fixed spawn (pos + orient). Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
+    # SPAWN_POLY: "[[1105, 214], [1126, 240]]"
+    SPAWN_CONFIGS: '[{"x_m": 1110.0, "y_m": 220.0, "orient": [0,0,-0.585,0.811]}, {"x_m": 1116.0, "y_m": 227.0, "orient": [0,0,-0.606,0.795]}, {"x_m": 1122.0, "y_m": 234.0, "orient": [0,0,-0.625,0.780]}]'
+    STAGE_SCALE: "1.0"
+    RESULTS_SCENE: "MilitaryBase"
+    query: "guard tower, radio tower, bridge, helicopter, atv"
+    voxel_score_threshold: 0.65
+    score_threshold: -1
+    voxel_min_cluster_size: -1
+    background_queries: "grass, road, tree, building, mountain"
+    search_area:
+      points:
+        - {x: 1280.0, y: 320.0, z: 0.0}
+        - {x: 1030.0, y: 320.0, z: 0.0}
+        - {x: 1030.0, y: -150.0, z: 0.0}
+        - {x: 1280.0, y: -150.0, z: 0.0}
+    
+  - name: shipyard
+    ENV_URL: "Library/Stages/Dmytro/edit_v1_shipyard.usd"
+    # Fixed spawn (pos + orient; z from SPAWN_HEIGHT_M) inside the
+    # [[-54,-9],[-72,-24]] rect. Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
+    # SPAWN_POLY: "[[-54, -9], [-72, -24]]"
+    SPAWN_CONFIGS: '[{"x_m": -66.066, "y_m": -11.867, "orient": [0,0,-0.9089,0.417]}, {"x_m": -68.796, "y_m": -14.581, "orient": [0,0,-0.6509,0.7591]}, {"x_m": -61.737, "y_m": -14.407, "orient": [0,0,0.2744,0.9616]}]'
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "2.0"
+    RESULTS_SCENE: "Shipyard"
+    query: "ship, tower, white silo, crane"
+    voxel_score_threshold: 0.65 
+    score_threshold: -1
+    voxel_min_cluster_size: -1
+    background_queries: "grass, road, tree, warehouse, pipe, fence"
+    search_area:
+      points:
+        - {x: -150.0, y: 150.0, z: 0.0}
+        - {x: 150.0, y: 150.0, z: 0.0}
+        - {x: 150.0, y: -150.0, z: 0.0}
+        - {x: -150.0, y: -150.0, z: 0.0}
+
+  
+
 # Send goals through the GCS action_relay — the exact path Foxglove uses.
-# The relay transforms the global-ENU search polygon into each robot's local
-# 'map' frame (subtracting that robot's GPS boot pose) before forwarding,
-# identical to what happens when the polygon is entered in Foxglove.
 command_route: gcs
 
-# grouped: run each environment `iterations` times in a row (retro×N, then
-# fireacademy×N, then constructionsite×N). So iterations is PER ENVIRONMENT;
-# total runs = iterations * 3. The spawn layout re-randomizes each run.
+# grouped: each environment runs `iterations` times in a row (per-environment
+# count; total runs = iterations * 8 environments). Fixed spawns per SPAWN_CONFIGS.
 environment_order: grouped
-iterations: 3
+iterations: 1
 
 # Redo an iteration (clean down→up→fly→down) if a step up to and including
 # semantic_search fails — i.e. the precondition steps fail, or semantic_search
@@ -151,13 +227,17 @@ record:
   topics:
     - /tf
     - /tf_static
+    - /{robot}/odometry_conversion/odometry
     - /gcs/robot_markers
     - /gcs/payload/{robot}/filtered_rays
     - /gcs/payload/{robot}/filtered_frontiers
     - /gcs/payload/{robot}/explored_area_coverage
     - /gcs/payload/{robot}/confirmed_targets
+    - /gcs/payload/{robot}/auction_table
+    - /gcs/payload/{robot}/voxel_rgb
     - /gcs/sim_ground
     - /gcs/annotations/bboxes
+    - /rayfronts_debug/{robot}/voxels_sim/all
 
 on_step_failure: abort_iteration
 
@@ -176,9 +256,11 @@ steps:
 
   - wait: 5
 
-  # Only needs to RUN, not succeed: pass as soon as feedback is seen (the search
-  # actually started); if no feedback after the retries, the step fails and the
-  # iteration is redone.
+  # Run budget = 15 min OR 80% explored, whichever first (cancel_on_timeout lets
+  # semantic_search_task run its compile + metrics finalize on the deadline).
+  # pass_on_feedback: the iteration only needs the search to RUN — pass as soon
+  # as feedback is seen, regardless of outcome; redo the iteration only if no
+  # feedback arrives after the retries.
   - action:
       task: semantic_search
       timeout_s: 900
@@ -188,8 +270,16 @@ steps:
         query: "{{env.query}}"
         background_queries: "{{env.background_queries}}"
         search_area: "{{env.search_area}}"
-        min_altitude_agl: 10.0
+        min_altitude_agl: 5.0
         max_altitude_agl: 20.0
         min_flight_speed: 0.5
         max_flight_speed: 1.0
         confidence_threshold: 0.95
+        # Per-scene voxel similarity gate (see each environment block above).
+        voxel_score_threshold: "{{env.voxel_score_threshold}}"
+        # Per-scene ray score gate + voxel cluster size (-1 on an entry = raven_nav default).
+        score_threshold: "{{env.score_threshold}}"
+        voxel_min_cluster_size: "{{env.voxel_min_cluster_size}}"
+        # Consensus bundle length (head executed, tail reserved + replanned).
+        bundle_len: 3
+

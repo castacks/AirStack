@@ -216,7 +216,7 @@ class FoxgloveVisualizerNode(Node):
         # set it alongside the layout's (see gcs-base-docker-compose.yaml).
         self._voxel_sim_min = float(self.declare_parameter(
             'voxel_score_threshold',
-            float(os.environ.get('VOXEL_SCORE_THRESHOLD') or 0.7)).value)
+            float(os.environ.get('VOXEL_SCORE_THRESHOLD') or 0.65)).value)
         # Per-query debug clouds are capped to the top-N voxels by sim (0 =
         # off): building per-cube messages in Python is the node's heaviest
         # work and clouds reach ~55k voxels late in a mission.

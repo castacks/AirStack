@@ -49,7 +49,7 @@ VOXEL_HIGH_OVERRIDE = {3: '#3387ffff'}  # bright blue
 
 VOXEL_CUBE_SIZE = 0.5
 VOXEL_GRADIENT_LOW = '#54005eff'  # dark purple; sync with gcs_utils VOXEL_GRADIENT_LOW
-DEFAULT_VOXEL_THRESHOLD = 0.7  # raven_nav voxel_score_threshold default
+DEFAULT_VOXEL_THRESHOLD = 0.65  # raven_nav voxel_score_threshold default
 
 
 def _robot_color_hex(n: int) -> str:
