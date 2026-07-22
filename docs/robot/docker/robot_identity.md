@@ -51,7 +51,7 @@ mappings:
     domain_id: '{1}'
 
   - pattern: '.*'
-    robot: 'unknown-robot'
+    robot: 'unknown_robot'  # must be a valid ROS token (no hyphen) or launch fails
     domain_id: '0'
 ```
 
