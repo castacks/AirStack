@@ -12,8 +12,9 @@ hardware requirement:
 ## Unit tests (`pytest -m unit`)
 
 Fast, hermetic Python tests that run in seconds with no Docker or GPU. Test source
-lives **co-located with its ROS 2 package** (`<package>/test/`) and is re-exported
-through thin proxy files in `tests/robot/` for centralized discovery.
+lives **co-located with its ROS 2 package** (`<package>/test/`); the packages with unit
+tests are listed in `tests/colcon_unit_test_packages.yaml`, and `pytest tests/` collects
+them from there.
 
 ```bash
 airstack test -m unit -v
@@ -24,7 +25,7 @@ pytest tests/ -m unit -v
 Unit tests run as part of `system-tests.yml` via `pytest tests/` and can also be
 run locally with no Docker or GPU needed.
 
-→ **[Unit Testing Guide](unit_testing.md)** — patterns, proxy layout, CI workflow,
+→ **[Unit Testing Guide](unit_testing.md)** — patterns, CI workflow,
   how to add tests for new packages (Python and C++ gtest).
 
 ## System tests (`tests/system/`)
@@ -83,7 +84,7 @@ airstack test -m "build_packages or autonomy" \
 
 ## Other testing docs
 
-- [Unit Testing](unit_testing.md) — `@pytest.mark.unit`, proxy pattern, CI workflow
+- [Unit Testing](unit_testing.md) — `@pytest.mark.unit`, co-located tests, CI workflow
 - [Testing frameworks](testing_frameworks.md) — `colcon test`, rostest patterns
 - [Integration testing](integration_testing.md)
 - [CI/CD](ci_cd.md) — pipeline overview

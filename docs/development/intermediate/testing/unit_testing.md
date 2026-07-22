@@ -5,8 +5,8 @@ AirStack unit tests are **fast, hermetic, and purely Python** — no Docker stac
 ## Design principles
 
 - **Co-located with source.** Test files live in `<package>/test/` alongside the code they test. This is the standard ROS 2 / colcon convention and ensures tests are discovered by both `colcon test` and `pytest`.
-- **Proxy for centralized discovery.** A thin shim in `tests/robot/<layer>/<package>/` re-exports the test functions so `pytest tests/` (the CI command) and `airstack test -m unit` discover them without any changes to the CI workflow.
-- **`@pytest.mark.unit` on every test.** The `unit` mark is the filter that keeps unit tests isolated from system tests that need Docker, GPUs, and sim licenses.
+- **Listed in one place.** `tests/colcon_unit_test_packages.yaml` lists which packages have unit tests. `tests/conftest.py` resolves each to its `test/` dir and collects the non-linter `test_*.py` files under `--import-mode=importlib`. To add a package's unit tests, list it in that YAML.
+- **`@pytest.mark.unit` on every test.** Auto-applied by path in `conftest.py` (source files may also declare it). The `unit` mark keeps unit tests isolated from system tests that need Docker, GPUs, and sim licenses.
 
 ## Repository layout
 
@@ -15,24 +15,18 @@ robot/ros_ws/src/
 └── <layer>/<package>/
     ├── src/                          # production source
     └── test/
-        ├── test_<name>.py            # unit test source  ← canonical location
+        ├── test_<name>.py            # unit test source  ← canonical location (collected directly)
         ├── test_<name>.cpp           # C++ gtest source (optional)
         └── fake_<name>.hpp           # C++ test doubles (optional)
 
 tests/
-├── robot/
-│   └── <layer>/<package>/
-│       └── test_<name>.py            # thin proxy → package test/
-├── sim/                              # future: sim-side unit tests
-└── gcs/                              # future: GCS unit tests
+└── colcon_unit_test_packages.yaml    # lists the packages whose test/ dirs are collected
 ```
 
-When pytest collects `tests/robot/…/test_<name>.py`, the `<-` annotation in the
-output shows the actual source location:
+Collected items point straight at the co-located source:
 
 ```
-robot/perception/natnet_ros2/test_natnet_ros2.py::test_canonical_quaternion_identity
-  <- ../robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py  PASSED
+../robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py::test_canonical_quaternion_identity  PASSED
 ```
 
 ## Running unit tests
@@ -117,29 +111,19 @@ sys.modules["rclpy.node"] = _rclpy_node_mod
 # ... then import your module
 ```
 
-**2. Write the thin proxy in `tests/robot/`:**
+**2. Register the package in `tests/colcon_unit_test_packages.yaml`:**
 
-```python
-# tests/robot/<layer>/<package>/test_my_module.py
-"""Proxy: re-exposes <package> unit tests from the package source tree."""
-import importlib.util
-from pathlib import Path
-
-_repo_root = Path(__file__).resolve().parents[4]  # adjust depth if needed
-_real_file = _repo_root / "robot/ros_ws/src/<layer>/<package>/test/test_my_module.py"
-
-_spec = importlib.util.spec_from_file_location("_<package>_unit_tests", _real_file)
-_real = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_real)
-
-for _name in dir(_real):
-    if _name.startswith("test_"):
-        globals()[_name] = getattr(_real, _name)
+```yaml
+robot:
+  packages:
+    - <your_package>          # ← add here; conftest.py collects <pkg>/test/test_*.py
+  pytest_args: "-m not linter"
 ```
 
-The unique module name (e.g. `"_<package>_unit_tests"`) prevents a circular import:
-pytest adds the proxy's directory to `sys.path` at collection time, which would
-cause `from test_my_module import *` to import the proxy itself.
+That's the whole registration. If the test imports package code, set up `sys.path` at the
+top of the test file — see `test_validation_core.py`, which inserts its package root.
+`--import-mode=importlib` (set in `pytest.ini`) means duplicate `test_*.py` basenames
+across packages don't collide.
 
 **3. Verify:**
 
@@ -149,7 +133,7 @@ pytest tests/ -m unit -v
 
 ### C++ (gtest)
 
-C++ tests live entirely in the package and run via `colcon test` — no proxy needed.
+C++ tests live entirely in the package and run via `colcon test`.
 
 **`CMakeLists.txt`:**
 
@@ -183,16 +167,16 @@ The `build_packages` CI job (`tests/system/test_build_packages.py`) also runs
 
 ## Extending to sim and GCS
 
-The proxy pattern extends to other components. As sim-side Python logic (e.g. the
-[Motive emulator](../../../../tests/sim/motive_emulator/README.md)) and GCS modules
-acquire unit-testable code, follow the same layout:
+The mechanism extends to other components via the same YAML. `conftest.py`
+(`_WORKSPACE_PKG_TEST_GLOBS`) maps each workspace key to a source glob — `robot` →
+`robot/ros_ws/src/**/<pkg>/test`, `sim` → `simulation/**/<pkg>/test`. Add a `sim:` (or a
+new `gcs:`) workspace to the YAML, adding the glob for a new tree in `conftest.py`:
 
-```
-simulation/.../<tool>/test/test_<name>.py   ← source
-tests/sim/<tool>/test_<name>.py             ← proxy (parents[3] to reach repo root)
-
-gcs/.../<pkg>/test/test_<name>.py           ← source
-tests/gcs/<pkg>/test_<name>.py             ← proxy
+```yaml
+# tests/colcon_unit_test_packages.yaml
+sim:
+  packages:
+    - <isaac_extension_name>   # → simulation/**/<ext>/test collected directly
 ```
 
 `pytest tests/ -m unit` discovers them automatically — no changes to `pytest.ini`

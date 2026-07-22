@@ -25,7 +25,8 @@ This skill is about the **test harness itself** — pytest marks, fixtures, the 
 The suite lives at `tests/` (repo root) and is fully pytest-based. Configuration is in `tests/pytest.ini` and shared infrastructure in `tests/conftest.py`.
 
 - **`tests/system/`** — Docker stack integration tests. Marks: `build_docker`, `build_packages`, `liveliness`, `sensors`, `takeoff_hover_land`, `autonomy`.
-- **`tests/robot/`** and **`tests/sim/`** — Hermetic **unit** tests (`@pytest.mark.unit`). These are **thin proxy files** that re-export tests from each ROS 2 package's own `test/` directory (co-located with the source, the ROS 2 / colcon convention). The proxy pattern keeps test source next to the code it tests while making tests discoverable by `pytest tests/`.
+- **`tests/integration/`** — Cross-component tests (`integration` mark): robot container + a host-side component, no sim/GPU.
+- **Unit tests** (`@pytest.mark.unit`) — Hermetic. Source is **co-located** with each ROS 2 package in its own `test/` dir (ROS 2 / colcon convention). `tests/colcon_unit_test_packages.yaml` lists which packages have unit tests; `conftest.py` resolves each to its `test/` dir and collects the non-linter `test_*.py` under `--import-mode=importlib`.
 
 ### Unit tests vs system tests
 
@@ -34,7 +35,7 @@ The suite lives at `tests/` (repo root) and is fully pytest-based. Configuration
 | Hardware required | None — pure Python | Docker daemon, NVIDIA GPU, sim license |
 | CI workflow | `system-tests.yml` (included in `pytest tests/`) | `system-tests.yml` (GPU OpenStack VM) |
 | Trigger | Every push + PR (automatic) | PR opened, `/pytest` comment, `workflow_dispatch` |
-| Source location | `<pkg>/test/test_*.py` (proxied via `tests/robot/`) | `tests/system/` |
+| Source location | `<pkg>/test/test_*.py` (collected directly, listed in `colcon_unit_test_packages.yaml`) | `tests/system/` |
 | How to add | See `add-unit-tests` skill | See *Adding a New System Test* below |
 
 Run unit tests without any Docker stack:
@@ -45,7 +46,7 @@ airstack test -m unit -v
 pytest tests/ -m unit -v   # AIRSTACK_ROOT=$(pwd) for direct pytest
 ```
 
-For details on the proxy pattern and adding new unit tests, see the
+For details on the co-located layout and adding new unit tests, see the
 `add-unit-tests` skill.
 
 | File | Mark | What it tests | Hardware required |
