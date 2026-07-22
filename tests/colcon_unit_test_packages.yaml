@@ -1,7 +1,9 @@
-# Packages run via `colcon test` in system.test_build_packages.test_colcon_test_robot.
+# Defines where the unit tests live: each listed package's <package>/test/ dir is
+# collected by `pytest tests/` (via conftest.py) and run by `colcon test` in
+# system.test_build_packages.test_colcon_test_robot.
 #
 # Add a package here when it has gtests (ament_add_gtest) and/or pytest tests under
-# <package>/test/. Keep in sync with tests/robot/ proxies for Python unit tests.
+# <package>/test/.
 #
 # See: docs/development/intermediate/testing/unit_testing.md
 

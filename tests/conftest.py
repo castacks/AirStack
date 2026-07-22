@@ -83,10 +83,89 @@ def colcon_test_robot_command(workspace="robot"):
     if pytest_args:
         cmd += f' --pytest-args "{pytest_args}"'
     return cmd
-# Unit tests live co-located with their ROS 2 packages in robot/ros_ws/src/.
-# Thin proxy files under tests/robot/ re-export those tests so that
-# `pytest tests/` and `airstack test -m unit` discover them without any
-# sys.path manipulation here.  Each proxy file sets up its own paths.
+
+
+def repo_path(*parts: str) -> Path:
+    """Resolve a path relative to the repo root (``AIRSTACK_ROOT``).
+
+    Single source of truth for cross-tree paths — no test or hook should hardcode
+    ``Path(__file__).parents[N]`` walks.
+    """
+    return Path(AIRSTACK_ROOT).joinpath(*parts)
+
+
+# Unit-test SOURCE lives co-located with each package (colcon convention).
+# colcon_unit_test_packages.yaml lists which packages have unit tests; every listed
+# package resolves to its <pkg>/test dir (globbed per workspace) and the non-linter
+# test_*.py files there are collected under --import-mode=importlib (set in pytest.ini).
+# See unit_test_files (what gets collected), pytest_configure (adds them to the run),
+# and pytest_itemcollected (auto `unit` mark). ament lint tests are excluded (they run
+# under colcon test).
+_WORKSPACE_PKG_TEST_GLOBS = {
+    "robot": "robot/ros_ws/src/**/{pkg}/test",
+    "sim": "simulation/**/{pkg}/test",
+}
+
+# ament lint tests ship in every ROS package's test/ dir and import ament_* at
+# module load (unavailable outside the built workspace). Skip them here — they run
+# under `colcon test` instead (see colcon_test_robot_command's `-m not linter`).
+_LINTER_TEST_FILENAMES = {
+    "test_copyright.py", "test_flake8.py", "test_pep257.py",
+    "test_pep8.py", "test_xmllint.py", "test_lint_cmake.py",
+}
+
+
+def unit_test_dirs():
+    """Every co-located unit-test dir resolved from colcon_unit_test_packages.yaml."""
+    if not COLCON_UNIT_TEST_PACKAGES_YAML.is_file():
+        return []
+    with COLCON_UNIT_TEST_PACKAGES_YAML.open(encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    dirs = []
+    for workspace, glob_tmpl in _WORKSPACE_PKG_TEST_GLOBS.items():
+        cfg = data.get(workspace) or {}
+        for pkg in cfg.get("packages") or []:
+            for match in repo_path().glob(glob_tmpl.format(pkg=pkg)):
+                if match.is_dir():
+                    dirs.append(match.resolve())
+    return dirs
+
+
+_UNIT_TEST_DIRS = None
+
+
+def _unit_test_dirs_cached():
+    global _UNIT_TEST_DIRS
+    if _UNIT_TEST_DIRS is None:
+        _UNIT_TEST_DIRS = unit_test_dirs()
+    return _UNIT_TEST_DIRS
+
+
+def _is_unit_item(item):
+    """True when a collected item's file lives under a co-located unit-test dir."""
+    try:
+        p = Path(str(item.path)).resolve()
+    except Exception:
+        return False
+    return any(p.is_relative_to(d) for d in _unit_test_dirs_cached())
+
+
+def unit_test_files():
+    """Co-located unit-test files to collect: every ``test_*.py`` under a package
+    ``test/`` dir, minus the ament lint files.
+
+    We inject explicit files (not the dirs) because pytest does not apply ignore
+    rules to files it recurses into from an explicitly-passed directory — passing
+    the exact files is the only deterministic way to keep ament lint tests out.
+    """
+    files = []
+    for d in _unit_test_dirs_cached():
+        for f in sorted(d.glob("test_*.py")):
+            if f.name not in _LINTER_TEST_FILENAMES:
+                files.append(f)
+    return files
+
+
 RUN_DIR = None
 ROS_DISTRO_SETUP = "/opt/ros/jazzy/setup.bash"
 _LAST_CMD_OUTPUT: dict[str, str] = {}
@@ -133,6 +212,26 @@ def pytest_configure(config):
     RUN_DIR = results_root / timestamp
     RUN_DIR.mkdir(parents=True, exist_ok=True)
     config.option.xmlpath = str(RUN_DIR / "results.xml")
+
+    # Collect co-located unit tests: their files live outside tests/, so add the
+    # explicit non-linter test files to the collection args. Skip when an explicit
+    # path was given on the CLI (args_source == ARGS) so `pytest tests/system/foo.py`
+    # still narrows as expected.
+    src_name = getattr(getattr(config, "args_source", None), "name", "TESTPATHS")
+    if src_name != "ARGS":
+        for f in unit_test_files():
+            entry = str(f)
+            if entry not in config.args:
+                config.args.append(entry)
+
+
+def pytest_itemcollected(item):
+    """Auto-mark co-located unit tests `unit` (before -m filtering runs).
+
+    Idempotent when the source already declares the mark.
+    """
+    if _is_unit_item(item):
+        item.add_marker(pytest.mark.unit)
 
 
 def pytest_runtest_setup(item):
@@ -191,13 +290,15 @@ def pytest_generate_tests(metafunc):
 # docker image builds → colcon workspace builds → liveliness (infra) → sensors
 # (ROS topic streams) → autonomy flight tests.
 _MODULE_ORDER = [
-    # Unit tests first — fast, hermetic, no Docker.  Any module whose dotted
-    # name starts with "robot." or "sim." is a proxy for a package-level unit
-    # test and sorts into this leading slot via the prefix check below.
+    # Unit tests first — fast, hermetic, no Docker.  Co-located package unit tests
+    # (see unit_test_files) sort into this leading slot via the path check below.
     "__unit__",
     # System tests follow in dependency order.
     "system.test_build_docker",
     "system.test_build_packages",
+    # Integration tests (tests/integration/) need the robot-desktop image + colcon
+    # build, so they run after build_packages and before the sim tiers.
+    "__integration__",
     "system.test_liveliness",
     "system.test_sensors",
     "system.test_takeoff_hover_land",
@@ -235,12 +336,14 @@ def _rank(name, order):
 def _module_key(item):
     """Return the ordering key for an item.
 
-    Unit-test proxies live under ``robot/``, ``sim/``, or ``gcs/`` and are
-    identified by their nodeid prefix.  Everything else uses the dotted module
-    ``__name__`` looked up against ``_MODULE_ORDER``.
+    Co-located unit tests (collected from package ``test/`` dirs outside ``tests/``)
+    are identified by path. Integration tests live under ``integration/``.
+    Everything else uses the dotted module ``__name__`` against ``_MODULE_ORDER``.
     """
-    if item.nodeid.startswith(("robot/", "sim/", "gcs/")):
+    if _is_unit_item(item):
         return _rank("__unit__", _MODULE_ORDER)
+    if item.nodeid.startswith("integration/"):
+        return _rank("__integration__", _MODULE_ORDER)
     return _rank(getattr(item.module, "__name__", ""), _MODULE_ORDER)
 
 
@@ -809,3 +912,48 @@ def airstack_env(request):
             down_duration_s = round(time.time() - t3, 2)
             logger.info("Teardown finished in %.2fs", down_duration_s)
         m.record(tid, "airstack_down_duration_s", down_duration_s, unit="s")
+
+# ── integration tier (tests/integration/) ─────────────────────────────────
+
+_INTEGRATION_ROBOT_PATTERN = "robot.*desktop"
+# Robot-only bring-up: autonomy stack on, no sim profile, single robot.
+_INTEGRATION_ENV = {
+    "AUTOLAUNCH": "true",
+    "NUM_ROBOTS": "1",
+    "COMPOSE_PROFILES": "desktop",
+}
+
+
+@pytest.fixture(scope="module")
+def robot_autonomy_stack(request):
+    """Robot-desktop container for integration tests (no sim, no GPU).
+
+    Yields ``{"container": <name>, "brought_up": bool}``. Reuses an already
+    running container (fast local iteration, left running afterward); otherwise
+    runs ``airstack up robot-desktop`` and tears it down after the module.
+    Behaves like the ``build_packages`` fixture — always brings up Docker when
+    no container is found.
+    """
+    existing = find_container(_INTEGRATION_ROBOT_PATTERN)
+    if existing and container_running(existing):
+        yield {"container": existing, "brought_up": False}
+        return
+
+    log = "robot_autonomy_stack"
+    with logger_to(log):
+        missing = missing_images(env=_INTEGRATION_ENV)
+        if missing:
+            pytest.skip("robot-desktop image not built locally: " + ", ".join(missing))
+        airstack_cmd("down", timeout=120, log_name=log)
+        result = airstack_cmd("up", "robot-desktop",
+                              env_overrides=_INTEGRATION_ENV, timeout=180, log_name=log)
+        if result.returncode != 0:
+            pytest.fail(f"`airstack up robot-desktop` failed:\n{read_log_tail(log)}")
+
+    container = wait_for_container(_INTEGRATION_ROBOT_PATTERN, timeout=120)
+    assert container, "robot-desktop container not Running after 120s"
+    try:
+        yield {"container": container, "brought_up": True}
+    finally:
+        with logger_to(log):
+            airstack_cmd("down", timeout=120, log_name=log)

@@ -1,10 +1,10 @@
 # Testing (`tests/`)
 
-AirStack's **pytest** tree under `tests/` has three roles:
+AirStack's **pytest** tree under `tests/` has these roles:
 
 1. **`tests/system/`** — Docker stack tests (sim + robot + GCS): liveliness, sensor Hz, takeoff/hover/land, image/workspace builds.
-2. **`tests/robot/`** — Fast **unit** tests that mirror `robot/ros_ws/src/` (`behavior`, `global`, `interface`, `local`, `perception`, `sensors`). Mark: `unit`.
-3. **`tests/sim/`** — Unit tests for simulation-side helpers (e.g. Motive / NatNet emulator). Mark: `unit`.
+2. **Unit tests** — Fast hermetic tests (`unit` mark) whose **source is co-located** with each ROS 2 package at `<package>/test/`. [`colcon_unit_test_packages.yaml`](colcon_unit_test_packages.yaml) lists which packages have unit tests, and `pytest tests/` collects them from there.
+3. **`tests/integration/`** — Cross-component tests (`integration` mark) that wire the robot container to a host-side component, without a sim or GPU.
 
 Shared fixtures live in `tests/conftest.py`. Use `airstack test -m unit -v` for hermetic tests only, or the marks below for the full stack.
 
@@ -25,15 +25,18 @@ Shared fixtures live in `tests/conftest.py`. Use `airstack test -m unit -v` for 
 | [`system/test_takeoff_hover_land.py`](system/test_takeoff_hover_land.py) | `takeoff_hover_land` | End-to-end flight: PX4 readiness gate, takeoff to 10 m, hover stability, land — one chain per (sim, num_robots, iteration, velocity) | Docker daemon, GPU, sim license |
 | [`system/test_fixed_trajectory.py`](system/test_fixed_trajectory.py) | `autonomy` | Fixed-pattern trajectory evaluation: takeoff, execute a trajectory (Circle, Figure8, Racetrack, Line), record path deviation metrics, land — one chain per (sim, num_robots, iteration, trajectory_type) | Docker daemon, GPU, sim license |
 
-### Unit tests (`tests/robot/`, `tests/sim/`)
+### Unit tests (co-located)
 
 Hermetic tests use `@pytest.mark.unit` (see [`pytest.ini`](pytest.ini)).
 
-**Co-location + proxy pattern:** test source lives alongside its ROS 2 package at
+Test source lives alongside its ROS 2 package at
 `robot/ros_ws/src/<layer>/<package>/test/test_*.py` (the ROS 2 / colcon convention).
-Files in `tests/robot/` are thin proxies that re-export those tests so that
-`pytest tests/` discovers them. Both `airstack test -m unit` and
-`colcon test --packages-select <pkg>` run the same test source.
+[`colcon_unit_test_packages.yaml`](colcon_unit_test_packages.yaml) lists which packages
+have unit tests; `conftest.py` resolves each to its `test/` dir and collects the
+non-linter `test_*.py` files under `--import-mode=importlib`, tagging each `unit`. To add
+a package's unit tests, list it in that YAML. Both `airstack test -m unit` and
+`colcon test --packages-select <pkg>` run the same source (colcon also runs the ament
+linters + C++ gtests).
 
 Example: `robot/ros_ws/src/sensors/lidar_point_cloud_filter/test/test_validation_core.py`
 tests the numpy-only range validation rules in
@@ -43,8 +46,16 @@ tests the numpy-only range validation rules in
 See [Unit Testing Guide](../docs/development/intermediate/testing/unit_testing.md)
 and the `add-unit-tests` agent skill for full details.
 
+### Integration tests (`tests/integration/`)
+
+Cross-component tests (`integration` mark) that wire a few real components together — the
+robot autonomy container plus a host-side component — **without** a sim or GPU. The
+shared `robot_autonomy_stack` fixture (in `conftest.py`) reuses a running `robot-desktop`
+container or brings one up automatically (like `build_packages`), then tears it down.
+Collection order runs integration after `build_packages` and before the sim tiers.
+
 Marks can be combined with pytest logic:
-`-m unit`, `-m "build_docker or build_packages"`, `-m liveliness`, `-m sensors`, `-m takeoff_hover_land`, `-m autonomy`, or e.g. `-m "liveliness or sensors"` (see **Bring-up scope** below).
+`-m unit`, `-m "build_docker or build_packages"`, `-m integration`, `-m liveliness`, `-m sensors`, `-m takeoff_hover_land`, `-m autonomy`, or e.g. `-m "liveliness or sensors"` (see **Bring-up scope** below).
 
 ### Bring-up scope (`airstack_env`)
 
