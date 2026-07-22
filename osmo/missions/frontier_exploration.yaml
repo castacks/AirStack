@@ -46,8 +46,8 @@ environments:
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "DowntownWest"
-    query: "traffic light, fountain, cafe table"
-    voxel_score_threshold: 0.65
+    query: "fountain, food cart"
+    voxel_score_threshold: 0.68
     score_threshold: -1
     voxel_min_cluster_size: -1
     background_queries: "grass, road, tree, building, street lamp, electric cables"
@@ -67,8 +67,8 @@ environments:
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "ModernCityDowntown"
-    query: "truck, obelisk, bankomat, cafe tables, car"
-    voxel_score_threshold: 0.65
+    query: "yellow truck, obelisk, bankomat, cafe tables, car"
+    voxel_score_threshold: 0.68
     score_threshold: -1
     voxel_min_cluster_size: -1
     background_queries: "road, building, car, parking lot, tree, traffic signal, fence"
@@ -89,7 +89,7 @@ environments:
     RESULTS_SCENE: "RetroNeighborhood"
     STAGE_SCALE: "0.01"
     query: "house, bus stop"
-    voxel_score_threshold: 0.65
+    voxel_score_threshold: 0.68
     score_threshold: -1
     voxel_min_cluster_size: 45        # not tuned — raven_nav default (35)
     background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cables, container, utility pole, car garage, street light"
@@ -109,7 +109,7 @@ environments:
     # 2nd fixed spawn (swap in): '[{"x_m": 25.052, "y_m": 12.711, "orient": [0,0,0.6342,0.7731]}, {"x_m": 28.86, "y_m": 12.714, "orient": [0,0,0.5051,0.8631]}, {"x_m": 27.83, "y_m": 8.978, "orient": [0,0,0.9986,0.0538]}]'
     RESULTS_SCENE: "FireAcademy"
     STAGE_SCALE: "0.01"
-    query: "red building, water tower, fuel tank"
+    query: "red building, water tower, radio tower, fuel tank"
     voxel_score_threshold: 0.65
     score_threshold: -1
     voxel_min_cluster_size: -1
@@ -129,8 +129,8 @@ environments:
     # 2nd fixed spawn (swap in): run-1 positions (known-good takeoff), different orientations.
     # '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.7071,0.7071]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,1.0,0.0]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,-0.7071,0.7071]}]'
     RESULTS_SCENE: "ConstructionSite"
-    query: "forklift, yellow tower crane, blue tarp, orange tower crane"
-    voxel_score_threshold: 0.65
+    query: "forklift, towercrane, blue tarp, orange tarp"
+    voxel_score_threshold: 0.68
     score_threshold: -1
     voxel_min_cluster_size: -1
     background_queries: "road, grass, mountain, parking lot, building, fence, container, gravel"
@@ -150,11 +150,11 @@ environments:
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "1.0"
     RESULTS_SCENE: "AbandonedFactory"
-    query: "building, water tower, silo"
-    voxel_score_threshold: 0.65          # starting default — tune per scene
+    query: "building, water tower"
+    voxel_score_threshold: 0.68          # starting default — tune per scene
     score_threshold: -1
     voxel_min_cluster_size: -1
-    background_queries: "grass, road, tree, pipe, fence"
+    background_queries: "grass, road, tree, pipe, fence, white silo"
     search_area:
       points:
         - {x: 45.0, y: 102.0, z: 0.0}
@@ -170,10 +170,10 @@ environments:
     STAGE_SCALE: "1.0"
     RESULTS_SCENE: "MilitaryBase"
     query: "guard tower, radio tower, bridge, helicopter, atv"
-    voxel_score_threshold: 0.65
+    voxel_score_threshold: 0.68
     score_threshold: -1
-    voxel_min_cluster_size: -1
-    background_queries: "grass, road, tree, building, mountain"
+    voxel_min_cluster_size: 20
+    background_queries: "grass, tree, building, mountain, electrical pole, fence"
     search_area:
       points:
         - {x: 1280.0, y: 320.0, z: 0.0}
@@ -186,15 +186,15 @@ environments:
     # Fixed spawn (pos + orient; z from SPAWN_HEIGHT_M) inside the
     # [[-54,-9],[-72,-24]] rect. Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
     # SPAWN_POLY: "[[-54, -9], [-72, -24]]"
-    SPAWN_CONFIGS: '[{"x_m": -66.066, "y_m": -11.867, "orient": [0,0,-0.9089,0.417]}, {"x_m": -68.796, "y_m": -14.581, "orient": [0,0,-0.6509,0.7591]}, {"x_m": -61.737, "y_m": -14.407, "orient": [0,0,0.2744,0.9616]}]'
+    SPAWN_CONFIGS: '[{"x_m": -66.066, "y_m": -11.867, "orient": [0,0,-0.9089,0.417]}, {"x_m": -68.796, "y_m": -14.581, "orient": [0,0,-0.6809,0.7591]}, {"x_m": -61.737, "y_m": -14.407, "orient": [0,0,0.2744,0.9616]}]'
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "2.0"
     RESULTS_SCENE: "Shipyard"
-    query: "ship, tower, white silo, crane"
-    voxel_score_threshold: 0.65 
+    query: "ship, white silo, crane"
+    voxel_score_threshold: 0.68 
     score_threshold: -1
     voxel_min_cluster_size: -1
-    background_queries: "grass, road, tree, warehouse, pipe, fence"
+    background_queries: "grass, road, tree, building, pipe, fence"
     search_area:
       points:
         - {x: -150.0, y: 150.0, z: 0.0}
@@ -238,6 +238,7 @@ record:
     - /gcs/sim_ground
     - /gcs/annotations/bboxes
     - /rayfronts_debug/{robot}/voxels_sim/all
+    - /rayfronts_debug/{robot}/voxel_rgb
 
 on_step_failure: abort_iteration
 

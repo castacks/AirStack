@@ -54,6 +54,13 @@ allowlist:
   # cloud into the global ENU 'map' frame and republishes under /rayfronts_debug.
   - name: "rt/robot_$(env ROS_DOMAIN_ID)/rayfronts/msg_serv/voxels_sim/*"
 
+  # rayfronts rgb voxel map (the ROS visualizer's voxel_rgb layer: x,y,z,rgb,
+  # already in FLU) → GCS. Same bridge as voxels_sim; gcs_visualizer republishes
+  # it under /rayfronts_debug/<robot>/voxel_rgb (boot-ENU translation only). The
+  # visualizer only streams while a real subscriber exists and the router reader
+  # doesn't count, so voxel_keepalive_node holds it open (rayfronts.launch.xml).
+  - name: "rt/robot_$(env ROS_DOMAIN_ID)/rayfronts/voxel_rgb"
+
   # behavior tree
   - name: "rt/$(env ROBOT_NAME)/behavior/behavior_tree_commands"
   - name: "rt/$(env ROBOT_NAME)/behavior/behavior_tree_graphviz"

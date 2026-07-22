@@ -92,6 +92,16 @@ def inject_rayfronts_debug(layout: dict, num_robots: int,
                 'minValue': voxel_threshold,
                 'maxValue': 1.0,
             }
+            # rgb voxel map: colour by the packed 'rgb' field (scene's real
+            # colours), 0.5 m cubes. colorField/colorMode pinned so Foxglove
+            # doesn't auto-reset to colormap/turbo (same reason as above).
+            topics[f'/rayfronts_debug/robot_{n}/voxel_rgb'] = {
+                'visible': False,
+                'pointShape': 'cube',
+                'cubeSize': VOXEL_CUBE_SIZE,
+                'colorField': 'rgb',
+                'colorMode': 'rgb',
+            }
 
 
 def replace_robot_n(obj, src_n: int, dst_n: int):

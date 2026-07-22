@@ -65,6 +65,10 @@ RAY_GROUPS_SUFFIX = '/ray_groups_viz'
 # DDS router (see onboard_all/config/dds_router.yaml). Names: /<robot>/rayfronts/
 # msg_serv/voxels_sim/{all|q{q}_{label}} — the robot segment is robot_${DOMAIN}.
 VOXELS_INFIX = '/rayfronts/msg_serv/'
+# rayfronts rgb voxel map — the ROS visualizer's voxel_rgb layer (x, y, z, rgb),
+# bridged the same way. Unlike voxels_sim (raw RDF), the visualizer already
+# applies rdf2flu at the source, so this cloud is FLU (boot-translation only).
+RGB_VOXELS_SUFFIX = '/rayfronts/voxel_rgb'
 # rayfronts publishes voxels_sim clouds in RDF (right-down-forward, camera-
 # optical); raven converts to FLU as [z, -x, -y] (raven_nav_node._vox_all_cb).
 # That swap is a pure rotation — this is its quaternion (x, y, z, w), the same
@@ -112,6 +116,9 @@ class FoxgloveVisualizerNode(Node):
         # /robot_1/rayfronts/msg_serv/voxels_sim/q0_car -> ('robot_1', 'voxels_sim/q0_car')
         self._voxels_pattern = re.compile(
             rf'^/({re.escape(self._prefix)}_\w+){re.escape(VOXELS_INFIX)}(voxels_sim/.+)$')
+        # Captures robot_name from /robot_1/rayfronts/voxel_rgb -> 'robot_1'
+        self._rgb_voxels_pattern = re.compile(
+            rf'^/({re.escape(self._prefix)}_\w+){re.escape(RGB_VOXELS_SUFFIX)}$')
 
         self._gps_positions  = {}
         self._gps_boot       = {}
@@ -210,6 +217,7 @@ class FoxgloveVisualizerNode(Node):
         self._subscribed_ray_groups = set()
         self._ray_groups_pubs: dict = {}
         self._subscribed_voxels = set()
+        self._subscribed_rgb_voxels = set()
         self._voxels_pubs: dict = {}   # source topic -> republish publisher
         # Gradient min for the per-query voxel cubes — raven_nav's
         # voxel_score_threshold sim gate. Env default so the mission runner can
@@ -349,6 +357,22 @@ class FoxgloveVisualizerNode(Node):
                     self.get_logger().info(
                         f'Subscribed to rayfronts voxels: {topic} -> {out_topic}')
 
+            if topic not in self._subscribed_rgb_voxels:
+                m = self._rgb_voxels_pattern.match(topic)
+                if m and 'sensor_msgs/msg/PointCloud2' in type_list:
+                    name = m.group(1)
+                    out_topic = f'/rayfronts_debug/{name}/voxel_rgb'
+                    self._voxels_pubs[topic] = self.create_publisher(
+                        PointCloud2, out_topic, 5)
+                    self.create_subscription(
+                        PointCloud2, topic,
+                        lambda msg, n=name, t=topic: self._rgb_voxels_callback(msg, n, t),
+                        SENSOR_QOS,
+                    )
+                    self._subscribed_rgb_voxels.add(topic)
+                    self.get_logger().info(
+                        f'Subscribed to rayfronts rgb voxels: {topic} -> {out_topic}')
+
     def _try_lock_ground(self, robot_name: str) -> None:
         """Lock _alt_ground = msl - odom_z for the first robot with both signals.
 
@@ -466,6 +490,28 @@ class FoxgloveVisualizerNode(Node):
         if idx in VOXEL_HIGH_OVERRIDE:
             return VOXEL_HIGH_OVERRIDE[idx]
         return fluorescent(ROBOT_COLORS[(idx - 1) % len(ROBOT_COLORS)])
+
+    def _rgb_voxels_callback(self, msg: PointCloud2, robot_name: str, src_topic: str):
+        """Republish a bridged rayfronts rgb voxel cloud in the global ENU 'map'
+        frame under /rayfronts_debug/<robot>/voxel_rgb.
+
+        Unlike voxels_sim (raw RDF), voxel_rgb comes from the rayfronts ROS
+        visualizer, which already applies rdf2flu at the source — so apply ONLY
+        this robot's GPS boot-ENU translation (no rotation). The packed 'rgb'
+        field passes through untouched so Foxglove colours it by rgb."""
+        boot = self._gps_boot.get(robot_name)
+        pub = self._voxels_pubs.get(src_topic)
+        if pub is None:
+            return
+        if boot is None:
+            self.get_logger().warn(
+                f'awaiting GPS boot for {robot_name} to place rgb voxels',
+                throttle_duration_sec=10.0)
+            return
+        bx, by, bz = float(boot[0]), float(boot[1]), float(boot[2])
+        out = transform_point_cloud2(msg, bx, by, bz)  # identity rot: translate only
+        out.header.stamp = self.get_clock().now().to_msg()
+        pub.publish(out)
 
     def _voxels_callback(self, msg: PointCloud2, robot_name: str, src_topic: str):
         """Republish a bridged rayfronts voxel heatmap in the global ENU 'map' frame.

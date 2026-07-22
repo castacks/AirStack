@@ -236,6 +236,7 @@ record:
     - /gcs/sim_ground
     - /gcs/annotations/bboxes
     - /rayfronts_debug/{robot}/voxels_sim/all
+    - /rayfronts_debug/{robot}/voxel_rgb
 
 on_step_failure: abort_iteration
 

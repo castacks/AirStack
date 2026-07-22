@@ -19,16 +19,17 @@
 
   <!--
     Hold a silent subscription on rayfronts' per-query voxel heatmaps
-    (.../voxels_sim/q{q}_{label}) so rayfronts actually publishes them: it
-    only streams a voxel topic while it has a subscriber, and the DDS router's
-    reader alone does not count. Discovery-based because the per-query names
-    are dynamic per mission query. This is what makes the per-query clouds
-    reach the GCS (/rayfronts_debug/<robot>/voxels_sim/q...).
+    (.../voxels_sim/q{q}_{label}) and the rgb voxel map (.../voxel_rgb) so
+    rayfronts actually publishes them: it only streams a voxel topic while it
+    has a subscriber, and the DDS router's reader alone does not count.
+    Discovery-based because the per-query names are dynamic per mission query.
+    This is what makes those clouds reach the GCS
+    (/rayfronts_debug/<robot>/{voxels_sim/q...,voxel_rgb}).
   -->
   <node pkg="perception_bringup" exec="voxel_keepalive_node.py"
         name="voxel_keepalive" output="screen">
     <param name="topic_pattern"
-           value="^/robot_$(env ROS_DOMAIN_ID)/rayfronts/msg_serv/voxels_sim/q[0-9]+"/>
+           value="^/robot_$(env ROS_DOMAIN_ID)/rayfronts/(msg_serv/voxels_sim/q[0-9]+|voxel_rgb)"/>
   </node>
 
   <!--
