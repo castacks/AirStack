@@ -167,10 +167,10 @@ The `build_packages` CI job (`tests/system/test_build_packages.py`) also runs
 
 ## Extending to sim and GCS
 
-The mechanism extends to other components via the same YAML. `conftest.py`
+The mechanism extends to other components via the same YAML. `tests/harness/discovery.py`
 (`_WORKSPACE_PKG_TEST_GLOBS`) maps each workspace key to a source glob — `robot` →
 `robot/ros_ws/src/**/<pkg>/test`, `sim` → `simulation/**/<pkg>/test`. Add a `sim:` (or a
-new `gcs:`) workspace to the YAML, adding the glob for a new tree in `conftest.py`:
+new `gcs:`) workspace to the YAML, adding the glob for a new tree in `tests/harness/discovery.py`:
 
 ```yaml
 # tests/colcon_unit_test_packages.yaml

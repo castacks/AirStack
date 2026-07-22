@@ -219,7 +219,7 @@ tests/results/<YYYY-MM-DD_HH-MM-SS>/
 | -------- | -------- | --- |
 | `summary.txt` | `tests/run_summary.py` (auto at session end via `conftest.py`) | Quick pass/fail + key numbers per trajectory type |
 | `results.xml` | pytest `--junitxml` | CI, phase wall times |
-| `metrics.json` | `MetricsRecorder` in `conftest.py` | Regression diffs |
+| `metrics.json` | `MetricsRecorder` in `tests/harness/metrics.py` | Regression diffs |
 
 ### Regenerate or inspect
 

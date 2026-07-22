@@ -21,7 +21,7 @@ It yields `{"container": <name>, "brought_up": bool}`.
 ## Collection order
 
 Integration runs after `build_docker` / `build_packages` (it needs the image + a colcon
-build) and before the sim tiers — see `_MODULE_ORDER` in `conftest.py`.
+build) and before the sim tiers — see `_MODULE_ORDER` in `tests/harness/collection.py`.
 
 ## Running
 

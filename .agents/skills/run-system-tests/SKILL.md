@@ -81,7 +81,7 @@ rates if too many `ros2 topic hz` processes run concurrently.
 - **Robot-side (Isaac):** two passes — both stereo images, then both depths.
   **ms-airsim** keeps a single four-topic parallel batch on the robot container.
 - **Filtered LiDAR** (`PointCloud2`): uses `ros2 topic echo --once` per robot
-  (see `parallel_echo_once_robot_topics` in `conftest.py`), not `topic hz`.
+  (see `parallel_echo_once_robot_topics` in `tests/harness/sim.py`), not `topic hz`.
 - **Multi-drone Pegasus script:** pytest sets `ENABLE_LIDAR=true` in
   `conftest.py` `SIM_CONFIG["isaacsim"]["extra_env"]` so LiDAR matches the
   single-drone example (which always enables RTX LiDAR).
@@ -295,7 +295,7 @@ If your test...
 - File: `tests/system/test_<short_descriptor>.py` — matches pytest's default test discovery (`test_*.py`) under the system suite
 - Class: `Test<CamelCase>` with the mark applied at the class level: `@pytest.mark.<mark>`
 - Add a class-level `@pytest.mark.timeout(<seconds>)` — long-running sim tests need it
-- Imports: pull helpers from `conftest` directly (`from conftest import ...`); `tests/` is on `sys.path` because `testpaths = .` in pytest.ini
+- Imports: pull helpers from `conftest` directly (`from conftest import ...`); they physically live in the `tests/harness/` package but are re-exported through `conftest`, so either `from conftest import ...` or `from harness import ...` works. `tests/` is on `sys.path` because `testpaths = .` in pytest.ini
 
 ### 3. Decide if you need `airstack_env`
 
@@ -305,7 +305,7 @@ If your test...
 
 ### 4. Use the existing helpers
 
-`conftest.py` exports a deliberate API. Prefer these over rolling your own:
+The `tests/harness/` package exports a deliberate API (re-exported through `conftest`). Prefer these over rolling your own:
 
 | Helper | Purpose |
 |--------|---------|
@@ -422,7 +422,8 @@ python tests/parse_metrics.py \
 
 ### Files to know
 
-- `tests/conftest.py` — fixtures, helpers, `MetricsRecorder`, ordering hooks
+- `tests/conftest.py` — pytest hooks + the `airstack_env` / `robot_autonomy_stack` fixtures (re-exports the harness API)
+- `tests/harness/` — helpers split by concern: `session`, `discovery`, `commands`, `containers`, `metrics` (`MetricsRecorder`), `sim`, `collection` (ordering)
 - `tests/pytest.ini` — mark registration, log format
 - `tests/parse_metrics.py` — markdown reporter, regression diff
 - `tests/README.md` — user-facing docs (CLI options, output layout, CI/CD orchestrator)

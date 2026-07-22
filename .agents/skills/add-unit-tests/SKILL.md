@@ -222,7 +222,7 @@ there are listed in [`tests/colcon_unit_test_packages.yaml`](../../../tests/colc
 ## Extending to sim and GCS
 
 The same mechanism applies — add the package under a workspace key in the YAML. The
-workspace→source glob is defined in `conftest.py` (`_WORKSPACE_PKG_TEST_GLOBS`): `robot` →
+workspace→source glob is defined in `tests/harness/discovery.py` (`_WORKSPACE_PKG_TEST_GLOBS`): `robot` →
 `robot/ros_ws/src/**/<pkg>/test`, `sim` → `simulation/**/<pkg>/test`. Add a new workspace
 key there (e.g. `gcs`) if you extend to a new tree.
 
