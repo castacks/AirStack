@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import re
 import shlex
@@ -9,11 +8,27 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
-from datetime import datetime
 from pathlib import Path
 
 import pytest
-import yaml
+
+# Make tests/ importable so `from harness import ...` (and `from run_summary import ...`)
+# resolve regardless of pytest's import mode.
+_TESTS_DIR = str(Path(__file__).resolve().parent)
+if _TESTS_DIR not in sys.path:
+    sys.path.insert(0, _TESTS_DIR)
+
+from harness import session
+# AIRSTACK_ROOT, colcon_test_robot_command, load_colcon_unit_test_config and logger are
+# imported here so existing `from conftest import <name>` in the system tests keeps working.
+from harness.session import logger
+from harness.discovery import (
+    AIRSTACK_ROOT,
+    colcon_test_robot_command,
+    load_colcon_unit_test_config,
+    unit_test_files,
+    _is_unit_item,
+)
 
 SIM_CONFIG = {
     "msairsim": {
@@ -45,140 +60,8 @@ SIM_CONFIG = {
     },
 }
 
-AIRSTACK_ROOT = os.environ.get("AIRSTACK_ROOT", str(Path(__file__).parent.parent))
-COLCON_UNIT_TEST_PACKAGES_YAML = (
-    Path(AIRSTACK_ROOT) / "tests" / "colcon_unit_test_packages.yaml"
-)
-
-
-def load_colcon_unit_test_config(workspace="robot"):
-    """Load colcon test package list and pytest args from tests/colcon_unit_test_packages.yaml."""
-    if not COLCON_UNIT_TEST_PACKAGES_YAML.is_file():
-        raise FileNotFoundError(
-            f"Missing {COLCON_UNIT_TEST_PACKAGES_YAML} — add packages to gate in colcon test."
-        )
-    with COLCON_UNIT_TEST_PACKAGES_YAML.open(encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
-    if workspace not in data:
-        raise KeyError(
-            f"No '{workspace}' entry in {COLCON_UNIT_TEST_PACKAGES_YAML.name}"
-        )
-    cfg = data[workspace] or {}
-    packages = cfg.get("packages") or []
-    if not packages:
-        raise ValueError(
-            f"'{workspace}.packages' is empty in {COLCON_UNIT_TEST_PACKAGES_YAML.name}"
-        )
-    return packages, cfg.get("pytest_args", "")
-
-
-def colcon_test_robot_command(workspace="robot"):
-    """Shell command for colcon test over unit-test packages (robot workspace)."""
-    packages, pytest_args = load_colcon_unit_test_config(workspace)
-    pkg_list = " ".join(packages)
-    cmd = (
-        f"colcon test --packages-select {pkg_list} "
-        "--event-handlers console_direct+ --return-code-on-test-failure"
-    )
-    if pytest_args:
-        cmd += f' --pytest-args "{pytest_args}"'
-    return cmd
-
-
-def repo_path(*parts: str) -> Path:
-    """Resolve a path relative to the repo root (``AIRSTACK_ROOT``).
-
-    Single source of truth for cross-tree paths — no test or hook should hardcode
-    ``Path(__file__).parents[N]`` walks.
-    """
-    return Path(AIRSTACK_ROOT).joinpath(*parts)
-
-
-# Unit-test SOURCE lives co-located with each package (colcon convention).
-# colcon_unit_test_packages.yaml lists which packages have unit tests; every listed
-# package resolves to its <pkg>/test dir (globbed per workspace) and the non-linter
-# test_*.py files there are collected under --import-mode=importlib (set in pytest.ini).
-# See unit_test_files (what gets collected), pytest_configure (adds them to the run),
-# and pytest_itemcollected (auto `unit` mark). ament lint tests are excluded (they run
-# under colcon test).
-_WORKSPACE_PKG_TEST_GLOBS = {
-    "robot": "robot/ros_ws/src/**/{pkg}/test",
-    "sim": "simulation/**/{pkg}/test",
-}
-
-# ament lint tests ship in every ROS package's test/ dir and import ament_* at
-# module load (unavailable outside the built workspace). Skip them here — they run
-# under `colcon test` instead (see colcon_test_robot_command's `-m not linter`).
-_LINTER_TEST_FILENAMES = {
-    "test_copyright.py", "test_flake8.py", "test_pep257.py",
-    "test_pep8.py", "test_xmllint.py", "test_lint_cmake.py",
-}
-
-
-def unit_test_dirs():
-    """Every co-located unit-test dir resolved from colcon_unit_test_packages.yaml."""
-    if not COLCON_UNIT_TEST_PACKAGES_YAML.is_file():
-        return []
-    with COLCON_UNIT_TEST_PACKAGES_YAML.open(encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
-    dirs = []
-    for workspace, glob_tmpl in _WORKSPACE_PKG_TEST_GLOBS.items():
-        cfg = data.get(workspace) or {}
-        for pkg in cfg.get("packages") or []:
-            for match in repo_path().glob(glob_tmpl.format(pkg=pkg)):
-                if match.is_dir():
-                    dirs.append(match.resolve())
-    return dirs
-
-
-_UNIT_TEST_DIRS = None
-
-
-def _unit_test_dirs_cached():
-    global _UNIT_TEST_DIRS
-    if _UNIT_TEST_DIRS is None:
-        _UNIT_TEST_DIRS = unit_test_dirs()
-    return _UNIT_TEST_DIRS
-
-
-def _is_unit_item(item):
-    """True when a collected item's file lives under a co-located unit-test dir."""
-    try:
-        p = Path(str(item.path)).resolve()
-    except Exception:
-        return False
-    return any(p.is_relative_to(d) for d in _unit_test_dirs_cached())
-
-
-def unit_test_files():
-    """Co-located unit-test files to collect: every ``test_*.py`` under a package
-    ``test/`` dir, minus the ament lint files.
-
-    We inject explicit files (not the dirs) because pytest does not apply ignore
-    rules to files it recurses into from an explicitly-passed directory — passing
-    the exact files is the only deterministic way to keep ament lint tests out.
-    """
-    files = []
-    for d in _unit_test_dirs_cached():
-        for f in sorted(d.glob("test_*.py")):
-            if f.name not in _LINTER_TEST_FILENAMES:
-                files.append(f)
-    return files
-
-
-RUN_DIR = None
 ROS_DISTRO_SETUP = "/opt/ros/jazzy/setup.bash"
-_LAST_CMD_OUTPUT: dict[str, str] = {}
-_DEFAULT_LOG_KEY = "_last"
-
-# Track the currently-running pytest item so current_log() and current_test_id()
-# can pick up the parametrize id without tests having to pass `request` around.
-_CURRENT_ITEM = None
 METRICS = None
-
-
-logger = logging.getLogger("airstack")
-logger.setLevel(logging.INFO)
 
 
 # ── pytest config / hooks ──────────────────────────────────────────────────
@@ -206,12 +89,8 @@ def pytest_addoption(parser):
 
 
 def pytest_configure(config):
-    global RUN_DIR
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    results_root = Path(AIRSTACK_ROOT) / "tests" / "results"
-    RUN_DIR = results_root / timestamp
-    RUN_DIR.mkdir(parents=True, exist_ok=True)
-    config.option.xmlpath = str(RUN_DIR / "results.xml")
+    run_dir = session.init_run_dir(AIRSTACK_ROOT)
+    config.option.xmlpath = str(run_dir / "results.xml")
 
     # Collect co-located unit tests: their files live outside tests/, so add the
     # explicit non-linter test files to the collection args. Skip when an explicit
@@ -235,22 +114,21 @@ def pytest_itemcollected(item):
 
 
 def pytest_runtest_setup(item):
-    global _CURRENT_ITEM
-    _CURRENT_ITEM = item
+    session.set_current_item(item)
 
 
 def pytest_runtest_teardown(item):
-    global _CURRENT_ITEM
-    _CURRENT_ITEM = None
+    session.set_current_item(None)
 
 
-def pytest_sessionfinish(session, exitstatus):
+def pytest_sessionfinish(exitstatus):
     """Write summary.txt with key metrics so users don't need to dig through logs."""
-    if RUN_DIR is None:
+    run_dir = session.run_dir()
+    if run_dir is None:
         return
     try:
         from run_summary import write_summary
-        summary_path = write_summary(RUN_DIR)
+        summary_path = write_summary(run_dir)
         logger.info("Wrote run summary to %s", summary_path)
     except Exception as exc:
         logger.warning("Failed to write run summary: %s", exc)
@@ -418,15 +296,15 @@ def current_log():
 
     Subprocess helpers default to this so every call fired from a test auto-logs
     to the right file without plumbing log_name through every layer."""
-    if _CURRENT_ITEM is None:
+    item = session.current_item()
+    if item is None:
         return None
-    return _nodeid_dotted(_CURRENT_ITEM.nodeid, with_path_sep=True)
+    return _nodeid_dotted(item.nodeid, with_path_sep=True)
 
 
 def read_log_tail(log_name=None, lines=50):
     """Return the tail of the most recent subprocess output for this context."""
-    key = log_name or _DEFAULT_LOG_KEY
-    text = _LAST_CMD_OUTPUT.get(key) or _LAST_CMD_OUTPUT.get(_DEFAULT_LOG_KEY, "")
+    text = session.last_cmd_output(log_name)
     if not text:
         return ""
     return "\n".join(text.splitlines()[-lines:])
@@ -440,9 +318,7 @@ def _run_teed(cmd_list, timeout, log_name=None, env=None, cwd=None):
         cmd_list, capture_output=True, text=True, timeout=timeout, env=env, cwd=cwd,
     )
     combined = (result.stdout or "") + (result.stderr or "")
-    key = log_name or _DEFAULT_LOG_KEY
-    _LAST_CMD_OUTPUT[key] = combined
-    _LAST_CMD_OUTPUT[_DEFAULT_LOG_KEY] = combined
+    session.record_cmd_output(combined, log_name)
     return result
 
 
@@ -673,16 +549,17 @@ class MetricsRecorder:
 def get_metrics():
     global METRICS
     if METRICS is None:
-        METRICS = MetricsRecorder(RUN_DIR / "metrics.json")
+        METRICS = MetricsRecorder(session.run_dir() / "metrics.json")
     return METRICS
 
 
 def current_test_id():
     """Test id used as the metrics.json key. Matches JUnit XML's classname.name
     format so parse_metrics.py can merge results.xml and metrics.json entries."""
-    if _CURRENT_ITEM is None:
+    item = session.current_item()
+    if item is None:
         return "unknown"
-    return _nodeid_dotted(_CURRENT_ITEM.nodeid)
+    return _nodeid_dotted(item.nodeid)
 
 
 # ── shared sim test infrastructure (liveliness, sensors, comms, takeoff reuse) ──
@@ -851,7 +728,7 @@ def airstack_env(request):
     # test id (see pytest_collection_modifyitems), so airstack up/down output
     # lands next to the triggering test's own log instead of under pytest's
     # stale callspec.id.
-    log = f"airstack_env.{_nodeid_dotted(_CURRENT_ITEM.nodeid, with_path_sep=True)}"
+    log = f"airstack_env.{_nodeid_dotted(session.current_item().nodeid, with_path_sep=True)}"
 
     headless = not request.config.getoption("--gui")
     env_overrides = {
