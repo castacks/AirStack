@@ -48,3 +48,7 @@ ENV PYTHON_EXECUTABLE=/usr/bin/python3
 
 # Prefer system/cuda tooling over any removed venv prefix (CUDA symlink is usually /usr/local/cuda).
 ENV PATH="/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# Neutralize dustynv's /ros_entrypoint.sh: it prepends a prebuilt source-ROS lib dir
+# that shadows the apt Jazzy (older fastcdr) and crashes mavros. See docker-build-profiles skill.
+RUN printf '#!/bin/bash\nexec "$@"\n' > /ros_entrypoint.sh && chmod +x /ros_entrypoint.sh

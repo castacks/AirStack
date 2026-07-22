@@ -5391,11 +5391,18 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Battery and telemetry display in GCS RQT control panel (voltage and percentage per robot when MAVROS battery topic is bridged)</li>
 <li><code>TARGET_ARCH</code> build arg (default <code>x86_64</code>) in <code>Dockerfile.robot</code> to arch-parametrize <code>LD_LIBRARY_PATH</code>; <code>docker-compose.yaml</code> passes <code>TARGET_ARCH: aarch64</code> to the <code>voxl</code> and <code>l4t</code> real-robot image builds</li>
 <li><code>ros-${ROS_DISTRO}-mavros-extras</code> in the robot image (provides the vision_pose plugin used for external-pose deployments)</li>
+<li><code>overrides/l4t-px4-realrobot.env</code> — site-agnostic deployment override for a single real PX4 robot on a Jetson (aarch64/l4t)</li>
+</ul>
+<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>robot-l4t</code> compose service knobs are now env-overridable (<code>AUTONOMY_ROLE</code>, <code>FCU_URL</code>, and the rosbag path via <code>BAG_STORAGE_PATH</code>); <code>FCU_URL</code> unquoted so the literal serial path reaches MAVROS</li>
+<li><code>zed-l4t</code> image: ZED SDK 4.2 → 5.2 with the coupled ROS deps (<code>zed_msgs</code> 5.2.1, <code>point_cloud_transport(_plugins)</code> 4.x, add <code>backward_ros</code>)</li>
 </ul>
 <h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Robot name resolution now honors a pre-set <code>ROBOT_NAME</code> (e.g. injected via docker compose) instead of always overriding it from the container/hostname mapping (<code>robot/docker/.bashrc</code>)</li>
 <li>Robot name-map catch-all fallback now maps to <code>unknown_robot</code> (valid ROS namespace token) instead of <code>unknown-robot</code> (<code>default_robot_name_map.yaml</code>)</li>
+<li>l4t robot image: replace dustynv's <code>/ros_entrypoint.sh</code> with a passthrough so its prebuilt source-ROS libs (older <code>fastcdr</code>) no longer shadow the apt Jazzy runtime and crash apt-built nodes like MAVROS</li>
 </ul>
 <h2 id="100-2024-12-19">[1.0.0] - 2024-12-19<a class="headerlink" href="#100-2024-12-19" title="Permanent link">&para;</a></h2>
 <p>First official public release.</p>
@@ -5411,7 +5418,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <ul>
 <li>A bunch of stuff honestly</li>
 </ul>
-<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
+<h3 id="changed_1">Changed<a class="headerlink" href="#changed_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Upgrade Isaac Sim from 4.1.0 to 4.2.0</li>
 <li>Unified docker image naming to use AirStack's version.</li>
