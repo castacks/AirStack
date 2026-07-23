@@ -117,7 +117,7 @@ environments:
     # 2nd fixed spawn (swap in): run-1 positions (known-good takeoff), different orientations.
     # '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.7071,0.7071]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,1.0,0.0]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,-0.7071,0.7071]}]'
     RESULTS_SCENE: "ConstructionSite"
-    query: "forklift, yellow tower crane, blue tarp, orange tower crane"
+    query: "forklift, tower crane, blue tarp, orange tarp"
     voxel_score_threshold: 0.65
     score_threshold: -1
     voxel_min_cluster_size: -1
