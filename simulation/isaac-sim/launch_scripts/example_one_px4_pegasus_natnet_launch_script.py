@@ -1,13 +1,18 @@
 #!/usr/bin/env python
 """
-Example single-drone PX4 launcher with scene preparation.
+Single-drone PX4 Pegasus launcher with OptiTrack NatNet mocap streaming.
 
-Demonstrates:
- - Loading a Pegasus world with an environment
- - Scaling the environment prim and adding collision geometry
- - Adding a dome light
-- Spawning a PX4 multirotor with ZED camera and RTX lidar
- - Optionally saving the prepared scene as a self-contained USD
+Same scene prep and sensor stack as ``example_one_px4_pegasus_launch_script.py``, plus
+a Motive-compatible NatNet server that always streams:
+
+ - ``Drone`` (id 1) from the Pegasus ``body`` prim under ``/World/base_link``
+ - ``Target`` (id 100) from a static ``/World/target`` prim
+
+Pair with robot-side ``LAUNCH_NATNET=true`` and a matching ``natnet_config.yaml``
+profile. To consume the target on the robot, add a Target body to the profile
+(see the commented scaffolding in ``natnet_config.yaml``).
+
+Override rigid-body names with ``NATNET_BODY_NAME`` / ``NATNET_TARGET_NAME``.
 """
 
 import os
@@ -20,16 +25,6 @@ from isaacsim import SimulationApp
 
 _LIVESTREAM = os.environ.get("ISAAC_SIM_LIVESTREAM", "").lower() == "true"
 
-# Must be created before any omni imports.
-#
-# When livestreaming, mirror the NVIDIA reference config from
-# simulation/isaac-sim/standalone_examples/api/isaacsim.simulation_app/livestream.py
-# so the Kit GUI (menu bar, toolbar, viewport, status bar) actually gets
-# rendered into the WebRTC stream instead of just the bare 3D viewport.
-# Key field: `hide_ui: False` — SimulationApp's default when `headless=True`
-# is to also hide the UI; the livestream reference opts back into showing
-# it. `display_options=3286` is the same bitmask the reference uses to keep
-# the default grid + axes visible at scene start.
 if _LIVESTREAM:
     _SIM_APP_CONFIG = {
         "width": 1280,
@@ -47,38 +42,13 @@ else:
 simulation_app = SimulationApp(launch_config=_SIM_APP_CONFIG)
 
 if _LIVESTREAM:
-    # Headless + WebRTC livestream when ISAAC_SIM_LIVESTREAM=true (set by the
-    # OSMO airstack-osmo-workspace entrypoint and the isaac-sim-livestream
-    # Compose profile). Local desktop dev keeps the original windowed behavior.
-    # Mirrors AirStack's standalone livestream reference at
-    # simulation/isaac-sim/standalone_examples/api/isaacsim.simulation_app/livestream.py
     from isaacsim.core.utils.extensions import enable_extension
     simulation_app.set_setting("/app/window/drawMouse", True)
     simulation_app.set_setting("/app/livestream/enabled", True)
-
-    # Pin the UDP media port so it stays inside the narrow set of ports we
-    # publish from this container and that `airstack osmo:webrtc` forwards.
-    #
-    # Kit 107's WebRTC livestream picks a UDP media port dynamically. The
-    # documented `omni.services.livestream.nvcf` defaults were
-    # minHostPort=47998 / maxHostPort=48020 / fixedHostPort=0, but the
-    # actual Kit binary ignored that range on airstack-dev-13 and bound to
-    # UDP 49042 — outside both the Compose-published port range AND the
-    # default osmo `--udp` forward (47995-48012,49000-49007). Result:
-    # signaling worked (TCP 49100), the WebRTC Streaming Client window
-    # opened, but every media packet was dropped → black viewport +
-    # the `NVST_CCE_DISCONNECTED when m_connectionCount 0 != 1` underflow
-    # storm in the Kit log.
-    #
-    # Set all three settings so whichever code path the plugin reads, it
-    # lands on UDP 49099. The value of 49099 is picked as one-off from the
-    # 49100 signaling port — same range, easy to remember, and TCP/UDP can
-    # coexist on the same number if anyone later wants a single port.
     LIVESTREAM_UDP_PORT = int(os.environ.get("ISAAC_SIM_LIVESTREAM_UDP_PORT", "49099"))
     simulation_app.set_setting("/app/livestream/fixedHostPort", LIVESTREAM_UDP_PORT)
     simulation_app.set_setting("/app/livestream/minHostPort", LIVESTREAM_UDP_PORT)
     simulation_app.set_setting("/app/livestream/maxHostPort", LIVESTREAM_UDP_PORT)
-
     enable_extension("omni.kit.livestream.webrtc")
 
 import omni.kit.app
@@ -87,7 +57,6 @@ import omni.usd
 
 from omni.isaac.core.world import World
 
-# Pegasus imports
 from pegasus.simulator.params import SIMULATION_ENVIRONMENTS
 from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 from pegasus.simulator.ogn.api.spawn_multirotor import spawn_px4_multirotor_node
@@ -103,25 +72,25 @@ if _LAUNCH_SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _LAUNCH_SCRIPTS_DIR)
 from gps_utils import set_gps_origins, DEFAULT_WORLD_ORIGIN
 
+from optitrack.natnet.emulator.isaac import (
+    DEFAULT_TARGET_PATH,
+    DEFAULT_TARGET_POSITION,
+    DEFAULT_TARGET_STREAMING_ID,
+    author_static_target,
+    start_drone_natnet_server,
+)
 
 # --------------------- CONFIGURATION ---------------------
-# Environment to load. Swap this URL/key for any other scene.
 ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
-
-# Scale applied to /World/stage. 0.01 converts cm→m for Nucleus assets.
-# Set to 1.0 if the environment is already in meters.
 STAGE_SCALE = 1.0
-
-# Set to a directory path to export a self-contained USD after scene prep.
-# Set to None to skip saving.
-SAVE_SCENE_TO = None  # e.g. os.path.expanduser("~/AirStack/my_scene/")
-
+SAVE_SCENE_TO = None
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
 # GPS world anchor: what world (0, 0, 0) maps to in real GPS coordinates. Must
 # match the GCS origin (gcs_visualizer/gcs_utils.py) and the robot's
-# natnet_ros2 mavros_gp_origin.yaml, otherwise PX4 SITL defaults to Zurich and
-# Foxglove waypoints pick up a ~1.8e6 m boot-ENU offset (wrong-way navigation).
+# natnet_ros2 mavros_gp_origin.yaml. In vision/mocap mode the robot-side
+# mavros_gp_origin node is the authoritative datum; this keeps PX4's SITL home
+# consistent with it so the two never disagree.
 WORLD_GPS_ORIGIN = DEFAULT_WORLD_ORIGIN
 
 # Single drone spawned at the world origin. domain_id / spawn must match the
@@ -129,10 +98,18 @@ WORLD_GPS_ORIGIN = DEFAULT_WORLD_ORIGIN
 DRONE_CONFIGS = [
     {"domain_id": 1, "x_m": 0.0, "y_m": 0.0, "z_m": 0.07},
 ]
+
+NATNET_BODY_NAME = os.environ.get("NATNET_BODY_NAME", "Drone")
+NATNET_TARGET_NAME = os.environ.get("NATNET_TARGET_NAME", "Target")
+
+_NATNET_SERVER_KWARGS = {
+    "pose_noise_enabled": True,
+    "pose_noise_std_meters": 0.0005,
+    "pose_noise_rotation_deg": 0.05,
+}
 # ---------------------------------------------------------
 
 
-# Enable required extensions
 ext_manager = omni.kit.app.get_app().get_extension_manager()
 for ext in [
     "omni.graph.core",
@@ -152,7 +129,6 @@ for ext in [
 
 
 def wait_for_stage(stage, timeout_s: float = 10.0):
-    """Pump the Kit app loop until /World has content (scene fully loaded)."""
     for _ in range(int(timeout_s / 0.1)):
         omni.kit.app.get_app().update()
         world_prim = stage.GetPrimAtPath("/World")
@@ -172,50 +148,33 @@ class PegasusApp:
         set_gps_origins(DRONE_CONFIGS, world_origin=WORLD_GPS_ORIGIN)
 
         self.timeline = omni.timeline.get_timeline_interface()
+        self.natnet_manager = None
 
-        # Start Pegasus interface + world
         self.pg = PegasusInterface()
         self.pg._world = World(**self.pg._world_settings)
         self.world = self.pg.world
-
-        # Keep the timeline stopped throughout setup so that OmniGraph's
-        # OnPlaybackTick never fires.
         self.timeline.stop()
 
-        # Load environment
         self.pg.load_environment(ENV_URL)
 
         stage = omni.usd.get_context().get_stage()
         if stage is None:
             raise RuntimeError("Stage failed to load")
 
-        # Wait for the environment to finish loading before modifying it
         if not wait_for_stage(stage):
             carb.log_warn("Stage load timed out — continuing anyway.")
 
-        # ----- Scene preparation -----
-
-        # Scale /World/stage if the asset uses non-metric units (e.g. cm).
-        # Remove or set STAGE_SCALE=1.0 if the environment is already in meters.
         stage_prim = stage.GetPrimAtPath("/World/stage")
         if stage_prim.IsValid():
             scale_stage_prim(stage, "/World/stage", STAGE_SCALE)
-
-            # Apply CollisionAPI to every mesh so physics works correctly
             add_colliders(stage_prim)
-
-            # Let the app process the transform and collision changes
             for _ in range(10):
                 omni.kit.app.get_app().update()
         else:
             carb.log_warn("/World/stage not found — skipping scale and collision.")
 
-        # Add a dome light for uniform scene illumination.
-        # Pass intensity/exposure kwargs to override defaults defined in scene_prep.
         add_dome_light(stage)
 
-        # Optionally save the prepared scene as a self-contained USD package.
-        # The Collector copies all Nucleus-hosted textures and MDLs locally.
         if SAVE_SCENE_TO:
             import tempfile
             tmp_usd = os.path.join(tempfile.gettempdir(), "prepared_scene.usd")
@@ -229,47 +188,60 @@ class PegasusApp:
             else:
                 carb.log_error(f"Scene export failed: {error}")
 
-        # ----- Spawn drone OmniGraph -----
-        # This only creates the graph topology. The actual drone + PX4
-        # backend are created by compute_base on the first Play tick.
-
         graph_handle = spawn_px4_multirotor_node(
             pegasus_node_name="PX4Multirotor",
             drone_prim="/World/base_link",
             robot_name="robot_1",
-            vehicle_id=1,   # MAVLink port = 14540 + vehicle_id
-            domain_id=1,    # ROS 2 domain ID — match vehicle_id by convention
+            vehicle_id=1,
+            domain_id=1,
             usd_file=DRONE_USD,
             init_pos=[0.0, 0.0, 0.07],
             init_orient=[0.0, 0.0, 0.0, 1.0],
         )
 
-        # Add a ZED stereo camera subgraph to the drone
         add_zed_stereo_camera_subgraph(
             parent_graph_handle=graph_handle,
             drone_prim="/World/base_link",
             robot_name="robot_1",
             camera_name="ZEDCamera",
-            camera_offset=[0.2, 0.0, -0.05],       # X, Y, Z offset from base_link
-            camera_rotation_offset=[0.0, 0.0, 0.0], # roll, pitch, yaw in degrees
+            camera_offset=[0.2, 0.0, -0.05],
+            camera_rotation_offset=[0.0, 0.0, 0.0],
         )
 
-        # Add an RTX OmniLidar subgraph to the drone (config + variant via alias)
         add_rtx_lidar_subgraph(
             parent_graph_handle=graph_handle,
             drone_prim="/World/base_link",
             robot_name="robot_1",
             lidar_config="ouster_os1",
             lidar_topic_name="point_cloud_raw",
-            lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
+            lidar_offset=[0.0, 0.0, 0.025],
             lidar_rotation_offset=[0.0, 0.0, 0.0],
             min_range=0.75,
         )
 
+        self._setup_natnet(stage)
         self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
 
-    def run(self):
+    def _setup_natnet(self, stage):
+        """Author the NatNet interface prim (drone + static target) and start the server."""
+        try:
+            author_static_target(stage, DEFAULT_TARGET_PATH, DEFAULT_TARGET_POSITION)
+            bodies = [
+                (NATNET_BODY_NAME, 1, "/World/base_link/body"),
+                (NATNET_TARGET_NAME, DEFAULT_TARGET_STREAMING_ID, DEFAULT_TARGET_PATH),
+            ]
+            self.natnet_manager = start_drone_natnet_server(
+                stage, bodies, **_NATNET_SERVER_KWARGS
+            )
+            carb.log_warn(
+                f"[natnet] Emulator started: '{NATNET_BODY_NAME}' (-> /World/base_link/body), "
+                f"'{NATNET_TARGET_NAME}' (-> {DEFAULT_TARGET_PATH})."
+            )
+        except Exception as exc:  # noqa: BLE001 - never let NatNet kill the sim
+            carb.log_error(f"[natnet] Failed to start emulator: {exc}")
+            self.natnet_manager = None
 
+    def run(self):
         if self.play_on_start:
             self.timeline.play()
         else:
@@ -277,8 +249,6 @@ class PegasusApp:
 
         app = omni.kit.app.get_app()
         while simulation_app.is_running():
-            # File → Save re-opens the stage, which invalidates the World.
-            # Fall back to app.update() until the extension re-creates it.
             world = World.instance()
             if world is not None and hasattr(world, '_scene'):
                 world.step(render=True)
@@ -289,13 +259,14 @@ class PegasusApp:
                 app.update()
 
         carb.log_warn("Closing simulation.")
+        if self.natnet_manager is not None:
+            self.natnet_manager.on_shutdown()
         self.timeline.stop()
         simulation_app.close()
 
 
 def main():
-    pg_app = PegasusApp()
-    pg_app.run()
+    PegasusApp().run()
 
 
 if __name__ == "__main__":

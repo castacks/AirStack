@@ -1,0 +1,100 @@
+#usda 1.0
+(
+    """
+    NatNet emulator applied API schemas (CODELESS).
+
+    These schemas give the
+    interface prim typed, Property-panel-friendly attributes WITHOUT compiled
+    classes. They are codeless — `skipCodeGeneration = true` below — but still need
+    USD's plugin system to discover the generated registry.
+
+    To produce the registry files (run once, in an env with USD tooling):
+
+        usdGenSchema schema/schema.usda schema/
+
+    That emits `schema/generatedSchema.usda` and `schema/plugInfo.json`. The Kit
+    extension then registers the plugin dir on startup (Plug.Registry().RegisterPlugins).
+
+    Until that registration is verified inside Kit, `optitrack.natnet.emulator.isaac`
+    authors the SAME attribute names as plain namespaced custom attributes (the
+    registration-free fallback), so nothing here is required for the facade to work.
+    """
+    subLayers = [
+        @usd/schema.usda@,
+        @usdGeom/schema.usda@
+    ]
+)
+{
+}
+
+over "GLOBAL" (
+    customData = {
+        bool skipCodeGeneration = true
+        string libraryName = "optitrackNatNet"
+        string libraryPath = "."
+        string libraryPrefix = "OptiTrackNatNet"
+    }
+)
+{
+}
+
+class "NatNetInterfaceAPI" (
+    inherits = </APISchemaBase>
+    customData = {
+        token apiSchemaType = "singleApply"
+    }
+    doc = "Marks a prim as a NatNet emulator interface and holds server-level config."
+)
+{
+    bool natnet:isInterface = true (
+        doc = "Discovery marker — find_interfaces() scans for prims with this set true."
+    )
+    bool natnet:serverEnabled = true (
+        doc = "When true the manager keeps a server running; toggling restarts it."
+    )
+    string natnet:serverIp = "172.31.0.200" (
+        doc = "Server interface IP (NatNetUnicastServer.local_interface)."
+    )
+    token natnet:mode = "unicast" (
+        allowedTokens = ["unicast", "multicast"]
+        doc = "Transmission mode."
+    )
+    string natnet:multicastAddr = "239.255.42.99" (
+        doc = "Multicast group (only used when mode = multicast)."
+    )
+    int natnet:commandPort = 1510 (
+        doc = "NatNet command port."
+    )
+    int natnet:dataPort = 1511 (
+        doc = "NatNet data port (frames stream from this source port)."
+    )
+    float natnet:publishRate = 100 (
+        doc = "Frame publish rate in Hz."
+    )
+    string natnet:natnetVersion = "4.4.0.0" (
+        doc = "Advertised NatNet protocol version."
+    )
+}
+
+class "NatNetBodyBindingAPI" (
+    inherits = </APISchemaBase>
+    customData = {
+        token apiSchemaType = "multipleApply"
+        token propertyNamespacePrefix = "natnet:body"
+    }
+    doc = "One tracked rigid body entry on a NatNet interface prim (apply once per body)."
+)
+{
+    string natnet:body:__INSTANCE_NAME__:rigidBodyName = "" (
+        doc = "Motive rigid body name (sRigidBodyDescription.szName)."
+    )
+    int natnet:body:__INSTANCE_NAME__:streamingId = 1 (
+        doc = "Streaming ID (sRigidBodyDescription.ID)."
+    )
+    int natnet:body:__INSTANCE_NAME__:parentId = -1 (
+        doc = "Parent rigid body ID (-1 if none)."
+    )
+    rel natnet:body:__INSTANCE_NAME__:target (
+        doc = "Tracked prim whose world pose is streamed for this body."
+    )
+}

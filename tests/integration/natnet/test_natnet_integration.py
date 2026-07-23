@@ -234,6 +234,80 @@ def test_natnet_ros2_receives_drone_pose_hz(robot_autonomy_stack):
         server.shutdown()
 
 
+def test_natnet_ros2_receives_isaac_wrapper_pose_hz(robot_autonomy_stack):
+    """Isaac-wrapper path: NatNetServerManager.sample_once on a moving USD prim.
+
+    Tests that the wrapper feeds the real robot client end-to-end. Pose-value fidelity
+    is covered by test_pose_streaming.py loopback.
+    """
+    pytest.importorskip("pxr")
+    import math
+
+    from pxr import Gf, Usd, UsdGeom
+
+    from optitrack.natnet.emulator.isaac import (
+        BodyBinding,
+        NatNetInterfaceConfig,
+        NatNetServerManager,
+        author_interface,
+    )
+
+    container = robot_autonomy_stack["container"]
+    if not _natnet_node_available(container):
+        pytest.skip("natnet_ros2_node not built — run airstack setup (NatNet SDK)")
+
+    _stop_stale_natnet_nodes(container)
+
+    host_ip = _docker_default_gateway(container)
+    command_port = ephemeral_udp_port(host_ip)
+    data_port = ephemeral_udp_port(host_ip)
+    while data_port == command_port:
+        data_port = ephemeral_udp_port(host_ip)
+    robot_name = _container_env(container, "ROBOT_NAME", "robot_1")
+    domain_id = int(_container_env(container, "ROS_DOMAIN_ID", "0"))
+
+    stage = Usd.Stage.CreateInMemory()
+    xform = UsdGeom.Xform.Define(stage, "/World/base_link")
+    translate_op = xform.AddTranslateOp()
+    translate_op.Set(Gf.Vec3d(0.0, 0.0, 1.0))
+    cfg = NatNetInterfaceConfig(
+        server_ip=host_ip,
+        command_port=command_port,
+        data_port=data_port,
+        publish_rate=50.0,
+        bodies=[BodyBinding("Drone", "/World/base_link", streaming_id=1)],
+    )
+    author_interface(stage, "/World/NatNetInterface", cfg)
+
+    manager = NatNetServerManager(server_factory=None)  # real server factory
+    stop_event = threading.Event()
+
+    def _sampler():
+        # Stand in for the in-sim physics-step callback: move the prim and sample.
+        interval = 1.0 / cfg.publish_rate
+        t = 0.0
+        while not stop_event.is_set():
+            translate_op.Set(Gf.Vec3d(math.sin(t), 0.0, 1.0))
+            manager.sample_once(stage)
+            t += interval
+            time.sleep(interval)
+
+    sampler = threading.Thread(target=_sampler, daemon=True)
+
+    node_proc: subprocess.Popen[str] | None = None
+    try:
+        assert manager.start_server(cfg) is True
+        sampler.start()
+        time.sleep(0.1)
+        node_proc = _launch_natnet_node(container, host_ip, command_port, domain_id)
+        _assert_pose_stream(container, robot_name, domain_id)
+    finally:
+        stop_event.set()
+        sampler.join(timeout=2.0)
+        _terminate(node_proc)
+        manager.stop_server()
+
+
 def test_natnet_ros2_multi_body_drone_and_target(robot_autonomy_stack):
     """Multi-body profile: one robot tracks a drone + a static target.
 
