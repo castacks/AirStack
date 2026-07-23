@@ -45,6 +45,7 @@ from rclpy.qos import (DurabilityPolicy, HistoryPolicy, QoSProfile,
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py import point_cloud2
 from std_msgs.msg import String
+from visualization_msgs.msg import Marker, MarkerArray
 
 from .digest import (DigestBuilder, aabb_surface_distance, compass_of,
                      nearest_point_in_polygon_xy, point_in_polygon_xy,
@@ -126,6 +127,8 @@ class LlmNavNode(Node):
         self._survey_radius = float(self.declare_parameter('survey_radius_m', 8.0).value)
         self._survey_cooldown = float(self.declare_parameter('survey_cooldown_s', 120.0).value)
         self._llm_aliases = bool(self.declare_parameter('llm_aliases', True).value)
+        self._llm_perception = bool(self.declare_parameter('llm_perception', True).value)
+        self._retune_cooldown = float(self.declare_parameter('retune_cooldown_s', 60.0).value)
         label_bank = [str(l).strip() for l in self.declare_parameter(
             'label_bank', ['house', 'car', 'tree', 'road', 'grass']).value if str(l).strip()]
         surface_labels = [str(l).strip() for l in self.declare_parameter(
@@ -163,6 +166,7 @@ class LlmNavNode(Node):
         self._blacklisted_dirs: list = [] # [np(3) unit dirs] from aborted ray commits
         self._detected_labels = None
         self._last_survey_end = 0.0       # wall time; drives the survey cooldown
+        self._last_retune = 0.0           # wall time; drives the retune cooldown
 
         surface_lower = {s.lower() for s in surface_labels}
         object_labels = [l for l in label_bank if l.lower() not in surface_lower]
@@ -214,6 +218,9 @@ class LlmNavNode(Node):
         # (found instances) works unchanged.
         self._discoveries_pub = self.create_publisher(
             String, f'{self._prefix}/raven_nav/discoveries', 10)
+        # Tracked-instance AABBs + labels for Foxglove/RViz.
+        self._markers_pub = self.create_publisher(
+            MarkerArray, f'{self._prefix}/llm_nav/instances', 10)
 
         self._llm = LLMClient(self._model_path, self.get_logger(), self._mlog,
                               enable_thinking=enable_thinking,
@@ -572,6 +579,7 @@ class LlmNavNode(Node):
             if not aliases_done:
                 aliases_done = True
                 self._bootstrap_aliases()
+                self._bootstrap_perception()
             with self._map_lock:
                 have_map = (self._builder.ready and self._vox_xyz is not None
                             and self._cur_pos is not None)
@@ -615,6 +623,46 @@ class LlmNavNode(Node):
                                      notes=parsed.get('notes', ''))
                 last_narrate_t = now
 
+    def _bootstrap_perception(self):
+        """One-shot LLM call: clustering params fitted to the target. The
+        config values are only the pre-LLM fallback — no fixed thresholds."""
+        if not self._llm_perception:
+            return
+        with self._map_lock:
+            current = dict(min_voxels=self._builder.min_instance_voxels,
+                           score_floor=self._builder.floor_cos,
+                           merge_gap_m=self._builder.merge_gap_m)
+        params = self._llm.perception_params(self._target, current)
+        if params is None:
+            self.get_logger().warn(
+                f'LLM perception-params call failed — keeping {current}')
+            return
+        with self._map_lock:
+            self._builder.set_perception_params(
+                params['min_voxels'], params['score_floor'],
+                params['merge_gap_m'])
+        self.get_logger().info(
+            f'[perception] LLM set clustering for "{self._target}": '
+            f'min_voxels={params["min_voxels"]} '
+            f'score_floor={params["score_floor"]:.2f} '
+            f'merge_gap={params["merge_gap_m"]:.1f}m — {params["reason"]}')
+        self._mlog.event('perception_params_set', **params)
+
+    def _clustering_stats(self) -> str:
+        """Short text summary of the current instance set, fed back to the
+        LLM when it retunes."""
+        with self._map_lock:
+            insts = list(self._builder._instances.values())
+        if not insts:
+            return 'no instances at all'
+        by_label = {}
+        for i in insts:
+            size = i.bbox_max - i.bbox_min
+            by_label.setdefault(i.label, []).append(
+                f'{size[0]:.0f}x{size[1]:.0f}m/{i.n_voxels}vox')
+        return '; '.join(f'{lbl}: {len(v)} instances ({", ".join(v[:6])})'
+                         for lbl, v in by_label.items())
+
     def _bootstrap_aliases(self):
         """One-shot LLM call: which bank labels are PARTS of the target?
         Feeds the same alias mechanism as the config (config entries kept as
@@ -645,7 +693,78 @@ class LlmNavNode(Node):
             self._mlog.event('digest_built', text=digest.text,
                              **{k: len(v) for k, v in
                                 digest.structured().items()})
+            self._publish_instance_markers()
         return digest
+
+    def _publish_instance_markers(self):
+        """AABB + label markers for every tracked instance — what the LLM's
+        candidate list looks like in space. Colors: yellow = committed goal,
+        green = selectable target-label, white = other object, blue =
+        visited, red = blacklisted."""
+        now = time.time()
+        with self._map_lock:
+            insts = list(self._builder._instances.values())
+            com = self._commitment
+            blacklist = dict(self._blacklist)
+        committed_id = None
+        if com is not None:
+            committed_id = (com.ref_id if com.kind == 'instance'
+                            else com.refined_instance_id)
+        target_l = self._target.lower()
+        arr = MarkerArray()
+        wipe = Marker()
+        wipe.action = Marker.DELETEALL
+        arr.markers.append(wipe)
+        stamp = self.get_clock().now().to_msg()
+        for inst in insts:
+            try:
+                mid = int(inst.id[1:])
+            except ValueError:
+                mid = abs(hash(inst.id)) % 100000
+            if inst.id == committed_id:
+                rgba = (1.0, 0.85, 0.1, 0.5)
+            elif blacklist.get(inst.id, 0.0) > now:
+                rgba = (0.9, 0.2, 0.2, 0.35)
+            elif inst.visited:
+                rgba = (0.3, 0.5, 0.9, 0.3)
+            elif inst.label.lower() == target_l:
+                rgba = (0.2, 0.9, 0.3, 0.4)
+            else:
+                rgba = (0.8, 0.8, 0.8, 0.25)
+            center = (inst.bbox_min + inst.bbox_max) / 2.0
+            size = np.maximum(inst.bbox_max - inst.bbox_min, 0.5)
+            box = Marker()
+            box.header.frame_id = 'map'
+            box.header.stamp = stamp
+            box.ns = 'instances'
+            box.id = mid
+            box.type = Marker.CUBE
+            box.action = Marker.ADD
+            box.pose.position.x, box.pose.position.y, box.pose.position.z = \
+                (float(v) for v in center)
+            box.pose.orientation.w = 1.0
+            box.scale.x, box.scale.y, box.scale.z = (float(v) for v in size)
+            box.color.r, box.color.g, box.color.b, box.color.a = rgba
+            arr.markers.append(box)
+            txt = Marker()
+            txt.header = box.header
+            txt.ns = 'labels'
+            txt.id = mid
+            txt.type = Marker.TEXT_VIEW_FACING
+            txt.action = Marker.ADD
+            txt.pose.position.x = float(center[0])
+            txt.pose.position.y = float(center[1])
+            txt.pose.position.z = float(inst.bbox_max[2]) + 1.0
+            txt.pose.orientation.w = 1.0
+            txt.scale.z = 1.2
+            txt.color.r = txt.color.g = txt.color.b = 1.0
+            txt.color.a = 0.9
+            top = inst.top_labels[0] if inst.top_labels else (inst.label, 0.0)
+            flags = ' [VISITED]' if inst.visited else ''
+            txt.text = (f'{inst.id} {inst.label} '
+                        f'{top[1] * 100:.0f} ({inst.n_voxels}vox){flags}')
+            arr.markers.append(txt)
+        self._markers_pub.publish(arr)
 
     def _build_digest(self):
         with self._map_lock:
@@ -681,11 +800,15 @@ class LlmNavNode(Node):
             self._mlog.event('digest_error', traceback=tb)
             return None
 
+    def _retune_allowed(self) -> bool:
+        return time.time() - self._last_retune > self._retune_cooldown
+
     def _decide_and_commit(self, digest):
         parsed = self._llm.decide(
             digest.text, self._target,
             digest.selectable_instances, digest.selectable_rays,
-            set(digest.frontier_targets), self._survey_allowed())
+            set(digest.frontier_targets), self._survey_allowed(),
+            allow_retune=self._llm_perception and self._retune_allowed())
         fallback = False
         if parsed is None:
             # Deterministic fallback: strongest target-scoring candidate. Loud —
@@ -704,6 +827,27 @@ class LlmNavNode(Node):
             self.get_logger().info(f'[LLM seeing] {seeing}')
         self._decision_pub.publish(String(data=json.dumps(
             dict(**parsed, fallback=fallback))))
+
+        if act['type'] == 'retune':
+            # The LLM thinks the clustering is wrong (fragments/mega-blob):
+            # let it re-set the perception params with the current stats,
+            # then the worker loop rebuilds the digest and decides again.
+            self._last_retune = time.time()
+            current = dict(min_voxels=self._builder.min_instance_voxels,
+                           score_floor=self._builder.floor_cos,
+                           merge_gap_m=self._builder.merge_gap_m)
+            params = self._llm.perception_params(
+                self._target, current, stats=self._clustering_stats())
+            if params is not None:
+                with self._map_lock:
+                    self._builder.set_perception_params(
+                        params['min_voxels'], params['score_floor'],
+                        params['merge_gap_m'])
+                self.get_logger().info(
+                    f'[perception] RETUNE: {current} -> {params}')
+                self._mlog.event('perception_retuned', previous=current,
+                                 **params)
+            return
 
         with self._map_lock:
             cur = self._cur_pos

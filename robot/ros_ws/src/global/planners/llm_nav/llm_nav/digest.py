@@ -192,6 +192,9 @@ class DigestBuilder:
                               for k, v in (label_aliases or {}).items()}
         self.floor_cos = floor_cos
         self.min_instance_voxels = min_instance_voxels
+        # Same-label clusters closer than this bridge into one instance
+        # (occlusion gaps: a house split by a tree). 0 = touching only.
+        self.merge_gap_m = 0.0
         self.max_instances_shown = max_instances_shown
         self.max_ray_groups = max_ray_groups
         self.ray_sector_deg = ray_sector_deg
@@ -223,6 +226,18 @@ class DigestBuilder:
         for col in self._object_cols:
             self._canonical_groups.setdefault(
                 self._canonical_of_col[col], []).append(col)
+
+    def set_perception_params(self, min_voxels=None, score_floor=None,
+                              merge_gap_m=None):
+        """Runtime perception tuning — set by the LLM per target (startup
+        one-shot + `retune` action), not hand-configured. Config values are
+        only the pre-LLM fallback."""
+        if min_voxels is not None:
+            self.min_instance_voxels = int(min_voxels)
+        if score_floor is not None:
+            self.floor_cos = float(score_floor)
+        if merge_gap_m is not None:
+            self.merge_gap_m = float(merge_gap_m)
 
     def set_label_aliases(self, aliases: dict):
         """Replace the alias map (e.g. from the LLM's part-of answer) and
@@ -288,14 +303,21 @@ class DigestBuilder:
     def _cluster_one_label(self, label, xyz, sc) -> list:
         from scipy import ndimage
         cells = np.floor(xyz / VOX_SIZE).astype(np.int64)
-        mins = cells.min(axis=0)
-        shape = cells.max(axis=0) - mins + 1
+        # merge_gap: dilate the occupancy grid k cells before labeling, so
+        # same-label patches within the gap join into one component (points
+        # keep their original cells; pad the grid so dilation isn't clipped).
+        k = max(0, int(round(self.merge_gap_m / VOX_SIZE)))
+        mins = cells.min(axis=0) - k
+        shape = cells.max(axis=0) - mins + 1 + k
         if int(np.prod(shape)) > _MAX_GRID_CELLS:
             self.grid_overflow = True
             return []
         grid = np.zeros(shape, dtype=bool)
         idx = cells - mins
         grid[idx[:, 0], idx[:, 1], idx[:, 2]] = True
+        if k > 0:
+            grid = ndimage.binary_dilation(
+                grid, structure=np.ones((3, 3, 3)), iterations=k)
         labeled, n_comp = ndimage.label(grid, structure=np.ones((3, 3, 3)))
         comp_of_pt = labeled[idx[:, 0], idx[:, 1], idx[:, 2]]
         out = []

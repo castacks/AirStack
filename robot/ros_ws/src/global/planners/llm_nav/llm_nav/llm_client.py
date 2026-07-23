@@ -29,6 +29,9 @@ DECIDE_INSTRUCTIONS = (
     'directions): {frontier_ids}\n'
     '- "survey" (climb high and circle in place to scan the horizon for new '
     'leads), valid: {survey_ok} — use when nothing above looks promising\n'
+    '- "retune" (adjust the voxel clustering parameters), valid: {retune_ok} '
+    '— use ONLY if the object list looks wrong: many tiny fragments that are '
+    'probably one {target}, or one implausibly huge blob spanning several\n'
     'Ids marked VISITED or BLOCKED are already done and are NOT valid choices. '
     'Only visit an object if it might BE a {target} — do not visit fences, '
     'poles or other clutter; if no unvisited {target} candidate exists, '
@@ -38,9 +41,31 @@ DECIDE_INSTRUCTIONS = (
     'object, so prefer the strongest/largest candidate over its fragments.\n'
     'Reply with ONLY this JSON:\n'
     '{{"seeing": "<1-2 sentences: what the map shows>", '
-    '"action": {{"type": "goto_instance"|"goto_ray"|"goto_frontier"|"survey", '
-    '"id": "<V#, R#, compass direction, or empty for survey>", '
+    '"action": {{"type": "goto_instance"|"goto_ray"|"goto_frontier"|"survey"'
+    '|"retune", "id": "<V#, R#, compass direction, or empty>", '
     '"reason": "<short why>"}}}}')
+
+PERCEPTION_SYSTEM = (
+    'You tune the perception layer of a drone that clusters 0.5m semantic '
+    'voxels into object instances. Reply with ONLY a JSON object — no prose, '
+    'no markdown.')
+
+PERCEPTION_INSTRUCTIONS = (
+    'Target object: "{target}".\n'
+    '{context}'
+    'Set clustering parameters appropriate for the physical nature of a '
+    '{target}:\n'
+    '- "min_voxels": smallest voxel cluster worth listing as a candidate '
+    'instance (noise floor). Think about how many 0.5m voxels a partial view '
+    'of a {target} occupies — a car door ~10, a house wall ~100s.\n'
+    '- "score_floor": minimum similarity for a voxel to count as an object '
+    'at all (raw cos-sim, useful range 0.03-0.30; lower = more recall but '
+    'more clutter).\n'
+    '- "merge_gap_m": two same-label voxel patches closer than this are ONE '
+    'object (bridges occlusion splits, e.g. a house cut in two by a tree in '
+    'front; too large merges neighboring {target}s together!).\n'
+    'Reply with ONLY this JSON: {{"min_voxels": <int>, "score_floor": '
+    '<float>, "merge_gap_m": <float>, "reason": "<short>"}}')
 
 ALIASES_SYSTEM = (
     'You classify object part-whole relations for a robot mapping system. '
@@ -221,9 +246,43 @@ class LLMClient:
 
     # ── public API ────────────────────────────────────────────────────────────
 
+    def perception_params(self, target: str,
+                          current: dict, stats: str = '') -> 'dict | None':
+        """LLM sets the clustering params for this target — at startup and on
+        `retune`. `stats` carries the current digest summary for retunes."""
+        def validate(p):
+            try:
+                mv = int(p.get('min_voxels'))
+                sf = float(p.get('score_floor'))
+                mg = float(p.get('merge_gap_m'))
+            except (TypeError, ValueError):
+                return ('need numeric "min_voxels", "score_floor", '
+                        '"merge_gap_m"')
+            if not (1 <= mv <= 2000):
+                return 'min_voxels out of range [1, 2000]'
+            if not (0.0 <= sf <= 0.5):
+                return 'score_floor out of range [0.0, 0.5]'
+            if not (0.0 <= mg <= 6.0):
+                return 'merge_gap_m out of range [0.0, 6.0]'
+            return None
+        context = ''
+        if current:
+            context += (f'Current parameters: {json.dumps(current)}.\n')
+        if stats:
+            context += f'Current clustering result: {stats}\n'
+        user = PERCEPTION_INSTRUCTIONS.format(target=target, context=context)
+        parsed = self._call('perception', PERCEPTION_SYSTEM, user, validate)
+        if parsed is None:
+            return None
+        return dict(min_voxels=int(parsed['min_voxels']),
+                    score_floor=float(parsed['score_floor']),
+                    merge_gap_m=float(parsed['merge_gap_m']),
+                    reason=str(parsed.get('reason', '')))
+
     def decide(self, digest_text: str, target: str,
                selectable_instances: set, selectable_rays: set,
-               frontier_sectors: set, allow_survey: bool) -> 'dict | None':
+               frontier_sectors: set, allow_survey: bool,
+               allow_retune: bool = False) -> 'dict | None':
         """Ask for a goal decision. Returns validated dict or None."""
         def validate(p):
             act = p.get('action')
@@ -246,16 +305,21 @@ class LLMClient:
                 if not allow_survey:
                     return ('survey was done recently and is on cooldown; '
                             'pick another action')
+            elif typ == 'retune':
+                if not allow_retune:
+                    return ('retune was done recently and is on cooldown; '
+                            'pick another action')
             else:
                 return ('action.type must be one of goto_instance, goto_ray, '
-                        'goto_frontier, survey')
+                        'goto_frontier, survey, retune')
             return None
         user = (digest_text + '\n\n' + DECIDE_INSTRUCTIONS.format(
             target=target,
             instance_ids=', '.join(sorted(selectable_instances)) or '(none)',
             ray_ids=', '.join(sorted(selectable_rays)) or '(none)',
             frontier_ids=', '.join(sorted(frontier_sectors)) or '(none)',
-            survey_ok='yes' if allow_survey else 'no (on cooldown)'))
+            survey_ok='yes' if allow_survey else 'no (on cooldown)',
+            retune_ok='yes' if allow_retune else 'no (on cooldown)'))
         return self._call('decide', DECIDE_SYSTEM, user, validate)
 
     def part_aliases(self, target: str, labels: list) -> 'dict | None':

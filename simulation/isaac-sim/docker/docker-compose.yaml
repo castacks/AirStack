@@ -26,7 +26,12 @@ services:
     # Interactive shell
     stdin_open: true # docker run -i
     tty: true # docker run -t
-    ipc: host
+    # A private, properly-sized /dev/shm instead of `ipc: host`: on OSMO the
+    # "host" is the DinD pod, whose K8s-default /dev/shm is only 64Mi — Isaac's
+    # mmap'd segments fill it and the second boot dies with SIGBUS (bus error).
+    # A private tmpfs behaves identically on real hosts and is inherited by the
+    # gui/livestream variants via `extends`.
+    shm_size: '4gb'
     privileged: true
     networks:
       airstack_network:

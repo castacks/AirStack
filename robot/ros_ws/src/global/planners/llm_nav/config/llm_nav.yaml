@@ -21,11 +21,16 @@ llm_nav:
     # Seconds between digest rebuilds and between narrate calls while committed.
     digest_period_s: 5.0
     narrate_period_s: 12.0
-    # Loose per-voxel cos-sim floor: below this a voxel shows no object at all
-    # (rayfronts runs with compute_prob=False, so scores are raw cos-sims,
-    # typically 0.05-0.30). Presentation filter only.
+    # Clustering params below are PRE-LLM FALLBACKS only: with llm_perception
+    # the LLM sets {min_voxels, score_floor, merge_gap_m} for the target at
+    # startup and can retune them mid-run (the `retune` action) — no fixed
+    # per-target thresholds.
+    llm_perception: true
+    retune_cooldown_s: 60.0
+    # Fallback per-voxel cos-sim floor (rayfronts runs compute_prob=False,
+    # raw cos-sims typically 0.05-0.30).
     floor_cos: 0.12
-    # Smallest connected component shown as an instance (0.5 m voxels).
+    # Fallback smallest connected component shown as an instance (0.5m voxels).
     min_instance_voxels: 8
     # 'alias=canonical': part labels cluster into their parent object so one
     # physical house is ONE growing instance, not roof/wall fragments.

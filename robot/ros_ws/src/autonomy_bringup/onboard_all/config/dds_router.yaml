@@ -42,6 +42,10 @@ allowlist:
   - name: "rt/$(env ROBOT_NAME)/filtered_frontiers"
   - name: "rt/$(env ROBOT_NAME)/debug/frontier_table"
 
+  # llm_nav planner viz/debug — tracked-instance AABB markers (instances),
+  # LLM narration/decision Strings, and the latest map digest text.
+  - name: "rt/$(env ROBOT_NAME)/llm_nav/*"
+
   # rayfronts per-query semantic voxel heatmaps → GCS (Foxglove debug viz).
   # Wildcard covers voxels_sim/all (x,y,z,sim_0..N) and the per-query clouds
   # voxels_sim/q{q}_{label} (x,y,z,sim), whose names are dynamic per mission
