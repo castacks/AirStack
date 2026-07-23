@@ -16,6 +16,8 @@ services:
       - AUTONOMY_ROLE=${AUTONOMY_ROLE:-full}
       - FRONTIER_ONLY_BASELINE=${FRONTIER_ONLY_BASELINE:-false}
       - LVLM_BASELINE=${LVLM_BASELINE:-false}
+      # llm_nav is the default semantic_search planner; false -> raven.
+      - LLM_NAV=${LLM_NAV:-true}
       - URDF_FILE=${URDF_FILE}
       # MAVROS
       - OFFBOARD_BASE_PORT=${OFFBOARD_BASE_PORT}
