@@ -15,3 +15,9 @@ robot:
   # ament pytest does not honor PYTEST_ADDOPTS -m.
   # launch_testing is skipped via PYTEST_DISABLE_PLUGIN_AUTOLOAD in the test.
   pytest_args: []
+
+# Simulation-side extensions (globbed under simulation/**/<pkg>/test). Collected by
+# `pytest tests/` on the host runner; not part of the robot colcon workspace.
+sim:
+  packages:
+    - optitrack.natnet.emulator

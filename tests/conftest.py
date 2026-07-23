@@ -77,6 +77,16 @@ def pytest_configure(config):
     run_dir = session.init_run_dir(AIRSTACK_ROOT)
     config.option.xmlpath = str(run_dir / "results.xml")
 
+    # Co-located unit tests import their own package (e.g. `optitrack.natnet.emulator`,
+    # `lidar_point_cloud_filter.validation_core`). Put each package/extension import
+    # root (the parent of its test/ dir) on sys.path so they resolve without a
+    # per-package conftest.py — a second conftest.py collides with this root one as
+    # module `conftest` under --import-mode=importlib and breaks `from conftest import`.
+    for d in unit_test_dirs():
+        root = str(d.parent)
+        if root not in sys.path:
+            sys.path.insert(0, root)
+
     # Collect co-located unit tests: their files live outside tests/, so add the
     # explicit non-linter test files to the collection args. Skip when an explicit
     # path was given on the CLI (args_source == ARGS) so `pytest tests/system/foo.py`

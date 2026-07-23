@@ -1,0 +1,9 @@
+# OptiTrack SDK archives and build artifacts (reference tree may exist locally)
+**/*.obj
+**/*.pdb
+**/*.exe
+**/*.iobj
+**/*.ipdb
+**/*.tlog/
+**/__pycache__/
+**/*.pyc
