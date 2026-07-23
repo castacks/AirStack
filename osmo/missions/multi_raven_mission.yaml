@@ -44,7 +44,7 @@ environments:
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "DowntownWest"
-    query: "traffic light, fountain, cafe table"
+    query: "fountain, food cart"
     voxel_score_threshold: 0.65
     score_threshold: -1
     voxel_min_cluster_size: -1
@@ -56,17 +56,7 @@ environments:
         - {x: -150.0, y: -80.0, z: 0.0}
         - {x: -150.0, y: 80.0, z: 0.0}
 
-  - name: moderncitydowntown
-    ENV_URL: "Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
-    # Fixed spawn (pos + orient) inside the [[-20,-63],[-11,-45]] rect.
-    # Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
-    # SPAWN_POLY: "[[-20, -63], [-11, -45]]"
-    SPAWN_CONFIGS: '[{"x_m": -17.273, "y_m": -57.947, "orient": [0,0,-0.9896,0.1438]}, {"x_m": -13.396, "y_m": -53.247, "orient": [0,0,0.4571,0.8894]}, {"x_m": -17.857, "y_m": -48.541, "orient": [0,0,-0.632,0.775]}]'
-    STAGE_SCALE: "1.0"
-    SPAWN_HEIGHT_M: "0.2"
-    RESULTS_SCENE: "ModernCityDowntown"
-    query: "truck, obelisk, bankomat, cafe tables, car"
-    voxel_score_threshold: 0.65
+  - name: moderncitydowntown100
     score_threshold: -1
     voxel_min_cluster_size: -1
     background_queries: "road, building, car, parking lot, tree, traffic signal, fence"
