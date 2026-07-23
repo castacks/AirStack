@@ -75,7 +75,8 @@
         </group>
 
         <group if="$(var launch_natnet)">
-            <!-- IPs / rigid-body IDs live in natnet_ros2/config/natnet_config.yaml (ROS 2 param file format). -->
+            <!-- Server IPs + per-robot body/vision_pose profiles live in
+                 natnet_ros2/config/natnet_config.yaml (custom natnet: schema, parsed by the launch file). -->
             <include file="$(find-pkg-share natnet_ros2)/launch/natnet_ros2.launch.py"/>
         </group>
 

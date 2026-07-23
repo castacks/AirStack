@@ -13,3 +13,9 @@ robot:
     - lidar_point_cloud_filter
   # Skips ament_copyright / flake8 / pep257 on Python packages; run linters separately.
   pytest_args: "-m not linter"
+
+# Simulation-side extensions (globbed under simulation/**/<pkg>/test). Collected by
+# `pytest tests/` on the host runner; not part of the robot colcon workspace.
+sim:
+  packages:
+    - optitrack.natnet.emulator

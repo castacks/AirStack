@@ -2,7 +2,8 @@
 # MIT License - see LICENSE in the repository root for full text.
 """Put the extension root on sys.path for direct pytest test/ runs.
 
-CI uses proxies under tests/sim/optitrack_natnet_emulator/ instead.
+`pytest tests/` (CI) collects this dir directly via the `sim` entry in
+tests/colcon_unit_test_packages.yaml — no proxy files.
 """
 
 import sys
