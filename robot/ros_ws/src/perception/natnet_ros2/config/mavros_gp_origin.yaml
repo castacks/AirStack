@@ -16,7 +16,18 @@
     # wrong way. Default is Lisbon (the AirStack shared world datum).
     latitude: 38.736832
     longitude: -9.137977
+    # Literal fallback / sim datum (ellipsoidal). Used directly only when
+    # use_geoid_altitude is false OR use_sim_time is true. Keep = the shared
+    # world datum (90.0) so sim and the GCS agree.
     altitude: 90.0
+    # Real hardware: derive the origin altitude from the egm96-5 geoid undulation
+    # at (latitude, longitude) so local_position z equals the OptiTrack height.
+    # Same model as mavros (mavros_uas::egm96_5) => the undulation cancels exactly.
+    # Auto-skipped in sim (use_sim_time=true). desired_floor_amsl = AMSL of the
+    # mocap floor (vision z=0); 0.0 makes local z == OptiTrack z.
+    use_geoid_altitude: true
+    desired_floor_amsl: 0.0
+    geoid_model: "egm96-5"
     # Wait this long after MAVROS connects (listening for an existing origin)
     # before publishing the synthetic one.
     settle_sec: 5.0

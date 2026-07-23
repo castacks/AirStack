@@ -129,16 +129,19 @@ def generate_launch_description() -> LaunchDescription:
     default_natnet_yaml = os.path.join(pkg_share, 'config', 'natnet_config.yaml')
     default_vp_yaml = os.path.join(pkg_share, 'config', 'vision_pose_converter.yaml')
     default_gp_origin_yaml = os.path.join(pkg_share, 'config', 'mavros_gp_origin.yaml')
+    default_px4_params_yaml = os.path.join(pkg_share, 'config', 'px4_params.yaml')
 
     config_file = LaunchConfiguration('config_file')
     vision_pose_config_file = LaunchConfiguration('vision_pose_config_file')
     gp_origin_config_file = LaunchConfiguration('gp_origin_config_file')
+    px4_params_config_file = LaunchConfiguration('px4_params_config_file')
     use_sim_time = LaunchConfiguration('use_sim_time')
 
     def launch_setup(context, *_args, **_kwargs):
         cfg_path = config_file.perform(context)
         vp_path = vision_pose_config_file.perform(context)
         gp_path = gp_origin_config_file.perform(context)
+        px4_path = px4_params_config_file.perform(context)
         ust = use_sim_time.perform(context)
 
         robot_name = os.environ.get('ROBOT_NAME', 'robot_1')
@@ -178,6 +181,10 @@ def generate_launch_description() -> LaunchDescription:
                 name='natnet_ros2_node',
                 output='screen',
                 parameters=[node_params],
+                # The closed-source NatNet SDK can assert (SIGABRT) on connect
+                # in odd network states; restart rather than losing mocap.
+                respawn=True,
+                respawn_delay=2.0,
             ),
         ]
 
@@ -201,6 +208,17 @@ def generate_launch_description() -> LaunchDescription:
                     ),
                     launch_arguments=[
                         ('config_file', gp_path),
+                        ('use_sim_time', ust),
+                    ],
+                ),
+            )
+            actions.append(
+                IncludeLaunchDescription(
+                    FrontendLaunchDescriptionSource(
+                        os.path.join(pkg_share, 'launch', 'px4_param_setter.launch.xml'),
+                    ),
+                    launch_arguments=[
+                        ('config_file', px4_path),
                         ('use_sim_time', ust),
                     ],
                 ),
@@ -238,6 +256,11 @@ def generate_launch_description() -> LaunchDescription:
                 'gp_origin_config_file',
                 default_value=default_gp_origin_yaml,
                 description='mavros_gp_origin parameter YAML.',
+            ),
+            DeclareLaunchArgument(
+                'px4_params_config_file',
+                default_value=default_px4_params_yaml,
+                description='px4_param_setter parameter YAML (params.* = desired FCU parameters).',
             ),
             DeclareLaunchArgument(
                 'use_sim_time',

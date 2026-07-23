@@ -19,7 +19,7 @@ natnet:
   server:
     # IP of the PC running Motive (OptiTrack server). Defaults to the Isaac Sim
     # container on the airstack_network (172.31.0.200).
-    server_ip: "$(env NATNET_SERVER_IP 172.31.0.200)"
+    server_ip: "$(env NATNET_SERVER_IP 192.168.123.199)"
     # Motive learns the unicast destination from the outbound UDP source IP — bind
     # explicitly when the client has multiple NICs (e.g. Docker 172.17.* vs LAN).
     client_ip: "0.0.0.0"
@@ -67,8 +67,8 @@ natnet:
       # (case-sensitive). topic is a relative leaf namespaced under /{ROBOT_NAME}/;
       # pose / pose_cov toggle the PoseStamped and PoseWithCovarianceStamped variants.
       bodies:
-        - rigid_body_name: "Drone1"
-          id: 1
+        - rigid_body_name: "Hummingbird"
+          id: 1146
           topic: "perception/optitrack/drone"
           pose: true
           pose_cov: true

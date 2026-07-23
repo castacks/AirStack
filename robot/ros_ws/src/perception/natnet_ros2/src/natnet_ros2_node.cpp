@@ -26,6 +26,11 @@
 #include <unordered_map>
 #include <vector>
 
+// POSIX sockets for the pre-connect reachability probe
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
 // ROS 2
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
@@ -34,6 +39,58 @@
 // Pure logic + interface (no SDK, testable with FakeNatNetClient)
 #include "natnet_ros2/natnet_logic.hpp"
 #include "natnet_ros2/natnet_client_adapter.hpp"
+
+
+// ---------------------------------------------------------------------------
+// Send a NAT_CONNECT ping to the Motive command port on a throwaway UDP socket
+// and wait for any reply (Motive and the emulator answer with NAT_SERVERINFO).
+//
+// The SDK's Connect() can fire an assert() deep in ClientCore::
+// ValidateHostConnection (→ SIGABRT) instead of returning NetworkError when
+// the host is unreachable in certain states (observed after a host network
+// switch), so never hand the SDK a server that doesn't answer the wire
+// handshake first.
+// ---------------------------------------------------------------------------
+static bool natnet_server_reachable(
+    const std::string & server_ip, int command_port, int timeout_ms)
+{
+    const int fd = ::socket(AF_INET, SOCK_DGRAM, 0);
+    if (fd < 0) { return false; }
+
+    timeval tv{};
+    tv.tv_sec  = timeout_ms / 1000;
+    tv.tv_usec = (timeout_ms % 1000) * 1000;
+    ::setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port   = htons(static_cast<uint16_t>(command_port));
+    if (::inet_pton(AF_INET, server_ip.c_str(), &addr.sin_addr) != 1) {
+        ::close(fd);
+        return false;
+    }
+
+    // Official connect packet: <HH> header (msg_id=NAT_CONNECT(0), size=271),
+    // 270-byte payload starting with "Ping" + NatNet version at offset 265,
+    // then a trailing NUL (matches the SDK PythonClient's send_request).
+    std::array<uint8_t, 4 + 271> pkt{};
+    pkt[2] = 271 & 0xFF;
+    pkt[3] = 271 >> 8;
+    pkt[4] = 'P'; pkt[5] = 'i'; pkt[6] = 'n'; pkt[7] = 'g';
+    pkt[4 + 265] = 4;  // requested NatNet version 4.2.0.0
+    pkt[4 + 266] = 2;
+
+    bool reachable = false;
+    if (::sendto(fd, pkt.data(), pkt.size(), 0,
+                 reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) ==
+        static_cast<ssize_t>(pkt.size()))
+    {
+        uint8_t reply[512];
+        reachable = ::recv(fd, reply, sizeof(reply), 0) > 0;
+    }
+    ::close(fd);
+    return reachable;
+}
 
 
 // ---------------------------------------------------------------------------
@@ -214,6 +271,15 @@ private:
     // Returns true once the handshake succeeds.
     bool connect_and_setup(const natnet_ros2::ConnectConfig & cfg)
     {
+        // Wire-level probe first — see natnet_server_reachable() for why the
+        // SDK must never attempt Connect against a non-answering host.
+        if (!natnet_server_reachable(cfg.server_ip, cfg.command_port, 500)) {
+            RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 10000,
+                "Motive at %s:%d not answering NatNet ping — waiting to connect.",
+                cfg.server_ip.c_str(), cfg.command_port);
+            return false;
+        }
+
         const natnet_ros2::NegotiationResult neg =
             natnet_ros2::negotiate(*client_, cfg);
 
@@ -243,7 +309,7 @@ private:
             if (connect_timer_) { connect_timer_->cancel(); }
             return;
         }
-        RCLCPP_INFO(get_logger(),
+        RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 10000,
             "NatNet not connected — retrying handshake to %s ...",
             connect_cfg_.server_ip.c_str());
         if (connect_and_setup(connect_cfg_) && connect_timer_) {

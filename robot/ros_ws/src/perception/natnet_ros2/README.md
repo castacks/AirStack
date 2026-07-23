@@ -33,6 +33,8 @@ NatNet ROS 2 Node  (loads the ROBOT_NAME profile from natnet_config.yaml)
     └→ (Optional, vision_pose.enabled: true)
          mavros_gp_origin_node
            └→ /{ROBOT_NAME}/interface/mavros/global_position/set_gp_origin
+         px4_param_setter_node
+           └→ /{ROBOT_NAME}/interface/mavros/param/set (external-vision PX4 params)
          vision_pose_converter_node   (reads input/output topics from the profile)
            ├→ /{ROBOT_NAME}/interface/mavros/vision_pose/pose
            └→ /{ROBOT_NAME}/interface/mavros/vision_pose/pose_cov
@@ -90,6 +92,29 @@ With GNSS disabled (`EKF2_GPS_CTRL=0`), PX4 fused EKF has **no global position**
   sim's `gps_utils.py` so Foxglove waypoints transform 1:1), `settle_sec`.
   Set `enabled: false` to rely on real GNSS.
 
+##### PX4 parameter enforcement (external-vision EKF2 setup)
+
+When `vision_pose.enabled: true`, `px4_param_setter_node` pushes the PX4
+parameter set for OptiTrack-only flight through the MAVROS param plugin at
+startup, so the FCU doesn't need manual QGroundControl configuration:
+
+- **Services used**: `/{ROBOT_NAME}/interface/mavros/param/get_parameters`
+  (read current), `…/param/set` (`mavros_msgs/ParamSetV2`, set + verify readback)
+- **Idempotent**: waits for `mavros/state.connected` + `settle_sec` (initial
+  param-table pull), reads each param first, and skips ones already correct —
+  PX4 persists parameters, so subsequent boots are a verify-only pass.
+- **Reboot warning**: if any parameter actually changed, it logs a warning to
+  reboot the FCU before flight so EKF2 restarts with a clean fusion config.
+- **Params** (`config/px4_params.yaml`): `enabled`, `settle_sec`,
+  `retry_period_sec`, `max_attempts`, and the `params.*` map of desired FCU
+  values — external-vision fusion (`EKF2_EV_CTRL: 11`, `EKF2_HGT_REF: 3`),
+  GPS/mag/baro disabled (`EKF2_GPS_CTRL: 0`, `EKF2_MAG_TYPE: 5`,
+  `EKF2_BARO_CTRL: 0`), measured vision delay (`EKF2_EV_DELAY: 6.0` ms), and
+  EV noise floors (`EKF2_EV_NOISE_MD: 1`, `EKF2_EVP_NOISE`, `EKF2_EVA_NOISE`).
+  YAML type selects the MAVLink param type: write floats with a decimal point
+  (`6.0`), integers bare. Values assume PX4 ≥ 1.14; for older firmware use
+  `EKF2_AID_MASK: 24` / `EKF2_HGT_MODE: 3` instead.
+
 ## Configuration
 
 `config/natnet_config.yaml` uses a custom `natnet:` schema (not a flat ROS 2 param
@@ -146,7 +171,7 @@ ros2 launch natnet_ros2 natnet_ros2.launch.py \
 
 ### MAVROS bridge
 
-Set `vision_pose.enabled: true` in the robot's profile. The launch file includes `vision_pose_converter.launch.xml` (and `mavros_gp_origin.launch.xml`) and forwards the profile's `input_topic` / `output_pose_topic` / `output_pose_cov_topic`.
+Set `vision_pose.enabled: true` in the robot's profile. The launch file includes `vision_pose_converter.launch.xml` (plus `mavros_gp_origin.launch.xml` and `px4_param_setter.launch.xml`) and forwards the profile's `input_topic` / `output_pose_topic` / `output_pose_cov_topic`.
 
 ### From perception bringup
 

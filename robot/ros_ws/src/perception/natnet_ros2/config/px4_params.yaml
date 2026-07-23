@@ -1,0 +1,64 @@
+# PX4 parameters enforced at startup for OptiTrack-only (external vision) flight.
+# Loaded by px4_param_setter.launch.xml via <param from="..." allow_substs="true"/>.
+#
+# Every entry under params. is read via MAVROS get_parameters, skipped when the
+# FCU already holds the value, and otherwise pushed via param/set + verified.
+# PX4 persists parameters, so after the first boot this is a verify-only pass.
+#
+# TYPE MATTERS: write integers bare (11) and floats with a decimal point (6.0)
+# so the MAVLink param type matches the FCU's declaration.
+#
+# Values assume PX4 >= 1.14 (EKF2_EV_CTRL / EKF2_GPS_CTRL era). For older
+# firmware use EKF2_AID_MASK: 24 and EKF2_HGT_MODE: 3 instead.
+
+/**:
+  ros__parameters:
+    enabled: true
+    # SAFETY: check-only by default — the node reads the FCU params and flags any
+    # that differ from the set below, but never writes. Set the params once in
+    # QGroundControl (see docs). Flip auto_set:true only if you want the node to
+    # push them to the FCU itself.
+    auto_set: false
+    # With auto_set:false, what to do on a mismatch: 'warn' (log diffs, keep the
+    # stack up) or 'halt' (log fatal + exit non-zero so a required launch node
+    # tears the stack down before flight).
+    on_mismatch: "warn"
+    # Initial full param pull over serial (115200) is slow; give it time.
+    settle_sec: 10.0
+    retry_period_sec: 2.0
+    max_attempts: 30
+
+    params:
+      # Fuse vision horizontal position (1) + vertical position (2) + yaw (8).
+      # Add bit 4 (velocity) only if a vision_speed source is streamed too.
+      EKF2_EV_CTRL: 11
+      # Vision is the height reference (not baro / GPS).
+      EKF2_HGT_REF: 3
+      # No GPS fusion.
+      EKF2_GPS_CTRL: 0
+      # Magnetometer disabled — yaw comes from vision.
+      EKF2_MAG_TYPE: 5
+      # No baro fusion; height is pure vision. Comment out to keep baro as backup.
+      EKF2_BARO_CTRL: 0
+      # Remove the barometer at the SYSTEM level, not just from EKF2 fusion.
+      # EKF2_BARO_CTRL=0 only disables baro *fusion*, but EKF2 still seeds the
+      # initial height datum from baro at startup — which pins local z ~36 m off
+      # when the FCU boots before the vision stream is up. SYS_HAS_BARO=0 makes
+      # vision the SOLE height source, so the height datum is deterministic on
+      # every boot (no ekf2 reset needed). WARNING: no baro backup — if vision
+      # drops mid-flight the altitude estimate diverges. Indoor mocap only.
+      SYS_HAS_BARO: 0
+      # No range-finder height aiding (no rangefinder present; avoids a stray
+      # competing height source).
+      EKF2_RNG_CTRL: 0
+      # Measured OptiTrack->EKF2 delay: ~1 ms LAN transport + 5 ms Cube Orange
+      # hop (natnet_ros2_node logs the measured figure; retune from Flight
+      # Review EV innovations if needed).
+      EKF2_EV_DELAY: 8.0
+      # Use the EKF2_EV*_NOISE floors below instead of the (1e-6) message
+      # covariance, which is too optimistic to fuse safely.
+      EKF2_EV_NOISE_MD: 1
+      EKF2_EVP_NOISE: 0.01
+      EKF2_EVA_NOISE: 0.05
+      # Allow arming without GPS.
+      COM_ARM_WO_GPS: 1
