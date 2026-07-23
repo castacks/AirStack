@@ -116,6 +116,7 @@ nav:
           - Perception:
               - docs/robot/autonomy/perception/index.md
               - NatNet (OptiTrack): robot/ros_ws/src/perception/natnet_ros2/README.md
+              - PX4 External Vision (mocap): docs/robot/px4_external_vision.md
           - Local:
               - docs/robot/autonomy/local/index.md
               - World Model:
