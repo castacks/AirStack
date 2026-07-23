@@ -178,7 +178,7 @@ environments:
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "2.0"
     RESULTS_SCENE: "Shipyard"
-    query: "ship, tower, white silo, crane"
+    query: "ship, white silo, crane"
     voxel_score_threshold: 0.65 
     score_threshold: -1
     voxel_min_cluster_size: -1
