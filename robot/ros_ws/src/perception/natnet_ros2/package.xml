@@ -26,6 +26,7 @@
 
   <!-- Optional: MAVROS integration -->
   <exec_depend>mavros_msgs</exec_depend>
+  <exec_depend>geographic_msgs</exec_depend>
 
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>launch</exec_depend>

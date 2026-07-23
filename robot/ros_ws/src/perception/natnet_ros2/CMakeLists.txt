@@ -48,8 +48,7 @@ if(EXISTS "${_NATNET_LIB}" AND EXISTS "${_NATNET_INC}")
 
   # Install libNatNet.so alongside the node and register an environment hook so
   # that sourcing the workspace adds lib/natnet_ros2/ to LD_LIBRARY_PATH.
-  # Use PROGRAMS (not FILES) to preserve the execute bit — shared libraries
-  # must be executable for the dynamic linker to map them.
+  # Use PROGRAMS (not FILES) to preserve the execute bit
   install(PROGRAMS "${_NATNET_LIB}"
     DESTINATION lib/${PROJECT_NAME})
 
@@ -65,10 +64,11 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
-# Python nodes (vision_pose_converter remains Python)
+# Python nodes
 # ---------------------------------------------------------------------------
 install(PROGRAMS
   src/vision_pose_converter_node.py
+  src/mavros_gp_origin_node.py
   DESTINATION lib/${PROJECT_NAME})
 
 # ---------------------------------------------------------------------------

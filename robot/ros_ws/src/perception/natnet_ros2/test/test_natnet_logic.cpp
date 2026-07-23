@@ -136,6 +136,46 @@ TEST(TopicNames, LeadingSlashPresent)
     EXPECT_EQ(optitrack_topic_base("robot_1", "Body")[0], '/');
 }
 
+TEST(TopicNames, NamespacedTopicStripsLeadingSlashes)
+{
+    EXPECT_EQ(namespaced_topic("robot_1", "perception/optitrack/drone"),
+              "/robot_1/perception/optitrack/drone");
+    EXPECT_EQ(namespaced_topic("robot_1", "/perception/optitrack/drone"),
+              "/robot_1/perception/optitrack/drone");
+    EXPECT_EQ(namespaced_topic("robot_2", "///a/b"), "/robot_2/a/b");
+}
+
+TEST(TopicNames, BodyTopicBaseUsesOverrideWhenSet)
+{
+    // Empty override → default perception/optitrack/{name}
+    EXPECT_EQ(body_topic_base("robot_1", "Drone", ""),
+              "/robot_1/perception/optitrack/Drone");
+    // Non-empty override → namespaced relative leaf (decoupled from body name)
+    EXPECT_EQ(body_topic_base("robot_1", "Drone", "perception/optitrack/drone"),
+              "/robot_1/perception/optitrack/drone");
+    EXPECT_EQ(body_topic_base("robot_3", "Target", "perception/optitrack/target"),
+              "/robot_3/perception/optitrack/target");
+}
+
+// ===========================================================================
+// Multi-body filtering — body_is_configured
+// ===========================================================================
+
+TEST(BodyIsConfigured, MatchesConfiguredIds)
+{
+    const std::vector<int32_t> ids = {1, 100};
+    EXPECT_TRUE(body_is_configured(ids, 1));
+    EXPECT_TRUE(body_is_configured(ids, 100));
+    EXPECT_FALSE(body_is_configured(ids, 2));
+}
+
+TEST(BodyIsConfigured, EmptySetMatchesNothing)
+{
+    const std::vector<int32_t> ids = {};
+    EXPECT_FALSE(body_is_configured(ids, 0));
+    EXPECT_FALSE(body_is_configured(ids, 1));
+}
+
 
 // ===========================================================================
 // Server negotiation — validate_connection_type

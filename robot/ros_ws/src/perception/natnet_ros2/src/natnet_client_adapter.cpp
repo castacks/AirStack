@@ -44,13 +44,21 @@ namespace
 
 void NATNET_CALLCONV sdk_frame_callback(sFrameOfMocapData * data, void * ctx)
 {
-    auto * frame_cb = static_cast<std::function<void(const FrameSample &)> *>(ctx);
-    if (!data || !frame_cb || !*frame_cb) { return; }
+    auto * cb_ctx = static_cast<NatNetClientAdapter::FrameCallbackCtx *>(ctx);
+    if (!data || !cb_ctx || !cb_ctx->cb || !*cb_ctx->cb) { return; }
 
     FrameSample fs;
     fs.frame_num = data->iFrame;
     fs.timestamp = data->fTimestamp;
     fs.params    = static_cast<int16_t>(data->params);
+
+    // TransmitTimestamp is 0 on servers/streams that don't populate frame timing;
+    // only compute latency when it's present so downstream sampling can skip it.
+    if (data->TransmitTimestamp != 0 && cb_ctx->client) {
+        fs.transit_latency_s =
+            cb_ctx->client->SecondsSinceHostTimestamp(data->TransmitTimestamp);
+        fs.has_latency = true;
+    }
 
     fs.bodies.reserve(static_cast<std::size_t>(data->nRigidBodies));
     for (int i = 0; i < data->nRigidBodies; ++i) {
@@ -63,7 +71,7 @@ void NATNET_CALLCONV sdk_frame_callback(sFrameOfMocapData * data, void * ctx)
         fs.bodies.push_back(s);
     }
 
-    (*frame_cb)(fs);
+    (*cb_ctx->cb)(fs);
 }
 
 /// Map NatNet SDK ErrorCode to our NatNetResult.
@@ -159,8 +167,10 @@ std::vector<BodyDescriptor> NatNetClientAdapter::get_body_descriptors()
 void NatNetClientAdapter::set_frame_callback(
     std::function<void(const FrameSample &)> cb)
 {
-    user_cb_ = std::move(cb);
-    client_->SetFrameReceivedCallback(sdk_frame_callback, &user_cb_);
+    user_cb_        = std::move(cb);
+    cb_ctx_.client  = client_.get();
+    cb_ctx_.cb      = &user_cb_;
+    client_->SetFrameReceivedCallback(sdk_frame_callback, &cb_ctx_);
 }
 
 // ---------------------------------------------------------------------------
@@ -170,7 +180,9 @@ void NatNetClientAdapter::disconnect()
         client_->SetFrameReceivedCallback(sdk_frame_callback, nullptr);
         client_->Disconnect();
     }
-    user_cb_ = nullptr;
+    user_cb_       = nullptr;
+    cb_ctx_.client = nullptr;
+    cb_ctx_.cb     = nullptr;
 }
 
 }  // namespace natnet_ros2

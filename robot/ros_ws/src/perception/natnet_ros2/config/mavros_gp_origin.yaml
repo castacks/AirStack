@@ -1,0 +1,22 @@
+# Synthetic GPS origin for mocap / no-GNSS flight via MAVROS.
+# Loaded by mavros_gp_origin.launch.xml when publish_to_mavros is enabled.
+
+/**:
+  ros__parameters:
+    # With GNSS disabled, PX4 has no global position, so modes that require one
+    # (e.g. AUTO.LOITER) refuse to arm. Setting an origin lets PX4 derive a
+    # global position from the fused vision estimate. Guarded: skipped if an
+    # origin already exists (e.g. on a GNSS-equipped vehicle).
+    enabled: true
+    # MUST match the GCS world origin so Foxglove waypoints transform 1:1:
+    #   - gcs_visualizer/gcs_utils.py  ORIGIN_LAT / ORIGIN_LON
+    #   - sim launch_scripts/gps_utils.py  DEFAULT_WORLD_ORIGIN
+    # If this disagrees with the GCS (e.g. the old Zurich SITL default), the
+    # relay computes a boot-ENU offset of ~1.8e6 m and the drone flies the
+    # wrong way. Default is Lisbon (the AirStack shared world datum).
+    latitude: 38.736832
+    longitude: -9.137977
+    altitude: 90.0
+    # Wait this long after MAVROS connects (listening for an existing origin)
+    # before publishing the synthetic one.
+    settle_sec: 5.0
