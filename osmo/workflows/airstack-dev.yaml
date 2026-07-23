@@ -100,7 +100,7 @@ workflow:
       # recordings. The airstack pool's workers have 4.2Ti of ephemeral
       # capacity each (root disks resized 2026-05-14), so this leaves
       # plenty of room for other tenants on the shared workers.
-      storage: 500Gi
+      storage: 100Gi
 
   timeout:
     # 8h covers a normal dev session. Bump for longer runs; cancel manually
