@@ -2,6 +2,13 @@
   <arg name="config_name" default="low_memory"/>
   <arg name="dataset"     default="ros2isaacsim"/>
   <arg name="query_period" default="10"/>
+  <!--
+    True  -> published sim = softmax over the registered query set (raven's
+             contract; values shift whenever the query set changes).
+    False -> raw cos-sims, vocabulary-independent (llm_nav's contract: scores
+             stay comparable while the LLM adds/removes queries).
+  -->
+  <arg name="compute_prob" default="True"/>
 
   <!--
     Bridge: republish nav_msgs/Odometry as geometry_msgs/PoseStamped so rayfronts
@@ -51,7 +58,7 @@
          vis.topic_prefix=/robot_$(env ROS_DOMAIN_ID)/rayfronts
          querying.text_query_mode=prompts
          querying.query_file=null
-         querying.compute_prob=True
+         querying.compute_prob=$(var compute_prob)
          querying.period=$(var query_period)"
     cwd="/opt/rayfronts"
     output="screen">

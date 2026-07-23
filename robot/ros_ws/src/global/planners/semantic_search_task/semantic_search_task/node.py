@@ -36,6 +36,13 @@ RESULTS_COVERAGE_THRESHOLD = 0.80
 RESULTS_SCENE = os.getenv('RESULTS_SCENE', 'RetroNeighborhood')
 
 
+def _llm_nav_enabled() -> bool:
+    """LLM_NAV selects the llm_nav planner (LLM over rayfronts) instead of
+    raven. Default ON — raven runs only with LLM_NAV=false (existing raven
+    missions must set it explicitly). LVLM_BASELINE still takes precedence."""
+    return os.getenv('LLM_NAV', 'true').strip().lower() in ('1', 'true', 'yes')
+
+
 def _clean(line: str) -> str:
     line = _ANSI_RE.sub('', line)
     line = _ROS_PREFIX_RE.sub('', line)
@@ -89,6 +96,27 @@ def _filter_raven(line: str) -> str | None:
     if 'error' in low or 'exception' in low or 'traceback' in low:
         return f'ERROR: {line}'
     if re.search(r'\[(Frontier-based|Ray-based|Voxel-based)\]', line):
+        return line
+    return None
+
+
+def _filter_llm_nav(line: str) -> str | None:
+    """Surface key llm_nav events (LLM narration/decisions) for action feedback."""
+    line = _clean(line)
+    if not line:
+        return None
+    low = line.lower()
+    if 'error' in low or 'exception' in low or 'traceback' in low:
+        return f'ERROR: {line}'
+    if 'loading qwen3' in low:
+        return 'Loading Qwen3 model...'
+    if 'model loaded' in low:
+        return 'Qwen3 model loaded'
+    if 'llm_nav started' in low:
+        return 'llm_nav started'
+    if '[llm seeing]' in low or '[commit]' in low:
+        return line
+    if 'labels detected' in low or 'queries to rayfronts' in low:
         return line
     return None
 
@@ -412,6 +440,14 @@ class SemanticSearchTaskNode(Node):
         Runs on cancel and on 80%-coverage success. Returns a compact JSON
         summary to embed in the action result, or '' on failure."""
         import json as _json
+        if _llm_nav_enabled():
+            # llm_nav writes its own JSONL trace (llm_nav_<robot>_events.jsonl
+            # in RESULTS_DIR) and no raven per-robot dumps — compile_results
+            # would just block on its wait-timeout. GT scoring is done offline.
+            self.get_logger().info(
+                f'[finalize] llm_nav mode ({reason}) — skipping raven '
+                f'compile_results; see {RESULTS_DIR}/llm_nav_*_events.jsonl')
+            return ''
         expect = 0
         try:
             expect = int(os.getenv('NUM_ROBOTS', '0') or 0)
@@ -468,13 +504,15 @@ class SemanticSearchTaskNode(Node):
         In debug mode this cancel is what makes the drone hold at task start
         (clearing any stale auto-follow); debug then never re-commands it.
         """
-        for pattern in ['rayfronts.mapping_server', 'raven_nav_node']:
+        for pattern in ['rayfronts.mapping_server', 'raven_nav_node',
+                        'llm_nav.llm_nav_node']:
             result = subprocess.run(
                 ['pkill', '-SIGTERM', '-f', pattern], capture_output=True)
             if result.returncode == 0:
                 self.get_logger().info(f'Killed existing {pattern} process(es)')
         time.sleep(2.0)
-        for pattern in ['rayfronts.mapping_server', 'raven_nav_node']:
+        for pattern in ['rayfronts.mapping_server', 'raven_nav_node',
+                        'llm_nav.llm_nav_node']:
             subprocess.run(['pkill', '-SIGKILL', '-f', pattern], capture_output=True)
 
         robot_name = os.getenv('ROBOT_NAME', 'robot_1')
@@ -548,6 +586,40 @@ class SemanticSearchTaskNode(Node):
             daemon=True,
         ).start()
         return proc, q
+
+    def _spawn_raven(self, goal, all_labels_yaml: str, target_labels_yaml: str,
+                     robot_name: str) -> tuple:
+        """Spawn the raven_nav planner (LLM_NAV=false path)."""
+        raven_args = [
+            'ros2', 'run', 'raven_nav', 'raven_nav_node',
+            '--ros-args',
+            '-p', f'query_labels:={all_labels_yaml}',
+            '-p', f'target_labels:={target_labels_yaml}',
+            '-p', f'min_altitude_agl:={goal.min_altitude_agl}',
+            '-p', f'max_altitude_agl:={goal.max_altitude_agl}',
+            # Match the rest of the sim stack so published Path/marker
+            # stamps line up with the controllers' sim clock.
+            '-p', 'use_sim_time:=true',
+            # Default full coordination; FRONTIER_ONLY_BASELINE=true → baseline.
+            '-p', f'frontier_only_baseline:={os.getenv("FRONTIER_ONLY_BASELINE", "false").strip().lower()}',
+            # End at 80% coverage; osmo enforces the 15-min limit by cancel.
+            '-p', f'coverage_complete_threshold:={RESULTS_COVERAGE_THRESHOLD}',
+            '-p', f'results_dir:={RESULTS_DIR}',
+            '-r', (f'/{robot_name}/odometry:='
+                   f'/{robot_name}/odometry_conversion/odometry'),
+        ]
+        # Optional raven_nav tuning from the mission goal; a sentinel (<0, or
+        # <1 for the count) means "unset" -> raven_nav.yaml default is used.
+        for pname, gval, sentinel in (
+            ('score_threshold', goal.score_threshold, 0.0),
+            ('voxel_score_threshold', goal.voxel_score_threshold, 0.0),
+            ('voxel_min_confidence', goal.voxel_min_confidence, 0.0),
+            ('voxel_min_cluster_size', goal.voxel_min_cluster_size, 1),
+            ('bundle_len', int(getattr(goal, 'bundle_len', -1)), 1),
+        ):
+            if gval >= sentinel:
+                raven_args += ['-p', f'{pname}:={gval}']
+        return self._spawn(raven_args, log_name='raven')
 
     def _kill(self, name: str, proc: subprocess.Popen) -> None:
         if proc is None:
@@ -779,37 +851,45 @@ class SemanticSearchTaskNode(Node):
         if os.getenv('LVLM_BASELINE', 'false').strip().lower() in ('1', 'true', 'yes'):
             return self._execute_lvlm(goal_handle, goal, queries)
 
-        bg_raw = [bq.strip() for bq in goal.background_queries.split(',')
-                  if bq.strip()]
-        if not bg_raw:
-            self._task_active = False
-            goal_handle.abort()
-            result = SemanticSearchTask.Result()
-            result.success = False
-            result.message = (
-                'background_queries is required but was not provided. '
-                'Softmax normalization needs contrast classes (e.g. '
-                '"building,tree,ground") to produce meaningful scores.')
-            return result
+        # llm_nav mode: the planner registers its own label bank with rayfronts
+        # and runs on raw cos-sims (compute_prob=False), so background_queries
+        # and the softmax >=2-queries constraint don't apply.
+        llm_nav = _llm_nav_enabled()
+        if llm_nav:
+            all_queries = queries
+        else:
+            bg_raw = [bq.strip() for bq in goal.background_queries.split(',')
+                      if bq.strip()]
+            if not bg_raw:
+                self._task_active = False
+                goal_handle.abort()
+                result = SemanticSearchTask.Result()
+                result.success = False
+                result.message = (
+                    'background_queries is required but was not provided. '
+                    'Softmax normalization needs contrast classes (e.g. '
+                    '"building,tree,ground") to produce meaningful scores.')
+                return result
 
-        # Softmax across queries needs N >= 2 to produce discriminative
-        # scores; with N=1 every score is 1.0.
-        bg = [bq for bq in bg_raw if bq not in queries]
-        all_queries = queries + bg
+            # Softmax across queries needs N >= 2 to produce discriminative
+            # scores; with N=1 every score is 1.0.
+            bg = [bq for bq in bg_raw if bq not in queries]
+            all_queries = queries + bg
 
-        if len(all_queries) < 2:
-            self._task_active = False
-            goal_handle.abort()
-            result = SemanticSearchTask.Result()
-            result.success = False
-            result.message = (
-                f'Need at least 2 total queries for softmax normalization, '
-                f'got {len(all_queries)}. Add more background_queries that '
-                f'differ from the target query.')
-            return result
+            if len(all_queries) < 2:
+                self._task_active = False
+                goal_handle.abort()
+                result = SemanticSearchTask.Result()
+                result.success = False
+                result.message = (
+                    f'Need at least 2 total queries for softmax normalization, '
+                    f'got {len(all_queries)}. Add more background_queries that '
+                    f'differ from the target query.')
+                return result
 
         self.get_logger().info(
-            f'SemanticSearchTask | targets={queries} all_queries={all_queries}')
+            f'SemanticSearchTask | planner={"llm_nav" if llm_nav else "raven"} '
+            f'| targets={queries} all_queries={all_queries}')
         if debug:
             self.get_logger().warn(
                 '[DEBUG] manual-fly mode — rayfronts + raven will start and '
@@ -838,8 +918,10 @@ class SemanticSearchTaskNode(Node):
         search_poly = [(p.x, p.y) for p in goal.search_area.points]
         approached_bounds = len(search_poly) < 3
 
+        planner_name = 'llm_nav' if llm_nav else 'raven'
+        planner_filter = _filter_llm_nav if llm_nav else _filter_raven
         last_rf_status = 'Starting rayfronts...'
-        last_rv_status = 'Starting raven...'
+        last_rv_status = f'Starting {planner_name}...'
 
         try:
             self._cleanup_existing()
@@ -869,9 +951,15 @@ class SemanticSearchTaskNode(Node):
             if gpu is not None:
                 rf_env = {**os.environ, 'CUDA_VISIBLE_DEVICES': gpu}
                 self.get_logger().info(f'rayfronts pinned to GPU {gpu}')
-            rayfronts_proc, rayfronts_q = self._spawn([
+            rayfronts_cmd = [
                 'ros2', 'launch', 'perception_bringup', 'rayfronts.launch.xml',
-            ], log_name='rayfronts', env=rf_env)
+            ]
+            if llm_nav:
+                # Raw cos-sims: vocabulary-independent scores, so the LLM's
+                # label bank / dynamic queries don't shift each other's values.
+                rayfronts_cmd.append('compute_prob:=False')
+            rayfronts_proc, rayfronts_q = self._spawn(
+                rayfronts_cmd, log_name='rayfronts', env=rf_env)
 
             mapping_batches_seen = 0
             required_batches = 8
@@ -898,39 +986,45 @@ class SemanticSearchTaskNode(Node):
                 time.sleep(0.2)
             self.get_logger().info(
                 f'rayfronts processed {mapping_batches_seen} batches — '
-                f'starting raven')
+                f'starting {planner_name}')
 
-            raven_args = [
-                'ros2', 'run', 'raven_nav', 'raven_nav_node',
-                '--ros-args',
-                '-p', f'query_labels:={all_labels_yaml}',
-                '-p', f'target_labels:={target_labels_yaml}',
-                '-p', f'min_altitude_agl:={goal.min_altitude_agl}',
-                '-p', f'max_altitude_agl:={goal.max_altitude_agl}',
-                # Match the rest of the sim stack so published Path/marker
-                # stamps line up with the controllers' sim clock.
-                '-p', 'use_sim_time:=true',
-                # Default full coordination; FRONTIER_ONLY_BASELINE=true → baseline.
-                '-p', f'frontier_only_baseline:={os.getenv("FRONTIER_ONLY_BASELINE", "false").strip().lower()}',
-                # End at 80% coverage; osmo enforces the 15-min limit by cancel.
-                '-p', f'coverage_complete_threshold:={RESULTS_COVERAGE_THRESHOLD}',
-                '-p', f'results_dir:={RESULTS_DIR}',
-                '-r', (f'/{robot_name}/odometry:='
-                       f'/{robot_name}/odometry_conversion/odometry'),
-            ]
-            # Optional raven_nav tuning from the mission goal; a sentinel (<0, or
-            # <1 for the count) means "unset" -> raven_nav.yaml default is used.
-            for pname, gval, sentinel in (
-                ('score_threshold', goal.score_threshold, 0.0),
-                ('voxel_score_threshold', goal.voxel_score_threshold, 0.0),
-                ('voxel_min_confidence', goal.voxel_min_confidence, 0.0),
-                ('voxel_min_cluster_size', goal.voxel_min_cluster_size, 1),
-                ('bundle_len', int(getattr(goal, 'bundle_len', -1)), 1),
-            ):
-                if gval >= sentinel:
-                    raven_args += ['-p', f'{pname}:={gval}']
-            raven_proc, raven_q = self._spawn(raven_args, log_name='raven')
-
+            if llm_nav:
+                # llm_nav: LLM decision-maker over rayfronts. Runs in the LVLM
+                # venv (transformers + bitsandbytes on system torch); falls back
+                # to ros2 run if the venv is missing. Shares rayfronts' GPU pin.
+                planner_ros_args = ['--ros-args']
+                try:
+                    from ament_index_python.packages import \
+                        get_package_share_directory
+                    params_file = os.path.join(
+                        get_package_share_directory('llm_nav'),
+                        'config', 'llm_nav.yaml')
+                    planner_ros_args += ['--params-file', params_file]
+                except Exception as e:
+                    self.get_logger().warn(
+                        f'llm_nav params file not found ({e}) — '
+                        'using in-code defaults')
+                planner_ros_args += [
+                    '-p', f'target:={queries[0]}',
+                    '-p', f'min_altitude_agl:={goal.min_altitude_agl}',
+                    '-p', f'max_altitude_agl:={goal.max_altitude_agl}',
+                    '-p', 'use_sim_time:=true',
+                    '-p', f'results_dir:={RESULTS_DIR}',
+                    '-r', (f'/{robot_name}/odometry:='
+                           f'/{robot_name}/odometry_conversion/odometry'),
+                ]
+                venv_py = '/opt/lvlm-venv/bin/python'
+                if os.path.exists(venv_py):
+                    planner_cmd = [venv_py, '-m', 'llm_nav.llm_nav_node'] \
+                        + planner_ros_args
+                else:
+                    planner_cmd = ['ros2', 'run', 'llm_nav', 'llm_nav_node'] \
+                        + planner_ros_args
+                raven_proc, raven_q = self._spawn(
+                    planner_cmd, log_name='llm_nav', env=rf_env)
+            else:
+                raven_proc, raven_q = self._spawn_raven(
+                    goal, all_labels_yaml, target_labels_yaml, robot_name)
 
             best_conf = 0.0
             rayfronts_ready = False
@@ -1077,7 +1171,7 @@ class SemanticSearchTaskNode(Node):
                         last_rf_status = msg
 
                 for raw in _drain(raven_q):
-                    msg = _filter_raven(raw)
+                    msg = planner_filter(raw)
                     if msg:
                         last_rv_status = msg
 

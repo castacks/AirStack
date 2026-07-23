@@ -1,0 +1,67 @@
+llm_nav:
+  ros__parameters:
+    # HuggingFace model id (cached under /root/.cache on first run).
+    model_path: 'Qwen/Qwen3-1.7B'
+    # Target to search for; overridden at spawn by the semantic_search query.
+    target: 'house'
+    # Qwen3 thinking mode: off by default for latency at the narrate cadence.
+    enable_thinking: false
+    max_new_tokens: 256
+    # '4bit' (nf4, ~1.8 GB) fits alongside Isaac Sim + rayfronts on a shared
+    # 16 GB GPU; 'none' (bf16, ~3.5 GB, fastest) for a dedicated GPU; '8bit'
+    # exists but is slow (bnb int8 matmul) and barely smaller than needed.
+    quantization: '4bit'
+    # Waypoints are clamped to [min, max] altitude (m); the mission's
+    # semantic_search goal overrides these at spawn.
+    min_altitude_agl: 5.0
+    max_altitude_agl: 20.0
+
+    # ── digest / presentation knobs (NOT detection thresholds — the LLM
+    #    judges instances from size + labels + scores together) ─────────────
+    # Seconds between digest rebuilds and between narrate calls while committed.
+    digest_period_s: 5.0
+    narrate_period_s: 12.0
+    # Loose per-voxel cos-sim floor: below this a voxel shows no object at all
+    # (rayfronts runs with compute_prob=False, so scores are raw cos-sims,
+    # typically 0.05-0.30). Presentation filter only.
+    floor_cos: 0.12
+    # Smallest connected component shown as an instance (0.5 m voxels).
+    min_instance_voxels: 5
+    # Digest caps so the prompt stays ~1-2k tokens.
+    max_instances_shown: 15
+    max_ray_groups: 8
+    # Azimuth sector width for grouping rays (deg).
+    ray_sector_deg: 30.0
+    # A ray group is "pointing at" an instance if its line passes within this
+    # radius of the instance centroid (m), out to assoc_max_range_m.
+    assoc_radius_m: 8.0
+    assoc_max_range_m: 40.0
+
+    # ── commitment geometry ────────────────────────────────────────────────
+    # goto_ray waypoint distance along the mean ray direction (m).
+    ray_commit_dist_m: 15.0
+    # goto_instance standoff from the instance bbox surface toward the robot (m).
+    standoff_m: 5.0
+    # Arrival radius (m) — instance surface distance or waypoint distance.
+    reach_m: 3.0
+    # Abort a commitment if distance-to-waypoint hasn't improved by
+    # progress_epsilon_m for progress_timeout_s.
+    progress_timeout_s: 90.0
+    progress_epsilon_m: 2.0
+    blacklist_ttl_s: 120.0
+
+    # ── open-set label bank ────────────────────────────────────────────────
+    # Registered with rayfronts as standing queries alongside the target, so
+    # every voxel/ray carries named top-k scores. object_labels get instanced;
+    # surface_labels are summarized and never proposed as goals.
+    label_bank: [
+      'house', 'roof', 'car', 'truck', 'tree', 'bush', 'fence', 'swimming pool',
+      'driveway', 'garage', 'shed', 'utility pole', 'street light', 'mailbox',
+      'trampoline', 'playground', 'water tower', 'billboard', 'container',
+      'road', 'grass', 'sidewalk', 'parking lot', 'mountain', 'dirt', 'wall',
+    ]
+    surface_labels: ['road', 'grass', 'sidewalk', 'parking lot', 'mountain', 'dirt', 'sky', 'ground']
+
+    # Where the JSONL event log (every prompt/response/decision/function call)
+    # is written; empty -> /tmp.
+    results_dir: ''

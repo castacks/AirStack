@@ -1,0 +1,16 @@
+<launch>
+  <!--
+    Standalone launch for the llm_nav planner. In missions semantic_search_task
+    spawns the node directly (via /opt/lvlm-venv/bin/python -m llm_nav.llm_nav_node)
+    with per-goal parameter overrides (target, altitudes, results_dir); this launch
+    file is for manual / single-robot runs. Topics are namespaced by ROBOT_NAME /
+    ROS_DOMAIN_ID inside the node, so no remaps are needed here except odometry.
+  -->
+  <node pkg="llm_nav" exec="llm_nav_node" name="llm_nav" output="screen">
+    <param from="$(find-pkg-share llm_nav)/config/llm_nav.yaml"
+           allow_substs="true" />
+    <param name="use_sim_time" value="true" />
+    <remap from="/$(env ROBOT_NAME)/odometry"
+           to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+  </node>
+</launch>
