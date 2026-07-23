@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TARGET_ARCH` build arg (default `x86_64`) in `Dockerfile.robot` to arch-parametrize `LD_LIBRARY_PATH`; `docker-compose.yaml` passes `TARGET_ARCH: aarch64` to the `voxl` and `l4t` real-robot image builds
 - `ros-${ROS_DISTRO}-mavros-extras` in the robot image (provides the vision_pose plugin used for external-pose deployments)
 - `overrides/l4t-px4-realrobot.env` — site-agnostic deployment override for a single real PX4 robot on a Jetson (aarch64/l4t)
+- OptiTrack NatNet emulator Isaac Sim extension (`simulation/isaac-sim/extensions/optitrack.natnet.emulator`) + natnet Pegasus launch scripts, so `natnet_ros2` can be exercised end-to-end in sim without OptiTrack hardware
+- Real-robot PX4 external-vision fusion in `natnet_ros2`: `mavros_gp_origin` (geoid-corrected synthetic GPS origin so `local_position.z` == OptiTrack z), `vision_pose_converter`, and a PX4 param **checker** (`px4_param_setter`, `auto_set` off by default; `on_mismatch` warn/halt) — docs at `docs/robot/px4_external_vision.md`
+- OptiTrack tests: host `tests/integration/natnet/` (emulator → `natnet_ros2` Hz, `integration` mark) and a dedicated `tests/system/test_optitrack_e2e.py` (`optitrack` mark, single NatNet Isaac bring-up)
 - `integration` test tier (`tests/integration/`, `integration` mark) with a shared `robot_autonomy_stack` fixture (robot container, no sim/GPU)
 
 ### Changed
