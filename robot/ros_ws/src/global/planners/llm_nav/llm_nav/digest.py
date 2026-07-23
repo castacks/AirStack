@@ -35,6 +35,7 @@ _MAX_GRID_CELLS = 60_000_000
 # between ticks while "growing").
 _TRACK_MATCH_M = 3.0
 _TRACK_MATCH_EXTENT_FRAC = 0.6
+_TRACK_MATCH_CAP_M = 10.0
 _TRACK_MAX_MISSES = 6
 
 _COMPASS = ['E', 'NE', 'N', 'NW', 'W', 'SW', 'S', 'SE']
@@ -342,65 +343,96 @@ class DigestBuilder:
         """True if the two AABBs intersect (with slack so touching counts)."""
         return bool(np.all(min1 <= max2 + slack) and np.all(min2 <= max1 + slack))
 
+    def _match_margin(self, inst) -> float:
+        """Adaptive centroid-match margin: grows with the instance footprint
+        (a partially-mapped object's centroid shifts while growing), capped so
+        one runaway blob can't vacuum up the whole neighborhood."""
+        ext = inst.bbox_max - inst.bbox_min
+        return min(max(_TRACK_MATCH_M,
+                       _TRACK_MATCH_EXTENT_FRAC * float(max(ext[0], ext[1]))),
+                   _TRACK_MATCH_CAP_M)
+
     def _track(self, clusters: list):
         """Match new clusters to existing same-label instances, growth-aware.
 
-        Partial views grow as the drone maps more angles, so: the centroid
-        match margin scales with the instance footprint, a bbox overlap always
-        counts as a match, and when one grown cluster now spans several
-        previously separate instances, the extras are absorbed into the
-        survivor — visited status survives the merge, so a house "seen"
-        from one side stays seen as its map grows.
+        MANY-TO-ONE: several same-tick fragments of one object all match the
+        same instance and are folded into its union (one-to-one matching made
+        every extra fragment spawn a throwaway ID that merged a tick later —
+        the ID-churn seen in the first PoC runs). When an updated instance now
+        spans previously separate instances, those are absorbed; visited
+        status carries over only if the absorbed centroid lies INSIDE the
+        survivor (edge-slivers must not mark a whole blob as seen).
         """
         self.last_merges = []
-        unmatched = set(self._instances.keys())
+        # Pass 1: best existing instance per cluster (no removal — fragments
+        # of one object may all pick the same instance).
+        assignments = {}
+        new_clusters = []
         for cl in clusters:
             best_id, best_d = None, None
-            for iid in unmatched:
-                inst = self._instances[iid]
+            for iid, inst in self._instances.items():
                 if inst.label != cl['label']:
                     continue
                 d = float(np.linalg.norm(inst.centroid - cl['centroid']))
-                ext = inst.bbox_max - inst.bbox_min
-                margin = max(_TRACK_MATCH_M,
-                             _TRACK_MATCH_EXTENT_FRAC * float(max(ext[0], ext[1])))
-                if d < margin or self._bbox_overlap(
+                if d < self._match_margin(inst) or self._bbox_overlap(
                         inst.bbox_min, inst.bbox_max,
                         cl['bbox_min'], cl['bbox_max']):
                     if best_d is None or d < best_d:
                         best_id, best_d = iid, d
             if best_id is not None:
-                inst = self._instances[best_id]
-                # Direct update, not EMA: growth dominates jitter and a lagged
-                # centroid breaks the next tick's match.
-                inst.centroid = np.asarray(cl['centroid'], dtype=float).copy()
-                inst.bbox_min = cl['bbox_min']
-                inst.bbox_max = cl['bbox_max']
-                inst.n_voxels = cl['n_voxels']
-                inst.top_labels = cl['top_labels']
-                inst.hits += 1
-                inst.misses = 0
-                unmatched.discard(best_id)
-                # Absorb other same-label instances the grown cluster now spans.
-                for oid in list(unmatched):
-                    other = self._instances[oid]
-                    if other.label == cl['label'] and self._bbox_overlap(
-                            other.bbox_min, other.bbox_max,
-                            cl['bbox_min'], cl['bbox_max']):
-                        inst.visited = inst.visited or other.visited
-                        inst.hits += other.hits
-                        unmatched.discard(oid)
-                        del self._instances[oid]
-                        self._merged_redirect[oid] = best_id
-                        self.last_merges.append((oid, best_id))
+                assignments.setdefault(best_id, []).append(cl)
             else:
-                iid = f'V{self._next_instance_num}'
-                self._next_instance_num += 1
-                self._instances[iid] = Instance(
-                    id=iid, label=cl['label'], centroid=cl['centroid'].copy(),
-                    bbox_min=cl['bbox_min'], bbox_max=cl['bbox_max'],
-                    n_voxels=cl['n_voxels'], top_labels=cl['top_labels'])
-        for iid in list(unmatched):
+                new_clusters.append(cl)
+        # Pass 2: update each matched instance with its clusters' union.
+        for iid, cls in assignments.items():
+            inst = self._instances[iid]
+            n_tot = sum(c['n_voxels'] for c in cls)
+            inst.centroid = sum(
+                (np.asarray(c['centroid'], dtype=float) * c['n_voxels']
+                 for c in cls), np.zeros(3)) / max(n_tot, 1)
+            inst.bbox_min = np.min([c['bbox_min'] for c in cls], axis=0)
+            inst.bbox_max = np.max([c['bbox_max'] for c in cls], axis=0)
+            inst.n_voxels = n_tot
+            inst.top_labels = max(cls, key=lambda c: c['n_voxels'])['top_labels']
+            inst.hits += 1
+            inst.misses = 0
+        # Pass 3: absorb unmatched OLD instances now spanned by an updated one.
+        matched_ids = set(assignments)
+        for iid in matched_ids:
+            inst = self._instances.get(iid)
+            if inst is None:
+                continue
+            for oid, other in list(self._instances.items()):
+                if oid == iid or oid in matched_ids:
+                    continue
+                if other.label == inst.label and self._bbox_overlap(
+                        other.bbox_min, other.bbox_max,
+                        inst.bbox_min, inst.bbox_max):
+                    centroid_inside = bool(
+                        np.all(other.centroid >= inst.bbox_min)
+                        and np.all(other.centroid <= inst.bbox_max))
+                    if centroid_inside:
+                        inst.visited = inst.visited or other.visited
+                    elif other.visited:
+                        continue    # keep the visited sliver as its own record
+                    inst.hits += other.hits
+                    del self._instances[oid]
+                    self._merged_redirect[oid] = iid
+                    self.last_merges.append((oid, iid))
+        # Pass 4: unmatched clusters become new instances.
+        created = set()
+        for cl in new_clusters:
+            iid = f'V{self._next_instance_num}'
+            self._next_instance_num += 1
+            created.add(iid)
+            self._instances[iid] = Instance(
+                id=iid, label=cl['label'], centroid=cl['centroid'].copy(),
+                bbox_min=cl['bbox_min'], bbox_max=cl['bbox_max'],
+                n_voxels=cl['n_voxels'], top_labels=cl['top_labels'])
+        # Pass 5: miss-count everything untouched this tick.
+        for iid in list(self._instances.keys()):
+            if iid in matched_ids or iid in created:
+                continue
             inst = self._instances[iid]
             inst.misses += 1
             # Visited instances are kept forever so the LLM sees its history.

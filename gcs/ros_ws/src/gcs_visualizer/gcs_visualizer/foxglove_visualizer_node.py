@@ -60,6 +60,9 @@ TRAJ_SUFFIX = '/trajectory_controller/trajectory_vis'
 PLAN_SUFFIX = '/global_plan'
 VDB_SUFFIX  = '/vdb_mapping/vdb_map_visualization'
 RAY_GROUPS_SUFFIX = '/ray_groups_viz'
+# llm_nav tracked-instance AABB markers (bridged by the DDS router like the
+# rayfronts topics; see onboard_all/config/dds_router.yaml "llm_nav" entry).
+LLM_INSTANCES_SUFFIX = '/llm_nav/instances'
 
 # rayfronts per-query voxel heatmap topics, bridged from the robot domain by the
 # DDS router (see onboard_all/config/dds_router.yaml). Names: /<robot>/rayfronts/
@@ -108,6 +111,8 @@ class FoxgloveVisualizerNode(Node):
         self._plan_pattern = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(PLAN_SUFFIX)}$')
         self._vdb_pattern  = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(VDB_SUFFIX)}$')
         self._ray_groups_pattern = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(RAY_GROUPS_SUFFIX)}$')
+        self._llm_instances_pattern = re.compile(
+            rf'^/({re.escape(self._prefix)}_\w+){re.escape(LLM_INSTANCES_SUFFIX)}$')
         # Captures (robot_name, voxel-topic suffix), e.g.
         # /robot_1/rayfronts/msg_serv/voxels_sim/q0_car -> ('robot_1', 'voxels_sim/q0_car')
         self._voxels_pattern = re.compile(
@@ -127,6 +132,8 @@ class FoxgloveVisualizerNode(Node):
         self._subscribed_odom = set()
         self._subscribed_traj = set()
         self._subscribed_plan = set()
+        self._subscribed_llm_instances = set()
+        self._llm_instances_pubs = {}
 
         # Make 'map' a known frame on the GCS domain so Foxglove resolves it.
         # The robot side already publishes the same identity static TF
@@ -324,6 +331,22 @@ class FoxgloveVisualizerNode(Node):
                     self._subscribed_ray_groups.add(topic)
                     self.get_logger().info(f'Subscribed to ray_groups_viz: {topic}')
 
+            if topic not in self._subscribed_llm_instances:
+                m = self._llm_instances_pattern.match(topic)
+                if m and 'visualization_msgs/msg/MarkerArray' in type_list:
+                    name = m.group(1)
+                    out_topic = f'/gcs/{name}/llm_nav_instances'
+                    self._llm_instances_pubs[name] = self.create_publisher(
+                        MarkerArray, out_topic, 10)
+                    self.create_subscription(
+                        MarkerArray, topic,
+                        lambda msg, n=name: self._llm_instances_callback(msg, n),
+                        10,
+                    )
+                    self._subscribed_llm_instances.add(topic)
+                    self.get_logger().info(
+                        f'Subscribed to llm_nav instances: {topic} -> {out_topic}')
+
             if topic not in self._subscribed_voxels:
                 m = self._voxels_pattern.match(topic)
                 if m and 'sensor_msgs/msg/PointCloud2' in type_list:
@@ -455,6 +478,34 @@ class FoxgloveVisualizerNode(Node):
                     tm.pose.orientation = m.pose.orientation
                 out.markers.append(tm)
         pub = self._ray_groups_pubs.get(robot_name)
+        if pub is not None:
+            pub.publish(out)
+
+    def _llm_instances_callback(self, msg: MarkerArray, robot_name: str):
+        """llm_nav instance AABBs/labels -> global frame, same translation
+        path as ray_groups_viz (robot-local 'map' + boot ENU offset)."""
+        boot = self._gps_boot.get(robot_name)
+        out = MarkerArray()
+        if boot is None:
+            out.markers = list(msg.markers)
+        else:
+            bx, by, bz = boot
+            ns_prefix = f'{robot_name}_'
+            for m in msg.markers:
+                tm = _translate_marker(m, bx, by, bz)
+                tm.header.stamp = m.header.stamp
+                tm.ns = ns_prefix + m.ns
+                tm.id = m.id
+                tm.type = m.type
+                tm.action = m.action
+                tm.text = m.text
+                if not m.points:
+                    tm.pose.position.x = m.pose.position.x + bx
+                    tm.pose.position.y = m.pose.position.y + by
+                    tm.pose.position.z = m.pose.position.z + bz
+                    tm.pose.orientation = m.pose.orientation
+                out.markers.append(tm)
+        pub = self._llm_instances_pubs.get(robot_name)
         if pub is not None:
             pub.publish(out)
 

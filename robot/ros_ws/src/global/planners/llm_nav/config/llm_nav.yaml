@@ -6,7 +6,9 @@ llm_nav:
     target: 'house'
     # Qwen3 thinking mode: off by default for latency at the narrate cadence.
     enable_thinking: false
-    max_new_tokens: 256
+    # Enough for action JSON + a short "seeing" sentence; too low truncates
+    # mid-JSON and every decide falls back (seen when the digest grew large).
+    max_new_tokens: 384
     # '4bit' (nf4, ~1.8 GB) fits alongside Isaac Sim + rayfronts on a shared
     # 16 GB GPU; 'none' (bf16, ~3.5 GB, fastest) for a dedicated GPU; '8bit'
     # exists but is slow (bnb int8 matmul) and barely smaller than needed.

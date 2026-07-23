@@ -39,11 +39,11 @@ DECIDE_INSTRUCTIONS = (
     'Mapped objects are partial views that grow as the drone sees more angles '
     '— small fragments near a strong candidate are usually part of the same '
     'object, so prefer the strongest/largest candidate over its fragments.\n'
-    'Reply with ONLY this JSON:\n'
-    '{{"seeing": "<1-2 sentences: what the map shows>", '
-    '"action": {{"type": "goto_instance"|"goto_ray"|"goto_frontier"|"survey"'
+    'Reply with ONLY this JSON, action FIRST:\n'
+    '{{"action": {{"type": "goto_instance"|"goto_ray"|"goto_frontier"|"survey"'
     '|"retune", "id": "<V#, R#, compass direction, or empty>", '
-    '"reason": "<short why>"}}}}')
+    '"reason": "<short why>"}}, '
+    '"seeing": "<ONE short sentence: what the map shows>"}}')
 
 PERCEPTION_SYSTEM = (
     'You tune the perception layer of a drone that clusters 0.5m semantic '
@@ -59,8 +59,9 @@ PERCEPTION_INSTRUCTIONS = (
     'instance (noise floor). Think about how many 0.5m voxels a partial view '
     'of a {target} occupies — a car door ~10, a house wall ~100s.\n'
     '- "score_floor": minimum similarity for a voxel to count as an object '
-    'at all (raw cos-sim, useful range 0.03-0.30; lower = more recall but '
-    'more clutter).\n'
+    'at all (raw cos-sim). Below ~0.08 background clutter usually scores in '
+    'and BRIDGES separate objects into one giant blob; 0.08-0.15 works for '
+    'most targets, higher only for very distinctive ones.\n'
     '- "merge_gap_m": two same-label voxel patches closer than this are ONE '
     'object (bridges occlusion splits, e.g. a house cut in two by a tree in '
     'front; too large merges neighboring {target}s together!).\n'
@@ -91,7 +92,7 @@ NARRATE_INSTRUCTIONS = (
     'now. Briefly describe what the semantic map currently shows that is '
     'relevant to finding "{target}".\n'
     'Reply with ONLY this JSON:\n'
-    '{{"seeing": "<1-3 sentences>", "notes": "<anything noteworthy for later, '
+    '{{"seeing": "<1-2 short sentences>", "notes": "<anything noteworthy for later, '
     'or empty string>"}}')
 
 
@@ -131,7 +132,7 @@ def extract_json(text: str) -> dict:
 class LLMClient:
 
     def __init__(self, model_path: str, ros_logger, mission_log,
-                 enable_thinking: bool = False, max_new_tokens: int = 256,
+                 enable_thinking: bool = False, max_new_tokens: int = 384,
                  quantization: str = '4bit'):
         self._model_path = model_path
         self._log = ros_logger

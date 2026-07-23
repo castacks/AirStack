@@ -105,7 +105,7 @@ class LlmNavNode(Node):
         self._model_path = self.declare_parameter(
             'model_path', 'Qwen/Qwen3-1.7B').value
         enable_thinking = bool(self.declare_parameter('enable_thinking', False).value)
-        max_new_tokens = int(self.declare_parameter('max_new_tokens', 256).value)
+        max_new_tokens = int(self.declare_parameter('max_new_tokens', 384).value)
         quantization = str(self.declare_parameter('quantization', '4bit').value)
         self._min_altitude = float(self.declare_parameter('min_altitude_agl', 5.0).value)
         self._max_altitude = float(self.declare_parameter('max_altitude_agl', 20.0).value)
@@ -194,8 +194,13 @@ class LlmNavNode(Node):
             PointCloud2, f'{self._rf_prefix}/rays_sim/all', self._ray_all_cb, 10)
         self.create_subscription(
             PointCloud2, f'{self._rf_prefix}/frontiers', self._frontiers_cb, 10)
+        # Sim odometry publishes BEST_EFFORT; a RELIABLE subscriber gets an
+        # incompatible-QoS mismatch and silently receives nothing.
+        sensor_qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST, depth=5)
         self.create_subscription(
-            Odometry, f'{self._prefix}/odometry', self._odom_cb, 10)
+            Odometry, f'{self._prefix}/odometry', self._odom_cb, sensor_qos)
         # Task node publishes the search polygon here (latched); topic name kept
         # from raven so semantic_search_task needs no change.
         self.create_subscription(
