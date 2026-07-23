@@ -29,9 +29,12 @@ from .mission_log import log_call
 VOX_SIZE = 0.5
 # Largest dense grid we will run connected-components on (cells).
 _MAX_GRID_CELLS = 60_000_000
-# Cross-tick instance association margin (m), mirrors raven's TRACK_ASSOC_MARGIN_M.
+# Cross-tick instance association: base margin (m); the effective margin grows
+# with the instance's footprint because a partially-mapped object's centroid
+# shifts as new faces are observed (a 12 m house can move its centroid >3 m
+# between ticks while "growing").
 _TRACK_MATCH_M = 3.0
-_TRACK_EMA_ALPHA = 0.3
+_TRACK_MATCH_EXTENT_FRAC = 0.6
 _TRACK_MAX_MISSES = 6
 
 _COMPASS = ['E', 'NE', 'N', 'NW', 'W', 'SW', 'S', 'SE']
@@ -146,6 +149,9 @@ class Digest:
     ray_groups: list = field(default_factory=list)    # [RayGroup]
     selectable_instances: set = field(default_factory=set)
     selectable_rays: set = field(default_factory=set)
+    # compass sector -> centroid (np(3)) of that sector's frontier cells;
+    # keys double as the goto_frontier ids offered to the LLM.
+    frontier_targets: dict = field(default_factory=dict)
 
     def structured(self) -> dict:
         return {
@@ -165,6 +171,7 @@ class Digest:
                 for r in self.ray_groups],
             'selectable_instances': sorted(self.selectable_instances),
             'selectable_rays': sorted(self.selectable_rays),
+            'frontier_sectors': sorted(self.frontier_targets),
         }
 
 
@@ -175,10 +182,14 @@ class DigestBuilder:
                  floor_cos: float = 0.12, min_instance_voxels: int = 5,
                  max_instances_shown: int = 15, max_ray_groups: int = 8,
                  ray_sector_deg: float = 30.0, assoc_radius_m: float = 8.0,
-                 assoc_max_range_m: float = 40.0):
+                 assoc_max_range_m: float = 40.0, label_aliases: dict = None):
         self.target = target
         self.object_labels = list(object_labels)
         self.surface_labels = list(surface_labels)
+        # alias -> canonical (e.g. {'roof': 'house'}): part labels cluster into
+        # their parent object so one physical house is one instance.
+        self.label_aliases = {k.lower(): v.lower()
+                              for k, v in (label_aliases or {}).items()}
         self.floor_cos = floor_cos
         self.min_instance_voxels = min_instance_voxels
         self.max_instances_shown = max_instances_shown
@@ -190,6 +201,8 @@ class DigestBuilder:
         self.labels: list = []            # column order, set once detected
         self._object_cols: list = []
         self._instances: dict = {}        # id -> Instance
+        self._merged_redirect: dict = {}  # absorbed id -> surviving id
+        self.last_merges: list = []       # [(absorbed, survivor)] from last track
         self._next_instance_num = 1
         self.grid_overflow = False
 
@@ -201,16 +214,39 @@ class DigestBuilder:
         obj.add(self.target.lower())
         self._object_cols = [i for i, l in enumerate(self.labels)
                              if l.lower() in obj]
+        # Column -> canonical label (aliases collapse part labels into their
+        # parent object; canonical groups drive clustering and ray grouping).
+        self._canonical_of_col = {
+            i: self.label_aliases.get(l.lower(), l.lower())
+            for i, l in enumerate(self.labels)}
+        self._canonical_groups = {}
+        for col in self._object_cols:
+            self._canonical_groups.setdefault(
+                self._canonical_of_col[col], []).append(col)
+
+    def set_label_aliases(self, aliases: dict):
+        """Replace the alias map (e.g. from the LLM's part-of answer) and
+        rebuild the canonical column groups."""
+        self.label_aliases = {k.lower(): v.lower() for k, v in aliases.items()}
+        if self.labels:
+            self.set_labels(self.labels)
 
     @property
     def ready(self) -> bool:
         return bool(self.labels)
 
     def instance(self, iid: str) -> 'Instance | None':
+        """Lookup by id, following merge redirects so a commitment made to a
+        fragment stays valid after the fragment is absorbed into a larger
+        instance."""
+        seen = set()
+        while iid in self._merged_redirect and iid not in seen:
+            seen.add(iid)
+            iid = self._merged_redirect[iid]
         return self._instances.get(iid)
 
     def mark_visited(self, iid: str):
-        inst = self._instances.get(iid)
+        inst = self.instance(iid)   # follows merge redirects
         if inst is not None:
             inst.visited = True
 
@@ -238,14 +274,15 @@ class DigestBuilder:
         bestk = best[keep]
 
         clusters = []
-        for col in self._object_cols:
-            if col >= q:
+        for canonical, cols in self._canonical_groups.items():
+            cols_q = [c for c in cols if c < q]
+            if not cols_q:
                 continue
-            sel = bestk == col
+            sel = np.isin(bestk, cols_q)
             if int(sel.sum()) < self.min_instance_voxels:
                 continue
             clusters.extend(self._cluster_one_label(
-                self.labels[col], xyz[sel], sc[sel]))
+                canonical, xyz[sel], sc[sel]))
         return clusters
 
     def _cluster_one_label(self, label, xyz, sc) -> list:
@@ -278,22 +315,43 @@ class DigestBuilder:
             ))
         return out
 
+    @staticmethod
+    def _bbox_overlap(min1, max1, min2, max2, slack: float = 0.5) -> bool:
+        """True if the two AABBs intersect (with slack so touching counts)."""
+        return bool(np.all(min1 <= max2 + slack) and np.all(min2 <= max1 + slack))
+
     def _track(self, clusters: list):
-        """Greedy nearest-centroid match per label; EMA centroids, stable IDs."""
+        """Match new clusters to existing same-label instances, growth-aware.
+
+        Partial views grow as the drone maps more angles, so: the centroid
+        match margin scales with the instance footprint, a bbox overlap always
+        counts as a match, and when one grown cluster now spans several
+        previously separate instances, the extras are absorbed into the
+        survivor — visited status survives the merge, so a house "seen"
+        from one side stays seen as its map grows.
+        """
+        self.last_merges = []
         unmatched = set(self._instances.keys())
         for cl in clusters:
-            best_id, best_d = None, _TRACK_MATCH_M
+            best_id, best_d = None, None
             for iid in unmatched:
                 inst = self._instances[iid]
                 if inst.label != cl['label']:
                     continue
                 d = float(np.linalg.norm(inst.centroid - cl['centroid']))
-                if d < best_d:
-                    best_id, best_d = iid, d
+                ext = inst.bbox_max - inst.bbox_min
+                margin = max(_TRACK_MATCH_M,
+                             _TRACK_MATCH_EXTENT_FRAC * float(max(ext[0], ext[1])))
+                if d < margin or self._bbox_overlap(
+                        inst.bbox_min, inst.bbox_max,
+                        cl['bbox_min'], cl['bbox_max']):
+                    if best_d is None or d < best_d:
+                        best_id, best_d = iid, d
             if best_id is not None:
                 inst = self._instances[best_id]
-                inst.centroid = (1 - _TRACK_EMA_ALPHA) * inst.centroid \
-                    + _TRACK_EMA_ALPHA * cl['centroid']
+                # Direct update, not EMA: growth dominates jitter and a lagged
+                # centroid breaks the next tick's match.
+                inst.centroid = np.asarray(cl['centroid'], dtype=float).copy()
                 inst.bbox_min = cl['bbox_min']
                 inst.bbox_max = cl['bbox_max']
                 inst.n_voxels = cl['n_voxels']
@@ -301,6 +359,18 @@ class DigestBuilder:
                 inst.hits += 1
                 inst.misses = 0
                 unmatched.discard(best_id)
+                # Absorb other same-label instances the grown cluster now spans.
+                for oid in list(unmatched):
+                    other = self._instances[oid]
+                    if other.label == cl['label'] and self._bbox_overlap(
+                            other.bbox_min, other.bbox_max,
+                            cl['bbox_min'], cl['bbox_max']):
+                        inst.visited = inst.visited or other.visited
+                        inst.hits += other.hits
+                        unmatched.discard(oid)
+                        del self._instances[oid]
+                        self._merged_redirect[oid] = best_id
+                        self.last_merges.append((oid, best_id))
             else:
                 iid = f'V{self._next_instance_num}'
                 self._next_instance_num += 1
@@ -337,11 +407,12 @@ class DigestBuilder:
         sector = (az // self.ray_sector_deg).astype(int)
         groups = {}
         for i in range(len(origins)):
-            groups.setdefault((sector[i], int(best[i])), []).append(i)
+            canonical = self._canonical_of_col[int(best[i])]
+            groups.setdefault((sector[i], canonical), []).append(i)
 
         target_col = self._target_col()
         raw = []
-        for (sec, col), idxs in groups.items():
+        for (sec, canonical), idxs in groups.items():
             idxs = np.asarray(idxs)
             mean_dir = dirs[idxs].mean(axis=0)
             n = np.linalg.norm(mean_dir)
@@ -351,7 +422,7 @@ class DigestBuilder:
             mean_scores = sc[idxs].mean(axis=0)
             raw.append(RayGroup(
                 id='',
-                label=self.labels[col],
+                label=canonical,
                 n_rays=len(idxs),
                 mean_origin=origins[idxs].mean(axis=0),
                 mean_dir=mean_dir,
@@ -485,7 +556,9 @@ class DigestBuilder:
         else:
             lines.append('RAY LEADS: none.')
 
-        lines.append(self._frontier_line(frontiers, robot_pos))
+        frontier_line, frontier_targets = self._frontier_sectors(
+            frontiers, robot_pos)
+        lines.append(frontier_line)
 
         visited = [i for i in insts if i.visited]
         if visited:
@@ -495,24 +568,31 @@ class DigestBuilder:
         return Digest(text='\n'.join(lines),
                       instances=shown, ray_groups=now_groups,
                       selectable_instances=selectable_i,
-                      selectable_rays=selectable_r)
+                      selectable_rays=selectable_r,
+                      frontier_targets=frontier_targets)
 
-    def _frontier_line(self, frontiers, robot_pos) -> str:
+    def _frontier_sectors(self, frontiers, robot_pos) -> tuple:
+        """(text line, {sector name -> frontier centroid np(3)}) for the top
+        unexplored compass sectors around the robot."""
         if frontiers is None or len(frontiers) == 0 or robot_pos is None:
-            return 'UNEXPLORED: unknown (no frontier data yet).'
+            return 'UNEXPLORED: unknown (no frontier data yet).', {}
         rel = frontiers[:, :2] - robot_pos[:2]
         dist = np.linalg.norm(rel, axis=1)
         ang = np.degrees(np.arctan2(rel[:, 1], rel[:, 0])) % 360.0
         sec = (((ang + 22.5) % 360.0) // 45.0).astype(int)
         parts = []
+        targets = {}
         for s in range(8):
             m = sec == s
             if int(m.sum()) < 5:
                 continue
             parts.append((int(m.sum()), _COMPASS[s], float(dist[m].min())))
+            targets[_COMPASS[s]] = frontiers[m].mean(axis=0)
         if not parts:
-            return 'UNEXPLORED: mostly explored around here.'
+            return 'UNEXPLORED: mostly explored around here.', {}
         parts.sort(reverse=True)
-        top = ', '.join(f'{c} frontier cells {name} (nearest {d:.0f}m)'
-                        for c, name, d in parts[:3])
-        return f'UNEXPLORED: {top}.'
+        top = ', '.join(f'{name}: {c} frontier cells (nearest {d:.0f}m)'
+                        for c, name, d in parts[:4])
+        # Count-descending insertion order — the fallback picks the first key.
+        ordered = {name: targets[name] for _, name, _ in parts[:4]}
+        return f'UNEXPLORED (by compass direction): {top}.', ordered

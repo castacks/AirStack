@@ -59,17 +59,19 @@ LATCHED_QOS = QoSProfile(
 
 
 class Commitment:
-    """The locked goal: an instance+label the drone must finish before
-    the LLM may pick again."""
+    """The locked goal the drone must finish before the LLM may pick again."""
 
     def __init__(self, kind: str, ref_id: str, label: str,
-                 waypoint: np.ndarray, ray_origin=None, ray_dir=None):
-        self.kind = kind                  # 'instance' | 'ray'
-        self.ref_id = ref_id              # V# (stable) or R# (snapshot id)
+                 waypoint: np.ndarray, ray_origin=None, ray_dir=None,
+                 path_points=None):
+        self.kind = kind                  # 'instance' | 'ray' | 'frontier' | 'survey'
+        self.ref_id = ref_id              # V#, R#, compass sector, or 'survey'
         self.label = label
-        self.waypoint = waypoint
+        self.waypoint = waypoint          # final goal point
         self.ray_origin = ray_origin      # set for kind='ray'
         self.ray_dir = ray_dir
+        self.path_points = path_points    # survey circle waypoints
+        self.passed_half = False          # survey: reached the far side
         self.refined_instance_id = None   # set when a ray resolves to a V#
         self.t_commit = time.monotonic()
         self.best_dist = float('inf')
@@ -78,6 +80,10 @@ class Commitment:
     def describe(self) -> str:
         if self.kind == 'instance':
             return f'flying to {self.ref_id} ({self.label})'
+        if self.kind == 'survey':
+            return 'surveying (climb + circle to scan the horizon)'
+        if self.kind == 'frontier':
+            return f'exploring unmapped area to the {self.ref_id}'
         if self.refined_instance_id:
             return (f'following ray lead {self.ref_id} ({self.label}), '
                     f'resolved to {self.refined_instance_id}')
@@ -117,10 +123,20 @@ class LlmNavNode(Node):
         self._progress_timeout = float(self.declare_parameter('progress_timeout_s', 90.0).value)
         self._progress_eps = float(self.declare_parameter('progress_epsilon_m', 2.0).value)
         self._blacklist_ttl = float(self.declare_parameter('blacklist_ttl_s', 120.0).value)
+        self._survey_radius = float(self.declare_parameter('survey_radius_m', 8.0).value)
+        self._survey_cooldown = float(self.declare_parameter('survey_cooldown_s', 120.0).value)
+        self._llm_aliases = bool(self.declare_parameter('llm_aliases', True).value)
         label_bank = [str(l).strip() for l in self.declare_parameter(
             'label_bank', ['house', 'car', 'tree', 'road', 'grass']).value if str(l).strip()]
         surface_labels = [str(l).strip() for l in self.declare_parameter(
             'surface_labels', ['road', 'grass', 'sky']).value if str(l).strip()]
+        # 'alias=canonical' entries: part labels cluster into their parent
+        # object (one house = one instance, not roof/wall/house fragments).
+        label_aliases = {}
+        for entry in self.declare_parameter('label_aliases', ['roof=house']).value:
+            if '=' in str(entry):
+                alias, canonical = str(entry).split('=', 1)
+                label_aliases[alias.strip()] = canonical.strip()
         results_dir = str(self.declare_parameter('results_dir', '').value) or '/tmp'
 
         # ── logging ───────────────────────────────────────────────────────────
@@ -146,9 +162,12 @@ class LlmNavNode(Node):
         self._blacklist: dict = {}        # instance id -> wall time until blocked
         self._blacklisted_dirs: list = [] # [np(3) unit dirs] from aborted ray commits
         self._detected_labels = None
+        self._last_survey_end = 0.0       # wall time; drives the survey cooldown
 
         surface_lower = {s.lower() for s in surface_labels}
         object_labels = [l for l in label_bank if l.lower() not in surface_lower]
+        self._label_bank = label_bank
+        self._config_aliases = dict(label_aliases)
         self._all_queries = [self._target] + [
             l for l in label_bank if l.lower() != self._target.lower()]
         self._builder = DigestBuilder(
@@ -157,7 +176,8 @@ class LlmNavNode(Node):
             min_instance_voxels=min_instance_voxels,
             max_instances_shown=max_instances_shown,
             max_ray_groups=max_ray_groups, ray_sector_deg=ray_sector_deg,
-            assoc_radius_m=assoc_radius, assoc_max_range_m=assoc_max_range)
+            assoc_radius_m=assoc_radius, assoc_max_range_m=assoc_max_range,
+            label_aliases=label_aliases)
 
         self._stop = False
         self._prev_rf_sub_count = 0
@@ -355,7 +375,9 @@ class LlmNavNode(Node):
         path = Path()
         path.header.stamp = self.get_clock().now().to_msg()
         path.header.frame_id = 'map'
-        for pt in (cur, com.waypoint):
+        pts = ([cur] + list(com.path_points)) if com.path_points \
+            else (cur, com.waypoint)
+        for pt in pts:
             ps = PoseStamped()
             ps.header = path.header
             ps.pose.position.x = float(pt[0])
@@ -399,6 +421,15 @@ class LlmNavNode(Node):
                          waypoint=[round(float(v), 1) for v in wp])
 
     def _check_completion(self, com: Commitment, cur: np.ndarray):
+        # Survey: the circle's last point is near its first, so require the
+        # far side of the circle to have been reached before arming arrival —
+        # otherwise the camera never sweeps the full horizon.
+        if com.kind == 'survey' and com.path_points and not com.passed_half:
+            mid = com.path_points[len(com.path_points) // 2]
+            if float(np.linalg.norm(cur - mid)) <= self._reach_m + 1.0:
+                com.passed_half = True
+            else:
+                return
         done = False
         inst_id = com.ref_id if com.kind == 'instance' else com.refined_instance_id
         if inst_id is not None:
@@ -417,15 +448,21 @@ class LlmNavNode(Node):
         with self._map_lock:
             inst = self._builder.instance(inst_id) if inst_id else None
             if inst is not None:
+                already_visited = inst.visited
                 self._builder.mark_visited(inst_id)
-                conf = dict(inst.top_labels).get(inst.label, 0.0)
-                self._visited.append(dict(
-                    instance_id=inst_id, label=inst.label,
-                    cx=float(inst.centroid[0]), cy=float(inst.centroid[1]),
-                    cz=float(inst.centroid[2]), confidence=float(conf)))
+                # Don't double-count an instance re-reached via a stale pick
+                # or a merged fragment.
+                if not already_visited:
+                    conf = dict(inst.top_labels).get(inst.label, 0.0)
+                    self._visited.append(dict(
+                        instance_id=inst.id, label=inst.label,
+                        cx=float(inst.centroid[0]), cy=float(inst.centroid[1]),
+                        cz=float(inst.centroid[2]), confidence=float(conf)))
             self._commitment = None
             self._nav_mode = 'deciding'
             visited_snapshot = list(self._visited)
+        if com.kind == 'survey':
+            self._last_survey_end = time.time()
         self.get_logger().info(
             f'[commit] COMPLETE: {com.describe()} '
             f'({len(visited_snapshot)} visited so far)')
@@ -454,6 +491,9 @@ class LlmNavNode(Node):
                 self._blacklist[inst_id] = time.time() + self._blacklist_ttl
             elif com.ray_dir is not None:
                 self._blacklisted_dirs.append(np.asarray(com.ray_dir).copy())
+            if com.kind == 'survey':
+                # A failed survey still burns the cooldown so we don't loop.
+                self._last_survey_end = time.time()
             self._commitment = None
             self._nav_mode = 'deciding'
         self.get_logger().warn(
@@ -469,6 +509,40 @@ class LlmNavNode(Node):
     def _instance_waypoint(self, inst, cur: np.ndarray) -> np.ndarray:
         wp = standoff_point(cur, inst.centroid, inst.bbox_min, inst.bbox_max,
                             self._standoff_m)
+        wp[2] = float(min(max(wp[2], self._min_altitude), self._max_altitude))
+        return wp
+
+    def _survey_allowed(self) -> bool:
+        return time.time() - self._last_survey_end > self._survey_cooldown
+
+    @log_call
+    def _survey_circle(self, cur: np.ndarray) -> list:
+        """Circle waypoints around the current position at max altitude.
+        droan_gl yaws along the velocity direction, so flying the circle
+        sweeps the camera through the full horizon and casts semantic rays
+        at everything distant."""
+        with self._map_lock:
+            poly = list(self._search_poly)
+        alt = self._max_altitude
+        base = math.radians(self._heading_deg)
+        pts = []
+        for k in range(1, 9):                       # 45° steps, full loop
+            a = base + k * math.pi / 4.0
+            x = cur[0] + self._survey_radius * math.cos(a)
+            y = cur[1] + self._survey_radius * math.sin(a)
+            if len(poly) >= 3 and not point_in_polygon_xy(x, y, poly):
+                x, y = nearest_point_in_polygon_xy(x, y, poly)
+            pts.append(np.array([x, y, alt], dtype=np.float64))
+        return pts
+
+    @log_call
+    def _frontier_waypoint(self, sector_target: np.ndarray) -> np.ndarray:
+        wp = np.asarray(sector_target, dtype=np.float64).copy()
+        with self._map_lock:
+            poly = list(self._search_poly)
+        if len(poly) >= 3 and not point_in_polygon_xy(wp[0], wp[1], poly):
+            nx, ny = nearest_point_in_polygon_xy(wp[0], wp[1], poly)
+            wp[0], wp[1] = nx, ny
         wp[2] = float(min(max(wp[2], self._min_altitude), self._max_altitude))
         return wp
 
@@ -490,10 +564,14 @@ class LlmNavNode(Node):
         last_digest_t = 0.0
         last_narrate_t = 0.0
         digest = None
+        aliases_done = False
         while rclpy.ok() and not self._stop:
             time.sleep(0.5)
             if not self._llm.ready:
                 continue
+            if not aliases_done:
+                aliases_done = True
+                self._bootstrap_aliases()
             with self._map_lock:
                 have_map = (self._builder.ready and self._vox_xyz is not None
                             and self._cur_pos is not None)
@@ -502,13 +580,8 @@ class LlmNavNode(Node):
             now = time.monotonic()
 
             if now - last_digest_t >= self._digest_period:
-                digest = self._build_digest()
+                digest = self._refresh_digest()
                 last_digest_t = now
-                if digest is not None:
-                    self._digest_pub.publish(String(data=digest.text))
-                    self._mlog.event('digest_built', text=digest.text,
-                                     **{k: len(v) for k, v in
-                                        digest.structured().items()})
             if digest is None:
                 continue
 
@@ -516,7 +589,16 @@ class LlmNavNode(Node):
                 committed = self._commitment is not None
 
             if not committed:
-                if digest.selectable_instances or digest.selectable_rays:
+                # Rebuild RIGHT BEFORE deciding: a completion may have landed
+                # since the periodic build, and deciding from a stale digest
+                # re-picks just-visited instances (seen in the first PoC run:
+                # V17/V18/V22 each committed twice).
+                digest = self._refresh_digest()
+                last_digest_t = now
+                if digest is None:
+                    continue
+                if (digest.selectable_instances or digest.selectable_rays
+                        or digest.frontier_targets or self._survey_allowed()):
                     self._nav_mode = 'deciding'
                     self._decide_and_commit(digest)
                     # Force a digest rebuild next cycle so STATUS reflects
@@ -532,6 +614,38 @@ class LlmNavNode(Node):
                     self._mlog.event('narrate', seeing=seeing,
                                      notes=parsed.get('notes', ''))
                 last_narrate_t = now
+
+    def _bootstrap_aliases(self):
+        """One-shot LLM call: which bank labels are PARTS of the target?
+        Feeds the same alias mechanism as the config (config entries kept as
+        the base, LLM additions merged in; config-only on failure) — so
+        part-of-object grouping needs no per-target hand editing."""
+        if not self._llm_aliases:
+            return
+        amap = self._llm.part_aliases(self._target, self._label_bank)
+        if amap is None:
+            self.get_logger().warn(
+                'LLM part-alias call failed — keeping config aliases '
+                f'{self._config_aliases}')
+            return
+        merged = dict(self._config_aliases)
+        merged.update(amap)
+        with self._map_lock:
+            self._builder.set_label_aliases(merged)
+        self.get_logger().info(f'[aliases] parts of "{self._target}": '
+                               f'{sorted(amap)} (merged: {merged})')
+        self._mlog.event('aliases_set', llm_parts=sorted(amap), merged=merged)
+
+    def _refresh_digest(self):
+        """Build + publish + log a fresh digest (single path for both the
+        periodic rebuild and the mandatory pre-decision rebuild)."""
+        digest = self._build_digest()
+        if digest is not None:
+            self._digest_pub.publish(String(data=digest.text))
+            self._mlog.event('digest_built', text=digest.text,
+                             **{k: len(v) for k, v in
+                                digest.structured().items()})
+        return digest
 
     def _build_digest(self):
         with self._map_lock:
@@ -550,11 +664,16 @@ class LlmNavNode(Node):
         try:
             with self._map_lock:
                 self._builder.update_instances(vox_xyz, vox_scores)
+                merges = list(self._builder.last_merges)
                 status = (com.describe() + f', {np.linalg.norm(cur - com.waypoint):.0f}m to go'
                           ) if com is not None else 'choosing the next goal'
-                return self._builder.build(
+                digest = self._builder.build(
                     cur, heading, status, ray_o, ray_d, ray_s,
                     frontiers, blacklist, bdirs)
+            if merges:
+                self.get_logger().info(f'[track] merged instances: {merges}')
+                self._mlog.event('instances_merged', merges=merges)
+            return digest
         except Exception:
             import traceback
             tb = traceback.format_exc()
@@ -565,7 +684,8 @@ class LlmNavNode(Node):
     def _decide_and_commit(self, digest):
         parsed = self._llm.decide(
             digest.text, self._target,
-            digest.selectable_instances, digest.selectable_rays)
+            digest.selectable_instances, digest.selectable_rays,
+            set(digest.frontier_targets), self._survey_allowed())
         fallback = False
         if parsed is None:
             # Deterministic fallback: strongest target-scoring candidate. Loud —
@@ -598,7 +718,7 @@ class LlmNavNode(Node):
                 return
             wp = self._instance_waypoint(inst, cur)
             com = Commitment('instance', act['id'], inst.label, wp)
-        else:
+        elif act['type'] == 'goto_ray':
             group = next((g for g in digest.ray_groups if g.id == act['id']), None)
             if group is None:
                 self._mlog.event('commit_failed', reason='ray group vanished',
@@ -608,6 +728,19 @@ class LlmNavNode(Node):
             com = Commitment('ray', act['id'], group.label, wp,
                              ray_origin=group.mean_origin.copy(),
                              ray_dir=group.mean_dir.copy())
+        elif act['type'] == 'goto_frontier':
+            tgt = digest.frontier_targets.get(act['id'])
+            if tgt is None:
+                self._mlog.event('commit_failed', reason='frontier sector gone',
+                                 id=act['id'])
+                return
+            wp = self._frontier_waypoint(tgt)
+            com = Commitment('frontier', act['id'], 'unexplored', wp)
+        else:  # survey
+            pts = self._survey_circle(cur)
+            wp = pts[-1]
+            com = Commitment('survey', 'survey', 'horizon scan', wp,
+                             path_points=pts)
         with self._map_lock:
             self._commitment = com
             self._nav_mode = f'committed_{com.kind}'
@@ -622,21 +755,39 @@ class LlmNavNode(Node):
                          reason=act.get('reason', ''), seeing=seeing)
 
     def _fallback_decision(self, digest) -> 'dict | None':
+        """Deterministic policy when the LLM fails twice. Never tours clutter:
+        unvisited TARGET-labeled instance > target-labeled ray lead >
+        survey > biggest frontier sector."""
+        target_l = self._target.lower()
+
         def target_score(top_labels):
             return dict(top_labels).get(self._target, 0.0)
         insts = [i for i in digest.instances
-                 if i.id in digest.selectable_instances]
-        rays = [g for g in digest.ray_groups if g.id in digest.selectable_rays]
+                 if i.id in digest.selectable_instances
+                 and i.label.lower() == target_l]
         if insts:
             best = max(insts, key=lambda i: target_score(i.top_labels))
             return dict(seeing='', action=dict(
                 type='goto_instance', id=best.id,
-                reason='fallback: highest target score'))
+                reason='fallback: strongest unvisited target instance'))
+        rays = [g for g in digest.ray_groups
+                if g.id in digest.selectable_rays
+                and g.label.lower() == target_l]
         if rays:
             best = max(rays, key=lambda g: target_score(g.top_labels))
             return dict(seeing='', action=dict(
                 type='goto_ray', id=best.id,
-                reason='fallback: highest target score'))
+                reason='fallback: strongest target ray lead'))
+        if self._survey_allowed():
+            return dict(seeing='', action=dict(
+                type='survey', id='',
+                reason='fallback: no target candidates — scanning the horizon'))
+        if digest.frontier_targets:
+            # frontier_targets preserves count-descending order.
+            sector = next(iter(digest.frontier_targets))
+            return dict(seeing='', action=dict(
+                type='goto_frontier', id=sector,
+                reason='fallback: exploring the largest unmapped direction'))
         return None
 
     # ── shutdown ──────────────────────────────────────────────────────────────

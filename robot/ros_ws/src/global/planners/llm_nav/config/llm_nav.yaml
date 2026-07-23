@@ -26,7 +26,20 @@ llm_nav:
     # typically 0.05-0.30). Presentation filter only.
     floor_cos: 0.12
     # Smallest connected component shown as an instance (0.5 m voxels).
-    min_instance_voxels: 5
+    min_instance_voxels: 8
+    # 'alias=canonical': part labels cluster into their parent object so one
+    # physical house is ONE growing instance, not roof/wall fragments.
+    # Base list; with llm_aliases the LLM extends it per target at startup
+    # ("which labels are PARTS of a {target}?") so nothing is hand-set per run.
+    label_aliases: ['roof=house']
+    llm_aliases: true
+
+    # ── exploration (used when no unvisited target candidates remain) ──────
+    # survey: climb to max altitude and fly a circle — droan yaws along the
+    # velocity, so the camera sweeps the horizon and casts semantic rays at
+    # everything distant; the next digest fills with labeled ray leads.
+    survey_radius_m: 8.0
+    survey_cooldown_s: 120.0
     # Digest caps so the prompt stays ~1-2k tokens.
     max_instances_shown: 15
     max_ray_groups: 8

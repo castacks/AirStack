@@ -31,12 +31,21 @@ flowchart LR
    ("points at V3") or marked as pointing beyond the mapped area. Rendered as
    ~1-2k tokens of text with top-3 labels + scores, sizes in meters, and
    bearings from the robot.
-3. **LLM** (`llm_client.py`): two prompt modes, both strict-JSON with one
-   retry-on-invalid.
-   - `decide` (event-driven, when uncommitted): pick `goto_instance V#` or
-     `goto_ray R#` + narrate ("seeing").
+3. **LLM** (`llm_client.py`): strict-JSON prompt modes with one
+   retry-on-invalid (valid ids are listed explicitly in the prompt).
+   - `decide` (event-driven, when uncommitted, always on a fresh digest):
+     pick `goto_instance V#`, `goto_ray R#`, `goto_frontier <compass>`
+     (fly to unexplored area), or `survey` (climb to max altitude and fly a
+     circle — droan yaws along velocity, so the camera sweeps the horizon
+     and casts semantic rays at everything distant; cooldown-limited).
    - `narrate` (every `narrate_period_s` while flying): describe the map;
      no action offered — the lock is enforced by prompt AND code.
+   - `part_aliases` (once at startup): "which bank labels are PARTS of a
+     {target}?" → extends `label_aliases` so e.g. roof+house voxels cluster
+     as ONE growing instance without per-target config editing.
+   - Deterministic fallback if the LLM fails twice: unvisited target-labeled
+     instance → target-labeled ray lead → survey → largest frontier sector.
+     Never commits to non-target clutter.
 4. **Commitment** (`llm_nav_node.py`): the pick is locked until completed
    (**instance + label** — finish what you pick). A ray commitment *refines*
    onto an instance of the committed label that appears near its line, then

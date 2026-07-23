@@ -88,7 +88,7 @@ workflow:
 
   resources:
     default:
-      cpu: 16
+      cpu: 12
       gpu: 1
       memory: 64Gi
       # AirStack image set is large: airstack-dev-9 (2026-05-14) hit the

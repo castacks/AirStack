@@ -20,19 +20,41 @@ DECIDE_SYSTEM = (
     'TARGET. You reply with ONLY a JSON object — no prose, no markdown.')
 
 DECIDE_INSTRUCTIONS = (
-    'Choose where the drone should go next to find the target "{target}".\n'
-    'Options:\n'
-    '- "goto_instance": fly to a mapped object. Pick a V# id that is not '
-    'marked VISITED or BLOCKED.\n'
-    '- "goto_ray": follow a ray lead to extend the map in that direction. '
-    'Pick an R# id that is not marked BLOCKED.\n'
-    'Think about which candidate is most likely the target or most likely to '
-    'reveal one: label scores, physical size (a {target} has a typical size), '
-    'and context (what is around it / what the rays point at).\n'
+    'Choose what the drone should do next to find the target "{target}".\n'
+    'Valid choices — you MUST pick exactly one:\n'
+    '- "goto_instance" (fly to a mapped object), valid ids: {instance_ids}\n'
+    '- "goto_ray" (follow a ray lead to extend the map that way), valid ids: '
+    '{ray_ids}\n'
+    '- "goto_frontier" (fly to unexplored area), valid ids (compass '
+    'directions): {frontier_ids}\n'
+    '- "survey" (climb high and circle in place to scan the horizon for new '
+    'leads), valid: {survey_ok} — use when nothing above looks promising\n'
+    'Ids marked VISITED or BLOCKED are already done and are NOT valid choices. '
+    'Only visit an object if it might BE a {target} — do not visit fences, '
+    'poles or other clutter; if no unvisited {target} candidate exists, '
+    'explore instead (ray lead, frontier, or survey).\n'
+    'Mapped objects are partial views that grow as the drone sees more angles '
+    '— small fragments near a strong candidate are usually part of the same '
+    'object, so prefer the strongest/largest candidate over its fragments.\n'
     'Reply with ONLY this JSON:\n'
     '{{"seeing": "<1-2 sentences: what the map shows>", '
-    '"action": {{"type": "goto_instance" or "goto_ray", "id": "<V# or R#>", '
+    '"action": {{"type": "goto_instance"|"goto_ray"|"goto_frontier"|"survey", '
+    '"id": "<V#, R#, compass direction, or empty for survey>", '
     '"reason": "<short why>"}}}}')
+
+ALIASES_SYSTEM = (
+    'You classify object part-whole relations for a robot mapping system. '
+    'Reply with ONLY a JSON object — no prose, no markdown.')
+
+ALIASES_INSTRUCTIONS = (
+    'Target object: "{target}".\n'
+    'Label list: {labels}\n'
+    'Which labels from the list name PARTS of a {target} — components that are '
+    'physically attached to / built into a {target} (e.g. "roof" is part of '
+    '"house")? Nearby-but-separate objects (e.g. "fence", "driveway") are NOT '
+    'parts.\n'
+    'Reply with ONLY this JSON: {{"parts": ["<label>", ...]}} '
+    '(empty list if none).')
 
 NARRATE_SYSTEM = (
     'You are the narration voice of a search drone. A text digest of the '
@@ -200,7 +222,8 @@ class LLMClient:
     # ── public API ────────────────────────────────────────────────────────────
 
     def decide(self, digest_text: str, target: str,
-               selectable_instances: set, selectable_rays: set) -> 'dict | None':
+               selectable_instances: set, selectable_rays: set,
+               frontier_sectors: set, allow_survey: bool) -> 'dict | None':
         """Ask for a goal decision. Returns validated dict or None."""
         def validate(p):
             act = p.get('action')
@@ -215,12 +238,44 @@ class LLMClient:
                 if iid not in selectable_rays:
                     return (f'id "{iid}" is not a selectable ray lead; choose '
                             f'from {sorted(selectable_rays)}')
+            elif typ == 'goto_frontier':
+                if iid not in frontier_sectors:
+                    return (f'"{iid}" is not an unexplored direction; choose '
+                            f'from {sorted(frontier_sectors)}')
+            elif typ == 'survey':
+                if not allow_survey:
+                    return ('survey was done recently and is on cooldown; '
+                            'pick another action')
             else:
-                return 'action.type must be "goto_instance" or "goto_ray"'
+                return ('action.type must be one of goto_instance, goto_ray, '
+                        'goto_frontier, survey')
             return None
-        user = (digest_text + '\n\n'
-                + DECIDE_INSTRUCTIONS.format(target=target))
+        user = (digest_text + '\n\n' + DECIDE_INSTRUCTIONS.format(
+            target=target,
+            instance_ids=', '.join(sorted(selectable_instances)) or '(none)',
+            ray_ids=', '.join(sorted(selectable_rays)) or '(none)',
+            frontier_ids=', '.join(sorted(frontier_sectors)) or '(none)',
+            survey_ok='yes' if allow_survey else 'no (on cooldown)'))
         return self._call('decide', DECIDE_SYSTEM, user, validate)
+
+    def part_aliases(self, target: str, labels: list) -> 'dict | None':
+        """One-shot: which bank labels are PARTS of the target? Returns an
+        alias map {part_label: target} or None on failure."""
+        def validate(p):
+            if not isinstance(p.get('parts'), list):
+                return 'missing "parts" list'
+            bad = [x for x in p['parts']
+                   if str(x).lower() not in {l.lower() for l in labels}]
+            if bad:
+                return f'labels not in the list: {bad}'
+            return None
+        user = ALIASES_INSTRUCTIONS.format(
+            target=target, labels=', '.join(labels))
+        parsed = self._call('aliases', ALIASES_SYSTEM, user, validate)
+        if parsed is None:
+            return None
+        return {str(x).lower(): target.lower()
+                for x in parsed['parts'] if str(x).lower() != target.lower()}
 
     def narrate(self, digest_text: str, target: str) -> 'dict | None':
         def validate(p):
