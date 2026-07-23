@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<launch>
+  <!--
+    MAVROS GPS Origin Launch File
+
+    Publishes a synthetic GPS origin once at startup for mocap / no-GNSS flight.
+    Included from natnet_ros2.launch.py when publish_to_mavros is true.
+
+    Output (consumed by MAVROS):
+      /{ROBOT_NAME}/interface/mavros/global_position/set_gp_origin
+  -->
+
+  <arg name="config_file"
+       default="$(find-pkg-share natnet_ros2)/config/mavros_gp_origin.yaml"
+       description="ROS 2 parameter YAML (/** ros__parameters block)"/>
+
+  <arg name="use_sim_time" default="false"
+       description="Forwarded after YAML so sim stacks can force true"/>
+
+  <node pkg="natnet_ros2" exec="mavros_gp_origin_node.py"
+        name="mavros_gp_origin" output="screen">
+    <param from="$(var config_file)" allow_substs="true"/>
+
+    <remap from="set_gps_origin"
+           to="/$(env ROBOT_NAME robot_1)/interface/mavros/global_position/set_gp_origin"/>
+    <remap from="current_gps_origin"
+           to="/$(env ROBOT_NAME robot_1)/interface/mavros/global_position/gp_origin"/>
+    <remap from="mavros_state"
+           to="/$(env ROBOT_NAME robot_1)/interface/mavros/state"/>
+
+    <param name="use_sim_time" value="$(var use_sim_time)"/>
+  </node>
+
+</launch>
