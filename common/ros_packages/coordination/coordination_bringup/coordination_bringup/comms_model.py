@@ -10,7 +10,7 @@ import os
 
 from coordination_bringup.frame_utils import gps_to_enu
 
-COMMS_RANGE_M = 75.0#15.0
+COMMS_RANGE_M = 50.0#15.0
 MAX_RELAY_HOPS = max(0, int(os.environ.get("NUM_ROBOTS", "1")) - 1)
 
 SOURCE_RELAYED = 1
