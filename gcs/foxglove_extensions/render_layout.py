@@ -94,6 +94,19 @@ def inject_rayfronts_debug(layout: dict, num_robots: int,
             }
 
 
+def inject_llm_nav(layout: dict, num_robots: int) -> None:
+    """Enable the llm_nav tracked-instance markers (AABBs + labels, colors
+    carried in-data) in every 3D panel: /gcs/robot_N/llm_nav_instances is the
+    global-frame republish from gcs_visualizer; visible by default so the
+    planner's instance memory shows without hunting the topic sidebar."""
+    for pid, cfg in layout.get('configById', {}).items():
+        if not (pid.startswith('3D!') and isinstance(cfg, dict)):
+            continue
+        topics = cfg.setdefault('topics', {})
+        for n in range(1, num_robots + 1):
+            topics[f'/gcs/robot_{n}/llm_nav_instances'] = {'visible': True}
+
+
 def replace_robot_n(obj, src_n: int, dst_n: int):
     """Deep-replace robot_{src_n} → robot_{dst_n} in strings and dict keys.
     Also handles the human-readable 'robot {N}' tab title form."""
@@ -259,6 +272,7 @@ def main():
         template = json.load(f)
     rendered = expand_layout(template, args.num_robots)
     inject_rayfronts_debug(rendered, args.num_robots, args.voxel_threshold)
+    inject_llm_nav(rendered, args.num_robots)
 
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
     tmp = args.output + '.tmp'

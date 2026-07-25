@@ -72,6 +72,7 @@ class Commitment:
         self.ray_origin = ray_origin      # set for kind='ray'
         self.ray_dir = ray_dir
         self.path_points = path_points    # survey circle waypoints
+        self.path_start = None            # frozen at commit; see _publish_path
         self.passed_half = False          # survey: reached the far side
         self.refined_instance_id = None   # set when a ray resolves to a V#
         self.t_commit = time.monotonic()
@@ -355,12 +356,46 @@ class LlmNavNode(Node):
         with self._map_lock:
             com = self._commitment
             cur = self._cur_pos
+        if cur is not None:
+            self._mark_passive_visits(cur)
         if com is None or cur is None:
             return
         self._check_ray_refinement(com, cur)
         self._publish_path(com, cur)
         self._check_completion(com, cur)
         self._check_watchdog(com, cur)
+
+    def _mark_passive_visits(self, cur: np.ndarray):
+        """'Within reach_m of a {target} = seen' applies to EVERY target
+        instance the drone passes, not just the committed one — without this,
+        a house flown past en route stays unvisited and gets 'revisited'
+        (instantly completed) later."""
+        target_l = self._target.lower()
+        newly = []
+        with self._map_lock:
+            for iid, inst in self._builder._instances.items():
+                if inst.visited or inst.label.lower() != target_l:
+                    continue
+                if aabb_surface_distance(
+                        cur, inst.bbox_min, inst.bbox_max) <= self._reach_m:
+                    inst.visited = True
+                    conf = dict(inst.top_labels).get(inst.label, 0.0)
+                    self._visited.append(dict(
+                        instance_id=iid, label=inst.label,
+                        cx=float(inst.centroid[0]), cy=float(inst.centroid[1]),
+                        cz=float(inst.centroid[2]), confidence=float(conf)))
+                    newly.append(iid)
+            visited_snapshot = list(self._visited)
+        for iid in newly:
+            self.get_logger().info(
+                f'[visit] passed within {self._reach_m:.0f}m of {iid} '
+                f'({self._target}) — marked seen '
+                f'({len(visited_snapshot)} visited)')
+            self._mlog.event('instance_visited', instance=iid,
+                             label=self._target, passive=True)
+        if newly:
+            self._discoveries_pub.publish(
+                String(data=json.dumps(visited_snapshot)))
 
     def _maybe_publish_queries(self):
         """Register target + label bank with rayfronts whenever its query
@@ -384,11 +419,16 @@ class LlmNavNode(Node):
 
     @log_call
     def _publish_path(self, com: Commitment, cur: np.ndarray):
+        # The path's first pose is FROZEN at commit time (raven-style). Using
+        # the live position makes the segment pivot around the drone itself:
+        # droan's progress-along-path term degenerates and small lateral drift
+        # rotates the desired direction — the observed stall/orbit behavior.
+        start = com.path_start if com.path_start is not None else cur
         path = Path()
         path.header.stamp = self.get_clock().now().to_msg()
         path.header.frame_id = 'map'
-        pts = ([cur] + list(com.path_points)) if com.path_points \
-            else (cur, com.waypoint)
+        pts = ([start] + list(com.path_points)) if com.path_points \
+            else (start, com.waypoint)
         for pt in pts:
             ps = PoseStamped()
             ps.header = path.header
@@ -423,6 +463,7 @@ class LlmNavNode(Node):
         with self._map_lock:
             com.refined_instance_id = best_id
             com.waypoint = wp
+            com.path_start = cur.copy()
             com.best_dist = float('inf')
             com.t_best_dist = time.monotonic()
         self.get_logger().info(
@@ -890,6 +931,7 @@ class LlmNavNode(Node):
             wp = pts[-1]
             com = Commitment('survey', 'survey', 'horizon scan', wp,
                              path_points=pts)
+        com.path_start = cur.copy()
         with self._map_lock:
             self._commitment = com
             self._nav_mode = f'committed_{com.kind}'

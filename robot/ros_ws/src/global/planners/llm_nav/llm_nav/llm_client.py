@@ -39,11 +39,10 @@ DECIDE_INSTRUCTIONS = (
     'Mapped objects are partial views that grow as the drone sees more angles '
     '— small fragments near a strong candidate are usually part of the same '
     'object, so prefer the strongest/largest candidate over its fragments.\n'
-    'Reply with ONLY this JSON, action FIRST:\n'
+    'Reply with ONLY this JSON — nothing else, no description of the map:\n'
     '{{"action": {{"type": "goto_instance"|"goto_ray"|"goto_frontier"|"survey"'
     '|"retune", "id": "<V#, R#, compass direction, or empty>", '
-    '"reason": "<short why>"}}, '
-    '"seeing": "<ONE short sentence: what the map shows>"}}')
+    '"reason": "<one short phrase>"}}}}')
 
 PERCEPTION_SYSTEM = (
     'You tune the perception layer of a drone that clusters 0.5m semantic '
