@@ -25,7 +25,7 @@ stack:
   services: [isaac-sim, robot-desktop, gcs]
 
 env:
-  NUM_ROBOTS: 3
+  NUM_ROBOTS: 2
   ISAAC_SIM_HEADLESS: "true"
   ISAAC_SIM_USE_STANDALONE: "true"
   ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
