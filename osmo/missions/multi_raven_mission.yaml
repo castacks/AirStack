@@ -86,7 +86,7 @@ environments:
     # GT annotation file (annotations/<RESULTS_SCENE>.json) for finalize scoring.
     RESULTS_SCENE: "RetroNeighborhood"
     STAGE_SCALE: "0.01"
-    query: "house, bus stop"
+    query: "house, bus stop, blue container, red container"
     voxel_score_threshold: 0.65
     score_threshold: -1
     voxel_min_cluster_size: 45        # not tuned — raven_nav default (35)
@@ -107,11 +107,11 @@ environments:
     # 2nd fixed spawn (swap in): '[{"x_m": 25.052, "y_m": 12.711, "orient": [0,0,0.6342,0.7731]}, {"x_m": 28.86, "y_m": 12.714, "orient": [0,0,0.5051,0.8631]}, {"x_m": 27.83, "y_m": 8.978, "orient": [0,0,0.9986,0.0538]}]'
     RESULTS_SCENE: "FireAcademy"
     STAGE_SCALE: "0.01"
-    query: "red building, water tower, fuel tank"
-    voxel_score_threshold: 0.65
+    query: "red building, water tower, fuel tank, radio tower"
+    voxel_score_threshold: 0.68
     score_threshold: -1
     voxel_min_cluster_size: -1
-    background_queries: "road, grass, parking lot, tree, car, flood light"
+    background_queries: "road, grass, parking lot, tree, car, flood light, house, electrical pole, garage"
     search_area:
       points:
         - {x: 13.0, y: -135.0, z: 0.0}
@@ -148,7 +148,7 @@ environments:
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "1.0"
     RESULTS_SCENE: "AbandonedFactory"
-    query: "building, water tower, silo"
+    query: "building, water tower, white silo"
     voxel_score_threshold: 0.65          # starting default — tune per scene
     score_threshold: -1
     voxel_min_cluster_size: -1
@@ -168,10 +168,10 @@ environments:
     STAGE_SCALE: "1.0"
     RESULTS_SCENE: "MilitaryBase"
     query: "guard tower, radio tower, bridge, helicopter, atv"
-    voxel_score_threshold: 0.65
+    voxel_score_threshold: 0.68
     score_threshold: -1
     voxel_min_cluster_size: -1
-    background_queries: "grass, road, tree, building, mountain"
+    background_queries: "grass, road, tree, building, mountain, electrical pole, utility pole"
     search_area:
       points:
         - {x: 1280.0, y: 320.0, z: 0.0}
@@ -188,7 +188,7 @@ environments:
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "2.0"
     RESULTS_SCENE: "Shipyard"
-    query: "ship, white silo, crane"
+    query: "ship, crane"
     voxel_score_threshold: 0.65 
     score_threshold: -1
     voxel_min_cluster_size: -1
