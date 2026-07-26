@@ -141,6 +141,7 @@ class RayGroup:
     top_labels: list
     assoc_instance_id: 'str | None' = None
     blocked: bool = False
+    visited_target: bool = False  # points at an already-visited target
 
 
 @dataclass
@@ -441,9 +442,30 @@ class DigestBuilder:
 
     # ── ray groups ────────────────────────────────────────────────────────────
 
+    def _points_at_visited(self, g: 'RayGroup', visited_points: list) -> bool:
+        """True if the group's line passes near a visited-target location.
+
+        Checked against the node's visited POSITIONS (not just live
+        instances): a visited house's voxels/rays keep scoring high forever,
+        and rays hitting its unmapped back side often fail instance
+        association — without this, they present as fresh leads and pull the
+        drone back to targets it has already seen."""
+        inst = self.instance(g.assoc_instance_id) if g.assoc_instance_id else None
+        if inst is not None and inst.visited:
+            return True
+        for p in visited_points:
+            v = np.asarray(p, dtype=float) - g.mean_origin
+            t = float(v @ g.mean_dir)
+            if t <= 0 or t > self.assoc_max_range_m:
+                continue
+            if float(np.linalg.norm(v - t * g.mean_dir)) <= self.assoc_radius_m:
+                return True
+        return False
+
     @log_call
     def build_ray_groups(self, origins, dirs, scores,
-                         blacklisted_dirs: list) -> list:
+                         blacklisted_dirs: list,
+                         visited_points: list = ()) -> list:
         """Bucket rays by (azimuth sector, top-1 object label) and associate
         each group to the instance its mean line passes near, if any."""
         if origins is None or len(origins) == 0 or not self.ready:
@@ -495,6 +517,7 @@ class DigestBuilder:
             g.blocked = any(
                 self._dir_agreement_xy(g.mean_dir, bd) > math.cos(math.radians(30.0))
                 for bd in blacklisted_dirs)
+            g.visited_target = self._points_at_visited(g, list(visited_points))
         return raw
 
     def _top_labels(self, mean_scores) -> list:
@@ -540,10 +563,12 @@ class DigestBuilder:
     @log_call
     def build(self, robot_pos: np.ndarray, heading_deg: float,
               status_line: str, ray_origins, ray_dirs, ray_scores,
-              frontiers, blacklist: dict, blacklisted_dirs: list) -> Digest:
+              frontiers, blacklist: dict, blacklisted_dirs: list,
+              visited_points: list = ()) -> Digest:
         """Assemble the full text digest + structured snapshot."""
         now_groups = self.build_ray_groups(
-            ray_origins, ray_dirs, ray_scores, blacklisted_dirs)
+            ray_origins, ray_dirs, ray_scores, blacklisted_dirs,
+            visited_points)
         import time as _time
         now = _time.time()
 
@@ -601,11 +626,15 @@ class DigestBuilder:
                     where = f'points at {g.assoc_instance_id}'
                 else:
                     where = 'points beyond the mapped area'
-                blocked_str = ' [BLOCKED]' if g.blocked else ''
+                flags = ''
+                if g.visited_target:
+                    flags += ' [points at an ALREADY-VISITED target]'
+                if g.blocked:
+                    flags += ' [BLOCKED]'
                 lines.append(
                     f'  {g.id}: {g.n_rays} rays {compass_of(g.mean_dir[0], g.mean_dir[1])} '
-                    f'from {dist:.0f}m away | {labels_str} | {where}{blocked_str}')
-                if not g.blocked:
+                    f'from {dist:.0f}m away | {labels_str} | {where}{flags}')
+                if not g.blocked and not g.visited_target:
                     selectable_r.add(g.id)
         else:
             lines.append('RAY LEADS: none.')

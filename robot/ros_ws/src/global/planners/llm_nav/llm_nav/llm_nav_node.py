@@ -74,6 +74,7 @@ class Commitment:
         self.path_points = path_points    # survey circle waypoints
         self.extension = None             # wp + 2m past, raven-style segment
         self.passed_half = False          # survey: reached the far side
+        self.ray_missing = 0              # digests with no matching ray evidence
         self.refined_instance_id = None   # set when a ray resolves to a V#
         self.t_commit = time.monotonic()
         self.best_dist = float('inf')
@@ -364,9 +365,78 @@ class LlmNavNode(Node):
         if com is None or cur is None:
             return
         self._check_ray_refinement(com, cur)
+        if not self._validate_commitment(com):
+            return
         self._publish_path(com, cur)
         self._check_completion(com, cur)
         self._check_watchdog(com, cur)
+
+    def _validate_commitment(self, com: Commitment) -> bool:
+        """Continuous (2 Hz) validation of a followed instance against the
+        freshest evidence — not just the digest-rate miss counter:
+
+        1. SUPPORT: count voxels inside the committed bbox whose argmax is
+           still the target group (live voxel cache, fresher than digests).
+           A false positive re-scores away as the drone closes in; when the
+           supporting voxels collapse, stop flying at it immediately.
+        2. CONTAINMENT: if the committed bbox is now swallowed by a much
+           larger different-label instance (house-box inside a tree-box),
+           the target reading was canopy misfire — reject.
+
+        Rejected instances are blacklisted (TTL) so the next decision can't
+        instantly re-pick them while the tracker catches up."""
+        inst_id = (com.ref_id if com.kind == 'instance'
+                   else com.refined_instance_id)
+        if inst_id is None:
+            return True
+        with self._map_lock:
+            inst = self._builder.instance(inst_id)
+            vox_xyz = self._vox_xyz
+            vox_scores = self._vox_scores
+            cols = list(self._builder._canonical_groups.get(
+                self._target.lower(), []))
+            floor = self._builder.floor_cos
+            min_vox = self._builder.min_instance_voxels
+            others = [(o.label, o.bbox_min, o.bbox_max)
+                      for o in self._builder._instances.values()
+                      if o.id != inst_id and o.label != com.label]
+        if inst is None:
+            return True     # dissolution path in _check_completion handles it
+        reason = None
+        if vox_xyz is not None and cols:
+            m = np.all((vox_xyz >= inst.bbox_min - 0.25)
+                       & (vox_xyz <= inst.bbox_max + 0.25), axis=1)
+            support = 0
+            if m.any():
+                sub = vox_scores[m]
+                q = min(sub.shape[1], len(self._builder.labels))
+                best = np.argmax(sub[:, :q], axis=1)
+                best_s = sub[np.arange(len(sub)), best]
+                support = int((np.isin(best, [c for c in cols if c < q])
+                               & (best_s >= floor)).sum())
+            if support < min_vox:
+                reason = f'support collapsed ({support} target voxels left)'
+        if reason is None:
+            vol = float(np.prod(np.maximum(
+                inst.bbox_max - inst.bbox_min, 0.1)))
+            for lbl, bmin, bmax in others:
+                if (np.all(inst.bbox_min >= bmin - 0.5)
+                        and np.all(inst.bbox_max <= bmax + 0.5)
+                        and float(np.prod(np.maximum(bmax - bmin, 0.1)))
+                        >= 2.0 * vol):
+                    reason = f'fully contained in a larger "{lbl}" instance'
+                    break
+        if reason is None:
+            return True
+        with self._map_lock:
+            self._blacklist[inst_id] = time.time() + self._blacklist_ttl
+            self._commitment = None
+            self._nav_mode = 'deciding'
+        self.get_logger().warn(
+            f'[commit] REJECTED {inst_id} ({com.label}): {reason} — re-deciding')
+        self._mlog.event('commitment_rejected', ref=com.ref_id,
+                         instance=inst_id, label=com.label, reason=reason)
+        return False
 
     def _mark_passive_visits(self, cur: np.ndarray):
         """'Within reach_m of a {target} = seen' applies to EVERY target
@@ -378,6 +448,24 @@ class LlmNavNode(Node):
         with self._map_lock:
             for iid, inst in self._builder._instances.items():
                 if inst.visited or inst.label.lower() != target_l:
+                    continue
+                # Inherit visited across tracker identity breaks: memory is
+                # SPATIAL — if a "new" instance sits on a location we already
+                # visited, it is not a new target (its voxels still score
+                # high forever; identity alone must not resurrect it).
+                inherited = any(
+                    np.all(np.array([v['cx'], v['cy'], v['cz']])
+                           >= inst.bbox_min - 0.5)
+                    and np.all(np.array([v['cx'], v['cy'], v['cz']])
+                               <= inst.bbox_max + 0.5)
+                    for v in self._visited)
+                if inherited:
+                    inst.visited = True
+                    self.get_logger().info(
+                        f'[visit] {iid} sits on an already-visited location '
+                        f'— inherited visited')
+                    self._mlog.event('instance_visited', instance=iid,
+                                     label=self._target, inherited=True)
                     continue
                 if aabb_surface_distance(
                         cur, inst.bbox_min, inst.bbox_max) <= self._reach_m:
@@ -447,6 +535,60 @@ class LlmNavNode(Node):
             path.poses.append(ps)
         self._path_pub.publish(path)
 
+    def _update_ray_carrot(self, digest):
+        """A ray commitment follows LIVE evidence, not a fixed endpoint.
+
+        Rays are beyond-range evidence: as the drone flies, the map boundary
+        (and the ray origins with it) advances, so the carrot waypoint slides
+        forward with the freshest aligned ray group. The commitment ends by
+        RESOLUTION (a matching instance appears -> refinement), DISSIPATION
+        (the area got mapped and no target was there -> re-decide, no
+        blacklist), or plain arrival as the fallback. ray_commit_dist_m is
+        only the carrot length, not a terminal distance."""
+        with self._map_lock:
+            com = self._commitment
+            cur = self._cur_pos
+        if (com is None or com.kind != 'ray'
+                or com.refined_instance_id is not None or cur is None):
+            return
+        best, best_cos = None, math.cos(math.radians(30.0))
+        for g in digest.ray_groups:
+            if g.label.lower() != com.label.lower() or g.visited_target:
+                continue
+            c = float(np.dot(g.mean_dir, com.ray_dir))
+            if c > best_cos:
+                best, best_cos = g, c
+        if best is None:
+            com.ray_missing += 1
+            if com.ray_missing < 3:
+                return
+            # Evidence gone and nothing resolved: the pointed-at region got
+            # mapped and held no target. Release WITHOUT blacklisting — any
+            # instances found there are already normal candidates.
+            with self._map_lock:
+                self._commitment = None
+                self._nav_mode = 'deciding'
+            self.get_logger().info(
+                f'[commit] ray {com.ref_id} ({com.label}) evidence dissipated '
+                f'— area mapped, no target resolved; re-deciding')
+            self._mlog.event('commitment_dissipated', ref=com.ref_id,
+                             label=com.label)
+            return
+        com.ray_missing = 0
+        new_wp = self._ray_waypoint(best, cur)
+        advance = float((new_wp - com.waypoint) @ com.ray_dir)
+        if advance > 1.0:
+            with self._map_lock:
+                com.ray_origin = best.mean_origin.copy()
+                com.ray_dir = best.mean_dir.copy()
+                com.waypoint = new_wp
+                com.extension = self._extension_point(cur, new_wp)
+                com.best_dist = float('inf')
+                com.t_best_dist = time.monotonic()
+            self._mlog.event('ray_carrot_advanced', ref=com.ref_id,
+                             advance_m=round(advance, 1),
+                             waypoint=[round(float(v), 1) for v in new_wp])
+
     def _check_ray_refinement(self, com: Commitment, cur: np.ndarray):
         """A ray commitment resolves onto an instance of the committed label
         that appears near the committed line — same commitment, better goal."""
@@ -495,8 +637,25 @@ class LlmNavNode(Node):
         inst_id = com.ref_id if com.kind == 'instance' else com.refined_instance_id
         if inst_id is not None:
             with self._map_lock:
-                inst = self._builder.instance(inst_id)
-            if inst is not None and aabb_surface_distance(
+                inst = self._builder.instance(inst_id)   # follows merge redirects
+            # Dissolution release: instances re-cluster from LIVE voxel scores
+            # every digest, so a false positive (e.g. 'house' argmax inside a
+            # tree) loses its voxels as closer views re-score them. When the
+            # committed target has no support for 2 consecutive digests (or is
+            # gone), stop flying at its ghost — without this, the only escape
+            # was the 90s watchdog, stuck beside a tree.
+            if inst is None or inst.misses >= 2:
+                with self._map_lock:
+                    self._commitment = None
+                    self._nav_mode = 'deciding'
+                self.get_logger().info(
+                    f'[commit] target {inst_id} dissolved (voxels re-scored '
+                    f'away from "{com.label}") — re-deciding')
+                self._mlog.event('commitment_dissolved', ref=com.ref_id,
+                                 instance=inst_id, label=com.label,
+                                 gone=inst is None)
+                return
+            if aabb_surface_distance(
                     cur, inst.bbox_min, inst.bbox_max) <= self._reach_m:
                 done = True
         if not done and float(np.linalg.norm(cur - com.waypoint)) <= self._reach_m:
@@ -654,6 +813,8 @@ class LlmNavNode(Node):
             if now - last_digest_t >= self._digest_period:
                 digest = self._refresh_digest()
                 last_digest_t = now
+                if digest is not None:
+                    self._update_ray_carrot(digest)
             if digest is None:
                 continue
 
@@ -854,11 +1015,13 @@ class LlmNavNode(Node):
             with self._map_lock:
                 self._builder.update_instances(vox_xyz, vox_scores)
                 merges = list(self._builder.last_merges)
+                visited_pts = [np.array([v['cx'], v['cy'], v['cz']])
+                               for v in self._visited]
                 status = (com.describe() + f', {np.linalg.norm(cur - com.waypoint):.0f}m to go'
                           ) if com is not None else 'choosing the next goal'
                 digest = self._builder.build(
                     cur, heading, status, ray_o, ray_d, ray_s,
-                    frontiers, blacklist, bdirs)
+                    frontiers, blacklist, bdirs, visited_points=visited_pts)
             if merges:
                 self.get_logger().info(f'[track] merged instances: {merges}')
                 self._mlog.event('instances_merged', merges=merges)
