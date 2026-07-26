@@ -96,15 +96,17 @@ def inject_rayfronts_debug(layout: dict, num_robots: int,
 
 def inject_llm_nav(layout: dict, num_robots: int) -> None:
     """Enable the llm_nav tracked-instance markers (AABBs + labels, colors
-    carried in-data) in every 3D panel: /gcs/robot_N/llm_nav_instances is the
-    global-frame republish from gcs_visualizer; visible by default so the
-    planner's instance memory shows without hunting the topic sidebar."""
+    carried in-data) in every 3D panel — global-frame republishes from
+    gcs_visualizer. target_instances (search-target label only) is visible by
+    default; the everything view stays available but off, so the overlay
+    isn't buried under fence/tree boxes."""
     for pid, cfg in layout.get('configById', {}).items():
         if not (pid.startswith('3D!') and isinstance(cfg, dict)):
             continue
         topics = cfg.setdefault('topics', {})
         for n in range(1, num_robots + 1):
-            topics[f'/gcs/robot_{n}/llm_nav_instances'] = {'visible': True}
+            topics[f'/gcs/robot_{n}/llm_nav_target_instances'] = {'visible': True}
+            topics[f'/gcs/robot_{n}/llm_nav_instances'] = {'visible': False}
 
 
 def replace_robot_n(obj, src_n: int, dst_n: int):

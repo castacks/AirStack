@@ -72,7 +72,7 @@ class Commitment:
         self.ray_origin = ray_origin      # set for kind='ray'
         self.ray_dir = ray_dir
         self.path_points = path_points    # survey circle waypoints
-        self.path_start = None            # frozen at commit; see _publish_path
+        self.extension = None             # wp + 2m past, raven-style segment
         self.passed_half = False          # survey: reached the far side
         self.refined_instance_id = None   # set when a ray resolves to a V#
         self.t_commit = time.monotonic()
@@ -224,9 +224,12 @@ class LlmNavNode(Node):
         # (found instances) works unchanged.
         self._discoveries_pub = self.create_publisher(
             String, f'{self._prefix}/raven_nav/discoveries', 10)
-        # Tracked-instance AABBs + labels for Foxglove/RViz.
+        # Tracked-instance AABBs + labels for Foxglove/RViz: all objects on
+        # /instances, target-label-only on /target_instances (cleaner overlay).
         self._markers_pub = self.create_publisher(
             MarkerArray, f'{self._prefix}/llm_nav/instances', 10)
+        self._target_markers_pub = self.create_publisher(
+            MarkerArray, f'{self._prefix}/llm_nav/target_instances', 10)
 
         self._llm = LLMClient(self._model_path, self.get_logger(), self._mlog,
                               enable_thinking=enable_thinking,
@@ -419,16 +422,21 @@ class LlmNavNode(Node):
 
     @log_call
     def _publish_path(self, com: Commitment, cur: np.ndarray):
-        # The path's first pose is FROZEN at commit time (raven-style). Using
-        # the live position makes the segment pivot around the drone itself:
-        # droan's progress-along-path term degenerates and small lateral drift
-        # rotates the desired direction — the observed stall/orbit behavior.
-        start = com.path_start if com.path_start is not None else cur
+        # raven-style: [waypoint, waypoint + 2m along travel direction] — a
+        # short segment AT the goal, never a line from the robot to the goal.
+        # droan_gl *follows* whatever line it is given, so a long segment that
+        # cuts through a building keeps pulling the drone back into the wall
+        # it is avoiding (the observed stall/orbit). With only the stub at the
+        # target, droan free-routes there with its own obstacle avoidance.
         path = Path()
         path.header.stamp = self.get_clock().now().to_msg()
         path.header.frame_id = 'map'
-        pts = ([start] + list(com.path_points)) if com.path_points \
-            else (start, com.waypoint)
+        if com.path_points:                       # survey circle (short hops)
+            pts = list(com.path_points)
+        elif com.extension is not None:
+            pts = (com.waypoint, com.extension)
+        else:
+            pts = (com.waypoint,)
         for pt in pts:
             ps = PoseStamped()
             ps.header = path.header
@@ -463,7 +471,7 @@ class LlmNavNode(Node):
         with self._map_lock:
             com.refined_instance_id = best_id
             com.waypoint = wp
-            com.path_start = cur.copy()
+            com.extension = self._extension_point(cur, wp)
             com.best_dist = float('inf')
             com.t_best_dist = time.monotonic()
         self.get_logger().info(
@@ -567,6 +575,16 @@ class LlmNavNode(Node):
 
     def _survey_allowed(self) -> bool:
         return time.time() - self._last_survey_end > self._survey_cooldown
+
+    @log_call
+    def _extension_point(self, cur: np.ndarray, wp: np.ndarray) -> np.ndarray:
+        """2m past the waypoint along the commit-time travel direction —
+        raven's segment recipe (frontier_behavior: wp + 2.0*dir)."""
+        v = wp - cur
+        d = float(np.linalg.norm(v))
+        if d < 1e-6:
+            return wp.copy()
+        return wp + (v / d) * 2.0
 
     @log_call
     def _survey_circle(self, cur: np.ndarray) -> list:
@@ -758,9 +776,11 @@ class LlmNavNode(Node):
                             else com.refined_instance_id)
         target_l = self._target.lower()
         arr = MarkerArray()
-        wipe = Marker()
-        wipe.action = Marker.DELETEALL
-        arr.markers.append(wipe)
+        target_arr = MarkerArray()
+        for a in (arr, target_arr):
+            wipe = Marker()
+            wipe.action = Marker.DELETEALL
+            a.markers.append(wipe)
         stamp = self.get_clock().now().to_msg()
         for inst in insts:
             try:
@@ -810,7 +830,11 @@ class LlmNavNode(Node):
             txt.text = (f'{inst.id} {inst.label} '
                         f'{top[1] * 100:.0f} ({inst.n_voxels}vox){flags}')
             arr.markers.append(txt)
+            if inst.label.lower() == target_l:
+                target_arr.markers.append(box)
+                target_arr.markers.append(txt)
         self._markers_pub.publish(arr)
+        self._target_markers_pub.publish(target_arr)
 
     def _build_digest(self):
         with self._map_lock:
@@ -931,7 +955,7 @@ class LlmNavNode(Node):
             wp = pts[-1]
             com = Commitment('survey', 'survey', 'horizon scan', wp,
                              path_points=pts)
-        com.path_start = cur.copy()
+        com.extension = self._extension_point(cur, com.waypoint)
         with self._map_lock:
             self._commitment = com
             self._nav_mode = f'committed_{com.kind}'

@@ -61,6 +61,9 @@ llm_nav:
     # goto_ray waypoint distance along the mean ray direction (m).
     ray_commit_dist_m: 15.0
     # goto_instance standoff from the instance bbox surface toward the robot (m).
+    # (Goal placement only — the published global_plan is raven's recipe:
+    # [waypoint, waypoint + 2m], a short stub AT the goal, never a
+    # robot->goal line; droan free-routes there with obstacle avoidance.)
     standoff_m: 5.0
     # Arrival radius (m) — instance surface distance or waypoint distance.
     reach_m: 3.0

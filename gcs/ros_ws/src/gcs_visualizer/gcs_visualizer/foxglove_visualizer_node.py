@@ -62,7 +62,12 @@ VDB_SUFFIX  = '/vdb_mapping/vdb_map_visualization'
 RAY_GROUPS_SUFFIX = '/ray_groups_viz'
 # llm_nav tracked-instance AABB markers (bridged by the DDS router like the
 # rayfronts topics; see onboard_all/config/dds_router.yaml "llm_nav" entry).
-LLM_INSTANCES_SUFFIX = '/llm_nav/instances'
+# (in-suffix, out-name): /instances = all objects, /target_instances = only
+# the search target's label (the default-visible overlay).
+LLM_INSTANCES_TOPICS = (
+    ('/llm_nav/instances', 'llm_nav_instances'),
+    ('/llm_nav/target_instances', 'llm_nav_target_instances'),
+)
 
 # rayfronts per-query voxel heatmap topics, bridged from the robot domain by the
 # DDS router (see onboard_all/config/dds_router.yaml). Names: /<robot>/rayfronts/
@@ -476,22 +481,25 @@ class FoxgloveVisualizerNode(Node):
         a default RELIABLE subscription matches nothing and silently receives
         zero messages. Robot names come from the GPS/odom discovery."""
         for name in sorted(set(self._gps_positions) | set(self._odom_z)):
-            topic = f'/{name}{LLM_INSTANCES_SUFFIX}'
-            if topic in self._subscribed_llm_instances:
-                continue
-            out_topic = f'/gcs/{name}/llm_nav_instances'
-            self._llm_instances_pubs[name] = self.create_publisher(
-                MarkerArray, out_topic, 10)
-            self.create_subscription(
-                MarkerArray, topic,
-                lambda msg, n=name: self._llm_instances_callback(msg, n),
-                SENSOR_QOS,
-            )
-            self._subscribed_llm_instances.add(topic)
-            self.get_logger().info(
-                f'Subscribed to llm_nav instances: {topic} -> {out_topic}')
+            for suffix, out_name in LLM_INSTANCES_TOPICS:
+                topic = f'/{name}{suffix}'
+                if topic in self._subscribed_llm_instances:
+                    continue
+                out_topic = f'/gcs/{name}/{out_name}'
+                self._llm_instances_pubs[topic] = self.create_publisher(
+                    MarkerArray, out_topic, 10)
+                self.create_subscription(
+                    MarkerArray, topic,
+                    lambda msg, n=name, t=topic:
+                        self._llm_instances_callback(msg, n, t),
+                    SENSOR_QOS,
+                )
+                self._subscribed_llm_instances.add(topic)
+                self.get_logger().info(
+                    f'Subscribed to llm_nav instances: {topic} -> {out_topic}')
 
-    def _llm_instances_callback(self, msg: MarkerArray, robot_name: str):
+    def _llm_instances_callback(self, msg: MarkerArray, robot_name: str,
+                                in_topic: str):
         """llm_nav instance AABBs/labels -> global frame, same translation
         path as ray_groups_viz (robot-local 'map' + boot ENU offset)."""
         boot = self._gps_boot.get(robot_name)
@@ -515,7 +523,7 @@ class FoxgloveVisualizerNode(Node):
                     tm.pose.position.z = m.pose.position.z + bz
                     tm.pose.orientation = m.pose.orientation
                 out.markers.append(tm)
-        pub = self._llm_instances_pubs.get(robot_name)
+        pub = self._llm_instances_pubs.get(in_topic)
         if pub is not None:
             pub.publish(out)
 
