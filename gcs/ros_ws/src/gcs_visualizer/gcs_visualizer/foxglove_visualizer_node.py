@@ -111,8 +111,6 @@ class FoxgloveVisualizerNode(Node):
         self._plan_pattern = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(PLAN_SUFFIX)}$')
         self._vdb_pattern  = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(VDB_SUFFIX)}$')
         self._ray_groups_pattern = re.compile(rf'^/({re.escape(self._prefix)}_\w+){re.escape(RAY_GROUPS_SUFFIX)}$')
-        self._llm_instances_pattern = re.compile(
-            rf'^/({re.escape(self._prefix)}_\w+){re.escape(LLM_INSTANCES_SUFFIX)}$')
         # Captures (robot_name, voxel-topic suffix), e.g.
         # /robot_1/rayfronts/msg_serv/voxels_sim/q0_car -> ('robot_1', 'voxels_sim/q0_car')
         self._voxels_pattern = re.compile(
@@ -255,6 +253,7 @@ class FoxgloveVisualizerNode(Node):
         self._discover_robots()
 
     def _discover_robots(self):
+        self._subscribe_llm_instances()
         for topic, type_list in self.get_topic_names_and_types():
             if topic not in self._subscribed_gps:
                 m = self._gps_pattern.match(topic)
@@ -330,22 +329,6 @@ class FoxgloveVisualizerNode(Node):
                     )
                     self._subscribed_ray_groups.add(topic)
                     self.get_logger().info(f'Subscribed to ray_groups_viz: {topic}')
-
-            if topic not in self._subscribed_llm_instances:
-                m = self._llm_instances_pattern.match(topic)
-                if m and 'visualization_msgs/msg/MarkerArray' in type_list:
-                    name = m.group(1)
-                    out_topic = f'/gcs/{name}/llm_nav_instances'
-                    self._llm_instances_pubs[name] = self.create_publisher(
-                        MarkerArray, out_topic, 10)
-                    self.create_subscription(
-                        MarkerArray, topic,
-                        lambda msg, n=name: self._llm_instances_callback(msg, n),
-                        10,
-                    )
-                    self._subscribed_llm_instances.add(topic)
-                    self.get_logger().info(
-                        f'Subscribed to llm_nav instances: {topic} -> {out_topic}')
 
             if topic not in self._subscribed_voxels:
                 m = self._voxels_pattern.match(topic)
@@ -480,6 +463,33 @@ class FoxgloveVisualizerNode(Node):
         pub = self._ray_groups_pubs.get(robot_name)
         if pub is not None:
             pub.publish(out)
+
+    def _subscribe_llm_instances(self):
+        """Subscribe to each known robot's llm_nav instance markers.
+
+        Per KNOWN ROBOT rather than by topic discovery, and BEST_EFFORT rather
+        than default QoS — both are load-bearing (verified on OSMO, 2026-07-26):
+        the DDS router only materializes its GCS-side writer once a reader
+        exists, so the topic never appears in get_topic_names_and_types()
+        until someone subscribes (chicken-and-egg); and that writer is
+        BEST_EFFORT regardless of the robot-side publisher's reliability, so
+        a default RELIABLE subscription matches nothing and silently receives
+        zero messages. Robot names come from the GPS/odom discovery."""
+        for name in sorted(set(self._gps_positions) | set(self._odom_z)):
+            topic = f'/{name}{LLM_INSTANCES_SUFFIX}'
+            if topic in self._subscribed_llm_instances:
+                continue
+            out_topic = f'/gcs/{name}/llm_nav_instances'
+            self._llm_instances_pubs[name] = self.create_publisher(
+                MarkerArray, out_topic, 10)
+            self.create_subscription(
+                MarkerArray, topic,
+                lambda msg, n=name: self._llm_instances_callback(msg, n),
+                SENSOR_QOS,
+            )
+            self._subscribed_llm_instances.add(topic)
+            self.get_logger().info(
+                f'Subscribed to llm_nav instances: {topic} -> {out_topic}')
 
     def _llm_instances_callback(self, msg: MarkerArray, robot_name: str):
         """llm_nav instance AABBs/labels -> global frame, same translation
