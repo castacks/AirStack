@@ -803,6 +803,7 @@ class LlmNavNode(Node):
                 aliases_done = True
                 self._bootstrap_aliases()
                 self._bootstrap_perception()
+                self._bootstrap_context_labels()
             with self._map_lock:
                 have_map = (self._builder.ready and self._vox_xyz is not None
                             and self._cur_pos is not None)
@@ -887,6 +888,28 @@ class LlmNavNode(Node):
                 f'{size[0]:.0f}x{size[1]:.0f}m/{i.n_voxels}vox')
         return '; '.join(f'{lbl}: {len(v)} instances ({", ".join(v[:6])})'
                          for lbl, v in by_label.items())
+
+    def _bootstrap_context_labels(self):
+        """One-shot LLM call: extend the vocabulary with context/confuser
+        labels for THIS target (e.g. target 'bus stop' -> bench, bus,
+        shelter), so the static bank is never a per-target hand-edit. New
+        labels are registered with rayfronts immediately; their sim columns
+        appear on its next query cycle."""
+        if not self._llm_aliases:
+            return
+        extra = self._llm.context_labels(self._target, self._all_queries)
+        if not extra:
+            return
+        with self._map_lock:
+            self._builder.add_object_labels(extra)
+            self._all_queries += [l for l in extra
+                                  if l not in self._all_queries]
+        for l in extra:
+            self._text_query_pub.publish(String(data=l))
+            time.sleep(0.1)
+        self.get_logger().info(
+            f'[vocab] LLM added context labels for "{self._target}": {extra}')
+        self._mlog.event('context_labels_added', labels=extra)
 
     def _bootstrap_aliases(self):
         """One-shot LLM call: which bank labels are PARTS of the target?

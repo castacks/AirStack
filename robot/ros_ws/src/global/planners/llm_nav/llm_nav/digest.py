@@ -241,6 +241,17 @@ class DigestBuilder:
         if merge_gap_m is not None:
             self.merge_gap_m = float(merge_gap_m)
 
+    def add_object_labels(self, labels: list):
+        """Extend the object vocabulary (LLM-suggested context labels). The
+        new columns appear once rayfronts registers the queries and the node
+        re-detects the column order."""
+        known = {o.lower() for o in self.object_labels}
+        for l in labels:
+            if l.lower() not in known:
+                self.object_labels.append(l)
+        if self.labels:
+            self.set_labels(self.labels)
+
     def set_label_aliases(self, aliases: dict):
         """Replace the alias map (e.g. from the LLM's part-of answer) and
         rebuild the canonical column groups."""
@@ -430,6 +441,31 @@ class DigestBuilder:
                 id=iid, label=cl['label'], centroid=cl['centroid'].copy(),
                 bbox_min=cl['bbox_min'], bbox_max=cl['bbox_max'],
                 n_voxels=cl['n_voxels'], top_labels=cl['top_labels'])
+        # Pass 4b: same-label containment cleanup. A box fully inside a bigger
+        # same-label box is a duplicate partial view of the same object — one
+        # house mapped as disconnected fragments yields two clusters whose
+        # envelopes nest, and since both get matched every tick, pass 3
+        # (which skips matched-vs-matched on purpose) never merges them.
+        # Ordered big->small so chains collapse in one sweep; visited carries
+        # over (the fragment IS part of the surviving object).
+        by_volume = sorted(
+            self._instances.values(),
+            key=lambda i: -float(np.prod(np.maximum(i.bbox_max - i.bbox_min,
+                                                    0.1))))
+        for big in by_volume:
+            if big.id not in self._instances:
+                continue
+            for small in by_volume:
+                if (small.id == big.id or small.id not in self._instances
+                        or small.label != big.label):
+                    continue
+                if (np.all(small.bbox_min >= big.bbox_min - 0.5)
+                        and np.all(small.bbox_max <= big.bbox_max + 0.5)):
+                    big.visited = big.visited or small.visited
+                    big.hits += small.hits
+                    del self._instances[small.id]
+                    self._merged_redirect[small.id] = big.id
+                    self.last_merges.append((small.id, big.id))
         # Pass 5: miss-count everything untouched this tick.
         for iid in list(self._instances.keys()):
             if iid in matched_ids or iid in created:

@@ -67,6 +67,19 @@ PERCEPTION_INSTRUCTIONS = (
     'Reply with ONLY this JSON: {{"min_voxels": <int>, "score_floor": '
     '<float>, "merge_gap_m": <float>, "reason": "<short>"}}')
 
+CONTEXT_SYSTEM = (
+    'You expand the vocabulary of a drone semantic mapping system. Reply '
+    'with ONLY a JSON object — no prose, no markdown.')
+
+CONTEXT_INSTRUCTIONS = (
+    'Target object: "{target}".\n'
+    'Current vocabulary: {labels}\n'
+    'Suggest up to 5 NEW labels (not already in the vocabulary) that would '
+    'help find a {target}: objects that commonly appear right next to one, '
+    'or things it is easily confused with. Use short, common words/phrases a '
+    'vision-language model knows.\n'
+    'Reply with ONLY this JSON: {{"labels": ["<label>", ...]}}')
+
 ALIASES_SYSTEM = (
     'You classify object part-whole relations for a robot mapping system. '
     'Reply with ONLY a JSON object — no prose, no markdown.')
@@ -321,6 +334,27 @@ class LLMClient:
             survey_ok='yes' if allow_survey else 'no (on cooldown)',
             retune_ok='yes' if allow_retune else 'no (on cooldown)'))
         return self._call('decide', DECIDE_SYSTEM, user, validate)
+
+    def context_labels(self, target: str, labels: list) -> 'list | None':
+        """One-shot: new context/confuser labels for this target, so the
+        static bank is never a hidden per-target dependency. Returns a
+        cleaned list (deduped vs the bank, max 5) or None on failure."""
+        def validate(p):
+            if not isinstance(p.get('labels'), list):
+                return 'missing "labels" list'
+            return None
+        user = CONTEXT_INSTRUCTIONS.format(
+            target=target, labels=', '.join(labels))
+        parsed = self._call('context', CONTEXT_SYSTEM, user, validate)
+        if parsed is None:
+            return None
+        existing = {l.lower() for l in labels} | {target.lower()}
+        out = []
+        for x in parsed['labels'][:5]:
+            s = str(x).strip().lower()
+            if s and s not in existing and len(s) <= 30:
+                out.append(s)
+        return out
 
     def part_aliases(self, target: str, labels: list) -> 'dict | None':
         """One-shot: which bank labels are PARTS of the target? Returns an
