@@ -425,9 +425,9 @@ The workflow uses [`dawidd6/action-download-artifact@v6`](https://github.com/daw
 
 ---
 
-## CI/CD Orchestrator (OpenStack-backed ephemeral runners)
+## CI/CD Orchestrator (OSMO-backed ephemeral runners)
 
-AirStack's tests require a GPU, Docker, and a clean filesystem per run, so they execute on **truly ephemeral OpenStack instances** spawned per-job by an orchestrator. Each test job gets a fresh VM that is destroyed once the job completes — no Docker layer carryover, no leaked containers, no shared host state.
+AirStack's tests require a GPU, Docker, and a clean filesystem per run, so they execute on **truly ephemeral [NVIDIA OSMO](https://nvidia.github.io/OSMO/) pods** submitted per-job by an orchestrator. Each test job gets a fresh GPU pod that is destroyed once the job completes — no Docker layer carryover, no leaked containers, no shared host state. (This replaced an OpenStack-Nova backend; the GitHub side and the per-job-destroy model are unchanged.)
 
 ### Architecture
 
@@ -436,19 +436,19 @@ AirStack's tests require a GPU, Docker, and a clean filesystem per run, so they 
 │  Orchestrator VM  (airstack-ci-cd-orchestrator)              │
 │   • polls GitHub for queued workflow_jobs                    │
 │   • mints single-use JIT runner tokens                       │
-│   • spawns / reaps ephemeral instances via OpenStack Nova    │
-│   • holds the GitHub PAT and OpenStack application credential│
+│   • submits / reaps ephemeral OSMO workflows via osmo CLI    │
+│   • holds the GitHub PAT and OSMO service-account token      │
 └────────────┬───────────────────────────────────┬─────────────┘
              │                                   │
              ▼                                   ▼
 ┌──────────────────────────────┐   ┌────────────────────────────────┐
 │ Ephemeral worker (per job)   │   │ GitHub Actions queue           │
-│ Image: Ubuntu-24.04-GPU-     │   │  workflow_job  status=queued   │
-│        Headless              │   │  labels: [self-hosted,         │
-│ cloud-init bootstraps Docker │   │           airstack-ephemeral]  │
-│ + nvidia-container-toolkit + │   └────────────────────────────────┘
-│ GH Actions runner; runs ONE  │
-│ job, then is destroyed.      │
+│ Prebaked airstack-ci-runner  │   │  workflow_job  status=queued   │
+│ image: Docker + nvidia CTK + │   │  labels: [self-hosted,         │
+│ GH runner. Privileged pod    │   │           airstack-ephemeral]  │
+│ starts dockerd, runs ONE     │   └────────────────────────────────┘
+│ job (JIT), then the pod      │
+│ is destroyed.                │
 └──────────────────────────────┘
 ```
 
@@ -456,21 +456,22 @@ AirStack's tests require a GPU, Docker, and a clean filesystem per run, so they 
 
 | Concern | Mitigation |
 |---------|------------|
-| Cross-job state pollution (Docker cache, dangling networks, leftover artifacts) | Each job runs on a fresh VM. Spent VM is destroyed within ~30 s of job completion. |
+| Cross-job state pollution (Docker cache, dangling networks, leftover artifacts) | Each job runs on a fresh OSMO pod, destroyed within ~30 s of job completion. |
 | Fork PRs executing arbitrary code | Workflow's `if: github.event.pull_request.head.repo.full_name == github.repository` — fork PRs skipped. |
-| Runner running as root | The runner runs as the unprivileged `ubuntu` user inside an instance whose only purpose is one job. |
-| Docker socket gives root-equivalent access | Bounded to a single one-shot VM. The orchestrator host doesn't expose Docker at all. |
+| Runner runs privileged (root) for docker-in-docker | The pod is privileged (needed to run `airstack up`/compose), but it is single-use, scoped to the dedicated CI pool, and only same-repo code ever reaches it. |
+| Docker socket gives root-equivalent access | Bounded to a single one-shot pod. The orchestrator host doesn't expose Docker at all. |
 | Long-lived PAT on the runner host | The PAT lives only on the orchestrator. Workers receive a single-use **JIT runner config** — a base64 token bound to one runner registration. |
-| Persistent OpenStack creds tied to a user password | Orchestrator authenticates with an **application credential** (revocable, scoped) instead of `openrc.sh`. |
+| Persistent creds tied to a personal account | Orchestrator authenticates with a shared, non-personal **OSMO service-account token** (revocable, scoped to the CI pool), not an individual's login. |
 
 ### Setup
 
-The orchestrator service code, cloud-init template, systemd unit, and full setup runbook live in [`.github/orchestrator/`](../../../../.github/orchestrator/). See [`.github/orchestrator/README.md`](ci-cd-orchestrator.md) for:
+The orchestrator service code, OSMO runner-workflow template, runner image, systemd unit, and full setup runbook live in [`.github/orchestrator/`](../../../../.github/orchestrator/). See [`.github/orchestrator/README.md`](ci-cd-orchestrator.md) for:
 
-- creating the OpenStack application credential and `clouds.yaml`
-- staging the GitHub PAT
-- running `setup.sh` on the orchestrator VM
-- filling in flavor / network / keypair / security-group in `/etc/airstack-orchestrator/config.yaml`
+- obtaining the OSMO service-account token and a dedicated CI GPU pool (with privileged mode enabled)
+- building and pushing the runner image (`runner.Dockerfile`)
+- staging the GitHub PAT and the OSMO token
+- running `setup.sh` on the orchestrator host (installs the `osmo` CLI)
+- filling in osmo_url / pool / platform / runner_image / resources in `/etc/airstack-orchestrator/config.yaml`
 - enabling and verifying the `airstack-orchestrator.service` systemd unit
 
 ### Runner labels

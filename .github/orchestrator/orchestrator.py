@@ -1,55 +1,63 @@
 #!/usr/bin/env python3
-"""AirStack CI orchestrator.
+"""AirStack CI orchestrator (OSMO backend).
 
 Polls the GitHub API for queued workflow_jobs whose labels match this
-orchestrator's runner_labels, and spawns truly ephemeral OpenStack instances
-to execute them. Each ephemeral instance receives a single-use GitHub JIT
-runner config via cloud-init; the GitHub PAT never leaves this orchestrator.
+orchestrator's runner_labels, and submits truly ephemeral OSMO workflows to
+execute them. Each workflow runs a single-job GitHub Actions runner in a
+privileged, GPU-enabled container on an OSMO compute pool; the GitHub PAT never
+leaves this orchestrator, and an OSMO service-account token (not a personal
+account) is used only to submit / query / cancel workflows.
+
+This is a drop-in replacement for the previous OpenStack-Nova backend: the
+GitHub side is unchanged (`runs-on: [self-hosted, airstack-ephemeral]`, the
+single-use JIT runner config, the same-repo fork guard). Only the *spawn*
+target changed from "create a Nova VM" to "submit an OSMO workflow". The
+one-job-per-worker, destroy-after semantics are preserved — when the runner's
+`run.sh` exits after a single job, the OSMO task completes and the pod is torn
+down.
 
 Two cooperating loops:
-  - spawn loop: discover queued jobs, spawn one Nova server per job
-  - reap loop:  delete servers whose jobs have completed, plus stragglers
+  - spawn loop: discover queued jobs, submit one OSMO workflow per job
+  - reap loop:  cancel workflows whose jobs have completed, plus stragglers
                 older than max_job_minutes and orphans not in state.json
 
 State persists in /var/lib/airstack-orchestrator/state.json so the
-orchestrator can survive restarts without leaking instances.
+orchestrator can survive restarts without leaking workflows.
 """
 
 from __future__ import annotations
 
 import argparse
-import base64
 import json
 import logging
 import os
+import re
 import signal
+import subprocess
 import sys
+import tempfile
 import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import openstack
 import requests
 import yaml
 from jinja2 import Template
 
 DEFAULT_CONFIG_PATH = "/etc/airstack-orchestrator/config.yaml"
 DEFAULT_PAT_PATH = "/etc/airstack-orchestrator/github-pat"
+DEFAULT_OSMO_TOKEN_PATH = "/etc/airstack-orchestrator/osmo-token"
 DEFAULT_STATE_PATH = "/var/lib/airstack-orchestrator/state.json"
-DEFAULT_TEMPLATE_PATH = "/opt/airstack-orchestrator/cloud-init.yaml.j2"
-
-# Metadata key/value applied to every Nova server we spawn. Used by the
-# orphan reaper to identify servers we own even when state.json is missing.
-ROLE_META_KEY = "airstack-role"
-ROLE_META_VAL = "ephemeral-runner"
-JOB_META_KEY = "airstack-job-id"
+DEFAULT_TEMPLATE_PATH = "/opt/airstack-orchestrator/runner-workflow.yaml.j2"
 
 GITHUB_API = "https://api.github.com"
 
 log = logging.getLogger("orchestrator")
 
+
+# ── file / state helpers ────────────────────────────────────────────────────
 
 def load_yaml(path: str) -> dict:
     with open(path) as f:
@@ -75,6 +83,16 @@ def save_state(path: str, state: dict) -> None:
         json.dump(state, f, indent=2, sort_keys=True)
     os.replace(tmp, path)
 
+
+def now_utc_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def parse_iso(s: str) -> datetime:
+    return datetime.fromisoformat(s)
+
+
+# ── GitHub API (unchanged from the OpenStack backend) ─────────────────────────
 
 def gh_request(method: str, path: str, pat: str, **kwargs: Any) -> Any:
     url = f"{GITHUB_API}{path}"
@@ -156,267 +174,129 @@ def get_job_status(repo: str, job_id: str, pat: str) -> dict | None:
     return r.json()
 
 
-def render_cloud_init(template_path: str, encoded_jit_config: str,
-                      runner_version: str) -> str:
-    with open(template_path) as f:
-        tmpl = Template(f.read())
-    return tmpl.render(
-        encoded_jit_config=encoded_jit_config,
-        runner_version=runner_version,
-    )
+# ── OSMO CLI output parsing ───────────────────────────────────────────────────
+#
+# The exact JSON keys returned by `osmo workflow {submit,query,list}` can vary
+# slightly by OSMO release, so these parsers try a set of likely keys and fall
+# back to scraping the human-readable text output. Verify the keys against your
+# deployed version with `osmo workflow submit --dry-run` / `--format-type json`
+# once and simplify if desired.
+
+_WF_ID_KEYS = ("workflow_id", "workflowId", "id", "uuid", "name", "workflow")
+_STATUS_KEYS = ("status", "state", "workflow_status", "phase")
+_KNOWN_STATUSES = {
+    "RUNNING", "PENDING", "WAITING", "COMPLETED", "FAILED",
+    "FAILED_EXEC_TIMEOUT", "FAILED_SERVER_ERROR", "FAILED_QUEUE_TIMEOUT",
+    "FAILED_SUBMISSION", "FAILED_CANCELED", "FAILED_BACKEND_ERROR",
+    "FAILED_IMAGE_PULL", "FAILED_EVICTED", "FAILED_START_ERROR",
+    "FAILED_START_TIMEOUT", "FAILED_PREEMPTED",
+}
+# Non-terminal statuses the orphan sweep considers "still alive".
+_ACTIVE_STATUSES = ("RUNNING", "PENDING", "WAITING")
 
 
-def spawn_server(
-    conn: openstack.connection.Connection,
-    config: dict,
-    name: str,
-    job_id: str,
-    user_data: str,
-) -> str:
-    flavor = conn.compute.find_flavor(config["flavor_name"], ignore_missing=False)
-    network = conn.network.find_network(config["network_name"], ignore_missing=False)
-    create_kwargs = dict(
-        name=name,
-        flavor_id=flavor.id,
-        networks=[{"uuid": network.id}],
-        key_name=config["keypair_name"],
-        security_groups=[{"name": config["security_group"]}],
-        user_data=base64.b64encode(user_data.encode()).decode(),
-        metadata={
-            ROLE_META_KEY: ROLE_META_VAL,
-            JOB_META_KEY: job_id,
-        },
-    )
-
-    # Flavors with disk=0 (typical for GPU flavors on this cloud) cannot boot
-    # directly from an image — Nova rejects with "Block Device Mapping is
-    # Invalid: You specified more local devices than the limit allows". When
-    # boot_volume_size_gb is set, boot from a Cinder volume sourced from the
-    # image and delete it on termination. Otherwise fall back to direct image
-    # boot (works only when the flavor has a non-zero root disk).
-    boot_volume_size_gb = int(config.get("boot_volume_size_gb") or 0)
-    if boot_volume_size_gb > 0:
-        create_kwargs["block_device_mapping"] = [
-            {
-                "uuid": config["image_id"],
-                "source_type": "image",
-                "destination_type": "volume",
-                "boot_index": 0,
-                "volume_size": boot_volume_size_gb,
-                "delete_on_termination": True,
-            }
-        ]
-    else:
-        create_kwargs["image_id"] = config["image_id"]
-
-    az = config.get("availability_zone")
-    if az:
-        create_kwargs["availability_zone"] = az
-    server = conn.compute.create_server(**create_kwargs)
-    return server.id
-
-
-def delete_server(conn: openstack.connection.Connection, server_id: str) -> None:
+def _loads_or_none(text: str | None) -> Any:
     try:
-        conn.compute.delete_server(server_id, ignore_missing=True, force=True)
-    except Exception as e:
-        log.warning("delete_server(%s) failed: %s", server_id, e)
-
-
-def list_owned_servers(conn: openstack.connection.Connection) -> list[Any]:
-    """List all Nova servers that carry our role metadata."""
-    owned = []
-    for s in conn.compute.servers(details=True):
-        meta = getattr(s, "metadata", None) or {}
-        if meta.get(ROLE_META_KEY) == ROLE_META_VAL:
-            owned.append(s)
-    return owned
-
-
-def find_free_floating_ip(
-    conn: openstack.connection.Connection, pool: list[str]
-) -> Any:
-    """Return the FloatingIP resource for the first address in `pool` that is
-    not currently associated with any port. Returns None if all are in use.
-
-    Iterates `pool` in order so attachments rotate through it sequentially.
-    Logs a warning for any pool member that doesn't exist in this project.
-    """
-    if not pool:
+        return json.loads(text)  # type: ignore[arg-type]
+    except (json.JSONDecodeError, TypeError):
         return None
-    pool_set = set(pool)
-    fips_by_addr: dict[str, Any] = {}
-    for fip in conn.network.ips():
-        if fip.floating_ip_address in pool_set:
-            fips_by_addr[fip.floating_ip_address] = fip
-    missing = pool_set - fips_by_addr.keys()
-    if missing:
-        log.warning(
-            "floating_ips configured but not found in this project: %s",
-            sorted(missing),
-        )
-    for addr in pool:
-        fip = fips_by_addr.get(addr)
-        if fip is not None and not fip.port_id:
-            return fip
+
+
+def _first_str(d: dict, keys: tuple[str, ...]) -> str | None:
+    for k in keys:
+        v = d.get(k)
+        if isinstance(v, str) and v:
+            return v
     return None
 
 
-def check_flavor_capacity(
-    conn: openstack.connection.Connection,
-    flavor_name: str,
-) -> tuple[bool, str]:
-    """Pre-flight: ask Nova's placement API whether any host can satisfy this
-    flavor's resource request right now.
-
-    Returns (ok, reason). When ok=False the orchestrator should defer the
-    spawn iteration; reason is a one-line human-readable explanation
-    (e.g. "no host can satisfy {'VCPU': 8, 'MEMORY_MB': 32768, 'VGPU': 1}").
-
-    If the placement API can't be queried for any reason we return
-    (True, "<reason placement skipped>") and let Nova make the call. The
-    pre-flight is a fast-path optimization, not a gate — Nova still has the
-    final say at create_server time (and ERROR-status fallback handles
-    anything we miss).
-    """
-    try:
-        flavor = conn.compute.find_flavor(flavor_name, ignore_missing=False)
-    except Exception as e:
-        return True, f"flavor lookup failed: {e}"
-
-    # Standard resources every Nova flavor expresses.
-    resources: dict[str, int] = {}
-    if getattr(flavor, "vcpus", 0):
-        resources["VCPU"] = int(flavor.vcpus)
-    if getattr(flavor, "ram", 0):
-        resources["MEMORY_MB"] = int(flavor.ram)
-    if getattr(flavor, "disk", 0):
-        resources["DISK_GB"] = int(flavor.disk)
-
-    # Custom / specialized resources (VGPU, PCI_*, CUSTOM_*) come from the
-    # flavor's extra_specs as `resources:<CLASS>=<count>`. This is how Nova
-    # itself learns to ask placement for GPU capacity.
-    extra = getattr(flavor, "extra_specs", {}) or {}
-    for k, v in extra.items():
-        if not k.startswith("resources:"):
-            continue
-        rc = k.split(":", 1)[1]
-        try:
-            resources[rc] = int(v)
-        except (TypeError, ValueError):
-            pass
-
-    if not resources:
-        return True, "flavor expresses no resources — skipping placement check"
-
-    try:
-        result = conn.placement.allocation_candidates(
-            resources=resources, limit=1,
-        )
-        if hasattr(result, "allocation_requests"):
-            candidates = list(result.allocation_requests or [])
-        else:
-            candidates = list(result)
-    except Exception as e:
-        return True, f"placement query failed ({type(e).__name__}: {e})"
-
-    if candidates:
-        return True, ""
-    return False, f"no host can satisfy {resources}"
+def _extract_workflow_id(stdout: str | None) -> str | None:
+    data = _loads_or_none(stdout)
+    if isinstance(data, dict):
+        wid = _first_str(data, _WF_ID_KEYS)
+        if wid:
+            return wid
+        wf = data.get("workflow")
+        if isinstance(wf, dict):
+            wid = _first_str(wf, _WF_ID_KEYS)
+            if wid:
+                return wid
+    m = re.search(r"Workflow\s*ID\s*[-:]\s*(\S+)", stdout or "", re.IGNORECASE)
+    return m.group(1) if m else None
 
 
-def wait_for_server_active(
-    conn: openstack.connection.Connection,
-    server_id: str,
-    timeout_s: int = 300,
-    poll_interval_s: float = 3.0,
-) -> Any:
-    """Poll Nova until the server is ACTIVE. Raise with full context if it
-    enters ERROR or never reaches ACTIVE in time.
-
-    Nova surfaces the actual reason for an ERROR via the `fault` attribute
-    (message + code + details), so we log it verbatim. We also include
-    task_state / vm_state / power_state because Nova sometimes leaves the
-    fault empty and these tell you whether the failure was at scheduling,
-    networking, or block-device-mapping time.
-    """
-    deadline = time.monotonic() + timeout_s
-    last_status = "?"
-    last_task = None
-    while time.monotonic() < deadline:
-        s = conn.compute.get_server(server_id)
-        status = getattr(s, "status", "UNKNOWN") or "UNKNOWN"
-        task = (
-            getattr(s, "task_state", None)
-            or getattr(s, "OS-EXT-STS:task_state", None)
-        )
-        if status != last_status or task != last_task:
-            log.info(
-                "server %s status=%s task_state=%s", server_id, status, task,
-            )
-            last_status, last_task = status, task
-
-        if status == "ACTIVE":
+def _extract_status(stdout: str | None) -> str | None:
+    data = _loads_or_none(stdout)
+    if isinstance(data, dict):
+        st = _first_str(data, _STATUS_KEYS)
+        if st:
+            return st.upper()
+        wf = data.get("workflow")
+        if isinstance(wf, dict):
+            st = _first_str(wf, _STATUS_KEYS)
+            if st:
+                return st.upper()
+    up = (stdout or "").upper()
+    for s in sorted(_KNOWN_STATUSES, key=len, reverse=True):
+        if s in up:
             return s
-
-        if status == "ERROR":
-            fault = getattr(s, "fault", None) or {}
-            vm_state = (
-                getattr(s, "vm_state", None)
-                or getattr(s, "OS-EXT-STS:vm_state", None)
-            )
-            power_state = (
-                getattr(s, "power_state", None)
-                or getattr(s, "OS-EXT-STS:power_state", None)
-            )
-            host = getattr(s, "compute_host", None) or getattr(
-                s, "OS-EXT-SRV-ATTR:host", None
-            )
-            az = getattr(s, "availability_zone", None) or getattr(
-                s, "OS-EXT-AZ:availability_zone", None
-            )
-            raise RuntimeError(
-                "server "
-                + str(server_id)
-                + " entered ERROR: "
-                + f"fault.code={fault.get('code')!r} "
-                + f"fault.message={fault.get('message')!r} "
-                + f"fault.details={fault.get('details')!r} "
-                + f"task_state={task!r} vm_state={vm_state!r} "
-                + f"power_state={power_state!r} host={host!r} az={az!r}"
-            )
-
-        time.sleep(poll_interval_s)
-
-    raise RuntimeError(
-        f"server {server_id} did not reach ACTIVE within {timeout_s}s "
-        f"(last status={last_status!r} task_state={last_task!r})"
-    )
+    return None
 
 
-def attach_floating_ip(
-    conn: openstack.connection.Connection, server_id: str, fip: Any
-) -> str:
-    """Wait for the server to have a network port, then associate `fip`.
-    Returns the floating IP address."""
-    for _ in range(60):  # ~120s
-        ports = list(conn.network.ports(device_id=server_id))
-        if ports:
-            break
-        time.sleep(2)
-    else:
-        raise RuntimeError(f"server {server_id} got no network port within 120s")
-    conn.network.update_ip(fip, port_id=ports[0].id)
-    return fip.floating_ip_address
+def _extract_workflow_list(stdout: str | None) -> list[dict]:
+    data = _loads_or_none(stdout)
+    if isinstance(data, dict):
+        for key in ("workflows", "items", "results", "data"):
+            if isinstance(data.get(key), list):
+                data = data[key]
+                break
+    items: list[dict] = []
+    if isinstance(data, list):
+        for entry in data:
+            if not isinstance(entry, dict):
+                continue
+            wid = _first_str(entry, _WF_ID_KEYS)
+            name = entry.get("name") if isinstance(entry.get("name"), str) else None
+            status = _first_str(entry, _STATUS_KEYS)
+            if wid or name:
+                items.append(
+                    {"id": wid, "name": name,
+                     "status": status.upper() if status else None}
+                )
+    return items
 
 
-def now_utc_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+def _is_terminal(status: str | None) -> bool:
+    if not status:
+        return False
+    return status == "COMPLETED" or status.startswith("FAILED")
 
 
-def parse_iso(s: str) -> datetime:
-    return datetime.fromisoformat(s)
+def _looks_like_auth_error(r: subprocess.CompletedProcess) -> bool:
+    blob = f"{r.stdout or ''}\n{r.stderr or ''}".lower()
+    markers = ("401", "403", "unauthorized", "forbidden", "expired",
+               "not logged in", "please login", "authentication",
+               "invalid token", "token is invalid")
+    return any(m in blob for m in markers)
 
+
+def _name_age_minutes(name: str | None) -> float | None:
+    """Age in minutes parsed from our `...-<unix_ts>` name suffix, or None.
+
+    OSMO may append its own suffix after the name we submit, so we match the
+    first 10+ digit run (the unix timestamp) even when trailing chars follow.
+    """
+    m = re.search(r"-(\d{10,})(?:\D.*)?$", name or "")
+    if not m:
+        return None
+    try:
+        ts = int(m.group(1))
+    except ValueError:
+        return None
+    return (time.time() - ts) / 60.0
+
+
+# ── orchestrator ──────────────────────────────────────────────────────────────
 
 class Orchestrator:
     def __init__(self, config: dict, pat: str, state_path: str, template_path: str):
@@ -424,230 +304,286 @@ class Orchestrator:
         self.pat = pat
         self.state_path = state_path
         self.template_path = template_path
-        self.conn = openstack.connect(cloud=config.get("openstack_cloud", "airstack"))
+
+        # OSMO target.
+        self.osmo_bin = config.get("osmo_bin", "osmo")
+        self.osmo_url = config["osmo_url"]
+        self.token_file = config.get("osmo_token_file", DEFAULT_OSMO_TOKEN_PATH)
+        self.pool = config["pool"]
+        self.platform = config.get("platform", "") or ""
+        self.priority = str(config.get("priority", "NORMAL")).upper()
+
+        # Runner task shape.
+        self.runner_image = config["runner_image"]
+        self.cpu = config.get("cpu", 8)
+        self.gpu = config.get("gpu", 1)
+        self.memory = config.get("memory", "32Gi")
+        self.storage = config.get("storage", "300Gi")
+        self.privileged = bool(config.get("privileged", True))
+        self.host_network = bool(config.get("host_network", False))
+
+        # GitHub.
         self.repo = config["repo"]
         self.runner_labels = config["runner_labels"]
-        self.runner_version = config["runner_version"]
+
+        # Limits / timing.
         self.max_concurrent = int(config.get("max_concurrent", 3))
-        self.floating_ips: list[str] = list(config.get("floating_ips") or [])
-        # Cap spawns to FIP pool size so we never queue jobs we can't address.
-        self.effective_max_concurrent = self.max_concurrent
-        if self.floating_ips:
-            self.effective_max_concurrent = min(
-                self.max_concurrent, len(self.floating_ips)
-            )
-        self.max_job_minutes = int(config.get("max_job_minutes", 90))
+        self.max_job_minutes = int(config.get("max_job_minutes", 2880))
         self.spawn_interval = int(config.get("spawn_poll_interval_s", 15))
         self.reap_interval = int(config.get("reap_poll_interval_s", 30))
+        self.submit_timeout = int(config.get("submit_timeout_s", 180))
+        self.workflow_prefix = config.get("workflow_name_prefix", "gha-runner-")
+
         self.stop_evt = threading.Event()
+
+        # Establish the OSMO session up-front for early feedback; individual
+        # commands re-login on demand if the session lapses.
+        self._login()
 
     def stop(self, *_: Any) -> None:
         log.info("stop signal received; draining loops")
         self.stop_evt.set()
 
+    # ── OSMO CLI plumbing ────────────────────────────────────────────────────
+
+    def _run_osmo(self, args: list[str], timeout: int) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [self.osmo_bin, *args],
+            capture_output=True, text=True, timeout=timeout,
+        )
+
+    def _login(self) -> bool:
+        try:
+            r = self._run_osmo(
+                ["login", self.osmo_url, "--method", "token",
+                 "--token-file", self.token_file],
+                timeout=60,
+            )
+        except Exception as e:  # noqa: BLE001 - startup best-effort
+            log.warning("osmo login raised: %s", e)
+            return False
+        if r.returncode != 0:
+            log.warning(
+                "osmo login failed (rc=%d): %s",
+                r.returncode, (r.stderr or r.stdout).strip(),
+            )
+            return False
+        log.info("osmo login succeeded (url=%s, token_file=%s)",
+                 self.osmo_url, self.token_file)
+        return True
+
+    def _osmo(self, args: list[str], timeout: int,
+              relogin: bool = True) -> subprocess.CompletedProcess:
+        """Run an osmo CLI command, re-logging-in once on an auth failure."""
+        r = self._run_osmo(args, timeout=timeout)
+        if r.returncode != 0 and relogin and _looks_like_auth_error(r):
+            log.info("osmo command hit an auth error; re-logging in and retrying")
+            if self._login():
+                r = self._run_osmo(args, timeout=timeout)
+        return r
+
+    def submit_workflow(self, workflow_file: str) -> str:
+        args = ["workflow", "submit", workflow_file, "--pool", self.pool,
+                "--priority", self.priority, "--format-type", "json"]
+        r = self._osmo(args, timeout=self.submit_timeout)
+        if r.returncode != 0:
+            raise RuntimeError(
+                f"osmo workflow submit failed (rc={r.returncode}): "
+                f"{(r.stderr or r.stdout).strip()}"
+            )
+        wid = _extract_workflow_id(r.stdout) or _extract_workflow_id(r.stderr)
+        if not wid:
+            raise RuntimeError(
+                "could not parse workflow id from submit output: "
+                f"{(r.stdout or '').strip()[:500]}"
+            )
+        return wid
+
+    def query_status(self, workflow_id: str) -> str | None:
+        r = self._osmo(
+            ["workflow", "query", workflow_id, "--format-type", "json"],
+            timeout=60,
+        )
+        if r.returncode != 0:
+            log.debug("osmo workflow query %s failed: %s",
+                      workflow_id, (r.stderr or r.stdout).strip())
+            return None
+        return _extract_status(r.stdout) or _extract_status(r.stderr)
+
+    def cancel_workflow(self, workflow_id: str) -> None:
+        r = self._osmo(
+            ["workflow", "cancel", workflow_id, "--force",
+             "--message", "orchestrator reap", "--format-type", "json"],
+            timeout=60,
+        )
+        if r.returncode != 0:
+            log.warning("osmo workflow cancel %s failed (rc=%d): %s",
+                        workflow_id, r.returncode, (r.stderr or r.stdout).strip())
+
+    def list_runner_workflows(self) -> list[dict]:
+        """Active workflows (RUNNING/PENDING/WAITING) named with our prefix."""
+        r = self._osmo(
+            ["workflow", "list", "--name", self.workflow_prefix,
+             "--pool", self.pool, "--count", "100",
+             "--status", *_ACTIVE_STATUSES, "--format-type", "json"],
+            timeout=60,
+        )
+        if r.returncode != 0:
+            log.warning("osmo workflow list failed: %s",
+                        (r.stderr or r.stdout).strip())
+            return []
+        return _extract_workflow_list(r.stdout)
+
+    # ── workflow rendering ───────────────────────────────────────────────────
+
+    def render_workflow(self, workflow_name: str, encoded_jit_config: str) -> str:
+        with open(self.template_path) as f:
+            tmpl = Template(f.read())
+        return tmpl.render(
+            workflow_name=workflow_name,
+            runner_image=self.runner_image,
+            cpu=self.cpu,
+            gpu=self.gpu,
+            memory=self.memory,
+            storage=self.storage,
+            platform=self.platform,
+            privileged="true" if self.privileged else "false",
+            host_network="true" if self.host_network else "false",
+            encoded_jit_config=encoded_jit_config,
+            runner_labels=self.runner_labels,
+        )
+
+    def _write_temp_workflow(self, name: str, content: str) -> str:
+        fd, path = tempfile.mkstemp(prefix=f"{name}-", suffix=".yaml")
+        with os.fdopen(fd, "w") as f:
+            f.write(content)
+        return path
+
+    # ── loops ────────────────────────────────────────────────────────────────
+
     def spawn_once(self) -> None:
         state = load_state(self.state_path)
         active = len(state["jobs"])
-        if active >= self.effective_max_concurrent:
+        if active >= self.max_concurrent:
             return
         try:
             queued = find_queued_jobs(self.repo, self.runner_labels, self.pat)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             log.warning("find_queued_jobs failed: %s", e)
             return
 
-        # Pre-flight capacity check via placement API. Every queued job uses
-        # the same flavor, so we check once per iteration. When OpenStack is
-        # out of GPUs / vCPU / RAM we defer the whole iteration — better than
-        # burning JIT tokens on creates that Nova will flip to ERROR. The
-        # next iteration retries automatically.
-        if queued:
-            ok, reason = check_flavor_capacity(
-                self.conn, self.config["flavor_name"]
-            )
-            if not ok:
-                log.warning(
-                    "deferring spawn — OpenStack capacity unavailable: %s. "
-                    "Will retry in %ds.",
-                    reason, self.spawn_interval,
-                )
-                return
-            elif reason:
-                # Soft-skip path: placement check couldn't run (e.g. older
-                # Nova). Surface why so it's debuggable, then proceed.
-                log.debug("placement pre-flight: %s", reason)
-
         for job in queued:
-            if active >= self.effective_max_concurrent:
+            if active >= self.max_concurrent:
                 break
             job_id = job["job_id"]
             if job_id in state["jobs"]:
                 continue
 
-            # Pre-check FIP availability before minting a JIT token so we
-            # don't burn one when there's nowhere to attach the worker.
-            reserved_fip = None
-            if self.floating_ips:
-                reserved_fip = find_free_floating_ip(self.conn, self.floating_ips)
-                if reserved_fip is None:
-                    log.warning(
-                        "no free floating IP in pool (%d configured); "
-                        "deferring spawns until one frees up",
-                        len(self.floating_ips),
-                    )
-                    break
-
             ts = int(time.time())
-            runner_name = f"ephemeral-{job_id}-{ts}"
-            server_id: str | None = None
+            # OSMO workflow name doubles as the JIT runner registration name.
+            workflow_name = f"{self.workflow_prefix}{job_id}-{ts}"
+            tmp_path: str | None = None
             try:
                 jit = mint_jit_config(
-                    self.repo, runner_name, self.runner_labels, self.pat
+                    self.repo, workflow_name, self.runner_labels, self.pat
                 )
-                user_data = render_cloud_init(
-                    self.template_path, jit, self.runner_version
-                )
-                server_id = spawn_server(
-                    self.conn, self.config, runner_name, job_id, user_data
-                )
-                # Don't move on until Nova reports ACTIVE. If it transitions
-                # to ERROR, this raises with the Nova fault details so the
-                # operator can see *why* the spawn failed (quota, scheduling,
-                # block-device-mapping, networking, etc.).
-                wait_for_server_active(
-                    self.conn,
-                    server_id,
-                    timeout_s=int(self.config.get("server_active_timeout_s", 300)),
-                )
-            except Exception as e:
-                # Tag capacity-related Nova faults so log-grepping for
-                # "capacity unavailable" finds both the pre-flight defer and
-                # the post-create fallback (e.g. PCI passthrough that
-                # placement doesn't track).
-                msg = str(e).lower()
-                capacity_markers = (
-                    "no valid host",
-                    "insufficient",
-                    "quotaexceeded",
-                    "out of resource",
-                    "no host can satisfy",
-                    "no allocation candidates",
-                )
-                if any(m in msg for m in capacity_markers):
-                    log.warning(
-                        "spawn failed for job %s — OpenStack capacity "
-                        "unavailable (post-create): %s. Will retry in %ds.",
-                        job_id, e, self.spawn_interval,
-                    )
-                else:
-                    log.exception("spawn failed for job %s: %s", job_id, e)
-                if server_id:
-                    log.warning(
-                        "deleting failed server %s to release its volume / FIP",
-                        server_id,
-                    )
-                    delete_server(self.conn, server_id)
+                workflow_yaml = self.render_workflow(workflow_name, jit)
+                tmp_path = self._write_temp_workflow(workflow_name, workflow_yaml)
+                workflow_id = self.submit_workflow(tmp_path)
+            except Exception as e:  # noqa: BLE001
+                log.exception("submit failed for job %s: %s", job_id, e)
                 continue
-
-            floating_ip_addr: str | None = None
-            if reserved_fip is not None:
-                try:
-                    floating_ip_addr = attach_floating_ip(
-                        self.conn, server_id, reserved_fip
-                    )
-                    log.info(
-                        "attached floating IP %s to server %s (job %s)",
-                        floating_ip_addr, server_id, job_id,
-                    )
-                except Exception as e:
-                    log.exception(
-                        "FIP attach failed for server %s; deleting to avoid "
-                        "leaking a worker without external access: %s",
-                        server_id, e,
-                    )
-                    delete_server(self.conn, server_id)
-                    continue
+            finally:
+                if tmp_path:
+                    try:
+                        os.remove(tmp_path)
+                    except OSError:
+                        pass
 
             state["jobs"][job_id] = {
                 "run_id": job["run_id"],
-                "server_id": server_id,
-                "runner_name": runner_name,
-                "spawned_at": now_utc_iso(),
+                "workflow_id": workflow_id,
+                "workflow_name": workflow_name,
+                "runner_name": workflow_name,
+                "submitted_at": now_utc_iso(),
                 "name": job["name"],
-                "floating_ip": floating_ip_addr,
             }
             save_state(self.state_path, state)
             active += 1
             log.info(
-                "spawned server %s for job %s (%s)", server_id, job_id, job["name"]
+                "submitted workflow %s for job %s (%s)",
+                workflow_id, job_id, job["name"],
             )
 
     def reap_once(self) -> None:
         state = load_state(self.state_path)
         now = datetime.now(timezone.utc)
 
-        # 1. Delete servers for completed jobs.
+        # 1. Cancel workflows for completed / purged jobs.
         for job_id in list(state["jobs"].keys()):
             entry = state["jobs"][job_id]
+            wid = entry["workflow_id"]
             try:
                 job = get_job_status(self.repo, job_id, self.pat)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 log.warning("get_job_status(%s) failed: %s", job_id, e)
                 continue
+
             if job is None or job.get("status") == "completed":
-                log.info("reaping server %s (job %s done)", entry["server_id"], job_id)
-                delete_server(self.conn, entry["server_id"])
+                # The runner usually exits on its own (task self-completes and
+                # the pod is torn down); only cancel if it's somehow still live.
+                status = self.query_status(wid)
+                if not _is_terminal(status):
+                    log.info("reaping workflow %s (job %s done, wf status=%s)",
+                             wid, job_id, status)
+                    self.cancel_workflow(wid)
+                else:
+                    log.info("workflow %s already terminal (%s) for job %s",
+                             wid, status, job_id)
                 del state["jobs"][job_id]
                 continue
 
             # 2. Force-reap stragglers older than max_job_minutes.
-            spawned = parse_iso(entry["spawned_at"])
-            age_min = (now - spawned).total_seconds() / 60.0
+            age_min = (now - parse_iso(entry["submitted_at"])).total_seconds() / 60.0
             if age_min > self.max_job_minutes:
                 log.warning(
-                    "force-reaping server %s (job %s age %.1fm > %dm)",
-                    entry["server_id"], job_id, age_min, self.max_job_minutes,
+                    "force-reaping workflow %s (job %s age %.1fm > %dm)",
+                    wid, job_id, age_min, self.max_job_minutes,
                 )
-                delete_server(self.conn, entry["server_id"])
+                self.cancel_workflow(wid)
                 del state["jobs"][job_id]
 
         save_state(self.state_path, state)
 
-        # 3. Orphan sweep: any server we own that isn't in state and isn't
-        #    in the brief just-spawned window. Catches state.json wipes and
-        #    crashes between spawn and save_state.
+        # 3. Orphan sweep: our-named workflows still active but absent from
+        #    state (catches state.json wipes and crashes between submit and
+        #    save_state). Skip very fresh ones so we don't race our own submit.
         try:
-            owned = list_owned_servers(self.conn)
-        except Exception as e:
-            log.warning("list_owned_servers failed: %s", e)
+            listed = self.list_runner_workflows()
+        except Exception as e:  # noqa: BLE001
+            log.warning("list_runner_workflows failed: %s", e)
             return
-        tracked_ids = {e["server_id"] for e in state["jobs"].values()}
-        for s in owned:
-            if s.id in tracked_ids:
+        tracked_ids = {e["workflow_id"] for e in state["jobs"].values()}
+        tracked_names = {e["workflow_name"] for e in state["jobs"].values()}
+        for wf in listed:
+            wid, wname = wf.get("id"), wf.get("name")
+            if (wid and wid in tracked_ids) or (wname and wname in tracked_names):
                 continue
-            created = getattr(s, "created_at", None)
-            if created:
-                try:
-                    age_min = (now - parse_iso(created.replace("Z", "+00:00"))).total_seconds() / 60.0
-                except Exception:
-                    age_min = self.max_job_minutes + 1
-            else:
-                age_min = self.max_job_minutes + 1
-            # Only reap orphans that have lived past one spawn interval
-            # (to avoid racing our own freshly-created server).
-            if age_min < 2:
+            age = _name_age_minutes(wname)
+            if age is not None and age < 2:
                 continue
-            log.warning(
-                "orphan-reaping server %s (not in state, age %.1fm)", s.id, age_min
-            )
-            delete_server(self.conn, s.id)
+            target = wid or wname
+            if not target:
+                continue
+            log.warning("orphan-reaping workflow %s (not in state)", target)
+            self.cancel_workflow(target)
 
     def run(self) -> None:
         log.info(
-            "orchestrator started: repo=%s labels=%s max_concurrent=%d "
-            "(effective=%d, floating_ip_pool=%d)",
-            self.repo, self.runner_labels, self.max_concurrent,
-            self.effective_max_concurrent, len(self.floating_ips),
+            "orchestrator started (OSMO backend): repo=%s labels=%s pool=%s "
+            "platform=%s max_concurrent=%d",
+            self.repo, self.runner_labels, self.pool,
+            self.platform or "(pool default)", self.max_concurrent,
         )
         last_spawn = 0.0
         last_reap = 0.0
@@ -656,13 +592,13 @@ class Orchestrator:
             if now - last_spawn >= self.spawn_interval:
                 try:
                     self.spawn_once()
-                except Exception:
+                except Exception:  # noqa: BLE001
                     log.exception("spawn loop iteration failed")
                 last_spawn = now
             if now - last_reap >= self.reap_interval:
                 try:
                     self.reap_once()
-                except Exception:
+                except Exception:  # noqa: BLE001
                     log.exception("reap loop iteration failed")
                 last_reap = now
             self.stop_evt.wait(timeout=1.0)

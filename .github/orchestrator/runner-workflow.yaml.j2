@@ -1,0 +1,48 @@
+# OSMO workflow rendered per-job by orchestrator.py (replaces the old
+# cloud-init.yaml.j2). One workflow == one ephemeral GitHub Actions runner ==
+# one CI job. Jinja variables injected by the orchestrator:
+#
+#   workflow_name       unique name (gha-runner-<job_id>-<unix_ts>); also the
+#                       JIT runner registration name
+#   runner_image        prebaked image (docker-ce + compose + nvidia-container-
+#                       toolkit + GH Actions runner) — see runner.Dockerfile
+#   cpu / gpu / memory / storage   resource request for the runner task
+#   platform            optional OSMO platform to target within the pool
+#                       (omitted -> the pool's default platform)
+#   privileged          "true"/"false"; MUST be "true" because the AirStack
+#                       test harness runs `airstack up` (docker compose) inside
+#                       the pod, which needs an inner Docker daemon. Requires a
+#                       platform with "Privileged Mode Allowed" (ask your OSMO
+#                       admin to enable it for the CI pool).
+#   host_network        "true"/"false"
+#   encoded_jit_config  single-use base64 GitHub JIT runner config
+#
+# The pool is passed by the orchestrator via `osmo workflow submit --pool`, so
+# it is intentionally not hard-coded here.
+#
+# Lifecycle: the container starts dockerd, then runs exactly ONE ephemeral job
+# via the JIT config. When run.sh exits, the task completes and OSMO tears the
+# pod down — same "destroy after one job" behavior the OpenStack VM had.
+workflow:
+  name: {{ workflow_name }}
+  resources:
+    runner:
+      cpu: {{ cpu }}
+      gpu: {{ gpu }}
+      memory: {{ memory }}
+      storage: {{ storage }}
+{% if platform %}      platform: {{ platform }}
+{% endif %}
+  tasks:
+    - name: runner
+      image: {{ runner_image }}
+      resource: runner
+      privileged: {{ privileged }}
+{% if host_network == "true" %}      hostNetwork: true
+{% endif %}
+      environment:
+        # Single-use + ephemeral: the runner exits after exactly one job.
+        ENCODED_JIT_CONFIG: "{{ encoded_jit_config }}"
+        # The runner refuses to run as root without this; the DinD image is root.
+        RUNNER_ALLOW_RUNASROOT: "1"
+      command: ["/usr/local/bin/run-ephemeral-runner.sh"]
