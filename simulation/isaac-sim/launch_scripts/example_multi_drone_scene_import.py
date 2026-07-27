@@ -5,9 +5,48 @@ import os
 import carb
 from isaacsim import SimulationApp
 
-# Start Isaac Sim's simulation environment (Must start this before importing omni modules)
-simulation_app = SimulationApp(
-    {"headless": os.getenv("ISAAC_SIM_HEADLESS", "false").lower() == "true"})
+_LIVESTREAM = os.environ.get("ISAAC_SIM_LIVESTREAM", "").lower() == "true"
+
+# Start Isaac Sim's simulation environment (Must start this before importing
+# omni modules). When livestreaming, mirror the NVIDIA reference config —
+# headless with the UI kept visible so the Kit GUI is rendered into the
+# WebRTC stream (see example_one_px4_pegasus_launch_script.py for the full
+# rationale; this script previously lacked the livestream branch entirely, so
+# the isaac-sim-livestream profile ran it with nothing listening on the
+# WebRTC ports).
+if _LIVESTREAM:
+    _SIM_APP_CONFIG = {
+        "width": 1280,
+        "height": 720,
+        "window_width": 1920,
+        "window_height": 1080,
+        "headless": True,
+        "hide_ui": False,
+        "renderer": "RaytracedLighting",
+        "display_options": 3286,
+    }
+else:
+    _SIM_APP_CONFIG = {
+        "headless": os.getenv("ISAAC_SIM_HEADLESS", "false").lower() == "true"}
+
+simulation_app = SimulationApp(launch_config=_SIM_APP_CONFIG)
+
+if _LIVESTREAM:
+    # Enable WebRTC livestream and pin the UDP media port to the single port
+    # published by the isaac-sim-livestream Compose profile and forwarded by
+    # `airstack osmo:webrtc`. Kit 107 otherwise picks a dynamic media port
+    # outside the forwarded set — signaling (TCP 49100) connects and the
+    # client opens, but every media packet drops and the viewport stays
+    # black. Full history in example_one_px4_pegasus_launch_script.py.
+    from isaacsim.core.utils.extensions import enable_extension
+    simulation_app.set_setting("/app/window/drawMouse", True)
+    simulation_app.set_setting("/app/livestream/enabled", True)
+    LIVESTREAM_UDP_PORT = int(
+        os.environ.get("ISAAC_SIM_LIVESTREAM_UDP_PORT", "49099"))
+    simulation_app.set_setting("/app/livestream/fixedHostPort", LIVESTREAM_UDP_PORT)
+    simulation_app.set_setting("/app/livestream/minHostPort", LIVESTREAM_UDP_PORT)
+    simulation_app.set_setting("/app/livestream/maxHostPort", LIVESTREAM_UDP_PORT)
+    enable_extension("omni.kit.livestream.webrtc")
 
 # Set local Nucleus as asset root before importing Pegasus (which resolves it at import time)
 carb.settings.get_settings().set(
