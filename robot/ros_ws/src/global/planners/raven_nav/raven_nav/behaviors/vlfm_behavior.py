@@ -16,7 +16,9 @@ geo-priors (those are RAVEN, not the baseline).
 import numpy as np
 import scipy.ndimage
 from nav_msgs.msg import Path
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Point
+from std_msgs.msg import String
+from visualization_msgs.msg import Marker, MarkerArray
 
 from raven_nav.behaviors.frontier_behavior import _points_in_polygon
 
@@ -29,6 +31,9 @@ class VLFMBehavior:
     UNLOCK_M = 4.0           # within this of the look-ahead -> release lock
     NEAR_VISITED_M = 10.0    # cluster center within this of a visited one -> skip
     VOX_SIZE_M = 0.5
+    VIZ_MAX_RAYS = 80        # cap candidate-ray arrows to avoid clutter
+    VIZ_ARROW_M = 2.5        # arrow length (m)
+    VIZ_LIFETIME_S = 2       # markers auto-expire so stale ones self-clear
 
     def __init__(self, get_clock, min_altitude=1.5, max_altitude=100.0,
                  voxel_score_threshold=0.9, voxel_min_cluster_size=30):
@@ -46,7 +51,7 @@ class VLFMBehavior:
     def execute(self, ray_origins, ray_scores, ray_dirs, vox_xyz, vox_scores,
                 query_labels, target_objects, cur_pose_np, waypoint_locked,
                 target_waypoint, target_waypoint2, publisher_dict,
-                search_area_xy=None):
+                search_area_xy=None, debug_logger=None):
         if cur_pose_np is None or not target_objects or not query_labels:
             return waypoint_locked, target_waypoint, target_waypoint2
         cols = [query_labels.index(t) for t in target_objects
@@ -55,19 +60,20 @@ class VLFMBehavior:
             return waypoint_locked, target_waypoint, target_waypoint2
 
         engaged = self._go_to_object(vox_xyz, vox_scores, cols, cur_pose_np,
-                                     publisher_dict, search_area_xy)
+                                     publisher_dict, search_area_xy, debug_logger)
         if engaged is not None:
             wp1, wp2 = engaged
             return True, wp1, wp2
 
         return self._explore(ray_origins, ray_scores, ray_dirs, cols,
                              cur_pose_np, waypoint_locked, target_waypoint,
-                             target_waypoint2, publisher_dict, search_area_xy)
+                             target_waypoint2, publisher_dict, search_area_xy,
+                             debug_logger)
 
     # ── go-to-object ─────────────────────────────────────────────────────────
 
     def _go_to_object(self, vox_xyz, vox_scores, cols, cur_pose_np,
-                      publisher_dict, search_area_xy):
+                      publisher_dict, search_area_xy, debug_logger=None):
         if vox_xyz is None or vox_scores is None or vox_xyz.shape[0] == 0:
             return None
         relevant = vox_scores[:, cols]
@@ -90,6 +96,16 @@ class VLFMBehavior:
         approach = self._approach_point(center, size, cur_pose_np)
         self._publish_path([self._blend(cur_pose_np, approach), approach],
                            publisher_dict)
+        self._publish_target_marker(publisher_dict, approach, (0.1, 0.6, 1.0))
+        self._publish_status(publisher_dict,
+                             f'VLFM go-to-object -> '
+                             f'({approach[0]:.0f},{approach[1]:.0f})')
+        if debug_logger is not None:
+            debug_logger.info(
+                f'[vlfm] go-to-object: {len(clusters)} cluster(s), '
+                f'nearest center=({center[0]:.1f},{center[1]:.1f},{center[2]:.1f}) '
+                f'approach=({approach[0]:.1f},{approach[1]:.1f},{approach[2]:.1f})',
+                throttle_duration_sec=2.0)
         return approach, approach
 
     def _cluster(self, pts):
@@ -132,18 +148,27 @@ class VLFMBehavior:
 
     def _explore(self, ray_origins, ray_scores, ray_dirs, cols, cur_pose_np,
                  waypoint_locked, target_waypoint, target_waypoint2,
-                 publisher_dict, search_area_xy):
+                 publisher_dict, search_area_xy, debug_logger=None):
         if ray_origins is None or ray_scores is None or ray_origins.shape[0] == 0:
+            if debug_logger is not None:
+                debug_logger.warn('[vlfm] explore: no semantic rays yet — holding',
+                                  throttle_duration_sec=2.0)
             return waypoint_locked, target_waypoint, target_waypoint2
         z = ray_origins[:, 2]
         valid = (z >= self.min_altitude) & (z <= self.max_altitude)
         if search_area_xy is not None:
             valid &= _points_in_polygon(ray_origins[:, :2], search_area_xy)
         if not valid.any():
+            if debug_logger is not None:
+                debug_logger.warn(
+                    f'[vlfm] explore: 0/{ray_origins.shape[0]} rays pass '
+                    f'altitude band [{self.min_altitude:.0f},{self.max_altitude:.0f}]'
+                    f' + polygon — holding', throttle_duration_sec=2.0)
             return waypoint_locked, target_waypoint, target_waypoint2
 
         relevant = ray_scores[:, cols].astype(float).copy()
         relevant[~valid] = -np.inf
+        per_ray = relevant.max(axis=1)
         ray_idx = int(np.argmax(relevant)) // relevant.shape[1]
 
         origin = ray_origins[ray_idx].astype(float)
@@ -160,6 +185,18 @@ class VLFMBehavior:
         wp2[2] = float(np.clip(wp2[2], self.min_altitude, self.max_altitude))
 
         self._publish_path([self._blend(cur_pose_np, wp1), wp1], publisher_dict)
+        best = float(per_ray[ray_idx])
+        self._publish_ray_viz(publisher_dict, ray_origins, ray_dirs, per_ray,
+                              valid, ray_idx, wp1)
+        self._publish_status(publisher_dict,
+                             f'VLFM explore -> ({wp1[0]:.0f},{wp1[1]:.0f}) '
+                             f'sim={best:.2f}')
+        if debug_logger is not None:
+            debug_logger.info(
+                f'[vlfm] explore: {int(valid.sum())}/{ray_origins.shape[0]} rays '
+                f'in band, best sim={best:.3f} -> '
+                f'target=({wp1[0]:.1f},{wp1[1]:.1f},{wp1[2]:.1f})',
+                throttle_duration_sec=2.0)
         if float(np.linalg.norm(cur_pose_np - wp2)) < self.UNLOCK_M:
             waypoint_locked = False
         return waypoint_locked, wp1, wp2
@@ -183,3 +220,78 @@ class VLFMBehavior:
             ps.pose.orientation.w = 1.0
             path.poses.append(ps)
         publisher_dict['path'].publish(path)
+
+    # ── visualization (reuses the filtered_rays / current_target topics) ─────────
+
+    def _publish_status(self, publisher_dict, text):
+        pub = publisher_dict.get('current_target')
+        if pub is not None:
+            pub.publish(String(data=text))
+
+    def _arrow(self, i, origin, tip, rgb, now, width=0.4):
+        m = Marker()
+        m.header.frame_id = 'map'
+        m.header.stamp = now
+        m.ns = 'vlfm'
+        m.id = i
+        m.type = Marker.ARROW
+        m.action = Marker.ADD
+        m.points = [Point(x=float(origin[0]), y=float(origin[1]), z=float(origin[2])),
+                    Point(x=float(tip[0]), y=float(tip[1]), z=float(tip[2]))]
+        m.scale.x = width
+        m.scale.y = width * 2.5
+        m.scale.z = width * 1.5
+        m.color.r, m.color.g, m.color.b, m.color.a = rgb[0], rgb[1], rgb[2], 0.6
+        m.lifetime.sec = self.VIZ_LIFETIME_S
+        return m
+
+    def _sphere(self, i, pt, rgb, now, size=3.0):
+        m = Marker()
+        m.header.frame_id = 'map'
+        m.header.stamp = now
+        m.ns = 'vlfm'
+        m.id = i
+        m.type = Marker.SPHERE
+        m.action = Marker.ADD
+        m.pose.position.x = float(pt[0])
+        m.pose.position.y = float(pt[1])
+        m.pose.position.z = float(pt[2])
+        m.pose.orientation.w = 1.0
+        m.scale.x = m.scale.y = m.scale.z = size
+        m.color.r, m.color.g, m.color.b, m.color.a = rgb[0], rgb[1], rgb[2], 0.9
+        m.lifetime.sec = self.VIZ_LIFETIME_S
+        return m
+
+    def _publish_ray_viz(self, publisher_dict, origins, dirs, per_ray, valid,
+                         sel_idx, target_pt):
+        """Candidate rays as arrows colored by similarity (red->green) + the
+        selected target as a magenta sphere, on the filtered_rays topic."""
+        pub = publisher_dict.get('filtered_rays')
+        if pub is None:
+            return
+        now = self.get_clock().now().to_msg()
+        ma = MarkerArray()
+        vidx = np.where(valid)[0]
+        if vidx.size:
+            order = np.argsort(-per_ray[vidx])[:self.VIZ_MAX_RAYS]
+            vidx = vidx[order]
+            lo = float(per_ray[valid].min())
+            hi = float(per_ray[valid].max())
+            span = (hi - lo) or 1.0
+            for j, i in enumerate(vidx):
+                t = (float(per_ray[i]) - lo) / span
+                o = origins[i]
+                tip = o + (dirs[i] if dirs is not None else 0.0) * self.VIZ_ARROW_M
+                ma.markers.append(
+                    self._arrow(j + 1, o, tip, (1.0 - t, t, 0.15), now))
+        ma.markers.append(self._sphere(0, target_pt, (1.0, 0.0, 1.0), now))
+        pub.publish(ma)
+
+    def _publish_target_marker(self, publisher_dict, target_pt, rgb):
+        pub = publisher_dict.get('filtered_rays')
+        if pub is None:
+            return
+        ma = MarkerArray()
+        ma.markers.append(
+            self._sphere(0, target_pt, rgb, self.get_clock().now().to_msg()))
+        pub.publish(ma)

@@ -74,7 +74,7 @@ class BehaviorManager:
                 ray_origins, ray_scores, ray_dirs, vox_xyz, vox_scores,
                 query_labels, target_objects, cur_pose_np, waypoint_locked,
                 target_waypoint, target_waypoint2, publisher_dict,
-                search_area_xy=search_area_xy)
+                search_area_xy=search_area_xy, debug_logger=debug_logger)
         if behavior_mode == 'Voxel-based':
             return self.voxel_behavior.execute(
                 vox_xyz, vox_scores, query_labels, cur_pose_np,

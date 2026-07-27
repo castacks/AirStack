@@ -67,6 +67,9 @@ class PeerState:
     # Per-group bids (one BidEntry per ray group). Imported lazily in update()
     # to avoid a hard dependency from this module on bid_manager.
     peer_bids:       Dict[str, list] = field(default_factory=dict)
+    # Chatter gate: baselines ignore the auction, so the per-peer bid print is
+    # just noise there. The node sets this False in frontier/vlfm baseline mode.
+    verbose_bids:    bool = True
     peer_completed:  Dict[str, Set[str]]   = field(default_factory=dict)
     peer_committed_target: Dict[str, str]  = field(default_factory=dict)
     # name -> (label, origin_local(3), dir(3)): the specific instance bearing a
@@ -283,8 +286,9 @@ class PeerState:
                         is_bb=(nr == 0),
                     ))
             self.peer_bids[name] = entries
-            summary = [(e.label, round(e.value, 2)) for e in entries]
-            print(f'[peer_state] applied bids for {name}: {summary}')
+            if self.verbose_bids:
+                summary = [(e.label, round(e.value, 2)) for e in entries]
+                print(f'[peer_state] applied bids for {name}: {summary}')
 
         peer_id = _extract_robot_id(name)
         if peer_id is not None:

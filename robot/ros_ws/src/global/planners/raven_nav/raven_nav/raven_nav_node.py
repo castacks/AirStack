@@ -243,6 +243,10 @@ class RavenNavNode(Node):
             self.get_logger().info(
                 'vlfm_baseline=true — navigation is greedy VLFM '
                 '(argmax semantic ray + voxel go-to-object)')
+        # In either baseline the semantic auction/consensus is inert (baselines
+        # ignore assigned/committed), so its per-tick logs are just noise.
+        self._is_baseline = self._frontier_only_baseline or self._vlfm_baseline
+        self._peer_state.verbose_bids = not self._is_baseline
 
         timer_period = self.declare_parameter('timer_period', 0.5).value
         # Coordination debug lines are tagged "[coord]".
@@ -2554,11 +2558,12 @@ class RavenNavNode(Node):
             ages = ' '.join(
                 f'{n}:{now - self._peer_state.peer_last_seen[n]:.1f}s'
                 for n in sorted(fresh_peers))
-            self.get_logger().info(
-                f'[auction] L={self._bundle_len} ' + ' | '.join(parts)
-                + (f' | ages {ages}' if ages else '')
-                + f' | unassigned={len(dbg.get("unassigned_tasks", []))}',
-                throttle_duration_sec=5.0)
+            if not self._is_baseline:
+                self.get_logger().info(
+                    f'[auction] L={self._bundle_len} ' + ' | '.join(parts)
+                    + (f' | ages {ages}' if ages else '')
+                    + f' | unassigned={len(dbg.get("unassigned_tasks", []))}',
+                    throttle_duration_sec=5.0)
 
         won = None   # ray exploration is now a consensus task, not a side auction
         if my_task is not None:
@@ -2585,7 +2590,7 @@ class RavenNavNode(Node):
                 self._committed_bb_center = np.asarray(my_task.centroid, float).copy()
             if prev != my_task.label:
                 self._committed_bearing_lock_ts = now
-                if self._debug_coord:
+                if self._debug_coord and not self._is_baseline:
                     self.get_logger().info(
                         f'[coord] consensus assigned {my_task.label} '
                         f'[{my_task.status}] @ '
@@ -2753,7 +2758,14 @@ class RavenNavNode(Node):
         else:
             bids_lines.append('  (none — no peers heard yet)')
         self._bids_table_pub.publish(String(data='\n'.join(bids_lines)))
-        if self._debug_coord:
+        if self._debug_coord and self._is_baseline:
+            # Baselines ignore the auction — log a concise heartbeat instead of
+            # the assigned/committed/bids spam (the behavior logs its own choice).
+            self.get_logger().info(
+                f'[coord] mode={self._behavior_mode} (baseline) '
+                f'targets={self._target_objects}',
+                throttle_duration_sec=2.0)
+        elif self._debug_coord:
             def _fmt_bid_list(entries):
                 if not entries:
                     return '[]'
