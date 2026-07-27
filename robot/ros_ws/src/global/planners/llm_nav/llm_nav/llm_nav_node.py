@@ -73,7 +73,7 @@ class Commitment:
         self.ray_dir = ray_dir
         self.path_points = path_points    # survey circle waypoints
         self.extension = None             # wp + 2m past, raven-style segment
-        self.passed_half = False          # survey: reached the far side
+        self.hop_idx = 0                  # survey: current circle hop
         self.ray_missing = 0              # digests with no matching ray evidence
         self.refined_instance_id = None   # set when a ray resolves to a V#
         self.t_commit = time.monotonic()
@@ -87,6 +87,10 @@ class Commitment:
             return 'surveying (climb + circle to scan the horizon)'
         if self.kind == 'frontier':
             return f'exploring unmapped area to the {self.ref_id}'
+        if self.kind == 'surface':
+            return f'following the {self.ref_id} into unmapped area'
+        if self.kind == 'scan':
+            return f'scanning {self.ref_id} ({self.label}) side by side'
         if self.refined_instance_id:
             return (f'following ray lead {self.ref_id} ({self.label}), '
                     f'resolved to {self.refined_instance_id}')
@@ -164,6 +168,7 @@ class LlmNavNode(Node):
         self._search_poly: list = []
         self._commitment: 'Commitment | None' = None
         self._visited: list = []          # [{'instance_id','label','cx','cy','cz','confidence'}]
+        self._scanned: set = set()        # instance ids already side-scanned
         self._blacklist: dict = {}        # instance id -> wall time until blocked
         self._blacklisted_dirs: list = [] # [np(3) unit dirs] from aborted ray commits
         self._detected_labels = None
@@ -449,6 +454,11 @@ class LlmNavNode(Node):
             for iid, inst in self._builder._instances.items():
                 if inst.visited or inst.label.lower() != target_l:
                     continue
+                # Ambiguous/oversized target readings must not be auto-marked
+                # as found by mere proximity — only an explicit LLM
+                # commitment can visit those.
+                if inst.ambiguous or inst.oversized:
+                    continue
                 # Inherit visited across tracker identity breaks: memory is
                 # SPATIAL — if a "new" instance sits on a location we already
                 # visited, it is not a new target (its voxels still score
@@ -519,8 +529,17 @@ class LlmNavNode(Node):
         path = Path()
         path.header.stamp = self.get_clock().now().to_msg()
         path.header.frame_id = 'map'
-        if com.path_points:                       # survey circle (short hops)
-            pts = list(com.path_points)
+        if com.path_points:
+            # Survey: ONE hop at a time. Publishing the whole circle is
+            # degenerate — from the circle's center every path point is
+            # equidistant, so droan's closest-point selection jumps segments
+            # instead of sweeping. The [hop, next-hop] stub also points the
+            # velocity (and camera yaw) along the tangent.
+            k = min(com.hop_idx, len(com.path_points) - 1)
+            nxt = com.path_points[min(k + 1, len(com.path_points) - 1)]
+            if np.allclose(nxt, com.path_points[k]):
+                nxt = self._extension_point(cur, com.path_points[k])
+            pts = (com.path_points[k], nxt)
         elif com.extension is not None:
             pts = (com.waypoint, com.extension)
         else:
@@ -624,13 +643,19 @@ class LlmNavNode(Node):
                          waypoint=[round(float(v), 1) for v in wp])
 
     def _check_completion(self, com: Commitment, cur: np.ndarray):
-        # Survey: the circle's last point is near its first, so require the
-        # far side of the circle to have been reached before arming arrival —
-        # otherwise the camera never sweeps the full horizon.
-        if com.kind == 'survey' and com.path_points and not com.passed_half:
-            mid = com.path_points[len(com.path_points) // 2]
-            if float(np.linalg.norm(cur - mid)) <= self._reach_m + 1.0:
-                com.passed_half = True
+        # Survey/scan: advance hop by hop; complete after the last hop so the
+        # camera sweeps the full horizon / every face.
+        if com.path_points:
+            if float(np.linalg.norm(
+                    cur - com.path_points[com.hop_idx])) <= self._reach_m:
+                com.hop_idx += 1
+                if com.hop_idx < len(com.path_points):
+                    with self._map_lock:
+                        com.waypoint = com.path_points[com.hop_idx]
+                        com.best_dist = float('inf')
+                        com.t_best_dist = time.monotonic()
+                    return
+                # fall through: circle done -> complete below
             else:
                 return
         done = False
@@ -683,6 +708,10 @@ class LlmNavNode(Node):
             visited_snapshot = list(self._visited)
         if com.kind == 'survey':
             self._last_survey_end = time.time()
+        if com.kind == 'scan':
+            self._scanned.add(com.ref_id)
+            self._mlog.event('instance_scanned', instance=com.ref_id,
+                             label=com.label)
         self.get_logger().info(
             f'[commit] COMPLETE: {com.describe()} '
             f'({len(visited_snapshot)} visited so far)')
@@ -764,6 +793,37 @@ class LlmNavNode(Node):
                 x, y = nearest_point_in_polygon_xy(x, y, poly)
             pts.append(np.array([x, y, alt], dtype=np.float64))
         return pts
+
+    @log_call
+    def _scan_path(self, inst, cur: np.ndarray) -> list:
+        """Face-poke scan of an instance: for each side of its bbox, an outer
+        point then an inner point pushed toward the face. droan yaws along
+        velocity, so each outer->inner leg looks INTO the facade (windows/
+        openings) — a plain orbit would only ever look tangent past it.
+        Sides are visited as a loop starting nearest the drone."""
+        c = (inst.bbox_min + inst.bbox_max) / 2.0
+        half = np.maximum((inst.bbox_max - inst.bbox_min) / 2.0, 0.5)
+        z = float(min(max(c[2], self._min_altitude), self._max_altitude))
+        with self._map_lock:
+            poly = list(self._search_poly)
+        faces = []
+        for dx, dy in ((1, 0), (0, 1), (-1, 0), (0, -1)):
+            off = half[0] if dx else half[1]
+            face = c[:2] + np.array([dx, dy]) * off
+            outer = face + np.array([dx, dy]) * (self._standoff_m * 1.6)
+            inner = face + np.array([dx, dy]) * (self._standoff_m * 0.7)
+            faces.append((outer, inner))
+        start = int(np.argmin(
+            [np.linalg.norm(o - cur[:2]) for o, _ in faces]))
+        hops = []
+        for k in range(4):
+            outer, inner = faces[(start + k) % 4]
+            for p in (outer, inner):
+                x, y = float(p[0]), float(p[1])
+                if len(poly) >= 3 and not point_in_polygon_xy(x, y, poly):
+                    x, y = nearest_point_in_polygon_xy(x, y, poly)
+                hops.append(np.array([x, y, z], dtype=np.float64))
+        return hops
 
     @log_call
     def _frontier_waypoint(self, sector_target: np.ndarray) -> np.ndarray:
@@ -857,7 +917,8 @@ class LlmNavNode(Node):
         with self._map_lock:
             current = dict(min_voxels=self._builder.min_instance_voxels,
                            score_floor=self._builder.floor_cos,
-                           merge_gap_m=self._builder.merge_gap_m)
+                           merge_gap_m=self._builder.merge_gap_m,
+                           expected_size_m=self._builder.expected_size)
         params = self._llm.perception_params(self._target, current)
         if params is None:
             self.get_logger().warn(
@@ -866,12 +927,15 @@ class LlmNavNode(Node):
         with self._map_lock:
             self._builder.set_perception_params(
                 params['min_voxels'], params['score_floor'],
-                params['merge_gap_m'])
+                params['merge_gap_m'], params['expected_size_m'])
+        e = params['expected_size_m']
         self.get_logger().info(
             f'[perception] LLM set clustering for "{self._target}": '
             f'min_voxels={params["min_voxels"]} '
             f'score_floor={params["score_floor"]:.2f} '
-            f'merge_gap={params["merge_gap_m"]:.1f}m — {params["reason"]}')
+            f'merge_gap={params["merge_gap_m"]:.1f}m '
+            f'expected_size={e[0]:.0f}x{e[1]:.0f}x{e[2]:.0f}m '
+            f'— {params["reason"]}')
         self._mlog.event('perception_params_set', **params)
 
     def _clustering_stats(self) -> str:
@@ -1044,7 +1108,8 @@ class LlmNavNode(Node):
                           ) if com is not None else 'choosing the next goal'
                 digest = self._builder.build(
                     cur, heading, status, ray_o, ray_d, ray_s,
-                    frontiers, blacklist, bdirs, visited_points=visited_pts)
+                    frontiers, blacklist, bdirs, visited_points=visited_pts,
+                    scanned=set(self._scanned))
             if merges:
                 self.get_logger().info(f'[track] merged instances: {merges}')
                 self._mlog.event('instances_merged', merges=merges)
@@ -1064,7 +1129,9 @@ class LlmNavNode(Node):
             digest.text, self._target,
             digest.selectable_instances, digest.selectable_rays,
             set(digest.frontier_targets), self._survey_allowed(),
-            allow_retune=self._llm_perception and self._retune_allowed())
+            allow_retune=self._llm_perception and self._retune_allowed(),
+            surface_ids=set(digest.surface_follow),
+            scan_ids=set(digest.scan_ids))
         fallback = False
         if parsed is None:
             # Deterministic fallback: strongest target-scoring candidate. Loud —
@@ -1091,14 +1158,15 @@ class LlmNavNode(Node):
             self._last_retune = time.time()
             current = dict(min_voxels=self._builder.min_instance_voxels,
                            score_floor=self._builder.floor_cos,
-                           merge_gap_m=self._builder.merge_gap_m)
+                           merge_gap_m=self._builder.merge_gap_m,
+                           expected_size_m=self._builder.expected_size)
             params = self._llm.perception_params(
                 self._target, current, stats=self._clustering_stats())
             if params is not None:
                 with self._map_lock:
                     self._builder.set_perception_params(
                         params['min_voxels'], params['score_floor'],
-                        params['merge_gap_m'])
+                        params['merge_gap_m'], params['expected_size_m'])
                 self.get_logger().info(
                     f'[perception] RETUNE: {current} -> {params}')
                 self._mlog.event('perception_retuned', previous=current,
@@ -1136,10 +1204,29 @@ class LlmNavNode(Node):
                 return
             wp = self._frontier_waypoint(tgt)
             com = Commitment('frontier', act['id'], 'unexplored', wp)
+        elif act['type'] == 'follow_surface':
+            tgt = digest.surface_follow.get(act['id'])
+            if tgt is None:
+                self._mlog.event('commit_failed', reason='surface gone',
+                                 id=act['id'])
+                return
+            # Same clamps as a frontier goal: polygon + altitude band.
+            wp = self._frontier_waypoint(tgt)
+            com = Commitment('surface', act['id'],
+                             act['id'].split(' ')[0], wp)
+        elif act['type'] == 'scan_instance':
+            with self._map_lock:
+                inst = self._builder.instance(act['id'])
+            if inst is None:
+                self._mlog.event('commit_failed', reason='instance vanished',
+                                 id=act['id'])
+                return
+            hops = self._scan_path(inst, cur)
+            com = Commitment('scan', act['id'], inst.label, hops[0],
+                             path_points=hops)
         else:  # survey
             pts = self._survey_circle(cur)
-            wp = pts[-1]
-            com = Commitment('survey', 'survey', 'horizon scan', wp,
+            com = Commitment('survey', 'survey', 'horizon scan', pts[0],
                              path_points=pts)
         com.extension = self._extension_point(cur, com.waypoint)
         with self._map_lock:
@@ -1165,7 +1252,8 @@ class LlmNavNode(Node):
             return dict(top_labels).get(self._target, 0.0)
         insts = [i for i in digest.instances
                  if i.id in digest.selectable_instances
-                 and i.label.lower() == target_l]
+                 and i.label.lower() == target_l
+                 and not i.ambiguous and not i.oversized]
         if insts:
             best = max(insts, key=lambda i: target_score(i.top_labels))
             return dict(seeing='', action=dict(

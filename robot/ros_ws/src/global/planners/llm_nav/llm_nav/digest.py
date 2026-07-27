@@ -129,6 +129,13 @@ class Instance:
     hits: int = 1
     misses: int = 0
     visited: bool = False
+    # Target-label instances whose target score barely beats another label:
+    # (runner-up label, its score) — rendered as AMBIGUOUS for the LLM and
+    # excluded from passive auto-visits and the deterministic fallback.
+    runner_up: 'tuple | None' = None
+    ambiguous: bool = False
+    oversized: bool = False       # far larger than the LLM's expected size
+    undersized: bool = False      # far smaller — likely a partial view
 
 
 @dataclass
@@ -154,6 +161,13 @@ class Digest:
     # compass sector -> centroid (np(3)) of that sector's frontier cells;
     # keys double as the goto_frontier ids offered to the LLM.
     frontier_targets: dict = field(default_factory=dict)
+    # '<surface> <compass>' -> waypoint at the mapped surface's far end in
+    # that direction (+ a step into the unmapped continuation) — the
+    # follow_surface ids ("follow the road NE to find the bus stop").
+    surface_follow: dict = field(default_factory=dict)
+    # instances offerable to scan_instance (hint objects: a building may hide
+    # a human target behind its windows).
+    scan_ids: set = field(default_factory=set)
 
     def structured(self) -> dict:
         return {
@@ -174,6 +188,7 @@ class Digest:
             'selectable_instances': sorted(self.selectable_instances),
             'selectable_rays': sorted(self.selectable_rays),
             'frontier_sectors': sorted(self.frontier_targets),
+            'surface_follow': sorted(self.surface_follow),
         }
 
 
@@ -205,6 +220,16 @@ class DigestBuilder:
 
         self.labels: list = []            # column order, set once detected
         self._object_cols: list = []
+        # Per-column map-wide mean score (this scene's baseline per label) —
+        # CLIP-family labels have different similarity baselines, so a raw
+        # score only means something relative to its own label's background.
+        self.label_bg = None
+        self._surface_pts: dict = {}      # surface label -> subsampled xyz
+        # LLM-provided typical [l, w, h] of the target (perception_params).
+        # min_voxels is only a FLOOR — this is the ceiling side: clusters far
+        # larger than expected get flagged (a house-sized "bus stop" is a
+        # mislabeled house, not a big bus stop).
+        self.expected_size = None
         self._instances: dict = {}        # id -> Instance
         self._merged_redirect: dict = {}  # absorbed id -> surviving id
         self.last_merges: list = []       # [(absorbed, survivor)] from last track
@@ -230,7 +255,7 @@ class DigestBuilder:
                 self._canonical_of_col[col], []).append(col)
 
     def set_perception_params(self, min_voxels=None, score_floor=None,
-                              merge_gap_m=None):
+                              merge_gap_m=None, expected_size_m=None):
         """Runtime perception tuning — set by the LLM per target (startup
         one-shot + `retune` action), not hand-configured. Config values are
         only the pre-LLM fallback."""
@@ -240,6 +265,8 @@ class DigestBuilder:
             self.floor_cos = float(score_floor)
         if merge_gap_m is not None:
             self.merge_gap_m = float(merge_gap_m)
+        if expected_size_m is not None:
+            self.expected_size = [float(v) for v in expected_size_m]
 
     def add_object_labels(self, labels: list):
         """Extend the object vocabulary (LLM-suggested context labels). The
@@ -283,9 +310,35 @@ class DigestBuilder:
     @log_call
     def update_instances(self, vox_xyz: np.ndarray, vox_scores: np.ndarray):
         """Extract clusters from the latest voxel cloud and refresh the tracker."""
+        if vox_scores is not None and len(vox_scores):
+            q = min(vox_scores.shape[1], len(self.labels)) or vox_scores.shape[1]
+            # Map-wide per-label baseline: raw cos only means something
+            # relative to its own label's background level in THIS scene.
+            self.label_bg = vox_scores[:, :q].mean(axis=0)
+            self._update_surfaces(vox_xyz, vox_scores[:, :q])
         clusters = self._extract_clusters(vox_xyz, vox_scores)
         self._track(clusters)
         return len(clusters)
+
+    def _update_surfaces(self, vox_xyz, scores):
+        """Subsampled positions per SURFACE label (roads etc.) — context the
+        LLM needs for relational reasoning ('bus stops sit along roads')."""
+        if not self.labels:
+            return
+        surf = {s.lower() for s in self.surface_labels}
+        best = np.argmax(scores, axis=1)
+        self._surface_pts = {}
+        for i, l in enumerate(self.labels):
+            if l.lower() not in surf or i >= scores.shape[1]:
+                continue
+            m = best == i
+            if int(m.sum()) < 10:
+                continue
+            pts = vox_xyz[m]
+            if len(pts) > 400:
+                pts = pts[np.random.default_rng(0).choice(
+                    len(pts), 400, replace=False)]
+            self._surface_pts[l.lower()] = pts
 
     def _extract_clusters(self, vox_xyz, vox_scores) -> list:
         if vox_xyz is None or len(vox_xyz) == 0 or not self.ready:
@@ -340,6 +393,32 @@ class DigestBuilder:
                 continue
             pts = xyz[m]
             mean_scores = sc[m].mean(axis=0)
+            # Cross-label skepticism for TARGET clusters: labels have
+            # different similarity baselines, so a target cluster whose score
+            # barely beats its runner-up is usually the runner-up (the
+            # house-marked-as-bus-stop failure). Annotation only — the LLM
+            # judges; nothing is gated here.
+            runner_up, ambiguous, oversized, undersized = None, False, False, False
+            if label == self.target.lower():
+                tcols = [c for c in self._canonical_groups.get(label, [])
+                         if c < len(mean_scores)]
+                t_score = max((float(mean_scores[c]) for c in tcols),
+                              default=0.0)
+                others = [(float(mean_scores[i]), self.labels[i])
+                          for i in range(len(mean_scores)) if i not in tcols]
+                if others:
+                    ru_s, ru_l = max(others)
+                    runner_up = (ru_l, round(ru_s, 3))
+                    ambiguous = t_score < 1.15 * ru_s
+                if self.expected_size is not None:
+                    ext = (pts.max(axis=0) - pts.min(axis=0)) + VOX_SIZE
+                    vol = float(np.prod(np.maximum(ext, VOX_SIZE)))
+                    exp_vol = float(np.prod(self.expected_size))
+                    # Asymmetric on purpose: partial views only ever make an
+                    # object look SMALLER, so oversized is a hard mislabel
+                    # signal while undersized just means "may still grow".
+                    oversized = vol > 4.0 * exp_vol
+                    undersized = vol < exp_vol / 4.0
             out.append(dict(
                 label=label,
                 centroid=pts.mean(axis=0),
@@ -347,6 +426,10 @@ class DigestBuilder:
                 bbox_max=pts.max(axis=0) + VOX_SIZE / 2,
                 n_voxels=int(m.sum()),
                 top_labels=self._top_labels(mean_scores),
+                runner_up=runner_up,
+                ambiguous=ambiguous,
+                oversized=oversized,
+                undersized=undersized,
             ))
         return out
 
@@ -404,8 +487,13 @@ class DigestBuilder:
                  for c in cls), np.zeros(3)) / max(n_tot, 1)
             inst.bbox_min = np.min([c['bbox_min'] for c in cls], axis=0)
             inst.bbox_max = np.max([c['bbox_max'] for c in cls], axis=0)
+            biggest = max(cls, key=lambda c: c['n_voxels'])
             inst.n_voxels = n_tot
-            inst.top_labels = max(cls, key=lambda c: c['n_voxels'])['top_labels']
+            inst.top_labels = biggest['top_labels']
+            inst.runner_up = biggest.get('runner_up')
+            inst.ambiguous = bool(biggest.get('ambiguous'))
+            inst.oversized = bool(biggest.get('oversized'))
+            inst.undersized = bool(biggest.get('undersized'))
             inst.hits += 1
             inst.misses = 0
         # Pass 3: absorb unmatched OLD instances now spanned by an updated one.
@@ -440,7 +528,11 @@ class DigestBuilder:
             self._instances[iid] = Instance(
                 id=iid, label=cl['label'], centroid=cl['centroid'].copy(),
                 bbox_min=cl['bbox_min'], bbox_max=cl['bbox_max'],
-                n_voxels=cl['n_voxels'], top_labels=cl['top_labels'])
+                n_voxels=cl['n_voxels'], top_labels=cl['top_labels'],
+                runner_up=cl.get('runner_up'),
+                ambiguous=bool(cl.get('ambiguous')),
+                oversized=bool(cl.get('oversized')),
+                undersized=bool(cl.get('undersized')))
         # Pass 4b: same-label containment cleanup. A box fully inside a bigger
         # same-label box is a duplicate partial view of the same object — one
         # house mapped as disconnected fragments yields two clusters whose
@@ -556,6 +648,23 @@ class DigestBuilder:
             g.visited_target = self._points_at_visited(g, list(visited_points))
         return raw
 
+    def _fmt_labels(self, top_labels) -> str:
+        """Render 'label X/Y': X = score, Y = that label's map-wide average.
+        X >> Y is genuinely distinctive; X ~= Y is baseline noise."""
+        parts = []
+        for l, s in top_labels:
+            bg = None
+            if self.label_bg is not None:
+                for i, lbl in enumerate(self.labels):
+                    if lbl == l and i < len(self.label_bg):
+                        bg = float(self.label_bg[i])
+                        break
+            if bg is not None:
+                parts.append(f'{l} {s * 100:.0f}/{bg * 100:.0f}')
+            else:
+                parts.append(f'{l} {s * 100:.0f}')
+        return ', '.join(parts)
+
     def _top_labels(self, mean_scores) -> list:
         """Top-3 (label, score), dropping near-zero entries but keeping top-1."""
         order = np.argsort(-mean_scores)[:3]
@@ -600,7 +709,7 @@ class DigestBuilder:
     def build(self, robot_pos: np.ndarray, heading_deg: float,
               status_line: str, ray_origins, ray_dirs, ray_scores,
               frontiers, blacklist: dict, blacklisted_dirs: list,
-              visited_points: list = ()) -> Digest:
+              visited_points: list = (), scanned: set = frozenset()) -> Digest:
         """Assemble the full text digest + structured snapshot."""
         now_groups = self.build_ray_groups(
             ray_origins, ray_dirs, ray_scores, blacklisted_dirs,
@@ -621,7 +730,7 @@ class DigestBuilder:
                 f'altitude {robot_pos[2]:.0f}m, heading {compass_of(math.cos(math.radians(heading_deg)), math.sin(math.radians(heading_deg)))}.')
         lines.append(f'STATUS: {status_line}')
 
-        selectable_i, selectable_r = set(), set()
+        selectable_i, selectable_r, scan_ids = set(), set(), set()
         if shown:
             lines.append('MAPPED OBJECTS (scores are similarity x100, '
                          'typically 5-30, higher = stronger match):')
@@ -630,14 +739,24 @@ class DigestBuilder:
                 rel = inst.centroid - (robot_pos if robot_pos is not None
                                        else np.zeros(3))
                 dist = float(np.linalg.norm(rel[:2]))
-                labels_str = ', '.join(
-                    f'{l} {s * 100:.0f}' for l, s in inst.top_labels)
+                labels_str = self._fmt_labels(inst.top_labels)
                 flags = []
                 blacklisted = blacklist.get(inst.id, 0.0) > now
                 if inst.visited:
                     flags.append('VISITED')
                 if blacklisted:
                     flags.append('BLOCKED')
+                if inst.ambiguous and inst.runner_up:
+                    flags.append(f'AMBIGUOUS — could be {inst.runner_up[0]}')
+                if inst.oversized and self.expected_size is not None:
+                    e = self.expected_size
+                    flags.append(f'TOO BIG for a {self.target} '
+                                 f'(typical ~{e[0]:.0f}x{e[1]:.0f}x{e[2]:.0f}m)')
+                if inst.undersized:
+                    flags.append(f'PARTIAL VIEW? smaller than a typical '
+                                 f'{self.target}, may grow as mapped')
+                if inst.id in scanned:
+                    flags.append('SCANNED')
                 flag_str = f' [{", ".join(flags)}]' if flags else ''
                 lines.append(
                     f'  {inst.id}: {labels_str} | '
@@ -646,6 +765,8 @@ class DigestBuilder:
                     f'seen {inst.hits}x{flag_str}')
                 if not inst.visited and not blacklisted:
                     selectable_i.add(inst.id)
+                if not blacklisted:
+                    scan_ids.add(inst.id)
         else:
             lines.append('MAPPED OBJECTS: none yet.')
 
@@ -653,8 +774,7 @@ class DigestBuilder:
             lines.append('RAY LEADS (rays at the map edge pointing at things '
                          'seen from afar; following one extends the map that way):')
             for g in now_groups:
-                labels_str = ', '.join(
-                    f'{l} {s * 100:.0f}' for l, s in g.top_labels)
+                labels_str = self._fmt_labels(g.top_labels)
                 rel = g.mean_origin - (robot_pos if robot_pos is not None
                                        else np.zeros(3))
                 dist = float(np.linalg.norm(rel[:2]))
@@ -675,6 +795,10 @@ class DigestBuilder:
         else:
             lines.append('RAY LEADS: none.')
 
+        surfaces_line, surface_follow = self._surfaces_line(robot_pos)
+        if surfaces_line:
+            lines.append(surfaces_line)
+
         frontier_line, frontier_targets = self._frontier_sectors(
             frontiers, robot_pos)
         lines.append(frontier_line)
@@ -688,7 +812,48 @@ class DigestBuilder:
                       instances=shown, ray_groups=now_groups,
                       selectable_instances=selectable_i,
                       selectable_rays=selectable_r,
-                      frontier_targets=frontier_targets)
+                      frontier_targets=frontier_targets,
+                      surface_follow=surface_follow,
+                      scan_ids=scan_ids)
+
+    def _surfaces_line(self, robot_pos) -> tuple:
+        """(text line, follow-targets) for surface labels (roads etc.) — the
+        context AND the actions for relational target reasoning ('bus stops
+        sit along roads -> follow the road'). For each clearly elongated
+        surface, its two axis-end directions become follow_surface ids whose
+        waypoint is the mapped far end plus a step into the unmapped
+        continuation."""
+        if not self._surface_pts or robot_pos is None:
+            return '', {}
+        parts = []
+        follow = {}
+        for label, pts in self._surface_pts.items():
+            rel = pts[:, :2] - robot_pos[:2]
+            d = np.linalg.norm(rel, axis=1)
+            near_i = int(np.argmin(d))
+            desc = (f'{label}: nearest {d[near_i]:.0f}m '
+                    f'{compass_of(rel[near_i, 0], rel[near_i, 1])}')
+            if len(pts) >= 30:
+                xy = pts[:, :2] - pts[:, :2].mean(axis=0)
+                cov = xy.T @ xy / len(xy)
+                w, v = np.linalg.eigh(cov)
+                if w[1] > 3.0 * w[0]:   # clearly elongated (a road, not a lawn)
+                    ax = v[:, 1]
+                    names = []
+                    for sign in (1.0, -1.0):
+                        u = ax * sign
+                        name = compass_of(u[0], u[1])
+                        names.append(name)
+                        proj = xy @ u
+                        end = pts[int(np.argmax(proj))].astype(float).copy()
+                        # step past the mapped end, into where it continues
+                        end[0] += u[0] * 10.0
+                        end[1] += u[1] * 10.0
+                        follow[f'{label} {name}'] = end
+                    desc += f', runs {names[0]}–{names[1]} (followable)'
+            parts.append(desc)
+        line = 'SURFACES: ' + '; '.join(parts) + '.' if parts else ''
+        return line, follow
 
     def _frontier_sectors(self, frontiers, robot_pos) -> tuple:
         """(text line, {sector name -> frontier centroid np(3)}) for the top

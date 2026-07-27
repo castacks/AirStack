@@ -35,9 +35,13 @@ flowchart LR
    retry-on-invalid (valid ids are listed explicitly in the prompt).
    - `decide` (event-driven, when uncommitted, always on a fresh digest):
      pick `goto_instance V#`, `goto_ray R#`, `goto_frontier <compass>`
-     (fly to unexplored area), or `survey` (climb to max altitude and fly a
-     circle — droan yaws along velocity, so the camera sweeps the horizon
-     and casts semantic rays at everything distant; cooldown-limited).
+     (fly to unexplored area), `follow_surface <label> <compass>` (fly along
+     an elongated surface — e.g. a road — into its unmapped continuation),
+     `scan_instance V#` (face-poke loop around a hint object: each side's
+     outer→inner leg looks INTO the facade, for "humans might be in that
+     building" reasoning; marked SCANNED when done), or `survey` (climb and
+     fly a circle hop-by-hop — the camera sweeps the horizon and casts
+     semantic rays at everything distant; cooldown-limited).
    - `narrate` (every `narrate_period_s` while flying): describe the map;
      no action offered — the lock is enforced by prompt AND code.
    - `part_aliases` (once at startup): "which bank labels are PARTS of a

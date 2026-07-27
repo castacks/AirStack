@@ -27,6 +27,11 @@ DECIDE_INSTRUCTIONS = (
     '{ray_ids}\n'
     '- "goto_frontier" (fly to unexplored area), valid ids (compass '
     'directions): {frontier_ids}\n'
+    '- "follow_surface" (fly along a mapped surface into unmapped area — '
+    'e.g. follow a road to find roadside targets), valid ids: {surface_ids}\n'
+    '- "scan_instance" (fly around an object looking at each of its sides — '
+    'use on HINT objects where a {target} could be at/inside: a building '
+    '[windows], a park, a vehicle), valid ids: {scan_ids}\n'
     '- "survey" (climb high and circle in place to scan the horizon for new '
     'leads), valid: {survey_ok} — use when nothing above looks promising\n'
     '- "retune" (adjust the voxel clustering parameters), valid: {retune_ok} '
@@ -36,12 +41,25 @@ DECIDE_INSTRUCTIONS = (
     'Only visit an object if it might BE a {target} — do not visit fences, '
     'poles or other clutter; if no unvisited {target} candidate exists, '
     'explore instead (ray lead, frontier, or survey).\n'
+    'Reading the scores: "label X/Y" means score X vs that label\'s average Y '
+    'across the whole map. X far above Y = genuinely distinctive; X close to '
+    'Y = background noise, not a detection. Size reasoning is ASYMMETRIC: '
+    'TOO BIG is a strong mislabel sign (partial views never make things '
+    'bigger), but a small instance marked PARTIAL VIEW may simply not be '
+    'fully mapped yet — if its scores look genuine and it has few sightings, '
+    'approaching it to see more is a good choice. AMBIGUOUS (target score '
+    'barely beats another label) means be skeptical.\n'
     'Mapped objects are partial views that grow as the drone sees more angles '
     '— small fragments near a strong candidate are usually part of the same '
     'object, so prefer the strongest/largest candidate over its fragments.\n'
+    'If nothing looks like a real {target}, reason about where one WOULD be '
+    'from context: near/inside a visible hint object -> scan_instance it '
+    '(marked SCANNED once done); along a surface (bus stop on a road) -> '
+    'follow_surface; otherwise goto_ray / goto_frontier / survey.\n'
     'Reply with ONLY this JSON — nothing else, no description of the map:\n'
-    '{{"action": {{"type": "goto_instance"|"goto_ray"|"goto_frontier"|"survey"'
-    '|"retune", "id": "<V#, R#, compass direction, or empty>", '
+    '{{"action": {{"type": "goto_instance"|"goto_ray"|"goto_frontier"'
+    '|"follow_surface"|"scan_instance"|"survey"|"retune", '
+    '"id": "<V#, R#, compass direction, surface id, or empty>", '
     '"reason": "<one short phrase>"}}}}')
 
 PERCEPTION_SYSTEM = (
@@ -64,8 +82,12 @@ PERCEPTION_INSTRUCTIONS = (
     '- "merge_gap_m": two same-label voxel patches closer than this are ONE '
     'object (bridges occlusion splits, e.g. a house cut in two by a tree in '
     'front; too large merges neighboring {target}s together!).\n'
+    '- "expected_size_m": typical [length, width, height] of a {target} in '
+    'meters — clusters far larger than this get flagged as implausible '
+    '(mislabeled buildings/vegetation).\n'
     'Reply with ONLY this JSON: {{"min_voxels": <int>, "score_floor": '
-    '<float>, "merge_gap_m": <float>, "reason": "<short>"}}')
+    '<float>, "merge_gap_m": <float>, "expected_size_m": [<l>, <w>, <h>], '
+    '"reason": "<short>"}}')
 
 CONTEXT_SYSTEM = (
     'You expand the vocabulary of a drone semantic mapping system. Reply '
@@ -268,15 +290,18 @@ class LLMClient:
                 mv = int(p.get('min_voxels'))
                 sf = float(p.get('score_floor'))
                 mg = float(p.get('merge_gap_m'))
+                es = [float(v) for v in p.get('expected_size_m', [])]
             except (TypeError, ValueError):
                 return ('need numeric "min_voxels", "score_floor", '
-                        '"merge_gap_m"')
+                        '"merge_gap_m" and a 3-number "expected_size_m"')
             if not (1 <= mv <= 2000):
                 return 'min_voxels out of range [1, 2000]'
             if not (0.0 <= sf <= 0.5):
                 return 'score_floor out of range [0.0, 0.5]'
             if not (0.0 <= mg <= 6.0):
                 return 'merge_gap_m out of range [0.0, 6.0]'
+            if len(es) != 3 or not all(0.2 <= v <= 200.0 for v in es):
+                return 'expected_size_m must be 3 values in [0.2, 200] meters'
             return None
         context = ''
         if current:
@@ -290,12 +315,16 @@ class LLMClient:
         return dict(min_voxels=int(parsed['min_voxels']),
                     score_floor=float(parsed['score_floor']),
                     merge_gap_m=float(parsed['merge_gap_m']),
+                    expected_size_m=[float(v)
+                                     for v in parsed['expected_size_m']],
                     reason=str(parsed.get('reason', '')))
 
     def decide(self, digest_text: str, target: str,
                selectable_instances: set, selectable_rays: set,
                frontier_sectors: set, allow_survey: bool,
-               allow_retune: bool = False) -> 'dict | None':
+               allow_retune: bool = False,
+               surface_ids: set = frozenset(),
+               scan_ids: set = frozenset()) -> 'dict | None':
         """Ask for a goal decision. Returns validated dict or None."""
         def validate(p):
             act = p.get('action')
@@ -314,6 +343,14 @@ class LLMClient:
                 if iid not in frontier_sectors:
                     return (f'"{iid}" is not an unexplored direction; choose '
                             f'from {sorted(frontier_sectors)}')
+            elif typ == 'follow_surface':
+                if iid not in surface_ids:
+                    return (f'"{iid}" is not a followable surface; choose '
+                            f'from {sorted(surface_ids)}')
+            elif typ == 'scan_instance':
+                if iid not in scan_ids:
+                    return (f'"{iid}" is not a scannable instance; choose '
+                            f'from {sorted(scan_ids)}')
             elif typ == 'survey':
                 if not allow_survey:
                     return ('survey was done recently and is on cooldown; '
@@ -324,13 +361,16 @@ class LLMClient:
                             'pick another action')
             else:
                 return ('action.type must be one of goto_instance, goto_ray, '
-                        'goto_frontier, survey, retune')
+                        'goto_frontier, follow_surface, scan_instance, '
+                        'survey, retune')
             return None
         user = (digest_text + '\n\n' + DECIDE_INSTRUCTIONS.format(
             target=target,
             instance_ids=', '.join(sorted(selectable_instances)) or '(none)',
             ray_ids=', '.join(sorted(selectable_rays)) or '(none)',
             frontier_ids=', '.join(sorted(frontier_sectors)) or '(none)',
+            surface_ids=', '.join(sorted(surface_ids)) or '(none)',
+            scan_ids=', '.join(sorted(scan_ids)) or '(none)',
             survey_ok='yes' if allow_survey else 'no (on cooldown)',
             retune_ok='yes' if allow_retune else 'no (on cooldown)'))
         return self._call('decide', DECIDE_SYSTEM, user, validate)
