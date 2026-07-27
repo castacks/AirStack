@@ -1,0 +1,8 @@
+# HIGH-LEVEL scene spec — see earthquake.yaml for the full key list.
+#
+# Water came through: little structural loss, but anything that floats has
+# been carried off and dumped — cars strewn and rolled, bins washed away,
+# debris deposited in the streets. Poles stand: there was no wind.
+
+disaster-type: flood
+severity: 0.6

@@ -22,7 +22,8 @@ and run:
     _, ssf = scene_prep.get_stage_meters_per_unit(stage)
     scene_generator.reload_scene_on_stage(
         stage,
-        "/path/to/AirStack/simulation/isaac-sim/config/scene_generator_config.yaml",
+        "/path/to/AirStack/simulation/isaac-sim/config/scene_generation/"
+        "low_level/compiled/earthquake.yaml",
         scene_scale_factor=ssf,
         add_colliders_fn=scene_prep.add_colliders,
     )
@@ -59,12 +60,16 @@ _ISAAC_SIM_DIR = os.path.normpath(
 sys.path.insert(0, os.path.join(_ISAAC_SIM_DIR, "utils"))
 from scene_prep import (scale_stage_prim, add_colliders, add_sky,
                         get_stage_meters_per_unit, settle_rigid_props)
-from scene_generator import generate_scene_on_stage, load_config, resolve_sky
+from scene_generator import generate_scene_on_stage, resolve_sky
+# Accepts a config at either level: a high-level disaster spec is
+# compiled in memory, a low-level scene config is used as is.
+from compile_disaster import load_scene_config
 
 # ----- CONFIGURATION -----
 ENV_URL     = SIMULATION_ENVIRONMENTS["Default Environment"]
 STAGE_SCALE = 1.00
-SCENE_CONFIG = os.path.join(_ISAAC_SIM_DIR, "config", "scene_generator_config.yaml")
+SCENE_CONFIG = os.path.join(_ISAAC_SIM_DIR, "config", "scene_generation",
+                            "low_level", "compiled", "earthquake.yaml")
 # -------------------------
 
 
@@ -135,7 +140,7 @@ class ScenePreviewApp:
         else:
             carb.log_warn("/World/stage not found — skipping scale and collision.")
 
-        config = load_config(SCENE_CONFIG)
+        config = load_scene_config(SCENE_CONFIG)
 
         _, ssf = get_stage_meters_per_unit(stage)
         placements = generate_scene_on_stage(stage, config,
@@ -162,7 +167,7 @@ class ScenePreviewApp:
         print("\n" + "=" * 70)
         print("SCENE PREVIEW READY — to reload, open Window → Script Editor and run:")
         print(f'  exec(open({repr(_reload_script)}).read())')
-        print("Edit config/scene_generator_config.yaml or reload_scene.py between runs.")
+        print("Edit the scene config or reload_scene.py between runs.")
         print("=" * 70 + "\n")
 
         self.timeline.play()

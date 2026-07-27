@@ -1,22 +1,28 @@
 #!/usr/bin/env python3
 """
-preset_report.py — dry-run the city generator across disaster presets and
-print a comparison table (buildings, ruins, debris, casualties, topples).
+preset_report.py — dry-run the city generator across low-level configs and
+print a comparison table (buildings, ruins, debris, casualties, topples, and
+how the damage is distributed in space).
 
 Runs the pure-Python layout only — nothing is written to a stage — so it's a
-fast way to sanity-check preset tuning before launching Isaac Sim.
+fast way to sanity-check disaster tuning before launching Isaac Sim. Pair it
+with compile_disaster.py:
+
+    python3 utils/compile_disaster.py      # presets/ -> low_level/compiled/
+    python3 utils/preset_report.py         # compare what those will build
 
 USAGE
 -----
-    python3 utils/preset_report.py                  # all presets + baseline
-    python3 utils/preset_report.py --presets severe.yaml total.yaml
+    python3 utils/preset_report.py                       # every compiled config
+    python3 utils/preset_report.py tornado explosion     # by name
+    python3 utils/preset_report.py --configs a.yaml b.yaml
     python3 utils/preset_report.py --seed 7
 
 By default assets are NOT measured (no Nucleus access needed): footprints
 come from fallback_sizes, with the house footprint overridden to
 --house-fallback (default 15x15 m) so blocks actually pack — absolute counts
-therefore differ from a real run, but the relative differences between
-presets are what matter here.
+therefore differ from a real run, but the comparison between configs is what
+matters here.
 
 --measure uses real USD bboxes. omniverse:// URLs only resolve with Isaac
 Sim's bundled python (it registers the Nucleus resolver + cached auth), so
@@ -28,6 +34,17 @@ run it as:
 The script starts a headless SimulationApp automatically in that case
 (~1 min startup); under plain python3, --measure warns and omniverse://
 assets fall back to fallback_sizes.
+
+COLUMNS
+-------
+    buildings / damaged / destroyed   structures placed, by pool
+    debris                            rubble piles + settled fragments
+    prone / downed / flipped          casualties, poles, vehicles
+    hit%                              share of the region with damage
+                                      intensity >= 0.5 (the disaster's extent)
+    core:edge                         ruin rate inside vs outside that zone —
+                                      the spatial signature. "uniform" when
+                                      the field is flat, so there is no edge.
 """
 
 import argparse
@@ -39,9 +56,14 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+_ISAAC_SIM_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+COMPILED_DIR = os.path.join(_ISAAC_SIM_DIR, "config", "scene_generation",
+                            "low_level", "compiled")
+
 sg = None            # scene_generator; imported in main() after the optional
                      # SimulationApp bootstrap (pxr must load after it)
-_RESOLVER_CACHE = {}  # one shared measuring resolver across preset runs
+_RESOLVER_CACHE = {}  # one shared measuring resolver across config runs
 
 
 def _resolved_paths(cfg, entries):
@@ -52,26 +74,17 @@ def _resolved_paths(cfg, entries):
                                       asset_root)[0])
 
 
-def build_stats(raw_cfg, config_path, preset_file, args):
-    cfg = copy.deepcopy(raw_cfg)
-    cfg.pop("preset_file", None)
-    if preset_file:
-        path = sg._resolve_preset_path(
-            config_path, str(cfg.get("presets_path", "") or ""), preset_file)
-        if not path:
-            raise SystemExit(f"preset not found: {preset_file}")
-        import yaml
-        with open(path) as f:
-            sg._deep_merge(cfg, yaml.safe_load(f))
+def build_stats(config_path, args):
+    cfg = sg.load_config(config_path)
     if args.seed is not None:
         cfg["seed"] = args.seed
     if not args.measure:
         cfg["measure_usds"] = False
         cfg.setdefault("fallback_sizes", {})["house"] = list(args.house_fallback)
 
-    # When measuring, share one resolver across preset runs so each asset is
-    # opened/measured over the network only once (presets only change
-    # disaster settings, not asset scales).
+    # When measuring, share one resolver across runs so each asset is opened
+    # over the network only once (configs differ in disaster settings, not
+    # asset scales).
     if args.measure:
         resolver = _RESOLVER_CACHE.setdefault("r", sg._make_resolver(cfg))
     else:
@@ -90,12 +103,9 @@ def build_stats(raw_cfg, config_path, preset_file, args):
     bld = cfg["usds"].get("buildings") or cfg["usds"].get("houses") or {}
     damaged_set = _resolved_paths(cfg, bld.get("damaged"))
     destroyed_set = _resolved_paths(cfg, bld.get("destroyed"))
+    ruin_set = damaged_set | destroyed_set
 
     houses = by.get("house", [])
-    trail_pts = [(p["x_m"], p["y_m"]) for p in by.get("trail", [])]
-    parks = sum(1 for b in layout["blocks"]
-                if any(b[0] <= x <= b[2] and b[1] <= y <= b[3]
-                       for x, y in trail_pts))
 
     def down(cat):
         """Placements tipped >45° from upright. Y-up assets carry a +90°
@@ -107,33 +117,57 @@ def build_stats(raw_cfg, config_path, preset_file, args):
                 n += 1
         return n
 
+    # --- spatial signature: how much of the region was hit, and whether
+    # ruins actually cluster there.
+    field = sg.make_damage_field(cfg.get("disaster", {}).get("field"),
+                                 layout["region"])
+    rx0, ry0, rx1, ry1 = layout["region"]
+    n = 40
+    samples = [field(rx0 + (rx1 - rx0) * (i + 0.5) / n,
+                     ry0 + (ry1 - ry0) * (j + 0.5) / n)
+               for i in range(n) for j in range(n)]
+    hit_pct = 100.0 * sum(1 for s in samples if s >= 0.5) / len(samples)
+
+    if field.hi - field.lo < 1e-9:
+        signature = "uniform"
+    else:
+        def _ruin_rate(group):
+            """Ruin percentage, or None when nothing was built there."""
+            if not group:
+                return None
+            return 100.0 * sum(1 for h in group if h["usd"] in ruin_set) / len(group)
+
+        core = _ruin_rate([h for h in houses if field(h["x_m"], h["y_m"]) >= 0.5])
+        edge = _ruin_rate([h for h in houses if field(h["x_m"], h["y_m"]) < 0.5])
+        # "-" distinguishes "no buildings in that band" from "0% ruined".
+        signature = "{}:{}".format(
+            "-" if core is None else f"{core:.0f}%",
+            "-" if edge is None else f"{edge:.0f}%")
+
     return {
         "buildings": len(houses),
         "damaged": sum(1 for h in houses if h["usd"] in damaged_set),
         "destroyed": sum(1 for h in houses if h["usd"] in destroyed_set),
         "debris": len(by.get("debris", [])) + len(by.get("debris_pile", [])),
-        "prone_humans": down("human"),
-        "downed_lights": down("streetlight") + down("traffic_light"),
-        "flipped_cars": down("car"),
-        "parks": parks,
-        "settle_bodies": sum(1 for p in placements if p.get("settle")),
-        "total": len(placements),
+        "prone": down("human"),
+        "downed": down("streetlight") + down("traffic_light"),
+        "flipped": down("car"),
+        "settle": sum(1 for p in placements if p.get("settle")),
+        "hit%": round(hit_pct),
+        "core:edge": signature,
     }
 
 
 def main():
-    default_config = os.path.normpath(os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "..", "config", "scene_generator_config.yaml"))
-
     ap = argparse.ArgumentParser(
-        description="Compare disaster presets via dry-run city builds.")
-    ap.add_argument("--config", default=default_config)
-    ap.add_argument("--presets", nargs="*", default=None,
-                    help="preset filenames (default: every .yaml in "
-                         "presets_path, plus the no-preset baseline)")
+        description="Compare low-level scene configs via dry-run city builds.")
+    ap.add_argument("configs", nargs="*",
+                    help="low-level config paths or bare names (default: every "
+                         f"*.yaml in {os.path.relpath(COMPILED_DIR, _ISAAC_SIM_DIR)})")
+    ap.add_argument("--configs", dest="configs_opt", nargs="*", default=None,
+                    help="same as the positional form")
     ap.add_argument("--seed", type=int, default=None,
-                    help="override the config seed")
+                    help="override each config's seed")
     ap.add_argument("--measure", action="store_true",
                     help="measure real USD bboxes (needs asset access) "
                          "instead of offline fallback footprints")
@@ -165,32 +199,39 @@ def main():
     global sg
     import scene_generator as sg  # noqa: E402 (after SimulationApp on purpose)
 
-    import yaml
-    with open(args.config) as f:
-        raw_cfg = yaml.safe_load(f)
+    configs = (args.configs_opt or []) + list(args.configs)
+    if not configs:
+        configs = sorted(os.path.join(COMPILED_DIR, f)
+                         for f in os.listdir(COMPILED_DIR)
+                         if f.endswith((".yaml", ".yml")))
+        if not configs:
+            raise SystemExit(
+                f"no compiled configs in {COMPILED_DIR}\n"
+                "run: python3 utils/compile_disaster.py")
+    else:
+        resolved = []
+        for c in configs:
+            if os.path.isfile(c):
+                resolved.append(c)
+                continue
+            cand = os.path.join(COMPILED_DIR, c)
+            for x in (cand, cand + ".yaml", cand + ".yml"):
+                if os.path.isfile(x):
+                    resolved.append(x)
+                    break
+            else:
+                raise SystemExit(f"config not found: {c}")
+        configs = resolved
 
-    presets = args.presets
-    if presets is None:
-        ppath = str(raw_cfg.get("presets_path", "") or "")
-        config_dir = os.path.dirname(os.path.abspath(args.config))
-        pdir = next((d for d in (ppath,
-                                 os.path.join(config_dir, ppath),
-                                 os.path.join(config_dir,
-                                              os.path.basename(ppath)))
-                     if d and os.path.isdir(d)), "")
-        presets = (sorted(f for f in os.listdir(pdir) if f.endswith(".yaml"))
-                   if pdir else [])
-        presets.append(None)   # baseline: config's own disaster values
-
-    cols = ("buildings", "damaged", "destroyed", "debris", "prone_humans",
-            "downed_lights", "flipped_cars", "parks", "settle_bodies", "total")
-    name_w = max(len(str(p or "(no preset)")) for p in presets) + 2
-    print(f"{'preset':<{name_w}}" + "".join(f"{c:>14}" for c in cols))
-    for preset in presets:
-        stats = build_stats(raw_cfg, args.config, preset, args)
-        name = preset or "(no preset)"
-        print(f"{name:<{name_w}}"
-              + "".join(f"{stats[c]:>14}" for c in cols))
+    cols = ("buildings", "damaged", "destroyed", "debris", "prone",
+            "downed", "flipped", "settle", "hit%", "core:edge")
+    name_w = max(len(os.path.splitext(os.path.basename(c))[0])
+                 for c in configs) + 2
+    print(f"{'config':<{name_w}}" + "".join(f"{c:>11}" for c in cols))
+    for path in configs:
+        stats = build_stats(path, args)
+        name = os.path.splitext(os.path.basename(path))[0]
+        print(f"{name:<{name_w}}" + "".join(f"{stats[c]:>11}" for c in cols))
 
     if not args.measure:
         print("\n(offline footprints — counts are relative, not what a "

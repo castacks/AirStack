@@ -4,8 +4,10 @@ Reload the procedural city on the live Isaac Sim stage without restarting.
 Run from the Kit Script Editor (Window → Script Editor) with a single line:
     exec(open("/isaac-sim/AirStack/simulation/isaac-sim/reload_scene.py").read())
 
-Edit this file or scene_generator_config.yaml freely between reloads —
-importlib.reload picks up both YAML and Python changes every time.
+Edit this file, the scene config, or the generator/compiler freely between
+reloads — importlib.reload picks up both YAML and Python changes every time.
+Point SCENE_CONFIG below at a high-level disaster spec or a low-level scene
+config; high-level specs are recompiled in memory on every reload.
 """
 
 import os, sys
@@ -40,15 +42,25 @@ if _UTILS_DIR not in sys.path:
     sys.path.insert(0, _UTILS_DIR)
 
 import importlib
+import compile_disaster
 import scene_generator
 import scene_prep
 
 importlib.reload(scene_generator)   # picks up edits to scene_generator.py
 importlib.reload(scene_prep)
+importlib.reload(compile_disaster)  # and to the disaster compilers
 
 import omni.kit.app
 import omni.usd
 import omni.timeline
+
+# Either level works: a high-level disaster spec (config/scene_generation/
+# presets/) is compiled in memory on every reload — so editing severity or
+# the compiler and re-running this script rebuilds with the new settings —
+# while a low-level config is loaded as is. A bare name ("tornado") is
+# resolved against presets/ then low_level/compiled/.
+SCENE_CONFIG = os.path.join(_ISAAC_SIM_DIR, "config", "scene_generation",
+                            "presets", "earthquake.yaml")
 
 stage = omni.usd.get_context().get_stage()
 omni.timeline.get_timeline_interface().stop()
@@ -56,7 +68,7 @@ omni.timeline.get_timeline_interface().stop()
 _, ssf = scene_prep.get_stage_meters_per_unit(stage)
 placements = scene_generator.reload_scene_on_stage(
     stage,
-    os.path.join(_ISAAC_SIM_DIR, "config", "scene_generator_config.yaml"),
+    compile_disaster.load_scene_config(SCENE_CONFIG),
     scene_scale_factor=ssf,
     add_colliders_fn=scene_prep.add_colliders,
 )

@@ -1,8 +1,15 @@
-# Procedural city spec — consumed by utils/scene_generator.py
+# LOW-LEVEL procedural city spec — consumed by utils/scene_generator.py.
+#
+# This is the base low-level config: every knob the generator reads, with the
+# city untouched by any disaster. It is also the base that
+# utils/compile_disaster.py builds on — a high-level spec in ../presets/
+# (disaster type + severity) compiles into a full low-level config under
+# ./compiled/. See ../GENERATION.md.
 #
 # Usage:
-#   bake:    python utils/scene_generator.py --config <this file> --output out.usd
-#   runtime: generate_scene_on_stage(stage, <this path>, scene_scale_factor=ssf)
+#   compile: python utils/compile_disaster.py            # presets/ -> compiled/
+#   bake:    python utils/scene_generator.py --config <a low-level config> --output out.usd
+#   runtime: generate_scene_on_stage(stage, <a low-level config>, scene_scale_factor=ssf)
 #
 # Units: meters. +X = East, +Y = North, +Z = Up. Region centered on origin.
 #
@@ -37,25 +44,16 @@
 #
 # disaster.* holds ALL disaster settings: building fates + debris (step 3)
 # and the steps 4-5 aftermath (topples, leaning traffic lights, wind-scattered
-# trash cans, prone humans, strewn wrecks). preset_file (below) deep-merges a
-# preset YAML over this config — presets can override any setting.
+# trash cans, prone humans, strewn wrecks). Every one of those knobs is a
+# MAXIMUM, reached only where disaster.field reads 1.0 — the field is what
+# gives each disaster type its shape (uniform storm / radial epicenter /
+# tornado track). Normally written by compile_disaster.py, not by hand.
 #
 # exclusions apply to clutter only (houses, trees, streetlights, traffic
 # lights, hydrants, trash cans, humans, cars); ground tiles and roads still
 # cover excluded areas.
 
 seed: 42                    # int — same seed => identical city
-
-# ---- presets ------------------------------------------------------
-presets_path: "simulation/isaac-sim/config/scene_generator_presets"
-# preset_file: None
-# preset_file: "untouched.yaml"
-# preset_file: "light.yaml"
-preset_file: "moderate.yaml"
-# preset_file: "severe.yaml"
-# preset_file: "total.yaml"
-
-
 
 # ---- clutter keep-out zones ------------------------------------------------------
 # circle {center: [x, y], radius: r} or rect {bounds: [[xmin, ymin], [xmax, ymax]]}
@@ -180,44 +178,69 @@ cars:
   yaw_jitter_deg: 4.0       # deg — random heading wobble per car
 
 # ---- disaster ---------------------------------------------------------------
-# Everything disaster-related lives here — building fates (step 3), debris
-# fields, and the step 4-5 aftermath (topples, wrecks, casualties). The
-# preset files (see presets_path at the top) override this whole block.
+# Everything disaster-related lives here — building fates (step 3), debris,
+# and the step 4-5 aftermath (topples, wrecks, casualties).
+#
+# THIS BLOCK IS PRISTINE ON PURPOSE. compile_disaster.py replaces it wholesale
+# from a high-level spec (../presets/*.yaml), so building default.yaml directly
+# gives an undamaged city. The keys stay here as the schema reference — the
+# comments document what each one means to the generator.
+#
+# Every fraction / count below is a MAXIMUM: the generator scales it by the
+# damage field at each object's position, so `field` decides where the
+# disaster actually landed.
 disaster:
   # Building fates: packing draws from intact / damaged / destroyed pools by
-  # these pick weights (intact gets the remainder).
-  damaged_fraction: 0.3      # 0..1 — pick weight for usds.buildings.damaged art
+  # these pick weights (intact gets the remainder). A pool whose weight is
+  # zero everywhere is excluded from packing entirely.
+  damaged_fraction: 0.0      # 0..1 — pick weight for usds.buildings.damaged art
                              # (tilted + sunk intact stand-in when the pool is empty)
-  destroyed_fraction: 0.4    # 0..1 — pick weight for usds.buildings.destroyed art,
+  destroyed_fraction: 0.0    # 0..1 — pick weight for usds.buildings.destroyed art,
                              # with a debris field around it (debris below)
 
   debris:                    # scattered around each destroyed building
-    piles_per_building: [2, 4]   # [min, max] — rubble piles hugging the ruin
+    piles_per_building: [0, 0]   # [min, max] — rubble piles hugging the ruin
                                  # (overlap with building/road is fine)
     pile_max_offset_m: 3.0       # m — max pile offset beyond the footprint edge
-    pieces_per_building: [10, 20] # [min, max] — smaller fragments just past the
+    pieces_per_building: [0, 0]  # [min, max] — smaller fragments just past the
                                  # footprint; physics-settled like the toppled cars
     pieces_scatter_m: 6.0        # m — max fragment distance beyond the footprint
-    tilt_chance: 0.35            # 0..1 — destroyed ruins also lean: slight
+    tilt_chance: 0.0             # 0..1 — destroyed ruins also lean: slight
                                  # tilt + sink, rubble piled on the caved-in side
     tilt_deg: [2, 6]             # [min, max] deg — lean angle (roll and pitch)
     sink_m: [0.4, 1.2]           # [min, max] m — how far a leaning ruin sinks
     lean_piles: [2, 3]           # [min, max] — extra piles at the overhanging base
 
-  # Aftermath (steps 4-5) — tornado-style street damage.
-  streetlights_toppled_fraction: 0.3    # 0..1 — poles snapped flat, random heading
-  traffic_lights_toppled_fraction: 0.25 # 0..1 — poles snapped flat at the base
-  traffic_lights_leaning_fraction: 0.3  # 0..1 — of still-standing poles: bent/leaning
+  # Aftermath (steps 4-5) — street-level damage.
+  streetlights_toppled_fraction: 0.0    # 0..1 — poles snapped flat, random heading
+  traffic_lights_toppled_fraction: 0.0  # 0..1 — poles snapped flat at the base
+  traffic_lights_leaning_fraction: 0.0  # 0..1 — of still-standing poles: bent/leaning
   traffic_lights_lean_deg: [8, 30]      # [min, max] deg — lean angle range
-  trash_cans_toppled_fraction: 0.6      # 0..1 — light + unanchored: most get tipped
-  trash_cans_scatter_m: 4.0             # m — max wind displacement of tipped cans
-  cars_toppled_fraction: 0.2            # 0..1 — lane cars flipped on side/roof
-  cars_strewn: [4, 10]                  # [min, max] — extra wrecks tossed onto open ground
+  trash_cans_toppled_fraction: 0.0      # 0..1 — light + unanchored: most get tipped
+  trash_cans_scatter_m: 0.0             # m — max wind displacement of tipped cans
+  cars_toppled_fraction: 0.0            # 0..1 — lane cars flipped on side/roof
+  cars_strewn: [0, 0]                   # [min, max] — extra wrecks tossed onto open ground
   strewn_topple_fraction: 0.7           # 0..1 — strewn cars flipped (rest stay upright)
   strewn_margin_m: 1.5                  # m — keep strewn cars off building footprints
-  humans_prone_fraction: 0.35           # 0..1 — pedestrians/idlers lying flat where
+  humans_prone_fraction: 0.0            # 0..1 — pedestrians/idlers lying flat where
                                         # they stood (casualties / taking cover)
-  humans_strewn: [2, 6]                 # [min, max] — extra casualties on road asphalt
+  humans_strewn: [0, 0]                 # [min, max] — extra casualties on road asphalt
+
+  # WHERE the disaster hit — scales every knob above by position (0..1).
+  # This is what distinguishes disaster types from one another.
+  field:
+    kind: uniform            # uniform | radial | path
+    inside: 1.0              # intensity in the affected zone
+    outside: 0.0             # intensity far outside it (radial / path only)
+    # radial — epicenters (earthquake, blast):
+    # center: [0.0, 0.0]     # m
+    # radius_m: 80.0         # full intensity out to here
+    # falloff_m: 120.0       # then eases to `outside` over this distance
+    # path — tracks (tornado):
+    # points: [[-200, -200], [0, 0], [200, 200]]   # polyline, m
+    # heading_deg: 35.0      # or omit points for a straight sweep on this heading
+    # width_m: 60.0          # full-intensity corridor width
+    # falloff_m: 40.0        # eases to `outside` over this distance past the edge
 
 # ---- per-family yaw offsets (deg), added to auto-computed rotations -----------
 # (for a single misaligned asset, prefer a per-USD yaw-offset in its usds entry)
@@ -295,62 +318,88 @@ usds:
     # each entry keeps its original effective footprint, expressed against the
     # new global default (1.0)
     intact:
-      # - usd: "RetroNeighborhood/Props/SM_House_01.prop.usd"
-      #   scale: 0.01   # RetroNeighborhood authored in cm; unchanged effective footprint
       - "Muyang/ModernCityEnvironment/Collected_Building01/SM_MERGED_BP_MBuilding01.usd"
         # authored in meters; already matches the new global default (1.0)
       - usd: "Muyang/ModernCityEnvironment/Collected_Building02/SM_MERGED_BP_MBuilding02.usd"
         scale: 0.01   # unchanged effective footprint (was the old global default)
+        tags: ["urban"]
       - usd: "Muyang/ModernCityEnvironment/Collected_Building03/SM_MERGED_BP_MBuilding03.usd"
         scale: 0.01   # unchanged effective footprint (was the old global default)
+        tags: ["urban"]
       - usd: "Muyang/ModernCityEnvironment/Collected_Building05/SM_MERGED_BP_MBuilding05.usd"
         scale: 0.01   # unchanged effective footprint (was the old global default)
+        tags: ["urban"]
       - usd: "Muyang/DownTown/Assets/BG_Building_A.usd"
         scale: 0.01   
+        tags: ["urban"]
       - usd: "Muyang/DownTown/Assets/BG_Building_B.usd"
         scale: 0.01   
+        tags: ["urban"]
       - usd: "Muyang/DownTown/Assets/BG_Building_C.usd"
         scale: 0.01   
+        tags: ["urban"]
       - usd: "Muyang/DownTown/Assets/BG_Building_D.usd"
         scale: 0.01   
+        tags: ["urban"]
       - usd: "Muyang/DownTown/Assets/BG_Building_E.usd"
         scale: 0.01   
+        tags: ["urban"]
       - usd: "Muyang/DownTown/Assets/BG_Building_F.usd"
         scale: 0.01   
+        tags: ["urban"]
+      - usd: "RetroNeighborhood/Props/SM_House_01.prop.usd"
+        scale: 0.01   # RetroNeighborhood authored in cm; unchanged effective footprint
+        tags: ["suburban", "rural"]
+
 
     damaged:
       - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_4.usd"
         scale: 0.01
+        tags: ["urban"]
       - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_4_variation_1.usd"
         scale: 0.01
+        tags: ["urban"]
       - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_5.usd"
         scale: 0.01
+        tags: ["urban"]
       - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_9.usd"
         scale: 0.01
+        tags: ["urban"]
       - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_10.usd"
         scale: 0.01
+        tags: ["urban"]
 
     destroyed:
       - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_1.usd"
         scale: 0.01
+        tags: ["urban"]
       - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_2.usd"
         scale: 0.01
+        tags: ["urban"]
       - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_5_variation_1.usd"
         scale: 0.01
+        tags: ["urban"]
       - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_6.usd"
         scale: 0.01
+        tags: ["urban"]
       - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_7.usd"
         scale: 0.01
+        tags: ["urban"]
       - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_8.usd"
         scale: 0.01
+        tags: ["urban"]
       - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_9_variation_1.usd"
         scale: 0.01
+        tags: ["urban"]
       - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_10_variation_1.usd"
         scale: 0.01
+        tags: ["urban"]
       - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_11_variation_1.usd"
         scale: 0.01
+        tags: ["urban"]
       - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_12.usd"
         scale: 0.01
+        tags: ["urban"]
 
   debris:
     pieces:

@@ -26,8 +26,13 @@ the sidewalk; leftover gaps are filled with placeholder prisms:
              footprint; destroyed ruins get a debris field — piles hugging
              the base, fragments physics-settled nearby — and sometimes
              lean (slight tilt + sink) with rubble on the caved-in side.
-             All disaster knobs live under disaster.*; preset_file overlays
-             a preset YAML (deep merge) that can override any setting.
+
+All disaster knobs live under ``disaster.*`` and are *maxima*: each is scaled
+per-position by ``disaster.field`` (see :func:`make_damage_field`), so an
+earthquake can attenuate from its epicenter while a tornado carves a narrow
+track across an otherwise untouched city. This module consumes **low-level**
+configs only; author them by hand or compile one from a high-level disaster
+spec with ``compile_disaster.py``.
     Step 4 — Detail: humans on sidewalks/trails/grass; bus stops,
              streetlights, benches, planters (street trees + plant boxes),
              fire hydrants and trash cans along block frontages — every
@@ -57,7 +62,9 @@ Public API:
     generate_scene_on_stage  — Compose onto a live stage (runtime, Isaac Sim)
     reload_scene_on_stage    — Clear + regenerate in place (no sim restart)
 
-Config schema — see config/scene_generator_config.yaml for a worked example.
+Config schema — see config/scene_generation/low_level/default.yaml for a
+worked example, and config/scene_generation/GENERATION.md for how the
+high-level (disaster) and low-level (scene) config layers fit together.
 """
 
 import math
@@ -71,69 +78,28 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, UsdSkel, Vt
 # Config loading
 # ---------------------------------------------------------------------------
 
-def _deep_merge(base: dict, override: dict) -> dict:
-    """Recursively merge *override* into *base* in place: nested dicts merge
-    key-by-key, everything else (scalars, lists) is replaced outright."""
-    for k, v in override.items():
-        if isinstance(v, dict) and isinstance(base.get(k), dict):
-            _deep_merge(base[k], v)
-        else:
-            base[k] = v
-    return base
+def validate_config(config: dict, source: str = "<config>") -> dict:
+    """Raise ValueError if *config* is missing anything the generator needs.
 
-
-def _resolve_preset_path(config_path: str, presets_path: str,
-                         preset_file: str) -> str:
-    """Locate *preset_file*: try presets_path as given (absolute / relative
-    to cwd), relative to the config file's directory, and finally the
-    presets dir's basename next to the config file. Returns "" if not found.
+    Split out from :func:`load_config` so configs built in memory (e.g.
+    compiled from a high-level disaster spec) get the same checks. *source*
+    only labels the error messages.
     """
-    config_dir = os.path.dirname(os.path.abspath(config_path))
-    for base in (presets_path,
-                 os.path.join(config_dir, presets_path),
-                 os.path.join(config_dir, os.path.basename(presets_path))):
-        candidate = os.path.join(base, preset_file) if base else preset_file
-        if os.path.isfile(candidate):
-            return candidate
-    return ""
-
-
-def load_config(config_path: str) -> dict:
-    """Load and lightly validate a city-generator YAML spec.
-
-    If the spec names a ``preset_file`` (looked up in ``presets_path``), that
-    YAML is deep-merged on top — a preset can override any setting in the
-    config (nested keys merge; lists and scalars replace).
-
-    Raises ValueError on missing required keys so a typo fails loudly at startup
-    rather than producing an empty scene.
-    """
-    import yaml  # lazy: keeps the import optional for callers passing dicts
-
-    with open(config_path) as f:
-        config = yaml.safe_load(f)
-
     if not isinstance(config, dict):
-        raise ValueError(f"City config {config_path!r} did not parse to a mapping")
+        raise ValueError(f"City config {source!r} did not parse to a mapping")
 
-    preset_file = config.get("preset_file")
-    if preset_file:
-        path = _resolve_preset_path(config_path,
-                                    str(config.get("presets_path", "") or ""),
-                                    str(preset_file))
-        if not path:
-            raise ValueError(f"preset_file {preset_file!r} not found under "
-                             f"presets_path {config.get('presets_path')!r}")
-        with open(path) as f:
-            preset = yaml.safe_load(f)
-        if not isinstance(preset, dict):
-            raise ValueError(f"Preset {path!r} did not parse to a mapping")
-        _deep_merge(config, preset)
-        print(f"[scene_gen] Applied preset: {path}")
+    if config.get("disaster-type") or config.get("disaster_type"):
+        raise ValueError(
+            f"{source!r} looks like a HIGH-level disaster spec, not a "
+            "low-level scene config. Compile it first:\n"
+            "    python3 utils/compile_disaster.py <spec>\n"
+            "or load it via compile_disaster.load_scene_config(), which "
+            "compiles high-level specs on the fly.")
+
     if "usds" not in config:
-        raise ValueError(f"City config {config_path!r} has no 'usds' library")
+        raise ValueError(f"City config {source!r} has no 'usds' library")
     if "layout" not in config or "region_m" not in config["layout"]:
-        raise ValueError(f"City config {config_path!r} has no 'layout.region_m' "
+        raise ValueError(f"City config {source!r} has no 'layout.region_m' "
                          "(city extent in meters, e.g. [200, 200])")
 
     usds = config["usds"]
@@ -144,6 +110,27 @@ def load_config(config_path: str) -> dict:
         raise ValueError("usds.buildings.intact must list at least one building USD")
 
     return config
+
+
+def load_config(config_path: str) -> dict:
+    """Load and lightly validate a **low-level** city-generator YAML spec.
+
+    Low-level specs are self-contained: everything the generator needs, no
+    includes or overlays. Author them by hand (``low_level/default.yaml``) or
+    compile them from a high-level disaster spec with ``compile_disaster.py``,
+    which writes into ``low_level/compiled/``.
+
+    To accept *either* level, use ``compile_disaster.load_scene_config()``.
+
+    Raises ValueError on missing required keys so a typo fails loudly at startup
+    rather than producing an empty scene.
+    """
+    import yaml  # lazy: keeps the import optional for callers passing dicts
+
+    with open(config_path) as f:
+        config = yaml.safe_load(f)
+
+    return validate_config(config, config_path)
 
 
 # ---------------------------------------------------------------------------
@@ -366,6 +353,107 @@ def _in_rect(x, y, rect) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Damage field — where the disaster actually hit
+#
+# Every disaster knob under ``disaster.*`` is a *maximum*, reached only where
+# the field reads 1.0. ``disaster.field`` shapes that intensity over the
+# region, which is what separates disaster types from each other: an
+# earthquake attenuates radially from its epicenter, a tornado carves a
+# narrow path and leaves the rest of the city untouched, a blast falls off
+# sharply from ground zero. Absent a field, intensity is a flat 1.0
+# everywhere (the historical behavior).
+# ---------------------------------------------------------------------------
+
+def _smoothstep(t: float) -> float:
+    """Hermite ease on [0, 1] — softer edges than a linear ramp."""
+    t = min(1.0, max(0.0, t))
+    return t * t * (3.0 - 2.0 * t)
+
+
+def _point_segment_dist(px, py, ax, ay, bx, by) -> float:
+    vx, vy = bx - ax, by - ay
+    seg2 = vx * vx + vy * vy
+    if seg2 < 1e-12:
+        return math.hypot(px - ax, py - ay)
+    t = max(0.0, min(1.0, ((px - ax) * vx + (py - ay) * vy) / seg2))
+    return math.hypot(px - (ax + t * vx), py - (ay + t * vy))
+
+
+def make_damage_field(field_cfg: dict, region: tuple):
+    """Build ``f(x, y) -> intensity`` (0..1) from a ``disaster.field`` spec.
+
+    ``kind``:
+      * ``uniform`` — ``inside`` everywhere (default when no field is given).
+      * ``radial``  — ``inside`` within ``radius_m`` of ``center``, easing to
+        ``outside`` over the next ``falloff_m``. Earthquakes, blasts.
+      * ``path``    — ``inside`` within ``width_m`` of the ``points``
+        polyline, easing to ``outside`` over ``falloff_m``. Tornado tracks.
+
+    *region* is ``(x0, y0, x1, y1)`` in meters; a ``path`` with no explicit
+    ``points`` gets a default track crossing the region at ``heading_deg``.
+
+    The returned callable carries ``.lo`` / ``.hi`` — the intensity bounds
+    over the whole region. Callers use them to decide what is *possible*
+    anywhere (e.g. whether any building can stay intact) before sampling.
+    """
+    cfg = field_cfg or {}
+    kind = str(cfg.get("kind", "uniform")).lower()
+    inside = float(cfg.get("inside", 1.0))
+    outside = float(cfg.get("outside", 0.0))
+
+    def _tag(fn, lo, hi):
+        fn.lo, fn.hi = lo, hi
+        return fn
+
+    if kind == "uniform":
+        return _tag(lambda x, y: inside, inside, inside)
+
+    def _ease(dist, full, fall):
+        """inside within *full*, easing to outside across *fall* beyond it."""
+        if dist <= full:
+            return inside
+        return inside + (outside - inside) * _smoothstep(
+            (dist - full) / max(fall, 1e-6))
+
+    if kind == "radial":
+        cx, cy = cfg.get("center", [0.0, 0.0])
+        cx, cy = float(cx), float(cy)
+        radius = float(cfg.get("radius_m", 80.0))
+        falloff = float(cfg.get("falloff_m", 120.0))
+        return _tag(lambda x, y: _ease(math.hypot(x - cx, y - cy),
+                                       radius, falloff),
+                    min(inside, outside), max(inside, outside))
+
+    if kind == "path":
+        half_w = float(cfg.get("width_m", 60.0)) / 2.0
+        falloff = float(cfg.get("falloff_m", 40.0))
+        pts = cfg.get("points")
+        if not pts:
+            # Default track: a straight sweep across the region on
+            # heading_deg, long enough to exit on both sides.
+            rx0, ry0, rx1, ry1 = region
+            mx, my = (rx0 + rx1) / 2.0, (ry0 + ry1) / 2.0
+            ang = math.radians(float(cfg.get("heading_deg", 45.0)))
+            reach = math.hypot(rx1 - rx0, ry1 - ry0)
+            pts = [[mx - math.cos(ang) * reach, my - math.sin(ang) * reach],
+                   [mx + math.cos(ang) * reach, my + math.sin(ang) * reach]]
+        segs = [(float(pts[i][0]), float(pts[i][1]),
+                 float(pts[i + 1][0]), float(pts[i + 1][1]))
+                for i in range(len(pts) - 1)] or [
+            (float(pts[0][0]), float(pts[0][1]),
+             float(pts[0][0]), float(pts[0][1]))]
+
+        def f(x, y):
+            d = min(_point_segment_dist(x, y, *s) for s in segs)
+            return _ease(d, half_w, falloff)
+
+        return _tag(f, min(inside, outside), max(inside, outside))
+
+    raise ValueError(f"Unknown disaster.field.kind {kind!r} "
+                     "(expected uniform, radial or path)")
+
+
+# ---------------------------------------------------------------------------
 # Procedural layout — recursive subdivision (roads) + lot parcelling
 #
 # Pipeline follows the standard procedural-city literature (Parish-Müller 2001;
@@ -544,8 +632,9 @@ def _pack_block_with_buildings(rect, candidates, gap: float,
     times. *first*, if given, is a key that must be placed before random
     picking starts (used to guarantee big buildings their reserved block).
     *pick_fn*, if given, replaces the uniform random pick: it receives the
-    fitting ``(key, w, h, yaw)`` options and returns one — used to weight the
-    choice between intact/damaged/destroyed pools.
+    fitting ``(key, w, h, yaw)`` options plus the slot's anchor corner
+    ``(x, y)`` and returns one option — used to weight the choice between
+    intact/damaged/destroyed pools by the local damage intensity.
 
     Returns ``(placed, leftovers)``: *placed* is
     ``[(key, cx, cy, fit_yaw, (bx0, by0, bx1, by1)), ...]``; *leftovers* are
@@ -574,7 +663,8 @@ def _pack_block_with_buildings(rect, candidates, gap: float,
             forced = None
             key, bw, bh, yaw = rng.choice(pick_from)
         else:
-            key, bw, bh, yaw = (pick_fn or rng.choice)(fits)
+            key, bw, bh, yaw = (pick_fn(fits, x0, y0) if pick_fn
+                                else rng.choice(fits))
         bx1, by1 = x0 + bw, y0 + bh
         placed.append((key, x0 + bw / 2.0, y0 + bh / 2.0, yaw,
                        (x0, y0, bx1, by1)))
@@ -1136,18 +1226,41 @@ def build_city(config: dict, resolver: SizeResolver):
                 u = usd_choices if isinstance(usd_choices, str) else rng.choice(usd_choices)
                 add(u, px, py, z, 0.0, category, _sc(u), stretch=(stx, sty))
 
-    # Building pools with a nonzero fate weight are the only ones packing may
-    # draw from — an "untouched" city (both fractions 0) must never place a
-    # ruin even when a slot fits nothing else, and "total" (weights sum to 1)
-    # must never place an intact building.
+    # Where the disaster hit. Every disaster.* knob is a maximum, reached
+    # only where this field reads 1.0 — see make_damage_field.
     dis_cfg = config.get("disaster", {})
+    damage_at = make_damage_field(
+        dis_cfg.get("field"),
+        (-region_w_m / 2.0, -region_h_m / 2.0,
+          region_w_m / 2.0,  region_h_m / 2.0))
+
+    def _hit(x, y, fraction):
+        """True with probability *fraction* scaled by the local damage."""
+        return fraction > 0.0 and rng.random() < fraction * damage_at(x, y)
+
+    def _hit_count(x, y, count_range):
+        """Random count from [lo, hi], scaled down by the local damage."""
+        k = damage_at(x, y)
+        if k <= 0.0:
+            return 0
+        return int(round(rng.randint(int(count_range[0]),
+                                     int(count_range[1])) * k))
+
+    # Building pools with a nonzero fate weight *somewhere in the region* are
+    # the only ones packing may draw from — an "untouched" city (both
+    # fractions 0) must never place a ruin even when a slot fits nothing
+    # else, and a "total" one (weights summing to 1 at full intensity) must
+    # never place an intact building. The field's bounds decide this: a
+    # tornado hits 1.0 on its track but 0.0 elsewhere, so all three pools
+    # stay eligible even at destroyed_fraction 1.0.
     damaged_fraction   = float(dis_cfg.get("damaged_fraction", 0.0))
     destroyed_fraction = float(dis_cfg.get("destroyed_fraction", 0.0))
-    intact_weight = max(0.0, 1.0 - damaged_fraction - destroyed_fraction)
+    intact_weight = max(0.0, 1.0 - (damaged_fraction + destroyed_fraction)
+                        * damage_at.lo)
     eligible_houses = (
         (house_intact if intact_weight > 0.0 else [])
-        + (house_damaged if damaged_fraction > 0.0 else [])
-        + (house_destroyed if destroyed_fraction > 0.0 else []))
+        + (house_damaged if damaged_fraction * damage_at.hi > 0.0 else [])
+        + (house_destroyed if destroyed_fraction * damage_at.hi > 0.0 else []))
 
     # Auto-raise the block size bound so the BSP can produce a block whose
     # sidewalk inset fits the largest placeable building.
@@ -1254,14 +1367,19 @@ def build_city(config: dict, resolver: SizeResolver):
     damaged_set   = set(house_damaged)
     destroyed_set = set(house_destroyed)
 
-    def _pick_building(fits):
+    def _pick_building(fits, sx_, sy_):
         """Fate-weighted pick among fitting candidates: destroyed_fraction /
-        damaged_fraction / rest-intact, falling back to any (eligible) fit
-        when the rolled pool has no candidate that fits the slot."""
+        damaged_fraction / rest-intact, each scaled by the damage intensity
+        at the slot anchor (*sx_*, *sy_*) so ruins cluster where the disaster
+        actually hit. Falls back to any (eligible) fit when the rolled pool
+        has no candidate that fits the slot."""
+        k = damage_at(sx_, sy_)
+        d_frac = destroyed_fraction * k
+        m_frac = damaged_fraction * k
         r_fate = rng.random()
-        if r_fate < destroyed_fraction:
+        if r_fate < d_frac:
             pool_fits = [f for f in fits if f[0] in destroyed_set]
-        elif r_fate < destroyed_fraction + damaged_fraction:
+        elif r_fate < d_frac + m_frac:
             pool_fits = [f for f in fits if f[0] in damaged_set]
         else:
             pool_fits = [f for f in fits
@@ -1350,7 +1468,7 @@ def build_city(config: dict, resolver: SizeResolver):
             # No pre-damaged pool: fall back to tilting + sinking an intact
             # building as a damaged stand-in with probability damaged_fraction.
             tilt_standin = (not house_damaged and not is_destroyed
-                            and rng.random() < damaged_fraction)
+                            and _hit(cx, cy, damaged_fraction))
             is_damaged = usd in damaged_set or tilt_standin
 
             fp = house_fps[usd]
@@ -1369,7 +1487,7 @@ def build_city(config: dict, resolver: SizeResolver):
             # Some destroyed ruins additionally lean: a slight tilt + sink,
             # with rubble piled at the base of the side now overhanging.
             lean_dir = None
-            if is_destroyed and rng.random() < tilt_chance:
+            if is_destroyed and _hit(cx, cy, tilt_chance):
                 t_roll = rng.choice([-1.0, 1.0]) * rng.uniform(
                     float(tilt_deg[0]), float(tilt_deg[1]))
                 t_pitch = rng.choice([-1.0, 1.0]) * rng.uniform(
@@ -1430,8 +1548,7 @@ def build_city(config: dict, resolver: SizeResolver):
                         roll=_axis_roll(du), axis_up=_au(du))
 
                 if debris_pile_usds:
-                    for _ in range(rng.randint(int(piles_per[0]),
-                                               int(piles_per[1]))):
+                    for _ in range(_hit_count(cx, cy, piles_per)):
                         _add_pile(*_ring_pos(-1.0, pile_max_off))
                     # Leaning ruin: rubble hugging the base of the caved /
                     # overhanging side, spread along that edge.
@@ -1443,8 +1560,7 @@ def build_city(config: dict, resolver: SizeResolver):
                             _add_pile(*_ring_pos(-1.5, 1.0, ang=ang))
 
                 if debris_piece_usds:
-                    for _ in range(rng.randint(int(pieces_per[0]),
-                                               int(pieces_per[1]))):
+                    for _ in range(_hit_count(cx, cy, pieces_per)):
                         dx_, dy_ = _ring_pos(0.3, pieces_scatter)
                         if exclusions and _in_exclusion(dx_, dy_, exclusions):
                             continue
@@ -1588,9 +1704,11 @@ def build_city(config: dict, resolver: SizeResolver):
     # lights (intersection corners)
     # =======================================================================
 
-    # Disaster (tornado aftermath) parameters — consumed inline through
-    # steps 3-4 (per-category toppling, leaning, scattering, strewn wrecks).
-    dcfg = config.get("disaster", {})
+    # Disaster aftermath parameters — consumed inline through steps 3-4
+    # (per-category toppling, leaning, scattering, strewn wrecks). Every
+    # fraction below is a maximum, scaled per-position by damage_at() via
+    # _hit() / _hit_count(), so the aftermath follows the disaster's field.
+    dcfg = dis_cfg
 
     def _scatter_in_blocks(count_range, min_sep, margin, place_fn, in_blocks=None,
                            density_per_100m2=None, even=False):
@@ -1820,7 +1938,7 @@ def build_city(config: dict, resolver: SizeResolver):
             if not _occ_reserve(_prop_curb_rect(lx, ly, street_yaw, lfp,
                                                 pole_only=True)):
                 continue
-            if rng.random() < lights_toppled:
+            if _hit(lx, ly, lights_toppled):
                 _topple_flat(lu, lfp, lx, ly, "streetlight", z0=sidewalk_top)
             else:
                 add(lu, lx, ly, sidewalk_top + lfp["base"], street_yaw,
@@ -1911,7 +2029,7 @@ def build_city(config: dict, resolver: SizeResolver):
             hx, hy = _inset_pos(px, py, street_yaw, _curb_inset(fp))
             if not _occ_reserve(_prop_curb_rect(hx, hy, street_yaw, fp)):
                 continue
-            if rng.random() < sheared:
+            if _hit(hx, hy, sheared):
                 _topple_flat(u, fp, hx, hy, "fire_hydrant", z0=sidewalk_top)
             else:
                 add(u, hx, hy, sidewalk_top + fp["base"], street_yaw,
@@ -1930,9 +2048,11 @@ def build_city(config: dict, resolver: SizeResolver):
             tx_, ty_ = _inset_pos(px, py, street_yaw, _curb_inset(fp))
             if not _occ_reserve(_prop_curb_rect(tx_, ty_, street_yaw, fp)):
                 continue
-            if rng.random() < tipped:
+            if _hit(tx_, ty_, tipped):
+                # Wind displacement also scales with the local intensity —
+                # cans on the fringe tip over, cans in the core fly.
                 ang = rng.uniform(0.0, 2.0 * math.pi)
-                d = rng.uniform(0.0, scatter)
+                d = rng.uniform(0.0, scatter * damage_at(tx_, ty_))
                 bx_, by_ = tx_ + d * math.cos(ang), ty_ + d * math.sin(ang)
                 if exclusions and _in_exclusion(bx_, by_, exclusions):
                     bx_, by_ = tx_, ty_     # don't blow into a keep-out zone
@@ -1997,9 +2117,9 @@ def build_city(config: dict, resolver: SizeResolver):
                 if exclusions and _in_exclusion(x, y, exclusions):
                     continue
                 yaw = math.degrees(math.atan2(icy - y, icx - x)) + tl_front
-                if rng.random() < tl_toppled:
+                if _hit(x, y, tl_toppled):
                     _topple_flat(u, fp, x, y, "traffic_light", z0=sidewalk_top)
-                elif rng.random() < tl_leaning:
+                elif _hit(x, y, tl_leaning):
                     tilt = rng.uniform(float(lean_lo), float(lean_hi))
                     add(u, x, y, sidewalk_top + fp["base"], yaw, "traffic_light",
                         _sc(u),
@@ -2033,7 +2153,7 @@ def build_city(config: dict, resolver: SizeResolver):
         def _add_human(tx, ty, z0, yaw, pose):
             u = rng.choice(human_usds)
             fp = resolver.get(u, "human", scale=_sc(u), axis_up=_au(u))
-            if rng.random() < prone:
+            if _hit(tx, ty, prone):
                 _human_down(u, fp, tx, ty, z0)
             else:
                 add(u, tx, ty, z0 + fp["base"], yaw, "human", _sc(u),
@@ -2085,6 +2205,10 @@ def build_city(config: dict, resolver: SizeResolver):
             hx = rng.uniform(corr["x0"], corr["x1"])
             hy = rng.uniform(corr["y0"], corr["y1"])
             if exclusions and _in_exclusion(hx, hy, exclusions):
+                continue
+            # Keep casualties inside the damage zone: accept the sampled
+            # spot in proportion to how hard it was hit.
+            if rng.random() >= damage_at(hx, hy):
                 continue
             u = rng.choice(human_usds)
             fp = resolver.get(u, "human", scale=_sc(u), axis_up=_au(u))
@@ -2141,7 +2265,7 @@ def build_city(config: dict, resolver: SizeResolver):
                     yaw = 90.0 if heading > 0 else 270.0
                     usd = rng.choice(car_usds)
                     fp  = _car_fp(usd)
-                    if rng.random() < toppled_frac:
+                    if _hit(cx, cy, toppled_frac):
                         _add_toppled_car(usd, fp, cx, cy)
                     else:
                         add(usd, cx, cy, fp["base"],
@@ -2162,7 +2286,7 @@ def build_city(config: dict, resolver: SizeResolver):
                     yaw = 0.0 if heading > 0 else 180.0
                     usd = rng.choice(car_usds)
                     fp  = _car_fp(usd)
-                    if rng.random() < toppled_frac:
+                    if _hit(cx, cy, toppled_frac):
                         _add_toppled_car(usd, fp, cx, cy)
                     else:
                         add(usd, cx, cy, fp["base"],
@@ -2188,6 +2312,11 @@ def build_city(config: dict, resolver: SizeResolver):
                 continue
             if any((x - px) ** 2 + (y - py) ** 2 < 5.0 ** 2 for px, py in strewn_pts):
                 continue                              # don't stack wrecks
+            # Wrecks land where the disaster hit: accept the sampled spot in
+            # proportion to the local intensity (a tornado strews along its
+            # track, not across the whole city).
+            if rng.random() >= damage_at(x, y):
+                continue
             usd = rng.choice(car_usds)
             fp = _car_fp(usd)
             if rng.random() < strewn_topple:

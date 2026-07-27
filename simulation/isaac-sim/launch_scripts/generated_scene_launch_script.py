@@ -8,8 +8,9 @@ on a hand-authored environment for clutter it:
  - Scatters an asset library across configured zones via utils/scene_generator
  - Adds colliders + dome light, then spawns the drone
 
-The scene spec lives in config/scene_generator_config.yaml. Edit that file (or
-point SCENE_CONFIG elsewhere) to change what gets generated — no code changes
+SCENE_CONFIG points at a low-level scene config under config/scene_generation/.
+Pick a different compiled disaster (or recompile one from its high-level spec
+with utils/compile_disaster.py) to change what gets generated — no code changes
 needed. For repeatable batch runs, pre-bake instead with:
     python utils/scene_generator.py --config <yaml> --output assets/scenes/foo.usd
 and load the result like any other environment.
@@ -43,7 +44,10 @@ from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
 from scene_prep import (scale_stage_prim, add_colliders, add_sky,
                         get_stage_meters_per_unit, settle_rigid_props)
-from scene_generator import generate_scene_on_stage, load_config, resolve_sky
+from scene_generator import generate_scene_on_stage, resolve_sky
+# Accepts a config at either level: a high-level disaster spec is
+# compiled in memory, a low-level scene config is used as is.
+from compile_disaster import load_scene_config
 
 
 # --------------------- CONFIGURATION ---------------------
@@ -58,7 +62,9 @@ STAGE_SCALE = 1.00
 
 # Scene spec consumed by the generator. Relative to the isaac-sim/ root.
 _ISAAC_SIM_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-SCENE_CONFIG = os.path.join(_ISAAC_SIM_DIR, "config", "scene_generator_config.yaml")
+SCENE_CONFIG = os.path.join(_ISAAC_SIM_DIR, "config", "scene_generation",
+                            # "low_level", "compiled", "hurricane.yaml")
+                            "presets", "tornado.yaml")
 
 # Raycast each generated asset down onto terrain colliders for its Z. Needs the
 # physics scene stepped first; leave False for flat ground at the configured z.
@@ -170,7 +176,7 @@ class PegasusApp:
 
         # ----- Procedural scene generation -----
         # Place metric coordinates into stage-space using the stage's unit scale.
-        config = load_config(SCENE_CONFIG)
+        config = load_scene_config(SCENE_CONFIG)
         _, scene_scale_factor = get_stage_meters_per_unit(stage)
         placements = generate_scene_on_stage(
             stage,

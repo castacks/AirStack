@@ -12,7 +12,8 @@ the same city.
 | File | Role |
 |------|------|
 | [`utils/scene_generator.py`](utils/scene_generator.py) | Core module: footprint measurement, city layout, USD composition. Also runs as an offline CLI. |
-| [`config/scene_generator_config.yaml`](config/scene_generator_config.yaml) | City spec — region size, block/lot subdivision params, asset library, damage fraction, tree/streetlight density, exclusions, seed. |
+| [`utils/compile_disaster.py`](utils/compile_disaster.py) | Compiles a high-level disaster spec (type + severity) into a low-level scene config. One function per disaster type. Its `load_scene_config()` is what lets the launch scripts accept either level. |
+| [`config/scene_generation/`](config/scene_generation/GENERATION.md) | The scene configs: hand-written high-level `presets/`, the `low_level/default.yaml` base, and generated `low_level/compiled/`. See [GENERATION.md](config/scene_generation/GENERATION.md). |
 | [`launch_scripts/generated_scene_launch_script.py`](launch_scripts/generated_scene_launch_script.py) | Single-drone launcher that builds the city at runtime, then preps it and spawns the drone. |
 | [`utils/scene_prep.py`](utils/scene_prep.py) | Existing helpers (`scale_stage_prim`, `add_colliders`, `add_dome_light`, `get_stage_meters_per_unit`) the launch script reuses. |
 
@@ -97,7 +98,7 @@ for CI and for sharing a fixed scene:
 docker exec airstack-isaac-sim-1 bash -c \
   "cd /path/to/simulation/isaac-sim && \
    python utils/scene_generator.py \
-     --config config/scene_generator_config.yaml \
+     --config config/scene_generation/low_level/compiled/earthquake.yaml \
      --output assets/scenes/generated_demo.usd \
      --scale-factor 1.0"
 ```
@@ -107,8 +108,10 @@ Then set `ENV_URL` (in any launch script) to
 
 ## Config reference
 
-See [`config/scene_generator_config.yaml`](config/scene_generator_config.yaml)
-for a worked example. Top-level keys:
+See [`config/scene_generation/low_level/default.yaml`](config/scene_generation/low_level/default.yaml)
+for a worked example, and [GENERATION.md](config/scene_generation/GENERATION.md)
+for how the high-level (disaster) and low-level (scene) layers fit together.
+Top-level keys:
 
 | Key | Meaning |
 |-----|---------|
@@ -170,7 +173,8 @@ omni.timeline.get_timeline_interface().stop()      # don't edit geometry mid-ste
 _, ssf = scene_prep.get_stage_meters_per_unit(stage)
 scene_generator.reload_scene_on_stage(
     stage,
-    os.path.join(ISAAC_SIM_DIR, "config", "scene_generator_config.yaml"),
+    os.path.join(ISAAC_SIM_DIR, "config", "scene_generation",
+                 "low_level", "compiled", "earthquake.yaml"),
     scene_scale_factor=ssf,
     add_colliders_fn=scene_prep.add_colliders,     # so physics sees new geometry
 )

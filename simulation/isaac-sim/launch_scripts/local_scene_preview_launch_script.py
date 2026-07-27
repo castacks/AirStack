@@ -22,7 +22,7 @@ if one appears on first asset fetch.
 
 RELOAD WITHOUT RESTARTING
 -------------------------
-Edit config/scene_generator_config.yaml or utils/scene_generator.py, then in
+Edit the scene config (see SCENE_CONFIG below) or utils/scene_generator.py, then in
 the Kit Script Editor (Window -> Script Editor) run the one-liner printed to
 the terminal at startup (it exec's reload_scene.py from this repo).
 """
@@ -51,14 +51,18 @@ _ISAAC_SIM_DIR = os.path.normpath(
 sys.path.insert(0, os.path.join(_ISAAC_SIM_DIR, "utils"))
 from scene_prep import (add_colliders, add_sky, get_stage_meters_per_unit,
                         settle_rigid_props)
-from scene_generator import generate_scene_on_stage, load_config, resolve_sky
+from scene_generator import generate_scene_on_stage, resolve_sky
+# Accepts a config at either level: a high-level disaster spec is
+# compiled in memory, a low-level scene config is used as is.
+from compile_disaster import load_scene_config
 
 # Let reload_scene.py locate this repo when exec'd from the Script Editor
 # (the Script Editor copies scripts to /tmp, so __file__ can't be trusted there).
 os.environ["AIRSTACK_ISAAC_SIM_DIR"] = _ISAAC_SIM_DIR
 
 # ----- CONFIGURATION -----
-SCENE_CONFIG = os.path.join(_ISAAC_SIM_DIR, "config", "scene_generator_config.yaml")
+SCENE_CONFIG = os.path.join(_ISAAC_SIM_DIR, "config", "scene_generation",
+                            "low_level", "compiled", "earthquake.yaml")
 APPLY_COLLIDERS = False   # not needed for visual iteration; True to test physics
 # -------------------------
 
@@ -82,7 +86,7 @@ class LocalScenePreviewApp:
         # parent_path ("/World/stage/generated") clears/rebuilds the same subtree.
         UsdGeom.Xform.Define(stage, Sdf.Path("/World/stage"))
 
-        config = load_config(SCENE_CONFIG)
+        config = load_scene_config(SCENE_CONFIG)
 
         _, ssf = get_stage_meters_per_unit(stage)
         placements = generate_scene_on_stage(stage, config,
@@ -114,7 +118,7 @@ class LocalScenePreviewApp:
         print("\n" + "=" * 70)
         print("LOCAL SCENE PREVIEW READY — to reload, open Window → Script Editor and run:")
         print(f'  exec(open({repr(_reload_script)}).read())')
-        print("Edit config/scene_generator_config.yaml or reload_scene.py between runs.")
+        print("Edit the scene config or reload_scene.py between runs.")
         print("=" * 70 + "\n")
 
     def run(self):
