@@ -1,6 +1,7 @@
 from raven_nav.behaviors.frontier_behavior import FrontierBehavior
 from raven_nav.behaviors.ray_behavior import RayBehavior
 from raven_nav.behaviors.voxel_behavior import VoxelBehavior
+from raven_nav.behaviors.vlfm_behavior import VLFMBehavior
 
 
 class BehaviorManager:
@@ -25,6 +26,12 @@ class BehaviorManager:
                                             track_max_misses=voxel_track_max_misses,
                                             proximity_engage_m=voxel_proximity_engage_m,
                                             min_confidence=voxel_min_confidence)
+        # VLFM baseline: force-selected by the node's vlfm_baseline flag, so it is
+        # NOT in the priority list (same as Frontier under frontier_only_baseline).
+        self.vlfm_behavior = VLFMBehavior(
+            self.get_clock, min_altitude=min_altitude, max_altitude=max_altitude,
+            voxel_score_threshold=voxel_score_threshold,
+            voxel_min_cluster_size=voxel_min_cluster_size)
         # Priority order: Voxel > Ray > Frontier.
         self.behaviors = [self.voxel_behavior, self.ray_behavior, self.frontier_behavior]
 
@@ -59,7 +66,15 @@ class BehaviorManager:
                          committed_target_dir=None,
                          committed_target_origin=None,
                          completed_zones_xy=None, cell_size_m=0.5,
-                         committed_bb_center=None, peer_weights=None):
+                         committed_bb_center=None, peer_weights=None,
+                         ray_origins=None, ray_scores=None, ray_dirs=None,
+                         target_objects=None):
+        if behavior_mode == 'VLFM-based':
+            return self.vlfm_behavior.execute(
+                ray_origins, ray_scores, ray_dirs, vox_xyz, vox_scores,
+                query_labels, target_objects, cur_pose_np, waypoint_locked,
+                target_waypoint, target_waypoint2, publisher_dict,
+                search_area_xy=search_area_xy)
         if behavior_mode == 'Voxel-based':
             return self.voxel_behavior.execute(
                 vox_xyz, vox_scores, query_labels, cur_pose_np,

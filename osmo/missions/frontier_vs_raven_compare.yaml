@@ -21,15 +21,19 @@
 #   YAML anchor shared by all three entries of a triple, so those inputs are
 #   guaranteed byte-identical; only the method flags differ.
 #
-#   METHOD FLAGS: frontier = FRONTIER_ONLY_BASELINE true,  LVLM_BASELINE false
-#                 raven    = FRONTIER_ONLY_BASELINE false, LVLM_BASELINE false
-#                 lvlm     = FRONTIER_ONLY_BASELINE false, LVLM_BASELINE true
-#   (LVLM_BASELINE=true wins over FRONTIER_ONLY_BASELINE in semantic_search_task.)
+#   METHOD FLAGS: frontier = FRONTIER_ONLY_BASELINE true,  VLFM_BASELINE false, LVLM_BASELINE false
+#                 raven    = FRONTIER_ONLY_BASELINE false, VLFM_BASELINE false, LVLM_BASELINE false
+#                 vlfm     = FRONTIER_ONLY_BASELINE false, VLFM_BASELINE true,  LVLM_BASELINE false
+#                 lvlm     = FRONTIER_ONLY_BASELINE false, VLFM_BASELINE false, LVLM_BASELINE true
+#   (frontier wins over vlfm, and LVLM_BASELINE=true wins over both, in
+#   semantic_search_task / raven_nav.)
 #
 #   NOTE: env vars are sticky across iterations (mission_runner.apply_env only
-#   merges, never clears), so EVERY entry sets BOTH FRONTIER_ONLY_BASELINE and
-#   LVLM_BASELINE (and its SPAWN_CONFIGS) explicitly — else a value leaks from
-#   the prior run.
+#   merges, never clears), so EVERY entry must set ALL THREE of
+#   FRONTIER_ONLY_BASELINE, VLFM_BASELINE, and LVLM_BASELINE (and its
+#   SPAWN_CONFIGS) explicitly — else a value leaks from the prior run. The
+#   entries below predate the vlfm method and set only the first and last; add
+#   VLFM_BASELINE explicitly to every entry before adding vlfm rows.
 #
 # SCHEDULE (round_robin, iterations = 12 = run each entry once), triples adjacent:
 #   01 retro/r1 frontier   02 retro/r1 raven   03 retro/r1 lvlm    ← same spawn layout

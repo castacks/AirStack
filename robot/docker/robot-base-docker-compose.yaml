@@ -15,6 +15,7 @@ services:
       # docker compose interpolation to env variables
       - AUTONOMY_ROLE=${AUTONOMY_ROLE:-full}
       - FRONTIER_ONLY_BASELINE=${FRONTIER_ONLY_BASELINE:-false}
+      - VLFM_BASELINE=${VLFM_BASELINE:-false}
       - LVLM_BASELINE=${LVLM_BASELINE:-false}
       - URDF_FILE=${URDF_FILE}
       # MAVROS

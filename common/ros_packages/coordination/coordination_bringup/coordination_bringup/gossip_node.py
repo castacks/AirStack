@@ -34,14 +34,14 @@ from coordination_bringup.peer_profile import PeerProfile
 from coordination_bringup.frame_utils import (
     gps_to_enu, heading_to_quat, transform_marker_array, transform_point_cloud2,
 )
-from coordination_bringup.comms_model import should_accept, MAX_RELAY_HOPS
+from coordination_bringup.comms_model import should_accept, MAX_RELAY_HOPS, COMMS_RANGE_M
 
 from visualization_msgs.msg import MarkerArray
 from sensor_msgs.msg import PointCloud2
 
 
 PEER_STALE_S = 10.0        # no PeerProfile from a peer for this long → log STALE
-PEER_LOG_PERIOD_S = 30.0   # period of the peer last-heard summary line
+PEER_LOG_PERIOD_S = 5.0    # period of the periodic connectivity heartbeat line
 
 # rayfronts publishes voxels_sim/all in RDF (right-down-forward, camera-optical);
 # raven converts it to FLU as [rdf_z, -rdf_x, -rdf_y] (raven_nav_node _vox_all_cb).
@@ -163,10 +163,17 @@ class GossipNode(Node):
             self._diag_file = None
         self._watchdog_timer = self.create_timer(2.0, self._peer_watchdog, clock=ROSClock())
 
+        # Record the comms-model configuration up front so a run's radius / relay
+        # setting is recoverable from the log alone — it otherwise lives only in
+        # the hardcoded comms_model.py source and is lost once the run is over.
+        self._diag(f"CONFIG comms_range_m={COMMS_RANGE_M:.1f} max_relay_hops={MAX_RELAY_HOPS} "
+                   f"num_robots={os.environ.get('NUM_ROBOTS', '?')} robot={self._robot_name} "
+                   f"publish_rate={publish_rate:.2f}")
+
         self.get_logger().info(
             f"GossipNode started for '{self._robot_name}' "
-            f"(publish_rate={publish_rate:.1f} Hz wall-clock, "
-            f"{len(self._payload_cache)} payload topic(s))"
+            f"(comms range={COMMS_RANGE_M:.0f} m, relay_hops={MAX_RELAY_HOPS}, "
+            f"publish_rate={publish_rate:.1f} Hz, {len(self._payload_cache)} payload topic(s))"
         )
 
     def _setup_payload_subscriptions(self, config_path: str) -> None:
@@ -282,33 +289,54 @@ class GossipNode(Node):
         if self._diag_file is None:
             return
         try:
-            self._diag_file.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {line}\n")
+            # epoch (t=) after the human timestamp so offline analysis can align
+            # the gossip log to bag/odom epoch time without timezone guessing.
+            self._diag_file.write(
+                f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] t={time.time():.2f} {line}\n")
         except Exception:
             pass
 
+    def _own_enu(self):
+        """Own ENU (x, y) from the latest GPS fix, or None before boot/GPS."""
+        if self._boot_pos is None:
+            return None
+        try:
+            x, y, _ = gps_to_enu(self._profile.gps_fix.latitude,
+                                 self._profile.gps_fix.longitude,
+                                 self._profile.gps_fix.altitude)
+            return x, y
+        except Exception:
+            return None
+
     def _peer_watchdog(self) -> None:
-        """Log STALE/RECOVER transitions per peer + a periodic last-heard
-        summary, so a mid-run gossip dropout is obvious in the logs."""
+        """Per-peer STALE/RECOVER transitions + a periodic connectivity heartbeat
+        carrying this robot's own ENU position and each peer's last-heard age +
+        UP/STALE state. With own_enu in both robots' heartbeats, the inter-robot
+        distance behind every connect/drop is reconstructable from the logs alone
+        (pair the two robots' HB lines by the logged epoch) — no bag needed."""
         if not self._peer_last_rx:
             return
         now = time.monotonic()
         matched = self._peer_sub.get_publisher_count()
+        own = self._own_enu()
+        own_s = f"own_enu={own[0]:.1f},{own[1]:.1f}" if own else "own_enu=?"
         for name in sorted(self._peer_last_rx):
             age = now - self._peer_last_rx[name]
             if age > PEER_STALE_S and name not in self._peer_stale:
                 self._peer_stale.add(name)
                 self.get_logger().warn(f"[gossip] peer {name} STALE — no PeerProfile for {age:.1f}s")
-                self._diag(f"STALE   peer={name} silent_for={age:.1f}s matched_writers={matched}")
+                self._diag(f"STALE   peer={name} silent_for={age:.1f}s {own_s} matched_writers={matched}")
             elif age <= PEER_STALE_S and name in self._peer_stale:
                 self._peer_stale.discard(name)
                 self.get_logger().info(f"[gossip] peer {name} RECOVERED")
-                self._diag(f"RECOVER peer={name} matched_writers={matched}")
+                self._diag(f"RECOVER peer={name} {own_s} matched_writers={matched}")
         if now - self._last_peer_summary >= PEER_LOG_PERIOD_S:
             self._last_peer_summary = now
-            ages = ", ".join(f"{n}={now - self._peer_last_rx[n]:.0f}s"
-                             for n in sorted(self._peer_last_rx))
-            self.get_logger().info(f"[gossip] peer last-heard ages: {ages}")
-            self._diag(f"AGES    {ages} matched_writers={matched}")
+            peers = " ".join(
+                f"{n}=age{now - self._peer_last_rx[n]:.0f}s,{'STALE' if n in self._peer_stale else 'UP'}"
+                for n in sorted(self._peer_last_rx))
+            self.get_logger().info(f"[gossip] heartbeat {own_s} {peers}")
+            self._diag(f"HB {own_s} {peers} matched_writers={matched}")
 
     def _publish_tick(self) -> None:
         self._publish_own()

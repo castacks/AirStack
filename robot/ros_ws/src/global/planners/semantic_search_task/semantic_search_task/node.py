@@ -912,6 +912,9 @@ class SemanticSearchTaskNode(Node):
                 '-p', 'use_sim_time:=true',
                 # Default full coordination; FRONTIER_ONLY_BASELINE=true → baseline.
                 '-p', f'frontier_only_baseline:={os.getenv("FRONTIER_ONLY_BASELINE", "false").strip().lower()}',
+                # VLFM_BASELINE=true → greedy VLFM baseline (mutually exclusive
+                # with FRONTIER_ONLY_BASELINE; raven_nav lets frontier win).
+                '-p', f'vlfm_baseline:={os.getenv("VLFM_BASELINE", "false").strip().lower()}',
                 # End at 80% coverage; osmo enforces the 15-min limit by cancel.
                 '-p', f'coverage_complete_threshold:={RESULTS_COVERAGE_THRESHOLD}',
                 '-p', f'results_dir:={RESULTS_DIR}',

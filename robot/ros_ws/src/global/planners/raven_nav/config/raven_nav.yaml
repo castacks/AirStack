@@ -45,3 +45,7 @@ raven_nav:
     # (semantic_search_task spawns raven_nav with -p args, not this file,
     # and currently sets this to true — see semantic_search_task/node.py.)
     frontier_only_baseline: false
+    # Run the VLFM baseline: greedy argmax semantic-ray exploration + voxel
+    # go-to-object (behaviors/vlfm_behavior.py). Mutually exclusive with
+    # frontier_only_baseline. Uses voxel_score_threshold for the go-to-object gate.
+    vlfm_baseline: false

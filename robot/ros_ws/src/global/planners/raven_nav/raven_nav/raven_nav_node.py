@@ -68,6 +68,7 @@ _NAV_MODE_TAG = {
     'Frontier-based': 'frontier',
     'Ray-based':      'ray',
     'Voxel-based':    'voxel',
+    'VLFM-based':     'vlfm',
     'Complete':       'complete',
 }
 
@@ -227,6 +228,21 @@ class RavenNavNode(Node):
             self.get_logger().info(
                 'frontier_only_baseline=true — navigation is pure frontier '
                 'exploration (semantic tracking still on)')
+
+        # Run the VLFM baseline: greedy argmax-ray exploration + voxel
+        # go-to-object (see behaviors/vlfm_behavior.py). Mutually exclusive with
+        # frontier_only_baseline; frontier wins if both are set.
+        self._vlfm_baseline = bool(self.declare_parameter(
+            'vlfm_baseline', False).value)
+        if self._vlfm_baseline and self._frontier_only_baseline:
+            self.get_logger().warn(
+                'both frontier_only_baseline and vlfm_baseline set — '
+                'using frontier_only_baseline')
+            self._vlfm_baseline = False
+        if self._vlfm_baseline:
+            self.get_logger().info(
+                'vlfm_baseline=true — navigation is greedy VLFM '
+                '(argmax semantic ray + voxel go-to-object)')
 
         timer_period = self.declare_parameter('timer_period', 0.5).value
         # Coordination debug lines are tagged "[coord]".
@@ -2789,6 +2805,16 @@ class RavenNavNode(Node):
             # touches the nav candidate pool, so baseline stays pure frontier.
             self._mark_reached(self._cur_pose)
             self._behavior_manager.behavior_mode = 'Frontier-based'
+        elif self._vlfm_baseline:
+            # VLFM baseline: same PASSIVE detection as frontier (so AABBs /
+            # confirmed_targets / completed_queries populate for metrics), but
+            # navigation is handled by VLFMBehavior. Hard-force VLFM-based; never
+            # activate voxel-MODE here.
+            self._behavior_manager.voxel_behavior.condition_check(
+                self._vox_xyz, self._vox_scores, self._query_labels,
+                voxel_targets, committed_origin=None, committed_dir=None)
+            self._mark_reached(self._cur_pose)
+            self._behavior_manager.behavior_mode = 'VLFM-based'
         else:
             self._behavior_manager.mode_select(
                 query_labels=self._query_labels,
@@ -2926,6 +2952,10 @@ class RavenNavNode(Node):
                 committed_bb_center=(
                     None if self._frontier_only_baseline
                     else self._committed_bb_center),
+                ray_origins=self._ray_origins,
+                ray_scores=self._ray_scores,
+                ray_dirs=self._ray_dirs,
+                target_objects=self._target_objects,
             )
 
         self._nav_mode_pub.publish(
