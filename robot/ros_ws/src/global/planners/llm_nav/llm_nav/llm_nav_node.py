@@ -1109,6 +1109,26 @@ class LlmNavNode(Node):
             bdirs = list(self._blacklisted_dirs)
         if vox_xyz is None or cur is None:
             return None
+        # CRITICAL gate: never cluster until ALL registered queries have live
+        # sim columns. In the window between the target query registering and
+        # the bank/context labels arriving, argmax runs over a 1..few-column
+        # set — with one column the whole scene trivially "wins" as the
+        # target (no competitor to compare against), minting scene-scale
+        # false instances that no flag can catch (no runner-up -> AMBIGUOUS
+        # blind; expected_size unset -> TOO BIG blind) and that persist via
+        # bbox-overlap matching. Argmax is only a valid comparison over the
+        # COMPLETE vocabulary.
+        with self._map_lock:
+            n_detected = len(self._detected_labels or [])
+            n_expected = len(self._all_queries)
+        if n_detected < n_expected:
+            now_w = time.monotonic()
+            if now_w - getattr(self, '_last_gate_log', 0.0) > 10.0:
+                self._last_gate_log = now_w
+                self.get_logger().info(
+                    f'[digest] waiting for full query set '
+                    f'({n_detected}/{n_expected} columns live)')
+            return None
         try:
             with self._map_lock:
                 self._builder.update_instances(vox_xyz, vox_scores)

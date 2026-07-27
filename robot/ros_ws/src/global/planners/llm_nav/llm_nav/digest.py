@@ -37,6 +37,17 @@ _TRACK_MATCH_M = 3.0
 _TRACK_MATCH_EXTENT_FRAC = 0.6
 _TRACK_MATCH_CAP_M = 10.0
 _TRACK_MAX_MISSES = 6
+# Segmentation is VOCABULARY-FREE: adjacent voxels join a cluster when their
+# per-query score VECTORS (a projection of the open-set embedding onto the
+# query directions) are cosine-similar — two voxels of one object look alike
+# in embedding space no matter which single label wins either of them.
+_AFFINITY_TAU = 0.90
+# Description is BASELINE-RELATIVE: a cluster is "known" as label L only if
+# its mean score for L beats L's own map-wide average by this ratio —
+# otherwise it is an honest 'unknown'. (Raw argmax force-classifies
+# out-of-vocabulary structures into whichever label has the highest ambient
+# baseline — the house-sized "bus stop".)
+_KNOWN_RATIO = 1.2
 
 _COMPASS = ['E', 'NE', 'N', 'NW', 'W', 'SW', 'S', 'SE']
 
@@ -312,9 +323,13 @@ class DigestBuilder:
         """Extract clusters from the latest voxel cloud and refresh the tracker."""
         if vox_scores is not None and len(vox_scores):
             q = min(vox_scores.shape[1], len(self.labels)) or vox_scores.shape[1]
-            # Map-wide per-label baseline: raw cos only means something
+            # Per-label AMBIENT baseline: raw cos only means something
             # relative to its own label's background level in THIS scene.
-            self.label_bg = vox_scores[:, :q].mean(axis=0)
+            # 25th percentile, not mean — the mean degenerates when one
+            # object dominates the map (early mission: the first house IS
+            # the map, its own scores become "background" and salience
+            # collapses to 1).
+            self.label_bg = np.quantile(vox_scores[:, :q], 0.25, axis=0)
             self._update_surfaces(vox_xyz, vox_scores[:, :q])
         clusters = self._extract_clusters(vox_xyz, vox_scores)
         self._track(clusters)
@@ -341,97 +356,180 @@ class DigestBuilder:
             self._surface_pts[l.lower()] = pts
 
     def _extract_clusters(self, vox_xyz, vox_scores) -> list:
+        """Vocabulary-free segmentation + baseline-relative description.
+
+        1. SEGMENT: voxels above the participation floor group by geometric
+           adjacency AND score-vector cosine affinity — the per-query score
+           vector is the open-set embedding's projection onto the query
+           directions, so two voxels of one object look alike regardless of
+           which single label wins either of them. No label decides
+           membership.
+        2. DESCRIBE: each cluster's mean scores are divided by each label's
+           map-wide baseline; the most SALIENT label names the cluster, and
+           if nothing clears _KNOWN_RATIO it is an honest 'unknown' —
+           out-of-vocabulary structures are never force-classified (per-voxel
+           raw argmax produced the house-sized "bus stop": 'bus stop' has a
+           high ambient baseline and wins wherever real labels dip).
+        Surface-described clusters are dropped here (the SURFACES line covers
+        them); object and unknown clusters become instances."""
         if vox_xyz is None or len(vox_xyz) == 0 or not self.ready:
             return []
         q = min(vox_scores.shape[1], len(self.labels))
         scores = vox_scores[:, :q]
-        best = np.argmax(scores, axis=1)
-        best_s = scores[np.arange(len(scores)), best]
-        keep = np.isin(best, self._object_cols) & (best_s >= self.floor_cos)
-        if not keep.any():
+        keep = scores.max(axis=1) >= self.floor_cos
+        if int(keep.sum()) < self.min_instance_voxels:
             return []
         xyz = vox_xyz[keep]
         sc = scores[keep]
-        bestk = best[keep]
-
-        clusters = []
-        for canonical, cols in self._canonical_groups.items():
-            cols_q = [c for c in cols if c < q]
-            if not cols_q:
-                continue
-            sel = np.isin(bestk, cols_q)
-            if int(sel.sum()) < self.min_instance_voxels:
-                continue
-            clusters.extend(self._cluster_one_label(
-                canonical, xyz[sel], sc[sel]))
-        return clusters
-
-    def _cluster_one_label(self, label, xyz, sc) -> list:
-        from scipy import ndimage
-        cells = np.floor(xyz / VOX_SIZE).astype(np.int64)
-        # merge_gap: dilate the occupancy grid k cells before labeling, so
-        # same-label patches within the gap join into one component (points
-        # keep their original cells; pad the grid so dilation isn't clipped).
-        k = max(0, int(round(self.merge_gap_m / VOX_SIZE)))
-        mins = cells.min(axis=0) - k
-        shape = cells.max(axis=0) - mins + 1 + k
-        if int(np.prod(shape)) > _MAX_GRID_CELLS:
-            self.grid_overflow = True
+        comp = self._affinity_components(xyz, sc)
+        if comp is None:
             return []
-        grid = np.zeros(shape, dtype=bool)
-        idx = cells - mins
-        grid[idx[:, 0], idx[:, 1], idx[:, 2]] = True
-        if k > 0:
-            grid = ndimage.binary_dilation(
-                grid, structure=np.ones((3, 3, 3)), iterations=k)
-        labeled, n_comp = ndimage.label(grid, structure=np.ones((3, 3, 3)))
-        comp_of_pt = labeled[idx[:, 0], idx[:, 1], idx[:, 2]]
-        out = []
-        for c in range(1, n_comp + 1):
-            m = comp_of_pt == c
+        clusters = []
+        surf = {s.lower() for s in self.surface_labels}
+        for c in np.unique(comp):
+            m = comp == c
             if int(m.sum()) < self.min_instance_voxels:
                 continue
-            pts = xyz[m]
             mean_scores = sc[m].mean(axis=0)
-            # Cross-label skepticism for TARGET clusters: labels have
-            # different similarity baselines, so a target cluster whose score
-            # barely beats its runner-up is usually the runner-up (the
-            # house-marked-as-bus-stop failure). Annotation only — the LLM
-            # judges; nothing is gated here.
-            runner_up, ambiguous, oversized, undersized = None, False, False, False
-            if label == self.target.lower():
-                tcols = [c for c in self._canonical_groups.get(label, [])
-                         if c < len(mean_scores)]
-                t_score = max((float(mean_scores[c]) for c in tcols),
-                              default=0.0)
-                others = [(float(mean_scores[i]), self.labels[i])
-                          for i in range(len(mean_scores)) if i not in tcols]
-                if others:
-                    ru_s, ru_l = max(others)
-                    runner_up = (ru_l, round(ru_s, 3))
-                    ambiguous = t_score < 1.15 * ru_s
-                if self.expected_size is not None:
-                    ext = (pts.max(axis=0) - pts.min(axis=0)) + VOX_SIZE
-                    vol = float(np.prod(np.maximum(ext, VOX_SIZE)))
-                    exp_vol = float(np.prod(self.expected_size))
-                    # Asymmetric on purpose: partial views only ever make an
-                    # object look SMALLER, so oversized is a hard mislabel
-                    # signal while undersized just means "may still grow".
-                    oversized = vol > 4.0 * exp_vol
-                    undersized = vol < exp_vol / 4.0
-            out.append(dict(
-                label=label,
-                centroid=pts.mean(axis=0),
-                bbox_min=pts.min(axis=0) - VOX_SIZE / 2,
-                bbox_max=pts.max(axis=0) + VOX_SIZE / 2,
-                n_voxels=int(m.sum()),
-                top_labels=self._top_labels(mean_scores),
-                runner_up=runner_up,
-                ambiguous=ambiguous,
-                oversized=oversized,
-                undersized=undersized,
-            ))
-        return out
+            label = self._describe(mean_scores)
+            if label in surf:
+                continue
+            clusters.append(self._make_cluster(label, xyz[m], mean_scores))
+        return self._merge_gap_clusters(clusters)
+
+    def _affinity_components(self, xyz, sc) -> 'np.ndarray | None':
+        """Connected components where an edge needs 26-adjacency AND
+        score-vector cosine >= _AFFINITY_TAU."""
+        from scipy.sparse import coo_matrix
+        from scipy.sparse.csgraph import connected_components
+        cells = np.floor(xyz / VOX_SIZE).astype(np.int64)
+        mins = cells.min(axis=0)
+        shape = cells.max(axis=0) - mins + 1
+        if int(np.prod(shape)) > _MAX_GRID_CELLS:
+            self.grid_overflow = True
+            return None
+        cells = cells - mins
+        n = len(cells)
+        idx_grid = -np.ones(shape, dtype=np.int64)
+        idx_grid[cells[:, 0], cells[:, 1], cells[:, 2]] = np.arange(n)
+        norm = np.maximum(np.linalg.norm(sc, axis=1), 1e-9)
+        offsets = [(dx, dy, dz)
+                   for dx in (-1, 0, 1) for dy in (-1, 0, 1)
+                   for dz in (-1, 0, 1) if (dx, dy, dz) > (0, 0, 0)]
+        rows, cols = [], []
+        for o in offsets:
+            nb = cells + np.array(o)
+            ok = np.all((nb >= 0) & (nb < shape), axis=1)
+            j = np.full(n, -1, dtype=np.int64)
+            j[ok] = idx_grid[nb[ok, 0], nb[ok, 1], nb[ok, 2]]
+            ok = j >= 0
+            a = np.nonzero(ok)[0]
+            b = j[a]
+            cos = (sc[a] * sc[b]).sum(axis=1) / (norm[a] * norm[b])
+            good = cos >= _AFFINITY_TAU
+            rows.append(a[good])
+            cols.append(b[good])
+        r = np.concatenate(rows) if rows else np.zeros(0, dtype=np.int64)
+        c2 = np.concatenate(cols) if cols else np.zeros(0, dtype=np.int64)
+        g = coo_matrix((np.ones(len(r)), (r, c2)), shape=(n, n))
+        _, comp = connected_components(g, directed=False)
+        return comp
+
+    def _salience(self, mean_scores) -> np.ndarray:
+        """Score / that label's own map-wide baseline — the cross-label-
+        comparable quantity (raw cos baselines differ per label)."""
+        bg = self.label_bg
+        if bg is None or len(bg) < len(mean_scores):
+            bg = np.full(len(mean_scores), 1e-3)
+        return mean_scores / np.maximum(bg[:len(mean_scores)], 1e-3)
+
+    def _describe(self, mean_scores) -> str:
+        """Canonical label of the most salient column, or 'unknown' when no
+        label meaningfully beats its own baseline. Absolute fallback: a label
+        scoring far above the participation floor is known even when it
+        dominates the map (ambient ~= itself, salience ~= 1)."""
+        ratio = self._salience(mean_scores)
+        best = int(np.argmax(ratio))
+        if (float(ratio[best]) < _KNOWN_RATIO
+                and float(mean_scores[best]) < 2.0 * self.floor_cos):
+            return 'unknown'
+        # Between the two criteria pick the stronger claim: if the salience
+        # winner is weak but some label is absolutely strong, name that one.
+        if float(ratio[best]) < _KNOWN_RATIO:
+            best = int(np.argmax(mean_scores))
+        return self._canonical_of_col.get(best, self.labels[best].lower())
+
+    def _make_cluster(self, label, pts, mean_scores) -> dict:
+        """Cluster dict + the target-skepticism flags (salience-based)."""
+        runner_up, ambiguous, oversized, undersized = None, False, False, False
+        if label == self.target.lower():
+            ratio = self._salience(mean_scores)
+            tcols = [c for c in self._canonical_groups.get(label, [])
+                     if c < len(mean_scores)]
+            t_ratio = max((float(ratio[c]) for c in tcols), default=0.0)
+            others = [(float(ratio[i]), i)
+                      for i in range(len(mean_scores)) if i not in tcols]
+            if others:
+                ru_r, ru_i = max(others)
+                runner_up = (self.labels[ru_i],
+                             round(float(mean_scores[ru_i]), 3))
+                ambiguous = t_ratio < 1.15 * ru_r
+            if self.expected_size is not None:
+                ext = (pts.max(axis=0) - pts.min(axis=0)) + VOX_SIZE
+                vol = float(np.prod(np.maximum(ext, VOX_SIZE)))
+                exp_vol = float(np.prod(self.expected_size))
+                # Asymmetric on purpose: partial views only ever make an
+                # object look SMALLER, so oversized is a hard mislabel
+                # signal while undersized just means "may still grow".
+                oversized = vol > 4.0 * exp_vol
+                undersized = vol < exp_vol / 4.0
+        return dict(
+            label=label,
+            centroid=pts.mean(axis=0),
+            bbox_min=pts.min(axis=0) - VOX_SIZE / 2,
+            bbox_max=pts.max(axis=0) + VOX_SIZE / 2,
+            n_voxels=len(pts),
+            top_labels=self._top_labels(mean_scores),
+            runner_up=runner_up,
+            ambiguous=ambiguous,
+            oversized=oversized,
+            undersized=undersized,
+        )
+
+    def _merge_gap_clusters(self, clusters: list) -> list:
+        """Merge same-described-label clusters whose boxes touch (affinity
+        splits within one object, e.g. wall vs roof facets) or sit within
+        merge_gap_m (occlusion splits). Keeps the larger cluster's
+        description/flags."""
+        slack = max(self.merge_gap_m, 0.5)
+        merged = True
+        while merged and len(clusters) > 1:
+            merged = False
+            for i in range(len(clusters)):
+                for j in range(i + 1, len(clusters)):
+                    a, b = clusters[i], clusters[j]
+                    if a['label'] != b['label']:
+                        continue
+                    if not self._bbox_overlap(a['bbox_min'], a['bbox_max'],
+                                              b['bbox_min'], b['bbox_max'],
+                                              slack=slack):
+                        continue
+                    big, small = (a, b) if a['n_voxels'] >= b['n_voxels'] \
+                        else (b, a)
+                    tot = a['n_voxels'] + b['n_voxels']
+                    big['centroid'] = (
+                        a['centroid'] * a['n_voxels']
+                        + b['centroid'] * b['n_voxels']) / tot
+                    big['bbox_min'] = np.minimum(a['bbox_min'], b['bbox_min'])
+                    big['bbox_max'] = np.maximum(a['bbox_max'], b['bbox_max'])
+                    big['n_voxels'] = tot
+                    clusters[i] = big
+                    del clusters[j]
+                    merged = True
+                    break
+                if merged:
+                    break
+        return clusters
 
     @staticmethod
     def _bbox_overlap(min1, max1, min2, max2, slack: float = 0.5) -> bool:
@@ -755,6 +853,9 @@ class DigestBuilder:
                 if inst.undersized:
                     flags.append(f'PARTIAL VIEW? smaller than a typical '
                                  f'{self.target}, may grow as mapped')
+                if inst.label == 'unknown':
+                    flags.append('UNRECOGNIZED structure — no vocabulary '
+                                 'label fits; closest scores shown')
                 if inst.id in scanned:
                     flags.append('SCANNED')
                 flag_str = f' [{", ".join(flags)}]' if flags else ''
