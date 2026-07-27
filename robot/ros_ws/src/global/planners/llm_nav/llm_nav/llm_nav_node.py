@@ -851,63 +851,74 @@ class LlmNavNode(Node):
     # ── LLM worker: digest -> narrate/decide -> commit ────────────────────────
 
     def _worker_loop(self):
+        # ARMORED: one uncaught exception here kills the planner's brain
+        # while the node keeps looking alive (learned from the survey-pick
+        # UnboundLocalError, 2026-07-27) — every iteration is fail-safe.
         last_digest_t = 0.0
         last_narrate_t = 0.0
         digest = None
         aliases_done = False
         while rclpy.ok() and not self._stop:
             time.sleep(0.5)
-            if not self._llm.ready:
-                continue
-            if not aliases_done:
-                aliases_done = True
-                self._bootstrap_aliases()
-                self._bootstrap_perception()
-                self._bootstrap_context_labels()
-            with self._map_lock:
-                have_map = (self._builder.ready and self._vox_xyz is not None
-                            and self._cur_pos is not None)
-            if not have_map:
-                continue
-            now = time.monotonic()
+            try:
+                if not self._llm.ready:
+                    continue
+                if not aliases_done:
+                    aliases_done = True
+                    self._bootstrap_aliases()
+                    self._bootstrap_perception()
+                    self._bootstrap_context_labels()
+                with self._map_lock:
+                    have_map = (self._builder.ready
+                                and self._vox_xyz is not None
+                                and self._cur_pos is not None)
+                if not have_map:
+                    continue
+                now = time.monotonic()
 
-            if now - last_digest_t >= self._digest_period:
-                digest = self._refresh_digest()
-                last_digest_t = now
-                if digest is not None:
-                    self._update_ray_carrot(digest)
-            if digest is None:
-                continue
-
-            with self._map_lock:
-                committed = self._commitment is not None
-
-            if not committed:
-                # Rebuild RIGHT BEFORE deciding: a completion may have landed
-                # since the periodic build, and deciding from a stale digest
-                # re-picks just-visited instances (seen in the first PoC run:
-                # V17/V18/V22 each committed twice).
-                digest = self._refresh_digest()
-                last_digest_t = now
+                if now - last_digest_t >= self._digest_period:
+                    digest = self._refresh_digest()
+                    last_digest_t = now
+                    if digest is not None:
+                        self._update_ray_carrot(digest)
                 if digest is None:
                     continue
-                if (digest.selectable_instances or digest.selectable_rays
-                        or digest.frontier_targets or self._survey_allowed()):
-                    self._nav_mode = 'deciding'
-                    self._decide_and_commit(digest)
-                    # Force a digest rebuild next cycle so STATUS reflects
-                    # the new commitment.
-                    last_digest_t = 0.0
+
+                with self._map_lock:
+                    committed = self._commitment is not None
+
+                if not committed:
+                    # Rebuild RIGHT BEFORE deciding: a completion may have
+                    # landed since the periodic build, and deciding from a
+                    # stale digest re-picks just-visited instances (seen in
+                    # the first PoC run: V17/V18/V22 each committed twice).
+                    digest = self._refresh_digest()
+                    last_digest_t = now
+                    if digest is None:
+                        continue
+                    if (digest.selectable_instances or digest.selectable_rays
+                            or digest.frontier_targets
+                            or self._survey_allowed()):
+                        self._nav_mode = 'deciding'
+                        self._decide_and_commit(digest)
+                        # Force a digest rebuild next cycle so STATUS
+                        # reflects the new commitment.
+                        last_digest_t = 0.0
+                        last_narrate_t = now
+                elif now - last_narrate_t >= self._narrate_period:
+                    parsed = self._llm.narrate(digest.text, self._target)
+                    if parsed is not None:
+                        seeing = parsed.get('seeing', '')
+                        self._narration_pub.publish(String(data=seeing))
+                        self.get_logger().info(f'[LLM seeing] {seeing}')
+                        self._mlog.event('narrate', seeing=seeing,
+                                         notes=parsed.get('notes', ''))
                     last_narrate_t = now
-            elif now - last_narrate_t >= self._narrate_period:
-                parsed = self._llm.narrate(digest.text, self._target)
-                if parsed is not None:
-                    seeing = parsed.get('seeing', '')
-                    self._narration_pub.publish(String(data=seeing))
-                    self.get_logger().info(f'[LLM seeing] {seeing}')
-                    self._mlog.event('narrate', seeing=seeing,
-                                     notes=parsed.get('notes', ''))
-                last_narrate_t = now
+            except Exception:
+                import traceback
+                tb = traceback.format_exc()
+                self.get_logger().error(f'worker iteration failed:\n{tb}')
+                self._mlog.event('worker_error', traceback=tb)
 
     def _bootstrap_perception(self):
         """One-shot LLM call: clustering params fitted to the target. The
@@ -1232,14 +1243,18 @@ class LlmNavNode(Node):
         with self._map_lock:
             self._commitment = com
             self._nav_mode = f'committed_{com.kind}'
+        # NOTE: com.waypoint, never a branch-local — survey/scan branches
+        # build hop lists and define no single `wp` (the UnboundLocalError
+        # that killed the worker on the first survey pick, 2026-07-27).
+        cw = com.waypoint
         self.get_logger().info(
             f'[commit] {com.describe()} | waypoint '
-            f'({wp[0]:.0f}, {wp[1]:.0f}, {wp[2]:.0f}) | '
+            f'({cw[0]:.0f}, {cw[1]:.0f}, {cw[2]:.0f}) | '
             f'reason: {act.get("reason", "")}'
             + (' | FALLBACK' if fallback else ''))
         self._mlog.event('commitment_set', kind=com.kind, ref=com.ref_id,
                          label=com.label, fallback=fallback,
-                         waypoint=[round(float(v), 1) for v in wp],
+                         waypoint=[round(float(v), 1) for v in cw],
                          reason=act.get('reason', ''), seeing=seeing)
 
     def _fallback_decision(self, digest) -> 'dict | None':

@@ -98,8 +98,11 @@ CONTEXT_INSTRUCTIONS = (
     'Current vocabulary: {labels}\n'
     'Suggest up to 5 NEW labels (not already in the vocabulary) that would '
     'help find a {target}: objects that commonly appear right next to one, '
-    'or things it is easily confused with. Use short, common words/phrases a '
-    'vision-language model knows.\n'
+    'or things it is easily confused with.\n'
+    'Every label MUST be a concrete PHYSICAL object you could point a camera '
+    'at and outline in a photo (like "bench" or "trash can"). NEVER abstract '
+    'concepts, places-in-general, or annotations — "location", "point of '
+    'interest", "marker", "area", "zone", "spot" are all WRONG answers.\n'
     'Reply with ONLY this JSON: {{"labels": ["<label>", ...]}}')
 
 ALIASES_SYSTEM = (
