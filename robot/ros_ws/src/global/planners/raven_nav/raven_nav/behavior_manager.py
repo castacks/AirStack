@@ -9,7 +9,8 @@ class BehaviorManager:
                  min_altitude=1.5, max_altitude=100.0,
                  voxel_score_threshold=0.9, voxel_min_cluster_size=30,
                  voxel_confirm_hits=3, voxel_track_max_misses=4,
-                 voxel_proximity_engage_m=12.0, voxel_min_confidence=0.0):
+                 voxel_proximity_engage_m=12.0, voxel_min_confidence=0.0,
+                 vlfm_value_weight=300.0):
         self.behavior_mode = 'Frontier-based'
         self.get_clock = get_clock
         self.frontier_behavior = FrontierBehavior(
@@ -31,7 +32,8 @@ class BehaviorManager:
         self.vlfm_behavior = VLFMBehavior(
             self.get_clock, min_altitude=min_altitude, max_altitude=max_altitude,
             voxel_score_threshold=voxel_score_threshold,
-            voxel_min_cluster_size=voxel_min_cluster_size)
+            voxel_min_cluster_size=voxel_min_cluster_size,
+            value_weight=vlfm_value_weight)
         # Priority order: Voxel > Ray > Frontier.
         self.behaviors = [self.voxel_behavior, self.ray_behavior, self.frontier_behavior]
 
@@ -74,7 +76,9 @@ class BehaviorManager:
                 ray_origins, ray_scores, ray_dirs, vox_xyz, vox_scores,
                 query_labels, target_objects, cur_pose_np, waypoint_locked,
                 target_waypoint, target_waypoint2, publisher_dict,
-                search_area_xy=search_area_xy, debug_logger=debug_logger)
+                search_area_xy=search_area_xy, debug_logger=debug_logger,
+                peer_state=peer_state, my_id=my_id, peer_weights=peer_weights,
+                completed_zones_xy=completed_zones_xy, cell_size_m=cell_size_m)
         if behavior_mode == 'Voxel-based':
             return self.voxel_behavior.execute(
                 vox_xyz, vox_scores, query_labels, cur_pose_np,

@@ -20,7 +20,9 @@ from geometry_msgs.msg import PoseStamped, Point
 from std_msgs.msg import String
 from visualization_msgs.msg import Marker, MarkerArray
 
-from raven_nav.behaviors.frontier_behavior import _points_in_polygon
+from raven_nav.behaviors.frontier_behavior import (
+    _points_in_polygon, _peer_penalty, _neighborhood_density,
+    _cells_set_from_xys, NOVELTY_WEIGHT, NOVELTY_NEIGHBORHOOD_CELLS)
 
 
 class VLFMBehavior:
@@ -34,15 +36,23 @@ class VLFMBehavior:
     VIZ_MAX_RAYS = 80        # cap candidate-ray arrows to avoid clutter
     VIZ_ARROW_M = 2.5        # arrow length (m)
     VIZ_LIFETIME_S = 2       # markers auto-expire so stale ones self-clear
+    # Semantic reward scale (meters of travel a unit of sim is worth). Combined
+    # with frontier-style costs (distance + peer repulsion + novelty), this makes
+    # multi-robot VLFM spread out: flat sim -> coordinated frontier exploration;
+    # peaked sim -> pursue the high-value ray. Tunable via the vlfm_value_weight
+    # param — watch the per-component [vlfm] explore log to calibrate.
+    VALUE_WEIGHT = 300.0
 
     def __init__(self, get_clock, min_altitude=1.5, max_altitude=100.0,
-                 voxel_score_threshold=0.9, voxel_min_cluster_size=30):
+                 voxel_score_threshold=0.9, voxel_min_cluster_size=30,
+                 value_weight=VALUE_WEIGHT):
         self.get_clock = get_clock
         self.name = 'VLFM-based'
         self.min_altitude = float(min_altitude)
         self.max_altitude = float(max_altitude)
         self.voxel_score_threshold = float(voxel_score_threshold)
         self.voxel_min_cluster_size = int(voxel_min_cluster_size)
+        self.value_weight = float(value_weight)
         self.visited_clusters = []   # list of center (3,) np arrays
 
     def condition_check(self):
@@ -51,7 +61,9 @@ class VLFMBehavior:
     def execute(self, ray_origins, ray_scores, ray_dirs, vox_xyz, vox_scores,
                 query_labels, target_objects, cur_pose_np, waypoint_locked,
                 target_waypoint, target_waypoint2, publisher_dict,
-                search_area_xy=None, debug_logger=None):
+                search_area_xy=None, debug_logger=None,
+                peer_state=None, my_id=0, peer_weights=None,
+                completed_zones_xy=None, cell_size_m=0.5):
         if cur_pose_np is None or not target_objects or not query_labels:
             return waypoint_locked, target_waypoint, target_waypoint2
         cols = [query_labels.index(t) for t in target_objects
@@ -68,7 +80,8 @@ class VLFMBehavior:
         return self._explore(ray_origins, ray_scores, ray_dirs, cols,
                              cur_pose_np, waypoint_locked, target_waypoint,
                              target_waypoint2, publisher_dict, search_area_xy,
-                             debug_logger)
+                             debug_logger, peer_state, my_id, peer_weights,
+                             completed_zones_xy, cell_size_m)
 
     # ── go-to-object ─────────────────────────────────────────────────────────
 
@@ -148,7 +161,9 @@ class VLFMBehavior:
 
     def _explore(self, ray_origins, ray_scores, ray_dirs, cols, cur_pose_np,
                  waypoint_locked, target_waypoint, target_waypoint2,
-                 publisher_dict, search_area_xy, debug_logger=None):
+                 publisher_dict, search_area_xy, debug_logger=None,
+                 peer_state=None, my_id=0, peer_weights=None,
+                 completed_zones_xy=None, cell_size_m=0.5):
         if ray_origins is None or ray_scores is None or ray_origins.shape[0] == 0:
             if debug_logger is not None:
                 debug_logger.warn('[vlfm] explore: no semantic rays yet — holding',
@@ -166,10 +181,24 @@ class VLFMBehavior:
                     f' + polygon — holding', throttle_duration_sec=2.0)
             return waypoint_locked, target_waypoint, target_waypoint2
 
-        relevant = ray_scores[:, cols].astype(float).copy()
-        relevant[~valid] = -np.inf
-        per_ray = relevant.max(axis=1)
-        ray_idx = int(np.argmax(relevant)) // relevant.shape[1]
+        # Per-ray semantic reward (best target sim) blended with frontier-style
+        # costs at the ray origin. cost is minimized: value pulls toward high-sim
+        # rays, peer repulsion + novelty + distance spread robots and avoid
+        # re-covered ground. Evaluated at the ray origin (the frontier point),
+        # matching how FrontierBehavior scores viewpoint centroids.
+        per_ray = ray_scores[:, cols].astype(float).max(axis=1)
+        dist = np.linalg.norm(ray_origins - np.asarray(cur_pose_np, float), axis=1)
+        peer_pen, _ = _peer_penalty(ray_origins, peer_state, my_id,
+                                    peer_weight=peer_weights)
+        novelty = np.zeros(ray_origins.shape[0], dtype=np.float64)
+        cells = (_cells_set_from_xys(completed_zones_xy, cell_size_m)
+                 if completed_zones_xy is not None else set())
+        if cells:
+            novelty = NOVELTY_WEIGHT * _neighborhood_density(
+                ray_origins[:, :2], cells, cell_size_m, NOVELTY_NEIGHBORHOOD_CELLS)
+        cost = dist + peer_pen + novelty - self.value_weight * per_ray
+        cost[~valid] = np.inf
+        ray_idx = int(np.argmin(cost))
 
         origin = ray_origins[ray_idx].astype(float)
         if ray_dirs is not None:
@@ -193,9 +222,12 @@ class VLFMBehavior:
                              f'sim={best:.2f}')
         if debug_logger is not None:
             debug_logger.info(
-                f'[vlfm] explore: {int(valid.sum())}/{ray_origins.shape[0]} rays '
-                f'in band, best sim={best:.3f} -> '
-                f'target=({wp1[0]:.1f},{wp1[1]:.1f},{wp1[2]:.1f})',
+                f'[vlfm] explore: {int(valid.sum())}/{ray_origins.shape[0]} rays | '
+                f'sel sim={best:.2f} '
+                f'val={-self.value_weight * best:.0f} dist={float(dist[ray_idx]):.0f} '
+                f'peer={float(peer_pen[ray_idx]):.0f} nov={float(novelty[ray_idx]):.0f} '
+                f'cost={float(cost[ray_idx]):.0f} -> '
+                f'({wp1[0]:.0f},{wp1[1]:.0f},{wp1[2]:.0f})',
                 throttle_duration_sec=2.0)
         if float(np.linalg.norm(cur_pose_np - wp2)) < self.UNLOCK_M:
             waypoint_locked = False

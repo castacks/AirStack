@@ -204,6 +204,11 @@ class RavenNavNode(Node):
         # 0 = report all. Raise (~0.3) to cut flickery low-persistence FPs.
         self._voxel_min_confidence = float(self.declare_parameter(
             'voxel_min_confidence', 0.0).value)
+        # VLFM baseline: meters-of-travel a unit of semantic sim is worth when
+        # blended with frontier-style costs (distance + peer repulsion + novelty).
+        # Higher -> chase the target harder; lower -> spread/explore more.
+        self._vlfm_value_weight = float(self.declare_parameter(
+            'vlfm_value_weight', 300.0).value)
         self._ray_confirm_hits = int(self.declare_parameter(
             'ray_confirm_hits', 1).value)
         self._ray_track_max_misses = int(self.declare_parameter(
@@ -429,6 +434,7 @@ class RavenNavNode(Node):
             voxel_track_max_misses=self._voxel_track_max_misses,
             voxel_proximity_engage_m=self._voxel_proximity_engage_m,
             voxel_min_confidence=self._voxel_min_confidence,
+            vlfm_value_weight=self._vlfm_value_weight,
         )
 
         # Temporal gate on ray bearings (disabled when ray_confirm_hits <= 1).

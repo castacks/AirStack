@@ -45,7 +45,11 @@ raven_nav:
     # (semantic_search_task spawns raven_nav with -p args, not this file,
     # and currently sets this to true — see semantic_search_task/node.py.)
     frontier_only_baseline: false
-    # Run the VLFM baseline: greedy argmax semantic-ray exploration + voxel
-    # go-to-object (behaviors/vlfm_behavior.py). Mutually exclusive with
+    # Run the VLFM baseline: semantic-ray exploration (blended with frontier-style
+    # distance + peer-repulsion + novelty costs for multi-robot coordination) +
+    # voxel go-to-object (behaviors/vlfm_behavior.py). Mutually exclusive with
     # frontier_only_baseline. Uses voxel_score_threshold for the go-to-object gate.
     vlfm_baseline: false
+    # Meters of travel one unit of semantic similarity is worth in the VLFM cost
+    # blend. Higher -> pursue the target harder; lower -> spread out / explore more.
+    vlfm_value_weight: 300.0

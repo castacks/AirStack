@@ -47,7 +47,7 @@ environments:
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "DowntownWest"
-    query: "fountain, food cart"
+    query: "fountain"
     voxel_score_threshold: 0.68
     score_threshold: -1
     voxel_min_cluster_size: -1
