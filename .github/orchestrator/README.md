@@ -67,13 +67,24 @@ The worker image bakes in Docker CE + compose, the NVIDIA container toolkit, and
 
 ```bash
 cd .github/orchestrator
-docker build -f runner.Dockerfile \
-  --build-arg RUNNER_VERSION=2.334.0 \
-  -t <registry>/airstack-ci-runner:2.334.0 .
-docker push <registry>/airstack-ci-runner:2.334.0
+./build-and-push.sh
+# or manually:
+# docker build -f runner.Dockerfile \
+#   --build-arg RUNNER_VERSION=2.334.0 \
+#   -t airlab-docker.andrew.cmu.edu/airstack/airstack-ci-runner:2.334.0 .
+# docker push airlab-docker.andrew.cmu.edu/airstack/airstack-ci-runner:2.334.0
 ```
 
-Set `runner_image: <registry>/airstack-ci-runner:2.334.0` in `config.yaml` (step 4). Keep `RUNNER_VERSION` in sync with an [actions/runner release](https://github.com/actions/runner/releases).
+No local Docker? Submit the one-shot OSMO builder (needs your Harbor creds in OSMO):
+
+```bash
+osmo workflow submit .github/orchestrator/build-runner-on-osmo.yaml \
+  --pool airstack --priority HIGH
+```
+
+Set `runner_image: airlab-docker.andrew.cmu.edu/airstack/airstack-ci-runner:2.334.0` in `config.yaml` (step 4). Keep `RUNNER_VERSION` in sync with an [actions/runner release](https://github.com/actions/runner/releases).
+
+**Pool note (AirLab):** use the Keycloak-autosynced `airstack` pool (`privileged_allowed: true`). A hand-created `airstack-ci` pool is wiped by `synchronize_osmo_team_pools.py`. Ephemerality is per-job OSMO workflows, not a separate pool.
 
 ### 2. Stage credentials on the orchestrator host
 

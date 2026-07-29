@@ -409,7 +409,7 @@ Regressions are flagged with :red_circle:, improvements with :green_circle:.
 
 #### Jobs
 
-**`run-tests`** runs on a freshly-spawned ephemeral OpenStack instance (`[self-hosted, airstack-ephemeral]`). The instance is provisioned per-job by the orchestrator described below and destroyed once the job completes. It installs dependencies, runs pytest, and uploads `tests/results/` as an artifact named `test-results-<sha>-<run_id>` with 90-day retention.
+**`run-tests`** runs on a freshly-spawned ephemeral OSMO pod (`[self-hosted, airstack-ephemeral]`). The pod is submitted per-job by the orchestrator described below and destroyed once the job completes. It installs dependencies, runs pytest, and uploads `tests/results/` as an artifact named `test-results-<sha>-<run_id>` with 90-day retention.
 
 **`report`** runs on `ubuntu-latest` after `run-tests` (even if it failed). It:
 

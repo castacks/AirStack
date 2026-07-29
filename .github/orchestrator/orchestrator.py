@@ -182,7 +182,12 @@ def get_job_status(repo: str, job_id: str, pat: str) -> dict | None:
 # deployed version with `osmo workflow submit --dry-run` / `--format-type json`
 # once and simplify if desired.
 
-_WF_ID_KEYS = ("workflow_id", "workflowId", "id", "uuid", "name", "workflow")
+# Live AirLab OSMO 6.2.x returns workflow_uuid on list/query; submit may use
+# workflow_id / id / name. Prefer uuid-like keys before "name" so we don't
+# accidentally treat the human workflow name as the id when both are present.
+_WF_ID_KEYS = (
+    "workflow_uuid", "workflow_id", "workflowId", "id", "uuid", "name", "workflow",
+)
 _STATUS_KEYS = ("status", "state", "workflow_status", "phase")
 _KNOWN_STATUSES = {
     "RUNNING", "PENDING", "WAITING", "COMPLETED", "FAILED",
@@ -382,7 +387,14 @@ class Orchestrator:
                 r = self._run_osmo(args, timeout=timeout)
         return r
 
-    def submit_workflow(self, workflow_file: str) -> str:
+    def submit_workflow(self, workflow_file: str) -> tuple[str, str]:
+        """Submit a workflow. Returns (workflow_id, live_name).
+
+        AirLab OSMO 6.2 submit JSON is typically only {name, overview, logs}
+        (no uuid), and the service may append a numeric suffix to the name
+        (e.g. ``...-1``). We immediately query to resolve uuid + live name so
+        state/reap stay consistent with ``workflow list`` (``workflow_uuid``).
+        """
         args = ["workflow", "submit", workflow_file, "--pool", self.pool,
                 "--priority", self.priority, "--format-type", "json"]
         r = self._osmo(args, timeout=self.submit_timeout)
@@ -391,13 +403,28 @@ class Orchestrator:
                 f"osmo workflow submit failed (rc={r.returncode}): "
                 f"{(r.stderr or r.stdout).strip()}"
             )
-        wid = _extract_workflow_id(r.stdout) or _extract_workflow_id(r.stderr)
-        if not wid:
+        submitted_name = _extract_workflow_id(r.stdout) or _extract_workflow_id(r.stderr)
+        if not submitted_name:
             raise RuntimeError(
-                "could not parse workflow id from submit output: "
+                "could not parse workflow id/name from submit output: "
                 f"{(r.stdout or '').strip()[:500]}"
             )
-        return wid
+        live_name, uuid = submitted_name, None
+        q = self._osmo(
+            ["workflow", "query", submitted_name, "--format-type", "json"],
+            timeout=60,
+        )
+        if q.returncode == 0:
+            data = _loads_or_none(q.stdout) or _loads_or_none(q.stderr)
+            if isinstance(data, dict):
+                if isinstance(data.get("name"), str) and data["name"]:
+                    live_name = data["name"]
+                for k in ("uuid", "workflow_uuid", "workflow_id", "id"):
+                    v = data.get(k)
+                    if isinstance(v, str) and v:
+                        uuid = v
+                        break
+        return (uuid or live_name), live_name
 
     def query_status(self, workflow_id: str) -> str | None:
         r = self._osmo(
@@ -489,7 +516,7 @@ class Orchestrator:
                 )
                 workflow_yaml = self.render_workflow(workflow_name, jit)
                 tmp_path = self._write_temp_workflow(workflow_name, workflow_yaml)
-                workflow_id = self.submit_workflow(tmp_path)
+                workflow_id, live_name = self.submit_workflow(tmp_path)
             except Exception as e:  # noqa: BLE001
                 log.exception("submit failed for job %s: %s", job_id, e)
                 continue
@@ -503,7 +530,7 @@ class Orchestrator:
             state["jobs"][job_id] = {
                 "run_id": job["run_id"],
                 "workflow_id": workflow_id,
-                "workflow_name": workflow_name,
+                "workflow_name": live_name,
                 "runner_name": workflow_name,
                 "submitted_at": now_utc_iso(),
                 "name": job["name"],

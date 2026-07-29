@@ -1,0 +1,63 @@
+# One-shot OSMO job: build + push airstack-ci-runner to AirLab Harbor.
+# Uses the existing privileged DinD workspace image (same as airstack-dev).
+#
+# Prereq: your OSMO profile has airlab-docker-login (+ auto REGISTRY cred).
+#
+#   osmo workflow submit .github/orchestrator/build-runner-on-osmo.yaml \
+#     --pool airstack --priority HIGH
+#
+# Watch:
+#   osmo workflow logs <name> --task build
+# Cancel when done if it hangs:
+#   osmo workflow cancel <name> --force
+
+workflow:
+  name: build-airstack-ci-runner
+  resources:
+    build:
+      cpu: 8
+      gpu: 0
+      memory: 16Gi
+      storage: 100Gi
+      platform: default
+  tasks:
+    - name: build
+      image: airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest
+      resource: build
+      privileged: true
+      credentials:
+        airlab-docker-login:
+          AIRLAB_REGISTRY_USER: username
+          AIRLAB_REGISTRY_PASS: password
+      environment:
+        AIRSTACK_REPO_URL: "https://github.com/castacks/AirStack.git"
+        AIRSTACK_BRANCH: "ci/osmo-orchestrator"
+        RUNNER_VERSION: "2.334.0"
+        REGISTRY: "airlab-docker.andrew.cmu.edu/airstack"
+      command:
+        - bash
+        - -lc
+        - |
+          set -euo pipefail
+          # Nested DinD: overlay-on-overlay breaks BuildKit. Use vfs + legacy builder.
+          mkdir -p /etc/docker
+          cat > /etc/docker/daemon.json <<'JSON'
+          {"storage-driver": "vfs"}
+          JSON
+          dockerd >/var/log/dockerd.log 2>&1 &
+          for _ in $(seq 1 90); do docker info >/dev/null 2>&1 && break; sleep 1; done
+          docker info >/dev/null 2>&1 || { cat /var/log/dockerd.log; exit 1; }
+          docker info | grep -i 'Storage Driver' || true
+
+          echo "$AIRLAB_REGISTRY_PASS" | docker login airlab-docker.andrew.cmu.edu \
+            -u "$AIRLAB_REGISTRY_USER" --password-stdin
+
+          rm -rf /tmp/AirStack
+          git clone --depth 1 --branch "$AIRSTACK_BRANCH" "$AIRSTACK_REPO_URL" /tmp/AirStack
+          cd /tmp/AirStack/.github/orchestrator
+          IMAGE="${REGISTRY}/airstack-ci-runner:${RUNNER_VERSION}"
+          DOCKER_BUILDKIT=0 docker build -f runner.Dockerfile \
+            --build-arg "RUNNER_VERSION=${RUNNER_VERSION}" \
+            -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "PUSHED $IMAGE"

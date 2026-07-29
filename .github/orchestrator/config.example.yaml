@@ -8,7 +8,8 @@
 osmo_bin: "osmo"
 
 # URL of your OSMO web service (the control plane the CLI logs into).
-osmo_url: "https://osmo.example.com"
+# AirLab: https://airlab-share-01.andrew.cmu.edu
+osmo_url: "https://airlab-share-01.andrew.cmu.edu"
 
 # File containing the OSMO service-account access token. This is the shared,
 # non-personal "lab" identity — the analog of the old OpenStack application
@@ -17,14 +18,16 @@ osmo_url: "https://osmo.example.com"
 # (see README). It never leaves this host.
 osmo_token_file: "/etc/airstack-orchestrator/osmo-token"
 
-# Dedicated CI GPU pool. Give this pool its own allocation so CI runs don't
-# compete with researchers' interactive quotas. The service-account's role must
-# grant workflow:Create/Cancel/Query scoped to this pool (pool/<name>).
-pool: "airstack-ci"
+# GPU pool for ephemeral runners. AirLab team pools are Keycloak-autosynced;
+# use the stable `airstack` pool (privileged_allowed=true). A hand-made
+# `airstack-ci` pool will be wiped by synchronize_osmo_team_pools.py unless
+# it is added to Keycloak. The service-account needs workflow:Create on this
+# pool (role osmo-airstack) plus osmo-user for cancel/query.
+pool: "airstack"
 
 # Optional platform (hardware type) to target within the pool. Leave empty to
 # use the pool's default platform. List options with `osmo pool list` / the UI.
-platform: ""
+platform: "default"
 
 # Scheduling priority: HIGH | NORMAL | LOW.
 priority: "NORMAL"
@@ -33,7 +36,7 @@ priority: "NORMAL"
 
 # Prebaked image: Docker CE + compose + nvidia-container-toolkit + GH Actions
 # runner. Build & push runner.Dockerfile to a registry the pool can pull from.
-runner_image: "<registry>/airstack-ci-runner:2.334.0"
+runner_image: "airlab-docker.andrew.cmu.edu/airstack/airstack-ci-runner:2.334.0"
 
 # Resource request for the runner container. Size for the full stack build +
 # sim (Isaac Sim / ms-airsim + robot + gcs) running under docker compose.
