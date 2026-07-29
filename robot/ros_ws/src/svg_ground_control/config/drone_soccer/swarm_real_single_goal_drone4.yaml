@@ -1,0 +1,61 @@
+# Drone-soccer SVG ground control - single Starling hardware goal tracking.
+#
+# BV hardware identity:
+# - Motive rigid body: drone_4
+# - VOXL/PX4 uXRCE-DDS namespace: drone_4
+# - Mocap pose: /drone_4/pose
+# - PX4 topics: /drone_4/fmu/*
+
+swarm_commander:
+  ros__parameters:
+    drone_names: ["drone_4"]
+    drone_modes: "real"
+    teleop_drones: ""
+    external_drones: ""
+    cbf_exempt_drones: ""
+
+    scenario: "goal"
+    scenario_speed_mps: 0.3
+    scenario_seed: 7
+
+    # Fit these to the actual OptiTrack capture volume before flight.
+    arena_low: [-1.5, -1.5, 0.8]
+    arena_high: [1.5, 1.5, 1.8]
+    drone_position_offsets: [0.0, 0.0, 0.0]
+    hover_positions: [0.0, 0.0, 1.0]
+    squeeze_holder_positions: []
+    squeeze_intruder_waypoints: []
+
+    state_topic_template: "/{name}/odometry_conversion/odometry"
+    teleop_topic_template: "/svg/{name}/teleop_command"
+
+    control_rate_hz: 20.0
+    state_timeout_s: 0.5
+    teleop_timeout_s: 0.5
+
+    hover_kp: 1.0
+    arrival_threshold_m: 0.15
+    land_speed_mps: 0.3
+    land_complete_altitude_m: 0.15
+
+    cbf_safety_radius_m: 0.55
+    cbf_max_speed_mps: 0.5
+    cbf_alpha: 2.5
+    teleop_max_speed_mps: 0.5
+
+    fence_enabled: true
+    fence_min: [-2.0, -4.0, 0.0]
+    fence_max: [2.0, 4.0, 2.0]
+
+mocap_bridge:
+  ros__parameters:
+    drone_names: ["drone_4"]
+    mocap_topic_template: "/{name}/pose"
+    px4_vio_mode: "direct"
+    px4_vio_frame: "enu_to_ned"
+    vio_quality: 100
+    px4_vio_topic_template: "/{name}/fmu/in/vehicle_visual_odometry"
+    visual_odometry_topic_template: "/{name}/fmu/visual_odometry_in"
+    mocap_frame: "map"
+    velocity_filter_alpha: 0.4
+    mocap_qos_best_effort: false

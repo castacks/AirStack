@@ -106,7 +106,7 @@ fi
 # on ROS domain 1 (see svg_ground_control/experiment.md §4 Conventions). Hard-override
 # whatever the robot-name mapping / docker compose resolved above, so a domain mismatch
 # ("service unavailable" / missing /fmu/* topics) can never happen on this branch.
-export ROS_DOMAIN_ID=1
+export ROS_DOMAIN_ID=3
 
 
 # ===========================================================================

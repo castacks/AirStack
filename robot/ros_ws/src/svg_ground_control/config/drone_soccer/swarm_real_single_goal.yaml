@@ -1,0 +1,74 @@
+# Drone-soccer SVG ground control - single Starling hardware goal tracking.
+#
+# Same hardware/mocap setup as swarm_real_single.yaml, but uses the "goal"
+# scenario so /svg/drone_2/goal_command can retarget the drone live.
+#
+# Use:
+#   ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_2
+#   ros2 launch svg_ground_control ground_control.launch.py \
+#     config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/swarm_real_single_goal.yaml \
+#     use_mocap:=true
+#
+# After takeoff + start, retarget with:
+#   ros2 topic pub --once /svg/drone_2/goal_command geometry_msgs/msg/PoseStamped \
+#     "{header: {frame_id: map}, pose: {position: {x: 0.0, y: 0.0, z: 1.0}}}"
+#
+# Assumptions:
+# - Motive rigid body is named drone_2 and publishes /drone_2/pose via natnet_ros2.
+# - The VOXL/PX4 uXRCE-DDS client is namespaced as drone_2, giving /drone_2/fmu/*.
+# - PX4 EKF2 external-vision parameters are configured before arming.
+
+swarm_commander:
+  ros__parameters:
+    drone_names: ["drone_2"]
+    drone_modes: "real"
+    teleop_drones: ""
+    external_drones: ""
+    cbf_exempt_drones: ""
+
+    scenario: "goal"
+    scenario_speed_mps: 0.3
+    scenario_seed: 7
+
+    # Fit these to the actual OptiTrack capture volume before flight.
+    arena_low: [-1.5, -1.5, 0.8]
+    arena_high: [1.5, 1.5, 1.8]
+    drone_position_offsets: [0.0, 0.0, 0.0]
+    # The goal scenario uses hover_positions as the initial takeoff/hold goal.
+    hover_positions: [0.0, 0.0, 1.0]
+    squeeze_holder_positions: []
+    squeeze_intruder_waypoints: []
+
+    state_topic_template: "/{name}/odometry_conversion/odometry"
+    teleop_topic_template: "/svg/{name}/teleop_command"
+
+    control_rate_hz: 20.0
+    state_timeout_s: 0.5
+    teleop_timeout_s: 0.5
+
+    hover_kp: 1.0
+    arrival_threshold_m: 0.15
+    land_speed_mps: 0.3
+    land_complete_altitude_m: 0.15
+
+    cbf_safety_radius_m: 0.55
+    cbf_max_speed_mps: 0.5
+    cbf_alpha: 2.5
+    teleop_max_speed_mps: 0.5
+
+    fence_enabled: true
+    fence_min: [-2.0, -4.0, 0.0]
+    fence_max: [2.0, 4.0, 2.0]
+
+mocap_bridge:
+  ros__parameters:
+    drone_names: ["drone_2"]
+    mocap_topic_template: "/{name}/pose"
+    px4_vio_mode: "direct"
+    px4_vio_frame: "enu_to_ned"
+    vio_quality: 100
+    px4_vio_topic_template: "/{name}/fmu/in/vehicle_visual_odometry"
+    visual_odometry_topic_template: "/{name}/fmu/visual_odometry_in"
+    mocap_frame: "map"
+    velocity_filter_alpha: 0.4
+    mocap_qos_best_effort: false

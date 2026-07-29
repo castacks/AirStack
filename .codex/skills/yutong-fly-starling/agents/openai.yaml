@@ -1,0 +1,4 @@
+interface:
+  display_name: "Yutong Fly Starling"
+  short_description: "Starling 2 Max real-flight lab workflow"
+  default_prompt: "Use $yutong-fly-starling to guide the Starling 2 Max real-flight lab checklist."

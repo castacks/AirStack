@@ -17,6 +17,8 @@ setup(
          glob('launch/*.launch.py') + glob('launch/*.launch.xml')),
         (os.path.join('share', package_name, 'config'),
          glob('config/*.yaml') + glob('config/*.rviz')),
+        (os.path.join('share', package_name, 'config', 'drone_soccer'),
+         glob('config/drone_soccer/*.yaml')),
         (os.path.join('share', package_name, 'scripts'), glob('scripts/*.sh')),
     ],
     install_requires=['setuptools'],
