@@ -37,6 +37,7 @@ services:
       - ../../common/ros_packages:/root/AirStack/robot/ros_ws/src/common:rw
       - ../../common/fastdds.xml:/root/AirStack/robot/ros_ws/src/fastdds.xml
       - ../ros_ws:/root/AirStack/robot/ros_ws:rw
+      - ../../../drone_soccer:/root/drone_soccer:ro
       # bags
       - ../bags:/bags:rw
 

@@ -21,7 +21,7 @@ setup(
          glob('config/drone_soccer/*.yaml')),
         (os.path.join('share', package_name, 'scripts'), glob('scripts/*.sh')),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', 'stable-baselines3>=2.0', 'numpy'],
     zip_safe=True,
     maintainer='Yikuan Fang',
     maintainer_email='yikuanfang@gmail.com',
@@ -33,6 +33,7 @@ setup(
             'mocap_bridge = svg_ground_control.mocap_bridge:main',
             'keyboard_teleop = svg_ground_control.keyboard_teleop:main',
             'trajectory_commander = svg_ground_control.trajectory_commander:main',
+            'policy_commander = svg_ground_control.policy_commander:main',
         ],
     },
 )

@@ -106,6 +106,10 @@ TMUX_SESSION="bag_record_${NAME_PART}_${STAMP}"
 TOPICS=(
     "/${DRONE}/pose"
     "/${DRONE}/odometry_conversion/odometry"
+    "/${DRONE}/fmu/pose_command"
+    "/policy_commander/obs"
+    "/policy_commander/action"
+    "/policy_commander/waypoint"
     "/${DRONE}/fmu/in/vehicle_visual_odometry"
     "/${DRONE}/fmu/out/vehicle_local_position"
     "/${DRONE}/fmu/out/vehicle_odometry"
@@ -118,7 +122,7 @@ TOPICS=(
 )
 
 if [ "$INCLUDE_BALL" -eq 1 ]; then
-    TOPICS+=("/${BALL}/pose")
+    TOPICS+=("/${BALL}/pose" "/${BALL}/mocap_odometry")
 fi
 
 printf -v TOPIC_ARGS '%q ' "${TOPICS[@]}"
