@@ -1,0 +1,46 @@
+# Drone-soccer direct-PX4 aggressive figure-eight trajectory for drone_4.
+#
+# Full path dimensions:
+# - World X width: 2.0 m (-1.0 m to +1.0 m from the takeoff position)
+# - World Y height: 1.5 m (-0.75 m to +0.75 m from the takeoff position)
+# - Loop period: 14 seconds
+# - Peak setpoint speed: approximately 0.81 m/s
+# - Publish rate: 50 Hz
+#
+# This node holds the takeoff setpoint until motion is explicitly started:
+#   ros2 service call /trajectory_commander/start std_srvs/srv/Trigger
+#
+# Confirm the complete path is inside the OptiTrack capture volume before
+# starting motion. Keep this node running through PX4 LAND and stop it only
+# after PX4 confirms landed and disarmed. Never run swarm_commander or another
+# FMU setpoint publisher concurrently.
+
+trajectory_commander:
+  ros__parameters:
+    drone: "drone_4"
+    backend: "fmu_pose"
+    frame_id: "map"
+    publish_rate_hz: 50.0
+
+    bounds_min: [-1.5, -1.5, 0.3]
+    bounds_max: [1.5, 1.5, 1.2]
+    odom_topic_template: "/{name}/odometry_conversion/odometry"
+
+    script_type: "figure8"
+    script_auto_start: false
+    center_mode: "current_at_start"
+    center: [0.0, 0.0, 0.7]
+    center_offset: [0.0, 0.0, 0.7]
+    radius_m: 0.0
+    amplitude: [1.0, 1.5]
+    period_s: 14.0
+    loop: true
+    waypoints: [0.0, 0.0, 0.7]
+    segment_durations: [1.0]
+
+    svg_goal_topic_template: "/svg/{name}/goal_command"
+    svg_speed_topic_template: "/svg/{name}/speed_command"
+    fmu_pose_topic_template: "/{name}/fmu/pose_command"
+    speed_mps: 0.0
+    log_goal_updates: true
+    log_goal_period_s: 1.0

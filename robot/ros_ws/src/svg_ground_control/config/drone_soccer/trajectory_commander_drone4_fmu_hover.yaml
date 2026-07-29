@@ -1,0 +1,51 @@
+# Drone-soccer direct-PX4 position-setpoint hover test for drone_4.
+#
+# This bypasses swarm_commander and publishes directly to:
+#   /drone_4/fmu/pose_command
+#
+# Flight constraints:
+# - Do not run ground_control.launch.py or another pose-command publisher at the
+#   same time.
+# - Launch while disarmed and verify mocap odometry before requesting offboard
+#   control or arming.
+# - Keep this node running until PX4 has landed and disarmed; do not Ctrl-C it
+#   while airborne.
+# - drone_4 remains no-fly until the external-vision frame issue is cleared.
+#
+# Launch later with:
+#   ros2 launch svg_ground_control trajectory_commander.launch.py \
+#     config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/trajectory_commander_drone4_fmu_hover.yaml
+
+trajectory_commander:
+  ros__parameters:
+    drone: "drone_4"
+    backend: "fmu_pose"
+    frame_id: "map"
+    publish_rate_hz: 20.0
+
+    # Absolute world-frame clamps around the intended flight volume.
+    bounds_min: [-1.5, -1.5, 0.3]
+    bounds_max: [1.5, 1.5, 1.2]
+    odom_topic_template: "/{name}/odometry_conversion/odometry"
+
+    # A zero-radius circle produces a fixed setpoint. current_at_start preserves
+    # measured world X/Y and commands 0.7 m above measured starting Z.
+    script_type: "circle"
+    center_mode: "current_at_start"
+    center: [0.0, 0.0, 0.7]
+    center_offset: [0.0, 0.0, 0.7]
+    radius_m: 0.0
+    amplitude: [0.0, 0.0]
+    period_s: 20.0
+    loop: true
+    waypoints: [0.0, 0.0, 0.7]
+    # Unused for circle, but keep a typed non-empty ROS parameter value.
+    segment_durations: [1.0]
+
+    svg_goal_topic_template: "/svg/{name}/goal_command"
+    svg_speed_topic_template: "/svg/{name}/speed_command"
+    fmu_pose_topic_template: "/{name}/fmu/pose_command"
+    # speed_mps applies only to svg_goal and is ignored by fmu_pose.
+    speed_mps: 0.0
+    log_goal_updates: true
+    log_goal_period_s: 1.0

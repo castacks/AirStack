@@ -32,6 +32,7 @@ setup(
             'swarm_commander = svg_ground_control.swarm_commander:main',
             'mocap_bridge = svg_ground_control.mocap_bridge:main',
             'keyboard_teleop = svg_ground_control.keyboard_teleop:main',
+            'trajectory_commander = svg_ground_control.trajectory_commander:main',
         ],
     },
 )

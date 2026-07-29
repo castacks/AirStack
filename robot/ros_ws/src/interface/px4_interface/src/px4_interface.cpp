@@ -68,6 +68,8 @@
 #include <chrono>
 #include <cmath>
 #include <array>
+#include <mutex>
+#include <stdexcept>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -145,6 +147,13 @@ class PX4Interface : public robot_interface::RobotInterface
 public:
     PX4Interface() : RobotInterface("px4_interface")
     {
+        offboard_command_timeout_s_ =
+            this->declare_parameter<double>("offboard_command_timeout_s", 0.5);
+        if (offboard_command_timeout_s_ <= 0.0) {
+            throw std::invalid_argument(
+                "offboard_command_timeout_s must be greater than zero");
+        }
+
         // Use BEST_EFFORT + VOLATILE to match PX4's default uXRCE-DDS QoS.
         auto qos = rclcpp::QoS(rclcpp::KeepLast(1))
                        .best_effort()
@@ -206,7 +215,10 @@ public:
             std::chrono::milliseconds(100),
             std::bind(&PX4Interface::publish_offboard_heartbeat, this));
 
-        RCLCPP_INFO(this->get_logger(), "PX4Interface initialized (uXRCE-DDS)");
+        RCLCPP_INFO(
+            this->get_logger(),
+            "PX4Interface initialized (uXRCE-DDS, command timeout %.3f s)",
+            offboard_command_timeout_s_);
     }
 
     virtual ~PX4Interface() = default;
@@ -225,7 +237,7 @@ public:
      */
     void pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr cmd) override
     {
-        set_control_mode(ControlMode::POSITION);
+        record_control_command(ControlMode::POSITION);
         publish_offboard_heartbeat();
 
         px4_msgs::msg::TrajectorySetpoint sp{};
@@ -258,7 +270,7 @@ public:
      */
     void velocity_callback(const geometry_msgs::msg::TwistStamped::SharedPtr cmd) override
     {
-        set_control_mode(ControlMode::VELOCITY);
+        record_control_command(ControlMode::VELOCITY);
         publish_offboard_heartbeat();
 
         px4_msgs::msg::TrajectorySetpoint sp{};
@@ -295,7 +307,7 @@ public:
     void attitude_thrust_callback(
         const mav_msgs::msg::AttitudeThrust::SharedPtr cmd) override
     {
-        set_control_mode(ControlMode::ATTITUDE);
+        record_control_command(ControlMode::ATTITUDE);
         publish_offboard_heartbeat();
 
         px4_msgs::msg::VehicleAttitudeSetpoint sp{};
@@ -327,7 +339,7 @@ public:
     void rate_thrust_callback(
         const mav_msgs::msg::RateThrust::SharedPtr cmd) override
     {
-        set_control_mode(ControlMode::BODY_RATE);
+        record_control_command(ControlMode::BODY_RATE);
         publish_offboard_heartbeat();
 
         px4_msgs::msg::VehicleRatesSetpoint sp{};
@@ -354,7 +366,7 @@ public:
     void roll_pitch_yawrate_thrust_callback(
         const mav_msgs::msg::RollPitchYawrateThrust::SharedPtr cmd) override
     {
-        set_control_mode(ControlMode::BODY_RATE);
+        record_control_command(ControlMode::BODY_RATE);
         publish_offboard_heartbeat();
 
         px4_msgs::msg::VehicleRatesSetpoint sp{};
@@ -467,6 +479,11 @@ private:
     // -----------------------------------------------------------------------
 
     ControlMode control_mode_{ControlMode::NONE};
+    std::chrono::steady_clock::time_point last_control_command_time_{};
+    double offboard_command_timeout_s_{0.5};
+    bool command_received_{false};
+    bool command_timeout_triggered_{false};
+    std::mutex command_state_mutex_;
 
     px4_msgs::msg::VehicleStatus vehicle_status_{};
     bool status_received_{false};
@@ -501,20 +518,66 @@ private:
             this->get_clock()->now().nanoseconds() / 1000ULL);
     }
 
-    void set_control_mode(ControlMode mode) { control_mode_ = mode; }
+    void record_control_command(ControlMode mode)
+    {
+        bool recovered_from_timeout = false;
+        {
+            std::lock_guard<std::mutex> lock(command_state_mutex_);
+            recovered_from_timeout = command_timeout_triggered_;
+            control_mode_ = mode;
+            last_control_command_time_ = std::chrono::steady_clock::now();
+            command_received_ = true;
+            command_timeout_triggered_ = false;
+        }
+
+        if (recovered_from_timeout) {
+            RCLCPP_INFO(
+                this->get_logger(),
+                "Control command stream resumed; Offboard heartbeat restored.");
+        }
+    }
 
     /// Publish the offboard_control_mode heartbeat with the current mode flags.
     void publish_offboard_heartbeat()
     {
-        if (control_mode_ == ControlMode::NONE) return;
+        ControlMode mode = ControlMode::NONE;
+        double command_age_s = 0.0;
+        bool command_timed_out = false;
+
+        {
+            std::lock_guard<std::mutex> lock(command_state_mutex_);
+            if (control_mode_ == ControlMode::NONE || !command_received_) {
+                return;
+            }
+
+            command_age_s = std::chrono::duration<double>(
+                std::chrono::steady_clock::now() - last_control_command_time_).count();
+            if (command_age_s > offboard_command_timeout_s_) {
+                control_mode_ = ControlMode::NONE;
+                command_timeout_triggered_ = true;
+                command_timed_out = true;
+            } else {
+                mode = control_mode_;
+            }
+        }
+
+        if (command_timed_out) {
+            RCLCPP_WARN(
+                this->get_logger(),
+                "Control command stale for %.3f s (timeout %.3f s); "
+                "suspending Offboard heartbeat so PX4 can execute its "
+                "configured offboard-loss action.",
+                command_age_s, offboard_command_timeout_s_);
+            return;
+        }
 
         px4_msgs::msg::OffboardControlMode msg{};
         msg.timestamp    = now_us();
-        msg.position     = (control_mode_ == ControlMode::POSITION);
-        msg.velocity     = (control_mode_ == ControlMode::VELOCITY);
+        msg.position     = (mode == ControlMode::POSITION);
+        msg.velocity     = (mode == ControlMode::VELOCITY);
         msg.acceleration = false;
-        msg.attitude     = (control_mode_ == ControlMode::ATTITUDE);
-        msg.body_rate    = (control_mode_ == ControlMode::BODY_RATE);
+        msg.attitude     = (mode == ControlMode::ATTITUDE);
+        msg.body_rate    = (mode == ControlMode::BODY_RATE);
         offboard_mode_pub_->publish(msg);
     }
 

@@ -19,6 +19,7 @@
          /<drone_name>/odometry_conversion/odometry  Odometry out (ENU)
        ==================================================================== -->
   <arg name="drone_name" />
+  <arg name="offboard_command_timeout_s" default="0.5" />
 
   <group>
     <push-ros-namespace namespace="$(var drone_name)" />
@@ -28,6 +29,8 @@
       <node pkg="robot_interface" exec="robot_interface_node"
             name="px4_interface" output="screen">
         <param name="interface" value="px4_interface::PX4Interface" />
+        <param name="offboard_command_timeout_s"
+               value="$(var offboard_command_timeout_s)" />
         <remap from="odometry" to="/$(var drone_name)/interface/odometry" />
       </node>
     </group>

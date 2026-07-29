@@ -1,0 +1,38 @@
+# Drone-soccer waypoint loop for the drone_2 lab setup.
+#
+# Start swarm_commander in goal mode first, then:
+#   ros2 launch svg_ground_control trajectory_commander.launch.py \
+#     config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/trajectory_commander_drone2_waypoints.yaml
+
+trajectory_commander:
+  ros__parameters:
+    drone: "drone_2"
+    backend: "svg_goal"
+    frame_id: "map"
+    publish_rate_hz: 20.0
+
+    bounds_min: [-3.0, -3.0, 0.3]
+    bounds_max: [3.0, 3.0, 2.0]
+    odom_topic_template: "/{name}/odometry_conversion/odometry"
+
+    script_type: "waypoints"
+    center_mode: "fixed"
+    center: [0.0, 0.0, 1.1]
+    center_offset: [0.0, 0.0, 0.0]
+    radius_m: 0.20
+    amplitude: [0.25, 0.15]
+    period_s: 18.0
+    loop: true
+    waypoints: [0.0, 0.0, 1.1,
+                1.25, 0.0, 1.1,
+                1.25, 1.25, 1.1,
+                0.0, 1.25, 1.1,
+                0.0, 0.0, 1.1]
+    segment_durations: [5.0, 5.0, 5.0, 5.0]
+
+    svg_goal_topic_template: "/svg/{name}/goal_command"
+    svg_speed_topic_template: "/svg/{name}/speed_command"
+    fmu_pose_topic_template: "/{name}/fmu/pose_command"
+    speed_mps: 0.3
+    log_goal_updates: true
+    log_goal_period_s: 1.0

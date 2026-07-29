@@ -1,0 +1,50 @@
+# Drone-soccer direct-PX4 1.5 m x 1.5 m square trajectory for drone_4.
+#
+# The initial hover position is the first corner. After takeoff and stable
+# hover, begin motion with:
+#   ros2 service call /trajectory_commander/start std_srvs/srv/Trigger
+#
+# Each 1.5 m side takes 6 seconds (0.25 m/s), and the command publishes at
+# 50 Hz. The square extends in positive world X and positive world Y from the
+# takeoff position.
+#
+# Keep this node running through PX4 LAND and stop it only after PX4 confirms
+# landed and disarmed. Never run swarm_commander or another FMU setpoint
+# publisher concurrently.
+
+trajectory_commander:
+  ros__parameters:
+    drone: "drone_4"
+    backend: "fmu_pose"
+    frame_id: "map"
+    publish_rate_hz: 50.0
+
+    # Fits the configured real-flight geofence with margin when takeoff is
+    # near world (0, 0). Confirm all corners are inside the capture volume.
+    bounds_min: [-1.8, -3.8, 0.3]
+    bounds_max: [1.8, 3.8, 1.2]
+    odom_topic_template: "/{name}/odometry_conversion/odometry"
+
+    script_type: "waypoints"
+    script_auto_start: false
+    center_mode: "current_at_start"
+    center: [0.0, 0.0, 0.7]
+    center_offset: [0.0, 0.0, 0.7]
+    radius_m: 0.0
+    amplitude: [0.0, 0.0]
+    period_s: 24.0
+    loop: true
+    waypoints_relative_to_center: true
+    waypoints: [0.0, 0.0, 0.0,
+                1.5, 0.0, 0.0,
+                1.5, 1.5, 0.0,
+                0.0, 1.5, 0.0,
+                0.0, 0.0, 0.0]
+    segment_durations: [6.0, 6.0, 6.0, 6.0]
+
+    svg_goal_topic_template: "/svg/{name}/goal_command"
+    svg_speed_topic_template: "/svg/{name}/speed_command"
+    fmu_pose_topic_template: "/{name}/fmu/pose_command"
+    speed_mps: 0.0
+    log_goal_updates: true
+    log_goal_period_s: 1.0

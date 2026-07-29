@@ -20,6 +20,7 @@
 
     <arg name="interface_odometry_out_topic"
          default="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+    <arg name="offboard_command_timeout_s" default="0.5" />
 
     <!-- ── Main interface node ─────────────────────────────────────────── -->
     <!-- Push the /fmu namespace so that relative topics like
@@ -32,6 +33,8 @@
         <node pkg="robot_interface" exec="robot_interface_node"
               name="px4_interface" output="screen">
             <param name="interface" value="px4_interface::PX4Interface" />
+            <param name="offboard_command_timeout_s"
+                   value="$(var offboard_command_timeout_s)" />
 
             <!-- Expose the odometry output so other nodes can remap it -->
             <remap from="odometry"
