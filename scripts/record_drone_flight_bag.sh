@@ -10,12 +10,12 @@
 set -euo pipefail
 
 CONTAINER="airstack-robot-desktop-1"
-DRONE="drone_4"
+DRONE="drone_3"
 BALL="VolleyBall"
 INCLUDE_BALL=1 # 0 = do not record ball topic, 1 = record ball topic
 OUTPUT_DIR="/bags"
 CHECK_ONLY=0
-ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-3}"
+ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-1}"
 
 usage() {
     cat <<'EOF'
@@ -26,7 +26,7 @@ Options:
   --container NAME    Docker container to run rosbag in.
                       Default: airstack-robot-desktop-1
   --drone NAME        Drone namespace / rigid body name.
-                      Default: drone_4
+                      Default: drone_3
   --ball NAME         Ball rigid body topic name without slashes.
                       Default: VolleyBall
   --no-ball           Do not record a ball topic.
@@ -112,6 +112,8 @@ TOPICS=(
     "/${DRONE}/fmu/out/vehicle_attitude"
     "/${DRONE}/fmu/out/vehicle_status"
     "/${DRONE}/fmu/out/battery_status"
+    "/${DRONE}/fmu/out/hover_thrust_estimate"
+    "/${DRONE}/fmu/out/actuator_motors"
     "/${DRONE}/fmu/out/failsafe_flags"
     "/${DRONE}/fmu/in/trajectory_setpoint"
     "/${DRONE}/fmu/in/offboard_control_mode"

@@ -100,3 +100,7 @@ common/rayfronts/
 # Docker build cache (root-owned subdirs cause permission warnings on `git add`)
 robot/docker/cache/
 bags/
+drone_soccer_data/data_20260702/notes.md
+drone_soccer_data/data_20260709/notes.md
+drone_soccer_data/data_20260723/notes.md
+drone_soccer_data/drone_20260730/notes.md
