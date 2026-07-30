@@ -12,7 +12,6 @@ from .constellation import ConstellationModel
 from .visibility import VisibilityChecker
 from .signal_model import SignalQualityModel
 from .dop import DopCalculator
-from .pseudorange import PseudorangeSolver
 from .state_machine import DegradationStateMachine, DegradationOutput, GpsState
 from .ros2_publisher import Ros2StatePublisher
 
@@ -39,7 +38,6 @@ class GpsDegradationModel:
         self._visibility    = VisibilityChecker(self._cfg)
         self._signal_model  = SignalQualityModel(self._cfg, self._rng)
         self._dop           = DopCalculator()
-        self._pseudorange   = PseudorangeSolver(self._cfg, self._rng)
         self._state_machine = DegradationStateMachine(self._cfg)
         self._state_pub     = Ros2StatePublisher(ros2_node, robot_id)
 
@@ -100,10 +98,7 @@ class GpsDegradationModel:
         hdop, vdop, _ = self._dop.compute(sv_sigs)
         n_los = sum(1 for s in sv_sigs if s.is_los)
 
-        # 4. WLS multipath bias (instantaneous, geometry-driven)
-        de_wls, dn_wls, du_wls = self._pseudorange.solve(sv_sigs)
-
-        # 5. Exact discrete-time OU drift (slow, atmosphere/clock-driven)
+        # 4. Exact discrete-time OU drift (slow, atmosphere/clock-driven)
         #    x(t+dt) = x(t)·exp(-θ·dt) + σ·√((1-exp(-2θ·dt))/(2θ))·N(0,1)
         theta   = self._theta
         dt      = self._ou_dt
@@ -117,12 +112,12 @@ class GpsDegradationModel:
             self._ou_enu[1] = self._ou_enu[1] * decay + sig_xy * diffuse * noise[1]
             self._ou_enu[2] = self._ou_enu[2] * decay + sig_z  * diffuse * noise[2]
 
-        # 6. Combined error: OU temporal drift + WLS multipath bias
-        east  = float(self._ou_enu[0]) + de_wls
-        north = float(self._ou_enu[1]) + dn_wls
-        up    = float(self._ou_enu[2]) + du_wls
+        # 5. OU drift is the sole position error injection mechanism
+        east  = float(self._ou_enu[0])
+        north = float(self._ou_enu[1])
+        up    = float(self._ou_enu[2])
 
-        # 7. State machine with hysteresis + ramp-rate limiting
+        # 6. State machine with hysteresis + ramp-rate limiting
         out = self._state_machine.update(n_los, hdop, vdop, east, north, up, lat_deg, lon_deg)
         self._last_output = out
         self._state_pub.publish(out)

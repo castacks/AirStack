@@ -63,6 +63,19 @@ Visualization Manager:
       Plane Cell Count: 100
       Reference Frame: <Fixed Frame>
       Value: true
+    - Class: rviz_default_plugins/Marker
+      Enabled: true
+      Name: GPS Degradation Quality
+      Namespaces:
+        gps_degradation: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: gps/degradation_marker
+      Value: true
     - Class: rviz_default_plugins/TF
       Enabled: true
       Filter (blacklist): ""
@@ -254,7 +267,7 @@ Visualization Manager:
             Depth: 5
             Durability Policy: Volatile
             History Policy: Keep Last
-            Reliability Policy: Reliable
+            Reliability Policy: Best Effort
             Value: sensors/front_stereo/right/image_rect
           Value: true
         - Class: rviz_default_plugins/Image
@@ -268,7 +281,7 @@ Visualization Manager:
             Depth: 5
             Durability Policy: Volatile
             History Policy: Keep Last
-            Reliability Policy: Reliable
+            Reliability Policy: Best Effort
             Value: sensors/front_stereo/right/depth_ground_truth
           Value: true
         - Alpha: 1
@@ -375,7 +388,7 @@ Visualization Manager:
             Depth: 5
             Durability Policy: Volatile
             History Policy: Keep Last
-            Reliability Policy: Reliable
+            Reliability Policy: Best Effort
             Value: perception/stereo_image_proc/point_cloud
           Use Fixed Frame: true
           Use rainbow: true

@@ -1,10 +1,10 @@
 """
 constellation.py
 
-Loads real GPS satellite TLE data from a file and computes satellite positions
+Loads real GNSS satellite TLE data from files and computes satellite positions
 (azimuth, elevation, ENU unit vector) as seen from the drone.
 
-Uses sgp4 + pymap3d with data/gps_ops.tle (offline at runtime).
+Uses sgp4 + pymap3d with TLE data files in data/ (offline at runtime).
 
 Download the TLE file once:
     wget "https://celestrak.org/NORAD/elements/gp.php?GROUP=gps-ops&FORMAT=tle" \
@@ -55,7 +55,7 @@ class SatelliteView:
 # ── TLE constellation ──────────────────────────────────────────────────────
 
 class _TLEConstellation:
-    """Propagates real GPS orbits from a TLE file using sgp4."""
+    """Propagates real GNSS orbits from a TLE file using sgp4."""
 
     def __init__(self, tle_path: Path):
         self._satellites = self._parse(tle_path)
@@ -144,7 +144,7 @@ def _make_view(sat_id: int, name: str, az: float, el: float) -> SatelliteView:
 
 class ConstellationModel:
     """
-    Computes GPS satellite visibility from drone position.
+    Computes GNSS satellite visibility from drone position.
 
     Uses real TLE data (sgp4 + pymap3d). Missing dependencies, invalid TLE
     data, and empty propagation results are errors rather than silent
@@ -158,7 +158,7 @@ class ConstellationModel:
     """
 
     # Satellites below this elevation are too close to the horizon — too
-    # much atmospheric delay and multipath noise. Standard GPS mask is 5–15°.
+    # much atmospheric delay. Standard GPS mask is 5–15°.
     ELEVATION_MASK_DEG = 5.0
 
     def __init__(self, tle_file_path: str = ""):
@@ -170,14 +170,26 @@ class ConstellationModel:
         if not (_SGP4_OK and _PM_OK):
             missing = [n for n, ok in [("sgp4", _SGP4_OK), ("pymap3d", _PM_OK)] if not ok]
             raise RuntimeError(f"{', '.join(missing)} not installed")
-        if not path.exists():
-            raise FileNotFoundError(f"TLE file not found: {path}")
-
-        self._tle = _TLEConstellation(path)
-        if len(self._tle) == 0:
-            raise ValueError(f"No valid GPS satellites found in TLE file: {path}")
+        paths = [
+            ("GPS", path),
+            ("GLONASS", path.with_name("glonass_ops.tle")),
+            ("Galileo", path.with_name("galileo_ops.tle")),
+            ("BeiDou", path.with_name("beidou_ops.tle")),
+        ]
+        for name, tle_path in paths:
+            if not tle_path.exists():
+                print(f"[ConstellationModel] Warning: TLE file not found: {tle_path}")
+                continue
+            constellation = _TLEConstellation(tle_path)
+            if self._tle is None:
+                self._tle = constellation
+            else:
+                self._tle._satellites.extend(constellation._satellites)
+            print(f"[ConstellationModel] Loaded {len(constellation)} {name} satellites from {tle_path}")
+        if self._tle is None or len(self._tle) == 0:
+            raise ValueError("No valid GNSS satellites found in TLE files")
         self._using_tle = True
-        print(f"[ConstellationModel] Loaded {len(self._tle)} GPS satellites from {path}")
+        print(f"[ConstellationModel] Loaded {len(self._tle)} total GNSS satellites")
 
     @property
     def using_tle(self) -> bool:
@@ -208,5 +220,5 @@ class ConstellationModel:
 
         sats = self._tle.get_visible(lat_deg, lon_deg, alt_m, self.ELEVATION_MASK_DEG, now)
         if not sats:
-            raise RuntimeError("TLE propagation produced zero visible GPS satellites")
+            raise RuntimeError("TLE propagation produced zero visible GNSS satellites")
         return sats

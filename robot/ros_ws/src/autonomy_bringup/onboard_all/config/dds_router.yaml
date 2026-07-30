@@ -32,6 +32,11 @@ allowlist:
   - name: "rt/$(env ROBOT_NAME)/sensors/front_stereo/right/depth_ground_truth"
   - name: "rt/$(env ROBOT_NAME)/perception/stereo_image_proc/point_cloud"
 
+  # GPS degradation monitoring from Isaac Sim (GCS domain 0 -> robot domain)
+  - name: "rt/$(env ROBOT_NAME)/gps/degradation_state"
+  - name: "rt/$(env ROBOT_NAME)/gps/degradation_marker"
+  - name: "rt/$(env ROBOT_NAME)/sensors/gps_degraded"
+
   # state information
   - name: "rt/$(env ROBOT_NAME)/odometry_conversion/odometry"
   - name: "rt/$(env ROBOT_NAME)/interface/mavros/global_position/global"

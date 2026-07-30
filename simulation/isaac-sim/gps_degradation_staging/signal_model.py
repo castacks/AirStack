@@ -24,17 +24,14 @@ if TYPE_CHECKING:
 
 @dataclass
 class SatelliteSignal:
-    """Satellite after signal quality filtering — input to DOP and pseudorange."""
+    """Satellite after signal quality filtering — input to DOP."""
     elevation_deg: float
     azimuth_deg: float
     is_los: bool
-    multipath_extra_m: float
     cn0_dbhz: float
 
 
 class SignalQualityModel:
-    _NLOS_PENALTY_DB = 10.0
-
     def __init__(self, cfg: "GpsDegradationConfig", rng=None):
         self._cfg = cfg
         self._rng = rng or random.Random()
@@ -47,8 +44,7 @@ class SignalQualityModel:
         result = []
 
         for sv in sv_visibilities:
-            # Fully blocked with no reflected path — no signal at all
-            if not sv.is_los and sv.multipath_extra_m == 0.0:
+            if not sv.is_los:
                 continue
 
             # C/N0: zenith reference, correct sign → lower at low elevation
@@ -62,10 +58,6 @@ class SignalQualityModel:
                 self._sector_fading[sector] = self._rng.gauss(0.0, sigma_db)
             cn0 += self._sector_fading[sector]
 
-            # NLOS attenuation
-            if not sv.is_los:
-                cn0 -= self._NLOS_PENALTY_DB
-
             if cn0 < cfg.cn0_floor_dbhz:
                 continue  # below receiver tracking threshold
 
@@ -73,7 +65,6 @@ class SignalQualityModel:
                 elevation_deg=sv.sat.elevation_deg,
                 azimuth_deg=sv.sat.azimuth_deg,
                 is_los=sv.is_los,
-                multipath_extra_m=sv.multipath_extra_m,
                 cn0_dbhz=cn0,
             ))
 

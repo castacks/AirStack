@@ -32,7 +32,7 @@ if sats:
     s0 = sorted(sats, key=lambda x: -x.elevation_deg)[0]
     print(f"  {s0.name}: {s0.enu_unit}")
     print(f"  (East={s0.enu_unit[0]:.4f}, North={s0.enu_unit[1]:.4f}, Up={s0.enu_unit[2]:.4f})")
-    print(f"\nExpect 6-12 satellites. If 0, check sgp4/pymap3d install.")
+    print(f"\nExpect visible GNSS satellites. If 0, check sgp4/pymap3d and TLE files.")
 else:
     print("\nWARNING: 0 satellites visible — check packages and TLE file path.")
     sys.exit(1)

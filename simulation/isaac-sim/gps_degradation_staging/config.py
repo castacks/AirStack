@@ -20,17 +20,12 @@ class GpsDegradationConfig:
     raycast_max_distance_m: float = 50_000.0
     raycast_min_hit_distance_m: float = 0.5  # ignore self-hits closer than this
 
-    # Multipath geometry cap
-    multipath_max_extra_m: float = 300.0
-
-    # Pseudorange thermal noise only (atmospheric drift handled by OU process)
-    uere_base_m: float = 0.3
-    # Accuracy reported to PX4 before geometry amplification
-    uere_accuracy_m: float = 0.8
-
-    # Low-elevation noise amplification
-    low_elevation_threshold_deg: float = 15.0
-    low_elevation_noise_factor: float = 2.5
+    # Accuracy reported to PX4 before DOP amplification.
+    # Civilian L1 multi-constellation effective UERE (RSS of satellite clock,
+    # ephemeris, ionosphere w/ broadcast correction, troposphere, multipath,
+    # receiver noise) = 2–4 m. Mid-range 2.5 m used here.
+    # Source: GPS SPS Performance Standard (NAVCEN), NovAtel GNSS Error Sources.
+    uere_accuracy_m: float = 2.5
 
     # Shadow fading sigma (dB) per scenario
     shadow_fading_sigma_db: Dict[str, float] = field(default_factory=lambda: {
@@ -42,12 +37,25 @@ class GpsDegradationConfig:
     cn0_floor_dbhz: float = 30.0    # tracking threshold
     cn0_zenith_dbhz: float = 45.0   # C/N0 at zenith
 
-    # Ornstein-Uhlenbeck atmospheric + clock drift
-    # Steady-state RMS at HDOP=1 = ou_base_xy_noise * sqrt(ou_correlation_time / 2)
-    # = 0.08 * sqrt(150) ≈ 0.98 m (realistic L1 open-sky)
+    # Ornstein-Uhlenbeck correlated drift (atmospheric delay + slowly-changing NLOS bias).
+    #
+    # Physical model: GPS total error = OU drift (correlated, slow) + multipath scatter (fast).
+    # The OU process captures only the correlated component (~40–60% of total error).
+    # EPH = uere_accuracy_m * HDOP captures the full uncertainty reported to PX4 EKF.
+    #
+    # Correlation time (tau):
+    #   Urban multipath (moving drone): 25–60 s  [RTCA DO-229 MOPS: 25 s standard;
+    #                                              DLR airborne study 2024: median 14 s]
+    #   Atmospheric (ionosphere/tropo): 5–30 min  [use for open-sky / suburban scenarios]
+    #   Default 60 s covers both: dominant multipath regime for urban, upper-end for atmos.
+    #
+    # Steady-state RMS = ou_base_xy * max(HDOP,1) * sqrt(tau/2):
+    #   HDOP=1.0 (OPEN_SKY) : 0.27 * sqrt(30) = 1.48 m   [lit: 1–4 m]       ✓
+    #   HDOP=3.0 (MARGINAL)  : 0.27*3 * sqrt(30) = 4.44 m  [lit: 5–15 m]      ✓ (correlated portion)
+    #   HDOP=5.0 (DENIED)    : 0.27*5 * sqrt(30) = 7.39 m  [lit: 10–30 m]     ✓ (correlated portion)
     ou_correlation_time_s: float = 60.0
-    ou_base_xy_noise_m_sqrts: float = 0.08   # σ in m/√s at HDOP=1
-    ou_base_z_noise_m_sqrts: float = 0.12    # σ in m/√s at VDOP=1
+    ou_base_xy_noise_m_sqrts: float = 0.27   # σ in m/√s at HDOP=1; gives 1.48 m SS-RMS
+    ou_base_z_noise_m_sqrts: float = 0.40    # σ in m/√s at VDOP=1; vertical ~1.5x horizontal
 
     # State-machine hysteresis thresholds: (enter_threshold, exit_threshold)
     state_thresholds: Dict = field(default_factory=lambda: {

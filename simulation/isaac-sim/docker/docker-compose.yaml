@@ -44,6 +44,8 @@ services:
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
       - USE_DEGRADED_GPS=${USE_DEGRADED_GPS:-false}
       - GPS_DEGRADATION_SCENARIO=${GPS_DEGRADATION_SCENARIO:-urban}
+      - PUBLISH_RAW_ROS_GPS=${PUBLISH_RAW_ROS_GPS:-false}
+      - LD_LIBRARY_PATH=/isaac-sim/exts/isaacsim.ros2.bridge/jazzy/lib:/opt/ros/jazzy/lib
       - ISAAC_SIM_PYTHONPATH=/opt/gps_packages/sgp4-2.25-py3-none-any:/opt/gps_packages/pymap3d-3.2.0-py3-none-any:/isaac-sim/AirStack/simulation/isaac-sim:/isaac-sim/exts/isaacsim.ros2.bridge/jazzy/rclpy
       # Pegasus physics tuning — read by pegasus/simulator/params.py
       - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}
@@ -82,6 +84,7 @@ services:
       # airstack code
       - ../../..:/isaac-sim/AirStack:rw
       - ${GPS_PACKAGES_DIR:-/home/ubuntu/Downloads/gps_packages}:/opt/gps_packages:ro
+      - ${CITY_SCENE_DIR:-/home/ubuntu/Downloads/CCity_Building_Set_1}:/isaac-sim/CCity_Building_Set_1:ro
       - ../../../.devcontainer/isaac-sim/launch.json:/isaac-sim/AirStack/.vscode/launch.json:rw
       - ../../../.devcontainer/isaac-sim/tasks.json:/isaac-sim/AirStack/.vscode/tasks.json:rw
 

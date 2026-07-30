@@ -1,0 +1,30 @@
+rosbag2_bagfile_information:
+  version: 9
+  storage_identifier: sqlite3
+  duration:
+    nanoseconds: 0
+  starting_time:
+    nanoseconds_since_epoch: 1781116433958925855
+  message_count: 1
+  topics_with_message_count:
+    - topic_metadata:
+        name: waypoints
+        type: nav_msgs/msg/Path
+        serialization_format: cdr
+        offered_qos_profiles:
+          []
+        type_description_hash: ""
+      message_count: 1
+  compression_format: ""
+  compression_mode: ""
+  relative_file_paths:
+    - waypoints_1_new_0.db3
+  files:
+    - path: waypoints_1_new_0.db3
+      starting_time:
+        nanoseconds_since_epoch: 1781116433958925855
+      duration:
+        nanoseconds: 0
+      message_count: 2
+  custom_data: ~
+  ros_distro: jazzy

@@ -36,7 +36,9 @@
 #include <tf2/LinearMath/Quaternion.h>
 
 #include <airstack_common/ros2_helper.hpp>
+#include <chrono>
 #include <filesystem>
+#include <thread>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <mavros_msgs/msg/attitude_target.hpp>
 #include <mavros_msgs/msg/position_target.hpp>
@@ -628,15 +630,19 @@ namespace mavros_interface
 
         bool arm() override
         {
+            // Note: PX4 SITL in Pegasus/Isaac Sim always reports system_status=0
+            // (MAV_STATE_UNINIT) in the HEARTBEAT even when fully operational.
+            // mode=AUTO.LOITER with guided=true is the reliable indicator that
+            // PX4 is ready. Do not gate on system_status — just send the command.
             auto request = std::make_shared<mavros_msgs::srv::CommandBool::Request>();
             request->value = true;
 
             auto result = arming_client_->async_send_request(request);
-            std::cout << "waiting arm" << std::endl;
+            RCLCPP_INFO(this->get_logger(), "arm(): sending arm command…");
             result.wait();
-            std::cout << "done arm" << std::endl;
-
-            return result.get()->success;
+            bool ok = result.get()->success;
+            RCLCPP_INFO(this->get_logger(), "arm(): %s", ok ? "ARMED" : "REJECTED by PX4");
+            return ok;
         }
 
         bool disarm() override
