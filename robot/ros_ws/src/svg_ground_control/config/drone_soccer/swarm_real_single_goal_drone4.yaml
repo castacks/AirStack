@@ -50,6 +50,9 @@ swarm_commander:
 mocap_bridge:
   ros__parameters:
     drone_names: ["drone_4"]
+    extra_body_names: ["VolleyBall"]
+    publish_mocap_odometry: true
+    mocap_odometry_topic_template: "/{name}/mocap_odometry"
     mocap_topic_template: "/{name}/pose"
     px4_vio_mode: "direct"
     px4_vio_frame: "enu_to_ned"

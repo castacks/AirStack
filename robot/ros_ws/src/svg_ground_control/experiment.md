@@ -130,6 +130,10 @@ For each drone `{name}` (e.g. `drone_1`):
 | `/svg/{name}/goal_command` | in | `geometry_msgs/PoseStamped` | you → commander (`goal` scenario) |
 | `/svg/{name}/speed_command` | in | `std_msgs/Float32` | you → commander (`goal` scenario) |
 | `/{name}/pose` | in | `geometry_msgs/PoseStamped` | mocap → mocap_bridge (hardware) |
+| `/{name}/mocap_odometry` | out | `nav_msgs/Odometry` | mocap_bridge EMA velocity (ball / optional log) |
+| `/{name}/fmu/pose_command` | out | `geometry_msgs/PoseStamped` | policy_commander → px4_interface (PPO deploy) |
+| `/policy_commander/{start,stop}` | call | `std_srvs/Trigger` | you → policy_commander |
+| `/policy_commander/obs`, `/action`, `/waypoint` | out | `std_msgs/Float32MultiArray` | policy debug (optional bags) |
 | `/{name}/fmu/visual_odometry_in` | out | `nav_msgs/Odometry` | mocap_bridge → px4_interface (hardware) |
 | `/svg/viz/markers` | out | `visualization_msgs/MarkerArray` | commander → RViz (all drones, world frame) |
 | `/swarm_commander/{takeoff,start,hold,land,reset_fence}` | call | `std_srvs/Trigger` | you → commander |

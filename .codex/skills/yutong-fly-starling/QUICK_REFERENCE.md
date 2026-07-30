@@ -109,3 +109,53 @@ ros2 service call /drone_4/fmu/robot_command airstack_msgs/srv/RobotCommand "{co
 ```
 
 Keep the trajectory commander running through landing and disarm. Stop it with `Ctrl-C` only after disarm is confirmed.
+
+## 4. PPO policy (direct FMU) — drone_soccer deploy
+
+Do **not** run `ground_control.launch.py`, `swarm_commander`, or `trajectory_commander` at the same time.
+
+One-time in the robot container (after mount at `/root/drone_soccer`):
+
+```bash
+pip install -e /root/drone_soccer
+pip install -r /root/AirStack/robot/ros_ws/src/svg_ground_control/requirements-policy.txt
+bws --packages-select svg_ground_control
+```
+
+Lab stack (same as §3 Direct-FMU): NatNet, `real_interfaces`, `mocap_bridge` with
+`swarm_real_single_goal_drone4.yaml` (includes `extra_body_names: [VolleyBall]` and
+`/{name}/mocap_odometry` for the ball).
+
+Launch policy (disarmed; pass your checkpoint):
+
+```bash
+ros2 launch svg_ground_control policy_commander.launch.py \
+  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/policy_commander_drone4.yaml \
+  model_path:=/path/to/ppo_final.zip
+```
+
+### Disarmed checks (before arming)
+
+```bash
+ros2 topic echo /drone_4/odometry_conversion/odometry --once --field twist.twist.linear
+ros2 topic echo /VolleyBall/mocap_odometry --once --field twist.twist.linear
+ros2 service call /policy_commander/start std_srvs/srv/Trigger
+ros2 topic echo /policy_commander/obs --once
+ros2 topic echo /drone_4/fmu/pose_command --once --field pose.position
+```
+
+Carry the drone and ball in mocap: obs and pose setpoints should update smoothly.
+Call `/policy_commander/stop` to pause; the node holds the last waypoint.
+
+### Armed sequence
+
+Same as §3 Direct-FMU, but replace trajectory start with policy start:
+
+```bash
+ros2 service call /drone_4/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 0}" # offboard
+ros2 service call /drone_4/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 1}" # arm
+ros2 service call /policy_commander/start std_srvs/srv/Trigger
+ros2 service call /policy_commander/stop std_srvs/srv/Trigger   # pause before land
+ros2 service call /drone_4/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 4}" # land
+ros2 service call /drone_4/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 2}" # disarm
+```

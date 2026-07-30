@@ -77,6 +77,22 @@ push-apart fallback when the QP is infeasible. Tests:
 squeeze rollout), and [test/functional_squeeze_test.py](test/functional_squeeze_test.py)
 (closed-loop ROS test against fake drones — barrier held at exactly 2r).
 
+## PPO policy deploy (drone_soccer)
+
+Inference-only: `policy_commander` loads an SB3 `.zip`, builds the 18-dim
+obs from PX4 odometry + ball mocap, publishes `/{name}/fmu/pose_command`.
+Install in the robot container:
+
+```bash
+pip install -e /root/drone_soccer
+pip install -r /root/AirStack/robot/ros_ws/src/svg_ground_control/requirements-policy.txt
+bws --packages-select svg_ground_control
+```
+
+See [experiment.md](experiment.md) (topic table) and
+[QUICK_REFERENCE §4](../../../../.codex/skills/yutong-fly-starling/QUICK_REFERENCE.md)
+for disarmed checks and flight sequence.
+
 ## Safety notes
 
 - Teleop drones are CBF-exempt by design — the autonomous drones do the
