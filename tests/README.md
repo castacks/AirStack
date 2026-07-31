@@ -1,12 +1,12 @@
 # Testing (`tests/`)
 
-AirStack's **pytest** tree under `tests/` has three roles:
+AirStack's **pytest** tree under `tests/` has these roles:
 
 1. **`tests/system/`** — Docker stack tests (sim + robot + GCS): liveliness, sensor Hz, takeoff/hover/land, image/workspace builds.
-2. **`tests/robot/`** — Fast **unit** tests that mirror `robot/ros_ws/src/` (`behavior`, `global`, `interface`, `local`, `perception`, `sensors`). Mark: `unit`.
-3. **`tests/sim/`** — Unit tests for simulation-side helpers (e.g. Motive / NatNet emulator). Mark: `unit`.
+2. **Unit tests** — Fast hermetic tests (`unit` mark) whose **source is co-located** with each ROS 2 package at `<package>/test/`. [`colcon_unit_test_packages.yaml`](colcon_unit_test_packages.yaml) lists which packages have unit tests, and `pytest tests/` collects them from there.
+3. **`tests/integration/`** — Cross-component tests (`integration` mark) that wire the robot container to a host-side component, without a sim or GPU.
 
-Shared fixtures live in `tests/conftest.py`. Use `airstack test -m unit -v` for hermetic tests only, or the marks below for the full stack.
+Pytest hooks and the shared fixtures live in `tests/conftest.py`; reusable helpers are split by concern into the [`tests/harness/`](harness/) package (re-exported through `conftest`). Use `airstack test -m unit -v` for hermetic tests only, or the marks below for the full stack.
 
 <iframe width="1120" height="630" src="https://www.youtube.com/embed/EzgGHnYDI_k?si=vpqER-TXud5XEMUX" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
@@ -25,15 +25,18 @@ Shared fixtures live in `tests/conftest.py`. Use `airstack test -m unit -v` for 
 | [`system/test_takeoff_hover_land.py`](system/test_takeoff_hover_land.py) | `takeoff_hover_land` | End-to-end flight: PX4 readiness gate, takeoff to 10 m, hover stability, land — one chain per (sim, num_robots, iteration, velocity) | Docker daemon, GPU, sim license |
 | [`system/test_fixed_trajectory.py`](system/test_fixed_trajectory.py) | `autonomy` | Fixed-pattern trajectory evaluation: takeoff, execute a trajectory (Circle, Figure8, Racetrack, Line), record path deviation metrics, land — one chain per (sim, num_robots, iteration, trajectory_type) | Docker daemon, GPU, sim license |
 
-### Unit tests (`tests/robot/`, `tests/sim/`)
+### Unit tests (co-located)
 
 Hermetic tests use `@pytest.mark.unit` (see [`pytest.ini`](pytest.ini)).
 
-**Co-location + proxy pattern:** test source lives alongside its ROS 2 package at
+Test source lives alongside its ROS 2 package at
 `robot/ros_ws/src/<layer>/<package>/test/test_*.py` (the ROS 2 / colcon convention).
-Files in `tests/robot/` are thin proxies that re-export those tests so that
-`pytest tests/` discovers them. Both `airstack test -m unit` and
-`colcon test --packages-select <pkg>` run the same test source.
+[`colcon_unit_test_packages.yaml`](colcon_unit_test_packages.yaml) lists which packages
+have unit tests; `conftest.py` resolves each to its `test/` dir and collects the
+non-linter `test_*.py` files under `--import-mode=importlib`, tagging each `unit`. To add
+a package's unit tests, list it in that YAML. Both `airstack test -m unit` and
+`colcon test --packages-select <pkg>` run the same source (colcon also runs the ament
+linters + C++ gtests).
 
 Example: `robot/ros_ws/src/sensors/lidar_point_cloud_filter/test/test_validation_core.py`
 tests the numpy-only range validation rules in
@@ -43,8 +46,16 @@ tests the numpy-only range validation rules in
 See [Unit Testing Guide](../docs/development/intermediate/testing/unit_testing.md)
 and the `add-unit-tests` agent skill for full details.
 
+### Integration tests (`tests/integration/`)
+
+Cross-component tests (`integration` mark) that wire a few real components together — the
+robot autonomy container plus a host-side component — **without** a sim or GPU. The
+shared `robot_autonomy_stack` fixture (in `conftest.py`) reuses a running `robot-desktop`
+container or brings one up automatically (like `build_packages`), then tears it down.
+Collection order runs integration after `build_packages` and before the sim tiers.
+
 Marks can be combined with pytest logic:
-`-m unit`, `-m "build_docker or build_packages"`, `-m liveliness`, `-m sensors`, `-m takeoff_hover_land`, `-m autonomy`, or e.g. `-m "liveliness or sensors"` (see **Bring-up scope** below).
+`-m unit`, `-m "build_docker or build_packages"`, `-m integration`, `-m liveliness`, `-m sensors`, `-m takeoff_hover_land`, `-m autonomy`, or e.g. `-m "liveliness or sensors"` (see **Bring-up scope** below).
 
 ### Bring-up scope (`airstack_env`)
 
@@ -54,7 +65,17 @@ Marks can be combined with pytest logic:
 
 ## Test Infrastructure
 
-All shared fixtures, helpers, and configuration live in [`conftest.py`](conftest.py).
+[`conftest.py`](conftest.py) holds the pytest hooks and the `airstack_env` / `robot_autonomy_stack` fixtures. The reusable helpers are split by concern into the [`tests/harness/`](harness/) package and re-exported through `conftest`, so `from conftest import <name>` (and `from harness import <name>`) both work:
+
+| Module | Contents |
+|--------|----------|
+| [`harness/session.py`](harness/session.py) | Session-scoped state (results dir, current item, last cmd output) + shared `logger` |
+| [`harness/discovery.py`](harness/discovery.py) | Unit-test discovery driven by `colcon_unit_test_packages.yaml` (`AIRSTACK_ROOT`, `repo_path`, `unit_test_files`, …) |
+| [`harness/commands.py`](harness/commands.py) | Subprocess / `docker exec` / `ros2` helpers with per-test output capture (`airstack_cmd`, `docker_exec`, `ros2_exec`, `read_log_tail`) |
+| [`harness/containers.py`](harness/containers.py) | Container discovery, compute-usage sampling, image checks (`find_container`, `wait_for_container`, `sample_compute_usage`, `missing_images`) |
+| [`harness/metrics.py`](harness/metrics.py) | `MetricsRecorder`, `get_metrics`, `current_test_id` (writes `metrics.json`) |
+| [`harness/sim.py`](harness/sim.py) | `SIM_CONFIG` sim targets + ros2 topic sampling (`sample_hz`, `parallel_sample_hz`, `wait_for_first_message`) |
+| [`harness/collection.py`](harness/collection.py) | Cross-module test ordering + parametrize-id rewrite (`modify_items`) |
 
 ### `airstack_env` fixture
 
