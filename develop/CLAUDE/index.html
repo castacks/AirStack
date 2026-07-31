@@ -5518,7 +5518,7 @@
 </tr>
 <tr>
 <td><a href=".agents/skills/add-unit-tests">add-unit-tests</a></td>
-<td>Adding Python or C++ unit tests to a ROS 2 package (co-location + proxy pattern, CI workflow, extending to sim/GCS)</td>
+<td>Adding Python or C++ unit tests to a ROS 2 package (co-located test/ dir listed in colcon_unit_test_packages.yaml, CI workflow, extending to sim/GCS)</td>
 </tr>
 <tr>
 <td><a href=".agents/skills/run-system-tests">run-system-tests</a></td>
@@ -5659,13 +5659,13 @@
 <li>Verify module behavior in isolation</li>
 <li>Test with synthetic data</li>
 <li>Located in module's <code>test/</code> directory</li>
-<li><strong>Run in the robot container</strong> with <code>colcon test</code> (after <code>bws</code>) for the full ROS 2 build + test. The same co-located test source is re-exported to the root <a href="tests/"><code>tests/</code></a> suite via thin proxies (see Unit tests below), so <code>airstack test -m unit</code> runs it too. Marks are declared in <a href="../tests/pytest.ini"><code>tests/pytest.ini</code></a> (<code>unit</code>, <code>build_docker</code>, <code>build_packages</code>, <code>liveliness</code>, <code>sensors</code>, <code>takeoff_hover_land</code>, <code>autonomy</code>).</li>
+<li><strong>Run in the robot container</strong> with <code>colcon test</code> (after <code>bws</code>) for the full ROS 2 build + test. The same co-located test source is collected by the root <a href="tests/"><code>tests/</code></a> suite (the packages with unit tests are listed in <a href="../tests/colcon_unit_test_packages.yaml"><code>tests/colcon_unit_test_packages.yaml</code></a>), so <code>airstack test -m unit</code> runs it too. Marks are declared in <a href="../tests/pytest.ini"><code>tests/pytest.ini</code></a> (<code>unit</code>, <code>build_docker</code>, <code>build_packages</code>, <code>integration</code>, <code>liveliness</code>, <code>sensors</code>, <code>takeoff_hover_land</code>, <code>autonomy</code>).</li>
 </ol>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;sws &amp;&amp; colcon test --packages-select natnet_ros2 --event-handlers console_direct+&quot;</span>
 </span></code></pre></div>
 <ol>
 <li>
-<p><strong>Unit tests (<code>pytest</code>, <code>unit</code> mark):</strong> Fast, hermetic checks. Test <strong>source</strong> lives co-located with each ROS 2 package in <code>&lt;package&gt;/test/</code> (standard colcon convention). Thin <strong>proxy</strong> files in <a href="tests/robot/"><code>tests/robot/</code></a> and <a href="tests/sim/"><code>tests/sim/</code></a> re-export those tests so <code>pytest tests/</code> discovers them. Unit tests run as part of the <code>system-tests.yml</code> suite. Example: <code>airstack test -m unit -v</code>. See <code>add-unit-tests</code> skill.</p>
+<p><strong>Unit tests (<code>pytest</code>, <code>unit</code> mark):</strong> Fast, hermetic checks. Test <strong>source</strong> lives co-located with each ROS 2 package in <code>&lt;package&gt;/test/</code> (standard colcon convention). <a href="../tests/colcon_unit_test_packages.yaml"><code>tests/colcon_unit_test_packages.yaml</code></a> lists which packages have unit tests, and <code>tests/conftest.py</code> collects them from there under <code>--import-mode=importlib</code>. To add a package's unit tests, list it in that YAML. Unit tests run as part of the <code>system-tests.yml</code> suite. Example: <code>airstack test -m unit -v</code>. See <code>add-unit-tests</code> skill.</p>
 </li>
 <li>
 <p><strong>System Level (<code>tests/system/</code>):</strong> Full simulation tests (Isaac Sim or Microsoft AirSim legacy)</p>
@@ -5725,7 +5725,7 @@
 </tr>
 </tbody>
 </table>
-<p>Shared fixtures, the <code>airstack_env</code> parametrized fixture, and <code>MetricsRecorder</code> live in <a href="../tests/conftest.py"><code>tests/conftest.py</code></a>. Each run produces a timestamped directory under <code>tests/results/&lt;timestamp&gt;/</code> with <code>summary.txt</code>, <code>results.xml</code>, and <code>metrics.json</code> (no per-test log files — live output streams to the terminal via <code>log_cli</code>). <a href="../tests/parse_metrics.py"><code>tests/parse_metrics.py</code></a> generates a markdown report (single-run or diff-vs-baseline; exits 1 on regression).</p>
+<p>The pytest hooks and the <code>airstack_env</code> / <code>robot_autonomy_stack</code> fixtures live in <a href="../tests/conftest.py"><code>tests/conftest.py</code></a>; the shared helpers are split by concern into the <a href="tests/harness/"><code>tests/harness/</code></a> package (<code>session</code>, <code>discovery</code>, <code>commands</code>, <code>containers</code>, <code>metrics</code> (with <code>MetricsRecorder</code>), <code>sim</code>, <code>collection</code>) and re-exported through <code>conftest</code>, so <code>from conftest import &lt;name&gt;</code> still resolves. Each run produces a timestamped directory under <code>tests/results/&lt;timestamp&gt;/</code> with <code>summary.txt</code>, <code>results.xml</code>, and <code>metrics.json</code> (no per-test log files — live output streams to the terminal via <code>log_cli</code>). <a href="../tests/parse_metrics.py"><code>tests/parse_metrics.py</code></a> generates a markdown report (single-run or diff-vs-baseline; exits 1 on regression).</p>
 <p><strong>Run via the CLI</strong> (containerized runner — no local Python needed):</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>unit<span class="w"> </span>-v
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;build_docker or build_packages&quot;</span><span class="w"> </span>-v

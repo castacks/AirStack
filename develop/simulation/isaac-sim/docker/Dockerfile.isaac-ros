@@ -155,8 +155,10 @@ RUN sed -i \
     /isaac-sim/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/px4-rc.simulator
 
 # install px4 dependencies and build
+# LD_LIBRARY_PATH= so apt/openssl use the system libcrypto, not isaac-sim's older
+# bundled one (which breaks the ca-certificates postinst). Cleared for this step only.
 RUN cd PX4-Autopilot && \
-    DEBIAN_FRONTEND=noninteractive ./Tools/setup/ubuntu.sh
+    LD_LIBRARY_PATH= DEBIAN_FRONTEND=noninteractive ./Tools/setup/ubuntu.sh
 # build px4
 RUN cd PX4-Autopilot && \
     make px4_sitl

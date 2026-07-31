@@ -21,7 +21,7 @@
     
     
       
-        <title>Robot-side unit test proxies - AirStack</title>
+        <title>Robot-side unit tests - AirStack</title>
       
     
     
@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#robot-side-unit-test-proxies" class="md-skip">
+        <a href="#robot-side-unit-tests" class="md-skip">
           Skip to content
         </a>
       
@@ -111,7 +111,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Robot-side unit test proxies
+              Robot-side unit tests
             
           </span>
         </div>
@@ -5381,58 +5381,18 @@
   
 
 
-<h1 id="robot-side-unit-test-proxies">Robot-side unit test proxies<a class="headerlink" href="#robot-side-unit-test-proxies" title="Permanent link">&para;</a></h1>
-<p>Layout mirrors <a href="../../robot/ros_ws/src/"><code>robot/ros_ws/src/</code></a> autonomy layers:</p>
-<table>
-<thead>
-<tr>
-<th>Directory</th>
-<th>Maps to ROS workspace</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>behavior/</code></td>
-<td><code>robot/ros_ws/src/behavior/</code></td>
-</tr>
-<tr>
-<td><code>global/</code></td>
-<td><code>robot/ros_ws/src/global/</code></td>
-</tr>
-<tr>
-<td><code>interface/</code></td>
-<td><code>robot/ros_ws/src/interface/</code></td>
-</tr>
-<tr>
-<td><code>local/</code></td>
-<td><code>robot/ros_ws/src/local/</code></td>
-</tr>
-<tr>
-<td><code>perception/</code></td>
-<td><code>robot/ros_ws/src/perception/</code></td>
-</tr>
-<tr>
-<td><code>sensors/</code></td>
-<td><code>robot/ros_ws/src/sensors/</code></td>
-</tr>
-</tbody>
-</table>
-<h2 id="design-co-location-proxy">Design: co-location + proxy<a class="headerlink" href="#design-co-location-proxy" title="Permanent link">&para;</a></h2>
-<p><strong>Test source</strong> lives co-located with each ROS 2 package (the standard colcon
-convention):</p>
+<h1 id="robot-side-unit-tests">Robot-side unit tests<a class="headerlink" href="#robot-side-unit-tests" title="Permanent link">&para;</a></h1>
+<p>Unit-test <strong>source is co-located</strong> with each ROS 2 package (the standard colcon
+convention) and is collected by <code>pytest tests/</code>:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>robot/ros_ws/src/&lt;layer&gt;/&lt;package&gt;/test/test_&lt;name&gt;.py   ← source of truth
 </span></code></pre></div>
-<p><strong>This directory</strong> contains thin proxy files that load the real test module via
-<code>importlib</code> and re-export its <code>test_*</code> functions, making them discoverable by
-<code>pytest tests/</code> and <code>airstack test -m unit</code> without any changes to the CI
-workflow. Each proxy is ~15 lines.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>tests/robot/&lt;layer&gt;/&lt;package&gt;/test_&lt;name&gt;.py             ← proxy (re-exports above)
-</span></code></pre></div>
-<p>Both <code>airstack test -m unit</code> (pytest path via proxy) and
-<code>colcon test --packages-select &lt;pkg&gt;</code> (direct path to source) run the same
-test functions from the same file.</p>
-<p>All test functions must carry <code>@pytest.mark.unit</code>. For adding new tests see the
-<code>add-unit-tests</code> agent skill.</p>
+<p><a href="../colcon_unit_test_packages.yaml"><code>../colcon_unit_test_packages.yaml</code></a> lists which
+packages have unit tests; <code>tests/conftest.py</code> resolves each to its <code>test/</code> dir and
+collects the non-linter <code>test_*.py</code> files under <code>--import-mode=importlib</code>, tagging each
+<code>@pytest.mark.unit</code>. Both <code>airstack test -m unit</code> and <code>colcon test --packages-select &lt;pkg&gt;</code>
+run the same source.</p>
+<p>To add a package's unit tests, list it under <code>robot.packages</code> in the YAML — see the
+<code>add-unit-tests</code> agent skill. The per-layer subdirectories here hold only documentation.</p>
 
 
 

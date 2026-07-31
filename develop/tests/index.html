@@ -1250,10 +1250,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#unit-tests-testsrobot-testssim" class="md-nav__link">
+  <a href="#unit-tests-co-located" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Unit tests (tests/robot/, tests/sim/)
+        Unit tests (co-located)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#integration-tests-testsintegration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Integration tests (tests/integration/)
       
     </span>
   </a>
@@ -5983,13 +5994,13 @@
 
 
 <h1 id="testing-tests">Testing (<code>tests/</code>)<a class="headerlink" href="#testing-tests" title="Permanent link">&para;</a></h1>
-<p>AirStack's <strong>pytest</strong> tree under <code>tests/</code> has three roles:</p>
+<p>AirStack's <strong>pytest</strong> tree under <code>tests/</code> has these roles:</p>
 <ol>
 <li><strong><code>tests/system/</code></strong> — Docker stack tests (sim + robot + GCS): liveliness, sensor Hz, takeoff/hover/land, image/workspace builds.</li>
-<li><strong><code>tests/robot/</code></strong> — Fast <strong>unit</strong> tests that mirror <code>robot/ros_ws/src/</code> (<code>behavior</code>, <code>global</code>, <code>interface</code>, <code>local</code>, <code>perception</code>, <code>sensors</code>). Mark: <code>unit</code>.</li>
-<li><strong><code>tests/sim/</code></strong> — Unit tests for simulation-side helpers (e.g. Motive / NatNet emulator). Mark: <code>unit</code>.</li>
+<li><strong>Unit tests</strong> — Fast hermetic tests (<code>unit</code> mark) whose <strong>source is co-located</strong> with each ROS 2 package at <code>&lt;package&gt;/test/</code>. <a href="colcon_unit_test_packages.yaml"><code>colcon_unit_test_packages.yaml</code></a> lists which packages have unit tests, and <code>pytest tests/</code> collects them from there.</li>
+<li><strong><code>tests/integration/</code></strong> — Cross-component tests (<code>integration</code> mark) that wire the robot container to a host-side component, without a sim or GPU.</li>
 </ol>
-<p>Shared fixtures live in <code>tests/conftest.py</code>. Use <code>airstack test -m unit -v</code> for hermetic tests only, or the marks below for the full stack.</p>
+<p>Pytest hooks and the shared fixtures live in <code>tests/conftest.py</code>; reusable helpers are split by concern into the <a href="harness/"><code>tests/harness/</code></a> package (re-exported through <code>conftest</code>). Use <code>airstack test -m unit -v</code> for hermetic tests only, or the marks below for the full stack.</p>
 <iframe width="1120" height="630" src="https://www.youtube.com/embed/EzgGHnYDI_k?si=vpqER-TXud5XEMUX" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 <hr />
@@ -6043,26 +6054,73 @@
 </tr>
 </tbody>
 </table>
-<h3 id="unit-tests-testsrobot-testssim">Unit tests (<code>tests/robot/</code>, <code>tests/sim/</code>)<a class="headerlink" href="#unit-tests-testsrobot-testssim" title="Permanent link">&para;</a></h3>
+<h3 id="unit-tests-co-located">Unit tests (co-located)<a class="headerlink" href="#unit-tests-co-located" title="Permanent link">&para;</a></h3>
 <p>Hermetic tests use <code>@pytest.mark.unit</code> (see <a href="pytest.ini"><code>pytest.ini</code></a>).</p>
-<p><strong>Co-location + proxy pattern:</strong> test source lives alongside its ROS 2 package at
+<p>Test source lives alongside its ROS 2 package at
 <code>robot/ros_ws/src/&lt;layer&gt;/&lt;package&gt;/test/test_*.py</code> (the ROS 2 / colcon convention).
-Files in <code>tests/robot/</code> are thin proxies that re-export those tests so that
-<code>pytest tests/</code> discovers them. Both <code>airstack test -m unit</code> and
-<code>colcon test --packages-select &lt;pkg&gt;</code> run the same test source.</p>
+<a href="colcon_unit_test_packages.yaml"><code>colcon_unit_test_packages.yaml</code></a> lists which packages
+have unit tests; <code>conftest.py</code> resolves each to its <code>test/</code> dir and collects the
+non-linter <code>test_*.py</code> files under <code>--import-mode=importlib</code>, tagging each <code>unit</code>. To add
+a package's unit tests, list it in that YAML. Both <code>airstack test -m unit</code> and
+<code>colcon test --packages-select &lt;pkg&gt;</code> run the same source (colcon also runs the ament
+linters + C++ gtests).</p>
 <p>Example: <code>robot/ros_ws/src/sensors/lidar_point_cloud_filter/test/test_validation_core.py</code>
 tests the numpy-only range validation rules in
 <code>robot/ros_ws/src/sensors/lidar_point_cloud_filter/lidar_point_cloud_filter/validation_core.py</code>
 (also used by <code>scripts/validate_lidar_filter_clouds.py</code> inside the robot container).</p>
 <p>See <a href="../docs/development/intermediate/testing/unit_testing/">Unit Testing Guide</a>
 and the <code>add-unit-tests</code> agent skill for full details.</p>
+<h3 id="integration-tests-testsintegration">Integration tests (<code>tests/integration/</code>)<a class="headerlink" href="#integration-tests-testsintegration" title="Permanent link">&para;</a></h3>
+<p>Cross-component tests (<code>integration</code> mark) that wire a few real components together — the
+robot autonomy container plus a host-side component — <strong>without</strong> a sim or GPU. The
+shared <code>robot_autonomy_stack</code> fixture (in <code>conftest.py</code>) reuses a running <code>robot-desktop</code>
+container or brings one up automatically (like <code>build_packages</code>), then tears it down.
+Collection order runs integration after <code>build_packages</code> and before the sim tiers.</p>
 <p>Marks can be combined with pytest logic:
-<code>-m unit</code>, <code>-m "build_docker or build_packages"</code>, <code>-m liveliness</code>, <code>-m sensors</code>, <code>-m takeoff_hover_land</code>, <code>-m autonomy</code>, or e.g. <code>-m "liveliness or sensors"</code> (see <strong>Bring-up scope</strong> below).</p>
+<code>-m unit</code>, <code>-m "build_docker or build_packages"</code>, <code>-m integration</code>, <code>-m liveliness</code>, <code>-m sensors</code>, <code>-m takeoff_hover_land</code>, <code>-m autonomy</code>, or e.g. <code>-m "liveliness or sensors"</code> (see <strong>Bring-up scope</strong> below).</p>
 <h3 id="bring-up-scope-airstack_env">Bring-up scope (<code>airstack_env</code>)<a class="headerlink" href="#bring-up-scope-airstack_env" title="Permanent link">&para;</a></h3>
 <p><code>airstack_env</code> is <strong>class-scoped</strong> and parametrized per <code>(sim, num_robots, iteration)</code>. Each test <strong>class</strong> that uses it (<code>TestLiveliness</code>, <code>TestSensors</code>, <code>TestTakeoffHoverLand</code>, <code>TestFixedTrajectory</code>, …) performs its <strong>own</strong> <code>airstack up</code> / <code>airstack down</code> for that parametrization. Selecting both classes (for example, <code>-m "liveliness or sensors"</code>) runs <strong>two</strong> full stack cycles per tuple (liveliness class, then sensors class). Collection order (see <code>conftest.py</code>) runs <strong>liveliness before sensors</strong> when both are selected. To save wall time, run <code>-m liveliness</code> or <code>-m sensors</code> alone when one suite is enough.</p>
 <hr />
 <h2 id="test-infrastructure">Test Infrastructure<a class="headerlink" href="#test-infrastructure" title="Permanent link">&para;</a></h2>
-<p>All shared fixtures, helpers, and configuration live in <a href="conftest.py"><code>conftest.py</code></a>.</p>
+<p><a href="conftest.py"><code>conftest.py</code></a> holds the pytest hooks and the <code>airstack_env</code> / <code>robot_autonomy_stack</code> fixtures. The reusable helpers are split by concern into the <a href="harness/"><code>tests/harness/</code></a> package and re-exported through <code>conftest</code>, so <code>from conftest import &lt;name&gt;</code> (and <code>from harness import &lt;name&gt;</code>) both work:</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="harness/session.py"><code>harness/session.py</code></a></td>
+<td>Session-scoped state (results dir, current item, last cmd output) + shared <code>logger</code></td>
+</tr>
+<tr>
+<td><a href="harness/discovery.py"><code>harness/discovery.py</code></a></td>
+<td>Unit-test discovery driven by <code>colcon_unit_test_packages.yaml</code> (<code>AIRSTACK_ROOT</code>, <code>repo_path</code>, <code>unit_test_files</code>, …)</td>
+</tr>
+<tr>
+<td><a href="harness/commands.py"><code>harness/commands.py</code></a></td>
+<td>Subprocess / <code>docker exec</code> / <code>ros2</code> helpers with per-test output capture (<code>airstack_cmd</code>, <code>docker_exec</code>, <code>ros2_exec</code>, <code>read_log_tail</code>)</td>
+</tr>
+<tr>
+<td><a href="harness/containers.py"><code>harness/containers.py</code></a></td>
+<td>Container discovery, compute-usage sampling, image checks (<code>find_container</code>, <code>wait_for_container</code>, <code>sample_compute_usage</code>, <code>missing_images</code>)</td>
+</tr>
+<tr>
+<td><a href="harness/metrics.py"><code>harness/metrics.py</code></a></td>
+<td><code>MetricsRecorder</code>, <code>get_metrics</code>, <code>current_test_id</code> (writes <code>metrics.json</code>)</td>
+</tr>
+<tr>
+<td><a href="harness/sim.py"><code>harness/sim.py</code></a></td>
+<td><code>SIM_CONFIG</code> sim targets + ros2 topic sampling (<code>sample_hz</code>, <code>parallel_sample_hz</code>, <code>wait_for_first_message</code>)</td>
+</tr>
+<tr>
+<td><a href="harness/collection.py"><code>harness/collection.py</code></a></td>
+<td>Cross-module test ordering + parametrize-id rewrite (<code>modify_items</code>)</td>
+</tr>
+</tbody>
+</table>
 <h3 id="airstack_env-fixture"><code>airstack_env</code> fixture<a class="headerlink" href="#airstack_env-fixture" title="Permanent link">&para;</a></h3>
 <p>Parametrized over <code>(sim, num_robots, iteration)</code> tuples derived from CLI flags. For each combination it:</p>
 <ol>

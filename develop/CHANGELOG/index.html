@@ -5392,11 +5392,13 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><code>TARGET_ARCH</code> build arg (default <code>x86_64</code>) in <code>Dockerfile.robot</code> to arch-parametrize <code>LD_LIBRARY_PATH</code>; <code>docker-compose.yaml</code> passes <code>TARGET_ARCH: aarch64</code> to the <code>voxl</code> and <code>l4t</code> real-robot image builds</li>
 <li><code>ros-${ROS_DISTRO}-mavros-extras</code> in the robot image (provides the vision_pose plugin used for external-pose deployments)</li>
 <li><code>overrides/l4t-px4-realrobot.env</code> — site-agnostic deployment override for a single real PX4 robot on a Jetson (aarch64/l4t)</li>
+<li><code>integration</code> test tier (<code>tests/integration/</code>, <code>integration</code> mark) with a shared <code>robot_autonomy_stack</code> fixture (robot container, no sim/GPU)</li>
 </ul>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>robot-l4t</code> compose service knobs are now env-overridable (<code>AUTONOMY_ROLE</code>, <code>FCU_URL</code>, and the rosbag path via <code>BAG_STORAGE_PATH</code>); <code>FCU_URL</code> unquoted so the literal serial path reaches MAVROS</li>
 <li><code>zed-l4t</code> image: ZED SDK 4.2 → 5.2 with the coupled ROS deps (<code>zed_msgs</code> 5.2.1, <code>point_cloud_transport(_plugins)</code> 4.x, add <code>backward_ros</code>)</li>
+<li>Unit tests are defined by <code>tests/colcon_unit_test_packages.yaml</code>: <code>conftest.py</code> collects each listed package's co-located <code>test/</code> dir under <code>--import-mode=importlib</code> and marks it <code>unit</code> (ament lint files are skipped and run under <code>colcon test</code>)</li>
 </ul>
 <h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
 <ul>

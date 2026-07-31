@@ -5642,29 +5642,23 @@
 <h2 id="design-principles">Design principles<a class="headerlink" href="#design-principles" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Co-located with source.</strong> Test files live in <code>&lt;package&gt;/test/</code> alongside the code they test. This is the standard ROS 2 / colcon convention and ensures tests are discovered by both <code>colcon test</code> and <code>pytest</code>.</li>
-<li><strong>Proxy for centralized discovery.</strong> A thin shim in <code>tests/robot/&lt;layer&gt;/&lt;package&gt;/</code> re-exports the test functions so <code>pytest tests/</code> (the CI command) and <code>airstack test -m unit</code> discover them without any changes to the CI workflow.</li>
-<li><strong><code>@pytest.mark.unit</code> on every test.</strong> The <code>unit</code> mark is the filter that keeps unit tests isolated from system tests that need Docker, GPUs, and sim licenses.</li>
+<li><strong>Listed in one place.</strong> <code>tests/colcon_unit_test_packages.yaml</code> lists which packages have unit tests. <code>tests/conftest.py</code> resolves each to its <code>test/</code> dir and collects the non-linter <code>test_*.py</code> files under <code>--import-mode=importlib</code>. To add a package's unit tests, list it in that YAML.</li>
+<li><strong><code>@pytest.mark.unit</code> on every test.</strong> Auto-applied by path in <code>conftest.py</code> (source files may also declare it). The <code>unit</code> mark keeps unit tests isolated from system tests that need Docker, GPUs, and sim licenses.</li>
 </ul>
 <h2 id="repository-layout">Repository layout<a class="headerlink" href="#repository-layout" title="Permanent link">&para;</a></h2>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>robot/ros_ws/src/
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>└── &lt;layer&gt;/&lt;package&gt;/
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    ├── src/                          # production source
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    └── test/
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        ├── test_&lt;name&gt;.py            # unit test source  ← canonical location
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        ├── test_&lt;name&gt;.py            # unit test source  ← canonical location (collected directly)
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        ├── test_&lt;name&gt;.cpp           # C++ gtest source (optional)
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        └── fake_&lt;name&gt;.hpp           # C++ test doubles (optional)
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>tests/
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>├── robot/
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│   └── &lt;layer&gt;/&lt;package&gt;/
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│       └── test_&lt;name&gt;.py            # thin proxy → package test/
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>├── sim/                              # future: sim-side unit tests
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>└── gcs/                              # future: GCS unit tests
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>└── colcon_unit_test_packages.yaml    # lists the packages whose test/ dirs are collected
 </span></code></pre></div>
-<p>When pytest collects <code>tests/robot/…/test_&lt;name&gt;.py</code>, the <code>&lt;-</code> annotation in the
-output shows the actual source location:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>robot/perception/natnet_ros2/test_natnet_ros2.py::test_canonical_quaternion_identity
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  &lt;- ../robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py  PASSED
+<p>Collected items point straight at the co-located source:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>../robot/ros_ws/src/perception/natnet_ros2/test/test_natnet_ros2.py::test_canonical_quaternion_identity  PASSED
 </span></code></pre></div>
 <h2 id="running-unit-tests">Running unit tests<a class="headerlink" href="#running-unit-tests" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Locally — no container or Docker stack required</span>
@@ -5751,31 +5745,21 @@ boundary:</p>
 </span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">[</span><span class="s2">&quot;rclpy.node&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_rclpy_node_mod</span>
 </span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="c1"># ... then import your module</span>
 </span></code></pre></div>
-<p><strong>2. Write the thin proxy in <code>tests/robot/</code>:</strong></p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># tests/robot/&lt;layer&gt;/&lt;package&gt;/test_my_module.py</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="sd">&quot;&quot;&quot;Proxy: re-exposes &lt;package&gt; unit tests from the package source tree.&quot;&quot;&quot;</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">importlib.util</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">_repo_root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parents</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span>  <span class="c1"># adjust depth if needed</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="n">_real_file</span> <span class="o">=</span> <span class="n">_repo_root</span> <span class="o">/</span> <span class="s2">&quot;robot/ros_ws/src/&lt;layer&gt;/&lt;package&gt;/test/test_my_module.py&quot;</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="n">_spec</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">spec_from_file_location</span><span class="p">(</span><span class="s2">&quot;_&lt;package&gt;_unit_tests&quot;</span><span class="p">,</span> <span class="n">_real_file</span><span class="p">)</span>
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="n">_real</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">module_from_spec</span><span class="p">(</span><span class="n">_spec</span><span class="p">)</span>
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="n">_spec</span><span class="o">.</span><span class="n">loader</span><span class="o">.</span><span class="n">exec_module</span><span class="p">(</span><span class="n">_real</span><span class="p">)</span>
-</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>
-</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="k">for</span> <span class="n">_name</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="n">_real</span><span class="p">):</span>
-</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>    <span class="k">if</span> <span class="n">_name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;test_&quot;</span><span class="p">):</span>
-</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>        <span class="nb">globals</span><span class="p">()[</span><span class="n">_name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">_real</span><span class="p">,</span> <span class="n">_name</span><span class="p">)</span>
+<p><strong>2. Register the package in <code>tests/colcon_unit_test_packages.yaml</code>:</strong></p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">robot</span><span class="p">:</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">packages</span><span class="p">:</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;your_package&gt;</span><span class="w">          </span><span class="c1"># ← add here; conftest.py collects &lt;pkg&gt;/test/test_*.py</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">pytest_args</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;-m</span><span class="nv"> </span><span class="s">not</span><span class="nv"> </span><span class="s">linter&quot;</span>
 </span></code></pre></div>
-<p>The unique module name (e.g. <code>"_&lt;package&gt;_unit_tests"</code>) prevents a circular import:
-pytest adds the proxy's directory to <code>sys.path</code> at collection time, which would
-cause <code>from test_my_module import *</code> to import the proxy itself.</p>
+<p>That's the whole registration. If the test imports package code, set up <code>sys.path</code> at the
+top of the test file — see <code>test_validation_core.py</code>, which inserts its package root.
+<code>--import-mode=importlib</code> (set in <code>pytest.ini</code>) means duplicate <code>test_*.py</code> basenames
+across packages don't collide.</p>
 <p><strong>3. Verify:</strong></p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>pytest<span class="w"> </span>tests/<span class="w"> </span>-m<span class="w"> </span>unit<span class="w"> </span>-v
 </span></code></pre></div>
 <h3 id="c-gtest">C++ (gtest)<a class="headerlink" href="#c-gtest" title="Permanent link">&para;</a></h3>
-<p>C++ tests live entirely in the package and run via <code>colcon test</code> — no proxy needed.</p>
+<p>C++ tests live entirely in the package and run via <code>colcon test</code>.</p>
 <p><strong><code>CMakeLists.txt</code>:</strong></p>
 <div class="language-cmake highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nb">if</span><span class="p">(</span><span class="s">BUILD_TESTING</span><span class="p">)</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nb">find_package</span><span class="p">(</span><span class="s">ament_cmake_gtest</span><span class="w"> </span><span class="s">REQUIRED</span><span class="p">)</span>
@@ -5797,14 +5781,14 @@ cause <code>from test_my_module import *</code> to import the proxy itself.</p>
 <p>The <code>build_packages</code> CI job (<code>tests/system/test_build_packages.py</code>) also runs
 <code>colcon test</code> with <code>BUILD_TESTING=ON</code> so C++ gtests are gated in CI as well.</p>
 <h2 id="extending-to-sim-and-gcs">Extending to sim and GCS<a class="headerlink" href="#extending-to-sim-and-gcs" title="Permanent link">&para;</a></h2>
-<p>The proxy pattern extends to other components. As sim-side Python logic (e.g. the
-<a href="../../../../../tests/sim/motive_emulator/">Motive emulator</a>) and GCS modules
-acquire unit-testable code, follow the same layout:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>simulation/.../&lt;tool&gt;/test/test_&lt;name&gt;.py   ← source
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>tests/sim/&lt;tool&gt;/test_&lt;name&gt;.py             ← proxy (parents[3] to reach repo root)
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>gcs/.../&lt;pkg&gt;/test/test_&lt;name&gt;.py           ← source
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>tests/gcs/&lt;pkg&gt;/test_&lt;name&gt;.py             ← proxy
+<p>The mechanism extends to other components via the same YAML. <code>tests/harness/discovery.py</code>
+(<code>_WORKSPACE_PKG_TEST_GLOBS</code>) maps each workspace key to a source glob — <code>robot</code> →
+<code>robot/ros_ws/src/**/&lt;pkg&gt;/test</code>, <code>sim</code> → <code>simulation/**/&lt;pkg&gt;/test</code>. Add a <code>sim:</code> (or a
+new <code>gcs:</code>) workspace to the YAML, adding the glob for a new tree in <code>tests/harness/discovery.py</code>:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># tests/colcon_unit_test_packages.yaml</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nt">sim</span><span class="p">:</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">packages</span><span class="p">:</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;isaac_extension_name&gt;</span><span class="w">   </span><span class="c1"># → simulation/**/&lt;ext&gt;/test collected directly</span>
 </span></code></pre></div>
 <p><code>pytest tests/ -m unit</code> discovers them automatically — no changes to <code>pytest.ini</code>
 or CI changes needed.</p>
