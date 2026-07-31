@@ -17,12 +17,16 @@ services:
         - *cache_tag
     container_name: isaac-sim
     entrypoint: ""
+    # Two --ext-folder entries: the Kit shared exts dir (where Dockerfile.isaac-ros
+    # installs pegasus.simulator at image build), plus the repo's own extensions dir so
+    # optitrack.natnet.emulator resolves. The repo copy is bind-mounted, so edits to the
+    # emulator take effect on relaunch without an image rebuild.
     command: >
       bash -c "
       tmux new -d -s isaac;
       if [ $$AUTOLAUNCH = 'true' ]; then
         if [ \"${ISAAC_SIM_USE_STANDALONE}\" = 'true' ]; then
-          tmux send-keys -t isaac 'PYTHONPATH="$$ISAAC_SIM_PYTHONPATH" /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME} --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts' ENTER
+          tmux send-keys -t isaac 'PYTHONPATH="$$ISAAC_SIM_PYTHONPATH" /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME} --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts --ext-folder /isaac-sim/AirStack/simulation/isaac-sim/extensions' ENTER
         else
           tmux send-keys -t isaac 'ros2 launch isaacsim run_isaacsim.launch.py install_path:=/isaac-sim gui:=\"${ISAAC_SIM_GUI}\" play_sim_on_start:=\"${PLAY_SIM_ON_START}\" ' ENTER
         fi
@@ -125,7 +129,7 @@ services:
     command: >
       bash -c "
       tmux new -d -s isaac;
-      tmux send-keys -t isaac 'PYTHONPATH=\"$$ISAAC_SIM_PYTHONPATH\" /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME} --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts --/app/livestream/enabled=true' ENTER;
+      tmux send-keys -t isaac 'PYTHONPATH=\"$$ISAAC_SIM_PYTHONPATH\" /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME} --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts --ext-folder /isaac-sim/AirStack/simulation/isaac-sim/extensions --/app/livestream/enabled=true' ENTER;
       sleep infinity"
     environment:
       # Inherit everything from isaac-sim and append:
