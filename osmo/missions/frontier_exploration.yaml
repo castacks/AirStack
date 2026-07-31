@@ -1,10 +1,12 @@
-# frontier_exploration — 3-robot frontier-only semantic-search BASELINE.
+# frontier_exploration — 3-robot frontier-only semantic-search BASELINE across
+# all 8 scenes x 3 fixed start locations each (24 runs).
 #
-# Same maps + spawns + queries + search areas + detection configs as
-# multi_raven_mission (kept in lockstep so the two are directly comparable);
-# the ONLY difference is FRONTIER_ONLY_BASELINE=true below, which makes
-# semantic_search_task spawn raven_nav with frontier-only navigation (no
-# semantic cues). Target tracking still runs with the same thresholds.
+# Maps, spawns, queries, background queries, search areas and detection
+# thresholds are copied verbatim from multi_raven_mission (the source of truth —
+# keep the four files in lockstep so they stay directly comparable). The ONLY
+# behavioural difference is FRONTIER_ONLY_BASELINE=true below, which makes
+# semantic_search_task spawn raven_nav with frontier-only navigation (no semantic
+# cues). Target tracking still runs with the same thresholds.
 #
 # Run on OSMO (3 GPU / 24 CPU / 96Gi / 500Gi):
 #   airstack osmo:mission osmo/missions/frontier_exploration.yaml --pool <gpu-pool>
@@ -14,6 +16,7 @@
 #     --airstack-root "$(pwd)"
 #
 # Schema reference: osmo/missions/README.md
+
 name: frontier_exploration
 
 # Upload results (mcap bags + logs) to airlab-storage, then auto-teardown once
@@ -33,21 +36,22 @@ env:
   # Opt into the frontier-only baseline (default is full coordination).
   FRONTIER_ONLY_BASELINE: "true"
 
-# Environments cycled across iterations. UPPERCASE keys (ENV_URL, SPAWN_POLY)
-# are exported as env vars before `airstack up`; lowercase keys (search_area,
-# query) are templated into the steps via {{env.<key>}}.
-environments:
-
-  - name: downtownwest
+# ── scene templates ────────────────────────────────────────────────────────
+# Per-scene inputs (map, stage scale, spawn height, query, thresholds, search
+# area), anchored once and merged into that scene's three spawn entries via
+# `<<:` so all three start locations run byte-identical settings. STAGE_SCALE
+# and SPAWN_HEIGHT_M are set on EVERY scene on purpose: mission_runner.apply_env
+# only merges env vars, so an omitted key silently inherits the previous
+# iteration's value. `scene_templates` is not a recognized top-level mission
+# key — the runner ignores it; it exists only to hold the anchors.
+scene_templates:
+  downtownwest: &downtownwest
     ENV_URL: "Library/Stages/Dmytro/downtown_edited_v3_818.usd"
-    # Fixed spawn (pos + orient). Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
-    # SPAWN_POLY: "[[-3, -43], [9, -28]]"
-    SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0,0,0.698,0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0,0,0.736,0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0,0,0.784,0.621]}]'
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "DowntownWest"
-    query: "fountain, food cart"
-    voxel_score_threshold: 0.68
+    query: "fountain"
+    voxel_score_threshold: 0.65
     score_threshold: -1
     voxel_min_cluster_size: -1
     background_queries: "grass, road, tree, building, street lamp, electric cables"
@@ -58,17 +62,13 @@ environments:
         - {x: -150.0, y: -80.0, z: 0.0}
         - {x: -150.0, y: 80.0, z: 0.0}
 
-  - name: moderncitydowntown
+  moderncitydowntown: &moderncitydowntown
     ENV_URL: "Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
-    # Fixed spawn (pos + orient) inside the [[-20,-63],[-11,-45]] rect.
-    # Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
-    # SPAWN_POLY: "[[-20, -63], [-11, -45]]"
-    SPAWN_CONFIGS: '[{"x_m": -17.273, "y_m": -57.947, "orient": [0,0,-0.9896,0.1438]}, {"x_m": -13.396, "y_m": -53.247, "orient": [0,0,0.4571,0.8894]}, {"x_m": -17.857, "y_m": -48.541, "orient": [0,0,-0.632,0.775]}]'
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "ModernCityDowntown"
     query: "yellow truck, obelisk, bankomat, cafe tables, car"
-    voxel_score_threshold: 0.68
+    voxel_score_threshold: 0.65
     score_threshold: -1
     voxel_min_cluster_size: -1
     background_queries: "road, building, car, parking lot, tree, traffic signal, fence"
@@ -79,19 +79,15 @@ environments:
         - {x: 80.0, y: 100.0, z: 0.0}
         - {x: 80.0, y: -110.0, z: 0.0}
 
-  - name: retroneighborhood
+  retroneighborhood: &retroneighborhood
     ENV_URL: "Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
-    # Fixed spawn (pos + orient). Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
-    # SPAWN_POLY: "[[11, 6.5], [-13, -6.5]]"
-    SPAWN_CONFIGS: '[{"x_m": 6.764, "y_m": -1.767, "orient": [0,0,-0.1193,0.9929]}, {"x_m": -0.354, "y_m": 2.251, "orient": [0,0,0.8743,0.4854]}, {"x_m": 2.939, "y_m": 5.117, "orient": [0,0,-0.7931,0.6091]}]'
-    # 2nd fixed spawn (swap in): '[{"x_m": -11.323, "y_m": -3.956, "orient": [0,0,0.803,0.5959]}, {"x_m": 0.977, "y_m": 0.338, "orient": [0,0,-0.9754,0.2203]}, {"x_m": -3.943, "y_m": 2.377, "orient": [0,0,0.6611,0.7503]}]'
-    # GT annotation file (annotations/<RESULTS_SCENE>.json) for finalize scoring.
-    RESULTS_SCENE: "RetroNeighborhood"
     STAGE_SCALE: "0.01"
-    query: "house, bus stop"
-    voxel_score_threshold: 0.68
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "RetroNeighborhood"
+    query: "house, bus stop, blue container, red container"
+    voxel_score_threshold: 0.65
     score_threshold: -1
-    voxel_min_cluster_size: 45        # not tuned — raven_nav default (35)
+    voxel_min_cluster_size: 45
     background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cables, container, utility pole, car garage, street light"
     search_area:
       points:
@@ -99,21 +95,17 @@ environments:
         - {x: -150.0, y: 70.0, z: 0.0}
         - {x: 170.0, y: 70.0, z: 0.0}
         - {x: 170.0, y: -110.0, z: 0.0}
-        
-  - name: fireacademy
+
+  fireacademy: &fireacademy
     ENV_URL: "Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
-    # Fixed spawn (pos + orient) — same fire-1 layout as the entry above, so this
-    # query variant runs on the same spawn. Re-randomize: uncomment SPAWN_POLY.
-    # SPAWN_POLY: "[[27.5, 3.8], [23.8, 14.4], [26.1, 17.5], [30, 11.8]]"
-    SPAWN_CONFIGS: '[{"x_m": 27.34, "y_m": 5.359, "orient": [0,0,0.9757,0.2192]}, {"x_m": 25.982, "y_m": 12.241, "orient": [0,0,-0.2076,0.9782]}, {"x_m": 26.223, "y_m": 15.534, "orient": [0,0,-0.3285,0.9445]}]'
-    # 2nd fixed spawn (swap in): '[{"x_m": 25.052, "y_m": 12.711, "orient": [0,0,0.6342,0.7731]}, {"x_m": 28.86, "y_m": 12.714, "orient": [0,0,0.5051,0.8631]}, {"x_m": 27.83, "y_m": 8.978, "orient": [0,0,0.9986,0.0538]}]'
-    RESULTS_SCENE: "FireAcademy"
     STAGE_SCALE: "0.01"
-    query: "red building, water tower, radio tower, fuel tank"
-    voxel_score_threshold: 0.65
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "FireAcademy"
+    query: "red building, water tower, fuel tank, radio tower"
+    voxel_score_threshold: 0.68
     score_threshold: -1
     voxel_min_cluster_size: -1
-    background_queries: "road, grass, parking lot, tree, car, flood light"
+    background_queries: "road, grass, parking lot, tree, car, flood light, house, electrical pole, garage"
     search_area:
       points:
         - {x: 13.0, y: -135.0, z: 0.0}
@@ -121,16 +113,13 @@ environments:
         - {x: 13.0, y: 135.0, z: 0.0}
         - {x: -135.0, y: 13.0, z: 0.0}
 
-  - name: constructionsite
+  constructionsite: &constructionsite
     ENV_URL: "Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
-    # Fixed spawn (pos + orient). Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
-    # SPAWN_POLY: "[[27.63, 2], [21, -5.8]]"
-    SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.2886,0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,-0.2699,0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,0.9137,0.4063]}]'
-    # 2nd fixed spawn (swap in): run-1 positions (known-good takeoff), different orientations.
-    # '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.7071,0.7071]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,1.0,0.0]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,-0.7071,0.7071]}]'
+    STAGE_SCALE: "0.01"
+    SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "ConstructionSite"
-    query: "forklift, towercrane, blue tarp, orange tarp"
-    voxel_score_threshold: 0.68
+    query: "forklift, tower crane, blue tarp, orange tarp"
+    voxel_score_threshold: 0.65
     score_threshold: -1
     voxel_min_cluster_size: -1
     background_queries: "road, grass, mountain, parking lot, building, fence, container, gravel"
@@ -141,20 +130,16 @@ environments:
         - {x: -37.0, y: -67.0, z: 0.0}
         - {x: -40.0, y: 50.0, z: 0.0}
 
-  - name: abandonedfactory
+  abandonedfactory: &abandonedfactory
     ENV_URL: "Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
-    # Fixed spawn (pos + orient; z from SPAWN_HEIGHT_M). Re-randomize: uncomment SPAWN_POLY.
-    # SPAWN_POLY: "[[16.5, -1.2], [22, 9.6]]"
-    SPAWN_CONFIGS: '[{"x_m": 20.458, "y_m": 1.499, "orient": [0,0,0.1166,0.9932]}, {"x_m": 20.46, "y_m": 4.676, "orient": [0,0,-0.9881,0.1541]}, {"x_m": 20.476, "y_m": 8.299, "orient": [0,0,0.4036,0.9149]}]'
-    # 2nd fixed spawn (swap in): '[{"x_m": 18.342, "y_m": 1.867, "orient": [0,0,-0.313,0.9497]}, {"x_m": 17.552, "y_m": 5.243, "orient": [0,0,-0.8323,0.5543]}, {"x_m": 20.879, "y_m": 7.149, "orient": [0,0,-0.147,0.9891]}]'
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "1.0"
     RESULTS_SCENE: "AbandonedFactory"
-    query: "building, water tower"
-    voxel_score_threshold: 0.68          # starting default — tune per scene
+    query: "building, water tower, white silo"
+    voxel_score_threshold: 0.65
     score_threshold: -1
     voxel_min_cluster_size: -1
-    background_queries: "grass, road, tree, pipe, fence, white silo"
+    background_queries: "grass, road, tree, pipe, fence"
     search_area:
       points:
         - {x: 45.0, y: 102.0, z: 0.0}
@@ -162,39 +147,33 @@ environments:
         - {x: -109.0, y: -97.0, z: 0.0}
         - {x: -109.0, y: 102.0, z: 0.0}
 
-  - name: militarybase
+  militarybase: &militarybase
     ENV_URL: "Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd"
-    # Fixed spawn (pos + orient). Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
-    # SPAWN_POLY: "[[1105, 214], [1126, 240]]"
-    SPAWN_CONFIGS: '[{"x_m": 1110.0, "y_m": 220.0, "orient": [0,0,-0.585,0.811]}, {"x_m": 1116.0, "y_m": 227.0, "orient": [0,0,-0.606,0.795]}, {"x_m": 1122.0, "y_m": 234.0, "orient": [0,0,-0.625,0.780]}]'
     STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "1.0"
     RESULTS_SCENE: "MilitaryBase"
     query: "guard tower, radio tower, bridge, helicopter, atv"
     voxel_score_threshold: 0.68
     score_threshold: -1
-    voxel_min_cluster_size: 20
-    background_queries: "grass, tree, building, mountain, electrical pole, fence"
+    voxel_min_cluster_size: -1
+    background_queries: "grass, road, tree, building, mountain, electrical pole, utility pole"
     search_area:
       points:
         - {x: 1280.0, y: 320.0, z: 0.0}
         - {x: 1030.0, y: 320.0, z: 0.0}
         - {x: 1030.0, y: -150.0, z: 0.0}
         - {x: 1280.0, y: -150.0, z: 0.0}
-    
-  - name: shipyard
+
+  shipyard: &shipyard
     ENV_URL: "Library/Stages/Dmytro/edit_v1_shipyard.usd"
-    # Fixed spawn (pos + orient; z from SPAWN_HEIGHT_M) inside the
-    # [[-54,-9],[-72,-24]] rect. Re-randomize: uncomment SPAWN_POLY, drop SPAWN_CONFIGS.
-    # SPAWN_POLY: "[[-54, -9], [-72, -24]]"
-    SPAWN_CONFIGS: '[{"x_m": -66.066, "y_m": -11.867, "orient": [0,0,-0.9089,0.417]}, {"x_m": -68.796, "y_m": -14.581, "orient": [0,0,-0.6809,0.7591]}, {"x_m": -61.737, "y_m": -14.407, "orient": [0,0,0.2744,0.9616]}]'
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "2.0"
     RESULTS_SCENE: "Shipyard"
-    query: "ship, white silo, crane"
-    voxel_score_threshold: 0.68 
+    query: "ship, crane"
+    voxel_score_threshold: 0.65
     score_threshold: -1
     voxel_min_cluster_size: -1
-    background_queries: "grass, road, tree, building, pipe, fence"
+    background_queries: "grass, road, tree, warehouse, pipe, fence"
     search_area:
       points:
         - {x: -150.0, y: 150.0, z: 0.0}
@@ -202,13 +181,131 @@ environments:
         - {x: 150.0, y: -150.0, z: 0.0}
         - {x: -150.0, y: -150.0, z: 0.0}
 
-  
+# ── 24 runs: 8 scenes x 3 start locations ──────────────────────────────────
+# Each scene merges its template above and pins SPAWN_CONFIGS — a fixed
+# (x_m, y_m, orient) per drone, where orient is a yaw-only quaternion [x,y,z,w].
+# Every layout is inside its spawn rectangle with all three drones >= 3 m apart.
+# These 24 SPAWN_CONFIGS are IDENTICAL in multi_raven_mission / frontier_exploration
+# / vlfm_baseline / lvlm_baseline — change one, change all four.
+environments:
+  # ---- DowntownWest ----
+  # spawn rect s1: [[-3, -43], [9, -28]]
+  - <<: *downtownwest
+    name: downtownwest_s1
+    SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0.0, 0.0, 0.698, 0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0.0, 0.0, 0.736, 0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0.0, 0.0, 0.784, 0.621]}]'
+  # spawn rect s2: [[-10, 56], [-39, 67]]
+  - <<: *downtownwest
+    name: downtownwest_s2
+    SPAWN_CONFIGS: '[{"x_m": -33.0, "y_m": 59.0, "orient": [0.0, 0.0, -0.8583, 0.5132]}, {"x_m": -25.0, "y_m": 62.0, "orient": [0.0, 0.0, -0.561, 0.8278]}, {"x_m": -16.0, "y_m": 64.5, "orient": [0.0, 0.0, -0.1586, 0.9873]}]'
+  # spawn rect s3: [[-107, -4], [-124.8, 8.5]]
+  - <<: *downtownwest
+    name: downtownwest_s3
+    SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}, {"x_m": -115.5, "y_m": 3.0, "orient": [0.0, 0.0, -0.013, 0.9999]}, {"x_m": -111.0, "y_m": 6.5, "orient": [0.0, 0.0, 0.4108, 0.9117]}]'
+
+  # ---- ModernCityDowntown ----
+  # spawn rect s1: [[-20, -63], [-11, -45]]
+  - <<: *moderncitydowntown
+    name: moderncitydowntown_s1
+    SPAWN_CONFIGS: '[{"x_m": -17.273, "y_m": -57.947, "orient": [0.0, 0.0, -0.9896, 0.1438]}, {"x_m": -13.396, "y_m": -53.247, "orient": [0.0, 0.0, 0.4571, 0.8894]}, {"x_m": -17.857, "y_m": -48.541, "orient": [0.0, 0.0, -0.632, 0.775]}]'
+  # spawn rect s2: [[34.4, -3], [38, -14.8]]
+  - <<: *moderncitydowntown
+    name: moderncitydowntown_s2
+    SPAWN_CONFIGS: '[{"x_m": 36.2, "y_m": -5.5, "orient": [0.0, 0.0, 0.8872, 0.4613]}, {"x_m": 36.2, "y_m": -9.0, "orient": [0.0, 0.0, 0.9991, 0.0432]}, {"x_m": 36.2, "y_m": -12.5, "orient": [0.0, 0.0, 0.9237, -0.3831]}]'
+  # spawn rect s3: [[-71.9, -11.7], [-64.3, -7.9]]
+  - <<: *moderncitydowntown
+    name: moderncitydowntown_s3
+    SPAWN_CONFIGS: '[{"x_m": -70.5, "y_m": -8.9, "orient": [0.0, 0.0, -0.3872, 0.922]}, {"x_m": -68.0, "y_m": -10.7, "orient": [0.0, 0.0, 0.0387, 0.9993]}, {"x_m": -65.5, "y_m": -8.9, "orient": [0.0, 0.0, 0.4574, 0.8893]}]'
+
+  # ---- RetroNeighborhood ----
+  # spawn rect s1: [[11, 6.5], [-13, -6.5]]
+  - <<: *retroneighborhood
+    name: retroneighborhood_s1
+    SPAWN_CONFIGS: '[{"x_m": 6.764, "y_m": -1.767, "orient": [0.0, 0.0, -0.1193, 0.9929]}, {"x_m": -0.354, "y_m": 2.251, "orient": [0.0, 0.0, 0.8743, 0.4854]}, {"x_m": 2.939, "y_m": 5.117, "orient": [0.0, 0.0, -0.7931, 0.6091]}]'
+  # spawn rect s2: [[123.6, -12], [116.5, -28]]
+  - <<: *retroneighborhood
+    name: retroneighborhood_s2
+    SPAWN_CONFIGS: '[{"x_m": 118.5, "y_m": -15.0, "orient": [0.0, 0.0, 0.9063, 0.4226]}, {"x_m": 121.5, "y_m": -20.0, "orient": [0.0, 0.0, 1.0, 0.0]}, {"x_m": 118.5, "y_m": -25.0, "orient": [0.0, 0.0, 0.9063, -0.4226]}]'
+  # spawn rect s3: [[9.4, -67.5], [-4, -104.55]]
+  - <<: *retroneighborhood
+    name: retroneighborhood_s3
+    SPAWN_CONFIGS: '[{"x_m": 2.0, "y_m": -72.0, "orient": [0.0, 0.0, 0.2869, 0.958]}, {"x_m": 6.0, "y_m": -80.0, "orient": [0.0, 0.0, 0.6649, 0.747]}, {"x_m": 1.0, "y_m": -88.0, "orient": [0.0, 0.0, 0.9183, 0.396]}]'
+
+  # ---- FireAcademy ----
+  # spawn rect s1: [[27.5, 3.8], [23.8, 14.4], [26.1, 17.5], [30, 11.8]]
+  - <<: *fireacademy
+    name: fireacademy_s1
+    SPAWN_CONFIGS: '[{"x_m": 27.34, "y_m": 5.359, "orient": [0.0, 0.0, 0.9757, 0.2192]}, {"x_m": 25.982, "y_m": 12.241, "orient": [0.0, 0.0, -0.2076, 0.9782]}, {"x_m": 26.223, "y_m": 15.534, "orient": [0.0, 0.0, -0.3285, 0.9445]}]'
+  # spawn rect s2: [[12.86, 32.7], [9.5, 36.12], [3.1, 30.8], [6.6, 27.4]]
+  - <<: *fireacademy
+    name: fireacademy_s2
+    SPAWN_CONFIGS: '[{"x_m": 5.57, "y_m": 29.69, "orient": [0.0, 0.0, -0.9581, 0.2865]}, {"x_m": 8.02, "y_m": 31.76, "orient": [0.0, 0.0, -0.7472, 0.6646]}, {"x_m": 10.46, "y_m": 33.82, "orient": [0.0, 0.0, -0.3964, 0.9181]}]'
+  # spawn rect s3: [[-46.3, 9.2], [-53, 17], [-46.2, 23.5], [-40.75, 17]]
+  - <<: *fireacademy
+    name: fireacademy_s3
+    SPAWN_CONFIGS: '[{"x_m": -46.4, "y_m": 12.8, "orient": [0.0, 0.0, -0.5535, 0.8328]}, {"x_m": -49.2, "y_m": 17.2, "orient": [0.0, 0.0, -0.1497, 0.9887]}, {"x_m": -44.8, "y_m": 18.8, "orient": [0.0, 0.0, 0.2822, 0.9594]}]'
+
+  # ---- ConstructionSite ----
+  # spawn rect s1: [[27.63, 2], [21, -5.8]]
+  - <<: *constructionsite
+    name: constructionsite_s1
+    SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0.0, 0.0, 0.2886, 0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0.0, 0.0, -0.2699, 0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0.0, 0.0, 0.9137, 0.4063]}]'
+  # spawn rect s2: [[-21.6, -28.3], [-24.16, -41]]
+  - <<: *constructionsite
+    name: constructionsite_s2
+    SPAWN_CONFIGS: '[{"x_m": -22.9, "y_m": -30.5, "orient": [0.0, 0.0, -0.1647, 0.9863]}, {"x_m": -22.9, "y_m": -34.5, "orient": [0.0, 0.0, 0.2676, 0.9635]}, {"x_m": -22.9, "y_m": -38.5, "orient": [0.0, 0.0, 0.6497, 0.7602]}]'
+  # spawn rect s3: [[-53, 2.7], [-57.8, 8.4]]
+  - <<: *constructionsite
+    name: constructionsite_s3
+    SPAWN_CONFIGS: '[{"x_m": -57.0, "y_m": 3.4, "orient": [0.0, 0.0, -0.506, 0.8625]}, {"x_m": -53.8, "y_m": 3.9, "orient": [0.0, 0.0, -0.0941, 0.9956]}, {"x_m": -55.5, "y_m": 7.6, "orient": [0.0, 0.0, 0.3355, 0.942]}]'
+
+  # ---- AbandonedFactory ----
+  # spawn rect s1: [[16.5, -1.2], [22, 9.6]]
+  - <<: *abandonedfactory
+    name: abandonedfactory_s1
+    SPAWN_CONFIGS: '[{"x_m": 20.458, "y_m": 1.499, "orient": [0.0, 0.0, 0.1166, 0.9932]}, {"x_m": 20.46, "y_m": 4.676, "orient": [0.0, 0.0, -0.9881, 0.1541]}, {"x_m": 20.476, "y_m": 8.299, "orient": [0.0, 0.0, 0.4036, 0.9149]}]'
+  # spawn rect s2: [[3.2, 57], [7.5, 63]]
+  - <<: *abandonedfactory
+    name: abandonedfactory_s2
+    SPAWN_CONFIGS: '[{"x_m": 4.2, "y_m": 58.0, "orient": [0.0, 0.0, -0.998, 0.063]}, {"x_m": 6.6, "y_m": 60.0, "orient": [0.0, 0.0, -0.8779, 0.4789]}, {"x_m": 4.2, "y_m": 61.9, "orient": [0.0, 0.0, -0.5932, 0.805]}]'
+  # spawn rect s3: [[-61.8, -8], [-72.7, 2.5]]
+  - <<: *abandonedfactory
+    name: abandonedfactory_s3
+    SPAWN_CONFIGS: '[{"x_m": -64.5, "y_m": -5.5, "orient": [0.0, 0.0, -0.3551, 0.9348]}, {"x_m": -68.5, "y_m": -2.5, "orient": [0.0, 0.0, 0.0733, 0.9973]}, {"x_m": -64.5, "y_m": 0.5, "orient": [0.0, 0.0, 0.4879, 0.8729]}]'
+
+  # ---- MilitaryBase ----
+  # spawn rect s1: [[1105, 214], [1126, 240]]
+  - <<: *militarybase
+    name: militarybase_s1
+    SPAWN_CONFIGS: '[{"x_m": 1110.0, "y_m": 220.0, "orient": [0.0, 0.0, -0.585, 0.811]}, {"x_m": 1116.0, "y_m": 227.0, "orient": [0.0, 0.0, -0.606, 0.795]}, {"x_m": 1122.0, "y_m": 234.0, "orient": [0.0, 0.0, -0.625, 0.78]}]'
+  # spawn rect s2: [[1010, 320], [1037, 345]]
+  - <<: *militarybase
+    name: militarybase_s2
+    SPAWN_CONFIGS: '[{"x_m": 1015.0, "y_m": 325.0, "orient": [0.0, 0.0, -0.8289, 0.5594]}, {"x_m": 1023.0, "y_m": 333.0, "orient": [0.0, 0.0, -0.5149, 0.8573]}, {"x_m": 1031.0, "y_m": 341.0, "orient": [0.0, 0.0, -0.1043, 0.9945]}]'
+  # spawn rect s3: [[1196, 205], [1211, 222]]
+  - <<: *militarybase
+    name: militarybase_s3
+    SPAWN_CONFIGS: '[{"x_m": 1200.0, "y_m": 209.0, "orient": [0.0, 0.0, -0.9858, 0.1679]}, {"x_m": 1204.0, "y_m": 214.0, "orient": [0.0, 0.0, -0.8225, 0.5688]}, {"x_m": 1207.0, "y_m": 219.0, "orient": [0.0, 0.0, -0.5051, 0.8631]}]'
+
+  # ---- Shipyard ----
+  # spawn rect s1: [[-54, -9], [-72, -24]]
+  - <<: *shipyard
+    name: shipyard_s1
+    SPAWN_CONFIGS: '[{"x_m": -66.066, "y_m": -11.867, "orient": [0.0, 0.0, -0.9089, 0.417]}, {"x_m": -68.796, "y_m": -14.581, "orient": [0.0, 0.0, -0.6509, 0.7591]}, {"x_m": -61.737, "y_m": -14.407, "orient": [0.0, 0.0, 0.2744, 0.9616]}]'
+  # spawn rect s2: [[-136, 52], [-116, 67]]
+  - <<: *shipyard
+    name: shipyard_s2
+    SPAWN_CONFIGS: '[{"x_m": -131.0, "y_m": 55.0, "orient": [0.0, 0.0, -0.6107, 0.7919]}, {"x_m": -126.0, "y_m": 59.5, "orient": [0.0, 0.0, -0.2188, 0.9758]}, {"x_m": -121.0, "y_m": 64.0, "orient": [0.0, 0.0, 0.2141, 0.9768]}]'
+  # spawn rect s3: [[54, -200], [46, -212]]
+  - <<: *shipyard
+    name: shipyard_s3
+    SPAWN_CONFIGS: '[{"x_m": 48.5, "y_m": -203.0, "orient": [0.0, 0.0, 0.45, 0.893]}, {"x_m": 51.5, "y_m": -206.5, "orient": [0.0, 0.0, 0.7853, 0.6192]}, {"x_m": 48.5, "y_m": -209.5, "orient": [0.0, 0.0, 0.9734, 0.2293]}]'
 
 # Send goals through the GCS action_relay — the exact path Foxglove uses.
 command_route: gcs
 
-# grouped: each environment runs `iterations` times in a row (per-environment
-# count; total runs = iterations * 8 environments). Fixed spawns per SPAWN_CONFIGS.
+# grouped: each entry runs `iterations` times in a row, in file order, so a
+# scene's three start locations are adjacent. iterations is PER ENTRY —
+# total runs = iterations * 24.
 environment_order: grouped
 iterations: 1
 
@@ -276,11 +373,10 @@ steps:
         min_flight_speed: 0.5
         max_flight_speed: 1.0
         confidence_threshold: 0.95
-        # Per-scene voxel similarity gate (see each environment block above).
+        # Per-scene voxel similarity gate (see each scene template above).
         voxel_score_threshold: "{{env.voxel_score_threshold}}"
         # Per-scene ray score gate + voxel cluster size (-1 on an entry = raven_nav default).
         score_threshold: "{{env.score_threshold}}"
         voxel_min_cluster_size: "{{env.voxel_min_cluster_size}}"
         # Consensus bundle length (head executed, tail reserved + replanned).
         bundle_len: 3
-
