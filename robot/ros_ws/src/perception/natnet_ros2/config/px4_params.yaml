@@ -51,14 +51,42 @@
       # No range-finder height aiding (no rangefinder present; avoids a stray
       # competing height source).
       EKF2_RNG_CTRL: 0
-      # Measured OptiTrack->EKF2 delay: ~1 ms LAN transport + 5 ms Cube Orange
-      # hop (natnet_ros2_node logs the measured figure; retune from Flight
-      # Review EV innovations if needed).
-      EKF2_EV_DELAY: 8.0
+      # OptiTrack->EKF2 delay. natnet_ros2_node MEASURES ~5.7 ms end to end (0.7 ms
+      # LAN transport + the 5 ms modelled flight-controller hop), and
+      # vision_pose_converter preserves the mocap header stamp exactly (0.0008 m RMS
+      # mocap->vision_pose, measured from a flight bag), so EKF2 already knows the true
+      # measurement time and this only has to cover the residual hop.
+      #
+      # Do NOT raise this to compensate for apparent lag in RViz — it does the
+      # opposite. 50.0 was trialled and is measurably WORSE; back-to-back bags with
+      # everything else identical (50.0 vs 7.0):
+      #   median |odom-mocap| while moving   0.060 m  ->  0.037 m
+      #   X-axis RMS                         0.049 m  ->  0.023 m
+      #   best-fit time shift              -60 ms (pinned at sweep edge) -> -20 ms
+      # The NEGATIVE best-fit shift is the tell: over-declaring the delay makes EKF2
+      # attribute the measurement to a state ~44 ms too old, so the estimate runs AHEAD
+      # of truth during motion rather than behind.
+      EKF2_EV_DELAY: 7.0
       # Use the EKF2_EV*_NOISE floors below instead of the (1e-6) message
       # covariance, which is too optimistic to fuse safely.
       EKF2_EV_NOISE_MD: 1
-      EKF2_EVP_NOISE: 0.01
+      # NOT the mocap system's marker precision — this is the filter's total assumed
+      # position uncertainty, and it also sets the innovation gate, which is
+      # EKF2_EVP_GATE (PX4 default 5) sigma wide. 0.05 gives a 25 cm gate; the previous
+      # 0.01 gave only 5 cm, tight enough to reject legitimate updates and refuse to
+      # arm. Still far tighter than PX4's 0.1 default.
+      #
+      # HISTORY: this was first raised on the theory that a too-tight gate caused the
+      # large drift-and-snap excursions seen in early mocap flights. That theory was
+      # WRONG — the cause was a 90 deg body-yaw offset in the Motive rigid-body
+      # definition. EKF2 fuses vision YAW and snaps its heading to it, so its nav frame
+      # was 90 deg off and IMU-predicted motion fought the (correct) vision position.
+      # Fixing the rigid body in Motive cut moving error 0.25 m -> 0.04 m and the
+      # odom/mocap path-length ratio 2.33x -> 1.12x. If you see drift-and-snap, check
+      # the Motive rigid-body definition FIRST; do not add yaw compensation in code
+      # (natnet_ros2 and vision_pose_converter are deliberate identity pass-throughs).
+      # The wider gate is retained as reasonable in its own right, not as a fix for that.
+      EKF2_EVP_NOISE: 0.05
       EKF2_EVA_NOISE: 0.05
       # Allow arming without GPS.
       COM_ARM_WO_GPS: 1

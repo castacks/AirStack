@@ -93,8 +93,10 @@ def _build_node_params(server: dict, profile: dict) -> dict:
     body_orientation_covariance: list[float] = []
 
     for body in bodies:
-        body_names.append(str(body.get('rigid_body_name', '')))
-        body_ids.append(int(body.get('id', -1)))
+        # Name and id accept $(env ...) like the server block, so a site can point the
+        # client at its Motive rigid body without editing the tracked config.
+        body_names.append(str(_expand_env(body.get('rigid_body_name', ''))))
+        body_ids.append(int(_expand_env(body.get('id', -1))))
         body_topics.append(str(body.get('topic', '')))
         body_pose.append(bool(body.get('pose', True)))
         body_pose_cov.append(bool(body.get('pose_cov', True)))

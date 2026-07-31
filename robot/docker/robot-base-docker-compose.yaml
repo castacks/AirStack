@@ -21,6 +21,16 @@ services:
       - ONBOARD_BASE_PORT=${ONBOARD_BASE_PORT}
       - ROBOT_NAME_MAP_CONFIG_FILE=${ROBOT_NAME_MAP_CONFIG_FILE:-default_robot_name_map.yaml}
       - DEBUG_RVIZ=${DEBUG_RVIZ:-false}
+      # OptiTrack / NatNet. natnet_config.yaml reads these via $(env ...), but a variable
+      # only reaches the container if it is named here — without this block the config's
+      # env substitution can never resolve and the client always falls back to its default.
+      # Defaults target the in-sim NatNet emulator (isaac-sim's static IP on
+      # airstack_network, streaming body "Drone" id 1), so the sim path works with no
+      # override; real deployments set these in their overrides/*.env to the Motive host
+      # and the rigid-body name/id configured in Motive.
+      - NATNET_SERVER_IP=${NATNET_SERVER_IP:-172.31.0.200}
+      - NATNET_BODY_NAME=${NATNET_BODY_NAME:-Drone}
+      - NATNET_BODY_ID=${NATNET_BODY_ID:-1}
     volumes:
       # display stuff
       - $HOME/.Xauthority:/.Xauthority
