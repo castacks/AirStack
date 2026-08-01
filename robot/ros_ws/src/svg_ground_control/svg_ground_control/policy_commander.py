@@ -2,15 +2,25 @@
 
 from __future__ import annotations
 
+from io import BytesIO
 from pathlib import Path
+from typing import Any
+from zipfile import ZipFile
 
 import numpy as np
 import rclpy
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from rclpy.qos import (
+    DurabilityPolicy,
+    HistoryPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+)
 from std_msgs.msg import Float32MultiArray
 from std_srvs.srv import Trigger
+from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint
 
 from drone_soccer.deploy.observation import (
     OBS_DIM,
@@ -23,30 +33,129 @@ from svg_ground_control.ball_state import BallStateTracker
 from svg_ground_control.trajectory_commander_core import clamp_position, vector3
 
 
+def enu_waypoint_to_ned(waypoint: np.ndarray) -> np.ndarray:
+    """Convert an ENU XYZ position waypoint to PX4's NED coordinates.
+
+    Args:
+        waypoint: ENU position in meters, shaped ``(3,)``.
+
+    Returns:
+        NED position in meters, shaped ``(3,)``.
+    """
+    enu = np.asarray(waypoint, dtype=np.float32).reshape(3)
+    return np.array([enu[1], enu[0], -enu[2]], dtype=np.float32)
+
+
+def compute_bounded_waypoint(
+    drone_position: np.ndarray,
+    policy_action: np.ndarray,
+    bounds_min: np.ndarray,
+    bounds_max: np.ndarray,
+) -> np.ndarray:
+    """Convert a relative policy action into a bounded absolute waypoint.
+
+    Args:
+        drone_position: Current absolute ENU position in meters.
+        policy_action: Policy output ``(dx, dy, z_world)`` in meters.
+        bounds_min: Minimum allowed absolute ENU XYZ position.
+        bounds_max: Maximum allowed absolute ENU XYZ position.
+
+    Returns:
+        Absolute ENU waypoint clamped to the configured flight area.
+    """
+    waypoint = compute_abs_waypoint(drone_position, policy_action)
+    return clamp_position(waypoint, bounds_min, bounds_max)
+
+
+def load_policy_checkpoint(
+    model_path: str,
+    action_low: np.ndarray,
+    action_high: np.ndarray,
+) -> tuple[Any, bool]:
+    """Load an SB3 PPO checkpoint, including NumPy 2 to NumPy 1 compatibility.
+
+    Args:
+        model_path: Path to the Stable-Baselines3 PPO archive.
+        action_low: Lower bounds for the three policy actions.
+        action_high: Upper bounds for the three policy actions.
+
+    Returns:
+        The object exposing ``predict`` and whether the weight-only
+        compatibility loader was required.
+    """
+    from stable_baselines3 import PPO
+
+    try:
+        return PPO.load(model_path, device='cpu'), False
+    except ModuleNotFoundError as exc:
+        if not exc.name or not exc.name.startswith('numpy._core'):
+            raise
+
+    # safe.zip was saved under NumPy 2, whose pickle module names cannot be
+    # resolved by AirStack's NumPy 1.26. Rebuild the archive's standard
+    # ActorCriticPolicy and load its state dict without unpickling SB3 metadata.
+    import torch
+    from gymnasium.spaces import Box
+    from stable_baselines3.common.policies import ActorCriticPolicy
+
+    observation_space = Box(
+        low=-np.inf,
+        high=np.inf,
+        shape=(OBS_DIM,),
+        dtype=np.float32,
+    )
+    action_space = Box(
+        low=np.asarray(action_low, dtype=np.float32),
+        high=np.asarray(action_high, dtype=np.float32),
+        dtype=np.float32,
+    )
+    policy = ActorCriticPolicy(
+        observation_space,
+        action_space,
+        lr_schedule=lambda _: 0.0,
+    )
+
+    with ZipFile(model_path) as archive:
+        policy_bytes = archive.read('policy.pth')
+    state_dict = torch.load(
+        BytesIO(policy_bytes),
+        map_location='cpu',
+        weights_only=True,
+    )
+    policy.load_state_dict(state_dict)
+    policy.eval()
+    return policy, True
+
+
 class PolicyCommander(Node):
     def __init__(self) -> None:
         super().__init__('policy_commander')
 
-        self.declare_parameter('drone', 'drone_4')
+        self.declare_parameter('drone', 'drone_3')
         self.declare_parameter('ball_name', 'VolleyBall')
         self.declare_parameter('model_path', '')
-        self.declare_parameter('frame_id', 'map')
         self.declare_parameter('target_x', 3.0)
         self.declare_parameter('target_y', 0.0)
         self.declare_parameter('policy_dt', 0.02)
         self.declare_parameter('deterministic', True)
         self.declare_parameter('action_low', [-3.0, -3.0, 0.3])
         self.declare_parameter('action_high', [3.0, 3.0, 2.0])
-        self.declare_parameter('bounds_min', [-1.5, -1.5, 0.3])
-        self.declare_parameter('bounds_max', [1.5, 1.5, 1.2])
+        self.declare_parameter('bounds_min', [-3.0, -3.0, 0.3])
+        self.declare_parameter('bounds_max', [3.0, 3.0, 1.2])
         self.declare_parameter('odom_topic_template',
                                '/{name}/odometry_conversion/odometry')
         self.declare_parameter('ball_odom_topic_template',
                                '/{name}/mocap_odometry')
         self.declare_parameter('ball_pose_topic_template',
                                '/{name}/pose')
-        self.declare_parameter('fmu_pose_topic_template',
-                               '/{name}/fmu/pose_command')
+        self.declare_parameter(
+            'trajectory_setpoint_topic_template',
+            '/{name}/fmu/in/trajectory_setpoint',
+        )
+        self.declare_parameter(
+            'offboard_control_mode_topic_template',
+            '/{name}/fmu/in/offboard_control_mode',
+        )
         self.declare_parameter('state_timeout_s', 0.5)
         self.declare_parameter('velocity_filter_alpha', 0.4)
         self.declare_parameter('publish_debug', True)
@@ -60,7 +169,6 @@ class PolicyCommander(Node):
         if not Path(model_path).is_file():
             raise FileNotFoundError(f'model_path not found: {model_path}')
 
-        self.frame_id = str(self.get_parameter('frame_id').value)
         self.target_xy = np.array([
             float(self.get_parameter('target_x').value),
             float(self.get_parameter('target_y').value),
@@ -85,10 +193,16 @@ class PolicyCommander(Node):
             velocity_alpha=float(self.get_parameter('velocity_filter_alpha').value))
         self._ball_from_odom = False
 
-        from stable_baselines3 import PPO
-
         self.get_logger().info(f'Loading PPO from {model_path}')
-        self.policy = PPO.load(model_path)
+        self.policy, used_compat_loader = load_policy_checkpoint(
+            model_path,
+            self.action_low,
+            self.action_high,
+        )
+        if used_compat_loader:
+            self.get_logger().warn(
+                'Loaded policy weights with NumPy 2 checkpoint compatibility '
+                'mode; SB3 metadata was not deserialized')
 
         odom_topic = str(self.get_parameter('odom_topic_template').value).format(
             name=self.drone)
@@ -98,16 +212,36 @@ class PolicyCommander(Node):
         ball_pose_topic = str(
             self.get_parameter('ball_pose_topic_template').value).format(
                 name=ball_name)
-        pose_topic = str(self.get_parameter('fmu_pose_topic_template').value).format(
-            name=self.drone)
+        trajectory_topic = str(
+            self.get_parameter('trajectory_setpoint_topic_template').value
+        ).format(name=self.drone)
+        offboard_mode_topic = str(
+            self.get_parameter('offboard_control_mode_topic_template').value
+        ).format(name=self.drone)
 
         self.create_subscription(Odometry, odom_topic, self._drone_odom_cb, 10)
         self.create_subscription(Odometry, ball_odom_topic, self._ball_odom_cb, 10)
         self.create_subscription(
             PoseStamped, ball_pose_topic, self._ball_pose_cb, 10)
 
-        self.pose_pub = self.create_publisher(PoseStamped, pose_topic, 10)
-        self.pose_topic = pose_topic
+        px4_qos = QoSProfile(
+            depth=1,
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.VOLATILE,
+            history=HistoryPolicy.KEEP_LAST,
+        )
+        self.trajectory_pub = self.create_publisher(
+            TrajectorySetpoint,
+            trajectory_topic,
+            px4_qos,
+        )
+        self.offboard_mode_pub = self.create_publisher(
+            OffboardControlMode,
+            offboard_mode_topic,
+            px4_qos,
+        )
+        self.trajectory_topic = trajectory_topic
+        self.offboard_mode_topic = offboard_mode_topic
 
         prefix = str(self.get_parameter('debug_topic_prefix').value)
         self.publish_debug = bool(self.get_parameter('publish_debug').value)
@@ -130,7 +264,8 @@ class PolicyCommander(Node):
         self.get_logger().info(
             f'PolicyCommander ready | drone={self.drone} ball={ball_name} '
             f'odom={odom_topic} ball_odom={ball_odom_topic} '
-            f'pose_out={pose_topic} obs_dim={OBS_DIM}')
+            f'trajectory_out={trajectory_topic} '
+            f'offboard_out={offboard_mode_topic} obs_dim={OBS_DIM}')
 
     def _handle_start(self, _request, response):
         self.running = True
@@ -215,20 +350,37 @@ class PolicyCommander(Node):
         wpt_msg.data = [float(x) for x in waypoint]
         self.waypoint_pub.publish(wpt_msg)
 
-    def _publish_pose(self, waypoint: np.ndarray) -> None:
-        msg = PoseStamped()
-        msg.header.stamp = self.get_clock().now().to_msg()
-        msg.header.frame_id = self.frame_id
-        msg.pose.position.x = float(waypoint[0])
-        msg.pose.position.y = float(waypoint[1])
-        msg.pose.position.z = float(waypoint[2])
-        msg.pose.orientation.w = 1.0
-        self.pose_pub.publish(msg)
+    def _publish_fmu_setpoint(self, waypoint: np.ndarray) -> None:
+        """Publish a position setpoint and PX4 Offboard heartbeat directly."""
+        timestamp_us = self.get_clock().now().nanoseconds // 1000
+        ned_waypoint = enu_waypoint_to_ned(waypoint)
+
+        offboard_mode = OffboardControlMode()
+        offboard_mode.timestamp = timestamp_us
+        offboard_mode.position = True
+        offboard_mode.velocity = False
+        offboard_mode.acceleration = False
+        offboard_mode.attitude = False
+        offboard_mode.body_rate = False
+        offboard_mode.thrust_and_torque = False
+        offboard_mode.direct_actuator = False
+        self.offboard_mode_pub.publish(offboard_mode)
+
+        setpoint = TrajectorySetpoint()
+        setpoint.timestamp = timestamp_us
+        setpoint.position = [float(value) for value in ned_waypoint]
+        setpoint.velocity = [float('nan')] * 3
+        setpoint.acceleration = [float('nan')] * 3
+        setpoint.jerk = [float('nan')] * 3
+        # Preserve the old pose-command behavior: ENU yaw 0 becomes NED +pi/2.
+        setpoint.yaw = float(np.pi / 2.0)
+        setpoint.yawspeed = float('nan')
+        self.trajectory_pub.publish(setpoint)
 
     def _policy_tick(self) -> None:
         if not self.running:
             if self._last_waypoint is not None:
-                self._publish_pose(self._last_waypoint)
+                self._publish_fmu_setpoint(self._last_waypoint)
             return
 
         if not self._inputs_fresh():
@@ -253,11 +405,15 @@ class PolicyCommander(Node):
             self.action_low,
             self.action_high,
         )
-        waypoint = compute_abs_waypoint(drone_pos_pre, action)
-        waypoint = clamp_position(waypoint, self.bounds_min, self.bounds_max)
+        waypoint = compute_bounded_waypoint(
+            drone_pos_pre,
+            action,
+            self.bounds_min,
+            self.bounds_max,
+        )
         self._last_waypoint = waypoint
 
-        self._publish_pose(waypoint)
+        self._publish_fmu_setpoint(waypoint)
         self._publish_debug(obs, action, waypoint)
 
 

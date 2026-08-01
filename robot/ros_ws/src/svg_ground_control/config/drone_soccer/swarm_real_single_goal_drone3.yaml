@@ -1,14 +1,14 @@
 # Drone-soccer SVG ground control - single Starling hardware goal tracking.
 #
 # BV hardware identity:
-# - Motive rigid body: drone_4
-# - VOXL/PX4 uXRCE-DDS namespace: drone_4
-# - Mocap pose: /drone_4/pose
-# - PX4 topics: /drone_4/fmu/*
+# - Motive rigid body: drone_3
+# - VOXL/PX4 uXRCE-DDS namespace: drone_3
+# - Mocap pose: /drone_3/pose
+# - PX4 topics: /drone_3/fmu/*
 
 swarm_commander:
   ros__parameters:
-    drone_names: ["drone_4"]
+    drone_names: ["drone_3"]
     drone_modes: "real"
     teleop_drones: ""
     external_drones: ""
@@ -49,7 +49,7 @@ swarm_commander:
 
 mocap_bridge:
   ros__parameters:
-    drone_names: ["drone_4"]
+    drone_names: ["drone_3"]
     extra_body_names: ["VolleyBall"]
     publish_mocap_odometry: true
     mocap_odometry_topic_template: "/{name}/mocap_odometry"

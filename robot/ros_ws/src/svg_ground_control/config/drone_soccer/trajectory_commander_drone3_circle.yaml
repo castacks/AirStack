@@ -1,20 +1,20 @@
-# Drone-soccer circle trajectory for drone_4 through swarm_commander.
+# Drone-soccer circle trajectory for drone_3 through swarm_commander.
 #
-# Start swarm_commander with swarm_real_single_goal_drone4.yaml, complete
+# Start swarm_commander with swarm_real_single_goal_drone3.yaml, complete
 # takeoff, and call /swarm_commander/start before launching this file.
 # This publishes SVG goals; do not run an fmu_pose trajectory commander at the
 # same time.
 #
-# drone_4 remains no-fly until its external-vision frame and odometry-staleness
+# drone_3 remains no-fly until its external-vision frame and odometry-staleness
 # issues are corrected and revalidated disarmed.
 #
 # Launch later with:
 #   ros2 launch svg_ground_control trajectory_commander.launch.py \
-#     config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/trajectory_commander_drone4_circle.yaml
+#     config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/trajectory_commander_drone3_circle.yaml
 
 trajectory_commander:
   ros__parameters:
-    drone: "drone_4"
+    drone: "drone_3"
     backend: "svg_goal"
     frame_id: "map"
     publish_rate_hz: 20.0

@@ -27,7 +27,7 @@ def _launch_setup(context, *args, **kwargs):
 def generate_launch_description():
     default_config = PathJoinSubstitution(
         [FindPackageShare('svg_ground_control'), 'config',
-         'drone_soccer', 'policy_commander_drone4.yaml'])
+         'drone_soccer', 'policy_commander_drone3.yaml'])
 
     return LaunchDescription([
         DeclareLaunchArgument(

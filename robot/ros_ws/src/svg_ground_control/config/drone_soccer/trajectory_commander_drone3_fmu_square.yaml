@@ -1,4 +1,4 @@
-# Drone-soccer direct-PX4 1.5 m x 1.5 m square trajectory for drone_4.
+# Drone-soccer direct-PX4 1.5 m x 1.5 m square trajectory for drone_3.
 #
 # The initial hover position is the first corner. After takeoff and stable
 # hover, begin motion with:
@@ -14,7 +14,7 @@
 
 trajectory_commander:
   ros__parameters:
-    drone: "drone_4"
+    drone: "drone_3"
     backend: "fmu_pose"
     frame_id: "map"
     publish_rate_hz: 50.0

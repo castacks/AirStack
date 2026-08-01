@@ -38,6 +38,7 @@ import math
 import numpy as np
 import rclpy
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 
 from geometry_msgs.msg import PoseStamped
@@ -80,7 +81,10 @@ class MocapBridge(Node):
         super().__init__('mocap_bridge')
 
         self.declare_parameter('drone_names', ['drone_1', 'drone_2', 'drone_3'])
-        self.declare_parameter('extra_body_names', [])
+        self.declare_parameter(
+            'extra_body_names',
+            Parameter.Type.STRING_ARRAY,
+        )
         self.declare_parameter('mocap_topic_template', '/{name}/pose')
         self.declare_parameter('px4_vio_mode', 'direct')
         self.declare_parameter('px4_vio_frame', 'enu_to_ned')

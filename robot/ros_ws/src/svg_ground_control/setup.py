@@ -21,7 +21,7 @@ setup(
          glob('config/drone_soccer/*.yaml')),
         (os.path.join('share', package_name, 'scripts'), glob('scripts/*.sh')),
     ],
-    install_requires=['setuptools', 'stable-baselines3>=2.0', 'numpy'],
+    install_requires=['setuptools', 'stable-baselines3==2.8.0', 'numpy'],
     zip_safe=True,
     maintainer='Yikuan Fang',
     maintainer_email='yikuanfang@gmail.com',

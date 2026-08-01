@@ -80,14 +80,21 @@ squeeze rollout), and [test/functional_squeeze_test.py](test/functional_squeeze_
 ## PPO policy deploy (drone_soccer)
 
 Inference-only: `policy_commander` loads an SB3 `.zip`, builds the 18-dim
-obs from PX4 odometry + ball mocap, publishes `/{name}/fmu/pose_command`.
+observation from PX4 odometry plus ball mocap, and publishes PX4
+`TrajectorySetpoint` and `OffboardControlMode` messages directly to
+`/{name}/fmu/in/trajectory_setpoint` and
+`/{name}/fmu/in/offboard_control_mode`. The policy's full 3D waypoint is used.
+The resulting absolute waypoint is clamped to `[-3, 3] m` in ENU X/Y and to
+the configured altitude bounds.
 Install in the robot container:
 
 ```bash
-pip install -e /root/drone_soccer
-pip install -r /root/AirStack/robot/ros_ws/src/svg_ground_control/requirements-policy.txt
+pip install --break-system-packages -r /root/AirStack/robot/ros_ws/src/svg_ground_control/requirements-policy.txt
 bws --packages-select svg_ground_control
 ```
+
+The read-only `/root/drone_soccer` mount is included in the robot container's
+`PYTHONPATH`, so an editable install is neither needed nor writable.
 
 See [experiment.md](experiment.md) (topic table) and
 [QUICK_REFERENCE §4](../../../../.codex/skills/yutong-fly-starling/QUICK_REFERENCE.md)

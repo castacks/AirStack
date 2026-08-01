@@ -1,0 +1,40 @@
+# Drone-soccer PPO inference on Starling hardware (direct PX4 setpoints).
+#
+# Prerequisites (separate terminals):
+#   - natnet_ros2, real_interfaces, mocap_bridge (see swarm_real_single_goal_drone3.yaml
+#     mocap_bridge section; set extra_body_names for the ball)
+# Do NOT run swarm_commander or trajectory_commander concurrently.
+#
+# Launch:
+#   ros2 launch svg_ground_control policy_commander.launch.py \
+#     model_path:=/root/drone_soccer/drone_soccer/saved_policies/safe.zip
+
+policy_commander:
+  ros__parameters:
+    drone: "drone_3"
+    ball_name: "VolleyBall"
+    model_path: "/root/drone_soccer/drone_soccer/saved_policies/safe.zip"
+    # Soccer goal used by the policy observation: ENU (x, y, z) = (0, -8, 0).
+    # The current policy observation is planar, so only x/y are consumed.
+    target_x: 0.0
+    target_y: -8.0
+    policy_dt: 0.02
+    deterministic: true
+    action_low: [-3.0, -3.0, 0.3]
+    action_high: [3.0, 3.0, 2.0]
+    # Absolute ENU waypoint fence: policy commands cannot exceed +/-3 m in XY.
+    bounds_min: [-3.0, -3.0, 0.3]
+    bounds_max: [3.0, 3.0, 2.0]
+    # Policy Z is active; the resulting absolute altitude is clamped below.
+    odom_topic_template: "/{name}/odometry_conversion/odometry"
+    ball_odom_topic_template: "/{name}/mocap_odometry"
+    ball_pose_topic_template: "/{name}/pose"
+    trajectory_setpoint_topic_template: "/{name}/fmu/in/trajectory_setpoint"
+    offboard_control_mode_topic_template: "/{name}/fmu/in/offboard_control_mode"
+    state_timeout_s: 0.5
+    velocity_filter_alpha: 0.4
+    publish_debug: true
+    debug_topic_prefix: "/policy_commander"
+
+# Mocap bridge params for PPO: use the mocap_bridge section in
+# swarm_real_single_goal_drone3.yaml (extra_body_names, publish_mocap_odometry).

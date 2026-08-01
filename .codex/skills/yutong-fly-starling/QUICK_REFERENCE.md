@@ -1,6 +1,6 @@
 # Starling Flight Quick Reference
 
-Copy-paste commands for BV (`drone_4`) real-flight operation. Run flight commands only after mocap, PX4 estimation, QGC, RC/kill path, and the flight area have been checked.
+Copy-paste commands for BV (`drone_3`) real-flight operation. Run flight commands only after mocap, PX4 estimation, QGC, RC/kill path, and the flight area have been checked.
 
 There are three separate workflows:
 
@@ -31,7 +31,7 @@ sws
 Start `swarm_commander`:
 
 ```bash
-ros2 launch svg_ground_control ground_control.launch.py config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/swarm_real_single_goal_drone4.yaml use_mocap:=true
+ros2 launch svg_ground_control ground_control.launch.py config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/swarm_real_single_goal_drone3.yaml use_mocap:=true
 ```
 
 ```bash
@@ -39,7 +39,7 @@ ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger # take off
 
 ros2 service call /swarm_commander/start std_srvs/srv/Trigger # enable goal tracking
 
-ros2 topic pub --once /svg/drone_4/goal_command geometry_msgs/msg/PoseStamped "{header: {frame_id: map}, pose: {position: {x: 0.0, y: 0.0, z: 1.0}}}" # send goal
+ros2 topic pub --once /svg/drone_3/goal_command geometry_msgs/msg/PoseStamped "{header: {frame_id: map}, pose: {position: {x: 0.0, y: 0.0, z: 1.0}}}" # send goal
 
 ros2 service call /swarm_commander/hold std_srvs/srv/Trigger # hold
 
@@ -51,7 +51,7 @@ ros2 service call /swarm_commander/land std_srvs/srv/Trigger # land
 Start `swarm_commander`:
 
 ```bash
-ros2 launch svg_ground_control ground_control.launch.py config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/swarm_real_single_goal_drone4.yaml use_mocap:=true
+ros2 launch svg_ground_control ground_control.launch.py config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/swarm_real_single_goal_drone3.yaml use_mocap:=true
 ```
 
 Take off and start goal tracking:
@@ -65,7 +65,7 @@ ros2 service call /swarm_commander/start std_srvs/srv/Trigger
 Launch the SVG trajectory in another terminal:
 
 ```bash
-ros2 launch svg_ground_control trajectory_commander.launch.py config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/trajectory_commander_drone4_circle.yaml
+ros2 launch svg_ground_control trajectory_commander.launch.py config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/trajectory_commander_drone3_circle.yaml
 ```
 
 Land through `swarm_commander`:
@@ -81,31 +81,31 @@ ros2 service call /swarm_commander/land std_srvs/srv/Trigger
 Do not run `ground_control.launch.py`, `swarm_commander`, or another FMU setpoint publisher. Keep `real_interfaces` running and start only the mocap bridge:
 
 ```bash
-ros2 run svg_ground_control mocap_bridge --ros-args --params-file $(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/swarm_real_single_goal_drone4.yaml
+ros2 run svg_ground_control mocap_bridge --ros-args --params-file $(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/swarm_real_single_goal_drone3.yaml
 ```
 
 Launch exactly one trajectory in a separate terminal while disarmed:
 
 ```bash
-ros2 launch svg_ground_control trajectory_commander.launch.py config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/trajectory_commander_drone4_fmu_hover.yaml
+ros2 launch svg_ground_control trajectory_commander.launch.py config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/trajectory_commander_drone3_fmu_hover.yaml
 
-ros2 launch svg_ground_control trajectory_commander.launch.py config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/trajectory_commander_drone4_fmu_square.yaml
+ros2 launch svg_ground_control trajectory_commander.launch.py config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/trajectory_commander_drone3_fmu_square.yaml
 
-ros2 launch svg_ground_control trajectory_commander.launch.py config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/trajectory_commander_drone4_fmu_figure8_aggressive.yaml
+ros2 launch svg_ground_control trajectory_commander.launch.py config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/trajectory_commander_drone3_fmu_figure8_aggressive.yaml
 ```
 
 Run the Direct-FMU command sequence from another terminal:
 
 ```bash
-ros2 service call /drone_4/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 0}" # offboard
+ros2 service call /drone_3/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 0}" # offboard
 
-ros2 service call /drone_4/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 1}" # arm
+ros2 service call /drone_3/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 1}" # arm
 
 ros2 service call /trajectory_commander/start std_srvs/srv/Trigger # start trajectory motion
 
-ros2 service call /drone_4/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 4}" # land
+ros2 service call /drone_3/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 4}" # land
 
-ros2 service call /drone_4/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 2}" # disarm after landing
+ros2 service call /drone_3/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 2}" # disarm after landing
 ```
 
 Keep the trajectory commander running through landing and disarm. Stop it with `Ctrl-C` only after disarm is confirmed.
@@ -117,34 +117,40 @@ Do **not** run `ground_control.launch.py`, `swarm_commander`, or `trajectory_com
 One-time in the robot container (after mount at `/root/drone_soccer`):
 
 ```bash
-pip install -e /root/drone_soccer
-pip install -r /root/AirStack/robot/ros_ws/src/svg_ground_control/requirements-policy.txt
+pip install --break-system-packages -r /root/AirStack/robot/ros_ws/src/svg_ground_control/requirements-policy.txt
 bws --packages-select svg_ground_control
 ```
 
+The read-only `/root/drone_soccer` mount is already included in the robot
+container's `PYTHONPATH`; do not install it editable.
+
 Lab stack (same as §3 Direct-FMU): NatNet, `real_interfaces`, `mocap_bridge` with
-`swarm_real_single_goal_drone4.yaml` (includes `extra_body_names: [VolleyBall]` and
+`swarm_real_single_goal_drone3.yaml` (includes `extra_body_names: [VolleyBall]` and
 `/{name}/mocap_odometry` for the ball).
 
 Launch policy (disarmed; pass your checkpoint):
 
 ```bash
 ros2 launch svg_ground_control policy_commander.launch.py \
-  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/policy_commander_drone4.yaml \
-  model_path:=/path/to/ppo_final.zip
+  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/policy_commander_drone3.yaml \
+  model_path:=/root/drone_soccer/drone_soccer/saved_policies/safe.zip
 ```
 
 ### Disarmed checks (before arming)
 
 ```bash
-ros2 topic echo /drone_4/odometry_conversion/odometry --once --field twist.twist.linear
+ros2 topic echo /drone_3/odometry_conversion/odometry --once --field twist.twist.linear
 ros2 topic echo /VolleyBall/mocap_odometry --once --field twist.twist.linear
 ros2 service call /policy_commander/start std_srvs/srv/Trigger
 ros2 topic echo /policy_commander/obs --once
-ros2 topic echo /drone_4/fmu/pose_command --once --field pose.position
+ros2 topic echo /drone_3/fmu/in/trajectory_setpoint --once --field position
+ros2 topic echo /drone_3/fmu/in/offboard_control_mode --once
 ```
 
-Carry the drone and ball in mocap: obs and pose setpoints should update smoothly.
+Carry the drone and ball in mocap: observations and trajectory setpoints should
+update smoothly. For the initial planar test, every trajectory setpoint must
+have NED `position[2] == -1.0`, corresponding to absolute ENU altitude `1.0 m`.
+Absolute ENU X and Y waypoints are clamped independently to `[-3.0, 3.0] m`.
 Call `/policy_commander/stop` to pause; the node holds the last waypoint.
 
 ### Armed sequence
@@ -152,10 +158,10 @@ Call `/policy_commander/stop` to pause; the node holds the last waypoint.
 Same as §3 Direct-FMU, but replace trajectory start with policy start:
 
 ```bash
-ros2 service call /drone_4/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 0}" # offboard
-ros2 service call /drone_4/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 1}" # arm
+ros2 service call /drone_3/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 0}" # offboard
+ros2 service call /drone_3/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 1}" # arm
 ros2 service call /policy_commander/start std_srvs/srv/Trigger
 ros2 service call /policy_commander/stop std_srvs/srv/Trigger   # pause before land
-ros2 service call /drone_4/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 4}" # land
-ros2 service call /drone_4/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 2}" # disarm
+ros2 service call /drone_3/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 4}" # land
+ros2 service call /drone_3/fmu/robot_command airstack_msgs/srv/RobotCommand "{command: 2}" # disarm
 ```

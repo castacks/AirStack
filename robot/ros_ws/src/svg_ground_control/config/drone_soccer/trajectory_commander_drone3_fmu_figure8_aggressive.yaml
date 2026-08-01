@@ -1,4 +1,4 @@
-# Drone-soccer direct-PX4 aggressive figure-eight trajectory for drone_4.
+# Drone-soccer direct-PX4 aggressive figure-eight trajectory for drone_3.
 #
 # Full path dimensions:
 # - World X width: 2.0 m (-1.0 m to +1.0 m from the takeoff position)
@@ -17,7 +17,7 @@
 
 trajectory_commander:
   ros__parameters:
-    drone: "drone_4"
+    drone: "drone_3"
     backend: "fmu_pose"
     frame_id: "map"
     publish_rate_hz: 50.0

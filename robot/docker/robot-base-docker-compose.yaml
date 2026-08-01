@@ -12,6 +12,8 @@ services:
       - QT_QPA_PLATFORM
       # Record bags
       - RECORD_BAGS=${RECORD_BAGS}
+      # Inference-only drone_soccer source is mounted read-only below.
+      - PYTHONPATH=/root/drone_soccer
       # docker compose interpolation to env variables
       - AUTONOMY_ROLE=${AUTONOMY_ROLE:-full}
       - URDF_FILE=${URDF_FILE}  
@@ -40,4 +42,3 @@ services:
       - ../../../drone_soccer:/root/drone_soccer:ro
       # bags
       - ../bags:/bags:rw
-
