@@ -7,6 +7,10 @@ description: Real-lab workflow for testing or flying Yutong's ModalAI Starling 2
 
 Use this skill as the operating checklist for Yutong's Starling 2 Max lab fleet. BS, BY, and BV are all valid potential active drones; the labels do not imply age, preference, or replacement order. Be conservative: do not arm or fly until the safety gates pass and the user explicitly confirms the physical setup is ready.
 
+For a new Ubuntu ground-controller computer, read
+[ONBOARDING.md](ONBOARDING.md). For copy-paste flight and policy commands, read
+[QUICK_REFERENCE.md](QUICK_REFERENCE.md).
+
 ## Fixed Assumptions
 
 Treat these as the known-good lab values unless the user says they changed:
