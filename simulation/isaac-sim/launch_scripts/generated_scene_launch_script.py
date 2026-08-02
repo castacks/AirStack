@@ -5,14 +5,14 @@ Single-drone PX4 launcher that procedurally generates the scene at runtime.
 Same shape as example_one_px4_pegasus_launch_script.py, but instead of relying
 on a hand-authored environment for clutter it:
  - Loads a (usually flat / terrain-only) base environment
- - Scatters an asset library across configured zones via utils/scene_generator
+ - Scatters an asset library across configured zones via scene_gen/scene_generator
  - Adds colliders + dome light, then spawns the drone
 
-SCENE_CONFIG points at a low-level scene config under config/scene_generation/.
-Pick a different compiled disaster (or recompile one from its high-level spec
-with utils/compile_disaster.py) to change what gets generated — no code changes
+SCENE_CONFIG points at a scene config under scene_gen/config/. Pick a different
+compiled disaster (or recompile one from its high-level spec with
+scene_gen/compile_disaster.py) to change what gets generated — no code changes
 needed. For repeatable batch runs, pre-bake instead with:
-    python utils/scene_generator.py --config <yaml> --output assets/scenes/foo.usd
+    python scene_gen/scene_generator.py --config <yaml> --output assets/scenes/foo.usd
 and load the result like any other environment.
 """
 
@@ -41,7 +41,15 @@ from pegasus.simulator.ogn.api.spawn_multirotor import spawn_px4_multirotor_node
 from pegasus.simulator.ogn.api.spawn_zed_camera import add_zed_stereo_camera_subgraph
 from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
 
-sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
+_ISAAC_SIM_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+# The scene generator lives at the repo root in scene_gen/ (it is sim-agnostic
+# and has its own configs and asset pipeline); scene_prep stays here because it
+# is Isaac Sim stage tooling the plain Pegasus launch scripts share.
+_SCENE_GEN_DIR = os.path.normpath(
+    os.path.join(_ISAAC_SIM_DIR, "..", "..", "scene_gen"))
+sys.path.insert(0, os.path.join(_ISAAC_SIM_DIR, "utils"))
+sys.path.insert(0, _SCENE_GEN_DIR)
 from scene_prep import (scale_stage_prim, add_colliders, add_sky,
                         get_stage_meters_per_unit, settle_rigid_props)
 from scene_generator import generate_scene_on_stage, resolve_sky
@@ -60,11 +68,13 @@ ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
 # STAGE_SCALE = 0.01
 STAGE_SCALE = 1.00
 
-# Scene spec consumed by the generator. Relative to the isaac-sim/ root.
-_ISAAC_SIM_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-SCENE_CONFIG = os.path.join(_ISAAC_SIM_DIR, "config", "scene_generation",
-                            # "low_level", "compiled", "hurricane.yaml")
-                            "presets", "tornado.yaml")
+# Scene spec consumed by the generator. Relative to scene_gen/.
+# The SCENE_CONFIG env var wins when set, so `airstack up` can target a scene
+# without editing this file — it takes any form load_scene_config() accepts
+# (bare name, high-level spec, or compiled low-level config).
+SCENE_CONFIG = os.environ.get("SCENE_CONFIG") or os.path.join(
+    _SCENE_GEN_DIR, "config",
+    "presets", "tornado.yaml")
 
 # Raycast each generated asset down onto terrain colliders for its Z. Needs the
 # physics scene stepped first; leave False for flat ground at the configured z.

@@ -1,0 +1,419 @@
+# Objaverse assets cached locally, written by scene_gen/objaverse_assets.py.
+# Keyed by Objaverse uid — the same id the asset sets reference as objaverse://<uid>.
+#
+# A record for provenance and attribution, NOT the source of truth: the asset
+# sets are. The USDs are git-ignored; `prepare_assets.py` rebuilds them
+# from whatever the asset sets reference.
+#
+# `baked_scale` is already applied to the USD — do not re-apply it in a config.
+# `size_m` is the asset's real-world bounding box as cached.
+
+assets:
+  042bc78e7d1d4275b3cd87e97f35d11c:
+    author: Arthur.Zim
+    baked_scale: 0.854782
+    faces: 10347
+    fit: footprint
+    license: by
+    size_m:
+    - 2.68
+    - 3.5
+    - 1.089
+    source: https://sketchfab.com/3d-models/042bc78e7d1d4275b3cd87e97f35d11c
+    target_size_m: 3.5
+    texture_res: 2048
+    textures: 3
+    title: Low Poly Heap of construction debris bricks
+    uid: 042bc78e7d1d4275b3cd87e97f35d11c
+    usd: 042bc78e7d1d4275b3cd87e97f35d11c/042bc78e7d1d4275b3cd87e97f35d11c.usdc
+  0ab5415789a1454a925d82f0650910ff:
+    author: RaynaudL
+    baked_scale: 0.071059
+    faces: 5146
+    fit: footprint
+    license: by
+    size_m:
+    - 2.291
+    - 3.0
+    - 1.005
+    source: https://sketchfab.com/3d-models/0ab5415789a1454a925d82f0650910ff
+    target_size_m: 3.0
+    texture_res: 2048
+    textures: 2
+    title: Heap of construction old debris bricks - remake
+    uid: 0ab5415789a1454a925d82f0650910ff
+    usd: 0ab5415789a1454a925d82f0650910ff/0ab5415789a1454a925d82f0650910ff.usdc
+  107f6a1f6aa74449bcd32ef136311d86:
+    author: 3dhdscan
+    baked_scale: 0.582254
+    faces: 19373
+    fit: footprint
+    license: by
+    size_m:
+    - 2.985
+    - 3.0
+    - 0.741
+    source: https://sketchfab.com/3d-models/107f6a1f6aa74449bcd32ef136311d86
+    target_size_m: 3.0
+    texture_res: 4096
+    textures: 2
+    title: A pile of sand
+    uid: 107f6a1f6aa74449bcd32ef136311d86
+    usd: 107f6a1f6aa74449bcd32ef136311d86/107f6a1f6aa74449bcd32ef136311d86.usdc
+  19331875f8d84137a94003f0660e2a50:
+    author: headerstock
+    baked_scale: 0.027677
+    faces: 27627
+    fit: footprint
+    license: by
+    size_m:
+    - 10.969
+    - 12.0
+    - 6.246
+    source: https://sketchfab.com/3d-models/19331875f8d84137a94003f0660e2a50
+    target_size_m: 12.0
+    texture_res: 1024
+    textures: 9
+    title: Bungalow The Haynes
+    uid: 19331875f8d84137a94003f0660e2a50
+    usd: 19331875f8d84137a94003f0660e2a50/19331875f8d84137a94003f0660e2a50.usdc
+  1b31413d89a4485e93f4bdb9eb735d88:
+    author: gilles.schaeck
+    baked_scale: 0.012474
+    faces: 512
+    fit: footprint
+    license: by
+    size_m:
+    - 2.5
+    - 1.77
+    - 0.115
+    source: https://sketchfab.com/3d-models/1b31413d89a4485e93f4bdb9eb735d88
+    target_size_m: 2.5
+    texture_res: 2048
+    textures: 3
+    title: Planches - Planks
+    uid: 1b31413d89a4485e93f4bdb9eb735d88
+    usd: 1b31413d89a4485e93f4bdb9eb735d88/1b31413d89a4485e93f4bdb9eb735d88.usdc
+  1c6d17070d9e4b6595e5de2fa3e20d81:
+    author: headerstock
+    baked_scale: 0.028268
+    faces: 35668
+    fit: footprint
+    license: by
+    size_m:
+    - 12.0
+    - 11.197
+    - 6.63
+    source: https://sketchfab.com/3d-models/1c6d17070d9e4b6595e5de2fa3e20d81
+    target_size_m: 12.0
+    texture_res: 1024
+    textures: 8
+    title: Bungalow The Ryder
+    uid: 1c6d17070d9e4b6595e5de2fa3e20d81
+    usd: 1c6d17070d9e4b6595e5de2fa3e20d81/1c6d17070d9e4b6595e5de2fa3e20d81.usdc
+  1ca9bf31b9d34b44a9b9cac8c240a8d7:
+    author: headerstock
+    baked_scale: 0.030303
+    faces: 28625
+    fit: footprint
+    license: by
+    size_m:
+    - 12.0
+    - 10.398
+    - 6.631
+    source: https://sketchfab.com/3d-models/1ca9bf31b9d34b44a9b9cac8c240a8d7
+    target_size_m: 12.0
+    texture_res: 1024
+    textures: 7
+    title: Bungalow The Crosby
+    uid: 1ca9bf31b9d34b44a9b9cac8c240a8d7
+    usd: 1ca9bf31b9d34b44a9b9cac8c240a8d7/1ca9bf31b9d34b44a9b9cac8c240a8d7.usdc
+  2341e9c2456f4876b2e86a9465724b0d:
+    author: andres Hiciano
+    baked_scale: 0.821147
+    faces: 1044
+    fit: footprint
+    license: by
+    size_m:
+    - 1.534
+    - 2.2
+    - 0.127
+    source: https://sketchfab.com/3d-models/2341e9c2456f4876b2e86a9465724b0d
+    target_size_m: 2.2
+    texture_res: 2048
+    textures: 6
+    title: Planks Of Wood
+    uid: 2341e9c2456f4876b2e86a9465724b0d
+    usd: 2341e9c2456f4876b2e86a9465724b0d/2341e9c2456f4876b2e86a9465724b0d.usdc
+  358466b1877b4947aee36a50662d633b:
+    author: headerstock
+    baked_scale: 0.027065
+    faces: 88606
+    fit: footprint
+    license: by
+    size_m:
+    - 11.376
+    - 12.0
+    - 6.261
+    source: https://sketchfab.com/3d-models/358466b1877b4947aee36a50662d633b
+    target_size_m: 12.0
+    texture_res: 1024
+    textures: 7
+    title: Bungalow The Gilchrist
+    uid: 358466b1877b4947aee36a50662d633b
+    usd: 358466b1877b4947aee36a50662d633b/358466b1877b4947aee36a50662d633b.usdc
+  388ea89b91524e4eb79068c24d170619:
+    author: headerstock
+    baked_scale: 0.028148
+    faces: 45690
+    fit: footprint
+    license: by
+    size_m:
+    - 12.0
+    - 10.818
+    - 6.602
+    source: https://sketchfab.com/3d-models/388ea89b91524e4eb79068c24d170619
+    target_size_m: 12.0
+    texture_res: 1024
+    textures: 9
+    title: Bungalow-the Weeks
+    uid: 388ea89b91524e4eb79068c24d170619
+    usd: 388ea89b91524e4eb79068c24d170619/388ea89b91524e4eb79068c24d170619.usdc
+  3bc5f70542014501a1e380891295299e:
+    author: headerstock
+    baked_scale: 0.028549
+    faces: 29691
+    fit: footprint
+    license: by
+    size_m:
+    - 12.0
+    - 11.626
+    - 6.471
+    source: https://sketchfab.com/3d-models/3bc5f70542014501a1e380891295299e
+    target_size_m: 12.0
+    texture_res: 1024
+    textures: 7
+    title: Bungalow The Newport
+    uid: 3bc5f70542014501a1e380891295299e
+    usd: 3bc5f70542014501a1e380891295299e/3bc5f70542014501a1e380891295299e.usdc
+  4b7d97e8a74248c79f4704e1967c3577:
+    author: headerstock
+    baked_scale: 0.026968
+    faces: 32874
+    fit: footprint
+    license: by
+    size_m:
+    - 11.976
+    - 12.0
+    - 6.325
+    source: https://sketchfab.com/3d-models/4b7d97e8a74248c79f4704e1967c3577
+    target_size_m: 12.0
+    texture_res: 1024
+    textures: 7
+    title: Bungalow The Budd
+    uid: 4b7d97e8a74248c79f4704e1967c3577
+    usd: 4b7d97e8a74248c79f4704e1967c3577/4b7d97e8a74248c79f4704e1967c3577.usdc
+  6644de89c2f0449db3de934744162b63:
+    author: headerstock
+    baked_scale: 0.027304
+    faces: 26943
+    fit: footprint
+    license: by
+    size_m:
+    - 12.0
+    - 10.575
+    - 6.404
+    source: https://sketchfab.com/3d-models/6644de89c2f0449db3de934744162b63
+    target_size_m: 12.0
+    texture_res: 1024
+    textures: 10
+    title: Bungalow The Chase
+    uid: 6644de89c2f0449db3de934744162b63
+    usd: 6644de89c2f0449db3de934744162b63/6644de89c2f0449db3de934744162b63.usdc
+  71474e859887459a96d2d281ffe53f18:
+    author: headerstock
+    baked_scale: 0.028332
+    faces: 29458
+    fit: footprint
+    license: by
+    size_m:
+    - 10.828
+    - 12.0
+    - 6.514
+    source: https://sketchfab.com/3d-models/71474e859887459a96d2d281ffe53f18
+    target_size_m: 12.0
+    texture_res: 1024
+    textures: 10
+    title: Bungalow The Colbert
+    uid: 71474e859887459a96d2d281ffe53f18
+    usd: 71474e859887459a96d2d281ffe53f18/71474e859887459a96d2d281ffe53f18.usdc
+  7c64a6d90567428eb511f41036fe2d88:
+    author: headerstock
+    baked_scale: 0.028567
+    faces: 30165
+    fit: footprint
+    license: by
+    size_m:
+    - 12.0
+    - 11.454
+    - 6.668
+    source: https://sketchfab.com/3d-models/7c64a6d90567428eb511f41036fe2d88
+    target_size_m: 12.0
+    texture_res: 1024
+    textures: 8
+    title: Bungalow The Walton
+    uid: 7c64a6d90567428eb511f41036fe2d88
+    usd: 7c64a6d90567428eb511f41036fe2d88/7c64a6d90567428eb511f41036fe2d88.usdc
+  85961c7ab0d14a9a8766fe58f28886a8:
+    author: headerstock
+    baked_scale: 0.028708
+    faces: 25203
+    fit: footprint
+    license: by
+    size_m:
+    - 11.631
+    - 12.0
+    - 6.316
+    source: https://sketchfab.com/3d-models/85961c7ab0d14a9a8766fe58f28886a8
+    target_size_m: 12.0
+    texture_res: 1024
+    textures: 7
+    title: Bungalow The Dawson
+    uid: 85961c7ab0d14a9a8766fe58f28886a8
+    usd: 85961c7ab0d14a9a8766fe58f28886a8/85961c7ab0d14a9a8766fe58f28886a8.usdc
+  968ca5757023470ab603067d79f713fc:
+    author: headerstock
+    baked_scale: 0.026549
+    faces: 29458
+    fit: footprint
+    license: by
+    size_m:
+    - 12.0
+    - 10.567
+    - 6.227
+    source: https://sketchfab.com/3d-models/968ca5757023470ab603067d79f713fc
+    target_size_m: 12.0
+    texture_res: 1024
+    textures: 8
+    title: Bungalow The Goodson
+    uid: 968ca5757023470ab603067d79f713fc
+    usd: 968ca5757023470ab603067d79f713fc/968ca5757023470ab603067d79f713fc.usdc
+  a0c01ce35a474545b805c0739806aace:
+    author: Sengchor
+    baked_scale: 0.68157
+    faces: 12227
+    fit: footprint
+    license: by
+    size_m:
+    - 12.0
+    - 11.386
+    - 4.254
+    source: https://sketchfab.com/3d-models/a0c01ce35a474545b805c0739806aace
+    target_size_m: 12.0
+    texture_res: 2048
+    textures: 3
+    title: Abandoned House
+    uid: a0c01ce35a474545b805c0739806aace
+    usd: a0c01ce35a474545b805c0739806aace/a0c01ce35a474545b805c0739806aace.usdc
+  ab67dc215f8344eabadeeae05eacd887:
+    author: headerstock
+    baked_scale: 0.026461
+    faces: 29489
+    fit: footprint
+    license: by
+    size_m:
+    - 10.755
+    - 12.0
+    - 6.287
+    source: https://sketchfab.com/3d-models/ab67dc215f8344eabadeeae05eacd887
+    target_size_m: 12.0
+    texture_res: 1024
+    textures: 10
+    title: Bungalow The Cass
+    uid: ab67dc215f8344eabadeeae05eacd887
+    usd: ab67dc215f8344eabadeeae05eacd887/ab67dc215f8344eabadeeae05eacd887.usdc
+  aedb8f44f78944c7a1d53ff14c6d3290:
+    author: Dane Badenhorst
+    baked_scale: 0.001103
+    faces: 430
+    fit: max
+    license: by
+    size_m:
+    - 0.52
+    - 0.673
+    - 2.5
+    source: https://sketchfab.com/3d-models/aedb8f44f78944c7a1d53ff14c6d3290
+    target_size_m: 2.5
+    texture_res: 4096
+    textures: 3
+    title: Wood Stick 08 Remesh
+    uid: aedb8f44f78944c7a1d53ff14c6d3290
+    usd: aedb8f44f78944c7a1d53ff14c6d3290/aedb8f44f78944c7a1d53ff14c6d3290.usdc
+  b3b11017332040d6b717839c07a782c4:
+    author: staticcc
+    baked_scale: 0.03482
+    faces: 200
+    fit: footprint
+    license: by
+    size_m:
+    - 3.0
+    - 3.0
+    - 0.404
+    source: https://sketchfab.com/3d-models/b3b11017332040d6b717839c07a782c4
+    target_size_m: 3.0
+    texture_res: 2048
+    textures: 4
+    title: Large Dirt Pile
+    uid: b3b11017332040d6b717839c07a782c4
+    usd: b3b11017332040d6b717839c07a782c4/b3b11017332040d6b717839c07a782c4.usdc
+  bee0da9227fa40029ad5352a2075ead8:
+    author: headerstock
+    baked_scale: 0.028197
+    faces: 29376
+    fit: footprint
+    license: by
+    size_m:
+    - 11.166
+    - 12.0
+    - 6.363
+    source: https://sketchfab.com/3d-models/bee0da9227fa40029ad5352a2075ead8
+    target_size_m: 12.0
+    texture_res: 1024
+    textures: 9
+    title: Bungalow The Hale
+    uid: bee0da9227fa40029ad5352a2075ead8
+    usd: bee0da9227fa40029ad5352a2075ead8/bee0da9227fa40029ad5352a2075ead8.usdc
+  c7544d9183c24ed3a716f8255536afa8:
+    author: Per's Scan Collection
+    baked_scale: 0.595506
+    faces: 26810
+    fit: footprint
+    license: by
+    size_m:
+    - 3.592
+    - 4.0
+    - 0.643
+    source: https://sketchfab.com/3d-models/c7544d9183c24ed3a716f8255536afa8
+    target_size_m: 4.0
+    texture_res: 8192
+    textures: 3
+    title: Roof Rubble Pile Debris Tiles Scan PBR
+    uid: c7544d9183c24ed3a716f8255536afa8
+    usd: c7544d9183c24ed3a716f8255536afa8/c7544d9183c24ed3a716f8255536afa8.usdc
+  f87535ec6d9a475db58965aa46ba6979:
+    author: headerstock
+    baked_scale: 0.030278
+    faces: 29689
+    fit: footprint
+    license: by
+    size_m:
+    - 12.0
+    - 11.637
+    - 6.621
+    source: https://sketchfab.com/3d-models/f87535ec6d9a475db58965aa46ba6979
+    target_size_m: 12.0
+    texture_res: 1024
+    textures: 7
+    title: Bungalow The Clayton
+    uid: f87535ec6d9a475db58965aa46ba6979
+    usd: f87535ec6d9a475db58965aa46ba6979/f87535ec6d9a475db58965aa46ba6979.usdc

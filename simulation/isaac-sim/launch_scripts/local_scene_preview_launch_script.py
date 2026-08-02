@@ -48,7 +48,13 @@ from pxr import Sdf, UsdGeom
 
 _ISAAC_SIM_DIR = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+# The scene generator lives at the repo root in scene_gen/ (it is sim-agnostic
+# and has its own configs and asset pipeline); scene_prep stays here because it
+# is Isaac Sim stage tooling the plain Pegasus launch scripts share.
+_SCENE_GEN_DIR = os.path.normpath(
+    os.path.join(_ISAAC_SIM_DIR, "..", "..", "scene_gen"))
 sys.path.insert(0, os.path.join(_ISAAC_SIM_DIR, "utils"))
+sys.path.insert(0, _SCENE_GEN_DIR)
 from scene_prep import (add_colliders, add_sky, get_stage_meters_per_unit,
                         settle_rigid_props)
 from scene_generator import generate_scene_on_stage, resolve_sky
@@ -58,10 +64,10 @@ from compile_disaster import load_scene_config
 
 # Let reload_scene.py locate this repo when exec'd from the Script Editor
 # (the Script Editor copies scripts to /tmp, so __file__ can't be trusted there).
-os.environ["AIRSTACK_ISAAC_SIM_DIR"] = _ISAAC_SIM_DIR
+os.environ["AIRSTACK_SCENE_GEN_DIR"] = _SCENE_GEN_DIR
 
 # ----- CONFIGURATION -----
-SCENE_CONFIG = os.path.join(_ISAAC_SIM_DIR, "config", "scene_generation",
+SCENE_CONFIG = os.path.join(_SCENE_GEN_DIR, "config",
                             "low_level", "compiled", "earthquake.yaml")
 APPLY_COLLIDERS = False   # not needed for visual iteration; True to test physics
 # -------------------------
@@ -114,7 +120,7 @@ class LocalScenePreviewApp:
 
         add_sky(stage, resolve_sky(config))
 
-        _reload_script = os.path.join(_ISAAC_SIM_DIR, "reload_scene.py")
+        _reload_script = os.path.join(_SCENE_GEN_DIR, "reload_scene.py")
         print("\n" + "=" * 70)
         print("LOCAL SCENE PREVIEW READY — to reload, open Window → Script Editor and run:")
         print(f'  exec(open({repr(_reload_script)}).read())')

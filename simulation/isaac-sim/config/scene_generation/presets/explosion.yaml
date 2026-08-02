@@ -1,9 +1,0 @@
-# HIGH-LEVEL scene spec — see earthquake.yaml for the full key list.
-#
-# A blast: ground zero is obliterated and damage drops off fast with range —
-# the tightest gradient of any type. Debris is thrown outward hard.
-
-disaster-type: explosion
-severity: 0.8
-
-epicenter: [40, -30]   # ground zero

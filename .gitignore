@@ -101,3 +101,8 @@ common/rayfronts/
 robot/docker/cache/
 .DS_Store
 gcs/.DS_Store
+
+# Objaverse assets: converted USDs + textures are large and reproducible.
+# manifest.yaml is committed; `scene_gen/prepare_assets.py` rebuilds it from the asset sets.
+scene_gen/assets/objaverse/*
+!scene_gen/assets/objaverse/manifest.yaml

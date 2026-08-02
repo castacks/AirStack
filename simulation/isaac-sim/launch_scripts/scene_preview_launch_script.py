@@ -13,6 +13,7 @@ While the sim is running, open the Kit Script Editor (Window → Script Editor)
 and run:
 
     import os, sys
+    sys.path.insert(0, "/path/to/AirStack/scene_gen")
     sys.path.insert(0, "/path/to/AirStack/simulation/isaac-sim/utils")
     import importlib, scene_generator, scene_prep
     importlib.reload(scene_generator)           # picks up code edits too
@@ -22,8 +23,7 @@ and run:
     _, ssf = scene_prep.get_stage_meters_per_unit(stage)
     scene_generator.reload_scene_on_stage(
         stage,
-        "/path/to/AirStack/simulation/isaac-sim/config/scene_generation/"
-        "low_level/compiled/earthquake.yaml",
+        "/path/to/AirStack/scene_gen/config/low_level/compiled/earthquake.yaml",
         scene_scale_factor=ssf,
         add_colliders_fn=scene_prep.add_colliders,
     )
@@ -57,7 +57,13 @@ from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
 
 _ISAAC_SIM_DIR = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+# The scene generator lives at the repo root in scene_gen/ (it is sim-agnostic
+# and has its own configs and asset pipeline); scene_prep stays here because it
+# is Isaac Sim stage tooling the plain Pegasus launch scripts share.
+_SCENE_GEN_DIR = os.path.normpath(
+    os.path.join(_ISAAC_SIM_DIR, "..", "..", "scene_gen"))
 sys.path.insert(0, os.path.join(_ISAAC_SIM_DIR, "utils"))
+sys.path.insert(0, _SCENE_GEN_DIR)
 from scene_prep import (scale_stage_prim, add_colliders, add_sky,
                         get_stage_meters_per_unit, settle_rigid_props)
 from scene_generator import generate_scene_on_stage, resolve_sky
@@ -68,8 +74,11 @@ from compile_disaster import load_scene_config
 # ----- CONFIGURATION -----
 ENV_URL     = SIMULATION_ENVIRONMENTS["Default Environment"]
 STAGE_SCALE = 1.00
-SCENE_CONFIG = os.path.join(_ISAAC_SIM_DIR, "config", "scene_generation",
-                            "low_level", "compiled", "earthquake.yaml")
+# The SCENE_CONFIG env var wins when set, so `airstack up` can target a scene
+# without editing this file — it takes any form load_scene_config() accepts
+# (bare name, high-level spec, or compiled low-level config).
+SCENE_CONFIG = os.environ.get("SCENE_CONFIG") or os.path.join(
+    _SCENE_GEN_DIR, "config", "presets", "earthquake.yaml")
 # -------------------------
 
 
@@ -163,7 +172,7 @@ class ScenePreviewApp:
 
         add_sky(stage, resolve_sky(config))
 
-        _reload_script = os.path.join(_ISAAC_SIM_DIR, "reload_scene.py")
+        _reload_script = os.path.join(_SCENE_GEN_DIR, "reload_scene.py")
         print("\n" + "=" * 70)
         print("SCENE PREVIEW READY — to reload, open Window → Script Editor and run:")
         print(f'  exec(open({repr(_reload_script)}).read())')

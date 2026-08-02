@@ -1,5 +1,0 @@
-# HIGH-LEVEL scene spec — a pristine city, no signs of disaster whatsoever.
-# The baseline for "before" imagery and for testing the generator itself.
-
-disaster-type: none
-severity: 0.0
