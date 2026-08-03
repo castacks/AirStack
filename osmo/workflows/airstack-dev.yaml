@@ -66,7 +66,7 @@ workflow:
         STAGE_SCALE: "1.0"
         RESULTS_SCENE: "Shipyard"
         SPAWN_CONFIGS: '[{"x_m": -66.066, "y_m": -11.867, "orient": [0.0, 0.0, -0.9089, 0.417]}, {"x_m": -68.796, "y_m": -14.581, "orient": [0.0, 0.0, -0.6509, 0.7591]}, {"x_m": -61.737, "y_m": -14.407, "orient": [0.0, 0.0, 0.2744, 0.9616]}]'
-
+        SPAWN_HEIGHT_M: "2.0"
         # Planner selection in semantic_search_task: llm_nav is the default;
         # set "false" to run the raven baseline instead.
         LLM_NAV: "true"
