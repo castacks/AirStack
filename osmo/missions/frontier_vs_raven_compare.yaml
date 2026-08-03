@@ -43,7 +43,7 @@
 #   (FireAcademy block stubbed/commented below — add an lvlm entry per replica
 #    to re-enable it, and bump iterations accordingly.)
 #
-# Run on OSMO (3 GPU / 24 CPU / 96Gi / 500Gi):
+# Run on OSMO (4 GPU / 24 CPU / 96Gi / 500Gi — GPU 0 is Isaac Sim, robot N gets GPU N):
 #   airstack osmo:mission osmo/missions/frontier_vs_raven_compare.yaml --pool <gpu-pool>
 # Or locally:
 #   python3 osmo/workspace/mission_runner.py \

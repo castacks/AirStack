@@ -8,7 +8,7 @@
 # detection thresholds, search areas and 24 spawn layouts, so the only
 # difference between them is the method flag.
 #
-# Run on OSMO (3 GPU / 24 CPU / 96Gi / 500Gi):
+# Run on OSMO (4 GPU / 24 CPU / 96Gi / 500Gi — GPU 0 is Isaac Sim, robot N gets GPU N):
 #   airstack osmo:mission osmo/missions/multi_raven_mission.yaml --pool <gpu-pool>
 #
 # Or locally:
@@ -52,7 +52,7 @@ scene_templates:
     voxel_score_threshold: 0.65
     score_threshold: -1
     voxel_min_cluster_size: -1
-    background_queries: "grass, road, tree, building, street lamp, electric cables"
+    background_queries: "grass, road, tree, building, street lamp, electric cables, cafe tables, food stand"
     search_area:
       points:
         - {x: 160.0, y: 100.0, z: 0.0}

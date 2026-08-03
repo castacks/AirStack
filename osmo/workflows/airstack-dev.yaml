@@ -80,8 +80,9 @@ workflow:
   resources:
     default:
       cpu: 16
-      gpu: 1
-      memory: 32Gi
+      # 3 robots + Isaac Sim on GPU 0 — see airstack-mission.yaml.
+      gpu: 4
+      memory: 64Gi
       # AirStack image set is large: airstack-dev-9 (2026-05-14) hit the
       # 100Gi container ephemeral cap during inner Compose's first image
       # extract, before the second image even started downloading. So the

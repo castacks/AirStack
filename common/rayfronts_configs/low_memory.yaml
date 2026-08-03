@@ -53,11 +53,11 @@ defaults:
   - override encoder: radseg
   - override vis: ros
   - override messaging_service: ros
-  #- override feat_compressor: pca
+  - override feat_compressor: pca
   - _self_
 
-#compile: False
-#amp: True
+compile: False
+amp: True
 depth_limit: 20.0
 
 # encoder:
@@ -65,7 +65,7 @@ depth_limit: 20.0
 #   lang_model: siglip
 
 querying:
-  compressed: False
+  compressed: True
   compute_prob: True
 
 
@@ -105,10 +105,10 @@ mapping:
 
   #global_encoding: True
 
-# feat_compressor:
-#   out_dim: 100
-#   # null = fit the PCA basis online on the first frame. For a better basis,
-#   # fit offline with scripts/fit_feat_compressor and set the file path.
-#   path: null
+feat_compressor:
+  out_dim: 100
+  # null = fit the PCA basis online on the first frame. For a better basis,
+  # fit offline with scripts/fit_feat_compressor and set the file path.
+  path: null
 
 

@@ -35,6 +35,12 @@ services:
       - ./omni_pass.env
     environment:
       - AUTOLAUNCH=${AUTOLAUNCH:-'false'}
+      # Pin the sim to GPU 0. The `count: 1` reservation below is advisory here
+      # — the container is privileged, so it sees every GPU regardless — and
+      # semantic_search_task hands robot N GPU N on the assumption that 0 is
+      # the sim's. Override for a single-GPU host with CUDA_VISIBLE_DEVICES=0
+      # everywhere, or "" to let the sim use all of them.
+      - CUDA_VISIBLE_DEVICES=${ISAAC_SIM_CUDA_DEVICES:-0}
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
       # Must match the robot/gcs containers — mixed transport modes across

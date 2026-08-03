@@ -510,10 +510,23 @@ class SemanticSearchTaskNode(Node):
             self.destroy_client(client)
 
     def _pick_rayfronts_gpu(self) -> str | None:
-        """GPU index to pin rayfronts to: robot N → GPU N mod <count>, so
-        with one GPU per robot + sim, GPU 0 stays with Isaac. Containers are
-        privileged, so every robot sees every GPU and torch always defaults
-        to cuda:0 otherwise. Returns None on single-GPU/no-GPU hosts."""
+        """GPU index to pin rayfronts to.
+
+        **GPU 0 is reserved for Isaac Sim**, so robot N takes GPU N whenever the
+        host has one to spare — the 4-GPU / 3-robot sizing the OSMO mission
+        workflow requests gives sim→0, robot_1→1, robot_2→2, robot_3→3.
+
+        The previous rule was ``ROS_DOMAIN_ID % n_gpus``, which on a 3-GPU host
+        sent robot_3 to GPU 0 and made it fight Isaac Sim for memory; rayfronts
+        then died with a CUDA OOM loading its encoder, and because
+        semantic_search_task waits for rayfronts batches with no timeout, that
+        robot never got a navigator and hovered for the whole mission. With
+        fewer GPUs than robots+1 the robots now share the non-zero GPUs instead.
+
+        Containers are privileged, so every robot sees every GPU and torch
+        defaults to cuda:0 unless pinned. Returns None on single/no-GPU hosts,
+        where there is nothing to choose.
+        """
         try:
             out = subprocess.run(['nvidia-smi', '-L'], capture_output=True,
                                  text=True, timeout=10).stdout
@@ -523,7 +536,15 @@ class SemanticSearchTaskNode(Node):
             return None
         if n_gpus <= 1:
             return None
-        return str(int(os.getenv('ROS_DOMAIN_ID', '1')) % n_gpus)
+        robot_id = int(os.getenv('ROS_DOMAIN_ID', '1'))
+        if robot_id < n_gpus:
+            gpu = robot_id                      # one GPU each, 0 left to the sim
+        else:
+            gpu = 1 + (robot_id - 1) % (n_gpus - 1)   # share, still never 0
+        self.get_logger().info(
+            f'{n_gpus} GPU(s) visible; robot {robot_id} -> GPU {gpu} '
+            f'(GPU 0 reserved for Isaac Sim)')
+        return str(gpu)
 
     def _spawn(self, cmd: list, log_name: str | None = None,
                env: dict | None = None) -> tuple:

@@ -122,10 +122,12 @@ workflow:
 
   resources:
     default:
-      # Sized for 3-robot missions (frontier_exploration): Isaac Sim + 3
-      # robot containers each running rayfronts need a GPU apiece.
-      cpu: 24
-      gpu: 3
+      # Sized for 3-robot missions: one GPU per rayfronts instance PLUS one
+      # for Isaac Sim, which is pinned to GPU 0. At gpu: 3 the third robot
+      # landed on the sim's GPU and its rayfronts died with a CUDA OOM, which
+      # silently cost that drone the whole mission.
+      cpu: 30
+      gpu: 4
       memory: 96Gi
       # Same sizing rationale as airstack-dev.yaml (inner image set alone
       # exceeds 100Gi extracted), plus headroom for per-iteration mcap

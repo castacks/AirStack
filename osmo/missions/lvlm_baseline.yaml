@@ -15,7 +15,7 @@
 # Maps, spawns, queries, background queries and search areas are copied verbatim
 # from multi_raven_mission (the source of truth — keep the four in lockstep).
 #
-# Run on OSMO (3 GPU / 24 CPU / 96Gi / 500Gi):
+# Run on OSMO (4 GPU / 24 CPU / 96Gi / 500Gi — GPU 0 is Isaac Sim, robot N gets GPU N):
 #   airstack osmo:mission osmo/missions/lvlm_baseline.yaml --pool <gpu-pool>
 #
 # Or locally:
@@ -58,7 +58,7 @@ scene_templates:
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "DowntownWest"
     query: "fountain, car, truck"
-    background_queries: "grass, road, tree, building, street lamp, electric cables"
+    background_queries: "grass, road, tree, building, street lamp, electric cables, cafe tables, food stand"
     search_area:
       points:
         - {x: 160.0, y: 100.0, z: 0.0}
