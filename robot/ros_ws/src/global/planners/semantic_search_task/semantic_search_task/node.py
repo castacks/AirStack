@@ -233,6 +233,15 @@ class SemanticSearchTaskNode(Node):
         self._task_active = False
         self._cur_pos = None
         self._cur_yaw = 0.0
+        # How long to wait for rayfronts to start mapping before giving up and
+        # aborting the goal. Bounded so a rayfronts that dies or never receives
+        # frames cannot silently park the drone for the whole mission — see the
+        # wait loop in execute_callback. 180 s is ~4x the p99 of the healthy
+        # case: across 188 good robot-runs in the 1st PFC, startup to the 8th
+        # mapping batch was a median of 28 s and never more than 48 s, so this
+        # cannot fire on a working robot.
+        self._rayfronts_wait_timeout_s = float(
+            os.getenv('RAYFRONTS_WAIT_TIMEOUT_S', '180'))
         # Last pose of raven's /global_plan; the stuck-recovery faces/creeps to it.
         self._latest_global_target = None
 
@@ -897,7 +906,9 @@ class SemanticSearchTaskNode(Node):
             mapping_batches_seen = 0
             required_batches = 8
             self.get_logger().info(
-                f'Waiting for {required_batches} rayfronts mapping batches')
+                f'Waiting for {required_batches} rayfronts mapping batches '
+                f'(timeout {self._rayfronts_wait_timeout_s:.0f}s)')
+            wait_deadline = time.time() + self._rayfronts_wait_timeout_s
             while mapping_batches_seen < required_batches and rclpy.ok():
                 if goal_handle.is_cancel_requested:
                     self._kill('rayfronts', rayfronts_proc)
@@ -905,6 +916,34 @@ class SemanticSearchTaskNode(Node):
                     result = SemanticSearchTask.Result()
                     result.success = False
                     result.message = 'Cancelled'
+                    return result
+                # Without this bound the drone takes off and hovers for the
+                # entire mission whenever rayfronts fails to produce frames,
+                # while the action keeps publishing rayfronts feedback so the
+                # step still reports success. Two ways that happened in the 1st
+                # PFC: rayfronts died on the GPU (CUDA OOM / cuSOLVER handle
+                # failure), or its ROS input-stream spinner thread died with
+                # `InvalidHandle` and the process stayed alive delivering
+                # nothing. Both look identical from here — no batches — so fail
+                # loudly and let the mission retry the iteration.
+                if time.time() > wait_deadline:
+                    alive = rayfronts_proc.poll() is None
+                    self.get_logger().error(
+                        f'rayfronts produced {mapping_batches_seen}/'
+                        f'{required_batches} mapping batches in '
+                        f'{self._rayfronts_wait_timeout_s:.0f}s — '
+                        f'{"process alive but starved of frames" if alive else "process died"}. '
+                        f'Aborting instead of hovering for the rest of the '
+                        f'mission; check the rayfronts log for this robot.')
+                    self._kill('rayfronts', rayfronts_proc)
+                    result = SemanticSearchTask.Result()
+                    result.success = False
+                    result.message = (
+                        f'rayfronts never started mapping '
+                        f'({mapping_batches_seen}/{required_batches} batches in '
+                        f'{self._rayfronts_wait_timeout_s:.0f}s, '
+                        f'{"alive" if alive else "died"}) — no navigator started')
+                    goal_handle.abort()
                     return result
                 for raw in _drain(rayfronts_q):
                     low = _clean(raw).lower()

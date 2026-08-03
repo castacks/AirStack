@@ -23,16 +23,35 @@ from visualization_msgs.msg import Marker, MarkerArray
 from raven_nav.behaviors.frontier_behavior import (
     _points_in_polygon, _peer_penalty, _neighborhood_density,
     _cells_set_from_xys, NOVELTY_WEIGHT, NOVELTY_NEIGHBORHOOD_CELLS)
+from raven_nav.behaviors.voxel_behavior import (
+    aabb_surface_dist, VISIT_REACH_M)
 
 
 class VLFMBehavior:
     MAGNITUDE_M = 6.0        # look-ahead past the selected ray frontier
     BLEND_ALPHA = 0.8        # intermediate pose fraction toward the goal
     STANDOFF_M = 3.0         # xy standoff from a target voxel cluster
-    VISIT_M = 3.0            # cluster center within this -> mark visited
     UNLOCK_M = 4.0           # within this of the look-ahead -> release lock
-    NEAR_VISITED_M = 10.0    # cluster center within this of a visited one -> skip
+    NEAR_VISITED_M = 10.0    # fallback centre radius when a visit has no size
     VOX_SIZE_M = 0.5
+
+    # ── target completion (voxel-based) ─────────────────────────────────────
+    # A cluster is finished with when its voxel support stops growing: once the
+    # drone is standing off observing it, new voxels stop arriving and the count
+    # plateaus. Two consecutive plateau ticks (~1 s apart) is enough to call it
+    # observed and move on.
+    COMPLETE_GROWTH_FRAC = 0.02   # <2% new voxels since last tick = no growth
+    COMPLETE_STABLE_TICKS = 2     # consecutive no-growth ticks to declare done
+    # Hard ceiling so a cluster can never hold the drone forever, however the
+    # voxel count behaves. Before this existed VLFM re-selected the same object
+    # ~23 times in a row and idled ~half the mission.
+    ENGAGE_TIMEOUT_S = 45.0
+    # "Arrived" = within this of the approach pose this cluster generated.
+    # It cannot be a distance to the object: the approach sits at cruise
+    # altitude, so a ground-level target is ~11 m away in z even when the drone
+    # is exactly where it was sent. Generous enough to absorb droan not landing
+    # the waypoint precisely.
+    ARRIVE_M = 5.0
     VIZ_MAX_RAYS = 80        # cap candidate-ray arrows to avoid clutter
     VIZ_ARROW_M = 2.5        # arrow length (m)
     VIZ_LIFETIME_S = 2       # markers auto-expire so stale ones self-clear
@@ -53,7 +72,13 @@ class VLFMBehavior:
         self.voxel_score_threshold = float(voxel_score_threshold)
         self.voxel_min_cluster_size = int(voxel_min_cluster_size)
         self.value_weight = float(value_weight)
-        self.visited_clusters = []   # list of center (3,) np arrays
+        # Persistent memory of finished targets, as (center, size) so the test
+        # is box-surface distance rather than a fixed centre radius — a cluster
+        # keeps growing as it is observed, and its centre drifts with it.
+        self.visited_clusters = []
+        # The cluster currently being serviced, and the evidence for calling it
+        # complete: (center, size, approach, n_vox, stable_ticks, t_engaged).
+        self._active = None
 
     def condition_check(self):
         return True
@@ -96,17 +121,30 @@ class VLFMBehavior:
         if hit.shape[0] == 0:
             return None
 
-        clusters = [(c, s) for (c, s) in self._cluster(hit)
-                    if not self._is_near_visited(c)]
+        clusters = [(c, s, n) for (c, s, n) in self._cluster(hit)
+                    if not self._is_near_visited(c, s)]
         if not clusters:
+            self._active = None
             return None
-        clusters.sort(key=lambda cs: float(np.linalg.norm(cur_pose_np - cs[0])))
-        center, size = clusters[0]
+        # Rank by distance to the box surface, not the centre: a large cluster's
+        # centre can be farther away than a small one the drone is sitting on.
+        clusters.sort(key=lambda cs: aabb_surface_dist(
+            cur_pose_np, np.zeros(3), cs[0], cs[1]))
+        center, size, n_vox = clusters[0]
 
-        if float(np.linalg.norm(cur_pose_np - center)) < self.VISIT_M:
-            self.visited_clusters.append(center)
+        if self._retire_if_done(center, size, n_vox, cur_pose_np,
+                                debug_logger):
+            # Finished with this one — re-rank now so the drone leaves this tick
+            # rather than idling until the next.
+            rest = [(c, s, n) for (c, s, n) in clusters[1:]
+                    if not self._is_near_visited(c, s)]
+            if not rest:
+                self._active = None
+                return None
+            center, size, n_vox = rest[0]
 
         approach = self._approach_point(center, size, cur_pose_np)
+        self._track_active(center, size, approach, n_vox)
         self._publish_path([self._blend(cur_pose_np, approach), approach],
                            publisher_dict)
         self._publish_target_marker(publisher_dict, approach, (0.1, 0.6, 1.0))
@@ -116,13 +154,84 @@ class VLFMBehavior:
         if debug_logger is not None:
             debug_logger.info(
                 f'[vlfm] go-to-object: {len(clusters)} cluster(s), '
+                f'{len(self.visited_clusters)} done | '
                 f'nearest center=({center[0]:.1f},{center[1]:.1f},{center[2]:.1f}) '
+                f'n_vox={n_vox} '
                 f'approach=({approach[0]:.1f},{approach[1]:.1f},{approach[2]:.1f})',
                 throttle_duration_sec=2.0)
         return approach, approach
 
+    # ── completion / memory ──────────────────────────────────────────────────
+
+    def _track_active(self, center, size, approach, n_vox):
+        """Update the growth record for the cluster being serviced."""
+        now = self._now_s()
+        prev = self._active
+        if prev is not None and self._same_target(prev[0], prev[1], center, size):
+            prev_n, stable = prev[3], prev[4]
+            grew = n_vox > prev_n * (1.0 + self.COMPLETE_GROWTH_FRAC)
+            stable = 0 if grew else stable + 1
+            self._active = (center, size, approach, max(n_vox, prev_n), stable,
+                            prev[5])
+        else:
+            self._active = (center, size, approach, n_vox, 0, now)
+
+    def _retire_if_done(self, center, size, n_vox, cur_pose_np,
+                        debug_logger=None):
+        """Mark the serviced cluster finished and remember it. True when retired.
+
+        Three ways a target is done with, in the order they usually fire:
+          * **arrived** — the drone reached the approach waypoint this cluster
+            was sent to, or is within VISIT_REACH_M of the box surface (a
+            fly-over counts). This is the same rule VoxelBehavior uses.
+          * **observed out** — the cluster's voxel support stopped growing for
+            COMPLETE_STABLE_TICKS ticks: there is nothing more to see from here.
+          * **timed out** — ENGAGE_TIMEOUT_S on one cluster, whatever else
+            happened. Without this a target can hold the drone indefinitely.
+        """
+        a = self._active
+        if a is None or not self._same_target(a[0], a[1], center, size):
+            return False
+        approach, stable, t0 = a[2], a[4], a[5]
+
+        cur = np.asarray(cur_pose_np, float)
+        # Reached the approach pose *this* cluster generated (exact identity, so
+        # a visit can never be credited to a different target), or flew close
+        # enough to the box itself that it counts as seen regardless.
+        at_approach = (approach is not None
+                       and float(np.linalg.norm(cur - np.asarray(approach, float)))
+                       < self.ARRIVE_M)
+        near_box = (aabb_surface_dist(cur, np.zeros(3), center, size)
+                    <= VISIT_REACH_M)
+        arrived = at_approach or near_box
+        observed_out = stable >= self.COMPLETE_STABLE_TICKS
+        timed_out = (self._now_s() - t0) >= self.ENGAGE_TIMEOUT_S
+        if not (arrived or observed_out or timed_out):
+            return False
+
+        why = ('arrived' if arrived else
+               'observed out' if observed_out else 'timed out')
+        self.visited_clusters.append((np.asarray(center, float),
+                                      np.asarray(size, float)))
+        self._active = None
+        if debug_logger is not None:
+            debug_logger.info(
+                f'[vlfm] target complete ({why}): '
+                f'center=({center[0]:.1f},{center[1]:.1f},{center[2]:.1f}) '
+                f'n_vox={n_vox} | {len(self.visited_clusters)} done, moving on')
+        return True
+
+    def _same_target(self, ca, sa, cb, sb) -> bool:
+        """Two observations of one physical object: their boxes touch. Clusters
+        grow and their centres drift, so identity cannot be a centre equality."""
+        return aabb_surface_dist(ca, sa, cb, sb) <= 0.0
+
+    def _now_s(self) -> float:
+        return self.get_clock().now().nanoseconds * 1e-9
+
     def _cluster(self, pts):
-        """Connected-component cluster FLU voxel centers into (center, size)."""
+        """Connected-component cluster FLU voxel centers into
+        (center, size, n_voxels)."""
         p = np.round(pts, 3)
         min_c = p.min(axis=0)
         norm = np.floor((p - min_c) / self.VOX_SIZE_M).astype(int)
@@ -139,12 +248,18 @@ class VLFMBehavior:
             coords = norm[idx]
             min_w = coords.min(axis=0) * self.VOX_SIZE_M + min_c
             max_w = (coords.max(axis=0) + 1) * self.VOX_SIZE_M + min_c
-            out.append(((min_w + max_w) / 2.0, max_w - min_w))
+            out.append(((min_w + max_w) / 2.0, max_w - min_w, int(idx.size)))
         return out
 
-    def _is_near_visited(self, center):
-        return any(float(np.linalg.norm(center - v)) < self.NEAR_VISITED_M
-                   for v in self.visited_clusters)
+    def _is_near_visited(self, center, size=None):
+        """Already finished with? Compared box-to-box, so a cluster that has
+        since grown still matches the record made when it was smaller."""
+        size = np.zeros(3) if size is None else np.asarray(size, float)
+        for v in self.visited_clusters:
+            vc, vs = (v if isinstance(v, tuple) else (v, np.zeros(3)))
+            if aabb_surface_dist(center, size, vc, vs) <= self.NEAR_VISITED_M:
+                return True
+        return False
 
     def _approach_point(self, center, size, cur_pose_np):
         """A point self.STANDOFF_M out from the cluster in XY, at flight altitude."""

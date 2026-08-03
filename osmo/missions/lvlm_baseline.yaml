@@ -160,7 +160,7 @@ scene_templates:
     SPAWN_HEIGHT_M: "2.0"
     RESULTS_SCENE: "Shipyard"
     query: "ship, crane"
-    background_queries: "grass, road, tree, warehouse, pipe, fence"
+    background_queries: "grass, road, tree, warehouse, pipe, fence, roof, garage, house"
     search_area:
       points:
         - {x: -250.0, y: 250.0, z: 0.0}

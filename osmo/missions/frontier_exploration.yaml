@@ -177,7 +177,7 @@ scene_templates:
     voxel_score_threshold: 0.65
     score_threshold: -1
     voxel_min_cluster_size: -1
-    background_queries: "grass, road, tree, warehouse, pipe, fence"
+    background_queries: "grass, road, tree, warehouse, pipe, fence, roof, garage, house"
     search_area:
       points:
         - {x: -250.0, y: 250.0, z: 0.0}
