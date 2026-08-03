@@ -27,6 +27,9 @@
   <!-- Optional: MAVROS integration -->
   <exec_depend>mavros_msgs</exec_depend>
 
+  <!-- Optional: PX4 uXRCE-DDS integration (px4_vision_bridge node) -->
+  <exec_depend>px4_msgs</exec_depend>
+
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>

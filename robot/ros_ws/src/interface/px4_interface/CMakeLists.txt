@@ -52,6 +52,8 @@ install(
 
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 
+install(PROGRAMS scripts/land_detected_bridge.py DESTINATION lib/${PROJECT_NAME})
+
 # ── Export ───────────────────────────────────────────────────────────────────
 ament_export_include_directories(include)
 ament_export_libraries(px4_interface)

@@ -22,6 +22,12 @@
   <depend>mav_msgs</depend>
   <depend>tf2</depend>
 
+  <!-- land_detected_bridge node: translates PX4 land detection into the
+       mavros_msgs/ExtendedState that takeoff_landing_planner consumes.
+       mavros_msgs is a message-only package and does not pull in the MAVROS node. -->
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>mavros_msgs</exec_depend>
+
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 

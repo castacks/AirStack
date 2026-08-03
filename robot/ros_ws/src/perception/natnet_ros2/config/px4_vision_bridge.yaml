@@ -1,0 +1,28 @@
+# PX4 external-vision bridge parameters (uXRCE-DDS path).
+# Loaded by px4_vision_bridge.launch.xml via <param from="..." allow_substs="true"/>.
+#
+# The MAVROS equivalent is vision_pose_converter.yaml — use one or the other,
+# matching whichever RobotInterface plugin the robot is running.
+
+/**:
+  ros__parameters:
+    # 'enu_to_ned'   — input is ROS-standard ENU world / FLU body. Correct when
+    #                  natnet_ros2 publishes in the ROS convention.
+    # 'modalai_flip' — 180 deg flip about X on world and body, matching the
+    #                  ModalAI reference bridge. Use when the mocap driver
+    #                  republishes Motive's raw Y-up frame.
+    #
+    # A wrong convention flies the drone into a wall. Confirm by hand-carrying
+    # the drone and checking the reported PX4 position before arming.
+    frame_convention: "enu_to_ned"
+
+    # EKF2 vision quality hint (0-100). Mocap is trustworthy, so keep this high.
+    quality: 100
+
+    # Measurement variance reported to EKF2, in m^2 and rad^2. Mocap is precise;
+    # raising these makes EKF2 lean more on the IMU.
+    position_variance: 0.0001
+    orientation_variance: 0.0001
+
+    # Set true if the mocap publisher uses BEST_EFFORT reliability.
+    input_qos_best_effort: false

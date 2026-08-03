@@ -124,6 +124,17 @@ def pytest_addoption(parser):
     parser.addoption("--trajectory-types", default="Circle,Figure8,Racetrack,Line",
                      help="Comma-separated fixed trajectory types to sweep in "
                           "test_fixed_trajectory. Default: Circle,Figure8,Racetrack,Line")
+    parser.addoption("--trajectory-altitude", type=float, default=10.0,
+                     help="Takeoff altitude (m) for test_fixed_trajectory. Lower it "
+                          "to fly the sim at indoor/mocap scale. Default: 10.0")
+    parser.addoption("--trajectory-scale", type=float, default=1.0,
+                     help="Multiplier applied to trajectory length attributes "
+                          "(radius, length, width, height) in test_fixed_trajectory, "
+                          "so the same pattern fits a mocap arena. Default: 1.0")
+    parser.addoption("--trajectory-velocity", default="",
+                     help="Override trajectory velocity (m/s) in test_fixed_trajectory; "
+                          "turn_velocity is scaled by the same ratio. "
+                          "Default: per-trajectory-type defaults")
 
 
 def pytest_configure(config):

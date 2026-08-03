@@ -124,6 +124,18 @@ The test uses the same patterns as the `FixedTrajectoryTask` action server in `t
 
 \*Sim-time from odom timestamps; wall-clock varies with sim real-time factor (RTF).
 
+### Scaling a pattern to a smaller arena
+
+The defaults above are sized for an outdoor sim world and do not fit an indoor motion-capture volume. `--trajectory-scale` multiplies every length attribute and `--trajectory-velocity` overrides the speed, so the same pattern can be flown at a size a real arena can hold:
+
+```bash
+airstack test -m autonomy --sim isaacsim --num-robots 1 \
+  --trajectory-types Circle \
+  --trajectory-scale 0.15 --trajectory-altitude 1.5 --trajectory-velocity 0.5 -v
+```
+
+That turns the Circle into radius 1.5 m at 0.5 m/s and 1.5 m altitude. The ideal reference path is regenerated from the scaled attributes, and `CROSS_TRACK_TOLERANCE_M` is multiplied by the same scale so a smaller pattern is held to a proportionally tighter bound. This is what makes a sim run comparable to a hardware run — see [Comparing Simulation and Hardware](sim_vs_hardware_trajectory.md).
+
 ### Circle geometry (ideal path)
 
 Python `_ideal_circle()` mirrors `generate_circle()` in C++:
@@ -324,6 +336,9 @@ airstack test -m autonomy \
 | `--num-robots` | `1,3` | Comma-separated robot counts |
 | `--stress-iterations` | `1` | Repeat count per `(sim, num_robots)` |
 | `--trajectory-types` | `Circle,Figure8,Racetrack,Line` | Trajectory sweep |
+| `--trajectory-altitude` | `10.0` | Takeoff altitude in metres |
+| `--trajectory-scale` | `1.0` | Multiplier on `radius` / `length` / `width` / `height` |
+| `--trajectory-velocity` | per-type | Override `velocity`; `turn_velocity` scales by the same ratio |
 | `--gui` | off | Show simulator windows |
 | `-v` | — | Verbose pytest |
 | `-k EXPR` | — | Filter test names |

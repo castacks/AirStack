@@ -2,10 +2,14 @@
 
 Per (sim, num_robots, iter, trajectory_type): ready → takeoff → execute trajectory → land.
 
-The drone takes off to TARGET_ALTITUDE_M, executes one fixed-pattern trajectory
+The drone takes off to --trajectory-altitude, executes one fixed-pattern trajectory
 (Circle, Figure8, Racetrack, or Line), then lands. Odometry is captured throughout
 the trajectory phase and compared against an ideal reference path (generated in Python
 from the same equations as fixed_trajectory_task.cpp) to measure cross-track error.
+
+Pattern size and speed are set by --trajectory-scale and --trajectory-velocity, which
+allow the same pattern to be flown in a large sim world and in a small mocap arena so
+that sim and hardware runs can be compared directly.
 
 Each trajectory type is an independent full-cycle test so failures in one type do not
 prevent the remaining types from running — the drone always returns to the ground at
@@ -34,7 +38,6 @@ from conftest import (
 
 # ── constants ─────────────────────────────────────────────────────────────
 
-TARGET_ALTITUDE_M = 10.0
 PX4_READY_TIMEOUT_S = 300.0
 PX4_POLL_INTERVAL_S = 2.0
 TAKEOFF_MOTION_THRESHOLD_M = 0.3   # z rise above starting z to count as "moving"
@@ -43,6 +46,8 @@ MAX_GT_MATCH_AGE_S = 0.1
 
 # Cross-track tolerance is intentionally loose: we know the circle trajectory
 # currently fails, so the assertion documents the failure without blocking landing.
+# Multiplied by --trajectory-scale so a scaled-down run is held to a proportionally
+# tighter bound rather than a meaningless one.
 CROSS_TRACK_TOLERANCE_M = 5.0
 
 # Generous timeout covers the full trajectory execution at low velocity in slow sims.
@@ -102,6 +107,10 @@ TRAJECTORY_CONFIGS: dict[str, dict[str, str]] = {
     },
 }
 
+# Attributes affected by --trajectory-scale and --trajectory-velocity respectively.
+LENGTH_ATTRS = ("radius", "length", "width", "height")
+VELOCITY_ATTRS = ("velocity", "turn_velocity")
+
 
 # ── pytest hooks ──────────────────────────────────────────────────────────
 
@@ -111,6 +120,44 @@ def pytest_generate_tests(metafunc):
         raw = metafunc.config.getoption("--trajectory-types")
         types = [t.strip() for t in raw.split(",") if t.strip()]
         metafunc.parametrize("trajectory_type", types, ids=types)
+
+
+# ── geometry selection ────────────────────────────────────────────────────
+
+@pytest.fixture(scope="session")
+def traj_geometry(pytestconfig) -> dict:
+    """Trajectory geometry resolved from the CLI.
+
+    Scaling exists so the identical pattern can be flown in a large sim world
+    and in a small mocap arena; only then are the two runs comparable.
+    """
+    velocity_opt = str(pytestconfig.getoption("--trajectory-velocity")).strip()
+    return {
+        "altitude_m": float(pytestconfig.getoption("--trajectory-altitude")),
+        "scale": float(pytestconfig.getoption("--trajectory-scale")),
+        "velocity_m_s": float(velocity_opt) if velocity_opt else None,
+    }
+
+
+def _scaled_config(traj_type: str, geometry: dict) -> dict[str, str]:
+    """Apply the geometry scale and velocity override to a trajectory's attributes."""
+    base = TRAJECTORY_CONFIGS[traj_type]
+    scale = geometry["scale"]
+    velocity = geometry["velocity_m_s"]
+
+    ratio = None
+    if velocity is not None and "velocity" in base:
+        ratio = velocity / float(base["velocity"])
+
+    out: dict[str, str] = {}
+    for key, value in base.items():
+        num = float(value)
+        if key in LENGTH_ATTRS:
+            num *= scale
+        elif key in VELOCITY_ATTRS and ratio is not None:
+            num *= ratio
+        out[key] = f"{num:g}"
+    return out
 
 
 # ── ideal-path generators (Python mirrors of fixed_trajectory_task.cpp) ──
@@ -440,9 +487,9 @@ def _takeoff_one_robot(n: int, robot_container: str, cfg: dict, target: float) -
 
 
 def _trajectory_one_robot(
-    n: int, robot_container: str, cfg: dict, traj_type: str,
+    n: int, robot_container: str, cfg: dict, traj_type: str, geometry: dict,
 ) -> None:
-    config = TRAJECTORY_CONFIGS[traj_type]
+    config = _scaled_config(traj_type, geometry)
     streams = _start_captures(robot_container, cfg["robot_setup_bash"],
                                n, TRAJ_EXEC_TIMEOUT_S + 10, f"traj_{traj_type.lower()}")
     goal = _build_traj_goal(traj_type, config)
@@ -455,7 +502,7 @@ def _trajectory_one_robot(
         f"/robot_{n}/interface/mavros/local_position/odom",
         domain_id=n, setup_bash=cfg["robot_setup_bash"], timeout=10,
     )
-    x0, y0, z0, yaw0 = 0.0, 0.0, TARGET_ALTITUDE_M, 0.0
+    x0, y0, z0, yaw0 = 0.0, 0.0, geometry["altitude_m"], 0.0
     for line in odom_snap.stdout.splitlines():
         parts = line.strip().split(",")
         if len(parts) >= len(ODOM_SCHEMA):
@@ -505,18 +552,19 @@ def _trajectory_one_robot(
             _record(n, ct_metrics)
 
             mean_err = ct_metrics.get("cross_track_error_mean_m")
+            tolerance = CROSS_TRACK_TOLERANCE_M * geometry["scale"]
             if mean_err is not None:
-                assert mean_err < CROSS_TRACK_TOLERANCE_M, (
+                assert mean_err < tolerance, (
                     f"robot_{n} {traj_type}: mean cross-track error {mean_err:.2f}m "
-                    f"exceeds tolerance {CROSS_TRACK_TOLERANCE_M:.1f}m"
+                    f"exceeds tolerance {tolerance:.2f}m"
                 )
     else:
         logger.warning("robot_%d %s: no odom samples captured", n, traj_type)
 
 
-def _landing_one_robot(n: int, robot_container: str, cfg: dict) -> None:
+def _landing_one_robot(n: int, robot_container: str, cfg: dict, altitude_m: float) -> None:
     velocity = 1.0
-    timeout = max(30.0, TARGET_ALTITUDE_M / velocity + 15.0)
+    timeout = max(30.0, altitude_m / velocity + 15.0)
     streams = _start_captures(robot_container, cfg["robot_setup_bash"],
                                n, timeout + 5, "traj_land")
     goal = f"{{velocity_m_s: {velocity}}}"
@@ -645,34 +693,37 @@ class TestFixedTrajectory:
         _ready_envs.add(env_id)
 
     @pytest.mark.dependency(name="ftraj_takeoff", depends=["ftraj_ready"])
-    def test_takeoff(self, airstack_env, trajectory_type):
-        """Take off to TARGET_ALTITUDE_M at a fixed velocity of 1 m/s."""
+    def test_takeoff(self, airstack_env, trajectory_type, traj_geometry):
+        """Take off to the configured trajectory altitude at a fixed velocity of 1 m/s."""
         cfg = airstack_env["cfg"]
         robot_container = get_robot_containers(airstack_env["robot_pattern"])[0]
         num_robots = airstack_env["num_robots"]
+        altitude = traj_geometry["altitude_m"]
         _run_parallel(
             num_robots,
-            lambda n: _takeoff_one_robot(n, robot_container, cfg, TARGET_ALTITUDE_M),
+            lambda n: _takeoff_one_robot(n, robot_container, cfg, altitude),
         )
 
     @pytest.mark.dependency(name="ftraj_execute", depends=["ftraj_takeoff"])
-    def test_fixed_trajectory(self, airstack_env, trajectory_type):
+    def test_fixed_trajectory(self, airstack_env, trajectory_type, traj_geometry):
         """Send FixedTrajectoryTask, capture odom, compute and record path deviation."""
         cfg = airstack_env["cfg"]
         robot_container = get_robot_containers(airstack_env["robot_pattern"])[0]
         num_robots = airstack_env["num_robots"]
         _run_parallel(
             num_robots,
-            lambda n: _trajectory_one_robot(n, robot_container, cfg, trajectory_type),
+            lambda n: _trajectory_one_robot(n, robot_container, cfg,
+                                            trajectory_type, traj_geometry),
         )
 
     @pytest.mark.dependency(name="ftraj_land", depends=["ftraj_takeoff"])
-    def test_landing(self, airstack_env, trajectory_type):
+    def test_landing(self, airstack_env, trajectory_type, traj_geometry):
         """Land the drone; runs even when test_fixed_trajectory fails."""
         cfg = airstack_env["cfg"]
         robot_container = get_robot_containers(airstack_env["robot_pattern"])[0]
         num_robots = airstack_env["num_robots"]
+        altitude = traj_geometry["altitude_m"]
         _run_parallel(
             num_robots,
-            lambda n: _landing_one_robot(n, robot_container, cfg),
+            lambda n: _landing_one_robot(n, robot_container, cfg, altitude),
         )

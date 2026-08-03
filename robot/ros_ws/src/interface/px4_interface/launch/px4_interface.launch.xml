@@ -41,6 +41,20 @@
             <!-- <remap from="visual_odometry_in"
                         to="/$(env ROBOT_NAME)/vio/odometry" /> -->
         </node>
+
+        <!-- ── Land detection ──────────────────────────────────────────── -->
+        <!-- LandTask in takeoff_landing_planner only completes on an
+             mavros_msgs/ExtendedState reporting ON_GROUND, which nothing
+             publishes over uXRCE-DDS. Point local.launch.xml's
+             local_extended_state_topic at this node's output:
+               /$(env ROBOT_NAME)/fmu/extended_state                        -->
+        <node pkg="px4_interface" exec="land_detected_bridge.py"
+              name="land_detected_bridge" output="screen">
+            <remap from="land_detected"
+                   to="/$(env ROBOT_NAME)/fmu/out/vehicle_land_detected" />
+            <remap from="extended_state"
+                   to="/$(env ROBOT_NAME)/fmu/extended_state" />
+        </node>
     </group>
 
     <!-- ── Odometry conversion ─────────────────────────────────────────── -->

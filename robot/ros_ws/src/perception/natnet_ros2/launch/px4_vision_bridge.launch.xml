@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<launch>
+  <!--
+    PX4 Vision Bridge Launch File
+
+    Feeds NatNet mocap pose to PX4 EKF2 as external vision over uXRCE-DDS, so a
+    drone running px4_interface can hold position and arm indoors without GPS.
+
+    This is the uXRCE-DDS counterpart to vision_pose_converter.launch.xml. Launch
+    one or the other, matching the RobotInterface plugin in use — never both.
+
+    Input  (from NatNet node):
+      /{ROBOT_NAME}/perception/optitrack/{body_name}
+
+    Output (consumed by PX4 via the uXRCE-DDS client):
+      /{ROBOT_NAME}/fmu/in/vehicle_visual_odometry
+
+    The vehicle also needs EKF2_EV_CTRL enabled, EKF2_HGT_REF=Vision and
+    EKF2_GPS_CTRL=0 before it will fuse this and allow arming.
+  -->
+
+  <arg name="config_file"
+       default="$(find-pkg-share natnet_ros2)/config/px4_vision_bridge.yaml"
+       description="ROS 2 parameter YAML (/** ros__parameters block)"/>
+
+  <arg name="body_name" default="robot_1"
+       description="Body name matching NatNet topic suffix (must match natnet_config.yaml)"/>
+
+  <arg name="fmu_namespace" default="/$(env ROBOT_NAME robot_1)/fmu"
+       description="Namespace the uXRCE-DDS client publishes under"/>
+
+  <node pkg="natnet_ros2" exec="px4_vision_bridge_node.py"
+        name="px4_vision_bridge" output="screen">
+    <param from="$(var config_file)" allow_substs="true"/>
+
+    <remap from="input_pose"
+           to="/$(env ROBOT_NAME robot_1)/perception/optitrack/$(var body_name)"/>
+    <remap from="output_visual_odometry"
+           to="$(var fmu_namespace)/in/vehicle_visual_odometry"/>
+  </node>
+
+</launch>

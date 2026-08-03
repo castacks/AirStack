@@ -12,6 +12,14 @@
     <arg name="local_camera_info_in_topic"
         default="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
 
+    <!-- Namespace of the RobotInterface plugin node. MAVROS (sim/SITL) runs it under
+         /interface; px4_interface (uXRCE-DDS hardware) runs it under /fmu. -->
+    <arg name="local_interface_ns" default="/$(env ROBOT_NAME)/interface" />
+    <!-- mavros_msgs/ExtendedState source. LandTask only completes when this reports
+         ON_GROUND, so the px4_interface path must supply an equivalent publisher. -->
+    <arg name="local_extended_state_topic"
+        default="$(var local_interface_ns)/mavros/extended_state" />
+
     <log message="local_odometry_in_topic has $(var local_odometry_in_topic)" />
 
 
@@ -27,14 +35,14 @@
         <remap from="tracking_point"
             to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
         <remap from="odometry" to="$(var local_odometry_in_topic)" />
-        <remap from="is_armed" to="/$(env ROBOT_NAME)/interface/is_armed" />
-        <remap from="has_control" to="/$(env ROBOT_NAME)/interface/has_control" />
+        <remap from="is_armed" to="$(var local_interface_ns)/is_armed" />
+        <remap from="has_control" to="$(var local_interface_ns)/has_control" />
         <remap from="state_estimate_timed_out"
             to="/$(env ROBOT_NAME)/behavior/drone_safety_monitor/state_estimate_timed_out" />
         <remap from="extended_state"
-            to="/$(env ROBOT_NAME)/interface/mavros/extended_state" />
+            to="$(var local_extended_state_topic)" />
         <remap from="robot_command"
-            to="/$(env ROBOT_NAME)/interface/robot_command" />
+            to="$(var local_interface_ns)/robot_command" />
         <remap from="~/takeoff_task" to="/$(env ROBOT_NAME)/tasks/takeoff" />
         <remap from="~/land_task" to="/$(env ROBOT_NAME)/tasks/land" />
     </node>
@@ -186,7 +194,7 @@
         <!-- remap glue to AirStack -->
         <remap from="odometry" to="$(var local_odometry_in_topic)" />
         <remap from="tracking_point" to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
-        <remap from="command" to="/$(env ROBOT_NAME)/interface/cmd_roll_pitch_yawrate_thrust" />
+        <remap from="command" to="$(var local_interface_ns)/cmd_roll_pitch_yawrate_thrust" />
     </node>
     <?ignore
   <node pkg="rviz2" exec="rviz2"
