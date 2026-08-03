@@ -53,7 +53,7 @@ workflow:
         AUTOLAUNCH: "true"             # boot AirStack on startup
         ISAAC_SIM_LIVESTREAM: "true"   # use the isaac-sim-livestream profile
         NUM_ROBOTS: "1"
-        AIRSTACK_BRANCH: "develop"        # branch entrypoint.sh clones
+        AIRSTACK_BRANCH: "multi-raven"        # branch entrypoint.sh clones
         AIRSTACK_REPO_URL: "https://github.com/castacks/AirStack.git"
         # SSH_PUB_KEY is supplied at submit time:
         #   --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)"
