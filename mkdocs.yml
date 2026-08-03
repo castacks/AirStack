@@ -87,6 +87,7 @@ nav:
           - docs/simulation/isaac_sim/pegasus_scene_setup.md
           - Spawning Drones: docs/simulation/isaac_sim/spawning_drones.md
           - Overhead Camera: docs/simulation/isaac_sim/overhead_camera.md
+          - Vehicles & Ground Truth: docs/simulation/isaac_sim/scene_props_and_ground_truth.md
           - docs/simulation/isaac_sim/ascent_sitl_extension.md
           - docs/simulation/isaac_sim/export_stages_from_unreal.md
       - Microsoft AirSim (legacy):

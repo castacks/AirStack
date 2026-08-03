@@ -69,6 +69,11 @@ from scene_prep import (
     reference_root_prims_under_world, dedupe_physics_scenes,
     add_orthographic_camera, add_overhead_camera_publisher,
 )
+from scene_props import (
+    add_vehicles, snap_prims_to_ground, yaw_deg_from_quat_xyzw,
+    DEFAULT_VEHICLE_LIBRARY,
+)
+from gt_annotations import GTAnnotationRecorder, add_bbox_ros_publisher
 
 
 # --------------------- CONFIGURATION ---------------------
@@ -241,6 +246,108 @@ OVERHEAD_CENTER_X_TOPIC = "/sim/overhead/center_x"
 OVERHEAD_CENTER_Y_TOPIC = "/sim/overhead/center_y"
 OVERHEAD_FRAME_ID      = "map"
 OVERHEAD_DOMAIN_ID     = 0
+
+# ---------------- Static traffic props (cars / trucks) ----------------
+# downtown_edited_v3_818.usd ships no vehicles (its `prop_car_pillar*` prims
+# are parking-garage pillars), so cars and trucks are borrowed by reference
+# from another Nucleus stage — ModernCityDowntown by default.
+#
+#   VEHICLE_PLACEMENTS  JSON list of exact placements, world metres:
+#                       [{"kind":"car","x_m":12,"y_m":-4,"yaw_deg":90}, ...]
+#   NUM_VEHICLES        count to scatter randomly (needs VEHICLE_POLY);
+#                       NUM_VEHICLES=0 turns traffic off entirely
+#   VEHICLE_POLY        JSON area to scatter in, same format as SPAWN_POLY
+#   VEHICLE_KINDS       comma-separated keys from scene_props.VEHICLE_CATALOG,
+#                       cycled over the scattered placements
+#   VEHICLE_SEED        reproducible scatter
+#   VEHICLE_LIBRARY_URL donor stage to reference vehicles out of
+#   VEHICLE_GROUND_Z_M  fallback ground height when the raycast finds nothing
+#   VEHICLE_SNAP_GROUND drop each vehicle onto the surface below it (default on)
+
+# Hand-surveyed layout for downtown_edited_v3_818: 4 trucks + 7 cars picked off
+# the roads in the Isaac Sim viewport. x_m/y_m/z_m are world metres (z_m is
+# where the vehicle's *underside* rests, which for these assets is the origin
+# the viewport reports); yaw_deg is the heading about +Z — the third component
+# of the roll/pitch/yaw the viewport shows, since all of these are level.
+#
+# Ground snapping stays OFF for this layout (see VEHICLE_SNAP_GROUND below):
+# these z values are already surveyed, and a raycast would only move them.
+_DEFAULT_VEHICLE_PLACEMENTS = [
+    {"name": "truck_1", "kind": "truck", "x_m":    7.8,  "y_m": -89.54, "z_m": 0.122, "yaw_deg":  90.0},
+    {"name": "truck_2", "kind": "truck", "x_m":  115.3,  "y_m":  56.9,  "z_m": 0.122, "yaw_deg": -90.0},
+    {"name": "truck_3", "kind": "truck", "x_m": -133.4,  "y_m":  57.6,  "z_m": 0.122, "yaw_deg":   0.0},
+    {"name": "truck_4", "kind": "truck", "x_m": -245.0,  "y_m":  39.0,  "z_m": 0.122, "yaw_deg": -90.0},
+    {"name": "car_1",   "kind": "car",   "x_m":    7.0,  "y_m": -26.4,  "z_m": 0.001, "yaw_deg":  90.0},
+    {"name": "car_2",   "kind": "car",   "x_m":    7.0,  "y_m":  47.7,  "z_m": 0.001, "yaw_deg":  90.0},
+    {"name": "car_3",   "kind": "car",   "x_m":  114.25, "y_m":   5.8,  "z_m": 0.001, "yaw_deg": -90.0},
+    {"name": "car_4",   "kind": "car",   "x_m": -124.8,  "y_m":  51.6,  "z_m": 0.001, "yaw_deg": -90.0},
+    {"name": "car_5",   "kind": "car",   "x_m": -108.0,  "y_m":  -3.7,  "z_m": 0.001, "yaw_deg":  90.0},
+    {"name": "car_6",   "kind": "car",   "x_m": -136.1,  "y_m": -72.6,  "z_m": 0.001, "yaw_deg":   0.0},
+    {"name": "car_7",   "kind": "car",   "x_m": -136.0,  "y_m":  65.0,  "z_m": 0.001, "yaw_deg": 180.0},
+]
+
+_VEHICLE_PLACEMENTS = os.environ.get("VEHICLE_PLACEMENTS")
+NUM_VEHICLES        = int(os.environ.get("NUM_VEHICLES") or 0)
+_VEHICLE_POLY       = os.environ.get("VEHICLE_POLY")
+VEHICLE_KINDS       = [k.strip() for k in
+                       os.environ.get("VEHICLE_KINDS", "car,truck").split(",") if k.strip()]
+VEHICLE_LIBRARY_URL = os.environ.get("VEHICLE_LIBRARY_URL") or DEFAULT_VEHICLE_LIBRARY
+VEHICLE_GROUND_Z_M  = float(os.environ.get("VEHICLE_GROUND_Z_M") or 0.0)
+VEHICLE_MIN_DIST_M  = float(os.environ.get("VEHICLE_MIN_DIST_M") or 8.0)
+
+# Surveyed layouts carry their own z; only randomly scattered ones need the
+# ground raycast to find the road surface for them.
+_vehicle_layout_surveyed = True
+
+if _VEHICLE_PLACEMENTS:
+    VEHICLE_PLACEMENTS = json.loads(_VEHICLE_PLACEMENTS)
+    for _i, _v in enumerate(VEHICLE_PLACEMENTS):
+        _v.setdefault("kind", VEHICLE_KINDS[_i % len(VEHICLE_KINDS)] if VEHICLE_KINDS else "car")
+        _v.setdefault("z_m", VEHICLE_GROUND_Z_M)
+elif NUM_VEHICLES > 0:
+    # Reuse the drone spawn sampler: same rejection sampling, wider spacing so
+    # cars don't intersect each other.
+    _poly = json.loads(_VEHICLE_POLY) if _VEHICLE_POLY else (
+        json.loads(_SPAWN_POLY) if _SPAWN_POLY else [[30.0, 30.0], [-30.0, -30.0]])
+    _v_cfgs = generate_spawn_configs(
+        _poly, n=NUM_VEHICLES, z_m=VEHICLE_GROUND_Z_M, lidar_min_range=0.0,
+        min_dist=VEHICLE_MIN_DIST_M, margin=float(os.environ.get("VEHICLE_MARGIN_M") or 0.0),
+        seed=os.environ.get("VEHICLE_SEED") or f"veh-{time.time_ns()}-{os.getpid()}",
+    )
+    VEHICLE_PLACEMENTS = [
+        {"kind": VEHICLE_KINDS[i % len(VEHICLE_KINDS)] if VEHICLE_KINDS else "car",
+         "x_m": c["x_m"], "y_m": c["y_m"], "z_m": VEHICLE_GROUND_Z_M,
+         "yaw_deg": round(yaw_deg_from_quat_xyzw(c["orient"]), 1)}
+        for i, c in enumerate(_v_cfgs)
+    ]
+    _vehicle_layout_surveyed = False
+elif "NUM_VEHICLES" in os.environ:
+    VEHICLE_PLACEMENTS = []          # explicit NUM_VEHICLES=0 → no traffic
+else:
+    VEHICLE_PLACEMENTS = [dict(v) for v in _DEFAULT_VEHICLE_PLACEMENTS]
+
+VEHICLE_SNAP_GROUND = (os.environ["VEHICLE_SNAP_GROUND"].lower() == "true"
+                       if "VEHICLE_SNAP_GROUND" in os.environ
+                       else not _vehicle_layout_surveyed)
+
+if VEHICLE_PLACEMENTS:
+    print(f"[spawn] VEHICLE_LIBRARY_URL={VEHICLE_LIBRARY_URL}", flush=True)
+    print(f"[spawn] VEHICLE_PLACEMENTS={json.dumps(VEHICLE_PLACEMENTS)}", flush=True)
+
+# ---------------- Ground-truth annotations (bounding boxes) ----------------
+# GT_ANNOTATIONS: off | files | ros | both
+#   files — Replicator BasicWriter dataset (rgb + bbox_2d_tight + bbox_3d +
+#           camera_params) under GT_OUTPUT_DIR, captured at GT_CAPTURE_HZ
+#   ros   — live vision_msgs/Detection{2D,3D}Array on each robot's DDS domain
+# Boxes only cover prims carrying semantic labels; add_vehicles labels every
+# vehicle it spawns, so with GT_ANNOTATIONS=files and NUM_VEHICLES>0 you get a
+# labelled car/truck dataset out of the box.
+GT_ANNOTATIONS  = os.environ.get("GT_ANNOTATIONS", "off").lower()
+GT_OUTPUT_DIR   = os.environ.get("GT_OUTPUT_DIR") or "/isaac-sim/AirStack/analysis_runs/gt_annotations"
+GT_CAPTURE_HZ   = float(os.environ.get("GT_CAPTURE_HZ") or 2.0)
+GT_WIDTH        = int(os.environ.get("GT_WIDTH") or 1280)
+GT_HEIGHT       = int(os.environ.get("GT_HEIGHT") or 720)
+GT_SEMANTIC_SEG = os.environ.get("GT_SEMANTIC_SEG", "false").lower() == "true"
 # ---------------------------------------------------------
 
 
@@ -280,7 +387,9 @@ def wait_for_stage(stage, timeout_s: float = 10.0):
             if non_physics:
                 return True
         time.sleep(0.1)
-    return False_IS_DOWNTOWNWEST
+    return False
+
+
 class PegasusApp:
 
     def __init__(self):
@@ -342,6 +451,18 @@ class PegasusApp:
 
         # Units
         mpu, s = get_stage_meters_per_unit(stage)
+        self.scene_scale_factor = s
+
+        # Traffic props. Parented at /World/vehicles — a sibling of
+        # /World/stage, so they don't inherit STAGE_SCALE and their placements
+        # stay plain world metres.
+        self.vehicle_paths = []
+        if VEHICLE_PLACEMENTS:
+            self.vehicle_paths = add_vehicles(
+                stage, VEHICLE_PLACEMENTS,
+                source_url=VEHICLE_LIBRARY_URL,
+                scene_scale_factor=s,
+            )
 
         # Top-down orthographic camera over (0, 0). Publishes one JPEG aerial
         # of the static scene at low rate; the GCS visualizer republishes it
@@ -371,6 +492,7 @@ class PegasusApp:
         )
 
         # Spawn all drones
+        gt_cameras = []
         for cfg in DRONE_CONFIGS:
             i = cfg["domain_id"]
             pos = [cfg["x_m"] * s, cfg["y_m"] * s, cfg["z_m"] * s]
@@ -406,6 +528,36 @@ class PegasusApp:
                 min_range=cfg["lidar_min_range"],
             )
 
+            # Left eye of the ZED — the view ground truth is generated for.
+            # Path matches what add_zed_stereo_camera_subgraph builds:
+            # <drone_prim>/<camera_name>/base_link/ZED_X/<left_frame_id>.
+            gt_cameras.append(
+                (f"robot_{i}",
+                 f"/World/drone{i}/base_link/ZEDCamera/base_link/ZED_X/camera_left")
+            )
+
+            if GT_ANNOTATIONS in ("ros", "both"):
+                add_bbox_ros_publisher(
+                    graph_path=f"/World/GTBBoxGraph_{i}",
+                    camera_prim_path=gt_cameras[-1][1],
+                    robot_name=f"robot_{i}",
+                    domain_id=i,
+                    width=GT_WIDTH,
+                    height=GT_HEIGHT,
+                )
+
+        # Annotation dataset writer. Created after the cameras exist; capture is
+        # driven from run() so it can't outpace the sim loop.
+        self.gt_recorder = None
+        if GT_ANNOTATIONS in ("files", "both"):
+            self.gt_recorder = GTAnnotationRecorder(
+                gt_cameras,
+                output_dir=GT_OUTPUT_DIR,
+                resolution=(GT_WIDTH, GT_HEIGHT),
+                capture_hz=GT_CAPTURE_HZ,
+                semantic_segmentation=GT_SEMANTIC_SEG,
+            )
+
         # Toggle /World/stage off and on to clear a post-scale visual artifact
         # that lingers until the prim is deactivated/reactivated.
         stage_prim = stage.GetPrimAtPath("/World/stage")
@@ -427,6 +579,11 @@ class PegasusApp:
             self.timeline.stop()
 
         app = omni.kit.app.get_app()
+        steps = 0
+        # PhysX only knows about the scene's colliders once the timeline has
+        # been running, so the ground raycast has to wait a few frames.
+        snap_at = 60 if (VEHICLE_SNAP_GROUND and self.vehicle_paths) else -1
+
         while simulation_app.is_running() and not self.stop_sim:
             world = World.instance()
             if world is not None and hasattr(world, '_scene'):
@@ -437,7 +594,20 @@ class PegasusApp:
             else:
                 app.update()
 
+            steps += 1
+            if steps == snap_at:
+                snap_prims_to_ground(
+                    omni.usd.get_context().get_stage(),
+                    self.vehicle_paths,
+                    scene_scale_factor=self.scene_scale_factor,
+                )
+
+            if self.gt_recorder is not None:
+                self.gt_recorder.maybe_capture()
+
         carb.log_warn("PegasusApp Simulation App is closing.")
+        if self.gt_recorder is not None:
+            self.gt_recorder.close()
         self.timeline.stop()
         simulation_app.close()
 
