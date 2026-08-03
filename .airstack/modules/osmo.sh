@@ -41,12 +41,39 @@ OSMO_SSH_PORT="2200:22"
 # Default `osmo workflow port-forward` connect-timeout (24h).
 OSMO_PF_TIMEOUT="${OSMO_PF_TIMEOUT:-86400}"
 
+# Binary used for UDP port-forwards. NVIDIA's osmo CLI cannot do UDP at all in
+# any 6.x release: src/lib/utils/port_forward.py:303 hands bare coroutines to
+# asyncio.wait(), which since Python 3.11 raises
+#     TypeError: Passing coroutines is forbidden, use tasks explicitly.
+# and the 6.3.x bundles embed CPython 3.14. Only run_udp is affected -- the TCP
+# path already wraps its coroutines in asyncio.create_task() -- so osmo:webrtc
+# looks like it works (signaling connects on ${OSMO_WEBRTC_TCP}) but the stream
+# stays black, because no SRTP media ever arrives on ${OSMO_WEBRTC_UDP}.
+#
+# osmo/patch_osmo_udp.py builds a fixed copy of the installed bundle here. Run
+# it once after installing or upgrading the osmo CLI.
+OSMO_PATCHED_BIN="${OSMO_PATCHED_BIN:-${HOME}/.airstack/osmo-patched/osmo-cli/osmo-cli}"
+
 # Helper: ensure the osmo CLI is on PATH.
 function _osmo_check_cli {
     if ! command -v osmo >/dev/null 2>&1; then
         log_error "osmo CLI not found on PATH. Install from https://github.com/NVIDIA/OSMO and run 'osmo login'."
         return 1
     fi
+}
+
+# Helper: echo the binary to run UDP port-forwards with. Falls back to the
+# stock (broken) `osmo` so the failure stays visible in the log rather than
+# turning into a silently missing media stream. Warnings go to stderr so they
+# don't end up in the command substitution.
+function _osmo_udp_bin {
+    if [ -x "$OSMO_PATCHED_BIN" ]; then
+        echo "$OSMO_PATCHED_BIN"
+        return 0
+    fi
+    log_warn "No patched osmo CLI at ${OSMO_PATCHED_BIN} -- UDP forwarding will fail." >&2
+    log_warn "Build one with: python3 ${PROJECT_ROOT}/osmo/patch_osmo_udp.py" >&2
+    echo "osmo"
 }
 
 # Helper: strip leading/trailing whitespace + CR/NUL bytes from the
@@ -672,8 +699,10 @@ function cmd_osmo_webrtc {
     _osmo_check_cli || return 1
     local wf; wf="$(_osmo_wf_id)" || return 1
 
+    local udp_bin; udp_bin="$(_osmo_udp_bin)"
+
     log_info "Spawning UDP port-forward in background: ${OSMO_WEBRTC_UDP}"
-    nohup osmo workflow port-forward "$wf" workspace \
+    nohup "$udp_bin" workflow port-forward "$wf" workspace \
         --port "$OSMO_WEBRTC_UDP" --udp \
         --connect-timeout "$OSMO_PF_TIMEOUT" \
         > "${OSMO_STATE_DIR}/webrtc-udp.log" 2>&1 &
