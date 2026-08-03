@@ -120,12 +120,14 @@ scene_templates:
     voxel_score_threshold: 0.68
     score_threshold: 0.6
     voxel_min_cluster_size: 10
+    # Widened to a rectangle: the s3 spawn (x ~ -55) and two query props sat
+    # outside the old quadrilateral (x[-40,76] y[-71,50]).
     search_area:
       points:
-        - {x: 76.0, y: 50.0, z: 0.0}
-        - {x: 76.0, y: -71.0, z: 0.0}
-        - {x: -37.0, y: -67.0, z: 0.0}
-        - {x: -40.0, y: 50.0, z: 0.0}
+        - {x: 95.0, y: 65.0, z: 0.0}
+        - {x: 95.0, y: -90.0, z: 0.0}
+        - {x: -75.0, y: -90.0, z: 0.0}
+        - {x: -75.0, y: 65.0, z: 0.0}
 
 
 # ── the 12 runs ─────────────────────────────────────────────────────────────

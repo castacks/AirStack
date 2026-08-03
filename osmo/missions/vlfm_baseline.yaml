@@ -124,12 +124,14 @@ scene_templates:
     score_threshold: -1
     voxel_min_cluster_size: -1
     background_queries: "road, grass, mountain, parking lot, building, fence, container, gravel"
+    # Widened to a rectangle: the s3 spawn (x ~ -55) and two query props sat
+    # outside the old quadrilateral (x[-40,76] y[-71,50]).
     search_area:
       points:
-        - {x: 76.0, y: 50.0, z: 0.0}
-        - {x: 76.0, y: -71.0, z: 0.0}
-        - {x: -37.0, y: -67.0, z: 0.0}
-        - {x: -40.0, y: 50.0, z: 0.0}
+        - {x: 95.0, y: 65.0, z: 0.0}
+        - {x: 95.0, y: -90.0, z: 0.0}
+        - {x: -75.0, y: -90.0, z: 0.0}
+        - {x: -75.0, y: 65.0, z: 0.0}
 
   abandonedfactory: &abandonedfactory
     ENV_URL: "Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
@@ -158,12 +160,14 @@ scene_templates:
     score_threshold: -1
     voxel_min_cluster_size: -1
     background_queries: "grass, road, tree, building, mountain, electrical pole, utility pole"
+    # Widened: the s2 spawn (1015, 325..341) sat outside the old x>=1030,
+    # y<=320 rectangle.
     search_area:
       points:
-        - {x: 1280.0, y: 320.0, z: 0.0}
-        - {x: 1030.0, y: 320.0, z: 0.0}
-        - {x: 1030.0, y: -150.0, z: 0.0}
-        - {x: 1280.0, y: -150.0, z: 0.0}
+        - {x: 1295.0, y: 360.0, z: 0.0}
+        - {x: 1000.0, y: 360.0, z: 0.0}
+        - {x: 1000.0, y: -165.0, z: 0.0}
+        - {x: 1295.0, y: -165.0, z: 0.0}
 
   shipyard: &shipyard
     ENV_URL: "Library/Stages/Dmytro/edit_v1_shipyard.usd"

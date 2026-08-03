@@ -1,8 +1,11 @@
-# pfc1_rerun — the 18 runs the first PFC sweep still owes us.
+# pfc1_rerun — the 21 runs the first PFC sweep still owes us.
 #
-# 6 environments x 3 baselines (frontier / vlfm / lvlm), one iteration each:
+# DowntownWest x 3 starts x 4 methods (frontier / vlfm / lvlm / multi-raven) plus
+# 3 broken environments x 3 baselines, one iteration each:
 #
-#   downtownwest_s1/s2/s3  re-run: the scene now carries 7 cars + 4 trucks
+#   downtownwest_s1/s2/s3  re-run for ALL FOUR methods (multi-raven included —
+#                          its DowntownWest numbers are void for the same reason):
+#                          the scene now carries 7 cars + 4 trucks
 #                          (example_multi_drone_scene_import.py), the query is
 #                          "fountain, car, truck" instead of "fountain" alone
 #                          (1 -> 12 ground-truth targets), and the search area
@@ -20,7 +23,8 @@
 # *within* one mission: mission_runner calls apply_env(env_exports(entry)) before
 # each iteration's `airstack up`, so the UPPERCASE keys on an environment entry
 # reach the container. apply_env only ever *sets* keys, never clears them, so
-# every entry states all three flags explicitly — exactly one true.
+# every entry states all three flags explicitly — exactly one true, or all three
+# false for multi-raven (full coordination is the default stack).
 #
 # Scene templates, SPAWN_CONFIGS, queries and thresholds are copied verbatim from
 # multi_raven_mission.yaml (the source of truth — keep the five in lockstep).
@@ -75,6 +79,13 @@ baseline_templates:
     LVLM_BASELINE: "true"
     method: lvlm
 
+  # No flag set -> the default full-coordination raven stack.
+  multiraven: &multiraven
+    FRONTIER_ONLY_BASELINE: "false"
+    VLFM_BASELINE: "false"
+    LVLM_BASELINE: "false"
+    method: multi-raven
+
 # ── scene anchors ──────────────────────────────────────────────────────────
 scene_templates:
   downtownwest: &downtownwest
@@ -106,12 +117,14 @@ scene_templates:
     voxel_score_threshold: 0.65
     score_threshold: -1
     voxel_min_cluster_size: -1
+    # Widened to a rectangle: the s3 spawn (x ~ -55) and two query props sat
+    # outside the old quadrilateral (x[-40,76] y[-71,50]).
     search_area:
       points:
-        - {x: 76.0, y: 50.0, z: 0.0}
-        - {x: 76.0, y: -71.0, z: 0.0}
-        - {x: -37.0, y: -67.0, z: 0.0}
-        - {x: -40.0, y: 50.0, z: 0.0}
+        - {x: 95.0, y: 65.0, z: 0.0}
+        - {x: 95.0, y: -90.0, z: 0.0}
+        - {x: -75.0, y: -90.0, z: 0.0}
+        - {x: -75.0, y: 65.0, z: 0.0}
 
   shipyard: &shipyard
     ENV_URL: "Library/Stages/Dmytro/edit_v1_shipyard.usd"
@@ -131,10 +144,10 @@ scene_templates:
         - {x: 250.0, y: -250.0, z: 0.0}
         - {x: -250.0, y: -250.0, z: 0.0}
 
-# ── 18 runs: 6 environments x 3 baselines ──────────────────────────────────
+# ── 21 runs: DowntownWest x3 starts x4 methods + 3 environments x3 baselines ─
 # SPAWN_CONFIGS are byte-identical to the four per-baseline mission files.
-# The three baselines for one environment are adjacent so a scene-level failure
-# shows up as three consecutive bad iterations rather than three scattered ones.
+# The methods for one environment are adjacent so a scene-level failure shows up
+# as consecutive bad iterations rather than scattered ones.
 environments:
   # ---- DowntownWest s1 ----
   - <<: [*downtownwest, *frontier]
@@ -145,6 +158,9 @@ environments:
     SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0.0, 0.0, 0.698, 0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0.0, 0.0, 0.736, 0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0.0, 0.0, 0.784, 0.621]}]'
   - <<: [*downtownwest, *lvlm]
     name: downtownwest_s1_lvlm
+    SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0.0, 0.0, 0.698, 0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0.0, 0.0, 0.736, 0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0.0, 0.0, 0.784, 0.621]}]'
+  - <<: [*downtownwest, *multiraven]
+    name: downtownwest_s1_multiraven
     SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0.0, 0.0, 0.698, 0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0.0, 0.0, 0.736, 0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0.0, 0.0, 0.784, 0.621]}]'
 
   # ---- DowntownWest s2 ----
@@ -157,6 +173,9 @@ environments:
   - <<: [*downtownwest, *lvlm]
     name: downtownwest_s2_lvlm
     SPAWN_CONFIGS: '[{"x_m": -33.0, "y_m": 59.0, "orient": [0.0, 0.0, -0.8583, 0.5132]}, {"x_m": -25.0, "y_m": 62.0, "orient": [0.0, 0.0, -0.561, 0.8278]}, {"x_m": -16.0, "y_m": 64.5, "orient": [0.0, 0.0, -0.1586, 0.9873]}]'
+  - <<: [*downtownwest, *multiraven]
+    name: downtownwest_s2_multiraven
+    SPAWN_CONFIGS: '[{"x_m": -33.0, "y_m": 59.0, "orient": [0.0, 0.0, -0.8583, 0.5132]}, {"x_m": -25.0, "y_m": 62.0, "orient": [0.0, 0.0, -0.561, 0.8278]}, {"x_m": -16.0, "y_m": 64.5, "orient": [0.0, 0.0, -0.1586, 0.9873]}]'
 
   # ---- DowntownWest s3 ----
   - <<: [*downtownwest, *frontier]
@@ -167,6 +186,9 @@ environments:
     SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}, {"x_m": -115.5, "y_m": 3.0, "orient": [0.0, 0.0, -0.013, 0.9999]}, {"x_m": -111.0, "y_m": 6.5, "orient": [0.0, 0.0, 0.4108, 0.9117]}]'
   - <<: [*downtownwest, *lvlm]
     name: downtownwest_s3_lvlm
+    SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}, {"x_m": -115.5, "y_m": 3.0, "orient": [0.0, 0.0, -0.013, 0.9999]}, {"x_m": -111.0, "y_m": 6.5, "orient": [0.0, 0.0, 0.4108, 0.9117]}]'
+  - <<: [*downtownwest, *multiraven]
+    name: downtownwest_s3_multiraven
     SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}, {"x_m": -115.5, "y_m": 3.0, "orient": [0.0, 0.0, -0.013, 0.9999]}, {"x_m": -111.0, "y_m": 6.5, "orient": [0.0, 0.0, 0.4108, 0.9117]}]'
 
   # ---- ConstructionSite s3 (never flew) ----
