@@ -397,6 +397,11 @@ class LLMClient:
             s = str(x).strip().lower()
             if s and s not in existing and len(s) <= 30:
                 out.append(s)
+                # Dedupe WITHIN the reply too — a small LLM can return the
+                # same label five times (['boat']*5, observed 2026-08-03),
+                # and rayfronts dedupes them to ONE column, which deadlocked
+                # the exact-count digest gate.
+                existing.add(s)
         return out
 
     def part_aliases(self, target: str, labels: list) -> 'dict | None':

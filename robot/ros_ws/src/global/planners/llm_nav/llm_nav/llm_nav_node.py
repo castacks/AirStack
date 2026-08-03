@@ -179,6 +179,13 @@ class LlmNavNode(Node):
         object_labels = [l for l in label_bank if l.lower() not in surface_lower]
         self._label_bank = label_bank
         self._config_aliases = dict(label_aliases)
+        # Vocab-completeness threshold for the digest gate: target + bank,
+        # captured BEFORE context labels mutate _all_queries. The gate must
+        # never require the post-context count exactly — rayfronts dedupes
+        # and drops queries, and an exact-count gate deadlocks the planner
+        # (observed: LLM suggested ['boat']*5 -> 1 column -> 28/32 forever).
+        self._min_columns = 1 + len(label_bank)
+        self._vocab_deadline = None       # grace window for context columns
         self._all_queries = [self._target] + [
             l for l in label_bank if l.lower() != self._target.lower()]
         self._builder = DigestBuilder(
@@ -982,6 +989,7 @@ class LlmNavNode(Node):
         for l in extra:
             self._text_query_pub.publish(String(data=l))
             time.sleep(0.1)
+        self._vocab_deadline = time.monotonic() + 30.0
         self.get_logger().info(
             f'[vocab] LLM added context labels for "{self._target}": {extra}')
         self._mlog.event('context_labels_added', labels=extra)
@@ -1121,14 +1129,30 @@ class LlmNavNode(Node):
         with self._map_lock:
             n_detected = len(self._detected_labels or [])
             n_expected = len(self._all_queries)
-        if n_detected < n_expected:
+        if n_detected < self._min_columns:
             now_w = time.monotonic()
             if now_w - getattr(self, '_last_gate_log', 0.0) > 10.0:
                 self._last_gate_log = now_w
                 self.get_logger().info(
-                    f'[digest] waiting for full query set '
-                    f'({n_detected}/{n_expected} columns live)')
+                    f'[digest] waiting for base vocabulary '
+                    f'({n_detected}/{self._min_columns} columns live)')
             return None
+        # Base vocabulary is live — proceed. Context-label columns may still
+        # be encoding; after the grace window, reconcile _all_queries to what
+        # actually exists so nothing waits on ghost columns.
+        if (n_detected < n_expected and self._vocab_deadline is not None
+                and time.monotonic() > self._vocab_deadline):
+            with self._map_lock:
+                detected = {l.lower() for l in (self._detected_labels or [])}
+                missing = [q for q in self._all_queries
+                           if q.lower() not in detected]
+                self._all_queries = [q for q in self._all_queries
+                                     if q.lower() in detected]
+            self._vocab_deadline = None
+            self.get_logger().warn(
+                f'[digest] dropping queries that never became columns '
+                f'(rayfronts deduped/rejected them): {missing}')
+            self._mlog.event('columns_reconciled', missing=missing)
         try:
             with self._map_lock:
                 self._builder.update_instances(vox_xyz, vox_scores)
