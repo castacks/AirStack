@@ -379,6 +379,7 @@ _METHOD_SUFFIXES = (
     ("_multiraven", "multi-raven"),
     ("_multi-raven", "multi-raven"),
     ("_lvlm", "lvlm"),
+    ("_vlfm", "vlfm"),
 )
 
 
@@ -403,6 +404,8 @@ def resolve_method(mission, env_entry):
     mn = mission.get("name", "").lower()
     if "lvlm" in mn:
         return "lvlm"
+    if "vlfm" in mn:
+        return "vlfm"
     if "raven" in mn:
         return "multi-raven"
     if "frontier" in mn:

@@ -48,17 +48,17 @@ scene_templates:
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "DowntownWest"
-    query: "fountain"
+    query: "fountain, car, truck"
     voxel_score_threshold: 0.65
     score_threshold: -1
     voxel_min_cluster_size: -1
     background_queries: "grass, road, tree, building, street lamp, electric cables"
     search_area:
       points:
-        - {x: 150.0, y: 80.0, z: 0.0}
-        - {x: 150.0, y: -80.0, z: 0.0}
-        - {x: -150.0, y: -80.0, z: 0.0}
-        - {x: -150.0, y: 80.0, z: 0.0}
+        - {x: 160.0, y: 100.0, z: 0.0}
+        - {x: 160.0, y: -100.0, z: 0.0}
+        - {x: -260.0, y: -100.0, z: 0.0}
+        - {x: -260.0, y: 100.0, z: 0.0}
 
   moderncitydowntown: &moderncitydowntown
     ENV_URL: "Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
@@ -174,10 +174,10 @@ scene_templates:
     background_queries: "grass, road, tree, warehouse, pipe, fence"
     search_area:
       points:
-        - {x: -150.0, y: 150.0, z: 0.0}
-        - {x: 150.0, y: 150.0, z: 0.0}
-        - {x: 150.0, y: -150.0, z: 0.0}
-        - {x: -150.0, y: -150.0, z: 0.0}
+        - {x: -250.0, y: 250.0, z: 0.0}
+        - {x: 250.0, y: 250.0, z: 0.0}
+        - {x: 250.0, y: -250.0, z: 0.0}
+        - {x: -250.0, y: -250.0, z: 0.0}
 
 # ── 24 runs: 8 scenes x 3 start locations ──────────────────────────────────
 # Each scene merges its template above and pins SPAWN_CONFIGS — a fixed

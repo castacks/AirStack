@@ -1,0 +1,291 @@
+# pfc1_rerun — the 18 runs the first PFC sweep still owes us.
+#
+# 6 environments x 3 baselines (frontier / vlfm / lvlm), one iteration each:
+#
+#   downtownwest_s1/s2/s3  re-run: the scene now carries 7 cars + 4 trucks
+#                          (example_multi_drone_scene_import.py), the query is
+#                          "fountain, car, truck" instead of "fountain" alone
+#                          (1 -> 12 ground-truth targets), and the search area
+#                          was widened to x[-260,160] y[-100,100] so every one
+#                          of those 12 is reachable.
+#   constructionsite_s3    never flew: bring-up timed out in all three missions
+#                          ("robots [1,2,3] not ready within 600s", 3/3 attempts)
+#   shipyard_s2            same bring-up failure, all three missions
+#   shipyard_s3            flew but the result is void: its spawn (y ~ -205) sat
+#                          outside the old +/-150 search polygon, so raven had no
+#                          in-polygon frontier to chase and the fleet covered
+#                          65 m in 15 minutes. The polygon is now +/-250.
+#
+# Unlike the four per-baseline mission files, this one cycles the baseline
+# *within* one mission: mission_runner calls apply_env(env_exports(entry)) before
+# each iteration's `airstack up`, so the UPPERCASE keys on an environment entry
+# reach the container. apply_env only ever *sets* keys, never clears them, so
+# every entry states all three flags explicitly — exactly one true.
+#
+# Scene templates, SPAWN_CONFIGS, queries and thresholds are copied verbatim from
+# multi_raven_mission.yaml (the source of truth — keep the five in lockstep).
+#
+# Run on OSMO (3 GPU / 24 CPU / 96Gi / 500Gi):
+#   airstack osmo:mission osmo/missions/pfc1_rerun.yaml --pool <gpu-pool>
+#
+# Or locally:
+#   python3 osmo/workspace/mission_runner.py osmo/missions/pfc1_rerun.yaml \
+#     --airstack-root "$(pwd)"
+#
+# Schema reference: osmo/missions/README.md
+
+name: pfc1_rerun
+
+nas_dest: /volume4/dsta/raven-multi/
+
+stack:
+  services: [isaac-sim, robot-desktop, gcs]
+
+env:
+  NUM_ROBOTS: 3
+  ISAAC_SIM_HEADLESS: "true"
+  ISAAC_SIM_USE_STANDALONE: "true"
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  PLAY_SIM_ON_START: "true"
+  # Baselines are selected per environment entry below, not here — these are the
+  # defaults every entry then overrides.
+  FRONTIER_ONLY_BASELINE: "false"
+  VLFM_BASELINE: "false"
+  LVLM_BASELINE: "false"
+
+# ── baseline anchors ───────────────────────────────────────────────────────
+# Merged into each entry with `<<:`. Exactly one flag true; the other two are
+# stated so the previous iteration's setting can't leak forward.
+baseline_templates:
+  frontier: &frontier
+    FRONTIER_ONLY_BASELINE: "true"
+    VLFM_BASELINE: "false"
+    LVLM_BASELINE: "false"
+    method: frontier
+
+  vlfm: &vlfm
+    FRONTIER_ONLY_BASELINE: "false"
+    VLFM_BASELINE: "true"
+    LVLM_BASELINE: "false"
+    method: vlfm
+
+  lvlm: &lvlm
+    FRONTIER_ONLY_BASELINE: "false"
+    VLFM_BASELINE: "false"
+    LVLM_BASELINE: "true"
+    method: lvlm
+
+# ── scene anchors ──────────────────────────────────────────────────────────
+scene_templates:
+  downtownwest: &downtownwest
+    ENV_URL: "Library/Stages/Dmytro/downtown_edited_v3_818.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "DowntownWest"
+    query: "fountain, car, truck"
+    background_queries: "grass, road, tree, building, street lamp, electric cables"
+    voxel_score_threshold: 0.65
+    score_threshold: -1
+    voxel_min_cluster_size: -1
+    # Widened from x[-150,150] y[-80,80]: truck_1 (7.8, -89.5) and truck_4
+    # (-245.0, 39.0) fall outside the old polygon and would be unreachable.
+    search_area:
+      points:
+        - {x: 160.0, y: 100.0, z: 0.0}
+        - {x: 160.0, y: -100.0, z: 0.0}
+        - {x: -260.0, y: -100.0, z: 0.0}
+        - {x: -260.0, y: 100.0, z: 0.0}
+
+  constructionsite: &constructionsite
+    ENV_URL: "Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
+    STAGE_SCALE: "0.01"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "ConstructionSite"
+    query: "forklift, tower crane, blue tarp, orange tarp"
+    background_queries: "road, grass, mountain, parking lot, building, fence, container, gravel"
+    voxel_score_threshold: 0.65
+    score_threshold: -1
+    voxel_min_cluster_size: -1
+    search_area:
+      points:
+        - {x: 76.0, y: 50.0, z: 0.0}
+        - {x: 76.0, y: -71.0, z: 0.0}
+        - {x: -37.0, y: -67.0, z: 0.0}
+        - {x: -40.0, y: 50.0, z: 0.0}
+
+  shipyard: &shipyard
+    ENV_URL: "Library/Stages/Dmytro/edit_v1_shipyard.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "2.0"
+    RESULTS_SCENE: "Shipyard"
+    query: "ship, crane"
+    background_queries: "grass, road, tree, warehouse, pipe, fence"
+    voxel_score_threshold: 0.65
+    score_threshold: -1
+    voxel_min_cluster_size: -1
+    # Widened from +/-150 so shipyard_s3's spawn (y ~ -205) is inside the polygon.
+    search_area:
+      points:
+        - {x: -250.0, y: 250.0, z: 0.0}
+        - {x: 250.0, y: 250.0, z: 0.0}
+        - {x: 250.0, y: -250.0, z: 0.0}
+        - {x: -250.0, y: -250.0, z: 0.0}
+
+# ── 18 runs: 6 environments x 3 baselines ──────────────────────────────────
+# SPAWN_CONFIGS are byte-identical to the four per-baseline mission files.
+# The three baselines for one environment are adjacent so a scene-level failure
+# shows up as three consecutive bad iterations rather than three scattered ones.
+environments:
+  # ---- DowntownWest s1 ----
+  - <<: [*downtownwest, *frontier]
+    name: downtownwest_s1_frontier
+    SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0.0, 0.0, 0.698, 0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0.0, 0.0, 0.736, 0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0.0, 0.0, 0.784, 0.621]}]'
+  - <<: [*downtownwest, *vlfm]
+    name: downtownwest_s1_vlfm
+    SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0.0, 0.0, 0.698, 0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0.0, 0.0, 0.736, 0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0.0, 0.0, 0.784, 0.621]}]'
+  - <<: [*downtownwest, *lvlm]
+    name: downtownwest_s1_lvlm
+    SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0.0, 0.0, 0.698, 0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0.0, 0.0, 0.736, 0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0.0, 0.0, 0.784, 0.621]}]'
+
+  # ---- DowntownWest s2 ----
+  - <<: [*downtownwest, *frontier]
+    name: downtownwest_s2_frontier
+    SPAWN_CONFIGS: '[{"x_m": -33.0, "y_m": 59.0, "orient": [0.0, 0.0, -0.8583, 0.5132]}, {"x_m": -25.0, "y_m": 62.0, "orient": [0.0, 0.0, -0.561, 0.8278]}, {"x_m": -16.0, "y_m": 64.5, "orient": [0.0, 0.0, -0.1586, 0.9873]}]'
+  - <<: [*downtownwest, *vlfm]
+    name: downtownwest_s2_vlfm
+    SPAWN_CONFIGS: '[{"x_m": -33.0, "y_m": 59.0, "orient": [0.0, 0.0, -0.8583, 0.5132]}, {"x_m": -25.0, "y_m": 62.0, "orient": [0.0, 0.0, -0.561, 0.8278]}, {"x_m": -16.0, "y_m": 64.5, "orient": [0.0, 0.0, -0.1586, 0.9873]}]'
+  - <<: [*downtownwest, *lvlm]
+    name: downtownwest_s2_lvlm
+    SPAWN_CONFIGS: '[{"x_m": -33.0, "y_m": 59.0, "orient": [0.0, 0.0, -0.8583, 0.5132]}, {"x_m": -25.0, "y_m": 62.0, "orient": [0.0, 0.0, -0.561, 0.8278]}, {"x_m": -16.0, "y_m": 64.5, "orient": [0.0, 0.0, -0.1586, 0.9873]}]'
+
+  # ---- DowntownWest s3 ----
+  - <<: [*downtownwest, *frontier]
+    name: downtownwest_s3_frontier
+    SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}, {"x_m": -115.5, "y_m": 3.0, "orient": [0.0, 0.0, -0.013, 0.9999]}, {"x_m": -111.0, "y_m": 6.5, "orient": [0.0, 0.0, 0.4108, 0.9117]}]'
+  - <<: [*downtownwest, *vlfm]
+    name: downtownwest_s3_vlfm
+    SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}, {"x_m": -115.5, "y_m": 3.0, "orient": [0.0, 0.0, -0.013, 0.9999]}, {"x_m": -111.0, "y_m": 6.5, "orient": [0.0, 0.0, 0.4108, 0.9117]}]'
+  - <<: [*downtownwest, *lvlm]
+    name: downtownwest_s3_lvlm
+    SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}, {"x_m": -115.5, "y_m": 3.0, "orient": [0.0, 0.0, -0.013, 0.9999]}, {"x_m": -111.0, "y_m": 6.5, "orient": [0.0, 0.0, 0.4108, 0.9117]}]'
+
+  # ---- ConstructionSite s3 (never flew) ----
+  - <<: [*constructionsite, *frontier]
+    name: constructionsite_s3_frontier
+    SPAWN_CONFIGS: '[{"x_m": -57.0, "y_m": 3.4, "orient": [0.0, 0.0, -0.506, 0.8625]}, {"x_m": -53.8, "y_m": 3.9, "orient": [0.0, 0.0, -0.0941, 0.9956]}, {"x_m": -55.5, "y_m": 7.6, "orient": [0.0, 0.0, 0.3355, 0.942]}]'
+  - <<: [*constructionsite, *vlfm]
+    name: constructionsite_s3_vlfm
+    SPAWN_CONFIGS: '[{"x_m": -57.0, "y_m": 3.4, "orient": [0.0, 0.0, -0.506, 0.8625]}, {"x_m": -53.8, "y_m": 3.9, "orient": [0.0, 0.0, -0.0941, 0.9956]}, {"x_m": -55.5, "y_m": 7.6, "orient": [0.0, 0.0, 0.3355, 0.942]}]'
+  - <<: [*constructionsite, *lvlm]
+    name: constructionsite_s3_lvlm
+    SPAWN_CONFIGS: '[{"x_m": -57.0, "y_m": 3.4, "orient": [0.0, 0.0, -0.506, 0.8625]}, {"x_m": -53.8, "y_m": 3.9, "orient": [0.0, 0.0, -0.0941, 0.9956]}, {"x_m": -55.5, "y_m": 7.6, "orient": [0.0, 0.0, 0.3355, 0.942]}]'
+
+  # ---- Shipyard s2 (never flew) ----
+  - <<: [*shipyard, *frontier]
+    name: shipyard_s2_frontier
+    SPAWN_CONFIGS: '[{"x_m": -131.0, "y_m": 55.0, "orient": [0.0, 0.0, -0.6107, 0.7919]}, {"x_m": -126.0, "y_m": 59.5, "orient": [0.0, 0.0, -0.2188, 0.9758]}, {"x_m": -121.0, "y_m": 64.0, "orient": [0.0, 0.0, 0.2141, 0.9768]}]'
+  - <<: [*shipyard, *vlfm]
+    name: shipyard_s2_vlfm
+    SPAWN_CONFIGS: '[{"x_m": -131.0, "y_m": 55.0, "orient": [0.0, 0.0, -0.6107, 0.7919]}, {"x_m": -126.0, "y_m": 59.5, "orient": [0.0, 0.0, -0.2188, 0.9758]}, {"x_m": -121.0, "y_m": 64.0, "orient": [0.0, 0.0, 0.2141, 0.9768]}]'
+  - <<: [*shipyard, *lvlm]
+    name: shipyard_s2_lvlm
+    SPAWN_CONFIGS: '[{"x_m": -131.0, "y_m": 55.0, "orient": [0.0, 0.0, -0.6107, 0.7919]}, {"x_m": -126.0, "y_m": 59.5, "orient": [0.0, 0.0, -0.2188, 0.9758]}, {"x_m": -121.0, "y_m": 64.0, "orient": [0.0, 0.0, 0.2141, 0.9768]}]'
+
+  # ---- Shipyard s3 (flew, but outside the old polygon — result void) ----
+  - <<: [*shipyard, *frontier]
+    name: shipyard_s3_frontier
+    SPAWN_CONFIGS: '[{"x_m": 48.5, "y_m": -203.0, "orient": [0.0, 0.0, 0.45, 0.893]}, {"x_m": 51.5, "y_m": -206.5, "orient": [0.0, 0.0, 0.7853, 0.6192]}, {"x_m": 48.5, "y_m": -209.5, "orient": [0.0, 0.0, 0.9734, 0.2293]}]'
+  - <<: [*shipyard, *vlfm]
+    name: shipyard_s3_vlfm
+    SPAWN_CONFIGS: '[{"x_m": 48.5, "y_m": -203.0, "orient": [0.0, 0.0, 0.45, 0.893]}, {"x_m": 51.5, "y_m": -206.5, "orient": [0.0, 0.0, 0.7853, 0.6192]}, {"x_m": 48.5, "y_m": -209.5, "orient": [0.0, 0.0, 0.9734, 0.2293]}]'
+  - <<: [*shipyard, *lvlm]
+    name: shipyard_s3_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 48.5, "y_m": -203.0, "orient": [0.0, 0.0, 0.45, 0.893]}, {"x_m": 51.5, "y_m": -206.5, "orient": [0.0, 0.0, 0.7853, 0.6192]}, {"x_m": 48.5, "y_m": -209.5, "orient": [0.0, 0.0, 0.9734, 0.2293]}]'
+
+# Send goals through the GCS action_relay — the exact path Foxglove uses.
+command_route: gcs
+
+environment_order: grouped
+iterations: 1
+
+# constructionsite_s3 and shipyard_s2 already burned 3 attempts each last time,
+# so give them more room before writing the environment off again.
+iteration_attempts: 4
+
+ready:
+  timeout_s: 900
+
+# Superset of the three per-baseline record blocks. The lvlm iterations simply
+# produce no payload / rayfronts_debug topics; `ros2 bag record` waits on names
+# that never appear rather than failing, and record.required only trips if the
+# recorder process itself won't start.
+record:
+  enabled: true
+  scope: gcs
+  required: true
+  topics:
+    - /tf
+    - /tf_static
+    - /{robot}/odometry_conversion/odometry
+    - /gcs/robot_markers
+    - /gcs/payload/{robot}/filtered_rays
+    - /gcs/payload/{robot}/filtered_frontiers
+    - /gcs/payload/{robot}/explored_area_coverage
+    - /gcs/payload/{robot}/confirmed_targets
+    - /gcs/payload/{robot}/auction_table
+    - /gcs/payload/{robot}/voxel_rgb
+    - /gcs/sim_ground
+    - /gcs/annotations/bboxes
+    - /rayfronts_debug/{robot}/voxels_sim/all
+    - /rayfronts_debug/{robot}/voxel_rgb
+
+on_step_failure: abort_iteration
+
+steps:
+  # Both model pre-downloads run every iteration: RADIO is what rayfronts needs
+  # (frontier + vlfm), InternVL3 is what the lvlm node needs. Both land in the
+  # persistent /root/.cache shared across replicas, so after the first iteration
+  # each is a cache hit and costs seconds.
+  - run:
+      container: robot_1
+      cmd: python3 -c "import torch; torch.hub.load('NVlabs/RADIO', 'radio_model', version='c-radio_v3-b', skip_validation=True, adaptor_names=['siglip2','sam'])"
+      timeout_s: 900
+      attempts: 5
+      retry_delay_s: 15
+
+  - run:
+      container: robot_1
+      cmd: python3 -c "from huggingface_hub import snapshot_download; snapshot_download('OpenGVLab/InternVL3-2B')"
+      timeout_s: 900
+      attempts: 5
+      retry_delay_s: 15
+
+  - action:
+      task: takeoff
+      goal: {target_altitude_m: 12.0, velocity_m_s: 1.0}
+      timeout_s: 180
+
+  - wait: 5
+
+  # 15-minute budget, same as the original sweep so the numbers stay comparable.
+  # min_altitude_agl is 10.0 in lvlm_baseline.yaml and 5.0 in the other three;
+  # 5.0 is used here because raven's altitude band is the one that matters for
+  # frontier/vlfm and the lvlm node clamps its own waypoints anyway.
+  - action:
+      task: semantic_search
+      timeout_s: 900
+      cancel_on_timeout: true
+      pass_on_feedback: true
+      goal:
+        query: "{{env.query}}"
+        background_queries: "{{env.background_queries}}"
+        search_area: "{{env.search_area}}"
+        min_altitude_agl: 5.0
+        max_altitude_agl: 20.0
+        min_flight_speed: 0.5
+        max_flight_speed: 1.0
+        confidence_threshold: 0.95
+        voxel_score_threshold: "{{env.voxel_score_threshold}}"
+        score_threshold: "{{env.score_threshold}}"
+        voxel_min_cluster_size: "{{env.voxel_min_cluster_size}}"
+        bundle_len: 3
