@@ -467,6 +467,21 @@ Common mistakes when adding modules:
    - ✅ Test in full autonomy stack context
    - ✅ Verify in Isaac Sim or Microsoft AirSim (legacy) simulation
 
+## ICRA 2027 Paper (active project)
+
+The `ICRA_2027_AirStack_Paper/` submodule contains the in-progress ICRA
+2027 systems paper about AirStack (deadline: 15 September 2026).
+**Before doing any work related to the paper — positioning, case
+studies, evaluation, release gate, or the paper's LaTeX — read
+[`ICRA_2027_AirStack_Paper/paper_positioning.md`](ICRA_2027_AirStack_Paper/paper_positioning.md).**
+It records the settled positioning decisions (claims, evidence
+hierarchy, case-study facts and corrections, simulator framing), the
+git/Overleaf workflow for the submodule, and the release-gate items that
+block submission. Task ownership lives in
+`ICRA_2027_AirStack_Paper/release_gate_and_tasks.tex`. Paper commits go
+to the submodule's `main`; the parent repo tracks the pointer on the
+`airstack-paper` branch (not `main`).
+
 ## Key Differences from CLAUDE.md
 
 This guide supersedes `CLAUDE.md` (which now symlinks here). Key updates:
