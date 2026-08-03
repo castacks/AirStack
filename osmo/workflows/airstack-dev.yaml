@@ -57,10 +57,16 @@ workflow:
         AIRSTACK_REPO_URL: "https://github.com/castacks/AirStack.git"
         # llm_nav PoC scene: RetroNeighborhood, single pinned spawn. These
         # flow through `airstack up` into the Isaac Sim compose env.
-        ENV_URL: "Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
-        STAGE_SCALE: "0.01"
-        RESULTS_SCENE: "RetroNeighborhood"
-        SPAWN_CONFIGS: '[{"x_m": 6.764, "y_m": -1.767, "orient": [0, 0, -0.1193, 0.9929]}]'
+        # ENV_URL: "Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
+        # STAGE_SCALE: "0.01"
+        # RESULTS_SCENE: "RetroNeighborhood"
+        # SPAWN_CONFIGS: '[{"x_m": 6.764, "y_m": -1.767, "orient": [0, 0, -0.1193, 0.9929]}]'
+
+        ENV_URL: "Library/Stages/Dmytro/edit_v1_shipyard.usd"
+        STAGE_SCALE: "1.0"
+        RESULTS_SCENE: "Shipyard"
+        SPAWN_CONFIGS: '[{"x_m": -66.066, "y_m": -11.867, "orient": [0.0, 0.0, -0.9089, 0.417]}, {"x_m": -68.796, "y_m": -14.581, "orient": [0.0, 0.0, -0.6509, 0.7591]}, {"x_m": -61.737, "y_m": -14.407, "orient": [0.0, 0.0, 0.2744, 0.9616]}]'
+
         # Planner selection in semantic_search_task: llm_nav is the default;
         # set "false" to run the raven baseline instead.
         LLM_NAV: "true"
