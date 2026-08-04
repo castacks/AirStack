@@ -1532,6 +1532,78 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#waypoint-flight-tests-systemtest_waypoint_flightpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Waypoint Flight Tests (system/test_waypoint_flight.py)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Waypoint Flight Tests (system/test_waypoint_flight.py)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#phase-order_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase order
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recorded-metrics_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recorded metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-standalone-checker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The standalone checker
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#running-waypoint-flight-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running waypoint flight tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cli-option-reference-waypoint-specific" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI option reference (waypoint-specific)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#metrics-reporting-parse_metricspy" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6052,6 +6124,12 @@
 <td>Fixed-pattern trajectory evaluation: takeoff, execute a trajectory (Circle, Figure8, Racetrack, Line), record path deviation metrics, land — one chain per (sim, num_robots, iteration, trajectory_type)</td>
 <td>Docker daemon, GPU, sim license</td>
 </tr>
+<tr>
+<td><a href="system/test_waypoint_flight.py"><code>system/test_waypoint_flight.py</code></a></td>
+<td><code>waypoint_flight</code></td>
+<td>Ordered-waypoint navigation: takeoff, send a waypoint route to <code>NavigateTask</code>, judge the odometry track with the standalone <a href="waypoint_checker.py"><code>waypoint_checker.py</code></a>, land — one chain per (sim, num_robots, iteration)</td>
+<td>Docker daemon, GPU, sim license</td>
+</tr>
 </tbody>
 </table>
 <h3 id="unit-tests-co-located">Unit tests (co-located)<a class="headerlink" href="#unit-tests-co-located" title="Permanent link">&para;</a></h3>
@@ -6077,7 +6155,7 @@ shared <code>robot_autonomy_stack</code> fixture (in <code>conftest.py</code>) r
 container or brings one up automatically (like <code>build_packages</code>), then tears it down.
 Collection order runs integration after <code>build_packages</code> and before the sim tiers.</p>
 <p>Marks can be combined with pytest logic:
-<code>-m unit</code>, <code>-m "build_docker or build_packages"</code>, <code>-m integration</code>, <code>-m liveliness</code>, <code>-m sensors</code>, <code>-m takeoff_hover_land</code>, <code>-m autonomy</code>, or e.g. <code>-m "liveliness or sensors"</code> (see <strong>Bring-up scope</strong> below).</p>
+<code>-m unit</code>, <code>-m "build_docker or build_packages"</code>, <code>-m integration</code>, <code>-m liveliness</code>, <code>-m sensors</code>, <code>-m takeoff_hover_land</code>, <code>-m autonomy</code>, <code>-m waypoint_flight</code>, or e.g. <code>-m "liveliness or sensors"</code> (see <strong>Bring-up scope</strong> below).</p>
 <h3 id="bring-up-scope-airstack_env">Bring-up scope (<code>airstack_env</code>)<a class="headerlink" href="#bring-up-scope-airstack_env" title="Permanent link">&para;</a></h3>
 <p><code>airstack_env</code> is <strong>class-scoped</strong> and parametrized per <code>(sim, num_robots, iteration)</code>. Each test <strong>class</strong> that uses it (<code>TestLiveliness</code>, <code>TestSensors</code>, <code>TestTakeoffHoverLand</code>, <code>TestFixedTrajectory</code>, …) performs its <strong>own</strong> <code>airstack up</code> / <code>airstack down</code> for that parametrization. Selecting both classes (for example, <code>-m "liveliness or sensors"</code>) runs <strong>two</strong> full stack cycles per tuple (liveliness class, then sensors class). Collection order (see <code>conftest.py</code>) runs <strong>liveliness before sensors</strong> when both are selected. To save wall time, run <code>-m liveliness</code> or <code>-m sensors</code> alone when one suite is enough.</p>
 <hr />
@@ -6616,19 +6694,212 @@ runs so the drone returns to the ground before the next trajectory type starts.<
 </tbody>
 </table>
 <hr />
+<h2 id="waypoint-flight-tests-systemtest_waypoint_flightpy">Waypoint Flight Tests (<code>system/test_waypoint_flight.py</code>)<a class="headerlink" href="#waypoint-flight-tests-systemtest_waypoint_flightpy" title="Permanent link">&para;</a></h2>
+<p><code>TestWaypointFlight</code> runs a <strong>4-phase flight chain</strong> per <code>(sim, num_robots,
+iteration)</code>: after takeoff it sends an ordered waypoint route to the local
+planner's <code>NavigateTask</code> action (<code>/robot_N/tasks/navigate</code>) as a <strong>dense</strong>
+<code>nav_msgs/Path</code> (interpolated at 1 m from the current pose through the
+waypoints, mirroring real global-planner output), captures odometry
+throughout, then lands.</p>
+<table>
+<thead>
+<tr>
+<th>Isaac Sim</th>
+<th>ms-airsim (Blocks)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img alt="Isaac Sim waypoint flight" src="assets/waypoint_flight_isaac.jpg" /></td>
+<td><img alt="ms-airsim Blocks waypoint flight" src="assets/waypoint_flight_msairsim_blocks.jpg" /></td>
+</tr>
+</tbody>
+</table>
+<p><img alt="Foxglove during a waypoint flight" src="assets/waypoint_flight_foxglove.png" />
+<em>Foxglove (GCS dashboard) during the route: planned path and expanded
+obstacle voxels in the 3D panel, Robot Tasks panel, live stereo feed.</em></p>
+<p>Pass/fail is judged by the standalone
+<a href="waypoint_checker.py"><code>waypoint_checker.py</code></a>: the odometry track must pass
+within <code>--waypoint-tolerance</code> of <strong>every waypoint in order</strong>, each within
+<code>--waypoint-timeout</code> seconds (odometry clock) of the previous arrival, and
+additionally end within <code>--goal-tolerance</code> of the final waypoint. The
+criterion is defined purely on the odometry track — not the action result —
+so swapping the global or local planner leaves the judgment unchanged. This
+makes the test the standard acceptance check after integrating or swapping a
+planner module.</p>
+<p>Waypoints are specified <strong>relative to the robot pose at dispatch</strong> (x forward
+along the initial heading, z up from dispatch altitude), so routes are
+spawn-point and simulator agnostic. The default route is an open 30 m square
+flown 10 m above takeoff altitude (~20 m AGL) so it clears scene clutter in
+both default scenes (Isaac open plane, AirSim Blocks) — this test judges
+route-following, not obstacle avoidance.</p>
+<p><strong>Tolerance calibration</strong> (validated against stock Isaac Sim flight): the
+stack's navigation contract is <em>reach the goal precisely, follow the route
+corridor loosely</em>. Stock <code>droan_gl</code> scores candidate trajectories with
+<code>cost = deviation - path_distance</code>, which cuts corners (~4–7 m observed), so
+the intermediate tolerance is loose (15 m) while the final goal is tight
+(2.5 m = NavigateTask's 1.5 m goal tolerance + tracking lag). <code>NavigateTask</code>
+succeeds on the <strong>tracking point</strong>, which leads the drone by up to the
+look-ahead distance, so the test keeps capturing after the action returns
+until the drone is stationary (max 30 s). Two route-design rules follow:
+routes must <strong>end away from the start</strong> (the action succeeds instantly on a
+closed loop), and legs should be <strong>≥ 2× the intermediate tolerance</strong> so the
+corridor check can discriminate route-following from goal-beelining.</p>
+<h3 id="phase-order_2">Phase order<a class="headerlink" href="#phase-order_2" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Test</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>test_px4_ready</code></td>
+<td>Waits for MAVROS connected + odometry publishing; per env</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>test_takeoff</code></td>
+<td>Takeoff to 10 m at 1 m/s; asserts altitude within 10 %</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>test_waypoint_route</code></td>
+<td>Sends <code>NavigateTask</code>; captures odom; asserts checker verdict</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>test_landing</code></td>
+<td>Sends <code>LandTask</code>; asserts final altitude &lt; 0.5 m</td>
+</tr>
+</tbody>
+</table>
+<p>A <code>test_waypoint_route</code> failure does <strong>not</strong> poison the chain — <code>test_landing</code>
+always runs so the drone returns to the ground.</p>
+<h3 id="recorded-metrics_2">Recorded metrics<a class="headerlink" href="#recorded-metrics_2" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric key</th>
+<th>Unit</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ready_duration_sys_s</code></td>
+<td>s</td>
+<td>Wall-clock time from test start until PX4 ready</td>
+</tr>
+<tr>
+<td><code>waypoint_success</code></td>
+<td>—</td>
+<td>1.0 if the checker passed the whole route</td>
+</tr>
+<tr>
+<td><code>waypoints_reached</code></td>
+<td>—</td>
+<td>Waypoints reached in order (<code>higher_is_better</code>)</td>
+</tr>
+<tr>
+<td><code>navigate_action_success</code></td>
+<td>—</td>
+<td>1.0 if the action returned <code>success: true</code></td>
+</tr>
+<tr>
+<td><code>route_time_sim_s</code></td>
+<td>s</td>
+<td>Odometry-clock time over the captured route</td>
+</tr>
+<tr>
+<td><code>worst_closest_approach_m</code></td>
+<td>m</td>
+<td>Largest closest-approach distance over all waypoints</td>
+</tr>
+<tr>
+<td><code>final_goal_error_m</code></td>
+<td>m</td>
+<td>Closest approach to the final waypoint (asserted ≤ <code>--goal-tolerance</code>)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-standalone-checker">The standalone checker<a class="headerlink" href="#the-standalone-checker" title="Permanent link">&para;</a></h3>
+<p><a href="waypoint_checker.py"><code>waypoint_checker.py</code></a> is stdlib-only and judges any
+odometry CSV against a route, independent of the AirStack harness — useful
+for judging waypoint flight on other ROS 2 systems or in agent-evaluation
+settings:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>ros2<span class="w"> </span>topic<span class="w"> </span><span class="nb">echo</span><span class="w"> </span>--csv<span class="w"> </span>/robot_1/interface/mavros/local_position/odom<span class="w"> </span>&gt;<span class="w"> </span>odom.csv
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>python3<span class="w"> </span>tests/waypoint_checker.py<span class="w"> </span>--odom-csv<span class="w"> </span>odom.csv<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>--waypoints<span class="w"> </span><span class="s2">&quot;10,0,10; 10,10,10; 0,10,10&quot;</span><span class="w"> </span>--tolerance<span class="w"> </span><span class="m">1</span>.5<span class="w"> </span>--budget<span class="w"> </span><span class="m">120</span>
+</span></code></pre></div>
+<p>It prints a JSON verdict (per-waypoint reached/closest-approach/elapsed) and
+exits 0 on pass, 1 on fail. Note the CLI takes waypoints in the <strong>odometry
+frame</strong> (the pytest wrapper does the relative-to-world transform).</p>
+<h3 id="running-waypoint-flight-tests">Running waypoint flight tests<a class="headerlink" href="#running-waypoint-flight-tests" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Default 10 m square route; ms-airsim; 1 robot</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>waypoint_flight<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>--sim<span class="w"> </span>msairsim<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span>-v
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="c1"># Custom route with an altitude change, Isaac Sim</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>waypoint_flight<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">  </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">  </span>--waypoints<span class="w"> </span><span class="s2">&quot;30,0,0; 30,30,5; 0,30,5&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">  </span>--goal-tolerance<span class="w"> </span><span class="m">2</span>.0<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">  </span>-v
+</span></code></pre></div>
+<h3 id="cli-option-reference-waypoint-specific">CLI option reference (waypoint-specific)<a class="headerlink" href="#cli-option-reference-waypoint-specific" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--waypoints</code></td>
+<td><code>30,0,10; 30,30,10; 0,30,10</code></td>
+<td>Ordered route <code>x,y,z; ...</code> relative to dispatch pose; must end away from start</td>
+</tr>
+<tr>
+<td><code>--waypoint-tolerance</code></td>
+<td><code>15</code></td>
+<td>Pass distance (m) to each intermediate waypoint (corridor check)</td>
+</tr>
+<tr>
+<td><code>--goal-tolerance</code></td>
+<td><code>2.5</code></td>
+<td>Pass distance (m) to the final waypoint</td>
+</tr>
+<tr>
+<td><code>--waypoint-timeout</code></td>
+<td><code>120</code></td>
+<td>Per-waypoint time budget (s, odometry clock)</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h2 id="metrics-reporting-parse_metricspy">Metrics Reporting (<code>parse_metrics.py</code>)<a class="headerlink" href="#metrics-reporting-parse_metricspy" title="Permanent link">&para;</a></h2>
 <p><a href="parse_metrics.py"><code>parse_metrics.py</code></a> reads <code>results.xml</code> and <code>metrics.json</code> from a run directory and produces a markdown report. It has two modes:</p>
 <h3 id="single-run-report">Single-run report<a class="headerlink" href="#single-run-report" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>tests/parse_metrics.py<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>--current<span class="w"> </span>tests/results/2025-04-21_14-30-00/
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>python<span class="w"> </span>tests/parse_metrics.py<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span>--current<span class="w"> </span>tests/results/2025-04-21_14-30-00/
 </span></code></pre></div>
 <p>Prints a markdown table of all recorded metrics. Always exits 0.</p>
 <h3 id="diff-regression-check">Diff / regression check<a class="headerlink" href="#diff-regression-check" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>python<span class="w"> </span>tests/parse_metrics.py<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span>--current<span class="w">  </span>tests/results/2025-04-21_14-30-00/<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>--baseline<span class="w"> </span>tests/results/2025-04-20_09-00-00/<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span>--threshold<span class="w"> </span><span class="m">20</span><span class="w">          </span><span class="c1"># optional: regression if change% exceeds this (default 20)</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span>--output<span class="w">   </span>report.md<span class="w">    </span><span class="c1"># optional: also write to file</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>python<span class="w"> </span>tests/parse_metrics.py<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span>--current<span class="w">  </span>tests/results/2025-04-21_14-30-00/<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span>--baseline<span class="w"> </span>tests/results/2025-04-20_09-00-00/<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span>--threshold<span class="w"> </span><span class="m">20</span><span class="w">          </span><span class="c1"># optional: regression if change% exceeds this (default 20)</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span>--output<span class="w">   </span>report.md<span class="w">    </span><span class="c1"># optional: also write to file</span>
 </span></code></pre></div>
 <p>Prints a side-by-side comparison. Exits <strong>1</strong> if any metric regresses beyond the threshold; exits 0 otherwise.</p>
 <p>The report has three sections per test module:</p>
@@ -6704,24 +6975,24 @@ runs so the drone returns to the ground before the next trajectory type starts.<
 <h2 id="cicd-orchestrator-openstack-backed-ephemeral-runners">CI/CD Orchestrator (OpenStack-backed ephemeral runners)<a class="headerlink" href="#cicd-orchestrator-openstack-backed-ephemeral-runners" title="Permanent link">&para;</a></h2>
 <p>AirStack's tests require a GPU, Docker, and a clean filesystem per run, so they execute on <strong>truly ephemeral OpenStack instances</strong> spawned per-job by an orchestrator. Each test job gets a fresh VM that is destroyed once the job completes — no Docker layer carryover, no leaked containers, no shared host state.</p>
 <h3 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h3>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>┌──────────────────────────────────────────────────────────────┐
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>│  Orchestrator VM  (airstack-ci-cd-orchestrator)              │
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>│   • polls GitHub for queued workflow_jobs                    │
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>│   • mints single-use JIT runner tokens                       │
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>│   • spawns / reaps ephemeral instances via OpenStack Nova    │
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>│   • holds the GitHub PAT and OpenStack application credential│
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>└────────────┬───────────────────────────────────┬─────────────┘
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>             │                                   │
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>             ▼                                   ▼
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>┌──────────────────────────────┐   ┌────────────────────────────────┐
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>│ Ephemeral worker (per job)   │   │ GitHub Actions queue           │
-</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>│ Image: Ubuntu-24.04-GPU-     │   │  workflow_job  status=queued   │
-</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>│        Headless              │   │  labels: [self-hosted,         │
-</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>│ cloud-init bootstraps Docker │   │           airstack-ephemeral]  │
-</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>│ + nvidia-container-toolkit + │   └────────────────────────────────┘
-</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>│ GH Actions runner; runs ONE  │
-</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>│ job, then is destroyed.      │
-</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>└──────────────────────────────┘
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>┌──────────────────────────────────────────────────────────────┐
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>│  Orchestrator VM  (airstack-ci-cd-orchestrator)              │
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>│   • polls GitHub for queued workflow_jobs                    │
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>│   • mints single-use JIT runner tokens                       │
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>│   • spawns / reaps ephemeral instances via OpenStack Nova    │
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>│   • holds the GitHub PAT and OpenStack application credential│
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>└────────────┬───────────────────────────────────┬─────────────┘
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>             │                                   │
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>             ▼                                   ▼
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>┌──────────────────────────────┐   ┌────────────────────────────────┐
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>│ Ephemeral worker (per job)   │   │ GitHub Actions queue           │
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>│ Image: Ubuntu-24.04-GPU-     │   │  workflow_job  status=queued   │
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>│        Headless              │   │  labels: [self-hosted,         │
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>│ cloud-init bootstraps Docker │   │           airstack-ephemeral]  │
+</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>│ + nvidia-container-toolkit + │   └────────────────────────────────┘
+</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>│ GH Actions runner; runs ONE  │
+</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>│ job, then is destroyed.      │
+</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>└──────────────────────────────┘
 </span></code></pre></div>
 <h3 id="why-this-instead-of-a-long-lived-self-hosted-runner">Why this instead of a long-lived self-hosted runner<a class="headerlink" href="#why-this-instead-of-a-long-lived-self-hosted-runner" title="Permanent link">&para;</a></h3>
 <table>

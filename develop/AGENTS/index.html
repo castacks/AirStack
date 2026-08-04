@@ -5723,6 +5723,12 @@
 <td>4-phase flight chain (PX4 ready → takeoff → execute Circle/Figure8/Racetrack/Line trajectory → land) per (sim, num_robots, iter, trajectory_type); records cross-track error and path RMSE</td>
 <td>Docker, GPU, sim license</td>
 </tr>
+<tr>
+<td><a href="../tests/system/test_waypoint_flight.py"><code>tests/system/test_waypoint_flight.py</code></a></td>
+<td><code>waypoint_flight</code></td>
+<td>4-phase flight chain (PX4 ready → takeoff → NavigateTask waypoint route → land) per (sim, num_robots, iter); pass/fail judged on the odometry track by the standalone <a href="../tests/waypoint_checker.py"><code>tests/waypoint_checker.py</code></a> (in-order corridor arrival within <code>--waypoint-tolerance</code>, final goal within <code>--goal-tolerance</code>, per-waypoint <code>--waypoint-timeout</code>)</td>
+<td>Docker, GPU, sim license</td>
+</tr>
 </tbody>
 </table>
 <p>The pytest hooks and the <code>airstack_env</code> / <code>robot_autonomy_stack</code> fixtures live in <a href="../tests/conftest.py"><code>tests/conftest.py</code></a>; the shared helpers are split by concern into the <a href="tests/harness/"><code>tests/harness/</code></a> package (<code>session</code>, <code>discovery</code>, <code>commands</code>, <code>containers</code>, <code>metrics</code> (with <code>MetricsRecorder</code>), <code>sim</code>, <code>collection</code>) and re-exported through <code>conftest</code>, so <code>from conftest import &lt;name&gt;</code> still resolves. Each run produces a timestamped directory under <code>tests/results/&lt;timestamp&gt;/</code> with <code>summary.txt</code>, <code>results.xml</code>, and <code>metrics.json</code> (no per-test log files — live output streams to the terminal via <code>log_cli</code>). <a href="../tests/parse_metrics.py"><code>tests/parse_metrics.py</code></a> generates a markdown report (single-run or diff-vs-baseline; exits 1 on regression).</p>
