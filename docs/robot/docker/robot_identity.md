@@ -107,8 +107,21 @@ The serial port for MAVLink (`/dev/ttyTHS4`) is hardcoded for real-robot profile
 export FCU_URL="/dev/ttyTHS4:115200"
 ```
 
-!!! warning "Hostname convention is required"
-    The hostname must match a rule in the mapping config file. If no rule matches, the script exits with an error and `ROBOT_NAME` / `ROS_DOMAIN_ID` will be unset. Make sure every physical robot has a hostname that matches a rule before deployment.
+!!! warning "Hostname convention is required — and it fails quietly"
+    The hostname must match a rule in the mapping config file. With the stock
+    `default_robot_name_map.yaml` the failure is **silent, not loud**: its final `.*`
+    catch-all matches anything, so a device named e.g. `airlab-jetson-42` resolves to
+    `ROBOT_NAME=unknown_robot`, `ROS_DOMAIN_ID=0` with no error and a clean boot. The
+    symptoms surface later — topics under `/unknown_robot`, per-robot config lookups
+    keyed on `ROBOT_NAME` finding no profile, and containers pinned to another domain
+    (`zed-l4t` hardcodes `ROS_DOMAIN_ID=1`) no longer seeing the stack.
+
+    Only a map with *no* catch-all makes `resolve_robot_name.py` exit non-zero. Either
+    way, verify after deployment rather than assuming:
+
+    ```bash
+    docker exec <container> bash -c 'echo "$(hostname) -> $ROBOT_NAME / $ROS_DOMAIN_ID"'
+    ```
 
 ### Fallback (anything else)
 
@@ -129,6 +142,12 @@ A warning is printed to the shell. This is safe for single-robot testing but **w
 | `simple` | `container_name` | Docker container name | Yes |
 | `voxl` | `hostname` | OS hostname of the device | Yes — set distinct hostnames |
 | `l4t` | `hostname` | OS hostname of the device | Yes — set distinct hostnames |
+
+On the `hostname` profiles the device name is not just how robots are told *apart* — it is
+how each one gets named at all. There is no container replica index to fall back on, so a
+Jetson called `airlab-desktop` has nothing to derive `robot_1` from and lands on the
+catch-all. Naming devices `robot-<n>` at provisioning time is the one step that makes both
+the single-robot and fleet cases work with no further configuration.
 | _(fallback)_ | _(other)_ | Hardcoded defaults | **No** |
 
 ## Overriding Manually
@@ -139,4 +158,23 @@ If you need to override the robot identity for testing, you can set the variable
 docker exec -e ROBOT_NAME=robot_5 -e ROS_DOMAIN_ID=5 -it <container> bash
 ```
 
-Or add them to your project's `.env` file and pass them through in `docker-compose.yaml`.
+For a **persistent** change, set the identity where the resolver reads it from — the
+device hostname on real hardware, or a mapping rule:
+
+```bash
+sudo hostnamectl set-hostname robot-1    # -> ROBOT_NAME=robot_1, ROS_DOMAIN_ID=1
+```
+
+!!! danger "Setting `ROBOT_NAME` in an env file does nothing"
+    No compose service declares `ROBOT_NAME` or `ROS_DOMAIN_ID` in its `environment:`
+    block, and Docker Compose only injects a variable into a container if a service
+    names it there. Putting `ROBOT_NAME=robot_1` in an override `.env` sets it for
+    **compose's own interpolation**, not for the container — `.bashrc` sees it unset,
+    the map lookup runs anyway, and there is no error.
+
+    `overrides/l4t-px4-realrobot.env` used to ship `ROBOT_NAME` / `ROS_DOMAIN_ID` on
+    this basis; they never had any effect and have been removed.
+
+    The general lesson applies to any deployment knob: it needs a declaration in the
+    service's `environment:` **and** a consumer that reads it, or it silently does
+    nothing.
