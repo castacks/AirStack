@@ -40,6 +40,17 @@ def pytest_addoption(parser):
     parser.addoption("--trajectory-types", default="Circle,Figure8,Racetrack,Line",
                      help="Comma-separated fixed trajectory types to sweep in "
                           "test_fixed_trajectory. Default: Circle,Figure8,Racetrack,Line")
+    parser.addoption("--waypoints", default="10,0,0; 10,10,0; 0,10,0; 0,0,0",
+                     help="Ordered waypoint route for test_waypoint_flight as "
+                          "'x,y,z; x,y,z; ...', relative to the robot pose at "
+                          "dispatch (x forward along heading, z up). "
+                          "Default: 10 m square at takeoff altitude.")
+    parser.addoption("--waypoint-tolerance", default="1.5",
+                     help="Pass distance (m) to each waypoint in "
+                          "test_waypoint_flight. Default: 1.5")
+    parser.addoption("--waypoint-timeout", default="120",
+                     help="Per-waypoint time budget (s, odometry clock) in "
+                          "test_waypoint_flight. Default: 120")
 
 
 def pytest_configure(config):

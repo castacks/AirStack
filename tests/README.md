@@ -24,6 +24,7 @@ Pytest hooks and the shared fixtures live in `tests/conftest.py`; reusable helpe
 | [`system/test_sensors.py`](system/test_sensors.py) | `sensors` | After liveliness in collection order: sim + robot stereo/depth Hz (**Isaac:** batched ``ros2 topic hz`` to avoid bridge overload; **ms-airsim:** single batch), filtered LiDAR via ``echo --once`` + cloud sanity (isaacsim), sim RTF, ``test_sensor_streams_stable`` | Docker daemon, GPU, sim license |
 | [`system/test_takeoff_hover_land.py`](system/test_takeoff_hover_land.py) | `takeoff_hover_land` | End-to-end flight: PX4 readiness gate, takeoff to 10 m, hover stability, land — one chain per (sim, num_robots, iteration, velocity) | Docker daemon, GPU, sim license |
 | [`system/test_fixed_trajectory.py`](system/test_fixed_trajectory.py) | `autonomy` | Fixed-pattern trajectory evaluation: takeoff, execute a trajectory (Circle, Figure8, Racetrack, Line), record path deviation metrics, land — one chain per (sim, num_robots, iteration, trajectory_type) | Docker daemon, GPU, sim license |
+| [`system/test_waypoint_flight.py`](system/test_waypoint_flight.py) | `waypoint_flight` | Ordered-waypoint navigation: takeoff, send a waypoint route to `NavigateTask`, judge the odometry track with the standalone [`waypoint_checker.py`](waypoint_checker.py), land — one chain per (sim, num_robots, iteration) | Docker daemon, GPU, sim license |
 
 ### Unit tests (co-located)
 
@@ -55,7 +56,7 @@ container or brings one up automatically (like `build_packages`), then tears it 
 Collection order runs integration after `build_packages` and before the sim tiers.
 
 Marks can be combined with pytest logic:
-`-m unit`, `-m "build_docker or build_packages"`, `-m integration`, `-m liveliness`, `-m sensors`, `-m takeoff_hover_land`, `-m autonomy`, or e.g. `-m "liveliness or sensors"` (see **Bring-up scope** below).
+`-m unit`, `-m "build_docker or build_packages"`, `-m integration`, `-m liveliness`, `-m sensors`, `-m takeoff_hover_land`, `-m autonomy`, `-m waypoint_flight`, or e.g. `-m "liveliness or sensors"` (see **Bring-up scope** below).
 
 ### Bring-up scope (`airstack_env`)
 
@@ -370,6 +371,96 @@ airstack test -m autonomy \
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--trajectory-types` | `Circle,Figure8,Racetrack,Line` | Comma-separated trajectory types to sweep |
+
+---
+
+## Waypoint Flight Tests (`system/test_waypoint_flight.py`)
+
+`TestWaypointFlight` runs a **4-phase flight chain** per `(sim, num_robots,
+iteration)`: after takeoff it sends an ordered waypoint route to the local
+planner's `NavigateTask` action (`/robot_N/tasks/navigate`) as a
+`nav_msgs/Path`, captures odometry throughout, then lands.
+
+Pass/fail is judged by the standalone
+[`waypoint_checker.py`](waypoint_checker.py): the odometry track must pass
+within `--waypoint-tolerance` of **every waypoint in order**, each within
+`--waypoint-timeout` seconds (odometry clock) of the previous arrival. The
+criterion is defined purely on the odometry track — not the action result —
+so swapping the global or local planner leaves the judgment unchanged. This
+makes the test the standard acceptance check after integrating or swapping a
+planner module.
+
+Waypoints are specified **relative to the robot pose at dispatch** (x forward
+along the initial heading, z up from dispatch altitude), so routes are
+spawn-point and simulator agnostic. The default route is a 10 m square at
+takeoff altitude.
+
+### Phase order
+
+| Phase | Test | What happens |
+| ----- | ---- | ------------ |
+| 1 | `test_px4_ready` | Waits for MAVROS connected + odometry publishing; per env |
+| 2 | `test_takeoff` | Takeoff to 10 m at 1 m/s; asserts altitude within 10 % |
+| 3 | `test_waypoint_route` | Sends `NavigateTask`; captures odom; asserts checker verdict |
+| 4 | `test_landing` | Sends `LandTask`; asserts final altitude < 0.5 m |
+
+A `test_waypoint_route` failure does **not** poison the chain — `test_landing`
+always runs so the drone returns to the ground.
+
+### Recorded metrics
+
+| Metric key | Unit | Description |
+| ---------- | ---- | ----------- |
+| `ready_duration_sys_s` | s | Wall-clock time from test start until PX4 ready |
+| `waypoint_success` | — | 1.0 if the checker passed the whole route |
+| `waypoints_reached` | — | Waypoints reached in order (`higher_is_better`) |
+| `navigate_action_success` | — | 1.0 if the action returned `success: true` |
+| `route_time_sim_s` | s | Odometry-clock time over the captured route |
+| `worst_closest_approach_m` | m | Largest closest-approach distance over all waypoints |
+
+### The standalone checker
+
+[`waypoint_checker.py`](waypoint_checker.py) is stdlib-only and judges any
+odometry CSV against a route, independent of the AirStack harness — useful
+for judging waypoint flight on other ROS 2 systems or in agent-evaluation
+settings:
+
+```bash
+ros2 topic echo --csv /robot_1/interface/mavros/local_position/odom > odom.csv
+python3 tests/waypoint_checker.py --odom-csv odom.csv \
+  --waypoints "10,0,10; 10,10,10; 0,10,10" --tolerance 1.5 --budget 120
+```
+
+It prints a JSON verdict (per-waypoint reached/closest-approach/elapsed) and
+exits 0 on pass, 1 on fail. Note the CLI takes waypoints in the **odometry
+frame** (the pytest wrapper does the relative-to-world transform).
+
+### Running waypoint flight tests
+
+```bash
+# Default 10 m square route; ms-airsim; 1 robot
+airstack test -m waypoint_flight \
+  --sim msairsim \
+  --num-robots 1 \
+  --stress-iterations 1 \
+  -v
+
+# Custom route and tighter tolerance, Isaac Sim
+airstack test -m waypoint_flight \
+  --sim isaacsim \
+  --num-robots 1 \
+  --waypoints "15,0,0; 15,15,5; 0,15,5; 0,0,0" \
+  --waypoint-tolerance 1.0 \
+  -v
+```
+
+### CLI option reference (waypoint-specific)
+
+| Option | Default | Description |
+| ------ | ------- | ----------- |
+| `--waypoints` | `10,0,0; 10,10,0; 0,10,0; 0,0,0` | Ordered route `x,y,z; ...` relative to dispatch pose |
+| `--waypoint-tolerance` | `1.5` | Pass distance (m) to each waypoint |
+| `--waypoint-timeout` | `120` | Per-waypoint time budget (s, odometry clock) |
 
 ---
 
