@@ -383,6 +383,14 @@ planner's `NavigateTask` action (`/robot_N/tasks/navigate`) as a **dense**
 waypoints, mirroring real global-planner output), captures odometry
 throughout, then lands.
 
+| Isaac Sim | ms-airsim (Blocks) |
+| --------- | ------------------ |
+| ![Isaac Sim waypoint flight](assets/waypoint_flight_isaac.jpg) | ![ms-airsim Blocks waypoint flight](assets/waypoint_flight_msairsim_blocks.jpg) |
+
+![Foxglove during a waypoint flight](assets/waypoint_flight_foxglove.png)
+*Foxglove (GCS dashboard) during the route: planned path and expanded
+obstacle voxels in the 3D panel, Robot Tasks panel, live stereo feed.*
+
 Pass/fail is judged by the standalone
 [`waypoint_checker.py`](waypoint_checker.py): the odometry track must pass
 within `--waypoint-tolerance` of **every waypoint in order**, each within
