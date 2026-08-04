@@ -378,13 +378,16 @@ airstack test -m autonomy \
 
 `TestWaypointFlight` runs a **4-phase flight chain** per `(sim, num_robots,
 iteration)`: after takeoff it sends an ordered waypoint route to the local
-planner's `NavigateTask` action (`/robot_N/tasks/navigate`) as a
-`nav_msgs/Path`, captures odometry throughout, then lands.
+planner's `NavigateTask` action (`/robot_N/tasks/navigate`) as a **dense**
+`nav_msgs/Path` (interpolated at 1 m from the current pose through the
+waypoints, mirroring real global-planner output), captures odometry
+throughout, then lands.
 
 Pass/fail is judged by the standalone
 [`waypoint_checker.py`](waypoint_checker.py): the odometry track must pass
 within `--waypoint-tolerance` of **every waypoint in order**, each within
-`--waypoint-timeout` seconds (odometry clock) of the previous arrival. The
+`--waypoint-timeout` seconds (odometry clock) of the previous arrival, and
+additionally end within `--goal-tolerance` of the final waypoint. The
 criterion is defined purely on the odometry track — not the action result —
 so swapping the global or local planner leaves the judgment unchanged. This
 makes the test the standard acceptance check after integrating or swapping a
@@ -392,8 +395,21 @@ planner module.
 
 Waypoints are specified **relative to the robot pose at dispatch** (x forward
 along the initial heading, z up from dispatch altitude), so routes are
-spawn-point and simulator agnostic. The default route is a 10 m square at
-takeoff altitude.
+spawn-point and simulator agnostic. The default route is an open 30 m square
+at takeoff altitude.
+
+**Tolerance calibration** (validated against stock Isaac Sim flight): the
+stack's navigation contract is *reach the goal precisely, follow the route
+corridor loosely*. Stock `droan_gl` scores candidate trajectories with
+`cost = deviation - path_distance`, which cuts corners (~4–7 m observed), so
+the intermediate tolerance is loose (15 m) while the final goal is tight
+(2.5 m = NavigateTask's 1.5 m goal tolerance + tracking lag). `NavigateTask`
+succeeds on the **tracking point**, which leads the drone by up to the
+look-ahead distance, so the test keeps capturing after the action returns
+until the drone is stationary (max 30 s). Two route-design rules follow:
+routes must **end away from the start** (the action succeeds instantly on a
+closed loop), and legs should be **≥ 2× the intermediate tolerance** so the
+corridor check can discriminate route-following from goal-beelining.
 
 ### Phase order
 
@@ -417,6 +433,7 @@ always runs so the drone returns to the ground.
 | `navigate_action_success` | — | 1.0 if the action returned `success: true` |
 | `route_time_sim_s` | s | Odometry-clock time over the captured route |
 | `worst_closest_approach_m` | m | Largest closest-approach distance over all waypoints |
+| `final_goal_error_m` | m | Closest approach to the final waypoint (asserted ≤ `--goal-tolerance`) |
 
 ### The standalone checker
 
@@ -445,12 +462,12 @@ airstack test -m waypoint_flight \
   --stress-iterations 1 \
   -v
 
-# Custom route and tighter tolerance, Isaac Sim
+# Custom route with an altitude change, Isaac Sim
 airstack test -m waypoint_flight \
   --sim isaacsim \
   --num-robots 1 \
-  --waypoints "15,0,0; 15,15,5; 0,15,5; 0,0,0" \
-  --waypoint-tolerance 1.0 \
+  --waypoints "30,0,0; 30,30,5; 0,30,5" \
+  --goal-tolerance 2.0 \
   -v
 ```
 
@@ -458,8 +475,9 @@ airstack test -m waypoint_flight \
 
 | Option | Default | Description |
 | ------ | ------- | ----------- |
-| `--waypoints` | `10,0,0; 10,10,0; 0,10,0; 0,0,0` | Ordered route `x,y,z; ...` relative to dispatch pose |
-| `--waypoint-tolerance` | `1.5` | Pass distance (m) to each waypoint |
+| `--waypoints` | `30,0,0; 30,30,0; 0,30,0` | Ordered route `x,y,z; ...` relative to dispatch pose; must end away from start |
+| `--waypoint-tolerance` | `15` | Pass distance (m) to each intermediate waypoint (corridor check) |
+| `--goal-tolerance` | `2.5` | Pass distance (m) to the final waypoint |
 | `--waypoint-timeout` | `120` | Per-waypoint time budget (s, odometry clock) |
 
 ---

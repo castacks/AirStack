@@ -100,6 +100,10 @@ def check_track(rows, waypoints, tolerance_m, budget_s_per_waypoint):
     all_reached = True
 
     for wi, (wx, wy, wz) in enumerate(waypoints):
+        # arrival = FIRST sample within tolerance (preserves ordering
+        # semantics); closest_approach = true minimum over the whole
+        # remaining track, so the report reflects how near the drone
+        # actually got, not just the tolerance boundary crossing.
         arrival_idx = None
         closest = math.inf
         for i in range(start_idx, len(rows)):
@@ -107,9 +111,8 @@ def check_track(rows, waypoints, tolerance_m, budget_s_per_waypoint):
             d = math.sqrt((x - wx) ** 2 + (y - wy) ** 2 + (z - wz) ** 2)
             if d < closest:
                 closest = d
-            if d <= tolerance_m:
+            if arrival_idx is None and d <= tolerance_m:
                 arrival_idx = i
-                break
 
         entry = {
             "index": wi,

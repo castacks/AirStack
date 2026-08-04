@@ -40,14 +40,27 @@ def pytest_addoption(parser):
     parser.addoption("--trajectory-types", default="Circle,Figure8,Racetrack,Line",
                      help="Comma-separated fixed trajectory types to sweep in "
                           "test_fixed_trajectory. Default: Circle,Figure8,Racetrack,Line")
-    parser.addoption("--waypoints", default="10,0,0; 10,10,0; 0,10,0; 0,0,0",
+    parser.addoption("--waypoints", default="30,0,0; 30,30,0; 0,30,0",
                      help="Ordered waypoint route for test_waypoint_flight as "
                           "'x,y,z; x,y,z; ...', relative to the robot pose at "
-                          "dispatch (x forward along heading, z up). "
-                          "Default: 10 m square at takeoff altitude.")
-    parser.addoption("--waypoint-tolerance", default="1.5",
-                     help="Pass distance (m) to each waypoint in "
-                          "test_waypoint_flight. Default: 1.5")
+                          "dispatch (x forward along heading, z up). The route "
+                          "must END AWAY from the start: NavigateTask succeeds "
+                          "when the robot is within tolerance of the FINAL "
+                          "pose, so a closed loop succeeds instantly without "
+                          "flying. Legs should be >= 2x --waypoint-tolerance "
+                          "or the corridor check cannot discriminate "
+                          "route-following from goal-beelining. Default: open "
+                          "30 m square (3 corners) at takeoff altitude.")
+    parser.addoption("--waypoint-tolerance", default="15",
+                     help="Pass distance (m) to each intermediate waypoint in "
+                          "test_waypoint_flight. Calibrated to stock droan_gl "
+                          "plan-following, which trades deviation for path "
+                          "progress 1:1 and cuts corners deeply (7-10 m "
+                          "observed in Isaac). Default: 15")
+    parser.addoption("--goal-tolerance", default="2.5",
+                     help="Pass distance (m) to the FINAL waypoint in "
+                          "test_waypoint_flight: NavigateTask goal tolerance "
+                          "(1.5 m) plus tracking-point lag margin. Default: 2.5")
     parser.addoption("--waypoint-timeout", default="120",
                      help="Per-waypoint time budget (s, odometry clock) in "
                           "test_waypoint_flight. Default: 120")

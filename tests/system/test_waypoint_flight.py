@@ -3,20 +3,39 @@
 Per (sim, num_robots, iter): ready → takeoff → navigate waypoint route → land.
 
 After takeoff the test sends the route to the local planner's NavigateTask
-action (``/robot_N/tasks/navigate``) as a ``nav_msgs/Path`` and captures
-odometry throughout. Pass/fail is judged by the standalone
+action (``/robot_N/tasks/navigate``) as a dense ``nav_msgs/Path`` and
+captures odometry throughout. Pass/fail is judged by the standalone
 ``tests/waypoint_checker.py``: the odometry track must pass within
 ``--waypoint-tolerance`` of every waypoint **in order**, each within
-``--waypoint-timeout`` seconds of the previous arrival. Judging on the
+``--waypoint-timeout`` seconds of the previous arrival, and additionally
+end within ``--goal-tolerance`` of the final waypoint. Judging on the
 odometry track (rather than the action result) keeps the success criterion
 independent of any particular planner implementation — swap the global or
 local planner and the same test still judges the flight.
 
+Tolerance calibration: the stack's navigation contract is "reach the goal
+precisely, follow the route corridor loosely" — stock droan_gl scores
+candidate trajectories with cost = deviation - path_distance, which cuts
+corners deeply (7-10 m observed in Isaac). Hence the loose default
+intermediate tolerance (15 m) with a tight final goal tolerance
+(2.5 m = NavigateTask's 1.5 m + tracking-point lag; capture continues
+after action success until the drone is stationary, since the action
+succeeds on the tracking point, which leads the drone by up to the
+look-ahead distance). Route legs must be >= 2x the intermediate
+tolerance for the corridor check to discriminate route-following from
+goal-beelining.
+
 Waypoints are given relative to the robot's pose at dispatch (x forward
 along initial heading, z up from dispatch altitude) so routes are
 spawn-point and sim agnostic.
+
+Route design constraint: NavigateTask declares success when the tracking
+point is within goal_tolerance_m of the route's FINAL pose, so a route
+that closes back on its start "succeeds" instantly without flying.
+Routes must end away from the start; the default is an open square.
 """
 
+import math
 import time
 
 import pytest
@@ -45,12 +64,20 @@ from system.test_fixed_trajectory import (
 from waypoint_checker import check_track, parse_waypoints
 
 PX4_READY_TIMEOUT_S = 300.0
+NAVIGATE_GOAL_TOLERANCE_M = 1.5   # goal_tolerance_m sent in the NavigateTask goal
+# The action succeeds on the TRACKING POINT (controller reference), which leads
+# the drone by up to the look-ahead distance (~10 m observed) — keep capturing
+# after the action returns until the drone itself stops moving.
+MAX_SETTLE_S = 30.0
+SETTLE_POLL_S = 2.0
+SETTLE_STATIONARY_M = 0.3
 
 METRIC_UNITS = {
     "waypoint_success": "",
     "waypoints_reached": "",
     "navigate_action_success": "",
     "route_time_sim_s": "s",
+    "ready_duration_sys_s": "s",
     # Everything else defaults to "m".
 }
 
@@ -68,20 +95,47 @@ def _record(robot_n: int, metrics_dict: dict) -> None:
         m.record(tid, f"robot_{robot_n}.{key}", value, unit=unit, direction=direction)
 
 
+PLAN_POINT_SPACING_M = 1.0
+
+
+def _densify(pts: list[tuple[float, float, float]],
+             spacing: float = PLAN_POINT_SPACING_M) -> list[tuple[float, float, float]]:
+    """Linearly interpolate between consecutive points at ~spacing intervals.
+
+    The local planner walks the global plan by distance with a look-ahead;
+    sparse poses (e.g. 10 m apart) get skipped over and corners are cut, so
+    the dispatched plan must be dense like a real global planner's output.
+    """
+    dense = [pts[0]]
+    for (ax, ay, az), (bx, by, bz) in zip(pts, pts[1:]):
+        d = math.sqrt((bx - ax) ** 2 + (by - ay) ** 2 + (bz - az) ** 2)
+        steps = max(1, math.ceil(d / spacing))
+        for i in range(1, steps + 1):
+            f = i / steps
+            dense.append((ax + (bx - ax) * f,
+                          ay + (by - ay) * f,
+                          az + (bz - az) * f))
+    return dense
+
+
 def _build_navigate_goal(world_pts: list[tuple[float, float, float]],
-                         tolerance_m: float) -> str:
-    """YAML goal for a NavigateTask send_goal call from world-frame waypoints."""
+                         frame_id: str, tolerance_m: float) -> str:
+    """YAML goal for a NavigateTask send_goal call from world-frame waypoints.
+
+    frame_id must be a real TF frame: the local planner TF-transforms the
+    plan by its header frame and dies on an empty one.
+    """
     poses = ", ".join(
         f"{{pose: {{position: {{x: {x:.3f}, y: {y:.3f}, z: {z:.3f}}}, "
         f"orientation: {{w: 1.0}}}}}}"
         for x, y, z in world_pts
     )
-    return (f"{{global_plan: {{header: {{frame_id: ''}}, poses: [{poses}]}}, "
-            f"goal_tolerance_m: {tolerance_m}}}")
+    return (f"{{global_plan: {{header: {{frame_id: '{frame_id}'}}, "
+            f"poses: [{poses}]}}, goal_tolerance_m: {tolerance_m}}}")
 
 
 def _snapshot_start_pose(robot_container: str, cfg: dict, n: int):
-    """World-frame (x, y, z, yaw) of robot n right now, from one odom sample."""
+    """World-frame (x, y, z, yaw, frame_id) of robot n, from one odom sample."""
     snap = ros2_exec(
         robot_container,
         f"timeout 5 ros2 topic echo --once --csv "
@@ -103,25 +157,30 @@ def _snapshot_start_pose(robot_container: str, cfg: dict, n: int):
                         float(row["pose.pose.orientation.z"]),
                         float(row["pose.pose.orientation.w"]),
                     ),
+                    row["header.frame_id"].strip() or "map",
                 )
             except (ValueError, KeyError):
                 pass
-    return 0.0, 0.0, TARGET_ALTITUDE_M, 0.0
+    return 0.0, 0.0, TARGET_ALTITUDE_M, 0.0, "map"
 
 
 def _navigate_one_robot(n: int, robot_container: str, cfg: dict,
                         waypoints_rel: list[tuple[float, float, float]],
-                        tolerance_m: float, budget_s: float) -> None:
+                        tolerance_m: float, goal_tolerance_m: float,
+                        budget_s: float) -> None:
     route_timeout = budget_s * len(waypoints_rel) + 30.0
 
-    x0, y0, z0, yaw0 = _snapshot_start_pose(robot_container, cfg, n)
+    x0, y0, z0, yaw0, frame_id = _snapshot_start_pose(robot_container, cfg, n)
     world_pts = _transform_to_world(waypoints_rel, x0, y0, z0, yaw0)
-    logger.info("robot_%d waypoint route (world frame): %s", n,
+    logger.info("robot_%d waypoint route (frame %s): %s", n, frame_id,
                 [(round(x, 1), round(y, 1), round(z, 1)) for x, y, z in world_pts])
+    # Dispatch a dense plan from the current pose through the waypoints
+    # (mirrors real global-planner output); judge only the user waypoints.
+    plan_pts = _densify([(x0, y0, z0)] + world_pts)
 
     streams = _start_captures(robot_container, cfg["robot_setup_bash"],
-                              n, route_timeout + 10, "waypoints")
-    goal = _build_navigate_goal(world_pts, tolerance_m)
+                              n, route_timeout + MAX_SETTLE_S + 10, "waypoints")
+    goal = _build_navigate_goal(plan_pts, frame_id, NAVIGATE_GOAL_TOLERANCE_M)
     result = ros2_exec(
         robot_container,
         f'ros2 action send_goal --feedback /robot_{n}/tasks/navigate '
@@ -129,6 +188,16 @@ def _navigate_one_robot(n: int, robot_container: str, cfg: dict,
         domain_id=n, setup_bash=cfg["robot_setup_bash"],
         timeout=int(route_timeout + 15),
     )
+    # Record the drone catching up to the tracking point: poll its position
+    # until it is stationary (arrived and hovering) or MAX_SETTLE_S elapses.
+    settle_deadline = time.monotonic() + MAX_SETTLE_S
+    prev_pos = None
+    while time.monotonic() < settle_deadline:
+        px, py, pz, _, _ = _snapshot_start_pose(robot_container, cfg, n)
+        if prev_pos is not None and math.dist((px, py, pz), prev_pos) < SETTLE_STATIONARY_M:
+            break
+        prev_pos = (px, py, pz)
+        time.sleep(SETTLE_POLL_S)
     odom = _finish_captures(streams)
 
     action_success = _action_ok(result.stdout)
@@ -147,12 +216,14 @@ def _navigate_one_robot(n: int, robot_container: str, cfg: dict,
     verdict = check_track(rows, world_pts, tolerance_m, budget_s)
 
     reached = sum(1 for w in verdict["waypoints"] if w["reached"])
+    goal_error_m = verdict["waypoints"][-1]["closest_approach_m"]
     metrics = {
         "waypoint_success": 1.0 if verdict["success"] else 0.0,
         "waypoints_reached": float(reached),
         "route_time_sim_s": verdict.get("total_time_s"),
         "worst_closest_approach_m": max(
             w["closest_approach_m"] for w in verdict["waypoints"]),
+        "final_goal_error_m": goal_error_m,
     }
     _record(n, metrics)
     for w in verdict["waypoints"]:
@@ -166,6 +237,11 @@ def _navigate_one_robot(n: int, robot_container: str, cfg: dict,
         f"(tolerance {tolerance_m}m, budget {budget_s}s/waypoint); "
         f"closest approaches: "
         f"{[w['closest_approach_m'] for w in verdict['waypoints']]}"
+    )
+    assert goal_error_m <= goal_tolerance_m, (
+        f"robot_{n} final goal error {goal_error_m:.2f}m exceeds "
+        f"{goal_tolerance_m}m (NavigateTask tolerance "
+        f"{NAVIGATE_GOAL_TOLERANCE_M}m + tracking margin)"
     )
 
 
@@ -208,6 +284,10 @@ class TestWaypointFlight:
     @pytest.fixture
     def tolerance_m(self, request):
         return float(request.config.getoption("--waypoint-tolerance"))
+
+    @pytest.fixture
+    def goal_tolerance_m(self, request):
+        return float(request.config.getoption("--goal-tolerance"))
 
     @pytest.fixture
     def budget_s(self, request):
@@ -270,14 +350,15 @@ class TestWaypointFlight:
         )
 
     @pytest.mark.dependency(name="wpf_route", depends=["wpf_takeoff"])
-    def test_waypoint_route(self, airstack_env, waypoints_rel, tolerance_m, budget_s):
+    def test_waypoint_route(self, airstack_env, waypoints_rel, tolerance_m,
+                            goal_tolerance_m, budget_s):
         """Send NavigateTask with the route; judge odometry with waypoint_checker."""
         cfg = airstack_env["cfg"]
         robot_container = get_robot_containers(airstack_env["robot_pattern"])[0]
         _run_parallel(
             airstack_env["num_robots"],
-            lambda n: _navigate_one_robot(n, robot_container, cfg,
-                                          waypoints_rel, tolerance_m, budget_s),
+            lambda n: _navigate_one_robot(n, robot_container, cfg, waypoints_rel,
+                                          tolerance_m, goal_tolerance_m, budget_s),
         )
 
     @pytest.mark.dependency(name="wpf_land", depends=["wpf_takeoff"])
