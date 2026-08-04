@@ -40,7 +40,7 @@ def pytest_addoption(parser):
     parser.addoption("--trajectory-types", default="Circle,Figure8,Racetrack,Line",
                      help="Comma-separated fixed trajectory types to sweep in "
                           "test_fixed_trajectory. Default: Circle,Figure8,Racetrack,Line")
-    parser.addoption("--waypoints", default="30,0,0; 30,30,0; 0,30,0",
+    parser.addoption("--waypoints", default="30,0,10; 30,30,10; 0,30,10",
                      help="Ordered waypoint route for test_waypoint_flight as "
                           "'x,y,z; x,y,z; ...', relative to the robot pose at "
                           "dispatch (x forward along heading, z up). The route "
@@ -50,7 +50,10 @@ def pytest_addoption(parser):
                           "flying. Legs should be >= 2x --waypoint-tolerance "
                           "or the corridor check cannot discriminate "
                           "route-following from goal-beelining. Default: open "
-                          "30 m square (3 corners) at takeoff altitude.")
+                          "30 m square (3 corners) climbing 10 m above "
+                          "takeoff altitude, so the route clears scene "
+                          "clutter (e.g. AirSim Blocks) — this test judges "
+                          "route-following, not obstacle avoidance.")
     parser.addoption("--waypoint-tolerance", default="15",
                      help="Pass distance (m) to each intermediate waypoint in "
                           "test_waypoint_flight. Calibrated to stock droan_gl "

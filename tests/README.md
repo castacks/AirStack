@@ -396,7 +396,9 @@ planner module.
 Waypoints are specified **relative to the robot pose at dispatch** (x forward
 along the initial heading, z up from dispatch altitude), so routes are
 spawn-point and simulator agnostic. The default route is an open 30 m square
-at takeoff altitude.
+flown 10 m above takeoff altitude (~20 m AGL) so it clears scene clutter in
+both default scenes (Isaac open plane, AirSim Blocks) — this test judges
+route-following, not obstacle avoidance.
 
 **Tolerance calibration** (validated against stock Isaac Sim flight): the
 stack's navigation contract is *reach the goal precisely, follow the route
@@ -475,7 +477,7 @@ airstack test -m waypoint_flight \
 
 | Option | Default | Description |
 | ------ | ------- | ----------- |
-| `--waypoints` | `30,0,0; 30,30,0; 0,30,0` | Ordered route `x,y,z; ...` relative to dispatch pose; must end away from start |
+| `--waypoints` | `30,0,10; 30,30,10; 0,30,10` | Ordered route `x,y,z; ...` relative to dispatch pose; must end away from start |
 | `--waypoint-tolerance` | `15` | Pass distance (m) to each intermediate waypoint (corridor check) |
 | `--goal-tolerance` | `2.5` | Pass distance (m) to the final waypoint |
 | `--waypoint-timeout` | `120` | Per-waypoint time budget (s, odometry clock) |
