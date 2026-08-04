@@ -1,0 +1,722 @@
+{
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_px4_ready[isaacsim-rob#1-trajCircle-iter0]": {
+    "airstack_up_duration_s": {
+      "value": 0.72,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.ready_duration_sys_s": {
+      "value": 91.0,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "airstack_down_duration_s": {
+      "value": 11.24,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_takeoff[isaacsim-rob#1-trajCircle-iter0]": {
+    "robot_1.altitude_error_m": {
+      "value": -0.19,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.overshoot_m": {
+      "value": 0.0,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.takeoff_duration_sim_s": {
+      "value": 4.98,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_fixed_trajectory[isaacsim-rob#1-trajCircle-iter0]": {
+    "robot_1.trajectory_success": {
+      "value": 1.0,
+      "unit": "",
+      "direction": "higher_is_better"
+    },
+    "robot_1.trajectory_execution_time_sim_s": {
+      "value": 28.47,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_mean_m": {
+      "value": 0.075,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_max_m": {
+      "value": 0.139,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.path_rmse_m": {
+      "value": 0.084,
+      "unit": "m",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_landing[isaacsim-rob#1-trajCircle-iter0]": {
+    "robot_1.final_altitude_m": {
+      "value": 0.007,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.land_duration_sim_s": {
+      "value": 1.83,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_px4_ready[isaacsim-rob#1-trajCircle-iter1]": {
+    "airstack_up_duration_s": {
+      "value": 0.71,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.ready_duration_sys_s": {
+      "value": 92.9,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "airstack_down_duration_s": {
+      "value": 11.28,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_takeoff[isaacsim-rob#1-trajCircle-iter1]": {
+    "robot_1.altitude_error_m": {
+      "value": -0.2,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.overshoot_m": {
+      "value": 0.0,
+      "unit": "m",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_fixed_trajectory[isaacsim-rob#1-trajCircle-iter1]": {
+    "robot_1.trajectory_success": {
+      "value": 1.0,
+      "unit": "",
+      "direction": "higher_is_better"
+    },
+    "robot_1.trajectory_execution_time_sim_s": {
+      "value": 27.63,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_mean_m": {
+      "value": 0.119,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_max_m": {
+      "value": 0.202,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.path_rmse_m": {
+      "value": 0.131,
+      "unit": "m",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_landing[isaacsim-rob#1-trajCircle-iter1]": {
+    "robot_1.final_altitude_m": {
+      "value": 0.033,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.land_duration_sim_s": {
+      "value": 1.86,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_px4_ready[isaacsim-rob#1-trajCircle-iter2]": {
+    "airstack_up_duration_s": {
+      "value": 0.73,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.ready_duration_sys_s": {
+      "value": 92.49,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "airstack_down_duration_s": {
+      "value": 11.24,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_takeoff[isaacsim-rob#1-trajCircle-iter2]": {
+    "robot_1.altitude_error_m": {
+      "value": -0.183,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.overshoot_m": {
+      "value": 0.0,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.takeoff_duration_sim_s": {
+      "value": 5.07,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_fixed_trajectory[isaacsim-rob#1-trajCircle-iter2]": {
+    "robot_1.trajectory_success": {
+      "value": 1.0,
+      "unit": "",
+      "direction": "higher_is_better"
+    },
+    "robot_1.trajectory_execution_time_sim_s": {
+      "value": 27.09,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_mean_m": {
+      "value": 0.088,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_max_m": {
+      "value": 0.162,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.path_rmse_m": {
+      "value": 0.098,
+      "unit": "m",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_landing[isaacsim-rob#1-trajCircle-iter2]": {
+    "robot_1.final_altitude_m": {
+      "value": 0.001,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.land_duration_sim_s": {
+      "value": 1.89,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_px4_ready[isaacsim-rob#1-trajCircle-iter3]": {
+    "airstack_up_duration_s": {
+      "value": 0.67,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.ready_duration_sys_s": {
+      "value": 95.61,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "airstack_down_duration_s": {
+      "value": 11.28,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_takeoff[isaacsim-rob#1-trajCircle-iter3]": {
+    "robot_1.altitude_error_m": {
+      "value": -0.171,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.overshoot_m": {
+      "value": 0.0,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.takeoff_duration_sim_s": {
+      "value": 4.77,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_fixed_trajectory[isaacsim-rob#1-trajCircle-iter3]": {
+    "robot_1.trajectory_success": {
+      "value": 1.0,
+      "unit": "",
+      "direction": "higher_is_better"
+    },
+    "robot_1.trajectory_execution_time_sim_s": {
+      "value": 28.71,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_mean_m": {
+      "value": 0.078,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_max_m": {
+      "value": 0.147,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.path_rmse_m": {
+      "value": 0.086,
+      "unit": "m",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_landing[isaacsim-rob#1-trajCircle-iter3]": {
+    "robot_1.final_altitude_m": {
+      "value": -0.02,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.land_duration_sim_s": {
+      "value": 1.83,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_px4_ready[isaacsim-rob#1-trajCircle-iter4]": {
+    "airstack_up_duration_s": {
+      "value": 0.71,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.ready_duration_sys_s": {
+      "value": 95.58,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "airstack_down_duration_s": {
+      "value": 11.26,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_takeoff[isaacsim-rob#1-trajCircle-iter4]": {
+    "robot_1.altitude_error_m": {
+      "value": -0.172,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.overshoot_m": {
+      "value": 0.0,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.takeoff_duration_sim_s": {
+      "value": 4.86,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_fixed_trajectory[isaacsim-rob#1-trajCircle-iter4]": {
+    "robot_1.trajectory_success": {
+      "value": 1.0,
+      "unit": "",
+      "direction": "higher_is_better"
+    },
+    "robot_1.trajectory_execution_time_sim_s": {
+      "value": 27.3,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_mean_m": {
+      "value": 0.094,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_max_m": {
+      "value": 0.161,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.path_rmse_m": {
+      "value": 0.105,
+      "unit": "m",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_landing[isaacsim-rob#1-trajCircle-iter4]": {
+    "robot_1.final_altitude_m": {
+      "value": -0.006,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.land_duration_sim_s": {
+      "value": 1.83,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_px4_ready[isaacsim-rob#1-trajCircle-iter5]": {
+    "airstack_up_duration_s": {
+      "value": 0.72,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.ready_duration_sys_s": {
+      "value": 91.86,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "airstack_down_duration_s": {
+      "value": 11.2,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_takeoff[isaacsim-rob#1-trajCircle-iter5]": {
+    "robot_1.altitude_error_m": {
+      "value": -0.184,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.overshoot_m": {
+      "value": 0.0,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.takeoff_duration_sim_s": {
+      "value": 5.01,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_fixed_trajectory[isaacsim-rob#1-trajCircle-iter5]": {
+    "robot_1.trajectory_success": {
+      "value": 1.0,
+      "unit": "",
+      "direction": "higher_is_better"
+    },
+    "robot_1.trajectory_execution_time_sim_s": {
+      "value": 25.59,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_mean_m": {
+      "value": 0.126,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_max_m": {
+      "value": 0.206,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.path_rmse_m": {
+      "value": 0.137,
+      "unit": "m",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_landing[isaacsim-rob#1-trajCircle-iter5]": {
+    "robot_1.final_altitude_m": {
+      "value": 0.028,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.land_duration_sim_s": {
+      "value": 1.86,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_px4_ready[isaacsim-rob#1-trajCircle-iter6]": {
+    "airstack_up_duration_s": {
+      "value": 0.71,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.ready_duration_sys_s": {
+      "value": 92.42,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "airstack_down_duration_s": {
+      "value": 11.3,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_takeoff[isaacsim-rob#1-trajCircle-iter6]": {
+    "robot_1.altitude_error_m": {
+      "value": -0.168,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.overshoot_m": {
+      "value": 0.0,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.takeoff_duration_sim_s": {
+      "value": 4.74,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_fixed_trajectory[isaacsim-rob#1-trajCircle-iter6]": {
+    "robot_1.trajectory_success": {
+      "value": 1.0,
+      "unit": "",
+      "direction": "higher_is_better"
+    },
+    "robot_1.trajectory_execution_time_sim_s": {
+      "value": 26.82,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_mean_m": {
+      "value": 0.064,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_max_m": {
+      "value": 0.126,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.path_rmse_m": {
+      "value": 0.071,
+      "unit": "m",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_landing[isaacsim-rob#1-trajCircle-iter6]": {
+    "robot_1.final_altitude_m": {
+      "value": -0.005,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.land_duration_sim_s": {
+      "value": 1.86,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_px4_ready[isaacsim-rob#1-trajCircle-iter7]": {
+    "airstack_up_duration_s": {
+      "value": 0.75,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.ready_duration_sys_s": {
+      "value": 89.65,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "airstack_down_duration_s": {
+      "value": 11.27,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_takeoff[isaacsim-rob#1-trajCircle-iter7]": {
+    "robot_1.altitude_error_m": {
+      "value": -0.188,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.overshoot_m": {
+      "value": 0.0,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.takeoff_duration_sim_s": {
+      "value": 4.8,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_fixed_trajectory[isaacsim-rob#1-trajCircle-iter7]": {
+    "robot_1.trajectory_success": {
+      "value": 1.0,
+      "unit": "",
+      "direction": "higher_is_better"
+    },
+    "robot_1.trajectory_execution_time_sim_s": {
+      "value": 27.03,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_mean_m": {
+      "value": 0.083,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_max_m": {
+      "value": 0.166,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.path_rmse_m": {
+      "value": 0.093,
+      "unit": "m",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_landing[isaacsim-rob#1-trajCircle-iter7]": {
+    "robot_1.final_altitude_m": {
+      "value": -0.008,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.land_duration_sim_s": {
+      "value": 1.89,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_px4_ready[isaacsim-rob#1-trajCircle-iter8]": {
+    "airstack_up_duration_s": {
+      "value": 0.75,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.ready_duration_sys_s": {
+      "value": 93.05,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "airstack_down_duration_s": {
+      "value": 11.29,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_takeoff[isaacsim-rob#1-trajCircle-iter8]": {
+    "robot_1.altitude_error_m": {
+      "value": -0.198,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.overshoot_m": {
+      "value": 0.0,
+      "unit": "m",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_fixed_trajectory[isaacsim-rob#1-trajCircle-iter8]": {
+    "robot_1.trajectory_success": {
+      "value": 1.0,
+      "unit": "",
+      "direction": "higher_is_better"
+    },
+    "robot_1.trajectory_execution_time_sim_s": {
+      "value": 26.88,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_mean_m": {
+      "value": 0.059,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_max_m": {
+      "value": 0.12,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.path_rmse_m": {
+      "value": 0.068,
+      "unit": "m",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_landing[isaacsim-rob#1-trajCircle-iter8]": {
+    "robot_1.final_altitude_m": {
+      "value": 0.013,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.land_duration_sim_s": {
+      "value": 1.86,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_px4_ready[isaacsim-rob#1-trajCircle-iter9]": {
+    "airstack_up_duration_s": {
+      "value": 0.72,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.ready_duration_sys_s": {
+      "value": 88.52,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "airstack_down_duration_s": {
+      "value": 11.28,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_takeoff[isaacsim-rob#1-trajCircle-iter9]": {
+    "robot_1.altitude_error_m": {
+      "value": -0.176,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.overshoot_m": {
+      "value": 0.0,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.takeoff_duration_sim_s": {
+      "value": 4.8,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_fixed_trajectory[isaacsim-rob#1-trajCircle-iter9]": {
+    "robot_1.trajectory_success": {
+      "value": 1.0,
+      "unit": "",
+      "direction": "higher_is_better"
+    },
+    "robot_1.trajectory_execution_time_sim_s": {
+      "value": 25.05,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_mean_m": {
+      "value": 0.107,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_max_m": {
+      "value": 0.172,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.path_rmse_m": {
+      "value": 0.116,
+      "unit": "m",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_landing[isaacsim-rob#1-trajCircle-iter9]": {
+    "robot_1.final_altitude_m": {
+      "value": -0.024,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.land_duration_sim_s": {
+      "value": 1.86,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  }
+}

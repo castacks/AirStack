@@ -1,0 +1,16 @@
+AirStack Test Run Summary
+Run directory: 2026-08-03_20-23-35
+Overall: 1 passed, 1 failed, 2 skipped (4 tests)
+
+── Circle | isaacsim | 1 robot(s) ──
+Result: FAILED
+
+PX4 ready time: 91.09 s
+Altitude error after takeoff: -0.205 m
+Takeoff overshoot: 0 m
+
+Phase wall times:
+  test_px4_ready: 92.1s (PASSED)
+  test_takeoff: 8.9s (FAILED)
+  test_fixed_trajectory: 0.0s (SKIPPED)
+  test_landing: 11.2s (SKIPPED)

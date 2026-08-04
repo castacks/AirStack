@@ -1,0 +1,24 @@
+AirStack Test Run Summary
+Run directory: 2026-08-03_23-31-57
+Overall: 4 passed, 0 failed, 0 skipped (4 tests)
+
+── Circle | isaacsim | 1 robot(s) ──
+Result: PASSED
+
+PX4 ready time: 91.13 s
+Takeoff duration: 10.26 s
+Altitude error after takeoff: -0.153 m
+Takeoff overshoot: 0 m
+Trajectory success: yes
+Trajectory duration: 45.42 s
+Cross-track error (mean): 0.046 m
+Cross-track error (max): 0.489 m
+Path RMSE: 0.07 m
+Landing duration: 7.47 s
+Final altitude: -0.003 m
+
+Phase wall times:
+  test_px4_ready: 92.1s (PASSED)
+  test_takeoff: 13.9s (PASSED)
+  test_fixed_trajectory: 37.1s (PASSED)
+  test_landing: 25.8s (PASSED)

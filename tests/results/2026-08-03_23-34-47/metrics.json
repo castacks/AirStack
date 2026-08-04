@@ -1,0 +1,75 @@
+{
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_px4_ready[isaacsim-rob#1-trajCircle-iter0]": {
+    "airstack_up_duration_s": {
+      "value": 0.73,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.ready_duration_sys_s": {
+      "value": 91.52,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "airstack_down_duration_s": {
+      "value": 11.25,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_takeoff[isaacsim-rob#1-trajCircle-iter0]": {
+    "robot_1.altitude_error_m": {
+      "value": -0.172,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.overshoot_m": {
+      "value": 0.0,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.takeoff_duration_sim_s": {
+      "value": 4.62,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_fixed_trajectory[isaacsim-rob#1-trajCircle-iter0]": {
+    "robot_1.trajectory_success": {
+      "value": 1.0,
+      "unit": "",
+      "direction": "higher_is_better"
+    },
+    "robot_1.trajectory_execution_time_sim_s": {
+      "value": 29.46,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_mean_m": {
+      "value": 0.063,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.cross_track_error_max_m": {
+      "value": 0.148,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.path_rmse_m": {
+      "value": 0.07,
+      "unit": "m",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_fixed_trajectory.TestFixedTrajectory.test_landing[isaacsim-rob#1-trajCircle-iter0]": {
+    "robot_1.final_altitude_m": {
+      "value": 0.011,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.land_duration_sim_s": {
+      "value": 1.89,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  }
+}

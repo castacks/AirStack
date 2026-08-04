@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="2" tests="4" time="112.569" timestamp="2026-08-03T20:23:35.309293+00:00" hostname="airstation-02"><testcase classname="system.test_fixed_trajectory.TestFixedTrajectory" name="test_px4_ready[isaacsim-rob#1-trajCircle-iter0]" time="92.061" /><testcase classname="system.test_fixed_trajectory.TestFixedTrajectory" name="test_takeoff[isaacsim-rob#1-trajCircle-iter0]" time="8.885"><failure message="AssertionError: robot_1 settled altitude 1.29m differs from target 1.5m by more than 10%&#10;assert 0.205 &lt;= (1.5 * 0.1)&#10; +  where 0.205 = abs(-0.205)">self = &lt;system.test_fixed_trajectory.TestFixedTrajectory object at 0x72b7cc366420&gt;
+airstack_env = {'sim': 'isaacsim', 'num_robots': 1, 'iteration': 0, 'sim_container': 'isaac-sim', ...}
+trajectory_type = 'Circle'
+traj_geometry = {'altitude_m': 1.5, 'scale': 0.15, 'velocity_m_s': 0.5}
+
+    @pytest.mark.dependency(name="ftraj_takeoff", depends=["ftraj_ready"])
+    def test_takeoff(self, airstack_env, trajectory_type, traj_geometry):
+        """Take off to the configured trajectory altitude at a fixed velocity of 1 m/s."""
+        cfg = airstack_env["cfg"]
+        robot_container = get_robot_containers(airstack_env["robot_pattern"])[0]
+        num_robots = airstack_env["num_robots"]
+        altitude = traj_geometry["altitude_m"]
+&gt;       _run_parallel(
+            num_robots,
+            lambda n: _takeoff_one_robot(n, robot_container, cfg, altitude),
+        )
+
+system/test_fixed_trajectory.py:702: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+system/test_fixed_trajectory.py:448: in _run_parallel
+    fn(1)
+system/test_fixed_trajectory.py:704: in &lt;lambda&gt;
+    lambda n: _takeoff_one_robot(n, robot_container, cfg, altitude),
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+n = 1, robot_container = 'airstack-robot-desktop-1'
+cfg = {'profile': 'isaac-sim', 'sim_container': 'isaac-sim', 'sim_setup_bash': '/opt/ros/jazzy/setup.bash', 'robot_setup_bash': '/root/AirStack/robot/ros_ws/install/setup.bash', ...}
+target = 1.5
+
+    def _takeoff_one_robot(n: int, robot_container: str, cfg: dict, target: float) -&gt; None:
+        velocity = 1.0  # fixed takeoff velocity for trajectory tests
+        timeout = max(30.0, target / velocity + 15.0)
+        streams = _start_captures(robot_container, cfg["robot_setup_bash"],
+                                   n, timeout + 5, "traj_takeoff")
+        goal = f"{{target_altitude_m: {target}, velocity_m_s: {velocity}}}"
+        result = ros2_exec(
+            robot_container,
+            f'ros2 action send_goal --feedback /robot_{n}/tasks/takeoff '
+            f'task_msgs/action/TakeoffTask "{goal}"',
+            domain_id=n, setup_bash=cfg["robot_setup_bash"],
+            timeout=int(timeout + 10),
+        )
+        odom = _finish_captures(streams)
+        if not _action_ok(result.stdout):
+            pytest.fail(f"robot_{n} takeoff failed: {_action_message(result.stdout)}")
+        if not odom:
+            pytest.fail(f"robot_{n} takeoff: no odom samples captured")
+        metrics = _takeoff_metrics(odom, target, velocity)
+        _record(n, metrics)
+        err = metrics.get("altitude_error_m", 0.0)
+&gt;       assert abs(err) &lt;= target * 0.1, (
+            f"robot_{n} settled altitude {target + err:.2f}m differs from "
+            f"target {target:.1f}m by more than 10%"
+        )
+E       AssertionError: robot_1 settled altitude 1.29m differs from target 1.5m by more than 10%
+E       assert 0.205 &lt;= (1.5 * 0.1)
+E        +  where 0.205 = abs(-0.205)
+
+system/test_fixed_trajectory.py:483: AssertionError</failure></testcase><testcase classname="system.test_fixed_trajectory.TestFixedTrajectory" name="test_fixed_trajectory[isaacsim-rob#1-trajCircle-iter0]" time="0.000"><skipped type="pytest.skip" message="test_fixed_trajectory[isaacsim-rob#1-trajCircle-iter0] depends on ftraj_takeoff">/usr/local/lib/python3.12/site-packages/pytest_dependency.py:101: test_fixed_trajectory[isaacsim-rob#1-trajCircle-iter0] depends on ftraj_takeoff</skipped></testcase><testcase classname="system.test_fixed_trajectory.TestFixedTrajectory" name="test_landing[isaacsim-rob#1-trajCircle-iter0]" time="11.235"><skipped type="pytest.skip" message="test_landing[isaacsim-rob#1-trajCircle-iter0] depends on ftraj_takeoff">/usr/local/lib/python3.12/site-packages/pytest_dependency.py:101: test_landing[isaacsim-rob#1-trajCircle-iter0] depends on ftraj_takeoff</skipped></testcase></testsuite></testsuites>

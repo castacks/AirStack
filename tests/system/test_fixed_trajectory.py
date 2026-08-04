@@ -276,6 +276,20 @@ def _transform_to_world(
     return world_pts
 
 
+def _point_segment_dist_sq(
+    px: float, py: float, ax: float, ay: float, bx: float, by: float,
+) -> float:
+    """Squared distance from (px, py) to the segment AB, clamped to the segment."""
+    dx, dy = bx - ax, by - ay
+    den = dx * dx + dy * dy
+    if den == 0.0:
+        return (px - ax) ** 2 + (py - ay) ** 2
+    t = ((px - ax) * dx + (py - ay) * dy) / den
+    t = max(0.0, min(1.0, t))
+    cx, cy = ax + t * dx, ay + t * dy
+    return (px - cx) ** 2 + (py - cy) ** 2
+
+
 # ── metric computations ───────────────────────────────────────────────────
 
 def _cross_track_metrics(
@@ -286,16 +300,30 @@ def _cross_track_metrics(
 
     Error is measured in the XY plane (these trajectories are flat; altitude
     hold is evaluated separately by the takeoff/hover tests).
+
+    Distance is taken to the nearest point on a reference SEGMENT, not to the
+    nearest vertex. The reference is a coarse polyline — the circle is sampled
+    every 10 degrees and its radial lead-in/lead-out are endpoints only — so
+    vertex snapping charges a perfectly-flown path for the gaps between
+    vertices. That floor (mean ~0.94 m at radius 10 m, and exactly radius/2 for
+    the max, on the lead-in) swamped the drone's actual deviation.
     """
     if not odom_rows or not ideal_world_pts:
         return {}
 
     ideal_xy = [(px, py) for px, py, _ in ideal_world_pts]
+    segments = list(zip(ideal_xy, ideal_xy[1:]))
+    if not segments:
+        return {}
+
     sq_dists: list[float] = []
     for row in odom_rows:
         ox = row["pose.pose.position.x"]
         oy = row["pose.pose.position.y"]
-        sq_dists.append(min((ox - px) ** 2 + (oy - py) ** 2 for px, py in ideal_xy))
+        sq_dists.append(min(
+            _point_segment_dist_sq(ox, oy, ax, ay, bx, by)
+            for (ax, ay), (bx, by) in segments
+        ))
 
     dists = [math.sqrt(d) for d in sq_dists]
     return {
