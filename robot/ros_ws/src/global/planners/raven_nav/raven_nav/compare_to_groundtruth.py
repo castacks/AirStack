@@ -105,10 +105,107 @@ def _load_gt(path: str, class_filter: Optional[str]) -> List[dict]:
     return out
 
 
+def _surface_dist(c_a, s_a, c_b, s_b) -> float:
+    """Gap between two AABB surfaces; 0 when they touch or overlap (including
+    one fully inside the other)."""
+    c_a, s_a, c_b, s_b = map(lambda v: np.asarray(v, dtype=float),
+                             (c_a, s_a, c_b, s_b))
+    gap = np.abs(c_a - c_b) - (s_a + s_b) / 2.0
+    return float(np.linalg.norm(np.maximum(gap, 0.0)))
+
+
+def _covers(d, g, iou_thresh: float, center_dist: float,
+            surface_tol: float) -> bool:
+    """Does detection ``d`` locate GT box ``g``?
+
+    Deliberately generous about box geometry: what is being scored is whether
+    the fleet found something roughly where the object is, not how well it
+    fitted a box to it. A detection counts when the two boxes touch or overlap
+    at all (so a detection much larger, much smaller, or off-centre still
+    counts, and one fully inside the other counts), or comes within
+    ``surface_tol`` of the surface, or clears the IoU / centroid tolerances.
+    """
+    if _surface_dist(d['center'], d['size'], g['center'], g['size']) <= surface_tol:
+        return True
+    if _aabb_iou(d['center'], d['size'], g['center'], g['size']) >= iou_thresh:
+        return True
+    dist = float(np.linalg.norm(np.asarray(d['center']) - np.asarray(g['center'])))
+    return dist <= center_dist
+
+
+def _match_coverage(dets: List[dict], gts: List[dict],
+                    iou_thresh: float, center_dist: float,
+                    class_aware: bool = False,
+                    surface_tol: float = 0.0) -> dict:
+    """Coverage matching: a detection may be credited against **every** GT box
+    it locates, and a GT box counts as found if **any** detection locates it.
+
+    The one-to-one alternative punishes a correct-but-coarse result: when the
+    mapper merges two neighbouring objects into a single large box, greedy
+    matching credits one and calls the other a miss. Here both count, which is
+    what "did the fleet find roughly where the objects are" should mean.
+
+    Consequently ``tp`` (GT boxes found) and the precision numerator (detections
+    that located something) are counted separately and reported as such."""
+    found, useful, pairs = set(), set(), []
+    for di, d in enumerate(dets):
+        for gi, g in enumerate(gts):
+            if class_aware and not _class_compatible(d.get('label', ''),
+                                                     g['class']):
+                continue
+            if not _covers(d, g, iou_thresh, center_dist, surface_tol):
+                continue
+            found.add(gi)
+            useful.add(di)
+            pairs.append({
+                'det_index': di,
+                'det_center': np.asarray(d['center']).tolist(),
+                'gt_index': gi,
+                'gt_class': g['class'],
+                'gt_center': np.asarray(g['center']).tolist(),
+                'iou': _aabb_iou(d['center'], d['size'], g['center'], g['size']),
+                'center_error_m': float(np.linalg.norm(
+                    np.asarray(d['center']) - np.asarray(g['center']))),
+                'size_error_m': float(np.linalg.norm(
+                    np.asarray(d['size']) - np.asarray(g['size']))),
+                'surface_dist_m': _surface_dist(d['center'], d['size'],
+                                                g['center'], g['size']),
+            })
+
+    tp, hits = len(found), len(useful)
+    fn = len(gts) - tp
+    fp = len(dets) - hits
+    precision = hits / len(dets) if dets else 0.0
+    recall = tp / len(gts) if gts else 0.0
+    f1 = (2 * precision * recall / (precision + recall)
+          if (precision + recall) else 0.0)
+    merged = sum(1 for di in useful
+                 if sum(1 for p in pairs if p['det_index'] == di) > 1)
+    ious = [p['iou'] for p in pairs]
+    cerr = [p['center_error_m'] for p in pairs]
+    serr = [p['size_error_m'] for p in pairs]
+    return {
+        'num_detections': len(dets),
+        'num_ground_truth': len(gts),
+        'tp': tp, 'fp': fp, 'fn': fn,
+        'detections_locating_gt': hits,
+        'merged_detections': merged,
+        'precision': precision, 'recall': recall, 'f1': f1,
+        'mean_iou_matched': float(np.mean(ious)) if ious else 0.0,
+        'mean_center_error_m': float(np.mean(cerr)) if cerr else None,
+        'mean_size_error_m': float(np.mean(serr)) if serr else None,
+        'matches': pairs,
+    }
+
+
 def _match(dets: List[dict], gts: List[dict],
            iou_thresh: float, center_dist: float,
            class_aware: bool = False) -> dict:
     """Greedy tolerant one-to-one matching. Returns metrics + pair details.
+
+    Kept alongside ``_match_coverage`` because it is the stricter instance-level
+    reading: it answers "how many objects were resolved individually", where
+    coverage answers "how many objects were located at all".
 
     With ``class_aware`` a detection may only match a GT box whose class is
     compatible with the detection's own label (so a 'water tower' detection
@@ -184,11 +281,13 @@ def _dets_from_compiled(compiled: dict, visited_only: bool) -> List[dict]:
 def compare(compiled_path: str, scene: Optional[str],
             annotations: Optional[str], class_filter: Optional[str],
             iou_thresh: float, center_dist: float,
-            class_aware: bool = False) -> dict:
+            class_aware: bool = False, surface_tol: float = 0.0) -> dict:
     with open(compiled_path) as f:
         compiled = json.load(f)
     ann_path = _resolve_annotations(scene, annotations)
     gts = _load_gt(ann_path, class_filter)
+    either = _dets_from_compiled(compiled, False)
+    visited = _dets_from_compiled(compiled, True)
 
     report = {
         'compiled_path': compiled_path,
@@ -198,19 +297,28 @@ def compare(compiled_path: str, scene: Optional[str],
         'class_aware': class_aware,
         'iou_threshold': iou_thresh,
         'center_dist_threshold_m': center_dist,
+        'surface_tol_m': surface_tol,
         'num_ground_truth': len(gts),
         # observing ∪ visited (all detections) vs the visited-only subset.
-        'either': _match(_dets_from_compiled(compiled, False), gts,
-                         iou_thresh, center_dist, class_aware),
-        'visited': _match(_dets_from_compiled(compiled, True), gts,
-                          iou_thresh, center_dist, class_aware),
+        'either': _match_coverage(either, gts, iou_thresh, center_dist,
+                                  class_aware, surface_tol),
+        'visited': _match_coverage(visited, gts, iou_thresh, center_dist,
+                                   class_aware, surface_tol),
+        # The stricter instance-level reading, kept for comparison: how many
+        # objects were resolved one-for-one rather than merely located.
+        'either_one_to_one': _match(either, gts, iou_thresh, center_dist,
+                                    class_aware),
+        'visited_one_to_one': _match(visited, gts, iou_thresh, center_dist,
+                                     class_aware),
     }
     return report
 
 
 def _print_set(name: str, m: dict) -> None:
+    merged = m.get('merged_detections')
+    extra = f" merged={merged}" if merged else ""
     print(f"  [{name}] det={m['num_detections']} gt={m['num_ground_truth']} "
-          f"TP={m['tp']} FP={m['fp']} FN={m['fn']} | "
+          f"TP={m['tp']} FP={m['fp']} FN={m['fn']}{extra} | "
           f"P={m['precision']:.2f} R={m['recall']:.2f} F1={m['f1']:.2f} | "
           f"meanIoU={m['mean_iou_matched']:.2f} "
           f"locErr={m['mean_center_error_m'] if m['mean_center_error_m'] is not None else float('nan'):.2f}m")
@@ -235,6 +343,9 @@ def main(argv=None):
                     help='Min 3D IoU for a tolerant match (default 0.1).')
     ap.add_argument('--center-dist', type=float, default=10.0,
                     help='Max centroid distance (m) for a tolerant match.')
+    ap.add_argument('--surface-tol', type=float, default=0.0,
+                    help='Extra slack (m) between box surfaces; 0 means the '
+                         'boxes must touch or overlap (default 0).')
     ap.add_argument('--out', default=None,
                     help='Where to write the report JSON (default: next to '
                          'compiled_results.json as groundtruth_comparison.json).')
@@ -242,7 +353,7 @@ def main(argv=None):
 
     report = compare(args.compiled, args.scene, args.annotations,
                      args.class_filter, args.iou, args.center_dist,
-                     args.class_aware)
+                     args.class_aware, args.surface_tol)
 
     out = args.out or os.path.join(os.path.dirname(args.compiled),
                                    'groundtruth_comparison.json')

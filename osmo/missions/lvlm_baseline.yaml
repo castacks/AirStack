@@ -58,7 +58,10 @@ scene_templates:
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "DowntownWest"
     query: "fountain, car, truck"
-    background_queries: "grass, road, tree, building, street lamp, electric cables, cafe tables, food stand"
+    background_queries: "grass, road, tree, building, street lamp, cafe table, food stand, sidewalk, umbrella"
+    voxel_score_threshold: 0.67
+    score_threshold: -1
+    voxel_min_cluster_size: -1
     search_area:
       points:
         - {x: 160.0, y: 100.0, z: 0.0}
@@ -71,8 +74,11 @@ scene_templates:
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "ModernCityDowntown"
-    query: "yellow truck, obelisk, bankomat, cafe tables, car"
-    background_queries: "road, building, car, parking lot, tree, traffic signal, fence"
+    query: "yellow truck, obelisk, bankomat, cafe table, car"
+    background_queries: "road, building, parking lot, tree, traffic signal, fence"
+    voxel_score_threshold: 0.65
+    score_threshold: -1
+    voxel_min_cluster_size: -1
     search_area:
       points:
         - {x: -100.0, y: -110.0, z: 0.0}
@@ -86,7 +92,10 @@ scene_templates:
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "RetroNeighborhood"
     query: "house, bus stop, blue container, red container"
-    background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cables, container, utility pole, car garage, street light"
+    background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cable, utility pole, car garage, street light"
+    voxel_score_threshold: 0.65
+    score_threshold: -1
+    voxel_min_cluster_size: 45
     search_area:
       points:
         - {x: -150.0, y: -110.0, z: 0.0}
@@ -101,6 +110,9 @@ scene_templates:
     RESULTS_SCENE: "FireAcademy"
     query: "red building, water tower, fuel tank, radio tower"
     background_queries: "road, grass, parking lot, tree, car, flood light, house, electrical pole, garage"
+    voxel_score_threshold: 0.68
+    score_threshold: -1
+    voxel_min_cluster_size: -1
     search_area:
       points:
         - {x: 13.0, y: -135.0, z: 0.0}
@@ -115,6 +127,9 @@ scene_templates:
     RESULTS_SCENE: "ConstructionSite"
     query: "forklift, tower crane, blue tarp, orange tarp"
     background_queries: "road, grass, mountain, parking lot, building, fence, container, gravel"
+    voxel_score_threshold: 0.65
+    score_threshold: -1
+    voxel_min_cluster_size: -1
     # Widened to a rectangle: the s3 spawn (x ~ -55) and two query props sat
     # outside the old quadrilateral (x[-40,76] y[-71,50]).
     search_area:
@@ -131,6 +146,9 @@ scene_templates:
     RESULTS_SCENE: "AbandonedFactory"
     query: "building, water tower, white silo"
     background_queries: "grass, road, tree, pipe, fence"
+    voxel_score_threshold: 0.65
+    score_threshold: -1
+    voxel_min_cluster_size: -1
     search_area:
       points:
         - {x: 45.0, y: 102.0, z: 0.0}
@@ -145,6 +163,9 @@ scene_templates:
     RESULTS_SCENE: "MilitaryBase"
     query: "guard tower, radio tower, bridge, helicopter, atv"
     background_queries: "grass, road, tree, building, mountain, electrical pole, utility pole"
+    voxel_score_threshold: 0.68
+    score_threshold: -1
+    voxel_min_cluster_size: -1
     # Widened: the s2 spawn (1015, 325..341) sat outside the old x>=1030,
     # y<=320 rectangle.
     search_area:
@@ -161,6 +182,9 @@ scene_templates:
     RESULTS_SCENE: "Shipyard"
     query: "ship, crane"
     background_queries: "grass, road, tree, warehouse, pipe, fence, roof, garage, house"
+    voxel_score_threshold: 0.65
+    score_threshold: -1
+    voxel_min_cluster_size: -1
     search_area:
       points:
         - {x: -250.0, y: 250.0, z: 0.0}
@@ -356,3 +380,8 @@ steps:
         min_flight_speed: 0.5
         max_flight_speed: 1.0
         confidence_threshold: 0.95
+        # Carried so the goal is identical to the other three missions; the lvlm
+        # navigator has no rayfronts detector, so these gates are inert here.
+        voxel_score_threshold: "{{env.voxel_score_threshold}}"
+        score_threshold: "{{env.score_threshold}}"
+        voxel_min_cluster_size: "{{env.voxel_min_cluster_size}}"

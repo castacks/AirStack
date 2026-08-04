@@ -52,10 +52,10 @@ scene_templates:
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "DowntownWest"
     query: "fountain, car, truck"
-    voxel_score_threshold: 0.65
+    voxel_score_threshold: 0.67
     score_threshold: -1
     voxel_min_cluster_size: -1
-    background_queries: "grass, road, tree, building, street lamp, electric cables, cafe tables, food stand"
+    background_queries: "grass, road, tree, building, street lamp, cafe table, food stand, sidewalk, umbrella"
     search_area:
       points:
         - {x: 160.0, y: 100.0, z: 0.0}
@@ -68,11 +68,11 @@ scene_templates:
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "ModernCityDowntown"
-    query: "yellow truck, obelisk, bankomat, cafe tables, car"
+    query: "yellow truck, obelisk, bankomat, cafe table, car"
     voxel_score_threshold: 0.65
     score_threshold: -1
     voxel_min_cluster_size: -1
-    background_queries: "road, building, car, parking lot, tree, traffic signal, fence"
+    background_queries: "road, building, parking lot, tree, traffic signal, fence"
     search_area:
       points:
         - {x: -100.0, y: -110.0, z: 0.0}
@@ -89,7 +89,7 @@ scene_templates:
     voxel_score_threshold: 0.65
     score_threshold: -1
     voxel_min_cluster_size: 45
-    background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cables, container, utility pole, car garage, street light"
+    background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cable, utility pole, car garage, street light"
     search_area:
       points:
         - {x: -150.0, y: -110.0, z: 0.0}
