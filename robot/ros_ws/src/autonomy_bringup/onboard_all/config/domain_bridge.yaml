@@ -33,8 +33,8 @@ topics:
   # bag recording status
   bag_record/bag_recording_status:
     type: std_msgs/msg/Bool
-    from_domain: $(var gcs_domain)
-    to_domain: $(env ROS_DOMAIN_ID)
+    from_domain: $(env ROS_DOMAIN_ID)
+    to_domain: $(var gcs_domain)
 
 
   # ============= Incoming to Robot ================
