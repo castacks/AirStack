@@ -1300,6 +1300,8 @@
       
         
       
+        
+      
     
     
     
@@ -1388,6 +1390,34 @@
     
   
     Documentation Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docs/development/intermediate/feature_notebook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Notebook
   
 
     
@@ -5388,6 +5418,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <h2 id="unreleased">[Unreleased]<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
 <ul>
+<li>Feature notebook workflow (<code>use-feature-notebook</code> skill): every agent-implemented feature gets a local, gitignored <code>notebook/NNN-feature-slug/</code> entry with a status-tracked <code>design_spec.md</code> (written before coding) and <code>results/</code> artifacts + self-contained <code>results_summary.md</code> that populate the feature's PR description</li>
 <li>Battery and telemetry display in GCS RQT control panel (voltage and percentage per robot when MAVROS battery topic is bridged)</li>
 <li><code>TARGET_ARCH</code> build arg (default <code>x86_64</code>) in <code>Dockerfile.robot</code> to arch-parametrize <code>LD_LIBRARY_PATH</code>; <code>docker-compose.yaml</code> passes <code>TARGET_ARCH: aarch64</code> to the <code>voxl</code> and <code>l4t</code> real-robot image builds</li>
 <li><code>ros-${ROS_DISTRO}-mavros-extras</code> in the robot image (provides the vision_pose plugin used for external-pose deployments)</li>

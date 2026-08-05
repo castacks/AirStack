@@ -1300,6 +1300,8 @@
       
         
       
+        
+      
     
     
     
@@ -1388,6 +1390,34 @@
     
   
     Documentation Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docs/development/intermediate/feature_notebook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Notebook
   
 
     
@@ -5544,16 +5574,33 @@
 <td><a href=".agents/skills/capture-discovered-knowledge">capture-discovered-knowledge</a></td>
 <td>After long context-discovery / surprising findings, persist to AGENTS.md or a new skill so the next agent doesn't redo the work</td>
 </tr>
+<tr>
+<td><a href=".agents/skills/use-feature-notebook">use-feature-notebook</a></td>
+<td>At the start of EVERY feature implementation: create <code>notebook/NNN-feature-slug/design_spec.md</code>, store test artifacts under <code>results/</code>, write <code>results/results_summary.md</code>, and populate the PR from it</td>
+</tr>
 </tbody>
 </table>
 <p><strong>Agent Workflow Example:</strong>
-1. Study reference implementation for module type
-2. Follow <code>add_ros2_package.md</code> to create package structure
-3. Implement algorithm with proper topic interfaces
-4. Follow <code>integrate_module_into_layer.md</code> to add to bringup
-5. Follow <code>update_documentation.md</code> to document
-6. Follow <code>debug_module.md</code> and <code>test_in_simulation.md</code> to verify</p>
+1. <strong>Create a notebook entry</strong> — follow <code>use-feature-notebook</code> to write <code>notebook/NNN-feature-slug/design_spec.md</code> (problem context, proposed implementation, lettered test plan) before writing code
+2. Study reference implementation for module type
+3. Follow <code>add_ros2_package.md</code> to create package structure
+4. Implement algorithm with proper topic interfaces
+5. Follow <code>integrate_module_into_layer.md</code> to add to bringup
+6. Follow <code>update_documentation.md</code> to document
+7. Follow <code>debug_module.md</code> and <code>test_in_simulation.md</code> to verify, saving artifacts under <code>notebook/NNN-feature-slug/results/&lt;letter&gt;-&lt;section&gt;/</code>
+8. Write <code>results/results_summary.md</code> (embedded tables + figures) and populate the PR body from it</p>
 <p>Also see: <a href="docs/development/ai_agent_guide.md">AI Agent Quick Guide</a></p>
+<h2 id="feature-notebook-notebook">Feature Notebook (<code>notebook/</code>)<a class="headerlink" href="#feature-notebook-notebook" title="Permanent link">&para;</a></h2>
+<p>Every feature an agent implements gets a numbered entry under <code>notebook/</code> at the repo root — a local lab journal that survives the agent session:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>notebook/001-add-new-planner/
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>├── design_spec.md              # BEFORE coding: problem context from the session, proposed implementation, lettered test plan
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>└── results/
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    ├── results_summary.md      # AFTER testing: self-contained doc with embedded tables + figures, per-section verdicts
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    ├── a-planner-core/         # Raw artifacts per test-plan section (letters match design_spec.md)
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    └── b-planner-hyperparameters/
+</span></code></pre></div>
+<p><code>notebook/</code> is <strong>gitignored — local-only on each developer's machine</strong>. Never commit it or reference its paths from committed code. Its content leaves the machine one way: the feature's PR description is populated from <code>design_spec.md</code> (motivation, what changed) and <code>results_summary.md</code> (validation tables, figures uploaded as PR attachments).</p>
+<p><strong>Full workflow and templates:</strong> <a href=".agents/skills/use-feature-notebook">.agents/skills/use-feature-notebook</a></p>
 <h2 id="reference-implementations">Reference Implementations<a class="headerlink" href="#reference-implementations" title="Permanent link">&para;</a></h2>
 <p>Study these well-structured modules as examples for different types:</p>
 <table>
@@ -5606,44 +5653,44 @@
 <h2 id="development-commands">Development Commands<a class="headerlink" href="#development-commands" title="Permanent link">&para;</a></h2>
 <h3 id="airstack-cli-tool">AirStack CLI Tool<a class="headerlink" href="#airstack-cli-tool" title="Permanent link">&para;</a></h3>
 <p>The repository uses a custom CLI tool for common operations:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Setup and installation</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>airstack<span class="w"> </span>setup<span class="w">          </span><span class="c1"># Configure AirStack and add to PATH</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>airstack<span class="w"> </span>install<span class="w">        </span><span class="c1"># Install Docker and dependencies</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># Container management</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>airstack<span class="w"> </span>up<span class="w"> </span><span class="o">[</span>service<span class="o">]</span><span class="w">    </span><span class="c1"># Start services (robot, isaac-sim, gcs)</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>airstack<span class="w"> </span>stop<span class="w"> </span><span class="o">[</span>service<span class="o">]</span><span class="w">  </span><span class="c1"># Stop services</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>airstack<span class="w"> </span>status<span class="w">          </span><span class="c1"># Show container status</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>airstack<span class="w"> </span>connect<span class="w"> </span><span class="o">[</span>name<span class="o">]</span><span class="w">  </span><span class="c1"># Connect to running container</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>airstack<span class="w"> </span>logs<span class="w"> </span><span class="o">[</span>name<span class="o">]</span><span class="w">     </span><span class="c1"># View container logs</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="c1"># Development tasks</span>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>airstack<span class="w"> </span>build<span class="w">          </span><span class="c1"># Build ROS workspace</span>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w">           </span><span class="c1"># Run tests</span>
-</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>airstack<span class="w"> </span>docs<span class="w">           </span><span class="c1"># Build and serve documentation</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Setup and installation</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>airstack<span class="w"> </span>setup<span class="w">          </span><span class="c1"># Configure AirStack and add to PATH</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>airstack<span class="w"> </span>install<span class="w">        </span><span class="c1"># Install Docker and dependencies</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># Container management</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>airstack<span class="w"> </span>up<span class="w"> </span><span class="o">[</span>service<span class="o">]</span><span class="w">    </span><span class="c1"># Start services (robot, isaac-sim, gcs)</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>airstack<span class="w"> </span>stop<span class="w"> </span><span class="o">[</span>service<span class="o">]</span><span class="w">  </span><span class="c1"># Stop services</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>airstack<span class="w"> </span>status<span class="w">          </span><span class="c1"># Show container status</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>airstack<span class="w"> </span>connect<span class="w"> </span><span class="o">[</span>name<span class="o">]</span><span class="w">  </span><span class="c1"># Connect to running container</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>airstack<span class="w"> </span>logs<span class="w"> </span><span class="o">[</span>name<span class="o">]</span><span class="w">     </span><span class="c1"># View container logs</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="c1"># Development tasks</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>airstack<span class="w"> </span>build<span class="w">          </span><span class="c1"># Build ROS workspace</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w">           </span><span class="c1"># Run tests</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>airstack<span class="w"> </span>docs<span class="w">           </span><span class="c1"># Build and serve documentation</span>
 </span></code></pre></div>
 <h3 id="docker-development-workflow">Docker Development Workflow<a class="headerlink" href="#docker-development-workflow" title="Permanent link">&para;</a></h3>
 <p><strong>All development happens inside Docker containers.</strong> To run commands in the robot container:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Start robot container without autolaunch (for development)</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nv">AUTOLAUNCH</span><span class="o">=</span><span class="nb">false</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>robot-desktop
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Build ROS 2 workspace (inside container)</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;bws --packages-select &lt;package_name&gt;&quot;</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Build with debug symbols</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;bws --packages-select &lt;package_name&gt; --cmake-args &#39;-DCMAKE_BUILD_TYPE=Debug&#39;&quot;</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1"># Source workspace (inside container)</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;sws&quot;</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
-</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="c1"># Run a launch file</span>
-</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;sws &amp;&amp; ros2 launch &lt;package&gt; &lt;launch_file&gt;&quot;</span>
-</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>
-</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="c1"># List ROS 2 nodes</span>
-</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 node list&quot;</span>
-</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>
-</span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="c1"># Echo a topic</span>
-</span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 topic echo &lt;topic_name&gt; --once&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Start robot container without autolaunch (for development)</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">AUTOLAUNCH</span><span class="o">=</span><span class="nb">false</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>robot-desktop
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Build ROS 2 workspace (inside container)</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;bws --packages-select &lt;package_name&gt;&quot;</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Build with debug symbols</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;bws --packages-select &lt;package_name&gt; --cmake-args &#39;-DCMAKE_BUILD_TYPE=Debug&#39;&quot;</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="c1"># Source workspace (inside container)</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;sws&quot;</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="c1"># Run a launch file</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;sws &amp;&amp; ros2 launch &lt;package&gt; &lt;launch_file&gt;&quot;</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="c1"># List ROS 2 nodes</span>
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 node list&quot;</span>
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>
+</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="c1"># Echo a topic</span>
+</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 topic echo &lt;topic_name&gt; --once&quot;</span>
 </span></code></pre></div>
 <p><strong>Important:</strong> Do NOT run commands in interactive mode as you can get stuck on prompts. Always use <code>docker exec &lt;container&gt; bash -c "&lt;command&gt;"</code>.</p>
 <h3 id="ros-2-aliases-inside-containers">ROS 2 Aliases (inside containers)<a class="headerlink" href="#ros-2-aliases-inside-containers" title="Permanent link">&para;</a></h3>
@@ -5661,7 +5708,7 @@
 <li>Located in module's <code>test/</code> directory</li>
 <li><strong>Run in the robot container</strong> with <code>colcon test</code> (after <code>bws</code>) for the full ROS 2 build + test. The same co-located test source is collected by the root <a href="tests/"><code>tests/</code></a> suite (the packages with unit tests are listed in <a href="../tests/colcon_unit_test_packages.yaml"><code>tests/colcon_unit_test_packages.yaml</code></a>), so <code>airstack test -m unit</code> runs it too. Marks are declared in <a href="../tests/pytest.ini"><code>tests/pytest.ini</code></a> (<code>unit</code>, <code>build_docker</code>, <code>build_packages</code>, <code>integration</code>, <code>liveliness</code>, <code>sensors</code>, <code>takeoff_hover_land</code>, <code>autonomy</code>).</li>
 </ol>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;sws &amp;&amp; colcon test --packages-select natnet_ros2 --event-handlers console_direct+&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;sws &amp;&amp; colcon test --packages-select natnet_ros2 --event-handlers console_direct+&quot;</span>
 </span></code></pre></div>
 <ol>
 <li>
@@ -5733,12 +5780,12 @@
 </table>
 <p>The pytest hooks and the <code>airstack_env</code> / <code>robot_autonomy_stack</code> fixtures live in <a href="../tests/conftest.py"><code>tests/conftest.py</code></a>; the shared helpers are split by concern into the <a href="tests/harness/"><code>tests/harness/</code></a> package (<code>session</code>, <code>discovery</code>, <code>commands</code>, <code>containers</code>, <code>metrics</code> (with <code>MetricsRecorder</code>), <code>sim</code>, <code>collection</code>) and re-exported through <code>conftest</code>, so <code>from conftest import &lt;name&gt;</code> still resolves. Each run produces a timestamped directory under <code>tests/results/&lt;timestamp&gt;/</code> with <code>summary.txt</code>, <code>results.xml</code>, and <code>metrics.json</code> (no per-test log files — live output streams to the terminal via <code>log_cli</code>). <a href="../tests/parse_metrics.py"><code>tests/parse_metrics.py</code></a> generates a markdown report (single-run or diff-vs-baseline; exits 1 on regression).</p>
 <p><strong>Run via the CLI</strong> (containerized runner — no local Python needed):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>unit<span class="w"> </span>-v
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;build_docker or build_packages&quot;</span><span class="w"> </span>-v
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>liveliness<span class="w"> </span>--sim<span class="w"> </span>msairsim<span class="w"> </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span>-v
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>sensors<span class="w"> </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span>-v
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>takeoff_hover_land<span class="w"> </span>--sim<span class="w"> </span>msairsim<span class="w"> </span>--takeoff-velocities<span class="w"> </span><span class="m">0</span>.5,1,2<span class="w"> </span>-v
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>autonomy<span class="w"> </span>--sim<span class="w"> </span>msairsim<span class="w"> </span>--trajectory-types<span class="w"> </span>Circle,Figure8,Racetrack,Line<span class="w"> </span>-v
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>unit<span class="w"> </span>-v
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;build_docker or build_packages&quot;</span><span class="w"> </span>-v
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>liveliness<span class="w"> </span>--sim<span class="w"> </span>msairsim<span class="w"> </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span>-v
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>sensors<span class="w"> </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span>-v
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>takeoff_hover_land<span class="w"> </span>--sim<span class="w"> </span>msairsim<span class="w"> </span>--takeoff-velocities<span class="w"> </span><span class="m">0</span>.5,1,2<span class="w"> </span>-v
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>autonomy<span class="w"> </span>--sim<span class="w"> </span>msairsim<span class="w"> </span>--trajectory-types<span class="w"> </span>Circle,Figure8,Racetrack,Line<span class="w"> </span>-v
 </span></code></pre></div>
 <p>Full reference: <a href="../tests/"><code>tests/README.md</code></a> — including <strong>liveliness vs
 sensors</strong> (infra vs topic streams), <strong>class-scoped <code>airstack_env</code></strong> (two bring-ups
@@ -5811,13 +5858,13 @@ when you select both marks with <code>and</code>), and <strong>Isaac Sim</strong
 <p><strong>Template:</strong> See <code>.agents/skills/add-ros2-package/assets/package_template/README.md</code></p>
 <h3 id="2-update-mkdocsyml">2. Update mkdocs.yml<a class="headerlink" href="#2-update-mkdocsyml" title="Permanent link">&para;</a></h3>
 <p>Add the module README to the navigation structure:
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">nav</span><span class="p">:</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Robot</span><span class="p">:</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Autonomy Modules</span><span class="p">:</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Local</span><span class="p">:</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Planning</span><span class="p">:</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">                  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Your Module</span><span class="p">:</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">                      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot/ros_ws/src/local/planners/your_package/README.md</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">nav</span><span class="p">:</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Robot</span><span class="p">:</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Autonomy Modules</span><span class="p">:</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Local</span><span class="p">:</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Planning</span><span class="p">:</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">                  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Your Module</span><span class="p">:</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">                      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot/ros_ws/src/local/planners/your_package/README.md</span>
 </span></code></pre></div></p>
 <p>The <code>same-dir</code> plugin allows linking to README files outside the <code>docs/</code> directory.</p>
 <h3 id="3-system-level-documentation-if-needed">3. System-Level Documentation (if needed)<a class="headerlink" href="#3-system-level-documentation-if-needed" title="Permanent link">&para;</a></h3>
