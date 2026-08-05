@@ -25,6 +25,7 @@ from raven_nav.behaviors.frontier_behavior import (
     _cells_set_from_xys, NOVELTY_WEIGHT, NOVELTY_NEIGHBORHOOD_CELLS)
 from raven_nav.behaviors.voxel_behavior import (
     aabb_surface_dist, VISIT_REACH_M)
+from raven_nav.behaviors.goal_progress import GoalProgressMonitor
 
 
 class VLFMBehavior:
@@ -32,6 +33,12 @@ class VLFMBehavior:
     BLEND_ALPHA = 0.8        # intermediate pose fraction toward the goal
     STANDOFF_M = 3.0         # xy standoff from a target voxel cluster
     UNLOCK_M = 4.0           # within this of the look-ahead -> release lock
+    # A frontier nearer than the unlock radius cannot produce committed travel:
+    # the lock releases the moment it is issued, so the drone re-selects from
+    # essentially the same place. Candidates inside it are dropped before
+    # scoring — with the fallback below, so a fleet boxed into a corner still
+    # gets a goal rather than freezing.
+    MIN_GOAL_DIST_M = UNLOCK_M
     NEAR_VISITED_M = 10.0    # fallback centre radius when a visit has no size
     VOX_SIZE_M = 0.5
 
@@ -79,6 +86,11 @@ class VLFMBehavior:
         # The cluster currently being serviced, and the evidence for calling it
         # complete: (center, size, approach, n_vox, stable_ticks, t_engaged).
         self._active = None
+        # Cools down explore regions that stop producing travel. The cost
+        # function weights semantic similarity 300x against a distance term in
+        # raw metres, so without this a high-sim frontier a few metres away is
+        # re-selected indefinitely.
+        self._progress = GoalProgressMonitor(get_clock)
 
     def condition_check(self):
         return True
@@ -296,6 +308,28 @@ class VLFMBehavior:
                     f' + polygon — holding', throttle_duration_sec=2.0)
             return waypoint_locked, target_waypoint, target_waypoint2
 
+        # Drop frontiers too close to move toward, and regions the progress
+        # monitor has cooled down. Both are relaxed rather than allowed to
+        # empty the candidate set: a robot with nowhere good left to go should
+        # still go somewhere.
+        reach = np.linalg.norm(ray_origins - np.asarray(cur_pose_np, float), axis=1)
+        near = reach < self.MIN_GOAL_DIST_M
+        cooled = self._progress.blocked_mask(ray_origins)
+        n_dropped = int((valid & (near | cooled)).sum())
+        if (valid & ~near & ~cooled).any():
+            valid &= ~near & ~cooled
+        elif (valid & ~near).any():
+            valid &= ~near
+            if debug_logger is not None:
+                debug_logger.warn(
+                    '[vlfm] explore: every un-cooled frontier is on cooldown — '
+                    'ignoring cooldown this tick', throttle_duration_sec=5.0)
+        elif debug_logger is not None and n_dropped:
+            debug_logger.warn(
+                f'[vlfm] explore: all {n_dropped} candidate(s) within '
+                f'{self.MIN_GOAL_DIST_M:.0f} m — taking the nearest anyway',
+                throttle_duration_sec=5.0)
+
         # Per-ray semantic reward (best target sim) blended with frontier-style
         # costs at the ray origin. cost is minimized: value pulls toward high-sim
         # rays, peer repulsion + novelty + distance spread robots and avoid
@@ -344,6 +378,14 @@ class VLFMBehavior:
                 f'cost={float(cost[ray_idx]):.0f} -> '
                 f'({wp1[0]:.0f},{wp1[1]:.0f},{wp1[2]:.0f})',
                 throttle_duration_sec=2.0)
+        cooled = self._progress.update(cur_pose_np, wp1)
+        if cooled is not None and debug_logger is not None:
+            debug_logger.warn(
+                f'[vlfm] explore: no net progress in '
+                f'{self._progress.progress_timeout_s:.0f}s — cooling down '
+                f'({cooled[0]:.0f},{cooled[1]:.0f}) for '
+                f'{self._progress.cooldown_s:.0f}s '
+                f'({self._progress.n_blocked} region(s) cooled)')
         if float(np.linalg.norm(cur_pose_np - wp2)) < self.UNLOCK_M:
             waypoint_locked = False
         return waypoint_locked, wp1, wp2

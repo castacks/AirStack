@@ -30,6 +30,7 @@ from raven_nav.behaviors.frontier_behavior import (
 from raven_nav.behaviors.voxel_behavior import (
     VISIT_REACH_M, VISIT_MATCH_M, aabb_surface_dist)
 from raven_nav.behaviors.pursuit_stuck import PursuitStuckMonitor
+from raven_nav.behaviors.goal_progress import GoalProgressMonitor
 from raven_nav.peer_state import PeerState
 from raven_nav import bid_manager
 from raven_nav.ray_groups import RayGroup, compute_ray_groups, same_ray_group
@@ -447,6 +448,12 @@ class RavenNavNode(Node):
         # reach the current approach waypoint, the active behavior retries a
         # different approach for the same (real) target instead of parking.
         self._pursuit_stuck = PursuitStuckMonitor(self.get_clock)
+
+        # The other way pursuit stalls: the drone keeps flying but stops
+        # covering ground, because the nearest-first bid keeps handing it a
+        # lead it is already on top of. Measured on net displacement, so it
+        # catches a robot circling as well as one parked.
+        self._goal_progress = GoalProgressMonitor(self.get_clock)
 
         # Dead-assignment watchdog: the auction can hand a drone a confirmed BB
         # its own behavior refuses to service (a fragment overlapping something
@@ -1315,6 +1322,43 @@ class RavenNavNode(Node):
                 break
         if not rays_present:
             self._add_served_lead(my_task.label, pt)
+
+    def _stalled_commitment_target(self, my_task):
+        """The target to give up on, when holding it has stopped producing
+        travel — else None.
+
+        `_mark_lead_serviced_if_reached` retires only a *dead* lead: reached,
+        with no same-label ray still pointing at it. A lead sitting on the drone
+        stays live indefinitely (rays keep arriving), and since the bid is
+        -distance it also wins every auction, so the robot holds it for the whole
+        window. Net displacement is what separates that from real pursuit: a
+        robot that has not left a 15 m circle in 60 s is not servicing anything,
+        however many rays agree with it."""
+        if my_task is None or self._cur_pose is None:
+            return None
+        pt = np.asarray(my_task.centroid, dtype=float)
+        return self._goal_progress.update(self._cur_pose, pt)
+
+    def _release_stalled_commitment(self, my_task) -> None:
+        """Drop a stalled assignment and suppress the lead so the next auction
+        hands out something else. Ray leads are gossiped as served so peers drop
+        them too; the cooldown in the monitor keeps it from being re-taken
+        immediately."""
+        if self._stalled_commitment_target(my_task) is None:
+            return
+        pt = np.asarray(my_task.centroid, dtype=float)
+        self.get_logger().warn(
+            f'[coord] no net progress in '
+            f'{self._goal_progress.progress_timeout_s:.0f}s while committed to '
+            f'{my_task.label} @ ({pt[0]:.0f},{pt[1]:.0f}) — releasing it and '
+            f'falling back to exploration')
+        if my_task.status in ('ray', 'ray-localized'):
+            self._add_served_lead(my_task.label, pt)
+        self._assigned_target = None
+        self._committed_to_assigned = False
+        self._committed_bb_center = None
+        self._committed_target_last_origin = None
+        self._committed_target_last_dir = None
 
     def _agent_positions(self, fresh_peers):
         """{agent_id: xyz} for me + fresh peers with a known position."""
@@ -2602,6 +2646,7 @@ class RavenNavNode(Node):
                         f'[{my_task.status}] @ '
                         f'({my_task.centroid[0]:.0f},{my_task.centroid[1]:.0f})')
             self._mark_lead_serviced_if_reached(my_task, ray_groups)
+            self._release_stalled_commitment(my_task)
         else:
             # Nothing assigned to me -> frontier exploration (downstream).
             self._assigned_target = None
@@ -2609,6 +2654,7 @@ class RavenNavNode(Node):
             self._committed_bb_center = None
             self._committed_target_last_origin = None
             self._committed_target_last_dir = None
+            self._goal_progress.reset()
 
         self._publish_served_leads()
         self._publish_ray_leads()

@@ -1,48 +1,34 @@
-# pfc1_rerun — the 28 runs the 1st-PFC sweep still owes us.
+# pfc1_rerun — the 14 runs the 1st-PFC sweep still owes us.
 #
-# Two reasons a run is here.
+# A. Never armed. The previous pass split this mission in two and ran both
+#    concurrently; the first four iterations of *each* half failed with
+#    `robots [1,2,3] not ready within 900s (connected so far: [])` — MAVROS
+#    never connected — while the remaining ten of each ran clean. Nothing about
+#    these eight spawns is otherwise distinctive, so they are simply owed:
 #
-# A. The goal changed, so the old result is void:
+#      downtownwest s1        frontier, vlfm, multi-raven
+#      downtownwest s2        frontier
+#      moderncitydowntown s1  frontier, vlfm, multi-raven
+#      moderncitydowntown s2  frontier
 #
-#   DowntownWest x 3 starts x 3 methods       the scene's background queries were
-#     (frontier, vlfm, multi-raven)           reworked (cafe table / food stand /
-#                                             sidewalk / umbrella in, electric
-#                                             cables out) and its voxel gate
-#                                             raised to 0.67. LVLM is exempt: it
-#                                             has no semantic mapper, so neither
-#                                             change reaches it.
-#   ModernCityDowntown x 3 starts x 3 methods its query said "cafe tables" while
-#     (frontier, vlfm, multi-raven)           the annotation class is "cafe
-#                                             table" — the plural matched
-#                                             nothing, so 2 of the scene's 14
-#                                             objects were invisible to the
-#                                             offline scorer. The query is now
-#                                             singular, and "car" has been
-#                                             dropped from the background list it
-#                                             shared with the target list.
+# B. Flew a robot short. `trajectory_progress.py` flags a run when a robot's
+#    maximum displacement inside the search window stays under 15 m or it flies
+#    less than 20 m. All four are the same open defect — the planner keeps
+#    selecting goals 3-8 m away where a healthy robot is sent ~43 m, so the drone
+#    arrives and the next goal is just as close. Two have now failed this way
+#    twice running, so they may repeat:
 #
-# B. The fleet was a robot short. `trajectory_progress.py` flags a run when a
-#    robot's maximum displacement inside the search window stays under 15 m or
-#    it flies less than 20 m — it took off and hovered, so the scene was searched
-#    by two drones and the run is not comparable with a full one:
+#      vlfm         downtownwest s2         robot_2, 265 goals at a 5.4 m median
+#      vlfm         retroneighborhood s3    robot_2, 304 goals at a 7.1 m median
+#      multi-raven  fireacademy s1          robot_1, assigned target 7.8 m away
+#      multi-raven  militarybase s3         robot_1, assigned target 3.2 m away
 #
-#   multi-raven  fireacademy s1/s2/s3, abandonedfactory s3   robot_2 lost its GPU
-#                                             to Isaac Sim and never got a
-#                                             navigator (fixed: 4 GPUs, one
-#                                             pinned per robot).
-#   lvlm         constructionsite s1, fireacademy s2,        robot took off and
-#                moderncitydowntown s3                       never departed.
-#   vlfm         fireacademy s2, retroneighborhood s3,       near-range goal
-#                moderncitydowntown s3                       selection: the
-#                                             planner kept picking waypoints
-#                                             ~5 m away, so the drone stayed put.
-#                                             Not yet fixed — these may repeat.
-#   multi-raven  militarybase s3               robot_1 held a `[ray]` "radio
-#                                             tower" hypothesis 4.5 m from its
-#                                             own spawn for all 297 coordination
-#                                             ticks, committed, never exploring,
-#                                             with 30 targets left unassigned. It
-#                                             flew 6 m in 15 minutes.
+# C. FireAcademy s2 and s3 for multi-raven, which flew clean but are worth a
+#    repeat: with s1 still a robot short, the scene rests on two runs that
+#    disagree by 0.4 (0.200 and 0.600 of 10 objects). Its earlier two-robot
+#    flights averaged 0.567 against the current 0.400, which is inside the
+#    +/-0.19 run-to-run spread DowntownWest established but leaves the scene
+#    resting on too little.
 #
 # constructionsite_s3 and shipyard_s2 are deliberately absent: they have never
 # armed in any sweep — 28 attempts, 0 successes, always MAVROS connected but
@@ -255,10 +241,16 @@ scene_templates:
         - {x: 250.0, y: -250.0, z: 0.0}
         - {x: -250.0, y: -250.0, z: 0.0}
 
-# ── 28 runs ──────────────────────────────────────────────────────────────────
+# ── 14 runs ──────────────────────────────────────────────────────────────────
 # SPAWN_CONFIGS are byte-identical to the four per-baseline mission files. The
 # methods for one start location are adjacent, so a start-specific failure shows
 # up as consecutive bad iterations rather than scattered ones.
+#
+# Run this as ONE mission, not as two concurrent halves. The previous attempt
+# split it and submitted both 29 s apart; the first four iterations of *each*
+# half then failed with `not ready within 900s (connected so far: [])` — MAVROS
+# never connected — and the remaining ten of each ran clean. Fourteen runs is
+# ~4h40m at the 20.1 min/run this sweep averages.
 environments:
 
   # ---- DowntownWest ----
@@ -277,18 +269,6 @@ environments:
   - <<: [*downtownwest, *vlfm]
     name: downtownwest_s2_vlfm
     SPAWN_CONFIGS: '[{"x_m": -33.0, "y_m": 59.0, "orient": [0.0, 0.0, -0.8583, 0.5132]}, {"x_m": -25.0, "y_m": 62.0, "orient": [0.0, 0.0, -0.561, 0.8278]}, {"x_m": -16.0, "y_m": 64.5, "orient": [0.0, 0.0, -0.1586, 0.9873]}]'
-  - <<: [*downtownwest, *multiraven]
-    name: downtownwest_s2_multiraven
-    SPAWN_CONFIGS: '[{"x_m": -33.0, "y_m": 59.0, "orient": [0.0, 0.0, -0.8583, 0.5132]}, {"x_m": -25.0, "y_m": 62.0, "orient": [0.0, 0.0, -0.561, 0.8278]}, {"x_m": -16.0, "y_m": 64.5, "orient": [0.0, 0.0, -0.1586, 0.9873]}]'
-  - <<: [*downtownwest, *frontier]
-    name: downtownwest_s3_frontier
-    SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}, {"x_m": -115.5, "y_m": 3.0, "orient": [0.0, 0.0, -0.013, 0.9999]}, {"x_m": -111.0, "y_m": 6.5, "orient": [0.0, 0.0, 0.4108, 0.9117]}]'
-  - <<: [*downtownwest, *vlfm]
-    name: downtownwest_s3_vlfm
-    SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}, {"x_m": -115.5, "y_m": 3.0, "orient": [0.0, 0.0, -0.013, 0.9999]}, {"x_m": -111.0, "y_m": 6.5, "orient": [0.0, 0.0, 0.4108, 0.9117]}]'
-  - <<: [*downtownwest, *multiraven]
-    name: downtownwest_s3_multiraven
-    SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}, {"x_m": -115.5, "y_m": 3.0, "orient": [0.0, 0.0, -0.013, 0.9999]}, {"x_m": -111.0, "y_m": 6.5, "orient": [0.0, 0.0, 0.4108, 0.9117]}]'
 
   # ---- ModernCityDowntown ----
   - <<: [*moderncitydowntown, *frontier]
@@ -303,24 +283,6 @@ environments:
   - <<: [*moderncitydowntown, *frontier]
     name: moderncitydowntown_s2_frontier
     SPAWN_CONFIGS: '[{"x_m": 36.2, "y_m": -5.5, "orient": [0.0, 0.0, 0.8872, 0.4613]}, {"x_m": 36.2, "y_m": -9.0, "orient": [0.0, 0.0, 0.9991, 0.0432]}, {"x_m": 36.2, "y_m": -12.5, "orient": [0.0, 0.0, 0.9237, -0.3831]}]'
-  - <<: [*moderncitydowntown, *vlfm]
-    name: moderncitydowntown_s2_vlfm
-    SPAWN_CONFIGS: '[{"x_m": 36.2, "y_m": -5.5, "orient": [0.0, 0.0, 0.8872, 0.4613]}, {"x_m": 36.2, "y_m": -9.0, "orient": [0.0, 0.0, 0.9991, 0.0432]}, {"x_m": 36.2, "y_m": -12.5, "orient": [0.0, 0.0, 0.9237, -0.3831]}]'
-  - <<: [*moderncitydowntown, *multiraven]
-    name: moderncitydowntown_s2_multiraven
-    SPAWN_CONFIGS: '[{"x_m": 36.2, "y_m": -5.5, "orient": [0.0, 0.0, 0.8872, 0.4613]}, {"x_m": 36.2, "y_m": -9.0, "orient": [0.0, 0.0, 0.9991, 0.0432]}, {"x_m": 36.2, "y_m": -12.5, "orient": [0.0, 0.0, 0.9237, -0.3831]}]'
-  - <<: [*moderncitydowntown, *frontier]
-    name: moderncitydowntown_s3_frontier
-    SPAWN_CONFIGS: '[{"x_m": -70.5, "y_m": -8.9, "orient": [0.0, 0.0, -0.3872, 0.922]}, {"x_m": -68.0, "y_m": -10.7, "orient": [0.0, 0.0, 0.0387, 0.9993]}, {"x_m": -65.5, "y_m": -8.9, "orient": [0.0, 0.0, 0.4574, 0.8893]}]'
-  - <<: [*moderncitydowntown, *vlfm]
-    name: moderncitydowntown_s3_vlfm
-    SPAWN_CONFIGS: '[{"x_m": -70.5, "y_m": -8.9, "orient": [0.0, 0.0, -0.3872, 0.922]}, {"x_m": -68.0, "y_m": -10.7, "orient": [0.0, 0.0, 0.0387, 0.9993]}, {"x_m": -65.5, "y_m": -8.9, "orient": [0.0, 0.0, 0.4574, 0.8893]}]'
-  - <<: [*moderncitydowntown, *lvlm]
-    name: moderncitydowntown_s3_lvlm
-    SPAWN_CONFIGS: '[{"x_m": -70.5, "y_m": -8.9, "orient": [0.0, 0.0, -0.3872, 0.922]}, {"x_m": -68.0, "y_m": -10.7, "orient": [0.0, 0.0, 0.0387, 0.9993]}, {"x_m": -65.5, "y_m": -8.9, "orient": [0.0, 0.0, 0.4574, 0.8893]}]'
-  - <<: [*moderncitydowntown, *multiraven]
-    name: moderncitydowntown_s3_multiraven
-    SPAWN_CONFIGS: '[{"x_m": -70.5, "y_m": -8.9, "orient": [0.0, 0.0, -0.3872, 0.922]}, {"x_m": -68.0, "y_m": -10.7, "orient": [0.0, 0.0, 0.0387, 0.9993]}, {"x_m": -65.5, "y_m": -8.9, "orient": [0.0, 0.0, 0.4574, 0.8893]}]'
 
   # ---- RetroNeighborhood ----
   - <<: [*retroneighborhood, *vlfm]
@@ -331,28 +293,12 @@ environments:
   - <<: [*fireacademy, *multiraven]
     name: fireacademy_s1_multiraven
     SPAWN_CONFIGS: '[{"x_m": 27.34, "y_m": 5.359, "orient": [0.0, 0.0, 0.9757, 0.2192]}, {"x_m": 25.982, "y_m": 12.241, "orient": [0.0, 0.0, -0.2076, 0.9782]}, {"x_m": 26.223, "y_m": 15.534, "orient": [0.0, 0.0, -0.3285, 0.9445]}]'
-  - <<: [*fireacademy, *vlfm]
-    name: fireacademy_s2_vlfm
-    SPAWN_CONFIGS: '[{"x_m": 5.57, "y_m": 29.69, "orient": [0.0, 0.0, -0.9581, 0.2865]}, {"x_m": 8.02, "y_m": 31.76, "orient": [0.0, 0.0, -0.7472, 0.6646]}, {"x_m": 10.46, "y_m": 33.82, "orient": [0.0, 0.0, -0.3964, 0.9181]}]'
-  - <<: [*fireacademy, *lvlm]
-    name: fireacademy_s2_lvlm
-    SPAWN_CONFIGS: '[{"x_m": 5.57, "y_m": 29.69, "orient": [0.0, 0.0, -0.9581, 0.2865]}, {"x_m": 8.02, "y_m": 31.76, "orient": [0.0, 0.0, -0.7472, 0.6646]}, {"x_m": 10.46, "y_m": 33.82, "orient": [0.0, 0.0, -0.3964, 0.9181]}]'
   - <<: [*fireacademy, *multiraven]
     name: fireacademy_s2_multiraven
     SPAWN_CONFIGS: '[{"x_m": 5.57, "y_m": 29.69, "orient": [0.0, 0.0, -0.9581, 0.2865]}, {"x_m": 8.02, "y_m": 31.76, "orient": [0.0, 0.0, -0.7472, 0.6646]}, {"x_m": 10.46, "y_m": 33.82, "orient": [0.0, 0.0, -0.3964, 0.9181]}]'
   - <<: [*fireacademy, *multiraven]
     name: fireacademy_s3_multiraven
     SPAWN_CONFIGS: '[{"x_m": -46.4, "y_m": 12.8, "orient": [0.0, 0.0, -0.5535, 0.8328]}, {"x_m": -49.2, "y_m": 17.2, "orient": [0.0, 0.0, -0.1497, 0.9887]}, {"x_m": -44.8, "y_m": 18.8, "orient": [0.0, 0.0, 0.2822, 0.9594]}]'
-
-  # ---- ConstructionSite ----
-  - <<: [*constructionsite, *lvlm]
-    name: constructionsite_s1_lvlm
-    SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0.0, 0.0, 0.2886, 0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0.0, 0.0, -0.2699, 0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0.0, 0.0, 0.9137, 0.4063]}]'
-
-  # ---- AbandonedFactory ----
-  - <<: [*abandonedfactory, *multiraven]
-    name: abandonedfactory_s3_multiraven
-    SPAWN_CONFIGS: '[{"x_m": -64.5, "y_m": -5.5, "orient": [0.0, 0.0, -0.3551, 0.9348]}, {"x_m": -68.5, "y_m": -2.5, "orient": [0.0, 0.0, 0.0733, 0.9973]}, {"x_m": -64.5, "y_m": 0.5, "orient": [0.0, 0.0, 0.4879, 0.8729]}]'
 
   # ---- MilitaryBase ----
   - <<: [*militarybase, *multiraven]

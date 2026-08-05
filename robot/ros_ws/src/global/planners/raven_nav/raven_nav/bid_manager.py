@@ -57,14 +57,26 @@ class BidEntry:
     size: Optional[np.ndarray] = None
 
 
-def compute_my_bids(groups: List[RayGroup]) -> List[BidEntry]:
-    """One BidEntry per RayGroup.
+# Bidding is nearest-first (value = -distance), so a lead that materialises on
+# top of the drone automatically outbids every real target — and winning it
+# strands the robot, because it is already there. Leads this close are dropped
+# from the bid list: whatever is at the drone's own position is not somewhere to
+# search. Set just under the 6 m lead-service radius, so a lead close enough to
+# be retired as reached is never also close enough to be re-bid on.
+MIN_BID_DIST_M = 5.0
+
+
+def compute_my_bids(groups: List[RayGroup],
+                    min_bid_dist_m: float = MIN_BID_DIST_M) -> List[BidEntry]:
+    """One BidEntry per RayGroup, minus leads the drone is already standing on.
 
     Multiple groups with the same label produce multiple entries — the
     auction will sort out which (if any) compete with peer bids.
     """
     out: List[BidEntry] = []
     for g in groups:
+        if float(g.min_dist_to_robot) < float(min_bid_dist_m):
+            continue
         out.append(BidEntry(
             label=g.label,
             value=-float(g.min_dist_to_robot),
