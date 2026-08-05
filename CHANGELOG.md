@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Falling back to `unknown_robot` / domain 0 now logs a warning naming both fixes (rename the device `robot-<n>` on the host, or supply a `ROBOT_NAME_MAP_CONFIG_FILE` matching your hostnames). The fallback itself is unchanged — it deliberately keeps an unidentified robot out of every real robot's namespace — but it used to resolve silently, so the symptoms surfaced far from the cause
 - Dropped `ROBOT_NAME` / `ROS_DOMAIN_ID` from `overrides/l4t-px4-realrobot.env`: no compose service declares either, so an env file could never set them and the lines were inert
 - `bag_record/bag_recording_status` was bridged GCS -> robot in `domain_bridge.yaml`, the same direction as the command it answers, so recorder status never reached the GCS and every recording indicator stayed blank
+- `bag_record_node` passed `--exclude` to `ros2 bag record`, which Jazzy renamed to `--exclude-regex`. It is now an ambiguous prefix of four options, so argparse rejected the command and any section using `exclude:` (including `log.yaml`'s `airstack` section, i.e. everything but the cameras) recorded nothing — surfacing only as a usage dump in the node's stdout. Multiple `exclude:` entries are now alternated into one regex instead of repeating a single-valued flag, which had silently kept only the last
 
 ## [1.0.0] - 2024-12-19
 
