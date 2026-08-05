@@ -128,9 +128,10 @@ class BagRecorderNode(Node):
                     exit()
                 
                 self.commands[section_name]['suffix'].append('--all')
-                for topic in section_config['exclude']:
-                    self.commands[section_name]['suffix'].append('--exclude')
-                    self.commands[section_name]['suffix'].append(topic)
+                # --exclude-regex takes a single regex, so entries are alternated.
+                excludes = [str(t) for t in section_config['exclude']]
+                self.commands[section_name]['suffix'].append('--exclude-regex')
+                self.commands[section_name]['suffix'].append('|'.join(excludes))
                 self.get_logger().info(str(self.commands[section_name]))
             else:
                 for topic in section_config['topics']:

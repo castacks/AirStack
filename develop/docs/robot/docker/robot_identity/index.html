@@ -5695,13 +5695,26 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">FCU_URL</span><span class="o">=</span><span class="s2">&quot;/dev/ttyTHS4:115200&quot;</span>
 </span></code></pre></div>
 <div class="admonition warning">
-<p class="admonition-title">Hostname convention is required</p>
-<p>The hostname must match a rule in the mapping config file. If no rule matches, the script exits with an error and <code>ROBOT_NAME</code> / <code>ROS_DOMAIN_ID</code> will be unset. Make sure every physical robot has a hostname that matches a rule before deployment.</p>
+<p class="admonition-title">Hostname convention is required — and it fails quietly</p>
+<p>The hostname must match a rule in the mapping config file. With the stock
+<code>default_robot_name_map.yaml</code> the failure is <strong>silent, not loud</strong>: its final <code>.*</code>
+catch-all matches anything, so a device named e.g. <code>airlab-jetson-42</code> resolves to
+<code>ROBOT_NAME=unknown_robot</code>, <code>ROS_DOMAIN_ID=0</code> with no error and a clean boot. The
+symptoms surface later — topics under <code>/unknown_robot</code>, per-robot config lookups
+keyed on <code>ROBOT_NAME</code> finding no profile, and containers pinned to another domain
+(<code>zed-l4t</code> hardcodes <code>ROS_DOMAIN_ID=1</code>) no longer seeing the stack.</p>
+<p>Make sure every physical robot has a hostname that matches a rule before deployment.
+Run the following to set the hostname on a device:
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>hostnamectl set-hostname robot-1
+</span></code></pre></div>
+Then verify the mapping in a shell inside the container:
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>&lt;container&gt;<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;echo &quot;$(hostname) -&gt; $ROBOT_NAME / $ROS_DOMAIN_ID&quot;&#39;</span>
+</span></code></pre></div></p>
 </div>
 <h3 id="fallback-anything-else">Fallback (anything else)<a class="headerlink" href="#fallback-anything-else" title="Permanent link">&para;</a></h3>
 <p>If <code>ROBOT_NAME_SOURCE</code> is unset or set to an unrecognized value, the <code>.bashrc</code> falls back to:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>ROBOT_NAME=unknown_robot
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>ROS_DOMAIN_ID=0
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>ROBOT_NAME=unknown_robot
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>ROS_DOMAIN_ID=0
 </span></code></pre></div>
 <p>A warning is printed to the shell. This is safe for single-robot testing but <strong>will cause collisions</strong> if two containers with this fallback are on the same network.</p>
 <h2 id="summary-table">Summary Table<a class="headerlink" href="#summary-table" title="Permanent link">&para;</a></h2>
@@ -5749,9 +5762,9 @@
 </table>
 <h2 id="overriding-manually">Overriding Manually<a class="headerlink" href="#overriding-manually" title="Permanent link">&para;</a></h2>
 <p>If you need to override the robot identity for testing, you can set the variables directly before starting a shell session inside the container:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-e<span class="w"> </span><span class="nv">ROBOT_NAME</span><span class="o">=</span>robot_5<span class="w"> </span>-e<span class="w"> </span><span class="nv">ROS_DOMAIN_ID</span><span class="o">=</span><span class="m">5</span><span class="w"> </span>-it<span class="w"> </span>&lt;container&gt;<span class="w"> </span>bash
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-e<span class="w"> </span><span class="nv">ROBOT_NAME</span><span class="o">=</span>robot_5<span class="w"> </span>-e<span class="w"> </span><span class="nv">ROS_DOMAIN_ID</span><span class="o">=</span><span class="m">5</span><span class="w"> </span>-it<span class="w"> </span>&lt;container&gt;<span class="w"> </span>bash
 </span></code></pre></div>
-<p>Or add them to your project's <code>.env</code> file and pass them through in <code>docker-compose.yaml</code>.</p>
+<p>Or add them to your project's <code>.env</code> file and make sure to pass them through in <code>docker-compose.yaml</code>.</p>
 
 
 
