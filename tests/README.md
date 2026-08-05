@@ -24,6 +24,7 @@ Pytest hooks and the shared fixtures live in `tests/conftest.py`; reusable helpe
 | [`system/test_sensors.py`](system/test_sensors.py) | `sensors` | After liveliness in collection order: sim + robot stereo/depth Hz (**Isaac:** batched ``ros2 topic hz`` to avoid bridge overload; **ms-airsim:** single batch), filtered LiDAR via ``echo --once`` + cloud sanity (isaacsim), sim RTF, ``test_sensor_streams_stable`` | Docker daemon, GPU, sim license |
 | [`system/test_takeoff_hover_land.py`](system/test_takeoff_hover_land.py) | `takeoff_hover_land` | End-to-end flight: PX4 readiness gate, takeoff to 10 m, hover stability, land — one chain per (sim, num_robots, iteration, velocity) | Docker daemon, GPU, sim license |
 | [`system/test_fixed_trajectory.py`](system/test_fixed_trajectory.py) | `autonomy` | Fixed-pattern trajectory evaluation: takeoff, execute a trajectory (Circle, Figure8, Racetrack, Line), record path deviation metrics, land — one chain per (sim, num_robots, iteration, trajectory_type) | Docker daemon, GPU, sim license |
+| [`system/test_waypoint_flight.py`](system/test_waypoint_flight.py) | `waypoint_flight` | Ordered-waypoint navigation: takeoff, send a waypoint route to `NavigateTask`, judge the odometry track with the standalone [`waypoint_checker.py`](waypoint_checker.py), land — one chain per (sim, num_robots, iteration) | Docker daemon, GPU, sim license |
 
 ### Unit tests (co-located)
 
@@ -55,7 +56,7 @@ container or brings one up automatically (like `build_packages`), then tears it 
 Collection order runs integration after `build_packages` and before the sim tiers.
 
 Marks can be combined with pytest logic:
-`-m unit`, `-m "build_docker or build_packages"`, `-m integration`, `-m liveliness`, `-m sensors`, `-m takeoff_hover_land`, `-m autonomy`, or e.g. `-m "liveliness or sensors"` (see **Bring-up scope** below).
+`-m unit`, `-m "build_docker or build_packages"`, `-m integration`, `-m liveliness`, `-m sensors`, `-m takeoff_hover_land`, `-m autonomy`, `-m waypoint_flight`, or e.g. `-m "liveliness or sensors"` (see **Bring-up scope** below).
 
 ### Bring-up scope (`airstack_env`)
 
@@ -370,6 +371,124 @@ airstack test -m autonomy \
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--trajectory-types` | `Circle,Figure8,Racetrack,Line` | Comma-separated trajectory types to sweep |
+
+---
+
+## Waypoint Flight Tests (`system/test_waypoint_flight.py`)
+
+`TestWaypointFlight` runs a **4-phase flight chain** per `(sim, num_robots,
+iteration)`: after takeoff it sends an ordered waypoint route to the local
+planner's `NavigateTask` action (`/robot_N/tasks/navigate`) as a **dense**
+`nav_msgs/Path` (interpolated at 1 m from the current pose through the
+waypoints, mirroring real global-planner output), captures odometry
+throughout, then lands.
+
+| Isaac Sim | ms-airsim (Blocks) |
+| --------- | ------------------ |
+| ![Isaac Sim waypoint flight](assets/waypoint_flight_isaac.jpg) | ![ms-airsim Blocks waypoint flight](assets/waypoint_flight_msairsim_blocks.jpg) |
+
+![Foxglove during a waypoint flight](assets/waypoint_flight_foxglove.png)
+*Foxglove (GCS dashboard) during the route: planned path and expanded
+obstacle voxels in the 3D panel, Robot Tasks panel, live stereo feed.*
+
+Pass/fail is judged by the standalone
+[`waypoint_checker.py`](waypoint_checker.py): the odometry track must pass
+within `--waypoint-tolerance` of **every waypoint in order**, each within
+`--waypoint-timeout` seconds (odometry clock) of the previous arrival, and
+additionally end within `--goal-tolerance` of the final waypoint. The
+criterion is defined purely on the odometry track — not the action result —
+so swapping the global or local planner leaves the judgment unchanged. This
+makes the test the standard acceptance check after integrating or swapping a
+planner module.
+
+Waypoints are specified **relative to the robot pose at dispatch** (x forward
+along the initial heading, z up from dispatch altitude), so routes are
+spawn-point and simulator agnostic. The default route is an open 30 m square
+flown 10 m above takeoff altitude (~20 m AGL) so it clears scene clutter in
+both default scenes (Isaac open plane, AirSim Blocks) — this test judges
+route-following, not obstacle avoidance.
+
+**Tolerance calibration** (validated against stock Isaac Sim flight): the
+stack's navigation contract is *reach the goal precisely, follow the route
+corridor loosely*. Stock `droan_gl` scores candidate trajectories with
+`cost = deviation - path_distance`, which cuts corners (~4–7 m observed), so
+the intermediate tolerance is loose (15 m) while the final goal is tight
+(2.5 m = NavigateTask's 1.5 m goal tolerance + tracking lag). `NavigateTask`
+succeeds on the **tracking point**, which leads the drone by up to the
+look-ahead distance, so the test keeps capturing after the action returns
+until the drone is stationary (max 30 s). Two route-design rules follow:
+routes must **end away from the start** (the action succeeds instantly on a
+closed loop), and legs should be **≥ 2× the intermediate tolerance** so the
+corridor check can discriminate route-following from goal-beelining.
+
+### Phase order
+
+| Phase | Test | What happens |
+| ----- | ---- | ------------ |
+| 1 | `test_px4_ready` | Waits for MAVROS connected + odometry publishing; per env |
+| 2 | `test_takeoff` | Takeoff to 10 m at 1 m/s; asserts altitude within 10 % |
+| 3 | `test_waypoint_route` | Sends `NavigateTask`; captures odom; asserts checker verdict |
+| 4 | `test_landing` | Sends `LandTask`; asserts final altitude < 0.5 m |
+
+A `test_waypoint_route` failure does **not** poison the chain — `test_landing`
+always runs so the drone returns to the ground.
+
+### Recorded metrics
+
+| Metric key | Unit | Description |
+| ---------- | ---- | ----------- |
+| `ready_duration_sys_s` | s | Wall-clock time from test start until PX4 ready |
+| `waypoint_success` | — | 1.0 if the checker passed the whole route |
+| `waypoints_reached` | — | Waypoints reached in order (`higher_is_better`) |
+| `navigate_action_success` | — | 1.0 if the action returned `success: true` |
+| `route_time_sim_s` | s | Odometry-clock time over the captured route |
+| `worst_closest_approach_m` | m | Largest closest-approach distance over all waypoints |
+| `final_goal_error_m` | m | Closest approach to the final waypoint (asserted ≤ `--goal-tolerance`) |
+
+### The standalone checker
+
+[`waypoint_checker.py`](waypoint_checker.py) is stdlib-only and judges any
+odometry CSV against a route, independent of the AirStack harness — useful
+for judging waypoint flight on other ROS 2 systems or in agent-evaluation
+settings:
+
+```bash
+ros2 topic echo --csv /robot_1/interface/mavros/local_position/odom > odom.csv
+python3 tests/waypoint_checker.py --odom-csv odom.csv \
+  --waypoints "10,0,10; 10,10,10; 0,10,10" --tolerance 1.5 --budget 120
+```
+
+It prints a JSON verdict (per-waypoint reached/closest-approach/elapsed) and
+exits 0 on pass, 1 on fail. Note the CLI takes waypoints in the **odometry
+frame** (the pytest wrapper does the relative-to-world transform).
+
+### Running waypoint flight tests
+
+```bash
+# Default 10 m square route; ms-airsim; 1 robot
+airstack test -m waypoint_flight \
+  --sim msairsim \
+  --num-robots 1 \
+  --stress-iterations 1 \
+  -v
+
+# Custom route with an altitude change, Isaac Sim
+airstack test -m waypoint_flight \
+  --sim isaacsim \
+  --num-robots 1 \
+  --waypoints "30,0,0; 30,30,5; 0,30,5" \
+  --goal-tolerance 2.0 \
+  -v
+```
+
+### CLI option reference (waypoint-specific)
+
+| Option | Default | Description |
+| ------ | ------- | ----------- |
+| `--waypoints` | `30,0,10; 30,30,10; 0,30,10` | Ordered route `x,y,z; ...` relative to dispatch pose; must end away from start |
+| `--waypoint-tolerance` | `15` | Pass distance (m) to each intermediate waypoint (corridor check) |
+| `--goal-tolerance` | `2.5` | Pass distance (m) to the final waypoint |
+| `--waypoint-timeout` | `120` | Per-waypoint time budget (s, odometry clock) |
 
 ---
 
