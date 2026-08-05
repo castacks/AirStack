@@ -34,6 +34,7 @@ Welcome to AirStack development! This guide will help you extend and customize t
 - **[Docker Build Profiles](intermediate/docker-build-profiles.md)** - Robot image build args and platform profiles (`robot-desktop`, `robot-l4t`, etc.)
 - **[Contributing](intermediate/contributing.md)** - Contribute to AirStack
 - **[Documentation Guide](intermediate/documentation.md)** - Write great documentation
+- **[Feature Notebook](intermediate/feature_notebook.md)** - Record design specs and test results per feature; populate PRs from them
 
 ### 🚀 Advanced Tutorials
 

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Feature notebook workflow (`use-feature-notebook` skill): every agent-implemented feature gets a local, gitignored `notebook/NNN-feature-slug/` entry with a status-tracked `design_spec.md` (written before coding) and `results/` artifacts + self-contained `results_summary.md` that populate the feature's PR description
 - Battery and telemetry display in GCS RQT control panel (voltage and percentage per robot when MAVROS battery topic is bridged)
 - `TARGET_ARCH` build arg (default `x86_64`) in `Dockerfile.robot` to arch-parametrize `LD_LIBRARY_PATH`; `docker-compose.yaml` passes `TARGET_ARCH: aarch64` to the `voxl` and `l4t` real-robot image builds
 - `ros-${ROS_DISTRO}-mavros-extras` in the robot image (provides the vision_pose plugin used for external-pose deployments)
