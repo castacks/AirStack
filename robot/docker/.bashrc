@@ -103,6 +103,21 @@ if [ -z "${ROBOT_NAME:-}" ]; then
             export ROS_DOMAIN_ID=$existing_robot_domain_id
         fi
     fi
+
+    # Warn about unknown robot mapping.
+    if [ -z "${ROBOT_NAME:-}" ] || [ "$ROBOT_NAME" == "unknown_robot" ]; then
+        echo "WARNING: could not resolve a robot identity from '${name_to_map:-<empty>}'" \
+             "using $ROBOT_NAME_MAP_CONFIG_FILE."
+        echo "         ROBOT_NAME='${ROBOT_NAME:-<unset>}' ROS_DOMAIN_ID='${ROS_DOMAIN_ID:-<unset>}'"
+        echo "         Topics will not be namespaced under /robot_<n>, so nothing will reach"
+        echo "         the rest of the stack. Fix by either:"
+        echo "           - on the HOST (not in this container): hostnamectl set-hostname robot-1,"
+        echo "             which the default map resolves to robot_<n> on domain <n>; or"
+        echo "           - adding a mapping YAML under robot/docker/robot_name_map/ that"
+        echo "             matches your hostnames and pointing ROBOT_NAME_MAP_CONFIG_FILE at it."
+        echo "         If ROBOT_NAME is empty rather than unknown_robot, check stderr above"
+        echo "         for a resolve_robot_name.py error (missing or malformed map file)."
+    fi
 fi
 
 

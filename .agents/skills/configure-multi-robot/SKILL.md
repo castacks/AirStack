@@ -103,17 +103,35 @@ docker exec airstack-robot-desktop-1 bash -c 'echo $ROBOT_NAME $ROS_DOMAIN_ID'
 If you need a non-default name (custom hostname scheme on a physical robot, or you want `drone_alpha` instead of `robot_1`), you have two options:
 
 1. **Write a mapping YAML** in `robot/docker/robot_name_map/` and point `ROBOT_NAME_MAP_CONFIG_FILE` at it. Preferred when the name should be derived from the machine (hostname/container) — keeps the resolver in charge of `ROS_DOMAIN_ID` co-assignment.
-2. **Pin `ROBOT_NAME` directly** in a per-deployment override env file. `.bashrc` honors a pre-set `ROBOT_NAME` (guard: `if [ -z "${ROBOT_NAME:-}" ]`) and skips the map lookup. This is the clean shortcut for a **single real robot** whose hostname doesn't match `robot-<n>` (see [Real robots and the `unknown_robot` fallback](#real-robots-and-the-unknown_robot-fallback) below):
+2. **Rename the device** so the default map resolves it. On real hardware
+   (`ROBOT_NAME_SOURCE=hostname`) the OS hostname *is* the identity, so
+   `hostnamectl set-hostname robot-1` is a complete, one-time fix — and it scales to a
+   fleet, since `robot-2` and `robot-3` then resolve on their own.
 
-   ```bash
-   # overrides/<deployment>.env — single robot, named directly
-   ROBOT_NAME=robot_1
-   ROS_DOMAIN_ID=1     # set alongside — pinning ROBOT_NAME skips the map's domain co-assignment
-   ```
+!!! danger "Setting `ROBOT_NAME` in an env file does nothing"
+    No compose service declares `ROBOT_NAME` or `ROS_DOMAIN_ID` in its `environment:`
+    block, and Docker Compose only injects a variable into a container if some service
+    names it there. Putting `ROBOT_NAME=robot_1` in an override `.env` sets it for
+    **compose's own interpolation**, not for the container — `.bashrc` sees it unset,
+    the map lookup runs anyway, and there is no error. The robot simply comes up under
+    the resolved name instead of yours.
 
-**Only pin `ROBOT_NAME` in an *override env file*, never on the shared `robot-desktop`/`robot-l4t` *service* in compose.** The service is reused for every replica; a hardcoded `ROBOT_NAME` there collapses all robots onto one name/domain and silently breaks multi-robot. And when you pin it, set `ROS_DOMAIN_ID` too — the resolver is what normally co-assigns the domain, and skipping it leaves the domain at whatever the environment defaults to.
+    `overrides/l4t-px4-realrobot.env` used to ship `ROBOT_NAME` / `ROS_DOMAIN_ID` on
+    this basis; they never had any effect and have been removed. Use a hostname or a
+    map file instead.
 
-For a one-off override (e.g. ad hoc debugging):
+    The general lesson applies to **any** deployment knob: it needs a declaration in
+    the service's `environment:` *and* a consumer that reads it. Always
+    [verify](#verification-commands) rather than assuming.
+
+**Never hardcode `ROBOT_NAME` on a service in compose either.** `robot-desktop` and
+friends are reused for every replica, so a pinned name there would collapse all robots
+onto one name and domain and silently break multi-robot. Identity must come from
+something that differs per container — the container name in sim, the device hostname on
+real hardware — or from a map rule that derives it.
+
+For a one-off override (e.g. ad hoc debugging), pass it to the shell directly, which
+does work because `docker exec -e` sets it in the process environment:
 
 ```bash
 docker exec -e ROBOT_NAME=robot_5 -e ROS_DOMAIN_ID=5 -it airstack-robot-desktop-1 bash
@@ -349,15 +367,24 @@ On VOXL/Jetson the service uses `ROBOT_NAME_SOURCE=hostname`, so the **OS hostna
 
 Pick whichever fix matches your topology (see [Configuring a Single Robot](#configuring-a-single-robot)):
 
-- **One robot, quickest:** pin `ROBOT_NAME=robot_1` + `ROS_DOMAIN_ID=1` in the deployment's override env file. The `.bashrc` guard honors it and skips the lookup — no hostname change, no map file.
-- **One robot, machine-derived:** rename the device hostname to `robot-1` so the default map resolves it automatically.
-- **A fleet:** name each machine `robot-<n>` (default map handles it) **or** ship a mapping YAML that matches your hostnames and point `ROBOT_NAME_MAP_CONFIG_FILE` at it. Do **not** pin a single `ROBOT_NAME` on the shared service — every robot would collide on it.
+- **Quickest, no config:** rename the device — `hostnamectl set-hostname robot-1`. The default map resolves it to `robot_1` on domain 1, and a fleet named `robot-2`, `robot-3`, … resolves the same way with nothing further to maintain.
+- **Hostnames you can't change:** ship a mapping YAML matching them and point `ROBOT_NAME_MAP_CONFIG_FILE` at it. Needs no code change — the variable is already forwarded and `robot_name_map/` is bind-mounted into the container — and keeps the resolver co-assigning `ROS_DOMAIN_ID`.
 
-Verify on the device:
+Setting `ROBOT_NAME` in an override env file is **not** an option: nothing declares it in
+compose, so it never reaches the container. See the danger note under
+[Configuring a Single Robot](#configuring-a-single-robot).
+
+Verify on the device — do this every time, especially after pinning `ROBOT_NAME`, since
+a pin that never reached the container fails silently:
 
 ```bash
 docker exec <container> bash -c 'echo "$(hostname) -> ROBOT_NAME=$ROBOT_NAME ROS_DOMAIN_ID=$ROS_DOMAIN_ID"'
 ```
+
+If it still reports `unknown_robot` after you set `ROBOT_NAME`, the variable did not
+reach the container. Check that the service (or the base compose file it extends)
+declares it in `environment:` — see the warning under
+[Configuring a Single Robot](#configuring-a-single-robot).
 
 ## Pre-Merge Checklist
 
