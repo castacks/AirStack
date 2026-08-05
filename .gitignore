@@ -94,6 +94,10 @@ simulation/ms-airsim/assets/scenes/*
 # Test results
 tests/results/
 
+# Per-feature agent notebook (design specs + test results) — local-only, feeds PR descriptions.
+# See .agents/skills/use-feature-notebook
+/notebook/
+
 # Local-only — embedded sibling repo, not part of this branch
 common/rayfronts/
 

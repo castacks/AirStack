@@ -100,16 +100,36 @@ For detailed step-by-step instructions, refer to the **`.agents/skills/`** direc
 | [configure-multi-robot](.agents/skills/configure-multi-robot) | Setting up multiple robots, ROBOT_NAME namespacing, and ROS_DOMAIN_ID isolation |
 | [bump-version-and-release](.agents/skills/bump-version-and-release) | Bumping `.env` VERSION and CHANGELOG before merge to clear the version-check gate |
 | [capture-discovered-knowledge](.agents/skills/capture-discovered-knowledge) | After long context-discovery / surprising findings, persist to AGENTS.md or a new skill so the next agent doesn't redo the work |
+| [use-feature-notebook](.agents/skills/use-feature-notebook) | At the start of EVERY feature implementation: create `notebook/NNN-feature-slug/design_spec.md`, store test artifacts under `results/`, write `results/results_summary.md`, and populate the PR from it |
 
 **Agent Workflow Example:**
-1. Study reference implementation for module type
-2. Follow `add_ros2_package.md` to create package structure
-3. Implement algorithm with proper topic interfaces
-4. Follow `integrate_module_into_layer.md` to add to bringup
-5. Follow `update_documentation.md` to document
-6. Follow `debug_module.md` and `test_in_simulation.md` to verify
+1. **Create a notebook entry** — follow `use-feature-notebook` to write `notebook/NNN-feature-slug/design_spec.md` (problem context, proposed implementation, lettered test plan) before writing code
+2. Study reference implementation for module type
+3. Follow `add_ros2_package.md` to create package structure
+4. Implement algorithm with proper topic interfaces
+5. Follow `integrate_module_into_layer.md` to add to bringup
+6. Follow `update_documentation.md` to document
+7. Follow `debug_module.md` and `test_in_simulation.md` to verify, saving artifacts under `notebook/NNN-feature-slug/results/<letter>-<section>/`
+8. Write `results/results_summary.md` (embedded tables + figures) and populate the PR body from it
 
 Also see: [AI Agent Quick Guide](docs/development/ai_agent_guide.md)
+
+## Feature Notebook (`notebook/`)
+
+Every feature an agent implements gets a numbered entry under `notebook/` at the repo root — a local lab journal that survives the agent session:
+
+```
+notebook/001-add-new-planner/
+├── design_spec.md              # BEFORE coding: problem context from the session, proposed implementation, lettered test plan
+└── results/
+    ├── results_summary.md      # AFTER testing: self-contained doc with embedded tables + figures, per-section verdicts
+    ├── a-planner-core/         # Raw artifacts per test-plan section (letters match design_spec.md)
+    └── b-planner-hyperparameters/
+```
+
+`notebook/` is **gitignored — local-only on each developer's machine**. Never commit it or reference its paths from committed code. Its content leaves the machine one way: the feature's PR description is populated from `design_spec.md` (motivation, what changed) and `results_summary.md` (validation tables, figures uploaded as PR attachments).
+
+**Full workflow and templates:** [.agents/skills/use-feature-notebook](.agents/skills/use-feature-notebook)
 
 ## Reference Implementations
 
