@@ -69,9 +69,23 @@ class VLFMBehavior:
     # param — watch the per-component [vlfm] explore log to calibrate.
     VALUE_WEIGHT = 300.0
 
+    # ── lead retirement without a 3D map ────────────────────────────────────
+    # rayfronts casts semantic rays from frontier boundaries, so a ray's own
+    # disappearance is the arrival signal: once the drone is close enough, the
+    # object is no longer beyond a frontier and its rays stop. That is the same
+    # observable raven's _mark_lead_serviced_if_reached keys on ("reached it and
+    # no same-label ray still points there"), and it needs no perception the
+    # published method lacks. Without it the drone parks at the last ray origin
+    # — typically >3 m short of the object, so it scores nothing — and stays
+    # there, because that origin keeps winning the cost function.
+    ARRIVE_RAY_M = 8.0    # within this of the pursued origin counts as reached
+    RAY_GONE_M = 6.0      # no ray origin left within this of it -> lead is spent
+    # A newly chosen origin further than this from the pursued one is a new lead.
+    REPURSUE_M = 12.0
+
     def __init__(self, get_clock, min_altitude=1.5, max_altitude=100.0,
                  voxel_score_threshold=0.9, voxel_min_cluster_size=30,
-                 value_weight=VALUE_WEIGHT):
+                 value_weight=VALUE_WEIGHT, use_voxel_targets=False):
         self.get_clock = get_clock
         self.name = 'VLFM-based'
         self.min_altitude = float(min_altitude)
@@ -91,6 +105,15 @@ class VLFMBehavior:
         # raw metres, so without this a high-sim frontier a few metres away is
         # re-selected indefinitely.
         self._progress = GoalProgressMonitor(get_clock)
+        # Read object geometry out of the 3D semantic voxel field? Off = the
+        # published method's capability set (see execute).
+        self.use_voxel_targets = bool(use_voxel_targets)
+        # The ray frontier currently being pursued: (origin, t_engaged). Retired
+        # once reached and its supporting rays have gone.
+        self._pursued = None
+        # Origins already serviced this mission, for the debug counter only —
+        # re-selection is prevented by the cooldown, not by this list.
+        self._spent_leads = []
 
     def condition_check(self):
         return True
@@ -108,11 +131,18 @@ class VLFMBehavior:
         if not cols:
             return waypoint_locked, target_waypoint, target_waypoint2
 
-        engaged = self._go_to_object(vox_xyz, vox_scores, cols, cur_pose_np,
-                                     publisher_dict, search_area_xy, debug_logger)
-        if engaged is not None:
-            wp1, wp2 = engaged
-            return True, wp1, wp2
+        # Voxel go-to-object is OFF by default. The published method has no 3D
+        # semantic map: it explores on a value map and closes the last few
+        # metres with a 2D detector, so reading object geometry straight out of
+        # rayfronts' voxel field is a capability it never had. With it off,
+        # arrival is inferred from the rays themselves (see _retire_spent_lead).
+        if self.use_voxel_targets:
+            engaged = self._go_to_object(vox_xyz, vox_scores, cols, cur_pose_np,
+                                         publisher_dict, search_area_xy,
+                                         debug_logger)
+            if engaged is not None:
+                wp1, wp2 = engaged
+                return True, wp1, wp2
 
         return self._explore(ray_origins, ray_scores, ray_dirs, cols,
                              cur_pose_np, waypoint_locked, target_waypoint,
@@ -284,6 +314,45 @@ class VLFMBehavior:
         z = float(np.clip(cur_pose_np[2], self.min_altitude, self.max_altitude))
         return np.array([xy[0], xy[1], z])
 
+    # ── lead retirement (no voxel search) ────────────────────────────────────
+
+    def _retire_spent_lead(self, ray_origins, cur_pose_np, debug_logger=None):
+        """Retire the pursued frontier once the drone has reached it and its
+        rays are gone, and cool the region so selection has to move on.
+
+        True when a lead was retired this tick. The two conditions together are
+        what make this safe: rays absent on their own only means the mapper has
+        not caught up, and arrival on its own says nothing about whether there
+        was anything there. Reached *and* silent is the arrival signal."""
+        if self._pursued is None or cur_pose_np is None:
+            return False
+        origin = self._pursued[0]
+        if float(np.linalg.norm(np.asarray(cur_pose_np, float)[:2] - origin[:2])) \
+                > self.ARRIVE_RAY_M:
+            return False
+        if ray_origins is not None and ray_origins.shape[0]:
+            near = np.linalg.norm(ray_origins[:, :2] - origin[:2], axis=1)
+            if bool((near <= self.RAY_GONE_M).any()):
+                return False        # still lit — keep going
+        self._spent_leads.append(origin.copy())
+        self._progress.cool_down(origin)
+        self._pursued = None
+        if debug_logger is not None:
+            debug_logger.info(
+                f'[vlfm] lead spent: reached ({origin[0]:.0f},{origin[1]:.0f}) '
+                f'and its rays are gone — cooling it for '
+                f'{self._progress.cooldown_s:.0f}s | '
+                f'{len(self._spent_leads)} done')
+        return True
+
+    def _track_pursuit(self, origin) -> None:
+        """Remember the frontier being pursued, restarting on a new one."""
+        o = np.asarray(origin, dtype=float)
+        if self._pursued is not None and float(np.linalg.norm(
+                o[:2] - self._pursued[0][:2])) <= self.REPURSUE_M:
+            return                  # same lead, keep the original engage time
+        self._pursued = (o.copy(), self.get_clock().now().nanoseconds * 1e-9)
+
     # ── explore ──────────────────────────────────────────────────────────────
 
     def _explore(self, ray_origins, ray_scores, ray_dirs, cols, cur_pose_np,
@@ -296,6 +365,10 @@ class VLFMBehavior:
                 debug_logger.warn('[vlfm] explore: no semantic rays yet — holding',
                                   throttle_duration_sec=2.0)
             return waypoint_locked, target_waypoint, target_waypoint2
+        # Reached the lead and its rays have gone quiet -> it is spent. Done
+        # before scoring so the cooldown it opens takes effect this tick.
+        self._retire_spent_lead(ray_origins, cur_pose_np, debug_logger)
+
         z = ray_origins[:, 2]
         valid = (z >= self.min_altitude) & (z <= self.max_altitude)
         if search_area_xy is not None:
@@ -378,6 +451,7 @@ class VLFMBehavior:
                 f'cost={float(cost[ray_idx]):.0f} -> '
                 f'({wp1[0]:.0f},{wp1[1]:.0f},{wp1[2]:.0f})',
                 throttle_duration_sec=2.0)
+        self._track_pursuit(origin)
         cooled = self._progress.update(cur_pose_np, wp1)
         if cooled is not None and debug_logger is not None:
             debug_logger.warn(

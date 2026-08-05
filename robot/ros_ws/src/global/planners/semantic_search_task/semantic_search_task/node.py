@@ -975,6 +975,13 @@ class SemanticSearchTaskNode(Node):
                 # VLFM_BASELINE=true → greedy VLFM baseline (mutually exclusive
                 # with FRONTIER_ONLY_BASELINE; raven_nav lets frontier win).
                 '-p', f'vlfm_baseline:={os.getenv("VLFM_BASELINE", "false").strip().lower()}',
+                # VLFM_USE_VOXEL_TARGETS=true lets the VLFM baseline read object
+                # geometry out of the 3D semantic voxel field. Default false: the
+                # published method explores on a 2D value map and closes the last
+                # few metres with a 2D detector, so it never had a 3D semantic
+                # map to query. True reproduces the earlier, stronger variant.
+                '-p', ('vlfm_use_voxel_targets:='
+                       f'{os.getenv("VLFM_USE_VOXEL_TARGETS", "false").strip().lower()}'),
                 # End at 80% coverage; osmo enforces the 15-min limit by cancel.
                 '-p', f'coverage_complete_threshold:={RESULTS_COVERAGE_THRESHOLD}',
                 '-p', f'results_dir:={RESULTS_DIR}',

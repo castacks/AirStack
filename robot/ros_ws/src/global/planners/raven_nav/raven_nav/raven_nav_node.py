@@ -210,6 +210,13 @@ class RavenNavNode(Node):
         # Higher -> chase the target harder; lower -> spread/explore more.
         self._vlfm_value_weight = float(self.declare_parameter(
             'vlfm_value_weight', 300.0).value)
+        # Let the VLFM baseline read object geometry out of the 3D semantic
+        # voxel field. Off by default: the published method explores on a value
+        # map and closes the last few metres with a 2D detector, so it never had
+        # a 3D semantic map to query. On = the earlier, stronger variant, kept
+        # so the two can be compared.
+        self._vlfm_use_voxel_targets = bool(self.declare_parameter(
+            'vlfm_use_voxel_targets', False).value)
         self._ray_confirm_hits = int(self.declare_parameter(
             'ray_confirm_hits', 1).value)
         self._ray_track_max_misses = int(self.declare_parameter(
@@ -436,6 +443,7 @@ class RavenNavNode(Node):
             voxel_proximity_engage_m=self._voxel_proximity_engage_m,
             voxel_min_confidence=self._voxel_min_confidence,
             vlfm_value_weight=self._vlfm_value_weight,
+            vlfm_use_voxel_targets=self._vlfm_use_voxel_targets,
         )
 
         # Temporal gate on ray bearings (disabled when ray_confirm_hits <= 1).

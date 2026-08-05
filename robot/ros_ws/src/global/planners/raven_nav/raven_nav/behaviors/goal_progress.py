@@ -108,6 +108,23 @@ class GoalProgressMonitor:
         self._anchor_time_s = now
         return centre
 
+    def cool_down(self, xy) -> bool:
+        """Put a region on cooldown now, without waiting out the stall timer.
+
+        For callers that already know a place is spent — a lead the drone has
+        reached, say — where waiting PROGRESS_TIMEOUT_S to discover it would
+        waste most of a minute. Returns True if this opened a new cooldown,
+        False if it extended one that already covered the point."""
+        now = self._now_s()
+        self._expire(now)
+        c = np.asarray(xy, dtype=float)[:2].copy()
+        for i, (cc, expiry) in enumerate(self._blocked):
+            if float(np.linalg.norm(c - cc)) <= self.cooldown_radius_m:
+                self._blocked[i] = (cc, max(expiry, now + self.cooldown_s))
+                return False
+        self._blocked.append((c, now + self.cooldown_s))
+        return True
+
     def is_blocked(self, xy) -> bool:
         """Is this single point inside a live cooldown?"""
         now = self._now_s()
