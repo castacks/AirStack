@@ -16,15 +16,15 @@ policy_commander:
     model_path: "/root/drone_soccer/drone_soccer/saved_policies/safe.zip"
     # Soccer goal used by the policy observation: ENU (x, y, z) = (0, -8, 0).
     # The current policy observation is planar, so only x/y are consumed.
-    target_x: 0.0
-    target_y: -8.0
+    target_x: 6.0
+    target_y: 0.0
     policy_dt: 0.02
     deterministic: true
     action_low: [-3.0, -3.0, 0.3]
     action_high: [3.0, 3.0, 2.0]
     # Absolute ENU waypoint fence: policy commands cannot exceed +/-3 m in XY.
-    bounds_min: [-3.0, -3.0, 0.3]
-    bounds_max: [3.0, 3.0, 2.0]
+    bounds_min: [-4.0, -5.0, 0.3]
+    bounds_max: [4.0, 5.0, 2.0]
     # Policy Z is active; the resulting absolute altitude is clamped below.
     odom_topic_template: "/{name}/odometry_conversion/odometry"
     ball_odom_topic_template: "/{name}/mocap_odometry"
