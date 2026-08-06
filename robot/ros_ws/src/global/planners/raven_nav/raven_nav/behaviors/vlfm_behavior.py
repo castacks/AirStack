@@ -7,10 +7,25 @@ already publishes (rays_sim/all, voxels_sim/all), which the node stores as
 _ray_scores / _vox_scores. Two greedy phases:
 
   * go-to-object: confident target voxels -> cluster -> fly to nearest unvisited.
-  * explore:      else fly toward the highest-similarity ray frontier (argmax).
+    OFF by default (use_voxel_targets) — the published method has no 3D semantic
+    map to query. With it off, arrival is inferred from the rays themselves.
+  * explore:      fly toward the best-scoring ray frontier.
 
-No thresholding of the explore argmax, no ray grouping, no peer coordination or
-geo-priors (those are RAVEN, not the baseline).
+Ray INPUT is raw: rayfronts' rays_sim/all exactly as published, unthresholded
+and ungrouped, with no peer-ray merge (raven's ray_groups / build_targets path
+is not consulted, and the node exempts VLFM from the gossip threshold filter so
+it never sees a different distribution than its own rays).
+
+Ray SELECTION is coordinated, not a bare argmax:
+
+    cost = dist + peer_pen + novelty - value_weight * best_target_sim
+
+peer_pen and novelty are frontier_behavior's, so a VLFM fleet spreads out
+instead of three drones converging on the same frontier — deliberate (see
+`updated vlfm so it's coordinated`), and the reason this is the multi-robot
+baseline rather than three independent single-agent runs. Absent from the
+published single-agent method; there is no flag to disable them. Geo-priors and
+the auction/consensus layer remain RAVEN-only.
 """
 
 import numpy as np

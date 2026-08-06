@@ -73,6 +73,17 @@ env:
   FRONTIER_ONLY_BASELINE: "false"
   VLFM_BASELINE: "false"
   LVLM_BASELINE: "false"
+  # VLFM shape, mission-wide (unlike the three flags above these never vary by
+  # entry, so they belong here rather than on the vlfm anchor — one place to
+  # keep correct). Coordinated VLFM: RAW rayfronts rays only, no 3D voxel
+  # go-to-object, with frontier-style peer repulsion + novelty left on so the
+  # three drones spread out. Spelled out rather than left to the node default
+  # because voxel go-to-object was unconditional until it became a flag, so an
+  # older commit run against this spec would silently enable it.
+  VLFM_USE_VOXEL_TARGETS: "false"
+  # NOT part of VLFM — coverage-capture aid that bans reached frontiers. Off,
+  # or VLFM stops being comparable with the other three methods.
+  VLFM_RAY_BLACKLIST: "false"
 
 # ── method anchors ─────────────────────────────────────────────────────────
 baseline_templates:

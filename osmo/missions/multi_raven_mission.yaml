@@ -33,6 +33,12 @@ env:
   ISAAC_SIM_USE_STANDALONE: "true"
   ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
   PLAY_SIM_ON_START: "true"
+  # voxel_score_threshold below is a SOFTMAX PROBABILITY — rayfronts computes
+  # softmax(100 * cos_sim) over the registered vocabulary. Set explicitly so a
+  # sticky env var from an earlier mission (raven_ablation runs it False) cannot
+  # leave raw cosines in place: those top out near 0.16, so a 0.50 gate would
+  # reject every voxel and the run would silently detect nothing.
+  RAYFRONTS_COMPUTE_PROB: "True"
 
 # ── scene templates ────────────────────────────────────────────────────────
 # Per-scene inputs (map, stage scale, spawn height, query, thresholds, search
@@ -49,10 +55,10 @@ scene_templates:
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "DowntownWest"
     query: "fountain, car, truck"
-    voxel_score_threshold: 0.67
+    voxel_score_threshold: 0.5
     score_threshold: -1
-    voxel_min_cluster_size: -1
-    background_queries: "grass, road, tree, building, street lamp, cafe table, food stand, sidewalk, umbrella"
+    voxel_min_cluster_size: 50
+    background_queries: "road, asphalt, concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, field, mountain, hill, water, pond, river, rubble, tree, bush, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, electrical cable, street lamp, street light, flood light, traffic signal, sign, billboard, antenna, mast, ground"
     search_area:
       points:
         - {x: 160.0, y: 100.0, z: 0.0}
@@ -66,10 +72,10 @@ scene_templates:
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "ModernCityDowntown"
     query: "yellow truck, obelisk, bankomat, cafe table, car"
-    voxel_score_threshold: 0.65
+    voxel_score_threshold: 0.5
     score_threshold: -1
-    voxel_min_cluster_size: -1
-    background_queries: "road, building, parking lot, tree, traffic signal, fence"
+    voxel_min_cluster_size: 50
+    background_queries: "road, asphalt, concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, field, mountain, hill, water, pond, river, rubble, tree, bush, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, electrical cable, street lamp, street light, flood light, traffic signal, sign, billboard, antenna, mast, ground"
     search_area:
       points:
         - {x: -100.0, y: -110.0, z: 0.0}
@@ -83,10 +89,10 @@ scene_templates:
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "RetroNeighborhood"
     query: "house, bus stop, blue container, red container"
-    voxel_score_threshold: 0.65
+    voxel_score_threshold: 0.5
     score_threshold: -1
-    voxel_min_cluster_size: 45
-    background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cable, utility pole, car garage, street light"
+    voxel_min_cluster_size: 50
+    background_queries: "road, asphalt, concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, field, mountain, hill, water, pond, river, rubble, tree, bush, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, electrical cable, street lamp, street light, flood light, traffic signal, sign, billboard, antenna, mast, ground"
     search_area:
       points:
         - {x: -150.0, y: -110.0, z: 0.0}
@@ -100,10 +106,10 @@ scene_templates:
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "FireAcademy"
     query: "red building, water tower, fuel tank, radio tower"
-    voxel_score_threshold: 0.68
+    voxel_score_threshold: 0.5
     score_threshold: -1
-    voxel_min_cluster_size: -1
-    background_queries: "road, grass, parking lot, tree, car, flood light, house, electrical pole, garage"
+    voxel_min_cluster_size: 30
+    background_queries: "road, asphalt, concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, field, mountain, hill, water, pond, river, rubble, tree, bush, shrub, hedge, forest, tree canopy, building facade, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, electrical pole, power line, electrical cable, street lamp, street light, flood light, traffic signal, sign, billboard, antenna, mast, ground"
     search_area:
       points:
         - {x: 13.0, y: -135.0, z: 0.0}
@@ -117,10 +123,10 @@ scene_templates:
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "ConstructionSite"
     query: "forklift, tower crane, blue tarp, orange tarp"
-    voxel_score_threshold: 0.65
+    voxel_score_threshold: 0.5
     score_threshold: -1
-    voxel_min_cluster_size: -1
-    background_queries: "road, grass, mountain, parking lot, building, fence, container, gravel"
+    voxel_min_cluster_size: 50
+    background_queries: "road, asphalt, concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, field, mountain, hill, water, pond, river, rubble, tree, bush, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, electrical cable, street lamp, street light, flood light, traffic signal, sign, billboard, antenna, mast, ground"
     # Widened to a rectangle: the s3 spawn (x ~ -55) and two query props sat
     # outside the old quadrilateral (x[-40,76] y[-71,50]).
     search_area:
@@ -136,10 +142,10 @@ scene_templates:
     SPAWN_HEIGHT_M: "1.0"
     RESULTS_SCENE: "AbandonedFactory"
     query: "building, water tower, white silo"
-    voxel_score_threshold: 0.65
+    voxel_score_threshold: 0.5
     score_threshold: -1
-    voxel_min_cluster_size: -1
-    background_queries: "grass, road, tree, pipe, fence"
+    voxel_min_cluster_size: 50
+    background_queries: "road, asphalt, concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, field, mountain, hill, water, pond, river, rubble, tree, bush, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, electrical cable, street lamp, street light, flood light, traffic signal, sign, billboard, antenna, mast, ground"
     search_area:
       points:
         - {x: 45.0, y: 102.0, z: 0.0}
@@ -153,10 +159,10 @@ scene_templates:
     SPAWN_HEIGHT_M: "1.0"
     RESULTS_SCENE: "MilitaryBase"
     query: "guard tower, radio tower, bridge, helicopter, atv"
-    voxel_score_threshold: 0.68
+    voxel_score_threshold: 0.5
     score_threshold: -1
-    voxel_min_cluster_size: -1
-    background_queries: "grass, road, tree, building, mountain, electrical pole, utility pole"
+    voxel_min_cluster_size: 50
+    background_queries: "road, asphalt, concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, field, mountain, hill, water, pond, river, rubble, tree, bush, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, electrical cable, street lamp, street light, flood light, traffic signal, sign, billboard, antenna, mast, ground"
     # Widened: the s2 spawn (1015, 325..341) sat outside the old x>=1030,
     # y<=320 rectangle.
     search_area:
@@ -172,10 +178,10 @@ scene_templates:
     SPAWN_HEIGHT_M: "2.0"
     RESULTS_SCENE: "Shipyard"
     query: "ship, crane"
-    voxel_score_threshold: 0.65
+    voxel_score_threshold: 0.5
     score_threshold: -1
-    voxel_min_cluster_size: -1
-    background_queries: "grass, road, tree, warehouse, pipe, fence, roof, garage, house"
+    voxel_min_cluster_size: 50
+    background_queries: "road, asphalt, concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, field, mountain, hill, water, pond, river, rubble, tree, bush, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, electrical cable, street lamp, street light, flood light, traffic signal, sign, billboard, antenna, mast, ground"
     search_area:
       points:
         - {x: -250.0, y: 250.0, z: 0.0}

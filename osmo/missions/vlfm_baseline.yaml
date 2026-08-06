@@ -36,6 +36,17 @@ env:
   PLAY_SIM_ON_START: "true"
   # Opt into the VLFM baseline (default is full coordination).
   VLFM_BASELINE: "true"
+  # Raw rays only. The published VLFM has no 3D semantic map — it explores on a
+  # value map and closes the last few metres with a 2D detector — so reading
+  # object geometry out of rayfronts' voxel field is a capability it never had.
+  # Stated explicitly rather than left to the node default: this was
+  # unconditional before it became a flag, so an older commit run against this
+  # spec would silently enable it. Arrival is instead inferred from the rays
+  # (a lead is spent once reached and its rays are gone).
+  VLFM_USE_VOXEL_TARGETS: "false"
+  # NOT part of VLFM — a coverage-capture aid that bans reached frontiers. Off,
+  # or the numbers stop being comparable with the other methods.
+  VLFM_RAY_BLACKLIST: "false"
 
 # ── scene templates ────────────────────────────────────────────────────────
 # Per-scene inputs (map, stage scale, spawn height, query, thresholds, search

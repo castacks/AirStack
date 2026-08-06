@@ -250,7 +250,7 @@ class RavenNavNode(Node):
                 'frontier_only_baseline=true — navigation is pure frontier '
                 'exploration (semantic tracking still on)')
 
-        # Run the VLFM baseline: greedy argmax-ray exploration + voxel
+        # Run the VLFM baseline: semantic-ray exploration, optionally plus voxel
         # go-to-object (see behaviors/vlfm_behavior.py). Mutually exclusive with
         # frontier_only_baseline; frontier wins if both are set.
         self._vlfm_baseline = bool(self.declare_parameter(
@@ -261,9 +261,18 @@ class RavenNavNode(Node):
                 'using frontier_only_baseline')
             self._vlfm_baseline = False
         if self._vlfm_baseline:
+            # State the whole configuration, not just the flag. Which VLFM ran
+            # is otherwise only recoverable by diffing the mission spec against
+            # the node defaults for the commit — and those defaults have moved
+            # (voxel go-to-object was unconditional before it became a flag).
             self.get_logger().info(
-                'vlfm_baseline=true — navigation is greedy VLFM '
-                '(argmax semantic ray + voxel go-to-object)')
+                'vlfm_baseline=true — navigation is VLFM over RAW rayfronts '
+                'rays (rays_sim/all, unthresholded, ungrouped, no peer-ray '
+                'merge) | voxel go-to-object='
+                f'{"ON" if self._vlfm_use_voxel_targets else "OFF (rays only)"}'
+                f' | value_weight={self._vlfm_value_weight:g}'
+                ' | coordinated: peer repulsion + novelty ON'
+                f' | ray blacklist={"ON" if self._vlfm_ray_blacklist else "OFF"}')
         # In either baseline the semantic auction/consensus is inert (baselines
         # ignore assigned/committed), so its per-tick logs are just noise.
         self._is_baseline = self._frontier_only_baseline or self._vlfm_baseline
