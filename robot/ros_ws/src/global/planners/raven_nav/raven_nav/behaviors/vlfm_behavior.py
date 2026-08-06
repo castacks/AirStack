@@ -119,8 +119,15 @@ class VLFMBehavior:
         # keeps growing as it is observed, and its centre drifts with it.
         self.visited_clusters = []
         # The cluster currently being serviced, and the evidence for calling it
-        # complete: (center, size, approach, n_vox, stable_ticks, t_engaged).
+        # complete: (center, size, approach, n_vox, stable_ticks, t_engaged,
+        # label).
         self._active = None
+        # Pursue/release transitions, local 'map' frame, drained by the node
+        # into the results JSON (see raven_nav_node._drain_vlfm_intent). This is
+        # VLFM's answer to "what was it deliberately chasing, and when" — the
+        # question a proximity-only visit metric cannot answer, since flying
+        # past a target scores the same as being sent to it.
+        self.intent_log = []
         # Cools down explore regions that stop producing travel. The cost
         # function weights semantic similarity 300x against a distance term in
         # raw metres, so without this a high-sim frontier a few metres away is
@@ -159,6 +166,12 @@ class VLFMBehavior:
                 if t in query_labels]
         if not cols:
             return waypoint_locked, target_waypoint, target_waypoint2
+        # Query names parallel to cols, so the column that wins a ray or a voxel
+        # can be named. Selection only ever needs the max over target columns;
+        # the name is carried purely so the intent record says *what* the drone
+        # went for, which is what distinguishes "flew to a truck" from "flew
+        # past something and a truck happened to be there".
+        col_labels = [t for t in target_objects if t in query_labels]
 
         # Voxel go-to-object is OFF by default. The published method has no 3D
         # semantic map: it explores on a value map and closes the last few
@@ -166,29 +179,53 @@ class VLFMBehavior:
         # rayfronts' voxel field is a capability it never had. With it off,
         # arrival is inferred from the rays themselves (see _retire_spent_lead).
         if self.use_voxel_targets:
-            engaged = self._go_to_object(vox_xyz, vox_scores, cols, cur_pose_np,
-                                         publisher_dict, search_area_xy,
-                                         debug_logger)
+            engaged = self._go_to_object(vox_xyz, vox_scores, cols, col_labels,
+                                         cur_pose_np, publisher_dict,
+                                         search_area_xy, debug_logger)
             if engaged is not None:
                 wp1, wp2 = engaged
                 return True, wp1, wp2
 
         return self._explore(ray_origins, ray_scores, ray_dirs, cols,
-                             cur_pose_np, waypoint_locked, target_waypoint,
-                             target_waypoint2, publisher_dict, search_area_xy,
-                             debug_logger, peer_state, my_id, peer_weights,
-                             completed_zones_xy, cell_size_m)
+                             col_labels, cur_pose_np, waypoint_locked,
+                             target_waypoint, target_waypoint2, publisher_dict,
+                             search_area_xy, debug_logger, peer_state, my_id,
+                             peer_weights, completed_zones_xy, cell_size_m)
+
+    # ── intent record ────────────────────────────────────────────────────────
+
+    def _note_intent(self, kind, label, pos, via, why=None, sim=None) -> None:
+        """Append one pursue/release transition in the local 'map' frame.
+
+        Transitions only — one record when a target is taken up and one when it
+        is let go — so the trace stays readable next to a per-tick log.
+        """
+        rec = {'kind': kind, 'label': str(label or ''), 'via': via,
+               'pos': [float(v) for v in np.asarray(pos, dtype=float)[:3]],
+               't': self._now_s()}
+        if why is not None:
+            rec['why'] = why
+        if sim is not None:
+            rec['sim'] = float(sim)
+        self.intent_log.append(rec)
 
     # ── go-to-object ─────────────────────────────────────────────────────────
 
-    def _go_to_object(self, vox_xyz, vox_scores, cols, cur_pose_np,
+    def _go_to_object(self, vox_xyz, vox_scores, cols, col_labels, cur_pose_np,
                       publisher_dict, search_area_xy, debug_logger=None):
         if vox_xyz is None or vox_scores is None or vox_xyz.shape[0] == 0:
             return None
         relevant = vox_scores[:, cols]
-        hit = vox_xyz[(relevant > self.voxel_score_threshold).any(axis=1)]
+        keep = (relevant > self.voxel_score_threshold).any(axis=1)
+        hit = vox_xyz[keep]
+        # Carried alongside hit (same rows, same filters) so a cluster can be
+        # named by voting its own voxels — clustering is over the union of
+        # target columns, so the box itself arrives label-less.
+        hit_scores = relevant[keep]
         if hit.shape[0] > 0 and search_area_xy is not None:
-            hit = hit[_points_in_polygon(hit[:, :2], search_area_xy)]
+            in_poly = _points_in_polygon(hit[:, :2], search_area_xy)
+            hit = hit[in_poly]
+            hit_scores = hit_scores[in_poly]
         if hit.shape[0] == 0:
             return None
 
@@ -214,27 +251,47 @@ class VLFMBehavior:
                 return None
             center, size, n_vox = rest[0]
 
+        label = self._cluster_label(hit, hit_scores, col_labels, center, size)
         approach = self._approach_point(center, size, cur_pose_np)
-        self._track_active(center, size, approach, n_vox)
+        self._track_active(center, size, approach, n_vox, label)
         self._publish_path([self._blend(cur_pose_np, approach), approach],
                            publisher_dict)
         self._publish_target_marker(publisher_dict, approach, (0.1, 0.6, 1.0))
         self._publish_status(publisher_dict,
-                             f'VLFM go-to-object -> '
+                             f'VLFM go-to-object -> {label or "?"} '
                              f'({approach[0]:.0f},{approach[1]:.0f})')
         if debug_logger is not None:
             debug_logger.info(
                 f'[vlfm] go-to-object: {len(clusters)} cluster(s), '
-                f'{len(self.visited_clusters)} done | '
+                f'{len(self.visited_clusters)} done | label={label or "?"} '
                 f'nearest center=({center[0]:.1f},{center[1]:.1f},{center[2]:.1f}) '
                 f'n_vox={n_vox} '
-                f'approach=({approach[0]:.1f},{approach[1]:.1f},{approach[2]:.1f})',
+                f'approach=({approach[0]:.1f},{approach[1]:.1f},{approach[2]:.1f}) '
+                f't={self._now_s():.2f}',
                 throttle_duration_sec=2.0)
         return approach, approach
 
+    def _cluster_label(self, hit, hit_scores, col_labels, center, size) -> str:
+        """Name a voxel cluster by majority vote of the voxels inside its box:
+        each voxel goes to whichever target query scores it highest.
+
+        Empty when nothing lands inside (a box grown past the points that made
+        it) and there is more than one target to choose between — better an
+        unnamed pursuit than a guessed one, since the name is evidence."""
+        if not col_labels:
+            return ''
+        c = np.asarray(center, dtype=float)
+        s = np.asarray(size, dtype=float)
+        inside = np.all(np.abs(hit - c) <= (s / 2.0) + 1e-6, axis=1)
+        if not inside.any():
+            return col_labels[0] if len(col_labels) == 1 else ''
+        wins = np.asarray(hit_scores)[inside].argmax(axis=1)
+        return col_labels[int(np.bincount(
+            wins, minlength=len(col_labels)).argmax())]
+
     # ── completion / memory ──────────────────────────────────────────────────
 
-    def _track_active(self, center, size, approach, n_vox):
+    def _track_active(self, center, size, approach, n_vox, label=''):
         """Update the growth record for the cluster being serviced."""
         now = self._now_s()
         prev = self._active
@@ -242,10 +299,13 @@ class VLFMBehavior:
             prev_n, stable = prev[3], prev[4]
             grew = n_vox > prev_n * (1.0 + self.COMPLETE_GROWTH_FRAC)
             stable = 0 if grew else stable + 1
+            # Keep the earlier name when this tick's vote comes back empty: the
+            # cluster is the same object, only its voxel support moved.
             self._active = (center, size, approach, max(n_vox, prev_n), stable,
-                            prev[5])
+                            prev[5], label or prev[6])
         else:
-            self._active = (center, size, approach, n_vox, 0, now)
+            self._active = (center, size, approach, n_vox, 0, now, label)
+            self._note_intent('pursue', label, center, via='go-to-object')
 
     def _retire_if_done(self, center, size, n_vox, cur_pose_np,
                         debug_logger=None):
@@ -263,7 +323,7 @@ class VLFMBehavior:
         a = self._active
         if a is None or not self._same_target(a[0], a[1], center, size):
             return False
-        approach, stable, t0 = a[2], a[4], a[5]
+        approach, stable, t0, label = a[2], a[4], a[5], a[6]
 
         cur = np.asarray(cur_pose_np, float)
         # Reached the approach pose *this* cluster generated (exact identity, so
@@ -285,11 +345,13 @@ class VLFMBehavior:
         self.visited_clusters.append((np.asarray(center, float),
                                       np.asarray(size, float)))
         self._active = None
+        self._note_intent('release', label, center, via='go-to-object', why=why)
         if debug_logger is not None:
             debug_logger.info(
-                f'[vlfm] target complete ({why}): '
+                f'[vlfm] target complete ({why}): label={label or "?"} '
                 f'center=({center[0]:.1f},{center[1]:.1f},{center[2]:.1f}) '
-                f'n_vox={n_vox} | {len(self.visited_clusters)} done, moving on')
+                f'n_vox={n_vox} | {len(self.visited_clusters)} done, moving on '
+                f't={self._now_s():.2f}')
         return True
 
     def _same_target(self, ca, sa, cb, sb) -> bool:
@@ -355,7 +417,7 @@ class VLFMBehavior:
         was anything there. Reached *and* silent is the arrival signal."""
         if self._pursued is None or cur_pose_np is None:
             return False
-        origin = self._pursued[0]
+        origin, label = self._pursued[0], self._pursued[2]
         if float(np.linalg.norm(np.asarray(cur_pose_np, float)[:2] - origin[:2])) \
                 > self.ARRIVE_RAY_M:
             return False
@@ -366,12 +428,15 @@ class VLFMBehavior:
         self._spent_leads.append(origin.copy())
         self._progress.cool_down(origin)
         self._pursued = None
+        self._note_intent('release', label, origin, via='explore',
+                          why='arrived, rays gone')
         if debug_logger is not None:
             debug_logger.info(
-                f'[vlfm] lead spent: reached ({origin[0]:.0f},{origin[1]:.0f}) '
+                f'[vlfm] lead spent: reached {label or "?"} at '
+                f'({origin[0]:.0f},{origin[1]:.0f}) '
                 f'and its rays are gone — cooling it for '
                 f'{self._progress.cooldown_s:.0f}s | '
-                f'{len(self._spent_leads)} done')
+                f'{len(self._spent_leads)} done t={self._now_s():.2f}')
         return True
 
     # ── coverage blacklist ───────────────────────────────────────────────────
@@ -443,20 +508,29 @@ class VLFMBehavior:
         self._strikes = []
         return n
 
-    def _track_pursuit(self, origin) -> None:
+    def _track_pursuit(self, origin, label='', sim=None) -> None:
         """Remember the frontier being pursued, restarting on a new one."""
         o = np.asarray(origin, dtype=float)
         if self._pursued is not None and float(np.linalg.norm(
                 o[:2] - self._pursued[0][:2])) <= self.REPURSUE_M:
-            return                  # same lead, keep the original engage time
-        self._pursued = (o.copy(), self.get_clock().now().nanoseconds * 1e-9)
+            # Same lead, so keep the original engage time — but a frontier can
+            # change its mind about what lies beyond it as the map fills in, and
+            # the new answer is the claim that has to be checked.
+            if label and label != self._pursued[2]:
+                self._pursued = (self._pursued[0], self._pursued[1], label)
+                self._note_intent('pursue', label, self._pursued[0],
+                                  via='explore', sim=sim)
+            return
+        self._pursued = (o.copy(), self.get_clock().now().nanoseconds * 1e-9,
+                         label)
+        self._note_intent('pursue', label, o, via='explore', sim=sim)
 
     # ── explore ──────────────────────────────────────────────────────────────
 
-    def _explore(self, ray_origins, ray_scores, ray_dirs, cols, cur_pose_np,
-                 waypoint_locked, target_waypoint, target_waypoint2,
-                 publisher_dict, search_area_xy, debug_logger=None,
-                 peer_state=None, my_id=0, peer_weights=None,
+    def _explore(self, ray_origins, ray_scores, ray_dirs, cols, col_labels,
+                 cur_pose_np, waypoint_locked, target_waypoint,
+                 target_waypoint2, publisher_dict, search_area_xy,
+                 debug_logger=None, peer_state=None, my_id=0, peer_weights=None,
                  completed_zones_xy=None, cell_size_m=0.5):
         if ray_origins is None or ray_scores is None or ray_origins.shape[0] == 0:
             if debug_logger is not None:
@@ -550,22 +624,28 @@ class VLFMBehavior:
 
         self._publish_path([self._blend(cur_pose_np, wp1), wp1], publisher_dict)
         best = float(per_ray[ray_idx])
+        # Which target won this ray. per_ray is the max over target columns, so
+        # the argmax over the same slice names the object the drone believes it
+        # is heading toward — the claim the visit metric has to check.
+        sel_label = (col_labels[int(np.argmax(ray_scores[ray_idx, cols]))]
+                     if col_labels else '')
         self._publish_ray_viz(publisher_dict, ray_origins, ray_dirs, per_ray,
                               valid, ray_idx, wp1)
         self._publish_status(publisher_dict,
-                             f'VLFM explore -> ({wp1[0]:.0f},{wp1[1]:.0f}) '
-                             f'sim={best:.2f}')
+                             f'VLFM explore -> {sel_label or "?"} '
+                             f'({wp1[0]:.0f},{wp1[1]:.0f}) sim={best:.2f}')
         if debug_logger is not None:
             debug_logger.info(
                 f'[vlfm] explore: {int(valid.sum())}/{ray_origins.shape[0]} rays '
                 f'(-{int(observed.sum())} observed -{int(banned.sum())} banned '
-                f'-{int(cooled.sum())} cooled) | sel sim={best:.2f} '
+                f'-{int(cooled.sum())} cooled) | label={sel_label or "?"} '
+                f'sel sim={best:.2f} '
                 f'val={-self.value_weight * best:.0f} dist={float(dist[ray_idx]):.0f} '
                 f'peer={float(peer_pen[ray_idx]):.0f} nov={float(novelty[ray_idx]):.0f} '
                 f'cost={float(cost[ray_idx]):.0f} -> '
-                f'({wp1[0]:.0f},{wp1[1]:.0f},{wp1[2]:.0f})',
+                f'({wp1[0]:.0f},{wp1[1]:.0f},{wp1[2]:.0f}) t={self._now_s():.2f}',
                 throttle_duration_sec=2.0)
-        self._track_pursuit(origin)
+        self._track_pursuit(origin, sel_label, sim=best)
         self._last_goal_xy = wp1[:2].copy()
         cooled = self._progress.update(cur_pose_np, wp1)
         if cooled is not None:

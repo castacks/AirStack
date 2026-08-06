@@ -107,6 +107,8 @@ def _filter_lvlm(line: str) -> str | None:
         return 'InternVL3-2B model loaded'
     if 'control loop active' in low:
         return 'LVLM navigating'
+    if '[event]' in low or 'target probe' in low:
+        return line
     if 'planned action' in low or 'model response' in low:
         return line
     if 'target objects set' in low:
@@ -355,6 +357,9 @@ class SemanticSearchTaskNode(Node):
                 '-p', f'min_altitude_agl:={goal.min_altitude_agl}',
                 '-p', f'max_altitude_agl:={goal.max_altitude_agl}',
                 '-p', 'use_sim_time:=true',
+                # Same directory raven/VLFM runs dump to, so the mission
+                # collects the LVLM claim log with everything else.
+                '-p', f'results_dir:={RESULTS_DIR}',
             ]
             venv_py = '/opt/lvlm-venv/bin/python'
             if os.path.exists(venv_py):

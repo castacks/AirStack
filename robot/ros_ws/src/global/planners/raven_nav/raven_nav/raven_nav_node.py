@@ -151,6 +151,9 @@ class RavenNavNode(Node):
         self._prev_odom_xyz: 'np.ndarray | None' = None
         self._num_odom_samples: int = 0
         self._target_events: list = []
+        # VLFM pursue/release transitions in world ENU (VLFM baseline only) —
+        # the baseline's counterpart to the auction trace's `my_task`.
+        self._intent_events: list = []
         self._result_written: bool = False
 
         # Polygon constraint in local 'map' frame. None = unconstrained.
@@ -1691,6 +1694,35 @@ class RavenNavNode(Node):
                     f'@ENU=({pos_enu[0]:.1f},{pos_enu[1]:.1f},{pos_enu[2]:.1f}) '
                     f't={now:.2f}')
 
+    def _drain_vlfm_intent(self) -> None:
+        """Move VLFMBehavior's pursue/release records into the result log,
+        converted from the local 'map' frame to world ENU.
+
+        This is what the VLFM baseline can offer in place of raven's `my_task`:
+        the target it deliberately went after, and when. Without it a visit can
+        only be scored on proximity, which credits a drone that happened to fly
+        over an object exactly as much as one that was sent to it — and credits
+        a drone that chased a 'house' and passed a gas tank instead."""
+        vb = self._behavior_manager.vlfm_behavior
+        # Hold, don't drop, until the GPS anchor lands: the records carry their
+        # own timestamps, so a deferred flush is lossless, and the first seconds
+        # of a run are when the first target is picked up.
+        if self._boot_enu is None or not vb.intent_log:
+            return
+        pending, vb.intent_log = vb.intent_log, []
+        for rec in pending:
+            p = self._local_to_world(np.asarray(rec['pos'], dtype=float))
+            ev = {k: v for k, v in rec.items() if k != 'pos'}
+            ev['pos_enu'] = p.tolist()
+            if self._mission_start_ts is not None:
+                ev['rel_s'] = rec['t'] - self._mission_start_ts
+            self._intent_events.append(ev)
+            why = f" why={rec['why']}" if rec.get('why') else ''
+            self.get_logger().info(
+                f"[intent] {rec['kind'].upper()} {rec['label'] or '?'} "
+                f"@ENU=({p[0]:.1f},{p[1]:.1f},{p[2]:.1f}) "
+                f"via={rec['via']}{why} t={rec['t']:.2f}")
+
     def _maybe_dump_results(self, force: bool = False) -> None:
         """Write the result JSON, throttled to the dump period unless forced."""
         if not self._results_dir:
@@ -1771,6 +1803,7 @@ class RavenNavNode(Node):
             'target_labels': list(self._target_objects or []),
             'confirmed_targets_enu': targets,
             'target_events': events,
+            'intent_events': list(self._intent_events),
         }
         tmp = os.path.join(self._results_dir, f'.{self._robot_name}.json.tmp')
         final = os.path.join(self._results_dir, f'{self._robot_name}.json')
@@ -2896,6 +2929,7 @@ class RavenNavNode(Node):
                 self._vox_xyz, self._vox_scores, self._query_labels,
                 voxel_targets, committed_origin=None, committed_dir=None)
             self._mark_reached(self._cur_pose)
+            self._drain_vlfm_intent()
             self._behavior_manager.behavior_mode = 'VLFM-based'
         else:
             self._behavior_manager.mode_select(

@@ -20,8 +20,10 @@ Topics (robot = ROBOT_NAME):
   action client /{robot}/tasks/navigate                task_msgs/action/NavigateTask
 """
 
+import json
 import math
 import os
+import signal
 import threading
 import time
 from collections import deque
@@ -131,6 +133,17 @@ class LVLMBaseline(Node):
         # Max time to let droan_gl fly to one LVLM waypoint before replanning.
         self._nav_goal_timeout_s = float(self.declare_parameter('nav_goal_timeout_s', 45.0).value)
         self._max_new_tokens = int(self.declare_parameter('max_new_tokens', 32).value)
+        # Ask the model, as a *second* question each tick, which target it is
+        # looking at and whether it has reached it. Off leaves the baseline
+        # exactly as it was: an action-only policy that never says what it saw,
+        # so a visit can only ever be scored on where the drone flew.
+        self._target_probe = bool(self.declare_parameter(
+            'target_probe_enabled', True).value)
+        # Where to dump the claim log. Same layout raven_nav writes, so one
+        # reader handles every method.
+        self._results_dir = str(self.declare_parameter('results_dir', '').value)
+        self._results_dump_period_s = float(self.declare_parameter(
+            'results_dump_period_s', 10.0).value)
 
         self._cbg = ReentrantCallbackGroup()
         self._bridge = CvBridge()
@@ -149,6 +162,20 @@ class LVLMBaseline(Node):
         self._alt_ground = None
         self._peer_positions: dict = {}   # name -> np.array([x, y, z]) local
         self._peer_waypoints: dict = {}   # name -> np.array([x, y, z]) local
+
+        # ── target claims (the visit-scoring channel) ──────────────────────────
+        # label -> first-sighting / first-arrival milestones, shaped like
+        # raven_nav's target_events. Every probe answer is also appended to
+        # _claim_log, giving the per-tick trace that says what the drone thought
+        # it was at — without which "came within 3 m of a house" and "came
+        # within 3 m of a gas tank while hunting a house" are the same event.
+        self._target_events: dict = {}
+        self._claim_log: list = []
+        self._mission_start_ts = None
+        self._path_length_m = 0.0
+        self._num_odom_samples = 0
+        self._prev_odom_xyz = None
+        self._last_results_dump_ts = 0.0
         self._src2rdf_transform = self.mat_3x3_to_4x4(
             self.get_coord_system_transform('flu', 'rdf'))
 
@@ -358,6 +385,11 @@ class LVLMBaseline(Node):
                 float(-rdf_pose_4x4[1, 3]),
             ])
             with self._state_lock:
+                if self._prev_odom_xyz is not None:
+                    self._path_length_m += float(
+                        np.linalg.norm(cur_pose_np - self._prev_odom_xyz))
+                self._prev_odom_xyz = cur_pose_np
+                self._num_odom_samples += 1
                 self._pose_memory.append(cur_pose_np)
                 self._cur_pose_np = cur_pose_np
         except Exception as e:
@@ -399,8 +431,17 @@ class LVLMBaseline(Node):
                     self._last_warn_ts = now
                 time.sleep(self._plan_period_s)
                 continue
+            if self._mission_start_ts is None:
+                self._mission_start_ts = \
+                    self.get_clock().now().nanoseconds * 1e-9
             peer_ctx = self._format_peer_context(cur, peer_pos, peer_wp)
             action = self._infer_action(frames, targets, peer_ctx)
+            # After the action, never before: the probe must not be able to
+            # influence what the baseline does, only record what it believed.
+            if self._target_probe:
+                label, state = self._probe_targets(frames, targets)
+                self._note_target_claim(label, state, cur)
+            self._maybe_dump_results()
             path_msg = self._compute_waypoint_path(action, cur, poses, poly)
             if path_msg is None:
                 time.sleep(self._plan_period_s)
@@ -455,6 +496,176 @@ class LVLMBaseline(Node):
         if action not in ('move forward', 'turn left', 'turn right'):
             action = 'move forward'
         return action
+
+    # ── target claim probe ───────────────────────────────────────────────────
+    #
+    # Deliberately a separate model.chat() rather than extra fields on the
+    # action prompt above. That prompt is the published baseline; changing it
+    # changes the method being measured and breaks comparability with the runs
+    # already collected. This one is read-only: its answer is recorded and
+    # never reaches _compute_waypoint_path. Cost is one extra inference per
+    # planning tick, against a loop that spends most of its time blocked in
+    # _send_navigate_and_wait.
+
+    def _probe_targets(self, frames: list, targets: list):
+        """Ask which target is in view and whether the drone is at it.
+
+        Returns (label, state) with state in {'visible', 'reached'}, or
+        (None, 'none')."""
+        try:
+            recent_frames = self.sample_periodic_frames(frames, num_samples=5,
+                                                        step=10)
+            pixel_values = torch.cat(recent_frames, dim=0).to(
+                torch.bfloat16).cuda()
+        except Exception as e:
+            self.get_logger().warn(f'Target probe framing failed: {e}')
+            return None, 'none'
+        names = ', '.join(targets)
+        prompt = (
+            "<image>\n"
+            f"The robot is searching for these objects: {names}. "
+            "Looking at the current first-person view images, answer with a "
+            "single line in exactly this form:\n"
+            "<object> | <state>\n"
+            f"where <object> is one of [{names}], or the word none if you "
+            "cannot see any of them, and <state> is 'reached' if the robot is "
+            "right next to that object or 'visible' if it is further away. "
+            "Return only that one line, no explanation."
+        )
+        try:
+            response = self.model.chat(
+                self.tokenizer, pixel_values, prompt, self.generation_config)
+        except Exception as e:
+            self.get_logger().warn(f'Target probe failed: {e}')
+            return None, 'none'
+        label, state = self._parse_probe(response, targets)
+        self.get_logger().info(
+            f'Target probe: {str(response).strip()!r} -> '
+            f'{label or "none"}/{state}')
+        return label, state
+
+    @staticmethod
+    def _parse_probe(response, targets):
+        """Lenient parse of the probe reply.
+
+        A 2B model does not reliably honour a response format — the action
+        prompt already needs a fallback for the same reason — so rather than
+        require the pipe form, take whichever target name appears in the reply.
+        Longest name first, so 'water tower' wins over 'tower'."""
+        low = (response or '').strip().lower()
+        if not low:
+            return None, 'none'
+        for t in sorted((t for t in targets if t), key=len, reverse=True):
+            if t.lower() in low:
+                return t, ('reached' if 'reached' in low else 'visible')
+        return None, 'none'
+
+    def _note_target_claim(self, label, state, cur_pose) -> None:
+        """Record one probe answer, and the first sighting / first arrival per
+        target class.
+
+        The position stored is the *drone's*, not the object's: an FPV-only
+        baseline never localizes what it sees. That is what the metric needs
+        anyway — 'at t the drone claimed to be at a <label>' is checked against
+        where the drone actually was at t, and against what is really there."""
+        if self._boot_enu is None or cur_pose is None:
+            return
+        now = self.get_clock().now().nanoseconds * 1e-9
+        p = np.asarray(cur_pose, dtype=float)
+        # Same convention as raven_nav._local_to_world: XY offset into the
+        # annotation frame, Z left as AGL.
+        enu = np.array([p[0] + self._boot_enu[0],
+                        p[1] + self._boot_enu[1], p[2]], dtype=float)
+        self._claim_log.append({
+            'label': label, 'state': state, 't': now,
+            'rel_s': (now - self._mission_start_ts
+                      if self._mission_start_ts is not None else None),
+            'drone_enu': enu.tolist()})
+        if label is None:
+            return
+        ev = self._target_events.get(label)
+        if ev is None:
+            ev = {'label': label,
+                  'first_discovered_ts': now,
+                  'first_discovered_drone_enu': enu.tolist(),
+                  'first_visited_ts': None,
+                  'first_visited_drone_enu': None,
+                  'n_visible': 0, 'n_reached': 0}
+            self._target_events[label] = ev
+            self.get_logger().info(
+                f'[event] DISCOVERED {label} '
+                f'@DRONE_ENU=({enu[0]:.1f},{enu[1]:.1f},{enu[2]:.1f}) '
+                f't={now:.2f}')
+        ev['n_visible'] += 1
+        if state != 'reached':
+            return
+        ev['n_reached'] += 1
+        if ev['first_visited_ts'] is None:
+            ev['first_visited_ts'] = now
+            ev['first_visited_drone_enu'] = enu.tolist()
+            self.get_logger().info(
+                f'[event] VISITED {label} '
+                f'@DRONE_ENU=({enu[0]:.1f},{enu[1]:.1f},{enu[2]:.1f}) '
+                f't={now:.2f}')
+
+    # ── results dump ─────────────────────────────────────────────────────────
+
+    def _maybe_dump_results(self, force: bool = False) -> None:
+        if not self._results_dir or self._boot_enu is None:
+            return
+        now = self.get_clock().now().nanoseconds * 1e-9
+        if not force:
+            if self._results_dump_period_s <= 0.0:
+                return
+            if (now - self._last_results_dump_ts) < self._results_dump_period_s:
+                return
+        self._last_results_dump_ts = now
+        self._write_results()
+
+    def _write_results(self) -> None:
+        """Serialize the claim log to ``<results_dir>/<robot>.json``.
+
+        Field names deliberately match raven_nav's dump (boot_enu,
+        mission_start_ts, target_events with first_discovered/first_visited)
+        so a single reader covers raven, VLFM and this baseline."""
+        if not self._results_dir or self._boot_enu is None:
+            return
+        now = self.get_clock().now().nanoseconds * 1e-9
+        start = self._mission_start_ts
+
+        def _rel(t):
+            return (t - start) if (t is not None and start is not None) else None
+
+        events = [{**ev,
+                   'first_discovered_rel_s': _rel(ev['first_discovered_ts']),
+                   'first_visited_rel_s': _rel(ev['first_visited_ts'])}
+                  for ev in self._target_events.values()]
+        with self._state_lock:
+            path_len, n_odom = self._path_length_m, self._num_odom_samples
+            targets = list(self._target_objects or [])
+        out = {
+            'robot': self._robot_name,
+            'method': 'lvlm',
+            'boot_enu': self._boot_enu.tolist(),
+            'alt_ground': self._alt_ground,
+            'mission_start_ts': start,
+            'dump_ts': now,
+            'mission_duration_s': (now - start) if start is not None else None,
+            'path_length_m': path_len,
+            'num_odom_samples': n_odom,
+            'target_labels': targets,
+            'target_events': events,
+            'claims': list(self._claim_log),
+        }
+        tmp = os.path.join(self._results_dir, f'.{self._robot_name}.json.tmp')
+        final = os.path.join(self._results_dir, f'{self._robot_name}.json')
+        try:
+            os.makedirs(self._results_dir, exist_ok=True)
+            with open(tmp, 'w') as f:
+                json.dump(out, f, indent=2)
+            os.replace(tmp, final)
+        except OSError as e:
+            self.get_logger().error(f'[results] write failed: {e}')
 
     def _compute_waypoint_path(self, action: str, cur_pose, poses: list, poly: list):
         cur = np.array(cur_pose, dtype=np.float32)
@@ -697,12 +908,33 @@ def main(args=None):
     node = LVLMBaseline()
     executor = rclpy.executors.MultiThreadedExecutor()
     executor.add_node(node)
+
+    # semantic_search_task ends a run by SIGTERMing this node's process group
+    # (5 s grace, then SIGKILL). Without a handler the default disposition
+    # exits before the finally block below, losing every claim since the last
+    # periodic dump — which on a cancelled run is the interesting tail.
+    def _on_term(_sig, _frm):
+        node._stop = True
+        raise KeyboardInterrupt
+
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            signal.signal(sig, _on_term)
+        except ValueError:
+            pass        # not on the main thread — periodic dumps still cover us
+
     try:
         executor.spin()
     except KeyboardInterrupt:
         pass
     finally:
         node._stop = True
+        # Last dump before teardown: the mission runner kills this node to end a
+        # run, so without it every run loses its final claims.
+        try:
+            node._maybe_dump_results(force=True)
+        except Exception:
+            pass
         node.destroy_node()
         rclpy.shutdown()
 

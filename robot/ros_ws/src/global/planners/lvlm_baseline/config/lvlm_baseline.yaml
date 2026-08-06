@@ -22,3 +22,13 @@ lvlm_baseline:
     # Max time (s) to let droan_gl fly to one LVLM waypoint before replanning.
     nav_goal_timeout_s: 45.0
     max_new_tokens: 32
+    # Ask the model a second, separate question each tick — "which target do you
+    # see, and are you at it?" — and record the answer. Read-only: it never
+    # reaches the navigation prompt, so the baseline's behavior is unchanged.
+    # Without it the run produces no statement of what the drone believed it was
+    # visiting, and a visit can only be scored on proximity.
+    target_probe_enabled: true
+    # Where to dump the claim log (<results_dir>/<robot>.json). Set at spawn by
+    # semantic_search_task; empty disables the dump.
+    results_dir: ''
+    results_dump_period_s: 10.0
