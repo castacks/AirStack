@@ -257,7 +257,7 @@ class GossipNode(Node):
             own = gps_to_enu(self._profile.gps_fix.latitude,
                              self._profile.gps_fix.longitude,
                              self._profile.gps_fix.altitude)
-            if not should_accept(msg, own[:2]):
+            if not should_accept(msg, own):
                 return
 
         stamp = msg.gps_fix.header.stamp
@@ -276,6 +276,7 @@ class GossipNode(Node):
             relay.relay_hops = msg.relay_hops + 1
             relay.relay_lat = self._profile.gps_fix.latitude
             relay.relay_lon = self._profile.gps_fix.longitude
+            relay.relay_alt = self._profile.gps_fix.altitude
             self._gossip_pub.publish(relay)
 
     def _drain_peer_inbox(self) -> None:
@@ -297,14 +298,15 @@ class GossipNode(Node):
             pass
 
     def _own_enu(self):
-        """Own ENU (x, y) from the latest GPS fix, or None before boot/GPS."""
+        """Own ENU (x, y, z) from the latest GPS fix, or None before boot/GPS.
+        z is logged because the range model is a 3-D sphere — without it the
+        inter-robot distance behind a drop can't be recovered from the logs."""
         if self._boot_pos is None:
             return None
         try:
-            x, y, _ = gps_to_enu(self._profile.gps_fix.latitude,
-                                 self._profile.gps_fix.longitude,
-                                 self._profile.gps_fix.altitude)
-            return x, y
+            return gps_to_enu(self._profile.gps_fix.latitude,
+                              self._profile.gps_fix.longitude,
+                              self._profile.gps_fix.altitude)
         except Exception:
             return None
 
@@ -319,7 +321,8 @@ class GossipNode(Node):
         now = time.monotonic()
         matched = self._peer_sub.get_publisher_count()
         own = self._own_enu()
-        own_s = f"own_enu={own[0]:.1f},{own[1]:.1f}" if own else "own_enu=?"
+        own_s = (f"own_enu={own[0]:.1f},{own[1]:.1f},{own[2]:.1f}" if own
+                 else "own_enu=?")
         for name in sorted(self._peer_last_rx):
             age = now - self._peer_last_rx[name]
             if age > PEER_STALE_S and name not in self._peer_stale:

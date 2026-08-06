@@ -23,6 +23,8 @@ uint8 source      # SOURCE_DIRECT or SOURCE_RELAYED
 uint8 relay_hops  # number of relay hops taken
 float64 relay_lat # last-hop transmitter position (valid when source==SOURCE_RELAYED)
 float64 relay_lon
+float64 relay_alt # last-hop altitude; the range model is a 3-D sphere, so this
+                  # must be filled in or relayed copies range against the wrong point
 
 # Arbitrary typed payloads – any number, any ROS message type
 PeerProfilePayload[] payloads

@@ -47,7 +47,8 @@ STANDOFF_MAX_M = 6.0
 # raven_nav_node. Arrival is surface distance; same-INSTANCE is overlap-based
 # (discoveries.same_instance_xy) — a gap radius cascades visits across
 # adjacent buildings when boxes bloat.
-VISIT_REACH_M = 3.0   # drone within this of a target AABB *surface* (0 if inside) => reached
+VISIT_REACH_M = 3.0   # drone within this of a target's nearest voxel => reached
+VOX_HALF_M = 0.25     # half the 0.5 m voxel edge; a drone on a voxel reads 0
 VISIT_MATCH_M = 5.0   # point-feature (ray-lead) same-instance radius; boxes use overlap
 
 
@@ -57,6 +58,30 @@ def aabb_surface_dist(ca, sa, cb, sb) -> float:
     ca, sa, cb, sb = (np.asarray(v, dtype=float) for v in (ca, sa, cb, sb))
     gap = np.maximum(np.abs(ca[:3] - cb[:3]) - (sa[:3] + sb[:3]) / 2.0, 0.0)
     return float(np.linalg.norm(gap))
+
+
+# Cap on stored voxels per cluster. The reach test only needs the nearest one,
+# and a uniform subsample preserves that to well under a voxel.
+REACH_POINT_CAP = 400
+
+
+def voxel_reach_dist(p, points, center, size) -> float:
+    """Distance from a point to a cluster, measured to its nearest OWN voxel.
+
+    An AABB over a sparse or elongated cluster can be far larger than the thing
+    it contains, so `aabb_surface_dist` reports 0 while the drone is metres from
+    any actual surface — that is how a target gets marked visited without the
+    drone ever going near it. Measuring to the nearest voxel removes the
+    inflation. Half a voxel is subtracted so sitting on a voxel reads 0 rather
+    than 0.25.
+
+    Falls back to the box when there are no local voxels, which is the case for
+    a peer-shared box this robot has not observed yet."""
+    if points is None or len(points) == 0:
+        return aabb_surface_dist(p, np.zeros(3), center, size)
+    d = np.linalg.norm(np.asarray(points, dtype=float)
+                       - np.asarray(p, dtype=float)[:3], axis=1)
+    return float(max(0.0, d.min() - VOX_HALF_M))
 
 
 def waypoint_arrival_counts(cur_pose, wp2, c, s) -> bool:
@@ -88,6 +113,13 @@ class _VoxelObs:
     label: str
     score: float = 1.0
     seen: int = 1
+    # This robot's OWN voxels for the cluster, world frame, subsampled to
+    # REACH_POINT_CAP. None for anything not observed locally — notably a
+    # peer's shared box, which arrives as geometry only (boxes are what the
+    # fleet gossips; voxels are far too large to share). Reach then falls back
+    # to the box, which is the intended behaviour: navigate to a peer's box
+    # until your own sensor starts filling it in, then switch to the voxels.
+    points: 'np.ndarray | None' = None
 
 
 class VoxelBehavior:
@@ -115,6 +147,8 @@ class VoxelBehavior:
         # {cluster_id: [cx,cy,cz,sx,sy,sz]}
         self.target_voxel_clusters = {}
         self.cluster_query_map = {}
+        # cid -> this robot's own voxels for that cluster (None if peer-shared).
+        self.cluster_points = {}
         self.cluster_confidence = {}
         self.visited_clusters = []
         self.unvisited_clusters = []
@@ -135,6 +169,7 @@ class VoxelBehavior:
     def reset(self):
         self.target_voxel_clusters.clear()
         self.cluster_query_map.clear()
+        self.cluster_points.clear()
         self.cluster_confidence.clear()
         self.visited_clusters = []
         self.unvisited_clusters = []
@@ -269,6 +304,7 @@ class VoxelBehavior:
 
         self.target_voxel_clusters.clear()
         self.cluster_query_map.clear()
+        self.cluster_points.clear()
         self.cluster_confidence.clear()
         cid = 0
         for obs in confirmed:
@@ -277,6 +313,7 @@ class VoxelBehavior:
                 continue
             self.target_voxel_clusters[cid] = obs.bbox
             self.cluster_query_map[cid] = obs.label
+            self.cluster_points[cid] = obs.points
             self.cluster_confidence[cid] = conf
             cid += 1
 
@@ -346,8 +383,13 @@ class VoxelBehavior:
         center = (1.0 - al) * a_bb[:3] + al * b_bb[:3]
         size = b_bb[3:6]
         score = (1.0 - al) * a.score + al * b.score
+        # Keep this frame's voxels: they are the current view of the object,
+        # matching the size field. A track that stops being observed keeps its
+        # last set rather than dropping to box-only.
+        pts = b.points if b.points is not None else a.points
         return _VoxelObs(bbox=[*center.tolist(), *size.tolist()],
-                         label=a.label, score=score, seen=a.seen + 1)
+                         label=a.label, score=score, seen=a.seen + 1,
+                         points=pts)
 
     def _extract_clusters(self, vox_xyz, vox_scores, label_indices,
                           target_objects, threshold):
@@ -397,11 +439,19 @@ class VoxelBehavior:
                 center = (min_world + max_world) / 2
                 size = max_world - min_world
                 mean_scores = comp_scores[g].mean(axis=0)
+                # World-frame voxels of this component, subsampled. The reach
+                # test measures to the nearest of these rather than to the
+                # box, so a sparse cluster cannot be "reached" from outside it.
+                world = coords * vox_size + min_coords + vox_size / 2.0
+                if len(world) > REACH_POINT_CAP:
+                    step = int(np.ceil(len(world) / REACH_POINT_CAP))
+                    world = world[::step]
                 out.append(_VoxelObs(
                     bbox=[center[0], center[1], center[2],
                           size[0], size[1], size[2]],
                     label=label,
-                    score=float(mean_scores[t])))
+                    score=float(mean_scores[t]),
+                    points=np.asarray(world, dtype=np.float32)))
         return out
 
     def _split_into_instances(self, coords, win_scores, vox_size):
@@ -567,7 +617,9 @@ class VoxelBehavior:
             arrived_idx, arrived = sorted_clusters[0]
             c = np.array(arrived[:3], dtype=float)
             s = np.array(arrived[3:6], dtype=float)
-            near_aabb = aabb_surface_dist(cur_pose_np, np.zeros(3), c, s) <= VISIT_REACH_M
+            near_aabb = voxel_reach_dist(
+                cur_pose_np, self.cluster_points.get(arrived_idx),
+                c, s) <= VISIT_REACH_M
             near_wp = (waypoint_was_locked and waypoint_arrival_counts(
                 cur_pose_np, target_waypoint2, c, s))
             if near_aabb or near_wp:
@@ -607,7 +659,8 @@ class VoxelBehavior:
             label = self.cluster_query_map.get(cid, '')
             if self.is_visited(center, size, label):
                 continue
-            if self._cuboid_distance(cur, np.zeros(3), center, size) < radius_m:
+            if voxel_reach_dist(cur, self.cluster_points.get(cid),
+                                center, size) < radius_m:
                 self.visited_instances.append((label, center, size))
 
     def is_visited(self, center, size, label):

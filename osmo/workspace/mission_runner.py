@@ -40,6 +40,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -89,6 +90,15 @@ DEFAULT_ROBOT_RECORD_TOPICS = [
 # In-container staging dir for bag recordings (docker cp'd out before the
 # stack goes down).
 BAG_STAGING_DIR = "/tmp/osmo_bags"
+# Copying bags out of a container and pushing them to the NAS both scale with
+# bag size. A mission recording the full-rate semantic voxel cloud produces
+# tens of GB per iteration rather than a few, so these are env-tunable instead
+# of fixed — the defaults suit the usual few-GB bags.
+BAG_COPY_TIMEOUT_S = int(os.environ.get("OSMO_BAG_COPY_TIMEOUT_S", "1800"))
+BAG_UPLOAD_TIMEOUT_S = int(os.environ.get("OSMO_BAG_UPLOAD_TIMEOUT_S", "10800"))
+# Set from the mission spec at load time so per-iteration upload can reach it
+# without threading it through every call site.
+MISSION_NAS_DEST = ""
 
 # Tasks the GCS action_relay bridges (gcs/ros_ws/src/action_relay). Goals for
 # these can be routed `via: gcs` — published as String JSON on
@@ -229,10 +239,12 @@ def stack_containers():
 # ── mission spec ───────────────────────────────────────────────────────────
 
 def load_mission(path):
+    global MISSION_NAS_DEST
     with open(path, encoding="utf-8") as f:
         spec = yaml.safe_load(f)
     if not isinstance(spec, dict):
         raise ValueError(f"{path}: mission spec must be a YAML mapping")
+    MISSION_NAS_DEST = spec.get("nas_dest") or ""
     if not spec.get("steps"):
         raise ValueError(f"{path}: mission spec has no 'steps'")
     merged = dict(MISSION_DEFAULTS)
@@ -724,7 +736,7 @@ class Recorder:
         dest_dir.mkdir(parents=True, exist_ok=True)
         for container in {c for c, _ in self.active}:
             r = sh(["docker", "cp", f"{container}:{BAG_STAGING_DIR}/.", str(dest_dir)],
-                   timeout=1800)
+                   timeout=BAG_COPY_TIMEOUT_S)
             if r.returncode != 0:
                 log(f"WARN: docker cp of bags from {container} failed: "
                     f"{r.stderr.strip()[:200]}")
@@ -1262,6 +1274,85 @@ def _format_resources(mem, ps_rows):
     return f"{memstr} {oom.group(0) if oom else ''} | {keystr} | top: {' '.join(top)}", key
 
 
+def upload_iteration(iter_dir):
+    """rsync one finished iteration to the NAS, then drop its local bags.
+
+    The launcher uploads everything once at the end, which for a mission
+    recording full-rate voxel clouds means the pod holds every iteration's bags
+    until the last one lands — tens of GB multiplied by the iteration count,
+    against a fixed pod disk. Pushing each iteration as it completes keeps peak
+    local usage to roughly one iteration, and means an aborted mission still has
+    every completed run safely off the pod.
+
+    No-ops unless the storage credential and a destination are both present, so
+    missions without `nas_dest:` are unaffected.
+    """
+    dest = os.environ.get("OSMO_MISSION_UPLOAD_DEST") or MISSION_NAS_DEST
+    user = os.environ.get("AIRLAB_STORAGE_USER")
+    pw = os.environ.get("AIRLAB_STORAGE_PASS")
+    if (os.environ.get("OSMO_MISSION_NO_UPLOAD", "false") == "true"
+            or not (dest and user and pw)):
+        return False
+    if os.environ.get("OSMO_UPLOAD_PER_ITERATION", "true").lower() != "true":
+        return False
+    host = os.environ.get("AIRLAB_STORAGE_HOST", "airlab-storage.andrew.cmu.edu")
+    ssh = ("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
+           "-o LogLevel=ERROR")
+    remote = f"{user}@{host}:{dest.rstrip('/')}/{iter_dir.name}/"
+    log(f"uploading {iter_dir.name} → {host}:{dest.rstrip('/')}/")
+    env = dict(os.environ, SSHPASS=pw)
+    r = subprocess.run(
+        ["sshpass", "-e", "rsync", "-rltz", "--partial",
+         f"--timeout={BAG_UPLOAD_TIMEOUT_S}", "--no-perms", "--no-owner",
+         "--no-group", "--omit-dir-times", "-e", ssh,
+         f"{iter_dir}/", remote],
+        capture_output=True, text=True, env=env,
+        timeout=BAG_UPLOAD_TIMEOUT_S + 300)
+    if r.returncode != 0:
+        log(f"WARN: per-iteration upload of {iter_dir.name} failed "
+            f"(rc={r.returncode}): {r.stderr.strip()[:200]} — keeping it local "
+            f"for the end-of-mission upload")
+        return False
+    # The local copy is the backup for a partial upload, so it is only dropped
+    # when BOTH: the remote genuinely has every mcap, and pod disk is tight
+    # enough to need the space. mission_launcher.sh rsyncs the whole results
+    # tree again at the end, so anything kept here still reaches the NAS.
+    bags = iter_dir / "bags"
+    if not bags.is_dir():
+        return True
+    local = sorted(f.name for f in bags.rglob("*.mcap"))
+    prune = os.environ.get("OSMO_PRUNE_UPLOADED_BAGS", "auto").lower()
+    if prune == "never" or not local:
+        log(f"uploaded {iter_dir.name}; keeping {len(local)} local mcap(s)")
+        return True
+
+    # Verify the remote before deleting anything.
+    check = subprocess.run(
+        ["sshpass", "-e", "ssh", "-o", "StrictHostKeyChecking=no",
+         "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR",
+         f"{user}@{host}",
+         f"find {shlex.quote(dest.rstrip('/') + '/' + iter_dir.name)} "
+         f"-name '*.mcap' -printf '%f\\n' 2>/dev/null"],
+        capture_output=True, text=True, env=env, timeout=300)
+    remote = sorted(x for x in check.stdout.split() if x)
+    if check.returncode != 0 or remote != local:
+        log(f"WARN: {iter_dir.name} remote verify failed "
+            f"(local {len(local)} mcap(s), remote {len(remote)}) — keeping the "
+            f"local copy; the end-of-mission upload will retry it")
+        return False
+
+    free_gb = shutil.disk_usage(iter_dir).free / 1e9
+    floor = float(os.environ.get("OSMO_PRUNE_FREE_GB", "150"))
+    if prune != "always" and free_gb > floor:
+        log(f"uploaded + verified {iter_dir.name}; keeping the local copy "
+            f"({free_gb:.0f} GB free > {floor:.0f} GB floor)")
+        return True
+    shutil.rmtree(bags, ignore_errors=True)
+    log(f"uploaded + verified {iter_dir.name}; pruned {len(local)} local "
+        f"mcap(s) ({free_gb:.0f} GB free)")
+    return True
+
+
 def _capture_oom_dmesg(iter_dir, container, ts, why):
     """Append the kernel OOM-killer trail (host ring buffer, readable from the
     privileged container) when a watched process dies or oom_kill increments."""
@@ -1412,6 +1503,11 @@ def run_iteration(stack, mission, iter_dir):
         stack.down()
         summary["duration_s"] = round(time.time() - t0, 2)
         write_json(iter_dir / "iteration.json", summary)
+        # Push this iteration now rather than accumulating every bag on the pod.
+        try:
+            upload_iteration(iter_dir)
+        except Exception as e:                      # never fail a run on upload
+            log(f"WARN: per-iteration upload raised: {e}")
     return summary
 
 
