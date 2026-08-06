@@ -99,6 +99,10 @@ BAG_UPLOAD_TIMEOUT_S = int(os.environ.get("OSMO_BAG_UPLOAD_TIMEOUT_S", "10800"))
 # Set from the mission spec at load time so per-iteration upload can reach it
 # without threading it through every call site.
 MISSION_NAS_DEST = ""
+# mission_launcher.sh installs sshpass lazily, but only in its end-of-mission
+# upload block — which runs after this process exits. Per-iteration upload
+# therefore has to install it itself, once, on first use.
+_SSHPASS_READY = None
 
 # Tasks the GCS action_relay bridges (gcs/ros_ws/src/action_relay). Goals for
 # these can be routed `via: gcs` — published as String JSON on
@@ -1274,6 +1278,24 @@ def _format_resources(mem, ps_rows):
     return f"{memstr} {oom.group(0) if oom else ''} | {keystr} | top: {' '.join(top)}", key
 
 
+def _ensure_sshpass():
+    """True if sshpass is usable, installing it once if the image predates it."""
+    global _SSHPASS_READY
+    if _SSHPASS_READY is not None:
+        return _SSHPASS_READY
+    if shutil.which("sshpass"):
+        _SSHPASS_READY = True
+        return True
+    log("installing sshpass for per-iteration upload (image predates it)")
+    r = sh(["bash", "-c",
+            "apt-get update -qq && apt-get install -y -qq sshpass"], timeout=300)
+    _SSHPASS_READY = bool(shutil.which("sshpass"))
+    if not _SSHPASS_READY:
+        log(f"WARN: sshpass install failed (rc={r.returncode}): "
+            f"{r.stderr.strip()[:200]}")
+    return _SSHPASS_READY
+
+
 def upload_iteration(iter_dir):
     """rsync one finished iteration to the NAS, then drop its local bags.
 
@@ -1294,6 +1316,10 @@ def upload_iteration(iter_dir):
             or not (dest and user and pw)):
         return False
     if os.environ.get("OSMO_UPLOAD_PER_ITERATION", "true").lower() != "true":
+        return False
+    if not _ensure_sshpass():
+        log("WARN: sshpass unavailable — skipping per-iteration upload; the "
+            "end-of-mission rsync in mission_launcher.sh will still run")
         return False
     host = os.environ.get("AIRLAB_STORAGE_HOST", "airlab-storage.andrew.cmu.edu")
     ssh = ("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "

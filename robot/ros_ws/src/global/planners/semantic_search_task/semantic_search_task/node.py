@@ -982,6 +982,20 @@ class SemanticSearchTaskNode(Node):
                 # map to query. True reproduces the earlier, stronger variant.
                 '-p', ('vlfm_use_voxel_targets:='
                        f'{os.getenv("VLFM_USE_VOXEL_TARGETS", "false").strip().lower()}'),
+                # Metres of travel one unit of similarity is worth in the VLFM
+                # explore cost. The 300 default is calibrated for softmaxed
+                # scores, where the best-vs-typical ray gap is ~0.5. Raw cosines
+                # (RAYFRONTS_COMPUTE_PROB=False) spread only ~0.05, so the same
+                # weight leaves distance dominant and the search degenerates to
+                # plain frontier — raise it ~10x to keep the semantic pull.
+                '-p', ('vlfm_value_weight:='
+                       f'{os.getenv("VLFM_VALUE_WEIGHT", "300.0").strip()}'),
+                # VLFM_RAY_BLACKLIST=true bans reached and repeatedly-stalled ray
+                # frontiers, frontier-style, so a run keeps opening new ground.
+                # NOT part of the published method — capture runs only, where the
+                # product is map coverage rather than a comparable score.
+                '-p', ('vlfm_ray_blacklist:='
+                       f'{os.getenv("VLFM_RAY_BLACKLIST", "false").strip().lower()}'),
                 # End at 80% coverage; osmo enforces the 15-min limit by cancel.
                 '-p', f'coverage_complete_threshold:={RESULTS_COVERAGE_THRESHOLD}',
                 '-p', f'results_dir:={RESULTS_DIR}',

@@ -10,7 +10,8 @@ class BehaviorManager:
                  voxel_score_threshold=0.9, voxel_min_cluster_size=30,
                  voxel_confirm_hits=3, voxel_track_max_misses=4,
                  voxel_proximity_engage_m=12.0, voxel_min_confidence=0.0,
-                 vlfm_value_weight=300.0, vlfm_use_voxel_targets=False):
+                 vlfm_value_weight=300.0, vlfm_use_voxel_targets=False,
+                 vlfm_ray_blacklist=False):
         self.behavior_mode = 'Frontier-based'
         self.get_clock = get_clock
         self.frontier_behavior = FrontierBehavior(
@@ -34,7 +35,8 @@ class BehaviorManager:
             voxel_score_threshold=voxel_score_threshold,
             voxel_min_cluster_size=voxel_min_cluster_size,
             value_weight=vlfm_value_weight,
-            use_voxel_targets=vlfm_use_voxel_targets)
+            use_voxel_targets=vlfm_use_voxel_targets,
+            ray_blacklist=vlfm_ray_blacklist)
         # Priority order: Voxel > Ray > Frontier.
         self.behaviors = [self.voxel_behavior, self.ray_behavior, self.frontier_behavior]
 

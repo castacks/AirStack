@@ -217,6 +217,11 @@ class RavenNavNode(Node):
         # so the two can be compared.
         self._vlfm_use_voxel_targets = bool(self.declare_parameter(
             'vlfm_use_voxel_targets', False).value)
+        # Coverage-capture aid, NOT part of the VLFM baseline — bans reached and
+        # repeatedly-stalled ray frontiers so a run keeps opening new ground.
+        # Leave false for any VLFM number meant to be comparable.
+        self._vlfm_ray_blacklist = bool(self.declare_parameter(
+            'vlfm_ray_blacklist', False).value)
         self._ray_confirm_hits = int(self.declare_parameter(
             'ray_confirm_hits', 1).value)
         self._ray_track_max_misses = int(self.declare_parameter(
@@ -444,6 +449,7 @@ class RavenNavNode(Node):
             voxel_min_confidence=self._voxel_min_confidence,
             vlfm_value_weight=self._vlfm_value_weight,
             vlfm_use_voxel_targets=self._vlfm_use_voxel_targets,
+            vlfm_ray_blacklist=self._vlfm_ray_blacklist,
         )
 
         # Temporal gate on ray bearings (disabled when ray_confirm_hits <= 1).
@@ -604,11 +610,15 @@ class RavenNavNode(Node):
         peers re-filter locally but starting from a smaller cloud cuts gossip
         bandwidth and the merged-ray count significantly.
 
+        VLFM is exempt: it ranks raw cosine similarities with no threshold, so a
+        thresholded peer cloud would hand it a different distribution than its
+        own rays. It shares everything and pays the bandwidth.
+
         Fields: x, y, z, dx, dy, dz, sim_0, sim_1, ...
         gossip_node translates only x,y,z; dx,dy,dz pass through unchanged.
         """
         from sensor_msgs.msg import PointField
-        if self._target_objects:
+        if self._target_objects and not self._vlfm_baseline:
             label_indices = [self._query_labels.index(t)
                              for t in self._target_objects
                              if t in self._query_labels]

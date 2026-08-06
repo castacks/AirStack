@@ -1,11 +1,17 @@
 # raven_ablation — data capture for an OFFLINE detector ablation.
 #
-# Three runs, multi-raven, one start each on Shipyard, FireAcademy and
-# DowntownWest. The other five scenes run later, once bag size is known. The progress numbers are not the
-# point; the point is to record enough to sweep detection threshold, cluster
-# size and background-query set afterwards WITHOUT re-flying.
+# Eight runs, one start on each scene. The progress numbers are not the point;
+# the point is to record enough to sweep detection threshold, cluster size and
+# background-query set afterwards WITHOUT re-flying.
 #
-# Three load-bearing choices:
+# COVERAGE IS THE PRODUCT. An offline sweep can only score ground truth the
+# drones actually mapped — the first three-scene capture reached just 28 of 72
+# annotated targets, so most "misses" were flight coverage, not detection. Hence
+# VLFM_BASELINE=true with VLFM_USE_VOXEL_TARGETS=false: frontier-style costs for
+# broad sweep, biased toward high-similarity rays, and no go-to-object lock to
+# cut a run short. See the env block for the value-weight rescaling this needs.
+#
+# Four load-bearing choices:
 #
 # 1. RAYFRONTS_COMPUTE_PROB=False — raw cosine similarities, not a softmax over
 #    the query set. Raw scores are per-label independent, so dropping a
@@ -15,7 +21,10 @@
 #    experiment possible.
 #      => the per-scene voxel_score_threshold values below are softmax-era and
 #         are MEANINGLESS on this scale. Sweep the gate offline; do not read
-#         anything into the runtime detections this mission produces.
+#         anything into the runtime detections this mission produces. With VLFM
+#         driving and voxel targets off, nothing reads them anyway — VLFM ranks
+#         raw cosines and never thresholds. score_threshold is already -1, which
+#         is what keeps the peer ray relay from dropping every cosine-scale ray.
 #
 # 2. record.scope: robot — records /robot_N/rayfronts/msg_serv/voxels_sim/all,
 #    the topic raven_nav actually subscribes to, on each robot's own DDS domain
@@ -51,7 +60,26 @@ env:
   PLAY_SIM_ON_START: "true"
   RAYFRONTS_COMPUTE_PROB: "False"
   FRONTIER_ONLY_BASELINE: "false"
-  VLFM_BASELINE: "false"
+  # VLFM explore is the coverage policy for this capture: frontier-style costs
+  # (distance + peer repulsion + novelty) biased toward high-similarity rays, so
+  # the drones sweep broadly but lean at target regions. Nothing here is scored
+  # online — the point is to overfly as many annotated objects as possible.
+  VLFM_BASELINE: "true"
+  # No voxel search. VLFM never closes on the 3D semantic field, so no run is
+  # cut short by a go-to-object lock and coverage keeps growing for the full
+  # 15 minutes.
+  VLFM_USE_VOXEL_TARGETS: "false"
+  # Raw cosines spread ~10x less than softmaxed scores, so the 300.0 default
+  # leaves distance dominant and VLFM collapses into plain frontier. 1500 keeps
+  # a real but not overpowering pull toward targets — full parity would be
+  # ~3000, deliberately undershot here to protect coverage. Calibrate against
+  # the per-component "[vlfm] explore" log line.
+  VLFM_VALUE_WEIGHT: "1500.0"
+  # Frontier-style ray blacklist: a reached goal is banned for 180 s, and three
+  # stalls at one spot ban it outright. Keeps the drones opening new ground
+  # instead of re-selecting a high-similarity frontier they already worked.
+  # NOT part of VLFM — capture-only, off by default everywhere else.
+  VLFM_RAY_BLACKLIST: "true"
   LVLM_BASELINE: "false"
 
 # ── scene templates ────────────────────────────────────────────────────────
@@ -203,9 +231,10 @@ scene_templates:
         - {x: 250.0, y: -250.0, z: 0.0}
         - {x: -250.0, y: -250.0, z: 0.0}
 
-# ── 3 runs: Shipyard, FireAcademy, DowntownWest (one start each) ────────────
-# The remaining five scenes are held back until the bag size from these is
-# known — a 108-label cloud is ~31 MB per publish per robot.
+# ── 8 runs: every scene, one start each ────────────────────────────────────
+# The first three were flown already; bag size came in tolerable, so the
+# remaining five are enabled. Spawns are the _s1 triples from
+# multi_raven_mission.yaml so starts match the main benchmark.
 environments:
 
   # ---- Shipyard ----
@@ -222,6 +251,31 @@ environments:
   - <<: *downtownwest
     name: downtownwest_s1
     SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0.0, 0.0, 0.698, 0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0.0, 0.0, 0.736, 0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0.0, 0.0, 0.784, 0.621]}]'
+
+  # ---- ModernCityDowntown ----
+  - <<: *moderncitydowntown
+    name: moderncitydowntown_s1
+    SPAWN_CONFIGS: '[{"x_m": -17.273, "y_m": -57.947, "orient": [0.0, 0.0, -0.9896, 0.1438]}, {"x_m": -13.396, "y_m": -53.247, "orient": [0.0, 0.0, 0.4571, 0.8894]}, {"x_m": -17.857, "y_m": -48.541, "orient": [0.0, 0.0, -0.632, 0.775]}]'
+
+  # ---- RetroNeighborhood ----
+  - <<: *retroneighborhood
+    name: retroneighborhood_s1
+    SPAWN_CONFIGS: '[{"x_m": 6.764, "y_m": -1.767, "orient": [0.0, 0.0, -0.1193, 0.9929]}, {"x_m": -0.354, "y_m": 2.251, "orient": [0.0, 0.0, 0.8743, 0.4854]}, {"x_m": 2.939, "y_m": 5.117, "orient": [0.0, 0.0, -0.7931, 0.6091]}]'
+
+  # ---- ConstructionSite ----
+  - <<: *constructionsite
+    name: constructionsite_s1
+    SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0.0, 0.0, 0.2886, 0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0.0, 0.0, -0.2699, 0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0.0, 0.0, 0.9137, 0.4063]}]'
+
+  # ---- AbandonedFactory ----
+  - <<: *abandonedfactory
+    name: abandonedfactory_s1
+    SPAWN_CONFIGS: '[{"x_m": 20.458, "y_m": 1.499, "orient": [0.0, 0.0, 0.1166, 0.9932]}, {"x_m": 20.46, "y_m": 4.676, "orient": [0.0, 0.0, -0.9881, 0.1541]}, {"x_m": 20.476, "y_m": 8.299, "orient": [0.0, 0.0, 0.4036, 0.9149]}]'
+
+  # ---- MilitaryBase ----
+  - <<: *militarybase
+    name: militarybase_s1
+    SPAWN_CONFIGS: '[{"x_m": 1110.0, "y_m": 220.0, "orient": [0.0, 0.0, -0.585, 0.811]}, {"x_m": 1116.0, "y_m": 227.0, "orient": [0.0, 0.0, -0.606, 0.795]}, {"x_m": 1122.0, "y_m": 234.0, "orient": [0.0, 0.0, -0.625, 0.78]}]'
 
 command_route: gcs
 

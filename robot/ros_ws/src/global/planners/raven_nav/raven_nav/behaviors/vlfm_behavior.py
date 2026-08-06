@@ -21,8 +21,9 @@ from std_msgs.msg import String
 from visualization_msgs.msg import Marker, MarkerArray
 
 from raven_nav.behaviors.frontier_behavior import (
-    _points_in_polygon, _peer_penalty, _neighborhood_density,
-    _cells_set_from_xys, NOVELTY_WEIGHT, NOVELTY_NEIGHBORHOOD_CELLS)
+    _points_in_polygon, _peer_penalty, _neighborhood_density, _nearest_dist,
+    _cells_set_from_xys, _cells_observed_mask,
+    NOVELTY_WEIGHT, NOVELTY_NEIGHBORHOOD_CELLS)
 from raven_nav.behaviors.voxel_behavior import (
     aabb_surface_dist, VISIT_REACH_M)
 from raven_nav.behaviors.goal_progress import GoalProgressMonitor
@@ -83,9 +84,29 @@ class VLFMBehavior:
     # A newly chosen origin further than this from the pursued one is a new lead.
     REPURSUE_M = 12.0
 
+    # ── coverage blacklist (OFF by default — data-capture aid, not VLFM) ─────
+    # NOT part of the published method: VLFM has no frontier ban list, and
+    # switching this on makes the baseline explore harder than the paper's.
+    # Enabled only via ray_blacklist=True (VLFM_RAY_BLACKLIST=true) for capture
+    # runs whose product is map coverage rather than a comparable score.
+    #
+    # The cooldown alone only defers a frontier: it expires and the drone can
+    # settle back onto the same high-sim ray it already worked, which is how a
+    # run stops gaining coverage without ever looking stuck. These mirror
+    # FrontierBehavior's strike book and add an arrival ban, so a serviced or
+    # unreachable region is removed from the candidate set outright.
+    BLACKLIST_RADIUS_M = 4.0        # exclusion radius around a banned XY
+    BLACKLIST_TTL_S = 180.0         # entries expire so dead zones self-heal
+    MAX_STRIKES = 3                 # stalls at one spot before it is banned
+    STRIKE_GROUP_RADIUS_M = 6.0     # stalls within this are the same spot
+    # Reaching a goal bans it: the frontier has been observed, so the next pick
+    # has to be somewhere new. This is the term that actually grows coverage.
+    ARRIVE_BLACKLIST_M = 8.0
+
     def __init__(self, get_clock, min_altitude=1.5, max_altitude=100.0,
                  voxel_score_threshold=0.9, voxel_min_cluster_size=30,
-                 value_weight=VALUE_WEIGHT, use_voxel_targets=False):
+                 value_weight=VALUE_WEIGHT, use_voxel_targets=False,
+                 ray_blacklist=False):
         self.get_clock = get_clock
         self.name = 'VLFM-based'
         self.min_altitude = float(min_altitude)
@@ -114,6 +135,14 @@ class VLFMBehavior:
         # Origins already serviced this mission, for the debug counter only —
         # re-selection is prevented by the cooldown, not by this list.
         self._spent_leads = []
+        # Off = stock VLFM. On = coverage-capture mode; see the constants.
+        self.ray_blacklist = bool(ray_blacklist)
+        # Banned XYs [{'xy', 'expiry_s'}] and the stall strike book [{'xy',
+        # 'count'}]. Both stay empty unless ray_blacklist is set.
+        self._blacklist_xy = []
+        self._strikes = []
+        # Goal handed out last tick, so arrival at it can be detected.
+        self._last_goal_xy = None
 
     def condition_check(self):
         return True
@@ -345,6 +374,75 @@ class VLFMBehavior:
                 f'{len(self._spent_leads)} done')
         return True
 
+    # ── coverage blacklist ───────────────────────────────────────────────────
+
+    def _now_s(self) -> float:
+        return self.get_clock().now().nanoseconds * 1e-9
+
+    def _blacklist_array(self) -> np.ndarray:
+        """Live bans as an Nx2 array, expiring stale entries on the way out."""
+        now = self._now_s()
+        self._blacklist_xy = [b for b in self._blacklist_xy
+                              if b['expiry_s'] > now]
+        if not self._blacklist_xy:
+            return np.zeros((0, 2), dtype=np.float64)
+        return np.stack([b['xy'] for b in self._blacklist_xy])
+
+    def _ban(self, xy, why: str, debug_logger=None) -> None:
+        xy = np.asarray(xy, dtype=float)[:2]
+        self._blacklist_xy.append({'xy': xy.copy(),
+                                   'expiry_s': self._now_s() + self.BLACKLIST_TTL_S})
+        if debug_logger is not None:
+            debug_logger.info(
+                f'[vlfm] blacklist {why} ({xy[0]:.0f},{xy[1]:.0f}) for '
+                f'{self.BLACKLIST_TTL_S:.0f}s | {len(self._blacklist_xy)} banned',
+                throttle_duration_sec=2.0)
+
+    def _register_strike(self, xy, debug_logger=None) -> None:
+        """Count a stall at xy; ban the spot once it reaches MAX_STRIKES."""
+        xy = np.asarray(xy, dtype=float)[:2]
+        for s in self._strikes:
+            if np.linalg.norm(xy - s['xy']) <= self.STRIKE_GROUP_RADIUS_M:
+                s['count'] += 1
+                if s['count'] >= self.MAX_STRIKES:
+                    self._strikes = [x for x in self._strikes if x is not s]
+                    self._ban(s['xy'], 'unreachable', debug_logger)
+                elif debug_logger is not None:
+                    debug_logger.warn(
+                        f'[vlfm] stall strike {s["count"]}/{self.MAX_STRIKES} at '
+                        f'({xy[0]:.0f},{xy[1]:.0f})')
+                return
+        self._strikes.append({'xy': xy.copy(), 'count': 1})
+        if debug_logger is not None:
+            debug_logger.warn(f'[vlfm] stall strike 1/{self.MAX_STRIKES} at '
+                              f'({xy[0]:.0f},{xy[1]:.0f})')
+
+    def _blacklist_mask(self, ray_origins) -> np.ndarray:
+        """True where a ray origin sits inside a banned region."""
+        if not self.ray_blacklist:
+            return np.zeros(ray_origins.shape[0], dtype=bool)
+        bl = self._blacklist_array()
+        if bl.shape[0] == 0 or ray_origins.shape[0] == 0:
+            return np.zeros(ray_origins.shape[0], dtype=bool)
+        return _nearest_dist(ray_origins[:, :2], bl) <= self.BLACKLIST_RADIUS_M
+
+    def _note_arrival(self, cur_pose_np, debug_logger=None) -> None:
+        """Ban the previous goal once reached, so coverage has to move outward."""
+        if not self.ray_blacklist or self._last_goal_xy is None:
+            return
+        d = float(np.linalg.norm(np.asarray(cur_pose_np, float)[:2]
+                                 - self._last_goal_xy))
+        if d <= self.ARRIVE_BLACKLIST_M:
+            self._ban(self._last_goal_xy, 'reached', debug_logger)
+            self._last_goal_xy = None
+
+    def clear_blacklist(self) -> int:
+        """Wipe strike book + bans. Returns the number of bans dropped."""
+        n = len(self._blacklist_xy)
+        self._blacklist_xy = []
+        self._strikes = []
+        return n
+
     def _track_pursuit(self, origin) -> None:
         """Remember the frontier being pursued, restarting on a new one."""
         o = np.asarray(origin, dtype=float)
@@ -368,6 +466,10 @@ class VLFMBehavior:
         # Reached the lead and its rays have gone quiet -> it is spent. Done
         # before scoring so the cooldown it opens takes effect this tick.
         self._retire_spent_lead(ray_origins, cur_pose_np, debug_logger)
+        # Ban the last goal if we are standing on it. Independent of the lead
+        # retirement above, which needs the rays to fall silent and so does not
+        # fire on a frontier that keeps producing them.
+        self._note_arrival(cur_pose_np, debug_logger)
 
         z = ray_origins[:, 2]
         valid = (z >= self.min_altitude) & (z <= self.max_altitude)
@@ -385,18 +487,31 @@ class VLFMBehavior:
         # monitor has cooled down. Both are relaxed rather than allowed to
         # empty the candidate set: a robot with nowhere good left to go should
         # still go somewhere.
+        cells = (_cells_set_from_xys(completed_zones_xy, cell_size_m)
+                 if completed_zones_xy is not None else set())
         reach = np.linalg.norm(ray_origins - np.asarray(cur_pose_np, float), axis=1)
         near = reach < self.MIN_GOAL_DIST_M
         cooled = self._progress.blocked_mask(ray_origins)
-        n_dropped = int((valid & (near | cooled)).sum())
-        if (valid & ~near & ~cooled).any():
-            valid &= ~near & ~cooled
+        banned = self._blacklist_mask(ray_origins)
+        # Coverage map, same hard filter FrontierBehavior applies to frontiers: a
+        # ray rooted in an already-observed cell leads back over mapped ground.
+        # The novelty term below only penalises these; dropping them outright is
+        # what pushes the sweep outward. Capture-only, hence the flag.
+        observed = np.zeros(ray_origins.shape[0], dtype=bool)
+        if self.ray_blacklist and cells:
+            observed = _cells_observed_mask(ray_origins[:, :2], cells, cell_size_m)
+        blocked = cooled | banned | observed
+        n_dropped = int((valid & (near | blocked)).sum())
+        if (valid & ~near & ~blocked).any():
+            valid &= ~near & ~blocked
         elif (valid & ~near).any():
             valid &= ~near
             if debug_logger is not None:
                 debug_logger.warn(
-                    '[vlfm] explore: every un-cooled frontier is on cooldown — '
-                    'ignoring cooldown this tick', throttle_duration_sec=5.0)
+                    f'[vlfm] explore: every reachable frontier is cooled, '
+                    f'blacklisted or already observed ({int(cooled.sum())} cooled, '
+                    f'{int(banned.sum())} banned, {int(observed.sum())} observed) '
+                    f'— ignoring all three this tick', throttle_duration_sec=5.0)
         elif debug_logger is not None and n_dropped:
             debug_logger.warn(
                 f'[vlfm] explore: all {n_dropped} candidate(s) within '
@@ -413,8 +528,6 @@ class VLFMBehavior:
         peer_pen, _ = _peer_penalty(ray_origins, peer_state, my_id,
                                     peer_weight=peer_weights)
         novelty = np.zeros(ray_origins.shape[0], dtype=np.float64)
-        cells = (_cells_set_from_xys(completed_zones_xy, cell_size_m)
-                 if completed_zones_xy is not None else set())
         if cells:
             novelty = NOVELTY_WEIGHT * _neighborhood_density(
                 ray_origins[:, :2], cells, cell_size_m, NOVELTY_NEIGHBORHOOD_CELLS)
@@ -444,22 +557,29 @@ class VLFMBehavior:
                              f'sim={best:.2f}')
         if debug_logger is not None:
             debug_logger.info(
-                f'[vlfm] explore: {int(valid.sum())}/{ray_origins.shape[0]} rays | '
-                f'sel sim={best:.2f} '
+                f'[vlfm] explore: {int(valid.sum())}/{ray_origins.shape[0]} rays '
+                f'(-{int(observed.sum())} observed -{int(banned.sum())} banned '
+                f'-{int(cooled.sum())} cooled) | sel sim={best:.2f} '
                 f'val={-self.value_weight * best:.0f} dist={float(dist[ray_idx]):.0f} '
                 f'peer={float(peer_pen[ray_idx]):.0f} nov={float(novelty[ray_idx]):.0f} '
                 f'cost={float(cost[ray_idx]):.0f} -> '
                 f'({wp1[0]:.0f},{wp1[1]:.0f},{wp1[2]:.0f})',
                 throttle_duration_sec=2.0)
         self._track_pursuit(origin)
+        self._last_goal_xy = wp1[:2].copy()
         cooled = self._progress.update(cur_pose_np, wp1)
-        if cooled is not None and debug_logger is not None:
-            debug_logger.warn(
-                f'[vlfm] explore: no net progress in '
-                f'{self._progress.progress_timeout_s:.0f}s — cooling down '
-                f'({cooled[0]:.0f},{cooled[1]:.0f}) for '
-                f'{self._progress.cooldown_s:.0f}s '
-                f'({self._progress.n_blocked} region(s) cooled)')
+        if cooled is not None:
+            # A stall is also a strike: three at the same spot and it is banned
+            # outright rather than cooled again once the timer lapses.
+            if self.ray_blacklist:
+                self._register_strike(cooled, debug_logger)
+            if debug_logger is not None:
+                debug_logger.warn(
+                    f'[vlfm] explore: no net progress in '
+                    f'{self._progress.progress_timeout_s:.0f}s — cooling down '
+                    f'({cooled[0]:.0f},{cooled[1]:.0f}) for '
+                    f'{self._progress.cooldown_s:.0f}s '
+                    f'({self._progress.n_blocked} region(s) cooled)')
         if float(np.linalg.norm(cur_pose_np - wp2)) < self.UNLOCK_M:
             waypoint_locked = False
         return waypoint_locked, wp1, wp2
