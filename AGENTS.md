@@ -277,6 +277,14 @@ GPU-required jobs (`runs-on: [self-hosted, airstack-ephemeral]`) execute on **ep
 
 **Why ephemeral:** clean Docker cache per run, no leaked containers; the GitHub PAT and the OSMO service-account token live only on the orchestrator host (workers receive a single-use JIT token bound to one runner registration). CI authenticates to OSMO as a shared, non-personal [service account](https://nvidia.github.io/OSMO/main/deployment_guide/appendix/authentication/service_accounts.html) scoped to a dedicated CI GPU pool, so runs don't consume individuals' quotas. The CI pool's platform must have **"Privileged Mode Allowed"** enabled (docker-in-docker). State map at `/var/lib/airstack-orchestrator/state.json`; logs via `journalctl -u airstack-orchestrator.service -f`.
 
+**Nested DinD needs a non-overlayfs Docker data-root.** The OSMO pod's root filesystem is overlayfs, and Linux rejects a directory on overlayfs as an overlay `upperdir` (`EINVAL`). A dockerd storing data on the pod rootfs pulls images fine but fails every build step that needs a real mount, with errors that masquerade as `apt-get`/`WORKDIR` failures:
+
+```
+failed to solve: ... mount source: "overlay", target: ".../buildkit/containerd-overlayfs/cachemounts/...", err: invalid argument
+```
+
+[`runner-entrypoint.sh`](.github/orchestrator/runner-entrypoint.sh) picks a backend by attempting a real overlay mount, preferring a loopback ext4 image at `/var/lib/docker` (real `overlay2`), then a real filesystem already mounted in the pod, then `fuse-overlayfs`, then `vfs`. Landing on `vfs` means builds will be slow and probably run out of disk — check the `[runner-entrypoint] storage:` line in the job log first when Docker builds misbehave. Details: [orchestrator README → Nested DinD and overlayfs](.github/orchestrator/README.md).
+
 **Setup, debugging a failed job, and exec-into-worker procedures:** [`.github/orchestrator/README.md`](.github/orchestrator/README.md) (also exposed as [`tests/ci-cd-orchestrator.md`](tests/ci-cd-orchestrator.md) symlink for the docs site).
 
 ## Documentation Requirements

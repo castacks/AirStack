@@ -5,13 +5,13 @@
 #
 # Usage:
 #   ./build-and-push.sh
-#   RUNNER_VERSION=2.334.0 ./build-and-push.sh
+#   RUNNER_VERSION=2.336.0 ./build-and-push.sh
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REGISTRY="${REGISTRY:-airlab-docker.andrew.cmu.edu/airstack}"
-RUNNER_VERSION="${RUNNER_VERSION:-2.334.0}"
+RUNNER_VERSION="${RUNNER_VERSION:-2.336.0}"
 IMAGE="${REGISTRY}/airstack-ci-runner:${RUNNER_VERSION}"
 
 echo "==> Building ${IMAGE}"

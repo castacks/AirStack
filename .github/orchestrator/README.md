@@ -257,3 +257,50 @@ nvidia-smi
 | `Cannot connect to the Docker daemon` during tests | inner dockerd crashed | Read `/var/log/dockerd.log` via `osmo workflow exec` |
 | Runner registered, then `pytest` failed | A normal test failure | Read the GitHub Actions log — the canonical view |
 | `No space left on device` | `storage` too small for images + sim assets | Bump `storage` in `config.yaml` |
+| `failed to solve: ... mount source: "overlay" ... err: invalid argument` | Docker data-root landed on the pod's overlay rootfs | See "Nested DinD and overlayfs" below |
+
+### Nested DinD and overlayfs
+
+The single most likely way to break every Docker build at once. The pod's root
+filesystem is overlayfs, and **Linux refuses to use a directory on overlayfs as
+an overlay `upperdir`** (it returns `EINVAL`). A dockerd whose data-root sits on
+the pod rootfs looks healthy — `docker info` works, image pulls succeed, because
+containerd unpacks layers with plain writes — and then every build step that
+needs a real mount fails:
+
+```text
+failed to solve: process "/bin/bash -c apt-get ... " did not complete successfully:
+mount source: "overlay",
+target: "/var/lib/docker/buildkit/containerd-overlayfs/cachemounts/buildkit1459786452",
+fstype: overlay, ... err: invalid argument
+```
+
+That signature took out all four `build_docker` tests and all four
+`build_packages` tests in one run, with each failure looking like an unrelated
+`apt-get`/`WORKDIR` problem.
+
+[`runner-entrypoint.sh`](runner-entrypoint.sh) handles this before starting
+dockerd. It picks a storage backend by **performing a real overlay mount** to
+test each option rather than trusting the filesystem type, and falls back in
+this order:
+
+| Order | Backend | Notes |
+|---|---|---|
+| 1 | Loopback ext4 image mounted at `/var/lib/docker` | Preferred. Real `overlay2`, self-contained, dies with the pod. Sparse, so it only consumes what Docker writes. Sized to free space on `/` minus 20 GiB, or `DOCKER_LOOP_SIZE_MB`. |
+| 2 | A real filesystem already mounted in the pod | Kubernetes `emptyDir`/`hostPath`/PVC volumes live on the node disk, not the overlay rootfs. `/osmo/data/output` and `/osmo/data/socket` are skipped — the OSMO ctrl sidecar owns them. |
+| 3 | `fuse-overlayfs` driver | Stacks where the kernel driver won't. Needs `/dev/fuse`. |
+| 4 | `vfs` driver | Always works, copies the whole filesystem per layer. Too slow and too large for the sim images — **reaching this is a red flag**, not a working state. |
+
+The chosen backend is logged at startup, so confirm it in the job log before
+debugging anything else:
+
+```bash
+osmo workflow logs "$WF" --task runner | grep -E 'runner-entrypoint|storage driver'
+```
+
+Backends 3 and 4 also set `features.containerd-snapshotter: false`, because
+`storage-driver` is only honoured by the classic image store.
+
+The one-shot [`build-runner-on-osmo.yaml`](build-runner-on-osmo.yaml) builder
+sidesteps the same problem differently — `vfs` plus `DOCKER_BUILDKIT=0` — which
+is fine there because it builds one small image.

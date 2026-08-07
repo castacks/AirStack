@@ -6,11 +6,11 @@
 # a slow apt/bootstrap. Build it and push to a registry your OSMO pool can pull:
 #
 #   docker build -f runner.Dockerfile \
-#       --build-arg RUNNER_VERSION=2.334.0 \
-#       -t <registry>/airstack-ci-runner:2.334.0 .
-#   docker push <registry>/airstack-ci-runner:2.334.0
+#       --build-arg RUNNER_VERSION=2.336.0 \
+#       -t <registry>/airstack-ci-runner:2.336.0 .
+#   docker push <registry>/airstack-ci-runner:2.336.0
 #
-# Then set `runner_image: <registry>/airstack-ci-runner:2.334.0` in config.yaml.
+# Then set `runner_image: <registry>/airstack-ci-runner:2.336.0` in config.yaml.
 # Keep RUNNER_VERSION in sync with the actions/runner release you want.
 #
 # GPU-in-Docker-in-Docker: the OSMO task must run privileged (see
@@ -24,8 +24,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Docker CE (+ compose/buildx plugins), NVIDIA container toolkit, and the tools
 # the AirStack test harness / GH runner need (git, jq, python venv, ...).
+# e2fsprogs + fuse-overlayfs back the storage-backend selection in
+# runner-entrypoint.sh: the pod rootfs is overlayfs, which the kernel rejects as
+# an overlay upperdir, so dockerd's data-root has to live on a loopback ext4
+# image (mkfs.ext4) or, failing that, use the fuse-overlayfs driver.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl gnupg jq git sudo iproute2 \
+      e2fsprogs fuse-overlayfs kmod mount \
       python3 python3-venv python3-pip \
   && install -m 0755 -d /etc/apt/keyrings \
   && curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
@@ -47,7 +52,7 @@ https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_C
   && rm -rf /var/lib/apt/lists/*
 
 # GitHub Actions runner (self-contained; version pinned at build time).
-ARG RUNNER_VERSION=2.334.0
+ARG RUNNER_VERSION=2.336.0
 RUN mkdir -p /home/runner/actions-runner \
   && cd /home/runner/actions-runner \
   && curl -fsSL -o runner.tar.gz \

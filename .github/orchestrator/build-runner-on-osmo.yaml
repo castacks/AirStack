@@ -32,7 +32,7 @@ workflow:
       environment:
         AIRSTACK_REPO_URL: "https://github.com/castacks/AirStack.git"
         AIRSTACK_BRANCH: "ci/osmo-orchestrator"
-        RUNNER_VERSION: "2.334.0"
+        RUNNER_VERSION: "2.336.0"
         REGISTRY: "airlab-docker.andrew.cmu.edu/airstack"
       command:
         - bash

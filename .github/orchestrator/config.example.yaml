@@ -36,7 +36,7 @@ priority: "NORMAL"
 
 # Prebaked image: Docker CE + compose + nvidia-container-toolkit + GH Actions
 # runner. Build & push runner.Dockerfile to a registry the pool can pull from.
-runner_image: "airlab-docker.andrew.cmu.edu/airstack/airstack-ci-runner:2.334.0"
+runner_image: "airlab-docker.andrew.cmu.edu/airstack/airstack-ci-runner:2.336.0"
 
 # Resource request for the runner container. Size for the full stack build +
 # sim (Isaac Sim / ms-airsim + robot + gcs) running under docker compose.
@@ -60,7 +60,7 @@ host_network: false
 # reference/traceability; it is a build arg of runner.Dockerfile, not consumed
 # by the orchestrator at runtime. Must match a tag at
 # https://github.com/actions/runner/releases
-runner_version: "2.334.0"
+runner_version: "2.336.0"
 
 # --- GitHub ---
 
