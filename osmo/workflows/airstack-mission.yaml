@@ -139,4 +139,4 @@ workflow:
     # With keep-alive the pod sleeps after the mission until this expires (then
     # it's gone — fetch first). Sized to stay up ~30h post-mission for
     # osmo:fetch (mission itself runs in the first ~1-2h).
-    exec_timeout: 32h
+    exec_timeout: 100h
