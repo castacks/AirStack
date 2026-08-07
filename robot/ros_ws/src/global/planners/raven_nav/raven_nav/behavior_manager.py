@@ -8,7 +8,7 @@ class BehaviorManager:
     def __init__(self, get_clock, publisher_dict, score_threshold=0.75,
                  min_altitude=1.5, max_altitude=100.0,
                  voxel_score_threshold=0.9, voxel_min_cluster_size=30,
-                 voxel_confirm_hits=3, voxel_track_max_misses=4,
+                 voxel_confirm_hits=2, voxel_track_max_misses=4,
                  voxel_proximity_engage_m=12.0, voxel_min_confidence=0.0,
                  vlfm_value_weight=300.0, vlfm_use_voxel_targets=False,
                  vlfm_ray_blacklist=False):

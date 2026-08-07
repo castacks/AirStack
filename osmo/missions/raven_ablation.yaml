@@ -164,7 +164,7 @@ scene_templates:
     STAGE_SCALE: "0.01"
     SPAWN_HEIGHT_M: "0.2"
     RESULTS_SCENE: "ConstructionSite"
-    query: "forklift, tower crane, blue tarp, orange tarp"
+    query: "forklift, tower crane, blue tarp"
     voxel_score_threshold: 0.65
     score_threshold: -1
     voxel_min_cluster_size: -1
@@ -200,7 +200,7 @@ scene_templates:
     STAGE_SCALE: "1.0"
     SPAWN_HEIGHT_M: "1.0"
     RESULTS_SCENE: "MilitaryBase"
-    query: "guard tower, radio tower, bridge, helicopter, atv"
+    query: "guard tower, radio tower, bridge, helicopter"
     voxel_score_threshold: 0.68
     score_threshold: -1
     voxel_min_cluster_size: -1

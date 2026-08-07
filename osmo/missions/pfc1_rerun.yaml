@@ -73,17 +73,23 @@ env:
   FRONTIER_ONLY_BASELINE: "false"
   VLFM_BASELINE: "false"
   LVLM_BASELINE: "false"
-  # VLFM shape, mission-wide (unlike the three flags above these never vary by
-  # entry, so they belong here rather than on the vlfm anchor — one place to
-  # keep correct). Coordinated VLFM: RAW rayfronts rays only, no 3D voxel
-  # go-to-object, with frontier-style peer repulsion + novelty left on so the
-  # three drones spread out. Spelled out rather than left to the node default
-  # because voxel go-to-object was unconditional until it became a flag, so an
-  # older commit run against this spec would silently enable it.
+  # Coordinated VLFM: RAW rayfronts rays only, with frontier-style peer
+  # repulsion + novelty left on so the three drones spread out. Spelled out
+  # rather than left to the node default because the voxel field was wired in
+  # unconditionally until it became a flag, so an older commit run against this
+  # spec would silently enable it. false disables it for EVERYTHING — no
+  # go-to-object and no passive detection — which is why the per-scene
+  # voxel_score_threshold below (a softmax probability) does not need a VLFM
+  # variant even though RAYFRONTS_COMPUTE_PROB differs per arm.
   VLFM_USE_VOXEL_TARGETS: "false"
   # NOT part of VLFM — coverage-capture aid that bans reached frontiers. Off,
   # or VLFM stops being comparable with the other three methods.
   VLFM_RAY_BLACKLIST: "false"
+  # Default for the frontier / lvlm / multi-raven arms: their voxel and ray
+  # gates ARE softmax probabilities. The vlfm anchor overrides this to False —
+  # stated on every anchor because apply_env only ever sets keys, so an arm that
+  # omitted it would inherit the previous iteration's value.
+  RAYFRONTS_COMPUTE_PROB: "True"
 
 # ── method anchors ─────────────────────────────────────────────────────────
 baseline_templates:
@@ -92,18 +98,32 @@ baseline_templates:
     FRONTIER_ONLY_BASELINE: "true"
     VLFM_BASELINE: "false"
     LVLM_BASELINE: "false"
+    # frontier gates are softmax probabilities.
+    RAYFRONTS_COMPUTE_PROB: "True"
     method: frontier
 
   vlfm: &vlfm
     FRONTIER_ONLY_BASELINE: "false"
     VLFM_BASELINE: "true"
     LVLM_BASELINE: "false"
+    # Published VLFM scores a frame with ONE BLIP-2 ITM cosine against one
+    # prompt ("Seems like there is a <target> ahead.", match_head="itc") — there
+    # is no vocabulary, so nothing to normalise against. compute_prob=True would
+    # instead return softmax(100*cos_sim) over ALL registered queries, making
+    # every target score depend on which background queries are registered.
+    RAYFRONTS_COMPUTE_PROB: "False"
+    # Required companion, not an independent tuning choice: 300 is calibrated
+    # for softmaxed scores (best-vs-typical gap ~0.5). Raw cosines spread ~10x
+    # less, so at 300 distance dominates and VLFM degenerates to plain frontier.
+    VLFM_VALUE_WEIGHT: "1500.0"
     method: vlfm
 
   lvlm: &lvlm
     FRONTIER_ONLY_BASELINE: "false"
     VLFM_BASELINE: "false"
     LVLM_BASELINE: "true"
+    # no rayfronts in this arm; set for determinism.
+    RAYFRONTS_COMPUTE_PROB: "True"
     method: lvlm
 
   # No flag set -> the default full-coordination raven stack.
@@ -111,6 +131,8 @@ baseline_templates:
     FRONTIER_ONLY_BASELINE: "false"
     VLFM_BASELINE: "false"
     LVLM_BASELINE: "false"
+    # raven gates are softmax probabilities.
+    RAYFRONTS_COMPUTE_PROB: "True"
     method: multi-raven
 
 # ── scene anchors ──────────────────────────────────────────────────────────

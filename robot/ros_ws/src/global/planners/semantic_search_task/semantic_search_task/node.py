@@ -1007,8 +1007,10 @@ class SemanticSearchTaskNode(Node):
                 '-r', (f'/{robot_name}/odometry:='
                        f'/{robot_name}/odometry_conversion/odometry'),
             ]
-            # Optional raven_nav tuning from the mission goal; a sentinel (<0, or
-            # <1 for the count) means "unset" -> raven_nav.yaml default is used.
+            # Optional raven_nav tuning from the mission goal; a sentinel (<0,
+            # or <1 for the count) means "unset" -> the node's declare_parameter
+            # default applies. NOT config/raven_nav.yaml: this spawn passes no
+            # --params-file, so that file is only read by raven_nav.launch.xml.
             for pname, gval, sentinel in (
                 ('score_threshold', goal.score_threshold, 0.0),
                 ('voxel_score_threshold', goal.voxel_score_threshold, 0.0),

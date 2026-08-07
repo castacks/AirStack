@@ -58,6 +58,17 @@ env:
   # The point of this mission. Reaches raven_nav as the vlfm_use_voxel_targets
   # parameter via semantic_search_task; false = no 3D voxel go-to-object.
   VLFM_USE_VOXEL_TARGETS: "false"
+  VLFM_RAY_BLACKLIST: "false"
+  # Raw cosine similarity, NOT a softmax over the query vocabulary — see
+  # vlfm_baseline.yaml for the reasoning. Published VLFM scores a frame with one
+  # BLIP-2 ITM cosine against one prompt; there is no vocabulary to normalise
+  # against, whereas compute_prob=True makes each target score depend on which
+  # background queries are registered.
+  RAYFRONTS_COMPUTE_PROB: "False"
+  # Required companion: 300 is calibrated for softmaxed scores (best-vs-typical
+  # gap ~0.5). Raw cosines spread ~10x less, so 300 leaves distance dominant and
+  # VLFM degenerates into plain frontier exploration.
+  VLFM_VALUE_WEIGHT: "1500.0"
 
 # ── scene templates ────────────────────────────────────────────────────────
 # Per-scene inputs (map, stage scale, spawn height, query, thresholds, search

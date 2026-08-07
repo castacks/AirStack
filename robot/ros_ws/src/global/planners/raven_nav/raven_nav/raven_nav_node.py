@@ -197,8 +197,11 @@ class RavenNavNode(Node):
         self._voxel_min_cluster_size = int(self.declare_parameter(
             'voxel_min_cluster_size', 35).value)
         # Temporal confirmation: persist across N ticks before a detection counts.
+        # This default is the value that actually runs: semantic_search_task
+        # spawns the node with `ros2 run ... --ros-args -p`, no --params-file, so
+        # config/raven_nav.yaml is never read on the mission path.
         self._voxel_confirm_hits = int(self.declare_parameter(
-            'voxel_confirm_hits', 3).value)
+            'voxel_confirm_hits', 2).value)
         self._voxel_track_max_misses = int(self.declare_parameter(
             'voxel_track_max_misses', 4).value)
         # Engage voxel-mode on a cluster within this range even without a ray.
@@ -268,9 +271,13 @@ class RavenNavNode(Node):
             self.get_logger().info(
                 'vlfm_baseline=true — navigation is VLFM over RAW rayfronts '
                 'rays (rays_sim/all, unthresholded, ungrouped, no peer-ray '
-                'merge) | voxel go-to-object='
-                f'{"ON" if self._vlfm_use_voxel_targets else "OFF (rays only)"}'
-                f' | value_weight={self._vlfm_value_weight:g}'
+                'merge) | voxel field='
+                + ('ON (go-to-object + passive detection)'
+                   if self._vlfm_use_voxel_targets else
+                   'OFF everywhere — no go-to-object, no passive detection, so '
+                   'no confirmed_targets/CONFIRMED/VISITED; arrival is '
+                   'ray-derived, see intent_events')
+                + f' | value_weight={self._vlfm_value_weight:g}'
                 ' | coordinated: peer repulsion + novelty ON'
                 f' | ray blacklist={"ON" if self._vlfm_ray_blacklist else "OFF"}')
         # In either baseline the semantic auction/consensus is inert (baselines
@@ -2930,14 +2937,25 @@ class RavenNavNode(Node):
             self._mark_reached(self._cur_pose)
             self._behavior_manager.behavior_mode = 'Frontier-based'
         elif self._vlfm_baseline:
-            # VLFM baseline: same PASSIVE detection as frontier (so AABBs /
-            # confirmed_targets / completed_queries populate for metrics), but
-            # navigation is handled by VLFMBehavior. Hard-force VLFM-based; never
-            # activate voxel-MODE here.
-            self._behavior_manager.voxel_behavior.condition_check(
-                self._vox_xyz, self._vox_scores, self._query_labels,
-                voxel_targets, committed_origin=None, committed_dir=None)
-            self._mark_reached(self._cur_pose)
+            # VLFM baseline. Navigation is VLFMBehavior's; hard-force VLFM-based
+            # so voxel-MODE never activates.
+            #
+            # vlfm_use_voxel_targets gates the 3D semantic voxel field for
+            # EVERYTHING, not just go-to-object navigation. Off = the published
+            # method's capability set: it has no 3D semantic map, so it cannot
+            # cluster one into AABBs either. That costs the passive detection
+            # channel — no confirmed_targets, hence no CONFIRMED/VISITED events
+            # and no groundtruth_comparison for this run — which is the honest
+            # consequence, not a regression. What VLFM *can* say about a target
+            # is ray-derived and still recorded: intent_events carries the
+            # pursue record (what it went after) and the release record with
+            # why='arrived, rays gone' (its own arrival signal — reached the
+            # lead and its supporting rays fell silent).
+            if self._vlfm_use_voxel_targets:
+                self._behavior_manager.voxel_behavior.condition_check(
+                    self._vox_xyz, self._vox_scores, self._query_labels,
+                    voxel_targets, committed_origin=None, committed_dir=None)
+                self._mark_reached(self._cur_pose)
             self._drain_vlfm_intent()
             self._behavior_manager.behavior_mode = 'VLFM-based'
         else:

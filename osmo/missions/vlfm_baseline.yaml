@@ -47,6 +47,22 @@ env:
   # NOT part of VLFM — a coverage-capture aid that bans reached frontiers. Off,
   # or the numbers stop being comparable with the other methods.
   VLFM_RAY_BLACKLIST: "false"
+  # Raw cosine similarity, NOT a softmax over the query vocabulary.
+  #
+  # The published method (Yokoyama et al., ICRA 2024) scores a frame with one
+  # BLIP-2 ITM cosine against a single prompt — "Seems like there is a
+  # <target_object> ahead." — via match_head="itc", returning one scalar. There
+  # is no vocabulary and therefore nothing to normalise against. With
+  # compute_prob=True rayfronts instead returns softmax(100 * cos_sim) over ALL
+  # registered queries (rayfronts/utils.py:56, dim=-1 is the query axis), which
+  # makes every target score a function of which background queries happen to be
+  # registered — a coupling VLFM does not have.
+  RAYFRONTS_COMPUTE_PROB: "False"
+  # Required companion to the line above, not an independent tuning choice. The
+  # 300 default is calibrated for softmaxed scores, where the best-vs-typical ray
+  # gap is ~0.5; raw cosines spread ~10x less, so at 300 the distance term
+  # dominates and VLFM silently degenerates into plain frontier exploration.
+  VLFM_VALUE_WEIGHT: "1500.0"
 
 # ── scene templates ────────────────────────────────────────────────────────
 # Per-scene inputs (map, stage scale, spawn height, query, thresholds, search
