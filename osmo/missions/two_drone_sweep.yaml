@@ -7,16 +7,16 @@
 # robot_2 did, and the comparison is fleet size and nothing else. Every kept pair
 # is still >= 3 m apart (min 3.08 m, moderncitydowntown_s3).
 #
-#   8 scenes x 3 starts - 2 dead environments = 22 environments
-#   x 3 methods (frontier, lvlm, multi-raven) = 66 runs, ~22h00m
+#   8 scenes x 3 starts = 24 environments
+#   x 3 methods (frontier, lvlm, multi-raven) = 72 runs, ~24h00m
 #
 # VLFM is deliberately absent.
 #
-# constructionsite_s3 and shipyard_s2 are omitted: they have never armed in any
-# sweep — 28 attempts, 0 successes, always MAVROS connected but PX4's EKF never
-# converging, so `local_position/odom` never publishes. Widening their polygons
-# and raising the ready timeout to 900 s changed nothing. Including them would
-# burn ~45 min of GPU each for no data.
+# constructionsite_s3 and shipyard_s2 were omitted for never arming; both were
+# re-sited 2026-08-07 and are back in. Previously: 28 attempts, 0 successes,
+# MAVROS connected but PX4's EKF never converging. Widening their polygons
+# and raising the ready timeout to 900 s changed nothing, so the spawn sites
+# themselves were the problem.
 #
 # This mission cycles the method *within* one run: mission_runner calls
 # apply_env(env_exports(entry)) before each iteration's `airstack up`, so the
@@ -99,7 +99,7 @@ scene_templates:
     RESULTS_SCENE: "DowntownWest"
     query: "fountain, car, truck"
     background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
-    voxel_score_threshold: -1
+    voxel_score_threshold: 0.5
     score_threshold: -1
     voxel_min_cluster_size: 50
     search_area:
@@ -116,7 +116,7 @@ scene_templates:
     RESULTS_SCENE: "ModernCityDowntown"
     query: "yellow truck, obelisk, bankomat, cafe table, car"
     background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
-    voxel_score_threshold: -1
+    voxel_score_threshold: 0.5
     score_threshold: -1
     voxel_min_cluster_size: 30
     search_area:
@@ -133,7 +133,7 @@ scene_templates:
     RESULTS_SCENE: "RetroNeighborhood"
     query: "house, bus stop, blue container, red container"
     background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
-    voxel_score_threshold: -1
+    voxel_score_threshold: 0.6
     score_threshold: -1
     voxel_min_cluster_size: 50
     search_area:
@@ -150,7 +150,7 @@ scene_templates:
     RESULTS_SCENE: "FireAcademy"
     query: "red building, water tower, fuel tank, radio tower"
     background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building facade, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
-    voxel_score_threshold: -1
+    voxel_score_threshold: 0.5
     score_threshold: -1
     voxel_min_cluster_size: 30
     search_area:
@@ -167,7 +167,7 @@ scene_templates:
     RESULTS_SCENE: "ConstructionSite"
     query: "forklift, tower crane, blue tarp"
     background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, ground"
-    voxel_score_threshold: -1
+    voxel_score_threshold: 0.5
     score_threshold: -1
     voxel_min_cluster_size: 80
     search_area:
@@ -184,7 +184,7 @@ scene_templates:
     RESULTS_SCENE: "AbandonedFactory"
     query: "building, water tower, white silo"
     background_queries: "pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, ground"
-    voxel_score_threshold: -1
+    voxel_score_threshold: 0.5
     score_threshold: -1
     voxel_min_cluster_size: 30
     search_area:
@@ -201,7 +201,7 @@ scene_templates:
     RESULTS_SCENE: "MilitaryBase"
     query: "guard tower, radio tower, bridge, helicopter"
     background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
-    voxel_score_threshold: -1
+    voxel_score_threshold: 0.5
     score_threshold: -1
     voxel_min_cluster_size: 50
     search_area:
@@ -218,7 +218,7 @@ scene_templates:
     RESULTS_SCENE: "Shipyard"
     query: "ship, crane"
     background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
-    voxel_score_threshold: -1
+    voxel_score_threshold: 0.5
     score_threshold: -1
     voxel_min_cluster_size: 50
     search_area:
@@ -370,7 +370,17 @@ environments:
   - <<: [*constructionsite, *multiraven]
     name: constructionsite_s2_multiraven
     SPAWN_CONFIGS: '[{"x_m": -22.9, "y_m": -30.5, "orient": [0.0, 0.0, -0.1647, 0.9863]}, {"x_m": -22.9, "y_m": -34.5, "orient": [0.0, 0.0, 0.2676, 0.9635]}]'
-  # constructionsite_s3: never armed in 28 attempts — omitted
+  # constructionsite_s3: re-sited 2026-08-07 after 28 failed arms — PX4's EKF
+  # never converged at the old spawn, so local_position/odom never published.
+  - <<: [*constructionsite, *frontier]
+    name: constructionsite_s3_frontier
+    SPAWN_CONFIGS: '[{"x_m": 54.0, "y_m": -58.0, "orient": [0.0, 0.0, 0.9426, 0.334]}, {"x_m": 48.2, "y_m": -53.3, "orient": [0.0, 0.0, 0.9426, 0.334]}]'
+  - <<: [*constructionsite, *lvlm]
+    name: constructionsite_s3_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 54.0, "y_m": -58.0, "orient": [0.0, 0.0, 0.9426, 0.334]}, {"x_m": 48.2, "y_m": -53.3, "orient": [0.0, 0.0, 0.9426, 0.334]}]'
+  - <<: [*constructionsite, *multiraven]
+    name: constructionsite_s3_multiraven
+    SPAWN_CONFIGS: '[{"x_m": 54.0, "y_m": -58.0, "orient": [0.0, 0.0, 0.9426, 0.334]}, {"x_m": 48.2, "y_m": -53.3, "orient": [0.0, 0.0, 0.9426, 0.334]}]'
 
   # ---- AbandonedFactory ----
   - <<: [*abandonedfactory, *frontier]
@@ -440,7 +450,18 @@ environments:
   - <<: [*shipyard, *multiraven]
     name: shipyard_s1_multiraven
     SPAWN_CONFIGS: '[{"x_m": -66.066, "y_m": -11.867, "orient": [0.0, 0.0, -0.9089, 0.417]}, {"x_m": -68.796, "y_m": -14.581, "orient": [0.0, 0.0, -0.6509, 0.7591]}]'
-  # shipyard_s2: never armed in 28 attempts — omitted
+  # shipyard_s2: re-sited 2026-08-07 after 28 failed arms at (-131,55) —
+  # PX4's EKF never converged there, so local_position/odom never published.
+  # New spawns are on open ground in the yard's south-east.
+  - <<: [*shipyard, *frontier]
+    name: shipyard_s2_frontier
+    SPAWN_CONFIGS: '[{"x_m": 56.0, "y_m": -54.0, "orient": [0.0, 0.0, 0.984, 0.1784]}, {"x_m": 48.0, "y_m": -51.0, "orient": [0.0, 0.0, 0.984, 0.1784]}]'
+  - <<: [*shipyard, *lvlm]
+    name: shipyard_s2_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 56.0, "y_m": -54.0, "orient": [0.0, 0.0, 0.984, 0.1784]}, {"x_m": 48.0, "y_m": -51.0, "orient": [0.0, 0.0, 0.984, 0.1784]}]'
+  - <<: [*shipyard, *multiraven]
+    name: shipyard_s2_multiraven
+    SPAWN_CONFIGS: '[{"x_m": 56.0, "y_m": -54.0, "orient": [0.0, 0.0, 0.984, 0.1784]}, {"x_m": 48.0, "y_m": -51.0, "orient": [0.0, 0.0, 0.984, 0.1784]}]'
   - <<: [*shipyard, *frontier]
     name: shipyard_s3_frontier
     SPAWN_CONFIGS: '[{"x_m": 48.5, "y_m": -203.0, "orient": [0.0, 0.0, 0.45, 0.893]}, {"x_m": 51.5, "y_m": -206.5, "orient": [0.0, 0.0, 0.7853, 0.6192]}]'

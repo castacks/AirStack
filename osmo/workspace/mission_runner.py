@@ -1296,7 +1296,7 @@ def _ensure_sshpass():
     return _SSHPASS_READY
 
 
-def upload_iteration(iter_dir):
+def upload_iteration(iter_dir, results_root=None):
     """rsync one finished iteration to the NAS, then drop its local bags.
 
     The launcher uploads everything once at the end, which for a mission
@@ -1305,6 +1305,15 @@ def upload_iteration(iter_dir):
     against a fixed pod disk. Pushing each iteration as it completes keeps peak
     local usage to roughly one iteration, and means an aborted mission still has
     every completed run safely off the pod.
+
+    The remote layout mirrors the end-of-mission rsync exactly:
+    ``<nas_dest>/<mission-name>/<UTC stamp>/<iteration>/``. Uploading to
+    ``<nas_dest>/<iteration>/`` instead would scatter every run of every mission
+    into one flat directory and collide iteration names across missions, and the
+    launcher's final rsync would then write a SECOND copy at the correct path.
+    rsync -R recreates the relative path under the destination, which also
+    creates the intermediate directories the Synology share cannot make with
+    --mkpath.
 
     No-ops unless the storage credential and a destination are both present, so
     missions without `nas_dest:` are unaffected.
@@ -1324,14 +1333,25 @@ def upload_iteration(iter_dir):
     host = os.environ.get("AIRLAB_STORAGE_HOST", "airlab-storage.andrew.cmu.edu")
     ssh = ("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
            "-o LogLevel=ERROR")
-    remote = f"{user}@{host}:{dest.rstrip('/')}/{iter_dir.name}/"
-    log(f"uploading {iter_dir.name} → {host}:{dest.rstrip('/')}/")
+    # Path under the results root — <mission>/<stamp>/<iteration> — so the
+    # per-iteration push and the end-of-mission push write to the same place.
+    try:
+        rel = iter_dir.resolve().relative_to(Path(results_root).resolve()) \
+            if results_root else Path(iter_dir.parent.parent.name) / \
+            iter_dir.parent.name / iter_dir.name
+    except ValueError:
+        rel = Path(iter_dir.parent.parent.name) / iter_dir.parent.name / iter_dir.name
+    base = dest.rstrip("/")
+    remote = f"{user}@{host}:{base}/"
+    log(f"uploading {rel} → {host}:{base}/")
     env = dict(os.environ, SSHPASS=pw)
     r = subprocess.run(
-        ["sshpass", "-e", "rsync", "-rltz", "--partial",
+        ["sshpass", "-e", "rsync", "-rltzR", "--partial",
          f"--timeout={BAG_UPLOAD_TIMEOUT_S}", "--no-perms", "--no-owner",
          "--no-group", "--omit-dir-times", "-e", ssh,
-         f"{iter_dir}/", remote],
+         f"./{rel}/", remote],
+        cwd=str(Path(iter_dir).resolve().parents[2] if results_root is None
+                else Path(results_root).resolve()),
         capture_output=True, text=True, env=env,
         timeout=BAG_UPLOAD_TIMEOUT_S + 300)
     if r.returncode != 0:
@@ -1357,7 +1377,7 @@ def upload_iteration(iter_dir):
         ["sshpass", "-e", "ssh", "-o", "StrictHostKeyChecking=no",
          "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR",
          f"{user}@{host}",
-         f"find {shlex.quote(dest.rstrip('/') + '/' + iter_dir.name)} "
+         f"find {shlex.quote(base + '/' + str(rel))} "
          f"-name '*.mcap' -printf '%f\\n' 2>/dev/null"],
         capture_output=True, text=True, env=env, timeout=300)
     remote = sorted(x for x in check.stdout.split() if x)

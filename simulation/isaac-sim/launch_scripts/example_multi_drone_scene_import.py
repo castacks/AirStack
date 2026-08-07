@@ -126,12 +126,12 @@ _LOCAL_SCENES_DIR = os.path.normpath(os.path.join(_LAUNCH_SCRIPTS_DIR, "..", "as
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
-#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
+ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/copy-rayfronts-planner/AbandonedCity.scene.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/downtown_edited_v3_818.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/copy-rayfronts-planner/environments_start_pos/SnowyVillage_t_x-152_y-80_z-2_o_x0_y0_z_90.scene.usd"
-ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/edit_v1_shipyard.usd"
+#ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/edit_v1_shipyard.usd"
 #ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
 
 _env_url_override = os.environ.get("ENV_URL")
@@ -311,6 +311,9 @@ OVERHEAD_DOMAIN_ID     = 0
 #
 # Ground snapping stays OFF for this layout (see VEHICLE_SNAP_GROUND below):
 # these z values are already surveyed, and a raycast would only move them.
+# The stage this layout was surveyed against; it is applied to no other.
+_DEFAULT_VEHICLE_STAGE = "downtown_edited_v3_818"
+
 _DEFAULT_VEHICLE_PLACEMENTS = [
     {"name": "truck_1", "kind": "truck", "x_m":    7.8,  "y_m": -89.54, "z_m": 0.122, "yaw_deg":  90.0},
     {"name": "truck_2", "kind": "truck", "x_m":  115.3,  "y_m":  56.9,  "z_m": 0.122, "yaw_deg": -90.0},
@@ -362,8 +365,15 @@ elif NUM_VEHICLES > 0:
     _vehicle_layout_surveyed = False
 elif "NUM_VEHICLES" in os.environ:
     VEHICLE_PLACEMENTS = []          # explicit NUM_VEHICLES=0 → no traffic
-else:
+elif _DEFAULT_VEHICLE_STAGE in ENV_URL:
     VEHICLE_PLACEMENTS = [dict(v) for v in _DEFAULT_VEHICLE_PLACEMENTS]
+else:
+    # Every other scene gets no traffic. The surveyed layout is a hand-placed
+    # fit to downtown_edited_v3_818's roads; applying it elsewhere drops 11
+    # vehicles at DowntownWest coordinates into an unrelated stage, where they
+    # land on buildings, in water, or float — and they are query targets, so
+    # they corrupt that scene's ground truth too.
+    VEHICLE_PLACEMENTS = []
 
 VEHICLE_SNAP_GROUND = (os.environ["VEHICLE_SNAP_GROUND"].lower() == "true"
                        if "VEHICLE_SNAP_GROUND" in os.environ
