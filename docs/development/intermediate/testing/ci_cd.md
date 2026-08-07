@@ -219,7 +219,7 @@ flowchart TD
   d --> e["Write omni_pass.env — guest Nucleus creds"]
   e --> f["Create venv, install tests/requirements.txt"]
   f --> g{"Registry secrets present?"}
-  g -- yes --> h["docker login, set AIRSTACK_REGISTRY_CACHE=1"]
+  g -- yes --> h["docker login, set AIRSTACK_REGISTRY_CACHE=1<br/>read-only: PRs never republish the cache"]
   g -- no --> i["Skip — build from scratch"]
   h --> j{"marks contain build_docker?"}
   i --> j
@@ -236,6 +236,43 @@ The image-prep step is what makes runs on a cold pod tolerable: it pulls the
 published images for exactly the compose profiles the selected `--sim` implies,
 then falls back to a local build only for images the registry did not have (a
 new branch that has not been released yet, for example).
+
+### Layer cache: the floating `cache_*` tag
+
+Every pod starts with an empty Docker cache, so `build_docker` is only fast if
+BuildKit can import layers from the registry. Each compose service therefore
+declares two `cache_from` entries:
+
+| Entry | Example | Who writes it |
+|---|---|---|
+| Versioned | `airstack:v0.19.0-alpha.7_isaac-sim` | `docker-build.yml`, per release |
+| Floating | `airstack:cache_isaac-sim` | `docker-build.yml`, republished every build |
+
+The versioned entry alone cannot work on a pull request. `check-version-increment`
+requires every PR to raise `VERSION`, so the tag a PR builds under is by
+definition one that has never been pushed — the pull misses and the build runs
+cold from the first `RUN` layer:
+
+```
+Image ...airstack:v0.19.0-alpha.7_isaac-sim Pulling
+Image ...airstack:v0.19.0-alpha.7_isaac-sim failed to resolve reference
+```
+
+The floating tag is the one that actually hits. It tracks the newest build from
+`main`/`develop` rather than any particular version, so a PR imports the layers
+its base branch already produced and rebuilds only what it changed.
+
+Reading and writing the cache are separate switches, and PR runs get read only:
+
+- `AIRSTACK_REGISTRY_CACHE=1` — pull to seed, build with `BUILDKIT_INLINE_CACHE=1`.
+  Set by `system-tests.yml` whenever registry secrets are available.
+- `AIRSTACK_REGISTRY_CACHE_PUSH=1` — additionally publish the versioned and
+  floating tags. Set only by `docker-build.yml`.
+
+Keeping the write switch off for pull requests means an unmerged branch can
+neither poison the shared cache for everyone else nor publish an unreleased
+`VERSION` tag. Override the tag name with `CACHE_TAG` (default `cache`) to keep
+an experimental cache line separate.
 
 ---
 

@@ -824,6 +824,46 @@ function ensure_robot_l4t_stack_base() {
     run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${_ga[@]}" build "${build_opts[@]}" robot-l4t-stack-base
 }
 
+# `docker compose push` only publishes each service's `image:`. The floating
+# cache tags are declared in `build.tags`, so they need an explicit push. Read
+# them back out of the resolved config instead of reconstructing the names here,
+# so this stays correct as services are added.
+function push_cache_tags() {
+    local -n _ga="$1"
+    local -n _sc="$2"
+
+    if ! command -v jq >/dev/null 2>&1; then
+        log_warn "jq not found; skipping cache-tag push (floating cache will go stale)"
+        return 0
+    fi
+
+    # Service names only — drop any flags that were passed through to the subcommand.
+    local services=()
+    for arg in "${_sc[@]}"; do
+        [[ "$arg" == -* ]] || services+=("$arg")
+    done
+
+    local tags
+    tags=$(run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${_ga[@]}" config --format json 2>/dev/null \
+        | jq -r --arg svcs "${services[*]}" --arg pfx ":${CACHE_TAG:-cache}_" '
+            .services | to_entries[]
+            | select($svcs == "" or (($svcs | split(" ")) | index(.key)))
+            | (.value.build.tags // [])[]
+            | select(contains($pfx))
+          ' 2>/dev/null | sort -u)
+
+    if [[ -z "$tags" ]]; then
+        log_warn "No cache tags resolved from compose config; nothing to publish"
+        return 0
+    fi
+
+    while IFS= read -r tag; do
+        [[ -n "$tag" ]] || continue
+        log_info "Pushing cache tag $tag"
+        docker push "$tag" || log_warn "Failed to push cache tag $tag"
+    done <<< "$tags"
+}
+
 function cmd_up {
     check_docker
 
@@ -877,9 +917,16 @@ function cmd_image_build {
 
     # Registry-cache mode (CI / opt-in): pre-pull existing images to seed the
     # local cache, build with BUILDKIT_INLINE_CACHE=1 so the resulting image
-    # carries layer-cache metadata, and push so the next run benefits. The
-    # cache_from declarations in each component compose file make BuildKit
-    # actually reuse the pulled layers. No-op when the env var is unset.
+    # carries layer-cache metadata. The cache_from declarations in each
+    # component compose file make BuildKit actually reuse the pulled layers.
+    # No-op when the env var is unset.
+    #
+    # Reading and publishing the cache are separate switches. A PR bumps VERSION
+    # (check-version-increment enforces it), so the versioned cache_from entry is
+    # guaranteed to miss and the floating CACHE_TAG entry is what actually hits.
+    # PR runs must not write that floating tag: an unmerged branch would poison
+    # the shared cache and publish an unreleased VERSION. Only trusted branches
+    # set AIRSTACK_REGISTRY_CACHE_PUSH=1.
     if [[ "${AIRSTACK_REGISTRY_CACHE:-}" == "1" ]]; then
         log_info "AIRSTACK_REGISTRY_CACHE=1 → pulling for cache seed..."
         run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" pull --ignore-pull-failures "${subcmd_args[@]}" || \
@@ -888,9 +935,14 @@ function cmd_image_build {
         log_info "Building services with BUILDKIT_INLINE_CACHE=1..."
         run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" build --build-arg BUILDKIT_INLINE_CACHE=1 "${subcmd_args[@]}"
 
-        log_info "Pushing built images for next-run cache..."
-        run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" push --ignore-push-failures "${subcmd_args[@]}" || \
-            log_warn "Post-build push encountered failures; future runs may not benefit from cache"
+        if [[ "${AIRSTACK_REGISTRY_CACHE_PUSH:-}" == "1" ]]; then
+            log_info "Pushing built images for next-run cache..."
+            run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" push --ignore-push-failures "${subcmd_args[@]}" || \
+                log_warn "Post-build push encountered failures; future runs may not benefit from cache"
+            push_cache_tags global_args subcmd_args
+        else
+            log_info "AIRSTACK_REGISTRY_CACHE_PUSH is not 1 → cache is read-only for this run"
+        fi
     else
         log_info "Building services..."
         run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" build "${subcmd_args[@]}"

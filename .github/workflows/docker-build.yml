@@ -131,6 +131,40 @@ jobs:
           
           docker compose push
 
+      # `docker compose push` only publishes each service's `image:` (the
+      # versioned tag). PR builds can never hit that tag as cache, because
+      # check-version-increment forces VERSION up on every PR — so they also
+      # cache_from a floating CACHE_TAG that only this workflow republishes.
+      # `docker compose build` already applied these via `build.tags`; they
+      # point at the digest just pushed, so Cosign's digest-based signature
+      # covers them too.
+      - name: Publish floating cache tags
+        run: |
+          set -a
+          source .env
+          set +a
+
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            export COMPOSE_PROFILES="${{ github.event.inputs.compose_profiles || env.DEFAULT_PROFILES }}"
+          else
+            export COMPOSE_PROFILES="${{ env.DEFAULT_PROFILES }}"
+          fi
+
+          TAGS=$(docker compose config --format json \
+            | jq -r --arg pfx ":${CACHE_TAG:-cache}_" \
+                '.services[].build.tags // [] | .[] | select(contains($pfx))' \
+            | sort -u)
+
+          if [ -z "$TAGS" ]; then
+            echo "No cache tags resolved from compose config; nothing to publish."
+            exit 1
+          fi
+
+          for TAG in $TAGS; do
+            echo "Pushing cache tag $TAG"
+            docker push "$TAG"
+          done
+
       - name: Sign pushed images with Cosign (keyless)
         env:
           COSIGN_YES: "true"
