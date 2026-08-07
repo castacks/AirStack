@@ -83,6 +83,23 @@ def repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
 
+def parse_env_value(raw: str) -> str:
+    """Parse a .env value, honoring quotes and stripping trailing comments."""
+    raw = raw.strip()
+    if not raw:
+        return ""
+    if raw[0] in "\"'":
+        quote = raw[0]
+        end = raw.find(quote, 1)
+        if end != -1:
+            return raw[1:end]
+        return raw[1:]
+    # Unquoted: drop an inline ` # comment` (space-hash) or a leading `#`.
+    if " #" in raw:
+        raw = raw.split(" #", 1)[0].rstrip()
+    return raw.strip().strip('"').strip("'")
+
+
 def load_dotenv(path: Path) -> dict[str, str]:
     env: dict[str, str] = {}
     if not path.is_file():
@@ -92,8 +109,7 @@ def load_dotenv(path: Path) -> dict[str, str]:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, value = line.partition("=")
-        value = value.strip().strip('"').strip("'")
-        env[key.strip()] = value
+        env[key.strip()] = parse_env_value(value)
     return env
 
 
