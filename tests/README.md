@@ -389,6 +389,11 @@ Regressions are flagged with :red_circle:, improvements with :green_circle:.
 
 ## CI/CD Integration
 
+!!! note "Full pipeline guide"
+    For the end-to-end picture — architecture diagrams, job lifecycle, trigger
+    reference, what each mark catches, and how to fold CI into your development
+    loop — see **[CI/CD Pipeline on OSMO](../docs/development/intermediate/testing/ci_cd.md)**.
+
 ### Workflow: `system-tests.yml`
 
 [`.github/workflows/system-tests.yml`](../../../../.github/workflows/system-tests.yml) runs on:

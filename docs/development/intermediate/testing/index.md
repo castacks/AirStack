@@ -86,4 +86,4 @@ airstack test -m "build_packages or autonomy" \
 - [Unit Testing](unit_testing.md) — `@pytest.mark.unit`, proxy pattern, CI workflow
 - [Testing frameworks](testing_frameworks.md) — `colcon test`, rostest patterns
 - [Integration testing](integration_testing.md)
-- [CI/CD](ci_cd.md) — pipeline overview
+- [CI/CD Pipeline on OSMO](ci_cd.md) — how CI runs the full stack on ephemeral GPU pods: architecture, triggers, what each mark catches, and the metrics regression gate
