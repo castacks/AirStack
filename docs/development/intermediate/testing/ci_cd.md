@@ -274,6 +274,34 @@ neither poison the shared cache for everyone else nor publish an unreleased
 `VERSION` tag. Override the tag name with `CACHE_TAG` (default `cache`) to keep
 an experimental cache line separate.
 
+### Publish path: retag when image inputs are unchanged
+
+`check-version-increment` forces every PR to raise `VERSION`, including
+docs-only changes. On `main`/`develop`, that would otherwise mean a full
+multi-hour rebuild of every image for a no-op Docker change.
+
+[`docker-build.yml`](https://github.com/castacks/AirStack/blob/main/.github/workflows/docker-build.yml)
+therefore plans per service before building:
+
+1. [`.github/workflows/scripts/docker_image_plan.py`](https://github.com/castacks/AirStack/blob/main/.github/workflows/scripts/docker_image_plan.py)
+   hashes each service’s Dockerfile, compose-related files, build args, and
+   tracked fingerprint roots into `org.airstack.content-fingerprint`.
+2. It inspects the **previous** versioned image’s label (from `HEAD~1`’s
+   `VERSION=`).
+3. **Match** → registry-side retag with
+   `docker buildx imagetools create` (new `v${VERSION}_…` tag and floating
+   `cache_*` tag, same digest — no rebuild).
+4. **Mismatch / missing / unlabeled / `force_rebuild`** → `docker compose build`
+   for that service only, with the fingerprint applied as a build label via an
+   ephemeral `docker-compose.fingerprint.yaml` override.
+
+PR `system-tests` / `build_docker` are unchanged: they still run real builds so
+Dockerfiles keep being proven. Floating `cache_*` remains the layer-cache seed
+for those rebuilds.
+
+Manual dispatch accepts `force_rebuild=true` to rebuild and relabel everything
+(useful the first time after this lands, or to refresh `cache_*` from scratch).
+
 ---
 
 ## What the pipeline tests, and what that catches
@@ -435,20 +463,24 @@ flowchart LR
   pr["PR merged to main or develop"] --> chk{".env VERSION changed?"}
   chk -- no --> stop["No build"]
   chk -- yes --> pod["Ephemeral OSMO pod"]
-  pod --> build["docker compose build"]
-  build --> push["docker compose push"]
-  push --> sign["cosign sign — keyless, GitHub OIDC"]
+  pod --> plan["Per-service fingerprint plan"]
+  plan --> retag["imagetools retag unchanged"]
+  plan --> build["compose build changed only"]
+  retag --> sign["cosign sign — keyless, GitHub OIDC"]
+  build --> sign
   sign --> verify["cosign verify against the workflow identity"]
 ```
 
 Signing is keyless via GitHub's OIDC token, and the same job immediately
-verifies each pushed digest against the expected certificate identity, so a
-published image that was not built by this workflow fails the check.
+verifies each published digest against the expected certificate identity, so a
+published image that was not built by this workflow fails the check. Retagged
+images keep the previous digest (and therefore an existing signature still
+covers that digest; the job re-signs the same digest under the new tags’ refs).
 
 | Workflow | Runner | Purpose |
 |---|---|---|
 | `system-tests.yml` | Ephemeral OSMO GPU pod | Full test suite + metrics report |
-| `docker-build.yml` | Ephemeral OSMO GPU pod | Build, push, and sign all compose images |
+| `docker-build.yml` | Ephemeral OSMO GPU pod | Retag or rebuild, push, and sign compose images |
 | `check-version-increment.yml` | `ubuntu-latest` | Semver gate on `.env` `VERSION=` |
 | `deploy_docs_from_*.yaml` | `ubuntu-latest` | Versioned MkDocs publish via `mike` |
 

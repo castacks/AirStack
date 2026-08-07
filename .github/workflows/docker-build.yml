@@ -12,6 +12,11 @@ on:
         required: false
         default: 'desktop,isaac-sim,ms-airsim'
         type: string
+      force_rebuild:
+        description: 'Force a full rebuild of every service (skip retag)'
+        required: false
+        default: false
+        type: boolean
 
 env:
   DEFAULT_PROFILES: 'desktop,isaac-sim,ms-airsim'
@@ -21,6 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag-changed: ${{ steps.check-changes.outputs.tag-changed }}
+      current-version: ${{ steps.check-changes.outputs.current-version }}
+      previous-version: ${{ steps.check-changes.outputs.previous-version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -33,20 +40,22 @@ jobs:
         run: |
           # Get the current VERSION value
           CURRENT_TAG=$(grep "^VERSION=" .env | cut -d '=' -f2- | tr -d '"' | tr -d "'")
-          
+
           # Get the previous VERSION value
           git show HEAD~1:.env > .env.prev 2>/dev/null || echo "" > .env.prev
           PREVIOUS_TAG=$(grep "^VERSION=" .env.prev | cut -d '=' -f2- | tr -d '"' | tr -d "'" || echo "")
-          
+
           echo "Current tag: $CURRENT_TAG"
           echo "Previous tag: $PREVIOUS_TAG"
-          
+          echo "current-version=$CURRENT_TAG" >> "$GITHUB_OUTPUT"
+          echo "previous-version=$PREVIOUS_TAG" >> "$GITHUB_OUTPUT"
+
           if [ "$CURRENT_TAG" != "$PREVIOUS_TAG" ] && [ -n "$CURRENT_TAG" ]; then
             echo "VERSION has changed from '$PREVIOUS_TAG' to '$CURRENT_TAG'"
-            echo "tag-changed=true" >> $GITHUB_OUTPUT
+            echo "tag-changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "VERSION has not changed"
-            echo "tag-changed=false" >> $GITHUB_OUTPUT
+            echo "tag-changed=false" >> "$GITHUB_OUTPUT"
           fi
 
   docker-build:
@@ -78,7 +87,6 @@ jobs:
 
       - name: Verify .env file and extract tag
         run: |
-          # Ensure .env file exists and is readable
           if [ ! -f .env ]; then
             echo "Error: .env file not found"
             exit 1
@@ -89,56 +97,17 @@ jobs:
           # Some compose files expect this file to exist, even if it is empty.
           mkdir -p simulation/isaac-sim/docker
           : > simulation/isaac-sim/docker/omni_pass.env
-          
-          # Display the current VERSION for debugging
+
           DOCKER_TAG=$(grep "^VERSION=" .env | cut -d '=' -f2- | tr -d '"' | tr -d "'")
           echo "Building with VERSION: $DOCKER_TAG"
-          
+
           if [ -z "$DOCKER_TAG" ]; then
             echo "Error: VERSION is empty"
             exit 1
           fi
 
-      - name: Run Docker Compose Build
-        run: |
-          # Load environment variables and run docker compose build
-          set -a  # Export all variables
-          source .env
-          set +a  # Stop exporting
-          
-          # Always override COMPOSE_PROFILES for all trigger types
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            export COMPOSE_PROFILES="${{ github.event.inputs.compose_profiles || env.DEFAULT_PROFILES }}"
-          else
-            export COMPOSE_PROFILES="${{ env.DEFAULT_PROFILES }}"
-          fi
-          
-          docker compose build
-
-      - name: Run Docker Compose Push
-        run: |
-          # Load environment variables and run docker compose push
-          set -a  # Export all variables
-          source .env
-          set +a  # Stop exporting
-          
-          # Always override COMPOSE_PROFILES for all trigger types
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            export COMPOSE_PROFILES="${{ github.event.inputs.compose_profiles || env.DEFAULT_PROFILES }}"
-          else
-            export COMPOSE_PROFILES="${{ env.DEFAULT_PROFILES }}"
-          fi
-          
-          docker compose push
-
-      # `docker compose push` only publishes each service's `image:` (the
-      # versioned tag). PR builds can never hit that tag as cache, because
-      # check-version-increment forces VERSION up on every PR — so they also
-      # cache_from a floating CACHE_TAG that only this workflow republishes.
-      # `docker compose build` already applied these via `build.tags`; they
-      # point at the digest just pushed, so Cosign's digest-based signature
-      # covers them too.
-      - name: Publish floating cache tags
+      - name: Resolve compose profiles and previous VERSION
+        id: prep
         run: |
           set -a
           source .env
@@ -150,14 +119,139 @@ jobs:
             export COMPOSE_PROFILES="${{ env.DEFAULT_PROFILES }}"
           fi
 
-          TAGS=$(docker compose config --format json \
-            | jq -r --arg pfx ":${CACHE_TAG:-cache}_" \
-                '.services[].build.tags // [] | .[] | select(contains($pfx))' \
-            | sort -u)
+          PREVIOUS_VERSION="${{ needs.check-docker-tag-change.outputs.previous-version }}"
+          CURRENT_VERSION="${{ needs.check-docker-tag-change.outputs.current-version }}"
+          if [ -z "$CURRENT_VERSION" ]; then
+            CURRENT_VERSION=$(grep "^VERSION=" .env | cut -d '=' -f2- | tr -d '"' | tr -d "'")
+          fi
+
+          FORCE_REBUILD=false
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ github.event.inputs.force_rebuild }}" == "true" ]; then
+            FORCE_REBUILD=true
+          fi
+
+          echo "COMPOSE_PROFILES=$COMPOSE_PROFILES" >> "$GITHUB_ENV"
+          echo "PREVIOUS_VERSION=$PREVIOUS_VERSION" >> "$GITHUB_ENV"
+          echo "CURRENT_VERSION=$CURRENT_VERSION" >> "$GITHUB_ENV"
+          echo "FORCE_REBUILD=$FORCE_REBUILD" >> "$GITHUB_ENV"
+          echo "profiles=$COMPOSE_PROFILES" >> "$GITHUB_OUTPUT"
+          echo "previous-version=$PREVIOUS_VERSION" >> "$GITHUB_OUTPUT"
+          echo "force-rebuild=$FORCE_REBUILD" >> "$GITHUB_OUTPUT"
+
+      # Content-aware publish: retag previous versioned images when image inputs
+      # are unchanged; rebuild only services whose fingerprint differs (or when
+      # force_rebuild / unlabeled previous images force a cold build).
+      - name: Plan retag vs rebuild
+        id: plan
+        run: |
+          set -a
+          source .env
+          set +a
+          export COMPOSE_PROFILES="${{ env.COMPOSE_PROFILES }}"
+
+          FORCE_ARGS=()
+          if [ "${{ env.FORCE_REBUILD }}" = "true" ]; then
+            FORCE_ARGS+=(--force-rebuild)
+          fi
+
+          python3 .github/workflows/scripts/docker_image_plan.py \
+            --version "${{ env.CURRENT_VERSION }}" \
+            --previous-version "${{ env.PREVIOUS_VERSION }}" \
+            --profiles "${{ env.COMPOSE_PROFILES }}" \
+            --plan-out docker-image-plan.json \
+            --override-out docker-compose.fingerprint.yaml \
+            "${FORCE_ARGS[@]}"
+
+          echo "Plan summary:"
+          jq -r '.services | to_entries[] | "  \(.key): \(.value.action) (\(.value.reason))"' docker-image-plan.json
+
+      - name: Retag unchanged images
+        run: |
+          set -euo pipefail
+          RETAG_COUNT=$(jq '[.services[] | select(.action=="retag")] | length' docker-image-plan.json)
+          echo "Services to retag: $RETAG_COUNT"
+          if [ "$RETAG_COUNT" -eq 0 ]; then
+            echo "Nothing to retag."
+            exit 0
+          fi
+
+          jq -c '.services | to_entries[] | select(.value.action=="retag") | .value' docker-image-plan.json \
+            | while IFS= read -r row; do
+                IMAGE=$(echo "$row" | jq -r '.image')
+                PREV=$(echo "$row" | jq -r '.previous_image')
+                CACHE=$(echo "$row" | jq -r '.cache_tag // empty')
+                echo "Retagging $PREV → $IMAGE"
+                CREATE_ARGS=(--tag "$IMAGE")
+                if [ -n "$CACHE" ] && [ "$CACHE" != "null" ]; then
+                  echo "  also → $CACHE"
+                  CREATE_ARGS+=(--tag "$CACHE")
+                fi
+                docker buildx imagetools create "${CREATE_ARGS[@]}" "$PREV"
+              done
+
+      - name: Build changed images
+        run: |
+          set -euo pipefail
+          set -a
+          source .env
+          set +a
+          export COMPOSE_PROFILES="${{ env.COMPOSE_PROFILES }}"
+
+          BUILD_SERVICES=$(jq -r '[.services | to_entries[] | select(.value.action=="build") | .key] | join(" ")' docker-image-plan.json)
+          if [ -z "$BUILD_SERVICES" ]; then
+            echo "No services require a rebuild."
+            exit 0
+          fi
+
+          echo "Building services: $BUILD_SERVICES"
+          # Override applies org.airstack.content-fingerprint build labels.
+          # shellcheck disable=SC2086
+          docker compose \
+            -f docker-compose.yaml \
+            -f docker-compose.fingerprint.yaml \
+            build $BUILD_SERVICES
+
+      - name: Push rebuilt images
+        run: |
+          set -euo pipefail
+          set -a
+          source .env
+          set +a
+          export COMPOSE_PROFILES="${{ env.COMPOSE_PROFILES }}"
+
+          BUILD_SERVICES=$(jq -r '[.services | to_entries[] | select(.value.action=="build") | .key] | join(" ")' docker-image-plan.json)
+          if [ -z "$BUILD_SERVICES" ]; then
+            echo "No rebuilt images to push."
+            exit 0
+          fi
+
+          # shellcheck disable=SC2086
+          docker compose \
+            -f docker-compose.yaml \
+            -f docker-compose.fingerprint.yaml \
+            push $BUILD_SERVICES
+
+      # `docker compose push` only publishes each service's `image:` (the
+      # versioned tag). Floating CACHE_TAG entries are also applied via
+      # build.tags on rebuild; retag already published them via imagetools.
+      - name: Publish floating cache tags for rebuilt images
+        run: |
+          set -euo pipefail
+          set -a
+          source .env
+          set +a
+          export COMPOSE_PROFILES="${{ env.COMPOSE_PROFILES }}"
+
+          TAGS=$(jq -r --arg pfx ":${CACHE_TAG:-cache}_" '
+            .services | to_entries[]
+            | select(.value.action=="build")
+            | .value.cache_tag // empty
+            | select(length > 0 and contains($pfx))
+          ' docker-image-plan.json | sort -u)
 
           if [ -z "$TAGS" ]; then
-            echo "No cache tags resolved from compose config; nothing to publish."
-            exit 1
+            echo "No rebuilt cache tags to publish (retag path already set them, or no rebuilds)."
+            exit 0
           fi
 
           for TAG in $TAGS; do
@@ -165,23 +259,19 @@ jobs:
             docker push "$TAG"
           done
 
-      - name: Sign pushed images with Cosign (keyless)
+      - name: Sign published images with Cosign (keyless)
         env:
           COSIGN_YES: "true"
         run: |
+          set -euo pipefail
           set -a
           source .env
           set +a
+          export COMPOSE_PROFILES="${{ env.COMPOSE_PROFILES }}"
 
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            export COMPOSE_PROFILES="${{ github.event.inputs.compose_profiles || env.DEFAULT_PROFILES }}"
-          else
-            export COMPOSE_PROFILES="${{ env.DEFAULT_PROFILES }}"
-          fi
-
-          IMAGES=$(docker compose config --images | sort -u)
+          IMAGES=$(jq -r '.services[].image' docker-image-plan.json | sort -u)
           if [ -z "$IMAGES" ]; then
-            echo "No images resolved from compose config; nothing to sign."
+            echo "No images resolved from plan; nothing to sign."
             exit 1
           fi
 
@@ -199,17 +289,13 @@ jobs:
 
       - name: Verify Cosign signatures
         run: |
+          set -euo pipefail
           set -a
           source .env
           set +a
+          export COMPOSE_PROFILES="${{ env.COMPOSE_PROFILES }}"
 
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            export COMPOSE_PROFILES="${{ github.event.inputs.compose_profiles || env.DEFAULT_PROFILES }}"
-          else
-            export COMPOSE_PROFILES="${{ env.DEFAULT_PROFILES }}"
-          fi
-
-          IMAGES=$(docker compose config --images | sort -u)
+          IMAGES=$(jq -r '.services[].image' docker-image-plan.json | sort -u)
           for IMG in $IMAGES; do
             DIGEST=$(docker buildx imagetools inspect "$IMG" --format '{{.Manifest.Digest}}')
             REPO="${IMG%:*}"
@@ -221,13 +307,15 @@ jobs:
               > /dev/null
           done
 
-      - name: Optional - Run Docker Compose Up (uncomment if needed)
-        run: |
-          # Uncomment the following lines if you also want to start the services
-          # set -a
-          # source .env  
-          # set +a
-          # docker compose up -d
+      - name: Upload image plan artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-plan-${{ github.run_id }}
+          path: |
+            docker-image-plan.json
+            docker-compose.fingerprint.yaml
+          if-no-files-found: ignore
 
   notify:
     needs: [check-docker-tag-change, docker-build]
@@ -237,8 +325,8 @@ jobs:
       - name: Notify build and push result
         run: |
           if [ "${{ needs.docker-build.result }}" == "success" ]; then
-            echo "✅ Docker Compose build and push completed successfully"
+            echo "✅ Docker Compose build/retag and push completed successfully"
           else
-            echo "❌ Docker Compose build or push failed"
+            echo "❌ Docker Compose build/retag or push failed"
             exit 1
           fi
