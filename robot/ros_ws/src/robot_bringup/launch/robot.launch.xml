@@ -42,9 +42,19 @@
   <!-- Logging -->
   <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" />
 
-  <!-- Domain Bridge -->
+  <!-- Domain Bridge: telemetry to the GCS domain -->
   <node pkg="domain_bridge" exec="domain_bridge"
     args="/root/ros_ws/src/robot_bringup/params/domain_bridge.yaml"
+    output="screen" respawn="true" respawn_delay="1" />
+
+  <!-- MAIPP peer bridges: this robot's own coordination topics to each peer domain.
+       One process per destination, since a topic can be listed only once per config.
+       Separate processes also keep this traffic from starving the telemetry bridge. -->
+  <node pkg="domain_bridge" exec="domain_bridge" name="maipp_bridge_a"
+    args="/root/ros_ws/src/robot_bringup/params/maipp_bridge_$(env ROBOT_NAME)_a.yaml"
+    output="screen" respawn="true" respawn_delay="1" />
+  <node pkg="domain_bridge" exec="domain_bridge" name="maipp_bridge_b"
+    args="/root/ros_ws/src/robot_bringup/params/maipp_bridge_$(env ROBOT_NAME)_b.yaml"
     output="screen" respawn="true" respawn_delay="1" />
 
 </launch>

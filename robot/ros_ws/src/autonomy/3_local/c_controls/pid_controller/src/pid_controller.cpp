@@ -168,6 +168,8 @@ public:
     airstack_msgs::msg::Odometry tp;
     nav_msgs::msg::Odometry odom;
     airstack_msgs::msg::Odometry temp = *msg;
+    temp.header.stamp.sec = 0;
+    temp.header.stamp.nanosec = 0;
     bool tp_tf_success = tflib::transform_odometry(tf_buffer, temp, target_frame, target_frame, &tp,
 						   rclcpp::Duration::from_seconds(0.1));
     if(!tp_tf_success){

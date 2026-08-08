@@ -28,6 +28,9 @@ DisparityExpansionNode::DisparityExpansionNode(const rclcpp::NodeOptions& option
     this->get_parameter("downsample_scale", this->downsample_scale);
     this->declare_parameter("ignore_left_pixels", 0);
     this->get_parameter("ignore_left_pixels", this->ignore_left_pixels);
+    // disabled for flight test: ZED SDK raw disparity topic is negative (needed for bag replay)
+    // this->declare_parameter("negate_disparity", false);
+    // this->get_parameter("negate_disparity", this->negate_disparity);
 
     // subscribers
     this->cam_info_sub_ = this->create_subscription<sensor_msgs::msg::CameraInfo>(
@@ -251,6 +254,8 @@ void DisparityExpansionNode::process_disparity_image(
         RCLCPP_ERROR(this->get_logger(), "Received empty disparity image");
         return;
     }
+    // disabled for flight test (see negate_disparity in the constructor):
+    // if (this->negate_disparity) disparity32F *= -1.0f;
     cv::resize(disparity32F, disparity32F, cv::Size(), 1.0 / this->downsample_scale,
                1.0 / this->downsample_scale, cv::INTER_AREA);
     if (disparity32F.empty()) {
@@ -293,6 +298,11 @@ void DisparityExpansionNode::process_disparity_image(
         for (int u = (int)this->width - 1; u >= 0; u -= 1) {
             float disparity_value = disparity32F.at<float>(v, u);
 
+            // crash guard disabled for flight test. To re-enable, replace the check below with:
+            //   double scaled_disparity = double(disparity_value) * this->metric_depth_scale;
+            //   if (!(scaled_disparity > -1.0 && scaled_disparity < double(this->lut_max_disparity - 1))) continue;
+            //   int lut_idx = int(scaled_disparity) + 1;  // and use lut_idx in the .at() calls
+            // (identical accepted range, but inf/NaN/overflow skip instead of crashing)
             if (std::isnan(double(disparity_value * this->metric_depth_scale)) ||
                 ((int(disparity_value * this->metric_depth_scale) + 1) >=
                  this->lut_max_disparity) ||
@@ -382,6 +392,7 @@ void DisparityExpansionNode::process_disparity_image(
             float disparity_value = disparity32F.at<float>(v, u) +
                                     this->pixel_error;  // disparity_row[v * row_step + u];// + 0.5;
 
+            // crash guard disabled for flight test, see step 1 above
             if (std::isnan(double(disparity_value * this->metric_depth_scale)) ||
                 ((int(disparity_value * this->metric_depth_scale) + 1) >=
                  this->lut_max_disparity) ||

@@ -104,3 +104,44 @@ source /root/ros2_ws/install/setup.bash
 
 alias bws="cd /root/ros2_ws/; colcon build --symlink-install --cmake-args ' -DCMAKE_BUILD_TYPE=Release' ' -DCMAKE_LIBRARY_PATH=/usr/local/cuda/lib64/stubs' ' -DCMAKE_CXX_FLAGS=\"-Wl,--allow-shlib-undefined\"' ' --no-warn-unused-cli'; cd -"
 alias sws="source /root/ros2_ws/install/setup.bash"
+
+alias zed_wrapper_mq="ros2 launch zed_wrapper zed_dual_camera.launch.py pose_cam_serial:=41591402 wire_cam_serial:=44405253 camera_name:="robot_1/sensors" node_name:="front_stereo""
+alias zed_detection_conversion_mq="cd src/zed_wrapper/scripts && python3 zed_to_detection2d.py"
+alias zed_compass="cd ~/ros2_ws/src/zed_wrapper/scripts && python3 zed_compass.py"
+alias record_sensor_rayfront='ros2 bag record -o /zed_svo/bags/rosbag_$(date +%F_%H-%M-%S) /robot_1/sensors/front_stereo/left/image /robot_1/odometry_conversion/odometry /robot_1/front_stereo/disparity /robot_1/sensors/front_stereo/left/camera_info /robot_1/gimbal/boundingbox /robot_1/interface/mavros/global_position/global /robot_1/global_plan /robot_1/interface/pose_command'
+
+alias record_all_rayfront='ros2 bag record -o /zed_svo/bags/rosbag_$(date +%F_%H-%M-%S) \
+  /robot_1/sensors/front_stereo/left/image \
+  /robot_1/odometry_conversion/odometry \
+  /robot_1/front_stereo/disparity \
+  /robot_1/sensors/front_stereo/left/camera_info \
+  /robot_1/gimbal/boundingbox \
+  /robot_1/interface/mavros/global_position/global \
+  /robot_1/global_plan \
+  /robot_1/interface/pose_command \
+  /robot_1/maipp/coverage_grid \
+  /robot_1/maipp/tracks \
+  /robot_1/maipp/task_claim \
+  /robot_2/maipp/coverage_grid \
+  /robot_2/maipp/tracks \
+  /robot_2/maipp/task_claim \
+  /people_tracks \
+  /tf_static'
+
+alias record_all_maipp='nohup ros2 bag record -o /zed_svo/bags/rosbag_$(date +%F_%H-%M-%S) \
+  /robot_1/sensors/front_stereo/left/image \
+  /robot_1/odometry_conversion/odometry \
+  /robot_1/front_stereo/disparity \
+  /robot_1/sensors/front_stereo/left/camera_info \
+  /robot_1/gimbal/boundingbox \
+  /robot_1/interface/mavros/global_position/global \
+  /robot_1/global_plan \
+  /robot_1/interface/pose_command \
+  /robot_1/maipp/coverage_grid \
+  /robot_1/maipp/tracks \
+  /robot_1/maipp/task_claim \
+  /robot_2/maipp/coverage_grid \
+  /robot_2/maipp/tracks \
+  /robot_2/maipp/task_claim \
+  /people_tracks \
+  /tf_static > /zed_svo/bags/record.log 2>&1 < /dev/null &'

@@ -18,7 +18,8 @@
         <remap from="visual_odometry_points"
             to="/$(env ROBOT_NAME)/perception/visual_odometry_points" />
         <remap from="visual_odometry_img" to="/$(env ROBOT_NAME)/perception/visual_odometry_img" />
-    </node> -->
+	</node> -->
+    <?ignore
     <node pkg="macvo2" exec="macvo2" if="$(env USE_MACVO)">
         <param name="camera_config" value="$(find-pkg-share macvo2)/config/model_config.yaml" />
         <param from="$(find-pkg-share macvo2)/config/interface_config.yaml" />
@@ -54,5 +55,6 @@
         namespace="disparity_view">
         <remap from="image" to="/$(env ROBOT_NAME)/front_stereo/disparity" />
     </node>
+    ?>
 
 </launch>

@@ -1,0 +1,77 @@
+<launch>
+    <!-- everything under the robot namespace, matching how robot.launch.xml
+         includes local.launch.xml; relative topic names (e.g. the trajectory
+         controller's tracking_point) then resolve to /$ROBOT_NAME/... -->
+    <push-ros-namespace namespace="$(env ROBOT_NAME)" />
+
+    <!-- Regenerate TF (map->base_link, base_link_stabilized) from bag odometry -->
+    <node pkg="robot_interface" namespace="odometry_conversion_replay" exec="odometry_conversion" output="screen">
+        <param name="use_sim_time" value="true" />
+        <remap from="odometry_in" to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+        <remap from="odometry_out" to="odometry_replay_unused" />
+        <param name="new_frame_id" value="map" />
+        <param name="new_child_frame_id" value="base_link" />
+        <param name="odometry_output_type" value="2" />
+        <param name="convert_odometry_to_transform" value="true" />
+        <param name="convert_odometry_to_stabilized_transform" value="true" />
+    </node>
+
+    <!-- Static TFs from robot_bringup/static_transforms.launch.xml -->
+    <node pkg="tf2_ros" exec="static_transform_publisher" name="map_flu_static_tf"
+        args="0 0 0 -1.57079632679 0 0 map_FLU map" />
+    <node pkg="tf2_ros" exec="static_transform_publisher" name="zed_link_static_tf"
+        args="0 0 0 0 0.261799 0 base_link front_stereo_camera_link" />
+
+    <!-- The bag's disparity images are stamped front_stereo_left_camera_optical_frame,
+         normally published by the ZED wrapper URDF. Recreate it here: standard
+         camera-link to optical rotation, left camera offset +baseline/2 in y -->
+    <node pkg="tf2_ros" exec="static_transform_publisher" name="optical_static_tf"
+        args="0 0.06 0 -1.57079632679 0 -1.57079632679 front_stereo_camera_link front_stereo_left_camera_optical_frame" />
+
+    <group>
+        <push-ros-namespace namespace="droan" />
+        <node pkg="droan_local_planner" exec="droan_local_planner" output="screen" args="--log-level DEBUG">
+            <param name="use_sim_time" value="true" />
+            <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml" allow_substs="true" />
+            <!-- uncomment to bypass collision checking (e.g. to test planning behavior alone): -->
+            <param name="everything_seen_and_free" value="true" />
+            <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
+            <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
+            <remap from="tracking_point" to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
+            <!-- bag only has LEFT camera_info; baseline comes from baseline_fallback in droan.yaml -->
+            <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/left/camera_info" />
+            <remap from="trajectory_segment_to_add" to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add" />
+        </node>
+
+        <!-- expands the bag's DisparityImage into fg/bg disparity for the cost map -->
+        <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion" output="screen">
+            <param name="use_sim_time" value="true" />
+            <param from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
+            <!-- the bag's raw ZED disparity is negative; overrides the config default -->
+            <param name="negate_disparity" value="true" />
+            <remap from="disparity" to="/$(env ROBOT_NAME)/front_stereo/disparity" />
+            <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/left/camera_info" />
+        </node>
+    </group>
+
+    <!-- publishes look_ahead + tracking_point, consumes DROAN's segments -->
+    <node pkg="trajectory_controller" exec="trajectory_controller" namespace="trajectory_controller" output="screen">
+        <param name="use_sim_time" value="true" />
+        <param name="tf_prefix" value="" />
+        <param name="target_frame" value="map" />
+        <param name="tracking_point_distance_limit" value="1000.5" />
+        <param name="velocity_look_ahead_time" value="0.9" />
+        <param name="look_ahead_time" value="1.0" />
+        <param name="virtual_tracking_ahead_time" value="0.5" />
+        <param name="min_virtual_tracking_velocity" value="0.1" />
+        <param name="sphere_radius" value="5.0" />
+        <param name="ff_min_velocity" value="0." />
+        <param name="search_ahead_factor" value="1.5" />
+        <param name="transition_velocity_scale" value="1.0" />
+        <param name="traj_vis_thickness" value="0.03" />
+        <param name="rewind_skip_max_velocity" value="0.1" />
+        <param name="rewind_skip_max_distance" value="0.1" />
+        <param name="velocity_sphere_radius_multiplier" value="-1.0" />
+        <remap from="odometry" to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+    </node>
+</launch>

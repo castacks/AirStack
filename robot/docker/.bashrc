@@ -190,4 +190,4 @@ if [ "$ROBOT_NAME" == "null" ]; then
 fi
 
 export RCUTILS_COLORIZED_OUTPUT=1  # get colored output from ROS2 tools
-
+alias record_sensor_rayfront='ros2 bag record /robot_1/sensors/front_stereo/left/image /robot_1/odometry_conversion/odometry /robot_1/front_stereo/disparity /robot_1/sensors/front_stereo/left/camera_info /robot_1/gimbal/boundingbox /robot_1/interface/mavros/global_position/global'

@@ -6,11 +6,13 @@
 
 
     # Trajectory parameters 
+    # planar (constant-altitude) library so plans stay at the fixed flight height;
+    # original: acceleration_magnitudes.yaml
     trajectory_library_config: "$(find-pkg-share trajectory_library)/config/acceleration_magnitudes.yaml"
     dt: 0.2
     ht: 2.4
     ht_long: 3.0
-    max_velocity: 1.0
+    max_velocity: 1.5
     magnitude: 0.5
 
     # DROAN parameters

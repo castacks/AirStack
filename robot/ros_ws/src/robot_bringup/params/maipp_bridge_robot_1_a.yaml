@@ -1,0 +1,14 @@
+# MAIPP peer bridge: robot_1's own coordination topics -> domain 2 (robot_2).
+# One process per destination domain, because a topic name can appear only once
+# per config. Each robot bridges ONLY its own outgoing topics, so no two bridges
+# publish the same message into the same domain.
+name: maipp_bridge_robot_1_a
+from_domain: 1
+to_domain: 2
+topics:
+  /robot_1/maipp/coverage_grid:
+    type: nav_msgs/msg/OccupancyGrid
+  /robot_1/maipp/task_claim:
+    type: geometry_msgs/msg/PolygonStamped
+  /robot_1/maipp/tracks:
+    type: vision_msgs/msg/Detection3DArray

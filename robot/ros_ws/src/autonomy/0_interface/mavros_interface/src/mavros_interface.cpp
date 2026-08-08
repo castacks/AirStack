@@ -480,6 +480,7 @@ class MAVROSInterface : public robot_interface::RobotInterface {
             return;
         }
       */
+      //RCLCPP_INFO_STREAM(get_logger(), "CONTROL command");
 	if (!is_ardupilot ||
  	    (in_air && ((this->get_clock()->now() - in_air_start_time).seconds() > post_takeoff_command_delay_time))) {
 	  

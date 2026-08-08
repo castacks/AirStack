@@ -1,0 +1,12 @@
+# MAIPP peer bridge: robot_1's own coordination topics -> domain 3 (robot_3).
+# See maipp_bridge_robot_1_a.yaml for why this is a separate process.
+name: maipp_bridge_robot_1_b
+from_domain: 1
+to_domain: 3
+topics:
+  /robot_1/maipp/coverage_grid:
+    type: nav_msgs/msg/OccupancyGrid
+  /robot_1/maipp/task_claim:
+    type: geometry_msgs/msg/PolygonStamped
+  /robot_1/maipp/tracks:
+    type: vision_msgs/msg/Detection3DArray

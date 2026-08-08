@@ -51,6 +51,7 @@ class DisparityExpansionNode : public rclcpp::Node {
 
     double downsample_scale;
     int ignore_left_pixels;
+    // bool negate_disparity = false;  // disabled for flight test
     image_geometry::PinholeCameraModel model_;
     double baseline;
 

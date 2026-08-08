@@ -101,6 +101,7 @@ BehaviorExecutive::BehaviorExecutive() : Node("behavior_executive") {
 }
 
 void BehaviorExecutive::timer_callback() {
+  //RCLCPP_INFO_STREAM(get_logger(), "running");
     if (request_control_action->is_active()) {
         if (request_control_action->active_has_changed()) {
             airstack_msgs::srv::RobotCommand::Request::SharedPtr request =
@@ -300,6 +301,7 @@ void BehaviorExecutive::timer_callback() {
             mode_result.wait();
             std::cout << "mode 2" << std::endl;
 
+	    /*
             std_srvs::srv::Trigger::Request::SharedPtr request =
                 std::make_shared<std_srvs::srv::Trigger::Request>();
             auto result = global_planner_toggle_client->async_send_request(request);
@@ -308,6 +310,7 @@ void BehaviorExecutive::timer_callback() {
                 global_plan_action->set_success();
             else
                 global_plan_action->set_failure();
+	    */
         };
     }
 
@@ -318,15 +321,21 @@ void BehaviorExecutive::timer_callback() {
 // callbacks
 
 void BehaviorExecutive::bt_commands_callback(behavior_tree_msgs::msg::BehaviorTreeCommands msg) {
-    for (int i = 0; i < msg.commands.size(); i++) {
+  RCLCPP_INFO_STREAM(get_logger(), "COMMANDSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS");
+  for (int i = 0; i < msg.commands.size(); i++) {
         std::string condition_name = msg.commands[i].condition_name;
         int status = msg.commands[i].status;
-
+	RCLCPP_INFO_STREAM(get_logger(), condition_name << " " << status);
+	
         for (int j = 0; j < conditions.size(); j++) {
             bt::Condition* condition = conditions[j];
+	    RCLCPP_INFO_STREAM(get_logger(), condition_name << " " << (condition->get_label()) << " " << (condition_name == condition->get_label()));
             if (condition_name == condition->get_label()) {
-                if (status == behavior_tree_msgs::msg::Status::SUCCESS)
+	      if (status == behavior_tree_msgs::msg::Status::SUCCESS){
                     condition->set(true);
+		    for(int b = 0; b < 100; b++)
+		      RCLCPP_INFO_STREAM(get_logger(), "CONDITION: " << condition_name);
+	      }
                 else if (status == behavior_tree_msgs::msg::Status::FAILURE)
                     condition->set(false);
             }

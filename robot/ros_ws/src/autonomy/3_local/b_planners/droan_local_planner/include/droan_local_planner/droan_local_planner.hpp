@@ -416,7 +416,7 @@ class DroanLocalPlanner : public rclcpp::Node {
      * @param global_plan_msg
      */
     void global_plan_callback(const nav_msgs::msg::Path::SharedPtr global_plan_msg) {
-        RCLCPP_INFO_STREAM(this->get_logger(), "GOT GLOBAL PLAN, goal_mode: " << this->goal_mode);
+      //RCLCPP_INFO_STREAM(this->get_logger(), "GOT GLOBAL PLAN, goal_mode: " << this->goal_mode);
         if (this->goal_mode != GLOBAL_PLAN) return;
 
         this->global_plan_msg = *global_plan_msg;  // copies

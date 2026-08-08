@@ -32,6 +32,10 @@
             args="--log-level DEBUG" >
             <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml"
                 allow_substs="true" />
+            <!-- WARNING: disables obstacle avoidance entirely (all trajectories treated as
+                 seen and collision-free). Only for plan-following tests in obstacle-free
+                 airspace. Set false (or remove) to restore collision checking. -->
+            <param name="everything_seen_and_free" value="true" />
             <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
             <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
             <remap from="tracking_point"
@@ -40,21 +44,12 @@
             <remap from="trajectory_segment_to_add" to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add" />
         </node>
         <!-- DROAN local model -->
+        <!-- creates disparity from ZED depth (depth-based input, disparity topic left unmapped) -->
         <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion" output="screen">
             <param
                 from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
-            <!-- use estimated disparity -->
-            <!-- <remap from="disparity" to="/$(env ROBOT_NAME)/front_stereo/disparity" /> -->
-	    <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
-	    <!-- <remap from="depth" to="/$(env ROBOT_NAME)/sensors/front_stereo/depth/depth_registered" /> -->
-            <!-- create disparity from ground truth depth instead of using estimated disparity -->
-
-	    <remap from="depth" to="/$(env ROBOT_NAME)/sensors/front_stereo/depth/depth_registered" />
-            <!-- <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/left/camera_info" /> -->
-	    <!--
             <remap from="depth" to="/$(env ROBOT_NAME)/sensors/front_stereo/depth/depth_registered" />
             <remap from="camera_info" to="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
-	    -->
         </node>
     </group>
 
@@ -71,20 +66,21 @@
         <param name="look_ahead_time" value="1.0" />
         <param name="virtual_tracking_ahead_time" value="0.5" />
         <param name="min_virtual_tracking_velocity" value="0.1" />
-        <param name="sphere_radius" value="1.0" />
+        <param name="sphere_radius" value="5.0" />
         <param name="ff_min_velocity" value="0." />
         <param name="search_ahead_factor" value="1.5" />
         <param name="transition_velocity_scale" value="1.0" />
         <param name="traj_vis_thickness" value="0.03" />
         <param name="rewind_skip_max_velocity" value="0.1" />
         <param name="rewind_skip_max_distance" value="0.1" />
-	<param name="velocity_sphere_radius_multiplier" value="1.0" />
+	<param name="velocity_sphere_radius_multiplier" value="-1.0" />
 
         <!-- remap glue to AirStack -->
         <remap from="odometry" to="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
 
     </node>
 
+    <?ignore
     <node pkg="pid_controller" exec="pid_controller" namespace="control" output="screen">
       <param name="target_frame" value="base_link_stabilized" />
 
@@ -138,7 +134,7 @@
       <param name="vz_d"         value="0.0" />
       <param name="vz_ff"        value="0.0" />
       <param name="vz_d_alpha"   value="0.0" />
-      <param name="vz_min"       value="0.0" />
+      <param name="vz_min"       value="-0.5" />
       <param name="vz_max"       value="1.0" />
       <param name="vz_constant"  value="0.5" />
       
@@ -147,7 +143,13 @@
       <remap from="tracking_point" to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
       <remap from="command" to="/$(env ROBOT_NAME)/interface/cmd_roll_pitch_yawrate_thrust" />
     </node>
+    ?>
 
+  <!-- Pose hold bridge: forwards tracking_point as position setpoint after takeoff -->
+  <node pkg="mavros_interface" exec="pose_hold_bridge.py" output="screen">
+    <param name="publish_rate" value="0.3" />
+  </node>
+  
   <?ignore
   <node pkg="rviz2" exec="rviz2"
     args="-d $(find-pkg-share local_bringup)/rviz/droan.rviz --ros-args --log-level INFO"

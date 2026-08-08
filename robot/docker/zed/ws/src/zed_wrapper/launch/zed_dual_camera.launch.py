@@ -22,7 +22,7 @@ def generate_launch_description():
                 description='the camera serial number used for pose estimation'),
         DeclareLaunchArgument(
                 'wire_cam_serial',
-                default_value=TextSubstitution(text='43002058'),
+                default_value=TextSubstitution(text='44405253'),
                 description='the camera serial number used for wire tracking'),
         DeclareLaunchArgument(
             'log_level',
