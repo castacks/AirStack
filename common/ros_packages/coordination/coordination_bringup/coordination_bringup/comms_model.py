@@ -13,8 +13,12 @@ import os
 
 from coordination_bringup.frame_utils import gps_to_enu
 
-COMMS_RANGE_M = 5000#50.0#15.0
-MAX_RELAY_HOPS = 1 #max(0, int(os.environ.get("NUM_ROBOTS", "1")) - 1)
+# Degraded-comms sweep (2026-08-08): 50 m isotropic range instead of the
+# effectively-unlimited 5000 m the earlier benchmark ran with, so coordination
+# has to survive losing the link. Relay hops scale with fleet size, giving a
+# chain long enough to cross the fleet when every robot is a relay.
+COMMS_RANGE_M = 50.0
+MAX_RELAY_HOPS = int(os.environ.get("NUM_ROBOTS", "1"))
 
 SOURCE_RELAYED = 1
 
