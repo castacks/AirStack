@@ -189,77 +189,66 @@ jobs:
                 docker buildx imagetools create "${CREATE_ARGS[@]}" "$PREV"
               done
 
-      - name: Build changed images
+      # Build/push one service at a time so a single Dockerfile failure (e.g.
+      # isaac-sim PX4 apt) does not discard successful siblings before push.
+      - name: Build and push changed images
+        id: build_push
         run: |
-          set -euo pipefail
+          set -uo pipefail
           set -a
           source .env
           set +a
           export COMPOSE_PROFILES="${{ env.COMPOSE_PROFILES }}"
 
-          BUILD_SERVICES=$(jq -r '[.services | to_entries[] | select(.value.action=="build") | .key] | join(" ")' docker-image-plan.json)
-          if [ -z "$BUILD_SERVICES" ]; then
+          mapfile -t BUILD_SERVICES < <(jq -r '.services | to_entries[] | select(.value.action=="build") | .key' docker-image-plan.json | sort)
+          if [ "${#BUILD_SERVICES[@]}" -eq 0 ]; then
             echo "No services require a rebuild."
+            echo "built_services=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          echo "Building services: $BUILD_SERVICES"
-          # Override applies org.airstack.content-fingerprint build labels.
-          # shellcheck disable=SC2086
-          docker compose \
-            -f docker-compose.yaml \
-            -f docker-compose.fingerprint.yaml \
-            build $BUILD_SERVICES
-
-      - name: Push rebuilt images
-        run: |
-          set -euo pipefail
-          set -a
-          source .env
-          set +a
-          export COMPOSE_PROFILES="${{ env.COMPOSE_PROFILES }}"
-
-          BUILD_SERVICES=$(jq -r '[.services | to_entries[] | select(.value.action=="build") | .key] | join(" ")' docker-image-plan.json)
-          if [ -z "$BUILD_SERVICES" ]; then
-            echo "No rebuilt images to push."
-            exit 0
-          fi
-
-          # shellcheck disable=SC2086
-          docker compose \
-            -f docker-compose.yaml \
-            -f docker-compose.fingerprint.yaml \
-            push $BUILD_SERVICES
-
-      # `docker compose push` only publishes each service's `image:` (the
-      # versioned tag). Floating CACHE_TAG entries are also applied via
-      # build.tags on rebuild; retag already published them via imagetools.
-      - name: Publish floating cache tags for rebuilt images
-        run: |
-          set -euo pipefail
-          set -a
-          source .env
-          set +a
-          export COMPOSE_PROFILES="${{ env.COMPOSE_PROFILES }}"
-
-          TAGS=$(jq -r --arg pfx ":${CACHE_TAG:-cache}_" '
-            .services | to_entries[]
-            | select(.value.action=="build")
-            | .value.cache_tag // empty
-            | select(length > 0 and contains($pfx))
-          ' docker-image-plan.json | sort -u)
-
-          if [ -z "$TAGS" ]; then
-            echo "No rebuilt cache tags to publish (retag path already set them, or no rebuilds)."
-            exit 0
-          fi
-
-          for TAG in $TAGS; do
-            echo "Pushing cache tag $TAG"
-            docker push "$TAG"
+          echo "Building services sequentially: ${BUILD_SERVICES[*]}"
+          FAILED=()
+          BUILT=()
+          for SVC in "${BUILD_SERVICES[@]}"; do
+            echo "::group::Build $SVC"
+            if docker compose \
+              -f docker-compose.yaml \
+              -f docker-compose.fingerprint.yaml \
+              build "$SVC"; then
+              echo "::endgroup::"
+              echo "::group::Push $SVC"
+              if docker compose \
+                -f docker-compose.yaml \
+                -f docker-compose.fingerprint.yaml \
+                push "$SVC"; then
+                CACHE=$(jq -r --arg s "$SVC" '.services[$s].cache_tag // empty' docker-image-plan.json)
+                if [ -n "$CACHE" ]; then
+                  echo "Pushing cache tag $CACHE"
+                  docker push "$CACHE" || echo "::warning::Failed to push cache tag $CACHE"
+                fi
+                BUILT+=("$SVC")
+              else
+                echo "::error::Push failed for $SVC"
+                FAILED+=("$SVC")
+              fi
+              echo "::endgroup::"
+            else
+              echo "::endgroup::"
+              echo "::error::Build failed for $SVC"
+              FAILED+=("$SVC")
+            fi
           done
 
+          echo "built_services=${BUILT[*]}" >> "$GITHUB_OUTPUT"
+          if [ "${#FAILED[@]}" -gt 0 ]; then
+            echo "Failed services: ${FAILED[*]}"
+            exit 1
+          fi
+
+      # Sign whatever was published even if a sibling service build failed.
       - name: Sign published images with Cosign (keyless)
+        if: always() && steps.plan.outcome == 'success'
         env:
           COSIGN_YES: "true"
         run: |
@@ -269,10 +258,21 @@ jobs:
           set +a
           export COMPOSE_PROFILES="${{ env.COMPOSE_PROFILES }}"
 
-          IMAGES=$(jq -r '.services[].image' docker-image-plan.json | sort -u)
+          # Retagged services are always published; rebuilt ones only if push succeeded.
+          BUILT_CSV="${{ steps.build_push.outputs.built_services }}"
+          IMAGES=$(
+            {
+              jq -r '.services | to_entries[] | select(.value.action=="retag") | .value.image' docker-image-plan.json
+              if [ -n "$BUILT_CSV" ]; then
+                for SVC in $BUILT_CSV; do
+                  jq -r --arg s "$SVC" '.services[$s].image // empty' docker-image-plan.json
+                done
+              fi
+            } | awk 'NF' | sort -u
+          )
           if [ -z "$IMAGES" ]; then
-            echo "No images resolved from plan; nothing to sign."
-            exit 1
+            echo "No published images to sign."
+            exit 0
           fi
 
           for IMG in $IMAGES; do
@@ -288,6 +288,7 @@ jobs:
           done
 
       - name: Verify Cosign signatures
+        if: always() && steps.plan.outcome == 'success'
         run: |
           set -euo pipefail
           set -a
@@ -295,7 +296,17 @@ jobs:
           set +a
           export COMPOSE_PROFILES="${{ env.COMPOSE_PROFILES }}"
 
-          IMAGES=$(jq -r '.services[].image' docker-image-plan.json | sort -u)
+          BUILT_CSV="${{ steps.build_push.outputs.built_services }}"
+          IMAGES=$(
+            {
+              jq -r '.services | to_entries[] | select(.value.action=="retag") | .value.image' docker-image-plan.json
+              if [ -n "$BUILT_CSV" ]; then
+                for SVC in $BUILT_CSV; do
+                  jq -r --arg s "$SVC" '.services[$s].image // empty' docker-image-plan.json
+                done
+              fi
+            } | awk 'NF' | sort -u
+          )
           for IMG in $IMAGES; do
             DIGEST=$(docker buildx imagetools inspect "$IMG" --format '{{.Manifest.Digest}}')
             REPO="${IMG%:*}"
@@ -306,6 +317,12 @@ jobs:
               --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
               > /dev/null
           done
+
+      - name: Fail job if any service build/push failed
+        if: always() && steps.build_push.outcome == 'failure'
+        run: |
+          echo "One or more services failed to build or push (see Build and push changed images)."
+          exit 1
 
       - name: Upload image plan artifact
         if: always()
