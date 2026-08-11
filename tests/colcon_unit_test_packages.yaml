@@ -10,4 +10,6 @@ robot:
     - natnet_ros2
     - lidar_point_cloud_filter
   # Skips ament_copyright / flake8 / pep257 on Python packages; run linters separately.
-  pytest_args: "-m not linter"
+  # Disable launch_testing: these packages don't use it, and ROS Jazzy's plugin
+  # still declares the removed pytest_pycollect_makemodule(path=...) hook arg.
+  pytest_args: "-m not linter -p no:launch_testing"

@@ -1,54 +1,66 @@
-# AirStack CI orchestrator configuration.
+# AirStack CI orchestrator configuration (OSMO backend).
 # Copy to /etc/airstack-orchestrator/config.yaml and fill in placeholders.
 
-# --- OpenStack target ---
+# --- OSMO target ---
 
-# Cloud profile name in ~/.config/openstack/clouds.yaml.
-openstack_cloud: airstack
+# Path to the `osmo` CLI. The install script (see setup.sh / README) puts it on
+# PATH as `osmo`; override with a full path if needed.
+osmo_bin: "osmo"
 
-# Ubuntu-24.04-Desktop (confirmed available on airlab-cloud).
-image_id: 2ebb9061-8995-4238-a3cc-e230a3e863aa
+# URL of your OSMO web service (the control plane the CLI logs into).
+# AirLab: https://airlab-share-01.andrew.cmu.edu
+osmo_url: "https://airlab-share-01.andrew.cmu.edu"
 
-# OpenStack flavor with GPU + enough disk for Docker + sim images.
-# Look up with: openstack flavor list
-flavor_name: "gpu.rtxpro5000.1"
+# File containing the OSMO service-account access token. This is the shared,
+# non-personal "lab" identity — the analog of the old OpenStack application
+# credential. The orchestrator runs `osmo login --method token --token-file`
+# with it. Created by an OSMO admin via `osmo user create` + `osmo token set`
+# (see README). It never leaves this host.
+osmo_token_file: "/etc/airstack-orchestrator/osmo-token"
 
-# OpenStack network the ephemeral instance attaches to. Must allow outbound
-# 443 to api.github.com (no inbound is required: the runner makes an outbound
-# long-poll connection to GitHub).
-network_name: "airstack.AirLab.Apps_group_network_gates"
+# GPU pool for ephemeral runners. AirLab team pools are Keycloak-autosynced;
+# use the stable `airstack` pool (privileged_allowed=true). A hand-made
+# `airstack-ci` pool will be wiped by synchronize_osmo_team_pools.py unless
+# it is added to Keycloak. The service-account needs workflow:Create on this
+# pool (role osmo-airstack) plus osmo-user for cancel/query.
+pool: "airstack"
 
-# OpenStack keypair injected into the instance for break-glass SSH access.
-# The orchestrator never SSHes into workers itself.
-keypair_name: "airstack-ci-cd"
+# Optional platform (hardware type) to target within the pool. Leave empty to
+# use the pool's default platform. List options with `osmo pool list` / the UI.
+platform: "default"
 
-# Security group applied to spawned instances. Outbound 443 must be allowed.
-security_group: "default"
+# Scheduling priority: HIGH | NORMAL | LOW.
+priority: "NORMAL"
 
-# OpenStack availability zone to spawn instances in (e.g. nova, gpu-zone-1).
-# Leave empty to let Nova pick.
-availability_zone: "gates"
+# --- Runner task (the per-job worker) ---
 
-# If the chosen flavor has disk=0 (common for GPU flavors), Nova rejects
-# direct image-boot with "Block Device Mapping is Invalid: You specified more
-# local devices than the limit allows". Set this to >0 to boot from a Cinder
-# volume of that size sourced from image_id (deleted on termination). Leave
-# at 0 to boot directly from the image (only works for non-zero-disk flavors).
-boot_volume_size_gb: 300
+# Prebaked image: Docker CE + compose + nvidia-container-toolkit + GH Actions
+# runner. Build & push runner.Dockerfile to a registry the pool can pull from.
+runner_image: "airlab-docker.andrew.cmu.edu/airstack/airstack-ci-runner:2.336.0"
 
-# Pre-allocated pool of floating IPs to rotate through for SSH access to
-# workers. The orchestrator picks the first free IP from this list, in order,
-# for each new spawn. When the worker is destroyed the IP auto-disassociates
-# and returns to the pool. If non-empty, max_concurrent is capped at len(pool)
-# so the orchestrator never spawns a worker it can't address.
-# Allocate via: openstack floating ip create <external-network>
-# Leave empty to skip floating-IP attachment entirely.
-floating_ips: []
-# Example:
-# floating_ips:
-#   - 172.19.220.131
-#   - 172.19.220.171
-#   - 172.19.220.89
+# Resource request for the runner container. Size for the full stack build +
+# sim (Isaac Sim / ms-airsim + robot + gcs) running under docker compose.
+cpu: 8
+gpu: 1
+memory: "32Gi"
+storage: "300Gi"
+
+# REQUIRED for the AirStack tests: they run `airstack up` (docker compose)
+# inside the pod, which needs an inner Docker daemon -> a privileged container.
+# The pool's platform must have "Privileged Mode Allowed" enabled by your OSMO
+# admin, otherwise submission/scheduling will be rejected.
+privileged: true
+
+# Use the node's host network for the runner container. Usually not needed
+# (the runner only makes outbound calls to GitHub); leave false unless the
+# tests need host networking.
+host_network: false
+
+# GitHub Actions runner version to bake into runner_image. Kept here for
+# reference/traceability; it is a build arg of runner.Dockerfile, not consumed
+# by the orchestrator at runtime. Must match a tag at
+# https://github.com/actions/runner/releases
+runner_version: "2.336.0"
 
 # --- GitHub ---
 
@@ -56,23 +68,22 @@ floating_ips: []
 repo: "castacks/AirStack"
 
 # Labels the orchestrator polls for. A queued workflow_job whose `labels`
-# array is a superset of this list gets a server spawned for it.
+# array is a superset of this list gets a workflow submitted for it. These are
+# unchanged from the OpenStack backend, so system-tests.yml needs no edits.
 runner_labels:
   - self-hosted
   - airstack-ephemeral
 
-# GitHub Actions runner version (must exist as a release tag at
-# https://github.com/actions/runner/releases).
-runner_version: "2.334.0"
-
 # --- Limits ---
 
-# Maximum simultaneous in-flight ephemeral instances.
+# Maximum simultaneous in-flight workflows the orchestrator will submit. OSMO
+# queues anything beyond the pool's capacity on its own, but this caps how many
+# jobs we hand it at once.
 max_concurrent: 3
 
-# Hard ceiling for a single job. Past this age the reaper force-deletes the
-# server even if GitHub still reports the job as in-progress. Must comfortably
-# exceed the longest expected job (autonomy/liveliness runs).
+# Hard ceiling for a single job. Past this age the reaper cancels the workflow
+# even if GitHub still reports the job as in-progress. Must comfortably exceed
+# the longest expected job (liveliness / autonomy runs).
 max_job_minutes: 2880  # 48 hours
 
 # --- Polling intervals (seconds) ---
@@ -80,8 +91,10 @@ max_job_minutes: 2880  # 48 hours
 spawn_poll_interval_s: 15
 reap_poll_interval_s: 30
 
-# How long to wait for a freshly-created server to reach ACTIVE before
-# treating the spawn as failed. If Nova flips the server to ERROR within this
-# window the orchestrator logs the full fault (code/message/details/host/AZ)
-# and deletes the server so the next iteration can retry cleanly.
-server_active_timeout_s: 300
+# How long to wait for `osmo workflow submit` to return before treating the
+# submission as failed.
+submit_timeout_s: 180
+
+# Name prefix for submitted workflows. Also used by the orphan sweep to find
+# workflows this orchestrator owns. Keep the trailing dash.
+workflow_name_prefix: "gha-runner-"

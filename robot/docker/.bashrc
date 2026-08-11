@@ -69,35 +69,39 @@ function cws(){
 source /opt/ros/jazzy/setup.bash
 sws # source the ROS2 workspace by default
 
-# Only extract robot name and ROS domain ID iff they are not already set in the environment (e.g. by docker compose)
-if [ "$ROBOT_NAME_SOURCE" == "container_name" ]; then
-    # https://wiki.psuter.ch/doku.php?id=get_docker_container_name_from_within_the_container
-    # WARNING: this technique ONLY works with docker version 29 and up.
-    name_to_map=$(host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}')
-    CONTAINER_NAME=":$name_to_map"
-elif [ "$ROBOT_NAME_SOURCE" == "hostname" ]; then
-    name_to_map=$(hostname)
-else
-    echo "Warning: ROBOT_NAME_SOURCE=$ROBOT_NAME_SOURCE not set to a valid value. Defaulting to 'unknown_robot'."
-    name_to_map=""
-    export ROBOT_NAME="unknown_robot"
-    export ROS_DOMAIN_ID=0
-fi
-# set ROBOT_NAME and ROS_DOMAIN_ID from the mapping script if NAME_TO_MAP is not empty
-if [ -n "$name_to_map" ]; then
-    script_path="$HOME/AirStack/robot/docker/robot_name_map/resolve_robot_name.py"
-    script_dir=$(dirname "$script_path")
-
-    existing_robot_domain_id=${ROS_DOMAIN_ID:-}
-
-    eval "$($script_path $name_to_map $script_dir/$ROBOT_NAME_MAP_CONFIG_FILE)"
-    export ROBOT_NAME
-
-    # if ROS_DOMAIN_ID was already set in the environment, use that instead of the mapped value
-    if [ -z "$existing_robot_domain_id" ]; then
-        export ROS_DOMAIN_ID
+# If ROBOT_NAME is pre-set (e.g. via docker compose), keep it.
+# Otherwise extract robot name and ROS domain ID from the container/hostname mapping.
+if [ -z "${ROBOT_NAME:-}" ]; then
+    if [ "$ROBOT_NAME_SOURCE" == "container_name" ]; then
+        # https://wiki.psuter.ch/doku.php?id=get_docker_container_name_from_within_the_container
+        # WARNING: this technique ONLY works with docker version 29 and up.
+        name_to_map=$(host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}')
+        CONTAINER_NAME=":$name_to_map"
+    elif [ "$ROBOT_NAME_SOURCE" == "hostname" ]; then
+        name_to_map=$(hostname)
     else
-        export ROS_DOMAIN_ID=$existing_robot_domain_id
+        echo "Warning: ROBOT_NAME_SOURCE=$ROBOT_NAME_SOURCE not set to a valid value. Defaulting to 'unknown_robot'."
+        name_to_map=""
+        export ROBOT_NAME="unknown_robot"
+        export ROS_DOMAIN_ID=0
+    fi
+
+    # set ROBOT_NAME and ROS_DOMAIN_ID from the mapping script if NAME_TO_MAP is not empty
+    if [ -n "$name_to_map" ]; then
+        script_path="$HOME/AirStack/robot/docker/robot_name_map/resolve_robot_name.py"
+        script_dir=$(dirname "$script_path")
+
+        existing_robot_domain_id=${ROS_DOMAIN_ID:-}
+
+        eval "$($script_path $name_to_map $script_dir/$ROBOT_NAME_MAP_CONFIG_FILE)"
+        export ROBOT_NAME
+
+        # if ROS_DOMAIN_ID was already set in the environment, use that instead of the mapped value
+        if [ -z "$existing_robot_domain_id" ]; then
+            export ROS_DOMAIN_ID
+        else
+            export ROS_DOMAIN_ID=$existing_robot_domain_id
+        fi
     fi
 fi
 

@@ -23,6 +23,7 @@ Shared fixtures live in `tests/conftest.py`. Use `airstack test -m unit -v` for 
 | [`system/test_liveliness.py`](system/test_liveliness.py) | `liveliness` | Stack bring-up: container Running state, ``/clock`` readiness, tmux panes, sentinel ROS 2 nodes, compute snapshot, infra-only ``test_stable`` (tmux + nodes + compute) | Docker daemon, GPU, sim license |
 | [`system/test_sensors.py`](system/test_sensors.py) | `sensors` | After liveliness in collection order: sim + robot stereo/depth Hz (**Isaac:** batched ``ros2 topic hz`` to avoid bridge overload; **ms-airsim:** single batch), filtered LiDAR via ``echo --once`` + cloud sanity (isaacsim), sim RTF, ``test_sensor_streams_stable`` | Docker daemon, GPU, sim license |
 | [`system/test_takeoff_hover_land.py`](system/test_takeoff_hover_land.py) | `takeoff_hover_land` | End-to-end flight: PX4 readiness gate, takeoff to 10 m, hover stability, land — one chain per (sim, num_robots, iteration, velocity) | Docker daemon, GPU, sim license |
+| [`system/test_fixed_trajectory.py`](system/test_fixed_trajectory.py) | `autonomy` | Fixed-pattern trajectory evaluation: takeoff, execute a trajectory (Circle, Figure8, Racetrack, Line), record path deviation metrics, land — one chain per (sim, num_robots, iteration, trajectory_type) | Docker daemon, GPU, sim license |
 
 ### Unit tests (`tests/robot/`, `tests/sim/`)
 
@@ -43,11 +44,11 @@ See [Unit Testing Guide](../docs/development/intermediate/testing/unit_testing.m
 and the `add-unit-tests` agent skill for full details.
 
 Marks can be combined with pytest logic:
-`-m unit`, `-m "build_docker or build_packages"`, `-m liveliness`, `-m sensors`, `-m takeoff_hover_land`, or e.g. `-m "liveliness or sensors"` (see **Bring-up scope** below).
+`-m unit`, `-m "build_docker or build_packages"`, `-m liveliness`, `-m sensors`, `-m takeoff_hover_land`, `-m autonomy`, or e.g. `-m "liveliness or sensors"` (see **Bring-up scope** below).
 
 ### Bring-up scope (`airstack_env`)
 
-`airstack_env` is **class-scoped** and parametrized per `(sim, num_robots, iteration)`. Each test **class** that uses it (`TestLiveliness`, `TestSensors`, `TestTakeoffHoverLand`, …) performs its **own** ``airstack up`` / ``airstack down`` for that parametrization. Selecting both classes (for example, ``-m "liveliness or sensors"``) runs **two** full stack cycles per tuple (liveliness class, then sensors class). Collection order (see ``conftest.py``) runs **liveliness before sensors** when both are selected. To save wall time, run ``-m liveliness`` or ``-m sensors`` alone when one suite is enough.
+`airstack_env` is **class-scoped** and parametrized per `(sim, num_robots, iteration)`. Each test **class** that uses it (`TestLiveliness`, `TestSensors`, `TestTakeoffHoverLand`, `TestFixedTrajectory`, …) performs its **own** ``airstack up`` / ``airstack down`` for that parametrization. Selecting both classes (for example, ``-m "liveliness or sensors"``) runs **two** full stack cycles per tuple (liveliness class, then sensors class). Collection order (see ``conftest.py``) runs **liveliness before sensors** when both are selected. To save wall time, run ``-m liveliness`` or ``-m sensors`` alone when one suite is enough.
 
 ---
 
@@ -93,34 +94,22 @@ Writes custom metrics to `tests/results/<timestamp>/metrics.json` after each `re
 
 ### Output files
 
-Every test run produces a timestamped directory. **Per-test logs** — for each
-pytest function, `pytest_runtest_setup` in `conftest.py` attaches the shared
-logger to `logs/test_<module>.<Class>.<test>[<param-id>].log` (param ids are
-rewritten for readability, e.g. `msairsim-rob#1-iter0`; see
-`pytest_collection_modifyitems`).
-
-**`airstack_env.<…>.log`** — the class-scoped `airstack_env` fixture wraps
-`airstack up` / `airstack down` in `logger_to("airstack_env." + <current nodeid>)`
-(see `conftest.py`). So you get an extra file whose name is the word
-`airstack_env.` plus the **node id of whichever test was running when the
-fixture first ran** for that class. For `TestLiveliness` that is almost always
-`test_robot_containers_running` (first test in the class), not `test_stable`.
-That file holds compose / `airstack` subprocess output; each test still has its
-own log for assertions and `docker exec` / `ros2` lines.
+Every test run produces a timestamped directory containing only `summary.txt`,
+`results.xml`, and `metrics.json` — there is **no** `logs/` subdirectory and no
+per-test log files are written under the run directory.
 
 ```
 tests/results/
 └── 2025-04-21_14-30-00/
+    ├── summary.txt        # Human-readable key metrics — open this first
     ├── results.xml        # JUnit XML — test durations and pass/fail status
-    ├── metrics.json       # Custom metrics (image sizes, Hz, compute, timing)
-    └── logs/
-        ├── system.test_build_docker.TestDockerBuilds.test_build_robot_desktop.log
-        ├── airstack_env.system.test_liveliness.TestLiveliness.test_robot_containers_running[msairsim-rob#1-iter0].log
-        ├── system.test_liveliness.TestLiveliness.test_robot_containers_running[msairsim-rob#1-iter0].log
-        ├── system.test_liveliness.TestLiveliness.test_stable[msairsim-rob#1-iter0].log
-        ├── system.test_sensors.TestSensors.test_sensor_streams_stable[msairsim-rob#1-iter0].log
-        └── ...            # More per-test logs; another airstack_env.* per class using the fixture
+    └── metrics.json       # Custom metrics (image sizes, Hz, compute, timing)
 ```
+
+Live test output goes to the terminal (pytest `log_cli`). On failure, assertion
+messages include the tail of the last subprocess output (the in-memory
+`read_log_tail` of the relevant `docker` / `ros2` subprocess) — no per-test log
+files are written under the run directory.
 
 ---
 
@@ -175,7 +164,7 @@ can reach the host X server; it is a no-op when `DISPLAY` is not set.
 ### Prerequisites
 
 - Docker daemon running with your user in the `docker` group
-- NVIDIA drivers + `nvidia-container-toolkit` for liveliness, sensors, and takeoff_hover_land tests
+- NVIDIA drivers + `nvidia-container-toolkit` for liveliness, sensors, takeoff_hover_land, and autonomy tests
 - `airstack setup` completed (adds `airstack` to `PATH`)
 
 ### Direct pytest (for development / debugging)
@@ -282,6 +271,87 @@ airstack test -m takeoff_hover_land \
 
 ---
 
+## Fixed Trajectory Tests (`system/test_fixed_trajectory.py`)
+
+!!! note "Detailed guide"
+    For the full end-to-end testing guide — architecture, the fixed-trajectory benchmark, metrics, CLI reference, comparing trackers, and baselines — see **[End-to-End Testing](../docs/development/intermediate/testing/end_to_end_testing.md)**.
+
+`TestFixedTrajectory` runs a **4-phase flight chain** for every combination of
+`(sim, num_robots, iteration, trajectory_type)`. For each trajectory type the drone
+takes off, executes the pattern, then lands — regardless of whether the trajectory
+phase passes or fails (a trajectory failure does not skip landing).
+
+Supported trajectory types: `Circle`, `Figure8`, `Racetrack`, `Line` (same patterns as
+the `fixed_trajectory_task` ROS 2 action server in `trajectory_controller`).
+
+### Phase order
+
+| Phase | Test | What happens |
+| ----- | ---- | ------------ |
+| 1 | `test_px4_ready` | Waits for MAVROS + PX4 EKF ready; once per env |
+| 2 | `test_takeoff` | Takeoff to 10 m at 1 m/s; asserts altitude within 10 % |
+| 3 | `test_fixed_trajectory` | Sends `FixedTrajectoryTask`; captures odom; asserts cross-track error |
+| 4 | `test_landing` | Sends `LandTask`; asserts final altitude < 0.5 m |
+
+A failure in `test_fixed_trajectory` does **not** poison the chain — `test_landing` always
+runs so the drone returns to the ground before the next trajectory type starts.
+
+### Recorded metrics
+
+| Metric key | Unit | Description |
+| ---------- | ---- | ----------- |
+| `ready_duration_sys_s` | s | Wall-clock time from test start until PX4 ready |
+| `takeoff_duration_sim_s` | s | Sim-time from first motion to 95 % of target altitude |
+| `altitude_error_m` | m | Signed steady-state altitude error after takeoff |
+| `overshoot_m` | m | Unsigned transient overshoot above target |
+| `trajectory_success` | — | 1.0 if action returned `success: true`, 0.0 otherwise (`higher_is_better`) |
+| `trajectory_execution_time_sim_s` | s | Sim-time elapsed from action dispatch to completion |
+| `cross_track_error_mean_m` | m | Mean 2-D lateral distance from nearest ideal-path point |
+| `cross_track_error_max_m` | m | Worst-case lateral deviation |
+| `path_rmse_m` | m | 2-D RMSE against the ideal path |
+| `final_altitude_m` | m | Altitude at landing action completion |
+| `land_duration_sim_s` | s | Sim-time from 80 % peak descent to < 0.5 m |
+
+
+Metrics reported in one .txt file called summary.txt which automatically populates once your run completes 
+
+### Default trajectory parameters
+
+| Type | Parameters |
+| ---- | ---------- |
+| Circle | radius=10 m, velocity=2 m/s |
+| Figure8 | length=15 m, width=8 m, height=0 m, velocity=2 m/s, max_acceleration=1 m/s² |
+| Racetrack | length=30 m, width=10 m, height=0 m, velocity=3 m/s, turn_velocity=1.5 m/s, max_acceleration=1 m/s² |
+| Line | length=20 m, height=0 m, velocity=2 m/s, max_acceleration=1 m/s² |
+
+### Running fixed trajectory tests
+
+```bash
+# All four trajectory types; ms-airsim; 1 robot
+airstack test -m autonomy \
+  --sim msairsim \
+  --num-robots 1 \
+  --stress-iterations 1 \
+  --trajectory-types Circle,Figure8,Racetrack,Line \
+  -v
+
+# Circle only (quick check of the known failure case)
+airstack test -m autonomy \
+  --sim msairsim \
+  --num-robots 1 \
+  --stress-iterations 1 \
+  --trajectory-types Circle \
+  -v
+```
+
+### CLI option reference (trajectory-specific)
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--trajectory-types` | `Circle,Figure8,Racetrack,Line` | Comma-separated trajectory types to sweep |
+
+---
+
 ## Metrics Reporting (`parse_metrics.py`)
 
 [`parse_metrics.py`](parse_metrics.py) reads `results.xml` and `metrics.json` from a run directory and produces a markdown report. It has two modes:
@@ -319,6 +389,11 @@ Regressions are flagged with :red_circle:, improvements with :green_circle:.
 
 ## CI/CD Integration
 
+!!! note "Full pipeline guide"
+    For the end-to-end picture — architecture diagrams, job lifecycle, trigger
+    reference, what each mark catches, and how to fold CI into your development
+    loop — see **[CI/CD Pipeline on OSMO](../docs/development/intermediate/testing/ci_cd.md)**.
+
 ### Workflow: `system-tests.yml`
 
 [`.github/workflows/system-tests.yml`](../../../../.github/workflows/system-tests.yml) runs on:
@@ -339,7 +414,7 @@ Regressions are flagged with :red_circle:, improvements with :green_circle:.
 
 #### Jobs
 
-**`run-tests`** runs on a freshly-spawned ephemeral OpenStack instance (`[self-hosted, airstack-ephemeral]`). The instance is provisioned per-job by the orchestrator described below and destroyed once the job completes. It installs dependencies, runs pytest, and uploads `tests/results/` as an artifact named `test-results-<sha>-<run_id>` with 90-day retention.
+**`run-tests`** runs on a freshly-spawned ephemeral OSMO pod (`[self-hosted, airstack-ephemeral]`). The pod is submitted per-job by the orchestrator described below and destroyed once the job completes. It installs dependencies, runs pytest, and uploads `tests/results/` as an artifact named `test-results-<sha>-<run_id>` with 90-day retention.
 
 **`report`** runs on `ubuntu-latest` after `run-tests` (even if it failed). It:
 
@@ -355,9 +430,9 @@ The workflow uses [`dawidd6/action-download-artifact@v6`](https://github.com/daw
 
 ---
 
-## CI/CD Orchestrator (OpenStack-backed ephemeral runners)
+## CI/CD Orchestrator (OSMO-backed ephemeral runners)
 
-AirStack's tests require a GPU, Docker, and a clean filesystem per run, so they execute on **truly ephemeral OpenStack instances** spawned per-job by an orchestrator. Each test job gets a fresh VM that is destroyed once the job completes — no Docker layer carryover, no leaked containers, no shared host state.
+AirStack's tests require a GPU, Docker, and a clean filesystem per run, so they execute on **truly ephemeral [NVIDIA OSMO](https://nvidia.github.io/OSMO/) pods** submitted per-job by an orchestrator. Each test job gets a fresh GPU pod that is destroyed once the job completes — no Docker layer carryover, no leaked containers, no shared host state. (This replaced an OpenStack-Nova backend; the GitHub side and the per-job-destroy model are unchanged.)
 
 ### Architecture
 
@@ -366,19 +441,19 @@ AirStack's tests require a GPU, Docker, and a clean filesystem per run, so they 
 │  Orchestrator VM  (airstack-ci-cd-orchestrator)              │
 │   • polls GitHub for queued workflow_jobs                    │
 │   • mints single-use JIT runner tokens                       │
-│   • spawns / reaps ephemeral instances via OpenStack Nova    │
-│   • holds the GitHub PAT and OpenStack application credential│
+│   • submits / reaps ephemeral OSMO workflows via osmo CLI    │
+│   • holds the GitHub PAT and OSMO service-account token      │
 └────────────┬───────────────────────────────────┬─────────────┘
              │                                   │
              ▼                                   ▼
 ┌──────────────────────────────┐   ┌────────────────────────────────┐
 │ Ephemeral worker (per job)   │   │ GitHub Actions queue           │
-│ Image: Ubuntu-24.04-GPU-     │   │  workflow_job  status=queued   │
-│        Headless              │   │  labels: [self-hosted,         │
-│ cloud-init bootstraps Docker │   │           airstack-ephemeral]  │
-│ + nvidia-container-toolkit + │   └────────────────────────────────┘
-│ GH Actions runner; runs ONE  │
-│ job, then is destroyed.      │
+│ Prebaked airstack-ci-runner  │   │  workflow_job  status=queued   │
+│ image: Docker + nvidia CTK + │   │  labels: [self-hosted,         │
+│ GH runner. Privileged pod    │   │           airstack-ephemeral]  │
+│ starts dockerd, runs ONE     │   └────────────────────────────────┘
+│ job (JIT), then the pod      │
+│ is destroyed.                │
 └──────────────────────────────┘
 ```
 
@@ -386,21 +461,22 @@ AirStack's tests require a GPU, Docker, and a clean filesystem per run, so they 
 
 | Concern | Mitigation |
 |---------|------------|
-| Cross-job state pollution (Docker cache, dangling networks, leftover artifacts) | Each job runs on a fresh VM. Spent VM is destroyed within ~30 s of job completion. |
+| Cross-job state pollution (Docker cache, dangling networks, leftover artifacts) | Each job runs on a fresh OSMO pod, destroyed within ~30 s of job completion. |
 | Fork PRs executing arbitrary code | Workflow's `if: github.event.pull_request.head.repo.full_name == github.repository` — fork PRs skipped. |
-| Runner running as root | The runner runs as the unprivileged `ubuntu` user inside an instance whose only purpose is one job. |
-| Docker socket gives root-equivalent access | Bounded to a single one-shot VM. The orchestrator host doesn't expose Docker at all. |
+| Runner runs privileged (root) for docker-in-docker | The pod is privileged (needed to run `airstack up`/compose), but it is single-use, scoped to the dedicated CI pool, and only same-repo code ever reaches it. |
+| Docker socket gives root-equivalent access | Bounded to a single one-shot pod. The orchestrator host doesn't expose Docker at all. |
 | Long-lived PAT on the runner host | The PAT lives only on the orchestrator. Workers receive a single-use **JIT runner config** — a base64 token bound to one runner registration. |
-| Persistent OpenStack creds tied to a user password | Orchestrator authenticates with an **application credential** (revocable, scoped) instead of `openrc.sh`. |
+| Persistent creds tied to a personal account | Orchestrator authenticates with a shared, non-personal **OSMO service-account token** (revocable, scoped to the CI pool), not an individual's login. |
 
 ### Setup
 
-The orchestrator service code, cloud-init template, systemd unit, and full setup runbook live in [`.github/orchestrator/`](../../../../.github/orchestrator/). See [`.github/orchestrator/README.md`](ci-cd-orchestrator.md) for:
+The orchestrator service code, OSMO runner-workflow template, runner image, systemd unit, and full setup runbook live in [`.github/orchestrator/`](../../../../.github/orchestrator/). See [`.github/orchestrator/README.md`](ci-cd-orchestrator.md) for:
 
-- creating the OpenStack application credential and `clouds.yaml`
-- staging the GitHub PAT
-- running `setup.sh` on the orchestrator VM
-- filling in flavor / network / keypair / security-group in `/etc/airstack-orchestrator/config.yaml`
+- obtaining the OSMO service-account token and a dedicated CI GPU pool (with privileged mode enabled)
+- building and pushing the runner image (`runner.Dockerfile`)
+- staging the GitHub PAT and the OSMO token
+- running `setup.sh` on the orchestrator host (installs the `osmo` CLI)
+- filling in osmo_url / pool / platform / runner_image / resources in `/etc/airstack-orchestrator/config.yaml`
 - enabling and verifying the `airstack-orchestrator.service` systemd unit
 
 ### Runner labels

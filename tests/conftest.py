@@ -88,8 +88,9 @@ def colcon_test_robot_command(workspace="robot"):
 # `pytest tests/` and `airstack test -m unit` discover them without any
 # sys.path manipulation here.  Each proxy file sets up its own paths.
 RUN_DIR = None
-LOGS_DIR = None
 ROS_DISTRO_SETUP = "/opt/ros/jazzy/setup.bash"
+_LAST_CMD_OUTPUT: dict[str, str] = {}
+_DEFAULT_LOG_KEY = "_last"
 
 # Track the currently-running pytest item so current_log() and current_test_id()
 # can pick up the parametrize id without tests having to pass `request` around.
@@ -99,8 +100,6 @@ METRICS = None
 
 logger = logging.getLogger("airstack")
 logger.setLevel(logging.INFO)
-_LOG_FORMAT = logging.Formatter("[%(asctime)s] %(levelname)s %(message)s", "%H:%M:%S")
-_test_log_handler = None
 
 
 # ── pytest config / hooks ──────────────────────────────────────────────────
@@ -122,34 +121,40 @@ def pytest_addoption(parser):
     parser.addoption("--takeoff-velocities", default="0.5",
                      help="Comma-separated takeoff/land velocities (m/s) to "
                           "sweep in test_takeoff_hover_land. Default: 0.5,1,2")
+    parser.addoption("--trajectory-types", default="Circle,Figure8,Racetrack,Line",
+                     help="Comma-separated fixed trajectory types to sweep in "
+                          "test_fixed_trajectory. Default: Circle,Figure8,Racetrack,Line")
 
 
 def pytest_configure(config):
-    global RUN_DIR, LOGS_DIR
+    global RUN_DIR
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     results_root = Path(AIRSTACK_ROOT) / "tests" / "results"
     RUN_DIR = results_root / timestamp
-    LOGS_DIR = RUN_DIR / "logs"
-    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    RUN_DIR.mkdir(parents=True, exist_ok=True)
     config.option.xmlpath = str(RUN_DIR / "results.xml")
 
 
 def pytest_runtest_setup(item):
-    global _CURRENT_ITEM, _test_log_handler
+    global _CURRENT_ITEM
     _CURRENT_ITEM = item
-    log_path = LOGS_DIR / f"{current_log()}.log"
-    _test_log_handler = logging.FileHandler(log_path)
-    _test_log_handler.setFormatter(_LOG_FORMAT)
-    logger.addHandler(_test_log_handler)
 
 
 def pytest_runtest_teardown(item):
-    global _CURRENT_ITEM, _test_log_handler
-    if _test_log_handler is not None:
-        logger.removeHandler(_test_log_handler)
-        _test_log_handler.close()
-        _test_log_handler = None
+    global _CURRENT_ITEM
     _CURRENT_ITEM = None
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Write summary.txt with key metrics so users don't need to dig through logs."""
+    if RUN_DIR is None:
+        return
+    try:
+        from run_summary import write_summary
+        summary_path = write_summary(RUN_DIR)
+        logger.info("Wrote run summary to %s", summary_path)
+    except Exception as exc:
+        logger.warning("Failed to write run summary: %s", exc)
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -162,21 +167,8 @@ def pytest_runtest_makereport(item, call):
 
 @contextmanager
 def logger_to(log_name):
-    """Temporarily route `logger` to a different file. Suspends any handlers
-    already attached so narration isn't duplicated across files."""
-    existing = list(logger.handlers)
-    for h in existing:
-        logger.removeHandler(h)
-    fh = logging.FileHandler(LOGS_DIR / f"{log_name}.log")
-    fh.setFormatter(_LOG_FORMAT)
-    logger.addHandler(fh)
-    try:
-        yield
-    finally:
-        logger.removeHandler(fh)
-        fh.close()
-        for h in existing:
-            logger.addHandler(h)
+    """No-op kept for fixture call sites; output goes to pytest log_cli only."""
+    yield
 
 
 def pytest_generate_tests(metafunc):
@@ -209,6 +201,7 @@ _MODULE_ORDER = [
     "system.test_liveliness",
     "system.test_sensors",
     "system.test_takeoff_hover_land",
+    "system.test_fixed_trajectory",
 ]
 
 # Within test_takeoff_hover_land, each (env, velocity) runs phases in this chain order.
@@ -218,6 +211,20 @@ _AUTONOMY_PHASE_ORDER = [
     "test_hover",
     "test_landing",
 ]
+
+# Within test_fixed_trajectory, each (env, trajectory_type) runs phases in this order.
+_FIXED_TRAJ_PHASE_ORDER = [
+    "test_px4_ready",
+    "test_takeoff",
+    "test_fixed_trajectory",
+    "test_landing",
+]
+
+# Maps module name → phase order list for per-module chain sorting.
+_MODULE_PHASE_ORDERS = {
+    "system.test_takeoff_hover_land": _AUTONOMY_PHASE_ORDER,
+    "system.test_fixed_trajectory": _FIXED_TRAJ_PHASE_ORDER,
+}
 
 
 def _rank(name, order):
@@ -242,32 +249,34 @@ def pytest_collection_modifyitems(items):
     #    order intact, so pytest's default file/class order survives.
     items.sort(key=_module_key)
 
-    # 2. Within test_takeoff_hover_land: sort by (airstack_env, velocity, phase) so each
-    #    (sim, robots, iter) env brings up the stack once and the drone goes
-    #    ground→air→ground per velocity.
-    def phase(item):
-        if getattr(item.module, "__name__", "") != "system.test_takeoff_hover_land":
-            return None
-        name = item.originalname or item.name.split("[", 1)[0]
-        return _rank(name, _AUTONOMY_PHASE_ORDER)
+    # 2. Within each parametrized autonomy-style module, sort by
+    #    (airstack_env, secondary_param, phase) so each env brings up the stack
+    #    once and the drone goes ground→air→ground per secondary parameter.
+    for mod_name, phase_order in _MODULE_PHASE_ORDERS.items():
+        def _phase(item, _order=phase_order, _mod=mod_name):
+            if getattr(item.module, "__name__", "") != _mod:
+                return None
+            name = item.originalname or item.name.split("[", 1)[0]
+            return _rank(name, _order)
 
-    def sort_key(item):
-        cs = getattr(item, "callspec", None)
-        env = cs.params.get("airstack_env", ()) if cs else ()
-        vel = float(cs.params.get("velocity", 0.0)) if cs else 0.0
-        return (env, vel, phase(item))
+        def _sort_key(item, _mod=mod_name):
+            cs = getattr(item, "callspec", None)
+            env = cs.params.get("airstack_env", ()) if cs else ()
+            # test_takeoff_hover_land sweeps velocity; test_fixed_trajectory sweeps type
+            secondary = (
+                float(cs.params["velocity"]) if cs and "velocity" in cs.params
+                else (cs.params.get("trajectory_type", "") if cs else "")
+            )
+            return (env, secondary, _phase(item))
 
-    slots = [(i, it) for i, it in enumerate(items) if phase(it) is not None]
-    if slots:
-        sorted_items = sorted((it for _, it in slots), key=sort_key)
-        for (i, _), new_item in zip(slots, sorted_items):
-            items[i] = new_item
+        slots = [(i, it) for i, it in enumerate(items) if _phase(it) is not None]
+        if slots:
+            sorted_items = sorted((it for _, it in slots), key=_sort_key)
+            for (i, _), new_item in zip(slots, sorted_items):
+                items[i] = new_item
 
-    # 3. Rewrite bracketed test IDs into a consistent hierarchy: sim > robots >
-    # velocity > iteration. Bypasses pytest's own concatenation (which would
-    # otherwise order by reverse-parametrize-call order). Keeps pytest console,
-    # JUnit XML, and metrics.json all in the same natural order without
-    # refactoring the parametrize structure.
+    # 3. Rewrite bracketed test IDs into a consistent hierarchy:
+    #    sim > robots > secondary param > iteration.
     for item in items:
         cs = getattr(item, "callspec", None)
         if cs is None:
@@ -279,6 +288,8 @@ def pytest_collection_modifyitems(items):
             parts.append(f"{sim}-rob#{n}")
         if "velocity" in cs.params:
             parts.append(f"v{cs.params['velocity']}")
+        if "trajectory_type" in cs.params:
+            parts.append(f"traj{cs.params['trajectory_type']}")
         if env:
             parts.append(f"iter{i}")
         if not parts:
@@ -310,31 +321,26 @@ def current_log():
 
 
 def read_log_tail(log_name=None, lines=50):
-    log_name = log_name or current_log()
-    if not log_name:
+    """Return the tail of the most recent subprocess output for this context."""
+    key = log_name or _DEFAULT_LOG_KEY
+    text = _LAST_CMD_OUTPUT.get(key) or _LAST_CMD_OUTPUT.get(_DEFAULT_LOG_KEY, "")
+    if not text:
         return ""
-    log_path = LOGS_DIR / f"{log_name}.log"
-    if log_path.exists():
-        all_lines = log_path.read_text().splitlines()
-        return "\n".join(all_lines[-lines:])
-    return ""
+    return "\n".join(text.splitlines()[-lines:])
 
 
 def _run_teed(cmd_list, timeout, log_name=None, env=None, cwd=None):
-    """Run a subprocess, teeing stdout+stderr live to the log file and
-    capturing them for parsing."""
-    log_name = log_name or current_log()
-    if not log_name:
-        return subprocess.run(cmd_list, capture_output=True, text=True,
-                              timeout=timeout, env=env, cwd=cwd)
-    log_path = LOGS_DIR / f"{log_name}.log"
+    """Run a subprocess and capture stdout+stderr for parsing and failure messages."""
     quoted = " ".join(shlex.quote(a) for a in cmd_list)
-    with open(log_path, "a") as f:
-        f.write(f"\n$ {quoted}\n")
-    shell_cmd = f"set -o pipefail; {quoted} 2>&1 | tee -a {shlex.quote(str(log_path))}"
-    return subprocess.run(["bash", "-c", shell_cmd],
-                          capture_output=True, text=True,
-                          timeout=timeout, env=env, cwd=cwd)
+    logger.info("$ %s", quoted)
+    result = subprocess.run(
+        cmd_list, capture_output=True, text=True, timeout=timeout, env=env, cwd=cwd,
+    )
+    combined = (result.stdout or "") + (result.stderr or "")
+    key = log_name or _DEFAULT_LOG_KEY
+    _LAST_CMD_OUTPUT[key] = combined
+    _LAST_CMD_OUTPUT[_DEFAULT_LOG_KEY] = combined
+    return result
 
 
 def docker_exec(container, cmd, timeout=60, log_name=None):
