@@ -81,7 +81,11 @@ def colcon_test_robot_command(workspace="robot"):
         "--event-handlers console_direct+ --return-code-on-test-failure"
     )
     if pytest_args:
-        cmd += f' --pytest-args "{pytest_args}"'
+        # One --pytest-args per token so flags like -p are not swallowed into
+        # the -m expression (colcon forwards a single quoted blob as one argv).
+        cmd += "".join(
+            f" --pytest-args {shlex.quote(a)}" for a in shlex.split(pytest_args)
+        )
     return cmd
 # Unit tests live co-located with their ROS 2 packages in robot/ros_ws/src/.
 # Thin proxy files under tests/robot/ re-export those tests so that
