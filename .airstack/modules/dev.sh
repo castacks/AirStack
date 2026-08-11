@@ -12,8 +12,18 @@ function cmd_dev_test {
     # Grant X access so sim containers spawned by tests in GUI mode
     # (`pytest --gui`) can reach the host's X server. No-op otherwise.
     xhost + || log_warn "xhost failed (is DISPLAY set? xhost installed?)"
+    # Forward host VERSION (and other image-selecting overrides) into the
+    # pytest runner so `airstack up` inside tests resolves the same tags.
+    # Compose --env-file alone does not inject these into the container env.
+    local run_env=()
+    [ -n "${VERSION:-}" ] && run_env+=(-e "VERSION=${VERSION}")
+    [ -n "${DOCKER_IMAGE_BUILD_MODE:-}" ] && run_env+=(-e "DOCKER_IMAGE_BUILD_MODE=${DOCKER_IMAGE_BUILD_MODE}")
+    [ -n "${PROJECT_DOCKER_REGISTRY:-}" ] && run_env+=(-e "PROJECT_DOCKER_REGISTRY=${PROJECT_DOCKER_REGISTRY}")
+    [ -n "${PROJECT_NAME:-}" ] && run_env+=(-e "PROJECT_NAME=${PROJECT_NAME}")
+
     docker compose --env-file "$env_file" -f "$compose_file" build --quiet
-    docker compose --env-file "$env_file" -f "$compose_file" run --rm test pytest "$@"
+    docker compose --env-file "$env_file" -f "$compose_file" run --rm \
+        "${run_env[@]}" test pytest "$@"
 }
 
 # Function to build documentation

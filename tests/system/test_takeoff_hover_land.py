@@ -36,6 +36,8 @@ PX4_POLL_INTERVAL_S = 2.0
 MOTION_ABOVE_START_M = 0.3  # z threshold for "drone started moving" (relative to z[0])
 SETTLING_WINDOW_S = 1.0     # seconds of trailing samples used for steady-state altitude
 MAX_GT_MATCH_AGE_S = 0.1    # drop an odom sample if nearest GT is >100ms away
+# Floor matching takeoff_landing_planner's takeoff_acceptance_distance (0.3 m).
+TAKEOFF_ALTITUDE_TOLERANCE_FLOOR_M = 0.3
 
 # Full column schemas of `ros2 topic echo --csv` output, in declaration order.
 # Covariance arrays expand to 36 comma-separated values each. Downstream code
@@ -388,9 +390,11 @@ def _takeoff_one_robot(n, robot_container, cfg, velocity):
     metrics.update(_gt_metrics(odom, gt))
     _record(n, metrics)
     err = metrics["altitude_error_m"]
-    assert abs(err) <= target * 0.1, (
+    tol = max(target * 0.1, TAKEOFF_ALTITUDE_TOLERANCE_FLOOR_M)
+    assert abs(err) <= tol, (
         f"robot_{n} settled altitude {target + err:.2f}m differs from "
-        f"target {target:.1f}m by more than 10%")
+        f"target {target:.1f}m by more than {tol:.2f}m "
+        f"(max of 10% of target and {TAKEOFF_ALTITUDE_TOLERANCE_FLOOR_M} m floor)")
 
 
 def _hover_one_robot(n, robot_container, cfg, velocity):

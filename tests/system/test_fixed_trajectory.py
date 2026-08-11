@@ -17,6 +17,7 @@ the end of each cycle via the landing phase.
 """
 
 import math
+import shutil
 import statistics
 import subprocess
 import time
@@ -27,12 +28,15 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+import conftest
 from conftest import (
+    AIRSTACK_ROOT,
     ROS_DISTRO_SETUP,
     current_test_id,
     get_metrics,
     get_robot_containers,
     logger,
+    ros2_env,
     ros2_exec,
 )
 
@@ -43,6 +47,10 @@ PX4_POLL_INTERVAL_S = 2.0
 TAKEOFF_MOTION_THRESHOLD_M = 0.3   # z rise above starting z to count as "moving"
 SETTLING_WINDOW_S = 1.0            # trailing window for steady-state altitude check
 MAX_GT_MATCH_AGE_S = 0.1
+# Floor matching takeoff_landing_planner's takeoff_acceptance_distance (0.3 m).
+# A pure 10%-of-target check is tighter than the planner at low altitudes
+# (e.g. 1.5 m → 0.15 m), so takeoff can succeed while the test still fails.
+TAKEOFF_ALTITUDE_TOLERANCE_FLOOR_M = 0.3
 
 # Cross-track tolerance is intentionally loose: we know the circle trajectory
 # currently fails, so the assertion documents the failure without blocking landing.
@@ -52,6 +60,9 @@ CROSS_TRACK_TOLERANCE_M = 5.0
 
 # Generous timeout covers the full trajectory execution at low velocity in slow sims.
 TRAJ_EXEC_TIMEOUT_S = 180.0
+
+# Active bag recorders keyed by (sim, num_robots, iteration, trajectory_type).
+_FLIGHT_BAGS: dict[tuple, dict] = {}
 
 # Odom CSV schema (ros2 topic echo --csv flattens all primitives in declaration order).
 ODOM_SCHEMA = (
@@ -479,6 +490,114 @@ def _run_parallel(num_robots: int, fn) -> None:
         list(ex.map(fn, range(1, num_robots + 1)))
 
 
+def _flight_bag_key(airstack_env: dict, trajectory_type: str) -> tuple:
+    return (
+        airstack_env["sim"],
+        airstack_env["num_robots"],
+        airstack_env["iteration"],
+        trajectory_type,
+    )
+
+
+def _start_flight_bag(
+    airstack_env: dict, trajectory_type: str, robot_container: str,
+) -> None:
+    """Start an MCAP bag recorder covering takeoff → trajectory → land."""
+    key = _flight_bag_key(airstack_env, trajectory_type)
+    if key in _FLIGHT_BAGS:
+        return
+
+    run_dir = conftest.RUN_DIR
+    stamp = run_dir.name if run_dir is not None else time.strftime("%Y-%m-%d_%H-%M-%S")
+    bag_name = (
+        f"{stamp}_{airstack_env['sim']}_r{airstack_env['num_robots']}_"
+        f"i{airstack_env['iteration']}_{trajectory_type}"
+    )
+    # /bags is mounted from robot/bags on the host (see robot-base-docker-compose).
+    container_bag_root = f"/bags/{bag_name}"
+    host_bag_root = Path(AIRSTACK_ROOT) / "robot" / "bags" / bag_name
+    cfg = airstack_env["cfg"]
+    domain = 1  # primary robot domain; multi-robot bags record robot_1's DDS partition
+
+    start_cmd = (
+        f"{ros2_env(cfg['robot_setup_bash'], domain)} && "
+        f"mkdir -p {container_bag_root} && "
+        f"nohup ros2 bag record -s mcap -o {container_bag_root}/flight -a "
+        f"> {container_bag_root}/record.log 2>&1 & echo $!"
+    )
+    result = subprocess.run(
+        ["docker", "exec", robot_container, "bash", "-c", start_cmd],
+        capture_output=True, text=True, timeout=30,
+    )
+    pid_txt = (result.stdout or "").strip().splitlines()
+    pid = int(pid_txt[-1]) if pid_txt and pid_txt[-1].isdigit() else None
+    if result.returncode != 0 or pid is None:
+        logger.warning(
+            "Failed to start flight bag recorder: rc=%s stdout=%r stderr=%r",
+            result.returncode, result.stdout, result.stderr,
+        )
+        return
+
+    _FLIGHT_BAGS[key] = {
+        "pid": pid,
+        "container": robot_container,
+        "container_bag_root": container_bag_root,
+        "host_bag_root": host_bag_root,
+        "bag_name": bag_name,
+    }
+    logger.info("Recording flight bag %s (pid=%s) in %s", bag_name, pid, robot_container)
+    # Give ros2 bag a moment to discover topics before takeoff begins.
+    time.sleep(2.0)
+
+
+def _stop_flight_bag(airstack_env: dict, trajectory_type: str) -> None:
+    """Stop the bag recorder and copy the MCAP into the pytest results directory."""
+    key = _flight_bag_key(airstack_env, trajectory_type)
+    handle = _FLIGHT_BAGS.pop(key, None)
+    if handle is None:
+        return
+
+    container = handle["container"]
+    pid = handle["pid"]
+    container_bag_root = handle["container_bag_root"]
+    host_bag_root: Path = handle["host_bag_root"]
+
+    stop_cmd = (
+        f"kill -INT {pid} 2>/dev/null || true; "
+        f"for i in 1 2 3 4 5 6 7 8 9 10; do "
+        f"  kill -0 {pid} 2>/dev/null || break; sleep 1; "
+        f"done; "
+        f"kill -KILL {pid} 2>/dev/null || true; "
+        # Also reap any child `ros2 bag record` left behind.
+        f"pkill -INT -f 'ros2 bag record.*{container_bag_root}/flight' 2>/dev/null || true; "
+        f"sleep 2"
+    )
+    try:
+        subprocess.run(
+            ["docker", "exec", container, "bash", "-c", stop_cmd],
+            capture_output=True, text=True, timeout=60,
+        )
+    except Exception as exc:
+        logger.warning("Error stopping flight bag recorder pid=%s: %s", pid, exc)
+
+    run_dir = conftest.RUN_DIR
+    if run_dir is None:
+        logger.warning("RUN_DIR unset; leaving bag at %s", host_bag_root)
+        return
+    dest = run_dir / "bags" / handle["bag_name"]
+    try:
+        if host_bag_root.exists():
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if dest.exists():
+                shutil.rmtree(dest)
+            shutil.copytree(host_bag_root, dest)
+            logger.info("Copied flight bag to %s", dest)
+        else:
+            logger.warning("Expected bag directory missing on host: %s", host_bag_root)
+    except Exception as exc:
+        logger.warning("Failed to copy flight bag into results: %s", exc)
+
+
 def _build_traj_goal(traj_type: str, config: dict[str, str]) -> str:
     """Build the YAML goal string for a FixedTrajectoryTask action send_goal call."""
     attrs = ", ".join(f"{{key: {k}, value: '{v}'}}" for k, v in config.items())
@@ -508,9 +627,11 @@ def _takeoff_one_robot(n: int, robot_container: str, cfg: dict, target: float) -
     metrics = _takeoff_metrics(odom, target, velocity)
     _record(n, metrics)
     err = metrics.get("altitude_error_m", 0.0)
-    assert abs(err) <= target * 0.1, (
+    tol = max(target * 0.1, TAKEOFF_ALTITUDE_TOLERANCE_FLOOR_M)
+    assert abs(err) <= tol, (
         f"robot_{n} settled altitude {target + err:.2f}m differs from "
-        f"target {target:.1f}m by more than 10%"
+        f"target {target:.1f}m by more than {tol:.2f}m "
+        f"(max of 10% of target and {TAKEOFF_ALTITUDE_TOLERANCE_FLOOR_M} m floor)"
     )
 
 
@@ -721,16 +842,24 @@ class TestFixedTrajectory:
         _ready_envs.add(env_id)
 
     @pytest.mark.dependency(name="ftraj_takeoff", depends=["ftraj_ready"])
-    def test_takeoff(self, airstack_env, trajectory_type, traj_geometry):
+    def test_takeoff(self, airstack_env, trajectory_type, traj_geometry, pytestconfig):
         """Take off to the configured trajectory altitude at a fixed velocity of 1 m/s."""
         cfg = airstack_env["cfg"]
         robot_container = get_robot_containers(airstack_env["robot_pattern"])[0]
         num_robots = airstack_env["num_robots"]
         altitude = traj_geometry["altitude_m"]
-        _run_parallel(
-            num_robots,
-            lambda n: _takeoff_one_robot(n, robot_container, cfg, altitude),
-        )
+        if pytestconfig.getoption("--record-bag"):
+            _start_flight_bag(airstack_env, trajectory_type, robot_container)
+        try:
+            _run_parallel(
+                num_robots,
+                lambda n: _takeoff_one_robot(n, robot_container, cfg, altitude),
+            )
+        except BaseException:
+            # Landing is skipped when takeoff fails; still finalize the bag.
+            if pytestconfig.getoption("--record-bag"):
+                _stop_flight_bag(airstack_env, trajectory_type)
+            raise
 
     @pytest.mark.dependency(name="ftraj_execute", depends=["ftraj_takeoff"])
     def test_fixed_trajectory(self, airstack_env, trajectory_type, traj_geometry):
@@ -745,13 +874,17 @@ class TestFixedTrajectory:
         )
 
     @pytest.mark.dependency(name="ftraj_land", depends=["ftraj_takeoff"])
-    def test_landing(self, airstack_env, trajectory_type, traj_geometry):
+    def test_landing(self, airstack_env, trajectory_type, traj_geometry, pytestconfig):
         """Land the drone; runs even when test_fixed_trajectory fails."""
         cfg = airstack_env["cfg"]
         robot_container = get_robot_containers(airstack_env["robot_pattern"])[0]
         num_robots = airstack_env["num_robots"]
         altitude = traj_geometry["altitude_m"]
-        _run_parallel(
-            num_robots,
-            lambda n: _landing_one_robot(n, robot_container, cfg, altitude),
-        )
+        try:
+            _run_parallel(
+                num_robots,
+                lambda n: _landing_one_robot(n, robot_container, cfg, altitude),
+            )
+        finally:
+            if pytestconfig.getoption("--record-bag"):
+                _stop_flight_bag(airstack_env, trajectory_type)

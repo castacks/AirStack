@@ -135,6 +135,11 @@ def pytest_addoption(parser):
                      help="Override trajectory velocity (m/s) in test_fixed_trajectory; "
                           "turn_velocity is scaled by the same ratio. "
                           "Default: per-trajectory-type defaults")
+    parser.addoption("--record-bag", action="store_true", default=False,
+                     help="Record a rosbag (MCAP) of each fixed-trajectory flight "
+                          "cycle (takeoff → trajectory → land) into "
+                          "tests/results/<timestamp>/bags/. Records all topics "
+                          "(-a), including sensors.")
 
 
 def pytest_configure(config):
