@@ -101,6 +101,8 @@ config (see [Part C](#part-c--tasks-any-drone-in-any-mode)):
 - **Role** (`teleop_drones`, `external_drones`): `auto` (scenario-driven),
   `teleop` (operator-driven via a teleop topic), `external` (tracked for the
   CBF but never commanded — e.g. RC-flown). Unlisted = `auto`.
+  **Convention: the standard experiments never use teleop** — a drone is
+  `sim`, `real`, or `external`; teleop remains a debugging utility only (A5).
 - **CBF-exempt** (`cbf_exempt_drones`): the filter still *sees* these drones
   (so everyone else avoids them) but leaves their *own* command uncorrected —
   they play the moving obstacle. Independent of role: a policy-driven (`auto`)
@@ -268,7 +270,7 @@ Verify (any other shell): `ros2 topic echo /drone_1/interface/mavros/state
 
 ```bash
 cd ~/AirStack/robot/ros_ws && sws
-ros2 launch svg_ground_control ground_control.launch.py            # default (hover + teleop)
+ros2 launch svg_ground_control ground_control.launch.py            # default (hover, all-auto)
 # or pick a scenario:
 ros2 launch svg_ground_control ground_control.launch.py scenario:=head_on
 # or the squeeze profile:
@@ -276,7 +278,12 @@ ros2 launch svg_ground_control ground_control.launch.py \
   config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/squeeze_3drone.yaml
 ```
 
-### A5. Teleop (fresh terminal, only if a drone has role teleop)
+### A5. Keyboard teleop (optional utility — NOT used by any standard experiment)
+
+> In the standard experiments a drone is **sim**, **real**, or **external**
+> (RC-flown, tracked-only) — none of the Part C tasks use teleop. This tool
+> remains available for ad-hoc debugging only (requires putting a drone in
+> `teleop_drones`, which no shipped config does).
 
 ```bash
 cd ~/AirStack/robot/ros_ws && sws
@@ -382,6 +389,8 @@ voxl_setup_real_drone.sh <robot_name> <ground_pc_ip> [domain_id=1] [port=8888]
 # confirm the edit landed + the client connected:
 grep -n 'microdds_client start' /usr/bin/voxl-px4-start   # -h <ip> -p 8888 -n <name>
 px4-microdds_client status                                # "connected", Agent IP=<ground_pc_ip>
+# If not connected:
+px4-microdds_client start -t udp -h 192.168.50.2 -p <port> -n <name>
 ```
 
 *Required on the ground side* — the agent must run where the topics are created
@@ -449,8 +458,28 @@ MicroXRCEAgent udp4 -p 8888 -v4
 the domain the **PX4 client** requested (the `domain_id` the B1 script set, =1),
 so make sure your ground consumers (`px4_interface`, the commander, your `ros2`
 shells) are on `ROS_DOMAIN_ID=1` too — the agent's own env domain is not the
-lever. (Fallback if the binary is ever missing:
-`docker run --rm -it --network host -e ROS_DOMAIN_ID=1 microros/micro-ros-agent:jazzy udp4 --port 8888`.)
+lever.
+
+> **Where `MicroXRCEAgent` comes from — two interchangeable installs:**
+> 1. **Baked into the robot image** (the default):
+>    [`Dockerfile.robot`](../../../docker/Dockerfile.robot) builds eProsima
+>    Micro-XRCE-DDS-Agent v2.4.3 into `/opt/uxrce` (builder stage ~L198) and
+>    copies it + adds it to `PATH` in the runtime stage (~L364). Ships with the
+>    image on every machine; needs `./airstack.sh image-build robot-desktop`
+>    after pulling.
+> 2. **Built in the ROS workspace** (per-machine, no image rebuild — the repo
+>    is colcon-buildable):
+>    ```bash
+>    cd ~/AirStack/robot/ros_ws/src
+>    git clone -b v2.4.3 https://github.com/eProsima/Micro-XRCE-DDS-Agent.git
+>    cd ~/AirStack/robot/ros_ws && bws --packages-select microxrcedds_agent && sws
+>    ```
+>    Lives on the host bind mount (survives container restarts), but is lost on
+>    `cws`/fresh checkout and must be rebuilt per machine. First build needs
+>    internet (the superbuild fetches Fast-DDS).
+>
+> Last-resort fallback if neither is available:
+> `docker run --rm -it --network host -e ROS_DOMAIN_ID=1 microros/micro-ros-agent:jazzy udp4 --port 8888`.
 
 ### B3. Per-drone px4_interface (fresh terminal)
 
@@ -496,14 +525,53 @@ feed path (with `px4_vio_mode: direct`, the default):
                             /{name}/fmu/out/vehicle_odometry
 ```
 
-**1. EKF2 params (per drone, once — QGC or `px4-param`; the comms script does
-NOT set these).** Without them PX4 ignores `vehicle_visual_odometry` entirely:
+**1. PX4 params for pure-mocap flight (per drone, once — QGC or `px4-param`;
+the comms script does NOT set these).** Without them PX4 ignores
+`vehicle_visual_odometry` entirely, or keeps fusing mag/GPS against it:
 ```
+# --- external vision in ---
 EKF2_EV_CTRL = 11      # bitmask: horiz pos(1) + vert pos(2) + yaw(8) = 11
+                       #   yaw bit 8 REQUIRED for mocap yaw; without it EKF
+                       #   takes heading from the mag -> "yaw estimate error"
 EKF2_HGT_REF = 3       # height reference = Vision
-EKF2_GPS_CTRL = 0      # no GPS indoors
 EKF2_EV_DELAY ≈ 50     # ms; mocap-over-WiFi latency (tune)
+
+# --- competing sources OFF (indoors, mocap-only) ---
+EKF2_GPS_CTRL = 0      # no GPS indoors
+EKF2_MAG_TYPE = 5      # magnetometer = None (EKF side)
+SYS_HAS_MAG   = 0      # SYSTEM side — easy to miss; without it the EKF still
+                       #   waits on / fuses the mag (cs_mag_hdg stays true)
+# EKF2_BARO_CTRL = 0   # optional: also drop baro height (EV height only)
 ```
+Then **save and reboot** — both are required:
+```bash
+px4-param save                    # unsaved params DIE on power loss
+systemctl restart voxl-px4        # mag/EV fusion is configured at EKF INIT;
+                                  # a live param change does not take effect
+```
+> Older ModalAI builds have `EKF2_AID_MASK` instead of `EKF2_EV_CTRL`
+> (vision-position + vision-yaw bits) — check with `px4-param show EKF2_EV_CTRL`.
+
+**1b. Disable onboard VIO (pure mocap only).** A stock ModalAI drone runs its
+own VIO (`voxl-qvio-server` → `voxl-vision-hub`) which injects a SECOND,
+competing pose into the same EV input — EKF sees two disagreeing sources and
+degrades/rejects. On the VOXL:
+```bash
+sed -i 's/"en_vio":.*true/"en_vio": false/' /etc/modalai/voxl-vision-hub.conf   # or edit by hand
+systemctl restart voxl-vision-hub          # keep it RUNNING (other services need it)
+systemctl disable --now voxl-qvio-server   # stop the VIO estimator itself
+# do NOT touch voxl-mavlink-server — that is the QGC link
+```
+
+**1c. Verify fusion state (VOXL — note it's `px4-listener`, not `listener`):**
+```bash
+px4-listener vehicle_visual_odometry     # mocap EV arriving? timestamp a few ms old, steadily
+px4-listener estimator_status_flags      # WANT: cs_ev_pos/cs_ev_hgt/cs_ev_yaw = True,
+                                         #       cs_mag_hdg = False  (mag truly off)
+px4-listener vehicle_local_position      # xy_valid / z_valid = True once converged (~20-30 s still)
+```
+`cs_mag_hdg: True` after all of the above → params didn't take (not saved /
+no reboot / wrong drone — they are PER DRONE).
 
 **2. Verify the feed reaches PX4 — mind the QoS.** PX4 `/fmu/*` topics are
 **best_effort**; a plain `ros2 topic echo` (reliable) shows **nothing** and
@@ -669,30 +737,88 @@ ros2 service call /swarm_commander/land std_srvs/srv/Trigger
 
 ### C2. Multi-drone goal (`goal_tracking.yaml`)
 
-Assign different goals to different drones while flying; the CBF keeps them
-apart when paths cross. Mix modes with e.g. `drone_modes: "real,sim,sim"`.
+Assign different goals/speeds to different drones while flying; the CBF keeps
+them apart when paths cross. Same dual-mode design as C1: **one config,
+`drone_modes` is the only switch, per drone** (`"real,real"` = both hardware;
+mix like `"real,sim"` for hybrid). Launch with **`use_mocap:=true` always** —
+the config's `mocap_bridge` block feeds every real drone's EKF2 (sim drones
+are a no-op, same as C1).
+
+**Real-drone prerequisites, PER DRONE — for EVERY drone in the config's
+`drone_names`** (the multi-drone part people miss; each drone needs its own
+full chain in THIS session):
+* each drone connected per [Part B](#part-b--bring-in-a-real-drone-connect--verify)
+  on its **own agent port** (drone_1→8888, drone_2→8889, drone_3→8890) → run
+  **one `MicroXRCEAgent udp4 -p <port> -v4` per drone** on the ground PC —
+  including any agent you had running for a previous single-drone test (a
+  closed C1 terminal ≠ a running agent);
+* EKF2/mag params set on **each** drone (B4b.1 — they are per-drone, saved,
+  rebooted);
+* one `natnet_ros2` instance serves all bodies (`/drone_1/pose`, …);
+* interfaces up **for all listed drones**:
+  `ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_1,drone_2,drone_3`
+  ([C0](#c0-start-the-per-drone-interfaces-required-before-any-task)) —
+  a name missing here is exactly "drone_X: no odometry / odometry stale,
+  refuses takeoff" while the others fly. Per-drone triage:
+  `ros2 node list | grep drone_X` → `ros2 topic hz /drone_X/pose` →
+  best_effort echo `/drone_X/fmu/out/vehicle_odometry` →
+  `ros2 topic hz /drone_X/odometry_conversion/odometry`;
+* `drone_position_offsets` is **per drone**: a `real` slot is `0,0,0` (mocap is
+  absolute — all real drones share the mocap origin), a `sim` slot is that
+  drone's Isaac spawn (`x = 2*(i-1)-(N-1)`), e.g. hybrid `"real,sim"` →
+  `[0,0,0, 1,0,0]`. All-real (current config) = all zeros; the commander's
+  "offsets are all zero" startup warning is expected/benign in that case.
 
 ```bash
 ros2 launch svg_ground_control ground_control.launch.py \
-  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/goal_tracking.yaml
-# takeoff + start, then retarget any drone any time:
+  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/goal_tracking.yaml \
+  use_mocap:=true
+# takeoff BOTH drones together + start, then retarget any drone any time:
 ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger
 ros2 service call /swarm_commander/start   std_srvs/srv/Trigger
 ros2 topic pub --once /svg/drone_1/goal_command geometry_msgs/msg/PoseStamped \
   "{header: {frame_id: map}, pose: {position: {x: 1.5, y: 0.0, z: 1.2}}}"
 ros2 topic pub --once /svg/drone_2/goal_command geometry_msgs/msg/PoseStamped \
   "{header: {frame_id: map}, pose: {position: {x: -1.5, y: 0.0, z: 1.2}}}"
+ros2 topic pub --once /svg/drone_1/speed_command std_msgs/msg/Float32 "{data: 0.6}"
 ros2 topic pub --once /svg/drone_2/speed_command std_msgs/msg/Float32 "{data: 1.0}"
 ```
 
-### C3. Squeeze (`squeeze_3drone.yaml`)
+**Formation profiles — retarget the whole swarm with ONE command.** The config
+defines named profiles (`formation_profiles` + one `formation_<name>` array
+each, one x,y,z row per drone in `drone_names` order — edit/add/remove freely
+in `goal_tracking.yaml`; keep pairs > 2*`cbf_safety_radius_m` apart and inside
+the fence). Publishing a profile name sends every scenario-driven drone to its
+slot simultaneously (any time after `start`; the CBF deconflicts the crossing;
+external drones are skipped). Shipped examples: `home` (= the takeoff layout),
+`line`, `triangle`, `diagonal`:
+
+```bash
+ros2 topic pub --once /svg/formation_command std_msgs/msg/String "{data: triangle}"
+ros2 topic pub --once /svg/formation_command std_msgs/msg/String "{data: home}"   # back to start
+ros2 topic pub --once /svg/formation_command std_msgs/msg/String "{data: next}"   # roll to the next profile
+```
+
+`next` cycles through the profiles in their `formation_profiles` order,
+wrapping around — repeat the same command to step through the whole set. An
+explicit profile name re-anchors the cycle there (`next` continues from it).
+An unknown name is ignored with a warning listing the available profiles (check
+the commander log). Per-drone `goal_command` / `speed_command` still work and
+can fine-tune individual drones after a formation switch.
+
+### C3. Squeeze — all-sim rehearsal (`squeeze_3drone.yaml`)
 
 Holders (drone_1,2) hold their posts; the intruder (drone_3) shuttles through
 the gap. drone_3 is **CBF-exempt** (`cbf_exempt_drones: "drone_3"`) so it
-presses through and the holders alone yield. Drive the intruder by hand instead
-with `teleop_drones: "drone_3"` (it stays exempt — it's in the exempt list; see
-[A5](#a5-teleop-fresh-terminal-only-if-a-drone-has-role-teleop) for keyboard
-teleop).
+presses through and the holders alone yield.
+
+**Why no `use_mocap` here (unlike C1/C2):** this config is the deliberately
+**all-sim rehearsal** — `drone_modes: "sim,sim,sim"`, no real drone anywhere,
+so no PX4 EKF needs external vision and `mocap_bridge` would have no
+`/{name}/pose` inputs to forward. `use_mocap` only matters when at least one
+drone is `real`. The two **hardware** squeeze variants are the next sections:
+* real holders + **sim** intruder → [C4](#c4-flagship--hybrid-squeeze-real-holders--sim-intruder-hybrid_squeezeyaml)
+* real holders + **RC-flown external** intruder → [C5](#c5-squeeze-with-an-rc-flown-intruder-squeeze_rc_intruderyaml)
 
 ```bash
 ros2 launch svg_ground_control ground_control.launch.py \
@@ -701,14 +827,20 @@ ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger
 ros2 service call /swarm_commander/start   std_srvs/srv/Trigger
 ```
 
+Run this rehearsal before either hardware variant — same scenario geometry,
+zero risk.
+
 ### C4. Flagship — hybrid squeeze: real holders + sim intruder (`hybrid_squeeze.yaml`)
 
-The target run: **drone_1,2 real** (mocap hardware), **drone_3 sim** (Isaac
-SITL) and **CBF-exempt + policy-controlled** (not teleop). All three appear in
-the Isaac viewport — real holders as live avatars, the intruder as its SITL
-body — and the real holders react (via the CBF) to the virtual intruder
-squeezing through. Config already set: `drone_modes: "real,real,sim"`,
-`cbf_exempt_drones: "drone_3"`.
+Your experiment plan #1: **drone_1,2 real holders** (mocap hardware — the
+config's `mocap_bridge` block forwards `/drone_1/pose` and `/drone_2/pose`
+into their PX4 EKFs), **drone_3 sim** (Isaac SITL), **CBF-exempt +
+policy-controlled**. All three appear in the Isaac viewport — real holders as
+live avatars, the intruder as its SITL body — and the real holders react (via
+the CBF) to the virtual intruder squeezing through. Config already set:
+`drone_modes: "real,real,sim"`, `cbf_exempt_drones: "drone_3"`, and
+`drone_position_offsets: [0,0,0, 0,0,0, 2,0,0]` (holders mocap-anchored →
+zero; sim intruder → its Isaac spawn x=+2).
 
 ```bash
 # 0. real holders connected + verified — Part B (px4_interface + NatNet + mocap)
@@ -739,6 +871,53 @@ intruder **cyan**, all in one `map` frame.
 > fakes the real+sim drones on their respective topics and asserts each drone's
 > commands land on the correct namespace and the squeeze still works — run it
 > before trusting a real flight (see [Automated tests](#automated-tests)).
+
+### C5. Squeeze with an RC-FLOWN intruder (`squeeze_rc_intruder.yaml`)
+
+Your experiment plan #2: **drone_1,2 real holders** (commander-flown, hold the
+posts and yield via the CBF) + **drone_3 real, RC-flown by a human pilot** as
+the intruder. drone_3 is **`external_drones`**: the commander never arms or
+commands it, but it IS tracked — its mocap-fed odometry enters the CBF, so the
+holders dodge the pilot's drone. (An external drone may NOT also be in
+`cbf_exempt_drones`; there is no command to exempt — the commander rejects
+that config.)
+
+**Mocap goes to ALL THREE drones** (the config's `mocap_bridge` lists
+drone_1,2,3): the holders need external vision to arm and fly offboard, and
+**drone_3's PX4 needs it too** so its onboard controller can fuse a position
+for indoor RC **Position mode** — set the B4b.1 EKF2/mag params on all three
+drones, not just the holders.
+
+Prerequisites (all three drones per [Part B](#part-b--bring-in-a-real-drone-connect--verify)):
+* own agent port per drone (e.g. 8888/8889/8890) → **three** `MicroXRCEAgent`s;
+* B4b.1 params set + saved + rebooted on **each** drone;
+* Motive bodies `drone_1..3` streaming; interfaces for **all three** (drone_3's
+  px4_interface is state-only, but without it the commander can't see drone_3
+  and the scenario pauses):
+  `ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_1,drone_2,drone_3`
+
+```bash
+# commander (mocap always on):
+ros2 launch svg_ground_control ground_control.launch.py \
+  config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/squeeze_rc_intruder.yaml \
+  use_mocap:=true
+
+# fly:
+ros2 service call /swarm_commander/takeoff std_srvs/srv/Trigger   # arms/lifts ONLY the holders
+ros2 service call /swarm_commander/start   std_srvs/srv/Trigger   # holders on posts (requires only
+                                                                  # commanded drones holding)
+# now the RC pilot takes off drone_3 (Position mode) and flies it through the
+# gap — watch the gray (external) marker + red holders yield in RViz.
+ros2 service call /swarm_commander/land    std_srvs/srv/Trigger   # lands ONLY the holders;
+                                                                  # the RC pilot lands drone_3
+```
+
+> ⚠️ **Safety — the geofence does NOT police drone_3.** The fence only watches
+> commander-flown (ACTIVE) drones; an external drone never trips it. The RC
+> pilot (and their kill switch) is drone_3's only safety layer. A breach by a
+> *holder* still freezes the holders as usual. Also: if drone_3's odometry goes
+> stale (mocap dropout), the commander pauses the scenario and the holders fall
+> back to holding position — by design.
 
 ---
 
@@ -886,14 +1065,18 @@ come up before starting a test.
 | service `waiting for service to become available…` forever | `ROS_DOMAIN_ID` mismatch between shells; also `ros2 daemon stop` |
 | `package 'svg_ground_control' not found` / `bws`/`sws` not found / `topic list` shows only `/parameter_events`,`/rosout` | you're not in a robot-container shell. Use `./airstack.sh connect robot --command=bash` — its `.bashrc` sets `ROS_DOMAIN_ID` and sources the workspace, and `bws`/`sws` exist. A raw `docker exec … sh` skips all that |
 | hardware: can't reach the drone / Motive (no `/fmu/*`, no `/<body>/pose` topics) | the robot container is on the Docker **bridge** net, not your LAN. Set `robot-desktop` to `network_mode: host` (comment out `networks:`/`ports:`) and `./airstack.sh up` — Part B prerequisite. Host mode ⇒ `NUM_ROBOTS=1` |
-| `MicroXRCEAgent: command not found` | not shipped in the image — run the published `microros/micro-ros-agent:jazzy udp4 --port 8888` host container (B2), or build `MicroXRCEAgent` from source / bake into the robot image. Keep `ROS_DOMAIN_ID=1` on the agent |
+| `MicroXRCEAgent: command not found` | your robot image predates the bake-in — rebuild it (`./airstack.sh image-build robot-desktop`; [`Dockerfile.robot`](../../../docker/Dockerfile.robot) ~L198/L364 installs v2.4.3 to `/opt/uxrce`). No-rebuild alternative: build it in the workspace (clone eProsima Micro-XRCE-DDS-Agent into `ros_ws/src`, `bws --packages-select microxrcedds_agent && sws` — see B2). Last resort: the `microros/micro-ros-agent:jazzy` host container. Keep `ROS_DOMAIN_ID=1` on the agent |
+| `px4-microdds_client` keeps stopping (must ssh in and `start` it by hand) | Two layers of auto-restart, both installed by re-running [`voxl_setup_real_drone.sh`](scripts/voxl_setup_real_drone.sh): a boot-time retry loop in `voxl-px4-start` (survives slow Wi-Fi at boot) and the **`svg-microdds-watchdog` systemd service** (checks every 1 s, restarts a stopped client mid-session). Verify: `systemctl status svg-microdds-watchdog`; find why it died: `journalctl -u voxl-px4 -b \| grep -i microdds`. "Running, disconnected" is NOT dead — the client reconnects itself once the ground agent is back |
 | Drone not reachable / wrong or stale IP (e.g. old static `192.168.30.x`) | ADB in and reset `wlan0` to DHCP: `ip addr flush dev wlan0 && ip link set wlan0 up && udhcpc -i wlan0` (or `dhclient -v wlan0`), then `ip addr show wlan0`. Make it persistent via the `systemd-networkd` `*wlan0*.network` (`DHCP=yes`) or a router-side DHCP reservation — see [B0](#b0-get-the-drone-onto-your-lan-wi-fi--dhcp) |
 | real drone **won't arm** ("fuse failure" / "no position"), no `/fmu/out/vehicle_odometry` | EKF2 has no position source. Set `EKF2_EV_CTRL`/`EKF2_HGT_REF=Vision`/`EKF2_GPS_CTRL=0` (B4b), and verify `/{name}/fmu/in/vehicle_visual_odometry` is streaming. The SVG real path feeds it via `mocap_bridge` (`px4_vio_mode: direct`) — **not** MAVROS |
+| QGC: **"yaw estimate error"**, won't get ready | EKF's yaw is contested or has no source. `px4-listener estimator_status_flags`: `cs_mag_hdg: True` → mag still fused — set `EKF2_MAG_TYPE=5` **and** `SYS_HAS_MAG=0`, `px4-param save`, restart voxl-px4 (B4b.1); `cs_ev_yaw: False` → yaw bit missing — `EKF2_EV_CTRL=11`. If both look right: mocap yaw itself is bad — quaternion flipping while still (`ros2 topic echo /<name>/pose --field pose.orientation`; symmetric Motive markers → re-create body), wrong frame (`px4_vio_frame`), or lossy Wi-Fi EV stream |
+| QGC: **"no local position estimate"** (after mag/GPS were disabled) | Disabling mag+GPS removed the old sources but EV isn't fusing in their place: `EKF2_EV_CTRL` must include position bits (11, not yaw-only 8), `EKF2_HGT_REF=3`; params saved + PX4 restarted (unsaved params die on power loss; fusion config applies at EKF init). Params are **per drone** — re-check after re-provisioning/renaming. Verify with `px4-listener estimator_status_flags` (`cs_ev_pos/cs_ev_hgt`) and `px4-listener vehicle_local_position` (`xy_valid`) |
 | `ros2 topic echo /…/fmu/out/…` shows nothing (but the topic exists) | PX4 `/fmu/*` are **best_effort**; add `--qos-reliability best_effort --qos-durability volatile` to echo. Not a real outage |
 | EV accepted but drone drifts / flies the wrong way / position mirrored | mocap frame ≠ ROS-ENU. Do the B4b hand-check; set `px4_vio_frame: "modalai_flip"` (the reference transform) in `swarm_real.yaml` |
 | Isaac Sim segfaults at startup, backtrace in `librtx.scenedb.plugin.so` / `libcarb.scenerenderer-rtx.plugin.so` at `carbOnPluginStartup` — **also crashes headless**, and a bare empty `SimulationApp({"headless":True})` crashes identically | GPU driver ↔ Isaac Sim RTX incompatibility, NOT an AirStack bug. App boots to `app ready` then the RTX renderer faults on the first frame. Confirmed on RTX 5080 / Blackwell + NVIDIA driver **595.x** + Isaac Sim 5.1.0. Headless and clearing the shader cache do **not** help (the renderer plugin loads at app init regardless; there is no renderer-less path through Kit). **Fix:** install a driver Isaac Sim 5.1 supports — Linux **580.65.06**, or **591.74** (a Blackwell user's confirmed-good version) — using the *open* kernel module variant required for RTX 50-series; or upgrade to a newer Isaac Sim release. ([NVIDIA forum report](https://forums.developer.nvidia.com/t/isaac-sim-5-1-gui-crash-access-violation-on-rtx-5070-ti-blackwell-fixed-by-driver-downgrade-to-591-74/365335)) |
 | MAVROS `connected: false`, no odometry | PX4 SITL not launched: Isaac timeline not playing (`PLAY_SIM_ON_START=true`, or press Play) |
 | takeoff returns success=false right after launch | commander hasn't received odometry yet — wait a few seconds and retry |
+| one drone "odometry stale"/won't arm in a MULTI-drone task but flies fine in a single-drone task | that drone's chain isn't up in THIS session — infra is per drone: its `MicroXRCEAgent` (own port) running? its name included in `real_interfaces.launch.py drones:=…`? its `/pose` streaming? Triage in order: `ros2 node list \| grep drone_X` → `hz /drone_X/pose` → best_effort echo `/drone_X/fmu/out/vehicle_odometry` → `hz /drone_X/odometry_conversion/odometry`. If ALL stream but staleness is intermittent with 3 drones on Wi-Fi: link congestion — check `hz` max interval vs `state_timeout_s` (0.5 s), improve AP or raise the timeout slightly |
 | `The parameter 'X' is not initialized` | empty YAML list can't override a typed param — `teleop_drones`/`external_drones`/`drone_modes`/`cbf_exempt_drones` are comma-separated STRINGS (`""` = none) |
 | teleop drone gets shoved around / won't act as the obstacle | teleop is **no longer auto-CBF-exempt** — add it to `cbf_exempt_drones` to leave its commands uncorrected (and let others dodge it). Conversely, drop it from the list to have the filter protect your manual commands |
 | commander rejects config: `"X" is in both external_drones and cbf_exempt_drones` | external drones are never commanded, so they can't be "exempt" — remove the name from one of the two lists |

@@ -13,7 +13,10 @@ head_on, antipodal, squeeze — see scenarios.py, ported from ~/drone_soccer).
 Drones listed in ``teleop_drones`` are operator-driven instead (one teleop
 topic per drone); an empty list means every drone follows the scenario.
 Drones in ``external_drones`` are tracked for the safety filter but never
-commanded (e.g. RC-flown).
+commanded (e.g. RC-flown). Their MEASURED velocity (scaled by
+``cbf_external_velocity_gain``) is fed into the filter as a FIXED row, so the
+commanded drones react to their true approach speed and absorb the full
+evasion themselves.
 
 Every commanded velocity passes through the velocity-CBF filter
 (cbf_filter.filter_velocities, ported from drone_soccer/cbf.py). Drones listed
@@ -48,6 +51,7 @@ Lifecycle (std_srvs/Trigger services):
     ~/reset_fence — clear a latched geofence breach
 """
 
+import re
 from enum import Enum
 
 import numpy as np
@@ -57,7 +61,7 @@ from rclpy.duration import Duration
 
 from geometry_msgs.msg import PoseStamped, TwistStamped
 from nav_msgs.msg import Odometry
-from std_msgs.msg import ColorRGBA, Float32
+from std_msgs.msg import ColorRGBA, Float32, String
 from std_srvs.srv import Trigger
 from visualization_msgs.msg import Marker, MarkerArray
 from airstack_msgs.srv import RobotCommand
@@ -226,6 +230,10 @@ class SwarmCommander(Node):
         self.declare_parameter('cbf_max_speed_mps', 1.2)
         self.declare_parameter('cbf_alpha', 2.5)
         self.declare_parameter('teleop_max_speed_mps', 1.2)
+        # Gain on an EXTERNAL drone's measured velocity as seen by the CBF.
+        # 1.0 = react to its true approach speed; > 1 pretends it is faster,
+        # so commanded drones start yielding earlier and dodge harder.
+        self.declare_parameter('cbf_external_velocity_gain', 1.0)
 
         def name_list(param: str) -> list:
             raw = str(self.get_parameter(param).value)
@@ -285,6 +293,8 @@ class SwarmCommander(Node):
         self.cbf_max_speed = float(self.get_parameter('cbf_max_speed_mps').value)
         self.cbf_alpha = float(self.get_parameter('cbf_alpha').value)
         self.teleop_max_speed = float(self.get_parameter('teleop_max_speed_mps').value)
+        self.cbf_external_velocity_gain = float(
+            self.get_parameter('cbf_external_velocity_gain').value)
 
         # ---- Scenario -----------------------------------------------------
         scenario_name = str(self.get_parameter('scenario').value)
@@ -382,6 +392,51 @@ class SwarmCommander(Node):
                 lambda msg, d=drone: self.odometry_callback(d, msg), 10)
             self.drones.append(drone)
 
+        # ---- Formation profiles (single-command swarm re-targeting) --------
+        # 'formation_profiles' lists profile names; each name needs a matching
+        # 'formation_<name>' flat array [x1,y1,z1, x2,y2,z2, ...] (one world
+        # ENU row per drone, in drone_names order). Publishing a profile name
+        # on the formation topic retargets every scenario-driven drone's goal
+        # in one shot ('goal' scenario only):
+        #   ros2 topic pub --once /svg/formation_command std_msgs/msg/String \
+        #     "{data: line}"
+        self.declare_parameter('formation_profiles', '')
+        self.declare_parameter('formation_command_topic', '/svg/formation_command')
+        self.formations = {}
+        for pname in name_list('formation_profiles'):
+            if pname == 'next':
+                raise ValueError(
+                    '"next" is reserved (it advances the profile cycle) and '
+                    'cannot be a formation profile name')
+            if not re.fullmatch(r'[a-zA-Z][a-zA-Z0-9_]*', pname):
+                raise ValueError(
+                    f'formation profile "{pname}" is not a valid name '
+                    '(letters/digits/underscore, starting with a letter)')
+            self.declare_parameter(f'formation_{pname}', [0.0])
+            flat = list(self.get_parameter(f'formation_{pname}').value)
+            if len(flat) != 3 * len(names):
+                raise ValueError(
+                    f'formation_{pname} needs {3 * len(names)} values '
+                    f'(x,y,z per drone in drone_names order), got {len(flat)}')
+            self.formations[pname] = np.array(flat, dtype=float).reshape(-1, 3)
+        # "next" cycling state: profiles roll in formation_profiles order;
+        # -1 = nothing applied yet, so the first "next" lands on profile 0.
+        # Naming a profile explicitly re-anchors the cycle at that profile.
+        self._formation_order = list(self.formations)
+        self._formation_index = -1
+        if self.formations:
+            if hasattr(self.scenario, 'set_goal'):
+                self.create_subscription(
+                    String,
+                    str(self.get_parameter('formation_command_topic').value),
+                    self.formation_callback, 10)
+                self.get_logger().info(
+                    'formation profiles: ' + ', '.join(sorted(self.formations)))
+            else:
+                self.get_logger().warn(
+                    f'formation_profiles set but scenario "{scenario_name}" '
+                    'has no retargetable goals; profiles ignored')
+
         # ---- Operator services ---------------------------------------------
         self.create_service(Trigger, '~/takeoff', self.handle_takeoff)
         self.create_service(Trigger, '~/start', self.handle_start)
@@ -407,7 +462,7 @@ class SwarmCommander(Node):
                 + ')'
                 for d in self.drones)
             + f' | CBF r={self.cbf_safety_radius} m, vmax={self.cbf_max_speed} m/s,'
-            + f' alpha={self.cbf_alpha}'
+            + f' alpha={self.cbf_alpha}, ext_vel_gain={self.cbf_external_velocity_gain}'
             + (f' | FENCE {self.fence_min}..{self.fence_max}'
                if self.fence_enabled else ' | fence OFF'))
         if np.any(position_offsets):
@@ -447,6 +502,34 @@ class SwarmCommander(Node):
     def speed_callback(self, index: int, msg: Float32):
         if hasattr(self.scenario, 'set_speed'):
             self.scenario.set_speed(index, msg.data)
+
+    def formation_callback(self, msg: String):
+        """Retarget every scenario-driven drone to a named formation profile.
+
+        The reserved name "next" advances through the profiles in their
+        formation_profiles order (wrapping around); an explicit profile name
+        re-anchors the cycle there, so "next" continues from it.
+        """
+        name = msg.data.strip()
+        if name == 'next':
+            self._formation_index = (
+                (self._formation_index + 1) % len(self._formation_order))
+            name = self._formation_order[self._formation_index]
+        elif name in self.formations:
+            self._formation_index = self._formation_order.index(name)
+        profile = self.formations.get(name)
+        if profile is None:
+            self.get_logger().warn(
+                f'unknown formation "{name}" (available: next, '
+                + ', '.join(sorted(self.formations)) + ')')
+            return
+        moved = []
+        for i, d in enumerate(self.drones):
+            if not d.commanded:
+                continue      # external drones have no goal to retarget
+            self.scenario.set_goal(i, profile[i])
+            moved.append(f'{d.name} -> {profile[i].tolist()}')
+        self.get_logger().info(f'formation "{name}": ' + '; '.join(moved))
 
     # ------------------------------------------------------------------
     # Operator services
@@ -646,9 +729,27 @@ class SwarmCommander(Node):
                            if self.mission_active else set())
 
         nominal = np.zeros((len(tracked), 3))
-        exempt_rows = set()   # obstacle rows: restored after filtering
+        exempt_rows = set()   # commanded obstacle rows: published uncorrected
+        # Rows the solver must NOT adjust (their nominal is what that drone
+        # will fly regardless): external drones + exempt obstacles. Without
+        # this the solver assigns them half of every pairwise correction --
+        # evasion that is never executed.
+        fixed_rows = np.zeros(len(tracked), dtype=bool)
         for d in tracked:
             i = index[d.name]
+            if d.role == 'external':
+                # RC-flown obstacle: feed its MEASURED velocity (PX4 EKF2
+                # estimate, ENU world via px4_interface) so the constraint
+                # sees the true approach speed and the holders yield BEFORE
+                # it reaches the barrier, not after. Stale odometry falls
+                # back to zero velocity (= previous, position-only behavior).
+                fixed_rows[i] = True
+                fresh = (d.last_odom_time is not None
+                         and (now - d.last_odom_time)
+                         < Duration(seconds=self.state_timeout))
+                if fresh:
+                    nominal[i] = self.cbf_external_velocity_gain * d.velocity
+                continue
             if d.state in (FlightState.IDLE, FlightState.ARMING):
                 nominal[i] = 0.0
             elif d.state == FlightState.LANDING:
@@ -681,23 +782,26 @@ class SwarmCommander(Node):
         # ================= CBF SAFETY FILTER =================
         # Real velocity-CBF (ported from drone_soccer). Exempt rows are the
         # deliberate moving obstacles (teleop drones + scenario-designated
-        # ones like the squeeze intruder): their rows are restored to the
-        # speed-capped nominal after filtering, so only the other drones
-        # dodge — filtering an obstacle would push it back from the
-        # conflict instead of letting it force the others to yield.
+        # ones like the squeeze intruder): they are speed-capped up front —
+        # the cap is what will actually be published — and pinned as FIXED,
+        # so the solver leaves them uncorrected and the other drones absorb
+        # the full evasion. External drones are likewise fixed at their
+        # measured velocity (set above). Filtering an obstacle would push it
+        # back from the conflict instead of letting it force the others to
+        # yield — worse, the pushed-back command would never be executed.
+        for i in exempt_rows:
+            speed = np.linalg.norm(nominal[i])
+            if speed > self.cbf_max_speed:
+                nominal[i] *= self.cbf_max_speed / speed
+            fixed_rows[i] = True
         result = filter_velocities(
             nominal, positions,
             safety_radius=self.cbf_safety_radius,
             max_speed=self.cbf_max_speed,
             alpha=self.cbf_alpha,
+            fixed=fixed_rows,
         )
         safe = result.velocities
-        for i in exempt_rows:
-            cmd = nominal[i].copy()
-            speed = np.linalg.norm(cmd)
-            if speed > self.cbf_max_speed:
-                cmd *= self.cbf_max_speed / speed
-            safe[i] = cmd
         if result.used_emergency_stop:
             self.get_logger().warn(
                 'CBF emergency push-apart engaged '

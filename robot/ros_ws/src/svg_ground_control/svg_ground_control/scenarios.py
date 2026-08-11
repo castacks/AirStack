@@ -404,7 +404,7 @@ class GoalScenario(Scenario):
     tracking tests.
     """
 
-    _APPROACH_GAIN = 2.0
+    _APPROACH_GAIN = 1.5
 
     def __init__(self, *args, initial_goals: np.ndarray, **kwargs) -> None:
         super().__init__(*args, **kwargs)

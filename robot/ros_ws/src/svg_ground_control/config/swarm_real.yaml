@@ -18,12 +18,12 @@ swarm_commander:
     # role   : teleop_drones (operator-driven), external_drones (tracked but
     #          never commanded, e.g. RC-flown); unlisted = auto
     # safety : cbf_exempt_drones  CBF leaves these uncorrected (still obstacles)
+    # No teleop in the standard experiments: a drone is sim, real, or external
+    # (RC-flown obstacle -> external_drones, see squeeze_rc_intruder.yaml).
     drone_modes: "real,real,real"
-    teleop_drones: "drone_3"
+    teleop_drones: ""
     external_drones: ""
-    # drone_3 is the operator's moving obstacle, so exempt it (teleop is NOT
-    # auto-exempt — remove it here to have the filter protect manual commands).
-    cbf_exempt_drones: "drone_3"
+    cbf_exempt_drones: ""
 
     scenario: "hover"
     scenario_speed_mps: 0.5

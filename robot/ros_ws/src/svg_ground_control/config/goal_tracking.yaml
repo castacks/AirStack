@@ -1,13 +1,35 @@
-# SVG ground control — MULTI-DRONE goal-tracking test (simulation).
+# SVG ground control — MULTI-DRONE goal-tracking test (sim OR real).
+#
+# ONE config for both worlds: `drone_modes` is the only switch, per drone —
+# "sim" routes commands to /{name}/interface/* (SITL/MAVROS), "real" to
+# /{name}/fmu/* (hardware/px4_interface). Mix freely ("real,sim" = hybrid).
+#
+# Mocap is ALWAYS on — launch with use_mocap:=true:
+#   * real -> mocap_bridge feeds each real drone's PX4 EKF2 the external vision
+#             it needs to arm (/{name}/pose -> /{name}/fmu/in/vehicle_visual_odometry,
+#             see B4b). The ONLY path that makes EKF2 fuse a position indoors.
+#   * sim  -> no /{name}/pose exists, so mocap_bridge idles (harmless).
 #
 #   ros2 launch svg_ground_control ground_control.launch.py \
-#       config:=<share>/config/goal_tracking.yaml
+#       config:=<share>/config/goal_tracking.yaml use_mocap:=true
 #
-# Three drones, 'goal' scenario. After takeoff + start, retarget each drone
-# independently (the CBF keeps them apart while they cross):
+# REAL prerequisites (NOT in this file), PER DRONE — every drone in
+# drone_names needs ITS OWN full chain in THIS session, or that drone reports
+# "no odometry"/"odometry stale" and won't arm: connected per Part B (own
+# uXRCE agent port -> own MicroXRCEAgent on the ground PC, e.g. 8888/8889/8890),
+# EKF2 params set (B4b.1: EKF2_EV_CTRL=11, EKF2_HGT_REF=3, EKF2_GPS_CTRL=0,
+# EKF2_MAG_TYPE=5, SYS_HAS_MAG=0 + save + reboot), and the interfaces up FOR
+# ALL LISTED DRONES:
+#   ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_1,drone_2,drone_3
+#
+# After takeoff + start, retarget each drone independently (the CBF keeps
+# them apart while they cross):
 #   ros2 topic pub --once /svg/drone_1/goal_command geometry_msgs/msg/PoseStamped \
 #     "{header: {frame_id: map}, pose: {position: {x: 1.5, y: 1.5, z: 1.4}}}"
 #   ros2 topic pub --once /svg/drone_2/speed_command std_msgs/msg/Float32 "{data: 1.0}"
+# ...or send the WHOLE swarm to a named formation profile with one command
+# (profiles defined under "Formation profiles" below):
+#   ros2 topic pub --once /svg/formation_command std_msgs/msg/String "{data: triangle}"
 
 swarm_commander:
   ros__parameters:
@@ -19,24 +41,57 @@ swarm_commander:
     #          never commanded); unlisted = auto (scenario-driven)
     # safety : cbf_exempt_drones  CBF leaves these uncorrected (still obstacles)
     # All comma-separated name STRINGS ("" = none). e.g. fly drone_1 for real +
-    # the rest in sim: drone_modes: "real,sim,sim" (one entry per drone).
-    drone_modes: "sim,sim,sim"
+    # drone_2 in sim: drone_modes: "real,sim" (one entry per drone).
+    drone_modes: "real,real,real"
     teleop_drones: ""
     external_drones: ""
-    cbf_exempt_drones: ""
+    cbf_exempt_drones: "drone_1, drone_2, drone_3"
 
     scenario: "goal"
     scenario_speed_mps: 0.6
     arena_low: [-3.0, -3.0, 0.5]
     arena_high: [3.0, 3.0, 2.5]
-    # 3 sim drones spawn at x = -2, 0, +2 (Isaac formula); offsets match.
-    drone_position_offsets: [-2.0, 0.0, 0.0,
-                              0.0, 0.0, 0.0,
-                              2.0, 0.0, 0.0]
-    # goal scenario: takeoff targets = initial goals (spread out)
-    hover_positions: [-1.5, 0.0, 1.2,
-                       1.5, 0.0, 1.2,
-                       0.0, 1.5, 1.2]
+    # PER-DRONE offset added to that drone's local odometry -> shared world:
+    #   real slot -> 0,0,0  (mocap is ABSOLUTE; all real drones share the origin)
+    #   sim  slot -> its Isaac spawn [2*(i-1)-(N-1), 0, 0] over the N Isaac
+    #                drones (all-sim 2-drone: [-1,0,0, 1,0,0]; hybrid
+    #                "real,sim": [0,0,0, 1,0,0])
+    # All-real (current): zeros. The commander's "offsets are all zero" warning
+    # is EXPECTED and benign for mocap — it only matters if a slot is sim.
+    drone_position_offsets: [0.0, 0.0, 0.0,
+                             0.0, 0.0, 0.0,
+                             0.0, 0.0, 0.0]
+    # goal scenario: takeoff targets = initial goals. One x,y,z row per drone,
+    # separated by > 2*cbf_safety_radius_m (1.1 m). Fit to your capture volume.
+    hover_positions: [0.0, -1.00,  1.2,
+                      -1.0, 1.00, 1.2,
+                      0.0, 3.00, 1.2]
+
+    # ---- Formation profiles: single-command swarm re-targeting ---------
+    # Each profile is a full set of goals, one x,y,z row per drone (world
+    # ENU, drone_names order). Send ALL drones to a profile with ONE command
+    # (any time after start; the CBF keeps them apart while they cross):
+    #   ros2 topic pub --once /svg/formation_command std_msgs/msg/String "{data: line}"
+    # or just keep sending "next" — profiles roll in the order listed below
+    # (wrapping; an explicit name re-anchors the cycle there; "next" is
+    # reserved and cannot be a profile name):
+    #   ros2 topic pub --once /svg/formation_command std_msgs/msg/String "{data: next}"
+    # Edit / add / remove profiles freely: list the names here, then give a
+    # matching formation_<name> array (3 values per drone; keep every pair
+    # > 1.1 m apart = 2*cbf_safety_radius_m, and inside the fence).
+    formation_profiles: "home, line, triangle, diagonal"
+    formation_home:     [ 0.0, -1.0, 1.2,     # = hover_positions: one command
+                         -1.0,  1.0, 1.2,     #   brings everyone back
+                          0.0,  3.0, 1.2]
+    formation_line:     [ 0.0,  -2.0, 1.2,     # abreast along x
+                          0.0,  0.0, 1.2,
+                          0.0,  2.0, 1.2]
+    formation_triangle: [ 0.0,  -2.0, 1.2,
+                          1.5,  0.0, 1.2,
+                          0.0,  2.0, 1.2]
+    formation_diagonal: [-1.5, -2.0, 0.8,     # staggered heights
+                          0.0,  0.0, 1.4,
+                          1.5,  2.0, 2.0]
 
     # Routing is per-drone via drone_modes (sim -> /{name}/interface/*,
     # real -> /{name}/fmu/*). State topic is the same for both.
@@ -45,7 +100,7 @@ swarm_commander:
     control_rate_hz: 20.0
     hover_kp: 1.0
     arrival_threshold_m: 0.15
-    land_speed_mps: 0.3
+    land_speed_mps: 0.5
     land_complete_altitude_m: 0.15
 
     cbf_safety_radius_m: 0.55
@@ -53,5 +108,30 @@ swarm_commander:
     cbf_alpha: 2.5
 
     fence_enabled: true
-    fence_min: [-4.0, -2.0, 0.0]
-    fence_max: [4.0, 2.0, 3.0]
+    fence_min: [-3.0, -6.0, 0.0]
+    fence_max: [5.0, 5.0, 3.0]
+
+# Mocap -> PX4 external-vision bridge (used when launched with use_mocap:=true).
+# REAL: feeds each /{name}/fmu/in/vehicle_visual_odometry so EKF2 fuses a
+# position and the drones can arm (mirrors the proven model_ai_tfpub.cpp).
+# SIM: no /{name}/pose publisher exists, so this node idles (harmless).
+mocap_bridge:
+  ros__parameters:
+    drone_names: ["drone_1", "drone_2", "drone_3"]
+    # Mocap pose topic per drone (natnet_ros2 / Motive bodies named to match
+    # drone_names). Check the exact prefix with `ros2 topic list | grep pose`.
+    mocap_topic_template: "/{name}/pose"
+    # 'direct' (default): px4_msgs/VehicleOdometry straight to PX4 (timestamp 0,
+    # quality 100, velocity NaN — pose only). 'via_interface' hands a
+    # nav_msgs/Odometry to px4_interface instead.
+    px4_vio_mode: "direct"
+    # 'enu_to_ned' if mocap is ROS-standard ENU; 'modalai_flip' (the reference
+    # transform) if it is Motive's raw frame. VERIFY with the B4b hand-check
+    # before flying — a wrong frame flies the drone into a wall. (direct only)
+    px4_vio_frame: "enu_to_ned"
+    vio_quality: 100                                                 # direct only
+    px4_vio_topic_template: "/{name}/fmu/in/vehicle_visual_odometry"  # direct
+    visual_odometry_topic_template: "/{name}/fmu/visual_odometry_in"  # via_interface
+    mocap_frame: "map"
+    velocity_filter_alpha: 0.4                                       # via_interface only
+    mocap_qos_best_effort: false

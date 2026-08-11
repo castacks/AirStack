@@ -76,14 +76,18 @@ swarm_commander:
     fence_max: [4.0, 2.0, 3.0]
 
 # Launch with use_mocap:=true so the REAL holders' PX4 EKFs get mocap as
-# external vision (mocap_bridge: /{name}/pose -> /{name}/fmu/visual_odometry_in).
-# Only the real drones have mocap; the sim intruder (drone_3) has none, so it
-# is omitted here. Set mocap_topic_template to your natnet_ros2 output prefix.
+# external vision (direct mode: /{name}/pose -> /{name}/fmu/in/vehicle_visual_odometry,
+# mirroring the proven model_ai_tfpub.cpp — see B4b). Only the real drones have
+# mocap; the sim intruder (drone_3) has none, so it is omitted here.
 mocap_bridge:
   ros__parameters:
     drone_names: ["drone_1", "drone_2"]
     mocap_topic_template: "/{name}/pose"
-    visual_odometry_topic_template: "/{name}/fmu/visual_odometry_in"
+    px4_vio_mode: "direct"
+    px4_vio_frame: "enu_to_ned"     # B4b hand-check; 'modalai_flip' if mirrored
+    vio_quality: 100
+    px4_vio_topic_template: "/{name}/fmu/in/vehicle_visual_odometry"
+    visual_odometry_topic_template: "/{name}/fmu/visual_odometry_in"  # via_interface only
     mocap_frame: "map"
     velocity_filter_alpha: 0.4
     mocap_qos_best_effort: false

@@ -101,3 +101,73 @@ def test_overlapping_cluster_triggers_emergency_stop() -> None:
     assert result.used_emergency_stop
     assert not result.converged
     assert np.all(np.linalg.norm(result.velocities, axis=-1) <= 1.0 + 1e-6)
+
+
+# ---------------------------------------------------------------------------
+# Fixed (non-adjustable) rows: external / exempt obstacles
+# ---------------------------------------------------------------------------
+
+
+def test_fixed_row_left_untouched_even_above_speed_cap() -> None:
+    """A fixed obstacle keeps its measured velocity — never projected/capped."""
+    positions = np.array([[0.0, 0.0, 1.2], [2.5, 0.0, 1.2]])
+    intruder_velocity = np.array([-2.0, 0.0, 0.0])  # faster than max_speed
+    nominal = np.stack([np.zeros(3), intruder_velocity])
+
+    result = filter_velocities(
+        nominal, positions, safety_radius=1.0, max_speed=1.0,
+        alpha=2.5, fixed=np.array([False, True]),
+    )
+
+    assert np.allclose(result.velocities[1], intruder_velocity)
+
+
+def test_fixed_intruder_velocity_makes_holder_yield_before_contact() -> None:
+    """With the approach velocity in the solve, the holder dodges while the
+    intruder is still OUTSIDE the 2r barrier; velocity-blind it would not."""
+    positions = np.array([[0.0, 0.0, 1.2], [2.5, 0.0, 1.2]])  # d=2.5 > 2r=2.0
+    nominal = np.stack([np.zeros(3), np.array([-2.0, 0.0, 0.0])])
+    fixed = np.array([False, True])
+
+    blind = filter_velocities(
+        np.zeros((2, 3)), positions, safety_radius=1.0, max_speed=1.0, alpha=2.5
+    )
+    aware = filter_velocities(
+        nominal, positions, safety_radius=1.0, max_speed=1.0, alpha=2.5,
+        fixed=fixed,
+    )
+
+    assert np.linalg.norm(blind.velocities[0]) < 1e-9
+    assert aware.velocities[0][0] < -0.1  # dodging away (-x)
+
+
+def test_holder_absorbs_full_correction_for_fixed_pair() -> None:
+    """The pair constraint must hold with the fixed row's velocity UNCHANGED
+    (no phantom evasion assigned to the obstacle)."""
+    positions = np.array([[0.0, 0.0, 1.2], [2.5, 0.0, 1.2]])
+    nominal = np.stack([np.zeros(3), np.array([-2.0, 0.0, 0.0])])
+    alpha, radius = 2.5, 1.0
+
+    result = filter_velocities(
+        nominal, positions, safety_radius=radius, max_speed=1.0, alpha=alpha,
+        fixed=np.array([False, True]),
+    )
+
+    dp = positions[0] - positions[1]
+    h = float(dp @ dp - (2 * radius) ** 2)
+    lhs = float(2 * dp @ (result.velocities[0] - result.velocities[1])
+                + alpha * h)
+    assert lhs > -5e-2
+
+
+def test_all_fixed_rows_pass_through_without_solver_anomaly() -> None:
+    """Nothing movable (even mid-violation) -> nominal passthrough, no wedge."""
+    positions = np.array([[0.0, 0.0, 1.2], [1.0, 0.0, 1.2]])  # inside 2r
+    nominal = np.stack([np.array([0.5, 0.0, 0.0]), np.array([-0.5, 0.0, 0.0])])
+
+    result = filter_velocities(
+        nominal, positions, safety_radius=1.0, max_speed=1.0, alpha=2.5,
+        fixed=np.array([True, True]),
+    )
+
+    assert np.allclose(result.velocities, nominal)

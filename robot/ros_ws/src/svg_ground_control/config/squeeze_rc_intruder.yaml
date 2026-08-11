@@ -1,0 +1,119 @@
+# SVG ground control — SQUEEZE with an RC-FLOWN intruder (all-real hardware).
+#
+# drone_1, drone_2 : REAL holders — commander flies them to the two posts and
+#                    the CBF makes them yield.
+# drone_3          : REAL, EXTERNAL — a human pilot flies it through the gap
+#                    with the RC controller. The commander NEVER arms or
+#                    commands it; it is tracked (via mocap→EKF→odometry) so
+#                    the CBF sees it and the holders dodge it.
+#
+#   ros2 launch svg_ground_control ground_control.launch.py \
+#       config:=<share>/config/squeeze_rc_intruder.yaml use_mocap:=true
+#
+# Mocap goes to ALL THREE drones (mocap_bridge block below): the holders need
+# it to arm/fly offboard, and drone_3's PX4 needs it too so its ONBOARD
+# controller can fuse a position for RC Position mode indoors (B4b params on
+# all three drones!).
+#
+# ALL-REAL prerequisites, PER DRONE (Part B): own uXRCE agent port -> own
+# MicroXRCEAgent; EKF2/mag params (B4b.1) set+saved+rebooted; interfaces up:
+#   ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_1,drone_2,drone_3
+# (drone_3 needs its px4_interface ONLY for state — the commander must see
+# /drone_3/odometry_conversion/odometry or the scenario pauses.)
+#
+# ⚠ SAFETY: the geofence only polices commander-flown (ACTIVE) drones — the
+# EXTERNAL drone_3 never trips it. The RC pilot is drone_3's only safety;
+# a breach BY A HOLDER still freezes the holders.
+
+swarm_commander:
+  ros__parameters:
+    # squeeze requires exactly this ordering: [holder, holder, intruder]
+    drone_names: ["drone_1", "drone_2", "drone_3"]
+    # ---- Per-drone axes ------------------------------------------------
+    # mode   : all REAL (drone_3 is a physical drone too — RC-flown)
+    # role   : drone_3 EXTERNAL — tracked for the CBF, never commanded.
+    #          (external may NOT also be in cbf_exempt_drones — the commander
+    #          rejects that; an uncommanded drone has no command to exempt.)
+    drone_modes: "real,real,real"
+    teleop_drones: ""
+    external_drones: "drone_3"
+    cbf_exempt_drones: ""
+
+    scenario: "squeeze"
+    scenario_speed_mps: 0.5
+    arena_low: [-2.0, -2.0, 0.8]
+    arena_high: [2.0, 2.0, 2.0]
+
+    # All-real, mocap-anchored: every drone reports in the shared mocap
+    # frame -> all offsets ZERO.
+    drone_position_offsets: [0.0, 0.0, 0.0,
+                             0.0, 0.0, 0.0,
+                             0.0, 0.0, 0.0]
+
+    # The two holders' posts: flat [x1,y1,z1,  x2,y2,z2] (ENU, m). Must be
+    # > 2*cbf_safety_radius_m apart; fit to your capture volume.
+    squeeze_holder_positions: [ 1.5, 0.5, 1.4,
+                                 1.5, -1.5, 1.4]
+    # Required by the squeeze scenario but IGNORED here: drone_3 is external,
+    # so its scenario policy is never commanded — the RC pilot is the policy.
+    squeeze_intruder_waypoints: [ 0.5, -0.5, 1.4,
+                                 2.5, -0.5, 1.4]
+    # Irrelevant for an external intruder (nothing to exempt); keep false.
+    squeeze_intruder_cbf_exempt: false
+
+    hover_positions: [0.0, 0.0, 1.2, 0.0, 0.0, 1.2, 0.0, 0.0, 1.2]  # unused by squeeze
+
+    # Routing is per-drone via drone_modes (real -> /{name}/fmu/*). State
+    # topic is the same for every drone; drone_3 contributes state only.
+    state_topic_template: "/{name}/odometry_conversion/odometry"
+
+    control_rate_hz: 20.0
+    state_timeout_s: 0.5
+
+    hover_kp: 1.0
+    arrival_threshold_m: 0.15
+    land_speed_mps: 0.7
+    land_complete_altitude_m: 0.15
+
+    # ---- CBF reactivity ("aggressiveness") knobs -----------------------
+    # The filter sees the RC intruder's MEASURED velocity (EKF2 estimate,
+    # fed as a fixed row), so the holders yield BEFORE it reaches the
+    # barrier. With the intruder approaching at s m/s, yielding starts
+    # where  alpha*(d^2 - (2r)^2) = 2*d*s*gain  (d = center distance).
+    cbf_safety_radius_m: 0.7    # bubble size. CAREFUL: posts are 2.2 m
+                                 # apart -> r > 1.1 makes the two holders'
+                                 # own posts mutually infeasible.
+    cbf_max_speed_mps: 2.0       # how FAST holders may dodge (2.0 is quick
+                                 # for indoors — verify in the C3 rehearsal)
+    cbf_alpha: 2.5               # earliness: LOWER = yield earlier and
+                                 # gentler (alpha 1.0 & s=1 m/s -> starts
+                                 # ~3.2 m out; 2.5 -> ~2.4 m out). Higher =
+                                 # later but harder.
+    # Gain on the intruder's measured velocity as seen by the CBF. > 1.0
+    # pretends it flies faster than it does -> holders react earlier and
+    # dodge harder. The single easiest "more reactive" knob (try 1.5-2.0).
+    cbf_external_velocity_gain: 1.0
+
+    # Geofence: freezes the HOLDERS if a holder leaves the box. It does NOT
+    # police the external drone_3 (see safety note above). Fit to your volume.
+    fence_enabled: true
+    fence_min: [-2.0, -6.0, 0.0]
+    fence_max: [5.0, 5.0, 3.0]
+
+# Mocap -> PX4 external vision for ALL THREE drones (direct mode, mirrors the
+# proven model_ai_tfpub.cpp). Holders need it to fly offboard; drone_3 needs
+# it so its PX4 can hold RC Position mode indoors.
+mocap_bridge:
+  ros__parameters:
+    drone_names: ["drone_1", "drone_2", "drone_3"]
+    mocap_topic_template: "/{name}/pose"
+    px4_vio_mode: "direct"
+    # 'enu_to_ned' if mocap is ROS-standard ENU; 'modalai_flip' if Motive raw.
+    # VERIFY with the B4b hand-check on EACH drone before flying.
+    px4_vio_frame: "enu_to_ned"
+    vio_quality: 100
+    px4_vio_topic_template: "/{name}/fmu/in/vehicle_visual_odometry"
+    visual_odometry_topic_template: "/{name}/fmu/visual_odometry_in"  # via_interface only
+    mocap_frame: "map"
+    velocity_filter_alpha: 0.4
+    mocap_qos_best_effort: false
