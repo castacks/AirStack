@@ -106,3 +106,12 @@ gcs/.DS_Store
 # manifest.yaml is committed; `scene_gen/prepare_assets.py` rebuilds it from the asset sets.
 scene_gen/assets/objaverse/*
 !scene_gen/assets/objaverse/manifest.yaml
+
+# NVIDIA AEC demo packs (Brownstone / City Tower): vendor content, gigabytes,
+# re-extractable from the downloaded zips. See scene_gen/assets/aec/README.md.
+scene_gen/assets/aec/*
+!scene_gen/assets/aec/README.md
+
+# Layout plan PNGs and the asset manifest — generated, not source.
+scene_gen/_plans/
+scene_gen/_scene_assets.tsv

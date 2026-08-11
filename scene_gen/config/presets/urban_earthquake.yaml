@@ -1,0 +1,23 @@
+# HIGH-LEVEL scene spec — a dense downtown after a major earthquake.
+#
+# `locale: downtown` is what makes this urban: blocks paved wall-to-wall,
+# mid-rise buildings at the sidewalk with no setback, dense street furniture
+# and signals. It also selects the `urban` asset set, which is entirely
+# Nucleus — no prepare_assets.py step needed.
+#
+# Ground shaking: structures fail in place. Buildings pancake, lean and sink;
+# rubble drops at the facades rather than flying. Attenuates radially from the
+# epicenter across the whole city.
+
+locale: downtown      # downtown | suburban | rural — how the place is laid out
+
+disaster-type: earthquake
+severity: 0.6         # 0..1 — 0.5-0.6 reproduces the hand-tuned original
+
+# seed: 42             # city layout + disaster RNG
+# region_m: [400, 400] # city extent
+# epicenter: [0, 0]    # default — region center
+# overrides:           # raw low-level settings, deep-merged last
+#   exclusions:        # widen the clear circle at the origin
+#     - center: [0.0, 0.0]
+#       radius: 20.0
