@@ -1,3 +1,4 @@
+import shlex
 from pathlib import Path
 
 import pytest
@@ -69,9 +70,11 @@ class TestColconBuilds:
             )
             assert build.returncode == 0, f"colcon build (with testing) failed:\n{read_log_tail()}"
 
+            # shlex.quote the whole command so embedded --pytest-args quotes
+            # (e.g. 'not linter') are not eaten by the outer bash -ic quotes.
             test = docker_exec(
                 container,
-                f"bash -ic '{colcon_test_robot_command('robot')}'",
+                f"bash -ic {shlex.quote(colcon_test_robot_command('robot'))}",
                 timeout=300,
             )
             assert test.returncode == 0, (
