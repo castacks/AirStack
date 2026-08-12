@@ -468,23 +468,136 @@ def _raise(shader, name, w):
 # ---------------------------------------------------------------------------
 
 
+# How a building fails in an earthquake — the real modes, not one recipe.
+#
+# A single lean+pancake+crumble applied to every building makes a street of
+# identical casualties. Real post-quake blocks are mixed: most buildings are
+# standing with cracked facades, some have lost a storey, a few are down
+# entirely, and which one you get is mostly a function of intensity.
+#
+# Weights are (base, per-intensity slope) and are renormalised, so at low
+# severity the street is mostly racked and spalled and at high severity the
+# collapse modes dominate. Nothing here needs a new operator — the modes differ
+# in WHICH storey fails, how many, and how hard the surface is worked.
+_QUAKE_MODES = {
+    # tilts and stands. The common outcome, and the one that was missing:
+    # previously every building lost a storey.
+    "racking":    (0.45, -0.40),
+    # facade shatters, structure holds. Heavy surface work, no collapse.
+    "spall":      (0.30, -0.20),
+    # ground floor goes, upper storeys ride down intact. The classic.
+    "soft_story": (0.10, +0.25),
+    # a middle floor fails instead — reads differently from the street.
+    "mid_story":  (0.08, +0.18),
+    # several bands crush; the building squats.
+    "total":      (-0.05, +0.30),
+    # one side drops and the rest leans into it.
+    "partial":    (0.07, +0.17),
+}
+
+
+def _pick_quake_mode(intensity: float, rng) -> str:
+    w = {k: max(0.0, base + slope * intensity)
+         for k, (base, slope) in _QUAKE_MODES.items()}
+    total = sum(w.values()) or 1.0
+    r = float(rng.random()) * total
+    for name, weight in w.items():
+        r -= weight
+        if r <= 0.0:
+            return name
+    return "racking"
+
+
 def structural_collapse(prims, intensity: float, seed: int = 0,
-                        story_bias: str = "soft_story") -> None:
-    """Fails in place: racks, pancakes a storey, spalls. Serves earthquake."""
+                        story_bias: str = None, mode: str = None) -> None:
+    """Fails in place — but not the same way twice. Serves earthquake.
+
+    Picks a failure mode (see `_QUAKE_MODES`) rather than always racking,
+    pancaking one storey and spalling lightly. *mode* forces one, which is
+    what the tests use.
+    """
     b = bounds_of(prims)
     if b is None:
         return
     rng = np.random.default_rng(seed)
-    lean(prims, b, angle_deg=2.0 + 9.0 * intensity,
-         direction_deg=float(rng.uniform(0, 360)), profile=story_bias)
-    b = bounds_of(prims) or b            # re-measure: lean moved the geometry
-    lo = float(rng.uniform(0.0, 0.45))
-    pancake(prims, b, z_lo=lo, z_hi=lo + 0.18,
-            collapse=0.25 + 0.6 * intensity, spread=0.10 + 0.10 * intensity,
-            seed=seed)
-    b = bounds_of(prims) or b
-    crumble(prims, b, amount=0.004 + 0.016 * intensity, seed=seed,
-            height_bias=-0.6)            # shaking damages the base
+    mode = mode or _pick_quake_mode(intensity, rng)
+    direction = float(rng.uniform(0, 360))
+
+    # Surface damage is the part that reads as "earthquake" at any distance,
+    # and it was far too subtle — 0.4-2% of radius. Every mode now works the
+    # surface harder, and `spall` makes it the whole story.
+    spall_amount = 0.010 + 0.030 * intensity
+    lean_deg = 1.5 + 6.0 * intensity
+
+    if mode == "racking":
+        # Drifted off vertical and stayed up. Soft-storey drift concentrates
+        # the lean at the base, which is what a weak ground floor does.
+        lean(prims, b, angle_deg=lean_deg * 1.4, direction_deg=direction,
+             profile="soft_story" if rng.random() < 0.5 else "linear")
+        b = bounds_of(prims) or b
+        crumble(prims, b, amount=spall_amount * 0.8, seed=seed,
+                height_bias=-0.4, freq=7.0)
+
+    elif mode == "spall":
+        # Structure holds; the cladding does not. Two octaves of surface work
+        # at different frequencies so it reads as broken material rather than
+        # as noise.
+        lean(prims, b, angle_deg=lean_deg * 0.3, direction_deg=direction)
+        b = bounds_of(prims) or b
+        crumble(prims, b, amount=spall_amount * 1.6, seed=seed,
+                height_bias=-0.3, freq=5.0)
+        crumble(prims, b, amount=spall_amount * 0.7, seed=seed + 401,
+                height_bias=0.2, freq=13.0)
+
+    elif mode == "soft_story":
+        lean(prims, b, angle_deg=lean_deg, direction_deg=direction,
+             profile="soft_story")
+        b = bounds_of(prims) or b
+        pancake(prims, b, z_lo=0.0, z_hi=0.16,
+                collapse=0.55 + 0.35 * intensity,
+                spread=0.14 + 0.14 * intensity, seed=seed)
+        b = bounds_of(prims) or b
+        crumble(prims, b, amount=spall_amount, seed=seed, height_bias=-0.5)
+
+    elif mode == "mid_story":
+        lo = float(rng.uniform(0.30, 0.60))
+        lean(prims, b, angle_deg=lean_deg * 0.8, direction_deg=direction,
+             profile="linear")
+        b = bounds_of(prims) or b
+        pancake(prims, b, z_lo=lo, z_hi=lo + 0.15,
+                collapse=0.5 + 0.4 * intensity,
+                spread=0.16 + 0.14 * intensity, seed=seed)
+        b = bounds_of(prims) or b
+        crumble(prims, b, amount=spall_amount, seed=seed, height_bias=0.2)
+
+    elif mode == "total":
+        # Several bands crush in sequence, each re-measured, so the building
+        # squats rather than telescoping through itself.
+        for i in range(3):
+            b = bounds_of(prims) or b
+            lo = 0.05 + 0.30 * i
+            pancake(prims, b, z_lo=lo, z_hi=lo + 0.22,
+                    collapse=0.45 + 0.35 * intensity,
+                    spread=0.18 + 0.16 * intensity, seed=seed + i * 97)
+        b = bounds_of(prims) or b
+        lean(prims, b, angle_deg=lean_deg * 1.6, direction_deg=direction,
+             profile="linear")
+        b = bounds_of(prims) or b
+        crumble(prims, b, amount=spall_amount * 1.5, seed=seed, height_bias=0.0)
+
+    else:   # "partial" — one side drops, the rest leans into the gap
+        lo = float(rng.uniform(0.0, 0.35))
+        pancake(prims, b, z_lo=lo, z_hi=lo + 0.20,
+                collapse=0.4 + 0.4 * intensity,
+                spread=0.24 + 0.20 * intensity, seed=seed)
+        b = bounds_of(prims) or b
+        # A large whip-profile lean after the collapse throws the standing part
+        # over the failed side, which is what reads as a partial collapse.
+        lean(prims, b, angle_deg=lean_deg * 2.2, direction_deg=direction,
+             profile="whip")
+        b = bounds_of(prims) or b
+        crumble(prims, b, amount=spall_amount * 1.3, seed=seed,
+                height_bias=0.4)
 
 
 def blast(prims, intensity: float, seed: int = 0, epicenter=None) -> None:

@@ -7,6 +7,17 @@ repo root on both the host and inside the sim container.
 
 ## Re-extracting
 
+> **`Materials/` is not optional.** The building USDs bind their MDL materials
+> by relative path — `../../Materials/Base/Masonry/Concrete_Block.mdl` and
+> eighteen more — so a pack extracted without it loads the geometry and none of
+> the surfacing. In Isaac the brownstones then render as untextured flat
+> colour. Verify after extracting:
+>
+> ```bash
+> ls scene_gen/assets/aec/brownstone/     # must list Materials/ alongside Assets/
+> ```
+
+
 From the NVIDIA AEC demo packs (free to use, downloaded separately):
 
 ```bash
@@ -15,9 +26,10 @@ unzip -q -o "AECDemo_NVD@10012.zip" \
   'Demos/AEC/BrownstoneDemo/Props/*' \
   'Demos/AEC/BrownstoneDemo/Options/*' \
   'Demos/AEC/BrownstoneDemo/Assets/*' \
+  'Demos/AEC/BrownstoneDemo/Materials/*' \
   -d /tmp/aec_stage
 mkdir -p <repo>/scene_gen/assets/aec/brownstone
-mv /tmp/aec_stage/Demos/AEC/BrownstoneDemo/{Props,Options,Assets} \
+mv /tmp/aec_stage/Demos/AEC/BrownstoneDemo/{Props,Options,Assets,Materials} \
    <repo>/scene_gen/assets/aec/brownstone/
 ```
 

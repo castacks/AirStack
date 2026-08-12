@@ -164,6 +164,11 @@ def main() -> int:
     rel = ", ".join(os.path.relpath(f, _SCENE_GEN_DIR) for f in files)
     print(f"[prepare_assets] {scope} -> {rel}")
 
+    # Repo-local packs are extracted by hand, so a half-extracted one is easy
+    # to end up with and produces no error — the geometry silently does not
+    # load. Report it here, where someone is already checking their assets.
+    _report_missing_local(files)
+
     if not wanted:
         print("[prepare_assets] no Objaverse assets referenced — nothing to do.")
         return 0
@@ -204,6 +209,41 @@ def main() -> int:
         return 1
     print("[prepare_assets] Ready — `airstack up` will use the cache.")
     return 0
+
+
+
+
+def _report_missing_local(files) -> int:
+    """Warn about `airstack://` paths that are not on disk.
+
+    Objaverse assets are cached by this script; the AEC packs are not — they
+    are vendor content unzipped by hand (`assets/aec/README.md`). A pack that
+    is missing, or extracted without its `Materials/`, shows up as buildings
+    with no surfacing and parks with no trees, and nothing anywhere says so.
+    """
+    import yaml
+
+    import scene_generator as sg
+
+    missing = set()
+    for f in files:
+        try:
+            with open(f) as fh:
+                cfg = yaml.safe_load(fh) or {}
+        except Exception:
+            continue
+        missing.update(sg.missing_local_assets(cfg))
+    if not missing:
+        return 0
+    packs = sorted({m.split("/")[3] for m in missing
+                    if m.startswith("scene_gen/assets/aec/")})
+    print(f"[prepare_assets] WARNING: {len(missing)} local asset(s) missing"
+          + (f" — AEC pack(s) not extracted: {', '.join(packs)}" if packs else ""))
+    for m in sorted(missing)[:8]:
+        print(f"[prepare_assets]   {m}")
+    print("[prepare_assets]   see scene_gen/assets/aec/README.md to extract "
+          "(Materials/ included — the USDs bind their MDL by relative path)")
+    return len(missing)
 
 
 if __name__ == "__main__":

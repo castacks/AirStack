@@ -460,6 +460,52 @@ def _expand_scheme(path: str):
     return os.path.join(LOCAL_ASSET_ROOTS[scheme], rest)
 
 
+def missing_local_assets(config: dict) -> list:
+    """`airstack://` paths the config references that are not on disk.
+
+    The sibling of `missing_objaverse_assets`, for the repo-local packs. Those
+    are vendor content extracted by hand (see `assets/aec/README.md`), so a
+    half-extracted pack is easy to end up with and produces no error at all —
+    the geometry silently does not load, or loads without its materials.
+
+    Two real instances, both reported as generator bugs and neither one:
+      * the brownstone pack extracted without `Materials/`, so nineteen of its
+        twenty MDL bindings dangled and the buildings rendered untextured;
+      * the `tower` pack not extracted at all, which is where the park
+        vegetation lives — so the parks came out sparse.
+    """
+    import os
+
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    seen, missing = set(), []
+    scale = float(config.get("asset_scale", 1.0))
+    asset_root = str(config.get("asset_root", "") or "")
+
+    def walk(node):
+        if isinstance(node, dict):
+            for v in node.values():
+                walk(v)
+        elif isinstance(node, list):
+            for entry in node:
+                if isinstance(entry, dict) and "usd" in entry:
+                    _check(str(entry["usd"]))
+                elif isinstance(entry, str):
+                    _check(entry)
+                elif isinstance(entry, (dict, list)):
+                    walk(entry)
+
+    def _check(usd):
+        if not usd.startswith("airstack://") or usd in seen:
+            return
+        seen.add(usd)
+        rel = usd[len("airstack://"):]
+        if not os.path.exists(os.path.join(root, rel)):
+            missing.append(rel)
+
+    walk(config.get("usds") or {})
+    return sorted(missing)
+
+
 def missing_objaverse_assets(config: dict) -> list:
     """Objaverse uids the config references that aren't in the local cache.
 

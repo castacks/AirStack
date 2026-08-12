@@ -204,3 +204,50 @@ def test_deinstance_opens_nested_instances():
     pts = M.get_points(prims[0])
     M.set_points(prims[0], pts + 1.0)          # would raise on a proxy
     assert np.abs(M.get_points(prims[0]) - (pts + 1.0)).max() < 1e-5
+
+
+def test_earthquake_uses_more_than_one_failure_mode():
+    """A quake-hit street is mixed, not a row of identical casualties.
+
+    `structural_collapse` used to be one recipe — rack, pancake one storey,
+    spall lightly — so every building failed the same way. It now picks among
+    six modes, and which one is mostly a function of intensity.
+    """
+    modes = {M._pick_quake_mode(0.6, np.random.default_rng(i))
+             for i in range(200)}
+    assert len(modes) >= 4, f"only saw {modes}"
+
+
+def test_severity_shifts_the_failure_mix_toward_collapse():
+    """Low severity leaves buildings standing; high severity brings them down."""
+    def share(intensity, wanted):
+        picks = [M._pick_quake_mode(intensity, np.random.default_rng(i))
+                 for i in range(400)]
+        return sum(1 for p in picks if p in wanted) / len(picks)
+
+    standing = {"racking", "spall"}
+    collapsed = {"soft_story", "mid_story", "total", "partial"}
+    assert share(0.2, standing) > share(0.9, standing)
+    assert share(0.9, collapsed) > share(0.2, collapsed)
+    assert share(0.9, collapsed) > 0.7
+
+
+@pytest.mark.parametrize("mode,collapses", [
+    ("racking", False), ("spall", False),
+    ("soft_story", True), ("mid_story", True),
+    ("total", True), ("partial", True),
+])
+def test_failure_modes_differ_in_kind(mode, collapses):
+    """The standing modes keep their height; the collapse modes lose it.
+
+    Guards the distinction that makes the mix worth having — if every mode
+    squashed the building, picking between them would be decoration.
+    """
+    prims = box(scale=10.0, n=6)
+    b0 = M.bounds_of(prims)
+    M.structural_collapse(prims, 0.8, seed=5, mode=mode)
+    lost = b0.height - M.bounds_of(prims).height
+    if collapses:
+        assert lost > 0.05 * b0.height, f"{mode} kept its height"
+    else:
+        assert lost < 0.05 * b0.height, f"{mode} collapsed but should stand"
