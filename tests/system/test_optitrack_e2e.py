@@ -31,12 +31,28 @@ from conftest import (  # noqa: E402 — pytest adds tests/ to sys.path
     wait_for_container,
     wait_for_first_message,
 )
+from system.test_fixed_trajectory import (
+    TARGET_ALTITUDE_M,
+    _landing_one_robot,
+    _run_parallel,
+    _takeoff_one_robot,
+    _trajectory_one_robot,
+)
 
 pytestmark = pytest.mark.optitrack
 
 # Single-drone NatNet Isaac stack: the natnet Pegasus script spawns the emulator
 # alongside PX4, and LAUNCH_NATNET=true brings up natnet_ros2 + the vision_pose /
 # gp_origin / param bridges on the robot.
+#
+# The PX4_EV_* entries switch PX4 SITL's EKF2 to mocap external vision and turn GPS,
+# baro and range aiding OFF, so the OptiTrack stream is the vehicle's ONLY position
+# source. They map to PX4_PARAM_* env vars in simulation/isaac-sim/docker/docker-compose.yaml
+# (PX4's rcS applies those at boot) and mirror the deployment-validated set in
+# robot/ros_ws/src/perception/natnet_ros2/config/px4_params.yaml.
+#
+# Without them EKF2_EV_CTRL is 0, PX4 silently discards the vision and flies on sim GPS —
+# which is what made the previous version of this module's fusion check vacuous.
 _E2E_ENV = {
     "NUM_ROBOTS": "1",
     "COMPOSE_PROFILES": "desktop,isaac-sim",
@@ -45,9 +61,26 @@ _E2E_ENV = {
     "ISAAC_SIM_SCRIPT_NAME": "example_one_px4_pegasus_natnet_launch_script.py",
     "PLAY_SIM_ON_START": "true",
     "LAUNCH_NATNET": "true",
+    # EKF2 external-vision (mocap) configuration — see comment above.
+    "PX4_EV_CTRL": "11",          # fuse vision horizontal pos + vertical pos + yaw
+    "PX4_EV_HGT_REF": "3",        # vision is the height reference
+    "PX4_EV_GPS_CTRL": "0",       # no GPS fusion
+    "PX4_EV_MAG_TYPE": "5",       # mag off; yaw comes from vision
+    "PX4_EV_BARO_CTRL": "0",      # no baro fusion
+    "PX4_EV_SYS_HAS_BARO": "0",   # remove baro at the system level (height datum)
+    "PX4_EV_RNG_CTRL": "0",       # no range-finder aiding
+    "PX4_EV_DELAY": "7.0",
+    "PX4_EV_NOISE_MD": "1",
+    "PX4_EV_EVP_NOISE": "0.05",
+    "PX4_EV_EVA_NOISE": "0.05",
     # Headless: no X on the CI runner.
     "QT_QPA_PLATFORM": "offscreen",
 }
+
+# The trajectory flown to prove fusion. Circle is the enforced PR gate: sustained lateral
+# motion is where a wrong EV delay or a too-tight innovation gate actually shows up, which
+# a stationary hover would never reveal.
+_E2E_TRAJECTORY = "Circle"
 
 _ROBOT_PATTERN = "robot.*desktop"
 _ROBOT_SETUP_BASH = "/root/AirStack/robot/ros_ws/install/setup.bash"
@@ -59,6 +92,10 @@ _NATNET_MIN_HZ = 5.0
 _PX4_LOCAL_POSE_TOPIC = "interface/mavros/local_position/pose"
 # Cold Isaac boot: Pegasus load + Play + emulator UDP connect.
 _FIRST_MSG_TIMEOUT = 180
+
+# The flight helpers imported from test_fixed_trajectory take an `airstack_env`-style cfg;
+# `robot_setup_bash` is the only key any of them reads.
+_TRAJ_CFG = {"robot_setup_bash": _ROBOT_SETUP_BASH}
 
 
 @pytest.fixture(scope="module")
@@ -119,9 +156,15 @@ class TestOptitrackE2E:
         assert hz is not None and hz >= _NATNET_MIN_HZ, \
             f"{topic} at {hz} Hz (< {_NATNET_MIN_HZ})"
 
-    @pytest.mark.dependency(depends=["natnet_pose"])
+    @pytest.mark.dependency(name="ev_ready", depends=["natnet_pose"])
     def test_px4_fuses_vision(self, optitrack_sim_stack):
-        """PX4 EKF2 fuses the external vision: local_position/pose streams."""
+        """PX4 publishes a fused local position, so it is ready to be commanded.
+
+        This only establishes that an estimate EXISTS — it is deliberately not the proof
+        that vision is being fused, because local_position/pose publishes off any aiding
+        source. The flight below is the proof: with GPS, baro and range aiding disabled in
+        _E2E_ENV, mocap is the only thing that can produce this estimate at all.
+        """
         container = _robot_container(optitrack_sim_stack)
         topic = f"/robot_{_ROBOT_DOMAIN}/{_PX4_LOCAL_POSE_TOPIC}"
 
@@ -130,6 +173,36 @@ class TestOptitrackE2E:
             setup_bash=_ROBOT_SETUP_BASH, timeout=_FIRST_MSG_TIMEOUT,
         )
         assert first is not None, (
-            f"no PX4 local_position on {topic} within {_FIRST_MSG_TIMEOUT}s "
-            "(EKF2 not fusing external vision)"
+            f"no PX4 local_position on {topic} within {_FIRST_MSG_TIMEOUT}s — "
+            "EKF2 has no valid position estimate. With GPS/baro/range aiding off, that "
+            "means the external-vision path never reached it."
         )
+
+    @pytest.mark.dependency(name="ev_takeoff", depends=["ev_ready"])
+    @pytest.mark.timeout(2400)
+    def test_takeoff(self, optitrack_sim_stack):
+        """Take off to TARGET_ALTITUDE_M flying on the mocap-fused estimate."""
+        container = _robot_container(optitrack_sim_stack)
+        _run_parallel(1, lambda n: _takeoff_one_robot(
+            n, container, _TRAJ_CFG, TARGET_ALTITUDE_M))
+
+    @pytest.mark.dependency(name="ev_circle", depends=["ev_takeoff"])
+    @pytest.mark.timeout(2400)
+    def test_circle_trajectory(self, optitrack_sim_stack):
+        """Fly a Circle with mocap as the only position source.
+
+        This is the end-to-end proof: emulator → natnet_ros2 → vision_pose → MAVROS →
+        EKF2 → controller → airframe. Cross-track error is scored by the same code the
+        autonomy benchmark uses, so a mocap regression shows up as path deviation rather
+        than as a topic that merely exists.
+        """
+        container = _robot_container(optitrack_sim_stack)
+        _run_parallel(1, lambda n: _trajectory_one_robot(
+            n, container, _TRAJ_CFG, _E2E_TRAJECTORY))
+
+    @pytest.mark.dependency(name="ev_land", depends=["ev_takeoff"])
+    @pytest.mark.timeout(2400)
+    def test_landing(self, optitrack_sim_stack):
+        """Land the drone; runs even when the trajectory phase fails."""
+        container = _robot_container(optitrack_sim_stack)
+        _run_parallel(1, lambda n: _landing_one_robot(n, container, _TRAJ_CFG))
