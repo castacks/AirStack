@@ -5,7 +5,7 @@ import pytest
 
 from conftest import (AIRSTACK_ROOT, airstack_cmd, colcon_test_robot_command,
                       docker_exec, load_colcon_unit_test_config, logger,
-                      read_log_tail, wait_for_container)
+                      pytest_addopts_env, read_log_tail, wait_for_container)
 
 
 def _warn_if_prebuilt(*ws_paths):
@@ -53,7 +53,7 @@ class TestColconBuilds:
         Package list and pytest args come from tests/colcon_unit_test_packages.yaml.
         Workspace-wide ament linter tests are not gated here.
         """
-        packages, _ = load_colcon_unit_test_config("robot")
+        packages, pytest_args = load_colcon_unit_test_config("robot")
         try:
             result = airstack_cmd("up", "robot-desktop",
                                   env_overrides={"AUTOLAUNCH": "false", "DISPLAY": ""},
@@ -70,12 +70,15 @@ class TestColconBuilds:
             )
             assert build.returncode == 0, f"colcon build (with testing) failed:\n{read_log_tail()}"
 
-            # shlex.quote the whole command so embedded --pytest-args quotes
-            # (e.g. 'not linter') are not eaten by the outer bash -ic quotes.
+            # PYTEST_ADDOPTS via docker exec -e: colcon --pytest-args cannot
+            # carry both -m and -p (last group wins), and bash -ic quoting
+            # eats tokens like 'not linter'.
             test = docker_exec(
                 container,
                 f"bash -ic {shlex.quote(colcon_test_robot_command('robot'))}",
                 timeout=300,
+                env={"PYTEST_ADDOPTS": pytest_addopts_env(pytest_args)}
+                if pytest_args else None,
             )
             assert test.returncode == 0, (
                 f"colcon test failed (packages: {', '.join(packages)}):\n{read_log_tail()}"

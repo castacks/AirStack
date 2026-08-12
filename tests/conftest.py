@@ -83,18 +83,24 @@ def load_colcon_unit_test_config(workspace="robot"):
 
 
 def colcon_test_robot_command(workspace="robot"):
-    """Shell command for colcon test over unit-test packages (robot workspace)."""
-    packages, pytest_args = load_colcon_unit_test_config(workspace)
+    """Shell command for colcon test over unit-test packages (robot workspace).
+
+    Pytest flags from the YAML are *not* put on this command. colcon's
+    ``--pytest-args`` is a single nargs='*' option (last occurrence wins),
+    and nesting those tokens through ``bash -ic`` also breaks quoting.
+    Pass them as ``PYTEST_ADDOPTS`` via ``docker_exec(..., env=...)``.
+    """
+    packages, _ = load_colcon_unit_test_config(workspace)
     pkg_list = " ".join(packages)
-    cmd = (
+    return (
         f"colcon test --packages-select {pkg_list} "
         "--event-handlers console_direct+ --return-code-on-test-failure"
     )
-    if pytest_args:
-        # One --pytest-args per token so flags like -p are not swallowed into
-        # the -m expression (colcon forwards a single quoted blob as one argv).
-        cmd += "".join(f" --pytest-args {shlex.quote(a)}" for a in pytest_args)
-    return cmd
+
+
+def pytest_addopts_env(pytest_args):
+    """Build a PYTEST_ADDOPTS value that pytest will shlex-split back to tokens."""
+    return " ".join(shlex.quote(a) for a in pytest_args)
 # Unit tests live co-located with their ROS 2 packages in robot/ros_ws/src/.
 # Thin proxy files under tests/robot/ re-export those tests so that
 # `pytest tests/` and `airstack test -m unit` discover them without any
@@ -355,8 +361,13 @@ def _run_teed(cmd_list, timeout, log_name=None, env=None, cwd=None):
     return result
 
 
-def docker_exec(container, cmd, timeout=60, log_name=None):
-    full_cmd = ["docker", "exec", container, "bash", "-c", cmd]
+def docker_exec(container, cmd, timeout=60, log_name=None, env=None):
+    """Run ``cmd`` in ``container``. ``env`` is passed as ``docker exec -e``."""
+    full_cmd = ["docker", "exec"]
+    if env:
+        for key, value in env.items():
+            full_cmd.extend(["-e", f"{key}={value}"])
+    full_cmd.extend([container, "bash", "-c", cmd])
     return _run_teed(full_cmd, timeout=timeout, log_name=log_name)
 
 
