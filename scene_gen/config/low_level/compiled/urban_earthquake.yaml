@@ -9,7 +9,7 @@
 # severity      : 0.6
 # spec          : scene_gen/config/presets/urban_earthquake.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-11 23:44:20
+# compiled      : 2026-08-12 16:06:21
 
 seed: 42
 exclusions:
@@ -264,6 +264,15 @@ layout:
         - 135.0
         - 190.0
 disaster:
+  mesh_damage:
+    fracture:
+      enabled: true
+      cells:
+      - 18
+      - 55
+      throw: 0.06
+      keep_base: 0.35
+      max_buildings: 40
   damaged_fraction: 0.23
   destroyed_fraction: 0.338
   debris:

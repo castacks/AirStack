@@ -52,6 +52,43 @@ def box(scale=1.0, translate=(0.0, 0.0, 0.0), rot_z=0.0, n=4):
     return M.mesh_prims(xf.GetPrim())
 
 
+
+def solid_box(scale=1.0, n=6):
+    """A properly-faced box — six subdivided sides, real topology.
+
+    `box()` above is a point lattice with a single placeholder face, which is
+    all the deformation operators need (they only touch `points`). Fracture
+    needs faces, so it needs this.
+    """
+    st = Usd.Stage.CreateInMemory()
+    _STAGES.append(st)
+    xf = UsdGeom.Xform.Define(st, "/B")
+    UsdGeom.XformCommonAPI(xf).SetScale(Gf.Vec3f(scale, scale, scale))
+    mesh = UsdGeom.Mesh.Define(st, "/B/Mesh")
+
+    verts, faces = [], []
+    def grid(fn):
+        base = len(verts)
+        for i in range(n):
+            for j in range(n):
+                verts.append(fn(i / (n - 1), j / (n - 1)))
+        for i in range(n - 1):
+            for j in range(n - 1):
+                a = base + i * n + j
+                faces.append([a, a + 1, a + n + 1, a + n])
+    grid(lambda u, v: Gf.Vec3f(u - 0.5, v - 0.5, 0.0))
+    grid(lambda u, v: Gf.Vec3f(u - 0.5, v - 0.5, 1.0))
+    grid(lambda u, v: Gf.Vec3f(u - 0.5, -0.5, v))
+    grid(lambda u, v: Gf.Vec3f(u - 0.5, 0.5, v))
+    grid(lambda u, v: Gf.Vec3f(-0.5, u - 0.5, v))
+    grid(lambda u, v: Gf.Vec3f(0.5, u - 0.5, v))
+
+    mesh.GetPointsAttr().Set(verts)
+    mesh.GetFaceVertexCountsAttr().Set([4] * len(faces))
+    mesh.GetFaceVertexIndicesAttr().Set([i for f in faces for i in f])
+    return M.mesh_prims(xf.GetPrim())
+
+
 def test_world_round_trip_under_a_transform():
     """Read world points, write them back unchanged, get the same geometry.
 
@@ -251,3 +288,79 @@ def test_failure_modes_differ_in_kind(mode, collapses):
         assert lost > 0.05 * b0.height, f"{mode} kept its height"
     else:
         assert lost < 0.05 * b0.height, f"{mode} collapsed but should stand"
+
+
+def test_fracture_divides_the_shell_not_the_air():
+    """Seeds come off the surface, so no one fragment holds the building.
+
+    A building is a thin shell inside a mostly-empty bounding box. Seeding the
+    box uniformly — which is what the Blender prototype does — puts most seeds
+    in interior air and leaves one enormous cell with the bulk of the geometry:
+    measured on a real brownstone, 31k of 61k triangles in a single fragment,
+    i.e. not shattered at all. Surface seeding took that to 7-9%.
+    """
+    prims = solid_box(scale=10.0)
+    b = M.bounds_of(prims)
+    frags = M.fracture(prims, b, n_cells=24, seed=3)
+    assert len(frags) >= 10
+    sizes = sorted(len(f) for _, f in frags)
+    assert sizes[-1] < 0.35 * sum(sizes), "one fragment holds most of the mesh"
+
+
+def test_fracture_covers_the_source():
+    """Cells partition the geometry — nothing is lost and nothing invented."""
+    prims = solid_box(scale=10.0)
+    b = M.bounds_of(prims)
+    v0, f0 = M._mesh_soup(prims)
+    frags = M.fracture(prims, b, n_cells=20, seed=3)
+    allv = np.concatenate([v for v, _ in frags])
+    assert allv[:, 2].min() == pytest.approx(v0[:, 2].min(), abs=1e-3)
+    assert allv[:, 2].max() == pytest.approx(v0[:, 2].max(), abs=1e-3)
+    # clipping adds vertices at the cuts, but not whole new geometry
+    assert sum(len(f) for _, f in frags) < 3 * len(f0)
+
+
+def test_clip_by_plane_keeps_the_negative_half():
+    v = np.array([[0, 0, 0], [2, 0, 0], [0, 2, 0]], dtype=float)
+    f = np.array([[0, 1, 2]])
+    cv, cf = M._clip_by_plane(v, f, normal=[1, 0, 0], origin=[1, 0, 0])
+    assert len(cf) > 0
+    assert cv[np.unique(cf)][:, 0].max() <= 1.0 + 1e-9
+
+
+def test_fragments_are_authored_and_the_source_is_hidden():
+    """Fragments become real prims; the mesh they came from stops rendering.
+
+    Deactivated rather than deleted — the source lives in a referenced layer
+    where RemovePrim does not compose, the trap `prune_prims` documents.
+    """
+    prims = solid_box(scale=10.0)
+    stage = prims[0].GetStage()
+    root = stage.GetPrimAtPath("/B")
+    b = M.bounds_of(prims)
+    paths = M.fracture_to_stage(stage, root, b, n_cells=16, seed=3)
+    assert len(paths) >= 6
+    assert all(stage.GetPrimAtPath(p).IsValid() for p in paths)
+    assert not any(p.IsActive() for p in prims), "source mesh still rendering"
+
+
+def test_throw_is_directional_and_spares_the_base():
+    """A windstorm carries debris one way; a collapse drops it where it stood.
+
+    Cross-wind displacement must stay ~0 — that directionality is the whole
+    distinction from a blast, per the prototype's docstring.
+    """
+    def centroids(throw):
+        prims = solid_box(scale=10.0)
+        stage = prims[0].GetStage()
+        b = M.bounds_of(prims)
+        paths = M.fracture_to_stage(stage, stage.GetPrimAtPath("/B"), b,
+                                    n_cells=16, seed=3, direction_deg=0.0,
+                                    throw=throw)
+        return np.array([M.get_points(stage.GetPrimAtPath(p)).mean(axis=0)
+                         for p in paths]), b
+
+    c0, b = centroids(0.0)
+    c1, _ = centroids(0.4)
+    assert (c1[:, 0] - c0[:, 0]).max() > 0.05 * b.height   # went downwind
+    assert np.abs(c1[:, 1] - c0[:, 1]).max() < 1e-6        # not sideways

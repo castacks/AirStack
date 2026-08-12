@@ -171,6 +171,14 @@ def compile_earthquake(sev, spec, region):
     w, h = region
     cx, cy = spec.get("epicenter", [0.0, 0.0])
     return {
+        # Shattering. `throw` is the downwind travel as a fraction of
+        # the building radius — a windstorm carries its debris one way,
+        # a quake drops it where it stood.
+        "mesh_damage": {"fracture": {"enabled": True,
+                                     "cells": [18, 55],
+                                     "throw": 0.06,
+                                     "keep_base": 0.35,
+                                     "max_buildings": 40}},
         "damaged_fraction": lerp(0.05, 0.35, sev),
         "destroyed_fraction": lerp(0.02, 0.55, sev),
         "debris": {
@@ -220,6 +228,14 @@ def compile_tornado(sev, spec, region):
     """
     w, h = region
     return {
+        # Shattering. `throw` is the downwind travel as a fraction of
+        # the building radius — a windstorm carries its debris one way,
+        # a quake drops it where it stood.
+        "mesh_damage": {"fracture": {"enabled": True,
+                                     "cells": [18, 55],
+                                     "throw": 0.3,
+                                     "keep_base": 0.35,
+                                     "max_buildings": 40}},
         "damaged_fraction": lerp(0.1, 0.3, sev),
         # -> 1.0 at sev=1: "total destruction in a corridor" per the docstring
         # above means everything on the track's centerline is destroyed, not
@@ -279,6 +295,14 @@ def compile_explosion(sev, spec, region):
     w, h = region
     cx, cy = spec.get("epicenter", [0.0, 0.0])
     return {
+        # Shattering. `throw` is the downwind travel as a fraction of
+        # the building radius — a windstorm carries its debris one way,
+        # a quake drops it where it stood.
+        "mesh_damage": {"fracture": {"enabled": True,
+                                     "cells": [18, 55],
+                                     "throw": 0.22,
+                                     "keep_base": 0.35,
+                                     "max_buildings": 40}},
         "damaged_fraction": lerp(0.1, 0.25, sev),
         # -> 1.0 at sev=1: "nothing is left standing" at the center per the
         # docstring above.
@@ -374,6 +398,14 @@ def compile_hurricane(sev, spec, region):
     zone and no narrow track.
     """
     return {
+        # Shattering. `throw` is the downwind travel as a fraction of
+        # the building radius — a windstorm carries its debris one way,
+        # a quake drops it where it stood.
+        "mesh_damage": {"fracture": {"enabled": True,
+                                     "cells": [18, 55],
+                                     "throw": 0.18,
+                                     "keep_base": 0.35,
+                                     "max_buildings": 40}},
         "damaged_fraction": lerp(0.08, 0.4, sev),
         "destroyed_fraction": lerp(0.03, 0.3, sev),
         "debris": {

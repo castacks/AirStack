@@ -363,7 +363,19 @@ def generate_city_v2_on_stage(stage,
     # Mesh damage needs real prims — it authors a `points` override on
     # geometry inside a referenced layer — so it runs here rather than in
     # `build_scene`, which is pure Python.
-    mesh_damage.apply_to_stage(stage, config, placements)
+    _mesh = mesh_damage.apply_to_stage(stage, config, placements)
+
+    # Fragments are new prims, so they are not in `placements` and the launch
+    # script's settle pass would never see them — leaving shattered geometry
+    # hanging exactly where it was cut. Give each one a placement entry marked
+    # `settle`, which is how every other approximated-pose prop (toppled poles,
+    # flipped cars) reaches `scene_prep.settle_rigid_props`.
+    for path in _mesh.get("fragments", ()):
+        placements.append({"usd": "", "category": "debris_fragment",
+                           "prim_path": path, "settle": True,
+                           "x_m": 0.0, "y_m": 0.0, "z_m": 0.0,
+                           "yaw_deg": 0.0, "roll_deg": 0.0, "pitch_deg": 0.0,
+                           "scale": 1.0, "axis_up": "Z"})
 
     # After apply_placements, which is what assigns each placement its prim_path.
     prune_prims(stage, config, placements)

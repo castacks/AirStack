@@ -9,7 +9,7 @@
 # severity      : 0.0
 # spec          : scene_gen/config/presets/none.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-11 23:44:19
+# compiled      : 2026-08-12 16:06:20
 
 seed: 42
 exclusions:

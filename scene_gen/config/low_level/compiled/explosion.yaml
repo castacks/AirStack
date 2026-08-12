@@ -9,7 +9,7 @@
 # severity      : 0.8
 # spec          : scene_gen/config/presets/explosion.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-11 23:44:19
+# compiled      : 2026-08-12 16:06:20
 # spec extras   : {'epicenter': [40, -30]}
 
 seed: 42
@@ -265,6 +265,15 @@ layout:
         - 135.0
         - 190.0
 disaster:
+  mesh_damage:
+    fracture:
+      enabled: true
+      cells:
+      - 18
+      - 55
+      throw: 0.22
+      keep_base: 0.35
+      max_buildings: 40
   damaged_fraction: 0.22
   destroyed_fraction: 0.86
   debris:

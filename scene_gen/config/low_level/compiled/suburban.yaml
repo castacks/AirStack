@@ -9,7 +9,7 @@
 # severity      : 0.0
 # spec          : scene_gen/config/presets/suburban.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-11 23:44:20
+# compiled      : 2026-08-12 16:06:20
 
 seed: 42
 exclusions:
@@ -314,7 +314,7 @@ detail:
     plant_slot_m: 0.7
     soil_level_frac: 0.75
   streetlights:
-    spacing_m: 50.0
+    spacing_m: 0.0
   benches:
     spacing_m: 0.0
   trash_cans:
@@ -322,9 +322,9 @@ detail:
   bus_stops:
     spacing_m: 0.0
   fire_hydrants:
-    spacing_m: 70.0
+    spacing_m: 0.0
   traffic_lights:
-    intersection_chance: 0.05
+    intersection_chance: 0.9
     corner_margin_m: 1.0
   humans:
     per_block:
@@ -394,13 +394,13 @@ detail:
     occupancy_cell_m: 6.0
     occupancy_pad_m: 0.2
   city_detail:
-    enabled: false
+    enabled: true
     zones:
       curb_m: 0.15
-      furnishing_m: 1.35
-      through_m: 1.8
-      frontage_m: 0.2
-      interior_m: 5.0
+      furnishing_m: 1.5
+      through_m: 1.4
+      frontage_m: 0.0
+      interior_m: 8.0
     occupancy_cell_m: 4.0
     occupancy_pad_m: 0.1
     curb_margin_m: 0.3
@@ -449,4 +449,25 @@ detail:
       streetlights:
         traffic_lights: 18.0
         streetlights: 20.0
+    categories:
+      streetlights:
+        zone: furnishing
+        spacing_m: 50.0
+      fire_hydrants:
+        zone: furnishing
+        spacing_m: 90.0
+      utility_poles:
+        zone: furnishing
+        spacing_m: 45.0
+      mailboxes:
+        zone: furnishing
+        spacing_m: 22.0
+      signs_street_name:
+        zone: furnishing
+        spacing_m: 0.0
+        near_corner_m: 4.0
+      signs_stop:
+        zone: furnishing
+        spacing_m: 0.0
+        near_corner_m: 6.0
 locale: suburban

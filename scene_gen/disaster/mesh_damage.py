@@ -701,7 +701,13 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
         dtype = str(dis.get("type") or "earthquake").lower()
 
     seed = int(config.get("seed", 0))
+    # A windstorm's debris all travels the same bearing; a quake's does not.
+    # `heading_deg` is carried by the tornado/hurricane disaster blocks.
+    heading = dis.get("heading_deg")
+    heading = float(heading) if heading is not None else None
     tally: dict = {}
+    fragments: list = []
+    n_fractured = 0
     for i, p in enumerate(placements):
         inten = p.get("_mesh_damage")
         if not inten or not p.get("prim_path"):
@@ -721,7 +727,294 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
         if name:
             tally[name] = tally.get(name, 0) + 1
 
+        # Shattering, if the disaster asks for it. Runs AFTER the vertex
+        # profile so the fragments are cut from already-failed geometry.
+        fcfg = (dis.get("mesh_damage") or {}).get("fracture") or {}
+        # BUDGET. Each fragment is its own prim, and the settle pass gives
+        # every one a collider and a rigid body. At ~50 cells a building,
+        # fracturing all 167 that a severity-0.6 detailed downtown marks would
+        # author ~8,700 prims and ask PhysX to rest them — on a scene that has
+        # OOM-killed at 89M points. So shattering is a budget spent on the
+        # worst-hit buildings rather than a thing every damaged one gets.
+        budget_left = n_fractured < int(fcfg.get("max_buildings", 40))
+        if fcfg.get("enabled") and name and budget_left:
+            lo, hi = (fcfg.get("cells") or [18, 55])[:2]
+            n_cells = int(round(lo + (hi - lo) * float(inten)))
+            b = bounds_of(prims)
+            if b is not None:
+                new_paths = fracture_to_stage(
+                    stage, prim, b, n_cells=n_cells, seed=seed + i * 31,
+                    focus=tuple(fcfg.get("focus") or (0.0, 0.0, 1.0)),
+                    focus_bias=float(fcfg.get("focus_bias", 0.35)),
+                    direction_deg=heading,
+                    throw=float(fcfg.get("throw", 0.0)) * float(inten),
+                    keep_base=float(fcfg.get("keep_base", 0.35)))
+                if new_paths:
+                    n_fractured += 1
+                fragments.extend(new_paths)
+                tally["fragments"] = tally.get("fragments", 0) + len(new_paths)
+
     if tally:
         print("[mesh_damage] deformed "
               + "  ".join(f"{k}={v}" for k, v in sorted(tally.items())))
-    return tally
+    return {"tally": tally, "fragments": fragments}
+
+
+# ---------------------------------------------------------------------------
+# fracture
+#
+# Ported from `scenegen/damage.py:voronoi_fracture`, which builds each Voronoi
+# cell by copying the source mesh and bisecting it with the perpendicular
+# bisector plane between its seed and each nearby seed — it does not use
+# Blender's cell-fracture addon (the `bpy` wheel does not ship one), so the
+# algorithm was already explicit and only the bisection needed replacing.
+#
+# WHY THE CLIP IS HAND-WRITTEN
+# ----------------------------
+# `trimesh.intersections.slice_mesh_plane` does exactly this, and Isaac's Kit
+# python already ships trimesh 4.5.1 — but importing it pulls in `shapely`,
+# which Isaac does not have, and capping additionally wants a triangulation
+# engine it does not have either. Adding both means a Dockerfile change and an
+# image rebuild for what is fifty lines of Sutherland-Hodgman. So the clip is
+# here, in numpy, and works in Kit today.
+#
+# Fragments come out as OPEN SHELLS — the cut face is not capped. That is what
+# the prototype degrades to as well ("on non-manifold source meshes some caps
+# will fail and those fragments stay shells — visually fine for rubble"), and
+# building assets are non-manifold to begin with, so a cap is ill-defined: an
+# open shell has no well-defined inside.
+# ---------------------------------------------------------------------------
+
+
+def _clip_by_plane(verts: np.ndarray, faces: np.ndarray,
+                   normal: np.ndarray, origin: np.ndarray):
+    """Keep the half of a triangle soup on the negative side of a plane.
+
+    Sutherland-Hodgman per triangle: a triangle straddling the plane is cut to
+    a 3- or 4-gon and fan-triangulated. Makes no topology assumptions, so open
+    shells and duplicated vertices pass through unharmed.
+    """
+    if len(faces) == 0:
+        return verts, faces
+
+    n = np.asarray(normal, dtype=np.float64)
+    n = n / max(np.linalg.norm(n), 1e-12)
+    d = (verts - np.asarray(origin, dtype=np.float64)) @ n     # signed distance
+
+    tri_d = d[faces]                       # (F, 3)
+    inside = tri_d <= 0.0
+    n_in = inside.sum(axis=1)
+
+    keep = faces[n_in == 3]                # wholly inside — untouched
+    cut = np.nonzero((n_in == 1) | (n_in == 2))[0]
+    if len(cut) == 0:
+        return verts, keep
+
+    out_v = [verts]
+    out_f = [keep]
+    new_v, new_f = [], []
+    base = len(verts)
+
+    for fi in cut:
+        tri = faces[fi]
+        poly = []
+        for k in range(3):
+            a, b = tri[k], tri[(k + 1) % 3]
+            da, db = d[a], d[b]
+            if da <= 0.0:
+                poly.append(verts[a])
+            if (da < 0.0) < (db < 0.0) or (da > 0.0) > (db > 0.0):
+                if abs(db - da) > 1e-12:            # crossing -> split vertex
+                    t = da / (da - db)
+                    poly.append(verts[a] + t * (verts[b] - verts[a]))
+        if len(poly) < 3:
+            continue
+        start = base + len(new_v)
+        new_v.extend(poly)
+        for k in range(1, len(poly) - 1):           # fan
+            new_f.append([start, start + k, start + k + 1])
+
+    if new_v:
+        out_v.append(np.asarray(new_v, dtype=np.float64))
+        out_f.append(np.asarray(new_f, dtype=np.int64))
+    return (np.concatenate(out_v, axis=0),
+            np.concatenate([f for f in out_f if len(f)], axis=0)
+            if any(len(f) for f in out_f) else np.zeros((0, 3), dtype=np.int64))
+
+
+def _seed_points(bounds: Bounds, n: int, seed: int, focus=None,
+                 focus_bias: float = 0.0, surface=None,
+                 surface_frac: float = 0.75) -> np.ndarray:
+    """Voronoi seeds in world space.
+
+    *surface*, if given, is an (M, 3) array of points ON the mesh; that
+    fraction of the seeds is drawn from it. This matters more than it sounds:
+    a building is a thin SHELL inside a mostly-empty bounding box, so seeding
+    the box uniformly puts most seeds in interior air and leaves one enormous
+    cell holding the bulk of the geometry — measured on a brownstone, the
+    largest fragment was 31k of 61k triangles, i.e. not shattered at all.
+    Seeding from the surface divides the shell instead of the air.
+
+    *focus_bias* then pulls seeds toward *focus*, because real damage is finely
+    pulverised at the source and coarsely cracked further out.
+    """
+    rng = np.random.default_rng(seed)
+    box = rng.random((n, 3)) * (bounds.hi - bounds.lo) + bounds.lo
+    if surface is not None and len(surface) and surface_frac > 0:
+        k = int(round(n * float(np.clip(surface_frac, 0.0, 1.0))))
+        if k:
+            pick = rng.integers(0, len(surface), size=k)
+            # jitter off the surface so cuts do not all land exactly on it
+            jitter = (rng.random((k, 3)) - 0.5) * bounds.frac(0.04)
+            box[:k] = surface[pick] + jitter
+    pts = box
+    if focus is not None and focus_bias > 0:
+        f = bounds.to_world(focus)
+        pull = rng.random((n, 1)) ** 2 * focus_bias
+        pts = pts * (1 - pull) + f * pull
+    return pts
+
+
+def _mesh_soup(prims):
+    """Every prim's world points and faces, concatenated into one soup.
+
+    Triangulated on the way: USD carries `faceVertexCounts`, and the clip works
+    on triangles. Quads and n-gons are fanned, which is exact for convex faces
+    and close enough for the concave ones a building has.
+    """
+    V, F, off = [], [], 0
+    for prim in prims:
+        v = get_points(prim)
+        if not len(v):
+            continue
+        mesh = UsdGeom.Mesh(prim)
+        counts = mesh.GetFaceVertexCountsAttr().Get()
+        idx = mesh.GetFaceVertexIndicesAttr().Get()
+        if not counts or not idx:
+            continue
+        counts = np.asarray(counts, dtype=np.int64)
+        idx = np.asarray(idx, dtype=np.int64)
+        starts = np.concatenate([[0], np.cumsum(counts)[:-1]])
+        for s, c in zip(starts, counts):
+            ring = idx[s:s + c]
+            for k in range(1, c - 1):
+                F.append([ring[0] + off, ring[k] + off, ring[k + 1] + off])
+        V.append(v)
+        off += len(v)
+    if not V:
+        return np.zeros((0, 3)), np.zeros((0, 3), dtype=np.int64)
+    return np.concatenate(V, axis=0), np.asarray(F, dtype=np.int64)
+
+
+def fracture(prims, bounds: Bounds, n_cells: int = 40, seed: int = 0,
+             focus=None, focus_bias: float = 0.0, neighbors: int = 12,
+             min_faces: int = 4) -> list:
+    """Shatter *prims* into Voronoi cells. Returns ``[(verts, faces), ...]``.
+
+    Each cell is the source soup clipped by the perpendicular bisector between
+    its seed and each of its *neighbors* nearest seeds — the same construction
+    the prototype uses, with the bisection swapped for `_clip_by_plane`.
+
+    Cells with fewer than *min_faces* triangles are dropped: a Voronoi cell in
+    empty interior space clips down to nothing, and emitting those as prims
+    costs draw calls for invisible geometry.
+    """
+    verts, faces = _mesh_soup(prims)
+    if len(faces) == 0:
+        return []
+
+    # Face centroids as the surface sample the seeds are drawn from.
+    centroids = verts[faces].mean(axis=1)
+    pts = _seed_points(bounds, n_cells, seed, focus, focus_bias,
+                       surface=centroids)
+    d2 = np.sum((pts[:, None, :] - pts[None, :, :]) ** 2, axis=-1)
+    np.fill_diagonal(d2, np.inf)
+    order = np.argsort(d2, axis=1)[:, :max(1, neighbors)]
+
+    out = []
+    for i, p in enumerate(pts):
+        cv, cf = verts, faces
+        for j in order[i]:
+            q = pts[j]
+            nrm = q - p
+            if np.linalg.norm(nrm) < 1e-9:
+                continue
+            cv, cf = _clip_by_plane(cv, cf, nrm, (p + q) * 0.5)
+            if len(cf) == 0:
+                break
+        if len(cf) >= min_faces:
+            used = np.unique(cf)
+            remap = {int(o): k for k, o in enumerate(used)}
+            out.append((cv[used],
+                        np.vectorize(remap.get)(cf).astype(np.int64)))
+    return out
+
+
+def fracture_to_stage(stage, root_prim, bounds: Bounds, n_cells: int = 40,
+                      seed: int = 0, focus=None, focus_bias: float = 0.0,
+                      direction_deg: float = None, throw: float = 0.0,
+                      keep_base: float = 0.35) -> list:
+    """Shatter *root_prim* in place and author the fragments. Returns paths.
+
+    The source meshes are deactivated rather than deleted — they live in a
+    referenced layer, where `RemovePrim` does not compose (it returns False
+    and the prim stays visible), the same trap `prune_prims` documents.
+
+    Fragments are authored under `<root>/fragments/` as plain meshes in world
+    space, so no transform has to be inverted onto them.
+
+    *keep_base* is the fraction of the building's height whose fragments stay
+    put: a collapsed building still has its lower storeys roughly in place, and
+    letting every fragment fly gives a pile of confetti with nothing standing.
+    Only fragments above it are thrown, by *throw* (a fraction of the building
+    radius) along *direction_deg* — the windstorm signature, where everything
+    loose travels the same bearing rather than radiating symmetrically.
+
+    Every fragment path is returned so the caller can mark it for the PhysX
+    settle pass. **Fragments must be settled**: they are cut where the geometry
+    was, so a thrown one is left hanging in the air until physics rests it.
+    """
+    from pxr import Sdf, Vt
+
+    prims = mesh_prims(root_prim)
+    frags = fracture(prims, bounds, n_cells=n_cells, seed=seed,
+                     focus=focus, focus_bias=focus_bias)
+    if not frags:
+        return []
+
+    rng = np.random.default_rng(seed + 13)
+    if direction_deg is None:
+        direction_deg = float(rng.uniform(0.0, 360.0))
+    ang = math.radians(direction_deg)
+    dirx, diry = math.cos(ang), math.sin(ang)
+    z_keep = bounds.base_z + keep_base * bounds.height
+    push = bounds.frac(throw)
+
+    scope = root_prim.GetPath().AppendChild("fragments")
+    UsdGeom.Scope.Define(stage, scope)
+    paths = []
+    for i, (fv, ff) in enumerate(frags):
+        v = fv
+        if push > 0.0:
+            # Height-scaled, as the prototype has it: what started high had
+            # further to travel and was less restrained on the way.
+            t = np.clip((v[:, 2] - z_keep) / max(bounds.height, 1e-6), 0.0, 1.0)
+            v = v.copy()
+            v[:, 0] += dirx * push * t
+            v[:, 1] += diry * push * t
+
+        p = scope.AppendChild(f"frag_{i:03d}")
+        mesh = UsdGeom.Mesh.Define(stage, p)
+        mesh.GetPointsAttr().Set(
+            Vt.Vec3fArray([Gf.Vec3f(*map(float, q)) for q in v]))
+        mesh.GetFaceVertexCountsAttr().Set(Vt.IntArray([3] * len(ff)))
+        mesh.GetFaceVertexIndicesAttr().Set(
+            Vt.IntArray([int(x) for x in ff.reshape(-1)]))
+        paths.append(str(p))
+
+    for prim in prims:
+        try:
+            prim.SetActive(False)
+        except Exception:
+            pass
+    return paths
