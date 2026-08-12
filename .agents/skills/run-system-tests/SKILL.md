@@ -97,6 +97,7 @@ The `system-tests.yml` workflow's `Parse pytest args` step automatically prepend
 - `/pytest -m takeoff_hover_land` → effectively runs `-m "build_packages or takeoff_hover_land"`
 - `/pytest` (no marks) → pytest defaults (everything)
 - `/pytest -m build_docker` → unchanged (the build_docker tests rebuild from scratch anyway)
+- `/pytest -m build_packages` → **pull-only** (retag `cache_*`, no `image-build`, no Isaac). Add `--no-image-build` on other marks to skip the bake.
 
 This guarantees that ROS 2 workspaces are built inside the containers before any launch/liveliness test tries to source them. If you intentionally want to skip `build_packages` (e.g. you trust the prebuilt images), include it explicitly: `-m "liveliness and not build_packages"` would work, but the simpler path is to run locally where the prepend logic doesn't apply.
 

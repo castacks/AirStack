@@ -152,16 +152,28 @@ jobs:
                   print(f'::error::Could not parse pytest args from comment: {e}', file=sys.stderr)
                   sys.exit(1)
 
+          # CI-only flag: do not forward to pytest.
+          no_image_build = False
+          stripped = []
+          for a in args:
+              if a in ('--no-image-build', '--pull-only'):
+                  no_image_build = True
+              else:
+                  stripped.append(a)
+          args = stripped
+
           # Pull out --sim and -m so the image-prep step can scope profiles
           # and decide whether to skip (build_docker tests rebuild themselves).
           # When --sim isn't given we mirror conftest's default so prep covers
           # whatever pytest will actually exercise.
           sim = 'msairsim,isaacsim'
+          sim_explicit = False
           marks = ''
           marks_idx = -1
           for i, a in enumerate(args):
               if a == '--sim' and i + 1 < len(args):
                   sim = args[i + 1]
+                  sim_explicit = True
               elif a == '-m' and i + 1 < len(args):
                   marks = args[i + 1]
                   marks_idx = i + 1
@@ -174,6 +186,24 @@ jobs:
               marks = f'build_packages or {marks}'
               args[marks_idx] = marks
 
+          # colcon tests do not need Isaac. Default --sim would otherwise bake
+          # isaac-sim + ms-airsim (~1h) before a 1s colcon test. Pull registry
+          # cache tags instead; never image-build.
+          marks_norm = marks.replace('"', '').replace("'", '').strip()
+          args_blob = ' '.join(args)
+          heavy = any(m in marks_norm for m in (
+              'liveliness', 'sensors', 'takeoff_hover_land', 'autonomy', 'build_docker',
+          ))
+          only_packages = marks_norm == 'build_packages' or (
+              not heavy and any(s in args_blob for s in (
+                  'test_build_packages', 'test_colcon_',
+              ))
+          )
+          if only_packages:
+              no_image_build = True
+              if not sim_explicit:
+                  sim = 'msairsim'
+
           skip_prep = 'build_docker' in marks
           quoted = ' '.join(shlex.quote(a) for a in args)
 
@@ -181,10 +211,12 @@ jobs:
               f.write(f'pytest_args={quoted}\n')
               f.write(f'sim={sim}\n')
               f.write(f'skip_image_prep={"true" if skip_prep else "false"}\n')
+              f.write(f'no_image_build={"true" if no_image_build else "false"}\n')
 
           print(f'Resolved pytest args: {quoted or "(none — pytest defaults)"}')
           print(f'Resolved sim profile: {sim}')
           print(f'Skip image prep: {skip_prep}')
+          print(f'No image build (pull/retag only): {no_image_build}')
           PYEOF
 
       # Reply on the PR thread so the commenter sees their /pytest was
@@ -200,7 +232,10 @@ jobs:
             const args = ${{ toJSON(steps.parse.outputs.pytest_args) }};
             const cmd = `pytest tests/ ${args}`.trim();
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const note = `Note: \`build_packages\` is automatically prepended whenever any marks are specified, to ensure code is built before launch tests run.`;
+            const pullOnly = '${{ steps.parse.outputs.no_image_build }}' === 'true';
+            const note = pullOnly
+              ? `Note: pull-only image prep (no \`image-build\`). \`-m build_packages\` does not pull Isaac Sim. Add \`--no-image-build\` on other marks to skip rebuilds.`
+              : `Note: \`build_packages\` is automatically prepended whenever any marks are specified, to ensure code is built before launch tests run.`;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -288,32 +323,55 @@ jobs:
       - name: Ensure airstack.sh is executable
         run: chmod +x airstack.sh
 
+      - name: Disable compose image builds
+        if: ${{ steps.parse.outputs.no_image_build == 'true' }}
+        run: echo "AIRSTACK_NO_IMAGE_BUILD=1" >> "$GITHUB_ENV"
+
       # The ephemeral runner starts with no local images. `airstack_env` in
       # tests/conftest.py fails fast if compose images are missing, so prep
       # them here. Profile-gated services (ms-airsim, isaac-sim) are skipped
       # by compose unless their profile is active, so we mirror the fixture's
-      # profile selection from the parsed --sim. Pull-only by default; fall
-      # back to a full build only if the registry doesn't have everything
-      # (e.g. new branch with no published image yet). Skipped when the
-      # marks expression contains build_docker — those tests build per-service
-      # themselves.
+      # profile selection from the parsed --sim. Pull versioned tags, then
+      # retag floating cache_* tags onto the VERSION name (PR tags never
+      # exist). Fall back to image-build only when --no-image-build is off.
+      # Skipped when marks contain build_docker — those tests build themselves.
       - name: Ensure Docker images present
         if: ${{ steps.parse.outputs.skip_image_prep != 'true' }}
         env:
           AIRSTACK_ROOT: ${{ github.workspace }}
           SIM_INPUT: ${{ steps.parse.outputs.sim }}
+          NO_IMAGE_BUILD: ${{ steps.parse.outputs.no_image_build }}
         run: |
           profiles=desktop
           [[ ",$SIM_INPUT," == *,msairsim,* ]] && profiles="$profiles,ms-airsim"
           [[ ",$SIM_INPUT," == *,isaacsim,* ]] && profiles="$profiles,isaac-sim"
           export COMPOSE_PROFILES="$profiles"
-          echo "Pulling images for COMPOSE_PROFILES=$COMPOSE_PROFILES"
+          echo "Pulling images for COMPOSE_PROFILES=$COMPOSE_PROFILES (no_image_build=$NO_IMAGE_BUILD)"
 
           # Pull from registry; tolerate per-image failures so we can detect
           # what's still missing afterwards instead of aborting on the first
           # gap. `--progress=quiet` suppresses per-layer progress; errors
           # still surface on stderr.
           ./airstack.sh --progress=quiet image-pull --ignore-pull-failures || true
+
+          # VERSION tags miss on every PR. Seed from floating cache_* tags.
+          cache_tag="$(grep -E '^CACHE_TAG=' .env 2>/dev/null | cut -d= -f2 | tr -d '"' || true)"
+          cache_tag="${cache_tag:-cache}"
+          while IFS= read -r img; do
+            [[ -z "$img" ]] && continue
+            if docker image inspect "$img" --format '{{.Id}}' >/dev/null 2>&1; then
+              continue
+            fi
+            # Replace :v<semver>_ with :<cache_tag>_  (PR versioned tags never exist)
+            cache_img="$(python3 -c "import re,sys; print(re.sub(r':v[^_]+_', f':{sys.argv[2]}_', sys.argv[1], count=1))" "$img" "$cache_tag")"
+            echo "Versioned tag missing; trying cache tag $cache_img"
+            if docker pull --quiet "$cache_img"; then
+              docker tag "$cache_img" "$img"
+              echo "Retagged $cache_img -> $img"
+            else
+              echo "Cache tag pull failed for $cache_img"
+            fi
+          done < <(docker compose -f docker-compose.yaml config --images)
 
           missing=()
           while IFS= read -r img; do
@@ -324,11 +382,16 @@ jobs:
           done < <(docker compose -f docker-compose.yaml config --images)
 
           if (( ${#missing[@]} > 0 )); then
-            echo "Pull did not produce these images; falling back to build:"
+            echo "Images still missing after pull/retag:"
             printf '  - %s\n' "${missing[@]}"
+            if [[ "$NO_IMAGE_BUILD" == "true" ]]; then
+              echo "::error::Pull-only mode (--no-image-build or -m build_packages) will not image-build. Run /pytest -m build_docker once, or omit --no-image-build."
+              exit 1
+            fi
+            echo "Falling back to image-build"
             ./airstack.sh --progress=quiet image-build
           else
-            echo "All required images present after pull — skipping build."
+            echo "All required images present after pull/retag — skipping build."
           fi
 
       - name: Run tests

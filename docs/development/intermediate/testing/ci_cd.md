@@ -198,6 +198,13 @@ The first line is parsed with `shlex`; everything after it is free-form notes.
 Checking whether the DDS bridge fix holds under 3 robots — see thread above.
 ```
 
+`-m build_packages` is **pull-only**: it retags floating `cache_*` images onto the PR `VERSION` tag and never runs `image-build` (and does not pull Isaac Sim). Use that when iterating on colcon/pytest failures. For other marks, add `--no-image-build` to skip the bake:
+
+```text
+/pytest -m build_packages
+/pytest -m liveliness --sim msairsim --no-image-build
+```
+
 The workflow replies on the thread with the exact `pytest` command it resolved
 and a link to the run, and opens a **Check Run** pinned to the PR head SHA so
 comment-triggered runs still show up in the PR's Checks tab.

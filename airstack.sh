@@ -897,7 +897,12 @@ function cmd_up {
     fi
 
     log_info "Starting services..."
-    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" up "${subcmd_args[@]}" -d
+    local up_opts=()
+    if [[ "${AIRSTACK_NO_IMAGE_BUILD:-}" == "1" ]]; then
+        log_info "AIRSTACK_NO_IMAGE_BUILD=1 → compose up --no-build"
+        up_opts+=(--no-build)
+    fi
+    run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" up "${up_opts[@]}" "${subcmd_args[@]}" -d
     log_info "Services brought up successfully"
 }
 

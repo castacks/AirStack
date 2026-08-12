@@ -146,6 +146,9 @@ def pytest_addoption(parser):
     parser.addoption("--trajectory-types", default="Circle,Figure8,Racetrack,Line",
                      help="Comma-separated fixed trajectory types to sweep in "
                           "test_fixed_trajectory. Default: Circle,Figure8,Racetrack,Line")
+    parser.addoption("--no-image-build", action="store_true", default=False,
+                     help="CI flag: skip image-build in system-tests.yml. "
+                          "Ignored by pytest itself.")
 
 
 def pytest_configure(config):
