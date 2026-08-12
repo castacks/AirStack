@@ -1,0 +1,83 @@
+# Street-furniture categories for the `suburban` locale.
+#
+# WHY THIS EXISTS
+# ---------------
+# Until this file, suburban and rural kept the *built-in* frontage passes in
+# `build_city` while downtown used `detail/city_detail.py`. Two implementations
+# of the same concern, each owning different locales — which meant the built-in
+# passes could not be deleted, and a fix to one never reached the other.
+#
+# This is the suburban half of retiring that split. The counts it targets are
+# the ones the built-in pass produced on a 400 m suburb (94 streetlights, 64
+# hydrants), because those were tuned and look right; what changes is *how*
+# they are placed — against the NACTO sidewalk section rather than on a single
+# line at the kerb.
+#
+# WHAT A SUBURB HAS ON ITS STREET, per GENERATION.md's locale table
+# ------------------------------------------------------------------
+# "Street furniture: Sparse to absent: lights 40-60 m, **no** benches / public
+#  bins / planters / bus stops on residential streets; hydrants remain."
+#
+# So the table below is short by design. A category simply absent from it is
+# never placed — that is how `city_detail` expresses "this does not belong
+# here", and it is cleaner than carrying a dozen `spacing_m: 0.0` entries.
+#
+# Two things a suburb has that a downtown does not:
+#   * mailboxes at the kerb, one per house frontage;
+#   * overhead utility poles — a downtown buries its services.
+#
+# And one it does not: street trees. Suburban trees stand in lawns and yards,
+# scattered by the `trees.lawn_density_per_100m2` pass, not potted in planters
+# along a kerb. Listing `street_trees` here would double-plant them.
+#
+# Spacings are metres. They are NOT the built-in pass's numbers: that pass
+# walked block frontage rings, this one walks sidewalk zones, so the same
+# spacing yields a different count. These are tuned to the outcome.
+
+detail:
+  city_detail:
+    # The suburban sidewalk section. A downtown pavement runs kerb to building;
+    # a post-war suburb puts a grass verge between kerb and walk, and the walk
+    # itself is narrow — often absent entirely. The verge is what the furnishing
+    # zone becomes here, which is why it is wider than downtown's 1.35 m.
+    zones:
+      curb_m: 0.15
+      furnishing_m: 1.5     # the grass verge — where the poles and boxes stand
+      through_m: 1.4        # a narrow residential walk
+      frontage_m: 0.0       # nothing belongs against a house wall out here
+      interior_m: 8.0       # deep front yards
+
+    categories:
+      # Lights every ~50 m, per the locale table's 40-60 m.
+      streetlights:
+        {zone: furnishing, spacing_m: 50.0}
+
+      # Hydrants remain — they are on the water main, not a streetscape choice.
+      # 90 m here yields ~65 on a 400 m suburb, matching what the built-in
+      # pass produced at its own 70 m — the two walk different geometry, so
+      # the spacings are not interchangeable even though the outcome is.
+      fire_hydrants:
+        {zone: furnishing, spacing_m: 90.0}
+
+      # NO ART YET. The `suburban` asset set has no utility_poles, mailboxes
+      # or sign pools, so these three are skipped at generation time (a
+      # category with no pool places nothing, silently and by design). They
+      # are listed so that adding the art is a pure asset-set change.
+      #
+      # Overhead distribution. The visual signature of a post-war suburb, and
+      # absent downtown where services are buried.
+      utility_poles:
+        {zone: furnishing, spacing_m: 45.0}
+
+      # One at the kerb per house frontage.
+      mailboxes:
+        {zone: furnishing, spacing_m: 22.0}
+
+      # Street-name blades at junctions only (spacing 0 = corners only).
+      signs_street_name:
+        {zone: furnishing, spacing_m: 0.0, near_corner_m: 4.0}
+
+      # Stop signs rather than signals: a suburb's junctions are unsignalised
+      # (traffic_lights.intersection_chance is 0.05 here against downtown's 0.9).
+      signs_stop:
+        {zone: furnishing, spacing_m: 0.0, near_corner_m: 6.0}

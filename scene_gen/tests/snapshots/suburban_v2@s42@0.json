@@ -3,27 +3,27 @@
  "preset": "suburban_v2",
  "seed": 42,
  "severity": 0.0,
- "n_placements": 53100,
+ "n_placements": 51370,
  "counts": {
   "bench": 36,
-  "car": 774,
+  "car": 786,
   "concrete": 3087,
-  "fire_hydrant": 1064,
+  "fire_hydrant": 292,
   "house": 1244,
-  "human": 551,
+  "human": 591,
   "plant": 17909,
   "play_structure": 6,
   "rock": 14,
   "sidewalk": 16240,
-  "streetlight": 1448,
+  "streetlight": 438,
   "trail": 162,
   "trash_can": 14,
   "tree": 10551
  },
  "digests": {
   "geometry": "f07f29fada9bf203",
-  "layout": "292de6a7ae7dc982",
-  "full": "8400f96b70a39fca"
+  "layout": "8cbc0af34365e5b6",
+  "full": "701b6ce175cbb2ea"
  },
  "geometry": {
   "region": [

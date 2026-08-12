@@ -156,10 +156,7 @@ def compile_suburban(spec):
     trees stand in the lawn instead of in planters, cars move onto driveways,
     and the downtown street kit (benches, bins, shelters, signals) goes away.
     """
-    return {
-        # Built-in frontage passes keep the sidewalk here; the
-        # NACTO-zoned pass is a downtown thing.
-        **_NO_CITY_DETAIL,
+    settings = {
         # Long blocks, few intersections.
         "layout": {"min_block_m": 60, "max_block_m": 150},
         "packing": {
@@ -177,12 +174,14 @@ def compile_suburban(spec):
         "trees": {"lawn_density_per_100m2": 0.9, "lawn_min_separation_m": 6.0},
         "plants": {"lawn_density_per_100m2": 1.4, "lawn_house_margin_m": 0.6},
         "planters": {"tree_spacing_m": 0.0, "plant_spacing_m": 0.0},
-        # The downtown street kit is absent from residential streets.
-        "streetlights": {"spacing_m": 50.0},
+        # --- built-in frontage passes: off, city_detail owns the sidewalk ---
+        # A suburb's street kit is sparse, but it is the same *pass* that
+        # places it as downtown's now — see locales/suburban.yaml.
+        "streetlights": {"spacing_m": 0.0},
         "benches": {"spacing_m": 0.0},
         "trash_cans": {"spacing_m": 0.0},
         "bus_stops": {"spacing_m": 0.0},
-        "fire_hydrants": {"spacing_m": 70.0},
+        "fire_hydrants": {"spacing_m": 0.0},
         "traffic_lights": {"intersection_chance": 0.05},   # stop signs, not lights
         # Cars belong on the drive beside the house.
         "driveways": {"chance": 0.75, "width_m": 3.2, "car_chance": 0.6},
@@ -190,6 +189,8 @@ def compile_suburban(spec):
         "humans": {"sidewalk_spacing_m": 150.0, "per_block": [0, 1]},
         "parks": {"playground_chance": 0.7},
     }
+    _deep_merge(settings, _locale_config("suburban"))
+    return settings
 
 
 def compile_rural(spec):
