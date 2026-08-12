@@ -69,7 +69,17 @@ def load_colcon_unit_test_config(workspace="robot"):
         raise ValueError(
             f"'{workspace}.packages' is empty in {COLCON_UNIT_TEST_PACKAGES_YAML.name}"
         )
-    return packages, cfg.get("pytest_args", "")
+    raw_args = cfg.get("pytest_args", [])
+    if isinstance(raw_args, str):
+        pytest_args = shlex.split(raw_args) if raw_args else []
+    elif isinstance(raw_args, list):
+        pytest_args = [str(a) for a in raw_args]
+    else:
+        raise TypeError(
+            f"'{workspace}.pytest_args' must be a list or string in "
+            f"{COLCON_UNIT_TEST_PACKAGES_YAML.name}, got {type(raw_args).__name__}"
+        )
+    return packages, pytest_args
 
 
 def colcon_test_robot_command(workspace="robot"):
@@ -83,9 +93,7 @@ def colcon_test_robot_command(workspace="robot"):
     if pytest_args:
         # One --pytest-args per token so flags like -p are not swallowed into
         # the -m expression (colcon forwards a single quoted blob as one argv).
-        cmd += "".join(
-            f" --pytest-args {shlex.quote(a)}" for a in shlex.split(pytest_args)
-        )
+        cmd += "".join(f" --pytest-args {shlex.quote(a)}" for a in pytest_args)
     return cmd
 # Unit tests live co-located with their ROS 2 packages in robot/ros_ws/src/.
 # Thin proxy files under tests/robot/ re-export those tests so that

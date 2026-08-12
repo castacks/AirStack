@@ -12,6 +12,9 @@ robot:
   # Skips ament_copyright / flake8 / pep257 on Python packages; run linters separately.
   # Disable launch_testing: these packages don't use it, and ROS Jazzy's plugin
   # still declares the removed pytest_pycollect_makemodule(path=...) hook arg.
-  # Tokens are split and passed as separate --pytest-args (see conftest).
-  # Quote the mark expression so "not linter" stays one argv after shlex.split.
-  pytest_args: '-m "not linter" -p no:launch_testing'
+  # List form: each entry is one argv token forwarded via --pytest-args (see conftest).
+  pytest_args:
+    - -m
+    - not linter
+    - -p
+    - no:launch_testing
