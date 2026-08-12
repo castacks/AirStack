@@ -3,27 +3,28 @@
  "preset": "suburban",
  "seed": 7,
  "severity": 0.5,
- "n_placements": 4160,
+ "n_placements": 4167,
  "counts": {
-  "bench": 19,
-  "car": 61,
-  "concrete": 180,
-  "fire_hydrant": 63,
+  "bench": 17,
+  "car": 58,
+  "concrete": 196,
+  "fire_hydrant": 64,
   "house": 90,
-  "human": 52,
-  "plant": 1314,
-  "rock": 15,
+  "human": 46,
+  "plant": 1301,
+  "play_structure": 4,
+  "rock": 12,
   "sidewalk": 1350,
-  "streetlight": 93,
-  "traffic_light": 3,
-  "trail": 84,
-  "trash_can": 6,
-  "tree": 830
+  "streetlight": 94,
+  "traffic_light": 2,
+  "trail": 75,
+  "trash_can": 5,
+  "tree": 853
  },
  "digests": {
   "geometry": "379548f8f9292103",
-  "layout": "2276d031007322d7",
-  "full": "de46ace5920efee2"
+  "layout": "ec308b6d28f2a681",
+  "full": "180609763c003097"
  },
  "geometry": {
   "region": [

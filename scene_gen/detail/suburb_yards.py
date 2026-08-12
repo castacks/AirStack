@@ -72,7 +72,7 @@ import math
 # `city_detail._Occupancy` reserves an AABB, which is exact on a kerb where
 # everything is square to the street; a yard yaws its planting to the house
 # face and to the fence line, so it needs the oriented test parks already has.
-from parks import _Occ, _box, _cells
+from detail.parks import _Occ, _box, _cells
 from scene_generator import _in_exclusion, _normalize_usd_list
 
 _GRASS_TOP = 0.01
@@ -1041,7 +1041,7 @@ def _synthetic(n_lots, rng, lot_w=18.0, front_d=9.0, rear_d=13.0,
 
 def _overlaps(boxes):
     """All-pairs SAT over the RESERVED footprints. The headline number."""
-    from parks import _box_hit
+    from detail.parks import _box_hit
     hits = 0
     grid = {}
     for i, (b, _cat, _r, _role) in enumerate(boxes):
@@ -1118,7 +1118,7 @@ def selftest() -> int:
                     r = _rect_of(y, k)
                     if r:
                         solid.append(_rect_box(r))
-            from parks import _box_hit
+            from detail.parks import _box_hit
             on_solid = sum(1 for b, _c, _r, _o in s["boxes"]
                            if any(_box_hit(b, q) for q in solid))
             nnd, nnsd = _nn_stats([(b[0], b[1]) for b, _c, _r, role
@@ -1176,7 +1176,7 @@ def selftest() -> int:
           for y in yards if y["kind"] == "rear"]
     seeded = [(p["x_m"], p["y_m"]) for p in pl]
     s = plant(_selftest_config(), yards, pl, _FakeResolver(), random.Random(9))
-    from parks import _box_hit
+    from detail.parks import _box_hit
     foreign = [_box(x, y_, 0.0, 2.43, 2.42) for x, y_ in seeded]
     clash = sum(1 for b, _c, _r, _o in s["boxes"]
                 if any(_box_hit(b, q) for q in foreign))

@@ -98,8 +98,8 @@ def build(config_name):
     import random
     from compile_disaster import resolve_config_path, compile_spec, DEFAULT_BASE
     import scene_generator as sg
-    import city_layout
-    import districts
+    from layout import city_layout
+    from detail import districts
 
     path = resolve_config_path(config_name)
     cfg = compile_spec(yaml.safe_load(open(path)),

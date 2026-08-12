@@ -62,6 +62,7 @@ name ("tornado") resolved against presets/ and low_level/compiled/.
 """
 
 import argparse
+import copy
 import datetime
 import os
 import sys
@@ -430,7 +431,15 @@ def compile_spec(spec: dict, base: dict) -> dict:
     if not 0.0 <= sev <= 1.0:
         raise ValueError(f"severity must be in [0, 1], got {sev}")
 
-    cfg = yaml.safe_load(yaml.safe_dump(base))   # deep copy
+    # Deep copy. NOT `yaml.safe_load(yaml.safe_dump(base))`: safe_dump sorts
+    # keys by default, so that round-trip silently ALPHABETISES the base
+    # config. The generator is order-sensitive — `city_detail` walks its
+    # `categories` dict in order, placing furniture into a shared occupancy
+    # grid, so whichever category comes first wins the contested kerb — which
+    # means a setting produced a different scene depending on whether it was
+    # authored in `default.yaml` (sorted) or in a preset's `overrides:`
+    # (insertion order). That cost an afternoon; keep the copy order-preserving.
+    cfg = copy.deepcopy(base)
 
     # City-level passthroughs, before the disaster reads the region.
     if "seed" in spec:
@@ -455,10 +464,21 @@ def compile_spec(spec: dict, base: dict) -> dict:
     # Severity 0 means untouched, whatever the type claims to be.
     fn = DISASTERS[dtype] if sev > 0.0 else compile_none
     cfg["disaster"] = fn(sev, spec, region)
+    # The compiled config drops `disaster-type` (it is a high-level key),
+    # which left the low level unable to say what had happened to it —
+    # `mesh_damage` needs the type to pick a deformation profile. Record
+    # it inside the block it describes, so the artifact is self-contained.
+    cfg["disaster"]["type"] = dtype
+    cfg["disaster"]["severity"] = sev
 
     # Escape hatch: raw low-level overrides win over everything.
     if spec.get("overrides"):
-        deep_merge(cfg, spec["overrides"])
+        # Restaged first: `overrides:` is authored flat (one line per knob) and
+        # the config it merges into is grouped by stage, so a raw merge would
+        # bury a second, shadow copy of e.g. `packing` at the top level where
+        # nothing reads it.
+        import scene_generator
+        deep_merge(cfg, scene_generator.restage(spec["overrides"]))
 
     # Compilation is a build step; leaving the high-level keys in the output
     # would suggest editing them there has an effect. Keep them only as

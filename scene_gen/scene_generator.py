@@ -79,6 +79,86 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, UsdSkel, Vt
 # Config loading
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Stages
+#
+# A low-level config is organised by the stage that consumes it:
+#
+#   layout:    where blocks, roads and buildings go — the city plan
+#   detail:    what is placed on that plan — vegetation, street furniture,
+#              vehicles, people, park furnishing
+#   disaster:  what the event does to the finished scene
+#
+# plus the scene-wide metaparameters (`seed`, `asset_set`, `exclusions`,
+# `measure_usds`, `usds`, …) which belong to no single stage.
+#
+# `_stage` is how every module reaches into one. It tolerates a missing stage
+# so a partial config still loads, and it is the single place to change if the
+# grouping is ever revised.
+# ---------------------------------------------------------------------------
+
+STAGES = ("layout", "detail", "disaster")
+
+
+def _stage(config: dict, name: str) -> dict:
+    """The *name* stage of *config*, or an empty dict if absent."""
+    return (config or {}).get(name) or {}
+
+
+def stage(config: dict, name: str) -> dict:
+    """Public alias — other modules read their settings through this."""
+    return _stage(config, name)
+
+
+# Which stage owns each settings block. Anything not listed is a scene-wide
+# metaparameter (`seed`, `asset_set`, `usds`, `exclusions`, …) and stays at the
+# top level.
+STAGE_OF = {
+    # layout — where blocks, roads and buildings go
+    "packing": "layout", "frontage": "layout", "roads": "layout",
+    "districts": "layout",
+    # detail — what is placed on that plan
+    "trees": "detail", "plants": "detail", "planters": "detail",
+    "streetlights": "detail", "benches": "detail", "trash_cans": "detail",
+    "bus_stops": "detail", "fire_hydrants": "detail",
+    "traffic_lights": "detail", "humans": "detail", "cars": "detail",
+    "driveways": "detail", "parks": "detail", "city_detail": "detail",
+}
+
+# Keys that are already stages, or belong to the layout stage under their own
+# name (`layout.region_m` and friends were nested before this grouping existed).
+_STAGE_KEYS = set(STAGES)
+
+
+def restage(settings: dict) -> dict:
+    """Nest a flat settings dict under its stages.
+
+    Locale compilers and a preset's `overrides:` are far more readable written
+    flat — one line per knob — than with every entry buried two levels deep.
+    They stay that way and are normalised here, which also means a config
+    written before the grouping existed still loads unchanged.
+
+    Idempotent: anything already under a stage key is left alone.
+    """
+    if not isinstance(settings, dict):
+        return settings
+    out: dict = {}
+    for key, val in settings.items():
+        if key in _STAGE_KEYS and isinstance(val, dict):
+            # MERGE, never assign. A settings dict routinely holds both an
+            # already-staged block (`detail:` loaded from a locale YAML) and
+            # loose keys that belong in it (`trees:`, `plants:`). Assigning
+            # meant whichever came last silently erased the other.
+            _deep_merge(out.setdefault(key, {}), val)
+            continue
+        target = STAGE_OF.get(key)
+        if target is None:
+            out[key] = val
+        else:
+            _deep_merge(out.setdefault(target, {}), {key: val})
+    return out
+
+
 def _deep_merge(base: dict, override: dict) -> dict:
     """Recursively merge *override* into *base* in place: nested dicts merge
     key-by-key, everything else (scalars, lists) is replaced outright."""
@@ -1101,7 +1181,7 @@ def apply_ground_planes(stage, config: dict, layout: dict,
     blocks         = layout["blocks"]
     road_corridors = layout["road_corridors"]
 
-    roads_cfg  = config.get("roads", {})
+    roads_cfg  = _stage(config, "layout").get("roads", {})
     lane_w_m   = float(roads_cfg.get("lane_width_m", 3.5))
     uv_asphalt = float(roads_cfg.get("asphalt_uv_scale_m", 4.0))
     uv_grass   = float(roads_cfg.get("grass_uv_scale_m", 3.0))
@@ -1245,6 +1325,13 @@ def build_city(config: dict, resolver: SizeResolver):
     Deterministic for a given ``config["seed"]``.
     """
     rng = random.Random(int(config.get("seed", 0)))
+    # Damage draws come from their own stream so that raising severity cannot
+    # move the pristine city. Sharing one RNG is what made a severity sweep
+    # relayout the scene: every damage-conditional draw shifted the sequence,
+    # and 2,609 of 4,063 non-damage placements moved between severity 0 and 0.8
+    # — 1,212 of them plants, which no building-fate rule can explain.
+    # Requirement 4a: a locale and a seed fully specify the layout.
+    rng_dmg = random.Random(int(config.get("seed", 0)) + 5501)
     asset_scale = float(config.get("asset_scale", 1.0))
     asset_root = str(config.get("asset_root", "") or "")
     exclusions = config.get("exclusions", [])
@@ -1338,15 +1425,15 @@ def build_city(config: dict, resolver: SizeResolver):
     split_jitter = float(layout_cfg.get("split_jitter", 0.2))
     tile_overlap = float(layout_cfg.get("tile_overlap", 1.02))
 
-    pack_cfg    = config.get("packing", {})
+    pack_cfg    = _stage(config, "layout").get("packing", {})
     bld_gap_m   = float(pack_cfg.get("building_gap_m", 2.5))
     park_chance = float(pack_cfg.get("park_block_chance", 0.12))
     # Locale knobs: downtown paves a block wall-to-wall and builds out to the
     # sidewalk; a suburb leaves the block as lawn and sets houses back from it.
     pave_blocks = bool(pack_cfg.get("pave_blocks", True))
     setback_m   = float(pack_cfg.get("setback_m", 0.0))
-    verge_m     = float(config.get("frontage", {}).get("verge_m", 0.0))
-    drive_cfg   = config.get("driveways", {})
+    verge_m     = float(_stage(config, "layout").get("frontage", {}).get("verge_m", 0.0))
+    drive_cfg   = _stage(config, "detail").get("driveways", {})
 
     # (block, inset, building_rect) per placed building — the lot context the
     # driveway pass needs to run a drive from the house out to the street.
@@ -1357,7 +1444,7 @@ def build_city(config: dict, resolver: SizeResolver):
     ph_max_m    = float(ph_cfg.get("max_footprint_m", 20.0))
     ph_h_range  = ph_cfg.get("height_m", [8.0, 30.0])
 
-    parks_cfg          = config.get("parks", {})
+    parks_cfg          = _stage(config, "detail").get("parks", {})
     trail_margin_m     = float(parks_cfg.get("trail_margin_m", 4.0))
     trail_waypoints    = parks_cfg.get("trail_waypoints", [2, 4])
     park_bench_sp      = float(parks_cfg.get("bench_spacing_m", 14.0))
@@ -1371,7 +1458,7 @@ def build_city(config: dict, resolver: SizeResolver):
     pg_spacing_m       = float(parks_cfg.get("playground_spacing_m", 5.0))
     pg_margin_m        = float(parks_cfg.get("playground_margin_m", 2.0))
 
-    roads_cfg = config.get("roads", {})
+    roads_cfg = _stage(config, "layout").get("roads", {})
     lane_w_m = float(roads_cfg.get("lane_width_m", 3.5))
 
     # --- Resolve footprints (no grass/road tiles; only houses, concrete, sidewalk) ---
@@ -1511,16 +1598,20 @@ def build_city(config: dict, resolver: SizeResolver):
           region_w_m / 2.0,  region_h_m / 2.0))
 
     def _hit(x, y, fraction):
-        """True with probability *fraction* scaled by the local damage."""
-        return fraction > 0.0 and rng.random() < fraction * damage_at(x, y)
+        """True with probability *fraction* scaled by the local damage.
+
+        Draws from `rng_dmg`, never `rng` — see the note at the top of this
+        function. Every damage decision must leave the layout stream alone.
+        """
+        return fraction > 0.0 and rng_dmg.random() < fraction * damage_at(x, y)
 
     def _hit_count(x, y, count_range):
         """Random count from [lo, hi], scaled down by the local damage."""
         k = damage_at(x, y)
         if k <= 0.0:
             return 0
-        return int(round(rng.randint(int(count_range[0]),
-                                     int(count_range[1])) * k))
+        return int(round(rng_dmg.randint(int(count_range[0]),
+                                         int(count_range[1])) * k))
 
     # Building pools with a nonzero fate weight *somewhere in the region* are
     # the only ones packing may draw from — an "untouched" city (both
@@ -1531,12 +1622,15 @@ def build_city(config: dict, resolver: SizeResolver):
     # stay eligible even at destroyed_fraction 1.0.
     damaged_fraction   = float(dis_cfg.get("damaged_fraction", 0.0))
     destroyed_fraction = float(dis_cfg.get("destroyed_fraction", 0.0))
-    intact_weight = max(0.0, 1.0 - (damaged_fraction + destroyed_fraction)
-                        * damage_at.lo)
-    eligible_houses = (
-        (house_intact if intact_weight > 0.0 else [])
-        + (house_damaged if damaged_fraction * damage_at.hi > 0.0 else [])
-        + (house_destroyed if destroyed_fraction * damage_at.hi > 0.0 else []))
+
+    # PACKING IS PRISTINE. Buildings are laid out from the intact pool alone,
+    # and fate is assigned afterwards by the disaster stage, which swaps a ruin
+    # only when one is sized to stand in the same footprint. Packing used to
+    # draw fate-weighted from all three pools, which made the *layout* a
+    # function of severity twice over: a ruin has a different footprint than
+    # the intact building it replaced, so it packs differently, and the fate
+    # roll itself consumed the layout RNG. Both are requirement 4a violations.
+    eligible_houses = list(house_intact)
 
     # Auto-raise the block size bound so the BSP can produce a block whose
     # sidewalk inset fits the largest placeable building.
@@ -1599,25 +1693,17 @@ def build_city(config: dict, resolver: SizeResolver):
     # it, or never even offer it if a smaller candidate happens to fill every
     # oversized lot first).
     #
-    # That guarantee must not override the disaster, though: an oversized
-    # *intact* building anchored into a block sitting dead-center in a
-    # tornado's track — where destroyed_fraction*damage_at is ~1 — would
-    # stand there untouched no matter how severe the disaster, because
-    # anchoring picks the building before any fate is ever rolled. So a
-    # candidate block is only eligible for a given building if that block's
-    # local damage intensity would plausibly produce *that* fate: an intact
-    # building needs a block where destruction/damage isn't the likely
-    # outcome, a destroyed one needs a block where destruction plausibly is.
-    # Damaged sits in between and is left unconstrained — the least jarring
-    # of the three to anchor somewhere its fate wasn't the most likely roll.
-    def _anchor_ok(u, cx_, cy_):
-        k = damage_at(cx_, cy_)
-        d_here, m_here = destroyed_fraction * k, damaged_fraction * k
-        if u in destroyed_set:
-            return d_here >= 0.5
-        if u in damaged_set:
-            return True
-        return (d_here + m_here) < 0.5   # intact
+    # Anchoring used to be constrained by the local damage intensity
+    # (`_anchor_ok`): an oversized *intact* building could not anchor into a
+    # block sitting in a tornado's track, because packing chose the asset —
+    # and therefore its fate — before any fate was rolled. That was the
+    # explicit layout->damage feedback requirement 4a forbids: raising
+    # severity moved buildings.
+    #
+    # It is no longer needed. Packing draws from the intact pool only, so
+    # every anchor candidate has the same fate (none), and the disaster
+    # stage decides afterwards — a building anchored in the track gets ruined
+    # there, wherever it was anchored.
 
     anchor_for: dict = {}                            # block -> forced first usd
     unanchored = 0
@@ -1630,8 +1716,6 @@ def build_city(config: dict, resolver: SizeResolver):
             ix0, iy0, ix1, iy1 = _inset_of(blk)
             iw, ih = ix1 - ix0, iy1 - iy0
             if iw <= 0 or ih <= 0 or _fit(house_fps[u], iw, ih) is None:
-                continue
-            if not _anchor_ok(u, (ix0 + ix1) / 2.0, (iy0 + iy1) / 2.0):
                 continue
             if best is None or iw * ih < best[0]:
                 best = (iw * ih, blk)
@@ -1669,7 +1753,7 @@ def build_city(config: dict, resolver: SizeResolver):
     park_blocks: list = []      # (block, inset) rects of blocks kept as parks
     residential_blocks: list = []  # (block, inset) of packed blocks — lawn when
                                    # pave_blocks is off (suburban/rural)
-    n_buildings = n_damaged = n_destroyed = n_parks = 0
+    n_buildings = n_parks = 0
 
     # Eligible pools pack directly with their own measured footprints; the
     # fate weights (destroyed_fraction / damaged_fraction) drive the *choice*
@@ -1680,35 +1764,12 @@ def build_city(config: dict, resolver: SizeResolver):
                        for u in eligible_houses]
 
     def _pick_building(fits, sx_, sy_):
-        """Fate-weighted pick among fitting candidates: destroyed_fraction /
-        damaged_fraction / rest-intact, each scaled by the damage intensity
-        at the slot anchor (*sx_*, *sy_*) so ruins cluster where the disaster
-        actually hit.
+        """Pick among fitting candidates. Pristine — fate is not consulted.
 
-        When the rolled pool has no candidate sized for this slot, falls back
-        to the *next closest* fate rather than jumping straight to whatever
-        fits — a destroyed roll degrades to damaged before ever landing on
-        intact, so a severe disaster can't produce an untouched building just
-        because no ruin asset happens to be sized for that particular lot.
+        This used to be fate-weighted, which coupled layout to severity. The
+        fate roll now happens in `disaster_stage`, after districts.
         """
-        k = damage_at(sx_, sy_)
-        d_frac = destroyed_fraction * k
-        m_frac = damaged_fraction * k
-        destroyed_fits = [f for f in fits if f[0] in destroyed_set]
-        damaged_fits   = [f for f in fits if f[0] in damaged_set]
-        intact_fits    = [f for f in fits
-                          if f[0] not in destroyed_set and f[0] not in damaged_set]
-        r_fate = rng.random()
-        if r_fate < d_frac:
-            order = (destroyed_fits, damaged_fits, intact_fits)
-        elif r_fate < d_frac + m_frac:
-            order = (damaged_fits, destroyed_fits, intact_fits)
-        else:
-            order = (intact_fits, damaged_fits, destroyed_fits)
-        for pool_fits in order:
-            if pool_fits:
-                return rng.choice(pool_fits)
-        return rng.choice(fits)   # unreachable: fits is never empty here
+        return rng.choice(fits)
 
     def _split_leftover(r, out):
         """Break an oversized leftover rect into a few varied prisms so a
@@ -1807,116 +1868,22 @@ def build_city(config: dict, resolver: SizeResolver):
         block_of_building.extend((blk, inset, br) for (_u, _cx, _cy, _r, br) in placed)
 
         for (usd, cx, cy, rot, brect) in placed:
-            bw, bh = brect[2] - brect[0], brect[3] - brect[1]
-            is_destroyed = usd in destroyed_set
-            # No pre-damaged pool: fall back to tilting + sinking an intact
-            # building as a damaged stand-in with probability damaged_fraction.
-            tilt_standin = (not house_damaged and not is_destroyed
-                            and _hit(cx, cy, damaged_fraction))
-            is_damaged = usd in damaged_set or tilt_standin
-
+            # PRISTINE. Fate, tilt/sink and debris all belong to the disaster
+            # stage, which runs after `districts` has finished rezoning — see
+            # disaster_stage.apply_to_buildings for why the ordering matters.
             fp = house_fps[usd]
-            # Y-up assets (e.g. Unity exports) need a +90° roll to stand upright
-            # in Isaac Sim's Z-up world. This is combined with any damage tilt.
-            axis_roll = 90.0 if _au(usd) == "Y" else 0.0
-            roll = axis_roll
-            pitch = 0.0
-            z = fp["base"]
-            yaw = house_front_yaw + rot
-            if tilt_standin:
-                roll = axis_roll + rng.uniform(-18.0, 18.0)
-                pitch = rng.uniform(-18.0, 18.0)
-                z -= rng.uniform(0.3, 0.9)
-
-            # Some destroyed ruins additionally lean: a slight tilt + sink,
-            # with rubble piled at the base of the side now overhanging.
-            lean_dir = None
-            if is_destroyed and _hit(cx, cy, tilt_chance):
-                t_roll = rng.choice([-1.0, 1.0]) * rng.uniform(
-                    float(tilt_deg[0]), float(tilt_deg[1]))
-                t_pitch = rng.choice([-1.0, 1.0]) * rng.uniform(
-                    float(tilt_deg[0]), float(tilt_deg[1]))
-                roll += t_roll
-                pitch += t_pitch
-                z -= rng.uniform(float(sink_m[0]), float(sink_m[1]))
-                # World-XY direction the top now overhangs: +pitch (about Y)
-                # tips the top toward +X, +roll (about X) toward -Y — both in
-                # the pre-yaw frame, so rotate by the building's yaw.
-                lx_ = math.sin(math.radians(t_pitch))
-                ly_ = -math.sin(math.radians(t_roll))
-                yr_ = math.radians(yaw)
-                wx_ = lx_ * math.cos(yr_) - ly_ * math.sin(yr_)
-                wy_ = lx_ * math.sin(yr_) + ly_ * math.cos(yr_)
-                n_ = math.hypot(wx_, wy_)
-                if n_ > 1e-9:
-                    lean_dir = (wx_ / n_, wy_ / n_)
-
-            if is_damaged:
-                n_damaged += 1
-            add(usd, cx, cy, z, yaw, "house", _sc(usd),
-                roll=roll, pitch=pitch, axis_up=_au(usd))
+            # Y-up assets (e.g. Unity exports) need a +90° roll to stand
+            # upright in Isaac Sim's Z-up world.
+            add(usd, cx, cy, fp["base"], house_front_yaw + rot, "house",
+                _sc(usd), roll=(90.0 if _au(usd) == "Y" else 0.0),
+                axis_up=_au(usd))
+            # The rubble a ruin drops belongs to the FOOTPRINT it was packed
+            # into, not to whichever asset ends up standing on it, so the
+            # packed extent travels with the placement for the disaster stage.
+            placements[-1]["_footprint_m"] = (brect[2] - brect[0],
+                                              brect[3] - brect[1])
             house_rects.append(brect)
             n_buildings += 1
-
-            # Destroyed building -> debris field. Rubble piles hug the ruin
-            # (overlap with the building, sidewalk or road is fine); smaller
-            # pieces land a bit farther and are physics-settled, so they come
-            # to rest against whatever they hit.
-            if is_destroyed:
-                n_destroyed += 1
-                hw_, hh_ = bw / 2.0, bh / 2.0
-
-                def _edge_r(ca, sa):
-                    """Center-to-footprint-edge distance along (ca, sa)."""
-                    return min(hw_ / max(abs(ca), 1e-6),
-                               hh_ / max(abs(sa), 1e-6))
-
-                def _ring_pos(extra_lo, extra_hi, ang=None):
-                    """Random point offset [extra_lo, extra_hi] m beyond the
-                    footprint edge — any direction, or around *ang*."""
-                    if ang is None:
-                        ang = rng.uniform(0.0, 2.0 * math.pi)
-                    ca, sa = math.cos(ang), math.sin(ang)
-                    r_ = _edge_r(ca, sa) + rng.uniform(extra_lo, extra_hi)
-                    return cx + ca * r_, cy + sa * r_
-
-                def _add_pile(dx_, dy_):
-                    if exclusions and _in_exclusion(dx_, dy_, exclusions):
-                        return
-                    du = rng.choice(debris_pile_usds)
-                    dfp = resolver.get(du, "debris_pile", scale=_sc(du),
-                                       axis_up=_au(du))
-                    add(du, dx_, dy_, dfp["base"] + 0.02,
-                        rng.uniform(0.0, 360.0), "debris_pile",
-                        _sc(du) * rng.uniform(0.8, 1.2),
-                        roll=_axis_roll(du), axis_up=_au(du))
-
-                if debris_pile_usds:
-                    for _ in range(_hit_count(cx, cy, piles_per)):
-                        _add_pile(*_ring_pos(-1.0, pile_max_off))
-                    # Leaning ruin: rubble hugging the base of the caved /
-                    # overhanging side, spread along that edge.
-                    if lean_dir is not None:
-                        base_ang = math.atan2(lean_dir[1], lean_dir[0])
-                        for _ in range(rng.randint(int(lean_piles[0]),
-                                                   int(lean_piles[1]))):
-                            ang = base_ang + rng.uniform(-0.5, 0.5)
-                            _add_pile(*_ring_pos(-1.5, 1.0, ang=ang))
-
-                if debris_piece_usds:
-                    for _ in range(_hit_count(cx, cy, pieces_per)):
-                        dx_, dy_ = _ring_pos(0.3, pieces_scatter)
-                        if exclusions and _in_exclusion(dx_, dy_, exclusions):
-                            continue
-                        du = rng.choice(debris_piece_usds)
-                        dfp = resolver.get(du, "debris", scale=_sc(du),
-                                           axis_up=_au(du))
-                        # Dropped from slightly above with a random heading;
-                        # the settle pass finds the resting pose.
-                        add(du, dx_, dy_, dfp["base"] + 0.4,
-                            rng.uniform(0.0, 360.0), "debris",
-                            _sc(du) * rng.uniform(0.7, 1.2),
-                            roll=_axis_roll(du), axis_up=_au(du), settle=True)
 
         # Gaps nothing in the library fits: fill with placeholder prisms.
         if ph_enabled:
@@ -2235,7 +2202,7 @@ def build_city(config: dict, resolver: SizeResolver):
     # prop inward (opposite the outward street yaw) by half the prop's short
     # footprint axis plus this margin, so meshes sit fully on the sidewalk
     # while staying close to the curb.
-    curb_margin = float(config.get("frontage", {}).get("curb_margin_m", 0.3))
+    curb_margin = float(_stage(config, "layout").get("frontage", {}).get("curb_margin_m", 0.3))
 
     def _inset_pos(px, py, street_yaw, dist):
         """Step (px, py) *dist* meters from the curb onto the sidewalk."""
@@ -2253,9 +2220,11 @@ def build_city(config: dict, resolver: SizeResolver):
         heading; z lifts the pivot by half the footprint width so the lying
         prop roughly rests on the ground surface at height *z0* — marked for
         the physics settle pass to find its true resting orientation."""
-        add(usd, x, y, z0 + max(fp["sx"], fp["sy"]) / 2.0, rng.uniform(0.0, 360.0),
+        add(usd, x, y, z0 + max(fp["sx"], fp["sy"]) / 2.0,
+            rng_dmg.uniform(0.0, 360.0),
             category, _sc(usd),
-            roll=_axis_roll(usd) + rng.choice([-1.0, 1.0]) * rng.uniform(80.0, 100.0),
+            roll=_axis_roll(usd)
+                 + rng_dmg.choice([-1.0, 1.0]) * rng_dmg.uniform(80.0, 100.0),
             axis_up=_au(usd), pose=pose, settle=True)
 
     park_block_set = {b for (b, _i) in park_blocks}
@@ -2273,7 +2242,7 @@ def build_city(config: dict, resolver: SizeResolver):
     # potted in tree-tagged planters along the frontage instead — see the
     # planter passes in the street-furniture section below.
     if tree_usds and (park_insets or lawn_insets):
-        tcfg = config.get("trees", {})
+        tcfg = _stage(config, "detail").get("trees", {})
         # Wind takes trees down with the buildings — in tornado reference
         # imagery the treeline is the clearest marker of the track, snapped
         # bare inside it and untouched a few metres outside. Stumps are already
@@ -2284,12 +2253,18 @@ def build_city(config: dict, resolver: SizeResolver):
         def _place_tree(tx, ty):
             usd = rng.choice(tree_usds)
             jitter = rng.uniform(0.85, 1.2)
+            # Drawn before the damage branch, and unconditionally: taking the
+            # toppled path used to skip this draw, so one felled tree shifted
+            # every subsequent layout draw in the scene. That single early
+            # `return` is most of why a severity sweep relaid 1,211 plants.
+            # The layout stream must consume the same draws either way.
+            yaw = rng.uniform(0, 360)
             tfp = resolver.get(usd, "tree", scale=_sc(usd))
             if usd not in stump_usds and _hit(tx, ty, trees_toppled):
                 _topple_flat(usd, tfp, tx, ty, "tree", z0=grass_top)
                 return
             add(usd, tx, ty, grass_top + tfp["base"],
-                rng.uniform(0, 360), "tree", _sc(usd) * jitter)
+                yaw, "tree", _sc(usd) * jitter)
 
         if park_insets:
             _scatter_in_blocks(None,
@@ -2314,7 +2289,7 @@ def build_city(config: dict, resolver: SizeResolver):
     # ---- Plants (grass clumps, flowers, bushes): park grass, and suburban
     # lawns/foundation planting.
     if plant_usds and (park_insets or lawn_insets):
-        pcfg = config.get("plants", {})
+        pcfg = _stage(config, "detail").get("plants", {})
 
         def _place_plant(tx, ty):
             usd = rng.choice(plant_usds)
@@ -2360,7 +2335,7 @@ def build_city(config: dict, resolver: SizeResolver):
     # their slots first — including the extra occupancy cells their length
     # covers, so lamps/cans don't spawn inside them.
     if busstop_usds:
-        spacing = float(config.get("bus_stops", {}).get("spacing_m", 130.0))
+        spacing = float(_stage(config, "detail").get("bus_stops", {}).get("spacing_m", 130.0))
         for px, py, street_yaw in _frontage_positions(spacing, phase=0.85,
                                                       jitter_frac=0.3):
             u = rng.choice(busstop_usds)
@@ -2381,7 +2356,7 @@ def build_city(config: dict, resolver: SizeResolver):
     # ---- Streetlights: uniform spacing along frontage, lamp arm reaching
     # over the roadway (street rule: light the street, not the block).
     if light_usds:
-        spacing = float(config.get("streetlights", {}).get("spacing_m", 20.0))
+        spacing = float(_stage(config, "detail").get("streetlights", {}).get("spacing_m", 20.0))
         lights_toppled = float(dcfg.get("streetlights_toppled_fraction", 0.0))
         for px, py, street_yaw in _frontage_positions(spacing):
             lu = rng.choice(street_light_usds)
@@ -2398,7 +2373,7 @@ def build_city(config: dict, resolver: SizeResolver):
 
     # ---- Benches: along frontage, seat facing the street.
     if bench_usds:
-        spacing = float(config.get("benches", {}).get("spacing_m", 30.0))
+        spacing = float(_stage(config, "detail").get("benches", {}).get("spacing_m", 30.0))
         for px, py, street_yaw in _frontage_positions(spacing, phase=0.25,
                                                       jitter_frac=0.3):
             u = rng.choice(street_bench_usds)
@@ -2412,7 +2387,7 @@ def build_city(config: dict, resolver: SizeResolver):
     # ---- Planters: fully on the sidewalk, close to the curb, long axis
     # along the street. Tall planters carry their greenery at soil level —
     # a fraction of the planter's height — never at the sidewalk itself.
-    planters_cfg = config.get("planters", {})
+    planters_cfg = _stage(config, "detail").get("planters", {})
     soil_frac = float(planters_cfg.get("soil_level_frac", 0.75))
 
     def _add_planter(px, py, street_yaw, pu):
@@ -2472,7 +2447,7 @@ def build_city(config: dict, resolver: SizeResolver):
     # Bolted to the water main, so a tornado rarely moves them — only a
     # small sheared-off-and-flat fraction.
     if hydrant_usds:
-        spacing = float(config.get("fire_hydrants", {}).get("spacing_m", 55.0))
+        spacing = float(_stage(config, "detail").get("fire_hydrants", {}).get("spacing_m", 55.0))
         sheared = float(dcfg.get("fire_hydrants_toppled_fraction", 0.0))
         for px, py, street_yaw in _frontage_positions(spacing, phase=0.5,
                                                       jitter_frac=0.2):
@@ -2490,7 +2465,7 @@ def build_city(config: dict, resolver: SizeResolver):
     # ---- Trash cans: along frontage. Light and unanchored, so tipped ones
     # are also wind-blown up to trash_cans_scatter_m from where they stood.
     if trash_usds:
-        spacing = float(config.get("trash_cans", {}).get("spacing_m", 25.0))
+        spacing = float(_stage(config, "detail").get("trash_cans", {}).get("spacing_m", 25.0))
         tipped = float(dcfg.get("trash_cans_toppled_fraction", 0.0))
         scatter = float(dcfg.get("trash_cans_scatter_m", 0.0))
         for px, py, street_yaw in _frontage_positions(spacing, phase=0.5,
@@ -2503,14 +2478,14 @@ def build_city(config: dict, resolver: SizeResolver):
             if _hit(tx_, ty_, tipped):
                 # Wind displacement also scales with the local intensity —
                 # cans on the fringe tip over, cans in the core fly.
-                ang = rng.uniform(0.0, 2.0 * math.pi)
-                d = rng.uniform(0.0, scatter * damage_at(tx_, ty_))
+                ang = rng_dmg.uniform(0.0, 2.0 * math.pi)
+                d = rng_dmg.uniform(0.0, scatter * damage_at(tx_, ty_))
                 bx_, by_ = tx_ + d * math.cos(ang), ty_ + d * math.sin(ang)
                 if exclusions and _in_exclusion(bx_, by_, exclusions):
                     bx_, by_ = tx_, ty_     # don't blow into a keep-out zone
                 _topple_flat(u, fp, bx_, by_, "trash_can", z0=sidewalk_top)
             else:
-                add(u, tx_, ty_, sidewalk_top + fp["base"], rng.uniform(0.0, 360.0),
+                add(u, tx_, ty_, sidewalk_top + fp["base"], rng_dmg.uniform(0.0, 360.0),
                     "trash_can", _sc(u), roll=_axis_roll(u), axis_up=_au(u))
 
     # ---- Traffic lights: one per road intersection (probabilistic), on a
@@ -2518,7 +2493,7 @@ def build_city(config: dict, resolver: SizeResolver):
     # rule: signal head hangs over/toward the junction it controls).
     # Disaster: snapped flat at the base, or left standing but bent/leaning.
     if tlight_usds:
-        tlcfg = config.get("traffic_lights", {})
+        tlcfg = _stage(config, "detail").get("traffic_lights", {})
         tl_chance = float(tlcfg.get("intersection_chance", 1.0))
         corner_margin = float(tlcfg.get("corner_margin_m", 1.0))
         tl_front = float(orient.get("traffic_light_front", 0.0))
@@ -2572,11 +2547,16 @@ def build_city(config: dict, resolver: SizeResolver):
                 if _hit(x, y, tl_toppled):
                     _topple_flat(u, fp, x, y, "traffic_light", z0=sidewalk_top)
                 elif _hit(x, y, tl_leaning):
-                    tilt = rng.uniform(float(lean_lo), float(lean_hi))
+                    # rng_dmg, not rng: the lean is damage. On the layout
+                    # stream these four draws happened only for a leaning
+                    # light, so every prop placed after one — the whole human
+                    # pass — shifted with severity.
+                    tilt = rng_dmg.uniform(float(lean_lo), float(lean_hi))
                     add(u, x, y, sidewalk_top + fp["base"], yaw, "traffic_light",
                         _sc(u),
-                        roll=_axis_roll(u) + rng.choice([-1.0, 1.0]) * tilt,
-                        pitch=rng.choice([-1.0, 1.0]) * tilt * rng.uniform(0.0, 0.5),
+                        roll=_axis_roll(u) + rng_dmg.choice([-1.0, 1.0]) * tilt,
+                        pitch=rng_dmg.choice([-1.0, 1.0]) * tilt
+                              * rng_dmg.uniform(0.0, 0.5),
                         axis_up=_au(u))
                 else:
                     add(u, x, y, sidewalk_top + fp["base"], yaw, "traffic_light",
@@ -2590,16 +2570,16 @@ def build_city(config: dict, resolver: SizeResolver):
     # posed arms-down first so they read as casualties, not crosses), and
     # humans_strewn extra casualties are thrown onto the road asphalt.
     if human_usds:
-        hcfg = config.get("humans", {})
+        hcfg = _stage(config, "detail").get("humans", {})
         prone = float(dcfg.get("humans_prone_fraction", 0.0))
 
         def _human_down(u, fp, x, y, z0):
             """Casualty flat on the ground: face-down/up (±90° pitch about
             the body's facing axis via roll on the pre-yaw frame), lifted by
             half the body depth (sy — arms-down pose, not the T-pose span)."""
-            add(u, x, y, z0 + fp["sy"] / 2.0, rng.uniform(0.0, 360.0),
+            add(u, x, y, z0 + fp["sy"] / 2.0, rng_dmg.uniform(0.0, 360.0),
                 "human", _sc(u),
-                roll=_axis_roll(u) + rng.choice([-1.0, 1.0]) * rng.uniform(82.0, 98.0),
+                roll=_axis_roll(u) + rng_dmg.choice([-1.0, 1.0]) * rng_dmg.uniform(82.0, 98.0),
                 axis_up=_au(u), pose="idle")
 
         def _add_human(tx, ty, z0, yaw, pose):
@@ -2648,21 +2628,21 @@ def build_city(config: dict, resolver: SizeResolver):
 
         # Disaster: extra casualties strewn on the road asphalt.
         strewn_range = dcfg.get("humans_strewn", [0, 0])
-        want = rng.randint(int(strewn_range[0]), int(strewn_range[1]))
+        want = rng_dmg.randint(int(strewn_range[0]), int(strewn_range[1]))
         n_strewn = 0
         for _ in range(want * 10):
             if n_strewn >= want or not road_corridors:
                 break
-            corr = rng.choice(road_corridors)
-            hx = rng.uniform(corr["x0"], corr["x1"])
-            hy = rng.uniform(corr["y0"], corr["y1"])
+            corr = rng_dmg.choice(road_corridors)
+            hx = rng_dmg.uniform(corr["x0"], corr["x1"])
+            hy = rng_dmg.uniform(corr["y0"], corr["y1"])
             if exclusions and _in_exclusion(hx, hy, exclusions):
                 continue
             # Keep casualties inside the damage zone: accept the sampled
             # spot in proportion to how hard it was hit.
-            if rng.random() >= damage_at(hx, hy):
+            if rng_dmg.random() >= damage_at(hx, hy):
                 continue
-            u = rng.choice(human_usds)
+            u = rng_dmg.choice(human_usds)
             fp = resolver.get(u, "human", scale=_sc(u), axis_up=_au(u))
             _human_down(u, fp, hx, hy, 0.0)
             n_strewn += 1
@@ -2671,7 +2651,7 @@ def build_city(config: dict, resolver: SizeResolver):
     # STEP 4 — CARS (right-hand traffic along road corridors) + STREWN WRECKS
     # =======================================================================
     if car_usds:
-        ccfg = config.get("cars", {})
+        ccfg = _stage(config, "detail").get("cars", {})
         car_density  = float(ccfg.get("density", 0.0))
         lane_frac    = float(ccfg.get("lane_offset_frac", 0.3))
         car_yaw_jit  = float(ccfg.get("yaw_jitter_deg", 4.0))
@@ -2686,12 +2666,16 @@ def build_city(config: dict, resolver: SizeResolver):
             heading. z lifts the base pivot so the flipped body rests on the
             ground: on-side height = body width (sy), on-roof height = sz.
             """
-            if rng.random() < 0.5:
-                roll, z = rng.choice([-1.0, 1.0]) * rng.uniform(80.0, 100.0), fp["sy"] / 2.0
+            # rng_dmg throughout: flipping a car is damage. These six draws on
+            # the layout stream were the last severity leak — a flipped car
+            # shifted every prop placed after it.
+            if rng_dmg.random() < 0.5:
+                roll, z = (rng_dmg.choice([-1.0, 1.0])
+                           * rng_dmg.uniform(80.0, 100.0), fp["sy"] / 2.0)
             else:
-                roll, z = 180.0 + rng.uniform(-12.0, 12.0), fp["sz"]
-            add(usd, x, y, z, rng.uniform(0.0, 360.0), "car", _sc(usd),
-                roll=_axis_roll(usd) + roll, pitch=rng.uniform(-8.0, 8.0),
+                roll, z = 180.0 + rng_dmg.uniform(-12.0, 12.0), fp["sz"]
+            add(usd, x, y, z, rng_dmg.uniform(0.0, 360.0), "car", _sc(usd),
+                roll=_axis_roll(usd) + roll, pitch=rng_dmg.uniform(-8.0, 8.0),
                 axis_up=_au(usd), settle=True)
 
         # ---- Lane cars: distributed along road corridors, right-hand traffic.
@@ -2717,11 +2701,13 @@ def build_city(config: dict, resolver: SizeResolver):
                     yaw = 90.0 if heading > 0 else 270.0
                     usd = rng.choice(car_usds)
                     fp  = _car_fp(usd)
+                    # Drawn unconditionally: the flipped branch does not use
+                    # it, and skipping it shifted every later placement.
+                    yaw_jit = rng.uniform(-car_yaw_jit, car_yaw_jit)
                     if _hit(cx, cy, toppled_frac):
                         _add_toppled_car(usd, fp, cx, cy)
                     else:
-                        add(usd, cx, cy, fp["base"],
-                            yaw + car_front + rng.uniform(-car_yaw_jit, car_yaw_jit),
+                        add(usd, cx, cy, fp["base"], yaw + car_front + yaw_jit,
                             "car", _sc(usd), roll=_axis_roll(usd), axis_up=_au(usd))
             else:  # "ew"
                 road_len = corr["x1"] - corr["x0"]
@@ -2738,24 +2724,26 @@ def build_city(config: dict, resolver: SizeResolver):
                     yaw = 0.0 if heading > 0 else 180.0
                     usd = rng.choice(car_usds)
                     fp  = _car_fp(usd)
+                    # Drawn unconditionally: the flipped branch does not use
+                    # it, and skipping it shifted every later placement.
+                    yaw_jit = rng.uniform(-car_yaw_jit, car_yaw_jit)
                     if _hit(cx, cy, toppled_frac):
                         _add_toppled_car(usd, fp, cx, cy)
                     else:
-                        add(usd, cx, cy, fp["base"],
-                            yaw + car_front + rng.uniform(-car_yaw_jit, car_yaw_jit),
+                        add(usd, cx, cy, fp["base"], yaw + car_front + yaw_jit,
                             "car", _sc(usd), roll=_axis_roll(usd), axis_up=_au(usd))
 
         # ---- Strewn wrecks: tornado-tossed cars anywhere in the region.
         strewn_range = dcfg.get("cars_strewn", [0, 0])
         strewn_topple = float(dcfg.get("strewn_topple_fraction", 0.7))
         strewn_margin = float(dcfg.get("strewn_margin_m", 1.5))
-        want = rng.randint(int(strewn_range[0]), int(strewn_range[1]))
+        want = rng_dmg.randint(int(strewn_range[0]), int(strewn_range[1]))
         half_w, half_h = region_w_m / 2.0, region_h_m / 2.0
         strewn_pts: list = []
         for _ in range(want * 15):
             if len(strewn_pts) >= want:
                 break
-            x, y = rng.uniform(-half_w, half_w), rng.uniform(-half_h, half_h)
+            x, y = rng_dmg.uniform(-half_w, half_w), rng_dmg.uniform(-half_h, half_h)
             if exclusions and _in_exclusion(x, y, exclusions):
                 continue
             if any(_in_rect(x, y, (hr[0] - strewn_margin, hr[1] - strewn_margin,
@@ -2767,15 +2755,15 @@ def build_city(config: dict, resolver: SizeResolver):
             # Wrecks land where the disaster hit: accept the sampled spot in
             # proportion to the local intensity (a tornado strews along its
             # track, not across the whole city).
-            if rng.random() >= damage_at(x, y):
+            if rng_dmg.random() >= damage_at(x, y):
                 continue
-            usd = rng.choice(car_usds)
+            usd = rng_dmg.choice(car_usds)
             fp = _car_fp(usd)
-            if rng.random() < strewn_topple:
+            if rng_dmg.random() < strewn_topple:
                 _add_toppled_car(usd, fp, x, y)
             else:
                 # Upright but tossed onto uneven ground — settle it too.
-                add(usd, x, y, fp["base"], rng.uniform(0.0, 360.0), "car",
+                add(usd, x, y, fp["base"], rng_dmg.uniform(0.0, 360.0), "car",
                     _sc(usd), roll=_axis_roll(usd), axis_up=_au(usd),
                     settle=True)
             strewn_pts.append((x, y))
@@ -2820,11 +2808,11 @@ def build_city(config: dict, resolver: SizeResolver):
             is then weighted by the peaked density gradient, not the flat
             field value, so the strip reads as densest at its centerline."""
             for _ in range(12):
-                x = rng.uniform(rx0_, rx1_)
-                y = rng.uniform(ry0_, ry1_)
+                x = rng_dmg.uniform(rx0_, rx1_)
+                y = rng_dmg.uniform(ry0_, ry1_)
                 if damage_at(x, y) < path_min:
                     continue
-                if rng.random() > scour_density(x, y):
+                if rng_dmg.random() > scour_density(x, y):
                     continue
                 # Keep the ground clear inside buildings that are still
                 # standing; everything else — road, sidewalk, lawn, field —
@@ -2840,11 +2828,11 @@ def build_city(config: dict, resolver: SizeResolver):
                 pt = _scour_pt()
                 if pt is None:
                     continue
-                du = rng.choice(debris_piece_usds)
+                du = rng_dmg.choice(debris_piece_usds)
                 dfp = resolver.get(du, "debris", scale=_sc(du), axis_up=_au(du))
                 add(du, pt[0], pt[1], dfp["base"] + 0.4,
-                    rng.uniform(0.0, 360.0), "debris",
-                    _sc(du) * rng.uniform(0.7, 1.2),
+                    rng_dmg.uniform(0.0, 360.0), "debris",
+                    _sc(du) * rng_dmg.uniform(0.7, 1.2),
                     roll=_axis_roll(du), axis_up=_au(du), settle=True)
                 n_scour_pieces += 1
 
@@ -2853,11 +2841,11 @@ def build_city(config: dict, resolver: SizeResolver):
                 pt = _scour_pt()
                 if pt is None:
                     continue
-                du = rng.choice(debris_pile_usds)
+                du = rng_dmg.choice(debris_pile_usds)
                 dfp = resolver.get(du, "debris_pile", scale=_sc(du), axis_up=_au(du))
                 add(du, pt[0], pt[1], dfp["base"] + 0.02,
-                    rng.uniform(0.0, 360.0), "debris_pile",
-                    _sc(du) * rng.uniform(0.8, 1.3),
+                    rng_dmg.uniform(0.0, 360.0), "debris_pile",
+                    _sc(du) * rng_dmg.uniform(0.8, 1.3),
                     roll=_axis_roll(du), axis_up=_au(du))
                 n_scour_piles += 1
 
@@ -2872,8 +2860,8 @@ def build_city(config: dict, resolver: SizeResolver):
     print(f"[scene_gen] City region {region_w_m:.0f}×{region_h_m:.0f} m "
           f"({len(blocks)} blocks, {n_parks} parks, {len(road_corridors)} road corridors)")
     print(f"[scene_gen] Placements by category: {counts} "
-          f"(total {len(placements)}, {n_buildings} buildings, {n_damaged} damaged, "
-          f"{n_destroyed} destroyed, {len(placeholder_bldgs)} placeholder prisms)")
+          f"(total {len(placements)}, {n_buildings} buildings, "
+          f"{len(placeholder_bldgs)} placeholder prisms)")
     return placements, city_layout
 
 
@@ -3017,8 +3005,22 @@ def apply_placements(stage,
                      scene_scale_factor: float = 1.0,
                      ground_snap=None,
                      resolver: "SizeResolver | None" = None) -> str:
-    """Write *placements* onto *stage* as instanceable USD references under
-    *parent_path*.
+    """Write *placements* onto *stage* as USD references under *parent_path*.
+
+    **Not instanceable, deliberately.** `SetInstanceable(True)` was here
+    originally and was removed in 8187043e, because `scene_prep.add_colliders`
+    recursively applies `UsdPhysics.CollisionAPI` to every gprim beneath each
+    placement — and an instanceable prim has no traversable children, so
+    `GetChildren()` returns nothing and no collider is ever applied. The drone
+    would fly through buildings and LiDAR would see nothing.
+    `settle_rigid_props`, `prune_prims`, `apply_surface_overrides` and
+    `_bind_human_pose` all edit inside referenced assets too, so they have the
+    same conflict.
+
+    The cost is real — the urban scene OOM-killed at 89.1M points — but the fix
+    is not to re-enable this. It is to pre-author `CollisionAPI` into cached
+    per-asset variants so the prototypes arrive collider-ready, then instance
+    those. That fits the `prepare_assets.py` cache pattern.
 
     Metric coordinates are multiplied by *scene_scale_factor* (= 1 /
     meters_per_unit) to land in stage units. Each prim gets translate /
@@ -3203,20 +3205,26 @@ def generate_scene_on_stage(stage,
                             snap_to_ground: bool = False) -> list:
     """Build the city directly onto a live Isaac Sim *stage*.
 
-    Called from a launch script after the base environment is loaded. Footprints
-    are measured from the referenced USDs (resolved via the omni client), so the
-    layout adapts to the real prop sizes.
-    """
-    if isinstance(config, str):
-        config = load_config(config)
+    Kept as the name four launch scripts already call; it now **delegates to
+    `generate_city_v2.generate_city_v2_on_stage`**, which is the one pipeline.
 
-    resolver = _make_resolver(config)
-    placements, layout = build_city(config, resolver)
-    ground_snap = _make_physx_ground_snap() if snap_to_ground else None
-    apply_placements(stage, placements, parent_path, scene_scale_factor, ground_snap,
-                     resolver=resolver)
-    apply_ground_planes(stage, config, layout, parent_path, scene_scale_factor)
-    return placements
+    It used to call `build_city` and `apply_placements` itself, and that stopped
+    being correct the moment damage moved out of `build_city` into the disaster
+    stage: this function would happily build a *pristine* city for a preset
+    asking for a tornado, with no error anywhere. `preset_report.py` had the
+    same bug for the same reason.
+
+    Delegating is safe for a v1 config as well as a v2 one. Every detailed pass
+    is config-gated and no-ops when its settings are absent — verified: a v1
+    config through the v2 pipeline yields a byte-identical placement digest
+    (`patched=False`, `rings=False`, `detail_added=0`).
+    """
+    # Lazy: generate_city_v2 imports this module, so a top-level import here
+    # would be circular.
+    import generate_city_v2
+
+    return generate_city_v2.generate_city_v2_on_stage(
+        stage, config, parent_path, scene_scale_factor, snap_to_ground)
 
 
 def reload_scene_on_stage(stage,

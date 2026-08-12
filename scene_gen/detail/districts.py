@@ -70,7 +70,7 @@ rather than to "empty block".
 import math
 import random
 
-from scene_generator import _in_exclusion, _normalize_usd_list
+from scene_generator import _in_exclusion, _normalize_usd_list, _stage
 
 # Footprint slack when testing whether a building still fits its lot. Small and
 # negative-biased on purpose: fractionally larger risks clipping a neighbour.
@@ -92,7 +92,7 @@ def assign(config: dict, layout: dict):
     half-diagonal — they no longer decide what gets built, only the mixture of
     typologies and how much street furniture `city_detail` thins out.
     """
-    cfg = config.get("districts") or {}
+    cfg = _stage(config, "layout").get("districts") or {}
     rings = cfg.get("rings") or []
     if not cfg.get("enabled") or not rings:
         return (lambda x, y: None), []
@@ -167,7 +167,7 @@ class _AreaMap:
     """
 
     def __init__(self, config: dict, region=None):
-        cfg = config.get("districts") or {}
+        cfg = _stage(config, "layout").get("districts") or {}
         zcfg = cfg.get("zoning") or {}
         self.typologies = cfg.get("typologies") or {}
         self.rings = sorted(cfg.get("rings") or [],
@@ -392,7 +392,7 @@ def zone_field(config: dict, region=None):
     BLOCK SIZE in the module docstring. Returns a None-yielding callable when
     typology zoning is not configured, so callers need no feature test.
     """
-    cfg = config.get("districts") or {}
+    cfg = _stage(config, "layout").get("districts") or {}
     if not (cfg.get("enabled") and cfg.get("typologies") and cfg.get("rings")):
         return lambda x, y: None
     return _AreaMap(config, region)
@@ -616,7 +616,7 @@ def park_blocks(layout: dict, placements: list):
     """
     blocks = layout.get("blocks", [])
     try:
-        import city_layout
+        from layout import city_layout
         reserved = [b for b in city_layout.PARK_RESERVES if b in blocks]
     except ImportError:
         reserved = []
@@ -642,7 +642,7 @@ def block_inset(config: dict, resolver):
     if paths:
         fp = resolver.get(paths[0], "sidewalk", scale=sc_ovr.get(paths[0], default))
         sw = max(fp["sx"], fp["sy"])
-    return float(config.get("frontage", {}).get("verge_m", 0.0)) + sw
+    return float(_stage(config, "layout").get("frontage", {}).get("verge_m", 0.0)) + sw
 
 
 # ---------------------------------------------------------------------------
@@ -974,7 +974,7 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
     their debris stay exactly where `build_city` put them and are treated as
     obstacles, so re-zoning cannot quietly repair a bombed city.
     """
-    cfg = config.get("districts") or {}
+    cfg = _stage(config, "layout").get("districts") or {}
     typologies = cfg.get("typologies") or {}
     if not typologies:
         return {}
@@ -987,8 +987,20 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
                              typologies[n].get("pools") or [n], cache)
                for n in typologies}
 
+    # Never demolish what cannot be rebuilt. This pass drops every intact
+    # building and re-packs the block from its typology pools, so an asset set
+    # that does not define those pools loses its buildings outright — and
+    # silently, because ruins are not in the intact set and survive, leaving a
+    # city of nothing but rubble. That is what happened when the `downtown`
+    # locale started enabling districts (Phase 1) for presets still on the v1
+    # `urban` set: houses went 0 at severity 0 and *rose* with severity.
+    if not any(pool_of.values()):
+        print("[districts] no typology pools resolve for this asset set — "
+              "leaving buildings as packed")
+        return {}
+
     inset = block_inset(config, resolver)
-    gap = float(config.get("packing", {}).get("building_gap_m", 2.5))
+    gap = float(_stage(config, "layout").get("packing", {}).get("building_gap_m", 2.5))
     bleed = float((cfg.get("zoning") or {}).get("bleed", 0.12))
     exclusions = config.get("exclusions") or []
     sky = _Skyline(cfg, rng)
@@ -1233,10 +1245,10 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
     the block's concrete tiles and nothing else — which is the "the sidewalk is
     enormous here" effect: it is not sidewalk, it is unbuilt paved interior.
     """
-    cfg = (config.get("districts") or {}).get("infill") or {}
+    cfg = (_stage(config, "layout").get("districts") or {}).get("infill") or {}
     if not cfg.get("enabled", True):
         return 0
-    dcfg = config.get("districts") or {}
+    dcfg = _stage(config, "layout").get("districts") or {}
     cache: dict = {}
     # NEVER infill from a terrace pool. A row house only works in a party-wall
     # run laid along a block face; dropped into a leftover gap by the packer it
@@ -1253,7 +1265,7 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
 
     smallest = min(min(e[3]["sx"], e[3]["sy"]) for e in pool)
     min_gap = float(cfg.get("min_gap_m", 0.0)) or smallest
-    gap = float(cfg.get("gap_m", config.get("packing", {})
+    gap = float(cfg.get("gap_m", _stage(config, "layout").get("packing", {})
                         .get("building_gap_m", 2.5)))
     margin = float(cfg.get("clearance_m", gap))
     inset = block_inset(config, resolver)
@@ -1312,7 +1324,7 @@ def remap_buildings(config: dict, layout: dict, placements: list, resolver,
     receives the placement list. `layout` carries a done-flag so a caller that
     grows explicit calls later gets a no-op rather than a doubled scene.
     """
-    cfg = config.get("districts") or {}
+    cfg = _stage(config, "layout").get("districts") or {}
     if not cfg.get("enabled") or layout.get("_districts_done"):
         return 0
     layout["_districts_done"] = True
@@ -1321,7 +1333,7 @@ def remap_buildings(config: dict, layout: dict, placements: list, resolver,
     typ_of = rezone_blocks(config, layout, placements, resolver, rng, zone_at)
     infill_blocks(config, layout, placements, resolver, rng, zone_at)
     try:
-        import parks
+        from detail import parks
     except ImportError:
         return len(typ_of)
     parks.build(config, layout, placements, resolver, rng)

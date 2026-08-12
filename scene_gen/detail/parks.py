@@ -59,6 +59,7 @@ is placed except through `place()`, so a category cannot opt out of it.
 import math
 
 from scene_generator import (_catmull_rom_points, _in_exclusion, _in_rect,
+                             _stage,
                              _normalize_usd_list, _walk_polyline)
 
 # Ground heights build_city places on: apply_ground_planes puts the block grass
@@ -417,9 +418,9 @@ def _cells(rect, cell, rng):
 
 def build(config: dict, layout: dict, placements: list, resolver, rng) -> int:
     """Lay out every park superblock. Returns the number of parks built."""
-    import districts
+    from detail import districts
 
-    cfg = config.get("parks") or {}
+    cfg = _stage(config, "detail").get("parks") or {}
     lay = cfg.get("layout") or {}
     acfg = cfg.get("attraction") or {}
     lib = _Lib(config)
@@ -946,7 +947,7 @@ def build(config: dict, layout: dict, placements: list, resolver, rng) -> int:
         # ---- people, on the walks and out on the greensward. They stand ON
         # the paving, so paving is the one reservation they ignore.
         if human_usds:
-            hstep = float(config.get("humans", {}).get("trail_spacing_m", 30.0))
+            hstep = float(_stage(config, "detail").get("humans", {}).get("trail_spacing_m", 30.0))
             for hx, hy, hyaw in _walk_paths(paths + ring_paths,
                                             hstep or 1e9, 0.15):
                 place(rng.choice(human_usds), "human", hx, hy, hyaw,

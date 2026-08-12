@@ -62,8 +62,7 @@ fallbacks.
 
 Layout (pure Python) is separate from USD writing: `apply_placements` defines an
 `Xform` per placement referencing the asset USD, with translate / rotateXYZ
-(roll, pitch, yaw — the tilt makes damaged houses possible) / scale ops, marked
-`instanceable` so the hundreds of repeated tiles share geometry. Two entrypoints
+(roll, pitch, yaw — the tilt makes damaged houses possible) / scale ops. Two entrypoints
 wrap it: `generate_scene_usd(config, output)` (offline bake) and
 `generate_scene_on_stage(stage, config, ...)` (runtime compose).
 

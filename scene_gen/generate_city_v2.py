@@ -27,10 +27,12 @@ import random
 
 import scene_generator as sg
 
-import city_detail
-import city_layout
-import districts
-import road_markings
+from detail import city_detail
+from layout import city_layout
+from disaster import disaster_stage
+from detail import districts
+from disaster import mesh_damage
+from detail import road_markings
 
 
 def check_duplicate_yaml_keys(paths=None) -> int:
@@ -285,6 +287,62 @@ def _pack_of(usd: str) -> str:
     return "?"
 
 
+def build_scene(config: dict, resolver, stop_after: str = "disaster"):
+    """Run the three stages in pure Python. Returns ``(placements, layout,
+    base_counts)``.
+
+    No stage, no USD, no Nucleus — everything here only decides *what goes
+    where*. USD writing (`apply_placements`, `apply_ground_planes`,
+    `road_markings.apply`) stays in `generate_city_v2_on_stage`, which is the
+    only caller that needs a live stage.
+
+    Factored out so the offline consumers — `preset_report.py` and the test
+    harness — run the *same* pipeline the sim does. They used to call
+    `build_city` directly, which was fine while damage lived inside it and
+    silently wrong the moment it moved: every preset reported zero ruins.
+
+    *stop_after* is `"layout"`, `"detail"` or `"disaster"`. Stopping at
+    `"detail"` yields the pristine scene, which is how the tests assert that
+    layout and detail do not depend on severity — exactly, by construction,
+    rather than by trying to tell a displaced prop from a relaid-out one.
+    """
+    rng = random.Random(int(config.get("seed", 0)) + 7717)
+
+    # ---- stage 1: layout ------------------------------------------------
+    # `patched` is scoped to the build_city call, so nothing else in the
+    # process sees a patched generator.
+    with city_layout.patched(config):
+        placements, layout = sg.build_city(config, resolver)
+    base_counts = _tally(placements)
+
+    district_at, rings = districts.assign(config, layout)
+    if rings:
+        districts.remap_buildings(config, layout, placements, resolver, rng,
+                                  district_at)
+    if stop_after == "layout":
+        return placements, layout, base_counts
+
+    # ---- stage 2: detail ------------------------------------------------
+    detail = city_detail.build(
+        config, layout, resolver, rng,
+        district_of=districts.block_lookup(district_at) if rings else None)
+    detail += city_detail.build_road_surface(config, layout, resolver, rng)
+    placements = placements + detail
+    if stop_after == "detail":
+        return placements, layout, base_counts
+
+    # ---- stage 3: disaster ----------------------------------------------
+    # Runs LAST, and that is load-bearing rather than incidental. `districts`
+    # drops every intact building to re-pack its block by typology and treats
+    # a ruin as an immovable obstacle, so when fate was assigned during packing
+    # it received a half-ruined city and demolished buildings it could not then
+    # rebuild — the detailed downtown lost 455 of 919 buildings at severity
+    # 0.6. Every pass that rewrites the layout now sees a pristine city.
+    disaster_stage.apply_to_buildings(config, layout, placements, resolver)
+    disaster_stage.apply(config, layout, placements)
+    return placements, layout, base_counts
+
+
 def generate_city_v2_on_stage(stage,
                               config,
                               parent_path: str = "/World/stage/generated",
@@ -297,28 +355,16 @@ def generate_city_v2_on_stage(stage,
         config = sg.load_config(config)
 
     resolver = sg._make_resolver(config)
-    rng = random.Random(int(config.get("seed", 0)) + 7717)
-
-    # Scoped for the build_city call only; restored on exit, so nothing else in
-    # the process sees a patched generator.
-    with city_layout.patched(config):
-        placements, layout = sg.build_city(config, resolver)
-    base_counts = _tally(placements)
-
-    district_at, rings = districts.assign(config, layout)
-    if rings:
-        districts.remap_buildings(config, layout, placements, resolver, rng,
-                                  district_at)
-
-    detail = city_detail.build(
-        config, layout, resolver, rng,
-        district_of=districts.block_lookup(district_at) if rings else None)
-    detail += city_detail.build_road_surface(config, layout, resolver, rng)
-    placements = placements + detail
+    placements, layout, base_counts = build_scene(config, resolver)
 
     ground_snap = sg._make_physx_ground_snap() if snap_to_ground else None
     sg.apply_placements(stage, placements, parent_path, scene_scale_factor,
                         ground_snap, resolver=resolver)
+    # Mesh damage needs real prims — it authors a `points` override on
+    # geometry inside a referenced layer — so it runs here rather than in
+    # `build_scene`, which is pure Python.
+    mesh_damage.apply_to_stage(stage, config, placements)
+
     # After apply_placements, which is what assigns each placement its prim_path.
     prune_prims(stage, config, placements)
     stamp_asset_provenance(

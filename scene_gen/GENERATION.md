@@ -31,6 +31,75 @@ Generator settings and asset sources are separate concerns: a low-level config
 says *how* to lay out a city, an asset set says *what* to build it from. Point
 a config at a different set to re-skin a scene without touching a single knob.
 
+## The three stages
+
+Generation runs in three stages, and **a low-level config is grouped by which
+stage consumes it**:
+
+```yaml
+seed: 42              # scene-wide metaparameters: seed, asset_set,
+asset_set: urban      # exclusions, measure_usds, usds, locale
+layout:               # WHERE things go — the city plan
+  region_m, min_block_m, max_block_m, split_jitter, anisotropic,
+  packing, frontage, roads, districts
+detail:               # WHAT is placed on that plan
+  trees, plants, planters, streetlights, benches, trash_cans, bus_stops,
+  fire_hydrants, traffic_lights, humans, cars, driveways, parks, city_detail
+disaster:             # what the EVENT does to the finished scene
+  field, damaged_fraction, destroyed_fraction, debris,
+  *_toppled_fraction, *_scatter_m, *_strewn
+```
+
+The ordering is the point: **a locale and a seed fully specify the layout, and
+severity only decides what happens to it.** Sweeping severity gives you the
+same city at different damage levels, which is what makes comparing a search
+algorithm across severities mean anything. This is enforced by tests — see
+[`tests/README.md`](tests/README.md).
+
+Reading a stage: `scene_generator._stage(config, "layout")`. Writing one: a
+locale compiler or a preset's `overrides:` may be authored **flat** (one line
+per knob, far more readable than three levels of nesting) and is normalised by
+`scene_generator.restage()`, so configs written before the grouping existed
+still load unchanged.
+
+> **Gotcha, and it cost an afternoon.** The generator is sensitive to config
+> key *order* — `city_detail` walks its `categories` dict in order, placing
+> furniture into a shared occupancy grid, so whichever category comes first
+> wins the contested kerb. `compile_spec` therefore deep-copies with
+> `copy.deepcopy`, **not** `yaml.safe_load(yaml.safe_dump(base))`: `safe_dump`
+> sorts keys, which silently alphabetised the base config and made a setting
+> behave differently depending on which tier it was authored in.
+
+> **Second gotcha.** `deep_merge` recurses into nested dicts, so an empty
+> override (`categories: {}`) merges to a no-op and the inherited entries
+> survive — you cannot *narrow* an inherited dict. Switching a pass off needs
+> an explicit flag (`city_detail.enabled`, `districts.enabled`), and a bulky
+> table that one locale wants and another does not has to live with the locale
+> (see `config/low_level/locales/`), not in `default.yaml`.
+
+## Two frontage implementations, and which locale owns which
+
+There are two street-furniture passes, and this is deliberate rather than
+leftover:
+
+| locale | `detail/city_detail.py` | the built-in frontage passes in `build_city` |
+|---|---|---|
+| downtown | **on** — NACTO sidewalk zones | zeroed (`spacing_m: 0.0`) |
+| suburban | off | **live** — 94 streetlights, 64 hydrants, 17 benches |
+| rural | off | live, but mostly zeroed: no kerb to put anything on |
+
+Exactly one owns the sidewalk in any given scene. Running both puts two
+benches on it, which is why turning `city_detail` on means zeroing the
+built-in spacings — and why a locale that keeps the built-in passes sets
+`city_detail.enabled: false` rather than clearing `categories` (`deep_merge`
+cannot narrow an inherited dict).
+
+So a `spacing_m: 0.0` in `compile_downtown` is **not** dead config. The same
+key carries a real value for suburban, where the built-in pass is what places
+the furniture. Deleting the built-in passes would leave suburban streets bare;
+migrating suburban to `city_detail` first needs a suburban category table in
+`config/low_level/locales/`.
+
 ## Layout
 
 Everything lives under `scene_gen/` at the repo root. The generator is
@@ -39,10 +108,24 @@ the Isaac Sim launch scripts import it from here.
 
 | Path | What it is |
 |------|-----------|
-| `scene_generator.py` | The generator: layout, packing, disaster field, USD writing. |
+| `scene_generator.py` | The generator core: layout, packing, disaster field, USD writing. Also `_stage()` / `restage()` / `STAGE_OF`. |
+| `generate_city_v2.py` | **The entry point.** `build_scene()` runs the three stages in pure Python (the offline consumers use it); `generate_city_v2_on_stage()` adds the USD writing. |
+| **`layout/`** | **Stage 1 — where blocks, roads and buildings go.** |
+| `layout/city_layout.py` | Anisotropic block subdivision — real grids are directional (Manhattan ~80 m x ~280 m), the built-in BSP tends to 1:1. |
+| `layout/suburb_layout.py` | Hierarchical suburb streets with cul-de-sacs. **Not wired to an entry point yet.** |
+| **`detail/`** | **Stage 2 — what is placed on that plan.** |
+| `detail/city_detail.py` | Street furniture against NACTO sidewalk zones, instead of everything on one kerb line. |
+| `detail/districts.py` | Zoning: which building typology goes where, and the park superblocks. |
+| `detail/parks.py` | Composes each park superblock as one designed place. |
+| `detail/road_markings.py` | Crosswalks, stop bars, parking bays, hatching (MUTCD). |
+| `detail/suburb_lots.py` / `detail/suburb_yards.py` | Suburban lotting and yard planting. **Not wired yet.** |
+| **`disaster/`** | **Stage 3 — what the event does to the finished scene.** |
+| `disaster/disaster_stage.py` | Building fate, debris, and prop effects by response class rather than per-kind knobs. |
+| `disaster/mesh_damage.py` | Deforms a building's actual geometry — the USD port of `scenegen/damage.py`'s operators, plus the profiles the disaster types compose. |
 | `compile_disaster.py` | High-level spec → low-level config, and `load_scene_config()`. |
 | `compile_locale.py` | The locale axis: one function per locale (`downtown`/`suburban`/`rural`). |
 | `preset_report.py` | Dry-run every preset and compare the results. |
+| `tests/` | Host-side layout guardrails — no Isaac, no Nucleus, seconds to run. See [`tests/README.md`](tests/README.md). |
 | `reload_scene.py` | Regenerate on a live Isaac Sim stage without restarting. |
 | `prepare_assets.py` | **Run this before `airstack up`** — caches the Objaverse assets a scene needs (see below). |
 | `objaverse_assets.py` / `convert_to_usd.py` / `render_usd.py` | The Objaverse → USD asset pipeline that backs it: search, download, Blender conversion, preview. |
@@ -50,7 +133,8 @@ the Isaac Sim launch scripts import it from here.
 | `config/presets/*.yaml` | **High-level specs.** Hand-written, one per scenario. Name a locale, a disaster type and a severity. |
 | `config/asset_sets/shared.yaml` | **Shared assets.** Everything every locale builds with — street furniture, greenery, tiles, vehicles, people — plus `asset_root`, `asset_scale`, `sky`, `orientation`, `fallback_sizes`. No `buildings` or `debris`: those read as a specific material (concrete rubble, timber wreckage) and belong entirely to the set whose damage they are. Not named directly by a config. |
 | `config/asset_sets/<locale>.yaml` | **Specialized sets.** `extends: shared`, then only what makes that locale itself: its buildings and the debris they leave. |
-| `config/low_level/default.yaml` | **Base low-level config.** Hand-written: layout, packing, prop densities, roads — the generator settings, with the city undamaged. Names an asset set rather than listing assets. Also the schema reference; it has the full comments. |
+| `config/low_level/default.yaml` | **The schema tier.** Hand-written, grouped by stage (`layout:` / `detail:` / `disaster:`): what every knob means and a safe default for it, with the full comments and citations. Names an asset set rather than listing assets. |
+| `config/low_level/locales/<name>.yaml` | Bulky locale-owned tables that cannot live in `default.yaml` because `deep_merge` cannot narrow them — currently downtown's 18 street-furniture categories. Loaded by that locale's compiler. |
 | `config/low_level/compiled/*.yaml` | **Generated.** `default.yaml` + the disaster's settings, carrying `asset_set:` by reference (so it stays short and the set stays single-source). Don't edit — recompile. |
 | `assets/objaverse/<uid>/` | Cache of converted Objaverse USDs, keyed by dataset uid (git-ignored, rebuilt by `prepare_assets.py`) + the committed `manifest.yaml`. |
 | `notebooks/` | Asset exploration (see *Finding assets worth importing*). |

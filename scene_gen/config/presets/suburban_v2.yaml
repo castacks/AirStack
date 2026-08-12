@@ -553,6 +553,11 @@ overrides:
 
   # ---- the little street furniture a suburb DOES carry -----------------------
   city_detail:
+    # The `suburban` locale leaves this off — a plain suburb keeps the simpler
+    # built-in frontage passes. This preset is a *detailed* suburb and wants
+    # the zoned pass, so it opts back in explicitly.
+    enabled: true
+
     # THE SIDEWALK IS MOSTLY NOT THERE. A downtown pavement runs kerb to
     # building on both sides of every street; a post-war suburb often has grass
     # straight to the kerb, and where a walk exists it is narrow. The paved ring

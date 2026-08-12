@@ -66,7 +66,7 @@ stretches are protected; `city_detail` consumes `plan_bike_lanes()["posts"]`.
 import math
 import random
 
-from scene_generator import _make_dash_mesh, _make_plane_mesh
+from scene_generator import _make_dash_mesh, _make_plane_mesh, _stage
 
 # MARKING HEIGHTS. `apply_ground_planes` is tracked and draws its yellow centre
 # lines and white lane dashes at a HARDCODED 0.020, so the two heights here are
@@ -412,11 +412,11 @@ def plan_bike_lanes(config: dict, layout: dict) -> list:
         protected          the subset of *solid* that gets delineators
         posts              world (x, y) for every delineator on this side
     """
-    cfg = ((config.get("roads") or {}).get("markings") or {}).get("bike_lanes")
+    cfg = ((_stage(config, "layout").get("roads") or {}).get("markings") or {}).get("bike_lanes")
     if not cfg or not cfg.get("enabled", True):
         return []
 
-    roads = config.get("roads") or {}
+    roads = _stage(config, "layout").get("roads") or {}
     lane_w = float(roads.get("lane_width_m", 3.5))
     # A bike lane is never wider than the travel lane it replaces, and always
     # leaves something for the buffer.
@@ -434,7 +434,7 @@ def plan_bike_lanes(config: dict, layout: dict) -> list:
     # because it IS that geometry: setback, then the crossing band, then the
     # gap, then the bar. A real junction is bare asphalt plus a crossing, not a
     # lattice of dotted lines, and the lane has to stop at the stop line.
-    mkc = (config.get("roads") or {}).get("markings") or {}
+    mkc = (_stage(config, "layout").get("roads") or {}).get("markings") or {}
     clear_m = (float(mkc.get("setback_m", 1.2))
                + float(mkc.get("crosswalk_depth_m", 2.4))
                + float(mkc.get("stop_bar_advance_m", 1.2))
@@ -736,7 +736,7 @@ def apply(stage, config: dict, layout: dict, parent_path: str,
     caller has to hand them over; without them the hydrant clear zones are the
     only markings that go missing.
     """
-    cfg = (config.get("roads") or {}).get("markings") or {}
+    cfg = (_stage(config, "layout").get("roads") or {}).get("markings") or {}
     if not cfg:
         return 0
 
@@ -796,7 +796,7 @@ def apply(stage, config: dict, layout: dict, parent_path: str,
     # The crossing masks have to be the SAME asphalt as the road or they read as
     # grey patches, so the material is taken off the base plane rather than
     # re-resolved: apply_ground_planes has already run and bound it.
-    uv_asphalt = float((config.get("roads") or {}).get("asphalt_uv_scale_m", 4.0))
+    uv_asphalt = float((_stage(config, "layout").get("roads") or {}).get("asphalt_uv_scale_m", 4.0))
     asphalt_mat = ""
     _base = stage.GetPrimAtPath(f"{gnd}/asphalt_base")
     if _base and _base.IsValid():

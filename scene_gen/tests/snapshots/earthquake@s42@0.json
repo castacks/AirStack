@@ -3,27 +3,28 @@
  "preset": "earthquake",
  "seed": 42,
  "severity": 0.0,
- "n_placements": 4063,
+ "n_placements": 4133,
  "counts": {
-  "bench": 22,
-  "car": 62,
-  "concrete": 156,
-  "fire_hydrant": 64,
+  "bench": 27,
+  "car": 63,
+  "concrete": 206,
+  "fire_hydrant": 61,
   "house": 83,
-  "human": 58,
-  "plant": 1212,
-  "rock": 13,
+  "human": 55,
+  "plant": 1211,
+  "play_structure": 5,
+  "rock": 9,
   "sidewalk": 1344,
-  "streetlight": 98,
+  "streetlight": 100,
   "traffic_light": 2,
-  "trail": 97,
-  "trash_can": 10,
+  "trail": 116,
+  "trash_can": 9,
   "tree": 842
  },
  "digests": {
   "geometry": "dca21a8eff3a3b0a",
-  "layout": "5a7679d791a0fc6a",
-  "full": "08d6a84766a62a23"
+  "layout": "e970e6e073a6ac22",
+  "full": "a5cb21a11acd79ef"
  },
  "geometry": {
   "region": [

@@ -23,6 +23,41 @@ See GENERATION.md ("Locales: downtown vs suburb") for the characteristics
 each of these encodes.
 """
 
+import os
+
+_LOCALE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "config", "low_level", "locales")
+
+
+def _deep_merge(base: dict, override: dict) -> dict:
+    """Recursive in-place merge. Same semantics as compile_disaster.deep_merge,
+    duplicated rather than imported to keep this module free of that import
+    cycle (compile_disaster imports this one)."""
+    for k, v in override.items():
+        if isinstance(v, dict) and isinstance(base.get(k), dict):
+            _deep_merge(base[k], v)
+        else:
+            base[k] = v
+    return base
+
+
+def _locale_config(name: str) -> dict:
+    """Load `config/low_level/locales/<name>.yaml`, or {} if there is none.
+
+    Most locale settings are a handful of scalars and read best as the dicts
+    below. A few are bulky, heavily-cited tables — downtown's eighteen
+    street-furniture categories run to ~200 lines — and those live in YAML
+    beside the other config rather than being transcribed into Python.
+    """
+    import yaml
+
+    path = os.path.join(_LOCALE_DIR, f"{name}.yaml")
+    if not os.path.exists(path):
+        return {}
+    with open(path) as fh:
+        return yaml.safe_load(fh) or {}
+
+
 # ---------------------------------------------------------------------------
 # Locale compilers — one per locale
 #
@@ -34,36 +69,83 @@ each of these encodes.
 def compile_downtown(spec):
     """Dense urban core: paved wall-to-wall, built to the sidewalk, busy.
 
-    This is the generator's historical behavior — every knob at its
-    default.yaml value — so the entry is mostly explicit documentation of
-    what "downtown" means, and the thing the other locales are a delta from.
+    Downtown is the locale the *detailed* generator was built for, so this is
+    where the detailed subsystems get switched on: anisotropic blocks
+    (`layout.anisotropic`), radial zoning (`districts`) and NACTO-zoned street
+    furniture (`city_detail`). Their settings live in `default.yaml` — this
+    only enables them and supplies the values that are genuinely a property of
+    *downtown* rather than of the generator.
+
+    Enabling `city_detail` means the built-in frontage passes must go quiet:
+    the two would otherwise both place benches, and the built-in one puts every
+    category on a single kerb line where the later ones get dropped. One owner
+    per concern, so the built-in spacings are zeroed below. (They are deleted
+    outright in Phase 6; until then a zero is how a pass is switched off.)
     """
-    return {
-        "layout": {"min_block_m": 30, "max_block_m": 70},
+    settings = {
+        # Manhattan runs ~80 m between streets and ~280 m between avenues.
+        # `anisotropic` supplies that; `max_block_m` bounds the long axis.
+        "layout": {"min_block_m": 30, "max_block_m": 200,
+                   "anisotropic": {"enabled": True}},
+        "districts": {"enabled": True},        # radial core/mid/edge zoning
         "packing": {
-            "building_gap_m": 2.5,
+            "building_gap_m": 6.0,
             "pave_blocks": True,      # concrete wall-to-wall between buildings
             "setback_m": 0.0,         # built out to the sidewalk
-            "park_block_chance": 0.12,
-            "min_parks": 2, "max_parks": 3,
+            # Parks are carved as superblocks before subdivision
+            # (`layout.anisotropic.parks`), so the BSP must make none of its
+            # own — two adjacent park leaves read as one design mirrored about
+            # the street between them.
+            "park_block_chance": 0.0,
+            "min_parks": 0, "max_parks": 0,
         },
         "frontage": {"verge_m": 0.0}, # sidewalk runs kerb-to-building
         "roads": {"main_road_chance": 0.25, "main_road_lanes": 4,
-                  "secondary_road_lanes": 2},
+                  "secondary_road_lanes": 2,
+                  # NACTO Urban Street Design Guide: 10 ft travel lanes.
+                  "lane_width_m": 3.3,
+                  "lane_lines": {"dash_length_m": 3.0, "dash_gap_m": 9.0}},
         # Street trees are potted; nothing grows out of a downtown block.
         "trees": {"lawn_density_per_100m2": 0.0},
         "plants": {"lawn_density_per_100m2": 0.0},
-        "planters": {"tree_spacing_m": 30.0, "plant_spacing_m": 40.0},
-        "streetlights": {"spacing_m": 18.0},
-        "benches": {"spacing_m": 30.0},
-        "trash_cans": {"spacing_m": 25.0},
-        "bus_stops": {"spacing_m": 130.0},
-        "fire_hydrants": {"spacing_m": 55.0},
-        "traffic_lights": {"intersection_chance": 0.9},
+        # --- built-in frontage passes: off, city_detail owns the sidewalk ---
+        "planters": {"tree_spacing_m": 0.0, "plant_spacing_m": 0.0},
+        "streetlights": {"spacing_m": 0.0},
+        "benches": {"spacing_m": 0.0},
+        "trash_cans": {"spacing_m": 0.0},
+        "bus_stops": {"spacing_m": 0.0},
+        "fire_hydrants": {"spacing_m": 0.0},
+        "traffic_lights": {"intersection_chance": 0.0},
+        # -------------------------------------------------------------------
         "driveways": {"chance": 0.0},
         "cars": {"density": 0.15},
         "humans": {"sidewalk_spacing_m": 45.0, "per_block": [0, 3]},
+        # The superblock park composer (`parks.py`) and the built-in BSP park
+        # pass share the `parks:` namespace but are different subsystems, and
+        # they disagree on these three. They live here rather than in
+        # default.yaml because a single key cannot hold both values — putting
+        # the composer's numbers in the shared block silently retuned every
+        # locale's parks (caught by check_duplicate_yaml_keys).
+        "parks": {
+            "furniture_offset_m": 1.2,      # kerb-to-prop gap off the walk edge
+            # Trees are laid first and plants take what is left, so a high tree
+            # density keeps shrubs as underplanting rather than a substitute
+            # canopy. At 1.2/0.8 the park read as full of bushes.
+            "tree_density_per_100m2": 1.8,
+            "tree_min_separation_m": 4.0,
+        },
     }
+    # The street-furniture category table (locales/downtown.yaml) — bulky and
+    # heavily cited, so it stays in YAML.
+    _deep_merge(settings, _locale_config("downtown"))
+    return settings
+
+
+# Locales that keep the built-in frontage passes need `city_detail` silent.
+# An explicit flag rather than clearing `categories`: `deep_merge` recurses
+# into nested dicts, so an empty `categories: {}` merges to a no-op and the 18
+# inherited entries survive. Same shape as `districts.enabled`.
+_NO_CITY_DETAIL = {"city_detail": {"enabled": False}}
 
 
 def compile_suburban(spec):
@@ -75,6 +157,9 @@ def compile_suburban(spec):
     and the downtown street kit (benches, bins, shelters, signals) goes away.
     """
     return {
+        # Built-in frontage passes keep the sidewalk here; the
+        # NACTO-zoned pass is a downtown thing.
+        **_NO_CITY_DETAIL,
         # Long blocks, few intersections.
         "layout": {"min_block_m": 60, "max_block_m": 150},
         "packing": {
@@ -115,6 +200,9 @@ def compile_rural(spec):
     than a decoration on it.
     """
     return {
+        # Built-in frontage passes keep the sidewalk here; the
+        # NACTO-zoned pass is a downtown thing.
+        **_NO_CITY_DETAIL,
         "layout": {"min_block_m": 150, "max_block_m": 320},
         "packing": {
             "building_gap_m": 30.0,   # farmsteads, not neighbours
@@ -172,7 +260,8 @@ def compile_locale_settings(locale: str, spec: dict) -> dict:
         raise ValueError(
             f"unknown locale {locale!r}; expected one of "
             f"{', '.join(sorted(LOCALES))}")
-    return LOCALES[key](spec)
+    from scene_generator import restage   # lazy: keeps pxr off the CLI path
+    return restage(LOCALES[key](spec))
 
 
 def default_asset_set(locale: str) -> str:

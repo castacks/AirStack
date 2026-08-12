@@ -3,8 +3,7 @@ snapshot.py — canonical, diffable signatures of a generated scene's layout.
 
 WHY THIS EXISTS
 ---------------
-The generator is being refactored into three stages (layout -> detail ->
-damage) and the first requirement of that refactor is *preserve behavior*.
+The generator is organised in three stages (layout -> detail -> disaster) and the first requirement of that refactor is *preserve behavior*.
 There were no tests, so there was nothing to preserve behavior against. This
 turns a generation run into a stable text signature that can be committed and
 diffed, which is what makes "did that refactor change the scene?" answerable
@@ -29,16 +28,18 @@ THE THREE SIGNATURES, AND WHY THERE ARE THREE
 cannot produce a false diff. `full` keeps emission order, because prim naming
 in `apply_placements` depends on it and a reordering is a real change.
 
-THE ASSERTION THIS EXISTS TO SUPPORT
--------------------------------------
-`geometry_signature` and `layout_signature` must be **identical across
-severity** for a fixed locale and seed. That is requirement 4a of the refactor:
-a locale and a seed fully specify the layout, and damage only adds to it.
+WHAT THE INVARIANT ACTUALLY IS
+------------------------------
+*Structure* — buildings, roads, ground tiles — must be positionally identical
+at every severity. That is a guarantee: `STRUCTURE_CATEGORIES`.
 
-It does not hold today, and the test that checks it is expected to fail until
-Phase 2 lands. `scene_generator._anchor_ok` gates which block a large building
-may anchor into by local damage intensity, so raising severity currently moves
-buildings. That failure is the point: it is the regression test for the fix.
+*Details* must be **generated** at the same positions; the disaster stage may
+then topple, tilt, swap or displace them. Post hoc those two are hard to tell
+apart, so `run_layout` deliberately stops *before* the disaster pass — which
+makes the assertion exact by construction rather than by inference.
+
+`layout_signature` is a strict regression tripwire, not the invariant: it moves
+on any legitimate disaster effect too. Use `positions_by_category`.
 
 USAGE
 -----
@@ -54,6 +55,7 @@ import hashlib
 import io
 import json
 import os
+import random
 import sys
 
 _TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -66,6 +68,34 @@ PRESET_DIR = os.path.join(_SCENE_GEN_DIR, "config", "presets")
 # Categories that only exist because of damage. Excluded from the layout
 # signature: their absence at severity 0 is correct, not a layout difference.
 DAMAGE_CATEGORIES = {"debris", "debris_pile"}
+
+# Structural categories — the city plan. These must be positionally identical
+# at every severity: a locale and a seed fully specify where the buildings and
+# the ground surfaces are.
+STRUCTURE_CATEGORIES = {"house", "sidewalk", "concrete"}
+
+# Categories the disaster stage is allowed to MOVE out of the position the
+# detail stage chose.
+#
+# READ THIS BEFORE TREATING THE EMPTY SET AS A GUARANTEE. The *guarantee* is
+# `STRUCTURE_CATEGORIES` — buildings, roads and ground tiles do not move, ever.
+# Details are a different matter: a disaster is entitled to blow a bin down the
+# street, and `disaster.trash_cans_scatter_m` is 14 m for a tornado.
+#
+# The set is empty today for two reasons, only one of them good:
+#   1. the RNG leaks are fixed, so nothing is *relaid out* by severity — good,
+#      and this test is what keeps it that way;
+#   2. almost nothing is actually displaced yet. Scatter exists only in the
+#      built-in frontage pass, which the downtown locale switches off in favour
+#      of `city_detail` — and `city_detail` props get no disaster effects at
+#      all. So downtown street furniture is currently immune to the event.
+#
+# Fixing (2) will move categories into this set, and that is correct, not a
+# regression. What must never happen is a category moving because a
+# disaster-only draw was taken from the layout stream, or because two branches
+# consumed different numbers of layout draws — that is relayout, and it is what
+# this test exists to catch.
+DAMAGE_MAY_RELOCATE: set = set()
 
 # Footprint used when not measuring real USD bboxes, so blocks actually pack
 # offline. Matches preset_report.py's default for comparability.
@@ -83,6 +113,14 @@ DEFAULT_CASES = [
     ("flood", 42, 0.6),
     ("hurricane", 42, 0.6),
     ("suburban", 7, 0.5),
+    # The detailed-city presets. These exercise the v2 passes (anisotropic
+    # blocks, districts, zoned furniture) and are what Phase 1's config hoist
+    # rewrites, so they are the guardrail for it.
+    ("urban_v2", 42, 0.0),
+    ("suburban_v2", 42, 0.0),
+    # Disaster x detailed city — impossible before the config hoist,
+    # since a preset's `overrides:` merged after the disaster axis.
+    ("urban_v2_earthquake", 42, 0.6),
 ]
 
 
@@ -132,8 +170,84 @@ def build(preset: str, seed: int, severity: float):
         cfg.setdefault("fallback_sizes", {})["house"] = list(HOUSE_FALLBACK)
 
         resolver = sg._make_resolver(cfg)
-        placements, layout = sg.build_city(cfg, resolver)
+        placements, layout = run_layout(cfg, resolver)
     return placements, layout
+
+
+def run_layout(cfg: dict, resolver):
+    """Layout + detail — the PRISTINE scene, stopping before the disaster.
+
+    Delegates to `generate_city_v2.build_scene`, so the harness exercises the
+    same pipeline the sim does rather than a reimplementation of it that can
+    drift. Stopping at `detail` is what makes the position-preservation
+    assertions exact by construction: at this point severity has had no
+    opportunity to affect anything.
+    """
+    import generate_city_v2
+
+    placements, layout, _ = generate_city_v2.build_scene(
+        cfg, resolver, stop_after="detail")
+    return placements, layout
+
+
+def run_full(cfg: dict, resolver):
+    """All three stages — what an actual scene looks like."""
+    import generate_city_v2
+
+    placements, layout, _ = generate_city_v2.build_scene(cfg, resolver)
+    return placements, layout
+
+
+def sg_module():
+    import scene_generator
+    return scene_generator
+
+
+
+def build_for_disaster(preset: str, seed: int, severity: float):
+    """(config, layout, placements) with the disaster stage NOT yet applied.
+
+    `run_layout` deliberately stops before the disaster pass — that is what
+    makes the invariance assertions exact — so a test that wants to exercise
+    the pass needs the config and layout handed back with it.
+    """
+    import yaml
+
+    import compile_disaster as cd
+    import scene_generator as sg
+
+    preset_path = cd.resolve_config_path(preset)
+    with open(preset_path) as fh:
+        spec = yaml.safe_load(fh)
+    spec["severity"] = float(severity)
+    spec["seed"] = int(seed)
+    with open(cd.DEFAULT_BASE) as fh:
+        base = yaml.safe_load(fh)
+
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        cfg = cd.compile_spec(spec, base)
+        cfg = sg.resolve_asset_set(cfg, preset_path)
+        cfg = sg.validate_config(cfg, preset_path)
+        cfg["measure_usds"] = False
+        cfg.setdefault("fallback_sizes", {})["house"] = list(HOUSE_FALLBACK)
+        placements, layout = run_layout(cfg, sg._make_resolver(cfg))
+    return cfg, layout, placements
+
+
+
+def build_full_positions(preset: str, seed: int, severity: float) -> dict:
+    """`positions_by_category` for a scene built through ALL three stages."""
+    cfg, layout, placements = build_for_disaster(preset, seed, severity)
+    from disaster import disaster_stage
+    disaster_stage.apply_to_buildings(cfg, layout, placements, _resolver_for(cfg))
+    disaster_stage.apply(cfg, layout, placements)
+    return positions_by_category(placements)
+
+
+def _resolver_for(cfg):
+    import scene_generator as sg
+    return sg._make_resolver(cfg)
 
 
 def geometry_signature(layout: dict) -> dict:
@@ -157,18 +271,37 @@ def geometry_signature(layout: dict) -> dict:
 
 
 def layout_signature(placements: list) -> list:
-    """Pose of every non-damage placement, sorted.
+    """Pose of every non-damage placement, sorted. A *regression* signature.
 
-    `usd` is omitted on purpose: swapping a building for its damaged variant at
-    the same spot is damage, not layout, and must not fail the decoupling
-    assertion. roll/pitch are omitted for the same reason — toppling a
-    streetlight is damage; where the streetlight stands is layout.
+    NOT the decoupling criterion. This is deliberately strict — it moves if
+    anything at all changes — which makes it a good tripwire for "did this
+    refactor alter the scene?" and a bad statement of "is damage additive?".
+    Damage legitimately adds placements, displaces props and re-yaws whatever
+    it topples, all of which move this digest. Use `positions_by_category`
+    and the tests built on it for the actual invariant.
     """
     return sorted(
         (p["category"], _round(p["x_m"]), _round(p["y_m"]), _round(p["yaw_deg"], 1))
         for p in placements
         if p["category"] not in DAMAGE_CATEGORIES
     )
+
+
+def positions_by_category(placements: list) -> dict:
+    """``{category: {(x, y), ...}}`` — where things were put, ignoring pose.
+
+    The decoupling criterion is about *placement*, not orientation: a felled
+    tree is still the same tree in the same spot, and a swapped-in ruin stands
+    on the same slab. Dropping yaw/roll/pitch is what separates "damage acted
+    on this prop" from "the detail stage put this prop somewhere else".
+    """
+    out: dict = {}
+    for p in placements:
+        if p["category"] in DAMAGE_CATEGORIES:
+            continue
+        out.setdefault(p["category"], set()).add(
+            (_round(p["x_m"]), _round(p["y_m"])))
+    return out
 
 
 def full_signature(placements: list) -> list:
@@ -234,6 +367,7 @@ def snapshot(preset: str, seed: int, severity: float, detail: bool = False) -> d
     if detail:
         snap["_layout"] = lay
         snap["_full"] = full
+        snap["_positions"] = positions_by_category(placements)
     return snap
 
 

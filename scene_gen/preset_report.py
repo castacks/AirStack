@@ -88,9 +88,14 @@ def build_stats(config_path, args):
     else:
         resolver = sg._make_resolver(cfg)
 
+    # The FULL pipeline, not just build_city: damage moved to the disaster
+    # stage, so calling build_city alone now reports zero ruins for every
+    # preset — which looked like a tuning problem and was a plumbing one.
+    import generate_city_v2
+
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        placements, layout = sg.build_city(cfg, resolver)
+        placements, layout, _ = generate_city_v2.build_scene(cfg, resolver)
     if args.verbose:
         print(buf.getvalue(), end="")
 
@@ -133,7 +138,8 @@ def build_stats(config_path, args):
             """Ruin percentage, or None when nothing was built there."""
             if not group:
                 return None
-            return 100.0 * sum(1 for h in group if h["usd"] in ruin_set) / len(group)
+            return 100.0 * sum(1 for h in group if h["usd"] in ruin_set
+                               or h.get("_mesh_damage")) / len(group)
 
         core = _ruin_rate([h for h in houses if field(h["x_m"], h["y_m"]) >= 0.5])
         edge = _ruin_rate([h for h in houses if field(h["x_m"], h["y_m"]) < 0.5])
@@ -146,7 +152,13 @@ def build_stats(config_path, args):
         "locale": str(cfg.get("locale", "-"))[:9],
         "assets": str(cfg.get("asset_set", "-"))[:9],
         "buildings": len(houses),
-        "damaged": sum(1 for h in houses if h["usd"] in damaged_set),
+        # A "damaged" building is one that took the damaged fate by EITHER
+        # route: an asset swap (its usd is in the damaged pool) or mesh damage
+        # (its usd stays intact and the disaster stage marks it). Counting only
+        # the swap reported zero damaged for every preset the moment mesh
+        # damage became the preferred mechanism for that fate.
+        "damaged": sum(1 for h in houses
+                       if h["usd"] in damaged_set or h.get("_mesh_damage")),
         "destroyed": sum(1 for h in houses if h["usd"] in destroyed_set),
         "debris": len(by.get("debris", [])) + len(by.get("debris_pile", [])),
         "prone": down("human"),

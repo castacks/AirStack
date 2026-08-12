@@ -28,7 +28,9 @@ Open the Kit Script Editor (Window -> Script Editor) and run:
     SCENE_GEN = "/isaac-sim/AirStack/scene_gen"
     ISAAC_DIR = "/isaac-sim/AirStack/simulation/isaac-sim"
     sys.path[:0] = [SCENE_GEN, os.path.join(ISAAC_DIR, "utils")]
-    import scene_generator, city_detail, city_layout, districts, road_markings
+    import scene_generator
+    from detail import city_detail, districts, road_markings
+    from layout import city_layout
     import generate_city_v2, scene_prep
     for m in (scene_generator, city_detail, city_layout, districts,
               road_markings, generate_city_v2):

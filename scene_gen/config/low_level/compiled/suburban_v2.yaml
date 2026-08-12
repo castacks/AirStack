@@ -1,0 +1,753 @@
+# GENERATED FILE — do not edit by hand.
+#
+# Low-level scene config compiled by scene_gen/compile_disaster.py.
+# Edit the high-level spec (or low_level/default.yaml) and recompile:
+#     python3 compile_disaster.py suburban_v2.yaml
+#
+# locale        : suburban
+# disaster-type : none
+# severity      : 0.0
+# spec          : scene_gen/config/presets/suburban_v2.yaml
+# base          : scene_gen/config/low_level/default.yaml
+# compiled      : 2026-08-11 23:44:20
+# spec extras   : {'asset-set': 'suburban_v2', 'region_m': [1600, 1200], 'seed': 42, 'overrides': {'suburb_layout': {'enabled': True, 'classes': {'arterial': {'lanes': 4, 'lane_w_m': 3.5, 'parking_m': 0.0}, 'collector': {'lanes': 2, 'lane_w_m': 3.35, 'parking_m': 2.44, 'parking_policy': {'none': 0.3, 'one_side': 0.45, 'both': 0.25}}, 'local': {'lanes': 2, 'lane_w_m': 3.2, 'parking_m': 2.13, 'parking_policy': {'one_side': 0.3, 'both': 0.7}}, 'cul_de_sac': {'lanes': 2, 'lane_w_m': 3.05, 'parking_m': 0.0}}, 'collector_spacing_m': [380, 620], 'block_short_m': [72, 118], 'block_long_m': [165, 265], 'min_gap_m': 62.0, 'stub_gap_m': 34.0, 'jitter': 0.35, 'cell_patterns': {'ladder': 0.4, 'loop': 0.35, 'cul_cluster': 0.25}, 'rung_through_chance': 0.3, 'cul_de_sac': {'per_km2': [10, 18], 'length_m': [46, 140], 'bulb_radius_m': 14.64, 'hammerhead_share': 0.25, 'hammerhead_arm_m': 15.25}, 'parks': {'enabled': True, 'count': [1, 2], 'side_m': [150, 250]}}, 'suburb_lots': {'enabled': True, 'neighbourhoods': {'patch_m': 300.0, 'patch_jitter': 0.35, 'mix': {'tract': 1.0, 'compact': 1.0, 'large_lot': 0.8}}, 'clear_block_scatter': True, 'types': {'tract': {'pools': ['intact'], 'lot_width_m': 18.3, 'lot_width_min_m': 16.8, 'lot_depth_m': 30.5, 'lot_depth_min_m': 26.0, 'lot_depth_max_m': 34.0, 'front_setback_m': 7.6, 'side_setback_m': 2.4, 'rear_setback_m': 6.1, 'driveway_width_m': 3.0, 'driveway_to_rear': False, 'driveway_car_chance': 0.45, 'yards': ['front'], 'fence': {'chance': 0.0}}, 'compact': {'pools': ['intact'], 'lot_width_m': 18.3, 'lot_width_min_m': 16.8, 'lot_depth_m': 27.4, 'lot_depth_min_m': 23.0, 'lot_depth_max_m': 32.0, 'front_setback_m': 6.1, 'side_setback_m': 1.8, 'rear_setback_m': 4.6, 'driveway_width_m': 3.0, 'driveway_to_rear': False, 'driveway_car_chance': 0.5, 'yards': ['rear'], 'fence': {'chance': 0.75, 'tag': 'privacy', 'front': False, 'side': True, 'rear': True, 'module_gap_m': 0.0}}, 'large_lot': {'pools': ['intact'], 'lot_width_m': 30.5, 'lot_width_min_m': 24.0, 'lot_depth_m': 42.7, 'lot_depth_min_m': 29.0, 'lot_depth_max_m': 52.0, 'front_setback_m': 9.1, 'side_setback_m': 4.6, 'rear_setback_m': 7.6, 'driveway_width_m': 6.1, 'driveway_to_rear': True, 'driveway_car_chance': 0.55, 'yards': ['front', 'rear'], 'fence': {'chance': 0.85, 'tag': 'low', 'front': True, 'side': False, 'rear': True, 'module_gap_m': 0.0}}}}, 'suburb_yards': {'layout_key': 'lot_yards', 'point_budget': 30000000, 'tree_budget_frac': 0.62, 'occupancy_cell_m': 4.0, 'occupancy_pad_m': 0.15, 'house_clear_m': 0.5, 'drive_clear_m': 0.35, 'walk_clear_m': 0.25, 'fence_clear_m': 0.5, 'boundary_inset_m': 0.4, 'tree_min_separation_m': 3.0, 'canopy_footprint_frac': 0.35, 'front': {'lawn_frac': 0.55, 'foundation': {'chance': 0.85, 'offset_m': 0.9, 'spacing_m': 1.5, 'jitter_m': 0.25, 'height_m': [0.4, 1.8]}, 'tree': {'chance': 0.7, 'count': [1, 1], 'darts': 40, 'height_m': [4.5, 7.5], 'from_house_m': 2.5}, 'scatter': {'density_per_100m2': 0.3, 'height_m': [0.4, 1.8]}, 'mailbox_chance': 0.6, 'shed_chance': 0.0, 'patio_chance': 0.0, 'bin_chance': 0.0}, 'rear': {'lawn_frac': 0.35, 'foundation': {'chance': 0.35, 'offset_m': 1.1, 'spacing_m': 2.0, 'height_m': [0.4, 2.6]}, 'tree': {'chance': 0.6, 'count': [1, 2], 'darts': 40, 'height_m': [6.5, 11.0], 'from_house_m': 3.5}, 'hedge': {'chance': 0.7, 'offset_m': 0.7, 'spacing_m': 1.8, 'height_m': [0.5, 2.6]}, 'scatter': {'density_per_100m2': 0.9, 'height_m': [0.05, 2.6]}, 'shed_chance': 0.35, 'patio_chance': 0.35, 'bin_chance': 0.5, 'mailbox_chance': 0.0}, 'neighbourhoods': {'tract': {'skip': ['rear'], 'front': {'lawn_frac': 0.6, 'tree': {'chance': 0.85}, 'foundation': {'chance': 0.9, 'spacing_m': 1.4}, 'scatter': {'density_per_100m2': 0.2}, 'mailbox_chance': 0.8}}, 'compact': {'skip': ['front'], 'rear': {'lawn_frac': 0.3, 'tree': {'chance': 0.55, 'count': [1, 1], 'height_m': [5.0, 8.0]}, 'hedge': {'chance': 0.85, 'spacing_m': 1.6}, 'scatter': {'density_per_100m2': 1.1}, 'shed_chance': 0.45, 'patio_chance': 0.45}}, 'large_lot': {'front': {'lawn_frac': 0.5, 'tree': {'chance': 0.8, 'height_m': [5.0, 8.5]}, 'foundation': {'chance': 0.9, 'spacing_m': 1.6}, 'scatter': {'density_per_100m2': 0.4}}, 'rear': {'tree': {'chance': 0.75, 'count': [1, 2], 'height_m': [7.0, 12.0]}, 'hedge': {'chance': 0.6}, 'scatter': {'density_per_100m2': 0.9}, 'shed_chance': 0.5, 'patio_chance': 0.55}}}}, 'parking_meters': {'spacing_m': 0.0}, 'bike_racks': {'spacing_m': 0.0}, 'bus_stops': {'spacing_m': 0.0}, 'benches': {'spacing_m': 0.0}, 'trash_cans': {'spacing_m': 0.0}, 'traffic_lights': {'intersection_chance': 0.0}, 'city_detail': {'enabled': True, 'zones': {'curb_m': 0.15, 'furnishing_m': 0.55, 'through_m': 0.7, 'frontage_m': 0.1, 'interior_m': 4.0}, 'categories': {'signs_stop': {'zone': 'furnishing', 'spacing_m': 0.0, 'near_corner_m': 6.0, 'control': 'stop', 'sightline': True}, 'signs_street_name': {'zone': 'furnishing', 'spacing_m': 0.0, 'near_corner_m': 3.0}, 'streetlights': {'zone': 'furnishing', 'spacing_m': 120.0}, 'fire_hydrants': {'zone': 'furnishing', 'spacing_m': 240.0}, 'street_trees': {'zone': 'furnishing', 'spacing_m': 0.0}}, 'clearances': {'streetlights': {'streetlights': 30.0}}}, 'roads': {'lane_width_m': 3.3, 'markings': {'bike_lanes': {'enabled': False}, 'turn_lane_flares': False, 'no_parking_hatch': False, 'crosswalks': True, 'stop_bars': True, 'parking_bays': False}}}}
+
+seed: 42
+exclusions:
+- center:
+  - 0.0
+  - 0.0
+  radius: 10.0
+asset_set: suburban_v2
+measure_usds: true
+layout:
+  region_m:
+  - 1600
+  - 1200
+  min_block_m: 60
+  max_block_m: 150
+  split_jitter: 0.25
+  tile_overlap: 1.02
+  anisotropic:
+    enabled: false
+    long_axis: x
+    block_short_m:
+    - 55
+    - 95
+    block_long_m:
+    - 130
+    - 200
+    main_road_chance_long: 0.8
+    main_road_chance_short: 0.05
+    stop_chance: 0.85
+    parking_lane_m: 2.4
+    parking_policy:
+      none: 0.15
+      one_side: 0.35
+      both: 0.5
+    zones:
+      core:
+        main_road_chance_long: 0.95
+        main_road_chance_short: 0.5
+        lanes_main: 4
+        lanes_secondary: 2
+        parking_policy:
+          none: 0.45
+          one_side: 0.35
+          both: 0.2
+      mid:
+        main_road_chance_long: 0.85
+        main_road_chance_short: 0.3
+        lanes_main: 4
+        lanes_secondary: 2
+        parking_policy:
+          none: 0.15
+          one_side: 0.35
+          both: 0.5
+      edge:
+        main_road_chance_long: 0.4
+        main_road_chance_short: 0.05
+        lanes_main: 2
+        lanes_secondary: 2
+        parking_policy:
+          none: 0.05
+          one_side: 0.25
+          both: 0.7
+        even_split_road_m: 6.0
+      park_edge:
+        main_road_chance_long: 0.0
+        main_road_chance_short: 0.0
+        lanes_main: 2
+        lanes_secondary: 2
+        parking_policy:
+          none: 0.05
+          one_side: 0.25
+          both: 0.7
+    parks:
+      enabled: true
+      count:
+      - 2
+      - 3
+      block_scale:
+      - 1.2
+      - 1.8
+      margin_m: 50.0
+      min_separation_m: 110.0
+  packing:
+    building_gap_m: 9.0
+    park_block_chance: 0.15
+    min_parks: 2
+    max_parks: 4
+    pave_blocks: false
+    setback_m: 9.0
+    placeholders:
+      enabled: false
+      min_footprint_m: 5.0
+      max_footprint_m: 20.0
+      height_m:
+      - 8
+      - 30
+  frontage:
+    verge_m: 1.5
+    curb_margin_m: 0.3
+  roads:
+    lane_width_m: 3.3
+    main_road_lanes: 2
+    secondary_road_lanes: 2
+    border_lanes: 2
+    main_road_chance: 0.05
+    asphalt_uv_scale_m: 4.0
+    grass_uv_scale_m: 3.0
+    lane_lines:
+      dash_length_m: 3.0
+      dash_gap_m: 3.0
+      dash_width_m: 0.15
+      center_line_width_m: 0.2
+    markings:
+      crosswalks: true
+      stop_bars: true
+      parking_bays: false
+      turn_lane_flares: false
+      no_parking_hatch: false
+      z_low_m: 0.005
+      z_high_m: 0.021
+      bar_width_m: 0.45
+      bar_gap_m: 0.45
+      crosswalk_depth_m: 2.4
+      stop_bar_width_m: 0.5
+      setback_m: 1.2
+      stop_bar_advance_m: 1.2
+      bay_tick_width_m: 0.12
+      no_parking_m: 7.5
+      flare_m: 16.0
+      flare_taper_m: 5.0
+      flare_chance: 0.55
+      lane_line_width_m: 0.15
+      hatch_pitch_m: 1.6
+      hatch_width_m: 0.15
+      hydrant_clear_m: 4.6
+      hydrant_reach_m: 4.0
+      bus_zone_m: 27.4
+      bus_reach_m: 5.0
+      bike_lanes:
+        enabled: false
+        min_lanes: 4
+        ride_width_m: 2.0
+        corridor_chance: 0.6
+        protected_chance: 0.45
+        protected_min_m: 30.0
+        protected_seg_m: 55.0
+        mix_zone_m: 22.0
+        line_width_m: 0.15
+        dash_len_m: 0.6
+        dash_gap_m: 1.8
+        buffer_hatch_pitch_m: 0.0
+        buffer_hatch_width_m: 0.1
+        symbol_spacing_m: 60.0
+        symbol_len_m: 1.8
+        green_conflict: true
+        green_chance: 0.25
+        post_spacing_near_m: 3.0
+        post_spacing_far_m: 12.0
+        post_taper_m: 20.0
+        post_setback_m: 2.0
+  districts:
+    enabled: false
+    min_region_m: 300
+    neighbour_weight: 0.5
+    neighbour_radius_m: 45.0
+    pick_sigma: 0.3
+    repeat_penalty: 1.0
+    infill:
+      enabled: true
+      gap_m: 2.0
+    rings:
+    - name: core
+      to_frac: 0.45
+      furniture_scale: 1.0
+      mix:
+        tower: 0.85
+        midrise: 0.15
+        rowhouse: 0.0
+    - name: mid
+      to_frac: 0.6
+      furniture_scale: 1.3
+      mix:
+        tower: 0.35
+        midrise: 0.62
+        rowhouse: 0.03
+    - name: edge
+      to_frac: 1.01
+      furniture_scale: 1.9
+      mix:
+        tower: 0.03
+        midrise: 0.12
+        rowhouse: 0.85
+    zoning:
+      cell_m: 40.0
+      area_m2_per_nucleus: 30000.0
+      blend_m: 40.0
+      adjacency_ladder: true
+      bleed: 0.12
+    typologies:
+      rowhouse:
+        rank: 0
+        pools:
+        - rowhouse
+        morphology: terrace
+        facing_offset_deg: 0.0
+        height_median_m: 12.5
+        height_sigma: 0.2
+        cross_grain: 400.0
+        max_superblocks: 2
+        street_w_m: 11.4
+        street_park_w_m: 2.4
+        alley_m: 2.0
+        alley_max_m: 6.0
+        block_short_m:
+        - 46.0
+        - 52.0
+        block_long_m:
+        - 135.0
+        - 200.0
+        run_median_m: 45.0
+        run_sigma: 0.7
+        run_gap_m:
+        - 3.0
+        - 9.0
+      midrise:
+        rank: 1
+        pools:
+        - midrise
+        morphology: pack
+        perimeter_depth_m: 45.0
+        height_median_m: 27.0
+        height_sigma: 0.45
+        block_short_m:
+        - 80.0
+        - 115.0
+        block_long_m:
+        - 135.0
+        - 200.0
+      tower:
+        rank: 2
+        pools:
+        - tower
+        morphology: pack
+        perimeter_depth_m: 60.0
+        height_median_m: 85.0
+        height_sigma: 0.45
+        height_max_m: 140.0
+        block_short_m:
+        - 70.0
+        - 110.0
+        block_long_m:
+        - 135.0
+        - 190.0
+disaster:
+  damaged_fraction: 0.0
+  destroyed_fraction: 0.0
+  debris:
+    piles_per_building:
+    - 0
+    - 0
+    pieces_per_building:
+    - 0
+    - 0
+    tilt_chance: 0.0
+    path_pieces_per_100m2: 0.0
+    path_piles_per_100m2: 0.0
+  trees_toppled_fraction: 0.0
+  streetlights_toppled_fraction: 0.0
+  traffic_lights_toppled_fraction: 0.0
+  traffic_lights_leaning_fraction: 0.0
+  trash_cans_toppled_fraction: 0.0
+  trash_cans_scatter_m: 0.0
+  cars_toppled_fraction: 0.0
+  cars_strewn:
+  - 0
+  - 0
+  humans_prone_fraction: 0.0
+  humans_strewn:
+  - 0
+  - 0
+  field:
+    kind: uniform
+    inside: 0.0
+  type: none
+  severity: 0.0
+detail:
+  trees:
+    house_margin_m: 1.5
+    lawn_density_per_100m2: 0.9
+    lawn_min_separation_m: 6.0
+  plants:
+    per_block:
+    - 4
+    - 12
+    min_separation_m: 1.0
+    house_margin_m: 1.5
+    lawn_density_per_100m2: 1.4
+    lawn_house_margin_m: 0.6
+  planters:
+    tree_spacing_m: 0.0
+    plant_spacing_m: 0.0
+    plant_slot_m: 0.7
+    soil_level_frac: 0.75
+  streetlights:
+    spacing_m: 50.0
+  benches:
+    spacing_m: 0.0
+  trash_cans:
+    spacing_m: 0.0
+  bus_stops:
+    spacing_m: 0.0
+  fire_hydrants:
+    spacing_m: 70.0
+  traffic_lights:
+    intersection_chance: 0.0
+    corner_margin_m: 1.0
+  humans:
+    per_block:
+    - 0
+    - 1
+    sidewalk_spacing_m: 150.0
+    trail_spacing_m: 30.0
+    min_separation_m: 2.0
+    house_margin_m: 1.0
+  cars:
+    density: 0.04
+    lane_offset_frac: 0.3
+    yaw_jitter_deg: 4.0
+  driveways:
+    chance: 0.75
+    width_m: 3.2
+    car_chance: 0.6
+  parks:
+    trail_margin_m: 4.0
+    trail_waypoints:
+    - 2
+    - 4
+    bench_spacing_m: 14.0
+    streetlight_spacing_m: 22.0
+    trash_can_spacing_m: 30.0
+    furniture_offset_m: 0.8
+    rocks_per_park:
+    - 3
+    - 8
+    rock_min_separation_m: 2.5
+    tree_density_per_100m2: 0.8
+    tree_min_separation_m: 4.0
+    playground_chance: 0.7
+    playground_structures:
+    - 2
+    - 3
+    playground_spacing_m: 5.0
+    playground_margin_m: 2.0
+    layout:
+      entrances:
+      - 4
+      - 6
+      attractions:
+      - 2
+      - 3
+      loop_min_side_m: 45.0
+      loop_chance: 1.0
+      loop_inset_m: 8.0
+      path_curve_m: 5.0
+      path_clear_m: 1.0
+    attraction:
+      ring_gap_m: 1.0
+      clearing_m: 9.0
+      bench_spacing_m: 16.0
+      plaza_radius_m: 4.0
+    bench_density_per_1000m2: 0.8
+    lamp_density_per_1000m2: 0.5
+    trash_can_density_per_1000m2: 0.5
+    plant_density_per_100m2: 0.45
+    plant_min_separation_m: 2.0
+    canopy_footprint_frac: 0.45
+    tree_max_canopy_m: 30.0
+    grove_area_m2: 1600.0
+    lawn_area_frac: 0.1
+    lawn_plant_max_m: 1.2
+    fence_module_gap_m: 0.0
+    occupancy_cell_m: 6.0
+    occupancy_pad_m: 0.2
+  city_detail:
+    enabled: true
+    zones:
+      curb_m: 0.15
+      furnishing_m: 0.55
+      through_m: 0.7
+      frontage_m: 0.1
+      interior_m: 4.0
+    occupancy_cell_m: 4.0
+    occupancy_pad_m: 0.1
+    curb_margin_m: 0.3
+    canopy_footprint_frac: 0.25
+    jitter_frac: 0.12
+    slide_m: 3.0
+    lateral_tries: 3
+    pole_clearance_m: 1.0
+    signals:
+      mast_usds: traffic_lights_mast
+      pole_usds: traffic_lights_pole
+      signal_lanes: 4
+      corner_margin_m: 0.5
+      stopline_setback_m: 0.3
+      yaw_offset_deg: 0.0
+      stop_zones: []
+    sightlines:
+      design_speed_kph: 40.0
+      eye_height_m: 1.08
+      sign_face_z_m: 2.1
+      min_obstruction_m: 1.0
+    road_surface:
+      surface_z: 0.026
+      parked_cars:
+        spacing_m: 6.5
+        density: 0.35
+        junction_clear_m: 7.5
+      manholes:
+        spacing_m: 55.0
+        lateral: centre
+      storm_drains:
+        spacing_m: 40.0
+        lateral: kerb
+        kerb_margin_m: 3.0
+      bike_lane_delineators:
+        enabled: true
+        surface_z: 0.0
+    clearances:
+      street_trees:
+        fire_hydrants: 3.0
+        streetlights: 5.0
+        utility_poles: 5.0
+      fire_hydrants:
+        streetlights: 1.8
+        utility_poles: 1.8
+      streetlights:
+        traffic_lights: 18.0
+        streetlights: 30.0
+    categories:
+      signs_stop:
+        zone: furnishing
+        spacing_m: 0.0
+        near_corner_m: 6.0
+        control: stop
+        sightline: true
+      signs_street_name:
+        zone: furnishing
+        spacing_m: 0.0
+        near_corner_m: 3.0
+      streetlights:
+        zone: furnishing
+        spacing_m: 120.0
+      fire_hydrants:
+        zone: furnishing
+        spacing_m: 240.0
+      street_trees:
+        zone: furnishing
+        spacing_m: 0.0
+locale: suburban
+suburb_layout:
+  enabled: true
+  classes:
+    arterial:
+      lanes: 4
+      lane_w_m: 3.5
+      parking_m: 0.0
+    collector:
+      lanes: 2
+      lane_w_m: 3.35
+      parking_m: 2.44
+      parking_policy:
+        none: 0.3
+        one_side: 0.45
+        both: 0.25
+    local:
+      lanes: 2
+      lane_w_m: 3.2
+      parking_m: 2.13
+      parking_policy:
+        one_side: 0.3
+        both: 0.7
+    cul_de_sac:
+      lanes: 2
+      lane_w_m: 3.05
+      parking_m: 0.0
+  collector_spacing_m:
+  - 380
+  - 620
+  block_short_m:
+  - 72
+  - 118
+  block_long_m:
+  - 165
+  - 265
+  min_gap_m: 62.0
+  stub_gap_m: 34.0
+  jitter: 0.35
+  cell_patterns:
+    ladder: 0.4
+    loop: 0.35
+    cul_cluster: 0.25
+  rung_through_chance: 0.3
+  cul_de_sac:
+    per_km2:
+    - 10
+    - 18
+    length_m:
+    - 46
+    - 140
+    bulb_radius_m: 14.64
+    hammerhead_share: 0.25
+    hammerhead_arm_m: 15.25
+  parks:
+    enabled: true
+    count:
+    - 1
+    - 2
+    side_m:
+    - 150
+    - 250
+suburb_lots:
+  enabled: true
+  neighbourhoods:
+    patch_m: 300.0
+    patch_jitter: 0.35
+    mix:
+      tract: 1.0
+      compact: 1.0
+      large_lot: 0.8
+  clear_block_scatter: true
+  types:
+    tract:
+      pools:
+      - intact
+      lot_width_m: 18.3
+      lot_width_min_m: 16.8
+      lot_depth_m: 30.5
+      lot_depth_min_m: 26.0
+      lot_depth_max_m: 34.0
+      front_setback_m: 7.6
+      side_setback_m: 2.4
+      rear_setback_m: 6.1
+      driveway_width_m: 3.0
+      driveway_to_rear: false
+      driveway_car_chance: 0.45
+      yards:
+      - front
+      fence:
+        chance: 0.0
+    compact:
+      pools:
+      - intact
+      lot_width_m: 18.3
+      lot_width_min_m: 16.8
+      lot_depth_m: 27.4
+      lot_depth_min_m: 23.0
+      lot_depth_max_m: 32.0
+      front_setback_m: 6.1
+      side_setback_m: 1.8
+      rear_setback_m: 4.6
+      driveway_width_m: 3.0
+      driveway_to_rear: false
+      driveway_car_chance: 0.5
+      yards:
+      - rear
+      fence:
+        chance: 0.75
+        tag: privacy
+        front: false
+        side: true
+        rear: true
+        module_gap_m: 0.0
+    large_lot:
+      pools:
+      - intact
+      lot_width_m: 30.5
+      lot_width_min_m: 24.0
+      lot_depth_m: 42.7
+      lot_depth_min_m: 29.0
+      lot_depth_max_m: 52.0
+      front_setback_m: 9.1
+      side_setback_m: 4.6
+      rear_setback_m: 7.6
+      driveway_width_m: 6.1
+      driveway_to_rear: true
+      driveway_car_chance: 0.55
+      yards:
+      - front
+      - rear
+      fence:
+        chance: 0.85
+        tag: low
+        front: true
+        side: false
+        rear: true
+        module_gap_m: 0.0
+suburb_yards:
+  layout_key: lot_yards
+  point_budget: 30000000
+  tree_budget_frac: 0.62
+  occupancy_cell_m: 4.0
+  occupancy_pad_m: 0.15
+  house_clear_m: 0.5
+  drive_clear_m: 0.35
+  walk_clear_m: 0.25
+  fence_clear_m: 0.5
+  boundary_inset_m: 0.4
+  tree_min_separation_m: 3.0
+  canopy_footprint_frac: 0.35
+  front:
+    lawn_frac: 0.55
+    foundation:
+      chance: 0.85
+      offset_m: 0.9
+      spacing_m: 1.5
+      jitter_m: 0.25
+      height_m:
+      - 0.4
+      - 1.8
+    tree:
+      chance: 0.7
+      count:
+      - 1
+      - 1
+      darts: 40
+      height_m:
+      - 4.5
+      - 7.5
+      from_house_m: 2.5
+    scatter:
+      density_per_100m2: 0.3
+      height_m:
+      - 0.4
+      - 1.8
+    mailbox_chance: 0.6
+    shed_chance: 0.0
+    patio_chance: 0.0
+    bin_chance: 0.0
+  rear:
+    lawn_frac: 0.35
+    foundation:
+      chance: 0.35
+      offset_m: 1.1
+      spacing_m: 2.0
+      height_m:
+      - 0.4
+      - 2.6
+    tree:
+      chance: 0.6
+      count:
+      - 1
+      - 2
+      darts: 40
+      height_m:
+      - 6.5
+      - 11.0
+      from_house_m: 3.5
+    hedge:
+      chance: 0.7
+      offset_m: 0.7
+      spacing_m: 1.8
+      height_m:
+      - 0.5
+      - 2.6
+    scatter:
+      density_per_100m2: 0.9
+      height_m:
+      - 0.05
+      - 2.6
+    shed_chance: 0.35
+    patio_chance: 0.35
+    bin_chance: 0.5
+    mailbox_chance: 0.0
+  neighbourhoods:
+    tract:
+      skip:
+      - rear
+      front:
+        lawn_frac: 0.6
+        tree:
+          chance: 0.85
+        foundation:
+          chance: 0.9
+          spacing_m: 1.4
+        scatter:
+          density_per_100m2: 0.2
+        mailbox_chance: 0.8
+    compact:
+      skip:
+      - front
+      rear:
+        lawn_frac: 0.3
+        tree:
+          chance: 0.55
+          count:
+          - 1
+          - 1
+          height_m:
+          - 5.0
+          - 8.0
+        hedge:
+          chance: 0.85
+          spacing_m: 1.6
+        scatter:
+          density_per_100m2: 1.1
+        shed_chance: 0.45
+        patio_chance: 0.45
+    large_lot:
+      front:
+        lawn_frac: 0.5
+        tree:
+          chance: 0.8
+          height_m:
+          - 5.0
+          - 8.5
+        foundation:
+          chance: 0.9
+          spacing_m: 1.6
+        scatter:
+          density_per_100m2: 0.4
+      rear:
+        tree:
+          chance: 0.75
+          count:
+          - 1
+          - 2
+          height_m:
+          - 7.0
+          - 12.0
+        hedge:
+          chance: 0.6
+        scatter:
+          density_per_100m2: 0.9
+        shed_chance: 0.5
+        patio_chance: 0.55
+parking_meters:
+  spacing_m: 0.0
+bike_racks:
+  spacing_m: 0.0

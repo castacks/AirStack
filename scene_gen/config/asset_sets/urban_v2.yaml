@@ -639,3 +639,20 @@ usds:
   # blades with no post, so they need a mount before they can be a category.
   signs_parking: []
 
+
+
+# --- asset-specific fixups (moved from presets/urban_v2.yaml, Phase 1) -------
+# These name asset uids and categories, not generator behaviour, so they belong
+# with the assets rather than in a scene spec or in default.yaml.
+surface_overrides:
+  - categories: [trail]
+    roughness: 0.92
+    metallic: 0.0
+
+prune_prims:
+  - usd_contains: "599a74c1c8fd4f19bf6754b8128da6b8"
+    # "Street Sign Final" — a street-name blade with a stop sign welded on,
+    # so every street-name post also planted a stop sign.
+    prims: ["pCube4", "pCube44"]
+
+# ---- road surface markings -------------------------------------------------

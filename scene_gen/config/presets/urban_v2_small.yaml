@@ -1,0 +1,34 @@
+# HIGH-LEVEL scene spec — a small pristine downtown, for quick visual checks.
+#
+# Same locale, asset set and disaster (none) as `urban_v2.yaml`; only the
+# region is smaller, so it builds and loads fast enough to iterate on.
+#
+# WHAT IT IS AND IS NOT GOOD FOR
+# ------------------------------
+# Good for: "does the detailed generator still produce a coherent street —
+# NACTO-zoned furniture, crosswalks, buildings that vary by district?"
+#
+# Not good for: judging the road hierarchy or the district gradient. The
+# OSM-calibrated block targets are 60-95 x 135-200 m, so a 400 m region fits
+# about two of those across and lands at ~14 blocks with only a handful of
+# arterials — `urban_v2.yaml` uses 800 m precisely because the core/mid/edge
+# gradient needs the room to read. 500 m is the compromise: enough blocks to
+# see zoning vary, small enough to load quickly.
+#
+# For a like-for-like check against what Krrish tuned, use `urban_v2` itself.
+#
+#     SCENE_CONFIG=urban_v2_small \
+#     ISAAC_SIM_SCRIPT_NAME=city_v2_preview_launch_script.py \
+#     airstack up isaac-sim
+#
+# The Objaverse pre-flight is shared with `urban_v2` (same asset set), so if
+# that one has been cached this needs nothing extra.
+
+locale: downtown
+disaster-type: none
+severity: 0.0
+
+asset-set: urban_v2
+
+region_m: [500, 500]
+seed: 42

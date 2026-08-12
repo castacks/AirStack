@@ -1,0 +1,217 @@
+
+detail:
+  # Street-furniture categories for the `downtown` locale.
+  #
+  # WHY THIS IS NOT IN default.yaml
+  # -------------------------------
+  # `default.yaml` is the schema tier: what a knob means and a safe default for
+  # it. This list is not a default — it is the statement "a downtown has these
+  # eighteen kinds of thing on its pavement, at these spacings". A suburb has
+  # five, and `deep_merge` merges dicts key-by-key, so a preset that wants five
+  # cannot narrow an inherited eighteen: it would silently get all eighteen at
+  # downtown spacings (bus shelters on residential streets, which is exactly the
+  # failure GENERATION.md warns about).
+  #
+  # So it lives with the locale that owns it. `compile_locale.compile_downtown`
+  # loads this file; the zone geometry, clearances and everything else about HOW
+  # the pass works stays in default.yaml, shared by every locale that runs it.
+  #
+  # Spacings are in metres. A spacing of 0 means "this category does not belong
+  # here" and switches that category off.
+
+  city_detail:
+
+    categories:
+      # UNITS. spacing_m is metres of BLOCK FRONTAGE RING per prop, and the
+      # ring runs along one kerb. A street has two kerbs, belonging to two
+      # different blocks, each walked at spacing_m — so the spacing a person
+      # standing in the street actually sees is HALF of the number here:
+      #
+      #     along-street spacing = spacing_m / 2
+      #     count = total frontage / spacing_m   (measured: 13,921 m effective,
+      #             i.e. a 15,818 m ring thinned by districts.furniture_scale)
+      #
+      # Every published figure below is an ALONG-STREET spacing, so each one is
+      # doubled to land here. Getting this backwards is what made the street
+      # furniture read as twice as dense as the standards it was copied from.
+      #
+      # Sources are tagged CODE (binding text), STANDARD (consensus document)
+      # or PRACTICE (documented agency practice, no legal force). Most street
+      # furniture is governed by NONE of the three — where that is so it is
+      # said plainly rather than dressed up as compliance.
+      #
+      # OSM was measured for all of these (tools/osm_measurements.md) and is
+      # cited below only where it is worth citing. It under-reports street
+      # furniture badly: Midtown Manhattan returns 34 fire hydrants per
+      # 1.96 km2 against NYCDEP's own 109,725-hydrant dataset, about an 8x
+      # under-count, and the two best-mapped cities disagree with each other by
+      # 3-4x on the same category. It is a lower bound, not a measurement.
+      #
+      # guard_chance was 0.45, which put 173 tree guards in the scene at
+      # ~380k points each — 65.8M points, 73.8% of the whole thing, and an
+      # OOM kill. A guard REPLACES a bare tree rather than adding to one, so
+      # that bought no extra content: the same tree, 5x the cost, plus a small
+      # metal ring. 0.10 keeps the detail visible at ~4M points.
+      # 8 m is the real planting pitch and it produced 317 trees — a canopy
+      # closed over the whole street and 37.8% of the scene's geometry.
+      # 18 m is a KNOWING DEVIATION from the standard, not compliance with it:
+      # the 20-30 ft planting pitch is 6.1-9.1 m, so this is roughly double the
+      # loosest spacing any guideline endorses, traded for the point budget.
+      # It also happens to be where the rejections stop: below ~18 m the leftover
+      # slots are all inside the 5 m tree-to-streetlight/utility-pole clearance,
+      # so they are slots a tree may not legally take anyway.
+      # curb_margin_m 0.9 against the 0.3 default: codes measure the setback to
+      # the TRUNK — Seattle 3'6" centreline-to-kerb, Sedro-Woolley 3 ft back of
+      # kerb for a medium tree — and pulls the trunk clear of the gutter so the
+      # canopy overhangs the carriageway instead of standing over it.
+      # HELD at 18.0. This is the one category here that IS codified as a
+      # density and the code wants it DENSER, not sparser: Portland PCC
+      # 11.50.060 and NYC ZR 26-41 both require one street tree per 25 ft
+      # (7.62 m) of frontage, so 18 m is already 2.4x short of code. Loosening
+      # the streetlight pitch below frees kerb that the 5 m tree-to-light
+      # clearance was denying, so the count rises on its own — toward the code
+      # figure, not away: 583 trees at a 24 m light pitch, 704 at 50 m.
+      # SPACING CARRIES THE BUDGET HERE, because the pool has no cheap option
+      # left. Every Nucleus tree (385-9,430 pts) has been rejected by name, so
+      # street trees are AEC vegetation at ~53,000 points each — 20-140x dearer.
+      # At the old 18 m that is 631 trees and 33.6M points, which took the scene
+      # to ~85M against the 89.1M that OOM-killed it. 30 m gives ~376 trees and
+      # ~20M, leaving roughly 17M of headroom.
+      #
+      # This is well above the 6-9 m planting standard and above the 18 m that
+      # was already a knowing deviation. It buys three species instead of one
+      # and geometry that renders correctly; the honest cost is a visibly
+      # sparser street. One cheap bound 8-12 m tree would undo the whole trade.
+      street_trees:   {zone: furnishing, spacing_m:  22.0, guard_chance: 0.10,
+                       curb_margin_m: 0.9}
+      # NO NATIONAL CODE for street lighting spacing. ANSI/IES RP-8 is a
+      # STANDARD and sets illuminance and uniformity, not a pitch; a minority of
+      # municipalities codify a maximum outright. CODE, Larimer County Urban
+      # Area Street Standards Table 15-3 (Fort Collins, reenacted 2021), maximum
+      # spacing PER SIDE: 4/6-lane arterial 150 ft (45.7 m), 2-lane arterial
+      # 180 ft (54.9 m), local-commercial 175 ft (53.3 m). Note 3 puts lights on
+      # each side of a 6-lane arterial rather than staggering them, which is the
+      # both-kerb arrangement this ring produces, so those figures map straight
+      # onto spacing_m. Cross-check, Iowa SUDAS 11B-1: practical spacing does
+      # not exceed 5-6 mounting heights, and a 9 m urban pole gives 45-55 m.
+      # 50 m sits inside every one of those bands.
+      # OSM is no use here — Manhattan 111 street lamps and Chicago 158 per
+      # 1.96 km2 is an order of magnitude short of reality; lamps are simply not
+      # mapped.
+      # 80 is a DELIBERATE OVERSHOOT of that band, not a reading of it. Care is
+      # needed here: Table 15-3 is written per side and spacing_m is per side,
+      # so 50 sat inside the 45.7-53.3 m band rather than under it — the 25 m
+      # figure it also produces is the combined both-kerb pitch, which is not
+      # what the table specifies and must not be compared against it.
+      # Two things justify going past the codified maximum anyway:
+      #   - this ring lights BOTH kerbs of every street unconditionally, while a
+      #     real local or collector street is commonly lit from one side only,
+      #     so matching a one-side-lit street's total fixture count wants about
+      #     twice the per-side pitch;
+      #   - headroom. At 8,628 points a fixture this is the second dearest
+      #     category on the ring, and the street_trees pool above now costs
+      #     ~53,000 points a tree, which spends the budget this used to have.
+      # So this is a knowing deviation traded for the point budget, in the same
+      # spirit as street_trees, and it should be called that rather than dressed
+      # up as compliance. 50.0 is the code-compliant value if budget allows.
+      streetlights:   {zone: furnishing, spacing_m:  80.0}
+      # NO CODE governs litter bin provision anywhere checked. The UK Code of
+      # Practice on Litter and Refuse (statutory, EPA 1990 s.89(7)) regulates
+      # cleanliness grades and never bin density. PRACTICE, NYC DSNY: ~23,000
+      # baskets, sited at COMMERCIAL STREET CORNERS on collection routes, not on
+      # an interval. 130 m over this ring is ~107 bins against 108 block
+      # corners, i.e. one per corner, which is the DSNY rule expressed as the
+      # only knob this generator has.
+      trash_cans:     {zone: furnishing, spacing_m: 130.0}
+      # NO CODE mandates a bench, a seating count or a rest interval. PROWAG is
+      # enforceable (US DOT adopted it as its ADA standards, Dec 2024) and is
+      # silent on seating: it constrains the 1.22 m continuous clear width
+      # (R302.2) and a 61 m passing-space interval (R302.3), which govern where
+      # furniture may sit, not how often a bench appears. 140 m of frontage is
+      # 70 m along the street, near both that 61 m passing-space interval — the
+      # only codified longitudinal figure in the pedestrian ROW — and the 75 m
+      # along-street figure measured in San Francisco, the best-provided of the
+      # five cities sampled.
+      # OSM frontage-equivalent spreads 7x across those five (SF 149 m,
+      # Chicago 324 m, Portland 399 m, Barcelona 409 m, Manhattan 1029 m),
+      # which is mapping effort rather than real variation, so the per-km2 axis
+      # is the sounder one: this lands at ~155/km2 against a measured 34-236.
+      benches:        {zone: furnishing, spacing_m: 140.0}
+      # CODE, but not the rule it is usually quoted as. IFC Appendix C Table
+      # C102.1 is keyed to FIRE FLOW, not land use, and sprinklers LOOSEN it by
+      # 50% rather than tightening it: average spacing between hydrants runs
+      # 500 ft (152.4 m) at <=1750 gpm down to 300 ft (91.4 m) at 4500-5000 gpm
+      # and 200 ft (61.0 m) at >=7500 gpm. The appendix also binds only where a
+      # jurisdiction adopts it; the always-binding rule is IFC 507.5.1, a 400 ft
+      # (122 m) hose lay. The familiar "300 ft commercial, 400 ft sprinklered"
+      # wording is a Southern California / Southern Nevada local amendment and
+      # is not in the base code.
+      # A commercial downtown sits in the high-fire-flow rows, so 300 ft
+      # (91.4 m) BETWEEN HYDRANTS ALONG THE STREET governs, and the code's axis
+      # is along the street, not per kerb — so 180 m of frontage, which puts a
+      # hydrant every 90 m of street.
+      # Two independent provision cross-checks agree: NYCDEP publishes 109,725
+      # hydrants over 790 km2 = 139/km2, and OSM Portland — the only city of the
+      # five whose hydrants are mapped anywhere near completely, at n=300 —
+      # gives 153/km2. 180 m here lands at 121/km2, just under both, and stays
+      # inside NYC Fire Code 507.5.1's 250 ft (76.2 m) trigger distance.
+      fire_hydrants:  {zone: furnishing, spacing_m: 180.0}
+      # NOT a street-spacing rule at all. Bicycle parking is CODE only as a
+      # ZONING minimum per building — NYC ZR 25-80/36-70 ask for one enclosed
+      # long-term space per 2 dwelling units and one short-term per 10 car
+      # spaces — which yields per-building indoor spaces and implies nothing
+      # about kerbside racks. No city checked codifies an on-street rack pitch.
+      # So this is the one category set from OSM, which is defensible because
+      # cyclists map bike parking comparatively well and the three cities agree
+      # to within 2x where other categories spread 7x: frontage-equivalent
+      # Chicago 267 m (312 racks), SF 432 m (160), Manhattan 500 m (138).
+      # 200 m stays denser than all three, which is the right side to err on
+      # given the under-report, and lands at 109 racks/km2 against a measured
+      # 70-159/km2.
+      bike_racks:     {zone: furnishing, spacing_m: 200.0}
+      # NO CODE. A meter per parking space is ~6 m and that is what a legacy
+      # metered kerb looks like, but the unit modern cities meter is the BLOCK
+      # FACE: NYC codifies exactly that (34 RCNY 4-08(h)(4) — parking time is
+      # valid only on the blockface it was bought on). PRACTICE, NYC DOT
+      # single-space-to-kiosk conversions: 351 meters -> 62 kiosks (5.7:1) and
+      # 230 -> 21 (11:1); the NYC Street Design Manual sites a kiosk within
+      # 6 car lengths of any covered space, so one serves ~240 ft (73 m) of
+      # blockface. 75 m is that figure.
+      # Still an over-count in one respect this ring cannot express: meters are
+      # walked along every frontage, including the 45% of core corridors whose
+      # parking_policy is `none` and which would carry no meter at all.
+      parking_meters: {zone: furnishing, spacing_m:  75.0}
+      utility_poles:  {zone: furnishing, spacing_m:  38.0}
+      signs_parking:  {zone: furnishing, spacing_m:  25.0}
+      mailboxes:      {zone: furnishing, spacing_m: 120.0}
+      bus_stops:      {zone: furnishing, spacing_m: 130.0}
+      # Regulatory signage. near_corner_m anchors these AT block corners rather
+      # than filtering a spaced walk — spacing_m is then unused for them. The
+      # two types get different offsets so they occupy different posts around
+      # the same junction instead of fighting for one cell; they all alias to
+      # the "sign" category and share the furnishing-zone occupancy grid.
+      signs_street_name: {zone: furnishing, spacing_m: 0.0, near_corner_m:  4.0}
+      # control: stop restricts these to junctions the control table signs, so a
+      # junction never gets a signal and a stop sign at once. sightline reserves
+      # the approach sight triangle against anything tall enough to occlude.
+      signs_stop:        {zone: furnishing, spacing_m: 0.0, near_corner_m:  8.0,
+                          control: stop, sightline: true}
+      phone_booths:   {zone: frontage,   spacing_m: 180.0}
+      # Roadworks: one cluster every ~250 m of frontage. Enough that the city
+      # looks lived-in, sparse enough that it does not read as a building site.
+      traffic_cones:  {zone: curb,       spacing_m: 250.0}
+      # Service access. The `interior` zone is the strip behind the frontage,
+      # off the pavement entirely — a real street keeps dumpsters there, and on
+      # the frontage ring they read as litter bins the size of a car.
+      dumpsters:      {zone: interior,   spacing_m: 150.0}
+      # 1.5 m is the real bollard pitch, but applied along every frontage metre
+      # it yields ~3,300 of them and reads as fencing. Corner-anchored instead,
+      # which is where a street actually puts them — at crossings and plaza
+      # mouths. spacing_m is unused once near_corner_m is set.
+      bollards:       {zone: frontage,   spacing_m:   0.0, near_corner_m: 6.0}
+      # Café seating is a frontage-zone treat, not a default: only a minority of
+      # ground floors are cafés, so this is deliberately far sparser than the
+      # kerb categories.
+      # 60,806 pts each; at 120 m it placed 110 of them = 6.7M points,
+      # 10.3% of the scene, for a prop only a minority of frontages have.
+      cafe_sets:      {zone: frontage,   spacing_m: 400.0}

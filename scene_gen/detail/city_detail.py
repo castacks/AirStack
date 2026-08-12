@@ -77,7 +77,8 @@ urban mounting height. See `_Sightlines`.
 import math
 import random
 
-from scene_generator import (_in_exclusion, _normalize_usd_list)
+from scene_generator import (_in_exclusion, _normalize_usd_list,
+                              _stage)
 
 # Zones ordered from the kerb inward. "through" is intentionally placeable —
 # nothing is configured into it, but the model shouldn't forbid it outright.
@@ -373,7 +374,7 @@ def _junction_control(a: dict, b: dict, signal_lanes: int, stop_zones):
     """
     ra, rb = _class_rank(a), _class_rank(b)
     try:
-        from city_layout import junction_control as _published
+        from layout.city_layout import junction_control as _published
         control = _published(a, b, signal_lanes)
     except Exception:
         control = ("signal" if max(int(a.get("n_lanes", 2)),
@@ -920,7 +921,7 @@ def _stopline_setback(config: dict, sig_cfg: dict) -> float:
     """
     if "stopline_setback_m" in sig_cfg:
         return float(sig_cfg["stopline_setback_m"])
-    m = ((config.get("roads") or {}).get("markings") or {})
+    m = ((_stage(config, "layout").get("roads") or {}).get("markings") or {})
     return (float(m.get("setback_m", 1.2))
             + float(m.get("crosswalk_depth_m", 2.4))
             + float(m.get("stop_bar_advance_m", 1.2)))
@@ -1048,7 +1049,7 @@ def _place_bike_delineators(config, layout, resolver, rng, cfg, usds,
         print("[city_detail] bike_lane_delineators: no assets — skipped")
         return []
 
-    import road_markings
+    from detail import road_markings
 
     cat = _CATEGORY["bike_lane_delineators"]
     # A post stands on the carriageway, not on a marking, so it takes the road
@@ -1190,8 +1191,9 @@ def build_road_surface(config: dict, layout: dict, resolver, rng=None) -> list:
     Corridors come from `layout["road_corridors"]`, the same structure
     `road_markings` uses: ``{"x0","y0","x1","y1","n_lanes","dir"}``.
     """
-    cfg = (config.get("city_detail") or {}).get("road_surface") or {}
-    if not cfg:
+    detail = _stage(config, "detail").get("city_detail") or {}
+    cfg = detail.get("road_surface") or {}
+    if not detail.get("enabled", True) or not cfg:
         return []
 
     rng = rng or random.Random(int(config.get("seed", 0)) + 4441)
@@ -1286,9 +1288,13 @@ def build(config: dict, layout: dict, resolver, rng=None,
     Emits the same placement schema `apply_placements` consumes, so the caller
     can simply extend build_city's list.
     """
-    cfg = config.get("city_detail") or {}
+    cfg = _stage(config, "detail").get("city_detail") or {}
     categories = cfg.get("categories") or {}
-    if not categories:
+    # `enabled` is what a locale that keeps the built-in frontage passes turns
+    # off (see compile_locale._NO_CITY_DETAIL). It cannot be expressed by
+    # clearing `categories`: deep_merge recurses into nested dicts, so an empty
+    # override merges to a no-op and the inherited entries survive.
+    if not cfg.get("enabled", True) or not categories:
         return []
 
     rng = rng or random.Random(int(config.get("seed", 0)) + 1013)
@@ -1300,7 +1306,7 @@ def build(config: dict, layout: dict, resolver, rng=None,
     # Gap held between a prop's footprint and the kerb line, so nothing sits
     # flush with the carriageway. Same knob the generator's own passes read.
     curb_margin = float(cfg.get("curb_margin_m",
-                                (config.get("frontage") or {})
+                                (_stage(config, "layout").get("frontage") or {})
                                 .get("curb_margin_m", 0.3)))
     # Share of a tree's crown width that its trunk and pit actually occupy —
     # reserving the whole canopy would leave room for about one tree per block.
@@ -1349,7 +1355,7 @@ def build(config: dict, layout: dict, resolver, rng=None,
     if eye_off <= 0.0:
         # Centre of the lane against the kerb: the parking strip it may have to
         # cross, plus half a lane.
-        lane_w = float((config.get("roads") or {}).get("lane_width_m", 3.5))
+        lane_w = float((_stage(config, "layout").get("roads") or {}).get("lane_width_m", 3.5))
         park = max((float(c.get("park_w", 0.0)) for c in corridors), default=0.0)
         eye_off = park + lane_w / 2.0
     sight = _Sightlines()

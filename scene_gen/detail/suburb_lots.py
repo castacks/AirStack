@@ -60,7 +60,7 @@ property, not an accident of geometry.
 import math
 import random
 
-from scene_generator import _in_exclusion, _normalize_usd_list
+from scene_generator import _in_exclusion, _normalize_usd_list, _stage
 
 # Footprint slack when testing whether a house still fits its lot. Negative-
 # biased on purpose: fractionally larger clips the neighbour or the drive.
@@ -375,7 +375,7 @@ def _park_blocks(layout, placements):
         except ImportError:
             pass
     try:
-        import districts
+        from detail import districts
         return set(districts.park_blocks(layout, placements))
     except ImportError:
         return set()
@@ -402,7 +402,7 @@ def _block_inset(config, resolver):
         fp = resolver.get(paths[0], "sidewalk",
                           scale=sc_ovr.get(paths[0], default))
         walk = max(fp["sx"], fp["sy"])
-    return float((config.get("frontage") or {}).get("verge_m", 0.0)) + walk
+    return float((_stage(config, "layout").get("frontage") or {}).get("verge_m", 0.0)) + walk
 
 
 def _in_block(p, blk):
