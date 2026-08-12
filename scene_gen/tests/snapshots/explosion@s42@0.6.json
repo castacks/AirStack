@@ -3,25 +3,25 @@
  "preset": "explosion",
  "seed": 42,
  "severity": 0.6,
- "n_placements": 9213,
+ "n_placements": 9208,
  "counts": {
   "bench": 24,
   "bus_stop": 27,
-  "car": 87,
+  "car": 86,
   "concrete": 7060,
   "debris": 388,
   "debris_pile": 80,
   "fire_hydrant": 20,
   "house": 255,
-  "human": 107,
+  "human": 103,
   "sidewalk": 1102,
   "streetlight": 36,
   "trash_can": 27
  },
  "digests": {
   "geometry": "b5931987ad5e1e36",
-  "layout": "ae110d1b79de6bdb",
-  "full": "ef1eb5f4bbf95a10"
+  "layout": "a4eb044401ab8d95",
+  "full": "42aca42cba29f36d"
  },
  "geometry": {
   "region": [

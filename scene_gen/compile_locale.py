@@ -182,7 +182,12 @@ def compile_suburban(spec):
         "trash_cans": {"spacing_m": 0.0},
         "bus_stops": {"spacing_m": 0.0},
         "fire_hydrants": {"spacing_m": 0.0},
-        "traffic_lights": {"intersection_chance": 0.05},   # stop signs, not lights
+        # No `traffic_lights` entry: signals are placed by city_detail now,
+        # and its rule is better than the flat 5% chance this used to carry —
+        # a junction gets a signal when it carries `signals.signal_lanes` (4)
+        # or more. A suburb's roads are two lanes, so it gets none, which is
+        # what GENERATION.md means by "a signal reads as downtown". Stop
+        # signs are the suburban answer (locales/suburban.yaml), pending art.
         # Cars belong on the drive beside the house.
         "driveways": {"chance": 0.75, "width_m": 3.2, "car_chance": 0.6},
         "cars": {"density": 0.04},

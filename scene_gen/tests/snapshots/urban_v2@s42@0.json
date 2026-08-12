@@ -3,7 +3,7 @@
  "preset": "urban_v2",
  "seed": 42,
  "severity": 0.0,
- "n_placements": 36147,
+ "n_placements": 36183,
  "counts": {
   "bench": 128,
   "bike_lane_delineator": 90,
@@ -11,13 +11,13 @@
   "bollard": 357,
   "bus_stop": 107,
   "cafe_set": 36,
-  "car": 402,
+  "car": 412,
   "concrete": 25718,
   "dumpster": 85,
   "fence": 160,
   "fire_hydrant": 78,
   "house": 919,
-  "human": 430,
+  "human": 456,
   "mailbox": 118,
   "manhole": 189,
   "park_feature": 4,
@@ -39,8 +39,8 @@
  },
  "digests": {
   "geometry": "9879deff5c377fac",
-  "layout": "82894db8549c7c40",
-  "full": "81b21ffdcb402314"
+  "layout": "8e2113f05f3ea8a8",
+  "full": "a37e7448badca323"
  },
  "geometry": {
   "region": [

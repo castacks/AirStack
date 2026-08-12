@@ -3,25 +3,25 @@
  "preset": "hurricane",
  "seed": 42,
  "severity": 0.6,
- "n_placements": 9999,
+ "n_placements": 9996,
  "counts": {
   "bench": 24,
   "bus_stop": 27,
-  "car": 86,
+  "car": 85,
   "concrete": 7060,
   "debris": 992,
   "debris_pile": 272,
   "fire_hydrant": 20,
   "house": 255,
-  "human": 98,
+  "human": 96,
   "sidewalk": 1102,
   "streetlight": 36,
   "trash_can": 27
  },
  "digests": {
   "geometry": "b5931987ad5e1e36",
-  "layout": "f6283729091c685c",
-  "full": "c95893369bb9587d"
+  "layout": "574d8ce186d98e66",
+  "full": "e31f0aaf5024d0c7"
  },
  "geometry": {
   "region": [

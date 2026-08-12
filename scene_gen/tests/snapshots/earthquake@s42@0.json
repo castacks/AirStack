@@ -10,21 +10,20 @@
   "concrete": 206,
   "fire_hydrant": 65,
   "house": 83,
-  "human": 60,
+  "human": 61,
   "plant": 1211,
   "play_structure": 5,
   "rock": 9,
   "sidewalk": 1344,
   "streetlight": 96,
-  "traffic_light": 1,
   "trail": 116,
   "trash_can": 9,
   "tree": 842
  },
  "digests": {
   "geometry": "dca21a8eff3a3b0a",
-  "layout": "b5f3ad240f7fb22a",
-  "full": "399f42581049b673"
+  "layout": "9a50c589e707f7c1",
+  "full": "18ff156fef1e0956"
  },
  "geometry": {
   "region": [

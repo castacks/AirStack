@@ -7,19 +7,19 @@
  "counts": {
   "bench": 24,
   "bus_stop": 27,
-  "car": 88,
+  "car": 90,
   "concrete": 7060,
   "fire_hydrant": 20,
   "house": 255,
-  "human": 99,
+  "human": 97,
   "sidewalk": 1102,
   "streetlight": 36,
   "trash_can": 27
  },
  "digests": {
   "geometry": "b5931987ad5e1e36",
-  "layout": "435d8d2ba7f57e92",
-  "full": "3fd6d93e8e3b1042"
+  "layout": "58df95efcb58ac0e",
+  "full": "49d170ebaa78f266"
  },
  "geometry": {
   "region": [
