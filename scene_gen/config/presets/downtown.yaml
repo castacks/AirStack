@@ -1,6 +1,6 @@
 # HIGH-LEVEL scene spec — a pristine downtown with detailed street furniture.
 #
-# The v2 counterpart to `none.yaml`: same locale, same disaster (none), same
+# The pristine downtown baseline.
 # region, so the two are directly comparable side by side. What differs is the
 # asset set — this one draws on Objaverse props that `none.yaml`'s Nucleus-only
 # set does not have.
@@ -34,7 +34,7 @@
 #
 #     UV_PYTHON=3.13 uv run --no-project --with objaverse --with pandas \
 #         --with pyyaml --with trimesh \
-#         python scene_gen/prepare_assets.py --asset-set urban_v2
+#         python scene_gen/prepare_assets.py --asset-set urban
 #
 # UV_PYTHON=3.13 is load-bearing. convert_to_usd.py declares
 # `requires-python = ">=3.13"`, which uv satisfies with the newest interpreter
@@ -47,16 +47,15 @@
 # Re-running once cached is a sub-second no-op, so it is safe before every
 # launch. `--list` shows state without downloading anything.
 #
-#     SCENE_CONFIG=urban_v2 \
-#     ISAAC_SIM_SCRIPT_NAME=city_v2_preview_launch_script.py \
+#     SCENE_CONFIG=downtown \
+#     ISAAC_SIM_SCRIPT_NAME=scene_launch_script.py \
 #     airstack up isaac-sim
 
 locale: downtown
 disaster-type: none
 severity: 0.0
 
-asset-set: urban_v2
-
+asset-set: urban
 # 800 m, not none.yaml's 400. The OSM-calibrated block targets are
 # 60-95 x 135-200 m; a 400 m region fits about two of those across, so it lands
 # at 14 blocks with only 3 arterial corridors and no readable road hierarchy.

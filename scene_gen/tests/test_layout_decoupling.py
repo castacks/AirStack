@@ -55,11 +55,9 @@ SWEEPS = [
     ("explosion", 42, [0.0, 0.6]),
     ("flood", 42, [0.0, 0.6]),
     ("hurricane", 42, [0.0, 0.6]),
-    ("urban_v2", 42, [0.0, 0.6]),
-    ("suburban_v2", 42, [0.0, 0.6]),
-    # The one sweep that is NOT vacuous on the detailed city: a real
-    # disaster on urban_v2 assets. It is what caught the districts bug.
-    ("urban_v2_earthquake", 42, [0.0, 0.6]),
+    ("suburb_earthquake", 7, [0.0, 0.5]),
+    # Pristine presets are `disaster-type: none`, so a severity sweep on them
+    # is vacuous — they are covered by the baseline test instead.
 ]
 
 @pytest.mark.parametrize("preset,seed,severity", S.DEFAULT_CASES)
@@ -159,7 +157,7 @@ def test_detail_positions_preserved(preset, seed, severities):
                 "or a damage branch that skips a draw the other branch makes.")
 
 
-@pytest.mark.parametrize("preset,severity", [("tornado", 0.8), ("flood", 0.6), ("urban_v2_earthquake", 0.6)])
+@pytest.mark.parametrize("preset,severity", [("tornado", 0.8), ("flood", 0.6), ("earthquake", 0.8)])
 def test_disaster_stage_affects_detail_props(preset, severity):
     """The disaster reaches `city_detail`'s props.
 

@@ -9,8 +9,8 @@
 # severity      : 0.8
 # spec          : scene_gen/config/presets/explosion.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-12 16:06:20
-# spec extras   : {'epicenter': [40, -30]}
+# compiled      : 2026-08-12 16:27:40
+# spec extras   : {'epicenter': [40, -30], 'region_m': [800, 800], 'seed': 42}
 
 seed: 42
 exclusions:
@@ -22,8 +22,8 @@ asset_set: urban
 measure_usds: true
 layout:
   region_m:
-  - 400
-  - 400
+  - 800
+  - 800
   min_block_m: 30
   max_block_m: 200
   split_jitter: 0.25
@@ -320,8 +320,8 @@ disaster:
     center:
     - 40.0
     - -30.0
-    radius_m: 75.2
-    falloff_m: 108.0
+    radius_m: 150.4
+    falloff_m: 216.0
     inside: 1.0
     outside: 0.0
   type: explosion

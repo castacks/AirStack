@@ -3036,7 +3036,7 @@ def generate_scene_on_stage(stage,
     """Build the city directly onto a live Isaac Sim *stage*.
 
     Kept as the name four launch scripts already call; it now **delegates to
-    `generate_city_v2.generate_city_v2_on_stage`**, which is the one pipeline.
+    `generate_scene.generate_scene_on_stage`**, which is the one pipeline.
 
     It used to call `build_city` and `apply_placements` itself, and that stopped
     being correct the moment damage moved out of `build_city` into the disaster
@@ -3049,11 +3049,11 @@ def generate_scene_on_stage(stage,
     config through the v2 pipeline yields a byte-identical placement digest
     (`patched=False`, `rings=False`, `detail_added=0`).
     """
-    # Lazy: generate_city_v2 imports this module, so a top-level import here
+    # Lazy: generate_scene imports this module, so a top-level import here
     # would be circular.
-    import generate_city_v2
+    import generate_scene
 
-    return generate_city_v2.generate_city_v2_on_stage(
+    return generate_scene.generate_scene_on_stage(
         stage, config, parent_path, scene_scale_factor, snap_to_ground)
 
 

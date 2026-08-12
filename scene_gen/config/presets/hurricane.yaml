@@ -7,3 +7,8 @@ locale: downtown      # downtown | suburban | rural — how the place is laid ou
 
 disaster-type: hurricane
 severity: 0.6
+
+# 800 m, matching downtown.yaml, so the disaster presets are directly
+# comparable with the pristine baseline and with each other.
+region_m: [800, 800]
+seed: 42

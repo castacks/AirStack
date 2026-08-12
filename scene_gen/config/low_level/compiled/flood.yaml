@@ -9,7 +9,8 @@
 # severity      : 0.6
 # spec          : scene_gen/config/presets/flood.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-12 16:06:20
+# compiled      : 2026-08-12 16:27:40
+# spec extras   : {'region_m': [800, 800], 'seed': 42}
 
 seed: 42
 exclusions:
@@ -21,8 +22,8 @@ asset_set: urban
 measure_usds: true
 layout:
   region_m:
-  - 400
-  - 400
+  - 800
+  - 800
   min_block_m: 30
   max_block_m: 200
   split_jitter: 0.25
@@ -307,8 +308,8 @@ disaster:
     center:
     - 0.0
     - 0.0
-    radius_m: 200.0
-    falloff_m: 200.0
+    radius_m: 400.0
+    falloff_m: 400.0
     inside: 1.0
     outside: 0.54
   type: flood

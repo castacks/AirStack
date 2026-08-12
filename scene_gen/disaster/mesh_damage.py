@@ -95,7 +95,7 @@ def mesh_prims(root: "Usd.Prim") -> list:
 
     Traverses instance proxies because generated scenes reference their assets
     and the geometry lives inside the referenced layer. This is the same
-    descent `generate_city_v2.prune_prims` and `apply_surface_overrides` do;
+    descent `generate_scene.prune_prims` and `apply_surface_overrides` do;
     they are the prior art for reaching into a placed asset.
     """
     if not root or not root.IsValid():
@@ -401,7 +401,7 @@ def scorch(prims, strength: float = 0.85) -> None:
 
     Reimplemented on `UsdShade` rather than ported: the Blender version walks
     material node trees. This follows the pattern already in
-    `generate_city_v2.apply_surface_overrides` — resolve the bound material,
+    `generate_scene.apply_surface_overrides` — resolve the bound material,
     find its surface shader, set inputs — so there is one way in this codebase
     to retune a placed asset's material, not two.
 

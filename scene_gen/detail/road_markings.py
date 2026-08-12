@@ -5,7 +5,7 @@ no-parking hatching and bike lanes.
 Additive counterpart to the lane-marking pass inside
 `scene_generator.apply_ground_planes`, which draws yellow centre lines and white
 lane dashes but stops there, leaving intersections as bare asphalt. Called by
-`generate_city_v2.py` after `apply_ground_planes`; nothing in the generator is
+`generate_scene.py` after `apply_ground_planes`; nothing in the generator is
 edited.
 
 Every marking here is a flat quad, so this reuses `_make_dash_mesh` rather than

@@ -3,7 +3,7 @@ city_layout.py — anisotropic block subdivision.
 
 Additive: this does not edit `scene_generator`. It builds a drop-in replacement
 for `_subdivide_region_metric` with the same signature and return shape, and
-`generate_city_v2.py` swaps it in around its `build_city` call and restores it
+`generate_scene.py` swaps it in around its `build_city` call and restores it
 afterwards. Configs that don't ask for it are untouched, and the v1 launch
 script never imports this module at all.
 
@@ -625,7 +625,7 @@ class patched:
 
     Monkey-patching rather than a parameter because `build_city` calls
     `_subdivide_region_metric` internally and this work may not edit that file.
-    The swap is scoped and restored in `finally`, and only `generate_city_v2`
+    The swap is scoped and restored in `finally`, and only `generate_scene`
     ever enters it — the original launch path never imports this module, so v1
     scenes are bit-identical.
     """

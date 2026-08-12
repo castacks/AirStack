@@ -10,3 +10,8 @@ disaster-type: tornado
 severity: 1.0
 
 heading_deg: 35        # direction the track runs (deg, 0 = +X / East)
+
+# 800 m, matching downtown.yaml, so the disaster presets are directly
+# comparable with the pristine baseline and with each other.
+region_m: [800, 800]
+seed: 42

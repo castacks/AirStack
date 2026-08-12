@@ -2,14 +2,15 @@
 #
 # Low-level scene config compiled by scene_gen/compile_disaster.py.
 # Edit the high-level spec (or low_level/default.yaml) and recompile:
-#     python3 compile_disaster.py suburban.yaml
+#     python3 compile_disaster.py downtown_small.yaml
 #
-# locale        : suburban
+# locale        : downtown
 # disaster-type : none
 # severity      : 0.0
-# spec          : scene_gen/config/presets/suburban.yaml
+# spec          : scene_gen/config/presets/downtown_small.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-12 16:06:20
+# compiled      : 2026-08-12 16:27:40
+# spec extras   : {'asset-set': 'urban', 'region_m': [500, 500], 'seed': 42}
 
 seed: 42
 exclusions:
@@ -17,18 +18,18 @@ exclusions:
   - 0.0
   - 0.0
   radius: 10.0
-asset_set: suburban
+asset_set: urban
 measure_usds: true
 layout:
   region_m:
-  - 400
-  - 400
-  min_block_m: 60
-  max_block_m: 150
+  - 500
+  - 500
+  min_block_m: 30
+  max_block_m: 200
   split_jitter: 0.25
   tile_overlap: 1.02
   anisotropic:
-    enabled: false
+    enabled: true
     long_axis: x
     block_short_m:
     - 55
@@ -93,12 +94,12 @@ layout:
       margin_m: 50.0
       min_separation_m: 110.0
   packing:
-    building_gap_m: 9.0
-    park_block_chance: 0.15
-    min_parks: 2
-    max_parks: 4
-    pave_blocks: false
-    setback_m: 9.0
+    building_gap_m: 6.0
+    park_block_chance: 0.0
+    min_parks: 0
+    max_parks: 0
+    pave_blocks: true
+    setback_m: 0.0
     placeholders:
       enabled: false
       min_footprint_m: 5.0
@@ -107,19 +108,19 @@ layout:
       - 8
       - 30
   frontage:
-    verge_m: 1.5
+    verge_m: 0.0
     curb_margin_m: 0.3
   roads:
-    lane_width_m: 3.5
-    main_road_lanes: 2
+    lane_width_m: 3.3
+    main_road_lanes: 4
     secondary_road_lanes: 2
     border_lanes: 2
-    main_road_chance: 0.05
+    main_road_chance: 0.25
     asphalt_uv_scale_m: 4.0
     grass_uv_scale_m: 3.0
     lane_lines:
       dash_length_m: 3.0
-      dash_gap_m: 3.0
+      dash_gap_m: 9.0
       dash_width_m: 0.15
       center_line_width_m: 0.2
     markings:
@@ -171,7 +172,7 @@ layout:
         post_taper_m: 20.0
         post_setback_m: 2.0
   districts:
-    enabled: false
+    enabled: true
     min_region_m: 300
     neighbour_weight: 0.5
     neighbour_radius_m: 45.0
@@ -298,7 +299,7 @@ disaster:
 detail:
   trees:
     house_margin_m: 1.5
-    lawn_density_per_100m2: 0.9
+    lawn_density_per_100m2: 0.0
     lawn_min_separation_m: 6.0
   plants:
     per_block:
@@ -306,7 +307,7 @@ detail:
     - 12
     min_separation_m: 1.0
     house_margin_m: 1.5
-    lawn_density_per_100m2: 1.4
+    lawn_density_per_100m2: 0.0
     lawn_house_margin_m: 0.6
   planters:
     tree_spacing_m: 0.0
@@ -324,24 +325,24 @@ detail:
   fire_hydrants:
     spacing_m: 0.0
   traffic_lights:
-    intersection_chance: 0.9
+    intersection_chance: 0.0
     corner_margin_m: 1.0
   humans:
     per_block:
     - 0
-    - 1
-    sidewalk_spacing_m: 150.0
+    - 3
+    sidewalk_spacing_m: 45.0
     trail_spacing_m: 30.0
     min_separation_m: 2.0
     house_margin_m: 1.0
   cars:
-    density: 0.04
+    density: 0.15
     lane_offset_frac: 0.3
     yaw_jitter_deg: 4.0
   driveways:
-    chance: 0.75
-    width_m: 3.2
-    car_chance: 0.6
+    chance: 0.0
+    width_m: 3.0
+    car_chance: 0.0
   parks:
     trail_margin_m: 4.0
     trail_waypoints:
@@ -350,14 +351,14 @@ detail:
     bench_spacing_m: 14.0
     streetlight_spacing_m: 22.0
     trash_can_spacing_m: 30.0
-    furniture_offset_m: 0.8
+    furniture_offset_m: 1.2
     rocks_per_park:
     - 3
     - 8
     rock_min_separation_m: 2.5
-    tree_density_per_100m2: 0.8
+    tree_density_per_100m2: 1.8
     tree_min_separation_m: 4.0
-    playground_chance: 0.7
+    playground_chance: 0.6
     playground_structures:
     - 2
     - 3
@@ -397,10 +398,10 @@ detail:
     enabled: true
     zones:
       curb_m: 0.15
-      furnishing_m: 1.5
-      through_m: 1.4
-      frontage_m: 0.0
-      interior_m: 8.0
+      furnishing_m: 1.35
+      through_m: 1.8
+      frontage_m: 0.2
+      interior_m: 5.0
     occupancy_cell_m: 4.0
     occupancy_pad_m: 0.1
     curb_margin_m: 0.3
@@ -450,18 +451,41 @@ detail:
         traffic_lights: 18.0
         streetlights: 20.0
     categories:
-      streetlights:
-        zone: furnishing
-        spacing_m: 50.0
-      fire_hydrants:
-        zone: furnishing
-        spacing_m: 90.0
-      utility_poles:
-        zone: furnishing
-        spacing_m: 45.0
-      mailboxes:
+      street_trees:
         zone: furnishing
         spacing_m: 22.0
+        guard_chance: 0.1
+        curb_margin_m: 0.9
+      streetlights:
+        zone: furnishing
+        spacing_m: 80.0
+      trash_cans:
+        zone: furnishing
+        spacing_m: 130.0
+      benches:
+        zone: furnishing
+        spacing_m: 140.0
+      fire_hydrants:
+        zone: furnishing
+        spacing_m: 180.0
+      bike_racks:
+        zone: furnishing
+        spacing_m: 200.0
+      parking_meters:
+        zone: furnishing
+        spacing_m: 75.0
+      utility_poles:
+        zone: furnishing
+        spacing_m: 38.0
+      signs_parking:
+        zone: furnishing
+        spacing_m: 25.0
+      mailboxes:
+        zone: furnishing
+        spacing_m: 120.0
+      bus_stops:
+        zone: furnishing
+        spacing_m: 130.0
       signs_street_name:
         zone: furnishing
         spacing_m: 0.0
@@ -469,5 +493,23 @@ detail:
       signs_stop:
         zone: furnishing
         spacing_m: 0.0
+        near_corner_m: 8.0
+        control: stop
+        sightline: true
+      phone_booths:
+        zone: frontage
+        spacing_m: 180.0
+      traffic_cones:
+        zone: curb
+        spacing_m: 250.0
+      dumpsters:
+        zone: interior
+        spacing_m: 150.0
+      bollards:
+        zone: frontage
+        spacing_m: 0.0
         near_corner_m: 6.0
-locale: suburban
+      cafe_sets:
+        zone: frontage
+        spacing_m: 400.0
+locale: downtown

@@ -104,6 +104,12 @@ HOUSE_FALLBACK = [15.0, 15.0]
 # (preset, seed, severity) — the severity sweep at a fixed seed is what proves
 # decoupling; the second seed guards against a coincidence at seed 42.
 DEFAULT_CASES = [
+    # Pristine baselines, both locales and a fast one.
+    ("downtown", 42, 0.0),
+    ("downtown_small", 42, 0.0),
+    ("suburb", 42, 0.0),
+    # Every disaster type — the fields differ in shape (radial, path, uniform)
+    # and each drives a different mix of effects, so a leak can hide in one.
     ("earthquake", 42, 0.0),
     ("earthquake", 42, 0.4),
     ("earthquake", 42, 0.8),
@@ -112,15 +118,8 @@ DEFAULT_CASES = [
     ("explosion", 42, 0.6),
     ("flood", 42, 0.6),
     ("hurricane", 42, 0.6),
-    ("suburban", 7, 0.5),
-    # The detailed-city presets. These exercise the v2 passes (anisotropic
-    # blocks, districts, zoned furniture) and are what Phase 1's config hoist
-    # rewrites, so they are the guardrail for it.
-    ("urban_v2", 42, 0.0),
-    ("suburban_v2", 42, 0.0),
-    # Disaster x detailed city — impossible before the config hoist,
-    # since a preset's `overrides:` merged after the disaster axis.
-    ("urban_v2_earthquake", 42, 0.6),
+    # The other locale, damaged.
+    ("suburb_earthquake", 7, 0.5),
 ]
 
 
@@ -177,24 +176,24 @@ def build(preset: str, seed: int, severity: float):
 def run_layout(cfg: dict, resolver):
     """Layout + detail — the PRISTINE scene, stopping before the disaster.
 
-    Delegates to `generate_city_v2.build_scene`, so the harness exercises the
+    Delegates to `generate_scene.build_scene`, so the harness exercises the
     same pipeline the sim does rather than a reimplementation of it that can
     drift. Stopping at `detail` is what makes the position-preservation
     assertions exact by construction: at this point severity has had no
     opportunity to affect anything.
     """
-    import generate_city_v2
+    import generate_scene
 
-    placements, layout, _ = generate_city_v2.build_scene(
+    placements, layout, _ = generate_scene.build_scene(
         cfg, resolver, stop_after="detail")
     return placements, layout
 
 
 def run_full(cfg: dict, resolver):
     """All three stages — what an actual scene looks like."""
-    import generate_city_v2
+    import generate_scene
 
-    placements, layout, _ = generate_city_v2.build_scene(cfg, resolver)
+    placements, layout, _ = generate_scene.build_scene(cfg, resolver)
     return placements, layout
 
 

@@ -2,7 +2,7 @@
 city_detail.py — street furniture placed against sidewalk zones.
 
 Additive counterpart to `scene_generator.build_city`'s built-in frontage passes.
-Nothing here edits the generator; `generate_city_v2.py` calls `build()` after
+Nothing here edits the generator; `generate_scene.py` calls `build()` after
 `build_city` and appends the result to the same placement list, and the scene
 config zeroes the built-in spacings so there is exactly one owner of sidewalk
 props.

@@ -91,11 +91,11 @@ def build_stats(config_path, args):
     # The FULL pipeline, not just build_city: damage moved to the disaster
     # stage, so calling build_city alone now reports zero ruins for every
     # preset — which looked like a tuning problem and was a plumbing one.
-    import generate_city_v2
+    import generate_scene
 
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        placements, layout, _ = generate_city_v2.build_scene(cfg, resolver)
+        placements, layout, _ = generate_scene.build_scene(cfg, resolver)
     if args.verbose:
         print(buf.getvalue(), end="")
 

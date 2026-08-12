@@ -1,5 +1,5 @@
 """
-generate_city_v2.py — the detailed-city entry point.
+generate_scene.py — the detailed-city entry point.
 
 Composes the existing generator with the three new passes. `scene_generator` is
 imported, never modified: `build_city`, `apply_placements` and
@@ -142,7 +142,7 @@ def prune_prims(stage, config: dict, placements: list) -> int:
 
     if n_pruned:
         detail = "  ".join(f"{k}={v}" for k, v in sorted(per_rule.items()))
-        print(f"[city_v2] pruned {n_pruned} sub-prims  {detail}")
+        print(f"[scene_gen] pruned {n_pruned} sub-prims  {detail}")
     return n_pruned
 
 
@@ -196,9 +196,9 @@ def stamp_asset_provenance(stage, placements, manifest_path: str = "") -> int:
                 fh.write("prim_path\tcategory\tpack\tusd\n")
                 for r in sorted(rows):
                     fh.write("\t".join(r) + "\n")
-            print(f"[city_v2] asset manifest -> {manifest_path} ({len(rows)} prims)")
+            print(f"[scene_gen] asset manifest -> {manifest_path} ({len(rows)} prims)")
         except Exception as exc:
-            print(f"[city_v2] could not write manifest: {exc}")
+            print(f"[scene_gen] could not write manifest: {exc}")
     return len(rows)
 
 
@@ -265,7 +265,7 @@ def apply_surface_overrides(stage, config: dict, placements: list) -> int:
                         except Exception:
                             pass
     if n:
-        print(f"[city_v2] surface overrides: {n} input(s) on "
+        print(f"[scene_gen] surface overrides: {n} input(s) on "
               f"{len(seen)} material(s)")
     return n
 
@@ -293,7 +293,7 @@ def build_scene(config: dict, resolver, stop_after: str = "disaster"):
 
     No stage, no USD, no Nucleus — everything here only decides *what goes
     where*. USD writing (`apply_placements`, `apply_ground_planes`,
-    `road_markings.apply`) stays in `generate_city_v2_on_stage`, which is the
+    `road_markings.apply`) stays in `generate_scene_on_stage`, which is the
     only caller that needs a live stage.
 
     Factored out so the offline consumers — `preset_report.py` and the test
@@ -343,7 +343,7 @@ def build_scene(config: dict, resolver, stop_after: str = "disaster"):
     return placements, layout, base_counts
 
 
-def generate_city_v2_on_stage(stage,
+def generate_scene_on_stage(stage,
                               config,
                               parent_path: str = "/World/stage/generated",
                               scene_scale_factor: float = 1.0,
@@ -398,7 +398,7 @@ def generate_city_v2_on_stage(stage,
     return placements
 
 
-def reload_city_v2_on_stage(stage,
+def reload_scene_on_stage(stage,
                             config,
                             parent_path: str = "/World/stage/generated",
                             scene_scale_factor: float = 1.0,
@@ -414,9 +414,9 @@ def reload_city_v2_on_stage(stage,
 
     if stage.GetPrimAtPath(parent_path).IsValid():
         stage.RemovePrim(Sdf.Path(parent_path))
-        print(f"[city_v2] cleared existing '{parent_path}'")
+        print(f"[scene_gen] cleared existing '{parent_path}'")
 
-    placements = generate_city_v2_on_stage(
+    placements = generate_scene_on_stage(
         stage, config, parent_path, scene_scale_factor, snap_to_ground)
 
     if add_colliders_fn is not None:
@@ -469,10 +469,10 @@ def main():
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
     UsdGeom.SetStageMetersPerUnit(stage, 1.0 / float(args.scale_factor))
     UsdGeom.Xform.Define(stage, "/World")
-    generate_city_v2_on_stage(stage, config, "/World/generated",
+    generate_scene_on_stage(stage, config, "/World/generated",
                               float(args.scale_factor))
     stage.GetRootLayer().Save()
-    print(f"[city_v2] wrote {args.output}")
+    print(f"[scene_gen] wrote {args.output}")
 
 
 if __name__ == "__main__":

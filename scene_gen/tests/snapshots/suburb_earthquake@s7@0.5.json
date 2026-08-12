@@ -1,16 +1,16 @@
 {
- "case": "suburban@s7@0.5",
- "preset": "suburban",
+ "case": "suburb_earthquake@s7@0.5",
+ "preset": "suburb_earthquake",
  "seed": 7,
  "severity": 0.5,
- "n_placements": 4185,
+ "n_placements": 4192,
  "counts": {
   "bench": 17,
-  "car": 61,
+  "car": 64,
   "concrete": 196,
   "fire_hydrant": 65,
   "house": 90,
-  "human": 56,
+  "human": 60,
   "plant": 1301,
   "play_structure": 4,
   "rock": 12,
@@ -22,8 +22,8 @@
  },
  "digests": {
   "geometry": "379548f8f9292103",
-  "layout": "ed91a24cd7232a00",
-  "full": "9b2caef41a3eee4e"
+  "layout": "a78ccf506d184ab2",
+  "full": "b1a5ca5c1a024897"
  },
  "geometry": {
   "region": [

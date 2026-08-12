@@ -1319,7 +1319,7 @@ def remap_buildings(config: dict, layout: dict, placements: list, resolver,
                     rng, district_at) -> int:
     """Pipeline hook: rezone, infill, then rebuild the parks.
 
-    WHY THIS DRIVES THE OTHER PASSES: `generate_city_v2` owns the pipeline and
+    WHY THIS DRIVES THE OTHER PASSES: `generate_scene` owns the pipeline and
     is off-limits to this work, and this is the only hook it offers that
     receives the placement list. `layout` carries a done-flag so a caller that
     grows explicit calls later gets a no-op rather than a doubled scene.

@@ -1,15 +1,14 @@
 # HIGH-LEVEL scene spec — a detailed residential suburb.
 #
-# The v2 counterpart to `suburban.yaml`, which stays untouched and runnable so
+# The pristine suburb baseline.
 # the two can be compared side by side. That one is a stub: it sets
 # `locale: suburban` and inherits everything, which gives a downtown grid with
 # houses dropped into it. A suburb is not a downtown with different buildings —
 # its street network, its lotting and its planting are all different in kind.
 #
-# Run it with the v2 launch script, which is the only thing that calls the new
-# passes:
-#     SCENE_CONFIG=suburban_v2 \
-#     ISAAC_SIM_SCRIPT_NAME=city_v2_preview_launch_script.py \
+# Run it with the scene launch script:
+#     SCENE_CONFIG=suburb \
+#     ISAAC_SIM_SCRIPT_NAME=scene_launch_script.py \
 #     airstack up isaac-sim
 #
 # WHAT IS DIFFERENT FROM THE URBAN SCENE, and why each is its own pass:
@@ -32,8 +31,7 @@ locale: suburban
 disaster-type: none
 severity: 0.0
 
-asset-set: suburban_v2
-
+asset-set: suburban
 # Bigger than the urban 800 m: a suburb is lower density, and a neighbourhood
 # with a collector, its looping locals and their cul-de-sacs needs room to read
 # as one place rather than as a fragment. Watch the point budget — the urban

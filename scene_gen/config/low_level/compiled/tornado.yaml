@@ -9,8 +9,8 @@
 # severity      : 1.0
 # spec          : scene_gen/config/presets/tornado.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-12 16:06:21
-# spec extras   : {'heading_deg': 35}
+# compiled      : 2026-08-12 16:27:40
+# spec extras   : {'heading_deg': 35, 'region_m': [800, 800], 'seed': 42}
 
 seed: 42
 exclusions:
@@ -22,8 +22,8 @@ asset_set: urban
 measure_usds: true
 layout:
   region_m:
-  - 400
-  - 400
+  - 800
+  - 800
   min_block_m: 30
   max_block_m: 200
   split_jitter: 0.25
@@ -319,8 +319,8 @@ disaster:
   field:
     kind: path
     heading_deg: 35.0
-    width_m: 120.0
-    falloff_m: 32.0
+    width_m: 240.0
+    falloff_m: 64.0
     inside: 1.0
     outside: 0.0
   type: tornado

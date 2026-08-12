@@ -9,3 +9,8 @@ disaster-type: explosion
 severity: 0.8
 
 epicenter: [40, -30]   # ground zero
+
+# 800 m, matching downtown.yaml, so the disaster presets are directly
+# comparable with the pristine baseline and with each other.
+region_m: [800, 800]
+seed: 42

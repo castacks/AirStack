@@ -1,6 +1,6 @@
 {
- "case": "urban_v2@s42@0",
- "preset": "urban_v2",
+ "case": "downtown@s42@0",
+ "preset": "downtown",
  "seed": 42,
  "severity": 0.0,
  "n_placements": 36183,
