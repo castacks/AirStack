@@ -4,8 +4,9 @@ from pathlib import Path
 import pytest
 
 from conftest import (AIRSTACK_ROOT, airstack_cmd, colcon_test_robot_command,
-                      docker_exec, load_colcon_unit_test_config, logger,
-                      pytest_addopts_env, read_log_tail, wait_for_container)
+                      docker_exec, format_pytest_addopts,
+                      load_colcon_unit_test_config, logger, read_log_tail,
+                      wait_for_container)
 
 
 def _warn_if_prebuilt(*ws_paths):
@@ -77,7 +78,7 @@ class TestColconBuilds:
                 container,
                 f"bash -ic {shlex.quote(colcon_test_robot_command('robot'))}",
                 timeout=300,
-                env={"PYTEST_ADDOPTS": pytest_addopts_env(pytest_args)}
+                env={"PYTEST_ADDOPTS": format_pytest_addopts(pytest_args)}
                 if pytest_args else None,
             )
             assert test.returncode == 0, (

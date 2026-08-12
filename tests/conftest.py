@@ -98,8 +98,12 @@ def colcon_test_robot_command(workspace="robot"):
     )
 
 
-def pytest_addopts_env(pytest_args):
-    """Build a PYTEST_ADDOPTS value that pytest will shlex-split back to tokens."""
+def format_pytest_addopts(pytest_args):
+    """Build a PYTEST_ADDOPTS value that pytest will shlex-split back to tokens.
+
+    Do not name this pytest_*: conftest functions with that prefix are treated
+    as pytest hooks and fail collection (exit code 3).
+    """
     return " ".join(shlex.quote(a) for a in pytest_args)
 # Unit tests live co-located with their ROS 2 packages in robot/ros_ws/src/.
 # Thin proxy files under tests/robot/ re-export those tests so that
