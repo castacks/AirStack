@@ -100,6 +100,11 @@ DRONE_CONFIGS = [
 ]
 
 NATNET_BODY_NAME = os.environ.get("NATNET_BODY_NAME", "Drone")
+# Streaming id the emulator advertises for the drone. The NatNet client filters incoming
+# frames by NUMERIC id, so this must match the body id in natnet_config.yaml, which reads
+# the same env var — a mismatch yields a connected client that never publishes. Both
+# default to 1, so the sim path works unconfigured.
+NATNET_BODY_ID = int(os.environ.get("NATNET_BODY_ID", "1"))
 NATNET_TARGET_NAME = os.environ.get("NATNET_TARGET_NAME", "Target")
 
 _NATNET_SERVER_KWARGS = {
@@ -227,7 +232,7 @@ class PegasusApp:
         try:
             author_static_target(stage, DEFAULT_TARGET_PATH, DEFAULT_TARGET_POSITION)
             bodies = [
-                (NATNET_BODY_NAME, 1, "/World/base_link/body"),
+                (NATNET_BODY_NAME, NATNET_BODY_ID, "/World/base_link/body"),
                 (NATNET_TARGET_NAME, DEFAULT_TARGET_STREAMING_ID, DEFAULT_TARGET_PATH),
             ]
             self.natnet_manager = start_drone_natnet_server(
