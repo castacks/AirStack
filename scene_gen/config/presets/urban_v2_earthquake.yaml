@@ -39,7 +39,7 @@
 
 locale: downtown
 disaster-type: earthquake
-severity: 0.6
+severity: 0.8
 
 asset-set: urban_v2
 
