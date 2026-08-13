@@ -48,6 +48,7 @@ PROP = {                 # colour, radius in metres, z-order
     "seesaw":          ("#d9793f", 1.8, 9),
     "tree":            ("#2f5a2a", 3.4, 8),
     "soccer_goal":     ("#efefef", 2.0, 9),
+    "bike_rack":       ("#5c7d99", 1.0, 9),
     # path furniture — placed against the finished route, so it reads as
     # belonging to the path rather than scattered on the grass
     "bench":           ("#b5883f", 1.1, 10),

@@ -108,7 +108,8 @@ DEFAULTS = {
     # into a single facility does not need a cycle side.
     "path_w_shared_m": 4.6,   # 2.6 m walking + 2.0 m cycle side
     "path_w_spur_m": 2.6,
-    "bike_share": 0.44,       # share of the shared path given to the cycle side
+    "bike_share": 0.44,
+    "bike_racks_per_court": 4,       # share of the shared path given to the cycle side
     "copses": 9,
     "copse_r_m": [26.0, 55.0],
     "lawn_tree_per_1000m2": 1.1,
@@ -956,6 +957,35 @@ def plan(rng, cfg=None):
         set_piece("gazebo", 12.0, 4.5)
     prop("park_sign", gates[0][0], gates[0][1] + 3.0, 90.0)
 
+    # Bike parking where people arrive to play: against the fenced compounds,
+    # on the side the path reaches them from, not scattered round the park.
+    for z in zones:
+        if z["kind"] not in ("basketball_compound", "tennis_block"):
+            continue
+        # Toward the park interior, which is the side every path reaches these
+        # compounds from. Computed from the facility alone so this does not
+        # depend on the path network existing yet.
+        n = sn._unit(sn._sub((0.0, 0.0), z["centre"]))
+        if sn._norm(n) < 1e-6:
+            n = (0.0, 1.0)
+        # Boundary point on the interior-facing side, in the facility's own
+        # frame -- `entrance()` is defined with the path network, which does not
+        # exist yet at this point in the build.
+        a = math.radians(z["yaw"])
+        ux, uy = math.cos(a), math.sin(a)
+        lx = max(-z["w"] / 2, min(z["w"] / 2, n[0] * ux + n[1] * uy)
+                 * z["w"] / 2)
+        ly = max(-z["h"] / 2, min(z["h"] / 2, -n[0] * uy + n[1] * ux)
+                 * z["h"] / 2)
+        e = local(z, lx, ly)
+        t = sn._perp(n)
+        base = sn._add(e, sn._mul(n, 4.5))
+        for k in range(int(c["bike_racks_per_court"])):
+            off = (k - (float(c["bike_racks_per_court"]) - 1) / 2.0) * 2.2
+            q = sn._add(base, sn._mul(t, off))
+            prop("bike_rack", q[0], q[1],
+                 math.degrees(math.atan2(t[1], t[0])))
+
     # =======================================================================
     # (b) PATHS — everything above is now an obstacle
     # =======================================================================
@@ -1095,6 +1125,47 @@ def plan(rng, cfg=None):
                   else c["path_w_spur_m"])
         pa["width_m"] = w
         pa["bike_share"] = float(c["bike_share"]) if pa["kind"] == "spine" else 0.0
+
+    # -- remove doubled paving ------------------------------------------------
+    # Paths were routed against the FACILITIES but not against each other, so
+    # the tour spine and the pitch corridor could run over the same ground:
+    # measured, 28 segment-pairs of spine-on-spine away from any junction, which
+    # reads as a path with a seam down it. Later paths are clipped where they
+    # duplicate an earlier one; a path reduced to stubs is dropped rather than
+    # left as confetti.
+    def _dedup(paths):
+        kept = []
+        for pa in paths:
+            wa = float(pa.get("width_m", 2.6)) / 2.0
+            pts, run, out = pa["pts"], [], []
+            for q in pts:
+                dup = False
+                for kb in kept:
+                    wb = float(kb.get("width_m", 2.6)) / 2.0
+                    for i in range(len(kb["pts"]) - 1):
+                        if sn.seg_seg_dist(q, q, kb["pts"][i],
+                                           kb["pts"][i + 1]) < wa + wb - 0.6:
+                            dup = True
+                            break
+                    if dup:
+                        break
+                if dup:
+                    if len(run) >= 3:
+                        out.append(run)
+                    run = []
+                else:
+                    run.append(q)
+            if len(run) >= 3:
+                out.append(run)
+            if not out:
+                continue
+            for k, piece in enumerate(out):
+                seg = dict(pa)
+                seg["pts"] = piece
+                kept.append(seg)
+        return kept
+
+    paths = _dedup(paths)
 
     # -- fences -------------------------------------------------------------
     panel = float(c["fence_panel_m"])

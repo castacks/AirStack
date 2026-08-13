@@ -835,6 +835,9 @@ DEFAULTS = {
     # Share of face splits that land on an existing junction, making it a
     # four-way. Suburbia is T-dominated but not T-exclusive.
     "four_way_chance": 0.35,
+    # A new street must leave a junction at least this far from every arm
+    # already there. Real plats do not fork at 13 degrees.
+    "min_fork_deg": 38.0,
     # Cul-de-sacs are grown until this share of nodes are dead ends, which is
     # the measured signature of the fabric rather than a fixed count.
     "dead_end_target": 0.24,
@@ -948,6 +951,10 @@ def generate(width_m, height_m, rng, cfg=None):
         # Ignore the crop boundary: the route starts and ends ON it.
         if net.clearance_allowing_crossings(pts, ignore=boundary_ids,
                                             limit=min_gap) < min_gap:
+            continue
+        # Crossings are allowed to touch, but not at a glancing angle.
+        if any(crossing_angle(pts, o.pts) < float(c["min_fork_deg"])
+               for o in net.edges.values() if o.road_class != "boundary"):
             continue
         _connect_route(net, pts, "collector", "collector", min_gap)
         made_col += 1
@@ -1085,6 +1092,33 @@ def _routes_cross(pa, pb):
     return False
 
 
+def crossing_angle(pa, pb):
+    """Smallest angle (deg) at which two polylines cross, or 180 if they do not.
+
+    A crossing is allowed to have zero clearance -- that is what makes a
+    four-way -- but nothing was checking the ANGLE of it. Two collectors
+    crossing at 25 degrees run nearly parallel through the junction and their
+    carriageways overlap for tens of metres either side, which reads as one
+    wide wavy road rather than as a crossroads. Measured: every shallow fork
+    left after the snap and fallback rules were tightened was a
+    collector/collector pair, all 12 of them.
+    """
+    best = 180.0
+    for i in range(len(pa) - 1):
+        da = _sub(pa[i + 1], pa[i])
+        if _norm(da) < 1e-9:
+            continue
+        for j in range(len(pb) - 1):
+            if _seg_intersect(pa[i], pa[i + 1], pb[j], pb[j + 1]) is None:
+                continue
+            db = _sub(pb[j + 1], pb[j])
+            if _norm(db) < 1e-9:
+                continue
+            c = abs(_dot(_unit(da), _unit(db)))
+            best = min(best, math.degrees(math.acos(max(-1.0, min(1.0, c)))))
+    return best
+
+
 def _seg_intersect(a0, a1, b0, b1):
     """Proper intersection point of two segments, or None."""
     d1, d2 = _sub(a1, a0), _sub(b1, b0)
@@ -1216,7 +1250,8 @@ def _perimeter_arc(parts, total, u_from, u_to, step=10.0):
 def _split_face(net, face, rng, throat, min_gap, sample, min_block, region,
                 edge_clear, junctions, spaced_ok, skew_deg=38.0, tries=26,
                 four_way_chance=0.0, grain_w=0.0, grain_base=0.0,
-                grain_swirl=0.0, grain_period=600.0, allow_fallback=False):
+                grain_swirl=0.0, grain_period=600.0, allow_fallback=False,
+                min_fork=38.0):
     """Insert one street across *face*, dividing it in two.
 
     RECURSIVE FACE SUBDIVISION IS WHAT FILLS THE LAND. Growing streets
@@ -1260,14 +1295,15 @@ def _split_face(net, face, rng, throat, min_gap, sample, min_block, region,
     for phase_snap in ((True, False) if want_snap else (False,)):
         best = _best_cut(net, face, rng, parts, total, poly, node_us,
                          phase_snap, tries, throat, min_gap, sample, min_block,
-                         skew_deg, spaced_ok, grain_w=grain_w,
+                         skew_deg, spaced_ok, min_fork=min_fork, grain_w=grain_w,
                          grain_base=grain_base, grain_swirl=grain_swirl,
                          grain_period=grain_period)
         if best is not None:
             break
     if best is None and allow_fallback:
         best = _fallback_cut(net, face, rng, parts, total, poly, throat,
-                             min_gap, sample, min_block, skew_deg, spaced_ok)
+                             min_gap, sample, min_block, skew_deg, spaced_ok,
+                             min_fork=min_fork)
     if best is None:
         return False
     _score, pts, p0, p1 = best
@@ -1275,7 +1311,7 @@ def _split_face(net, face, rng, throat, min_gap, sample, min_block, region,
 
 
 def _fallback_cut(net, face, rng, parts, total, poly, throat, min_gap, sample,
-                  min_block, skew_deg, spaced_ok, tries=90):
+                  min_block, skew_deg, spaced_ok, tries=90, min_fork=38.0):
     """Last-resort cut for a face :func:`_best_cut` cannot divide.
 
     WHY A FACE GETS STUCK, MEASURED RATHER THAN GUESSED. `_best_cut` sites the
@@ -1333,8 +1369,15 @@ def _fallback_cut(net, face, rng, parts, total, poly, throat, min_gap, sample,
             # Both ends must look INTO the parcel along the chord, or the cut
             # merely grazes the boundary and encloses nothing worth a block.
             chord = _unit(_sub(p1, p0))
-            if (_dot(chord, n0) < 0.35
-                    or _dot(_mul(chord, -1.0), n1) < 0.35):
+            # Derived from min_fork, not a bare constant. At the original 0.35
+            # a chord could sit 69.5 deg off the inward normal, i.e. leave its
+            # host only 20.5 deg off-line -- which is a shallow fork, and the
+            # fallback was quietly producing them faster than the snap check
+            # removed them. Requiring the chord within (90 - min_fork) of the
+            # normal makes the two rules agree.
+            _fork_cos = math.cos(math.radians(max(0.0, 90.0 - min_fork)))
+            if (_dot(chord, n0) < _fork_cos
+                    or _dot(_mul(chord, -1.0), n1) < _fork_cos):
                 _reject('fallback grazing')
                 continue
             d0 = _rotate_toward(n0, chord, skew_deg)
@@ -1384,7 +1427,8 @@ def _fallback_cut(net, face, rng, parts, total, poly, throat, min_gap, sample,
 
 def _best_cut(net, face, rng, parts, total, poly, node_us, want_snap, tries,
               throat, min_gap, sample, min_block, skew_deg, spaced_ok,
-              grain_w=0.0, grain_base=0.0, grain_swirl=0.0, grain_period=600.0):
+              grain_w=0.0, grain_base=0.0, grain_swirl=0.0, grain_period=600.0,
+              min_fork=38.0):
     """Lowest-scoring valid street across the face, or None."""
     best = None
     for _try in range(tries):
@@ -1468,6 +1512,20 @@ def _best_cut(net, face, rng, parts, total, poly, node_us, want_snap, tries,
             _reject('sliver')
             continue
 
+        # A cut that lands on an existing junction must not fork off an arm
+        # already there at a shallow angle.
+        if snapped:
+            nid = net.node_at(p0, tol=1.5)
+            if nid is not None and not _fork_ok(net, nid, _sub(pts[1], pts[0]),
+                                                min_fork):
+                _reject('shallow fork')
+                continue
+        nid1 = net.node_at(p1, tol=1.5)
+        if nid1 is not None and not _fork_ok(net, nid1,
+                                             _sub(pts[-2], pts[-1]), min_fork):
+            _reject('shallow fork')
+            continue
+
         # KEEP THE BEST CANDIDATE, NOT THE FIRST. Taking whatever passed first
         # produced long meandering cuts and therefore thin, high-perimeter
         # blocks — which is why street density ran 14-16 km/km² while block area
@@ -1486,6 +1544,43 @@ def _best_cut(net, face, rng, parts, total, poly, node_us, want_snap, tries,
         if best is None or score < best[0]:
             best = (score, pts, p0, p1)
     return best
+
+
+def _fork_ok(net, node_id, direction, min_deg):
+    """True when *direction* leaves *node_id* far enough from every existing arm.
+
+    WHY THIS IS NEEDED. Clearance exempts edges incident to a junction, because
+    streets meeting at a junction are supposed to touch — without that exemption
+    no four-way could ever form. But the exemption is unbounded, so nothing
+    stopped a new street leaving an existing node at 13 degrees from an arm
+    already there and running alongside it. Measured on the shipped preset: 6
+    pairs of DIFFERENT streets forking under 30 degrees, their carriageways
+    overlapping for 20-44 m past the node — which reads as one wide wavy road,
+    or as two roads laid on top of each other.
+
+    A real plat does not fork at 13 degrees. Junction geometry, not clearance,
+    is the right place to rule it out.
+    """
+    node = net.nodes.get(node_id)
+    if node is None:
+        return True
+    for eid in node.edges:
+        e = net.edges.get(eid)
+        if e is None or e.road_class == "boundary":
+            continue
+        pts = e.pts if e.a == node_id else list(reversed(e.pts))
+        arm = None
+        for k in range(1, len(pts)):
+            d = _sub(pts[k], pts[0])
+            if _norm(d) > 1e-6:
+                arm = _unit(d)
+                break
+        if arm is None:
+            continue
+        cosang = max(-1.0, min(1.0, _dot(_unit(direction), arm)))
+        if math.degrees(math.acos(cosang)) < min_deg:
+            return False
+    return True
 
 
 def _commit_cut(net, pts, p0, p1, junctions):
@@ -1534,6 +1629,7 @@ def _subdivide_faces(net, rng, cfg, throat, min_gap, sample, region,
                        edge_clear, junctions, spaced_ok,
                        skew_deg=float(cfg["junction_skew_deg"]),
                        four_way_chance=float(cfg["four_way_chance"]),
+                       min_fork=float(cfg["min_fork_deg"]),
                        grain_w=float(cfg["grain_weight"]),
                        grain_base=grain_base, grain_swirl=grain_swirl,
                        grain_period=float(cfg["grain_period_m"]),
