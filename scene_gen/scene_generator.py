@@ -3108,17 +3108,62 @@ def apply_placements(stage,
             print(f"[scene_gen] WARN: {usd} composed no Xformable prim at {prim_path}")
             continue
         xform.ClearXformOpOrder()
-        xform.AddTranslateOp().Set(Gf.Vec3d(
-            (p["x_m"] - offset[0]) * ssf,
-            (p["y_m"] - offset[1]) * ssf,
-            (z_m - offset[2]) * ssf))
-        xform.AddRotateXYZOp().Set(Gf.Vec3f(roll, pitch, yaw))
-        s = float(p["scale"])
-        xform.AddScaleOp().Set(Gf.Vec3d(s * stx, s * sty, s))
+        _set_xform_ops(xform, prim,
+                       translate=((p["x_m"] - offset[0]) * ssf,
+                                  (p["y_m"] - offset[1]) * ssf,
+                                  (z_m - offset[2]) * ssf),
+                       rotate=(roll, pitch, yaw),
+                       scale=(float(p["scale"]) * stx,
+                              float(p["scale"]) * sty, float(p["scale"])))
 
     print(f"[scene_gen] Applied {len(placements)} placements under '{parent_path}' "
           f"({len(proto_index)} unique USDs, scale_factor={ssf})")
     return parent_path
+
+
+def _set_xform_ops(xform, prim, translate, rotate, scale):
+    """Author translate / rotateXYZ / scale, MATCHING any precision already there.
+
+    `ClearXformOpOrder` clears the op ORDER; it does not delete the op
+    attributes. So when a referenced asset authors its own transform — plenty of
+    library vegetation and Nucleus props do — the attribute composes onto our
+    holder prim, and `AddRotateXYZOp()` then asks for its default float
+    precision against an existing `double3` and USD raises:
+
+        XformOp <...xformOp:rotateXYZ> has typeName 'double3' which does not
+        match the requested precision 'PrecisionFloat'
+
+    which aborted the whole scene mid-build. The op is only ever added at one
+    precision here, so the fix is to ask the prim what is already authored and
+    match it rather than assume. Behaviour is unchanged for the overwhelmingly
+    common case of an asset that authors no transform at all.
+    """
+    def precision(attr_name, default_double):
+        a = prim.GetAttribute(attr_name)
+        if a and a.HasAuthoredValue():
+            tn = a.GetTypeName()
+            if tn == Sdf.ValueTypeNames.Double3:
+                return True
+            if tn == Sdf.ValueTypeNames.Float3:
+                return False
+        return default_double
+
+    if precision("xformOp:translate", True):
+        xform.AddTranslateOp().Set(Gf.Vec3d(*translate))
+    else:
+        xform.AddTranslateOp(UsdGeom.XformOp.PrecisionFloat).Set(
+            Gf.Vec3f(*translate))
+
+    if precision("xformOp:rotateXYZ", False):
+        xform.AddRotateXYZOp(UsdGeom.XformOp.PrecisionDouble).Set(
+            Gf.Vec3d(*rotate))
+    else:
+        xform.AddRotateXYZOp().Set(Gf.Vec3f(*rotate))
+
+    if precision("xformOp:scale", False):
+        xform.AddScaleOp(UsdGeom.XformOp.PrecisionDouble).Set(Gf.Vec3d(*scale))
+    else:
+        xform.AddScaleOp().Set(Gf.Vec3f(*scale))
 
 
 def _make_resolver(config: dict) -> SizeResolver:
