@@ -216,6 +216,11 @@ def parcel_blocks(blocks, rng, cfg=None):
                 continue
 
             houses.append({"c": (cx, cy), "w": h_w, "d": h_d, "u": u,
+                           # The INWARD normal, kept because it cannot be
+                           # recovered later: perp(u) is perpendicular to u by
+                           # definition, so no test against u can tell which of
+                           # the two normals points away from the kerb.
+                           "n": n, "frontage": p,
                            "corners": corners,
                            "yaw_deg": math.degrees(math.atan2(u[1], u[0]))})
             # Drive runs from the kerb to the front face, offset to one side of

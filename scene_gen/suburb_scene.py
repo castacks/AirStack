@@ -47,6 +47,7 @@ from pxr import Gf, Sdf, UsdGeom, Vt
 import scene_generator as sg
 import suburb_net as sn
 import suburb_parcel as sp
+import suburb_yardplan as yp
 
 _Z_ASPHALT = 0.0
 _Z_GRASS = 0.010
@@ -536,6 +537,9 @@ def generate_suburb_on_stage(stage, config,
         config, resolver, parcels, rng, pools,
         yaw_off=float((config.get("suburb_parcel") or {})
                       .get("house_yaw_offset_deg", -90.0)))
+    yard, ystats = yp.plan(config, parcels, rng, resolver=resolver)
+    placements += yard
+    yp.report(ystats)
     placements += build_frontage(config, resolver, net, blocks, rng, pools)
     placements += build_signs(config, resolver, net, rng, pools)
     import collections as _c
