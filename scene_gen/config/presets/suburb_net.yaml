@@ -1,0 +1,96 @@
+# HIGH-LEVEL scene spec — a graph-based suburb (scene_gen/suburb_net.py).
+#
+# Distinct from `suburban_v2.yaml`, which stays untouched and runnable: that one
+# drives the RECT subdivider through `build_city`, this one drives the street
+# GRAPH through `suburb_scene.generate_suburb_on_stage`. They share the asset
+# set and nothing else — the layouts are produced by different code with
+# different geometry, so there is no knob that turns one into the other.
+#
+# View it with:
+#     SCENE_CONFIG=suburb_net \
+#     ISAAC_SIM_SCRIPT_NAME=suburb_preview_launch_script.py \
+#     airstack up isaac-sim
+#
+# Or check the plan on the host in a second, no Isaac Sim needed:
+#     python3 tools/suburb_net_png.py --seed 3 --out _plans/suburb_net.png
+
+locale: suburban
+disaster-type: none
+severity: 0.0
+asset-set: suburban_v2
+
+# 1600 x 1200 m is one plat's worth of fabric: enough for three collectors and
+# a proper cul-de-sac population, and it measures in band on every seed.
+region_m: [1600, 1200]
+seed: 3
+
+overrides:
+  layout:
+    region_m: [1600, 1200]
+
+  # ---- street network (suburb_net.py) ----------------------------------------
+  # Every knob here has a default in suburb_net.DEFAULTS; only the ones worth
+  # saying out loud are repeated, with what they are measured against.
+  suburb_net:
+    # Splitting stops when a face is under this. It is the single strongest
+    # control on the fabric: raising it trades street density for block size,
+    # and the two cannot both be pushed at once. 40k m2 is where all four
+    # measured morphology stats sit in band on 8/8 seeds.
+    block_area_target_m2: 40000.0
+    block_area_min_m2: 7000.0
+
+    # Curvilinear routes crossing the interior. These are the spine the whole
+    # fabric hangs off, so three is a floor rather than a target.
+    collectors: 3
+    collector_wander: 0.28
+
+    # Centreline to centreline. Two lot depths back to back plus the road.
+    min_gap_m: 88.0
+
+    # Real plats meet at 70-110 degrees, not exactly 90; the swing is also what
+    # keeps the curve between two junctions inside its 30 m minimum radius.
+    junction_skew_deg: 38.0
+    # Share of face splits that land on an existing junction, making a four-way.
+    # Suburbia is T-dominated but not T-exclusive: measured 69-87% three-way.
+    four_way_chance: 0.35
+
+    # Cul-de-sacs are grown until this share of nodes are dead ends, which is
+    # the measured signature of the fabric rather than a fixed count.
+    # Barrington-Leigh & Millard-Ball (PNAS 2015): 19-42% across US metros.
+    dead_end_target: 0.24
+    # IFC Fig D103.1: 96 ft driving-surface diameter = 14.64 m radius.
+    bulb_radius_m: 14.64
+    lollipop_len_m: [55.0, 170.0]
+
+    # Plat grain: how strongly neighbouring streets prefer to run parallel.
+    # At 0 the network reads as organic — an old town centre grown by accident —
+    # rather than as platted suburbia. This is most of what makes it read
+    # American.
+    grain_weight: 2.6
+    grain_swirl_deg: 34.0
+    grain_period_m: 620.0
+
+  # ---- lots, houses, planting (suburb_parcel.py) -----------------------------
+  suburb_parcel:
+    # 20 m is a 66 ft lot, the commonest post-war width.
+    lot_width_m: [17.0, 26.0]
+    # Zoning ordinances put the front setback at 20-30 ft almost everywhere.
+    setback_m: [6.5, 11.0]
+    # The bungalow pool is pinned to a 12 m longest plan dimension by
+    # `target-size-m` in the asset set, so the footprint here is written to
+    # match it rather than guessed.
+    house_w_m: [9.0, 13.0]
+    house_d_m: [8.0, 11.0]
+    house_gap_m: 4.0
+    min_lot_depth_m: 21.0
+    driveway_w_m: 3.2
+    # Which way a house faces, relative to the frontage tangent. -90 puts the
+    # front toward the kerb IF the asset is authored facing +X; the Objaverse
+    # bungalows do not record their facing, so flip to +90 if they come up
+    # backs-to-the-street. This is the one value here that cannot be derived.
+    house_yaw_offset_deg: -90.0
+    # Planting. Back yards carry most of it, which is where a suburb's canopy
+    # actually is; the street trees are a separate rhythm along the verge.
+    back_trees_per_100m2: 0.055
+    front_tree_chance: 0.45
+    street_tree_spacing_m: [16.0, 30.0]
