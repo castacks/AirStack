@@ -49,9 +49,16 @@ import suburb_net as sn
 import suburb_parcel as sp
 import suburb_yardplan as yp
 
-_Z_ASPHALT = 0.0
-_Z_GRASS = 0.010
-_Z_DRIVE = 0.020
+# ROADS SIT ABOVE GRASS. The original order put asphalt at 0.0 and block grass
+# at 0.010 so "the road shows between the blocks" -- which only holds if a block
+# never overlaps a carriageway. Where one does, the grass covers the road while
+# the dashes at 0.030 still draw on top, and the result is a road rendered as a
+# GRASS STRIP WITH WHITE LANE MARKINGS ON IT. Laying the carriageway over the
+# ground is also what actually happens: a road is built on the land, not cut
+# into a hole in it, so this ordering cannot produce that artefact at all.
+_Z_GRASS = 0.005
+_Z_ASPHALT = 0.015
+_Z_DRIVE = 0.022
 _Z_DASH = 0.030
 
 

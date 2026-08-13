@@ -98,6 +98,9 @@ DEFAULTS = {
     "path_w_m": 3.0,
     "loop_inset_m": 7.0,
     "fence_panel_m": 2.4,         # the sourced chain-link section's run
+    "bike_loop": True,
+    "bike_inset_m": 26.0,
+    "bike_w_m": 2.4,
     "copses": 9,
     "copse_r_m": [26.0, 55.0],
     "lawn_tree_per_1000m2": 1.1,
@@ -334,11 +337,37 @@ def plan(rng, cfg=None):
     bl, bw = BASKETBALL["court"]
     bpad = BASKETBALL["pad"]
 
-    # Two pitches, side by side but not parallel — clubs lay a second pitch to
-    # fit the ground, not to match the first.
-    for i in range(int(c["n_soccer"])):
-        add("soccer", SOCCER["pitch"][0], SOCCER["pitch"][1],
-            0.22 if i == 0 else 0.30, 0.20 if i == 0 else 0.72, spread=12.0)
+    # PITCHES GO TOGETHER, sharing one orientation and one gap. Scattering them
+    # to opposite ends of the park was wrong twice over: clubs lay pitches as a
+    # block so one set of goals, parking and drainage serves both, and two
+    # pitches at different angles read as an accident rather than as a ground.
+    pl, pwd = SOCCER["pitch"]
+    n_sc = int(c["n_soccer"])
+    if n_sc:
+        first = add("soccer", pl, pwd, 0.24, 0.30, spread=12.0)
+        if first:
+            a = math.radians(first["yaw"])
+            ux, uy = math.cos(a), math.sin(a)
+            vx, vy = -uy, ux                      # across the pitch
+            # +0.5 m, because the pair sits at EXACTLY `gap` and the
+            # separating-axis test uses a strict `<`: at equality it reports an
+            # overlap and the second pitch was silently dropped every run.
+            step = pwd + gap + 0.5
+            for i in range(1, n_sc):
+                # Try BOTH sides: the first pitch may already sit near an edge,
+                # and offsetting blindly to one side put the second pitch
+                # outside the park, which silently dropped it.
+                for sgn in (1.0, -1.0):
+                    cx = first["centre"][0] + vx * step * i * sgn
+                    cy = first["centre"][1] + vy * step * i * sgn
+                    corners = _obb(cx, cy, pl, pwd, first["yaw"])
+                    if _inside(corners, inner) and not any(
+                            _sat_overlap(corners, q, gap) for q in placed):
+                        placed.append(corners)
+                        zones.append({"kind": "soccer", "centre": (cx, cy),
+                                      "w": pl, "h": pwd, "yaw": first["yaw"],
+                                      "corners": corners})
+                        break
 
     n_bb = int(c["n_basketball"])
     if n_bb:
@@ -429,8 +458,40 @@ def plan(rng, cfg=None):
     for z in zones:
         sp = nearest_on_spine(z["centre"])
         e = entrance(z, sp)
-        if sn._dist(e, sp) > 3.0:
-            paths.append({"pts": _curve([e, sp]), "kind": "spur"})
+        if sn._dist(e, sp) <= 3.0:
+            continue
+        # STRAIGHT, and square on to the facility. A court is a rectangle, so
+        # the path that serves it arrives perpendicular to its edge and runs
+        # straight — a curve sweeping past the corner of a fenced compound is
+        # not how anyone reaches a gate. The spine may wander; the approach
+        # does not.
+        n = sn._unit(sn._sub(e, z["centre"]))
+        throat = sn._add(e, sn._mul(n, 8.0))
+        paths.append({"pts": [e, throat], "kind": "spur"})
+        if sn._dist(throat, sp) > 2.0:
+            paths.append({"pts": [throat, sp], "kind": "spur"})
+
+    # -- bike lane -----------------------------------------------------------
+    # A separate circuit rather than a widened footpath: a park bike route is
+    # signed and continuous, and it is the thing that connects the park to the
+    # streets outside it, so it runs near the boundary and passes both gates.
+    if bool(c.get("bike_loop", True)):
+        bi = float(c["bike_inset_m"])
+        bx0, by0 = -hw + bi, -hh + bi
+        bx1, by1 = hw - bi, hh - bi
+        ring = []
+        n_seg = 22
+        for k in range(n_seg + 1):
+            f = k / n_seg
+            # A rounded circuit, not a rectangle: it is jittered off a
+            # superellipse so it reads as a route rather than a boundary.
+            th = 2.0 * math.pi * f
+            ex = math.copysign(abs(math.cos(th)) ** 0.62, math.cos(th))
+            ey = math.copysign(abs(math.sin(th)) ** 0.62, math.sin(th))
+            wob = 1.0 + 0.06 * math.sin(th * 3.0 + base_yaw)
+            ring.append(((bx0 + bx1) / 2 + ex * (bx1 - bx0) / 2 * wob,
+                         (by0 + by1) / 2 + ey * (by1 - by0) / 2 * wob))
+        paths.append({"pts": _curve(ring, samples=8), "kind": "bike"})
 
     # -- fences -------------------------------------------------------------
     panel = float(c["fence_panel_m"])

@@ -389,11 +389,22 @@ def offset_polygon(poly, insets):
         q0, q1 = lines[i]
         d1, d2 = _sub(p1, p0), _sub(q1, q0)
         den = _cross(d1, d2)
-        if abs(den) < 1e-7:
-            out.append(q0)
-            continue
-        t = _cross(_sub(q0, p0), d2) / den
-        out.append(_add(p0, _mul(d1, t)))
+        # MITRE LIMIT. Two offset lines meeting at a shallow angle intersect
+        # far away — the sharper the corner, the further. A bare
+        # near-parallel guard is not enough because `den` stays comfortably
+        # above any epsilon while the intersection still runs off to infinity:
+        # measured, one block came out spanning 30,876 m, from x = -31,284 to
+        # x = -407, and rendered as a grass sheet stretching past the horizon.
+        # Beyond the limit the corner is cut square instead, which is what a
+        # mitre limit does in every stroking implementation.
+        limit = max(insets[i % len(insets)], 1.0) * 6.0
+        if abs(den) > 1e-9:
+            t = _cross(_sub(q0, p0), d2) / den
+            v = _add(p0, _mul(d1, t))
+            if _dist(v, poly[i]) <= limit:
+                out.append(v)
+                continue
+        out.append(q0)
     return out
 
 

@@ -34,6 +34,7 @@ COL = {
     "line":        "#f2f2ee",
     "fence":       "#9aa3ab",
     "picnic":      "#6b7f4e",
+    "bike":        "#8f6f52",   # sealed bike circuit, darker than footpath
 }
 
 PROP = {                 # colour, radius in metres, z-order
@@ -130,8 +131,9 @@ def draw(park, out_path, title=""):
     # 2) paths, under the props and over the surfaces
     for p in park["paths"]:
         pts = p["pts"]
-        w = 3.2 if p["kind"] == "spine" else 2.2
-        ax.plot([q[0] for q in pts], [q[1] for q in pts], color=COL["path"],
+        w = {"spine": 3.2, "bike": 2.4}.get(p["kind"], 2.2)
+        col = COL["bike"] if p["kind"] == "bike" else COL["path"]
+        ax.plot([q[0] for q in pts], [q[1] for q in pts], color=col,
                 lw=max(1.0, w * ppm), solid_capstyle="round",
                 solid_joinstyle="round", zorder=5)
 
