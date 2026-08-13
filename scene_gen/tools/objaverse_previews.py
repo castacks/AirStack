@@ -68,19 +68,23 @@ CATEGORIES = {
     # park, and "pool" without an exclude is almost entirely billiards.
     "basketball_court": ("basketball court|basketball hoop|basketball net",
                          "arena|stadium|nba|player|character|shoe|ball only"),
-    "tennis_court":     ("tennis court|tennis net",
-                         "arena|stadium|racket only|player|character"),
-    "volleyball_court": ("volleyball court|volleyball net|beach volleyball",
-                         "arena|stadium|player|character"),
-    "baseball_field":   ("baseball field|baseball diamond|backstop|dugout|"
-                         "batting cage",
-                         "stadium|arena|player|character|glove|bat only"),
-    "soccer_goal":      ("soccer goal|football goal|goal post|soccer net",
-                         "stadium|arena|player|character"),
-    "running_track":    ("running track|athletics track|sports track",
-                         "stadium|arena|race car|racetrack"),
-    "bleachers":        ("bleachers|grandstand|spectator seating|stadium seat",
-                         "arena interior|cinema"),
+    "tennis_court":     ("tennis",
+                         "racket|racquet|ball$|player|character|shoe|arena|"
+                         "stadium|table tennis|ping pong"),
+    "volleyball_court": ("volleyball",
+                         "ball$|player|character|shoe|arena|stadium"),
+    "baseball_field":   ("baseball",
+                         "ball$|bat$|glove|helmet|cap|player|character|shoe|"
+                         "stadium|arena|card"),
+    "soccer_goal":      ("soccer|football goal|goal post|goal net",
+                         "ball$|player|character|shoe|jersey|stadium|arena|"
+                         "american football|helmet"),
+    # NOT IN OBJAVERSE either: 0 matches for every phrasing tried. A track is
+    # a painted surface, so it is better generated than sourced.
+    "running_track":    ("running track|athletics track", "race car|racetrack"),
+    # NOT IN OBJAVERSE. "bleacher" -> 1 match, "grandstand|stadium seating|
+    # spectator stand" -> 0. Kept so the gap is recorded rather than retried.
+    "bleachers":        ("bleacher|grandstand|spectator seating", ""),
     "chain_link_fence": ("chain link fence|chainlink|wire mesh fence|"
                          "metal fence|steel fence",
                          "medieval|fantasy|barbed only"),
