@@ -81,50 +81,56 @@ def draw(park, out_path, title=""):
                     color=col or COL["line"], lw=max(0.6, lw * ppm),
                     solid_capstyle="round", zorder=z)
 
-    # 1) facility surfaces + their markings
+    def xf(pts, cx, cy, yaw):
+        """Local facility coords -> world, through the facility's rotation."""
+        a = math.radians(yaw)
+        ux, uy = math.cos(a), math.sin(a)
+        return [(cx + ux * x - uy * y, cy + uy * x + ux * y) for (x, y) in pts]
+
+    def markings(lines, cx, cy, yaw, lw=0.12, col=None, z=6):
+        for ln in lines:
+            w = xf(ln, cx, cy, yaw)
+            ax.plot([q[0] for q in w], [q[1] for q in w],
+                    color=col or COL["line"], lw=max(0.6, lw * ppm),
+                    solid_capstyle="round", zorder=z)
+
+    # 1) facility surfaces + their markings, all rotated with the facility
     for z in park["zones"]:
-        k, r = z["kind"], z["rect"]
-        if k == "lawn":
-            _poly(ax, _rect_pts(r), facecolor=COL["lawn"], edgecolor="none",
-                  zorder=1)
-        elif k == "soccer":
-            _poly(ax, _rect_pts(r), facecolor=COL["grass_pitch"],
+        k = z["kind"]
+        cx, cy = z["centre"]
+        yaw = z["yaw"]
+        if k == "soccer":
+            _poly(ax, z["corners"], facecolor=COL["grass_pitch"],
                   edgecolor="none", zorder=2)
-            cx, cy = z["centre"]
-            markings(pk.soccer_markings(), cx, cy, lw=0.12)
-            # goals at both ends
-            L = pk.SOCCER["pitch"][0] / 2.0
-            gw = pk.SOCCER["goal_w"] / 2.0
-            for s in (-1.0, 1.0):
-                ax.plot([cx + s * L, cx + s * L], [cy - gw, cy + gw],
-                        color="#ffffff", lw=max(1.2, 0.5 * ppm), zorder=7)
+            markings(pk.soccer_markings(), cx, cy, yaw, lw=0.12)
         elif k == "basketball_compound":
-            _poly(ax, _rect_pts(r), facecolor=COL["asphalt"],
+            _poly(ax, z["corners"], facecolor=COL["asphalt"],
                   edgecolor="none", zorder=2)
             for court in z["courts"]:
-                cx, cy = court["centre"]
-                markings(pk.basketball_markings(), cx, cy, lw=0.09)
+                markings(pk.basketball_markings(), court["centre"][0],
+                         court["centre"][1], court["yaw"], lw=0.09)
         elif k == "tennis_block":
-            _poly(ax, _rect_pts(r), facecolor=COL["tennis"],
+            _poly(ax, z["corners"], facecolor=COL["tennis"],
                   edgecolor="none", zorder=2)
+            cl, cwid = pk.TENNIS["court"]
             for court in z["courts"]:
-                cx, cy = court["centre"]
-                cl, cwid = pk.TENNIS["court"]
-                _poly(ax, _rect_pts((cx - cl / 2, cy - cwid / 2,
-                                     cx + cl / 2, cy + cwid / 2)),
+                ccx, ccy = court["centre"]
+                _poly(ax, xf([(-cl / 2, -cwid / 2), (cl / 2, -cwid / 2),
+                              (cl / 2, cwid / 2), (-cl / 2, cwid / 2)],
+                             ccx, ccy, court["yaw"]),
                       facecolor=COL["tennis_in"], edgecolor="none", zorder=3)
-                markings(pk.tennis_markings(), cx, cy, lw=0.08)
+                markings(pk.tennis_markings(), ccx, ccy, court["yaw"], lw=0.08)
         elif k == "playground":
-            _poly(ax, _rect_pts(r), facecolor=COL["sand"], edgecolor="none",
+            _poly(ax, z["corners"], facecolor=COL["sand"], edgecolor="none",
                   zorder=2)
         elif k == "picnic":
-            _poly(ax, _rect_pts(r), facecolor=COL["picnic"], edgecolor="none",
+            _poly(ax, z["corners"], facecolor=COL["picnic"], edgecolor="none",
                   zorder=2)
 
     # 2) paths, under the props and over the surfaces
     for p in park["paths"]:
         pts = p["pts"]
-        w = 3.0 if p["kind"] == "loop" else (2.2 if p["kind"] == "spine" else 2.0)
+        w = 3.2 if p["kind"] == "spine" else 2.2
         ax.plot([q[0] for q in pts], [q[1] for q in pts], color=COL["path"],
                 lw=max(1.0, w * ppm), solid_capstyle="round",
                 solid_joinstyle="round", zorder=5)
@@ -140,9 +146,32 @@ def draw(park, out_path, title=""):
         ax.plot([cx - hx], [cy - hy], marker="o", ms=1.6,
                 color="#6f787f", zorder=8)
 
-    # 4) props
+    # 4) props. The goal gets its true 7.32 m mouth and net depth rather than
+    # a round marker, because at this scale a circle would misreport its size
+    # by a factor of three and the whole point of the drawing is that the
+    # dimensions are checkable.
+    gw = pk.SOCCER["goal_w"] / 2.0
     for p in park["props"]:
+        if p["kind"] == "soccer_goal":
+            cx, cy = p["c"]
+            a = math.radians(p["yaw"])
+            ux, uy = math.cos(a), math.sin(a)        # into the pitch
+            vx, vy = -uy, ux                         # along the goal line
+            d = 2.0                                  # net depth
+            _poly(ax, [(cx + vx * gw, cy + vy * gw),
+                       (cx - vx * gw, cy - vy * gw),
+                       (cx - vx * gw - ux * d, cy - vy * gw - uy * d),
+                       (cx + vx * gw - ux * d, cy + vy * gw - uy * d)],
+                  facecolor="#e9edf0", edgecolor="#b9c2c8",
+                  lw=0.6, alpha=0.9, zorder=9)
+            continue
         col, r, z = PROP.get(p["kind"], ("#ff00ff", 1.0, 9))
+        if p["kind"] == "tree":
+            # Deterministic jitter off the position, so a copse reads as a
+            # canopy of mixed crowns rather than a field of identical dots.
+            h = (int(abs(p["c"][0]) * 7.3) ^ int(abs(p["c"][1]) * 11.7)) % 100
+            r *= 0.62 + h / 100.0 * 0.85
+            col = ("#2f5a2a", "#356331", "#294f26")[h % 3]
         ax.add_patch(Circle(p["c"], r, facecolor=col, edgecolor="none",
                             alpha=0.95, zorder=z))
 

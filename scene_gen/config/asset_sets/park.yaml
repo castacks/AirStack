@@ -1,0 +1,85 @@
+# ASSET SET: park — recreation content for `suburb_park.py`.
+#
+# Hand-picked from Objaverse thumbnails (scene_gen/tools/objaverse_previews.py
+# with the park categories), so every uid here was looked at rather than being
+# the top metadata hit. Extends `shared` for trees and generic furniture.
+#
+# Cache them before `airstack up`:
+#     .venv/bin/python scene_gen/prepare_assets.py --asset-set park
+#
+# `target-size-m` is baked into the cached USD at conversion, so there is
+# deliberately no `scale:` on these — nothing to drift from the geometry. It
+# pins the longest PLAN dimension unless `fit: max` is given.
+#
+# WHAT IS NOT HERE, ON PURPOSE
+# ----------------------------
+# The court SURFACES. A basketball court is a painted rectangle at a fixed
+# size and no library has the one that fits a given park, so `suburb_park.py`
+# generates the slab and its markings and this set supplies only the objects
+# that stand on it. Same for the soccer pitch and the playground sand.
+#
+# Two gaps that are not oversights: BLEACHERS and RUNNING TRACKS are not in
+# Objaverse. "bleacher" returns 1 match and every phrasing of running track
+# returns 0. A track is a painted surface and is better generated anyway.
+
+extends: shared
+
+usds:
+  # ---- courts and pitches --------------------------------------------------
+  # The hoop only. Two per court, 1.575 m in from each baseline — the court
+  # itself is drawn, not placed.
+  park_hoop:
+    - usd: "objaverse://b1c66721f837407c9afb305ad7099ff0"   # Basketball Hoop, 1.8k faces
+      target-size-m: 1.83          # backboard width, regulation
+
+  # A FULL court asset, unlike basketball: its markings come with it, so
+  # suburb_park places the enclosure and fence and leaves the paint alone.
+  park_tennis_court:
+    - usd: "objaverse://02fae7583fb447a484ee5b7c76bef0e6"   # Tennis Court, 23.9k faces
+      target-size-m: 23.77         # doubles court length
+
+  # by-sa, unlike the `by` on everything else here — check before redistributing.
+  park_soccer_goal:
+    - usd: "objaverse://5af5bccf37db4bb2980dd5119bfe427f"   # Football goal 721, 1.1k faces
+      target-size-m: 7.32          # regulation goal width
+
+  # ---- enclosure -----------------------------------------------------------
+  # ONE panel, tiled along each run. `suburb_park.fence_panel_m` must match
+  # this or the run will gap or overlap.
+  park_fence:
+    - usd: "objaverse://f7d34687536a45108fac3bf1a1055ee2"   # Chain Link Fence, 2.4k faces
+      target-size-m: 2.4
+
+  # ---- shelter and set pieces ----------------------------------------------
+  park_gazebo:
+    - usd: "objaverse://ab95dfb3816e4160989f26972c4c7c39"   # Gazebo, 5.2k faces
+      target-size-m: 5.0
+
+  park_fountain:
+    - usd: "objaverse://952a9c257db641229902c36abb97e8bc"   # Medieval Fountain Empty, 4.5k
+      target-size-m: 4.0
+    - usd: "objaverse://dd7909ffc4a84a45b3111030c51e43c6"   # The Old Fountain, 9.3k
+      target-size-m: 5.0
+
+  park_sign:
+    - usd: "objaverse://b5c67137ca284754ac494f16b540a2b3"   # State Park Sign, 144 faces
+      target-size-m: 3.0
+
+  park_table:
+    - usd: "objaverse://e88b5288aa4942739da8aa9af6c7778d"   # Park Table, 1k faces
+      target-size-m: 2.0
+
+  # ---- playground ----------------------------------------------------------
+  # THE EXPENSIVE ONES. Swing Set and Kids Place are 76k and 79k faces each —
+  # against a 1.1k hoop and a 144-face sign — so they are capped to a handful
+  # per playground rather than scattered. `suburb_yardplan`'s point budget
+  # exists for exactly this reason and the urban scene OOM-killed at 89.1M.
+  park_play_swing:
+    - usd: "objaverse://8712f53da0e04736802f1bc84ca7df97"   # Swing Set, 75.9k faces
+      target-size-m: 4.5
+  park_play_structure:
+    - usd: "objaverse://83b176f63dfc43a4876378a4e12d6f6f"   # Kids Place, 79.5k faces
+      target-size-m: 8.0
+  park_play_seesaw:
+    - usd: "objaverse://9855438bf7d14f9b8a83e779c03e937f"   # Seesaw Type-1, 498 faces
+      target-size-m: 3.0

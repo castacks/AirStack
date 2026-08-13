@@ -83,12 +83,12 @@ SOCCER = {
 }
 
 DEFAULTS = {
-    "region_m": [360.0, 260.0],
+    "region_m": [420.0, 300.0],
     "edge_buffer_m": 12.0,        # tree belt inside the park boundary
     "facility_gap_m": 9.0,
     "n_basketball": 4,
     "n_tennis": 3,
-    "n_soccer": 1,
+    "n_soccer": 2,
     "playground_m": [46.0, 34.0],
     "picnic_areas": 3,
     "picnic_m": [30.0, 22.0],
@@ -98,7 +98,8 @@ DEFAULTS = {
     "path_w_m": 3.0,
     "loop_inset_m": 7.0,
     "fence_panel_m": 2.4,         # the sourced chain-link section's run
-    "tree_belt_spacing_m": [9.0, 16.0],
+    "copses": 9,
+    "copse_r_m": [26.0, 55.0],
     "lawn_tree_per_1000m2": 1.1,
 }
 
@@ -187,48 +188,88 @@ def soccer_markings():
 # shelf packing
 # ---------------------------------------------------------------------------
 
-def _fits(r, placed, inner, gap):
-    """Inside *inner* and *gap* clear of everything already placed."""
-    if not (inner[0] <= r[0] and r[2] <= inner[2]
-            and inner[1] <= r[1] and r[3] <= inner[3]):
-        return False
-    for q in placed:
-        if (r[0] < q[2] + gap and q[0] < r[2] + gap
-                and r[1] < q[3] + gap and q[1] < r[3] + gap):
-            return False
+def _obb(cx, cy, w, h, yaw_deg):
+    """Corner list of an oriented box, CCW."""
+    a = math.radians(yaw_deg)
+    ux, uy = math.cos(a), math.sin(a)
+    vx, vy = -uy, ux
+    hw, hh = w / 2.0, h / 2.0
+    return [(cx + ux * hw + vx * hh, cy + uy * hw + vy * hh),
+            (cx - ux * hw + vx * hh, cy - uy * hw + vy * hh),
+            (cx - ux * hw - vx * hh, cy - uy * hw - vy * hh),
+            (cx + ux * hw - vx * hh, cy + uy * hw - vy * hh)]
+
+
+def _sat_overlap(a, b, pad=0.0):
+    """Separating-axis test between two oriented boxes."""
+    for poly in (a, b):
+        for i in range(2):
+            ex = poly[(i + 1) % 4][0] - poly[i][0]
+            ey = poly[(i + 1) % 4][1] - poly[i][1]
+            n = sn._unit((-ey, ex))
+            amin = min(sn._dot(n, p) for p in a)
+            amax = max(sn._dot(n, p) for p in a)
+            bmin = min(sn._dot(n, p) for p in b)
+            bmax = max(sn._dot(n, p) for p in b)
+            if amax + pad < bmin or bmax + pad < amin:
+                return False
     return True
 
 
-def _at(inner, fx, fy, w, h):
-    """Rect of *w* x *h* centred at fractional position (fx, fy) of *inner*."""
-    x0, y0, x1, y1 = inner
-    cx = x0 + (x1 - x0) * fx
-    cy = y0 + (y1 - y0) * fy
-    return (cx - w / 2.0, cy - h / 2.0, cx + w / 2.0, cy + h / 2.0)
+def _inside(corners, inner):
+    return all(inner[0] <= x <= inner[2] and inner[1] <= y <= inner[3]
+               for (x, y) in corners)
 
 
-def _slide(inner, placed, gap, w, h, fx, fy):
-    """Place at (fx, fy), sliding outward in a spiral until it fits.
+def _place(inner, placed, gap, w, h, fx, fy, yaw, rng):
+    """Oriented placement at (fx, fy), spiralling outward until it fits.
 
-    A park is COMPOSED, not packed. Shelf-packing filled the bottom of the
-    park and left one 200 x 130 m slab of nothing above it, with the picnic
-    grounds stranded at the far corner from the courts they belong to. Naming
-    each facility's intended position and only searching locally keeps the
-    composition while still guaranteeing no overlap.
+    FACILITIES ARE ROTATED, and that is what stops the park reading as a grid.
+    Axis-aligned rects gave a plan that was unmistakably generated: every pitch,
+    court and picnic ground parallel to every other and to the boundary, which
+    no real park is. Rotation means overlap has to be a separating-axis test on
+    oriented boxes rather than an interval compare — an AABB around a rotated
+    pitch is up to twice its true area and would refuse placements that are
+    perfectly fine.
     """
-    r = _at(inner, fx, fy, w, h)
-    if _fits(r, placed, inner, gap):
-        return r
-    step = max(4.0, gap)
-    for ring in range(1, 40):
-        for ang in range(0, 360, 30):
-            a = math.radians(ang)
+    x0, y0, x1, y1 = inner
+    cx0 = x0 + (x1 - x0) * fx
+    cy0 = y0 + (y1 - y0) * fy
+    step = max(5.0, gap)
+    for ring in range(0, 46):
+        for ang in range(0, 360, 24 if ring else 360):
             d = ring * step
-            q = (r[0] + d * math.cos(a), r[1] + d * math.sin(a),
-                 r[2] + d * math.cos(a), r[3] + d * math.sin(a))
-            if _fits(q, placed, inner, gap):
-                return q
-    return None
+            cx = cx0 + d * math.cos(math.radians(ang))
+            cy = cy0 + d * math.sin(math.radians(ang))
+            for dy in ((0.0,) if ring < 6 else (0.0, -12.0, 12.0)):
+                c = _obb(cx, cy, w, h, yaw + dy)
+                if not _inside(c, inner):
+                    continue
+                if any(_sat_overlap(c, q, gap) for q in placed):
+                    continue
+                return (cx, cy), yaw + dy, c
+    return None, None, None
+
+
+def _curve(waypoints, samples=16):
+    """A smooth path through *waypoints*, Catmull-Rom style.
+
+    Straight segments between facilities is what made the path network read as
+    plumbing. Real park paths curve, and they curve because they were desire
+    lines before they were paving.
+    """
+    if len(waypoints) < 2:
+        return list(waypoints)
+    pts = [waypoints[0]]
+    for i in range(len(waypoints) - 1):
+        a, b = waypoints[i], waypoints[i + 1]
+        prev = waypoints[i - 1] if i > 0 else a
+        nxt = waypoints[i + 2] if i + 2 < len(waypoints) else b
+        ta = sn._unit(sn._sub(b, prev))
+        tb = sn._unit(sn._sub(nxt, a))
+        pts.extend(sn.hermite(a, ta, b, tb, tension=0.38,
+                              samples=samples)[1:])
+    return pts
 
 
 def _centre(r):
@@ -267,26 +308,37 @@ def plan(rng, cfg=None):
 
     inner = (-hw + buf, -hh + buf, hw - buf, hh - buf)
     zones, placed = [], []
+    # One base orientation for the park, with each facility swung off it. A
+    # park is not aligned to north; it is aligned to its own site.
+    base_yaw = rng.uniform(-22.0, 22.0)
 
-    def add(kind, w, h, fx, fy, **extra):
-        r = _slide(inner, placed, gap, w, h, fx, fy)
-        if r is None:
+    def add(kind, w, h, fx, fy, spread=16.0, **extra):
+        yaw = base_yaw + rng.uniform(-spread, spread)
+        c, yaw, corners = _place(inner, placed, gap, w, h, fx, fy, yaw, rng)
+        if c is None:
             return None
-        placed.append(r)
-        z = {"kind": kind, "rect": r, "centre": _centre(r)}
+        placed.append(corners)
+        z = {"kind": kind, "centre": c, "w": w, "h": h, "yaw": yaw,
+             "corners": corners}
         z.update(extra)
         zones.append(z)
         return z
 
-    # THE COMPOSITION. Active sport along the south edge where it can be fenced
-    # and floodlit without facing houses; passive green to the north; the
-    # playground and picnic grounds BETWEEN them and hard against the courts,
-    # because that is where parents stand.
+    def local(z, lx, ly):
+        """Local facility coords -> world."""
+        a = math.radians(z["yaw"])
+        ux, uy = math.cos(a), math.sin(a)
+        return (z["centre"][0] + ux * lx - uy * ly,
+                z["centre"][1] + uy * lx + ux * ly)
+
     bl, bw = BASKETBALL["court"]
     bpad = BASKETBALL["pad"]
 
-    for _ in range(int(c["n_soccer"])):
-        add("soccer", SOCCER["pitch"][0], SOCCER["pitch"][1], 0.22, 0.24)
+    # Two pitches, side by side but not parallel — clubs lay a second pitch to
+    # fit the ground, not to match the first.
+    for i in range(int(c["n_soccer"])):
+        add("soccer", SOCCER["pitch"][0], SOCCER["pitch"][1],
+            0.22 if i == 0 else 0.30, 0.20 if i == 0 else 0.72, spread=12.0)
 
     n_bb = int(c["n_basketball"])
     if n_bb:
@@ -294,214 +346,241 @@ def plan(rng, cfg=None):
         rows = int(math.ceil(n_bb / cols))
         cw = cols * (bl + 2 * bpad) + (cols - 1) * gap
         ch = rows * (bw + 2 * bpad) + (rows - 1) * gap
-        z = add("basketball_compound", cw, ch, 0.63, 0.20,
-                courts=[], fenced=True)
+        z = add("basketball_compound", cw, ch, 0.66, 0.22, courts=[],
+                fenced=True)
         if z:
-            x0, y0, _x1, _y1 = z["rect"]
             for i in range(n_bb):
                 r, q = divmod(i, cols)
-                cx = x0 + bpad + bl / 2.0 + q * (bl + 2 * bpad + gap)
-                cy = y0 + bpad + bw / 2.0 + r * (bw + 2 * bpad + gap)
-                z["courts"].append({"centre": (cx, cy), "yaw": 0.0})
+                lx = -cw / 2 + bpad + bl / 2 + q * (bl + 2 * bpad + gap)
+                ly = -ch / 2 + bpad + bw / 2 + r * (bw + 2 * bpad + gap)
+                z["courts"].append({"centre": local(z, lx, ly),
+                                    "yaw": z["yaw"]})
 
     tw, th = TENNIS["enclosure"]
     n_tn = int(c["n_tennis"])
     if n_tn:
-        z = add("tennis_block", tw, n_tn * th + (n_tn - 1) * 2.0, 0.90, 0.28,
-                courts=[], fenced=True)
+        H = n_tn * th + (n_tn - 1) * 2.0
+        z = add("tennis_block", tw, H, 0.90, 0.30, courts=[], fenced=True)
         if z:
-            x0, y0, _x1, _y1 = z["rect"]
             for i in range(n_tn):
-                z["courts"].append({
-                    "centre": (x0 + tw / 2.0,
-                               y0 + th / 2.0 + i * (th + 2.0)), "yaw": 0.0})
+                ly = -H / 2 + th / 2 + i * (th + 2.0)
+                z["courts"].append({"centre": local(z, 0.0, ly),
+                                    "yaw": z["yaw"]})
 
     pw, ph = _rng_pair(c["playground_m"], (46.0, 34.0))
-    add("playground", pw, ph, 0.63, 0.52, surface="sand")
+    add("playground", pw, ph, 0.62, 0.50, surface="sand")
 
-    # Picnic grounds: one beside the playground, one by the courts, the rest
-    # out on the green. Adjacency is the whole point -- a picnic ground on the
-    # far side of the park from the courts is one nobody uses.
-    picnic, spots = [], [(0.45, 0.52), (0.86, 0.55), (0.20, 0.62),
-                         (0.72, 0.78)]
+    picnic, spots = [], [(0.45, 0.50), (0.84, 0.58), (0.24, 0.50),
+                         (0.70, 0.86)]
     for i in range(int(c["picnic_areas"])):
         mw, mh = _rng_pair(c["picnic_m"], (30.0, 22.0))
         fx, fy = spots[i % len(spots)]
-        z = add("picnic", mw, mh, fx, fy, tables=[])
+        z = add("picnic", mw, mh, fx, fy, spread=26.0, tables=[])
         if z:
             picnic.append(z)
 
-    # -- paths: a perimeter loop plus a spur to every facility --------------
-    li = float(c["loop_inset_m"])
-    lx0, ly0 = -hw + li, -hh + li
-    lx1, ly1 = hw - li, hh - li
-    loop = [(lx0, ly0), (lx1, ly0), (lx1, ly1), (lx0, ly1), (lx0, ly0)]
-    paths = [{"pts": loop, "kind": "loop"}]
+    # -- paths: a wandering spine, NOT a rectangle round the edge ----------
+    # The perimeter loop was the same mistake as ringing the suburb with an
+    # arterial: it drew a racetrack round the scene and made every facility
+    # hang off it like a stub. A park is entered at a couple of points and
+    # threaded by a route that wanders between the things worth reaching.
+    paths = []
+    gates = [(0.0, -hh + buf * 0.5), (hw - buf * 0.5, rng.uniform(-hh * 0.2,
+                                                                 hh * 0.4))]
+    # Waypoints sit OFF each facility, on the side facing the park centre.
+    stops = []
+    for z in zones:
+        cx, cy = z["centre"]
+        n = sn._unit(sn._sub((0.0, 0.0), (cx, cy)))
+        stops.append((cx + n[0] * (max(z["w"], z["h"]) / 2.0 + 9.0),
+                      cy + n[1] * (max(z["w"], z["h"]) / 2.0 + 9.0)))
 
-    def nearest_on_loop(p):
-        best, bp = 1e18, loop[0]
-        for i in range(len(loop) - 1):
-            a, b = loop[i], loop[i + 1]
-            d = sn._sub(b, a)
-            L2 = sn._dot(d, d) or 1.0
-            t = max(0.0, min(1.0, sn._dot(sn._sub(p, a), d) / L2))
-            q = sn._add(a, sn._mul(d, t))
-            dd = sn._dist(p, q)
-            if dd < best:
-                best, bp = dd, q
+    # NEAREST-NEIGHBOUR TOUR from one gate to the other. Sorting the stops by
+    # x+y read as an ordering but is not a route: it doubled back across the
+    # middle of the park and the spine tied itself in a knot around the picnic
+    # grounds. A greedy tour is not optimal and does not need to be — it just
+    # has to not cross itself.
+    way, rest, cur = [gates[0]], list(stops), gates[0]
+    while rest:
+        nxt = min(rest, key=lambda q: sn._dist(cur, q))
+        rest.remove(nxt)
+        way.append(nxt)
+        cur = nxt
+    way.append(gates[1])
+    paths.append({"pts": _curve(way), "kind": "spine"})
+
+    def nearest_on_spine(p):
+        best, bp = 1e18, way[0]
+        for pt in paths[0]["pts"]:
+            d = sn._dist(p, pt)
+            if d < best:
+                best, bp = d, pt
         return bp
 
-    def entrance(rect, toward):
-        """Point on the rect's boundary nearest *toward*.
-
-        Spurs used to run to the facility CENTRE, which drew the path straight
-        across the pitch and through the middle of the basketball compound. A
-        path arrives AT a facility; it does not cross it.
-        """
-        x0, y0, x1, y1 = rect
-        return (min(max(toward[0], x0), x1), min(max(toward[1], y0), y1))
+    def entrance(z, toward):
+        """Boundary point of the oriented facility nearest *toward*."""
+        a = math.radians(z["yaw"])
+        ux, uy = math.cos(a), math.sin(a)
+        d = sn._sub(toward, z["centre"])
+        lx = max(-z["w"] / 2, min(z["w"] / 2, d[0] * ux + d[1] * uy))
+        ly = max(-z["h"] / 2, min(z["h"] / 2, -d[0] * uy + d[1] * ux))
+        return local(z, lx, ly)
 
     for z in zones:
-        c0 = _centre(z["rect"])
-        lp = nearest_on_loop(c0)
-        e = entrance(z["rect"], lp)
-        if sn._dist(e, lp) > 1.0:
-            paths.append({"pts": [e, lp], "kind": "spur"})
+        sp = nearest_on_spine(z["centre"])
+        e = entrance(z, sp)
+        if sn._dist(e, sp) > 3.0:
+            paths.append({"pts": _curve([e, sp]), "kind": "spur"})
 
-    # An internal spine so the park is walkable between facilities rather than
-    # only out to the loop and back: it threads the playground and the picnic
-    # grounds, which is the route people actually take.
-    spine = [z for z in zones if z["kind"] in ("playground", "picnic")]
-    spine.sort(key=lambda z: z["centre"][0])
-    for a, b in zip(spine, spine[1:]):
-        pa = entrance(a["rect"], b["centre"])
-        pb = entrance(b["rect"], a["centre"])
-        paths.append({"pts": [pa, pb], "kind": "spine"})
-
-    # -- fences around the enclosures --------------------------------------
+    # -- fences -------------------------------------------------------------
     panel = float(c["fence_panel_m"])
     fences = []
     for z in zones:
-        if z.get("fenced"):
-            fences.extend(_fence_run(z["rect"], panel))
+        if not z.get("fenced"):
+            continue
+        cor = z["corners"]
+        for i in range(4):
+            ax, ay = cor[i]
+            bx, by = cor[(i + 1) % 4]
+            L = math.hypot(bx - ax, by - ay)
+            n = max(1, int(round(L / panel)))
+            yaw = math.degrees(math.atan2(by - ay, bx - ax))
+            for k in range(n):
+                f = (k + 0.5) / n
+                fences.append({"c": (ax + (bx - ax) * f, ay + (by - ay) * f),
+                               "yaw": yaw})
 
-    # -- props --------------------------------------------------------------
+    # -- props ---------------------------------------------------------------
     props = []
 
     def prop(kind, x, y, yaw=0.0):
         props.append({"kind": kind, "c": (x, y), "yaw": yaw})
 
-    # Hoops: one per court, at each baseline, facing in.
     for z in zones:
-        if z["kind"] != "basketball_compound":
-            continue
-        for court in z["courts"]:
-            cx, cy = court["centre"]
-            for s in (-1.0, 1.0):
-                prop("hoop", cx + s * (bl / 2.0 - BASKETBALL["hoop_inset"]),
-                     cy, 180.0 if s > 0 else 0.0)
+        if z["kind"] == "basketball_compound":
+            for court in z["courts"]:
+                a = math.radians(court["yaw"])
+                ux, uy = math.cos(a), math.sin(a)
+                off = bl / 2.0 - BASKETBALL["hoop_inset"]
+                for sgn in (-1.0, 1.0):
+                    prop("hoop", court["centre"][0] + ux * sgn * off,
+                         court["centre"][1] + uy * sgn * off,
+                         court["yaw"] + (180.0 if sgn > 0 else 0.0))
+        elif z["kind"] == "soccer":
+            a = math.radians(z["yaw"])
+            ux, uy = math.cos(a), math.sin(a)
+            L = SOCCER["pitch"][0] / 2.0
+            for sgn in (-1.0, 1.0):
+                prop("soccer_goal", z["centre"][0] + ux * sgn * L,
+                     z["centre"][1] + uy * sgn * L,
+                     z["yaw"] + (180.0 if sgn > 0 else 0.0))
 
-    # Picnic tables, gridded inside their area rather than scattered: a picnic
-    # ground is laid out, not strewn.
     tlo, thi = _rng_pair(c["picnic_tables"], (5.0, 9.0))
     for z in picnic:
-        x0, y0, x1, y1 = z["rect"]
         n = int(rng.uniform(tlo, thi + 0.999))
         cols = max(1, int(math.ceil(math.sqrt(n))))
         rows = int(math.ceil(n / cols))
         for i in range(n):
             r, q = divmod(i, cols)
-            x = x0 + (x1 - x0) * (q + 0.5) / cols
-            y = y0 + (y1 - y0) * (r + 0.5) / rows
-            prop("picnic_table", x, y, rng.uniform(-12, 12))
-            z["tables"].append((x, y))
+            lx = (-z["w"] / 2 + z["w"] * (q + 0.5) / cols)
+            ly = (-z["h"] / 2 + z["h"] * (r + 0.5) / rows)
+            wx, wy = local(z, lx, ly)
+            prop("picnic_table", wx, wy, z["yaw"] + rng.uniform(-12, 12))
+            z["tables"].append((wx, wy))
 
-    # Playground pieces, spread across the sand.
     for z in zones:
         if z["kind"] != "playground":
             continue
-        x0, y0, x1, y1 = z["rect"]
         for i, kind in enumerate(("swing_set", "play_structure", "seesaw",
                                   "seesaw")):
-            f = (i + 0.5) / 4.0
-            prop(kind, x0 + (x1 - x0) * f,
-                 y0 + (y1 - y0) * (0.35 if i % 2 else 0.65),
-                 rng.uniform(0, 360))
+            lx = -z["w"] / 2 + z["w"] * (i + 0.5) / 4.0
+            ly = z["h"] * (0.15 if i % 2 else -0.15)
+            wx, wy = local(z, lx, ly)
+            prop(kind, wx, wy, rng.uniform(0, 360))
 
-    # Fountains and gazebos go in the OPEN GREEN, not on the perimeter loop.
-    # On the loop they landed inside the tree belt and were swallowed by it,
-    # and a park's set pieces belong where the open space is anyway: a fountain
-    # is a destination, so it wants lawn around it, not a hedge behind it.
     ix0, iy0, ix1, iy1 = inner
+    feature_pts = []
 
-    def open_spot(clear, tries=300):
+    def open_spot(clear, tries=400):
         for _ in range(tries):
             q = (rng.uniform(ix0 + clear, ix1 - clear),
                  rng.uniform(iy0 + clear, iy1 - clear))
-            if any(r[0] - clear < q[0] < r[2] + clear
-                   and r[1] - clear < q[1] < r[3] + clear for r in placed):
+            box = _obb(q[0], q[1], clear * 2, clear * 2, 0.0)
+            if any(_sat_overlap(box, r, 2.0) for r in placed):
                 continue
-            if any(sn._dist(q, o) < clear * 2.0 for o in feature_pts):
+            if any(sn._dist(q, o) < clear * 2.2 for o in feature_pts):
                 continue
             return q
         return None
 
-    feature_pts = []
     n_f = int(rng.uniform(*_rng_pair(c["fountains"], (2.0, 3.0))) + 0.5)
     n_g = int(rng.uniform(*_rng_pair(c["gazebos"], (2.0, 4.0))) + 0.5)
     for _ in range(n_f):
-        q = open_spot(16.0)
+        q = open_spot(15.0)
         if q:
             feature_pts.append(q)
             prop("fountain", q[0], q[1], rng.uniform(0, 360))
     for _ in range(n_g):
-        q = open_spot(13.0)
+        q = open_spot(12.0)
         if q:
             feature_pts.append(q)
             prop("gazebo", q[0], q[1], rng.uniform(0, 360))
-
-    # Each set piece earns a spur off the loop, so it is reachable rather than
-    # marooned in the middle of the grass.
     for q in feature_pts:
-        paths.append({"pts": [q, nearest_on_loop(q)], "kind": "spine"})
+        sp = nearest_on_spine(q)
+        if sn._dist(q, sp) > 4.0:
+            paths.append({"pts": _curve([q, sp]), "kind": "spur"})
 
-    # Park sign at the entrance: the middle of the south edge.
-    prop("park_sign", 0.0, -hh + buf * 0.4, 90.0)
+    prop("park_sign", gates[0][0], gates[0][1] + 3.0, 90.0)
 
-    # Tree belt round the boundary, plus scatter on the lawn.
-    slo, shi = _rng_pair(c["tree_belt_spacing_m"], (9.0, 16.0))
-    ring = [(-hw + 4, -hh + 4), (hw - 4, -hh + 4), (hw - 4, hh - 4),
-            (-hw + 4, hh - 4), (-hw + 4, -hh + 4)]
-    s = 0.0
-    total = sn.polyline_length(ring)
-    while s < total:
-        p = sn.point_at(ring, s)
-        # Jittered inward: a belt planted on the exact rectangle reads as a
-        # fence of trees rather than as planting.
-        t = sn.tangent_at(ring, s)
-        n = sn._perp(t)
-        d = rng.uniform(-1.5, 7.0)
-        prop("tree", p[0] + n[0] * d + rng.uniform(-1.5, 1.5),
-             p[1] + n[1] * d + rng.uniform(-1.5, 1.5), rng.uniform(0, 360))
-        s += rng.uniform(slo, shi)
-    # Scattered over whatever grass is left, by rejection against the
-    # facilities and the path loop -- there is no lawn RECT to sample inside,
-    # because the lawn is the negative space.
-    ix0, iy0, ix1, iy1 = inner
+    # -- woodland ------------------------------------------------------------
+    # NOT a belt on the boundary rectangle. Trees are massed in COPSES whose
+    # density falls off from a centre, so the wood has a soft edge and reads as
+    # continuing past the park rather than stopping at a line. That is what
+    # blends the park into whatever surrounds it.
+    def free(q, clear):
+        box = _obb(q[0], q[1], clear, clear, 0.0)
+        if any(_sat_overlap(box, r, 1.0) for r in placed):
+            return False
+        for pa in paths:
+            for pt in pa["pts"][::3]:
+                if sn._dist(q, pt) < 4.5:
+                    return False
+        return True
+
+    n_copse = int(c["copses"])
+    for _ in range(n_copse):
+        # Copses hug the edges, where a park thickens into its surroundings.
+        edge = rng.randrange(4)
+        if edge == 0:
+            cxy = (rng.uniform(-hw, hw), rng.uniform(-hh, -hh + 60))
+        elif edge == 1:
+            cxy = (rng.uniform(-hw, hw), rng.uniform(hh - 60, hh))
+        elif edge == 2:
+            cxy = (rng.uniform(-hw, -hw + 60), rng.uniform(-hh, hh))
+        else:
+            cxy = (rng.uniform(hw - 60, hw), rng.uniform(-hh, hh))
+        rad = rng.uniform(*_rng_pair(c["copse_r_m"], (26.0, 55.0)))
+        for _ in range(int(rad * rad * 0.02)):
+            # r^0.6 biases inward, so density thins toward the edge instead of
+            # ending on a hard circle.
+            a = rng.uniform(0, 2 * math.pi)
+            d = rad * (rng.random() ** 0.6)
+            q = (cxy[0] + d * math.cos(a), cxy[1] + d * math.sin(a))
+            if not (-hw <= q[0] <= hw and -hh <= q[1] <= hh):
+                continue
+            if free(q, 6.0):
+                prop("tree", q[0], q[1], rng.uniform(0, 360))
+
+    # A thin scatter over the remaining green, so the open lawn is not bald.
     want = int((ix1 - ix0) * (iy1 - iy0) / 1000.0
                * float(c["lawn_tree_per_1000m2"]))
     tries = 0
-    while want > 0 and tries < want * 60:
+    while want > 0 and tries < want * 80:
         tries += 1
         q = (rng.uniform(ix0, ix1), rng.uniform(iy0, iy1))
-        if any(r[0] - 4 < q[0] < r[2] + 4 and r[1] - 4 < q[1] < r[3] + 4
-               for r in placed):
-            continue
-        if min(abs(q[0] - lx0), abs(q[0] - lx1),
-               abs(q[1] - ly0), abs(q[1] - ly1)) < 5.0:
-            continue                      # keep the loop path clear
-        prop("tree", q[0], q[1], rng.uniform(0, 360))
-        want -= 1
+        if free(q, 8.0):
+            prop("tree", q[0], q[1], rng.uniform(0, 360))
+            want -= 1
 
     return {"region": region, "zones": zones, "paths": paths,
             "fences": fences, "props": props}
