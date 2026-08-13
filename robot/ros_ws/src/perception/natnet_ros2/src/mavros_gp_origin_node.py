@@ -46,8 +46,9 @@ class MavrosGpOriginNode(Node):
         # model's absolute error). Skipped when use_sim_time=true: sim's synthetic
         # GPS carries no geoid separation and uses the literal altitude.
         self.declare_parameter('use_geoid_altitude', False)
-        # AMSL (m) assigned to the mocap floor / vision z = 0. 0.0 => local z == OptiTrack z.
-        self.declare_parameter('desired_floor_amsl', 0.0)
+        # AMSL (m) assigned to the mocap floor / vision z = 0. Local z equals OptiTrack z
+        # for any value; this only sets what global altitude the floor reports.
+        self.declare_parameter('desired_floor_amsl', 36.0)
         # Geoid model — MUST match mavros (egm96-5) for exact cancellation.
         self.declare_parameter('geoid_model', 'egm96-5')
         # Seconds to wait after MAVROS connects (listening for an existing

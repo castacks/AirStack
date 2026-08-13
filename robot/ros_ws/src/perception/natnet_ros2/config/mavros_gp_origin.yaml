@@ -15,6 +15,8 @@
     # Real hardware: derive origin altitude from the geoid so local_position z
     # equals OptiTrack height. Auto-skipped in sim.
     use_geoid_altitude: true
-    desired_floor_amsl: 0.0
+    # AMSL of the mocap floor. 36.0 = the shared world datum (90 m ellipsoidal) in AMSL,
+    # so the robot's global altitude agrees with sim and the GCS.
+    desired_floor_amsl: 36.0
     geoid_model: "egm96-5"
     settle_sec: 5.0

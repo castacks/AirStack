@@ -214,12 +214,31 @@ floor. The cause is a **datum interaction**, not a bug in any single component:
   **36 m gap** is exactly `90 − N`.
 
 **Fix — [`mavros_gp_origin_node.py`](robot/ros_ws/src/perception/natnet_ros2/src/mavros_gp_origin_node.py)
-with `use_geoid_altitude: true`:** instead of the literal 90.0, publish the origin
-altitude as `N + desired_floor_amsl` (≈ `54 + 0`). MAVROS's egm96‑5 conversion then
-cancels (`54 − 54 = 0`), so `local_position.z` equals the OptiTrack height (floor = 0).
-`N` is computed at runtime with `GeoidEval` — no hardcoded magic number — using the
-same egm96‑5 model MAVROS uses, so the undulation cancels regardless of its absolute
-value.
+with `use_geoid_altitude: true`:** publish the origin altitude as
+`N + desired_floor_amsl` instead of the literal 90.0. `N` is computed at runtime with
+`GeoidEval` — no hardcoded magic number — using the same egm96‑5 model MAVROS uses, so
+the undulation cancels regardless of its absolute value.
+
+`geographic_msgs/GeoPoint.altitude` is defined as a height above the **WGS‑84
+ellipsoid**, and MAVROS applies the geoid model itself, so `N + desired_floor_amsl` is
+not a workaround — it is the correctly-expressed ellipsoidal altitude. Do **not** send
+AMSL here; that would double-convert.
+
+### Choosing `desired_floor_amsl`
+
+This sets what AMSL the mocap floor (vision `z = 0`) reports. `local_position.z` equals
+the OptiTrack height for **any** value — this only affects the *global* altitude the
+vehicle reports.
+
+We use **36.0**, the shared world datum expressed in AMSL (90 m ellipsoidal − N ≈ 54 m),
+so the robot's global position agrees with where sim and the GCS place the same world
+origin. The published ellipsoidal origin then works out to ≈ 90 m — the datum itself.
+
+Setting `0.0` instead puts the mocap floor at sea level. Local flight is identical, but
+the robot's reported global altitude then disagrees with sim/GCS by ~36 m.
+
+> Not yet confirmed on hardware — verify the reported global altitude on the next
+> mocap flight.
 
 **Why this never showed in sim:** the geoid path is auto-skipped when
 `use_sim_time: true` (sim uses the literal 90.0 on both ends), and sim's synthetic

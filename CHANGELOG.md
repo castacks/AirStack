@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `natnet_config.yaml`'s `$(env NATNET_SERVER_IP ...)` could never resolve: no compose service declared the variable, so the NatNet client always fell back to its hardcoded default and could reach neither the in-sim emulator nor a real Motive host. It is now forwarded in `robot-base-docker-compose.yaml`, defaulting to the in-sim emulator
 - The NatNet rigid body tracked by `robot_1` defaulted to a site-specific body (id 1146) that no emulator streams; since the client filters frames by numeric id, that produced a connected client that never published. It now defaults to the emulator's body (`Drone`, id 1). Per-robot bodies are configured in each robot's profile in `natnet_config.yaml`, selected by `ROBOT_NAME`
 - OptiTrack external-vision tuning corrected from real-flight bags: `EKF2_EV_DELAY` 8.0 → 7.0 and `EKF2_EVP_NOISE` 0.01 → 0.05. The old 0.01 gave a 5 cm innovation gate (`EKF2_EVP_GATE` × 5σ) that rejected valid mocap updates and blocked arming; `px4_params.yaml` now records the supporting measurements and the drift-and-snap misdiagnosis so neither is repeated
+- The synthetic GPS origin now places the mocap floor at the shared world datum (`desired_floor_amsl: 36.0`, i.e. 90 m ellipsoidal in AMSL) rather than at sea level, so a mocap robot's reported global altitude agrees with sim and the GCS. `local_position.z` still equals the OptiTrack height either way
 
 ## [1.0.0] - 2024-12-19
 
