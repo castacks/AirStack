@@ -115,3 +115,21 @@ scene_gen/assets/aec/*
 # Layout plan PNGs and the asset manifest — generated, not source.
 scene_gen/_plans/
 scene_gen/_scene_assets.tsv
+
+# Jupyter collaborative-editing store: a multi-GB-capable SQLite CRDT log that
+# rebuilds itself on server start. Was pushed once at 85 MB.
+.jupyter_ystore.db
+.jupyter_ystore.db-journal
+.jupyter_ystore.db-wal
+.jupyter_ystore.db-shm
+.jupyter/collaboration_sessions.json
+
+# Scene-generation outputs. Exported USD scenes run to hundreds of MB and are
+# reproducible from config; render_usd.py preview sheets/frames likewise.
+scene_gen/**/*.usd
+scene_gen/**/*.usda
+scene_gen/**/*.usdc
+scene_gen/**/*.usdz
+scene_gen/**/_frames/
+scene_gen/**/*_preview.png
+scene_gen/**/*_turntable.gif
