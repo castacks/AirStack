@@ -894,10 +894,10 @@ overrides:
       # block of one height. Concentrating rowhouse in `edge` and taking it out
       # of `mid` almost entirely is what turns those buildings from scattered
       # oddities into a neighbourhood.
-      - {name: core, to_frac: 0.45, furniture_scale: 1.0,
+      - {name: core, to_frac: 0.56, furniture_scale: 1.0,
          mix: {tower: 0.85, midrise: 0.15, rowhouse: 0.00}}   # downtown, not the measured mix
-      - {name: mid,  to_frac: 0.60, furniture_scale: 1.3,
-         mix: {tower: 0.35, midrise: 0.62, rowhouse: 0.03}}
+      - {name: mid,  to_frac: 0.68, furniture_scale: 1.3,
+         mix: {tower: 0.50, midrise: 0.47, rowhouse: 0.03}}
       # Pulled in from 0.72 and the share raised from 0.75: the terrace ring is
       # the one district that loses blocks to its own geometry, since any block
       # too deep for a pair refuses and rebuilds as mid-rise. Widening the ring
@@ -982,8 +982,12 @@ overrides:
         # next across it. 400 puts the two row-house sections of an 800 m region
         # on opposite grains.
         cross_grain: 400.0
-        max_superblocks: 2
-        street_w_m: 11.4        # 2 lanes at 3.3 + 2.4 parking either side
+        # The two 102.6 m blocks have 95.6 m buildable, which is exactly what a
+        # QUAD needs (two pairs around a 6 m internal mews = 94.4 m). At 2 only
+        # one could form; the rest of the deep blocks have nothing they can be.
+        max_superblocks: 6
+        street_w_m: 6.0         # a quad's internal street is a mews, not a through road
+        # 11.4 needed a 110 m block and none exists, so no quad ever formed.
         street_park_w_m: 2.4
         alley_m: 2.0            # tight end of the alley band
         # Loose end. A terrace block is TWO rows back to back with a service
@@ -997,14 +1001,33 @@ overrides:
         # subdivider can actually produce, which is quantised — see
         # even_split_road_m. A band that excludes it refuses every block and the
         # district comes out empty, which is the failure this has hit before.
-        alley_max_m: 6.0
+        # 18.0. The block sizes this subdivider can actually produce are
+        # quantised: a 212 m row-house strip yields 66.7 m blocks at k=3 or
+        # 48.5 m at k=4, nothing between. After the 7.00 m the sidewalk takes
+        # off every block, k=4 leaves -0.6 m for the terrace pair — it does not
+        # fit at all, which is why ten blocks were refused as too narrow and the
+        # district came out nearly empty. k=3 leaves 17.5 m, so the band has to
+        # reach that far or the same blocks are refused as too deep instead.
+        #
+        # 17.5 m between the backs is a garden court, not the 35 m void the old
+        # one-face fallback left. Both rows still front their own street.
+        # 26.0. MEASURED, the blocks this scene actually makes: six row-house
+        # blocks land at 72.0-74.3 m (65.0-67.3 m buildable), leaving 22.9-25.2 m
+        # behind the two rows. Capping below that refused all six and rebuilt
+        # them as mid-rise. A court that deep is a garden court rather than an
+        # alley, but both rows still front their own street, which is the thing
+        # that actually matters — and it is far better than losing the blocks.
+        alley_max_m: 26.0
         # THESE ARE OUTER BLOCK SIZES; the terrace band is tested against the
         # BUILDABLE rect, which build_city insets by block_inset() on BOTH
         # sides. MEASURED off the placed rows, that inset is 2.00 m per side,
         # 4.00 m total — NOT the verge-plus-full-tile the earlier note here
         # assumed. So the buildable band [44.4, 48.2] wants an outer block of
         # [48.4, 52.2], and the 48.5 m the subdivider yields sits just inside it.
-        block_short_m: [46.0, 52.0]    # MEASURED 61 / 96 / 116 m — asset-anchored
+        # Targets k=3 on the row-house strip (t_mid 66 -> 66.7 m blocks), which
+        # is the only reachable size that fits a terrace pair once the sidewalk
+        # inset is taken off. [46, 52] targeted k=4 and could not fit one.
+        block_short_m: [60.0, 72.0]    # MEASURED 61 / 96 / 116 m — asset-anchored
         block_long_m: [135.0, 200.0]   # MEASURED 137 / 172 / 220 m
         # MEASURED terrace runs: 6 houses / 43-48 m frontage median,
         # 17-29 houses / 105-130 m at p90 — a run is NOT a whole block face.

@@ -154,7 +154,12 @@ usds:
     # have to move together.
     sidewalk:
       usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_GroundModule01.usd"
-      scale: 0.70         # 5.00 x 5.00 m authored -> 3.50 m ring
+      # Size in the THREE-number form the plan tool's regex needs, on the
+      # SCALE line so the two are read together. Without it the plan falls
+      # back to a guess (2.00 m) while the sim measures 3.50, and since
+      # block_inset = verge + this tile, every block differs by 3.00 m of
+      # buildable width between plan and sim. Scale itself is UNCHANGED.
+      scale: 0.70         # 3.50 x 3.50 x 0.01 m (5.00 authored)
 
   # Co-located stacks placed at ONE point as a park's focal attraction. The
   # basin and all three water discs share an origin and their z-bases nest
