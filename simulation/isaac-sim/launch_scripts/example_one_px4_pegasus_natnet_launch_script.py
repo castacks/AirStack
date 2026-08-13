@@ -72,7 +72,16 @@ if _LAUNCH_SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _LAUNCH_SCRIPTS_DIR)
 from gps_utils import set_gps_origins, DEFAULT_WORLD_ORIGIN
 
-from optitrack.natnet.emulator.isaac import (
+# The NatNet emulator ships as a Kit extension (simulation/isaac-sim/extensions/
+# optitrack.natnet.emulator). Enable it before importing from it: that registers the
+# extension with Kit along with its omni.isaac.core / omni.usd dependencies and its UI
+# entry point. The plain import below resolves because Dockerfile.isaac-ros pip-installs
+# the package into the Isaac python, the same way pegasus.simulator is handled.
+from isaacsim.core.utils.extensions import enable_extension  # noqa: E402
+
+enable_extension("optitrack.natnet.emulator")
+
+from optitrack.natnet.emulator.isaac import (  # noqa: E402
     DEFAULT_TARGET_PATH,
     DEFAULT_TARGET_POSITION,
     DEFAULT_TARGET_STREAMING_ID,

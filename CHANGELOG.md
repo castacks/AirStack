@@ -55,7 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Isaac Sim PX4 never fused the mocap stream: `EKF2_EV_CTRL` defaults to 0 and the isaac compose set no PX4 parameters, so the emulator could stream perfectly while PX4 flew on sim GPS. The compose now passes the EKF2 external-vision set as `PX4_PARAM_*` (applied by PX4 SITL's `rcS` at boot), each defaulting to PX4's own default so non-mocap sims are unaffected; the mocap path opts in
 - The NatNet emulator hardcoded the drone's streaming id to 1 while the client reads `NATNET_BODY_ID`, so a real Motive id desynced the two into a connected client that never published (`example_one_px4_pegasus_natnet_launch_script.py`)
 - `test_optitrack_e2e.py::test_px4_fuses_vision` asserted only that `local_position/pose` publishes, which it does off GPS — the check passed with external vision disabled. It is now the pre-flight gate (an estimate exists) and the Circle flight is the actual proof of fusion
-- Isaac Sim now searches the repo's own `simulation/isaac-sim/extensions` via a second `--ext-folder`, so `optitrack.natnet.emulator` resolves as a registered Kit extension (previously only the Kit shared exts dir was searched, where the emulator is never installed)
+- The NatNet emulator is now installed as a Kit extension: `Dockerfile.isaac-ros` pip-installs it editable into the Isaac python and bind-mounts the repo copy over it (the same pattern as `pegasus.simulator`), and the natnet launch scripts `enable_extension` it before importing. Being on a Kit `--ext-folder` search path only makes Kit *aware* of an extension — it does not put the package on `sys.path` — so the scripts previously died with `ModuleNotFoundError: No module named 'optitrack'`
 
 ## [1.0.0] - 2024-12-19
 

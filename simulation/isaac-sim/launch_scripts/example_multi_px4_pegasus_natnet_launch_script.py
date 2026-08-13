@@ -51,7 +51,13 @@ from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
 from scene_prep import scale_stage_prim, add_colliders, add_dome_light, save_scene_as_contained_usd
 
-from optitrack.natnet.emulator.isaac import (
+# As in the single-drone natnet script: the emulator is a Kit extension, enabled here
+# before anything imports from it.
+from isaacsim.core.utils.extensions import enable_extension  # noqa: E402
+
+enable_extension("optitrack.natnet.emulator")
+
+from optitrack.natnet.emulator.isaac import (  # noqa: E402
     DEFAULT_TARGET_PATH,
     DEFAULT_TARGET_POSITION,
     DEFAULT_TARGET_STREAMING_ID,
