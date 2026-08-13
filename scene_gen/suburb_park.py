@@ -85,7 +85,14 @@ SOCCER = {
 DEFAULTS = {
     "region_m": [420.0, 300.0],
     "edge_buffer_m": 12.0,        # tree belt inside the park boundary
-    "facility_gap_m": 9.0,
+    # DERIVED, not chosen. A shared path threading between two facilities needs
+    # both their padding bands plus its own width: 2 x 8 + 4.6 = 20.6 m at the
+    # fenced compounds. At the old flat 9.0 the corridors were 9.2-13.9 m and
+    # the path physically could not fit, so the router was being asked to solve
+    # an impossible problem and left 17 padding breaches that no amount of
+    # detour tuning could remove. Widening the gap at PLACEMENT time makes the
+    # corridors passable by construction; see facility_gap() below.
+    "facility_gap_m": 0.0,      # 0 = derive from the padding and path width
     # The pitches sit side by side but must READ as two. At the bare facility
     # gap they abut into one 138 m slab of green with two sets of markings on
     # it, which is not a pair of pitches, it is a drawing error. A real ground
@@ -103,7 +110,25 @@ DEFAULTS = {
     "path_w_m": 3.0,
     "loop_inset_m": 7.0,
     "fence_panel_m": 2.4,         # the sourced chain-link section's run
-    "path_clear_m": 5.0,     # a path keeps this far off any facility
+    "path_clear_m": 5.0,     # a path keeps this far off a set piece
+    # CLEARANCE BAND ROUND A FACILITY. Not crossing a court was never the whole
+    # requirement — a path that merely grazes the fence is still wrong. A real
+    # park leaves grass between the two, because nobody wants to walk with a
+    # shoulder on the chain-link and because the fence has to stand somewhere.
+    #
+    # This band is measured from the path's EDGE, not its centreline. The
+    # shared-use way is 4.6 m wide and the cycle side is on the OUTSIDE of it,
+    # so a centreline figure quietly under-measures the real clearance by half
+    # the width and puts the bikes in the margin the band was meant to keep.
+    "facility_pad_m": 6.0,
+    # PER KIND, and the extra on a fenced compound is not decoration. The
+    # chain-link run stands ON the boundary line, its gate swings outward, and
+    # the bike racks are parked 4.5 m off the same face (see
+    # `bike_racks_per_court`, placed against the compound below). 6 m would run
+    # the path straight through the racks; 8 m clears them with a metre and a
+    # half of grass left over. An open picnic ground or a pitch has nothing
+    # standing on its edge, so the base band is enough there.
+    "facility_pad_fenced_m": 8.0,
     # Shared-use path: one way, divided. The spine carries both modes; a spur
     # into a single facility does not need a cycle side.
     "path_w_shared_m": 4.6,   # 2.6 m walking + 2.0 m cycle side
@@ -285,6 +310,24 @@ def _nearest_on_obb(q, corners):
     return best, inside, bd
 
 
+def _clear_list(obstacles, clear):
+    """Broadcast *clear* over *obstacles* — a scalar, or one figure per box.
+
+    THE CLEARANCE IS PER OBSTACLE. It has to be: the band a path keeps is a
+    property of the facility (a fenced compound owns more of its surroundings
+    than a picnic lawn does) and of the path's own width, so one number for the
+    whole scene either pads everything to the widest case — which shoves the
+    spine into the trees — or pads nothing enough. Every router entry point
+    takes either form so the callers that do not care can keep passing a float.
+    """
+    if isinstance(clear, (int, float)):
+        return [float(clear)] * len(obstacles)
+    out = [float(x) for x in clear]
+    if len(out) != len(obstacles):
+        raise ValueError("clearance list must be parallel to the obstacles")
+    return out
+
+
 def avoid(pts, obstacles, clear, exempt=(), iters=4, ends=True):
     """Push individual path POINTS out of every facility they land in.
 
@@ -301,16 +344,17 @@ def avoid(pts, obstacles, clear, exempt=(), iters=4, ends=True):
     last point are anchors (a gate, a facility entrance) that must not move.
     """
     out = list(pts)
+    cls = _clear_list(obstacles, clear)
     lo, hi = (0, len(out)) if ends else (1, max(1, len(out) - 1))
     for _ in range(iters):
         moved = False
         for i in range(lo, hi):
             q = out[i]
-            for ob in obstacles:
+            for ob, cl in zip(obstacles, cls):
                 if any(ob is e for e in exempt):
                     continue
                 near, inside, d = _nearest_on_obb(q, ob)
-                if inside or d < clear:
+                if inside or d < cl:
                     n = sn._sub(q, near)
                     if sn._norm(n) < 1e-6:
                         # q sits on the boundary: away from the centre is out
@@ -330,7 +374,7 @@ def avoid(pts, obstacles, clear, exempt=(), iters=4, ends=True):
                         n = sn._unit(n)
                         if inside:
                             n = sn._mul(n, -1.0)
-                    out[i] = sn._add(near, sn._mul(n, clear))
+                    out[i] = sn._add(near, sn._mul(n, cl))
                     q = out[i]
                     moved = True
         if not moved:
@@ -412,8 +456,14 @@ def _hull(pts):
     return lo[:-1] + up[:-1]
 
 
-def _bypass(a, b, frame, pad):
+def _bypass(a, b, frame, pad, both=False):
     """Corner chain taking a-b round a box, the shorter of the two ways.
+
+    With *both*, hand back BOTH ways, shorter first, and let the caller choose.
+    It has to be able to: once facilities carry a padding band, two of them
+    standing 12 m apart have no gap left between their bands, and the shorter
+    way round one of them is straight down that dead corridor. The caller
+    lifts each candidate's corners and takes the way whose corners survive.
 
     ROUND THE HULL OF {a, b, box}, not round the box's own corners. Splitting
     the inflated corners into those left and right of a-b and walking one side
@@ -447,10 +497,10 @@ def _bypass(a, b, frame, pad):
             h = cand
             break
     if h is None:
-        return []          # an endpoint is pinned inside: nothing legal to do
+        return [] if not both else []
     n = len(h)
     ia, ib = h.index(a), h.index(b)
-    best, blen = None, None
+    opts = []
     for stepd in (1, -1):
         ch, k = [], (ia + stepd) % n
         while k != ib and len(ch) < n:
@@ -458,22 +508,28 @@ def _bypass(a, b, frame, pad):
             k = (k + stepd) % n
         seq = [a] + ch + [b]
         L = sum(sn._dist(seq[i], seq[i + 1]) for i in range(len(seq) - 1))
-        if blen is None or L < blen:
-            best, blen = ch, L
-    return best or []
+        opts.append((L, ch))
+    opts.sort(key=lambda t: t[0])
+    if both:
+        return [ch for (_L, ch) in opts]
+    return opts[0][1] or []
 
 
-def _lift(p, recs, margin, iters=6):
+def _lift(p, recs, margins, iters=6):
     """Shove a point out of every box it is inside, by the shortest way.
 
     In the box's own frame the escape is just whichever slab it is nearest to
     leaving, which is both cheaper and better behaved than projecting onto the
     nearest boundary point — the projection has no sign of its own and pushed
     interior points further in.
+
+    *margins* is one figure per rec, because the boxes no longer share a
+    clearance.
     """
+    margins = _clear_list(recs, margins)
     for _ in range(iters):
         moved = False
-        for (ctr, u, v, hw, hh) in recs:
+        for (ctr, u, v, hw, hh), margin in zip(recs, margins):
             r = sn._sub(p, ctr)
             lx, ly = sn._dot(r, u), sn._dot(r, v)
             ex, ey = (hw + margin) - abs(lx), (hh + margin) - abs(ly)
@@ -491,19 +547,30 @@ def _lift(p, recs, margin, iters=6):
     return p
 
 
-def _first_hit(a, b, recs, clear):
-    """The obstacle a-b runs into SOONEST, so detours resolve in travel order."""
+def _in_box(p, frame, margin):
+    """Is *p* inside box *frame* grown by *margin*? The router's own predicate."""
+    ctr, u, v, hw, hh = frame
+    r = sn._sub(p, ctr)
+    return abs(sn._dot(r, u)) < hw + margin and abs(sn._dot(r, v)) < hh + margin
+
+
+def _first_hit(a, b, recs, clears):
+    """The obstacle a-b runs into SOONEST, so detours resolve in travel order.
+
+    Returns the ``(frame, clearance)`` pair, because the detour has to be taken
+    round the box at THAT box's own margin, not at some scene-wide one.
+    """
     hit, ht = None, 2.0
-    for frame in recs:
-        sp = _span(a, b, frame, clear)
+    for frame, cl in zip(recs, clears):
+        sp = _span(a, b, frame, cl)
         if sp is None or sp[1] - sp[0] < 1e-9:
             continue
         if sp[0] < ht:
-            ht, hit = sp[0], frame
+            ht, hit = sp[0], (frame, cl)
     return hit
 
 
-def _route_seg(a, b, recs, clear, budget):
+def _route_seg(a, b, recs, clears, budget):
     """One segment, detoured round everything it meets.
 
     ITERATIVE, NOT RECURSIVE. Recursing on each of the five sub-segments a
@@ -513,27 +580,68 @@ def _route_seg(a, b, recs, clear, budget):
     into a single chain and rescanning from the splice does the same job in a
     bounded number of passes.
     """
+    clears = _clear_list(recs, clears)
+    # A spliced corner has to come out of any OTHER box it lands in far enough
+    # to be on that box's bypass hull, or the next detour computed from it
+    # falls down the pad ladder in `_bypass` and ends up hugging the facility.
+    # Half the clearance (which is what this used) is by construction inside
+    # the inflated box, so it guaranteed the fallback every time.
+    lifts = [cl + _CORNER_M + 0.5 for cl in clears]
+    bands = [cl + _CORNER_M - 0.1 for cl in clears]
     chain = [a, b]
     i, stall = 0, 0
     while i < len(chain) - 1 and budget[0] > 0:
-        hit = _first_hit(chain[i], chain[i + 1], recs, clear)
+        hit = _first_hit(chain[i], chain[i + 1], recs, clears)
         if hit is None:
             i += 1
             stall = 0
             continue
-        ins = _bypass(chain[i], chain[i + 1], hit, clear + _CORNER_M)
+        frame, cl = hit
+        # EITHER WAY ROUND, WHICHEVER SURVIVES. The shorter way is what a
+        # person would take and is still tried first, but with a padding band
+        # on every facility the short way round a pitch is frequently the
+        # corridor between it and the picnic ground beside it — 12 m of grass
+        # with 16 m of band wanted in it. The corners land in the dead zone,
+        # `_lift` bounces them between the two boundaries without ever
+        # satisfying either, and the segment ends up parked in the gap, which
+        # is precisely the graze the band was added to stop. Testing the long
+        # way round as well costs one extra lift and settles it.
+        opts = _bypass(chain[i], chain[i + 1], frame, cl + _CORNER_M, both=True)
+        ins = []
+        for opt in opts:
+            if not opt:
+                continue
+            cand = [_lift(q, recs, lifts) for q in opt]
+            if not any(_in_box(q, f, m)
+                       for q in cand for f, m in zip(recs, bands)):
+                ins = cand
+                break
+        if not ins:
+            for opt in opts:
+                if opt:
+                    ins = opt
+                    break
         # A corner taken round ONE facility can land inside the NEXT one, and
         # nothing else ever revisits it: the pre-pass only saw the original
         # waypoints, and the detour that would fix it needs an endpoint that is
         # not already inside a box. Lifting each spliced corner as it is
         # created is what stops a bike route pausing for two segments in the
         # middle of a pitch.
-        ins = [_lift(q, recs, clear * 0.5) for q in ins]
+        ins = [_lift(q, recs, lifts) for q in ins]
         budget[0] -= 1
+
         stall += 1
         # A bypass that cannot help — the endpoint is pinned inside the box —
         # would otherwise splice for ever at the same index.
-        if not ins or stall > 6 or len(chain) > 240:
+        #
+        # THE STALL ALLOWANCE IS NOT A FREE CONSTANT. Padding puts facilities
+        # closer together than twice the band in places, and a segment across
+        # such a corridor ping-pongs: round the pitch, back into the picnic
+        # ground, round that, back at the pitch. It does converge — each
+        # bypass is a hull walk, so it strictly goes round — but not in the six
+        # tries this allowed, and giving up left the segment in the corridor,
+        # which is precisely the case the band was added to catch.
+        if not ins or stall > 18 or len(chain) > 400:
             i += 1
             stall = 0
             continue
@@ -552,26 +660,69 @@ def route(pts, obstacles, clear, exempt=(), ends=False, budget=400):
     """
     if len(pts) < 2:
         return list(pts)
-    obs = [o for o in obstacles if not any(o is e for e in exempt)]
+    cls = _clear_list(obstacles, clear)
+    keep = [i for i, o in enumerate(obstacles)
+            if not any(o is e for e in exempt)]
+    obs = [obstacles[i] for i in keep]
+    cls = [cls[i] for i in keep]
     # Push clear of the BYPASS inflation, not just of `clear`: a point lifted
     # to exactly `clear` still sits inside the box the detour corners are taken
     # from, so it would not appear on that hull and the bypass would give up.
-    seed = avoid(pts, obs, clear + _CORNER_M + 1.0, iters=8, ends=ends)
+    seed = avoid(pts, obs, [x + _CORNER_M + 1.0 for x in cls],
+                 iters=8, ends=ends)
     recs = [_box_frame(o) for o in obs]
-    bud = [budget]
+    # DROP THE WAYPOINTS THE DETOUR CANNOT START FROM. `avoid` measures
+    # Euclidean distance to the box; `_bypass` and `_span` measure against the
+    # box INFLATED by the pad, and near a corner those are emphatically not the
+    # same thing — a point shoved `clear` metres off a corner along the
+    # diagonal is still inside the inflated rectangle. It therefore does not
+    # land on the detour hull, `_bypass` walks down its pad ladder until it
+    # finds one that does contain it, and the "detour" it returns hugs the
+    # facility instead of clearing it. That is the whole of the padding
+    # failure: the segments came out BESIDE the courts, not on them, which is
+    # exactly the defect the band exists to stop.
+    #
+    # Dropping rather than shoving, because a waypoint is a suggestion (a tour
+    # stop, a sample off the smoothing curve) and the facility is not. Shoving
+    # them out was tried and is worse than it sounds: consecutive samples
+    # escape by different faces, the curve turns into a zigzag, and the spine
+    # came back with four thousand points in it. Take them out instead and the
+    # segment spans the gap in one piece, which `_route_seg` then takes round
+    # the outside — the way a person walking would.
+    #
+    # Endpoints are never dropped: they are what the path is FOR.
+    band = [x + _CORNER_M + 0.1 for x in cls]
+    if len(seed) > 2:
+        kept = [seed[0]]
+        for q in seed[1:-1]:
+            if not any(_in_box(q, f, m) for f, m in zip(recs, band)):
+                kept.append(q)
+        kept.append(seed[-1])
+        seed = kept
+    # Detours are charged against a budget so a pathological seed cannot hang
+    # the generator, but the figure has to be PER SEGMENT, not per route. The
+    # coarse tour is seventeen waypoints and each of its legs crosses the whole
+    # park past eight facilities, so a flat 400 was down to its last twenty
+    # before the tour was half laid — and every leg after that came out
+    # unrouted, which is where most of the padding failures were coming from.
+    # `stall` and the chain cap bound what one segment can spend, so scaling by
+    # the segment count only ever buys the work the router was going to be
+    # allowed to do anyway.
+    bud = [max(budget, 64 * len(seed))]
     out = [seed[0]]
     for i in range(len(seed) - 1):
-        out.extend(_route_seg(seed[i], seed[i + 1], recs, clear, bud)[1:])
+        out.extend(_route_seg(seed[i], seed[i + 1], recs, cls, bud)[1:])
     out = _dedupe(out)
     # REPAIR PASS. `clear` is a comfort margin and missing it is untidy; being
     # inside the facility at all is the actual defect, so anything still
     # penetrating gets one more detour at a clearance it cannot argue with.
     # Segments that are already fine cost one slab clip each, so this is nearly
     # free — it only does work where there is something left to fix.
-    bud2 = [budget]
+    bud2 = [max(budget, 64 * len(out))]
     rep = [out[0]]
+    fix = [0.6] * len(recs)
     for i in range(len(out) - 1):
-        rep.extend(_route_seg(out[i], out[i + 1], recs, 0.6, bud2)[1:])
+        rep.extend(_route_seg(out[i], out[i + 1], recs, fix, bud2)[1:])
     return _dedupe(rep)
 
 
@@ -594,11 +745,13 @@ def lay(way, obstacles, clear, samples=8, exempt=(), ends=False):
     through a detour's corners bows outward on the turns and inward at the
     joins, and it was the inward bow that put the spine back on the pitch.
     """
-    coarse = route(way, obstacles, clear + 3.0, exempt=exempt, ends=ends)
+    cls = _clear_list(obstacles, clear)
+    coarse = route(way, obstacles, [x + 3.0 for x in cls],
+                   exempt=exempt, ends=ends)
     if len(coarse) < 2:
         return coarse
     smooth = _curve(coarse, samples=samples)
-    return route(smooth, obstacles, clear, exempt=exempt, ends=ends)
+    return route(smooth, obstacles, cls, exempt=exempt, ends=ends)
 
 
 def _offset(pts, d):
@@ -706,6 +859,32 @@ def _fence_run(rect, panel):
     return out
 
 
+def facility_gap(c):
+    """Spacing between facilities, wide enough for a padded path to pass."""
+    g = float(c.get("facility_gap_m", 0.0) or 0.0)
+    if g > 0.0:
+        return g
+    pad = max(float(c["facility_pad_m"]),
+              float(c.get("facility_pad_fenced_m", c["facility_pad_m"])))
+    return 2.0 * pad + float(c["path_w_shared_m"]) + 2.0
+
+
+def facility_pad(z, c):
+    """Grass a path must leave between its EDGE and facility *z*, in metres.
+
+    Split by kind rather than one figure for the park, and the reason is what
+    stands on the boundary. A fenced compound is not just its slab: the
+    chain-link run occupies the line itself, the gate swings outward off it,
+    and the bike racks are parked 4.5 m off the same face — so the base band
+    would put the shared path through the racks and leave the fence nowhere to
+    stand. A pitch, a picnic ground or a playground has a soft edge with
+    nothing on it, and there the band only has to read as grass.
+    """
+    if z.get("fenced"):
+        return float(c.get("facility_pad_fenced_m", c["facility_pad_m"]))
+    return float(c["facility_pad_m"])
+
+
 # ---------------------------------------------------------------------------
 # the layout
 # ---------------------------------------------------------------------------
@@ -736,7 +915,7 @@ def plan(rng, cfg=None):
     hw, hh = W / 2.0, H / 2.0
     region = (-hw, -hh, hw, hh)
     buf = float(c["edge_buffer_m"])
-    gap = float(c["facility_gap_m"])
+    gap = facility_gap(c)
     clear = float(c["path_clear_m"])
 
     inner = (-hw + buf, -hh + buf, hw - buf, hh - buf)
@@ -994,7 +1173,32 @@ def plan(rng, cfg=None):
     # racetrack round the scene and made every facility hang off it like a
     # stub. A park is entered at a couple of points and threaded by a route
     # that wanders between the things worth reaching.
-    obstacles = placed + features
+    # Built from `zones` rather than from `placed` so the pads below stay
+    # index-aligned with the facilities they belong to; the corner lists are
+    # the same objects either way, which is what the identity-based `exempt`
+    # relies on.
+    obstacles = [z["corners"] for z in zones] + features
+    # THE PADDING BAND, one figure per obstacle. Recorded on the zone as well,
+    # so the checks below measure what the plan actually promised rather than
+    # re-deriving it from a config they were not given. Set pieces keep the old
+    # `path_clear_m`: a fountain is a destination the path is meant to arrive
+    # at, not a facility with an edge to respect.
+    for z in zones:
+        z["pad_m"] = facility_pad(z, c)
+    pads = [z["pad_m"] for z in zones] + [clear] * len(features)
+
+    def clears(width_m):
+        """Centreline clearances for a way *width_m* wide.
+
+        The band is measured from the path's EDGE and the router works in
+        centreline distances, so the two differ by half the width — and it is
+        the wide shared-use spine, whose cycle side runs along the OUTSIDE of
+        the way, where that half matters most.
+        """
+        return [p + width_m / 2.0 for p in pads]
+
+    w_spine = float(c["path_w_shared_m"])
+    w_spur = float(c["path_w_spur_m"])
     paths = []
 
     # Waypoints sit OFF each facility, on the side facing the park centre.
@@ -1019,7 +1223,7 @@ def plan(rng, cfg=None):
         way.append(nxt)
         cur = nxt
     way.append(gates[1])
-    spine = lay(way, obstacles, clear, samples=10)
+    spine = lay(way, obstacles, clears(w_spine), samples=10)
     paths.append({"pts": spine, "kind": "spine"})
     trunk = [spine]
 
@@ -1035,7 +1239,7 @@ def plan(rng, cfg=None):
         arm = pl / 2.0 + 12.0
         corr = lay([(mx - ux * arm, my - uy * arm), (mx, my),
                     (mx + ux * arm, my + uy * arm)],
-                   obstacles, clear, samples=6, ends=True)
+                   obstacles, clears(w_spine), samples=6, ends=True)
         paths.append({"pts": corr, "kind": "spine"})
         trunk.append(corr)
 
@@ -1058,8 +1262,9 @@ def plan(rng, cfg=None):
                 if d < best:
                     best, bp = d, pt
             if bp and best > clear + 2.0:
-                paths.append({"pts": route([end, bp], obstacles, clear,
-                                           ends=False), "kind": "spur"})
+                paths.append({"pts": route([end, bp], obstacles,
+                                           clears(w_spur), ends=False),
+                              "kind": "spur"})
 
     def entrance(z, toward):
         """Boundary point nearest *toward*, and the outward normal of its FACE.
@@ -1090,26 +1295,76 @@ def plan(rng, cfg=None):
         return local(z, lx, ly), n
 
     # -- spurs: join each facility to the trunk, arriving on its boundary ----
-    for z in zones:
+    # THE ONE PATH ALLOWED THROUGH THE BAND. Padding every facility and then
+    # obeying it everywhere would leave nothing able to reach an entrance, so
+    # the band has exactly one exception and this is it: the stub that serves
+    # the facility crosses its own band, and only its own — `exempt` already
+    # existed for precisely this and is what carries it. Everything downstream
+    # of the throat is bound like any other path.
+    def faces(z):
+        """The four face centres of *z* and their outward normals."""
+        a = math.radians(z["yaw"])
+        ux, uy = math.cos(a), math.sin(a)
+        hwz, hhz = z["w"] / 2.0, z["h"] / 2.0
+        return [(local(z, hwz, 0.0), (ux, uy)),
+                (local(z, -hwz, 0.0), (-ux, -uy)),
+                (local(z, 0.0, hhz), (-uy, ux)),
+                (local(z, 0.0, -hhz), (uy, -ux))]
+
+    def stub_ok(e, throat, z):
+        """Does the straight stub clear every OTHER facility's band?"""
+        for ob, cl in zip(obstacles, clears(w_spur)):
+            if ob is z["corners"]:
+                continue
+            sp2 = seg_box_span(e, throat, ob, cl - 0.1)
+            if sp2 is not None and sp2[1] - sp2[0] > 1e-6:
+                return False
+        return True
+
+    def reach_m(z):
+        # The throat is the first point OUTSIDE the band, so the leg that runs
+        # on from it needs no exception at all. Half the spur's width again,
+        # because the band is measured off the path edge, plus a metre so the
+        # junction itself is not sitting on the line.
+        return z["pad_m"] + w_spur / 2.0 + 1.0
+
+    for zi, z in enumerate(zones):
         sp = nearest_on_trunk(z["centre"])
         e, n = entrance(z, sp)
-        if sn._dist(e, sp) <= clear + 8.0:
-            continue
-        throat = sn._add(e, sn._mul(n, clear + 7.0))
+        throat = sn._add(e, sn._mul(n, reach_m(z)))
+        # THE GATE GOES WHERE THERE IS ROOM FOR ONE. The face nearest the trunk
+        # is the right answer nine times in ten, but two facilities stand as
+        # little as 9 m apart and the band is wider than that — so a stub out of
+        # the facing side walks straight into the neighbour's padding, which no
+        # exemption covers because it serves the other one. Fall back to
+        # whichever remaining face is clear, nearest the trunk first; a park
+        # puts its gate on the side you can actually walk up to.
+        if not stub_ok(e, throat, z):
+            for (fe, fn) in sorted(faces(z), key=lambda q: sn._dist(q[0], sp)):
+                ft = sn._add(fe, sn._mul(fn, reach_m(z)))
+                if stub_ok(fe, ft, z):
+                    e, n, throat = fe, fn, ft
+                    break
         # The stub runs straight out of the face. Its own facility is exempt —
         # it starts ON that boundary by design — but not its neighbours, which
-        # a blind 12 m stub between two picnic grounds would walk into.
-        paths.append({"pts": route([e, throat], obstacles, clear,
-                                   exempt=(z["corners"],)), "kind": "spur"})
+        # a blind stub between two picnic grounds would walk into.
+        #
+        # ALWAYS EMITTED, even when the trunk already runs past the entrance.
+        # Skipping it there was how facilities ended up with no path touching
+        # them at all: the trunk keeps the full band off the boundary, so
+        # "close enough" is still a fence away from the gate.
+        paths.append({"pts": route([e, throat], obstacles, clears(w_spur),
+                                   exempt=(z["corners"],)),
+                      "kind": "spur", "serves": zi})
         if sn._dist(throat, sp) > 2.0:
-            paths.append({"pts": lay([throat, sp], obstacles, clear,
+            paths.append({"pts": lay([throat, sp], obstacles, clears(w_spur),
                                      samples=6), "kind": "spur"})
 
     for (_k, q, box) in feature_pts:
         sp = nearest_on_trunk(q)
         if sn._dist(q, sp) <= 5.0:
             continue
-        paths.append({"pts": lay([q, sp], obstacles, clear, samples=6,
+        paths.append({"pts": lay([q, sp], obstacles, clears(w_spur), samples=6,
                                  exempt=(box,)), "kind": "spur"})
 
     # NO SEPARATE BIKE NETWORK. A second circuit that had to weave past the
@@ -1136,6 +1391,15 @@ def plan(rng, cfg=None):
     def _dedup(paths):
         kept = []
         for pa in paths:
+            # A SERVING STUB IS NEVER CONFETTI. It is two or three points long
+            # by construction — boundary to throat and no further — so the
+            # "drop anything under three points" rule below deleted every one
+            # of them, which is why no facility had a path touching it. It is
+            # also the only thing making its facility reachable, so it survives
+            # whole and later paths are clipped against it instead.
+            if pa.get("serves") is not None:
+                kept.append(pa)
+                continue
             wa = float(pa.get("width_m", 2.6)) / 2.0
             pts, run, out = pa["pts"], [], []
             for q in pts:
@@ -1333,6 +1597,71 @@ def check(park, eps=0.25):
                 if (sp[1] - sp[0]) * L > eps:
                     n += 1
     return n
+
+
+def check_pad(park, eps=0.05):
+    """Path segments inside the padding of a facility they do not serve.
+
+    The companion to `check()` and the stricter of the two: crossing a court is
+    the outright bug, but grazing the fence is the one that makes the drawing
+    look wrong, and until this counted it nothing measured it.
+
+    THREE THINGS THIS GETS RIGHT.
+
+    (a) The band is measured from the path's EDGE. `width_m` is on every path
+        and half of it is added to the facility's own pad, because the cycle
+        side of a shared-use way runs along the OUTSIDE — a centreline test
+        would pass a spine whose bikes are 2.3 m into the grass.
+    (b) The serving spur is exempt, and only for the facility it serves. That
+        is the whole point of the band having an exception: a facility with a
+        band nothing may enter is a facility nobody can reach.
+    (c) The predicate is the router's own — the segment clipped against the box
+        INFLATED by the band, not distance to a rounded offset region. Testing
+        something stricter than the router enforces would report failures the
+        router was never asked to prevent.
+    """
+    n = 0
+    for pa in park["paths"]:
+        pts = pa["pts"]
+        half = float(pa.get("width_m", 2.6)) / 2.0
+        serves = pa.get("serves")
+        for i in range(len(pts) - 1):
+            a, b = pts[i], pts[i + 1]
+            L = sn._dist(a, b)
+            if L < 1e-9:
+                continue
+            for zi, z in enumerate(park["zones"]):
+                if serves is not None and serves == zi:
+                    continue
+                pad = float(z.get("pad_m", 0.0)) + half
+                sp = seg_box_span(a, b, z["corners"], max(0.0, pad - eps))
+                if sp is None:
+                    continue
+                if (sp[1] - sp[0]) * L > eps:
+                    n += 1
+    return n
+
+
+def check_reach(park, tol=0.5):
+    """(facilities with a path endpoint on their boundary, facilities).
+
+    The padding's failure mode is not a path in the wrong place, it is a
+    facility with no path at all — inflate the obstacles and everything is
+    beautifully clear of everything and nothing can be walked to. So the band
+    is only correct if this comes back with the two numbers equal.
+    """
+    zones = park["zones"]
+    hit = 0
+    for z in zones:
+        for pa in park["paths"]:
+            pts = pa["pts"]
+            if len(pts) < 1:
+                continue
+            if any(_nearest_on_obb(q, z["corners"])[2] <= tol
+                   for q in (pts[0], pts[-1])):
+                hit += 1
+                break
+    return hit, len(zones)
 
 
 def stats(park):

@@ -227,11 +227,23 @@ def main():
     print(f"[park] zones: {s['zones']}")
     print(f"[park] props: {s['props']}")
     print(f"[park] {s['fence_panels']} fence panels, {s['paths']} paths")
-    # THE CHECK THAT MATTERS. A plan that looks fine and routes a path over the
+    # THE CHECKS THAT MATTER. A plan that looks fine and routes a path over the
     # tennis block is not fine, and at this scale the crossing is a few pixels.
     bad = pk.check(park)
     print(f"[park] path-facility intersections: {bad}"
           + ("  <-- BROKEN" if bad else "  OK"))
+    # The stricter one. Crossing a court is the outright bug; running along the
+    # fence with no grass between is the one that makes the drawing look wrong,
+    # and the drawing is the only place it shows.
+    graze = pk.check_pad(park)
+    pads = sorted({round(z.get("pad_m", 0.0), 1) for z in park["zones"]})
+    print(f"[park] padding breaches (band {pads} m off the path EDGE): {graze}"
+          + ("  <-- BROKEN" if graze else "  OK"))
+    # And the check that the padding did not simply strand everything: a band
+    # nothing may enter is a facility nobody can walk to.
+    got, tot = pk.check_reach(park)
+    print(f"[park] facilities with a path on their boundary: {got}/{tot}"
+          + ("  OK" if got == tot else "  <-- BROKEN"))
 
     out = args.out
     if not os.path.isabs(out):
