@@ -18,19 +18,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// natnet_logic.hpp — pure C++ helpers for natnet_ros2 (no ROS, no NatNet SDK).
-//
-// Five responsibility areas:
-//
-//  1. Covariance assembly
-//  2. Topic names
-//  3. Connection-configuration helpers (SDK-independent)
-//  4. Rigid-body frame helpers (SDK-independent)
-//  5. Abstraction seam: INatNetClient interface + negotiation logic
-//
-// NatNet SDK types (sNatNetClientConnectParams, sRigidBodyData, …) are only
-// used inside natnet_ros2_node.cpp and natnet_client_adapter.cpp.
-// All logic here uses plain C++ so test_natnet_logic.cpp compiles with only gtest.
+// natnet_logic.hpp — pure C++ helpers for natnet_ros2 (no ROS, no NatNet SDK), so
+// test_natnet_logic.cpp compiles with only gtest. SDK types stay in
+// natnet_ros2_node.cpp / natnet_client_adapter.cpp.
 
 #pragma once
 

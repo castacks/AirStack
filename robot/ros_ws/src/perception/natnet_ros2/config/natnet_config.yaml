@@ -1,51 +1,27 @@
-# NatNet ROS 2 configuration — parsed by natnet_ros2.launch.py.
-#
-# Unlike a plain ROS 2 parameter file, this uses a custom `natnet:` schema so a
-# single file can describe multiple robots, each tracking multiple rigid bodies.
-# The launch file selects the profile matching the container's ROBOT_NAME, flattens
-# it into node parameters, and (optionally) brings up the MAVROS vision_pose bridge.
-#
-# Schema:
-#   natnet:
-#     server:   generic connection settings shared by every agent
-#     robots:   one profile per ROBOT_NAME
-#       <robot_name>:
-#         vision_pose:  whether/how to forward a body to MAVROS (optional)
-#         bodies:       rigid bodies this robot subscribes to (one or more)
+# NatNet ROS 2 configuration — parsed by natnet_ros2.launch.py, which selects the
+# profile matching the container's ROBOT_NAME.
+# See docs/robot/px4_external_vision.md for the schema and setup guide.
 
 natnet:
 
   # --- Connection settings (generic across all agents) -----------------------
   server:
-    # IP of the PC running Motive (OptiTrack server). Defaults to the Isaac Sim
-    # container on the airstack_network (172.31.0.200). NATNET_SERVER_IP is forwarded
-    # into the container by robot/docker/robot-base-docker-compose.yaml; set it in an
-    # overrides/*.env to point at a real Motive host.
+    # Motive host; defaults to the in-sim emulator. Set NATNET_SERVER_IP per deployment.
     server_ip: "$(env NATNET_SERVER_IP 172.31.0.200)"
-    # Motive learns the unicast destination from the outbound UDP source IP — bind
-    # explicitly when the client has multiple NICs (e.g. Docker 172.17.* vs LAN).
+    # Bind explicitly when the client has multiple NICs.
     client_ip: "0.0.0.0"
 
     command_port: 1510
     data_port: 1511
 
-    # "unicast"   — point-to-point; Motive streams directly to this machine (default).
-    # "multicast" — Motive broadcasts to a group; every robot receives the full frame
-    #               and filters by the body ids in its profile. Use for multi-robot.
+    # "unicast" (default) or "multicast"; multicast_address applies to the latter.
     connection_type: "unicast"
-    # Only used when connection_type = "multicast" (OptiTrack default 239.255.42.99).
     multicast_address: "239.255.42.99"
 
-    # Frame applied to every published pose. debug enables per-frame logging.
     frame_id: "world"
     debug: false
 
-    # Per-message latency reporting. The node skips latency_sampling_warmup_s after
-    # the first frame, then accumulates transit latency (from the NatNet
-    # TransmitTimestamp) over latency_sampling_window_s and logs a one-shot mean/stdev.
-    # cube_orange_latency_ms models the extra hop through the PX4 flight controller
-    # hardware (MAVROS -> MAVLink over USB/serial -> uORB -> EKF2) and is added to the
-    # measured transport latency for the reported end-to-end figure.
+    # Per-message latency reporting.
     latency_sampling_warmup_s: 5.0
     latency_sampling_window_s: 20.0
     cube_orange_latency_ms: 5.0
@@ -54,31 +30,21 @@ natnet:
   robots:
 
     robot_1:
-      # MAVROS vision_pose bridge. enabled=false skips the converter entirely.
-      # input_topic is one of this robot's body pose_cov topics; the two outputs map
-      # to MAVROS's vision_pose/pose (PoseStamped) and vision_pose/pose_cov
-      # (PoseWithCovarianceStamped) subscribers. Topics are relative and namespaced
-      # under /{ROBOT_NAME}/ — redirect them to interface with other middleware.
+      # MAVROS vision_pose bridge; enabled=false skips the converter.
       vision_pose:
         enabled: true
         input_topic:           "perception/optitrack/drone/pose_cov"
         output_pose_topic:     "interface/mavros/vision_pose/pose"
         output_pose_cov_topic: "interface/mavros/vision_pose/pose_cov"
 
-      # Rigid bodies this robot tracks. rigid_body_name must match Motive exactly
-      # (case-sensitive). topic is a relative leaf namespaced under /{ROBOT_NAME}/;
-      # pose / pose_cov toggle the PoseStamped and PoseWithCovarianceStamped variants.
-      # The NatNet client filters incoming frames by NUMERIC id, so this must equal the
-      # streaming id of the rigid body in Motive — a mismatch yields a connected client
-      # that never publishes. Defaults match the in-sim emulator ("Drone", id 1) so the
-      # sim path works unconfigured; override per site via NATNET_BODY_NAME/ID.
+      # Rigid bodies this robot tracks. name and id must match Motive exactly; the
+      # client filters frames by numeric id. Defaults match the in-sim emulator.
       bodies:
-        - rigid_body_name: "$(env NATNET_BODY_NAME Drone)"
-          id: "$(env NATNET_BODY_ID 1)"
+        - rigid_body_name: "Drone"
+          id: 1
           topic: "perception/optitrack/drone"
           pose: true
           pose_cov: true
-          # Covariances are per-body. Sub-0.1 mm / sub-0.1 deg for OptiTrack precision.
           position_covariance:
             [1.0e-6, 0.0,    0.0,
              0.0,    1.0e-6, 0.0,

@@ -31,15 +31,42 @@ either way it's a one-time thing per airframe.
 | `EKF2_GPS_CTRL` | `0` | No GPS fusion. |
 | `EKF2_MAG_TYPE` | `5` | Magnetometer disabled — yaw comes from vision. |
 | `EKF2_BARO_CTRL` | `0` | No baro fusion; height is pure vision. Set to `1` to keep baro as a backup height source. |
-| `EKF2_EV_DELAY` | `15.0` | Measured OptiTrack→EKF2 latency (ms): ~1 ms LAN + ~5 ms Cube hop, rounded up. `natnet_ros2_node` logs the measured figure; retune from Flight Review EV innovations. |
+| `EKF2_EV_DELAY` | `7.0` | Measured OptiTrack→EKF2 latency (ms): ~0.7 ms LAN + ~5 ms Cube hop. `natnet_ros2_node` logs the measured figure. **Do not raise this to chase apparent lag — see below.** |
 | `EKF2_EV_NOISE_MD` | `1` | Use the `EKF2_EV*_NOISE` floors below instead of the message covariance (which is `1e-6` — too optimistic to fuse safely). |
-| `EKF2_EVP_NOISE` | `0.01` | Vision **position** noise floor (m). |
+| `EKF2_EVP_NOISE` | `0.05` | Vision **position** noise floor (m). Not marker precision — it also sets the innovation gate, `EKF2_EVP_GATE` (default 5) sigma wide, so this is a 25 cm gate. |
 | `EKF2_EVA_NOISE` | `0.05` | Vision **angle** noise floor (rad). |
 | `COM_ARM_WO_GPS` | `1` | Allow arming without GPS. |
 
 **Type matters.** Integers are written bare (`11`); floats need a decimal point
-(`15.0`) so the MAVLink param type matches the FCU's declaration. Getting this
+(`7.0`) so the MAVLink param type matches the FCU's declaration. Getting this
 wrong makes the set silently reject.
+
+### Two tuning results worth not rediscovering
+
+Both came out of back-to-back flight bags with everything else held constant.
+
+**Raising `EKF2_EV_DELAY` makes tracking worse, not better.** 50.0 was trialled against
+7.0: median |odom − mocap| while moving went 0.037 → 0.060 m, and X-axis RMS 0.023 →
+0.049 m. The tell is the *negative* best-fit time shift (−20 ms → −60 ms, pinned at the
+sweep edge): over-declaring the delay makes EKF2 attribute the measurement to a state
+that is too old, so the estimate runs **ahead** of truth during motion rather than
+behind. Raising this value can never compensate for apparent lag in RViz — it does the
+opposite.
+
+**Large drift-and-snap excursions are a Motive problem, not a gate problem.** They were
+first blamed on `EKF2_EVP_NOISE` being too tight. That was wrong. The cause was a 90°
+body-yaw offset in the Motive rigid-body definition: EKF2 fuses vision yaw and snaps its
+heading to it, so its nav frame was 90° off and IMU-predicted motion fought the (correct)
+vision position. Fixing the rigid body in Motive cut moving error 0.25 → 0.04 m and the
+odom/mocap path-length ratio 2.33× → 1.12×.
+
+If you see drift-and-snap, **check the Motive rigid-body definition first**. Do not add
+yaw compensation in code — `natnet_ros2` and `vision_pose_converter` are deliberate
+identity pass-throughs, and a code-side correction would double-compensate once Motive is
+fixed.
+
+The wider `EKF2_EVP_NOISE` (0.05) is still the right value on its own merits: the previous
+0.01 gave only a 5 cm gate, tight enough to reject legitimate updates and refuse to arm.
 
 **Reboot after any change.** Fusion-source (`EKF2_*`) params are safest applied
 from a clean estimator start — reboot the flight controller before flying. The

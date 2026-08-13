@@ -1,25 +1,13 @@
 # Vision pose converter → MAVROS bridge parameters.
 # Loaded by vision_pose_converter.launch.xml via <param from="..." allow_substs="true"/>.
-# $(env ROBOT_NAME ...) is expanded by launch substitution.
 
 /**:
   ros__parameters:
     frame_id: "world"
     child_frame_id: "$(env ROBOT_NAME robot_1)/base_link"
     # Normalise quaternion to canonical form (qw >= 0) before publishing.
-    # Recommended for ArduPilot EKF3 and any consumer sensitive to sign flips.
-    # PX4 EKF2 handles either sign internally, so this is optional for PX4.
     canonical_quaternion: true
-    # Cap the rate forwarded to MAVROS (0 = passthrough). Full-rate mocap
-    # (100+ Hz) overflows the FCU serial TX queue at 115200 baud; EKF2 only
-    # needs 30-50 Hz of external vision.
+    # Cap the rate forwarded to MAVROS (0 = passthrough); EKF2 needs only 30-50 Hz.
     max_rate_hz: 50.0
-    # Which MAVROS vision_pose topic(s) to forward: 'pose', 'pose_cov', or 'both'.
-    # MAVROS emits one VISION_POSITION_ESTIMATE per topic, so 'both' doubles the
-    # msg-102 rate on the FCU serial link. A single topic halves the TX load; the
-    # msg-102 wire size is identical for 'pose' vs 'pose_cov', so 'pose_cov' carries
-    # the covariance (natnet default ~1mm pos / ~1.7mrad ori) at no extra cost.
-    # NOTE: PX4 EKF2 only uses the message covariance when EKF2_EV_NOISE_MD=1;
-    # with EKF2_EV_NOISE_MD=0 it uses EKF2_EVP_NOISE/EKF2_EVA_NOISE and 'pose_cov'
-    # is equivalent to 'pose' at the estimator.
+    # Which vision_pose topic(s) to forward: 'pose', 'pose_cov', or 'both'.
     publish_mode: "pose_cov"

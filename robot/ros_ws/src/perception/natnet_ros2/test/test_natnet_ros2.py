@@ -279,39 +279,6 @@ def test_build_node_params_flattens_bodies():
 
 
 @pytest.mark.unit
-def test_build_node_params_expands_env_in_body_name_and_id(monkeypatch):
-    """Body name/id accept $(env ...) so a site can retarget the tracked rigid body
-    without editing the config; the id must still come out as an int."""
-    monkeypatch.setenv("NATNET_BODY_NAME", "Hawk")
-    monkeypatch.setenv("NATNET_BODY_ID", "9")
-    profile = {"bodies": [{
-        "rigid_body_name": "$(env NATNET_BODY_NAME Drone)",
-        "id": "$(env NATNET_BODY_ID 1)",
-        "topic": "perception/optitrack/drone",
-    }]}
-    params = natnet_launch._build_node_params({}, profile)
-    assert params["body_names"] == ["Hawk"]
-    assert params["body_ids"] == [9]
-
-
-@pytest.mark.unit
-def test_build_node_params_body_env_defaults_match_emulator(monkeypatch):
-    """Unset env → the in-sim NatNet emulator's body ("Drone", id 1), so the sim path
-    works with no override. A mismatch here means a connected client that never
-    publishes, since the NatNet client filters frames by numeric id."""
-    monkeypatch.delenv("NATNET_BODY_NAME", raising=False)
-    monkeypatch.delenv("NATNET_BODY_ID", raising=False)
-    profile = {"bodies": [{
-        "rigid_body_name": "$(env NATNET_BODY_NAME Drone)",
-        "id": "$(env NATNET_BODY_ID 1)",
-        "topic": "perception/optitrack/drone",
-    }]}
-    params = natnet_launch._build_node_params({}, profile)
-    assert params["body_names"] == ["Drone"]
-    assert params["body_ids"] == [1]
-
-
-@pytest.mark.unit
 def test_build_node_params_empty_profile():
     """A robot with no profile yields empty body arrays (node tracks nothing)."""
     params = natnet_launch._build_node_params({}, {})

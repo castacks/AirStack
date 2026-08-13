@@ -1,20 +1,6 @@
-// natnet_ros2_node.cpp
-//
-// ROS 2 NatNet SDK node for OptiTrack Motive integration.
-//
-// Published topics (per configured rigid body):
-//   /{robot_name}/{topic}            → PoseStamped               (when pose=true)
-//   /{robot_name}/{topic}/pose_cov   → PoseWithCovarianceStamped (when pose_cov=true)
-// where {topic} defaults to perception/optitrack/{rigid_body_name} when unset.
-//
-// Parameters are flattened from config/natnet_config.yaml by natnet_ros2.launch.py:
-//   server_ip, client_ip, command_port, data_port, connection_type,
-//   multicast_address, frame_id, debug, and parallel per-body arrays:
-//   body_names[], body_ids[], body_topics[], body_pose[], body_pose_cov[],
-//   body_position_covariance[] / body_orientation_covariance[] (9·N, sliced per body).
-//
-// ROBOT_NAME is read from the environment variable set by AirStack's
-// robot_name_map resolver at container startup.
+// natnet_ros2_node.cpp — ROS 2 NatNet SDK node for OptiTrack Motive.
+// Parameters are flattened from config/natnet_config.yaml by natnet_ros2.launch.py.
+// See docs/robot/px4_external_vision.md.
 
 #include <algorithm>
 #include <array>
@@ -41,16 +27,9 @@
 #include "natnet_ros2/natnet_client_adapter.hpp"
 
 
-// ---------------------------------------------------------------------------
-// Send a NAT_CONNECT ping to the Motive command port on a throwaway UDP socket
-// and wait for any reply (Motive and the emulator answer with NAT_SERVERINFO).
-//
-// The SDK's Connect() can fire an assert() deep in ClientCore::
-// ValidateHostConnection (→ SIGABRT) instead of returning NetworkError when
-// the host is unreachable in certain states (observed after a host network
-// switch), so never hand the SDK a server that doesn't answer the wire
-// handshake first.
-// ---------------------------------------------------------------------------
+// Ping the Motive command port before handing the server to the SDK: Connect() can
+// assert deep in ClientCore::ValidateHostConnection (SIGABRT) rather than returning
+// NetworkError when the host is unreachable. Do not remove this pre-check.
 static bool natnet_server_reachable(
     const std::string & server_ip, int command_port, int timeout_ms)
 {
