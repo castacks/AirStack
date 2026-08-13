@@ -46,6 +46,38 @@ def draw(net, blks, info, out_path, title="", show_nodes=True, parcels=None):
         ax.add_patch(Polygon(b["poly"], closed=True, facecolor="#47513c",
                              edgecolor="#3a412f", lw=0.6, zorder=1))
 
+    # The park reserve, under the streets it was laid before. Two rectangles,
+    # because the difference is the point: the pale band is the padding no
+    # street may enter, the bright green is the park itself. If a carriageway
+    # is drawn over either, the reserve was not respected and the picture says
+    # so rather than hiding it.
+    park = info.get("park")
+    if park:
+        kx0, ky0, kx1, ky1 = park["reserve"]
+        ax.add_patch(Polygon([(kx0, ky0), (kx1, ky0), (kx1, ky1), (kx0, ky1)],
+                             closed=True, facecolor="#3c5a34",
+                             edgecolor="#6f9c5e", lw=0.8, ls=(0, (4, 3)),
+                             zorder=1.2))
+        px0, py0, px1, py1 = park["rect"]
+        ax.add_patch(Polygon([(px0, py0), (px1, py0), (px1, py1), (px0, py1)],
+                             closed=True, facecolor="#2e7d32",
+                             edgecolor="#8fd694", lw=1.4, zorder=1.3))
+        ax.text(0.5 * (px0 + px1), 0.5 * (py0 + py1),
+                "PARK\n%.0f x %.0f m" % (px1 - px0, py1 - py0),
+                color="#cfe9cf", fontsize=8, ha="center", va="center",
+                zorder=1.35)
+        # Each entrance: the junction on the frame street, a line in to the
+        # reserve edge, and the gate point on the park boundary it aligns to.
+        for en in park["entrances"]:
+            p, g, sp = en["p"], en["gate"], en["street_p"]
+            ax.plot([sp[0], g[0]], [sp[1], g[1]], color="#ffd166", lw=1.3,
+                    zorder=9, solid_capstyle="round")
+            ax.plot([p[0]], [p[1]], marker="o", ms=4.5, color="#ffd166",
+                    zorder=9, lw=0)
+            ax.plot([g[0]], [g[1]], marker="s", ms=4.0, color="#fff3c4",
+                    markeredgecolor="#7a5c00", markeredgewidth=0.5, zorder=9,
+                    lw=0)
+
     # Streets, widest class first so narrow ones read on top at a junction.
     # "boundary" is the crop edge, not pavement -- never drawn.
     order = ["arterial", "collector", "local", "cul_de_sac"]
@@ -136,6 +168,14 @@ def main():
     print(f"[suburb_net] seed {args.seed}  {args.width:.0f} x {args.height:.0f} m")
     print(f"  collectors {info['collectors']}  connectors {info['connectors']}"
           f"  loops {info['loops']}  lollipops {info['lollipops']}")
+    park = info.get("park")
+    if park:
+        print("  park %.0f x %.0f m at (%.0f, %.0f), %.0f m pad — "
+              "%d entrances on %d sides (%s), %d approach streets"
+              % (park["size"][0], park["size"][1], park["center"][0],
+                 park["center"][1], park["pad_m"], len(park["entrances"]),
+                 len(park["sides"]), "".join(park["sides"]),
+                 park["approaches"]))
     print(sn.format_stats(s))
 
     parcels = None
@@ -154,6 +194,10 @@ def main():
              f"{s['dead_end_pct']:.0f}% dead ends, "
              f"{s['three_way_pct']:.0f}% three-way, "
              f"{s['km_per_km2']:.1f} km/km²")
+    if park:
+        title += (f"\npark {park['size'][0]:.0f} x {park['size'][1]:.0f} m, "
+                  f"{len(park['entrances'])} entrances on "
+                  f"{len(park['sides'])} sides")
     if parcels:
         ps = sp.stats(parcels)
         title += f"\n{ps['houses']} houses, {ps['trees']} trees"

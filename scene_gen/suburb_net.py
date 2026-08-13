@@ -54,13 +54,44 @@ THE PIPELINE, IN THE ORDER IT RUNS
     0  crop boundary      NOT a road: four zero-width edges that close the
                           planar graph so faces exist. The region is a crop of a
                           larger suburb, so streets run off the edge
+    0b park reserve       the rectangle the park will occupy, plus a padding
+                          band, plus the frame street around it. RESERVED
+                          BEFORE ANY STREET IS LAID — see below
     1  collectors         curvilinear routes crossing the interior, as a
                           harmonic offset from a straight baseline so curvature
                           is bounded and both ends leave the crop square
-    2  face subdivision   split the largest remaining face until every block is
+    1b park approaches    short streets from the frame outward to the first
+                          street they meet, one per side: the park's entrances,
+                          and the frame's connection to the rest of the graph
+    2  loops              a street leaving a host and returning to it
+    3  face subdivision   split the largest remaining face until every block is
                           near target size — THE LAYER THAT FILLS THE LAND
-    3  loops              a street leaving a host and returning to it
     4  lollipops          cul-de-sacs, grown until the dead-end share is met
+
+(Loops really do run before subdivision, for the reason given at that call
+site: a loop needs 200-520 m of continuous frontage and subdivision does not,
+so running subdivision first consumed every long frontage and left zero loops.)
+
+THE PARK IS RESERVED, NOT FOUND
+-------------------------------
+A neighbourhood park is 420 x 300 m — 12.6 ha — against a median block of about
+2.8 ha. There is no block big enough to drop one into, and there never will be,
+because the subdivision pass exists precisely to stop faces that size existing.
+So the rectangle is chosen first and the network is generated around it, which
+is the same move the park module makes internally when it routes its paths
+around its courts rather than fitting courts into the gaps the paths left.
+
+Every phase asks ONE predicate, :func:`reserve_blocks` — collectors, both face
+cutters, loops, cul-de-sacs. Four separate patches would have been four chances
+to get it wrong; one predicate means a phase that forgets to ask is a visibly
+missing line. :class:`Reserve` holds the two rectangles that matter: the park,
+and the park grown by the padding band that no centreline may enter.
+
+A frame street rings the reserve, and it is not decoration. A planar face
+traversal cannot see holes, so an unframed reserve sits inside some face and
+every block cut from that face is wrong. With the frame, the face containing
+the park is exactly the frame's interior and is simply not emitted as a block —
+and the park gets what a real park has, frontage with houses facing it.
 
 Step 2 does the real work and step 3 rarely fires; that is honest rather than
 ideal, and it happens because a face split and a loop compete for the same
@@ -74,15 +105,36 @@ parcel, so coverage is guaranteed.
 TARGETS, AND WHERE THIS LANDS AGAINST THEM
 ------------------------------------------
 Measured suburbs (OSM, five US subdivisions) and the literature, against the
-mean of eight seeds at 1600 x 1200 m with the defaults below:
+mean of twelve seeds at 1600 x 1200 m with the defaults below, park included:
 
-    measure               target           measured   spread over 8 seeds
-    dead-end nodes        12-35%           18.3%      13.5 - 21.4
-    three-way junctions   69-87%           76.6%      70.1 - 81.6
-    street density        7.4-12.4 km/km²  11.0       10.7 - 11.3
-    block area (median)   15k-34k m²       31.9k      27.9k - 34.7k
+    measure               target           measured   spread over 12 seeds
+    dead-end nodes        12-35%           13.8%      11.7 - 17.4
+    three-way junctions   69-87%           85.8%      77.9 - 92.0
+    street density        7.4-12.4 km/km²  10.9       10.7 - 11.6
+    block area (median)   15k-34k m²       28.7k      23.4k - 32.7k
 
-All four sit in band on every seed. Barrington-Leigh & Millard-Ball (PNAS 2015)
+All four means sit in band. WHAT THE PARK COST, measured against the same
+twelve seeds with `park_enable` off (14.1% / 81.4% / 11.7 / 28.1k): density
+falls 0.8 km/km², because 15.6 ha of keep-out is land the subdivision pass no
+longer runs streets through and the frame does not cost as much as it saved.
+The three-way share rises 4.4 points and is the tightest of the four — every
+junction the park adds is a T, the four approaches at both ends and every
+subdivision cut that lands on the frame, while four-ways come from collectors
+crossing things and the park takes a 640 x 520 m bite out of the corridors a
+collector can use. Individual seeds do run over 87% where they did not before;
+`park_entrances` and `four_way_chance` are the two knobs that move it.
+
+KNOWN, MEASURED, NOT FIXED. Over 24 seeds with and without the park, counting
+non-adjacent carriageways closer than half their widths plus 4 m (ends trimmed
+by `skip_ends_m`, crossings exempt within 30 m, same street exempt): 8 without
+the park, 17 with. Streets leaving one node under 30 degrees apart: 0 without,
+5 with. Both come from the SAME pre-existing hole rather than from anything the
+reserve does — `_best_cut` fork-checks its far end unconditionally but its near
+end only when the cut was deliberately snapped to a junction, so a cut that
+lands within `split_edge`'s 1 m tolerance of an existing node by accident gets
+no fork check at all. The park makes it show up more often because the frame
+adds roughly ten junctions on a curving host. The fix belongs in `_best_cut`,
+not here. Barrington-Leigh & Millard-Ball (PNAS 2015)
 independently give 26.6% dead ends for US intersections built 1993-97 and 19.1%
 for 2008-12, metro extremes 19-42%.
 
@@ -787,17 +839,23 @@ def point_in_polygon(poly, p):
     return inside
 
 
-def blocks_from_faces(net, face_list, min_area=400.0):
+def blocks_from_faces(net, face_list, min_area=400.0, reserve=None):
     """Faces inset by the half-width of the road bounding each side.
 
     The face polygon runs down street CENTRELINES, so the buildable parcel is
     the face pulled in by half a carriageway on every side. Doing it per edge
     rather than uniformly is what lets a block that faces an arterial on one
     side and a cul-de-sac on another sit correctly against both.
+
+    A face that encloses the reserve is NOT a block. It is the land inside the
+    park frame, which was set aside before the first street was laid — emitting
+    it would hand the parcelling pass 12.6 ha of park to build houses on.
     """
     out = []
     for f in face_list:
         poly, eids = f["poly"], f["edges"]
+        if reserve is not None and reserve.covers(poly):
+            continue
         # One inset per polygon vertex, taken from the edge that vertex starts.
         # `frontage` marks, for the same vertex, whether that side is actual
         # pavement — the crop boundary is not, and a lot cannot face it. Without
@@ -824,6 +882,161 @@ def blocks_from_faces(net, face_list, min_area=400.0):
                     "frontage": frontage,
                     "centroid": polygon_centroid(shrunk)})
     return out
+
+
+# ---------------------------------------------------------------------------
+# the reserve — land the network is laid AROUND rather than through
+# ---------------------------------------------------------------------------
+
+def _pt_in_rect(p, rect, eps=0.0):
+    x0, y0, x1, y1 = rect
+    return (x0 + eps < p[0] < x1 - eps) and (y0 + eps < p[1] < y1 - eps)
+
+
+def _seg_hits_rect(a, b, rect):
+    """True when segment *a*-*b* passes through the INTERIOR of *rect*.
+
+    Liang-Barsky clip to get the span of the segment that lies in the box, then
+    a strictness test on the MIDPOINT of that span. The midpoint test is what
+    separates entering from touching: a street that runs along the reserve's
+    edge, or clips its corner, has a degenerate or boundary-only span and is
+    allowed — which is exactly the case an entrance has to be, since an entrance
+    must reach the reserve without going into it.
+    """
+    x0, y0, x1, y1 = rect
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    t0, t1 = 0.0, 1.0
+    for (p, q) in ((-dx, a[0] - x0), (dx, x1 - a[0]),
+                   (-dy, a[1] - y0), (dy, y1 - a[1])):
+        if abs(p) < 1e-12:
+            if q < 0.0:
+                return False                  # parallel and outside this slab
+        else:
+            r = q / p
+            if p < 0.0:
+                if r > t1:
+                    return False
+                t0 = max(t0, r)
+            else:
+                if r < t0:
+                    return False
+                t1 = min(t1, r)
+    if t1 <= t0:
+        return False
+    tm = 0.5 * (t0 + t1)
+    return _pt_in_rect((a[0] + dx * tm, a[1] + dy * tm), rect, eps=1e-6)
+
+
+class Reserve:
+    """Land set aside BEFORE any street is laid, and the streets laid around it.
+
+    WHY THE PARK IS RESERVED FIRST. A neighbourhood park is 420 x 300 m — 12.6
+    ha — while the median block this generator produces is about 2.8 ha. A park
+    is therefore not a block, and it cannot be found by looking for a block big
+    enough to hold one: no such block exists, and forcing one would mean leaving
+    a 12.6 ha face undivided, which the subdivision pass exists to prevent. The
+    same problem, at the same scale, was solved inside the park itself by
+    routing its paths around the courts rather than placing courts in the gaps
+    the paths left. This does that one level up: choose the rectangle, then lay
+    the network around it.
+
+    Two rectangles, and the difference matters:
+
+        rect   the park proper, `size` metres, what the park module builds into
+        keep   `rect` grown by `pad` — the STREET KEEP-OUT. No centreline may
+               enter it, so the park gets a verge rather than a kerb pressed
+               against its fence, and the park's own boundary planting has room
+
+    Streets may TOUCH `keep`; that is what an entrance is, and why the
+    containment test is strict about the interior rather than about contact.
+    """
+
+    __slots__ = ("rect", "pad", "keep", "size", "center")
+
+    def __init__(self, rect, pad=0.0):
+        x0, y0, x1, y1 = rect
+        self.rect = (x0, y0, x1, y1)
+        self.pad = float(pad)
+        self.keep = (x0 - self.pad, y0 - self.pad, x1 + self.pad, y1 + self.pad)
+        self.size = (x1 - x0, y1 - y0)
+        self.center = (0.5 * (x0 + x1), 0.5 * (y0 + y1))
+
+    # -- THE predicate ----------------------------------------------------
+    def blocks(self, pts, clear=0.0):
+        """True when centreline *pts* may not exist: it enters the keep-out.
+
+        *clear* grows the keep-out for the things that occupy area rather than a
+        line — a cul-de-sac bulb is a 14.6 m disc at the tip of its stem, and
+        the stem staying out is not enough.
+        """
+        x0, y0, x1, y1 = self.keep
+        r = (x0 - clear, y0 - clear, x1 + clear, y1 + clear)
+        if len(pts) < 2:
+            return bool(pts) and _pt_in_rect(pts[0], r)
+        for i in range(len(pts) - 1):
+            if _seg_hits_rect(pts[i], pts[i + 1], r):
+                return True
+        return False
+
+    def covers(self, poly):
+        """True when polygon *poly* encloses the reserved land.
+
+        Because no centreline enters the keep-out, a face either contains the
+        whole of it or misses it entirely — so one containment test settles it,
+        and the corners are only belt and braces against a degenerate polygon.
+        """
+        if point_in_polygon(poly, self.center):
+            return True
+        # The PARK's corners, not the keep-out's. The frame street rounds the
+        # keep-out's corners off, so its own fillet passes between the corner
+        # and the park — testing the keep-out corner reported the face OUTSIDE
+        # the frame as covering the reserve, and that face and everything cut
+        # from it were being thrown away (block count 58 -> 34).
+        x0, y0, x1, y1 = self.rect
+        return any(point_in_polygon(poly, c)
+                   for c in ((x0, y0), (x1, y0), (x1, y1), (x0, y1)))
+
+    # -- entrances --------------------------------------------------------
+    def gate(self, p):
+        """Where a street at *p* meets the reserve.
+
+        Returns ``(entrance, gate, inward_normal, side)``: the point on the
+        KEEP-OUT boundary nearest *p*, the matching point on the park's own
+        boundary a padding band further in — which is where the park's gate
+        goes — the inward normal, and which of the four sides it is on.
+        """
+        x0, y0, x1, y1 = self.keep
+        cx, cy = self.center
+        hx = max((x1 - x0) / 2.0, _TOL)
+        hy = max((y1 - y0) / 2.0, _TOL)
+        ux, uy = (p[0] - cx) / hx, (p[1] - cy) / hy
+        if abs(ux) >= abs(uy):
+            side = "E" if ux >= 0.0 else "W"
+            q = (x1 if ux >= 0.0 else x0, max(y0, min(y1, p[1])))
+            n = (-1.0, 0.0) if ux >= 0.0 else (1.0, 0.0)
+        else:
+            side = "N" if uy >= 0.0 else "S"
+            q = (max(x0, min(x1, p[0])), y1 if uy >= 0.0 else y0)
+            n = (0.0, -1.0) if uy >= 0.0 else (0.0, 1.0)
+        g = _add(q, _mul(n, self.pad))
+        gx0, gy0, gx1, gy1 = self.rect
+        g = (max(gx0, min(gx1, g[0])), max(gy0, min(gy1, g[1])))
+        return q, g, n, side
+
+
+def reserve_blocks(reserve, pts, clear=0.0):
+    """THE containment test, and the only one — every street-laying phase asks
+    this and nothing else.
+
+    Collectors, face subdivision and its fallback, loops and cul-de-sacs all
+    propose a centreline and then run it past a list of reasons it might not be
+    allowed. Adding a fifth reason in four places would have meant four chances
+    to get it wrong and four places to change if the reserve ever stops being a
+    rectangle; routing them all through one predicate means a phase that forgets
+    to ask is visibly missing a line rather than quietly subtly different. It is
+    None-safe so the whole feature switches off with `park_enable`.
+    """
+    return reserve is not None and reserve.blocks(pts, clear)
 
 
 # ---------------------------------------------------------------------------
@@ -878,6 +1091,36 @@ DEFAULTS = {
     "grain_swirl_deg": 34.0,
     "grain_period_m": 620.0,
     "edge_clear_m": 26.0,          # keep off the region boundary
+    # -- the park reserve ------------------------------------------------
+    # A neighbourhood park is 12.6 ha against a 2.8 ha median block, so it is
+    # RESERVED BEFORE THE FIRST STREET IS LAID and the network is generated
+    # around it. See :class:`Reserve`.
+    "park_enable": True,
+    "park_size_m": [420.0, 300.0],   # matches suburb_park's own region
+    "park_pad_m": 20.0,              # verge: streets stay out of this too
+    # How far inside the crop the keep-out must sit, on top of `edge_clear_m`.
+    # Not cosmetic: the reserve needs land on ALL FOUR sides for its frame
+    # street to have blocks to face, and for entrances to exist on more than
+    # the two sides that happen to point inward.
+    "park_margin_m": 110.0,
+    # The frame street around the reserve, offset from the keep-out by half its
+    # own carriageway plus a little. WHY THERE IS A FRAME AT ALL: without one
+    # the reserve is a hole inside some face, and a planar face traversal knows
+    # nothing about holes — the block covering it would overlap the park, and
+    # the subdivision pass would keep picking that face and failing to cut it.
+    # A street on all four sides makes the face containing the park exactly the
+    # frame's interior, which is then simply not emitted as a block. It is also
+    # what a real park has: frontage, with houses facing it across the street.
+    "park_ring_offset_m": 8.0,
+    "park_ring_fillet_m": 32.0,      # corner radius; > the 30 m local minimum
+    # Approach streets run from the frame outward to the first street they
+    # meet: one per side, plus this many extra on random sides. Never fewer
+    # than four, because a park with one way in is wrong — and because they are
+    # also what connects the frame to the rest of the graph. The park usually
+    # ends up with about twice this many entrances, since subdivision cuts land
+    # on the frame too and each of those is a way in as well.
+    "park_entrances": 5,
+    "park_entry_min_m": 45.0,        # shorter than this is not a street
     # -- turnaround ------------------------------------------------------
     "bulb_radius_m": 14.64,        # IFC Fig D103.1: 96 ft driving diameter
     # -- curvature -------------------------------------------------------
@@ -927,6 +1170,27 @@ def generate(width_m, height_m, rng, cfg=None):
         net.add_edge([corners[i], corners[(i + 1) % 4]], "boundary", "boundary",
                      a=cids[i], b=cids[(i + 1) % 4])
 
+    # ---- level 0.5: RESERVE THE PARK, AND FRAME IT --------------------
+    # Chosen before any pavement exists, because it is far too big to fit into
+    # anything the network would leave behind. Everything after this point
+    # consults `reserve_blocks` and lays itself around the rectangle.
+    #
+    # THE FRAME GOES DOWN WITH THE RESERVE, BEFORE THE COLLECTORS. It was
+    # originally laid after them, on the reasoning that its approach streets
+    # need something to connect to — but the frame is laid unconditionally,
+    # since the reserve cannot move, so anything already on that ground ends up
+    # underneath it. Measured: a collector grazing the reserve's south-east
+    # corner ended up 1.2 m from the frame's fillet, two carriageways on top of
+    # each other, and the block inset off that collector clipped 3.7 m into the
+    # keep-out. Laying the frame first makes it just another street the
+    # collectors have to clear, which is the rule that already exists.
+    reserve = _place_reserve(rng, region, c, edge_clear)
+    ring_sid = None
+    if reserve is not None:
+        ring_sid = _lay_reserve_ring(net, reserve,
+                                     float(c["park_ring_offset_m"]),
+                                     float(c["park_ring_fillet_m"]))
+
     # ---- level 1: collectors ------------------------------------------
     # Curvilinear routes crossing the interior from one crop edge to the one
     # OPPOSITE it, running off the frame at both ends. Real collectors wander,
@@ -947,7 +1211,21 @@ def generate(width_m, height_m, rng, cfg=None):
     made_col = 0
     boundary_ids = {e.id for e in net.edges.values()
                     if e.road_class == "boundary"}
-    for _ in range(int(c["collectors"]) * 25):
+    # A route that would run through the reserve is thrown away whole rather
+    # than bent around it — a collector is a straight-ish crossing of the
+    # section by definition, and a version of it that detours round a 460 m
+    # obstacle is a different street.
+    #
+    # RETRIES GO UP A LOT when a reserve exists, and this is worth more than it
+    # looks. The park plus its frame plus the 88 m a street must keep from that
+    # frame takes a 640 x 520 m bite out of the corridors a collector can use,
+    # and at the original 25 tries the count fell from 2.4 to 1.9 per seed.
+    # Collectors are where four-way junctions come from — they cross everything
+    # in their path — so losing half of one pushed the three-way share from
+    # 81.4% to 86.7% against a ceiling of 87%. The tries are cheap (a resample
+    # and a curvature test reject most of them before any clearance work).
+    col_tries = 25 if reserve is None else 140
+    for _ in range(int(c["collectors"]) * col_tries):
         if made_col >= int(c["collectors"]):
             break
         vertical = rng.random() < 0.5
@@ -974,9 +1252,19 @@ def generate(width_m, height_m, rng, cfg=None):
             u = max(span_lo + edge_clear, min(span_hi - edge_clear, u))
             v = run_lo + (run_hi - run_lo) * f
             pts.append((u, v) if vertical else (v, u))
+
+        # BEFORE the resample, which is the expensive step here — it is
+        # quadratic in the sample count and the reserve rejects a large share of
+        # the corridors on its own. Resampling only moves points ALONG the
+        # polyline, so a route that clears the rectangle now still clears it
+        # after, and `_connect_route` checks again before anything is committed.
+        if reserve_blocks(reserve, pts):
+            continue
         pts = resample(pts, sample)
 
         if min_radius(pts) < CLASSES["collector"]["min_radius_m"]:
+            continue
+        if reserve_blocks(reserve, pts):
             continue
         # Ignore the crop boundary: the route starts and ends ON it.
         if net.clearance_allowing_crossings(
@@ -987,8 +1275,9 @@ def generate(width_m, height_m, rng, cfg=None):
         if any(crossing_angle(pts, o.pts) < float(c["min_fork_deg"])
                for o in net.edges.values() if o.road_class != "boundary"):
             continue
-        _connect_route(net, pts, "collector", "collector", min_gap)
-        made_col += 1
+        if _connect_route(net, pts, "collector", "collector", min_gap,
+                          reserve=reserve):
+            made_col += 1
 
     # ---- level 2: locals — loops and lollipops ------------------------
     loop_share = float(c["loop_share"])
@@ -1001,6 +1290,18 @@ def generate(width_m, height_m, rng, cfg=None):
 
     def spaced_ok(p):
         return all(_dist(p, q) >= jspace for q in junctions)
+
+    # ---- level 1.5: the streets that reach the park -------------------
+    # AFTER the collectors and BEFORE anything else. After, because an approach
+    # runs outward from the frame until it meets something, and the collectors
+    # are what there is to meet. Before, because until one of them lands the
+    # frame is a separate component of the graph: the reserve is then a HOLE
+    # inside a face, a planar face traversal knows nothing about holes, and
+    # every block cut from that face would be wrong.
+    n_entry = 0
+    if reserve is not None:
+        n_entry = _link_reserve(net, reserve, rng, c, throat, min_gap, sample,
+                                region, junctions, spaced_ok, ring_sid)
 
     # LOOPS FIRST, THEN LOLLIPOPS, and the order is not cosmetic. A loop needs
     # 150-420 m of continuous frontage on its host; a cul-de-sac needs a point.
@@ -1028,12 +1329,14 @@ def generate(width_m, height_m, rng, cfg=None):
             break
         if _grow_loop(net, sids[rng.randrange(len(sids))], rng, depth, span,
                       throat, min_gap, sample, region, edge_clear, spaced_ok,
-                      junctions, min_depth=float(c["loop_min_depth_m"])):
+                      junctions, min_depth=float(c["loop_min_depth_m"]),
+                      reserve=reserve):
             n_loops += 1
 
     n_conn = _subdivide_faces(net, rng, c, throat, min_gap, sample, region,
                               edge_clear, junctions, spaced_ok,
-                              grain_base=grain_base, grain_swirl=grain_swirl)
+                              grain_base=grain_base, grain_swirl=grain_swirl,
+                              reserve=reserve)
 
     n_lolli = 0
     want_dead = float(c["dead_end_target"])
@@ -1046,17 +1349,39 @@ def generate(width_m, height_m, rng, cfg=None):
         if _grow_lollipop(net, sids[rng.randrange(len(sids))], rng, llen,
                           throat, min_gap, sample, region, edge_clear, bulb_r,
                           spaced_ok, junctions,
-                          cul_gap_factor=float(c["cul_de_sac_gap_factor"])):
+                          cul_gap_factor=float(c["cul_de_sac_gap_factor"]),
+                          reserve=reserve):
             n_lolli += 1
 
     face_list = faces(net)
-    blks = blocks_from_faces(net, face_list)
+    blks = blocks_from_faces(net, face_list, reserve=reserve)
     info = {"collectors": made_col, "connectors": n_conn, "loops": n_loops,
-            "lollipops": n_lolli, "region": region}
+            "lollipops": n_lolli, "region": region, "park": None,
+            "reserve": None}
+    if reserve is not None:
+        # READ OFF THE FINISHED GRAPH, not from the approach streets that were
+        # laid for it. Face subdivision sites its cuts on face perimeters, and
+        # the frame is on the perimeter of every face around the park, so it
+        # collects junctions of its own as the fabric fills in. Those are
+        # entrances too, and counting only the ones this module placed on
+        # purpose would under-report the park's real frontage.
+        ents = _reserve_entrances(net, reserve, ring_sid)
+        info["park"] = {
+            "rect": reserve.rect,          # the park itself, 420 x 300 m
+            "size": reserve.size,
+            "center": reserve.center,
+            "pad_m": reserve.pad,
+            "reserve": reserve.keep,       # park + padding: the street keep-out
+            "ring_street_id": ring_sid,
+            "approaches": n_entry,
+            "entrances": ents,
+            "sides": sorted({e["side"] for e in ents}),
+        }
+        info["reserve"] = reserve.keep
     return net, blks, info
 
 
-def _connect_route(net, pts, road_class, street_type, min_gap):
+def _connect_route(net, pts, road_class, street_type, min_gap, reserve=None):
     """Add a route, splitting every existing edge it crosses and splitting
     itself at the same points.
 
@@ -1064,7 +1389,13 @@ def _connect_route(net, pts, road_class, street_type, min_gap):
     collector without a node there would leave a face that is not a block and a
     junction that is not a junction; downstream, the two roads would simply
     overlap. Crossings become real 4-way nodes here, once, at construction.
+
+    Returns True when the route was added. The reserve is checked HERE as well
+    as by the caller, because this is the one door every route goes through and
+    a route that reaches it is about to become permanent geometry.
     """
+    if reserve_blocks(reserve, pts):
+        return False
     # Find intersections of `pts` with existing edges.
     cuts = []       # (arclength on pts, edge, arclength on that edge, point)
     cum = _cumulative(pts)
@@ -1112,6 +1443,289 @@ def _connect_route(net, pts, road_class, street_type, min_gap):
     if polyline_length(remaining) > 1.0:
         net.add_edge(remaining, road_class, street_type, a=prev_n,
                      street_id=sid)
+    return True
+
+
+def _place_reserve(rng, region, c, edge_clear):
+    """Choose the park rectangle, before there is anything to place it against.
+
+    Uniform inside the box of centres that keeps the KEEP-OUT `park_margin_m`
+    clear of the crop edge, so there is land for a street on all four sides.
+    The margin is relaxed in two steps and then abandoned rather than failing
+    hard, because a caller may hand this a region barely bigger than the park
+    and a suburb with no park is a better answer than an exception.
+    """
+    if not c.get("park_enable", True):
+        return None
+    size = c.get("park_size_m") or [420.0, 300.0]
+    pw, ph = float(size[0]), float(size[1])
+    pad = float(c.get("park_pad_m", 20.0))
+    margin = float(c.get("park_margin_m", 110.0))
+    x0, y0, x1, y1 = region
+    khw, khh = pw / 2.0 + pad, ph / 2.0 + pad
+    for m in (margin, margin * 0.5, 0.0):
+        lo_x, hi_x = x0 + edge_clear + m + khw, x1 - edge_clear - m - khw
+        lo_y, hi_y = y0 + edge_clear + m + khh, y1 - edge_clear - m - khh
+        if hi_x <= lo_x or hi_y <= lo_y:
+            continue
+        cx, cy = rng.uniform(lo_x, hi_x), rng.uniform(lo_y, hi_y)
+        return Reserve((cx - pw / 2.0, cy - ph / 2.0,
+                        cx + pw / 2.0, cy + ph / 2.0), pad)
+    return None
+
+
+def _arc_pts(c, r, a0, a1, n=6):
+    return [(c[0] + r * math.cos(a0 + (a1 - a0) * k / n),
+             c[1] + r * math.sin(a0 + (a1 - a0) * k / n)) for k in range(n + 1)]
+
+
+def _ring_sides(keep, off, fillet):
+    """The four sides of the frame street, CCW from the bottom-left corner.
+
+    Each side runs from the middle of one corner fillet to the middle of the
+    next, so the four nodes of the ring sit ON the corners and a whole straight
+    frontage is one edge — which is what lets face subdivision site a cut
+    anywhere along it, and what makes the ring read as four streets meeting at
+    four corners rather than as a polygon.
+    """
+    x0, y0, x1, y1 = keep
+    r = max(0.0, min(fillet, (x1 - x0) / 2.0 - 1.0, (y1 - y0) / 2.0 - 1.0))
+    # A ROUNDED CORNER CUTS THE CORNER OFF, and the corner it cuts off is the
+    # reserve's. The midpoint of a fillet of radius *r* sits r*(1 - 1/sqrt2)
+    # inside the rectangle's corner on each axis, so at the 8 m offset first
+    # tried, a 32 m fillet put 1.4 m of carriageway centreline inside the
+    # keep-out on all four corners. The offset is therefore never less than
+    # that, which is the one place the frame's geometry has to know about the
+    # thing it is framing.
+    off = max(off, r * (1.0 - 1.0 / math.sqrt(2.0)) + 1.0)
+    x0 -= off
+    y0 -= off
+    x1 += off
+    y1 += off
+    q = math.pi / 2.0
+    if r < 1.0:                                    # degenerate: square corners
+        bl, br, tr, tl = (x0, y0), (x1, y0), (x1, y1), (x0, y1)
+        return [[bl, br], [br, tr], [tr, tl], [tl, bl]], (x0, y0, x1, y1), 0.0
+    cbl, cbr = (x0 + r, y0 + r), (x1 - r, y0 + r)
+    ctr, ctl = (x1 - r, y1 - r), (x0 + r, y1 - r)
+    sides = [
+        _arc_pts(cbl, r, 5 * q / 2.0, 3 * q) + _arc_pts(cbr, r, 3 * q, 7 * q / 2.0),
+        _arc_pts(cbr, r, 7 * q / 2.0, 4 * q) + _arc_pts(ctr, r, 0.0, q / 2.0),
+        _arc_pts(ctr, r, q / 2.0, q) + _arc_pts(ctl, r, q, 3 * q / 2.0),
+        _arc_pts(ctl, r, 3 * q / 2.0, 2 * q) + _arc_pts(cbl, r, 2 * q, 5 * q / 2.0),
+    ]
+    return sides, (x0, y0, x1, y1), r
+
+
+def _lay_reserve_ring(net, reserve, off, fillet):
+    """The frame street around the reserve. Returns its street id.
+
+    Four edges sharing one street id, so `street_chain` addresses the frame as
+    one road the way it addresses a collector that has been split at its
+    junctions. The corners are filleted at more than the 30 m local minimum
+    radius: a park frontage is a street people drive, not a boundary line.
+    """
+    sides, _rect, _r = _ring_sides(reserve.keep, off, fillet)
+    sid = net.new_street_id()
+    first = net.add_node(sides[0][0])
+    prev = first
+    for i, pts in enumerate(sides):
+        b = first if i == len(sides) - 1 else None
+        e = net.add_edge(pts, "local", "park_ring", a=prev, b=b, street_id=sid)
+        prev = e.b
+    return sid
+
+
+def _ray_hit(net, p, d, ignore, max_d):
+    """First edge a ray from *p* along unit *d* meets: ``(dist, point, edge)``.
+
+    Aiming at the FIRST thing hit is not an optimisation, it is what keeps the
+    graph planar: a connector that skipped a nearer street to reach a better one
+    would cross it without a node there.
+    """
+    q = _add(p, _mul(d, max_d))
+    best = None
+    for e in net.edges.values():
+        if e.id in ignore:
+            continue
+        for j in range(len(e.pts) - 1):
+            hit = _seg_intersect(p, q, e.pts[j], e.pts[j + 1])
+            if hit is None:
+                continue
+            dist = hit[1] * max_d
+            if dist < 1.0:
+                continue
+            if best is None or dist < best[0]:
+                best = (dist, hit[0], e)
+    return best
+
+
+def _link_reserve(net, reserve, rng, c, throat, min_gap, sample, region,
+                  junctions, spaced_ok, ring_sid, skew_deg=24.0):
+    """Approach streets from the frame outward, one per side. Returns the count.
+
+    THE PARK NEEDS SEVERAL WAYS IN, ON DIFFERENT SIDES. One entrance turns a
+    12.6 ha park into an appendix of whichever street happens to touch it;
+    every real neighbourhood park is entered from the streets around it.
+
+    Each approach leaves the frame on the outward normal — the same junction
+    contract every other street here is built to — and runs until it meets the
+    FIRST existing street, which it joins as a proper split. That doubles as the
+    graph repair the frame needs: until one of these lands, the ring is a
+    separate component and the face containing the park is a hole nothing knows
+    about.
+
+    Constraints relax in tiers, junction spacing first and street spacing after,
+    bottoming out at not-overlapping. A park with no way in at all is a worse
+    outcome than a park approached down a street that sits closer to its
+    neighbour than the plat would like, and the bottom tier is what guarantees
+    the frame is connected — but it never buys that with two carriageways laid
+    on top of each other.
+    """
+    max_d = _dist((region[0], region[1]), (region[2], region[3]))
+    min_len = float(c.get("park_entry_min_m", 45.0))
+    fillet = float(c["park_ring_fillet_m"])
+    off = float(c["park_ring_offset_m"])
+    _sides, rect, r = _ring_sides(reserve.keep, off, fillet)
+    rx0, ry0, rx1, ry1 = rect
+    # side -> (outward normal, point-on-frame as a function of t, t range)
+    inset = r + 20.0
+    lay = {
+        "S": ((0.0, -1.0), lambda t: (t, ry0), (rx0 + inset, rx1 - inset)),
+        "E": ((1.0, 0.0), lambda t: (rx1, t), (ry0 + inset, ry1 - inset)),
+        "N": ((0.0, 1.0), lambda t: (t, ry1), (rx0 + inset, rx1 - inset)),
+        "W": ((-1.0, 0.0), lambda t: (rx0, t), (ry0 + inset, ry1 - inset)),
+    }
+    order = ["S", "E", "N", "W"]
+    rng.shuffle(order)
+    want = max(4, int(c.get("park_entrances", 5)))
+    while len(order) < want:
+        order.append(order[rng.randrange(4)])
+
+    made = 0
+    for side in order:
+        n_out, at, (t_lo, t_hi) = lay[side]
+        if t_hi <= t_lo:
+            continue
+        if _link_one(net, reserve, rng, n_out, at, t_lo, t_hi, ring_sid,
+                     throat, min_gap, sample, region, junctions, spaced_ok,
+                     max_d, min_len, skew_deg, float(c["min_fork_deg"])):
+            made += 1
+    return made
+
+
+def _link_one(net, reserve, rng, n_out, at, t_lo, t_hi, ring_sid, throat,
+              min_gap, sample, region, junctions, spaced_ok, max_d, min_len,
+              skew_deg, min_fork, tries=10):
+    """One approach street off the frame. See :func:`_link_reserve`."""
+    x0, y0, x1, y1 = region
+    ring_ids = {e.id for e in net.edges.values() if e.street_id == ring_sid}
+    # The last tier drops to NOT OVERLAPPING rather than to nothing. Asking for
+    # no clearance at all would have let an approach be laid on top of a street
+    # it runs beside, which is the one failure this generator spent two rounds
+    # removing; a carriageway and a half apart is as far as the guarantee that
+    # the frame gets connected is allowed to push.
+    no_overlap = CLASSES["local"]["width_m"] + 6.0
+    for gap in (min_gap, min_gap * 0.72, min_gap * 0.5, no_overlap):
+        want_spacing = gap >= min_gap * 0.72
+        for _try in range(tries):
+            t = rng.uniform(t_lo, t_hi)
+            p0 = at(t)
+            if want_spacing and not spaced_ok(p0):
+                continue
+            ang = math.radians(rng.uniform(-skew_deg, skew_deg))
+            ca, sa = math.cos(ang), math.sin(ang)
+            aim = (n_out[0] * ca - n_out[1] * sa, n_out[0] * sa + n_out[1] * ca)
+            hit = _ray_hit(net, p0, aim, ring_ids, max_d)
+            if hit is None or hit[0] < min_len:
+                continue
+            _L, p1, host = hit
+            if want_spacing and not spaced_ok(p1):
+                continue
+            t1 = tangent_at(host.pts, _arclength_of(host.pts, p1))
+            n1 = _perp(t1)
+            if _dot(n1, _sub(p0, p1)) < 0.0:
+                n1 = _mul(n1, -1.0)
+            chord = _unit(_sub(p1, p0))
+            d0 = _rotate_toward(n_out, chord, skew_deg)
+            d1 = _rotate_toward(n1, _mul(chord, -1.0), skew_deg)
+            a = _add(p0, _mul(d0, throat))
+            b = _add(p1, _mul(d1, throat))
+            curved = resample([p0] + hermite(a, d0, b, _mul(d1, -1.0),
+                                             tension=0.42, samples=20) + [p1],
+                              sample)
+            shapes = []
+            if min_radius(curved) >= CLASSES["local"]["min_radius_m"]:
+                shapes.append(curved)
+            shapes.append(resample([p0, p1], sample))     # straight: no curvature
+            ignore = set(ring_ids) | {host.id}
+            for pnt in (p0, p1):
+                nid = net.node_at(pnt, tol=1.5)
+                if nid is not None:
+                    ignore |= set(net.nodes[nid].edges)
+            for pts in shapes:
+                if reserve_blocks(reserve, pts):
+                    _reject('park approach reserve')
+                    continue
+                if any(not (x0 - 0.5 <= q[0] <= x1 + 0.5
+                            and y0 - 0.5 <= q[1] <= y1 + 0.5) for q in pts):
+                    _reject('park approach leaves region')
+                    continue
+                if net.clearance(pts, ignore=ignore, skip_ends_m=throat * 0.6,
+                                 limit=gap) < gap:
+                    _reject('park approach clearance')
+                    continue
+                # PLANARITY IS NOT NEGOTIABLE even in the last tier: the whole
+                # point of aiming at the first hit is that the street reaches it
+                # without crossing anything, and the curved shape can bow off
+                # the ray far enough to break that.
+                if any(_routes_cross(pts, e.pts) for e in net.edges.values()
+                       if e.id not in ignore):
+                    _reject('park approach crosses')
+                    continue
+                nid1 = net.node_at(p1, tol=1.5)
+                if nid1 is not None and not _fork_ok(net, nid1,
+                                                     _sub(pts[-2], pts[-1]),
+                                                     min_fork):
+                    _reject('park approach shallow fork')
+                    continue
+                if _commit_cut(net, pts, p0, p1, junctions):
+                    return True
+    return False
+
+
+def _reserve_entrances(net, reserve, ring_sid, min_sep=25.0):
+    """Where the neighbourhood reaches the park, read off the finished graph.
+
+    An entrance is a junction ON THE FRAME where a street that is not the frame
+    arrives — approaches placed on purpose and subdivision cuts that landed
+    there alike. Each is reported as the point on the reserve boundary opposite
+    it and the point a padding band further in on the park's own boundary, so
+    the park can put its gate where the street already leads.
+    """
+    if ring_sid is None:
+        return []
+    ring_ids = {e.id for e in net.edges.values() if e.street_id == ring_sid}
+    nids = set()
+    for eid in ring_ids:
+        e = net.edges[eid]
+        nids.add(e.a)
+        nids.add(e.b)
+    out = []
+    for nid in sorted(nids):
+        node = net.nodes.get(nid)
+        if node is None:
+            continue
+        if not any(net.edges[i].street_id != ring_sid
+                   and net.edges[i].road_class != "boundary"
+                   for i in node.edges):
+            continue
+        q, g, n, side = reserve.gate(node.p)
+        if any(_dist(q, o["p"]) < min_sep for o in out):
+            continue
+        out.append({"p": q, "gate": g, "dir": n, "side": side, "node": nid,
+                    "street_p": node.p})
+    return out
 
 
 def _crossing_points(pa, pb):
@@ -1293,7 +1907,7 @@ def _split_face(net, face, rng, throat, min_gap, sample, min_block, region,
                 edge_clear, junctions, spaced_ok, skew_deg=38.0, tries=26,
                 four_way_chance=0.0, grain_w=0.0, grain_base=0.0,
                 grain_swirl=0.0, grain_period=600.0, allow_fallback=False,
-                min_fork=38.0):
+                min_fork=38.0, reserve=None):
     """Insert one street across *face*, dividing it in two.
 
     RECURSIVE FACE SUBDIVISION IS WHAT FILLS THE LAND. Growing streets
@@ -1339,13 +1953,13 @@ def _split_face(net, face, rng, throat, min_gap, sample, min_block, region,
                          phase_snap, tries, throat, min_gap, sample, min_block,
                          skew_deg, spaced_ok, min_fork=min_fork, grain_w=grain_w,
                          grain_base=grain_base, grain_swirl=grain_swirl,
-                         grain_period=grain_period)
+                         grain_period=grain_period, reserve=reserve)
         if best is not None:
             break
     if best is None and allow_fallback:
         best = _fallback_cut(net, face, rng, parts, total, poly, throat,
                              min_gap, sample, min_block, skew_deg, spaced_ok,
-                             min_fork=min_fork)
+                             min_fork=min_fork, reserve=reserve)
     if best is None:
         return False
     _score, pts, p0, p1 = best
@@ -1353,7 +1967,8 @@ def _split_face(net, face, rng, throat, min_gap, sample, min_block, region,
 
 
 def _fallback_cut(net, face, rng, parts, total, poly, throat, min_gap, sample,
-                  min_block, skew_deg, spaced_ok, tries=90, min_fork=38.0):
+                  min_block, skew_deg, spaced_ok, tries=90, min_fork=38.0,
+                  reserve=None):
     """Last-resort cut for a face :func:`_best_cut` cannot divide.
 
     WHY A FACE GETS STUCK, MEASURED RATHER THAN GUESSED. `_best_cut` sites the
@@ -1441,6 +2056,9 @@ def _fallback_cut(net, face, rng, parts, total, poly, throat, min_gap, sample,
                 if any(not point_in_polygon(poly, q) for q in pts[2:-2]):
                     _reject('fallback leaves face')
                     continue
+                if reserve_blocks(reserve, pts):
+                    _reject('fallback reserve')
+                    continue
                 if net.clearance(pts, ignore=ignore, skip_ends_m=throat * 0.6,
                                  limit=gap) < gap:
                     _reject('fallback clearance')
@@ -1470,7 +2088,7 @@ def _fallback_cut(net, face, rng, parts, total, poly, throat, min_gap, sample,
 def _best_cut(net, face, rng, parts, total, poly, node_us, want_snap, tries,
               throat, min_gap, sample, min_block, skew_deg, spaced_ok,
               grain_w=0.0, grain_base=0.0, grain_swirl=0.0, grain_period=600.0,
-              min_fork=38.0):
+              min_fork=38.0, reserve=None):
     """Lowest-scoring valid street across the face, or None."""
     # The driveable region: the face inset per edge by that edge's half width
     # plus half the width of the street being inserted.
@@ -1532,6 +2150,13 @@ def _best_cut(net, face, rng, parts, total, poly, node_us, want_snap, tries,
         if min_radius(pts) < CLASSES["local"]["min_radius_m"]:
             _reject('curvature')
             continue
+        # The reserve sits WITHIN a face until the frame street closes round it,
+        # and a face that touches the park is otherwise a perfectly ordinary
+        # parcel to cut — so containment against the face is not enough and the
+        # keep-out has to be asked separately.
+        if reserve_blocks(reserve, pts):
+            _reject('reserve')
+            continue
         # AGAINST THE INSET REGION, NOT THE RAW FACE. This is the structural
         # reason overlapping roads were ever proposed. A face's boundary runs
         # down its neighbours' CENTRELINES, so "inside the face" still allows a
@@ -1587,12 +2212,19 @@ def _best_cut(net, face, rng, parts, total, poly, node_us, want_snap, tries,
 
         # A cut that lands on an existing junction must not fork off an arm
         # already there at a shallow angle.
-        if snapped:
-            nid = net.node_at(p0, tol=1.5)
-            if nid is not None and not _fork_ok(net, nid, _sub(pts[1], pts[0]),
-                                                min_fork):
-                _reject('shallow fork')
-                continue
+        # UNCONDITIONAL, not `if snapped`. The gate was pointless and harmful:
+        # node_at() already returns None when the endpoint is mid-edge, so the
+        # check is a natural no-op for a fresh cut. Gating it on the DELIBERATE
+        # snap meant a cut that landed on an existing node BY ACCIDENT -- within
+        # split_edge's 1 m tolerance, which happens whenever a host already
+        # carries a junction near the chosen arclength -- was never fork-checked
+        # at its near end. Measured over 24 seeds: 5 forks at 16-17 degrees and
+        # 9 extra overlapping carriageways, all of them from this one gate.
+        nid = net.node_at(p0, tol=1.5)
+        if nid is not None and not _fork_ok(net, nid, _sub(pts[1], pts[0]),
+                                            min_fork):
+            _reject('shallow fork')
+            continue
         nid1 = net.node_at(p1, tol=1.5)
         if nid1 is not None and not _fork_ok(net, nid1,
                                              _sub(pts[-2], pts[-1]), min_fork):
@@ -1677,7 +2309,7 @@ def _commit_cut(net, pts, p0, p1, junctions):
 
 def _subdivide_faces(net, rng, cfg, throat, min_gap, sample, region,
                      edge_clear, junctions, spaced_ok, grain_base=0.0,
-                     grain_swirl=0.0):
+                     grain_swirl=0.0, reserve=None):
     """Keep splitting the largest face until every block is near target size."""
     target = float(cfg["block_area_target_m2"])
     min_block = float(cfg["block_area_min_m2"])
@@ -1685,9 +2317,14 @@ def _subdivide_faces(net, rng, cfg, throat, min_gap, sample, region,
     made, stuck = 0, set()
     for _ in range(int(cfg["subdivide_iters"])):
         face_list = faces(net)
+        # The face inside the park frame is the reserve, not undivided land. It
+        # is the biggest face on the board and would be picked first on every
+        # iteration, so it is dropped here rather than left to fail its way into
+        # `stuck` — and dropped rather than cut, which is the whole point.
         big = [f for f in face_list
                if abs(polygon_area(f["poly"])) > target
-               and tuple(sorted(f["edges"])) not in stuck]
+               and tuple(sorted(f["edges"])) not in stuck
+               and not (reserve is not None and reserve.covers(f["poly"]))]
         if not big:
             break
         big.sort(key=lambda f: -abs(polygon_area(f["poly"])))
@@ -1706,7 +2343,7 @@ def _subdivide_faces(net, rng, cfg, throat, min_gap, sample, region,
                        grain_w=float(cfg["grain_weight"]),
                        grain_base=grain_base, grain_swirl=grain_swirl,
                        grain_period=float(cfg["grain_period_m"]),
-                       allow_fallback=area > hard_max):
+                       allow_fallback=area > hard_max, reserve=reserve):
             made += 1
         else:
             stuck.add(tuple(sorted(f["edges"])))
@@ -1715,7 +2352,7 @@ def _subdivide_faces(net, rng, cfg, throat, min_gap, sample, region,
 
 def _grow_lollipop(net, sid, rng, llen, throat, min_gap, sample, region,
                    edge_clear, bulb_r, spaced_ok, junctions,
-                   cul_gap_factor=0.72):
+                   cul_gap_factor=0.72, reserve=None):
     """A dead-end street off street *sid*, ending in a turnaround."""
     pts_h, _chain = net.street_chain(sid)
     if not pts_h:
@@ -1746,6 +2383,10 @@ def _grow_lollipop(net, sid, rng, llen, throat, min_gap, sample, region,
 
     if min_radius(pts) < CLASSES["cul_de_sac"]["min_radius_m"]:
         return False
+    # The stem staying out of the reserve is not enough — the turnaround is a
+    # 14.6 m disc, so it is asked for with that much clearance.
+    if reserve_blocks(reserve, pts) or reserve_blocks(reserve, [tip], bulb_r):
+        return False
     # The bulb needs its own room, so clear a bulb radius around the tip too.
     x0, y0, x1, y1 = region
     if not (x0 + edge_clear + bulb_r <= tip[0] <= x1 - edge_clear - bulb_r
@@ -1767,7 +2408,7 @@ def _grow_lollipop(net, sid, rng, llen, throat, min_gap, sample, region,
 
 
 def _grow_loop(net, sid, rng, depth, span, throat, min_gap, sample, region,
-               edge_clear, spaced_ok, junctions, min_depth=70.0):
+               edge_clear, spaced_ok, junctions, min_depth=70.0, reserve=None):
     """A street leaving street *sid* and returning to it, enclosing a block.
 
     Both ends are solved as boundary conditions — leave perpendicular, arrive
@@ -1824,6 +2465,8 @@ def _grow_loop(net, sid, rng, depth, span, throat, min_gap, sample, region,
     pts = resample(pts, sample)
 
     if min_radius(pts) < CLASSES["local"]["min_radius_m"]:
+        return False
+    if reserve_blocks(reserve, pts):
         return False
     x0, y0, x1, y1 = region
     if any(not (x0 + edge_clear <= q[0] <= x1 - edge_clear
