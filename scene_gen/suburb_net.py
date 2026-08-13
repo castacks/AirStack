@@ -51,10 +51,12 @@ lollipops on a stick, roughly by decade. Post-war suburbia is the fourth.
 
 THE PIPELINE, IN THE ORDER IT RUNS
 ----------------------------------
-    0  arterial frame     the section-line box; a suburb is one section of it
+    0  crop boundary      NOT a road: four zero-width edges that close the
+                          planar graph so faces exist. The region is a crop of a
+                          larger suburb, so streets run off the edge
     1  collectors         curvilinear routes crossing the interior, as a
                           harmonic offset from a straight baseline so curvature
-                          is bounded and both ends meet their arterial square
+                          is bounded and both ends leave the crop square
     2  face subdivision   split the largest remaining face until every block is
                           near target size — THE LAYER THAT FILLS THE LAND
     3  loops              a street leaving a host and returning to it
@@ -74,25 +76,26 @@ TARGETS, AND WHERE THIS LANDS AGAINST THEM
 Measured suburbs (OSM, five US subdivisions) and the literature, against the
 mean of eight seeds at 1600 x 1200 m with the defaults below:
 
-    measure               target          measured      verdict
-    dead-end nodes        12-35%          22.9%         in band
-    three-way junctions   69-87%          83.1%         in band
-    street density        7.4-12.4 km/km² 13.2          ~7% high
-    block area (median)   15k-34k m²      41k           high
+    measure               target           measured   spread over 8 seeds
+    dead-end nodes        12-35%           18.3%      13.5 - 21.4
+    three-way junctions   69-87%           76.6%      70.1 - 81.6
+    street density        7.4-12.4 km/km²  11.0       10.7 - 11.3
+    block area (median)   15k-34k m²       31.9k      27.9k - 34.7k
 
-Barrington-Leigh & Millard-Ball (PNAS 2015) independently give 26.6% dead ends
-for US intersections built 1993-97 and 19.1% for 2008-12, metro extremes 19-42%.
+All four sit in band on every seed. Barrington-Leigh & Millard-Ball (PNAS 2015)
+independently give 26.6% dead ends for US intersections built 1993-97 and 19.1%
+for 2008-12, metro extremes 19-42%.
 
-THE TWO THAT MISS ARE THE SAME MISS. Density and block area trade against each
-other: for compact blocks of area A the street length is about 2000/sqrt(A)
-km/km², so 41k m² blocks imply ~9.9 km/km² of through street, and the cul-de-sacs
-add the rest. Blocks come out large because a dangling cul-de-sac does not close
-a face — the land it serves stays part of one big block here, whereas in the OSM
-extracts much of that frontage belongs to through streets that do close faces.
-Some of the gap is therefore a measurement mismatch rather than a shape error,
-but not all of it: pushing `block_area_target_m2` down does bring the median
-into band, at the cost of pushing density further out. :func:`stats` reports all
-four so the trade is visible rather than assumed.
+WHAT MADE THE LAST TWO FIT was removing the arterial ring, not tuning. While the
+region was framed by a border road, that racetrack contributed about 2.4 km/km²
+of pavement serving lots on one side only, which pinned density near 13.2 and
+forced `block_area_target_m2` up to ~65k to compensate — leaving deep stranded
+cores in the middle of every block. Treating the region as a CROP of a larger
+suburb instead, with streets simply running off the edge, freed that budget and
+let the target come back down to 40k, where blocks are both fully built and the
+right size. Density and block area do still trade against each other — for
+compact blocks of area A the through-street length is about 2000/sqrt(A) km/km²
+— so :func:`stats` reports all four and the trade stays visible.
 
 GEOMETRIC STANDARDS
 -------------------
@@ -404,6 +407,9 @@ CLASSES = {
     "collector": {"width_m": 11.6, "lanes": 2, "min_radius_m": 60.0},
     "local":     {"width_m": 10.7, "lanes": 2, "min_radius_m": 30.0},
     "cul_de_sac": {"width_m": 9.1, "lanes": 2, "min_radius_m": 25.0},
+    # The crop edge. Zero width because it is not pavement: it closes the planar
+    # graph so faces exist, and nothing insets from it or draws it.
+    "boundary":  {"width_m": 0.0, "lanes": 0, "min_radius_m": 1e9},
 }
 
 
@@ -418,6 +424,11 @@ class Node:
     @property
     def degree(self):
         return len(self.edges)
+
+    def road_degree(self, net):
+        """Incident edges that are actual pavement, ignoring the crop edge."""
+        return sum(1 for eid in self.edges
+                   if net.edges[eid].road_class != "boundary")
 
 
 class Edge:
@@ -747,15 +758,21 @@ def blocks_from_faces(net, face_list, min_area=400.0):
     for f in face_list:
         poly, eids = f["poly"], f["edges"]
         # One inset per polygon vertex, taken from the edge that vertex starts.
-        insets, k = [], 0
+        # `frontage` marks, for the same vertex, whether that side is actual
+        # pavement — the crop boundary is not, and a lot cannot face it. Without
+        # this the parcelling pass hangs a row of houses along the region edge
+        # fronting nothing at all.
+        insets, frontage = [], []
         for eid in eids:
             e = net.edges[eid]
             n_pts = len(e.pts) - 1
+            is_road = e.road_class != "boundary"
             insets.extend([e.half_w] * n_pts)
-            k += n_pts
+            frontage.extend([is_road] * n_pts)
         if len(insets) != len(poly):
-            insets = (insets + [CLASSES["local"]["width_m"] / 2.0]
-                      * len(poly))[:len(poly)]
+            pad = len(poly) - len(insets)
+            insets = (insets + [CLASSES["local"]["width_m"] / 2.0] * max(pad, 0))[:len(poly)]
+            frontage = (frontage + [True] * max(pad, 0))[:len(poly)]
         shrunk = offset_polygon(poly, insets)
         if len(shrunk) < 3:
             continue
@@ -763,6 +780,7 @@ def blocks_from_faces(net, face_list, min_area=400.0):
         if a < min_area:
             continue
         out.append({"poly": shrunk, "area": a, "edges": eids,
+                    "frontage": frontage,
                     "centroid": polygon_centroid(shrunk)})
     return out
 
@@ -779,7 +797,7 @@ DEFAULTS = {
     # -- local streets ---------------------------------------------------
     # Recursive face subdivision: the layer that fills the land and sets grain.
     "subdivide_iters": 400,
-    "block_area_target_m2": 65000.0,   # split any face bigger than this
+    "block_area_target_m2": 40000.0,   # split any face bigger than this
     "block_area_min_m2": 7000.0,       # refuse a cut leaving less than this
     "loop_attempts": 420,
     "lollipop_attempts": 700,
@@ -840,25 +858,27 @@ def generate(width_m, height_m, rng, cfg=None):
     edge_clear = float(c["edge_clear_m"])
     jspace = float(c["junction_spacing_m"])
 
-    # ---- level 0: the arterial frame ----------------------------------
-    # A post-war suburb is one cell of the section-line grid, so the frame is
-    # the arterial network and nothing inside it needs to be one.
-    aw = CLASSES["arterial"]["width_m"]
-    ax0, ay0 = -hw + aw / 2.0, -hh + aw / 2.0
-    ax1, ay1 = hw - aw / 2.0, hh - aw / 2.0
+    # ---- level 0: the region boundary ---------------------------------
+    # NOT A ROAD. The region is a CROP of a larger suburb, so ringing it with an
+    # arterial drew a rectangular racetrack round the scene and made every
+    # street stop at it — which reads as an island rather than a piece of a
+    # town. These four edges exist only to close the planar graph so faces can
+    # be extracted; they carry zero width, are never drawn, and blocks are not
+    # inset from them. Streets simply run off the edge, which is what a crop of
+    # a real suburb looks like.
+    aw = 0.0
+    ax0, ay0 = -hw, -hh
+    ax1, ay1 = hw, hh
     corners = [(ax0, ay0), (ax1, ay0), (ax1, ay1), (ax0, ay1)]
     cids = [net.add_node(p) for p in corners]
     for i in range(4):
-        net.add_edge([corners[i], corners[(i + 1) % 4]], "arterial", "arterial",
+        net.add_edge([corners[i], corners[(i + 1) % 4]], "boundary", "boundary",
                      a=cids[i], b=cids[(i + 1) % 4])
 
-    def inside(p, pad):
-        return (ax0 + pad <= p[0] <= ax1 - pad and ay0 + pad <= p[1] <= ay1 - pad)
-
     # ---- level 1: collectors ------------------------------------------
-    # Curvilinear routes crossing the interior from one arterial to the one
-    # OPPOSITE it. Real collectors wander, and they are the first thing that
-    # stops a suburb reading as a grid.
+    # Curvilinear routes crossing the interior from one crop edge to the one
+    # OPPOSITE it, running off the frame at both ends. Real collectors wander,
+    # and they are the first thing that stops a suburb reading as a grid.
     #
     # WHY THE ROUTE IS A HARMONIC OFFSET AND NOT JITTERED WAYPOINTS. The first
     # attempt drew independent random offsets at 3-5 waypoints and interpolated;
@@ -873,8 +893,8 @@ def generate(width_m, height_m, rng, cfg=None):
     wander = float(c["collector_wander"])
     n_harm = int(c.get("collector_harmonics", 2))
     made_col = 0
-    arterial_ids = {e.id for e in net.edges.values()
-                    if e.road_class == "arterial"}
+    boundary_ids = {e.id for e in net.edges.values()
+                    if e.road_class == "boundary"}
     for _ in range(int(c["collectors"]) * 25):
         if made_col >= int(c["collectors"]):
             break
@@ -906,10 +926,9 @@ def generate(width_m, height_m, rng, cfg=None):
 
         if min_radius(pts) < CLASSES["collector"]["min_radius_m"]:
             continue
-        # Ignore the arterial frame: the route starts and ends ON it, so it is
-        # necessarily within a lane of it near each end. The frame is kept clear
-        # by `pad` above instead.
-        if net.clearance_allowing_crossings(pts, ignore=arterial_ids) < min_gap:
+        # Ignore the crop boundary: the route starts and ends ON it.
+        if net.clearance_allowing_crossings(pts, ignore=boundary_ids,
+                                            limit=min_gap) < min_gap:
             continue
         _connect_route(net, pts, "collector", "collector", min_gap)
         made_col += 1
@@ -1194,7 +1213,7 @@ def _split_face(net, face, rng, throat, min_gap, sample, min_block, region,
     node_us, acc = [], 0.0
     for (e, flipped, s0, L) in parts:
         nid = e.b if flipped else e.a
-        if net.nodes[nid].degree == 3:
+        if net.nodes[nid].road_degree(net) == 3:
             node_us.append(s0)
         acc = s0 + L
 
@@ -1518,11 +1537,28 @@ def stats(net, blks, region):
     """Morphology numbers with their measured suburban targets alongside."""
     x0, y0, x1, y1 = region
     km2 = ((x1 - x0) / 1000.0) * ((y1 - y0) / 1000.0)
-    deg = [n.degree for n in net.nodes.values()]
-    dead = sum(1 for d in deg if d == 1)
+    # A node where a street runs off the crop is NOT a dead end -- the street
+    # continues outside the region. Counting those as cul-de-sacs would inflate
+    # the signature stat of the whole fabric.
+    on_edge = set()
+    for e in net.edges.values():
+        if e.road_class == "boundary":
+            on_edge.add(e.a)
+            on_edge.add(e.b)
+    bx0, by0, bx1, by1 = region
+
+    def _at_crop(n):
+        return (abs(n.p[0] - bx0) < 1.0 or abs(n.p[0] - bx1) < 1.0
+                or abs(n.p[1] - by0) < 1.0 or abs(n.p[1] - by1) < 1.0)
+
+    real = [n for n in net.nodes.values() if n.road_degree(net) > 0]
+    deg = [n.road_degree(net) for n in real]
+    dead = sum(1 for n in real
+               if n.road_degree(net) == 1 and not _at_crop(n))
     junc = [d for d in deg if d >= 3]
     three = sum(1 for d in junc if d == 3)
-    length_km = sum(e.length for e in net.edges.values()) / 1000.0
+    length_km = sum(e.length for e in net.edges.values()
+                    if e.road_class != "boundary") / 1000.0
     areas = sorted(b["area"] for b in blks)
 
     def med(v):
