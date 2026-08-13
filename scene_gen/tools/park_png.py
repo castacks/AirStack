@@ -48,6 +48,10 @@ PROP = {                 # colour, radius in metres, z-order
     "seesaw":          ("#d9793f", 1.8, 9),
     "tree":            ("#2f5a2a", 3.4, 8),
     "soccer_goal":     ("#efefef", 2.0, 9),
+    # path furniture — placed against the finished route, so it reads as
+    # belonging to the path rather than scattered on the grass
+    "bench":           ("#b5883f", 1.1, 10),
+    "trash_can":       ("#2b3a33", 0.8, 10),
 }
 
 
@@ -128,14 +132,27 @@ def draw(park, out_path, title=""):
             _poly(ax, z["corners"], facecolor=COL["picnic"], edgecolor="none",
                   zorder=2)
 
-    # 2) paths, under the props and over the surfaces
+    # 2) paths — ONE shared-use way per route, drawn as its two sides.
+    # Not two networks: a separate bike circuit had to weave past the pedestrian
+    # one and tangled wherever they met. The divider is drawn from the same
+    # centreline, so the two sides cannot drift apart or cross.
     for p in park["paths"]:
         pts = p["pts"]
-        w = {"spine": 3.2, "bike": 2.4}.get(p["kind"], 2.2)
-        col = COL["bike"] if p["kind"] == "bike" else COL["path"]
-        ax.plot([q[0] for q in pts], [q[1] for q in pts], color=col,
+        w = float(p.get("width_m", 2.6))
+        share = float(p.get("bike_share", 0.0))
+        ax.plot([q[0] for q in pts], [q[1] for q in pts], color=COL["path"],
                 lw=max(1.0, w * ppm), solid_capstyle="round",
                 solid_joinstyle="round", zorder=5)
+        if share > 0.0:
+            bw = w * share
+            # Cycle side sits against one edge; offset to the centre of it.
+            side = pk.offset_polyline(pts, (w - bw) / 2.0)
+            ax.plot([q[0] for q in side], [q[1] for q in side],
+                    color=COL["bike"], lw=max(0.8, bw * ppm),
+                    solid_capstyle="round", solid_joinstyle="round", zorder=6)
+            div = pk.offset_polyline(pts, w / 2.0 - bw)
+            ax.plot([q[0] for q in div], [q[1] for q in div], color="#efe7d6",
+                    lw=max(0.4, 0.16 * ppm), solid_capstyle="butt", zorder=7)
 
     # 3) fences — a mark per real panel, so the run reads as panels not a line
     for f in park["fences"]:
@@ -209,6 +226,11 @@ def main():
     print(f"[park] zones: {s['zones']}")
     print(f"[park] props: {s['props']}")
     print(f"[park] {s['fence_panels']} fence panels, {s['paths']} paths")
+    # THE CHECK THAT MATTERS. A plan that looks fine and routes a path over the
+    # tennis block is not fine, and at this scale the crossing is a few pixels.
+    bad = pk.check(park)
+    print(f"[park] path-facility intersections: {bad}"
+          + ("  <-- BROKEN" if bad else "  OK"))
 
     out = args.out
     if not os.path.isabs(out):

@@ -369,9 +369,6 @@ usds:
     # _07; CityPark SM_Tree_01, _05; Dmytro SM_Tree1, SM_Tree2. Every Dmytro
     # street tree is now out, which is why street_trees above falls back to the
     # AEC oaks.
-    - {usd: "CityPark/Props/SM_Stump.prop.usd",    scale: 0.01, tags: ["stump"]}
-    - {usd: "CityPark/Props/SM_Stump_02.prop.usd", scale: 0.01, tags: ["stump"]}
-    - {usd: "CityPark/Props/SM_Stump_03.prop.usd", scale: 0.01, tags: ["stump"]}
 
   # REPLACES the inherited pool (no `+`) purely to scale the stones up. The
   # CityPark stones are boulder assets authored small; at the inherited 0.01

@@ -810,6 +810,14 @@ DEFAULTS = {
     "subdivide_iters": 400,
     "block_area_target_m2": 40000.0,   # split any face bigger than this
     "block_area_min_m2": 7000.0,       # refuse a cut leaving less than this
+    # A face this many times over target is GROSSLY oversized and gets the
+    # relaxed fallback cut (:func:`_fallback_cut`) rather than being abandoned.
+    # Deliberately not 1.0: a face a little over target that refuses every well
+    # formed candidate is a normal, tolerable block, and cutting all of those
+    # too pushed street density from 11.0 to 13.3 km/km² — outside the measured
+    # band — and buried the cul-de-sacs, whose share fell from 17.9% to 5%.
+    # Only the parcels that read as unsubdivided land are forced.
+    "block_area_hard_max_factor": 1.5,
     "loop_attempts": 420,
     "lollipop_attempts": 700,
     "loop_share": 0.55,            # of successful locals, how many are loops
@@ -1208,7 +1216,7 @@ def _perimeter_arc(parts, total, u_from, u_to, step=10.0):
 def _split_face(net, face, rng, throat, min_gap, sample, min_block, region,
                 edge_clear, junctions, spaced_ok, skew_deg=38.0, tries=26,
                 four_way_chance=0.0, grain_w=0.0, grain_base=0.0,
-                grain_swirl=0.0, grain_period=600.0):
+                grain_swirl=0.0, grain_period=600.0, allow_fallback=False):
     """Insert one street across *face*, dividing it in two.
 
     RECURSIVE FACE SUBDIVISION IS WHAT FILLS THE LAND. Growing streets
@@ -1257,10 +1265,121 @@ def _split_face(net, face, rng, throat, min_gap, sample, min_block, region,
                          grain_period=grain_period)
         if best is not None:
             break
+    if best is None and allow_fallback:
+        best = _fallback_cut(net, face, rng, parts, total, poly, throat,
+                             min_gap, sample, min_block, skew_deg, spaced_ok)
     if best is None:
         return False
     _score, pts, p0, p1 = best
     return _commit_cut(net, pts, p0, p1, junctions)
+
+
+def _fallback_cut(net, face, rng, parts, total, poly, throat, min_gap, sample,
+                  min_block, skew_deg, spaced_ok, tries=90):
+    """Last-resort cut for a face :func:`_best_cut` cannot divide.
+
+    WHY A FACE GETS STUCK, MEASURED RATHER THAN GUESSED. `_best_cut` sites the
+    far end of a cut PARAMETRICALLY, at 34-66% of the way round the perimeter,
+    which is a good proxy for "the opposite side" only while the face is roughly
+    convex. It stops being one as soon as a face is large and convoluted: on the
+    worst measured face (462,837 m², 5,983 m of perimeter around an 1143 x 746 m
+    L, 861 boundary vertices) half a perimeter walks you AROUND a corner instead
+    of ACROSS the parcel, so the two inward normals did not face each other and
+    the Hermite had to absorb the whole turn — 481 of 600 sampled candidates
+    failed the 30 m radius check, 64 more failed clearance, and none survived.
+    The face was marked stuck and shipped at 426,855 m², fourteen times the
+    median block, rendering as one huge grass sheet.
+
+    So this pass changes the two things that were actually wrong:
+
+    * THE PAIRING IS GEOMETRIC, NOT PARAMETRIC. The far end is drawn from the
+      whole perimeter and kept only when the chord genuinely crosses the parcel
+      — within ~70 degrees of the inward normal at BOTH ends. That is the test
+      the 34-66% window was standing in for.
+    * BOTH SHAPES ARE TRIED, CURVE FIRST. Curvature was the single biggest
+      rejection and a straight street has none, so the chord is tried whenever
+      the curve is refused — including when the curve is refused for bulging out
+      of the face or crowding a neighbour, which the straight cut between the
+      same two points often does not do. Trying the curve and giving up on the
+      pair was measured to throw away most of the workable cuts on the second
+      stuck face: an exhaustive 12 m grid over its perimeter found 5,358 straight
+      pairs at 63 m clearance or better, and the sampler was rejecting them.
+
+    Constraints are then relaxed in tiers, junction spacing before street
+    spacing, so a face is only ever cut tighter than `min_gap` when nothing
+    roomier exists. On the same 113,720 m² face NO pair anywhere on the
+    perimeter reaches the full 88 m gap — the parcel is a band, and that is why
+    it was stuck — but thousands clear 63 m, which is where tier two lands.
+    """
+    tiers = ((1.0, True), (0.72, True), (0.72, False), (0.5, False))
+    for (gap_factor, want_spacing) in tiers:
+        gap = min_gap * gap_factor
+        best = None
+        for _try in range(tries):
+            u0 = rng.uniform(0.0, total)
+            u1 = (u0 + total * rng.uniform(0.08, 0.92)) % total
+            a0 = _at_perimeter(parts, u0)
+            a1 = _at_perimeter(parts, u1)
+            if a0 is None or a1 is None:
+                continue
+            e0, _l0, p0, n0 = a0
+            e1, _l1, p1, n1 = a1
+            if _dist(p0, p1) < 2.0 * throat + 40.0:
+                _reject('fallback ends too close')
+                continue
+            if want_spacing and not (spaced_ok(p0) and spaced_ok(p1)):
+                _reject('fallback junction spacing')
+                continue
+            # Both ends must look INTO the parcel along the chord, or the cut
+            # merely grazes the boundary and encloses nothing worth a block.
+            chord = _unit(_sub(p1, p0))
+            if (_dot(chord, n0) < 0.35
+                    or _dot(_mul(chord, -1.0), n1) < 0.35):
+                _reject('fallback grazing')
+                continue
+            d0 = _rotate_toward(n0, chord, skew_deg)
+            d1 = _rotate_toward(n1, _mul(chord, -1.0), skew_deg)
+            a = _add(p0, _mul(d0, throat))
+            b = _add(p1, _mul(d1, throat))
+            curved = resample([p0] + hermite(a, d0, b, _mul(d1, -1.0),
+                                             tension=0.42, samples=22) + [p1],
+                              sample)
+            shapes = [curved] if min_radius(curved) >= \
+                CLASSES["local"]["min_radius_m"] else []
+            shapes.append(resample([p0, p1], sample))   # straight: no curvature
+            ignore = {e0.id, e1.id}
+            for pnt in (p0, p1):
+                nid = net.node_at(pnt, tol=1.5)
+                if nid is not None:
+                    ignore |= set(net.nodes[nid].edges)
+            for pts in shapes:
+                if any(not point_in_polygon(poly, q) for q in pts[2:-2]):
+                    _reject('fallback leaves face')
+                    continue
+                if net.clearance(pts, ignore=ignore, skip_ends_m=throat * 0.6,
+                                 limit=gap) < gap:
+                    _reject('fallback clearance')
+                    continue
+                side_a = _perimeter_arc(parts, total, u0, u1) + list(reversed(pts))
+                side_b = _perimeter_arc(parts, total, u1, u0) + list(pts)
+                area_a = abs(polygon_area(side_a))
+                area_b = abs(polygon_area(side_b))
+                if min(area_a, area_b) < min_block:
+                    _reject('fallback sliver')
+                    continue
+                # Same objective as the main pass: the shortest cut that still
+                # halves the parcel. No grain term — a face that reached here
+                # has already refused every well-behaved candidate, and
+                # preferring the plat direction over simply getting the land
+                # divided is what left it undivided in the first place.
+                score = polyline_length(pts) * (1.0 + 0.6 * abs(area_a - area_b)
+                                                / max(area_a + area_b, 1.0))
+                if best is None or score < best[0]:
+                    best = (score, pts, p0, p1)
+                break
+        if best is not None:
+            return best
+    return None
 
 
 def _best_cut(net, face, rng, parts, total, poly, node_us, want_snap, tries,
@@ -1394,6 +1513,7 @@ def _subdivide_faces(net, rng, cfg, throat, min_gap, sample, region,
     """Keep splitting the largest face until every block is near target size."""
     target = float(cfg["block_area_target_m2"])
     min_block = float(cfg["block_area_min_m2"])
+    hard_max = target * float(cfg.get("block_area_hard_max_factor", 1.5))
     made, stuck = 0, set()
     for _ in range(int(cfg["subdivide_iters"])):
         face_list = faces(net)
@@ -1404,13 +1524,20 @@ def _subdivide_faces(net, rng, cfg, throat, min_gap, sample, region,
             break
         big.sort(key=lambda f: -abs(polygon_area(f["poly"])))
         f = big[0]
+        # A face past `hard_max` is not a block, it is undivided land: the worst
+        # measured one shipped at fourteen times the median and rendered as a
+        # single grass sheet. Those are allowed the relaxed fallback cut;
+        # everything else still either takes a well formed street or is left
+        # alone, which is what keeps the fabric's measured morphology.
+        area = abs(polygon_area(f["poly"]))
         if _split_face(net, f, rng, throat, min_gap, sample, min_block, region,
                        edge_clear, junctions, spaced_ok,
                        skew_deg=float(cfg["junction_skew_deg"]),
                        four_way_chance=float(cfg["four_way_chance"]),
                        grain_w=float(cfg["grain_weight"]),
                        grain_base=grain_base, grain_swirl=grain_swirl,
-                       grain_period=float(cfg["grain_period_m"])):
+                       grain_period=float(cfg["grain_period_m"]),
+                       allow_fallback=area > hard_max):
             made += 1
         else:
             stuck.add(tuple(sorted(f["edges"])))

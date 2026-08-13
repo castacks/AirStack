@@ -220,12 +220,20 @@ usds:
       # few trees each once a density that fits the budget is set. The three
       # expensive ones are affordable HERE and not on the street for one reason
       # — an open-space pass places hundreds where a kerb places thousands.
-    # Stumps. Kept in this pool because `parks.py` selects them out of it by tag
-    # (`lib.pool("trees", tag="stump")`) and `build_city` excludes them from its
-    # street-tree pool the same way; moving them would break both silently.
-    - {usd: "CityPark/Props/SM_Stump.prop.usd",    scale: 0.01, tags: ["stump"]}
-    - {usd: "CityPark/Props/SM_Stump_02.prop.usd", scale: 0.01, tags: ["stump"]}
-    - {usd: "CityPark/Props/SM_Stump_03.prop.usd", scale: 0.01, tags: ["stump"]}
+    # BLACKLISTED, both sets. The three CityPark stumps were kept in this pool
+    # so `parks.py` could select them out of it by tag ("stump"), which works
+    # for parks and fails everywhere else: every other consumer -- the frontage
+    # planting, the yard planting, the open-space scatter -- draws from `trees`
+    # WITHOUT filtering tags, so a stump is planted as if it were a tree. The
+    # user found SM_Stump_03 standing in a lawn.
+    #
+    # Removed rather than re-tagged because a stump is not a tree in any pool a
+    # tree is drawn from, and `parks.py` falls back to the whole pool when a tag
+    # matches nothing, so it degrades to planting ordinary trees rather than
+    # breaking. Re-add only behind a pool of their own.
+    #   CityPark/Props/SM_Stump.prop.usd
+    #   CityPark/Props/SM_Stump_02.prop.usd
+    #   CityPark/Props/SM_Stump_03.prop.usd
 
   # ---- YARD PLANTING  (owner: suburb_yards.py) -------------------------------
   # Front yards and back yards want different material: a front yard is kept and

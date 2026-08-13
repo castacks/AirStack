@@ -30,6 +30,7 @@ Z ORDER, which matters because these are coplanar sheets:
     0.000   asphalt ribbons and bulbs
     0.010   block grass          (above asphalt, so the road shows between)
     0.020   driveways            (above grass — a drive crosses the verge)
+    0.026   crosswalks           (paint on the carriageway, placed not drawn)
     0.030   centreline dashes    (above everything flat)
 
 Everything above ground — houses, trees — goes through
@@ -56,10 +57,120 @@ import suburb_yardplan as yp
 # GRASS STRIP WITH WHITE LANE MARKINGS ON IT. Laying the carriageway over the
 # ground is also what actually happens: a road is built on the land, not cut
 # into a hole in it, so this ordering cannot produce that artefact at all.
-_Z_GRASS = 0.005
-_Z_ASPHALT = 0.015
-_Z_DRIVE = 0.022
-_Z_DASH = 0.030
+# Z-FIGHTING IS WHY THESE ARE SPREAD SO FAR APART.
+#
+# These are five essentially coplanar sheets covering 1600 x 1200 m. The first
+# version stacked them inside 25 mm total (0.005 to 0.030), which is far below
+# what a depth buffer can resolve at that extent: past a few hundred metres the
+# per-pixel depth step exceeds the gap, the sheets interpenetrate, and the
+# render breaks into flickering TRIANGLES AND STREAKS along the shared edges --
+# yellow ones, because the centreline dashes are the topmost layer punching
+# through the asphalt below them.
+#
+# The separation is a rendering requirement, not a physical one. Paint does not
+# sit 14 cm above a road, but at the altitude this dataset is captured from that
+# offset is far below a pixel, whereas the z-fighting it prevents is not. Keep
+# the ORDER (each layer must occlude the one under it) and keep the gaps large.
+_Z_GRASS = 0.02
+_Z_ASPHALT = 0.10
+_Z_DRIVE = 0.16
+_Z_CROSSWALK = 0.20
+_Z_DASH = 0.24
+
+# THE JUNCTION IS A ZONE, NOT A POINT, and three passes need the same one:
+# sidewalk tiles must stop before the corner, lane dashes must stop before the
+# crossing, and the crossing is drawn where the dashes stopped. All three
+# measure from the junction blob — the disc of asphalt whose radius is the half
+# width of the widest street meeting there — so they agree by construction.
+_JUNCTION_CLEAR_M = 2.5        # asphalt blob -> near edge of the crossing
+_CROSSWALK_DEPTH_M = 3.0       # nominal along-street depth of a crossing
+_SIDEWALK_CORNER_M = 6.0       # extra radius where the block rings converge
+
+# The RetroNeighborhood crossing prop. This scene's houses, streetlight,
+# hydrant, driveway and trees all come from that pack, so the crossing matches
+# them; it lives on Nucleus, so nothing has to be downloaded. Read from the
+# asset set's `usds.crosswalks` pool when one is declared and from here
+# otherwise, so wiring the pool later needs no code change.
+_CROSSWALK_USD = ("omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/"
+                  "Stages/RetroNeighborhood/Props/SM_Crosswalk.prop.usd")
+
+
+def _junction_radius(net, node):
+    """Radius of the asphalt blob at *node* — half the widest street on it."""
+    hw = [net.edges[eid].half_w for eid in node.edges
+          if net.edges[eid].road_class != "boundary"]
+    return max(hw) if hw else 0.0
+
+
+def _junction_stop_m(net, node):
+    """Distance from *node* at which paint may start again: past the blob, past
+    the clearance, past the crossing."""
+    return _junction_radius(net, node) + _JUNCTION_CLEAR_M + _CROSSWALK_DEPTH_M
+
+
+def _junction_zones(net, extra=0.0):
+    """``[(point, radius), ...]`` for every node where streets actually meet."""
+    out = []
+    for n in net.nodes.values():
+        if n.road_degree(net) >= 3:
+            out.append((n.p, _junction_radius(net, n) + extra))
+    return out
+
+
+def _in_zone(zones, p):
+    for (q, r) in zones:
+        if (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 <= r * r:
+            return True
+    return False
+
+
+class _RoadIndex:
+    """Grid hash of street centreline segments: "is this point on the road?".
+
+    WHY A POSITIVE TEST IS NEEDED. `build_frontage` offsets props inward from
+    the block polygon and trusts that polygon to be the kerb. It usually is —
+    `blocks_from_faces` insets each face by half the road width on that side —
+    but not always: where `offset_polygon` hits its mitre limit it falls back to
+    the un-mitred offset point, so the block boundary can bulge OVER the
+    carriageway, and a prop placed relative to it lands on asphalt. Trusting the
+    inset cannot detect that; measuring the distance to the centrelines can.
+
+    A prop is checked against every segment, so this has to be cheap. Each
+    segment is registered in every cell its bounding box, grown by its own half
+    width plus `_PAD`, touches — which means a query only ever has to look in
+    the single cell containing the point: anything closer than `half_w + margin`
+    for any margin up to `_PAD` necessarily registered itself there.
+    """
+
+    _PAD = 6.0
+
+    def __init__(self, net, cell=40.0):
+        self.cell = float(cell)
+        self.cells = {}
+        for e in net.edges.values():
+            if e.road_class == "boundary":
+                continue
+            hw = e.half_w
+            grow = hw + self._PAD
+            for i in range(len(e.pts) - 1):
+                a, b = e.pts[i], e.pts[i + 1]
+                seg = (a, b, hw)
+                cx0 = int(math.floor((min(a[0], b[0]) - grow) / self.cell))
+                cx1 = int(math.floor((max(a[0], b[0]) + grow) / self.cell))
+                cy0 = int(math.floor((min(a[1], b[1]) - grow) / self.cell))
+                cy1 = int(math.floor((max(a[1], b[1]) + grow) / self.cell))
+                for cx in range(cx0, cx1 + 1):
+                    for cy in range(cy0, cy1 + 1):
+                        self.cells.setdefault((cx, cy), []).append(seg)
+
+    def on_road(self, p, margin=0.0):
+        """True when *p* is within half a carriageway (+ *margin*) of a centreline."""
+        margin = min(float(margin), self._PAD)
+        key = (int(math.floor(p[0] / self.cell)), int(math.floor(p[1] / self.cell)))
+        for (a, b, hw) in self.cells.get(key, ()):
+            if sn.seg_seg_dist(p, p, a, b) < hw + margin:
+                return True
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -259,15 +370,28 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf):
     #    tangent. This is the one thing the rect pass structurally could not do:
     #    it drew a straight line down the corridor centre, which on a curved
     #    street runs off the carriageway.
+    #    MARKINGS STOP AT THE JUNCTION. Stepping dashes along the whole edge
+    #    runs paint straight through the middle of every crossing, which no real
+    #    street has: the centreline stops at the stop line and the junction box
+    #    is left clear. The setback is `_junction_stop_m`, the same zone the
+    #    crossing is placed in — so the dashes stop exactly where the crosswalk
+    #    starts, rather than the two being tuned against each other.
     period = dash_len + dash_gap
-    n_dash = 0
+    n_dash, n_dash_cut = 0, 0
     for e in net.edges.values():
         if e.road_class in ("boundary", "cul_de_sac"):
             continue
         L = e.length
+        stop_a = (_junction_stop_m(net, net.nodes[e.a])
+                  if net.nodes[e.a].road_degree(net) >= 3 else 0.0)
+        stop_b = (_junction_stop_m(net, net.nodes[e.b])
+                  if net.nodes[e.b].road_degree(net) >= 3 else 0.0)
         k = int(L / period)
         for j in range(k):
             s = (j + 0.5) * period
+            if s < stop_a or s > L - stop_b:
+                n_dash_cut += 1
+                continue
             c = sn.point_at(e.pts, s)
             t = sn.tangent_at(e.pts, s)
             yaw = math.degrees(math.atan2(t[1], t[0]))
@@ -277,7 +401,8 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf):
             n_dash += 1
 
     print(f"[suburb_scene] ground: {n_road} road ribbons, {n_bulb} turnarounds, "
-          f"{n_grass} block meshes, {n_drive} driveways, {n_dash} dashes")
+          f"{n_grass} block meshes, {n_drive} driveways, {n_dash} dashes "
+          f"({n_dash_cut} suppressed at junctions)")
 
 
 # ---------------------------------------------------------------------------
@@ -364,6 +489,20 @@ def build_frontage(config, resolver, net, blocks, rng, pools):
     block ring is a polyline, so a tile every `step` along its arclength is the
     whole loop, and the tile's yaw is the local tangent, so the pavement follows
     the street round its curve instead of stair-stepping.
+
+    TWO THINGS THE BARE RING WALK GETS WRONG, both fixed here.
+
+    THE CORNERS PILE UP. Three or four blocks meet at a junction and each lays
+    its own ring right into the corner, so the tiles overlap and heap up — the
+    junction reads as a stack of slabs rather than a crossing. Tiles inside the
+    junction zone are dropped, which leaves the corner open for the crossing
+    that `build_crosswalks` puts there.
+
+    PROPS LAND ON THE ROAD. The inward offset assumes the block polygon IS the
+    kerb; where `offset_polygon` hits its mitre limit it is not, and the prop
+    ends up on the carriageway. Every prop is therefore checked positively
+    against the street centrelines (:class:`_RoadIndex`) and dropped if it is
+    not clear of the asphalt, rather than trusted because of where it came from.
     """
     det = (config.get("city_detail") or {})
     cats = (det.get("categories") or {})
@@ -392,6 +531,10 @@ def build_frontage(config, resolver, net, blocks, rng, pools):
     else:
         step = 4.0
 
+    corners = _junction_zones(net, extra=_SIDEWALK_CORNER_M)
+    road = _RoadIndex(net)
+    n_corner = n_walk_road = n_prop_road = 0
+
     for blk in blocks:
         poly = blk["poly"]
         front = blk.get("frontage")
@@ -414,10 +557,15 @@ def build_frontage(config, resolver, net, blocks, rng, pools):
                 t = sn.tangent_at(ring, s)
                 n = sp._inward(poly, p, t)
                 q = sn._add(p, sn._mul(n, verge * 0.5))
-                u = walk[rng.randrange(len(walk))]
-                yaw = math.degrees(math.atan2(t[1], t[0]))
-                out.append(pools.place(resolver, u, "sidewalk",
-                                       q[0], q[1], yaw, rng))
+                if _in_zone(corners, q):
+                    n_corner += 1
+                elif road.on_road(q):
+                    n_walk_road += 1
+                else:
+                    u = walk[rng.randrange(len(walk))]
+                    yaw = math.degrees(math.atan2(t[1], t[0]))
+                    out.append(pools.place(resolver, u, "sidewalk",
+                                           q[0], q[1], yaw, rng))
             s += step
 
         # -- lamps and hydrants, on their own rhythm along the verge -------
@@ -432,13 +580,91 @@ def build_frontage(config, resolver, net, blocks, rng, pools):
                     t = sn.tangent_at(ring, s)
                     n = sp._inward(poly, p, t)
                     q = sn._add(p, sn._mul(n, verge))
-                    u = pool[rng.randrange(len(pool))]
-                    # Face the street: inward normal points into the block, so
-                    # the kerb is at -n.
-                    yaw = math.degrees(math.atan2(-n[1], -n[0]))
-                    out.append(pools.place(resolver, u, cat, q[0], q[1], yaw,
-                                           rng))
+                    # A lamp or hydrant standing in the carriageway is worse
+                    # than a missing one, so the margin here is wider than for
+                    # a flat paving slab: it must clear the kerb, not touch it.
+                    if road.on_road(q, margin=0.3):
+                        n_prop_road += 1
+                    else:
+                        u = pool[rng.randrange(len(pool))]
+                        # Face the street: inward normal points into the block,
+                        # so the kerb is at -n.
+                        yaw = math.degrees(math.atan2(-n[1], -n[0]))
+                        out.append(pools.place(resolver, u, cat, q[0], q[1],
+                                               yaw, rng))
                 s += sp_m
+    print(f"[suburb_scene] frontage: {len(out)} props, {n_corner} tiles dropped "
+          f"at junction corners, {n_walk_road} tiles and {n_prop_road} "
+          f"lamps/hydrants dropped for landing on the road")
+    return out
+
+
+def build_crosswalks(config, resolver, net, rng, pools):
+    """A pedestrian crossing across one approach of every street junction.
+
+    WHY NOT `road_markings`. That module paints crossings by consuming
+    AXIS-ALIGNED RECT corridors — the representation this layout does not have.
+    A crossing here is sited the way everything else in this module is sited: at
+    an arclength along a polyline centreline, yawed to the local tangent there,
+    exactly like the centreline dashes in :func:`apply_ground`.
+
+    WHERE IT GOES. At nodes with `road_degree >= 3`, one street meeting another.
+    Cul-de-sac stubs are excluded as approaches AND as the reason a node counts
+    as a junction: nobody stripes a crossing over a dead end, and a node whose
+    only extra arm is a stub is a stub junction, not a crossing. The crossing
+    sits at `_junction_stop_m` from the node — clear of the asphalt blob where
+    the carriageways overlap, and exactly where the lane dashes stop.
+
+    HOW IT IS SIZED. From the asset, not from an assumption: `resolver.get`
+    reports the prop's real sx/sy, its LONG axis is taken as the bar span
+    (a crossing is wider across the road than it is deep), and it is repeated
+    across the carriageway as many times as the street's own width needs, with
+    a residual scale so the ladder lands flush kerb to kerb instead of
+    overhanging or leaving a gap.
+    """
+    raw = _raw_pool(config, "crosswalks") or [_CROSSWALK_USD]
+    pool = pools.load(raw)
+    if not pool:
+        return []
+
+    out = []
+    for n in net.nodes.values():
+        if n.road_degree(net) < 3:
+            continue
+        arms = [net.edges[eid] for eid in n.edges
+                if net.edges[eid].road_class not in ("boundary", "cul_de_sac")
+                and net.edges[eid].street_type != "lollipop"]
+        if len(arms) < 2:
+            continue                    # a stub junction, not a crossing
+        e = arms[rng.randrange(len(arms))]
+        pts = e.pts if e.a == n.id else list(reversed(e.pts))
+        s = _junction_stop_m(net, n) - _CROSSWALK_DEPTH_M * 0.5
+        if sn.polyline_length(pts) < s + _CROSSWALK_DEPTH_M:
+            continue                    # arm too short to hold a crossing
+        c = sn.point_at(pts, s)
+        t = sn.tangent_at(pts, s)
+        across = sn._perp(t)            # the crossing runs kerb to kerb
+
+        u = pool[rng.randrange(len(pool))]
+        base_scale = pools.scale_of(u)
+        fp = resolver.get(u, "crosswalk", scale=base_scale,
+                          axis_up=pools.axis_of(u))
+        span = max(float(fp["sx"]), float(fp["sy"]))
+        if span <= 1e-3:
+            continue
+        # Repeat rather than stretch one copy: a stretched crossing has stretched
+        # bars, and the number of bars is what makes it read as a crossing.
+        reps = max(1, int(round(e.width_m / span)))
+        fit = e.width_m / (reps * span)
+        yaw = math.degrees(math.atan2(across[1], across[0]))
+        if float(fp["sy"]) > float(fp["sx"]):
+            yaw -= 90.0                 # long axis is local +Y, not +X
+        for i in range(reps):
+            off = (i - (reps - 1) * 0.5) * span * fit
+            q = sn._add(c, sn._mul(across, off))
+            out.append(pools.place(resolver, u, "crosswalk", q[0], q[1], yaw,
+                                   rng, z_extra=_Z_CROSSWALK, scale_mul=fit))
+    print(f"[suburb_scene] crosswalks: {len(out)} tiles")
     return out
 
 
@@ -480,9 +706,24 @@ def build_signs(config, resolver, net, rng, pools):
 
 
 def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0):
-    """Houses and yard trees, with every per-asset correction applied."""
+    """Houses and parcel trees, with every per-asset correction applied.
+
+    TWO TREE POOLS, PICKED ON `kind`. `suburb_parcel` already stamps every tree
+    it emits with where it belongs — "street" for the verge rhythm, "front" for
+    the specimen in the front setback, "back" for the block interior — and a
+    kerb and a back garden are not planted with the same thing. Drawing all
+    three from one pool is what put a 25.4 m crown (Black_Oak, 19.7 m tall) on
+    the verge, where it overhangs the whole carriageway.
+
+        street / front  ->  `street_trees`, modest crowns only
+        back            ->  `trees`, open space, big specimens fine
+
+    `street_trees` falls back to `trees` so an asset set that never split them
+    (any set older than suburban_v2) behaves exactly as it did before.
+    """
     houses = pools.load(_raw_pool(config, "buildings", "intact"))
-    trees = pools.load(_raw_pool(config, "trees"))
+    open_trees = pools.load(_raw_pool(config, "trees"))
+    street_trees = pools.load(_raw_pool(config, "street_trees")) or open_trees
     out = []
     if not houses:
         print("[suburb_scene] WARNING: no buildings.intact pool in asset set")
@@ -497,9 +738,11 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0):
             out.append(pools.place(resolver, u, "house", h["c"][0], h["c"][1],
                                    h["yaw_deg"] + yaw_off, rng))
         for t in p["trees"]:
-            if not trees:
-                break
-            u = trees[rng.randrange(len(trees))]
+            pool = (street_trees if t.get("kind") in ("street", "front")
+                    else open_trees)
+            if not pool:
+                continue
+            u = pool[rng.randrange(len(pool))]
             out.append(pools.place(resolver, u, "tree", t["c"][0], t["c"][1],
                                    rng.uniform(0.0, 360.0), rng))
     return out
@@ -548,6 +791,7 @@ def generate_suburb_on_stage(stage, config,
     placements += yard
     yp.report(ystats)
     placements += build_frontage(config, resolver, net, blocks, rng, pools)
+    placements += build_crosswalks(config, resolver, net, rng, pools)
     placements += build_signs(config, resolver, net, rng, pools)
     import collections as _c
     print("[suburb_scene] placements by category: %s"
