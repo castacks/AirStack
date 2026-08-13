@@ -87,6 +87,42 @@ def _resolve(name: str, search: list, what: str = "config") -> str:
                      + "\n".join(available))
 
 
+def _with_extends(path: str) -> list:
+    """*path* plus every asset set it inherits from, base last.
+
+    Asset sets chain: `suburban_v2` extends `suburban` extends `shared`, and
+    the pools live all the way down — the 15 bungalows are in `suburban.yaml`,
+    not in `suburban_v2.yaml`. Scanning only the named file reported "all 2
+    assets already cached" for a scene that actually wants 24, and the sim then
+    rendered every house as a placeholder prism. `scene_generator` resolves the
+    chain (it prints `suburban_v2.yaml <- suburban.yaml <- shared.yaml`); this
+    has to do the same, in plain YAML, because it must run without `pxr`.
+    """
+    import yaml
+    out, seen = [], set()
+    stack = [path]
+    while stack:
+        p = stack.pop(0)
+        if p in seen:
+            continue
+        seen.add(p)
+        out.append(p)
+        try:
+            with open(p) as f:
+                doc = yaml.safe_load(f) or {}
+        except OSError:
+            continue
+        base = doc.get("extends")
+        for name in ([base] if isinstance(base, str) else (base or [])):
+            try:
+                stack.append(_resolve(str(name), [ASSET_SETS_DIR], "asset set"))
+            except SystemExit:
+                raise
+            except Exception:
+                pass
+    return out
+
+
 def yaml_files_for(config: str = None, asset_set: str = None) -> list:
     """The YAML files to scan for ``objaverse://`` references.
 
@@ -96,7 +132,7 @@ def yaml_files_for(config: str = None, asset_set: str = None) -> list:
     host before the sim ever starts.
     """
     if asset_set:
-        return [_resolve(asset_set, [ASSET_SETS_DIR], "asset set")]
+        return _with_extends(_resolve(asset_set, [ASSET_SETS_DIR], "asset set"))
 
     if not config:                       # default: every asset set
         return sorted(glob.glob(os.path.join(ASSET_SETS_DIR, "*.yaml"))
@@ -119,7 +155,8 @@ def yaml_files_for(config: str = None, asset_set: str = None) -> list:
         from compile_locale import default_asset_set
         name = default_asset_set(doc["locale"])
     if name:
-        files.append(_resolve(str(name), [ASSET_SETS_DIR], "asset set"))
+        files.extend(_with_extends(
+            _resolve(str(name), [ASSET_SETS_DIR], "asset set")))
     return list(dict.fromkeys(files))    # de-dup, preserve order
 
 

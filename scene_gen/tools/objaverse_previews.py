@@ -58,6 +58,57 @@ CATEGORIES = {
                          "interior"),
     "bench_street":     ("bench", "park bench workout|weight bench|sofa"),
     "phone_booth":      ("phone booth|telephone booth|payphone", ""),
+
+    # ---- suburban park / recreation --------------------------------------
+    # A neighbourhood park is mostly SURFACES and FENCES, not props: the courts
+    # and the chain-link around them are what make it read as a park rather
+    # than as mown grass with equipment dropped on it. Excludes matter more
+    # here than for street furniture — every sports query pulls in stadiums,
+    # arenas and player characters, none of which belong in a back-of-suburb
+    # park, and "pool" without an exclude is almost entirely billiards.
+    "basketball_court": ("basketball court|basketball hoop|basketball net",
+                         "arena|stadium|nba|player|character|shoe|ball only"),
+    "tennis_court":     ("tennis court|tennis net",
+                         "arena|stadium|racket only|player|character"),
+    "volleyball_court": ("volleyball court|volleyball net|beach volleyball",
+                         "arena|stadium|player|character"),
+    "baseball_field":   ("baseball field|baseball diamond|backstop|dugout|"
+                         "batting cage",
+                         "stadium|arena|player|character|glove|bat only"),
+    "soccer_goal":      ("soccer goal|football goal|goal post|soccer net",
+                         "stadium|arena|player|character"),
+    "running_track":    ("running track|athletics track|sports track",
+                         "stadium|arena|race car|racetrack"),
+    "bleachers":        ("bleachers|grandstand|spectator seating|stadium seat",
+                         "arena interior|cinema"),
+    "chain_link_fence": ("chain link fence|chainlink|wire mesh fence|"
+                         "metal fence|steel fence",
+                         "medieval|fantasy|barbed only"),
+    "fence_generic":    ("fence|fencing|railing",
+                         "medieval|fantasy|castle|electric fence sci"),
+    "clubhouse":        ("clubhouse|pavilion|park building|community center|"
+                         "recreation center|gazebo",
+                         "medieval|fantasy|golf cart"),
+    "swimming_pool":    ("swimming pool|pool deck|diving board|pool ladder",
+                         "billiard|snooker|pool table|8 ball|cue"),
+    "playground":       ("playground|play structure|jungle gym|monkey bars|"
+                         "swing set|slide|seesaw|sandbox",
+                         "indoor|water park|character"),
+    "picnic_table":     ("picnic table|park table|picnic bench", "indoor"),
+    "park_shelter":     ("picnic shelter|park pavilion|pergola|shade structure",
+                         "medieval|fantasy"),
+    "bbq_grill":        ("bbq grill|barbecue|park grill|charcoal grill",
+                         "indoor kitchen|gas stove"),
+    "drinking_fountain": ("drinking fountain|water fountain|bubbler",
+                          "decorative fountain|garden fountain statue"),
+    "skate_park":       ("skate park|skate ramp|half pipe|quarter pipe|"
+                         "skateboard ramp", "character|skateboard only"),
+    "scoreboard":       ("scoreboard|score board", "arena jumbotron"),
+    "park_sign":        ("park sign|trail sign|wooden sign post|park entrance",
+                         "neon|medieval|tavern|shop sign"),
+    "dog_park":         ("dog park|agility equipment|dog agility", "character"),
+    "tennis_practice":  ("practice wall|handball court|pickleball court",
+                         "arena|stadium"),
 }
 
 # Big enough to judge an asset, small enough that a few thousand download fast.
