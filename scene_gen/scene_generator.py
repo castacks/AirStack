@@ -2598,90 +2598,21 @@ def build_city(config: dict, resolver: SizeResolver):
                     settle=True)
             strewn_pts.append((x, y))
 
-    # --- Path scour: debris strewn along the damage corridor itself ---------
-    # Building debris (above) hangs off each ruin, so it inherits the *layout* —
-    # it clusters on lots and stops at the property line. A tornado track
-    # doesn't: it lays a continuous band of dirt, splintered wood and scraped
-    # ground straight across lawns, streets and open fields alike, and that
-    # unbroken line is the single most recognisable thing about the aftermath.
-    # This pass fills it in, sampling the whole region and keeping points in
-    # proportion to the local damage field — so the band appears wherever the
-    # disaster is intense, tapers at its edges, and is absent entirely for a
-    # `field` that never gets there.
-    path_pieces = float(debris_rules.get("path_pieces_per_100m2", 0.0))
-    path_piles = float(debris_rules.get("path_piles_per_100m2", 0.0))
-    path_min = float(debris_rules.get("path_min_intensity", 0.25))
-    path_shape = float(debris_rules.get("path_density_shape", 1.6))
-    if (path_pieces > 0.0 or path_piles > 0.0) and (debris_piece_usds or debris_pile_usds):
-        rx0_, ry0_ = -region_w_m / 2.0, -region_h_m / 2.0
-        rx1_, ry1_ = region_w_m / 2.0, region_h_m / 2.0
-        # Densities are per 100 m² of *affected ground*, not of the region, so
-        # the same number means the same thing whether the field is a narrow
-        # tornado corridor or a hurricane's region-wide blanket. Integrating
-        # the field gives the effective affected area.
-        _n = 32
-        _mean_k = sum(damage_at(rx0_ + (rx1_ - rx0_) * (i + 0.5) / _n,
-                                ry0_ + (ry1_ - ry0_) * (j + 0.5) / _n)
-                      for i in range(_n) for j in range(_n)) / (_n * _n)
-        area_100 = (region_w_m * region_h_m) / 100.0 * _mean_k
-
-        # Density gradient, peaked on the track centerline / epicenter and
-        # tapering toward the edge — see make_scour_density's docstring for
-        # why this has to be a separate function from damage_at (which stays
-        # a flat plateau, correctly, for building/topple placement).
-        scour_density = make_scour_density(
-            dis_cfg.get("field"), (rx0_, ry0_, rx1_, ry1_), shape=path_shape)
-
-        def _scour_pt():
-            """A point on the track, or None. `damage_at` gates the extent
-            (same width/threshold the rest of the disaster uses); acceptance
-            is then weighted by the peaked density gradient, not the flat
-            field value, so the strip reads as densest at its centerline."""
-            for _ in range(12):
-                x = rng_dmg.uniform(rx0_, rx1_)
-                y = rng_dmg.uniform(ry0_, ry1_)
-                if damage_at(x, y) < path_min:
-                    continue
-                if rng_dmg.random() > scour_density(x, y):
-                    continue
-                # Keep the ground clear inside buildings that are still
-                # standing; everything else — road, sidewalk, lawn, field —
-                # is fair game, because the real thing covers all of it.
-                if any(_in_rect(x, y, r) for r in house_rects):
-                    continue
-                return x, y
-            return None
-
-        n_scour_pieces = n_scour_piles = 0
-        if debris_piece_usds and path_pieces > 0.0:
-            for _ in range(int(round(path_pieces * area_100))):
-                pt = _scour_pt()
-                if pt is None:
-                    continue
-                du = rng_dmg.choice(debris_piece_usds)
-                dfp = resolver.get(du, "debris", scale=_sc(du), axis_up=_au(du))
-                add(du, pt[0], pt[1], dfp["base"] + 0.4,
-                    rng_dmg.uniform(0.0, 360.0), "debris",
-                    _sc(du) * rng_dmg.uniform(0.7, 1.2),
-                    roll=_axis_roll(du), axis_up=_au(du), settle=True)
-                n_scour_pieces += 1
-
-        if debris_pile_usds and path_piles > 0.0:
-            for _ in range(int(round(path_piles * area_100))):
-                pt = _scour_pt()
-                if pt is None:
-                    continue
-                du = rng_dmg.choice(debris_pile_usds)
-                dfp = resolver.get(du, "debris_pile", scale=_sc(du), axis_up=_au(du))
-                add(du, pt[0], pt[1], dfp["base"] + 0.02,
-                    rng_dmg.uniform(0.0, 360.0), "debris_pile",
-                    _sc(du) * rng_dmg.uniform(0.8, 1.3),
-                    roll=_axis_roll(du), axis_up=_au(du))
-                n_scour_piles += 1
-
-        if n_scour_pieces or n_scour_piles:
-            print(f"[scene_gen] Path scour: {n_scour_pieces} pieces, "
-                  f"{n_scour_piles} piles along the damage corridor")
+    # --- Path scour ---------------------------------------------------------
+    # MOVED OUT, to `disaster/disaster_stage.py:apply_path_scour`.
+    #
+    # It emitted debris across the whole region from here — inside the LAYOUT
+    # stage — and `districts` then re-packs every block treating debris as an
+    # immovable obstacle. So the amount of scour, which is a function of
+    # severity, decided how many buildings the city ended up with: 919 at
+    # severity 0 against 869 at 0.6 for the same seed, with houses moved all
+    # over the plan. That is the exact coupling the three-stage split exists to
+    # forbid, and it is why `test_structure_invariant_to_severity` failed for
+    # every preset that has `debris.path_*` set and passed for the two that
+    # do not.
+    #
+    # Scour is disaster output, so it belongs in the disaster stage, which runs
+    # last and cannot perturb anything.
 
     # --- Summary -----------------------------------------------------------
     counts: dict = {}

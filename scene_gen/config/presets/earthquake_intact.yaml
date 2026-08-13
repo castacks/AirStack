@@ -41,7 +41,7 @@ locale: downtown
 disaster-type: earthquake
 severity: 1.0
 
-asset-set: urban
+asset-set: urban_intact
 # Matches urban_v2.yaml, so the two are directly comparable side by side.
 region_m: [800, 800]
 seed: 42

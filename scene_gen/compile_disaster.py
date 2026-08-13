@@ -15,8 +15,8 @@ config that scene_generator.py can build directly.
 
 HIGH-LEVEL SPEC
 ---------------
-    disaster-type: tornado    # none | earthquake | tornado | explosion
-                              # | flood | hurricane
+    disaster-type: tornado    # none | earthquake | tornado | hurricane
+                              # | fire | explosion | flood
     severity: 0.6             # 0..1 — 0 is pristine, 1 is as bad as that
                               #        disaster gets
 
@@ -26,7 +26,7 @@ HIGH-LEVEL SPEC
     region_m: [400, 400]      # optional — city extent
 
     # optional, disaster-specific (sensible defaults derived from the region):
-    epicenter: [0, 0]         # earthquake / explosion — where it struck
+    epicenter: [0, 0]         # earthquake / explosion / fire — where it struck
     heading_deg: 35           # tornado / hurricane — direction of travel
 
     overrides:                # optional escape hatch, deep-merged last:
@@ -143,6 +143,7 @@ def compile_none(sev, spec, region):
         "destroyed_fraction": 0.0,
         "debris": {"piles_per_building": [0, 0],
                    "pieces_per_building": [0, 0],
+                   "damaged_debris_scale": 0.0,
                    "tilt_chance": 0.0,
                    "path_pieces_per_100m2": 0.0,
                    "path_piles_per_100m2": 0.0},
@@ -171,14 +172,13 @@ def compile_earthquake(sev, spec, region):
     w, h = region
     cx, cy = spec.get("epicenter", [0.0, 0.0])
     return {
-        # Shattering. `throw` is the downwind travel as a fraction of
-        # the building radius — a windstorm carries its debris one way,
-        # a quake drops it where it stood.
+        # Shattering. WHAT it does — how deep a band comes apart, how finely,
+        # and where the pieces go — is `mesh_damage.fracture_plan`, keyed off
+        # this type, because it differs in kind between the disasters and this
+        # block was being copied identically into every one of them. What is
+        # left here is the budget: how many buildings can afford to shatter.
         "mesh_damage": {"fracture": {"enabled": True,
-                                     "cells": [18, 55],
-                                     "throw": 0.06,
-                                     "keep_base": 0.35,
-                                     "max_buildings": 40}},
+                                     "max_buildings": 60}},
         "damaged_fraction": lerp(0.05, 0.35, sev),
         "destroyed_fraction": lerp(0.02, 0.55, sev),
         "debris": {
@@ -187,6 +187,11 @@ def compile_earthquake(sev, spec, region):
             "pile_max_offset_m": lerp(2.0, 4.0, sev),
             "pieces_per_building": lerp_pair([4, 8], [14, 26], sev),
             "pieces_scatter_m": lerp(3.0, 7.0, sev),   # gravity, not wind
+            # Rubble around buildings that are damaged but still
+            # standing, relative to a destroyed one. Not zero: a
+            # cracked, half-collapsed building on a spotless lot is
+            # the most obviously wrong thing in an aerial view.
+            "damaged_debris_scale": lerp(0.35, 0.55, sev),
             # Leaning/sinking is the earthquake tell.
             "tilt_chance": lerp(0.25, 0.7, sev),
             "tilt_deg": [3, lerp(7.0, 12.0, sev)],
@@ -228,14 +233,13 @@ def compile_tornado(sev, spec, region):
     """
     w, h = region
     return {
-        # Shattering. `throw` is the downwind travel as a fraction of
-        # the building radius — a windstorm carries its debris one way,
-        # a quake drops it where it stood.
+        # Shattering. WHAT it does — how deep a band comes apart, how finely,
+        # and where the pieces go — is `mesh_damage.fracture_plan`, keyed off
+        # this type, because it differs in kind between the disasters and this
+        # block was being copied identically into every one of them. What is
+        # left here is the budget: how many buildings can afford to shatter.
         "mesh_damage": {"fracture": {"enabled": True,
-                                     "cells": [18, 55],
-                                     "throw": 0.3,
-                                     "keep_base": 0.35,
-                                     "max_buildings": 40}},
+                                     "max_buildings": 80}},
         "damaged_fraction": lerp(0.1, 0.3, sev),
         # -> 1.0 at sev=1: "total destruction in a corridor" per the docstring
         # above means everything on the track's centerline is destroyed, not
@@ -248,6 +252,11 @@ def compile_tornado(sev, spec, region):
             # Signature: many fragments, thrown far.
             "pieces_per_building": lerp_pair([6, 12], [18, 34], sev),
             "pieces_scatter_m": lerp(6.0, 18.0, sev),
+            # Rubble around buildings that are damaged but still
+            # standing, relative to a destroyed one. Not zero: a
+            # cracked, half-collapsed building on a spotless lot is
+            # the most obviously wrong thing in an aerial view.
+            "damaged_debris_scale": lerp(0.4, 0.6, sev),
             "tilt_chance": lerp(0.05, 0.2, sev),    # ripped, not sunk
             "tilt_deg": [2, 5],
             "sink_m": [0.2, 0.6],
@@ -295,14 +304,13 @@ def compile_explosion(sev, spec, region):
     w, h = region
     cx, cy = spec.get("epicenter", [0.0, 0.0])
     return {
-        # Shattering. `throw` is the downwind travel as a fraction of
-        # the building radius — a windstorm carries its debris one way,
-        # a quake drops it where it stood.
+        # Shattering. WHAT it does — how deep a band comes apart, how finely,
+        # and where the pieces go — is `mesh_damage.fracture_plan`, keyed off
+        # this type, because it differs in kind between the disasters and this
+        # block was being copied identically into every one of them. What is
+        # left here is the budget: how many buildings can afford to shatter.
         "mesh_damage": {"fracture": {"enabled": True,
-                                     "cells": [18, 55],
-                                     "throw": 0.22,
-                                     "keep_base": 0.35,
-                                     "max_buildings": 40}},
+                                     "max_buildings": 50}},
         "damaged_fraction": lerp(0.1, 0.25, sev),
         # -> 1.0 at sev=1: "nothing is left standing" at the center per the
         # docstring above.
@@ -312,6 +320,11 @@ def compile_explosion(sev, spec, region):
             "pile_max_offset_m": lerp(2.5, 4.5, sev),
             "pieces_per_building": lerp_pair([8, 16], [20, 38], sev),
             "pieces_scatter_m": lerp(7.0, 16.0, sev),
+            # Rubble around buildings that are damaged but still
+            # standing, relative to a destroyed one. Not zero: a
+            # cracked, half-collapsed building on a spotless lot is
+            # the most obviously wrong thing in an aerial view.
+            "damaged_debris_scale": lerp(0.35, 0.55, sev),
             "tilt_chance": lerp(0.15, 0.45, sev),
             "tilt_deg": [3, lerp(8.0, 14.0, sev)],
             "sink_m": [0.4, lerp(1.0, 1.8, sev)],
@@ -345,6 +358,75 @@ def compile_explosion(sev, spec, region):
     }
 
 
+def compile_fire(sev, spec, region):
+    """A conflagration: gutted inside the burn scar, untouched a street away.
+
+    Signature — the sharpest PERIMETER of any type, as opposed to the
+    explosion's sharpest gradient. A fire burns until something stops it, so
+    within the scar every building is a shell and just outside it the houses
+    are fine; there is no long tail of diminishing damage. Nothing is thrown
+    anywhere — fire moves no mass — so scatter distances are the lowest of any
+    type and debris drops at the facades. Vegetation is what carries it, so
+    trees go almost completely while steel poles stand.
+    """
+    w, h = region
+    cx, cy = spec.get("epicenter", [0.0, 0.0])
+    return {
+        # The roof and the floors under it are consumed and drop straight in;
+        # `fracture_plan` owns the band. Budget is high because a burnt-out
+        # shell is cheap — only the top of each building is cut.
+        "mesh_damage": {"fracture": {"enabled": True,
+                                     "max_buildings": 70}},
+        # Fire guts rather than flattens, so `damaged` (a standing shell) is
+        # the common outcome and total loss stays comparatively rare.
+        "damaged_fraction": lerp(0.15, 0.75, sev),
+        "destroyed_fraction": lerp(0.02, 0.30, sev),
+        "debris": {
+            # Collapsed roof material and charred timber, at the facades.
+            "piles_per_building": lerp_pair([1, 2], [3, 6], sev),
+            "pile_max_offset_m": lerp(1.5, 3.0, sev),
+            "pieces_per_building": lerp_pair([3, 7], [12, 22], sev),
+            "pieces_scatter_m": lerp(2.0, 5.0, sev),   # fire moves no mass
+            # Rubble around buildings that are damaged but still
+            # standing, relative to a destroyed one. High here: a gutted
+            # shell IS the common outcome, and it drops its whole roof.
+            "damaged_debris_scale": lerp(0.45, 0.7, sev),
+            "tilt_chance": lerp(0.05, 0.2, sev),       # burnt, not undermined
+            "tilt_deg": [2, 5],
+            "sink_m": [0.2, 0.6],
+            "lean_piles": [1, 3],
+            # A thin scatter of ash and burnt debris over the whole scar.
+            "path_pieces_per_100m2": lerp(0.3, 1.2, sev),
+            "path_piles_per_100m2": lerp(0.05, 0.3, sev),
+            "path_min_intensity": 0.3,
+        },
+        "trees_toppled_fraction": lerp(0.5, 0.95, sev),   # the fuel
+        "streetlights_toppled_fraction": lerp(0.02, 0.12, sev),  # steel stands
+        "traffic_lights_toppled_fraction": lerp(0.02, 0.1, sev),
+        "traffic_lights_leaning_fraction": lerp(0.05, 0.2, sev),
+        "traffic_lights_lean_deg": [5, 15],
+        "trash_cans_toppled_fraction": lerp(0.3, 0.7, sev),   # melted in place
+        "trash_cans_scatter_m": lerp(0.2, 0.8, sev),
+        "cars_toppled_fraction": lerp(0.01, 0.08, sev),   # burnt where parked
+        "cars_strewn": lerp_pair([0, 1], [1, 3], sev),
+        "strewn_topple_fraction": 0.15,
+        "humans_prone_fraction": lerp(0.1, 0.6, sev),
+        "humans_strewn": lerp_pair([0, 2], [3, 8], sev),
+        # The burn scar: a wide core at full strength with a SHORT falloff and
+        # nothing outside — a perimeter, not a gradient. That short falloff
+        # against a large radius is what separates it from `explosion`, which
+        # is a small radius against a long one.
+        "field": {
+            "kind": "radial",
+            "center": [float(cx), float(cy)],
+            "radius_m": round(max(w, h) * lerp(0.12, 0.38, sev), 1),
+            "falloff_m": round(max(w, h) * 0.05, 1),
+            "inside": 1.0,
+            "outside": 0.0,
+        },
+    }
+
+
 def compile_flood(sev, spec, region):
     """Water came through: little structural loss, everything light displaced.
 
@@ -361,6 +443,11 @@ def compile_flood(sev, spec, region):
             "pile_max_offset_m": lerp(2.5, 5.0, sev),   # deposited, not dropped
             "pieces_per_building": lerp_pair([3, 7], [10, 20], sev),
             "pieces_scatter_m": lerp(5.0, 12.0, sev),   # floated outward
+            # Rubble around buildings that are damaged but still
+            # standing, relative to a destroyed one. Not zero: a
+            # cracked, half-collapsed building on a spotless lot is
+            # the most obviously wrong thing in an aerial view.
+            "damaged_debris_scale": lerp(0.25, 0.4, sev),
             "tilt_chance": lerp(0.1, 0.4, sev),         # undermined footings
             "tilt_deg": [2, lerp(5.0, 9.0, sev)],
             "sink_m": [0.3, lerp(0.8, 1.5, sev)],
@@ -398,14 +485,13 @@ def compile_hurricane(sev, spec, region):
     zone and no narrow track.
     """
     return {
-        # Shattering. `throw` is the downwind travel as a fraction of
-        # the building radius — a windstorm carries its debris one way,
-        # a quake drops it where it stood.
+        # Shattering. WHAT it does — how deep a band comes apart, how finely,
+        # and where the pieces go — is `mesh_damage.fracture_plan`, keyed off
+        # this type, because it differs in kind between the disasters and this
+        # block was being copied identically into every one of them. What is
+        # left here is the budget: how many buildings can afford to shatter.
         "mesh_damage": {"fracture": {"enabled": True,
-                                     "cells": [18, 55],
-                                     "throw": 0.18,
-                                     "keep_base": 0.35,
-                                     "max_buildings": 40}},
+                                     "max_buildings": 60}},
         "damaged_fraction": lerp(0.08, 0.4, sev),
         "destroyed_fraction": lerp(0.03, 0.3, sev),
         "debris": {
@@ -413,6 +499,11 @@ def compile_hurricane(sev, spec, region):
             "pile_max_offset_m": lerp(2.0, 3.5, sev),
             "pieces_per_building": lerp_pair([4, 9], [14, 26], sev),
             "pieces_scatter_m": lerp(5.0, 12.0, sev),
+            # Rubble around buildings that are damaged but still
+            # standing, relative to a destroyed one. Not zero: a
+            # cracked, half-collapsed building on a spotless lot is
+            # the most obviously wrong thing in an aerial view.
+            "damaged_debris_scale": lerp(0.3, 0.5, sev),
             "tilt_chance": lerp(0.1, 0.3, sev),
             "tilt_deg": [2, 7],
             "sink_m": [0.3, 0.9],
@@ -442,6 +533,7 @@ DISASTERS = {
     "earthquake": compile_earthquake,
     "tornado": compile_tornado,
     "explosion": compile_explosion,
+    "fire": compile_fire,
     "flood": compile_flood,
     "hurricane": compile_hurricane,
 }

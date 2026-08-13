@@ -5,16 +5,18 @@
 # offline, this adds the Objaverse and AEC content that does. Point a
 # config at `urban_nucleus` to build without either.
 #
-# ASSET SET: urban_v2 — the urban set plus a proper street-furniture library.
-#
-# Extends `urban` (which extends `shared`), so buildings and debris come across
-# unchanged and this file only adds what the detailed street needs. Nothing in
-# `urban.yaml` or `shared.yaml` is edited — the old scenes keep working.
+# WHAT THIS FILE DOES AND DOES NOT DEFINE. It adds a proper street-furniture
+# library on top of the inherited set. It defines NO `buildings` and NO
+# `debris` of its own — both come across from `urban_nucleus` untouched, so a
+# scene on this set places Nucleus rubble even though the word `debris` does
+# not appear below. `deep_merge` cannot narrow an inherited dict either, so an
+# empty `debris: {}` here would not remove them; only pointing at a different
+# parent would.
 #
 # New categories here are consumed by `city_detail.py`, not by
-# `scene_generator.build_city`. The built-in frontage passes are switched off in
-# `low_level/urban_v2.yaml` by setting their spacings to 0, so there is exactly
-# one owner of street furniture.
+# `scene_generator.build_city`. The built-in frontage passes are switched off
+# by `low_level/default.yaml` setting their spacings to 0 for this locale, so
+# there is exactly one owner of street furniture.
 #
 # The NVIDIA AEC assets are git-ignored and staged locally; see
 # `../../assets/aec/README.md` for re-extraction. All of them are

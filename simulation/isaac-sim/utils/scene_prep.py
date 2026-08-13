@@ -148,7 +148,8 @@ def add_colliders(prim):
 # ---------------------------------------------------------------------------
 
 def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
-                       ground_path: str = None) -> int:
+                       ground_path: str = None, max_travel_m: float = 12.0,
+                       report: int = 5) -> int:
     """Drop props to a natural resting pose under physics, then freeze them.
 
     The scene generator places toppled/strewn props (flipped cars, downed
@@ -163,6 +164,37 @@ def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
 
     *ground_path*, if given, gets static colliders applied first (the props
     need something to land on — pass the generated ground subtree).
+
+    PROPS THAT START INSIDE EACH OTHER
+    ----------------------------------
+    The generator scatters debris on a ring around each ruin without testing
+    what is already there, so props routinely spawn overlapping — measured on
+    a severity-0.8 suburb, **75% of settle-marked props start interpenetrating
+    something**, median 0.14 m but p90 2.66 m and worst 6.91 m, with one piece
+    inside 25 others. PhysX resolves penetration with a separating impulse
+    proportional to depth, so metres of overlap on a metre-wide piece is a
+    catapult: it leaves at high speed and is still travelling when the sim
+    ends, which is how debris turns up hundreds of metres outside the scene.
+    The Blender prototype hit the same wall and documents it — "the solver
+    resolves that by launching them apart... debris ends up scattered over
+    many building-widths".
+
+    Two defences, because neither is sufficient alone:
+
+    * **`maxDepenetrationVelocity`** caps how fast the solver may push
+      overlapping bodies apart. This is PhysX's own knob for exactly this and
+      it treats the cause: pieces ooze out of each other instead of being
+      fired. `maxLinearVelocity` bounds the damage from anything that still
+      picks up speed.
+    * **`max_travel_m`** is the safety net: any prop that still ends up
+      further than that from where it started is *reverted to its authored
+      pose* rather than left where it flew. Reverting, not deleting — unlike
+      the prototype's fragments these are placements the generator chose
+      deliberately, and its spot is a better answer than a solver artifact.
+      This mirrors the existing fall-through-the-ground case.
+
+    *report* prints that many worst-travelled props, so a run says whether the
+    clamps are holding rather than leaving it to be eyeballed in the viewport.
 
     Call BEFORE spawning robot/vehicle graphs: the timeline runs briefly.
     Returns the number of props settled.
@@ -186,16 +218,38 @@ def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
         UsdPhysics.Scene.Define(stage, Sdf.Path("/World/PhysicsScene"))
         print("[scene_prep] settle: defined /World/PhysicsScene")
 
+    # Optional: only inside Isaac's Kit python, not in plain usd-core. Without
+    # it the clamps are skipped and only `max_travel_m` catches the launches.
+    try:
+        from pxr import PhysxSchema
+    except ImportError:
+        PhysxSchema = None
+
+    mpu = UsdGeom.GetStageMetersPerUnit(stage) or 1.0
+
     # Dynamic rigid bodies need convex colliders (triangle-mesh collision is
     # static-only in PhysX) — approximate every gprim under each prop.
     for prim in prims:
         UsdPhysics.RigidBodyAPI.Apply(prim)
+        if PhysxSchema is not None:
+            rb = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
+            # 1 m/s out of a penetration is plenty to separate a prop over a
+            # 3 s sim and far too slow to throw one across the map. 20 m/s
+            # then bounds anything that picks up speed some other way.
+            rb.CreateMaxDepenetrationVelocityAttr().Set(1.0 / mpu)
+            rb.CreateMaxLinearVelocityAttr().Set(20.0 / mpu)
         for gp in Usd.PrimRange(prim):
             if gp.IsA(UsdGeom.Gprim):
                 UsdPhysics.CollisionAPI.Apply(gp)
             if gp.IsA(UsdGeom.Mesh):
                 mc = UsdPhysics.MeshCollisionAPI.Apply(gp)
                 mc.CreateApproximationAttr().Set(UsdPhysics.Tokens.convexHull)
+
+    # Where everything started, so the freeze pass can tell a prop that settled
+    # from one that was fired.
+    start_cache = UsdGeom.XformCache()
+    start = {p.GetPath(): start_cache.GetLocalToWorldTransform(p)
+             .ExtractTranslation() for p in prims}
 
     app = omni.kit.app.get_app()
     timeline = omni.timeline.get_timeline_interface()
@@ -208,32 +262,53 @@ def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
         app.update()
 
     # Capture settled transforms before stopping (stop resets the sim pose).
-    mpu = UsdGeom.GetStageMetersPerUnit(stage) or 1.0
     floor_z = -2.0 / mpu    # anything below fell through the ground
+    limit = max_travel_m / mpu
     cache = UsdGeom.XformCache()
     settled = {}
     for prim in prims:
         world = cache.GetLocalToWorldTransform(prim)
         parent_world = cache.GetLocalToWorldTransform(prim.GetParent())
-        settled[prim.GetPath()] = (world * parent_world.GetInverse(),
-                                   world.ExtractTranslation()[2])
+        pos = world.ExtractTranslation()
+        settled[prim.GetPath()] = (world * parent_world.GetInverse(), pos)
     timeline.stop()
     app.update()
 
-    n_ok = n_lost = 0
+    n_ok = n_lost = n_flung = 0
+    travel = []
     for prim in prims:
-        local, world_z = settled[prim.GetPath()]
-        if world_z < floor_z:
+        local, pos = settled[prim.GetPath()]
+        moved = (pos - start[prim.GetPath()]).GetLength()
+        travel.append((moved * mpu, prim.GetPath()))
+        if pos[2] < floor_z:
             n_lost += 1     # tunnelled through the ground — keep authored pose
+        elif moved > limit:
+            # Launched out of a penetration. Its authored spot is where the
+            # generator meant it to be; a solver artifact hundreds of metres
+            # away is not an improvement on that.
+            n_flung += 1
         else:
             xform = UsdGeom.Xformable(prim)
             xform.ClearXformOpOrder()
             xform.AddTransformOp().Set(local)
             n_ok += 1
         prim.RemoveAPI(UsdPhysics.RigidBodyAPI)
+
+    travel.sort(reverse=True)
+    med = travel[len(travel) // 2][0] if travel else 0.0
     print(f"[scene_prep] settle: froze {n_ok} props at rest"
           + (f", {n_lost} fell through the ground (kept authored pose)"
-             if n_lost else ""))
+             if n_lost else "")
+          + (f", {n_flung} flung past {max_travel_m:.0f} m (reverted)"
+             if n_flung else ""))
+    if travel:
+        print(f"[scene_prep] settle: travel median {med:.2f} m, "
+              f"max {travel[0][0]:.1f} m")
+    if report and travel and travel[0][0] > max_travel_m:
+        print(f"[scene_prep] settle: worst {min(report, len(travel))} — "
+              "these started inside other geometry:")
+        for d, path in travel[:report]:
+            print(f"    {d:8.1f} m  {path}")
     return n_ok
 
 

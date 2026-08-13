@@ -1,0 +1,22 @@
+# HIGH-LEVEL scene spec — see earthquake.yaml for the full key list.
+#
+# A conflagration. Inside the burn scar every building is a gutted shell —
+# roof consumed and dropped in, walls standing, everything charred — and a
+# street outside it the houses are untouched. Fire moves no mass, so nothing
+# is thrown anywhere: the debris is the roof, at the facades it fell from.
+#
+# The sharp PERIMETER is the tell, and it is what distinguishes this from
+# `explosion` (which has the sharpest gradient, not the sharpest edge) and
+# from `tornado` (whose edge is a corridor, not a ring).
+
+locale: downtown      # downtown | suburban | rural — how the place is laid out
+
+disaster-type: fire
+severity: 0.6
+
+epicenter: [0, 0]     # where it started; the scar spreads from here
+
+# 800 m, matching downtown.yaml, so the disaster presets are directly
+# comparable with the pristine baseline and with each other.
+region_m: [800, 800]
+seed: 42

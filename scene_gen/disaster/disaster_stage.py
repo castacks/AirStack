@@ -144,7 +144,9 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
     class of bug unreachable.
 
     Mutates house placements in place (usd swap, roll/pitch/z) and appends
-    debris. Returns a tally.
+    debris around **every** building the disaster touched, scaled by how ruined
+    it ended up — see the `debris_scale` note at the emission block for why
+    that used to be only the asset-swapped ruins. Returns a tally.
     """
     dis = _stage(config, "disaster")
     region = layout.get("region")
@@ -161,6 +163,22 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
         return {}
 
     rng = random.Random(int(config.get("seed", 0)) + 5501)
+
+    # HOW HARD a building is hit, as opposed to WHETHER it is hit.
+    #
+    # The damage field is spatial: it says this spot is in the corridor, or at
+    # the epicentre. It does not say how bad the event was — `compile_*` gives
+    # earthquake and hurricane a field that reads exactly 1.0 in the core at
+    # every severity, and only the *fractions* move. So mesh damage, which
+    # takes its intensity straight from the field, wrecked every building it
+    # touched at full strength whatever the severity: a 0.2 quake and a 1.0
+    # quake produced identical ruins, and only their number differed. The
+    # severity sweep in the damage gallery is where that finally showed.
+    #
+    # Severity is therefore folded in here. Hand-written low-level configs may
+    # not carry it, and 1.0 is the right default for them — it is what they
+    # already got.
+    sev = float(dis.get("severity", 1.0))
 
     # Pools and per-asset conventions, resolved the same way build_city does.
     usds = config.get("usds") or {}
@@ -194,6 +212,10 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
     pile_max_off = float(rules.get("pile_max_offset_m", 3.0))
     pieces_per = rules.get("pieces_per_building", [10, 20])
     pieces_scatter = float(rules.get("pieces_scatter_m", 6.0))
+    # How much rubble a building that is DAMAGED but still standing sheds,
+    # relative to one that was destroyed. See the emission block below for why
+    # this is not zero — which is what it effectively was.
+    damaged_debris = float(rules.get("damaged_debris_scale", 0.45))
     tilt_chance = float(rules.get("tilt_chance", 0.35))
     tilt_deg = rules.get("tilt_deg", [2.0, 6.0])
     sink_m = rules.get("sink_m", [0.4, 1.2])
@@ -222,8 +244,8 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
     def _hit(x, y, frac):
         return frac > 0.0 and rng.random() < frac * field(x, y)
 
-    def _hit_count(x, y, rng_pair):
-        k = field(x, y)
+    def _hit_count(x, y, rng_pair, scale=1.0):
+        k = field(x, y) * scale
         if k <= 0.0:
             return 0
         return int(round(rng.randint(int(rng_pair[0]), int(rng_pair[1])) * k))
@@ -295,19 +317,45 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
             # The tilt-and-sink below is the fallback's fallback — it is what
             # the generator has always done, and on its own it reads as the
             # building being drunk rather than having failed.
-            p["_mesh_damage"] = float(k)
+            #
+            # Local field x how bad the event was — see the note at `sev`.
+            p["_mesh_damage"] = float(k) * sev
             p["roll_deg"] = axis_roll + rng.uniform(-6.0, 6.0)
             p["pitch_deg"] = rng.uniform(-6.0, 6.0)
             p["z_m"] -= rng.uniform(0.1, 0.4)
         tally["damaged" if not is_destroyed else "destroyed"] = \
             tally.get("damaged" if not is_destroyed else "destroyed", 0) + 1
 
-        if not is_destroyed:
+        # HOW MUCH RUBBLE THIS BUILDING SHED.
+        #
+        # Debris used to be emitted only under `if is_destroyed`, and
+        # `is_destroyed` is true only when a purpose-built ruin asset was
+        # swapped in. So every other outcome — a building the mesh-damage pass
+        # pancaked and shattered, a damaged-pool swap, a destroyed building
+        # whose footprint no ruin fitted — got a wrecked structure standing on
+        # a spotlessly clean lot. That is the single most obviously wrong thing
+        # in an aerial view of a damaged block, and it is also what the search
+        # algorithms fly over: debris is occupancy, so its absence changed what
+        # the scene meant, not just how it looked.
+        #
+        # Now every damaged building drops rubble, in proportion to how ruined
+        # it is. `_hit_count` already scales by the local field, so this is the
+        # fate multiplier on top of it: a collapsed ruin sheds all of it, one
+        # that is merely cracked sheds `damaged_debris_scale` of it, and the
+        # spread shrinks with it too — a standing building drops its rubble at
+        # its own facade, it does not throw it across the street.
+        # `want_destroyed` rather than `is_destroyed`: a building whose fate was
+        # destruction but whose footprint no ruin asset fitted was mesh-damaged
+        # instead. It is still a destroyed building and still sheds a destroyed
+        # building's rubble — `is_destroyed` only records which MECHANISM ran.
+        debris_scale = 1.0 if (is_destroyed or want_destroyed) else damaged_debris
+        if debris_scale <= 0.0:
             continue
+        reach = 0.35 + 0.65 * debris_scale
 
         # A leaning ruin piles rubble against the side now overhanging.
         lean_dir = None
-        if _hit(cx, cy, tilt_chance):
+        if is_destroyed and _hit(cx, cy, tilt_chance):
             t_roll = rng.choice([-1.0, 1.0]) * rng.uniform(
                 float(tilt_deg[0]), float(tilt_deg[1]))
             t_pitch = rng.choice([-1.0, 1.0]) * rng.uniform(
@@ -353,9 +401,9 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
             tally[cat] = tally.get(cat, 0) + 1
 
         if pile_usds:
-            for _ in range(_hit_count(cx, cy, piles_per)):
+            for _ in range(_hit_count(cx, cy, piles_per, debris_scale)):
                 du = rng.choice(pile_usds)
-                x_, y_ = _ring_pos(-1.0, pile_max_off)
+                x_, y_ = _ring_pos(-1.0, pile_max_off * reach)
                 _emit(du, x_, y_, _fp(du, "debris_pile")["base"] + 0.02,
                       "debris_pile", _sc(du) * rng.uniform(0.8, 1.2))
             if lean_dir is not None:
@@ -369,9 +417,9 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
                           "debris_pile", _sc(du) * rng.uniform(0.8, 1.2))
 
         if piece_usds:
-            for _ in range(_hit_count(cx, cy, pieces_per)):
+            for _ in range(_hit_count(cx, cy, pieces_per, debris_scale)):
                 du = rng.choice(piece_usds)
-                x_, y_ = _ring_pos(0.3, pieces_scatter)
+                x_, y_ = _ring_pos(0.3, pieces_scatter * reach)
                 _emit(du, x_, y_, _fp(du, "debris")["base"] + 0.4,
                       "debris", _sc(du) * rng.uniform(0.7, 1.2), settle=True)
 
@@ -441,4 +489,169 @@ def apply(config: dict, layout: dict, placements: list,
         top = sorted(tally.items(), key=lambda kv: -kv[1])[:6]
         print(f"[disaster] {n} props hit  "
               + "  ".join(f"{c}={v}" for c, v in top))
+    return tally
+
+
+def apply_path_scour(config: dict, layout: dict, placements: list,
+                     resolver) -> dict:
+    """Strew debris along the damage corridor itself. Returns a tally.
+
+    Building debris hangs off each ruin, so it inherits the *layout*: it
+    clusters on lots and stops at the property line. A tornado track does not.
+    It lays a continuous band of dirt, splintered wood and scraped ground
+    straight across lawns, streets and open fields alike, and that unbroken
+    line is the single most recognisable thing about the aftermath from the
+    air. This fills it in, sampling the whole region and keeping points in
+    proportion to the local damage field — so the band appears wherever the
+    disaster is intense, tapers at its edges, and is absent entirely for a
+    `field` that never gets there.
+
+    WHY IT LIVES HERE AND NOT IN `build_city`
+    -----------------------------------------
+    It used to run inside `build_city`, i.e. in the LAYOUT stage, and
+    `districts` then re-packs every block treating debris as an immovable
+    obstacle. So how much scour a severity produced decided how many buildings
+    the city ended up with — 919 at severity 0 against 869 at 0.6 on the same
+    seed, houses moved all over the plan. Scour is disaster output; running it
+    in the stage that runs last is what makes it unable to perturb anything.
+
+    Draws come from the disaster stream, distinct from the layout stream, for
+    the reason in this module's header.
+    """
+    from scene_generator import make_scour_density
+
+    dis = _stage(config, "disaster")
+    region = layout.get("region")
+    if not dis or not region:
+        return {}
+
+    rules = dis.get("debris") or {}
+    path_pieces = float(rules.get("path_pieces_per_100m2", 0.0))
+    path_piles = float(rules.get("path_piles_per_100m2", 0.0))
+    if path_pieces <= 0.0 and path_piles <= 0.0:
+        return {}
+
+    field = make_damage_field(dis.get("field"), tuple(region))
+    if field.hi <= 0.0:
+        return {}
+
+    usds = config.get("usds") or {}
+    scale = float(config.get("asset_scale", 1.0))
+    root = str(config.get("asset_root", "") or "")
+    scale_of: dict = {}
+    axis_of: dict = {}
+
+    def _pool(entries):
+        paths, sc_ovr, au_ovr, _yaw, _tags = _normalize_usd_list(
+            entries or [], scale, root)
+        scale_of.update(sc_ovr or {})
+        axis_of.update(au_ovr or {})
+        return paths
+
+    debris_cfg = usds.get("debris") or {}
+    piece_usds = _pool(debris_cfg.get("pieces"))
+    pile_usds = _pool(debris_cfg.get("piles"))
+    if not piece_usds and not pile_usds:
+        return {}
+
+    def _sc(u):
+        return float(scale_of.get(u, scale))
+
+    def _au(u):
+        return str(axis_of.get(u, "Z"))
+
+    def _axis_roll(u):
+        return 90.0 if _au(u) == "Y" else 0.0
+
+    x0, y0, x1, y1 = (float(v) for v in region)
+    rng = random.Random(int(config.get("seed", 0)) + 7717)
+    path_min = float(rules.get("path_min_intensity", 0.25))
+    path_shape = float(rules.get("path_density_shape", 1.6))
+    exclusions = config.get("exclusions") or []
+
+    # Densities are per 100 m2 of *affected ground*, not of the region, so the
+    # same number means the same thing whether the field is a narrow tornado
+    # corridor or a hurricane's region-wide blanket. Integrating the field
+    # gives the effective affected area.
+    n_ = 32
+    mean_k = sum(field(x0 + (x1 - x0) * (i + 0.5) / n_,
+                       y0 + (y1 - y0) * (j + 0.5) / n_)
+                 for i in range(n_) for j in range(n_)) / (n_ * n_)
+    area_100 = (x1 - x0) * (y1 - y0) / 100.0 * mean_k
+
+    # Density gradient, peaked on the track centerline / epicenter and tapering
+    # toward the edge — see `make_scour_density` for why this has to be
+    # separate from the field itself, which stays a flat plateau (correctly)
+    # for building and topple placement.
+    density = make_scour_density(dis.get("field"), (x0, y0, x1, y1),
+                                 shape=path_shape)
+
+    # Buildings as they FINALLY stand — this runs after districts has rezoned
+    # and after fate has been assigned, so it is the real footprint list, not
+    # the one build_city happened to have mid-pass.
+    house_rects = []
+    for p in placements:
+        if p.get("category") != "house":
+            continue
+        fp = p.get("_footprint_m")
+        if not fp:
+            f = resolver.get(p["usd"], "house", scale=p.get("scale", scale),
+                             axis_up=p.get("axis_up", "Z"))
+            fp = (f["sx"], f["sy"])
+        house_rects.append((p["x_m"], p["y_m"], fp[0] / 2.0, fp[1] / 2.0))
+
+    def _point():
+        """A point on the track, or None.
+
+        The field gates the extent (same threshold the rest of the disaster
+        uses); acceptance is then weighted by the peaked density gradient
+        rather than the flat field value, so the strip reads as densest along
+        its centerline.
+        """
+        for _ in range(12):
+            x, y = rng.uniform(x0, x1), rng.uniform(y0, y1)
+            if field(x, y) < path_min:
+                continue
+            if rng.random() > density(x, y):
+                continue
+            # Keep the ground clear inside buildings that are still standing;
+            # everything else — road, sidewalk, lawn, field — is fair game,
+            # because the real thing covers all of it.
+            if any(abs(x - hx) <= hw and abs(y - hy) <= hh
+                   for hx, hy, hw, hh in house_rects):
+                continue
+            if exclusions and _in_exclusion(x, y, exclusions):
+                continue
+            return x, y
+        return None
+
+    tally: dict = {}
+    new: list = []
+
+    def _emit(pool, cat, n, lift, scale_lo, scale_hi, settle):
+        for _ in range(int(round(n))):
+            pt = _point()
+            if pt is None:
+                continue
+            u = rng.choice(pool)
+            fp = resolver.get(u, cat, scale=_sc(u), axis_up=_au(u))
+            q = {"usd": u, "x_m": pt[0], "y_m": pt[1], "z_m": fp["base"] + lift,
+                 "yaw_deg": rng.uniform(0.0, 360.0), "roll_deg": _axis_roll(u),
+                 "pitch_deg": 0.0, "category": cat, "axis_up": _au(u),
+                 "scale": _sc(u) * rng.uniform(scale_lo, scale_hi)}
+            if settle:
+                q["settle"] = True
+            new.append(q)
+            tally[cat] = tally.get(cat, 0) + 1
+
+    if piece_usds and path_pieces > 0.0:
+        _emit(piece_usds, "debris", path_pieces * area_100, 0.4, 0.7, 1.2, True)
+    if pile_usds and path_piles > 0.0:
+        _emit(pile_usds, "debris_pile", path_piles * area_100, 0.02, 0.8, 1.3,
+              False)
+
+    placements.extend(new)
+    if tally:
+        print("[disaster] path scour  "
+              + "  ".join(f"{k}={v}" for k, v in sorted(tally.items())))
     return tally

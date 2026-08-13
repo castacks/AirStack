@@ -1,46 +1,62 @@
-"""plan_png.py — top-down plan of the layout, without Isaac Sim.
+"""plan_png.py — top-down plan of a generated scene, without Isaac Sim.
 
-    python3 tools/plan_png.py --config urban_v2 --out /tmp/plan.png
+    python3 tools/plan_png.py --config earthquake
 
-WHY THIS WORKS WITHOUT USD
+Writes two maps beside each other:
+
+    <config>_layout.png   the PRISTINE scene — stages 1+2, before any damage
+    <config>_damage.png   the same scene after stage 3, shaded by what the
+                          disaster did to it, over the damage field
+
+THE SAME PIPELINE THE SIM RUNS
+------------------------------
+This calls `compile_disaster.load_scene_config` and `generate_scene.build_scene`
+— the exact two entry points `scene_launch_script.py` uses under `airstack up`.
+It does not reimplement compilation or re-run the stages by hand, because a
+preview that drifts from the thing it previews is worse than no preview: this
+tool used to call `sg.build_city` directly and so never saw `city_detail` or the
+disaster stage at all, and silently kept showing a pristine city for a preset
+whose whole point was damage.
+
+    airstack up   ->  load_scene_config  ->  build_scene  ->  apply_placements
+                                                              mesh_damage
+    plan_png      ->  load_scene_config  ->  build_scene  ->  matplotlib
+
+The split is at exactly the point where the scene stops being numbers and
+becomes geometry. Everything left of it is shared; everything right of it is
+what this tool exists to avoid paying for.
+
+THE ONE DEVIATION, AND WHY
 --------------------------
-`build_city` is pure geometry: 1,600 lines that never touch a USD API. It needs
-`pxr` only because `scene_generator` imports it at module scope, and it needs a
-*resolver* only to ask each asset how big it is. Stub the first and answer the
-second from the measurements already recorded in the asset-set comments, and the
-whole layout pipeline — subdivision, packing, districts, parks — runs on the
-host in a second.
-
-That turns "is the layout right?" from a container launch into a PNG, which is
-the loop worth having while the layout is still moving.
+The resolver. `sg._make_resolver` measures real USD bounding boxes, which needs
+every asset resolvable — Nucleus included. `StubResolver` answers from the
+sizes already recorded in the asset-set comments instead, so the whole thing
+runs on the host in about a second. That is the only substitution, and
+un-measured assets are counted in the subtitle so you know which footprints not
+to trust.
 
 WHAT IT IS NOT
 --------------
 A render. It shows WHERE things are, not what they look like: no materials, no
-heights, no props. Footprints come from the comments, so an asset whose comment
-is stale or missing falls back to `fallback_sizes` and is drawn hatched — those
-are the ones not to trust.
+heights, no mesh damage. `_mesh_damage` is an INTENSITY, and the failure mode a
+building will suffer is not chosen until `mesh_damage.apply_to_stage` deforms
+it — so the damage map can show how hard a building was hit and by which
+mechanism, but not how it ends up looking. For that, use
+`tools/damage_gallery.py`.
+
+Needs `usd-core` on the interpreter (system `python3`), the same as
+`preset_report.py` and `tests/` — `scene_generator` imports `pxr` at module
+scope. Nothing here calls a USD API.
 """
 
 import argparse
 import os
 import re
 import sys
-import types
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _SCENE_GEN = os.path.dirname(_HERE)
 sys.path.insert(0, _SCENE_GEN)
-
-# scene_generator imports pxr at module scope; nothing we call touches it.
-for _m in ("pxr", "pxr.Gf", "pxr.Sdf", "pxr.Usd", "pxr.UsdGeom",
-           "pxr.UsdShade", "pxr.UsdSkel", "pxr.Vt", "pxr.UsdPhysics"):
-    sys.modules.setdefault(_m, types.ModuleType(_m))
-for _n in ("Gf", "Sdf", "Usd", "UsdGeom", "UsdShade", "UsdSkel", "Vt",
-           "UsdPhysics"):
-    setattr(sys.modules["pxr"], _n, types.ModuleType(_n))
-
-import yaml                                                    # noqa: E402
 
 # "# 21.1 x  6.8 x 14.2 m" — the format every measured comment already uses.
 _SIZE = re.compile(r"#\s*([\d.]+)\s*x\s*([\d.]+)\s*x\s*([\d.]+)\s*m")
@@ -94,42 +110,92 @@ class StubResolver:
                 "cx": 0.0, "cy": 0.0}
 
 
-def build(config_name):
-    import random
-    from compile_disaster import resolve_config_path, compile_spec, DEFAULT_BASE
-    import scene_generator as sg
-    from layout import city_layout
-    from detail import districts
+def build(config_name, stop_after="disaster"):
+    """Compile and run the generator exactly as the launch script does.
+
+    `stop_after="detail"` yields the pristine scene (stages 1+2); the default
+    runs the disaster stage too. Both come from the same `build_scene` call the
+    sim makes, so the two maps cannot disagree with each other or with it.
+    """
+    from compile_disaster import load_scene_config, resolve_config_path
+    import generate_scene
 
     path = resolve_config_path(config_name)
-    cfg = compile_spec(yaml.safe_load(open(path)),
-                       yaml.safe_load(open(DEFAULT_BASE)))
-    cfg = sg.resolve_asset_set(cfg, path)
-    cfg["measure_usds"] = False
+    cfg = load_scene_config(path)          # <- what scene_launch_script calls
+    cfg["measure_usds"] = False            # StubResolver answers instead
 
     sets = os.path.join(_SCENE_GEN, "config", "asset_sets")
     sizes = measured_sizes([os.path.join(sets, f)
                             for f in os.listdir(sets) if f.endswith(".yaml")])
     res = StubResolver(sizes, cfg.get("fallback_sizes"))
-    rng = random.Random(int(cfg.get("seed", 0)) + 7717)
 
-    with city_layout.patched(cfg):
-        placements, layout = sg.build_city(cfg, res)
-    da, rings = districts.assign(cfg, layout)
-    if rings:
-        districts.remap_buildings(cfg, layout, placements, res, rng, da)
+    placements, layout, _counts = generate_scene.build_scene(
+        cfg, res, stop_after=stop_after)
+    cfg.setdefault("_name", config_name)
     return cfg, layout, placements, res
 
 
 _COLOUR = {"rowhouse": "#b5651d", "midrise": "#7f8fa6",
            "tower": "#4b5d73", "park": "#5f8d4e"}
 
+# How a building ended up, and how it got there. The distinction that matters
+# is MECHANISM, not severity: a ruin swap is authored art dropped on the
+# footprint, mesh damage is the procedural pipeline deforming the real model.
+# They look nothing alike in the sim and are tuned by different knobs, so the
+# map has to tell them apart.
+_FATE_COLOUR = {
+    "intact":    "#5c6b52",   # untouched by the disaster
+    "swapped":   "#c2452d",   # a ruin asset was swapped onto the footprint
+    "mesh":      "#e8a33d",   # deformed in place by mesh_damage
+}
+_DEBRIS_COLOUR = {"debris": "#9a8f7a", "debris_pile": "#6f5f47"}
 
-def draw(cfg, layout, placements, res, out_path, title=""):
+
+def classify(placements, pristine_usd):
+    """Per house: how the disaster stage left it.
+
+    `_mesh_damage` is the marker `apply_to_buildings` leaves for the pass that
+    runs after composition; a changed `usd` means a ruin was swapped in. A
+    building can only be one or the other — that is the fate branch — so this
+    is a partition, not a heuristic.
+    """
+    out = []
+    for i, p in enumerate(placements):
+        if p.get("category") not in ("house", "building"):
+            continue
+        inten = float(p.get("_mesh_damage") or 0.0)
+        if inten > 0.0:
+            fate = "mesh"
+        elif pristine_usd.get(i) not in (None, p.get("usd")):
+            fate = "swapped"
+        else:
+            fate = "intact"
+        out.append((p, fate, inten))
+    return out
+
+
+def field_of(cfg, layout):
+    """The damage field as a callable, or None where the type has none.
+
+    The same `make_damage_field` every disaster knob is scaled by, so the
+    background of the damage map is literally what drove the fates drawn on
+    top of it rather than an artist's impression of them.
+    """
+    import scene_generator as sg
+    dis = sg._stage(cfg, "disaster")
+    region = layout.get("region")
+    if not dis or not region:
+        return None
+    f = sg.make_damage_field(dis.get("field"), tuple(region))
+    return f if f.hi > 0.0 else None
+
+
+def draw(cfg, layout, placements, res, out_path, title="",
+         damage=None, field=None):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    from matplotlib.patches import Rectangle
+    from matplotlib.patches import Circle, Rectangle
 
     x0, y0, x1, y1 = layout["region"]
     fig, ax = plt.subplots(figsize=(13, 13))
@@ -168,7 +234,42 @@ def draw(cfg, layout, placements, res, out_path, title=""):
                                    facecolor=colour, edgecolor="none", zorder=z))
             n_park[cat] = n_park.get(cat, 0) + 1
 
+    # The damage field, above the block fill and below everything the disaster
+    # produced. It has to sit here rather than at the bottom: blocks and road
+    # corridors are painted opaque, so a backdrop under them is invisible —
+    # which is how the first version of this map came out with no field at all.
+    if field is not None:
+        import numpy as np
+        n = 128
+        grid = np.array([[field(x, y) for x in np.linspace(x0, x1, n)]
+                         for y in np.linspace(y0, y1, n)])
+        # One hue, opacity carrying the value — NOT a colormap. Every diverging
+        # or perceptual map peaks in brightness somewhere in its middle, so an
+        # `inferno` field drew the mild corners brighter than the full-strength
+        # core and read exactly backwards. With a fixed colour and alpha = k,
+        # untouched ground is simply untinted and there is nothing to misread.
+        rgba = np.zeros(grid.shape + (4,))
+        rgba[..., 0], rgba[..., 1], rgba[..., 2] = 0.85, 0.20, 0.10
+        rgba[..., 3] = np.clip(grid, 0.0, 1.0) * 0.55
+        ax.imshow(rgba, extent=(x0, x1, y0, y1), origin="lower",
+                  interpolation="bilinear", zorder=2.5)
+
+    # Debris under the buildings: it is ground cover, and drawn on top it
+    # would hide the very fates it is evidence for.
+    n_debris = {}
+    if damage is not None:
+        for cat, colour in _DEBRIS_COLOUR.items():
+            for p in placements:
+                if p.get("category") != cat:
+                    continue
+                r = 1.6 if cat == "debris_pile" else 0.9
+                ax.add_patch(Circle((p["x_m"], p["y_m"]), r, facecolor=colour,
+                                    edgecolor="none", alpha=0.75, zorder=3))
+                n_debris[cat] = n_debris.get(cat, 0) + 1
+
+    fate_of = {id(p): (f, i) for p, f, i in (damage or [])}
     counts = {}
+    n_fate = {}
     for p in placements:
         if p.get("category") not in ("house", "building"):
             continue
@@ -184,9 +285,19 @@ def draw(cfg, layout, placements, res, out_path, title=""):
                 str(p.get("usd", ""))):
             t = "midrise"
         counts[t] = counts.get(t, 0) + 1
+        face, edge, lw, alpha = _COLOUR.get(t, "#7f8fa6"), "#111", 0.3, 1.0
+        if damage is not None:
+            fate, inten = fate_of.get(id(p), ("intact", 0.0))
+            n_fate[fate] = n_fate.get(fate, 0) + 1
+            face = _FATE_COLOUR[fate]
+            if fate == "mesh":
+                # Intensity as opacity, so the gradient the field applies is
+                # readable per building and not only as a backdrop: a building
+                # at the epicentre is solid, one at the edge is faint.
+                edge, lw, alpha = "#f4e3c0", 0.5, 0.30 + 0.70 * inten
         ax.add_patch(Rectangle((p["x_m"] - w / 2, p["y_m"] - h / 2), w, h,
-                               facecolor=_COLOUR.get(t, "#7f8fa6"),
-                               edgecolor="#111", lw=0.3, zorder=3))
+                               facecolor=face, edgecolor=edge, lw=lw,
+                               alpha=alpha, zorder=4))
 
     ax.set_xlim(x0, x1)
     ax.set_ylim(y0, y1)
@@ -197,6 +308,10 @@ def draw(cfg, layout, placements, res, out_path, title=""):
     park = "  ".join(f"{k} {v}" for k, v in sorted(n_park.items()))
     sub = f"{len(layout.get('blocks', []))} blocks   " \
           f"{len(layout.get('road_corridors', []))} corridors   {legend}"
+    if damage is not None:
+        sub += ("\nfate: " + "  ".join(f"{k} {v}" for k, v in sorted(n_fate.items()))
+                + "   debris: "
+                + "  ".join(f"{k} {v}" for k, v in sorted(n_debris.items())))
     if park:
         sub += f"\npark: {park}"
     if res.guessed:
@@ -269,23 +384,48 @@ def dump_json(cfg, layout, placements, res, out_path):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__)
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--json", action="store_true",
                     help="also write <out>.json — geometry, not pixels")
-    ap.add_argument("--config", default="urban_v2")
+    ap.add_argument("--config", default="earthquake")
     # Defaults into the repo, not /tmp: a plan is meant to be looked at, and a
     # scratch path nobody can find is the same as not writing one. Gitignored.
-    ap.add_argument("--out", default="")
+    ap.add_argument("--out-dir", default="")
+    ap.add_argument("--only", choices=("layout", "damage"),
+                    help="write just one of the two maps")
     a = ap.parse_args()
-    if not a.out:
-        d = os.path.join(_SCENE_GEN, "_plans")
-        os.makedirs(d, exist_ok=True)
-        a.out = os.path.join(d, f"{a.config}.png")
-    cfg, layout, placements, res = build(a.config)
-    draw(cfg, layout, placements, res, a.out, title=a.config)
-    if a.json:
-        dump_json(cfg, layout, placements, res,
-                  os.path.splitext(a.out)[0] + ".json")
+
+    out_dir = a.out_dir or os.path.join(_SCENE_GEN, "_plans")
+    os.makedirs(out_dir, exist_ok=True)
+    stem = os.path.join(out_dir, os.path.basename(str(a.config)))
+
+    # Two runs of the same `build_scene`, differing only in where they stop.
+    # `build_scene` reseeds from the config, so the pristine map is the exact
+    # scene the damage map then wrecks — not an approximation of it.
+    if a.only != "damage":
+        cfg, layout, pristine, res = build(a.config, stop_after="detail")
+        draw(cfg, layout, pristine, res, stem + "_layout.png",
+             title=f"{a.config} — layout (pristine)")
+        if a.json:
+            dump_json(cfg, layout, pristine, res, stem + "_layout.json")
+
+    if a.only != "layout":
+        cfg, layout, pristine, res = build(a.config, stop_after="detail")
+        # Which USD each house had BEFORE the disaster stage, by index, so a
+        # ruin swap is detectable afterwards.
+        pristine_usd = {i: p.get("usd") for i, p in enumerate(pristine)
+                        if p.get("category") in ("house", "building")}
+        cfg, layout, placements, res = build(a.config, stop_after="disaster")
+        dmg = classify(placements, pristine_usd)
+        draw(cfg, layout, placements, res, stem + "_damage.png",
+             title=f"{a.config} — damage (severity "
+                   f"{_stage_get(cfg, 'severity', '?')})",
+             damage=dmg, field=field_of(cfg, layout))
+
+
+def _stage_get(cfg, key, default=None):
+    import scene_generator as sg
+    return sg._stage(cfg, "disaster").get(key, default)
 
 
 if __name__ == "__main__":

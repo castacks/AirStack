@@ -27,6 +27,8 @@ WHAT EACH TEST IS FOR
 See `snapshot.py`'s docstring for why the signatures are split three ways.
 """
 
+import contextlib
+import io
 import os
 import sys
 
@@ -53,6 +55,7 @@ SWEEPS = [
     ("earthquake", 42, [0.0, 0.4, 0.8]),
     ("tornado", 42, [0.0, 0.8]),
     ("explosion", 42, [0.0, 0.6]),
+    ("fire", 42, [0.0, 0.6]),
     ("flood", 42, [0.0, 0.6]),
     ("hurricane", 42, [0.0, 0.6]),
     ("suburb_earthquake", 7, [0.0, 0.5]),
@@ -181,6 +184,33 @@ def test_disaster_stage_affects_detail_props(preset, severity):
     assert set(tally) - {"car", "human", "tree", "streetlight", "trash_can",
                          "traffic_light"}, \
         "only the legacy categories were affected; city_detail props still immune"
+
+
+@pytest.mark.parametrize("preset", ["earthquake", "hurricane"])
+def test_severity_reaches_the_individual_building(preset):
+    """A worse event must wreck each building harder, not just wreck more of them.
+
+    `_mesh_damage` is the intensity mesh damage runs at, and it used to be the
+    damage FIELD alone. The field is spatial — it says "this spot is at the
+    epicentre" — and `compile_earthquake` and `compile_hurricane` both give it
+    a core that reads exactly 1.0 at every severity, so every building the
+    disaster touched was wrecked at full strength no matter how bad the event
+    was, and only their number changed. A severity sweep then compares two
+    scenes full of identical ruins, which is not the sweep anyone wants.
+    """
+    import scene_generator as sg
+    from disaster import disaster_stage
+
+    def worst(severity):
+        cfg, layout, placements = S.build_for_disaster(preset, 42, severity)
+        resolver = sg._make_resolver(cfg)
+        with contextlib.redirect_stdout(io.StringIO()):
+            disaster_stage.apply_to_buildings(cfg, layout, placements, resolver)
+        marked = [p["_mesh_damage"] for p in placements if p.get("_mesh_damage")]
+        assert marked, f"{preset} at {severity} marked nothing for mesh damage"
+        return max(marked)
+
+    assert worst(0.9) > worst(0.3) * 1.5
 
 
 @pytest.mark.parametrize("preset", ["tornado", "flood"])

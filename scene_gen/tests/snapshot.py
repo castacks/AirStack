@@ -116,6 +116,7 @@ DEFAULT_CASES = [
     ("tornado", 42, 0.0),
     ("tornado", 42, 0.8),
     ("explosion", 42, 0.6),
+    ("fire", 42, 0.6),
     ("flood", 42, 0.6),
     ("hurricane", 42, 0.6),
     # The other locale, damaged.

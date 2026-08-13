@@ -115,3 +115,8 @@ scene_gen/assets/aec/*
 # Layout plan PNGs and the asset manifest — generated, not source.
 scene_gen/_plans/
 scene_gen/_scene_assets.tsv
+
+# Damage-gallery renders and the USDs behind them (scene_gen/tools/damage_gallery.py).
+# Regenerate rather than commit: a sheet runs to tens of MB and is fully
+# reproducible from (asset set, seed, severity).
+scene_gen/galleries/

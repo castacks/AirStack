@@ -9,7 +9,7 @@
 # severity      : 0.0
 # spec          : scene_gen/config/presets/downtown.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-12 16:27:40
+# compiled      : 2026-08-13 14:20:40
 # spec extras   : {'asset-set': 'urban', 'region_m': [800, 800], 'seed': 42}
 
 seed: 42
@@ -274,6 +274,7 @@ disaster:
     pieces_per_building:
     - 0
     - 0
+    damaged_debris_scale: 0.0
     tilt_chance: 0.0
     path_pieces_per_100m2: 0.0
     path_piles_per_100m2: 0.0

@@ -3,44 +3,44 @@
  "preset": "tornado",
  "seed": 42,
  "severity": 0.8,
- "n_placements": 43511,
+ "n_placements": 36206,
  "counts": {
-  "bench": 127,
+  "bench": 128,
   "bike_lane_delineator": 90,
   "bike_rack": 71,
-  "bollard": 358,
-  "bus_stop": 104,
+  "bollard": 357,
+  "bus_stop": 107,
   "cafe_set": 36,
-  "car": 420,
+  "car": 427,
   "concrete": 25718,
-  "debris": 6352,
-  "debris_pile": 1263,
   "dumpster": 85,
-  "fence": 157,
+  "fence": 160,
   "fire_hydrant": 78,
-  "house": 610,
-  "human": 469,
+  "house": 919,
+  "human": 464,
   "mailbox": 118,
-  "manhole": 190,
+  "manhole": 189,
+  "park_feature": 4,
   "parking_meter": 187,
   "phone_booth": 78,
-  "plant": 101,
-  "rock": 5,
+  "plant": 86,
+  "play_structure": 2,
+  "rock": 3,
   "sidewalk": 4702,
-  "sign": 229,
-  "storm_drain": 277,
-  "street_tree": 616,
-  "streetlight": 169,
+  "sign": 238,
+  "storm_drain": 276,
+  "street_tree": 617,
+  "streetlight": 174,
   "traffic_cone": 56,
   "traffic_light": 18,
-  "trail": 405,
+  "trail": 378,
   "trash_can": 127,
-  "tree": 295
+  "tree": 313
  },
  "digests": {
-  "geometry": "2dbd317901863ff6",
-  "layout": "d8eafe41d3815ce8",
-  "full": "9455f9e0fec0e938"
+  "geometry": "9879deff5c377fac",
+  "layout": "dc4b94ddfe53d6de",
+  "full": "10f77e561fb7173d"
  },
  "geometry": {
   "region": [
@@ -65,7 +65,7 @@
    [
     -393.4,
     -165.343,
-    -297.003,
+    -350.901,
     -62.714
    ],
    [
@@ -103,6 +103,12 @@
     345.086,
     -179.922,
     393.4
+   ],
+   [
+    -339.501,
+    -165.343,
+    -297.003,
+    -62.714
    ],
    [
     -339.13,
@@ -197,12 +203,6 @@
    [
     87.613,
     -293.625,
-    235.02,
-    -255.137
-   ],
-   [
-    87.613,
-    -243.737,
     235.02,
     -205.25
    ],
@@ -411,6 +411,14 @@
     "ew"
    ],
    [
+    -350.901,
+    -161.343,
+    -339.501,
+    -66.714,
+    2,
+    "ns"
+   ],
+   [
     -345.13,
     -393.4,
     -339.13,
@@ -584,14 +592,6 @@
     393.4,
     305.025,
     3,
-    "ew"
-   ],
-   [
-    91.613,
-    -255.137,
-    231.02,
-    -243.737,
-    2,
     "ew"
    ],
    [

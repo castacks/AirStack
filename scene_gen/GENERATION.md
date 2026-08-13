@@ -125,6 +125,9 @@ the Isaac Sim launch scripts import it from here.
 | `compile_disaster.py` | High-level spec → low-level config, and `load_scene_config()`. |
 | `compile_locale.py` | The locale axis: one function per locale (`downtown`/`suburban`/`rural`). |
 | `preset_report.py` | Dry-run every preset and compare the results. |
+| `tools/settle_overlap.py` | Screens a scene for props that spawn inside each other — the PhysX depenetration impulse is what launches debris out of the region. Host-side, seconds. |
+| `tools/plan_png.py` | **Top-down plan of a scene, in about a second.** Two maps: pristine layout, and damage over the field. Calls the same `load_scene_config` → `build_scene` the launch script does, so it previews the real pipeline. |
+| `tools/damage_gallery.py` + `tools/render_damage_gallery.py` | Preview what each disaster does to a building, as a rows-are-buildings / columns-are-disasters contact sheet. Builds through the real pipeline (host `python3`), renders with Cycles (`uv run --script`). |
 | `tests/` | Host-side layout guardrails — no Isaac, no Nucleus, seconds to run. See [`tests/README.md`](tests/README.md). |
 | `reload_scene.py` | Regenerate on a live Isaac Sim stage without restarting. |
 | `prepare_assets.py` | **Run this before `airstack up`** — caches the Objaverse assets a scene needs (see below). |
@@ -387,7 +390,7 @@ low-level config** for runs you want pinned to an exact on-disk record.
 
 ```yaml
 locale: downtown          # downtown | suburban | rural — how the place is laid out
-disaster-type: tornado    # none | earthquake | tornado | explosion | flood | hurricane
+disaster-type: tornado    # none | earthquake | tornado | hurricane | fire | explosion | flood
 severity: 0.7             # 0..1 — 0 is pristine, 1 is as bad as that disaster gets
 
 asset-set: urban          # optional — the locale already implies one
@@ -527,6 +530,7 @@ disaster knob by position. All the `disaster.*` fractions and counts are
 | `earthquake` | wide radial from the epicenter, never reaching zero | Structures fail in place: buildings pancake, lean and sink. Rubble drops at the facades (small `pieces_scatter_m`); nothing is blown anywhere. |
 | `tornado` | narrow **path** across the region, zero outside | Total destruction in a corridor, untouched beyond it. Everything light is thrown far — cans fly, cars flipped and strewn. Trees go down inside the track and stand just outside it. A continuous band of dirt and splintered debris is dragged along the corridor across lawns, streets and open ground alike (`debris.path_*`). Low tilt/sink: torn apart, not settled. |
 | `explosion` | tight radial, fast falloff to zero | The sharpest gradient of any type. Ground zero obliterated, the rest barely touched. Debris thrown outward hard. |
+| `fire` | wide radial core, **short** falloff, zero outside | The sharpest *perimeter* of any type, as against the explosion's sharpest gradient. Inside the burn scar every building is a gutted shell — roof consumed and dropped straight in, walls standing, everything charred; a street outside it the houses are untouched. Fire moves no mass, so scatter distances are the lowest of any type. Trees carry it and go almost completely; steel poles stand. |
 | `flood` | broad radial, high everywhere | Little structural loss; anything that floats is carried off and dumped. Poles stand — there was no wind. |
 | `hurricane` | uniform | Tornado-like mechanisms spread evenly over the whole region at lower intensity. No untouched zone, no track. |
 
@@ -659,3 +663,121 @@ stays flat there.
 flat (and physics-settled) while trees a few metres outside stay standing —
 the treeline is the sharpest edge in real tornado imagery. Stumps are excluded
 from the pool that can topple, being already down.
+
+### How a building actually fails
+
+Two mechanisms ruin a building, and the fate drawn for it decides which:
+
+* **Asset swap** — a purpose-built ruin from `usds.buildings.destroyed` /
+  `.damaged` is dropped onto the same footprint. Preferred for *destroyed*: a
+  modelled collapse beats any deformation of an intact model. Footprint-checked,
+  so the layout never moves.
+* **Mesh damage** ([`disaster/mesh_damage.py`](disaster/mesh_damage.py)) — the
+  building's own geometry is wrecked in place. Preferred for *damaged* (there
+  is little authored art for "damaged but standing"), and the fallback whenever
+  no ruin fits the footprint.
+
+Mesh damage works in three ways, and needs all three. **Moving vertices**
+(`lean`, `pancake`, `crumble`, `shockwave`) is cheap but never changes the face
+count, so on its own a "collapsed" building still has a complete envelope and
+reads as squashed rather than broken. **Deleting faces** (`punch_hole`) is what
+opens a roof or blows out a facade. **Cutting the mesh apart** (`fracture`)
+turns a band of it into Voronoi fragments that become their own prims and are
+dropped by the PhysX settle pass.
+
+A fourth thing is not damage to the geometry at all but to the **materials**:
+`scorch` darkens what burned. It has to author the soot as `inputs:scale` on
+the `UsdUVTexture` feeding albedo rather than as a value on the shader, because
+building assets drive albedo from a texture — which in USD means `diffuseColor`
+is *connected*, and a connection beats a value, so setting it does nothing at
+all. Only RGB is scaled (the fourth component is alpha, and a texture whose
+`.a` drives opacity would char the building to transparent), and roughness is
+raised only where it is *not* connected, since these assets pack roughness and
+metallic into two channels of one texture.
+
+A **profile** composes the first two per disaster type, and a **fracture plan**
+decides the third — which band comes apart, how finely, and where the pieces
+go. That last is what separates the types once a building is in pieces:
+
+| Type | Profile | What shatters |
+|------|---------|---------------|
+| `earthquake` | `structural_collapse` — six failure modes (racking, spall, soft-storey, mid-storey, total, partial), mixed by intensity; each opens the storey that failed | the whole building, seeded at the base, dropped where it stood |
+| `tornado` | `wind_shear` — the top comes off, windward-biased | a deep peel off the top, thrown hard along the track |
+| `hurricane` | `wind_shear` | a shallower peel, thrown along the storm bearing |
+| `explosion` | `blast` — a breach punched at the charge, then radial displacement and soot | the whole building, cut finest at the breach, thrown outward |
+| `fire` | `burnout` — the roof is opened up, then the whole structure is charred | the roof and the floors under it, dropped straight in |
+| `flood` | `inundation` — scour and a silt line at the waterline | nothing. Water does not shatter masonry. |
+
+**Only the fragments that came free are settled.** `fracture_to_stage` splits
+its output into *loose* and *anchored* — a piece whose lowest point is still
+down in the base of the building has something under it — and only the loose
+ones get a placement marked `settle`. Handing every fragment to PhysX makes
+gravity level the building whatever the severity was, so a 0.3 earthquake and a
+0.9 one end as the same flat pile. How much comes loose is `keep_base`, and for
+an earthquake that is the *failure mode's* call: a building that racked and
+stood keeps 80% of its height anchored, one that failed totally keeps 8%.
+
+Shattering is a **budget**, not something every damaged building gets: each
+fragment is a prim that PhysX then has to rest, and fracturing every marked
+building would author thousands of them onto a scene that has OOM-killed
+before. The budget is spent on the worst-hit buildings — the ones at the
+epicentre or on the track — and the rest get the profile alone.
+
+```yaml
+disaster:
+  mesh_damage:
+    fracture:
+      enabled: true
+      max_buildings: 60     # the budget. The rest is the plan's, keyed off type
+      # any plan key may be overridden here: z_range, n_cells, focus,
+      # focus_bias, throw, lift, keep_base, direction_deg
+```
+
+### Debris belongs to every damaged building
+
+`debris.*` counts are per building and scaled by the local field, as everything
+else is. They apply to **every** building the disaster touched, not only the
+ones that got a ruin asset swapped in — a shattered, half-collapsed building
+standing on a spotless lot is the most obviously wrong thing in an aerial view,
+and debris is occupancy, so its absence changes what the scene *means* to a
+search algorithm and not just how it looks.
+
+```yaml
+disaster:
+  debris:
+    pieces_per_building:  [12, 22]  # a DESTROYED building's share
+    damaged_debris_scale: 0.51      # what one still standing sheds, relative
+```
+
+A damaged building's rubble also stays closer in: it drops at its own facade
+rather than being thrown across the street, so the pile and piece offsets
+shrink with the same factor.
+
+### Severity has to reach the individual building
+
+`_mesh_damage` — the intensity mesh damage runs at — is **local field ×
+severity**, not the field alone. The field is *spatial*: it says this spot is at
+the epicentre or inside the corridor, and `compile_earthquake` and
+`compile_hurricane` both give it a core that reads exactly 1.0 at every
+severity. Taking it unscaled meant every building the disaster touched was
+wrecked at full strength however mild the event was, and only their *number*
+changed — so a severity sweep compared two scenes full of identical ruins.
+
+### Previewing it
+
+[`tools/damage_gallery.py`](tools/damage_gallery.py) builds a one-building scene
+per (building, disaster) through this exact pipeline and renders a sheet: rows
+are buildings, columns are disaster types with pristine on the left, or
+`--sweep <type>` to make the columns severities instead. The severity sweep is
+the one that matters — it is the picture of the invariant above, and it is how
+all three of the defects noted in this section were found.
+
+```bash
+python3 tools/damage_gallery.py --list                  # what can be previewed
+python3 tools/damage_gallery.py --rows 5 --severity 0.8
+python3 tools/damage_gallery.py --sweep earthquake --severities 0.2,0.6,1.0
+```
+
+Assets must be **local** — Nucleus resolves only inside Isaac Sim — which today
+means the `suburban` set. [`notebooks/damage_gallery.ipynb`](notebooks/damage_gallery.ipynb)
+drives the same tool interactively.

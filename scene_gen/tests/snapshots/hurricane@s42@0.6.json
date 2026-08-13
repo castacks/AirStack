@@ -3,46 +3,44 @@
  "preset": "hurricane",
  "seed": 42,
  "severity": 0.6,
- "n_placements": 40303,
+ "n_placements": 36195,
  "counts": {
-  "bench": 126,
+  "bench": 128,
   "bike_lane_delineator": 90,
-  "bike_rack": 69,
-  "bollard": 342,
-  "bus_stop": 101,
-  "cafe_set": 34,
-  "car": 367,
+  "bike_rack": 71,
+  "bollard": 357,
+  "bus_stop": 107,
+  "cafe_set": 36,
+  "car": 418,
   "concrete": 25718,
-  "debris": 3968,
-  "debris_pile": 1088,
-  "dumpster": 84,
-  "fence": 158,
-  "fire_hydrant": 77,
-  "house": 95,
-  "human": 464,
-  "mailbox": 115,
-  "manhole": 186,
+  "dumpster": 85,
+  "fence": 160,
+  "fire_hydrant": 78,
+  "house": 919,
+  "human": 462,
+  "mailbox": 118,
+  "manhole": 189,
   "park_feature": 4,
-  "parking_meter": 184,
-  "phone_booth": 77,
-  "plant": 87,
+  "parking_meter": 187,
+  "phone_booth": 78,
+  "plant": 86,
   "play_structure": 2,
-  "rock": 7,
+  "rock": 3,
   "sidewalk": 4702,
-  "sign": 235,
-  "storm_drain": 271,
-  "street_tree": 591,
-  "streetlight": 170,
-  "traffic_cone": 55,
+  "sign": 238,
+  "storm_drain": 276,
+  "street_tree": 617,
+  "streetlight": 174,
+  "traffic_cone": 56,
   "traffic_light": 18,
-  "trail": 382,
-  "trash_can": 124,
-  "tree": 312
+  "trail": 378,
+  "trash_can": 127,
+  "tree": 313
  },
  "digests": {
-  "geometry": "9948453fbb257d35",
-  "layout": "d9fff2c9d4d72263",
-  "full": "41c85bd497aaa91f"
+  "geometry": "9879deff5c377fac",
+  "layout": "705e8405e3884e33",
+  "full": "b7037cfb09f80eb0"
  },
  "geometry": {
   "region": [
@@ -67,7 +65,7 @@
    [
     -393.4,
     -165.343,
-    -297.003,
+    -350.901,
     -62.714
    ],
    [
@@ -105,6 +103,12 @@
     345.086,
     -179.922,
     393.4
+   ],
+   [
+    -339.501,
+    -165.343,
+    -297.003,
+    -62.714
    ],
    [
     -339.13,
@@ -278,6 +282,12 @@
     247.947,
     -393.4,
     393.4,
+    -354.912
+   ],
+   [
+    247.947,
+    -343.512,
+    393.4,
     -305.025
    ],
    [
@@ -399,6 +409,14 @@
     345.086,
     2,
     "ew"
+   ],
+   [
+    -350.901,
+    -161.343,
+    -339.501,
+    -66.714,
+    2,
+    "ns"
    ],
    [
     -345.13,
@@ -655,6 +673,14 @@
     293.625,
     2,
     "ns"
+   ],
+   [
+    251.947,
+    -354.912,
+    389.4,
+    -343.512,
+    2,
+    "ew"
    ],
    [
     257.001,

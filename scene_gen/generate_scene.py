@@ -87,6 +87,64 @@ def check_duplicate_yaml_keys(paths=None) -> int:
     return 0
 
 
+def report_empty_placements(stage, placements: list, limit: int = 8) -> list:
+    """Placements whose prim renders nothing. Returns ``[(usd, count), ...]``.
+
+    THE SYMPTOM THIS EXISTS FOR: "the layout says a building is there and the
+    ground is simply empty". A placement is a dict; `apply_placements` turns it
+    into a prim with a reference; whether that reference actually *resolves*
+    is a separate question nobody was asking. So a bad asset path produced a
+    perfectly good, perfectly invisible building, and every offline tool —
+    `plan_png`, the snapshots, `preset_report` — still counted it, because they
+    all read the placement list and the placement list is fine.
+
+    `apply_placements` already warns when a reference composes nothing TYPED,
+    which catches an outright missing file. It does not catch the cases that
+    look identical from the air: a reference that composes an Xform whose own
+    payload or sublayer is missing, an asset that resolves to real but empty
+    geometry, or a prim left with no active meshes. This checks the thing that
+    actually matters — is there a face to render — and groups by asset, so the
+    output names the handful of bad assets rather than the hundreds of
+    buildings they cost.
+
+    Cheap despite traversing: it stops at the first face it finds, so a healthy
+    scene pays one step per placement.
+    """
+    from pxr import Usd, UsdGeom
+
+    def has_geometry(prim) -> bool:
+        for p in Usd.PrimRange(prim, Usd.TraverseInstanceProxies()):
+            if p.GetTypeName() != "Mesh" or not p.IsActive():
+                continue
+            counts = UsdGeom.Mesh(p).GetFaceVertexCountsAttr().Get()
+            if counts:
+                return True
+        return False
+
+    empty: dict = {}
+    for p in placements:
+        path = p.get("prim_path")
+        if not path or not p.get("usd"):
+            continue
+        prim = stage.GetPrimAtPath(path)
+        if not prim or not prim.IsValid() or not has_geometry(prim):
+            empty[p["usd"]] = empty.get(p["usd"], 0) + 1
+
+    if not empty:
+        return []
+    ranked = sorted(empty.items(), key=lambda kv: -kv[1])
+    total = sum(empty.values())
+    print(f"[scene_gen] WARN: {total} placements render NOTHING — "
+          f"{len(ranked)} assets composed no geometry:")
+    for usd, n in ranked[:limit]:
+        print(f"[scene_gen]   {n:5d} x  {usd}")
+    if len(ranked) > limit:
+        print(f"[scene_gen]   … and {len(ranked) - limit} more")
+    print("[scene_gen]   These are placed but invisible: the layout counts "
+          "them, the sim shows bare ground.")
+    return ranked
+
+
 def prune_prims(stage, config: dict, placements: list) -> int:
     """Deactivate named sub-prims inside placed assets.
 
@@ -340,6 +398,11 @@ def build_scene(config: dict, resolver, stop_after: str = "disaster"):
     # 0.6. Every pass that rewrites the layout now sees a pristine city.
     disaster_stage.apply_to_buildings(config, layout, placements, resolver)
     disaster_stage.apply(config, layout, placements)
+    # Last, so it can see where the buildings finally stand and keep the ground
+    # clear inside them. It used to run inside `build_city`, where the debris
+    # it laid became an obstacle `districts` packed around — making the block
+    # layout a function of severity. See `apply_path_scour`.
+    disaster_stage.apply_path_scour(config, layout, placements, resolver)
     return placements, layout, base_counts
 
 
@@ -360,17 +423,27 @@ def generate_scene_on_stage(stage,
     ground_snap = sg._make_physx_ground_snap() if snap_to_ground else None
     sg.apply_placements(stage, placements, parent_path, scene_scale_factor,
                         ground_snap, resolver=resolver)
+    # Before any damage runs, so a missing asset is never mistaken for the
+    # disaster having removed a building.
+    report_empty_placements(stage, placements)
     # Mesh damage needs real prims — it authors a `points` override on
     # geometry inside a referenced layer — so it runs here rather than in
     # `build_scene`, which is pure Python.
     _mesh = mesh_damage.apply_to_stage(stage, config, placements)
 
     # Fragments are new prims, so they are not in `placements` and the launch
-    # script's settle pass would never see them — leaving shattered geometry
+    # script's settle pass would never see them — leaving thrown geometry
     # hanging exactly where it was cut. Give each one a placement entry marked
     # `settle`, which is how every other approximated-pose prop (toppled poles,
     # flipped cars) reaches `scene_prep.settle_rigid_props`.
-    for path in _mesh.get("fragments", ()):
+    #
+    # ONLY THE LOOSE ONES. Handing PhysX every fragment makes gravity level the
+    # building whatever the severity was, so a 0.3 earthquake and a 0.9 one end
+    # as the same flat pile and a severity sweep stops comparing anything —
+    # which is the invariant this whole generator is built around. The anchored
+    # fragments are cut where the geometry was and belong exactly there; see
+    # `mesh_damage.fracture_to_stage`.
+    for path in _mesh.get("loose", ()):
         placements.append({"usd": "", "category": "debris_fragment",
                            "prim_path": path, "settle": True,
                            "x_m": 0.0, "y_m": 0.0, "z_m": 0.0,

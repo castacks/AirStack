@@ -1,0 +1,43 @@
+# The urban asset set with NO RUIN ART — every building starts intact, so all
+# structural damage has to come from `disaster/mesh_damage.py`.
+#
+# WHY THIS EXISTS
+# ---------------
+# `disaster_stage.apply_to_buildings` has two ways to ruin a building: swap in
+# a purpose-built ruin from `usds.buildings.damaged` / `.destroyed`, or deform
+# the intact model in place. It PREFERS the swap for a destroyed fate, because
+# a modelled collapse beats any deformation — so on `urban`, 403 of 919
+# buildings become ruin assets at earthquake severity 0.8 and only 265 are
+# mesh-damaged. That makes mesh damage hard to evaluate: most of what you are
+# looking at is authored art, not the procedural pipeline.
+#
+# Emptying both pools removes the swap route entirely. `apply_to_buildings`
+# then finds no candidate that fits, falls through to `_mesh_damage`, and every
+# damaged and destroyed building is wrecked procedurally.
+#
+# WHY EMPTY LISTS AND NOT A MISSING KEY
+# -------------------------------------
+# `_deep_merge` recurses into nested dicts but REPLACES anything else outright,
+# so a list overrides the inherited one and `damaged: []` really does clear it.
+# Omitting the key would inherit `urban_nucleus`'s pools instead — the same
+# trap that makes `urban` place Nucleus debris it never mentions. (Note the
+# asymmetry: `<key>+` appends, a bare key replaces. There is no way to narrow
+# an inherited *dict*, only a list.)
+#
+# Debris is deliberately KEPT. It is rubble, not a ruin: it is what a wrecked
+# building sheds, and `apply_to_buildings` drops it around mesh-damaged
+# buildings too (`debris.damaged_debris_scale`). Removing it would leave
+# procedurally wrecked buildings standing on clean ground.
+#
+# USAGE
+#   asset-set: urban_intact        # in a preset, beside `locale:`
+#
+# The suburban twin is the same three lines over `extends: suburban`.
+
+extends: urban
+
+usds:
+  buildings:
+    # No swap route. Every fate lands on mesh damage.
+    damaged: []
+    destroyed: []
