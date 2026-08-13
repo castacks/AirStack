@@ -105,6 +105,14 @@ CATEGORIES = {
                          "indoor kitchen|gas stove"),
     "drinking_fountain": ("drinking fountain|water fountain|bubbler",
                           "decorative fountain|garden fountain statue"),
+    # The ORNAMENTAL kind — a basin or tiered centrepiece, which is a different
+    # object from the drinking fountain above and gets its own folder rather
+    # than muddying that one. "fountain" alone returns 387, so the excludes are
+    # doing most of the work: bare "fountain" is full of drinking fountains,
+    # soda fountains, taps and pen nibs (fountain pen).
+    "fountain_ornamental": ("fountain",
+                            "drinking|bubbler|soda|water cooler|pen|nib|"
+                            "faucet|tap$|sink|particle|vfx|fx|sprite"),
     "skate_park":       ("skate park|skate ramp|half pipe|quarter pipe|"
                          "skateboard ramp", "character|skateboard only"),
     "scoreboard":       ("scoreboard|score board", "arena jumbotron"),
