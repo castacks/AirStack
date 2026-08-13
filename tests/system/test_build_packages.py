@@ -71,10 +71,10 @@ class TestColconBuilds:
             )
             assert build.returncode == 0, f"colcon build (with testing) failed:\n{read_log_tail()}"
 
-            # PYTEST_ADDOPTS via docker exec -e (not colcon --pytest-args).
             # PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 skips launch_testing before
-            # pytest 8.1+ validates its removed path= hook. -p no:launch_testing
-            # is too late. Needed on cache_* images that predate the pytest<8.1 pin.
+            # pytest 8.1+ validates its removed path= hook. Linter skip is in
+            # the package setup.cfg / test/conftest.py (ament pytest ignores
+            # PYTEST_ADDOPTS -m).
             exec_env = {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"}
             if pytest_args:
                 exec_env["PYTEST_ADDOPTS"] = format_pytest_addopts(pytest_args)
