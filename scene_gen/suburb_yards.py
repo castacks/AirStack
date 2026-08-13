@@ -1213,8 +1213,13 @@ def selftest() -> int:
     if not wired:
         fails.append(("adapter", got))
 
-    print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILURE(S): '
-          + repr(fails)}")
+    # Built outside the f-string. An expression spanning two lines INSIDE the
+    # braces is PEP 701, i.e. Python 3.12 and up; the Isaac Sim container runs
+    # older than that, so this file raised SyntaxError on import there. It went
+    # unnoticed because nothing imported it until now — it is run as a script.
+    summary = ("ALL PASS" if not fails
+               else f"{len(fails)} FAILURE(S): {fails!r}")
+    print(f"\n{summary}")
     return 1 if fails else 0
 
 
