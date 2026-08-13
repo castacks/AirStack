@@ -798,8 +798,22 @@ def generate_suburb_on_stage(stage, config,
           % dict(_c.Counter(p["category"] for p in placements)))
 
     ground_snap = sg._make_physx_ground_snap() if snap_to_ground else None
+    # INSTANCE THE REPEATED CATEGORIES. apply_placements does not instance by
+    # default -- its docstring and the README both claimed it did, and neither
+    # was true, so N copies of a tree cost N x its points. At ~55k points a
+    # tree that is ~96M for the street planting alone, against the 89.1M that
+    # OOM-killed Isaac Sim on the urban scene.
+    #
+    # Safe here specifically: instancing forbids editing INSIDE a prim, and the
+    # pass that does that (generate_city_v2.prune_prims) is never called on this
+    # path. Houses are left un-instanced so damage variants and per-building
+    # edits stay possible.
     sg.apply_placements(stage, placements, parent_path, scene_scale_factor,
-                        ground_snap, resolver=resolver)
+                        ground_snap, resolver=resolver,
+                        instance_categories=set(config.get(
+                            "instance_categories",
+                            ["tree", "plant", "sidewalk", "streetlight",
+                             "fire_hydrant", "sign", "crosswalk"])))
     apply_ground(stage, config, net, blocks, parcels, info["region"],
                  parent_path, scene_scale_factor)
     return placements

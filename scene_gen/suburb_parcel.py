@@ -116,8 +116,11 @@ DEFAULTS = {
     "driveway_w_m": 3.2,
     "garage_share": 0.55,        # lots whose drive widens to a pad
     # Planting. Front-yard and back-yard trees plus a street tree rhythm.
+    # Off by default: suburb_yardplan owns yard planting. Set true only when
+    # using this module WITHOUT yardplan.
+    "own_yard_trees": False,
     "back_trees_per_100m2": 0.055,
-    "front_tree_chance": 0.45,
+    "front_tree_chance": 0.0,
     "street_tree_spacing_m": [16.0, 30.0],
     "tree_r_m": [2.2, 4.6],
     "tree_clear_m": 2.0,         # keep canopy off the house footprint
@@ -284,10 +287,13 @@ def parcel_blocks(blocks, rng, cfg=None):
             a1 = _add(a0, _mul(n, setback + 0.5))
             drives.append({"a": a0, "b": a1, "w": dw,
                            "pad": rng.random() < float(c["garage_share"])})
-            if rng.random() < float(c["front_tree_chance"]):
-                fp = _add(_add(p, _mul(n, setback * 0.55)),
-                          _mul(u, -side * h_w * 0.42))
-                trees.append({"c": fp, "r": rng.uniform(*tr), "kind": "front"})
+            # NO FRONT-YARD TREE HERE. `suburb_yardplan` owns yard planting and
+            # places a specimen tree per lot against a POINT BUDGET; emitting one
+            # here too planted every yard twice. Measured on the shipped preset:
+            # 693 front + 858 back trees from this pass on top of yardplan's,
+            # 1,551 duplicates, and this pass has no budget at all. This module
+            # keeps only the STREET rhythm along the verge, which is the one
+            # thing yardplan does not do.
 
         # Street trees: a rhythm along the kerb, independent of the lots, which
         # is how a verge is actually planted.
@@ -307,11 +313,13 @@ def parcel_blocks(blocks, rng, cfg=None):
                     trees.append({"c": q, "r": r, "kind": "street"})
             u_s += rng.uniform(*sts)
 
-        # Back-yard planting: rejection-sampled over the block, kept off the
-        # houses. Density per unit area, so a big block gets a real stand of
-        # trees and a small one gets a couple.
+        # NO BACK-YARD SCATTER HERE either -- same reason: yardplan plants the
+        # rear yard, budgeted. Left as a no-op rather than deleted so the
+        # `back_trees_per_100m2` knob keeps working for callers that use this
+        # module without yardplan.
         area = abs(polygon_area(poly))
-        want = int(area / 100.0 * float(c["back_trees_per_100m2"]))
+        want = int(area / 100.0 * float(c["back_trees_per_100m2"])
+                   ) if c.get("own_yard_trees") else 0
         xs = [q[0] for q in poly]
         ys = [q[1] for q in poly]
         clear = float(c["tree_clear_m"])

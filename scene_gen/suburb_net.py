@@ -577,22 +577,52 @@ class Network:
                 return best
         return best
 
-    def clearance_allowing_crossings(self, pts, ignore=(), limit=None):
-        """Clearance, but an edge the route PROPERLY CROSSES is not a conflict.
+    def clearance_allowing_crossings(self, pts, ignore=(), limit=None,
+                                     junction_r=30.0, own_hw=5.8):
+        """Clearance, exempting only the NEIGHBOURHOOD OF A CROSSING.
 
-        Two collectors that cross are not too close together — they make a
-        four-way junction, which `_connect_route` builds. Measuring raw distance
-        would score that crossing as zero clearance and reject it, which is why
-        only one collector ever landed. Near-parallel running is still rejected,
-        because those edges are not crossed.
+        Two roads that cross are not too close together at the crossing — that
+        is a four-way, and measuring raw distance there would score it as zero
+        clearance and reject it, which is why only one collector ever landed.
+
+        But exempting the whole crossed EDGE, as this did originally, is far too
+        coarse: once two collectors crossed anywhere, each was free to run
+        alongside the other everywhere else, and nothing objected. Measured, that
+        is where the remaining overlapping carriageways came from — a concrete
+        case had two collectors 6.7 m apart, needing 11.6 m, for an 8 m run,
+        sharing no node, simply because they happened to cross further along.
+
+        So the exemption is now a RADIUS around each actual crossing point.
+        Away from its crossings the pair is measured like any other, which is
+        the behaviour the name always implied.
         """
         best = float("inf")
         for e in self.edges.values():
             if e.id in ignore:
                 continue
-            if _routes_cross(pts, e.pts):
-                continue
-            best = min(best, polyline_dist(pts, e.pts, limit=limit))
+            xs = _crossing_points(pts, e.pts)
+            if not xs:
+                best = min(best, polyline_dist(pts, e.pts, limit=limit))
+            else:
+                # A CROSSED pair is held to a different standard: not the full
+                # street spacing, which two roads that cross can never satisfy
+                # near the crossing (requiring it dropped collectors from 3 to
+                # 1), but simply NOT OVERLAPPING. They may run close; they may
+                # not be laid on top of each other.
+                need = own_hw + e.half_w + 4.0
+                probe = [q for q in pts
+                         if all(_dist(q, x) > junction_r for x in xs)]
+                for i in range(len(probe) - 1):
+                    if _dist(probe[i], probe[i + 1]) > 3.0 * junction_r:
+                        continue
+                    d = polyline_dist([probe[i], probe[i + 1]], e.pts,
+                                      limit=need)
+                    if d < need:
+                        return 0.0          # overlapping away from a crossing
+            if best <= _TOL:
+                return 0.0
+            if limit is not None and best < limit:
+                return best
         return best
 
     def edges_of_class(self, *classes):
@@ -949,8 +979,9 @@ def generate(width_m, height_m, rng, cfg=None):
         if min_radius(pts) < CLASSES["collector"]["min_radius_m"]:
             continue
         # Ignore the crop boundary: the route starts and ends ON it.
-        if net.clearance_allowing_crossings(pts, ignore=boundary_ids,
-                                            limit=min_gap) < min_gap:
+        if net.clearance_allowing_crossings(
+                pts, ignore=boundary_ids, limit=min_gap,
+                own_hw=CLASSES["collector"]["width_m"] / 2.0) < min_gap:
             continue
         # Crossings are allowed to touch, but not at a glancing angle.
         if any(crossing_angle(pts, o.pts) < float(c["min_fork_deg"])
@@ -1081,6 +1112,17 @@ def _connect_route(net, pts, road_class, street_type, min_gap):
     if polyline_length(remaining) > 1.0:
         net.add_edge(remaining, road_class, street_type, a=prev_n,
                      street_id=sid)
+
+
+def _crossing_points(pa, pb):
+    """Every proper intersection point between two polylines."""
+    out = []
+    for i in range(len(pa) - 1):
+        for j in range(len(pb) - 1):
+            hit = _seg_intersect(pa[i], pa[i + 1], pb[j], pb[j + 1])
+            if hit is not None:
+                out.append(hit[0])
+    return out
 
 
 def _routes_cross(pa, pb):
@@ -1430,6 +1472,19 @@ def _best_cut(net, face, rng, parts, total, poly, node_us, want_snap, tries,
               grain_w=0.0, grain_base=0.0, grain_swirl=0.0, grain_period=600.0,
               min_fork=38.0):
     """Lowest-scoring valid street across the face, or None."""
+    # The driveable region: the face inset per edge by that edge's half width
+    # plus half the width of the street being inserted.
+    own_hw = CLASSES["local"]["width_m"] / 2.0
+    insets = []
+    for (e, _flip, _s0, _L) in parts:
+        n_pts = max(1, len(e.pts) - 1)
+        insets.extend([e.half_w + own_hw] * n_pts)
+    if len(insets) != len(poly):
+        insets = (insets + [own_hw * 2.0] * len(poly))[:len(poly)]
+    drive_poly = offset_polygon(poly, insets)
+    if len(drive_poly) < 3 or abs(polygon_area(drive_poly)) < 1.0:
+        drive_poly = None
+
     best = None
     for _try in range(tries):
         u0 = rng.uniform(0.0, total)
@@ -1477,13 +1532,30 @@ def _best_cut(net, face, rng, parts, total, poly, node_us, want_snap, tries,
         if min_radius(pts) < CLASSES["local"]["min_radius_m"]:
             _reject('curvature')
             continue
-        # Must stay inside the face it is dividing, or it crosses a street.
+        # AGAINST THE INSET REGION, NOT THE RAW FACE. This is the structural
+        # reason overlapping roads were ever proposed. A face's boundary runs
+        # down its neighbours' CENTRELINES, so "inside the face" still allows a
+        # new centreline to sit half a carriageway inside the road that bounds
+        # it -- two streets laid on top of each other, entirely legally by this
+        # test. Measured: 10 non-adjacent carriageway overlaps over 8 seeds.
+        #
+        # The region a new street may occupy is the face pulled in by half the
+        # BOUNDARY road on each side plus half of its own width. Testing that
+        # rejects the overlap at the point it is proposed, instead of leaving a
+        # clearance rule to notice afterwards -- and it needs no exemptions,
+        # because the endpoints are excluded by construction rather than by a
+        # special case.
         # This ALSO subsumes the region check: every face lies inside the
         # arterial frame, so a street inside a face is inside the region. The
         # explicit region test was not merely redundant but wrong — a junction
         # sits ON the frame, 7 m from the boundary, so an `edge_clear` of 26 m
         # rejected every street that touched the arterial (100 candidates).
-        if any(not point_in_polygon(poly, q) for q in pts[2:-2]):
+        if drive_poly and any(not point_in_polygon(drive_poly, q)
+                              for q in pts[3:-3]):
+            _reject('leaves face')
+            continue
+        if not drive_poly and any(not point_in_polygon(poly, q)
+                                  for q in pts[2:-2]):
             _reject('leaves face')
             continue
         # Streets that meet at a junction are SUPPOSED to touch there, so every
@@ -1497,6 +1569,7 @@ def _best_cut(net, face, rng, parts, total, poly, node_us, want_snap, tries,
             nid = net.node_at(pnt, tol=1.5)
             if nid is not None:
                 ignore |= set(net.nodes[nid].edges)
+
         if net.clearance(pts, ignore=ignore, skip_ends_m=throat * 0.6,
                          limit=min_gap) < min_gap:
             _reject('clearance')
