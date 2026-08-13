@@ -82,11 +82,29 @@ PX4, start the NatNet emulator, and play the simulation automatically.
 | 1 | `Drone`, `Target` |
 | N > 1 | `Drone1`, `Drone2`, …, `DroneN`, `Target` |
 
-Override the base name with `NATNET_BODY_NAME` (default `Drone`) and
-`NATNET_TARGET_NAME` (default `Target`). These must match the
-`rigid_body_name` entries in your robot's
-[`natnet_config.yaml`](../../../robot/ros_ws/src/perception/natnet_ros2/config/natnet_config.yaml)
-profile.
+### Changing which body is streamed
+
+The streamed body name and streaming id are **constants in the launch script**
+(`NATNET_BODY_NAME` / `NATNET_BODY_ID` / `NATNET_TARGET_NAME`), not environment
+variables. They must match a body entry in the robot's profile in
+[`natnet_config.yaml`](../../../robot/ros_ws/src/perception/natnet_ros2/config/natnet_config.yaml),
+which is the only place the client reads its bodies from — that is what lets each robot
+in a multi-robot scene track a different body.
+
+To retarget, edit **both** together:
+
+| Where | What |
+|---|---|
+| `example_one_px4_pegasus_natnet_launch_script.py` | `NATNET_BODY_NAME`, `NATNET_BODY_ID` |
+| `natnet_config.yaml` → `robots.<robot_name>.bodies[]` | `rigid_body_name`, `id` |
+
+!!! warning "A mismatch fails silently"
+    The NatNet client filters incoming frames by **numeric id**. If the ids disagree, the
+    client connects, the emulator streams, and the pose topic never publishes — with no
+    error on either side. When debugging a silent stream, check the id first.
+
+    Deliberately not settable from an env file: one global variable cannot express
+    per-robot bodies, so it would break multi-robot.
 
 ### What the robot container needs
 

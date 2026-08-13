@@ -22,7 +22,6 @@ Env:
  - ``NUM_ROBOTS`` (default 1)
  - ``ENABLE_LIDAR`` (default false)
  - ``PLAY_SIM_ON_START`` (default true)
- - ``NATNET_BODY_NAME`` / ``NATNET_TARGET_NAME`` (optional name overrides)
 """
 
 import asyncio
@@ -73,8 +72,12 @@ DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/
 
 NUM_ROBOTS = int(os.environ.get("NUM_ROBOTS", "1"))
 ENABLE_LIDAR = os.environ.get("ENABLE_LIDAR", "false").lower() == "true"
-NATNET_BODY_NAME = os.environ.get("NATNET_BODY_NAME", "Drone")
-NATNET_TARGET_NAME = os.environ.get("NATNET_TARGET_NAME", "Target")
+# Base name for the streamed drone bodies; drone i is streamed with id i (see
+# _drone_body_name below). These must match the body entries in the per-robot profiles
+# in natnet_config.yaml — the client filters frames by numeric id. Set them here, not in
+# an env file.
+NATNET_BODY_NAME = "Drone"
+NATNET_TARGET_NAME = "Target"
 
 _NATNET_SERVER_KWARGS = {
     "pose_noise_enabled": True,

@@ -108,13 +108,17 @@ DRONE_CONFIGS = [
     {"domain_id": 1, "x_m": 0.0, "y_m": 0.0, "z_m": 0.07},
 ]
 
-NATNET_BODY_NAME = os.environ.get("NATNET_BODY_NAME", "Drone")
-# Streaming id the emulator advertises for the drone. The NatNet client filters incoming
-# frames by NUMERIC id, so this must match the body id in natnet_config.yaml, which reads
-# the same env var — a mismatch yields a connected client that never publishes. Both
-# default to 1, so the sim path works unconfigured.
-NATNET_BODY_ID = int(os.environ.get("NATNET_BODY_ID", "1"))
-NATNET_TARGET_NAME = os.environ.get("NATNET_TARGET_NAME", "Target")
+# Rigid body this scene streams, and the streaming id it advertises.
+#
+# These MUST match a body entry in the robot's profile in
+# robot/ros_ws/src/perception/natnet_ros2/config/natnet_config.yaml — the NatNet client
+# filters incoming frames by NUMERIC id, so a mismatch gives a client that connects and
+# then never publishes, with no error on either side. Change them here and in that file
+# together, never in an env file: the client reads the body from its per-robot profile
+# so that multiple robots can each track their own body.
+NATNET_BODY_NAME = "Drone"
+NATNET_BODY_ID = 1
+NATNET_TARGET_NAME = "Target"
 
 _NATNET_SERVER_KWARGS = {
     "pose_noise_enabled": True,
