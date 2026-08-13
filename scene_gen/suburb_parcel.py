@@ -65,7 +65,43 @@ def _side_at(cum, s):
             return i
     return max(0, len(cum) - 2)
 
+# ---------------------------------------------------------------------------
+# house archetypes
+# ---------------------------------------------------------------------------
+# A lot is not a house — it is a house AND what came with it. A post-war plat is
+# built by one developer in phases, so a run of lots shares a package: the same
+# builder puts up the same house with the same garage and the same fence down a
+# whole street, and the next phase does something slightly different. Drawing an
+# archetype independently per lot destroys exactly that, and is what makes a
+# generated suburb read as a shuffled catalogue rather than as a subdivision.
+#
+# So archetypes are assigned in RUNS along each block's frontage, not per lot.
+ARCHETYPES = {
+    # name          weight  garage   fence   lot scale
+    "plain":       {"w": 0.30, "garage": 0.0, "fence": 0.0, "scale": 1.00},
+    "fenced":      {"w": 0.22, "garage": 0.0, "fence": 1.0, "scale": 1.00},
+    "garage":      {"w": 0.24, "garage": 1.0, "fence": 0.0, "scale": 1.08},
+    "full":        {"w": 0.18, "garage": 1.0, "fence": 1.0, "scale": 1.18},
+    # The big ones: wider lot, deeper setback, everything on it.
+    "large":       {"w": 0.06, "garage": 1.0, "fence": 1.0, "scale": 1.42},
+}
+
+
+def _draw_archetype(rng):
+    names = list(ARCHETYPES)
+    tot = sum(ARCHETYPES[n]["w"] for n in names)
+    r = rng.random() * tot
+    for n in names:
+        r -= ARCHETYPES[n]["w"]
+        if r <= 0.0:
+            return n
+    return names[-1]
+
+
 DEFAULTS = {
+    # How many consecutive lots share an archetype. A builder puts up a phase,
+    # not one house; 4-9 lots is a plat phase on a typical block face.
+    "archetype_run": [4, 9],
     # Frontage per dwelling. US suburban lots run 50-80 ft wide; 20 m is a
     # 66 ft lot, the commonest post-war width.
     "lot_width_m": [17.0, 26.0],
@@ -182,6 +218,9 @@ def parcel_blocks(blocks, rng, cfg=None):
         houses, drives, trees = [], [], []
         s = rng.uniform(0.0, lw[0])
         guard = 0
+        run_lo, run_hi = _rng_pair(c.get("archetype_run", [4, 9]), (4.0, 9.0))
+        arch = _draw_archetype(rng)
+        run_left = int(rng.uniform(run_lo, run_hi + 0.999))
         while s < perim and guard < 4000:
             guard += 1
             width = rng.uniform(*lw)
@@ -201,9 +240,17 @@ def parcel_blocks(blocks, rng, cfg=None):
             if not depth_ok:
                 continue
 
+            # Advance the archetype run. Consecutive lots share a package, so
+            # similar houses end up next to each other rather than shuffled.
+            if run_left <= 0:
+                arch = _draw_archetype(rng)
+                run_left = int(rng.uniform(run_lo, run_hi + 0.999))
+            spec = ARCHETYPES[arch]
+            run_left -= 1
+
             setback = rng.uniform(*sb)
-            h_w = min(rng.uniform(*hw), width - gap)
-            h_d = rng.uniform(*hd)
+            h_w = min(rng.uniform(*hw) * spec["scale"], width - gap)
+            h_d = rng.uniform(*hd) * spec["scale"]
             if h_w < 7.0:
                 continue
             cx, cy = _add(p, _mul(n, setback + h_d / 2.0))
@@ -216,6 +263,12 @@ def parcel_blocks(blocks, rng, cfg=None):
                 continue
 
             houses.append({"c": (cx, cy), "w": h_w, "d": h_d, "u": u,
+                           # What this lot gets BUILT with, not just the house:
+                           # suburb_scene composes the package from these.
+                           "archetype": arch,
+                           "has_garage": spec["garage"] > 0.0,
+                           "has_fence": spec["fence"] > 0.0,
+                           "lot_width": width,
                            # The INWARD normal, kept because it cannot be
                            # recovered later: perp(u) is perpendicular to u by
                            # definition, so no test against u can tell which of

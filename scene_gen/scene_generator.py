@@ -3016,9 +3016,26 @@ def apply_placements(stage,
                      parent_path: str = "/World/stage/generated",
                      scene_scale_factor: float = 1.0,
                      ground_snap=None,
-                     resolver: "SizeResolver | None" = None) -> str:
-    """Write *placements* onto *stage* as instanceable USD references under
-    *parent_path*.
+                     resolver: "SizeResolver | None" = None,
+                     instance_categories: "set | None" = None) -> str:
+    """Write *placements* onto *stage* as USD references under *parent_path*.
+
+    NOT INSTANCED BY DEFAULT, and this docstring used to claim otherwise. There
+    is no `SetInstanceable` call anywhere in this module: every placement
+    composes as its own reference, so N copies of a tree cost N x its points.
+    `suburb_yards` is the only file that had this right; the README says
+    "marked instanceable so the hundreds of repeated tiles share geometry",
+    which is simply not what the code does. Measured consequence: the graph
+    suburb plants 3,384 trees at ~55k points each = ~186M points, against the
+    89.1M that OOM-killed Isaac Sim on the urban scene.
+
+    *instance_categories* opts specific categories in. It is opt-in rather than
+    the default because `generate_city_v2.prune_prims` DEACTIVATES SUB-PRIMS
+    INSIDE placed assets — a street-name sign with a stop sign welded on, an
+    exporter's leftover `CINEMA_4D_Editor` scaffolding — and USD forbids editing
+    inside an instance. Any category that pass touches must stay un-instanced.
+    The suburb path does not call `prune_prims` at all, so it can instance
+    freely; the urban path cannot without auditing its prune list first.
 
     Metric coordinates are multiplied by *scene_scale_factor* (= 1 /
     meters_per_unit) to land in stage units. Each prim gets translate /
@@ -3035,6 +3052,7 @@ def apply_placements(stage,
     proto_index: dict = {}
     pose_cache: dict = {}
     ssf = float(scene_scale_factor)
+    n_instanced = 0
 
     for i, p in enumerate(placements):
         usd = p["usd"]
@@ -3107,6 +3125,10 @@ def apply_placements(stage,
             # holder prim is typeless and can't carry transform ops.
             print(f"[scene_gen] WARN: {usd} composed no Xformable prim at {prim_path}")
             continue
+        # Instancing goes on AFTER the transform ops: the ops live on the
+        # instance root, which is still editable, while the referenced geometry
+        # below it becomes shared. Setting it before would make the prim's own
+        # xform attributes part of the prototype.
         xform.ClearXformOpOrder()
         _set_xform_ops(xform, prim,
                        translate=((p["x_m"] - offset[0]) * ssf,
@@ -3115,9 +3137,13 @@ def apply_placements(stage,
                        rotate=(roll, pitch, yaw),
                        scale=(float(p["scale"]) * stx,
                               float(p["scale"]) * sty, float(p["scale"])))
+        if instance_categories and p.get("category") in instance_categories:
+            prim.SetInstanceable(True)
+            n_instanced += 1
 
     print(f"[scene_gen] Applied {len(placements)} placements under '{parent_path}' "
-          f"({len(proto_index)} unique USDs, scale_factor={ssf})")
+          f"({len(proto_index)} unique USDs, scale_factor={ssf}"
+          + (f", {n_instanced} instanced" if n_instanced else "") + ")")
     return parent_path
 
 

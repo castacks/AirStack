@@ -213,6 +213,44 @@ def apply_target_size(target_m: float, fit: str) -> float:
     return factor
 
 
+def recenter(base_z: bool = True) -> tuple:
+    """Move the asset so its origin is under the centre of its own footprint.
+
+    WHY THIS IS WORTH DOING AT CONVERSION TIME. glb art is authored at whatever
+    origin the artist happened to use — commonly a corner, or the mesh sitting
+    entirely in one quadrant — and nothing downstream moves it. The generator
+    already knows: `SizeResolver` returns cx/cy/cz bbox-centre offsets and
+    `apply_placements` subtracts the rotated offset so the VISUAL centroid lands
+    where the layout asked. That fixes the position and nothing else: the prim's
+    own origin stays where the art put it, so in the viewport the manipulator
+    gizmo hangs off the side of the house and every manual rotate swings it
+    round a point that is not its centre.
+
+    Baking the correction into the cached USD fixes it once, for every consumer,
+    instead of every consumer compensating: cx/cy come back ~0 afterwards, so
+    `apply_placements`' offset maths becomes a no-op rather than being wrong.
+
+    XY is centred; Z is set so the asset's BASE sits on z=0, because a building
+    wants its foundation on the ground, not its middle. Returns the translation
+    applied, so the caller can record it.
+    """
+    import mathutils
+
+    box = world_bbox()
+    if box is None:
+        return (0.0, 0.0, 0.0)
+    lo, hi = box
+    dx = -(lo[0] + hi[0]) / 2.0
+    dy = -(lo[1] + hi[1]) / 2.0
+    dz = -lo[2] if base_z else -(lo[2] + hi[2]) / 2.0
+    T = mathutils.Matrix.Translation((dx, dy, dz))
+    for ob in bpy.context.scene.objects:
+        if ob.parent is None:
+            ob.matrix_world = T @ ob.matrix_world
+    bpy.context.view_layer.update()
+    return (float(dx), float(dy), float(dz))
+
+
 def gather_inputs(inputs: list[str], recursive: bool) -> list[Path]:
     files: list[Path] = []
     for raw in inputs:
@@ -265,6 +303,9 @@ def main() -> int:
                     help="re-convert even if the output already exists")
     ap.add_argument("--no-textures", dest="textures", action="store_false",
                     help="do not copy/pack textures")
+    ap.add_argument("--no-recenter", action="store_true",
+                    help="keep the author's origin instead of moving it under "
+                         "the footprint centre with the base on z=0")
     ap.add_argument("--selected-only", action="store_true",
                     help="export renderable objects only (drop cameras/empties)")
     ap.add_argument("--report", action="store_true",
@@ -312,6 +353,9 @@ def main() -> int:
                 raise RuntimeError("importer produced no objects")
             scale = apply_target_size(args.target_size, args.fit) \
                 if args.target_size else 1.0
+            # AFTER scaling, so the translation is in the final metric frame.
+            if not args.no_recenter:
+                recenter(base_z=True)
             bbox = world_bbox()
             export_usd(dst, args.textures, args.selected_only)
             note = "  (geometry-only — no materials)" if fidelity == "geometry" else ""
