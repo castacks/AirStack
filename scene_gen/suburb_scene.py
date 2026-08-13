@@ -102,7 +102,13 @@ def _make_ribbon(stage, path, pts, half_w, z, ssf, uv_scale, color, mat=""):
     for i in range(len(pts) - 1):
         a = 2 * i
         counts.append(4)
-        idx.extend([a, a + 2, a + 3, a + 1])
+        # WINDING MATTERS. Vertices alternate left, right, left, right along the
+        # strip, so the obvious [a, a+2, a+3, a+1] traverses up the left side and
+        # back down the right — which is CLOCKWISE seen from +Z, i.e. the face
+        # points at the ground and the renderer culls it. Explicit +Z normals do
+        # not save it: culling reads the winding, not the normal attribute. The
+        # roads were invisible for exactly this reason.
+        idx.extend([a, a + 1, a + 3, a + 2])
     cum = sn._cumulative(pts)
     uvs = []
     for i in range(len(pts)):
@@ -270,27 +276,205 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf):
 # placements
 # ---------------------------------------------------------------------------
 
-def _pool(config, *path):
+class AssetPools:
+    """Asset lists with the per-asset corrections `build_city` applies.
+
+    THE FOUR THINGS A BARE REFERENCE GETS WRONG, all of which this scene had:
+
+      z      A prop must sit at ``fp["base"]``, the measured distance from the
+             asset's origin to the bottom of its bounding box. Placing at z=0
+             buries or floats everything by whatever that offset happens to be.
+      scale  Entries carry ``scale:`` (0.01 for cm-authored art). Defaulting to
+             1.0 renders a centimetre asset 100x too big.
+      axis_up Y-up art needs a +90 roll to stand up in a Z-up world, and its
+             sx/sy swap — which is why `resolver.get` takes axis_up too.
+      yaw    ``yaw-offset`` corrects art not authored facing +X.
+
+    `_normalize_usd_list` is the same module-level parser `build_city` uses, so
+    these come out identical rather than merely similar.
+    """
+
+    def __init__(self, config):
+        self.asset_scale = float(config.get("asset_scale", 1.0) or 1.0)
+        self.asset_root = str(config.get("asset_root", "") or "").rstrip("/")
+        self._scale, self._axis, self._yaw = {}, {}, {}
+
+    def load(self, raw):
+        paths, sc, au, yo, _tags = sg._normalize_usd_list(
+            raw, self.asset_scale, self.asset_root)
+        self._scale.update(sc)
+        self._axis.update(au)
+        self._yaw.update(yo)
+        return paths
+
+    def scale_of(self, p):
+        return self._scale.get(p, self.asset_scale)
+
+    def axis_of(self, p):
+        return self._axis.get(p, "Z")
+
+    def yaw_of(self, p):
+        return self._yaw.get(p, 0.0)
+
+    def roll_of(self, p):
+        return 90.0 if self.axis_of(p) == "Y" else 0.0
+
+    def place(self, resolver, usd, category, x, y, yaw, rng=None,
+              z_extra=0.0, scale_mul=1.0):
+        """One placement dict with every correction applied."""
+        sc = self.scale_of(usd) * scale_mul
+        au = self.axis_of(usd)
+        fp = resolver.get(usd, category, scale=sc, axis_up=au)
+        return {
+            "usd": usd, "x_m": x, "y_m": y,
+            "z_m": fp.get("base", 0.0) + z_extra,
+            "yaw_deg": yaw + self.yaw_of(usd),
+            "roll_deg": self.roll_of(usd), "pitch_deg": 0.0,
+            "scale": sc, "category": category, "axis_up": au,
+        }
+
+
+def _raw_pool(config, *path):
     node = config.get("usds", {}) or {}
     for k in path:
         node = (node or {}).get(k) or {}
     return node if isinstance(node, list) else []
 
 
-def _entry_usd(e):
-    return e.get("usd") if isinstance(e, dict) else e
+def build_frontage(config, resolver, net, blocks, rng, pools):
+    """Sidewalk tiles, streetlights and hydrants along every block frontage.
 
+    WHY THIS EXISTS AT ALL. `build_city` lays a sidewalk ring, concrete pads and
+    street furniture by walking each block's edge, and `city_detail` adds signs
+    and lamps by walking each corridor — but both take blocks and corridors as
+    RECTS, so neither can be called here. Without them the scene had roads and
+    houses sitting on bare ground with nothing between them, which is most of
+    why it read as a diagram rather than a place: on the old suburban path the
+    sidewalk tiles alone are 15,346 of the 56,091 placements.
 
-def build_placements(config, parcels, rng, yaw_off=-90.0):
-    """Houses and trees as `scene_generator` placement dicts.
-
-    The house yaw is the frontage tangent `suburb_parcel` already solved, so a
-    house on a curving street turns with the street. That is the payoff of
-    carrying real geometry through the layout: on the rect generator every
-    building was locked to 0/90/180/270.
+    Walking a POLYGON frontage is if anything simpler than walking a rect: the
+    block ring is a polyline, so a tile every `step` along its arclength is the
+    whole loop, and the tile's yaw is the local tangent, so the pavement follows
+    the street round its curve instead of stair-stepping.
     """
-    houses = _pool(config, "buildings", "intact")
-    trees = _pool(config, "trees")
+    det = (config.get("city_detail") or {})
+    cats = (det.get("categories") or {})
+    zones_cfg = (det.get("zones") or {})
+    verge = float(zones_cfg.get("furnishing_inset_m", 1.6) or 1.6)
+
+    tiles = (config.get("usds", {}) or {}).get("tiles", {}) or {}
+    walk_raw = tiles.get("sidewalk") or tiles.get("brick") or []
+    walk = pools.load(walk_raw)
+    lamps = pools.load(_raw_pool(config, "streetlights"))
+    hyd = pools.load(_raw_pool(config, "fire_hydrants"))
+
+    def spacing(key, default):
+        return float((cats.get(key) or {}).get("spacing_m", default) or 0.0)
+
+    lamp_sp = spacing("streetlights", 120.0)
+    hyd_sp = spacing("fire_hydrants", 240.0)
+
+    out = []
+    if walk:
+        # Tile step from the measured tile, so the ring is continuous rather
+        # than dotted or overlapping.
+        fp0 = resolver.get(walk[0], "sidewalk", scale=pools.scale_of(walk[0]),
+                           axis_up=pools.axis_of(walk[0]))
+        step = max(1.0, min(fp0["sx"], fp0["sy"]) * 0.98)
+    else:
+        step = 4.0
+
+    for blk in blocks:
+        poly = blk["poly"]
+        front = blk.get("frontage")
+        ring = list(poly) + [poly[0]]
+        cum = sp._ring_cum(ring)
+        perim = sn.polyline_length(ring)
+        if perim < 20.0:
+            continue
+
+        def on_street(s):
+            if not front:
+                return True
+            return bool(front[sp._side_at(cum, s) % len(front)])
+
+        # -- sidewalk ring -------------------------------------------------
+        s = 0.0
+        while walk and s < perim:
+            if on_street(s):
+                p = sn.point_at(ring, s)
+                t = sn.tangent_at(ring, s)
+                n = sp._inward(poly, p, t)
+                q = sn._add(p, sn._mul(n, verge * 0.5))
+                u = walk[rng.randrange(len(walk))]
+                yaw = math.degrees(math.atan2(t[1], t[0]))
+                out.append(pools.place(resolver, u, "sidewalk",
+                                       q[0], q[1], yaw, rng))
+            s += step
+
+        # -- lamps and hydrants, on their own rhythm along the verge -------
+        for pool, sp_m, cat in ((lamps, lamp_sp, "streetlight"),
+                                (hyd, hyd_sp, "fire_hydrant")):
+            if not pool or sp_m <= 0.0:
+                continue
+            s = rng.uniform(0.0, sp_m)
+            while s < perim:
+                if on_street(s):
+                    p = sn.point_at(ring, s)
+                    t = sn.tangent_at(ring, s)
+                    n = sp._inward(poly, p, t)
+                    q = sn._add(p, sn._mul(n, verge))
+                    u = pool[rng.randrange(len(pool))]
+                    # Face the street: inward normal points into the block, so
+                    # the kerb is at -n.
+                    yaw = math.degrees(math.atan2(-n[1], -n[0]))
+                    out.append(pools.place(resolver, u, cat, q[0], q[1], yaw,
+                                           rng))
+                s += sp_m
+    return out
+
+
+def build_signs(config, resolver, net, rng, pools):
+    """A stop sign on every minor approach to a junction.
+
+    `city_detail` decides this from corridor lane counts; the same rule applies
+    here off the graph, which actually knows the junction degree directly. A
+    suburb is stop-controlled throughout, which is what the suburban preset's
+    `traffic_lights.intersection_chance: 0` already says.
+    """
+    signs = pools.load(_raw_pool(config, "signs_stop")
+                       or _raw_pool(config, "traffic_signs"))
+    if not signs:
+        return []
+    det = (config.get("city_detail") or {})
+    near = float(((det.get("categories") or {}).get("signs_stop")
+                  or {}).get("near_corner_m", 6.0) or 6.0)
+    out = []
+    for n in net.nodes.values():
+        if n.road_degree(net) < 3:
+            continue
+        for eid in n.edges:
+            e = net.edges[eid]
+            if e.road_class in ("boundary", "collector"):
+                continue          # the through road runs; the side street stops
+            pts = e.pts if e.a == n.id else list(reversed(e.pts))
+            if sn.polyline_length(pts) < near + 2.0:
+                continue
+            p = sn.point_at(pts, near)
+            t = sn.tangent_at(pts, near)
+            side = sn._perp(t)
+            q = sn._add(p, sn._mul(side, e.half_w + 1.2))
+            u = signs[rng.randrange(len(signs))]
+            # Sign faces back down its own approach, at the driver.
+            yaw = math.degrees(math.atan2(-t[1], -t[0]))
+            out.append(pools.place(resolver, u, "sign", q[0], q[1], yaw, rng))
+    return out
+
+
+def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0):
+    """Houses and yard trees, with every per-asset correction applied."""
+    houses = pools.load(_raw_pool(config, "buildings", "intact"))
+    trees = pools.load(_raw_pool(config, "trees"))
     out = []
     if not houses:
         print("[suburb_scene] WARNING: no buildings.intact pool in asset set")
@@ -298,36 +482,18 @@ def build_placements(config, parcels, rng, yaw_off=-90.0):
         for h in p["houses"]:
             if not houses:
                 break
-            e = houses[rng.randrange(len(houses))]
-            out.append({
-                "usd": _entry_usd(e), "x_m": h["c"][0], "y_m": h["c"][1],
-                "z_m": 0.0,
-                # h["yaw_deg"] is the FRONTAGE TANGENT — along the street. The
-                # house has to face ACROSS it, toward the kerb. The lot's inward
-                # normal points into the block, so the street is at -n, which is
-                # the tangent rotated by -90.
-                #
-                # This assumes the asset is authored facing +X. That is a
-                # property of the art, not of the layout, and these bungalows
-                # are Objaverse conversions whose facing is not recorded
-                # anywhere — so it is a knob rather than a constant. If the
-                # houses come up backs-to-the-street, set this to +90.
-                "yaw_deg": h["yaw_deg"] + yaw_off,
-                "roll_deg": 0.0, "pitch_deg": 0.0,
-                "scale": float(e.get("scale", 1.0)) if isinstance(e, dict) else 1.0,
-                "category": "house", "axis_up": "Z",
-            })
+            u = houses[rng.randrange(len(houses))]
+            # h["yaw_deg"] is the FRONTAGE TANGENT -- along the street. The house
+            # faces ACROSS it toward the kerb, which is the tangent rotated by
+            # `yaw_off`. That assumes the art faces +X; see the preset comment.
+            out.append(pools.place(resolver, u, "house", h["c"][0], h["c"][1],
+                                   h["yaw_deg"] + yaw_off, rng))
         for t in p["trees"]:
             if not trees:
                 break
-            e = trees[rng.randrange(len(trees))]
-            out.append({
-                "usd": _entry_usd(e), "x_m": t["c"][0], "y_m": t["c"][1],
-                "z_m": 0.0, "yaw_deg": rng.uniform(0.0, 360.0),
-                "roll_deg": 0.0, "pitch_deg": 0.0,
-                "scale": float(e.get("scale", 1.0)) if isinstance(e, dict) else 1.0,
-                "category": "tree", "axis_up": "Z",
-            })
+            u = trees[rng.randrange(len(trees))]
+            out.append(pools.place(resolver, u, "tree", t["c"][0], t["c"][1],
+                                   rng.uniform(0.0, 360.0), rng))
     return out
 
 
@@ -365,10 +531,16 @@ def generate_suburb_on_stage(stage, config,
           f"on {pstats['blocks_built']}/{pstats['blocks']} blocks")
 
     resolver = sg._make_resolver(config)
+    pools = AssetPools(config)
     placements = build_placements(
-        config, parcels, rng,
+        config, resolver, parcels, rng, pools,
         yaw_off=float((config.get("suburb_parcel") or {})
                       .get("house_yaw_offset_deg", -90.0)))
+    placements += build_frontage(config, resolver, net, blocks, rng, pools)
+    placements += build_signs(config, resolver, net, rng, pools)
+    import collections as _c
+    print("[suburb_scene] placements by category: %s"
+          % dict(_c.Counter(p["category"] for p in placements)))
 
     ground_snap = sg._make_physx_ground_snap() if snap_to_ground else None
     sg.apply_placements(stage, placements, parent_path, scene_scale_factor,
