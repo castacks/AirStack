@@ -153,6 +153,64 @@ def _faces(c, blocks, lo_edge, hi_edge):
             yield i, "hi", (0 if ns else 1), s0, s1
 
 
+def _jittered_widths(total, k, t_lo, t_hi, jitter, rng):
+    """*k* child widths summing exactly to *total*, each kept within its target.
+
+    WHY THE EVEN DIVISION NEEDED THIS. When a cell cannot reach its target by
+    bisection the subdivider cuts it into k EQUAL children instead. That path
+    used no jitter at all, so an 800 m region against an ~87 m short target was
+    sliced into nine identical rows in a single step, and every row was then cut
+    into identical columns — a perfectly stamped lattice, with every cross street
+    running unbroken across the whole city. It is the single strongest "this was
+    generated" tell left in the grid, and it survived `split_jitter` entirely
+    because that knob only ever reached the bisection path.
+
+    Deviations are made ZERO-SUM so the children still tile the cell exactly,
+    then clamped to the target band with the residual pushed back into whichever
+    children still have room. Blocks therefore vary in size the way a real
+    plat's do, and because each cell draws its own widths, cross streets in
+    neighbouring rows no longer line up.
+    """
+    base = total / max(k, 1)
+    if k <= 1 or jitter <= 0.0:
+        return [base] * k
+    # The band has to be taken as the room on WHICHEVER side has any, not the
+    # smaller of the two. An 800 m region against a [190, 260] long target
+    # divides into exactly 3 x 260 m — base lands ON t_hi, so "room above" is
+    # zero and a min() of the two sides collapsed the amplitude to nothing.
+    # That left the avenue cuts perfectly uniform and the three columns still
+    # ran unbroken down the whole city even after the rows were jittered.
+    half = max(base - t_lo, t_hi - base, 0.0)
+    amp = half * max(0.0, min(1.0, jitter))
+    if amp <= 1e-6:
+        return [base] * k
+    lo = min(t_lo, base - half)
+    hi = max(t_hi, base + half)
+    d = [(rng.random() * 2.0 - 1.0) * amp for _ in range(k)]
+    mean = sum(d) / k
+    w = [base + (x - mean) for x in d]
+    for _pass in range(6):
+        resid = 0.0
+        for i in range(k):
+            if w[i] < lo:
+                resid += w[i] - lo
+                w[i] = lo
+            elif w[i] > hi:
+                resid += w[i] - hi
+                w[i] = hi
+        if abs(resid) < 1e-6:
+            break
+        room = [i for i in range(k)
+                if (resid < 0 and w[i] > lo + 1e-6)
+                or (resid > 0 and w[i] < hi - 1e-6)]
+        if not room:
+            break
+        share = resid / len(room)
+        for i in room:
+            w[i] += share
+    return w
+
+
 def _apply_kerb_extensions(blocks, corridors):
     """Give each strip the corridor's policy doesn't park on to its blocks.
 
@@ -222,6 +280,8 @@ def _park_reserves(aniso, config, x0, y0, x1, y1, targets, hw, rng):
     scale_lo, scale_hi = _rng_range(cfg.get("block_scale"), (1.3, 2.1))
     margin = float(cfg.get("margin_m", 40.0))
     min_sep = float(cfg.get("min_separation_m", 220.0))
+    # A park smaller than this is a verge, not a park.
+    min_side = float(cfg.get("min_side_m", 70.0))
 
     out = []
     for _ in range(want):
@@ -231,15 +291,30 @@ def _park_reserves(aniso, config, x0, y0, x1, y1, targets, hw, rng):
             t_min_x, t_max_x, t_min_y, t_max_y = targets(cx, cy)
             w = (t_min_x + t_max_x) / 2.0 * rng.uniform(scale_lo, scale_hi)
             h = (t_min_y + t_max_y) / 2.0 * rng.uniform(scale_lo, scale_hi)
-            r = (cx - w / 2.0, cy - h / 2.0, cx + w / 2.0, cy + h / 2.0)
             # Leave room for the bounding street plus a FULL block either side.
             # A smaller margin leaves an unsplittable 10-20 m strip against the
             # region edge, which comes back as a sliver block and puts a second
             # corridor within a few metres of the park's own frontage — the
             # overlapping-corridor pairs seen downstream.
-            pad = hw + max(t_max_x, t_max_y)
-            if not (x0 + pad < r[0] and r[2] < x1 - pad
-                    and y0 + pad < r[1] and r[3] < y1 - pad):
+            #
+            # PER AXIS, and clamped. Taking max(t_max_x, t_max_y) charged the
+            # LONG target's margin to both axes: once the blocks were sized to
+            # Manhattan's 2.3x the long target reached 270 m, so the margin
+            # alone claimed 550 m of a 750 m interior and no park could ever be
+            # placed — the whole park pass silently produced nothing. Each axis
+            # now pays only its own margin, and the park is shrunk to whatever
+            # room is left rather than rejected for not fitting at full size.
+            pad_x, pad_y = hw + t_max_x, hw + t_max_y
+            room_w = (x1 - pad_x) - (x0 + pad_x)
+            room_h = (y1 - pad_y) - (y0 + pad_y)
+            w, h = min(w, room_w), min(h, room_h)
+            if w < min_side or h < min_side:
+                continue
+            cx = min(max(cx, x0 + pad_x + w / 2.0), x1 - pad_x - w / 2.0)
+            cy = min(max(cy, y0 + pad_y + h / 2.0), y1 - pad_y - h / 2.0)
+            r = (cx - w / 2.0, cy - h / 2.0, cx + w / 2.0, cy + h / 2.0)
+            if not (x0 + pad_x <= r[0] + _TOL and r[2] <= x1 - pad_x + _TOL
+                    and y0 + pad_y <= r[1] + _TOL and r[3] <= y1 - pad_y + _TOL):
                 continue
             if any(max(abs(cx - (q[0] + q[2]) / 2.0),
                        abs(cy - (q[1] + q[3]) / 2.0)) < min_sep for q in out):
@@ -497,11 +572,16 @@ def make_subdivider(layout_cfg: dict, config: dict = None):
                 stuck = k == 2 and extent < 2.0 * t_lo + min_road
                 if (k >= 3 or stuck) and child >= t_lo:
                     rect = (x0, y0, x1, y1)
+                    widths = _jittered_widths(extent - (k - 1) * mews, k,
+                                              t_lo, t_hi, jitter, rng)
+                    pos = base
                     for i in range(k - 1):
-                        sp = base + i * (child + mews) + child + mews / 2.0
+                        pos += widths[i]
+                        sp = pos + mews / 2.0
                         near, rect = road_at(axis, sp, *rect, zone=z,
                                              width=mews)
                         _recurse(*near)
+                        pos += mews
                     _recurse(*rect)
                     return
 

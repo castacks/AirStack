@@ -106,8 +106,8 @@ overrides:
       # axis was under every tower footprint in the library (BG_Building_A
       # 51.3 x 51.3, C 50.1 x 40.1, E 60.5 x 36.5, F 80.9 x 50.4, MBuilding02
       # 91.1 x 96.1), so nothing tall could be placed at all.
-      block_short_m: [55, 95]    # street-to-street, the dense axis
-      block_long_m: [130, 200]   # avenue-to-avenue, the sparse axis
+      block_short_m: [70, 105]   # street-to-street, the dense axis
+      block_long_m: [190, 260]   # avenue-to-avenue, the sparse axis
       # Road width follows the axis. MEASURED (Manhattan, share of segments by
       # class and median lane count):
       #     secondary     53.9%   4 lanes
@@ -1027,8 +1027,12 @@ overrides:
         # Targets k=3 on the row-house strip (t_mid 66 -> 66.7 m blocks), which
         # is the only reachable size that fits a terrace pair once the sidewalk
         # inset is taken off. [46, 52] targeted k=4 and could not fit one.
-        block_short_m: [60.0, 72.0]    # MEASURED 61 / 96 / 116 m — asset-anchored
-        block_long_m: [135.0, 200.0]   # MEASURED 137 / 172 / 220 m
+        # SHORT AXIS IS NOT TOUCHED: the terrace band above is tuned to it
+        # (k=3 on the row-house strip), and brownstones only need 25.1 m, so
+        # this is set by the terrace composition rather than by fit. Only the
+        # long axis moves, for the anisotropy reason given under midrise.
+        block_short_m: [60.0, 72.0]    # terrace-tuned; assets need >= 25.1
+        block_long_m: [165.0, 230.0]   # ratio ~3.0x, matching a brownstone strip
         # MEASURED terrace runs: 6 houses / 43-48 m frontage median,
         # 17-29 houses / 105-130 m at p90 — a run is NOT a whole block face.
         run_median_m: 45.0
@@ -1044,11 +1048,30 @@ overrides:
         # pavement reads as an enormous sidewalk. 45 m takes the deepest asset
         # in the pool plus room to shuffle; the slack moves to the middle, where
         # a dense block actually keeps it.
-        perimeter_depth_m: 45.0
+        # 32, not 45. `_perimeter_rects` only carves a courtyard when the block
+        # exceeds 2*depth + min_side, and min_side across this pool is 18.5 m
+        # (MBuilding01), so 45 demanded a 108.5 m block short side while the
+        # targets below produced 80-115 m. The courtyard therefore almost never
+        # formed and packing fell back to the whole interior -- which is exactly
+        # the "built at the back with an apron of paving" artefact the band
+        # exists to prevent, and why measured built_frac sat at 0.60. At 32 the
+        # threshold is 82.5 m, under the floor below, so EVERY midrise block now
+        # forms a real perimeter block. 32 m is also about one building deep:
+        # the pool's depths run 18.5-45.1 m, median 32.0.
+        perimeter_depth_m: 32.0
         height_median_m: 27.0          # MEASURED levels p50 4-9 fl (13-29 m)
         height_sigma: 0.45
-        block_short_m: [80.0, 115.0]   # MEASURED 81 / 96 / 115 m
-        block_long_m: [135.0, 200.0]   # MEASURED 136 / 189 / 202 m
+        # ASSET CHECK, all 13 midrise assets: narrowest side per asset runs
+        # 18.5-45.1 m (widest narrow side is Building_TypeB_C at 45.1), so the
+        # pool needs a 49.1 m block short side and NOT the 80-115 m set here
+        # before -- the old comment called this asset-anchored, and it was not.
+        # The short axis is held near Manhattan's measured 79.7 m because that
+        # is what the perimeter band wants, and the LONG axis is what moves:
+        # at [135, 200] the achieved ratio was 1.64x against a measured 2.3x,
+        # which is why the city read as a fine uniform lattice at 62.5
+        # blocks/km2 against Manhattan's 35.
+        block_short_m: [85.0, 112.0]   # assets need >= 49.1; Manhattan 79.7
+        block_long_m: [205.0, 270.0]   # Manhattan 273.9 -> ratio ~2.4x
       tower:
         rank: 2
         pools: [tower]
@@ -1072,8 +1095,17 @@ overrides:
         # BG_Building_A / C / E blocks they fit, instead of only the 80-96 m
         # BG_Building_F and MBuilding02. The top stays at 110 so MBuilding02
         # (91.1 x 96.1) still has somewhere to stand.
-        block_short_m: [70.0, 110.0]   # MEASURED 97 / 113 / 116 m
-        block_long_m: [135.0, 190.0]   # MEASURED 139 / 140 / 188 m
+        # ASSET CHECK, all 7 tower assets: narrowest sides are 20.6 / 36.5 /
+        # 40.1 / 40.2 / 50.4 / 51.3 / 91.1 m. MBuilding02 (91.1 x 96.1) is the
+        # binding one and needs a 95.1 m short side; at the previous 70 m floor
+        # it could never be placed at all. The floor moves to 78 so most of the
+        # pool still fits in a modest block, and the ceiling to 118 so
+        # MBuilding02 has somewhere to stand. This does cost tower COUNT -- a
+        # tower block holds exactly one building -- which is the trade the note
+        # above describes, now made against measured footprints rather than a
+        # guess.
+        block_short_m: [78.0, 118.0]   # assets need >= 95.1 for the full pool
+        block_long_m: [190.0, 250.0]   # ratio ~2.2x, was 1.8x
 
   # ---- parks (parks.py) ------------------------------------------------------
   # build_city gives a park ONE trail entering and leaving at opposite edge

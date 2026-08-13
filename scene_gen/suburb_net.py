@@ -954,23 +954,34 @@ def generate(width_m, height_m, rng, cfg=None):
     # One plat orientation per suburb, with a slow swirl across it.
     grain_base = rng.uniform(0.0, math.pi)
     grain_swirl = math.radians(float(c["grain_swirl_deg"]))
-    n_conn = _subdivide_faces(net, rng, c, throat, min_gap, sample, region,
-                              edge_clear, junctions, spaced_ok,
-                              grain_base=grain_base, grain_swirl=grain_swirl)
 
-    n_loops = n_lolli = 0
+    # LOOPS BEFORE SUBDIVISION. A loop needs 200-520 m of continuous frontage on
+    # its host and a clear bulge of open land to swing into; face subdivision
+    # needs neither. Running subdivision first therefore consumed every long
+    # frontage and left loops with nowhere to attach — measured, 0 loops on
+    # every seed, so half the "loops and lollipops" morphology was missing and
+    # the fabric was really just connectors-and-cul-de-sacs. Platting them off
+    # the collectors first, while the interior is still open, is also the order
+    # a real subdivision is laid out in: the loop streets go in with the
+    # collector, and the rest of the parcel is cut up around them.
+    n_loops = 0
     for _ in range(int(c["loop_attempts"])):
-        sids = net.street_ids("collector", "connector", "loop")
+        sids = net.street_ids("collector", "loop")
         if not sids:
             break
         if _grow_loop(net, sids[rng.randrange(len(sids))], rng, depth, span,
                       throat, min_gap, sample, region, edge_clear, spaced_ok,
                       junctions, min_depth=float(c["loop_min_depth_m"])):
             n_loops += 1
+
+    n_conn = _subdivide_faces(net, rng, c, throat, min_gap, sample, region,
+                              edge_clear, junctions, spaced_ok,
+                              grain_base=grain_base, grain_swirl=grain_swirl)
+
+    n_lolli = 0
     want_dead = float(c["dead_end_target"])
     for _ in range(int(c["lollipop_attempts"])):
-        deg = [n.degree for n in net.nodes.values()]
-        if deg and sum(1 for d in deg if d == 1) / len(deg) >= want_dead:
+        if dead_end_share(net, region) >= want_dead:
             break
         sids = net.street_ids("collector", "connector", "loop")
         if not sids:
@@ -1533,6 +1544,28 @@ def _grow_loop(net, sid, rng, depth, span, throat, min_gap, sample, region,
 # measurement — judged against OSM, not by eye
 # ---------------------------------------------------------------------------
 
+def dead_end_share(net, region):
+    """Fraction of street nodes that are genuine dead ends.
+
+    ONE definition, used both by :func:`stats` and by the cul-de-sac loop that
+    grows toward a target. A node where a street runs off the crop edge has one
+    incident street and is not a cul-de-sac — the street continues outside the
+    region. Counting those made the growth loop believe the target was already
+    met before a single cul-de-sac had been placed, and it exited immediately.
+    """
+    x0, y0, x1, y1 = region
+
+    def at_crop(n):
+        return (abs(n.p[0] - x0) < 1.0 or abs(n.p[0] - x1) < 1.0
+                or abs(n.p[1] - y0) < 1.0 or abs(n.p[1] - y1) < 1.0)
+
+    real = [n for n in net.nodes.values() if n.road_degree(net) > 0]
+    if not real:
+        return 0.0
+    dead = sum(1 for n in real if n.road_degree(net) == 1 and not at_crop(n))
+    return dead / len(real)
+
+
 def stats(net, blks, region):
     """Morphology numbers with their measured suburban targets alongside."""
     x0, y0, x1, y1 = region
@@ -1553,8 +1586,7 @@ def stats(net, blks, region):
 
     real = [n for n in net.nodes.values() if n.road_degree(net) > 0]
     deg = [n.road_degree(net) for n in real]
-    dead = sum(1 for n in real
-               if n.road_degree(net) == 1 and not _at_crop(n))
+    dead = int(round(dead_end_share(net, region) * max(len(real), 1)))
     junc = [d for d in deg if d >= 3]
     three = sum(1 for d in junc if d == 3)
     length_km = sum(e.length for e in net.edges.values()
