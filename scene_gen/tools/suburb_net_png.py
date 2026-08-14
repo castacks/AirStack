@@ -46,7 +46,9 @@ def draw(net, blks, info, out_path, title="", show_nodes=True, parcels=None):
     # reserve, a phase nobody built — so it is drawn as rough open ground with
     # a dashed edge and gets no houses. Distinct on purpose: a sparse plan and
     # a plan whose subdivision pass simply gave up look identical otherwise,
-    # and only one of those is a bug.
+    # and only one of those is a bug. An undeveloped parcel that TOUCHED THE
+    # PARK is not in this list at all: it merged into the park's own face, so it
+    # is drawn below with the open space rather than hatched next to it.
     for b in blks:
         if b.get("undeveloped"):
             ax.add_patch(Polygon(b["poly"], closed=True, facecolor="#3d4a33",
@@ -56,11 +58,14 @@ def draw(net, blks, info, out_path, title="", show_nodes=True, parcels=None):
             ax.add_patch(Polygon(b["poly"], closed=True, facecolor="#47513c",
                                  edgecolor="#3a412f", lw=0.6, zorder=1))
 
-    # The park reserve, under the streets it was laid before. Two rectangles,
-    # because the difference is the point: the pale band is the padding no
-    # street may enter, the bright green is the park itself. If a carriageway
-    # is drawn over either, the reserve was not respected and the picture says
-    # so rather than hiding it.
+    # The park reserve, under the streets it was laid before. The pale band is
+    # the padding no street may enter; the bright green is the OPEN SPACE, and
+    # it is drawn as ONE SHAPE — `park["poly"]`, the reserve plus every
+    # undeveloped parcel that touched it, with no frame street between them.
+    # That is the whole point of the merge, so the plan has to show it as one
+    # thing: two shapes butted together would look exactly like the thing this
+    # replaced. If a carriageway is drawn over the green or the pale band, the
+    # reserve was not respected and the picture says so rather than hiding it.
     park = info.get("park")
     if park:
         kx0, ky0, kx1, ky1 = park["reserve"]
@@ -69,11 +74,17 @@ def draw(net, blks, info, out_path, title="", show_nodes=True, parcels=None):
                              edgecolor="#6f9c5e", lw=0.8, ls=(0, (4, 3)),
                              zorder=1.2))
         px0, py0, px1, py1 = park["rect"]
-        ax.add_patch(Polygon([(px0, py0), (px1, py0), (px1, py1), (px0, py1)],
-                             closed=True, facecolor="#2e7d32",
+        open_space = park.get("poly") or [(px0, py0), (px1, py0),
+                                          (px1, py1), (px0, py1)]
+        ax.add_patch(Polygon(open_space, closed=True, facecolor="#2e7d32",
                              edgecolor="#8fd694", lw=1.4, zorder=1.3))
-        ax.text(0.5 * (px0 + px1), 0.5 * (py0 + py1),
-                "PARK\n%.0f x %.0f m" % (px1 - px0, py1 - py0),
+        # The label sits on the RESERVE and reports the reserve, because that
+        # rectangle is still what the park's own content is built into; the
+        # merged land is open ground the park runs out into.
+        note = "PARK\n%.0f x %.0f m" % (px1 - px0, py1 - py0)
+        if park.get("merged"):
+            note += "\n+%d open parcels" % park["merged"]
+        ax.text(0.5 * (px0 + px1), 0.5 * (py0 + py1), note,
                 color="#cfe9cf", fontsize=8, ha="center", va="center",
                 zorder=1.35)
         # Each entrance: the junction on the frame street, a line in to the
@@ -186,6 +197,13 @@ def main():
                  park["center"][1], park["pad_m"], len(park["entrances"]),
                  len(park["sides"]), "".join(park["sides"]),
                  park["approaches"]))
+        # The published extent, which is only the reserve when nothing merged.
+        poly = park.get("poly")
+        if poly:
+            print("  open space %.1f ha over %d parcels merged in (reserve is "
+                  "%.1f ha of it)"
+                  % (abs(sn.polygon_area(poly)) / 10000.0, park["merged"],
+                     park["size"][0] * park["size"][1] / 10000.0))
     print(sn.format_stats(s))
     # BLOCK SHAPE, next to the morphology it trades against. `rectangularity`
     # is area over the block's own minimum-area bounding rectangle: 1.0 for a
@@ -223,7 +241,10 @@ def main():
              f"{100.0 * sum(1 for r in rects if r < 0.62) / max(len(rects), 1):.0f}%"
              f" of blocks triangular")
     if park:
-        title += (f"\npark {park['size'][0]:.0f} x {park['size'][1]:.0f} m, "
+        ha = (abs(sn.polygon_area(park["poly"])) / 10000.0 if park.get("poly")
+              else park["size"][0] * park["size"][1] / 10000.0)
+        title += (f"\npark {park['size'][0]:.0f} x {park['size'][1]:.0f} m "
+                  f"+ {park['merged']} merged parcels = {ha:.1f} ha open, "
                   f"{len(park['entrances'])} entrances on "
                   f"{len(park['sides'])} sides")
     if parcels:

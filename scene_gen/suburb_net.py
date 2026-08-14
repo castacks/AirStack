@@ -68,7 +68,12 @@ THE PIPELINE, IN THE ORDER IT RUNS
                           near target size, aiming each cut ACROSS the parcel
                           and leaving a share of parcels UNDEVELOPED — THE
                           LAYER THAT FILLS THE LAND
-    4  lollipops          cul-de-sacs, grown until the dead-end share is met
+    4  lollipops          cul-de-sacs, grown until the dead-end share is met.
+                          NOT into undeveloped land: a dead end exists to serve
+                          lots and there are none there
+    5  merge open land    the frame street comes DOWN where the park abuts an
+                          undeveloped parcel, so the two read as one open space
+                          — which is what makes the park a polygon
 
 (Loops really do run before subdivision, for the reason given at that call
 site: a loop needs 200-520 m of continuous frontage and subdivision does not,
@@ -109,8 +114,10 @@ Three changes, all inside :func:`_best_cut`, and they need each other:
     separate bucket and win outright, so a corner slice is only made when
     nothing across the parcel is legal at all.
 
-Result over the same twelve seeds: 23.3% under 0.62, mean rectangularity 0.632
--> 0.697. Blocks are not all rectangles, and should not be — the residue is
+Result over the same twelve seeds when that work landed: 23.3% under 0.62, mean
+rectangularity 0.632 -> 0.697, and 23.0% on the current fabric — the shape term
+is what holds it, and the passes added since have not moved it.
+Blocks are not all rectangles, and should not be — the residue is
 mostly parcels with a cul-de-sac stub notched into them and the genuinely
 three-sided faces left over where three streets meet.
 
@@ -123,6 +130,18 @@ of block-sized faces are left UNSUBDIVIDED, biased toward the crop edge and away
 from the collectors, which is where such land actually survives on an aerial
 (see :func:`_undeveloped_weight`). They are still emitted as blocks, so the
 ground is drawn, but flagged `undeveloped` for the passes that build houses.
+
+TWO THINGS FOLLOW FROM "NOBODY BUILT ON IT", and both are about roads:
+
+  * NO CUL-DE-SAC GOES INTO IT (:func:`_dead_ends_in_open_land`). A dead end
+    exists to give lots frontage and to turn a fire appliance round at the end
+    of it; land with no lots on it needs neither, so a stub poking into one is
+    a road that serves nothing. A road CROSSING that land — to reach the fabric
+    beyond it, or to run off the crop edge — is a different thing entirely and
+    stays allowed, because that road is doing the one job a road does. The test
+    is on the stem and the bulb, not on the street.
+  * WHERE IT TOUCHES THE PARK, THE FRAME BETWEEN THEM COMES DOWN
+    (:func:`_merge_open_land`). See below.
 
 THE PARK IS RESERVED, NOT FOUND
 -------------------------------
@@ -145,6 +164,22 @@ every block cut from that face is wrong. With the frame, the face containing
 the park is exactly the frame's interior and is simply not emitted as a block —
 and the park gets what a real park has, frontage with houses facing it.
 
+THE PARK IS NOT A RECTANGLE, THOUGH THE RESERVE IS. Every reason the frame is
+laid is a reason about DEVELOPED land: houses to front it, an address to reach,
+a way in from the streets. Where the neighbour is an undeveloped parcel none of
+those exist, and a carriageway there is a line ruled between two pieces of open
+ground that are otherwise the same ground. So it is not laid — the last pass
+takes those segments back out (:func:`_merge_open_land`), the two faces become
+one, and the park's published extent, ``info["park"]["poly"]``, is the reserve
+plus whatever merged into it: a polygon, and usually a fat L or T rather than a
+box. Measured over twelve seeds it absorbs 1.8 parcels and runs 12.6 ha (the
+reserve alone) to 29.5 ha.
+
+``rect`` KEEPS ITS MEANING and is still a rectangle: it is the region
+`suburb_park` plans its own content into, and that module wants a box. The two
+answer different questions — where the park's contents go, and how far the open
+space runs — so both are published and `poly` contains `rect` exactly.
+
 Step 2 does the real work and step 3 rarely fires; that is honest rather than
 ideal, and it happens because a face split and a loop compete for the same
 frontage. Growing streets opportunistically off other streets was tried first
@@ -160,14 +195,21 @@ Measured suburbs (OSM, five US subdivisions) and the literature, against the
 mean of twelve seeds at 1600 x 1200 m with the defaults below, park included:
 
     measure               target           measured   spread over 12 seeds
-    dead-end nodes        12-35%           14.2%      11.8 - 16.5
-    three-way junctions   69-87%           83.0%      74.0 - 88.9
-    street density        7.4-12.4 km/km²  10.8       10.6 - 11.2
-    block area (median)   15k-34k m²       28.7k      26.0k - 31.1k
+    dead-end nodes        12-35%           14.5%      12.5 - 17.2
+    three-way junctions   69-87%           82.4%      73.0 - 89.3
+    street density        7.4-12.4 km/km²  10.6       9.9 - 11.3
+    block area (median)   15k-34k m²       28.0k      25.6k - 30.5k
 
-    and two the shape and sparseness passes are tuned on, not OSM targets:
-    blocks under 0.62      —               23.3%      15.4 - 36.5
-    undeveloped parcels   `undeveloped_share` 13.6%    5.2 - 19.6
+    and three the shape, sparseness and merge passes are tuned on or report,
+    not OSM targets:
+    blocks under 0.62      —               23.0%      14.3 - 38.0
+    undeveloped parcels   `undeveloped_share` 10.6%    5.2 - 16.3
+    open space (park+merged) —             21.7 ha    12.6 - 29.7
+
+(`undeveloped parcels` counts the ones still standing as their own BLOCK. It
+reads lower than `undeveloped_share` asks because 1.8 parcels a seed merge into
+the park and stop being blocks at all; `info["undeveloped_polys"]` has every
+parcel the subdivision pass left whole, merged or not.)
 
 All four means sit in band. WHAT SPARSENESS COST, against the same twelve seeds
 with `undeveloped_share` at 0 (12.5% / 82.6% / 11.0 / 26.0k / 22.5% under 0.62):
@@ -995,6 +1037,12 @@ def blocks_from_faces(net, face_list, min_area=400.0, reserve=None,
     under it is never drawn and the parcel reads as a hole in the world; the
     flag is what tells the passes that build houses to leave it as open land.
     Every block carries the key, so a consumer can test it without a default.
+
+    WITH ONE EXCEPTION, and it is the reserve rule above rather than a second
+    rule: a parcel that :func:`_merge_open_land` folded into the park is part of
+    the park's face now, so the face it is in covers the reserve and no block
+    comes out of it at all. Its ground is drawn by whatever draws the park —
+    ``info["park"]["poly"]`` is the extent, and it includes that parcel.
     """
     out = []
     for f in face_list:
@@ -1249,7 +1297,16 @@ DEFAULTS = {
     "undeveloped_edge_m": 300.0,
     "undeveloped_collector_m": 260.0,
     "loop_attempts": 420,
-    "lollipop_attempts": 700,
+    # DOUBLED WHEN CUL-DE-SACS STOPPED GOING INTO UNDEVELOPED LAND. This pass
+    # is attempt-limited, not target-limited: it runs until `dead_end_target`
+    # is met and never gets there (the measured share is ~14% against a 24%
+    # target), so every candidate class it may no longer use comes straight off
+    # the count. Refusing to dead-end in open land cost 5.4 cul-de-sacs a seed
+    # and took the dead-end share to 11.2%, under the 12% floor of the measured
+    # band; at 1400 it is back to 14.4% and 19.5 cul-de-sacs, i.e. the fabric
+    # the band was fit to, with the stubs replatted onto land that has houses
+    # on it. The attempts are cheap — 6 s across twelve seeds.
+    "lollipop_attempts": 1400,
     "loop_share": 0.55,            # of successful locals, how many are loops
     "loop_depth_m": [90.0, 230.0],    # how far a loop bulges from its host
     "loop_min_depth_m": 70.0,         # below this the loop is not worth a block
@@ -1524,6 +1581,8 @@ def generate(width_m, height_m, rng, cfg=None):
         net, rng, c, throat, min_gap, sample, region, edge_clear, junctions,
         spaced_ok, grain_base=grain_base, grain_swirl=grain_swirl,
         reserve=reserve)
+    und_pts = [u["p"] for u in undeveloped]
+    und_polys = [u["poly"] for u in undeveloped]
 
     n_lolli = 0
     want_dead = float(c["dead_end_target"])
@@ -1537,15 +1596,32 @@ def generate(width_m, height_m, rng, cfg=None):
                           throat, min_gap, sample, region, edge_clear, bulb_r,
                           spaced_ok, junctions,
                           cul_gap_factor=float(c["cul_de_sac_gap_factor"]),
-                          reserve=reserve):
+                          reserve=reserve, undeveloped=und_polys):
             n_lolli += 1
+
+    # ---- level 5: the park absorbs the open land it touches -----------
+    # LAST, because it is the only pass that takes something away, and what it
+    # takes away depends on where the undeveloped parcels ended up — which is
+    # not known until subdivision has run, and which cul-de-sacs poke where is
+    # not known until the pass above has. See :func:`_merge_open_land`.
+    merged_polys = []
+    if reserve is not None:
+        _dropped, merged_polys = _merge_open_land(net, reserve, ring_sid,
+                                                  und_pts)
 
     face_list = faces(net)
     blks = blocks_from_faces(net, face_list, reserve=reserve,
-                             undeveloped_pts=undeveloped)
+                             undeveloped_pts=und_pts)
     info = {"collectors": made_col, "connectors": n_conn, "loops": n_loops,
             "lollipops": n_lolli, "region": region, "park": None,
             "reserve": None,
+            # Every parcel subdivision left whole, as its CENTRELINE polygon —
+            # including the ones that then merged into the park, which are no
+            # longer blocks and so cannot be recovered from `blks`. This is the
+            # extent of the open land, which is what a pass that wants to plant
+            # or flood it needs; `undeveloped` below counts the ones that are
+            # still blocks in their own right.
+            "undeveloped_polys": und_polys,
             "undeveloped": sum(1 for b in blks if b["undeveloped"])}
     if reserve is not None:
         # READ OFF THE FINISHED GRAPH, not from the approach streets that were
@@ -1561,6 +1637,16 @@ def generate(width_m, height_m, rng, cfg=None):
             "center": reserve.center,
             "pad_m": reserve.pad,
             "reserve": reserve.keep,       # park + padding: the street keep-out
+            # THE PARK'S REAL EXTENT, and NOT a rectangle once open land has
+            # merged into it: `rect` still says where the park's own content is
+            # built, because it is the region `suburb_park` plans into and that
+            # module wants a box; `poly` says how far the open space actually
+            # runs. Equal to `rect` (bar corner rounding) when nothing merged.
+            "poly": _park_polygon(net, reserve, ring_sid,
+                                  float(c["park_ring_offset_m"]),
+                                  float(c["park_ring_fillet_m"])),
+            "merged": len(merged_polys),   # parcels absorbed
+            "merged_polys": merged_polys,
             "ring_street_id": ring_sid,
             "approaches": n_entry,
             "entrances": ents,
@@ -1881,6 +1967,204 @@ def _link_one(net, reserve, rng, n_out, at, t_lo, t_hi, ring_sid, throat,
                 if _commit_cut(net, pts, p0, p1, junctions):
                     return True
     return False
+
+
+def _park_face(net, reserve):
+    """The face the reserve sits in, as ``(index, face)`` — None if there is none.
+
+    One containment test on the park's centre, for the reason `covers` gives:
+    no centreline enters the keep-out, so exactly one face holds it. After
+    :func:`_merge_open_land` that face is bigger than the frame's interior,
+    which is the point.
+    """
+    for i, f in enumerate(faces(net)):
+        if point_in_polygon(f["poly"], reserve.center):
+            return i, f
+    return None, None
+
+
+def _merge_open_land(net, reserve, ring_sid, undeveloped_pts):
+    """Take the frame street DOWN where the park abuts land nobody built on.
+
+    THE FRAME EXISTS TO GIVE FRONTAGE. Every reason it is laid — houses facing
+    the park across a street, entrances where those streets meet it, a face
+    traversal that can see the reserve at all — is a reason about DEVELOPED
+    land. Where the neighbour is an undeveloped parcel there are no houses to
+    front, no address to reach, and nothing on the far side that the street
+    connects to; a carriageway there is a line drawn between two pieces of open
+    ground that are otherwise the same ground. So it is not laid: park and
+    parcel read as one continuous open space, which is what they are.
+
+    Mechanically this MERGES TWO FACES, and that is the whole of the change to
+    everything downstream. The park's face stops being the frame's interior and
+    becomes the frame's interior plus the parcels that touch it, which
+    `blocks_from_faces` already declines to emit as a block (it covers the
+    reserve) and :func:`_park_polygon` publishes as the park's real extent —
+    no longer a rectangle.
+
+    Returns ``(removed_edge_ids, merged_polys)``.
+
+    ONE CONTIGUOUS RUN PER PARCEL. A parcel that touched the frame in two
+    separate runs would, if both came down, leave whatever sits between them
+    ringed by open space — an island, i.e. a hole, and a planar face traversal
+    cannot represent one: the merged face would come out with the island's land
+    counted as park. Such a parcel is left framed rather than published wrong.
+    It does not arise in the twelve-seed sweep (a parcel reaches two runs only
+    by wrapping around a dead end poking out of the frame, and
+    :func:`_dead_ends_in_open_land` is why there are none).
+    """
+    if ring_sid is None or not undeveloped_pts:
+        return [], []
+    fl = faces(net)
+    park_i = None
+    for i, f in enumerate(fl):
+        if point_in_polygon(f["poly"], reserve.center):
+            park_i = i
+            break
+    if park_i is None:
+        return [], []
+    und = {}
+    for i, f in enumerate(fl):
+        if i != park_i and any(point_in_polygon(f["poly"], q)
+                               for q in undeveloped_pts):
+            und[i] = f
+    if not und:
+        return [], []
+    by_edge = {}
+    for i, f in enumerate(fl):
+        for eid in f["edges"]:
+            by_edge.setdefault(eid, set()).add(i)
+    # The park face's edge list is in cyclic order around the frame, so the
+    # neighbour across each one, in that order, is what the run test needs.
+    ring = list(fl[park_i]["edges"])
+    nbr = []
+    for eid in ring:
+        e = net.edges[eid]
+        others = [i for i in by_edge.get(eid, ()) if i != park_i]
+        nbr.append(others[0] if (e.street_id == ring_sid and len(others) == 1
+                                 and others[0] in und) else None)
+    drop, merged = [], []
+    n = len(nbr)
+    for i in sorted(set(v for v in nbr if v is not None)):
+        at = [k for k in range(n) if nbr[k] == i]
+        runs = sum(1 for k in at if nbr[(k - 1) % n] != i)
+        if runs != 1:
+            continue
+        drop.extend(ring[k] for k in at)
+        merged.append(und[i]["poly"])
+    for eid in drop:
+        net.remove_edge(eid)
+    if drop:
+        drop.extend(_prune_open_space_stubs(net, reserve))
+    # A frame corner whose two edges both came down is left holding nothing.
+    # Drop it: a node with no edges is not a junction and not a dead end, and
+    # every count over the graph would have to special-case it.
+    for nid in [k for k, node in net.nodes.items() if not node.edges]:
+        del net.nodes[nid]
+    return drop, merged
+
+
+def _prune_open_space_stubs(net, reserve):
+    """Streets left dangling INSIDE the merged open space, taken back out.
+
+    WHAT STRANDS THEM. Two undeveloped parcels either side of the same approach
+    street both touch the frame, so both merge — and the street between them,
+    which used to run from the fabric to the frame, now ends in the middle of
+    one continuous piece of open ground. It fronts nothing on either side (that
+    is what undeveloped means) and reaches nothing at its end (the frame it
+    reached is gone). That is the same road-that-serves-nothing this whole pass
+    is about, arrived at from the other direction, so it goes the same way.
+
+    It also has to go for a mechanical reason. A dangling edge does not divide
+    land, so the face traversal walks it out and back INSIDE one face; offset
+    per edge, the two sides of that slit move APART rather than together and the
+    published polygon folds over itself along the carriageway. Measured over
+    twelve seeds before this: 7 seeds with road centrelines inside the park
+    polygon and up to 8 self-intersections in it.
+
+    Appearing TWICE in the face's edge cycle is exactly the definition of that
+    street, so no geometry test is needed. It cascades, because taking one out
+    can leave the one behind it dangling in turn.
+    """
+    dropped = []
+    for _ in range(12):
+        _i, f = _park_face(net, reserve)
+        if f is None:
+            break
+        seen = {}
+        for eid in f["edges"]:
+            seen[eid] = seen.get(eid, 0) + 1
+        stubs = [eid for eid, k in seen.items() if k > 1]
+        if not stubs:
+            break
+        for eid in stubs:
+            net.remove_edge(eid)
+        dropped.extend(stubs)
+    return dropped
+
+
+def _park_polygon(net, reserve, ring_sid, off, fillet):
+    """The park's real extent: the reserve plus whatever open land merged in.
+
+    Built from the face the reserve sits in, pulled in per edge by what that
+    edge IS — which is the same construction `blocks_from_faces` uses on a
+    block, with one addition:
+
+        frame street   pulled in to the PARK BOUNDARY, i.e. by the padding band
+                       plus the frame's own offset. `rect` keeps its meaning
+                       exactly: where the frame still stands, this polygon runs
+                       along it
+        other street   half a carriageway, like any block
+        crop edge      nothing: it is not pavement, so open land runs to it
+
+    So the polygon equals `rect` (bar 1.6 m of corner rounding off the frame's
+    fillets) when nothing merged, and grows an arm over every parcel that did.
+
+    THE CORNER WHERE THE FRAME STOPS NEEDS A CLAMP, and it is the one place
+    this differs from a block. Every corner of a block joins two edges inset by
+    about the same 5 m; here a frame edge inset by 30 m meets a street inset by
+    5 m, and where those two meet at anything but a right angle their offset
+    lines intersect a long way out — past `offset_polygon`'s mitre limit, which
+    then cuts the corner square from a point that is also outside. Measured, it
+    put a 30-50 m spike of "park" across the carriageway at every such corner,
+    which is exactly the thing this module refuses to draw. A corner that falls
+    OUTSIDE THE FACE cannot be right whatever produced it — an inset polygon
+    lives inside the thing it was inset from — so it is replaced by the plain
+    perpendicular offset of that vertex, which is where a right-angle corner
+    would have put it anyway.
+    """
+    _i, f = _park_face(net, reserve)
+    if f is None:
+        return None
+    _sides, rrect, _r = _ring_sides(reserve.keep, off, fillet)
+    ring_inset = reserve.rect[0] - rrect[0]        # pad + effective offset
+    insets = []
+    for eid in f["edges"]:
+        e = net.edges[eid]
+        if e.street_id == ring_sid:
+            d = ring_inset
+        elif e.road_class == "boundary":
+            d = 0.0
+        else:
+            d = e.half_w
+        insets.extend([d] * (len(e.pts) - 1))
+    poly = f["poly"]
+    if len(insets) != len(poly):
+        insets = (insets + [CLASSES["local"]["width_m"] / 2.0]
+                  * max(len(poly) - len(insets), 0))[:len(poly)]
+    out = offset_polygon(poly, insets)
+    if len(out) != len(poly):
+        return out if len(out) >= 3 else None
+    n = len(poly)
+    for i, v in enumerate(out):
+        if point_in_polygon(poly, v):
+            continue
+        a, b = poly[i], poly[(i + 1) % n]
+        d = _sub(b, a)
+        if _norm(d) < _TOL:
+            continue
+        out[i] = _add(a, _mul(_perp(_unit(d)), insets[i]))
+    return out if len(out) >= 3 else None
 
 
 def _reserve_entrances(net, reserve, ring_sid, min_sep=25.0):
@@ -2788,8 +3072,12 @@ def _subdivide_faces(net, rng, cfg, throat, min_gap, sample, region,
                      grain_swirl=0.0, reserve=None):
     """Keep splitting the largest face until every block is near target size.
 
-    Returns ``(cuts_made, undeveloped_pts)``, where each point marks a face that
-    was deliberately LEFT ALONE — see `undeveloped_share`.
+    Returns ``(cuts_made, undeveloped)``, a list of ``{"p", "poly"}`` — one
+    entry per face deliberately LEFT ALONE, see `undeveloped_share`. The point
+    is what marks the parcel (see below); the polygon is kept alongside it
+    because two later passes need the parcel's EXTENT rather than a point in it:
+    cul-de-sacs must not dead-end inside one, and one that touches the park is
+    merged into it.
     """
     target = float(cfg["block_area_target_m2"])
     min_block = float(cfg["block_area_min_m2"])
@@ -2805,7 +3093,7 @@ def _subdivide_faces(net, rng, cfg, throat, min_gap, sample, region,
     und_edge = float(cfg.get("undeveloped_edge_m", 300.0))
     und_col = float(cfg.get("undeveloped_collector_m", 260.0))
     cols = [e.pts for e in net.edges.values() if e.road_class == "collector"]
-    left = []                # one interior point per face left undeveloped
+    left = []                # {"p", "poly"} per face left undeveloped
     made, stuck = 0, set()
     for _ in range(int(cfg["subdivide_iters"])):
         face_list = faces(net)
@@ -2816,7 +3104,7 @@ def _subdivide_faces(net, rng, cfg, throat, min_gap, sample, region,
         big = [f for f in face_list
                if abs(polygon_area(f["poly"])) > target
                and tuple(sorted(f["edges"])) not in stuck
-               and not any(point_in_polygon(f["poly"], q) for q in left)
+               and not any(point_in_polygon(f["poly"], u["p"]) for u in left)
                and not (reserve is not None and reserve.covers(f["poly"]))]
         if not big:
             break
@@ -2840,8 +3128,13 @@ def _subdivide_faces(net, rng, cfg, throat, min_gap, sample, region,
                 # Marked by an interior POINT, not by its edge ids: a cut in the
                 # neighbouring face lands on this face's boundary and splits
                 # those edges, so an id-based key would silently expire while
-                # the parcel itself never moved.
-                left.append(polygon_centroid(f["poly"]))
+                # the parcel itself never moved. The POLYGON is safe to keep for
+                # the same reason the point is: nothing ever cuts this face
+                # again (the loop skips any face holding a `left` point), so the
+                # only thing later passes can do to it is add vertices along its
+                # boundary, which does not move the boundary.
+                left.append({"p": polygon_centroid(f["poly"]),
+                             "poly": list(f["poly"])})
                 continue
         if _split_face(net, f, rng, throat, min_gap, sample, min_block, region,
                        edge_clear, junctions, spaced_ok,
@@ -2863,9 +3156,50 @@ def _subdivide_faces(net, rng, cfg, throat, min_gap, sample, region,
     return made, left
 
 
+def _dead_ends_in_open_land(polys, pts, tip, bulb_r):
+    """True when this dead end would come to rest on land nobody built on.
+
+    A CUL-DE-SAC EXISTS TO SERVE LOTS. Its whole justification is frontage: the
+    stem gives four to eight houses an address and the bulb turns the fire
+    appliance round at the end of it. An undeveloped parcel has no houses on it
+    by definition, so a stub poking into one serves nothing, ends nowhere, and
+    reads as a road the plat forgot to finish — which is exactly what it is.
+
+    A road CROSSING that land is a different thing and stays allowed: a street
+    that runs through the parcel to reach the fabric on the other side, or to
+    run off the crop edge, is doing the one job a road does. So the test is on
+    the stem and the turnaround only, and it is asked in `_grow_lollipop`, which
+    is the only pass that builds a dead end on purpose.
+
+    The bulb is a 14.6 m disc, not a point, so it is tested as one — the same
+    reason `reserve_blocks` is asked with `bulb_r` a few lines below.
+    """
+    if not polys:
+        return False
+    for poly in polys:
+        x0, y0, x1, y1 = bbox(poly)
+        if (tip[0] < x0 - bulb_r or tip[0] > x1 + bulb_r
+                or tip[1] < y0 - bulb_r or tip[1] > y1 + bulb_r):
+            # the bulb is clear of this parcel; the stem still might not be
+            if all(q[0] < x0 or q[0] > x1 or q[1] < y0 or q[1] > y1
+                   for q in pts):
+                continue
+        if point_in_polygon(poly, tip):
+            return True
+        ring = list(poly) + [poly[0]]
+        if polyline_dist([tip, tip], ring, limit=bulb_r) < bulb_r:
+            return True
+        # The stem's first point sits ON its host, which is often this parcel's
+        # own boundary, so a containment test there is a coin toss — start at
+        # the second sample, where the street has actually committed to a side.
+        if any(point_in_polygon(poly, q) for q in pts[1:]):
+            return True
+    return False
+
+
 def _grow_lollipop(net, sid, rng, llen, throat, min_gap, sample, region,
                    edge_clear, bulb_r, spaced_ok, junctions,
-                   cul_gap_factor=0.72, reserve=None):
+                   cul_gap_factor=0.72, reserve=None, undeveloped=()):
     """A dead-end street off street *sid*, ending in a turnaround."""
     pts_h, _chain = net.street_chain(sid)
     if not pts_h:
@@ -2899,6 +3233,9 @@ def _grow_lollipop(net, sid, rng, llen, throat, min_gap, sample, region,
     # The stem staying out of the reserve is not enough — the turnaround is a
     # 14.6 m disc, so it is asked for with that much clearance.
     if reserve_blocks(reserve, pts) or reserve_blocks(reserve, [tip], bulb_r):
+        return False
+    # NOT INTO UNDEVELOPED LAND. See :func:`_dead_ends_in_open_land`.
+    if _dead_ends_in_open_land(undeveloped, pts, tip, bulb_r):
         return False
     # The bulb needs its own room, so clear a bulb radius around the tip too.
     x0, y0, x1, y1 = region
