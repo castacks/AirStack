@@ -21,8 +21,9 @@ from harness.discovery import _is_unit_item
 # ── pytest config / hooks ──────────────────────────────────────────────────
 
 def pytest_addoption(parser):
-    parser.addoption("--sim", default="msairsim,isaacsim",
-                     help="Comma-separated sim targets: msairsim, isaacsim")
+    parser.addoption("--sim", default="isaacsim",
+                     help="Comma-separated sim targets: isaacsim, msairsim. "
+                          "Default isaacsim; pass --sim msairsim to opt in.")
     parser.addoption("--num-robots", default="1,3",
                      help="Comma-separated robot counts, e.g. 1,3")
     parser.addoption("--stress-iterations", type=int, default=1,
@@ -67,6 +68,9 @@ def pytest_addoption(parser):
     parser.addoption("--waypoint-timeout", default="120",
                      help="Per-waypoint time budget (s, odometry clock) in "
                           "test_waypoint_flight. Default: 120")
+    parser.addoption("--no-image-build", action="store_true", default=False,
+                     help="CI flag: skip image-build in system-tests.yml. "
+                          "Ignored by pytest itself.")
 
 
 def pytest_configure(config):

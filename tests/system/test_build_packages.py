@@ -1,10 +1,12 @@
+import shlex
 from pathlib import Path
 
 import pytest
 
 from conftest import (AIRSTACK_ROOT, airstack_cmd, colcon_test_robot_command,
-                      docker_exec, load_colcon_unit_test_config, logger,
-                      read_log_tail, wait_for_container)
+                      docker_exec, format_pytest_addopts,
+                      load_colcon_unit_test_config, logger, read_log_tail,
+                      wait_for_container)
 
 
 def _warn_if_prebuilt(*ws_paths):
@@ -52,7 +54,7 @@ class TestColconBuilds:
         Package list and pytest args come from tests/colcon_unit_test_packages.yaml.
         Workspace-wide ament linter tests are not gated here.
         """
-        packages, _ = load_colcon_unit_test_config("robot")
+        packages, pytest_args = load_colcon_unit_test_config("robot")
         try:
             result = airstack_cmd("up", "robot-desktop",
                                   env_overrides={"AUTOLAUNCH": "false", "DISPLAY": ""},
@@ -69,10 +71,18 @@ class TestColconBuilds:
             )
             assert build.returncode == 0, f"colcon build (with testing) failed:\n{read_log_tail()}"
 
+            # PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 skips launch_testing before
+            # pytest 8.1+ validates its removed path= hook. Linter skip is in
+            # the package setup.cfg / test/conftest.py (ament pytest ignores
+            # PYTEST_ADDOPTS -m).
+            exec_env = {"PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"}
+            if pytest_args:
+                exec_env["PYTEST_ADDOPTS"] = format_pytest_addopts(pytest_args)
             test = docker_exec(
                 container,
-                f"bash -ic '{colcon_test_robot_command('robot')}'",
+                f"bash -ic {shlex.quote(colcon_test_robot_command('robot'))}",
                 timeout=300,
+                env=exec_env,
             )
             assert test.returncode == 0, (
                 f"colcon test failed (packages: {', '.join(packages)}):\n{read_log_tail()}"

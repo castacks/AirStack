@@ -17,8 +17,13 @@ services:
         ROS_DISTRO: jazzy
       tags:
         - *desktop_image
+        # Floating tag republished by docker-build.yml on main/develop. The
+        # versioned tag above never exists yet on a PR (check-version-increment
+        # forces VERSION up), so it can only ever be a cache miss.
+        - &desktop_cache ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:${CACHE_TAG:-cache}_robot-x86-64_${DOCKER_IMAGE_BUILD_MODE}
       cache_from:
         - *desktop_image
+        - *desktop_cache
     # we use tmux sd-keys so that the session stays alive
     environment:
       - ROBOT_NAME_SOURCE=container_name # see .bashrc
@@ -126,8 +131,10 @@ services:
         ROS_DISTRO: jazzy
       tags:
         - *voxl_image
+        - &voxl_cache ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:${CACHE_TAG:-cache}_robot-voxl_${DOCKER_IMAGE_BUILD_MODE}
       cache_from:
         - *voxl_image
+        - *voxl_cache
     environment: 
       - ROBOT_NAME_SOURCE=hostname # see .bashrc
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
@@ -158,8 +165,10 @@ services:
         DUSTYNV_IMAGE: dustynv/ros:jazzy-ros-base-r36.4.0-cu128-24.04
       tags:
         - *l4t_stack_base_image
+        - &l4t_stack_base_cache ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:${CACHE_TAG:-cache}_robot-l4t-stack-base_${DOCKER_IMAGE_BUILD_MODE}
       cache_from:
         - *l4t_stack_base_image
+        - *l4t_stack_base_cache
 
   # ===================================================================================================================
   # for running on an NVIDIA jetson (linux for tegra) device
@@ -184,9 +193,12 @@ services:
         ROS_DISTRO: jazzy
       tags:
         - *l4t_image
+        - &l4t_cache ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:${CACHE_TAG:-cache}_robot-l4t_${DOCKER_IMAGE_BUILD_MODE}
       cache_from:
         - *l4t_image
+        - *l4t_cache
         - *l4t_stack_base_image
+        - *l4t_stack_base_cache
     # we use tmux send-keys so that the session stays alive
     ipc: host
     command: >
@@ -246,8 +258,12 @@ services:
         L4T_MINOR: 4
         L4T_PATCH: 0
         IMAGE_NAME: dustynv/ros:jazzy-desktop-r36.4.0-cu128-24.04
+      tags:
+        - *zed_l4t_image
+        - &zed_l4t_cache ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:${CACHE_TAG:-cache}_zed-l4t-36-4-0_${DOCKER_IMAGE_BUILD_MODE}
       cache_from:
         - *zed_l4t_image
+        - *zed_l4t_cache
     command: >
       bash -c "ssh service restart;
       tmux new -d -s zed_driver && 

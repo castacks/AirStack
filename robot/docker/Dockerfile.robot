@@ -168,6 +168,12 @@ RUN pip3 install --break-system-packages --ignore-installed \
   kornia \
   typeguard==2.13.3
 
+# Keep pytest < 8.1. ROS Jazzy launch_testing still implements
+# pytest_pycollect_makemodule(path=...), which pluggy rejects after pytest 8.1
+# removed the py.path hook argument (PluginValidationError on colcon test).
+RUN python3 -m pip install --no-cache-dir --break-system-packages \
+  "pytest>=7.4,<8.1"
+
 # Install MACVO Python dependencies (skipped if SKIP_MACVO=true)
 RUN if [ "${SKIP_MACVO}" != "true" ]; then \
   pip3 install --break-system-packages \

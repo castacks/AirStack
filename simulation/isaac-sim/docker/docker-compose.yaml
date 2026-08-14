@@ -8,8 +8,13 @@ services:
       dockerfile: docker/Dockerfile.isaac-ros
       tags:
         - *image_tag
+        # Floating tag republished by docker-build.yml on main/develop. The
+        # versioned tag above never exists yet on a PR (check-version-increment
+        # forces VERSION up), so it can only ever be a cache miss.
+        - &cache_tag ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:${CACHE_TAG:-cache}_isaac-sim
       cache_from:
         - *image_tag
+        - *cache_tag
     container_name: isaac-sim
     entrypoint: ""
     command: >

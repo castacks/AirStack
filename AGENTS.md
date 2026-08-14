@@ -43,7 +43,7 @@ AirStack/
 ├── tests/                   # System tests (pytest) + metrics reporting
 ├── .github/
 │   ├── workflows/           # GitHub Actions CI (system-tests, docker-build, etc.)
-│   └── orchestrator/        # OpenStack-backed ephemeral self-hosted runners
+│   └── orchestrator/        # OSMO-backed ephemeral self-hosted runners
 └── .agents/skills/          # Detailed workflow guides for agents
 ```
 
@@ -289,16 +289,28 @@ GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/):
 
 ### Ephemeral Runner Orchestrator
 
-GPU-required jobs (`runs-on: [self-hosted, airstack-ephemeral]`) execute on **OpenStack VMs spawned per-job and destroyed on completion**. The orchestrator service code lives in [`.github/orchestrator/`](.github/orchestrator/):
+GPU-required jobs (`runs-on: [self-hosted, airstack-ephemeral]`) execute on **ephemeral pods scheduled by [NVIDIA OSMO](https://nvidia.github.io/OSMO/) — one per job, destroyed on completion**. The GitHub side is unchanged from the old OpenStack backend (same labels, JIT tokens, fork guard); only the spawn target moved from "create a Nova VM" to "submit an OSMO workflow". The orchestrator service code lives in [`.github/orchestrator/`](.github/orchestrator/):
 
-- [`orchestrator.py`](.github/orchestrator/orchestrator.py) — Python service: spawn loop polls GitHub for queued jobs matching configured runner labels, mints single-use JIT runner tokens, creates an OpenStack server with cloud-init bootstrap; reap loop deletes the server when the job completes (or after `max_job_minutes`)
-- [`cloud-init.yaml.j2`](.github/orchestrator/cloud-init.yaml.j2) — bootstraps Docker + nvidia-container-toolkit + GH Actions runner on the worker, registers with the JIT token, runs one job, then `shutdown -h`
-- [`config.example.yaml`](.github/orchestrator/config.example.yaml) — flavor / network / keypair / floating-IP pool / runner labels / repo
+- [`orchestrator.py`](.github/orchestrator/orchestrator.py) — Python service: spawn loop polls GitHub for queued jobs matching configured runner labels, mints single-use JIT runner tokens, and submits one OSMO workflow per job (`osmo workflow submit`); reap loop cancels the workflow when the job completes (or after `max_job_minutes`), plus an orphan sweep via `osmo workflow list`
+- [`runner-workflow.yaml.j2`](.github/orchestrator/runner-workflow.yaml.j2) + [`runner.Dockerfile`](.github/orchestrator/runner.Dockerfile) + [`runner-entrypoint.sh`](.github/orchestrator/runner-entrypoint.sh) — the per-job worker: a **privileged**, GPU-enabled OSMO task (prebaked image) that starts an inner Docker daemon (the tests run `airstack up` = docker compose), registers with the JIT token, runs one job, then exits so OSMO reaps the pod
+- [`config.example.yaml`](.github/orchestrator/config.example.yaml) — osmo_url / pool / platform / runner_image / resources / runner labels / repo
 - [`airstack-orchestrator.service`](.github/orchestrator/airstack-orchestrator.service) + [`setup.sh`](.github/orchestrator/setup.sh) — systemd unit and one-time installer
 
-**Why ephemeral:** clean Docker cache per run, no leaked containers, GitHub PAT and OpenStack credentials only on the orchestrator host (workers receive a single-use JIT token bound to one runner registration). State map at `/var/lib/airstack-orchestrator/state.json`; logs via `journalctl -u airstack-orchestrator.service -f`.
+**Why ephemeral:** clean Docker cache per run, no leaked containers; the GitHub PAT and the OSMO service-account token live only on the orchestrator host (workers receive a single-use JIT token bound to one runner registration). CI authenticates to OSMO as a shared, non-personal [service account](https://nvidia.github.io/OSMO/main/deployment_guide/appendix/authentication/service_accounts.html) scoped to a dedicated CI GPU pool, so runs don't consume individuals' quotas. The CI pool's platform must have **"Privileged Mode Allowed"** enabled (docker-in-docker). State map at `/var/lib/airstack-orchestrator/state.json`; logs via `journalctl -u airstack-orchestrator.service -f`.
 
-**Setup, debugging a failed job, and SSH-into-worker procedures:** [`.github/orchestrator/README.md`](.github/orchestrator/README.md) (also exposed as [`tests/ci-cd-orchestrator.md`](tests/ci-cd-orchestrator.md) symlink for the docs site).
+**Nested DinD needs a non-overlayfs Docker data-root.** The OSMO pod's root filesystem is overlayfs, and Linux rejects a directory on overlayfs as an overlay `upperdir` (`EINVAL`). A dockerd storing data on the pod rootfs pulls images fine but fails every build step that needs a real mount, with errors that masquerade as `apt-get`/`WORKDIR` failures:
+
+```
+failed to solve: ... mount source: "overlay", target: ".../buildkit/containerd-overlayfs/cachemounts/...", err: invalid argument
+```
+
+[`runner-entrypoint.sh`](.github/orchestrator/runner-entrypoint.sh) picks a backend by attempting a real overlay mount, preferring a loopback ext4 image at `/var/lib/docker` (real `overlay2`), then a real filesystem already mounted in the pod, then `fuse-overlayfs`, then `vfs`. Landing on `vfs` means builds will be slow and probably run out of disk — check the `[runner-entrypoint] storage:` line in the job log first when Docker builds misbehave. Details: [orchestrator README → Nested DinD and overlayfs](.github/orchestrator/README.md).
+
+**Docker layer cache is a floating tag, not the versioned one.** Every compose service lists two `cache_from` entries: the versioned image (`airstack:v${VERSION}_<suffix>`) and a floating one (`airstack:${CACHE_TAG:-cache}_<suffix>`). Only the floating tag can ever hit on a PR — `check-version-increment` forces `VERSION` up on every PR, so the versioned tag it builds under has by definition never been pushed. Reading and writing are separate switches: `AIRSTACK_REGISTRY_CACHE=1` (set by `system-tests.yml`) pulls and builds with `BUILDKIT_INLINE_CACHE=1`, while `AIRSTACK_REGISTRY_CACHE_PUSH=1` (set only by `docker-build.yml` on main/develop) also publishes both tags. PR runs stay read-only so an unmerged branch can't poison the shared cache or publish an unreleased version. If you add a service with a `build:` section, give it both entries or its builds will always be cold.
+
+**Publish retags when image inputs are unchanged.** `docker-build.yml` runs [`.github/workflows/scripts/docker_image_plan.py`](.github/workflows/scripts/docker_image_plan.py) on VERSION bumps: each service gets a content fingerprint (`org.airstack.content-fingerprint`). If the previous versioned image already has that label, the job registry-retags (`imagetools create`) instead of rebuilding; only changed services rebuild (and refresh `cache_*`). Use `workflow_dispatch` with `force_rebuild=true` to rebuild everything. PR `build_docker` tests still perform real builds.
+
+**Setup, debugging a failed job, and exec-into-worker procedures:** [`.github/orchestrator/README.md`](.github/orchestrator/README.md) (also exposed as [`tests/ci-cd-orchestrator.md`](tests/ci-cd-orchestrator.md) symlink for the docs site).
 
 ## Documentation Requirements
 

@@ -98,6 +98,7 @@ The `system-tests.yml` workflow's `Parse pytest args` step automatically prepend
 - `/pytest -m takeoff_hover_land` → effectively runs `-m "build_packages or takeoff_hover_land"`
 - `/pytest` (no marks) → pytest defaults (everything)
 - `/pytest -m build_docker` → unchanged (the build_docker tests rebuild from scratch anyway)
+- `/pytest -m build_packages` → **pull-only** (retag `cache_*`, no `image-build`, no Isaac). Add `--no-image-build` on other marks to skip the bake.
 
 This guarantees that ROS 2 workspaces are built inside the containers before any launch/liveliness test tries to source them. If you intentionally want to skip `build_packages` (e.g. you trust the prebuilt images), include it explicitly: `-m "liveliness and not build_packages"` would work, but the simpler path is to run locally where the prepend logic doesn't apply.
 
@@ -157,7 +158,7 @@ The `airstack_env` fixture is parametrized over `(sim, num_robots, iteration)` t
 
 | Flag | Default | Affects | Becomes |
 |------|---------|---------|---------|
-| `--sim` | `msairsim,isaacsim` | `airstack_env` | One env-tuple per sim |
+| `--sim` | `isaacsim` | `airstack_env` | One env-tuple per sim (`msairsim` opt-in) |
 | `--num-robots` | `1,3` | `airstack_env` | Cross-product with sim |
 | `--stress-iterations` | `1` | `airstack_env` | Up/down cycles per `(sim, num_robots)` |
 | `--stable-duration` | `120` | `system.test_liveliness::test_stable` and `system.test_sensors::test_sensor_streams_stable` | Total seconds polled |
@@ -356,7 +357,7 @@ If multiple tests need the same setup, add a fixture in `conftest.py` (not in yo
 - **Running on insufficient hardware**. `liveliness`, `sensors`, and `takeoff_hover_land` require an NVIDIA GPU plus nvidia-container-toolkit; without them the sim container won't get GPU access and topic Hz checks will time out. If you only have a CPU, scope to `-m "build_docker or build_packages"`.
 - **Expecting interactive sim feedback**. `airstack_env` runs headless by default (`MS_AIRSIM_HEADLESS=true`, `ISAAC_SIM_HEADLESS=true`, `QT_QPA_PLATFORM=offscreen`). Don't add stdin prompts, GUI dialogs, or `input()` calls to test code — they will hang in CI. For local visual debugging only, pass `--gui`.
 - **Not capturing metrics in a new test**. If a test fails silently (no metric recorded) the regression report has nothing to compare. Always record at least one scalar via `MetricsRecorder` so the test shows up in `metrics.json`.
-- **Letting parametrize cardinality explode**. Defaults `--sim msairsim,isaacsim --num-robots 1,3` with `--stress-iterations 3` multiply stack bring-ups for each selected mark (`liveliness`, `sensors`, `takeoff_hover_land`, …) — expensive. Override locally to a single tuple while iterating.
+- **Letting parametrize cardinality explode**. Default `--num-robots 1,3` (and `--sim msairsim` if you opt in) multiplies stack bring-ups for each selected mark (`liveliness`, `sensors`, `takeoff_hover_land`, …) — expensive. Override locally to a single tuple while iterating. `--sim` defaults to `isaacsim` only.
 - **Hardcoded container names**. Always use `find_container`, `get_robot_containers`, or `wait_for_container` — replica suffixes (`-1`, `-2`, `-3`) and compose project prefixes change.
 - **Asserting on stdout instead of using `read_log_tail`**. The conftest captures each subprocess's combined stdout/stderr in memory; assertions should reference it via `read_log_tail()` (`f"airstack up failed:\n{read_log_tail()}"`) so failures attach the relevant context to the JUnit XML.
 - **Trying to SSH into a CI runner mid-job**. Workers are ephemeral OpenStack VMs destroyed within ~30s of job completion. Re-running the job creates a fresh VM. For genuine debugging on the runner, see `.github/orchestrator/README.md` (also exposed at `tests/ci-cd-orchestrator.md`) — but in 99% of cases, reproduce locally with `airstack test`.

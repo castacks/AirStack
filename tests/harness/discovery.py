@@ -3,9 +3,11 @@
 Driven by ``tests/colcon_unit_test_packages.yaml``. ``conftest.pytest_configure`` adds
 ``unit_test_files()`` to the pytest run, and ``pytest_itemcollected`` marks each of those
 items ``unit`` via ``_is_unit_item``. ament lint tests are excluded here — they run under
-``colcon test`` (see ``colcon_test_robot_command``'s ``-m not linter``).
+``colcon test`` (linter skip is in package pytest config; see
+``colcon_test_robot_command``).
 """
 import os
+import shlex
 from pathlib import Path
 
 import yaml
@@ -43,20 +45,42 @@ def load_colcon_unit_test_config(workspace="robot"):
         raise ValueError(
             f"'{workspace}.packages' is empty in {COLCON_UNIT_TEST_PACKAGES_YAML.name}"
         )
-    return packages, cfg.get("pytest_args", "")
+    raw_args = cfg.get("pytest_args", [])
+    if isinstance(raw_args, str):
+        pytest_args = shlex.split(raw_args) if raw_args else []
+    elif isinstance(raw_args, list):
+        pytest_args = [str(a) for a in raw_args]
+    else:
+        raise TypeError(
+            f"'{workspace}.pytest_args' must be a list or string in "
+            f"{COLCON_UNIT_TEST_PACKAGES_YAML.name}, got {type(raw_args).__name__}"
+        )
+    return packages, pytest_args
 
 
 def colcon_test_robot_command(workspace="robot"):
-    """Shell command for colcon test over unit-test packages (robot workspace)."""
-    packages, pytest_args = load_colcon_unit_test_config(workspace)
+    """Shell command for colcon test over unit-test packages (robot workspace).
+
+    Pytest flags from the YAML are *not* put on this command. colcon's
+    ``--pytest-args`` is a single nargs='*' option (last occurrence wins),
+    and nesting those tokens through ``bash -ic`` also breaks quoting.
+    Pass them as ``PYTEST_ADDOPTS`` via ``docker_exec(..., env=...)``.
+    """
+    packages, _ = load_colcon_unit_test_config(workspace)
     pkg_list = " ".join(packages)
-    cmd = (
+    return (
         f"colcon test --packages-select {pkg_list} "
         "--event-handlers console_direct+ --return-code-on-test-failure"
     )
-    if pytest_args:
-        cmd += f' --pytest-args "{pytest_args}"'
-    return cmd
+
+
+def format_pytest_addopts(pytest_args):
+    """Build a PYTEST_ADDOPTS value that pytest will shlex-split back to tokens.
+
+    Do not name this pytest_*: conftest functions with that prefix are treated
+    as pytest hooks and fail collection (exit code 3).
+    """
+    return " ".join(shlex.quote(a) for a in pytest_args)
 
 
 # Each listed package resolves to its <pkg>/test dir via these per-workspace globs.
@@ -67,7 +91,7 @@ _WORKSPACE_PKG_TEST_GLOBS = {
 
 # ament lint tests ship in every ROS package's test/ dir and import ament_* at
 # module load (unavailable outside the built workspace). Skip them here — they run
-# under `colcon test` instead (see colcon_test_robot_command's `-m not linter`).
+# under `colcon test` instead (package pytest config skips ament linters).
 _LINTER_TEST_FILENAMES = {
     "test_copyright.py", "test_flake8.py", "test_pep257.py",
     "test_pep8.py", "test_xmllint.py", "test_lint_cmake.py",

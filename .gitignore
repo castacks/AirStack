@@ -103,5 +103,10 @@ common/rayfronts/
 
 # Docker build cache (root-owned subdirs cause permission warnings on `git add`)
 robot/docker/cache/
+
+# Ephemeral outputs from docker_image_plan.py (docker-build.yml)
+docker-image-plan.json
+docker-compose.fingerprint.yaml
+
 .DS_Store
 gcs/.DS_Store
