@@ -46,6 +46,24 @@ BETWEEN them and hard against the courts, because that is where parents stand.
 The lawn is not a zone. It is whatever grass no facility covers, which is why
 trees are rejection-sampled against the facility rects instead of being
 confined to a lawn rectangle.
+
+PLANTING IS A COMPOSITION, NOT A COUNT
+--------------------------------------
+Density is therefore stated TWICE: a margin rate for the belt inside the
+boundary and for the strips between one facility and the next, and a fraction
+of it for the open greensward in between. A park at one uniform rate is either
+an orchard or a mown field, and this one was the mown field — 11 stems/ha,
+against the 40-120/ha a municipal park's planted ground carries and the 85/ha
+the undeveloped-land pass in this same scene uses. See `lawn_tree_per_1000m2`,
+`tree_open_frac` and `tree_margin_m`.
+
+THE FOUNTAINS ARE PLAZAS, NOT POINTS
+------------------------------------
+Ported from the urban park (`parks.py`, "THE ATTRACTION AS A COMPOSED
+CENTREPIECE"): a ring path outside the water, benches standing on it facing
+in, and no walk running at the fountain — the ring is what you arrive on and
+what carries you round. The clearing round it comes free, because trees are
+rejection-sampled 5 m off every path and the ring is a path.
 """
 
 import math
@@ -107,7 +125,12 @@ DEFAULTS = {
     "playground_m": [46.0, 34.0],
     "picnic_areas": 3,
     "picnic_m": [30.0, 22.0],
-    "picnic_tables": [5, 9],
+    # A 30 x 22 m picnic ground is 660 m2 and six tables on it is one table per
+    # 110 m2, which is a picnic AREA in the sense that the grass has some
+    # tables on it. A municipal picnic ground is laid out at roughly one table
+    # per 55-70 m2 — close enough that two families are in earshot, far enough
+    # that the benches do not touch — so the same ground carries 9-12.
+    "picnic_tables": [7, 12],
     "gazebos": [2, 4],
     "fountains": [2, 3],
     "path_w_m": 3.0,
@@ -138,11 +161,79 @@ DEFAULTS = {
     "path_w_spur_m": 2.6,
     "bike_share": 0.44,
     "bike_racks_per_court": 4,       # share of the shared path given to the cycle side
-    "copses": 9,
+    # ---- planting ----------------------------------------------------------
+    # HOW MANY TREES A PARK HAS, which is the one figure here that was simply
+    # wrong. The lawn scatter ran at 1.1 per 1000 m2 = 11 stems/ha, and over
+    # 12.6 ha that put 273 trees in the whole park including the copses: 22/ha,
+    # which is not a park, it is a mown field with a fringe. For scale, the
+    # undeveloped-land pass in this same scene runs at 85/ha and reads as light
+    # woodland, and a municipal park's PLANTED ground — the belt inside the
+    # boundary, the strips between one facility and the next — runs 40-120/ha
+    # with the open lawn left open between.
+    #
+    # So the density is now stated twice, because a park is two things: a
+    # margin figure and an open-lawn figure. `lawn_tree_per_1000m2` is the
+    # MARGIN rate and `tree_open_frac` is what survives of it out in the middle
+    # of the greensward, which is what stops a park-density scatter turning
+    # into an orchard. `tree_margin_m` is how far in from a boundary or off a
+    # facility the margin reaches — a crown here is ~7 m across, so four rows
+    # of it is the belt you actually see round a sports ground.
+    "copses": 10,
     "copse_r_m": [26.0, 55.0],
-    "lawn_tree_per_1000m2": 1.1,
-    "bench_spacing_m": 34.0,      # along a path, alternating sides
-    "trash_spacing_m": 78.0,
+    # A copse is a WOOD, so it is planted at the woodland rate rather than the
+    # park rate; measured against the 85/ha the undeveloped-land pass uses,
+    # thinned by the r^0.6 bias toward its centre and by whatever the copse
+    # lands on. The old hardcoded 0.02 * r^2 worked out at 64/ha of ATTEMPTS,
+    # i.e. under 50/ha placed, which is parkland with a name on it.
+    "copse_per_1000m2": 8.5,
+    # NOT ALL ON THE EDGE. Copses used to hug the boundary exclusively, which
+    # is right for the screen belt and is exactly why the MIDDLE of the park
+    # came out bald: everything between the pitches and the courts was open
+    # lawn with an 11/ha scatter on it. A third of them go inland, smaller,
+    # into the gaps between facilities — a stand of trees, not a wood.
+    "copse_inland_share": 0.34,
+    "lawn_tree_per_1000m2": 3.8,
+    "tree_open_frac": 0.26,
+    "tree_margin_m": 28.0,
+    # Crowns are ~7 m across on the plan; two stems closer than this read as
+    # one blob and the count stops meaning anything. Not a hard forest rule —
+    # real stands do touch — just enough to keep a Poisson scatter from
+    # clumping into rosettes at park density.
+    "tree_spacing_m": 4.6,
+    # ---- playground --------------------------------------------------------
+    # One piece of kit per this much sand. A 46 x 34 m playground is 1,564 m2
+    # and lands at nine pieces, which is what a neighbourhood playground of
+    # that size actually carries; the old pass put FOUR on it in a single row.
+    "play_area_per_piece_m2": 170.0,
+    # ...of which at most this many may be the two expensive assets. See
+    # `park.yaml`: the swing set and the Kids Place are 75.9k and 79.5k faces
+    # and `play_structure` is not in `suburb_scene`'s instanced categories, so
+    # the fifth one is another 79.5k faces and not a transform. The seesaw is
+    # 498 faces and carries the rest.
+    "play_expensive_cap": 4,
+    "play_bench_pitch_m": 26.0,   # round the inside of the fence, facing in
+    # ---- fountain plaza ----------------------------------------------------
+    # Radius of the ring path round a fountain, ported from the urban park (see
+    # `parks.py`, "THE ATTRACTION AS A COMPOSED CENTREPIECE"). The fountain art
+    # is 4-5 m across, so 8 m leaves ~5.5 m of standing ground between the
+    # water and the paving; the benches sit `furniture_offset_m` outside the
+    # ring, at the same set-back a bench keeps from any other path here.
+    "fountain_ring_r_m": 8.0,
+    "fountain_bench_pitch_m": 9.0,
+    # ---- path furniture ----------------------------------------------------
+    # 34 m between benches is a trail figure. On a park path where people walk
+    # slowly and sit often, the spacing you see is 25-30 m — close enough that
+    # the next bench is always visible from the one you are on, which is the
+    # rule of thumb accessible-route guidance uses (a rest every 30 m).
+    "bench_spacing_m": 27.0,      # along a path, alternating sides
+    # Left near its old figure DELIBERATELY. The bins were not actually sparse
+    # before, they were being REFUSED — `furn_ok` held everything 7 m off
+    # everything and the benches went down first, so on seed 1 only 13 of the
+    # ~22 the spacing asks for survived. With the bin's own radius fixed (see
+    # `furn_ok`) 78 came out at 27 bins to 50 benches, which is a bin at every
+    # other seat and one more than a park needs; 75 lands at roughly 1 : 2.3,
+    # the ratio you count walking round a real one.
+    "trash_spacing_m": 75.0,
     "furniture_offset_m": 2.9,    # bench/bin set back from the path centreline
 }
 
@@ -1283,6 +1374,14 @@ def plan(rng, cfg=None):
     def prop(kind, x, y, yaw=0.0):
         props.append({"kind": kind, "c": (x, y), "yaw": yaw})
 
+    # FURNITURE THAT BELONGS TO A COMPOSITION rather than to a path — the bin
+    # at a picnic ground, the benches round the inside of the playground fence,
+    # the ones on a fountain ring. Collected here so the path-furniture pass in
+    # (d) can seed its own spacing test with them and not drop a second bench
+    # on top of one; that pass is otherwise the only thing in the file that
+    # places a bench, and it only knows about the ones it placed itself.
+    composed = []
+
     bl, bw = BASKETBALL["court"]
     bpad = BASKETBALL["pad"]
 
@@ -1427,16 +1526,127 @@ def plan(rng, cfg=None):
             wx, wy = local(z, lx, ly)
             prop("picnic_table", wx, wy, z["yaw"] + rng.uniform(-12, 12))
             z["tables"].append((wx, wy))
+        # AND A BIN, at a corner of the ground. A picnic area without one is
+        # not a design decision, it is an omission — a dozen tables generate
+        # rubbish and the bin is the second thing the parks department puts in
+        # after the tables. The path pass will not supply it: it hangs bins off
+        # the route at 75 m, and the route keeps 6 m off this ground's edge.
+        wx, wy = local(z, z["w"] / 2.0 - 2.0, -z["h"] / 2.0 + 2.0)
+        composed.append((wx, wy))
+        prop("trash_can", wx, wy, z["yaw"])
 
+    # -- the playground ------------------------------------------------------
+    # FOUR PIECES IN A ROW IS NOT A PLAYGROUND. The old pass put a swing, a
+    # structure and two seesaws at even x across the sand and called it done:
+    # on 1,564 m2 — a large neighbourhood playground — that is one piece per
+    # 390 m2, and the render read as a beach with some equipment left on it.
+    # The real figure is nearer one per 150-200 m2, and the layout is a SPREAD
+    # rather than a line because the kit has to be walkable between.
+    #
+    # SEPARATION IS A SAFETY FIGURE, not taste. CPSC's Public Playground Safety
+    # Handbook puts a minimum 6 ft (1.83 m) between the use zones of adjacent
+    # equipment, and swings want more than that fore and aft; the radii below
+    # are the use zone, not the frame, which is why the swing carries 3.4 m for
+    # a 4.5 m asset.
+    #
+    # THE MIX IS DRIVEN BY THE FACE COUNTS, see `park.yaml`. The swing set and
+    # the Kids Place are 75.9k and 79.5k faces and `play_structure` is NOT one
+    # of the categories `suburb_scene` instances, so each extra one is paid in
+    # full: they stay capped (`play_expensive_cap`, 4). The seesaw is 498
+    # faces — 152x cheaper — so it is what fills the rest of the sand, and nine
+    # pieces cost 313k faces against the old four's 156k.
+    play_r = {"swing_set": 3.4, "play_structure": 4.2, "seesaw": 1.8}
     for z in zones:
         if z["kind"] != "playground":
             continue
-        for i, kind in enumerate(("swing_set", "play_structure", "seesaw",
-                                  "seesaw")):
-            lx = -z["w"] / 2 + z["w"] * (i + 0.5) / 4.0
-            ly = z["h"] * (0.15 if i % 2 else -0.15)
+        hwz, hhz = z["w"] / 2.0, z["h"] / 2.0
+        n_kit = max(4, int(round(z["w"] * z["h"]
+                                 / float(c["play_area_per_piece_m2"]))))
+        big = ["play_structure", "swing_set", "swing_set", "play_structure"]
+        kit_list = big[:max(1, min(int(c["play_expensive_cap"]), n_kit // 2))]
+        kit_list += ["seesaw"] * max(0, n_kit - len(kit_list))
+        # (lx, ly, use-zone radius) of everything already standing on the sand.
+        kit = []
+
+        # `edge` is a band round the inside of the fence that the kit stays
+        # out of. It is not slack: a CPSC use zone may not overlap the
+        # enclosure, and the same band is where the benches go, so kit laid
+        # up against the rail takes the seats' ground with it — measured, at
+        # 1.5 m only three of the six benches the perimeter asks for survived
+        # the collision test.
+        def sand_spot(r, tries=500, edge=3.0, keep_middle=0.0):
+            """A free (lx, ly) with room for a *r* metre use zone."""
+            ax, ay = hwz - r - edge, hhz - r - edge
+            if ax <= 0.0 or ay <= 0.0:
+                return None
+            for _ in range(tries):
+                lx, ly = rng.uniform(-ax, ax), rng.uniform(-ay, ay)
+                if (abs(lx) < hwz * keep_middle
+                        and abs(ly) < hhz * keep_middle):
+                    continue
+                if any(math.hypot(lx - qx, ly - qy) < r + qr + 1.83
+                       for (qx, qy, qr) in kit):
+                    continue
+                kit.append((lx, ly, r))
+                return (lx, ly)
+            return None
+
+        for kind in kit_list:
+            spot = sand_spot(play_r[kind])
+            if spot is None:
+                continue
+            wx, wy = local(z, *spot)
+            # Yawed off the playground's own axis rather than at a free angle:
+            # a swing's fall zone is fore and aft, so kit laid square to the
+            # space is what leaves the walking room between it. The old
+            # uniform(0, 360) put swings across the gaps.
+            prop(kind, wx, wy, z["yaw"] + rng.uniform(-25.0, 25.0))
+        # A SHADE SHELTER AND SOMEWHERE TO PUT A BAG. Both are why a playground
+        # reads as a facility and not as equipment: the shelter is the sun
+        # cover every municipal playground built in the last twenty years has,
+        # and the tables are where the party sits. Held out of the middle third
+        # so the sand people actually play on stays clear.
+        for kind, r in (("gazebo", 3.4), ("picnic_table", 1.6),
+                        ("picnic_table", 1.6)):
+            spot = sand_spot(r, tries=300, edge=1.0, keep_middle=0.45)
+            if spot is None:
+                continue
+            wx, wy = local(z, *spot)
+            prop(kind, wx, wy, z["yaw"] + rng.uniform(-25.0, 25.0))
+        # BENCHES ROUND THE INSIDE EDGE, FACING IN. That is the whole job of a
+        # playground bench: an adult sits on the rail and watches the whole
+        # box, so the seat faces the equipment and not the view. Same
+        # convention as the path benches below — the yaw IS the direction the
+        # bench looks — so this is `atan2` back at the middle of the sand.
+        seat = 2.2
+        cor = [(-hwz + seat, -hhz + seat), (hwz - seat, -hhz + seat),
+               (hwz - seat, hhz - seat), (-hwz + seat, hhz - seat)]
+        segs = [(cor[i], cor[(i + 1) % 4]) for i in range(4)]
+        per = sum(sn._dist(a, b) for (a, b) in segs)
+        n_b = max(3, int(round(per / float(c["play_bench_pitch_m"]))))
+        for i in range(n_b):
+            s = per * (i + 0.35) / n_b
+            lx = ly = 0.0
+            for (a, b) in segs:
+                L = sn._dist(a, b)
+                if s > L:
+                    s -= L
+                    continue
+                t = s / L
+                lx, ly = a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t
+                break
+            if any(math.hypot(lx - qx, ly - qy) < qr + 1.9
+                   for (qx, qy, qr) in kit):
+                continue
+            kit.append((lx, ly, 1.1))
             wx, wy = local(z, lx, ly)
-            prop(kind, wx, wy, rng.uniform(0, 360))
+            composed.append((wx, wy))
+            prop("bench", wx, wy,
+                 z["yaw"] + math.degrees(math.atan2(-ly, -lx)))
+        for sgn in (1.0, -1.0):
+            wx, wy = local(z, sgn * (hwz - 2.4), -sgn * (hhz - 2.4))
+            composed.append((wx, wy))
+            prop("trash_can", wx, wy, z["yaw"])
 
     # -- set pieces: fountains, gazebos, the sign ---------------------------
     # DESTINATIONS, not path furniture. A fountain is a thing you walk TO, so
@@ -1860,6 +2070,121 @@ def plan(rng, cfg=None):
             # meet, touching its court and connected to nothing.
             tie(stub["b"], w_spur)
 
+    # -- fountain plazas: a ring round the water, benches on it facing in ----
+    # PORTED FROM THE URBAN PARK, not invented a second time. `parks.py`'s
+    # module docstring ("THE ATTRACTION AS A COMPOSED CENTREPIECE") states the
+    # pattern: an attraction is a CIRCLE, not a point; a concentric promenade
+    # sits outside its keep-out; every walk is clipped to the OUTSIDE of that
+    # promenade so a desire line lands on the ring and the ring carries you
+    # around the water rather than at it; benches stand just outside the ring
+    # facing inward; and the planting is held out of a clearing wider still, so
+    # the thing the walks lead to is visible instead of buried in canopy.
+    #
+    # WHAT PORTS AND WHAT DOES NOT.
+    #
+    #   `_ring`, `_clip_outside`   parks.py draws free polylines and cleans up
+    #     afterwards, so it has to CUT its walks on the ring. Here the
+    #     paths are
+    #     a graph and nothing may be cut after the fact — that is the whole of
+    #     `PathNet`'s docstring — and the clipping turns out to be unnecessary:
+    #     the fountain's keep-out box is already an obstacle carrying
+    #     `path_clear_m`, so no other path comes within 12.3 m of the water BY
+    #     CONSTRUCTION. The ring is built inside that dead zone, where there is
+    #     nothing to clip against.
+    #   ring benches            port straight over, with one difference. In
+    #     parks.py the seat normal is the placement yaw + 90 because it reuses
+    #     the along-path convention; here a bench's yaw IS the direction it
+    #     looks (see the path furniture in (d)), so inward is `th + 180`.
+    #   the clearing            comes free. Trees are rejection-sampled against
+    #     the finished path grid at 5 m, and the ring is a path, so the annulus
+    #     either side of it is already unplantable.
+    #
+    # A RING IS A CYCLE AND THE INVARIANTS ARE THE HARD PART, so it is built as
+    # TWO ARCS between two nodes rather than as one closed edge. A closed edge
+    # has both ends at the same node, which `add_edge` refuses outright and
+    # which `check_orphans` could not read as a junction anyway; two arcs give
+    # every end a second path ending on it, so the ring is one component with
+    # no loose end, and it reaches the rest of the network through the ordinary
+    # `join` -> `split` -> `add_edge` sequence every other path uses.
+    #
+    # AND IT IS ONLY LAID IF IT COMES OUT LEGAL, down a radius ladder, exactly
+    # as the pitch corridor is only laid if the gap is not paved already.
+    # `open_spot` sites a fountain 17 m clear of the nearest facility box and a
+    # fenced compound wants 8 m plus half the path width off its edge, so an
+    # 8 m ring can finish 0.3 m short of the band; shrink it before giving up,
+    # and if none of the radii fit, the fountain keeps the plain spur it always
+    # had. A ring that breaches the padding is worse than no ring.
+    ring_r0 = float(c["fountain_ring_r_m"])
+    ring_pitch = float(c["fountain_bench_pitch_m"])
+    foff_m = float(c["furniture_offset_m"])
+
+    def arc_pts(q, r, a0, a1):
+        n = max(6, int(abs(a1 - a0) * r / 1.5))
+        return [(q[0] + r * math.cos(a0 + (a1 - a0) * k / n),
+                 q[1] + r * math.sin(a0 + (a1 - a0) * k / n))
+                for k in range(n + 1)]
+
+    def plaza(q, box):
+        """Ring path and inward benches round *q*. True if one was laid."""
+        for r in (ring_r0, ring_r0 - 1.0, ring_r0 - 2.0):
+            if r < 4.5:
+                break
+            if not legal(arc_pts(q, r, 0.0, 2.0 * math.pi), w_spur,
+                         exempt=(box,)):
+                continue
+            near = net.nearest(q)
+            if near is None:
+                return False
+            # The walk arrives from wherever the network already is, so that is
+            # where the ring is entered and where it is cut into two arcs.
+            th = math.atan2(near[3][1] - q[1], near[3][0] - q[0])
+            gate = (q[0] + r * math.cos(th), q[1] + r * math.sin(th))
+            # Sited and routed BEFORE anything is committed: an approach that
+            # cannot be walked legally means no plaza, and rolling a half-built
+            # ring back out of the graph is exactly the kind of after-the-fact
+            # surgery `PathNet` exists to make unnecessary.
+            hit, pts, ok = join(gate, w_spur, exempt=(box,))
+            if hit is None or not ok:
+                continue
+            na = net.add_node(gate)
+            # `serves` marks a path no junction may be cut into. On a serving
+            # stub that is because the stub owns a padding exemption; here it
+            # is because the ring sits inside the fountain's keep-out, so a
+            # path joining it would have to cross the water to get there. -1
+            # is not a zone index, so it grants no exemption to anything and
+            # `check_pad` still holds the ring to every facility band.
+            e1 = net.add_edge(arc_pts(q, r, th, th + math.pi), "ring", w_spur,
+                              a=na, bike_share=0.0, serves=-1)
+            if e1 is None:
+                return False
+            e2 = net.add_edge(arc_pts(q, r, th, th - math.pi), "ring", w_spur,
+                              a=na, b=e1["b"], bike_share=0.0, serves=-1)
+            if e2 is None:
+                return False
+            mid = net.split(hit[1], hit[2])
+            if sn._dist(gate, net.nodes[mid]) <= _WELD_M:
+                net.weld(na, mid)
+            else:
+                net.add_edge(pts, "spur", w_spur, a=na, b=mid, bike_share=0.0)
+            # Benches OUTSIDE the ring, at the same set-back a bench keeps from
+            # any other path here, facing the water. Two bins at the quarters,
+            # as in parks.py — a plaza people sit at is a plaza people eat at.
+            rb = r + foff_m
+            nb = max(4, int(2.0 * math.pi * rb / max(2.0, ring_pitch)))
+            phase = rng.uniform(0.0, 360.0)
+            for i in range(nb):
+                a = math.radians(phase + i * 360.0 / nb)
+                p = (q[0] + rb * math.cos(a), q[1] + rb * math.sin(a))
+                composed.append(p)
+                prop("bench", p[0], p[1], math.degrees(a) + 180.0)
+            for i in range(2):
+                a = math.radians(phase + 45.0 + i * 180.0)
+                p = (q[0] + rb * math.cos(a), q[1] + rb * math.sin(a))
+                composed.append(p)
+                prop("trash_can", p[0], p[1], math.degrees(a) + 180.0)
+            return True
+        return False
+
     # Set pieces are DESTINATIONS: a fountain with no path to it is as wrong as
     # a court with none. The spur is exempt from the fountain's own clearance
     # box for the same reason a facility stub is exempt from its facility's.
@@ -1867,6 +2192,8 @@ def plan(rng, cfg=None):
         near = net.nearest(q)
         if near is None or near[0] <= 5.0:
             continue          # the network already passes close enough to it
+        if _k == "fountain" and plaza(q, box):
+            continue      # the ring is its own arrival; no spur to water
         hit, pts, ok = join(q, w_spur, exempt=(box,))
         if hit is None or not ok:
             # No way to it that keeps the bands: the set piece keeps its ground
@@ -1895,10 +2222,34 @@ def plan(rng, cfg=None):
     # -- fences -------------------------------------------------------------
     panel = float(c["fence_panel_m"])
     fences = []
+
+    def gate_at(z):
+        """Where a path arrives on *z*'s boundary, i.e. where the gate goes."""
+        for pa in paths:
+            for p in (pa["pts"][0], pa["pts"][-1]):
+                near, _in, d = _nearest_on_obb(p, z["corners"])
+                if d <= 1.0:
+                    return near
+        return None
+
     for z in zones:
-        if not z.get("fenced"):
+        # THE PLAYGROUND IS FENCED TOO, and not for decoration: a play area is
+        # enclosed so a two-year-old cannot walk out of it onto a pitch, which
+        # is why every municipal playground has a low rail round it with one
+        # gate in it. Done HERE rather than by putting `fenced` on the zone,
+        # because that flag also selects `facility_pad_fenced_m` (8 m instead
+        # of 6) and would move every path near the playground — the fence is a
+        # fact about the boundary, not a claim on how much room the paths have
+        # to leave. The compounds keep the flag: theirs really is the wider
+        # band, because the bike racks stand in it.
+        if not (z.get("fenced") or z["kind"] == "playground"):
             continue
         cor = z["corners"]
+        # AND A GAP WHERE THE SERVING PATH ARRIVES. Without it the stub that
+        # `check_reach` measures ends against a panel, which is a fence with a
+        # path walking into it. Only the playground gets one: the compounds'
+        # runs predate this and changing them is not what was asked.
+        gate = gate_at(z) if z["kind"] == "playground" else None
         for i in range(4):
             ax, ay = cor[i]
             bx, by = cor[(i + 1) % 4]
@@ -1907,8 +2258,10 @@ def plan(rng, cfg=None):
             yaw = math.degrees(math.atan2(by - ay, bx - ax))
             for k in range(n):
                 f = (k + 0.5) / n
-                fences.append({"c": (ax + (bx - ax) * f, ay + (by - ay) * f),
-                               "yaw": yaw})
+                p = (ax + (bx - ax) * f, ay + (by - ay) * f)
+                if gate is not None and sn._dist(p, gate) < panel:
+                    continue
+                fences.append({"c": p, "yaw": yaw})
 
     # =======================================================================
     # (c) TREES — into what is left, clear of facilities AND of the paths
@@ -1952,20 +2305,92 @@ def plan(rng, cfg=None):
             return False
         return not near_path(q, path_d)
 
+    # STEMS DO NOT STACK. There was no tree-to-tree test at all, which was
+    # survivable at 11/ha and is not at park density: a Poisson scatter at
+    # 55/ha
+    # puts pairs a metre apart, and two crowns a metre apart are one blob with
+    # two trunks under it. Same grid trick as the path test above, so the
+    # question stays O(1) per candidate instead of O(trees) — at 700 trees the
+    # naive version is a quarter of a million distance tests per pass.
+    tsep = float(c["tree_spacing_m"])
+    tgrid = {}
+
+    def plant(q, spacing):
+        gx, gy = int(math.floor(q[0] / cell)), int(math.floor(q[1] / cell))
+        rr = int(math.ceil(spacing / cell))
+        for i in range(gx - rr, gx + rr + 1):
+            for j in range(gy - rr, gy + rr + 1):
+                for p in tgrid.get((i, j), ()):
+                    if sn._dist(q, p) < spacing:
+                        return False
+        tgrid.setdefault((gx, gy), []).append(q)
+        prop("tree", q[0], q[1], rng.uniform(0, 360))
+        return True
+
+    # WHERE THE PLANTING GOES, which is the half of "more trees" that decides
+    # whether the result is a park or an orchard. A park is planted at its
+    # MARGINS — the belt inside the boundary that screens whatever is outside,
+    # and the strips between one facility and the next — and left open in the
+    # middle, because the open lawn is the thing the planting frames. A flat
+    # scatter at margin density fills the greensward and the pitch surrounds
+    # with evenly spaced trees, which is a plantation.
+    #
+    # So a candidate is accepted with a probability that falls from 1 at a
+    # margin to `tree_open_frac` out in the open. The COUNT is unaffected — the
+    # loop still runs until it has placed `want` — so the weighting moves trees
+    # about rather than quietly changing the density knob's meaning.
+    #
+    # `d` is measured to the facility BOX rather than to its padding band on
+    # purpose: what makes a strip between two facilities read as planted is
+    # trees standing right up against the fence line, and `free()` already
+    # holds them the 4 m off it that stops a crown sitting on the court.
+    marg = float(c["tree_margin_m"])
+    openf = float(c["tree_open_frac"])
+
+    def plant_w(q):
+        d = min(q[0] + hw, hw - q[0], q[1] + hh, hh - q[1])
+        for ob in obstacles:
+            if d <= 0.0:
+                break
+            d = min(d, _nearest_on_obb(q, ob)[2])
+        if d >= marg:
+            return openf
+        return openf + (1.0 - openf) * (1.0 - d / marg) ** 1.5
+
     n_copse = int(c["copses"])
+    cdens = float(c["copse_per_1000m2"])
+    inland = float(c["copse_inland_share"])
     for _ in range(n_copse):
-        # Copses hug the edges, where a park thickens into its surroundings.
-        edge = rng.randrange(4)
-        if edge == 0:
-            cxy = (rng.uniform(-hw, hw), rng.uniform(-hh, -hh + 60))
-        elif edge == 1:
-            cxy = (rng.uniform(-hw, hw), rng.uniform(hh - 60, hh))
-        elif edge == 2:
-            cxy = (rng.uniform(-hw, -hw + 60), rng.uniform(-hh, hh))
-        else:
-            cxy = (rng.uniform(hw - 60, hw), rng.uniform(-hh, hh))
         rad = rng.uniform(*_rng_pair(c["copse_r_m"], (26.0, 55.0)))
-        for _ in range(int(rad * rad * 0.02)):
+        if rng.random() < inland:
+            # INLAND STANDS, smaller than the edge woods. The edge copses are a
+            # screen belt and are right to be big; the middle of the park needs
+            # the other thing a park has, a clump of trees you walk round on
+            # your way between the courts and the picnic ground. Sited by the
+            # same `free` test everything else uses, with more room asked for,
+            # so a stand does not start life half on a pitch.
+            cxy = None
+            for _try in range(80):
+                p = (rng.uniform(ix0, ix1), rng.uniform(iy0, iy1))
+                if free(p, 16.0, path_d=10.0):
+                    cxy = p
+                    break
+            if cxy is None:
+                continue
+            rad *= 0.55
+        else:
+            # Edge copses hug the boundary, where a park thickens into
+            # whatever surrounds it.
+            edge = rng.randrange(4)
+            if edge == 0:
+                cxy = (rng.uniform(-hw, hw), rng.uniform(-hh, -hh + 60))
+            elif edge == 1:
+                cxy = (rng.uniform(-hw, hw), rng.uniform(hh - 60, hh))
+            elif edge == 2:
+                cxy = (rng.uniform(-hw, -hw + 60), rng.uniform(-hh, hh))
+            else:
+                cxy = (rng.uniform(hw - 60, hw), rng.uniform(-hh, hh))
+        for _ in range(int(math.pi * rad * rad / 1000.0 * cdens)):
             # r^0.6 biases inward, so density thins toward the edge instead of
             # ending on a hard circle.
             a = rng.uniform(0, 2 * math.pi)
@@ -1974,17 +2399,26 @@ def plan(rng, cfg=None):
             if not (-hw <= q[0] <= hw and -hh <= q[1] <= hh):
                 continue
             if free(q, 6.0):
-                prop("tree", q[0], q[1], rng.uniform(0, 360))
+                # Tighter inside a wood than out on the lawn: a copse is meant
+                # to close over, so crowns touching is the point of it.
+                plant(q, tsep * 0.78)
 
-    # A thin scatter over the remaining green, so the open lawn is not bald.
+    # The scatter over the remaining green — margins dense, open lawn thin.
     want = int((ix1 - ix0) * (iy1 - iy0) / 1000.0
                * float(c["lawn_tree_per_1000m2"]))
+    # 80 tries per tree was enough for a scatter that accepted nearly
+    # everything. This one refuses on three counts (facility, path, weight) and
+    # the last of them refuses 70% of the open lawn by design, so the budget
+    # has to cover the refusals or the density knob silently tops out.
     tries = 0
-    while want > 0 and tries < want * 80:
+    while want > 0 and tries < want * 220:
         tries += 1
         q = (rng.uniform(ix0, ix1), rng.uniform(iy0, iy1))
-        if free(q, 8.0):
-            prop("tree", q[0], q[1], rng.uniform(0, 360))
+        if not free(q, 6.0):
+            continue
+        if rng.random() > plant_w(q):
+            continue
+        if plant(q, tsep):
             want -= 1
 
     # =======================================================================
@@ -1998,15 +2432,34 @@ def plan(rng, cfg=None):
     bspace = float(c["bench_spacing_m"])
     tspace = float(c["trash_spacing_m"])
     foff = float(c["furniture_offset_m"])
-    furn = []
+    # SEEDED WITH THE COMPOSED FURNITURE. The playground's benches and the ones
+    # on a fountain ring are already on the ground by the time this runs, and
+    # the spacing test only ever knew about what this loop itself had placed —
+    # so a spur passing a plaza would drop a second bench two metres from a
+    # bench already facing the water. Seeding the list is the whole fix.
+    furn = list(composed)
 
-    def furn_ok(p):
+    def furn_ok(p, d=7.0):
+        """Room for furniture at *p*, keeping *d* off its neighbours.
+
+        THE RADIUS IS PER KIND, and a flat 7 m was actively wrong for the bin.
+        Two benches 3 m apart are one bench drawn twice; a BIN 3 m from a bench
+        is where bins actually are, because the reason to put one there is that
+        somebody is sitting down. With one figure for both, whichever pass ran
+        first took the ground: benches first left 13 bins on seed 1, bins first
+        left 35 benches, and a park with as many bins as benches is as wrong as
+        one with none.
+        """
         box = _obb(p[0], p[1], 2.4, 2.4, 0.0)
         if any(_sat_overlap(box, r, 0.5) for r in obstacles):
             return False
-        return not any(sn._dist(p, f) < 7.0 for f in furn)
+        return not any(sn._dist(p, f) < d for f in furn)
 
     for pa in paths:
+        # "ring" is excluded on purpose and for `parks.py`'s reason: a ring's
+        # furniture is COMPOSED — an even pitch of benches facing the water —
+        # so letting the walk-and-drop pass at it would lay a second row of
+        # seats round the same circle, alternating sides and facing outward.
         if pa["kind"] not in ("spine", "spur"):
             continue
         pts = pa["pts"]
@@ -2024,11 +2477,50 @@ def plan(rng, cfg=None):
                  math.degrees(math.atan2(t[1], t[0])) - 90.0 * side)
         for (q, t) in _along(pts, tspace, tspace * 0.3):
             p = (q[0] - t[1] * foff, q[1] + t[0] * foff)
-            if not furn_ok(p):
+            # 2.5 m, not 7: a bin belongs BESIDE a bench (see `furn_ok`), and
+            # it only has to miss the seat it is standing next to.
+            if not furn_ok(p, 2.5):
                 continue
             furn.append(p)
             prop("trash_can", p[0], p[1],
                  math.degrees(math.atan2(t[1], t[0])))
+
+    # =======================================================================
+    # (e) ONE BENCH AND ONE BIN FOR THE WHOLE PARK
+    # =======================================================================
+    # A park is furnished by ONE PROCUREMENT ORDER. The borough buys a hundred
+    # of the same bin and bolts them down, so every bin in the park matches
+    # every other bin and every bench matches every other bench. Drawing per
+    # PROP out of a pool of eight bins gives a park in which no two bins are
+    # alike, which reads as a junk yard rather than as furniture — the same
+    # defect that was reported on the street furniture (bins, hydrants,
+    # streetlights) and it has the same cause and the same fix.
+    #
+    # THE POOL IS NOT NARROWED, only the draw. The variety in `park.yaml` and
+    # `shared.yaml` is what makes a different seed a differently furnished
+    # park, which is the entire point of holding eight bins; taking the choice
+    # once per PARK instead of once per PROP keeps that and loses only the
+    # jumble. Picnic tables are in the matched set for the same reason — a
+    # picnic ground is a batch of identical tables — while trees, play kit and
+    # the set pieces are deliberately not: a wood is not procured, and there is
+    # only ever one gazebo standing in one place.
+    #
+    # DRAWN LAST, and that is not an accident of where the code sits. Every
+    # rng draw shifts every draw after it, so making this choice up at the top
+    # of `plan` would mean that adding a bin to a picnic ground moves a soccer
+    # pitch. Nothing reads the rng after this point, so here it is free.
+    #
+    # An opaque number rather than an index, so it stays valid whatever length
+    # the pool turns out to be; the consumer takes it modulo the pool size.
+    # NOTE FOR THE CONSUMER: `suburb_scene._park_placements` currently does
+    # `pool[rng.randrange(len(pool))]` per prop and has to read this instead —
+    # `u = pool[pr["variant"] % len(pool)] if "variant" in pr else <as now>` —
+    # or the field is inert and the bins stay mixed.
+    matched = {k: rng.randrange(1000003)
+               for k in ("bench", "trash_can", "picnic_table")}
+    for p in props:
+        if p["kind"] in matched:
+            p["variant"] = matched[p["kind"]]
 
     return {"region": region, "zones": zones, "paths": paths,
             "fences": fences, "props": props}

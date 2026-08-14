@@ -504,6 +504,14 @@ usds:
   signs_stop:
     - usd: "RetroNeighborhood/Props/SM_Sign_Stop.prop.usd"
       scale: 0.01
+      # FACE POINTED THE WRONG WAY. `build_signs` yaws the sign back down its
+      # own approach so the plate meets the driver; this art needs half a turn
+      # on top of that to actually do it. Reported from the sim by eye, not
+      # measured -- the asset is on Nucleus and reading it needs interactive
+      # auth. urban_v2 carries the identical correction on its street-name sign
+      # ("face was to the kerb"), so this is the pack's convention, not a
+      # one-off.
+      yaw-offset: 180.0
     #
     # ALSO IN THE PACK, DELIBERATELY NOT WIRED — there is no pass that would
     # place either, and a pool nothing reads is dead config that reads as

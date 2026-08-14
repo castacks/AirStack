@@ -230,29 +230,52 @@ class _Purse:
     streets built.
     """
 
-    def __init__(self, total: float, area_total: float):
+    INSTANCE_PTS = 400          # a transform and a prototype pointer, not a mesh
+
+    def __init__(self, total: float, area_total: float, instanced: bool = False):
         self.total = max(0.0, float(total))
         self.area_total = max(1e-6, float(area_total))
         self.spent = 0
         self.cap = 0.0
         self.refused = 0
+        # THE PURSE WAS PRICING A COST THE PIPELINE NO LONGER PAYS. Every
+        # placement was charged its asset's full point count, which was correct
+        # when `apply_placements` referenced each one separately. It now
+        # INSTANCES the repeated categories -- trees among them -- so the tenth
+        # copy of an oak costs a transform, not another 48.7k points. Charging
+        # it as though it were a fresh mesh is what kept the suburb thin: the
+        # purse was refusing trees to stay under a ceiling it was nowhere near.
+        #
+        # Opt-in, because `suburb_lots` shares this class and its pipeline does
+        # not instance. Off, this is byte-for-byte the old behaviour.
+        self.instanced = bool(instanced)
+        self._seen = set()
+
+    def _price(self, pts: float, usd=None) -> float:
+        """What this placement ACTUALLY costs, given what is already on stage."""
+        if self.instanced and usd is not None and usd in self._seen:
+            return float(self.INSTANCE_PTS)
+        return float(pts)
 
     def open(self, area: float) -> None:
         self.cap = min(self.total,
                        self.cap + self.total * max(0.0, area) / self.area_total)
 
-    def can(self, pts: int) -> bool:
-        if self.spent + pts > self.cap:
+    def can(self, pts: int, usd=None) -> bool:
+        if self.spent + self._price(pts, usd) > self.cap:
             self.refused += 1
             return False
         return True
 
-    def charge(self, pts: int) -> None:
-        self.spent += int(pts)
+    def charge(self, pts: int, usd=None) -> None:
+        self.spent += int(self._price(pts, usd))
+        if self.instanced and usd is not None:
+            self._seen.add(usd)
 
     def affordable(self, entries):
         room = self.cap - self.spent
-        return [e for e in entries if e["points"] <= room]
+        return [e for e in entries
+                if self._price(e["points"], e.get("usd")) <= room]
 
 
 class _Budget:
@@ -268,10 +291,11 @@ class _Budget:
     it is the share of the scene's geometry that goes into canopy.
     """
 
-    def __init__(self, total: float, area_total: float, tree_frac: float):
+    def __init__(self, total: float, area_total: float, tree_frac: float,
+                 instanced: bool = False):
         f = min(1.0, max(0.0, float(tree_frac)))
-        self.tree = _Purse(total * f, area_total)
-        self.other = _Purse(total * (1.0 - f), area_total)
+        self.tree = _Purse(total * f, area_total, instanced)
+        self.other = _Purse(total * (1.0 - f), area_total, instanced)
         self.total = float(total)
 
     def open(self, area: float) -> None:

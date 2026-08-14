@@ -45,19 +45,36 @@ houses on the inside of a curve can be well clear as AABBs and still intersect,
 and on the outside of a curve the reverse. :func:`_obb_overlap` is a separating
 axis test on the four box normals, which is exact for two rectangles.
 
+GROUND THE BLOCK POLYGON DOES NOT KNOW ABOUT
+--------------------------------------------
+Being inside the block polygon is not the same as being off the pavement. A
+cul-de-sac does not end at a point: `suburb_net` puts a paved TURNAROUND DISC
+at the tip of every lollipop edge (14.64 m radius, IFC Fig D103.1's 96 ft
+driving diameter) and `suburb_scene.apply_ground` lays asphalt over it, but the
+block polygon is built from the street faces and carries no record of it. A lot
+issued off the frontage beside a bulb is therefore platted on the road, and
+passes every containment test in here while doing it. `cfg["keepout_discs"]` is
+how the caller — which has the net, and so has the real per-edge radius — says
+where that pavement is; house, garage, fence and tree are all refused or cut
+back out of it.
+
 WHAT IT DOES NOT DO
 -------------------
-No USD. Footprints are nominal rectangles, not measured asset bounding boxes —
-`scene_generator.SizeResolver` is what does that, and wiring these lots to the
-asset library is the next step, not this one. Treat the houses here as showing
-WHERE a house goes and which way it faces, not which asset lands there.
+No USD, and no asset library: this module still cannot look a house up. What it
+will now do is USE a measurement someone else took — `cfg["house_sizes"]` takes
+the caller's measured footprints and sites those instead of nominal rectangles,
+stamping the entry it used on each house as `size_index` so the caller can place
+that exact asset. Absent the key the footprints are nominal rectangles drawn
+from `house_w_m`/`house_d_m`, and then every overlap test below is only as true
+as that guess — which is the honest reading of a house that clears the test here
+and overlaps its neighbour on screen.
 """
 
 import math
 
 from suburb_net import (_add, _sub, _mul, _dot, _unit, _perp, _dist,
                         polyline_length, point_at, tangent_at,
-                        point_in_polygon, polygon_area)
+                        point_in_polygon, polygon_area, seg_seg_dist)
 
 
 def _ring_cum(ring):
@@ -174,8 +191,36 @@ DEFAULTS = {
     # Front setback. Zoning ordinances put this at 20-30 ft almost everywhere.
     "setback_m": [6.5, 11.0],
     # Detached house footprint: 30-50 ft across the frontage by 26-40 ft deep.
+    # NOMINAL — only used when `house_sizes` is absent. See it below.
     "house_w_m": [9.0, 15.0],
     "house_d_m": [8.0, 12.5],
+    # MEASURED FOOTPRINTS, one `(w, d)` per house asset the caller may place, in
+    # metres, `w` ALONG THE FRONTAGE and `d` inward — already resolved through
+    # whatever yaw offset the renderer applies (`suburb_scene` turns the house
+    # by `house_yaw_offset_deg`, so the measured axis that ends up across the
+    # front is the one to pass as `w`). This module only knows the street frame
+    # and cannot do that resolution itself.
+    #
+    # WHY: every overlap test below is only as true as the box it is handed, and
+    # the nominal box is a guess about art nobody measured. The shipped pool
+    # mixes bungalows pinned to a 12 m longest plan dimension with the
+    # RetroNeighborhood SM_House_* that `suburban.yaml` flags in as many words
+    # as unverified, while this module sites boxes anywhere from 7.0 to 21.3 m
+    # across. A lot that reserved 9 m and receives a 12 m asset overlaps its
+    # neighbour on screen having passed every test in here, and no arithmetic
+    # fix reaches that, because the arithmetic was right about the wrong box.
+    #
+    # MEASURED IN, INDEX OUT. The entry chosen is stamped on the house as
+    # `size_index`; it is only a fix if the caller places THAT asset, otherwise
+    # the guess has merely moved one module along.
+    "house_sizes": None,
+    # PAVEMENT THE BLOCK POLYGON CANNOT SEE, as `((x, y), r)` discs in world
+    # metres. Cul-de-sac turnarounds are what this is for; the caller holds the
+    # net and so knows the real radius of each one, which is why none is assumed
+    # here. Pass the radius you want KEPT CLEAR rather than the paved radius if
+    # you want a front yard as well: a house tangent to the kerb is still a
+    # house on the road.
+    "keepout_discs": (),
     # A lot needs this much depth behind the setback or it is not a lot.
     "min_lot_depth_m": 21.0,
     # Platted lot depth, 85-125 ft, the band almost every US plat sits in. It
@@ -245,6 +290,128 @@ def _obb_overlap(a, b, pad=0.0):
             if amax + pad < bmin or bmax + pad < amin:
                 return False
     return True
+
+
+def _norm_discs(v):
+    """`[((x, y), r), ...]` from whatever the caller passed, dropping junk."""
+    out = []
+    for item in (v or ()):
+        try:
+            c, r = item[0], float(item[1])
+        except (TypeError, IndexError, ValueError):
+            continue
+        if r > 0.0:
+            out.append(((float(c[0]), float(c[1])), r))
+    return out
+
+
+def _hits_keepout(corners, discs):
+    """Does an oriented box reach into any keep-out disc?
+
+    Box-versus-circle rather than centre-versus-circle: a 12 m house whose
+    CENTRE clears a 14.64 m bulb by a metre still has half its frontage on the
+    turnaround, and the turnaround is the thing you see it standing on. Inside
+    (the disc swallowing the box whole, which happens to a garage) or within *r*
+    of any wall both count; the bbox reject in front is what keeps this off the
+    hot path, since a block sees at most one or two bulbs and usually none.
+    """
+    if not discs:
+        return False
+    xs = [q[0] for q in corners]
+    ys = [q[1] for q in corners]
+    x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+    for (c, r) in discs:
+        if (c[0] < x0 - r or c[0] > x1 + r
+                or c[1] < y0 - r or c[1] > y1 + r):
+            continue
+        if point_in_polygon(corners, c):
+            return True
+        for i in range(4):
+            if seg_seg_dist(corners[i], corners[(i + 1) % 4], c, c) < r:
+                return True
+    return False
+
+
+def _clip_seg_disc(a, b, c, r):
+    """Trim a fence run back out of a paved turnaround.
+
+    Same contract and same reasoning as :func:`_clip_seg` one level down — a
+    fence stops at the thing it cannot stand in — with a circle in place of a
+    building. Solving |a + d*t - c| = r for the two crossings is exact, where
+    sampling the run would let a short chord through. The middle case gives up
+    for the same reason it does there: a bulb biting the centre of a lot line
+    would leave two stubs, and a fence in two pieces with a road through it is
+    worse than no fence.
+    """
+    d = _unit(_sub(b, a))
+    ln = _dist(a, b)
+    f = _sub(a, c)
+    hb = _dot(f, d)                       # half-b of the quadratic in t
+    det = hb * hb - (_dot(f, f) - r * r)
+    if det <= 0.0:
+        return a, b                       # the line misses the circle outright
+    sq = math.sqrt(det)
+    t0, t1 = -hb - sq, -hb + sq
+    if t1 <= 0.0 or t0 >= ln:
+        return a, b                       # ...or the crossings are off the run
+    if t0 <= 0.0 and t1 >= ln:
+        return None                       # the whole run is on the pavement
+    if t0 <= 0.0:
+        a = _add(a, _mul(d, t1))
+    elif t1 >= ln:
+        b = _add(a, _mul(d, t0))
+    else:
+        return None
+    return (a, b) if _dist(a, b) >= 2.0 else None
+
+
+def _norm_sizes(v):
+    """`[(w, d), ...]` from the caller's measured table, dropping junk.
+
+    Order is PRESERVED, because the index into it is the contract: it is what
+    tells the caller which asset was sited. Sorting here would silently rebind
+    every house to a different model.
+    """
+    out = []
+    for e in (v or ()):
+        try:
+            w, d = float(e[0]), float(e[1])
+        except (TypeError, IndexError, ValueError):
+            continue
+        if w > 0.0 and d > 0.0:
+            out.append((w, d))
+    return out
+
+
+def _pick_size(sizes, order, rng, max_w, scale):
+    """Choose a measured footprint for a lot of this frontage, or ``None``.
+
+    Two things the nominal path gets for free and this one has to earn.
+
+    FIT. `h_w = min(sampled, width - gap)` cannot be applied to a measurement —
+    clamping a measured asset is just the nominal guess again, and a 12 m model
+    scaled down to 9 m is a model with 9 m doors. So the fit is a FILTER on the
+    catalogue instead: the builder puts the plan that fits on the lot, which is
+    what a real plat does and is why narrow lots carry narrow houses. Only when
+    NOTHING in the catalogue fits does the lot go unbuilt. The criterion is the
+    same half-gap :func:`parcel_blocks` gives the overlap test, deliberately —
+    a stricter one here would refuse a house the overlap test would have let
+    stand, and pay for it in gaps down the street.
+
+    SIZE CLASS. `ARCHETYPES[...]["scale"]` cannot resize a measured asset for
+    the same reason, so it selects rather than scales: rank the fitting entries
+    by footprint AREA and bias the draw up that ranking. Scale is linear and
+    area goes as its square, hence the exponent — 1.00 leaves the draw uniform
+    over everything that fits, 1.42 ("large") pulls its mean to about the 74th
+    percentile of it. Biasing rather than slicing matters: a hard band would cut
+    the top of the catalogue out of the 52% of lots at scale 1.00 and those
+    models would never be built.
+    """
+    fit = [i for i in order if sizes[i][0] <= max_w]
+    if not fit:
+        return None
+    q = rng.random() ** (1.0 / (scale * scale))
+    return fit[min(len(fit) - 1, int(q * len(fit)))]
 
 
 def _probe_depth(poly, p, n, u, width, lo, hi, step=1.0):
@@ -402,12 +569,15 @@ def parcel_blocks(blocks, rng, cfg=None):
     """Lots, houses, drives and trees for every block.
 
     Returns ``[{"block": poly, "density": name, "houses": [...],
-    "drives": [...], "trees": [...], "garages_rejected": n}, ...]`` where each
-    house is ``{"c": (x, y), "w": w, "d": d, "u": (ux, uy), "corners": [...]}``
+    "drives": [...], "trees": [...], "garages_rejected": n,
+    "keepout_rejected": n, "size_rejected": n}, ...]`` where each house is
+    ``{"c": (x, y), "w": w, "d": d, "u": (ux, uy), "corners": [...]}``
     plus the lot it stands on: ``lot_corners`` (front_left, front_right,
     rear_right, rear_left), ``lot_depth``, ``fence_segs``
     (``[(p0, p1, "privacy"|"low"), ...]``, deduplicated across the block) and
-    ``garage`` (``None`` or a box in the same shape as the house).
+    ``garage`` (``None`` or a box in the same shape as the house). With
+    ``cfg["house_sizes"]`` supplied, ``size_index`` says which measured entry
+    the footprint came from and the caller is expected to place that asset.
     """
     c = dict(DEFAULTS)
     c.update(cfg or {})
@@ -426,6 +596,12 @@ def parcel_blocks(blocks, rng, cfg=None):
     g_d = float(c["garage_d_m"])
     g_sep = float(c["garage_gap_m"])
     dens_mix = c.get("density_mix")
+    sizes = _norm_sizes(c.get("house_sizes"))
+    # Ranked by area once, not per lot: the catalogue is a couple of dozen
+    # entries and every lot on the map walks it.
+    size_order = sorted(range(len(sizes)),
+                        key=lambda i: sizes[i][0] * sizes[i][1])
+    discs = _norm_discs(c.get("keepout_discs"))
 
     out = []
     for blk in blocks:
@@ -436,6 +612,14 @@ def parcel_blocks(blocks, rng, cfg=None):
             poly, faces_street = blk, None
         ring = list(poly) + [poly[0]]
         cum = _ring_cum(ring)
+        # The bulbs that can possibly reach this block. Every candidate on the
+        # block is tested against this list, so it is worth cutting 26 discs
+        # down to the nought-or-one that are actually near before doing it.
+        pxs = [q[0] for q in poly]
+        pys = [q[1] for q in poly]
+        blk_discs = [(dc, dr) for (dc, dr) in discs
+                     if (min(pxs) - dr <= dc[0] <= max(pxs) + dr
+                         and min(pys) - dr <= dc[1] <= max(pys) + dr)]
 
         def is_frontage(s):
             """Is the block side at arclength *s* a street?
@@ -457,7 +641,8 @@ def parcel_blocks(blocks, rng, cfg=None):
         perim = polyline_length(ring)
         if perim < 40.0:
             out.append({"block": poly, "density": dens, "houses": [],
-                        "drives": [], "trees": [], "garages_rejected": 0})
+                        "drives": [], "trees": [], "garages_rejected": 0,
+                        "keepout_rejected": 0, "size_rejected": 0})
             continue
 
         houses, drives, trees = [], [], []
@@ -465,6 +650,8 @@ def parcel_blocks(blocks, rng, cfg=None):
         fenced = set()               # boundary identities already fenced
         fence_lines = []             # ...and the same as lines, for near-misses
         n_reject = 0
+        n_keepout = 0                # lots lost to a turnaround
+        n_nofit = 0                  # ...and to a frontage nothing measured fits
         s = rng.uniform(0.0, lw[0])
         guard = 0
         run_lo, run_hi = _rng_pair(c.get("archetype_run", [4, 9]), (4.0, 9.0))
@@ -501,14 +688,33 @@ def parcel_blocks(blocks, rng, cfg=None):
             # The extra frontage an estate lot buys is side yard, and the extra
             # depth behind the house is the back yard the user is asking for.
             setback = rng.uniform(*sb) * d_set
-            h_w = min(rng.uniform(*hw) * spec["scale"], width - gap)
-            h_d = rng.uniform(*hd) * spec["scale"]
-            if h_w < 7.0:
-                continue
+            if sizes:
+                # The catalogue is the authority on how big a house is. See
+                # `house_sizes` in DEFAULTS and :func:`_pick_size`.
+                size_i = _pick_size(sizes, size_order, rng,
+                                    width - gap * 0.5, float(spec["scale"]))
+                if size_i is None:
+                    n_nofit += 1
+                    continue
+                h_w, h_d = sizes[size_i]
+            else:
+                size_i = None
+                h_w = min(rng.uniform(*hw) * spec["scale"], width - gap)
+                h_d = rng.uniform(*hd) * spec["scale"]
+                if h_w < 7.0:
+                    continue
             cx, cy = _add(p, _mul(n, setback + h_d / 2.0))
             u = _unit(t)
             corners = _corners(cx, cy, h_w, h_d, u[0], u[1])
             if any(not point_in_polygon(poly, q) for q in corners):
+                continue
+            # Inside the block is not off the road — see the module docstring.
+            # The lot goes entirely, rather than being nudged along the
+            # frontage: the station is where the street said to put it, and a
+            # house shuffled off its own frontage to dodge the turnaround is
+            # the next screenshot's defect.
+            if _hits_keepout(corners, blk_discs):
+                n_keepout += 1
                 continue
             if any(_obb_overlap(corners, h["corners"], pad=gap * 0.5)
                    for h in houses):
@@ -574,7 +780,12 @@ def parcel_blocks(blocks, rng, cfg=None):
                 # a garage inside a building, so the two structural tests are
                 # exactly the ones the house passes; the FENCE is what gives
                 # way, cut at the garage wall by `_clip_seg` below.
-                ok = all(point_in_polygon(poly, q) for q in g_corners)
+                # The bulb is tested here for the same reason the house tests
+                # it, and it bites harder: a garage sits at the setback line
+                # with no front yard in front of it, so a lot whose house
+                # cleared the turnaround can still have parked its garage on it.
+                ok = (all(point_in_polygon(poly, q) for q in g_corners)
+                      and not _hits_keepout(g_corners, blk_discs))
                 if ok:
                     ok = not (any(_obb_overlap(g_corners, h["corners"])
                                   for h in houses)
@@ -620,10 +831,20 @@ def parcel_blocks(blocks, rng, cfg=None):
                         continue
                     fenced.add(k)
                     cut = (a, b)
-                    for box in blockers:         # includes this lot's own
-                        cut = _clip_seg(cut[0], cut[1], box)
+                    # Pavement before buildings, because it is the cut that can
+                    # take the whole run: a lot beside a bulb has its two side
+                    # lines running out of the turnaround, and there is no point
+                    # asking which wall a fence stops at when the front half of
+                    # it is on the road.
+                    for (dc, dr) in blk_discs:
+                        cut = _clip_seg_disc(cut[0], cut[1], dc, dr)
                         if cut is None:
                             break
+                    if cut is not None:
+                        for box in blockers:     # includes this lot's own
+                            cut = _clip_seg(cut[0], cut[1], box)
+                            if cut is None:
+                                break
                     if cut is None:
                         # A building stands on this boundary for its whole
                         # length. Still registered, so the neighbour does not
@@ -638,6 +859,13 @@ def parcel_blocks(blocks, rng, cfg=None):
                            # What this lot gets BUILT with, not just the house:
                            # suburb_scene composes the package from these.
                            "archetype": arch,
+                           # WHICH measured footprint was sited, as an index
+                           # into `cfg["house_sizes"]` (None when the nominal
+                           # sampling was used). The caller must place the asset
+                           # at this index and no other — the box tested for
+                           # overlap here IS that asset, and drawing a different
+                           # one puts the module back to guessing.
+                           "size_index": size_i,
                            "has_garage": spec["garage"] > 0.0,
                            "has_fence": spec["fence"] > 0.0,
                            "lot_width": width,
@@ -694,8 +922,13 @@ def parcel_blocks(blocks, rng, cfg=None):
             q = _add(p, _mul(n, 2.6))
             if point_in_polygon(poly, q):
                 r = rng.uniform(*tr)
-                if not any(_dist(q, h["c"]) < max(h["w"], h["d"]) / 2.0 + r
-                           for h in houses):
+                # A verge tree goes 2.6 m in from the block boundary, which
+                # around a turnaround is 2.6 m into the asphalt: the boundary
+                # the offset is measured from is not the edge of the bulb.
+                on_bulb = any(_dist(q, dc) < dr + r for (dc, dr) in blk_discs)
+                if not on_bulb and not any(
+                        _dist(q, h["c"]) < max(h["w"], h["d"]) / 2.0 + r
+                        for h in houses):
                     trees.append({"c": q, "r": r, "kind": "street"})
             u_s += rng.uniform(*sts)
 
@@ -716,6 +949,8 @@ def parcel_blocks(blocks, rng, cfg=None):
             if not point_in_polygon(poly, q):
                 continue
             r = rng.uniform(*tr)
+            if any(_dist(q, dc) < dr + r for (dc, dr) in blk_discs):
+                continue
             if any(_obb_overlap(_corners(q[0], q[1], r * 2, r * 2, 1.0, 0.0),
                                 h["corners"], pad=clear) for h in houses):
                 continue
@@ -726,7 +961,13 @@ def parcel_blocks(blocks, rng, cfg=None):
 
         out.append({"block": poly, "density": dens, "houses": houses,
                     "drives": drives, "trees": trees,
-                    "garages_rejected": n_reject})
+                    "garages_rejected": n_reject,
+                    # Both new rejection reasons are reported rather than
+                    # swallowed: a thinned-out street is its own defect, and
+                    # these are the two numbers that say whether a keep-out or a
+                    # catalogue with nothing narrow in it caused one.
+                    "keepout_rejected": n_keepout,
+                    "size_rejected": n_nofit})
     return out
 
 
@@ -750,6 +991,10 @@ def stats(parcels):
             "garages": sum(1 for h in hs if h.get("garage")),
             "garages_rejected": sum(int(p.get("garages_rejected", 0))
                                     for p in parcels),
+            "keepout_rejected": sum(int(p.get("keepout_rejected", 0))
+                                    for p in parcels),
+            "size_rejected": sum(int(p.get("size_rejected", 0))
+                                 for p in parcels),
             "fenced_houses": sum(1 for h in hs if h.get("fence_segs")),
             "fence_segs": sum(len(h.get("fence_segs") or ()) for h in hs),
             "density_blocks": dens, "archetypes": arch,

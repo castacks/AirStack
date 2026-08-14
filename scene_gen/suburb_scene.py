@@ -149,6 +149,19 @@ def _arm_pts(net, node, edge):
     return edge.pts if edge.a == node.id else list(reversed(edge.pts))
 
 
+def _stop_bar_s(net, node):
+    """Arclength along an approach at which the STOP LINE sits.
+
+    One number, because the bar and the sign mark the same line. They were
+    computed apart -- the bar from `_junction_stop_m`, the sign from
+    `city_detail`'s `near_corner_m` (6.0 m) -- which put the sign ~5.6 m nearer
+    the junction than the paint it is supposed to stand over, on a 10.7 m
+    street. Sharing `_stop_approaches` made them agree about WHICH arms stop;
+    this makes them agree about WHERE.
+    """
+    return _junction_stop_m(net, node) + 0.6 + _STOP_BAR_W_M * 0.5
+
+
 def _stop_approaches(net):
     """``(node, edge)`` for every stop-controlled approach.
 
@@ -641,7 +654,7 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
     n_stop = 0
     for node, e in _stop_approaches(net):
         pts = _arm_pts(net, node, e)
-        s = _junction_stop_m(net, node) + 0.6 + _STOP_BAR_W_M * 0.5
+        s = _stop_bar_s(net, node)
         if sn.polyline_length(pts) < s + 1.0:
             continue
         _paint_stop_bar(stage, f"{gnd}/stopbar_{node.id}_{e.id}",
@@ -806,7 +819,20 @@ def _park_placements(config, resolver, park, rng, pools):
         if not pool:
             missing.add(pr["kind"])
             continue
-        u = pool[rng.randrange(len(pool))]
+        # ONE BENCH TYPE AND ONE BIN TYPE FOR THE WHOLE PARK. A park is
+        # furnished by one procurement order, so every bin matches every other
+        # bin; drawing per prop made a bench a different bench each time, which
+        # reads as a salvage yard rather than as a park. `suburb_park` stamps a
+        # per-kind `variant` once per seed for exactly the kinds that are a
+        # matched set, and this consumes it -- the pools keep all their entries,
+        # so a different seed still furnishes the park differently.
+        #
+        # It has to be done HERE and not by narrowing the pool in the asset set:
+        # `benches` and `trash_cans` come from `shared.yaml` down the extends
+        # chain, so cutting them would fix the type for every seed AND change
+        # the street furniture with it.
+        u = (pool[pr["variant"] % len(pool)] if "variant" in pr
+             else pool[rng.randrange(len(pool))])
         out.append(pools.place(resolver, u, spec[1], pr["c"][0], pr["c"][1],
                                pr.get("yaw", 0.0), rng))
 
@@ -975,12 +1001,14 @@ def build_signs(config, resolver, net, rng, pools):
                        or _raw_pool(config, "traffic_signs"))
     if not signs:
         return []
-    det = (config.get("city_detail") or {})
-    near = float(((det.get("categories") or {}).get("signs_stop")
-                  or {}).get("near_corner_m", 6.0) or 6.0)
     out = []
     for n, e in _stop_approaches(net):
         pts = _arm_pts(net, n, e)
+        # AT THE STOP LINE, not at `near_corner_m`. A stop sign stands beside
+        # the bar a driver stops at; `city_detail`'s 6.0 m corner setback is a
+        # rect-corridor figure and put the sign several metres up the road from
+        # its own paint.
+        near = _stop_bar_s(net, n)
         if sn.polyline_length(pts) < near + 2.0:
             continue
         p = sn.point_at(pts, near)
@@ -997,28 +1025,50 @@ def build_signs(config, resolver, net, rng, pools):
     return out
 
 
-def _fence_run(p0, p1, mod_len, gap_m):
-    """Module centres and yaw for a fence along p0->p1.
+def _fence_run(p0, p1, mod_len, min_fit=0.60, max_fit=1.15):
+    """Module centres, yaw and fit-scale for a fence along p0->p1.
 
-    Modules BUTT END TO END. A fence is continuous, and the packing gap that
-    reads as "detached houses" in a terrace row reads as a broken fence here.
-    The run is centred on the segment so the two end gaps match. Same
-    construction as `suburb_lots._fence_run`, which this scene cannot call --
-    that module consumes axis-aligned rect blocks.
+    THE RUN IS COVERED END TO END. The first version laid whole modules and
+    dropped the remainder: `n = length // mod_len`, centred. A 10 m boundary
+    against the 5.95 m privacy panel therefore got ONE panel with 2 m of bare
+    ground at each end, and a boundary shorter than one module got nothing at
+    all. That is the "fences don't seem to be complete, there's large gaps" —
+    not a placement bug but an arithmetic one, and it got worse the more the
+    lot widths varied, because a fixed module divides a varying run badly.
+
+    So the module count is chosen to SPAN the run and each module is scaled by
+    the residual, the same trick `apply_ground` uses to land a crossing's bars
+    flush kerb to kerb. Both candidate counts tile exactly; they differ only in
+    whether the panel is squeezed or stretched to do it, so the one closer to
+    its authored size wins.
+
+    The scale is UNIFORM, because a placement carries one scale — so a squeezed
+    panel is also shorter. That bounds how far this can be pushed and is why a
+    run that would need a panel outside [min_fit, max_fit] is declined instead:
+    a missing 1.5 m of fence reads better than a 2.7 m one towering over a
+    bungalow. Returning the fit is what lets the caller pass `scale_mul`.
     """
     dx, dy = p1[0] - p0[0], p1[1] - p0[1]
     length = math.hypot(dx, dy)
-    step = mod_len + gap_m
-    if length < mod_len or step <= 1e-6:
+    if length < 1.0 or mod_len <= 1e-6:
         return []
-    n = int((length + gap_m) // step)
-    if n < 1:
+    n_hi = max(1, int(math.ceil(length / mod_len - 1e-9)))   # squeeze to fit
+    n_lo = max(1, n_hi - 1)                                  # stretch to fit
+    best = None
+    for n in {n_hi, n_lo}:
+        fit = length / (n * mod_len)
+        if fit < min_fit or fit > max_fit:
+            continue
+        if best is None or abs(math.log(fit)) < abs(math.log(best[1])):
+            best = (n, fit)
+    if best is None:
         return []
+    n, fit = best
+    step = length / n
     ux, uy = dx / length, dy / length
     yaw = math.degrees(math.atan2(dy, dx))
-    start = (length - (n * step - gap_m)) / 2.0
-    return [(p0[0] + ux * (start + i * step + mod_len / 2.0),
-             p0[1] + uy * (start + i * step + mod_len / 2.0), yaw)
+    return [(p0[0] + ux * (i + 0.5) * step,
+             p0[1] + uy * (i + 0.5) * step, yaw, fit)
             for i in range(n)]
 
 
@@ -1177,19 +1227,34 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0):
                 pool_f = fence_priv if tag == "privacy" else fence_low
                 if not pool_f:
                     continue
-                uf = pool_f[rng.randrange(len(pool_f))]
-                fp = resolver.get(uf, "fence", scale=pools.scale_of(uf),
-                                  axis_up=pools.axis_of(uf))
-                # Which measured axis runs ALONG the fence depends on the
-                # entry's yaw-offset: the park railing is authored running +Y
-                # with `yaw-offset: 90`, and reading sx for it would take the
-                # 0.33 m rail thickness as the module length and lay it forty
-                # times over.
-                turned = abs((pools.yaw_of(uf) % 180.0) - 90.0) < 45.0
-                mod = max(0.3, float(fp["sy"] if turned else fp["sx"]))
-                for (fx, fy, fyaw) in _fence_run(a, b, mod, 0.0):
+                # PICK THE MODULE THAT DIVIDES THIS RUN, not a random one. The
+                # "low" pool holds a 5.28 m railing and a 2.0 m picket, and
+                # which of them tiles a given boundary without being squeezed
+                # depends entirely on the boundary's length -- which now varies
+                # from a 16 m tight lot to a 48 m estate one. Drawing at random
+                # threw that away and forced the fit-scale to absorb it.
+                best = None
+                for uf in pool_f:
+                    fp = resolver.get(uf, "fence", scale=pools.scale_of(uf),
+                                      axis_up=pools.axis_of(uf))
+                    # Which measured axis runs ALONG the fence depends on the
+                    # entry's yaw-offset: the park railing is authored running
+                    # +Y with `yaw-offset: 90`, and reading sx for it would
+                    # take the 0.33 m rail THICKNESS as the module length and
+                    # lay it forty times over.
+                    turned = abs((pools.yaw_of(uf) % 180.0) - 90.0) < 45.0
+                    mod = max(0.3, float(fp["sy"] if turned else fp["sx"]))
+                    run = _fence_run(a, b, mod)
+                    if not run:
+                        continue
+                    if best is None or abs(math.log(run[0][3])) < best[0]:
+                        best = (abs(math.log(run[0][3])), uf, run)
+                if best is None:
+                    continue
+                _, uf, run = best
+                for (fx, fy, fyaw, fit) in run:
                     out.append(pools.place(resolver, uf, "fence", fx, fy,
-                                           fyaw, rng))
+                                           fyaw, rng, scale_mul=fit))
                     n_fence += 1
         for t in p["trees"]:
             pool = (street_trees if t.get("kind") in ("street", "front")
@@ -1238,7 +1303,25 @@ def generate_suburb_on_stage(stage, config,
     # is invisible because every parcel still gets its row of houses.
     buildable = [b for b in blocks if not b.get("undeveloped")]
     n_open = len(blocks) - len(buildable)
-    parcels = sp.parcel_blocks(buildable, rng, config.get("suburb_parcel") or {})
+
+    # THE CUL-DE-SAC TURNAROUND IS PAVEMENT THE BLOCK POLYGON DOES NOT KNOW
+    # ABOUT. `apply_ground` lays a disc of `bulb_radius_m` at the end of every
+    # lollipop; the block boundary runs straight past it, so a lot hung off the
+    # frontage there was sited on the carriageway and the house rendered
+    # standing in the road. Measured 25-31 houses a seed, 2.3-2.7%, plus their
+    # garages, fences and verge trees.
+    #
+    # The bulb is the authority on where the road is, so it is handed to the
+    # parcel pass as a keep-out rather than worked around afterwards. The margin
+    # is a front yard's worth on top of the paving: tangent to the kerb is not
+    # somewhere a house stands either.
+    pcfg = dict(config.get("suburb_parcel") or {})
+    bulb_r = float(sn.DEFAULTS["bulb_radius_m"])
+    margin = float(pcfg.get("bulb_margin_m", 3.0))
+    pcfg.setdefault("keepout_discs",
+                    [(e.pts[-1], bulb_r + margin) for e in net.edges.values()
+                     if e.street_type == "lollipop"])
+    parcels = sp.parcel_blocks(buildable, rng, pcfg)
     pstats = sp.stats(parcels)
     print(f"[suburb_scene] {pstats['houses']} houses, {pstats['trees']} trees "
           f"on {pstats['blocks_built']}/{pstats['blocks']} blocks "
@@ -1299,7 +1382,8 @@ def generate_suburb_on_stage(stage, config,
                         instance_categories=set(config.get(
                             "instance_categories",
                             ["tree", "plant", "sidewalk", "streetlight",
-                             "fire_hydrant", "sign", "crosswalk", "fence"])))
+                             "fire_hydrant", "sign", "crosswalk", "fence",
+                             "play_structure"])))
     apply_ground(stage, config, net, blocks, parcels, info["region"],
                  parent_path, scene_scale_factor, park=park)
     return placements

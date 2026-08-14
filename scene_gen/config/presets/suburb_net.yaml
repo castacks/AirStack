@@ -83,7 +83,18 @@ overrides:
     # match it rather than guessed.
     house_w_m: [9.0, 13.0]
     house_d_m: [8.0, 11.0]
-    house_gap_m: 4.0
+    # SIDE YARD, and the number that governs "the houses are too close".
+    #
+    # The overlap test pads by HALF this (`pad=gap*0.5`), so 4.0 bought a 2.0 m
+    # minimum wall-to-wall gap -- measured 2.01 m at the tightest, with 2.3-2.8%
+    # of houses inside 3 m. That is not an intersection but it reads as one at a
+    # glance, and it is the actual complaint.
+    #
+    # 6.0 takes the minimum to 3.0 m and 0% inside 3 m, and it was measured to
+    # cost NOTHING in house count (8.0 would start costing up to 6%). It also
+    # buys room for the garage wing, whose true extent nothing in the pipeline
+    # has measured -- see the house_addons note in suburban.yaml.
+    house_gap_m: 6.0
     min_lot_depth_m: 21.0
     driveway_w_m: 3.2
     # Which way a house faces, relative to the frontage tangent. -90 puts the

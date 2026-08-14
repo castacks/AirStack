@@ -23,6 +23,36 @@ sys.path.insert(0, os.path.dirname(_HERE))
 import suburb_net as sn                                        # noqa: E402
 import suburb_parcel as sp                                     # noqa: E402
 
+
+def _preset_parcel_cfg():
+    """The shipped preset's `suburb_parcel` block, or {} if it cannot be read.
+
+    Read from the preset rather than duplicated here: a second copy of
+    `house_gap_m` in a preview tool is a copy that goes stale the first time
+    the real one is tuned.
+    """
+    import os as _os
+    try:
+        import yaml
+    except ImportError:
+        return {}
+    for rel in ("config/presets/suburb_net.yaml",):
+        path = _os.path.join(_os.path.dirname(_HERE), rel)
+        if not _os.path.exists(path):
+            continue
+        try:
+            raw = yaml.safe_load(open(path)) or {}
+        except Exception:
+            return {}
+        node = raw
+        for key in ("suburb_parcel",):
+            if key in node:
+                return dict(node[key] or {})
+        for v in raw.values():
+            if isinstance(v, dict) and isinstance(v.get("suburb_parcel"), dict):
+                return dict(v["suburb_parcel"])
+    return {}
+
 CLASS_COLOR = {
     "arterial":   "#5a5a5a",
     "collector":  "#565656",
@@ -220,10 +250,23 @@ def main():
 
     parcels = None
     if not args.no_detail:
+        # THE PREVIEW MUST PARCEL ON THE SAME TERMS AS THE SCENE, or it is not
+        # a preview of anything. This called `parcel_blocks` with no config at
+        # all, so it silently used the module DEFAULTS while
+        # `suburb_scene.generate_suburb_on_stage` used the preset — and once the
+        # scene started passing cul-de-sac keep-outs and a wider side yard, the
+        # plan was drawing houses the build would never place. Both now derive
+        # the keep-out discs from the same place: the bulbs `apply_ground` paves.
+        pcfg = dict(_preset_parcel_cfg())
+        bulb_r = float(sn.DEFAULTS["bulb_radius_m"])
+        pcfg.setdefault("keepout_discs",
+                        [(e.pts[-1], bulb_r + float(pcfg.get("bulb_margin_m", 3.0)))
+                         for e in net.edges.values()
+                         if e.street_type == "lollipop"])
         # Undeveloped blocks are open land, so they are not handed to the
         # parcelling pass at all — that is what the flag is for.
         parcels = sp.parcel_blocks([b for b in blks
-                                    if not b.get("undeveloped")], rng)
+                                    if not b.get("undeveloped")], rng, pcfg)
         ps = sp.stats(parcels)
         print("  %d houses, %d trees across %d/%d blocks (%.1f houses/block)"
               % (ps["houses"], ps["trees"], ps["blocks_built"], ps["blocks"],
