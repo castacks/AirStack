@@ -32,7 +32,7 @@ either way it's a one-time thing per airframe.
 | `EKF2_GPS_CTRL` | `0` | No GPS fusion. |
 | `EKF2_MAG_TYPE` | `5` | Magnetometer disabled — yaw comes from vision. |
 | `EKF2_BARO_CTRL` | `0` | No baro fusion; height is pure vision. Set to `1` to keep baro as a backup height source. |
-| `EKF2_EV_DELAY` | `7.0` | Measured OptiTrack→EKF2 latency (ms): ~0.7 ms LAN + ~5 ms Cube hop. `natnet_ros2_node` logs the measured figure. **Do not raise this to chase apparent lag — see below.** |
+| `EKF2_EV_DELAY` | `7.0` | OptiTrack→EKF2 latency (ms): ~0.7 ms measured LAN transport + a ~5 ms *estimated* FCU hop. **Do not raise this to chase apparent lag — see below.** |
 | `EKF2_EV_NOISE_MD` | `1` | Use the `EKF2_EV*_NOISE` floors below instead of the message covariance (which is `1e-6` — too optimistic to fuse safely). |
 | `EKF2_EVP_NOISE` | `0.05` | Vision **position** noise floor (m). Not marker precision — it also sets the innovation gate, `EKF2_EVP_GATE` (default 5) sigma wide, so this is a 25 cm gate. |
 | `EKF2_EVA_NOISE` | `0.05` | Vision **angle** noise floor (rad). |
@@ -65,6 +65,30 @@ If you see drift-and-snap, **check the Motive rigid-body definition first**. Do 
 yaw compensation in code — `natnet_ros2` and `vision_pose_converter` are deliberate
 identity pass-throughs, and a code-side correction would double-compensate once Motive is
 fixed.
+
+### The latency figure is only partly measured
+
+`EKF2_EV_DELAY` is currently `7.0` ms: roughly `0.7` measured plus a `5.0` estimate
+(`cube_orange_latency_ms` in `natnet_config.yaml`). Only the first part is real.
+
+- **Measured:** `natnet_ros2_node` derives transport latency from the NatNet
+  `TransmitTimestamp` — i.e. from *server transmit* to client receipt. It does not
+  include Motive's own capture→transmit pipeline (exposure, centroiding, solving),
+  which is typically several ms and happens before that clock starts.
+- **Estimated:** `cube_orange_latency_ms` models the MAVROS → MAVLink → uORB → EKF2 hop.
+  It is **diagnostic only** — it is added to a logged "estimated total" and is never
+  fused. It is also baud-dependent: ~5 ms is about the serialisation time of one
+  `VISION_POSITION_ESTIMATE` at 115200, and far less at 921600.
+
+Worth knowing before anyone retunes: `natnet_ros2_node` stamps poses with its own
+receive time, not the mocap capture time, so strictly only the delay incurred *before*
+that stamp belongs in `EKF2_EV_DELAY` — the FCU hop happens after it and EKF2 already
+absorbs late arrival through its measurement buffer. That suggests the true value is
+lower than 7.0, which is consistent with the still-negative best-fit shift above.
+
+**This has not been chased down and 7.0 flies.** If it ever matters, the clean fix is to
+measure rather than model: NatNet 3.0+ frames carry `CameraMidExposureTimestamp`, which
+would give true capture→arrival latency directly and remove the estimate entirely.
 
 The wider `EKF2_EVP_NOISE` (0.05) is still the right value on its own merits: the previous
 0.01 gave only a 5 cm gate, tight enough to reject legitimate updates and refuse to arm.

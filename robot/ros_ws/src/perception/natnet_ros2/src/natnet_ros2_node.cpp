@@ -108,14 +108,13 @@ public:
         this->declare_parameter("frame_id",          "world");
         this->declare_parameter("debug",             false);
 
-        // Latency sampling: skip a warm-up interval after the first frame (lets the
-        // SDK clock-sync settle and the stream reach steady state), then accumulate
-        // per-message transit latency over a fixed window and log a one-shot summary.
+        // Latency sampling: warmup + window for mean/stdev, then log a summary of measured latency.
         this->declare_parameter("latency_sampling_warmup_s", 5.0);
         this->declare_parameter("latency_sampling_window_s", 20.0);
-        // Modeled latency for a pose to traverse the flight-controller hardware
-        // (MAVROS → MAVLink over USB/serial → PX4 uORB → EKF2). Added on top of the
-        // measured OptiTrack→ROS transport latency for the reported end-to-end figure.
+        // Suggested latency for the Cube Orange (PX4) from the OptiTrack Motive model.
+        // This is added to the measured transport latency to estimate total latency to PX4.
+        // NOTE: an estimate, not a measurement — see docs/robot/px4_external_vision.md.
+        // Diagnostic only; it is logged, never fused.
         this->declare_parameter("cube_orange_latency_ms", 5.0);
 
         // Parallel per-body arrays (flattened from natnet_config.yaml by the launch file).
@@ -128,8 +127,7 @@ public:
         this->declare_parameter("body_orientation_covariance", std::vector<double>{});
 
         // ----- Read parameters ---------------------------------------------
-        // A bad connection_type is fatal rather than defaulted: silently using
-        // unicast would look healthy while never receiving a frame.
+        // Fatally fail if the config is invalid (e.g. unknown connection_type).
         natnet_ros2::ConnectConfig connect_cfg;
         try {
             connect_cfg = natnet_ros2::make_connect_config(
@@ -251,8 +249,7 @@ private:
     // Returns true once the handshake succeeds.
     bool connect_and_setup(const natnet_ros2::ConnectConfig & cfg)
     {
-        // Wire-level probe first — see natnet_server_reachable() for why the
-        // SDK must never attempt Connect against a non-answering host.
+        // Wire-level probe first
         if (!natnet_server_reachable(cfg.server_ip, cfg.command_port, 500)) {
             RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 10000,
                 "Motive at %s:%d not answering NatNet ping — waiting to connect.",
