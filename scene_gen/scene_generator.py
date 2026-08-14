@@ -154,7 +154,18 @@ def _load_asset_set(name: str, dirs: list, chain: list = None) -> tuple:
     parent = doc.pop("extends", None)
     if not parent:
         return doc, [path]
-    base, paths = _load_asset_set(str(parent), dirs, chain)
+    # A LIST of parents is allowed, merged left to right, so a set can join two
+    # libraries without duplicating either -- the suburb needs the suburban
+    # pools AND the park's recreation pools, and neither has any reason to carry
+    # the other's. `prepare_assets._with_extends` already accepted a list; this
+    # side did not, so a list resolved on the host and then died at scene build
+    # with `asset_set "[...]" not found`. The two now agree.
+    parents = [parent] if isinstance(parent, str) else list(parent)
+    base, paths = {}, []
+    for name in parents:
+        b, ps = _load_asset_set(str(name), dirs, chain)
+        base = _merge_asset_set(base, b) if base else b
+        paths += ps
     return _merge_asset_set(base, doc), paths + [path]
 
 

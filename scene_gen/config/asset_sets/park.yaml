@@ -65,6 +65,13 @@ usds:
     - usd: "objaverse://b5c67137ca284754ac494f16b540a2b3"   # State Park Sign, 144 faces
       target-size-m: 3.0
 
+  # Borrowed from urban_v2, which already vetted and cached it — a bike rack is
+  # the same object in a park as on a street, so duplicating the pick would only
+  # create a second thing to keep in sync.
+  bike_racks:
+    - usd: "objaverse://8c8fd4fa06eb4b1c8db5bd3584892f3c"
+      target-size-m: 1.8
+
   park_table:
     - usd: "objaverse://e88b5288aa4942739da8aa9af6c7778d"   # Park Table, 1k faces
       target-size-m: 2.0

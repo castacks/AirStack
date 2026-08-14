@@ -1,0 +1,11 @@
+# ASSET SET: suburban_park — the suburb, plus the park's recreation content.
+#
+# `suburb_net.py` reserves ground for a park and frames it with a street;
+# `suburb_scene.py` then builds the park's content into that reserve. That
+# content needs pools the suburban set has no reason to carry (hoops, goals,
+# tennis courts, chain-link, gazebos, play equipment), and the park set has no
+# reason to carry houses. So this joins the two rather than duplicating either.
+#
+# Cache both halves before `airstack up`:
+#     .venv/bin/python scene_gen/prepare_assets.py --asset-set suburban_park
+extends: [suburban_v2, park]

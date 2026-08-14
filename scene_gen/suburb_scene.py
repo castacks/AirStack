@@ -49,6 +49,7 @@ import scene_generator as sg
 import suburb_net as sn
 import suburb_parcel as sp
 import suburb_yardplan as yp
+import suburb_park as spk
 
 # ROADS SIT ABOVE GRASS. The original order put asphalt at 0.0 and block grass
 # at 0.010 so "the road shows between the blocks" -- which only holds if a block
@@ -474,6 +475,95 @@ def _raw_pool(config, *path):
     return node if isinstance(node, list) else []
 
 
+def _shift_park(park, dx, dy):
+    """Translate a park built at the origin into its reserved rectangle."""
+    def mv(p):
+        return (p[0] + dx, p[1] + dy)
+    out = dict(park)
+    out["region"] = (park["region"][0] + dx, park["region"][1] + dy,
+                     park["region"][2] + dx, park["region"][3] + dy)
+    out["zones"] = [dict(z, centre=mv(z["centre"]),
+                         corners=[mv(q) for q in z["corners"]],
+                         courts=[dict(cc, centre=mv(cc["centre"]))
+                                 for cc in z.get("courts", [])])
+                    for z in park["zones"]]
+    out["paths"] = [dict(pa, pts=[mv(q) for q in pa["pts"]])
+                    for pa in park["paths"]]
+    out["fences"] = [dict(f, c=mv(f["c"])) for f in park["fences"]]
+    out["props"] = [dict(pr, c=mv(pr["c"])) for pr in park["props"]]
+    return out
+
+
+# Park prop kind -> (asset pool key, placement category). The pools live in
+# config/asset_sets/park.yaml; a kind with no pool is skipped and logged rather
+# than silently dropped.
+_PARK_POOLS = {
+    "hoop":           ("park_hoop", "park_feature"),
+    "soccer_goal":    ("park_soccer_goal", "park_feature"),
+    "gazebo":         ("park_gazebo", "park_feature"),
+    "fountain":       ("park_fountain", "park_feature"),
+    "park_sign":      ("park_sign", "sign"),
+    "picnic_table":   ("park_table", "bench"),
+    "bench":          ("benches", "bench"),
+    "trash_can":      ("trash_cans", "trash_can"),
+    "bike_rack":      ("bike_racks", "bike_rack"),
+    "swing_set":      ("park_play_swing", "play_structure"),
+    "play_structure": ("park_play_structure", "play_structure"),
+    "seesaw":         ("park_play_seesaw", "play_structure"),
+    "tree":           ("trees", "tree"),
+}
+
+
+def _park_placements(config, resolver, park, rng, pools):
+    """Place the park's props, its fence runs and its tennis courts."""
+    out = []
+    missing = set()
+    cache = {}
+
+    def pool_for(key):
+        if key not in cache:
+            cache[key] = pools.load(_raw_pool(config, key))
+        return cache[key]
+
+    for pr in park["props"]:
+        spec = _PARK_POOLS.get(pr["kind"])
+        if spec is None:
+            missing.add(pr["kind"])
+            continue
+        pool = pool_for(spec[0])
+        if not pool:
+            missing.add(pr["kind"])
+            continue
+        u = pool[rng.randrange(len(pool))]
+        out.append(pools.place(resolver, u, spec[1], pr["c"][0], pr["c"][1],
+                               pr.get("yaw", 0.0), rng))
+
+    # Fence panels: one asset per panel, yawed along its run.
+    fence = pool_for("park_fence")
+    for f in park["fences"]:
+        if not fence:
+            break
+        u = fence[rng.randrange(len(fence))]
+        out.append(pools.place(resolver, u, "fence", f["c"][0], f["c"][1],
+                               f["yaw"], rng))
+
+    # The tennis COURT is a whole asset, unlike basketball where only the hoop
+    # is sourced and the slab is drawn.
+    tennis = pool_for("park_tennis_court")
+    for z in park["zones"]:
+        if z["kind"] != "tennis_block" or not tennis:
+            continue
+        for court in z.get("courts", []):
+            u = tennis[rng.randrange(len(tennis))]
+            out.append(pools.place(resolver, u, "park_feature",
+                                   court["centre"][0], court["centre"][1],
+                                   court["yaw"], rng))
+    if missing:
+        print("[suburb_scene] park: no asset pool for %s — skipped"
+              % ", ".join(sorted(missing)))
+    return out
+
+
 def build_frontage(config, resolver, net, blocks, rng, pools):
     """Sidewalk tiles, streetlights and hydrants along every block frontage.
 
@@ -787,6 +877,29 @@ def generate_suburb_on_stage(stage, config,
         config, resolver, parcels, rng, pools,
         yaw_off=float((config.get("suburb_parcel") or {})
                       .get("house_yaw_offset_deg", -90.0)))
+    # -- the park ------------------------------------------------------------
+    # suburb_net reserves the ground and frames it with a street; the park's own
+    # content is generated here, into that reserve. Generating it separately and
+    # hoping the two agree would be the same mistake as the old envelope trick:
+    # the reserve is the authority on where the park is, so the park is built to
+    # fit it rather than the other way round.
+    park = None
+    pinfo = info.get("park")
+    if pinfo and bool(config.get("park_content", True)):
+        px0, py0, px1, py1 = pinfo["rect"]
+        pcfg = dict(config.get("suburb_park") or {})
+        pcfg["region_m"] = [px1 - px0, py1 - py0]
+        park = spk.plan(rng, pcfg)
+        # spk.plan works in a region centred on the origin; shift it into place.
+        dx = (px0 + px1) / 2.0
+        dy = (py0 + py1) / 2.0
+        park = _shift_park(park, dx, dy)
+        placements += _park_placements(config, resolver, park, rng, pools)
+        ps = spk.stats(park)
+        print(f"[suburb_scene] park: {pinfo['size'][0]:.0f} x "
+              f"{pinfo['size'][1]:.0f} m, {len(pinfo['entrances'])} entrances, "
+              f"zones {ps['zones']}")
+
     yard, ystats = yp.plan(config, parcels, rng, resolver=resolver)
     placements += yard
     yp.report(ystats)

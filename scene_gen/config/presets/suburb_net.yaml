@@ -17,7 +17,9 @@
 locale: suburban
 disaster-type: none
 severity: 0.0
-asset-set: suburban_v2
+# suburban_v2 for the houses and street furniture; the park pools live in
+# park.yaml, pulled in by the extends chain below.
+asset-set: suburban_park
 
 # 1600 x 1200 m is one plat's worth of fabric: enough for three collectors and
 # a proper cul-de-sac population, and it measures in band on every seed.
