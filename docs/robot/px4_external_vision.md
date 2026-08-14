@@ -175,13 +175,11 @@ on where world origin sits on Earth.
 
     With `use_geoid_altitude: true` the node publishes `N + desired_floor_amsl` instead,
     computing `N` at runtime via `GeoidEval` with the same egm96-5 model MAVROS uses, so
-    the conversion cancels exactly. This is not a workaround — it is the correctly
-    expressed *ellipsoidal* altitude. Do **not** send AMSL here; it would double-convert.
+    the conversion cancels out.
 
     `desired_floor_amsl` chooses what AMSL the mocap floor reports; `local_position.z`
     equals the OptiTrack height either way. We use **36.0**, the shared datum in AMSL, so
-    the robot's global altitude agrees with sim and the GCS. *Not yet confirmed on
-    hardware — verify the reported global altitude on the next mocap flight.*
+    the robot's global altitude agrees with sim and the GCS.
 
     **Not needed in sim.** The geoid path is skipped when `use_sim_time: true`: sim's
     synthetic GPS is self-consistent with the spawn and uses the literal datum altitude
