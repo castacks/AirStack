@@ -361,10 +361,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && fc-cache -f -v \
   && rm -rf /var/lib/apt/lists/*
 
-# MAVROS constructs the egm96-5 geoid in its UAS core, before any plugin loads, and
-# throws if the dataset is absent — mavros_node then dies at startup. mavros' own install
-# script swallows a failed download and still exits 0, so pin the tool it needs and assert
-# the file landed; otherwise the build silently produces an image whose MAVROS won't run.
+# MAVROS requires geographiclib-tools to be installed for any offboard control to work.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends geographiclib-tools \
   && /opt/ros/${ROS_DISTRO}/lib/mavros/install_geographiclib_datasets.sh \
