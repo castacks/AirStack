@@ -41,10 +41,20 @@ def draw(net, blks, info, out_path, title="", show_nodes=True, parcels=None):
     fig, ax = plt.subplots(figsize=(13, 13 * (y1 - y0) / (x1 - x0)))
     ax.set_facecolor("#2f2f2d")
 
-    # Blocks first: the land between the streets.
+    # Blocks first: the land between the streets. A block flagged
+    # `undeveloped` was deliberately never subdivided — woodland, a drainage
+    # reserve, a phase nobody built — so it is drawn as rough open ground with
+    # a dashed edge and gets no houses. Distinct on purpose: a sparse plan and
+    # a plan whose subdivision pass simply gave up look identical otherwise,
+    # and only one of those is a bug.
     for b in blks:
-        ax.add_patch(Polygon(b["poly"], closed=True, facecolor="#47513c",
-                             edgecolor="#3a412f", lw=0.6, zorder=1))
+        if b.get("undeveloped"):
+            ax.add_patch(Polygon(b["poly"], closed=True, facecolor="#3d4a33",
+                                 edgecolor="#6b7a52", lw=0.9, ls=(0, (5, 3)),
+                                 hatch="//", zorder=1))
+        else:
+            ax.add_patch(Polygon(b["poly"], closed=True, facecolor="#47513c",
+                                 edgecolor="#3a412f", lw=0.6, zorder=1))
 
     # The park reserve, under the streets it was laid before. Two rectangles,
     # because the difference is the point: the pale band is the padding no
@@ -177,10 +187,25 @@ def main():
                  len(park["sides"]), "".join(park["sides"]),
                  park["approaches"]))
     print(sn.format_stats(s))
+    # BLOCK SHAPE, next to the morphology it trades against. `rectangularity`
+    # is area over the block's own minimum-area bounding rectangle: 1.0 for a
+    # rectangle at any angle, 0.5 for any triangle. The share under 0.62 is the
+    # number the shape term in `_best_cut` exists to hold down — it ran at
+    # 47.5% before that term and about 23% after, so a run that drifts back up
+    # says the scoring stopped biting rather than that the seed was unlucky.
+    rects = [sn.rectangularity(b["poly"]) for b in blks]
+    if rects:
+        print("  block shape  %5.2f mean rectangularity, %.0f%% under 0.62 "
+              "(triangular)"
+              % (sum(rects) / len(rects),
+                 100.0 * sum(1 for r in rects if r < 0.62) / len(rects)))
 
     parcels = None
     if not args.no_detail:
-        parcels = sp.parcel_blocks(blks, rng)
+        # Undeveloped blocks are open land, so they are not handed to the
+        # parcelling pass at all — that is what the flag is for.
+        parcels = sp.parcel_blocks([b for b in blks
+                                    if not b.get("undeveloped")], rng)
         ps = sp.stats(parcels)
         print("  %d houses, %d trees across %d/%d blocks (%.1f houses/block)"
               % (ps["houses"], ps["trees"], ps["blocks_built"], ps["blocks"],
@@ -193,7 +218,10 @@ def main():
     title = (f"suburb_net seed {args.seed} — {s['blocks']} blocks, "
              f"{s['dead_end_pct']:.0f}% dead ends, "
              f"{s['three_way_pct']:.0f}% three-way, "
-             f"{s['km_per_km2']:.1f} km/km²")
+             f"{s['km_per_km2']:.1f} km/km²"
+             f"\n{s['undeveloped_pct']:.0f}% undeveloped (hatched), "
+             f"{100.0 * sum(1 for r in rects if r < 0.62) / max(len(rects), 1):.0f}%"
+             f" of blocks triangular")
     if park:
         title += (f"\npark {park['size'][0]:.0f} x {park['size'][1]:.0f} m, "
                   f"{len(park['entrances'])} entrances on "

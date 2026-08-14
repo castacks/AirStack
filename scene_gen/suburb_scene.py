@@ -626,6 +626,8 @@ def build_frontage(config, resolver, net, blocks, rng, pools):
     n_corner = n_walk_road = n_prop_road = 0
 
     for blk in blocks:
+        if blk.get("undeveloped"):
+            continue            # no kerb furniture along unbuilt land
         poly = blk["poly"]
         front = blk.get("frontage")
         ring = list(poly) + [poly[0]]
@@ -866,10 +868,17 @@ def generate_suburb_on_stage(stage, config,
     print(f"[suburb_scene] {w_m:.0f} x {h_m:.0f} m  seed {seed}")
     print(sn.format_stats(stats))
 
-    parcels = sp.parcel_blocks(blocks, rng, config.get("suburb_parcel") or {})
+    # Undeveloped parcels are land the plat has not built on -- drainage
+    # reserve, woodland, or simply not sold yet. suburb_net marks them; skipping
+    # them here is what makes that mark mean anything, otherwise the sparseness
+    # is invisible because every parcel still gets its row of houses.
+    buildable = [b for b in blocks if not b.get("undeveloped")]
+    n_open = len(blocks) - len(buildable)
+    parcels = sp.parcel_blocks(buildable, rng, config.get("suburb_parcel") or {})
     pstats = sp.stats(parcels)
     print(f"[suburb_scene] {pstats['houses']} houses, {pstats['trees']} trees "
-          f"on {pstats['blocks_built']}/{pstats['blocks']} blocks")
+          f"on {pstats['blocks_built']}/{pstats['blocks']} blocks "
+          f"({n_open} left undeveloped)")
 
     resolver = sg._make_resolver(config)
     pools = AssetPools(config)

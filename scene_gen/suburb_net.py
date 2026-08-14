@@ -65,12 +65,64 @@ THE PIPELINE, IN THE ORDER IT RUNS
                           and the frame's connection to the rest of the graph
     2  loops              a street leaving a host and returning to it
     3  face subdivision   split the largest remaining face until every block is
-                          near target size — THE LAYER THAT FILLS THE LAND
+                          near target size, aiming each cut ACROSS the parcel
+                          and leaving a share of parcels UNDEVELOPED — THE
+                          LAYER THAT FILLS THE LAND
     4  lollipops          cul-de-sacs, grown until the dead-end share is met
 
 (Loops really do run before subdivision, for the reason given at that call
 site: a loop needs 200-520 m of continuous frontage and subdivision does not,
 so running subdivision first consumed every long frontage and left zero loops.)
+
+BLOCK SHAPE: CUT ACROSS THE PARCEL, NOT ACROSS A CORNER
+-------------------------------------------------------
+A cut from one side of a four-sided face to the OPPOSITE side leaves two
+quadrilaterals. A cut to an ADJACENT side slices the corner off and leaves a
+triangle. Nothing used to prefer the first: the far end was sited at 34-66% of
+the way round the PERIMETER, which is only a proxy for "the opposite side" and
+a poor one when the sides are unequal, and cut length plus area balance plus
+grain say nothing about shape at all — a corner slice is often the shortest and
+best-balanced candidate on offer. Measured over twelve seeds, 47.5% of blocks
+came out with `rectangularity` under 0.62, i.e. nearly half the fabric was
+triangular. Residential plats on OSM are not.
+
+Three changes, all inside :func:`_best_cut`, and they need each other:
+
+  * A SIDE IS GEOMETRIC, NOT AN EDGE (:func:`_face_corners`). `hes`/`parts`
+    give one entry per graph edge, which is neither necessary nor sufficient:
+    a curving street contributes dozens of vertices and, once junctions have
+    split it, several edges, all of them one side; one edge bending round a
+    corner is two. A corner is where the turning is CONCENTRATED — a boundary
+    vertex whose exterior angle clears `face_corner_deg` — and the sides are
+    the arcs between corners. The threshold separates the two cases by
+    construction: a 30 m radius sampled every 6 m turns 11.5 degrees per
+    vertex however far it bends in total, a street meeting a host turns 52-128
+    degrees at one vertex.
+  * CANDIDATES ARE AIMED. Both ends are drawn on non-adjacent sides, at
+    complementary fractions along them, so the cut runs parallel to the two
+    sides it does not touch.
+  * THE SCORE CARRIES A SHAPE TERM AND A FLOOR. `block_shape_weight`
+    penalises the worse half's `rectangularity` — 1.0 for a rectangle at any
+    angle or aspect, exactly 0.5 for any triangle — and `block_side_penalty`
+    charges for each missing corner of separation between the ends. Candidates
+    that clear `block_shape_floor` AND run genuinely across are kept in a
+    separate bucket and win outright, so a corner slice is only made when
+    nothing across the parcel is legal at all.
+
+Result over the same twelve seeds: 23.3% under 0.62, mean rectangularity 0.632
+-> 0.697. Blocks are not all rectangles, and should not be — the residue is
+mostly parcels with a cul-de-sac stub notched into them and the genuinely
+three-sided faces left over where three streets meet.
+
+SPARSENESS: NOT EVERY FACE IS DEVELOPED
+---------------------------------------
+Real suburbs have undeveloped parcels — woodland, a drainage reserve, a phase
+that was never built, land not taken up yet — and a generator that tiles the
+region wall to wall reads as a masterplan rather than a place. `undeveloped_share`
+of block-sized faces are left UNSUBDIVIDED, biased toward the crop edge and away
+from the collectors, which is where such land actually survives on an aerial
+(see :func:`_undeveloped_weight`). They are still emitted as blocks, so the
+ground is drawn, but flagged `undeveloped` for the passes that build houses.
 
 THE PARK IS RESERVED, NOT FOUND
 -------------------------------
@@ -108,12 +160,26 @@ Measured suburbs (OSM, five US subdivisions) and the literature, against the
 mean of twelve seeds at 1600 x 1200 m with the defaults below, park included:
 
     measure               target           measured   spread over 12 seeds
-    dead-end nodes        12-35%           13.8%      11.7 - 17.4
-    three-way junctions   69-87%           85.8%      77.9 - 92.0
-    street density        7.4-12.4 km/km²  10.9       10.7 - 11.6
-    block area (median)   15k-34k m²       28.7k      23.4k - 32.7k
+    dead-end nodes        12-35%           14.2%      11.8 - 16.5
+    three-way junctions   69-87%           83.0%      74.0 - 88.9
+    street density        7.4-12.4 km/km²  10.8       10.6 - 11.2
+    block area (median)   15k-34k m²       28.7k      26.0k - 31.1k
 
-All four means sit in band. WHAT THE PARK COST, measured against the same
+    and two the shape and sparseness passes are tuned on, not OSM targets:
+    blocks under 0.62      —               23.3%      15.4 - 36.5
+    undeveloped parcels   `undeveloped_share` 13.6%    5.2 - 19.6
+
+All four means sit in band. WHAT SPARSENESS COST, against the same twelve seeds
+with `undeveloped_share` at 0 (12.5% / 82.6% / 11.0 / 26.0k / 22.5% under 0.62):
+street density falls 0.21 km/km² and median block area rises 2.7k, which is the
+whole of the trade and both directions are the obvious ones — a parcel nobody
+cut is a street that was never built and a block that stayed whole. The dead-end
+share RISES 1.7 points, because the cul-de-sac pass grows until its target share
+is met and there are fewer junctions to dilute it. Block shape is untouched
+(23.3% against 22.5%): the two passes are independent, and the shape figure is
+the shape term's alone.
+
+WHAT THE PARK COST, measured against the same
 twelve seeds with `park_enable` off (14.1% / 81.4% / 11.7 / 28.1k): density
 falls 0.8 km/km², because 15.6 ha of keep-out is land the subdivision pass no
 longer runs streets through and the frame does not cost as much as it saved.
@@ -134,7 +200,11 @@ end only when the cut was deliberately snapped to a junction, so a cut that
 lands within `split_edge`'s 1 m tolerance of an existing node by accident gets
 no fork check at all. The park makes it show up more often because the frame
 adds roughly ten junctions on a curving host. The fix belongs in `_best_cut`,
-not here. Barrington-Leigh & Millard-Ball (PNAS 2015)
+not here. STILL NOT FIXED, and re-measured on the twelve-seed sweep the shape
+and sparseness work was checked against: 3 overlapping pairs and 2 sub-30-degree
+forks, identical before and after that work — every one of them a subdivision
+cut meeting a COLLECTOR, which is the shape the description above predicts.
+Barrington-Leigh & Millard-Ball (PNAS 2015)
 independently give 26.6% dead ends for US intersections built 1993-97 and 19.1%
 for 2008-12, metro extremes 19-42%.
 
@@ -414,6 +484,73 @@ def polygon_centroid(poly):
         cx += (p[0] + q[0]) * cr
         cy += (p[1] + q[1]) * cr
     return (cx / (6.0 * a), cy / (6.0 * a))
+
+
+def convex_hull(pts):
+    """Monotone-chain hull, CCW, no collinear points."""
+    p = sorted(set((round(a, 6), round(b, 6)) for (a, b) in pts))
+    if len(p) < 3:
+        return list(p)
+
+    def half(seq):
+        out = []
+        for q in seq:
+            while len(out) >= 2 and _cross(_sub(out[-1], out[-2]),
+                                           _sub(q, out[-1])) <= 0.0:
+                out.pop()
+            out.append(q)
+        return out
+
+    lo, up = half(p), half(list(reversed(p)))
+    return lo[:-1] + up[:-1]
+
+
+def min_area_rect(poly):
+    """Area of the smallest-area rectangle enclosing *poly*, by rotating calipers.
+
+    The minimum-area rectangle of a convex hull always has a side flush with a
+    hull edge (Freeman & Shapira 1975), so trying every hull edge as the
+    rectangle's axis is exact rather than a search.
+    """
+    h = convex_hull(poly)
+    if len(h) < 3:
+        return 0.0
+    best = None
+    n = len(h)
+    for i in range(n):
+        d = _sub(h[(i + 1) % n], h[i])
+        L = _norm(d)
+        if L < 1e-9:
+            continue
+        u = (d[0] / L, d[1] / L)
+        v = _perp(u)
+        us = [_dot(_sub(q, h[i]), u) for q in h]
+        vs = [_dot(_sub(q, h[i]), v) for q in h]
+        a = (max(us) - min(us)) * (max(vs) - min(vs))
+        if best is None or a < best:
+            best = a
+    return best or 0.0
+
+
+def rectangularity(poly):
+    """Area over the area of the polygon's own minimum-area bounding rectangle.
+
+    THE SHAPE NUMBER THIS MODULE IS TUNED ON, because it is the one that
+    separates the two block shapes a plat actually cares about while ignoring
+    the one it does not: ORIENTATION. A rectangle scores 1.0 whichever way it
+    is turned; a triangle scores exactly 0.5 whatever its proportions, because
+    a triangle is always half of some enclosing rectangle; a trapezoid with one
+    side clipped lands between the two. Convexity or a perimeter-based
+    compactness ratio would both call a long thin rectangle bad, and a long
+    thin rectangle is a perfectly ordinary suburban block.
+
+    Measured on the shipped generator before the shape term existed, 47.5% of
+    blocks scored under 0.62 — nearly half the fabric was a corner sliced off a
+    face, which is not what residential platting produces.
+    """
+    a = abs(polygon_area(poly))
+    r = min_area_rect(poly)
+    return (a / r) if r > 1e-9 else 0.0
 
 
 def offset_polygon(poly, insets):
@@ -839,7 +976,8 @@ def point_in_polygon(poly, p):
     return inside
 
 
-def blocks_from_faces(net, face_list, min_area=400.0, reserve=None):
+def blocks_from_faces(net, face_list, min_area=400.0, reserve=None,
+                      undeveloped_pts=()):
     """Faces inset by the half-width of the road bounding each side.
 
     The face polygon runs down street CENTRELINES, so the buildable parcel is
@@ -850,12 +988,20 @@ def blocks_from_faces(net, face_list, min_area=400.0, reserve=None):
     A face that encloses the reserve is NOT a block. It is the land inside the
     park frame, which was set aside before the first street was laid — emitting
     it would hand the parcelling pass 12.6 ha of park to build houses on.
+
+    A face the subdivision pass deliberately left whole IS still a block —
+    `undeveloped_pts` carries one interior point per such face, and the block it
+    lands in is flagged ``undeveloped``. It has to be emitted, or the ground
+    under it is never drawn and the parcel reads as a hole in the world; the
+    flag is what tells the passes that build houses to leave it as open land.
+    Every block carries the key, so a consumer can test it without a default.
     """
     out = []
     for f in face_list:
         poly, eids = f["poly"], f["edges"]
         if reserve is not None and reserve.covers(poly):
             continue
+        undeveloped = any(point_in_polygon(poly, q) for q in undeveloped_pts)
         # One inset per polygon vertex, taken from the edge that vertex starts.
         # `frontage` marks, for the same vertex, whether that side is actual
         # pavement — the crop boundary is not, and a lot cannot face it. Without
@@ -879,7 +1025,7 @@ def blocks_from_faces(net, face_list, min_area=400.0, reserve=None):
         if a < min_area:
             continue
         out.append({"poly": shrunk, "area": a, "edges": eids,
-                    "frontage": frontage,
+                    "frontage": frontage, "undeveloped": undeveloped,
                     "centroid": polygon_centroid(shrunk)})
     return out
 
@@ -1061,6 +1207,47 @@ DEFAULTS = {
     # band — and buried the cul-de-sacs, whose share fell from 17.9% to 5%.
     # Only the parcels that read as unsubdivided land are forced.
     "block_area_hard_max_factor": 1.5,
+    # -- block shape -----------------------------------------------------
+    # How hard a cut is pushed to leave two QUAD-ISH halves instead of slicing
+    # a corner off the face. `block_shape_weight` multiplies (1 - the worse
+    # half's `rectangularity`), so a triangular half (0.5) costs 1.3x against a
+    # rectangular one (~1.0) costing nothing; `block_side_penalty` is charged
+    # per missing corner of separation between the two ends, which catches the
+    # same failure topologically before the areas go bad. Zero disables both
+    # and reproduces the pre-shape fabric, which measured 47.5% of blocks under
+    # 0.62 rectangularity — nearly half of them triangles.
+    "block_shape_weight": 2.6,
+    "block_side_penalty": 1.0,
+    # Below this `rectangularity` the halves are not blocks, they are wedges,
+    # and a candidate that leaves one is only used when NOTHING across the
+    # parcel is legal. Measured against the final blocks rather than these
+    # halves: a block is inset by half a carriageway on every side, which costs
+    # a further 0.03-0.09, so a floor of 0.66 here is the 0.62 the finished
+    # fabric is scored on.
+    "block_shape_floor": 0.66,
+    # Exterior angle at which the face boundary counts as turning a CORNER
+    # rather than curving. Above the ~11.5 degrees per vertex a 30 m radius
+    # street can reach when sampled every 6 m, below the 52 degrees a street
+    # leaving a host at full `junction_skew_deg` makes. See `_face_corners`.
+    "face_corner_deg": 40.0,
+    # Share of candidates aimed at a NON-ADJACENT side rather than drawn from
+    # the 34-66%-of-perimeter window. The window is only a proxy for "the
+    # opposite side" and a poor one when the sides are unequal.
+    "cut_across_share": 0.8,
+    # -- sparseness ------------------------------------------------------
+    # Share of block-sized faces left UNSUBDIVIDED and unbuilt: woodland, a
+    # drainage reserve, a phase never built, land not taken up yet. They are
+    # still emitted as blocks (so the ground is drawn) with `undeveloped` set.
+    # Set to 0 for the wall-to-wall fabric this generator produced before.
+    "undeveloped_share": 0.15,
+    # Only a face already down to this multiple of target may be left: the loop
+    # always holds the biggest face, so declining without a cap strands
+    # whatever is huge at that moment.
+    "undeveloped_max_factor": 1.5,
+    # Where undeveloped land survives: within this of the crop edge, and beyond
+    # this of the nearest collector. See `_undeveloped_weight`.
+    "undeveloped_edge_m": 300.0,
+    "undeveloped_collector_m": 260.0,
     "loop_attempts": 420,
     "lollipop_attempts": 700,
     "loop_share": 0.55,            # of successful locals, how many are loops
@@ -1333,10 +1520,10 @@ def generate(width_m, height_m, rng, cfg=None):
                       reserve=reserve):
             n_loops += 1
 
-    n_conn = _subdivide_faces(net, rng, c, throat, min_gap, sample, region,
-                              edge_clear, junctions, spaced_ok,
-                              grain_base=grain_base, grain_swirl=grain_swirl,
-                              reserve=reserve)
+    n_conn, undeveloped = _subdivide_faces(
+        net, rng, c, throat, min_gap, sample, region, edge_clear, junctions,
+        spaced_ok, grain_base=grain_base, grain_swirl=grain_swirl,
+        reserve=reserve)
 
     n_lolli = 0
     want_dead = float(c["dead_end_target"])
@@ -1354,10 +1541,12 @@ def generate(width_m, height_m, rng, cfg=None):
             n_lolli += 1
 
     face_list = faces(net)
-    blks = blocks_from_faces(net, face_list, reserve=reserve)
+    blks = blocks_from_faces(net, face_list, reserve=reserve,
+                             undeveloped_pts=undeveloped)
     info = {"collectors": made_col, "connectors": n_conn, "loops": n_loops,
             "lollipops": n_lolli, "region": region, "park": None,
-            "reserve": None}
+            "reserve": None,
+            "undeveloped": sum(1 for b in blks if b["undeveloped"])}
     if reserve is not None:
         # READ OFF THE FINISHED GRAPH, not from the approach streets that were
         # laid for it. Face subdivision sites its cuts on face perimeters, and
@@ -1846,6 +2035,82 @@ def _at_perimeter(parts, u):
     return None
 
 
+def _face_corners(parts, corner_deg=40.0, merge_m=14.0):
+    """Perimeter positions where the face boundary turns a CORNER.
+
+    WHY A "SIDE" IS NOT AN EDGE. A cut from one side of a quadrilateral to the
+    OPPOSITE side leaves two quadrilaterals; a cut to an ADJACENT side slices a
+    corner off and leaves a triangle. To prefer the first the face has to know
+    what its sides are — and `hes`/`parts` cannot answer that, because they give
+    one entry per GRAPH EDGE. A curving street resampled every 6 m contributes
+    dozens of polyline vertices and, after a few junctions have split it, several
+    graph edges, all of which are one side of the block. Conversely one graph
+    edge can wrap two sides of a face when it bends round a corner.
+
+    So a side is defined GEOMETRICALLY, by where the turning is CONCENTRATED:
+    a corner is a boundary vertex whose exterior angle is at least
+    *corner_deg*, and the sides are the arcs between consecutive corners. That
+    separates the two cases correctly by construction — a residential curve
+    bottoms out at a 30 m radius and is sampled at 6 m, so it turns at most
+    ~11.5 degrees per vertex however far it bends in total and stays ONE side,
+    while a street meeting a host turns 52-128 degrees at a single vertex
+    (`junction_skew_deg` caps the departure at 38 degrees off the normal) and
+    always reads as a corner. Runs of sharp vertices within *merge_m* collapse
+    to one corner, so a tight fillet is not counted as several.
+    """
+    samp = []
+    for (e, flipped, s0, L) in parts:
+        pts = list(reversed(e.pts)) if flipped else list(e.pts)
+        acc = 0.0
+        samp.append((s0, pts[0]))
+        for k in range(1, len(pts) - 1):        # last point == next part's first
+            acc += _dist(pts[k - 1], pts[k])
+            samp.append((s0 + acc, pts[k]))
+    n = len(samp)
+    if n < 3:
+        return []
+    sharp = []
+    for i in range(n):
+        p_prev, p, p_next = samp[i - 1][1], samp[i][1], samp[(i + 1) % n][1]
+        a, b = _sub(p, p_prev), _sub(p_next, p)
+        if _norm(a) < 1e-6 or _norm(b) < 1e-6:
+            continue
+        turn = abs(math.degrees(math.atan2(_cross(a, b), _dot(a, b))))
+        if turn >= corner_deg:
+            sharp.append((samp[i][0], turn))
+    if not sharp:
+        return []
+    # Collapse runs: keep the sharpest vertex of each cluster.
+    out, run = [], [sharp[0]]
+    for item in sharp[1:]:
+        if item[0] - run[-1][0] <= merge_m:
+            run.append(item)
+        else:
+            out.append(max(run, key=lambda t: t[1])[0])
+            run = [item]
+    out.append(max(run, key=lambda t: t[1])[0])
+    return out
+
+
+def _corners_between(corners, u_from, u_to, total, eps=3.0):
+    """How many corners lie strictly inside the perimeter arc *u_from*->*u_to*.
+
+    The separation of a cut's two ends, in corners. Zero means both ends are on
+    the SAME side (a bite out of one edge); one means ADJACENT sides, which is
+    the corner-slicing cut that makes a triangle; two or more means the ends
+    face each other across the parcel, which is the cut a plat actually makes.
+
+    Counted rather than indexed because a cut deliberately snapped to an
+    existing junction lands exactly ON a corner, where a side index is
+    ambiguous and an off-by-one silently reclassifies the candidate.
+    """
+    span = (u_to - u_from) % total
+    if span <= 2.0 * eps:
+        return 0
+    return sum(1 for c in corners
+               if eps < ((c - u_from) % total) < span - eps)
+
+
 # Why proposed streets were refused, by reason. Read by the plan tool when a
 # run comes out sparse; tuning the knobs blind is how the sliver-area bug
 # survived two rounds of "just raise the attempt count".
@@ -1904,10 +2169,11 @@ def _perimeter_arc(parts, total, u_from, u_to, step=10.0):
 
 
 def _split_face(net, face, rng, throat, min_gap, sample, min_block, region,
-                edge_clear, junctions, spaced_ok, skew_deg=38.0, tries=26,
+                edge_clear, junctions, spaced_ok, skew_deg=38.0, tries=90,
                 four_way_chance=0.0, grain_w=0.0, grain_base=0.0,
                 grain_swirl=0.0, grain_period=600.0, allow_fallback=False,
-                min_fork=38.0, reserve=None):
+                min_fork=38.0, reserve=None, shape_w=0.0, side_pen=0.0,
+                corner_deg=40.0, across_share=0.8, shape_floor=0.0):
     """Insert one street across *face*, dividing it in two.
 
     RECURSIVE FACE SUBDIVISION IS WHAT FILLS THE LAND. Growing streets
@@ -1921,6 +2187,16 @@ def _split_face(net, face, rng, throat, min_gap, sample, min_block, region,
 
     The street is still born the same way every other street here is: on a host
     centreline, leaving perpendicular, arriving perpendicular at the far side.
+
+    `tries` IS 90, NOT THE 26 IT WAS, and the extra candidates are what the
+    shape term spends. A cut is only kept if it leaves two well-shaped halves,
+    so the sampler now has to FIND one rather than take the first legal thing —
+    and the same face that yielded a workable cut in a handful of tries yields
+    a workable well-shaped cut in far more. Measured over six seeds: at 34
+    tries 31.8% of blocks came out triangular and 16 faces per seed had to fall
+    back on a corner slice; at 90 the same seeds gave 23% and about 10. The
+    cost is roughly 7 to 13 seconds a seed, which is nothing against a run that
+    ends in USD.
     """
     total, parts = _face_perimeter(net, face)
     if total < 4.0 * throat or not parts:
@@ -1953,13 +2229,17 @@ def _split_face(net, face, rng, throat, min_gap, sample, min_block, region,
                          phase_snap, tries, throat, min_gap, sample, min_block,
                          skew_deg, spaced_ok, min_fork=min_fork, grain_w=grain_w,
                          grain_base=grain_base, grain_swirl=grain_swirl,
-                         grain_period=grain_period, reserve=reserve)
+                         grain_period=grain_period, reserve=reserve,
+                         shape_w=shape_w, side_pen=side_pen,
+                         corner_deg=corner_deg, across_share=across_share,
+                         shape_floor=shape_floor)
         if best is not None:
             break
     if best is None and allow_fallback:
         best = _fallback_cut(net, face, rng, parts, total, poly, throat,
                              min_gap, sample, min_block, skew_deg, spaced_ok,
-                             min_fork=min_fork, reserve=reserve)
+                             min_fork=min_fork, reserve=reserve,
+                             shape_w=shape_w)
     if best is None:
         return False
     _score, pts, p0, p1 = best
@@ -1968,7 +2248,7 @@ def _split_face(net, face, rng, throat, min_gap, sample, min_block, region,
 
 def _fallback_cut(net, face, rng, parts, total, poly, throat, min_gap, sample,
                   min_block, skew_deg, spaced_ok, tries=90, min_fork=38.0,
-                  reserve=None):
+                  reserve=None, shape_w=0.0):
     """Last-resort cut for a face :func:`_best_cut` cannot divide.
 
     WHY A FACE GETS STUCK, MEASURED RATHER THAN GUESSED. `_best_cut` sites the
@@ -2077,6 +2357,14 @@ def _fallback_cut(net, face, rng, parts, total, poly, throat, min_gap, sample,
                 # divided is what left it undivided in the first place.
                 score = polyline_length(pts) * (1.0 + 0.6 * abs(area_a - area_b)
                                                 / max(area_a + area_b, 1.0))
+                # Shape IS kept here, unlike grain. Grain is a preference about
+                # which way the plat runs and a stuck face has already refused
+                # every well-behaved candidate; shape is about whether what
+                # comes out is a block at all, and it only reorders candidates
+                # that already passed, so it cannot leave the face undivided.
+                if shape_w > 0.0:
+                    shape = min(rectangularity(side_a), rectangularity(side_b))
+                    score *= (1.0 + shape_w * max(0.0, 1.0 - shape))
                 if best is None or score < best[0]:
                     best = (score, pts, p0, p1)
                 break
@@ -2088,7 +2376,8 @@ def _fallback_cut(net, face, rng, parts, total, poly, throat, min_gap, sample,
 def _best_cut(net, face, rng, parts, total, poly, node_us, want_snap, tries,
               throat, min_gap, sample, min_block, skew_deg, spaced_ok,
               grain_w=0.0, grain_base=0.0, grain_swirl=0.0, grain_period=600.0,
-              min_fork=38.0, reserve=None):
+              min_fork=38.0, reserve=None, shape_w=0.0, side_pen=0.0,
+              corner_deg=40.0, across_share=0.8, shape_floor=0.0):
     """Lowest-scoring valid street across the face, or None."""
     # The driveable region: the face inset per edge by that edge's half width
     # plus half the width of the street being inserted.
@@ -2103,16 +2392,123 @@ def _best_cut(net, face, rng, parts, total, poly, node_us, want_snap, tries,
     if len(drive_poly) < 3 or abs(polygon_area(drive_poly)) < 1.0:
         drive_poly = None
 
-    best = None
+    # THE FACE'S SIDES, ONCE. Everything about block shape is decided against
+    # these: candidates are aimed ACROSS the parcel rather than round it, and
+    # the ones that still slice a corner are penalised in the score.
+    corners = _face_corners(parts, corner_deg=corner_deg)
+    sides = []
+    for k in range(len(corners)):
+        span = (corners[(k + 1) % len(corners)] - corners[k]) % total
+        if span > 1.0:
+            sides.append((corners[k], span))
+    n_sides = len(sides)
+
+    def _pick(weights):
+        """Index chosen in proportion to *weights* — sides by their length."""
+        tot = sum(weights)
+        if tot <= 0.0:
+            return rng.randrange(len(weights))
+        r, acc = rng.uniform(0.0, tot), 0.0
+        for k, w in enumerate(weights):
+            acc += w
+            if r <= acc:
+                return k
+        return len(weights) - 1
+
+    def _in_side(k, f=None):
+        """A position along side *k*, held off its two corners.
+
+        *f* is the fraction of the way along the usable part of the side; None
+        draws it uniformly.
+        """
+        lo, span = sides[k]
+        m = min(0.3 * span, 22.0)
+        if span < 2.0 * m + 1.0:
+            return (lo + 0.5 * span) % total
+        if f is None:
+            return (lo + rng.uniform(m, span - m)) % total
+        f = min(1.0, max(0.0, f))
+        return (lo + m + f * (span - 2.0 * m)) % total
+
+    def _side_of(u):
+        for k, (lo, span) in enumerate(sides):
+            if ((u - lo) % total) < span:
+                return k
+        return 0
+
+    def _frac_in(k, u):
+        """Where along side *k* position *u* sits, as `_in_side`'s fraction."""
+        lo, span = sides[k]
+        m = min(0.3 * span, 22.0)
+        usable = span - 2.0 * m
+        if usable <= 1.0:
+            return 0.5
+        return min(1.0, max(0.0, (((u - lo) % total) - m) / usable))
+
+    def _far_side(i):
+        """A side NON-ADJACENT to side *i*, weighted by length, or None."""
+        far = [k for k in range(n_sides)
+               if (k - i) % n_sides not in (0, 1, n_sides - 1)]
+        if not far:
+            return None
+        return far[_pick([sides[k][1] for k in far])]
+
+    def _opposite_f(f):
+        """The far end's fraction, for a cut that runs ACROSS rather than skew.
+
+        Sides run in opposite senses round a CCW boundary, so the point facing
+        fraction *f* on one side is fraction ``1 - f`` on the side across from
+        it — a cut between the two runs roughly parallel to the two sides it
+        does NOT touch, which is the cut that leaves two rectangles. Jittered,
+        not pinned: plats are not drafted on a grid, and the score is what
+        finally chooses between the candidates this generates.
+        """
+        return 1.0 - f + rng.uniform(-0.22, 0.22)
+
+    # A four-way snap lands the cut ON an existing junction, and a junction that
+    # is itself a CORNER of this face can only ever slice that corner off. Most
+    # are not — a T whose third arm points away leaves the boundary running
+    # straight through it — so the corner ones are simply dropped rather than
+    # the snap being given up on.
+    if want_snap and node_us and corners:
+        clear = [u for u in node_us
+                 if min(min((u - c) % total, (c - u) % total)
+                        for c in corners) > 14.0]
+        if clear:
+            node_us = clear
+
+    best = [None, None]              # [aimed across, everything else]
     for _try in range(tries):
-        u0 = rng.uniform(0.0, total)
+        u0 = u1 = None
         snapped = False
         if want_snap and node_us:
             u0 = node_us[rng.randrange(len(node_us))]
             snapped = True
-        u1 = u0 + total * rng.uniform(0.34, 0.66)
-        if u1 >= total:
-            u1 -= total
+            if n_sides >= 4 and rng.random() < across_share:
+                i = _side_of(u0)
+                j = _far_side(i)
+                if j is not None:
+                    u1 = _in_side(j, _opposite_f(_frac_in(i, u0)))
+        elif n_sides >= 4 and rng.random() < across_share:
+            # AIM THE CANDIDATE AT A NON-ADJACENT SIDE. Drawing the far end at
+            # 34-66% of the way round the PERIMETER is only a proxy for "the
+            # opposite side", and it is a bad one whenever the sides are
+            # unequal: on a face with one long frontage and three short ones,
+            # most of that window lands back on the long side or on a
+            # neighbour, so the candidate pool was mostly corner-slicing cuts
+            # and scoring could only pick the least bad of them. Sides are
+            # weighted by length so a long frontage is still where most cuts
+            # start, which is also true of real plats.
+            i = _pick([s[1] for s in sides])
+            j = _far_side(i)
+            if j is not None:
+                f = rng.random()
+                u0 = _in_side(i, f)
+                u1 = _in_side(j, _opposite_f(f))
+        if u0 is None:
+            u0 = rng.uniform(0.0, total)
+        if u1 is None:
+            u1 = (u0 + total * rng.uniform(0.34, 0.66)) % total
         a0 = _at_perimeter(parts, u0)
         a1 = _at_perimeter(parts, u1)
         if a0 is None or a1 is None:
@@ -2246,9 +2642,48 @@ def _best_cut(net, face, rng, parts, total, poly, node_us, want_snap, tries,
             g = grain_dir(mid[0], mid[1], grain_base, grain_swirl, grain_period)
             align = abs(_dot(_unit(_sub(p1, p0)), g))     # 1 = along the grain
             score *= (1.0 + grain_w * (1.0 - align))
-        if best is None or score < best[0]:
-            best = (score, pts, p0, p1)
-    return best
+        # BLOCK SHAPE. Length, balance and grain between them say nothing about
+        # what SHAPE the two halves come out, and a cut from one side of a face
+        # to the side next to it is often the shortest and best-balanced
+        # candidate on offer — it is also the one that slices a corner off and
+        # leaves a triangle. Measured on the generator before this term: 47.5%
+        # of blocks scored under 0.62 on `rectangularity`, i.e. nearly half the
+        # fabric was triangular, which is not what a residential plat looks
+        # like on OSM anywhere.
+        #
+        # Two independent penalties, because they catch different failures. The
+        # rectangularity of the WORSE half is the direct measure — 1.0 for a
+        # rectangle whatever its aspect or orientation, exactly 0.5 for any
+        # triangle — and it is the half that matters, since a cut that leaves
+        # one good block and one wedge has still made a wedge. The corner
+        # SEPARATION is topological and fires before the geometry goes bad:
+        # ends on the same side (sep 0) or on adjacent sides (sep 1) cannot
+        # produce two quadrilaterals however the areas happen to fall.
+        good = True
+        if shape_w > 0.0 or side_pen > 0.0:
+            shape = min(rectangularity(side_a), rectangularity(side_b))
+            sep = 2
+            if corners:
+                sep = min(_corners_between(corners, u0, u1, total),
+                          _corners_between(corners, u1, u0, total))
+            score *= (1.0 + shape_w * max(0.0, 1.0 - shape))
+            if sep < 2:
+                score *= (1.0 + side_pen * (2 - sep))
+            # A FLOOR, NOT ONLY A WEIGHT. Scoring alone still takes the best of
+            # a bad pool: on a face where every sampled candidate slices a
+            # corner, the multiplier is a constant and the winner is whichever
+            # corner-slice happened to be shortest. Splitting the pool in two
+            # and preferring the well-shaped bucket means a triangular cut is
+            # made only when nothing across the parcel is legal at all — which
+            # does happen, and is why the other bucket is kept rather than the
+            # candidate being rejected outright.
+            good = (sep >= 2 and shape >= shape_floor)
+        slot = 0 if good else 1
+        if best[slot] is None or score < best[slot][0]:
+            best[slot] = (score, pts, p0, p1)
+    if best[0] is None and best[1] is not None:
+        _reject('shape: only a corner slice was legal')
+    return best[0] or best[1]
 
 
 def _fork_ok(net, node_id, direction, min_deg):
@@ -2307,13 +2742,70 @@ def _commit_cut(net, pts, p0, p1, junctions):
     return True
 
 
+def _undeveloped_weight(poly, region, cols, edge_m, col_m):
+    """0-1: how likely this parcel is to be land nobody has built on yet.
+
+    WHERE UNDEVELOPED LAND ACTUALLY SURVIVES, which is not uniformly at random.
+    On OSM, the parcels still carrying woodland, a drainage reserve or bare
+    field in an otherwise built-out subdivision are the ones at the OUTER EDGE
+    of the platted area — the phase that was never built, or the strip left
+    against whatever the subdivision backs onto — and the ones FURTHEST FROM
+    THE COLLECTOR, because frontage on the road everybody drives down is the
+    first land to be taken up and the last to be left over. Land wrapped in
+    houses on all four sides, next to the through route, is built.
+
+    So the two terms are distance to the crop edge and distance to the nearest
+    collector, each saturating at its own scale, multiplied rather than added:
+    a parcel has to be BOTH peripheral AND off the main road to score high,
+    which is the combination the aerials actually show.
+    """
+    c = polygon_centroid(poly)
+    x0, y0, x1, y1 = region
+    d_edge = min(c[0] - x0, x1 - c[0], c[1] - y0, y1 - c[1])
+    edge_t = 1.0 - min(1.0, max(0.0, d_edge) / max(edge_m, 1.0))
+    if cols:
+        d_col = min(polyline_dist([c, c], p) for p in cols)
+        col_t = min(1.0, d_col / max(col_m, 1.0))
+    else:
+        col_t = 1.0
+    return (0.25 + 0.75 * edge_t) * (0.25 + 0.75 * col_t)
+
+
+# What `undeveloped_share` has to be multiplied by so the share of blocks that
+# come out undeveloped MATCHES it. Two corrections, both measured rather than
+# guessed: a face is offered exactly once, on the iteration where it is the
+# biggest thing left and has already come down to block size, and only about
+# two fifths of the finished parcels ever pass through that window (the rest
+# are the second half of a cut and drop below target without being offered);
+# and `_undeveloped_weight` averages about 0.32 across a region, since it is
+# deliberately near zero in the built-out middle. `stats` reports the share
+# that actually came out, so this staying honest is checkable.
+_UNDEVELOPED_GAIN = 7.0
+
+
 def _subdivide_faces(net, rng, cfg, throat, min_gap, sample, region,
                      edge_clear, junctions, spaced_ok, grain_base=0.0,
                      grain_swirl=0.0, reserve=None):
-    """Keep splitting the largest face until every block is near target size."""
+    """Keep splitting the largest face until every block is near target size.
+
+    Returns ``(cuts_made, undeveloped_pts)``, where each point marks a face that
+    was deliberately LEFT ALONE — see `undeveloped_share`.
+    """
     target = float(cfg["block_area_target_m2"])
     min_block = float(cfg["block_area_min_m2"])
     hard_max = target * float(cfg.get("block_area_hard_max_factor", 1.5))
+    # SPARSENESS. A suburb is not a wall-to-wall tiling of blocks: some parcels
+    # are woodland, a drainage reserve, a phase that was never built, or simply
+    # land not taken up yet. Leaving a share of faces uncut is what puts that
+    # back — and it has to happen HERE, inside the loop that would otherwise
+    # keep picking the largest face, rather than as a post-pass, because a face
+    # only stays whole if nothing ever cuts it.
+    und_share = float(cfg.get("undeveloped_share", 0.0))
+    und_cap = target * float(cfg.get("undeveloped_max_factor", 1.25))
+    und_edge = float(cfg.get("undeveloped_edge_m", 300.0))
+    und_col = float(cfg.get("undeveloped_collector_m", 260.0))
+    cols = [e.pts for e in net.edges.values() if e.road_class == "collector"]
+    left = []                # one interior point per face left undeveloped
     made, stuck = 0, set()
     for _ in range(int(cfg["subdivide_iters"])):
         face_list = faces(net)
@@ -2324,6 +2816,7 @@ def _subdivide_faces(net, rng, cfg, throat, min_gap, sample, region,
         big = [f for f in face_list
                if abs(polygon_area(f["poly"])) > target
                and tuple(sorted(f["edges"])) not in stuck
+               and not any(point_in_polygon(f["poly"], q) for q in left)
                and not (reserve is not None and reserve.covers(f["poly"]))]
         if not big:
             break
@@ -2335,6 +2828,21 @@ def _subdivide_faces(net, rng, cfg, throat, min_gap, sample, region,
         # everything else still either takes a well formed street or is left
         # alone, which is what keeps the fabric's measured morphology.
         area = abs(polygon_area(f["poly"]))
+        # A parcel is only left undeveloped while it is still BLOCK-SIZED. The
+        # loop always holds the biggest face on the board, so declining to cut
+        # without this cap would strand whatever happened to be huge at that
+        # moment — which is the same failure `block_area_hard_max_factor`
+        # exists to stop, and would blow the "no face over 3x the median"
+        # invariant on its own.
+        if und_share > 0.0 and area <= und_cap:
+            w = _undeveloped_weight(f["poly"], region, cols, und_edge, und_col)
+            if rng.random() < und_share * _UNDEVELOPED_GAIN * w:
+                # Marked by an interior POINT, not by its edge ids: a cut in the
+                # neighbouring face lands on this face's boundary and splits
+                # those edges, so an id-based key would silently expire while
+                # the parcel itself never moved.
+                left.append(polygon_centroid(f["poly"]))
+                continue
         if _split_face(net, f, rng, throat, min_gap, sample, min_block, region,
                        edge_clear, junctions, spaced_ok,
                        skew_deg=float(cfg["junction_skew_deg"]),
@@ -2343,11 +2851,16 @@ def _subdivide_faces(net, rng, cfg, throat, min_gap, sample, region,
                        grain_w=float(cfg["grain_weight"]),
                        grain_base=grain_base, grain_swirl=grain_swirl,
                        grain_period=float(cfg["grain_period_m"]),
+                       shape_w=float(cfg.get("block_shape_weight", 0.0)),
+                       side_pen=float(cfg.get("block_side_penalty", 0.0)),
+                       corner_deg=float(cfg.get("face_corner_deg", 40.0)),
+                       across_share=float(cfg.get("cut_across_share", 0.8)),
+                       shape_floor=float(cfg.get("block_shape_floor", 0.0)),
                        allow_fallback=area > hard_max, reserve=reserve):
             made += 1
         else:
             stuck.add(tuple(sorted(f["edges"])))
-    return made
+    return made, left
 
 
 def _grow_lollipop(net, sid, rng, llen, throat, min_gap, sample, region,
@@ -2559,6 +3072,11 @@ def stats(net, blks, region):
         "km_per_km2_target": "7.4-12.4",
         "block_area_median": med(areas),
         "block_area_target": "15k-34k m²",
+        # Not a target, a report: `undeveloped_share` asks for a share and the
+        # bias decides which parcels get it, so what actually came out is worth
+        # printing next to the four measures it moves.
+        "undeveloped_pct": 100.0 * sum(1 for b in blks if b.get("undeveloped"))
+        / max(len(blks), 1),
     }
 
 
@@ -2570,5 +3088,6 @@ def format_stats(s):
         f"  street dens. {s['km_per_km2']:5.1f} km/km²  target "
         f"{s['km_per_km2_target']}\n"
         f"  block median {s['block_area_median']:,.0f} m²  target "
-        f"{s['block_area_target']}"
+        f"{s['block_area_target']}\n"
+        f"  undeveloped  {s['undeveloped_pct']:5.1f}%   left as open land"
     )
