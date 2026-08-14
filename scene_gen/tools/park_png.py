@@ -244,6 +244,24 @@ def main():
     got, tot = pk.check_reach(park)
     print(f"[park] facilities with a path on their boundary: {got}/{tot}"
           + ("  OK" if got == tot else "  <-- BROKEN"))
+    # THE TWO THAT SAY THE PATHS ARE A NETWORK. Everything above can pass on a
+    # heap of disconnected polylines — and did: before the paths were built as
+    # a graph, seed 3 scored 0 crossings, 0 breaches and 8/8 reachable with its
+    # twenty paths in twenty separate components and thirteen ends stopping
+    # dead in the grass. On the plan those are the short stubs coming out of a
+    # court and connecting to nothing.
+    orph = pk.check_orphans(park)
+    print(f"[park] path ends leading nowhere: {orph}"
+          + ("  <-- BROKEN" if orph else "  OK"))
+    comp = pk.check_connected(park)
+    print(f"[park] connected components of the path network: {comp}"
+          + ("  OK" if comp == 1 else "  <-- BROKEN"))
+    # And the one the de-duplication pass used to be for. It is not zero on
+    # every seed: where the tour's return leg runs beside its outbound one the
+    # spine still doubles itself, which is a tour problem, not a graph one.
+    print(f"[park] doubled paving (segment pairs off a junction):"
+          f" {pk.check_doubled(park)}")
+    print(f"[park] paths crossing themselves: {pk.check_self_crossings(park)}")
 
     out = args.out
     if not os.path.isabs(out):

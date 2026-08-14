@@ -934,6 +934,285 @@ def facility_pad(z, c):
 
 
 # ---------------------------------------------------------------------------
+# the path network — a GRAPH, not a heap of polylines
+# ---------------------------------------------------------------------------
+
+# How close to an edge's end a join has to be before it is that end rather than
+# a new node one metre short of it, and how close a path has to arrive before
+# the connector between the two is a rounding error rather than a path.
+_JOIN_M = 1.0
+_WELD_M = 2.0
+
+
+def _finish(pts):
+    """The geometry an edge is stored with: even samples, no self-crossing.
+
+    Resampled to 3 m FIRST, because `_decimate` takes an integer stride rather
+    than a distance and so thins a dense stretch and a sparse one by the same
+    factor; even arclength spacing makes the de-loop's segment tests comparable
+    and bounds the point count by path LENGTH. Done as the edge enters the
+    graph, so the stored geometry is the drawn geometry — a junction is then
+    sited on the line that actually gets paved.
+    """
+    if len(pts) < 2:
+        return list(pts)
+    if sn.polyline_length(pts) > 6.0:
+        pts = sn.resample(pts, 3.0)
+    return deloop(pts)
+
+
+class PathNet:
+    """The park's paths as a graph: nodes are junctions, gates and facility
+    entrances; edges carry the polyline geometry between them.
+
+    THIS IS THE FIX FOR THE ORPHANED SPUR, and it is structural rather than a
+    tidy-up. Paths used to be built as a list of INDEPENDENT POLYLINES: a spur
+    was routed from a court to a point the code had computed on the trunk, and
+    nothing anywhere recorded that the point was a junction. The pass that
+    afterwards clipped doubled paving was therefore free to delete the exact
+    stretch of trunk a spur had joined onto — and did. The spur survived, still
+    touching its court, now leading into the grass. No repair pass fixes that,
+    because the fact it needed (this point is a junction) was never written
+    down; and a repair pass is the wrong shape of answer anyway, since it
+    reconnects what should never have come apart.
+
+    Here a path that meets another SPLITS it, exactly as `suburb_net.Network`
+    does for streets and for the same reason, so the meeting is a node of
+    degree three. Two properties then hold BY CONSTRUCTION rather than by
+    inspection afterwards:
+
+      * every edge ends at a node, so a path can only stop at a junction, a
+        facility entrance, a set piece or a gate — there is nowhere else for an
+        end to be;
+      * every edge is joined to the network in the same breath as it is
+        created, so the network is one connected component.
+
+    None of `suburb_net`'s street_id / road_class machinery is here: a park
+    path is not a named road, nothing downstream addresses a route as one
+    continuous way, and a footpath has no class.
+    """
+
+    def __init__(self):
+        self.nodes = {}          # id -> point
+        self.edges = {}          # id -> path record, incl. `a`, `b`, `pts`
+        self.adj = {}            # node id -> set of edge ids
+        self._nid = 0
+        self._eid = 0
+
+    # -- construction -----------------------------------------------------
+    def add_node(self, p):
+        self._nid += 1
+        self.nodes[self._nid] = (float(p[0]), float(p[1]))
+        self.adj[self._nid] = set()
+        return self._nid
+
+    def node_at(self, p, tol=0.75):
+        """Reuse a node within *tol*, so paths that end together share one
+        junction rather than stacking two nodes a centimetre apart."""
+        best, bd = None, tol
+        for nid, q in self.nodes.items():
+            d = sn._dist(p, q)
+            if d <= bd:
+                best, bd = nid, d
+        return best
+
+    def add_edge(self, pts, kind, width_m, a=None, b=None, **extra):
+        pts = list(pts)
+        if len(pts) < 2:
+            return None
+        pts = _dedupe(pts)
+        if len(pts) < 2:
+            return None
+        if a is None:
+            a = self.node_at(pts[0]) or self.add_node(pts[0])
+        if b is None:
+            b = self.node_at(pts[-1]) or self.add_node(pts[-1])
+        # Snap the geometry onto its nodes. Graph and drawing then agree
+        # EXACTLY, which is what makes "these two paths share an end" a
+        # testable property instead of a matter of tolerance.
+        pts[0], pts[-1] = self.nodes[a], self.nodes[b]
+        if a == b and sn.polyline_length(pts) < 2.0:
+            return None
+        self._eid += 1
+        e = dict(extra)
+        e.update({"id": self._eid, "a": a, "b": b, "pts": pts, "kind": kind,
+                  "width_m": width_m})
+        self.edges[self._eid] = e
+        self.adj[a].add(self._eid)
+        self.adj[b].add(self._eid)
+        return e
+
+    def remove_edge(self, eid):
+        e = self.edges.pop(eid)
+        for nid in (e["a"], e["b"]):
+            self.adj.get(nid, set()).discard(eid)
+        return e
+
+    def split(self, e, s):
+        """Split *e* at arclength *s*, returning the node id at the cut.
+
+        This is what makes a T-junction a real junction rather than two paths
+        that merely touch: the host is genuinely cut, and the node it gains has
+        degree three.
+        """
+        total = sn.polyline_length(e["pts"])
+        if s <= _JOIN_M:
+            return e["a"]
+        if s >= total - _JOIN_M:
+            return e["b"]
+        head, tail = sn.split_polyline(e["pts"], s)
+        self.remove_edge(e["id"])
+        mid = self.add_node(head[-1])
+        # `serves` is the padding EXEMPTION, and only the stretch inside the
+        # facility's own band has earned it — the head, since a serving stub is
+        # built from the boundary outward.
+        for (piece, na, nb, serves) in ((head, e["a"], mid, e.get("serves")),
+                                        (tail, mid, e["b"], None)):
+            self._eid += 1
+            f = dict(e)
+            f.update({"id": self._eid, "a": na, "b": nb, "pts": piece,
+                      "serves": serves})
+            self.edges[self._eid] = f
+            self.adj[na].add(self._eid)
+            self.adj[nb].add(self._eid)
+        return mid
+
+    def weld(self, a, b):
+        """Merge node *a* into node *b*, dragging its edges' ends with it.
+
+        For a path that arrives at the network essentially on top of an
+        existing node: a 30 cm connector is not a path, it is a rounding error
+        with an id, and the old code's answer — leave the gap unbridged — is
+        precisely how a spur ended two metres short of the trunk it was
+        supposed to be joining.
+        """
+        if a == b or a not in self.nodes:
+            return b
+        pb = self.nodes[b]
+        for eid in list(self.adj[a]):
+            e = self.edges[eid]
+            if e["a"] == a:
+                e["a"] = b
+                e["pts"][0] = pb
+            if e["b"] == a:
+                e["b"] = b
+                e["pts"][-1] = pb
+            self.adj[b].add(eid)
+        del self.adj[a]
+        del self.nodes[a]
+        for eid in list(self.adj[b]):
+            e = self.edges[eid]
+            if e["a"] == e["b"] and sn.polyline_length(e["pts"]) < 2.0:
+                self.remove_edge(eid)
+        return b
+
+    # -- queries ----------------------------------------------------------
+    def candidates(self, p, ignore=(), skip_serving=True, step=8.0):
+        """Points on the network *p* could join to, nearest first, as
+        ``(distance, edge, arclength, point)``.
+
+        A list rather than a single answer because the nearest join is not
+        always the join you can walk to: put a fenced compound between the two
+        and the router wraps the connection round it and back, which is a 54 m
+        gap paved as a 208 m path. The caller picks; see `join_point`.
+
+        SAMPLED ALONG each edge, not one point per edge. Offering only each
+        edge's nearest point makes the answer depend on where that edge happens
+        to have been split by earlier work — and when a facility stands between
+        *p* and that one point, the perfectly walkable alternative twenty
+        metres further along THE SAME EDGE is never offered at all. That was
+        the concrete case above.
+
+        Serving stubs are skipped: they are the one path allowed inside a
+        facility's padding band, so cutting a junction into one would drag a
+        path that holds no such exemption in there with it.
+        """
+        out = []
+        for e in self.edges.values():
+            if e["id"] in ignore:
+                continue
+            if skip_serving and e.get("serves") is not None:
+                continue
+            pts, s, near = e["pts"], 0.0, None
+            for i in range(len(pts) - 1):
+                d = sn._sub(pts[i + 1], pts[i])
+                L = sn._norm(d)
+                t = 0.0
+                if L > 1e-9:
+                    t = max(0.0, min(1.0, sn._dot(sn._sub(p, pts[i]), d)
+                                     / (L * L)))
+                q = sn._add(pts[i], sn._mul(d, t))
+                dd = sn._dist(p, q)
+                if near is None or dd < near[0]:
+                    near = (dd, e, s + t * L, q)
+                s += L
+            if near is None:
+                continue
+            out.append(near)
+            total = s
+            k = 0.0
+            while k <= total:
+                if abs(k - near[2]) > step * 0.5:
+                    q = sn.point_at(pts, k)
+                    out.append((sn._dist(p, q), e, k, q))
+                k += step
+        out.sort(key=lambda z: z[0])
+        return out
+
+    def nearest(self, p, ignore=(), skip_serving=True):
+        """Nearest point on the network to *p*, or None if there is none."""
+        c = self.candidates(p, ignore=ignore, skip_serving=skip_serving)
+        return c[0] if c else None
+
+    def split_at(self, p, tol=1.0):
+        """Split whatever edge passes through *p*, returning the node there.
+
+        Sited by POINT rather than by (edge, arclength) so it stays correct
+        after an earlier split has replaced the edge the caller was holding —
+        the same hazard `suburb_net._connect_route` handles with
+        `_edge_containing`.
+        """
+        hit = self.nearest(p)
+        if hit is None or hit[0] > tol:
+            return None
+        return self.split(hit[1], hit[2])
+
+    def clearance(self, pts, ignore=(), skip_ends_m=0.0):
+        """Smallest distance from *pts* to any edge not in *ignore*.
+
+        What a candidate route is tested with BEFORE it is laid, which is how
+        `suburb_net` keeps two streets off the same ground and how this keeps
+        two paths off it. Testing beforehand is the whole difference between
+        not paving the same strip twice and paving it twice and cutting one of
+        them up afterwards — and it was the cutting up that severed spurs from
+        the network.
+
+        *skip_ends_m* trims that much off each end of the candidate before
+        measuring, because a route that is about to be joined to the network at
+        both ends is ON the network there by construction and would otherwise
+        report zero clearance against the very edge it is joining.
+        """
+        probe = list(pts)
+        if skip_ends_m > 0.0:
+            total = sn.polyline_length(probe)
+            if total <= 2.0 * skip_ends_m + 1.0:
+                return float("inf")
+            _h, probe = sn.split_polyline(probe, skip_ends_m)
+            probe, _t = sn.split_polyline(
+                probe, sn.polyline_length(probe) - skip_ends_m)
+        best = float("inf")
+        for e in self.edges.values():
+            if e["id"] in ignore:
+                continue
+            best = min(best, sn.polyline_dist(probe, e["pts"]))
+        return best
+
+    def paths(self):
+        """The edges as the plain path records the rest of the file expects."""
+        return [self.edges[k] for k in sorted(self.edges)]
+
+
+# ---------------------------------------------------------------------------
 # the layout
 # ---------------------------------------------------------------------------
 
@@ -1252,9 +1531,18 @@ def plan(rng, cfg=None):
         """
         return [p + width_m / 2.0 for p in pads]
 
+    # NO SEPARATE BIKE NETWORK. A second circuit that had to weave past the
+    # first produced exactly the tangle it sounds like wherever the two met:
+    # two independent routes crossing at shallow angles, each dodging the
+    # other's obstacles. A park path is ONE wider way carrying both modes,
+    # divided down its length -- which is also how shared-use paths are
+    # actually built. `width_m` and `bike_share` on each edge say how wide it is
+    # and how much of it is the cycle side; the divider is drawn from those, so
+    # there is only ever one network to route and one set of junctions.
     w_spine = float(c["path_w_shared_m"])
     w_spur = float(c["path_w_spur_m"])
-    paths = []
+    share = float(c["bike_share"])
+    net = PathNet()
 
     # Waypoints sit OFF each facility, on the side facing the park centre.
     stops = []
@@ -1271,6 +1559,14 @@ def plan(rng, cfg=None):
     # middle of the park and the spine tied itself in a knot around the picnic
     # grounds. A greedy tour is not optimal and does not need to be — it just
     # has to not cross itself.
+    #
+    # NOT 2-OPTED. Improving the tour was tried, on straight-line cost and then
+    # on a cost that charges for the facilities a leg would have to walk round.
+    # Both are better tours and neither is a better park: the router pays for a
+    # shorter leg with a longer detour, and measured over seeds 1/3/7/42 the
+    # doubled paving went from 205 m to 355 m (straight-line: worse still).
+    # Greedy leaves one long return leg that can run beside its outbound one;
+    # that is the residual `check_doubled` reports, and it is the cheaper bill.
     way, rest, cur = [gates[0]], list(stops), gates[0]
     while rest:
         nxt = min(rest, key=lambda q: sn._dist(cur, q))
@@ -1278,13 +1574,147 @@ def plan(rng, cfg=None):
         way.append(nxt)
         cur = nxt
     way.append(gates[1])
-    spine = lay(way, obstacles, clears(w_spine), samples=10)
-    paths.append({"pts": spine, "kind": "spine"})
-    trunk = [spine]
+    # THE ROOT OF THE NETWORK, and the only edge that joins nothing — it is
+    # what everything else joins to. Gate to gate, so both its ends are park
+    # entrances rather than stubs.
+    net.add_edge(_finish(lay(way, obstacles, clears(w_spine), samples=10)),
+                 "spine", w_spine, bike_share=share)
+
+    def walkable(a, b, width_m, exempt=()):
+        """Is the straight line from *a* to *b* clear of every padding band?"""
+        for ob, cl in zip(obstacles, clears(width_m)):
+            if any(ob is x for x in exempt):
+                continue
+            sp = seg_box_span(a, b, ob, cl - 0.1)
+            if sp is not None and sp[1] - sp[0] > 1e-6:
+                return False
+        return True
+
+    def legal(pts, width_m, exempt=()):
+        """Does a ROUTED path keep every band it is not exempt from?
+
+        `check_pad`'s predicate, asked before the path is committed instead of
+        after the park is built. The router is a heuristic on a budget and
+        where the gap it is asked to thread is tight it comes back with a leg
+        through a band anyway; the answer to that is not to widen the band or
+        to shave the result, it is to JOIN SOMEWHERE ELSE.
+        """
+        for i in range(len(pts) - 1):
+            a, b = pts[i], pts[i + 1]
+            L = sn._dist(a, b)
+            if L < 1e-9:
+                continue
+            for ob, cl in zip(obstacles, clears(width_m)):
+                if any(ob is x for x in exempt):
+                    continue
+                sp = seg_box_span(a, b, ob, cl - 0.05)
+                if sp is not None and (sp[1] - sp[0]) * L > 0.05:
+                    return False
+        return True
+
+    def picks(p, width_m, ignore=(), exempt=(), n=3):
+        """The junctions *p* could sensibly join to, best first.
+
+        Nearest as the crow flies is the wrong answer when a facility stands in
+        between — the router then wraps the connection round the compound and
+        back, and a 54 m gap is paved as a 208 m path running alongside the
+        spine for a third of its length. So a candidate must have a clear
+        straight run to be offered at all, nearest first. The search is capped,
+        because a "clear" junction on the far side of the park is not a
+        junction anybody would walk to; if nothing inside the cap is clear, the
+        nearest is used and the router does what it can.
+
+        More than one is returned so the caller can route to each and take one
+        that comes out legal; they are spread out, since two candidates ten
+        metres apart on the same edge are the same junction and will fail the
+        same way.
+        """
+        cands = net.candidates(p, ignore=ignore)
+        if not cands:
+            return []
+        cap = cands[0][0] * 3.0 + 20.0
+        out = []
+        for hit in cands:
+            if hit[0] > cap:
+                break
+            if not walkable(p, hit[3], width_m, exempt=exempt):
+                continue
+            if any(sn._dist(hit[3], g[3]) < 10.0 for g in out):
+                continue
+            out.append(hit)
+            if len(out) >= n:
+                break
+        return out or [cands[0]]
+
+    def join_point(p, width_m, ignore=(), exempt=()):
+        """Where *p* should meet the network, without routing to it yet."""
+        got = picks(p, width_m, ignore=ignore, exempt=exempt, n=1)
+        return got[0] if got else None
+
+    def join(p, width_m, ignore=(), exempt=(), tries=4):
+        """Where *p* joins the network, the path that gets it there, and
+        whether that path came out legal.
+
+        Legality is reported rather than enforced because the two callers want
+        different things from a failure: a facility must be connected whatever
+        the router manages, while a fountain that cannot be reached without
+        walking through a pitch's run-off simply does not get a path of its
+        own.
+        """
+        best = (None, None, False)
+        for hit in picks(p, width_m, ignore=ignore, exempt=exempt, n=tries):
+            pts = _finish(lay([p, hit[3]], obstacles, clears(width_m),
+                              samples=6, exempt=exempt))
+            if legal(pts, width_m, exempt=exempt):
+                return hit, pts, True
+            if best[0] is None:
+                best = (hit, pts, False)
+        return best
+
+    def tie(nid, width_m, exempt=()):
+        """Join node *nid* into the rest of the network — split, then connect.
+
+        THE SINGLE DOOR every path goes through, which is why there is no way
+        to end up with one that joins nothing. The target is a point ON AN
+        EXISTING EDGE and that edge is CUT there, so the connection is a
+        junction and not two paths that happen to touch. Where the node has
+        arrived within a couple of metres of the network already, it is welded
+        onto the junction instead of being bridged by a stub of path shorter
+        than it is wide.
+
+        Edges already at *nid* are ignored, or the nearest point on the network
+        would be the path we are trying to connect, at a distance of zero.
+        """
+        p = net.nodes[nid]
+        near = net.nearest(p, ignore=net.adj[nid])
+        if near is None:
+            return None
+        if near[0] <= _WELD_M:
+            return net.weld(nid, net.split(near[1], near[2]))
+        # Connectivity is not optional, so an illegal best-effort route is
+        # still laid here: a facility with no path to it is the worse failure,
+        # and `check_pad` is left to say so out loud rather than being quietly
+        # satisfied by a facility nobody can reach.
+        hit, pts, _ok = join(p, width_m, ignore=net.adj[nid], exempt=exempt)
+        if hit is None:
+            return None
+        mid = net.split(hit[1], hit[2])
+        if sn._dist(p, net.nodes[mid]) <= _WELD_M:
+            return net.weld(nid, mid)
+        net.add_edge(pts, "spur", width_m, a=nid, b=mid)
+        return mid
 
     # THE PATH BETWEEN THE PITCHES. A widened gap alone still leaves two green
     # rectangles touching a strip of the same green; running the main path down
     # the corridor is what makes the eye read two grounds instead of one.
+    #
+    # A ROUTE BETWEEN TWO JUNCTIONS, not a stripe with two dead ends bridged
+    # afterwards. Laying it as a free-standing polyline and then tying each end
+    # to the nearest path is how it doubled the spine: the nearest path to a
+    # dead end pointing out of the corridor is the spine at the corridor's FAR
+    # end, so the connector was routed 60 m back down the corridor it had just
+    # been laid beside. Siting both ends on the network first and routing
+    # between them cannot do that.
     pitches = [z for z in zones if z["kind"] == "soccer"]
     if len(pitches) >= 2:
         a = math.radians(pitches[0]["yaw"])
@@ -1292,34 +1722,28 @@ def plan(rng, cfg=None):
         mx = sum(z["centre"][0] for z in pitches[:2]) / 2.0
         my = sum(z["centre"][1] for z in pitches[:2]) / 2.0
         arm = pl / 2.0 + 12.0
-        corr = lay([(mx - ux * arm, my - uy * arm), (mx, my),
-                    (mx + ux * arm, my + uy * arm)],
-                   obstacles, clears(w_spine), samples=6, ends=True)
-        paths.append({"pts": corr, "kind": "spine"})
-        trunk.append(corr)
-
-    def nearest_on_trunk(p):
-        best, bp = 1e18, gates[0]
-        for pts in trunk:
-            for pt in pts:
-                d = sn._dist(p, pt)
-                if d < best:
-                    best, bp = d, pt
-        return bp
-
-    # Tie the pitch corridor back into the spine at both ends, so it is part of
-    # the network rather than a stripe lying across the grass.
-    for pts in trunk[1:]:
-        for end in (pts[0], pts[-1]):
-            best, bp = 1e18, None
-            for pt in spine:
-                d = sn._dist(end, pt)
-                if d < best:
-                    best, bp = d, pt
-            if bp and best > clear + 2.0:
-                paths.append({"pts": route([end, bp], obstacles,
-                                           clears(w_spur), ends=False),
-                              "kind": "spur"})
+        ea = (mx - ux * arm, my - uy * arm)
+        eb = (mx + ux * arm, my + uy * arm)
+        ha = join_point(ea, w_spine)
+        hb = join_point(eb, w_spine)
+        if ha is not None and hb is not None:
+            corr = _finish(lay([ha[3], ea, (mx, my), eb, hb[3]], obstacles,
+                               clears(w_spine), samples=6))
+            # AND ONLY IF THE GAP IS NOT PAVED ALREADY. The tour threads
+            # between the things worth reaching and the pitches are two of
+            # them, so it quite often runs down this corridor by itself — in
+            # which case a second way down it is not a corridor, it is the seam
+            # `_dedup` used to be here to cut out. Measured on the ROUTED line,
+            # not the straight one, since it is the routed line that gets
+            # paved; the ends are trimmed because they are ON the network by
+            # construction. `suburb_net` rejects a candidate street on
+            # clearance in the same way and for the same reason.
+            if (net.clearance(corr, skip_ends_m=10.0) > w_spine
+                    and legal(corr, w_spine)):
+                na, nb = net.split_at(ha[3]), net.split_at(hb[3])
+                if na is not None and nb is not None and na != nb:
+                    net.add_edge(corr, "spine", w_spine, a=na, b=nb,
+                                 bike_share=share)
 
     def entrance(z, toward):
         """Boundary point nearest *toward*, and the outward normal of its FACE.
@@ -1367,14 +1791,13 @@ def plan(rng, cfg=None):
                 (local(z, 0.0, -hhz), (uy, -ux))]
 
     def stub_ok(e, throat, z):
-        """Does the straight stub clear every OTHER facility's band?"""
-        for ob, cl in zip(obstacles, clears(w_spur)):
-            if ob is z["corners"]:
-                continue
-            sp2 = seg_box_span(e, throat, ob, cl - 0.1)
-            if sp2 is not None and sp2[1] - sp2[0] > 1e-6:
-                return False
-        return True
+        """Does the straight stub clear every OTHER facility's band?
+
+        The same question `join_point` asks of a candidate junction, which is
+        why it is the same predicate: its own facility is exempt because the
+        stub starts on that boundary by design.
+        """
+        return walkable(e, throat, w_spur, exempt=(z["corners"],))
 
     def reach_m(z):
         # The throat is the first point OUTSIDE the band, so the leg that runs
@@ -1384,7 +1807,8 @@ def plan(rng, cfg=None):
         return z["pad_m"] + w_spur / 2.0 + 1.0
 
     for zi, z in enumerate(zones):
-        sp = nearest_on_trunk(z["centre"])
+        hit = net.nearest(z["centre"])
+        sp = hit[3] if hit is not None else gates[0]
         e, n = entrance(z, sp)
         throat = sn._add(e, sn._mul(n, reach_m(z)))
         # THE GATE GOES WHERE THERE IS ROOM FOR ONE. The face nearest the trunk
@@ -1394,6 +1818,11 @@ def plan(rng, cfg=None):
         # exemption covers because it serves the other one. Fall back to
         # whichever remaining face is clear, nearest the trunk first; a park
         # puts its gate on the side you can actually walk up to.
+        #
+        # Choosing the face by whether the LEG ON FROM IT comes out legal, not
+        # merely whether the stub has room, was tried as well: over seeds 1-12
+        # it changed not one park and cost a third of the run time, because the
+        # face nearest the network is the one that gets used almost every time.
         if not stub_ok(e, throat, z):
             for (fe, fn) in sorted(faces(z), key=lambda q: sn._dist(q[0], sp)):
                 ft = sn._add(fe, sn._mul(fn, reach_m(z)))
@@ -1408,92 +1837,54 @@ def plan(rng, cfg=None):
         # Skipping it there was how facilities ended up with no path touching
         # them at all: the trunk keeps the full band off the boundary, so
         # "close enough" is still a fence away from the gate.
-        paths.append({"pts": route([e, throat], obstacles, clears(w_spur),
-                                   exempt=(z["corners"],)),
-                      "kind": "spur", "serves": zi})
-        if sn._dist(throat, sp) > 2.0:
-            paths.append({"pts": lay([throat, sp], obstacles, clears(w_spur),
-                                     samples=6), "kind": "spur"})
+        #
+        # The entrance gets a node of its OWN rather than being welded to
+        # whatever happens to lie within tolerance: `check_reach` measures this
+        # end against the boundary at half a metre, and a node reused from
+        # elsewhere would drag it off the facility it is the entrance to.
+        stub = net.add_edge(_finish(route([e, throat], obstacles,
+                                          clears(w_spur),
+                                          exempt=(z["corners"],))),
+                            "spur", w_spur, a=net.add_node(e), bike_share=0.0,
+                            serves=zi)
+        if stub is not None:
+            # And the throat joins the network like anything else. There is no
+            # branch here for "the trunk is already close enough" — that branch
+            # is what left a spur two metres short of the path it was meant to
+            # meet, touching its court and connected to nothing.
+            tie(stub["b"], w_spur)
 
+    # Set pieces are DESTINATIONS: a fountain with no path to it is as wrong as
+    # a court with none. The spur is exempt from the fountain's own clearance
+    # box for the same reason a facility stub is exempt from its facility's.
     for (_k, q, box) in feature_pts:
-        sp = nearest_on_trunk(q)
-        if sn._dist(q, sp) <= 5.0:
+        near = net.nearest(q)
+        if near is None or near[0] <= 5.0:
+            continue          # the network already passes close enough to it
+        hit, pts, ok = join(q, w_spur, exempt=(box,))
+        if hit is None or not ok:
+            # No way to it that keeps the bands: the set piece keeps its ground
+            # and does without a spur, exactly as the pitch corridor does when
+            # the gap is already paved. Better an unserved fountain than a path
+            # laid through a pitch's run-off.
             continue
-        paths.append({"pts": lay([q, sp], obstacles, clears(w_spur), samples=6,
-                                 exempt=(box,)), "kind": "spur"})
+        mid = net.split(hit[1], hit[2])
+        net.add_edge(pts, "spur", w_spur, a=net.add_node(q), b=mid,
+                     bike_share=0.0)
 
-    # NO SEPARATE BIKE NETWORK. A second circuit that had to weave past the
-    # first produced exactly the tangle it sounds like wherever the two met:
-    # two independent routes crossing at shallow angles, each dodging the
-    # other's obstacles. A park path is ONE wider way carrying both modes,
-    # divided down its length -- which is also how shared-use paths are
-    # actually built. `width_m` and `bike_share` below say how wide each path
-    # is and how much of it is the cycle side; the divider is drawn from those,
-    # so there is only ever one network to route and one set of junctions.
-    for pa in paths:
-        w = float(c["path_w_shared_m"] if pa["kind"] == "spine"
-                  else c["path_w_spur_m"])
-        pa["width_m"] = w
-        pa["bike_share"] = float(c["bike_share"]) if pa["kind"] == "spine" else 0.0
-
-    # -- remove doubled paving ------------------------------------------------
-    # Paths were routed against the FACILITIES but not against each other, so
-    # the tour spine and the pitch corridor could run over the same ground:
-    # measured, 28 segment-pairs of spine-on-spine away from any junction, which
-    # reads as a path with a seam down it. Later paths are clipped where they
-    # duplicate an earlier one; a path reduced to stubs is dropped rather than
-    # left as confetti.
-    def _dedup(paths):
-        kept = []
-        for pa in paths:
-            # A SERVING STUB IS NEVER CONFETTI. It is two or three points long
-            # by construction — boundary to throat and no further — so the
-            # "drop anything under three points" rule below deleted every one
-            # of them, which is why no facility had a path touching it. It is
-            # also the only thing making its facility reachable, so it survives
-            # whole and later paths are clipped against it instead.
-            if pa.get("serves") is not None:
-                kept.append(pa)
-                continue
-            wa = float(pa.get("width_m", 2.6)) / 2.0
-            pts, run, out = pa["pts"], [], []
-            for q in pts:
-                dup = False
-                for kb in kept:
-                    wb = float(kb.get("width_m", 2.6)) / 2.0
-                    for i in range(len(kb["pts"]) - 1):
-                        if sn.seg_seg_dist(q, q, kb["pts"][i],
-                                           kb["pts"][i + 1]) < wa + wb - 0.6:
-                            dup = True
-                            break
-                    if dup:
-                        break
-                if dup:
-                    if len(run) >= 3:
-                        out.append(run)
-                    run = []
-                else:
-                    run.append(q)
-            if len(run) >= 3:
-                out.append(run)
-            if not out:
-                continue
-            for k, piece in enumerate(out):
-                seg = dict(pa)
-                seg["pts"] = piece
-                kept.append(seg)
-        return kept
-
-    for pa in paths:
-        # Resample to even 3 m spacing first: _decimate takes an integer STRIDE,
-        # not a distance, so it thins a dense stretch and a sparse one by the
-        # same factor. Even arclength spacing makes the de-loop's segment tests
-        # comparable and keeps the point count bounded by path LENGTH.
-        pts = pa["pts"]
-        if sn.polyline_length(pts) > 6.0:
-            pts = sn.resample(pts, 3.0)
-        pa["pts"] = deloop(pts)
-    paths = _dedup(paths)
+    # NO DE-DUPLICATION PASS. There used to be one here, and deleting it is
+    # the point of the graph. Paths were routed against the FACILITIES but not
+    # against each other, so the tour spine and the pitch corridor could run
+    # over the same ground; the pass clipped a later path wherever it doubled
+    # an earlier one and dropped what was left if it came to under three
+    # points. It knew nothing about connectivity, so what it deleted was
+    # sometimes precisely the stretch a spur had joined onto — which is how a
+    # court ended up with a short path coming out of it and going nowhere.
+    #
+    # A path that MEETS another now joins it at a node instead of being drawn
+    # alongside it and cleaned up afterwards, so there is no doubled paving to
+    # remove: `check_doubled` measures what is left of it.
+    paths = net.paths()
 
     # -- fences -------------------------------------------------------------
     panel = float(c["fence_panel_m"])
@@ -1726,6 +2117,156 @@ def check_reach(park, tol=0.5):
                 hit += 1
                 break
     return hit, len(zones)
+
+
+def _ends(park):
+    """Every path's two ends, as ``(path index, point)``."""
+    out = []
+    for i, pa in enumerate(park["paths"]):
+        pts = pa["pts"]
+        if len(pts) < 2:
+            continue
+        out.append((i, pts[0]))
+        out.append((i, pts[-1]))
+    return out
+
+
+_TERMINUS_PROPS = ("fountain", "gazebo", "park_sign")
+
+
+def _joined(park, p, tol):
+    """Is *p* a junction — i.e. does another path END there too?"""
+    n = 0
+    for (_i, q) in _ends(park):
+        if sn._dist(p, q) <= tol:
+            n += 1
+    return n >= 2
+
+
+def _at_gate(park, p, gate_m):
+    """Is *p* a park gate — i.e. on the boundary, where a path leaves?
+
+    Measured against the park's own rectangle rather than against an exported
+    list of gate positions, so it survives the park being translated into its
+    reserve (`suburb_scene._shift_park`) and cannot be fooled by stale
+    coordinates.
+    """
+    x0, y0, x1, y1 = park["region"]
+    return min(abs(p[0] - x0), abs(p[0] - x1),
+               abs(p[1] - y0), abs(p[1] - y1)) <= gate_m
+
+
+def check_orphans(park, tol=1.0, fac_m=12.0, feat_m=10.0, gate_m=8.0):
+    """Path ends that lead nowhere. Must be zero.
+
+    A path end is legitimate in exactly three cases, and they are the three
+    places a real park path stops:
+
+      * it is a NETWORK NODE — another path ends at the same point, so this is
+        a junction and the walk continues;
+      * it is a FACILITY ENTRANCE, i.e. on (or at the gate of) a court, pitch,
+        playground or picnic ground;
+      * it is a PARK GATE, or a set piece that is itself the destination — a
+        fountain, a gazebo, the park sign.
+
+    Anything else is a stub dying in the grass, which is the defect this file
+    was rebuilt around. Note the junction test is GEOMETRIC — two ends at the
+    same point — not a lookup in the node table the generator happens to have
+    exported, so it still measures something when the generator is wrong.
+    """
+    n = 0
+    for (_i, p) in _ends(park):
+        if _joined(park, p, tol):
+            continue
+        if any(_nearest_on_obb(p, z["corners"])[2] <= fac_m
+               for z in park["zones"]):
+            continue
+        if any(sn._dist(p, pr["c"]) <= feat_m for pr in park["props"]
+               if pr["kind"] in _TERMINUS_PROPS):
+            continue
+        if _at_gate(park, p, gate_m):
+            continue
+        n += 1
+    return n
+
+
+def check_connected(park, tol=1.0):
+    """Number of connected components in the path network. Must be 1.
+
+    Paths are joined when they SHARE AN END. Crossing, or running alongside,
+    does not count: a network built as a heap of independent polylines can look
+    joined on the plan and still be six components, and a junction that is not
+    a node is exactly the thing that lets a later edit sever a route without
+    anything noticing.
+    """
+    idx = [i for i, pa in enumerate(park["paths"]) if len(pa["pts"]) >= 2]
+    if not idx:
+        return 0
+    parent = {i: i for i in idx}
+
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+
+    ends = _ends(park)
+    for x in range(len(ends)):
+        for y in range(x + 1, len(ends)):
+            if ends[x][0] == ends[y][0]:
+                continue
+            if sn._dist(ends[x][1], ends[y][1]) <= tol:
+                union(ends[x][0], ends[y][0])
+    return len({find(i) for i in idx})
+
+
+def check_self_crossings(park):
+    """Paths that cross THEMSELVES, segment pair by segment pair. Must be zero."""
+    n = 0
+    for pa in park["paths"]:
+        pts = pa["pts"]
+        for x in range(len(pts) - 1):
+            for y in range(x + 2, len(pts) - 1):
+                if sn._seg_intersect(pts[x], pts[x + 1],
+                                     pts[y], pts[y + 1]) is not None:
+                    n += 1
+    return n
+
+
+def check_doubled(park, slack=0.6):
+    """Segment pairs from DIFFERENT paths whose paving overlaps.
+
+    The measure `_dedup` used to exist for. Junction neighbourhoods are exempt:
+    two paths that meet at a node necessarily overlap where they meet, and that
+    is a junction, not a seam.
+    """
+    n = 0
+    paths = [pa for pa in park["paths"] if len(pa["pts"]) >= 2]
+    nodes = [p for (_i, p) in _ends(park)]
+    for i in range(len(paths)):
+        wa = float(paths[i].get("width_m", 2.6)) / 2.0
+        for j in range(i + 1, len(paths)):
+            wb = float(paths[j].get("width_m", 2.6)) / 2.0
+            lim = wa + wb - slack
+            pa, pb = paths[i]["pts"], paths[j]["pts"]
+            for x in range(len(pa) - 1):
+                for y in range(len(pb) - 1):
+                    if sn.seg_seg_dist(pa[x], pa[x + 1],
+                                       pb[y], pb[y + 1]) >= lim:
+                        continue
+                    mid = ((pa[x][0] + pa[x + 1][0] + pb[y][0] + pb[y + 1][0])
+                           / 4.0,
+                           (pa[x][1] + pa[x + 1][1] + pb[y][1] + pb[y + 1][1])
+                           / 4.0)
+                    if any(sn._dist(mid, q) <= 6.0 for q in nodes):
+                        continue
+                    n += 1
+    return n
 
 
 def stats(park):
