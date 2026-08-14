@@ -7,7 +7,7 @@ computer (Jetson) running the AirStack robot stack.
 It covers three things that must all be right:
 
 1. **EKF2 parameters** — tell PX4 to fuse external vision instead of GPS/baro/mag.
-2. **Companion MAVLink link** — how the Jetson talks to the Cube (USB vs TELEM2 UART).
+2. **Companion MAVLink link** — how the Jetson talks to the Cube (see the PX4 docs).
 3. **Vision pose pipeline** — how a mocap pose becomes a `VISION_POSITION_ESTIMATE`.
 
 > Scope: PX4 ≥ 1.14 (the `EKF2_EV_CTRL` / `EKF2_GPS_CTRL` era). For older
@@ -109,68 +109,22 @@ Disable it entirely with `enabled: false`.
 
 ## 3. Companion MAVLink link (Jetson ↔ Cube)
 
-The Jetson's `mavros` connects to the Cube over a serial link chosen by
-`FCU_URL` in the deployment env
-([`overrides/l4t-px4-realrobot.env`](../../overrides/l4t-px4-realrobot.env)).
+`mavros` reaches the FCU over the serial link named by `FCU_URL` in the deployment env.
+Configuring that link is standard PX4 setup, not AirStack-specific — see the PX4 docs:
 
-### Option A — USB (`/dev/ttyACM0`) — current, but has a known stall
+- [Companion computer setup](https://docs.px4.io/main/en/companion_computer/)
+- [MAVLink peripherals (`MAV_n_CONFIG`, `MAV_n_MODE`)](https://docs.px4.io/main/en/peripherals/mavlink_peripherals.html)
+- [Serial port configuration](https://docs.px4.io/main/en/peripherals/serial_configuration.html)
 
-```
-FCU_URL=/dev/ttyACM0:115200
-```
+Use the **TELEM2 UART** for the companion link rather than USB. On Cube Orange the USB
+CDC-ACM path intermittently stalls outbound transfers for 10–30 s at a time — visible as
+`DROPPED Message-Id 102 … TX queue overflow` — which starves EKF2 of vision updates and
+makes it dead-reckon between bursts. It is not a bandwidth problem and rate-limiting the
+vision stream does not help.
 
-The Cube auto-starts a MAVLink instance on USB (`SYS_USB_AUTO=2`,
-`cdcacm_autostart`). This works but has a **documented failure mode on this
-hardware**: the Cube Orange (`2dae:1016`) intermittently NAKs USB **OUT**
-transfers for 10–30 s windows, even at low data rates. The symptom is bursts of:
+> In compose list-syntax `environment:`, values are literal — write `FCU_URL=/dev/ttyTHS1:115200`
+> bare. Quoting it passes the quotes through and breaks MAVROS URL parsing.
 
-```
-mavconn: 0: DROPPED Message-Id 102 [...] MAVConnSerial::send_message: TX queue overflow
-        at line 165 in ./src/interface.cpp
-```
-
-Every *outbound* message type is affected (102 VISION_POSITION_ESTIMATE, 82, 111,
-0 HEARTBEAT, …), the **inbound** direction stays perfect, and it is **not a
-bandwidth problem** — it reproduces at ~200 B/s. Rate-limiting the vision stream
-does **not** help. Closing and reopening the port clears it. Root cause is the
-Cube's USB CDC-ACM stack under sustained OUT load, not the AirStack side.
-
-**Consequence for external vision:** dropped `102`s mean EKF2 receives vision
-only in bursts, dead-reckons on the IMU between them, and its local estimate
-drifts away from the mocap pose. Fix the link before trusting fusion.
-
-### Option B — TELEM2 UART — recommended for a companion computer
-
-Move the companion link off USB onto the TELEM2 UART (the PX4-recommended
-companion connection), which sidesteps the USB CDC path entirely.
-
-**Wiring:** Cube **TELEM2** ↔ a Jetson UART (e.g. `/dev/ttyTHS1`), TX↔RX
-crossed, common ground. Do **not** connect the FCU 5 V rail to the Jetson.
-
-**PX4 params (set once in QGC, then reboot):**
-
-| Parameter | Value | Meaning |
-|---|---|---|
-| `MAV_1_CONFIG` | `102` | Start a second MAVLink instance on **TELEM2**. (`0` = disabled; `101` = TELEM1, used by the SiK radio.) |
-| `MAV_1_MODE` | `2` | **Onboard** mode — the message set for a companion computer. |
-| `MAV_1_RATE` | `0` | Unlimited (or a byte/s cap if you want to bound the link). |
-| `MAV_1_FORWARD` | `0` | Don't forward other links onto this one. |
-| `SER_TEL2_BAUD` | `115200` | TELEM2 baud (raise to `921600` if the UART and cabling are clean). |
-
-**Deployment env:**
-
-```
-FCU_URL=/dev/ttyTHS1:115200
-```
-
-> No-quotes gotcha: in the compose list-syntax `environment:`, values are
-> literal — `FCU_URL="/dev/ttyTHS1:115200"` passes the quotes through and breaks
-> MAVROS URL parsing. Write it bare.
-
-You can leave the USB MAVLink instance enabled as a spare / QGC-over-USB port;
-it won't conflict with TELEM2.
-
----
 
 ## 4. Vision pose pipeline (mocap → PX4)
 
