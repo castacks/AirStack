@@ -77,6 +77,11 @@ _Z_ASPHALT = 0.10
 _Z_DRIVE = 0.16
 _Z_CROSSWALK = 0.20
 _Z_DASH = 0.24
+# Park surfaces sit just above the block grass they are laid on, with their
+# paint above that, on the same "surface then markings" convention as a street.
+_Z_PARK_SURF = 0.06
+_Z_PARK_PATH = 0.08
+_Z_PARK_LINE = 0.12
 
 # THE JUNCTION IS A ZONE, NOT A POINT, and three passes need the same one:
 # sidewalk tiles must stop before the corner, lane dashes must stop before the
@@ -295,7 +300,79 @@ def _define_mesh(stage, path, verts, counts, idx, uvs, color, mat):
 # ground
 # ---------------------------------------------------------------------------
 
-def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf):
+def apply_park_ground(stage, config, park, gnd, ssf, mats):
+    """The park's SURFACES: court slabs, pitch, sand, paths and their markings.
+
+    Without this the park had its props and nothing under them -- hoops standing
+    on grass, a tennis block with no court, no paths at all. The props were
+    placed because they are assets; the surfaces were not, because they are
+    GEOMETRY, and nothing was generating it. suburb_park already produces the
+    polygons and the regulation line work (`basketball_markings`,
+    `tennis_markings`, `soccer_markings`); this writes them.
+
+    Z ordering matches the street convention -- surface, then paint on top of
+    it -- and sits above the block grass so a court reads as laid on the park
+    rather than buried in it.
+    """
+    asphalt_mat, grass_mat = mats
+    n = {"slab": 0, "mark": 0, "path": 0}
+
+    def xf(pts, cx, cy, yaw):
+        a = math.radians(yaw)
+        ux, uy = math.cos(a), math.sin(a)
+        return [(cx + ux * x - uy * y, cy + uy * x + ux * y) for (x, y) in pts]
+
+    SURF = {                       # kind -> (colour, material, z)
+        "soccer":              ((0.26, 0.44, 0.18), grass_mat,   _Z_PARK_SURF),
+        "basketball_compound": ((0.24, 0.28, 0.33), asphalt_mat, _Z_PARK_SURF),
+        "tennis_block":        ((0.18, 0.42, 0.32), asphalt_mat, _Z_PARK_SURF),
+        "playground":          ((0.85, 0.76, 0.60), "",          _Z_PARK_SURF),
+        "picnic":              ((0.42, 0.50, 0.31), grass_mat,   _Z_PARK_SURF),
+    }
+    for i, z in enumerate(park["zones"]):
+        spec = SURF.get(z["kind"])
+        if not spec:
+            continue
+        col, mat, zz = spec
+        if _make_polygon(stage, f"{gnd}/park_{z['kind']}_{i}", z["corners"],
+                         zz, ssf, 4.0, col, mat) is not None:
+            n["slab"] += 1
+
+    # Line work, at the regulation dimensions suburb_park already solves for.
+    for i, z in enumerate(park["zones"]):
+        lines = []
+        if z["kind"] == "soccer":
+            lines = [(spk.soccer_markings(), z["centre"], z["yaw"])]
+        elif z["kind"] == "basketball_compound":
+            lines = [(spk.basketball_markings(), c["centre"], c["yaw"])
+                     for c in z.get("courts", [])]
+        elif z["kind"] == "tennis_block":
+            lines = [(spk.tennis_markings(), c["centre"], c["yaw"])
+                     for c in z.get("courts", [])]
+        # The court index is in the prim path, not just the line index. Without
+        # it, court 2's markings overwrite court 1's at the same path and three
+        # of the four basketball courts come out unpainted -- 131 meshes were
+        # authored and 78 survived.
+        for k, (group, (cx, cy), yaw) in enumerate(lines):
+            for j, ln in enumerate(group):
+                w = xf(ln, cx, cy, yaw)
+                if _make_ribbon(stage, f"{gnd}/park_line_{i}_{k}_{j}", w, 0.06,
+                                _Z_PARK_LINE, ssf, 4.0,
+                                (0.93, 0.93, 0.90)) is not None:
+                    n["mark"] += 1
+
+    for i, pa in enumerate(park["paths"]):
+        w = float(pa.get("width_m", 2.6)) / 2.0
+        if _make_ribbon(stage, f"{gnd}/park_path_{i}", pa["pts"], w,
+                        _Z_PARK_PATH, ssf, 4.0, (0.72, 0.66, 0.55)) is not None:
+            n["path"] += 1
+
+    print(f"[suburb_scene] park ground: {n['slab']} surfaces, {n['mark']} "
+          f"markings, {n['path']} paths")
+
+
+def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
+                 park=None):
     """Asphalt ribbons, block grass, driveways and centreline dashes."""
     roads_cfg = config.get("roads", {}) or {}
     uv_asphalt = float(roads_cfg.get("asphalt_uv_scale_m", 4.0))
@@ -400,6 +477,9 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf):
                                c[0], c[1], _Z_DASH, dash_len, dash_w, yaw, ssf,
                                display_color=(0.85, 0.75, 0.2))
             n_dash += 1
+
+    if park is not None:
+        apply_park_ground(stage, config, park, gnd, ssf, (asphalt_mat, grass_mat))
 
     print(f"[suburb_scene] ground: {n_road} road ribbons, {n_bulb} turnarounds, "
           f"{n_grass} block meshes, {n_drive} driveways, {n_dash} dashes "
@@ -937,5 +1017,5 @@ def generate_suburb_on_stage(stage, config,
                             ["tree", "plant", "sidewalk", "streetlight",
                              "fire_hydrant", "sign", "crosswalk"])))
     apply_ground(stage, config, net, blocks, parcels, info["region"],
-                 parent_path, scene_scale_factor)
+                 parent_path, scene_scale_factor, park=park)
     return placements
