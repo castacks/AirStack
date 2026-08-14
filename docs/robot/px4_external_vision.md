@@ -20,7 +20,7 @@ It covers three things that must all be right:
 
 These are enforced automatically at startup by the `px4_param_setter` node (see
 below), sourced from
-[`robot/ros_ws/src/perception/natnet_ros2/config/px4_params.yaml`](robot/ros_ws/src/perception/natnet_ros2/config/px4_params.yaml).
+[`robot/ros_ws/src/perception/natnet_ros2/config/px4_params.yaml`](../../robot/ros_ws/src/perception/natnet_ros2/config/px4_params.yaml).
 You can also set them by hand in QGroundControl — PX4 persists parameters, so
 either way it's a one-time thing per airframe.
 
@@ -81,10 +81,10 @@ before flight, the stack runs a one-shot node at startup that **checks** the liv
 params against the desired set. **By default it only checks and flags — it does not
 write to the FCU.**
 
-- **Node:** [`px4_param_setter_node.py`](robot/ros_ws/src/perception/natnet_ros2/src/px4_param_setter_node.py)
-- **Config:** [`config/px4_params.yaml`](robot/ros_ws/src/perception/natnet_ros2/config/px4_params.yaml)
+- **Node:** [`px4_param_setter_node.py`](../../robot/ros_ws/src/perception/natnet_ros2/src/px4_param_setter_node.py)
+- **Config:** [`config/px4_params.yaml`](../../robot/ros_ws/src/perception/natnet_ros2/config/px4_params.yaml)
   (everything under `params.` is a desired FCU parameter)
-- **Launch:** [`launch/px4_param_setter.launch.xml`](robot/ros_ws/src/perception/natnet_ros2/launch/px4_param_setter.launch.xml),
+- **Launch:** [`launch/px4_param_setter.launch.xml`](../../robot/ros_ws/src/perception/natnet_ros2/launch/px4_param_setter.launch.xml),
   included from `natnet_ros2.launch.py` when the robot's `vision_pose` block is enabled.
 
 Two safety flags in `px4_params.yaml`:
@@ -111,7 +111,7 @@ Disable it entirely with `enabled: false`.
 
 The Jetson's `mavros` connects to the Cube over a serial link chosen by
 `FCU_URL` in the deployment env
-([`overrides/l4t-px4-realrobot.env`](overrides/l4t-px4-realrobot.env)).
+([`overrides/l4t-px4-realrobot.env`](../../overrides/l4t-px4-realrobot.env)).
 
 ### Option A — USB (`/dev/ttyACM0`) — current, but has a known stall
 
@@ -184,14 +184,14 @@ Motive (OptiTrack, 100 Hz)
 
 **Frame convention — the thing to get right.** MAVROS's `vision_pose` plugin
 expects **ROS ENU** and converts to PX4 NED internally. The
-[`vision_pose_converter_node.py`](robot/ros_ws/src/perception/natnet_ros2/src/vision_pose_converter_node.py)
+[`vision_pose_converter_node.py`](../../robot/ros_ws/src/perception/natnet_ros2/src/vision_pose_converter_node.py)
 does **no coordinate transform** — it only rewrites `frame_id`, optionally
 canonicalizes the quaternion sign (`qw ≥ 0`), and rate-limits. **So
 `natnet_ros2_node` must already publish ENU.** If position/yaw come out rotated
 or axis-swapped, fix it there, not in the converter.
 
 **Rate limiting.** `max_rate_hz` (default 50 in
-[`vision_pose_converter.yaml`](robot/ros_ws/src/perception/natnet_ros2/config/vision_pose_converter.yaml))
+[`vision_pose_converter.yaml`](../../robot/ros_ws/src/perception/natnet_ros2/config/vision_pose_converter.yaml))
 caps the stream to MAVROS. EKF2 only needs 30–50 Hz. Note this is about not
 saturating a healthy serial link — it does **not** fix the USB CDC stall in
 section 3.
@@ -204,7 +204,7 @@ On real hardware the drone reported ~36 m of altitude while sitting on the mocap
 floor. The cause is a **datum interaction**, not a bug in any single component:
 
 - AirStack anchors the world at a shared origin altitude of **90.0 m**, used by sim
-  ([`gps_utils.py`](simulation/isaac-sim/launch_scripts/gps_utils.py)), the GCS
+  ([`gps_utils.py`](../../simulation/isaac-sim/launch_scripts/gps_utils.py)), the GCS
   (`gcs_utils.py ORIGIN_ALT`), and the synthetic GPS origin. That 90.0 is a **WGS‑84
   ellipsoidal** height.
 - MAVROS/PX4 convert a GPS-origin altitude from ellipsoidal to **AMSL** using the
@@ -213,7 +213,7 @@ floor. The cause is a **datum interaction**, not a bug in any single component:
   `AMSL = 90 − 54 = 36 m`, while OptiTrack says the floor is `z = 0`. The
   **36 m gap** is exactly `90 − N`.
 
-**Fix — [`mavros_gp_origin_node.py`](robot/ros_ws/src/perception/natnet_ros2/src/mavros_gp_origin_node.py)
+**Fix — [`mavros_gp_origin_node.py`](../../robot/ros_ws/src/perception/natnet_ros2/src/mavros_gp_origin_node.py)
 with `use_geoid_altitude: true`:** publish the origin altitude as
 `N + desired_floor_amsl` instead of the literal 90.0. `N` is computed at runtime with
 `GeoidEval` — no hardcoded magic number — using the same egm96‑5 model MAVROS uses, so
