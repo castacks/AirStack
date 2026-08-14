@@ -15,11 +15,16 @@ from coordination_bringup.frame_utils import gps_to_enu
 
 # Degraded-comms sweep: isotropic range instead of the effectively-unlimited
 # 5000 m the original benchmark ran with, so coordination has to survive losing
-# the link. Relay hops scale with fleet size, giving a chain long enough to cross
-# the fleet when every robot is a relay.
+# the link.
 #
 # 2026-08-08  50 m — robots isolated 35-50% of a mission at 3 robots.
 # 2026-08-10  30 m — tighter still.
+#
+# MAX_RELAY_HOPS only bounds scope and is over-provisioned at these fleet sizes:
+# crossing N robots takes N-1 edges, i.e. N-2 forwards, so one forward already
+# saturates a 3-robot fleet. Anything beyond that is dropped by gossip_node's
+# per-origin stamp dedup before it reaches peer state, which is why the 50 m
+# (hops=3) and 30 m (hops=2) sweeps remain directly comparable.
 #
 # This is a MODULE CONSTANT, not a parameter: every mission launched from this
 # branch runs at this range, including a re-run of the full-comms benchmark.

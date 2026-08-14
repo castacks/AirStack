@@ -1,0 +1,311 @@
+# comms50_3robot_rerun — re-fly of the degraded-comms (50 m, 3 robots)
+# runs that produced no usable search.
+#
+# 1 run. Each entry below names why it is here; the categories are
+#
+#   missing       no run file at all — the fleet never armed
+#
+# PRECONDITION — the radio range is a module constant, not a mission key:
+#
+#   coordination_bringup/comms_model.py  COMMS_RANGE_M = 50.0
+#
+# Set it before launching this file, or the run comes back at the wrong range.
+# The 30 m and 50 m reruns therefore cannot run concurrently.
+#
+# Everything else — scenes, spawns, queries, thresholds, search areas — is
+# identical to comms50_3robot_a / _b.
+#
+#   airstack osmo:mission osmo/missions/comms50_3robot_rerun.yaml --pool <gpu-pool>
+
+name: comms50_3robot_rerun
+
+nas_dest: /volume4/dsta/raven-comms50-rerun/
+
+stack:
+  services: [isaac-sim, robot-desktop, gcs]
+
+env:
+  NUM_ROBOTS: 3
+  ISAAC_SIM_HEADLESS: "true"
+  ISAAC_SIM_USE_STANDALONE: "true"
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  PLAY_SIM_ON_START: "true"
+  # voxel_score_threshold below is a SOFTMAX PROBABILITY — rayfronts computes
+  # softmax(100 * cos_sim) over the registered vocabulary. Set explicitly so a
+  # sticky env var from an earlier mission (raven_ablation runs it False) cannot
+  # leave raw cosines in place: those top out near 0.16, so a 0.50 gate would
+  # reject every voxel and the run would silently detect nothing.
+  RAYFRONTS_COMPUTE_PROB: "True"
+
+# ── scene templates ────────────────────────────────────────────────────────
+# Per-scene inputs (map, stage scale, spawn height, query, thresholds, search
+# area), anchored once and merged into that scene's three spawn entries via
+# `<<:` so all three start locations run byte-identical settings. STAGE_SCALE
+# and SPAWN_HEIGHT_M are set on EVERY scene on purpose: mission_runner.apply_env
+# only merges env vars, so an omitted key silently inherits the previous
+# iteration's value. `scene_templates` is not a recognized top-level mission
+# key — the runner ignores it; it exists only to hold the anchors.
+  frontier: &frontier
+    FRONTIER_ONLY_BASELINE: "true"
+    VLFM_BASELINE: "false"
+    LVLM_BASELINE: "false"
+    method: frontier
+
+  vlfm: &vlfm
+    FRONTIER_ONLY_BASELINE: "false"
+    VLFM_BASELINE: "true"
+    LVLM_BASELINE: "false"
+    method: vlfm
+
+  lvlm: &lvlm
+    FRONTIER_ONLY_BASELINE: "false"
+    VLFM_BASELINE: "false"
+    LVLM_BASELINE: "true"
+    method: lvlm
+
+  # No flag set -> the default full-coordination raven stack.
+  multiraven: &multiraven
+    FRONTIER_ONLY_BASELINE: "false"
+    VLFM_BASELINE: "false"
+    LVLM_BASELINE: "false"
+    method: multi-raven
+
+scene_templates:
+  downtownwest: &downtownwest
+    ENV_URL: "Library/Stages/Dmytro/downtown_edited_v3_818.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "DowntownWest"
+    query: "fountain, car, truck"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 50
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
+    search_area:
+      points:
+        - {x: 160.0, y: 100.0, z: 0.0}
+        - {x: 160.0, y: -100.0, z: 0.0}
+        - {x: -260.0, y: -100.0, z: 0.0}
+        - {x: -260.0, y: 100.0, z: 0.0}
+
+  moderncitydowntown: &moderncitydowntown
+    ENV_URL: "Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "ModernCityDowntown"
+    query: "yellow truck, obelisk, bankomat, cafe table, car"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 30
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
+    search_area:
+      points:
+        - {x: -100.0, y: -110.0, z: 0.0}
+        - {x: -100.0, y: 100.0, z: 0.0}
+        - {x: 80.0, y: 100.0, z: 0.0}
+        - {x: 80.0, y: -110.0, z: 0.0}
+
+  retroneighborhood: &retroneighborhood
+    ENV_URL: "Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
+    STAGE_SCALE: "0.01"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "RetroNeighborhood"
+    query: "house, bus stop, blue container, red container"
+    voxel_score_threshold: 0.6
+    score_threshold: -1
+    voxel_min_cluster_size: 50
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
+    search_area:
+      points:
+        - {x: -150.0, y: -110.0, z: 0.0}
+        - {x: -150.0, y: 70.0, z: 0.0}
+        - {x: 170.0, y: 70.0, z: 0.0}
+        - {x: 170.0, y: -110.0, z: 0.0}
+
+  fireacademy: &fireacademy
+    ENV_URL: "Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
+    STAGE_SCALE: "0.01"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "FireAcademy"
+    query: "red building, water tower, fuel tank, radio tower"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 30
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building facade, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
+    search_area:
+      points:
+        - {x: 13.0, y: -135.0, z: 0.0}
+        - {x: 135.0, y: -13.0, z: 0.0}
+        - {x: 13.0, y: 135.0, z: 0.0}
+        - {x: -135.0, y: 13.0, z: 0.0}
+
+  constructionsite: &constructionsite
+    ENV_URL: "Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
+    STAGE_SCALE: "0.01"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "ConstructionSite"
+    query: "forklift, tower crane, blue tarp"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 80
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, ground"
+    # Widened to a rectangle: the s3 spawn (x ~ -55) and two query props sat
+    # outside the old quadrilateral (x[-40,76] y[-71,50]).
+    search_area:
+      points:
+        - {x: 95.0, y: 65.0, z: 0.0}
+        - {x: 95.0, y: -90.0, z: 0.0}
+        - {x: -75.0, y: -90.0, z: 0.0}
+        - {x: -75.0, y: 65.0, z: 0.0}
+
+  abandonedfactory: &abandonedfactory
+    ENV_URL: "Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "1.0"
+    RESULTS_SCENE: "AbandonedFactory"
+    query: "building, water tower, white silo"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 30
+    background_queries: "pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, ground"
+    search_area:
+      points:
+        - {x: 45.0, y: 102.0, z: 0.0}
+        - {x: 45.0, y: -97.0, z: 0.0}
+        - {x: -109.0, y: -97.0, z: 0.0}
+        - {x: -109.0, y: 102.0, z: 0.0}
+
+  militarybase: &militarybase
+    ENV_URL: "Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "1.0"
+    RESULTS_SCENE: "MilitaryBase"
+    query: "guard tower, radio tower, bridge, helicopter"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 50
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
+    # Widened: the s2 spawn (1015, 325..341) sat outside the old x>=1030,
+    # y<=320 rectangle.
+    search_area:
+      points:
+        - {x: 1295.0, y: 360.0, z: 0.0}
+        - {x: 1000.0, y: 360.0, z: 0.0}
+        - {x: 1000.0, y: -165.0, z: 0.0}
+        - {x: 1295.0, y: -165.0, z: 0.0}
+
+  shipyard: &shipyard
+    ENV_URL: "Library/Stages/Dmytro/edit_v1_shipyard.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "2.0"
+    RESULTS_SCENE: "Shipyard"
+    query: "ship, crane"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 50
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
+    search_area:
+      points:
+        - {x: -250.0, y: 250.0, z: 0.0}
+        - {x: 250.0, y: 250.0, z: 0.0}
+        - {x: 250.0, y: -250.0, z: 0.0}
+        - {x: -250.0, y: -250.0, z: 0.0}
+
+# ── 24 runs: 8 scenes x 3 start locations ──────────────────────────────────
+# Each scene merges its template above and pins SPAWN_CONFIGS — a fixed
+# (x_m, y_m, orient) per drone, where orient is a yaw-only quaternion [x,y,z,w].
+# Every layout is inside its spawn rectangle with all three drones >= 3 m apart.
+# These 24 SPAWN_CONFIGS are IDENTICAL in multi_raven_mission / frontier_exploration
+# / vlfm_baseline / lvlm_baseline — change one, change all four.
+environments:
+  # missing — no run file; never armed
+  - <<: [*shipyard, *lvlm]
+    name: shipyard_s3_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 48.5, "y_m": -203.0, "orient": [0.0, 0.0, 0.45, 0.893]}, {"x_m": 51.5, "y_m": -206.5, "orient": [0.0, 0.0, 0.7853, 0.6192]}, {"x_m": 48.5, "y_m": -209.5, "orient": [0.0, 0.0, 0.9734, 0.2293]}]'
+
+command_route: gcs
+
+# grouped: one run per entry above, in file order.
+environment_order: grouped
+iterations: 1
+
+# Redo an iteration (clean down→up→fly→down) if a step up to and including
+# semantic_search fails — i.e. the precondition steps fail, or semantic_search
+# never gets feedback after its own retries. Up to 3 attempts per iteration.
+iteration_attempts: 3
+
+# 900 rather than 600: PX4 heartbeat has taken up to 325 s on a loaded box,
+# and every run here either failed bring-up or lost its stack mid-flight.
+ready:
+  timeout_s: 900
+
+record:
+  enabled: true
+  scope: gcs
+  required: true
+  topics:
+    - /tf
+    - /tf_static
+    - /{robot}/odometry_conversion/odometry
+    - /gcs/robot_markers
+    - /gcs/payload/{robot}/filtered_rays
+    - /gcs/payload/{robot}/filtered_frontiers
+    - /gcs/payload/{robot}/explored_area_coverage
+    - /gcs/payload/{robot}/confirmed_targets
+    - /gcs/payload/{robot}/auction_table
+    - /gcs/payload/{robot}/voxel_rgb
+    - /gcs/sim_ground
+    - /gcs/annotations/bboxes
+    - /rayfronts_debug/{robot}/voxels_sim/all
+    - /rayfronts_debug/{robot}/voxel_rgb
+
+on_step_failure: abort_iteration
+
+steps:
+  - run:
+      container: robot_1
+      cmd: python3 -c "import torch; torch.hub.load('NVlabs/RADIO', 'radio_model', version='c-radio_v3-b', skip_validation=True, adaptor_names=['siglip2','sam'])"
+      timeout_s: 900
+      attempts: 5
+      retry_delay_s: 15
+
+  - run:
+      container: robot_1
+      cmd: python3 -c "from huggingface_hub import snapshot_download; snapshot_download('OpenGVLab/InternVL3-2B')"
+      timeout_s: 900
+      attempts: 5
+      retry_delay_s: 15
+
+  - action:
+      task: takeoff
+      goal: {target_altitude_m: 12.0, velocity_m_s: 1.0}
+      timeout_s: 180
+
+  - wait: 5
+
+  # Run budget = 15 min OR 80% explored, whichever first (cancel_on_timeout lets
+  # semantic_search_task run its compile + metrics finalize on the deadline).
+  # pass_on_feedback: the iteration only needs the search to RUN — pass as soon
+  # as feedback is seen, regardless of outcome; redo the iteration only if no
+  # feedback arrives after the retries.
+  - action:
+      task: semantic_search
+      timeout_s: 900
+      cancel_on_timeout: true
+      pass_on_feedback: true
+      goal:
+        query: "{{env.query}}"
+        background_queries: "{{env.background_queries}}"
+        search_area: "{{env.search_area}}"
+        min_altitude_agl: 5.0
+        max_altitude_agl: 20.0
+        min_flight_speed: 0.5
+        max_flight_speed: 1.0
+        confidence_threshold: 0.95
+        # Per-scene voxel similarity gate (see each scene template above).
+        voxel_score_threshold: "{{env.voxel_score_threshold}}"
+        # Per-scene ray score gate + voxel cluster size (-1 on an entry = raven_nav default).
+        score_threshold: "{{env.score_threshold}}"
+        voxel_min_cluster_size: "{{env.voxel_min_cluster_size}}"
+        # Consensus bundle length (head executed, tail reserved + replanned).
+        bundle_len: 3
