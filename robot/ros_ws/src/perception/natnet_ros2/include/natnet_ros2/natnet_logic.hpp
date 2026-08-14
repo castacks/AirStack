@@ -196,12 +196,8 @@ struct FrameSample
     int32_t frame_num = 0;
     float   timestamp = 0.f;
     int16_t params    = 0;   ///< NatNet frame.params bitmask
-    /// Seconds elapsed since the server transmitted this frame, as reported by
-    /// NatNetClient::SecondsSinceHostTimestamp(TransmitTimestamp). This is the
     /// transit + client-processing latency the drone observes per message.
     double  transit_latency_s = 0.0;
-    /// True when transit_latency_s is meaningful (server supplied a non-zero
-    /// TransmitTimestamp). Older servers / streams without timing info leave it false.
     bool    has_latency = false;
     std::vector<RigidBodySample> bodies;
 };
@@ -227,8 +223,7 @@ inline bool should_publish_body(int32_t filter_id, int32_t rb_id)
 
 /// Returns true when rb_id is one of the configured body ids.
 ///
-/// Multi-body variant of should_publish_body(): the node tracks a fixed set of
-/// ids from natnet_config.yaml and publishes only those (empty set → nothing).
+/// The node publishes only a fixed set of ids based on natnet_config.yaml.
 inline bool body_is_configured(const std::vector<int32_t> & configured_ids, int32_t rb_id)
 {
     return std::find(configured_ids.begin(), configured_ids.end(), rb_id)
