@@ -12,6 +12,7 @@ services:
       - QT_QPA_PLATFORM
       # Record bags
       - RECORD_BAGS=${RECORD_BAGS}
+      - LOG_CONFIG=${LOG_CONFIG:-log.yaml}
       # docker compose interpolation to env variables
       - AUTONOMY_ROLE=${AUTONOMY_ROLE:-full}
       - URDF_FILE=${URDF_FILE}  

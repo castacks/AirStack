@@ -74,9 +74,10 @@ nav:
               - CI/CD Orchestrator: tests/ci-cd-orchestrator.md
           - Frame Conventions: docs/development/intermediate/frame_conventions.md
           - Docker Build Profiles: docs/development/intermediate/docker-build-profiles.md
-          - Contributing: 
+          - Contributing:
               - docs/development/intermediate/contributing.md
               - docs/development/intermediate/documentation.md
+              - Feature Notebook: docs/development/intermediate/feature_notebook.md
       - Advanced Tutorials:
           - AI Agent Guide: docs/development/advanced/ai_agent_guide.md
           - AirStack CLI Tool:

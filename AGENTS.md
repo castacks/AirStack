@@ -93,23 +93,43 @@ For detailed step-by-step instructions, refer to the **`.agents/skills/`** direc
 | [debug-module](.agents/skills/debug-module) | Autonomous debugging of ROS 2 modules |
 | [update-documentation](.agents/skills/update-documentation) | Documenting new modules and updating mkdocs |
 | [test-in-simulation](.agents/skills/test-in-simulation) | End-to-end simulation testing of a module |
-| [add-unit-tests](.agents/skills/add-unit-tests) | Adding Python or C++ unit tests to a ROS 2 package (co-location + proxy pattern, CI workflow, extending to sim/GCS) |
+| [add-unit-tests](.agents/skills/add-unit-tests) | Adding Python or C++ unit tests to a ROS 2 package (co-located test/ dir listed in colcon_unit_test_packages.yaml, CI workflow, extending to sim/GCS) |
 | [run-system-tests](.agents/skills/run-system-tests) | Running the pytest system test harness (marks, MetricsRecorder, /pytest PR trigger) |
 | [add-behavior-tree-node](.agents/skills/add-behavior-tree-node) | Creating behavior tree nodes |
 | [use-airstack-cli](.agents/skills/use-airstack-cli) | Using the `airstack` CLI and the non-interactive `docker exec` pattern |
 | [configure-multi-robot](.agents/skills/configure-multi-robot) | Setting up multiple robots, ROBOT_NAME namespacing, and ROS_DOMAIN_ID isolation |
 | [bump-version-and-release](.agents/skills/bump-version-and-release) | Bumping `.env` VERSION and CHANGELOG before merge to clear the version-check gate |
 | [capture-discovered-knowledge](.agents/skills/capture-discovered-knowledge) | After long context-discovery / surprising findings, persist to AGENTS.md or a new skill so the next agent doesn't redo the work |
+| [use-feature-notebook](.agents/skills/use-feature-notebook) | At the start of EVERY feature implementation: create `notebook/NNN-feature-slug/design_spec.md`, store test artifacts under `results/`, write `results/results_summary.md`, and populate the PR from it |
 
 **Agent Workflow Example:**
-1. Study reference implementation for module type
-2. Follow `add_ros2_package.md` to create package structure
-3. Implement algorithm with proper topic interfaces
-4. Follow `integrate_module_into_layer.md` to add to bringup
-5. Follow `update_documentation.md` to document
-6. Follow `debug_module.md` and `test_in_simulation.md` to verify
+1. **Create a notebook entry** — follow `use-feature-notebook` to write `notebook/NNN-feature-slug/design_spec.md` (problem context, proposed implementation, lettered test plan) before writing code
+2. Study reference implementation for module type
+3. Follow `add_ros2_package.md` to create package structure
+4. Implement algorithm with proper topic interfaces
+5. Follow `integrate_module_into_layer.md` to add to bringup
+6. Follow `update_documentation.md` to document
+7. Follow `debug_module.md` and `test_in_simulation.md` to verify, saving artifacts under `notebook/NNN-feature-slug/results/<letter>-<section>/`
+8. Write `results/results_summary.md` (embedded tables + figures) and populate the PR body from it
 
 Also see: [AI Agent Quick Guide](docs/development/ai_agent_guide.md)
+
+## Feature Notebook (`notebook/`)
+
+Every feature an agent implements gets a numbered entry under `notebook/` at the repo root — a local lab journal that survives the agent session:
+
+```
+notebook/001-add-new-planner/
+├── design_spec.md              # BEFORE coding: problem context from the session, proposed implementation, lettered test plan
+└── results/
+    ├── results_summary.md      # AFTER testing: self-contained doc with embedded tables + figures, per-section verdicts
+    ├── a-planner-core/         # Raw artifacts per test-plan section (letters match design_spec.md)
+    └── b-planner-hyperparameters/
+```
+
+`notebook/` is **gitignored — local-only on each developer's machine**. Never commit it or reference its paths from committed code. Its content leaves the machine one way: the feature's PR description is populated from `design_spec.md` (motivation, what changed) and `results_summary.md` (validation tables, figures uploaded as PR attachments).
+
+**Full workflow and templates:** [.agents/skills/use-feature-notebook](.agents/skills/use-feature-notebook)
 
 ## Reference Implementations
 
@@ -196,13 +216,13 @@ docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo <topic_name> --onc
    - Verify module behavior in isolation
    - Test with synthetic data
    - Located in module's `test/` directory
-   - **Run in the robot container** with `colcon test` (after `bws`) for the full ROS 2 build + test. The same co-located test source is re-exported to the root [`tests/`](tests/) suite via thin proxies (see Unit tests below), so `airstack test -m unit` runs it too. Marks are declared in [`tests/pytest.ini`](tests/pytest.ini) (`unit`, `build_docker`, `build_packages`, `liveliness`, `sensors`, `takeoff_hover_land`, `autonomy`).
+   - **Run in the robot container** with `colcon test` (after `bws`) for the full ROS 2 build + test. The same co-located test source is collected by the root [`tests/`](tests/) suite (the packages with unit tests are listed in [`tests/colcon_unit_test_packages.yaml`](tests/colcon_unit_test_packages.yaml)), so `airstack test -m unit` runs it too. Marks are declared in [`tests/pytest.ini`](tests/pytest.ini) (`unit`, `build_docker`, `build_packages`, `integration`, `liveliness`, `sensors`, `takeoff_hover_land`, `autonomy`).
 
    ```bash
    docker exec airstack-robot-desktop-1 bash -c "sws && colcon test --packages-select natnet_ros2 --event-handlers console_direct+"
    ```
 
-2. **Unit tests (`pytest`, `unit` mark):** Fast, hermetic checks. Test **source** lives co-located with each ROS 2 package in `<package>/test/` (standard colcon convention). Thin **proxy** files in [`tests/robot/`](tests/robot/) and [`tests/sim/`](tests/sim/) re-export those tests so `pytest tests/` discovers them. Unit tests run as part of the `system-tests.yml` suite. Example: `airstack test -m unit -v`. See `add-unit-tests` skill.
+2. **Unit tests (`pytest`, `unit` mark):** Fast, hermetic checks. Test **source** lives co-located with each ROS 2 package in `<package>/test/` (standard colcon convention). [`tests/colcon_unit_test_packages.yaml`](tests/colcon_unit_test_packages.yaml) lists which packages have unit tests, and `tests/conftest.py` collects them from there under `--import-mode=importlib`. To add a package's unit tests, list it in that YAML. Unit tests run as part of the `system-tests.yml` suite. Example: `airstack test -m unit -v`. See `add-unit-tests` skill.
 
 3. **System Level (`tests/system/`):** Full simulation tests (Isaac Sim or Microsoft AirSim legacy)
    - End-to-end autonomy stack testing
@@ -222,8 +242,9 @@ Pytest-based system tests live under [`tests/system/`](tests/system/). They brin
 | [`tests/system/test_sensors.py`](tests/system/test_sensors.py) | `sensors` | Topic Hz (Isaac: batched sim + robot ``ros2 topic hz``; filtered LiDAR ``echo-once`` + validation script), RTF, sensor stability time-series | Docker, GPU, sim license |
 | [`tests/system/test_takeoff_hover_land.py`](tests/system/test_takeoff_hover_land.py) | `takeoff_hover_land` | 4-phase flight chain (PX4 ready → takeoff → hover → land) per (sim, num_robots, iter, velocity) | Docker, GPU, sim license |
 | [`tests/system/test_fixed_trajectory.py`](tests/system/test_fixed_trajectory.py) | `autonomy` | 4-phase flight chain (PX4 ready → takeoff → execute Circle/Figure8/Racetrack/Line trajectory → land) per (sim, num_robots, iter, trajectory_type); records cross-track error and path RMSE | Docker, GPU, sim license |
+| [`tests/system/test_waypoint_flight.py`](tests/system/test_waypoint_flight.py) | `waypoint_flight` | 4-phase flight chain (PX4 ready → takeoff → NavigateTask waypoint route → land) per (sim, num_robots, iter); pass/fail judged on the odometry track by the standalone [`tests/waypoint_checker.py`](tests/waypoint_checker.py) (in-order corridor arrival within `--waypoint-tolerance`, final goal within `--goal-tolerance`, per-waypoint `--waypoint-timeout`) | Docker, GPU, sim license |
 
-Shared fixtures, the `airstack_env` parametrized fixture, and `MetricsRecorder` live in [`tests/conftest.py`](tests/conftest.py). Each run produces a timestamped directory under `tests/results/<timestamp>/` with `summary.txt`, `results.xml`, and `metrics.json` (no per-test log files — live output streams to the terminal via `log_cli`). [`tests/parse_metrics.py`](tests/parse_metrics.py) generates a markdown report (single-run or diff-vs-baseline; exits 1 on regression).
+The pytest hooks and the `airstack_env` / `robot_autonomy_stack` fixtures live in [`tests/conftest.py`](tests/conftest.py); the shared helpers are split by concern into the [`tests/harness/`](tests/harness/) package (`session`, `discovery`, `commands`, `containers`, `metrics` (with `MetricsRecorder`), `sim`, `collection`) and re-exported through `conftest`, so `from conftest import <name>` still resolves. Each run produces a timestamped directory under `tests/results/<timestamp>/` with `summary.txt`, `results.xml`, and `metrics.json` (no per-test log files — live output streams to the terminal via `log_cli`). [`tests/parse_metrics.py`](tests/parse_metrics.py) generates a markdown report (single-run or diff-vs-baseline; exits 1 on regression).
 
 **Run via the CLI** (containerized runner — no local Python needed):
 
