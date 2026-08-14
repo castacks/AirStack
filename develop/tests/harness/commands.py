@@ -55,8 +55,12 @@ def _run_teed(cmd_list, timeout, log_name=None, env=None, cwd=None):
     return result
 
 
-def docker_exec(container, cmd, timeout=60, log_name=None):
-    full_cmd = ["docker", "exec", container, "bash", "-c", cmd]
+def docker_exec(container, cmd, timeout=60, log_name=None, env=None):
+    full_cmd = ["docker", "exec"]
+    if env:
+        for key, value in env.items():
+            full_cmd.extend(["-e", f"{key}={value}"])
+    full_cmd.extend([container, "bash", "-c", cmd])
     return _run_teed(full_cmd, timeout=timeout, log_name=log_name)
 
 

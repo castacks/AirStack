@@ -7,8 +7,10 @@ services:
       dockerfile: docker/Dockerfile.gcs
       tags:
         - &gcs_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_gcs
+        - &gcs_cache ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:${CACHE_TAG:-cache}_gcs
       cache_from:
         - *gcs_image
+        - *gcs_cache
     command: >
       bash -c "
       ssh service restart;

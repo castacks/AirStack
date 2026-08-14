@@ -1057,6 +1057,8 @@
       
         
       
+        
+      
     
     
     
@@ -1182,6 +1184,34 @@
     
   
     End-to-End Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docs/development/intermediate/testing/ci_cd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD Pipeline
   
 
     
@@ -5445,7 +5475,7 @@
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>├── tests/                   # System tests (pytest) + metrics reporting
 </span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>├── .github/
 </span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│   ├── workflows/           # GitHub Actions CI (system-tests, docker-build, etc.)
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│   └── orchestrator/        # OpenStack-backed ephemeral self-hosted runners
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│   └── orchestrator/        # OSMO-backed ephemeral self-hosted runners
 </span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>└── .agents/skills/          # Detailed workflow guides for agents
 </span></code></pre></div>
 <h3 id="layered-autonomy-pattern">Layered Autonomy Pattern<a class="headerlink" href="#layered-autonomy-pattern" title="Permanent link">&para;</a></h3>
@@ -5836,15 +5866,21 @@ when you select both marks with <code>and</code>), and <strong>Isaac Sim</strong
 </table>
 <p><strong><code>/pytest</code> PR comments</strong> trigger <code>system-tests.yml</code> for users with write access (OWNER/MEMBER/COLLABORATOR), pulling args from the first line of the comment (e.g. <code>/pytest -m liveliness --sim msairsim</code>). Fork PRs are blocked — same-repo only — to keep arbitrary code off the self-hosted runner.</p>
 <h3 id="ephemeral-runner-orchestrator">Ephemeral Runner Orchestrator<a class="headerlink" href="#ephemeral-runner-orchestrator" title="Permanent link">&para;</a></h3>
-<p>GPU-required jobs (<code>runs-on: [self-hosted, airstack-ephemeral]</code>) execute on <strong>OpenStack VMs spawned per-job and destroyed on completion</strong>. The orchestrator service code lives in <a href=".github/orchestrator/"><code>.github/orchestrator/</code></a>:</p>
+<p>GPU-required jobs (<code>runs-on: [self-hosted, airstack-ephemeral]</code>) execute on <strong>ephemeral pods scheduled by <a href="https://nvidia.github.io/OSMO/">NVIDIA OSMO</a> — one per job, destroyed on completion</strong>. The GitHub side is unchanged from the old OpenStack backend (same labels, JIT tokens, fork guard); only the spawn target moved from "create a Nova VM" to "submit an OSMO workflow". The orchestrator service code lives in <a href=".github/orchestrator/"><code>.github/orchestrator/</code></a>:</p>
 <ul>
-<li><a href="../.github/orchestrator/orchestrator.py"><code>orchestrator.py</code></a> — Python service: spawn loop polls GitHub for queued jobs matching configured runner labels, mints single-use JIT runner tokens, creates an OpenStack server with cloud-init bootstrap; reap loop deletes the server when the job completes (or after <code>max_job_minutes</code>)</li>
-<li><a href="../.github/orchestrator/cloud-init.yaml.j2"><code>cloud-init.yaml.j2</code></a> — bootstraps Docker + nvidia-container-toolkit + GH Actions runner on the worker, registers with the JIT token, runs one job, then <code>shutdown -h</code></li>
-<li><a href="../.github/orchestrator/config.example.yaml"><code>config.example.yaml</code></a> — flavor / network / keypair / floating-IP pool / runner labels / repo</li>
+<li><a href="../.github/orchestrator/orchestrator.py"><code>orchestrator.py</code></a> — Python service: spawn loop polls GitHub for queued jobs matching configured runner labels, mints single-use JIT runner tokens, and submits one OSMO workflow per job (<code>osmo workflow submit</code>); reap loop cancels the workflow when the job completes (or after <code>max_job_minutes</code>), plus an orphan sweep via <code>osmo workflow list</code></li>
+<li><a href="../.github/orchestrator/runner-workflow.yaml.j2"><code>runner-workflow.yaml.j2</code></a> + <a href="../.github/orchestrator/runner.Dockerfile"><code>runner.Dockerfile</code></a> + <a href="../.github/orchestrator/runner-entrypoint.sh"><code>runner-entrypoint.sh</code></a> — the per-job worker: a <strong>privileged</strong>, GPU-enabled OSMO task (prebaked image) that starts an inner Docker daemon (the tests run <code>airstack up</code> = docker compose), registers with the JIT token, runs one job, then exits so OSMO reaps the pod</li>
+<li><a href="../.github/orchestrator/config.example.yaml"><code>config.example.yaml</code></a> — osmo_url / pool / platform / runner_image / resources / runner labels / repo</li>
 <li><a href="../.github/orchestrator/airstack-orchestrator.service"><code>airstack-orchestrator.service</code></a> + <a href="../.github/orchestrator/setup.sh"><code>setup.sh</code></a> — systemd unit and one-time installer</li>
 </ul>
-<p><strong>Why ephemeral:</strong> clean Docker cache per run, no leaked containers, GitHub PAT and OpenStack credentials only on the orchestrator host (workers receive a single-use JIT token bound to one runner registration). State map at <code>/var/lib/airstack-orchestrator/state.json</code>; logs via <code>journalctl -u airstack-orchestrator.service -f</code>.</p>
-<p><strong>Setup, debugging a failed job, and SSH-into-worker procedures:</strong> <a href="../.github/orchestrator/"><code>.github/orchestrator/README.md</code></a> (also exposed as <a href="../tests/ci-cd-orchestrator/"><code>tests/ci-cd-orchestrator.md</code></a> symlink for the docs site).</p>
+<p><strong>Why ephemeral:</strong> clean Docker cache per run, no leaked containers; the GitHub PAT and the OSMO service-account token live only on the orchestrator host (workers receive a single-use JIT token bound to one runner registration). CI authenticates to OSMO as a shared, non-personal <a href="https://nvidia.github.io/OSMO/main/deployment_guide/appendix/authentication/service_accounts.html">service account</a> scoped to a dedicated CI GPU pool, so runs don't consume individuals' quotas. The CI pool's platform must have <strong>"Privileged Mode Allowed"</strong> enabled (docker-in-docker). State map at <code>/var/lib/airstack-orchestrator/state.json</code>; logs via <code>journalctl -u airstack-orchestrator.service -f</code>.</p>
+<p><strong>Nested DinD needs a non-overlayfs Docker data-root.</strong> The OSMO pod's root filesystem is overlayfs, and Linux rejects a directory on overlayfs as an overlay <code>upperdir</code> (<code>EINVAL</code>). A dockerd storing data on the pod rootfs pulls images fine but fails every build step that needs a real mount, with errors that masquerade as <code>apt-get</code>/<code>WORKDIR</code> failures:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>failed to solve: ... mount source: &quot;overlay&quot;, target: &quot;.../buildkit/containerd-overlayfs/cachemounts/...&quot;, err: invalid argument
+</span></code></pre></div>
+<p><a href="../.github/orchestrator/runner-entrypoint.sh"><code>runner-entrypoint.sh</code></a> picks a backend by attempting a real overlay mount, preferring a loopback ext4 image at <code>/var/lib/docker</code> (real <code>overlay2</code>), then a real filesystem already mounted in the pod, then <code>fuse-overlayfs</code>, then <code>vfs</code>. Landing on <code>vfs</code> means builds will be slow and probably run out of disk — check the <code>[runner-entrypoint] storage:</code> line in the job log first when Docker builds misbehave. Details: <a href="../.github/orchestrator/">orchestrator README → Nested DinD and overlayfs</a>.</p>
+<p><strong>Docker layer cache is a floating tag, not the versioned one.</strong> Every compose service lists two <code>cache_from</code> entries: the versioned image (<code>airstack:v${VERSION}_&lt;suffix&gt;</code>) and a floating one (<code>airstack:${CACHE_TAG:-cache}_&lt;suffix&gt;</code>). Only the floating tag can ever hit on a PR — <code>check-version-increment</code> forces <code>VERSION</code> up on every PR, so the versioned tag it builds under has by definition never been pushed. Reading and writing are separate switches: <code>AIRSTACK_REGISTRY_CACHE=1</code> (set by <code>system-tests.yml</code>) pulls and builds with <code>BUILDKIT_INLINE_CACHE=1</code>, while <code>AIRSTACK_REGISTRY_CACHE_PUSH=1</code> (set only by <code>docker-build.yml</code> on main/develop) also publishes both tags. PR runs stay read-only so an unmerged branch can't poison the shared cache or publish an unreleased version. If you add a service with a <code>build:</code> section, give it both entries or its builds will always be cold.</p>
+<p><strong>Publish retags when image inputs are unchanged.</strong> <code>docker-build.yml</code> runs <a href="../.github/workflows/scripts/docker_image_plan.py"><code>.github/workflows/scripts/docker_image_plan.py</code></a> on VERSION bumps: each service gets a content fingerprint (<code>org.airstack.content-fingerprint</code>). If the previous versioned image already has that label, the job registry-retags (<code>imagetools create</code>) instead of rebuilding; only changed services rebuild (and refresh <code>cache_*</code>). Use <code>workflow_dispatch</code> with <code>force_rebuild=true</code> to rebuild everything. PR <code>build_docker</code> tests still perform real builds.</p>
+<p><strong>Setup, debugging a failed job, and exec-into-worker procedures:</strong> <a href="../.github/orchestrator/"><code>.github/orchestrator/README.md</code></a> (also exposed as <a href="../tests/ci-cd-orchestrator/"><code>tests/ci-cd-orchestrator.md</code></a> symlink for the docs site).</p>
 <h2 id="documentation-requirements">Documentation Requirements<a class="headerlink" href="#documentation-requirements" title="Permanent link">&para;</a></h2>
 <p>When implementing a new feature/module, you must:</p>
 <h3 id="1-module-readmemd">1. Module README.md<a class="headerlink" href="#1-module-readmemd" title="Permanent link">&para;</a></h3>
@@ -5858,13 +5894,13 @@ when you select both marks with <code>and</code>), and <strong>Isaac Sim</strong
 <p><strong>Template:</strong> See <code>.agents/skills/add-ros2-package/assets/package_template/README.md</code></p>
 <h3 id="2-update-mkdocsyml">2. Update mkdocs.yml<a class="headerlink" href="#2-update-mkdocsyml" title="Permanent link">&para;</a></h3>
 <p>Add the module README to the navigation structure:
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">nav</span><span class="p">:</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Robot</span><span class="p">:</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Autonomy Modules</span><span class="p">:</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Local</span><span class="p">:</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Planning</span><span class="p">:</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">                  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Your Module</span><span class="p">:</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">                      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot/ros_ws/src/local/planners/your_package/README.md</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">nav</span><span class="p">:</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Robot</span><span class="p">:</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Autonomy Modules</span><span class="p">:</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Local</span><span class="p">:</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Planning</span><span class="p">:</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">                  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">Your Module</span><span class="p">:</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">                      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot/ros_ws/src/local/planners/your_package/README.md</span>
 </span></code></pre></div></p>
 <p>The <code>same-dir</code> plugin allows linking to README files outside the <code>docs/</code> directory.</p>
 <h3 id="3-system-level-documentation-if-needed">3. System-Level Documentation (if needed)<a class="headerlink" href="#3-system-level-documentation-if-needed" title="Permanent link">&para;</a></h3>

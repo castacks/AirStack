@@ -14,7 +14,7 @@
         <link rel="prev" href="../../../../../tests/">
       
       
-        <link rel="next" href="../../../../../tests/ci-cd-orchestrator/">
+        <link rel="next" href="../ci_cd/">
       
       
         
@@ -1078,6 +1078,8 @@
       
         
       
+        
+      
     
     
     
@@ -1652,6 +1654,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ci_cd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -6022,7 +6052,7 @@
 <tr>
 <td>Simulator</td>
 <td><code>--sim</code></td>
-<td><code>msairsim,isaacsim</code></td>
+<td><code>isaacsim</code> (<code>msairsim</code> opt-in)</td>
 </tr>
 <tr>
 <td>Robot count</td>
@@ -6440,8 +6470,8 @@
 <tbody>
 <tr>
 <td><code>--sim</code></td>
-<td><code>msairsim,isaacsim</code></td>
-<td>Comma-separated sim targets</td>
+<td><code>isaacsim</code></td>
+<td>Comma-separated sim targets (<code>msairsim</code> opt-in)</td>
 </tr>
 <tr>
 <td><code>--num-robots</code></td>
@@ -6626,7 +6656,7 @@
 </tr>
 <tr>
 <td>Tests run for hours</td>
-<td>Default <code>--sim</code> and <code>--num-robots</code> sweep</td>
+<td>Default <code>--num-robots 1,3</code> (and <code>--sim msairsim</code> if opted in)</td>
 <td>Pin <code>--sim isaacsim --num-robots 1 --stress-iterations 1</code></td>
 </tr>
 <tr>
@@ -6744,13 +6774,13 @@
         
         
           
-          <a href="../../../../../tests/ci-cd-orchestrator/" class="md-footer__link md-footer__link--next" aria-label="Next: CI/CD Orchestrator">
+          <a href="../ci_cd/" class="md-footer__link md-footer__link--next" aria-label="Next: CI/CD Pipeline">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                CI/CD Orchestrator
+                CI/CD Pipeline
               </div>
             </div>
             <div class="md-footer__button md-icon">

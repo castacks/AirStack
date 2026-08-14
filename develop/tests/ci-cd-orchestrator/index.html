@@ -11,7 +11,7 @@
         <link rel="canonical" href="https://docs.theairlab.org/docs/develop/tests/ci-cd-orchestrator/">
       
       
-        <link rel="prev" href="../../docs/development/intermediate/testing/end_to_end_testing/">
+        <link rel="prev" href="../../docs/development/intermediate/testing/ci_cd/">
       
       
         <link rel="next" href="../../docs/development/intermediate/frame_conventions/">
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#airstack-ci-orchestrator" class="md-skip">
+        <a href="#airstack-ci-orchestrator-osmo-backend" class="md-skip">
           Skip to content
         </a>
       
@@ -1078,6 +1078,8 @@
       
         
       
+        
+      
     
     
     
@@ -1220,6 +1222,34 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/development/intermediate/testing/ci_cd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -1317,10 +1347,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-create-openstack-application-credential" class="md-nav__link">
+  <a href="#1-build-push-the-runner-image" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Create OpenStack application credential
+        1. Build &amp; push the runner image
       
     </span>
   </a>
@@ -1328,10 +1358,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-stage-credentials-on-the-orchestrator-vm" class="md-nav__link">
+  <a href="#2-stage-credentials-on-the-orchestrator-host" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Stage credentials on the orchestrator VM
+        2. Stage credentials on the orchestrator host
       
     </span>
   </a>
@@ -1411,10 +1441,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-find-which-worker-ran-the-job" class="md-nav__link">
+  <a href="#1-find-which-workflow-ran-the-job" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Find which worker ran the job
+        1. Find which workflow ran the job
       
     </span>
   </a>
@@ -1422,10 +1452,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-did-the-orchestrator-spawn-at-all" class="md-nav__link">
+  <a href="#2-did-the-orchestrator-submit-at-all" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Did the orchestrator spawn at all?
+        2. Did the orchestrator submit at all?
       
     </span>
   </a>
@@ -1433,10 +1463,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#3-ssh-into-a-running-worker" class="md-nav__link">
+  <a href="#3-inspect-the-workflow-worker" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. SSH into a running worker
+        3. Inspect the workflow / worker
       
     </span>
   </a>
@@ -1444,10 +1474,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#4-ssh-into-a-shutoff-worker" class="md-nav__link">
+  <a href="#4-break-glass-shell-into-a-running-worker" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. SSH into a SHUTOFF worker
+        4. Break-glass shell into a running worker
       
     </span>
   </a>
@@ -1455,10 +1485,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#5-what-to-read-once-youre-on-the-worker" class="md-nav__link">
+  <a href="#5-common-failure-patterns-at-the-worker" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. What to read once you're on the worker
+        5. Common failure patterns at the worker
       
     </span>
   </a>
@@ -1466,21 +1496,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#6-console-log-fallback" class="md-nav__link">
+  <a href="#nested-dind-and-overlayfs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        6. Console log fallback
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#7-common-failure-patterns-at-the-worker" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        7. Common failure patterns at the worker
+        Nested DinD and overlayfs
       
     </span>
   </a>
@@ -5761,97 +5780,92 @@
   
 
 
-<h1 id="airstack-ci-orchestrator">AirStack CI Orchestrator<a class="headerlink" href="#airstack-ci-orchestrator" title="Permanent link">&para;</a></h1>
-<p>This describes how to use a self-hosted OpenStack VM to run GitHub Actions jobs on truly ephemeral workers. The orchestrator is a Python service that continuously polls GitHub for queued workflow jobs, spawns a fresh OpenStack instance for each one with a single-use JIT runner token, and reaps (deletes) the instance when the job completes. This allows us to run CI workloads on GPU-equipped VMs without sharing any state between runs or exposing long-lived credentials on the worker.</p>
-<p>The orchestrator VM is the only host that holds the GitHub PAT and the OpenStack credential; the workers are destroyed after a single job.</p>
+<h1 id="airstack-ci-orchestrator-osmo-backend">AirStack CI Orchestrator (OSMO backend)<a class="headerlink" href="#airstack-ci-orchestrator-osmo-backend" title="Permanent link">&para;</a></h1>
+<p>This describes how a small always-on orchestrator service runs GitHub Actions jobs on truly ephemeral GPU workers scheduled by <a href="https://nvidia.github.io/OSMO/">NVIDIA OSMO</a>. The orchestrator is a Python service that continuously polls GitHub for queued workflow jobs, submits a fresh <strong>OSMO workflow</strong> for each one (a single-use JIT runner in a privileged, GPU-enabled container), and reaps it when the job completes. Each CI job runs on a clean pod with no state shared between runs and no long-lived credentials on the worker.</p>
+<p>This is a drop-in replacement for the previous OpenStack-Nova backend. The GitHub side is unchanged — <code>system-tests.yml</code> still uses <code>runs-on: [self-hosted, airstack-ephemeral]</code>, the single-use JIT runner config, and the same-repo fork guard. Only the <em>spawn target</em> changed from "create a Nova VM" to "submit an OSMO workflow", so the one-job-per-worker, destroy-after semantics are identical: when the runner's <code>run.sh</code> exits after one job, the OSMO task completes and the pod is torn down.</p>
+<p>The orchestrator host is the only machine that holds the GitHub PAT and the OSMO service-account token; workers are destroyed after a single job.</p>
 <h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌─────────────────────────────────────────────────────────────┐
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│  Orchestrator VM  (airstack-ci-cd-orchestrator)             │
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│  Orchestrator host  (airstack-ci-cd-orchestrator, no GPU)   │
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│                                                             │
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│  airstack-orchestrator.service → orchestrator.py            │
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│    spawn loop  (every 15s):                                 │
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│      • GET  /repos/&lt;repo&gt;/actions/runs?status=queued        │
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│      • POST /repos/&lt;repo&gt;/actions/runners/generate-jitconfig│
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│      • openstack server create  (image, flavor, user_data)  │
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│      • record (job_id → server_id) in state.json            │
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│      • osmo workflow submit runner-workflow.yaml --pool ... │
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│      • record (job_id → workflow_id) in state.json          │
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│    reap loop   (every 30s):                                 │
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│      • job completed     → openstack server delete          │
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│      • job age &gt; N min   → force delete (straggler)         │
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│      • owned but not in state → orphan reap                 │
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│      • job completed     → osmo workflow cancel (if live)   │
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│      • job age &gt; N min   → osmo workflow cancel (straggler) │
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│      • our-named but not in state → orphan cancel           │
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│                                                             │
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│  /etc/airstack-orchestrator/                                │
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│      config.yaml                                            │
 </span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│      github-pat                                             │
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│  /home/orchestrator/.config/openstack/clouds.yaml           │
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│      osmo-token           (OSMO service-account token)      │
 </span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│  /var/lib/airstack-orchestrator/state.json                  │
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>└─────────┬─────────────────────────────────┬─────────────────┘
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>          │ Nova / Neutron API              │ GitHub REST API
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>          ▼                                 ▼
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>┌──────────────────────────────────┐  ┌──────────────────────┐
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>│  Ephemeral worker (per job)      │  │  GitHub Actions      │
-</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>│  Image: Ubuntu-24.04-GPU-Headless│  │  workflow_job queue  │
-</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>│  cloud-init:                     │  └──────────────────────┘
-</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>│    install docker + nv toolkit   │
-</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>│    download GH runner            │
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>│  /var/lib/airstack-orchestrator/.config/osmo  (CLI session) │
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>└─────────┬─────────────────────────────────┬─────────────────┘
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>          │ osmo CLI (submit/query/cancel)   │ GitHub REST API
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>          ▼                                 ▼
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>┌──────────────────────────────────┐  ┌──────────────────────┐
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>│  OSMO CI GPU pool (privileged)   │  │  GitHub Actions      │
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>│  Ephemeral runner pod (per job): │  │  workflow_job queue  │
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>│    Image: airstack-ci-runner     │  └──────────────────────┘
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>│    start dockerd (DinD)          │
 </span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>│    run.sh --jitconfig &lt;token&gt;    │
-</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>│    shutdown -h +1                │
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>│    exit → task done → pod reaped │
 </span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>└──────────────────────────────────┘
 </span></code></pre></div>
 <p>Key properties:</p>
 <ul>
-<li><strong>Truly ephemeral</strong>: every job runs on a clean VM. No Docker layer cache pollution, no leftover networks, no carry-over from prior runs.</li>
+<li><strong>Truly ephemeral</strong>: every job runs on a clean pod. No Docker layer cache pollution, no leftover containers, no carry-over from prior runs.</li>
 <li><strong>PAT isolation</strong>: the GitHub PAT lives only on the orchestrator. Workers receive a single-use <a href="https://docs.github.com/en/rest/actions/self-hosted-runners?apiVersion=2022-11-28#create-configuration-for-a-just-in-time-runner-for-a-repository">JIT runner config</a> — a base64 token bound to one runner registration, valid only for a short window.</li>
-<li><strong>Application-credential auth</strong>: the orchestrator authenticates to OpenStack with an application credential (revocable, scoped, no password), not the user's <code>openrc.sh</code>.</li>
-<li><strong>Crash-safe reaping</strong>: every server we spawn is tagged with <code>airstack-role=ephemeral-runner</code>. The reap loop force-deletes any owned server not present in <code>state.json</code>, so a crashed orchestrator can't leak instances.</li>
+<li><strong>Service-account auth</strong>: the orchestrator authenticates to OSMO with a shared, non-personal <a href="https://nvidia.github.io/OSMO/main/deployment_guide/appendix/authentication/service_accounts.html">service-account token</a> (the analog of the old OpenStack application credential). CI runs never route through an individual's account, so PRs don't consume anyone's personal GPU quota and nothing breaks when a person leaves.</li>
+<li><strong>Crash-safe reaping</strong>: every workflow is named <code>gha-runner-&lt;job_id&gt;-&lt;ts&gt;</code>. The reap loop cancels any active workflow with that prefix not present in <code>state.json</code>, so a crashed orchestrator can't leak workflows.</li>
 </ul>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
-<li>OpenStack instance already setup for the orchestrator VM. The orchestrator itself is lightweight and doesn't need a GPU. 1 vCPU, 2GB RAM, and 20GB disk is sufficient for the orchestrator service. Make sure you can ssh into it and that it has outbound internet access.</li>
-<li>An OpenStack flavor with GPU passthrough and enough disk to run Docker + the tests. The orchestrator spawns workers from this flavor, so it must have a GPU and sufficient disk (or <code>boot_volume_size_gb</code> must be set) to run the workloads. It's common for GPU flavors to have <code>disk=0</code>, which means they boot from an ephemeral disk — in that case, you must set <code>boot_volume_size_gb</code> to a value large enough for the OS + Docker images + test assets (e.g., 40GB). If your OpenStack setup supports it, you can also boot from a Cinder volume sourced from an image; in that case, pre-bake Docker and the NVIDIA toolkit into the image to speed up boot time.</li>
+<li><strong>Orchestrator host</strong> — a small always-on VM (no GPU). 1 vCPU, 2GB RAM, 20GB disk, outbound internet to <code>api.github.com</code> and your OSMO URL. This is the only long-lived piece; the GPU compute is ephemeral pods on OSMO.</li>
+<li><strong>An OSMO service account + dedicated CI pool.</strong> Ask your OSMO admin to:</li>
+<li>Create a service account (e.g. <code>svc-airstack-ci</code>) and a long-lived access token — <code>osmo user create</code> + <code>osmo token set</code>. On IdP-backed deployments (e.g. auth tied to the CMU Andrew directory) this is a non-personal identity, so it survives people graduating/leaving. If policy forbids OSMO-native service accounts, use a <em>functional/departmental</em> identity, never a personal one.</li>
+<li>Grant that account a role whose policy allows <code>workflow:Create/Cancel/Query</code> <strong>scoped to a dedicated CI GPU pool</strong> (e.g. <code>pool/airstack-ci</code>) that has its own allocation, so CI doesn't contend with researchers' interactive jobs.</li>
+<li><strong>Enable "Privileged Mode Allowed"</strong> on that pool's platform. The AirStack tests run <code>airstack up</code> (docker compose) inside the worker, which requires an inner Docker daemon → a privileged container. Without this, submissions are rejected.</li>
+<li>Confirm the API gateway (Envoy) accepts OSMO access tokens for the API (not only interactive IdP logins).</li>
+<li><strong>A prebaked runner image</strong> pushed to a registry the pool can pull (see below).</li>
 </ul>
 <h2 id="one-time-setup">One-time setup<a class="headerlink" href="#one-time-setup" title="Permanent link">&para;</a></h2>
-<h3 id="1-create-openstack-application-credential">1. Create OpenStack application credential<a class="headerlink" href="#1-create-openstack-application-credential" title="Permanent link">&para;</a></h3>
-<p>On your local workstation (not the orchestrator VM):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">source</span><span class="w"> </span>~/.airlabcloud/openrc.sh
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>openstack<span class="w"> </span>application<span class="w"> </span>credential<span class="w"> </span>create<span class="w"> </span>airstack-orchestrator<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--description<span class="w"> </span><span class="s2">&quot;AirStack CI orchestrator — spawns ephemeral test runners&quot;</span>
+<h3 id="1-build-push-the-runner-image">1. Build &amp; push the runner image<a class="headerlink" href="#1-build-push-the-runner-image" title="Permanent link">&para;</a></h3>
+<p>The worker image bakes in Docker CE + compose, the NVIDIA container toolkit, and the GitHub Actions runner (what cloud-init used to install at boot on the VM), so pod start is fast and the JIT token can't expire mid-bootstrap.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">cd</span><span class="w"> </span>.github/orchestrator
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>./build-and-push.sh
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># or manually:</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># docker build -f runner.Dockerfile \</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1">#   --build-arg RUNNER_VERSION=2.334.0 \</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1">#   -t airlab-docker.andrew.cmu.edu/airstack/airstack-ci-runner:2.334.0 .</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># docker push airlab-docker.andrew.cmu.edu/airstack/airstack-ci-runner:2.334.0</span>
 </span></code></pre></div>
-<p>The output prints <code>id</code> and <code>secret</code>. Build a <code>clouds.yaml</code>:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">clouds</span><span class="p">:</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">airstack</span><span class="p">:</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">auth_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v3applicationcredential</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nt">auth</span><span class="p">:</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">      </span><span class="nt">auth_url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://airlab-cloud.andrew.cmu.edu:5000/v3/</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">      </span><span class="nt">application_credential_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;id from above&gt;</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">      </span><span class="nt">application_credential_secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;secret from above&gt;</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">region_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Airlab</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">interface</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">public</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="nt">identity_api_version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<p>No local Docker? Submit the one-shot OSMO builder (needs your Harbor creds in OSMO):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>submit<span class="w"> </span>.github/orchestrator/build-runner-on-osmo.yaml<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>--pool<span class="w"> </span>airstack<span class="w"> </span>--priority<span class="w"> </span>HIGH
 </span></code></pre></div>
-<h3 id="2-stage-credentials-on-the-orchestrator-vm">2. Stage credentials on the orchestrator VM<a class="headerlink" href="#2-stage-credentials-on-the-orchestrator-vm" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># clouds.yaml: install for the orchestrator user (created in step 3)</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>scp<span class="w"> </span>clouds.yaml<span class="w"> </span>ubuntu@&lt;orchestrator-ip&gt;:/tmp/clouds.yaml
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># GitHub PAT: needs `Actions: read/write` and `Administration: read/write`</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># (fine-grained) or classic `repo` scope.</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>scp<span class="w"> </span>~/.airlabcloud/airstack-github-pat.txt<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span>ubuntu@&lt;orchestrator-ip&gt;:/tmp/github-pat
+<p>Set <code>runner_image: airlab-docker.andrew.cmu.edu/airstack/airstack-ci-runner:2.334.0</code> in <code>config.yaml</code> (step 4). Keep <code>RUNNER_VERSION</code> in sync with an <a href="https://github.com/actions/runner/releases">actions/runner release</a>.</p>
+<p><strong>Pool note (AirLab):</strong> use the Keycloak-autosynced <code>airstack</code> pool (<code>privileged_allowed: true</code>). A hand-created <code>airstack-ci</code> pool is wiped by <code>synchronize_osmo_team_pools.py</code>. Ephemerality is per-job OSMO workflows, not a separate pool.</p>
+<h3 id="2-stage-credentials-on-the-orchestrator-host">2. Stage credentials on the orchestrator host<a class="headerlink" href="#2-stage-credentials-on-the-orchestrator-host" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># GitHub PAT: needs `Actions: read/write` and `Administration: read/write`</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># (fine-grained) or classic `repo` scope.</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>scp<span class="w"> </span>~/airstack-github-pat.txt<span class="w"> </span>ubuntu@&lt;orchestrator-ip&gt;:/tmp/github-pat
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># OSMO service-account token (from `osmo token set`, provided by your admin).</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>scp<span class="w"> </span>~/svc-airstack-ci-token.txt<span class="w"> </span>ubuntu@&lt;orchestrator-ip&gt;:/tmp/osmo-token
 </span></code></pre></div>
 <h3 id="3-run-setupsh">3. Run setup.sh<a class="headerlink" href="#3-run-setupsh" title="Permanent link">&para;</a></h3>
-<p>On the orchestrator VM:</p>
+<p>On the orchestrator host:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/castacks/AirStack.git<span class="w"> </span>/tmp/airstack
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>sudo<span class="w"> </span>bash<span class="w"> </span>/tmp/airstack/.github/orchestrator/setup.sh
 </span></code></pre></div>
-<p><code>setup.sh</code> creates the <code>orchestrator</code> system user, builds the Python venv, copies <code>orchestrator.py</code> and <code>cloud-init.yaml.j2</code> into <code>/opt/airstack-orchestrator/</code>, scaffolds <code>/etc/airstack-orchestrator/</code>, installs the systemd unit, and consumes <code>/tmp/github-pat</code>.</p>
-<p>You still need to put the <code>clouds.yaml</code> in place under the orchestrator user's home:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>sudo<span class="w"> </span>install<span class="w"> </span>-d<span class="w"> </span>-o<span class="w"> </span>orchestrator<span class="w"> </span>-g<span class="w"> </span>orchestrator<span class="w"> </span>-m<span class="w"> </span><span class="m">0700</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span>/home/orchestrator/.config/openstack
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>sudo<span class="w"> </span>install<span class="w"> </span>-o<span class="w"> </span>orchestrator<span class="w"> </span>-g<span class="w"> </span>orchestrator<span class="w"> </span>-m<span class="w"> </span><span class="m">0600</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span>/tmp/clouds.yaml<span class="w"> </span>/home/orchestrator/.config/openstack/clouds.yaml
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>sudo<span class="w"> </span>shred<span class="w"> </span>-u<span class="w"> </span>/tmp/clouds.yaml
-</span></code></pre></div>
+<p><code>setup.sh</code> creates the <code>orchestrator</code> system user, installs the <code>osmo</code> CLI, builds the Python venv, copies <code>orchestrator.py</code> and <code>runner-workflow.yaml.j2</code> into <code>/opt/airstack-orchestrator/</code>, scaffolds <code>/etc/airstack-orchestrator/</code>, installs the systemd unit, and consumes <code>/tmp/github-pat</code> and <code>/tmp/osmo-token</code>.</p>
 <h3 id="4-fill-in-etcairstack-orchestratorconfigyaml">4. Fill in <code>/etc/airstack-orchestrator/config.yaml</code><a class="headerlink" href="#4-fill-in-etcairstack-orchestratorconfigyaml" title="Permanent link">&para;</a></h3>
-<p>Edit the placeholders the example ships with:</p>
 <table>
 <thead>
 <tr>
@@ -5862,39 +5876,39 @@
 </thead>
 <tbody>
 <tr>
-<td><code>flavor_name</code></td>
-<td>OpenStack flavor with GPU + enough disk</td>
-<td><code>openstack flavor list</code></td>
+<td><code>osmo_url</code></td>
+<td>Your OSMO web service URL</td>
+<td>from your OSMO admin</td>
 </tr>
 <tr>
-<td><code>network_name</code></td>
-<td>Network the workers attach to</td>
-<td><code>openstack network list</code></td>
+<td><code>pool</code></td>
+<td>Dedicated CI GPU pool</td>
+<td><code>osmo pool list</code> / the OSMO UI</td>
 </tr>
 <tr>
-<td><code>keypair_name</code></td>
-<td>SSH keypair for break-glass access</td>
-<td><code>openstack keypair list</code></td>
+<td><code>platform</code></td>
+<td>Optional hardware type within the pool; empty = pool default</td>
+<td><code>osmo pool list</code></td>
 </tr>
 <tr>
-<td><code>security_group</code></td>
-<td>Outbound 443 must be allowed</td>
-<td><code>openstack security group list</code></td>
+<td><code>runner_image</code></td>
+<td>Image from step 1</td>
+<td>the registry you pushed to</td>
 </tr>
 <tr>
-<td><code>availability_zone</code></td>
-<td>Optional AZ for the spawned instance; leave empty to let Nova pick</td>
-<td><code>openstack availability zone list</code></td>
+<td><code>cpu</code> / <code>gpu</code> / <code>memory</code> / <code>storage</code></td>
+<td>Resource request for the worker</td>
+<td>size for full stack + sim</td>
 </tr>
 <tr>
-<td><code>boot_volume_size_gb</code></td>
-<td>Set &gt;0 if your flavor has <code>disk=0</code> (common for GPU flavors) — boots from a Cinder volume of this size sourced from <code>image_id</code>; leave 0 for direct image-boot</td>
-<td><code>openstack flavor show &lt;flavor&gt;</code> (check disk field)</td>
+<td><code>privileged</code></td>
+<td>Must be <code>true</code> (docker compose inside the pod)</td>
+<td>—</td>
 </tr>
 <tr>
-<td><code>floating_ips</code></td>
-<td>Pre-allocated FIP pool, rotated through sequentially — each spawn picks the first free one. <code>max_concurrent</code> is capped at <code>len(pool)</code>. Leave empty to skip FIP attachment</td>
-<td><code>openstack floating ip list</code></td>
+<td><code>priority</code></td>
+<td><code>HIGH</code> | <code>NORMAL</code> | <code>LOW</code></td>
+<td>—</td>
 </tr>
 <tr>
 <td><code>repo</code></td>
@@ -5903,61 +5917,73 @@
 </tr>
 <tr>
 <td><code>runner_version</code></td>
-<td>Version tag from <a href="https://github.com/actions/runner/releases">actions/runner releases</a></td>
-<td>check before each major upgrade</td>
+<td>Runner version baked into <code>runner_image</code></td>
+<td>matches step 1</td>
+</tr>
+<tr>
+<td><code>max_concurrent</code></td>
+<td>Max simultaneous in-flight workflows</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>max_job_minutes</code></td>
+<td>Straggler cancel ceiling</td>
+<td>exceed the longest job</td>
 </tr>
 </tbody>
 </table>
 <h3 id="5-start-the-service">5. Start the service<a class="headerlink" href="#5-start-the-service" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>--now<span class="w"> </span>airstack-orchestrator.service
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>journalctl<span class="w"> </span>-u<span class="w"> </span>airstack-orchestrator.service<span class="w"> </span>-f
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>--now<span class="w"> </span>airstack-orchestrator.service
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>journalctl<span class="w"> </span>-u<span class="w"> </span>airstack-orchestrator.service<span class="w"> </span>-f
 </span></code></pre></div>
-<p>You should see <code>orchestrator started: repo=... labels=... max_concurrent=N</code> and then periodic poll activity.</p>
+<p>You should see <code>orchestrator started (OSMO backend): repo=... pool=... max_concurrent=N</code>, an <code>osmo login succeeded</code> line, and then periodic poll activity.</p>
 <h2 id="end-to-end-verification">End-to-end verification<a class="headerlink" href="#end-to-end-verification" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Trigger a fast build-only run.</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>gh<span class="w"> </span>workflow<span class="w"> </span>run<span class="w"> </span>system-tests.yml<span class="w"> </span>-f<span class="w"> </span><span class="nv">marks</span><span class="o">=</span>build_docker
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Within ~30s, a server should appear:</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>openstack<span class="w"> </span>server<span class="w"> </span>list<span class="w"> </span>--metadata<span class="w"> </span>airstack-role<span class="o">=</span>ephemeral-runner
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="c1"># or if your OpenStack setup doesn&#39;t support metadata queries:</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>openstack<span class="w"> </span>server<span class="w"> </span>list<span class="w"> </span>--name<span class="w"> </span><span class="s1">&#39;^ephemeral-&#39;</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="c1"># Watch GitHub → Actions → Runners — the ephemeral runner should appear,</span>
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="c1"># pick up the job, then disappear.</span>
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>
-</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="c1"># Within ~30s of job completion, the server should be gone:</span>
-</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>openstack<span class="w"> </span>server<span class="w"> </span>list<span class="w"> </span>--metadata<span class="w"> </span>airstack-role<span class="o">=</span>ephemeral-runner
-</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>openstack<span class="w"> </span>server<span class="w"> </span>list<span class="w"> </span>--name<span class="w"> </span><span class="s1">&#39;^ephemeral-&#39;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Trigger a fast build-only run.</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>gh<span class="w"> </span>workflow<span class="w"> </span>run<span class="w"> </span>system-tests.yml<span class="w"> </span>-f<span class="w"> </span><span class="nv">marks</span><span class="o">=</span>build_docker
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Within ~30s, a workflow should appear in the CI pool:</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>list<span class="w"> </span>--name<span class="w"> </span>gha-runner-<span class="w"> </span>--pool<span class="w"> </span>airstack-ci
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># Watch GitHub → Actions → Runners — the ephemeral runner should appear,</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="c1"># pick up the job, then disappear.</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c1"># Within ~30s of job completion, the workflow should be terminal / gone from</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="c1"># the active list:</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>list<span class="w"> </span>--name<span class="w"> </span>gha-runner-<span class="w"> </span>--pool<span class="w"> </span>airstack-ci<span class="w"> </span>--status<span class="w"> </span>RUNNING<span class="w"> </span>PENDING<span class="w"> </span>WAITING
 </span></code></pre></div>
 <h2 id="operational-notes">Operational notes<a class="headerlink" href="#operational-notes" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>State file</strong>: <code>/var/lib/airstack-orchestrator/state.json</code> is the in-flight job tracker. Wiping it triggers an orphan sweep on the next reap iteration — owned servers will be force-deleted. Don't wipe it while jobs are mid-flight unless that's what you want.</li>
-<li><strong>Stuck instance</strong>: any server older than <code>max_job_minutes</code> (default 90) is force-deleted regardless of GitHub job status. Bump this if liveliness/autonomy runs grow longer than ~75 minutes.</li>
+<li><strong>State file</strong>: <code>/var/lib/airstack-orchestrator/state.json</code> is the in-flight job tracker (<code>job_id → workflow_id</code>). Wiping it triggers an orphan sweep on the next reap iteration — active <code>gha-runner-*</code> workflows will be cancelled. Don't wipe it while jobs are mid-flight unless that's what you want.</li>
+<li><strong>Straggler</strong>: any workflow whose job has run longer than <code>max_job_minutes</code> (default 48h) is force-cancelled regardless of GitHub job status.</li>
+<li><strong>OSMO token rotation</strong> (tokens expire — default 31 days): mint a new one and restart.
+  <div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># (admin) osmo token set svc-airstack-ci-token-2 --user svc-airstack-ci \</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1">#           --roles &lt;ci-pool-role&gt; osmo-user --expires-at 2027-12-31</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>sudo<span class="w"> </span>install<span class="w"> </span>-o<span class="w"> </span>root<span class="w"> </span>-g<span class="w"> </span>orchestrator<span class="w"> </span>-m<span class="w"> </span><span class="m">0640</span><span class="w"> </span>/tmp/osmo-token<span class="w"> </span>/etc/airstack-orchestrator/osmo-token
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>restart<span class="w"> </span>airstack-orchestrator.service<span class="w">   </span><span class="c1"># re-runs `osmo login`</span>
+</span></code></pre></div></li>
 <li><strong>PAT rotation</strong>: <code>sudo install -o root -g orchestrator -m 0640 /tmp/new-pat /etc/airstack-orchestrator/github-pat &amp;&amp; sudo systemctl restart airstack-orchestrator.service</code>.</li>
-<li><strong>Pause spawning</strong> (e.g. for maintenance): <code>sudo systemctl stop airstack-orchestrator.service</code>. Already-spawned workers will still complete their jobs and self-shutdown; on restart, the reap loop deletes them.</li>
-<li><strong>Logs</strong>: <code>journalctl -u airstack-orchestrator.service -f</code>. Cloud-init logs from individual workers are visible only via <code>openstack console log show &lt;server&gt;</code> while the worker is running.</li>
+<li><strong>Pause spawning</strong> (e.g. for maintenance): <code>sudo systemctl stop airstack-orchestrator.service</code>. Already-submitted workers still complete their jobs; on restart, the reap loop cleans up.</li>
+<li><strong>Logs</strong>: <code>journalctl -u airstack-orchestrator.service -f</code>. Per-worker logs come from <code>osmo workflow logs &lt;id&gt;</code>.</li>
 </ul>
 <h2 id="debugging-a-failed-job">Debugging a failed job<a class="headerlink" href="#debugging-a-failed-job" title="Permanent link">&para;</a></h2>
-<p>When a GitHub workflow run fails or stalls, the failure can be in any of four places: the orchestrator (didn't spawn), cloud-init (didn't bootstrap), the GH Actions runner (didn't register or crashed), or the workflow steps themselves. Each has a different inspection path.</p>
-<h3 id="1-find-which-worker-ran-the-job">1. Find which worker ran the job<a class="headerlink" href="#1-find-which-worker-ran-the-job" title="Permanent link">&para;</a></h3>
-<p><code>state.json</code> is the authoritative job ↔ server ↔ floating-IP map:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>sudo<span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.jobs | to_entries[] | &quot;\(.key)\t\(.value.server_id)\t\(.value.floating_ip)\t\(.value.runner_name)&quot;&#39;</span><span class="w"> </span><span class="se">\</span>
+<p>When a GitHub workflow run fails or stalls, the failure can be in one of four places: the orchestrator (didn't submit), the OSMO task (didn't schedule/pull), the GH Actions runner (didn't register or crashed), or the workflow steps themselves. Each has a different inspection path.</p>
+<h3 id="1-find-which-workflow-ran-the-job">1. Find which workflow ran the job<a class="headerlink" href="#1-find-which-workflow-ran-the-job" title="Permanent link">&para;</a></h3>
+<p><code>state.json</code> is the authoritative job ↔ workflow map:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>sudo<span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">&#39;.jobs | to_entries[] | &quot;\(.key)\t\(.value.workflow_id)\t\(.value.workflow_name)&quot;&#39;</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span>/var/lib/airstack-orchestrator/state.json
 </span></code></pre></div>
-<p>Pick the row for your failing <code>job_id</code> (visible in the GitHub Actions URL). Save the values:</p>
+<p>Pick the row for your failing <code>job_id</code> (visible in the GitHub Actions URL):</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nv">JOB_ID</span><span class="o">=</span><span class="m">73286176852</span><span class="w">          </span><span class="c1"># from the GitHub UI</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nv">SERVER</span><span class="o">=</span><span class="k">$(</span>sudo<span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s2">&quot;.jobs[\&quot;</span><span class="nv">$JOB_ID</span><span class="s2">\&quot;].server_id&quot;</span><span class="w">   </span>/var/lib/airstack-orchestrator/state.json<span class="k">)</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="nv">FIP</span><span class="o">=</span><span class="k">$(</span><span class="w">   </span>sudo<span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s2">&quot;.jobs[\&quot;</span><span class="nv">$JOB_ID</span><span class="s2">\&quot;].floating_ip&quot;</span><span class="w"> </span>/var/lib/airstack-orchestrator/state.json<span class="k">)</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nv">WF</span><span class="o">=</span><span class="k">$(</span>sudo<span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s2">&quot;.jobs[\&quot;</span><span class="nv">$JOB_ID</span><span class="s2">\&quot;].workflow_id&quot;</span><span class="w"> </span>/var/lib/airstack-orchestrator/state.json<span class="k">)</span>
 </span></code></pre></div>
-<p>If the job isn't in <code>state.json</code>, the orchestrator never spawned for it — see step 2 below.</p>
-<h3 id="2-did-the-orchestrator-spawn-at-all">2. Did the orchestrator spawn at all?<a class="headerlink" href="#2-did-the-orchestrator-spawn-at-all" title="Permanent link">&para;</a></h3>
+<p>If the job isn't in <code>state.json</code>, the orchestrator never submitted for it — see step 2.</p>
+<h3 id="2-did-the-orchestrator-submit-at-all">2. Did the orchestrator submit at all?<a class="headerlink" href="#2-did-the-orchestrator-submit-at-all" title="Permanent link">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>sudo<span class="w"> </span>journalctl<span class="w"> </span>-u<span class="w"> </span>airstack-orchestrator.service<span class="w"> </span>--since<span class="w"> </span><span class="s2">&quot;30 min ago&quot;</span><span class="w"> </span>--no-pager
 </span></code></pre></div>
-<p>What you want to see for a healthy spawn:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>spawned server &lt;uuid&gt; for job &lt;job_id&gt; (&lt;job name&gt;)
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>attached floating IP &lt;addr&gt; to server &lt;uuid&gt; (job &lt;job_id&gt;)
+<p>Healthy submit looks like:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>submitted workflow &lt;id&gt; for job &lt;job_id&gt; (&lt;job name&gt;)
 </span></code></pre></div>
-<p>Common things that block a spawn (and how to spot them):</p>
+<p>Common things that block a submit (and how to spot them):</p>
 <table>
 <thead>
 <tr>
@@ -5969,119 +5995,169 @@
 <tbody>
 <tr>
 <td><code>find_queued_jobs failed: 401 ...</code></td>
-<td>PAT expired / wrong scope</td>
-<td>Rotate the PAT (see Operational notes)</td>
+<td>GitHub PAT expired / wrong scope</td>
+<td>Rotate the PAT</td>
 </tr>
 <tr>
-<td><code>spawn failed for job ...: Block Device Mapping is Invalid</code></td>
-<td>Flavor has <code>disk=0</code> and <code>boot_volume_size_gb</code> is 0</td>
-<td>Set <code>boot_volume_size_gb &gt; 0</code></td>
+<td><code>osmo login failed ...</code> / <code>auth error</code></td>
+<td>OSMO token expired/invalid, or Envoy rejects access tokens</td>
+<td>Rotate the OSMO token; confirm gateway accepts access tokens</td>
 </tr>
 <tr>
-<td><code>no free floating IP in pool</code></td>
-<td>All FIPs in <code>floating_ips</code> are already in use</td>
-<td>Wait for an in-flight job to complete, or expand the pool</td>
+<td><code>osmo workflow submit failed ... privileged</code></td>
+<td>Pool platform doesn't allow privileged</td>
+<td>Ask admin to enable "Privileged Mode Allowed" on the CI pool</td>
 </tr>
 <tr>
-<td><code>floating_ips configured but not found</code></td>
-<td>Pool addresses don't exist in the project</td>
-<td>Double-check <code>openstack floating ip list</code></td>
+<td><code>osmo workflow submit failed ... pool</code> / permission</td>
+<td>Service-account role lacks <code>workflow:Create</code> on the pool</td>
+<td>Fix the role's pool-scoped policy</td>
 </tr>
 <tr>
-<td>Job is queued in GitHub but no <code>spawned</code> log</td>
-<td>Runner labels in the workflow's <code>runs-on</code> don't match <code>runner_labels</code> in config</td>
+<td>Job queued in GitHub but no <code>submitted</code> log</td>
+<td><code>runs-on</code> labels don't match <code>runner_labels</code></td>
 <td>Make them match</td>
 </tr>
 </tbody>
 </table>
-<h3 id="3-ssh-into-a-running-worker">3. SSH into a running worker<a class="headerlink" href="#3-ssh-into-a-running-worker" title="Permanent link">&para;</a></h3>
-<p>If the worker is <code>ACTIVE</code>, the floating IP is attached and you can connect directly. The keypair was injected during spawn — use the matching private key:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>ssh<span class="w"> </span>-i<span class="w"> </span>&lt;keypair&gt;.pem<span class="w"> </span>ubuntu@<span class="s2">&quot;</span><span class="nv">$FIP</span><span class="s2">&quot;</span>
+<h3 id="3-inspect-the-workflow-worker">3. Inspect the workflow / worker<a class="headerlink" href="#3-inspect-the-workflow-worker" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Status and scheduling detail.</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>query<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$WF</span><span class="s2">&quot;</span><span class="w"> </span>--verbose
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># Scheduling / lifecycle events (image pull, start, evict, ...).</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>events<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$WF</span><span class="s2">&quot;</span><span class="w"> </span>--task<span class="w"> </span>runner
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="c1"># Combined stdout of the runner task — shows dockerd start, run.sh, and the job.</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>logs<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$WF</span><span class="s2">&quot;</span><span class="w"> </span>--task<span class="w"> </span>runner
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>logs<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$WF</span><span class="s2">&quot;</span><span class="w"> </span>--task<span class="w"> </span>runner<span class="w"> </span>--error<span class="w">   </span><span class="c1"># error stream</span>
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>logs<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$WF</span><span class="s2">&quot;</span><span class="w"> </span>--task<span class="w"> </span>runner<span class="w"> </span>-n<span class="w"> </span><span class="m">300</span><span class="w">    </span><span class="c1"># last 300 lines</span>
 </span></code></pre></div>
-<p>If your workstation can't reach the FIP subnet, jump through the orchestrator (which is on the same network):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>ssh<span class="w"> </span>-J<span class="w"> </span>ubuntu@&lt;orchestrator-ip&gt;<span class="w"> </span>-i<span class="w"> </span>&lt;keypair&gt;.pem<span class="w"> </span>ubuntu@<span class="s2">&quot;</span><span class="nv">$FIP</span><span class="s2">&quot;</span>
+<h3 id="4-break-glass-shell-into-a-running-worker">4. Break-glass shell into a running worker<a class="headerlink" href="#4-break-glass-shell-into-a-running-worker" title="Permanent link">&para;</a></h3>
+<p>If the workflow is still <code>RUNNING</code>, exec into the pod (replaces the old SSH-via-floating-IP path):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>osmo<span class="w"> </span>workflow<span class="w"> </span><span class="nb">exec</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$WF</span><span class="s2">&quot;</span><span class="w"> </span>runner<span class="w">            </span><span class="c1"># /bin/bash in the runner task</span>
 </span></code></pre></div>
-<h3 id="4-ssh-into-a-shutoff-worker">4. SSH into a SHUTOFF worker<a class="headerlink" href="#4-ssh-into-a-shutoff-worker" title="Permanent link">&para;</a></h3>
-<p>Workers shut themselves down after <code>run.sh</code> exits (whether the job succeeded, failed, or the runner crashed). The orchestrator only deletes a server once GitHub reports the job <code>completed</code>, so a SHUTOFF worker is preserved while you debug.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Optional but safer — keep the orchestrator from reaping mid-session.</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>stop<span class="w"> </span>airstack-orchestrator.service
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>openstack<span class="w"> </span>server<span class="w"> </span>start<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SERVER</span><span class="s2">&quot;</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="c1"># Wait ~30s, then SSH using the FIP from state.json.</span>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>ssh<span class="w"> </span>-i<span class="w"> </span>&lt;keypair&gt;.pem<span class="w"> </span>ubuntu@<span class="s2">&quot;</span><span class="nv">$FIP</span><span class="s2">&quot;</span>
+<p>Once inside:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># GitHub Actions runner diagnostics.</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>ls<span class="w"> </span>-lt<span class="w"> </span>/home/runner/actions-runner/_diag/
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>tail<span class="w"> </span>-300<span class="w"> </span>/home/runner/actions-runner/_diag/Runner_*.log
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>tail<span class="w"> </span>-300<span class="w"> </span>/home/runner/actions-runner/_diag/Worker_*.log
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="c1"># Inner Docker daemon (a frequent failure point for `airstack up`).</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>cat<span class="w"> </span>/var/log/dockerd.log
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>docker<span class="w"> </span>info<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>head
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>nvidia-smi
 </span></code></pre></div>
-<p>When done, delete the worker manually and resume the orchestrator:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>openstack<span class="w"> </span>server<span class="w"> </span>delete<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SERVER</span><span class="s2">&quot;</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>sudo<span class="w"> </span>jq<span class="w"> </span><span class="s2">&quot;del(.jobs[\&quot;</span><span class="nv">$JOB_ID</span><span class="s2">\&quot;])&quot;</span><span class="w"> </span>/var/lib/airstack-orchestrator/state.json<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>/var/lib/airstack-orchestrator/state.json.new<span class="w"> </span>&gt;/dev/null
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>sudo<span class="w"> </span>mv<span class="w"> </span>/var/lib/airstack-orchestrator/state.json.new<span class="w"> </span>/var/lib/airstack-orchestrator/state.json
-</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>start<span class="w"> </span>airstack-orchestrator.service
-</span></code></pre></div>
-<h3 id="5-what-to-read-once-youre-on-the-worker">5. What to read once you're on the worker<a class="headerlink" href="#5-what-to-read-once-youre-on-the-worker" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Combined boot + cloud-init output. Most useful single file: shows every</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="c1"># line our airstack-runner-bootstrap.sh printed, including run.sh&#39;s exit.</span>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>sudo<span class="w"> </span>less<span class="w"> </span>/var/log/cloud-init-output.log
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>sudo<span class="w"> </span>tail<span class="w"> </span>-300<span class="w"> </span>/var/log/cloud-init-output.log
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>
-</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="c1"># Cloud-init&#39;s structured log — quick way to surface errors.</span>
-</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>sudo<span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">&#39;WARN|ERROR|FAIL&#39;</span><span class="w"> </span>/var/log/cloud-init.log
-</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>
-</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="c1"># GitHub Actions runner diagnostics. The Worker_*.log corresponds to the</span>
-</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="c1"># actual job execution; Runner_*.log covers registration and dispatch.</span>
-</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>ls<span class="w"> </span>-lt<span class="w"> </span>/home/ubuntu/actions-runner/_diag/
-</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>sudo<span class="w"> </span>tail<span class="w"> </span>-300<span class="w"> </span>/home/ubuntu/actions-runner/_diag/Runner_*.log
-</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a>sudo<span class="w"> </span>tail<span class="w"> </span>-300<span class="w"> </span>/home/ubuntu/actions-runner/_diag/Worker_*.log
-</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a>
-</span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="c1"># Sanity-check Docker came up cleanly — a frequent failure point.</span>
-</span><span id="__span-16-16"><a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>status<span class="w"> </span>docker
-</span><span id="__span-16-17"><a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a>docker<span class="w"> </span>info<span class="w"> </span><span class="m">2</span>&gt;<span class="p">&amp;</span><span class="m">1</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>head
-</span></code></pre></div>
-<h3 id="6-console-log-fallback">6. Console log fallback<a class="headerlink" href="#6-console-log-fallback" title="Permanent link">&para;</a></h3>
-<p>Some flavors on this cloud don't expose the serial console (<code>openstack console log show</code> returns <em>Guest does not have a console available</em>). For those, the SSH path above is the only option. Where it does work, the console log persists across SHUTOFF and is faster than restarting the VM:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>openstack<span class="w"> </span>console<span class="w"> </span>log<span class="w"> </span>show<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SERVER</span><span class="s2">&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-200
-</span></code></pre></div>
-<h3 id="7-common-failure-patterns-at-the-worker">7. Common failure patterns at the worker<a class="headerlink" href="#7-common-failure-patterns-at-the-worker" title="Permanent link">&para;</a></h3>
+<h3 id="5-common-failure-patterns-at-the-worker">5. Common failure patterns at the worker<a class="headerlink" href="#5-common-failure-patterns-at-the-worker" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
-<th>Symptom in <code>cloud-init-output.log</code> (near end)</th>
+<th>Symptom in <code>osmo workflow logs</code></th>
 <th>Cause</th>
 <th>Fix</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>Could not connect to api.github.com</code> / DNS errors</td>
-<td>Security group blocking egress, or no NAT for the network</td>
-<td>Allow outbound 443; if behind NAT, ensure FIP networking covers egress</td>
+<td><code>dockerd did not become ready</code></td>
+<td>Pod not privileged / DinD blocked</td>
+<td>Enable privileged on the pool platform</td>
 </tr>
 <tr>
-<td><code>Bad credentials</code> / <code>Invalid configuration ... runnerEvent</code></td>
-<td>JIT config TTL elapsed before <code>run.sh</code> started — bootstrap took too long</td>
-<td>Pre-bake Docker + nvidia-container-toolkit into the image to shrink bootstrap</td>
+<td><code>nvidia-smi unavailable</code> / no GPU</td>
+<td>GPU not requested/passed, or toolkit missing</td>
+<td>Check <code>gpu:</code> request, platform GPUs, privileged</td>
 </tr>
 <tr>
-<td><code>nvidia-ctk: command not found</code> or NVIDIA driver mismatch</td>
-<td>Image's driver doesn't match the toolkit version</td>
-<td>Use a different image, or pin a compatible toolkit version</td>
+<td><code>Could not connect to api.github.com</code></td>
+<td>Egress blocked from the pool</td>
+<td>Allow outbound 443 from the CI pool</td>
 </tr>
 <tr>
-<td><code>apt-get update</code> fails</td>
-<td>Image's apt sources are unreachable from this network</td>
-<td>Check network/security-group; or pre-bake packages into the image</td>
+<td><code>Bad credentials</code> / <code>Invalid ... runnerEvent</code></td>
+<td>JIT config TTL elapsed before <code>run.sh</code> started</td>
+<td>Prebake the image (already done) so start is fast</td>
+</tr>
+<tr>
+<td><code>Cannot connect to the Docker daemon</code> during tests</td>
+<td>inner dockerd crashed</td>
+<td>Read <code>/var/log/dockerd.log</code> via <code>osmo workflow exec</code></td>
 </tr>
 <tr>
 <td>Runner registered, then <code>pytest</code> failed</td>
 <td>A normal test failure</td>
-<td>Read the GitHub Actions log — that's the canonical view of the workflow output</td>
+<td>Read the GitHub Actions log — the canonical view</td>
 </tr>
 <tr>
 <td><code>No space left on device</code></td>
-<td><code>boot_volume_size_gb</code> too small for Docker images + sim assets</td>
-<td>Bump <code>boot_volume_size_gb</code></td>
+<td><code>storage</code> too small for images + sim assets</td>
+<td>Bump <code>storage</code> in <code>config.yaml</code></td>
+</tr>
+<tr>
+<td><code>failed to solve: ... mount source: "overlay" ... err: invalid argument</code></td>
+<td>Docker data-root landed on the pod's overlay rootfs</td>
+<td>See "Nested DinD and overlayfs" below</td>
 </tr>
 </tbody>
 </table>
+<h3 id="nested-dind-and-overlayfs">Nested DinD and overlayfs<a class="headerlink" href="#nested-dind-and-overlayfs" title="Permanent link">&para;</a></h3>
+<p>The single most likely way to break every Docker build at once. The pod's root
+filesystem is overlayfs, and <strong>Linux refuses to use a directory on overlayfs as
+an overlay <code>upperdir</code></strong> (it returns <code>EINVAL</code>). A dockerd whose data-root sits on
+the pod rootfs looks healthy — <code>docker info</code> works, image pulls succeed, because
+containerd unpacks layers with plain writes — and then every build step that
+needs a real mount fails:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>failed to solve: process &quot;/bin/bash -c apt-get ... &quot; did not complete successfully:
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>mount source: &quot;overlay&quot;,
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>target: &quot;/var/lib/docker/buildkit/containerd-overlayfs/cachemounts/buildkit1459786452&quot;,
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>fstype: overlay, ... err: invalid argument
+</span></code></pre></div>
+<p>That signature took out all four <code>build_docker</code> tests and all four
+<code>build_packages</code> tests in one run, with each failure looking like an unrelated
+<code>apt-get</code>/<code>WORKDIR</code> problem.</p>
+<p><a href="runner-entrypoint.sh"><code>runner-entrypoint.sh</code></a> handles this before starting
+dockerd. It picks a storage backend by <strong>performing a real overlay mount</strong> to
+test each option rather than trusting the filesystem type, and falls back in
+this order:</p>
+<table>
+<thead>
+<tr>
+<th>Order</th>
+<th>Backend</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Loopback ext4 image mounted at <code>/var/lib/docker</code></td>
+<td>Preferred. Real <code>overlay2</code>, self-contained, dies with the pod. Sparse, so it only consumes what Docker writes. Sized to free space on <code>/</code> minus 20 GiB, or <code>DOCKER_LOOP_SIZE_MB</code>.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>A real filesystem already mounted in the pod</td>
+<td>Kubernetes <code>emptyDir</code>/<code>hostPath</code>/PVC volumes live on the node disk, not the overlay rootfs. <code>/osmo/data/output</code> and <code>/osmo/data/socket</code> are skipped — the OSMO ctrl sidecar owns them.</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>fuse-overlayfs</code> driver</td>
+<td>Stacks where the kernel driver won't. Needs <code>/dev/fuse</code>.</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>vfs</code> driver</td>
+<td>Always works, copies the whole filesystem per layer. Too slow and too large for the sim images — <strong>reaching this is a red flag</strong>, not a working state.</td>
+</tr>
+</tbody>
+</table>
+<p>The chosen backend is logged at startup, so confirm it in the job log before
+debugging anything else:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>logs<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$WF</span><span class="s2">&quot;</span><span class="w"> </span>--task<span class="w"> </span>runner<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">&#39;runner-entrypoint|storage driver&#39;</span>
+</span></code></pre></div>
+<p>Backends 3 and 4 also set <code>features.containerd-snapshotter: false</code>, because
+<code>storage-driver</code> is only honoured by the classic image store.</p>
+<p>The one-shot <a href="build-runner-on-osmo.yaml"><code>build-runner-on-osmo.yaml</code></a> builder
+sidesteps the same problem differently — <code>vfs</code> plus <code>DOCKER_BUILDKIT=0</code> — which
+is fine there because it builds one small image.</p>
 
 
 
@@ -6117,7 +6193,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../docs/development/intermediate/testing/end_to_end_testing/" class="md-footer__link md-footer__link--prev" aria-label="Previous: End-to-End Testing">
+          <a href="../../docs/development/intermediate/testing/ci_cd/" class="md-footer__link md-footer__link--prev" aria-label="Previous: CI/CD Pipeline">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -6127,7 +6203,7 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                End-to-End Testing
+                CI/CD Pipeline
               </div>
             </div>
           </a>

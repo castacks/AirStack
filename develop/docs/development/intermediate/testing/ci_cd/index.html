@@ -11,6 +11,10 @@
         <link rel="canonical" href="https://docs.theairlab.org/docs/develop/docs/development/intermediate/testing/ci_cd/">
       
       
+        <link rel="prev" href="../end_to_end_testing/">
+      
+      
+        <link rel="next" href="../../../../../tests/ci-cd-orchestrator/">
       
       
         
@@ -74,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#cicd-pipeline" class="md-skip">
+        <a href="#cicd-pipeline-on-osmo" class="md-skip">
           Skip to content
         </a>
       
@@ -263,10 +267,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../../../" class="md-tabs__link">
           
   
@@ -599,6 +605,8 @@
       
   
   
+    
+  
   
   
     
@@ -618,16 +626,19 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           <div class="md-nav__link md-nav__container">
@@ -649,13 +660,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -691,17 +702,20 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
         
           
-          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="">
             
   
   
@@ -978,8 +992,10 @@
                 
   
   
+    
   
   
+  
     
     
       
@@ -996,18 +1012,21 @@
     
       
       
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
         
           
-          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
             
   
   
@@ -1025,7 +1044,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1039,6 +1058,8 @@
               
                 
   
+  
+    
   
   
   
@@ -1057,6 +1078,8 @@
       
         
       
+        
+      
     
     
     
@@ -1066,11 +1089,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3_1" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3_1" checked>
         
           
           <div class="md-nav__link md-nav__container">
@@ -1098,7 +1121,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_1_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_1_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_3_1">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1190,6 +1213,341 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD Pipeline
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-short-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The short version
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#job-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Job lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#anatomy-of-a-runner-pod" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Anatomy of a runner pod
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#triggering-a-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Triggering a run
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Triggering a run">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-three-entry-points" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The three entry points
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#comment-syntax" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comment syntax
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-the-job-does-step-by-step" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the job does, step by step
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#layer-cache-the-floating-cache_-tag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Layer cache: the floating cache_* tag
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#publish-path-retag-when-image-inputs-are-unchanged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Publish path: retag when image inputs are unchanged
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-pipeline-tests-and-what-that-catches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the pipeline tests, and what that catches
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What the pipeline tests, and what that catches">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-flight-chain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The flight chain
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bring-up-scope-and-why-mark-selection-costs-money" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bring-up scope, and why mark selection costs money
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reading-the-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading the results
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Reading the results">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-pr-comment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The PR comment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-artifact" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The artifact
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-ci-well-while-developing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using CI well while developing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-release-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The release path
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File map
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1466,17 +1824,20 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
         
           
-          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="">
             
   
   
@@ -5401,6 +5762,75 @@
 
 
 
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../../../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Development
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+    
+      
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Intermediate Tutorials
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Testing
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
               
               <article class="md-content__inner md-typeset">
                 
@@ -5411,7 +5841,760 @@
   
 
 
-<h1 id="cicd-pipeline">CI/CD Pipeline<a class="headerlink" href="#cicd-pipeline" title="Permanent link">&para;</a></h1>
+<h1 id="cicd-pipeline-on-osmo">CI/CD Pipeline on OSMO<a class="headerlink" href="#cicd-pipeline-on-osmo" title="Permanent link">&para;</a></h1>
+<p>AirStack's continuous integration runs the <strong>full drone stack</strong> — simulator,
+robot autonomy, and GCS — on a GPU for every change. Because that needs a
+GPU, a Docker daemon, and a clean filesystem, jobs cannot run on GitHub's
+hosted runners and should not run on a shared always-on machine. Instead, a
+small orchestrator service watches the GitHub Actions queue and submits one
+<strong>ephemeral <a href="https://nvidia.github.io/OSMO/">NVIDIA OSMO</a> pod per job</strong>. The pod
+registers as a single-use GitHub Actions runner, executes exactly one job, and
+is destroyed.</p>
+<p>This page documents the whole system: the architecture, the job lifecycle,
+what each test suite actually catches, how to trigger and read a run, and how
+to fit CI into your day-to-day development loop.</p>
+<div class="admonition note">
+<p class="admonition-title">Related pages</p>
+<ul>
+<li><a href="../../../../../tests/"><code>tests/README.md</code></a> — the test suite reference: marks, fixtures, metrics, CLI flags.</li>
+<li><a href="../../../../../tests/ci-cd-orchestrator/">CI/CD Orchestrator</a> — the lab-admin runbook: pool prerequisites, credential staging, <code>setup.sh</code>, rotation, break-glass debugging.</li>
+<li><a href="../../../../tutorials/airstack_on_osmo/">AirStack on OSMO</a> — the <em>interactive</em> OSMO dev pod (Remote-SSH + Isaac Sim streaming). Different workflow, same compute pool.</li>
+</ul>
+</div>
+<hr />
+<h2 id="the-short-version">The short version<a class="headerlink" href="#the-short-version" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Where do CI jobs run?</td>
+<td>A fresh GPU pod on the OSMO <code>airstack</code> pool, one per job, destroyed after.</td>
+</tr>
+<tr>
+<td>What triggers a run?</td>
+<td>A PR being <strong>opened</strong>, a <code>/pytest</code> comment from a maintainer, or manual <code>workflow_dispatch</code>.</td>
+</tr>
+<tr>
+<td>What gets tested?</td>
+<td>Docker image builds, <code>colcon</code> builds, unit tests, stack liveliness, sensor rates, takeoff/hover/land, fixed-trajectory tracking.</td>
+</tr>
+<tr>
+<td>How do I see results?</td>
+<td>A metrics report comment on the PR, plus the <code>test-results-*</code> artifact (<code>summary.txt</code>, <code>results.xml</code>, <code>metrics.json</code>).</td>
+</tr>
+<tr>
+<td>What fails the build?</td>
+<td>Any failed test, <strong>or</strong> a metric regressing more than 20 % against the base branch's last run.</td>
+</tr>
+<tr>
+<td>Who holds the secrets?</td>
+<td>Only the orchestrator host. Workers get a single-use JIT token valid for one registration.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
+<p>Three planes, each owning one job. GitHub owns the queue and the logs. The
+orchestrator owns the credentials and the job ↔ pod bookkeeping. OSMO owns the
+GPU compute and the pod lifecycle.</p>
+<pre class="mermaid"><code>flowchart LR
+  subgraph gh [GitHub]
+    pr["Pull request / comment / dispatch"]
+    queue["Actions queue&lt;br/&gt;workflow_job: queued&lt;br/&gt;labels: self-hosted, airstack-ephemeral"]
+    api["REST API"]
+    pr --&gt; queue
+    queue --- api
+  end
+
+  subgraph orch ["Orchestrator host (no GPU, always on)"]
+    svc["airstack-orchestrator.service&lt;br/&gt;orchestrator.py"]
+    spawn["spawn loop — every 15s"]
+    reap["reap loop — every 30s"]
+    creds["/etc/airstack-orchestrator&lt;br/&gt;github-pat + osmo-token + config.yaml"]
+    state["/var/lib/airstack-orchestrator/state.json&lt;br/&gt;job_id → workflow_id"]
+    svc --&gt; spawn
+    svc --&gt; reap
+    svc --- creds
+    spawn --- state
+    reap --- state
+  end
+
+  subgraph osmo ["OSMO airstack pool (GPU, privileged)"]
+    wf["Workflow gha-runner-JOBID-TS"]
+    pod["Ephemeral runner pod&lt;br/&gt;airstack-ci-runner image"]
+    wf --&gt; pod
+  end
+
+  api -- "poll queued jobs" --&gt; spawn
+  spawn -- "mint JIT runner config" --&gt; api
+  spawn -- "osmo workflow submit" --&gt; wf
+  pod -- "register + long-poll for work" --&gt; api
+  reap -- "osmo workflow cancel" --&gt; wf</code></pre>
+<p>Key properties that fall out of this shape:</p>
+<ul>
+<li><strong>Truly ephemeral.</strong> Every job starts from the prebaked image with an empty Docker cache. No leftover containers, no dangling networks, no "works because the last run left something behind".</li>
+<li><strong>PAT isolation.</strong> The GitHub PAT never leaves the orchestrator. The pod receives a <a href="https://docs.github.com/en/rest/actions/self-hosted-runners#create-configuration-for-a-just-in-time-runner-for-a-repository">JIT runner config</a> — a base64 blob bound to exactly one runner registration, short-lived.</li>
+<li><strong>Non-personal OSMO identity.</strong> The orchestrator authenticates with a service-account token scoped to the CI pool, so runs never consume an individual's GPU quota and nothing breaks when someone graduates.</li>
+<li><strong>Crash-safe.</strong> Every workflow is named <code>gha-runner-&lt;job_id&gt;-&lt;unix_ts&gt;</code>. The reap loop cancels any active workflow with that prefix that is missing from <code>state.json</code>, so a crashed or restarted orchestrator cannot leak pods.</li>
+</ul>
+<hr />
+<h2 id="job-lifecycle">Job lifecycle<a class="headerlink" href="#job-lifecycle" title="Permanent link">&para;</a></h2>
+<p>From "you comment <code>/pytest</code>" to "the pod is gone", in order:</p>
+<pre class="mermaid"><code>sequenceDiagram
+  autonumber
+  participant Dev as Developer
+  participant GH as GitHub Actions
+  participant Orch as Orchestrator
+  participant OSMO as OSMO scheduler
+  participant Pod as Runner pod
+
+  Dev-&gt;&gt;GH: open PR / comment /pytest / dispatch
+  GH-&gt;&gt;GH: queue job with labels self-hosted + airstack-ephemeral
+  Orch-&gt;&gt;GH: poll queued jobs (15s)
+  Orch-&gt;&gt;GH: POST generate-jitconfig
+  GH--&gt;&gt;Orch: encoded_jit_config (single use)
+  Orch-&gt;&gt;Orch: render runner-workflow.yaml.j2
+  Orch-&gt;&gt;OSMO: osmo workflow submit --pool airstack
+  OSMO--&gt;&gt;Orch: workflow name, then uuid via query
+  Orch-&gt;&gt;Orch: record job_id to workflow_id in state.json
+  OSMO-&gt;&gt;Pod: schedule privileged GPU pod
+  Pod-&gt;&gt;Pod: start inner dockerd, nvidia-smi check
+  Pod-&gt;&gt;GH: run.sh --jitconfig, register ephemeral runner
+  GH-&gt;&gt;Pod: dispatch the one job
+  Pod-&gt;&gt;Pod: checkout, pull images, pytest
+  Pod--&gt;&gt;GH: logs, conclusion, results artifact
+  Pod-&gt;&gt;Pod: run.sh exits after one job, task completes
+  OSMO-&gt;&gt;OSMO: tear the pod down
+  Orch-&gt;&gt;GH: poll job status (30s)
+  GH--&gt;&gt;Orch: completed
+  Orch-&gt;&gt;OSMO: cancel if still live, then drop from state.json</code></pre>
+<p>Two safety nets run on top of the happy path:</p>
+<ul>
+<li><strong>Straggler reap.</strong> Any tracked job older than <code>max_job_minutes</code> (default 48 h) is force-cancelled regardless of what GitHub reports.</li>
+<li><strong>Orphan sweep.</strong> Active <code>gha-runner-*</code> workflows that are not in <code>state.json</code> and are more than two minutes old get cancelled. The two-minute grace window prevents the sweep from racing a submit that has not been recorded yet.</li>
+</ul>
+<hr />
+<h2 id="anatomy-of-a-runner-pod">Anatomy of a runner pod<a class="headerlink" href="#anatomy-of-a-runner-pod" title="Permanent link">&para;</a></h2>
+<p>The worker is a prebaked image — everything the job needs is already in the
+layer cache when the pod starts, so a slow <code>apt-get</code> can never outlive the JIT
+token's validity window.</p>
+<pre class="mermaid"><code>flowchart TB
+  subgraph pod ["OSMO task — privileged, 1 GPU, 8 CPU, 32Gi RAM, 300Gi disk"]
+    entry["run-ephemeral-runner.sh"]
+    dockerd["inner dockerd&lt;br/&gt;+ nvidia-container-toolkit"]
+    runner["actions-runner run.sh --jitconfig"]
+    subgraph compose ["docker compose stack started by airstack up"]
+      sim["isaac-sim or ms-airsim"]
+      robot["robot-desktop x NUM_ROBOTS"]
+      gcs["gcs"]
+    end
+    entry --&gt; dockerd
+    entry --&gt; runner
+    runner -- "pytest tests/ runs airstack up" --&gt; dockerd
+    dockerd --&gt; sim
+    dockerd --&gt; robot
+    dockerd --&gt; gcs
+  end
+  gpu["Node GPU"] --&gt; dockerd</code></pre>
+<table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>File</th>
+<th>What it contributes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Image</td>
+<td><a href="https://github.com/castacks/AirStack/blob/main/.github/orchestrator/runner.Dockerfile"><code>runner.Dockerfile</code></a></td>
+<td>Ubuntu 24.04 + Docker CE + compose/buildx + NVIDIA container toolkit + pinned <code>actions/runner</code> (2.334.0)</td>
+</tr>
+<tr>
+<td>Entrypoint</td>
+<td><a href="https://github.com/castacks/AirStack/blob/main/.github/orchestrator/runner-entrypoint.sh"><code>runner-entrypoint.sh</code></a></td>
+<td>Starts <code>dockerd</code>, waits up to 60 s for it, runs <code>nvidia-smi</code> as a non-fatal GPU sanity check, then <code>exec</code>s <code>run.sh --jitconfig</code></td>
+</tr>
+<tr>
+<td>Pod shape</td>
+<td><a href="https://github.com/castacks/AirStack/blob/main/.github/orchestrator/runner-workflow.yaml.j2"><code>runner-workflow.yaml.j2</code></a></td>
+<td>Resource request, <code>privileged: true</code>, the JIT config and <code>RUNNER_ALLOW_RUNASROOT</code> env</td>
+</tr>
+<tr>
+<td>Sizing</td>
+<td><code>config.yaml</code></td>
+<td><code>cpu: 8</code>, <code>gpu: 1</code>, <code>memory: 32Gi</code>, <code>storage: 300Gi</code> — sized for sim + robot + GCS images plus Isaac assets</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">Privileged is mandatory</p>
+<p>The tests run <code>airstack up</code>, which is <code>docker compose</code>, which needs a Docker
+daemon <em>inside</em> the pod. That requires the pool's platform to have
+<strong>Privileged Mode Allowed</strong> enabled. Without it, submissions are rejected and
+<code>osmo workflow logs</code> shows <code>dockerd did not become ready</code>.</p>
+</div>
+<p>Build and publish the image with
+<a href="https://github.com/castacks/AirStack/blob/main/.github/orchestrator/build-and-push.sh"><code>build-and-push.sh</code></a>,
+or — if you have no local Docker — submit
+<a href="https://github.com/castacks/AirStack/blob/main/.github/orchestrator/build-runner-on-osmo.yaml"><code>build-runner-on-osmo.yaml</code></a>,
+a one-shot OSMO job that builds the runner image inside an OSMO pod and pushes
+it to Harbor.</p>
+<hr />
+<h2 id="triggering-a-run">Triggering a run<a class="headerlink" href="#triggering-a-run" title="Permanent link">&para;</a></h2>
+<h3 id="the-three-entry-points">The three entry points<a class="headerlink" href="#the-three-entry-points" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Trigger</th>
+<th>When it fires</th>
+<th>What it runs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pull_request</code> (<code>types: [opened]</code>)</td>
+<td>Only when the PR is first opened, and only for same-repo branches</td>
+<td>pytest's <code>conftest</code> defaults — the full mark set</td>
+</tr>
+<tr>
+<td><code>/pytest</code> PR comment</td>
+<td>Any time, from a user with <code>OWNER</code>/<code>MEMBER</code>/<code>COLLABORATOR</code> association</td>
+<td>Whatever args you put on the first line of the comment</td>
+</tr>
+<tr>
+<td><code>workflow_dispatch</code></td>
+<td>Manual, from the Actions tab</td>
+<td>The form inputs: <code>marks</code>, <code>sim</code>, <code>num_robots</code>, <code>stress_iterations</code>, <code>stable_duration</code>, <code>baseline_run_id</code></td>
+</tr>
+</tbody>
+</table>
+<p>Pushes to an open PR deliberately do <strong>not</strong> re-trigger. GPU pods are a shared
+resource, so re-runs are opt-in via <code>/pytest</code>.</p>
+<h3 id="comment-syntax">Comment syntax<a class="headerlink" href="#comment-syntax" title="Permanent link">&para;</a></h3>
+<p>The first line is parsed with <code>shlex</code>; everything after it is free-form notes.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>/pytest -m liveliness --sim msairsim --num-robots 1 --stress-iterations 1
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Checking whether the DDS bridge fix holds under 3 robots — see thread above.
+</span></code></pre></div>
+<p><code>-m build_packages</code> is <strong>pull-only</strong>: it retags floating <code>cache_*</code> images onto the PR <code>VERSION</code> tag and never runs <code>image-build</code> (and does not pull Isaac Sim). Use that when iterating on colcon/pytest failures. For other marks, add <code>--no-image-build</code> to skip the bake:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>/pytest -m build_packages
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>/pytest -m liveliness --sim msairsim --no-image-build
+</span></code></pre></div>
+<p>The workflow replies on the thread with the exact <code>pytest</code> command it resolved
+and a link to the run, and opens a <strong>Check Run</strong> pinned to the PR head SHA so
+comment-triggered runs still show up in the PR's Checks tab.</p>
+<div class="admonition tip">
+<p class="admonition-title"><code>build_packages</code> is prepended for you</p>
+<p>Whenever you pass <code>-m</code>, the workflow rewrites the expression to
+<code>build_packages or &lt;your marks&gt;</code>. Launch tests are useless against a stale
+<code>install/</code> tree, and this removes the most common way to waste a 40-minute
+GPU run. It is skipped when you already named <code>build_packages</code>, and when you
+pass no marks at all (pytest then runs everything anyway).</p>
+</div>
+<h3 id="what-the-job-does-step-by-step">What the job does, step by step<a class="headerlink" href="#what-the-job-does-step-by-step" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>flowchart TD
+  a["Resolve PR head — issue_comment only"] --&gt; b["Parse pytest args&lt;br/&gt;prepend build_packages, extract --sim"]
+  b --&gt; c["Ack comment + open in-progress Check Run"]
+  c --&gt; d["Checkout PR head with submodules"]
+  d --&gt; e["Write omni_pass.env — guest Nucleus creds"]
+  e --&gt; f["Create venv, install tests/requirements.txt"]
+  f --&gt; g{"Registry secrets present?"}
+  g -- yes --&gt; h["docker login, set AIRSTACK_REGISTRY_CACHE=1&lt;br/&gt;read-only: PRs never republish the cache"]
+  g -- no --&gt; i["Skip — build from scratch"]
+  h --&gt; j{"marks contain build_docker?"}
+  i --&gt; j
+  j -- yes --&gt; l["Skip image prep — those tests build themselves"]
+  j -- no --&gt; k["airstack image-pull for the active profiles&lt;br/&gt;fall back to image-build for anything missing"]
+  k --&gt; m["pytest tests/ with resolved args"]
+  l --&gt; m
+  m --&gt; n["Upload tests/results/ artifact, 90-day retention"]
+  n --&gt; o["Finalize Check Run with the job conclusion"]
+  o --&gt; p["report job on ubuntu-latest"]</code></pre>
+<p>The image-prep step is what makes runs on a cold pod tolerable: it pulls the
+published images for exactly the compose profiles the selected <code>--sim</code> implies,
+then falls back to a local build only for images the registry did not have (a
+new branch that has not been released yet, for example).</p>
+<h3 id="layer-cache-the-floating-cache_-tag">Layer cache: the floating <code>cache_*</code> tag<a class="headerlink" href="#layer-cache-the-floating-cache_-tag" title="Permanent link">&para;</a></h3>
+<p>Every pod starts with an empty Docker cache, so <code>build_docker</code> is only fast if
+BuildKit can import layers from the registry. Each compose service therefore
+declares two <code>cache_from</code> entries:</p>
+<table>
+<thead>
+<tr>
+<th>Entry</th>
+<th>Example</th>
+<th>Who writes it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Versioned</td>
+<td><code>airstack:v0.19.0-alpha.7_isaac-sim</code></td>
+<td><code>docker-build.yml</code>, per release</td>
+</tr>
+<tr>
+<td>Floating</td>
+<td><code>airstack:cache_isaac-sim</code></td>
+<td><code>docker-build.yml</code>, republished every build</td>
+</tr>
+</tbody>
+</table>
+<p>The versioned entry alone cannot work on a pull request. <code>check-version-increment</code>
+requires every PR to raise <code>VERSION</code>, so the tag a PR builds under is by
+definition one that has never been pushed — the pull misses and the build runs
+cold from the first <code>RUN</code> layer:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Image ...airstack:v0.19.0-alpha.7_isaac-sim Pulling
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Image ...airstack:v0.19.0-alpha.7_isaac-sim failed to resolve reference
+</span></code></pre></div>
+<p>The floating tag is the one that actually hits. It tracks the newest build from
+<code>main</code>/<code>develop</code> rather than any particular version, so a PR imports the layers
+its base branch already produced and rebuilds only what it changed.</p>
+<p>Reading and writing the cache are separate switches, and PR runs get read only:</p>
+<ul>
+<li><code>AIRSTACK_REGISTRY_CACHE=1</code> — pull to seed, build with <code>BUILDKIT_INLINE_CACHE=1</code>.
+  Set by <code>system-tests.yml</code> whenever registry secrets are available.</li>
+<li><code>AIRSTACK_REGISTRY_CACHE_PUSH=1</code> — additionally publish the versioned and
+  floating tags. Set only by <code>docker-build.yml</code>.</li>
+</ul>
+<p>Keeping the write switch off for pull requests means an unmerged branch can
+neither poison the shared cache for everyone else nor publish an unreleased
+<code>VERSION</code> tag. Override the tag name with <code>CACHE_TAG</code> (default <code>cache</code>) to keep
+an experimental cache line separate.</p>
+<h3 id="publish-path-retag-when-image-inputs-are-unchanged">Publish path: retag when image inputs are unchanged<a class="headerlink" href="#publish-path-retag-when-image-inputs-are-unchanged" title="Permanent link">&para;</a></h3>
+<p><code>check-version-increment</code> forces every PR to raise <code>VERSION</code>, including
+docs-only changes. On <code>main</code>/<code>develop</code>, that would otherwise mean a full
+multi-hour rebuild of every image for a no-op Docker change.</p>
+<p><a href="https://github.com/castacks/AirStack/blob/main/.github/workflows/docker-build.yml"><code>docker-build.yml</code></a>
+therefore plans per service before building:</p>
+<ol>
+<li><a href="https://github.com/castacks/AirStack/blob/main/.github/workflows/scripts/docker_image_plan.py"><code>.github/workflows/scripts/docker_image_plan.py</code></a>
+   hashes each service’s Dockerfile, compose-related files, build args, and
+   tracked fingerprint roots into <code>org.airstack.content-fingerprint</code>.</li>
+<li>It inspects the <strong>previous</strong> versioned image’s label (from <code>HEAD~1</code>’s
+   <code>VERSION=</code>).</li>
+<li><strong>Match</strong> → registry-side retag with
+   <code>docker buildx imagetools create</code> (new <code>v${VERSION}_…</code> tag and floating
+   <code>cache_*</code> tag, same digest — no rebuild).</li>
+<li><strong>Mismatch / missing / unlabeled / <code>force_rebuild</code></strong> → <code>docker compose build</code>
+   for that service only, with the fingerprint applied as a build label via an
+   ephemeral <code>docker-compose.fingerprint.yaml</code> override.</li>
+</ol>
+<p>PR <code>system-tests</code> / <code>build_docker</code> are unchanged: they still run real builds so
+Dockerfiles keep being proven. Floating <code>cache_*</code> remains the layer-cache seed
+for those rebuilds.</p>
+<p>Manual dispatch accepts <code>force_rebuild=true</code> to rebuild and relabel everything
+(useful the first time after this lands, or to refresh <code>cache_*</code> from scratch).</p>
+<hr />
+<h2 id="what-the-pipeline-tests-and-what-that-catches">What the pipeline tests, and what that catches<a class="headerlink" href="#what-the-pipeline-tests-and-what-that-catches" title="Permanent link">&para;</a></h2>
+<p>Tests are selected with pytest marks. Collection order is fixed in
+<code>tests/conftest.py</code> so cheap and prerequisite suites always run first — a
+<code>colcon</code> break fails in minutes instead of after a sim bring-up.</p>
+<pre class="mermaid"><code>flowchart LR
+  u["unit&lt;br/&gt;seconds, no Docker"] --&gt; bd["build_docker&lt;br/&gt;image builds"]
+  bd --&gt; bp["build_packages&lt;br/&gt;colcon build in containers"]
+  bp --&gt; lv["liveliness&lt;br/&gt;stack comes up"]
+  lv --&gt; sn["sensors&lt;br/&gt;streams flow at rate"]
+  sn --&gt; th["takeoff_hover_land&lt;br/&gt;flight chain"]
+  th --&gt; au["autonomy&lt;br/&gt;trajectory tracking"]</code></pre>
+<table>
+<thead>
+<tr>
+<th>Mark</th>
+<th>Module</th>
+<th>What it verifies</th>
+<th>Bugs it is good at catching</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>unit</code></td>
+<td><code>tests/robot/</code>, <code>tests/sim/</code> proxies</td>
+<td>Hermetic Python/numpy logic co-located with each ROS 2 package</td>
+<td>Off-by-one and boundary errors in filters, converters, validators; regressions in pure algorithm code</td>
+</tr>
+<tr>
+<td><code>build_docker</code></td>
+<td><code>system/test_build_docker.py</code></td>
+<td>Every image builds; records image sizes</td>
+<td>Broken Dockerfiles, deleted apt packages, upstream base-image drift, accidental image bloat</td>
+</tr>
+<tr>
+<td><code>build_packages</code></td>
+<td><code>system/test_build_packages.py</code></td>
+<td><code>colcon build</code> inside robot, GCS, and ms-airsim workspaces</td>
+<td>Missing <code>package.xml</code> dependencies, uninstalled launch/config files, C++ breakage on a clean tree</td>
+</tr>
+<tr>
+<td><code>liveliness</code></td>
+<td><code>system/test_liveliness.py</code></td>
+<td>Containers reach Running, <code>/clock</code> publishes, tmux panes alive, sentinel ROS 2 nodes present, compute snapshot, stability poll</td>
+<td>Launch files that crash on start, nodes that die after 30 s, <code>ROBOT_NAME</code>/domain-ID misconfiguration, runaway CPU or memory</td>
+</tr>
+<tr>
+<td><code>sensors</code></td>
+<td><code>system/test_sensors.py</code></td>
+<td>Stereo and depth publish rates on both sim and robot side, filtered LiDAR liveness plus geometry sanity, sim real-time factor, time-series stability</td>
+<td>Broken sim-to-ROS bridges, sensor Hz that silently halves, RTF collapse from a heavy new node, LiDAR filter range regressions</td>
+</tr>
+<tr>
+<td><code>takeoff_hover_land</code></td>
+<td><code>system/test_takeoff_hover_land.py</code></td>
+<td>Four-phase chain per (sim, robots, iteration, velocity): PX4 ready → takeoff to 10 m → hover → land</td>
+<td>Controller tuning regressions, altitude overshoot, hover drift, state-estimation bias against ground truth, PX4/MAVROS handshake breakage</td>
+</tr>
+<tr>
+<td><code>autonomy</code></td>
+<td><code>system/test_fixed_trajectory.py</code></td>
+<td>Same chain with a Circle / Figure8 / Racetrack / Line pattern in the middle; records cross-track error and path RMSE</td>
+<td>Path-tracker regressions, trajectory-library math errors, velocity/acceleration limit violations that show up as corner-cutting</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-flight-chain">The flight chain<a class="headerlink" href="#the-flight-chain" title="Permanent link">&para;</a></h3>
+<p>Both flight suites run as an ordered chain per parametrization, so the drone
+always ends on the ground before the next configuration starts:</p>
+<pre class="mermaid"><code>flowchart LR
+  r["test_px4_ready&lt;br/&gt;MAVROS + EKF"] --&gt; t["test_takeoff&lt;br/&gt;within 10% of 10 m"]
+  t --&gt; x["test_hover or test_fixed_trajectory"]
+  x --&gt; l["test_landing&lt;br/&gt;final altitude &lt; 0.5 m"]
+  r -. "failure" .-&gt; s["remaining phases skipped"]
+  t -. "failure" .-&gt; s
+  x -. "failure still lands" .-&gt; l</code></pre>
+<p>A failure in the middle phase (<code>test_hover</code> or <code>test_fixed_trajectory</code>) does
+<strong>not</strong> skip landing — a bad tracker must not leave a drone stuck in the air
+blocking the rest of the sweep. A failure in <code>test_px4_ready</code> or <code>test_takeoff</code>
+does skip the remaining phases for that configuration.</p>
+<h3 id="bring-up-scope-and-why-mark-selection-costs-money">Bring-up scope, and why mark selection costs money<a class="headerlink" href="#bring-up-scope-and-why-mark-selection-costs-money" title="Permanent link">&para;</a></h3>
+<p><code>airstack_env</code> is <strong>class-scoped</strong> and parametrized over
+<code>(sim, num_robots, iteration)</code>. Each test class does its own <code>airstack up</code> and
+<code>airstack down</code>. Selecting two suites with <code>or</code> therefore performs <strong>two full
+stack cycles per tuple</strong>:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>-m liveliness                  → 1 bring-up per (sim, robots, iter)
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>-m &quot;liveliness or sensors&quot;     → 2 bring-ups per (sim, robots, iter)
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>--sim msairsim                 → opt in; both sims doubles all of the above
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>--num-robots 1,3               → doubles it again
+</span></code></pre></div>
+<p>Run one mark at a time unless you genuinely need both.</p>
+<hr />
+<h2 id="reading-the-results">Reading the results<a class="headerlink" href="#reading-the-results" title="Permanent link">&para;</a></h2>
+<h3 id="the-pr-comment">The PR comment<a class="headerlink" href="#the-pr-comment" title="Permanent link">&para;</a></h3>
+<p>After <code>run-tests</code> finishes — pass or fail — a <code>report</code> job on <code>ubuntu-latest</code>
+downloads the current artifact plus a <strong>baseline</strong> artifact and runs
+<a href="https://github.com/castacks/AirStack/blob/main/tests/parse_metrics.py"><code>parse_metrics.py</code></a>
+in diff mode.</p>
+<table>
+<thead>
+<tr>
+<th>Run type</th>
+<th>Baseline used</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PR opened or <code>/pytest</code></td>
+<td>Latest <code>system-tests.yml</code> artifact on the PR's base branch</td>
+</tr>
+<tr>
+<td><code>workflow_dispatch</code> with <code>baseline_run_id</code></td>
+<td>That specific run</td>
+</tr>
+<tr>
+<td><code>workflow_dispatch</code> without it</td>
+<td>Latest artifact on <code>main</code></td>
+</tr>
+</tbody>
+</table>
+<p>The comment has three sections per test module: a flat <strong>Metrics</strong> table, a
+<strong>Sim publishing rates</strong> pivot (topic Hz aggregates from the <code>sensors</code> mark),
+and a <strong>Compute usage</strong> pivot (CPU / memory / GPU per container). Regressions
+are marked with a red circle, improvements with a green one, and the job
+<strong>fails</strong> if any metric moves more than the 20 % threshold in the wrong
+direction. That is the mechanism that catches slow degradation — the kind of
+change where nothing throws but the tracker is quietly 30 % worse.</p>
+<h3 id="the-artifact">The artifact<a class="headerlink" href="#the-artifact" title="Permanent link">&para;</a></h3>
+<p><code>test-results-&lt;sha&gt;-&lt;run_id&gt;</code>, retained 90 days:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>tests/results/2026-08-06_14-30-00/
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>├── summary.txt    # human-readable per-chain summary — open this first
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>├── results.xml    # JUnit XML: durations, pass/fail per test
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>└── metrics.json   # every recorded metric, including time series
+</span></code></pre></div>
+<p>There are no per-test log files. Live output streams to the Actions log via
+pytest's <code>log_cli</code>, and failed assertions embed the tail of the relevant
+<code>docker</code> or <code>ros2</code> subprocess output directly in the failure message.</p>
+<p>Regenerate a report locally from a downloaded artifact:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>tests/parse_metrics.py<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>--current<span class="w">  </span>path/to/current-run/<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>--baseline<span class="w"> </span>path/to/baseline-run/<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>--threshold<span class="w"> </span><span class="m">20</span>
+</span></code></pre></div>
+<hr />
+<h2 id="using-ci-well-while-developing">Using CI well while developing<a class="headerlink" href="#using-ci-well-while-developing" title="Permanent link">&para;</a></h2>
+<p>The pipeline is expensive at the far end and nearly free at the near end. Push
+each class of failure as far left as it will go.</p>
+<pre class="mermaid"><code>flowchart TD
+  q{"What did you change?"}
+  q -- "Pure Python / numpy logic" --&gt; u["airstack test -m unit&lt;br/&gt;seconds, no GPU"]
+  q -- "Dockerfile / dependency" --&gt; b["airstack test -m build_docker or build_packages&lt;br/&gt;minutes, no GPU"]
+  q -- "Launch file / new node" --&gt; l["airstack test -m liveliness --sim msairsim --num-robots 1"]
+  q -- "Sensor or bridge" --&gt; s["airstack test -m sensors --sim isaacsim --num-robots 1"]
+  q -- "Controller / planner" --&gt; a["airstack test -m autonomy --sim msairsim --trajectory-types Circle"]
+  u --&gt; pr["Push branch, open PR"]
+  b --&gt; pr
+  l --&gt; pr
+  s --&gt; pr
+  a --&gt; pr
+  pr --&gt; ci["Full suite runs on the ephemeral GPU pod"]
+  ci --&gt; rep["Read the metrics comment"]
+  rep --&gt; iter["/pytest with a narrowed mark to confirm a fix"]</code></pre>
+<p>Practical rules that follow from how the system is built:</p>
+<ul>
+<li><strong>Reproduce CI locally with the same command.</strong> <code>airstack test</code> and CI both call <code>pytest tests/</code> with the same flags. If a run fails in CI, copy the resolved command from the acknowledgment comment and run it on any GPU box — including an <a href="../../../../tutorials/airstack_on_osmo/">interactive OSMO dev pod</a> if you do not have a local GPU.</li>
+<li><strong>Narrow before you re-run.</strong> A <code>/pytest</code> with no args re-runs everything. <code>/pytest -m autonomy --sim msairsim --trajectory-types Circle</code> re-runs the one chain you are fixing, in a fraction of the time.</li>
+<li><strong>Never trust a green launch test against a stale build.</strong> This is why <code>build_packages</code> is auto-prepended; keep it that way when writing your own <code>/pytest</code> line.</li>
+<li><strong>Read <code>summary.txt</code> before the raw log.</strong> It groups each flight chain with per-phase wall times and status, so the failing phase is obvious without scrolling a 40-minute log.</li>
+<li><strong>Treat the metrics diff as a review artifact.</strong> A PR that turns a metric red needs an explanation in the thread, even when every test passed.</li>
+<li><strong>Bump <code>VERSION</code> in <code>.env</code> when image content changes.</strong> <a href="https://github.com/castacks/AirStack/blob/main/.github/workflows/check-version-increment.yml"><code>check-version-increment.yml</code></a> gates the PR on a strictly-greater semver, and merging that bump is what triggers the release build below.</li>
+</ul>
+<hr />
+<h2 id="the-release-path">The release path<a class="headerlink" href="#the-release-path" title="Permanent link">&para;</a></h2>
+<p><code>system-tests.yml</code> is not the only workflow on the ephemeral runners.
+<a href="https://github.com/castacks/AirStack/blob/main/.github/workflows/docker-build.yml"><code>docker-build.yml</code></a>
+also requests <code>runs-on: [self-hosted, airstack-ephemeral]</code> and therefore gets
+the same per-job pod treatment.</p>
+<pre class="mermaid"><code>flowchart LR
+  pr["PR merged to main or develop"] --&gt; chk{".env VERSION changed?"}
+  chk -- no --&gt; stop["No build"]
+  chk -- yes --&gt; pod["Ephemeral OSMO pod"]
+  pod --&gt; plan["Per-service fingerprint plan"]
+  plan --&gt; retag["imagetools retag unchanged"]
+  plan --&gt; build["compose build changed only"]
+  retag --&gt; sign["cosign sign — keyless, GitHub OIDC"]
+  build --&gt; sign
+  sign --&gt; verify["cosign verify against the workflow identity"]</code></pre>
+<p>Signing is keyless via GitHub's OIDC token, and the same job immediately
+verifies each published digest against the expected certificate identity, so a
+published image that was not built by this workflow fails the check. Retagged
+images keep the previous digest (and therefore an existing signature still
+covers that digest; the job re-signs the same digest under the new tags’ refs).</p>
+<table>
+<thead>
+<tr>
+<th>Workflow</th>
+<th>Runner</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>system-tests.yml</code></td>
+<td>Ephemeral OSMO GPU pod</td>
+<td>Full test suite + metrics report</td>
+</tr>
+<tr>
+<td><code>docker-build.yml</code></td>
+<td>Ephemeral OSMO GPU pod</td>
+<td>Retag or rebuild, push, and sign compose images</td>
+</tr>
+<tr>
+<td><code>check-version-increment.yml</code></td>
+<td><code>ubuntu-latest</code></td>
+<td>Semver gate on <code>.env</code> <code>VERSION=</code></td>
+</tr>
+<tr>
+<td><code>deploy_docs_from_*.yaml</code></td>
+<td><code>ubuntu-latest</code></td>
+<td>Versioned MkDocs publish via <code>mike</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="security-model">Security model<a class="headerlink" href="#security-model" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>How the design handles it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cross-job state pollution</td>
+<td>Fresh pod per job with an empty Docker cache; destroyed within ~30 s of completion</td>
+</tr>
+<tr>
+<td>Fork PRs executing arbitrary code on a GPU node</td>
+<td><code>head.repo.full_name == github.repository</code> guard on the <code>pull_request</code> path, and an explicit fork check plus <code>author_association</code> gate on the <code>/pytest</code> path</td>
+</tr>
+<tr>
+<td>Long-lived GitHub PAT on a worker</td>
+<td>The PAT lives only on the orchestrator; workers get a single-use JIT config bound to one registration</td>
+</tr>
+<tr>
+<td>Credentials tied to a person</td>
+<td>OSMO auth uses a non-personal service-account token scoped to the CI pool</td>
+</tr>
+<tr>
+<td>Privileged container is root-equivalent</td>
+<td>Accepted deliberately — docker-in-docker is required — but bounded to a one-shot pod, on a dedicated pool, running only same-repo code</td>
+</tr>
+<tr>
+<td>Orchestrator compromise blast radius</td>
+<td>Systemd hardening: <code>NoNewPrivileges</code>, <code>ProtectSystem=strict</code>, <code>ProtectHome=read-only</code>, <code>PrivateTmp</code>, with a single <code>ReadWritePaths</code> for state</td>
+</tr>
+<tr>
+<td>Leaked pods after a crash</td>
+<td>Name-prefix orphan sweep plus a <code>max_job_minutes</code> straggler ceiling</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<p>A failed run can break at the orchestrator, at the OSMO pod, at the runner, or
+in the tests themselves, and each layer has a different inspection path. Work
+down the list.</p>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Layer</th>
+<th>First thing to check</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Job sits <code>queued</code> forever, no pod appears</td>
+<td>Orchestrator</td>
+<td><code>journalctl -u airstack-orchestrator.service --since '30 min ago'</code> — look for <code>submitted workflow &lt;id&gt; for job &lt;job_id&gt;</code></td>
+</tr>
+<tr>
+<td><code>find_queued_jobs failed: 401</code></td>
+<td>Orchestrator</td>
+<td>GitHub PAT expired or lost a scope; rotate it</td>
+</tr>
+<tr>
+<td><code>osmo login failed</code> / auth error</td>
+<td>Orchestrator</td>
+<td>OSMO service-account token expired (default 31 days); mint a new one and restart the service</td>
+</tr>
+<tr>
+<td><code>osmo workflow submit failed ... privileged</code></td>
+<td>OSMO pool</td>
+<td>The pool's platform lacks <strong>Privileged Mode Allowed</strong></td>
+</tr>
+<tr>
+<td>Job queued but never claimed</td>
+<td>Labels</td>
+<td><code>runs-on</code> labels must be a superset of <code>runner_labels</code> in <code>config.yaml</code></td>
+</tr>
+<tr>
+<td><code>dockerd did not become ready</code></td>
+<td>Pod</td>
+<td>Not actually privileged; check the platform, then <code>osmo workflow logs "$WF" --task runner</code></td>
+</tr>
+<tr>
+<td><code>nvidia-smi unavailable</code></td>
+<td>Pod</td>
+<td>GPU not requested or the toolkit is not configured on the node</td>
+</tr>
+<tr>
+<td><code>Cannot connect to the Docker daemon</code> mid-test</td>
+<td>Pod</td>
+<td>Inner dockerd crashed — <code>osmo workflow exec "$WF" runner</code>, then read <code>/var/log/dockerd.log</code></td>
+</tr>
+<tr>
+<td><code>No space left on device</code></td>
+<td>Pod</td>
+<td>Bump <code>storage</code> in <code>config.yaml</code>; Isaac assets plus all images are large</td>
+</tr>
+<tr>
+<td>Runner registered, then pytest failed</td>
+<td>Tests</td>
+<td>A real test failure — the GitHub Actions log and <code>summary.txt</code> are canonical</td>
+</tr>
+<tr>
+<td>Metrics report job failed with no test failures</td>
+<td>Report</td>
+<td>A metric regressed past the 20 % threshold; read the diff table</td>
+</tr>
+</tbody>
+</table>
+<p>To map a GitHub job to its pod:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">JOB_ID</span><span class="o">=</span><span class="m">73286176852</span><span class="w">   </span><span class="c1"># from the GitHub Actions URL</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">WF</span><span class="o">=</span><span class="k">$(</span>sudo<span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s2">&quot;.jobs[\&quot;</span><span class="nv">$JOB_ID</span><span class="s2">\&quot;].workflow_id&quot;</span><span class="w"> </span>/var/lib/airstack-orchestrator/state.json<span class="k">)</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>query<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$WF</span><span class="s2">&quot;</span><span class="w"> </span>--verbose
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>events<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$WF</span><span class="s2">&quot;</span><span class="w"> </span>--task<span class="w"> </span>runner<span class="w">     </span><span class="c1"># scheduling, image pull, eviction</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>logs<span class="w">   </span><span class="s2">&quot;</span><span class="nv">$WF</span><span class="s2">&quot;</span><span class="w"> </span>--task<span class="w"> </span>runner<span class="w">     </span><span class="c1"># dockerd, run.sh, and the job itself</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>osmo<span class="w"> </span>workflow<span class="w"> </span><span class="nb">exec</span><span class="w">   </span><span class="s2">&quot;</span><span class="nv">$WF</span><span class="s2">&quot;</span><span class="w"> </span>runner<span class="w">            </span><span class="c1"># break-glass shell, while RUNNING</span>
+</span></code></pre></div>
+<p>Full runbook, including credential rotation and worker-side diagnostics:
+<a href="../../../../../tests/ci-cd-orchestrator/">CI/CD Orchestrator</a>.</p>
+<hr />
+<h2 id="file-map">File map<a class="headerlink" href="#file-map" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/castacks/AirStack/blob/main/.github/workflows/system-tests.yml"><code>.github/workflows/system-tests.yml</code></a></td>
+<td>The test workflow: triggers, arg parsing, image prep, pytest, artifact, metrics report</td>
+</tr>
+<tr>
+<td><a href="https://github.com/castacks/AirStack/blob/main/.github/orchestrator/orchestrator.py"><code>.github/orchestrator/orchestrator.py</code></a></td>
+<td>The spawn and reap loops, GitHub polling, JIT minting, OSMO CLI plumbing</td>
+</tr>
+<tr>
+<td><a href="https://github.com/castacks/AirStack/blob/main/.github/orchestrator/runner-workflow.yaml.j2"><code>.github/orchestrator/runner-workflow.yaml.j2</code></a></td>
+<td>Per-job OSMO workflow template</td>
+</tr>
+<tr>
+<td><a href="https://github.com/castacks/AirStack/blob/main/.github/orchestrator/runner.Dockerfile"><code>.github/orchestrator/runner.Dockerfile</code></a></td>
+<td>Prebaked worker image</td>
+</tr>
+<tr>
+<td><a href="https://github.com/castacks/AirStack/blob/main/.github/orchestrator/runner-entrypoint.sh"><code>.github/orchestrator/runner-entrypoint.sh</code></a></td>
+<td>dockerd bring-up, GPU check, single-job runner</td>
+</tr>
+<tr>
+<td><a href="https://github.com/castacks/AirStack/blob/main/.github/orchestrator/config.example.yaml"><code>.github/orchestrator/config.example.yaml</code></a></td>
+<td>Every tunable: pool, platform, resources, limits, poll intervals</td>
+</tr>
+<tr>
+<td><a href="https://github.com/castacks/AirStack/blob/main/.github/orchestrator/setup.sh"><code>.github/orchestrator/setup.sh</code></a></td>
+<td>One-time orchestrator host install</td>
+</tr>
+<tr>
+<td><a href="https://github.com/castacks/AirStack/blob/main/tests/conftest.py"><code>tests/conftest.py</code></a></td>
+<td><code>airstack_env</code> fixture, collection order, <code>MetricsRecorder</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/castacks/AirStack/blob/main/tests/parse_metrics.py"><code>tests/parse_metrics.py</code></a></td>
+<td>Report generation and the regression gate</td>
+</tr>
+<tr>
+<td><a href="https://github.com/castacks/AirStack/blob/main/tests/run_summary.py"><code>tests/run_summary.py</code></a></td>
+<td><code>summary.txt</code> generation</td>
+</tr>
+</tbody>
+</table>
+<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../../../../tests/">System Tests</a> — marks, fixtures, metrics, and every CLI flag.</li>
+<li><a href="../unit_testing/">Unit Testing</a> — the co-location and proxy pattern for package-level tests.</li>
+<li><a href="../end_to_end_testing/">End-to-End Testing</a> — the fixed-trajectory benchmark in depth.</li>
+<li><a href="../../../../../tests/ci-cd-orchestrator/">CI/CD Orchestrator</a> — admin setup, rotation, and break-glass procedures.</li>
+<li><a href="../../../../tutorials/airstack_on_osmo/">AirStack on OSMO</a> — interactive GPU dev pods on the same pool.</li>
+</ul>
 
 
 
@@ -5442,6 +6625,44 @@
       
         <footer class="md-footer">
   
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../end_to_end_testing/" class="md-footer__link md-footer__link--prev" aria-label="Previous: End-to-End Testing">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                End-to-End Testing
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../../../../tests/ci-cd-orchestrator/" class="md-footer__link md-footer__link--next" aria-label="Next: CI/CD Orchestrator">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                CI/CD Orchestrator
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
     
   
   <div class="md-footer-meta md-typeset">

@@ -11,5 +11,7 @@ robot:
   packages:
     - natnet_ros2
     - lidar_point_cloud_filter
-  # Skips ament_copyright / flake8 / pep257 on Python packages; run linters separately.
-  pytest_args: "-m not linter"
+  # Linter skip lives in lidar_point_cloud_filter setup.cfg + test/conftest.py.
+  # ament pytest does not honor PYTEST_ADDOPTS -m.
+  # launch_testing is skipped via PYTEST_DISABLE_PLUGIN_AUTOLOAD in the test.
+  pytest_args: []

@@ -1057,6 +1057,8 @@
       
         
       
+        
+      
     
     
     
@@ -1182,6 +1184,34 @@
     
   
     End-to-End Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docs/development/intermediate/testing/ci_cd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD Pipeline
   
 
     
@@ -5428,12 +5458,18 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 </ul>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
 <ul>
+<li>Ephemeral CI GPU runners spawn via NVIDIA OSMO (not OpenStack); <code>system-tests.yml</code> / <code>docker-build.yml</code> still use <code>airstack-ephemeral</code></li>
+<li>Default system-test <code>--sim</code> is <code>isaacsim</code>; pass <code>--sim msairsim</code> to opt in to Microsoft AirSim</li>
+<li><code>-m build_packages</code> CI runs pull <code>cache_*</code> images instead of baking sim images</li>
+<li><code>docker-build.yml</code> retags unchanged images on VERSION bumps (content fingerprint) instead of always rebuilding; floating <code>cache_*</code> tags still seed PR layer cache</li>
 <li><code>robot-l4t</code> compose service knobs are now env-overridable (<code>AUTONOMY_ROLE</code>, <code>FCU_URL</code>, and the rosbag path via <code>BAG_STORAGE_PATH</code>); <code>FCU_URL</code> unquoted so the literal serial path reaches MAVROS</li>
 <li><code>zed-l4t</code> image: ZED SDK 4.2 → 5.2 with the coupled ROS deps (<code>zed_msgs</code> 5.2.1, <code>point_cloud_transport(_plugins)</code> 4.x, add <code>backward_ros</code>)</li>
 <li>Unit tests are defined by <code>tests/colcon_unit_test_packages.yaml</code>: <code>conftest.py</code> collects each listed package's co-located <code>test/</code> dir under <code>--import-mode=importlib</code> and marks it <code>unit</code> (ament lint files are skipped and run under <code>colcon test</code>)</li>
 </ul>
 <h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
 <ul>
+<li>Isaac Sim image: PX4 <code>ubuntu.sh</code> no longer fails dpkg configure on the NVIDIA base (<code>ca-certificates</code> / <code>software-properties-common</code>); use <code>--no-nuttx --no-sim-tools</code> like ms-airsim</li>
+<li>Robot image: pin <code>pytest&lt;8.1</code> and disable <code>launch_testing</code> for colcon unit tests so ROS Jazzy's outdated pytest hook does not abort <code>colcon test</code></li>
 <li>Robot name resolution now honors a pre-set <code>ROBOT_NAME</code> (e.g. injected via docker compose) instead of always overriding it from the container/hostname mapping (<code>robot/docker/.bashrc</code>)</li>
 <li>Robot name-map catch-all fallback now maps to <code>unknown_robot</code> (valid ROS namespace token) instead of <code>unknown-robot</code> (<code>default_robot_name_map.yaml</code>)</li>
 <li>l4t robot image: replace dustynv's <code>/ros_entrypoint.sh</code> with a passthrough so its prebuilt source-ROS libs (older <code>fastcdr</code>) no longer shadow the apt Jazzy runtime and crash apt-built nodes like MAVROS</li>

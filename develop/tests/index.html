@@ -1078,6 +1078,8 @@
       
         
       
+        
+      
     
     
     
@@ -1710,15 +1712,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#cicd-orchestrator-openstack-backed-ephemeral-runners" class="md-nav__link">
+  <a href="#cicd-orchestrator-osmo-backed-ephemeral-runners" class="md-nav__link">
     <span class="md-ellipsis">
       
-        CI/CD Orchestrator (OpenStack-backed ephemeral runners)
+        CI/CD Orchestrator (OSMO-backed ephemeral runners)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="CI/CD Orchestrator (OpenStack-backed ephemeral runners)">
+    <nav class="md-nav" aria-label="CI/CD Orchestrator (OSMO-backed ephemeral runners)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1794,6 +1796,34 @@
     
   
     End-to-End Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docs/development/intermediate/testing/ci_cd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD Pipeline
   
 
     
@@ -6381,8 +6411,8 @@ want to attach a debugger. Requires a local Python environment.</p>
 <tbody>
 <tr>
 <td><code>--sim</code></td>
-<td><code>msairsim,isaacsim</code></td>
-<td>Comma-separated sim targets</td>
+<td><code>isaacsim</code></td>
+<td>Comma-separated sim targets (<code>msairsim</code> opt-in)</td>
 </tr>
 <tr>
 <td><code>--num-robots</code></td>
@@ -6941,6 +6971,12 @@ frame</strong> (the pytest wrapper does the relative-to-world transform).</p>
 <p>Regressions are flagged with :red_circle:, improvements with :green_circle:.</p>
 <hr />
 <h2 id="cicd-integration">CI/CD Integration<a class="headerlink" href="#cicd-integration" title="Permanent link">&para;</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Full pipeline guide</p>
+<p>For the end-to-end picture — architecture diagrams, job lifecycle, trigger
+reference, what each mark catches, and how to fold CI into your development
+loop — see <strong><a href="../docs/development/intermediate/testing/ci_cd/">CI/CD Pipeline on OSMO</a></strong>.</p>
+</div>
 <h3 id="workflow-system-testsyml">Workflow: <code>system-tests.yml</code><a class="headerlink" href="#workflow-system-testsyml" title="Permanent link">&para;</a></h3>
 <p><a href="../../../../.github/workflows/system-tests.yml"><code>.github/workflows/system-tests.yml</code></a> runs on:</p>
 <ul>
@@ -6990,7 +7026,7 @@ frame</strong> (the pytest wrapper does the relative-to-world transform).</p>
 </tbody>
 </table>
 <h4 id="jobs">Jobs<a class="headerlink" href="#jobs" title="Permanent link">&para;</a></h4>
-<p><strong><code>run-tests</code></strong> runs on a freshly-spawned ephemeral OpenStack instance (<code>[self-hosted, airstack-ephemeral]</code>). The instance is provisioned per-job by the orchestrator described below and destroyed once the job completes. It installs dependencies, runs pytest, and uploads <code>tests/results/</code> as an artifact named <code>test-results-&lt;sha&gt;-&lt;run_id&gt;</code> with 90-day retention.</p>
+<p><strong><code>run-tests</code></strong> runs on a freshly-spawned ephemeral OSMO pod (<code>[self-hosted, airstack-ephemeral]</code>). The pod is submitted per-job by the orchestrator described below and destroyed once the job completes. It installs dependencies, runs pytest, and uploads <code>tests/results/</code> as an artifact named <code>test-results-&lt;sha&gt;-&lt;run_id&gt;</code> with 90-day retention.</p>
 <p><strong><code>report</code></strong> runs on <code>ubuntu-latest</code> after <code>run-tests</code> (even if it failed). It:</p>
 <ol>
 <li>Downloads the current artifact</li>
@@ -7002,26 +7038,26 @@ frame</strong> (the pytest wrapper does the relative-to-world transform).</p>
 <h4 id="required-third-party-action">Required third-party action<a class="headerlink" href="#required-third-party-action" title="Permanent link">&para;</a></h4>
 <p>The workflow uses <a href="https://github.com/dawidd6/action-download-artifact"><code>dawidd6/action-download-artifact@v6</code></a> to download artifacts from other workflow runs by branch name. This is a community action and must be trusted in your repository's Actions settings if you use a restricted allowed-actions policy.</p>
 <hr />
-<h2 id="cicd-orchestrator-openstack-backed-ephemeral-runners">CI/CD Orchestrator (OpenStack-backed ephemeral runners)<a class="headerlink" href="#cicd-orchestrator-openstack-backed-ephemeral-runners" title="Permanent link">&para;</a></h2>
-<p>AirStack's tests require a GPU, Docker, and a clean filesystem per run, so they execute on <strong>truly ephemeral OpenStack instances</strong> spawned per-job by an orchestrator. Each test job gets a fresh VM that is destroyed once the job completes — no Docker layer carryover, no leaked containers, no shared host state.</p>
+<h2 id="cicd-orchestrator-osmo-backed-ephemeral-runners">CI/CD Orchestrator (OSMO-backed ephemeral runners)<a class="headerlink" href="#cicd-orchestrator-osmo-backed-ephemeral-runners" title="Permanent link">&para;</a></h2>
+<p>AirStack's tests require a GPU, Docker, and a clean filesystem per run, so they execute on <strong>truly ephemeral <a href="https://nvidia.github.io/OSMO/">NVIDIA OSMO</a> pods</strong> submitted per-job by an orchestrator. Each test job gets a fresh GPU pod that is destroyed once the job completes — no Docker layer carryover, no leaked containers, no shared host state. (This replaced an OpenStack-Nova backend; the GitHub side and the per-job-destroy model are unchanged.)</p>
 <h3 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h3>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>┌──────────────────────────────────────────────────────────────┐
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>│  Orchestrator VM  (airstack-ci-cd-orchestrator)              │
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>│   • polls GitHub for queued workflow_jobs                    │
 </span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>│   • mints single-use JIT runner tokens                       │
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>│   • spawns / reaps ephemeral instances via OpenStack Nova    │
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>│   • holds the GitHub PAT and OpenStack application credential│
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>│   • submits / reaps ephemeral OSMO workflows via osmo CLI    │
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>│   • holds the GitHub PAT and OSMO service-account token      │
 </span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>└────────────┬───────────────────────────────────┬─────────────┘
 </span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>             │                                   │
 </span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>             ▼                                   ▼
 </span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>┌──────────────────────────────┐   ┌────────────────────────────────┐
 </span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>│ Ephemeral worker (per job)   │   │ GitHub Actions queue           │
-</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>│ Image: Ubuntu-24.04-GPU-     │   │  workflow_job  status=queued   │
-</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>│        Headless              │   │  labels: [self-hosted,         │
-</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>│ cloud-init bootstraps Docker │   │           airstack-ephemeral]  │
-</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>│ + nvidia-container-toolkit + │   └────────────────────────────────┘
-</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>│ GH Actions runner; runs ONE  │
-</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>│ job, then is destroyed.      │
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>│ Prebaked airstack-ci-runner  │   │  workflow_job  status=queued   │
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>│ image: Docker + nvidia CTK + │   │  labels: [self-hosted,         │
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>│ GH runner. Privileged pod    │   │           airstack-ephemeral]  │
+</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>│ starts dockerd, runs ONE     │   └────────────────────────────────┘
+</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>│ job (JIT), then the pod      │
+</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>│ is destroyed.                │
 </span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>└──────────────────────────────┘
 </span></code></pre></div>
 <h3 id="why-this-instead-of-a-long-lived-self-hosted-runner">Why this instead of a long-lived self-hosted runner<a class="headerlink" href="#why-this-instead-of-a-long-lived-self-hosted-runner" title="Permanent link">&para;</a></h3>
@@ -7035,37 +7071,38 @@ frame</strong> (the pytest wrapper does the relative-to-world transform).</p>
 <tbody>
 <tr>
 <td>Cross-job state pollution (Docker cache, dangling networks, leftover artifacts)</td>
-<td>Each job runs on a fresh VM. Spent VM is destroyed within ~30 s of job completion.</td>
+<td>Each job runs on a fresh OSMO pod, destroyed within ~30 s of job completion.</td>
 </tr>
 <tr>
 <td>Fork PRs executing arbitrary code</td>
 <td>Workflow's <code>if: github.event.pull_request.head.repo.full_name == github.repository</code> — fork PRs skipped.</td>
 </tr>
 <tr>
-<td>Runner running as root</td>
-<td>The runner runs as the unprivileged <code>ubuntu</code> user inside an instance whose only purpose is one job.</td>
+<td>Runner runs privileged (root) for docker-in-docker</td>
+<td>The pod is privileged (needed to run <code>airstack up</code>/compose), but it is single-use, scoped to the dedicated CI pool, and only same-repo code ever reaches it.</td>
 </tr>
 <tr>
 <td>Docker socket gives root-equivalent access</td>
-<td>Bounded to a single one-shot VM. The orchestrator host doesn't expose Docker at all.</td>
+<td>Bounded to a single one-shot pod. The orchestrator host doesn't expose Docker at all.</td>
 </tr>
 <tr>
 <td>Long-lived PAT on the runner host</td>
 <td>The PAT lives only on the orchestrator. Workers receive a single-use <strong>JIT runner config</strong> — a base64 token bound to one runner registration.</td>
 </tr>
 <tr>
-<td>Persistent OpenStack creds tied to a user password</td>
-<td>Orchestrator authenticates with an <strong>application credential</strong> (revocable, scoped) instead of <code>openrc.sh</code>.</td>
+<td>Persistent creds tied to a personal account</td>
+<td>Orchestrator authenticates with a shared, non-personal <strong>OSMO service-account token</strong> (revocable, scoped to the CI pool), not an individual's login.</td>
 </tr>
 </tbody>
 </table>
 <h3 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h3>
-<p>The orchestrator service code, cloud-init template, systemd unit, and full setup runbook live in <a href="../../../../.github/orchestrator/"><code>.github/orchestrator/</code></a>. See <a href="ci-cd-orchestrator/"><code>.github/orchestrator/README.md</code></a> for:</p>
+<p>The orchestrator service code, OSMO runner-workflow template, runner image, systemd unit, and full setup runbook live in <a href="../../../../.github/orchestrator/"><code>.github/orchestrator/</code></a>. See <a href="ci-cd-orchestrator/"><code>.github/orchestrator/README.md</code></a> for:</p>
 <ul>
-<li>creating the OpenStack application credential and <code>clouds.yaml</code></li>
-<li>staging the GitHub PAT</li>
-<li>running <code>setup.sh</code> on the orchestrator VM</li>
-<li>filling in flavor / network / keypair / security-group in <code>/etc/airstack-orchestrator/config.yaml</code></li>
+<li>obtaining the OSMO service-account token and a dedicated CI GPU pool (with privileged mode enabled)</li>
+<li>building and pushing the runner image (<code>runner.Dockerfile</code>)</li>
+<li>staging the GitHub PAT and the OSMO token</li>
+<li>running <code>setup.sh</code> on the orchestrator host (installs the <code>osmo</code> CLI)</li>
+<li>filling in osmo_url / pool / platform / runner_image / resources in <code>/etc/airstack-orchestrator/config.yaml</code></li>
 <li>enabling and verifying the <code>airstack-orchestrator.service</code> systemd unit</li>
 </ul>
 <h3 id="runner-labels">Runner labels<a class="headerlink" href="#runner-labels" title="Permanent link">&para;</a></h3>
