@@ -37,6 +37,29 @@ usds:
       usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_GroundModule01.usd"
       scale: 0.30         # 5.00 x 5.00 m authored -> 1.50 m walk
 
+  # ---- GROUND MATERIALS  (owner: suburb_scene.apply_ground) ------------------
+  # Overrides shared.yaml's single Nucleus `grass` for THIS set only; the urban
+  # set keeps the shared entries. Dicts merge key by key, so `asphalt` is still
+  # inherited from shared.yaml and is deliberately not repeated here.
+  #
+  # These are LOCAL, out of the NVIDIA AEC Brownstone pack, which ships ground
+  # materials as bare `.mdl` modules with no USD alongside them. `_load_mat`
+  # references the value and binds `UsdShade.Material` at that prim, so an
+  # `.mdl` cannot be named directly -- each entry points at a hand-authored
+  # wrapper layer under `scene_gen/assets/materials/` whose default prim IS the
+  # Material. See Grass_Cut.usda for the full reasoning.
+  #
+  # NOTE the pack has exactly TWO grasses, so `grass_park` and `grass_rough`
+  # necessarily share Grass_Countryside. What matters is that both differ from
+  # the mown `grass` on the lawns -- the park is not supposed to read as an
+  # extension of the front yards.
+  materials:
+    grass: "airstack://scene_gen/assets/materials/Grass_Cut.usda"
+    grass_rough: "airstack://scene_gen/assets/materials/Grass_Countryside.usda"
+    grass_park: "airstack://scene_gen/assets/materials/Grass_Countryside.usda"
+    dirt: "airstack://scene_gen/assets/materials/Dirt.usda"
+    mulch: "airstack://scene_gen/assets/materials/Mulch_Brown.usda"
+
   # ---- LOT FURNITURE  (owner: suburb_lots.py) --------------------------------
   # Fences run as MODULES butted end to end along a lot boundary, so what the
   # pass needs from each entry is the module length and which axis the art runs
@@ -171,6 +194,12 @@ usds:
       # 3.02 x 2.77 x 6.03 m, 56,262 pts, 8/8 bound, pine_needles 100% green.
       # The narrowest crown in the library and the only evergreen — the one tree
       # that fits between a driveway and a kerb without being shrunk.
+      # "8/8 bound" WAS TRUE AND STILL MISSED A DEFECT: branchM bound a
+      # Default_Material whose MDL module is not in the pack, so 99 points
+      # rendered unshaded on a perfect bind count. Repointed at the trunk's own
+      # TreeBark_10; now 3/3 materials resolve. A bind count cannot see this —
+      # tools/measure_assets.py `mdl` column can. Patch is vendor-side and a
+      # re-extract undoes it: scene_gen/assets/aec/README.md.
     #
     # TWO SPECIES, NOT THREE, AND THE LIBRARY IS THE REASON. Every other tree in
     # it is excluded by urban_v2 on a measured defect or on cost, and those
@@ -285,7 +314,9 @@ usds:
       # yellow) on the fourth — an oak turning, not an autumn asset.
     - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Douglas_Fir.usd", scale: 0.01,
        points: 56262, weight: 0.8, tags: ["front"]}
-      # 3.02 x 2.77 x 6.03 m. 8/8 bound, 0% unbound, pine_needles 100% green.
+      # 3.02 x 2.77 x 6.03 m. 8/8 bound, 0% unbound, 3/3 mdl resolve (only
+      # after the branchM patch — see the street_trees entry above and
+      # scene_gen/assets/aec/README.md), pine_needles 100% green.
       # An EVERGREEN, which is what a front yard actually has and what neither
       # oak can give — and the narrowest crown in the pool, so it is the one
       # tree that fits a shallow front garden without being shrunk.
@@ -365,6 +396,11 @@ usds:
        points: 173997, weight: 0.05}   # 2.02 x 2.05 x 1.47 m — 100% green
     - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Shrub/Hibiscus.usd", scale: 0.01,
        points: 195688, weight: 0.05}   # 2.31 x 2.13 x 1.64 m — green leaf, red flower
+      # 3/3 bound AND 3/3 materials RESOLVE — the second half only since the
+      # trunk was patched. As shipped, its 57,920-point trunk bound a bark3 on
+      # an NVIDIA content-server path that is not in the mirror, and rendered
+      # unshaded on a full bind count. See scene_gen/assets/aec/README.md; the
+      # patch is to git-ignored vendor content and a re-extract undoes it.
     - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Shrub/Yew.usd", scale: 0.01,
        points: 324028, weight: 0.03}   # 1.23 x 1.24 x 0.73 m — pine_needles, 100% green
       # THE archetypal clipped foundation shrub, and 324k points for 1.2 m of

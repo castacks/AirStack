@@ -32,6 +32,40 @@ any move: a missing payload shows up only as a point count that dropped.
 The `World_BrownstoneDemopack_*.usd` scene files (8–20 GB) are deliberately not
 extracted. They are assembled demo scenes, not a prop library.
 
+## Local patches — RE-APPLY THESE AFTER ANY RE-EXTRACT
+
+Two assets ship with an `info:mdl:sourceAsset` that does not resolve inside this
+mirror. The binding is real, so every bind-count check passes; the far end of it
+is missing, so the geometry renders **unshaded**. Both are wired into
+`suburban_v2.yaml`, and both were patched in place with `pxr` — which the zips
+will silently undo, since this tree is git-ignored and a re-extract restores the
+vendor originals.
+
+| Asset | Shader | Was | Now |
+|---|---|---|---|
+| `brownstone/Assets/Vegetation/Shrub/Hibiscus.usd` | `/Root/Looks/bark3/Shader` | `../../../ov-content/Library/Assets/Vegetation/Trees/materials/bark3.mdl` | `../Trees/materials/bark3.mdl` |
+| `brownstone/Assets/Vegetation/Trees/Douglas_Fir.usd` | `/Root/Looks/Default_Material/Default_Material` | `./materials/Default_Material.mdl` | `./materials/TreeBark_10.mdl`, subIdentifier `.::materials::TreeBark_10::TreeBark_10` |
+
+* **Hibiscus** — the `trunk` mesh (57,920 points, a third of the asset) pointed
+  at an NVIDIA content-server path that was never mirrored. The identical module
+  is in the pack already: `American_Beech.usd` binds the same file as
+  `./materials/bark3.mdl` and resolves. Only the path changed; the
+  subIdentifier `bark3` was already what the module exports.
+* **Douglas_Fir** — `Default_Material` names a module the pack does not contain
+  at all. It is bound by `Douglas_Fir_branchM`, a 99-point branch stub. Repointed
+  at `TreeBark_10` — *the tree's own trunk material*, already in this file as
+  `Pine_bark` and already resolving — rather than left alone, because 99 points
+  of unshaded white in the canopy is worth no new content to fix, and leaving a
+  known-bad row invites the next curator to re-derive it. Dropping the binding
+  instead would have traded a broken material for an unbound mesh, which is the
+  same pixels.
+
+To re-detect after a re-extract, run `tools/measure_assets.py` over
+`*/Assets/Vegetation` and look at its `mdl` column (materials that resolve /
+materials bound) and the UNRESOLVED footer. `tools/material_binding.py` will
+**not** catch this: it reports `Douglas_Fir` as `8/8 bound`, which is true and
+was how both of these passed curation in the first place.
+
 ## Measured properties
 
 All of it is **centimetre-authored (`metersPerUnit` 0.01) and Z-up**, so every

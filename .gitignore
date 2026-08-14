@@ -132,4 +132,9 @@ scene_gen/**/*.usdc
 scene_gen/**/*.usdz
 scene_gen/**/_frames/
 scene_gen/**/*_preview.png
+# ...EXCEPT these, which are hand-authored SOURCE, not output. They are tiny
+# UsdShade wrappers that give the AEC pack's bare `.mdl` ground materials the
+# USD layer `usds.materials` requires. Ignoring them breaks a fresh clone: the
+# asset set points at files that were never checked in.
+!scene_gen/assets/materials/*.usda
 scene_gen/**/*_turntable.gif

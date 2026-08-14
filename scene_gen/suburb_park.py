@@ -186,11 +186,17 @@ def basketball_markings():
         # three-point line: straights from the baseline, joined by the arc
         y = hw - BASKETBALL["three_straight"]
         dx = math.sqrt(max(0.0, r3 ** 2 - y ** 2))
-        out.append([(base, -y), (hoop - s * dx, -y)])
-        out.append([(base, y), (hoop - s * dx, y)])
-        a = math.atan2(y, -s * dx)
-        out.append(_arc(hoop, 0, r3, -a if s > 0 else a,
-                        a if s > 0 else 2 * math.pi - a))
+        tip = hoop - s * dx                 # where each straight meets the arc
+        out.append([(base, -y), (tip, -y)])
+        out.append([(base, y), (tip, y)])
+        # The arc opens TOWARD centre court, so it is centred on the direction
+        # -s in x (pi at the +x end, 0 at the -x end) and spans +-half either
+        # side of that. Written per-end with a conditional it went the other
+        # way and swept through the baseline instead, putting a 5 m bulge of
+        # three-point line outside the court at each end.
+        mid = math.atan2(0.0, -s)
+        half = math.atan2(y, dx)
+        out.append(_arc(hoop, 0, r3, mid - half, mid + half))
     return out
 
 

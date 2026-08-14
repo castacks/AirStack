@@ -119,19 +119,40 @@ usds:
       - usd: "RetroNeighborhood/Props/SM_House_10.prop.usd"
         scale: 0.01
       #
-      # LEFT OUT ON PURPOSE — both would be placed as if they were whole houses:
-      #   SM_House_04_Extension, SM_House_06_Extension, SM_House_10_Extension
-      #     ADD-ONS to their parent house (a wing, a garage), authored to sit
-      #     against it. Nothing in this pipeline composes a building out of
-      #     parts — `apply_placements` references one asset per placement at a
-      #     lot centre — so an extension in this pool becomes a detached
-      #     fragment standing alone on its own lot.
+      # LEFT OUT OF `intact` ON PURPOSE — it would be placed as if it were a
+      # whole house. See `house_addons` below, which is where it now goes.
       #   SM_House_01_Lot
       #     a lot/ground plane rather than a building (it is tiny beside
       #     SM_House_01), and this scene already lays its own ground:
       #     `suburb_scene.apply_ground` writes block grass, driveways and
       #     asphalt as meshes. Left out rather than guessed at — if it does turn
       #     out to be a house, it can be added in one line.
+
+    # GARAGES AND WINGS — the add-on half of a house, not a house.
+    #
+    # These were excluded from `intact` because an extension placed as if it
+    # were a whole house is a detached fragment standing alone on a lot. That
+    # reasoning was right about `intact` and wrong as a conclusion: the answer
+    # is not to drop them, it is to COMPOSE, which is what the user asked for
+    # ("construct the house as a component ... generate types of houses").
+    #
+    # `suburb_scene.build_placements` pairs each of these to its parent by the
+    # shared stem (SM_House_04_Extension -> SM_House_04) and, when a lot's
+    # archetype carries a garage, emits BOTH at the identical transform. That is
+    # exactly right and only right there: the extension is authored to sit
+    # against its parent in the PARENT'S frame, so the same transform composes
+    # the two and any other placement scatters a fragment.
+    #
+    # Only 3 of the 10 houses ship one, so a garage lot draws its house from
+    # this subset rather than uniformly — otherwise 7 lots in 10 marked "garage"
+    # would render identically to "plain" and the archetype stays invisible.
+    house_addons:
+      - usd: "RetroNeighborhood/Props/SM_House_04_Extension.prop.usd"
+        scale: 0.01
+      - usd: "RetroNeighborhood/Props/SM_House_06_Extension.prop.usd"
+        scale: 0.01
+      - usd: "RetroNeighborhood/Props/SM_House_10_Extension.prop.usd"
+        scale: 0.01
 
     # Wooden house ruins (Nucleus, authored in cm). Split by *measured* height
     # against an intact bungalow's ~6.4 m: walls still standing reads as
