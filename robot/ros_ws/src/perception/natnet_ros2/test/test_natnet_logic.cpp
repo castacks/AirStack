@@ -191,17 +191,28 @@ TEST(ValidateConnectionType, MulticastPassesThrough)
     EXPECT_EQ(validate_connection_type("multicast"), "multicast");
 }
 
-TEST(ValidateConnectionType, UnknownFallsBackToUnicast)
+TEST(ValidateConnectionType, UnknownThrows)
 {
-    EXPECT_EQ(validate_connection_type("broadcast"), "unicast");
-    EXPECT_EQ(validate_connection_type(""), "unicast");
-    EXPECT_EQ(validate_connection_type("UDP"), "unicast");
+    EXPECT_THROW(validate_connection_type("broadcast"), std::invalid_argument);
+    EXPECT_THROW(validate_connection_type(""), std::invalid_argument);
+    EXPECT_THROW(validate_connection_type("UDP"), std::invalid_argument);
 }
 
-TEST(ValidateConnectionType, CaseSensitiveFallsBack)
+TEST(ValidateConnectionType, CaseSensitiveThrows)
 {
-    EXPECT_EQ(validate_connection_type("Unicast"),   "unicast");
-    EXPECT_EQ(validate_connection_type("MULTICAST"), "unicast");
+    // Accepting "Unicast" would mean the config silently disagrees with itself.
+    EXPECT_THROW(validate_connection_type("Unicast"),   std::invalid_argument);
+    EXPECT_THROW(validate_connection_type("MULTICAST"), std::invalid_argument);
+}
+
+TEST(ValidateConnectionType, MessageNamesTheOffendingValue)
+{
+    try {
+        validate_connection_type("broadcst");
+        FAIL() << "expected std::invalid_argument";
+    } catch (const std::invalid_argument & e) {
+        EXPECT_NE(std::string(e.what()).find("broadcst"), std::string::npos);
+    }
 }
 
 
@@ -233,12 +244,11 @@ TEST(ConnectConfig, MulticastConfigIsMulticast)
     EXPECT_EQ(cfg.multicast_address, "239.255.42.99");
 }
 
-TEST(ConnectConfig, InvalidConnectionTypeFallsBackToUnicast)
+TEST(ConnectConfig, InvalidConnectionTypeThrows)
 {
-    const auto cfg = make_connect_config(
-        "10.0.0.1", "0.0.0.0", 1510, 1511, "broadcast");
-    EXPECT_EQ(cfg.connection_type, "unicast");
-    EXPECT_FALSE(is_multicast(cfg));
+    EXPECT_THROW(
+        make_connect_config("10.0.0.1", "0.0.0.0", 1510, 1511, "broadcast"),
+        std::invalid_argument);
 }
 
 TEST(ConnectConfig, PortsArePreserved)

@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -127,20 +128,20 @@ public:
         this->declare_parameter("body_orientation_covariance", std::vector<double>{});
 
         // ----- Read parameters ---------------------------------------------
-        const auto connect_cfg = natnet_ros2::make_connect_config(
-            this->get_parameter("server_ip").as_string(),
-            this->get_parameter("client_ip").as_string(),
-            static_cast<uint16_t>(this->get_parameter("command_port").as_int()),
-            static_cast<uint16_t>(this->get_parameter("data_port").as_int()),
-            this->get_parameter("connection_type").as_string(),
-            this->get_parameter("multicast_address").as_string());
-
-        if (connect_cfg.connection_type !=
-            this->get_parameter("connection_type").as_string())
-        {
-            RCLCPP_WARN(get_logger(),
-                "Unknown connection_type '%s' — falling back to 'unicast'.",
-                this->get_parameter("connection_type").as_string().c_str());
+        // A bad connection_type is fatal rather than defaulted: silently using
+        // unicast would look healthy while never receiving a frame.
+        natnet_ros2::ConnectConfig connect_cfg;
+        try {
+            connect_cfg = natnet_ros2::make_connect_config(
+                this->get_parameter("server_ip").as_string(),
+                this->get_parameter("client_ip").as_string(),
+                static_cast<uint16_t>(this->get_parameter("command_port").as_int()),
+                static_cast<uint16_t>(this->get_parameter("data_port").as_int()),
+                this->get_parameter("connection_type").as_string(),
+                this->get_parameter("multicast_address").as_string());
+        } catch (const std::invalid_argument & e) {
+            RCLCPP_FATAL(get_logger(), "Invalid natnet configuration: %s", e.what());
+            throw;
         }
 
         frame_id_ = this->get_parameter("frame_id").as_string();

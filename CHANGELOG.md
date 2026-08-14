@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OptiTrack external-vision tuning corrected from real-flight bags: `EKF2_EV_DELAY` 8.0 → 7.0 and `EKF2_EVP_NOISE` 0.01 → 0.05. The old 0.01 gave a 5 cm innovation gate (`EKF2_EVP_GATE` × 5σ) that rejected valid mocap updates and blocked arming; `px4_params.yaml` now records the supporting measurements and the drift-and-snap misdiagnosis so neither is repeated
 - The synthetic GPS origin now places the mocap floor at the shared world datum (`desired_floor_amsl: 36.0`, i.e. 90 m ellipsoidal in AMSL) rather than at sea level, so a mocap robot's reported global altitude agrees with sim and the GCS. `local_position.z` still equals the OptiTrack height either way
 - The robot image could ship without the GeographicLib `egm96-5` geoid: mavros' `install_geographiclib_datasets.sh` swallows a failed download and still exits 0, so the `RUN` layer succeeded either way, and `geographiclib-tools` was only ever a transitive dependency. MAVROS builds that geoid in its UAS core before any plugin loads and throws if it is missing, so `mavros_node` died at startup on affected images. `Dockerfile.robot` now pins the tool and asserts the file exists, failing the build instead
+- An unrecognised `connection_type` in `natnet_config.yaml` silently fell back to `unicast`, so a typo produced a client that connected on the wrong transport and never received frames. `validate_connection_type` now throws and `natnet_ros2_node` fails at startup naming the offending value
 
 ## [1.0.0] - 2024-12-19
 

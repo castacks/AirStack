@@ -28,6 +28,7 @@
 #include <array>
 #include <cstdint>
 #include <functional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -115,11 +116,15 @@ inline std::string body_topic_base(
 // 3. Connection-configuration helpers
 // ===========================================================================
 
-/// Return ct if it is "unicast" or "multicast"; otherwise return "unicast".
+/// Return ct if it is "unicast" or "multicast"; otherwise throw.
+///
+/// Deliberately strict: silently falling back to "unicast" turns a typo into a
+/// vehicle that connects to the wrong transport and never receives frames.
 inline std::string validate_connection_type(const std::string & ct)
 {
     if (ct == "unicast" || ct == "multicast") { return ct; }
-    return "unicast";
+    throw std::invalid_argument(
+        "connection_type must be \"unicast\" or \"multicast\", got \"" + ct + "\"");
 }
 
 /// SDK-independent connection configuration aggregate.
@@ -132,12 +137,12 @@ struct ConnectConfig
     std::string client_ip         = "0.0.0.0";
     uint16_t    command_port      = 1510u;
     uint16_t    data_port         = 1511u;
-    std::string connection_type   = "unicast";      ///< validated
+    std::string connection_type   = "unicast";      ///< "unicast" or "multicast"
     std::string multicast_address = "239.255.42.99";
 };
 
 /// Build a validated ConnectConfig from raw user-supplied strings.
-/// connection_type is normalised via validate_connection_type().
+/// Throws std::invalid_argument when connection_type is not "unicast"/"multicast".
 inline ConnectConfig make_connect_config(
     const std::string & server_ip,
     const std::string & client_ip,
