@@ -199,7 +199,7 @@ pytest tests/ -m sensors \
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--sim` | `msairsim,isaacsim` | Comma-separated sim targets |
+| `--sim` | `isaacsim` | Comma-separated sim targets (`msairsim` opt-in) |
 | `--num-robots` | `1,3` | Comma-separated robot counts |
 | `--stress-iterations` | `3` | Up/down cycles per (sim, num_robots) config |
 | `--stable-duration` | `120` | Seconds ``test_stable`` / ``test_sensor_streams_stable`` poll for |

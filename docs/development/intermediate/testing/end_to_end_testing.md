@@ -64,7 +64,7 @@ Each run sweeps:
 
 | Parameter | CLI flag | Default |
 | --------- | -------- | ------- |
-| Simulator | `--sim` | `msairsim,isaacsim` |
+| Simulator | `--sim` | `isaacsim` (`msairsim` opt-in) |
 | Robot count | `--num-robots` | `1,3` |
 | Repeat count | `--stress-iterations` | `1` |
 | Trajectory type | `--trajectory-types` | `Circle,Figure8,Racetrack,Line` |
@@ -320,7 +320,7 @@ airstack test -m autonomy \
 
 | Option | Default | Description |
 | ------ | ------- | ----------- |
-| `--sim` | `msairsim,isaacsim` | Comma-separated sim targets |
+| `--sim` | `isaacsim` | Comma-separated sim targets (`msairsim` opt-in) |
 | `--num-robots` | `1,3` | Comma-separated robot counts |
 | `--stress-iterations` | `1` | Repeat count per `(sim, num_robots)` |
 | `--trajectory-types` | `Circle,Figure8,Racetrack,Line` | Trajectory sweep |
@@ -431,7 +431,7 @@ Action server: `/{robot_name}/tasks/fixed_trajectory` — see also [Tasks and Ta
 | PX4 ready timeout | Sim not running, GPU issue | Check `nvidia-smi`, Isaac `omni_pass.env` |
 | `trajectory_success = 0` | Tracker stall or timeout | Check trajectory_controller logs; rebuild the workspace (`-m build_packages`) |
 | Cross-track error &gt;&gt; 5 m | Wrong tracker params or frame bug | Compare launch params; check world-frame transform |
-| Tests run for hours | Default `--sim` and `--num-robots` sweep | Pin `--sim isaacsim --num-robots 1 --stress-iterations 1` |
+| Tests run for hours | Default `--num-robots 1,3` (and `--sim msairsim` if opted in) | Pin `--sim isaacsim --num-robots 1 --stress-iterations 1` |
 | Unknown mark warning `autonomy` | Mark not in `pytest.ini` | Harmless; filter still works |
 
 ---

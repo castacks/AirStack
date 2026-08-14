@@ -127,8 +127,9 @@ logger.setLevel(logging.INFO)
 # ── pytest config / hooks ──────────────────────────────────────────────────
 
 def pytest_addoption(parser):
-    parser.addoption("--sim", default="msairsim,isaacsim",
-                     help="Comma-separated sim targets: msairsim, isaacsim")
+    parser.addoption("--sim", default="isaacsim",
+                     help="Comma-separated sim targets: isaacsim, msairsim. "
+                          "Default isaacsim; pass --sim msairsim to opt in.")
     parser.addoption("--num-robots", default="1,3",
                      help="Comma-separated robot counts, e.g. 1,3")
     parser.addoption("--stress-iterations", type=int, default=1,

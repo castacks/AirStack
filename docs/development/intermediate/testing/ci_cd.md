@@ -367,7 +367,7 @@ stack cycles per tuple**:
 ```text
 -m liveliness                  → 1 bring-up per (sim, robots, iter)
 -m "liveliness or sensors"     → 2 bring-ups per (sim, robots, iter)
---sim msairsim,isaacsim        → doubles all of the above
+--sim msairsim                 → opt in; both sims doubles all of the above
 --num-robots 1,3               → doubles it again
 ```
 

@@ -15,8 +15,8 @@ on:
         default: "liveliness or takeoff_hover_land"
         required: false
       sim:
-        description: "Sim targets, comma-separated: msairsim,isaacsim"
-        default: msairsim,isaacsim
+        description: "Sim targets, comma-separated: isaacsim,msairsim. Default isaacsim; pass msairsim to opt in."
+        default: isaacsim
         required: false
       num_robots:
         description: "Robot counts, comma-separated (e.g. 1,3)"
@@ -166,7 +166,7 @@ jobs:
           # and decide whether to skip (build_docker tests rebuild themselves).
           # When --sim isn't given we mirror conftest's default so prep covers
           # whatever pytest will actually exercise.
-          sim = 'msairsim,isaacsim'
+          sim = 'isaacsim'
           sim_explicit = False
           marks = ''
           marks_idx = -1
@@ -186,9 +186,9 @@ jobs:
               marks = f'build_packages or {marks}'
               args[marks_idx] = marks
 
-          # colcon tests do not need Isaac. Default --sim would otherwise bake
-          # isaac-sim + ms-airsim (~1h) before a 1s colcon test. Pull registry
-          # cache tags instead; never image-build.
+          # colcon tests do not need a sim image. Default --sim would otherwise
+          # bake isaac-sim before a 1s colcon test. Pull registry cache tags
+          # instead; never image-build.
           marks_norm = marks.replace('"', '').replace("'", '').strip()
           args_blob = ' '.join(args)
           heavy = any(m in marks_norm for m in (
