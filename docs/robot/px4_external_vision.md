@@ -8,7 +8,8 @@ It covers three things that must all be right:
 
 1. **EKF2 parameters** — tell PX4 to fuse external vision instead of GPS/baro/mag.
 2. **Companion MAVLink link** — how the Jetson talks to the Cube (see the PX4 docs).
-3. **Vision pose pipeline** — how a mocap pose becomes a `VISION_POSITION_ESTIMATE`.
+3. **Vision pose pipeline** — how a mocap pose becomes a `VISION_POSITION_ESTIMATE`,
+   and how PX4 gets a global position without GNSS.
 
 > Scope: PX4 ≥ 1.14 (the `EKF2_EV_CTRL` / `EKF2_GPS_CTRL` era). For older
 > firmware use `EKF2_AID_MASK: 24` and `EKF2_HGT_MODE: 3` instead of the bitmask
@@ -150,60 +151,42 @@ caps the stream to MAVROS. EKF2 only needs 30–50 Hz. Note this is about not
 saturating a healthy serial link — it does **not** fix the USB CDC stall in
 section 3.
 
----
+### Injecting a global position — `mavros_gp_origin`
 
-## 4b. The height datum: why `local_position.z` was ~36 m off
+Vision gives PX4 a valid *local* position, but with GNSS disabled it has no *global*
+one, and modes that require a global position (e.g. `AUTO.LOITER`) refuse to arm.
 
-On real hardware the drone reported ~36 m of altitude while sitting on the mocap
-floor. The cause is a **datum interaction**, not a bug in any single component:
+[`mavros_gp_origin_node.py`](../../robot/ros_ws/src/perception/natnet_ros2/src/mavros_gp_origin_node.py)
+publishes a **synthetic GPS origin** once at startup, which lets PX4 derive a global
+position from the fused vision estimate. It waits for MAVROS to connect, listens for an
+existing origin, and only publishes if none is present — so a GNSS-equipped vehicle is
+left untouched. Location and behaviour come from
+[`mavros_gp_origin.yaml`](../../robot/ros_ws/src/perception/natnet_ros2/config/mavros_gp_origin.yaml);
+the defaults match the AirStack shared world datum so sim, the GCS, and the robot agree
+on where world origin sits on Earth.
 
-- AirStack anchors the world at a shared origin altitude of **90.0 m**, used by sim
-  ([`gps_utils.py`](../../simulation/isaac-sim/launch_scripts/gps_utils.py)), the GCS
-  (`gcs_utils.py ORIGIN_ALT`), and the synthetic GPS origin. That 90.0 is a **WGS‑84
-  ellipsoidal** height.
-- MAVROS/PX4 convert a GPS-origin altitude from ellipsoidal to **AMSL** using the
-  **egm96‑5 geoid**. At the Lisbon datum the geoid undulation is **N ≈ 54 m**.
-- Publishing the literal 90.0 makes PX4 anchor its vertical frame at
-  `AMSL = 90 − 54 = 36 m`, while OptiTrack says the floor is `z = 0`. The
-  **36 m gap** is exactly `90 − N`.
+!!! note "Real deployments: the origin altitude needs a geoid correction"
 
-**Fix — [`mavros_gp_origin_node.py`](../../robot/ros_ws/src/perception/natnet_ros2/src/mavros_gp_origin_node.py)
-with `use_geoid_altitude: true`:** publish the origin altitude as
-`N + desired_floor_amsl` instead of the literal 90.0. `N` is computed at runtime with
-`GeoidEval` — no hardcoded magic number — using the same egm96‑5 model MAVROS uses, so
-the undulation cancels regardless of its absolute value.
+    `geographic_msgs/GeoPoint.altitude` is a height above the **WGS-84 ellipsoid**, and
+    MAVROS converts it to AMSL with the **egm96-5 geoid** before handing it to PX4. Send
+    the shared datum's literal `90.0` and PX4 anchors its vertical frame at
+    `AMSL = 90 − N ≈ 36 m`, while OptiTrack says the floor is `z = 0` — the drone reads
+    ~36 m of altitude sitting on the floor. The gap is exactly the geoid undulation `N`.
 
-`geographic_msgs/GeoPoint.altitude` is defined as a height above the **WGS‑84
-ellipsoid**, and MAVROS applies the geoid model itself, so `N + desired_floor_amsl` is
-not a workaround — it is the correctly-expressed ellipsoidal altitude. Do **not** send
-AMSL here; that would double-convert.
+    With `use_geoid_altitude: true` the node publishes `N + desired_floor_amsl` instead,
+    computing `N` at runtime via `GeoidEval` with the same egm96-5 model MAVROS uses, so
+    the conversion cancels exactly. This is not a workaround — it is the correctly
+    expressed *ellipsoidal* altitude. Do **not** send AMSL here; it would double-convert.
 
-### Choosing `desired_floor_amsl`
+    `desired_floor_amsl` chooses what AMSL the mocap floor reports; `local_position.z`
+    equals the OptiTrack height either way. We use **36.0**, the shared datum in AMSL, so
+    the robot's global altitude agrees with sim and the GCS. *Not yet confirmed on
+    hardware — verify the reported global altitude on the next mocap flight.*
 
-This sets what AMSL the mocap floor (vision `z = 0`) reports. `local_position.z` equals
-the OptiTrack height for **any** value — this only affects the *global* altitude the
-vehicle reports.
+    **Not needed in sim.** The geoid path is skipped when `use_sim_time: true`: sim's
+    synthetic GPS is self-consistent with the spawn and uses the literal datum altitude
+    on both ends, so there is no ellipsoidal-vs-AMSL mismatch to correct.
 
-We use **36.0**, the shared world datum expressed in AMSL (90 m ellipsoidal − N ≈ 54 m),
-so the robot's global position agrees with where sim and the GCS place the same world
-origin. The published ellipsoidal origin then works out to ≈ 90 m — the datum itself.
-
-Setting `0.0` instead puts the mocap floor at sea level. Local flight is identical, but
-the robot's reported global altitude then disagrees with sim/GCS by ~36 m.
-
-> Not yet confirmed on hardware — verify the reported global altitude on the next
-> mocap flight.
-
-**Why this never showed in sim:** the geoid path is auto-skipped when
-`use_sim_time: true` (sim uses the literal 90.0 on both ends), and sim's synthetic
-GPS is self-consistent with the spawn — there's no ellipsoidal-vs-AMSL mismatch. The
-bug is structurally real-hardware-only.
-
-> **Don't "fix" it by changing the 90.0 globally** — it's a shared sim/GCS/origin
-> datum; changing it breaks sim↔GCS consistency. The `gcs_utils.py` altitudes are
-> display-only (visualization), not flight inputs.
-
----
 
 ## 5. Verify it's actually fusing
 
