@@ -93,6 +93,9 @@ DEFAULTS = {
     # detour tuning could remove. Widening the gap at PLACEMENT time makes the
     # corridors passable by construction; see facility_gap() below.
     "facility_gap_m": 0.0,      # 0 = derive from the padding and path width
+    # Between COURTS inside one compound -- they share a slab and a fence, so
+    # this is a couple of metres of sideline run-off, not a path corridor.
+    "court_gap_m": 2.5,
     # The pitches sit side by side but must READ as two. At the bare facility
     # gap they abut into one 138 m slab of green with two sets of markings on
     # it, which is not a pair of pitches, it is a drawing error. A real ground
@@ -726,6 +729,51 @@ def route(pts, obstacles, clear, exempt=(), ends=False, budget=400):
     return _dedupe(rep)
 
 
+def deloop(pts, max_passes=60, max_loop_m=float("inf")):
+    """Cut out any loop where a polyline crosses ITSELF.
+
+    The router splices detour waypoints in as it walks a route round obstacles,
+    and nothing checked whether the spliced result folded back over its own
+    earlier section. It does: measured, 23 self-crossings on seed 3 and 345,382
+    on seed 7. On the plan that reads as a snarl of paths on top of each other,
+    which is what it is -- one path, crossing itself.
+
+    Where segment i and a later segment j intersect, everything between them is
+    a loop that leads nowhere, so it is replaced by the intersection point. This
+    is the standard de-loop; doing it AFTER routing rather than trying to stop
+    the router creating them keeps the router simple, and a loop is trivial to
+    detect once the polyline exists.
+    """
+    out = list(pts)
+    for _ in range(max_passes):
+        cut = None
+        n = len(out)
+        for x in range(n - 1):
+            for y in range(x + 2, n - 1):
+                hit = sn._seg_intersect(out[x], out[x + 1], out[y], out[y + 1])
+                if hit is None:
+                    continue
+                # UNBOUNDED BY DEFAULT. Bounding this to "small" loops was
+                # tried on the theory that a long self-crossing is the route
+                # legitimately going round something; measured, it is not --
+                # at a 45 m bound seed 42 still carried 42,461 self-crossings,
+                # so the pathological loops are the LARGE ones. Orphaned spurs
+                # were 8-9 either way, i.e. not caused by de-looping.
+                span = sum(sn._dist(out[k], out[k + 1])
+                           for k in range(x, min(y + 1, n - 1)))
+                if span > max_loop_m:
+                    continue
+                cut = (x, y, hit[0])
+                break
+            if cut:
+                break
+        if not cut:
+            break
+        x, y, q = cut
+        out = out[:x + 1] + [q] + out[y + 1:]
+    return out
+
+
 def _dedupe(pts, tol=0.05):
     out = [pts[0]]
     for q in pts[1:]:
@@ -1017,15 +1065,22 @@ def plan(rng, cfg=None):
     if n_bb:
         cols = 2 if n_bb > 1 else 1
         rows = int(math.ceil(n_bb / cols))
-        cw = cols * (bl + 2 * bpad) + (cols - 1) * gap
-        ch = rows * (bw + 2 * bpad) + (rows - 1) * gap
+        # COURTS INSIDE ONE COMPOUND SHARE A SLAB. `gap` is the spacing
+        # BETWEEN facilities and is derived from the padding a path needs to
+        # pass (~20.6 m); using it here too spread the four courts apart as if
+        # each were its own facility, when the whole point of a compound is that
+        # they sit together inside one fence. A real park paints four courts on
+        # one slab with a couple of metres between the sidelines.
+        cgap = float(c["court_gap_m"])
+        cw = cols * (bl + 2 * bpad) + (cols - 1) * cgap
+        ch = rows * (bw + 2 * bpad) + (rows - 1) * cgap
         z = add("basketball_compound", cw, ch, 0.66, 0.22, courts=[],
                 fenced=True)
         if z:
             for i in range(n_bb):
                 r, q = divmod(i, cols)
-                lx = -cw / 2 + bpad + bl / 2 + q * (bl + 2 * bpad + gap)
-                ly = -ch / 2 + bpad + bw / 2 + r * (bw + 2 * bpad + gap)
+                lx = -cw / 2 + bpad + bl / 2 + q * (bl + 2 * bpad + cgap)
+                ly = -ch / 2 + bpad + bw / 2 + r * (bw + 2 * bpad + cgap)
                 z["courts"].append({"centre": local(z, lx, ly),
                                     "yaw": z["yaw"]})
 
@@ -1429,6 +1484,15 @@ def plan(rng, cfg=None):
                 kept.append(seg)
         return kept
 
+    for pa in paths:
+        # Resample to even 3 m spacing first: _decimate takes an integer STRIDE,
+        # not a distance, so it thins a dense stretch and a sparse one by the
+        # same factor. Even arclength spacing makes the de-loop's segment tests
+        # comparable and keeps the point count bounded by path LENGTH.
+        pts = pa["pts"]
+        if sn.polyline_length(pts) > 6.0:
+            pts = sn.resample(pts, 3.0)
+        pa["pts"] = deloop(pts)
     paths = _dedup(paths)
 
     # -- fences -------------------------------------------------------------
