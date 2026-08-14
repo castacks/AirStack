@@ -733,6 +733,41 @@ disaster:
       # focus_bias, throw, lift, keep_base, direction_deg
 ```
 
+### Walls need thickness before they can break
+
+Building assets are **hollow shells** — one surface, no depth, because nothing
+needed the inside of a wall until something broke it. Measured: an objaverse
+bungalow encloses 51 m³ against the 820 m³ a 0.25 m slab of its own surface
+area would have. Break that and it shows: a punched hole has a knife edge and
+you see through it to the unlit backfaces of the far wall, and a Voronoi cell
+cut from a zero-thickness surface is a zero-thickness surface, so the rubble is
+a drift of curved sheets rather than chunks.
+
+So `mesh_damage.solidify` extrudes every shell **inward** — outward would grow
+the building past the setbacks the layout stage packed it to — and caps the
+open edges, before anything breaks it. It runs after the profile (which is what
+punches the holes, so their edges get rimmed) and before the fracture (which
+then cuts a solid). Meshes that already enclose material are skipped: the
+library holds both kinds, and the Nucleus downtown masses are closed volumes
+already.
+
+Same budget shape as `fracture`, spent on the same worst-hit buildings, because
+doubling the point count of every damaged building in a downtown is not
+affordable.
+
+```yaml
+disaster:
+  mesh_damage:
+    thickness:
+      enabled: true
+      wall_m: 0.25          # WORLD METRES, not a fraction of the radius — a
+                            # wall is 0.25 m thick on a bungalow and on a tower
+      max_buildings: 60
+```
+
+`tools/damage_gallery.py --wall-thickness 0` rebuilds any sheet with this
+switched off, which is the only way to see the two side by side.
+
 ### Debris belongs to every damaged building
 
 `debris.*` counts are per building and scaled by the local field, as everything

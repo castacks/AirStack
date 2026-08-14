@@ -161,6 +161,16 @@ def compile_none(sev, spec, region):
     }
 
 
+#: Wall thickness for `mesh_damage.solidify`, which extrudes a building's shell
+#: inward before anything breaks it. Every disaster gets the same block: the
+#: value is a property of masonry, not of what knocked it down, and all five
+#: profiles both punch holes and (flood aside) shatter — the two things a
+#: zero-thickness shell renders as paper. The budget mirrors `fracture`'s,
+#: because it is the same buildings and the same reason (see `solidify`).
+def thickness_block(max_buildings: int) -> dict:
+    return {"enabled": True, "wall_m": 0.25, "max_buildings": max_buildings}
+
+
 def compile_earthquake(sev, spec, region):
     """Ground shaking: structures fail in place.
 
@@ -178,7 +188,8 @@ def compile_earthquake(sev, spec, region):
         # block was being copied identically into every one of them. What is
         # left here is the budget: how many buildings can afford to shatter.
         "mesh_damage": {"fracture": {"enabled": True,
-                                     "max_buildings": 60}},
+                                     "max_buildings": 60},
+                        "thickness": thickness_block(60)},
         "damaged_fraction": lerp(0.05, 0.35, sev),
         "destroyed_fraction": lerp(0.02, 0.55, sev),
         "debris": {
@@ -239,7 +250,8 @@ def compile_tornado(sev, spec, region):
         # block was being copied identically into every one of them. What is
         # left here is the budget: how many buildings can afford to shatter.
         "mesh_damage": {"fracture": {"enabled": True,
-                                     "max_buildings": 80}},
+                                     "max_buildings": 80},
+                        "thickness": thickness_block(80)},
         "damaged_fraction": lerp(0.1, 0.3, sev),
         # -> 1.0 at sev=1: "total destruction in a corridor" per the docstring
         # above means everything on the track's centerline is destroyed, not
@@ -310,7 +322,8 @@ def compile_explosion(sev, spec, region):
         # block was being copied identically into every one of them. What is
         # left here is the budget: how many buildings can afford to shatter.
         "mesh_damage": {"fracture": {"enabled": True,
-                                     "max_buildings": 50}},
+                                     "max_buildings": 50},
+                        "thickness": thickness_block(50)},
         "damaged_fraction": lerp(0.1, 0.25, sev),
         # -> 1.0 at sev=1: "nothing is left standing" at the center per the
         # docstring above.
@@ -376,7 +389,8 @@ def compile_fire(sev, spec, region):
         # `fracture_plan` owns the band. Budget is high because a burnt-out
         # shell is cheap — only the top of each building is cut.
         "mesh_damage": {"fracture": {"enabled": True,
-                                     "max_buildings": 70}},
+                                     "max_buildings": 70},
+                        "thickness": thickness_block(70)},
         # Fire guts rather than flattens, so `damaged` (a standing shell) is
         # the common outcome and total loss stays comparatively rare.
         "damaged_fraction": lerp(0.15, 0.75, sev),
@@ -491,7 +505,8 @@ def compile_hurricane(sev, spec, region):
         # block was being copied identically into every one of them. What is
         # left here is the budget: how many buildings can afford to shatter.
         "mesh_damage": {"fracture": {"enabled": True,
-                                     "max_buildings": 60}},
+                                     "max_buildings": 60},
+                        "thickness": thickness_block(60)},
         "damaged_fraction": lerp(0.08, 0.4, sev),
         "destroyed_fraction": lerp(0.03, 0.3, sev),
         "debris": {
@@ -687,6 +702,14 @@ def load_scene_config(name_or_path: str, base_path: str = None) -> dict:
     else:
         print(f"[compile_disaster] loaded low-level config: "
               f"{os.path.relpath(path, _REPO_ROOT)}")
+
+    # Which config this is. Nothing downstream can otherwise tell — a compiled
+    # config carries its asset set and its disaster type but not its own name,
+    # so tools that write a file per scene had to guess and named a `downtown`
+    # run after its asset set, `urban`. Underscore-prefixed like every other
+    # internal marker (`_footprint_m`, `_mesh_damage`), so it never collides
+    # with a generator setting.
+    cfg["_name"] = os.path.splitext(os.path.basename(path))[0]
 
     # Lazy so `--list` and plain compilation stay free of the pxr dependency.
     import scene_generator

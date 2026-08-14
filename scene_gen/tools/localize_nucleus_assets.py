@@ -83,6 +83,18 @@ ASSETS = [
     "Muyang/DownTown/Assets/BG_Building_F.usd",
 ]
 
+#: Whole directories to mirror, for pools rather than single assets. A gallery
+#: cell is a building plus the debris the disaster stage drops around it, and
+#: without these the wrecked building stands on clean ground — which is the one
+#: thing `GENERATION.md` singles out as the most obviously wrong thing in an
+#: aerial view. Everything else `urban` names on Nucleus (people, vehicles,
+#: street furniture, road decals) is placed by passes a gallery never runs, so
+#: mirroring it would be 100 MB for nothing.
+PACKS = [
+    "Muyang/DebrisPack/Assets",
+    "Muyang/DestroyedBuildings/Assets",
+]
+
 
 def _fetch(url: str, stats: dict) -> bool:
     """Copy one Nucleus file to its mirrored local path. True if it landed.
@@ -219,6 +231,20 @@ def main(argv) -> int:
             line = localize(rel)
         except Exception:
             line = f"ERROR  {os.path.basename(rel)}\n" + traceback.format_exc()
+        lines.append(line)
+        print(line, flush=True)
+
+    for pack in PACKS:
+        stats: dict = {}
+        try:
+            _walk(LIB + pack, stats)
+            line = (f"pack   {pack:34s} {stats.get('bytes', 0) / 1e6:7.1f} MB  "
+                    f"{stats.get('copied', 0)} new, "
+                    f"{stats.get('cached', 0)} cached"
+                    + (f", {len(stats['failed'])} FAILED"
+                       if stats.get("failed") else ""))
+        except Exception:
+            line = f"ERROR  {pack}\n" + traceback.format_exc()
         lines.append(line)
         print(line, flush=True)
 

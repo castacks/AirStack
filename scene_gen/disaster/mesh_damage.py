@@ -370,7 +370,7 @@ def _renumber_subsets(prim, keep: np.ndarray) -> None:
         sub.GetIndicesAttr().Set(Vt.IntArray([int(v) for v in new_of[a]]))
 
 
-def delete_faces(prim, keep) -> int:
+def delete_faces(prim, keep, deactivate: bool = True) -> int:
     """Keep only the faces *keep* marks. Returns how many were removed.
 
     Authors overrides on the topology attributes, exactly as `set_points` does
@@ -380,6 +380,18 @@ def delete_faces(prim, keep) -> int:
     empty topology, the same retirement `fracture_to_stage` gives a source it
     has consumed. Empty face arrays are legal USD but some renderers dislike
     them, and an invisible prim still costs traversal.
+
+    *deactivate* turns that off, and the caller that needs it is
+    `fracture_to_stage`: deactivating a prim takes its whole subtree with it,
+    and the fragments are authored as CHILDREN of the building. On a
+    multi-mesh asset that is harmless — the fragments hang off the building
+    Xform and the consumed prim is one of its mesh siblings — but half the
+    library is a SINGLE mesh referenced straight at the placement path, and
+    there the consumed prim *is* the fragments' parent. Retiring it deleted
+    the rubble it had just produced, so a whole-building fracture on those
+    assets made the building vanish entirely: no ruin, no debris field,
+    nothing but the ground. Callers that author under the prim pass False and
+    get the empty-topology form instead.
     """
     counts, idx = _face_arrays(prim)
     if counts is None:
@@ -393,11 +405,14 @@ def delete_faces(prim, keep) -> int:
 
     mesh = UsdGeom.Mesh(prim)
     if n_gone == len(counts):
-        try:
-            prim.SetActive(False)
-        except Exception:
-            mesh.GetFaceVertexCountsAttr().Set(Vt.IntArray([]))
-            mesh.GetFaceVertexIndicesAttr().Set(Vt.IntArray([]))
+        if deactivate:
+            try:
+                prim.SetActive(False)
+                return n_gone
+            except Exception:
+                pass
+        mesh.GetFaceVertexCountsAttr().Set(Vt.IntArray([]))
+        mesh.GetFaceVertexIndicesAttr().Set(Vt.IntArray([]))
         return n_gone
 
     fv_keep = np.repeat(keep, counts)
@@ -527,10 +542,12 @@ def punch_hole(prims, bounds: Bounds, epicenter, radius: float = 0.18,
 #
 # THE PROBLEM THIS SOLVES
 # -----------------------
-# Every building asset in the library is a HOLLOW SHELL: a single surface with
-# no thickness at all, because nothing ever needed the inside of a wall. That
-# assumption survives right up until the wall is broken, and then it is the
-# single thing that makes procedural damage read as fake:
+# Much of the library is a HOLLOW SHELL: a single surface with no thickness at
+# all, because nothing ever needed the inside of a wall. Measured, an objaverse
+# bungalow encloses 51 m³ against the 820 m³ a 0.25 m slab of its own surface
+# area would have — i.e. essentially none. That assumption survives right up
+# until the wall is broken, and then it is the single thing that makes
+# procedural damage read as fake:
 #
 #   * `punch_hole` deletes faces, and the opening it leaves has a knife edge.
 #     A real breach shows the depth of the wall — that band of exposed material
@@ -548,6 +565,15 @@ def punch_hole(prims, bounds: Bounds, epicenter, radius: float = 0.18,
 # shell into a slab of *wall_m* metres. Fracture then cuts a solid and returns
 # chunks; a hole punched through it shows a reveal on every edge.
 #
+# NOT EVERY ASSET NEEDS IT, AND THE OPERATOR CHECKS
+# -------------------------------------------------
+# The library holds both kinds. The nine `urban` / `urban_intact` buildings are
+# closed masses enclosing 7-34x the volume a slab of their surface would, so
+# `solidify` declines all nine and the tally reports nothing thickened — which
+# is the operator working. The same enclosed volume that diagnoses a shell is
+# what refuses a solid, and it costs nothing extra: it falls out of the normal
+# accumulation by the divergence theorem.
+#
 # WHY INWARD, AND HOW THAT DIRECTION IS FOUND
 # -------------------------------------------
 # Outward would inflate the building past its own footprint — the layout stage
@@ -557,10 +583,14 @@ def punch_hole(prims, bounds: Bounds, epicenter, radius: float = 0.18,
 #
 # Which way is "in" cannot be read off the winding, because the packs are not
 # consistently wound and USD's `orientation` metadata is unreliable on
-# converted assets. It is measured instead: for a surface that wraps a volume,
-# the area-weighted sum of `dot(face_normal, face_centre - centre)` is strongly
-# positive when the normals point outward and negative when they point inward.
-# One sign test per mesh, and it does not care about winding conventions.
+# converted assets. Nor is one sign per mesh enough: measured on a bungalow,
+# the roof and the ground slab each carry faces of BOTH windings, so whichever
+# global sign is picked, part of the mesh extrudes the wrong way — visible
+# without measuring anything, as the building's bounding box growing by most of
+# the wall thickness. The direction is therefore settled PER POINT, by flipping
+# each normal to face away from the building's centre. That ignores winding
+# entirely and is right for the shapes this deals with: a roof plane thickens
+# downward, a ground slab upward, a facade inward.
 #
 # WHY THIS IS NOT FREE, AND WHAT BOUNDS IT
 # ----------------------------------------
@@ -666,13 +696,11 @@ def _boundary_edges(counts: np.ndarray, idx: np.ndarray, w: np.ndarray):
     canonicalised so the two faces that share an edge agree on its key.
     """
     starts = _fv_starts(counts)
-    sa = np.concatenate([np.arange(s, s + c) for s, c in zip(starts, counts)])
+    # Faces are contiguous in the flattened array, so the slots ARE arange.
+    sa = np.arange(int(counts.sum()))
     # Next slot around each face, wrapping at the face's last corner.
     nxt = sa + 1
-    ends = starts + counts - 1
-    is_end = np.zeros(len(sa), dtype=bool)
-    is_end[ends] = True
-    nxt[is_end] = starts
+    nxt[starts + counts - 1] = starts
     face = np.repeat(np.arange(len(counts)), counts)
 
     ea, eb = w[idx[sa]], w[idx[nxt]]
@@ -720,7 +748,7 @@ def _gather_by_element(attr, primvar, interpolation, face_src, fv_src,
                 return
             a = np.concatenate([a, a])
         else:
-            if len(a) != int(take.max()) + 1 and len(a) <= int(take.max()):
+            if len(a) <= int(take.max()):
                 return
             a = a[take]
         primvar.SetIndices(Vt.IntArray([int(v) for v in a]))
@@ -840,7 +868,8 @@ def solidify(prim, thickness: float, ref_centre=None, ref_box=None,
         world, counts, idx, weld_tol, ref_centre)
     if outward is None or med_edge <= 0.0:
         return 0
-    t = min(float(thickness), max_edge_frac * med_edge)
+    span = float(np.sort(world.max(axis=0) - world.min(axis=0))[1])
+    t = min(float(thickness), max_span_frac * span)
     if t <= 1e-6:
         return 0
     if volume >= solid_ratio * area * t:
@@ -854,7 +883,7 @@ def solidify(prim, thickness: float, ref_centre=None, ref_box=None,
         lo, hi = np.asarray(ref_box[0]), np.asarray(ref_box[1])
         moved = world + inward * t
         over = np.maximum(moved - hi, 0.0) + np.minimum(moved - lo, 0.0)
-        inward = inward - over / t if t > 0 else inward
+        inward = inward - over / t
 
     n_faces = len(counts)
     n_fv = int(counts.sum())
@@ -1757,11 +1786,24 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
     # ranking changes which buildings shatter and never how one of them does.
     cands = [(i, p) for i, p in enumerate(placements)
              if p.get("_mesh_damage") and p.get("prim_path")]
+    rank = sorted(cands, key=lambda ip: (-float(ip[1]["_mesh_damage"]), ip[0]))
     shatter = set()
     if fcfg.get("enabled", True):
-        rank = sorted(cands, key=lambda ip: (-float(ip[1]["_mesh_damage"]),
-                                             ip[0]))
         shatter = {i for i, _ in rank[:int(fcfg.get("max_buildings", 40))]}
+
+    # Wall thickness, on the same budget and the same ranking. Doubling the
+    # point count of every damaged building in a downtown is not affordable —
+    # see the section header on `solidify` — and the buildings worth spending
+    # it on are the same worst-hit ones fracture is spent on, so a shattered
+    # building is never left as paper while an untouched one is solid.
+    tcfg = (dis.get("mesh_damage") or {}).get("thickness") or {}
+    wall_m = float(tcfg.get("wall_m", 0.25))
+    thicken = set()
+    if tcfg.get("enabled", True) and wall_m > 0.0:
+        thicken = {i for i, _ in rank[:int(tcfg.get("max_buildings", 40))]}
+    solid_kw = {k: tcfg[k] for k in ("max_points", "solid_ratio",
+                                     "max_span_frac", "weld_tol")
+                if k in tcfg}
 
     tally: dict = {}
     fragments: list = []
@@ -1796,6 +1838,22 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
         if not name:
             continue
         tally[name] = tally.get(name, 0) + 1
+
+        # Thickness. Runs AFTER the profile and BEFORE the fracture, and both
+        # halves of that matter:
+        #   * after, because the profile is what OPENS the building — every
+        #     mode ends by punching holes — and `solidify` rims whatever edges
+        #     it finds. Thicken first and the holes are punched back through
+        #     both shells, leaving the same knife edge this exists to remove.
+        #   * before, because the fracture cuts whatever the prims hold. Cut a
+        #     shell and every fragment is a zero-thickness sheet; cut a slab
+        #     and the rubble has chunks in it.
+        # One pass therefore serves both, and nothing downstream needs to know.
+        if i in thicken:
+            b = bounds_of(prims)
+            got = solidify_prims(prims, wall_m, bounds=b, **solid_kw)
+            if got["meshes"]:
+                tally["thickened"] = tally.get("thickened", 0) + 1
 
         # Shattering. Runs AFTER the vertex profile so the fragments are cut
         # from already-failed geometry, and takes the failure mode that profile
@@ -2380,7 +2438,9 @@ def fracture_to_stage(stage, root_prim, bounds: Bounds, n_cells: int = 40,
             loose.append(str(p))
 
     # Only now: the soup had to be built from the faces before they went.
+    # `deactivate` is refused for the prim the fragments were authored under —
+    # see `delete_faces`; retiring it would take them with it.
     for prim, take in zip(prims, taken):
         if take is not None and take.any():
-            delete_faces(prim, ~take)
+            delete_faces(prim, ~take, deactivate=prim != root_prim)
     return {"paths": paths, "loose": loose}

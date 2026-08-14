@@ -1,0 +1,51 @@
+# `urban_intact`, resolved against the LOCAL MIRROR instead of Nucleus.
+#
+# WHY THIS EXISTS
+# ---------------
+# `urban_intact` is the set that makes mesh damage the only thing wrecking a
+# building, so it is exactly the set worth previewing — and it is the one the
+# preview tool cannot open. `tools/damage_gallery.py` runs on host usd-core and
+# renders under Blender, and neither has an `omniverse://` resolver, so
+# `--list --asset-set urban_intact` reports `0/9 buildings resolve locally` and
+# the gallery comes out empty.
+#
+# `tools/localize_nucleus_assets.py` mirrors the assets down into
+# `scene_gen/assets/nucleus/`, keeping each file's path relative to
+# `Library/Stages/`. That is what makes the whole set switchable in one line:
+# every Nucleus reference in the library is written RELATIVE and joined to
+# `asset_root` at resolve time (`scene_generator._join_asset_root`), so
+# repointing the root moves all 115 of them at once — the nine buildings and
+# the debris pools alike. `airstack://` expands to a repo-relative path, so
+# this stays correct in the container, where the repo lives somewhere else.
+#
+# Nothing else is restated. Entries that already carry their own scheme —
+# the `objaverse://` debris, the `airstack://` AEC vegetation — are absolute
+# and pass through the join untouched, so they keep resolving where they did.
+#
+# WHY IT IS A SEPARATE SET AND NOT AN EDIT TO `urban_intact`
+# ----------------------------------------------------------
+# The mirror is a build artifact: gitignored, absent on a fresh checkout, and
+# rebuilt only by a script that needs the isaac-sim container. Pointing the
+# real set at it would make `earthquake_intact` unbuildable for anyone who has
+# not run that script, in exchange for nothing — inside Isaac Sim the
+# `omniverse://` paths resolve natively and are the right ones to use. So the
+# pipeline keeps Nucleus and the gallery gets this.
+#
+# WHAT THE MIRROR ACTUALLY HOLDS
+# ------------------------------
+# The nine buildings and the two debris packs, not all 115 references. A
+# gallery cell is one building plus the debris dropped around it; the people,
+# vehicles and street furniture are placed by passes a gallery never runs, and
+# would resolve to nothing here. If a future pass needs them, add the pack to
+# `PACKS` in the localizer rather than restating paths here.
+#
+# USAGE
+#   python3 tools/localize_nucleus_assets.py   # in the container; see its docs
+#   python3 tools/damage_gallery.py --asset-set urban_intact_local --rows 9
+#
+# `--list` says `9/9` when the mirror is present and `0/9` when it is not,
+# which is the whole diagnostic.
+
+extends: urban_intact
+
+asset_root: "airstack://scene_gen/assets/nucleus"

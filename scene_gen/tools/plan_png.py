@@ -91,7 +91,29 @@ def measured_sizes(paths):
 
 class StubResolver:
     """Answers footprint queries from the measured table, or the config's
-    `fallback_sizes`. Records which assets fell back so the plan can flag them."""
+    `fallback_sizes`. Records which assets fell back so the plan can flag them.
+
+    THIS IS AN APPROXIMATION, AND IT MOVES THE LAYOUT
+    -------------------------------------------------
+    Footprint is what block packing keys off, so a wrong size does not blur the
+    plan — it changes it. Measured against the sim on the same config:
+
+        suburb     plan 1947 houses   sim 1853   no shared position
+        downtown   plan  266 houses   sim  346
+
+    because the sim measures every USD's real bounds while this reads the
+    `# 21.1 x 6.8 x 14.2 m` comments and falls back to `fallback_sizes` for
+    anything without one — which on the suburban set is *every* house, since
+    those entries carry name comments but not size comments.
+
+    Making this measure the local assets is the obvious fix and is NOT done
+    here: a first attempt at it moved suburb to 2049 rather than to 1853,
+    i.e. further away, so the divergence is not the comment table alone. Until
+    that is understood, the honest tool is the one that says how much it
+    guessed — `[N assets un-measured]` in the subtitle — and defers to
+    `generate_scene.write_run_plan`, which renders from inside the sim off the
+    real resolver and is correct by construction.
+    """
 
     def __init__(self, sizes, fallbacks):
         self.sizes = sizes
@@ -227,7 +249,7 @@ def draw(cfg, layout, placements, res, out_path, title="",
         for p in placements:
             if p.get("category") != cat:
                 continue
-            fp = res.get(p.get("usd", ""), cat)
+            fp = footprint(res, p, cat)
             w = max(fp["sx"] * pad, 1.2)
             h = max(fp["sy"] * pad, 1.2)
             ax.add_patch(Rectangle((p["x_m"] - w / 2, p["y_m"] - h / 2), w, h,
@@ -273,7 +295,7 @@ def draw(cfg, layout, placements, res, out_path, title="",
     for p in placements:
         if p.get("category") not in ("house", "building"):
             continue
-        fp = res.get(p.get("usd", ""), "house")
+        fp = footprint(res, p, "house")
         yaw = float(p.get("yaw_deg", 0.0)) % 180.0
         w, h = (fp["sy"], fp["sx"]) if 45 <= yaw < 135 else (fp["sx"], fp["sy"])
         t = typ_of.get(_block_of(layout, p)) or "midrise"
@@ -314,14 +336,40 @@ def draw(cfg, layout, placements, res, out_path, title="",
                 + "  ".join(f"{k} {v}" for k, v in sorted(n_debris.items())))
     if park:
         sub += f"\npark: {park}"
-    if res.guessed:
-        sub += f"   [{len(res.guessed)} assets un-measured]"
+    # `guessed` is the StubResolver's own bookkeeping. The real
+    # `SizeResolver` measures every asset it can open and has no such
+    # attribute — and when THAT is the resolver there is nothing to warn
+    # about, because nothing was approximated.
+    guessed = getattr(res, "guessed", ())
+    if guessed:
+        sub += f"   [{len(guessed)} assets un-measured]"
     ax.set_title(f"{title}\n{sub}", color="#ddd", fontsize=10)
     fig.patch.set_facecolor("#1b1b1b")
     fig.savefig(out_path, dpi=110, bbox_inches="tight",
                 facecolor=fig.get_facecolor())
     print(f"[plan] {out_path}")
     print(f"[plan] {sub}")
+
+
+def footprint(res, p, category=None):
+    """The metric footprint of one placement, asked for the way the generator asks.
+
+    **The scale and axis MUST come off the placement.** `SizeResolver.get`
+    falls back to the config-wide `asset_scale` when `scale` is None, and the
+    per-asset override is where the real number lives: the AEC and Nucleus
+    packs are centimetre-authored and carry `scale: 0.01`, so omitting it
+    measures them at 1.0 and returns footprints a HUNDRED TIMES too large. In
+    the sim-side plan that drew every downtown building as a block-sized slab
+    covering the whole map.
+
+    It went unnoticed because `StubResolver` ignores `scale` — correctly, since
+    the sizes it scrapes out of the asset-set comments are already metric — so
+    the host tool looked fine while the same code path was broken for the only
+    resolver that reads it.
+    """
+    return res.get(p.get("usd", ""), category or p.get("category", "asset"),
+                   scale=float(p.get("scale", 1.0) or 1.0),
+                   axis_up=str(p.get("axis_up", "Z") or "Z"))
 
 
 def _block_of(layout, p):
@@ -351,7 +399,7 @@ def dump_json(cfg, layout, placements, res, out_path):
         area = (b[2] - b[0]) * (b[3] - b[1])
         built = 0.0
         for p in inner:
-            fp = res.get(p.get("usd", ""), "house")
+            fp = footprint(res, p, "house")
             built += fp["sx"] * fp["sy"]
         blocks.append({
             "rect": [round(v, 2) for v in b],
@@ -375,7 +423,7 @@ def dump_json(cfg, layout, placements, res, out_path):
                        "yaw": round(float(p.get("yaw_deg", 0.0)), 1)}
                       for p in placements
                       if p.get("category") in ("house", "building")],
-        "unmeasured": sorted(res.guessed),
+        "unmeasured": sorted(getattr(res, "guessed", ())),
     }
     with open(out_path, "w") as fh:
         json.dump(doc, fh, indent=1)

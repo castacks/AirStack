@@ -2760,6 +2760,12 @@ def _sanitize(name: str) -> str:
     return out if out and not out[0].isdigit() else f"_{out}"
 
 
+#: USDs already reported as composing nothing, so the warning is one line
+#: per broken asset rather than one per placement. See the note inside
+#: `apply_placements`.
+_warned_unresolved: set = set()
+
+
 def apply_placements(stage,
                      placements: list,
                      parent_path: str = "/World/stage/generated",
@@ -2868,7 +2874,17 @@ def apply_placements(stage,
         if not xform:
             # Reference composed nothing typed (missing/broken asset) — the
             # holder prim is typeless and can't carry transform ops.
-            print(f"[scene_gen] WARN: {usd} composed no Xformable prim at {prim_path}")
+            #
+            # ONCE PER ASSET, not per placement. This warned every time and a
+            # single bad ground tile emitted 30,420 identical lines, so the one
+            # line that mattered — a building asset that resolves to nothing —
+            # was unfindable in the scrollback. That is why "some buildings are
+            # missing" went undiagnosed: the diagnostic was already firing.
+            # `generate_scene.report_empty_placements` prints the grouped tally.
+            if usd not in _warned_unresolved:
+                _warned_unresolved.add(usd)
+                print(f"[scene_gen] WARN: {usd} composed no Xformable prim "
+                      f"(first at {prim_path}; further copies not logged)")
             continue
         xform.ClearXformOpOrder()
         xform.AddTranslateOp().Set(Gf.Vec3d(

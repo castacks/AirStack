@@ -293,9 +293,19 @@ def compose(manifest: dict, tiles: dict, out: Path, title: str) -> None:
     draw.text((pad + 6, 42), manifest.get("subtitle", ""),
               fill=(140, 140, 134), font=font(14, False))
 
+    # Three headings, because a column is one of three things and the pairing
+    # is unreadable if they all look alike: the pristine reference, a
+    # debris-free twin, and the full cell. The twin is deliberately the cooler
+    # colour — it is the control, not the result.
+    bare_suffix = manifest.get("bare_suffix") or ""
     for c, col in enumerate(cols):
         x = gutter + c * (tw + pad)
-        accent = (235, 235, 228) if col == "pristine" else (232, 168, 96)
+        if col == "pristine":
+            accent = (235, 235, 228)
+        elif bare_suffix and col.endswith(bare_suffix):
+            accent = (128, 176, 208)
+        else:
+            accent = (232, 168, 96)
         draw.text((x + 4, top + 8), col.upper(), fill=accent, font=font(17))
 
     for r, row in enumerate(rows):

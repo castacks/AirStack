@@ -24,6 +24,7 @@ at an ordinary config still works, it just has nothing extra to add.
 import glob
 import os
 import random
+import sys
 
 import scene_generator as sg
 
@@ -85,6 +86,78 @@ def check_duplicate_yaml_keys(paths=None) -> int:
         raise ValueError("duplicate YAML keys — PyYAML would silently keep "
                          "only the last, so this is fatal:\n" + "\n".join(bad))
     return 0
+
+
+def _config_name(config: dict) -> str:
+    """A filename stem for this scene.
+
+    `load_scene_config` stamps `_name`. The fallbacks are for a config dict
+    built by hand (the tests do this) and are deliberately NOT `asset_set`:
+    naming a `downtown` run after `urban` is worse than calling it "scene",
+    because it looks like an answer.
+    """
+    name = config.get("_name")
+    if isinstance(name, str) and name:
+        return os.path.splitext(os.path.basename(name))[0]
+    dis = (config.get("disaster") or {}).get("type")
+    return str(dis or "scene")
+
+
+def write_run_plan(config: dict, layout, placements, resolver,
+                   name: str = "") -> list:
+    """Top-down plans of the scene THIS RUN actually built. Returns the paths.
+
+    `tools/plan_png.py` draws the same maps on the host in a second, but it has
+    to approximate one thing: it cannot measure a USD it cannot open, so it
+    reads footprints out of the asset-set comments and falls back to
+    `fallback_sizes` for anything unmeasured. Footprint is what packing keys
+    off, so that approximation does not blur the plan — it *changes* it. On the
+    suburban set, where none of the objaverse entries carry a size comment,
+    every house fell back to 12x12 against real bounds of 12.0x10.6, 11.0x12.0,
+    12.0x11.2 …, and the two layouts came out with 1947 against 1853 houses and
+    **no building in a shared position**.
+
+    Rendering here removes the approximation instead of documenting it: this
+    runs inside the sim, off the same `build_scene` output and the same
+    measuring resolver, so the picture is the scene rather than a model of it.
+
+    Written next to the host tool's output in `_plans/`, suffixed `_run`, so the
+    two can be compared directly. Best-effort throughout: a plotting failure
+    must never take a scene launch down with it.
+    """
+    import importlib
+    import os as _os
+
+    out_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                            "_plans")
+    written = []
+    try:
+        _os.makedirs(out_dir, exist_ok=True)
+        sys.path.insert(0, _os.path.join(
+            _os.path.dirname(_os.path.abspath(__file__)), "tools"))
+        plan = importlib.import_module("plan_png")
+
+        stem = _os.path.join(out_dir, (name or "scene") + "_run")
+        # The damaged scene, as built. `classify` needs to know which houses
+        # were swapped, and after the fact the only tell is the usd — so the
+        # pristine pass is re-run (0.2 s of pure Python) purely to capture the
+        # asset each house had before the disaster stage touched it.
+        pristine, _lay, _c = build_scene(config, resolver, stop_after="detail")
+        before = {i: p.get("usd") for i, p in enumerate(pristine)
+                  if p.get("category") in ("house", "building")}
+
+        plan.draw(config, _lay, pristine, resolver, stem + "_layout.png",
+                  title=f"{name} — layout (pristine, as built)")
+        written.append(stem + "_layout.png")
+
+        plan.draw(config, layout, placements, resolver, stem + "_damage.png",
+                  title=f"{name} — damage (as built)",
+                  damage=plan.classify(placements, before),
+                  field=plan.field_of(config, layout))
+        written.append(stem + "_damage.png")
+    except Exception as exc:                                  # noqa: BLE001
+        print(f"[scene_gen] run plan skipped: {type(exc).__name__}: {exc}")
+    return written
 
 
 def report_empty_placements(stage, placements: list, limit: int = 8) -> list:
@@ -419,6 +492,15 @@ def generate_scene_on_stage(stage,
 
     resolver = sg._make_resolver(config)
     placements, layout, base_counts = build_scene(config, resolver)
+
+    # A plan of what was just built, every run. Costs a fraction of a second
+    # against the minutes the rest of this takes, and it is the only picture of
+    # the layout that is guaranteed to BE the layout — see `write_run_plan`.
+    # `SCENE_PLAN=0` turns it off.
+    if os.environ.get("SCENE_PLAN", "1") not in ("0", "false", "no"):
+        for path in write_run_plan(config, layout, placements, resolver,
+                                   name=_config_name(config)):
+            print(f"[scene_gen] plan: {path}")
 
     ground_snap = sg._make_physx_ground_snap() if snap_to_ground else None
     sg.apply_placements(stage, placements, parent_path, scene_scale_factor,

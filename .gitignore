@@ -112,6 +112,12 @@ scene_gen/assets/objaverse/*
 scene_gen/assets/aec/*
 !scene_gen/assets/aec/README.md
 
+# Local mirror of Nucleus assets, for the tools that cannot resolve
+# `omniverse://` — the damage gallery above all (usd-core and Blender both
+# lack the resolver). Rebuild with scene_gen/tools/localize_nucleus_assets.py,
+# which must run inside the isaac-sim container.
+scene_gen/assets/nucleus/
+
 # Layout plan PNGs and the asset manifest — generated, not source.
 scene_gen/_plans/
 scene_gen/_scene_assets.tsv

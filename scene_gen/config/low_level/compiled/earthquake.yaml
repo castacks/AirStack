@@ -6,10 +6,10 @@
 #
 # locale        : downtown
 # disaster-type : earthquake
-# severity      : 0.8
+# severity      : 1.0
 # spec          : scene_gen/config/presets/earthquake.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-13 14:20:40
+# compiled      : 2026-08-13 18:03:01
 # spec extras   : {'asset-set': 'urban', 'region_m': [800, 800], 'seed': 42}
 
 seed: 42
@@ -269,57 +269,61 @@ disaster:
     fracture:
       enabled: true
       max_buildings: 60
-  damaged_fraction: 0.29
-  destroyed_fraction: 0.444
+    thickness:
+      enabled: true
+      wall_m: 0.25
+      max_buildings: 60
+  damaged_fraction: 0.35
+  destroyed_fraction: 0.55
   debris:
     piles_per_building:
-    - 3
-    - 6
-    pile_max_offset_m: 3.6
+    - 4
+    - 7
+    pile_max_offset_m: 4.0
     pieces_per_building:
-    - 12
-    - 22
-    pieces_scatter_m: 6.2
-    damaged_debris_scale: 0.51
-    tilt_chance: 0.61
+    - 14
+    - 26
+    pieces_scatter_m: 7.0
+    damaged_debris_scale: 0.55
+    tilt_chance: 0.7
     tilt_deg:
     - 3
-    - 11.0
+    - 12.0
     sink_m:
     - 0.5
-    - 2.0
+    - 2.2
     lean_piles:
     - 3
     - 5
-  trees_toppled_fraction: 0.08
-  streetlights_toppled_fraction: 0.41
-  traffic_lights_toppled_fraction: 0.368
-  traffic_lights_leaning_fraction: 0.43
+  trees_toppled_fraction: 0.1
+  streetlights_toppled_fraction: 0.5
+  traffic_lights_toppled_fraction: 0.45
+  traffic_lights_leaning_fraction: 0.5
   traffic_lights_lean_deg:
   - 8
-  - 34.4
-  trash_cans_toppled_fraction: 0.69
-  trash_cans_scatter_m: 1.7
-  cars_toppled_fraction: 0.122
+  - 38.0
+  trash_cans_toppled_fraction: 0.8
+  trash_cans_scatter_m: 2.0
+  cars_toppled_fraction: 0.15
   cars_strewn:
   - 2
-  - 4
+  - 5
   strewn_topple_fraction: 0.4
-  humans_prone_fraction: 0.45
+  humans_prone_fraction: 0.55
   humans_strewn:
-  - 3
-  - 8
+  - 4
+  - 10
   field:
     kind: radial
     center:
     - 0.0
     - 0.0
-    radius_m: 312.0
+    radius_m: 360.0
     falloff_m: 440.0
     inside: 1.0
-    outside: 0.38
+    outside: 0.45
   type: earthquake
-  severity: 0.8
+  severity: 1.0
 detail:
   trees:
     house_margin_m: 1.5

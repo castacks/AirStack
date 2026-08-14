@@ -866,19 +866,45 @@ def test_apply_to_stage_runs_the_compiled_config(dtype):
     a knob the compiler stopped emitting, a plan key spelled differently — and
     none of it shows up in a unit test that hand-builds its own config dict.
     """
-    st, placements = stage_with_buildings(3)
-    for p in placements:
-        p["_mesh_damage"] = 0.9
-    cfg = compiled_disaster_config(dtype)
+    def run(thickness):
+        st, placements = stage_with_buildings(3)
+        for p in placements:
+            p["_mesh_damage"] = 0.9
+        cfg = compiled_disaster_config(dtype)
+        if thickness is not None:
+            cfg["disaster"].setdefault("mesh_damage", {})["thickness"] = \
+                thickness
 
-    before = [len(UsdGeom.Mesh(st.GetPrimAtPath(p["prim_path"] + "/Mesh"))
-                  .GetFaceVertexCountsAttr().Get()) for p in placements]
-    out = M.apply_to_stage(st, cfg, placements)
+        def faces():
+            return [len(UsdGeom.Mesh(st.GetPrimAtPath(p["prim_path"] + "/Mesh"))
+                        .GetFaceVertexCountsAttr().Get())
+                    for p in placements]
 
+        before = faces()
+        out = M.apply_to_stage(st, cfg, placements)
+        return st, out, before, faces()
+
+    # Damage only ever REMOVES material — as long as nothing is adding any.
+    # Every operator in a profile either moves vertices or deletes faces, so
+    # with `solidify` switched off the face count can only fall, and that is
+    # still the invariant worth pinning: it is what catches a profile that has
+    # quietly stopped opening the building up.
+    st, out, before, after = run({"enabled": False})
     assert out["tally"], f"{dtype} did nothing at all"
-    after = [len(UsdGeom.Mesh(st.GetPrimAtPath(p["prim_path"] + "/Mesh"))
-                 .GetFaceVertexCountsAttr().Get()) for p in placements]
+    assert "thickened" not in out["tally"]
     assert all(a <= b for a, b in zip(after, before))
+
+    # With thickening on — the default — every damaged building gets wall
+    # volume first. The face count is no longer monotonic in either direction:
+    # `solidify` adds an inner shell and a rim, and then `fire` and `tornado`
+    # delete a height band of 55-60% of the building to turn it into fragments.
+    # So only the BOUND is asserted here; that solidify actually doubles the
+    # geometry is pinned directly in `test_solidify_*` instead, where nothing
+    # else is deleting faces at the same time.
+    st, out, before, after = run(None)
+    assert out["tally"].get("thickened") == len(before), \
+        "every mesh-damaged building should have been given wall volume"
+    assert all(a <= 4 * b for a, b in zip(after, before))
 
     if dtype == "flood":
         assert not out["fragments"], "water does not shatter masonry"
@@ -967,3 +993,181 @@ def test_throw_is_directional_and_spares_the_base():
     c1, _ = centroids(0.4)
     assert (c1[:, 0] - c0[:, 0]).max() > 0.05 * b.height   # went downwind
     assert np.abs(c1[:, 1] - c0[:, 1]).max() < 1e-6        # not sideways
+
+
+# ---------------------------------------------------------------------------
+# solidify — giving the shell volume before it is broken
+# ---------------------------------------------------------------------------
+
+
+def _face_count(prim):
+    return len(UsdGeom.Mesh(prim).GetFaceVertexCountsAttr().Get())
+
+
+def _point_count(prim):
+    return len(UsdGeom.Mesh(prim).GetPointsAttr().Get())
+
+
+def test_solidify_doubles_the_shell_and_rims_its_edges():
+    """The whole mechanism, on geometry whose answer can be counted by hand.
+
+    One open grid — a single wall panel, which is what an asset is made of —
+    has `n*n` points and `(n-1)^2` quads, and every edge of its outer ring is a
+    boundary. Solidified it must hold exactly twice the points, twice the
+    faces plus one rim quad per boundary edge, and nothing else.
+    """
+    n = 6
+    st = Usd.Stage.CreateInMemory()
+    _STAGES.append(st)
+    mesh = UsdGeom.Mesh.Define(st, "/Wall")
+    verts = [Gf.Vec3f(i / (n - 1) * 4.0, 0.0, j / (n - 1) * 3.0)
+             for i in range(n) for j in range(n)]
+    faces = []
+    for i in range(n - 1):
+        for j in range(n - 1):
+            a = i * n + j
+            faces.append([a, a + 1, a + n + 1, a + n])
+    mesh.GetPointsAttr().Set(verts)
+    mesh.GetFaceVertexCountsAttr().Set([4] * len(faces))
+    mesh.GetFaceVertexIndicesAttr().Set([i for f in faces for i in f])
+
+    added = M.solidify(mesh.GetPrim(), 0.25)
+    assert added
+
+    assert _point_count(mesh.GetPrim()) == 2 * n * n
+    # A grid's boundary is its outer ring: 4*(n-1) edges.
+    assert _face_count(mesh.GetPrim()) == 2 * (n - 1) ** 2 + 4 * (n - 1)
+
+    # Every point has a twin exactly `thickness` away, and the panel is now a
+    # slab: it gained depth on the one axis it had none.
+    pts = np.array(mesh.GetPointsAttr().Get())
+    outer, inner = pts[:n * n], pts[n * n:]
+    assert np.allclose(np.linalg.norm(inner - outer, axis=1), 0.25)
+    assert abs(pts[:, 1].max() - pts[:, 1].min() - 0.25) < 1e-5
+
+
+def test_solidify_never_inflates_the_building():
+    """Walls thicken INWARD.
+
+    The layout stage packs buildings to setbacks, so a wall that grows outward
+    walks into its neighbour. The direction is decided per point against the
+    building's own box precisely so this holds on assets whose winding is
+    inconsistent — which the library's are.
+    """
+    st, placements = stage_with_buildings(1, scale=10.0, faces=8)
+    prims = M.mesh_prims(st.GetPrimAtPath(placements[0]["prim_path"]))
+    before = M.bounds_of(prims)
+
+    M.solidify_prims(prims, 0.25, bounds=before)
+
+    after = M.bounds_of(prims)
+    assert np.all(after.hi <= before.hi + 1e-6)
+    assert np.all(after.lo >= before.lo - 1e-6)
+
+
+def test_solidify_skips_a_mesh_that_already_encloses_material():
+    """A closed solid needs no inner shell, and doubling it costs points.
+
+    The library really does hold both kinds — the objaverse houses are shells,
+    the Nucleus downtown masses are closed volumes — so this is the difference
+    between spending the budget where it does something and spending it twice.
+    """
+    prim = solid_box(scale=8.0, n=4)[0]
+    mesh = UsdGeom.Mesh(prim.GetStage().GetPrimAtPath("/B/Mesh"))
+    # Wound consistently outward, the box encloses its own volume.
+    pts = np.array(mesh.GetPointsAttr().Get(), dtype=np.float64)
+    centre = (pts.max(axis=0) + pts.min(axis=0)) * 0.5
+    counts = np.array(mesh.GetFaceVertexCountsAttr().Get())
+    idx = np.array(mesh.GetFaceVertexIndicesAttr().Get())
+    fixed = []
+    for s, c in zip(M._fv_starts(counts), counts):
+        f = idx[s:s + c]
+        v = pts[f]
+        nrm = np.cross(v[1] - v[0], v[2] - v[0])
+        fixed.append(f[::-1] if np.dot(nrm, v.mean(axis=0) - centre) < 0 else f)
+    mesh.GetFaceVertexIndicesAttr().Set(
+        [int(i) for f in fixed for i in f])
+
+    n0 = _face_count(mesh.GetPrim())
+    assert M.solidify(mesh.GetPrim(), 0.25, ref_centre=centre) == 0
+    assert _face_count(mesh.GetPrim()) == n0
+
+
+def test_solidify_keeps_uvs_and_materials_attached():
+    """Fragments cut from a slab must still look like the building.
+
+    `st` is faceVarying, `origface` is uniform and a `GeomSubset` is a
+    face-index set, so all three have to grow onto the inner shell and the rim
+    or the extrusion renders untextured and bound to whatever material sat on
+    the prim — the "white confetti" failure `_bind_materials` documents,
+    arriving by a different route.
+
+    `origface` is what makes this checkable rather than merely plausible: it
+    labels each source face with its own index, so after the extrusion every
+    new face states which one it grew from, and the subset can be verified
+    against it instead of against an assumed layout.
+    """
+    prim = shaded_box(scale=6.0, n=5)[0].GetPrim()
+    mesh = UsdGeom.Mesh(prim)
+    n_faces = _face_count(prim)
+    st_pv = UsdGeom.PrimvarsAPI(prim).GetPrimvar("st")
+    sub = next(UsdGeom.Subset(c) for c in prim.GetChildren()
+               if c.IsA(UsdGeom.Subset))
+    bound = set(int(i) for i in sub.GetIndicesAttr().Get())
+
+    assert M.solidify(prim, 0.2)
+
+    new_faces = _face_count(prim)
+    new_fv = int(sum(mesh.GetFaceVertexCountsAttr().Get()))
+    # Exactly doubled, and no rim: this box's six grids meet at its edges, so
+    # welding by position closes it and there is no open edge to cap. The rim
+    # is counted where there IS one, in the open-panel test above.
+    assert new_faces == 2 * n_faces
+    assert len(st_pv.Get()) == new_fv, "st must follow the new face-vertices"
+
+    # Each new face says which source face it came from...
+    origin = list(UsdGeom.PrimvarsAPI(prim).GetPrimvar("origface").Get())
+    assert len(origin) == new_faces
+    assert origin[:n_faces] == list(range(n_faces))          # outer, untouched
+    assert origin[n_faces:2 * n_faces] == list(range(n_faces))   # inner twins
+    assert all(0 <= o < n_faces for o in origin[2 * n_faces:])   # rim quads
+
+    # ...and the material follows that same mapping, for every face.
+    now = set(int(i) for i in sub.GetIndicesAttr().Get())
+    assert now == {i for i in range(new_faces) if origin[i] in bound}
+
+
+def test_a_single_mesh_building_keeps_its_fragments():
+    """Consuming the source must not retire the rubble along with it.
+
+    Half the library is a single mesh referenced straight at the placement
+    path, so the prim `fracture_to_stage` consumes is also the prim it just
+    authored the fragments under. Deactivating that prim takes the whole
+    subtree, and a whole-building fracture — earthquake and explosion, the two
+    that pass `z_range=None` — left nothing standing AND nothing on the ground.
+
+    The multi-mesh case is the control: there the consumed prim is a sibling of
+    the fragments scope, and retiring it is correct.
+    """
+    st = Usd.Stage.CreateInMemory()
+    _STAGES.append(st)
+    src = solid_box(scale=10.0, n=8)[0]
+
+    # The building prim IS the mesh, as a single-mesh asset composes.
+    mesh = UsdGeom.Mesh.Define(st, "/World/house_0")
+    for attr in ("GetPointsAttr", "GetFaceVertexCountsAttr",
+                 "GetFaceVertexIndicesAttr"):
+        getattr(mesh, attr)().Set(getattr(UsdGeom.Mesh(src), attr)().Get())
+
+    root = mesh.GetPrim()
+    b = M.bounds_of([root])
+    out = M.fracture_to_stage(st, root, b, n_cells=24, seed=5,
+                              keep_base=0.0, z_range=None)
+
+    assert out["paths"], "the whole building should have come apart"
+    assert root.IsActive(), \
+        "retiring the source took the fragments with it — they are its children"
+    assert all(st.GetPrimAtPath(p).IsValid() and st.GetPrimAtPath(p).IsActive()
+               for p in out["paths"])
+    # The source itself is spent: consumed entirely, so it holds no faces.
+    assert len(mesh.GetFaceVertexCountsAttr().Get()) == 0

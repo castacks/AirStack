@@ -9,7 +9,7 @@
 # severity      : 0.6
 # spec          : scene_gen/config/presets/fire.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-13 14:20:40
+# compiled      : 2026-08-13 18:03:01
 # spec extras   : {'epicenter': [0, 0], 'region_m': [800, 800], 'seed': 42}
 
 seed: 42
@@ -268,6 +268,10 @@ disaster:
   mesh_damage:
     fracture:
       enabled: true
+      max_buildings: 70
+    thickness:
+      enabled: true
+      wall_m: 0.25
       max_buildings: 70
   damaged_fraction: 0.51
   destroyed_fraction: 0.188

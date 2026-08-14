@@ -9,7 +9,7 @@
 # severity      : 1.0
 # spec          : scene_gen/config/presets/tornado.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-13 14:20:41
+# compiled      : 2026-08-13 18:03:02
 # spec extras   : {'heading_deg': 35, 'region_m': [800, 800], 'seed': 42}
 
 seed: 42
@@ -268,6 +268,10 @@ disaster:
   mesh_damage:
     fracture:
       enabled: true
+      max_buildings: 80
+    thickness:
+      enabled: true
+      wall_m: 0.25
       max_buildings: 80
   damaged_fraction: 0.3
   destroyed_fraction: 1.0

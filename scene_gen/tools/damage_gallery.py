@@ -13,6 +13,21 @@ ROW is a building and each COLUMN is a disaster type, pristine on the far left.
     │  house B │            │         │           │      │           │       │
     └──────────┴────────────┴─────────┴───────────┴──────┴───────────┴───────┘
 
+`--bare-columns` pairs each disaster with a debris-free twin, so the two things
+a damaged cell shows can be read apart — what the mesh damage did to the
+building, and what the disaster stage scattered around it. They are produced by
+different code and tuned by different knobs, and with a full debris ring in
+place the building is largely hidden behind it.
+
+    ┌──────────┬───────────────┬────────────┬───────────────┬─────────┬─────┐
+    │ pristine │ earthquake    │ earthquake │ tornado       │ tornado │ ... │
+    │          │ (mesh only)   │            │ (mesh only)   │         │     │
+    └──────────┴───────────────┴────────────┴───────────────┴─────────┴─────┘
+
+The twin is not a re-roll. The disaster stage runs in full and the debris is
+discarded AFTERWARDS, so the building in the two cells is bit-identical and the
+pair differs in exactly one variable — see `build_cell`.
+
 WHY THE REAL PIPELINE AND NOT A MOCK
 ------------------------------------
 Every cell is built by calling `disaster_stage.apply_to_buildings` and
@@ -42,9 +57,24 @@ ASSETS MUST BE LOCAL
 Nucleus (`omniverse://`) does not resolve under plain usd-core or under Blender,
 so a gallery can only be built from assets that are on disk: the `objaverse://`
 cache (`prepare_assets.py`) and the repo's own `airstack://` packs. `--list`
-says which of an asset set's buildings qualify. Today that makes **suburban**
-the set that works out of the box — all 15 of its houses and all 8 of its debris
-assets are cached — while `urban`'s buildings live on Nucleus.
+says which of an asset set's buildings qualify.
+
+**suburban** works out of the box — all 15 of its houses and all 8 of its
+debris assets are cached. The **urban** library lives on Nucleus and reports
+`0/9`; for that side, `tools/localize_nucleus_assets.py` mirrors it down (from
+inside the isaac-sim container, the only place with the resolver) and
+`--asset-set urban_intact_local` points at the mirror.
+
+WHAT A SHEET IS EVIDENCE OF
+---------------------------
+Both halves of the library are worth looking at, because they fail differently.
+The objaverse houses are hollow SHELLS, so `solidify` is doing most of the work
+in a suburban sheet — compare against `--wall-thickness 0` and the rubble goes
+from chunks to paper. The nine `urban_intact` buildings are already closed
+solids (7-34x the volume a 0.25 m slab of their surface would enclose), so
+`solidify` declines every one of them and the sheet reports `thickened=0`.
+That is the operator working, not failing, and the sheet is where you can see
+which case an asset is in.
 
 Usage
 -----
@@ -53,6 +83,9 @@ Usage
     python3 tools/damage_gallery.py --rows 6 --severity 0.9
     python3 tools/damage_gallery.py --one 3 --disaster tornado    # one cell
     python3 tools/damage_gallery.py --no-render        # USDs only
+    python3 tools/damage_gallery.py --wall-thickness 0 # the "before" sheet
+    python3 tools/damage_gallery.py --bare-columns     # + debris-free twins
+    python3 tools/damage_gallery.py --asset-set urban_intact_local --rows 9
 
 Run with the system `python3`, not `AirStack/.venv` — same reason
 `preset_report.py` gives: `scene_generator` imports `pxr` at module scope and
@@ -91,7 +124,7 @@ DEFAULT_OUT = os.path.join(_SCENE_GEN, "galleries", "damage")
 
 #: Keys in `mesh_damage`'s tally that count things rather than name the
 #: profile that ran. Everything else in it is a profile name.
-_TALLY_COUNTERS = ("fragments", "loose", "shattered")
+_TALLY_COUNTERS = ("fragments", "loose", "shattered", "thickened")
 
 
 # ---------------------------------------------------------------------------
@@ -110,6 +143,13 @@ def load_asset_set(asset_set: str) -> dict:
         cfg = sg.resolve_asset_set(cfg, anchor)
         cfg = sg.validate_config(cfg, anchor)
     return cfg
+
+
+def _slug(label: str) -> str:
+    """A column label as a filename. Labels carry spaces and parentheses now
+    that a column can be `earthquake (mesh only)`, and those are a nuisance on
+    disk and in the shell for no gain — the manifest keeps the real label."""
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", label).strip("_") or "cell"
 
 
 def _on_disk(path: str) -> bool:
@@ -178,7 +218,7 @@ def buildings_of(cfg: dict) -> list:
 
 
 def cell_config(base: dict, disaster: str, severity: float, seed: int,
-                fate: str) -> dict:
+                fate: str, wall_m: float = None) -> dict:
     """*base* with the compiled `disaster:` block for one gallery cell.
 
     Two deliberate overrides, both so the cell is populated and comparable
@@ -218,6 +258,15 @@ def cell_config(base: dict, disaster: str, severity: float, seed: int,
     blk["field"] = {"kind": "uniform", "inside": 1.0, "heading_deg": heading}
     blk["damaged_fraction"] = 0.0 if fate == "destroyed" else 1.0
     blk["destroyed_fraction"] = 1.0 if fate == "destroyed" else 0.0
+    if wall_m is not None:
+        # The fourth override, and the only one that is a knob rather than a
+        # correction: `--wall-thickness 0` is how the sheet is rebuilt as the
+        # before picture, since a gallery is the only place the two are
+        # comparable side by side.
+        md = dict(blk.get("mesh_damage") or {})
+        md["thickness"] = dict(md.get("thickness") or {},
+                               enabled=wall_m > 0.0, wall_m=float(wall_m))
+        blk["mesh_damage"] = md
     cfg["disaster"] = blk
     return cfg
 
@@ -336,8 +385,15 @@ def soot_map(stage) -> dict:
     return out
 
 
+#: Placement categories the disaster stage scatters AROUND a building, as
+#: opposed to the building itself. `disaster_stage.apply_to_buildings` tags
+#: them as it appends them, and these are the two it uses.
+_DEBRIS_CATEGORIES = ("debris", "debris_pile")
+
+
 def build_cell(base: dict, building: dict, disaster: str, severity: float,
-               seed: int, fate: str, out_path: str, settle: bool = True) -> dict:
+               seed: int, fate: str, out_path: str, settle: bool = True,
+               wall_m: float = None, debris: bool = True) -> dict:
     """Wreck one building into one USD. Returns what happened to it.
 
     The order is `generate_scene_on_stage`'s, and it is load-bearing: the
@@ -346,7 +402,7 @@ def build_cell(base: dict, building: dict, disaster: str, severity: float,
     mesh damage run — it authors overrides on geometry inside a referenced
     layer, and there is nothing to override until the reference is composed.
     """
-    cfg = cell_config(base, disaster, severity, seed, fate)
+    cfg = cell_config(base, disaster, severity, seed, fate, wall_m)
     resolver = sg._make_resolver(cfg)
     fp = resolver.get(building["usd"], "house", scale=building["scale"],
                       axis_up=building["axis_up"])
@@ -372,6 +428,21 @@ def build_cell(base: dict, building: dict, disaster: str, severity: float,
     with contextlib.redirect_stdout(io.StringIO()):
         if disaster != "pristine":
             disaster_stage.apply_to_buildings(cfg, layout, placements, resolver)
+        if not debris:
+            # DROPPED AFTER THE FACT, not suppressed in the config, and that is
+            # the whole reason this is trustworthy as a comparison. Turning the
+            # debris counts down would change how many draws the disaster stage
+            # takes off the RNG, so the building beside it would be damaged
+            # differently and the pair would no longer differ in one variable.
+            # Letting the stage run in full and then discarding what it
+            # scattered leaves the building bit-identical to its twin.
+            #
+            # Order is preserved and the building was the only entry before the
+            # stage appended to it, so it keeps index 0 — which matters,
+            # because `mesh_damage.apply_to_stage` seeds each building off its
+            # placement index.
+            placements[:] = [p for p in placements
+                             if p.get("category") not in _DEBRIS_CATEGORIES]
         if settle:
             topple_settling_props(placements, seed)
         sg.apply_placements(stage, placements, "/World/gen", 1.0, None,
@@ -403,6 +474,10 @@ def build_cell(base: dict, building: dict, disaster: str, severity: float,
         "loose": len(mesh.get("loose", ())),
         "profile": next((k for k in mesh["tally"]
                          if k not in _TALLY_COUNTERS), None),
+        # Whether the walls were given volume before being broken. Reported per
+        # cell rather than taken on trust from the flag, because `solidify`
+        # declines meshes that already enclose material.
+        "thickened": int(mesh["tally"].get("thickened", 0)),
         # Charring, for the renderer to re-apply — see `soot_map`.
         "soot": soot,
     }
@@ -413,28 +488,57 @@ def build_cell(base: dict, building: dict, disaster: str, severity: float,
 # ---------------------------------------------------------------------------
 
 
-def disaster_columns(severity: float, types=None) -> list:
+#: Suffix marking a column that shows the building alone. Also how the
+#: renderer tells the two apart when it colours the headings.
+BARE_SUFFIX = " (mesh only)"
+
+
+def _twin(col: tuple) -> list:
+    """*col*, preceded by a debris-free copy of itself.
+
+    The bare one goes FIRST so a row reads left to right as "what the mesh
+    damage did" then "what it looks like once the disaster stage has dressed
+    it" — the debris only ever adds, so that is the order in which the sheet
+    explains itself.
+    """
+    label, dtype, sev, _debris = col
+    return [(label + BARE_SUFFIX, dtype, sev, False), col]
+
+
+def disaster_columns(severity: float, types=None, bare: bool = False) -> list:
     """The default axis: pristine, then one column per disaster type.
 
-    A column is ``(label, disaster, severity)``. Keeping the axis as data
-    rather than as a list of type names is what lets the same builder produce a
-    severity sweep, where the columns are one disaster at several severities —
-    the other question worth asking of this generator, since "the same city at
-    different damage levels" is the invariant the whole project rests on.
+    A column is ``(label, disaster, severity, debris)``. Keeping the axis as
+    data rather than as a list of type names is what lets the same builder
+    produce a severity sweep, where the columns are one disaster at several
+    severities — the other question worth asking of this generator, since "the
+    same city at different damage levels" is the invariant the whole project
+    rests on.
+
+    *bare* pairs each disaster with a debris-free twin. Worth the doubled
+    width because the two things a damaged cell shows — what the mesh damage
+    did to the building, and what the disaster stage scattered around it — are
+    produced by different code and tuned by different knobs, and with the
+    debris in place the building is largely hidden behind it.
     """
-    return ([("pristine", "pristine", 0.0)]
-            + [(t, t, float(severity)) for t in (types or COLUMNS[1:])])
+    cols = [(t, t, float(severity), True) for t in (types or COLUMNS[1:])]
+    if bare:
+        cols = [c for col in cols for c in _twin(col)]
+    return [("pristine", "pristine", 0.0, True)] + cols
 
 
-def severity_columns(disaster: str, severities) -> list:
+def severity_columns(disaster: str, severities, bare: bool = False) -> list:
     """One disaster across several severities — pristine still on the left."""
-    return ([("pristine", "pristine", 0.0)]
-            + [(f"{float(s):g}", disaster, float(s)) for s in severities])
+    cols = [(f"{float(s):g}", disaster, float(s), True) for s in severities]
+    if bare:
+        cols = [c for col in cols for c in _twin(col)]
+    return [("pristine", "pristine", 0.0, True)] + cols
 
 
 def build_gallery(asset_set="suburban", rows=5, seed=42, fate="damaged",
                   specs=None, out_dir=DEFAULT_OUT, pick=None, settle=True,
-                  title="Procedural building damage", quiet=False) -> dict:
+                  title="Procedural building damage", quiet=False,
+                  wall_m=None) -> dict:
     """Build every cell and write the manifest the renderer consumes.
 
     *pick* is a list of indices into the set's local buildings, for looking at
@@ -453,37 +557,44 @@ def build_gallery(asset_set="suburban", rows=5, seed=42, fate="damaged",
     chosen = ([pool[i % len(pool)] for i in pick] if pick
               else (pool[:rows] if rows > 0 else pool))
 
-    sevs = sorted({sev for _, d, sev in specs if d != "pristine"})
+    specs = [tuple(sp) + (True,) * (4 - len(sp)) for sp in specs]
+    sevs = sorted({sev for _, d, sev, _ in specs if d != "pristine"})
     sev_txt = (f"severity {sevs[0]:g}" if len(sevs) == 1
                else f"severity {sevs[0]:g}–{sevs[-1]:g}")
     settled = ("debris settled (approximated — Isaac's PhysX pass is not "
                "available host-side)" if settle
                else "debris NOT settled: authored poses")
+    walls = ("walls left as shipped: zero-thickness shells" if wall_m == 0.0
+             else f"walls thickened to {wall_m:g} m before breaking"
+             if wall_m else "walls thickened (pipeline default)")
     manifest = {
         "title": title,
         "subtitle": (f"asset set {asset_set} · {sev_txt} · fate {fate} · "
-                     f"seed {seed} · {settled}"),
+                     f"seed {seed} · {walls} · {settled}"),
         "asset_set": asset_set, "seed": seed, "fate": fate,
-        "settle": bool(settle),
-        "columns": [label for label, _, _ in specs], "rows": [],
+        "settle": bool(settle), "wall_m": wall_m,
+        "bare_suffix": BARE_SUFFIX,
+        "columns": [label for label, _, _, _ in specs], "rows": [],
     }
     for r, b in enumerate(chosen):
         row = {"name": b["name"], "cells": {}, "stats": {}}
-        for label, dtype, sev in specs:
+        for label, dtype, sev, debris in specs:
             path = os.path.join(out_dir, "usd", f"{r:02d}_{b['name']}",
-                                f"{label}.usda")
+                                f"{_slug(label)}.usda")
             # One seed per ROW, shared by its columns: the point of a row is
             # comparing damage on the same building, so anything not driven by
             # the column itself must be held still across it.
             info = build_cell(base, b, dtype, sev, seed + r * 1000, fate,
-                              path, settle=settle)
+                              path, settle=settle, wall_m=wall_m,
+                              debris=debris)
             row["cells"][label] = os.path.relpath(path, out_dir)
             row["stats"][label] = info
             if not quiet:
                 bits = (f"frag={info['fragments']:3d} "
-                        f"debris={info['debris']:3d}+{info['debris_piles']}"
+                        f"debris={info['debris']:3d}+{info['debris_piles']} "
+                        f"solid={info['thickened']}"
                         if dtype != "pristine" else "—")
-                print(f"  {b['name'][:24]:24s} {label:11s} {bits}")
+                print(f"  {b['name'][:24]:24s} {label[:24]:24s} {bits}")
         manifest["rows"].append(row)
 
     os.makedirs(out_dir, exist_ok=True)
@@ -539,6 +650,20 @@ def main() -> int:
     ap.add_argument("--el", type=float, default=20.0)
     ap.add_argument("--cpu", action="store_true")
     ap.add_argument("--no-render", action="store_true")
+    ap.add_argument("--bare-columns", action="store_true",
+                    help="pair every disaster with a debris-free twin column "
+                         "showing the building alone, so mesh damage can be "
+                         "read separately from what the disaster stage "
+                         "scattered around it. Doubles the sheet width")
+    ap.add_argument("--title",
+                    help="heading on the sheet; defaults to one describing "
+                         "the axis (the disaster types, or the sweep)")
+    ap.add_argument("--wall-thickness", type=float, default=None,
+                    metavar="M",
+                    help="wall thickness in metres for `solidify`, which gives "
+                         "the shell volume before it is broken. 0 disables it, "
+                         "which is how the 'before' sheet is built; omit to "
+                         "take the pipeline default")
     ap.add_argument("--no-settle", action="store_true",
                     help="skip the stand-in for Isaac's PhysX settle pass, "
                          "leaving debris and fragments in their authored "
@@ -563,18 +688,20 @@ def main() -> int:
 
     if args.sweep:
         specs = severity_columns(
-            args.sweep, [float(v) for v in args.severities.split(",")])
+            args.sweep, [float(v) for v in args.severities.split(",")],
+            bare=args.bare_columns)
         title = f"{args.sweep.capitalize()} across severity"
     else:
         types = [t for t in (args.disaster or COLUMNS[1:])
                  if t != "pristine"]
-        specs = disaster_columns(args.severity, types)
+        specs = disaster_columns(args.severity, types, bare=args.bare_columns)
         title = "Procedural building damage"
 
     man = build_gallery(asset_set=args.asset_set, rows=args.rows,
                         seed=args.seed, fate=args.fate, specs=specs,
                         out_dir=args.out, settle=not args.no_settle,
-                        title=title,
+                        title=args.title or title,
+                        wall_m=args.wall_thickness,
                         pick=[args.one] if args.one is not None else None)
     print(f"[gallery] {len(man['rows'])} rows x {len(specs)} columns "
           f"-> {args.out}")
