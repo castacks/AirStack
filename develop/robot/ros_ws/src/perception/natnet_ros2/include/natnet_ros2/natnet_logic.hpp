@@ -18,25 +18,17 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-// natnet_logic.hpp — pure C++ helpers for natnet_ros2 (no ROS, no NatNet SDK).
-//
-// Five responsibility areas:
-//
-//  1. Covariance assembly
-//  2. Topic names
-//  3. Connection-configuration helpers (SDK-independent)
-//  4. Rigid-body frame helpers (SDK-independent)
-//  5. Abstraction seam: INatNetClient interface + negotiation logic
-//
-// NatNet SDK types (sNatNetClientConnectParams, sRigidBodyData, …) are only
-// used inside natnet_ros2_node.cpp and natnet_client_adapter.cpp.
-// All logic here uses plain C++ so test_natnet_logic.cpp compiles with only gtest.
+// natnet_logic.hpp — pure C++ helpers for natnet_ros2 (no ROS, no NatNet SDK), so
+// test_natnet_logic.cpp compiles with only gtest. SDK types stay in
+// natnet_ros2_node.cpp / natnet_client_adapter.cpp.
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <functional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -91,16 +83,48 @@ inline std::string optitrack_pose_cov_topic(
     return optitrack_topic_base(robot_name, body_name) + "/pose_cov";
 }
 
+/// Namespace a relative topic leaf under /{robot_name}/.
+///
+/// Leading slashes in \p relative are stripped so the result always has exactly
+/// one. Used for the per-body ``topic`` overrides in natnet_config.yaml, which are
+/// relative and namespaced by the node at runtime.
+inline std::string namespaced_topic(
+    const std::string & robot_name,
+    const std::string & relative)
+{
+    const std::size_t start = relative.find_first_not_of('/');
+    const std::string leaf =
+        (start == std::string::npos) ? std::string{} : relative.substr(start);
+    return "/" + robot_name + "/" + leaf;
+}
+
+/// Topic base for one configured body: the per-body relative override when set,
+/// otherwise the default /{robot_name}/perception/optitrack/{body_name}.
+inline std::string body_topic_base(
+    const std::string & robot_name,
+    const std::string & body_name,
+    const std::string & relative_override)
+{
+    if (relative_override.empty()) {
+        return optitrack_topic_base(robot_name, body_name);
+    }
+    return namespaced_topic(robot_name, relative_override);
+}
+
 
 // ===========================================================================
 // 3. Connection-configuration helpers
 // ===========================================================================
 
-/// Return ct if it is "unicast" or "multicast"; otherwise return "unicast".
+/// Return ct if it is "unicast" or "multicast"; otherwise throw.
+///
+/// Deliberately strict: silently falling back to "unicast" turns a typo into a
+/// vehicle that connects to the wrong transport and never receives frames.
 inline std::string validate_connection_type(const std::string & ct)
 {
     if (ct == "unicast" || ct == "multicast") { return ct; }
-    return "unicast";
+    throw std::invalid_argument(
+        "connection_type must be \"unicast\" or \"multicast\", got \"" + ct + "\"");
 }
 
 /// SDK-independent connection configuration aggregate.
@@ -113,12 +137,12 @@ struct ConnectConfig
     std::string client_ip         = "0.0.0.0";
     uint16_t    command_port      = 1510u;
     uint16_t    data_port         = 1511u;
-    std::string connection_type   = "unicast";      ///< validated
+    std::string connection_type   = "unicast";      ///< "unicast" or "multicast"
     std::string multicast_address = "239.255.42.99";
 };
 
 /// Build a validated ConnectConfig from raw user-supplied strings.
-/// connection_type is normalised via validate_connection_type().
+/// Throws std::invalid_argument when connection_type is not "unicast"/"multicast".
 inline ConnectConfig make_connect_config(
     const std::string & server_ip,
     const std::string & client_ip,
@@ -177,6 +201,9 @@ struct FrameSample
     int32_t frame_num = 0;
     float   timestamp = 0.f;
     int16_t params    = 0;   ///< NatNet frame.params bitmask
+    /// transit + client-processing latency the drone observes per message.
+    double  transit_latency_s = 0.0;
+    bool    has_latency = false;
     std::vector<RigidBodySample> bodies;
 };
 
@@ -197,6 +224,15 @@ inline bool model_list_changed(int16_t frame_params)
 inline bool should_publish_body(int32_t filter_id, int32_t rb_id)
 {
     return filter_id < 0 || rb_id == filter_id;
+}
+
+/// Returns true when rb_id is one of the configured body ids.
+///
+/// The node publishes only a fixed set of ids based on natnet_config.yaml.
+inline bool body_is_configured(const std::vector<int32_t> & configured_ids, int32_t rb_id)
+{
+    return std::find(configured_ids.begin(), configured_ids.end(), rb_id)
+           != configured_ids.end();
 }
 
 /// Double-precision pose extracted from a RigidBodySample.

@@ -14,7 +14,7 @@
         <link rel="prev" href="../../../../../docs/robot/autonomy/perception/">
       
       
-        <link rel="next" href="../../../../../docs/robot/autonomy/local/">
+        <link rel="next" href="../../../../../docs/robot/px4_external_vision/">
       
       
         
@@ -2858,6 +2858,8 @@
       
         
       
+        
+      
     
     
     
@@ -3047,10 +3049,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#direct-optitrack-pose-optional" class="md-nav__link">
+  <a href="#direct-optitrack-pose" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Direct OptiTrack pose (optional)
+        Direct OptiTrack pose
       
     </span>
   </a>
@@ -3058,10 +3060,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#pose-with-covariance-always" class="md-nav__link">
+  <a href="#pose-with-covariance" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Pose with covariance (always)
+        Pose with covariance
       
     </span>
   </a>
@@ -3069,13 +3071,41 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#mavros-vision-pose-bridge-optional" class="md-nav__link">
+  <a href="#mavros-vision-pose-bridge-optional-per-robot" class="md-nav__link">
     <span class="md-ellipsis">
       
-        MAVROS vision pose bridge (optional)
+        MAVROS vision pose bridge (optional, per robot)
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="MAVROS vision pose bridge (optional, per robot)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#synthetic-gps-origin-mocap-no-gnss-arming" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Synthetic GPS origin (mocap / no-GNSS arming)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#px4-parameter-enforcement-external-vision-ekf2-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PX4 parameter enforcement (external-vision EKF2 setup)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -3376,6 +3406,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../docs/robot/px4_external_vision/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PX4 External Vision (mocap)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -5984,81 +6042,143 @@
 <li>Receives <strong>NatNet UDP packets</strong> from an external Motive PC (configurable IP/port)</li>
 <li><strong>Decodes motion capture frames</strong> containing rigid body positions and orientations</li>
 <li><strong>Publishes pose data</strong> to the AirStack perception layer in standard ROS 2 formats</li>
-<li><strong>Supports multi-robot</strong> via ROBOT_NAME namespacing</li>
-<li><strong>Optionally bridges</strong> to MAVROS for PX4 external pose feedback</li>
+<li><strong>Tracks multiple rigid bodies per robot</strong> (e.g. a drone for state estimation plus a separate target), each mapped to its own topic</li>
+<li><strong>Supports multi-robot</strong> via per-robot profiles selected by <code>ROBOT_NAME</code></li>
+<li><strong>Optionally bridges</strong> to MAVROS for PX4 external pose feedback (per-robot)</li>
 <li><strong>Respects OptiTrack licensing</strong> by keeping the NatNet SDK external (host-side download with explicit consent)</li>
 </ul>
 <h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Motive (External PC)
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    ↓ NatNet UDP (port 1511)
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    ↓
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>NatNet ROS 2 Node
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    ├→ /robot_1/perception/optitrack/{body_name}           (PoseStamped, optional)
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    ├→ /robot_1/perception/optitrack/{body_name}/pose_cov  (PoseWithCovarianceStamped, always)
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    └→ (Optional, publish_to_mavros: true)
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>         vision_pose_converter_node
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>           ├→ /robot_1/mavros/vision_pose/pose
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>           └→ /robot_1/mavros/vision_pose/pose_cov
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>NatNet ROS 2 Node  (loads the ROBOT_NAME profile from natnet_config.yaml)
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    │  per configured body (one or more):
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    ├→ /{ROBOT_NAME}/{topic}           (PoseStamped, when pose: true)
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    ├→ /{ROBOT_NAME}/{topic}/pose_cov  (PoseWithCovarianceStamped, when pose_cov: true)
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    └→ (Optional, vision_pose.enabled: true)
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>         mavros_gp_origin_node
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>           └→ /{ROBOT_NAME}/interface/mavros/global_position/set_gp_origin
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>         px4_param_setter_node
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>           └→ /{ROBOT_NAME}/interface/mavros/param/set (external-vision PX4 params)
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>         vision_pose_converter_node   (reads input/output topics from the profile)
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>           ├→ /{ROBOT_NAME}/interface/mavros/vision_pose/pose
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>           └→ /{ROBOT_NAME}/interface/mavros/vision_pose/pose_cov
 </span></code></pre></div>
 <h2 id="interfaces">Interfaces<a class="headerlink" href="#interfaces" title="Permanent link">&para;</a></h2>
 <h3 id="inputs">Inputs<a class="headerlink" href="#inputs" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Network</strong>: NatNet UDP stream from Motive PC (external network)</li>
-<li><strong>Configuration</strong>: <code>natnet_config.yaml</code> with server IP, ports, <code>body_name</code>, and covariance</li>
+<li><strong>Configuration</strong>: <code>natnet_config.yaml</code> — generic <code>server</code> settings plus a <code>robots</code> map of per-robot profiles (body list + optional MAVROS <code>vision_pose</code> block). The launch file selects the profile matching <code>ROBOT_NAME</code>.</li>
 </ul>
 <h3 id="outputs">Outputs<a class="headerlink" href="#outputs" title="Permanent link">&para;</a></h3>
-<p>For each tracked rigid body <code>{body_name}</code> from Motive:</p>
-<h4 id="direct-optitrack-pose-optional">Direct OptiTrack pose (optional)<a class="headerlink" href="#direct-optitrack-pose-optional" title="Permanent link">&para;</a></h4>
+<p>For each rigid body in the robot's profile, <code>topic</code> is a <strong>relative</strong> leaf namespaced
+under <code>/{ROBOT_NAME}/</code> (it defaults to <code>perception/optitrack/{rigid_body_name}</code> when
+omitted):</p>
+<h4 id="direct-optitrack-pose">Direct OptiTrack pose<a class="headerlink" href="#direct-optitrack-pose" title="Permanent link">&para;</a></h4>
 <ul>
-<li><strong>Topic</strong>: <code>/{ROBOT_NAME}/perception/optitrack/{body_name}</code></li>
+<li><strong>Topic</strong>: <code>/{ROBOT_NAME}/{topic}</code></li>
 <li><strong>Type</strong>: <code>geometry_msgs/PoseStamped</code></li>
 <li><strong>Description</strong>: Position and orientation only (no covariance)</li>
-<li><strong>Enabled by</strong>: <code>publish_direct_optitrack: true</code> in config (default: <code>true</code>)</li>
+<li><strong>Enabled by</strong>: <code>pose: true</code> on that body (per body)</li>
 </ul>
-<h4 id="pose-with-covariance-always">Pose with covariance (always)<a class="headerlink" href="#pose-with-covariance-always" title="Permanent link">&para;</a></h4>
+<h4 id="pose-with-covariance">Pose with covariance<a class="headerlink" href="#pose-with-covariance" title="Permanent link">&para;</a></h4>
 <ul>
-<li><strong>Topic</strong>: <code>/{ROBOT_NAME}/perception/optitrack/{body_name}/pose_cov</code></li>
+<li><strong>Topic</strong>: <code>/{ROBOT_NAME}/{topic}/pose_cov</code></li>
 <li><strong>Type</strong>: <code>geometry_msgs/PoseWithCovarianceStamped</code></li>
-<li><strong>Description</strong>: Same pose as above plus a 6×6 covariance matrix (<code>position_covariance</code> and <code>orientation_covariance</code> from config). Published whenever the rigid body is tracked — independent of <code>publish_direct_optitrack</code> and <code>publish_to_mavros</code>.</li>
+<li><strong>Description</strong>: Same pose plus a 6×6 covariance matrix from that body's <code>position_covariance</code> / <code>orientation_covariance</code>.</li>
+<li><strong>Enabled by</strong>: <code>pose_cov: true</code> on that body (per body)</li>
 </ul>
-<h4 id="mavros-vision-pose-bridge-optional">MAVROS vision pose bridge (optional)<a class="headerlink" href="#mavros-vision-pose-bridge-optional" title="Permanent link">&para;</a></h4>
-<p>When <code>publish_to_mavros: true</code>, <code>vision_pose_converter_node</code> subscribes to <code>pose_cov</code> and republishes for PX4:</p>
+<h4 id="mavros-vision-pose-bridge-optional-per-robot">MAVROS vision pose bridge (optional, per robot)<a class="headerlink" href="#mavros-vision-pose-bridge-optional-per-robot" title="Permanent link">&para;</a></h4>
+<p>When the robot's <code>vision_pose.enabled: true</code>, <code>vision_pose_converter_node</code> subscribes to the configured <code>input_topic</code> (a body's <code>pose_cov</code>) and republishes for PX4 on the configured outputs:</p>
 <ul>
-<li><strong>Topic</strong>: <code>/{ROBOT_NAME}/mavros/vision_pose/pose</code> — <code>geometry_msgs/PoseStamped</code> (pose extracted from the covariance message)</li>
-<li><strong>Topic</strong>: <code>/{ROBOT_NAME}/mavros/vision_pose/pose_cov</code> — <code>geometry_msgs/PoseWithCovarianceStamped</code> (full message, quaternion optionally canonicalized)</li>
-<li><strong>Enabled by</strong>: <code>publish_to_mavros: true</code> in config</li>
+<li><strong>Topic</strong> (<code>output_pose_topic</code>): <code>/{ROBOT_NAME}/interface/mavros/vision_pose/pose</code> — <code>geometry_msgs/PoseStamped</code> (pose extracted from the covariance message)</li>
+<li><strong>Topic</strong> (<code>output_pose_cov_topic</code>): <code>/{ROBOT_NAME}/interface/mavros/vision_pose/pose_cov</code> — <code>geometry_msgs/PoseWithCovarianceStamped</code> (full message, quaternion optionally canonicalized)</li>
+<li><strong>Enabled by</strong>: <code>vision_pose.enabled: true</code> in the robot's profile</li>
+<li><strong>Retargetable</strong>: change <code>input_topic</code> / <code>output_pose_topic</code> / <code>output_pose_cov_topic</code> (relative, namespaced) to bridge to other middleware</li>
+<li><strong>PX4 side</strong>: set <code>SITL_PARAM_PROFILE=px4-vision</code> in <code>.env</code> so Isaac SITL loads EKF2 external-vision params from <code>simulation/isaac-sim/docker/sitl-files/px4-vision.env</code></li>
+</ul>
+<h5 id="synthetic-gps-origin-mocap-no-gnss-arming">Synthetic GPS origin (mocap / no-GNSS arming)<a class="headerlink" href="#synthetic-gps-origin-mocap-no-gnss-arming" title="Permanent link">&para;</a></h5>
+<p>With GNSS disabled (<code>EKF2_GPS_CTRL=0</code>), PX4 fused EKF has <strong>no global position</strong>. This fails preflight checks and refuse to arm. When <code>vision_pose.enabled: true</code>,
+<code>mavros_gp_origin_node</code> publishes a synthetic origin once at startup:</p>
+<ul>
+<li><strong>Topic</strong>: <code>/{ROBOT_NAME}/interface/mavros/global_position/set_gp_origin</code> — <code>geographic_msgs/GeoPointStamped</code></li>
+<li><strong>Guarded</strong>: waits for <code>mavros/state.connected</code>, then publishes only if no
+  origin already exists (it watches <code>…/global_position/gp_origin</code>), so a
+  GNSS-equipped vehicle is left untouched.</li>
+<li><strong>Params</strong> (<code>config/mavros_gp_origin.yaml</code>): <code>enabled</code> (default <code>true</code>),
+  <code>latitude/longitude/altitude</code> (default Lisbon — the AirStack shared world
+  datum; <strong>must match</strong> the GCS origin in <code>gcs_visualizer/gcs_utils.py</code> and the
+  sim's <code>gps_utils.py</code> so Foxglove waypoints transform 1:1), <code>settle_sec</code>.
+  Set <code>enabled: false</code> to rely on real GNSS.</li>
+</ul>
+<h5 id="px4-parameter-enforcement-external-vision-ekf2-setup">PX4 parameter enforcement (external-vision EKF2 setup)<a class="headerlink" href="#px4-parameter-enforcement-external-vision-ekf2-setup" title="Permanent link">&para;</a></h5>
+<p>When <code>vision_pose.enabled: true</code>, <code>px4_param_setter_node</code> pushes the PX4
+parameter set for OptiTrack-only flight through the MAVROS param plugin at
+startup, so the FCU doesn't need manual QGroundControl configuration:</p>
+<ul>
+<li><strong>Services used</strong>: <code>/{ROBOT_NAME}/interface/mavros/param/get_parameters</code>
+  (read current), <code>…/param/set</code> (<code>mavros_msgs/ParamSetV2</code>, set + verify readback)</li>
+<li><strong>Idempotent</strong>: waits for <code>mavros/state.connected</code> + <code>settle_sec</code> (initial
+  param-table pull), reads each param first, and skips ones already correct —
+  PX4 persists parameters, so subsequent boots are a verify-only pass.</li>
+<li><strong>Reboot warning</strong>: if any parameter actually changed, it logs a warning to
+  reboot the FCU before flight so EKF2 restarts with a clean fusion config.</li>
+<li><strong>Params</strong> (<code>config/px4_params.yaml</code>): <code>enabled</code>, <code>settle_sec</code>,
+  <code>retry_period_sec</code>, <code>max_attempts</code>, and the <code>params.*</code> map of desired FCU
+  values — external-vision fusion (<code>EKF2_EV_CTRL: 11</code>, <code>EKF2_HGT_REF: 3</code>),
+  GPS/mag/baro disabled (<code>EKF2_GPS_CTRL: 0</code>, <code>EKF2_MAG_TYPE: 5</code>,
+  <code>EKF2_BARO_CTRL: 0</code>), measured vision delay (<code>EKF2_EV_DELAY: 6.0</code> ms), and
+  EV noise floors (<code>EKF2_EV_NOISE_MD: 1</code>, <code>EKF2_EVP_NOISE</code>, <code>EKF2_EVA_NOISE</code>).
+  YAML type selects the MAVLink param type: write floats with a decimal point
+  (<code>6.0</code>), integers bare. Values assume PX4 ≥ 1.14; for older firmware use
+  <code>EKF2_AID_MASK: 24</code> / <code>EKF2_HGT_MODE: 3</code> instead.</li>
 </ul>
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
-<p>Edit <code>config/natnet_config.yaml</code>:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">/**</span><span class="p">:</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">ros__parameters</span><span class="p">:</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">server_ip</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;192.168.1.100&quot;</span><span class="w">     </span><span class="c1"># IP of the Motive PC</span>
+<p><code>config/natnet_config.yaml</code> uses a custom <code>natnet:</code> schema (not a flat ROS 2 param
+file): generic <code>server</code> settings shared by every agent, then a <code>robots</code> map of
+per-robot profiles. The launch file parses it, selects the profile matching the
+container's <code>ROBOT_NAME</code>, flattens the body list into node parameters, and brings up
+the MAVROS bridge only when that robot's <code>vision_pose.enabled</code> is true.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">natnet</span><span class="p">:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">server</span><span class="p">:</span><span class="w">                              </span><span class="c1"># generic across all agents</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">server_ip</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;$(env</span><span class="nv"> </span><span class="s">NATNET_SERVER_IP</span><span class="nv"> </span><span class="s">172.31.0.200)&quot;</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">client_ip</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;0.0.0.0&quot;</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">command_port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1510</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">data_port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1511</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="nt">connection_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;unicast&quot;</span><span class="w">      </span><span class="c1"># or &quot;multicast&quot;</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="nt">body_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Drone&quot;</span><span class="w">              </span><span class="c1"># rigid body name in Motive (case-sensitive)</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="nt">body_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-1</span><span class="w">                     </span><span class="c1"># -1 = publish all bodies in the frame</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="nt">publish_direct_optitrack</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">   </span><span class="c1"># PoseStamped on …/optitrack/{body_name}</span>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="nt">publish_to_mavros</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">        </span><span class="c1"># include vision_pose_converter → MAVROS</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">    </span><span class="nt">frame_id</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;world&quot;</span>
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
-</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="nt">position_covariance</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.1</span><span class="p p-Indicator">]</span>
-</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">    </span><span class="nt">orientation_covariance</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.01</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.01</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.01</span><span class="p p-Indicator">]</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="nt">connection_type</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;unicast&quot;</span><span class="w">         </span><span class="c1"># or &quot;multicast&quot;</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">multicast_address</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;239.255.42.99&quot;</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="nt">frame_id</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;world&quot;</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="nt">debug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="nt">robots</span><span class="p">:</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="nt">robot_1</span><span class="p">:</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">      </span><span class="nt">vision_pose</span><span class="p">:</span><span class="w">                     </span><span class="c1"># per-robot MAVROS bridge (omit/false to skip)</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">        </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">        </span><span class="nt">input_topic</span><span class="p">:</span><span class="w">           </span><span class="s">&quot;perception/optitrack/drone/pose_cov&quot;</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">        </span><span class="nt">output_pose_topic</span><span class="p">:</span><span class="w">     </span><span class="s">&quot;interface/mavros/vision_pose/pose&quot;</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">        </span><span class="nt">output_pose_cov_topic</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;interface/mavros/vision_pose/pose_cov&quot;</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">      </span><span class="nt">bodies</span><span class="p">:</span><span class="w">                          </span><span class="c1"># one or more tracked rigid bodies</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">rigid_body_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Drone&quot;</span><span class="w">     </span><span class="c1"># Motive name (case-sensitive)</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">          </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w">                        </span><span class="c1"># Motive streaming id</span>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">          </span><span class="nt">topic</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;perception/optitrack/drone&quot;</span><span class="w">  </span><span class="c1"># relative → /{ROBOT_NAME}/&lt;topic&gt;</span>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="w">          </span><span class="nt">pose</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                   </span><span class="c1"># publish PoseStamped</span>
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">          </span><span class="nt">pose_cov</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">               </span><span class="c1"># publish PoseWithCovarianceStamped</span>
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">          </span><span class="nt">position_covariance</span><span class="p">:</span><span class="w">    </span><span class="p p-Indicator">[</span><span class="nv">1.0e-6</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1.0e-6</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1.0e-6</span><span class="p p-Indicator">]</span>
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="w">          </span><span class="nt">orientation_covariance</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">3.0e-6</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">3.0e-6</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">3.0e-6</span><span class="p p-Indicator">]</span>
 </span></code></pre></div>
+<p>To track an additional body (e.g. a target) for a robot, add another entry under that
+robot's <code>bodies</code>. To add a robot, add a new key under <code>robots</code>. The shipped file
+includes commented scaffolding for a 3-drone fleet where <code>robot_1</code> and <code>robot_2</code> also
+track a shared <code>Target</code> body and <code>robot_3</code> tracks only its drone.</p>
 <h2 id="launch">Launch<a class="headerlink" href="#launch" title="Permanent link">&para;</a></h2>
 <h3 id="basic-launch">Basic launch<a class="headerlink" href="#basic-launch" title="Permanent link">&para;</a></h3>
-<p>Parameters come from <code>config/natnet_config.yaml</code> (network, body, covariance). Optional overrides:</p>
+<p>Parameters come from <code>config/natnet_config.yaml</code> (server + the <code>ROBOT_NAME</code> profile). Optional overrides:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>ros2<span class="w"> </span>launch<span class="w"> </span>natnet_ros2<span class="w"> </span>natnet_ros2.launch.py<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>config_file:<span class="o">=</span>/path/to/custom_natnet.yaml<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>vision_pose_config_file:<span class="o">=</span>/path/to/custom_vision_pose.yaml<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>use_sim_time:<span class="o">=</span><span class="nb">true</span>
 </span></code></pre></div>
 <h3 id="mavros-bridge">MAVROS bridge<a class="headerlink" href="#mavros-bridge" title="Permanent link">&para;</a></h3>
-<p>Set <code>publish_to_mavros: true</code> in <code>natnet_config.yaml</code>. The launch file reads <code>publish_to_mavros</code> and <code>body_name</code> from that YAML to decide whether to include <code>vision_pose_converter.launch.xml</code>.</p>
+<p>Set <code>vision_pose.enabled: true</code> in the robot's profile. The launch file includes <code>vision_pose_converter.launch.xml</code> (plus <code>mavros_gp_origin.launch.xml</code> and <code>px4_param_setter.launch.xml</code>) and forwards the profile's <code>input_topic</code> / <code>output_pose_topic</code> / <code>output_pose_cov_topic</code>.</p>
 <h3 id="from-perception-bringup">From perception bringup<a class="headerlink" href="#from-perception-bringup" title="Permanent link">&para;</a></h3>
 <p>With <code>LAUNCH_NATNET=true</code> in <code>.env</code>, <code>perception.launch.xml</code> includes <code>natnet_ros2.launch.py</code>.</p>
 <h2 id="dependencies">Dependencies<a class="headerlink" href="#dependencies" title="Permanent link">&para;</a></h2>
@@ -6088,13 +6208,18 @@ The SDK will be installed into <code>robot/ros_ws/src/perception/natnet_ros2/lib
 </ul>
 <h3 id="multi-robot-support">Multi-Robot Support<a class="headerlink" href="#multi-robot-support" title="Permanent link">&para;</a></h3>
 <p>Each container instance gets its own <code>ROBOT_NAME</code> and <code>ROS_DOMAIN_ID</code>:
-- Topics: <code>/{ROBOT_NAME}/perception/optitrack/{body_name}</code> and <code>/{ROBOT_NAME}/perception/optitrack/{body_name}/pose_cov</code>
-- Supported via launch file argument forwarding</p>
+- The node loads the <code>robots[$ROBOT_NAME]</code> profile, so each robot tracks only the bodies (and runs the MAVROS bridge) configured for it.
+- Topics are namespaced under <code>/{ROBOT_NAME}/</code> from each body's relative <code>topic</code>.
+- Set <code>NUM_ROBOTS=N</code>; each replica resolves its own <code>ROBOT_NAME</code> (via <code>resolve_robot_name.py</code>) and auto-selects its profile — no per-robot env overrides.</p>
 <h3 id="error-handling">Error Handling<a class="headerlink" href="#error-handling" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Invalid/malformed packets are skipped with debug logging</li>
 <li>Lost connectivity logs warnings; gracefully recovers when stream resumes</li>
 <li>Covariance in config allows tuning uncertainty per deployment</li>
+<li><strong>Connect retry:</strong> the initial handshake is retried every 2 s until it
+  succeeds, so the node tolerates the NatNet server starting <em>after</em> the robot
+  (e.g. a Motive PC powered on later, or the Isaac Sim NatNet emulator which only
+  binds ~100 s into sim boot). The retry timer cancels itself on first success.</li>
 </ul>
 <h2 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h2>
 <h3 id="with-real-motive">With Real Motive<a class="headerlink" href="#with-real-motive" title="Permanent link">&para;</a></h3>
@@ -6104,15 +6229,15 @@ The SDK will be installed into <code>robot/ros_ws/src/perception/natnet_ros2/lib
 <li>Launch the node:
    <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>ros2<span class="w"> </span>launch<span class="w"> </span>natnet_ros2<span class="w"> </span>natnet_ros2.launch.py
 </span></code></pre></div></li>
-<li>Verify topics:
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>ros2<span class="w"> </span>topic<span class="w"> </span><span class="nb">echo</span><span class="w"> </span>/robot_1/perception/optitrack/Drone/pose_cov
+<li>Verify topics (default profile maps the <code>Drone</code> body to <code>perception/optitrack/drone</code>):
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>ros2<span class="w"> </span>topic<span class="w"> </span><span class="nb">echo</span><span class="w"> </span>/robot_1/perception/optitrack/drone/pose_cov
 </span></code></pre></div></li>
 </ol>
 <h3 id="without-real-hardware-mock">Without Real Hardware (Mock)<a class="headerlink" href="#without-real-hardware-mock" title="Permanent link">&para;</a></h3>
 <p>TODO: Implement Motive simulator in Isaac Sim to generate fake NatNet packets</p>
 <h2 id="known-limitations">Known Limitations<a class="headerlink" href="#known-limitations" title="Permanent link">&para;</a></h2>
 <ul>
-<li>When <code>body_id: -1</code>, all rigid bodies in the Motive frame get publishers; filter by subscribing to the <code>{body_name}</code> you care about</li>
+<li>The node publishes only bodies listed in the robot's profile (matched by <code>id</code>); bodies streamed by Motive but absent from the profile are ignored.</li>
 <li>MAVROS bridge applies frame_id override and quaternion canonicalization; full PX4 frame alignment may still need tuning per airframe</li>
 <li>No support for skeleton tracking or labeled markers yet (future enhancement)</li>
 </ul>
@@ -6195,13 +6320,13 @@ The SDK will be installed into <code>robot/ros_ws/src/perception/natnet_ros2/lib
         
         
           
-          <a href="../../../../../docs/robot/autonomy/local/" class="md-footer__link md-footer__link--next" aria-label="Next: Local Packages">
+          <a href="../../../../../docs/robot/px4_external_vision/" class="md-footer__link md-footer__link--next" aria-label="Next: PX4 External Vision (mocap)">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Local Packages
+                PX4 External Vision (mocap)
               </div>
             </div>
             <div class="md-footer__button md-icon">

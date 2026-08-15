@@ -1,51 +1,101 @@
-# NatNet ROS 2 parameters — loaded by natnet_ros2.launch.py (NatNet node + MAVROS gate).
-# publish_to_mavros / body_name are read by the launch file to decide vision_pose_converter include.
-#
-# Use /** so parameters apply regardless of namespace (e.g. /robot_1/perception/natnet_ros2_node).
-# See: https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Parameters.html
+# NatNet ROS 2 configuration — parsed by natnet_ros2.launch.py, which selects the
+# profile matching the container's ROBOT_NAME.
+# See docs/robot/px4_external_vision.md for the schema and setup guide.
 
-/**:
-  ros__parameters:
-    # IP address of the PC running Motive (OptiTrack server).
-    # Change this to match your local network before launching NatNet.
-    server_ip: "192.168.1.100"
-    # Motive learns unicast destination from outbound UDP source IP — bind explicitly when you have
-    # multiple NICs (e.g. Docker 172.17.* vs LAN).
+natnet:
+
+  # --- Connection settings (generic across all agents) -----------------------
+  server:
+    # Motive host; defaults to the in-sim emulator. Set NATNET_SERVER_IP per deployment.
+    server_ip: "$(env NATNET_SERVER_IP 172.31.0.200)"
+    # Bind explicitly when the client has multiple NICs.
     client_ip: "0.0.0.0"
 
     command_port: 1510
     data_port: 1511
 
-    # "unicast"   — point-to-point; Motive streams directly to this machine's IP.
-    #               Requires Motive unicast streaming enabled and client_ip set
-    #               to the correct NIC when multiple interfaces are present.
-    # "multicast" — Motive broadcasts to a multicast group; any machine on the
-    #               subnet that joins the group receives all body data.
-    #               Use for multi-robot setups where every robot receives the
-    #               full frame and filters by body_id.
+    # "unicast" (default) or "multicast"; multicast_address applies to the latter.
     connection_type: "unicast"
-
-    # Only used when connection_type = "multicast".
-    # Must match Motive > Edit > Preferences > Data Streaming > Multicast Interface.
-    # OptiTrack default is 239.255.42.99.
     multicast_address: "239.255.42.99"
-
-    # Name of the rigid body as defined in Motive. Must match exactly (case-sensitive).
-    body_name: "Drone"
-    body_id: -1
-
-    publish_direct_optitrack: true
-    publish_to_mavros: true
 
     frame_id: "world"
     debug: false
 
-    position_covariance:
-      [0.1, 0.0, 0.0,
-       0.0, 0.1, 0.0,
-       0.0, 0.0, 0.1]
+    # Per-message latency reporting.
+    latency_sampling_warmup_s: 5.0
+    latency_sampling_window_s: 20.0
+    cube_orange_latency_ms: 5.0
 
-    orientation_covariance:
-      [0.01, 0.0, 0.0,
-       0.0, 0.01, 0.0,
-       0.0, 0.0, 0.01]
+  # --- Per-robot profiles (selected by ROBOT_NAME) ---------------------------
+  robots:
+
+    robot_1:
+      # MAVROS vision_pose bridge; enabled=false skips the converter.
+      vision_pose:
+        enabled: true
+        input_topic:           "perception/optitrack/drone/pose_cov"
+        output_pose_topic:     "interface/mavros/vision_pose/pose"
+        output_pose_cov_topic: "interface/mavros/vision_pose/pose_cov"
+
+      # Rigid bodies this robot tracks. name and id must match Motive exactly; the
+      # client filters frames by numeric id. Defaults match the in-sim emulator.
+      bodies:
+        - rigid_body_name: "Drone"
+          id: 1
+          topic: "perception/optitrack/drone"
+          pose: true
+          pose_cov: true
+          position_covariance:
+            [1.0e-6, 0.0,    0.0,
+             0.0,    1.0e-6, 0.0,
+             0.0,    0.0,    1.0e-6]
+          orientation_covariance:
+            [3.0e-6, 0.0,    0.0,
+             0.0,    3.0e-6, 0.0,
+             0.0,    0.0,    3.0e-6]
+    robot_2:
+      vision_pose:
+        enabled: true
+        input_topic:           "perception/optitrack/drone/pose_cov"
+        output_pose_topic:     "interface/mavros/vision_pose/pose"
+        output_pose_cov_topic: "interface/mavros/vision_pose/pose_cov"
+      bodies:
+        - rigid_body_name: "Drone2"
+          id: 2
+          topic: "perception/optitrack/drone"
+          pose: true
+          pose_cov: true
+        - rigid_body_name: "Target"       # shared target — also tracked by robot_1
+          id: 100
+          topic: "perception/optitrack/target"
+          pose: true
+          pose_cov: false
+          position_covariance:
+            [1.0e-6, 0.0,    0.0,
+              0.0,    1.0e-6, 0.0,
+              0.0,    0.0,    1.0e-6]
+          orientation_covariance:
+            [3.0e-6, 0.0,    0.0,
+              0.0,    3.0e-6, 0.0,
+              0.0,    0.0,    3.0e-6]
+    
+    robot_3:
+      vision_pose:
+        enabled: true
+        input_topic:           "perception/optitrack/drone/pose_cov"
+        output_pose_topic:     "interface/mavros/vision_pose/pose"
+        output_pose_cov_topic: "interface/mavros/vision_pose/pose_cov"
+      bodies:
+        - rigid_body_name: "Drone3"
+          id: 3
+          topic: "perception/optitrack/drone"
+          pose: true
+          pose_cov: true
+          position_covariance:
+            [1.0e-6, 0.0,    0.0,
+              0.0,    1.0e-6, 0.0,
+              0.0,    0.0,    1.0e-6]
+          orientation_covariance:
+            [3.0e-6, 0.0,    0.0,
+              0.0,    3.0e-6, 0.0,
+              0.0,    0.0,    3.0e-6]

@@ -3,26 +3,31 @@
   <!--
     Vision Pose Converter Launch File
 
-    Optional bridge that re-publishes NatNet pose_cov data on the MAVROS
+    Optional bridge that re-publishes a NatNet pose_cov topic on the MAVROS
     vision_pose topics so PX4 can fuse external pose estimates.
 
     Static params (frame_id, child_frame_id, default use_sim_time): config/vision_pose_converter.yaml
-    Topic wiring still uses body_name + ROBOT_NAME below.
+    Topics are supplied by natnet_ros2.launch.py from the robot's vision_pose block
+    in natnet_config.yaml (absolute, already namespaced under /{ROBOT_NAME}/):
 
-    Input  (from NatNet node):
-      /{ROBOT_NAME}/perception/optitrack/{body_name}/pose_cov
-
-    Output (consumed by MAVROS):
-      /{ROBOT_NAME}/mavros/vision_pose/pose
-      /{ROBOT_NAME}/mavros/vision_pose/pose_cov
+      input_topic            (from NatNet node, PoseWithCovarianceStamped)
+      output_pose_topic      (to MAVROS, PoseStamped)
+      output_pose_cov_topic  (to MAVROS, PoseWithCovarianceStamped)
   -->
 
   <arg name="config_file"
        default="$(find-pkg-share natnet_ros2)/config/vision_pose_converter.yaml"
        description="ROS 2 parameter YAML (/** ros__parameters block)"/>
 
-  <arg name="body_name" default="robot_1"
-       description="Body name matching NatNet topic suffix (must match natnet_config.yaml)"/>
+  <arg name="input_topic"
+       default="/$(env ROBOT_NAME robot_1)/perception/optitrack/drone/pose_cov"
+       description="NatNet pose_cov topic to bridge to MAVROS"/>
+  <arg name="output_pose_topic"
+       default="/$(env ROBOT_NAME robot_1)/interface/mavros/vision_pose/pose"
+       description="MAVROS vision_pose PoseStamped output topic"/>
+  <arg name="output_pose_cov_topic"
+       default="/$(env ROBOT_NAME robot_1)/interface/mavros/vision_pose/pose_cov"
+       description="MAVROS vision_pose PoseWithCovarianceStamped output topic"/>
 
   <!-- Overrides vision_pose_converter.yaml use_sim_time when launching from sim -->
   <arg name="use_sim_time" default="false"
@@ -32,12 +37,9 @@
         name="vision_pose_converter" output="screen">
     <param from="$(var config_file)" allow_substs="true"/>
 
-    <remap from="input_pose"
-           to="/$(env ROBOT_NAME robot_1)/perception/optitrack/$(var body_name)/pose_cov"/>
-    <remap from="output_pose"
-           to="/$(env ROBOT_NAME robot_1)/mavros/vision_pose/pose"/>
-    <remap from="output_pose_cov"
-           to="/$(env ROBOT_NAME robot_1)/mavros/vision_pose/pose_cov"/>
+    <param name="input_topic" value="$(var input_topic)"/>
+    <param name="output_pose_topic" value="$(var output_pose_topic)"/>
+    <param name="output_pose_cov_topic" value="$(var output_pose_cov_topic)"/>
 
     <param name="use_sim_time" value="$(var use_sim_time)"/>
   </node>
