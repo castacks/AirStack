@@ -1151,7 +1151,76 @@ def build_open_planting(config, resolver, net, blocks, rng, pools):
     return out
 
 
-def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0):
+def house_catalogue(config, resolver, pools, yaw_off=-90.0):
+    """Measured house footprints WITH THE GARAGE WING FOLDED IN.
+
+    THE BUG THIS EXISTS TO CLOSE. A garage lot was rendered as house PLUS its
+    `SM_House_NN_Extension` at the identical transform — correct, because the
+    wing is authored in its parent's frame and composes only there. But
+    `suburb_parcel` reserved its garage box on a RANDOMLY CHOSEN side at a
+    separation of its own invention, so the space the wing actually occupies had
+    never been tested against anything. ~35% of houses carried a wing no overlap
+    test in the pipeline had ever seen, and that is the remaining source of
+    houses appearing to overlap.
+
+    Neither box can move to meet the other: house and wing are one rigid asset
+    pair, so the LOT has to be sized to what the art really is. That was blocked
+    on measurement — the pack is on Nucleus and reading it from a shell needs
+    interactive auth — but it was never blocked here: `SizeResolver` measures at
+    scene-build time, inside Isaac Sim, where Nucleus is already authenticated.
+    It reports `cx`/`cy` as well as `sx`/`sy`, so the union of house and wing is
+    a real bounding box and not a sum of extents.
+
+    Returns one entry per house asset, in a STABLE ORDER, because
+    `suburb_parcel` stamps the index it sited into `size_index` and the caller
+    must place that asset and no other.
+
+    `ox`/`oy` are the union centre in the ASSET's own frame. They matter: the
+    wing sticks out one side, so the union centre is not the asset origin, and
+    placing the origin at the lot's centre would leave the reserved box and the
+    geometry offset by exactly that much. The caller subtracts it.
+    """
+    houses = pools.load(_raw_pool(config, "buildings", "intact"))
+    addons = pools.load(_raw_pool(config, "buildings", "house_addons"))
+    addon_for = {}
+    for a in addons:
+        stem = os.path.basename(a).split("_Extension")[0]
+        for h in houses:
+            if os.path.basename(h).split(".")[0] == stem:
+                addon_for[h] = a
+    # Which measured axis lies ALONG the frontage depends on the yaw offset the
+    # preset applies, so it is derived rather than assumed: at -90 the asset's
+    # local +Y runs along the street, at 0 its +X does.
+    turned = abs((float(yaw_off) % 180.0) - 90.0) < 45.0
+
+    out = []
+    for u in houses:
+        boxes = [resolver.get(u, "house", scale=pools.scale_of(u),
+                              axis_up=pools.axis_of(u))]
+        a = addon_for.get(u)
+        if a:
+            boxes.append(resolver.get(a, "house", scale=pools.scale_of(a),
+                                      axis_up=pools.axis_of(a)))
+        x0 = min(float(f.get("cx", 0.0)) - float(f["sx"]) / 2.0 for f in boxes)
+        x1 = max(float(f.get("cx", 0.0)) + float(f["sx"]) / 2.0 for f in boxes)
+        y0 = min(float(f.get("cy", 0.0)) - float(f["sy"]) / 2.0 for f in boxes)
+        y1 = max(float(f.get("cy", 0.0)) + float(f["sy"]) / 2.0 for f in boxes)
+        sx, sy = x1 - x0, y1 - y0
+        out.append({"usd": u, "addon": a,
+                    "w": sy if turned else sx,      # across the frontage
+                    "d": sx if turned else sy,      # into the lot
+                    "ox": 0.5 * (x0 + x1), "oy": 0.5 * (y0 + y1)})
+    n_wing = sum(1 for e in out if e["addon"])
+    if out:
+        print(f"[suburb_scene] house catalogue: {len(out)} measured "
+              f"({n_wing} with a garage wing folded into the footprint), "
+              f"w {min(e['w'] for e in out):.1f}-{max(e['w'] for e in out):.1f} m, "
+              f"d {min(e['d'] for e in out):.1f}-{max(e['d'] for e in out):.1f} m")
+    return out
+
+
+def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
+                     catalogue=None):
     """Houses and parcel trees, with every per-asset correction applied.
 
     TWO TREE POOLS, PICKED ON `kind`. `suburb_parcel` already stamps every tree
@@ -1199,29 +1268,50 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0):
         for h in p["houses"]:
             if not houses:
                 break
-            # A garage lot PREFERS a house that has one. Drawing uniformly would
-            # give a garage to only the 3-in-10 houses that ship an extension,
-            # so most "garage" archetypes would render identically to "plain"
-            # and the archetype would still be invisible.
-            #
-            # GATED ON `garage`, NOT `has_garage`. The archetype only says the
-            # lot WANTS one; `suburb_parcel` then sites the footprint and drops
-            # it where it cannot fit clear of the neighbouring BUILDINGS — 103
-            # of 476 on the shipped seed, ~22% across seeds. Reading the wish
-            # rather than the result would put a garage wing through the house
-            # next door on every one of them.
-            want_gar = bool(h.get("garage")) and bool(garage_houses)
-            pool_h = garage_houses if want_gar else houses
-            u = pool_h[rng.randrange(len(pool_h))]
             # h["yaw_deg"] is the FRONTAGE TANGENT -- along the street. The house
             # faces ACROSS it toward the kerb, which is the tangent rotated by
             # `yaw_off`. That assumes the art faces +X; see the preset comment.
             yaw = h["yaw_deg"] + yaw_off
-            out.append(pools.place(resolver, u, "house", h["c"][0], h["c"][1],
-                                   yaw, rng))
-            if want_gar and u in addon_for:
-                out.append(pools.place(resolver, addon_for[u], "house",
-                                       h["c"][0], h["c"][1], yaw, rng))
+            ent = None
+            if catalogue and h.get("size_index") is not None:
+                ent = catalogue[int(h["size_index"]) % len(catalogue)]
+
+            if ent is None:
+                # No measurement available: the old behaviour, and the old
+                # caveat with it -- the wing is placed where the artist put it
+                # and nothing has tested that space.
+                want_gar = bool(h.get("garage")) and bool(garage_houses)
+                pool_h = garage_houses if want_gar else houses
+                u = pool_h[rng.randrange(len(pool_h))]
+                hx, hy = h["c"][0], h["c"][1]
+                addon = addon_for.get(u) if want_gar else None
+            else:
+                # PLACE THE ASSET THE LOT WAS SIZED FOR. `size_index` is the
+                # entry `suburb_parcel` fitted and overlap-tested; drawing any
+                # other one puts the module straight back to guessing, which is
+                # what its own comment warns about.
+                u = ent["usd"]
+                addon = ent["addon"]
+                # The union centre, not the asset origin, is what was sited --
+                # a wing sticks out one side, so the two differ by exactly
+                # `ox`/`oy`. Rotate that offset into the world by the placement
+                # yaw and subtract it, and the reserved rectangle and the
+                # geometry finally describe the same piece of ground.
+                # The angle the asset is ACTUALLY placed at, which is `yaw`
+                # plus any per-asset `yaw-offset` the set declares. Rotating
+                # the union offset by the bare `yaw` would be wrong for exactly
+                # those assets that carry a correction.
+                a = math.radians(yaw + pools.yaw_of(u))
+                ca, sa = math.cos(a), math.sin(a)
+                hx = h["c"][0] - (ent["ox"] * ca - ent["oy"] * sa)
+                hy = h["c"][1] - (ent["ox"] * sa + ent["oy"] * ca)
+
+            out.append(pools.place(resolver, u, "house", hx, hy, yaw, rng))
+            if addon:
+                # Same transform, because that is the only place a wing
+                # authored in its parent's frame composes.
+                out.append(pools.place(resolver, addon, "house", hx, hy,
+                                       yaw, rng))
                 n_gar += 1
             for (a, b, tag) in (h.get("fence_segs") or ()):
                 pool_f = fence_priv if tag == "privacy" else fence_low
@@ -1321,18 +1411,35 @@ def generate_suburb_on_stage(stage, config,
     pcfg.setdefault("keepout_discs",
                     [(e.pts[-1], bulb_r + margin) for e in net.edges.values()
                      if e.street_type == "lollipop"])
+
+    # MEASURE THE HOUSES BEFORE SITING THEM. The resolver has to exist before
+    # the parcel pass, not after it, because the parcel pass can only stop
+    # guessing footprints if someone hands it real ones -- and the measurement
+    # is what folds each garage wing into the footprint it is actually part of.
+    resolver = sg._make_resolver(config)
+    pools = AssetPools(config)
+    yaw_off = float((config.get("suburb_parcel") or {})
+                    .get("house_yaw_offset_deg", -90.0))
+    catalogue = house_catalogue(config, resolver, pools, yaw_off)
+    if catalogue and pcfg.get("house_sizes") is None:
+        pcfg["house_sizes"] = [(e["w"], e["d"]) for e in catalogue]
     parcels = sp.parcel_blocks(buildable, rng, pcfg)
     pstats = sp.stats(parcels)
     print(f"[suburb_scene] {pstats['houses']} houses, {pstats['trees']} trees "
           f"on {pstats['blocks_built']}/{pstats['blocks']} blocks "
           f"({n_open} left undeveloped)")
+    # WHAT THE MEASUREMENT COST. A measured house is bigger than the nominal box
+    # that stood in for it, so some lots can no longer take one -- and if the
+    # art turns out to be ~16 m across, a 17-26 m lot genuinely cannot fit it.
+    # That is a real answer about the plat, not a failure, but it has to be
+    # visible rather than silently thinning the streets.
+    if pstats.get("size_rejected") or pstats.get("keepout_rejected"):
+        print(f"[suburb_scene]   {pstats.get('size_rejected', 0)} lots refused "
+              f"for house size, {pstats.get('keepout_rejected', 0)} for "
+              f"standing on a cul-de-sac turnaround")
 
-    resolver = sg._make_resolver(config)
-    pools = AssetPools(config)
-    placements = build_placements(
-        config, resolver, parcels, rng, pools,
-        yaw_off=float((config.get("suburb_parcel") or {})
-                      .get("house_yaw_offset_deg", -90.0)))
+    placements = build_placements(config, resolver, parcels, rng, pools,
+                                  yaw_off=yaw_off, catalogue=catalogue)
     # -- the park ------------------------------------------------------------
     # suburb_net reserves the ground and frames it with a street; the park's own
     # content is generated here, into that reserve. Generating it separately and
