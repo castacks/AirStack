@@ -1,167 +1,140 @@
 # AirStack × S.A.F.E. Evaluation
 
-**S.A.F.E. (Safe Agile Function Everywhere)** is a task-agnostic benchmark that evaluates whether autonomous agents behave safely under uncertainty. This `eval/` folder integrates AirStack's Isaac Sim stack into S.A.F.E. — it wraps what AirStack already has running rather than replacing any internals.
+**S.A.F.E. (Safe Agile Function Everywhere)** is a task-agnostic benchmark that
+evaluates whether autonomous agents behave safely under uncertainty. This
+`eval/` folder is AirStack's S.A.F.E. **integration** (integration-author role,
+per the S.A.F.E. README): it depends on the installed `safe-benchmark` package
+(`safe_core` only) and wraps **the real AirStack system** — Isaac Sim through
+AirStack's own Pegasus bring-up, PX4 SITL, and the full autonomy stack
+(perception → planner → trajectory controller → MAVROS) in the robot
+container. S.A.F.E. does not fly the drone or replace any internals; it sets
+up scenarios, hands the planner a real global plan, observes ground truth, and
+scores.
 
-The benchmark loops over **K domains × N scenarios × P perturbations × T episodes** and produces CVaR-aggregated risk metrics (RE, RP, RET, RPT) and SAFE validation properties (P0–P3b) comparing AirStack's planners side-by-side under identical conditions.
+The benchmark loops **K domains × N scenarios × P perturbations × T episodes**
+and produces CVaR-aggregated risk metrics (RE, RP, RET, RPT) and SAFE
+certification properties (P0–P3b).
 
----
-
-## Start here: simple mode
-
-If you just want per-domain **success / collision / timeout rates** with no safety math, use `--simple`. This skips level-set functions and CVaR — no safety definitions required:
-
-```bash
-# Conservative baseline, simple outcome rates
-~/isaacsim/python.sh eval/run.py --agent conservative --domains warehouse --simple -q
-
-# DROAN planner, simple outcome rates
-~/isaacsim/python.sh eval/run.py --agent droan --domains warehouse --simple --headless
-```
-
-`--simple` outputs an outcome bar chart and a performance metrics table. It's the fastest way to verify the integration is wired up correctly before running a full SAFE evaluation.
-
----
-
-## Folder structure
+## Architecture
 
 ```
-eval/
-├── __init__.py
-├── run.py                    AirstackRunner(BaseRunner) — CLI entry point
-├── adapter.py                l_failure / l_unsafe safety level sets, episode context,
-│                             taxonomy (HVC/LVC/AR/SHP/SR), CVaR-ready metrics
-├── launch.py                 Isaac Sim SimulationApp bootstrap + Pegasus extension loading
-├── agents/
-│   └── agents.py             5 Policy subclasses:
-│                               AirstackDROAN, AirstackSuperPlanner (TCP ROS sidecars)
-│                               Random, Aggressive, Conservative (pure-Python baselines)
-├── agent_hooks/
-│   ├── airstackdroan.sh      brings up robot-desktop container + launches DROAN planner
-│   ├── airstacksuperplanner.sh  same for Super Planner
-│   └── airstack_ros_sidecar.py  ROS2 Jazzy bridge running inside Docker; publishes
-│                               Odometry/PoseStamped/PointCloud2, subscribes to vel output
-├── envs/
-│   └── AirstackEnv.py        gymnasium.Env wrapping AirStack's SimulatorManager —
-│                             defers vehicle control/sensor reads to existing stack
-└── sim/
-    ├── environment_config.py  domain registry: warehouse, hospital, office, outdoor, empty
-    └── scenario_config.py     configure_scenario(), perturb_scenario(), dynamic obstacle motion
+host (plain python + safe_core + docker CLI)
+│ eval/run.py            AirstackRunner(BaseRunner)
+│ eval/adapter.py        level sets, taxonomy, costs (unchanged S.A.F.E. math)
+│ eval/envs/AirstackStackEnv.py
+│     reset(): airstack up → land/teleport → place obstacles → takeoff action
+│              → publish /robot_1/global_plan
+│     step():  wait env_dt of SIM time → sample ground truth → obs/collision
+│ eval/stack/compose.py  airstack up/down + readiness gates (mirrors tests/)
+│ eval/stack/bridge.py   host handle on the in-container bridge
+│
+├── robot container (unmodified stack, AUTONOMY_ROLE=full)
+│     eval/stack/container_bridge.py   (docker exec -i, rclpy)
+│        publishes:  /robot_1/global_plan, …/trajectory_override
+│        subscribes: /robot_1/odometry_conversion/odometry
+│     takeoff/land via ros2 action send_goal /robot_1/tasks/{takeoff,land}
+│
+└── isaac-sim container
+      simulation/isaac-sim/launch_scripts/safe_eval_launch_script.py
+         = AirStack's standard single-drone PX4+ZED bring-up
+         + ScenarioManager: obstacle prims, vehicle teleport, ground-truth
+           stream + analytic collision — JSON lines over TCP :8899 on the
+           docker network (the Kit interpreter cannot host an rclpy node,
+           so this link is plain TCP, like PX4 SITL's own MAVLink link;
+           eval/stack/scenario_client.py is the host side)
 ```
 
----
+There are **no custom planner bridges**: DROAN runs exactly as `airstack up`
+launches it and is commanded through the same `global_plan` interface the
+global planner uses. Velocity baselines (`random`, `aggressive`,
+`conservative`) are executed as `trajectory_override` segments on the real
+trajectory controller, so every agent flies through the same interface layer.
 
 ## Prerequisites
 
-**1. Install the S.A.F.E. benchmark package:**
 ```bash
-pip install -e /path/to/benchmark
+pip install -e /path/to/benchmark    # provides safe_core (safe-benchmark pkg)
+airstack build                       # robot + isaac-sim images built
 ```
 
-**2. Isaac Sim** must be installed at `~/isaacsim` (or set `ISAAC_PATH`).
-
-**3. The AirStack robot Docker image** must be built:
-```bash
-airstack build
-```
-
----
+No Isaac python, no ROS on the host — everything ROS-side runs in containers
+via `docker exec`.
 
 ## Running
 
-### Smoke test — one episode, DROAN planner, warehouse domain
+S.A.F.E. is a first-class AirStack command (`.airstack/modules/safe.sh`):
+
 ```bash
-~/isaacsim/python.sh eval/run.py \
-  --agent airstackdroan \
-  --domains warehouse \
-  --num_scenarios 1 --num_perturbations 1 --max_episodes 1 \
-  --headless
+# Smoke test — one episode, DROAN through the full stack, empty grid domain
+airstack safe --agent droan --domains empty --simple -y
+
+# DROAN vs baselines in the warehouse, full SAFE stats
+airstack safe --agents droan aggressive conservative \
+    --domains warehouse -N 5 -P 5 -T 10
+
+# Iterating? Keep the stack up between runs (skips the ~5 min Isaac boot
+# when the domain and agent profile don't change)
+airstack safe --agent droan --domains empty --simple -y --keep-up
 ```
 
-### Full comparison — DROAN vs Super Planner, two domains
-```bash
-~/isaacsim/python.sh eval/run.py \
-  --agents airstackdroan airstacksuperplanner \
-  --domains warehouse hospital \
-  --num_scenarios 5 --num_perturbations 5 --max_episodes 10 \
-  --headless
-```
+(`python eval/run.py ...` is the same entry point without the CLI wrapper.)
 
-### Pure-Python baselines (no Isaac Sim or Docker needed)
-```bash
-python eval/run.py --agent conservative --domains warehouse --simple -q
-```
+Timing expectations: Isaac + PX4 bring-up is minutes; each episode adds
+land/teleport/takeoff overhead (~30 s) plus the flight itself. Budget
+accordingly when picking K/N/P/T. Domain switches restart the stack.
 
-### Simple mode (outcome rates only, no safety level-set math)
-```bash
-~/isaacsim/python.sh eval/run.py --agent airstackdroan --domains warehouse --simple
-```
+## Agents
 
----
+| Agent | Mode | What flies |
+|-------|------|------------|
+| `droan` | stack | Full stack; DROAN (droan_gl) follows the published global plan |
+| `aggressive` / `conservative` / `random` | velocity | Baseline policy → `trajectory_override` on the real trajectory controller |
 
-## How the ROS bridge works
-
-Each `AirstackDROAN` / `AirstackSuperPlanner` policy communicates with a sidecar process over newline-delimited JSON on TCP:
-
-```
-benchmark process (Isaac Sim Python)
-        │  {"type": "step", "pos": [...], "target": [...], "obstacles": [...]}
-        ▼
-airstack_ros_sidecar.py  (inside robot Docker container, ROS 2 Jazzy)
-        │  publishes: nav_msgs/Odometry, geometry_msgs/PoseStamped, sensor_msgs/PointCloud2
-        │  subscribes: /drone/planning/pos_cmd (TwistStamped)
-        ▼
-AirStack DROAN / Super Planner (running in same container)
-        │  publishes velocity command
-        ▼
-airstack_ros_sidecar.py  returns: {"cmd": {"velocity": [vx, vy, vz]}}
-```
-
-The hook scripts (`airstackdroan.sh`, `airstacksuperplanner.sh`) start the Docker container, build and launch the planner, then start the sidecar. The benchmark connects automatically when `AirstackDROAN.act()` is first called.
-
-**Ports:**
-
-| Agent | Port env var | Default |
-|-------|-------------|---------|
-| DROAN | `AIRSTACK_DROAN_PORT` | 8780 |
-| Super Planner | `AIRSTACK_SUPER_PORT` | 8781 |
-
----
+Profiles (bring-up env, post-up commands, control mode) live in
+[`eval/agents/agents.py`](agents/agents.py) `PROFILES`. A SuperPlanner profile
+needs a `local_bringup` variant that swaps the local planner — see the TODO
+there.
 
 ## Domains
 
-| Domain | Scene | Dynamic obstacles | Flight height |
-|--------|-------|-------------------|--------------|
-| `warehouse` | Simple Warehouse | 30 pedestrians | 1.5 m |
-| `hospital` | Hospital | 25 pedestrians | 1.5 m |
-| `office` | Office | 20 pedestrians | 1.5 m |
-| `outdoor` | Rivermark Community | 40 pedestrians | 2.5 m |
-| `empty` | Procedural flat floor | 0 | 1.5 m |
+Registered in [`eval/sim/environment_config.py`](sim/environment_config.py);
+arena bounds are centered on the Isaac world origin.
 
----
+| Domain | Scene | Dynamic obstacles | Notes |
+|--------|-------|-------------------|-------|
+| `empty` | default grid | 0 | sanity/smoke domain |
+| `warehouse` | Simple Warehouse (Nucleus) | 30 | `stage_scale=0.01` |
+| `hospital` / `office` / `outdoor` | Nucleus scenes | 25 / 20 / 40 | arena origins untuned — verify before trusting results |
+
+Obstacles are cylinder prims spawned by the ScenarioManager (visible to the
+drone's ZED/lidar); "pedestrians" walk waypoint patterns, with speeds
+resampled ±20% per perturbation (`perturb_scenario`).
 
 ## Safety definitions
 
 | Symbol | Meaning |
 |--------|---------|
-| `r_failure` = 0.31 m | Drone body contacts obstacle — catastrophic failure |
-| `r_unsafe` = 0.61 m | Safety constraint violated but no contact yet |
-| `δ` = 0.3 m | Risk-proximate shell width (tunable via `--epsilon-unsafe`) |
-| `l_failure` | min(obstacle SDF, wall SDF) − r_failure |
-| `l_unsafe` | min(obstacle SDF, wall SDF) − r_unsafe |
+| `r_failure` = 0.31 m | drone body contacts obstacle — catastrophic failure |
+| `r_unsafe` = 0.61 m | safety constraint violated, no contact yet |
+| `δ` = 0.3 m | risk-proximate shell width (`--epsilon-unsafe`) |
+| `l_failure` / `l_unsafe` | min(obstacle SDF, wall SDF) − radius |
 
----
+Collision ground truth is the ScenarioManager's analytic contact check
+(latched per episode), consistent with the same SDFs used for scoring.
 
 ## Outputs
 
-Results are written to `runs/airstack/<run_id>/`:
-- `<agent>/` — RE/RP/CVaR plots, `episodes.csv`, text summary
-- `comparison.png` / `comparison_summary.txt` — multi-agent side-by-side (when multiple agents)
+`eval/runs/airstack/<run_id>/` — per-agent RE/RP/CVaR plots, `episodes.csv`,
+text summary; `comparison.*` for multi-agent runs.
 
----
+## Known limitations (v1)
 
-## Follow-up engineering notes
-
-1. **Verify planner output topic** — `airstack_ros_sidecar.py` subscribes to `/drone/planning/pos_cmd` as `TwistStamped`. Check what DROAN / Super Planner actually publish and update the message type if different.
-2. **Per-call socket timeout** — `_TCPSidecarClient` defaults to 1 s. If the planner is slow to respond, increase via the `call_timeout` constructor arg.
-3. **Add more domains** — register new `AirstackDomainCfg` entries in `sim/environment_config.py` pointing to AirStack's Isaac Sim USD stages.
-4. **Parallel scenarios** — `AirstackEnv` supports single-drone runs only. For parallel lockstep (multiple drones tiled in Isaac), follow the `_run_lockstep` pattern in `integrations/aerial_nav/envs/IsaacSimEnv.py`.
+- **Frames**: goals published to the stack are converted from Isaac world to
+  the stack's local frame using a measured (ground truth − EKF) offset; EKF
+  drift during long episodes shifts goal placement accordingly.
+- **Crash recovery**: after a collision the harness lands/disarms/teleports;
+  if PX4 refuses to re-arm after a hard crash the run needs a stack restart.
+- **Scene-mesh obstacles** (shelves, walls of the USD scenes) are not in the
+  scoring SDF — only spawned cylinders, pedestrians, and arena walls. Choose
+  arena bounds over open floor.
+- Non-warehouse Nucleus domains have untuned arena origins/scales.

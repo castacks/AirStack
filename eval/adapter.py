@@ -55,42 +55,28 @@ class Adapter(BaseTaskAdapter):
     # ------------------------------------------------------------------
 
     def build_env(self, ctx: dict) -> Any:
-        if "sim" not in ctx and not ctx.get("sims"):
-            raise RuntimeError(
-                "AirStack requires Isaac Sim — no sim context was provided. "
-                "Run via ~/isaacsim/python.sh and ensure launch.setup() succeeded."
-            )
+        """The environment is the real AirStack stack (Isaac + robot container),
+        orchestrated by AirstackStackEnv. Bring-up is lazy: the stack starts on
+        the first reset(), once the first domain is known."""
+        from .envs.AirstackStackEnv import AirstackStackEnv
+        from .sim.environment_config import get_domain_registry
 
-        from .envs.AirstackEnv import AirstackEnv
+        registry = get_domain_registry()
+        first_domain = (ctx.get("domains") or list(registry))[0]
 
-        env_cfg = ctx.get("env_cfg")
-        sensor_list = list(ctx.get("sensors", ["full_state"]))
-
-        def _make_env(sim):
-            return AirstackEnv(
-                sim=sim,
-                adapter=self,
-                env_cfg=env_cfg,
-                sensors=sensor_list,
-                size_x=float(env_cfg.size_x) if env_cfg else 20.0,
-                size_y=float(env_cfg.size_y) if env_cfg else 20.0,
-                dimension=3,
-                max_speed=float(os.environ.get("SAFE_AIRSTACK_MAX_SPEED", "3.0")),
-                dynamic_obstacle_speed=float(env_cfg.dynamic_obstacle_speed) if (
-                    env_cfg and env_cfg.dynamic_obstacle_speed > 0
-                ) else 0.9,
-                dynamic_motion_behavior="waypoint",
-                max_episode_time=float(ctx.get("max_episode_time", 60.0)),
-                dt=float(ctx.get("env_dt", 0.1)),
-                max_steps=int(ctx.get("max_steps", int(
-                    ctx.get("max_episode_time", 60.0) / ctx.get("env_dt", 0.1)
-                ))),
-                epsilon_unsafe=float(ctx.get("epsilon_unsafe", 0.3)),
-            )
-
-        sims = ctx.get("sims", [ctx["sim"]])
-        envs = [_make_env(sim) for sim in sims]
-        return envs if len(envs) > 1 else envs[0]
+        return AirstackStackEnv(
+            env_cfg=registry[first_domain],
+            agent_profile=ctx["agent_profile"],
+            max_episode_time=float(ctx.get("max_episode_time", 60.0)),
+            dt=float(ctx.get("env_dt", 0.5)),
+            max_steps=int(ctx.get("max_steps", 0)) or None,
+            max_speed=float(os.environ.get("SAFE_AIRSTACK_MAX_SPEED", "3.0")),
+            epsilon_unsafe=float(ctx.get("epsilon_unsafe", 0.3)),
+            goal_tolerance=float(ctx.get("goal_tolerance", 1.0)),
+            takeoff_velocity=float(ctx.get("takeoff_velocity", 1.0)),
+            headless=bool(ctx.get("headless", True)),
+            keep_up=bool(ctx.get("keep_up", False)),
+        )
 
     def close_env(self, env: Any) -> None:
         if hasattr(env, "close"):
@@ -110,7 +96,8 @@ class Adapter(BaseTaskAdapter):
 
     def apply_scenario(self, env: Any, scenario_cfg: ScenarioCfg) -> None:
         env._active_dynamic_obstacles = env.num_dynamic_obstacles
-        env.reset(seed=scenario_cfg.scenario_seed)
+        # Layout only — the stack bring-up + flight happen in reset_episode.
+        env.prepare_scenario(scenario_cfg.scenario_seed)
 
     def disturbance(self) -> Disturbance:
         return Disturbance(

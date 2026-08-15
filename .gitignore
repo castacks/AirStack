@@ -100,3 +100,8 @@ common/rayfronts/
 # Docker build cache (root-owned subdirs cause permission warnings on `git add`)
 robot/docker/cache/
 bags/
+
+# SAFE eval run outputs (local artifacts, not tracked)
+eval/runs/
+runs/airstack/
+replay.mp4

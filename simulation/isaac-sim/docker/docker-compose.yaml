@@ -41,6 +41,8 @@ services:
       - PLAY_SIM_ON_START=${PLAY_SIM_ON_START}
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       - ENABLE_LIDAR=${ENABLE_LIDAR:-false}
+      # S.A.F.E. eval scenario config (JSON) — read by safe_eval_launch_script.py
+      - SAFE_EVAL_CONFIG=${SAFE_EVAL_CONFIG:-}
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
       # Pegasus physics tuning — read by pegasus/simulator/params.py
       - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}

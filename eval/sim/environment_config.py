@@ -24,6 +24,7 @@ class AirstackDomainCfg:
     origin_y: float = 0.0
     origin_z: float = 0.0
     flight_z: float = 1.5
+    stage_scale: float = 1.0  # /World/stage scale (0.01 for cm-unit Nucleus assets)
     num_dynamic_obstacles: int = 20
     num_static_cylinders: int = 8
     dynamic_obstacle_speed: float = 0.9
@@ -57,31 +58,19 @@ def max_static_obstacles() -> int:
 
 
 def switch_domain(env, domain_cfg: AirstackDomainCfg) -> None:
-    """Update a live AirstackEnv when the benchmark advances to a new domain."""
-    envs = env if isinstance(env, list) else [env]
+    """Advance a live AirstackStackEnv to a new domain.
 
-    if envs and getattr(envs[0], "env_cfg", None) is not None:
-        current = getattr(envs[0].env_cfg, "domain", None)
-        if current != domain_cfg.domain:
-            print(
-                f"[airstack.environment_config] Switching to domain '{domain_cfg.domain}'...",
-                flush=True,
-            )
-            for e in envs:
-                e.sim.reload_domain(domain_cfg)
-
-    for e in envs:
-        e.env_cfg = domain_cfg
-        e.size_x = domain_cfg.size_x
-        e.size_y = domain_cfg.size_y
-        e.size_z = domain_cfg.size_z
-        e.origin_x = domain_cfg.origin_x
-        e.origin_y = domain_cfg.origin_y
-        e.num_dynamic_obstacles = domain_cfg.num_dynamic_obstacles
-        e.num_static_cylinders = int(getattr(domain_cfg, "num_static_cylinders", 0))
-        e.num_obstacles = len(domain_cfg.static_obstacle_prim_paths or [])
-        e.obstacle_values = ["high"] * e.num_dynamic_obstacles + ["low"] * e.num_obstacles
-        e._camera_ready = False
+    Domain scenes are baked into the Isaac bring-up (SAFE_EVAL_CONFIG env),
+    so a *different* domain means a stack restart: _apply_domain_cfg updates
+    the env's config, and the next reset()'s ensure_up() sees a changed
+    fingerprint and cycles `airstack down` / `airstack up` automatically.
+    """
+    current = getattr(getattr(env, "env_cfg", None), "domain", None)
+    if current == domain_cfg.domain:
+        return
+    print(f"[airstack.environment_config] Switching to domain '{domain_cfg.domain}' "
+          f"(stack restart on next reset)...", flush=True)
+    env._apply_domain_cfg(domain_cfg)
 
 
 # ── Domain registrations ──────────────────────────────────────────────────────
@@ -93,6 +82,9 @@ register_domain(AirstackDomainCfg(
     usd_path="/Isaac/Environments/Simple_Warehouse/full_warehouse.usd",
     dynamic_obstacle_usd="/Isaac/People/Characters/male_adult_construction_05/male_adult_construction_05.usd",
     flight_z=1.5,
+    stage_scale=0.01,
+    origin_x=-10.0,
+    origin_y=-10.0,
     num_dynamic_obstacles=30,
     num_static_cylinders=8,
     dynamic_obstacle_speed=0.9,
@@ -103,6 +95,8 @@ register_domain(AirstackDomainCfg(
     usd_path="/Isaac/Environments/Hospital/hospital.usd",
     dynamic_obstacle_usd="/Isaac/People/Characters/female_adult_police_01/female_adult_police_01.usd",
     flight_z=1.5,
+    origin_x=-10.0,
+    origin_y=-10.0,
     num_dynamic_obstacles=25,
     num_static_cylinders=8,
     dynamic_obstacle_speed=0.75,
@@ -113,6 +107,8 @@ register_domain(AirstackDomainCfg(
     usd_path="/Isaac/Environments/Office/office.usd",
     dynamic_obstacle_usd="/Isaac/People/Characters/male_adult_business_02/male_adult_business_02.usd",
     flight_z=1.5,
+    origin_x=-10.0,
+    origin_y=-10.0,
     num_dynamic_obstacles=20,
     num_static_cylinders=6,
     dynamic_obstacle_speed=0.75,
@@ -125,6 +121,8 @@ register_domain(AirstackDomainCfg(
     flight_z=2.5,
     size_x=40.0,
     size_y=40.0,
+    origin_x=-20.0,
+    origin_y=-20.0,
     num_dynamic_obstacles=40,
     num_static_cylinders=12,
     dynamic_obstacle_speed=0.9,
@@ -138,6 +136,8 @@ register_domain(AirstackDomainCfg(
     flight_z=1.5,
     size_x=15.0,
     size_y=15.0,
+    origin_x=-7.5,
+    origin_y=-7.5,
     num_static_cylinders=0,
     num_dynamic_obstacles=0,
     dynamic_obstacle_speed=0.0,

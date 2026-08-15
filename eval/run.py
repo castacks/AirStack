@@ -1,27 +1,21 @@
 """AirStack × S.A.F.E. benchmark entry point.
 
-Usage — smoke test (one episode, DROAN planner, warehouse domain):
+Runs the REAL AirStack stack (Isaac Sim via AirStack's own bring-up + the
+full autonomy stack in the robot container) as the system under test. Plain
+python — no Isaac interpreter needed on the host, only `pip install
+safe-benchmark` and the docker CLI:
 
-    pip install -e /path/to/benchmark
+    # Smoke test — one episode, DROAN through the full stack, empty domain
+    python eval/run.py --agent droan --domains empty --simple -y
 
-    ~/isaacsim/python.sh eval/run.py \\
-        --agent airstackdroan \\
-        --domains warehouse \\
-        --num_scenarios 1 --num_perturbations 1 --max_episodes 1 \\
-        --headless
+    # DROAN vs baselines, warehouse, full SAFE stats
+    python eval/run.py --agents droan aggressive conservative \\
+        --domains warehouse -N 5 -P 5 -T 10
 
-Full comparison (DROAN vs Super Planner, two domains, full SAFE stats):
+    # Keep the stack running between runs while iterating
+    python eval/run.py --agent droan --domains empty --simple -y --keep-up
 
-    ~/isaacsim/python.sh eval/run.py \\
-        --agents airstackdroan airstacksuperplanner \\
-        --domains warehouse hospital \\
-        --num_scenarios 5 --num_perturbations 5 --max_episodes 10 \\
-        --headless
-
-Pure-Python baselines (no Isaac Sim needed):
-    python eval/run.py --agent conservative --domains warehouse --simple -q
-
-Output: runs/airstack/<run_id>/
+Output: eval/runs/airstack/<run_id>/
     <agent>/   — per-agent RE/RP/CVaR plots, text summary, episodes.csv
     comparison.png / comparison_summary.txt (when multiple agents)
 """
@@ -31,7 +25,7 @@ from __future__ import annotations
 import os
 import sys
 
-# Allow running as `~/isaacsim/python.sh eval/run.py` from the repo root
+# Allow running as `python eval/run.py` from the repo root
 if __name__ == "__main__" and (__package__ is None or __package__ == ""):
     _here = os.path.dirname(os.path.abspath(__file__))
     _repo_root = os.path.dirname(_here)
@@ -43,7 +37,6 @@ if __name__ == "__main__" and (__package__ is None or __package__ == ""):
 
 import argparse
 
-import safe_core.utils.config as config
 from safe_core.core.runner import BaseRunner
 
 
@@ -56,31 +49,21 @@ class AirstackRunner(BaseRunner):
         return os.path.join(os.path.dirname(__file__), "agents")
 
     def get_available_agents(self) -> list[str]:
-        return [
-            "random",
-            "aggressive",
-            "conservative",
-            "adaptive",
-            "adaptiveapf",
-            "droan",
-            "super",
-        ]
+        from .agents.agents import PROFILES
+        return sorted(PROFILES)
 
     def add_args(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
-            "--direct-velocity",
-            dest="direct_velocity",
-            action="store_true",
-            default=False,
-            help="Bypass PX4 SITL and drive the drone directly via Isaac dynamic control.",
-        )
+            "--epsilon-unsafe", type=float, default=0.3, dest="epsilon_unsafe",
+            help="Risk-proximate shell width δ (metres). Default: 0.3.")
         parser.add_argument(
-            "--epsilon-unsafe",
-            type=float,
-            default=0.3,
-            dest="epsilon_unsafe",
-            help="Risk-proximate shell width δ (metres). Default: 0.3.",
-        )
+            "--goal-tolerance", type=float, default=1.0, dest="goal_tolerance",
+            help="XY distance (m) at which the goal counts as reached.")
+        parser.add_argument(
+            "--takeoff-velocity", type=float, default=1.0, dest="takeoff_velocity")
+        parser.add_argument(
+            "--keep-up", action="store_true", dest="keep_up",
+            help="Leave the Docker stack running after the run (faster iteration).")
 
     def validate(self, args: argparse.Namespace) -> int:
         from .sim.environment_config import get_domain_registry
@@ -95,11 +78,6 @@ class AirstackRunner(BaseRunner):
             args.num_env_domains = len(args.domains)
         return int(args.max_episode_time / args.env_dt)
 
-    def setup(self, args: argparse.Namespace) -> tuple:
-        from . import launch
-        ctx = launch.setup(args)
-        return ctx, launch
-
     def get_runs_root(self):
         return os.path.join(os.path.dirname(__file__), "runs")
 
@@ -108,30 +86,31 @@ class AirstackRunner(BaseRunner):
         return environment_config
 
     def run_agent_hook(self, args: argparse.Namespace) -> None:
-        import subprocess
-        agent_name = args.agent or (args.agents[0] if args.agents else None)
-        if not agent_name:
-            return
-        hook = os.path.join(os.path.dirname(__file__), "agent_hooks", f"{agent_name.lower()}.sh")
-        if not os.path.isfile(hook):
-            return
-        print(f"[airstack] Starting agent hook in background: {hook}", flush=True)
-        subprocess.Popen(["bash", hook])
+        # No sidecars: the stack IS the environment; bring-up happens inside
+        # AirstackStackEnv.reset() via `airstack up`.
+        pass
 
     def build_adapter(self, args: argparse.Namespace):
         from .adapter import Adapter
         return Adapter()
 
     def build_env_ctx(self, args: argparse.Namespace, ctx: dict, max_steps: int,
-                       sensor_union: list) -> dict:
+                      sensor_union: list) -> dict:
+        from .agents.agents import get_profile
+        agent_name = args.agent or (args.agents[0] if args.agents else None)
         return {
             **ctx,
             "sensors":          sensor_union,
-            "sim_backend":      "airstack_isaac",
+            "domains":          args.domains,
+            "agent_profile":    get_profile(agent_name),
             "max_episode_time": args.max_episode_time,
             "env_dt":           args.env_dt,
             "max_steps":        max_steps,
-            "epsilon_unsafe":   getattr(args, "epsilon_unsafe", 0.3),
+            "epsilon_unsafe":   args.epsilon_unsafe,
+            "goal_tolerance":   args.goal_tolerance,
+            "takeoff_velocity": args.takeoff_velocity,
+            "headless":         args.headless,
+            "keep_up":          args.keep_up,
         }
 
 
