@@ -1423,6 +1423,29 @@ def generate_suburb_on_stage(stage, config,
     catalogue = house_catalogue(config, resolver, pools, yaw_off)
     if catalogue and pcfg.get("house_sizes") is None:
         pcfg["house_sizes"] = [(e["w"], e["d"]) for e in catalogue]
+        # A LOT NARROWER THAN THE SMALLEST HOUSE CAN NEVER BE BUILT ON. The
+        # preset's range is tuned against the pack it ships with, but the pack
+        # is measured at run time and nothing stops a future one being wider --
+        # and the failure is silent, because a lot that fits no entry is simply
+        # refused and the street quietly thins. So the floor is derived from
+        # what was actually measured rather than trusted to stay in step.
+        #
+        # The narrowest lot is the base minimum scaled by the TIGHTEST density
+        # class, and it has to clear the smallest house plus the side yard the
+        # overlap test enforces (half `house_gap_m`, which is what the fit check
+        # uses). Raised, never lowered: a preset asking for wider lots than the
+        # art needs is a legitimate choice.
+        tight = min(d["lot"] for d in sp.DENSITY.values())
+        need = (min(e["w"] for e in catalogue)
+                + float(pcfg.get("house_gap_m", 4.0)) * 0.5)
+        lw = sp._rng_pair(pcfg.get("lot_width_m", [21.0, 30.0]), (21.0, 30.0))
+        floor = need / max(tight, 1e-6)
+        if lw[0] < floor:
+            pcfg["lot_width_m"] = [floor, max(lw[1], floor * 1.35)]
+            print(f"[suburb_scene] lot width floor raised "
+                  f"{lw[0]:.1f} -> {floor:.1f} m: the narrowest density class "
+                  f"would not fit the smallest measured house "
+                  f"({min(e['w'] for e in catalogue):.1f} m)")
     parcels = sp.parcel_blocks(buildable, rng, pcfg)
     pstats = sp.stats(parcels)
     print(f"[suburb_scene] {pstats['houses']} houses, {pstats['trees']} trees "

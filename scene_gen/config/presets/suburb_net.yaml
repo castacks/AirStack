@@ -74,8 +74,28 @@ overrides:
 
   # ---- lots, houses, planting (suburb_parcel.py) -----------------------------
   suburb_parcel:
-    # 20 m is a 66 ft lot, the commonest post-war width.
-    lot_width_m: [17.0, 26.0]
+    # FRONTAGE PER DWELLING, and the number that decides how much of the house
+    # catalogue is reachable. A lot admits an asset only if the asset fits
+    # inside it with its side yard, so a narrow range does not merely pack the
+    # houses tighter -- it deletes the wide entries from the pool entirely, and
+    # the widest entries are exactly the ones carrying a garage wing.
+    #
+    # MEASURED, sweeping the range against a 10-entry catalogue (3 of them with
+    # wings) over 3 seeds:
+    #
+    #   lot_width_m    houses   refused   lots with a garage wing
+    #   [17, 26]        2974      488            17.4%
+    #   [19, 28]        2906       33            24.2%
+    #   [21, 30]        2694        0            27.0%
+    #   [23, 33]        2554        0            31.4%
+    #   [25, 36]        2456        0            33.3%
+    #
+    # [21, 30] is the knee: refusals reach zero and the wing share rises by half
+    # again, for 9% fewer houses. Past it the extra variety is bought purely by
+    # thinning the street. The DENSITY classes still spread this widely -- tight
+    # is 16-23 m (54-77 ft, the classic post-war lot), estate 46-66 m -- so the
+    # range is the middle of a distribution, not the whole of it.
+    lot_width_m: [21.0, 30.0]
     # Zoning ordinances put the front setback at 20-30 ft almost everywhere.
     setback_m: [6.5, 11.0]
     # The bungalow pool is pinned to a 12 m longest plan dimension by
@@ -91,9 +111,13 @@ overrides:
     # glance, and it is the actual complaint.
     #
     # 6.0 takes the minimum to 3.0 m and 0% inside 3 m, and it was measured to
-    # cost NOTHING in house count (8.0 would start costing up to 6%). It also
-    # buys room for the garage wing, whose true extent nothing in the pipeline
-    # has measured -- see the house_addons note in suburban.yaml.
+    # cost NOTHING in house count (8.0 would start costing up to 6%).
+    #
+    # It is also the side yard the FIT CHECK uses: `house_sizes` admits an entry
+    # only if it clears half of this, so raising it narrows the reachable
+    # catalogue. That is a genuine trade and not a free knob -- the garage wing
+    # is now inside the measured footprint, so wider entries are the ones that
+    # get squeezed out first.
     house_gap_m: 6.0
     min_lot_depth_m: 21.0
     driveway_w_m: 3.2
