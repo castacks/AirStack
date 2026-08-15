@@ -15,7 +15,7 @@ class sMarker(ctypes.Structure):
     ]
 
     def pack(self) -> bytes:
-        return struct.pack('<i5fhf', self.ID, self.x, self.y, self.z, self.size, self.params, self.residual)
+        return struct.pack('<i4fhf', self.ID, self.x, self.y, self.z, self.size, self.params, self.residual)
 
 
 class sMarkerSetData(ctypes.Structure):

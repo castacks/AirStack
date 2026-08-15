@@ -107,6 +107,32 @@ def test_frame_pack_negative_collection_counts_encode_without_validation():
     assert n_rigid_bodies == -1
 
 
+def test_labeled_marker_pack_round_trips_every_field():
+    marker = dt.sMarker()
+    marker.ID = 12
+    marker.x, marker.y, marker.z = 1.5, -2.25, 3.75
+    marker.size = 0.03125
+    marker.params = 0x03
+    marker.residual = 0.5
+
+    packed = marker.pack()
+
+    # Values are binary-exact in float32 so the round-trip compares without a tolerance.
+    assert len(packed) == 26  # id + 4 floats + params + residual, _pack_ = 1
+    assert struct.unpack('<i4fhf', packed) == (12, 1.5, -2.25, 3.75, 0.03125, 0x03, 0.5)
+
+
+def test_frame_with_labeled_markers_packs_each_marker():
+    frame = dt.sFrameOfMocapData()
+    frame.nLabeledMarkers = 2
+    for i in range(2):
+        frame.LabeledMarkers[i].ID = i + 1
+
+    packed = frame.pack()
+
+    assert len(packed) == 122 + 2 * 26
+
+
 # =============================================================================
 # natnet_server_types — server description (NAT_SERVERINFO payload)
 # =============================================================================
