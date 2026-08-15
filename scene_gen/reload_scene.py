@@ -81,8 +81,7 @@ placements = scene_generator.reload_scene_on_stage(
 # rest naturally instead of floating at their approximated orientations.
 scene_prep.settle_rigid_props(
     stage,
-    [p["prim_path"] for p in placements
-     if p.get("settle") and p.get("prim_path")],
+    scene_prep.settle_selection(placements),
     ground_path="/World/stage/generated/ground",
 )
 

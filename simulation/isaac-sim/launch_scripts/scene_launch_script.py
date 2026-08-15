@@ -76,7 +76,8 @@ _SCENE_GEN_DIR = os.path.normpath(
 sys.path.insert(0, os.path.join(_ISAAC_SIM_DIR, "utils"))
 sys.path.insert(0, _SCENE_GEN_DIR)
 from scene_prep import (scale_stage_prim, add_colliders, add_sky,
-                        get_stage_meters_per_unit, settle_rigid_props)
+                        get_stage_meters_per_unit, settle_rigid_props,
+                        settle_selection)
 from scene_generator import resolve_sky
 from generate_scene import generate_scene_on_stage
 from compile_disaster import load_scene_config
@@ -230,8 +231,7 @@ class CityV2PreviewApp:
 
         settle_rigid_props(
             stage,
-            [p["prim_path"] for p in placements
-             if p.get("settle") and p.get("prim_path")],
+            settle_selection(placements),
             ground_path="/World/stage/generated/ground",
         )
 

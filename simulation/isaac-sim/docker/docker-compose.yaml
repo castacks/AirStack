@@ -44,6 +44,8 @@ services:
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
       # Scene to generate; empty falls back to the launch script default
       - SCENE_CONFIG=${SCENE_CONFIG:-}
+      # Physics settle pass: 1 / 0 / -cat,cat / cat,cat (scene_prep.settle_selection)
+      - SCENE_SETTLE=${SCENE_SETTLE:-1}
       # Pegasus physics tuning — read by pegasus/simulator/params.py
       - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}
       - ARDUPILOT_PHYSICS_HZ=${ARDUPILOT_PHYSICS_HZ:-800}
@@ -130,6 +132,8 @@ services:
       - ISAAC_SIM_USE_STANDALONE=true
       - ISAAC_SIM_HEADLESS=true
       - SCENE_CONFIG=${SCENE_CONFIG:-}
+      # Physics settle pass: 1 / 0 / -cat,cat / cat,cat (scene_prep.settle_selection)
+      - SCENE_SETTLE=${SCENE_SETTLE:-1}
     # Publish the WebRTC livestream ports to the pod NS. Bridge-mode +
     # publish (the conservative choice) keeps the rest of the stack on
     # airstack_network for DDS multicast.

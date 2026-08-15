@@ -5,6 +5,7 @@ Functions:
     get_stage_meters_per_unit   — Read stage unit scale
     scale_stage_prim            — Apply a uniform scale transform to a prim
     add_colliders               — Recursively apply CollisionAPI to all meshes
+    settle_selection            — Which placements to settle, per SCENE_SETTLE
     settle_rigid_props          — Physics-drop toppled props to rest, then freeze
     add_dome_light              — Add or update a dome light on the stage
     add_sky                     — Skybox from HDRI (dome texture) or borrowed stage prims
@@ -146,6 +147,61 @@ def add_colliders(prim):
 # ---------------------------------------------------------------------------
 # Physics settling
 # ---------------------------------------------------------------------------
+
+def settle_selection(placements) -> list:
+    """Prim paths to hand `settle_rigid_props`, filtered by `$SCENE_SETTLE`.
+
+    Every launch script settles the same set — the placements the generator
+    marked `settle` — so the choice of what to settle belongs here rather than
+    being restated (and diverging) at five call sites.
+
+    WHY THIS IS A KNOB
+    ------------------
+    Settling is meant to fix approximated poses: a toppled pole or flipped car
+    is placed at a guessed orientation and physics finds the real one. But the
+    same pass is also what fires interpenetrating debris across the map — a
+    quarter of `debris` pieces spawn inside a standing building's footprint
+    (`disaster_stage` emits on a ring around each damaged building without
+    testing what is already there), and PhysX resolves that with a separating
+    impulse. `settle_rigid_props` clamps that with `maxDepenetrationVelocity`
+    and reverts anything travelling past `max_travel_m`, but "are the clamps
+    holding?" is only answerable against a run with the pass disabled.
+
+    So this is the A/B control for that experiment, not a tuning parameter.
+
+        SCENE_SETTLE=1                     everything marked (default)
+        SCENE_SETTLE=0                     nothing — no physics runs at all
+        SCENE_SETTLE=-debris,debris_pile   everything EXCEPT those categories
+        SCENE_SETTLE=debris_fragment       ONLY that category
+
+    The `-` form is the useful one for the debris question: it leaves the
+    toppled props settling as normal, so anything still out of place is not
+    explained by "settling was off".
+
+    Turning it off entirely is not free — props the generator placed at
+    approximated poses stay floating or half-sunk. That is the trade the
+    experiment is buying.
+    """
+    marked = [p for p in placements
+              if p.get("settle") and p.get("prim_path")]
+    raw = (os.environ.get("SCENE_SETTLE") or "1").strip()
+
+    if raw.lower() in ("0", "false", "no", "none", "off"):
+        print(f"[scene_prep] SCENE_SETTLE={raw} — settling disabled, "
+              f"{len(marked)} marked prop(s) left at their authored pose")
+        return []
+
+    if raw.lower() not in ("1", "true", "yes", "all", "on"):
+        exclude = raw.startswith("-")
+        names = {c.strip() for c in raw.lstrip("-").split(",") if c.strip()}
+        kept = [p for p in marked
+                if (p.get("category") in names) != exclude]
+        print(f"[scene_prep] SCENE_SETTLE={raw} — settling {len(kept)} of "
+              f"{len(marked)} marked prop(s)")
+        return [p["prim_path"] for p in kept]
+
+    return [p["prim_path"] for p in marked]
+
 
 def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
                        ground_path: str = None, max_travel_m: float = 12.0,
