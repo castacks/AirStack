@@ -355,16 +355,32 @@ def load_config(config_path: str) -> dict:
 # USD footprint measurement (with graceful fallback to constants)
 # ---------------------------------------------------------------------------
 
-def _measure_footprint(usd_path: str, scale: float, axis_up: str = "Z"):
-    """Open *usd_path* and return its metric footprint as a dict, or None.
+def _scaled_footprint(fp: dict, scale: float) -> dict:
+    """*fp* measured at unit scale, resized to *scale*.
+
+    Every field `_measure_footprint_raw` returns is a length read off the same
+    bbox, so the whole dict is linear in scale and this is exact, not an
+    approximation. That is what lets the measurement be cached independently of
+    the scale it is asked for — see `SizeResolver.get`.
+    """
+    s = float(scale)
+    return {k: v * s for k, v in fp.items()}
+
+
+def _measure_footprint_raw(usd_path: str, axis_up: str = "Z"):
+    """Open *usd_path* and return its footprint at unit scale, or None.
 
     Returns ``{"sx","sy","sz","base","cx","cy","cz"}`` in Z-up world space
-    (after *scale* and any axis correction). For Z-up assets cx/cy are the XY
-    bbox center offsets from the prim origin; cz is always 0. For Y-up assets
+    (after any axis correction). For Z-up assets cx/cy are the XY bbox center
+    offsets from the prim origin; cz is always 0. For Y-up assets
     (``axis_up="Y"``) the measurements are remapped so that sx/sy reflect the
     world-XY footprint, base reflects the local Y_min, and cz carries the local-Z
     centroid that apply_placements folds into the centroid-correction offset vector
     (local Z maps to world -Y after the +90° roll correction).
+
+    Multiply by the placement's scale with `_scaled_footprint`. Opening the
+    stage is the expensive part — a Nucleus round trip — so callers should cache
+    on ``(usd_path, axis_up)`` and never on the scale.
     """
     try:
         stage = Usd.Stage.Open(usd_path)
@@ -402,22 +418,33 @@ def _measure_footprint(usd_path: str, scale: float, axis_up: str = "Z"):
         # centroid doesn't affect XY layout); cz = local Z centroid (fed into the
         # 3-component centroid offset so apply_placements rotates it to world -Y).
         return {
-            "sx": sz[0] * scale,                       # local X  → world X footprint
-            "sy": sz[2] * scale,                       # local Z  → world Y footprint
-            "sz": sz[1] * scale,                       # local Y  → world height
-            "base": -mn[1] * scale,                    # local Y_min → world Z = 0 after roll
-            "cx": (mn[0] + sz[0] / 2) * scale,        # local X centroid (stays world X)
-            "cy": 0.0,                                 # height centroid; no XY correction needed
-            "cz": (mn[2] + sz[2] / 2) * scale,        # local Z centroid → world -Y via roll
+            "sx": sz[0],                    # local X  → world X footprint
+            "sy": sz[2],                    # local Z  → world Y footprint
+            "sz": sz[1],                    # local Y  → world height
+            "base": -mn[1],                 # local Y_min → world Z = 0 after roll
+            "cx": mn[0] + sz[0] / 2,        # local X centroid (stays world X)
+            "cy": 0.0,                      # height centroid; no XY correction needed
+            "cz": mn[2] + sz[2] / 2,        # local Z centroid → world -Y via roll
         }
-    return {"sx": sz[0] * scale, "sy": sz[1] * scale,
-            "sz": sz[2] * scale, "base": -mn[2] * scale,
+    return {"sx": sz[0], "sy": sz[1],
+            "sz": sz[2], "base": -mn[2],
             # XY offset of the bbox center from the asset's local origin.
             # Non-zero when the pivot isn't at the visual centroid; apply_placements
             # subtracts this so the *visual* center lands at the requested position.
-            "cx": (mn[0] + sz[0] / 2) * scale,
-            "cy": (mn[1] + sz[1] / 2) * scale,
+            "cx": mn[0] + sz[0] / 2,
+            "cy": mn[1] + sz[1] / 2,
             "cz": 0.0}
+
+
+def _measure_footprint(usd_path: str, scale: float, axis_up: str = "Z"):
+    """`_measure_footprint_raw` at *scale*. Measures every call — no cache.
+
+    Kept for callers outside the generator; `SizeResolver` deliberately does not
+    use it, because measuring is what has to happen once per asset rather than
+    once per placement.
+    """
+    fp = _measure_footprint_raw(usd_path, axis_up)
+    return None if fp is None else _scaled_footprint(fp, scale)
 
 
 # Local asset roots, addressed by a pseudo-scheme so a config never has to
@@ -627,13 +654,53 @@ def _normalize_usd_list(lst, default_scale: float, asset_root: str = ""):
 class SizeResolver:
     """Resolves and caches each USD's metric footprint, measuring when possible
     and falling back to per-category constants otherwise.
+
+    MEASURE ONCE PER ASSET, NOT ONCE PER PLACEMENT
+    ----------------------------------------------
+    A measurement is a `Usd.Stage.Open` plus a bbox compute — for a Nucleus
+    asset, a network round trip. The cache used to be keyed on
+    ``(path, scale, axis_up)``, and `disaster_stage` gives every debris prop an
+    individually randomised scale (``_sc(du) * rng.uniform(0.7, 1.2)``), so
+    **every debris placement missed the cache and re-opened the asset**. On a
+    measured `earthquake` run that was 3,971 measurements of 150 distinct
+    assets — 97% of them redundant, all inside `apply_placements`, which took
+    10m37s of a 78-minute launch.
+
+    Footprint is exactly linear in scale (see `_scaled_footprint`), so the
+    measurement is cached on ``(path, axis_up)`` alone and the scale is applied
+    afterwards. `_by_scale` still memoises the scaled dicts so a repeated
+    lookup is a dict hit rather than a rebuild, but a miss there costs a
+    multiply, not a stage open.
+
+    A *failed* measurement is cached too, as ``None``. It used to be retried
+    per placement, so one unresolvable asset paid the full open-and-fail
+    thousands of times and printed a fallback line for each.
     """
 
     def __init__(self, asset_scale: float, fallback_sizes: dict, measure: bool):
         self.scale = float(asset_scale)
         self.fallback = fallback_sizes or {}
         self.measure = bool(measure)
-        self._cache: dict = {}
+        self._raw: dict = {}            # (path, axis_up) -> unit-scale fp or None
+        self._by_scale: dict = {}       # (path, scale, axis_up) -> scaled fp
+
+    def _raw_footprint(self, usd_path: str, category: str, axis_up: str):
+        """Unit-scale measurement for *usd_path*, or None. Opens the USD once."""
+        key = (usd_path, axis_up)
+        if key in self._raw:
+            return self._raw[key]
+
+        fp = _measure_footprint_raw(usd_path, axis_up) if self.measure else None
+        self._raw[key] = fp
+        if fp is not None:
+            print(f"[scene_gen] measured {category}: {os.path.basename(usd_path)} "
+                  f"-> {fp['sx']:.2f} x {fp['sy']:.2f} m "
+                  f"(unit scale, up={axis_up})")
+        else:
+            fb = self.fallback.get(category, [4.0, 4.0])
+            print(f"[scene_gen] fallback {category}: {os.path.basename(usd_path)} "
+                  f"-> {float(fb[0]):.2f} x {float(fb[1]):.2f} m")
+        return fp
 
     def get(self, usd_path: str, category: str, scale: float = None,
             axis_up: str = "Z") -> dict:
@@ -642,32 +709,53 @@ class SizeResolver:
         *scale* overrides the resolver's default ``asset_scale``.
         *axis_up* is ``"Y"`` for assets authored in Y-up coordinates (e.g. Unity
         exports); the returned dict has corrected sx/sy/base and includes a ``cz``
-        field so apply_placements can handle the centroid offset correctly. The
-        cache key is ``(path, effective_scale, axis_up)`` so different corrections
-        don't collide.
+        field so apply_placements can handle the centroid offset correctly.
         """
         effective_scale = float(scale) if scale is not None else self.scale
         effective_axis_up = str(axis_up).upper() if axis_up else "Z"
         cache_key = (usd_path, effective_scale, effective_axis_up)
-        if cache_key in self._cache:
-            return self._cache[cache_key]
+        if cache_key in self._by_scale:
+            return self._by_scale[cache_key]
 
-        fp = (_measure_footprint(usd_path, effective_scale, effective_axis_up)
-              if self.measure else None)
-        if fp is not None:
-            print(f"[scene_gen] measured {category}: {os.path.basename(usd_path)} "
-                  f"-> {fp['sx']:.2f} x {fp['sy']:.2f} m "
-                  f"(scale={effective_scale}, up={effective_axis_up})")
+        raw = self._raw_footprint(usd_path, category, effective_axis_up)
+        if raw is not None:
+            fp = _scaled_footprint(raw, effective_scale)
         else:
+            # Fallback sizes are already metric, so the placement scale does NOT
+            # apply to them — that was true before this change too.
             fb = self.fallback.get(category, [4.0, 4.0])
             fp = {"sx": float(fb[0]), "sy": float(fb[1]),
                   "sz": float(fb[2]) if len(fb) > 2 else 3.0, "base": 0.0,
                   "cx": 0.0, "cy": 0.0, "cz": 0.0}
-            print(f"[scene_gen] fallback {category}: {os.path.basename(usd_path)} "
-                  f"-> {fp['sx']:.2f} x {fp['sy']:.2f} m")
 
-        self._cache[cache_key] = fp
+        self._by_scale[cache_key] = fp
         return fp
+
+
+def placement_footprint(resolver, p: dict, category: str = None) -> dict:
+    """Footprint of a placement that already exists, measured as it was placed.
+
+    **Scale and axis belong to the placement.** Every pass that re-derives them
+    from an asset-set pool gets them wrong for anything the pass did not
+    normalise itself: `disaster_stage` looked up standing buildings through the
+    per-asset overrides of its *ruin* pools, missed, and fell back to the
+    config-wide `asset_scale` (1.0) while the AEC packs carry `scale: 0.01`.
+    The same run then measured the same asset twice —
+
+        Reference_Brownstone12Row     21.11 x   80.06 m   (scale=0.01)
+        Reference_Brownstone12Row   2111.27 x 8005.56 m   (scale=1.0)
+
+    — and the inflated one is what the debris ring walked outward from, which
+    put rubble kilometres outside an 800 m region. `tools/plan_png` had the
+    identical bug for the same reason.
+
+    So there is one function for it, and every caller that holds a placement
+    uses this rather than restating the rule.
+    """
+    return resolver.get(p.get("usd", ""),
+                        category or p.get("category", "asset"),
+                        scale=float(p.get("scale", 1.0) or 1.0),
+                        axis_up=str(p.get("axis_up", "Z") or "Z"))
 
 
 # ---------------------------------------------------------------------------

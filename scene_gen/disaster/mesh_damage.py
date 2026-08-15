@@ -413,6 +413,15 @@ def delete_faces(prim, keep, deactivate: bool = True) -> int:
                 pass
         mesh.GetFaceVertexCountsAttr().Set(Vt.IntArray([]))
         mesh.GetFaceVertexIndicesAttr().Set(Vt.IntArray([]))
+        # …and empty its subsets with it. Left alone they keep indexing the
+        # faces that are gone, and every USD consumer that checks says so —
+        # Blender logs "UsdGeomSubset 'Section0' contains invalid indices;
+        # material assignment may be incorrect (79,147 out of range)" for a
+        # prim that now draws nothing. Noise, but the kind that hides the
+        # warning that matters.
+        for sub in prim.GetChildren():
+            if sub.IsA(UsdGeom.Subset):
+                UsdGeom.Subset(sub).GetIndicesAttr().Set(Vt.IntArray([]))
         return n_gone
 
     fv_keep = np.repeat(keep, counts)
@@ -428,6 +437,245 @@ def delete_faces(prim, keep, deactivate: bool = True) -> int:
                            keep, fv_keep)
     _renumber_subsets(prim, keep)
     return n_gone
+
+
+def _flatten_primvar(pv) -> None:
+    """Resolve an indexed primvar to a flat one, in place.
+
+    Subdivision has to *interpolate* faceVarying data — a midpoint's `st` is
+    the average of the two corners' — and an index cannot be averaged. Values
+    can. Flattening first is the standard way out and costs only memory.
+    """
+    if not pv.IsIndexed():
+        return
+    ind = pv.GetIndices()
+    vals = pv.Get()
+    if ind is None or vals is None:
+        return
+    try:
+        pv.GetAttr().Set(type(vals)([vals[int(i)] for i in ind]))
+        pv.BlockIndices()
+    except Exception:
+        pass
+
+
+def _pv_array(vals):
+    """A Vt array as ``(np_values, rebuild)``; rebuild puts numpy back as Vt."""
+    a = np.asarray(vals)
+    t = type(vals)
+    if a.ndim == 1:
+        return a.astype(np.float64), lambda x: t([type(vals[0])(v) for v in x])
+    return a.astype(np.float64), lambda x: t([tuple(v) for v in x])
+
+
+def subdivide(prim, max_edge: float, max_points: int = 400_000,
+              max_rounds: int = 4) -> int:
+    """Split faces until no edge is longer than *max_edge*. Returns faces added.
+
+    WHY DAMAGE NEEDS THIS
+    ---------------------
+    Every hole this module punches is cut by `delete_faces`, which removes
+    WHOLE FACES — so the smallest hole an asset can have is one of its own
+    triangles, and the shape of that hole is the shape of its triangles.
+    Building assets are modelled for rendering, not for being broken: measured
+    on the packs in use here, `BG_Building_D` carries triangles up to 255 m2
+    with a 22 m edge (4.8% of its faces are over 4 m2). Deleting one of those
+    is not a hole, it is a missing wall, and no amount of tuning the hole
+    radius helps because the geometry cannot express anything smaller.
+
+    Fracture is less affected — `_clip_by_plane` creates new vertices on the
+    cut, so cell *silhouettes* are exact at any tessellation — but a fragment
+    cut from two big triangles is itself two big triangles, which is what makes
+    rubble read as flat shards.
+
+    So this runs BEFORE the profile: refine where the mesh is coarse, then let
+    the existing operators work at a resolution where a hole can be hole-shaped.
+
+    PRIMVARS ARE CARRIED AS VALUES, NOT AS INDICES
+    ----------------------------------------------
+    Each round rebuilds the topology, so any index into the ORIGINAL arrays
+    stops meaning anything after the first one. Deferring the primvar rebuild
+    to a final gather over such indices is what put `primvars:st` at its
+    original length on a mesh with 7x the face-vertices — USD then dropped the
+    UVs as inconsistent with the interpolation, and the asset rendered with its
+    texture mapped through whatever the importer fell back to. So the values
+    themselves are interpolated in step with the geometry, every round.
+
+    WHAT IT DOES NOT DO
+    -------------------
+    Only faces that need it are split, and split whole (1 -> 4 on a triangle),
+    with midpoints shared through an edge map. A split face beside an unsplit
+    one therefore leaves a **T-junction**. That is deliberate: making it
+    conforming needs red-green refinement and neighbour propagation, and the
+    unsplit neighbour is by definition already below `max_edge`, so the crack
+    is bounded by the small face's size and is invisible on rubble. Uniform
+    subdivision would avoid it and quadruple every asset — 471k triangles to
+    1.9M on the largest building here — which the point budget exists to stop.
+
+    Quads and n-gons are triangulated on the way through; the mesh comes out
+    all-triangles. Indexed primvars are flattened (see `_flatten_primvar`).
+    """
+    counts, idx = _face_arrays(prim)
+    if counts is None:
+        return 0
+    pts = get_points(prim)
+    if len(pts) < 3 or int(idx.max()) >= len(pts):
+        return 0
+
+    slots, face_src = _triangulate(counts)
+    if not len(slots):
+        return 0
+
+    mesh = UsdGeom.Mesh(prim)
+    n_fv0, n_pt0, n_face0 = int(counts.sum()), len(pts), len(counts)
+
+    # --- primvars, as values laid out the way the geometry is ---------------
+    fv_sets, pt_sets, uni_sets = [], [], []
+    entries = [(mesh.GetNormalsAttr(), None, mesh.GetNormalsInterpolation())]
+    for pv in UsdGeom.PrimvarsAPI(prim).GetPrimvars():
+        _flatten_primvar(pv)
+        entries.append((pv.GetAttr(), pv, pv.GetInterpolation()))
+    for attr, pv, interp in entries:
+        vals = attr.Get() if attr else None
+        if vals is None or not len(vals):
+            continue
+        try:
+            arr, rebuild = _pv_array(vals)
+        except Exception:
+            continue
+        if interp == UsdGeom.Tokens.faceVarying and len(arr) == n_fv0:
+            fv_sets.append([attr, rebuild, arr[slots]])      # (T, 3, ...)
+        elif interp in (UsdGeom.Tokens.vertex, UsdGeom.Tokens.varying) \
+                and len(arr) == n_pt0:
+            pt_sets.append([attr, rebuild, arr])             # (P, ...)
+        elif interp == UsdGeom.Tokens.uniform and len(arr) == n_face0:
+            uni_sets.append([attr, rebuild, arr])            # (F, ...)
+
+    pt = idx[slots]                             # (T, 3) point indices
+    parent = face_src.copy()                    # (T,) original face
+    added = 0
+
+    for _round in range(int(max_rounds)):
+        a, b, c = pts[pt[:, 0]], pts[pt[:, 1]], pts[pt[:, 2]]
+        elen = np.stack([np.linalg.norm(b - a, axis=1),
+                         np.linalg.norm(c - b, axis=1),
+                         np.linalg.norm(a - c, axis=1)], axis=1)
+        need = elen.max(axis=1) > float(max_edge)
+        if not need.any():
+            break
+        if len(pts) + int(need.sum()) * 3 > int(max_points):
+            break
+
+        sel = np.nonzero(need)[0]
+        keep = np.nonzero(~need)[0]
+
+        # Shared midpoints, keyed on the unordered point pair, so two triangles
+        # that both split an edge get the SAME new vertex and stay welded.
+        mid: dict = {}
+        new_pt_pairs = []
+        e_of = np.empty((len(sel), 3), dtype=np.int64)
+        for r, t in enumerate(sel):
+            for k, (i, j) in enumerate(((0, 1), (1, 2), (2, 0))):
+                pa, pb = int(pt[t, i]), int(pt[t, j])
+                key = (min(pa, pb), max(pa, pb))
+                if key not in mid:
+                    mid[key] = len(pts) + len(new_pt_pairs)
+                    new_pt_pairs.append((pa, pb))
+                e_of[r, k] = mid[key]
+
+        if new_pt_pairs:
+            pr = np.asarray(new_pt_pairs, dtype=np.int64)
+            pts = np.concatenate([pts, (pts[pr[:, 0]] + pts[pr[:, 1]]) / 2.0])
+            for st in pt_sets:                       # vertex/varying follow
+                st[2] = np.concatenate(
+                    [st[2], (st[2][pr[:, 0]] + st[2][pr[:, 1]]) / 2.0])
+
+        # Corner order of the four children, as (corner, edge) slots. `-1`
+        # means "the corner", 0/1/2 the midpoint of edge 01/12/20.
+        CHILD = (((0, None), (None, 0), (None, 2)),
+                 ((1, None), (None, 1), (None, 0)),
+                 ((2, None), (None, 2), (None, 1)),
+                 ((None, 0), (None, 1), (None, 2)))
+        EDGE_ENDS = ((0, 1), (1, 2), (2, 0))
+
+        def _pick(src_corner, src_edge, r, t, arr3):
+            """One corner's value for a child triangle, from the parent's."""
+            if src_corner is not None:
+                return arr3[t, src_corner]
+            i, j = EDGE_ENDS[src_edge]
+            return (arr3[t, i] + arr3[t, j]) / 2.0
+
+        new_pt = [pt[keep]]
+        new_par = [parent[keep]]
+        new_fv = [[st[2][keep]] for st in fv_sets]
+        for ci, child in enumerate(CHILD):
+            blk = np.empty((len(sel), 3), dtype=np.int64)
+            for k, (sc, se) in enumerate(child):
+                blk[:, k] = (pt[sel, sc] if sc is not None else e_of[:, se])
+            new_pt.append(blk)
+            new_par.append(parent[sel])
+            for si, st in enumerate(fv_sets):
+                arr3 = st[2]
+                cols = []
+                for k, (sc, se) in enumerate(child):
+                    if sc is not None:
+                        cols.append(arr3[sel, sc])
+                    else:
+                        i, j = EDGE_ENDS[se]
+                        cols.append((arr3[sel, i] + arr3[sel, j]) / 2.0)
+                new_fv[si].append(np.stack(cols, axis=1))
+
+        pt = np.concatenate(new_pt)
+        parent = np.concatenate(new_par)
+        for si, st in enumerate(fv_sets):
+            st[2] = np.concatenate(new_fv[si])
+        added += 3 * len(sel)
+
+    if not added:
+        return 0
+
+    n_tri = len(pt)
+    mesh.GetFaceVertexCountsAttr().Set(Vt.IntArray([3] * n_tri))
+    mesh.GetFaceVertexIndicesAttr().Set(
+        Vt.IntArray([int(i) for i in pt.reshape(-1)]))
+    set_points(prim, pts)
+
+    for attr, rebuild, arr in fv_sets:
+        try:
+            attr.Set(rebuild(arr.reshape(-1, *arr.shape[2:])))
+        except Exception:
+            pass
+    for attr, rebuild, arr in pt_sets:
+        try:
+            attr.Set(rebuild(arr))
+        except Exception:
+            pass
+    for attr, rebuild, arr in uni_sets:
+        try:
+            attr.Set(rebuild(arr[parent]))
+        except Exception:
+            pass
+    _resubset(prim, parent)
+    return added
+
+
+def _resubset(prim, face_src: np.ndarray) -> None:
+    """Remap every face-`GeomSubset` onto the subdivided faces."""
+    for child in prim.GetChildren():
+        if not child.IsA(UsdGeom.Subset):
+            continue
+        sub = UsdGeom.Subset(child)
+        if sub.GetElementTypeAttr().Get() != UsdGeom.Tokens.face:
+            continue
+        old = sub.GetIndicesAttr().Get()
+        if old is None:
+            continue
+        want = np.zeros(int(face_src.max()) + 1, dtype=bool)
+        keep = np.asarray([int(i) for i in old], dtype=np.int64)
+        keep = keep[keep <= int(face_src.max())]
+        want[keep] = True
+        new = np.nonzero(want[face_src])[0]
+        sub.GetIndicesAttr().Set(Vt.IntArray([int(i) for i in new]))
 
 
 def _face_geometry(prim):
@@ -686,6 +934,112 @@ def _surface_normals(pts: np.ndarray, counts: np.ndarray, idx: np.ndarray,
     return n, med, abs(flux) / 6.0, area
 
 
+def _ray_hits(org: np.ndarray, dirs: np.ndarray, tri: np.ndarray,
+              max_dist: float, chunk: int = 24) -> np.ndarray:
+    """Nearest forward hit distance for each ray, `inf` where it misses.
+
+    Vectorised Möller–Trumbore. *tri* is (T, 3, 3) of triangle corners.
+    Chunked over rays so the (R, T) intermediate stays bounded on a
+    half-million-triangle asset.
+
+    Hand-written for the same reason `_clip_by_plane` is: `trimesh.ray` would
+    do it, but importing trimesh pulls `shapely`, which Isaac's Kit python does
+    not have — see the note at the fracture section.
+    """
+    a, b, c = tri[:, 0], tri[:, 1], tri[:, 2]
+    e1, e2 = b - a, c - a
+    out = np.full(len(org), np.inf)
+    for s in range(0, len(org), chunk):
+        o = org[s:s + chunk, None, :]                 # (r, 1, 3)
+        d = dirs[s:s + chunk, None, :]
+        pv = np.cross(d, e2[None, :, :])              # (r, T, 3)
+        det = np.einsum("rtk,tk->rt", pv, e1)
+        ok = np.abs(det) > 1e-12
+        inv = np.where(ok, 1.0 / np.where(ok, det, 1.0), 0.0)
+        tv = o - a[None, :, :]
+        u = np.einsum("rtk,rtk->rt", tv, pv) * inv
+        qv = np.cross(tv, e1[None, :, :])
+        v = np.einsum("rtk,rtk->rt", d * np.ones_like(qv), qv) * inv
+        t = np.einsum("rtk,tk->rt", qv, e2) * inv
+        hit = ok & (u >= -1e-9) & (v >= -1e-9) & (u + v <= 1 + 1e-9) & (t > 1e-6)
+        t = np.where(hit, t, np.inf)
+        m = t.min(axis=1)
+        out[s:s + chunk] = np.where(m <= max_dist, m, np.inf)
+    return out
+
+
+def wall_thickness(pts: np.ndarray, counts: np.ndarray, idx: np.ndarray,
+                   normals: np.ndarray, samples: int = 192,
+                   max_dist: float = 6.0, seed: int = 0) -> dict:
+    """How much material sits behind this surface. The honest solidity test.
+
+    Fires rays INWARD (along `-normal`) from a sample of face centroids and
+    reports how far each travels before meeting another surface. A slab has its
+    back face a wall-thickness away; a hollow shell has the far side of the room.
+
+    WHY THIS REPLACED THE ENCLOSED-VOLUME TEST
+    ------------------------------------------
+    `solidify` used to skip a mesh when its divergence-theorem volume exceeded
+    that of a slab of its own surface — `_surface_normals` returns that volume
+    for free, so it looked like the answer. It is not: for a CLOSED building
+    that volume is the air in the rooms, not the material in the walls. Measured
+    on the packs this generator actually uses:
+
+        BG_Building_D   enclosed 50,617 m3  -> "solid"   median thickness 2.00 m
+        BG_Building_A   enclosed 143,792 m3 -> "solid"   median thickness 3.11 m
+        objaverse house enclosed     62 m3  -> "shell"   median thickness 0.014 m
+
+    So every Nucleus building in the city was declared already-solid and left as
+    a paper balloon, and fracturing one exposed zero-thickness walls at every
+    cut — which is exactly the reported symptom. The ray probe calls both of
+    those first two shells, which they are.
+
+    Returns ``{"median", "p10", "solid_frac", "hits", "samples"}``;
+    `solid_frac` is the share of probes finding material within *max_dist*
+    scaled to the caller's target thickness, and is what the guard reads.
+    """
+    tri_slots, _src = _triangulate(counts)
+    if len(tri_slots) < 2:
+        return {"median": 0.0, "p10": 0.0, "solid_frac": 1.0,
+                "hits": 0, "samples": 0}
+    p = idx[tri_slots]
+    corners = pts[p]                                  # (T, 3, 3)
+    cen = corners.mean(axis=1)
+    # GEOMETRIC face normal, and probed in BOTH directions.
+    #
+    # Which side is "in" cannot be answered reliably here: these assets are not
+    # consistently wound (see `_surface_normals`), and orienting radially about
+    # the building centre gets the roof and the interior partitions wrong.
+    # Thickness does not care — a surface with material behind it has that
+    # material on exactly one side, and the nearer of the two hits finds it
+    # either way. Probing only the radially-"inward" side under-counted badly:
+    # 101/192 hits on an asset a reference ray-caster hit 400/400 on.
+    fn = np.cross(corners[:, 1] - corners[:, 0], corners[:, 2] - corners[:, 0])
+    mag = np.linalg.norm(fn, axis=1)
+    good = mag > 1e-12
+    if not good.any():
+        return {"median": 0.0, "p10": 0.0, "solid_frac": 1.0,
+                "hits": 0, "samples": 0}
+    fn = fn[good] / mag[good, None]
+    cen = cen[good]
+
+    rng = np.random.default_rng(seed)
+    n = min(int(samples), len(cen))
+    sel = rng.choice(len(cen), n, replace=False)
+    c, nrm = cen[sel], fn[sel]
+    d = np.minimum(_ray_hits(c - nrm * 1e-4, -nrm, corners, max_dist),
+                   _ray_hits(c + nrm * 1e-4, nrm, corners, max_dist))
+
+    finite = d[np.isfinite(d)]
+    return {
+        "median": float(np.median(finite)) if len(finite) else float("inf"),
+        "p10": float(np.percentile(finite, 10)) if len(finite) else float("inf"),
+        "hits": int(len(finite)),
+        "samples": int(n),
+        "_d": d,
+    }
+
+
 def _boundary_edges(counts: np.ndarray, idx: np.ndarray, w: np.ndarray):
     """``(slot_a, slot_b, face)`` for every edge used by exactly one face.
 
@@ -799,7 +1153,8 @@ def _grow_subsets(prim, n_faces: int, rim_face: np.ndarray) -> None:
 
 def solidify(prim, thickness: float, ref_centre=None, ref_box=None,
              weld_tol: float = 1e-4, max_span_frac: float = 0.25,
-             solid_ratio: float = 0.5, max_points: int = 200_000) -> int:
+             solid_ratio: float = 1.5, max_points: int = 200_000,
+             solid_frac: float = 0.6, solid_samples: int = 192) -> int:
     """Extrude *prim*'s shell inward into a slab. Returns faces added, or 0.
 
     *ref_centre* / *ref_box* describe the whole building in world space; pass
@@ -826,12 +1181,14 @@ def solidify(prim, thickness: float, ref_centre=None, ref_box=None,
     ALREADY-SOLID MESHES ARE SKIPPED
     --------------------------------
     Not every asset in the library is a shell, and thickening one that is not
-    buys nothing and costs double the points. The library really does span both
-    kinds — measured: an objaverse bungalow encloses 51 m³ against the 820 m³
-    a 0.25 m slab of its own surface area would have, i.e. a true shell, while
-    a Nucleus `BG_Building_*` is a closed mass enclosing thirty times that.
-    So the enclosed volume `_surface_normals` returns decides: at or above
-    *solid_ratio* of the slab volume there is already material there.
+    buys nothing and costs double the points. The test is `wall_thickness`: a
+    mesh is skipped only when at least *solid_frac* of its surface has material
+    within `solid_ratio` wall-thicknesses behind it.
+
+    This used to compare the *enclosed volume* against a slab of the surface,
+    which is wrong in the one case that matters — for a CLOSED building that
+    volume is the air in the rooms, so every Nucleus building was declared
+    solid and left as a paper balloon. `wall_thickness` documents the numbers.
 
     WHICH WAY IS IN
     ---------------
@@ -872,8 +1229,18 @@ def solidify(prim, thickness: float, ref_centre=None, ref_box=None,
     t = min(float(thickness), max_span_frac * span)
     if t <= 1e-6:
         return 0
-    if volume >= solid_ratio * area * t:
-        return 0                                  # already has material in it
+
+    # ALREADY-SOLID TEST — see `wall_thickness` for why this is a ray probe and
+    # not the enclosed volume that used to be here. A mesh is left alone only
+    # when most of its surface has material within `solid_ratio` wall
+    # thicknesses behind it; a hollow building reads metres and gets thickened.
+    probe = wall_thickness(world, counts, idx, outward,
+                           samples=solid_samples,
+                           max_dist=max(t * 8.0, 4.0))
+    if probe["samples"]:
+        near = probe["_d"] <= t * max(solid_ratio, 1e-6)
+        if float(near.mean()) >= solid_frac:
+            return 0                              # already has material in it
 
     inward = -outward
     if ref_box is not None:
@@ -1802,8 +2169,18 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
     if tcfg.get("enabled", True) and wall_m > 0.0:
         thicken = {i for i, _ in rank[:int(tcfg.get("max_buildings", 40))]}
     solid_kw = {k: tcfg[k] for k in ("max_points", "solid_ratio",
-                                     "max_span_frac", "weld_tol")
+                                     "max_span_frac", "weld_tol",
+                                     "solid_frac", "solid_samples")
                 if k in tcfg}
+
+    # Tessellation floor for the damage operators. Off by default only in the
+    # sense that a config can set `enabled: false`; on, because without it the
+    # holes and fragments are shaped by the model's topology rather than by the
+    # disaster — see `subdivide`.
+    scfg = (dis.get("mesh_damage") or {}).get("subdivide") or {}
+    sub_edge = (float(scfg.get("max_edge_m", 4.0))
+                if scfg.get("enabled", True) else 0.0)
+    sub_max_points = int(scfg.get("max_points", 400_000))
 
     tally: dict = {}
     fragments: list = []
@@ -1831,6 +2208,23 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
             # Chosen once, against the surface as it stands, and reused as the
             # fracture focus — so the mesh is cut finest where it was breached.
             kw["epicenter"] = blast_epicenter(prims, b, bseed)
+
+        # REFINE BEFORE BREAKING.
+        #
+        # Every hole is cut by `delete_faces`, i.e. at face granularity, so the
+        # coarsest triangle in the asset is the smallest hole it can have — and
+        # these assets carry 255 m2 wall slabs. Refining first is what lets the
+        # damage be shaped like damage instead of like the model's topology;
+        # see `subdivide`. It runs before the profile because the profile is
+        # what punches the holes.
+        #
+        # `max_edge` is metres of world space and scales with the building, not
+        # with the asset's own units: a 0.6 m edge on a tower and on a shed
+        # means the same size of rubble in the scene, which is the thing being
+        # controlled.
+        if sub_edge > 0.0 and b is not None:
+            for mp in prims:
+                subdivide(mp, sub_edge, max_points=sub_max_points)
 
         report: dict = {}
         name = apply_profile(prims, dtype, inten, seed=bseed, report=report,

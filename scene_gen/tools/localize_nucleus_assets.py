@@ -46,6 +46,11 @@ so the caller chowns them; `--chown UID:GID` does it here instead.
 Reference them with the `airstack://` scheme, exactly as the AEC packs are:
 
     - {usd: "airstack://scene_gen/assets/nucleus/Muyang/DownTown/Assets/BG_Building_A.usd"}
+
+NOTE (superseded for browsing): `tools/nucleus.py` reads Nucleus from the HOST
+in under a second — `omni.client` never needed Kit, only `libcarb.so` on the
+loader path. Use this only when you need Kit's USD resolver (i.e. to OPEN a
+stage); for list / stat / read, prefer `nucleus.py`.
 """
 
 import argparse

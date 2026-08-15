@@ -352,24 +352,16 @@ def draw(cfg, layout, placements, res, out_path, title="",
 
 
 def footprint(res, p, category=None):
-    """The metric footprint of one placement, asked for the way the generator asks.
+    """The metric footprint of one placement.
 
-    **The scale and axis MUST come off the placement.** `SizeResolver.get`
-    falls back to the config-wide `asset_scale` when `scale` is None, and the
-    per-asset override is where the real number lives: the AEC and Nucleus
-    packs are centimetre-authored and carry `scale: 0.01`, so omitting it
-    measures them at 1.0 and returns footprints a HUNDRED TIMES too large. In
-    the sim-side plan that drew every downtown building as a block-sized slab
-    covering the whole map.
-
-    It went unnoticed because `StubResolver` ignores `scale` — correctly, since
-    the sizes it scrapes out of the asset-set comments are already metric — so
-    the host tool looked fine while the same code path was broken for the only
-    resolver that reads it.
+    `scene_generator.placement_footprint` is the rule; this is the local name
+    for it. Bugs from restating it are documented there — and note that
+    `StubResolver` ignores `scale` (correctly: its comment-scraped sizes are
+    already metric), so this tool cannot catch a regression in it. The sim-side
+    plan and `disaster_stage` can, and both use the same function.
     """
-    return res.get(p.get("usd", ""), category or p.get("category", "asset"),
-                   scale=float(p.get("scale", 1.0) or 1.0),
-                   axis_up=str(p.get("axis_up", "Z") or "Z"))
+    import scene_generator as sg
+    return sg.placement_footprint(res, p, category)
 
 
 def _block_of(layout, p):

@@ -1065,31 +1065,61 @@ def test_solidify_never_inflates_the_building():
     assert np.all(after.lo >= before.lo - 1e-6)
 
 
-def test_solidify_skips_a_mesh_that_already_encloses_material():
-    """A closed solid needs no inner shell, and doubling it costs points.
+def test_solidify_thickens_a_hollow_closed_box():
+    """A closed surface is not the same thing as a solid, and this is the case
+    that mattered.
 
-    The library really does hold both kinds — the objaverse houses are shells,
-    the Nucleus downtown masses are closed volumes — so this is the difference
-    between spending the budget where it does something and spending it twice.
+    This test used to assert the OPPOSITE — that a closed box is skipped —
+    because `solidify` decided solidity from the divergence-theorem volume,
+    which for anything closed is the volume of the AIR inside it. Measured on
+    the packs the generator actually uses:
+
+        BG_Building_D   enclosed  50,617 m3 -> "solid"   real thickness 2.00 m
+        BG_Building_A   enclosed 143,792 m3 -> "solid"   real thickness 3.11 m
+
+    So every Nucleus building in a downtown scene was left as a paper balloon
+    and fracturing one exposed zero-thickness walls at every cut. The guard is
+    now `wall_thickness`, a ray probe for material actually behind the surface,
+    and an 8 m hollow box is what it is: a shell.
     """
     prim = solid_box(scale=8.0, n=4)[0]
     mesh = UsdGeom.Mesh(prim.GetStage().GetPrimAtPath("/B/Mesh"))
-    # Wound consistently outward, the box encloses its own volume.
     pts = np.array(mesh.GetPointsAttr().Get(), dtype=np.float64)
     centre = (pts.max(axis=0) + pts.min(axis=0)) * 0.5
-    counts = np.array(mesh.GetFaceVertexCountsAttr().Get())
-    idx = np.array(mesh.GetFaceVertexIndicesAttr().Get())
-    fixed = []
-    for s, c in zip(M._fv_starts(counts), counts):
-        f = idx[s:s + c]
-        v = pts[f]
-        nrm = np.cross(v[1] - v[0], v[2] - v[0])
-        fixed.append(f[::-1] if np.dot(nrm, v.mean(axis=0) - centre) < 0 else f)
-    mesh.GetFaceVertexIndicesAttr().Set(
-        [int(i) for f in fixed for i in f])
 
     n0 = _face_count(mesh.GetPrim())
-    assert M.solidify(mesh.GetPrim(), 0.25, ref_centre=centre) == 0
+    assert M.solidify(mesh.GetPrim(), 0.25, ref_centre=centre) > 0, \
+        "a hollow box has no material behind its walls and must be thickened"
+    assert _face_count(mesh.GetPrim()) > n0
+
+
+def test_solidify_skips_a_mesh_with_real_material_behind_it():
+    """The other half: a wall that is already a slab is left alone.
+
+    Two parallel sheets a wall-thickness apart — which is how a thickened mesh
+    or a properly modelled solid reads to the probe — must not be thickened
+    again, or the budget is spent doubling geometry that needs nothing.
+    """
+    st = Usd.Stage.CreateInMemory()
+    _STAGES.append(st)
+    UsdGeom.Xform.Define(st, "/B")
+    mesh = UsdGeom.Mesh.Define(st, "/B/Mesh")
+
+    # A 4x4 m panel, and its back face 0.2 m behind it — thinner than the
+    # 0.25 m the caller would add, so there is nothing to gain.
+    verts, faces = [], []
+    for z in (0.0, -0.2):
+        b = len(verts)
+        verts += [Gf.Vec3f(0, 0, 2 + z), Gf.Vec3f(4, 0, 2 + z),
+                  Gf.Vec3f(4, 4, 2 + z), Gf.Vec3f(0, 4, 2 + z)]
+        faces.append([b, b + 1, b + 2, b + 3])
+    mesh.GetPointsAttr().Set(verts)
+    mesh.GetFaceVertexCountsAttr().Set([4, 4])
+    mesh.GetFaceVertexIndicesAttr().Set([i for f in faces for i in f])
+
+    n0 = _face_count(mesh.GetPrim())
+    assert M.solidify(mesh.GetPrim(), 0.25,
+                      ref_centre=np.array([2.0, 2.0, 0.0])) == 0
     assert _face_count(mesh.GetPrim()) == n0
 
 

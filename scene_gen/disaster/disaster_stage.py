@@ -57,7 +57,8 @@ placement, and a severity sweep stops being comparable.
 import math
 import random
 
-from scene_generator import (_in_exclusion, _normalize_usd_list, _stage,
+from scene_generator import (_in_exclusion, _normalize_usd_list,
+                             placement_footprint, _stage,
                              make_damage_field)
 
 # category -> response class. Categories not listed are left alone, which is
@@ -239,6 +240,12 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
         return 90.0 if _au(u) == "Y" else 0.0
 
     def _fp(u, cat):
+        """Footprint of an asset from one of THIS pass's pools.
+
+        `_sc`/`_au` only know the pools `_pool` normalised — damaged, destroyed,
+        piles, pieces. Anything already on the plan goes through
+        `placement_footprint` instead, which reads the placement.
+        """
         return resolver.get(u, cat, scale=_sc(u), axis_up=_au(u))
 
     def _hit(x, y, frac):
@@ -258,7 +265,11 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
         return True
 
     tally: dict = {}
+    dropped: dict = {}
     new_placements: list = []
+    region = layout.get("region")
+    rx0, ry0, rx1, ry1 = ([float(v) for v in region] if region
+                          else (0.0, 0.0, 0.0, 0.0))
 
     for p in placements:
         if p.get("category") != "house":
@@ -276,7 +287,7 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
         else:
             continue
 
-        base_fp = _fp(p["usd"], "house")
+        base_fp = placement_footprint(resolver, p, "house")
         is_destroyed = False
         tilt_standin = True
 
@@ -391,6 +402,16 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
         def _emit(u, x, y, z, cat, sc, settle=False):
             if exclusions and _in_exclusion(x, y, exclusions):
                 return
+            # Debris is scene content, so it lives in the scene. `_ring_pos`
+            # walks outward from the building's own footprint and knows nothing
+            # about the region, and `apply_ground_planes` lays exactly one
+            # asphalt mesh spanning `layout["region"]` — so a piece past the
+            # edge is not "on the outskirts", it is hanging over nothing.
+            # `apply_path_scour._point` has always sampled inside the region;
+            # this is the same bound on the other emitter.
+            if region and not (rx0 <= x <= rx1 and ry0 <= y <= ry1):
+                dropped[cat] = dropped.get(cat, 0) + 1
+                return
             q = {"usd": u, "x_m": x, "y_m": y, "z_m": z,
                  "yaw_deg": rng.uniform(0.0, 360.0), "roll_deg": _axis_roll(u),
                  "pitch_deg": 0.0, "scale": sc, "category": cat,
@@ -427,6 +448,12 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
     if tally:
         print("[disaster] buildings  "
               + "  ".join(f"{k}={v}" for k, v in sorted(tally.items())))
+    if dropped:
+        # Loud on purpose: a handful is the rim of the city behaving correctly,
+        # but a large number means something upstream is throwing debris where
+        # no building is — which is how the 100x footprint bug looked.
+        print("[disaster] outside the region, dropped  "
+              + "  ".join(f"{k}={v}" for k, v in sorted(dropped.items())))
     return tally
 
 
@@ -595,8 +622,7 @@ def apply_path_scour(config: dict, layout: dict, placements: list,
             continue
         fp = p.get("_footprint_m")
         if not fp:
-            f = resolver.get(p["usd"], "house", scale=p.get("scale", scale),
-                             axis_up=p.get("axis_up", "Z"))
+            f = placement_footprint(resolver, p, "house")
             fp = (f["sx"], f["sy"])
         house_rects.append((p["x_m"], p["y_m"], fp[0] / 2.0, fp[1] / 2.0))
 

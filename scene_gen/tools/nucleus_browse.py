@@ -11,6 +11,11 @@ swallowed by the Kit logger.
     docker exec isaac-sim bash -c 'cd /isaac-sim && \
         PYTHONPATH="$ISAAC_SIM_PYTHONPATH" ./python.sh /tmp/s.py >/dev/null 2>&1; \
         cat /tmp/nucleus_browse.txt'
+
+NOTE (superseded for browsing): `tools/nucleus.py` reads Nucleus from the HOST
+in under a second — `omni.client` never needed Kit, only `libcarb.so` on the
+loader path. Use this only when you need Kit's USD resolver (i.e. to OPEN a
+stage); for list / stat / read, prefer `nucleus.py`.
 """
 
 from isaacsim import SimulationApp

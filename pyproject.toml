@@ -1,16 +1,100 @@
 [project]
 name = "airstack"
 version = "0.1.0"
-description = "Add your description here"
+description = "Host-side environment for AirStack: scene generation, asset tooling, notebooks, Nucleus, and a local Isaac Sim."
 readme = "README.md"
-requires-python = ">=3.10"
+
+# PINNED TO 3.11, AND NOT BY PREFERENCE.
+#
+# `isaacsim` 5.1 declares `Python>=3.11,<3.12` — resolving it against 3.10 fails
+# outright — and the `omni.client` runtime `scene_gen/tools/nucleus.py` extracts
+# from the isaac-sim image is a per-interpreter binary, so it has to agree.
+# Everything else here is happy on 3.11. See ENVIRONMENTS.md.
+requires-python = "==3.11.*"
+
 dependencies = [
-    "ipykernel>=7.3.0",
-    "matplotlib>=3.10.9",
-    "objaverse>=0.1.7",
+    # --- USD, for every host-side script and the scene_gen test suite --------
+    # Kit ships its own USD and prepends it once `SimulationApp` starts, so this
+    # serves scripts that run WITHOUT a sim; inside one, Kit's build wins. That
+    # is the same split the container already has.
+    "usd-core>=25.5",
+
+    # --- scene generation / analysis ----------------------------------------
+    # FLOORS ARE SET TO ISAACSIM'S EXACT PINS, NOT TO THE NEWEST RELEASE.
+    # `isaacsim` pins these hard (pillow==11.3.0, trimesh==4.5.1,
+    # numpy==1.26.0, scipy==1.15.3, matplotlib==3.10.3, pyyaml==6.0.2,
+    # requests==2.32.3, psutil==5.9.8). Any floor above one of them makes
+    # `--extra isaacsim` unresolvable, and nothing here needs the newer
+    # versions — so the floor is the pin, and a plain `uv sync` is still
+    # free to take something newer.
+    "numpy>=1.26.0",
+    "scipy>=1.15.3",
+    "shapely>=2.0",
+    "pyyaml>=6.0.2",
+    "matplotlib>=3.10.3",
     "pandas>=2.3.3",
-    "pillow>=12.3.0",
+    "tabulate>=0.9",
+    "psutil>=5.9.8",
+    "requests>=2.32.3",
+
+    # --- assets: objaverse fetch + mesh handling + previews ------------------
+    "objaverse>=0.1.7",
+    "trimesh>=4.5.1",
+    "pillow>=11.3.0",
     "pyrender>=0.1.45",
-    "pyyaml>=6.0.3",
-    "trimesh>=4.12.2",
+
+    # --- street-network stats (tools/osm_street_stats.py) --------------------
+    "osmnx>=2.0",
+
+    # --- notebooks ----------------------------------------------------------
+    "jupyterlab>=4.4",
+    # <7.3: isaacsim-kernel pins typing-extensions==4.12.2, and ipykernel
+    # 7.3 wants jupyter-client>=8.9, which needs typing-extensions>=4.13.
+    "ipykernel>=6.29",
+    "ipywidgets>=8.1",
+
+    # --- tests --------------------------------------------------------------
+    "pytest>=8.0",
 ]
+
+# Local Isaac Sim, from NVIDIA's index.
+#
+# A GROUP, NOT AN `optional-dependencies` EXTRA, AND THAT MATTERS.
+# `uv run` re-syncs the environment to the declared default on every
+# invocation. An extra is not in that default, so `uv sync --extra isaacsim`
+# followed by any `uv run` silently UNINSTALLED it — the venv went 7.4 GB back
+# to 1.1 GB and `import isaacsim` started failing again. A group listed in
+# `tool.uv.default-groups` is part of the default, so it survives.
+#
+#     uv sync                        # includes Isaac Sim
+#     uv sync --no-group isaacsim    # skip it (no GPU / tight disk)
+#
+# The wheels are thin (~200 MB); the multi-gigabyte Kit extension cache is
+# pulled on FIRST RUN into ~/.cache/ov and ~/.local/share/ov, not at install
+# time. Check free space before the first `SimulationApp()` — see ENVIRONMENTS.md.
+[dependency-groups]
+isaacsim = [
+    "isaacsim[all]==5.1.0",
+]
+
+[tool.uv]
+default-groups = ["isaacsim"]
+
+# `isaacsim` and its components live only on NVIDIA's index, while everything
+# else comes from PyPI. `unsafe-best-match` lets the resolver consider both
+# rather than pinning each package to whichever index it saw first.
+index-strategy = "unsafe-best-match"
+
+[[tool.uv.index]]
+name = "nvidia"
+url = "https://pypi.nvidia.com"
+explicit = false
+
+# NOT HERE, AND IT CANNOT BE: `bpy`.
+#
+# The Blender module publishes `Requires-Python: ==3.13.*`, which cannot coexist
+# with isaacsim's `>=3.11,<3.12` in one interpreter. The three scripts that need
+# it — scene_gen/convert_to_usd.py, scene_gen/render_usd.py and
+# scene_gen/tools/render_damage_gallery.py — already declare PEP 723 inline
+# metadata and are run as `uv run --script <file>`, which builds its own 3.13
+# environment on demand. That is the supported path and needs nothing from here.

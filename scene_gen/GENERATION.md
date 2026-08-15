@@ -736,20 +736,36 @@ disaster:
 ### Walls need thickness before they can break
 
 Building assets are **hollow shells** — one surface, no depth, because nothing
-needed the inside of a wall until something broke it. Measured: an objaverse
-bungalow encloses 51 m³ against the 820 m³ a 0.25 m slab of its own surface
-area would have. Break that and it shows: a punched hole has a knife edge and
-you see through it to the unlit backfaces of the far wall, and a Voronoi cell
-cut from a zero-thickness surface is a zero-thickness surface, so the rubble is
-a drift of curved sheets rather than chunks.
+needed the inside of a wall until something broke it. Break that and it shows:
+a punched hole has a knife edge and you see through it to the unlit backfaces
+of the far wall, and a Voronoi cell cut from a zero-thickness surface is a
+zero-thickness surface, so the rubble is a drift of curved sheets rather than
+chunks.
 
 So `mesh_damage.solidify` extrudes every shell **inward** — outward would grow
 the building past the setbacks the layout stage packed it to — and caps the
 open edges, before anything breaks it. It runs after the profile (which is what
 punches the holes, so their edges get rimmed) and before the fracture (which
-then cuts a solid). Meshes that already enclose material are skipped: the
-library holds both kinds, and the Nucleus downtown masses are closed volumes
-already.
+then cuts a solid). Meshes that already have material behind them are skipped.
+
+**How "already solid" is decided, and why it changed.** It used to be the
+enclosed volume — `_surface_normals` returns it for free, so it looked like the
+answer. It is not: for a *closed* building that volume is the air in the rooms,
+not the material in the walls. Measured with a ray probe against the packs this
+generator actually uses:
+
+| asset | enclosed volume | verdict it gave | real median thickness |
+|---|---|---|---|
+| `BG_Building_D` | 50,617 m³ | "solid" | **2.00 m** |
+| `BG_Building_A` | 143,792 m³ | "solid" | **3.11 m** |
+| objaverse house | 62 m³ | shell | 0.014 m |
+
+So every Nucleus building in a downtown was declared solid and left as a paper
+balloon, which is why fracturing one still showed zero-thickness walls. The
+guard is now `mesh_damage.wall_thickness`: it fires rays from a sample of faces
+in both directions and asks how far they travel before meeting another surface.
+A mesh is skipped only when at least `solid_frac` of its surface has material
+within `solid_ratio` wall-thicknesses behind it.
 
 Same budget shape as `fracture`, spent on the same worst-hit buildings, because
 doubling the point count of every damaged building in a downtown is not
@@ -763,7 +779,55 @@ disaster:
       wall_m: 0.25          # WORLD METRES, not a fraction of the radius — a
                             # wall is 0.25 m thick on a bungalow and on a tower
       max_buildings: 60
+      solid_ratio: 1.5      # "behind me within 1.5 wall-thicknesses" = material
+      solid_frac: 0.6       # ...on this share of the surface = already solid
+      solid_samples: 192    # rays per mesh
 ```
+
+### Damage cannot be finer than the model's triangles
+
+Every hole is cut by `delete_faces`, i.e. **whole faces only**, so the coarsest
+triangle in an asset is the smallest hole it can have — and the shape of that
+hole is the shape of its triangles. These assets are modelled for rendering,
+not for being broken: `BG_Building_D` carries triangles up to **255 m² with a
+22 m edge**. Deleting one is not a hole, it is a missing wall, and no hole-radius
+tuning helps, because the geometry cannot express anything smaller.
+
+So `mesh_damage.subdivide` refines the mesh **before** the profile runs, splitting
+any face whose longest edge exceeds `max_edge_m`. On `BG_Building_D` that takes
+the largest triangle in the *damaged* output from 71.3 m² to 3.8 m².
+
+```yaml
+disaster:
+  mesh_damage:
+    subdivide:
+      enabled: true
+      max_edge_m: 4.0       # world metres, so rubble is the same size on a
+                            # tower as on a shed
+      max_points: 400000    # per mesh; a dense asset is already fine enough
+```
+
+**It is not free, and the default is the knee rather than the best picture.**
+Measured on `BG_Building_E`, one earthquake, whole mesh-damage pass:
+
+| config | secs | output tris | largest triangle |
+|---|---|---|---|
+| before both fixes | 0.8 | 24,603 | 125.05 m² |
+| thickening fix only | 1.7 | 37,107 | 147.02 m² |
+| `max_edge_m: 4.0` | **7.2** | 106,823 | **8.02 m²** |
+| `max_edge_m: 3.0` | 18.8 | 320,020 | 2.32 m² |
+| `max_edge_m: 2.0` | 24.8 | 333,029 | 2.72 m² |
+
+Subdivision itself is cheap (~1 s); the cost is downstream, because the
+fracture then clips 7× more geometry. 4.0 m buys a 15× granularity gain for 4×
+the time and 3.0 m buys almost nothing for another 2.6×, which is why the
+default sits where it does. `tools/damage_lab.py` works one building at a time,
+so drop it to 2.0 freely there; a 60-building scene is a different budget.
+Turn it off for a fast iteration loop, not for a final scene. Only faces that need splitting are split, which leaves a
+**T-junction** against unsplit neighbours — bounded by the neighbour's own size,
+which is by definition already under `max_edge_m`, and invisible on rubble.
+Making it conforming needs red-green refinement; uniform subdivision would avoid
+it and quadruple every asset, which `max_points` exists to prevent.
 
 `tools/damage_gallery.py --wall-thickness 0` rebuilds any sheet with this
 switched off, which is the only way to see the two side by side.
