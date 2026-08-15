@@ -82,10 +82,14 @@ def pytest_configure(config):
     # root (the parent of its test/ dir) on sys.path so they resolve without a
     # per-package conftest.py — a second conftest.py collides with this root one as
     # module `conftest` under --import-mode=importlib and breaks `from conftest import`.
+    # The test/ dir itself goes on too, for sibling helper modules, but only when it
+    # ships no conftest.py — otherwise that file wins the `conftest` name and the
+    # collision above is exactly what happens.
     for d in unit_test_dirs():
-        root = str(d.parent)
-        if root not in sys.path:
-            sys.path.insert(0, root)
+        roots = [d.parent] if (d / "conftest.py").exists() else [d.parent, d]
+        for root in roots:
+            if str(root) not in sys.path:
+                sys.path.insert(0, str(root))
 
     # Collect co-located unit tests: their files live outside tests/, so add the
     # explicit non-linter test files to the collection args. Skip when an explicit
