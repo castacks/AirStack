@@ -1,0 +1,15 @@
+[WARN] [ros2bag]: Positional "topics" argument deprecated. Please use optional "--topics" argument instead.
+stdin is not a terminal device. Keyboard handling disabled.[INFO] [1786747231.756137002] [rosbag2_recorder]: Press SPACE for pausing/resuming
+[INFO] [1786747231.756146391] [rosbag2_recorder]: Event publisher thread: Started
+[INFO] [1786747231.761700878] [rosbag2_recorder]: Starting recording to '/bags/hw_replay_drone1_20260812/flight'
+[INFO] [1786747231.763417377] [rosbag2_recorder]: Listening for topics...
+[INFO] [1786747231.763438749] [rosbag2_recorder]: Recording...
+[INFO] [1786747231.763452369] [rosbag2_recorder]: Topics discovery started.
+[WARN] [1786747231.866340978] [rosbag2_storage]: Some, but not all, publishers on topic "/robot_1/odometry_conversion/odometry" are offering RMW_QOS_POLICY_RELIABILITY_RELIABLE. Falling back to RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT as it will connect to all publishers. Some messages from Reliable publishers could be dropped.
+[INFO] [1786747231.868379794] [rosbag2_recorder]: Subscribed to topic '/robot_1/odometry_conversion/odometry'
+[INFO] [1786747232.973009661] [rosbag2_recorder]: Subscribed to topic '/robot_1/interface/mavros/local_position/odom'
+[INFO] [1786747344.503666775] [rosbag2_recorder]: Topics discovery stopped.
+[INFO] [1786747344.503794925] [rosbag2_recorder]: Pausing recording.
+[INFO] [1786747344.503835734] [rosbag2_cpp]: Writing remaining messages from cache to the bag. It may take a while
+[INFO] [1786747344.505379721] [rosbag2_recorder]: Recording stopped
+[INFO] [1786747344.507229659] [rosbag2_recorder]: Event publisher thread: Exited
