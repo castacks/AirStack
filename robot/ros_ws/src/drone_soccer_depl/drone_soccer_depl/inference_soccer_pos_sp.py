@@ -12,6 +12,7 @@ from ament_index_python.packages import get_package_share_directory
 import rclpy
 import torch
 from geometry_msgs.msg import PoseStamped
+from nav_msgs.msg import Odometry
 from px4_msgs.msg import (
     OffboardControlMode,
     TrajectorySetpoint,
@@ -29,12 +30,12 @@ from rclpy.qos import (
 from torch import nn
 
 
-POLICY_RATE_HZ = 50.0
+POLICY_RATE_HZ = 10.0
 OBSERVATION_SIZE = 20
 ACTION_SIZE = 4
 NORMALIZATION_EPSILON = 1.0e-2
 MAX_YAW_OFFSET_RAD = math.radians(30.0)
-DEFAULT_CHECKPOINT_NAME = "model_1000_after.pt"
+DEFAULT_CHECKPOINT_NAME = "model_700.pt"
 
 
 class SoccerActor(nn.Module):
@@ -120,33 +121,6 @@ def quaternion_to_rotation_matrix(quaternion: torch.Tensor) -> torch.Tensor:
     ).reshape(3, 3)
 
 
-class MocapVelocityEstimator:
-    """Estimate world-frame velocity from mocap poses using filtered differences."""
-
-    def __init__(self, alpha: float, device: torch.device) -> None:
-        """Initialize the estimator with its exponential smoothing factor."""
-        if not 0.0 < alpha <= 1.0:
-            raise ValueError(f"alpha must be in (0, 1], got {alpha}")
-        self.alpha = float(alpha)
-        self.previous_position: Optional[torch.Tensor] = None
-        self.previous_stamp_s: Optional[float] = None
-        self.velocity = torch.zeros(3, dtype=torch.float32, device=device)
-
-    def update(self, position: torch.Tensor, stamp_s: float) -> torch.Tensor:
-        """Ingest a pose sample and return its EMA-filtered velocity in m/s."""
-        if self.previous_position is not None and self.previous_stamp_s is not None:
-            elapsed = stamp_s - self.previous_stamp_s
-            if 1.0e-6 < elapsed < 0.5:
-                raw_velocity = (position - self.previous_position) / elapsed
-                self.velocity = (
-                    self.alpha * raw_velocity
-                    + (1.0 - self.alpha) * self.velocity
-                )
-        self.previous_position = position.clone()
-        self.previous_stamp_s = float(stamp_s)
-        return self.velocity.clone()
-
-
 class DroneSoccerOffboard(Node):
     """Publish the offboard heartbeat and run soccer inference in offboard mode."""
 
@@ -169,10 +143,11 @@ class DroneSoccerOffboard(Node):
         self.declare_parameter("device", "auto")
         self.declare_parameter("robot_name", default_robot_name)
         self.declare_parameter("fmu_prefix", "")
-        self.declare_parameter("ball_pose_topic", "/VolleyBall/pose")
-        self.declare_parameter("velocity_filter_alpha", 0.4)
+        self.declare_parameter(
+            "ball_odometry_topic", "/SoccerBall/mocap_odometry"
+        )
         self.declare_parameter("goal_pose_topic", "")
-        self.declare_parameter("target_x_ned", -6.0)
+        self.declare_parameter("target_x_ned", 4.0)
         self.declare_parameter("target_y_ned", 0.0)
         self.declare_parameter("next_target_x_ned", 0.0)
         self.declare_parameter("next_target_y_ned", 0.0)
@@ -197,13 +172,11 @@ class DroneSoccerOffboard(Node):
             if configured_fmu_prefix
             else f"{robot_namespace}/fmu"
         )
-        ball_pose_topic = str(self.get_parameter("ball_pose_topic").value)
+        ball_odometry_topic = str(
+            self.get_parameter("ball_odometry_topic").value
+        )
         configured_goal_topic = str(self.get_parameter("goal_pose_topic").value)
         goal_pose_topic = configured_goal_topic or f"{robot_namespace}/goal/pose"
-        self.ball_velocity_estimator = MocapVelocityEstimator(
-            alpha=float(self.get_parameter("velocity_filter_alpha").value),
-            device=self.device,
-        )
         goal_points_ned = torch.tensor(
             [
                 [
@@ -275,9 +248,9 @@ class DroneSoccerOffboard(Node):
             fmu_qos,
         )
         self.create_subscription(
-            PoseStamped,
-            ball_pose_topic,
-            self._ball_pose_callback,
+            Odometry,
+            ball_odometry_topic,
+            self._ball_odometry_callback,
             ball_qos,
         )
 
@@ -294,7 +267,8 @@ class DroneSoccerOffboard(Node):
         self.create_timer(1.0 / POLICY_RATE_HZ, self._control_callback)
         self.get_logger().info(
             f"Loaded soccer policy from {checkpoint_path} on {self.device}; "
-            f"robot={robot_name}; ball state from {ball_pose_topic}; waiting for "
+            f"robot={robot_name}; filtered ball state from "
+            f"{ball_odometry_topic}; waiting for "
             f"{self.fmu_prefix}/out data and RC-selected offboard mode"
         )
 
@@ -319,21 +293,20 @@ class DroneSoccerOffboard(Node):
         """Store the newest PX4 vehicle status."""
         self.vehicle_status = message
 
-    def _ball_pose_callback(self, message: PoseStamped) -> None:
-        """Store VolleyBall position and estimate velocity by finite difference."""
-        position = message.pose.position
-        new_position_enu = torch.tensor(
+    def _ball_odometry_callback(self, message: Odometry) -> None:
+        """Store the bridge's filtered soccer-ball position and velocity."""
+        position = message.pose.pose.position
+        velocity = message.twist.twist.linear
+        self.ball_position_enu = torch.tensor(
             [position.x, position.y, position.z],
             dtype=torch.float32,
             device=self.device,
         )
-        stamp_s = message.header.stamp.sec + message.header.stamp.nanosec * 1.0e-9
-        self.ball_velocity_enu = self.ball_velocity_estimator.update(
-            new_position_enu,
-            stamp_s,
+        self.ball_velocity_enu = torch.tensor(
+            [velocity.x, velocity.y, velocity.z],
+            dtype=torch.float32,
+            device=self.device,
         )
-
-        self.ball_position_enu = new_position_enu
         self.last_ball_pose_time = self._now_seconds()
         self._report_goal_reached()
 
@@ -494,7 +467,8 @@ class DroneSoccerOffboard(Node):
         # [0.4, 2.0] m, and [-30, 30] degrees.
         east_offset = float(normalized_action[0].item())
         north_offset = float(normalized_action[1].item())
-        height = 1.2 + 0.8 * float(normalized_action[2].item())
+        # height = 1.2 + 0.8 * float(normalized_action[2].item())
+        height = 0.85 + 0.45 * float(normalized_action[2].item())
         current_yaw_enu = math.atan2(
             float(observation[0, 5].item()),
             float(observation[0, 4].item()),

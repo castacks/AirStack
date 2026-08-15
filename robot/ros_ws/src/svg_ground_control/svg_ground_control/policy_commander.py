@@ -132,7 +132,7 @@ class PolicyCommander(Node):
         super().__init__('policy_commander')
 
         self.declare_parameter('drone', 'drone_3')
-        self.declare_parameter('ball_name', 'VolleyBall')
+        self.declare_parameter('ball_name', 'SoccerBall')
         self.declare_parameter('model_path', '')
         self.declare_parameter('target_x', 3.0)
         self.declare_parameter('target_y', 0.0)

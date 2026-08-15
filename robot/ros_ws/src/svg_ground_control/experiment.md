@@ -63,14 +63,16 @@ control.
 
 ## 2. How SVG ground control is structured
 
-Five executables (`robot/ros_ws/src/svg_ground_control/svg_ground_control/`):
+Key scripts and libraries
+(`robot/ros_ws/src/svg_ground_control/svg_ground_control/`):
 
 | Script | Node | What it does |
 |---|---|---|
 | `swarm_commander.py` | `swarm_commander` | **The brain.** 20 Hz loop: build each drone's *nominal* velocity (from the scenario or teleop) → run the **CBF safety filter** → publish a per-drone velocity command. Owns takeoff/start/hold/land/reset_fence services, the geofence, and the RViz markers. |
 | `scenarios.py` | (library) | Nominal-velocity policies: `hover`, `goal`, `random_walk`, `random_goals`, `head_on`, `antipodal`, `squeeze`. Pure NumPy, ported from `~/drone_soccer`. |
 | `cbf_filter.py` | (library) | The velocity-CBF collision filter (`filter_velocities`), a verbatim port of `drone_soccer/cbf.py`. |
-| `mocap_bridge.py` | `mocap_bridge` | Hardware only: `/{name}/pose` (mocap) → `/{name}/fmu/visual_odometry_in` for the PX4 EKF. |
+| `mocap_bridge.py` | `mocap_bridge` | Hardware only: `/{name}/pose` (mocap) → PX4 external vision plus configurable filtered `/{name}/mocap_odometry`. |
+| `mocap_velocity_plotter.py` | `mocap_velocity_plotter` | Interactive rolling comparison of raw finite-difference, low-pass, Kalman, and published velocity. |
 | `keyboard_teleop.py` | `keyboard_teleop` | Drives one teleop drone (`-p drone:=drone_3`) with the keyboard. |
 
 **Data flow inside `swarm_commander` each tick:**
@@ -130,7 +132,7 @@ For each drone `{name}` (e.g. `drone_1`):
 | `/svg/{name}/goal_command` | in | `geometry_msgs/PoseStamped` | you → commander (`goal` scenario) |
 | `/svg/{name}/speed_command` | in | `std_msgs/Float32` | you → commander (`goal` scenario) |
 | `/{name}/pose` | in | `geometry_msgs/PoseStamped` | mocap → mocap_bridge (hardware) |
-| `/{name}/mocap_odometry` | out | `nav_msgs/Odometry` | mocap_bridge EMA velocity (ball / optional log) |
+| `/{name}/mocap_odometry` | out | `nav_msgs/Odometry` | mocap_bridge selectable finite-difference, low-pass, or Kalman velocity (ball / optional log) |
 | `/{name}/fmu/in/trajectory_setpoint` | out | `px4_msgs/TrajectorySetpoint` | policy_commander → PX4 (PPO deploy) |
 | `/{name}/fmu/in/offboard_control_mode` | out | `px4_msgs/OffboardControlMode` | policy_commander → PX4 Offboard heartbeat |
 | `/policy_commander/{start,stop}` | call | `std_srvs/Trigger` | you → policy_commander |

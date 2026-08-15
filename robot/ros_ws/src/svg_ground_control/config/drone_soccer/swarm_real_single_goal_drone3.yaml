@@ -50,7 +50,7 @@ swarm_commander:
 mocap_bridge:
   ros__parameters:
     drone_names: ["drone_3"]
-    extra_body_names: ["VolleyBall"]
+    extra_body_names: ["SoccerBall"]
     publish_mocap_odometry: true
     mocap_odometry_topic_template: "/{name}/mocap_odometry"
     mocap_topic_template: "/{name}/pose"
@@ -60,5 +60,15 @@ mocap_bridge:
     px4_vio_topic_template: "/{name}/fmu/in/vehicle_visual_odometry"
     visual_odometry_topic_template: "/{name}/fmu/visual_odometry_in"
     mocap_frame: "map"
+    # The ball velocity in /SoccerBall/mocap_odometry is estimated directly
+    # from position with a constant-velocity Kalman model. Increase the
+    # acceleration stddev for faster response to kicks; increase the position
+    # stddev for stronger smoothing of mocap jitter.
+    velocity_filter_type: "kalman"
     velocity_filter_alpha: 0.4
+    velocity_low_pass_cutoff_hz: 5.0
+    velocity_kalman_position_stddev_m: 0.004
+    velocity_kalman_acceleration_stddev_mps2: 0.1
+    velocity_kalman_initial_velocity_stddev_mps: 1.7
+    velocity_filter_max_dt_s: 0.5
     mocap_qos_best_effort: false

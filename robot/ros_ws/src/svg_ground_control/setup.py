@@ -31,6 +31,8 @@ setup(
         'console_scripts': [
             'swarm_commander = svg_ground_control.swarm_commander:main',
             'mocap_bridge = svg_ground_control.mocap_bridge:main',
+            'plot_mocap_velocity = '
+            'svg_ground_control.mocap_velocity_plotter:main',
             'keyboard_teleop = svg_ground_control.keyboard_teleop:main',
             'trajectory_commander = svg_ground_control.trajectory_commander:main',
             'policy_commander = svg_ground_control.policy_commander:main',

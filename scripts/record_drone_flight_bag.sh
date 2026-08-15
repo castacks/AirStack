@@ -11,11 +11,12 @@ set -euo pipefail
 
 CONTAINER="airstack-robot-desktop-1"
 DRONE="drone_3"
-BALL="VolleyBall"
+BALL="SoccerBall"
 INCLUDE_BALL=1 # 0 = do not record ball topic, 1 = record ball topic
 OUTPUT_DIR="/bags"
 CHECK_ONLY=0
 ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-1}"
+EXCLUDED_TOPICS=()
 
 usage() {
     cat <<'EOF'
@@ -28,18 +29,24 @@ Options:
   --drone NAME        Drone namespace / rigid body name.
                       Default: drone_3
   --ball NAME         Ball rigid body topic name without slashes.
-                      Default: VolleyBall
+                      Default: SoccerBall
   --no-ball           Do not record a ball topic.
   --output-dir PATH   Container output directory.
                       Default: /bags
+  --exclude-topic TOPIC
+                      Do not check or record TOPIC. May be repeated.
   --check-only        Only check topic visibility; do not start recording.
   -h, --help          Show this help.
 
 Examples:
   ./scripts/record_drone_flight_bag.sh
-  ./scripts/record_drone_flight_bag.sh --ball VolleyBall
+  ./scripts/record_drone_flight_bag.sh --ball SoccerBall
   ./scripts/record_drone_flight_bag.sh --drone drone_2 --ball SoccerBall
   ./scripts/record_drone_flight_bag.sh --no-ball
+  ./scripts/record_drone_flight_bag.sh --ball SoccerBall \
+    --exclude-topic /policy_commander/obs \
+    --exclude-topic /policy_commander/action \
+    --exclude-topic /policy_commander/waypoint
 
 Stop recording with Ctrl-C after landing/disarming.
 EOF
@@ -66,6 +73,10 @@ while [ "$#" -gt 0 ]; do
             ;;
         --output-dir)
             OUTPUT_DIR="${2:?--output-dir needs a value}"
+            shift 2
+            ;;
+        --exclude-topic)
+            EXCLUDED_TOPICS+=("${2:?--exclude-topic needs a value}")
             shift 2
             ;;
         --check-only)
@@ -127,6 +138,23 @@ if [ "$INCLUDE_BALL" -eq 1 ]; then
     TOPICS+=("/${BALL}/pose" "/${BALL}/mocap_odometry")
 fi
 
+if [ "${#EXCLUDED_TOPICS[@]}" -gt 0 ]; then
+    FILTERED_TOPICS=()
+    for topic in "${TOPICS[@]}"; do
+        excluded=0
+        for excluded_topic in "${EXCLUDED_TOPICS[@]}"; do
+            if [ "$topic" = "$excluded_topic" ]; then
+                excluded=1
+                break
+            fi
+        done
+        if [ "$excluded" -eq 0 ]; then
+            FILTERED_TOPICS+=("$topic")
+        fi
+    done
+    TOPICS=("${FILTERED_TOPICS[@]}")
+fi
+
 printf -v TOPIC_ARGS '%q ' "${TOPICS[@]}"
 
 echo "Recording flight bag"
@@ -149,6 +177,11 @@ fi
 echo
 echo "Topics:"
 printf '  %s\n' "${TOPICS[@]}"
+if [ "${#EXCLUDED_TOPICS[@]}" -gt 0 ]; then
+    echo
+    echo "Excluded topics:"
+    printf '  %s\n' "${EXCLUDED_TOPICS[@]}"
+fi
 echo
 echo "Checking visible topics in container..."
 

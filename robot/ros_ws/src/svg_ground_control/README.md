@@ -30,6 +30,68 @@ Starling 2 Max airframe).
 Sim and hardware differ **only in the topic templates** in the config YAML
 (`config/swarm_sim.yaml` vs `config/swarm_real.yaml`).
 
+## Ball mocap velocity filtering
+
+`mocap_bridge` can publish a filtered world-frame velocity with each rigid
+body's pose on `/{name}/mocap_odometry`. The PX4 direct external-vision path
+remains pose-only; these velocities are for the soccer policy, logging, and
+debugging.
+
+```mermaid
+flowchart LR
+    pose[PoseStamped mocap] --> raw[Finite difference]
+    pose --> lp[Low-pass derivative]
+    pose --> kf[Position/velocity Kalman filter]
+    raw --> select{velocity_filter_type}
+    lp --> select
+    kf --> select
+    select --> odom[Odometry twist]
+    odom --> policy[Soccer policy]
+```
+
+The supported `velocity_filter_type` values are:
+
+| Value | Behavior | Typical use |
+|---|---|---|
+| `finite_difference` | Unfiltered position difference | Noise baseline only |
+| `low_pass` | First-order filter over the derivative | Simple, predictable smoothing |
+| `kalman` | Six-state constant-velocity filter updated by position | Recommended for ball mocap |
+
+Important parameters:
+
+| Parameter | Default | Tuning effect |
+|---|---:|---|
+| `velocity_filter_type` | `low_pass` | Selects the bridge estimator; the SoccerBall hardware configs override this to `kalman`. |
+| `velocity_low_pass_cutoff_hz` | `0.0` | Positive values enable a rate-independent cutoff; lower is smoother but slower. At `0`, `velocity_filter_alpha` is used. |
+| `velocity_filter_alpha` | `0.4` | Legacy low-pass weight; lower is smoother. |
+| `velocity_kalman_position_stddev_m` | `0.005` | Expected mocap noise; increasing it smooths more. |
+| `velocity_kalman_acceleration_stddev_mps2` | `10.0` | Expected ball acceleration; increasing it responds faster to kicks but passes more noise. |
+| `velocity_kalman_initial_velocity_stddev_mps` | `2.0` | Initial velocity uncertainty. |
+| `velocity_filter_max_dt_s` | `0.5` | A longer sample gap resets the estimate to zero. |
+
+Tune the Kalman estimator in a rolling Matplotlib window:
+
+```bash
+ros2 run svg_ground_control plot_mocap_velocity --ros-args \
+  -p pose_topic:=/SoccerBall/pose \
+  -p history_s:=15.0 \
+  -p velocity_kalman_position_stddev_m:=0.004 \
+  -p velocity_kalman_acceleration_stddev_mps2:=0.1 \
+  -p velocity_kalman_initial_velocity_stddev_mps:=1.7
+```
+
+The blue curve is the Kalman estimate computed from the mocap pose samples.
+Sliders tune its position measurement noise, acceleration process noise, and
+initial velocity uncertainty in real time. Changing a slider restarts the plot
+estimate; it does not modify the running `mocap_bridge`. Use **Reset sliders**
+to restore the startup values. Close the window or press `Ctrl-C` to exit. The
+The production bridge publishes the tuned estimate on
+`/SoccerBall/mocap_odometry`. The `policy_commander`,
+`drone_soccer_depl/inference_soccer_pos_sp`, and legacy `pos_sp_soccer`
+deployment paths consume or prefer that shared ball state. Their drone state
+remains sourced from PX4 odometry, including the onboard EKF's velocity
+estimate.
+
 ## Scenarios (`scenario:=` launch arg)
 
 Ported from drone_soccer plus goal-tracking and a squeeze profile:

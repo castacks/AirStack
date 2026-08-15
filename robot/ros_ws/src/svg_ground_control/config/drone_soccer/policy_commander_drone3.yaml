@@ -12,8 +12,8 @@
 policy_commander:
   ros__parameters:
     drone: "drone_3"
-    ball_name: "VolleyBall"
-    model_path: "/root/drone_soccer/drone_soccer/saved_policies/safe.zip"
+    ball_name: "SoccerBall"
+    model_path: "/root/drone_soccer/drone_soccer/saved_policies/sysid2.zip"
     # Soccer goal used by the policy observation: ENU (x, y, z) = (0, -8, 0).
     # The current policy observation is planar, so only x/y are consumed.
     target_x: 6.0
@@ -37,4 +37,5 @@ policy_commander:
     debug_topic_prefix: "/policy_commander"
 
 # Mocap bridge params for PPO: use the mocap_bridge section in
-# swarm_real_single_goal_drone3.yaml (extra_body_names, publish_mocap_odometry).
+# swarm_real_single_goal_drone3.yaml or
+# trajectory_commander_drone3_fmu_hover.yaml (SoccerBall mocap odometry).

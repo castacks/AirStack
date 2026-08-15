@@ -29,7 +29,7 @@ sws
 ## 1. Direct SVG goal — requires swarm commander
 
 Start `swarm_commander`:
-
+position
 ```bash
 ros2 launch svg_ground_control ground_control.launch.py config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/swarm_real_single_goal_drone3.yaml use_mocap:=true
 ```
@@ -125,8 +125,10 @@ The read-only `/root/drone_soccer` mount is already included in the robot
 container's `PYTHONPATH`; do not install it editable.
 
 Lab stack (same as §3 Direct-FMU): NatNet, `real_interfaces`, `mocap_bridge` with
-`swarm_real_single_goal_drone3.yaml` (includes `extra_body_names: [VolleyBall]` and
-`/{name}/mocap_odometry` for the ball).
+`swarm_real_single_goal_drone3.yaml` (includes `extra_body_names: [SoccerBall]` and
+`/{name}/mocap_odometry` for the ball). The production ball filter is Kalman
+with position noise `0.004 m`, acceleration noise `0.1 m/s²`, and initial
+velocity noise `1.7 m/s`; policy drone velocity remains PX4 EKF odometry.
 
 Launch policy (disarmed; pass your checkpoint):
 
@@ -140,7 +142,7 @@ ros2 launch svg_ground_control policy_commander.launch.py \
 
 ```bash
 ros2 topic echo /drone_3/odometry_conversion/odometry --once --field twist.twist.linear
-ros2 topic echo /VolleyBall/mocap_odometry --once --field twist.twist.linear
+ros2 topic echo /SoccerBall/mocap_odometry --once --field twist.twist.linear
 ros2 service call /policy_commander/start std_srvs/srv/Trigger
 ros2 topic echo /policy_commander/obs --once
 ros2 topic echo /drone_3/fmu/in/trajectory_setpoint --once --field position

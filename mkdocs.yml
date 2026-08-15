@@ -156,6 +156,7 @@ nav:
           - Bag Recorder: common/ros_packages/bag_recorder_pid/README.md
   - Ground Control Station:
       - docs/gcs/index.md
+      - SVG Ground Control: robot/ros_ws/src/svg_ground_control/README.md
       - Docker:
           - docs/gcs/docker/index.md
       - Usage:

@@ -57,6 +57,13 @@ The Docker `command:` launches the GCS ROS 2 nodes and opens the RQT interface.
 
 ## GCS Interfaces
 
+### SVG Ground Control
+
+The robot workspace's [SVG Ground Control](../../robot/ros_ws/src/svg_ground_control/README.md)
+supports mocap-based multi-drone experiments and drone soccer. It includes a
+configurable Kalman/low-pass ball velocity stream and an interactive live
+velocity comparison plot.
+
 ### RQT GCS Panel
 
 The main control interface built with RQT (ROS Qt GUI).

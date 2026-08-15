@@ -13,6 +13,7 @@ setup(
             'package.xml',
             'model_1000_before.pt',
             'model_1000_after.pt',
+            'model_1000_rlpx4.pt',
         ]),
     ],
     install_requires=['setuptools'],

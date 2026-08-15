@@ -56,6 +56,9 @@ trajectory_commander:
 mocap_bridge:
   ros__parameters:
     drone_names: ["drone_3"]
+    extra_body_names: ["SoccerBall"]
+    publish_mocap_odometry: true
+    mocap_odometry_topic_template: "/{name}/mocap_odometry"
     mocap_topic_template: "/{name}/pose"
     px4_vio_mode: "direct"
     # The 2026-07-30 carry test confirmed Motive world ENU and rigid-body +X
@@ -67,5 +70,12 @@ mocap_bridge:
     px4_vio_topic_template: "/{name}/fmu/in/vehicle_visual_odometry"
     visual_odometry_topic_template: "/{name}/fmu/visual_odometry_in"
     mocap_frame: "map"
-    velocity_filter_alpha: 0.4
+    # Ball state for the soccer policies. These settings affect the optional
+    # mocap odometry output only; PX4 external vision remains pose-only, and
+    # policy drone velocity continues to come from the onboard PX4 EKF.
+    velocity_filter_type: "kalman"
+    velocity_kalman_position_stddev_m: 0.004
+    velocity_kalman_acceleration_stddev_mps2: 0.1
+    velocity_kalman_initial_velocity_stddev_mps: 1.7
+    velocity_filter_max_dt_s: 0.5
     mocap_qos_best_effort: false

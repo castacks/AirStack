@@ -1,4 +1,5 @@
-"""Multi-drone mocap-to-PX4 external-vision bridge.
+"""
+Multi-drone mocap-to-PX4 external-vision bridge.
 
 Subscribes to one mocap pose topic per drone (default ``/{name}/pose``,
 geometry_msgs/PoseStamped) and feeds it to that drone's PX4 EKF2 as external
@@ -16,8 +17,9 @@ vision, so PX4 can hold position indoors with no GPS/VIO. Two output modes:
       are NOT running the direct path.
 
 Optional ``/{name}/mocap_odometry`` (``nav_msgs/Odometry``) for drones and
-``extra_body_names`` (e.g. the ball): EMA finite-difference linear velocity
-for policy / logging while keeping ``direct`` pose-only PX4 fusion.
+``extra_body_names`` (e.g. the ball): configurable finite-difference,
+low-pass, or constant-velocity Kalman linear velocity for policy / logging
+while keeping ``direct`` pose-only PX4 fusion.
 
 Frame conversion (px4_vio_frame):
   'enu_to_ned'   — input is ROS-standard ENU world / FLU body (the principled
@@ -33,19 +35,22 @@ Frame conversion (px4_vio_frame):
 Hardware only: in simulation PX4 SITL estimates its own state.
 """
 
-import math
-
-import numpy as np
-import rclpy
-from rclpy.node import Node
-from rclpy.parameter import Parameter
-from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
-
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
+import numpy as np
 from px4_msgs.msg import VehicleOdometry
+import rclpy
+from rclpy.executors import ExternalShutdownException
+from rclpy.node import Node
+from rclpy.parameter import Parameter
+from rclpy.qos import (
+    DurabilityPolicy,
+    HistoryPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+)
 
-from svg_ground_control.mocap_velocity import MocapVelocityEstimator
+from svg_ground_control.mocap_velocity import create_velocity_estimator
 
 MOCAP_VARIANCE = 1e-4
 SQRT2_INV = 0.70710678118654752
@@ -72,7 +77,7 @@ class DroneStream:
     def __init__(self):
         self.publisher = None
         self.mocap_odom_pub = None
-        self.velocity_est = MocapVelocityEstimator(alpha=0.4)
+        self.velocity_est = None
 
 
 class MocapBridge(Node):
@@ -96,8 +101,17 @@ class MocapBridge(Node):
         self.declare_parameter('mocap_odometry_topic_template',
                                '/{name}/mocap_odometry')
         self.declare_parameter('publish_mocap_odometry', True)
+        # Keep the historical EMA behavior unless a config opts into Kalman.
+        self.declare_parameter('velocity_filter_type', 'low_pass')
         self.declare_parameter('vio_quality', 100)
         self.declare_parameter('velocity_filter_alpha', 0.4)
+        self.declare_parameter('velocity_low_pass_cutoff_hz', 0.0)
+        self.declare_parameter('velocity_kalman_position_stddev_m', 0.005)
+        self.declare_parameter(
+            'velocity_kalman_acceleration_stddev_mps2', 10.0)
+        self.declare_parameter(
+            'velocity_kalman_initial_velocity_stddev_mps', 2.0)
+        self.declare_parameter('velocity_filter_max_dt_s', 0.5)
         self.declare_parameter('mocap_qos_best_effort', False)
 
         names = list(self.get_parameter('drone_names').value)
@@ -107,7 +121,25 @@ class MocapBridge(Node):
         self.vio_frame = str(self.get_parameter('px4_vio_frame').value)
         self.frame = str(self.get_parameter('mocap_frame').value)
         self.quality = int(self.get_parameter('vio_quality').value)
+        self.velocity_filter_type = str(
+            self.get_parameter('velocity_filter_type').value)
         self.velocity_alpha = float(self.get_parameter('velocity_filter_alpha').value)
+        self.velocity_estimator_kwargs = {
+            'alpha': self.velocity_alpha,
+            'low_pass_cutoff_hz': float(
+                self.get_parameter('velocity_low_pass_cutoff_hz').value),
+            'kalman_position_stddev_m': float(
+                self.get_parameter(
+                    'velocity_kalman_position_stddev_m').value),
+            'kalman_acceleration_stddev_mps2': float(
+                self.get_parameter(
+                    'velocity_kalman_acceleration_stddev_mps2').value),
+            'kalman_initial_velocity_stddev_mps': float(
+                self.get_parameter(
+                    'velocity_kalman_initial_velocity_stddev_mps').value),
+            'max_dt_s': float(
+                self.get_parameter('velocity_filter_max_dt_s').value),
+        }
         self.publish_mocap_odometry = bool(
             self.get_parameter('publish_mocap_odometry').value)
         self.mocap_odom_tmpl = str(
@@ -134,7 +166,7 @@ class MocapBridge(Node):
         self.streams = {}
         for name in names:
             stream = DroneStream()
-            stream.velocity_est = MocapVelocityEstimator(alpha=self.velocity_alpha)
+            stream.velocity_est = self._new_velocity_estimator()
             if self.mode == 'direct':
                 stream.publisher = self.create_publisher(
                     VehicleOdometry, out_tmpl.format(name=name), px4_qos)
@@ -153,7 +185,7 @@ class MocapBridge(Node):
         self.extra_streams = {}
         for name in extra:
             stream = DroneStream()
-            stream.velocity_est = MocapVelocityEstimator(alpha=self.velocity_alpha)
+            stream.velocity_est = self._new_velocity_estimator()
             if self.publish_mocap_odometry:
                 stream.mocap_odom_pub = self.create_publisher(
                     Odometry, self.mocap_odom_tmpl.format(name=name), 10)
@@ -165,7 +197,23 @@ class MocapBridge(Node):
 
         self.get_logger().info(
             f'MocapBridge [{self.mode}/{self.vio_frame}] drones={names} '
-            f'extra={extra} mocap_odom={self.publish_mocap_odometry}')
+            f'extra={extra} mocap_odom={self.publish_mocap_odometry} '
+            f'velocity_filter={self.velocity_filter_type}')
+
+    def _new_velocity_estimator(self):
+        return create_velocity_estimator(
+            self.velocity_filter_type,
+            **self.velocity_estimator_kwargs,
+        )
+
+    @staticmethod
+    def _set_twist_covariance(odom: Odometry, stream: DroneStream) -> None:
+        variance = stream.velocity_est.velocity_variance
+        if np.all(np.isfinite(variance)):
+            for axis in range(3):
+                odom.twist.covariance[7 * axis] = float(variance[axis])
+        else:
+            odom.twist.covariance[0] = -1.0
 
     def _convert(self, position, q_wxyz):
         """Return (px4_position[3], px4_q[4], pose_frame) for the chosen frame."""
@@ -199,7 +247,7 @@ class MocapBridge(Node):
         odom.twist.twist.linear.x = float(velocity[0])
         odom.twist.twist.linear.y = float(velocity[1])
         odom.twist.twist.linear.z = float(velocity[2])
-        odom.twist.covariance[0] = -1.0
+        self._set_twist_covariance(odom, stream)
         stream.mocap_odom_pub.publish(odom)
 
     def _drone_pose_callback(self, stream: DroneStream, name: str, msg: PoseStamped):
@@ -242,7 +290,7 @@ class MocapBridge(Node):
         odom.twist.twist.linear.x = float(velocity[0])
         odom.twist.twist.linear.y = float(velocity[1])
         odom.twist.twist.linear.z = float(velocity[2])
-        odom.twist.covariance[0] = -1.0
+        self._set_twist_covariance(odom, stream)
         stream.publisher.publish(odom)
 
     def _extra_pose_callback(self, stream: DroneStream, name: str, msg: PoseStamped):
@@ -256,11 +304,12 @@ def main(args=None):
     node = MocapBridge()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':

@@ -202,6 +202,12 @@ tmux new-session -d -s real_interfaces "bash -lc 'sws; ros2 launch svg_ground_co
 tmux new-session -d -s mocap_bridge "bash -lc 'sws; ros2 run svg_ground_control mocap_bridge --ros-args --params-file $(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/trajectory_commander_drone3_fmu_hover.yaml'"
 ```
 
+The current Motive ball rigid body is `SoccerBall`. The real-hardware mocap
+configs publish its shared Kalman state on `/SoccerBall/mocap_odometry` with
+position noise `0.004 m`, acceleration noise `0.1 m/s²`, and initial velocity
+noise `1.7 m/s`. Soccer policies use that ball odometry, while drone velocity
+continues to come from PX4/onboard-EKF odometry.
+
 Do not run `swarm_commander` or `ground_control.launch.py` with this direct-FMU path. Start `trajectory_commander` only after the disarmed estimator and frame checks pass.
 
 Manage tmux:
@@ -331,7 +337,7 @@ For flight/test data, start recording before arming and stop after landing/disar
 ./scripts/record_drone_flight_bag.sh
 ```
 
-The recorder defaults to BV's `drone_3` identity and `VolleyBall` rigid body. For BS or BY, pass `--drone drone_2` and the appropriate ball rigid-body name. It records the PX4/AirStack state topics used for flight review, writes a timestamped MCAP bag under `/bags` in the container, and stops with `Ctrl-C`. Docker Compose bind-mounts `/bags` to `robot/bags` on the host.
+The recorder defaults to BV's `drone_3` identity and current `SoccerBall` rigid body. For BS or BY, pass `--drone drone_2` and the appropriate ball rigid-body name. It records the PX4/AirStack state topics used for flight review, writes a timestamped MCAP bag under `/bags` in the container, and stops with `Ctrl-C`. Docker Compose bind-mounts `/bags` to `robot/bags` on the host.
 
 Before a flight, check topic visibility without recording:
 
@@ -342,7 +348,7 @@ Before a flight, check topic visibility without recording:
 Useful variants:
 
 ```bash
-./scripts/record_drone_flight_bag.sh --ball VolleyBall
+./scripts/record_drone_flight_bag.sh --ball SoccerBall
 ./scripts/record_drone_flight_bag.sh --no-ball
 ./scripts/record_drone_flight_bag.sh --drone drone_3 --ball SoccerBall
 ```

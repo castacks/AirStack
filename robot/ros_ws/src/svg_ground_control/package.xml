@@ -21,6 +21,7 @@
   <depend>airstack_msgs</depend>
   <depend>px4_msgs</depend>
   <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-matplotlib</exec_depend>
 
   <exec_depend>robot_interface</exec_depend>
   <exec_depend>interface_bringup</exec_depend>

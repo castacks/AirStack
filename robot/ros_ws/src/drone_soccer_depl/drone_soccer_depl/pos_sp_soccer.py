@@ -9,6 +9,7 @@ from typing import Optional
 import rclpy
 import torch
 from geometry_msgs.msg import PoseStamped, TwistStamped
+from nav_msgs.msg import Odometry
 from px4_msgs.msg import (
     OffboardControlMode,
     TrajectorySetpoint,
@@ -131,6 +132,9 @@ class DroneSoccerOffboard(Node):
         self.declare_parameter("checkpoint_path", str(DEFAULT_CHECKPOINT))
         self.declare_parameter("device", "auto")
         self.declare_parameter("fmu_prefix", "/fmu")
+        self.declare_parameter(
+            "ball_odometry_topic", "/SoccerBall/mocap_odometry"
+        )
         self.declare_parameter("ball_pose_topic", "/drone0/ball/pose")
         self.declare_parameter("ball_twist_topic", "/drone0/ball/twist")
         self.declare_parameter("goal_pose_topic", "/drone0/goal/pose")
@@ -152,6 +156,9 @@ class DroneSoccerOffboard(Node):
         self.policy = load_policy(checkpoint_path, self.device)
 
         self.fmu_prefix = str(self.get_parameter("fmu_prefix").value).rstrip("/")
+        ball_odometry_topic = str(
+            self.get_parameter("ball_odometry_topic").value
+        )
         ball_pose_topic = str(self.get_parameter("ball_pose_topic").value)
         ball_twist_topic = str(self.get_parameter("ball_twist_topic").value)
         goal_pose_topic = str(self.get_parameter("goal_pose_topic").value)
@@ -240,6 +247,12 @@ class DroneSoccerOffboard(Node):
             fmu_qos,
         )
         self.create_subscription(
+            Odometry,
+            ball_odometry_topic,
+            self._ball_odometry_callback,
+            sensor_qos,
+        )
+        self.create_subscription(
             PoseStamped,
             ball_pose_topic,
             self._ball_pose_callback,
@@ -260,6 +273,7 @@ class DroneSoccerOffboard(Node):
         self.last_odometry_time: Optional[float] = None
         self.last_ball_pose_time: Optional[float] = None
         self.last_ball_twist_time: Optional[float] = None
+        self.ball_from_odometry = False
         self.last_command_time = -math.inf
         self.reported_state = ""
         self.goal_reached_reported = False
@@ -303,6 +317,8 @@ class DroneSoccerOffboard(Node):
 
     def _ball_pose_callback(self, message: PoseStamped) -> None:
         """Store ball position and estimate velocity when twist is unavailable."""
+        if self.ball_from_odometry:
+            return
         position = message.pose.position
         new_position_enu = torch.tensor(
             [position.x, position.y, position.z],
@@ -328,6 +344,8 @@ class DroneSoccerOffboard(Node):
 
     def _ball_twist_callback(self, message: TwistStamped) -> None:
         """Store the ball world velocity, expected in the Pegasus map/ENU frame."""
+        if self.ball_from_odometry:
+            return
         velocity = message.twist.linear
         self.ball_velocity_enu = torch.tensor(
             [velocity.x, velocity.y, velocity.z],
@@ -335,6 +353,26 @@ class DroneSoccerOffboard(Node):
             device=self.device,
         )
         self.last_ball_twist_time = self._now_seconds()
+
+    def _ball_odometry_callback(self, message: Odometry) -> None:
+        """Prefer the shared mocap-bridge Kalman ball state when available."""
+        position = message.pose.pose.position
+        velocity = message.twist.twist.linear
+        self.ball_position_enu = torch.tensor(
+            [position.x, position.y, position.z],
+            dtype=torch.float32,
+            device=self.device,
+        )
+        self.ball_velocity_enu = torch.tensor(
+            [velocity.x, velocity.y, velocity.z],
+            dtype=torch.float32,
+            device=self.device,
+        )
+        now = self._now_seconds()
+        self.last_ball_pose_time = now
+        self.last_ball_twist_time = now
+        self.ball_from_odometry = True
+        self._report_goal_reached()
 
     def _report_state(self, state: str) -> None:
         """Log a state transition once instead of printing every control tick."""
