@@ -361,7 +361,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && fc-cache -f -v \
   && rm -rf /var/lib/apt/lists/*
 
-RUN /opt/ros/${ROS_DISTRO}/lib/mavros/install_geographiclib_datasets.sh
+# MAVROS requires geographiclib-tools to be installed for any offboard control to work.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends geographiclib-tools \
+  && /opt/ros/${ROS_DISTRO}/lib/mavros/install_geographiclib_datasets.sh \
+  && test -f /usr/share/GeographicLib/geoids/egm96-5.pgm \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install DDS Router runtime library dependencies + OpenVDB
 RUN apt update && apt install -y --no-install-recommends \

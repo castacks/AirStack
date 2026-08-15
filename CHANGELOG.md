@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `overrides/l4t-optitrack-realrobot.env` — deployment override for a real Jetson robot flying on OptiTrack mocap (PX4 EKF2 external vision instead of GPS): the NatNet server/body settings, plus the multi-NIC and FCU-parameter notes that path needs
 - Feature notebook workflow (`use-feature-notebook` skill): every agent-implemented feature gets a local, gitignored `notebook/NNN-feature-slug/` entry with a status-tracked `design_spec.md` (written before coding) and `results/` artifacts + self-contained `results_summary.md` that populate the feature's PR description
 - Battery and telemetry display in GCS RQT control panel (voltage and percentage per robot when MAVROS battery topic is bridged)
 - `TARGET_ARCH` build arg (default `x86_64`) in `Dockerfile.robot` to arch-parametrize `LD_LIBRARY_PATH`; `docker-compose.yaml` passes `TARGET_ARCH: aarch64` to the `voxl` and `l4t` real-robot image builds
@@ -16,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `overrides/l4t-px4-realrobot.env` — site-agnostic deployment override for a single real PX4 robot on a Jetson (aarch64/l4t)
 - `integration` test tier (`tests/integration/`, `integration` mark) with a shared `robot_autonomy_stack` fixture (robot container, no sim/GPU)
 - `waypoint_flight` system test (`tests/system/test_waypoint_flight.py`): takeoff → ordered waypoint route via `NavigateTask` (dispatched as a dense plan) → land, judged on the odometry track by the standalone stdlib-only `tests/waypoint_checker.py` (in-order corridor arrival within `--waypoint-tolerance`, final goal within `--goal-tolerance`, per-waypoint `--waypoint-timeout`); validated end-to-end in Isaac Sim; serves as the standard acceptance check after integrating or swapping a planner module
+- Real-robot PX4 external-vision fusion in `natnet_ros2` (OptiTrack mocap → EKF2): `mavros_gp_origin` (geoid-corrected synthetic GPS origin so `local_position.z` == OptiTrack z, fixing the ~36 m boot offset), `vision_pose_converter`, and a PX4 param **checker** (`px4_param_setter`, `auto_set` off by default; `on_mismatch` warn/halt) — setup guide at `docs/robot/px4_external_vision.md`
 
 ### Changed
 
@@ -39,6 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dropped `ROBOT_NAME` / `ROS_DOMAIN_ID` from `overrides/l4t-px4-realrobot.env`: no compose service declares either, so an env file could never set them and the lines were inert
 - `bag_record/bag_recording_status` was bridged GCS -> robot in `domain_bridge.yaml`, the same direction as the command it answers, so recorder status never reached the GCS and every recording indicator stayed blank
 - `bag_record_node` passed `--exclude` to `ros2 bag record`, which Jazzy renamed to `--exclude-regex`. It is now an ambiguous prefix of four options, so argparse rejected the command and any section using `exclude:` (including `log.yaml`'s `airstack` section, i.e. everything but the cameras) recorded nothing — surfacing only as a usage dump in the node's stdout. Multiple `exclude:` entries are now alternated into one regex instead of repeating a single-valued flag, which had silently kept only the last
+- `natnet_config.yaml`'s `$(env NATNET_SERVER_IP ...)` could never resolve: no compose service declared the variable, so the NatNet client always fell back to its hardcoded default and could reach neither the in-sim emulator nor a real Motive host. It is now forwarded in `robot-base-docker-compose.yaml`, defaulting to the in-sim emulator
+- The NatNet rigid body tracked by `robot_1` defaulted to a site-specific body (id 1146) that no emulator streams; since the client filters frames by numeric id, that produced a connected client that never published. It now defaults to the emulator's body (`Drone`, id 1). Per-robot bodies are configured in each robot's profile in `natnet_config.yaml`, selected by `ROBOT_NAME`
+- OptiTrack external-vision tuning corrected from real-flight bags: `EKF2_EV_DELAY` 8.0 → 7.0 and `EKF2_EVP_NOISE` 0.01 → 0.05. The old 0.01 gave a 5 cm innovation gate (`EKF2_EVP_GATE` × 5σ) that rejected valid mocap updates and blocked arming; `px4_params.yaml` now records the supporting measurements and the drift-and-snap misdiagnosis so neither is repeated
+- The synthetic GPS origin now places the mocap floor at the shared world datum (`desired_floor_amsl: 36.0`, i.e. 90 m ellipsoidal in AMSL) rather than at sea level, so a mocap robot's reported global altitude agrees with sim and the GCS. `local_position.z` still equals the OptiTrack height either way
+- The robot image could ship without the GeographicLib `egm96-5` geoid: mavros' `install_geographiclib_datasets.sh` swallows a failed download and still exits 0, so the `RUN` layer succeeded either way, and `geographiclib-tools` was only ever a transitive dependency. MAVROS builds that geoid in its UAS core before any plugin loads and throws if it is missing, so `mavros_node` died at startup on affected images. `Dockerfile.robot` now pins the tool and asserts the file exists, failing the build instead
+- An unrecognised `connection_type` in `natnet_config.yaml` silently fell back to `unicast`, so a typo produced a client that connected on the wrong transport and never received frames. `validate_connection_type` now throws and `natnet_ros2_node` fails at startup naming the offending value
 
 ## [1.0.0] - 2024-12-19
 

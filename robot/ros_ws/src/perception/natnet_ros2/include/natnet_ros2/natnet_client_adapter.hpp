@@ -52,9 +52,20 @@ public:
     void set_frame_callback(std::function<void(const FrameSample &)> cb) override;
     void disconnect() override;
 
+    // Context handed to the SDK's C frame callback. Bundles the client (needed to
+    // convert TransmitTimestamp → latency via SecondsSinceHostTimestamp) with the
+    // user callback, since the SDK passes only a single void* through. Public so the
+    // file-scope trampoline in the .cpp can reinterpret the void* ctx.
+    struct FrameCallbackCtx
+    {
+        NatNetClient *                             client = nullptr;
+        std::function<void(const FrameSample &)> * cb     = nullptr;
+    };
+
 private:
     std::unique_ptr<NatNetClient> client_;
     std::function<void(const FrameSample &)> user_cb_;
+    FrameCallbackCtx cb_ctx_{};
 };
 
 }  // namespace natnet_ros2
