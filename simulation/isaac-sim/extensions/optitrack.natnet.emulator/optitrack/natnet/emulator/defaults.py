@@ -1,4 +1,4 @@
-"""Reference tracked-body defaults for tests and the future Isaac Sim wrapper."""
+"""Reference tracked-body defaults for tests and Isaac Sim wrapper."""
 
 from __future__ import annotations
 
