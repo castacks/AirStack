@@ -145,14 +145,7 @@ ENV ACCEPT_EULA="Y"
 # ENV ISAACSIM_PYTHON=/isaac-sim/python.sh
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir -e /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator
 
-# "Install" the OptiTrack NatNet emulator extension, same editable pattern as
-# pegasus.simulator above: the copy baked in here is replaced at runtime by a bind mount
-# of the repo directory (see docker-compose.yaml), and the editable install keeps
-# resolving to that path — so `import optitrack...` works and edits reflect live.
-#
-# Being on the Kit --ext-folder search path only makes Kit AWARE of an extension; it does
-# not put the package on sys.path. Without this pip install the natnet launch scripts die
-# with ModuleNotFoundError: No module named 'optitrack'.
+# Installing OptiTrack NatNet emulator extension into Kit for plugin discovery.
 COPY extensions/optitrack.natnet.emulator \
      /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/optitrack.natnet.emulator
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir -e /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/optitrack.natnet.emulator
