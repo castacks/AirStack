@@ -40,7 +40,7 @@ services:
       - ./omni_pass.env
       # PX4 SITL parameter set, applied by rcS at boot. Defaults to px4-params/default.env,
       # which is empty, so PX4 keeps its firmware defaults. Set PX4_PARAM_SET=<name> to
-      # select px4-params/<name>.env instead; an unknown name fails the compose config.
+      # select px4-params/<name>.env instead.
       - ./px4-params/${PX4_PARAM_SET:-default}.env
     environment:
       - AUTOLAUNCH=${AUTOLAUNCH:-'false'}
