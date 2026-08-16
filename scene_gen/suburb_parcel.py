@@ -4,11 +4,9 @@ suburb_parcel.py — lots, houses, drives and planting on a `suburb_net` block.
 WHAT THIS IS FOR
 ----------------
 `suburb_net` produces a street graph and the block polygons between the
-streets. That is enough to judge the ROADS but not the FABRIC: a plan of bare
-blocks cannot show whether the blocks are actually usable — whether a lot of
+streets. That is enough to judge the ROADS but not the FABRIC: whether a lot of
 sane width fits along the frontage, whether the deep middle of a block is
 stranded, whether cul-de-sac bulbs get the ring of houses that justifies them.
-This pass answers those, and it is what makes the preview legible as a place.
 
 THE ORGANISING IDEA: LOTS ARE HUNG OFF FRONTAGE, NOT CUT OUT OF AREA
 --------------------------------------------------------------------
@@ -20,17 +18,14 @@ its orientation from the frontage tangent at that station:
     house centre  = station + inward normal * (setback + depth/2)
 
 which is why houses follow a curving street round its curve instead of staying
-axis-aligned to the world. On the old rect-based generator every house was at
-0/90/180/270 degrees because the block edge was always axis-aligned; here the
-yaw is whatever the street is doing at that point, and that alone is most of
-the difference in how the plan reads.
+axis-aligned to the world, as they did on the old rect-based generator where
+the block edge was always axis-aligned.
 
 The deep interior of a block is deliberately left empty of HOUSES. That is not
 a gap in the algorithm — it is the back yards, and on a real suburban block the
-middle is exactly that: nothing but lawn, fence lines and trees. Each lot does
-carry its rectangle (`lot_corners`, `lot_depth`) so the fence lines that bound
-those back yards can be drawn, and so a consumer can tell a 21 m yard from a
-38 m one.
+middle is exactly that: lawn, fence lines and trees. Each lot carries its
+rectangle (`lot_corners`, `lot_depth`) so those fences can be drawn, and so a
+consumer can tell a 21 m yard from a 38 m one.
 
 DENSITY IS A PROPERTY OF THE BLOCK, NOT OF THE LOT
 --------------------------------------------------
@@ -50,23 +45,22 @@ GROUND THE BLOCK POLYGON DOES NOT KNOW ABOUT
 Being inside the block polygon is not the same as being off the pavement. A
 cul-de-sac does not end at a point: `suburb_net` puts a paved TURNAROUND DISC
 at the tip of every lollipop edge (14.64 m radius, IFC Fig D103.1's 96 ft
-driving diameter) and `suburb_scene.apply_ground` lays asphalt over it, but the
-block polygon is built from the street faces and carries no record of it. A lot
-issued off the frontage beside a bulb is therefore platted on the road, and
-passes every containment test in here while doing it. `cfg["keepout_discs"]` is
-how the caller — which has the net, and so has the real per-edge radius — says
+driving diameter), but the block polygon is built from the street faces and
+carries no record of it, so a lot issued beside a bulb is platted on the road
+and passes every containment test in here while doing it. `cfg["keepout_discs"]`
+is how the caller — which has the net, and so the real per-edge radius — says
 where that pavement is; house, garage, fence and tree are all refused or cut
 back out of it.
 
 WHAT IT DOES NOT DO
 -------------------
-No USD, and no asset library: this module still cannot look a house up. What it
-will now do is USE a measurement someone else took — `cfg["house_sizes"]` takes
-the caller's measured footprints and sites those instead of nominal rectangles,
-stamping the entry it used on each house as `size_index` so the caller can place
-that exact asset. Absent the key the footprints are nominal rectangles drawn
-from `house_w_m`/`house_d_m`, and then every overlap test below is only as true
-as that guess — which is the honest reading of a house that clears the test here
+No USD, and no asset library: this module cannot look a house up. What it can
+do is USE a measurement someone else took — `cfg["house_sizes"]` sites the
+caller's measured footprints instead of nominal rectangles and stamps the entry
+used on each house as `size_index`, so the caller can place that exact asset.
+Absent the key the footprints are nominal rectangles from
+`house_w_m`/`house_d_m`, and every overlap test below is then only as true as
+that guess — which is the honest reading of a house that clears the test here
 and overlaps its neighbour on screen.
 """
 
@@ -95,13 +89,11 @@ def _side_at(cum, s):
 # house archetypes
 # ---------------------------------------------------------------------------
 # A lot is not a house — it is a house AND what came with it. A post-war plat is
-# built by one developer in phases, so a run of lots shares a package: the same
-# builder puts up the same house with the same garage and the same fence down a
-# whole street, and the next phase does something slightly different. Drawing an
-# archetype independently per lot destroys exactly that, and is what makes a
-# generated suburb read as a shuffled catalogue rather than as a subdivision.
-#
-# So archetypes are assigned in RUNS along each block's frontage, not per lot.
+# built by one developer in phases, so a run of lots shares a package: same
+# house, same garage, same fence down a whole street, and the next phase does
+# something slightly different. Drawn per lot instead, a generated suburb reads
+# as a shuffled catalogue rather than as a subdivision — so archetypes are
+# assigned in RUNS along each block's frontage.
 ARCHETYPES = {
     # name          weight  garage   fence   lot scale
     "plain":       {"w": 0.30, "garage": 0.0, "fence": 0.0, "scale": 1.00},
@@ -127,31 +119,25 @@ def _draw_archetype(rng):
 # ---------------------------------------------------------------------------
 # density classes
 # ---------------------------------------------------------------------------
-# Same argument as ARCHETYPES one level up. A zoning map does not assign a
-# minimum lot width to a HOUSE, it assigns one to a DISTRICT, and the district
-# boundary is drawn along streets and platted block lines. US single-family
-# districts commonly bottom out around a 40-50 ft minimum width and top out at
-# 100 ft or more in a large-lot/estate district, with the front setback moving
-# with it (20-25 ft in the tight districts, 40-50 ft in the estate ones). So
-# every lot on a block face is about as wide as its neighbours, and the change
-# happens at the block, which is exactly what "the houses can be close in some
-# areas and far apart in others" describes.
-#
-# Drawn ONCE PER BLOCK. Drawing per lot would put an estate lot between two
-# starter lots, which no plat has ever done.
+# Same argument as ARCHETYPES one level up. A zoning map assigns a minimum lot
+# width to a DISTRICT, not to a house, and the district boundary runs along
+# streets and platted block lines. US single-family districts bottom out around
+# a 40-50 ft minimum width and top out at 100 ft or more in a large-lot/estate
+# district, with the front setback moving with it (20-25 ft tight, 40-50 ft
+# estate). So the change happens AT THE BLOCK, and this is drawn ONCE PER BLOCK:
+# per lot would put an estate lot between two starter lots.
 #
 #   "lot"     multiplies the sampled frontage width
 #   "setback" multiplies the sampled front setback
-#   "depth"   multiplies the sampled lot depth — gently. Depth is set by how
-#             the surveyor tiered the block, so it moves far less than width
-#             does across districts, but the estate tract does get the deeper
-#             back yard as well as the wider one.
+#   "depth"   multiplies the sampled lot depth — gently. Depth is set by how the
+#             surveyor tiered the block, so it moves far less than width does
+#             across districts.
 #
 # The HOUSE is deliberately not scaled. A wider lot in a low-density district
 # buys side yard and back yard, not a bigger building — the same builder's
-# 1,600 sq ft plan goes up on the 40 ft lot and on the 100 ft lot. House size
-# is the archetype's job (ARCHETYPES[...]["scale"]), and mixing the two knobs
-# would cancel the effect the width is there to produce.
+# 1,600 sq ft plan goes up on the 40 ft lot and on the 100 ft lot. House size is
+# the archetype's job (ARCHETYPES[...]["scale"]); driving both from width would
+# cancel the effect width is there to produce.
 DENSITY = {
     # name           weight   lot width   setback       depth
     "tight":       {"w": 0.28, "lot": 0.78, "setback": 0.80, "depth": 0.85},
@@ -204,15 +190,14 @@ DEFAULTS = {
     # WHY: every overlap test below is only as true as the box it is handed, and
     # the nominal box is a guess about art nobody measured. The shipped pool
     # mixes bungalows pinned to a 12 m longest plan dimension with the
-    # RetroNeighborhood SM_House_* that `suburban.yaml` flags in as many words
-    # as unverified, while this module sites boxes anywhere from 7.0 to 21.3 m
-    # across. A lot that reserved 9 m and receives a 12 m asset overlaps its
-    # neighbour on screen having passed every test in here, and no arithmetic
-    # fix reaches that, because the arithmetic was right about the wrong box.
+    # RetroNeighborhood SM_House_* that `suburban.yaml` flags as unverified,
+    # while this module sites boxes from 7.0 to 21.3 m across. A lot that
+    # reserved 9 m and receives a 12 m asset overlaps its neighbour on screen
+    # having passed every test in here; no arithmetic fix reaches that, because
+    # the arithmetic was right about the wrong box.
     #
     # MEASURED IN, INDEX OUT. The entry chosen is stamped on the house as
-    # `size_index`; it is only a fix if the caller places THAT asset, otherwise
-    # the guess has merely moved one module along.
+    # `size_index`; it is only a fix if the caller places THAT asset.
     "house_sizes": None,
     # PAVEMENT THE BLOCK POLYGON CANNOT SEE, as `((x, y), r)` discs in world
     # metres. Cul-de-sac turnarounds are what this is for; the caller holds the
@@ -236,15 +221,19 @@ DEFAULTS = {
     "house_gap_m": 4.0,          # side-yard between neighbours
     "driveway_w_m": 3.2,
     "garage_share": 0.55,        # lots whose drive widens to a pad
-    # Detached double garage: 20 x 21 ft, the standard two-car box. Held beside
-    # the house rather than merged into it because the house asset is a single
-    # mesh and cannot grow a wing.
+    # Detached double garage: 20 x 21 ft, the standard two-car box. NOTHING IS
+    # BUILT IN THIS BOX any more — `suburb_scene.house_catalogue` folds the
+    # garage wing into the measured house footprint, so what renders comes from
+    # `size_index`. The box survives as RESERVED GROUND: it blocks later houses,
+    # cuts fences at its wall, and sets where the drive and the front-fence gap
+    # go. Sizing it is therefore still a geometry decision, not decoration.
     "garage_w_m": 6.0,
     "garage_d_m": 6.5,
     "garage_gap_m": 0.8,         # breezeway between house and garage
-    # Planting. Front-yard and back-yard trees plus a street tree rhythm.
-    # Off by default: suburb_yardplan owns yard planting. Set true only when
-    # using this module WITHOUT yardplan.
+    # Planting. `suburb_yardplan` owns yard planting; this module keeps only the
+    # street rhythm along the verge. `back_trees_per_100m2` is read only under
+    # `own_yard_trees`, and NOTHING reads `front_tree_chance` — both are kept
+    # for callers that use this module without yardplan.
     "own_yard_trees": False,
     "back_trees_per_100m2": 0.055,
     "front_tree_chance": 0.0,
@@ -279,7 +268,7 @@ def _obb_overlap(a, b, pad=0.0):
     of one separates them, and a rectangle has only two distinct normals.
     """
     for poly in (a, b):
-        for i in range(2):                      # two distinct normals per box
+        for i in range(2):
             ex = poly[(i + 1) % 4][0] - poly[i][0]
             ey = poly[(i + 1) % 4][1] - poly[i][1]
             n = _unit((-ey, ex))
@@ -335,13 +324,12 @@ def _hits_keepout(corners, discs):
 def _clip_seg_disc(a, b, c, r):
     """Trim a fence run back out of a paved turnaround.
 
-    Same contract and same reasoning as :func:`_clip_seg` one level down — a
-    fence stops at the thing it cannot stand in — with a circle in place of a
-    building. Solving |a + d*t - c| = r for the two crossings is exact, where
-    sampling the run would let a short chord through. The middle case gives up
-    for the same reason it does there: a bulb biting the centre of a lot line
-    would leave two stubs, and a fence in two pieces with a road through it is
-    worse than no fence.
+    Same contract as :func:`_clip_seg` one level down — a fence stops at the
+    thing it cannot stand in — with a circle in place of a building. Solving
+    |a + d*t - c| = r for the two crossings is exact, where sampling the run
+    would let a short chord through. The middle case gives up for the same
+    reason it does there: a bulb biting the centre of a lot line would leave two
+    stubs, and a fence in two pieces with a road through it is worse than none.
     """
     d = _unit(_sub(b, a))
     ln = _dist(a, b)
@@ -389,14 +377,12 @@ def _pick_size(sizes, order, rng, max_w, scale):
     Two things the nominal path gets for free and this one has to earn.
 
     FIT. `h_w = min(sampled, width - gap)` cannot be applied to a measurement —
-    clamping a measured asset is just the nominal guess again, and a 12 m model
-    scaled down to 9 m is a model with 9 m doors. So the fit is a FILTER on the
-    catalogue instead: the builder puts the plan that fits on the lot, which is
-    what a real plat does and is why narrow lots carry narrow houses. Only when
-    NOTHING in the catalogue fits does the lot go unbuilt. The criterion is the
-    same half-gap :func:`parcel_blocks` gives the overlap test, deliberately —
-    a stricter one here would refuse a house the overlap test would have let
-    stand, and pay for it in gaps down the street.
+    a 12 m model scaled down to 9 m is a model with 9 m doors. So the fit is a
+    FILTER on the catalogue instead, which is what a real plat does and is why
+    narrow lots carry narrow houses; only when NOTHING fits does the lot go
+    unbuilt. The criterion is the same half-gap :func:`parcel_blocks` gives the
+    overlap test, deliberately — a stricter one here would refuse a house the
+    overlap test would have let stand, and pay for it in gaps down the street.
 
     SIZE CLASS. `ARCHETYPES[...]["scale"]` cannot resize a measured asset for
     the same reason, so it selects rather than scales: rank the fitting entries
@@ -404,7 +390,7 @@ def _pick_size(sizes, order, rng, max_w, scale):
     area goes as its square, hence the exponent — 1.00 leaves the draw uniform
     over everything that fits, 1.42 ("large") pulls its mean to about the 74th
     percentile of it. Biasing rather than slicing matters: a hard band would cut
-    the top of the catalogue out of the 52% of lots at scale 1.00 and those
+    the top of the catalogue out of the 52% of lots at scale 1.00, and those
     models would never be built.
     """
     fit = [i for i in order if sizes[i][0] <= max_w]
@@ -417,15 +403,14 @@ def _pick_size(sizes, order, rng, max_w, scale):
 def _probe_depth(poly, p, n, u, width, lo, hi, step=1.0):
     """Trim a wanted depth *hi* to what the block will actually give.
 
-    The same idea as the `min_lot_depth_m` gate, walked outward instead of
-    tested once: step inward along *n* and keep the deepest station whose rear
-    corners are all still inside the block. Stopping at the FIRST failure
-    rather than continuing matters — a re-entrant block can put polygon
-    interior back under the ray on the far side of a neck, and a lot is not
-    allowed to jump the gap and take its back yard out of the next street's
-    frontage. Returns *hi* exactly when nothing gets in the way, and never
-    less than *lo*: a lot that only just cleared the depth gate above still
-    gets its minimum rectangle rather than a sliver.
+    The `min_lot_depth_m` gate walked outward instead of tested once: step
+    inward along *n* and keep the deepest station whose rear corners are all
+    still inside the block. Stopping at the FIRST failure matters — a re-entrant
+    block can put polygon interior back under the ray on the far side of a neck,
+    and a lot may not jump the gap and take its back yard out of the next
+    street's frontage. Returns *hi* when nothing gets in the way, and never less
+    than *lo*, so a lot that only just cleared the depth gate still gets its
+    minimum rectangle rather than a sliver.
     """
     hw = width / 2.0
     fl = _add(p, _mul(u, -hw))
@@ -456,24 +441,19 @@ def _seg_key(p0, p1, q=0.05):
 def _line_dupe(segs, a, b, tol=0.60, cos_tol=0.92, min_ov=0.5):
     """Is this boundary already fenced, by the lot on the other side of it?
 
-    :func:`_seg_key` catches only the exact case, and the exact case is the
-    rare one. Two lots share a boundary but do not describe it identically:
-    they agree on the front anchor only to within the chord error of a curving
-    block face, and they disagree outright on the far end, because each one
-    platted its own lot depth. Back-to-back lots on a thin block share a REAR
-    line and meet it head-on, from opposite directions and offset along it.
-    Keyed on endpoints, none of that matches, and the lot line gets two fences
-    laid down it — a 26 m one and a 34 m one, overlapping for 26 m. Which is
-    the doubled-geometry bug, just in fencing.
+    :func:`_seg_key` catches only the exact case, and the exact case is the rare
+    one: two lots agree on the front anchor only to within the chord error of a
+    curving block face and disagree outright on the far end, because each platted
+    its own lot depth. Keyed on endpoints, the shared line gets two fences laid
+    down it — a 26 m one and a 34 m one, overlapping for 26 m.
 
-    So match the LINE: near-parallel (either direction), overlapping along it
-    by more than *min_ov*, and no more than *tol* apart WHERE THEY OVERLAP —
-    measured at the middle of the shared stretch rather than at an endpoint,
-    because two boundaries that share a corner and splay apart by a few degrees
-    are two boundaries, while two that run 20 m side by side 10 cm apart are
-    one. Neighbours whose fences merely MEET end to end project to a
-    zero-length overlap and are correctly left alone, and a block corner is
-    safe because the two faces there are tens of degrees apart.
+    So match the LINE: near-parallel (either direction), overlapping along it by
+    more than *min_ov*, and no more than *tol* apart WHERE THEY OVERLAP —
+    measured at the middle of the shared stretch, not at an endpoint, because
+    two boundaries that share a corner and splay apart by a few degrees are two
+    boundaries while two that run 20 m side by side 10 cm apart are one. Fences
+    that merely MEET end to end project to a zero-length overlap and are left
+    alone; a block corner is safe because its two faces are tens of degrees apart.
     """
     d = _unit(_sub(b, a))
     ln = _dist(a, b)
@@ -503,17 +483,15 @@ def _seg_box(a, b, t=0.04):
 def _clip_seg(a, b, box, pad=0.10):
     """Trim a fence run back to where a building stands on it.
 
-    A fence butts into a wall, it does not pass through it, and two buildings
-    stand on these lines. A garage on the side line is the boundary structure
-    for its own length — half the reason they were built on the line — so the
-    run is cut at it rather than deleted, and the back of the side yard stays
-    fenced, which is what you see from the street. The other case is a
-    NEIGHBOUR's house: lots are hung off frontage independently, so two lots
-    issued from perpendicular faces of the same block genuinely overlap deep in
-    the corner, and one of them will have platted its back yard across the
-    other's living room. Cutting the fence at the wall is the honest reading of
-    that — the alternative is a full lot-versus-lot packing pass, which is a
-    different module.
+    A fence butts into a wall, it does not pass through it, and two boxes stand
+    on these lines. A garage on the side line is the boundary structure for its
+    own length — half the reason they were built on the line — so the run is cut
+    at it rather than deleted and the back of the side yard stays fenced. The
+    other case is a NEIGHBOUR's house: lots are hung off frontage independently,
+    so two lots issued from perpendicular faces of the same block genuinely
+    overlap deep in the corner and one has platted its back yard across the
+    other's living room. Cutting at the wall is the honest reading of that; the
+    alternative is a full lot-versus-lot packing pass, which is another module.
 
     Returns ``None`` when nothing useful is left, or when the obstruction is in
     the middle of the run and cutting would leave two stubs.
@@ -575,9 +553,10 @@ def parcel_blocks(blocks, rng, cfg=None):
     plus the lot it stands on: ``lot_corners`` (front_left, front_right,
     rear_right, rear_left), ``lot_depth``, ``fence_segs``
     (``[(p0, p1, "privacy"|"low"), ...]``, deduplicated across the block) and
-    ``garage`` (``None`` or a box in the same shape as the house). With
-    ``cfg["house_sizes"]`` supplied, ``size_index`` says which measured entry
-    the footprint came from and the caller is expected to place that asset.
+    ``garage`` (``None`` or a box in the same shape as the house — RESERVED
+    GROUND, not an asset request; see `garage_w_m`). With ``cfg["house_sizes"]``
+    supplied, ``size_index`` says which measured entry the footprint came from
+    and the caller is expected to place that asset.
     """
     c = dict(DEFAULTS)
     c.update(cfg or {})
@@ -646,7 +625,7 @@ def parcel_blocks(blocks, rng, cfg=None):
             continue
 
         houses, drives, trees = [], [], []
-        garages = []                 # boxes only, for the overlap tests
+        garages = []                 # reserved ground; nothing is built in it
         fenced = set()               # boundary identities already fenced
         fence_lines = []             # ...and the same as lines, for near-misses
         n_reject = 0
@@ -731,12 +710,11 @@ def parcel_blocks(blocks, rng, cfg=None):
             _clip_standing(fence_lines, corners)
 
             # --- the lot rectangle -------------------------------------------
-            # Frontage width along the kerb, `lot_depth` inward. Left/right is
-            # taken against the frontage tangent: left = -u, right = +u.
-            # ...but never shallower than the house on it, plus a rear yard.
-            # A deep setback and a large archetype together can put the back
-            # wall 35 m in, and a rear lot line in front of the house it
-            # belongs to would fence the building in half.
+            # Frontage width along the kerb, `lot_depth` inward, left/right
+            # taken against the frontage tangent: left = -u, right = +u. Never
+            # shallower than the house plus a rear yard: a deep setback and a
+            # large archetype together put the back wall 35 m in, and a rear lot
+            # line in front of its own house would fence the building in half.
             want_depth = min(max_depth,
                              max(min_depth, setback + h_d + 4.0,
                                  rng.uniform(*ld) * d_dep))
@@ -774,16 +752,14 @@ def parcel_blocks(blocks, rng, cfg=None):
                 # case: a 6 m garage plus a 12 m house does not fit inside a
                 # 20 m frontage, which is why detached garages all over
                 # pre-zoning plats sit hard on the line. Requiring containment
-                # instead costs the fenced archetypes their garage on every lot
-                # narrower than about 26 m, i.e. nearly all of them, and "full"
-                # then renders identically to "fenced". What is NOT allowed is
-                # a garage inside a building, so the two structural tests are
-                # exactly the ones the house passes; the FENCE is what gives
-                # way, cut at the garage wall by `_clip_seg` below.
-                # The bulb is tested here for the same reason the house tests
-                # it, and it bites harder: a garage sits at the setback line
-                # with no front yard in front of it, so a lot whose house
-                # cleared the turnaround can still have parked its garage on it.
+                # instead refuses the box on every lot narrower than about 26 m,
+                # i.e. nearly all of them. What is NOT allowed is a box inside a
+                # building, so the two structural tests are exactly the ones the
+                # house passes; the FENCE gives way instead, cut at the garage
+                # wall by `_clip_seg` below.
+                # The bulb bites harder here than on the house: a garage sits at
+                # the setback line with no front yard in front of it, so a lot
+                # whose house cleared the turnaround can still park on it.
                 ok = (all(point_in_polygon(poly, q) for q in g_corners)
                       and not _hits_keepout(g_corners, blk_discs))
                 if ok:
@@ -856,8 +832,9 @@ def parcel_blocks(blocks, rng, cfg=None):
                     fence_segs.append(seg)
 
             houses.append({"c": (cx, cy), "w": h_w, "d": h_d, "u": u,
-                           # What this lot gets BUILT with, not just the house:
-                           # suburb_scene composes the package from these.
+                           # Which package this lot was drawn as. Read by
+                           # `stats`; `has_garage`/`has_fence` further down are
+                           # recorded for callers and read by nothing in-tree.
                            "archetype": arch,
                            # WHICH measured footprint was sited, as an index
                            # into `cfg["house_sizes"]` (None when the nominal
@@ -869,11 +846,11 @@ def parcel_blocks(blocks, rng, cfg=None):
                            "has_garage": spec["garage"] > 0.0,
                            "has_fence": spec["fence"] > 0.0,
                            "lot_width": width,
-                           # The lot itself, so the package can be BUILT and
-                           # not merely recorded: the rectangle, how deep the
-                           # back yard actually runs on this block, the fence
-                           # lines already deduplicated against the neighbour,
-                           # and the garage box (None when it did not fit).
+                           # The lot itself, so the yard can be planted and not
+                           # merely recorded: the rectangle, how deep the back
+                           # yard actually runs on this block, the fence lines
+                           # already deduplicated against the neighbour, and the
+                           # garage box (None when it did not fit).
                            "lot_corners": lot_corners,
                            "lot_depth": lot_depth,
                            "fence_segs": fence_segs,
@@ -887,9 +864,9 @@ def parcel_blocks(blocks, rng, cfg=None):
                            "corners": corners,
                            "yaw_deg": math.degrees(math.atan2(u[1], u[0]))})
             # Drive runs from the kerb to the front face, offset to one side of
-            # the house so it lands beside the door rather than through it —
-            # and when this lot got a garage, to the garage door instead, which
-            # is where a drive on a real lot goes. Same `side` either way.
+            # the house so it lands beside the door rather than through it — and
+            # when this lot reserved a garage box, up to that instead, which is
+            # where a drive on a real lot goes. Same `side` either way.
             if garage is not None:
                 a0 = _add(p, _mul(u, g_off))
                 a1 = _add(a0, _mul(n, setback + 0.2))
@@ -902,12 +879,11 @@ def parcel_blocks(blocks, rng, cfg=None):
                            "pad": (garage is not None
                                    or rng.random() < float(c["garage_share"]))})
             # NO FRONT-YARD TREE HERE. `suburb_yardplan` owns yard planting and
-            # places a specimen tree per lot against a POINT BUDGET; emitting one
-            # here too planted every yard twice. Measured on the shipped preset:
-            # 693 front + 858 back trees from this pass on top of yardplan's,
-            # 1,551 duplicates, and this pass has no budget at all. This module
-            # keeps only the STREET rhythm along the verge, which is the one
-            # thing yardplan does not do.
+            # already places a specimen tree per lot; emitting one here too
+            # planted every yard twice — measured on the shipped preset, 693
+            # front + 858 back trees from this pass on top of yardplan's, 1,551
+            # duplicates. This module keeps only the STREET rhythm along the
+            # verge, which is the one thing yardplan does not do.
 
         # Street trees: a rhythm along the kerb, independent of the lots, which
         # is how a verge is actually planted.
@@ -932,8 +908,8 @@ def parcel_blocks(blocks, rng, cfg=None):
                     trees.append({"c": q, "r": r, "kind": "street"})
             u_s += rng.uniform(*sts)
 
-        # NO BACK-YARD SCATTER HERE either -- same reason: yardplan plants the
-        # rear yard, budgeted. Left as a no-op rather than deleted so the
+        # NO BACK-YARD SCATTER HERE either, same reason: yardplan plants the
+        # rear yard. Left as a no-op rather than deleted so the
         # `back_trees_per_100m2` knob keeps working for callers that use this
         # module without yardplan.
         area = abs(polygon_area(poly))
@@ -962,10 +938,10 @@ def parcel_blocks(blocks, rng, cfg=None):
         out.append({"block": poly, "density": dens, "houses": houses,
                     "drives": drives, "trees": trees,
                     "garages_rejected": n_reject,
-                    # Both new rejection reasons are reported rather than
-                    # swallowed: a thinned-out street is its own defect, and
-                    # these are the two numbers that say whether a keep-out or a
-                    # catalogue with nothing narrow in it caused one.
+                    # Reported rather than swallowed: a thinned-out street is
+                    # its own defect, and these are the two numbers that say
+                    # whether a keep-out or a catalogue with nothing narrow
+                    # enough in it caused one.
                     "keepout_rejected": n_keepout,
                     "size_rejected": n_nofit})
     return out

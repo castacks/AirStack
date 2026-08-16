@@ -11,16 +11,13 @@
 # deliberately no `scale:` on these — nothing to drift from the geometry. It
 # pins the longest PLAN dimension unless `fit: max` is given.
 #
-# WHAT IS NOT HERE, ON PURPOSE
-# ----------------------------
-# The court SURFACES. A basketball court is a painted rectangle at a fixed
-# size and no library has the one that fits a given park, so `suburb_park.py`
-# generates the slab and its markings and this set supplies only the objects
-# that stand on it. Same for the soccer pitch and the playground sand.
+# NOT HERE ON PURPOSE: the court SURFACES. `suburb_park.py` generates the slab
+# and its markings — a court is a painted rectangle at a fixed size and no
+# library has the one that fits a given park — so this set supplies only the
+# objects that stand on it. Same for the soccer pitch and the playground sand.
 #
-# Two gaps that are not oversights: BLEACHERS and RUNNING TRACKS are not in
-# Objaverse. "bleacher" returns 1 match and every phrasing of running track
-# returns 0. A track is a painted surface and is better generated anyway.
+# BLEACHERS and RUNNING TRACKS are absent because Objaverse has neither:
+# "bleacher" returns 1 match, every phrasing of running track returns 0.
 
 extends: shared
 
@@ -61,19 +58,15 @@ usds:
   park_gazebo:
     - usd: "objaverse://ab95dfb3816e4160989f26972c4c7c39"   # Gazebo, 5.2k faces
       target-size-m: 5.0
-      # BY EYE FROM THE SIM, not from a measurement, and that is not laziness:
-      # MEASURED 5.000 x 5.000 x 3.788 m, i.e. SQUARE IN PLAN, so the footprint
-      # carries no information at all about which way the thing faces. A hoop
-      # or a goal declares its facing in its own proportions (see the +90 on
-      # both, below and above) and this one cannot — only the steps and the
-      # open bay say where the front is, and only a render shows those.
+      # BY EYE FROM THE SIM, and necessarily so: MEASURED 5.000 x 5.000 x
+      # 3.788 m, i.e. SQUARE IN PLAN, so the footprint says nothing about which
+      # way it faces. The hoop and the goal declare their facing in their own
+      # proportions (hence the +90 on both); only the steps and the open bay say
+      # where this one's front is, and only a render shows those.
       #
-      # -75 IS THE REPORTED NUMBER AND IS DELIBERATELY NOT ROUNDED. It is an
-      # odd figure for an authoring offset and the temptation is to call it -90
-      # with sloppy eyeballing on top; do not. The art is an octagonal gazebo,
-      # whose bays sit at 45 degree steps rather than 90, so an offset that is
-      # not a multiple of 90 is exactly what this shape should produce, and the
-      # person who asked for it was looking at the render.
+      # -75 IS DELIBERATELY NOT ROUNDED to -90. The art is an octagonal gazebo
+      # whose bays sit at 45-degree steps, so a non-multiple of 90 is exactly
+      # what this shape should produce.
       yaw-offset: -75.0
 
   park_fountain:
@@ -86,29 +79,24 @@ usds:
     - usd: "objaverse://b5c67137ca284754ac494f16b540a2b3"   # State Park Sign, 144 faces
       target-size-m: 3.0
 
-  # Borrowed from urban_v2, which already vetted and cached it — a bike rack is
-  # the same object in a park as on a street, so duplicating the pick would only
-  # create a second thing to keep in sync.
+  # Borrowed from urban_v2, which already vetted and cached it: a bike rack is
+  # the same object in a park as on a street.
   bike_racks:
     - usd: "objaverse://8c8fd4fa06eb4b1c8db5bd3584892f3c"
       target-size-m: 1.8
-      # SCALED DOWN ON SIGHT FROM THE SIM. Reported as far too big; this is the
-      # requested 0.01.
+      # SCALED DOWN ON SIGHT FROM THE SIM (reported far too big), and the
+      # numbers do not endorse 0.01. Cached size is 1.800 x 0.573 x 3.764 m:
+      # `target-size-m` with the default `fit: footprint` pinned the 1.8 m PLAN
+      # dimension and let the height ride, giving a 3.76 m "rack"; 0.01 takes
+      # that to 18 mm, which is not a rack either.
       #
-      # WHAT THE MEASUREMENT SAYS, because it does not agree with 0.01 and the
-      # next person needs the numbers. The cached asset is 1.800 x 0.573 x
-      # 3.764 m -- `target-size-m` with the default `fit: footprint` pinned the
-      # 1.8 m PLAN dimension and let the height ride, giving a "rack" 3.76 m
-      # tall. 0.01 takes that to 18 mm, which is not a rack either.
-      #
-      # The likely real defect: this line re-specified an asset urban_v2 had
-      # ALREADY vetted as `target-size-m: 0.75, fit: height` (a rack is defined
-      # by its height, not its plan). The objaverse cache is keyed by uid and
-      # holds ONE conversion, so whichever set is prepared last wins for both --
-      # this entry silently rebaked urban's racks too. Reverting to the vetted
-      # spec gives 0.359 x 0.114 x 0.750 m, which is a short rack but a rack.
-      # Neither number flatters the model; its 1 : 0.32 : 2.09 proportions are
-      # a shelter's, not a stand's, and it may simply be the wrong asset.
+      # The real defect is that this line re-specifies an asset urban_v2 had
+      # already vetted as `target-size-m: 0.75, fit: height`. The objaverse
+      # cache is keyed by uid and holds ONE conversion, so whichever set is
+      # prepared last wins for both — this entry silently rebaked urban's racks.
+      # The vetted spec gives 0.359 x 0.114 x 0.750 m, a short rack but a rack.
+      # Its 1 : 0.32 : 2.09 proportions are a shelter's, not a stand's; it may
+      # simply be the wrong asset.
       scale: 0.01
 
   park_table:
@@ -116,27 +104,15 @@ usds:
       target-size-m: 2.0
 
   # ---- playground ----------------------------------------------------------
-  # THE EXPENSIVE ONES. Swing Set and Kids Place are 76k and 79k faces each —
-  # against a 1.1k hoop and a 144-face sign — so they are capped to a handful
-  # per playground rather than scattered. `suburb_yardplan`'s point budget
-  # exists for exactly this reason and the urban scene OOM-killed at 89.1M.
+  # THE EXPENSIVE ONES. Swing Set and Kids Place are 76k and 79k faces each,
+  # against a 1.1k hoop and a 144-face sign, so `suburb_park.plan` caps them at
+  # two per playground and scatters the 498-face SEESAW (152x cheaper) instead.
   #
-  # AND THE CAP IS STILL REAL, which is worth writing down because it is easy
-  # to assume otherwise now that the suburb scene instances. CHECKED:
-  # `suburb_scene.generate_suburb_on_stage` passes
-  # `instance_categories=config.get("instance_categories", [...])` and the
-  # default list is tree / plant / sidewalk / streetlight / fire_hydrant /
-  # sign / crosswalk / fence — no preset in `config/presets/` overrides it, and
-  # `play_structure` (the category all three of these place under, see
-  # `suburb_scene._PARK_POOLS`) is NOT on it. So the second swing set is
-  # another 75.9k faces, not a transform. TREES are on the list, which is why
-  # `suburb_park` can plant at municipal density for free while the playground
-  # still has to count.
-  #
-  # The consequence for the layout, spelled out in `suburb_park.plan`: the two
-  # expensive pieces stay capped at two each and the rest of the kit is the
-  # SEESAW, which at 498 faces is 152x cheaper than either and is the only one
-  # of the three that can be scattered.
+  # Cheaper than that cap implies on the GRAPH path: `play_structure` — the
+  # category all three place under, see `suburb_scene._PARK_POOLS` — is in
+  # `suburb_scene.generate_suburb_on_stage`'s default `instance_categories`, so
+  # a second swing set is a transform, not another 75.9k faces. The RECT path
+  # (`build_city`) passes no instance categories and still pays in full.
   park_play_swing:
     - usd: "objaverse://8712f53da0e04736802f1bc84ca7df97"   # Swing Set, 75.9k faces
       target-size-m: 4.5

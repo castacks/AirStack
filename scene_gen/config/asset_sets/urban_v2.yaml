@@ -16,8 +16,8 @@
 
 extends: urban
 
-# `<key>+` appends to the inherited pool instead of replacing it, so the Nucleus
-# props stay in the mix and the AEC ones add variety.
+# `<key>+` appends to the inherited pool; a bare key REPLACES it. Most pools
+# below are written bare, to own the pool rather than add to it.
 
 fallback_sizes:
   # Without an entry here a category silently takes the generic 4.0 x 4.0 m
@@ -48,23 +48,20 @@ fallback_sizes:
   dumpster:      [1.8, 1.2, 1.3]
 
 usds:
-  # Pre-assembled party-wall terraces. The right SHAPE for a block frontage:
-  # ~21 m deep and long along the street (aspect 1.6-3.8, against a squarish
-  # inherited pool), so a row tiles a frontage instead of leaving a gap either
-  # side. This is what closes the "very large sidewalk" — which is not sidewalk
-  # at all but unbuilt paved block interior, left bare because no library
-  # building fit. Cheapest useful building geometry in either AEC pack, ~4.6k
-  # points per house, linear in row length.
-  # TYPOLOGY POOLS. `intact` stays exactly as urban.yaml left it — build_city
-  # packs from it and `districts.rezone_blocks` then rebuilds each block from
-  # the pool its zone calls for. The terraces are deliberately NOT in `intact`:
-  # build_city picks uniformly among everything that fits, so a row house wins
-  # most slots and the city fills with single detached terraces standing in
-  # gaps, which is exactly what a row house must never do. They are only ever
-  # placed by the `terrace` morphology, in a contiguous run along a block face.
-  #
-  # Sizes and point counts below are MEASURED against Nucleus
+  # TYPOLOGY POOLS. `intact` stays as urban.yaml left it — build_city packs from
+  # it and `districts.rezone_blocks` then rebuilds each block from the pool its
+  # zone calls for. Sizes and point counts below are MEASURED against Nucleus
   # (tools/measure_assets.py), not guessed.
+  #
+  # The `rowhouse` terraces are deliberately NOT in `intact`: build_city picks
+  # uniformly among everything that fits, so a row house would win most slots
+  # and stand detached in gaps, which is exactly what a row house must never do.
+  # They are placed only by the `terrace` morphology, in a contiguous run along
+  # a block face — where their shape (~21 m deep, long along the street, aspect
+  # 1.6-3.8 against a squarish inherited pool) tiles a frontage instead of
+  # leaving a gap either side. That is what closes the "very large sidewalk",
+  # which is not sidewalk at all but unbuilt paved block interior left bare
+  # because no library building fit. ~4.6k points a house, linear in row length.
   buildings:
     # REPLACES urban.yaml's inherited `intact` (no `+`), solely to drop
     # MBuilding03 — it does not read as a building. Everything else is carried
@@ -200,25 +197,17 @@ usds:
       scale: 1.0          # 0.33 x 5.28 x 0.99 m, 1.5k
       yaw-offset: 90.0    # art runs along +Y; parks.py asks for a run along +X
 
-  # Park trees. The Downtown_West foliage is 200-300k points EACH — 100 of them
-  # is 20-30M, the whole scene's budget — so the park uses ModernCityEnvironment's
-  # trees at 9-20k instead, which are the same visual scale.
-  # Park trees come from shared.yaml's CityPark set, which IS textured.
-  # SM_Tree1/SM_Tree2 were tried here and are unbound — see street_trees above.
+  # Park trees are the `trees` pool below. Downtown_West foliage is not in it:
+  # 200-300k points EACH, so 100 of them is 20-30M — the whole scene's budget.
 
 
-  # ---- existing categories, extended with the AEC versions --------------------
-  # REPLACES the inherited pool rather than extending it (no `+`). shared.yaml
-  # mixes two Victorian lanterns, two modern pedestrian posts and three cobra
-  # heads — three unrelated families on one street, which is what reads as
-  # "too much variation in street lights". These two are one family, and the
-  # plain mast is the SAME POLE as the traffic signal below, so every junction
-  # matches by construction.
-  # ONE streetlight. A city buys one pole and repeats it; two families on one
-  # street is what reads as generated. The arterial mast is dropped rather than
-  # the ornamental post because the traffic signal assembly ALREADY carries a
-  # luminaire on the same pole — placing a mast beside a signal put two
-  # identical lights on one corner.
+  # ---- existing categories, replaced with the AEC / DowntownWest versions ------
+  # ONE streetlight, REPLACING the inherited pool (no `+`). shared.yaml mixes two
+  # Victorian lanterns, two modern pedestrian posts and three cobra heads —
+  # three unrelated families on one street, which is what reads as generated.
+  # The arterial mast is the one dropped, not the ornamental post, because the
+  # traffic signal assembly below ALREADY carries a luminaire on the same pole:
+  # a mast beside a signal put two identical lights on one corner.
   streetlights:
     - usd: "Dmytro/Assets/Game/Downtown_West/Assets/props/props_light_post/SM_lightpost_light_post_b.usd"
       yaw-offset: 270.0
@@ -272,18 +261,16 @@ usds:
       # If any shelter still faces the building line after this, the fix is to
       # drop this to 0.0 — the two candidates disagreed by exactly 180.
 
-  # Placed by build_city's own intersection pass (intersection_chance stays 0.9),
-  # not by city_detail — appending here is enough to widen the pool.
-  # REPLACES the inherited pool (no `+`). The DowntownWest signal: a full US
-  # mast-arm assembly — two 3-lens heads on a 7.7 m arm, pedestrian head and
-  # controller on the pole, street-name blade, plus a luminaire. It IS the
-  # arterial streetlight above with the arm fitted, so poles match at every
-  # junction. One merged mesh; the signal cannot be separated from the light.
-  # build_city places ONE per intersection, so this is ~50-90 instances.
-  # Two signal pools, because a signalised junction mixes hardware: masts on the
+  # TWO SIGNAL POOLS, because a signalised junction mixes hardware: masts on the
   # arterial approaches, poles on the minor ones at the SAME junction. Both are
-  # read by city_detail's signal pass, keyed by name from
+  # read by city_detail's signal pass, keyed by name from the preset's
   # `city_detail.signals.mast_usds` / `.pole_usds`.
+  #
+  # The mast is the DowntownWest assembly — two 3-lens heads on a 7.7 m arm,
+  # pedestrian head and controller on the pole, street-name blade, plus a
+  # luminaire. It IS the arterial streetlight with the arm fitted, so poles match
+  # at every junction. One merged mesh; the signal cannot be separated from the
+  # light.
   #
   # No yaw-offset on the mast arm: the arm direction is derived from the measured
   # bbox centroid, so each assembly is aimed at the approach it governs and
@@ -302,27 +289,18 @@ usds:
     - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_001.usd"
 
   # ---- new categories ---------------------------------------------------------
-  # Street trees, as distinct from `trees` (which the park scatter uses). Only
-  # the cheap end of the AEC vegetation: the expensive species are 300k-800k
-  # points each and a downtown places hundreds of these. See assets/aec/README.md.
-  # GREEN FOLIAGE ONLY. The Brownstone deciduous trees are autumn variants —
-  # their materials bind oakleaves1_fall2/5/6.png and ashtree_leaves_fall1.mdl —
-  # which is where the red and orange trees came from. The Tower pack ships the
-  # summer versions of the same species (oakleaves1_basecolor.png, no _fall), so
-  # the street pool is drawn entirely from there.
+  # PARK-SCATTER TREES, as distinct from `street_trees` below. REPLACES the
+  # inherited pool (no `+`).
   #
-  # Excluded and why:
-  #   Scarlet_Oak_fall (Brownstone) 40k — autumn, the red trees
-  #   White_Ash                     66k — autumn (ashtree_leaves_fall1)
-  #   Service_Berry                 84k — season unverified
-  #   Douglas_Fir                   56k — conifer; wrong for a downtown kerb,
-  #                                       and the likely source of the pale ones
-  # Park-scatter trees. REPLACES the inherited pool (no `+`).
+  # GREEN FOLIAGE ONLY, and season is decided by sampling each leaf albedo off
+  # Nucleus and taking the mean hue over alpha-masked pixels
+  # (tools/foliage_season.py), never by asset name. The Brownstone deciduous
+  # trees are AUTUMN variants — they bind oakleaves1_fall2/5/6.png and
+  # ashtree_leaves_fall1.mdl — which is where the red and orange trees came
+  # from; the Tower pack ships the summer versions of the same species
+  # (oakleaves1_basecolor.png, no _fall).
   #
-  # Season decided by sampling each leaf albedo off Nucleus and taking the mean
-  # hue over alpha-masked pixels (tools/foliage_season.py), not by asset name.
-  #
-  # WHITE GEOMETRY IS THE ONLY REASON ANYTHING IS EXCLUDED HERE. Check binding
+  # WHITE GEOMETRY IS THE OTHER REASON ANYTHING IS EXCLUDED HERE. Check binding
   # with tools/material_binding.py, which walks GeomSubsets — NOT a per-Mesh
   # ComputeBoundMaterial, which is wrong for this library:
   #
@@ -334,20 +312,19 @@ usds:
   #
   # Every UE-exported Muyang/Dmytro asset binds PER GEOMSUBSET, so a per-Mesh
   # test reports the whole library as unbound. BG_Building_A is the control: it
-  # reports direct_binding NONE and has always rendered correctly.
-  #
-  # Sampling a leaf ALBEDO FILE proves nothing either way — it says what the
-  # texture contains, not whether any mesh references it.
+  # reports direct_binding NONE and has always rendered correctly. Sampling a
+  # leaf ALBEDO FILE proves nothing either way — it says what the texture
+  # contains, not whether any mesh references it.
   #
   # EXCLUDED, each on a measured defect or an explicit instruction:
   #   Scarlet_Oak / Scarlet_Oak_fall — 35.5% unbound faces; _fall is also red.
+  #   White_Ash        66k — autumn (ashtree_leaves_fall1).
+  #   Service_Berry    84k — 48.0% unbound faces.
   #   RetroNeighborhood SM_Tree_02, SM_Tree_05 — rejected by name. SM_Tree_05
   #     names TWO assets (RetroNeighborhood 17.44 m, CityPark 5.04 m); the
   #     RetroNeighborhood one is the coarse 1,249-point model and is out, the
   #     CityPark one stays.
   #   RetroNeighborhood SM_Tree_07 — leaf albedo hue 5.8, a RED ornamental.
-  # Nothing is held back for looking wrong to me. Anything else that should go,
-  # say so and it goes.
   trees:
     - {usd: "airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd", scale: 0.01}
       # 4/4 meshes bound, 0% unbound faces, leaf basecolor hue 77 — safe green.
@@ -360,15 +337,13 @@ usds:
       # leaf mesh with no material, which renders white. Scarlet_Oak_fall is the
       # same geometry with red leaf art (hue 9.9), so it carries both faults.
       # This is a measured render defect, not a preference.
-    # Muyang/DownTown Tree_A / Tree_B / Tree_C are OUT — the whole pack's
-    # vegetation, rejected on how it renders. They shared one leaf atlas, so
-    # dropping one and keeping the others would have kept the same look.
-    # Only the TREES from that pack go; its paths, patio furniture, bus shelter
-    # and BG_Building_* massing are unaffected.
+    # Muyang/DownTown Tree_A / Tree_B / Tree_C are OUT on how they render, and
+    # all three together because they share one leaf atlas. Only the TREES from
+    # that pack go; its paths, patio furniture, bus shelter and BG_Building_*
+    # massing are unaffected.
     # Rejected by name, cumulatively: RetroNeighborhood SM_Tree_02, _05, _06,
-    # _07; CityPark SM_Tree_01, _05; Dmytro SM_Tree1, SM_Tree2. Every Dmytro
-    # street tree is now out, which is why street_trees above falls back to the
-    # AEC oaks.
+    # _07; CityPark SM_Tree_01, _05; Dmytro SM_Tree1, SM_Tree2 — which is why
+    # `street_trees` below has to reach for the AEC oaks.
 
   # REPLACES the inherited pool (no `+`) purely to scale the stones up. The
   # CityPark stones are boulder assets authored small; at the inherited 0.01
@@ -406,48 +381,25 @@ usds:
     - {usd: "Muyang/DownTown/Assets/Plant_Purple.usd", scale: 0.01}
     - {usd: "Muyang/DownTown/Assets/Plant_Pink.usd",   scale: 0.01}
 
-  # Dmytro ModernCityEnvironment, not the AEC oaks. Three reasons, measured:
-  # the oaks are 10-25 m canopies of dense foliage that close over the street;
-  # they cost 40-55k points each and at 317 trees were 37.8% of the entire
-  # scene; and they are a fourth art family. SM_Tree2 at a 9.4 m canopy is the
-  # right size for a kerb, and at 9.4k points it is 4-6x cheaper.
-  # MEASURED with UsdShade.MaterialBindingAPI: SM_Tree1 and SM_Tree2 have
-  # meshes=1, bound=0 — NO material binding at all, which is why they render
-  # white. So do Muyang Tree_A/B/C and the whole Downtown_West foliage set.
-  # The CityPark trees are the only cheap ones that are actually textured, and
-  # at ~1.2k points they are 8-16x cheaper than the untextured ones they
-  # replace: street_tree was 533 x 19,768 = 7.9M points, 12% of the scene.
-  # ONE street-tree species, two sizes. A real street is planted with a single
-  # species per block, not a mixed arboretum.
-  # SM_Tree_05 is out: both assets carrying that name are now rejected.
-  # MEASURED: the AEC oaks are unaffordable here. At 618 street trees Shumard_Oak
-  # is 33.8M points — 36% of the scene, taking the total to 93.5M, above the
-  # 89.1M that OOM-killed this scene once already. Even at double the spacing it
-  # is ~17M. Street trees are the highest-count category in the city, so the
-  # per-asset cost has to be small; the oaks stay in `trees` for the park, where
-  # there are ~300 of everything rather than 600 of one thing.
+  # STREET TREES. Two AEC species, and only because THE NUCLEUS LIBRARY IS
+  # EXHAUSTED: every tree in it is rejected by name — Dmytro SM_Tree1/SM_Tree2
+  # (meshes=1, bound=0, so they render white), Muyang/DownTown Tree_A/B/C, the
+  # whole RetroNeighborhood family SM_Tree_01..07, and CityPark SM_Tree_01, _03,
+  # _04, _05, _08. Nothing cheap and bound is left at street scale.
   #
-  # EMPTY ON PURPOSE — THE LIBRARY IS EXHAUSTED. Every tree in it has now been
-  # rejected by name: Dmytro SM_Tree1/SM_Tree2, Muyang/DownTown Tree_A/B/C, the
-  # whole RetroNeighborhood family (SM_Tree_01..07), and CityPark SM_Tree_03,
-  # _04, _05, _08. Nothing bound at street scale remains, so the streets carry
-  # no planting at all rather than something already turned down.
+  # COST IS THE BINDING CONSTRAINT, and the SPACING carries it, not the pool. All
+  # AEC vegetation is archviz-grade at ~53-56k points each, against 1-9k for the
+  # Nucleus trees it replaces. At 618 street trees Shumard_Oak alone measures
+  # 33.8M points — 36% of the scene, taking the total to 93.5M, above the 89.1M
+  # that OOM-killed this scene once already. `city_detail.street_trees.spacing_m`
+  # is 22.0 in the preset and is the knob to move.
   #
-  # The two AEC oaks are the only trees left, and they cannot do this job: at
-  # 631 street trees Shumard_Oak measures 33.8M points and took the scene to
-  # 93.5M against the 89.1M that OOM-killed it once. Spacing them far enough
-  # apart to afford (~125 m) is far enough apart to read as nothing. They stay
-  # in `trees`, where a park places a few hundred rather than six hundred.
-  #
-  # UNBLOCKING THIS NEEDS ONE NEW ASSET, against four testable criteria:
+  # A REPLACEMENT would have to meet four testable criteria:
   #   bound        via GeomSubsets — tools/material_binding.py, NOT a per-Mesh
   #                ComputeBoundMaterial, which false-negatives on this library
   #   green        leaf albedo traced through the BOUND material, not the file
   #   8-12 m       actual street-tree scale
   #   <10k points  so 600 instances stay under ~6M
-  # Three species, from the AEC vegetation sets — local files that were never in
-  # a pool, so never rejected. All measured: 0% unbound faces, leaf material is
-  # an evergreen/summer MDL, 6-20 m.
   #
   # EXCLUDED after measuring, so they are not retried:
   #   White_Ash        9.6 m, 66k, 0% unbound — but binds ashtree_leaves_fall1,
@@ -457,10 +409,6 @@ usds:
   #   Honey_Locust     8.2 m and the classic American street tree, but 331,786
   #                    points — 6x these, and unaffordable at this count.
   #   Hawthorn 596k, American_Beech 305k, Largetooth_Aspen 198k — same reason.
-  #
-  # COST: ~53k points each against the 1-9k of the Nucleus trees that were
-  # rejected. All AEC vegetation is archviz-grade, so there is no cheap option
-  # left in the library — street_trees.spacing_m carries this, see the preset.
   street_trees:
     - {usd: "airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd", scale: 0.01}
       # 11.4 m, 54,766 pts, 4/4 bound, oakleaves1 — green
@@ -473,28 +421,24 @@ usds:
   # Tree guards. Each carries a PAYLOAD REFERENCE TO ITS OWN TREE, so a guard is
   # placed *instead of* a bare street tree, not on top of one — see city_detail.
   #
-  # COST WARNING, measured (tools/measure_assets.py, after the payload resolves):
+  # EMPTY ON COST, measured (tools/measure_assets.py, after the payload
+  # resolves):
   #     PlanterFenceType1  215,627 pts   (bundles Largetooth_Aspen 198k)
   #     PlanterFenceType2  349,638 pts   (bundles Honey_Locust     332k)
   #     PlanterFenceType3  614,058 pts   (bundles Hawthorn         596k)
   # against 40-84k for a bare street tree. At guard_chance 0.45 that was 173
   # guards = 65.8M points, 73.8% of the whole scene, and it OOM-killed Isaac Sim.
+  # Even Type1 alone measured 12.1M for 56 guards at 800 m — 18.7% of the scene,
+  # its single largest consumer, for 56 objects. The cost is the bundled tree,
+  # not the metal ring, and the bundled species are exactly the ones street_trees
+  # excludes on cost. Re-enable only with a cheap tree substituted.
   #
-  # The bundled species are the expensive ones deliberately excluded from
-  # street_trees above — the guard smuggles them back in. Only Type1 is kept,
-  # and city_detail's guard_chance is turned down hard. Worth knowing: an
-  # earlier measurement read 17,852 pts for these, because the payload could not
-  # resolve at the time (the directory layout was renamed); the tree was simply
-  # missing from the count. Always re-measure after moving pack directories.
-  # EMPTY ON COST. Measured at 800 m: 56 guards x 215,627 pts = 12.1M points,
-  # 18.7% of the entire scene — the single largest consumer, for 56 objects.
-  # The cost is the AEC tree bundled in the payload, not the metal ring. A bare
-  # CityPark street tree is 1.2k. Re-enable only with a cheap tree substituted.
+  # An earlier measurement read 17,852 pts for these, because the payload could
+  # not resolve at the time (the pack directory had been renamed) and the tree
+  # was simply missing from the count. Always re-measure after moving packs.
   planter_fences: []
     # - usd: "airstack://scene_gen/assets/aec/brownstone/Props/PlanterFence/PlanterFenceType1.usd"
     #   scale: 0.01        # 5.09 x 5.20 x 8.26 m (incl. tree), 215,627 pts
-    # Held back on cost alone — re-enable if the budget allows:
-    # PlanterFenceType2 (349,638), PlanterFenceType3 (614,058)
 
   mailboxes:
     - usd: "airstack://scene_gen/assets/aec/brownstone/Props/Mailbox/MailboxType01.usd"
@@ -507,20 +451,21 @@ usds:
     - usd: "airstack://scene_gen/assets/aec/brownstone/Props/Kalmar_TblChr/Kalmar_TblChr.usd"
       scale: 0.01          # 2.43 x 2.42 x 1.01 m
 
-  # ---- categories with no art wired in yet ------------------------------------
-  # city_detail.py skips any category with an empty pool and logs it, so these
-  # stay declared: the intent is documented and enabling one is a one-line edit.
+  # ---- remaining kerb props ---------------------------------------------------
+  # city_detail.py skips any category with an empty pool and logs it, so the ones
+  # still empty below stay declared: the intent is on record and enabling one is
+  # a one-line edit.
   #
-  # The candidates below were found with
+  # Candidates were found with
   #   objaverse_assets.py search "<query>" --max-faces 60000
-  # and are recorded as uid / faces / likes. They are NOT vetted — Objaverse's
-  # texture count only says images exist in the archive, not that the materials
-  # sample them, and an untextured asset renders as a grey blob. Vet before
-  # uncommenting:
+  # and are recorded as uid / faces / likes. The COMMENTED-OUT ones are NOT
+  # vetted — Objaverse's texture count only says images exist in the archive, not
+  # that the materials sample them, and an untextured asset renders as a grey
+  # blob. Vet before uncommenting:
   #   objaverse_assets.py ensure <uid> --target-size <m>
   #   uv run --script render_usd.py assets/objaverse/<uid>/
-  # Note: adding ANY objaverse:// entry here means urban scenes gain a
-  # prepare_assets.py pre-flight they do not currently need.
+  # Any objaverse:// entry here means urban scenes gain a prepare_assets.py
+  # pre-flight they would not otherwise need.
 
   # Sourced from the City Tower pack — no Objaverse needed, so the urban set
   # still requires no prepare_assets.py pre-flight.
@@ -611,13 +556,11 @@ usds:
     # to re-measure each building through the resolver first. That is a real
     # piece of work, not a config line — see the note in generate_city_v2.
 
-  # Roadworks. Placed sparsely — a working city always has some, but a pristine
-  # scene should not read as a construction site. The barrier packs are the
-  # useful ones here: a pre-arranged cone-and-barrier cluster is exactly what a
-  # works zone looks like, and beats scattering single cones evenly.
-  # ONE cone. e03b1d2d ("Traffic Cones") is out by request — it is also a 19k
-  # point PACK, so each placement dropped a cluster rather than a cone. The
-  # other two packs go with it for the same reason.
+  # Roadworks, placed sparsely — a working city always has some, but a pristine
+  # scene should not read as a construction site. ONE cone: e03b1d2d ("Traffic
+  # Cones") is out by request and is also a 19k-point PACK, so each placement
+  # dropped a cluster rather than a cone. The other two packs go with it for the
+  # same reason.
   traffic_cones:
     - {usd: "objaverse://8cdac192abd044988c314eeb6377a3a0", target-size-m: 0.75, fit: height}  # Traffic cone (Game ready), 1.7k
 

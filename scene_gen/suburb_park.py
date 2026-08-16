@@ -7,7 +7,7 @@ The park is not a block with trees on it. It is a set of FACILITIES at real
 dimensions, a path network that reaches each one, and the leftover green
 between them — and the facilities are what fix the sizes, not the other way
 round. A basketball court is 28.65 x 15.24 m whatever the park wants, so the
-layout packs to those figures and lets the open lawn take the remainder.
+layout is built to those figures and lets the open lawn take the remainder.
 
 Sourced assets cover the objects; the SURFACES are generated, because a court
 is a painted rectangle and no asset library has the one that fits your park:
@@ -49,7 +49,7 @@ confined to a lawn rectangle.
 
 PLANTING IS A COMPOSITION, NOT A COUNT
 --------------------------------------
-Density is therefore stated TWICE: a margin rate for the belt inside the
+Density is stated TWICE: a margin rate for the belt inside the
 boundary and for the strips between one facility and the next, and a fraction
 of it for the open greensward in between. A park at one uniform rate is either
 an orchard or a mown field, and this one was the mown field — 11 stems/ha,
@@ -105,19 +105,18 @@ DEFAULTS = {
     "edge_buffer_m": 12.0,        # tree belt inside the park boundary
     # DERIVED, not chosen. A shared path threading between two facilities needs
     # both their padding bands plus its own width: 2 x 8 + 4.6 = 20.6 m at the
-    # fenced compounds. At the old flat 9.0 the corridors were 9.2-13.9 m and
-    # the path physically could not fit, so the router was being asked to solve
-    # an impossible problem and left 17 padding breaches that no amount of
-    # detour tuning could remove. Widening the gap at PLACEMENT time makes the
-    # corridors passable by construction; see facility_gap() below.
+    # fenced compounds. The old flat 9.0 left 9.2-13.9 m corridors the path
+    # could not physically fit down, and 17 padding breaches with them.
+    # Widening at PLACEMENT time makes them passable by construction; see
+    # facility_gap().
     "facility_gap_m": 0.0,      # 0 = derive from the padding and path width
     # Between COURTS inside one compound -- they share a slab and a fence, so
     # this is a couple of metres of sideline run-off, not a path corridor.
     "court_gap_m": 2.5,
     # The pitches sit side by side but must READ as two. At the bare facility
     # gap they abut into one 138 m slab of green with two sets of markings on
-    # it, which is not a pair of pitches, it is a drawing error. A real ground
-    # leaves a walkable margin between pitches and puts a path down it.
+    # it. A real ground leaves a walkable margin between pitches, with a path
+    # down it.
     "pitch_gap_m": 30.0,
     "n_basketball": 4,
     "n_tennis": 3,
@@ -125,88 +124,78 @@ DEFAULTS = {
     "playground_m": [46.0, 34.0],
     "picnic_areas": 3,
     "picnic_m": [30.0, 22.0],
-    # A 30 x 22 m picnic ground is 660 m2 and six tables on it is one table per
-    # 110 m2, which is a picnic AREA in the sense that the grass has some
-    # tables on it. A municipal picnic ground is laid out at roughly one table
-    # per 55-70 m2 — close enough that two families are in earshot, far enough
-    # that the benches do not touch — so the same ground carries 9-12.
+    # A 30 x 22 m picnic ground is 660 m2; six tables on it is one per 110 m2,
+    # i.e. grass with some tables on it. A municipal picnic ground runs one
+    # table per 55-70 m2 — two families in earshot, benches not touching — so
+    # the same ground carries 9-12.
     "picnic_tables": [7, 12],
     "gazebos": [2, 4],
     "fountains": [2, 3],
-    "path_w_m": 3.0,
-    "loop_inset_m": 7.0,
     "fence_panel_m": 2.4,         # the sourced chain-link section's run
     "path_clear_m": 5.0,     # a path keeps this far off a set piece
     # CLEARANCE BAND ROUND A FACILITY. Not crossing a court was never the whole
-    # requirement — a path that merely grazes the fence is still wrong. A real
-    # park leaves grass between the two, because nobody wants to walk with a
-    # shoulder on the chain-link and because the fence has to stand somewhere.
-    #
-    # This band is measured from the path's EDGE, not its centreline. The
-    # shared-use way is 4.6 m wide and the cycle side is on the OUTSIDE of it,
-    # so a centreline figure quietly under-measures the real clearance by half
-    # the width and puts the bikes in the margin the band was meant to keep.
+    # requirement — a path that grazes the fence is still wrong, and the fence
+    # has to stand somewhere. Measured from the path's EDGE, not its
+    # centreline: the shared-use way is 4.6 m wide with the cycle side on the
+    # OUTSIDE, so a centreline figure under-measures clearance by half the
+    # width and puts the bikes in the margin the band exists to keep.
     "facility_pad_m": 6.0,
-    # PER KIND, and the extra on a fenced compound is not decoration. The
-    # chain-link run stands ON the boundary line, its gate swings outward, and
-    # the bike racks are parked 4.5 m off the same face (see
-    # `bike_racks_per_court`, placed against the compound below). 6 m would run
-    # the path straight through the racks; 8 m clears them with a metre and a
-    # half of grass left over. An open picnic ground or a pitch has nothing
-    # standing on its edge, so the base band is enough there.
+    # PER KIND, and the extra on a fenced compound is not decoration: the
+    # chain-link stands ON the boundary line, its gate swings outward, and the
+    # bike racks are parked 4.5 m off the same face (`bike_racks_per_court`,
+    # placed against the compound below). 6 m would run the path straight
+    # through the racks; 8 m clears them with 1.5 m of grass over. A picnic
+    # ground or a pitch has nothing standing on its edge, so the base band
+    # does.
     "facility_pad_fenced_m": 8.0,
     # Shared-use path: one way, divided. The spine carries both modes; a spur
     # into a single facility does not need a cycle side.
     "path_w_shared_m": 4.6,   # 2.6 m walking + 2.0 m cycle side
     "path_w_spur_m": 2.6,
-    "bike_share": 0.44,
-    "bike_racks_per_court": 4,       # share of the shared path given to the cycle side
+    "bike_share": 0.44,           # share of the way given to the cycle side
+    "bike_racks_per_court": 4,
     # ---- planting ----------------------------------------------------------
-    # HOW MANY TREES A PARK HAS, which is the one figure here that was simply
-    # wrong. The lawn scatter ran at 1.1 per 1000 m2 = 11 stems/ha, and over
-    # 12.6 ha that put 273 trees in the whole park including the copses: 22/ha,
-    # which is not a park, it is a mown field with a fringe. For scale, the
-    # undeveloped-land pass in this same scene runs at 85/ha and reads as light
-    # woodland, and a municipal park's PLANTED ground — the belt inside the
-    # boundary, the strips between one facility and the next — runs 40-120/ha
-    # with the open lawn left open between.
+    # HOW MANY TREES A PARK HAS, the one figure here that was simply wrong. The
+    # lawn scatter ran at 1.1 per 1000 m2 = 11 stems/ha; over 12.6 ha that is
+    # 273 trees including the copses, 22/ha — a mown field with a fringe. For
+    # scale: the undeveloped-land pass in this same scene runs 85/ha and reads
+    # as light woodland, and a municipal park's PLANTED ground (the belt inside
+    # the boundary, the strips between one facility and the next) runs
+    # 40-120/ha with the open lawn left open between.
     #
-    # So the density is now stated twice, because a park is two things: a
-    # margin figure and an open-lawn figure. `lawn_tree_per_1000m2` is the
-    # MARGIN rate and `tree_open_frac` is what survives of it out in the middle
-    # of the greensward, which is what stops a park-density scatter turning
-    # into an orchard. `tree_margin_m` is how far in from a boundary or off a
-    # facility the margin reaches — a crown here is ~7 m across, so four rows
-    # of it is the belt you actually see round a sports ground.
+    # So the density is stated twice: `lawn_tree_per_1000m2` is the MARGIN rate
+    # and `tree_open_frac` what survives of it out on the greensward, which is
+    # what stops a park-density scatter turning into an orchard.
+    # `tree_margin_m` is how far in from a boundary or off a facility the
+    # margin reaches — a crown here is ~7 m across, so four rows of it, the
+    # belt you actually see round a sports ground.
     "copses": 10,
     "copse_r_m": [26.0, 55.0],
     # A copse is a WOOD, so it is planted at the woodland rate rather than the
-    # park rate; measured against the 85/ha the undeveloped-land pass uses,
-    # thinned by the r^0.6 bias toward its centre and by whatever the copse
-    # lands on. The old hardcoded 0.02 * r^2 worked out at 64/ha of ATTEMPTS,
-    # i.e. under 50/ha placed, which is parkland with a name on it.
+    # park rate — against the 85/ha the undeveloped-land pass uses, thinned by
+    # the r^0.6 bias toward its centre and by whatever it lands on. The old
+    # hardcoded 0.02 * r^2 was 64/ha of ATTEMPTS, i.e. under 50/ha placed.
     "copse_per_1000m2": 8.5,
-    # NOT ALL ON THE EDGE. Copses used to hug the boundary exclusively, which
-    # is right for the screen belt and is exactly why the MIDDLE of the park
-    # came out bald: everything between the pitches and the courts was open
-    # lawn with an 11/ha scatter on it. A third of them go inland, smaller,
-    # into the gaps between facilities — a stand of trees, not a wood.
+    # NOT ALL ON THE EDGE. Copses hugging the boundary exclusively is right for
+    # the screen belt and is exactly why the MIDDLE of the park came out bald:
+    # open lawn at an 11/ha scatter between the pitches and the courts. A third
+    # go inland, smaller, into the gaps between facilities — a stand, not a
+    # wood.
     "copse_inland_share": 0.34,
     "lawn_tree_per_1000m2": 3.8,
     "tree_open_frac": 0.26,
     "tree_margin_m": 28.0,
     # Crowns are ~7 m across on the plan; two stems closer than this read as
-    # one blob and the count stops meaning anything. Not a hard forest rule —
-    # real stands do touch — just enough to keep a Poisson scatter from
-    # clumping into rosettes at park density.
+    # one blob. Not a hard forest rule — real stands do touch — just enough to
+    # keep a Poisson scatter from clumping into rosettes at park density.
     "tree_spacing_m": 4.6,
     # ---- playground --------------------------------------------------------
     # One piece of kit per this much sand. A 46 x 34 m playground is 1,564 m2
-    # and lands at nine pieces, which is what a neighbourhood playground of
-    # that size actually carries; the old pass put FOUR on it in a single row.
+    # and lands at nine pieces, what a neighbourhood playground that size
+    # actually carries; the old pass put FOUR on it in a single row.
     "play_area_per_piece_m2": 170.0,
-    # ...of which at most this many may be the two expensive assets. See
-    # `park.yaml`: the swing set and the Kids Place are 75.9k and 79.5k faces
+    # ...of which at most this many may be the two expensive assets. Per
+    # `park.yaml` the swing set and the Kids Place are 75.9k and 79.5k faces,
     # and `play_structure` is not in `suburb_scene`'s instanced categories, so
     # the fifth one is another 79.5k faces and not a transform. The seesaw is
     # 498 faces and carries the rest.
@@ -215,24 +204,24 @@ DEFAULTS = {
     # ---- fountain plaza ----------------------------------------------------
     # Radius of the ring path round a fountain, ported from the urban park (see
     # `parks.py`, "THE ATTRACTION AS A COMPOSED CENTREPIECE"). The fountain art
-    # is 4-5 m across, so 8 m leaves ~5.5 m of standing ground between the
-    # water and the paving; the benches sit `furniture_offset_m` outside the
-    # ring, at the same set-back a bench keeps from any other path here.
+    # is 4-5 m across, so 8 m leaves ~5.5 m of standing ground between water
+    # and paving; the benches sit `furniture_offset_m` outside the ring, the
+    # same set-back a bench keeps from any other path here.
     "fountain_ring_r_m": 8.0,
     "fountain_bench_pitch_m": 9.0,
     # ---- path furniture ----------------------------------------------------
-    # 34 m between benches is a trail figure. On a park path where people walk
-    # slowly and sit often, the spacing you see is 25-30 m — close enough that
-    # the next bench is always visible from the one you are on, which is the
-    # rule of thumb accessible-route guidance uses (a rest every 30 m).
+    # 34 m between benches is a TRAIL figure. On a park path the spacing you
+    # see is 25-30 m — the next bench always visible from the one you are on,
+    # which is the rest-every-30 m rule of thumb accessible-route guidance
+    # uses.
     "bench_spacing_m": 27.0,      # along a path, alternating sides
-    # Left near its old figure DELIBERATELY. The bins were not actually sparse
-    # before, they were being REFUSED — `furn_ok` held everything 7 m off
-    # everything and the benches went down first, so on seed 1 only 13 of the
-    # ~22 the spacing asks for survived. With the bin's own radius fixed (see
-    # `furn_ok`) 78 came out at 27 bins to 50 benches, which is a bin at every
-    # other seat and one more than a park needs; 75 lands at roughly 1 : 2.3,
-    # the ratio you count walking round a real one.
+    # Left near its old figure DELIBERATELY. The bins were not sparse before,
+    # they were being REFUSED — `furn_ok` held everything 7 m off everything
+    # and the benches went down first, so seed 1 kept only 13 of the ~22 the
+    # spacing asks for. With the bin's own radius fixed (see `furn_ok`), 78
+    # gave 27 bins to 50 benches, a bin at every other seat and one more than a
+    # park needs; 75 lands at roughly 1 : 2.3, the ratio you count walking
+    # round a real one.
     "trash_spacing_m": 75.0,
     "furniture_offset_m": 2.9,    # bench/bin set back from the path centreline
 }
@@ -325,7 +314,9 @@ def soccer_markings():
 
 
 # ---------------------------------------------------------------------------
-# shelf packing
+# oriented-box placement — a facility asks for a spot and slides off it only
+# when something is already there (the shelf packer this replaced is in the
+# module docstring, under "LAYOUT IS COMPOSED, NOT PACKED")
 # ---------------------------------------------------------------------------
 
 def _obb(cx, cy, w, h, yaw_deg):
@@ -465,12 +456,10 @@ def avoid(pts, obstacles, clear, exempt=(), iters=4, ends=True):
                             n = (1.0, 0.0)
                         n = sn._unit(n)
                     else:
-                        # AND THIS IS THE SIGN THAT WAS WRONG. For a point
-                        # INSIDE the box, `q - near` points from the boundary
-                        # inward, so pushing along it drove the point deeper in
-                        # and it never came out — which is why the router kept
-                        # finding endpoints pinned inside a facility and gave up
-                        # on the detour. Outward is the other way.
+                        # THE SIGN MATTERS. For a point INSIDE the box,
+                        # `q - near` points from the boundary INWARD, so
+                        # pushing along it drives the point deeper in and it
+                        # never escapes. Outward is the other way.
                         n = sn._unit(n)
                         if inside:
                             n = sn._mul(n, -1.0)
@@ -566,24 +555,20 @@ def _bypass(a, b, frame, pad, both=False):
     lifts each candidate's corners and takes the way whose corners survive.
 
     ROUND THE HULL OF {a, b, box}, not round the box's own corners. Splitting
-    the inflated corners into those left and right of a-b and walking one side
-    LOOKS like the bypass and is not one: the first corner on the chosen side
-    can sit behind the box as seen from *a*, so the opening leg goes straight
-    back through the thing being avoided. That was why routing thrashed — every
-    detour re-collided with its own obstacle, spliced again, and the point
-    count ran into the thousands before the budget stopped it. The hull
-    contains the box, so walking its boundary cannot re-enter, and either way
-    round is legal; the shorter one is the one a person would take.
+    the inflated corners left and right of a-b and walking one side LOOKS like
+    the bypass and is not: the first corner on the chosen side can sit behind
+    the box as seen from *a*, so the opening leg goes straight back through the
+    obstacle and the detour re-collides with it for ever. The hull contains the
+    box, so walking its boundary cannot re-enter; either way round is legal and
+    the shorter is the one a person would take.
     """
     ctr, u, v, hw, hh = frame
     if sn._dist(a, b) < 1e-9:
         return []
-    # PAD LADDER. An endpoint that is outside the facility but inside the
-    # INFLATED box is not on the hull, so the full-clearance detour has nowhere
-    # to start and the old code gave up — leaving the segment running straight
-    # through the pitch, which is the one outcome that is not allowed. Falling
-    # back to a tighter detour hugs the facility instead of clearing it by the
-    # full margin, and hugging is enormously better than crossing.
+    # PAD LADDER. An endpoint outside the facility but inside the INFLATED box
+    # is not on the hull, so the full-clearance detour has nowhere to start and
+    # the old code gave up — leaving the segment running through the pitch. A
+    # tighter detour only hugs the facility, and hugging beats crossing.
     h = None
     for k in (1.0, 0.6, 0.3, 0.1):
         p = pad * k if k > 0.1 else 0.15
@@ -597,7 +582,7 @@ def _bypass(a, b, frame, pad, both=False):
             h = cand
             break
     if h is None:
-        return [] if not both else []
+        return []
     n = len(h)
     ia, ib = h.index(a), h.index(b)
     opts = []
@@ -674,18 +659,17 @@ def _route_seg(a, b, recs, clears, budget):
     """One segment, detoured round everything it meets.
 
     ITERATIVE, NOT RECURSIVE. Recursing on each of the five sub-segments a
-    bypass produces fans out as 5^depth and hung the generator outright — the
-    work is quadratic in the obstacles at worst, but the recursion made it
-    exponential in nothing but its own bookkeeping. Splicing corner chains
-    into a single chain and rescanning from the splice does the same job in a
-    bounded number of passes.
+    bypass produces fans out as 5^depth and hung the generator outright, when
+    the work is only quadratic in the obstacles. Splicing corner chains into a
+    single chain and rescanning from the splice does the same job in a bounded
+    number of passes.
     """
     clears = _clear_list(recs, clears)
     # A spliced corner has to come out of any OTHER box it lands in far enough
     # to be on that box's bypass hull, or the next detour computed from it
-    # falls down the pad ladder in `_bypass` and ends up hugging the facility.
-    # Half the clearance (which is what this used) is by construction inside
-    # the inflated box, so it guaranteed the fallback every time.
+    # falls down `_bypass`'s pad ladder and hugs the facility. Half the
+    # clearance — what this used — is inside the inflated box by construction,
+    # so it guaranteed that fallback every time.
     lifts = [cl + _CORNER_M + 0.5 for cl in clears]
     bands = [cl + _CORNER_M - 0.1 for cl in clears]
     chain = [a, b]
@@ -698,14 +682,13 @@ def _route_seg(a, b, recs, clears, budget):
             continue
         frame, cl = hit
         # EITHER WAY ROUND, WHICHEVER SURVIVES. The shorter way is what a
-        # person would take and is still tried first, but with a padding band
-        # on every facility the short way round a pitch is frequently the
-        # corridor between it and the picnic ground beside it — 12 m of grass
-        # with 16 m of band wanted in it. The corners land in the dead zone,
-        # `_lift` bounces them between the two boundaries without ever
-        # satisfying either, and the segment ends up parked in the gap, which
-        # is precisely the graze the band was added to stop. Testing the long
-        # way round as well costs one extra lift and settles it.
+        # person would take and is still tried first, but with a band on every
+        # facility it is frequently the corridor between a pitch and the picnic
+        # ground beside it — 12 m of grass with 16 m of band wanted in it. The
+        # corners land in that dead zone and `_lift` bounces them between the
+        # two boundaries without satisfying either, parking the segment in the
+        # gap. Testing the long way round as well costs one extra lift and
+        # settles it.
         opts = _bypass(chain[i], chain[i + 1], frame, cl + _CORNER_M, both=True)
         ins = []
         for opt in opts:
@@ -721,12 +704,10 @@ def _route_seg(a, b, recs, clears, budget):
                 if opt:
                     ins = opt
                     break
-        # A corner taken round ONE facility can land inside the NEXT one, and
-        # nothing else ever revisits it: the pre-pass only saw the original
-        # waypoints, and the detour that would fix it needs an endpoint that is
-        # not already inside a box. Lifting each spliced corner as it is
-        # created is what stops a bike route pausing for two segments in the
-        # middle of a pitch.
+        # A corner taken round ONE facility can land inside the NEXT, and
+        # nothing else revisits it — the pre-pass only saw the original
+        # waypoints. Lifting each spliced corner as it is created is what stops
+        # a route pausing for two segments in the middle of a pitch.
         ins = [_lift(q, recs, lifts) for q in ins]
         budget[0] -= 1
 
@@ -734,13 +715,12 @@ def _route_seg(a, b, recs, clears, budget):
         # A bypass that cannot help — the endpoint is pinned inside the box —
         # would otherwise splice for ever at the same index.
         #
-        # THE STALL ALLOWANCE IS NOT A FREE CONSTANT. Padding puts facilities
-        # closer together than twice the band in places, and a segment across
-        # such a corridor ping-pongs: round the pitch, back into the picnic
-        # ground, round that, back at the pitch. It does converge — each
-        # bypass is a hull walk, so it strictly goes round — but not in the six
-        # tries this allowed, and giving up left the segment in the corridor,
-        # which is precisely the case the band was added to catch.
+        # THE STALL ALLOWANCE IS NOT A FREE CONSTANT. Where padding puts two
+        # facilities closer together than twice the band, a segment across the
+        # corridor ping-pongs: round the pitch, back into the picnic ground,
+        # round that, back at the pitch. It converges — each bypass is a hull
+        # walk, so it strictly goes round — but not in the six tries this used
+        # to allow, and giving up left the segment in the corridor.
         if not ins or stall > 18 or len(chain) > 400:
             i += 1
             stall = 0
@@ -773,22 +753,19 @@ def route(pts, obstacles, clear, exempt=(), ends=False, budget=400):
     recs = [_box_frame(o) for o in obs]
     # DROP THE WAYPOINTS THE DETOUR CANNOT START FROM. `avoid` measures
     # Euclidean distance to the box; `_bypass` and `_span` measure against the
-    # box INFLATED by the pad, and near a corner those are emphatically not the
-    # same thing — a point shoved `clear` metres off a corner along the
-    # diagonal is still inside the inflated rectangle. It therefore does not
-    # land on the detour hull, `_bypass` walks down its pad ladder until it
-    # finds one that does contain it, and the "detour" it returns hugs the
-    # facility instead of clearing it. That is the whole of the padding
-    # failure: the segments came out BESIDE the courts, not on them, which is
-    # exactly the defect the band exists to stop.
+    # box INFLATED by the pad, and near a corner those are not the same thing —
+    # a point shoved `clear` metres off a corner along the diagonal is still
+    # inside the inflated rectangle. It therefore misses the detour hull,
+    # `_bypass` walks down its pad ladder, and the "detour" it returns hugs the
+    # facility instead of clearing it: segments BESIDE the courts, which is the
+    # defect the band exists to stop.
     #
     # Dropping rather than shoving, because a waypoint is a suggestion (a tour
     # stop, a sample off the smoothing curve) and the facility is not. Shoving
-    # them out was tried and is worse than it sounds: consecutive samples
-    # escape by different faces, the curve turns into a zigzag, and the spine
-    # came back with four thousand points in it. Take them out instead and the
-    # segment spans the gap in one piece, which `_route_seg` then takes round
-    # the outside — the way a person walking would.
+    # was tried: consecutive samples escape by different faces, the curve turns
+    # into a zigzag, and the spine came back with four thousand points in it.
+    # Dropped instead, the segment spans the gap in one piece and `_route_seg`
+    # takes it round the outside — the way a person walking would.
     #
     # Endpoints are never dropped: they are what the path is FOR.
     band = [x + _CORNER_M + 0.1 for x in cls]
@@ -800,14 +777,12 @@ def route(pts, obstacles, clear, exempt=(), ends=False, budget=400):
         kept.append(seed[-1])
         seed = kept
     # Detours are charged against a budget so a pathological seed cannot hang
-    # the generator, but the figure has to be PER SEGMENT, not per route. The
-    # coarse tour is seventeen waypoints and each of its legs crosses the whole
-    # park past eight facilities, so a flat 400 was down to its last twenty
-    # before the tour was half laid — and every leg after that came out
-    # unrouted, which is where most of the padding failures were coming from.
+    # the generator, but the figure has to be PER SEGMENT, not per route: the
+    # coarse tour is seventeen waypoints and each leg crosses the whole park
+    # past eight facilities, so a flat 400 was down to its last twenty before
+    # the tour was half laid, and every leg after that came out unrouted.
     # `stall` and the chain cap bound what one segment can spend, so scaling by
-    # the segment count only ever buys the work the router was going to be
-    # allowed to do anyway.
+    # the segment count only buys work the router was going to be allowed.
     bud = [max(budget, 64 * len(seed))]
     out = [seed[0]]
     for i in range(len(seed) - 1):
@@ -816,8 +791,7 @@ def route(pts, obstacles, clear, exempt=(), ends=False, budget=400):
     # REPAIR PASS. `clear` is a comfort margin and missing it is untidy; being
     # inside the facility at all is the actual defect, so anything still
     # penetrating gets one more detour at a clearance it cannot argue with.
-    # Segments that are already fine cost one slab clip each, so this is nearly
-    # free — it only does work where there is something left to fix.
+    # Segments already fine cost one slab clip each, so this is nearly free.
     bud2 = [max(budget, 64 * len(out))]
     rep = [out[0]]
     fix = [0.6] * len(recs)
@@ -836,10 +810,9 @@ def deloop(pts, max_passes=60, max_loop_m=float("inf")):
     which is what it is -- one path, crossing itself.
 
     Where segment i and a later segment j intersect, everything between them is
-    a loop that leads nowhere, so it is replaced by the intersection point. This
-    is the standard de-loop; doing it AFTER routing rather than trying to stop
-    the router creating them keeps the router simple, and a loop is trivial to
-    detect once the polyline exists.
+    a loop leading nowhere, so it is replaced by the intersection point. Doing
+    this AFTER routing rather than stopping the router creating them keeps the
+    router simple, and a loop is trivial to detect once the polyline exists.
     """
     out = list(pts)
     for _ in range(max_passes):
@@ -852,10 +825,9 @@ def deloop(pts, max_passes=60, max_loop_m=float("inf")):
                     continue
                 # UNBOUNDED BY DEFAULT. Bounding this to "small" loops was
                 # tried on the theory that a long self-crossing is the route
-                # legitimately going round something; measured, it is not --
-                # at a 45 m bound seed 42 still carried 42,461 self-crossings,
-                # so the pathological loops are the LARGE ones. Orphaned spurs
-                # were 8-9 either way, i.e. not caused by de-looping.
+                # legitimately going round something. Measured, it is not: at a
+                # 45 m bound seed 42 still carried 42,461 self-crossings, so
+                # the pathological loops are the LARGE ones.
                 span = sum(sn._dist(out[k], out[k + 1])
                            for k in range(x, min(y + 1, n - 1)))
                 if span > max_loop_m:
@@ -897,24 +869,6 @@ def lay(way, obstacles, clear, samples=8, exempt=(), ends=False):
         return coarse
     smooth = _curve(coarse, samples=samples)
     return route(smooth, obstacles, cls, exempt=exempt, ends=ends)
-
-
-def _offset(pts, d):
-    """Polyline shifted *d* to its left — a cycle track alongside a footpath."""
-    out = []
-    for i, p in enumerate(pts):
-        a = pts[max(0, i - 1)]
-        b = pts[min(len(pts) - 1, i + 1)]
-        t = sn._unit(sn._sub(b, a))
-        out.append((p[0] - t[1] * d, p[1] + t[0] * d))
-    return out
-
-
-def _decimate(pts, step):
-    out = pts[::step]
-    if out[-1] is not pts[-1]:
-        out.append(pts[-1])
-    return out
 
 
 def _along(pts, spacing, start):
@@ -984,26 +938,6 @@ def _curve(waypoints, samples=16):
     return pts
 
 
-def _centre(r):
-    return ((r[0] + r[2]) / 2.0, (r[1] + r[3]) / 2.0)
-
-
-def _fence_run(rect, panel):
-    """Panel centres and yaws around *rect*, one run per side."""
-    x0, y0, x1, y1 = rect
-    out = []
-    for (ax, ay, bx, by) in ((x0, y0, x1, y0), (x1, y0, x1, y1),
-                             (x1, y1, x0, y1), (x0, y1, x0, y0)):
-        L = math.hypot(bx - ax, by - ay)
-        n = max(1, int(round(L / panel)))
-        yaw = math.degrees(math.atan2(by - ay, bx - ax))
-        for k in range(n):
-            f = (k + 0.5) / n
-            out.append({"c": (ax + (bx - ax) * f, ay + (by - ay) * f),
-                        "yaw": yaw})
-    return out
-
-
 def facility_gap(c):
     """Spacing between facilities, wide enough for a padded path to pass."""
     g = float(c.get("facility_gap_m", 0.0) or 0.0)
@@ -1017,13 +951,12 @@ def facility_gap(c):
 def facility_pad(z, c):
     """Grass a path must leave between its EDGE and facility *z*, in metres.
 
-    Split by kind rather than one figure for the park, and the reason is what
-    stands on the boundary. A fenced compound is not just its slab: the
-    chain-link run occupies the line itself, the gate swings outward off it,
-    and the bike racks are parked 4.5 m off the same face — so the base band
-    would put the shared path through the racks and leave the fence nowhere to
-    stand. A pitch, a picnic ground or a playground has a soft edge with
-    nothing on it, and there the band only has to read as grass.
+    Split by kind rather than one figure for the park, because of what stands
+    on the boundary: a fenced compound has the chain-link run on the line
+    itself, a gate swinging outward off it, and bike racks 4.5 m off the same
+    face, so the base band would put the shared path through the racks. A
+    pitch, a picnic ground or a playground has a soft edge, and there the band
+    only has to read as grass.
     """
     if z.get("fenced"):
         return float(c.get("facility_pad_fenced_m", c["facility_pad_m"]))
@@ -1044,12 +977,12 @@ _WELD_M = 2.0
 def _finish(pts):
     """The geometry an edge is stored with: even samples, no self-crossing.
 
-    Resampled to 3 m FIRST, because `_decimate` takes an integer stride rather
-    than a distance and so thins a dense stretch and a sparse one by the same
-    factor; even arclength spacing makes the de-loop's segment tests comparable
-    and bounds the point count by path LENGTH. Done as the edge enters the
-    graph, so the stored geometry is the drawn geometry — a junction is then
-    sited on the line that actually gets paved.
+    Resampled to 3 m FIRST, not thinned by an integer stride: a stride thins a
+    dense stretch and a sparse one by the same factor, whereas even arclength
+    spacing makes the de-loop's segment tests comparable and bounds the point
+    count by path LENGTH. Done as the edge enters the graph, so the stored
+    geometry is the drawn geometry — a junction is then sited on the line that
+    actually gets paved.
     """
     if len(pts) < 2:
         return list(pts)
@@ -1064,14 +997,12 @@ class PathNet:
 
     THIS IS THE FIX FOR THE ORPHANED SPUR, and it is structural rather than a
     tidy-up. Paths used to be built as a list of INDEPENDENT POLYLINES: a spur
-    was routed from a court to a point the code had computed on the trunk, and
-    nothing anywhere recorded that the point was a junction. The pass that
-    afterwards clipped doubled paving was therefore free to delete the exact
-    stretch of trunk a spur had joined onto — and did. The spur survived, still
-    touching its court, now leading into the grass. No repair pass fixes that,
-    because the fact it needed (this point is a junction) was never written
-    down; and a repair pass is the wrong shape of answer anyway, since it
-    reconnects what should never have come apart.
+    was routed from a court to a point on the trunk, and nothing recorded that
+    the point was a junction. The pass that afterwards clipped doubled paving
+    was therefore free to delete the exact stretch of trunk a spur had joined
+    onto — and did, leaving the spur touching its court and leading into the
+    grass. No repair pass fixes that: the fact it needed (this point is a
+    junction) was never written down.
 
     Here a path that meets another SPLITS it, exactly as `suburb_net.Network`
     does for streets and for the same reason, so the meeting is a node of
@@ -1215,10 +1146,8 @@ class PathNet:
 
         SAMPLED ALONG each edge, not one point per edge. Offering only each
         edge's nearest point makes the answer depend on where that edge happens
-        to have been split by earlier work — and when a facility stands between
-        *p* and that one point, the perfectly walkable alternative twenty
-        metres further along THE SAME EDGE is never offered at all. That was
-        the concrete case above.
+        to have been split by earlier work, and hides the perfectly walkable
+        alternative twenty metres further along THE SAME EDGE — the case above.
 
         Serving stubs are skipped: they are the one path allowed inside a
         facility's padding band, so cutting a junction into one would drag a
@@ -1279,10 +1208,9 @@ class PathNet:
 
         What a candidate route is tested with BEFORE it is laid, which is how
         `suburb_net` keeps two streets off the same ground and how this keeps
-        two paths off it. Testing beforehand is the whole difference between
-        not paving the same strip twice and paving it twice and cutting one of
-        them up afterwards — and it was the cutting up that severed spurs from
-        the network.
+        two paths off it. Testing beforehand is the difference between not
+        paving a strip twice and paving it twice then cutting one up afterwards
+        — and it was the cutting up that severed spurs from the network.
 
         *skip_ends_m* trims that much off each end of the candidate before
         measuring, because a route that is about to be joined to the network at
@@ -1375,11 +1303,10 @@ def plan(rng, cfg=None):
         props.append({"kind": kind, "c": (x, y), "yaw": yaw})
 
     # FURNITURE THAT BELONGS TO A COMPOSITION rather than to a path — the bin
-    # at a picnic ground, the benches round the inside of the playground fence,
-    # the ones on a fountain ring. Collected here so the path-furniture pass in
-    # (d) can seed its own spacing test with them and not drop a second bench
-    # on top of one; that pass is otherwise the only thing in the file that
-    # places a bench, and it only knows about the ones it placed itself.
+    # at a picnic ground, the benches inside the playground fence, the ones on
+    # a fountain ring. Collected so the path-furniture pass in (d) can seed its
+    # spacing test with them; it otherwise knows only its own placements and
+    # would drop a second bench on top of one.
     composed = []
 
     bl, bw = BASKETBALL["court"]
@@ -1398,28 +1325,26 @@ def plan(rng, cfg=None):
             a = math.radians(first["yaw"])
             ux, uy = math.cos(a), math.sin(a)
             vx, vy = -uy, ux                      # across the pitch
-            # A REAL GAP, not the bare `facility_gap_m`. Flush pitches in the
-            # same green with the same markings read as one pitch drawn twice;
+            # A REAL GAP, not the bare `facility_gap_m`: flush pitches in the
+            # same green with the same markings read as one pitch drawn twice.
             # `pitch_gap_m` opens a corridor wide enough to walk, and a path
             # goes down it below, which is what separates them on the ground.
             for i in range(1, n_sc):
                 # Try BOTH sides: the first pitch may already sit near an edge,
-                # and offsetting blindly to one side put the second pitch
-                # outside the park, which silently dropped it.
+                # and offsetting blindly to one side put the second outside the
+                # park, silently dropping it.
                 #
-                # And CLOSE UP IF IT MUST. Widening the gap to separate the two
-                # pitches also widened the pair, and at some orientations the
-                # block stopped fitting the park at all — which dropped the
-                # second pitch entirely. Two pitches near enough to touch still
-                # read as two once the corridor path is between them; one pitch
-                # reads as a bug.
+                # And CLOSE UP IF IT MUST — a wider gap also widens the pair,
+                # and at some orientations the block stopped fitting the park
+                # at all. Two pitches near enough to touch still read as two
+                # once the corridor path is between them; one pitch reads as a
+                # bug.
                 done = False
                 for g in (pitch_gap, pitch_gap * 0.72, pitch_gap * 0.5,
                           gap + 0.5):
                     step = pwd + g
                     for sgn in (1.0, -1.0):
-                        # A STAGGER ALONG THE TOUCHLINE is allowed, and is the
-                        # difference between two pitches and one: squared up,
+                        # A STAGGER ALONG THE TOUCHLINE is allowed: squared up,
                         # the pair can miss the park boundary by a metre and
                         # the second pitch is dropped outright. Grounds stagger
                         # adjacent pitches anyway.
@@ -1449,12 +1374,11 @@ def plan(rng, cfg=None):
     if n_bb:
         cols = 2 if n_bb > 1 else 1
         rows = int(math.ceil(n_bb / cols))
-        # COURTS INSIDE ONE COMPOUND SHARE A SLAB. `gap` is the spacing
-        # BETWEEN facilities and is derived from the padding a path needs to
-        # pass (~20.6 m); using it here too spread the four courts apart as if
-        # each were its own facility, when the whole point of a compound is that
-        # they sit together inside one fence. A real park paints four courts on
-        # one slab with a couple of metres between the sidelines.
+        # COURTS INSIDE ONE COMPOUND SHARE A SLAB. `gap` is the spacing BETWEEN
+        # facilities, derived from the padding a path needs to pass (~20.6 m);
+        # using it here too spread the four courts as if each were its own
+        # facility. A real park paints four on one slab, a couple of metres
+        # between the sidelines.
         cgap = float(c["court_gap_m"])
         cw = cols * (bl + 2 * bpad) + (cols - 1) * cgap
         ch = rows * (bw + 2 * bpad) + (rows - 1) * cgap
@@ -1526,35 +1450,32 @@ def plan(rng, cfg=None):
             wx, wy = local(z, lx, ly)
             prop("picnic_table", wx, wy, z["yaw"] + rng.uniform(-12, 12))
             z["tables"].append((wx, wy))
-        # AND A BIN, at a corner of the ground. A picnic area without one is
-        # not a design decision, it is an omission — a dozen tables generate
-        # rubbish and the bin is the second thing the parks department puts in
-        # after the tables. The path pass will not supply it: it hangs bins off
-        # the route at 75 m, and the route keeps 6 m off this ground's edge.
+        # AND A BIN, at a corner of the ground: a dozen tables generate
+        # rubbish. The path pass will not supply it — it hangs bins off the
+        # route at 75 m and the route keeps 6 m off this ground's edge.
         wx, wy = local(z, z["w"] / 2.0 - 2.0, -z["h"] / 2.0 + 2.0)
         composed.append((wx, wy))
         prop("trash_can", wx, wy, z["yaw"])
 
     # -- the playground ------------------------------------------------------
     # FOUR PIECES IN A ROW IS NOT A PLAYGROUND. The old pass put a swing, a
-    # structure and two seesaws at even x across the sand and called it done:
-    # on 1,564 m2 — a large neighbourhood playground — that is one piece per
-    # 390 m2, and the render read as a beach with some equipment left on it.
-    # The real figure is nearer one per 150-200 m2, and the layout is a SPREAD
-    # rather than a line because the kit has to be walkable between.
+    # structure and two seesaws at even x across the sand: on 1,564 m2 that is
+    # one piece per 390 m2, and the render read as a beach with some equipment
+    # left on it. The real figure is nearer one per 150-200 m2, laid as a
+    # SPREAD rather than a line because the kit has to be walkable between.
     #
     # SEPARATION IS A SAFETY FIGURE, not taste. CPSC's Public Playground Safety
     # Handbook puts a minimum 6 ft (1.83 m) between the use zones of adjacent
-    # equipment, and swings want more than that fore and aft; the radii below
-    # are the use zone, not the frame, which is why the swing carries 3.4 m for
-    # a 4.5 m asset.
+    # equipment, and swings want more fore and aft; the radii below are the USE
+    # ZONE, not the frame, which is why the swing carries 3.4 m for a 4.5 m
+    # asset.
     #
     # THE MIX IS DRIVEN BY THE FACE COUNTS, see `park.yaml`. The swing set and
     # the Kids Place are 75.9k and 79.5k faces and `play_structure` is NOT one
-    # of the categories `suburb_scene` instances, so each extra one is paid in
-    # full: they stay capped (`play_expensive_cap`, 4). The seesaw is 498
-    # faces — 152x cheaper — so it is what fills the rest of the sand, and nine
-    # pieces cost 313k faces against the old four's 156k.
+    # of the categories `suburb_scene` instances, so each extra is paid in full
+    # and they stay capped (`play_expensive_cap`, 4). The seesaw is 498 faces —
+    # 152x cheaper — and fills the rest: nine pieces cost 313k against the old
+    # four's 156k.
     play_r = {"swing_set": 3.4, "play_structure": 4.2, "seesaw": 1.8}
     for z in zones:
         if z["kind"] != "playground":
@@ -1568,12 +1489,10 @@ def plan(rng, cfg=None):
         # (lx, ly, use-zone radius) of everything already standing on the sand.
         kit = []
 
-        # `edge` is a band round the inside of the fence that the kit stays
-        # out of. It is not slack: a CPSC use zone may not overlap the
-        # enclosure, and the same band is where the benches go, so kit laid
-        # up against the rail takes the seats' ground with it — measured, at
-        # 1.5 m only three of the six benches the perimeter asks for survived
-        # the collision test.
+        # `edge` is a band round the inside of the fence the kit stays out of.
+        # Not slack: a CPSC use zone may not overlap the enclosure, and the
+        # same band is where the benches go — measured, at 1.5 m only three of
+        # the six benches the perimeter asks for survived the collision test.
         def sand_spot(r, tries=500, edge=3.0, keep_middle=0.0):
             """A free (lx, ly) with room for a *r* metre use zone."""
             ax, ay = hwz - r - edge, hhz - r - edge
@@ -1596,16 +1515,13 @@ def plan(rng, cfg=None):
             if spot is None:
                 continue
             wx, wy = local(z, *spot)
-            # Yawed off the playground's own axis rather than at a free angle:
-            # a swing's fall zone is fore and aft, so kit laid square to the
-            # space is what leaves the walking room between it. The old
-            # uniform(0, 360) put swings across the gaps.
+            # Yawed off the playground's own axis, not freely: a swing's fall
+            # zone is fore and aft, so kit square to the space is what leaves
+            # the walking room. uniform(0, 360) put swings across the gaps.
             prop(kind, wx, wy, z["yaw"] + rng.uniform(-25.0, 25.0))
-        # A SHADE SHELTER AND SOMEWHERE TO PUT A BAG. Both are why a playground
-        # reads as a facility and not as equipment: the shelter is the sun
-        # cover every municipal playground built in the last twenty years has,
-        # and the tables are where the party sits. Held out of the middle third
-        # so the sand people actually play on stays clear.
+        # A SHADE SHELTER AND SOMEWHERE TO PUT A BAG — the sun cover every
+        # municipal playground has, and the tables the party sits at. Held out
+        # of the middle third so the sand people actually play on stays clear.
         for kind, r in (("gazebo", 3.4), ("picnic_table", 1.6),
                         ("picnic_table", 1.6)):
             spot = sand_spot(r, tries=300, edge=1.0, keep_middle=0.45)
@@ -1613,9 +1529,8 @@ def plan(rng, cfg=None):
                 continue
             wx, wy = local(z, *spot)
             prop(kind, wx, wy, z["yaw"] + rng.uniform(-25.0, 25.0))
-        # BENCHES ROUND THE INSIDE EDGE, FACING IN. That is the whole job of a
-        # playground bench: an adult sits on the rail and watches the whole
-        # box, so the seat faces the equipment and not the view. Same
+        # BENCHES ROUND THE INSIDE EDGE, FACING IN: an adult sits on the rail
+        # and watches the whole box, so the seat faces the equipment. Same
         # convention as the path benches below — the yaw IS the direction the
         # bench looks — so this is `atan2` back at the middle of the sand.
         seat = 2.2
@@ -1650,10 +1565,10 @@ def plan(rng, cfg=None):
 
     # -- set pieces: fountains, gazebos, the sign ---------------------------
     # DESTINATIONS, not path furniture. A fountain is a thing you walk TO, so
-    # it claims its ground with the facilities and the path network is routed
-    # to reach it. Placing it after the paths meant siting it wherever was
-    # left and then dragging a spur out to it, which is why those spurs used
-    # to dangle off the spine pointing at nothing.
+    # it claims its ground with the facilities and the network is routed to
+    # reach it. Placing it after the paths meant siting it wherever was left
+    # and then dragging a spur out, which is why those spurs dangled off the
+    # spine.
     ix0, iy0, ix1, iy1 = inner
     feature_pts, features = [], []
 
@@ -1691,15 +1606,13 @@ def plan(rng, cfg=None):
     for z in zones:
         if z["kind"] not in ("basketball_compound", "tennis_block"):
             continue
-        # Toward the park interior, which is the side every path reaches these
-        # compounds from. Computed from the facility alone so this does not
-        # depend on the path network existing yet.
+        # Toward the park interior, the side every path reaches these compounds
+        # from. From the facility alone: the path network does not exist yet.
         n = sn._unit(sn._sub((0.0, 0.0), z["centre"]))
         if sn._norm(n) < 1e-6:
             n = (0.0, 1.0)
         # Boundary point on the interior-facing side, in the facility's own
-        # frame -- `entrance()` is defined with the path network, which does not
-        # exist yet at this point in the build.
+        # frame -- `entrance()` is defined below, with the path network.
         a = math.radians(z["yaw"])
         ux, uy = math.cos(a), math.sin(a)
         lx = max(-z["w"] / 2, min(z["w"] / 2, n[0] * ux + n[1] * uy)
@@ -1718,21 +1631,19 @@ def plan(rng, cfg=None):
     # =======================================================================
     # (b) PATHS — everything above is now an obstacle
     # =======================================================================
-    # The spine wanders, NOT a rectangle round the edge. The perimeter loop was
-    # the same mistake as ringing the suburb with an arterial: it drew a
-    # racetrack round the scene and made every facility hang off it like a
-    # stub. A park is entered at a couple of points and threaded by a route
-    # that wanders between the things worth reaching.
+    # The spine wanders, NOT a rectangle round the edge. A perimeter loop was
+    # the same mistake as ringing the suburb with an arterial: a racetrack with
+    # every facility hanging off it as a stub. A park is entered at a couple of
+    # points and threaded by a route between the things worth reaching.
+    #
     # Built from `zones` rather than from `placed` so the pads below stay
-    # index-aligned with the facilities they belong to; the corner lists are
-    # the same objects either way, which is what the identity-based `exempt`
-    # relies on.
+    # index-aligned with their facilities; the corner lists are the same
+    # objects either way, which is what the identity-based `exempt` relies on.
     obstacles = [z["corners"] for z in zones] + features
-    # THE PADDING BAND, one figure per obstacle. Recorded on the zone as well,
-    # so the checks below measure what the plan actually promised rather than
-    # re-deriving it from a config they were not given. Set pieces keep the old
-    # `path_clear_m`: a fountain is a destination the path is meant to arrive
-    # at, not a facility with an edge to respect.
+    # THE PADDING BAND, one figure per obstacle. Recorded on the zone too, so
+    # the checks below measure what the plan promised rather than re-deriving
+    # it from a config they were not given. Set pieces keep `path_clear_m`: a
+    # fountain is a destination to arrive at, not an edge to respect.
     for z in zones:
         z["pad_m"] = facility_pad(z, c)
     pads = [z["pad_m"] for z in zones] + [clear] * len(features)
@@ -1747,14 +1658,12 @@ def plan(rng, cfg=None):
         """
         return [p + width_m / 2.0 for p in pads]
 
-    # NO SEPARATE BIKE NETWORK. A second circuit that had to weave past the
-    # first produced exactly the tangle it sounds like wherever the two met:
-    # two independent routes crossing at shallow angles, each dodging the
-    # other's obstacles. A park path is ONE wider way carrying both modes,
-    # divided down its length -- which is also how shared-use paths are
-    # actually built. `width_m` and `bike_share` on each edge say how wide it is
-    # and how much of it is the cycle side; the divider is drawn from those, so
-    # there is only ever one network to route and one set of junctions.
+    # NO SEPARATE BIKE NETWORK. A second circuit weaving past the first was the
+    # tangle it sounds like wherever the two met: independent routes crossing
+    # at shallow angles, each dodging the other's obstacles. A park path is ONE
+    # wider way carrying both modes, divided down its length -- which is how
+    # shared-use paths are actually built. `width_m` and `bike_share` on each
+    # edge give the divider, so there is one network and one set of junctions.
     w_spine = float(c["path_w_shared_m"])
     w_spur = float(c["path_w_spur_m"])
     share = float(c["bike_share"])
@@ -1771,18 +1680,17 @@ def plan(rng, cfg=None):
         stops.append(q)
 
     # NEAREST-NEIGHBOUR TOUR from one gate to the other. Sorting the stops by
-    # x+y read as an ordering but is not a route: it doubled back across the
-    # middle of the park and the spine tied itself in a knot around the picnic
-    # grounds. A greedy tour is not optimal and does not need to be — it just
-    # has to not cross itself.
+    # x+y reads as an ordering but is not a route: it doubled back across the
+    # park and knotted the spine round the picnic grounds. Greedy is not
+    # optimal and does not need to be — it just has to not cross itself.
     #
-    # NOT 2-OPTED. Improving the tour was tried, on straight-line cost and then
-    # on a cost that charges for the facilities a leg would have to walk round.
-    # Both are better tours and neither is a better park: the router pays for a
-    # shorter leg with a longer detour, and measured over seeds 1/3/7/42 the
-    # doubled paving went from 205 m to 355 m (straight-line: worse still).
-    # Greedy leaves one long return leg that can run beside its outbound one;
-    # that is the residual `check_doubled` reports, and it is the cheaper bill.
+    # NOT 2-OPTED. Improving the tour was tried, on straight-line cost and on a
+    # cost that charges for the facilities a leg must walk round. Both are
+    # better tours and neither is a better park: the router pays for a shorter
+    # leg with a longer detour, and over seeds 1/3/7/42 the doubled paving went
+    # from 205 m to 355 m (straight-line: worse still). Greedy leaves one long
+    # return leg that can run beside its outbound one — the residual
+    # `check_doubled` reports, and the cheaper bill.
     way, rest, cur = [gates[0]], list(stops), gates[0]
     while rest:
         nxt = min(rest, key=lambda q: sn._dist(cur, q))
@@ -1832,18 +1740,16 @@ def plan(rng, cfg=None):
         """The junctions *p* could sensibly join to, best first.
 
         Nearest as the crow flies is the wrong answer when a facility stands in
-        between — the router then wraps the connection round the compound and
-        back, and a 54 m gap is paved as a 208 m path running alongside the
-        spine for a third of its length. So a candidate must have a clear
-        straight run to be offered at all, nearest first. The search is capped,
-        because a "clear" junction on the far side of the park is not a
-        junction anybody would walk to; if nothing inside the cap is clear, the
-        nearest is used and the router does what it can.
+        between — the router wraps the connection round the compound and back,
+        paving a 54 m gap as a 208 m path that runs alongside the spine for a
+        third of its length. So a candidate must have a clear straight run to
+        be offered at all, nearest first. The search is capped: a "clear"
+        junction on the far side of the park is not one anybody would walk to,
+        and if nothing inside the cap is clear the nearest is used.
 
         More than one is returned so the caller can route to each and take one
-        that comes out legal; they are spread out, since two candidates ten
-        metres apart on the same edge are the same junction and will fail the
-        same way.
+        that comes out legal. They are spread out, since two candidates ten
+        metres apart on the same edge are the same junction and fail alike.
         """
         cands = net.candidates(p, ignore=ignore)
         if not cands:
@@ -1890,13 +1796,12 @@ def plan(rng, cfg=None):
     def tie(nid, width_m, exempt=()):
         """Join node *nid* into the rest of the network — split, then connect.
 
-        THE SINGLE DOOR every path goes through, which is why there is no way
-        to end up with one that joins nothing. The target is a point ON AN
-        EXISTING EDGE and that edge is CUT there, so the connection is a
-        junction and not two paths that happen to touch. Where the node has
-        arrived within a couple of metres of the network already, it is welded
-        onto the junction instead of being bridged by a stub of path shorter
-        than it is wide.
+        THE SINGLE DOOR every path goes through, which is why none can end up
+        joining nothing. The target is a point ON AN EXISTING EDGE and that
+        edge is CUT there, so the connection is a junction, not two paths that
+        happen to touch. A node already within a couple of metres of the
+        network is welded onto the junction rather than bridged by a stub of
+        path shorter than it is wide.
 
         Edges already at *nid* are ignored, or the nearest point on the network
         would be the path we are trying to connect, at a distance of zero.
@@ -1909,8 +1814,7 @@ def plan(rng, cfg=None):
             return net.weld(nid, net.split(near[1], near[2]))
         # Connectivity is not optional, so an illegal best-effort route is
         # still laid here: a facility with no path to it is the worse failure,
-        # and `check_pad` is left to say so out loud rather than being quietly
-        # satisfied by a facility nobody can reach.
+        # and `check_pad` is left to say so out loud.
         hit, pts, _ok = join(p, width_m, ignore=net.adj[nid], exempt=exempt)
         if hit is None:
             return None
@@ -1925,12 +1829,11 @@ def plan(rng, cfg=None):
     # the corridor is what makes the eye read two grounds instead of one.
     #
     # A ROUTE BETWEEN TWO JUNCTIONS, not a stripe with two dead ends bridged
-    # afterwards. Laying it as a free-standing polyline and then tying each end
-    # to the nearest path is how it doubled the spine: the nearest path to a
-    # dead end pointing out of the corridor is the spine at the corridor's FAR
-    # end, so the connector was routed 60 m back down the corridor it had just
-    # been laid beside. Siting both ends on the network first and routing
-    # between them cannot do that.
+    # afterwards. Laying it free-standing and then tying each end to the
+    # nearest path doubled the spine: the nearest path to a dead end pointing
+    # out of the corridor is the spine at the corridor's FAR end, so the
+    # connector ran 60 m back down the corridor it had just been laid beside.
+    # Siting both ends on the network first cannot do that.
     pitches = [z for z in zones if z["kind"] == "soccer"]
     if len(pitches) >= 2:
         a = math.radians(pitches[0]["yaw"])
@@ -1947,13 +1850,12 @@ def plan(rng, cfg=None):
                                clears(w_spine), samples=6))
             # AND ONLY IF THE GAP IS NOT PAVED ALREADY. The tour threads
             # between the things worth reaching and the pitches are two of
-            # them, so it quite often runs down this corridor by itself — in
-            # which case a second way down it is not a corridor, it is the seam
-            # `_dedup` used to be here to cut out. Measured on the ROUTED line,
-            # not the straight one, since it is the routed line that gets
-            # paved; the ends are trimmed because they are ON the network by
-            # construction. `suburb_net` rejects a candidate street on
-            # clearance in the same way and for the same reason.
+            # them, so it quite often runs down this corridor by itself, and a
+            # second way down it would only be a seam. Measured on the ROUTED
+            # line, since that is what gets paved; the ends are trimmed because
+            # they are ON the network by construction. `suburb_net` rejects a
+            # candidate street on clearance in the same way and for the same
+            # reason.
             if (net.clearance(corr, skip_ends_m=10.0) > w_spine
                     and legal(corr, w_spine)):
                 na, nb = net.split_at(ha[3]), net.split_at(hb[3])
@@ -1967,8 +1869,8 @@ def plan(rng, cfg=None):
         SQUARE ON. A court is a rectangle, so the path that serves it arrives
         perpendicular to the edge it meets. Using the centre-to-point direction
         as the normal (which is what this did) walks the approach in at
-        whatever diagonal the centreline happens to make, and past a corner
-        that is visibly not a gate.
+        whatever diagonal the centreline makes, past a corner that is not a
+        gate.
         """
         a = math.radians(z["yaw"])
         ux, uy = math.cos(a), math.sin(a)
@@ -1990,12 +1892,11 @@ def plan(rng, cfg=None):
         return local(z, lx, ly), n
 
     # -- spurs: join each facility to the trunk, arriving on its boundary ----
-    # THE ONE PATH ALLOWED THROUGH THE BAND. Padding every facility and then
-    # obeying it everywhere would leave nothing able to reach an entrance, so
-    # the band has exactly one exception and this is it: the stub that serves
-    # the facility crosses its own band, and only its own — `exempt` already
-    # existed for precisely this and is what carries it. Everything downstream
-    # of the throat is bound like any other path.
+    # THE ONE PATH ALLOWED THROUGH THE BAND. Padding every facility and obeying
+    # it everywhere would leave nothing able to reach an entrance, so there is
+    # exactly one exception: the stub serving a facility crosses its own band
+    # and only its own, carried by `exempt`. Everything downstream of the
+    # throat is bound like any other path.
     def faces(z):
         """The four face centres of *z* and their outward normals."""
         a = math.radians(z["yaw"])
@@ -2028,17 +1929,15 @@ def plan(rng, cfg=None):
         e, n = entrance(z, sp)
         throat = sn._add(e, sn._mul(n, reach_m(z)))
         # THE GATE GOES WHERE THERE IS ROOM FOR ONE. The face nearest the trunk
-        # is the right answer nine times in ten, but two facilities stand as
-        # little as 9 m apart and the band is wider than that — so a stub out of
-        # the facing side walks straight into the neighbour's padding, which no
-        # exemption covers because it serves the other one. Fall back to
-        # whichever remaining face is clear, nearest the trunk first; a park
-        # puts its gate on the side you can actually walk up to.
+        # is right nine times in ten, but two facilities stand as little as 9 m
+        # apart and the band is wider than that, so a stub out of the facing
+        # side walks into the neighbour's padding — which no exemption covers,
+        # since it serves the other one. Fall back to whichever remaining face
+        # is clear, nearest the trunk first.
         #
         # Choosing the face by whether the LEG ON FROM IT comes out legal, not
-        # merely whether the stub has room, was tried as well: over seeds 1-12
-        # it changed not one park and cost a third of the run time, because the
-        # face nearest the network is the one that gets used almost every time.
+        # merely whether the stub has room, was tried too: over seeds 1-12 it
+        # changed not one park and cost a third of the run time.
         if not stub_ok(e, throat, z):
             for (fe, fn) in sorted(faces(z), key=lambda q: sn._dist(q[0], sp)):
                 ft = sn._add(fe, sn._mul(fn, reach_m(z)))
@@ -2049,15 +1948,15 @@ def plan(rng, cfg=None):
         # it starts ON that boundary by design — but not its neighbours, which
         # a blind stub between two picnic grounds would walk into.
         #
-        # ALWAYS EMITTED, even when the trunk already runs past the entrance.
-        # Skipping it there was how facilities ended up with no path touching
-        # them at all: the trunk keeps the full band off the boundary, so
+        # ALWAYS EMITTED, even when the trunk already runs past the entrance:
+        # skipping it there was how facilities ended up with no path touching
+        # them at all, since the trunk keeps the full band off the boundary and
         # "close enough" is still a fence away from the gate.
         #
-        # The entrance gets a node of its OWN rather than being welded to
-        # whatever happens to lie within tolerance: `check_reach` measures this
-        # end against the boundary at half a metre, and a node reused from
-        # elsewhere would drag it off the facility it is the entrance to.
+        # The entrance gets a node of its OWN, not a weld to whatever lies
+        # within tolerance: `check_reach` measures this end against the
+        # boundary at half a metre, and a reused node would drag it off the
+        # facility.
         stub = net.add_edge(_finish(route([e, throat], obstacles,
                                           clears(w_spur),
                                           exempt=(z["corners"],))),
@@ -2074,46 +1973,43 @@ def plan(rng, cfg=None):
     # PORTED FROM THE URBAN PARK, not invented a second time. `parks.py`'s
     # module docstring ("THE ATTRACTION AS A COMPOSED CENTREPIECE") states the
     # pattern: an attraction is a CIRCLE, not a point; a concentric promenade
-    # sits outside its keep-out; every walk is clipped to the OUTSIDE of that
-    # promenade so a desire line lands on the ring and the ring carries you
-    # around the water rather than at it; benches stand just outside the ring
-    # facing inward; and the planting is held out of a clearing wider still, so
-    # the thing the walks lead to is visible instead of buried in canopy.
+    # sits outside its keep-out; walks land ON the ring, so it carries you
+    # round the water rather than at it; benches stand just outside it facing
+    # inward; and the planting is held out of a wider clearing, so what the
+    # walks lead to is visible instead of buried in canopy.
     #
     # WHAT PORTS AND WHAT DOES NOT.
     #
-    #   `_ring`, `_clip_outside`   parks.py draws free polylines and cleans up
-    #     afterwards, so it has to CUT its walks on the ring. Here the
-    #     paths are
-    #     a graph and nothing may be cut after the fact — that is the whole of
-    #     `PathNet`'s docstring — and the clipping turns out to be unnecessary:
-    #     the fountain's keep-out box is already an obstacle carrying
-    #     `path_clear_m`, so no other path comes within 12.3 m of the water BY
-    #     CONSTRUCTION. The ring is built inside that dead zone, where there is
-    #     nothing to clip against.
-    #   ring benches            port straight over, with one difference. In
-    #     parks.py the seat normal is the placement yaw + 90 because it reuses
-    #     the along-path convention; here a bench's yaw IS the direction it
+    #   `_ring`, `_clip_outside`  parks.py draws free polylines and cleans up
+    #     afterwards, so it has to CUT its walks on the ring. Here the paths
+    #     are a graph and nothing may be cut after the fact (see `PathNet`),
+    #     and the clipping is unnecessary anyway: the fountain's keep-out box
+    #     is already an obstacle carrying `path_clear_m`, so no other path
+    #     comes within 12.3 m of the water BY CONSTRUCTION. The ring is built
+    #     inside that dead zone, where there is nothing to clip against.
+    #   ring benches            port straight over, with one difference: in
+    #     parks.py the seat normal is the placement yaw + 90, reusing the
+    #     along-path convention, whereas here a bench's yaw IS the direction it
     #     looks (see the path furniture in (d)), so inward is `th + 180`.
     #   the clearing            comes free. Trees are rejection-sampled against
-    #     the finished path grid at 5 m, and the ring is a path, so the annulus
+    #     the finished path grid at 5 m and the ring is a path, so the annulus
     #     either side of it is already unplantable.
     #
     # A RING IS A CYCLE AND THE INVARIANTS ARE THE HARD PART, so it is built as
     # TWO ARCS between two nodes rather than as one closed edge. A closed edge
     # has both ends at the same node, which `add_edge` refuses outright and
-    # which `check_orphans` could not read as a junction anyway; two arcs give
-    # every end a second path ending on it, so the ring is one component with
-    # no loose end, and it reaches the rest of the network through the ordinary
-    # `join` -> `split` -> `add_edge` sequence every other path uses.
+    # `check_orphans` could not read as a junction anyway; two arcs give every
+    # end a second path ending on it, so the ring is one component with no
+    # loose end and reaches the rest of the network through the ordinary `join`
+    # -> `split` -> `add_edge` sequence every other path uses.
     #
     # AND IT IS ONLY LAID IF IT COMES OUT LEGAL, down a radius ladder, exactly
     # as the pitch corridor is only laid if the gap is not paved already.
     # `open_spot` sites a fountain 17 m clear of the nearest facility box and a
     # fenced compound wants 8 m plus half the path width off its edge, so an
     # 8 m ring can finish 0.3 m short of the band; shrink it before giving up,
-    # and if none of the radii fit, the fountain keeps the plain spur it always
-    # had. A ring that breaches the padding is worse than no ring.
+    # and if no radius fits, the fountain keeps the plain spur it always had.
+    # A ring that breaches the padding is worse than no ring.
     ring_r0 = float(c["fountain_ring_r_m"])
     ring_pitch = float(c["fountain_bench_pitch_m"])
     foff_m = float(c["furniture_offset_m"])
@@ -2150,9 +2046,9 @@ def plan(rng, cfg=None):
             # `serves` marks a path no junction may be cut into. On a serving
             # stub that is because the stub owns a padding exemption; here it
             # is because the ring sits inside the fountain's keep-out, so a
-            # path joining it would have to cross the water to get there. -1
-            # is not a zone index, so it grants no exemption to anything and
-            # `check_pad` still holds the ring to every facility band.
+            # path joining it would have to cross the water. -1 is not a zone
+            # index, so it grants no exemption and `check_pad` still holds the
+            # ring to every facility band.
             e1 = net.add_edge(arc_pts(q, r, th, th + math.pi), "ring", w_spur,
                               a=na, bike_share=0.0, serves=-1)
             if e1 is None:
@@ -2205,18 +2101,17 @@ def plan(rng, cfg=None):
         net.add_edge(pts, "spur", w_spur, a=net.add_node(q), b=mid,
                      bike_share=0.0)
 
-    # NO DE-DUPLICATION PASS. There used to be one here, and deleting it is
-    # the point of the graph. Paths were routed against the FACILITIES but not
-    # against each other, so the tour spine and the pitch corridor could run
-    # over the same ground; the pass clipped a later path wherever it doubled
-    # an earlier one and dropped what was left if it came to under three
-    # points. It knew nothing about connectivity, so what it deleted was
+    # NO DE-DUPLICATION PASS. There used to be one here, and deleting it is the
+    # point of the graph. Paths were routed against the FACILITIES but not
+    # against each other, so the spine and the pitch corridor could run over
+    # the same ground; the pass clipped a later path wherever it doubled an
+    # earlier one. It knew nothing about connectivity, so what it deleted was
     # sometimes precisely the stretch a spur had joined onto — which is how a
     # court ended up with a short path coming out of it and going nowhere.
     #
     # A path that MEETS another now joins it at a node instead of being drawn
-    # alongside it and cleaned up afterwards, so there is no doubled paving to
-    # remove: `check_doubled` measures what is left of it.
+    # alongside it and cleaned up afterwards; `check_doubled` measures what is
+    # left of the doubling.
     paths = net.paths()
 
     # -- fences -------------------------------------------------------------
@@ -2234,21 +2129,20 @@ def plan(rng, cfg=None):
 
     for z in zones:
         # THE PLAYGROUND IS FENCED TOO, and not for decoration: a play area is
-        # enclosed so a two-year-old cannot walk out of it onto a pitch, which
-        # is why every municipal playground has a low rail round it with one
-        # gate in it. Done HERE rather than by putting `fenced` on the zone,
-        # because that flag also selects `facility_pad_fenced_m` (8 m instead
-        # of 6) and would move every path near the playground — the fence is a
-        # fact about the boundary, not a claim on how much room the paths have
-        # to leave. The compounds keep the flag: theirs really is the wider
-        # band, because the bike racks stand in it.
+        # enclosed so a two-year-old cannot walk out of it onto a pitch. Done
+        # HERE rather than by putting `fenced` on the zone, because that flag
+        # also selects `facility_pad_fenced_m` (8 m instead of 6) and would
+        # move every path near the playground — the fence is a fact about the
+        # boundary, not a claim on the room the paths must leave. The compounds
+        # keep the flag: their band really is wider, the bike racks stand in
+        # it.
         if not (z.get("fenced") or z["kind"] == "playground"):
             continue
         cor = z["corners"]
         # AND A GAP WHERE THE SERVING PATH ARRIVES. Without it the stub that
-        # `check_reach` measures ends against a panel, which is a fence with a
-        # path walking into it. Only the playground gets one: the compounds'
-        # runs predate this and changing them is not what was asked.
+        # `check_reach` measures ends against a panel — a fence with a path
+        # walking into it. Only the playground gets one; the compounds' runs
+        # predate this.
         gate = gate_at(z) if z["kind"] == "playground" else None
         for i in range(4):
             ax, ay = cor[i]
@@ -2268,8 +2162,7 @@ def plan(rng, cfg=None):
     # =======================================================================
     # NOT a belt on the boundary rectangle. Trees are massed in COPSES whose
     # density falls off from a centre, so the wood has a soft edge and reads as
-    # continuing past the park rather than stopping at a line. That is what
-    # blends the park into whatever surrounds it.
+    # continuing past the park rather than stopping at a line.
     #
     # The path test is on a GRID of every path sample rather than every third
     # one: sampling the polyline sparsely let trees land in the middle of a
@@ -2305,13 +2198,12 @@ def plan(rng, cfg=None):
             return False
         return not near_path(q, path_d)
 
-    # STEMS DO NOT STACK. There was no tree-to-tree test at all, which was
-    # survivable at 11/ha and is not at park density: a Poisson scatter at
-    # 55/ha
-    # puts pairs a metre apart, and two crowns a metre apart are one blob with
-    # two trunks under it. Same grid trick as the path test above, so the
-    # question stays O(1) per candidate instead of O(trees) — at 700 trees the
-    # naive version is a quarter of a million distance tests per pass.
+    # STEMS DO NOT STACK. There was no tree-to-tree test at all, survivable at
+    # 11/ha and not at park density: a Poisson scatter at 55/ha puts pairs a
+    # metre apart, and two crowns a metre apart are one blob with two trunks
+    # under it. Same grid trick as the path test above, so the question stays
+    # O(1) per candidate instead of O(trees) — at 700 trees the naive version
+    # is a quarter of a million distance tests per pass.
     tsep = float(c["tree_spacing_m"])
     tgrid = {}
 
@@ -2327,23 +2219,22 @@ def plan(rng, cfg=None):
         prop("tree", q[0], q[1], rng.uniform(0, 360))
         return True
 
-    # WHERE THE PLANTING GOES, which is the half of "more trees" that decides
-    # whether the result is a park or an orchard. A park is planted at its
-    # MARGINS — the belt inside the boundary that screens whatever is outside,
-    # and the strips between one facility and the next — and left open in the
-    # middle, because the open lawn is the thing the planting frames. A flat
-    # scatter at margin density fills the greensward and the pitch surrounds
-    # with evenly spaced trees, which is a plantation.
+    # WHERE THE PLANTING GOES, the half of "more trees" that decides whether
+    # the result is a park or an orchard. A park is planted at its MARGINS —
+    # the belt inside the boundary, the strips between one facility and the
+    # next — and left open in the middle, because the open lawn is what the
+    # planting frames. A flat scatter at margin density fills the greensward
+    # and the pitch surrounds evenly, which is a plantation.
     #
-    # So a candidate is accepted with a probability that falls from 1 at a
-    # margin to `tree_open_frac` out in the open. The COUNT is unaffected — the
-    # loop still runs until it has placed `want` — so the weighting moves trees
+    # So a candidate is accepted with a probability falling from 1 at a margin
+    # to `tree_open_frac` out in the open. The COUNT is unaffected — the loop
+    # still runs until it has placed `want` — so the weighting moves trees
     # about rather than quietly changing the density knob's meaning.
     #
-    # `d` is measured to the facility BOX rather than to its padding band on
-    # purpose: what makes a strip between two facilities read as planted is
-    # trees standing right up against the fence line, and `free()` already
-    # holds them the 4 m off it that stops a crown sitting on the court.
+    # `d` is measured to the facility BOX, not to its padding band, on purpose:
+    # what makes a strip between two facilities read as planted is trees right
+    # up against the fence line, and `free()` already holds them the 4 m off it
+    # that stops a crown sitting on the court.
     marg = float(c["tree_margin_m"])
     openf = float(c["tree_open_frac"])
 
@@ -2364,11 +2255,10 @@ def plan(rng, cfg=None):
         rad = rng.uniform(*_rng_pair(c["copse_r_m"], (26.0, 55.0)))
         if rng.random() < inland:
             # INLAND STANDS, smaller than the edge woods. The edge copses are a
-            # screen belt and are right to be big; the middle of the park needs
-            # the other thing a park has, a clump of trees you walk round on
-            # your way between the courts and the picnic ground. Sited by the
-            # same `free` test everything else uses, with more room asked for,
-            # so a stand does not start life half on a pitch.
+            # screen belt and right to be big; the middle of the park wants the
+            # other thing, a clump you walk round between the courts and the
+            # picnic ground. Sited by the same `free` test, with more room
+            # asked for, so a stand does not start life half on a pitch.
             cxy = None
             for _try in range(80):
                 p = (rng.uniform(ix0, ix1), rng.uniform(iy0, iy1))
@@ -2425,18 +2315,18 @@ def plan(rng, cfg=None):
     # (d) PATH FURNITURE — benches and bins, which BELONG TO THE PATH
     # =======================================================================
     # Last, because they are the one thing here whose position is defined by
-    # the route rather than by the ground. Placed before the paths were final
+    # the route rather than by the ground: placed before the paths were final
     # they sat in the grass beside nothing, facing nowhere. A bench faces the
     # path it is set back from; the bins go on the same line, a good deal
-    # sparser, which is the ratio you actually see.
+    # sparser.
     bspace = float(c["bench_spacing_m"])
     tspace = float(c["trash_spacing_m"])
     foff = float(c["furniture_offset_m"])
     # SEEDED WITH THE COMPOSED FURNITURE. The playground's benches and the ones
     # on a fountain ring are already on the ground by the time this runs, and
-    # the spacing test only ever knew about what this loop itself had placed —
-    # so a spur passing a plaza would drop a second bench two metres from a
-    # bench already facing the water. Seeding the list is the whole fix.
+    # the spacing test only knew about what this loop itself had placed — so a
+    # spur passing a plaza dropped a second bench two metres from one already
+    # facing the water.
     furn = list(composed)
 
     def furn_ok(p, d=7.0):
@@ -2444,11 +2334,9 @@ def plan(rng, cfg=None):
 
         THE RADIUS IS PER KIND, and a flat 7 m was actively wrong for the bin.
         Two benches 3 m apart are one bench drawn twice; a BIN 3 m from a bench
-        is where bins actually are, because the reason to put one there is that
-        somebody is sitting down. With one figure for both, whichever pass ran
-        first took the ground: benches first left 13 bins on seed 1, bins first
-        left 35 benches, and a park with as many bins as benches is as wrong as
-        one with none.
+        is where bins actually are, because somebody is sitting down. With one
+        figure for both, whichever pass ran first took the ground: benches
+        first left 13 bins on seed 1, bins first left 35 benches.
         """
         box = _obb(p[0], p[1], 2.4, 2.4, 0.0)
         if any(_sat_overlap(box, r, 0.5) for r in obstacles):
@@ -2456,10 +2344,10 @@ def plan(rng, cfg=None):
         return not any(sn._dist(p, f) < d for f in furn)
 
     for pa in paths:
-        # "ring" is excluded on purpose and for `parks.py`'s reason: a ring's
+        # "ring" is excluded on purpose, for `parks.py`'s reason: a ring's
         # furniture is COMPOSED — an even pitch of benches facing the water —
-        # so letting the walk-and-drop pass at it would lay a second row of
-        # seats round the same circle, alternating sides and facing outward.
+        # so the walk-and-drop pass would lay a second row of seats round the
+        # same circle, alternating sides and facing outward.
         if pa["kind"] not in ("spine", "spur"):
             continue
         pts = pa["pts"]
@@ -2488,34 +2376,29 @@ def plan(rng, cfg=None):
     # =======================================================================
     # (e) ONE BENCH AND ONE BIN FOR THE WHOLE PARK
     # =======================================================================
-    # A park is furnished by ONE PROCUREMENT ORDER. The borough buys a hundred
-    # of the same bin and bolts them down, so every bin in the park matches
-    # every other bin and every bench matches every other bench. Drawing per
-    # PROP out of a pool of eight bins gives a park in which no two bins are
-    # alike, which reads as a junk yard rather than as furniture — the same
-    # defect that was reported on the street furniture (bins, hydrants,
-    # streetlights) and it has the same cause and the same fix.
+    # A park is furnished by ONE PROCUREMENT ORDER: the borough buys a hundred
+    # of the same bin and bolts them down, so every bin matches every other bin
+    # and every bench every other bench. Drawing per PROP out of a pool of
+    # eight bins gives a park in which no two bins are alike, which reads as a
+    # junk yard rather than as furniture — the same defect reported on the
+    # street furniture (bins, hydrants, streetlights), same cause and same fix.
     #
     # THE POOL IS NOT NARROWED, only the draw. The variety in `park.yaml` and
     # `shared.yaml` is what makes a different seed a differently furnished
-    # park, which is the entire point of holding eight bins; taking the choice
-    # once per PARK instead of once per PROP keeps that and loses only the
-    # jumble. Picnic tables are in the matched set for the same reason — a
-    # picnic ground is a batch of identical tables — while trees, play kit and
-    # the set pieces are deliberately not: a wood is not procured, and there is
-    # only ever one gazebo standing in one place.
+    # park, which is the point of holding eight bins; taking the choice once
+    # per PARK instead of once per PROP keeps that and loses only the jumble.
+    # Picnic tables are in the matched set for the same reason — a picnic
+    # ground is a batch of identical tables — while trees, play kit and the set
+    # pieces are deliberately not: a wood is not procured.
     #
-    # DRAWN LAST, and that is not an accident of where the code sits. Every
-    # rng draw shifts every draw after it, so making this choice up at the top
-    # of `plan` would mean that adding a bin to a picnic ground moves a soccer
-    # pitch. Nothing reads the rng after this point, so here it is free.
+    # DRAWN LAST, and not by accident of where the code sits: every rng draw
+    # shifts every draw after it, so making this choice at the top of `plan`
+    # would mean adding a bin to a picnic ground moves a soccer pitch. Nothing
+    # reads the rng after this point, so here it is free.
     #
     # An opaque number rather than an index, so it stays valid whatever length
-    # the pool turns out to be; the consumer takes it modulo the pool size.
-    # NOTE FOR THE CONSUMER: `suburb_scene._park_placements` currently does
-    # `pool[rng.randrange(len(pool))]` per prop and has to read this instead —
-    # `u = pool[pr["variant"] % len(pool)] if "variant" in pr else <as now>` —
-    # or the field is inert and the bins stay mixed.
+    # the pool turns out to be; the consumer takes it modulo the pool size (see
+    # `suburb_scene._park_placements`).
     matched = {k: rng.randrange(1000003)
                for k in ("bench", "trash_can", "picnic_table")}
     for p in props:
@@ -2530,10 +2413,9 @@ def check(park, eps=0.25):
     """How many (path segment, facility) pairs actually cross. Must be zero.
 
     Counts PENETRATION, not contact: a spur is supposed to finish exactly on
-    the boundary it serves, so a segment that merely touches the box is
-    correct and a segment carrying *eps* metres or more of its length through
-    the interior is the bug. That distinction is the reason this measures the
-    clipped span rather than asking whether the endpoints are inside.
+    the boundary it serves, so a segment that merely touches the box is correct
+    and one carrying *eps* metres or more of its length through the interior is
+    the bug. Hence the clipped span rather than an endpoint-inside test.
     """
     n = 0
     for pa in park["paths"]:
@@ -2667,10 +2549,10 @@ def check_orphans(park, tol=1.0, fac_m=12.0, feat_m=10.0, gate_m=8.0):
       * it is a PARK GATE, or a set piece that is itself the destination — a
         fountain, a gazebo, the park sign.
 
-    Anything else is a stub dying in the grass, which is the defect this file
-    was rebuilt around. Note the junction test is GEOMETRIC — two ends at the
-    same point — not a lookup in the node table the generator happens to have
-    exported, so it still measures something when the generator is wrong.
+    Anything else is a stub dying in the grass, the defect this file was
+    rebuilt around. The junction test is GEOMETRIC — two ends at the same
+    point — not a lookup in an exported node table, so it still measures
+    something when the generator is wrong.
     """
     n = 0
     for (_i, p) in _ends(park):
@@ -2739,9 +2621,10 @@ def check_self_crossings(park):
 def check_doubled(park, slack=0.6):
     """Segment pairs from DIFFERENT paths whose paving overlaps.
 
-    The measure `_dedup` used to exist for. Junction neighbourhoods are exempt:
-    two paths that meet at a node necessarily overlap where they meet, and that
-    is a junction, not a seam.
+    The measure the deleted de-duplication pass used to exist for (see the note
+    in `plan`). Junction neighbourhoods are exempt: two paths that meet at a
+    node necessarily overlap where they meet, and that is a junction, not a
+    seam.
     """
     n = 0
     paths = [pa for pa in park["paths"] if len(pa["pts"]) >= 2]

@@ -3,22 +3,18 @@
 # Extends `shared.yaml`, which carries everything a locale doesn't get to
 # choose: street furniture, greenery, ground tiles, vehicles, people. What is
 # left here is what makes a place a suburb — timber-frame houses, and the
-# wreckage they leave: lumber and scraped earth. Unlike `urban.yaml`'s debris,
-# none of this is shared — the urban debris library (concrete chunks, cinder
-# block, brick) reads as city-building rubble, wrong for a timber-frame
-# collapse, so this set carries its own debris from scratch rather than
-# appending to it.
+# wreckage they leave. The debris is written from scratch rather than appended
+# to `urban.yaml`'s: concrete chunks, cinder block and brick read as
+# city-building rubble, wrong for a timber-frame collapse.
 #
-# ONE EXCEPTION TO "ONLY BUILDINGS AND DEBRIS", added deliberately: the three
-# kerb-furniture pools at the bottom. `shared.yaml` offers one of everything
-# because it has to serve a downtown, a suburb and a village at once — four
-# streetlights from three unrelated art families, eight bins. A NEIGHBOURHOOD
-# IS NOT FURNISHED THAT WAY: a municipality buys one pole and one bin and
-# repeats them, and the mixed pool is most of what reads as generated. That is
-# a locale statement, not a detail-level one, so it belongs here rather than in
-# `suburban_v2.yaml` — `build_city` reads these pools directly, so curating
-# them at this level fixes the plain suburban scene as well as the detailed one.
-# The reasoning is urban_v2.yaml's, carried across asset by asset.
+# ONE EXCEPTION TO "ONLY BUILDINGS AND DEBRIS": the three kerb-furniture pools
+# at the bottom. `shared.yaml` offers one of everything because it serves a
+# downtown, a suburb and a village at once — four streetlights from three art
+# families, eight bins — and a municipality buys one pole and one bin and
+# repeats them. That is a locale statement rather than a detail-level one, so it
+# belongs here and not in `suburban_v2.yaml`; `build_city` reads these pools
+# directly, so curating them here fixes the plain suburban scene too. The
+# reasoning is urban_v2.yaml's, carried across asset by asset.
 
 extends: shared
 
@@ -31,10 +27,10 @@ usds:
   buildings:
     intact:
       # Objaverse assets, named by their dataset uid — that is the whole
-      # identity. `airstack up` downloads and converts anything not already in
-      # the local cache (scene_gen/assets/objaverse/<uid>/), so this list works
-      # from an empty checkout; see assets/objaverse/manifest.yaml for
-      # provenance and attribution (all CC-BY, artist "headerstock").
+      # identity. `airstack up` downloads and converts anything not in the local
+      # cache (scene_gen/assets/objaverse/<uid>/), so this list works from an
+      # empty checkout; see assets/objaverse/manifest.yaml for provenance and
+      # attribution (all CC-BY, artist "headerstock").
       #
       # `target-size-m` is baked into the cached USD at conversion, so there is
       # deliberately no `scale:` here — nothing to drift from the geometry.
@@ -73,31 +69,26 @@ usds:
       # RetroNeighborhood houses, mixed in with the bungalows rather than
       # replacing them. The pack is where this locale's streetlight, hydrant,
       # driveway tile and sky already come from, so these are the neighbours the
-      # rest of the scene was built around; urban.yaml has SM_House_01
-      # commented out with the note "was tagged suburban/rural — belongs in a
-      # suburban set, not here", which is this set. Fifteen bungalows plus ten
-      # of these is 25 models on a street of ~1,700 houses.
+      # rest of the scene was built around. Fifteen bungalows plus ten of these
+      # is 25 models on a street of ~1,700 houses.
       #
-      # scale: 0.01 — CENTIMETRE-AUTHORED, the pack's own convention and the
-      # value every other RetroNeighborhood entry in this chain already uses
-      # (SM_StreetLight, SM_FireHydrant, SM_DriveWay_01, shared.yaml's
-      # SM_Tree_*), and the value urban.yaml wrote on the commented-out house.
+      # scale: 0.01 — CENTIMETRE-AUTHORED, the pack's convention and the value
+      # every other RetroNeighborhood entry in this chain already uses.
       #
-      # NO `target-size-m`, and that is not an omission. It is an OBJAVERSE-ONLY
-      # key: `objaverse_assets.scan_asset_sets` reads it to bake a size into the
-      # cached USD at conversion time, and `scene_generator` never reads it at
-      # all — so on a Nucleus path it would be silently ignored and would only
-      # look like a size had been pinned. These arrive at their authored size,
-      # which is correct once scaled.
+      # NO `target-size-m`, and that is not an omission: it is an OBJAVERSE-ONLY
+      # key. `objaverse_assets.scan_asset_sets` reads it to bake a size into the
+      # cached USD at conversion; `scene_generator` never reads it, so on a
+      # Nucleus path it would be silently ignored and only LOOK like a pinned
+      # size. These arrive at their authored size, correct once scaled.
       #
-      # UNVERIFIED, AND IT MATTERS: their footprints have not been measured.
-      # `suburb_parcel` cuts lots for houses 9-13 m wide by 8-11 m deep and
-      # rejects a house whose corners fall outside the lot polygon, so anything
-      # much larger than the bungalows' pinned 12 m will thin out the street
-      # rather than fail loudly. Measuring needs `pxr`/`omni.client`, i.e. the
-      # isaac-sim container — check them on the stage, and if one is far off,
-      # drop that line rather than scaling it (a per-asset scale away from 0.01
-      # would resize the doors and windows too).
+      # Their footprints are MEASURED AT BUILD TIME, not here:
+      # `suburb_scene.house_catalogue` runs the `SizeResolver` inside Isaac Sim
+      # (where Nucleus is already authenticated) and hands `suburb_parcel` the
+      # real sizes, so a house wider than the bungalows' 12 m gets a lot cut for
+      # it instead of overlapping its neighbour. A host-side measure still needs
+      # `pxr`/`omni.client`. If one is far off, drop that line rather than
+      # scaling it — a per-asset scale away from 0.01 resizes the doors and
+      # windows too.
       - usd: "RetroNeighborhood/Props/SM_House_01.prop.usd"
         scale: 0.01
       - usd: "RetroNeighborhood/Props/SM_House_02.prop.usd"
@@ -119,33 +110,27 @@ usds:
       - usd: "RetroNeighborhood/Props/SM_House_10.prop.usd"
         scale: 0.01
       #
-      # LEFT OUT OF `intact` ON PURPOSE — it would be placed as if it were a
-      # whole house. See `house_addons` below, which is where it now goes.
-      #   SM_House_01_Lot
-      #     a lot/ground plane rather than a building (it is tiny beside
-      #     SM_House_01), and this scene already lays its own ground:
-      #     `suburb_scene.apply_ground` writes block grass, driveways and
-      #     asphalt as meshes. Left out rather than guessed at — if it does turn
-      #     out to be a house, it can be added in one line.
+      # LEFT OUT OF `intact` ON PURPOSE:
+      #   SM_House_01_Lot   a lot/ground plane rather than a building (tiny
+      #     beside SM_House_01), and `suburb_scene.apply_ground` already lays
+      #     block grass, driveways and asphalt as meshes.
 
-    # GARAGES AND WINGS — the add-on half of a house, not a house.
+    # GARAGES AND WINGS — the add-on half of a house, not a house. Kept out of
+    # `intact` because an extension placed as a whole house is a fragment alone
+    # on a lot; the answer is to COMPOSE, not to drop them.
     #
-    # These were excluded from `intact` because an extension placed as if it
-    # were a whole house is a detached fragment standing alone on a lot. That
-    # reasoning was right about `intact` and wrong as a conclusion: the answer
-    # is not to drop them, it is to COMPOSE, which is what the user asked for
-    # ("construct the house as a component ... generate types of houses").
+    # `suburb_scene.house_catalogue` pairs each to its parent by the shared stem
+    # (SM_House_04_Extension -> SM_House_04) and measures the UNION of the two,
+    # which is the footprint `suburb_parcel` sizes the lot to. Both parts are
+    # then anchored by their OWN measured centroid — not at the parent's
+    # transform — because `apply_placements` positions every asset by its bbox
+    # centre; emitting both at one point co-centres the wing on the house.
     #
-    # `suburb_scene.build_placements` pairs each of these to its parent by the
-    # shared stem (SM_House_04_Extension -> SM_House_04) and, when a lot's
-    # archetype carries a garage, emits BOTH at the identical transform. That is
-    # exactly right and only right there: the extension is authored to sit
-    # against its parent in the PARENT'S frame, so the same transform composes
-    # the two and any other placement scatters a fragment.
-    #
-    # Only 3 of the 10 houses ship one, so a garage lot draws its house from
-    # this subset rather than uniformly — otherwise 7 lots in 10 marked "garage"
-    # would render identically to "plain" and the archetype stays invisible.
+    # Only 3 of the 10 houses ship one. Which lots get a garage is therefore
+    # decided by SIZE, not by the archetype flag: `suburb_parcel` picks the
+    # catalogue entry that fits the frontage, biased toward area by the
+    # archetype's scale, so wider "garage"/"full" lots tend toward the union
+    # entries without being guaranteed one. `has_garage` no longer controls it.
     house_addons:
       - usd: "RetroNeighborhood/Props/SM_House_04_Extension.prop.usd"
         scale: 0.01
@@ -215,48 +200,40 @@ usds:
         target-size-m: 4.0
 
   # ---- KERB FURNITURE: fewer models, repeated ---------------------------------
-  # HOW THE OVERRIDE WORKS, because getting it wrong is silent: asset sets merge
-  # through `scene_generator._merge_asset_set`, where a key written `<name>+`
-  # APPENDS to the inherited list and a bare `<name>:` REPLACES it outright.
-  # These three are written bare on purpose — the point is to own the pool, not
-  # to add to it. `resolve_asset_set` prints the chain it merged
-  # (`suburban_v2.yaml <- suburban.yaml <- shared.yaml`) at startup, and the
-  # resolved lengths are 1 / 2 / 1 rather than shared.yaml's 4 / 8 / 1.
+  # HOW THE OVERRIDE WORKS, because getting it wrong is silent: in
+  # `scene_generator._merge_asset_set` a key written `<name>+` APPENDS to the
+  # inherited list and a bare `<name>:` REPLACES it. These three are bare on
+  # purpose — the point is to own the pool. Resolved lengths are 1 / 2 / 1
+  # rather than shared.yaml's 4 / 8 / 1.
 
-  # ONE streetlight. Chosen off the live stage, not from the list: the pole at
-  # /World/stage/generated/streetlight_43_27606 is this asset, and it is the one
-  # that belongs on a residential street — RetroNeighborhood is the pack the
-  # suburban sky and driveways already come from, so it is the art family this
-  # scene is built in. Scale and yaw carried over verbatim from shared.yaml
-  # (cm-authored; the arm points +Y, hence the quarter turn).
+  # ONE streetlight, and the RetroNeighborhood one because that is the art
+  # family the suburban sky and driveways already come from. Scale and yaw
+  # carried over verbatim from shared.yaml (cm-authored; the arm points +Y,
+  # hence the quarter turn).
   #
-  # Dropped, all three of them Dmytro/ModernCityEnvironment01, for urban_v2's
-  # stated reason — several unrelated lamp families on one street is what reads
-  # as generated, and a city buys one pole and repeats it:
+  # Dropped, all three Dmytro/ModernCityEnvironment01: several unrelated lamp
+  # families on one street is what reads as generated.
   #   SM_Lamp_002, SM_Lamp_005   modern city posts, a second art family
   #   SM_Lamp_006                the same, and the only `park`-tagged lamp in
-  #                              the chain. Losing the tag is a known and
-  #                              accepted consequence: `parks.py` asks for
-  #                              `tag="park"` and FALLS BACK to the whole pool,
-  #                              so park trails get this pole instead — which is
-  #                              what a suburban park has anyway. `build_city`'s
+  #                              the chain. Losing the tag is accepted:
+  #                              `parks.py` falls back to the whole pool, so
+  #                              park trails get this pole — which is what a
+  #                              suburban park has anyway. `build_city`'s
   #                              park-trail lamp pass does not fall back and
-  #                              simply places none.
+  #                              places none.
   streetlights:
     - usd: "RetroNeighborhood/Props/SM_StreetLight.prop.usd"
       scale: 0.01
       yaw-offset: 90.0
 
-  # TWO bins where shared.yaml had eight, split by ROLE rather than by taste: a
-  # suburb's kerb carries a DOMESTIC wheelie bin, and the civic litter bin is
-  # the park one. That is the opposite of the downtown answer — urban_v2 kept
-  # the civic bin for the kerb and threw the domestic ones out.
+  # TWO bins where shared.yaml had eight, split by ROLE: a suburb's kerb carries
+  # a DOMESTIC wheelie bin and the civic litter bin is the park one — the
+  # opposite of urban_v2, which kept the civic bin for the kerb.
   #
-  # Both are Nucleus. The obvious third, the AEC brownstone dustbin this repo
-  # already uses in `suburban_v2.yard_props` (0.51 x 0.51 x 0.73 m, 630 pts), is
-  # deliberately NOT here: the AEC packs are git-ignored vendor content, and the
-  # plain `suburban` set is the one that has to run without them. It stays a
-  # yard prop, where suburban_v2 already depends on the packs anyway.
+  # Both are Nucleus. The AEC brownstone dustbin used in
+  # `suburban_v2.yard_props` (0.51 x 0.51 x 0.73 m, 630 pts) is deliberately NOT
+  # here: the AEC packs are git-ignored vendor content and the plain `suburban`
+  # set has to run without them.
   #
   # Dropped, with urban_v2's measured reasons carried across:
   #   SM_MTrashCan            black commercial rectangular bin — alley, not kerb
@@ -265,11 +242,11 @@ usds:
   #   SM_Bin_006              green 4-wheel COMMUNAL dumpster — a flat block's
   #                           bin store, not a single-family kerb
   #   SM_Bin_004              a fourth kerbside model with no role left once one
-  #                           wheelie bin is kept. Dropped as surplus variation;
-  #                           no defect is claimed against it.
-  #   CityPark SM_Small_Trash_can   the park bin, replaced by SM_MLitterBin
-  #                           below. urban_v2 records the CityPark bin as 1.27 m
-  #                           wide — out of scale beside a 0.6 m civic bin.
+  #                           wheelie bin is kept. Surplus variation; no defect
+  #                           claimed against it.
+  #   CityPark SM_Small_Trash_can   the park bin, replaced by SM_MLitterBin.
+  #                           urban_v2 measures it 1.27 m wide — out of scale
+  #                           beside a 0.6 m civic bin.
   #   Muyang garbageCan       a third art family for a prop this scene places at
   #                           most a few dozen of.
   trash_cans:
@@ -280,20 +257,17 @@ usds:
       tags: ["park"]
       # 0.60 x 0.60 x 0.91 m, 759 pts (measured in urban_v2, where it is THE
       # street bin). Kept only as the park/verge civic bin, so the tag pools in
-      # `build_city` and `parks.py` still have something to select — and so a
-      # domestic wheelie bin never turns up on a park trail.
+      # `build_city` and `parks.py` still select something — and so a domestic
+      # wheelie bin never turns up on a park trail.
 
-  # UNCHANGED AT ONE, and stated here rather than left implicit. shared.yaml
-  # already carries exactly one hydrant model, so there is nothing to cut — a
-  # municipality buys one pattern, which is the same rule as the pole and the
-  # bin. Pinned explicitly so a later edit to shared.yaml cannot widen it
-  # silently.
+  # UNCHANGED AT ONE. shared.yaml already carries exactly one hydrant model, so
+  # there is nothing to cut; pinned explicitly so a later edit to shared.yaml
+  # cannot widen it silently.
   #
   # NOT appended: urban_v2's `fire_hydrants+` AEC hydrant
-  # (brownstone/Props/Hydrant, 0.56 x 0.52 x 1.62 m). It is a second art family
-  # bought for nothing — hydrants sit at 240 m here (IFC 400 ft hose lay), so
-  # the whole suburb places a few dozen and none of them is ever seen beside
-  # another.
+  # (brownstone/Props/Hydrant, 0.56 x 0.52 x 1.62 m). A second art family bought
+  # for nothing — hydrants sit at 240 m here (IFC 400 ft hose lay), so the whole
+  # suburb places a few dozen and none is ever seen beside another.
   fire_hydrants:
     - usd: "RetroNeighborhood/Props/SM_FireHydrant.prop.usd"
       scale: 0.01

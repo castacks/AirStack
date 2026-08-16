@@ -2,12 +2,12 @@
 #
 # Street furniture, greenery, ground tiles, vehicles and people are the same
 # whether the scene is a downtown, a suburb or a village: a bench is a bench.
-# Only the *buildings* and the *debris they leave* are locale-specific, so
-# those live in the sets that extend this one — see `urban.yaml` (mid-rise
-# concrete) and `suburban.yaml` (detached timber-frame houses).
+# Only the *buildings* and the *debris they leave* are locale-specific, so those
+# live in the sets that extend this one — `urban.yaml` (mid-rise concrete) and
+# `suburban.yaml` (detached timber-frame houses).
 #
-# Don't name this set from a scene config. Point at a locale set instead; it
-# pulls this in via `extends: shared`.
+# Don't name this set from a scene config; point at a locale set, which pulls
+# this in via `extends: shared`.
 #
 # Entry forms:  "path.usd"                                (global asset_scale, Z-up)
 #           or  {usd: "path.usd", scale: 1.0, axis-up: "Y", yaw-offset: 90}
@@ -90,6 +90,10 @@ usds:
       scale: 0.01
 
   trees:
+    # Commented out below, and all of them also rejected BY NAME in urban_v2 and
+    # suburban_v2: RetroNeighborhood SM_Tree_01, Dmytro SM_Tree1/2/3, Muyang
+    # Tree_A/B/C. The pool stays as-is for the urban and village sets;
+    # suburban_v2 replaces it outright.
     # - usd: "RetroNeighborhood/Props/SM_Tree_01.prop.usd"
     #   scale: 0.01
     - usd: "RetroNeighborhood/Props/SM_Tree_02.prop.usd"
@@ -152,8 +156,7 @@ usds:
       scale: 0.01
     - usd: "CityPark/Props/SM_Stone_05.prop.usd"
       scale: 0.01
-    # - usd: "CityPark/Props/SM_Stone_06.prop.usd"
-    #   scale: 0.01
+    # SM_Stone_06 commented out, reason not recorded.
     - usd: "CityPark/Props/SM_Stone_08.prop.usd"
       scale: 0.01
     - usd: "CityPark/Props/SM_Stone_09.prop.usd"
@@ -245,19 +248,13 @@ usds:
       scale: 0.01
       axis-up: "Y"
       yaw-offset: 90.0
-    # - usd: "RetroNeighborhood/FREE_Merc_Hovercar.usdz"
-    #   scale: 0.01
-    #   axis-up: "Y"
     - usd: "RetroNeighborhood/Nissan_Fairlady_Z_S30240Z_1978.usdz"
       scale: 0.01
       axis-up: "Y"
       yaw-offset: 90.0
-    # - usd: "RetroNeighborhood/Old_Rusty_Car.usdz"
-    #   scale: 0.01
-    #   axis-up: "Y"
-    # - usd: "RetroNeighborhood/ZIS-101A_Sport_1938.usdz"
-    #   scale: 0.01
-    #   axis-up: "Y"
+    # Commented out, reason not recorded — all RetroNeighborhood .usdz at
+    # scale 0.01, axis-up Y: FREE_Merc_Hovercar (a hovercar, so not a street
+    # car), Old_Rusty_Car, ZIS-101A_Sport_1938.
     - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SK_ConstructionTruck01FullyRigged.usd"
     - usd: "Muyang/DownTown/Assets/Vehicle_A.usd"
       scale: 0.01

@@ -1,24 +1,23 @@
 # HIGH-LEVEL scene spec — a graph-based suburb (scene_gen/suburb_net.py).
 #
-# Distinct from `suburban_v2.yaml`, which stays untouched and runnable: that one
-# drives the RECT subdivider through `build_city`, this one drives the street
-# GRAPH through `suburb_scene.generate_suburb_on_stage`. They share the asset
-# set and nothing else — the layouts are produced by different code with
-# different geometry, so there is no knob that turns one into the other.
+# Distinct from `suburban_v2.yaml`: that drives the RECT subdivider through
+# `build_city`, this drives the street GRAPH through
+# `suburb_scene.generate_suburb_on_stage`. Different code, different geometry —
+# they share only the asset set, and no knob turns one into the other.
 #
 # View it with:
 #     SCENE_CONFIG=suburb_net \
 #     ISAAC_SIM_SCRIPT_NAME=suburb_preview_launch_script.py \
 #     airstack up isaac-sim
 #
-# Or check the plan on the host in a second, no Isaac Sim needed:
+# Or check the plan on the host, no Isaac Sim needed:
 #     python3 tools/suburb_net_png.py --seed 3 --out _plans/suburb_net.png
 
 locale: suburban
 disaster-type: none
 severity: 0.0
-# suburban_v2 for the houses and street furniture; the park pools live in
-# park.yaml, pulled in by the extends chain below.
+# suburban_v2 for the houses and street furniture, park.yaml for the recreation
+# pools; suburban_park joins the two (see its `extends` note).
 asset-set: suburban_park
 
 # 1600 x 1200 m is one plat's worth of fabric: enough for three collectors and
@@ -75,10 +74,9 @@ overrides:
   # ---- lots, houses, planting (suburb_parcel.py) -----------------------------
   suburb_parcel:
     # FRONTAGE PER DWELLING, and the number that decides how much of the house
-    # catalogue is reachable. A lot admits an asset only if the asset fits
-    # inside it with its side yard, so a narrow range does not merely pack the
-    # houses tighter -- it deletes the wide entries from the pool entirely, and
-    # the widest entries are exactly the ones carrying a garage wing.
+    # catalogue is reachable: a lot admits an asset only if it fits with its
+    # side yard, so a narrow range deletes the wide entries from the pool —
+    # which are exactly the ones carrying a garage wing.
     #
     # MEASURED, sweeping the range against a 10-entry catalogue (3 of them with
     # wings) over 3 seeds:
@@ -93,31 +91,26 @@ overrides:
     # [21, 30] is the knee: refusals reach zero and the wing share rises by half
     # again, for 9% fewer houses. Past it the extra variety is bought purely by
     # thinning the street. The DENSITY classes still spread this widely -- tight
-    # is 16-23 m (54-77 ft, the classic post-war lot), estate 46-66 m -- so the
-    # range is the middle of a distribution, not the whole of it.
+    # is 16-23 m (54-77 ft, the classic post-war lot), estate 46-66 m.
     lot_width_m: [21.0, 30.0]
     # Zoning ordinances put the front setback at 20-30 ft almost everywhere.
     setback_m: [6.5, 11.0]
-    # The bungalow pool is pinned to a 12 m longest plan dimension by
-    # `target-size-m` in the asset set, so the footprint here is written to
-    # match it rather than guessed.
+    # NOMINAL FALLBACK ONLY, and unread on this path. `suburb_scene` measures
+    # the pack at build time (`house_catalogue`, garage wing folded in) and
+    # hands `suburb_parcel` a `house_sizes` list; these are used only when that
+    # list is absent — an empty house pool, or another caller that measures
+    # nothing.
     house_w_m: [9.0, 13.0]
     house_d_m: [8.0, 11.0]
-    # SIDE YARD, and the number that governs "the houses are too close".
+    # SIDE YARD, and the number that governs "the houses are too close". The
+    # overlap test pads by HALF this, so 4.0 bought a 2.01 m minimum
+    # wall-to-wall gap with 2.3-2.8% of houses inside 3 m; 6.0 takes it to
+    # 3.0 m and 0% inside 3 m at NO measured cost in house count (8.0 starts
+    # costing up to 6%).
     #
-    # The overlap test pads by HALF this (`pad=gap*0.5`), so 4.0 bought a 2.0 m
-    # minimum wall-to-wall gap -- measured 2.01 m at the tightest, with 2.3-2.8%
-    # of houses inside 3 m. That is not an intersection but it reads as one at a
-    # glance, and it is the actual complaint.
-    #
-    # 6.0 takes the minimum to 3.0 m and 0% inside 3 m, and it was measured to
-    # cost NOTHING in house count (8.0 would start costing up to 6%).
-    #
-    # It is also the side yard the FIT CHECK uses: `house_sizes` admits an entry
-    # only if it clears half of this, so raising it narrows the reachable
-    # catalogue. That is a genuine trade and not a free knob -- the garage wing
-    # is now inside the measured footprint, so wider entries are the ones that
-    # get squeezed out first.
+    # It is also the side yard the FIT CHECK uses -- `house_sizes` admits an
+    # entry only if it clears half of this -- so raising it narrows the
+    # reachable catalogue, and the widest entries go first.
     house_gap_m: 6.0
     min_lot_depth_m: 21.0
     driveway_w_m: 3.2
@@ -126,8 +119,11 @@ overrides:
     # bungalows do not record their facing, so flip to +90 if they come up
     # backs-to-the-street. This is the one value here that cannot be derived.
     house_yaw_offset_deg: -90.0
-    # Planting. Back yards carry most of it, which is where a suburb's canopy
-    # actually is; the street trees are a separate rhythm along the verge.
+    # Planting. Only `street_tree_spacing_m` is live here: `suburb_yardplan`
+    # owns yard planting, so `suburb_parcel` reads `back_trees_per_100m2` only
+    # under `own_yard_trees` (off by default) and nothing reads
+    # `front_tree_chance` at all. Both are kept for callers that use
+    # `suburb_parcel` without yardplan.
     back_trees_per_100m2: 0.055
     front_tree_chance: 0.45
     street_tree_spacing_m: [16.0, 30.0]

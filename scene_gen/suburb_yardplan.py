@@ -4,10 +4,10 @@ suburb_yardplan.py — yard planting for lots that are not axis-aligned.
 WHY `suburb_yards` COULD NOT SIMPLY BE CALLED
 ---------------------------------------------
 `suburb_yards` is a good pass and this module reuses the hard half of it. What
-it cannot do is this layout's geometry, and the reason is measured rather than
-aesthetic. Its yard records are world AABBs — `x0, y0, x1, y1 = rect` — and its
-`_house_side` picks the wall a foundation row follows by comparing AXIS-ALIGNED
-outward normals. On a curved street the lots turn with the street:
+it cannot do is this layout's geometry. Its yard records are world AABBs —
+`x0, y0, x1, y1 = rect` — and its `_house_side` picks the wall a foundation row
+follows by comparing AXIS-ALIGNED outward normals. On a curved street the lots
+turn with the street:
 
     lots within 5 deg of axis-aligned      9%   of 1,523
     AABB area / true footprint             median 1.74x, p90 2.00x, max 2.16x
@@ -27,9 +27,9 @@ would be silly to redo:
               weight, so an expensive handsome species can be carried as an
               occasional accent instead of being dropped or bankrupting the run
     _Budget   two purses, trees and everything else, allocated per unit area.
-              This is the binding constraint of the whole scene: the library's
-              cheapest bound green tree is 48.7k points, and the urban scene
-              OOM-killed at 89.1M.
+              A ceiling, not what decides the planting: with instancing on it
+              barely binds here (see :func:`plan`). It was written for the
+              urban scene, which OOM-killed at 89.1M points.
 
 Replaced: all of the geometry.
 
@@ -75,7 +75,6 @@ against every building in the scene rather than against its own.
 """
 
 import math
-import random
 
 from suburb_yards import _Lib, _Budget          # geometry-free, reused as-is
 import suburb_net as sn
@@ -103,13 +102,11 @@ DEFAULTS = {
     # canopies impose, this is the spacing a garden is actually planted at, and
     # driving the count off area is what keeps a tight lot from being a thicket.
     "rear_tree_area_m2": 42.0,
-    # Only used when a house record carries no `lot_depth` — the old hard-coded
-    # rear-yard depth, kept as the fallback and nothing more. It is WRONG as a
-    # constant: lots are platted 21-40 m deep, so 16 m past the back wall is
-    # over the rear boundary on the shallow half of them, which is how the
-    # pass it replaces put 17-26 trees a seed inside somebody else's house.
+    # Fallback only, for a house record carrying no `lot_depth`. It is WRONG as
+    # a constant — lots plat 21-40 m deep, so 16 m past the back wall is over
+    # the rear boundary on the shallow half of them, which is how the pass this
+    # replaces put 17-26 trees a seed inside somebody else's house.
     "rear_depth_fallback_m": 16.0,
-    "rear_prop_chance": 0.45,
     # -- side yards: the gap between neighbouring houses, previously EMPTY ----
     # The gap is `suburb_parcel.house_gap_m` (4.0 m) only on the tightest lots;
     # frontage is scaled per block by the density class (tight 0.78 to estate
@@ -138,16 +135,15 @@ DEFAULTS = {
 class _Solids:
     """Every house and garage in the suburb as an oriented box, on a hash grid.
 
-    A tree inside a garage is as wrong as one inside a house, and the building
-    a stray tree lands in is usually NOT the one whose yard it was planted for.
-    Measured on the pass this replaces, over seeds 1-3: 17/20/26 trees inside a
-    house and 2/3/2 inside a garage per seed — every one of them from the rear
-    tree, which was thrown a flat 5-12 m past the back wall and on a shallow
-    lot lands over the rear boundary in the next lot's living room.
+    A tree inside a garage is as wrong as one inside a house, and the building a
+    stray tree lands in is usually NOT the one whose yard it was planted for.
+    Measured on the pass this replaces, seeds 1-3: 17/20/26 trees inside a house
+    and 2/3/2 inside a garage per seed, every one from the rear tree thrown a
+    flat 5-12 m past the back wall into the lot behind.
 
     So the test is against every solid in the scene rather than this lot's own
-    footprint, and at ~1,100 lots against ~4,500 candidate points it has to be
-    a grid: the scan version is ~10M oriented-box tests a seed.
+    footprint, and at ~1,100 lots against ~4,500 candidate points it has to be a
+    grid: the scan version is ~10M oriented-box tests a seed.
 
     Boxes are inserted into every cell their bounding disc touches INFLATED by
     `pad_max`, so a query need only look in the point's own cell — which is why
@@ -196,13 +192,12 @@ class _Solids:
 class _Spacing:
     """The trees already standing, on a grid keyed at the separation distance.
 
-    Same list `placed_trees` always was — it is still the record of what has
-    been planted — but tripling the canopy makes the linear scan quadratic in a
-    number that now matters: ~4,500 trees against ~15,000 candidate points is
-    ~34M distance tests a seed, where a cell lookup is nine buckets. The rule
-    it enforces is unchanged and is enforced across EVERYTHING this pass
-    plants, front, side and rear, and across lot boundaries — which is what
-    stops two neighbours' side yards from planting the same two metres twice.
+    A grid rather than the linear scan it replaces because tripling the canopy
+    made the scan quadratic in a number that matters: ~4,500 trees against
+    ~15,000 candidate points is ~34M distance tests a seed, where a cell lookup
+    is nine buckets. The rule is enforced across EVERYTHING this pass plants —
+    front, side and rear, and across lot boundaries, which is what stops two
+    neighbours' side yards planting the same two metres twice.
     """
 
     def __init__(self, sep):
@@ -297,11 +292,9 @@ def plan(config, parcels, rng, resolver=None):
     #
     # AND THAT IS WHY THE DENSITY BELOW IS A GEOMETRY DECISION, NOT A BUDGET
     # ONE. Swept on seed 1 (1,173 lots), the tree count barely moves with the
-    # ceiling: 4,888 trees at 15M, 4,900 at 30M, 4,914 at 300M — 0.3% across a
-    # twentyfold sweep, with the canopy purse spending 2.86M of its 18.6M
-    # share. What refuses a tree now is a wall, a fence, a garage or a
-    # neighbour's canopy; the purse only ever bites on the first few lots of
-    # the shuffle, before their area shares have accumulated.
+    # ceiling: 4,888 trees at 15M, 4,900 at 30M, 4,914 at 300M — 0.3% over a
+    # twentyfold sweep, the canopy purse spending 2.86M of its 18.6M share.
+    # What refuses a tree is a wall, a fence, a garage or a neighbour's canopy.
     budget = _Budget(float(cfg["point_budget"]), sum(lot_area),
                      float(cfg["tree_budget_frac"]),
                      bool(cfg.get("instanced", True)))
@@ -324,9 +317,8 @@ def plan(config, parcels, rng, resolver=None):
     side_long = float(cfg.get("side_long_strip_m", 7.5))
     darts = max(1, int(cfg.get("darts", 12)))
 
-    # Every building in the suburb, before anything is planted. Built from the
-    # same `houses` list, so it costs one pass and covers the neighbours: the
-    # thing a stray tree lands in is almost never the house it was planted for.
+    # Every building in the suburb, before anything is planted — one pass over
+    # the same `houses` list, so the neighbours are covered too.
     solids = _Solids(houses, pad_max=max(2.0, clear_house + 1.0))
 
     out = []
@@ -380,10 +372,9 @@ def plan(config, parcels, rng, resolver=None):
         # -- the LOT, in the same frame as the house -----------------------
         # `frontage` is the kerb point the lot was struck from, so the house
         # centre stands `setback + d/2` inside it: that distance is where the
-        # kerb is in `deep`, and `lot_depth` measured from the same point is
-        # where the REAR BOUNDARY is. Both are read defensively — another pass
-        # owns these keys — and both fall back to what this module used to
-        # assume, which is the only reason the constants are still here.
+        # kerb is in `deep`, and `lot_depth` from the same point is where the
+        # REAR BOUNDARY is. Read defensively because another pass owns these
+        # keys — and the fallbacks are the only reason the constants survive.
         front_off = (sn._dist(h["c"], h["frontage"]) if h.get("frontage")
                      else half_d + 8.0)
         rear_line = (float(h["lot_depth"]) - front_off if h.get("lot_depth")
@@ -398,19 +389,18 @@ def plan(config, parcels, rng, resolver=None):
         half_lot = max(half_lot, half_w + 0.4)
         fences = h.get("fence_segs") or ()
 
-        # The garage, in the same (along, deep) frame. It shares the house's
-        # `u`, so the two boxes are axis-aligned to each other and the test is
-        # a pair of interval checks rather than an SAT. It sits IN one of the
-        # side yards, hard on the lot line more often than not, and its side is
-        # also the side the drive runs up — which is how this pass knows which
-        # side yard is the car's without being handed the drive.
+        # The garage box, in the same (along, deep) frame. It shares the house's
+        # `u`, so the two boxes are axis-aligned to each other and the test is a
+        # pair of interval checks rather than an SAT. Nothing is built in it, but
+        # it is the ground `suburb_parcel` reserved and the side the drive runs
+        # up — which is how this pass knows which side yard is the car's without
+        # being handed the drive.
         gar = h.get("garage")
-        g_along = g_deep = g_hw = g_hd = 0.0
+        g_along = g_deep = g_hd = 0.0
         if isinstance(gar, dict) and gar.get("c"):
             dx, dy = gar["c"][0] - cx, gar["c"][1] - cy
             g_along = dx * u[0] + dy * u[1]
             g_deep = dx * n[0] + dy * n[1]
-            g_hw = float(gar.get("w", 6.0)) / 2.0
             g_hd = float(gar.get("d", 6.5)) / 2.0
         else:
             gar = None
@@ -457,18 +447,14 @@ def plan(config, parcels, rng, resolver=None):
             emit(_pick(props, rng), x, y, yaw_deg + 90.0, "plant", budget.other)
 
         # -- SIDE YARDS: the gap between the houses, which had nothing in it --
-        # This is the "spaces between houses" complaint, literally: the pass
-        # planted a front yard and a back garden and left the two strips down
-        # the sides bare on every one of ~1,100 lots.
-        #
-        # The width is DERIVED, never assumed. `house_gap_m` is a 4.0 m
-        # minimum, not the gap: `suburb_parcel` scales the frontage per block
-        # by the density class (tight 0.78 through estate 2.20) and does not
-        # scale the house, so the strip measures ~2 m a side on a tight lot and
-        # ~12 m on an estate one. Below `side_tree_min_w_m` a canopy will not
-        # fit and the strip gets ground cover instead of a tree it would have
-        # to be shrunk out of shape to hold; below `side_shrub_min_w_m` it gets
-        # nothing, which is what a 2 m alley between two walls looks like.
+        # The width is DERIVED, never assumed. `house_gap_m` is a 4.0 m minimum,
+        # not the gap: `suburb_parcel` scales the frontage per block by the
+        # density class (tight 0.78 through estate 2.20) and does not scale the
+        # house, so the strip measures ~2 m a side on a tight lot and ~12 m on an
+        # estate one. Below `side_tree_min_w_m` a canopy will not fit and the
+        # strip gets ground cover instead of a tree shrunk out of shape to hold
+        # it; below `side_shrub_min_w_m` it gets nothing, which is what a 2 m
+        # alley between two walls looks like.
         for sgn in (-1.0, 1.0):
             a_in = half_w + clear_house
             a_out = half_lot - inset
@@ -480,16 +466,14 @@ def plan(config, parcels, rng, resolver=None):
             d_lo = -half_d + clear_drive
             d_hi = min(half_d, rear_line - inset)
             if gar is not None and sgn * g_along > 0.0:
-                # The car's side. The garage stands in this strip and the drive
-                # runs up to its door, so what is plantable is the piece BEHIND
-                # the garage — the breezeway between it and the back fence.
+                # The car's side. The reserved box takes this strip and the
+                # drive runs up to its front, so what is plantable is the piece
+                # BEHIND it — the breezeway between the box and the back fence.
                 # Cut in DEEP only, not in width: a detached double sits at
-                # half_w + 0.8 + 3.0 out, which is past the lot line on any lot
-                # under ~26 m of frontage, so also excluding its along-span
-                # closed the whole side yard on every garage lot (measured:
-                # 1,142 of ~2,346 strips refused for width on seed 1). The
-                # drive is in FRONT of the garage door and this strip is
-                # behind it, so deep alone is the cut that matters.
+                # half_w + 0.8 + 3.0 out, past the lot line on any lot under
+                # ~26 m of frontage, so also excluding its along-span closed the
+                # whole side yard on every garage lot (measured: 1,142 of ~2,346
+                # strips refused for width on seed 1).
                 d_lo = max(d_lo, g_deep + g_hd + clear_house)
             width = a_out - a_in
             length = d_hi - d_lo
@@ -543,12 +527,12 @@ def plan(config, parcels, rng, resolver=None):
                          "plant", budget.other)
                 a += step
 
-        # Canopy over the back garden. ONE tree per lot on a 0.75 coin flip is
-        # the other half of the complaint — a quarter of the gardens had no
-        # tree at all and none had shade. The count comes off the AREA the lot
-        # actually has behind the house, so the deep estate garden gets its
-        # four and the shallow tight one still gets its one, and it is clamped
-        # by `rear_trees` at both ends rather than left to run.
+        # Canopy over the back garden. The count comes off the AREA the lot
+        # actually has behind the house — clamped by `rear_trees` at both ends —
+        # so the deep estate garden gets its four and the shallow tight one
+        # still gets its one. The 0.75 coin flip for ONE tree that this replaces
+        # left a quarter of the gardens with no canopy and the rest with a
+        # single trunk.
         b_lo = half_d + clear_house
         b_hi = rear_line - inset
         if trees and b_hi - b_lo >= 1.0 \
@@ -567,10 +551,9 @@ def plan(config, parcels, rng, resolver=None):
              "points": budget.spent, "budget": budget.total,
              "refused": budget.refused,
              # The canopy purse on its own, because it is the one that used to
-             # bind. Instanced, ~5,000 trees cost 2.9M of an 18.6M share and
-             # every refusal is a lot early in the shuffle whose cap has not
-             # accumulated yet — the purse no longer decides how many trees the
-             # suburb has, the geometry does.
+             # bind. Instanced it no longer does: ~5,000 trees cost 2.9M of an
+             # 18.6M share, and a refusal is a lot early in the shuffle whose
+             # cap has not accumulated yet.
              "tree_points": budget.tree.spent, "tree_budget": budget.tree.total,
              "tree_refused": budget.tree.refused,
              "front_trees": n_front_tree, "side_trees": n_side_tree,

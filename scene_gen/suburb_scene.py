@@ -1,42 +1,18 @@
 """
 suburb_scene.py — build a `suburb_net` layout onto a live USD stage.
 
-WHY THIS DOES NOT REUSE `apply_ground_planes`
----------------------------------------------
-`scene_generator.apply_ground_planes` paints one asphalt rect for the region and
-one grass rect per block, then draws lane dashes down each corridor's centre. It
-consumes blocks and corridors as AXIS-ALIGNED RECTS, and that is exactly what
-this layout does not have: streets here are polyline centrelines and blocks are
-polygons. Feeding it a bounding box per curved street would pave the bounding
-box, which is the envelope trick the whole rewrite exists to avoid.
+WHY NOT `apply_ground_planes`: it consumes blocks and corridors as AXIS-ALIGNED
+RECTS, which is exactly what this layout does not have — streets are polyline
+centrelines and blocks are polygons. Paving a curved street's bounding box is
+the envelope trick the rewrite exists to avoid. So the ground is written here:
 
-So the ground is written directly instead, and the geometry is honest about what
-it is:
+    asphalt     one ribbon mesh per street swept along its centreline, plus a
+                disc at each cul-de-sac turnaround
+    grass       one triangulated mesh per block polygon
+    markings    drawn, not placed — see `apply_ground`
 
-    asphalt     ONE ribbon mesh per street, swept along its centreline at the
-                street's own width, plus a disc at each cul-de-sac turnaround
-    grass       ONE triangulated mesh per block polygon
-    centreline  dashes stepped ALONG the polyline and yawed to the local
-                tangent, so the paint follows the road round its curve
-
-Ribbons are built by offsetting each centreline vertex along the MITRE of its
-two adjacent segments rather than along a single segment normal. On a curve the
-segment normal leaves a wedge of unpaved ground on the outside of every joint;
-the mitre closes it, which is the difference between a road and a string of
-overlapping rectangles.
-
-Z ORDER, which matters because these are coplanar sheets:
-
-    0.000   asphalt ribbons and bulbs
-    0.010   block grass          (above asphalt, so the road shows between)
-    0.020   driveways            (above grass — a drive crosses the verge)
-    0.020   crossings            (ladder bars, drawn on an asphalt mask)
-    0.030   centreline dashes    (above everything flat)
-
-Everything above ground — houses, trees — goes through
-`scene_generator.apply_placements` unchanged, because that pass already takes an
-arbitrary yaw and is exactly what is wanted here: a house's yaw is the frontage
-tangent, so houses follow a curving street round its curve.
+Ribbon vertices are offset along the MITRE of their two segments, not along a
+single segment normal, which would leave an unpaved wedge outside every joint.
 """
 
 import math
@@ -51,27 +27,17 @@ import suburb_parcel as sp
 import suburb_yardplan as yp
 import suburb_park as spk
 
-# ROADS SIT ABOVE GRASS. The original order put asphalt at 0.0 and block grass
-# at 0.010 so "the road shows between the blocks" -- which only holds if a block
-# never overlaps a carriageway. Where one does, the grass covers the road while
-# the dashes at 0.030 still draw on top, and the result is a road rendered as a
-# GRASS STRIP WITH WHITE LANE MARKINGS ON IT. Laying the carriageway over the
-# ground is also what actually happens: a road is built on the land, not cut
-# into a hole in it, so this ordering cannot produce that artefact at all.
-# Z-FIGHTING IS WHY THESE ARE SPREAD SO FAR APART.
+# GROUND STACK, low to high. Two rules, both learned the hard way.
 #
-# These are five essentially coplanar sheets covering 1600 x 1200 m. The first
-# version stacked them inside 25 mm total (0.005 to 0.030), which is far below
-# what a depth buffer can resolve at that extent: past a few hundred metres the
-# per-pixel depth step exceeds the gap, the sheets interpenetrate, and the
-# render breaks into flickering TRIANGLES AND STREAKS along the shared edges --
-# yellow ones, because the centreline dashes are the topmost layer punching
-# through the asphalt below them.
+# ROADS SIT ABOVE GRASS. With asphalt below, a block polygon that overlaps a
+# carriageway covers the road while the paint still draws on top, and the road
+# renders as a grass strip with lane markings on it.
 #
-# The separation is a rendering requirement, not a physical one. Paint does not
-# sit 14 cm above a road, but at the altitude this dataset is captured from that
-# offset is far below a pixel, whereas the z-fighting it prevents is not. Keep
-# the ORDER (each layer must occlude the one under it) and keep the gaps large.
+# THE GAPS ARE LARGE ON PURPOSE. Five coplanar sheets over 1600 x 1200 m: at
+# 25 mm total the per-pixel depth step exceeds the gap past a few hundred
+# metres and the sheets interpenetrate into flickering edges. Paint does not
+# really sit 14 cm above a road, but at this capture altitude that is far below
+# a pixel and the z-fighting is not. Keep the order and keep the gaps.
 _Z_GRASS = 0.02
 _Z_ASPHALT = 0.10
 _Z_DRIVE = 0.16
@@ -83,13 +49,9 @@ _Z_PARK_SURF = 0.06
 _Z_PARK_PATH = 0.08
 _Z_PARK_LINE = 0.12
 
-# PAINT, the same two colours the urban scene uses. `road_markings` paints every
-# marking `_WHITE` and reserves yellow for a centreline; this module painted its
-# centreline (0.85, 0.75, 0.2) — a mustard far more saturated than road paint —
-# down EVERY street. `_make_dash_mesh` binds no material, so displayColor is
-# what the renderer shows: unlit and full-bright, which is why 3,000-odd of them
-# read as yellow streaks rather than as lane markings. The z-spread above was an
-# earlier attempt at the same symptom and fixed a real but different bug.
+# PAINT, the two colours the urban scene uses. `_make_dash_mesh` binds no
+# material, so displayColor renders unlit and full-bright — a saturated colour
+# here reads as a glowing streak, not as road paint.
 _WHITE = (0.92, 0.92, 0.92)
 _YELLOW = (0.75, 0.63, 0.18)
 # Crossing and stop-bar geometry, MUTCD-ish and matching the urban defaults.
@@ -97,11 +59,9 @@ _BAR_W_M = 0.45                # ladder bar width, across the direction of trave
 _BAR_GAP_M = 0.55              # gap between bars
 _STOP_BAR_W_M = 0.40           # stop bar depth, along the direction of travel
 
-# THE JUNCTION IS A ZONE, NOT A POINT, and three passes need the same one:
-# sidewalk tiles must stop before the corner, lane dashes must stop before the
-# crossing, and the crossing is drawn where the dashes stopped. All three
-# measure from the junction blob — the disc of asphalt whose radius is the half
-# width of the widest street meeting there — so they agree by construction.
+# THE JUNCTION IS A ZONE, NOT A POINT. Sidewalk tiles stop before the corner,
+# dashes stop before the crossing, and the crossing is drawn where they stopped.
+# All three measure from the same asphalt blob, so they agree by construction.
 _JUNCTION_CLEAR_M = 2.5        # asphalt blob -> near edge of the crossing
 _CROSSWALK_DEPTH_M = 3.0       # nominal along-street depth of a crossing
 _SIDEWALK_CORNER_M = 6.0       # extra radius where the block rings converge
@@ -136,13 +96,10 @@ def _in_zone(zones, p):
 
 
 # ---------------------------------------------------------------------------
-# which approaches get paint — ONE definition, shared
+# which approaches get paint — one definition, shared by the sign and the bar
 # ---------------------------------------------------------------------------
-# The stop SIGN and the stop BAR are the same decision, and they were made in
-# two places: `build_signs` walked the arms itself and the paint pass did not
-# exist at all. Anything that decides "does this arm stop" twice will eventually
-# disagree, and a stop bar with no sign over it (or the reverse) is worse than
-# neither. Both now consume this.
+# Deciding "does this arm stop" in two places eventually disagrees, and a stop
+# bar with no sign over it is worse than neither.
 
 def _arm_pts(net, node, edge):
     """The arm's centreline oriented AWAY from *node*, so s=0 is the junction."""
@@ -152,12 +109,8 @@ def _arm_pts(net, node, edge):
 def _stop_bar_s(net, node):
     """Arclength along an approach at which the STOP LINE sits.
 
-    One number, because the bar and the sign mark the same line. They were
-    computed apart -- the bar from `_junction_stop_m`, the sign from
-    `city_detail`'s `near_corner_m` (6.0 m) -- which put the sign ~5.6 m nearer
-    the junction than the paint it is supposed to stand over, on a 10.7 m
-    street. Sharing `_stop_approaches` made them agree about WHICH arms stop;
-    this makes them agree about WHERE.
+    One number, because the bar and the sign mark the same line. Computed apart,
+    the sign sat a measured 5.72 m up-road of its own paint.
     """
     return _junction_stop_m(net, node) + 0.6 + _STOP_BAR_W_M * 0.5
 
@@ -165,9 +118,7 @@ def _stop_bar_s(net, node):
 def _stop_approaches(net):
     """``(node, edge)`` for every stop-controlled approach.
 
-    The minor arm stops and the through road runs — which is what the suburban
-    preset already asserts by setting `traffic_lights.intersection_chance: 0`.
-    A collector is the through road by definition, so it does not stop.
+    The minor arm stops; a collector is the through road by definition.
     """
     for n in net.nodes.values():
         if n.road_degree(net) < 3:
@@ -182,16 +133,9 @@ def _stop_approaches(net):
 def _crossing_approaches(net):
     """``(node, edge)`` for every arm that gets a painted crossing.
 
-    NOT EVERY JUNCTION. A residential four-way in a US subdivision carries no
-    paint at all — drive any post-war plat and the crossings are on the
-    collector, at the school route and the park, and nowhere else. Laddering
-    every junction is the same error as striping a centreline down every
-    street: it is not detail, it is noise, and it is what made these markings
-    read as wrong rather than as sparse.
-
-    So a crossing needs a collector in the junction — and then EVERY arm of
-    that junction gets one, because a crossing on one leg and not the others
-    reads as an omission rather than as a choice.
+    NOT EVERY JUNCTION — a residential four-way in a US subdivision carries no
+    paint at all. A crossing needs a collector in the junction, and then every
+    arm of it gets one: a crossing on one leg only reads as an omission.
     """
     for n in net.nodes.values():
         if n.road_degree(net) < 3:
@@ -209,12 +153,10 @@ def _crossing_approaches(net):
 def _paint_ladder(stage, path_base, c, t, half_w, ssf, z):
     """One continental ("ladder") crossing, drawn as geometry.
 
-    The bars run PARALLEL to the direction of travel and repeat ACROSS the
-    carriageway — that is what makes a ladder read as a crossing rather than as
-    a row of rungs — and the count is derived from the street's own width so it
-    lands kerb to kerb instead of overhanging. Same construction as
-    `road_markings._ladder` in the urban scene, rewritten against a polyline
-    centreline and a local tangent instead of an axis-aligned rect.
+    Bars run PARALLEL to travel and repeat ACROSS the carriageway, and the count
+    comes from the street's own width so the ladder lands kerb to kerb. Same
+    construction as `road_markings._ladder`, against a polyline instead of a
+    rect.
     """
     across = sn._perp(t)
     yaw = math.degrees(math.atan2(t[1], t[0]))
@@ -232,10 +174,9 @@ def _paint_ladder(stage, path_base, c, t, half_w, ssf, z):
 def _paint_stop_bar(stage, path, c, t, half_w, ssf, z):
     """A white stop bar across the APPROACHING half of the carriageway.
 
-    `t` points away from the junction, so a driver approaching travels along
-    -t; in right-hand traffic their half is the one on `_perp(t)` (the left
-    normal of t is the right hand of -t). A bar drawn kerb to kerb would govern
-    the departing lane too, which is not what a stop line means.
+    `t` points away from the junction, so a driver approaching travels along -t
+    and their half is `_perp(t)`. Kerb to kerb would govern the departing lane
+    too.
     """
     across = sn._perp(t)
     q = sn._add(c, sn._mul(across, half_w * 0.5))
@@ -538,10 +479,9 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
     park_grass_mat = _load_mat("grass_park") or grass_mat
     dirt_mat = _load_mat("dirt")
 
-    # 1) Grass first, as a single sheet over the whole region. Blocks are
-    #    polygons and do NOT tile the region exactly — the streets are the gaps
-    #    — so painting only the blocks would leave the ground plane showing
-    #    through wherever a block was rejected as too small.
+    # 1) Grass first, as one sheet over the whole region: blocks do not tile it
+    #    exactly, so painting only the blocks leaves gaps where one was
+    #    rejected as too small.
     rx0, ry0, rx1, ry1 = region
     # The base sheet is everything the blocks do not cover — verges, leftovers,
     # the ground under the whole plat. That is rough ground, not lawn.
@@ -585,25 +525,15 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
                             (0.45, 0.45, 0.43)) is not None:
                 n_drive += 1
 
-    # 2) MARKINGS — the same vocabulary the urban scene paints, which is what
-    #    this should have been from the start: white paint, a stop bar on every
-    #    stop-controlled approach, ladder crossings drawn as geometry, and a
-    #    centreline only where a centreline belongs.
+    # 2) MARKINGS, the vocabulary the urban scene paints.
     #
-    #    A LOCAL STREET CARRIES NO CENTRELINE. MUTCD 3B.01 warrants one by width
-    #    and volume and a residential street meets neither — a post-war
-    #    subdivision has bare asphalt between the junctions. Striping every
-    #    street was wrong twice over: wrong as a road, and, because
-    #    `_make_dash_mesh` binds no material and the colour was a saturated
-    #    (0.85, 0.75, 0.2) mustard, it rendered as thousands of unlit
-    #    full-bright quads — the "random streaks of yellow" reported from the
-    #    sim. Collectors keep their centreline, which is most of what makes a
-    #    collector legible as the through road.
+    #    A LOCAL STREET CARRIES NO CENTRELINE — MUTCD 3B.01 warrants one by
+    #    width and volume and a residential street meets neither, so a post-war
+    #    plat has bare asphalt between its junctions. Collectors keep theirs,
+    #    which is most of what makes a collector legible as the through road.
     #
-    #    MARKINGS STOP AT THE JUNCTION. Paint through the middle of a crossing
-    #    is something no real street has. The setback is `_junction_stop_m`, the
-    #    same figure the crossing and the stop bar are placed from, so the three
-    #    agree by construction rather than by tuning.
+    #    Paint stops at `_junction_stop_m`, the same figure the crossing and the
+    #    stop bar are placed from, so the three agree by construction.
     period = dash_len + dash_gap
     n_dash, n_dash_cut = 0, 0
     for e in net.edges.values():
@@ -628,11 +558,9 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
                                display_color=_YELLOW)
             n_dash += 1
 
-    # 3) Crossings, drawn rather than placed. The prop-tile version of this
-    #    scattered a stretched asset across the carriageway and could not mask
-    #    the paint underneath it; the urban scene has always drawn its ladders
-    #    and masks the band in asphalt first, so the lane lines do not run
-    #    through the bars. Same here.
+    # 3) Crossings, drawn rather than placed: the band is masked in asphalt
+    #    first so lane paint does not run through the bars, which a placed tile
+    #    could not do.
     n_x, n_xbar = 0, 0
     for node, e in _crossing_approaches(net):
         pts = _arm_pts(net, node, e)
@@ -712,12 +640,11 @@ class AssetPools:
     def load_tagged(self, raw, tag):
         """Only the entries carrying *tag*.
 
-        `lot_fences` is one pool with two incompatible halves — a 0.99 m
-        ornamental rail tagged "low" for a street boundary and a 1.89 m
-        close-board panel tagged "privacy" for a rear one. US codes cap a front
-        fence far below a rear one (3.5 ft vs 6-8 ft), so drawing from the whole
-        pool puts a privacy panel along the kerb, which is not a suburb but a
-        compound. The asset set documents this where it declares the pool.
+        `lot_fences` holds two incompatible halves: a 0.99 m rail tagged "low"
+        for a street boundary and a 1.89 m close-board panel tagged "privacy"
+        for a rear one. US codes cap a front fence at 3.5 ft against 6-8 ft
+        rear, so drawing from the whole pool puts a privacy panel along the
+        kerb.
         """
         paths, sc, au, yo, tags = sg._normalize_usd_list(
             raw, self.asset_scale, self.asset_root)
@@ -819,18 +746,13 @@ def _park_placements(config, resolver, park, rng, pools):
         if not pool:
             missing.add(pr["kind"])
             continue
-        # ONE BENCH TYPE AND ONE BIN TYPE FOR THE WHOLE PARK. A park is
-        # furnished by one procurement order, so every bin matches every other
-        # bin; drawing per prop made a bench a different bench each time, which
-        # reads as a salvage yard rather than as a park. `suburb_park` stamps a
-        # per-kind `variant` once per seed for exactly the kinds that are a
-        # matched set, and this consumes it -- the pools keep all their entries,
-        # so a different seed still furnishes the park differently.
+        # ONE BENCH TYPE AND ONE BIN TYPE PER PARK — furnished by one
+        # procurement order, not a salvage yard. `suburb_park` stamps a per-kind
+        # `variant` once per seed and this consumes it, so the pools keep every
+        # entry and another seed furnishes differently.
         #
-        # It has to be done HERE and not by narrowing the pool in the asset set:
-        # `benches` and `trash_cans` come from `shared.yaml` down the extends
-        # chain, so cutting them would fix the type for every seed AND change
-        # the street furniture with it.
+        # Not doable by narrowing the pool: `benches` and `trash_cans` come from
+        # `shared.yaml`, so cutting them would change the street furniture too.
         u = (pool[pr["variant"] % len(pool)] if "variant" in pr
              else pool[rng.randrange(len(pool))])
         out.append(pools.place(resolver, u, spec[1], pr["c"][0], pr["c"][1],
@@ -865,32 +787,20 @@ def _park_placements(config, resolver, park, rng, pools):
 def build_frontage(config, resolver, net, blocks, rng, pools):
     """Sidewalk tiles, streetlights and hydrants along every block frontage.
 
-    WHY THIS EXISTS AT ALL. `build_city` lays a sidewalk ring, concrete pads and
-    street furniture by walking each block's edge, and `city_detail` adds signs
-    and lamps by walking each corridor — but both take blocks and corridors as
-    RECTS, so neither can be called here. Without them the scene had roads and
-    houses sitting on bare ground with nothing between them, which is most of
-    why it read as a diagram rather than a place: on the old suburban path the
-    sidewalk tiles alone are 15,346 of the 56,091 placements.
+    `build_city` and `city_detail` do this for the urban scene but take blocks
+    and corridors as RECTS, so neither can be called here. Walking a polygon
+    frontage is if anything simpler: a tile every `step` along the ring's
+    arclength, yawed to the local tangent, so the pavement follows the curve.
 
-    Walking a POLYGON frontage is if anything simpler than walking a rect: the
-    block ring is a polyline, so a tile every `step` along its arclength is the
-    whole loop, and the tile's yaw is the local tangent, so the pavement follows
-    the street round its curve instead of stair-stepping.
+    Two things the bare ring walk gets wrong, both handled:
 
-    TWO THINGS THE BARE RING WALK GETS WRONG, both fixed here.
+    CORNERS PILE UP — three or four blocks each lay their own ring into the
+    same junction. Tiles inside the junction zone are dropped, leaving the
+    corner open for the crossing.
 
-    THE CORNERS PILE UP. Three or four blocks meet at a junction and each lays
-    its own ring right into the corner, so the tiles overlap and heap up — the
-    junction reads as a stack of slabs rather than a crossing. Tiles inside the
-    junction zone are dropped, which leaves the corner open for the crossing
-    that the crossing pass draws there.
-
-    PROPS LAND ON THE ROAD. The inward offset assumes the block polygon IS the
-    kerb; where `offset_polygon` hits its mitre limit it is not, and the prop
-    ends up on the carriageway. Every prop is therefore checked positively
-    against the street centrelines (:class:`_RoadIndex`) and dropped if it is
-    not clear of the asphalt, rather than trusted because of where it came from.
+    PROPS LAND ON THE ROAD — the inward offset assumes the block polygon is the
+    kerb, which fails wherever `offset_polygon` hits its mitre limit. Every prop
+    is checked positively against the centrelines (:class:`_RoadIndex`).
     """
     det = (config.get("city_detail") or {})
     cats = (det.get("categories") or {})
@@ -1028,25 +938,17 @@ def build_signs(config, resolver, net, rng, pools):
 def _fence_run(p0, p1, mod_len, min_fit=0.60, max_fit=1.15):
     """Module centres, yaw and fit-scale for a fence along p0->p1.
 
-    THE RUN IS COVERED END TO END. The first version laid whole modules and
-    dropped the remainder: `n = length // mod_len`, centred. A 10 m boundary
-    against the 5.95 m privacy panel therefore got ONE panel with 2 m of bare
-    ground at each end, and a boundary shorter than one module got nothing at
-    all. That is the "fences don't seem to be complete, there's large gaps" —
-    not a placement bug but an arithmetic one, and it got worse the more the
-    lot widths varied, because a fixed module divides a varying run badly.
+    THE RUN IS COVERED END TO END. Laying whole modules and dropping the
+    remainder left a 10 m boundary with one 5.95 m panel and 2 m bare at each
+    end, and gave nothing at all to a boundary shorter than one module. So the
+    count is chosen to SPAN the run and each module carries the residual as a
+    scale — the trick `apply_ground` uses to land crossing bars kerb to kerb.
+    Both candidate counts tile exactly and differ only in squeeze vs stretch,
+    so the one closer to the authored size wins.
 
-    So the module count is chosen to SPAN the run and each module is scaled by
-    the residual, the same trick `apply_ground` uses to land a crossing's bars
-    flush kerb to kerb. Both candidate counts tile exactly; they differ only in
-    whether the panel is squeezed or stretched to do it, so the one closer to
-    its authored size wins.
-
-    The scale is UNIFORM, because a placement carries one scale — so a squeezed
-    panel is also shorter. That bounds how far this can be pushed and is why a
-    run that would need a panel outside [min_fit, max_fit] is declined instead:
-    a missing 1.5 m of fence reads better than a 2.7 m one towering over a
-    bungalow. Returning the fit is what lets the caller pass `scale_mul`.
+    The scale is UNIFORM (a placement carries one scale), so a squeezed panel is
+    also shorter. Hence the [min_fit, max_fit] band: missing 1.5 m of fence
+    reads better than a 2.7 m one towering over a bungalow.
     """
     dx, dy = p1[0] - p0[0], p1[1] - p0[1]
     length = math.hypot(dx, dy)
@@ -1075,18 +977,13 @@ def _fence_run(p0, p1, mod_len, min_fit=0.60, max_fit=1.15):
 def build_open_planting(config, resolver, net, blocks, rng, pools):
     """Trees on the land the plat never built on.
 
-    THE SPARSENESS WAS INVISIBLE. `suburb_net` marks parcels undeveloped and
-    `generate_suburb_on_stage` skips them, so they came out as bare mown ground
-    — which reads as a block somebody forgot to put houses on, not as land that
-    was never platted. Unbuilt suburban land is WOODED: drainage reserve, the
-    stand left between phases, the bit too steep to build. Planting it is what
-    turns "no houses here" into a reason there are no houses here, and it is the
-    other half of the rough-grass material — texture alone does not do it.
+    Undeveloped parcels came out as bare mown ground, which reads as a block
+    somebody forgot to build on rather than as land never platted. Unbuilt
+    suburban land is wooded, and planting it is the other half of the rough
+    grass — texture alone does not do it.
 
-    Planted from `trees` (the OPEN-SPACE pool: big specimens, no kerb overhang
-    constraint) rather than `street_trees`, at woodland spacing rather than
-    garden spacing. Roads may cross this land, so every candidate is tested
-    against the carriageway the same way `build_frontage` tests its props.
+    From `trees` (open-space pool, big specimens) at woodland spacing. Roads may
+    cross this land, so candidates are tested against the carriageway.
     """
     pool = pools.load(_raw_pool(config, "trees"))
     open_blocks = [b for b in blocks if b.get("undeveloped")]
@@ -1109,10 +1006,8 @@ def build_open_planting(config, resolver, net, blocks, rng, pools):
             continue
         xs = [p[0] for p in poly]
         ys = [p[1] for p in poly]
-        # A grid keyed at the rejection radius makes the spacing test O(1) per
-        # candidate instead of O(n): at woodland density a big reserve carries
-        # thousands of trees and the naive all-pairs check is what makes a
-        # scatter pass quadratic.
+        # Grid keyed at the rejection radius: O(1) per candidate instead of
+        # O(n), which matters at thousands of trees per reserve.
         cell = max(min_gap, 1.0)
         grid = {}
         placed = 0
@@ -1243,42 +1138,21 @@ def house_catalogue(config, resolver, pools, yaw_off=-90.0):
 
 def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
                      catalogue=None):
-    """Houses and parcel trees, with every per-asset correction applied.
+    """Houses, lot furniture and parcel trees, with per-asset corrections.
 
-    TWO TREE POOLS, PICKED ON `kind`. `suburb_parcel` already stamps every tree
-    it emits with where it belongs — "street" for the verge rhythm, "front" for
-    the specimen in the front setback, "back" for the block interior — and a
-    kerb and a back garden are not planted with the same thing. Drawing all
-    three from one pool is what put a 25.4 m crown (Black_Oak, 19.7 m tall) on
-    the verge, where it overhangs the whole carriageway.
+    TWO TREE POOLS, picked on the `kind` stamp `suburb_parcel` already emits.
+    One pool for both put a 25.4 m crown (Black_Oak, 19.7 m tall) on the verge,
+    overhanging the whole carriageway.
 
         street / front  ->  `street_trees`, modest crowns only
         back            ->  `trees`, open space, big specimens fine
 
-    `street_trees` falls back to `trees` so an asset set that never split them
-    (any set older than suburban_v2) behaves exactly as it did before.
+    `street_trees` falls back to `trees` for sets older than suburban_v2.
     """
     houses = pools.load(_raw_pool(config, "buildings", "intact"))
     open_trees = pools.load(_raw_pool(config, "trees"))
     street_trees = pools.load(_raw_pool(config, "street_trees")) or open_trees
 
-    # THE PACKAGE, not just the house. `suburb_parcel` has always stamped every
-    # lot with an archetype and whether it carries a garage and a fence, and
-    # NOTHING read those three keys -- the pass that placed lot furniture
-    # (`suburb_lots`) belongs to the older rect pipeline and was never wired
-    # into this one. So every archetype rendered as the same bare house and the
-    # variation existed only in the data. This is where it becomes visible.
-    addons = pools.load(_raw_pool(config, "buildings", "house_addons"))
-    # An addon is authored to sit AGAINST its own parent, in the parent's frame,
-    # so it composes correctly at the identical transform -- and only there.
-    # Pairing is by the parent's stem, which is what the two names share.
-    addon_for = {}
-    for a in addons:
-        stem = os.path.basename(a).split("_Extension")[0]
-        for h in houses:
-            if os.path.basename(h).split(".")[0] == stem:
-                addon_for[h] = a
-    garage_houses = [h for h in houses if h in addon_for]
     fence_low = pools.load_tagged(_raw_pool(config, "lot_fences"), "low")
     fence_priv = pools.load_tagged(_raw_pool(config, "lot_fences"), "privacy")
 
@@ -1345,12 +1219,10 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
                 pool_f = fence_priv if tag == "privacy" else fence_low
                 if not pool_f:
                     continue
-                # PICK THE MODULE THAT DIVIDES THIS RUN, not a random one. The
-                # "low" pool holds a 5.28 m railing and a 2.0 m picket, and
-                # which of them tiles a given boundary without being squeezed
-                # depends entirely on the boundary's length -- which now varies
-                # from a 16 m tight lot to a 48 m estate one. Drawing at random
-                # threw that away and forced the fit-scale to absorb it.
+                # PICK THE MODULE THAT DIVIDES THIS RUN. The "low" pool holds a
+                # 5.28 m railing and a 2.0 m picket; which tiles a boundary
+                # without squeezing depends on its length, and lots now run from
+                # 16 m to 48 m.
                 best = None
                 for uf in pool_f:
                     fp = resolver.get(uf, "fence", scale=pools.scale_of(uf),
@@ -1422,17 +1294,12 @@ def generate_suburb_on_stage(stage, config,
     buildable = [b for b in blocks if not b.get("undeveloped")]
     n_open = len(blocks) - len(buildable)
 
-    # THE CUL-DE-SAC TURNAROUND IS PAVEMENT THE BLOCK POLYGON DOES NOT KNOW
-    # ABOUT. `apply_ground` lays a disc of `bulb_radius_m` at the end of every
-    # lollipop; the block boundary runs straight past it, so a lot hung off the
-    # frontage there was sited on the carriageway and the house rendered
-    # standing in the road. Measured 25-31 houses a seed, 2.3-2.7%, plus their
-    # garages, fences and verge trees.
-    #
-    # The bulb is the authority on where the road is, so it is handed to the
-    # parcel pass as a keep-out rather than worked around afterwards. The margin
-    # is a front yard's worth on top of the paving: tangent to the kerb is not
-    # somewhere a house stands either.
+    # THE TURNAROUND IS PAVEMENT THE BLOCK POLYGON DOES NOT KNOW ABOUT.
+    # `apply_ground` discs every lollipop end at `bulb_radius_m` while the block
+    # boundary runs straight past it, so lots there were sited on the
+    # carriageway — 25-43 houses a seed standing in the road. The bulb is the
+    # authority on where the road is, so it goes to the parcel pass as a
+    # keep-out. The margin is a front yard on top of the paving.
     pcfg = dict(config.get("suburb_parcel") or {})
     bulb_r = float(sn.DEFAULTS["bulb_radius_m"])
     margin = float(pcfg.get("bulb_margin_m", 3.0))
@@ -1440,10 +1307,9 @@ def generate_suburb_on_stage(stage, config,
                     [(e.pts[-1], bulb_r + margin) for e in net.edges.values()
                      if e.street_type == "lollipop"])
 
-    # MEASURE THE HOUSES BEFORE SITING THEM. The resolver has to exist before
-    # the parcel pass, not after it, because the parcel pass can only stop
-    # guessing footprints if someone hands it real ones -- and the measurement
-    # is what folds each garage wing into the footprint it is actually part of.
+    # MEASURE BEFORE SITING. The resolver must exist before the parcel pass:
+    # that pass can only stop guessing footprints if it is handed real ones, and
+    # the measurement is what folds each garage wing into its parent's.
     resolver = sg._make_resolver(config)
     pools = AssetPools(config)
     yaw_off = float((config.get("suburb_parcel") or {})
