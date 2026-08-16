@@ -108,7 +108,7 @@ The matching **system** check is
 
 Sim auto-start: set `ISAAC_SIM_SCRIPT_NAME` to a NatNet launch script and
 `LAUNCH_NATNET=true` on the robot. Convenience bundle:
-`airstack up --env-file overrides/isaac-natnet-vision.env` (NatNet script +
+`airstack up --env-file overrides/isaac-optitrack-simulation.env` (NatNet script +
 PX4 external-vision SITL profile).
 
 ## libNatNet 4.4 unicast — verified wire contract

@@ -17,7 +17,7 @@ metadata:
 - Understanding **NatNet wire protocol** (connect, model def, frame streaming)
 - Capturing what **`libNatNet.so`** actually sends on the network
 - Enabling OptiTrack in sim: `LAUNCH_NATNET=true`, `natnet_config.yaml`, Docker IPs
-- Sim testing with mocap: bring the stack up with `overrides/isaac-natnet-vision.env`, which starts Isaac + the emulator and switches PX4 EKF2 to external-vision fusion (GPS/baro/range aiding off, so mocap is the only position source)
+- Sim testing with mocap: bring the stack up with `overrides/isaac-optitrack-simulation.env`, which starts Isaac + the emulator and switches PX4 EKF2 to external-vision fusion (GPS/baro/range aiding off, so mocap is the only position source)
 
 ## Architecture in AirStack
 

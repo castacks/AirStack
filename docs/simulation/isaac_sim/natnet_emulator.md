@@ -48,10 +48,10 @@ The easiest way to start is with the provided Pegasus launch scripts. Set
 
 ```bash
 # Multi-drone NatNet + PX4 external-vision (3 robots, vision-pose mode)
-airstack up --env-file overrides/isaac-natnet-vision.env
+airstack up --env-file overrides/isaac-optitrack-simulation.env
 ```
 
-`overrides/isaac-natnet-vision.env` sets:
+`overrides/isaac-optitrack-simulation.env` sets:
 
 | Variable | Value |
 |---|---|
@@ -108,7 +108,7 @@ To retarget, edit **both** together:
 
 ### What the robot container needs
 
-Set `LAUNCH_NATNET=true` (already included in `isaac-natnet-vision.env`).
+Set `LAUNCH_NATNET=true` (already included in `isaac-optitrack-simulation.env`).
 `natnet_ros2` connects to the emulator at `172.31.0.200` (the Isaac Sim
 container's address on the AirStack bridge network) — the default in
 `natnet_config.yaml`.

@@ -82,7 +82,7 @@ Baseline Pegasus scripts (`example_one_px4_pegasus_launch_script.py`, `example_m
 Convenience bundle for NatNet + external-vision PX4 SITL:
 
 ```bash
-airstack up --env-file overrides/isaac-natnet-vision.env
+airstack up --env-file overrides/isaac-optitrack-simulation.env
 ```
 
 See [optitrack-development skill](../../../../.agents/skills/optitrack-development/SKILL.md) for wire-protocol details, libNatNet 4.4 unicast quirks, and debugging.
