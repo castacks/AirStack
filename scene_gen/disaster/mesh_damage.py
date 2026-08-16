@@ -934,112 +934,6 @@ def _surface_normals(pts: np.ndarray, counts: np.ndarray, idx: np.ndarray,
     return n, med, abs(flux) / 6.0, area
 
 
-def _ray_hits(org: np.ndarray, dirs: np.ndarray, tri: np.ndarray,
-              max_dist: float, chunk: int = 24) -> np.ndarray:
-    """Nearest forward hit distance for each ray, `inf` where it misses.
-
-    Vectorised Möller–Trumbore. *tri* is (T, 3, 3) of triangle corners.
-    Chunked over rays so the (R, T) intermediate stays bounded on a
-    half-million-triangle asset.
-
-    Hand-written for the same reason `_clip_by_plane` is: `trimesh.ray` would
-    do it, but importing trimesh pulls `shapely`, which Isaac's Kit python does
-    not have — see the note at the fracture section.
-    """
-    a, b, c = tri[:, 0], tri[:, 1], tri[:, 2]
-    e1, e2 = b - a, c - a
-    out = np.full(len(org), np.inf)
-    for s in range(0, len(org), chunk):
-        o = org[s:s + chunk, None, :]                 # (r, 1, 3)
-        d = dirs[s:s + chunk, None, :]
-        pv = np.cross(d, e2[None, :, :])              # (r, T, 3)
-        det = np.einsum("rtk,tk->rt", pv, e1)
-        ok = np.abs(det) > 1e-12
-        inv = np.where(ok, 1.0 / np.where(ok, det, 1.0), 0.0)
-        tv = o - a[None, :, :]
-        u = np.einsum("rtk,rtk->rt", tv, pv) * inv
-        qv = np.cross(tv, e1[None, :, :])
-        v = np.einsum("rtk,rtk->rt", d * np.ones_like(qv), qv) * inv
-        t = np.einsum("rtk,tk->rt", qv, e2) * inv
-        hit = ok & (u >= -1e-9) & (v >= -1e-9) & (u + v <= 1 + 1e-9) & (t > 1e-6)
-        t = np.where(hit, t, np.inf)
-        m = t.min(axis=1)
-        out[s:s + chunk] = np.where(m <= max_dist, m, np.inf)
-    return out
-
-
-def wall_thickness(pts: np.ndarray, counts: np.ndarray, idx: np.ndarray,
-                   normals: np.ndarray, samples: int = 192,
-                   max_dist: float = 6.0, seed: int = 0) -> dict:
-    """How much material sits behind this surface. The honest solidity test.
-
-    Fires rays INWARD (along `-normal`) from a sample of face centroids and
-    reports how far each travels before meeting another surface. A slab has its
-    back face a wall-thickness away; a hollow shell has the far side of the room.
-
-    WHY THIS REPLACED THE ENCLOSED-VOLUME TEST
-    ------------------------------------------
-    `solidify` used to skip a mesh when its divergence-theorem volume exceeded
-    that of a slab of its own surface — `_surface_normals` returns that volume
-    for free, so it looked like the answer. It is not: for a CLOSED building
-    that volume is the air in the rooms, not the material in the walls. Measured
-    on the packs this generator actually uses:
-
-        BG_Building_D   enclosed 50,617 m3  -> "solid"   median thickness 2.00 m
-        BG_Building_A   enclosed 143,792 m3 -> "solid"   median thickness 3.11 m
-        objaverse house enclosed     62 m3  -> "shell"   median thickness 0.014 m
-
-    So every Nucleus building in the city was declared already-solid and left as
-    a paper balloon, and fracturing one exposed zero-thickness walls at every
-    cut — which is exactly the reported symptom. The ray probe calls both of
-    those first two shells, which they are.
-
-    Returns ``{"median", "p10", "solid_frac", "hits", "samples"}``;
-    `solid_frac` is the share of probes finding material within *max_dist*
-    scaled to the caller's target thickness, and is what the guard reads.
-    """
-    tri_slots, _src = _triangulate(counts)
-    if len(tri_slots) < 2:
-        return {"median": 0.0, "p10": 0.0, "solid_frac": 1.0,
-                "hits": 0, "samples": 0}
-    p = idx[tri_slots]
-    corners = pts[p]                                  # (T, 3, 3)
-    cen = corners.mean(axis=1)
-    # GEOMETRIC face normal, and probed in BOTH directions.
-    #
-    # Which side is "in" cannot be answered reliably here: these assets are not
-    # consistently wound (see `_surface_normals`), and orienting radially about
-    # the building centre gets the roof and the interior partitions wrong.
-    # Thickness does not care — a surface with material behind it has that
-    # material on exactly one side, and the nearer of the two hits finds it
-    # either way. Probing only the radially-"inward" side under-counted badly:
-    # 101/192 hits on an asset a reference ray-caster hit 400/400 on.
-    fn = np.cross(corners[:, 1] - corners[:, 0], corners[:, 2] - corners[:, 0])
-    mag = np.linalg.norm(fn, axis=1)
-    good = mag > 1e-12
-    if not good.any():
-        return {"median": 0.0, "p10": 0.0, "solid_frac": 1.0,
-                "hits": 0, "samples": 0}
-    fn = fn[good] / mag[good, None]
-    cen = cen[good]
-
-    rng = np.random.default_rng(seed)
-    n = min(int(samples), len(cen))
-    sel = rng.choice(len(cen), n, replace=False)
-    c, nrm = cen[sel], fn[sel]
-    d = np.minimum(_ray_hits(c - nrm * 1e-4, -nrm, corners, max_dist),
-                   _ray_hits(c + nrm * 1e-4, nrm, corners, max_dist))
-
-    finite = d[np.isfinite(d)]
-    return {
-        "median": float(np.median(finite)) if len(finite) else float("inf"),
-        "p10": float(np.percentile(finite, 10)) if len(finite) else float("inf"),
-        "hits": int(len(finite)),
-        "samples": int(n),
-        "_d": d,
-    }
-
-
 def _boundary_edges(counts: np.ndarray, idx: np.ndarray, w: np.ndarray):
     """``(slot_a, slot_b, face)`` for every edge used by exactly one face.
 
@@ -1152,9 +1046,8 @@ def _grow_subsets(prim, n_faces: int, rim_face: np.ndarray) -> None:
 
 
 def solidify(prim, thickness: float, ref_centre=None, ref_box=None,
-             weld_tol: float = 1e-4, max_span_frac: float = 0.25,
-             solid_ratio: float = 1.5, max_points: int = 200_000,
-             solid_frac: float = 0.6, solid_samples: int = 192) -> int:
+             weld_tol: float = 1e-4, max_span_frac: float = 0.35,
+             max_points: int = 200_000) -> int:
     """Extrude *prim*'s shell inward into a slab. Returns faces added, or 0.
 
     *ref_centre* / *ref_box* describe the whole building in world space; pass
@@ -1178,17 +1071,18 @@ def solidify(prim, thickness: float, ref_centre=None, ref_box=None,
     not how thin the thing is, so it throttled dense wall meshes to 9 cm while
     leaving coarse ones at full thickness.
 
-    ALREADY-SOLID MESHES ARE SKIPPED
-    --------------------------------
-    Not every asset in the library is a shell, and thickening one that is not
-    buys nothing and costs double the points. The test is `wall_thickness`: a
-    mesh is skipped only when at least *solid_frac* of its surface has material
-    within `solid_ratio` wall-thicknesses behind it.
+    EVERY MESH IS THICKENED; THE ASSET SET SAYS OTHERWISE
+    -----------------------------------------------------
+    This no longer tries to work out whether a mesh is already solid. Two
+    attempts at that are in the history and both were wrong in practice — the
+    enclosed volume (which for a closed building is the air in its rooms, so
+    every Nucleus building was declared solid and left a paper balloon) and
+    then a ray probe (right, but a guess about art remade on every run).
 
-    This used to compare the *enclosed volume* against a slab of the surface,
-    which is wrong in the one case that matters — for a CLOSED building that
-    volume is the air in the rooms, so every Nucleus building was declared
-    solid and left as a paper balloon. `wall_thickness` documents the numbers.
+    An asset's author knows the answer, so it is declared: `solid: true` on the
+    entry in the asset set, read by `scene_generator.solid_assets` and applied
+    by `apply_to_stage`, which simply does not call this for those. Unmarked
+    means shell, because that is what nearly all of this library is.
 
     WHICH WAY IS IN
     ---------------
@@ -1229,18 +1123,6 @@ def solidify(prim, thickness: float, ref_centre=None, ref_box=None,
     t = min(float(thickness), max_span_frac * span)
     if t <= 1e-6:
         return 0
-
-    # ALREADY-SOLID TEST — see `wall_thickness` for why this is a ray probe and
-    # not the enclosed volume that used to be here. A mesh is left alone only
-    # when most of its surface has material within `solid_ratio` wall
-    # thicknesses behind it; a hollow building reads metres and gets thickened.
-    probe = wall_thickness(world, counts, idx, outward,
-                           samples=solid_samples,
-                           max_dist=max(t * 8.0, 4.0))
-    if probe["samples"]:
-        near = probe["_d"] <= t * max(solid_ratio, 1e-6)
-        if float(near.mean()) >= solid_frac:
-            return 0                              # already has material in it
 
     inward = -outward
     if ref_box is not None:
@@ -2004,7 +1886,7 @@ def apply_profile(prims, disaster_type: str, intensity: float,
 
 #: Keys a config `mesh_damage.fracture` block may override on a plan.
 PLAN_KEYS = ("z_range", "n_cells", "focus", "focus_bias", "throw", "lift",
-             "keep_base", "direction_deg")
+             "keep_base", "direction_deg", "cap")
 
 
 #: How much of a building each earthquake failure mode actually frees, as
@@ -2123,7 +2005,7 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
     ones the caller may hand to the settle pass — see `fracture_to_stage` for
     what settling all of them costs.
     """
-    from scene_generator import _stage
+    from scene_generator import _stage, solid_assets
 
     dis = _stage(config, "disaster")
     dtype = str(config.get("disaster_type")
@@ -2164,14 +2046,15 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
     # it on are the same worst-hit ones fracture is spent on, so a shattered
     # building is never left as paper while an untouched one is solid.
     tcfg = (dis.get("mesh_damage") or {}).get("thickness") or {}
-    wall_m = float(tcfg.get("wall_m", 0.25))
+    wall_m = float(tcfg.get("wall_m", 0.5))
     thicken = set()
     if tcfg.get("enabled", True) and wall_m > 0.0:
         thicken = {i for i, _ in rank[:int(tcfg.get("max_buildings", 40))]}
-    solid_kw = {k: tcfg[k] for k in ("max_points", "solid_ratio",
-                                     "max_span_frac", "weld_tol",
-                                     "solid_frac", "solid_samples")
+    solid_kw = {k: tcfg[k] for k in ("max_points", "max_span_frac", "weld_tol")
                 if k in tcfg}
+    # Assets whose art already has material in the walls. Declared in the asset
+    # set, not detected — see `scene_generator.solid_assets`.
+    solid_usds = solid_assets(config)
 
     # Tessellation floor for the damage operators. Off by default only in the
     # sense that a config can set `enabled: false`; on, because without it the
@@ -2243,11 +2126,13 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
         #     shell and every fragment is a zero-thickness sheet; cut a slab
         #     and the rubble has chunks in it.
         # One pass therefore serves both, and nothing downstream needs to know.
-        if i in thicken:
+        if i in thicken and p.get("usd") not in solid_usds:
             b = bounds_of(prims)
             got = solidify_prims(prims, wall_m, bounds=b, **solid_kw)
             if got["meshes"]:
                 tally["thickened"] = tally.get("thickened", 0) + 1
+        elif i in thicken:
+            tally["already_solid"] = tally.get("already_solid", 0) + 1
 
         # Shattering. Runs AFTER the vertex profile so the fragments are cut
         # from already-failed geometry, and takes the failure mode that profile
@@ -2334,7 +2219,118 @@ class Soup:
         return len(self.faces)
 
 
-def _clip_by_plane(verts, faces, normal, origin, uv=None, fmat=None):
+def _cap_loops(seg, normal, tol: float = 1e-4):
+    """Close the cut. ``seg`` is ``[(pa, ua, pb, ub), ...]`` on the plane.
+
+    Every triangle a plane cuts leaves exactly one segment lying in that plane,
+    so the boundary of the cut cross-section is already in hand — it just has
+    to be chained into loops and filled. Returns ``(verts, uvs, tris)`` in the
+    cap's own local numbering, or empty arrays when nothing closes.
+
+    WHY THIS IS WORTH DOING AT ALL
+    ------------------------------
+    Without it every fragment is an open shell: measured, 30 of 30 fragments
+    were non-watertight, so looking into a fracture surface showed the hollow
+    between the two sheets `solidify` had just built. The rubble had thickness
+    from the outside and none at the cut, which is where a viewer looks.
+
+    WHERE IT GIVES UP, AND WHY THAT IS THE RIGHT CALL
+    -------------------------------------------------
+    Only loops that actually CLOSE are filled. Building assets are
+    non-manifold — that is stated at the top of the fracture section and is why
+    the clip makes no topology assumptions — so a cut across a T-junction or a
+    stray unwelded seam leaves a chain that never returns to its start. Those
+    are dropped rather than guessed at: a wrong cap is a visible sheet of
+    geometry hanging in space, an absent one is the open edge we had before.
+
+    Fill is a centroid fan, which is correct for convex and star-shaped loops.
+    A Voronoi plane cutting a wall slab gives a thin rectangle, and cutting a
+    box corner gives a triangle or quad, so the loops here are overwhelmingly
+    of that kind. A degenerate fan on a re-entrant loop costs a few slivers,
+    not a hole.
+    """
+    if len(seg) < 3:
+        return (np.zeros((0, 3)), np.zeros((0, 2)), np.zeros((0, 3), np.int64))
+
+    n = np.asarray(normal, dtype=np.float64)
+    n = n / max(np.linalg.norm(n), 1e-12)
+
+    # Weld endpoints on a grid so the chain can find its neighbours.
+    pts, uvs, key_of = [], [], {}
+
+    def _key(p, u):
+        k = tuple(np.round(np.asarray(p) / max(tol, 1e-12)).astype(np.int64))
+        if k not in key_of:
+            key_of[k] = len(pts)
+            pts.append(np.asarray(p, dtype=np.float64))
+            uvs.append(np.asarray(u, dtype=np.float64)
+                       if u is not None else np.zeros(2))
+        return key_of[k]
+
+    edges = []
+    for pa, ua, pb, ub in seg:
+        ia, ib = _key(pa, ua), _key(pb, ub)
+        if ia != ib:
+            edges.append((ia, ib))
+    if not edges:
+        return (np.zeros((0, 3)), np.zeros((0, 2)), np.zeros((0, 3), np.int64))
+
+    adj: dict = {}
+    for ia, ib in edges:
+        adj.setdefault(ia, []).append(ib)
+        adj.setdefault(ib, []).append(ia)
+
+    P = np.asarray(pts)
+    U = np.asarray(uvs)
+    seen_edge = set()
+    out_v, out_uv, out_f = [], [], []
+
+    for ia, ib in edges:
+        if (min(ia, ib), max(ia, ib)) in seen_edge:
+            continue
+        loop, prev, cur = [ia], ia, ib
+        ok = False
+        while True:
+            loop.append(cur)
+            seen_edge.add((min(prev, cur), max(prev, cur)))
+            nxt = [x for x in adj.get(cur, ()) if x != prev]
+            if not nxt:
+                break                      # dead end: chain does not close
+            nxt = nxt[0]
+            if nxt == loop[0]:
+                seen_edge.add((min(cur, nxt), max(cur, nxt)))
+                ok = True
+                break
+            if nxt in loop or len(loop) > 4096:
+                break
+            prev, cur = cur, nxt
+        if not ok or len(loop) < 3:
+            continue
+
+        idx = np.asarray(loop, dtype=np.int64)
+        ring, ring_uv = P[idx], U[idx]
+        centre = ring.mean(axis=0)
+        base = len(out_v)
+        out_v.append(centre)
+        out_uv.append(ring_uv.mean(axis=0))
+        out_v.extend(ring)
+        out_uv.extend(ring_uv)
+        # Wind so the cap faces +normal, i.e. away from the half being kept.
+        area = np.cross(ring - centre, np.roll(ring, -1, axis=0) - centre)
+        flip = float(area.sum(axis=0) @ n) < 0.0
+        for k in range(len(ring)):
+            a = base + 1 + k
+            b = base + 1 + (k + 1) % len(ring)
+            out_f.append([base, b, a] if flip else [base, a, b])
+
+    if not out_f:
+        return (np.zeros((0, 3)), np.zeros((0, 2)), np.zeros((0, 3), np.int64))
+    return (np.asarray(out_v), np.asarray(out_uv),
+            np.asarray(out_f, dtype=np.int64))
+
+
+def _clip_by_plane(verts, faces, normal, origin, uv=None, fmat=None,
+                   cap: bool = False):
     """Keep the half of a triangle soup on the negative side of a plane.
 
     Sutherland-Hodgman per triangle: a triangle straddling the plane is cut to
@@ -2368,10 +2364,11 @@ def _clip_by_plane(verts, faces, normal, origin, uv=None, fmat=None):
     cut = np.nonzero((n_in == 1) | (n_in == 2))[0]
 
     new_v, new_uv, new_f, new_m = [], [], [], []
+    seg = []                     # the cut's own boundary, for `_cap_loops`
     base = len(verts)
     for fi in cut:
         tri = faces[fi]
-        poly, poly_uv = [], []
+        poly, poly_uv, xing = [], [], []
 
         def _add(p, q=None, t=None):
             if q is None:
@@ -2379,20 +2376,35 @@ def _clip_by_plane(verts, faces, normal, origin, uv=None, fmat=None):
                 if uv is not None:
                     poly_uv.append(uv[p])
             else:
-                poly.append(verts[p] + t * (verts[q] - verts[p]))
+                pos = verts[p] + t * (verts[q] - verts[p])
+                tex = (uv[p] + t * (uv[q] - uv[p])) if uv is not None else None
+                poly.append(pos)
                 if uv is not None:
-                    poly_uv.append(uv[p] + t * (uv[q] - uv[p]))
+                    poly_uv.append(tex)
+                xing.append((pos, tex))
 
         for k in range(3):
             a, b = tri[k], tri[(k + 1) % 3]
             da, db = d[a], d[b]
             if da <= 0.0:
                 _add(a)
-            if (da < 0.0) < (db < 0.0) or (da > 0.0) > (db > 0.0):
-                if abs(db - da) > 1e-12:            # crossing -> split vertex
-                    _add(a, b, da / (da - db))
+            # A SIGN CHANGE IN EITHER DIRECTION IS A CROSSING.
+            #
+            # This used to be `(da < 0) < (db < 0) or (da > 0) > (db > 0)`,
+            # and both of those clauses are true only for outside -> inside —
+            # so a straddling triangle recorded ONE crossing where it has two.
+            # A triangle with one vertex inside then clipped to two points and
+            # was dropped by the `len(poly) < 3` guard below; one with two
+            # inside came out as a triangle instead of a quad. Every cut face
+            # in every Voronoi cell was affected.
+            if (da < 0.0) != (db < 0.0) and abs(db - da) > 1e-12:
+                _add(a, b, da / (da - db))
         if len(poly) < 3:
             continue
+        if cap and len(xing) == 2:
+            # The two crossing points are the segment this triangle leaves on
+            # the plane; the union of them bounds the cross-section.
+            seg.append((xing[0][0], xing[0][1], xing[1][0], xing[1][1]))
         start = base + len(new_v)
         new_v.extend(poly)
         new_uv.extend(poly_uv)
@@ -2411,6 +2423,24 @@ def _clip_by_plane(verts, faces, normal, origin, uv=None, fmat=None):
             nm = np.asarray(new_m, dtype=np.int64)
             keep_mat = (np.concatenate([keep_mat, nm])
                         if keep_mat is not None and len(keep_mat) else nm)
+
+    if cap and seg and len(keep):
+        cv, cuv, cf = _cap_loops(seg, n)
+        if len(cf):
+            off = len(verts)
+            verts = np.concatenate([verts, cv])
+            if uv is not None:
+                uv = np.concatenate([uv, cuv])
+            keep = np.concatenate([keep, cf + off])
+            if fmat is not None:
+                # The interior takes the majority material of the piece it
+                # closes; there is no separate "cut face" material in the
+                # source, and inventing one would not bind to anything.
+                mid = (int(np.bincount(keep_mat).argmax())
+                       if keep_mat is not None and len(keep_mat) else 0)
+                keep_mat = np.concatenate(
+                    [keep_mat if keep_mat is not None else np.zeros(0, np.int64),
+                     np.full(len(cf), mid, dtype=np.int64)])
 
     if len(keep) == 0:
         return verts[:0], empty, (uv[:0] if uv is not None else None), keep_mat
@@ -2630,7 +2660,7 @@ def _mesh_soup(prims, z_range=None, bounds: "Bounds | None" = None):
 
 def _fracture_soup(soup: Soup, n_cells: int = 40, seed: int = 0, focus=None,
                    focus_bias: float = 0.0, neighbors: int = 12,
-                   min_faces: int = 4) -> list:
+                   min_faces: int = 4, cap: bool = True) -> list:
     """Shatter a soup into Voronoi cells. Returns a list of `Soup` fragments.
 
     Each cell is the source clipped by the perpendicular bisector between its
@@ -2664,7 +2694,7 @@ def _fracture_soup(soup: Soup, n_cells: int = 40, seed: int = 0, focus=None,
             if np.linalg.norm(nrm) < 1e-9:
                 continue
             cv, cf, cuv, cm = _clip_by_plane(cv, cf, nrm, (p + q) * 0.5,
-                                             cuv, cm)
+                                             cuv, cm, cap=cap)
             if len(cf) == 0:
                 break
         if len(cf) >= min_faces:
@@ -2674,7 +2704,7 @@ def _fracture_soup(soup: Soup, n_cells: int = 40, seed: int = 0, focus=None,
 
 def fracture(prims, bounds: Bounds, n_cells: int = 40, seed: int = 0,
              focus=None, focus_bias: float = 0.0, neighbors: int = 12,
-             min_faces: int = 4, z_range=None) -> list:
+             min_faces: int = 4, z_range=None, cap: bool = True) -> list:
     """Shatter *prims* into Voronoi cells. Returns a list of `Soup` fragments.
 
     The read-only half of `fracture_to_stage` — nothing is authored and the
@@ -2682,7 +2712,7 @@ def fracture(prims, bounds: Bounds, n_cells: int = 40, seed: int = 0,
     """
     soup, _ = _mesh_soup(prims, z_range, bounds)
     return _fracture_soup(soup, n_cells, seed, focus, focus_bias,
-                          neighbors, min_faces)
+                          neighbors, min_faces, cap=cap)
 
 
 def _bind_materials(stage, mesh, frag: Soup) -> None:
@@ -2732,7 +2762,7 @@ def fracture_to_stage(stage, root_prim, bounds: Bounds, n_cells: int = 40,
                       seed: int = 0, focus=None, focus_bias: float = 0.0,
                       direction_deg: float = None, throw: float = 0.0,
                       lift: float = 0.0, keep_base: float = 0.35,
-                      z_range=None) -> list:
+                      z_range=None, cap: bool = True) -> list:
     """Shatter *root_prim* in place and author the fragments. Returns paths.
 
     Fragments are authored under `<root>/fragments/`, carrying their `st` and a
@@ -2780,6 +2810,7 @@ def fracture_to_stage(stage, root_prim, bounds: Bounds, n_cells: int = 40,
     prims = mesh_prims(root_prim)
     soup, taken = _mesh_soup(prims, z_range, bounds)
     frags = _fracture_soup(soup, n_cells=n_cells, seed=seed, focus=focus,
+                           cap=cap,
                            focus_bias=focus_bias)
     if not frags:
         # Nothing came apart. Leave the source intact — deleting the band with

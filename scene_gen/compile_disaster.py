@@ -168,7 +168,10 @@ def compile_none(sev, spec, region):
 #: zero-thickness shell renders as paper. The budget mirrors `fracture`'s,
 #: because it is the same buildings and the same reason (see `solidify`).
 def thickness_block(max_buildings: int) -> dict:
-    return {"enabled": True, "wall_m": 0.25, "max_buildings": max_buildings}
+    # 0.5 m, not 0.25: a fragment cut from a quarter-metre slab still
+    # reads as a sheet at rubble scale. `max_span_frac` keeps it from
+    # turning a window mullion into a block.
+    return {"enabled": True, "wall_m": 0.5, "max_buildings": max_buildings}
 
 
 def compile_earthquake(sev, spec, region):

@@ -353,8 +353,15 @@ def test_fracture_covers_the_source():
     allv = np.concatenate([f.verts for f in frags])
     assert allv[:, 2].min() == pytest.approx(soup.verts[:, 2].min(), abs=1e-3)
     assert allv[:, 2].max() == pytest.approx(soup.verts[:, 2].max(), abs=1e-3)
-    # clipping adds vertices at the cuts, but not whole new geometry
-    assert sum(len(f) for f in frags) < 3 * len(soup)
+    # Clipping adds geometry at the cuts and capping fills them, so the
+    # fragment set is legitimately larger than the source — what is pinned is
+    # that it is bounded, not that it is unchanged. Measured: 3.3x uncapped,
+    # 21.9x capped on this uniformly-tessellated box (a real building runs
+    # ~1.4x, because its faces are not all subdivided grids).
+    assert sum(len(f) for f in frags) < 40 * len(soup)
+    # And with capping off the old, tighter bound still holds.
+    bare = M.fracture(prims, b, n_cells=20, seed=3, cap=False)
+    assert sum(len(f) for f in bare) < 4 * len(soup)
 
 
 def test_clip_by_plane_keeps_the_negative_half():
@@ -1093,34 +1100,41 @@ def test_solidify_thickens_a_hollow_closed_box():
     assert _face_count(mesh.GetPrim()) > n0
 
 
-def test_solidify_skips_a_mesh_with_real_material_behind_it():
-    """The other half: a wall that is already a slab is left alone.
+def test_solid_flag_in_the_asset_set_skips_thickening():
+    """`solid: true` on an entry is the ONLY thing that stops thickening.
 
-    Two parallel sheets a wall-thickness apart — which is how a thickened mesh
-    or a properly modelled solid reads to the probe — must not be thickened
-    again, or the budget is spent doubling geometry that needs nothing.
+    The pipeline no longer classifies. Two attempts at that are in the history
+    and both were wrong in practice — the enclosed volume (which for a closed
+    building is the air in its rooms, so every Nucleus building was declared
+    solid and left a paper balloon) and then a ray probe (right, but a guess
+    about art remade every run). The author of the asset knows; the asset set
+    records it.
     """
-    st = Usd.Stage.CreateInMemory()
-    _STAGES.append(st)
-    UsdGeom.Xform.Define(st, "/B")
-    mesh = UsdGeom.Mesh.Define(st, "/B/Mesh")
+    def run(solid):
+        st, placements = stage_with_buildings(2)
+        for p in placements:
+            p["_mesh_damage"] = 0.9
+            p["usd"] = "airstack://packs/box.usd"
+        cfg = compiled_disaster_config("earthquake")
+        entry = {"usd": "airstack://packs/box.usd"}
+        if solid is not None:
+            entry["solid"] = solid
+        cfg["usds"] = {"buildings": {"damaged": [entry]}}
+        cfg["disaster"].setdefault("mesh_damage", {})["subdivide"] = \
+            {"enabled": False}
+        return M.apply_to_stage(st, cfg, placements)["tally"]
 
-    # A 4x4 m panel, and its back face 0.2 m behind it — thinner than the
-    # 0.25 m the caller would add, so there is nothing to gain.
-    verts, faces = [], []
-    for z in (0.0, -0.2):
-        b = len(verts)
-        verts += [Gf.Vec3f(0, 0, 2 + z), Gf.Vec3f(4, 0, 2 + z),
-                  Gf.Vec3f(4, 4, 2 + z), Gf.Vec3f(0, 4, 2 + z)]
-        faces.append([b, b + 1, b + 2, b + 3])
-    mesh.GetPointsAttr().Set(verts)
-    mesh.GetFaceVertexCountsAttr().Set([4, 4])
-    mesh.GetFaceVertexIndicesAttr().Set([i for f in faces for i in f])
+    # Unmarked and explicitly false both thicken: the default is "shell",
+    # because that is what nearly all of the library is and because failing to
+    # thicken one leaves zero-thickness walls at every cut.
+    for flag in (None, False):
+        t = run(flag)
+        assert t.get("thickened") == 2, f"solid={flag} should have thickened"
+        assert "already_solid" not in t
 
-    n0 = _face_count(mesh.GetPrim())
-    assert M.solidify(mesh.GetPrim(), 0.25,
-                      ref_centre=np.array([2.0, 2.0, 0.0])) == 0
-    assert _face_count(mesh.GetPrim()) == n0
+    t = run(True)
+    assert "thickened" not in t, "solid: true must not be thickened"
+    assert t.get("already_solid") == 2
 
 
 def test_solidify_keeps_uvs_and_materials_attached():

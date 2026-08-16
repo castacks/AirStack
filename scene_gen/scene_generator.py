@@ -611,6 +611,11 @@ def _parse_usd_entry(entry, default_scale: float, asset_root: str = ""):
           yaw-offset: 90  # deg — art doesn't face +X; added to every computed yaw
           tags: ["park"]  # placement context: "park" props go on park trails,
                           # untagged ones on street frontage
+          solid: true     # the model already has material in its walls, so
+                          # mesh damage must NOT thicken it. Omitted means
+                          # false: everything is treated as a shell and gets
+                          # solidified, which is what almost all of this
+                          # library is. See `solid_assets`.
 
     Relative paths get *asset_root* prefixed (see :func:`_join_asset_root`).
     """
@@ -622,6 +627,55 @@ def _parse_usd_entry(entry, default_scale: float, asset_root: str = ""):
                 frozenset(str(t) for t in entry.get("tags", ())))
     return (_join_asset_root(str(entry), asset_root), float(default_scale),
             "Z", 0.0, frozenset())
+
+
+def solid_assets(config: dict) -> set:
+    """USD paths the asset set declares as already solid, so `solidify` skips them.
+
+    **Declared, not detected.** This used to be decided at runtime — a ray probe
+    asking how much material sat behind each surface, and before that, wrongly,
+    the enclosed volume. Both are guesses about art, remade every run, on
+    geometry whose author already knows the answer. A flag in the asset set says
+    it once:
+
+        buildings:
+          damaged:
+            - usd: "omniverse://.../SM_SolidTower.usd"
+              solid: true
+
+    The default is FALSE — an unmarked asset is treated as a shell and gets
+    thickened. That is the right default because it is what nearly all of this
+    library is, and because the two failure modes are not symmetric: thickening
+    a solid model costs points, while failing to thicken a shell leaves
+    zero-thickness walls at every cut, which is the artifact the operator exists
+    to remove.
+
+    Walks the whole `usds:` tree, so the flag works in any pool — buildings,
+    debris, props — not only the ones mesh damage reads today.
+    """
+    root = str(config.get("asset_root", "") or "")
+    out: set = set()
+
+    def walk(node):
+        if isinstance(node, dict):
+            if isinstance(node.get("usd"), str):
+                if bool(node.get("solid", False)):
+                    # BOTH forms. `airstack://x` resolves to an absolute path,
+                    # so a caller comparing the string a human wrote would miss
+                    # — and a miss here is silent, showing up only as a
+                    # building that was or was not thickened.
+                    raw = str(node["usd"])
+                    out.add(raw)
+                    out.add(_join_asset_root(raw, root))
+                return
+            for v in node.values():
+                walk(v)
+        elif isinstance(node, (list, tuple)):
+            for v in node:
+                walk(v)
+
+    walk(config.get("usds") or {})
+    return out
 
 
 def _normalize_usd_list(lst, default_scale: float, asset_root: str = ""):

@@ -124,7 +124,8 @@ DEFAULT_OUT = os.path.join(_SCENE_GEN, "galleries", "damage")
 
 #: Keys in `mesh_damage`'s tally that count things rather than name the
 #: profile that ran. Everything else in it is a profile name.
-_TALLY_COUNTERS = ("fragments", "loose", "shattered", "thickened")
+_TALLY_COUNTERS = ("fragments", "loose", "shattered", "thickened",
+                   "already_solid")
 
 
 # ---------------------------------------------------------------------------

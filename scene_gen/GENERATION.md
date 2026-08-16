@@ -746,13 +746,13 @@ So `mesh_damage.solidify` extrudes every shell **inward** — outward would grow
 the building past the setbacks the layout stage packed it to — and caps the
 open edges, before anything breaks it. It runs after the profile (which is what
 punches the holes, so their edges get rimmed) and before the fracture (which
-then cuts a solid). Meshes that already have material behind them are skipped.
+then cuts a solid).
 
-**How "already solid" is decided, and why it changed.** It used to be the
-enclosed volume — `_surface_normals` returns it for free, so it looked like the
-answer. It is not: for a *closed* building that volume is the air in the rooms,
-not the material in the walls. Measured with a ray probe against the packs this
-generator actually uses:
+**Every mesh is thickened unless the asset set says otherwise.** The pipeline
+does not try to work out whether a model is already solid — two attempts at
+that are in the history and both were wrong in practice. The first compared the
+*enclosed volume* against a slab of the surface, which for a CLOSED building is
+the volume of the air in its rooms:
 
 | asset | enclosed volume | verdict it gave | real median thickness |
 |---|---|---|---|
@@ -760,12 +760,27 @@ generator actually uses:
 | `BG_Building_A` | 143,792 m³ | "solid" | **3.11 m** |
 | objaverse house | 62 m³ | shell | 0.014 m |
 
-So every Nucleus building in a downtown was declared solid and left as a paper
-balloon, which is why fracturing one still showed zero-thickness walls. The
-guard is now `mesh_damage.wall_thickness`: it fires rays from a sample of faces
-in both directions and asks how far they travel before meeting another surface.
-A mesh is skipped only when at least `solid_frac` of its surface has material
-within `solid_ratio` wall-thicknesses behind it.
+so every Nucleus building in a downtown was left as a paper balloon. The second
+was a ray probe, which is right, but is still a guess about art remade on every
+run. The author of an asset already knows the answer, so it is **declared**:
+
+```yaml
+usds:
+  buildings:
+    damaged:
+      - usd: "omniverse://.../SM_SolidTower.usd"
+        solid: true       # has material in its walls — do not thicken
+      - usd: "omniverse://.../SM_Facade.usd"
+                          # unmarked = shell = thickened
+```
+
+Read by `scene_generator.solid_assets`, which walks the whole `usds:` tree, so
+the flag works in any pool. **Omitted means false.** That is the right default
+because it is what nearly all of this library is, and because the two failure
+modes are not symmetric: thickening a solid model costs points, while failing
+to thicken a shell leaves zero-thickness walls at every cut — the artifact the
+operator exists to remove. Buildings skipped this way are reported as
+`already_solid` in the `[mesh_damage]` tally, so a run says how many.
 
 Same budget shape as `fracture`, spent on the same worst-hit buildings, because
 doubling the point count of every damaged building in a downtown is not
@@ -776,13 +791,54 @@ disaster:
   mesh_damage:
     thickness:
       enabled: true
-      wall_m: 0.25          # WORLD METRES, not a fraction of the radius — a
-                            # wall is 0.25 m thick on a bungalow and on a tower
+      wall_m: 0.5           # WORLD METRES — see below
       max_buildings: 60
-      solid_ratio: 1.5      # "behind me within 1.5 wall-thicknesses" = material
-      solid_frac: 0.6       # ...on this share of the surface = already solid
-      solid_samples: 192    # rays per mesh
 ```
+
+`wall_m` is **world metres after the placement scale**, not asset units.
+Verified by composing the same asset at two placement scales and measuring the
+offset `solidify` actually authored:
+
+```
+placement scale 1.0    world offset: p50 = 0.2500 m
+placement scale 0.01   world offset: p50 = 0.2500 m
+```
+
+so a wall is the same thickness on a centimetre-authored Nucleus tower as on a
+metre-authored objaverse shed. The per-mesh cap is `max_span_frac` (0.35) of
+the mesh's second-smallest bounding-box dimension, which is what stops a 5 cm
+window mullion being extruded into a block; it is why a fragment's measured
+thickness lands a little under `wall_m` (0.38 m at the 0.5 m default).
+
+### Fragments are capped
+
+The Voronoi clip cuts the slab open, so without a cap every fragment is an open
+shell and looking into a fracture surface shows the hollow between the two
+sheets `solidify` just built — thickness everywhere except where the viewer is
+looking. Each cut leaves exactly one segment per triangle in the cutting plane,
+so the boundary of the cross-section is already in hand: it is chained into
+loops and filled with a centroid fan.
+
+Measured on `BG_Building_E`, 40 fragments:
+
+| | open boundary edges | time | scene triangles |
+|---|---|---|---|
+| uncapped | 24,458 (13.6%) | 7.7 s | 131,917 |
+| **capped** | **4,320 (1.8%)** | 12.2 s | 181,814 |
+
+**Only loops that actually close are filled.** Building assets are
+non-manifold, so a cut across a T-junction or an unwelded seam leaves a chain
+that never returns to its start; those are dropped rather than guessed at,
+because a wrong cap is a sheet of geometry hanging in space while an absent one
+is the edge we had before. Turn it off with `fracture: {cap: false}`.
+
+> Capping also surfaced a long-standing bug in `_clip_by_plane`: the crossing
+> predicate fired only on outside→inside, so a straddling triangle recorded one
+> crossing where it has two. A triangle with one vertex inside clipped to two
+> points and was **dropped**; one with two inside came out a triangle instead of
+> a quad. Every cut face in every Voronoi cell was affected. Fixed — a plane
+> through a unit box now yields exactly half its volume, where it used to yield
+> a sixth of its faces.
 
 ### Damage cannot be finer than the model's triangles
 
