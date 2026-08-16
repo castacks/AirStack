@@ -46,13 +46,13 @@ pytestmark = pytest.mark.optitrack
 # alongside PX4, and LAUNCH_NATNET=true brings up natnet_ros2 + the vision_pose /
 # gp_origin / param bridges on the robot.
 #
-# The PX4_EV_* entries switch PX4 SITL's EKF2 to mocap external vision and turn GPS,
-# baro and range aiding OFF, so the OptiTrack stream is the vehicle's ONLY position
-# source. They map to PX4_PARAM_* env vars in simulation/isaac-sim/docker/docker-compose.yaml
-# (PX4's rcS applies those at boot) and mirror the deployment-validated set in
+# PX4_PARAM_SET selects simulation/isaac-sim/docker/px4-params/external-vision.env, which
+# switches PX4 SITL's EKF2 to mocap external vision and turns GPS, baro and range aiding
+# OFF, so the OptiTrack stream is the vehicle's ONLY position source. PX4's rcS applies
+# those PX4_PARAM_* entries at boot; they mirror the deployment-validated set in
 # robot/ros_ws/src/perception/natnet_ros2/config/px4_params.yaml.
 #
-# Without them EKF2_EV_CTRL is 0, PX4 silently discards the vision and flies on sim GPS —
+# Without it EKF2_EV_CTRL is 0, PX4 silently discards the vision and flies on sim GPS —
 # which is what made the previous version of this module's fusion check vacuous.
 _E2E_ENV = {
     "NUM_ROBOTS": "1",
@@ -62,18 +62,10 @@ _E2E_ENV = {
     "ISAAC_SIM_SCRIPT_NAME": "example_one_px4_pegasus_natnet_launch_script.py",
     "PLAY_SIM_ON_START": "true",
     "LAUNCH_NATNET": "true",
-    # EKF2 external-vision (mocap) configuration — see comment above.
-    "PX4_EV_CTRL": "11",          # fuse vision horizontal pos + vertical pos + yaw
-    "PX4_EV_HGT_REF": "3",        # vision is the height reference
-    "PX4_EV_GPS_CTRL": "0",       # no GPS fusion
-    "PX4_EV_MAG_TYPE": "5",       # mag off; yaw comes from vision
-    "PX4_EV_BARO_CTRL": "0",      # no baro fusion
-    "PX4_EV_SYS_HAS_BARO": "0",   # remove baro at the system level (height datum)
-    "PX4_EV_RNG_CTRL": "0",       # no range-finder aiding
-    "PX4_EV_DELAY": "7.0",
-    "PX4_EV_NOISE_MD": "1",
-    "PX4_EV_EVP_NOISE": "0.05",
-    "PX4_EV_EVA_NOISE": "0.05",
+    # EKF2 external-vision (mocap) configuration — see comment above. Selects
+    # simulation/isaac-sim/docker/px4-params/external-vision.env, which turns GPS, baro
+    # and range aiding off, leaving mocap as the vehicle's only position source.
+    "PX4_PARAM_SET": "external-vision",
     # Headless: no X on the CI runner.
     "QT_QPA_PLATFORM": "offscreen",
 }

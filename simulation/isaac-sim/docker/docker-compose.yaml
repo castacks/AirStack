@@ -38,6 +38,10 @@ services:
         ipv4_address: 172.31.0.200 # required to not conflict with other default docker networks on the host machine
     env_file:
       - ./omni_pass.env
+      # PX4 SITL parameter set, applied by rcS at boot. Defaults to px4-params/default.env,
+      # which is empty, so PX4 keeps its firmware defaults. Set PX4_PARAM_SET=<name> to
+      # select px4-params/<name>.env instead; an unknown name fails the compose config.
+      - ./px4-params/${PX4_PARAM_SET:-default}.env
     environment:
       - AUTOLAUNCH=${AUTOLAUNCH:-'false'}
       - DISPLAY=${DISPLAY}
@@ -47,26 +51,11 @@ services:
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       - ENABLE_LIDAR=${ENABLE_LIDAR:-false}
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
-      # Pegasus physics tuning — read by pegasus/simulator/params.py.
-      # See docs/simulation/isaac_sim/docker.md for what each one does.
+      # Pegasus physics tuning — read by pegasus/simulator/params.py
       - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}
       - ARDUPILOT_PHYSICS_HZ=${ARDUPILOT_PHYSICS_HZ:-800}
       - PX4_RENDERING_HZ=${PX4_RENDERING_HZ:-30}
       - ARDUPILOT_RENDERING_HZ=${ARDUPILOT_RENDERING_HZ:-120}
-      # PX4 SITL EKF2 external-vision parameters. Each defaults to PX4's own
-      # default, so leaving them unset changes nothing.
-      # See docs/robot/px4_external_vision.md for what each one does.
-      - PX4_PARAM_EKF2_EV_CTRL=${PX4_EV_CTRL:-0}
-      - PX4_PARAM_EKF2_HGT_REF=${PX4_EV_HGT_REF:-1}
-      - PX4_PARAM_EKF2_GPS_CTRL=${PX4_EV_GPS_CTRL:-7}
-      - PX4_PARAM_EKF2_MAG_TYPE=${PX4_EV_MAG_TYPE:-0}
-      - PX4_PARAM_EKF2_BARO_CTRL=${PX4_EV_BARO_CTRL:-1}
-      - PX4_PARAM_SYS_HAS_BARO=${PX4_EV_SYS_HAS_BARO:-1}
-      - PX4_PARAM_EKF2_RNG_CTRL=${PX4_EV_RNG_CTRL:-1}
-      - PX4_PARAM_EKF2_EV_DELAY=${PX4_EV_DELAY:-0.0}
-      - PX4_PARAM_EKF2_EV_NOISE_MD=${PX4_EV_NOISE_MD:-0}
-      - PX4_PARAM_EKF2_EVP_NOISE=${PX4_EV_EVP_NOISE:-0.1}
-      - PX4_PARAM_EKF2_EVA_NOISE=${PX4_EV_EVA_NOISE:-0.1}
     deploy:
       # let it use the GPU
       resources:

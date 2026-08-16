@@ -47,7 +47,7 @@ The easiest way to start is with the provided Pegasus launch scripts. Set
 `ISAAC_SIM_SCRIPT_NAME` in your environment or use the convenience override:
 
 ```bash
-# Multi-drone NatNet + PX4 external-vision (3 robots, vision-pose mode)
+# Single drone, NatNet emulator + PX4 flying on external vision
 airstack up --env-file overrides/isaac-optitrack-simulation.env
 ```
 
@@ -55,10 +55,15 @@ airstack up --env-file overrides/isaac-optitrack-simulation.env
 
 | Variable | Value |
 |---|---|
-| `NUM_ROBOTS` | `3` |
+| `NUM_ROBOTS` | `1` |
 | `LAUNCH_NATNET` | `true` |
-| `SITL_PARAM_PROFILE` | `px4-vision` |
-| `ISAAC_SIM_SCRIPT_NAME` | `example_multi_px4_pegasus_natnet_launch_script.py` |
+| `PX4_PARAM_SET` | `external-vision` |
+| `ISAAC_SIM_SCRIPT_NAME` | `example_one_px4_pegasus_natnet_launch_script.py` |
+
+`PX4_PARAM_SET` selects `simulation/isaac-sim/docker/px4-params/<name>.env`, whose
+`PX4_PARAM_*` entries PX4's rcS applies at boot. It defaults to `default`, which is empty,
+so every other Isaac Sim run keeps PX4's firmware defaults. Add a file there to save your
+own parameter set.
 
 ### Available NatNet launch scripts
 
