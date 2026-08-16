@@ -1,53 +1,81 @@
 """
-mesh_damage.py — structural damage applied to a building's actual geometry.
+mesh_damage.py — what a disaster does to a building's actual geometry.
 
-The asset-swap route (`disaster_stage.apply_to_buildings`) can only ruin a
-building for which a same-footprint ruin asset exists. Where none does, the
-generator has always fallen back to tilting and sinking the intact model, which
-reads as "the building is drunk" rather than "the building failed". This
-deforms the mesh instead.
+THE MODEL, IN FOUR STAGES
+-------------------------
+A building is not damaged by a list of effects. It is damaged by *losing
+structural material in a region of space*, and everything else — the missing
+storey, the torn-off roof, the blown-out corner, the pile in the street —
+follows from which region and how much. So there is one pipeline, and the only
+thing a disaster type gets to choose is the shape of that region:
 
-PORTED FROM `scenegen/damage.py`, NOT IMPORTED
-----------------------------------------------
-That module is Blender-based and lives in a separate repo. `bpy` cannot run
-inside Isaac Sim — not for the reason usually given (bpy 5.0.1 and the 4.5 LTS
-line *do* ship cp311 wheels matching Kit's 3.11.13), but because bpy statically
-links its own USD and bundles oneTBB 12, while Isaac ships `libusd_*.so` and
-TBB 2 with a malloc proxy. Two USD runtimes and two allocators in one address
-space is a crash waiting to happen. It is also GPL against AirStack's MIT.
+  1. **THICKEN.** Give the shell volume (`solidify`). Almost every asset in
+     this library is a zero-thickness surface, and a fragment cut from one is a
+     sheet of paper. Nothing downstream can look like broken masonry until the
+     wall has a thickness to break through.
 
-None of that matters, because the operators barely need Blender. Every deformation
-in `damage.py` is expressed as `deform(objs, fn)` where `fn` maps an ``(N, 3)``
-world-space array to another — pure numpy. The entire Blender dependency was
-`get_verts`/`set_verts`, seventeen lines. Swap those for a `UsdGeom.Mesh`
-adapter and the operator maths ports verbatim, which is what this module is.
+  2. **FAIL.** Evaluate a **failure field** over world space — a scalar
+     ``damage(p) ∈ [0, 1]`` saying how much of the material at *p* has lost its
+     integrity, plus an ``ejecta(p)`` saying where that material was thrown.
+     **This is the whole of the disaster specialization** (`field_earthquake`,
+     `field_explosion`, `field_tornado`, `field_hurricane`, `field_fire`,
+     `field_flood`) — see `Failure`.
 
-THE THREE KINDS OF DAMAGE, AND WHY ALL THREE ARE NEEDED
--------------------------------------------------------
-* **Move vertices** — `lean`, `pancake`, `crumble`, `shockwave`. Cheap, and
-  they never change the face count, which is also their limit: a building that
-  has only been deformed still has every wall it started with. On its own this
-  reads as *squashed*, not *broken*.
-* **Delete faces** — `punch_hole`, over `delete_faces`. This is what opens a
-  roof, blows out a facade, and makes a torn edge. Ported from the prototype's
-  `punch_hole`; the bookkeeping it needs on USD is documented at
-  `delete_faces`.
-* **Cut the mesh apart** — `fracture` / `fracture_to_stage`, Voronoi cells that
-  become their own prims and are dropped by PhysX. Ported from
-  `voronoi_fracture` + `settle`.
+  3. **PROPAGATE.** Cut the mesh along a crack network seeded from the failure
+     field: dense where damage is high, absent where it is zero. Voronoi cell
+     fracture with capped cuts, over a solid, gives **closed 3D fragments**
+     (`fracture_to_stage`). Failure also propagates *structurally*: a fragment
+     whose supporting column has failed comes free even if its own material did
+     not — which is what makes a lost ground floor bring the storeys above it
+     down without anything having to name "soft-storey collapse".
 
-`boolean_cut` did not come across (it needs a watertight solid, which building
-assets are not, and the prototype only offers it as an optimisation over
-`punch_hole`). Neither did `refine` — see `punch_hole` for what replaces it.
+  4. **SETTLE.** Released fragments are handed to PhysX as rigid bodies by the
+     caller; anchored ones stay exactly where they were cut. `apply_to_stage`
+     returns the split, `generate_scene` marks the loose ones `settle: True`.
 
-TWO THINGS THE OPERATORS ASSUME
--------------------------------
+WHAT WAS REMOVED, AND WHY
+-------------------------
+An earlier version of this module had a second, parallel vocabulary: `lean`,
+`pancake`, `crumble`, `shockwave` and `punch_hole`, composed into five hand-
+tuned "profiles" and six enumerated earthquake "failure modes". Every one of
+them was a guess at the *appearance* of a failure rather than a statement about
+it, they did not compose (a leaned building had to be re-measured before it
+could be pancaked), and they were redundant with the fracture that ran after
+them. The failure field says the same things and more, once:
+
+  * a soft storey is a horizontal band of high damage — which falls out of
+    noise with a storey-height grain, not out of a mode table;
+  * a blown-out corner is a ball of damage centred on the charge;
+  * a torn-off roof is damage that grows with height;
+  * "the building leaned" is what PhysX does to a stack of released fragments.
+
+THE TWO INVARIANTS THIS MODULE OWES THE GENERATOR
+-------------------------------------------------
+* **Severity has to mean something.** The released fraction is a threshold on
+  the field, so it grows smoothly with intensity: a 0.3 event frees a few
+  pieces of the weakest storey, a 0.9 event frees most of the building. If
+  every fragment were settled instead, gravity would level every building at
+  every severity and a severity sweep would compare nothing.
+* **Layout is not touched.** Nothing here moves a building, changes a
+  footprint, or draws from the layout RNG. Damage is authored as overrides on
+  geometry that `apply_placements` has already placed.
+
+TWO THINGS THE CODE ASSUMES
+---------------------------
 * **World space.** Points are read through the prim's local-to-world transform
   and written back through its inverse, so an epicentre is a position in the
   scene and not in some asset's authoring frame.
-* **`Bounds` is a snapshot.** Deformation moves geometry out from under it, so
-  a normalized point that sat on a wall before a `lean` may sit in open air
-  afterwards. Re-measure between large operators; the profiles below do.
+* **`Bounds` is a snapshot.** `solidify` moves geometry, so the bounds are
+  re-measured after it and before the field is built.
+
+WHY THIS IS NOT BLENDER
+-----------------------
+`scenegen/damage.py` is the Blender prototype some of this descends from. `bpy`
+cannot run inside Isaac Sim: it statically links its own USD and bundles oneTBB
+12 while Isaac ships `libusd_*.so` and TBB 2 with a malloc proxy, and two USD
+runtimes plus two allocators in one address space is a crash waiting to happen.
+It is also GPL against AirStack's MIT. None of that matters, because the maths
+is numpy and the only Blender-shaped dependency was reading and writing points.
 """
 
 import math
@@ -59,7 +87,10 @@ import numpy as np
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, Vt
 
 # ---------------------------------------------------------------------------
-# the USD adapter — the seventeen lines that were Blender-specific
+# 0. THE USD ADAPTER
+#
+# Everything above this line is numpy on (N, 3) world-space arrays. These are
+# the dozen functions that make a `UsdGeom.Mesh` look like one.
 # ---------------------------------------------------------------------------
 
 
@@ -70,18 +101,14 @@ def deinstance(root: "Usd.Prim") -> int:
     prototype, and a per-instance opinion is exactly what USD instancing exists
     to forbid. The AEC packs ship *internally* instanced (a brownstone is
     `/World/Brownstone02_Instanced/...` with 307 meshes behind one instance
-    root), so deforming one fails on the first `set_points` unless the
-    instances are opened first.
+    root), so damaging one fails on the first `set_points` unless the instances
+    are opened first.
 
     **This costs memory**, which is the whole point of instancing: each opened
     instance stops sharing its prototype's geometry. The generated scene
     already OOM-killed once at 89.1M points, so open instances only on the
-    buildings actually being deformed — which is what `apply_to_stage` does —
+    buildings actually being damaged — which is what `apply_to_stage` does —
     and never wholesale.
-
-    Same constraint as the placement-level one in
-    `scene_generator.apply_placements`: geometry you intend to edit per-prim
-    cannot be instanced.
     """
     opened = 0
     # Repeat: opening an instance can expose nested instances beneath it.
@@ -103,17 +130,12 @@ def mesh_prims(root: "Usd.Prim") -> list:
     """Every `UsdGeom.Mesh` at or under *root*.
 
     Traverses instance proxies because generated scenes reference their assets
-    and the geometry lives inside the referenced layer. This is the same
-    descent `generate_scene.prune_prims` and `apply_surface_overrides` do;
-    they are the prior art for reaching into a placed asset.
+    and the geometry lives inside the referenced layer.
     """
     if not root or not root.IsValid():
         return []
-    out = []
-    for p in Usd.PrimRange(root, Usd.TraverseInstanceProxies()):
-        if p.GetTypeName() == "Mesh":
-            out.append(p)
-    return out
+    return [p for p in Usd.PrimRange(root, Usd.TraverseInstanceProxies())
+            if p.GetTypeName() == "Mesh"]
 
 
 def _world_matrix(prim) -> np.ndarray:
@@ -136,6 +158,11 @@ def get_points(prim) -> np.ndarray:
     return local @ M[:3, :3] + M[3, :3]
 
 
+def _vec3f(arr: np.ndarray):
+    """(N, 3) float array -> Vt.Vec3fArray, the type the attribute wants."""
+    return Vt.Vec3fArray([Gf.Vec3f(*map(float, p)) for p in arr])
+
+
 def set_points(prim, world: np.ndarray) -> None:
     """Write world-space points back through the prim's transform.
 
@@ -146,23 +173,8 @@ def set_points(prim, world: np.ndarray) -> None:
     """
     M = _world_matrix(prim)
     Minv = np.linalg.inv(M)
-    local = world @ Minv[:3, :3] + Minv[3, :3]
     UsdGeom.Mesh(prim).GetPointsAttr().Set(
-        Vt_Vec3fArray(local))
-
-
-def Vt_Vec3fArray(arr: np.ndarray):
-    """(N, 3) float array -> Vt.Vec3fArray, the type the attribute wants."""
-    from pxr import Vt
-    return Vt.Vec3fArray([Gf.Vec3f(*map(float, p)) for p in arr])
-
-
-def deform(prims, fn) -> None:
-    """Apply ``fn(world_xyz) -> world_xyz`` to every prim's points."""
-    for prim in prims:
-        v = get_points(prim)
-        if len(v):
-            set_points(prim, fn(v))
+        _vec3f(world @ Minv[:3, :3] + Minv[3, :3]))
 
 
 class Bounds:
@@ -170,9 +182,11 @@ class Bounds:
 
     Normalized space puts (0, 0, 0) at the centre of the footprint at ground
     level: x, y in [-1, 1] and z in [0, 1] cover the building. Sizes are
-    fractions of `radius`, which stops "a 1 m crack" meaning something
+    fractions of `radius`, which stops "a 3 m fragment" meaning something
     different on every asset — the library spans 15 m houses to 90 m towers.
     """
+
+    __slots__ = ("lo", "hi")
 
     def __init__(self, lo, hi):
         self.lo = np.asarray(lo, dtype=np.float64)
@@ -199,6 +213,7 @@ class Bounds:
         return max(float(self.dims[2]), 1e-6)
 
     def to_world(self, p) -> np.ndarray:
+        """A normalized ``(u, v, t)`` as a world point."""
         px, py, pz = p
         half = self.dims * 0.5
         c = self.center
@@ -207,7 +222,8 @@ class Bounds:
                          self.lo[2] + pz * self.dims[2]], dtype=np.float64)
 
     def frac(self, f: float) -> float:
-        return f * self.radius
+        """A length given as a fraction of the building, in metres."""
+        return float(f) * self.radius
 
 
 def bounds_of(prims) -> "Bounds | None":
@@ -225,65 +241,30 @@ def bounds_of(prims) -> "Bounds | None":
     return Bounds(lo, hi) if seen else None
 
 
-# ---------------------------------------------------------------------------
-# noise — ported verbatim; real damage is spatially correlated, and per-vertex
-# random jitter just looks like sandpaper
-# ---------------------------------------------------------------------------
+def plan_coords(bounds: Bounds, pts: np.ndarray):
+    """World points as ``(u, v, t)``: plan in [-1, 1], height in [0, 1].
 
-
-def _lattice(points: np.ndarray, freq: float, seed: int, res: int) -> np.ndarray:
-    rng = np.random.default_rng(seed)
-    grid = rng.random((res, res, res)) * 2.0 - 1.0
-    p = points * freq
-    i0 = np.floor(p).astype(np.int64)
-    t = p - i0
-    t = t * t * (3.0 - 2.0 * t)                      # smoothstep
-    c = [None] * 8
-    for k, (dx, dy, dz) in enumerate([(a, b, cc) for a in (0, 1)
-                                      for b in (0, 1) for cc in (0, 1)]):
-        idx = (i0 + np.array([dx, dy, dz])) % res
-        c[k] = grid[idx[:, 0], idx[:, 1], idx[:, 2]]
-    tx, ty, tz = t[:, 0], t[:, 1], t[:, 2]
-    c00 = c[0] * (1 - tz) + c[1] * tz
-    c01 = c[2] * (1 - tz) + c[3] * tz
-    c10 = c[4] * (1 - tz) + c[5] * tz
-    c11 = c[6] * (1 - tz) + c[7] * tz
-    c0 = c00 * (1 - ty) + c01 * ty
-    c1 = c10 * (1 - ty) + c11 * ty
-    return c0 * (1 - tx) + c1 * tx
-
-
-def value_noise(points: np.ndarray, freq: float, seed: int,
-                octaves: int = 3, res: int = 24) -> np.ndarray:
-    """Scalar noise in roughly [-1, 1] sampled at *points* (N, 3)."""
-    total = np.zeros(len(points))
-    amp_sum = 0.0
-    for o in range(octaves):
-        total += (0.5 ** o) * _lattice(points, freq * (2 ** o),
-                                       seed + o * 977, res)
-        amp_sum += 0.5 ** o
-    return total / max(amp_sum, 1e-9)
-
-
-def _falloff(t: np.ndarray, kind: str = "smooth") -> np.ndarray:
-    t = np.clip(t, 0.0, 1.0)
-    if kind == "linear":
-        return 1.0 - t
-    if kind == "sharp":
-        return (1.0 - t) ** 3
-    if kind == "shell":          # peaks at the wavefront, not at the source
-        return np.exp(-((t - 0.6) ** 2) / 0.045)
-    return 1.0 - t * t * (3.0 - 2.0 * t)
+    The failure fields are written in these coordinates so that the same field
+    means the same thing on a bungalow and on a tower — which is what makes a
+    severity sweep comparable across a mixed street.
+    """
+    half = bounds.dims * 0.5
+    half = np.where(np.abs(half) < 1e-9, 1e-9, half)
+    c = bounds.center
+    u = (pts[:, 0] - c[0]) / half[0]
+    v = (pts[:, 1] - c[1]) / half[1]
+    t = (pts[:, 2] - bounds.lo[2]) / max(bounds.dims[2], 1e-9)
+    return u, v, t
 
 
 # ---------------------------------------------------------------------------
-# topology — removing material
+# 1. TOPOLOGY BOOKKEEPING
 #
-# Deforming a building cannot open it. A roof comes off, a facade blows out and
-# a wall goes missing by DELETING FACES, and on USD that is bookkeeping rather
-# than geometry: `faceVertexCounts` and `faceVertexIndices` renumber the faces,
-# and everything indexed *by* face has to follow or the asset comes apart in
-# ways that look worse than the damage —
+# Two operations rewrite a mesh's face arrays: `delete_faces` (fracture
+# consumes the geometry it turned into fragments) and `subdivide` (a resolution
+# floor, so a fragment is not shaped by the model's tessellation). USD indexes
+# three things BY FACE, and all three go silently wrong if the arrays are
+# renumbered without them:
 #
 #   * **faceVarying primvars**, `st` above all: one value per face-vertex, so a
 #     stale array slides every UV onto the wrong corner and the brick texture
@@ -294,7 +275,7 @@ def _falloff(t: np.ndarray, kind: str = "smooth") -> np.ndarray:
 #     stale subset paints the windows with the roof material.
 #   * **`normals`**, whenever they are authored faceVarying or uniform.
 #
-# `delete_faces` is the single place that knows all of this; nothing else may
+# These two functions are the only place that knows this; nothing else may
 # touch the face arrays.
 # ---------------------------------------------------------------------------
 
@@ -315,6 +296,50 @@ def _face_arrays(prim):
 def _fv_starts(counts: np.ndarray) -> np.ndarray:
     """Offset of each face's first entry in the flattened face-vertex array."""
     return np.concatenate([[0], np.cumsum(counts)[:-1]])
+
+
+def _triangulate(counts: np.ndarray):
+    """``(tri_slots, tri_face)`` for a face-vertex layout.
+
+    *tri_slots* (T, 3) indexes the FLATTENED face-vertex array rather than the
+    point array, so the caller can pull both point indices and faceVarying data
+    through the same triangulation. *tri_face* (T,) is each triangle's source
+    face, which is how uniform data and material bindings follow.
+
+    Vectorised per distinct face size — real assets are all quads and triangles,
+    so this is two passes, against one Python iteration per face before.
+    """
+    starts = _fv_starts(counts)
+    slots, src = [], []
+    for c in np.unique(counts):
+        c = int(c)
+        if c < 3:
+            continue
+        sel = np.nonzero(counts == c)[0]
+        s = starts[sel]
+        for k in range(1, c - 1):
+            slots.append(np.stack([s, s + k, s + k + 1], axis=1))
+            src.append(sel)
+    if not slots:
+        return np.zeros((0, 3), dtype=np.int64), np.zeros(0, dtype=np.int64)
+    return np.concatenate(slots), np.concatenate(src)
+
+
+def face_centroids(prim) -> "np.ndarray | None":
+    """Per-face centroid in world space, (F, 3), or None.
+
+    The one place a field is sampled against a mesh: a face is damaged when its
+    centroid is, and Voronoi seeds are drawn from these points because a
+    building is a thin shell inside a mostly-empty box (see `fracture_seeds`).
+    """
+    counts, idx = _face_arrays(prim)
+    if counts is None:
+        return None
+    pts = get_points(prim)
+    if not len(pts) or int(idx.max()) >= len(pts):
+        return None
+    return (np.add.reduceat(pts[idx], _fv_starts(counts), axis=0)
+            / counts[:, None])
 
 
 def _filter_by_element(attr, primvar, interpolation, keep, fv_keep) -> None:
@@ -377,8 +402,7 @@ def delete_faces(prim, keep, deactivate: bool = True) -> int:
     on `points` — so the same rule applies: the prim must not be instanced.
 
     When nothing survives the prim is DEACTIVATED rather than left holding
-    empty topology, the same retirement `fracture_to_stage` gives a source it
-    has consumed. Empty face arrays are legal USD but some renderers dislike
+    empty topology. Empty face arrays are legal USD but some renderers dislike
     them, and an invisible prim still costs traversal.
 
     *deactivate* turns that off, and the caller that needs it is
@@ -390,8 +414,7 @@ def delete_faces(prim, keep, deactivate: bool = True) -> int:
     there the consumed prim *is* the fragments' parent. Retiring it deleted
     the rubble it had just produced, so a whole-building fracture on those
     assets made the building vanish entirely: no ruin, no debris field,
-    nothing but the ground. Callers that author under the prim pass False and
-    get the empty-topology form instead.
+    nothing but the ground.
     """
     counts, idx = _face_arrays(prim)
     if counts is None:
@@ -415,10 +438,9 @@ def delete_faces(prim, keep, deactivate: bool = True) -> int:
         mesh.GetFaceVertexIndicesAttr().Set(Vt.IntArray([]))
         # …and empty its subsets with it. Left alone they keep indexing the
         # faces that are gone, and every USD consumer that checks says so —
-        # Blender logs "UsdGeomSubset 'Section0' contains invalid indices;
-        # material assignment may be incorrect (79,147 out of range)" for a
-        # prim that now draws nothing. Noise, but the kind that hides the
-        # warning that matters.
+        # Blender logs "UsdGeomSubset 'Section0' contains invalid indices"
+        # for a prim that now draws nothing. Noise, but the kind that hides
+        # the warning that matters.
         for sub in prim.GetChildren():
             if sub.IsA(UsdGeom.Subset):
                 UsdGeom.Subset(sub).GetIndicesAttr().Set(Vt.IntArray([]))
@@ -468,28 +490,42 @@ def _pv_array(vals):
     return a.astype(np.float64), lambda x: t([tuple(v) for v in x])
 
 
+def _resubset(prim, face_src: np.ndarray) -> None:
+    """Remap every face-`GeomSubset` onto the subdivided faces."""
+    for child in prim.GetChildren():
+        if not child.IsA(UsdGeom.Subset):
+            continue
+        sub = UsdGeom.Subset(child)
+        if sub.GetElementTypeAttr().Get() != UsdGeom.Tokens.face:
+            continue
+        old = sub.GetIndicesAttr().Get()
+        if old is None:
+            continue
+        want = np.zeros(int(face_src.max()) + 1, dtype=bool)
+        keep = np.asarray([int(i) for i in old], dtype=np.int64)
+        keep = keep[keep <= int(face_src.max())]
+        want[keep] = True
+        new = np.nonzero(want[face_src])[0]
+        sub.GetIndicesAttr().Set(Vt.IntArray([int(i) for i in new]))
+
+
 def subdivide(prim, max_edge: float, max_points: int = 400_000,
               max_rounds: int = 4) -> int:
     """Split faces until no edge is longer than *max_edge*. Returns faces added.
 
-    WHY DAMAGE NEEDS THIS
-    ---------------------
-    Every hole this module punches is cut by `delete_faces`, which removes
-    WHOLE FACES — so the smallest hole an asset can have is one of its own
-    triangles, and the shape of that hole is the shape of its triangles.
+    WHY DAMAGE NEEDS A RESOLUTION FLOOR
+    -----------------------------------
     Building assets are modelled for rendering, not for being broken: measured
-    on the packs in use here, `BG_Building_D` carries triangles up to 255 m2
-    with a 22 m edge (4.8% of its faces are over 4 m2). Deleting one of those
-    is not a hole, it is a missing wall, and no amount of tuning the hole
-    radius helps because the geometry cannot express anything smaller.
+    on the packs in use here, `BG_Building_D` carries triangles up to 255 m²
+    with a 22 m edge. `solidify` extrudes such a face into a single 22 m slab,
+    and a Voronoi cell cut out of two enormous triangles is itself two enormous
+    triangles — which is what makes rubble read as flat shards no matter how
+    many cells are asked for. The fracture's *silhouettes* are exact at any
+    tessellation (`_clip_by_plane` creates vertices on the cut), but the
+    interior detail is not, and neither is the rim `solidify` builds.
 
-    Fracture is less affected — `_clip_by_plane` creates new vertices on the
-    cut, so cell *silhouettes* are exact at any tessellation — but a fragment
-    cut from two big triangles is itself two big triangles, which is what makes
-    rubble read as flat shards.
-
-    So this runs BEFORE the profile: refine where the mesh is coarse, then let
-    the existing operators work at a resolution where a hole can be hole-shaped.
+    So this runs first, in WORLD METRES, and `max_edge` therefore means the
+    same size of rubble on a tower and on a shed.
 
     PRIMVARS ARE CARRIED AS VALUES, NOT AS INDICES
     ----------------------------------------------
@@ -497,9 +533,8 @@ def subdivide(prim, max_edge: float, max_points: int = 400_000,
     stops meaning anything after the first one. Deferring the primvar rebuild
     to a final gather over such indices is what put `primvars:st` at its
     original length on a mesh with 7x the face-vertices — USD then dropped the
-    UVs as inconsistent with the interpolation, and the asset rendered with its
-    texture mapped through whatever the importer fell back to. So the values
-    themselves are interpolated in step with the geometry, every round.
+    UVs as inconsistent with the interpolation. So the values themselves are
+    interpolated in step with the geometry, every round.
 
     WHAT IT DOES NOT DO
     -------------------
@@ -507,8 +542,7 @@ def subdivide(prim, max_edge: float, max_points: int = 400_000,
     with midpoints shared through an edge map. A split face beside an unsplit
     one therefore leaves a **T-junction**. That is deliberate: making it
     conforming needs red-green refinement and neighbour propagation, and the
-    unsplit neighbour is by definition already below `max_edge`, so the crack
-    is bounded by the small face's size and is invisible on rubble. Uniform
+    unsplit neighbour is by definition already below `max_edge`. Uniform
     subdivision would avoid it and quadruple every asset — 471k triangles to
     1.9M on the largest building here — which the point budget exists to stop.
 
@@ -590,25 +624,18 @@ def subdivide(prim, max_edge: float, max_points: int = 400_000,
                 st[2] = np.concatenate(
                     [st[2], (st[2][pr[:, 0]] + st[2][pr[:, 1]]) / 2.0])
 
-        # Corner order of the four children, as (corner, edge) slots. `-1`
-        # means "the corner", 0/1/2 the midpoint of edge 01/12/20.
+        # Corner order of the four children, as (corner, edge) slots. `None`
+        # in the first slot means "the midpoint of edge 01/12/20".
         CHILD = (((0, None), (None, 0), (None, 2)),
                  ((1, None), (None, 1), (None, 0)),
                  ((2, None), (None, 2), (None, 1)),
                  ((None, 0), (None, 1), (None, 2)))
         EDGE_ENDS = ((0, 1), (1, 2), (2, 0))
 
-        def _pick(src_corner, src_edge, r, t, arr3):
-            """One corner's value for a child triangle, from the parent's."""
-            if src_corner is not None:
-                return arr3[t, src_corner]
-            i, j = EDGE_ENDS[src_edge]
-            return (arr3[t, i] + arr3[t, j]) / 2.0
-
         new_pt = [pt[keep]]
         new_par = [parent[keep]]
         new_fv = [[st[2][keep]] for st in fv_sets]
-        for ci, child in enumerate(CHILD):
+        for child in CHILD:
             blk = np.empty((len(sel), 3), dtype=np.int64)
             for k, (sc, se) in enumerate(child):
                 blk[:, k] = (pt[sel, sc] if sc is not None else e_of[:, se])
@@ -617,7 +644,7 @@ def subdivide(prim, max_edge: float, max_points: int = 400_000,
             for si, st in enumerate(fv_sets):
                 arr3 = st[2]
                 cols = []
-                for k, (sc, se) in enumerate(child):
+                for sc, se in child:
                     if sc is not None:
                         cols.append(arr3[sel, sc])
                     else:
@@ -659,134 +686,8 @@ def subdivide(prim, max_edge: float, max_points: int = 400_000,
     return added
 
 
-def _resubset(prim, face_src: np.ndarray) -> None:
-    """Remap every face-`GeomSubset` onto the subdivided faces."""
-    for child in prim.GetChildren():
-        if not child.IsA(UsdGeom.Subset):
-            continue
-        sub = UsdGeom.Subset(child)
-        if sub.GetElementTypeAttr().Get() != UsdGeom.Tokens.face:
-            continue
-        old = sub.GetIndicesAttr().Get()
-        if old is None:
-            continue
-        want = np.zeros(int(face_src.max()) + 1, dtype=bool)
-        keep = np.asarray([int(i) for i in old], dtype=np.int64)
-        keep = keep[keep <= int(face_src.max())]
-        want[keep] = True
-        new = np.nonzero(want[face_src])[0]
-        sub.GetIndicesAttr().Set(Vt.IntArray([int(i) for i in new]))
-
-
-def _face_geometry(prim):
-    """Per-face ``(centroid, span)`` in world space, or ``(None, None)``.
-
-    *span* is the face's largest bounding-box edge — `punch_hole` uses it to
-    refuse to swallow a face far bigger than the hole itself.
-    """
-    counts, idx = _face_arrays(prim)
-    if counts is None:
-        return None, None
-    pts = get_points(prim)
-    if not len(pts) or int(idx.max()) >= len(pts):
-        return None, None
-    fv = pts[idx]
-    starts = _fv_starts(counts)
-    cen = np.add.reduceat(fv, starts, axis=0) / counts[:, None]
-    hi = np.maximum.reduceat(fv, starts, axis=0)
-    lo = np.minimum.reduceat(fv, starts, axis=0)
-    return cen, (hi - lo).max(axis=1)
-
-
-def surface_points(prims, n: int, bounds: Bounds, seed: int = 0,
-                   z_range=None, facing=None) -> list:
-    """*n* points that actually lie ON the building, in normalized space.
-
-    A point drawn from the bounding box lands in the hollow interior most of
-    the time, where there is no geometry to remove and the hole silently does
-    nothing — the same reason `_seed_points` samples the surface. Face
-    centroids are guaranteed to be on a wall or a roof.
-
-    *z_range* restricts sampling to a normalized height band, which is how the
-    wind profile attacks only the top of a building. *facing* is an ``(x, y)``
-    bearing that biases sampling to the faces pointing that way — the windward
-    side — expressed loosely enough that a little damage still lands elsewhere.
-    """
-    if n <= 0:
-        return []
-    pool = [c for c in (_face_geometry(p)[0] for p in prims)
-            if c is not None and len(c)]
-    if not pool:
-        return []
-    pts = np.concatenate(pool, axis=0)
-
-    half = bounds.dims * 0.5
-    half = np.where(np.abs(half) < 1e-9, 1e-9, half)
-    c = bounds.center
-    norm = np.empty_like(pts)
-    norm[:, 0] = (pts[:, 0] - c[0]) / half[0]
-    norm[:, 1] = (pts[:, 1] - c[1]) / half[1]
-    norm[:, 2] = (pts[:, 2] - bounds.lo[2]) / max(bounds.dims[2], 1e-9)
-
-    def _narrow(mask):
-        # Never narrow to nothing: an empty pool means no damage at all, which
-        # is a worse answer than damage in a slightly wrong place.
-        return norm[mask] if mask.any() else norm
-
-    if z_range is not None:
-        norm = _narrow((norm[:, 2] >= z_range[0]) & (norm[:, 2] <= z_range[1]))
-    if facing is not None:
-        d = norm[:, 0] * float(facing[0]) + norm[:, 1] * float(facing[1])
-        norm = _narrow(d > -0.2)
-
-    rng = np.random.default_rng(seed)
-    pick = rng.choice(len(norm), size=min(int(n), len(norm)), replace=False)
-    return [tuple(norm[i]) for i in pick]
-
-
-def punch_hole(prims, bounds: Bounds, epicenter, radius: float = 0.18,
-               seed: int = 0, ragged: float = 0.45,
-               max_face_span: float = 3.0) -> int:
-    """Delete the faces near a point — the blast hole, the missing wall.
-
-    Works on any topology (unlike a boolean difference, which needs a closed
-    solid): it removes faces whose centroid falls inside a noise-perturbed
-    sphere. *ragged* modulates the radius with coherent noise so the opening
-    has a torn edge rather than a suspiciously circular one.
-
-    WHAT REPLACES `refine`
-    ----------------------
-    The prototype subdivides large faces before testing them, because on a
-    coarse asset one face can be bigger than the whole hole and the centroid
-    test then either misses or eats an entire wall. Subdividing here would mean
-    inventing faces — and every faceVarying primvar and `GeomSubset` on them —
-    which is a great deal of machinery for a mesh that is about to be rubble.
-    Instead *max_face_span* refuses any face whose bounding box is more than
-    that multiple of the hole across. A small hole on a coarse wall then does
-    nothing, which is the honest outcome; a large tear still takes the wall.
-    """
-    c = bounds.to_world(epicenter)
-    R = bounds.frac(radius)
-    if R <= 0.0:
-        return 0
-    removed = 0
-    for prim in prims:
-        cen, span = _face_geometry(prim)
-        if cen is None:
-            continue
-        thresh = np.full(len(cen), R)
-        if ragged:
-            thresh = R * (1.0 + value_noise(cen / bounds.radius, 4.0, seed)
-                          * ragged)
-        kill = (np.linalg.norm(cen - c, axis=1) < thresh) & \
-               (span <= max_face_span * R)
-        if kill.any():
-            removed += delete_faces(prim, ~kill)
-    return removed
-
-
 # ---------------------------------------------------------------------------
-# topology — adding thickness
+# 2. STAGE ONE — THICKNESS
 #
 # THE PROBLEM THIS SOLVES
 # -----------------------
@@ -795,37 +696,19 @@ def punch_hole(prims, bounds: Bounds, epicenter, radius: float = 0.18,
 # bungalow encloses 51 m³ against the 820 m³ a 0.25 m slab of its own surface
 # area would have — i.e. essentially none. That assumption survives right up
 # until the wall is broken, and then it is the single thing that makes
-# procedural damage read as fake:
+# procedural damage read as fake: a Voronoi cell of a zero-thickness surface is
+# a zero-thickness surface, so the "rubble" is a drift of curved sheets —
+# visually, confetti with a brick texture on it. No cell count fixes that,
+# because there is no volume to cut.
 #
-#   * `punch_hole` deletes faces, and the opening it leaves has a knife edge.
-#     A real breach shows the depth of the wall — that band of exposed material
-#     around the hole is most of what tells you the wall was thick. Worse, a
-#     shell is one-sided, so through the hole you see the *backfaces* of the far
-#     wall, which most renderers draw as black or drop entirely. The building
-#     reads as a paper cutout, not as masonry.
-#   * `fracture` clips the shell into Voronoi cells, and a cell of a zero-
-#     thickness surface is a zero-thickness surface. The "rubble" is a drift of
-#     curved sheets — visually, confetti with a brick texture on it. No amount
-#     of tuning the cell count fixes that, because there is no volume to cut.
-#
-# So: give the shell volume BEFORE breaking it. `solidify` extrudes every
-# surface inward along its own normal and caps the open edges, turning the
-# shell into a slab of *wall_m* metres. Fracture then cuts a solid and returns
-# chunks; a hole punched through it shows a reveal on every edge.
-#
-# NOT EVERY ASSET NEEDS IT, AND THE OPERATOR CHECKS
-# -------------------------------------------------
-# The library holds both kinds. The nine `urban` / `urban_intact` buildings are
-# closed masses enclosing 7-34x the volume a slab of their surface would, so
-# `solidify` declines all nine and the tally reports nothing thickened — which
-# is the operator working. The same enclosed volume that diagnoses a shell is
-# what refuses a solid, and it costs nothing extra: it falls out of the normal
-# accumulation by the divergence theorem.
+# It is also what makes stage three's promise possible at all. A **closed**
+# fragment requires a closed input: cut a solid with capped planes and every
+# piece is a solid. Cut a shell and every piece is a shell.
 #
 # WHY INWARD, AND HOW THAT DIRECTION IS FOUND
 # -------------------------------------------
 # Outward would inflate the building past its own footprint — the layout stage
-# has already packed these to setbacks and a building that grows by 0.25 m on
+# has already packed these to setbacks and a building that grows by 0.5 m on
 # every face starts intersecting its neighbours. Inward eats into interior
 # space that is empty anyway.
 #
@@ -833,20 +716,12 @@ def punch_hole(prims, bounds: Bounds, epicenter, radius: float = 0.18,
 # consistently wound and USD's `orientation` metadata is unreliable on
 # converted assets. Nor is one sign per mesh enough: measured on a bungalow,
 # the roof and the ground slab each carry faces of BOTH windings, so whichever
-# global sign is picked, part of the mesh extrudes the wrong way — visible
-# without measuring anything, as the building's bounding box growing by most of
-# the wall thickness. The direction is therefore settled PER POINT, by flipping
-# each normal to face away from the building's centre. That ignores winding
-# entirely and is right for the shapes this deals with: a roof plane thickens
-# downward, a ground slab upward, a facade inward.
-#
-# WHY THIS IS NOT FREE, AND WHAT BOUNDS IT
-# ----------------------------------------
-# It doubles the point count of every mesh it touches and adds a rim quad per
-# boundary edge. The generated scene has OOM-killed at 89M points, so this is
-# on a budget exactly as fracture is (`apply_to_stage` spends both on the
-# worst-hit buildings), and `max_points` skips any single mesh too big to be
-# worth it.
+# global sign is picked, part of the mesh extrudes the wrong way — visible as
+# the building's bounding box growing by most of the wall thickness. The
+# direction is therefore settled PER POINT, by flipping each normal to face
+# away from the building's centre. That ignores winding entirely and is right
+# for the shapes this deals with: a roof plane thickens downward, a ground slab
+# upward, a facade inward.
 # ---------------------------------------------------------------------------
 
 
@@ -880,11 +755,6 @@ def _surface_normals(pts: np.ndarray, counts: np.ndarray, idx: np.ndarray,
     each mesh's own centroid works only for a mesh that wraps a volume by
     itself, and an asset is not built that way: it is split into wall panels,
     roof planes and floor slabs.
-
-    *enclosed_volume* falls straight out of the same sum. By the divergence
-    theorem a closed surface encloses ``V = Σ (c - c0)·n dA / 3``, which is the
-    accumulator divided by six — so the caller gets, for free, the one number
-    that says whether this mesh is a hollow shell or already a solid.
     """
     tri, _src = _triangulate(counts)
     if not len(tri):
@@ -913,14 +783,6 @@ def _surface_normals(pts: np.ndarray, counts: np.ndarray, idx: np.ndarray,
     # rim quad and not a corrupt mesh.
     n = np.where(mag[:, None] > 1e-12, n / np.maximum(mag, 1e-12)[:, None], 0.0)
 
-    # PER-POINT orientation, because a per-mesh one is not enough. These assets
-    # are not consistently wound — measured on a bungalow, the roof and the
-    # ground slab each carry faces of both windings, so whichever global sign
-    # is chosen, part of the mesh extrudes the wrong way and the building's
-    # bounding box grows by most of the wall thickness. Flipping each point
-    # individually to face away from the building centre does not care about
-    # winding at all, and is right for the shapes this module deals with: a
-    # roof plane thickens downward, a ground slab upward, a facade inward.
     radial = pts - centre
     rmag = np.linalg.norm(radial, axis=1)
     rhat = radial / np.maximum(rmag, 1e-12)[:, None]
@@ -1022,7 +884,7 @@ def _grow_subsets(prim, n_faces: int, rim_face: np.ndarray) -> None:
     """Extend every face-`GeomSubset` onto the inner shell and the rim.
 
     A subset is how a material is bound to part of a mesh, so if it does not
-    follow, the inside of every wall and every torn edge renders with whichever
+    follow, the inside of every wall and every cut edge renders with whichever
     material happened to be bound on the prim itself — which on the AEC packs
     is usually the roof. Face `f` gains its inner twin at `f + n_faces` and
     whichever rim quads grew off it.
@@ -1052,15 +914,15 @@ def solidify(prim, thickness: float, ref_centre=None, ref_box=None,
 
     *ref_centre* / *ref_box* describe the whole building in world space; pass
     them whenever the prim is one mesh of many, which on a real asset it always
-    is. See `_surface_normals` and the direction note below for why a per-mesh
-    guess is not good enough.
+    is. See `_surface_normals` and the section header for why a per-mesh guess
+    is not good enough.
 
-    *thickness* is in WORLD METRES, deliberately — a wall is about 0.25 m thick
-    whether it is on a bungalow or a tower, so this is the one quantity in the
-    module that is NOT a fraction of the building radius.
+    *thickness* is in WORLD METRES, deliberately — a wall is about half a metre
+    thick whether it is on a bungalow or a tower, so this is the one quantity
+    in the module that is NOT a fraction of the building radius.
 
     It is still capped, because assets carry window glass, railings, gutters
-    and signage as their own thin meshes and extruding a 5 cm mullion by 25 cm
+    and signage as their own thin meshes and extruding a 5 cm mullion by 50 cm
     turns a facade into a wall of blocks. The cap is *max_span_frac* of the
     mesh's SECOND-SMALLEST bounding-box dimension. Both halves of that are
     deliberate: the smallest dimension is useless because a flat wall panel is
@@ -1073,29 +935,16 @@ def solidify(prim, thickness: float, ref_centre=None, ref_box=None,
 
     EVERY MESH IS THICKENED; THE ASSET SET SAYS OTHERWISE
     -----------------------------------------------------
-    This no longer tries to work out whether a mesh is already solid. Two
-    attempts at that are in the history and both were wrong in practice — the
-    enclosed volume (which for a closed building is the air in its rooms, so
-    every Nucleus building was declared solid and left a paper balloon) and
-    then a ray probe (right, but a guess about art remade on every run).
+    This does not try to work out whether a mesh is already solid. Two attempts
+    at that are in the history and both were wrong in practice — the enclosed
+    volume (which for a closed building is the air in its rooms, so every
+    Nucleus building was declared solid and left a paper balloon) and then a
+    ray probe (right, but a guess about art remade on every run).
 
     An asset's author knows the answer, so it is declared: `solid: true` on the
     entry in the asset set, read by `scene_generator.solid_assets` and applied
     by `apply_to_stage`, which simply does not call this for those. Unmarked
     means shell, because that is what nearly all of this library is.
-
-    WHICH WAY IS IN
-    ---------------
-    The reverse of the outward normal, oriented per point — see
-    `_surface_normals`. *ref_box* is then a backstop rather than the mechanism:
-    if a mesh would still inflate the building, its offset is scaled back until
-    it does not, because a wall that thickens OUTWARD is the one artifact this
-    operator must never introduce. The layout stage has already packed these to
-    setbacks, and a building that grows on every face starts intersecting its
-    neighbours.
-
-    Authors overrides on the same attributes `delete_faces` does, and carries
-    the same warning: the prim must not be instanced.
 
     NORMALS ARE DROPPED, NOT REBUILT
     --------------------------------
@@ -1115,7 +964,7 @@ def solidify(prim, thickness: float, ref_centre=None, ref_box=None,
     if n_pts < 3 or n_pts > max_points or int(idx.max()) >= n_pts:
         return 0
 
-    outward, med_edge, volume, area = _surface_normals(
+    outward, med_edge, _volume, _area = _surface_normals(
         world, counts, idx, weld_tol, ref_centre)
     if outward is None or med_edge <= 0.0:
         return 0
@@ -1142,14 +991,14 @@ def solidify(prim, thickness: float, ref_centre=None, ref_box=None,
     # Outer: untouched. Inner: same faces, reversed winding, on the offset
     # points. Reversing is not optional — an offset copy with the original
     # winding faces the same way the outer shell does, so the slab is
-    # back-to-front on the inside and renders inside-out through every breach.
+    # back-to-front on the inside and renders inside-out through every cut.
     rev = np.concatenate([np.arange(s + c - 1, s - 1, -1)
                           for s, c in zip(starts, counts)])
     inner_idx = idx[rev] + n_pts
 
     sa, sb, rim_face = _boundary_edges(counts, idx, _weld(world, weld_tol))
     # Quad (a, a', b', b) — the winding that makes its normal point out of the
-    # surface rather than back into the slab. See the module note above.
+    # surface rather than back into the slab.
     rim_idx = np.stack([idx[sa], idx[sa] + n_pts,
                         idx[sb] + n_pts, idx[sb]], axis=1).reshape(-1)
     rim_fv = np.stack([sa, sa, sb, sb], axis=1).reshape(-1)
@@ -1186,8 +1035,8 @@ def solidify_prims(prims, thickness: float, bounds: Bounds = None,
     """`solidify` every prim against one shared centre.
 
     Returns ``{"meshes": n, "faces": n}``. *bounds* is measured off the prims
-    when not given; pass the caller's if it already has one, since every
-    operator here re-measures and it is the expensive part on a big asset.
+    when not given; pass the caller's if it already has one, since measuring is
+    the expensive part on a big asset.
     """
     b = bounds if bounds is not None else bounds_of(prims)
     centre = None if b is None else b.center
@@ -1202,512 +1051,403 @@ def solidify_prims(prims, thickness: float, bounds: Bounds = None,
 
 
 # ---------------------------------------------------------------------------
-# operators
+# 3. STAGE TWO — THE FAILURE FIELD
+#
+# This is where a disaster becomes a disaster. Everything else in this module
+# is the same for all six types.
+#
+# A field answers two questions about any point in the scene:
+#
+#     damage(p)  how much of the material here has failed, 0 to 1
+#     ejecta(p)  where the event threw it, as a world-space displacement
+#
+# and carries one scalar, `char`, for how sooty the event leaves the surfaces.
+#
+# WHY A FIELD AND NOT A LIST OF EFFECTS
+# -------------------------------------
+# Because damage composes and effects do not. Two effects applied in sequence
+# each have to re-measure the geometry the other moved, and their interaction
+# is whatever the ordering happened to produce. Two fields add. A field can be
+# sampled anywhere — at a face centroid to decide whether it is consumed, at a
+# fragment centroid to decide whether it is released, down a column to decide
+# whether it is still supported — and it gives a consistent answer every time,
+# because it is a function of position and nothing else.
+#
+# It is also the only form in which "the same event, harder" is a well-defined
+# statement, which is the invariant the whole generator rests on.
+#
+# HOW THE SHAPES ARE BUILT
+# ------------------------
+# From four primitives, in normalized building coordinates (`plan_coords`):
+# a height profile, a plan-radial or plan-directional weight, a ball around a
+# point, and `_grain` — coherent noise with an explicit world-space cell size
+# per axis. The last one is what stops every field looking analytic: real
+# failure follows the material's weak planes, so an earthquake's grain is
+# storey-shaped (wide in plan, thin in z) and a blast front's is small and
+# isotropic.
 # ---------------------------------------------------------------------------
 
 
-def lean(prims, bounds: Bounds, angle_deg: float, direction_deg: float = 0.0,
-         profile: str = "linear") -> None:
-    """Tilt off vertical — foundation failure or storey racking.
+def _lattice(points: np.ndarray, freq: float, seed: int, res: int) -> np.ndarray:
+    rng = np.random.default_rng(seed)
+    grid = rng.random((res, res, res)) * 2.0 - 1.0
+    p = points * freq
+    i0 = np.floor(p).astype(np.int64)
+    t = p - i0
+    t = t * t * (3.0 - 2.0 * t)                      # smoothstep
+    c = [None] * 8
+    for k, (dx, dy, dz) in enumerate([(a, b, cc) for a in (0, 1)
+                                      for b in (0, 1) for cc in (0, 1)]):
+        idx = (i0 + np.array([dx, dy, dz])) % res
+        c[k] = grid[idx[:, 0], idx[:, 1], idx[:, 2]]
+    tx, ty, tz = t[:, 0], t[:, 1], t[:, 2]
+    c00 = c[0] * (1 - tz) + c[1] * tz
+    c01 = c[2] * (1 - tz) + c[3] * tz
+    c10 = c[4] * (1 - tz) + c[5] * tz
+    c11 = c[6] * (1 - tz) + c[7] * tz
+    c0 = c00 * (1 - ty) + c01 * ty
+    c1 = c10 * (1 - ty) + c11 * ty
+    return c0 * (1 - tx) + c1 * tx
 
-    Displacement grows with height, so the footprint stays put and the roof
-    moves furthest. `profile`: 'linear' racks uniformly, 'soft_story' puts
-    nearly all of it in the bottom fifth (the classic weak-ground-floor
-    failure), 'whip' accelerates toward the top (tall, flexible structures).
+
+def value_noise(points: np.ndarray, freq: float, seed: int,
+                octaves: int = 3, res: int = 32) -> np.ndarray:
+    """Scalar noise in roughly [-1, 1] sampled at *points* (N, 3)."""
+    total = np.zeros(len(points))
+    amp_sum = 0.0
+    for o in range(octaves):
+        total += (0.5 ** o) * _lattice(points, freq * (2 ** o),
+                                       seed + o * 977, res)
+        amp_sum += 0.5 ** o
+    return total / max(amp_sum, 1e-9)
+
+
+def _grain(points: np.ndarray, size, seed: int, octaves: int = 3) -> np.ndarray:
+    """Coherent noise in [-1, 1] with a world-space feature *size* per axis.
+
+    *size* is a length in metres, or three of them. Anisotropy is the point:
+    an earthquake's weak level is a horizontal slab through the whole plan, so
+    its grain is metres thick in z and tens of metres wide in x and y, and the
+    damaged regions come out as storeys without anything enumerating storeys.
     """
-    a, d = math.radians(angle_deg), math.radians(direction_deg)
-    dirx, diry = math.cos(d), math.sin(d)
-    h, z0 = bounds.height, bounds.base_z
+    s = np.asarray(size, dtype=np.float64).reshape(-1)
+    if s.size == 1:
+        s = np.repeat(s, 3)
+    return value_noise(points / np.maximum(s, 1e-6), 1.0, seed,
+                       octaves=octaves)
 
-    def fn(v):
-        t = np.clip((v[:, 2] - z0) / h, 0.0, 1.0)
-        if profile == "soft_story":
-            s = np.clip(t / 0.2, 0.0, 1.0)
-        elif profile == "whip":
-            s = t ** 2
-        else:
-            s = t
-        out = v.copy()
-        drift = math.tan(a) * h * s
-        out[:, 0] += drift * dirx
-        out[:, 1] += drift * diry
+
+def _ramp(x, lo: float, hi: float) -> np.ndarray:
+    """Smoothstep: 0 at or below *lo*, 1 at or above *hi*."""
+    t = np.clip((np.asarray(x, dtype=np.float64) - lo) / ((hi - lo) or 1e-9),
+                0.0, 1.0)
+    return t * t * (3.0 - 2.0 * t)
+
+
+def _no_ejecta(p: np.ndarray) -> np.ndarray:
+    return np.zeros_like(p)
+
+
+class Failure:
+    """A disaster's spatial signature on one building.
+
+    * ``damage(p)`` — (N, 3) world points -> (N,) in [0, 1]. How much of the
+      material at each point has lost its structural integrity. Everything
+      downstream is a threshold or a weight on this.
+    * ``ejecta(p)`` — (N, 3) -> (N, 3) world metres. The displacement the event
+      imparts to material that comes free there: radial for a blast,
+      downwind-and-up for a storm, zero for a fire or a collapse, which drop
+      what they consume where it stood.
+    * ``char`` — 0 to 1, how much soot the event leaves on the surfaces.
+
+    Both callables must be pure functions of position, vectorised, and seeded
+    only through the closure — `release_mask` samples `damage` several times
+    per fragment and would otherwise not be reproducible.
+    """
+
+    __slots__ = ("name", "damage", "ejecta", "char")
+
+    def __init__(self, name: str, damage, ejecta=None, char: float = 0.0):
+        self.name = str(name)
+        self.damage = damage
+        self.ejecta = ejecta if ejecta is not None else _no_ejecta
+        self.char = float(char)
+
+    def __repr__(self):
+        return f"Failure({self.name!r}, char={self.char:.2f})"
+
+
+def field_earthquake(bounds: Bounds, intensity: float, seed: int = 0,
+                     **_) -> Failure:
+    """Ground shaking. Demand is highest at the base and fails a weak storey.
+
+    A building resists lateral ground motion in shear, and the shear it has to
+    carry is the accumulated inertia of everything above — so demand is maximal
+    at the ground and falls off with height. That single fact is the field's
+    height profile, and it is why an earthquake building settles onto its own
+    footprint rather than losing its top.
+
+    Where along that profile it actually fails is a property of the structure,
+    not of the shaking: real buildings fail at a *level*, because a storey is
+    where the columns are and any one of them can be the weak one. So the noise
+    that modulates the profile is storey-shaped — the width of the building in
+    plan, a storey high in z. Horizontal bands of failed material fall out of
+    it, and with them the soft-storey collapse, the mid-storey collapse and the
+    total collapse that an earlier version of this module had to enumerate as
+    six named modes with a weighted draw between them.
+
+    Nothing is thrown: shaking does not impart a direction.
+    """
+    i = float(np.clip(intensity, 0.0, 1.0))
+    z0, h, r = bounds.base_z, bounds.height, bounds.radius
+    storey = float(np.clip(h / 8.0, 2.0, 5.0))       # metres, a plausible one
+
+    def damage(p):
+        t = np.clip((p[:, 2] - z0) / h, 0.0, 1.0)
+        shear = 1.0 - 0.75 * t
+        weak = 0.55 + 0.75 * _grain(p, (1.6 * r, 1.6 * r, storey), seed + 11)
+        return np.clip(1.95 * i * shear * np.clip(weak, 0.0, None), 0.0, 1.0)
+
+    return Failure("earthquake", damage, char=0.06 * i)
+
+
+def field_explosion(bounds: Bounds, intensity: float, seed: int = 0,
+                    epicenter=None, **_) -> Failure:
+    """A charge against a wall. A ball of destruction with a hard edge.
+
+    Blast overpressure falls very steeply with distance, so the difference
+    between "gone" and "intact" happens over a few metres — which is what makes
+    an explosion legible from the air as a *bite* taken out of a building,
+    against an earthquake's general subsidence. The exponent below is what
+    encodes that steepness; a smooth falloff reads as an earthquake with an
+    off-centre epicentre.
+
+    *epicenter* is a normalized ``(u, v, t)`` and should be a point ON the
+    building — see `blast_epicenter`, which also explains why it should be a
+    *peripheral* one.
+
+    The front is not a sphere. It follows the openings it finds, so the radius
+    is perturbed by a fine grain, and material that comes free is thrown
+    radially outward.
+    """
+    i = float(np.clip(intensity, 0.0, 1.0))
+    c = bounds.to_world(epicenter if epicenter is not None
+                        else (0.9, 0.0, 0.20))
+    R = bounds.frac(0.30 + 0.55 * i)
+    amp = 0.55 + 0.85 * i
+    throw = bounds.frac(0.08 + 0.30 * i)
+
+    def damage(p):
+        d = np.linalg.norm(p - c, axis=1)
+        rough = 1.0 + 0.30 * _grain(p, 0.45 * R, seed + 23)
+        t = np.clip(d / np.maximum(R * rough, 1e-9), 0.0, 1.0)
+        return np.clip(amp * (1.0 - t) ** 1.7, 0.0, 1.0)
+
+    def ejecta(p):
+        d = p - c
+        n = d / np.maximum(np.linalg.norm(d, axis=1), 1e-9)[:, None]
+        return n * (throw * damage(p))[:, None]
+
+    return Failure("explosion", damage, ejecta, char=0.35 + 0.55 * i)
+
+
+def _field_wind(name: str, bounds: Bounds, intensity: float, seed: int,
+                heading_deg, exponent: float, amp: float,
+                throw: float, lift: float, char: float = 0.0) -> Failure:
+    """The shared shape of a windstorm: it fails a building from the top down.
+
+    Wind speed rises with height through the boundary layer and the load goes
+    as its square, so demand *grows* with height — the exact opposite of an
+    earthquake, and the reason the two are distinguishable from a drone at
+    100 m even though both leave a broken building. The roof goes first (it is
+    the lightest thing, held down only by its own weight, and it is where the
+    uplift is), then the top storey's walls behind it.
+
+    The pressure is on the WINDWARD face, so damage is biased to the plan
+    hemisphere the storm came from, and everything that comes free travels the
+    SAME bearing. That shared bearing is the whole signature: it is what makes
+    a tornado track read as a track rather than as a row of bomb sites.
+    """
+    i = float(np.clip(intensity, 0.0, 1.0))
+    rng = np.random.default_rng(seed + 5)
+    if heading_deg is None:
+        heading_deg = float(rng.uniform(0.0, 360.0))
+    ang = math.radians(float(heading_deg))
+    dx, dy = math.cos(ang), math.sin(ang)
+    r = bounds.radius
+
+    def damage(p):
+        u, v, t = plan_coords(bounds, p)
+        prof = np.clip(t, 0.0, 1.0) ** exponent
+        # The storm travels along +d, so it strikes the face at -d.
+        wind = 0.55 + 0.45 * np.clip(-(u * dx + v * dy), -1.0, 1.0)
+        gust = 0.75 + 0.45 * _grain(p, 0.6 * r, seed + 31)
+        return np.clip(amp * prof * wind * np.clip(gust, 0.0, None), 0.0, 1.0)
+
+    def ejecta(p):
+        d = damage(p)
+        out = np.zeros_like(p)
+        out[:, 0] = dx * throw * d
+        out[:, 1] = dy * throw * d
+        out[:, 2] = lift * d
         return out
 
-    deform(prims, fn)
+    return Failure(name, damage, ejecta, char=char)
 
 
-def pancake(prims, bounds: Bounds, z_lo: float, z_hi: float,
-            collapse: float = 0.7, spread: float = 0.15, seed: int = 0) -> None:
-    """Crush a horizontal band and drop everything above it.
+def field_tornado(bounds: Bounds, intensity: float, seed: int = 0,
+                  heading_deg=None, **_) -> Failure:
+    """A narrow, violent corridor: a deep peel thrown a long way along track."""
+    i = float(np.clip(intensity, 0.0, 1.0))
+    return _field_wind("tornado", bounds, i, seed, heading_deg,
+                       exponent=2.4 - 1.2 * i,
+                       amp=0.90 + 0.55 * i,
+                       throw=bounds.frac(0.22 + 0.50 * i),
+                       lift=bounds.frac(0.06 + 0.16 * i))
 
-    Storey collapse. The band between *z_lo* and *z_hi* (normalized height) is
-    compressed to ``1 - collapse`` of its thickness and everything above
-    translates down by the height lost, so the upper storeys land on the rubble
-    instead of floating. *spread* bulges the crushed band outward, as material
-    squeezes out sideways.
+
+def field_hurricane(bounds: Bounds, intensity: float, seed: int = 0,
+                    heading_deg=None, **_) -> Failure:
+    """Sustained and broad: a shallower peel, carried a shorter way.
+
+    Same mechanism as a tornado and a deliberately different shape — the higher
+    exponent keeps the failure in the top tenth or so rather than the top half,
+    and the smaller throw leaves the debris against the building instead of a
+    hundred metres downwind.
     """
-    h, z0 = bounds.height, bounds.base_z
-    wz_lo, wz_hi = z0 + z_lo * h, z0 + z_hi * h
-    band = max(wz_hi - wz_lo, 1e-9)
-    lost = band * collapse
-    cx, cy = bounds.center[0], bounds.center[1]
-
-    def fn(v):
-        out = v.copy()
-        z = v[:, 2]
-        inside = (z >= wz_lo) & (z <= wz_hi)
-        above = z > wz_hi
-        out[inside, 2] = wz_lo + (z[inside] - wz_lo) * (1.0 - collapse)
-        out[above, 2] = z[above] - lost
-        if spread:
-            frac = np.zeros(len(v))
-            frac[inside] = 1.0 - np.abs((z[inside] - wz_lo) / band - 0.5) * 2.0
-            n = value_noise(v / bounds.radius, freq=3.0, seed=seed) * 0.5 + 1.0
-            push = frac * spread * n
-            out[:, 0] += (v[:, 0] - cx) * push
-            out[:, 1] += (v[:, 1] - cy) * push
-        return out
-
-    deform(prims, fn)
+    i = float(np.clip(intensity, 0.0, 1.0))
+    return _field_wind("hurricane", bounds, i, seed, heading_deg,
+                       exponent=3.6 - 1.6 * i,
+                       amp=0.70 + 0.50 * i,
+                       throw=bounds.frac(0.10 + 0.25 * i),
+                       lift=bounds.frac(0.02 + 0.06 * i))
 
 
-def crumble(prims, bounds: Bounds, amount: float = 0.01, freq: float = 6.0,
-            seed: int = 0, height_bias: float = 0.0) -> None:
-    """Roughen surfaces with coherent noise — spalled concrete, buckled walls.
+def field_fire(bounds: Bounds, intensity: float, seed: int = 0,
+               **_) -> Failure:
+    """A burnt-out shell: the roof and floors are consumed, the walls stand.
 
-    *amount* is a fraction of the building radius. *height_bias* > 0 puts the
-    damage up high (wind, blast), < 0 puts it at the base (ground shaking).
+    Fire destroys what spans — timber roof decks and floors, in tension, under
+    load — long before it drops masonry that is only ever in compression. So
+    the field is high at the top and high in the INTERIOR, and it falls away
+    toward the envelope. From above, a fire and a tornado leave the same
+    silhouette; the difference is that the tornado's material is a hundred
+    metres downwind and the fire's is inside the building, which is why this
+    field has no ejecta at all.
     """
-    amp = bounds.frac(amount)
-    h, z0, r = bounds.height, bounds.base_z, bounds.radius
+    i = float(np.clip(intensity, 0.0, 1.0))
+    r = bounds.radius
+    exponent = 2.4 - 1.1 * i
+    amp = 0.75 + 0.50 * i
 
-    def fn(v):
-        p = v / r
-        n = np.stack([value_noise(p, freq, seed + i * 131) for i in range(3)],
-                     axis=1)
-        w = np.ones(len(v))
-        if height_bias:
-            t = np.clip((v[:, 2] - z0) / h, 0.0, 1.0)
-            w = t ** 2 if height_bias > 0 else (1.0 - t) ** 2
-            w = 1.0 - abs(height_bias) + abs(height_bias) * w
-        return v + n * amp * w[:, None]
+    def damage(p):
+        u, v, t = plan_coords(bounds, p)
+        prof = np.clip(t, 0.0, 1.0) ** exponent
+        # 1 on the envelope, 0 well inside it.
+        shell = _ramp(np.maximum(np.abs(u), np.abs(v)), 0.55, 0.95)
+        smoke = 0.80 + 0.35 * _grain(p, 0.5 * r, seed + 41)
+        return np.clip(amp * prof * (1.0 - 0.55 * shell)
+                       * np.clip(smoke, 0.0, None), 0.0, 1.0)
 
-    deform(prims, fn)
+    return Failure("fire", damage, char=0.45 + 0.50 * i)
 
 
-def shockwave(prims, bounds: Bounds, epicenter, radius: float = 0.5,
-              strength: float = 0.12, falloff: str = "smooth",
-              seed: int = 0, roughness: float = 0.35,
-              floor_z: float = None) -> None:
-    """Push geometry radially away from a blast point.
+def field_flood(bounds: Bounds, intensity: float, seed: int = 0,
+                **_) -> Failure:
+    """Scour and hydrostatic load at the waterline, and nothing above it.
 
-    *epicenter* is in normalized building space; *radius* and *strength* are
-    fractions of the building radius. Use ``falloff="shell"`` for a wavefront
-    that has already passed the source — peak displacement at a ring rather
-    than at the centre.
+    Water is heavy and undermines footings, but a masonry wall is a poor thing
+    to knock down with it — so this field is deliberately the weakest of the
+    six, and in practice it releases nothing: measured, the field peaks around
+    0.5 at the top of the severity range, which a *fragment's mean* never
+    clears. A flooded building is therefore cut by nothing and thickened by
+    nothing (`damage_building` dismisses it before either), and what severity
+    changes is the silt line here and the debris and asset swaps elsewhere in
+    the disaster stage.
 
-    *floor_z* clamps the result so nothing is driven below it. Without it a
-    blast seated near the base pushes the geometry under it straight down and
-    the building sinks — measured at **-1.29 m** on a real brownstone, which
-    reads as the building being swallowed rather than blown. The ground is
-    there; pass ``bounds.base_z``.
+    This says the same thing the old categorical "flood never shatters" did,
+    but says it as a *quantity* rather than as an exemption — so if the release
+    threshold is ever lowered, or a timber-framed asset set arrives that should
+    wash out, the field is already the right shape and only the numbers move.
     """
-    c = bounds.to_world(epicenter)
-    R, S, r_norm = bounds.frac(radius), bounds.frac(strength), bounds.radius
+    i = float(np.clip(intensity, 0.0, 1.0))
+    r = bounds.radius
+    depth = 0.08 + 0.30 * i                # waterline, normalized height
+    amp = 0.12 + 0.42 * i
 
-    def fn(v):
-        d = v - c
-        dist = np.linalg.norm(d, axis=1)
-        w = _falloff(dist / max(R, 1e-9), falloff)
-        if roughness:
-            w = w * (value_noise(v / r_norm, freq=5.0, seed=seed) * roughness
-                     + 1.0)
-        out = v + (d / np.maximum(dist, 1e-9)[:, None]) * (w * S)[:, None]
-        if floor_z is not None:
-            np.maximum(out[:, 2], floor_z, out=out[:, 2])
-        return out
+    def damage(p):
+        _u, _v, t = plan_coords(bounds, p)
+        below = _ramp(depth - t, -0.03, 0.06)
+        scour = 0.70 + 0.50 * _grain(p, (0.35 * r, 0.35 * r, 0.6 * r),
+                                     seed + 53)
+        return np.clip(amp * below * np.clip(scour, 0.0, None), 0.0, 1.0)
 
-    deform(prims, fn)
+    return Failure("flood", damage, char=0.10 + 0.20 * i)
 
 
-# Albedo inputs worth darkening, by shading model. UsdPreviewSurface is what
-# the Objaverse→USD conversion writes; the `diffuse_*` names are OmniPBR/MDL,
-# which is what the Nucleus and AEC packs bind inside Isaac. `diffuse_tint` is
-# already a multiplier over the albedo texture, so it is the ideal place to put
-# soot when it exists.
-_ALBEDO_INPUTS = ("diffuseColor", "baseColor",
-                  "diffuse_tint", "diffuse_color_constant", "albedo_add")
-_ROUGHNESS_INPUTS = ("roughness", "reflection_roughness_constant")
-
-
-def scorch(prims, strength: float = 0.85, bounds: Bounds = None,
-           epicenter=None, radius: float = 0.6) -> None:
-    """Darken the bound materials — soot.
-
-    *bounds* and *epicenter* make it local: a material's weight comes from the
-    closest prim bound to it, so a blast sooties the wall it happened against
-    and not the far side of the building. Omit them and the whole asset chars,
-    which is what a fire does.
-
-    WHY SETTING THE INPUT IS NOT ENOUGH
-    -----------------------------------
-    This used to be `inp.Set(darker_colour)` on `diffuseColor` and it did
-    **nothing at all** on almost every real asset. Building assets drive albedo
-    from an image texture, which in USD means `diffuseColor` is *connected* to
-    a `UsdUVTexture`, and a connection beats a value — the authored constant is
-    simply never consulted. The prototype hit the identical wall in Blender
-    ("overwriting `default_value` silently does nothing: the constant is
-    ignored while the link supplies the colour") and solved it by splicing a
-    multiply node into the graph.
-
-    The USD equivalent needs no new node: `UsdUVTexture` has an `inputs:scale`
-    that multiplies whatever it sampled, so soot goes there. Only the RGB
-    components are scaled — the fourth is alpha, and a texture whose `.a` drives
-    opacity would otherwise turn the building transparent as it charred.
-
-    ROUGHNESS IS ONLY TOUCHED WHEN IT IS NOT CONNECTED, which is the
-    prototype's rule and not timidity: these assets pack roughness and metallic
-    into two channels of ONE texture, so scaling that texture to roughen the
-    surface would silently rewrite metallic too.
-
-    Authored once per *material*: the material lives in the referenced layer
-    and is shared between prims, so a second visit would compound the tint.
-    """
-    w_max = max(0.0, min(1.0, strength))
-    if w_max <= 0.0:
-        return
-
-    # Per material, the strongest weight any prim bound to it earns.
-    weights: dict = {}
-    mats: dict = {}
-    centre = R = None
-    if bounds is not None and epicenter is not None:
-        centre = bounds.to_world(epicenter)
-        R = max(bounds.frac(radius), 1e-9)
-
-    for prim in prims:
-        mat = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()[0]
-        if not mat or not mat.GetPrim().IsValid():
-            continue
-        key = str(mat.GetPrim().GetPath())
-        w = w_max
-        if centre is not None:
-            v = get_points(prim)
-            if not len(v):
-                continue
-            near = float(np.linalg.norm(v - centre, axis=1).min())
-            w = w_max * float(_falloff(np.array([near / R]))[0])
-        if w <= 0.01:
-            continue
-        mats[key] = mat
-        weights[key] = max(weights.get(key, 0.0), w)
-
-    for key, mat in mats.items():
-        for shader in _surface_shaders(mat):
-            _soot(shader, weights[key])
-
-
-def _surface_shaders(material) -> list:
-    """The material's surface shader in every render context it declares.
-
-    `ComputeSurfaceSource()` with no argument resolves the universal context,
-    which finds the UsdPreviewSurface. Isaac's assets additionally (sometimes
-    only) carry an `mdl` surface, and that is the one the RTX renderer actually
-    shades with — so a scorch that checked only the universal context would
-    look right in usdview and change nothing in the sim.
-    """
-    out, seen = [], set()
-    for ctx in ("", "mdl"):
-        shader = None
-        try:
-            shader = material.ComputeSurfaceSource(ctx)[0]
-        except TypeError:
-            # Some USD builds take a context VECTOR rather than a token. Only
-            # the signature mismatch is caught: a blanket `except Exception`
-            # here is what hid this call being wrong in the first place, and a
-            # scorch that resolves no shader fails completely silently.
-            try:
-                shader = material.ComputeSurfaceSource(
-                    [ctx] if ctx else [])[0]
-            except Exception:
-                shader = None
-        if shader and str(shader.GetPath()) not in seen:
-            seen.add(str(shader.GetPath()))
-            out.append(shader)
-    return out
-
-
-def _soot(shader, w: float) -> None:
-    """Darken one shader's albedo by *w*, and roughen it where it is safe to."""
-    keep = 1.0 - 0.8 * float(w)
-    for name in _ALBEDO_INPUTS:
-        inp = shader.GetInput(name)
-        if inp:
-            _scale_input(inp, keep)
-    for name in _ROUGHNESS_INPUTS:
-        inp = shader.GetInput(name)
-        if inp and not inp.HasConnectedSource():
-            cur = inp.Get()
-            if cur is not None:
-                try:
-                    inp.Set(float(min(1.0, float(cur) + 0.4 * w)))
-                except Exception:
-                    pass
-
-
-def _scale_input(inp, keep: float) -> None:
-    """Multiply a shader input by *keep*, through a texture if it goes to one."""
-    if inp.HasConnectedSource():
-        source = inp.GetConnectedSource()
-        if not source:
-            return
-        tex = UsdShade.Shader(source[0].GetPrim())
-        if not tex or tex.GetIdAttr().Get() != "UsdUVTexture":
-            return          # some other node; nothing safe to scale here
-        scale = tex.GetInput("scale")
-        if not scale:
-            scale = tex.CreateInput("scale", Sdf.ValueTypeNames.Float4)
-            scale.Set(Gf.Vec4f(1.0, 1.0, 1.0, 1.0))
-        cur = scale.Get() or Gf.Vec4f(1.0, 1.0, 1.0, 1.0)
-        # RGB only. The fourth component is alpha, and a texture whose `.a`
-        # drives opacity would fade the building out as it charred.
-        try:
-            scale.Set(Gf.Vec4f(float(cur[0]) * keep, float(cur[1]) * keep,
-                               float(cur[2]) * keep, float(cur[3])))
-        except Exception:
-            pass
-        return
-
-    cur = inp.Get()
-    if cur is None:
-        return
-    try:
-        inp.Set(Gf.Vec3f(*[float(c) * keep for c in cur]))
-    except Exception:
-        try:
-            inp.Set(float(cur) * keep)
-        except Exception:
-            pass
-
-
-# ---------------------------------------------------------------------------
-# profiles — the layer between the disaster taxonomy and the operators
-#
-# The disaster axis (earthquake / tornado / hurricane / fire / explosion /
-# flood) is the stable public vocabulary. These are the mechanisms it
-# composes: each takes an intensity in [0, 1] and a seed, and is a pure
-# composition of the operators above. Adding a disaster type is a mapping
-# change, not a new operator set.
-#
-# `scenegen`'s own presets could not be ported when this module was written:
-# all five call `voronoi_fracture`, `punch_hole` and `settle`, none of which
-# existed here. All three do now, so `burnout` IS the prototype's `fire`, and
-# the rest have been folded into the profiles below rather than transcribed —
-# the prototype's `shelling` is `structural_collapse`'s `spall` mode with more
-# openings, and its `windstorm` is `wind_shear`.
-# ---------------------------------------------------------------------------
-
-
-# How a building fails in an earthquake — the real modes, not one recipe.
-#
-# A single lean+pancake+crumble applied to every building makes a street of
-# identical casualties. Real post-quake blocks are mixed: most buildings are
-# standing with cracked facades, some have lost a storey, a few are down
-# entirely, and which one you get is mostly a function of intensity.
-#
-# Weights are (base, per-intensity slope) and are renormalised, so at low
-# severity the street is mostly racked and spalled and at high severity the
-# collapse modes dominate. Nothing here needs a new operator — the modes differ
-# in WHICH storey fails, how many, and how hard the surface is worked.
-_QUAKE_MODES = {
-    # tilts and stands. The common outcome, and the one that was missing:
-    # previously every building lost a storey.
-    "racking":    (0.45, -0.40),
-    # facade shatters, structure holds. Heavy surface work, no collapse.
-    "spall":      (0.30, -0.20),
-    # ground floor goes, upper storeys ride down intact. The classic.
-    "soft_story": (0.10, +0.25),
-    # a middle floor fails instead — reads differently from the street.
-    "mid_story":  (0.08, +0.18),
-    # several bands crush; the building squats.
-    "total":      (-0.05, +0.30),
-    # one side drops and the rest leans into it.
-    "partial":    (0.07, +0.17),
+#: The disaster axis, as fields. Adding a type is one entry here and one
+#: function above — there is nothing else to write, because the pipeline is
+#: the same for all of them.
+FAILURE_FIELDS = {
+    "earthquake": field_earthquake,
+    "explosion": field_explosion,
+    "tornado": field_tornado,
+    "hurricane": field_hurricane,
+    "fire": field_fire,
+    "flood": field_flood,
+    "none": None,
 }
 
 
-def _pick_quake_mode(intensity: float, rng) -> str:
-    w = {k: max(0.0, base + slope * intensity)
-         for k, (base, slope) in _QUAKE_MODES.items()}
-    total = sum(w.values()) or 1.0
-    r = float(rng.random()) * total
-    for name, weight in w.items():
-        r -= weight
-        if r <= 0.0:
-            return name
-    return "racking"
+def failure_field(disaster_type: str, bounds: Bounds, intensity: float,
+                  seed: int = 0, **kw) -> "Failure | None":
+    """The field for *disaster_type*, or None when it does not damage buildings."""
+    fn = FAILURE_FIELDS.get(str(disaster_type).lower())
+    if fn is None or bounds is None or float(intensity) <= 0.0:
+        return None
+    return fn(bounds, float(intensity), int(seed), **kw)
 
 
-def _holes(prims, bounds: Bounds, n: int, radius: float, seed: int,
-           z_range=None, facing=None, ragged: float = 0.5,
-           spread: float = 0.5) -> int:
-    """Punch *n* holes at points sampled off the surface. Returns faces removed.
+def surface_points(prims, n: int, bounds: Bounds, seed: int = 0,
+                   z_range=None) -> list:
+    """*n* points that actually lie ON the building, in normalized space.
 
-    The pairing of `surface_points` with `punch_hole` is the whole idiom — a
-    hole centred anywhere else is centred in the building's hollow interior and
-    removes nothing. *spread* varies the radius around *radius* so the openings
-    do not all come out the same size.
+    A point drawn from the bounding box lands in the hollow interior most of
+    the time. Face centroids are guaranteed to be on a wall or a roof.
+    *z_range* restricts sampling to a normalized height band.
     """
-    if n <= 0 or radius <= 0.0:
-        return 0
-    rng = np.random.default_rng(seed + 5)
-    removed = 0
-    for k, p in enumerate(surface_points(prims, int(n), bounds, seed=seed,
-                                         z_range=z_range, facing=facing)):
-        r = radius * (1.0 - spread + 2.0 * spread * float(rng.random()))
-        removed += punch_hole(prims, bounds, p, radius=r, seed=seed + k * 17,
-                              ragged=ragged)
-    return removed
+    if n <= 0:
+        return []
+    pool = [c for c in (face_centroids(p) for p in prims)
+            if c is not None and len(c)]
+    if not pool:
+        return []
+    pts = np.concatenate(pool, axis=0)
+    u, v, t = plan_coords(bounds, pts)
+    norm = np.stack([u, v, t], axis=1)
 
+    if z_range is not None:
+        mask = (t >= z_range[0]) & (t <= z_range[1])
+        # Never narrow to nothing: an empty pool would mean no damage at all,
+        # which is a worse answer than damage in a slightly wrong place.
+        if mask.any():
+            norm = norm[mask]
 
-def structural_collapse(prims, intensity: float, seed: int = 0,
-                        story_bias: str = None, mode: str = None,
-                        report: dict = None) -> None:
-    """Fails in place — but not the same way twice. Serves earthquake.
-
-    Picks a failure mode (see `_QUAKE_MODES`) rather than always racking,
-    pancaking one storey and spalling lightly. *mode* forces one, which is
-    what the tests use.
-
-    Each mode ends by REMOVING material as well as moving it. Deformation alone
-    left a "collapsed" building with a complete envelope — every wall still
-    there, just bent — which is the single biggest reason the damage read as
-    squashed rather than broken. Where the openings go is part of what
-    distinguishes the modes: a soft storey blows out at the ground floor, a
-    partial collapse opens the failed side, a spall pits the whole facade.
-    """
-    b = bounds_of(prims)
-    if b is None:
-        return
     rng = np.random.default_rng(seed)
-    mode = mode or _pick_quake_mode(intensity, rng)
-    # The mode is not just this function's business: how much of the building
-    # comes apart has to agree with how it failed, or a building that racked
-    # and stood gets shattered to its foundations anyway. `apply_to_stage`
-    # reads this back and feeds it to `fracture_plan`.
-    if report is not None:
-        report["mode"] = mode
-    direction = float(rng.uniform(0, 360))
-    hole_r = 0.05 + 0.09 * intensity
-    facing = (math.cos(math.radians(direction)),
-              math.sin(math.radians(direction)))
-
-    # Surface damage is the part that reads as "earthquake" at any distance,
-    # and it was far too subtle — 0.4-2% of radius. Every mode now works the
-    # surface harder, and `spall` makes it the whole story.
-    spall_amount = 0.010 + 0.030 * intensity
-    lean_deg = 1.5 + 6.0 * intensity
-
-    if mode == "racking":
-        # Drifted off vertical and stayed up. Soft-storey drift concentrates
-        # the lean at the base, which is what a weak ground floor does.
-        lean(prims, b, angle_deg=lean_deg * 1.4, direction_deg=direction,
-             profile="soft_story" if rng.random() < 0.5 else "linear")
-        b = bounds_of(prims) or b
-        crumble(prims, b, amount=spall_amount * 0.8, seed=seed,
-                height_bias=-0.4, freq=7.0)
-        # Still standing, so only shed cladding — a few openings low down.
-        _holes(prims, b, 1 + int(round(3 * intensity)), hole_r * 0.7, seed,
-               z_range=(0.0, 0.55))
-
-    elif mode == "spall":
-        # Structure holds; the cladding does not. Two octaves of surface work
-        # at different frequencies so it reads as broken material rather than
-        # as noise.
-        lean(prims, b, angle_deg=lean_deg * 0.3, direction_deg=direction)
-        b = bounds_of(prims) or b
-        crumble(prims, b, amount=spall_amount * 1.6, seed=seed,
-                height_bias=-0.3, freq=5.0)
-        crumble(prims, b, amount=spall_amount * 0.7, seed=seed + 401,
-                height_bias=0.2, freq=13.0)
-        # The cladding is what fails here, so: many small openings, everywhere.
-        _holes(prims, b, 3 + int(round(10 * intensity)), hole_r * 0.55, seed,
-               ragged=0.6)
-
-    elif mode == "soft_story":
-        lean(prims, b, angle_deg=lean_deg, direction_deg=direction,
-             profile="soft_story")
-        b = bounds_of(prims) or b
-        pancake(prims, b, z_lo=0.0, z_hi=0.16,
-                collapse=0.55 + 0.35 * intensity,
-                spread=0.14 + 0.14 * intensity, seed=seed)
-        b = bounds_of(prims) or b
-        crumble(prims, b, amount=spall_amount, seed=seed, height_bias=-0.5)
-        # The ground floor is gone, so open it: the storey that crushed is the
-        # one you can see through afterwards.
-        _holes(prims, b, 2 + int(round(4 * intensity)), hole_r * 1.3, seed,
-               z_range=(0.0, 0.22))
-
-    elif mode == "mid_story":
-        lo = float(rng.uniform(0.30, 0.60))
-        lean(prims, b, angle_deg=lean_deg * 0.8, direction_deg=direction,
-             profile="linear")
-        b = bounds_of(prims) or b
-        pancake(prims, b, z_lo=lo, z_hi=lo + 0.15,
-                collapse=0.5 + 0.4 * intensity,
-                spread=0.16 + 0.14 * intensity, seed=seed)
-        b = bounds_of(prims) or b
-        crumble(prims, b, amount=spall_amount, seed=seed, height_bias=0.2)
-        _holes(prims, b, 2 + int(round(4 * intensity)), hole_r * 1.3, seed,
-               z_range=(max(0.0, lo - 0.05), lo + 0.20))
-
-    elif mode == "total":
-        # Several bands crush in sequence, each re-measured, so the building
-        # squats rather than telescoping through itself.
-        for i in range(3):
-            b = bounds_of(prims) or b
-            lo = 0.05 + 0.30 * i
-            pancake(prims, b, z_lo=lo, z_hi=lo + 0.22,
-                    collapse=0.45 + 0.35 * intensity,
-                    spread=0.18 + 0.16 * intensity, seed=seed + i * 97)
-        b = bounds_of(prims) or b
-        lean(prims, b, angle_deg=lean_deg * 1.6, direction_deg=direction,
-             profile="linear")
-        b = bounds_of(prims) or b
-        crumble(prims, b, amount=spall_amount * 1.5, seed=seed, height_bias=0.0)
-        # Nothing intact is left; the envelope should be full of gaps.
-        _holes(prims, b, 4 + int(round(9 * intensity)), hole_r * 1.5, seed,
-               ragged=0.6)
-
-    else:   # "partial" — one side drops, the rest leans into the gap
-        lo = float(rng.uniform(0.0, 0.35))
-        pancake(prims, b, z_lo=lo, z_hi=lo + 0.20,
-                collapse=0.4 + 0.4 * intensity,
-                spread=0.24 + 0.20 * intensity, seed=seed)
-        b = bounds_of(prims) or b
-        # A large whip-profile lean after the collapse throws the standing part
-        # over the failed side, which is what reads as a partial collapse.
-        lean(prims, b, angle_deg=lean_deg * 2.2, direction_deg=direction,
-             profile="whip")
-        b = bounds_of(prims) or b
-        crumble(prims, b, amount=spall_amount * 1.3, seed=seed,
-                height_bias=0.4)
-        # Open the side that dropped, not the side still holding it up.
-        _holes(prims, b, 3 + int(round(6 * intensity)), hole_r * 1.8, seed,
-               z_range=(lo, min(1.0, lo + 0.55)), facing=facing, ragged=0.6)
+    pick = rng.choice(len(norm), size=min(int(n), len(norm)), replace=False)
+    return [tuple(norm[i]) for i in pick]
 
 
 def blast_epicenter(prims, bounds: Bounds, seed: int = 0):
     """Where the charge sat, in normalized building space.
 
-    Ported from the prototype's reasoning, both halves of which matter. It must
-    be a point ON the building: a geometric guess at some radius and bearing
-    lands in empty air whenever the footprint is not roughly circular — an
-    L-plan or a long slab leaves most of its bounding box empty — and the blast
-    then quietly does nothing. And it should be the most PERIPHERAL such point:
-    a charge sits against an exterior wall, while a blast centred inside the
-    building frees nearly every fragment at once and the whole thing
-    disintegrates instead of losing a corner.
+    Both halves matter. It must be a point ON the building: a geometric guess
+    at some radius and bearing lands in empty air whenever the footprint is not
+    roughly circular — an L-plan or a long slab leaves most of its bounding box
+    empty — and the blast then quietly does nothing. And it should be the most
+    PERIPHERAL such point: a charge sits against an exterior wall, while a
+    blast centred inside the building frees nearly everything at once and the
+    whole thing disintegrates instead of losing a corner.
     """
     pts = (surface_points(prims, 24, bounds, seed=seed, z_range=(0.0, 0.45))
            or surface_points(prims, 24, bounds, seed=seed))
@@ -1717,462 +1457,57 @@ def blast_epicenter(prims, bounds: Bounds, seed: int = 0):
     return (0.9 * math.cos(ang), 0.9 * math.sin(ang), 0.25)
 
 
-def blast(prims, intensity: float, seed: int = 0, epicenter=None) -> None:
-    """A breach, then radial displacement and soot. Serves explosion."""
-    b = bounds_of(prims)
-    if b is None:
-        return
-    if epicenter is None:
-        epicenter = blast_epicenter(prims, b, seed)
-    # The breach comes FIRST, on undeformed geometry: the epicentre was chosen
-    # against the surface as it stands, and `shockwave` moves that surface out
-    # from under it.
-    punch_hole(prims, b, epicenter, radius=0.06 + 0.22 * intensity, seed=seed,
-               ragged=0.5)
-    shockwave(prims, b, epicenter, radius=0.45 + 0.35 * intensity,
-              strength=0.04 + 0.16 * intensity, falloff="shell", seed=seed,
-              floor_z=b.base_z)
-    b = bounds_of(prims) or b
-    crumble(prims, b, amount=0.006 + 0.020 * intensity, seed=seed + 7,
-            height_bias=0.3)
-    # Local to the breach: a charge blackens the wall it went off against, not
-    # the far side of the building. `burnout` is the one that chars everything.
-    scorch(prims, strength=0.3 + 0.6 * intensity, bounds=b,
-           epicenter=epicenter, radius=0.6 + 0.4 * intensity)
+def release_column(points: np.ndarray, failure: Failure, bounds: Bounds,
+                   samples: int = 6) -> np.ndarray:
+    """The worst damage anywhere in the column of material below each point.
 
+    **This is the propagation.** A piece of a building is held up by everything
+    between it and the ground, so when that path fails, the piece comes free
+    whether or not its own material was touched. Sampling the field straight
+    down from each point and taking the maximum is the cheapest honest form of
+    that statement, and it is what turns a lost ground floor into a collapsed
+    building instead of a floating one.
 
-def wind_shear(prims, intensity: float, seed: int = 0,
-               direction_deg: float = None, peel: float = None) -> None:
-    """The top comes off. Serves tornado and hurricane.
-
-    Wind loads a building at the roofline, and it fails from the top down —
-    roof covering, then roof structure, then the top storey's walls. So the
-    material removal is concentrated in a band at the top (*peel*, a fraction
-    of the height) and biased to the windward side, and the lean uses the
-    `whip` profile that accelerates upward.
-
-    The lean is deliberately smaller than it was. A building that survived a
-    storm is not visibly tilted — the tell is that its top is missing, which
-    took `punch_hole` to express at all. The matching `fracture_plan` then
-    shatters the same band into pieces that travel downwind.
+    Six samples is enough because the fields are smooth in z at the scale that
+    matters — the narrowest feature any of them has is a storey (`_grain` in
+    `field_earthquake`), and a building is more than six storeys only at the
+    top of the library.
     """
-    b = bounds_of(prims)
-    if b is None:
-        return
-    rng = np.random.default_rng(seed)
-    if direction_deg is None:
-        direction_deg = float(rng.uniform(0, 360))
-    if peel is None:
-        peel = 0.12 + 0.30 * intensity
-    facing = (math.cos(math.radians(direction_deg)),
-              math.sin(math.radians(direction_deg)))
-
-    lean(prims, b, angle_deg=1.5 + 6.0 * intensity,
-         direction_deg=direction_deg, profile="whip")
-    b = bounds_of(prims) or b
-    crumble(prims, b, amount=0.008 + 0.026 * intensity, seed=seed,
-            height_bias=0.8)             # the wind works on the upper storeys
-    b = bounds_of(prims) or b
-    _holes(prims, b, 2 + int(round(6 * intensity)),
-           0.08 + 0.20 * intensity, seed,
-           z_range=(max(0.0, 1.0 - peel), 1.0), facing=facing, ragged=0.55)
-    # A little damage lower down, on the windward face only — the storm took
-    # windows and cladding off the side it hit, not off the whole building.
-    _holes(prims, b, int(round(3 * intensity)), 0.05 + 0.06 * intensity,
-           seed + 313, z_range=(0.1, max(0.2, 1.0 - peel)), facing=facing)
-
-
-def burnout(prims, intensity: float, seed: int = 0) -> None:
-    """A burnt-out shell: the roof is consumed, the walls stand. Serves fire.
-
-    Ported from the prototype's `fire`, whose reasoning is the whole profile:
-    fire destroys roofs and floors — timber, spanning, under load — long before
-    it drops masonry walls, so the SILHOUETTE is the tell. Openings go in the
-    top, nothing is thrown anywhere, and the charring is applied globally
-    rather than from a point because the whole structure burns.
-
-    That makes it the opposite of `wind_shear`, which also takes the top off:
-    wind tears a band away and carries it downwind, fire consumes it in place
-    and drops it inward. Same silhouette from a distance, opposite debris.
-    """
-    b = bounds_of(prims)
-    if b is None:
-        return
-    # Open the roof up — a few large holes rather than many small ones, which
-    # is what a collapsed roof deck reads as from the air.
-    _holes(prims, b, 2 + int(round(5 * intensity)),
-           0.08 + 0.16 * intensity, seed, z_range=(0.55, 1.0), ragged=0.6)
-    b = bounds_of(prims) or b
-    crumble(prims, b, amount=0.004 + 0.012 * intensity, freq=8.0, seed=seed + 3,
-            height_bias=0.6)
-    # Charred throughout, not from an epicentre: no `bounds`/`epicenter`, so
-    # every material on the building takes the full weight.
-    scorch(prims, strength=0.45 + 0.50 * intensity)
-
-
-def inundation(prims, intensity: float, seed: int = 0) -> None:
-    """Little structural loss; the damage is at the waterline. Serves flood."""
-    b = bounds_of(prims)
-    if b is None:
-        return
-    crumble(prims, b, amount=0.003 + 0.008 * intensity, seed=seed,
-            height_bias=-0.9)            # scour and staining low down
-    scorch(prims, strength=0.15 + 0.25 * intensity)   # silt line, not soot
-    # Undermined footings and doors stoved in: a couple of small openings at
-    # the waterline, and nothing above it. Water does not take a roof off.
-    _holes(prims, b, int(round(2 * intensity)), 0.04 + 0.04 * intensity,
-           seed + 77, z_range=(0.0, 0.2))
-
-
-PROFILES = {
-    "structural_collapse": structural_collapse,
-    "blast": blast,
-    "wind_shear": wind_shear,
-    "burnout": burnout,
-    "inundation": inundation,
-}
-
-# Which mechanism each disaster type reaches for. Adding a type is an entry
-# here plus one in `fracture_plan` — no new operators, which is the point of
-# keeping the profiles a layer below the taxonomy.
-PROFILE_FOR_DISASTER = {
-    "earthquake": "structural_collapse",
-    "explosion": "blast",
-    "tornado": "wind_shear",
-    "hurricane": "wind_shear",
-    "fire": "burnout",
-    "flood": "inundation",
-    "none": None,
-}
-
-
-def apply_profile(prims, disaster_type: str, intensity: float,
-                  seed: int = 0, report: dict = None, **kw) -> str | None:
-    """Run the profile for *disaster_type*. Returns its name, or None.
-
-    *report*, when given, collects whatever the profile chose that the caller
-    needs — today just the earthquake's failure mode, which `fracture_plan`
-    has to agree with.
-    """
-    name = PROFILE_FOR_DISASTER.get(str(disaster_type).lower())
-    if not name or intensity <= 0.0 or not prims:
-        return None
-    if report is not None and name == "structural_collapse":
-        kw["report"] = report
-    PROFILES[name](prims, float(np.clip(intensity, 0.0, 1.0)), seed=seed, **kw)
-    return name
+    n = max(int(samples), 1)
+    out = np.zeros(len(points))
+    z0 = bounds.base_z
+    for k in range(n):
+        f = k / max(n - 1, 1)
+        q = points.copy()
+        q[:, 2] = z0 + (points[:, 2] - z0) * f
+        out = np.maximum(out, failure.damage(q))
+    return out
 
 
 # ---------------------------------------------------------------------------
-# WHAT SHATTERING MEANS FOR EACH DISASTER
+# 4. STAGE THREE — PROPAGATION BY CELL FRACTURE
 #
-# `fracture_to_stage` takes a height band, a fineness and a bearing. Which
-# three you choose IS the difference between the disaster types once a building
-# is in pieces, and getting them from config alone — one `fracture:` block
-# copied identically into every preset, which is what the compiler emitted —
-# meant every disaster shattered buildings the same way and only the debris
-# around them differed.
+# The crack network is a Voronoi diagram whose seeds are drawn from the failure
+# field, so cells are small where the material was pulverised and large — or
+# absent — where it was not. Each cell is the source geometry clipped by the
+# perpendicular bisector between its seed and each nearby seed.
 #
-#   earthquake  the whole building comes apart and drops where it stood
-#   tornado     a deep peel off the top, thrown hard along the track
-#   hurricane   a shallower peel, thrown along the storm bearing
-#   fire        the roof and the floors under it, dropped straight in
-#   explosion   the whole building, cut finest at the breach, thrown outward
-#   flood       nothing. Water does not shatter masonry.
+# WHY THE FRAGMENTS ARE CLOSED
+# ----------------------------
+# Three things together, and all three are necessary:
 #
-# The config block still wins where it sets a key — see `apply_to_stage` — so a
-# preset can still override any of this; it just no longer has to supply it.
-# ---------------------------------------------------------------------------
-
-#: Keys a config `mesh_damage.fracture` block may override on a plan.
-PLAN_KEYS = ("z_range", "n_cells", "focus", "focus_bias", "throw", "lift",
-             "keep_base", "direction_deg", "cap")
-
-
-#: How much of a building each earthquake failure mode actually frees, as
-#: `keep_base` — the fraction of the height that stays standing on its footings.
-#: A building that racked and stood must not be shattered to its foundations
-#: just because it was in an earthquake; the mode already decided how it failed,
-#: and the fracture has to agree with it or the six modes make no difference
-#: once the pieces hit the ground.
-_QUAKE_KEEP_BASE = {
-    "racking":    0.80,     # cracked, standing. Almost nothing comes loose.
-    "spall":      0.75,     # the cladding goes, the frame does not.
-    "soft_story": 0.30,     # ground floor gone, the storeys above ride down.
-    "mid_story":  0.40,     # one floor fails; below it is untouched.
-    "partial":    0.22,     # one side drops.
-    "total":      0.08,     # everything.
-}
-
-
-def fracture_plan(disaster_type: str, intensity: float,
-                  heading_deg: float = None,
-                  mode: str = None) -> dict | None:
-    """Kwargs for `fracture_to_stage`, or None if this type does not shatter."""
-    i = float(np.clip(intensity, 0.0, 1.0))
-    d = str(disaster_type).lower()
-
-    if d == "earthquake":
-        # Whole-building, seeded at the base where the shaking is worst, and
-        # dropped rather than thrown. How much comes loose is the failure
-        # mode's call, softened a little by intensity.
-        keep = _QUAKE_KEEP_BASE.get(mode, 0.45)
-        return {"z_range": None,
-                "n_cells": int(round(14 + 34 * i)),
-                "focus": (0.0, 0.0, 0.05), "focus_bias": 0.35,
-                "throw": 0.02 + 0.05 * i, "lift": 0.0,
-                "keep_base": max(0.05, keep - 0.15 * i),
-                "direction_deg": None}
-
-    if d in ("tornado", "hurricane"):
-        # Only the top comes apart, which is both what wind does and what makes
-        # this affordable: the band is a fifth of the building, so it needs a
-        # fifth of the cells and leaves the rest standing as its own prims.
-        # `keep_base=0` because everything inside the band is loose by
-        # definition — it is the part that tore off.
-        gale = d == "tornado"
-        peel = (0.18 + 0.42 * i) if gale else (0.10 + 0.25 * i)
-        return {"z_range": (1.0 - peel, 1.0),
-                "n_cells": int(round(8 + 22 * i)),
-                "focus": (0.0, 0.0, 1.0), "focus_bias": 0.30,
-                "throw": (0.20 + 0.45 * i) if gale else (0.10 + 0.25 * i),
-                "lift": 0.05 + 0.15 * i,
-                "keep_base": 0.0, "direction_deg": heading_deg}
-
-    if d == "fire":
-        # The roof and the floors under it are consumed, and they come down
-        # WHERE THEY WERE — no throw, no lift, no bearing. `keep_base=0` because
-        # everything inside the consumed band is loose by definition: the
-        # timber holding it up is what burned. The masonry below is untouched,
-        # which is the whole silhouette.
-        consumed = 0.30 + 0.35 * i
-        return {"z_range": (1.0 - consumed, 1.0),
-                "n_cells": int(round(10 + 26 * i)),
-                "focus": (0.0, 0.0, 1.0), "focus_bias": 0.35 + 0.30 * i,
-                "throw": 0.0, "lift": 0.0,
-                "keep_base": 0.0, "direction_deg": None}
-
-    if d == "explosion":
-        # `focus` is replaced with the real epicentre by `apply_to_stage`, so
-        # the cut is finest exactly where the breach was punched.
-        return {"z_range": None,
-                "n_cells": int(round(18 + 42 * i)),
-                "focus": (0.0, 0.0, 0.18), "focus_bias": 0.30 + 0.40 * i,
-                "throw": 0.08 + 0.22 * i, "lift": 0.03 + 0.10 * i,
-                "keep_base": 0.30 - 0.25 * i, "direction_deg": None}
-
-    return None
-
-
-def _heading_of(dis: dict):
-    """The storm's bearing in degrees, or None where the type has none.
-
-    A windstorm's damage all faces the same way and its debris all travels the
-    same way; that shared bearing is the tornado signature, and the difference
-    between a track and a bomb site.
-
-    It has to be looked for in TWO places. `compile_tornado` writes
-    `heading_deg` inside the `field` block — the corridor's bearing is a
-    property of the field — and nothing ever wrote it at the top level, so
-    reading only there silently returned None for every scene ever generated
-    and each building picked its own random bearing. The unit test could not
-    catch it: it passes `direction_deg` in directly.
-    """
-    for src in (dis, dis.get("field") or {}):
-        v = src.get("heading_deg")
-        if v is not None:
-            return float(v)
-    return None
-
-
-def apply_to_stage(stage, config: dict, placements: list) -> dict:
-    """Wreck the buildings the asset-swap route did not ruin.
-
-    Runs after `apply_placements`, because it needs real prims: the damage
-    authors overrides on `points` and on the topology of geometry inside a
-    referenced layer, and there is nothing to override until the reference is
-    composed.
-
-    `disaster_stage.apply_to_buildings` marks the candidates with
-    `_mesh_damage`, the local field intensity at that building — every building
-    it decided to damage rather than swap, plus every one it wanted to destroy
-    but had no ruin of the right footprint for. Buildings that *did* get a ruin
-    swapped in already look ruined and are left alone; wrecking them too would
-    be doing the same job twice.
-
-    Returns ``{"tally": ..., "fragments": [...], "loose": [...]}``. `loose` is
-    the subset of the fragments that came free of the structure, and the ONLY
-    ones the caller may hand to the settle pass — see `fracture_to_stage` for
-    what settling all of them costs.
-    """
-    from scene_generator import _stage, solid_assets
-
-    dis = _stage(config, "disaster")
-    dtype = str(config.get("disaster_type")
-                or config.get("locale_disaster_type") or "").lower()
-    if not dtype:
-        # Compiled configs do not carry the type name — infer it from the
-        # profile the field shape implies, falling back to the generic
-        # collapse, which is the right read for "something knocked it down".
-        dtype = str(dis.get("type") or "earthquake").lower()
-
-    seed = int(config.get("seed", 0))
-    heading = _heading_of(dis)
-
-    fcfg = (dis.get("mesh_damage") or {}).get("fracture") or {}
-    # BUDGET. Each fragment is its own prim, and the settle pass gives every
-    # one a collider and a rigid body. At ~50 cells a building, fracturing all
-    # 167 that a severity-0.6 detailed downtown marks would author ~8,700 prims
-    # and ask PhysX to rest them — on a scene that has OOM-killed at 89M
-    # points. So shattering is a budget rather than a thing every damaged
-    # building gets.
-    #
-    # It is spent on the WORST-HIT buildings, not on whichever ones the
-    # placement list reached first. Placement order is essentially the packing
-    # order, so the old first-come rule handed the budget to one corner of the
-    # map and left the epicentre — the one place a viewer looks — deformed but
-    # whole. The per-building seed still keys off the placement index, so
-    # ranking changes which buildings shatter and never how one of them does.
-    cands = [(i, p) for i, p in enumerate(placements)
-             if p.get("_mesh_damage") and p.get("prim_path")]
-    rank = sorted(cands, key=lambda ip: (-float(ip[1]["_mesh_damage"]), ip[0]))
-    shatter = set()
-    if fcfg.get("enabled", True):
-        shatter = {i for i, _ in rank[:int(fcfg.get("max_buildings", 40))]}
-
-    # Wall thickness, on the same budget and the same ranking. Doubling the
-    # point count of every damaged building in a downtown is not affordable —
-    # see the section header on `solidify` — and the buildings worth spending
-    # it on are the same worst-hit ones fracture is spent on, so a shattered
-    # building is never left as paper while an untouched one is solid.
-    tcfg = (dis.get("mesh_damage") or {}).get("thickness") or {}
-    wall_m = float(tcfg.get("wall_m", 0.5))
-    thicken = set()
-    if tcfg.get("enabled", True) and wall_m > 0.0:
-        thicken = {i for i, _ in rank[:int(tcfg.get("max_buildings", 40))]}
-    solid_kw = {k: tcfg[k] for k in ("max_points", "max_span_frac", "weld_tol")
-                if k in tcfg}
-    # Assets whose art already has material in the walls. Declared in the asset
-    # set, not detected — see `scene_generator.solid_assets`.
-    solid_usds = solid_assets(config)
-
-    # Tessellation floor for the damage operators. Off by default only in the
-    # sense that a config can set `enabled: false`; on, because without it the
-    # holes and fragments are shaped by the model's topology rather than by the
-    # disaster — see `subdivide`.
-    scfg = (dis.get("mesh_damage") or {}).get("subdivide") or {}
-    sub_edge = (float(scfg.get("max_edge_m", 4.0))
-                if scfg.get("enabled", True) else 0.0)
-    sub_max_points = int(scfg.get("max_points", 400_000))
-
-    tally: dict = {}
-    fragments: list = []
-    loose: list = []
-    for i, p in cands:
-        prim = stage.GetPrimAtPath(p["prim_path"])
-        if not prim or not prim.IsValid():
-            continue
-        # Open any instances first: a placement whose asset is internally
-        # instanced (the AEC packs are) cannot take a per-prim points opinion
-        # until it is. Scoped to the buildings actually being deformed, since
-        # this is what instancing was saving.
-        deinstance(prim)
-        prims = mesh_prims(prim)
-        if not prims:
-            continue
-        inten = float(p["_mesh_damage"])
-        bseed = seed + i * 31
-
-        kw = {}
-        if dtype in ("tornado", "hurricane") and heading is not None:
-            kw["direction_deg"] = heading
-        b = bounds_of(prims)
-        if dtype == "explosion" and b is not None:
-            # Chosen once, against the surface as it stands, and reused as the
-            # fracture focus — so the mesh is cut finest where it was breached.
-            kw["epicenter"] = blast_epicenter(prims, b, bseed)
-
-        # REFINE BEFORE BREAKING.
-        #
-        # Every hole is cut by `delete_faces`, i.e. at face granularity, so the
-        # coarsest triangle in the asset is the smallest hole it can have — and
-        # these assets carry 255 m2 wall slabs. Refining first is what lets the
-        # damage be shaped like damage instead of like the model's topology;
-        # see `subdivide`. It runs before the profile because the profile is
-        # what punches the holes.
-        #
-        # `max_edge` is metres of world space and scales with the building, not
-        # with the asset's own units: a 0.6 m edge on a tower and on a shed
-        # means the same size of rubble in the scene, which is the thing being
-        # controlled.
-        if sub_edge > 0.0 and b is not None:
-            for mp in prims:
-                subdivide(mp, sub_edge, max_points=sub_max_points)
-
-        report: dict = {}
-        name = apply_profile(prims, dtype, inten, seed=bseed, report=report,
-                             **kw)
-        if not name:
-            continue
-        tally[name] = tally.get(name, 0) + 1
-
-        # Thickness. Runs AFTER the profile and BEFORE the fracture, and both
-        # halves of that matter:
-        #   * after, because the profile is what OPENS the building — every
-        #     mode ends by punching holes — and `solidify` rims whatever edges
-        #     it finds. Thicken first and the holes are punched back through
-        #     both shells, leaving the same knife edge this exists to remove.
-        #   * before, because the fracture cuts whatever the prims hold. Cut a
-        #     shell and every fragment is a zero-thickness sheet; cut a slab
-        #     and the rubble has chunks in it.
-        # One pass therefore serves both, and nothing downstream needs to know.
-        if i in thicken and p.get("usd") not in solid_usds:
-            b = bounds_of(prims)
-            got = solidify_prims(prims, wall_m, bounds=b, **solid_kw)
-            if got["meshes"]:
-                tally["thickened"] = tally.get("thickened", 0) + 1
-        elif i in thicken:
-            tally["already_solid"] = tally.get("already_solid", 0) + 1
-
-        # Shattering. Runs AFTER the vertex profile so the fragments are cut
-        # from already-failed geometry, and takes the failure mode that profile
-        # chose so the two agree about how much of the building survived.
-        plan = fracture_plan(dtype, inten, heading_deg=heading,
-                             mode=report.get("mode")) if i in shatter else None
-        if plan is None:
-            continue
-        if fcfg.get("cells"):                 # legacy spelling of `n_cells`
-            lo, hi = list(fcfg["cells"])[:2]
-            plan["n_cells"] = int(round(lo + (hi - lo) * inten))
-        plan.update({k: v for k, v in fcfg.items() if k in PLAN_KEYS})
-        if "epicenter" in kw:
-            plan["focus"] = tuple(kw["epicenter"])
-
-        b = bounds_of(prims)                  # the profile moved the geometry
-        if b is None:
-            continue
-        cut = fracture_to_stage(stage, prim, b, seed=bseed, **plan)
-        fragments.extend(cut["paths"])
-        loose.extend(cut["loose"])
-        if cut["paths"]:
-            tally["fragments"] = tally.get("fragments", 0) + len(cut["paths"])
-            tally["loose"] = tally.get("loose", 0) + len(cut["loose"])
-            tally["shattered"] = tally.get("shattered", 0) + 1
-
-    if tally:
-        print("[mesh_damage] deformed "
-              + "  ".join(f"{k}={v}" for k, v in sorted(tally.items())))
-    return {"tally": tally, "fragments": fragments, "loose": loose}
-
-
-# ---------------------------------------------------------------------------
-# fracture
+#   * the input is a solid, because stage one made it one;
+#   * every clip is CAPPED (`_cap_fan`), so the cross-section a plane leaves
+#     is filled rather than left as an open mouth;
+#   * a cell interior to the fractured region is bounded by nothing but those
+#     capped planes and the closed surface it was cut from.
 #
-# Ported from `scenegen/damage.py:voronoi_fracture`, which builds each Voronoi
-# cell by copying the source mesh and bisecting it with the perpendicular
-# bisector plane between its seed and each nearby seed — it does not use
-# Blender's cell-fracture addon (the `bpy` wheel does not ship one), so the
-# algorithm was already explicit and only the bisection needed replacing.
+# The exception is the boundary of the fractured region itself, where faces
+# stop being consumed and the cell has an open edge against the geometry that
+# stayed behind. That is by construction the low-damage end of the field, which
+# is below the release threshold — so the fragments with an open face are
+# exactly the ones that never move, and the open face is flush against the mesh
+# it was cut from. Everything that is thrown or settled is closed.
 #
 # WHY THE CLIP IS HAND-WRITTEN
 # ----------------------------
@@ -2180,14 +1515,7 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
 # python already ships trimesh 4.5.1 — but importing it pulls in `shapely`,
 # which Isaac does not have, and capping additionally wants a triangulation
 # engine it does not have either. Adding both means a Dockerfile change and an
-# image rebuild for what is fifty lines of Sutherland-Hodgman. So the clip is
-# here, in numpy, and works in Kit today.
-#
-# Fragments come out as OPEN SHELLS — the cut face is not capped. That is what
-# the prototype degrades to as well ("on non-manifold source meshes some caps
-# will fail and those fragments stay shells — visually fine for rubble"), and
-# building assets are non-manifold to begin with, so a cap is ill-defined: an
-# open shell has no well-defined inside.
+# image rebuild for what is fifty lines of Sutherland-Hodgman.
 # ---------------------------------------------------------------------------
 
 
@@ -2218,115 +1546,120 @@ class Soup:
     def __len__(self):
         return len(self.faces)
 
+    def centroids(self) -> np.ndarray:
+        """Per-triangle centroid, (T, 3) — where the field is sampled."""
+        return self.verts[self.faces].mean(axis=1)
 
-def _cap_loops(seg, normal, tol: float = 1e-4):
-    """Close the cut. ``seg`` is ``[(pa, ua, pb, ub), ...]`` on the plane.
 
-    Every triangle a plane cuts leaves exactly one segment lying in that plane,
-    so the boundary of the cut cross-section is already in hand — it just has
-    to be chained into loops and filled. Returns ``(verts, uvs, tris)`` in the
-    cap's own local numbering, or empty arrays when nothing closes.
+def _cap_fan(verts, faces, normal, origin, tol_rel: float = 1e-9):
+    """Close a cut: one triangle per in-plane boundary edge, fanned to a point.
 
-    WHY THIS IS WORTH DOING AT ALL
-    ------------------------------
-    Without it every fragment is an open shell: measured, 30 of 30 fragments
-    were non-watertight, so looking into a fracture surface showed the hollow
-    between the two sheets `solidify` had just built. The rubble had thickness
-    from the outside and none at the cut, which is where a viewer looks.
+    Returns ``(centre_xyz, tris)`` where *tris* indexes ``verts`` except for
+    index ``-1``, which stands for the centre the caller has to append. Empty
+    when there is nothing to close.
 
-    WHERE IT GIVES UP, AND WHY THAT IS THE RIGHT CALL
-    -------------------------------------------------
-    Only loops that actually CLOSE are filled. Building assets are
-    non-manifold — that is stated at the top of the fracture section and is why
-    the clip makes no topology assumptions — so a cut across a T-junction or a
-    stray unwelded seam leaves a chain that never returns to its start. Those
-    are dropped rather than guessed at: a wrong cap is a visible sheet of
-    geometry hanging in space, an absent one is the open edge we had before.
+    WHY THIS IS THE LOAD-BEARING PART OF "CLOSED FRAGMENTS"
+    -------------------------------------------------------
+    Without a cap every fragment is an open shell: measured, 30 of 30 were
+    non-watertight, so looking into a fracture surface showed the hollow
+    between the two sheets stage one had just built. The rubble had thickness
+    from the outside and none at the cut, which is exactly where a viewer
+    looks.
 
-    Fill is a centroid fan, which is correct for convex and star-shaped loops.
-    A Voronoi plane cutting a wall slab gives a thin rectangle, and cutting a
-    box corner gives a triangle or quad, so the loops here are overwhelmingly
-    of that kind. A degenerate fan on a re-entrant loop costs a few slivers,
-    not a hole.
+    WHY IT IS A FAN AND NOT A POLYGON FILL
+    --------------------------------------
+    The obvious construction — chain the cut segments into loops, then fill
+    each loop — is what this replaces, and it failed on real geometry for three
+    separate reasons, all of which are gone here:
+
+      * a vertex lying exactly ON the plane records no crossing, so the chain
+        broke and the whole loop was dropped, uncapped;
+      * a cross-section with more than one loop through a shared welded point
+        chained into the wrong one;
+      * a cut through a **solidified** wall has an ANNULAR cross-section, and
+        an annulus is not a loop that a centroid fan can fill.
+
+    A fan needs none of it. Every edge of the kept surface that lies in the
+    plane is part of the cut's boundary — that is a local test, no chaining —
+    and each one gets a triangle back to a single shared centre, wound the
+    opposite way round. Every such edge is then used exactly twice with
+    opposite orientation, which IS closure, and the fan triangles share their
+    spoke edges pairwise. Holes take care of themselves: an inner ring runs the
+    other way round, so its fan is negatively oriented and cancels the outer
+    fan over the hole, which is the standard signed-area argument for filling a
+    polygon with holes from an arbitrary point.
+
+    The cost is coplanar overlapping triangles inside a hollow cross-section.
+    They are invisible (they are inside a solid), they cancel in every integral
+    anyone computes over the surface, and they are the price of never leaving a
+    hole. Finding the boundary edges of the KEPT geometry rather than tracking
+    crossings during the clip is also what makes the coplanar cases — a face
+    lying in the plane, an edge lying in the plane — behave.
+
+    HOW CLOSED, MEASURED
+    --------------------
+    On a solidified box cut into ~34 cells across four seeds: 126 of 133
+    fragments have no open edge at all, and 111 open edges remain out of
+    ~100,000. Uncapped, the same geometry gives **zero** closed fragments and
+    1,925 open edges on one building alone.
+
+    On real objaverse houses the rate is 0.05% to 4% of edges left open, and
+    most fragments are still perfectly closed. The residue is degenerate
+    slivers the clipper drops (`len(poly) < 3`), cuts leaving fewer than three
+    boundary edges, and the small amount of non-manifold geometry `solidify`
+    could not resolve — that pass takes a raw asset from 5,953 open edges of
+    41,891 (14%) down to 191 of 137,719 (0.14%), and what it cannot fix is what
+    shows up here. These are slivers, not holes.
+
+    WHAT IT COSTS
+    -------------
+    The cap is the module's dominant expense, and it scales with how finely the
+    asset is tessellated rather than with anything this code chooses: a plane
+    through a 95,000-triangle bungalow crosses a great many edges, and each one
+    becomes a triangle. Budget roughly **35-50 s and ~1.2M triangles per
+    building** at 32 cells on that library, which is time-parity with the
+    unclosed implementation this replaces (38.9 s) at ~2.6x its geometry. That
+    ratio is the price of solid rubble, and `apply_to_stage`'s per-scene budget
+    is what keeps it affordable — see the note there.
+
+    *tol_rel* is what counts as "in the plane", relative to the geometry's own
+    scale. It matters in one direction only: a crossing point computed as
+    ``a + t (b - a)`` lands within a few ULP of the plane rather than exactly
+    on it, so **zero tolerance caps nothing** (0 of 133 closed). The result is
+    flat from 1e-12 to 1e-8 and then degrades fast — at 1e-5, vertices that are
+    merely *near* the plane get fanned and closure falls to 91 of 133.
     """
-    if len(seg) < 3:
-        return (np.zeros((0, 3)), np.zeros((0, 2)), np.zeros((0, 3), np.int64))
-
+    empty = (np.zeros(3), np.zeros((0, 3), dtype=np.int64))
+    if len(faces) == 0:
+        return empty
     n = np.asarray(normal, dtype=np.float64)
     n = n / max(np.linalg.norm(n), 1e-12)
+    d = (verts - np.asarray(origin, dtype=np.float64)) @ n
+    tol = tol_rel * max(1.0, float(np.abs(verts).max()))
+    on = np.abs(d) <= tol
+    if on.sum() < 3:
+        return empty
 
-    # Weld endpoints on a grid so the chain can find its neighbours.
-    pts, uvs, key_of = [], [], {}
+    ea = faces[:, [0, 1, 2]].reshape(-1)
+    eb = faces[:, [1, 2, 0]].reshape(-1)
+    sel = on[ea] & on[eb]
+    a, b = ea[sel], eb[sel]
+    if len(a) < 3:
+        return empty
+    # A collapsed edge is not a boundary; fanning it emits a zero-area sliver.
+    live = (np.abs(verts[a] - verts[b]).max(axis=1) > tol)
+    a, b = a[live], b[live]
+    if len(a) < 3:
+        return empty
 
-    def _key(p, u):
-        k = tuple(np.round(np.asarray(p) / max(tol, 1e-12)).astype(np.int64))
-        if k not in key_of:
-            key_of[k] = len(pts)
-            pts.append(np.asarray(p, dtype=np.float64))
-            uvs.append(np.asarray(u, dtype=np.float64)
-                       if u is not None else np.zeros(2))
-        return key_of[k]
-
-    edges = []
-    for pa, ua, pb, ub in seg:
-        ia, ib = _key(pa, ua), _key(pb, ub)
-        if ia != ib:
-            edges.append((ia, ib))
-    if not edges:
-        return (np.zeros((0, 3)), np.zeros((0, 2)), np.zeros((0, 3), np.int64))
-
-    adj: dict = {}
-    for ia, ib in edges:
-        adj.setdefault(ia, []).append(ib)
-        adj.setdefault(ib, []).append(ia)
-
-    P = np.asarray(pts)
-    U = np.asarray(uvs)
-    seen_edge = set()
-    out_v, out_uv, out_f = [], [], []
-
-    for ia, ib in edges:
-        if (min(ia, ib), max(ia, ib)) in seen_edge:
-            continue
-        loop, prev, cur = [ia], ia, ib
-        ok = False
-        while True:
-            loop.append(cur)
-            seen_edge.add((min(prev, cur), max(prev, cur)))
-            nxt = [x for x in adj.get(cur, ()) if x != prev]
-            if not nxt:
-                break                      # dead end: chain does not close
-            nxt = nxt[0]
-            if nxt == loop[0]:
-                seen_edge.add((min(cur, nxt), max(cur, nxt)))
-                ok = True
-                break
-            if nxt in loop or len(loop) > 4096:
-                break
-            prev, cur = cur, nxt
-        if not ok or len(loop) < 3:
-            continue
-
-        idx = np.asarray(loop, dtype=np.int64)
-        ring, ring_uv = P[idx], U[idx]
-        centre = ring.mean(axis=0)
-        base = len(out_v)
-        out_v.append(centre)
-        out_uv.append(ring_uv.mean(axis=0))
-        out_v.extend(ring)
-        out_uv.extend(ring_uv)
-        # Wind so the cap faces +normal, i.e. away from the half being kept.
-        area = np.cross(ring - centre, np.roll(ring, -1, axis=0) - centre)
-        flip = float(area.sum(axis=0) @ n) < 0.0
-        for k in range(len(ring)):
-            a = base + 1 + k
-            b = base + 1 + (k + 1) % len(ring)
-            out_f.append([base, b, a] if flip else [base, a, b])
-
-    if not out_f:
-        return (np.zeros((0, 3)), np.zeros((0, 2)), np.zeros((0, 3), np.int64))
-    return (np.asarray(out_v), np.asarray(out_uv),
-            np.asarray(out_f, dtype=np.int64))
+    centre = verts[np.unique(np.concatenate([a, b]))].mean(axis=0)
+    # (centre, b, a) — the segment reversed, which is the winding that makes
+    # the cap face +n, i.e. out of the half being kept. See the module note.
+    area = np.cross(verts[b] - centre, verts[a] - centre) @ n
+    if float(area.sum()) < 0.0:
+        a, b = b, a                      # source wound inside out; take it back
+    tris = np.stack([np.full(len(a), -1, dtype=np.int64), b, a], axis=1)
+    return centre, tris
 
 
 def _clip_by_plane(verts, faces, normal, origin, uv=None, fmat=None,
@@ -2343,9 +1676,9 @@ def _clip_by_plane(verts, faces, normal, origin, uv=None, fmat=None,
     positions-only form the tests exercise.
 
     The result is COMPACTED — vertices no longer referenced are dropped. That
-    is not tidiness: `fracture` clips the same soup a dozen times in a row, and
-    without compaction each pass carries the full original vertex array through
-    every later one, so the cost never falls as the cell shrinks.
+    is not tidiness: a cell is clipped a dozen times in a row, and without
+    compaction each pass carries the full original vertex array through every
+    later one, so the cost never falls as the cell shrinks.
     """
     empty = np.zeros((0, 3), dtype=np.int64)
     if len(faces) == 0:
@@ -2364,11 +1697,10 @@ def _clip_by_plane(verts, faces, normal, origin, uv=None, fmat=None,
     cut = np.nonzero((n_in == 1) | (n_in == 2))[0]
 
     new_v, new_uv, new_f, new_m = [], [], [], []
-    seg = []                     # the cut's own boundary, for `_cap_loops`
     base = len(verts)
     for fi in cut:
         tri = faces[fi]
-        poly, poly_uv, xing = [], [], []
+        poly, poly_uv = [], []
 
         def _add(p, q=None, t=None):
             if q is None:
@@ -2376,12 +1708,9 @@ def _clip_by_plane(verts, faces, normal, origin, uv=None, fmat=None,
                 if uv is not None:
                     poly_uv.append(uv[p])
             else:
-                pos = verts[p] + t * (verts[q] - verts[p])
-                tex = (uv[p] + t * (uv[q] - uv[p])) if uv is not None else None
-                poly.append(pos)
+                poly.append(verts[p] + t * (verts[q] - verts[p]))
                 if uv is not None:
-                    poly_uv.append(tex)
-                xing.append((pos, tex))
+                    poly_uv.append(uv[p] + t * (uv[q] - uv[p]))
 
         for k in range(3):
             a, b = tri[k], tri[(k + 1) % 3]
@@ -2401,10 +1730,6 @@ def _clip_by_plane(verts, faces, normal, origin, uv=None, fmat=None,
                 _add(a, b, da / (da - db))
         if len(poly) < 3:
             continue
-        if cap and len(xing) == 2:
-            # The two crossing points are the segment this triangle leaves on
-            # the plane; the union of them bounds the cross-section.
-            seg.append((xing[0][0], xing[0][1], xing[1][0], xing[1][1]))
         start = base + len(new_v)
         new_v.extend(poly)
         new_uv.extend(poly_uv)
@@ -2424,14 +1749,20 @@ def _clip_by_plane(verts, faces, normal, origin, uv=None, fmat=None,
             keep_mat = (np.concatenate([keep_mat, nm])
                         if keep_mat is not None and len(keep_mat) else nm)
 
-    if cap and seg and len(keep):
-        cv, cuv, cf = _cap_loops(seg, n)
+    if cap and len(keep):
+        centre, cf = _cap_fan(verts, keep, n, origin)
         if len(cf):
-            off = len(verts)
-            verts = np.concatenate([verts, cv])
+            # `-1` in the fan is the shared centre, appended here so the fan
+            # can be built without knowing where the vertex array will end.
+            cf = np.where(cf < 0, len(verts), cf)
+            verts = np.concatenate([verts, centre[None, :]])
             if uv is not None:
-                uv = np.concatenate([uv, cuv])
-            keep = np.concatenate([keep, cf + off])
+                # The centre sits in the middle of the cut, so the middle of
+                # the UVs around it is the only defensible value; the cut face
+                # has no authored parameterisation of its own.
+                uv = np.concatenate([uv, uv[np.unique(cf[:, 1:])].mean(
+                    axis=0, keepdims=True)])
+            keep = np.concatenate([keep, cf])
             if fmat is not None:
                 # The interior takes the majority material of the piece it
                 # closes; there is no separate "cut face" material in the
@@ -2445,71 +1776,16 @@ def _clip_by_plane(verts, faces, normal, origin, uv=None, fmat=None,
     if len(keep) == 0:
         return verts[:0], empty, (uv[:0] if uv is not None else None), keep_mat
 
-    used = np.unique(keep)
-    remap = np.full(len(verts), -1, dtype=np.int64)
+    # Compacted with a mask rather than `np.unique`, which sorts: this runs a
+    # dozen times per cell on arrays of tens of thousands of faces, and O(V + T)
+    # beats O(T log T) by enough to matter at that count.
+    seen = np.zeros(len(verts), dtype=bool)
+    seen[keep.reshape(-1)] = True
+    used = np.nonzero(seen)[0]
+    remap = np.empty(len(verts), dtype=np.int64)
     remap[used] = np.arange(len(used))
     return (verts[used], remap[keep],
             uv[used] if uv is not None else None, keep_mat)
-
-
-def _seed_points(bounds: Bounds, n: int, seed: int, focus=None,
-                 focus_bias: float = 0.0, surface=None,
-                 surface_frac: float = 0.75) -> np.ndarray:
-    """Voronoi seeds in world space.
-
-    *surface*, if given, is an (M, 3) array of points ON the mesh; that
-    fraction of the seeds is drawn from it. This matters more than it sounds:
-    a building is a thin SHELL inside a mostly-empty bounding box, so seeding
-    the box uniformly puts most seeds in interior air and leaves one enormous
-    cell holding the bulk of the geometry — measured on a brownstone, the
-    largest fragment was 31k of 61k triangles, i.e. not shattered at all.
-    Seeding from the surface divides the shell instead of the air.
-
-    *focus_bias* then pulls seeds toward *focus*, because real damage is finely
-    pulverised at the source and coarsely cracked further out.
-    """
-    rng = np.random.default_rng(seed)
-    box = rng.random((n, 3)) * (bounds.hi - bounds.lo) + bounds.lo
-    if surface is not None and len(surface) and surface_frac > 0:
-        k = int(round(n * float(np.clip(surface_frac, 0.0, 1.0))))
-        if k:
-            pick = rng.integers(0, len(surface), size=k)
-            # jitter off the surface so cuts do not all land exactly on it
-            jitter = (rng.random((k, 3)) - 0.5) * bounds.frac(0.04)
-            box[:k] = surface[pick] + jitter
-    pts = box
-    if focus is not None and focus_bias > 0:
-        f = bounds.to_world(focus)
-        pull = rng.random((n, 1)) ** 2 * focus_bias
-        pts = pts * (1 - pull) + f * pull
-    return pts
-
-
-def _triangulate(counts: np.ndarray):
-    """``(tri_slots, tri_face)`` for a face-vertex layout.
-
-    *tri_slots* (T, 3) indexes the FLATTENED face-vertex array rather than the
-    point array, so the caller can pull both point indices and faceVarying data
-    through the same triangulation. *tri_face* (T,) is each triangle's source
-    face, which is how uniform data and material bindings follow.
-
-    Vectorised per distinct face size — real assets are all quads and triangles,
-    so this is two passes, against one Python iteration per face before.
-    """
-    starts = _fv_starts(counts)
-    slots, src = [], []
-    for c in np.unique(counts):
-        c = int(c)
-        if c < 3:
-            continue
-        sel = np.nonzero(counts == c)[0]
-        s = starts[sel]
-        for k in range(1, c - 1):
-            slots.append(np.stack([s, s + k, s + k + 1], axis=1))
-            src.append(sel)
-    if not slots:
-        return np.zeros((0, 3), dtype=np.int64), np.zeros(0, dtype=np.int64)
-    return np.concatenate(slots), np.concatenate(src)
 
 
 #: Primvar names that hold UVs when the type alone does not say so.
@@ -2595,26 +1871,21 @@ def _face_material_ids(prim, n_faces: int, table: list, index: dict):
     return out
 
 
-def _mesh_soup(prims, z_range=None, bounds: "Bounds | None" = None):
+def _mesh_soup(prims, select=None):
     """``(Soup, taken)`` — the prims' geometry as one soup, and what it took.
 
-    *z_range* is a normalized height band of *bounds*; only faces whose
-    centroid falls inside it enter the soup. *taken* is a per-prim boolean mask
-    over that prim's faces saying which ones did, so `fracture_to_stage` can
-    delete exactly the geometry it turned into fragments and leave the rest of
-    the building standing as its own original, fully textured prims.
+    *select* maps an (F, 3) array of world-space face centroids to a boolean
+    mask; only the faces it accepts enter the soup. *taken* is the per-prim
+    mask, so `fracture_to_stage` can delete exactly the geometry it turned into
+    fragments and leave the rest of the building standing as its own original,
+    fully textured prims.
 
-    That band is what makes "the roof tore off" expressible: without it the
-    only fracture available is all-or-nothing, and a hurricane that shatters a
-    tower to its foundations is the wrong picture.
+    That predicate is how the failure field decides what comes apart. With
+    ``select=None`` the whole building is consumed.
     """
     V, UV, F, M, taken = [], [], [], [], []
     table, index = [], {}
     off = 0
-    lo_z = hi_z = None
-    if z_range is not None and bounds is not None:
-        lo_z = bounds.lo[2] + float(z_range[0]) * bounds.dims[2]
-        hi_z = bounds.lo[2] + float(z_range[1]) * bounds.dims[2]
 
     for prim in prims:
         counts, idx = _face_arrays(prim)
@@ -2623,10 +1894,12 @@ def _mesh_soup(prims, z_range=None, bounds: "Bounds | None" = None):
             taken.append(None)
             continue
 
-        take = np.ones(len(counts), dtype=bool)
-        if lo_z is not None:
-            cz = (np.add.reduceat(pts[idx][:, 2], _fv_starts(counts)) / counts)
-            take = (cz >= lo_z) & (cz <= hi_z)
+        if select is None:
+            take = np.ones(len(counts), dtype=bool)
+        else:
+            cen = (np.add.reduceat(pts[idx], _fv_starts(counts), axis=0)
+                   / counts[:, None])
+            take = np.asarray(select(cen), dtype=bool)
         taken.append(take)
         if not take.any():
             continue
@@ -2658,61 +1931,202 @@ def _mesh_soup(prims, z_range=None, bounds: "Bounds | None" = None):
                 np.concatenate(M), table), taken
 
 
-def _fracture_soup(soup: Soup, n_cells: int = 40, seed: int = 0, focus=None,
-                   focus_bias: float = 0.0, neighbors: int = 12,
-                   min_faces: int = 4, cap: bool = True) -> list:
-    """Shatter a soup into Voronoi cells. Returns a list of `Soup` fragments.
+#: How much faster seed density grows than damage does. Above 1 the worst-hit
+#: place is unambiguously the finest, which is what makes a blast crater read
+#: as pulverised against the coarse cracking further out.
+SEED_GAMMA = 1.5
 
-    Each cell is the source clipped by the perpendicular bisector between its
-    seed and each of its *neighbors* nearest seeds — the prototype's
-    construction, with the bisection swapped for `_clip_by_plane`.
 
-    Seeds are drawn against the SOUP's own bounding box rather than the
-    building's. With a height band that is the difference between seeding the
-    torn-off roof and seeding the whole tower, of which the band is a tenth.
+def fracture_seeds(soup: Soup, failure: Failure, fragment_m: float,
+                   seed: int, max_cells: int, spacing_frac: float = 0.7,
+                   oversample: int = 8) -> np.ndarray:
+    """Voronoi seeds, (S, 3) world space, drawn against the failure field.
 
-    Cells with fewer than *min_faces* triangles are dropped: a Voronoi cell in
-    empty interior space clips down to nothing, and emitting those as prims
-    costs draw calls for invisible geometry.
+    THE SIZE OF A FRAGMENT IS THE SPACING BETWEEN CRACKS
+    ----------------------------------------------------
+    So *fragment_m* — a length in world metres, because a chunk of wall is a
+    metre or two across whether it fell off a bungalow or a tower — sets the
+    minimum distance between seeds directly, and the number of cells is
+    whatever fits. That is the right way round, and the reverse is a trap this
+    got wrong first: deriving the spacing from a target *count* means deriving
+    it from the damaged surface AREA, and on real geometry that number is
+    meaningless. Measured on an objaverse bungalow, the soup came to 17,988 m²
+    on a 12 x 11 m footprint — forty-five times its envelope, because the asset
+    carries interior walls, doubled shells and detail geometry, and because
+    stage one had just doubled all of it. The spacing that fell out was 11.85 m,
+    wider than the house, so **two seeds** survived and the "shattered" bungalow
+    came apart into two pieces. Area is not a quantity these assets can be
+    asked for; a length is.
+
+    TWO MORE THINGS THIS HAS TO GET RIGHT
+    -------------------------------------
+    * **Seed the material, not the air.** A building is a thin shell inside a
+      mostly-empty bounding box, so seeding the box uniformly puts most seeds
+      in interior air and leaves one enormous cell holding the bulk of the
+      geometry — measured on a brownstone, the largest fragment was 31k of 61k
+      triangles, i.e. not shattered at all. Candidates are therefore face
+      centroids, which are on the geometry by construction.
+    * **Cracks are finer where the damage is worse**, because comminution
+      scales with the energy that went into the material: the same wall is
+      cracked into slabs at the edge of a blast and pulverised at its centre.
+      So the spacing is a *radius per seed* that shrinks with damage, and the
+      thinning honours the larger of any pair — the standard variable-radius
+      Poisson rule.
+
+    WHEN THE BUDGET IS THE BINDING CONSTRAINT, THE CELLS GET BIGGER
+    ---------------------------------------------------------------
+    Not fewer. If *max_cells* would be exceeded the whole spacing is scaled up
+    and the thinning re-run, so the seeds still **cover** the damaged region at
+    a coarser size.
+
+    Truncating the list instead is the trap, and it is worth spelling out
+    because the failure looks like a fracture bug rather than a seeding one.
+    Candidates were once visited worst-damage first so that a truncated budget
+    would at least buy resolution at the epicentre — but an earthquake's field
+    saturates at the base, so all 72 seeds packed into one corner of the ground
+    floor at 0.7 m spacing and **nothing above it got a seed at all**. The
+    unseeded four fifths of the building then fell into whichever peripheral
+    cell was nearest, and those cells came out holding 13,000 to 32,000
+    triangles each — bigger than the building, overlapping each other, and
+    taking 70 seconds to cut. Coverage first, resolution second.
     """
-    if len(soup) == 0 or n_cells < 2:
+    if len(soup) == 0 or fragment_m <= 0.0 or max_cells < 2:
+        return np.zeros((0, 3))
+    cen = soup.centroids()
+    d = np.clip(failure.damage(cen), 0.0, 1.0)
+    w = d ** SEED_GAMMA
+    nz = np.nonzero(w > 1e-6)[0]
+    if len(nz) < 2:
+        return np.zeros((0, 3))
+
+    rng = np.random.default_rng(int(seed) + 7)
+    k = int(min(len(nz), max(int(max_cells) * int(oversample), 2)))
+    # Weighted and UNSORTED: the draw already puts more candidates where the
+    # damage is, and the per-seed radius below turns that into density. Any
+    # further ordering biases coverage instead of resolution.
+    pick = rng.choice(nz, size=k, replace=False, p=w[nz] / w[nz].sum())
+    base_r = float(fragment_m) * (1.0 - 0.60 * d[pick]) * float(spacing_frac)
+    jitter = rng.random((k, 3)) - 0.5
+
+    kept = np.zeros((0, 3))
+    scale = 1.0
+    for _ in range(6):
+        radius = base_r * scale
+        # A little jitter off the surface so cuts do not all land exactly on it.
+        cand = cen[pick] + jitter * radius[:, None] * 0.5
+        pts = np.empty((k, 3))
+        rad = np.empty(k)
+        n = 0
+        for q, r in zip(cand, radius):
+            if n:
+                lim = np.maximum(rad[:n], r)
+                if (((pts[:n] - q) ** 2).sum(axis=1) < lim * lim).any():
+                    continue
+            pts[n], rad[n] = q, r
+            n += 1
+        kept = pts[:n]
+        if n <= max_cells:
+            break
+        # Cell area goes as the square of the spacing, so this lands close to
+        # the budget in one step; the loop is for the rounding.
+        scale *= math.sqrt(n / float(max_cells)) * 1.02
+    return kept[:int(max_cells)]
+
+
+def _fracture_soup(soup: Soup, seeds: np.ndarray, neighbors: int = 24,
+                   min_faces: int = 4, cap: bool = True) -> list:
+    """Clip *soup* into one `Soup` per seed. Cells too small to see are dropped.
+
+    Each cell is its candidate geometry clipped by the perpendicular bisector
+    between its seed and each other seed, nearest first — which is not cosmetic,
+    since the nearest bisector removes the most and every later plane then walks
+    a smaller soup.
+
+    WHERE IT STOPS, AND WHY IT IS NOT A FIXED NEIGHBOUR COUNT
+    ---------------------------------------------------------
+    A cell contained in ``ball(p, R)`` cannot be touched by the bisector with
+    any seed further than ``2R`` away — the plane sits at half that distance,
+    outside the ball. Since the seeds are visited in order of distance, the
+    first one that fails the test ends the loop, and the result is the exact
+    Voronoi cell rather than an approximation of it.
+
+    This began as "clip by the twelve nearest seeds", and a fixed count is
+    wrong in both directions on a field-driven seeding, where density varies by
+    design. Too few and the cell is never bounded: measured on an objaverse
+    bungalow, 72 cells came to **1.9 million triangles** against a 95,000
+    triangle source, because each peripheral cell kept most of the building.
+    Too many and every cell pays for planes that cannot reach it. The radius
+    test needs no number at all — *neighbors* survives only as a ceiling.
+
+    Cells with fewer than *min_faces* triangles are dropped: a cell whose seed
+    landed in interior air clips down to nothing, and emitting those as prims
+    costs draw calls for invisible geometry.
+
+    DO NOT PRE-CULL THE FACE SET. IT IS THE OBVIOUS OPTIMISATION AND IT IS UNSOUND
+    -----------------------------------------------------------------------------
+    Every cell starts from the whole soup, which is O(cells x faces) and is the
+    dominant cost of the whole module. The tempting fix is to first drop, per
+    cell, the faces lying wholly beyond one of its bisectors — exact as a
+    *set* operation, since such a face cannot touch the cell, and it does cut
+    the time roughly in half.
+
+    It also destroys the capping completely: measured on a solidified box,
+    closure went from **62 of 70 fragments to 0 of 70**, with or without the
+    early exit, and whether 16 planes were culled or all 48.
+
+    The reason is that the cap is incremental. `_cap_fan` closes a cut by
+    fanning the edges that lie in the plane, which requires the cross-section
+    at that moment to be a closed loop — and it is one only because the
+    geometry being cut is itself closed. Culling opens it: whole faces vanish,
+    leaving a jagged boundary that lies on no plane, so the first cut's
+    cross-section is a truncated chain, its fan has unpaired spokes, and the
+    later planes do not put them back. The closure of the *final* cell depends
+    on the closure of every intermediate one.
+
+    So the geometry each plane sees has to stay closed all the way through, and
+    the only sound speed-ups are ones that do not remove faces: clipping
+    nearest-first (below), stopping as soon as no remaining seed can reach the
+    cell (below), and making the clip itself cheaper (`_clip_by_plane`).
+    """
+    if len(soup) == 0 or len(seeds) < 2:
         return []
-    box = Bounds(soup.verts.min(axis=0), soup.verts.max(axis=0))
-    centroids = soup.verts[soup.faces].mean(axis=1)
-    pts = _seed_points(box, int(n_cells), seed, focus, focus_bias,
-                       surface=centroids)
-    d2 = np.sum((pts[:, None, :] - pts[None, :, :]) ** 2, axis=-1)
+    d2 = np.sum((seeds[:, None, :] - seeds[None, :, :]) ** 2, axis=-1)
     np.fill_diagonal(d2, np.inf)
-    order = np.argsort(d2, axis=1)[:, :max(1, neighbors)]
+    order = np.argsort(d2, axis=1)[:, :max(1, int(neighbors))]
 
     out = []
-    for i, p in enumerate(pts):
+    for i, p in enumerate(seeds):
         cv, cf, cuv, cm = soup.verts, soup.faces, soup.uv, soup.fmat
         for j in order[i]:
-            q = pts[j]
-            nrm = q - p
-            if np.linalg.norm(nrm) < 1e-9:
-                continue
-            cv, cf, cuv, cm = _clip_by_plane(cv, cf, nrm, (p + q) * 0.5,
-                                             cuv, cm, cap=cap)
             if len(cf) == 0:
                 break
+            q = seeds[j]
+            gap = float(np.linalg.norm(q - p))
+            if gap < 1e-9:
+                continue
+            # `_clip_by_plane` compacts, so every vertex here is still in play.
+            if gap > 2.0 * float(np.linalg.norm(cv - p, axis=1).max()):
+                break
+            cv, cf, cuv, cm = _clip_by_plane(cv, cf, q - p, (p + q) * 0.5,
+                                             cuv, cm, cap=cap)
         if len(cf) >= min_faces:
             out.append(Soup(cv, cuv, cf, cm, soup.mats))
     return out
 
 
-def fracture(prims, bounds: Bounds, n_cells: int = 40, seed: int = 0,
-             focus=None, focus_bias: float = 0.0, neighbors: int = 12,
-             min_faces: int = 4, z_range=None, cap: bool = True) -> list:
-    """Shatter *prims* into Voronoi cells. Returns a list of `Soup` fragments.
+def fracture(prims, bounds: Bounds, failure: Failure, seed: int = 0,
+             fragment_m: float = 2.5, max_cells: int = 32,
+             support: float = 0.12, neighbors: int = 24,
+             min_faces: int = 4, cap: bool = True) -> list:
+    """Shatter *prims* along *failure*. Returns a list of `Soup` fragments.
 
     The read-only half of `fracture_to_stage` — nothing is authored and the
     source is left alone, which is what makes it testable without a stage.
     """
-    soup, _ = _mesh_soup(prims, z_range, bounds)
-    return _fracture_soup(soup, n_cells, seed, focus, focus_bias,
-                          neighbors, min_faces, cap=cap)
+    soup, _taken = _mesh_soup(
+        prims, lambda cen: failure.damage(cen) >= support)
+    seeds = fracture_seeds(soup, failure, fragment_m, seed, max_cells)
+    return _fracture_soup(soup, seeds, neighbors, min_faces, cap=cap)
 
 
 def _bind_materials(stage, mesh, frag: Soup) -> None:
@@ -2723,12 +2137,11 @@ def _bind_materials(stage, mesh, frag: Soup) -> None:
     rather than as a building coming apart.
 
     The majority material is bound on the prim and each remaining one gets a
-    `GeomSubset`, which is what the prototype's "fragments inherit the source's
-    materials" amounts to on USD. Binding only the majority is tempting and
-    wrong: it holds up on a tower cut into 50 cells, where a cell really is one
-    material, but a house cut into 40 spans roof, wall and trim in nearly every
-    cell — the damage gallery showed a whole street of them rendering in one
-    flat off-white. Subsets carry no geometry, so the cost is a prim each and
+    `GeomSubset`. Binding only the majority is tempting and wrong: it holds up
+    on a tower cut into 50 cells, where a cell really is one material, but a
+    house cut into 40 spans roof, wall and trim in nearly every cell — the
+    damage gallery showed a whole street of them rendering in one flat
+    off-white. Subsets carry no geometry, so the cost is a prim each and
     nothing is paid at all by the single-material fragments that skip it.
     """
     prim = mesh.GetPrim()
@@ -2758,72 +2171,95 @@ def _bind_materials(stage, mesh, frag: Soup) -> None:
         UsdShade.MaterialBindingAPI.Apply(sub.GetPrim()).Bind(mat)
 
 
-def fracture_to_stage(stage, root_prim, bounds: Bounds, n_cells: int = 40,
-                      seed: int = 0, focus=None, focus_bias: float = 0.0,
-                      direction_deg: float = None, throw: float = 0.0,
-                      lift: float = 0.0, keep_base: float = 0.35,
-                      z_range=None, cap: bool = True) -> list:
-    """Shatter *root_prim* in place and author the fragments. Returns paths.
+def fracture_to_stage(stage, root_prim, bounds: Bounds, failure: Failure,
+                      seed: int = 0, fragment_m: float = 2.5,
+                      max_cells: int = 32,
+                      support: float = 0.12, release: float = 0.50,
+                      collapse: float = 0.80, neighbors: int = 24,
+                      min_faces: int = 4, cap: bool = True) -> dict:
+    """Break *root_prim* along *failure* and author the fragments.
 
-    Fragments are authored under `<root>/fragments/`, carrying their `st` and a
-    material binding so they still look like the building they came from.
+    Returns ``{"paths": [...], "loose": [...], "cells": n}``; `loose` is the
+    subset of `paths` that came free of the structure, and the only fragments
+    the caller may hand to the settle pass.
 
-    Their points are written in the ROOT's local space, not in world space.
-    Everything upstream of here works in world space — that is the operators'
-    whole convention — but a fragment is a child of the building prim and so
-    inherits the building's transform, and `apply_placements` gives that prim
-    the placement's translate, rotate and scale. Authoring world points under
-    it applies all three a second time: on the centimetre-authored AEC packs
-    (`scale: 0.01`) that puts the debris a hundred times too small and a long
-    way from the building it came off.
+    THE THREE THRESHOLDS
+    --------------------
+    *support* is where material is damaged enough to be worth cutting at all.
+    Faces below it stay on the source prims, with their own materials, UVs and
+    subsets untouched — so a hurricane that fails the top tenth of a tower pays
+    for the top tenth and leaves the other nine as they were.
 
-    WHAT IS CONSUMED
-    ----------------
-    *z_range* is the normalized height band that comes apart. Only the faces in
-    it are turned into fragments, and only those faces are removed from the
-    source — so a wind profile can take the top fifth of a building and leave
-    the remaining four fifths standing as their original prims, with their own
-    materials, UVs and subsets untouched. With ``z_range=None`` the whole
-    building is consumed and its source meshes end up empty, at which point
-    `delete_faces` deactivates them (they live in a referenced layer, where
-    `RemovePrim` does not compose — the trap `prune_prims` documents).
+    *release* is where a fragment's own material has failed enough that it is
+    no longer attached to anything. *collapse* is the higher bar the material
+    *underneath* it has to clear before it comes free for lack of support (see
+    `release_column`). Two thresholds rather than one because the two are not
+    the same event: a roof that has failed is off the building, but a wall does
+    not fall just because the storey below it is cracked — it falls when that
+    storey is gone.
 
-    WHERE THE PIECES GO, AND WHICH OF THEM FALL
-    -------------------------------------------
-    *keep_base* is the fraction of the building's height below which a fragment
-    is still standing on its own footings. Those come back as ANCHORED; the
-    rest come back as LOOSE, are thrown by *throw* along *direction_deg*, and
-    are lofted by *lift* (both fractions of the building radius) — the
-    windstorm signature, where everything loose travels one bearing rather than
-    radiating symmetrically.
+    If nothing anywhere reaches *release*, nothing is authored at all. An
+    anchored fragment is cut where the geometry was and is geometrically
+    identical to the source it replaced, so a building that cracks without
+    losing anything should be left alone rather than re-authored into pieces
+    that look exactly like it did.
 
-    That split is the whole reason intensity means anything, and it is the
-    prototype's `partition` in one line. **Only the loose fragments may be
-    settled.** Hand every fragment to PhysX and gravity levels the building
-    whatever the severity was — a 0.3 earthquake and a 0.9 one both end as the
-    same flat pile, and a severity sweep stops comparing anything. The
-    anchored ones are cut where the geometry was and belong exactly there.
+    WHAT IS CONSUMED, AND WHERE THE PIECES GO
+    -----------------------------------------
+    Only the faces the soup took are removed from the source; with the whole
+    building consumed its meshes end up empty, at which point `delete_faces`
+    deactivates them (they live in a referenced layer, where `RemovePrim` does
+    not compose — the trap `prune_prims` documents).
 
-    Returns ``{"paths": [...], "loose": [...]}``; `loose` is the subset the
-    caller should mark for the settle pass, and it is a subset of `paths`.
+    Released fragments are translated RIGIDLY by `failure.ejecta` at their own
+    centroid. Rigidly, because a fragment is a rigid body — the earlier
+    per-vertex, height-scaled throw sheared every piece as it moved it.
+
+    Points are written in the ROOT's local space, not in world space.
+    Everything upstream works in world space — that is this module's whole
+    convention — but a fragment is a child of the building prim and inherits
+    its transform, and `apply_placements` gives that prim the placement's
+    translate, rotate and scale. Authoring world points under it applies all
+    three a second time: on the centimetre-authored AEC packs (`scale: 0.01`)
+    that puts the debris a hundred times too small and a long way from the
+    building it came off.
     """
     prims = mesh_prims(root_prim)
-    soup, taken = _mesh_soup(prims, z_range, bounds)
-    frags = _fracture_soup(soup, n_cells=n_cells, seed=seed, focus=focus,
-                           cap=cap,
-                           focus_bias=focus_bias)
-    if not frags:
-        # Nothing came apart. Leave the source intact — deleting the band with
-        # no fragments to replace it would just punch the top off the building.
-        return {"paths": [], "loose": []}
+    if not prims:
+        return {"paths": [], "loose": [], "cells": 0}
 
-    rng = np.random.default_rng(seed + 13)
-    if direction_deg is None:
-        direction_deg = float(rng.uniform(0.0, 360.0))
-    ang = math.radians(direction_deg)
-    dirx, diry = math.cos(ang), math.sin(ang)
-    z_keep = bounds.base_z + keep_base * bounds.height
-    push, up = bounds.frac(throw), bounds.frac(lift)
+    soup, taken = _mesh_soup(
+        prims, lambda cen: failure.damage(cen) >= support)
+    if len(soup) == 0:
+        return {"paths": [], "loose": [], "cells": 0}
+
+    # Nothing would come free, so nothing is worth authoring — see above.
+    if float(np.max(failure.damage(soup.centroids()))) < release:
+        return {"paths": [], "loose": [], "cells": 0}
+
+    seeds = fracture_seeds(soup, failure, fragment_m, seed, max_cells)
+    if len(seeds) < 2:
+        return {"paths": [], "loose": [], "cells": 0}
+    frags = _fracture_soup(soup, seeds, neighbors, min_faces, cap=cap)
+    if not frags:
+        # Nothing came apart. Leave the source intact — deleting the damaged
+        # region with no fragments to replace it would just punch a hole.
+        return {"paths": [], "loose": [], "cells": 0}
+
+    # --- release: which fragments are still part of the building ------------
+    cen = np.array([f.centroids().mean(axis=0) for f in frags])
+    own = np.array([float(np.mean(failure.damage(f.centroids())))
+                    for f in frags])
+    below = release_column(cen, failure, bounds)
+    freed = (own >= release) | (below >= collapse)
+    if not freed.any():
+        # Nothing moved, so nothing is worth authoring: an anchored fragment is
+        # cut where the geometry was and is indistinguishable from the source
+        # it would replace. Checked here rather than only on the field's
+        # maximum above because a fragment is judged on its MEAN damage, which
+        # a single hot face can clear without any piece of the building doing.
+        return {"paths": [], "loose": [], "cells": 0}
+    push = failure.ejecta(cen)
 
     scope = root_prim.GetPath().AppendChild("fragments")
     UsdGeom.Scope.Define(stage, scope)
@@ -2831,23 +2267,13 @@ def fracture_to_stage(stage, root_prim, bounds: Bounds, n_cells: int = 40,
     paths, loose = [], []
     for i, fr in enumerate(frags):
         v = fr.verts
-        # Standing on its own footings, or freed? A piece whose lowest point is
-        # still down in the base of the building has something under it.
-        anchored = float(v[:, 2].min()) <= z_keep
-        if not anchored and (push > 0.0 or up > 0.0):
-            # Height-scaled, as the prototype has it: what started high had
-            # further to travel and was less restrained on the way.
-            t = np.clip((v[:, 2] - z_keep) / max(bounds.height, 1e-6), 0.0, 1.0)
-            v = v.copy()
-            v[:, 0] += dirx * push * t
-            v[:, 1] += diry * push * t
-            v[:, 2] += up * t
+        if freed[i] and np.abs(push[i]).max() > 1e-9:
+            v = v + push[i]
 
         p = scope.AppendChild(f"frag_{i:03d}")
         mesh = UsdGeom.Mesh.Define(stage, p)
         local = v @ root_inv[:3, :3] + root_inv[3, :3]
-        mesh.GetPointsAttr().Set(
-            Vt.Vec3fArray([Gf.Vec3f(*map(float, q)) for q in local]))
+        mesh.GetPointsAttr().Set(_vec3f(local))
         mesh.GetFaceVertexCountsAttr().Set(Vt.IntArray([3] * len(fr.faces)))
         mesh.GetFaceVertexIndicesAttr().Set(
             Vt.IntArray([int(x) for x in fr.faces.reshape(-1)]))
@@ -2859,7 +2285,7 @@ def fracture_to_stage(stage, root_prim, bounds: Bounds, n_cells: int = 40,
                                   for a, b in fr.uv]))
         _bind_materials(stage, mesh, fr)
         paths.append(str(p))
-        if not anchored:
+        if freed[i]:
             loose.append(str(p))
 
     # Only now: the soup had to be built from the faces before they went.
@@ -2868,4 +2294,407 @@ def fracture_to_stage(stage, root_prim, bounds: Bounds, n_cells: int = 40,
     for prim, take in zip(prims, taken):
         if take is not None and take.any():
             delete_faces(prim, ~take, deactivate=prim != root_prim)
-    return {"paths": paths, "loose": loose}
+    return {"paths": paths, "loose": loose, "cells": len(frags)}
+
+
+# ---------------------------------------------------------------------------
+# soot — the one thing damage does to materials rather than to geometry
+#
+# Kept out of the four stages because it is not structural: it changes what the
+# surface looks like, not what is there. It is still driven by the same field,
+# so a blast blackens the wall it went off against and not the far side of the
+# building, and a fire chars everything because its field reaches everything.
+# ---------------------------------------------------------------------------
+
+# Albedo inputs worth darkening, by shading model. UsdPreviewSurface is what
+# the Objaverse→USD conversion writes; the `diffuse_*` names are OmniPBR/MDL,
+# which is what the Nucleus and AEC packs bind inside Isaac.
+_ALBEDO_INPUTS = ("diffuseColor", "baseColor",
+                  "diffuse_tint", "diffuse_color_constant", "albedo_add")
+_ROUGHNESS_INPUTS = ("roughness", "reflection_roughness_constant")
+
+
+def scorch(prims, failure: Failure, samples: int = 256) -> int:
+    """Darken each bound material in proportion to how hard the field hit it.
+
+    Returns how many materials were touched. Authored once per *material*: the
+    material lives in the referenced layer and is shared between prims, so a
+    second visit would compound the tint.
+
+    WHY SETTING THE INPUT IS NOT ENOUGH
+    -----------------------------------
+    This used to be `inp.Set(darker_colour)` on `diffuseColor` and it did
+    **nothing at all** on almost every real asset. Building assets drive albedo
+    from an image texture, which in USD means `diffuseColor` is *connected* to
+    a `UsdUVTexture`, and a connection beats a value — the authored constant is
+    simply never consulted. The USD way out needs no new node: `UsdUVTexture`
+    has an `inputs:scale` that multiplies whatever it sampled, so soot goes
+    there. Only the RGB components are scaled — the fourth is alpha, and a
+    texture whose `.a` drives opacity would otherwise turn the building
+    transparent as it charred.
+
+    ROUGHNESS IS ONLY TOUCHED WHEN IT IS NOT CONNECTED, which is not timidity:
+    these assets pack roughness and metallic into two channels of ONE texture,
+    so scaling that texture to roughen the surface would silently rewrite
+    metallic too.
+    """
+    w_max = float(np.clip(failure.char, 0.0, 1.0))
+    if w_max <= 0.0:
+        return 0
+
+    weights: dict = {}
+    mats: dict = {}
+    for prim in prims:
+        mat = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()[0]
+        if not mat or not mat.GetPrim().IsValid():
+            continue
+        v = get_points(prim)
+        if not len(v):
+            continue
+        if len(v) > samples:
+            step = max(len(v) // samples, 1)
+            v = v[::step]
+        w = w_max * float(np.max(np.clip(failure.damage(v), 0.0, 1.0)))
+        if w <= 0.01:
+            continue
+        key = str(mat.GetPrim().GetPath())
+        mats[key] = mat
+        weights[key] = max(weights.get(key, 0.0), w)
+
+    for key, mat in mats.items():
+        for shader in _surface_shaders(mat):
+            _soot(shader, weights[key])
+    return len(mats)
+
+
+def _surface_shaders(material) -> list:
+    """The material's surface shader in every render context it declares.
+
+    `ComputeSurfaceSource()` with no argument resolves the universal context,
+    which finds the UsdPreviewSurface. Isaac's assets additionally (sometimes
+    only) carry an `mdl` surface, and that is the one the RTX renderer actually
+    shades with — so a scorch that checked only the universal context would
+    look right in usdview and change nothing in the sim.
+    """
+    out, seen = [], set()
+    for ctx in ("", "mdl"):
+        shader = None
+        try:
+            shader = material.ComputeSurfaceSource(ctx)[0]
+        except TypeError:
+            # Some USD builds take a context VECTOR rather than a token. Only
+            # the signature mismatch is caught: a blanket `except Exception`
+            # here is what hid this call being wrong in the first place, and a
+            # scorch that resolves no shader fails completely silently.
+            try:
+                shader = material.ComputeSurfaceSource([ctx] if ctx else [])[0]
+            except Exception:
+                shader = None
+        if shader and str(shader.GetPath()) not in seen:
+            seen.add(str(shader.GetPath()))
+            out.append(shader)
+    return out
+
+
+def _soot(shader, w: float) -> None:
+    """Darken one shader's albedo by *w*, and roughen it where it is safe to."""
+    keep = 1.0 - 0.8 * float(w)
+    for name in _ALBEDO_INPUTS:
+        inp = shader.GetInput(name)
+        if inp:
+            _scale_input(inp, keep)
+    for name in _ROUGHNESS_INPUTS:
+        inp = shader.GetInput(name)
+        if inp and not inp.HasConnectedSource():
+            cur = inp.Get()
+            if cur is not None:
+                try:
+                    inp.Set(float(min(1.0, float(cur) + 0.4 * w)))
+                except Exception:
+                    pass
+
+
+def _scale_input(inp, keep: float) -> None:
+    """Multiply a shader input by *keep*, through a texture if it goes to one."""
+    if inp.HasConnectedSource():
+        source = inp.GetConnectedSource()
+        if not source:
+            return
+        tex = UsdShade.Shader(source[0].GetPrim())
+        if not tex or tex.GetIdAttr().Get() != "UsdUVTexture":
+            return          # some other node; nothing safe to scale here
+        scale = tex.GetInput("scale")
+        if not scale:
+            scale = tex.CreateInput("scale", Sdf.ValueTypeNames.Float4)
+            scale.Set(Gf.Vec4f(1.0, 1.0, 1.0, 1.0))
+        cur = scale.Get() or Gf.Vec4f(1.0, 1.0, 1.0, 1.0)
+        # RGB only. The fourth component is alpha, and a texture whose `.a`
+        # drives opacity would fade the building out as it charred.
+        try:
+            scale.Set(Gf.Vec4f(float(cur[0]) * keep, float(cur[1]) * keep,
+                               float(cur[2]) * keep, float(cur[3])))
+        except Exception:
+            pass
+        return
+
+    cur = inp.Get()
+    if cur is None:
+        return
+    try:
+        inp.Set(Gf.Vec3f(*[float(c) * keep for c in cur]))
+    except Exception:
+        try:
+            inp.Set(float(cur) * keep)
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
+# THE DRIVER — the four stages on one building, and on a whole scene
+# ---------------------------------------------------------------------------
+
+#: Fracture knobs a config `mesh_damage.fracture` block may override. Every one
+#: has a defensible default, so a preset never has to supply any of them; what
+#: it does have to supply is the budget (`max_buildings`), because that is a
+#: property of the scene rather than of the disaster.
+FRACTURE_KEYS = ("fragment_m", "max_cells", "support", "release",
+                 "collapse", "neighbors", "min_faces", "cap")
+
+
+def damage_building(stage, root_prim, disaster_type: str, intensity: float,
+                    seed: int = 0, wall_m: float = 0.5, solid: bool = False,
+                    max_edge_m: float = 4.0, sub_max_points: int = 400_000,
+                    heading_deg=None, solid_kw: dict = None,
+                    **fracture_kw) -> dict:
+    """Run the four stages on one building. Returns a small report.
+
+    ``{"field": name|None, "thickened": n_meshes, "cells": n,
+       "paths": [...], "loose": [...]}``
+
+    ORDER IS THE ARGUMENT, NOT AN IMPLEMENTATION DETAIL
+    ---------------------------------------------------
+    * **subdivide first**, because everything after it works at the resolution
+      it is handed: `solidify` extrudes a 22 m triangle into a 22 m slab, and a
+      cell cut from two enormous triangles is two enormous triangles.
+    * **field before thickness**, so the building can be dismissed before the
+      expensive stage rather than after it. Thickening exists to serve the
+      fracture; on a building the field will never break — the far edge of an
+      epicentre falloff, or anything a flood touched — it would double the
+      point count of the geometry for nothing, on a scene that has OOM-killed
+      at 89M points. The probe is the field's own maximum over the faces,
+      which is an upper bound on any fragment's mean, so it can only dismiss
+      buildings that were going to produce nothing.
+    * **the field is rebuilt after thickening**, because it is anchored to the
+      bounds and `solidify` moves geometry. Inward, so they barely change —
+      but "barely" is not "not at all" and a field that disagrees with the
+      geometry it is cutting is a bug waiting for an asset with a thin roof.
+    * **scorch before fracture**, because fracture deactivates the source prims
+      it consumes and there would be nothing left to read a material binding
+      off. The fragments bind the same materials, so they inherit the soot.
+    """
+    out = {"field": None, "thickened": 0, "cells": 0, "paths": [], "loose": [],
+           "dismissed": False}
+    deinstance(root_prim)
+    prims = mesh_prims(root_prim)
+    if not prims:
+        return out
+    b = bounds_of(prims)
+    if b is None:
+        return out
+
+    # --- resolution floor ---------------------------------------------------
+    if max_edge_m and max_edge_m > 0.0:
+        for mp in prims:
+            subdivide(mp, float(max_edge_m), max_points=int(sub_max_points))
+        b = bounds_of(prims) or b
+
+    # --- stage two: the failure field ---------------------------------------
+    kw = {}
+    if heading_deg is not None:
+        kw["heading_deg"] = float(heading_deg)
+    if str(disaster_type).lower() == "explosion":
+        kw["epicenter"] = blast_epicenter(prims, b, seed)
+    fail = failure_field(disaster_type, b, intensity, seed, **kw)
+    if fail is None:
+        return out
+    out["field"] = fail.name
+
+    scorch(prims, fail)
+
+    release = float(fracture_kw.get("release", 0.50))
+    peak = 0.0
+    for mp in prims:
+        cen = face_centroids(mp)
+        if cen is not None and len(cen):
+            peak = max(peak, float(np.max(fail.damage(cen))))
+    if peak < release:
+        out["dismissed"] = True         # nothing here will ever come free
+        return out
+
+    # --- stage one: thickness -----------------------------------------------
+    if wall_m and wall_m > 0.0 and not solid:
+        got = solidify_prims(prims, float(wall_m), bounds=b,
+                             **(solid_kw or {}))
+        out["thickened"] = got["meshes"]
+        if got["meshes"]:
+            b = bounds_of(prims) or b
+            fail = failure_field(disaster_type, b, intensity, seed, **kw)
+
+    # --- stage three: propagation -------------------------------------------
+    cut = fracture_to_stage(stage, root_prim, b, fail, seed=seed,
+                            **fracture_kw)
+    out["paths"] = cut["paths"]
+    out["loose"] = cut["loose"]
+    out["cells"] = cut["cells"]
+    # Stage four — settling the loose fragments — is PhysX's, and it belongs to
+    # the caller: `generate_scene` gives each loose path a placement marked
+    # `settle: True`, which is how every other approximated-pose prop reaches
+    # `scene_prep.settle_rigid_props`.
+    return out
+
+
+def _heading_of(dis: dict):
+    """The storm's bearing in degrees, or None where the type has none.
+
+    A windstorm's damage all faces the same way and its debris all travels the
+    same way; that shared bearing is the tornado signature, and the difference
+    between a track and a bomb site.
+
+    It has to be looked for in TWO places. `compile_tornado` writes
+    `heading_deg` inside the `field` block — the corridor's bearing is a
+    property of the field — and nothing ever wrote it at the top level, so
+    reading only there silently returned None for every scene ever generated
+    and each building picked its own random bearing.
+    """
+    for src in (dis, dis.get("field") or {}):
+        v = src.get("heading_deg")
+        if v is not None:
+            return float(v)
+    return None
+
+
+def apply_to_stage(stage, config: dict, placements: list) -> dict:
+    """Damage the buildings the asset-swap route did not ruin.
+
+    Runs after `apply_placements`, because it needs real prims: the damage
+    authors overrides on `points` and on the topology of geometry inside a
+    referenced layer, and there is nothing to override until the reference is
+    composed.
+
+    `disaster_stage.apply_to_buildings` marks the candidates with
+    `_mesh_damage`, the local field intensity at that building — every building
+    it decided to damage rather than swap, plus every one it wanted to destroy
+    but had no ruin of the right footprint for. Buildings that *did* get a ruin
+    swapped in already look ruined and are left alone.
+
+    Returns ``{"tally": ..., "fragments": [...], "loose": [...]}``.
+
+    THE BUDGET, AND WHAT IT COSTS
+    -----------------------------
+    Thickening doubles a mesh's point count and every fragment is a prim that
+    the settle pass gives a collider and a rigid body. At ~32 cells a building,
+    doing this to all 167 buildings a severity-0.6 detailed downtown marks
+    would author ~5,300 prims on a scene that has OOM-killed at 89M points. So
+    the pipeline is a budget rather than something every marked building gets.
+
+    **The budget is worth measuring before raising.** On the suburban objaverse
+    library one damaged building costs roughly 35-50 s and ~1.2M triangles of
+    fragments — the closed-fragment cap is what dominates both, and neither
+    scales with anything this module chooses (see `_cap_fan`). At the 50-80
+    `max_buildings` the compiled presets currently carry, a severe scene is
+    therefore tens of minutes and tens of millions of triangles. If a scene is
+    slow or tight on memory, `max_buildings` is the knob, then `max_cells`.
+
+    It is spent on the WORST-HIT buildings, not on whichever ones the placement
+    list reached first: placement order is essentially packing order, so a
+    first-come rule hands the budget to one corner of the map and leaves the
+    epicentre — the one place a viewer looks — untouched. Buildings outside the
+    budget keep the tilt-and-sink `disaster_stage` already gave them.
+
+    The per-building seed keys off the placement index, so re-ranking changes
+    *which* buildings are damaged and never *how* one of them is.
+    """
+    from scene_generator import _stage, solid_assets
+
+    dis = _stage(config, "disaster")
+    dtype = str(config.get("disaster_type")
+                or config.get("locale_disaster_type") or "").lower()
+    if not dtype:
+        # Compiled configs do not carry the type name at the top level — take
+        # it from the disaster block, falling back to the generic ground
+        # failure, which is the right read for "something knocked it down".
+        dtype = str(dis.get("type") or "earthquake").lower()
+    if FAILURE_FIELDS.get(dtype) is None:
+        return {"tally": {}, "fragments": [], "loose": []}
+
+    seed = int(config.get("seed", 0))
+    heading = _heading_of(dis)
+
+    cfg = dis.get("mesh_damage") or {}
+    fcfg = cfg.get("fracture") or {}
+    tcfg = cfg.get("thickness") or {}
+    scfg = cfg.get("subdivide") or {}
+
+    if not cfg.get("enabled", True) or not fcfg.get("enabled", True):
+        return {"tally": {}, "fragments": [], "loose": []}
+
+    # One budget for one pipeline. `fracture.max_buildings` and
+    # `thickness.max_buildings` are the spellings the compiler emits today and
+    # are read as aliases; they were always set to the same number, because
+    # thickening a building nobody was going to break is wasted memory and
+    # breaking one that was left as paper is the artifact stage one exists to
+    # prevent.
+    budget = int(cfg.get("max_buildings")
+                 or fcfg.get("max_buildings")
+                 or tcfg.get("max_buildings") or 40)
+
+    wall_m = float(tcfg.get("wall_m", 0.5)) if tcfg.get("enabled", True) else 0.0
+    solid_kw = {k: tcfg[k] for k in ("max_points", "max_span_frac", "weld_tol")
+                if k in tcfg}
+    # Assets whose art already has material in the walls. Declared in the asset
+    # set, not detected — see `scene_generator.solid_assets`.
+    solid_usds = solid_assets(config)
+
+    sub_edge = (float(scfg.get("max_edge_m", 4.0))
+                if scfg.get("enabled", True) else 0.0)
+    sub_max_points = int(scfg.get("max_points", 400_000))
+    frac_kw = {k: fcfg[k] for k in FRACTURE_KEYS if k in fcfg}
+
+    cands = [(i, p) for i, p in enumerate(placements)
+             if p.get("_mesh_damage") and p.get("prim_path")]
+    rank = sorted(cands, key=lambda ip: (-float(ip[1]["_mesh_damage"]), ip[0]))
+
+    tally: dict = {}
+    fragments: list = []
+    loose: list = []
+    for i, p in rank[:budget]:
+        prim = stage.GetPrimAtPath(p["prim_path"])
+        if not prim or not prim.IsValid():
+            continue
+        got = damage_building(
+            stage, prim, dtype, float(p["_mesh_damage"]), seed=seed + i * 31,
+            wall_m=wall_m, solid=p.get("usd") in solid_usds,
+            max_edge_m=sub_edge, sub_max_points=sub_max_points,
+            heading_deg=heading, solid_kw=solid_kw, **frac_kw)
+        if got["field"] is None:
+            continue
+        tally[got["field"]] = tally.get(got["field"], 0) + 1
+        if got["dismissed"]:
+            # The field never reaches the release threshold anywhere on this
+            # building, so it was dropped before the expensive stages.
+            tally["unbroken"] = tally.get("unbroken", 0) + 1
+        elif got["thickened"]:
+            tally["thickened"] = tally.get("thickened", 0) + 1
+        elif wall_m > 0.0:
+            tally["already_solid"] = tally.get("already_solid", 0) + 1
+        if got["paths"]:
+            fragments.extend(got["paths"])
+            loose.extend(got["loose"])
+            tally["shattered"] = tally.get("shattered", 0) + 1
+            tally["fragments"] = tally.get("fragments", 0) + len(got["paths"])
+            tally["loose"] = tally.get("loose", 0) + len(got["loose"])
+
+    if tally:
+        print("[mesh_damage] "
+              + "  ".join(f"{k}={v}" for k, v in sorted(tally.items())))
+    return {"tally": tally, "fragments": fragments, "loose": loose}

@@ -9,9 +9,10 @@ plain module. Three things it does that `damage_gallery.py` does not:
     is not already on disk, and hands back the `{usd, scale, axis_up}` triple
     the pipeline wants.
   * **arbitrary knobs.** `damage(..., overrides={...})` deep-merges into the
-    compiled `disaster:` block, so every `mesh_damage.*` key — `fracture.n_cells`,
-    `fracture.z_range`, `fracture.throw`, `thickness.wall_m`, `solid_ratio` … —
-    is reachable without editing a preset.
+    compiled `disaster:` block, so every `mesh_damage.*` key —
+    `fracture.fragment_m`, `fracture.release`, `fracture.max_cells`,
+    `thickness.wall_m`, `subdivide.max_edge_m` … — is reachable without
+    editing a preset.
   * **an in-kernel picture.** `preview()` draws the composed stage with
     matplotlib, so a change is visible in seconds without leaving Python.
     `damage_gallery.py` renders through Blender, which is prettier and needs a
@@ -22,9 +23,9 @@ FAITHFULNESS IS THE WHOLE POINT, SO NOTHING HERE REIMPLEMENTS DAMAGE
 `damage()` calls `damage_gallery.build_cell`, which calls
 `disaster_stage.apply_to_buildings`, `scene_generator.apply_placements` and
 `mesh_damage.apply_to_stage` — the same three functions `generate_scene` calls,
-in the same order, off a config `compile_disaster.py` compiled. If a profile
-stops removing material, this shows it. There is no mock and no shortcut, and
-that is deliberate: a lab that models the pipeline instead of running it tells
+in the same order, off a config `compile_disaster.py` compiled. If a failure
+field stops breaking anything, this shows it. There is no mock and no
+shortcut, and that is deliberate: a lab that models the pipeline instead of running it tells
 you about itself.
 
 Two differences from a real `airstack up`, both inherited from `build_cell` and
@@ -37,21 +38,21 @@ both necessary for a single-asset harness rather than cosmetic:
   * the **fate is forced** (`damaged` or `destroyed`) instead of rolled, so the
     cell is always populated.
 
-Everything downstream of those two — which profile runs, which failure mode,
-how the fracture plan is derived, what gets thickened, what debris is dropped —
+Everything downstream of those two — which failure field runs, where the
+building fails, what comes free, what gets thickened, what debris is dropped —
 is the generator's own code path.
 
-**Budgets do not bite here.** `fracture.max_buildings` and
-`thickness.max_buildings` ration work across a whole city; with one building
-they always include it. So a solid-looking building that never thickens in a
-city scene will not thicken here either — that is `solidify`'s already-solid
-guard, not the budget. See `verify_faithful()`.
+**Budgets do not bite here.** `fracture.max_buildings` rations work across a
+whole city; with one building it always includes it. So a building that never
+thickens here is one the asset set declared `solid: true`, or one the failure
+field dismissed before stage one because nothing on it would ever come free —
+not the budget. See `verify_faithful()`.
 
     from damage_lab import resolve, damage, preview, grid
 
     asset = resolve("omniverse://…/Muyang/DestroyedBuildings/Assets/debris_1.usd")
     r = damage(asset, "earthquake", severity=0.8,
-               overrides={"mesh_damage": {"fracture": {"n_cells": 90}}})
+               overrides={"mesh_damage": {"fracture": {"fragment_m": 1.5}}})
     preview(r)
 """
 
@@ -253,9 +254,9 @@ def damage(asset: dict, disaster: str = "earthquake", severity: float = 0.8,
     `compile_disaster` has produced it, which is exactly where a preset's own
     overrides land — so anything expressible in a preset is expressible here:
 
-        overrides={"mesh_damage": {"fracture": {"n_cells": 90,
-                                                "z_range": [0.4, 1.0],
-                                                "throw": 0.0},
+        overrides={"mesh_damage": {"fracture": {"fragment_m": 1.5,
+                                                "max_cells": 120,
+                                                "release": 0.4},
                                    "thickness": {"wall_m": 0.4}}}
         overrides={"debris": {"pieces_per_building": [40, 60]}}
 
@@ -290,7 +291,7 @@ def damage(asset: dict, disaster: str = "earthquake", severity: float = 0.8,
 
 def summarize(rep: dict) -> str:
     """One line: what the pipeline actually did. Use it as the caption."""
-    return (f"{rep['label']}: profile={rep.get('profile')}  "
+    return (f"{rep['label']}: field={rep.get('field')}  "
             f"fragments={rep.get('fragments', 0)} "
             f"(loose {rep.get('loose', 0)})  "
             f"thickened={rep.get('thickened', 0)}  "
@@ -693,7 +694,7 @@ def render(reps, out_dir: str = None, res: int = 520, samples: int = 48,
     manifest = {
         "title": title or "damage lab",
         "subtitle": "; ".join(
-            f"{r['label']} [{r.get('profile')}] frag {r.get('fragments', 0)}"
+            f"{r['label']} [{r.get('field')}] frag {r.get('fragments', 0)}"
             for r in rows_in[0][:4]),
         "bare_suffix": "",
         "columns": columns,
@@ -736,7 +737,7 @@ def sweep(asset: dict, values, key: str = "severity", cols: int = 4, **kw):
     *key* is either a `damage()` argument (`severity`, `seed`, `disaster`,
     `fate`) or a dotted path into `overrides`:
 
-        sweep(a, [30, 60, 120], key="mesh_damage.fracture.n_cells")
+        sweep(a, [1.0, 2.5, 5.0], key="mesh_damage.fracture.fragment_m")
         sweep(a, [0.2, 0.5, 0.8, 1.0], key="severity")
     """
     reps = []
@@ -778,7 +779,7 @@ def verify_faithful(asset: dict, disaster: str = "earthquake",
     b = damage(asset, disaster, severity, seed, quiet=True, debris=False,
                settle=False, name="_verify_lab2")
     same = (a["fragments"] == b["fragments"] and a["loose"] == b["loose"]
-            and a["profile"] == b["profile"]
+            and a["field"] == b["field"]
             and a["thickened"] == b["thickened"])
     return {"deterministic": same, "a": summarize(a), "b": summarize(b)}
 

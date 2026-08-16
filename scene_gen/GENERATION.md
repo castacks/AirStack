@@ -677,13 +677,34 @@ Two mechanisms ruin a building, and the fate drawn for it decides which:
   is little authored art for "damaged but standing"), and the fallback whenever
   no ruin fits the footprint.
 
-Mesh damage works in three ways, and needs all three. **Moving vertices**
-(`lean`, `pancake`, `crumble`, `shockwave`) is cheap but never changes the face
-count, so on its own a "collapsed" building still has a complete envelope and
-reads as squashed rather than broken. **Deleting faces** (`punch_hole`) is what
-opens a roof or blows out a facade. **Cutting the mesh apart** (`fracture`)
-turns a band of it into Voronoi fragments that become their own prims and are
-dropped by the PhysX settle pass.
+Mesh damage is **one pipeline in four stages**, and a disaster type gets to
+choose exactly one thing about it: where the building fails.
+
+1. **Thicken** (`solidify`). Give the shell wall volume — see below. Nothing
+   downstream can look like broken masonry until a wall has a thickness to
+   break through.
+2. **Fail** (`failure_field`). Evaluate a scalar **failure field** over world
+   space: `damage(p) ∈ [0, 1]`, how much of the material at *p* has lost its
+   integrity, plus an `ejecta(p)` saying where the event threw it. **This is
+   the whole of the per-disaster specialization.**
+3. **Propagate** (`fracture_to_stage`). Cut the mesh along a Voronoi crack
+   network whose seeds are drawn *from the field* — dense where damage is high,
+   absent where it is zero — with every cut capped, so the fragments are closed
+   solids rather than shells. Failure also propagates structurally: a fragment
+   whose supporting column has failed comes free even if its own material did
+   not.
+4. **Settle**. The fragments that came free are handed to PhysX by the launch
+   script; the rest stay exactly where they were cut.
+
+There is no separate vocabulary of effects. An earlier version had one — `lean`,
+`pancake`, `crumble`, `shockwave`, `punch_hole`, composed into five hand-tuned
+profiles and six enumerated earthquake "failure modes" — and each was a guess at
+the *appearance* of a failure rather than a statement about it. The field says
+the same things once and composes: a soft storey is a horizontal band of high
+damage (which falls out of noise with a storey-height grain, not out of a mode
+table), a blown-out corner is a ball of damage around the charge, a torn-off
+roof is damage that grows with height, and "the building leaned" is what PhysX
+does to a stack of released fragments.
 
 A fourth thing is not damage to the geometry at all but to the **materials**:
 `scorch` darkens what burned. It has to author the soot as `inputs:scale` on
@@ -695,49 +716,63 @@ all. Only RGB is scaled (the fourth component is alpha, and a texture whose
 raised only where it is *not* connected, since these assets pack roughness and
 metallic into two channels of one texture.
 
-A **profile** composes the first two per disaster type, and a **fracture plan**
-decides the third — which band comes apart, how finely, and where the pieces
-go. That last is what separates the types once a building is in pieces:
+Each type is one function, and each is a statement of mechanism rather than of
+appearance:
 
-| Type | Profile | What shatters |
-|------|---------|---------------|
-| `earthquake` | `structural_collapse` — six failure modes (racking, spall, soft-storey, mid-storey, total, partial), mixed by intensity; each opens the storey that failed | the whole building, seeded at the base, dropped where it stood |
-| `tornado` | `wind_shear` — the top comes off, windward-biased | a deep peel off the top, thrown hard along the track |
-| `hurricane` | `wind_shear` | a shallower peel, thrown along the storm bearing |
-| `explosion` | `blast` — a breach punched at the charge, then radial displacement and soot | the whole building, cut finest at the breach, thrown outward |
-| `fire` | `burnout` — the roof is opened up, then the whole structure is charred | the roof and the floors under it, dropped straight in |
-| `flood` | `inundation` — scour and a silt line at the waterline | nothing. Water does not shatter masonry. |
+| Type | Where it fails, and why | Where the pieces go |
+|------|-------------------------|---------------------|
+| `earthquake` | at the **base**: lateral demand is the accumulated inertia of everything above, so it peaks at the ground. Modulated by noise with a *storey-shaped* grain, so the building fails at a level — soft-storey, mid-storey and total collapse all emerge from that | nowhere; shaking imparts no direction |
+| `tornado` | at the **top**, windward-biased: wind speed rises with height and the load goes as its square. Deep peel | thrown hard along the track, lofted |
+| `hurricane` | the same mechanism, a shallower peel | carried a shorter way along the storm bearing |
+| `explosion` | a **ball** around the charge with a hard edge — overpressure falls very steeply, which is what makes a blast read as a bite rather than as subsidence | radially outward from the charge |
+| `fire` | at the top and in the **interior**: timber spans burn, masonry in compression does not, so the envelope survives | nowhere; it drops what it consumes where it stood |
+| `flood` | a thin band at the **waterline**, and the weakest of the six: it never reaches the release threshold, so a flooded building is cut by nothing | — |
+
+`fire` and `tornado` leave the same silhouette from above and are told apart by
+exactly this: the tornado's material is a hundred metres downwind and the
+fire's is inside the building.
 
 **Only the fragments that came free are settled.** `fracture_to_stage` splits
-its output into *loose* and *anchored* — a piece whose lowest point is still
-down in the base of the building has something under it — and only the loose
-ones get a placement marked `settle`. Handing every fragment to PhysX makes
-gravity level the building whatever the severity was, so a 0.3 earthquake and a
-0.9 one end as the same flat pile. How much comes loose is `keep_base`, and for
-an earthquake that is the *failure mode's* call: a building that racked and
-stood keeps 80% of its height anchored, one that failed totally keeps 8%.
+its output into *loose* and *anchored*, and only the loose ones get a placement
+marked `settle`. Handing every fragment to PhysX makes gravity level the
+building whatever the severity was, so a 0.3 earthquake and a 0.9 one end as
+the same flat pile. Two thresholds decide it, because two different things free
+a piece of a building:
 
-Shattering is a **budget**, not something every damaged building gets: each
-fragment is a prim that PhysX then has to rest, and fracturing every marked
-building would author thousands of them onto a scene that has OOM-killed
-before. The budget is spent on the worst-hit buildings — the ones at the
-epicentre or on the track — and the rest get the profile alone.
+* `release` — **its own material failed**. This is what tears a roof off in a
+  windstorm, where everything underneath is untouched.
+* `collapse` — **what held it up failed**: the column of material between it
+  and the ground contains a level at or past this. A ground floor that goes
+  takes every storey above it with it.
+
+If nothing anywhere clears `release`, nothing is authored at all — an anchored
+fragment is cut where the geometry was and is indistinguishable from the source
+it would replace, so a building that merely cracks is left alone.
+
+Mesh damage is a **budget**, not something every marked building gets:
+thickening doubles a mesh's point count and each fragment is a prim PhysX has
+to rest, so doing it to all 167 buildings a severity-0.6 downtown marks would
+author thousands onto a scene that has OOM-killed before. The budget goes to
+the worst-hit buildings — the ones at the epicentre or on the track — and the
+rest keep the tilt-and-sink the disaster stage already gave them. Buildings the
+field will never break are dismissed *before* they are thickened.
 
 ```yaml
 disaster:
   mesh_damage:
     fracture:
       enabled: true
-      max_buildings: 60     # the budget. The rest is the plan's, keyed off type
-      # any plan key may be overridden here: z_range, n_cells, focus,
-      # focus_bias, throw, lift, keep_base, direction_deg
+      max_buildings: 60     # the budget; everything else has a default
+      # optional overrides — the field supplies the rest, keyed off type:
+      # fragment_m (world size of a chunk), min_cells, max_cells,
+      # support, release, collapse, neighbors, min_faces, cap
 ```
 
 ### Walls need thickness before they can break
 
 Building assets are **hollow shells** — one surface, no depth, because nothing
 needed the inside of a wall until something broke it. Break that and it shows:
-a punched hole has a knife edge and you see through it to the unlit backfaces
+a cut has a knife edge and you see through it to the unlit backfaces
 of the far wall, and a Voronoi cell cut from a zero-thickness surface is a
 zero-thickness surface, so the rubble is a drift of curved sheets rather than
 chunks.

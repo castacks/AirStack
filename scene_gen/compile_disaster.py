@@ -185,11 +185,12 @@ def compile_earthquake(sev, spec, region):
     w, h = region
     cx, cy = spec.get("epicenter", [0.0, 0.0])
     return {
-        # Shattering. WHAT it does — how deep a band comes apart, how finely,
-        # and where the pieces go — is `mesh_damage.fracture_plan`, keyed off
-        # this type, because it differs in kind between the disasters and this
-        # block was being copied identically into every one of them. What is
-        # left here is the budget: how many buildings can afford to shatter.
+        # Mesh damage. WHAT it does — where the building fails, how finely
+        # it comes apart and where the pieces go — is the FAILURE FIELD in
+        # `mesh_damage`, keyed off this type, because it differs in kind
+        # between the disasters and this block was being copied identically
+        # into every one of them. What is left here is the budget: how many
+        # buildings can afford to be broken.
         "mesh_damage": {"fracture": {"enabled": True,
                                      "max_buildings": 60},
                         "thickness": thickness_block(60)},
@@ -247,11 +248,12 @@ def compile_tornado(sev, spec, region):
     """
     w, h = region
     return {
-        # Shattering. WHAT it does — how deep a band comes apart, how finely,
-        # and where the pieces go — is `mesh_damage.fracture_plan`, keyed off
-        # this type, because it differs in kind between the disasters and this
-        # block was being copied identically into every one of them. What is
-        # left here is the budget: how many buildings can afford to shatter.
+        # Mesh damage. WHAT it does — where the building fails, how finely
+        # it comes apart and where the pieces go — is the FAILURE FIELD in
+        # `mesh_damage`, keyed off this type, because it differs in kind
+        # between the disasters and this block was being copied identically
+        # into every one of them. What is left here is the budget: how many
+        # buildings can afford to be broken.
         "mesh_damage": {"fracture": {"enabled": True,
                                      "max_buildings": 80},
                         "thickness": thickness_block(80)},
@@ -319,11 +321,12 @@ def compile_explosion(sev, spec, region):
     w, h = region
     cx, cy = spec.get("epicenter", [0.0, 0.0])
     return {
-        # Shattering. WHAT it does — how deep a band comes apart, how finely,
-        # and where the pieces go — is `mesh_damage.fracture_plan`, keyed off
-        # this type, because it differs in kind between the disasters and this
-        # block was being copied identically into every one of them. What is
-        # left here is the budget: how many buildings can afford to shatter.
+        # Mesh damage. WHAT it does — where the building fails, how finely
+        # it comes apart and where the pieces go — is the FAILURE FIELD in
+        # `mesh_damage`, keyed off this type, because it differs in kind
+        # between the disasters and this block was being copied identically
+        # into every one of them. What is left here is the budget: how many
+        # buildings can afford to be broken.
         "mesh_damage": {"fracture": {"enabled": True,
                                      "max_buildings": 50},
                         "thickness": thickness_block(50)},
@@ -389,8 +392,8 @@ def compile_fire(sev, spec, region):
     cx, cy = spec.get("epicenter", [0.0, 0.0])
     return {
         # The roof and the floors under it are consumed and drop straight in;
-        # `fracture_plan` owns the band. Budget is high because a burnt-out
-        # shell is cheap — only the top of each building is cut.
+        # `mesh_damage.field_fire` owns that shape. Budget is high because a
+        # burnt-out shell is cheap — only the top of each building is cut.
         "mesh_damage": {"fracture": {"enabled": True,
                                      "max_buildings": 70},
                         "thickness": thickness_block(70)},
@@ -502,11 +505,12 @@ def compile_hurricane(sev, spec, region):
     zone and no narrow track.
     """
     return {
-        # Shattering. WHAT it does — how deep a band comes apart, how finely,
-        # and where the pieces go — is `mesh_damage.fracture_plan`, keyed off
-        # this type, because it differs in kind between the disasters and this
-        # block was being copied identically into every one of them. What is
-        # left here is the budget: how many buildings can afford to shatter.
+        # Mesh damage. WHAT it does — where the building fails, how finely
+        # it comes apart and where the pieces go — is the FAILURE FIELD in
+        # `mesh_damage`, keyed off this type, because it differs in kind
+        # between the disasters and this block was being copied identically
+        # into every one of them. What is left here is the budget: how many
+        # buildings can afford to be broken.
         "mesh_damage": {"fracture": {"enabled": True,
                                      "max_buildings": 60},
                         "thickness": thickness_block(60)},

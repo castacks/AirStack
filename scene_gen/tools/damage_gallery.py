@@ -34,8 +34,8 @@ Every cell is built by calling `disaster_stage.apply_to_buildings` and
 `mesh_damage.apply_to_stage` on a one-building placement list — the same two
 functions `generate_scene` calls, in the same order, off the same compiled
 config `compile_disaster.py` emits for that type. So the sheet is evidence about
-the generator rather than about this script: if a profile stops removing
-material or a debris knob stops being read, the gallery shows it.
+the generator rather than about this script: if a failure field stops
+breaking anything or a debris knob stops being read, the gallery shows it.
 
 The one thing forced is the FATE. `apply_to_buildings` normally rolls
 damaged/destroyed/untouched per building against the damage field, which for a
@@ -123,9 +123,9 @@ COLUMNS = ["pristine", "earthquake", "tornado", "hurricane", "fire",
 DEFAULT_OUT = os.path.join(_SCENE_GEN, "galleries", "damage")
 
 #: Keys in `mesh_damage`'s tally that count things rather than name the
-#: profile that ran. Everything else in it is a profile name.
+#: failure field that ran. Everything else in it is a field name.
 _TALLY_COUNTERS = ("fragments", "loose", "shattered", "thickened",
-                   "already_solid")
+                   "already_solid", "unbroken")
 
 
 # ---------------------------------------------------------------------------
@@ -473,8 +473,10 @@ def build_cell(base: dict, building: dict, disaster: str, severity: float,
         # How many of them came free of the structure, which is the number that
         # says whether this building collapsed or merely cracked.
         "loose": len(mesh.get("loose", ())),
-        "profile": next((k for k in mesh["tally"]
-                         if k not in _TALLY_COUNTERS), None),
+        # The failure field that ran, which is the only non-counter key the
+        # tally carries.
+        "field": next((k for k in mesh["tally"]
+                       if k not in _TALLY_COUNTERS), None),
         # Whether the walls were given volume before being broken. Reported per
         # cell rather than taken on trust from the flag, because `solidify`
         # declines meshes that already enclose material.
