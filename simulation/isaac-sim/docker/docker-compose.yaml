@@ -17,10 +17,6 @@ services:
         - *cache_tag
     container_name: isaac-sim
     entrypoint: ""
-    # Two --ext-folder entries: the Kit shared exts dir (where Dockerfile.isaac-ros
-    # installs pegasus.simulator at image build), plus the repo's own extensions dir so
-    # optitrack.natnet.emulator resolves. The repo copy is bind-mounted, so edits to the
-    # emulator take effect on relaunch without an image rebuild.
     command: >
       bash -c "
       tmux new -d -s isaac;
@@ -56,37 +52,7 @@ services:
       - ARDUPILOT_PHYSICS_HZ=${ARDUPILOT_PHYSICS_HZ:-800}
       - PX4_RENDERING_HZ=${PX4_RENDERING_HZ:-30}
       - ARDUPILOT_RENDERING_HZ=${ARDUPILOT_RENDERING_HZ:-120}
-      # --- PX4 SITL EKF2 external-vision (mocap) parameters -----------------------------
-      # PX4 SITL's rcS applies any PX4_PARAM_<NAME> env var via `param set` at boot, and
-      # Pegasus passes the container env straight through to the PX4 process
-      # (px4_launch_tool.py, os.environ.copy()). Without these EKF2_EV_CTRL is 0, so PX4
-      # DISCARDS the vision stream entirely and flies on sim GPS — the NatNet emulator can
-      # be streaming perfectly and change nothing.
-      #
-      # Each default below is PX4's own default, so leaving these unset is an explicit
-      # no-op and every non-mocap sim behaves exactly as before. The mocap path opts in by
-      # setting them (see tests/system/test_optitrack_e2e.py). They must not be defined-
-      # but-empty: the rcS loop has no empty-value guard and would run `param set X ""`.
-      #
-      # Values mirror the deployment-validated set in
-      # robot/ros_ws/src/perception/natnet_ros2/config/px4_params.yaml — that file is the
-      # single source of truth and carries the full rationale for each one.
-      # Defaults below are PX4's OWN defaults, read out of the firmware in this image
-      # (src/modules/ekf2/params_*.yaml, module.yaml, commander_params.c). Keep them in
-      # sync if PX4 is upgraded — a stale default here silently changes every sim.
-      #   name              PX4 default   mocap (EV) value
-      #   EKF2_EV_CTRL          0              11   pos xy + z + yaw
-      #   EKF2_HGT_REF          1 (GPS)         3   vision is the height reference
-      #   EKF2_GPS_CTRL         7               0   no GPS fusion
-      #   EKF2_MAG_TYPE         0               5   mag off; yaw from vision
-      #   EKF2_BARO_CTRL        1               0   no baro fusion
-      #   SYS_HAS_BARO          1               0   remove baro at system level
-      #   EKF2_RNG_CTRL         1               0   no range-finder aiding
-      #   EKF2_EV_DELAY         0             7.0   ms; deployment-measured
-      #   EKF2_EV_NOISE_MD      0               1   use the NOISE floors, not msg cov
-      #   EKF2_EVP_NOISE      0.1            0.05   also sets the innovation gate
-      #   EKF2_EVA_NOISE      0.1            0.05
-      # COM_ARM_WO_GPS is deliberately absent: its PX4 default is already 1.
+      # --- PX4 SITL EKF2 external-vision parameters -----------------------------
       - PX4_PARAM_EKF2_EV_CTRL=${PX4_EV_CTRL:-0}
       - PX4_PARAM_EKF2_HGT_REF=${PX4_EV_HGT_REF:-1}
       - PX4_PARAM_EKF2_GPS_CTRL=${PX4_EV_GPS_CTRL:-7}
@@ -119,8 +85,7 @@ services:
       - $HOME/docker/isaac-sim/pkg:/isaac-sim/.local/share/ov/pkg:rw \
       # pegasus integration
       - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/:rw
-      # NatNet emulator extension, same editable pattern as pegasus above: the image
-      # baked in a copy and pip-installed it editable, this mount makes repo edits live.
+      # natnet emulator integration
       - ../extensions/optitrack.natnet.emulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/optitrack.natnet.emulator/:rw
       # omniverse
       - ./omniverse.toml:/isaac-sim/.nvidia-omniverse/config/omniverse.toml:rw
@@ -197,8 +162,6 @@ services:
       - $HOME/docker/isaac-sim/data:/isaac-sim/.local/share/ov/data:rw
       - $HOME/docker/isaac-sim/pkg:/isaac-sim/.local/share/ov/pkg:rw
       - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/:rw
-      # NatNet emulator extension, same editable pattern as pegasus above: the image
-      # baked in a copy and pip-installed it editable, this mount makes repo edits live.
       - ../extensions/optitrack.natnet.emulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/optitrack.natnet.emulator/:rw
       - ./omniverse.toml:/isaac-sim/.nvidia-omniverse/config/omniverse.toml:rw
       - ./user.config.json:/isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw
