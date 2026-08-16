@@ -11,6 +11,7 @@ Mark: ``optitrack``. Needs Docker + GPU + Isaac Sim license; skips cleanly when 
 isaac-sim image isn't built locally.
 """
 import os
+import re
 import time
 
 import pytest
@@ -83,6 +84,17 @@ _NATNET_MIN_HZ = 5.0
 # preflight requires. See test_px4_ready in test_takeoff_hover_land.py — pose-era signals
 # fire ~25s earlier, and arming in that window returns "failed to arm".
 _PX4_LOCAL_POSE_TOPIC = "interface/mavros/local_position/odom"
+# MAVROS param plugin node; hosts the FCU param table as ROS 2 parameters. Same
+# service px4_param_setter reads through.
+_EV_PARAM_NODE = "interface/mavros/param"
+# One proves vision fusion is on, the other proves GPS aiding is off — together they
+# are the precondition every test below assumes but none of them check.
+_EV_EXPECTED = {"EKF2_EV_CTRL": 11, "EKF2_GPS_CTRL": 0}
+# MAVROS pulls the param table lazily after FCU connect; px4_param_setter budgets
+# settle_sec 10 + 30 retries for the same reason.
+_EV_PARAM_TIMEOUT = 90
+# `ros2 param get` prints "Integer value is: 11" / "Double value is: 7.0".
+_PARAM_VALUE_RE = re.compile(r"value is:\s*(-?[\d.]+)")
 # Cold Isaac boot: Pegasus load + Play + emulator UDP connect.
 _FIRST_MSG_TIMEOUT = 180
 
@@ -190,7 +202,51 @@ class TestOptitrackE2E:
         assert hz is not None and hz >= _NATNET_MIN_HZ, \
             f"{topic} at {hz} Hz (< {_NATNET_MIN_HZ})"
 
-    @pytest.mark.dependency(name="ev_ready", depends=["natnet_pose"])
+    @pytest.mark.dependency(name="ev_params", depends=["natnet_pose"])
+    def test_ev_params_applied(self, optitrack_sim_stack):
+        """The external-vision param set actually reached the FCU.
+
+        Everything below assumes PX4_PARAM_SET=external-vision took effect. If it
+        silently did not, EKF2_EV_CTRL stays 0 and EKF2_GPS_CTRL stays 7, the vehicle
+        flies the Circle on sim GPS, and every other test here still passes. This reads
+        the live values back off the FCU, so it covers the whole chain: compose env_file
+        -> container env -> Pegasus -> PX4 rcS -> FCU.
+        """
+        container = _robot_container(optitrack_sim_stack)
+        node = f"/robot_{_ROBOT_DOMAIN}/{_EV_PARAM_NODE}"
+
+        unread = dict(_EV_EXPECTED)
+        actual = {}
+        deadline = time.time() + _EV_PARAM_TIMEOUT
+        while unread and time.time() < deadline:
+            for name in list(unread):
+                result = ros2_exec(
+                    container, f"ros2 param get {node} {name}",
+                    domain_id=_ROBOT_DOMAIN, setup_bash=_ROBOT_SETUP_BASH, timeout=20,
+                )
+                # An unpulled param prints "Parameter not set." and still exits 0, so
+                # match on the value line rather than the return code.
+                match = _PARAM_VALUE_RE.search(result.stdout or "")
+                if match:
+                    actual[name] = float(match.group(1))
+                    del unread[name]
+            if unread:
+                time.sleep(2.0)
+
+        assert not unread, (
+            f"{', '.join(sorted(unread))} never appeared in the MAVROS param table "
+            f"within {_EV_PARAM_TIMEOUT}s — the MAVROS/FCU link is down, which is a "
+            "different failure from a wrong parameter."
+        )
+        wrong = {k: v for k, v in sorted(actual.items()) if v != _EV_EXPECTED[k]}
+        assert not wrong, (
+            f"PX4 is not configured for external vision: {wrong} (expected "
+            f"{ {k: _EV_EXPECTED[k] for k in wrong} }). PX4_PARAM_SET=external-vision "
+            "did not reach the FCU, so the flight below would fly on GPS and pass anyway."
+        )
+        logger.info("EV params confirmed on FCU: %s", actual)
+
+    @pytest.mark.dependency(name="ev_ready", depends=["ev_params"])
     def test_px4_fuses_vision(self, optitrack_sim_stack):
         """PX4 publishes local_position/odom, so EKF2 has converged and home is set.
 
