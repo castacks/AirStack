@@ -4,11 +4,8 @@ A single dedicated bring-up that exercises the whole OptiTrack path in Isaac Sim
 the in-sim NatNet **emulator** streams rigid-body poses → ``natnet_ros2`` publishes
 the drone pose → the ``vision_pose`` bridge feeds MAVROS → PX4 EKF2 fuses it.
 
-This intentionally does NOT add ``isaacsim_natnet`` as a third parametrized sim in
-the ``airstack_env`` matrix (that would re-run the entire liveliness/sensors/flight
-suite under NatNet for two assertions). Instead we bring the NatNet stack up **once**
-here and assert only the NatNet-specific chain. The cheap, GPU-free half of this
-(host emulator → ``natnet_ros2`` Hz) lives in ``tests/integration/natnet/``.
+This brings the NatNet stack up **once** and asserts only one NatNet-specific test. 
+The cheap, GPU-free half of this (host emulator → ``natnet_ros2`` Hz) lives in ``tests/integration/natnet/``.
 
 Mark: ``optitrack``. Needs Docker + GPU + Isaac Sim license; skips cleanly when the
 isaac-sim image isn't built locally.

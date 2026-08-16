@@ -38,9 +38,7 @@ services:
         ipv4_address: 172.31.0.200 # required to not conflict with other default docker networks on the host machine
     env_file:
       - ./omni_pass.env
-      # PX4 SITL parameter set, applied by rcS at boot. Defaults to px4-params/default.env,
-      # which is empty, so PX4 keeps its firmware defaults. Set PX4_PARAM_SET=<name> to
-      # select px4-params/<name>.env instead.
+      # PX4 SITL parameter set, applied by rcS at boot.
       - ./px4-params/${PX4_PARAM_SET:-default}.env
     environment:
       - AUTOLAUNCH=${AUTOLAUNCH:-'false'}

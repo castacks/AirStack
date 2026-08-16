@@ -42,11 +42,8 @@ BODY_FIELD_TARGET = "target"
 
 VALID_MODES = ("unicast", "multicast")
 
-# Streamed up-axis. Motive exposes an "Up Axis" setting; the reference natnet_ros2
-# driver requires it set to Z and passes coordinates through untouched.
-# Isaac Sim / USD is natively Z-up, so "Z" is a pass-through that matches the rest of the
-# AirStack stack (default). "Y" emulates a default (Y-up) Motive by rotating the
-# streamed pose -90deg about X.
+# Streamed up-axis. "Z" (default) passes the USD pose through; "Y" emulates a Y-up
+# Motive by rotating the streamed pose -90deg about X.
 VALID_UP_AXES = ("Y", "Z")
 
 # defaults shared with NatNetUnicastServer

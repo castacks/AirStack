@@ -87,18 +87,14 @@ class NatNetServerManager:
         self._scan_pending = False
         self._server = None
         self._server_factory = server_factory or default_server_factory
-        # Sampling state. ``_needs_resync`` is the "latest config has been read"
-        # flag inverted: a NatNet prim edit sets it True (stale); the next physics
-        # sample re-reads the catalog/targets and clears it. ``_sample_cache`` holds
-        # the resolved (streaming_id, name, prim) tuples sampled every step.
+        # Sampling state. A NatNet prim edit sets ``_needs_resync``; the next physics
+        # sample re-reads the catalog/targets and clears it.
         self._needs_resync = False
         self._sample_cache: list = []
         self._frame_counter = 0
         self._catalog_signature = None
         self._physx_sub = None
-        # Streamed up-axis (from the interface config; re-read on every resync).
-        # "Z" (default) streams the Isaac/USD world pose as-is; "Y" re-axes it to
-        # emulate a default Y-up Motive. See frames.to_motive_pose.
+        # Streamed up-axis, re-read on every resync. See frames.to_motive_pose.
         self._up_axis = DEFAULT_UP_AXIS
         # Pose noise.
         self._pose_noise_enabled = False
@@ -181,19 +177,17 @@ class NatNetServerManager:
         catalog = build_catalog(config)
         server = self._server_factory(config)
         server.set_model_def_payload(catalog.pack())
-        # Pump frames from our sample_once (physics-step) thread rather than the
-        # server's background timer: inside the Isaac Sim process that daemon thread
-        # is starved by the render/physics main loop, so frames never get sent.
+        # Pump frames from the physics-step thread; the server's own background timer
+        # is starved by Kit's render/physics main loop.
         if hasattr(server, "auto_stream"):
             server.auto_stream = False
         server.start()
         self._server = server
-        # Force a resync on the first sampled frame so the prim->pose cache is built
-        # from the live stage (and the catalog signature is seeded).
+        # Build the prim->pose cache from the live stage on the first sampled frame.
         self._needs_resync = True
         self._frame_counter = 0
-        # None so the first resync reports "changed" and the first streamed frame
-        # flags model_list_changed (nudging the client to (re)read MODELDEF).
+        # None so the first resync reports "changed" and the first frame flags
+        # model_list_changed, prompting the client to read MODELDEF.
         self._catalog_signature = None
         print(
             f"[natnet] Server started on {config.server_ip} "
@@ -289,10 +283,8 @@ class NatNetServerManager:
         self._pose_noise_rotation_deg = config.pose_noise_rotation_deg
         if self._server is not None:
             self._server.set_model_def_payload(build_catalog(config).pack())
-        # Cache target *paths* (not prim handles): the prim is re-resolved every
-        # sample so bodies whose target is created *after* the server starts — e.g.
-        # a Pegasus drone base_link spawned on the first Play tick — start streaming
-        # a valid pose as soon as the prim appears (instead of being stuck "lost").
+        # Cache target paths, not prim handles, so bodies whose target prim appears
+        # after the server starts begin streaming as soon as it exists.
         self._sample_cache = [
             (body.streaming_id, body.rigid_body_name, body.target_prim)
             for body in config.bodies

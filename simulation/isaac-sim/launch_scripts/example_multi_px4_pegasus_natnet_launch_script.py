@@ -50,8 +50,8 @@ from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
 from scene_prep import scale_stage_prim, add_colliders, add_dome_light, save_scene_as_contained_usd
 
-# As in the single-drone natnet script: the emulator is a Kit extension, enabled here
-# before anything imports from it.
+# Register the emulator extension with Kit before importing from it.
+# See docs/simulation/isaac_sim/natnet_emulator.md.
 from isaacsim.core.utils.extensions import enable_extension  # noqa: E402
 
 enable_extension("optitrack.natnet.emulator")
@@ -72,10 +72,9 @@ DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/
 
 NUM_ROBOTS = int(os.environ.get("NUM_ROBOTS", "1"))
 ENABLE_LIDAR = os.environ.get("ENABLE_LIDAR", "false").lower() == "true"
-# Base name for the streamed drone bodies; drone i is streamed with id i (see
-# _drone_body_name below). These must match the body entries in the per-robot profiles
-# in natnet_config.yaml — the client filters frames by numeric id. Set them here, not in
-# an env file.
+# Base name for the streamed drone bodies; drone i is streamed with id i. Must match
+# the body entries in the per-robot profiles in natnet_config.yaml.
+# See docs/simulation/isaac_sim/natnet_emulator.md.
 NATNET_BODY_NAME = "Drone"
 NATNET_TARGET_NAME = "Target"
 

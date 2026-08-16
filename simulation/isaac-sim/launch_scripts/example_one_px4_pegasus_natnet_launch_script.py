@@ -72,11 +72,8 @@ if _LAUNCH_SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _LAUNCH_SCRIPTS_DIR)
 from gps_utils import set_gps_origins, DEFAULT_WORLD_ORIGIN
 
-# The NatNet emulator ships as a Kit extension (simulation/isaac-sim/extensions/
-# optitrack.natnet.emulator). Enable it before importing from it: that registers the
-# extension with Kit along with its omni.isaac.core / omni.usd dependencies and its UI
-# entry point. The plain import below resolves because Dockerfile.isaac-ros pip-installs
-# the package into the Isaac python, the same way pegasus.simulator is handled.
+# Register the emulator extension with Kit before importing from it.
+# See docs/simulation/isaac_sim/natnet_emulator.md.
 from isaacsim.core.utils.extensions import enable_extension  # noqa: E402
 
 enable_extension("optitrack.natnet.emulator")
@@ -95,11 +92,8 @@ STAGE_SCALE = 1.0
 SAVE_SCENE_TO = None
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
 
-# GPS world anchor: what world (0, 0, 0) maps to in real GPS coordinates. Must
-# match the GCS origin (gcs_visualizer/gcs_utils.py) and the robot's
-# natnet_ros2 mavros_gp_origin.yaml. In vision/mocap mode the robot-side
-# mavros_gp_origin node is the authoritative datum; this keeps PX4's SITL home
-# consistent with it so the two never disagree.
+# What world (0, 0, 0) maps to in GPS coordinates. Must match the GCS origin and
+# the robot's natnet_ros2 mavros_gp_origin.yaml.
 WORLD_GPS_ORIGIN = DEFAULT_WORLD_ORIGIN
 
 # Single drone spawned at the world origin. domain_id / spawn must match the
@@ -108,14 +102,9 @@ DRONE_CONFIGS = [
     {"domain_id": 1, "x_m": 0.0, "y_m": 0.0, "z_m": 0.07},
 ]
 
-# Rigid body this scene streams, and the streaming id it advertises.
-#
-# These MUST match a body entry in the robot's profile in
-# robot/ros_ws/src/perception/natnet_ros2/config/natnet_config.yaml — the NatNet client
-# filters incoming frames by NUMERIC id, so a mismatch gives a client that connects and
-# then never publishes, with no error on either side. Change them here and in that file
-# together, never in an env file: the client reads the body from its per-robot profile
-# so that multiple robots can each track their own body.
+# Rigid body this scene streams. Must match a body entry in the robot's profile in
+# natnet_ros2/config/natnet_config.yaml — a mismatch fails silently.
+# See docs/simulation/isaac_sim/natnet_emulator.md.
 NATNET_BODY_NAME = "Drone"
 NATNET_BODY_ID = 1
 NATNET_TARGET_NAME = "Target"
@@ -161,8 +150,7 @@ def wait_for_stage(stage, timeout_s: float = 10.0):
 class PegasusApp:
 
     def __init__(self):
-        # Write GPS home before spawning so the drone's global position shares
-        # the GCS datum. Must run before the PX4 SITL subprocess starts.
+        # Must run before the PX4 SITL subprocess starts.
         set_gps_origins(DRONE_CONFIGS, world_origin=WORLD_GPS_ORIGIN)
 
         self.timeline = omni.timeline.get_timeline_interface()
