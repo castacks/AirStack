@@ -47,12 +47,15 @@ services:
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       - ENABLE_LIDAR=${ENABLE_LIDAR:-false}
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
-      # Pegasus physics tuning — read by pegasus/simulator/params.py
+      # Pegasus physics tuning — read by pegasus/simulator/params.py.
+      # See docs/simulation/isaac_sim/docker.md for what each one does.
       - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}
       - ARDUPILOT_PHYSICS_HZ=${ARDUPILOT_PHYSICS_HZ:-800}
       - PX4_RENDERING_HZ=${PX4_RENDERING_HZ:-30}
       - ARDUPILOT_RENDERING_HZ=${ARDUPILOT_RENDERING_HZ:-120}
-      # --- PX4 SITL EKF2 external-vision parameters -----------------------------
+      # PX4 SITL EKF2 external-vision parameters. Each defaults to PX4's own
+      # default, so leaving them unset changes nothing.
+      # See docs/robot/px4_external_vision.md for what each one does.
       - PX4_PARAM_EKF2_EV_CTRL=${PX4_EV_CTRL:-0}
       - PX4_PARAM_EKF2_HGT_REF=${PX4_EV_HGT_REF:-1}
       - PX4_PARAM_EKF2_GPS_CTRL=${PX4_EV_GPS_CTRL:-7}
