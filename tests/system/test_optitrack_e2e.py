@@ -27,6 +27,7 @@ from conftest import (  # noqa: E402 — pytest adds tests/ to sys.path
     logger,
     missing_images,
     read_log_tail,
+    ros2_exec,
     sample_hz,
     wait_for_container,
     wait_for_first_message,
@@ -88,14 +89,58 @@ _ROBOT_DOMAIN = 1
 # Drone body's relative pose topic from natnet_config.yaml, namespaced per robot.
 _NATNET_POSE_TOPIC = os.environ.get("NATNET_POSE_TOPIC", "perception/optitrack/drone")
 _NATNET_MIN_HZ = 5.0
-# PX4 fused local position (proves EKF2 accepted the external vision).
-_PX4_LOCAL_POSE_TOPIC = "interface/mavros/local_position/pose"
+# PX4 fused local position (proves EKF2 accepted the external vision). odom, not pose:
+# it goes live only once EKF2 has converged and home is set, which is what PX4's arming
+# preflight requires. See test_px4_ready in test_takeoff_hover_land.py — pose-era signals
+# fire ~25s earlier, and arming in that window returns "failed to arm".
+_PX4_LOCAL_POSE_TOPIC = "interface/mavros/local_position/odom"
 # Cold Isaac boot: Pegasus load + Play + emulator UDP connect.
 _FIRST_MSG_TIMEOUT = 180
+
+# Belt-and-braces behind the odom gate: EV-only convergence is slower and less predictable
+# than the GPS case the autonomy suites were tuned against, and TakeoffTask does not retry
+# its own ARM (takeoff_landing_task.cpp send_robot_command).
+_ARM_ATTEMPTS = 5
+_ARM_RETRY_S = 2.0
+_ARM_SERVICE = "interface/robot_command"
+_ARM_COMMAND = 1  # airstack_msgs/srv/RobotCommand.Request.ARM
 
 # The flight helpers imported from test_fixed_trajectory take an `airstack_env`-style cfg;
 # `robot_setup_bash` is the only key any of them reads.
 _TRAJ_CFG = {"robot_setup_bash": _ROBOT_SETUP_BASH}
+
+
+def _arm_with_retries(container: str) -> None:
+    """Arm the vehicle, retrying while PX4's preflight is still rejecting it.
+
+    Uses the same robot_command service TakeoffTask arms through, so a successful
+    call here leaves TakeoffTask's `is_armed_` set and it skips its own arming.
+    """
+    service = f"/robot_{_ROBOT_DOMAIN}/{_ARM_SERVICE}"
+    last = ""
+    started = time.time()
+    for attempt in range(1, _ARM_ATTEMPTS + 1):
+        result = ros2_exec(
+            container,
+            f'timeout 10 ros2 service call {service} '
+            f'airstack_msgs/srv/RobotCommand "{{command: {_ARM_COMMAND}}}"',
+            domain_id=_ROBOT_DOMAIN, setup_bash=_ROBOT_SETUP_BASH, timeout=20,
+        )
+        last = (result.stdout or "") + (result.stderr or "")
+        if "success=True" in last.replace(" ", ""):
+            logger.info("armed on attempt %d/%d", attempt, _ARM_ATTEMPTS)
+            return
+        logger.info("arm attempt %d/%d refused (PX4 preflight not ready yet)",
+                    attempt, _ARM_ATTEMPTS)
+        if attempt < _ARM_ATTEMPTS:
+            time.sleep(_ARM_RETRY_S)
+
+    pytest.fail(
+        f"could not arm after {_ARM_ATTEMPTS} attempts over "
+        f"{time.time() - started:.0f}s — PX4 preflight still rejecting. "
+        "With GPS/baro/range aiding off, this means EKF2 has not converged on the "
+        f"vision estimate. Last response:\n{last.strip()[-400:]}"
+    )
 
 
 @pytest.fixture(scope="module")
@@ -158,10 +203,10 @@ class TestOptitrackE2E:
 
     @pytest.mark.dependency(name="ev_ready", depends=["natnet_pose"])
     def test_px4_fuses_vision(self, optitrack_sim_stack):
-        """PX4 publishes a fused local position, so it is ready to be commanded.
+        """PX4 publishes local_position/odom, so EKF2 has converged and home is set.
 
-        This only establishes that an estimate EXISTS — it is deliberately not the proof
-        that vision is being fused, because local_position/pose publishes off any aiding
+        This only establishes that a converged estimate EXISTS — it is deliberately not
+        the proof that vision is being fused, because odom publishes off any aiding
         source. The flight below is the proof: with GPS, baro and range aiding disabled in
         _E2E_ENV, mocap is the only thing that can produce this estimate at all.
         """
@@ -173,9 +218,9 @@ class TestOptitrackE2E:
             setup_bash=_ROBOT_SETUP_BASH, timeout=_FIRST_MSG_TIMEOUT,
         )
         assert first is not None, (
-            f"no PX4 local_position on {topic} within {_FIRST_MSG_TIMEOUT}s — "
-            "EKF2 has no valid position estimate. With GPS/baro/range aiding off, that "
-            "means the external-vision path never reached it."
+            f"no PX4 local_position/odom on {topic} within {_FIRST_MSG_TIMEOUT}s — "
+            "EKF2 never converged or never set a home position. With GPS/baro/range "
+            "aiding off, that means the external-vision path never reached it."
         )
 
     @pytest.mark.dependency(name="ev_takeoff", depends=["ev_ready"])
@@ -183,6 +228,7 @@ class TestOptitrackE2E:
     def test_takeoff(self, optitrack_sim_stack):
         """Take off to TARGET_ALTITUDE_M flying on the mocap-fused estimate."""
         container = _robot_container(optitrack_sim_stack)
+        _arm_with_retries(container)
         _run_parallel(1, lambda n: _takeoff_one_robot(
             n, container, _TRAJ_CFG, TARGET_ALTITUDE_M))
 
