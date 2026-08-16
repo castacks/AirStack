@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default system-test `--sim` is `isaacsim`; pass `--sim msairsim` to opt in to Microsoft AirSim
 - `-m build_packages` CI runs pull `cache_*` images instead of baking sim images
 - `docker-build.yml` retags unchanged images on VERSION bumps (content fingerprint) instead of always rebuilding; floating `cache_*` tags still seed PR layer cache
-- Opening a PR now runs one enforced end-to-end flight — the Circle trajectory on OptiTrack/mocap EKF2 fusion — instead of pytest's full defaults (every mark, all four trajectory types). Every other suite is unchanged and still available on demand via a `/pytest <args>` comment, `workflow_dispatch` inputs, or local `airstack test -m <marks>`
+- The PR-open test run is unchanged (pytest's full defaults) and now also covers the OptiTrack Circle-trajectory e2e, which configures its own mocap-EV stack. `optitrack` joins the `heavy` mark list in `system-tests.yml`, so an optitrack run is never misclassified as colcon-only and sent down the pull-only image path
 - `robot-l4t` compose service knobs are now env-overridable (`AUTONOMY_ROLE`, `FCU_URL`, and the rosbag path via `BAG_STORAGE_PATH`); `FCU_URL` unquoted so the literal serial path reaches MAVROS
 - `zed-l4t` image: ZED SDK 4.2 → 5.2 with the coupled ROS deps (`zed_msgs` 5.2.1, `point_cloud_transport(_plugins)` 4.x, add `backward_ros`)
 - Unit tests are defined by `tests/colcon_unit_test_packages.yaml`: `conftest.py` collects each listed package's co-located `test/` dir under `--import-mode=importlib` and marks it `unit` (ament lint files are skipped and run under `colcon test`)

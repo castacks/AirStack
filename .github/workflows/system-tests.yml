@@ -134,27 +134,11 @@ jobs:
               if (st := os.environ.get('INPUT_STABLE', '').strip()):
                   args.extend(['--stable-duration', st])
           elif event == 'pull_request':
-              # PR-opened auto-run enforces ONE end-to-end flight: the Circle
-              # trajectory flown on OptiTrack/mocap EKF2 fusion. It exercises the
-              # whole chain (emulator -> natnet_ros2 -> vision_pose -> MAVROS ->
-              # EKF2 -> controller -> airframe) and scores cross-track error, so a
-              # regression anywhere in it fails the PR.
-              #
-              # Everything else stays reproducible ON DEMAND and is unchanged:
-              #   - comment `/pytest -m 'autonomy' --trajectory-types Circle,Figure8`
-              #   - workflow_dispatch inputs (marks / sim / num_robots / iterations)
-              #   - locally, `airstack test -m <marks>`
-              # Previously this was `args = []`, i.e. pytest's conftest defaults —
-              # every mark and all four trajectory types on every PR open.
-              #
-              # --sim is redundant against the isaacsim default, but passing it
-              # sets sim_explicit and pins the profile against the only_packages
-              # fallback below.
-              args = [
-                  '-m', 'build_packages or optitrack',
-                  '--sim', 'isaacsim',
-                  '--num-robots', '1',
-              ]
+              # PR-opened auto-run uses pytest's conftest defaults — same as
+              # /pytest with no args. That now also picks up the optitrack
+              # Circle-trajectory e2e, which brings up its own mocap-EV stack
+              # (see _E2E_ENV in tests/system/test_optitrack_e2e.py).
+              args = []
           else:
               body = os.environ.get('COMMENT_BODY', '')
               # Only the first line is parsed — everything below it is
