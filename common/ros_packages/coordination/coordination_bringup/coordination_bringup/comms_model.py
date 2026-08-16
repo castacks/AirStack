@@ -28,8 +28,8 @@ from coordination_bringup.frame_utils import gps_to_enu
 #
 # This is a MODULE CONSTANT, not a parameter: every mission launched from this
 # branch runs at this range, including a re-run of the full-comms benchmark.
-COMMS_RANGE_M = 30.0
-MAX_RELAY_HOPS = int(os.environ.get("NUM_ROBOTS", "1")) -1
+COMMS_RANGE_M = 50000#30.0
+MAX_RELAY_HOPS = 1 #int(os.environ.get("NUM_ROBOTS", "1")) -1
 
 SOURCE_RELAYED = 1
 
