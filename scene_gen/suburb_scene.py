@@ -1175,10 +1175,26 @@ def house_catalogue(config, resolver, pools, yaw_off=-90.0):
     `suburb_parcel` stamps the index it sited into `size_index` and the caller
     must place that asset and no other.
 
-    `ox`/`oy` are the union centre in the ASSET's own frame. They matter: the
-    wing sticks out one side, so the union centre is not the asset origin, and
-    placing the origin at the lot's centre would leave the reserved box and the
-    geometry offset by exactly that much. The caller subtracts it.
+    THE ANCHOR IS THE VISUAL CENTROID, NOT THE PRIM ORIGIN. `apply_placements`
+    already rotates each asset's own bbox-centre offset out of its placement, so
+    the point it is handed is where the asset's CENTROID lands. Two consequences
+    this exists to serve, each of which cost a bug to learn:
+
+      * Subtracting the union offset from the requested point DOUBLE-CORRECTS,
+        because the centroid offset is taken out again downstream. Every house
+        lands displaced by its own pivot offset -- large for this pack, whose
+        pivot is nowhere near the middle of the house.
+      * Emitting a house and its wing at the SAME point CO-CENTRES them, so the
+        wing sits on the house rather than beside it. "Composes at the identical
+        transform" is true of a raw reference and false the moment a centroid
+        correction is applied.
+
+    So each entry carries three points in the asset's own frame: the house
+    centroid `hc`, the wing centroid `ac` (None without a wing), and the union
+    centre `(ox, oy)`. The caller asks for `lot_centre + R * (hc - o)` and
+    `lot_centre + R * (ac - o)`; their difference is exactly `ac - hc`, the
+    authored relationship, so the wing lands where the artist put it while the
+    UNION lands centred on the rectangle `suburb_parcel` reserved.
     """
     houses = pools.load(_raw_pool(config, "buildings", "intact"))
     addons = pools.load(_raw_pool(config, "buildings", "house_addons"))
@@ -1206,9 +1222,15 @@ def house_catalogue(config, resolver, pools, yaw_off=-90.0):
         y0 = min(float(f.get("cy", 0.0)) - float(f["sy"]) / 2.0 for f in boxes)
         y1 = max(float(f.get("cy", 0.0)) + float(f["sy"]) / 2.0 for f in boxes)
         sx, sy = x1 - x0, y1 - y0
+        hc = (float(boxes[0].get("cx", 0.0)), float(boxes[0].get("cy", 0.0)))
+        ac = ((float(boxes[1].get("cx", 0.0)), float(boxes[1].get("cy", 0.0)))
+              if a else None)
         out.append({"usd": u, "addon": a,
                     "w": sy if turned else sx,      # across the frontage
                     "d": sx if turned else sy,      # into the lot
+                    # Each part's own centroid, which is the point
+                    # `apply_placements` will anchor it by.
+                    "hc": hc, "ac": ac,
                     "ox": 0.5 * (x0 + x1), "oy": 0.5 * (y0 + y1)})
     n_wing = sum(1 for e in out if e["addon"])
     if out:
@@ -1277,42 +1299,48 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
                 ent = catalogue[int(h["size_index"]) % len(catalogue)]
 
             if ent is None:
-                # No measurement available: the old behaviour, and the old
-                # caveat with it -- the wing is placed where the artist put it
-                # and nothing has tested that space.
-                want_gar = bool(h.get("garage")) and bool(garage_houses)
-                pool_h = garage_houses if want_gar else houses
-                u = pool_h[rng.randrange(len(pool_h))]
-                hx, hy = h["c"][0], h["c"][1]
-                addon = addon_for.get(u) if want_gar else None
+                # No measurement, so no wing: without the two centroids there is
+                # no way to place it beside its parent rather than inside it.
+                u = houses[rng.randrange(len(houses))]
+                out.append(pools.place(resolver, u, "house",
+                                       h["c"][0], h["c"][1], yaw, rng))
             else:
                 # PLACE THE ASSET THE LOT WAS SIZED FOR. `size_index` is the
                 # entry `suburb_parcel` fitted and overlap-tested; drawing any
                 # other one puts the module straight back to guessing, which is
                 # what its own comment warns about.
                 u = ent["usd"]
-                addon = ent["addon"]
-                # The union centre, not the asset origin, is what was sited --
-                # a wing sticks out one side, so the two differ by exactly
-                # `ox`/`oy`. Rotate that offset into the world by the placement
-                # yaw and subtract it, and the reserved rectangle and the
-                # geometry finally describe the same piece of ground.
-                # The angle the asset is ACTUALLY placed at, which is `yaw`
-                # plus any per-asset `yaw-offset` the set declares. Rotating
-                # the union offset by the bare `yaw` would be wrong for exactly
-                # those assets that carry a correction.
+                # The angle the asset is ACTUALLY placed at -- `yaw` plus any
+                # per-asset `yaw-offset` the set declares -- because that is the
+                # rotation `apply_placements` applies to its own offset too.
                 a = math.radians(yaw + pools.yaw_of(u))
                 ca, sa = math.cos(a), math.sin(a)
-                hx = h["c"][0] - (ent["ox"] * ca - ent["oy"] * sa)
-                hy = h["c"][1] - (ent["ox"] * sa + ent["oy"] * ca)
 
-            out.append(pools.place(resolver, u, "house", hx, hy, yaw, rng))
-            if addon:
-                # Same transform, because that is the only place a wing
-                # authored in its parent's frame composes.
-                out.append(pools.place(resolver, addon, "house", hx, hy,
-                                       yaw, rng))
-                n_gar += 1
+                def anchor(pt, _ca=ca, _sa=sa, _e=ent, _c=h["c"]):
+                    """Where to ASK for a part so the UNION lands on the lot box.
+
+                    `apply_placements` puts the asset's CENTROID at the point it
+                    is given, so what to ask for is the lot centre plus that
+                    part's own displacement from the union centre. Asking for
+                    the lot centre minus the union offset instead double-counts
+                    the correction and throws every house off its lot by its own
+                    pivot offset.
+                    """
+                    dx, dy = pt[0] - _e["ox"], pt[1] - _e["oy"]
+                    return (_c[0] + dx * _ca - dy * _sa,
+                            _c[1] + dx * _sa + dy * _ca)
+
+                hx, hy = anchor(ent["hc"])
+                out.append(pools.place(resolver, u, "house", hx, hy, yaw, rng))
+                if ent["addon"]:
+                    # A DIFFERENT POINT from the house, necessarily. Both at the
+                    # same point co-centres them and the wing lands inside the
+                    # house; the gap between these two anchors is exactly the
+                    # authored offset between the two centroids.
+                    ax, ay = anchor(ent["ac"])
+                    out.append(pools.place(resolver, ent["addon"], "house",
+                                           ax, ay, yaw, rng))
+                    n_gar += 1
             for (a, b, tag) in (h.get("fence_segs") or ()):
                 pool_f = fence_priv if tag == "privacy" else fence_low
                 if not pool_f:
