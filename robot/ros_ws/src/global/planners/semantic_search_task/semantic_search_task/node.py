@@ -524,18 +524,25 @@ class SemanticSearchTaskNode(Node):
             self.destroy_client(client)
 
     def _pick_rayfronts_gpu(self) -> str | None:
-        """GPU index to pin rayfronts to.
+        """GPU index to pin rayfronts to: ``ROS_DOMAIN_ID % n_gpus``.
 
-        **GPU 0 is reserved for Isaac Sim**, so robot N takes GPU N whenever the
-        host has one to spare — the 4-GPU / 3-robot sizing the OSMO mission
-        workflow requests gives sim→0, robot_1→1, robot_2→2, robot_3→3.
+        Robot N takes GPU N while one is spare, so the 4-GPU / 3-robot sizing the
+        OSMO mission workflow requests still gives sim→0, robot_1→1, robot_2→2,
+        robot_3→3 — GPU 0 to Isaac Sim alone.
 
-        The previous rule was ``ROS_DOMAIN_ID % n_gpus``, which on a 3-GPU host
-        sent robot_3 to GPU 0 and made it fight Isaac Sim for memory; rayfronts
-        then died with a CUDA OOM loading its encoder, and because
-        semantic_search_task waits for rayfronts batches with no timeout, that
-        robot never got a navigator and hovered for the whole mission. With
-        fewer GPUs than robots+1 the robots now share the non-zero GPUs instead.
+        **The overflow robot doubles up with Isaac Sim on GPU 0**, not with a
+        peer: at 4 GPUs and 4 robots the mapping is robot_4→0, leaving one
+        rayfronts per card rather than two on GPU 1. That is the deliberate
+        trade — it keeps the rayfronts instances spread evenly, at the cost of
+        putting one of them on the sim's card.
+
+        This is the pairing that failed once before: on a 3-GPU host robot_3
+        landed on GPU 0, rayfronts died with a CUDA OOM loading its encoder, and
+        because semantic_search_task waits for rayfronts batches (now bounded by
+        RAYFRONTS_WAIT_TIMEOUT_S) that robot never got a navigator and hovered
+        for the whole mission. Watch the overflow robot's rayfronts log on the
+        first iteration of a new fleet size; if it OOMs, the fleet needs another
+        GPU rather than a different pairing.
 
         Containers are privileged, so every robot sees every GPU and torch
         defaults to cuda:0 unless pinned. Returns None on single/no-GPU hosts,
@@ -551,13 +558,10 @@ class SemanticSearchTaskNode(Node):
         if n_gpus <= 1:
             return None
         robot_id = int(os.getenv('ROS_DOMAIN_ID', '1'))
-        if robot_id < n_gpus:
-            gpu = robot_id                      # one GPU each, 0 left to the sim
-        else:
-            gpu = 1 + (robot_id - 1) % (n_gpus - 1)   # share, still never 0
+        gpu = robot_id % n_gpus     # overflow wraps onto 0, the sim's card
         self.get_logger().info(
-            f'{n_gpus} GPU(s) visible; robot {robot_id} -> GPU {gpu} '
-            f'(GPU 0 reserved for Isaac Sim)')
+            f'{n_gpus} GPU(s) visible; robot {robot_id} -> GPU {gpu}'
+            + (' (shared with Isaac Sim)' if gpu == 0 else ''))
         return str(gpu)
 
     def _spawn(self, cmd: list, log_name: str | None = None,

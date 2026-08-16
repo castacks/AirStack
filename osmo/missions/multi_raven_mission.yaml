@@ -261,7 +261,7 @@ environments:
   - <<: *constructionsite
     name: constructionsite_s2
     SPAWN_CONFIGS: '[{"x_m": -22.9, "y_m": -30.5, "orient": [0.0, 0.0, -0.1647, 0.9863]}, {"x_m": -22.9, "y_m": -34.5, "orient": [0.0, 0.0, 0.2676, 0.9635]}, {"x_m": -22.9, "y_m": -38.5, "orient": [0.0, 0.0, 0.6497, 0.7602]}]'
-  # spawn rect s3: [[-53, 2.7], [-57.8, 8.4]]
+  # spawn rect s3: [[34.6, -60.0], [56.0, -41.9]]  # re-derived 2026-08-16 from the relocated layout; the previous value sat 119 m away
   - <<: *constructionsite
     name: constructionsite_s3
     SPAWN_CONFIGS: '[{"x_m": 54.0, "y_m": -58.0, "orient": [0.0, 0.0, 0.9426, 0.334]}, {"x_m": 48.2, "y_m": -53.3, "orient": [0.0, 0.0, 0.9426, 0.334]}, {"x_m": 42.4, "y_m": -48.6, "orient": [0.0, 0.0, 0.9426, 0.334]}]'
@@ -299,7 +299,7 @@ environments:
   - <<: *shipyard
     name: shipyard_s1
     SPAWN_CONFIGS: '[{"x_m": -66.066, "y_m": -11.867, "orient": [0.0, 0.0, -0.9089, 0.417]}, {"x_m": -68.796, "y_m": -14.581, "orient": [0.0, 0.0, -0.6509, 0.7591]}, {"x_m": -61.737, "y_m": -14.407, "orient": [0.0, 0.0, 0.2744, 0.9616]}]'
-  # spawn rect s2: [[-136, 52], [-116, 67]]
+  # spawn rect s2: [[30.0, -56.0], [58.0, -43.0]]  # re-derived 2026-08-16 from the relocated layout; the previous value sat 206 m away
   - <<: *shipyard
     name: shipyard_s2
     SPAWN_CONFIGS: '[{"x_m": 56.0, "y_m": -54.0, "orient": [0.0, 0.0, 0.984, 0.1784]}, {"x_m": 48.0, "y_m": -51.0, "orient": [0.0, 0.0, 0.984, 0.1784]}, {"x_m": 40.0, "y_m": -48.0, "orient": [0.0, 0.0, 0.984, 0.1784]}]'
