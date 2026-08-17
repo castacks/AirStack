@@ -13,12 +13,12 @@ All three computers join the `SVGTeam` LAN:
 |---|---|---|
 | Motive Windows PC | `192.168.50.5` | NatNet multicast `239.255.42.99`, UDP `1510/1511` |
 | BV VOXL/PX4 | `192.168.50.12`, `drone_3` | SSH `voxl-bv`; Micro XRCE-DDS to ground UDP `8892`, ROS domain `1` |
-| Ground controller | DHCP/reserved `192.168.50.x` | AirStack, DDS agent, NatNet client, QGroundControl |
+| Ground controller | AirStation: `192.168.50.6` | AirStack, DDS agent, NatNet client, QGroundControl |
 
-Do not copy this computer's historical ground IP (`192.168.50.139`) unless the
-router reserves that address for the new computer. Determine the new address
-after joining the lab Wi-Fi and use it as both `DDS_AGENT_IP` and NatNet
-`clientIP`.
+AirStation currently uses the reserved address `192.168.50.6`; BV intentionally
+targets it instead of XiaoXin at `192.168.50.139`. For any later replacement
+ground computer, determine its reserved address after joining the lab LAN and
+use that same address as both `DDS_AGENT_IP` and NatNet `clientIP`.
 
 ## 1. Host prerequisites and repositories
 
@@ -83,18 +83,18 @@ Host voxl-bs
   IdentityFile ~/.ssh/id_voxl_m0054
   IdentitiesOnly yes
 
-Host voxl-by
-  HostName 192.168.50.6
-  User root
-  IdentityFile ~/.ssh/id_voxl_by
-  IdentitiesOnly yes
-
 Host voxl-bv
   HostName 192.168.50.12
   User root
   IdentityFile ~/.ssh/id_voxl_bv
   IdentitiesOnly yes
 ```
+
+Do not create a `voxl-by` alias or key placeholder during onboarding. BY's
+historical `192.168.50.6` configuration is not flight-ready and can conflict
+with a ground controller's DHCP address. Restore BY access only after its
+network identity, DDS settings, mocap mapping, and estimator have been
+reconfigured and revalidated.
 
 Protect the files and validate alias expansion without needing the lab:
 

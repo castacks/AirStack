@@ -373,7 +373,7 @@ class PolicyCommander(Node):
         setpoint.acceleration = [float('nan')] * 3
         setpoint.jerk = [float('nan')] * 3
         # Preserve the old pose-command behavior: ENU yaw 0 becomes NED +pi/2.
-        setpoint.yaw = float(np.pi / 2.0)
+        setpoint.yaw = float(0.0) # temporarily test NED 0 
         setpoint.yawspeed = float('nan')
         self.trajectory_pub.publish(setpoint)
 

@@ -20,6 +20,7 @@
 
     <arg name="interface_odometry_out_topic"
          default="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
+    <arg name="target_system" default="1" />
     <arg name="offboard_command_timeout_s" default="0.5" />
 
     <!-- ── Main interface node ─────────────────────────────────────────── -->
@@ -33,6 +34,7 @@
         <node pkg="robot_interface" exec="robot_interface_node"
               name="px4_interface" output="screen">
             <param name="interface" value="px4_interface::PX4Interface" />
+            <param name="target_system" value="$(var target_system)" />
             <param name="offboard_command_timeout_s"
                    value="$(var offboard_command_timeout_s)" />
 

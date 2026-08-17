@@ -5,7 +5,7 @@ description: Real-lab workflow for testing or flying Yutong's ModalAI Starling 2
 
 # Yutong Fly Starling
 
-Use this skill as the operating checklist for Yutong's Starling 2 Max lab fleet. BS, BY, and BV are all valid potential active drones; the labels do not imply age, preference, or replacement order. Be conservative: do not arm or fly until the safety gates pass and the user explicitly confirms the physical setup is ready.
+Use this skill as the operating checklist for Yutong's Starling 2 Max lab fleet. BS and BV are valid potential active drones; BY must be reconfigured and revalidated before it can be selected for flight. The labels do not imply age, preference, or replacement order. Be conservative: do not arm or fly until the safety gates pass and the user explicitly confirms the physical setup is ready.
 
 For a new Ubuntu ground-controller computer, read
 [ONBOARDING.md](ONBOARDING.md). For copy-paste flight and policy commands, read
@@ -19,14 +19,21 @@ Treat these as the known-good lab values unless the user says they changed:
 - Known robot-name / Motive rigid-body mapping: BS and BY use `drone_2`; BV currently uses `drone_3`.
 - Known VOXL SSH aliases:
   - `voxl-bs`: BS Starling/VOXL at `192.168.50.73`, SSH key `~/.ssh/id_voxl_m0054`.
-  - `voxl-by`: BY Starling/VOXL at `192.168.50.6`, SSH key `~/.ssh/id_voxl_by`; it may still report hostname `m0054`.
+  - `voxl-by`: BY Starling/VOXL historically used `192.168.50.6` and may still report hostname `m0054`. It is not flight-ready; reconfigure and verify its address, SSH access, robot identity, DDS settings, mocap mapping, and estimator before restoring this alias on a ground controller.
   - `voxl-bv`: BV Starling/VOXL at `192.168.50.12`, SSH key `~/.ssh/id_voxl_bv`; it reports hostname `m0054`.
-- Ground Ubuntu PC IP on router LAN: `192.168.50.139`.
+- Current AirStation ground-PC IP on the router LAN: `192.168.50.6`.
+  XiaoXin remains at `192.168.50.139`, but BV is intentionally configured to
+  use AirStation rather than XiaoXin for Micro XRCE-DDS.
 - Motive PC IP: `192.168.50.5`.
 - Router subnet: `192.168.50.x`.
 - NatNet multicast: `239.255.42.99`; command port `1510`; data port `1511`.
 - Current BV ROS domain: `ROS_DOMAIN_ID=1`.
 - Current BV Micro XRCE-DDS agent UDP port: `8892`.
+- Current two-drone lab endpoint for `drone_2`: VOXL IP `192.168.50.11`,
+  Micro XRCE-DDS agent UDP port `8889`, and ROS domain `1`. AirStation
+  verified its network reachability and namespaced DDS topics on 2026-08-17,
+  but does not yet have a working SSH credential for it; verify its physical
+  label and complete the independent frame/carry test before flight.
 - QGC runs on the ground Ubuntu PC or another PC that can reach the drone.
 - The AirStack Docker `robot-desktop` service should use host networking for real hardware.
 
@@ -35,7 +42,7 @@ At the start of a session, choose the active drone from the known mappings:
 | Drone | `VOXL_ALIAS` | `VOXL_IP` | `DRONE_NAME` | ROS domain | DDS port |
 |---|---|---|---|---|---|
 | BS | `voxl-bs` | `192.168.50.73` | `drone_2` | verify | verify |
-| BY | `voxl-by` | `192.168.50.6` | `drone_2` | verify | verify |
+| BY | not configured | historical `192.168.50.6` | historical `drone_2` | reconfigure | reconfigure |
 | BV | `voxl-bv` | `192.168.50.12` | `drone_3` | `1` | `8892` |
 
 For example, to select BV:
@@ -45,7 +52,7 @@ VOXL_ALIAS=voxl-bv
 VOXL_IP=192.168.50.12
 DRONE_NAME=drone_3
 ROS_DOMAIN_ID=1
-DDS_AGENT_IP=192.168.50.139
+DDS_AGENT_IP=192.168.50.6
 DDS_AGENT_PORT=8892
 ```
 
@@ -55,16 +62,17 @@ Verify:
 ssh "$VOXL_ALIAS" 'hostname; ip -brief addr | grep 192.168.50 || true'
 ```
 
-Do not treat the Linux hostname as the flight identity. For `voxl-by`, hostname can still print `m0054`; the SSH alias and current IP are the operational identifiers.
+Do not treat the Linux hostname as the flight identity. BY's historical hostname and address are identification clues only until it has been reconfigured and revalidated.
 
 ## Safety Rules
 
 - Never suggest arming or takeoff while RC/safety path is missing, mocap is not live, estimator validity is unknown, or the flight area is not physically clear.
+- **BY is not flight-ready.** Before restoring `voxl-by` access or selecting BY for flight, assign and verify a non-conflicting address, configure its robot identity and Micro XRCE-DDS target/domain/port, confirm the Motive rigid-body mapping, and complete the full disarmed estimator, frame, and flight-readiness checks.
 - If RC is unavailable, keep tests disarmed: mocap hand-carry, QGC inspector, PX4 estimator checks, command plumbing, rosbag recording, and RViz visualization are still useful.
 - If QGC shows yellow "not ready", do not assume arming will make it green. Check the concrete preflight failure.
 - Indoor mocap flight intentionally has no compass. The known PX4 setup uses external vision/mocap and disables compass checks.
 - Do not disable External Vision when using mocap; mocap enters PX4 through the visual odometry path.
-- **BV / `drone_3` is no-fly after the 2026-07-23 runaway** until its external-vision frame is corrected and revalidated disarmed. With `px4_vio_frame: "enu_to_ned"`, mocap position derivative and PX4 estimated horizontal velocity disagreed, producing horizontal positive feedback before a roll failsafe and wall impact. The PX4 ULog is `/data/px4/log/2026-07-23/20_07_41.ulg`.
+- **BV / `drone_3` flight clearance:** the no-fly condition after the 2026-07-23 runaway was cleared on 2026-08-15 on AirStation after the full disarmed North/East/Up position-and-velocity sign test, nose-heading test, and a successful manual Position-mode flight using `px4_vio_frame: "enu_to_ned"`. The original event involved disagreement between the mocap position derivative and PX4 estimated horizontal velocity, producing horizontal positive feedback before a roll failsafe and wall impact; its PX4 ULog is `/data/px4/log/2026-07-23/20_07_41.ulg`. Revoke clearance and repeat the full carry test after any Motive calibration, rigid-body redefinition, marker-cluster movement, estimator/configuration change, or unexplained frame behavior.
 - For BV, an RViz carry test is insufficient: carry North and verify
   `vehicle_visual_odometry.position[0]` increases, carry East and verify
   `position[1]` increases, lift and verify `position[2]` decreases, and verify
@@ -152,7 +160,7 @@ This configures `/usr/bin/voxl-px4-start` to set:
 
 ```bash
 param set XRCE_DDS_DOM_ID 1
-microdds_client start -t udp -h 192.168.50.139 -p 8892 -n drone_3
+microdds_client start -t udp -h 192.168.50.6 -p 8892 -n drone_3
 ```
 
 It also disables the onboard `voxl-microdds-agent` and restarts `voxl-px4`.
@@ -178,7 +186,7 @@ Expected:
 - `voxl-px4` enabled/running.
 - `voxl-microdds-agent` disabled/not running.
 - `voxl-qvio-server` and `voxl-dfs-server` disabled/not running for mocap-only testing.
-- MicroDDS client connected to agent IP `192.168.50.139`, port `8892`, with nonzero tx/rx.
+- MicroDDS client connected to agent IP `192.168.50.6`, port `8892`, with nonzero tx/rx.
 
 ## Start Runtime ROS Sessions
 
@@ -187,7 +195,7 @@ Run these inside the AirStack container or through `docker exec`. Keep them aliv
 NatNet bridge:
 
 ```bash
-tmux new-session -d -s natnet "bash -lc 'sws; ros2 launch natnet_ros2 natnet_ros2.launch.py serverIP:=192.168.50.5 clientIP:=192.168.50.139 activate:=true pub_rigid_body:=true'"
+tmux new-session -d -s natnet "bash -lc 'sws; ros2 launch natnet_ros2 natnet_ros2.launch.py serverIP:=192.168.50.5 clientIP:=192.168.50.6 activate:=true pub_rigid_body:=true'"
 ```
 
 If NatNet returns error code `3`, confirm Motive Data Streaming is enabled and
@@ -221,7 +229,7 @@ tmux attach -t mocap_bridge
 
 Detach with `Ctrl-b d`. If a session was killed, restart only that session.
 
-NatNet logs should show Motive server IP `192.168.50.5`, client IP `192.168.50.139`, the `drone_3` rigid body, and mocap framerate near `120.00`.
+NatNet logs should show Motive server IP `192.168.50.5`, client IP `192.168.50.6`, the `drone_3` rigid body, and mocap framerate near `120.00`.
 
 ## Core Checks Before Any Arm
 
@@ -337,7 +345,7 @@ For flight/test data, start recording before arming and stop after landing/disar
 ./scripts/record_drone_flight_bag.sh
 ```
 
-The recorder defaults to BV's `drone_3` identity and current `SoccerBall` rigid body. For BS or BY, pass `--drone drone_2` and the appropriate ball rigid-body name. It records the PX4/AirStack state topics used for flight review, writes a timestamped MCAP bag under `/bags` in the container, and stops with `Ctrl-C`. Docker Compose bind-mounts `/bags` to `robot/bags` on the host.
+The recorder defaults to the current two-drone setup (`drone_2`, `drone_3`) and the `VolleyBall` rigid body. Pass one or more `--drone NAME` options to override that list. It records each drone's PX4/AirStack state and namespaced policy-debug topics used for flight review, writes a timestamped MCAP bag under `/bags` in the container, and stops with `Ctrl-C`. Docker Compose bind-mounts `/bags` to `robot/bags` on the host.
 
 Before a flight, check topic visibility without recording:
 
@@ -381,7 +389,7 @@ Before allowing any real hover/takeoff recommendation, confirm all of the follow
 - The physical flight area is clear, props are safe, and the drone is restrained until the final moment.
 - Motive is streaming the correct `drone_3` rigid body with low latency.
 - AirStack and Micro XRCE-DDS are on `ROS_DOMAIN_ID=1`, with no duplicate critical nodes.
-- VOXL MicroDDS is connected to `192.168.50.139:8892`.
+- VOXL MicroDDS is connected to `192.168.50.6:8892`.
 - QGC is connected and preflight errors are understood.
 - PX4 local position and estimator EV flags are valid.
 - The RViz/QGC hand-carry direction check matches the lab coordinate frame.

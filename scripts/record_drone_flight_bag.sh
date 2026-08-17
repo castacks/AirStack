@@ -9,9 +9,11 @@
 
 set -euo pipefail
 
+REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 CONTAINER="airstack-robot-desktop-1"
-DRONE="drone_3"
-BALL="SoccerBall"
+DRONES=("drone_2" "drone_3")
+DRONES_OVERRIDDEN=0
+BALL="VolleyBall"
 INCLUDE_BALL=1 # 0 = do not record ball topic, 1 = record ball topic
 OUTPUT_DIR="/bags"
 CHECK_ONLY=0
@@ -26,10 +28,10 @@ Usage:
 Options:
   --container NAME    Docker container to run rosbag in.
                       Default: airstack-robot-desktop-1
-  --drone NAME        Drone namespace / rigid body name.
-                      Default: drone_3
+  --drone NAME        Drone namespace / rigid body name. May be repeated.
+                      Default: drone_2 and drone_3
   --ball NAME         Ball rigid body topic name without slashes.
-                      Default: SoccerBall
+                      Default: VolleyBall
   --no-ball           Do not record a ball topic.
   --output-dir PATH   Container output directory.
                       Default: /bags
@@ -40,13 +42,14 @@ Options:
 
 Examples:
   ./scripts/record_drone_flight_bag.sh
-  ./scripts/record_drone_flight_bag.sh --ball SoccerBall
-  ./scripts/record_drone_flight_bag.sh --drone drone_2 --ball SoccerBall
+  ./scripts/record_drone_flight_bag.sh --ball VolleyBall
+  ./scripts/record_drone_flight_bag.sh --drone drone_2 --ball VolleyBall
+  ./scripts/record_drone_flight_bag.sh --drone drone_2 --drone drone_3
   ./scripts/record_drone_flight_bag.sh --no-ball
   ./scripts/record_drone_flight_bag.sh --ball SoccerBall \
-    --exclude-topic /policy_commander/obs \
-    --exclude-topic /policy_commander/action \
-    --exclude-topic /policy_commander/waypoint
+    --exclude-topic /drone_2/policy_commander/obs \
+    --exclude-topic /drone_2/policy_commander/action \
+    --exclude-topic /drone_2/policy_commander/waypoint
 
 Stop recording with Ctrl-C after landing/disarming.
 EOF
@@ -59,7 +62,11 @@ while [ "$#" -gt 0 ]; do
             shift 2
             ;;
         --drone)
-            DRONE="${2:?--drone needs a value}"
+            if [ "$DRONES_OVERRIDDEN" -eq 0 ]; then
+                DRONES=()
+                DRONES_OVERRIDDEN=1
+            fi
+            DRONES+=("${2:?--drone needs a value}")
             shift 2
             ;;
         --ball)
@@ -105,7 +112,13 @@ sanitize() {
 }
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
-NAME_PART="$(sanitize "${DRONE}")"
+NAME_PART=""
+for drone in "${DRONES[@]}"; do
+    if [ -n "$NAME_PART" ]; then
+        NAME_PART="${NAME_PART}_"
+    fi
+    NAME_PART="${NAME_PART}$(sanitize "$drone")"
+done
 if [ "$INCLUDE_BALL" -eq 1 ]; then
     NAME_PART="${NAME_PART}_$(sanitize "${BALL}")"
 fi
@@ -114,25 +127,28 @@ BAG_DIR="${OUTPUT_DIR}/${NAME_PART}_${STAMP}"
 LATEST_FILE="${OUTPUT_DIR}/latest_${NAME_PART}_bag.txt"
 TMUX_SESSION="bag_record_${NAME_PART}_${STAMP}"
 
-TOPICS=(
-    "/${DRONE}/pose"
-    "/${DRONE}/odometry_conversion/odometry"
-    "/policy_commander/obs"
-    "/policy_commander/action"
-    "/policy_commander/waypoint"
-    "/${DRONE}/fmu/in/vehicle_visual_odometry"
-    "/${DRONE}/fmu/in/trajectory_setpoint"
-    "/${DRONE}/fmu/out/vehicle_local_position"
-    "/${DRONE}/fmu/out/vehicle_odometry"
-    "/${DRONE}/fmu/out/vehicle_attitude"
-    "/${DRONE}/fmu/out/vehicle_status"
-    "/${DRONE}/fmu/out/battery_status"
-    "/${DRONE}/fmu/out/hover_thrust_estimate"
-    "/${DRONE}/fmu/out/actuator_motors"
-    "/${DRONE}/fmu/out/failsafe_flags"
-    "/${DRONE}/fmu/in/trajectory_setpoint"
-    "/${DRONE}/fmu/in/offboard_control_mode"
-)
+TOPICS=()
+for drone in "${DRONES[@]}"; do
+    TOPICS+=(
+        "/${drone}/pose"
+        "/${drone}/odometry_conversion/odometry"
+        "/${drone}/policy_commander/obs"
+        "/${drone}/policy_commander/action"
+        "/${drone}/policy_commander/waypoint"
+        "/${drone}/fmu/in/vehicle_visual_odometry"
+        "/${drone}/fmu/in/trajectory_setpoint"
+        "/${drone}/fmu/in/offboard_control_mode"
+        "/${drone}/fmu/out/vehicle_local_position"
+        "/${drone}/fmu/out/vehicle_odometry"
+        "/${drone}/fmu/out/vehicle_attitude"
+        "/${drone}/fmu/out/vehicle_status"
+        "/${drone}/fmu/out/battery_status"
+        # Temporarily unavailable on drone_2; restore when PX4 publishes them.
+        # "/${drone}/fmu/out/hover_thrust_estimate"
+        # "/${drone}/fmu/out/actuator_motors"
+        "/${drone}/fmu/out/failsafe_flags"
+    )
+done
 
 if [ "$INCLUDE_BALL" -eq 1 ]; then
     TOPICS+=("/${BALL}/pose" "/${BALL}/mocap_odometry")
@@ -159,7 +175,7 @@ printf -v TOPIC_ARGS '%q ' "${TOPICS[@]}"
 
 echo "Recording flight bag"
 echo "  container : $CONTAINER"
-echo "  drone     : $DRONE"
+echo "  drones    : ${DRONES[*]}"
 if [ "$INCLUDE_BALL" -eq 1 ]; then
     echo "  ball      : $BALL -> /${BALL}/pose"
 else
@@ -169,7 +185,7 @@ echo "  output    : $BAG_DIR"
 echo "  storage   : mcap"
 echo "  ROS domain: $ROS_DOMAIN_ID"
 if [ "$OUTPUT_DIR" = "/bags" ]; then
-    HOST_BAG="/home/yutongw/Desktop/AirStack/robot/bags/$(basename "$BAG_DIR")"
+    HOST_BAG="$REPO_ROOT/robot/bags/$(basename "$BAG_DIR")"
     echo "  host path : $HOST_BAG"
     echo "  mount     : /bags is Docker Compose bind-mounted from robot/bags"
     echo "              No docker cp is needed when using the default output dir."

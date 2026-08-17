@@ -10,14 +10,20 @@ from launch_ros.substitutions import FindPackageShare
 def _launch_setup(context, *args, **kwargs):
     config = LaunchConfiguration('config')
     model_path = LaunchConfiguration('model_path').perform(context).strip()
+    namespace = LaunchConfiguration('namespace')
+    debug_topic_prefix = LaunchConfiguration(
+        'debug_topic_prefix').perform(context).strip()
     params = [config]
     if model_path:
         params.append({'model_path': model_path})
+    if debug_topic_prefix:
+        params.append({'debug_topic_prefix': debug_topic_prefix})
     return [
         Node(
             package='svg_ground_control',
             executable='policy_commander',
             name='policy_commander',
+            namespace=namespace,
             output='screen',
             parameters=params,
         ),
@@ -36,5 +42,11 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'model_path', default_value='',
             description='SB3 checkpoint .zip (overrides YAML when non-empty)'),
+        DeclareLaunchArgument(
+            'namespace', default_value='',
+            description='ROS namespace used to isolate this commander'),
+        DeclareLaunchArgument(
+            'debug_topic_prefix', default_value='',
+            description='Debug topic prefix override'),
         OpaqueFunction(function=_launch_setup),
     ])

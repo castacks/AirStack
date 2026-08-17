@@ -68,6 +68,7 @@
 #include <chrono>
 #include <cmath>
 #include <array>
+#include <cstdint>
 #include <mutex>
 #include <stdexcept>
 
@@ -147,6 +148,14 @@ class PX4Interface : public robot_interface::RobotInterface
 public:
     PX4Interface() : RobotInterface("px4_interface")
     {
+        const auto target_system_param =
+            this->declare_parameter<int64_t>("target_system", 1);
+        if (target_system_param < 1 || target_system_param > 255) {
+            throw std::invalid_argument(
+                "target_system must be in the MAVLink system ID range [1, 255]");
+        }
+        target_system_ = static_cast<uint8_t>(target_system_param);
+
         offboard_command_timeout_s_ =
             this->declare_parameter<double>("offboard_command_timeout_s", 0.5);
         if (offboard_command_timeout_s_ <= 0.0) {
@@ -217,7 +226,9 @@ public:
 
         RCLCPP_INFO(
             this->get_logger(),
-            "PX4Interface initialized (uXRCE-DDS, command timeout %.3f s)",
+            "PX4Interface initialized (uXRCE-DDS, target system %u, "
+            "command timeout %.3f s)",
+            static_cast<unsigned int>(target_system_),
             offboard_command_timeout_s_);
     }
 
@@ -480,6 +491,7 @@ private:
 
     ControlMode control_mode_{ControlMode::NONE};
     std::chrono::steady_clock::time_point last_control_command_time_{};
+    uint8_t target_system_{1};
     double offboard_command_timeout_s_{0.5};
     bool command_received_{false};
     bool command_timeout_triggered_{false};
@@ -584,7 +596,8 @@ private:
     /**
      * @brief Send a VehicleCommand to PX4.
      *
-     * All unused params default to 0.  target_system = 1 (the autopilot).
+     * All unused params default to 0.  target_system identifies the PX4
+     * autopilot configured for this interface instance.
      */
     void send_vehicle_command(uint32_t command,
                                float p1 = 0.f, float p2 = 0.f,
@@ -602,7 +615,7 @@ private:
         cmd.param5           = p5;  // float64
         cmd.param6           = p6;  // float64
         cmd.param7           = p7;
-        cmd.target_system    = 1;
+        cmd.target_system    = target_system_;
         cmd.target_component = 1;
         cmd.source_system    = 1;
         cmd.source_component = 1;   // uint16
