@@ -50,7 +50,21 @@ auto-tagged `@pytest.mark.unit` by path, so `-m unit` selects it. ament lint fil
 | `airstack test -m unit` | Package `test/test_*.py`, collected directly from source |
 | `cd tests && pytest -m unit` | Same path — the containerless equivalent |
 | `pytest tests/ -m unit` | **Nothing.** See the warning below |
-| `colcon test --packages-select <pkg>` | Only what the package's `CMakeLists.txt` registers (C++ gtests, linters) |
+| `colcon test --packages-select <pkg>` | C++ gtests and linters; Python only for `ament_python` packages (see below) |
+
+**Two runners, split by language.** C++ gtests run only under `colcon test`, which CI
+executes inside the robot container via the **`build_packages`** mark
+(`tests/system/test_build_packages.py::test_colcon_test_robot`). Python unit tests run
+under the root harness described above. Whether `colcon test` *also* picks up a package's
+Python tests depends on its build type:
+
+| Package | Build type | Python tests under `colcon test` |
+|---|---|---|
+| `natnet_ros2` | `ament_cmake` | **No** — `CMakeLists.txt` registers `ament_add_gtest` but no `ament_add_pytest_test` |
+| `lidar_point_cloud_filter` | `ament_python` | **Yes** — `setup.cfg` sets `testpaths = test`, so colcon's pytest runner finds them |
+
+So a Python test in an `ament_cmake` package runs *only* via the root harness, and today
+that means only when someone runs it locally.
 
 > **`pytest tests/` does not collect unit tests.** The injection in
 > `tests/conftest.py::pytest_configure` is skipped whenever a path is given on the command

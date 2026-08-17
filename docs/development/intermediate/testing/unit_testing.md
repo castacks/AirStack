@@ -46,9 +46,25 @@ Unit tests complete in under one second for the current suite.
 
 ## CI
 
-No workflow runs unit tests today. `system-tests.yml` invokes `pytest tests/`, which
-does not collect them, and it only triggers on PR open, a `/pytest` comment, or
-`workflow_dispatch`. Run them locally before pushing — no infrastructure required:
+**C++ gtests are gated; Python unit tests are not.** The two languages take different
+runners:
+
+| Test | Runner | In CI |
+|---|---|---|
+| C++ gtest | `colcon test` inside the robot container | Yes — the `build_packages` mark (`tests/system/test_build_packages.py::test_colcon_test_robot`) |
+| Python, `ament_python` package | root harness **and** `colcon test` | Via `build_packages` only |
+| Python, `ament_cmake` package | root harness only | No |
+
+`colcon test` picks up Python tests only when the package's build type makes it: an
+`ament_python` package like `lidar_point_cloud_filter` exposes them through
+`setup.cfg` (`testpaths = test`), while an `ament_cmake` package like `natnet_ros2`
+would need an explicit `ament_add_pytest_test` — it has none, so its Python tests run
+nowhere in CI.
+
+No workflow runs the Python unit tests directly. `system-tests.yml` invokes
+`pytest tests/`, which does not collect them, and it only triggers on PR open, a
+`/pytest` comment, or `workflow_dispatch`. Run them locally before pushing — no
+infrastructure required:
 
 ```bash
 airstack test -m unit -v
