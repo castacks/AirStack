@@ -193,6 +193,7 @@ jobs:
           args_blob = ' '.join(args)
           heavy = any(m in marks_norm for m in (
               'liveliness', 'sensors', 'takeoff_hover_land', 'autonomy', 'build_docker',
+              'optitrack',
           ))
           only_packages = marks_norm == 'build_packages' or (
               not heavy and any(s in args_blob for s in (

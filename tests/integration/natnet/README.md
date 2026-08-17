@@ -103,12 +103,12 @@ The matching **system** check is
 - Asserts `/{robot_n}/{natnet pose topic}/pose_cov` ≥ 5 Hz per robot (the drone
   body's configured topic — default `perception/optitrack/drone`).
 - Override the checked topic with `NATNET_POSE_TOPIC` (default
-  `perception/optitrack/drone`). The sim body name (`NATNET_BODY_NAME`, default
-  `Drone`) is decoupled from the published topic, which the robot profile sets.
+  `perception/optitrack/drone`). The body name and the published topic are decoupled;
+  both are set in the robot's `natnet_config.yaml` profile.
 
 Sim auto-start: set `ISAAC_SIM_SCRIPT_NAME` to a NatNet launch script and
 `LAUNCH_NATNET=true` on the robot. Convenience bundle:
-`airstack up --env-file overrides/isaac-natnet-vision.env` (NatNet script +
+`airstack up --env-file overrides/isaac-optitrack-simulation.env` (NatNet script +
 PX4 external-vision SITL profile).
 
 ## libNatNet 4.4 unicast — verified wire contract
