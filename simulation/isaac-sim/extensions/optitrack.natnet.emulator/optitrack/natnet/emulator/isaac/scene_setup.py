@@ -8,9 +8,8 @@ comes up automatically with one rigid body per drone ``base_link`` — no UI cli
 Two layers, mirroring the rest of the package:
 
 - ``build_drone_config`` is **pure** (no USD / Kit), so it unit-tests hermetically.
-- ``start_drone_natnet_server`` authors the interface prim and owns a
-  :class:`~optitrack.natnet.emulator.isaac.manager.NatNetServerManager` that samples
-  poses on each physics step. It imports ``pxr``/``omni`` lazily (only when called).
+- ``author_drone_natnet_interface`` writes the interface prim the extension builds
+  its server from. It imports ``pxr`` lazily (only when called).
 """
 
 from __future__ import annotations
@@ -109,34 +108,21 @@ def build_drone_config(
     return cfg
 
 
-def start_drone_natnet_server(
+def author_drone_natnet_interface(
     stage,
     drones: Sequence[DroneSpec],
     *,
     prim_path: str = DEFAULT_INTERFACE_PATH,
-    start: bool = True,
     **config_kwargs,
-):
-    """Author a NatNet interface prim from ``drones`` and return a running manager.
+) -> NatNetInterfaceConfig:
+    """Author the NatNet interface prim from ``drones``.
 
-    Authors ``prim_path`` (overwriting any existing interface) with one rigid body
-    per drone, then creates a :class:`NatNetServerManager` that subscribes to physics
-    steps and starts the server. Play the sim to stream poses. Keep a reference to 
-    the returned manager so it isn't garbage-collected (which would tear 
-    down the physics subscription and stop the server).
-
-    Returns the ``NatNetServerManager``. If ``start`` is 
-    False (or the config is authored disabled), 
-    the manager is created but the server is left stopped.
+    Writes ``prim_path`` (overwriting any existing interface) with one rigid body per
+    drone. Call this before starting the timeline: the extension builds the server
+    from this prim on Play. Returns the authored config.
     """
-    from .manager import NatNetServerManager
     from .usd_bindings import author_interface
 
     cfg = build_drone_config(drones, **config_kwargs)
     author_interface(stage, prim_path, cfg)
-
-    manager = NatNetServerManager()
-    manager.on_startup()
-    if start and cfg.server_enabled:
-        manager.start_from_stage()
-    return manager
+    return cfg

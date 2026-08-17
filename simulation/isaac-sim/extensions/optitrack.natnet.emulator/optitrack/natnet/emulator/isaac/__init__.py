@@ -20,9 +20,9 @@ from .scene_setup import (
     DEFAULT_TARGET_PATH,
     DEFAULT_TARGET_POSITION,
     DEFAULT_TARGET_STREAMING_ID,
+    author_drone_natnet_interface,
     author_static_target,
     build_drone_config,
-    start_drone_natnet_server,
 )
 from .usd_bindings import (
     author_interface,
@@ -43,6 +43,7 @@ __all__ = [
     "NatNetInterfaceConfig",
     "NatNetServerManager",
     "author_interface",
+    "author_drone_natnet_interface",
     "author_static_target",
     "body_attr_name",
     "build_catalog",
@@ -58,5 +59,4 @@ __all__ = [
     "read_interface",
     "read_world_pose",
     "resolve_targets",
-    "start_drone_natnet_server",
 ]

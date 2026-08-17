@@ -83,7 +83,7 @@ from optitrack.natnet.emulator.isaac import (  # noqa: E402
     DEFAULT_TARGET_POSITION,
     DEFAULT_TARGET_STREAMING_ID,
     author_static_target,
-    start_drone_natnet_server,
+    author_drone_natnet_interface,
 )
 
 # --------------------- CONFIGURATION ---------------------
@@ -154,8 +154,6 @@ class PegasusApp:
         set_gps_origins(DRONE_CONFIGS, world_origin=WORLD_GPS_ORIGIN)
 
         self.timeline = omni.timeline.get_timeline_interface()
-        self.natnet_manager = None
-
         self.pg = PegasusInterface()
         self.pg._world = World(**self.pg._world_settings)
         self.world = self.pg.world
@@ -229,23 +227,24 @@ class PegasusApp:
         self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
 
     def _setup_natnet(self, stage):
-        """Author the NatNet interface prim (drone + static target) and start the server."""
+        """Author the NatNet interface prim (drone + static target).
+
+        Runs before the timeline starts; the emulator extension builds the server
+        from this prim on Play.
+        """
         try:
             author_static_target(stage, DEFAULT_TARGET_PATH, DEFAULT_TARGET_POSITION)
             bodies = [
                 (NATNET_BODY_NAME, NATNET_BODY_ID, "/World/base_link/body"),
                 (NATNET_TARGET_NAME, DEFAULT_TARGET_STREAMING_ID, DEFAULT_TARGET_PATH),
             ]
-            self.natnet_manager = start_drone_natnet_server(
-                stage, bodies, **_NATNET_SERVER_KWARGS
-            )
+            author_drone_natnet_interface(stage, bodies, **_NATNET_SERVER_KWARGS)
             carb.log_warn(
-                f"[natnet] Emulator started: '{NATNET_BODY_NAME}' (-> /World/base_link/body), "
+                f"[natnet] Interface authored: '{NATNET_BODY_NAME}' (-> /World/base_link/body), "
                 f"'{NATNET_TARGET_NAME}' (-> {DEFAULT_TARGET_PATH})."
             )
         except Exception as exc:  # noqa: BLE001 - never let NatNet kill the sim
-            carb.log_error(f"[natnet] Failed to start emulator: {exc}")
-            self.natnet_manager = None
+            carb.log_error(f"[natnet] Failed to author interface: {exc}")
 
     def run(self):
         if self.play_on_start:
@@ -265,8 +264,6 @@ class PegasusApp:
                 app.update()
 
         carb.log_warn("Closing simulation.")
-        if self.natnet_manager is not None:
-            self.natnet_manager.on_shutdown()
         self.timeline.stop()
         simulation_app.close()
 

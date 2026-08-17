@@ -85,6 +85,7 @@ class NatNetServerManager:
         self._usd_listener = None
         self._scan_tick_sub = None
         self._scan_pending = False
+        self._timeline_sub = None
         self._server = None
         self._server_factory = server_factory or default_server_factory
         # Sampling state. A NatNet prim edit sets ``_needs_resync``; the next physics
@@ -112,12 +113,14 @@ class NatNetServerManager:
         )
         self._register_usd_listener()
         self._subscribe_physics()
+        self._subscribe_timeline()
         print("[natnet] NatNetServerManager initialized")
         self.scan_and_print()
 
     def on_shutdown(self):
         self.stop_server()
         self._physx_sub = None
+        self._timeline_sub = None
         self._stage_event_sub = None
         self._scan_tick_sub = None
         self._scan_pending = False
@@ -138,6 +141,52 @@ class NatNetServerManager:
     def _on_physics_step(self, _dt):
         if self._server is not None:
             self.sample_once()
+
+    # --- timeline-driven lifecycle ---------------------------------------------
+
+    def _subscribe_timeline(self):
+        """Bind the server's lifetime to the sim: Play starts it, Stop shuts it down.
+
+        Play builds the server from the prim, so ``serverIp``/ports/``mode`` — bound
+        into the socket at construction — pick up whatever is authored at that point.
+        Body and noise edits need no rebuild; ``_resync`` re-reads them while running.
+        """
+        try:
+            import omni.timeline
+
+            self._timeline_sub = (
+                omni.timeline.get_timeline_interface()
+                .get_timeline_event_stream()
+                .create_subscription_to_pop(self._on_timeline_event)
+            )
+        except Exception as exc:  # Kit only
+            print(f"[natnet] Timeline subscription unavailable: {exc}")
+            self._timeline_sub = None
+
+    def _on_timeline_event(self, event):
+        import omni.timeline
+
+        if event.type == int(omni.timeline.TimelineEventType.PLAY):
+            self._start_for_play()
+        elif event.type == int(omni.timeline.TimelineEventType.STOP):
+            self.stop_server()
+
+    def _start_for_play(self):
+        """Start from the stage on Play, honouring the prim's ``serverEnabled``."""
+        if self.is_running:
+            return
+        stage = self._get_stage()
+        if stage is None:
+            return
+        interfaces = find_interfaces(stage)
+        if not interfaces:
+            return
+        config = read_interface(interfaces[0])
+        if not config.server_enabled:
+            print("[natnet] Play: serverEnabled is false — not starting.")
+            return
+        self.log_target_diagnostics(config)
+        self.start_server(config)
 
     # --- scanning --------------------------------------------------------------
 

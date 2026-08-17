@@ -126,6 +126,9 @@ class NatNetEmulatorExtension(omni.ext.IExt):
         import omni.ui as ui
 
         if self._window is None:
+            # Open on the interface authored on the stage, so Save writes back what is
+            # there — author_interface replaces the whole body set.
+            self._load_from_stage()
             self._window = ui.Window("NatNet Interface", width=400, height=600)
             self._window.frame.set_build_fn(self._build_window)
             # Dock bottom-right next to the Property panel, like Pegasus.
@@ -152,13 +155,11 @@ class NatNetEmulatorExtension(omni.ext.IExt):
                     ui.Button("Print config", clicked_fn=self._print_config)
 
                 running = self._manager is not None and self._manager.is_running
+                # Read-only: the server's lifetime follows the sim, so there is no
+                # control here. Play starts it from the prim, Stop shuts it down.
                 with ui.HStack(height=28, spacing=6):
-                    ui.Button(
-                        "Stop Server" if running else "Start Server",
-                        clicked_fn=self._toggle_server,
-                    )
                     ui.Label(
-                        f"Server: {'RUNNING' if running else 'stopped'}",
+                        f"Server: {'RUNNING' if running else 'stopped (press Play)'}",
                         width=0,
                         style={"color": 0xFF33CC33 if running else 0xFF888888},
                     )
@@ -409,25 +410,6 @@ class NatNetEmulatorExtension(omni.ext.IExt):
         # Print whatever is authored on the stage (the source of truth).
         if self._manager is not None:
             self._manager.scan_and_print()
-
-    def _toggle_server(self):
-        # Start/stop the live server at the click of this button, regardless of the
-        # serverEnabled attribute. Builds from the prim that's actually on the stage.
-        import carb
-
-        if self._manager is None:
-            return
-        if not self._manager.is_running:
-            if self._find_interface() is None:
-                carb.log_warn("[natnet] No interface on stage — Create/Save one first.")
-                return
-            try:
-                self._manager.start_from_stage()
-            except Exception as exc:  # noqa: BLE001 - surface to the user
-                carb.log_error(f"[natnet] Could not start server: {exc}")
-        else:
-            self._manager.stop_server()
-        self._refresh()
 
     def _create_server(self):
         import carb

@@ -73,7 +73,7 @@ own parameter set.
 | `example_multi_px4_pegasus_natnet_launch_script.py` | `NUM_ROBOTS` drones + shared `Target` body |
 
 Both scripts set up GPS origins (via `gps_utils.py`) so the GCS datum matches
-PX4, start the NatNet emulator, and play the simulation automatically.
+PX4, author the NatNet interface, and play the simulation automatically.
 
 !!! note "Baseline scripts have no NatNet"
     `example_one_px4_pegasus_launch_script.py` and
@@ -112,7 +112,9 @@ To retarget, edit **both** together:
 
 ## Adding NatNet to your own launch script
 
-Call `start_drone_natnet_server` after your Pegasus drones are spawned:
+Call `author_drone_natnet_interface` after your Pegasus drones are spawned and
+before you start the timeline. The extension builds the server from the prim on
+Play.
 
 ```python
 from isaacsim.core.utils.extensions import enable_extension
@@ -121,7 +123,7 @@ from isaacsim.core.utils.extensions import enable_extension
 enable_extension("optitrack.natnet.emulator")
 
 from optitrack.natnet.emulator.isaac import (
-    start_drone_natnet_server,
+    author_drone_natnet_interface,
     author_static_target,
     DEFAULT_TARGET_PATH,
     DEFAULT_TARGET_STREAMING_ID,
@@ -137,8 +139,7 @@ drones = [
     ("Drone", 1, "/World/drone1/base_link/body"),
 ]
 
-# Keep a reference for the sim lifetime — dropping it stops the server.
-self.natnet_manager = start_drone_natnet_server(
+author_drone_natnet_interface(
     stage,
     drones=drones,
     server_ip="172.31.0.200",   # Isaac container IP on AirStack bridge network
@@ -158,7 +159,7 @@ drones = [
 ]
 ```
 
-`start_drone_natnet_server` also accepts the static target as a body — include
+`author_drone_natnet_interface` also accepts the static target as a body — include
 it explicitly if you want it:
 
 ```python
@@ -190,30 +191,32 @@ panel docks next to the Property panel in the bottom-right.
 | **Save** | Push the form fields into the USD prim on the stage |
 | **Load from Stage** | Pull the existing prim's values back into the form |
 | **Print config** | Log the current config to the console |
-| **Start Server / Stop Server** | Toggle the NatNet UDP server |
 
-!!! warning "Always Save before Start"
-    The server reads its configuration from the USD prim, not the form. Press
-    **Save** after every edit, then **Start Server**.
+**The server's lifetime follows the simulation:** Play builds it from the prim,
+Stop shuts it down. The panel's `Server:` label reports which state it is in.
 
-!!! warning "Restart the robot stack after restarting the server"
-    Clients register with the server instance they connected to. **Stop Server**
-    discards that registration, so a `natnet_ros2` client that was already connected
-    is ignored by the new server and receives no frames — it never re-sends
-    `NAT_CONNECT` on its own. The console shows
-    `[Command Handler] Ignoring message N from unregistered client`.
+When edits take effect after **Save**:
 
-    Assume one client connection per server lifetime: after **Stop Server** →
-    **Start Server**, restart the robot container so the client handshakes again.
+| Setting | Takes effect |
+|---|---|
+| Bodies — added, removed, renamed, retargeted | Next frame; the server re-reads the interface as it samples |
+| `upAxis`, pose noise | Next frame |
+| `serverIp`, ports, `mode` | Next **Play**; these are bound when the server is built |
 
-    Stopping and starting the *simulation* is fine — frames are sampled on the
-    physics step, so the stream pauses and resumes without touching the server.
+!!! warning "Restart the robot stack after each Play"
+    Clients register with the server instance they connect to, and `natnet_ros2`
+    handshakes only until its first success. A client connected during an earlier
+    run is unknown to the server built by the next Play and receives no frames; the
+    console shows `[Command Handler] Ignoring message N from unregistered client`.
+
+    Assume one client connection per server lifetime: restart the robot container
+    after each Stop → Play cycle.
 
 ### Server settings
 
 | Field | Default | Description |
 |---|---|---|
-| Server enabled | `true` | Uncheck to prevent auto-start on stage open |
+| Server enabled | `true` | Uncheck to stop the server starting on Play |
 | Server IP | `172.31.0.200` | IP the UDP socket binds to (Isaac container address) |
 | Mode | `unicast` | `unicast` for direct; `multicast` for broadcast |
 | Command port | `1510` | NatNet command channel |
@@ -229,7 +232,7 @@ panel docks next to the Property panel in the bottom-right.
 1. In the Stage tree, **select the prim** you want to track (e.g. `/World/drone1/base_link/body`).
 2. Click **Add body (from selection)** in the panel.
 3. Fill in the **rigid body name** (must match the `rigid_body_name` in `natnet_config.yaml`) and **streaming ID**.
-4. Click **Save**, then **Start Server**.
+4. Click **Save**. The body starts streaming on the next frame.
 
 Each body row shows a live readout of the prim's current world position with a
 colour-coded status indicator:
@@ -249,7 +252,7 @@ unless you want to change the config.
 
 ## Configuration reference
 
-`start_drone_natnet_server` and `build_drone_config` accept these keyword
+`author_drone_natnet_interface` and `build_drone_config` accept these keyword
 arguments (all optional):
 
 | Parameter | Default | Description |
@@ -281,12 +284,12 @@ arguments (all optional):
 - The NatNet data port (1511) must be bound to the *data* socket — frames sent
   from the command socket are silently dropped by libNatNet 4.4.
 
-**Data stopped after restarting the server**
+**Data stopped after stopping and replaying the simulation**
 
-- Expected: client registration lives on the server instance, so **Stop Server**
-  drops it and the client is not re-registered on the next start. The console
-  shows `Ignoring message N from unregistered client`. Restart the robot container
-  to force a fresh `NAT_CONNECT`. See the warning under
+- Expected: Stop destroys the server, so the client's registration goes with it,
+  and `natnet_ros2` does not re-handshake after its first successful connect. The
+  console shows `Ignoring message N from unregistered client`. Restart the robot
+  container to force a fresh `NAT_CONNECT`. See the warning under
   [Panel controls](#panel-controls).
 
 **Emulator streams but `vision_pose` is empty**

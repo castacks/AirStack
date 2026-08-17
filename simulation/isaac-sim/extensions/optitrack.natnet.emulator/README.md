@@ -30,7 +30,7 @@ optitrack.natnet.emulator/
         ├── catalog.py             # Config → sDataDescriptions (MODELDEF)
         ├── frames.py              # Prim poses → sFrameOfMocapData
         ├── manager.py             # NatNetServerManager (lifecycle + sampling)
-        ├── scene_setup.py         # Pegasus launch helpers (start_drone_natnet_server)
+        ├── scene_setup.py         # Pegasus launch helpers (author_drone_natnet_interface)
         └── ui_extension.py        # Docked editor panel (NatNetEmulatorExtension)
 ```
 
@@ -112,10 +112,10 @@ from isaacsim.core.utils.extensions import enable_extension
 # Register the extension with Kit before importing from it.
 enable_extension("optitrack.natnet.emulator")
 
-from optitrack.natnet.emulator.isaac import start_drone_natnet_server
+from optitrack.natnet.emulator.isaac import author_drone_natnet_interface
 
-# Keep a reference to the manager for the sim lifetime.
-manager = start_drone_natnet_server(
+# Author the interface prim; the extension starts the server on Play.
+author_drone_natnet_interface(
     stage,
     drones=[("Drone", 1, "/World/drone1/base_link/body")],
     server_ip="172.31.0.200",
@@ -124,7 +124,7 @@ manager = start_drone_natnet_server(
 
 ### Kit UI
 
-The extension registers **Window → NatNet Emulator** — a docked panel to create/edit the interface prim, start/stop the server, and view live body readouts. The same `NatNetServerManager` backs both the UI and launch-script paths.
+The extension registers **Window → NatNet Emulator** — a docked panel to create/edit the interface prim and view live body readouts. The extension owns the `NatNetServerManager`, building the server from the prim on Play and shutting it down on Stop.
 
 ## Protocol notes (unicast, libNatNet 4.4)
 
