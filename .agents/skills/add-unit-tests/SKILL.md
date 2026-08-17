@@ -52,11 +52,19 @@ auto-tagged `@pytest.mark.unit` by path, so `-m unit` selects it. ament lint fil
 | `pytest tests/ -m unit` | Same path — what CI runs |
 | `colcon test --packages-select <pkg>` | C++ gtests and linters; Python only for `ament_python` packages (see below) |
 
-**Two runners, split by language.** C++ gtests run only under `colcon test`, which CI
-executes inside the robot container via the **`build_packages`** mark
-(`tests/system/test_build_packages.py::test_colcon_test_robot`). Python unit tests run
-under the root harness described above. Whether `colcon test` *also* picks up a package's
-Python tests depends on its build type:
+**Two runners, split by language — because C++ needs a build and Python does not.** A
+gtest is a binary: it must be compiled against the package's headers and rclcpp, so it can
+only run where the ROS toolchain is. That is `colcon test` inside the robot container,
+which CI reaches via the **`build_packages`** mark
+(`tests/system/test_build_packages.py::test_colcon_test_robot`, which builds with
+`-DBUILD_TESTING=ON` first). Python unit tests are deliberately hermetic — they stub ROS
+at the import boundary and touch no ROS runtime — so they need no build and no container,
+which is what lets the root harness run all of them in about a second.
+
+Preserve that property when adding tests: a Python test that needs a live ROS node belongs
+in `tests/integration/` or `tests/system/`, not here.
+
+Whether `colcon test` *also* picks up a package's Python tests depends on its build type:
 
 | Package | Build type | Python tests under `colcon test` |
 |---|---|---|

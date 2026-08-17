@@ -45,7 +45,12 @@ Unit tests complete in under one second for the current suite.
 
 ## CI
 
-**The two languages take different runners, and both are gated:**
+**The two languages take different runners because C++ needs a build and Python does
+not.** A gtest is a binary compiled against the package's headers and rclcpp, so it only
+runs where the ROS toolchain is — `colcon test` inside the robot container. Python unit
+tests stub ROS at the import boundary and touch no ROS runtime, so they need neither a
+build nor a container, which is what keeps the whole suite under a second. Both are
+gated in CI:
 
 | Test | Runner | In CI via |
 |---|---|---|
