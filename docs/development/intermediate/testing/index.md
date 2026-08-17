@@ -5,25 +5,24 @@ hardware requirement:
 
 | Layer | Where | Mark / Tool | Hardware |
 |---|---|---|---|
-| **Unit tests** | `tests/robot/`, `tests/sim/` | `pytest -m unit` | None — pure Python |
+| **Unit tests** | `<pkg>/test/` (co-located) | `airstack test -m unit` | None — pure Python |
 | **Package tests** | `<pkg>/test/` | `colcon test` | Robot container |
 | **System tests** | `tests/system/` | `pytest -m liveliness` etc. | Docker, GPU, sim license |
 
-## Unit tests (`pytest -m unit`)
+## Unit tests (`airstack test -m unit`)
 
 Fast, hermetic Python tests that run in seconds with no Docker or GPU. Test source
 lives **co-located with its ROS 2 package** (`<package>/test/`); the packages with unit
-tests are listed in `tests/colcon_unit_test_packages.yaml`, and `pytest tests/` collects
+tests are listed in `tests/colcon_unit_test_packages.yaml`, and the root harness collects
 them from there.
 
 ```bash
 airstack test -m unit -v
-# or directly:
-pytest tests/ -m unit -v
+# or containerless — the `cd` is load-bearing:
+cd tests && pytest -m unit -v
 ```
 
-Unit tests run as part of `system-tests.yml` via `pytest tests/` and can also be
-run locally with no Docker or GPU needed.
+No CI workflow currently runs unit tests, so run them locally before pushing.
 
 → **[Unit Testing Guide](unit_testing.md)** — patterns, CI workflow,
   how to add tests for new packages (Python and C++ gtest).

@@ -1,12 +1,12 @@
 # Unit Testing
 
-AirStack unit tests are **fast, hermetic, and purely Python** — no Docker stack, no GPU, no running containers. They run locally in seconds and gate every pull request via a dedicated GitHub Actions workflow on a standard `ubuntu-latest` runner.
+AirStack unit tests are **fast, hermetic, and purely Python** — no Docker stack, no GPU, no running containers. They run locally in seconds via `airstack test -m unit`. No CI workflow runs them today, so run them yourself before pushing.
 
 ## Design principles
 
 - **Co-located with source.** Test files live in `<package>/test/` alongside the code they test. This is the standard ROS 2 / colcon convention and ensures tests are discovered by both `colcon test` and `pytest`.
 - **Listed in one place.** `tests/colcon_unit_test_packages.yaml` lists which packages have unit tests. `tests/conftest.py` resolves each to its `test/` dir and collects the non-linter `test_*.py` files under `--import-mode=importlib`. To add a package's unit tests, list it in that YAML.
-- **`@pytest.mark.unit` on every test.** Auto-applied by path in `conftest.py` (source files may also declare it). The `unit` mark keeps unit tests isolated from system tests that need Docker, GPUs, and sim licenses.
+- **`@pytest.mark.unit` on every test, applied for you.** `conftest.py` marks items by file location, so test sources should not declare it themselves. The `unit` mark keeps unit tests isolated from system tests that need Docker, GPUs, and sim licenses.
 
 ## Repository layout
 
@@ -35,24 +35,25 @@ Collected items point straight at the co-located source:
 # Locally — no container or Docker stack required
 airstack test -m unit -v
 
-# Or directly with pytest (AIRSTACK_ROOT must point to the repo root)
+# Or directly with pytest. The `cd` is load-bearing: pytest only injects the
+# co-located tests when no path is given on the command line.
 export AIRSTACK_ROOT=$(pwd)
-pip install pytest numpy
-pytest tests/ -m unit -v
+pip install -r tests/requirements.txt
+cd tests && pytest -m unit -v
 ```
 
 Unit tests complete in under one second for the current suite.
 
 ## CI
 
-Unit tests are collected and run as part of `system-tests.yml` via `pytest tests/`
-(no marks specified on PR open = all tests including `unit`). Run them locally at
-any time with no infrastructure required:
+No workflow runs unit tests today. `system-tests.yml` invokes `pytest tests/`, which
+does not collect them, and it only triggers on PR open, a `/pytest` comment, or
+`workflow_dispatch`. Run them locally before pushing — no infrastructure required:
 
 ```bash
 airstack test -m unit -v
 # or directly (requires tests/requirements.txt installed):
-AIRSTACK_ROOT=$(pwd) pytest tests/ -m unit -v
+cd tests && AIRSTACK_ROOT=$(git rev-parse --show-toplevel) pytest -m unit -v
 ```
 
 ## Current test coverage
@@ -73,7 +74,6 @@ AIRSTACK_ROOT=$(pwd) pytest tests/ -m unit -v
 # robot/ros_ws/src/<layer>/<package>/test/test_my_module.py
 import sys
 from pathlib import Path
-import pytest
 
 # Make the package importable without a colcon install
 _src = Path(__file__).resolve().parent.parent / "src"
@@ -83,10 +83,12 @@ if str(_src) not in sys.path:
 from my_module import my_function  # noqa: E402
 
 
-@pytest.mark.unit
 def test_basic():
     assert my_function(1, 2) == 3
 ```
+
+No `@pytest.mark.unit` — `conftest.py` applies it by file location. Import `pytest`
+only if you need its API (`approx`, `raises`, `parametrize`, `importorskip`).
 
 If the production code inherits from `rclpy.node.Node`, stub ROS at the import
 boundary:
@@ -117,7 +119,7 @@ sys.modules["rclpy.node"] = _rclpy_node_mod
 robot:
   packages:
     - <your_package>          # ← add here; conftest.py collects <pkg>/test/test_*.py
-  pytest_args: "-m not linter"
+  pytest_args: []             # forwarded to colcon via PYTEST_ADDOPTS; `-m` is ignored there
 ```
 
 That's the whole registration. If the test imports package code, set up `sys.path` at the
@@ -128,7 +130,7 @@ across packages don't collide.
 **3. Verify:**
 
 ```bash
-pytest tests/ -m unit -v
+airstack test -m unit -v
 ```
 
 ### C++ (gtest)
@@ -179,8 +181,8 @@ sim:
     - <isaac_extension_name>   # → simulation/**/<ext>/test collected directly
 ```
 
-`pytest tests/ -m unit` discovers them automatically — no changes to `pytest.ini`
-or CI changes needed.
+`airstack test -m unit` discovers them automatically — no changes to `pytest.ini`
+needed.
 
 ## See also
 

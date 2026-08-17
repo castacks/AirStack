@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Unit-test documentation now matches the co-located layout: the `add-unit-tests` and `run-system-tests` skills and the testing docs name `airstack test -m unit` (or `cd tests && pytest -m unit`) as the way to run unit tests, record that `pytest tests/` does not collect them, state that no CI workflow runs them today, and stop instructing authors to write `@pytest.mark.unit` by hand — `conftest.py` applies it by file location
 - Ephemeral CI GPU runners spawn via NVIDIA OSMO (not OpenStack); `system-tests.yml` / `docker-build.yml` still use `airstack-ephemeral`
 - Default system-test `--sim` is `isaacsim`; pass `--sim msairsim` to opt in to Microsoft AirSim
 - `-m build_packages` CI runs pull `cache_*` images instead of baking sim images
@@ -32,6 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `robot-l4t` compose service knobs are now env-overridable (`AUTONOMY_ROLE`, `FCU_URL`, and the rosbag path via `BAG_STORAGE_PATH`); `FCU_URL` unquoted so the literal serial path reaches MAVROS
 - `zed-l4t` image: ZED SDK 4.2 → 5.2 with the coupled ROS deps (`zed_msgs` 5.2.1, `point_cloud_transport(_plugins)` 4.x, add `backward_ros`)
 - Unit tests are defined by `tests/colcon_unit_test_packages.yaml`: `conftest.py` collects each listed package's co-located `test/` dir under `--import-mode=importlib` and marks it `unit` (ament lint files are skipped and run under `colcon test`)
+
+### Removed
+
+- Pre-co-location unit-test scaffolding: the six per-layer stub READMEs under `tests/robot/` (which instructed authors to add tests in directories tests no longer live in) and `tests/sim/motive_emulator/README.md` (superseded by `simulation/isaac-sim/extensions/optitrack.natnet.emulator/` and `tests/integration/natnet/`)
 
 ### Fixed
 

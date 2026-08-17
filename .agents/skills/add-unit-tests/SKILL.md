@@ -1,6 +1,6 @@
 ---
 name: add-unit-tests
-description: Add Python or C++ unit tests to an AirStack ROS 2 package. Covers the co-location pattern (test source in package/test/), registering the package in colcon_unit_test_packages.yaml so pytest tests/ and airstack test -m unit collect it, and how to extend to sim and GCS modules.
+description: Add Python or C++ unit tests to an AirStack ROS 2 package. Covers the co-location pattern (test source in package/test/), registering the package in colcon_unit_test_packages.yaml so airstack test -m unit collects it, and how to extend to sim components.
 license: MIT
 metadata:
   author: AirLab CMU
@@ -15,8 +15,8 @@ Use this skill when:
 
 - Adding Python unit tests for a ROS 2 package (perception, sensors, local, global, behavior, interface)
 - Adding C++ unit tests (`gtest`) to a package already using `ament_cmake`
-- Extending unit tests to sim-side Python (`tests/sim/`) or GCS modules (`tests/gcs/`)
-- Verifying that `airstack test -m unit` and `pytest tests/` (CI) pick up your new tests
+- Extending unit tests to sim-side Python (`simulation/**/<extension>/test/`)
+- Verifying that `airstack test -m unit` picks up your new tests
 
 For system tests (full Docker stack, sim, sensors, takeoff/hover/land) see the
 `run-system-tests` skill instead.
@@ -24,8 +24,8 @@ For system tests (full Docker stack, sim, sensors, takeoff/hover/land) see the
 ## Architecture Overview
 
 Unit test **source lives co-located with its package** (ROS 2 / colcon convention).
-`tests/colcon_unit_test_packages.yaml` lists which packages have unit tests, and
-`pytest tests/` collects them from there — you only edit files under the package itself.
+`tests/colcon_unit_test_packages.yaml` lists which packages have unit tests, and the root
+harness collects them from there — you only edit files under the package itself.
 
 ```
 robot/ros_ws/src/<layer>/<package>/
@@ -47,10 +47,17 @@ auto-tagged `@pytest.mark.unit` by path, so `-m unit` selects it. ament lint fil
 
 | Invocation | What runs |
 |---|---|
-| `pytest tests/ -m unit` | Package `test/test_*.py`, collected directly from source |
-| `airstack test -m unit` | Same path |
-| CI `system-tests.yml` (PR open / approved) | Same path via `pytest tests/` |
-| `colcon test --packages-select <pkg>` | Real test in `package/test/` (incl. linters + C++) |
+| `airstack test -m unit` | Package `test/test_*.py`, collected directly from source |
+| `cd tests && pytest -m unit` | Same path — the containerless equivalent |
+| `pytest tests/ -m unit` | **Nothing.** See the warning below |
+| `colcon test --packages-select <pkg>` | Only what the package's `CMakeLists.txt` registers (C++ gtests, linters) |
+
+> **`pytest tests/` does not collect unit tests.** The injection in
+> `tests/conftest.py::pytest_configure` is skipped whenever a path is given on the command
+> line, and `tests/` is a path. The run reports `no tests collected` and exits **5**, which
+> looks like a failure but means the tests never ran. Use `airstack test -m unit`, or
+> `cd tests` first so `testpaths` applies. This also means **no CI workflow currently runs
+> unit tests** — `system-tests.yml` invokes `pytest tests/`.
 
 ## Step-by-Step: Adding a Python Unit Test
 
@@ -87,13 +94,17 @@ if str(_src) not in sys.path:
 from my_module import my_function  # noqa: E402
 
 
-@pytest.mark.unit
 def test_my_function_basic():
     assert my_function(1, 2) == 3
 ```
 
 **Key points:**
-- Always decorate with `@pytest.mark.unit` — this is the filter for fast runs.
+- **Do not write `@pytest.mark.unit`.** `pytest_itemcollected` in `tests/conftest.py`
+  applies it by file location to everything under a registered package's `test/` dir.
+  Writing it by hand is redundant, and it warns (`PytestUnknownMarkWarning`) under any
+  invocation where `tests/pytest.ini` is not the configfile — e.g. `colcon test`.
+- Import `pytest` only if you need its API (`approx`, `raises`, `parametrize`,
+  `importorskip`).
 - Compute paths relative to `__file__` (`parent.parent / "src"`) — never hardcode
   absolute paths.
 - For packages with a Python module directory (`<pkg>/<pkg>/`), add the package
@@ -127,8 +138,12 @@ robot:
     - natnet_ros2
     - lidar_point_cloud_filter
     - <your_package>          # ← add here
-  pytest_args: "-m not linter"
+  pytest_args: []
 ```
+
+Leave `pytest_args` empty. It is forwarded to `colcon test` via `PYTEST_ADDOPTS`, and
+ament's pytest runner ignores `-m` there — a marker expression in this field silently
+does nothing.
 
 That's the whole registration. `conftest.py` globs
 `robot/ros_ws/src/**/<your_package>/test`, collects its non-linter `test_*.py`, and marks
@@ -136,26 +151,28 @@ them `unit`. The test file must be self-contained: if it imports package code, s
 `sys.path` at the top of the test file (see `test_validation_core.py`, which inserts its
 package root). Same YAML, different workspace key (`sim:`), for Isaac-extension unit tests.
 
-### 5. Run locally to verify
+### 4. Run locally to verify
 
 ```bash
-# From repo root — no container needed
-cd tests
-pytest -m unit -v
-# or
 airstack test -m unit -v
+# or, containerless — note the `cd`, it is load-bearing:
+cd tests && pytest -m unit -v
 ```
 
-All 14+ existing tests plus your new ones should pass. Collected items point straight
+All 155 existing tests plus your new ones should pass. Collected items point straight
 at the co-located source:
 ```
 ../robot/ros_ws/src/<layer>/<package>/test/test_<name>.py::test_my_function_basic PASSED
 ```
 
-### 6. CI picks it up automatically
+If you see `no tests collected` and exit code 5, you ran `pytest tests/` — see the
+warning in *Architecture Overview*.
 
-Unit tests are discovered by `pytest tests/` and run as part of `system-tests.yml`
-(triggered on PR open) — no changes to CI needed.
+### 5. Running in CI
+
+There is currently **no CI workflow that runs unit tests.** `system-tests.yml` invokes
+`pytest tests/`, which does not collect them, and it only triggers on PR-open, a
+`/pytest` comment, or `workflow_dispatch`. Run them locally before pushing.
 
 ---
 
@@ -242,11 +259,11 @@ sim:
 | Where does test source live? | `<component>/…/<package>/test/` (co-located with the package) |
 | Where does pytest discover tests? | From the package `test/` dir listed in `colcon_unit_test_packages.yaml` |
 | How are duplicate basenames handled? | `--import-mode=importlib` (set in `pytest.ini`) |
-| What mark do all unit tests use? | `@pytest.mark.unit` (auto-applied by path in `conftest.py`) |
-| What CI workflow runs them? | `system-tests.yml` — runs `pytest tests/` which includes unit tests |
-| When does that workflow trigger? | PR opened, `/pytest` comment, `workflow_dispatch` |
+| What mark do all unit tests use? | `@pytest.mark.unit` — auto-applied by path in `conftest.py`; do not write it yourself |
+| How do I run them? | `airstack test -m unit`, or `cd tests && pytest -m unit`. **Not** `pytest tests/` |
+| What CI workflow runs them? | None today — see §5 |
 | Do system tests (`liveliness`, etc.) run too? | No — `-m unit` filters to hermetic tests only |
-| Does `colcon test` also run these? | Yes — Python tests in `package/test/` are discovered by colcon's pytest runner |
+| Does `colcon test` also run these? | Only if the package registers them. `ament_add_gtest` covers C++; a Python test needs `ament_add_pytest_test`, which `natnet_ros2` does **not** have — its Python tests run only under the root harness |
 | Can I add pure C++ gtests? | Yes — `ament_add_gtest` in CMakeLists.txt |
 
 ## Reference Implementations
@@ -261,8 +278,8 @@ Both are collected from their package `test/` dir.
 
 ## Files to Know
 
-- `.github/workflows/system-tests.yml` — CI workflow (runs `pytest tests/` including unit tests)
-- `tests/pytest.ini` — mark registration + `--import-mode=importlib`
+- `.airstack/modules/dev.sh` — what `airstack test` runs (bare `pytest` with `working_dir` `tests/`)
+- `tests/pytest.ini` — mark registration + `--import-mode=importlib` + `testpaths`
 - `tests/colcon_unit_test_packages.yaml` — the package list driving unit-test collection
 - `tests/conftest.py` — `unit_test_files()` / `pytest_configure` inject package tests; `pytest_itemcollected` auto-marks `unit`
 - `tests/README.md` — full test harness reference
