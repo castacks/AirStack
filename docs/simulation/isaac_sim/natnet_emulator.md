@@ -237,9 +237,9 @@ When edits take effect after **Save**:
 Each body row shows a live readout of the prim's current world position with a
 colour-coded status indicator:
 
-- 🟢 Green dot — server running, prim found, pose valid
-- ⚫ Grey dot — prim found but server not running
-- ✗ Red — prim missing or NaN position
+- Green dot — server running, prim found, pose valid
+- Grey dot — prim found but server not running
+- Red — prim missing or NaN position
 
 ### Persistence
 
@@ -298,7 +298,7 @@ arguments (all optional):
   `natnet_config.yaml` profile and `SITL_PARAM_PROFILE=px4-vision` so PX4
   accepts external vision instead of GPS.
 
-**Body shows ✗ red / NaN in the UI panel**
+**Body shows red / NaN in the UI panel**
 
 - The target prim doesn't exist yet. This is normal before pressing Play (Pegasus
   spawns the drone `base_link` prim on the first physics tick). After Play the
