@@ -1798,6 +1798,8 @@
       
         
       
+        
+      
     
     
     
@@ -2007,6 +2009,34 @@
     
   
     Export Unreal Engine Scene to Isaac Sim
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docs/simulation/isaac_sim/natnet_emulator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MoCap Emulator
   
 
     
@@ -5478,6 +5508,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <h2 id="unreleased">[Unreleased]<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
 <ul>
+<li><code>overrides/isaac-optitrack-simulation.env</code> — brings up Isaac Sim with the NatNet emulator and PX4 flying on mocap EKF2 external vision (GPS/baro/range aiding off), i.e. the configuration <code>tests/system/test_optitrack_e2e.py</code> runs, reproducible by hand</li>
 <li><code>overrides/l4t-optitrack-realrobot.env</code> — deployment override for a real Jetson robot flying on OptiTrack mocap (PX4 EKF2 external vision instead of GPS): the NatNet server/body settings, plus the multi-NIC and FCU-parameter notes that path needs</li>
 <li>Feature notebook workflow (<code>use-feature-notebook</code> skill): every agent-implemented feature gets a local, gitignored <code>notebook/NNN-feature-slug/</code> entry with a status-tracked <code>design_spec.md</code> (written before coding) and <code>results/</code> artifacts + self-contained <code>results_summary.md</code> that populate the feature's PR description</li>
 <li>Battery and telemetry display in GCS RQT control panel (voltage and percentage per robot when MAVROS battery topic is bridged)</li>
@@ -5488,6 +5519,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><code>waypoint_flight</code> system test (<code>tests/system/test_waypoint_flight.py</code>): takeoff → ordered waypoint route via <code>NavigateTask</code> (dispatched as a dense plan) → land, judged on the odometry track by the standalone stdlib-only <code>tests/waypoint_checker.py</code> (in-order corridor arrival within <code>--waypoint-tolerance</code>, final goal within <code>--goal-tolerance</code>, per-waypoint <code>--waypoint-timeout</code>); validated end-to-end in Isaac Sim; serves as the standard acceptance check after integrating or swapping a planner module</li>
 <li>Real-robot PX4 external-vision fusion in <code>natnet_ros2</code> (OptiTrack mocap → EKF2): <code>mavros_gp_origin</code> (geoid-corrected synthetic GPS origin so <code>local_position.z</code> == OptiTrack z, fixing the ~36 m boot offset), <code>vision_pose_converter</code>, and a PX4 param <strong>checker</strong> (<code>px4_param_setter</code>, <code>auto_set</code> off by default; <code>on_mismatch</code> warn/halt) — setup guide at <code>docs/robot/px4_external_vision.md</code></li>
 <li>NatNet server emulator (<code>optitrack.natnet.emulator</code>, protocol core) — pure-Python OptiTrack Motive server emulation so <code>natnet_ros2</code> can be driven without hardware; host integration tests (<code>tests/integration/natnet/</code>) wire it to the robot client</li>
+<li>Isaac wrapper for the NatNet emulator (USD scene → server) + natnet Pegasus launch scripts, and a dedicated OptiTrack sim e2e test (<code>optitrack</code> mark, <code>tests/system/test_optitrack_e2e.py</code>) that flies a <strong>Circle trajectory on mocap EKF2 fusion</strong> — GPS, baro and range aiding are disabled for the run, so the OptiTrack stream is the vehicle's only position source and cross-track error scores the whole chain</li>
 </ul>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
 <ul>
@@ -5495,6 +5527,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Default system-test <code>--sim</code> is <code>isaacsim</code>; pass <code>--sim msairsim</code> to opt in to Microsoft AirSim</li>
 <li><code>-m build_packages</code> CI runs pull <code>cache_*</code> images instead of baking sim images</li>
 <li><code>docker-build.yml</code> retags unchanged images on VERSION bumps (content fingerprint) instead of always rebuilding; floating <code>cache_*</code> tags still seed PR layer cache</li>
+<li>The PR-open test run is unchanged (pytest's full defaults) and now also covers the OptiTrack Circle-trajectory e2e, which configures its own mocap-EV stack. <code>optitrack</code> joins the <code>heavy</code> mark list in <code>system-tests.yml</code>, so an optitrack run is never misclassified as colcon-only and sent down the pull-only image path</li>
 <li><code>robot-l4t</code> compose service knobs are now env-overridable (<code>AUTONOMY_ROLE</code>, <code>FCU_URL</code>, and the rosbag path via <code>BAG_STORAGE_PATH</code>); <code>FCU_URL</code> unquoted so the literal serial path reaches MAVROS</li>
 <li><code>zed-l4t</code> image: ZED SDK 4.2 → 5.2 with the coupled ROS deps (<code>zed_msgs</code> 5.2.1, <code>point_cloud_transport(_plugins)</code> 4.x, add <code>backward_ros</code>)</li>
 <li>Unit tests are defined by <code>tests/colcon_unit_test_packages.yaml</code>: <code>conftest.py</code> collects each listed package's co-located <code>test/</code> dir under <code>--import-mode=importlib</code> and marks it <code>unit</code> (ament lint files are skipped and run under <code>colcon test</code>)</li>
@@ -5517,6 +5550,11 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>The synthetic GPS origin now places the mocap floor at the shared world datum (<code>desired_floor_amsl: 36.0</code>, i.e. 90 m ellipsoidal in AMSL) rather than at sea level, so a mocap robot's reported global altitude agrees with sim and the GCS. <code>local_position.z</code> still equals the OptiTrack height either way</li>
 <li>The robot image could ship without the GeographicLib <code>egm96-5</code> geoid: mavros' <code>install_geographiclib_datasets.sh</code> swallows a failed download and still exits 0, so the <code>RUN</code> layer succeeded either way, and <code>geographiclib-tools</code> was only ever a transitive dependency. MAVROS builds that geoid in its UAS core before any plugin loads and throws if it is missing, so <code>mavros_node</code> died at startup on affected images. <code>Dockerfile.robot</code> now pins the tool and asserts the file exists, failing the build instead</li>
 <li>An unrecognised <code>connection_type</code> in <code>natnet_config.yaml</code> silently fell back to <code>unicast</code>, so a typo produced a client that connected on the wrong transport and never received frames. <code>validate_connection_type</code> now throws and <code>natnet_ros2_node</code> fails at startup naming the offending value</li>
+<li><code>natnet_ros2_node</code> on <code>robot_1</code> now compares the NatNet server's MODELDEF drone-body count (<code>Drone</code> / <code>Drone1</code>…<code>DroneN</code>, excluding <code>Target</code> and skeleton bones) against <code>NUM_ROBOTS</code> after the handshake and logs an error on mismatch, so a sim launch script and <code>natnet_config.yaml</code> that disagree about how many drones exist is caught at startup rather than as a robot that silently never receives frames. <code>NUM_ROBOTS</code> is forwarded into the robot container for it</li>
+<li>Isaac Sim PX4 never fused the mocap stream: <code>EKF2_EV_CTRL</code> defaults to 0 and the isaac compose set no PX4 parameters, so the emulator could stream perfectly while PX4 flew on sim GPS. The compose now passes the EKF2 external-vision set as <code>PX4_PARAM_*</code> (applied by PX4 SITL's <code>rcS</code> at boot), each defaulting to PX4's own default so non-mocap sims are unaffected; the mocap path opts in</li>
+<li>The NatNet emulator hardcoded the drone's streaming id to 1 while the client reads <code>NATNET_BODY_ID</code>, so a real Motive id desynced the two into a connected client that never published (<code>example_one_px4_pegasus_natnet_launch_script.py</code>)</li>
+<li><code>test_optitrack_e2e.py::test_px4_fuses_vision</code> asserted only that <code>local_position/pose</code> publishes, which it does off GPS — the check passed with external vision disabled. It is now the pre-flight gate (an estimate exists) and the Circle flight is the actual proof of fusion</li>
+<li>The NatNet emulator is now installed as a Kit extension: <code>Dockerfile.isaac-ros</code> pip-installs it editable into the Isaac python and bind-mounts the repo copy over it (the same pattern as <code>pegasus.simulator</code>), and the natnet launch scripts <code>enable_extension</code> it before importing. Being on a Kit <code>--ext-folder</code> search path only makes Kit <em>aware</em> of an extension — it does not put the package on <code>sys.path</code> — so the scripts previously died with <code>ModuleNotFoundError: No module named 'optitrack'</code></li>
 </ul>
 <h2 id="100-2024-12-19">[1.0.0] - 2024-12-19<a class="headerlink" href="#100-2024-12-19" title="Permanent link">&para;</a></h2>
 <p>First official public release.</p>

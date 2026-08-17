@@ -6,3 +6,5 @@ tabulate
 psutil
 pandas
 numpy
+scipy
+usd-core

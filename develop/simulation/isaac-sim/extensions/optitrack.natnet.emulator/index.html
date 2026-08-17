@@ -1798,6 +1798,8 @@
       
         
       
+        
+      
     
     
     
@@ -2007,6 +2009,34 @@
     
   
     Export Unreal Engine Scene to Isaac Sim
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../docs/simulation/isaac_sim/natnet_emulator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MoCap Emulator
   
 
     
@@ -5499,7 +5529,7 @@
 </span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>        ├── catalog.py             # Config → sDataDescriptions (MODELDEF)
 </span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>        ├── frames.py              # Prim poses → sFrameOfMocapData
 </span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>        ├── manager.py             # NatNetServerManager (lifecycle + sampling)
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>        ├── scene_setup.py         # Pegasus launch helpers (start_drone_natnet_server)
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>        ├── scene_setup.py         # Pegasus launch helpers (author_drone_natnet_interface)
 </span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>        └── ui_extension.py        # Docked editor panel (NatNetEmulatorExtension)
 </span></code></pre></div>
 <h2 id="responsibilities">Responsibilities<a class="headerlink" href="#responsibilities" title="Permanent link">&para;</a></h2>
@@ -5565,9 +5595,9 @@
 </table>
 <p>Baseline Pegasus scripts (<code>example_one_px4_pegasus_launch_script.py</code>, <code>example_multi_px4_pegasus_launch_script.py</code>) have <strong>no</strong> NatNet integration.</p>
 <p>Convenience bundle for NatNet + external-vision PX4 SITL:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>airstack<span class="w"> </span>up<span class="w"> </span>--env-file<span class="w"> </span>overrides/isaac-natnet-vision.env
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>airstack<span class="w"> </span>up<span class="w"> </span>--env-file<span class="w"> </span>overrides/isaac-optitrack-simulation.env
 </span></code></pre></div>
-<p>See <a href="../../../../.agents/skills/optitrack-development/SKILL.md">optitrack-development skill</a> for wire-protocol details, libNatNet 4.4 unicast quirks, and debugging.</p>
+<p>See <a href="../../../../.agents/skills/optitrack-development/SKILL/">optitrack-development skill</a> for wire-protocol details, libNatNet 4.4 unicast quirks, and debugging.</p>
 <h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h2>
 <h3 id="server-only-no-kit">Server only (no Kit)<a class="headerlink" href="#server-only-no-kit" title="Permanent link">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">optitrack.natnet.emulator</span><span class="w"> </span><span class="kn">import</span> <span class="n">NatNetUnicastServer</span><span class="p">,</span> <span class="n">make_default_drone_catalog</span>
@@ -5582,17 +5612,22 @@
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">server</span><span class="o">.</span><span class="n">flush_mocap_data</span><span class="p">()</span>
 </span></code></pre></div>
 <h3 id="isaac-launch-script">Isaac launch script<a class="headerlink" href="#isaac-launch-script" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">optitrack.natnet.emulator.isaac</span><span class="w"> </span><span class="kn">import</span> <span class="n">start_drone_natnet_server</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">isaacsim.core.utils.extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">enable_extension</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># Keep a reference to the manager for the sim lifetime.</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">manager</span> <span class="o">=</span> <span class="n">start_drone_natnet_server</span><span class="p">(</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">stage</span><span class="p">,</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">drones</span><span class="o">=</span><span class="p">[(</span><span class="s2">&quot;Drone&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;/World/drone1/base_link&quot;</span><span class="p">)],</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">server_ip</span><span class="o">=</span><span class="s2">&quot;172.31.0.200&quot;</span><span class="p">,</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="p">)</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># Register the extension with Kit before importing from it.</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">enable_extension</span><span class="p">(</span><span class="s2">&quot;optitrack.natnet.emulator&quot;</span><span class="p">)</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">optitrack.natnet.emulator.isaac</span><span class="w"> </span><span class="kn">import</span> <span class="n">author_drone_natnet_interface</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="c1"># Author the interface prim; the extension starts the server on Play.</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">author_drone_natnet_interface</span><span class="p">(</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">stage</span><span class="p">,</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">drones</span><span class="o">=</span><span class="p">[(</span><span class="s2">&quot;Drone&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;/World/drone1/base_link/body&quot;</span><span class="p">)],</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="n">server_ip</span><span class="o">=</span><span class="s2">&quot;172.31.0.200&quot;</span><span class="p">,</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="kit-ui">Kit UI<a class="headerlink" href="#kit-ui" title="Permanent link">&para;</a></h3>
-<p>The extension registers <strong>Window → NatNet Emulator</strong> — a docked panel to create/edit the interface prim, start/stop the server, and view live body readouts. The same <code>NatNetServerManager</code> backs both the UI and launch-script paths.</p>
+<p>The extension registers <strong>Window → NatNet Emulator</strong> — a docked panel to create/edit the interface prim and view live body readouts. The extension owns the <code>NatNetServerManager</code>, building the server from the prim on Play and shutting it down on Stop.</p>
 <h2 id="protocol-notes-unicast-libnatnet-44">Protocol notes (unicast, libNatNet 4.4)<a class="headerlink" href="#protocol-notes-unicast-libnatnet-44" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -5613,7 +5648,7 @@
 </tbody>
 </table>
 <p>Frames sent from the command socket are silently dropped by libNatNet. Every frame payload must include the 4-byte end-of-data tag expected by the C SDK unpacker.</p>
-<p>Full handshake layouts and sniffing workflow: <a href="../../../../.agents/skills/optitrack-development/SKILL.md">optitrack-development skill</a>.</p>
+<p>Full handshake layouts and sniffing workflow: <a href="../../../../.agents/skills/optitrack-development/SKILL/">optitrack-development skill</a>.</p>
 <h2 id="tests">Tests<a class="headerlink" href="#tests" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -5646,7 +5681,7 @@
 <p>Representative unit modules: <code>test_unicast_protocol.py</code>, <code>test_pose_streaming.py</code>, <code>test_interface_authoring.py</code>, <code>test_server_lifecycle.py</code>, <code>test_scene_setup.py</code>.</p>
 <h2 id="reference-material">Reference material<a class="headerlink" href="#reference-material" title="Permanent link">&para;</a></h2>
 <ul>
-<li>User guide: <a href="../../../../docs/simulation/isaac_sim/natnet_emulator.md"><code>docs/simulation/isaac_sim/natnet_emulator.md</code></a></li>
+<li>User guide: <a href="../../../../docs/simulation/isaac_sim/natnet_emulator/"><code>docs/simulation/isaac_sim/natnet_emulator.md</code></a></li>
 <li>Robot client: <a href="../../../../robot/ros_ws/src/perception/natnet_ros2/"><code>natnet_ros2/README.md</code></a></li>
 <li>Integration tier: <a href="../../../../tests/integration/natnet/"><code>tests/integration/natnet/README.md</code></a></li>
 </ul>

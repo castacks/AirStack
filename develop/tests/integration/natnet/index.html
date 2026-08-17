@@ -1798,6 +1798,8 @@
       
         
       
+        
+      
     
     
     
@@ -2007,6 +2009,34 @@
     
   
     Export Unreal Engine Scene to Isaac Sim
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../docs/simulation/isaac_sim/natnet_emulator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MoCap Emulator
   
 
     
@@ -5576,12 +5606,12 @@ The matching <strong>system</strong> check is
 <li>Asserts <code>/{robot_n}/{natnet pose topic}/pose_cov</code> ≥ 5 Hz per robot (the drone
   body's configured topic — default <code>perception/optitrack/drone</code>).</li>
 <li>Override the checked topic with <code>NATNET_POSE_TOPIC</code> (default
-  <code>perception/optitrack/drone</code>). The sim body name (<code>NATNET_BODY_NAME</code>, default
-  <code>Drone</code>) is decoupled from the published topic, which the robot profile sets.</li>
+  <code>perception/optitrack/drone</code>). The body name and the published topic are decoupled;
+  both are set in the robot's <code>natnet_config.yaml</code> profile.</li>
 </ul>
 <p>Sim auto-start: set <code>ISAAC_SIM_SCRIPT_NAME</code> to a NatNet launch script and
 <code>LAUNCH_NATNET=true</code> on the robot. Convenience bundle:
-<code>airstack up --env-file overrides/isaac-natnet-vision.env</code> (NatNet script +
+<code>airstack up --env-file overrides/isaac-optitrack-simulation.env</code> (NatNet script +
 PX4 external-vision SITL profile).</p>
 <h2 id="libnatnet-44-unicast-verified-wire-contract">libNatNet 4.4 unicast — verified wire contract<a class="headerlink" href="#libnatnet-44-unicast-verified-wire-contract" title="Permanent link">&para;</a></h2>
 <p>The emulator is validated against the <strong>real <code>libNatNet.so</code></strong> (not just the Python
@@ -5626,7 +5656,7 @@ and <em>on the command port</em>, which is why it appeared to work while libNatN
 not. Always validate against the C SDK.</p>
 </blockquote>
 <p>Full handshake notes and sniffing workflow:
-<a href="../../../.agents/skills/optitrack-development/SKILL.md">optitrack-development skill</a>.</p>
+<a href="../../../.agents/skills/optitrack-development/SKILL/">optitrack-development skill</a>.</p>
 <h2 id="after-changing-natnet_ros2-or-the-emulator">After changing natnet_ros2 or the emulator<a class="headerlink" href="#after-changing-natnet_ros2-or-the-emulator" title="Permanent link">&para;</a></h2>
 <p>Rebuild in the robot container:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-lc<span class="w"> </span><span class="s1">&#39;bws --packages-select natnet_ros2&#39;</span>
