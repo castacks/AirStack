@@ -25,7 +25,9 @@ from harness.containers import (
 from harness.discovery import (
     AIRSTACK_ROOT,
     COLCON_UNIT_TEST_PACKAGES_YAML,
+    TESTS_DIR,
     colcon_test_robot_command,
+    collection_is_broad,
     format_pytest_addopts,
     load_colcon_unit_test_config,
     repo_path,
@@ -44,9 +46,9 @@ from harness.sim import (
 
 __all__ = [
     # discovery
-    "AIRSTACK_ROOT", "COLCON_UNIT_TEST_PACKAGES_YAML", "repo_path",
-    "colcon_test_robot_command", "format_pytest_addopts", "load_colcon_unit_test_config",
-    "unit_test_dirs", "unit_test_files",
+    "AIRSTACK_ROOT", "COLCON_UNIT_TEST_PACKAGES_YAML", "TESTS_DIR", "repo_path",
+    "colcon_test_robot_command", "collection_is_broad", "format_pytest_addopts",
+    "load_colcon_unit_test_config", "unit_test_dirs", "unit_test_files",
     # session
     "logger",
     # commands

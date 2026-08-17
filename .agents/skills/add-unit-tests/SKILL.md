@@ -1,6 +1,6 @@
 ---
 name: add-unit-tests
-description: Add Python or C++ unit tests to an AirStack ROS 2 package. Covers the co-location pattern (test source in package/test/), registering the package in colcon_unit_test_packages.yaml so airstack test -m unit collects it, and how to extend to sim components.
+description: Add Python or C++ unit tests to an AirStack ROS 2 package. Covers the co-location pattern (test source in package/test/), registering the package in colcon_unit_test_packages.yaml so pytest tests/ and airstack test -m unit collect it, and how to extend to sim components.
 license: MIT
 metadata:
   author: AirLab CMU
@@ -49,7 +49,7 @@ auto-tagged `@pytest.mark.unit` by path, so `-m unit` selects it. ament lint fil
 |---|---|
 | `airstack test -m unit` | Package `test/test_*.py`, collected directly from source |
 | `cd tests && pytest -m unit` | Same path — the containerless equivalent |
-| `pytest tests/ -m unit` | **Nothing.** See the warning below |
+| `pytest tests/ -m unit` | Same path — what CI runs |
 | `colcon test --packages-select <pkg>` | C++ gtests and linters; Python only for `ament_python` packages (see below) |
 
 **Two runners, split by language.** C++ gtests run only under `colcon test`, which CI
@@ -63,15 +63,13 @@ Python tests depends on its build type:
 | `natnet_ros2` | `ament_cmake` | **No** — `CMakeLists.txt` registers `ament_add_gtest` but no `ament_add_pytest_test` |
 | `lidar_point_cloud_filter` | `ament_python` | **Yes** — `setup.cfg` sets `testpaths = test`, so colcon's pytest runner finds them |
 
-So a Python test in an `ament_cmake` package runs *only* via the root harness, and today
-that means only when someone runs it locally.
+So a Python test in an `ament_cmake` package runs *only* via the root harness — which is
+fine, since that is what CI invokes.
 
-> **`pytest tests/` does not collect unit tests.** The injection in
-> `tests/conftest.py::pytest_configure` is skipped whenever a path is given on the command
-> line, and `tests/` is a path. The run reports `no tests collected` and exits **5**, which
-> looks like a failure but means the tests never ran. Use `airstack test -m unit`, or
-> `cd tests` first so `testpaths` applies. This also means **no CI workflow currently runs
-> unit tests** — `system-tests.yml` invokes `pytest tests/`.
+Naming a path *below* `tests/` narrows the run and skips the injection, so
+`pytest tests/system/test_x.py` stays fast and does not drag in unit tests. The rule lives
+in `harness.discovery.collection_is_broad` and is pinned by
+`tests/meta/test_collection_contract.py`.
 
 ## Step-by-Step: Adding a Python Unit Test
 
@@ -169,8 +167,8 @@ package root). Same YAML, different workspace key (`sim:`), for Isaac-extension 
 
 ```bash
 airstack test -m unit -v
-# or, containerless — note the `cd`, it is load-bearing:
-cd tests && pytest -m unit -v
+# or, containerless:
+AIRSTACK_ROOT=$(pwd) pytest tests/ -m unit -v
 ```
 
 All 155 existing tests plus your new ones should pass. Collected items point straight
@@ -179,14 +177,12 @@ at the co-located source:
 ../robot/ros_ws/src/<layer>/<package>/test/test_<name>.py::test_my_function_basic PASSED
 ```
 
-If you see `no tests collected` and exit code 5, you ran `pytest tests/` — see the
-warning in *Architecture Overview*.
-
 ### 5. Running in CI
 
-There is currently **no CI workflow that runs unit tests.** `system-tests.yml` invokes
-`pytest tests/`, which does not collect them, and it only triggers on PR-open, a
-`/pytest` comment, or `workflow_dispatch`. Run them locally before pushing.
+Unit tests ride along with every `system-tests.yml` run — it invokes `pytest tests/`,
+which collects them. That workflow triggers on PR open, a `/pytest` comment, or
+`workflow_dispatch` — deliberately not on every push, since the same run also drives the
+GPU system tests. Run them locally in the meantime.
 
 ---
 
@@ -274,8 +270,8 @@ sim:
 | Where does pytest discover tests? | From the package `test/` dir listed in `colcon_unit_test_packages.yaml` |
 | How are duplicate basenames handled? | `--import-mode=importlib` (set in `pytest.ini`) |
 | What mark do all unit tests use? | `@pytest.mark.unit` — auto-applied by path in `conftest.py`; do not write it yourself |
-| How do I run them? | `airstack test -m unit`, or `cd tests && pytest -m unit`. **Not** `pytest tests/` |
-| What CI workflow runs them? | None today — see §5 |
+| How do I run them? | `airstack test -m unit`, `cd tests && pytest -m unit`, or `pytest tests/ -m unit` |
+| What CI workflow runs them? | `system-tests.yml`, via `pytest tests/` — see §5 |
 | Do system tests (`liveliness`, etc.) run too? | No — `-m unit` filters to hermetic tests only |
 | Does `colcon test` also run these? | Only if the package registers them. `ament_add_gtest` covers C++; a Python test needs `ament_add_pytest_test`, which `natnet_ros2` does **not** have — its Python tests run only under the root harness |
 | Can I add pure C++ gtests? | Yes — `ament_add_gtest` in CMakeLists.txt |

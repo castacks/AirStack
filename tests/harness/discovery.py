@@ -1,8 +1,9 @@
 """Unit-test discovery: which packages have unit tests and where their files live.
 
 Driven by ``tests/colcon_unit_test_packages.yaml``. ``conftest.pytest_configure`` adds
-``unit_test_files()`` to the pytest run, and ``pytest_itemcollected`` marks each of those
-items ``unit`` via ``_is_unit_item``. ament lint tests are excluded here — they run under
+``unit_test_files()`` to the pytest run whenever ``collection_is_broad`` says the command
+line did not narrow the run, and ``pytest_itemcollected`` marks each of those items
+``unit`` via ``_is_unit_item``. ament lint tests are excluded here — they run under
 ``colcon test`` (linter skip is in package pytest config; see
 ``colcon_test_robot_command``).
 """
@@ -16,6 +17,10 @@ AIRSTACK_ROOT = os.environ.get("AIRSTACK_ROOT", str(Path(__file__).resolve().par
 COLCON_UNIT_TEST_PACKAGES_YAML = (
     Path(AIRSTACK_ROOT) / "tests" / "colcon_unit_test_packages.yaml"
 )
+
+# The tests/ tree, derived from this file rather than AIRSTACK_ROOT so the guard always
+# agrees with the conftest that is actually running.
+TESTS_DIR = Path(__file__).resolve().parents[1]
 
 
 def repo_path(*parts: str) -> Path:
@@ -147,3 +152,42 @@ def unit_test_files():
             if f.name not in _LINTER_TEST_FILENAMES:
                 files.append(f)
     return files
+
+
+def _arg_path(arg, invocation_dir):
+    """Absolute path addressed by one pytest positional.
+
+    Positionals are raw CLI strings and may be node ids
+    (``system/test_x.py::TestY::test_z``); only the part before ``::`` addresses the
+    filesystem. The path need not exist — pytest reports bad paths itself.
+    """
+    return Path(invocation_dir, str(arg).split("::", 1)[0]).resolve()
+
+
+def collection_is_broad(args, invocation_dir, tests_root=None) -> bool:
+    """True when the positionals do not narrow the run below ``tests/``.
+
+    Co-located unit tests live outside ``tests/``, so ``pytest_configure`` appends them
+    to ``config.args`` by hand. It must do that only for a run that already means
+    "everything", or ``pytest tests/system/test_x.py`` would drag in every unit test.
+
+    Broad == a positional names ``tests/`` itself or an ancestor of it::
+
+        pytest                        (testpaths ``.``, cwd tests/)  -> broad
+        pytest tests/                 (CI, and the documented commands)  -> broad
+        pytest .                      (cwd repo root or tests/)  -> broad
+        pytest tests/system                                       -> narrow
+        pytest tests/system/test_x.py::TestY::test_z              -> narrow
+        pytest ../simulation/.../test/test_frames.py              -> narrow
+
+    ``any`` rather than ``all`` is deliberate: ``pytest_configure`` appends the
+    co-located files (narrow, absolute) to ``config.args``, so ``all`` would flip the
+    answer for anything re-deriving it after that mutation.
+    """
+    root = Path(tests_root or TESTS_DIR).resolve()
+    invocation_dir = Path(invocation_dir).resolve()
+    return any(
+        root.is_relative_to(_arg_path(a, invocation_dir))
+        for a in args
+        if not str(a).startswith("-")
+    )

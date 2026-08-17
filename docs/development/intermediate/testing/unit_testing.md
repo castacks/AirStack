@@ -1,6 +1,6 @@
 # Unit Testing
 
-AirStack unit tests are **fast, hermetic, and purely Python** — no Docker stack, no GPU, no running containers. They run locally in seconds via `airstack test -m unit`. No CI workflow runs them today, so run them yourself before pushing.
+AirStack unit tests are **fast, hermetic, and purely Python** — no Docker stack, no GPU, no running containers. They run locally in seconds via `airstack test -m unit`, and ride along with every `system-tests.yml` run in CI.
 
 ## Design principles
 
@@ -35,41 +35,39 @@ Collected items point straight at the co-located source:
 # Locally — no container or Docker stack required
 airstack test -m unit -v
 
-# Or directly with pytest. The `cd` is load-bearing: pytest only injects the
-# co-located tests when no path is given on the command line.
+# Or directly with pytest
 export AIRSTACK_ROOT=$(pwd)
 pip install -r tests/requirements.txt
-cd tests && pytest -m unit -v
+pytest tests/ -m unit -v
 ```
 
 Unit tests complete in under one second for the current suite.
 
 ## CI
 
-**C++ gtests are gated; Python unit tests are not.** The two languages take different
-runners:
+**The two languages take different runners, and both are gated:**
 
-| Test | Runner | In CI |
+| Test | Runner | In CI via |
 |---|---|---|
-| C++ gtest | `colcon test` inside the robot container | Yes — the `build_packages` mark (`tests/system/test_build_packages.py::test_colcon_test_robot`) |
-| Python, `ament_python` package | root harness **and** `colcon test` | Via `build_packages` only |
-| Python, `ament_cmake` package | root harness only | No |
+| C++ gtest | `colcon test` inside the robot container | the `build_packages` mark (`tests/system/test_build_packages.py::test_colcon_test_robot`) |
+| Python, `ament_python` package | root harness **and** `colcon test` | `pytest tests/` **and** `build_packages` |
+| Python, `ament_cmake` package | root harness only | `pytest tests/` |
 
 `colcon test` picks up Python tests only when the package's build type makes it: an
 `ament_python` package like `lidar_point_cloud_filter` exposes them through
 `setup.cfg` (`testpaths = test`), while an `ament_cmake` package like `natnet_ros2`
-would need an explicit `ament_add_pytest_test` — it has none, so its Python tests run
-nowhere in CI.
+would need an explicit `ament_add_pytest_test` — it has none, so its Python tests reach
+CI only through the root harness.
 
-No workflow runs the Python unit tests directly. `system-tests.yml` invokes
-`pytest tests/`, which does not collect them, and it only triggers on PR open, a
-`/pytest` comment, or `workflow_dispatch`. Run them locally before pushing — no
-infrastructure required:
+Python unit tests are collected by `system-tests.yml`'s `pytest tests/` invocation, so
+they run on every trigger of that workflow: PR open, a `/pytest` comment, or
+`workflow_dispatch`. That is deliberately not every push — the same run also drives the
+GPU system tests. Run them locally in the meantime, no infrastructure required:
 
 ```bash
 airstack test -m unit -v
 # or directly (requires tests/requirements.txt installed):
-cd tests && AIRSTACK_ROOT=$(git rev-parse --show-toplevel) pytest -m unit -v
+AIRSTACK_ROOT=$(pwd) pytest tests/ -m unit -v
 ```
 
 ## Current test coverage
@@ -197,8 +195,8 @@ sim:
     - <isaac_extension_name>   # → simulation/**/<ext>/test collected directly
 ```
 
-`airstack test -m unit` discovers them automatically — no changes to `pytest.ini`
-needed.
+`pytest tests/ -m unit` discovers them automatically — no changes to `pytest.ini`
+or CI needed.
 
 ## See also
 

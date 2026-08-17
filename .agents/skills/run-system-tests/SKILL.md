@@ -33,8 +33,8 @@ The suite lives at `tests/` (repo root) and is fully pytest-based. Configuration
 | Concern | Unit (`-m unit`) | System (`-m liveliness` etc.) |
 |---|---|---|
 | Hardware required | None — pure Python | Docker daemon, NVIDIA GPU, sim license |
-| CI workflow | None — run them locally before pushing | `system-tests.yml` (GPU OpenStack VM) |
-| Trigger | n/a | PR opened, `/pytest` comment, `workflow_dispatch` |
+| CI workflow | `system-tests.yml` (included in `pytest tests/`) | `system-tests.yml` (GPU OpenStack VM) |
+| Trigger | PR opened, `/pytest` comment, `workflow_dispatch` | PR opened, `/pytest` comment, `workflow_dispatch` |
 | Source location | `<pkg>/test/test_*.py` (collected directly, listed in `colcon_unit_test_packages.yaml`) | `tests/system/` |
 | How to add | See `add-unit-tests` skill | See *Adding a New System Test* below |
 
@@ -42,9 +42,8 @@ Run unit tests without any Docker stack:
 
 ```bash
 airstack test -m unit -v
-# or, containerless — the `cd` is load-bearing; `pytest tests/ -m unit`
-# collects nothing (see the add-unit-tests skill):
-cd tests && AIRSTACK_ROOT=$(git rev-parse --show-toplevel) pytest -m unit -v
+# or directly:
+AIRSTACK_ROOT=$(pwd) pytest tests/ -m unit -v
 ```
 
 For details on the co-located layout and adding new unit tests, see the

@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Unit-test documentation now matches the co-located layout: the `add-unit-tests` and `run-system-tests` skills and the testing docs name `airstack test -m unit` (or `cd tests && pytest -m unit`) as the way to run unit tests, record that `pytest tests/` does not collect them, state that no CI workflow runs them today, and stop instructing authors to write `@pytest.mark.unit` by hand — `conftest.py` applies it by file location
+- Unit-test documentation now matches the co-located layout: the `add-unit-tests` and `run-system-tests` skills and the testing docs record which runner each language uses (C++ gtests via `colcon test` under the `build_packages` mark; Python via the root harness, plus `colcon test` for `ament_python` packages), and stop instructing authors to write `@pytest.mark.unit` by hand — `conftest.py` applies it by file location
 - Ephemeral CI GPU runners spawn via NVIDIA OSMO (not OpenStack); `system-tests.yml` / `docker-build.yml` still use `airstack-ephemeral`
 - Default system-test `--sim` is `isaacsim`; pass `--sim msairsim` to opt in to Microsoft AirSim
 - `-m build_packages` CI runs pull `cache_*` images instead of baking sim images
@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `pytest tests/` now collects the co-located unit tests, so they run with every `system-tests.yml` invocation. The guard in `tests/conftest.py` skipped injection whenever any path was on the command line, and `tests/` is a path — CI collected 97 of 252 items and the Python unit tests ran nowhere. Narrowing (`pytest tests/system/test_x.py`) still skips injection; the rule is `harness.discovery.collection_is_broad`, pinned by `tests/meta/test_collection_contract.py`
 - Isaac Sim image: PX4 `ubuntu.sh` no longer fails dpkg configure on the NVIDIA base (`ca-certificates` / `software-properties-common`); use `--no-nuttx --no-sim-tools` like ms-airsim
 - Robot image: pin `pytest<8.1` and disable `launch_testing` for colcon unit tests so ROS Jazzy's outdated pytest hook does not abort `colcon test`
 - Robot name resolution now honors a pre-set `ROBOT_NAME` (e.g. injected via docker compose) instead of always overriding it from the container/hostname mapping (`robot/docker/.bashrc`)

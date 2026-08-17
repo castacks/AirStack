@@ -18,11 +18,12 @@ them from there.
 
 ```bash
 airstack test -m unit -v
-# or containerless — the `cd` is load-bearing:
-cd tests && pytest -m unit -v
+# or directly:
+pytest tests/ -m unit -v
 ```
 
-No CI workflow currently runs unit tests, so run them locally before pushing.
+Unit tests run as part of `system-tests.yml` via `pytest tests/`, and can also be run
+locally with no Docker or GPU needed.
 
 → **[Unit Testing Guide](unit_testing.md)** — patterns, CI workflow,
   how to add tests for new packages (Python and C++ gtest).

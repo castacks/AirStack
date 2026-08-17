@@ -91,12 +91,15 @@ def pytest_configure(config):
             if str(root) not in sys.path:
                 sys.path.insert(0, str(root))
 
-    # Collect co-located unit tests: their files live outside tests/, so add the
-    # explicit non-linter test files to the collection args. Skip when an explicit
-    # path was given on the CLI (args_source == ARGS) so `pytest tests/system/foo.py`
-    # still narrows as expected.
+    # Collect co-located unit tests: their files live outside tests/, so pytest never
+    # reaches them by recursion — append the non-linter test files explicitly. Only for
+    # a run that means "everything": `pytest tests/system/foo.py` must still narrow.
+    # See harness.discovery.collection_is_broad.
     src_name = getattr(getattr(config, "args_source", None), "name", "TESTPATHS")
-    if src_name != "ARGS":
+    config.airstack_unit_tests_injected = src_name != "ARGS" or collection_is_broad(
+        config.args, config.invocation_params.dir
+    )
+    if config.airstack_unit_tests_injected:
         for f in unit_test_files():
             entry = str(f)
             if entry not in config.args:
