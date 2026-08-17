@@ -107,12 +107,17 @@ server.flush_mocap_data()
 ### Isaac launch script
 
 ```python
+from isaacsim.core.utils.extensions import enable_extension
+
+# Register the extension with Kit before importing from it.
+enable_extension("optitrack.natnet.emulator")
+
 from optitrack.natnet.emulator.isaac import start_drone_natnet_server
 
 # Keep a reference to the manager for the sim lifetime.
 manager = start_drone_natnet_server(
     stage,
-    drones=[("Drone", 1, "/World/drone1/base_link")],
+    drones=[("Drone", 1, "/World/drone1/base_link/body")],
     server_ip="172.31.0.200",
 )
 ```

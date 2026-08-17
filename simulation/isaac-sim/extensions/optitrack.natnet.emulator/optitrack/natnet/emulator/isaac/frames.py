@@ -8,9 +8,9 @@ streams to the client.
 
 **Frame convention:** Motive exposes an "Up Axis" setting. AirStack's ``natnet_ros2``
 requires it set to **Z** and copy the rigid-body pose straight through 
-(``rb_to_pose`` is an identity copy). Isaac Sim is Z-up, so the default ``up_axis="Z"`` 
-emits the prim's USD world pose **as-is**. ``up_axis="Y"`` emulates a default (Y-up) 
-Motive by rotating the pose -90 deg about X.
+(``rb_to_pose`` is an identity copy). Isaac Sim coordinates are Z-up. 
+The default ``up_axis="Z"`` emits the prim's USD world pose as-is. 
+``up_axis="Y"`` emulates a default (Y-up) Motive by rotating the pose -90 deg about X.
 
 **params bits** (must match the client's ``is_tracking_valid`` / ``model_list_changed``):
 - ``0x01`` on a rigid body marks tracking valid — the client *skips* bodies without it.

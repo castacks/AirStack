@@ -5,7 +5,7 @@ The `optitrack.natnet.emulator` Isaac Sim extension lets you test the full
 perception stack in simulation without a physical OptiTrack system. It runs a
 Motive-compatible NatNet UDP server inside Isaac Sim, streams rigid-body poses
 sampled from USD prim world transforms, and presents the same wire protocol
-that real Motive software uses — so `natnet_ros2` cannot tell the difference.
+that the real Motive software uses.
 
 ## How it works
 
@@ -108,28 +108,6 @@ To retarget, edit **both** together:
     client connects, the emulator streams, and the pose topic never publishes — with no
     error on either side. When debugging a silent stream, check the id first.
 
-    Deliberately not settable from an env file: one global variable cannot express
-    per-robot bodies, so it would break multi-robot.
-
-### What the robot container needs
-
-Set `LAUNCH_NATNET=true` (already included in `isaac-optitrack-simulation.env`).
-`natnet_ros2` connects to the emulator at `172.31.0.200` (the Isaac Sim
-container's address on the AirStack bridge network) — the default in
-`natnet_config.yaml`.
-
-After bringup, verify the stream is flowing:
-
-```bash
-# Drone pose arriving from emulator
-docker exec airstack-robot-desktop-1 bash -lc \
-  "ros2 topic hz /robot_1/perception/optitrack/drone"
-
-# Vision pose forwarded to MAVROS / PX4
-docker exec airstack-robot-desktop-1 bash -lc \
-  "ros2 topic hz /robot_1/interface/mavros/vision_pose/pose"
-```
-
 ---
 
 ## Adding NatNet to your own launch script
@@ -137,8 +115,11 @@ docker exec airstack-robot-desktop-1 bash -lc \
 Call `start_drone_natnet_server` after your Pegasus drones are spawned:
 
 ```python
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "utils"))
+from isaacsim.core.utils.extensions import enable_extension
+
+# Enable the NatNet emulator extension through Kit extension manager.
+enable_extension("optitrack.natnet.emulator")
+
 from optitrack.natnet.emulator.isaac import (
     start_drone_natnet_server,
     author_static_target,
@@ -215,6 +196,19 @@ panel docks next to the Property panel in the bottom-right.
     The server reads its configuration from the USD prim, not the form. Press
     **Save** after every edit, then **Start Server**.
 
+!!! warning "Restart the robot stack after restarting the server"
+    Clients register with the server instance they connected to. **Stop Server**
+    discards that registration, so a `natnet_ros2` client that was already connected
+    is ignored by the new server and receives no frames — it never re-sends
+    `NAT_CONNECT` on its own. The console shows
+    `[Command Handler] Ignoring message N from unregistered client`.
+
+    Assume one client connection per server lifetime: after **Stop Server** →
+    **Start Server**, restart the robot container so the client handshakes again.
+
+    Stopping and starting the *simulation* is fine — frames are sampled on the
+    physics step, so the stream pauses and resumes without touching the server.
+
 ### Server settings
 
 | Field | Default | Description |
@@ -286,6 +280,14 @@ arguments (all optional):
   on the AirStack bridge). Check with `docker network inspect airstack_network`.
 - The NatNet data port (1511) must be bound to the *data* socket — frames sent
   from the command socket are silently dropped by libNatNet 4.4.
+
+**Data stopped after restarting the server**
+
+- Expected: client registration lives on the server instance, so **Stop Server**
+  drops it and the client is not re-registered on the next start. The console
+  shows `Ignoring message N from unregistered client`. Restart the robot container
+  to force a fresh `NAT_CONNECT`. See the warning under
+  [Panel controls](#panel-controls).
 
 **Emulator streams but `vision_pose` is empty**
 
