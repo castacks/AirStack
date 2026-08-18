@@ -187,10 +187,11 @@ at the co-located source:
 
 ### 5. Running in CI
 
-Unit tests ride along with every `system-tests.yml` run — it invokes `pytest tests/`,
-which collects them. That workflow triggers on PR open, a `/pytest` comment, or
-`workflow_dispatch` — deliberately not on every push, since the same run also drives the
-GPU system tests. Run them locally in the meantime.
+`unit-tests.yml` invokes `pytest tests/ -m unit` on GitHub-hosted `ubuntu-latest`
+whenever a PR targeting `main` or `develop` is opened, synchronized, or reopened.
+It does not consume an OSMO GPU.
+C++ gtests still run through the OSMO `build_packages` mark because they require the
+ROS workspace and toolchain inside the robot container.
 
 ---
 
@@ -279,7 +280,7 @@ sim:
 | How are duplicate basenames handled? | `--import-mode=importlib` (set in `pytest.ini`) |
 | What mark do all unit tests use? | `@pytest.mark.unit` — auto-applied by path in `conftest.py`; do not write it yourself |
 | How do I run them? | `airstack test -m unit`, `cd tests && pytest -m unit`, or `pytest tests/ -m unit` |
-| What CI workflow runs them? | `system-tests.yml`, via `pytest tests/` — see §5 |
+| What CI workflow runs them? | Python: `unit-tests.yml`; C++: the `build_packages` path in `system-tests.yml` — see §5 |
 | Do system tests (`liveliness`, etc.) run too? | No — `-m unit` filters to hermetic tests only |
 | Does `colcon test` also run these? | Only if the package registers them. `ament_add_gtest` covers C++; a Python test needs `ament_add_pytest_test`, which `natnet_ros2` does **not** have — its Python tests run only under the root harness |
 | Can I add pure C++ gtests? | Yes — `ament_add_gtest` in CMakeLists.txt |

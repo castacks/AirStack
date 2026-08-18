@@ -260,5 +260,5 @@ For a true release (dropping the pre-release suffix):
 
 ## Related Skills
 
-- [`run-system-tests`](../run-system-tests) — what fires on every PR alongside the version check
+- [`run-system-tests`](../run-system-tests) — automatic unit/package gates and how to request simulation campaigns
 - [`update-documentation`](../update-documentation) — for docs-only PRs that may still need a VERSION bump to clear the gate

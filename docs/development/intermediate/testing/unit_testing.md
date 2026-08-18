@@ -1,6 +1,6 @@
 # Unit Testing
 
-AirStack unit tests are **fast, hermetic, and purely Python** — no Docker stack, no GPU, no running containers. They run locally in seconds via `airstack test -m unit`, and ride along with every `system-tests.yml` run in CI.
+AirStack unit tests are **fast, hermetic, and purely Python** — no Docker stack, no GPU, no running containers. They run locally in seconds via `airstack test -m unit` and automatically on every update to PRs targeting `main` or `develop` through `unit-tests.yml`.
 
 ## Design principles
 
@@ -41,7 +41,7 @@ pip install -r tests/requirements.txt
 pytest tests/ -m unit -v
 ```
 
-Unit tests complete in under one second for the current suite.
+The current suite completes in about 20 seconds on a developer workstation.
 
 ## CI
 
@@ -49,14 +49,14 @@ Unit tests complete in under one second for the current suite.
 not.** A gtest is a binary compiled against the package's headers and rclcpp, so it only
 runs where the ROS toolchain is — `colcon test` inside the robot container. Python unit
 tests stub ROS at the import boundary and touch no ROS runtime, so they need neither a
-build nor a container, which is what keeps the whole suite under a second. Both are
+build nor a container, which keeps the whole suite in the fast feedback tier. Both are
 gated in CI:
 
 | Test | Runner | In CI via |
 |---|---|---|
 | C++ gtest | `colcon test` inside the robot container | the `build_packages` mark (`tests/system/test_build_packages.py::test_colcon_test_robot`) |
-| Python, `ament_python` package | root harness **and** `colcon test` | `pytest tests/` **and** `build_packages` |
-| Python, `ament_cmake` package | root harness only | `pytest tests/` |
+| Python, `ament_python` package | root harness **and** `colcon test` | `unit-tests.yml` **and** `build_packages` |
+| Python, `ament_cmake` package | root harness only | `unit-tests.yml` |
 
 `colcon test` picks up Python tests only when the package's build type makes it: an
 `ament_python` package like `lidar_point_cloud_filter` exposes them through
@@ -64,10 +64,11 @@ gated in CI:
 would need an explicit `ament_add_pytest_test` — it has none, so its Python tests reach
 CI only through the root harness.
 
-Python unit tests are collected by `system-tests.yml`'s `pytest tests/` invocation, so
-they run on every trigger of that workflow: PR open, a `/pytest` comment, or
-`workflow_dispatch`. That is deliberately not every push — the same run also drives the
-GPU system tests. Run them locally in the meantime, no infrastructure required:
+Python unit tests are collected by `unit-tests.yml`'s `pytest tests/ -m unit`
+invocation on PR open, synchronize, and reopen. That job uses GitHub-hosted
+`ubuntu-latest`; it does not queue for an OSMO GPU. The OSMO `system-tests.yml`
+invocation uses the same safe `tests/` collection boundary, but mark filtering may
+deselect unit tests for targeted build/simulation runs. Run the same gate locally with:
 
 ```bash
 airstack test -m unit -v

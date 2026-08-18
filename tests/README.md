@@ -117,7 +117,7 @@ Writes custom metrics to `tests/results/<timestamp>/metrics.json` after each `re
 ### Output files
 
 Every test run produces a timestamped directory containing only `summary.txt`,
-`results.xml`, and `metrics.json` — there is **no** `logs/` subdirectory and no
+`results.xml`, `run_meta.json`, and `metrics.json` — there is **no** `logs/` subdirectory and no
 per-test log files are written under the run directory.
 
 ```
@@ -125,6 +125,7 @@ tests/results/
 └── 2025-04-21_14-30-00/
     ├── summary.txt        # Human-readable key metrics — open this first
     ├── results.xml        # JUnit XML — test durations and pass/fail status
+    ├── run_meta.json      # Completion/outcome and campaign fingerprint
     └── metrics.json       # Custom metrics (image sizes, Hz, compute, timing)
 ```
 
@@ -517,13 +518,17 @@ python tests/parse_metrics.py \
 
 Prints a side-by-side comparison. Exits **1** if any metric regresses beyond the threshold; exits 0 otherwise.
 
-The report has three sections per test module:
+For a completed test campaign, the report has three sections per test module:
 
 - **Metrics** — flat table of scalar metrics (test name, metric key, value/baseline, change%)
 - **Sim publishing rates** — pivot table of topic Hz aggregates from the `sensors` mark (`mean`, `start_mean`, `end_mean`, `min`, `max`; sim + robot topics)
 - **Compute usage** — pivot table of CPU/memory/GPU metrics per container
 
 Regressions are flagged with :red_circle:, improvements with :green_circle:.
+Collection errors, command/internal errors, zero-test runs, and jobs that stop before
+pytest finalizes are labeled **not comparable**. Their pass-rate and regression tables
+are suppressed so an infrastructure failure cannot appear as 0% policy performance.
+`run_meta.json` records the pytest exit status and simulation tests selected/completed.
 
 ---
 
@@ -534,19 +539,25 @@ Regressions are flagged with :red_circle:, improvements with :green_circle:.
     reference, what each mark catches, and how to fold CI into your development
     loop — see **[CI/CD Pipeline on OSMO](../docs/development/intermediate/testing/ci_cd.md)**.
 
-### Workflow: `system-tests.yml`
+### CI workflows
 
-[`.github/workflows/system-tests.yml`](../../../../.github/workflows/system-tests.yml) runs on:
+[`.github/workflows/unit-tests.yml`](../.github/workflows/unit-tests.yml)
+runs all Python unit and harness-contract tests on `ubuntu-latest` whenever a PR is
+opened, updated, or reopened against `main` or `develop`.
 
-- **Pull requests** to `main` or `develop` — automatically runs `build_docker or build_packages` tests (no GPU-intensive liveliness run on every PR)
+[`.github/workflows/system-tests.yml`](../.github/workflows/system-tests.yml) runs on:
+
+- **Same-repository pull requests** when opened, updated, or reopened — automatically
+  runs `build_packages` on OSMO (no GPU-intensive simulation campaign on every push)
+- **`/pytest` PR comments** from maintainers — runs the requested registered marks
 - **Manual dispatch** (`workflow_dispatch`) — fully configurable for liveliness runs and metric comparisons
 
 #### Manual dispatch inputs
 
 | Input | Default | Description |
 |-------|---------|-------------|
-| `marks` | `liveliness` | pytest marks expression |
-| `sim` | `msairsim` | Sim targets |
+| `marks` | `liveliness or takeoff_hover_land` | pytest marks expression |
+| `sim` | `isaacsim` | Sim targets |
 | `num_robots` | `1` | Robot counts |
 | `stress_iterations` | `1` | Iterations per config |
 | `stable_duration` | `120` | Stability polling seconds |
@@ -560,9 +571,9 @@ Regressions are flagged with :red_circle:, improvements with :green_circle:.
 
 1. Downloads the current artifact
 2. Downloads a baseline artifact (from the base branch for PRs, from `main` for manual runs, or from the specified `baseline_run_id`)
-3. Runs `parse_metrics.py` in diff mode if a baseline is found, otherwise in single-run mode
+3. Runs `parse_metrics.py` in diff mode only when both artifacts have the same complete simulation campaign fingerprint; otherwise reports the current run without comparison
 4. Posts the markdown report as a PR comment (PR runs) or to the job summary (all runs)
-5. Fails with `::error::` if `parse_metrics.py` exits 1 (regression detected)
+5. Fails with `::error::` only for a comparable metric regression; invalid/incomplete campaigns are reported as infrastructure outcomes
 
 #### Required third-party action
 
@@ -610,7 +621,7 @@ AirStack's tests require a GPU, Docker, and a clean filesystem per run, so they 
 
 ### Setup
 
-The orchestrator service code, OSMO runner-workflow template, runner image, systemd unit, and full setup runbook live in [`.github/orchestrator/`](../../../../.github/orchestrator/). See [`.github/orchestrator/README.md`](ci-cd-orchestrator.md) for:
+The orchestrator service code, OSMO runner-workflow template, runner image, systemd unit, and full setup runbook live in [`.github/orchestrator/`](../.github/orchestrator/). See [`.github/orchestrator/README.md`](ci-cd-orchestrator.md) for:
 
 - obtaining the OSMO service-account token and a dedicated CI GPU pool (with privileged mode enabled)
 - building and pushing the runner image (`runner.Dockerfile`)

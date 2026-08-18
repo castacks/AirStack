@@ -21,9 +21,9 @@ README is the **lab admin / operator** reference: pool requirements,
 workspace image build & push, validation stages, plus a credential summary
 for context.
 
-> **Scope:** developer workflow only. CI/CD on OSMO is **not** part of this
-> integration — the existing `system-tests.yml` + OpenStack orchestrator path
-> is unchanged.
+> **Scope:** this directory documents the interactive developer workflow.
+> AirStack CI also uses OSMO, but through the separate ephemeral-runner
+> orchestrator in [`.github/orchestrator/`](../.github/orchestrator/).
 
 ## Architecture in one minute
 
@@ -296,6 +296,6 @@ If you see Isaac Sim's "Login Required" popup at startup:
   layout leaves room for additional workflow files when this is done.
 - **Persistent workspace** — mount `/root/AirStack` to a PVC so uncommitted
   edits survive `osmo workflow cancel`. Pool-policy dependent.
-- **CI/CD on OSMO** — the existing `.github/workflows/system-tests.yml` +
-  OpenStack ephemeral runner path is unchanged. Migrating CI to OSMO is a
-  separate effort.
+- **Shared interactive/CI worker design** — CI already runs on one-shot OSMO
+  pods through `.github/orchestrator/`; this interactive workspace intentionally
+  remains a separate image and lifecycle.

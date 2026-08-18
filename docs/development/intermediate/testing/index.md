@@ -22,7 +22,8 @@ airstack test -m unit -v
 pytest tests/ -m unit -v
 ```
 
-Unit tests run as part of `system-tests.yml` via `pytest tests/`, and can also be run
+Unit tests run automatically on every update to PRs targeting `main` or
+`develop` through `unit-tests.yml` on `ubuntu-latest`, and can also be run
 locally with no Docker or GPU needed.
 
 → **[Unit Testing Guide](unit_testing.md)** — patterns, CI workflow,
@@ -87,4 +88,4 @@ airstack test -m "build_packages or autonomy" \
 - [Unit Testing](unit_testing.md) — `@pytest.mark.unit`, co-located tests, CI workflow
 - [Testing frameworks](testing_frameworks.md) — `colcon test`, rostest patterns
 - [Integration testing](integration_testing.md)
-- [CI/CD Pipeline on OSMO](ci_cd.md) — how CI runs the full stack on ephemeral GPU pods: architecture, triggers, what each mark catches, and the metrics regression gate
+- [CI/CD Pipeline on OSMO](ci_cd.md) — automatic unit/build gates, selectable full-stack GPU campaigns, triggers, and like-for-like metrics reporting

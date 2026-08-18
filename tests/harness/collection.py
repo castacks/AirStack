@@ -17,6 +17,7 @@ _MODULE_ORDER = [
     # Harness contract tests: hermetic, and they guard the collection of everything
     # above, so they belong with the fast tier rather than after the sim suites.
     "test_collection_contract",
+    "test_metrics_reporting_contract",
     # System tests follow in dependency order.
     "system.test_build_docker",
     "system.test_build_packages",

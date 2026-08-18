@@ -165,29 +165,28 @@ def _arg_path(arg, invocation_dir):
 
 
 def collection_is_broad(args, invocation_dir, tests_root=None) -> bool:
-    """True when the positionals do not narrow the run below ``tests/``.
+    """True only when the positional names the complete ``tests/`` harness.
 
     Co-located unit tests live outside ``tests/``, so ``pytest_configure`` appends them
     to ``config.args`` by hand. It must do that only for a run that already means
     "everything", or ``pytest tests/system/test_x.py`` would drag in every unit test.
 
-    Broad == a positional names ``tests/`` itself or an ancestor of it::
+    Repository-root collection is intentionally *not* broad: importing every
+    ``test_*.py`` under ROS, Isaac Sim, and vendored submodules on the host is invalid.
 
         pytest                        (testpaths ``.``, cwd tests/)  -> broad
         pytest tests/                 (CI, and the documented commands)  -> broad
-        pytest .                      (cwd repo root or tests/)  -> broad
+        pytest .                      (cwd repo root)             -> invalid/narrow
         pytest tests/system                                       -> narrow
         pytest tests/system/test_x.py::TestY::test_z              -> narrow
         pytest ../simulation/.../test/test_frames.py              -> narrow
 
-    ``any`` rather than ``all`` is deliberate: ``pytest_configure`` appends the
-    co-located files (narrow, absolute) to ``config.args``, so ``all`` would flip the
-    answer for anything re-deriving it after that mutation.
+    Exactly one non-empty positional is required so an accidental empty argument
+    cannot silently add the repository root to pytest's recursion.
     """
     root = Path(tests_root or TESTS_DIR).resolve()
     invocation_dir = Path(invocation_dir).resolve()
-    return any(
-        root.is_relative_to(_arg_path(a, invocation_dir))
-        for a in args
-        if not str(a).startswith("-")
-    )
+    positionals = [str(arg) for arg in args if not str(arg).startswith("-")]
+    if len(positionals) != 1 or not positionals[0]:
+        return False
+    return _arg_path(positionals[0], invocation_dir) == root

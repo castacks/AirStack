@@ -36,7 +36,6 @@ _REPO = TESTS_DIR.parent
         (_REPO, ["tests/"]),                    # CI, and the documented commands
         (_REPO, ["tests"]),
         (_REPO, ["./tests/"]),
-        (_REPO, ["."]),
         (_REPO, [str(TESTS_DIR)]),
         (TESTS_DIR, ["."]),                     # testpaths, i.e. `airstack test`
         (TESTS_DIR, [str(TESTS_DIR)]),
@@ -55,6 +54,11 @@ def test_broad_invocations_collect_unit_tests(cwd, args):
         (_REPO, ["tests/system/test_sensors.py"]),
         (_REPO, ["tests/integration/natnet"]),
         (_REPO, ["simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_frames.py"]),
+        (_REPO, ["."]),                         # never recurse over the repo on host
+        (_REPO, [""]),
+        (_REPO, ["tests/", ""]),
+        (_REPO, ["tests/", "tests/system"]),
+        (_REPO, []),
     ],
 )
 def test_narrowed_invocations_do_not(cwd, args):
@@ -62,10 +66,11 @@ def test_narrowed_invocations_do_not(cwd, args):
 
 
 def test_ci_invocation_is_broad():
-    """The command system-tests.yml runs must collect unit tests.
+    """The shared system harness path must permit co-located injection.
 
-    This is the test that would have caught the original bug: CI ran `pytest tests/`,
-    which the guard classified as a narrowing run, so no unit test ever executed in CI.
+    This catches the original bug: CI ran `pytest tests/`, which the guard classified
+    as narrowed. The CPU workflow executes the injected tests with ``-m unit``;
+    mark-scoped system runs may intentionally deselect them after safe collection.
     """
     workflow = repo_path(".github", "workflows", "system-tests.yml").read_text()
     match = re.search(r"^\s*pytest\s+(\S+)", workflow, re.M)
@@ -74,6 +79,59 @@ def test_ci_invocation_is_broad():
         f"system-tests.yml runs `pytest {match.group(1)}`, which does not collect "
         "co-located unit tests"
     )
+
+
+def test_ci_empty_args_do_not_emit_an_empty_positional():
+    """Guard the mapfile bug that changed bare `/pytest` into `pytest tests/ ""`."""
+    workflow = repo_path(".github", "workflows", "system-tests.yml").read_text()
+    assert "sys.stdout.write" in workflow
+    assert "print('\\\\n'.join(shlex.split" not in workflow
+    assert "Refusing an empty pytest argument" in workflow
+
+
+def test_cpu_unit_workflow_uses_the_broad_harness_path():
+    workflow = repo_path(".github", "workflows", "unit-tests.yml").read_text()
+    match = re.search(r"^\s*run:\s+pytest\s+(\S+)", workflow, re.M)
+    assert match, "no `pytest <path>` invocation found in unit-tests.yml"
+    assert collection_is_broad([match.group(1)], _REPO)
+
+
+def test_automatic_pr_gates_are_fast_and_repeat_on_updates():
+    system = repo_path(".github", "workflows", "system-tests.yml").read_text()
+    unit = repo_path(".github", "workflows", "unit-tests.yml").read_text()
+    trigger = "types: [opened, synchronize, reopened]"
+    assert trigger in system
+    assert trigger in unit
+    assert "args = ['-m', 'build_packages']" in system
+    assert "runs-on: ubuntu-latest" in unit
+    assert "run: pytest tests/ -m unit" in unit
+
+
+def test_report_uses_the_revision_that_was_actually_tested():
+    workflow = repo_path(".github", "workflows", "system-tests.yml").read_text()
+    assert "tested_sha: ${{ steps.identity.outputs.tested_sha }}" in workflow
+    assert "test-results-${{ steps.identity.outputs.tested_sha }}" in workflow
+    assert "test-results-${{ needs.run-tests.outputs.tested_sha }}" in workflow
+    assert "Number('${{ needs.run-tests.outputs.pr_number }}')" in workflow
+
+
+def test_pr_head_check_is_finalized_after_metrics():
+    workflow = repo_path(".github", "workflows", "system-tests.yml").read_text()
+    assert workflow.index("- name: Finalize check on PR head") > workflow.index(
+        "- name: Fail on regression"
+    )
+    assert "ref: ${{ needs.run-tests.outputs.tested_sha }}" in workflow
+    assert "conclusion: '${{ job.status }}'" not in workflow
+
+
+def test_cross_run_baseline_uses_supported_download_inputs():
+    workflow = repo_path(".github", "workflows", "system-tests.yml").read_text()
+    explicit = workflow.split(
+        "- name: Download baseline results (manual, explicit run ID)", 1
+    )[1].split("- name:", 1)[0]
+    assert "github-token:" in explicit
+    assert 'pattern: "test-results-*"' in explicit
+    assert "name_is_regexp:" not in explicit
 
 
 def test_injection_actually_produced_items(request):

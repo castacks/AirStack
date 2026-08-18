@@ -11,12 +11,13 @@ _TESTS_DIR = str(Path(__file__).resolve().parent)
 if _TESTS_DIR not in sys.path:
     sys.path.insert(0, _TESTS_DIR)
 
-from harness import collection, session
+from harness import collection, session as harness_session
 # Re-export the harness helper API so existing `from conftest import <name>` in the
 # system tests + sensor_probes keeps working unchanged.
 from harness import *  # noqa: F401,F403
 from harness.commands import _nodeid_dotted
 from harness.discovery import _is_unit_item
+from harness.run_meta import write_run_meta
 
 # ── pytest config / hooks ──────────────────────────────────────────────────
 
@@ -74,7 +75,7 @@ def pytest_addoption(parser):
 
 
 def pytest_configure(config):
-    run_dir = session.init_run_dir(AIRSTACK_ROOT)
+    run_dir = harness_session.init_run_dir(AIRSTACK_ROOT)
     config.option.xmlpath = str(run_dir / "results.xml")
 
     # Co-located unit tests import their own package (e.g. `optitrack.natnet.emulator`,
@@ -116,18 +117,36 @@ def pytest_itemcollected(item):
 
 
 def pytest_runtest_setup(item):
-    session.set_current_item(item)
+    harness_session.set_current_item(item)
 
 
 def pytest_runtest_teardown(item):
-    session.set_current_item(None)
+    harness_session.set_current_item(None)
 
 
-def pytest_sessionfinish(exitstatus):
-    """Write summary.txt with key metrics so users don't need to dig through logs."""
-    run_dir = session.run_dir()
+@pytest.hookimpl(trylast=True)
+def pytest_sessionfinish(session, exitstatus):
+    """Persist run outcome metadata and a human-readable summary."""
+    run_dir = harness_session.run_dir()
     if run_dir is None:
         return
+    try:
+        terminal = session.config.pluginmanager.getplugin("terminalreporter")
+        reports = [
+            report
+            for entries in getattr(terminal, "stats", {}).values()
+            for report in entries
+        ]
+        meta_path = write_run_meta(
+            run_dir,
+            session.items,
+            exitstatus,
+            session.config.option.markexpr,
+            reports,
+        )
+        logger.info("Wrote run metadata to %s", meta_path)
+    except Exception as exc:
+        logger.warning("Failed to write run metadata: %s", exc)
     try:
         from run_summary import write_summary
         summary_path = write_summary(run_dir)
@@ -186,7 +205,7 @@ def airstack_env(request):
     # test id (see pytest_collection_modifyitems), so airstack up/down output
     # lands next to the triggering test's own log instead of under pytest's
     # stale callspec.id.
-    log = f"airstack_env.{_nodeid_dotted(session.current_item().nodeid, with_path_sep=True)}"
+    log = f"airstack_env.{_nodeid_dotted(harness_session.current_item().nodeid, with_path_sep=True)}"
 
     headless = not request.config.getoption("--gui")
     env_overrides = {
