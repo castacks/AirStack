@@ -16,8 +16,12 @@ from pathlib import Path
 
 import pytest
 
-from conftest import repo_path  # noqa: E402 — pytest adds tests/ to sys.path
-from harness.discovery import TESTS_DIR, collection_is_broad, unit_test_files
+from harness.discovery import (  # noqa: E402 — pytest adds tests/ to sys.path
+    TESTS_DIR,
+    collection_is_broad,
+    repo_path,
+    unit_test_files,
+)
 
 # Not co-located, so `_is_unit_item` will not mark it — the one place the mark is
 # written by hand.
