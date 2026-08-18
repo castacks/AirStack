@@ -5675,7 +5675,7 @@
 </span></code></pre></div>
 <h3 id="verify-connection">Verify Connection<a class="headerlink" href="#verify-connection" title="Permanent link">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Check ROS 2 topics</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-simple-robot-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 topic list | grep simple&quot;</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-simple-robot-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">"ros2 topic list | grep simple"</span>
 </span></code></pre></div>
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
 <p>Simple Sim configuration is in <code>simulation/simple-sim/ros_ws/</code>:</p>
@@ -5711,7 +5711,7 @@
 </li>
 <li>
 <p><strong>Rebuild in container:</strong>
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-simple-robot-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;bws --packages-select my_planner&quot;</span>
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-simple-robot-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">"bws --packages-select my_planner"</span>
 </span></code></pre></div></p>
 </li>
 <li>

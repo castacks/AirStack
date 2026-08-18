@@ -6447,18 +6447,18 @@
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nv">LATEST</span><span class="o">=</span><span class="k">$(</span>ls<span class="w"> </span>-1t<span class="w"> </span>tests/results/<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-1<span class="k">)</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Human summary</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>cat<span class="w"> </span><span class="s2">&quot;tests/results/</span><span class="nv">$LATEST</span><span class="s2">/summary.txt&quot;</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>cat<span class="w"> </span><span class="s2">"tests/results/</span><span class="nv">$LATEST</span><span class="s2">/summary.txt"</span>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Regenerate summary manually</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>python3<span class="w"> </span>tests/run_summary.py<span class="w"> </span><span class="s2">&quot;tests/results/</span><span class="nv">$LATEST</span><span class="s2">/&quot;</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>python3<span class="w"> </span>tests/run_summary.py<span class="w"> </span><span class="s2">"tests/results/</span><span class="nv">$LATEST</span><span class="s2">/"</span>
 </span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
 </span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1"># Markdown table of all metrics</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>python3<span class="w"> </span>tests/parse_metrics.py<span class="w"> </span>--current<span class="w"> </span><span class="s2">&quot;tests/results/</span><span class="nv">$LATEST</span><span class="s2">/&quot;</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>python3<span class="w"> </span>tests/parse_metrics.py<span class="w"> </span>--current<span class="w"> </span><span class="s2">"tests/results/</span><span class="nv">$LATEST</span><span class="s2">/"</span>
 </span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
 </span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="c1"># Compare two tracker configs</span>
 </span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>python3<span class="w"> </span>tests/parse_metrics.py<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">  </span>--current<span class="w">  </span><span class="s2">&quot;tests/results/</span><span class="nv">$NEW</span><span class="s2">/&quot;</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">  </span>--baseline<span class="w"> </span><span class="s2">&quot;tests/results/</span><span class="nv">$OLD</span><span class="s2">/&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">  </span>--current<span class="w">  </span><span class="s2">"tests/results/</span><span class="nv">$NEW</span><span class="s2">/"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">  </span>--baseline<span class="w"> </span><span class="s2">"tests/results/</span><span class="nv">$OLD</span><span class="s2">/"</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">  </span>--threshold<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="w">  </span>--output<span class="w"> </span>report.md
 </span></code></pre></div>
@@ -6477,7 +6477,7 @@
 <p>Always run this after modifying <code>trajectory_controller</code>, <code>trajectory_library</code>, or launch params before flight tests.</p>
 <h3 id="fixed-trajectory-commands">Fixed-trajectory commands<a class="headerlink" href="#fixed-trajectory-commands" title="Permanent link">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Quick Circle regression (recommended smoke test)</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;build_packages or autonomy&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span><span class="s2">"build_packages or autonomy"</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
@@ -6579,7 +6579,7 @@
 </span></code></pre></div>
 <h3 id="ci-pytest-pr-comment">CI: <code>/pytest</code> PR comment<a class="headerlink" href="#ci-pytest-pr-comment" title="Permanent link">&para;</a></h3>
 <p>Core contributors can trigger runs by commenting on the PR:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>/pytest -m &quot;build_packages or autonomy&quot; --sim isaacsim --num-robots 1 --stress-iterations 1 --trajectory-types Circle -v
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>/pytest -m "build_packages or autonomy" --sim isaacsim --num-robots 1 --stress-iterations 1 --trajectory-types Circle -v
 </span></code></pre></div>
 <p>The workflow auto-prepends <code>build_packages</code> when not already specified.</p>
 <hr />
@@ -6650,7 +6650,7 @@
 </table>
 <h3 id="recommended-ab-workflow">Recommended A/B workflow<a class="headerlink" href="#recommended-ab-workflow" title="Permanent link">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># 1. Baseline run</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;build_packages or autonomy&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span><span class="s2">"build_packages or autonomy"</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span>--stress-iterations<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span>--trajectory-types<span class="w"> </span>Circle<span class="w"> </span>-v
 </span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="nv">BASELINE</span><span class="o">=</span><span class="k">$(</span>ls<span class="w"> </span>-1t<span class="w"> </span>tests/results/<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-1<span class="k">)</span>
@@ -6666,21 +6666,21 @@
 </span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>
 </span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="c1"># 4. Diff</span>
 </span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>python3<span class="w"> </span>tests/parse_metrics.py<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="w">  </span>--current<span class="w">  </span><span class="s2">&quot;tests/results/</span><span class="nv">$CURRENT</span><span class="s2">/&quot;</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-9-19"><a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="w">  </span>--baseline<span class="w"> </span><span class="s2">&quot;tests/results/</span><span class="nv">$BASELINE</span><span class="s2">/&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="w">  </span>--current<span class="w">  </span><span class="s2">"tests/results/</span><span class="nv">$CURRENT</span><span class="s2">/"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-9-19"><a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="w">  </span>--baseline<span class="w"> </span><span class="s2">"tests/results/</span><span class="nv">$BASELINE</span><span class="s2">/"</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-9-20"><a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a><span class="w">  </span>--threshold<span class="w"> </span><span class="m">20</span>
 </span></code></pre></div>
 <p>Focus on: <code>cross_track_error_mean_m</code>, <code>cross_track_error_max_m</code>, <code>path_rmse_m</code>, <code>trajectory_execution_time_sim_s</code>, <code>trajectory_success</code>.</p>
 <hr />
 <h2 id="manual-stack-usage-without-pytest">Manual stack usage (without pytest)<a class="headerlink" href="#manual-stack-usage-without-pytest" title="Permanent link">&para;</a></h2>
 <p>Bring up the stack and take off as described in <strong><a href="../../../../getting_started/">Getting Started</a></strong> (<code>airstack up</code>, then use the RViz task panel). Once the drone is hovering, dispatch a fixed trajectory directly:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-it<span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-it<span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s1">'</span>
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="s1">  source /opt/ros/jazzy/setup.bash &amp;&amp;</span>
 </span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="s1">  source /root/AirStack/robot/ros_ws/install/setup.bash &amp;&amp;</span>
 </span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="s1">  ros2 action send_goal --feedback /robot_1/tasks/fixed_trajectory \</span>
 </span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="s1">    task_msgs/action/FixedTrajectoryTask \</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="s1">    &quot;{trajectory_spec: {type: Circle, attributes: [{key: radius, value: \&quot;10.0\&quot;}, {key: velocity, value: \&quot;2.0\&quot;}]}, loop: false}&quot;</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="s1">&#39;</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="s1">    "{trajectory_spec: {type: Circle, attributes: [{key: radius, value: \"10.0\"}, {key: velocity, value: \"2.0\"}]}, loop: false}"</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="s1">'</span>
 </span></code></pre></div>
 <p>Action server: <code>/{robot_name}/tasks/fixed_trajectory</code> — see also <a href="../../../../robot/autonomy/tasks/">Tasks and Task Executors</a>.</p>
 <hr />

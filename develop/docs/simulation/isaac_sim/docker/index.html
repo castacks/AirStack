@@ -6130,16 +6130,16 @@
 <h2 id="launch-configuration">Launch Configuration<a class="headerlink" href="#launch-configuration" title="Permanent link">&para;</a></h2>
 <p>The container command in docker-compose.yaml:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="no">bash -c &quot;</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="no">bash -c "</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="no">tmux new -d -s isaac;</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="no">if [ $$AUTOLAUNCH = &#39;true&#39; ]; then</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="no">if [ \&quot;${ISAAC_SIM_USE_STANDALONE}\&quot; = &#39;true&#39; ]; then</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">      </span><span class="no">tmux send-keys -t isaac &#39;PYTHONPATH=&quot;$$ISAAC_SIM_PYTHONPATH&quot; /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME} --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts&#39; ENTER</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="no">if [ $$AUTOLAUNCH = 'true' ]; then</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="no">if [ \"${ISAAC_SIM_USE_STANDALONE}\" = 'true' ]; then</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">      </span><span class="no">tmux send-keys -t isaac 'PYTHONPATH="$$ISAAC_SIM_PYTHONPATH" /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/${ISAAC_SIM_SCRIPT_NAME} --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts' ENTER</span>
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="no">else</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">      </span><span class="no">tmux send-keys -t isaac &#39;ros2 launch isaacsim run_isaacsim.launch.py install_path:=/isaac-sim gui:=\&quot;${ISAAC_SIM_GUI}\&quot; play_sim_on_start:=\&quot;${PLAY_SIM_ON_START}\&quot;&#39; ENTER</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">      </span><span class="no">tmux send-keys -t isaac 'ros2 launch isaacsim run_isaacsim.launch.py install_path:=/isaac-sim gui:=\"${ISAAC_SIM_GUI}\" play_sim_on_start:=\"${PLAY_SIM_ON_START}\"' ENTER</span>
 </span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="no">fi</span>
 </span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">  </span><span class="no">fi;</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">  </span><span class="no">sleep infinity&quot;</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">  </span><span class="no">sleep infinity"</span>
 </span></code></pre></div>
 <p><strong>Launch sequence:</strong></p>
 <ol>
@@ -6216,7 +6216,7 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Launch without GUI (headless)</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">ISAAC_SIM_GUI</span><span class="o">=</span><span class="nb">false</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>isaac-sim
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Don&#39;t auto-play simulation</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Don't auto-play simulation</span>
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="nv">PLAY_SIM_ON_START</span><span class="o">=</span><span class="nb">false</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>isaac-sim
 </span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Launch with standalone script</span>
@@ -6463,7 +6463,7 @@
 </span><span id="__span-26-3"><a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="w">    </span><span class="nt">reservations</span><span class="p">:</span>
 </span><span id="__span-26-4"><a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="w">      </span><span class="nt">devices</span><span class="p">:</span>
 </span><span id="__span-26-5"><a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">driver</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nvidia</span>
-</span><span id="__span-26-6"><a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a><span class="w">          </span><span class="nt">device_ids</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&#39;0&#39;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&#39;1&#39;</span><span class="p p-Indicator">]</span><span class="w">  </span><span class="c1"># Use specific GPUs</span>
+</span><span id="__span-26-6"><a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a><span class="w">          </span><span class="nt">device_ids</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">'0'</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">'1'</span><span class="p p-Indicator">]</span><span class="w">  </span><span class="c1"># Use specific GPUs</span>
 </span><span id="__span-26-7"><a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a><span class="w">          </span><span class="nt">capabilities</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">gpu</span><span class="p p-Indicator">]</span>
 </span></code></pre></div>
 <h3 id="persistent-nucleus-server">Persistent Nucleus Server<a class="headerlink" href="#persistent-nucleus-server" title="Permanent link">&para;</a></h3>

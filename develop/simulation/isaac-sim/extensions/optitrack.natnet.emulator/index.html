@@ -5514,7 +5514,7 @@
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── schema/schema.usda             # Typed NatNet interface attribute definitions
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── setup.py
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── docs/                          # (legacy design notes — see docs/simulation/isaac_sim/natnet_emulator.md)
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>├── test/                          # Co-located unit tests (proxied by tests/sim/)
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>├── test/                          # Co-located unit tests (listed in colcon_unit_test_packages.yaml)
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>└── optitrack/natnet/emulator/
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    ├── defaults.py                # Reference Drone → prim bindings for tests
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    ├── server/                    # NatNet UDP server (transport + protocol)
@@ -5603,7 +5603,7 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">optitrack.natnet.emulator</span><span class="w"> </span><span class="kn">import</span> <span class="n">NatNetUnicastServer</span><span class="p">,</span> <span class="n">make_default_drone_catalog</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">optitrack.natnet.emulator.isaac.frames</span><span class="w"> </span><span class="kn">import</span> <span class="n">BodySample</span><span class="p">,</span> <span class="n">build_frame</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">server</span> <span class="o">=</span> <span class="n">NatNetUnicastServer</span><span class="p">(</span><span class="n">local_interface</span><span class="o">=</span><span class="s2">&quot;172.31.0.200&quot;</span><span class="p">)</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">server</span> <span class="o">=</span> <span class="n">NatNetUnicastServer</span><span class="p">(</span><span class="n">local_interface</span><span class="o">=</span><span class="s2">"172.31.0.200"</span><span class="p">)</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">server</span><span class="o">.</span><span class="n">set_model_def_payload</span><span class="p">(</span><span class="n">make_default_drone_catalog</span><span class="p">()</span><span class="o">.</span><span class="n">pack</span><span class="p">())</span>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">server</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
@@ -5615,15 +5615,15 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">isaacsim.core.utils.extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">enable_extension</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># Register the extension with Kit before importing from it.</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">enable_extension</span><span class="p">(</span><span class="s2">&quot;optitrack.natnet.emulator&quot;</span><span class="p">)</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">enable_extension</span><span class="p">(</span><span class="s2">"optitrack.natnet.emulator"</span><span class="p">)</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">optitrack.natnet.emulator.isaac</span><span class="w"> </span><span class="kn">import</span> <span class="n">author_drone_natnet_interface</span>
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
 </span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="c1"># Author the interface prim; the extension starts the server on Play.</span>
 </span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">author_drone_natnet_interface</span><span class="p">(</span>
 </span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">stage</span><span class="p">,</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">drones</span><span class="o">=</span><span class="p">[(</span><span class="s2">&quot;Drone&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;/World/drone1/base_link/body&quot;</span><span class="p">)],</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="n">server_ip</span><span class="o">=</span><span class="s2">&quot;172.31.0.200&quot;</span><span class="p">,</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">drones</span><span class="o">=</span><span class="p">[(</span><span class="s2">"Drone"</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"/World/drone1/base_link/body"</span><span class="p">)],</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="n">server_ip</span><span class="o">=</span><span class="s2">"172.31.0.200"</span><span class="p">,</span>
 </span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="kit-ui">Kit UI<a class="headerlink" href="#kit-ui" title="Permanent link">&para;</a></h3>
@@ -5671,9 +5671,9 @@
 </tr>
 </tbody>
 </table>
-<p>Co-located tests live in <code>test/</code>. Pytest discovers them via thin proxies in <a href="../../../../tests/sim/optitrack_natnet_emulator/"><code>tests/sim/optitrack_natnet_emulator/</code></a>.</p>
+<p>Co-located tests live in <code>test/</code>. The root harness collects them via the <code>sim:</code> key in <a href="../../../../tests/colcon_unit_test_packages.yaml"><code>colcon_unit_test_packages.yaml</code></a>.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Unit (no Docker / no SDK)</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>pytest<span class="w"> </span>tests/sim/optitrack_natnet_emulator/<span class="w"> </span>-m<span class="w"> </span>unit<span class="w"> </span>-v
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>unit<span class="w"> </span>-v
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Integration (robot container + NatNet SDK)</span>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>pytest<span class="w"> </span>tests/integration/natnet/<span class="w"> </span>-m<span class="w"> </span>integration<span class="w"> </span>-v

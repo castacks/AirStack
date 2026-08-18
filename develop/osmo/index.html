@@ -5520,9 +5520,9 @@ README is the <strong>lab admin / operator</strong> reference: pool requirements
 workspace image build &amp; push, validation stages, plus a credential summary
 for context.</p>
 <blockquote>
-<p><strong>Scope:</strong> developer workflow only. CI/CD on OSMO is <strong>not</strong> part of this
-integration — the existing <code>system-tests.yml</code> + OpenStack orchestrator path
-is unchanged.</p>
+<p><strong>Scope:</strong> this directory documents the interactive developer workflow.
+AirStack CI also uses OSMO, but through the separate ephemeral-runner
+orchestrator in <a href="../.github/orchestrator/"><code>.github/orchestrator/</code></a>.</p>
 </blockquote>
 <h2 id="architecture-in-one-minute">Architecture in one minute<a class="headerlink" href="#architecture-in-one-minute" title="Permanent link">&para;</a></h2>
 <p>A student submits one OSMO task that runs a Docker-in-Docker (DinD) pod with
@@ -5649,7 +5649,7 @@ registry. Linux/amd64 admins can use plain <code>docker build &amp;&amp; docker 
 <p>Verify the manifest has <code>linux/amd64</code> after pushing:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>docker<span class="w"> </span>manifest<span class="w"> </span>inspect<span class="w"> </span>airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-A2<span class="w"> </span>architecture
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># → &quot;architecture&quot;: &quot;amd64&quot;</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># → "architecture": "amd64"</span>
 </span></code></pre></div>
 <p>Tag a versioned release alongside <code>latest</code> if you change anything in
 <code>Dockerfile</code>, <code>sshd_config</code>, or <code>entrypoint.sh</code>:</p>
@@ -5677,17 +5677,17 @@ fails don't bother trying (b).</p>
 <h3 id="a-sshd-reachable-key-auth-works">(a) sshd reachable, key auth works<a class="headerlink" href="#a-sshd-reachable-key-auth-works" title="Permanent link">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>submit<span class="w"> </span>osmo/workflows/airstack-dev.yaml<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>--pool<span class="w"> </span>&lt;gpu-pool&gt;<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>--set-env<span class="w"> </span><span class="s2">&quot;SSH_PUB_KEY=</span><span class="k">$(</span>cat<span class="w"> </span>~/.ssh/id_ed25519.pub<span class="k">)</span><span class="s2">&quot;</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>--set-env<span class="w"> </span><span class="s2">"SSH_PUB_KEY=</span><span class="k">$(</span>cat<span class="w"> </span>~/.ssh/id_ed25519.pub<span class="k">)</span><span class="s2">"</span>
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># → record &lt;wf-id&gt;</span>
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
 </span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>port-forward<span class="w"> </span>&lt;wf-id&gt;<span class="w"> </span>workspace<span class="w"> </span>--port<span class="w"> </span><span class="m">2200</span>:22<span class="w"> </span>--connect-timeout<span class="w"> </span><span class="m">86400</span><span class="w"> </span><span class="p">&amp;</span>
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># StrictHostKeyChecking=no + UserKnownHostsFile=/dev/null because every</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1"># fresh pod has a different sshd host key — the previous workflow&#39;s</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="c1"># fingerprint will always look like a &quot;host key changed&quot; attack</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1"># fresh pod has a different sshd host key — the previous workflow's</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="c1"># fingerprint will always look like a "host key changed" attack</span>
 </span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="c1"># otherwise.</span>
 </span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>ssh<span class="w"> </span>-p<span class="w"> </span><span class="m">2200</span><span class="w"> </span>-o<span class="w"> </span><span class="nv">StrictHostKeyChecking</span><span class="o">=</span>no<span class="w"> </span>-o<span class="w"> </span><span class="nv">UserKnownHostsFile</span><span class="o">=</span>/dev/null<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">    </span>root@localhost<span class="w"> </span><span class="s1">&#39;echo ok &amp;&amp; whoami&#39;</span>
-</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="c1"># → &quot;ok\nroot&quot;</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">    </span>root@localhost<span class="w"> </span><span class="s1">'echo ok &amp;&amp; whoami'</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="c1"># → "ok\nroot"</span>
 </span></code></pre></div>
 <p>If SSH fails: check <code>osmo workflow logs &lt;wf-id&gt; workspace</code> for the
 <code>SSH_PUB_KEY not set</code> error or for <code>sshd</code> failing to start.</p>
@@ -5697,10 +5697,10 @@ fails don't bother trying (b).</p>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>  HostName localhost
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>  Port 2200
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>  User root
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>  # Each fresh pod has a new sshd host key, so accept-new doesn&#39;t help
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>  # — the second workflow always trips the &quot;host key changed&quot; check.
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>  # Each fresh pod has a new sshd host key, so accept-new doesn't help
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>  # — the second workflow always trips the "host key changed" check.
 </span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>  # Bypass host-key checks for this loopback alias only; the security
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>  # boundary is OSMO&#39;s authenticated port-forward, not the local key.
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>  # boundary is OSMO's authenticated port-forward, not the local key.
 </span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>  StrictHostKeyChecking no
 </span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>  UserKnownHostsFile /dev/null
 </span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>  LogLevel ERROR
@@ -5786,9 +5786,9 @@ be open from OSMO</strong> as long as TLS is configured on the Nucleus side.</p>
   layout leaves room for additional workflow files when this is done.</li>
 <li><strong>Persistent workspace</strong> — mount <code>/root/AirStack</code> to a PVC so uncommitted
   edits survive <code>osmo workflow cancel</code>. Pool-policy dependent.</li>
-<li><strong>CI/CD on OSMO</strong> — the existing <code>.github/workflows/system-tests.yml</code> +
-  OpenStack ephemeral runner path is unchanged. Migrating CI to OSMO is a
-  separate effort.</li>
+<li><strong>Shared interactive/CI worker design</strong> — CI already runs on one-shot OSMO
+  pods through <code>.github/orchestrator/</code>; this interactive workspace intentionally
+  remains a separate image and lifecycle.</li>
 </ul>
 
 

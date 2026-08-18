@@ -5758,12 +5758,12 @@
 
 
 <h1 id="unit-testing">Unit Testing<a class="headerlink" href="#unit-testing" title="Permanent link">&para;</a></h1>
-<p>AirStack unit tests are <strong>fast, hermetic, and purely Python</strong> — no Docker stack, no GPU, no running containers. They run locally in seconds and gate every pull request via a dedicated GitHub Actions workflow on a standard <code>ubuntu-latest</code> runner.</p>
+<p>AirStack unit tests are <strong>fast, hermetic, and purely Python</strong> — no Docker stack, no GPU, no running containers. They run locally in seconds via <code>airstack test -m unit</code> and automatically on every update to PRs targeting <code>main</code> or <code>develop</code> through <code>unit-tests.yml</code>.</p>
 <h2 id="design-principles">Design principles<a class="headerlink" href="#design-principles" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Co-located with source.</strong> Test files live in <code>&lt;package&gt;/test/</code> alongside the code they test. This is the standard ROS 2 / colcon convention and ensures tests are discovered by both <code>colcon test</code> and <code>pytest</code>.</li>
 <li><strong>Listed in one place.</strong> <code>tests/colcon_unit_test_packages.yaml</code> lists which packages have unit tests. <code>tests/conftest.py</code> resolves each to its <code>test/</code> dir and collects the non-linter <code>test_*.py</code> files under <code>--import-mode=importlib</code>. To add a package's unit tests, list it in that YAML.</li>
-<li><strong><code>@pytest.mark.unit</code> on every test.</strong> Auto-applied by path in <code>conftest.py</code> (source files may also declare it). The <code>unit</code> mark keeps unit tests isolated from system tests that need Docker, GPUs, and sim licenses.</li>
+<li><strong><code>@pytest.mark.unit</code> on every test, applied for you.</strong> <code>conftest.py</code> marks items by file location, so test sources should not declare it themselves. The <code>unit</code> mark keeps unit tests isolated from system tests that need Docker, GPUs, and sim licenses.</li>
 </ul>
 <h2 id="repository-layout">Repository layout<a class="headerlink" href="#repository-layout" title="Permanent link">&para;</a></h2>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>robot/ros_ws/src/
@@ -5784,16 +5784,55 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Locally — no container or Docker stack required</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>unit<span class="w"> </span>-v
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Or directly with pytest (AIRSTACK_ROOT must point to the repo root)</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Or directly with pytest</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AIRSTACK_ROOT</span><span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>pip<span class="w"> </span>install<span class="w"> </span>pytest<span class="w"> </span>numpy
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>tests/requirements.txt
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>pytest<span class="w"> </span>tests/<span class="w"> </span>-m<span class="w"> </span>unit<span class="w"> </span>-v
 </span></code></pre></div>
-<p>Unit tests complete in under one second for the current suite.</p>
+<p>The current suite completes in about 20 seconds on a developer workstation.</p>
 <h2 id="ci">CI<a class="headerlink" href="#ci" title="Permanent link">&para;</a></h2>
-<p>Unit tests are collected and run as part of <code>system-tests.yml</code> via <code>pytest tests/</code>
-(no marks specified on PR open = all tests including <code>unit</code>). Run them locally at
-any time with no infrastructure required:</p>
+<p><strong>The two languages take different runners because C++ needs a build and Python does
+not.</strong> A gtest is a binary compiled against the package's headers and rclcpp, so it only
+runs where the ROS toolchain is — <code>colcon test</code> inside the robot container. Python unit
+tests stub ROS at the import boundary and touch no ROS runtime, so they need neither a
+build nor a container, which keeps the whole suite in the fast feedback tier. Both are
+gated in CI:</p>
+<table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Runner</th>
+<th>In CI via</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C++ gtest</td>
+<td><code>colcon test</code> inside the robot container</td>
+<td>the <code>build_packages</code> mark (<code>tests/system/test_build_packages.py::test_colcon_test_robot</code>)</td>
+</tr>
+<tr>
+<td>Python, <code>ament_python</code> package</td>
+<td>root harness <strong>and</strong> <code>colcon test</code></td>
+<td><code>unit-tests.yml</code> <strong>and</strong> <code>build_packages</code></td>
+</tr>
+<tr>
+<td>Python, <code>ament_cmake</code> package</td>
+<td>root harness only</td>
+<td><code>unit-tests.yml</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>colcon test</code> picks up Python tests only when the package's build type makes it: an
+<code>ament_python</code> package like <code>lidar_point_cloud_filter</code> exposes them through
+<code>setup.cfg</code> (<code>testpaths = test</code>), while an <code>ament_cmake</code> package like <code>natnet_ros2</code>
+would need an explicit <code>ament_add_pytest_test</code> — it has none, so its Python tests reach
+CI only through the root harness.</p>
+<p>Python unit tests are collected by <code>unit-tests.yml</code>'s <code>pytest tests/ -m unit</code>
+invocation on PR open, synchronize, and reopen. That job uses GitHub-hosted
+<code>ubuntu-latest</code>; it does not queue for an OSMO GPU. The OSMO <code>system-tests.yml</code>
+invocation uses the same safe <code>tests/</code> collection boundary, but mark filtering may
+deselect unit tests for targeted build/simulation runs. Run the same gate locally with:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>unit<span class="w"> </span>-v
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># or directly (requires tests/requirements.txt installed):</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nv">AIRSTACK_ROOT</span><span class="o">=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span><span class="w"> </span>pytest<span class="w"> </span>tests/<span class="w"> </span>-m<span class="w"> </span>unit<span class="w"> </span>-v
@@ -5831,20 +5870,20 @@ any time with no infrastructure required:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># robot/ros_ws/src/&lt;layer&gt;/&lt;package&gt;/test/test_my_module.py</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="c1"># Make the package importable without a colcon install</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">_src</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">&quot;src&quot;</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">_src</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="p">:</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">_src</span><span class="p">))</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="kn">from</span><span class="w"> </span><span class="nn">my_module</span><span class="w"> </span><span class="kn">import</span> <span class="n">my_function</span>  <span class="c1"># noqa: E402</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># Make the package importable without a colcon install</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">_src</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">"src"</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">_src</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="p">:</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">_src</span><span class="p">))</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="kn">from</span><span class="w"> </span><span class="nn">my_module</span><span class="w"> </span><span class="kn">import</span> <span class="n">my_function</span>  <span class="c1"># noqa: E402</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
 </span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>
-</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">unit</span>
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_basic</span><span class="p">():</span>
-</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>    <span class="k">assert</span> <span class="n">my_function</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_basic</span><span class="p">():</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    <span class="k">assert</span> <span class="n">my_function</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span>
 </span></code></pre></div>
+<p>No <code>@pytest.mark.unit</code> — <code>conftest.py</code> applies it by file location. Import <code>pytest</code>
+only if you need its API (<code>approx</code>, <code>raises</code>, <code>parametrize</code>, <code>importorskip</code>).</p>
 <p>If the production code inherits from <code>rclpy.node.Node</code>, stub ROS at the import
 boundary:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
@@ -5861,22 +5900,22 @@ boundary:</p>
 </span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>
 </span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="n">_rclpy_node_mod</span> <span class="o">=</span> <span class="n">MagicMock</span><span class="p">()</span>
 </span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="n">_rclpy_node_mod</span><span class="o">.</span><span class="n">Node</span> <span class="o">=</span> <span class="n">_FakeNode</span>
-</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;rclpy&quot;</span><span class="p">,</span> <span class="n">MagicMock</span><span class="p">())</span>
-</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">[</span><span class="s2">&quot;rclpy.node&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_rclpy_node_mod</span>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">"rclpy"</span><span class="p">,</span> <span class="n">MagicMock</span><span class="p">())</span>
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">[</span><span class="s2">"rclpy.node"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_rclpy_node_mod</span>
 </span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="c1"># ... then import your module</span>
 </span></code></pre></div>
 <p><strong>2. Register the package in <code>tests/colcon_unit_test_packages.yaml</code>:</strong></p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">robot</span><span class="p">:</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">packages</span><span class="p">:</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;your_package&gt;</span><span class="w">          </span><span class="c1"># ← add here; conftest.py collects &lt;pkg&gt;/test/test_*.py</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">pytest_args</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;-m</span><span class="nv"> </span><span class="s">not</span><span class="nv"> </span><span class="s">linter&quot;</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">pytest_args</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span><span class="w">             </span><span class="c1"># forwarded to colcon via PYTEST_ADDOPTS; `-m` is ignored there</span>
 </span></code></pre></div>
 <p>That's the whole registration. If the test imports package code, set up <code>sys.path</code> at the
 top of the test file — see <code>test_validation_core.py</code>, which inserts its package root.
 <code>--import-mode=importlib</code> (set in <code>pytest.ini</code>) means duplicate <code>test_*.py</code> basenames
 across packages don't collide.</p>
 <p><strong>3. Verify:</strong></p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>pytest<span class="w"> </span>tests/<span class="w"> </span>-m<span class="w"> </span>unit<span class="w"> </span>-v
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>unit<span class="w"> </span>-v
 </span></code></pre></div>
 <h3 id="c-gtest">C++ (gtest)<a class="headerlink" href="#c-gtest" title="Permanent link">&para;</a></h3>
 <p>C++ tests live entirely in the package and run via <code>colcon test</code>.</p>
@@ -5894,9 +5933,9 @@ across packages don't collide.</p>
 </span></code></pre></div>
 <p><strong>Run inside the robot container:</strong></p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="s2">&quot;bws --cmake-args &#39;-DBUILD_TESTING=ON&#39; --packages-select &lt;package&gt;&quot;</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="s2">"bws --cmake-args '-DBUILD_TESTING=ON' --packages-select &lt;package&gt;"</span>
 </span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span><span class="s2">&quot;colcon test --packages-select &lt;package&gt; --event-handlers console_direct+&quot;</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span><span class="s2">"colcon test --packages-select &lt;package&gt; --event-handlers console_direct+"</span>
 </span></code></pre></div>
 <p>The <code>build_packages</code> CI job (<code>tests/system/test_build_packages.py</code>) also runs
 <code>colcon test</code> with <code>BUILD_TESTING=ON</code> so C++ gtests are gated in CI as well.</p>
@@ -5911,7 +5950,7 @@ new <code>gcs:</code>) workspace to the YAML, adding the glob for a new tree in 
 </span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;isaac_extension_name&gt;</span><span class="w">   </span><span class="c1"># → simulation/**/&lt;ext&gt;/test collected directly</span>
 </span></code></pre></div>
 <p><code>pytest tests/ -m unit</code> discovers them automatically — no changes to <code>pytest.ini</code>
-or CI changes needed.</p>
+or CI needed.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../../../../.agents/skills/add-unit-tests/SKILL/"><code>.agents/skills/add-unit-tests</code></a> — step-by-step agent workflow</li>

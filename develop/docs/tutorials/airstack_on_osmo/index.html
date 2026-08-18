@@ -5905,27 +5905,27 @@ at <code>/opt/homebrew/bin/bash</code> (Apple Silicon) or <code>/usr/local/bin/b
 as `cmd_osmo_setup`) is equivalent to running these three commands by hand
 — useful for debugging or rotating one credential at a time:
 
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># 1. AirLab Docker registry (REGISTRY) — for OSMO&#39;s outer image-pull of</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># 1. AirLab Docker registry (REGISTRY) — for OSMO's outer image-pull of</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1">#    airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>osmo<span class="w"> </span>credential<span class="w"> </span><span class="nb">set</span><span class="w"> </span>airlab-docker-registry<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>--type<span class="w"> </span>REGISTRY<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span>--payload<span class="w"> </span><span class="nv">registry</span><span class="o">=</span>airlab-docker.andrew.cmu.edu<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">            </span><span class="nv">username</span><span class="o">=</span>&lt;your_andrew_id&gt;<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">            </span><span class="nv">auth</span><span class="o">=</span><span class="s1">&#39;&lt;your_andrew_password&gt;&#39;</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">            </span><span class="nv">auth</span><span class="o">=</span><span class="s1">'&lt;your_andrew_password&gt;'</span>
 </span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
 </span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="c1"># 2. AirLab Docker login (GENERIC) — for the *inner* dockerd inside the</span>
 </span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1">#    pod to `docker login` and pull the AirStack image set</span>
 </span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>osmo<span class="w"> </span>credential<span class="w"> </span><span class="nb">set</span><span class="w"> </span>airlab-docker-login<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">  </span>--type<span class="w"> </span>GENERIC<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">  </span>--payload<span class="w"> </span><span class="nv">username</span><span class="o">=</span>&lt;your_andrew_id&gt;<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">            </span><span class="nv">password</span><span class="o">=</span><span class="s1">&#39;&lt;your_andrew_password&gt;&#39;</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">            </span><span class="nv">password</span><span class="o">=</span><span class="s1">'&lt;your_andrew_password&gt;'</span>
 </span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>
 </span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="c1"># 3. AirLab Nucleus (GENERIC) — for Isaac Sim to authenticate against</span>
 </span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="c1">#    omniverse://airlab-nucleus.andrew.cmu.edu (API token, NOT password)</span>
 </span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>osmo<span class="w"> </span>credential<span class="w"> </span><span class="nb">set</span><span class="w"> </span>airlab-nucleus<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="w">  </span>--type<span class="w"> </span>GENERIC<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="w">  </span>--payload<span class="w"> </span><span class="nv">omni_user</span><span class="o">=</span>&lt;your_andrew_id&gt;<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="w">            </span><span class="nv">omni_pass</span><span class="o">=</span><span class="s1">&#39;&lt;your_nucleus_api_token&gt;&#39;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="w">            </span><span class="nv">omni_pass</span><span class="o">=</span><span class="s1">'&lt;your_nucleus_api_token&gt;'</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="w">            </span><span class="nv">omni_server</span><span class="o">=</span>omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/5.1
 </span></code></pre></div>
 
@@ -5942,7 +5942,7 @@ inner login from the inner dockerd to pull AirStack images.</p>
 <h2 id="step-1-add-an-ssh-config-entry-one-time">Step 1 — Add an SSH config entry (one time)<a class="headerlink" href="#step-1-add-an-ssh-config-entry-one-time" title="Permanent link">&para;</a></h2>
 <p>VS Code and Cursor's Remote-SSH "Connect to Host…" picker reads
 <code>~/.ssh/config</code>. Add this block once and the host shows up by name forever:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>cat<span class="w"> </span>&gt;&gt;<span class="w"> </span>~/.ssh/config<span class="w"> </span><span class="s">&lt;&lt;&#39;EOF&#39;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>cat<span class="w"> </span>&gt;&gt;<span class="w"> </span>~/.ssh/config<span class="w"> </span><span class="s">&lt;&lt;'EOF'</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="s">Host airstack-osmo</span>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="s">  HostName localhost</span>
@@ -5952,14 +5952,14 @@ inner login from the inner dockerd to pull AirStack images.</p>
 </span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="s">  # any saved fingerprint for [localhost]:2200 will be wrong on the next</span>
 </span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="s">  # `airstack osmo:up`. Skip the host-key check here: this alias only</span>
 </span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="s">  # connects via the local port-forward, so the security boundary is</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="s">  # OSMO&#39;s authenticated control-plane tunnel — not the SSH fingerprint.</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="s">  # OSMO's authenticated control-plane tunnel — not the SSH fingerprint.</span>
 </span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="s">  # /dev/null keeps known_hosts clean (no stale entries pile up); LogLevel</span>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="s">  # ERROR silences the &quot;Permanently added [localhost]:2200&quot; banner.</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="s">  # ERROR silences the "Permanently added [localhost]:2200" banner.</span>
 </span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="s">  StrictHostKeyChecking no</span>
 </span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="s">  UserKnownHostsFile /dev/null</span>
 </span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="s">  LogLevel ERROR</span>
 </span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="s">  # SSH agent forwarding so `git push` from inside the pod uses your</span>
-</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="s">  # local laptop&#39;s SSH key (the pod&#39;s sshd has AllowAgentForwarding yes</span>
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="s">  # local laptop's SSH key (the pod's sshd has AllowAgentForwarding yes</span>
 </span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="s">  # baked in by osmo/workspace/sshd_config). Without this, the pod has</span>
 </span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="s">  # no key to push to github.com with — its ~/.ssh/ only holds the</span>
 </span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="s">  # authorized_keys file for inbound connections.</span>
@@ -5978,7 +5978,7 @@ inner login from the inner dockerd to pull AirStack images.</p>
 <code>StrictHostKeyChecking accept-new</code> for <code>airstack-osmo</code> from an earlier
 setup, replace it with the three lines above. As a one-time cleanup of
 the stale fingerprint left behind by previous pods, also run:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>ssh-keygen<span class="w"> </span>-R<span class="w"> </span><span class="s2">&quot;[localhost]:2200&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>ssh-keygen<span class="w"> </span>-R<span class="w"> </span><span class="s2">"[localhost]:2200"</span>
 </span></code></pre></div>
 <p><code>airstack osmo:ide</code> does this scrub for you on every run, so you only
 need it once when migrating.</p>
@@ -6027,7 +6027,7 @@ as `cmd_osmo_up`) is equivalent to:
 
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>submit<span class="w"> </span>osmo/workflows/airstack-dev.yaml<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span>--pool<span class="w"> </span>airstack<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span>--set-env<span class="w"> </span><span class="s2">&quot;SSH_PUB_KEY=</span><span class="k">$(</span>cat<span class="w"> </span>~/.ssh/id_ed25519.pub<span class="k">)</span><span class="s2">&quot;</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span>--set-env<span class="w"> </span><span class="s2">"SSH_PUB_KEY=</span><span class="k">$(</span>cat<span class="w"> </span>~/.ssh/id_ed25519.pub<span class="k">)</span><span class="s2">"</span>
 </span></code></pre></div>
 
 Save the printed workflow id as `$WF` if you're using the raw form, and
@@ -6122,8 +6122,8 @@ git working tree:</p>
 </span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>bws<span class="w"> </span>--packages-select<span class="w"> </span>&lt;your_package&gt;<span class="w">   </span><span class="c1"># build inside the robot-desktop container per AGENTS.md</span>
 </span></code></pre></div>
 <p>Standard ROS 2 commands work from the integrated terminal:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 node list&quot;</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;ros2 topic hz /robot_1/odometry&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">"ros2 node list"</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">"ros2 topic hz /robot_1/odometry"</span>
 </span></code></pre></div>
 <p>This is the same <code>docker exec</code> pattern documented in
 <a href="https://github.com/castacks/AirStack/blob/main/AGENTS.md">AGENTS.md</a> — the
@@ -6205,7 +6205,7 @@ Set `OSMO_FOXGLOVE_SKIP_EXTENSIONS=1` to only run the port-forward.
 disk. Commit and push every meaningful chunk of work — a Source Control
 panel commit + push, or in the integrated terminal:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>git<span class="w"> </span>add<span class="w"> </span>-A
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;WIP: feature X&quot;</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">"WIP: feature X"</span>
 </span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>git<span class="w"> </span>push<span class="w"> </span>-u<span class="w"> </span>origin<span class="w"> </span>my-feature
 </span></code></pre></div>
 <p>Once your branch is on the remote, you can pull it from anywhere — your

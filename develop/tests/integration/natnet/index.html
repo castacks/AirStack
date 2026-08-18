@@ -5561,7 +5561,7 @@ exec <code>natnet_ros2_node</code> directly with the flattened per-body params
 <h2 id="running">Running<a class="headerlink" href="#running" title="Permanent link">&para;</a></h2>
 <p><div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># 1. One-time: NatNet SDK + build natnet_ros2 in the robot image</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>airstack<span class="w"> </span>setup<span class="w"> </span>--natnet<span class="w">   </span><span class="c1"># or NATNET_ACCEPT_LICENSE=1 airstack setup --natnet</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-lc<span class="w"> </span><span class="s1">&#39;bws --packages-select natnet_ros2&#39;</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-lc<span class="w"> </span><span class="s1">'bws --packages-select natnet_ros2'</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># 2a. Reuse an existing robot container (fast local iteration):</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nv">AUTOLAUNCH</span><span class="o">=</span><span class="nb">false</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>robot-desktop
@@ -5659,10 +5659,10 @@ not. Always validate against the C SDK.</p>
 <a href="../../../.agents/skills/optitrack-development/SKILL/">optitrack-development skill</a>.</p>
 <h2 id="after-changing-natnet_ros2-or-the-emulator">After changing natnet_ros2 or the emulator<a class="headerlink" href="#after-changing-natnet_ros2-or-the-emulator" title="Permanent link">&para;</a></h2>
 <p>Rebuild in the robot container:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-lc<span class="w"> </span><span class="s1">&#39;bws --packages-select natnet_ros2&#39;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-lc<span class="w"> </span><span class="s1">'bws --packages-select natnet_ros2'</span>
 </span></code></pre></div>
 <p>Unit tests (protocol, serializers, Isaac wrapper loopback):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pytest<span class="w"> </span>tests/sim/optitrack_natnet_emulator/<span class="w"> </span>-m<span class="w"> </span>unit<span class="w"> </span>-v
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>unit<span class="w"> </span>-v
 </span></code></pre></div>
 
 

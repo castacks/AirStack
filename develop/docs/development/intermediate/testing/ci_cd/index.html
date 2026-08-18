@@ -5902,12 +5902,13 @@
 
 
 <h1 id="cicd-pipeline-on-osmo">CI/CD Pipeline on OSMO<a class="headerlink" href="#cicd-pipeline-on-osmo" title="Permanent link">&para;</a></h1>
-<p>AirStack's continuous integration runs the <strong>full drone stack</strong> — simulator,
-robot autonomy, and GCS — on a GPU for every change. Because that needs a
-GPU, a Docker daemon, and a clean filesystem, jobs cannot run on GitHub's
-hosted runners and should not run on a shared always-on machine. Instead, a
-small orchestrator service watches the GitHub Actions queue and submits one
-<strong>ephemeral <a href="https://nvidia.github.io/OSMO/">NVIDIA OSMO</a> pod per job</strong>. The pod
+<p>AirStack continuous integration has two tiers. Fast Python unit and harness
+contract tests run on GitHub-hosted runners for updates to PRs targeting
+<code>main</code> or <code>develop</code>. Container,
+ROS workspace, and selectable <strong>full drone stack</strong> campaigns — simulator,
+robot autonomy, and GCS — run on an ephemeral GPU worker. A small orchestrator
+service watches the GitHub Actions queue and submits one <strong>ephemeral
+<a href="https://nvidia.github.io/OSMO/">NVIDIA OSMO</a> pod per system-test job</strong>. The pod
 registers as a single-use GitHub Actions runner, executes exactly one job, and
 is destroyed.</p>
 <p>This page documents the whole system: the architecture, the job lifecycle,
@@ -5933,23 +5934,23 @@ to fit CI into your day-to-day development loop.</p>
 <tbody>
 <tr>
 <td>Where do CI jobs run?</td>
-<td>A fresh GPU pod on the OSMO <code>airstack</code> pool, one per job, destroyed after.</td>
+<td>Python unit tests: <code>ubuntu-latest</code>. Build and simulation tests: a fresh OSMO GPU pod, destroyed afterward.</td>
 </tr>
 <tr>
 <td>What triggers a run?</td>
-<td>A PR being <strong>opened</strong>, a <code>/pytest</code> comment from a maintainer, or manual <code>workflow_dispatch</code>.</td>
+<td>PR open/update/reopen runs unit + package-build gates; maintainers select simulations with <code>/pytest</code>; <code>workflow_dispatch</code> is also available.</td>
 </tr>
 <tr>
 <td>What gets tested?</td>
-<td>Docker image builds, <code>colcon</code> builds, unit tests, stack liveliness, sensor rates, takeoff/hover/land, fixed-trajectory tracking.</td>
+<td>Automatically: Python units/contracts and ROS package builds/tests. Selectably: Docker builds, liveliness, sensors, flight policies, and OptiTrack.</td>
 </tr>
 <tr>
 <td>How do I see results?</td>
-<td>A metrics report comment on the PR, plus the <code>test-results-*</code> artifact (<code>summary.txt</code>, <code>results.xml</code>, <code>metrics.json</code>).</td>
+<td>Checks plus a report comment and <code>test-results-*</code> artifact (<code>summary.txt</code>, <code>results.xml</code>, <code>run_meta.json</code>, <code>metrics.json</code>).</td>
 </tr>
 <tr>
 <td>What fails the build?</td>
-<td>Any failed test, <strong>or</strong> a metric regressing more than 20 % against the base branch's last run.</td>
+<td>Any failed test, or a comparable simulation metric regressing more than 20%. Invalid/incomplete campaigns are labeled, not scored as policy failures.</td>
 </tr>
 <tr>
 <td>Who holds the secrets?</td>
@@ -6118,9 +6119,14 @@ it to Harbor.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>pull_request</code> (<code>types: [opened]</code>)</td>
-<td>Only when the PR is first opened, and only for same-repo branches</td>
-<td>pytest's <code>conftest</code> defaults — the full mark set</td>
+<td><code>unit-tests.yml</code> pull request</td>
+<td>PR to <code>main</code>/<code>develop</code> opened, synchronized, or reopened (including forks)</td>
+<td><code>pytest tests/ -m unit</code> on <code>ubuntu-latest</code></td>
+</tr>
+<tr>
+<td><code>system-tests.yml</code> pull request</td>
+<td>PR opened, synchronized, or reopened, same-repo branches only</td>
+<td><code>-m build_packages</code> on an OSMO worker</td>
 </tr>
 <tr>
 <td><code>/pytest</code> PR comment</td>
@@ -6134,8 +6140,9 @@ it to Harbor.</p>
 </tr>
 </tbody>
 </table>
-<p>Pushes to an open PR deliberately do <strong>not</strong> re-trigger. GPU pods are a shared
-resource, so re-runs are opt-in via <code>/pytest</code>.</p>
+<p>PR pushes re-run the fast unit gate and the pull-only <code>build_packages</code> gate.
+GPU-intensive simulations do <strong>not</strong> run automatically; select the campaign
+whose policy or integration changed with <code>/pytest</code>.</p>
 <h3 id="comment-syntax">Comment syntax<a class="headerlink" href="#comment-syntax" title="Permanent link">&para;</a></h3>
 <p>The first line is parsed with <code>shlex</code>; everything after it is free-form notes.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>/pytest -m liveliness --sim msairsim --num-robots 1 --stress-iterations 1
@@ -6274,7 +6281,7 @@ for those rebuilds.</p>
 <tbody>
 <tr>
 <td><code>unit</code></td>
-<td><code>tests/robot/</code>, <code>tests/sim/</code> proxies</td>
+<td><code>&lt;pkg&gt;/test/</code> (co-located)</td>
 <td>Hermetic Python/numpy logic co-located with each ROS 2 package</td>
 <td>Off-by-one and boundary errors in filters, converters, validators; regressions in pure algorithm code</td>
 </tr>
@@ -6336,7 +6343,7 @@ does skip the remaining phases for that configuration.</p>
 <code>airstack down</code>. Selecting two suites with <code>or</code> therefore performs <strong>two full
 stack cycles per tuple</strong>:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>-m liveliness                  → 1 bring-up per (sim, robots, iter)
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>-m &quot;liveliness or sensors&quot;     → 2 bring-ups per (sim, robots, iter)
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>-m "liveliness or sensors"     → 2 bring-ups per (sim, robots, iter)
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>--sim msairsim                 → opt in; both sims doubles all of the above
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>--num-robots 1,3               → doubles it again
 </span></code></pre></div>
@@ -6347,7 +6354,8 @@ stack cycles per tuple</strong>:</p>
 <p>After <code>run-tests</code> finishes — pass or fail — a <code>report</code> job on <code>ubuntu-latest</code>
 downloads the current artifact plus a <strong>baseline</strong> artifact and runs
 <a href="https://github.com/castacks/AirStack/blob/main/tests/parse_metrics.py"><code>parse_metrics.py</code></a>
-in diff mode.</p>
+in diff mode only when both artifacts have the same complete simulation
+campaign fingerprint (selected tests and parameters).</p>
 <table>
 <thead>
 <tr>
@@ -6370,19 +6378,25 @@ in diff mode.</p>
 </tr>
 </tbody>
 </table>
-<p>The comment has three sections per test module: a flat <strong>Metrics</strong> table, a
-<strong>Sim publishing rates</strong> pivot (topic Hz aggregates from the <code>sensors</code> mark),
-and a <strong>Compute usage</strong> pivot (CPU / memory / GPU per container). Regressions
-are marked with a red circle, improvements with a green one, and the job
-<strong>fails</strong> if any metric moves more than the 20 % threshold in the wrong
-direction. That is the mechanism that catches slow degradation — the kind of
-change where nothing throws but the tracker is quietly 30 % worse.</p>
+<p>For a complete simulation campaign, the comment has pass rates plus a flat
+<strong>Metrics</strong> table, a <strong>Sim publishing rates</strong> pivot (topic Hz aggregates from
+the <code>sensors</code> mark), and a <strong>Compute usage</strong> pivot (CPU / memory / GPU per
+container). Regressions are marked with a red circle, improvements with a
+green one, and the job <strong>fails</strong> if any comparable metric moves more than the
+20% threshold in the wrong direction.</p>
+<p><code>run_meta.json</code> separates those policy results from CI failures. A collection
+error, zero-test selection, internal pytest error, cancellation, or timeout is
+reported as <strong>simulation metrics are not comparable</strong>. Pass-rate and regression
+tables are suppressed in that case; the infrastructure problem cannot appear as
+a false 0% policy score. A policy assertion that runs and fails remains a real
+simulation result and keeps its recorded error metrics.</p>
 <h3 id="the-artifact">The artifact<a class="headerlink" href="#the-artifact" title="Permanent link">&para;</a></h3>
 <p><code>test-results-&lt;sha&gt;-&lt;run_id&gt;</code>, retained 90 days:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>tests/results/2026-08-06_14-30-00/
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>├── summary.txt    # human-readable per-chain summary — open this first
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>├── results.xml    # JUnit XML: durations, pass/fail per test
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>└── metrics.json   # every recorded metric, including time series
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>├── run_meta.json  # completion state, pytest exit, selected/executed sim counts
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>└── metrics.json   # every recorded metric, including time series
 </span></code></pre></div>
 <p>There are no per-test log files. Live output streams to the Actions log via
 pytest's <code>log_cli</code>, and failed assertions embed the tail of the relevant
@@ -6409,16 +6423,19 @@ each class of failure as far left as it will go.</p>
   l --&gt; pr
   s --&gt; pr
   a --&gt; pr
-  pr --&gt; ci["Full suite runs on the ephemeral GPU pod"]
-  ci --&gt; rep["Read the metrics comment"]
-  rep --&gt; iter["/pytest with a narrowed mark to confirm a fix"]</code></pre>
+  pr --&gt; fast["unit-tests.yml on ubuntu-latest"]
+  pr --&gt; ci["build_packages on an ephemeral OSMO pod"]
+  fast --&gt; rep["Read automatic check results"]
+  ci --&gt; rep
+  rep --&gt; iter["/pytest with the relevant simulation mark"]
+  iter --&gt; metrics["Read like-for-like policy metrics"]</code></pre>
 <p>Practical rules that follow from how the system is built:</p>
 <ul>
 <li><strong>Reproduce CI locally with the same command.</strong> <code>airstack test</code> and CI both call <code>pytest tests/</code> with the same flags. If a run fails in CI, copy the resolved command from the acknowledgment comment and run it on any GPU box — including an <a href="../../../../tutorials/airstack_on_osmo/">interactive OSMO dev pod</a> if you do not have a local GPU.</li>
 <li><strong>Narrow before you re-run.</strong> A <code>/pytest</code> with no args re-runs everything. <code>/pytest -m autonomy --sim msairsim --trajectory-types Circle</code> re-runs the one chain you are fixing, in a fraction of the time.</li>
 <li><strong>Never trust a green launch test against a stale build.</strong> This is why <code>build_packages</code> is auto-prepended; keep it that way when writing your own <code>/pytest</code> line.</li>
 <li><strong>Read <code>summary.txt</code> before the raw log.</strong> It groups each flight chain with per-phase wall times and status, so the failing phase is obvious without scrolling a 40-minute log.</li>
-<li><strong>Treat the metrics diff as a review artifact.</strong> A PR that turns a metric red needs an explanation in the thread, even when every test passed.</li>
+<li><strong>Treat a like-for-like metrics diff as a review artifact.</strong> The reporter compares only identical selected simulation campaigns; a PR that turns a metric red needs an explanation even when every assertion passed.</li>
 <li><strong>Bump <code>VERSION</code> in <code>.env</code> when image content changes.</strong> <a href="https://github.com/castacks/AirStack/blob/main/.github/workflows/check-version-increment.yml"><code>check-version-increment.yml</code></a> gates the PR on a strictly-greater semver, and merging that bump is what triggers the release build below.</li>
 </ul>
 <hr />
@@ -6452,9 +6469,14 @@ covers that digest; the job re-signs the same digest under the new tags’ refs)
 </thead>
 <tbody>
 <tr>
+<td><code>unit-tests.yml</code></td>
+<td><code>ubuntu-latest</code></td>
+<td>Python unit tests and harness contracts on updates to PRs targeting <code>main</code>/<code>develop</code></td>
+</tr>
+<tr>
 <td><code>system-tests.yml</code></td>
 <td>Ephemeral OSMO GPU pod</td>
-<td>Full test suite + metrics report</td>
+<td>Automatic package-build gate and selectable simulation campaigns + metrics report</td>
 </tr>
 <tr>
 <td><code>docker-build.yml</code></td>
@@ -6578,20 +6600,25 @@ down the list.</p>
 <td>A real test failure — the GitHub Actions log and <code>summary.txt</code> are canonical</td>
 </tr>
 <tr>
+<td>Report says “simulation metrics are not comparable”</td>
+<td>Collection/infrastructure</td>
+<td>Read the run outcome and pytest exit status in <code>run_meta.json</code>; no policy regression was scored</td>
+</tr>
+<tr>
 <td>Metrics report job failed with no test failures</td>
 <td>Report</td>
-<td>A metric regressed past the 20 % threshold; read the diff table</td>
+<td>A like-for-like metric regressed past the 20% threshold, or report generation itself failed; read the report step log</td>
 </tr>
 </tbody>
 </table>
 <p>To map a GitHub job to its pod:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">JOB_ID</span><span class="o">=</span><span class="m">73286176852</span><span class="w">   </span><span class="c1"># from the GitHub Actions URL</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">WF</span><span class="o">=</span><span class="k">$(</span>sudo<span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s2">&quot;.jobs[\&quot;</span><span class="nv">$JOB_ID</span><span class="s2">\&quot;].workflow_id&quot;</span><span class="w"> </span>/var/lib/airstack-orchestrator/state.json<span class="k">)</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">WF</span><span class="o">=</span><span class="k">$(</span>sudo<span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s2">".jobs[\"</span><span class="nv">$JOB_ID</span><span class="s2">\"].workflow_id"</span><span class="w"> </span>/var/lib/airstack-orchestrator/state.json<span class="k">)</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>query<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$WF</span><span class="s2">&quot;</span><span class="w"> </span>--verbose
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>events<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$WF</span><span class="s2">&quot;</span><span class="w"> </span>--task<span class="w"> </span>runner<span class="w">     </span><span class="c1"># scheduling, image pull, eviction</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>logs<span class="w">   </span><span class="s2">&quot;</span><span class="nv">$WF</span><span class="s2">&quot;</span><span class="w"> </span>--task<span class="w"> </span>runner<span class="w">     </span><span class="c1"># dockerd, run.sh, and the job itself</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>osmo<span class="w"> </span>workflow<span class="w"> </span><span class="nb">exec</span><span class="w">   </span><span class="s2">&quot;</span><span class="nv">$WF</span><span class="s2">&quot;</span><span class="w"> </span>runner<span class="w">            </span><span class="c1"># break-glass shell, while RUNNING</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>query<span class="w"> </span><span class="s2">"</span><span class="nv">$WF</span><span class="s2">"</span><span class="w"> </span>--verbose
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>events<span class="w"> </span><span class="s2">"</span><span class="nv">$WF</span><span class="s2">"</span><span class="w"> </span>--task<span class="w"> </span>runner<span class="w">     </span><span class="c1"># scheduling, image pull, eviction</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>logs<span class="w">   </span><span class="s2">"</span><span class="nv">$WF</span><span class="s2">"</span><span class="w"> </span>--task<span class="w"> </span>runner<span class="w">     </span><span class="c1"># dockerd, run.sh, and the job itself</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>osmo<span class="w"> </span>workflow<span class="w"> </span><span class="nb">exec</span><span class="w">   </span><span class="s2">"</span><span class="nv">$WF</span><span class="s2">"</span><span class="w"> </span>runner<span class="w">            </span><span class="c1"># break-glass shell, while RUNNING</span>
 </span></code></pre></div>
 <p>Full runbook, including credential rotation and worker-side diagnostics:
 <a href="../../../../../tests/ci-cd-orchestrator/">CI/CD Orchestrator</a>.</p>
@@ -6605,6 +6632,10 @@ down the list.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td><a href="../../../../../.github/workflows/unit-tests.yml"><code>.github/workflows/unit-tests.yml</code></a></td>
+<td>Fast Python unit/harness gate on GitHub-hosted runners</td>
+</tr>
 <tr>
 <td><a href="https://github.com/castacks/AirStack/blob/main/.github/workflows/system-tests.yml"><code>.github/workflows/system-tests.yml</code></a></td>
 <td>The test workflow: triggers, arg parsing, image prep, pytest, artifact, metrics report</td>

@@ -5609,8 +5609,8 @@ hardware requirement:</p>
 <tbody>
 <tr>
 <td><strong>Unit tests</strong></td>
-<td><code>tests/robot/</code>, <code>tests/sim/</code></td>
-<td><code>pytest -m unit</code></td>
+<td><code>&lt;pkg&gt;/test/</code> (co-located)</td>
+<td><code>airstack test -m unit</code></td>
 <td>None — pure Python</td>
 </tr>
 <tr>
@@ -5627,17 +5627,18 @@ hardware requirement:</p>
 </tr>
 </tbody>
 </table>
-<h2 id="unit-tests-pytest-m-unit">Unit tests (<code>pytest -m unit</code>)<a class="headerlink" href="#unit-tests-pytest-m-unit" title="Permanent link">&para;</a></h2>
+<h2 id="unit-tests-airstack-test-m-unit">Unit tests (<code>airstack test -m unit</code>)<a class="headerlink" href="#unit-tests-airstack-test-m-unit" title="Permanent link">&para;</a></h2>
 <p>Fast, hermetic Python tests that run in seconds with no Docker or GPU. Test source
 lives <strong>co-located with its ROS 2 package</strong> (<code>&lt;package&gt;/test/</code>); the packages with unit
-tests are listed in <code>tests/colcon_unit_test_packages.yaml</code>, and <code>pytest tests/</code> collects
+tests are listed in <code>tests/colcon_unit_test_packages.yaml</code>, and the root harness collects
 them from there.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span>unit<span class="w"> </span>-v
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># or directly:</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>pytest<span class="w"> </span>tests/<span class="w"> </span>-m<span class="w"> </span>unit<span class="w"> </span>-v
 </span></code></pre></div>
-<p>Unit tests run as part of <code>system-tests.yml</code> via <code>pytest tests/</code> and can also be
-run locally with no Docker or GPU needed.</p>
+<p>Unit tests run automatically on every update to PRs targeting <code>main</code> or
+<code>develop</code> through <code>unit-tests.yml</code> on <code>ubuntu-latest</code>, and can also be run
+locally with no Docker or GPU needed.</p>
 <p>→ <strong><a href="unit_testing/">Unit Testing Guide</a></strong> — patterns, CI workflow,
   how to add tests for new packages (Python and C++ gtest).</p>
 <h2 id="system-tests-testssystem">System tests (<code>tests/system/</code>)<a class="headerlink" href="#system-tests-testssystem" title="Permanent link">&para;</a></h2>
@@ -5707,7 +5708,7 @@ the sensors mark</em>.</p>
 <p>For the full guide — e2e overview, the fixed-trajectory benchmark, metrics, CLI,
 comparing trackers, and baselines — see <strong><a href="end_to_end_testing/">End-to-End Testing</a></strong>.</p>
 <p>Quick smoke test:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;build_packages or autonomy&quot;</span><span class="w"> </span><span class="se">\</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>airstack<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-m<span class="w"> </span><span class="s2">"build_packages or autonomy"</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>--sim<span class="w"> </span>isaacsim<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--num-robots<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>--stress-iterations<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
@@ -5719,7 +5720,7 @@ comparing trackers, and baselines — see <strong><a href="end_to_end_testing/">
 <li><a href="unit_testing/">Unit Testing</a> — <code>@pytest.mark.unit</code>, co-located tests, CI workflow</li>
 <li><a href="testing_frameworks/">Testing frameworks</a> — <code>colcon test</code>, rostest patterns</li>
 <li><a href="integration_testing/">Integration testing</a></li>
-<li><a href="ci_cd/">CI/CD Pipeline on OSMO</a> — how CI runs the full stack on ephemeral GPU pods: architecture, triggers, what each mark catches, and the metrics regression gate</li>
+<li><a href="ci_cd/">CI/CD Pipeline on OSMO</a> — automatic unit/build gates, selectable full-stack GPU campaigns, triggers, and like-for-like metrics reporting</li>
 </ul>
 
 

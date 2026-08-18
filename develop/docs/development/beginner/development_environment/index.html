@@ -5745,7 +5745,7 @@
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">AUTOLAUNCH</span><span class="o">=</span><span class="nb">false</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>robot-desktop-desktop
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># In another terminal, build and test</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;bws --packages-select my_package &amp;&amp; sws &amp;&amp; ros2 launch my_package test.launch.xml&quot;</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">"bws --packages-select my_package &amp;&amp; sws &amp;&amp; ros2 launch my_package test.launch.xml"</span>
 </span></code></pre></div></p>
 <p><strong>Interactive development:</strong>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Connect to container</span>
@@ -5758,7 +5758,7 @@
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>ros2<span class="w"> </span>launch<span class="w"> </span>my_package<span class="w"> </span>test.launch.xml
 </span></code></pre></div></p>
 <p><strong>Build with debug symbols:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;bws --packages-select my_package --cmake-args &#39;-DCMAKE_BUILD_TYPE=Debug&#39;&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>airstack-robot-desktop-1<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s2">"bws --packages-select my_package --cmake-args '-DCMAKE_BUILD_TYPE=Debug'"</span>
 </span></code></pre></div></p>
 <p>See <a href="../key_concepts/">Key Concepts</a> for the full development loop.</p>
 

@@ -6581,9 +6581,9 @@ and their interfaces.</p>
     end</code></pre>
 <h3 id="topic-remapping-strategy">Topic Remapping Strategy<a class="headerlink" href="#topic-remapping-strategy" title="Permanent link">&para;</a></h3>
 <p>Modules use generic topic names internally, which are remapped in launch files:</p>
-<div class="language-xml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="cm">&lt;!-- In module code: subscribe to &quot;odometry&quot; --&gt;</span>
+<div class="language-xml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="cm">&lt;!-- In module code: subscribe to "odometry" --&gt;</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="cm">&lt;!-- In launch file: remap to actual topic --&gt;</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">&lt;remap</span><span class="w"> </span><span class="na">from=</span><span class="s">&quot;odometry&quot;</span><span class="w"> </span><span class="na">to=</span><span class="s">&quot;/$(env ROBOT_NAME)/odometry&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">&lt;remap</span><span class="w"> </span><span class="na">from=</span><span class="s">"odometry"</span><span class="w"> </span><span class="na">to=</span><span class="s">"/$(env ROBOT_NAME)/odometry"</span><span class="w"> </span><span class="nt">/&gt;</span>
 </span></code></pre></div>
 <p>This enables:</p>
 <ul>

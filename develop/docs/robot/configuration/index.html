@@ -5688,8 +5688,8 @@
 </span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span>wlan0:
 </span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">      </span>dhcp4:<span class="w"> </span>yes
 </span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">      </span>access-points:
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">        </span><span class="s2">&quot;YourSSID&quot;</span>:
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">          </span>password:<span class="w"> </span><span class="s2">&quot;YourPassword&quot;</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">        </span><span class="s2">"YourSSID"</span>:
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">          </span>password:<span class="w"> </span><span class="s2">"YourPassword"</span>
 </span></code></pre></div>
 <h3 id="static-ip-optional">Static IP (Optional)<a class="headerlink" href="#static-ip-optional" title="Permanent link">&para;</a></h3>
 <p>For reliable communication:</p>
@@ -5758,7 +5758,7 @@
 <h3 id="version-control">Version Control<a class="headerlink" href="#version-control" title="Permanent link">&para;</a></h3>
 <p>Track configuration files in Git:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>git<span class="w"> </span>add<span class="w"> </span>robot/ros_ws/src/*/config/*.yaml
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;Tune planner parameters for outdoor operation&quot;</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">"Tune planner parameters for outdoor operation"</span>
 </span></code></pre></div>
 <h3 id="robot-specific-configs">Robot-Specific Configs<a class="headerlink" href="#robot-specific-configs" title="Permanent link">&para;</a></h3>
 <p>For multiple robots with different configurations:</p>
@@ -5769,8 +5769,8 @@
 </span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>└── outdoor.yaml          # Environment-specific
 </span></code></pre></div>
 <p>Load appropriate config:</p>
-<div class="language-xml highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nt">&lt;node</span><span class="w"> </span><span class="na">pkg=</span><span class="s">&quot;my_module&quot;</span><span class="w"> </span><span class="na">exec=</span><span class="s">&quot;my_node&quot;</span><span class="nt">&gt;</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">    </span><span class="nt">&lt;param</span><span class="w"> </span><span class="na">from=</span><span class="s">&quot;$(find-pkg-share my_module)/config/$(var robot_name).yaml&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
+<div class="language-xml highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nt">&lt;node</span><span class="w"> </span><span class="na">pkg=</span><span class="s">"my_module"</span><span class="w"> </span><span class="na">exec=</span><span class="s">"my_node"</span><span class="nt">&gt;</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">    </span><span class="nt">&lt;param</span><span class="w"> </span><span class="na">from=</span><span class="s">"$(find-pkg-share my_module)/config/$(var robot_name).yaml"</span><span class="w"> </span><span class="nt">/&gt;</span>
 </span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="nt">&lt;/node&gt;</span>
 </span></code></pre></div>
 <h3 id="configuration-validation">Configuration Validation<a class="headerlink" href="#configuration-validation" title="Permanent link">&para;</a></h3>
@@ -5783,17 +5783,17 @@
 </span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>        <span class="n">config</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
 </span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>
 </span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>    <span class="c1"># Check required parameters exist</span>
-</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>    <span class="k">assert</span> <span class="s1">&#39;max_velocity&#39;</span> <span class="ow">in</span> <span class="n">config</span>
-</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>    <span class="k">assert</span> <span class="s1">&#39;planning_horizon&#39;</span> <span class="ow">in</span> <span class="n">config</span>
+</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>    <span class="k">assert</span> <span class="s1">'max_velocity'</span> <span class="ow">in</span> <span class="n">config</span>
+</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>    <span class="k">assert</span> <span class="s1">'planning_horizon'</span> <span class="ow">in</span> <span class="n">config</span>
 </span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>
 </span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>    <span class="c1"># Check parameter ranges</span>
-</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>    <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;max_velocity&#39;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mf">5.0</span>
-</span><span id="__span-17-14"><a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>    <span class="k">assert</span> <span class="n">config</span><span class="p">[</span><span class="s1">&#39;planning_horizon&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span>
+</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>    <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">config</span><span class="p">[</span><span class="s1">'max_velocity'</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mf">5.0</span>
+</span><span id="__span-17-14"><a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>    <span class="k">assert</span> <span class="n">config</span><span class="p">[</span><span class="s1">'planning_horizon'</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span>
 </span><span id="__span-17-15"><a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>
-</span><span id="__span-17-16"><a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✓ Configuration </span><span class="si">{</span><span class="n">config_file</span><span class="si">}</span><span class="s2"> is valid&quot;</span><span class="p">)</span>
+</span><span id="__span-17-16"><a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"✓ Configuration </span><span class="si">{</span><span class="n">config_file</span><span class="si">}</span><span class="s2"> is valid"</span><span class="p">)</span>
 </span><span id="__span-17-17"><a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a>
-</span><span id="__span-17-18"><a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-</span><span id="__span-17-19"><a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a>    <span class="n">validate_config</span><span class="p">(</span><span class="s2">&quot;config/my_params.yaml&quot;</span><span class="p">)</span>
+</span><span id="__span-17-18"><a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+</span><span id="__span-17-19"><a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a>    <span class="n">validate_config</span><span class="p">(</span><span class="s2">"config/my_params.yaml"</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="dynamic-reconfiguration">Dynamic Reconfiguration<a class="headerlink" href="#dynamic-reconfiguration" title="Permanent link">&para;</a></h2>
 <p>Some parameters can be changed at runtime without restart:</p>

@@ -14,6 +14,9 @@ import statistics
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from harness.run_meta import classify_run
+from harness.test_ids import canonical_test_id
+
 PARAM_RE = re.compile(r"\[(.+)\]$")
 ITER_RE = re.compile(r"-iter\d+$")
 ROBOT_METRIC_RE = re.compile(r"^robot_\d+\.(.+)$")
@@ -61,24 +64,11 @@ PHASE_ORDER = {
 }
 
 
-def _canonical_test_id(name: str) -> str:
-    """Unify metrics.json path slashes with JUnit classname dots.
-
-    metrics.json keys look like ``system/test_fixed_trajectory.Class.test_x[...]``
-    (pytest nodeid). results.xml uses ``system.test_fixed_trajectory.Class.test_x[...]``.
-    """
-    head, dot, rest = name.partition(".")
-    if "/" in head:
-        head = head.replace("/", ".")
-        return head + dot + rest if dot else head
-    return name
-
-
 def _normalize_keyed_map(raw: dict) -> dict:
     """Merge entries that differ only by path-slash vs dot classname form."""
     out: dict = {}
     for key, value in raw.items():
-        out[_canonical_test_id(key)] = value
+        out[canonical_test_id(key)] = value
     return out
 
 
@@ -86,10 +76,14 @@ def _parse_results_xml(path: Path) -> tuple[dict[str, str], dict[str, float]]:
     """Return ({full_test_name: status}, {full_test_name: wall_time_s})."""
     if not path.exists():
         return {}, {}
+    try:
+        testcases = ET.parse(path).iter("testcase")
+    except (OSError, ET.ParseError):
+        return {}, {}
     statuses: dict[str, str] = {}
     durations: dict[str, float] = {}
-    for tc in ET.parse(path).iter("testcase"):
-        full = _canonical_test_id(f"{tc.get('classname')}.{tc.get('name')}")
+    for tc in testcases:
+        full = canonical_test_id(f"{tc.get('classname')}.{tc.get('name')}")
         if tc.find("failure") is not None or tc.find("error") is not None:
             statuses[full] = "FAILED"
         elif tc.find("skipped") is not None:
@@ -116,7 +110,7 @@ def _param_id(test_name: str) -> str:
 
 
 def _module_name(test_name: str) -> str:
-    canonical = _canonical_test_id(test_name)
+    canonical = canonical_test_id(test_name)
     match = MODULE_RE.search(canonical)
     if match:
         return match.group(1)
@@ -125,7 +119,7 @@ def _module_name(test_name: str) -> str:
 
 def _phase_name(test_name: str) -> str:
     """test_fixed_trajectory.TestFixedTrajectory.test_takeoff[...] -> test_takeoff"""
-    canonical = _canonical_test_id(test_name)
+    canonical = canonical_test_id(test_name)
     match = PHASE_RE.search(canonical)
     if match:
         return match.group(1)
@@ -187,7 +181,7 @@ def _collect_scalar_metrics(metrics_blob: dict) -> dict[str, list[dict]]:
 
 
 def _metrics_blob(metrics: dict, test_name: str) -> dict:
-    canonical = _canonical_test_id(test_name)
+    canonical = canonical_test_id(test_name)
     return metrics.get(canonical, {})
 
 
@@ -245,7 +239,7 @@ def _group_tests(
 ) -> dict[tuple[str, str], list[str]]:
     """Group full test names by (module, base_param_id) across stress iterations."""
     groups: dict[tuple[str, str], list[str]] = {}
-    all_names = {_canonical_test_id(name) for name in set(metrics) | set(statuses)}
+    all_names = {canonical_test_id(name) for name in set(metrics) | set(statuses)}
     for name in sorted(all_names):
         module = _module_name(name)
         param = _base_param_id(_param_id(name))
@@ -288,6 +282,7 @@ def _chain_status(test_names: list[str], statuses: dict[str, str]) -> str:
 def build_summary_lines(run_dir: Path) -> list[str]:
     metrics_path = run_dir / "metrics.json"
     results_path = run_dir / "results.xml"
+    run_meta = classify_run(run_dir)
     statuses, durations = _parse_results_xml(results_path)
     metrics = _load_metrics(metrics_path)
 
@@ -302,6 +297,13 @@ def build_summary_lines(run_dir: Path) -> list[str]:
         f"Overall: {passed} passed, {failed} failed, {skipped} skipped ({total} tests)",
         "",
     ]
+    if run_meta.get("outcome") not in ("simulation", "non_simulation"):
+        reason = run_meta.get("reason", run_meta.get("outcome", "unknown"))
+        lines.extend([
+            f"Run status: {run_meta.get('outcome', 'unknown')}",
+            f"Simulation metrics are not comparable: {reason}.",
+            "",
+        ])
 
     groups = _group_tests(metrics, statuses, durations)
     if not groups:

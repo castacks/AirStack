@@ -5796,10 +5796,10 @@
 </tbody>
 </table>
 <p><strong>Example</strong> — calling the launch file from XML:</p>
-<div class="language-xml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">&lt;include</span><span class="w"> </span><span class="na">file=</span><span class="s">&quot;$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py&quot;</span><span class="nt">&gt;</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">&lt;arg</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;config_file&quot;</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">       </span><span class="na">value=</span><span class="s">&quot;$(find-pkg-share autonomy_bringup)/onboard_all/config/dds_router.yaml&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">&lt;arg</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;args&quot;</span><span class="w"> </span><span class="na">value=</span><span class="s">&quot;gcs_domain:=0&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
+<div class="language-xml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">&lt;include</span><span class="w"> </span><span class="na">file=</span><span class="s">"$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py"</span><span class="nt">&gt;</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">&lt;arg</span><span class="w"> </span><span class="na">name=</span><span class="s">"config_file"</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">       </span><span class="na">value=</span><span class="s">"$(find-pkg-share autonomy_bringup)/onboard_all/config/dds_router.yaml"</span><span class="w"> </span><span class="nt">/&gt;</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">&lt;arg</span><span class="w"> </span><span class="na">name=</span><span class="s">"args"</span><span class="w"> </span><span class="na">value=</span><span class="s">"gcs_domain:=0"</span><span class="w"> </span><span class="nt">/&gt;</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nt">&lt;/include&gt;</span>
 </span></code></pre></div>
 <h3 id="2-config-inheritance-via-extends">2 — Config inheritance via <code>extends:</code><a class="headerlink" href="#2-config-inheritance-via-extends" title="Permanent link">&para;</a></h3>
@@ -5834,7 +5834,7 @@
 </table>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Replace the entire inherited allowlist rather than appending to it:</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">allowlist</span><span class="p">:</span><span class="w"> </span><span class="kt">!override</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;rt/my_robot/only_this_topic&quot;</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"rt/my_robot/only_this_topic"</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># Remove a key inherited from the base:</span>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nt">some_key</span><span class="p">:</span><span class="w"> </span><span class="kt">!reset</span>
@@ -5914,7 +5914,7 @@
 <p><strong>Location:</strong> <a href="../../../../robot/ros_ws/src/autonomy_bringup/onboard_local_offboard_global/config/dds_router.yaml"><code>robot/ros_ws/src/autonomy_bringup/onboard_local_offboard_global/config/dds_router.yaml</code></a></p>
 <p>Used for the <code>desktop_split</code>, <code>l4t_lite + offboard</code>, and <code>voxl + offboard</code> deployment profiles where local planning runs onboard and global planning runs on the GCS.</p>
 <p>This config <strong>inherits from <code>onboard_all</code></strong> via <code>extends:</code> and appends additional topics:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">extends</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;$(find-pkg-share</span><span class="nv"> </span><span class="s">autonomy_bringup)/onboard_all/config/dds_router.yaml&quot;</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">extends</span><span class="p">:</span><span class="w"> </span><span class="s">"$(find-pkg-share</span><span class="nv"> </span><span class="s">autonomy_bringup)/onboard_all/config/dds_router.yaml"</span>
 </span></code></pre></div>
 <p><strong>Additional topics (appended to the base allowlist):</strong></p>
 <table>
