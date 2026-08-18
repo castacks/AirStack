@@ -15,7 +15,7 @@ optitrack.natnet.emulator/
 ├── schema/schema.usda             # Typed NatNet interface attribute definitions
 ├── setup.py
 ├── docs/                          # (legacy design notes — see docs/simulation/isaac_sim/natnet_emulator.md)
-├── test/                          # Co-located unit tests (proxied by tests/sim/)
+├── test/                          # Co-located unit tests (listed in colcon_unit_test_packages.yaml)
 └── optitrack/natnet/emulator/
     ├── defaults.py                # Reference Drone → prim bindings for tests
     ├── server/                    # NatNet UDP server (transport + protocol)
@@ -144,11 +144,11 @@ Full handshake layouts and sniffing workflow: [optitrack-development skill](../.
 | Unit | `unit` | Serializers, protocol, config, USD authoring, catalog, pose sampling, server lifecycle, scene setup |
 | Integration | `integration` | Host emulator → robot `natnet_ros2` pose Hz |
 
-Co-located tests live in `test/`. Pytest discovers them via thin proxies in [`tests/sim/optitrack_natnet_emulator/`](../../../../tests/sim/optitrack_natnet_emulator/).
+Co-located tests live in `test/`. The root harness collects them via the `sim:` key in [`colcon_unit_test_packages.yaml`](../../../../tests/colcon_unit_test_packages.yaml).
 
 ```bash
 # Unit (no Docker / no SDK)
-pytest tests/sim/optitrack_natnet_emulator/ -m unit -v
+airstack test -m unit -v
 
 # Integration (robot container + NatNet SDK)
 pytest tests/integration/natnet/ -m integration -v

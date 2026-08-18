@@ -147,5 +147,5 @@ docker exec airstack-robot-desktop-1 bash -lc 'bws --packages-select natnet_ros2
 Unit tests (protocol, serializers, Isaac wrapper loopback):
 
 ```bash
-pytest tests/sim/optitrack_natnet_emulator/ -m unit -v
+airstack test -m unit -v
 ```

@@ -21,6 +21,9 @@ from pathlib import Path
 
 from tabulate import tabulate
 
+from harness.run_meta import classify_run, simulation_metrics_comparable
+from harness.test_ids import canonical_test_id
+
 FLAG_SUFFIX = {"regression": " :red_circle:", "improved": " :green_circle:"}
 
 ITER_RE = re.compile(r"-iter(\d+)(?=\])")
@@ -173,15 +176,20 @@ def parse_results_xml(path):
     tree = ET.parse(path)
     metrics = {}
     for tc in tree.iter("testcase"):
-        name = f"{tc.get('classname')}.{tc.get('name')}"
-        failed = tc.find("failure") is not None
+        name = canonical_test_id(f"{tc.get('classname')}.{tc.get('name')}")
+        if tc.find("failure") is not None or tc.find("error") is not None:
+            status = "failed"
+        elif tc.find("skipped") is not None:
+            status = "skipped"
+        else:
+            status = "passed"
         metrics[name] = {
             "duration_s": {
                 "value": float(tc.get("time", 0)),
                 "unit": "s",
                 "direction": "lower_is_better",
             },
-            "status": "failed" if failed else "passed",
+            "status": status,
         }
     return metrics
 
@@ -210,7 +218,10 @@ def parse_passrates(path):
 def parse_metrics_json(path):
     if not path.exists():
         return {}
-    return json.loads(path.read_text())
+    return {
+        canonical_test_id(test_name): metrics
+        for test_name, metrics in json.loads(path.read_text()).items()
+    }
 
 
 def merge_metrics(run_dir):
@@ -250,10 +261,9 @@ def _collapse_iterations(merged):
         bucket = out.setdefault(base, {})
         for key, val in metrics.items():
             if key == "status":
-                if val == "failed" or bucket.get("status") == "failed":
-                    bucket["status"] = "failed"
-                else:
-                    bucket["status"] = val
+                priority = {"passed": 0, "skipped": 1, "failed": 2}
+                previous = bucket.get("status", "passed")
+                bucket["status"] = max((previous, val), key=priority.get)
                 continue
             if isinstance(val, dict) and "samples" in val:
                 series.setdefault((base, key), []).append(val["samples"])
@@ -603,6 +613,92 @@ def format_markdown(main_rows, hz_rows, compute_rows, iter_counts,
     return "\n\n".join(sections), has_regression
 
 
+def _non_comparable_report(meta):
+    outcome = meta.get("outcome", "unknown")
+    explanations = {
+        "collection_error": (
+            "Pytest collection failed before a simulation campaign could run."
+        ),
+        "internal_error": (
+            "Pytest exited with an internal or command-line error."
+        ),
+        "no_tests": "No tests were selected or executed.",
+        "simulation_not_executed": (
+            "Simulation tests were selected, but none reached a recorded outcome."
+        ),
+        "incomplete": (
+            "The runner stopped before pytest finalized its result artifacts "
+            "(for example, a timeout or cancellation)."
+        ),
+        "missing_results": "The test job produced no pytest result artifact.",
+    }
+    explanation = explanations.get(
+        outcome, meta.get("reason", "The run did not complete as a valid test campaign.")
+    )
+    fields = [
+        ("Outcome", outcome),
+        ("Pytest exit status", meta.get("pytest_exitstatus", "unavailable")),
+        ("Selected tests", meta.get("selected_tests", "unavailable")),
+        ("Completed tests", meta.get("completed_tests", "unavailable")),
+        ("Simulation tests completed", meta.get("simulation_completed", 0)),
+    ]
+    rows = "\n".join(f"- **{label}:** {value}" for label, value in fields)
+    return (
+        "## Run status\n\n"
+        f"**Simulation metrics are not comparable.** {explanation}\n\n"
+        f"{rows}\n\n"
+        "Pass-rate and regression tables are suppressed because they would "
+        "misrepresent an infrastructure/collection failure as policy performance."
+    )
+
+
+def generate_report(current_dir, baseline_dir=None, threshold=20):
+    """Generate report markdown and whether a comparable regression exists."""
+    current_dir = Path(current_dir)
+    current_meta = classify_run(current_dir)
+    if current_meta.get("outcome") not in ("simulation", "non_simulation"):
+        return _non_comparable_report(current_meta), False
+
+    baseline_meta = classify_run(Path(baseline_dir)) if baseline_dir else None
+    diff_mode = bool(
+        baseline_dir
+        and simulation_metrics_comparable(current_meta, baseline_meta)
+    )
+
+    current = merge_metrics(current_dir)
+    baseline = merge_metrics(Path(baseline_dir)) if diff_mode else {}
+    current_pr = parse_passrates(current_dir / "results.xml")
+    baseline_pr = (
+        parse_passrates(Path(baseline_dir) / "results.xml") if diff_mode else {}
+    )
+    main_rows, hz_rows, compute_rows, iter_counts = build_rows(current, baseline)
+    md, has_regression = format_markdown(
+        main_rows,
+        hz_rows,
+        compute_rows,
+        iter_counts,
+        current_pr,
+        baseline_pr,
+        threshold,
+        diff_mode,
+    )
+
+    notices = []
+    if current_meta.get("outcome") == "non_simulation":
+        notices.append(
+            "> This was a unit/build-only run. Simulation regression comparison "
+            "does not apply."
+        )
+    elif baseline_dir and not diff_mode:
+        notices.append(
+            "> The baseline is not the same complete simulation campaign. "
+            "Showing current results without a regression comparison."
+        )
+    if not md:
+        md = "_No per-test metrics were recorded._"
+    return "\n\n".join([*notices, md]), has_regression
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Render a markdown report for a test run, or a diff if --baseline is supplied.")
@@ -612,23 +708,28 @@ def main():
     parser.add_argument("--output", help="Write markdown report to file")
     args = parser.parse_args()
 
-    current = merge_metrics(Path(args.current))
-    baseline = merge_metrics(Path(args.baseline)) if args.baseline else {}
-    current_pr = parse_passrates(Path(args.current) / "results.xml")
-    baseline_pr = (parse_passrates(Path(args.baseline) / "results.xml")
-                   if args.baseline else {})
-    diff_mode = bool(args.baseline)
-
-    main_rows, hz_rows, compute_rows, iter_counts = build_rows(current, baseline)
-    md, has_regression = format_markdown(
-        main_rows, hz_rows, compute_rows, iter_counts,
-        current_pr, baseline_pr, args.threshold, diff_mode)
+    try:
+        md, has_regression = generate_report(
+            args.current,
+            args.baseline,
+            args.threshold,
+        )
+    except Exception as exc:
+        md = (
+            "## Report generation failed\n\n"
+            f"`{type(exc).__name__}: {exc}`\n\n"
+            "The test result is not being interpreted as a policy regression."
+        )
+        print(md)
+        if args.output:
+            Path(args.output).write_text(md)
+        sys.exit(2)
 
     print(md)
     if args.output:
         Path(args.output).write_text(md)
 
-    sys.exit(1 if diff_mode and has_regression else 0)
+    sys.exit(1 if has_regression else 0)
 
 
 if __name__ == "__main__":

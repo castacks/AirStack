@@ -1,14 +1,20 @@
 # Simulation-side unit tests
 
-Tests for **simulation components** that are not part of the onboard ROS workspace
-(for example an OptiTrack Motive / NatNet emulator, Isaac launch helpers, or
-AirSim bridge utilities).
+Unit-test **source is co-located** with each simulation component, the same way the
+robot workspace works:
 
-Mark fast, hermetic checks with `@pytest.mark.unit`. Tests that require a GPU,
-full sim, or Docker belong in [`tests/system/`](../system/) instead.
+```
+simulation/**/<extension>/test/test_<name>.py   ← source of truth
+```
 
-Suggested layout:
+[`../colcon_unit_test_packages.yaml`](../colcon_unit_test_packages.yaml) lists which
+components have unit tests, under the `sim:` key; `tests/conftest.py` resolves each to
+its `test/` dir and tags the collected items `@pytest.mark.unit` by path.
 
-| Directory | Purpose |
-|-----------|---------|
-| `motive_emulator/` | Motive / NatNet protocol emulation / parsing |
+Run them with `airstack test -m unit`, or `cd tests && pytest -m unit`. These components
+are not part of the onboard ROS workspace, so `colcon test` does not run them.
+
+Tests needing a GPU, a full sim, or Docker belong in [`../system/`](../system/) instead.
+
+Currently listed: `optitrack.natnet.emulator`
+([source](../../simulation/isaac-sim/extensions/optitrack.natnet.emulator/)).

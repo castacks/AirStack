@@ -1,12 +1,12 @@
 # Unit Testing
 
-AirStack unit tests are **fast, hermetic, and purely Python** — no Docker stack, no GPU, no running containers. They run locally in seconds and gate every pull request via a dedicated GitHub Actions workflow on a standard `ubuntu-latest` runner.
+AirStack unit tests are **fast, hermetic, and purely Python** — no Docker stack, no GPU, no running containers. They run locally in seconds via `airstack test -m unit` and automatically on every update to PRs targeting `main` or `develop` through `unit-tests.yml`.
 
 ## Design principles
 
 - **Co-located with source.** Test files live in `<package>/test/` alongside the code they test. This is the standard ROS 2 / colcon convention and ensures tests are discovered by both `colcon test` and `pytest`.
 - **Listed in one place.** `tests/colcon_unit_test_packages.yaml` lists which packages have unit tests. `tests/conftest.py` resolves each to its `test/` dir and collects the non-linter `test_*.py` files under `--import-mode=importlib`. To add a package's unit tests, list it in that YAML.
-- **`@pytest.mark.unit` on every test.** Auto-applied by path in `conftest.py` (source files may also declare it). The `unit` mark keeps unit tests isolated from system tests that need Docker, GPUs, and sim licenses.
+- **`@pytest.mark.unit` on every test, applied for you.** `conftest.py` marks items by file location, so test sources should not declare it themselves. The `unit` mark keeps unit tests isolated from system tests that need Docker, GPUs, and sim licenses.
 
 ## Repository layout
 
@@ -35,19 +35,40 @@ Collected items point straight at the co-located source:
 # Locally — no container or Docker stack required
 airstack test -m unit -v
 
-# Or directly with pytest (AIRSTACK_ROOT must point to the repo root)
+# Or directly with pytest
 export AIRSTACK_ROOT=$(pwd)
-pip install pytest numpy
+pip install -r tests/requirements.txt
 pytest tests/ -m unit -v
 ```
 
-Unit tests complete in under one second for the current suite.
+The current suite completes in about 20 seconds on a developer workstation.
 
 ## CI
 
-Unit tests are collected and run as part of `system-tests.yml` via `pytest tests/`
-(no marks specified on PR open = all tests including `unit`). Run them locally at
-any time with no infrastructure required:
+**The two languages take different runners because C++ needs a build and Python does
+not.** A gtest is a binary compiled against the package's headers and rclcpp, so it only
+runs where the ROS toolchain is — `colcon test` inside the robot container. Python unit
+tests stub ROS at the import boundary and touch no ROS runtime, so they need neither a
+build nor a container, which keeps the whole suite in the fast feedback tier. Both are
+gated in CI:
+
+| Test | Runner | In CI via |
+|---|---|---|
+| C++ gtest | `colcon test` inside the robot container | the `build_packages` mark (`tests/system/test_build_packages.py::test_colcon_test_robot`) |
+| Python, `ament_python` package | root harness **and** `colcon test` | `unit-tests.yml` **and** `build_packages` |
+| Python, `ament_cmake` package | root harness only | `unit-tests.yml` |
+
+`colcon test` picks up Python tests only when the package's build type makes it: an
+`ament_python` package like `lidar_point_cloud_filter` exposes them through
+`setup.cfg` (`testpaths = test`), while an `ament_cmake` package like `natnet_ros2`
+would need an explicit `ament_add_pytest_test` — it has none, so its Python tests reach
+CI only through the root harness.
+
+Python unit tests are collected by `unit-tests.yml`'s `pytest tests/ -m unit`
+invocation on PR open, synchronize, and reopen. That job uses GitHub-hosted
+`ubuntu-latest`; it does not queue for an OSMO GPU. The OSMO `system-tests.yml`
+invocation uses the same safe `tests/` collection boundary, but mark filtering may
+deselect unit tests for targeted build/simulation runs. Run the same gate locally with:
 
 ```bash
 airstack test -m unit -v
@@ -73,7 +94,6 @@ AIRSTACK_ROOT=$(pwd) pytest tests/ -m unit -v
 # robot/ros_ws/src/<layer>/<package>/test/test_my_module.py
 import sys
 from pathlib import Path
-import pytest
 
 # Make the package importable without a colcon install
 _src = Path(__file__).resolve().parent.parent / "src"
@@ -83,10 +103,12 @@ if str(_src) not in sys.path:
 from my_module import my_function  # noqa: E402
 
 
-@pytest.mark.unit
 def test_basic():
     assert my_function(1, 2) == 3
 ```
+
+No `@pytest.mark.unit` — `conftest.py` applies it by file location. Import `pytest`
+only if you need its API (`approx`, `raises`, `parametrize`, `importorskip`).
 
 If the production code inherits from `rclpy.node.Node`, stub ROS at the import
 boundary:
@@ -117,7 +139,7 @@ sys.modules["rclpy.node"] = _rclpy_node_mod
 robot:
   packages:
     - <your_package>          # ← add here; conftest.py collects <pkg>/test/test_*.py
-  pytest_args: "-m not linter"
+  pytest_args: []             # forwarded to colcon via PYTEST_ADDOPTS; `-m` is ignored there
 ```
 
 That's the whole registration. If the test imports package code, set up `sys.path` at the
@@ -128,7 +150,7 @@ across packages don't collide.
 **3. Verify:**
 
 ```bash
-pytest tests/ -m unit -v
+airstack test -m unit -v
 ```
 
 ### C++ (gtest)
@@ -180,7 +202,7 @@ sim:
 ```
 
 `pytest tests/ -m unit` discovers them automatically — no changes to `pytest.ini`
-or CI changes needed.
+or CI needed.
 
 ## See also
 

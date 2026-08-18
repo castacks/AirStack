@@ -14,6 +14,10 @@ _MODULE_ORDER = [
     # Unit tests first — fast, hermetic, no Docker.  Co-located package unit tests
     # (see unit_test_files) sort into this leading slot via the path check below.
     "__unit__",
+    # Harness contract tests: hermetic, and they guard the collection of everything
+    # above, so they belong with the fast tier rather than after the sim suites.
+    "test_collection_contract",
+    "test_metrics_reporting_contract",
     # System tests follow in dependency order.
     "system.test_build_docker",
     "system.test_build_packages",

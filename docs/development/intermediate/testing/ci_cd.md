@@ -1,11 +1,12 @@
 # CI/CD Pipeline on OSMO
 
-AirStack's continuous integration runs the **full drone stack** — simulator,
-robot autonomy, and GCS — on a GPU for every change. Because that needs a
-GPU, a Docker daemon, and a clean filesystem, jobs cannot run on GitHub's
-hosted runners and should not run on a shared always-on machine. Instead, a
-small orchestrator service watches the GitHub Actions queue and submits one
-**ephemeral [NVIDIA OSMO](https://nvidia.github.io/OSMO/) pod per job**. The pod
+AirStack continuous integration has two tiers. Fast Python unit and harness
+contract tests run on GitHub-hosted runners for updates to PRs targeting
+`main` or `develop`. Container,
+ROS workspace, and selectable **full drone stack** campaigns — simulator,
+robot autonomy, and GCS — run on an ephemeral GPU worker. A small orchestrator
+service watches the GitHub Actions queue and submits one **ephemeral
+[NVIDIA OSMO](https://nvidia.github.io/OSMO/) pod per system-test job**. The pod
 registers as a single-use GitHub Actions runner, executes exactly one job, and
 is destroyed.
 
@@ -24,11 +25,11 @@ to fit CI into your day-to-day development loop.
 
 | Question | Answer |
 |---|---|
-| Where do CI jobs run? | A fresh GPU pod on the OSMO `airstack` pool, one per job, destroyed after. |
-| What triggers a run? | A PR being **opened**, a `/pytest` comment from a maintainer, or manual `workflow_dispatch`. |
-| What gets tested? | Docker image builds, `colcon` builds, unit tests, stack liveliness, sensor rates, takeoff/hover/land, fixed-trajectory tracking. |
-| How do I see results? | A metrics report comment on the PR, plus the `test-results-*` artifact (`summary.txt`, `results.xml`, `metrics.json`). |
-| What fails the build? | Any failed test, **or** a metric regressing more than 20 % against the base branch's last run. |
+| Where do CI jobs run? | Python unit tests: `ubuntu-latest`. Build and simulation tests: a fresh OSMO GPU pod, destroyed afterward. |
+| What triggers a run? | PR open/update/reopen runs unit + package-build gates; maintainers select simulations with `/pytest`; `workflow_dispatch` is also available. |
+| What gets tested? | Automatically: Python units/contracts and ROS package builds/tests. Selectably: Docker builds, liveliness, sensors, flight policies, and OptiTrack. |
+| How do I see results? | Checks plus a report comment and `test-results-*` artifact (`summary.txt`, `results.xml`, `run_meta.json`, `metrics.json`). |
+| What fails the build? | Any failed test, or a comparable simulation metric regressing more than 20%. Invalid/incomplete campaigns are labeled, not scored as policy failures. |
 | Who holds the secrets? | Only the orchestrator host. Workers get a single-use JIT token valid for one registration. |
 
 ---
@@ -181,12 +182,14 @@ it to Harbor.
 
 | Trigger | When it fires | What it runs |
 |---|---|---|
-| `pull_request` (`types: [opened]`) | Only when the PR is first opened, and only for same-repo branches | pytest's `conftest` defaults — the full mark set |
+| `unit-tests.yml` pull request | PR to `main`/`develop` opened, synchronized, or reopened (including forks) | `pytest tests/ -m unit` on `ubuntu-latest` |
+| `system-tests.yml` pull request | PR opened, synchronized, or reopened, same-repo branches only | `-m build_packages` on an OSMO worker |
 | `/pytest` PR comment | Any time, from a user with `OWNER`/`MEMBER`/`COLLABORATOR` association | Whatever args you put on the first line of the comment |
 | `workflow_dispatch` | Manual, from the Actions tab | The form inputs: `marks`, `sim`, `num_robots`, `stress_iterations`, `stable_duration`, `baseline_run_id` |
 
-Pushes to an open PR deliberately do **not** re-trigger. GPU pods are a shared
-resource, so re-runs are opt-in via `/pytest`.
+PR pushes re-run the fast unit gate and the pull-only `build_packages` gate.
+GPU-intensive simulations do **not** run automatically; select the campaign
+whose policy or integration changed with `/pytest`.
 
 ### Comment syntax
 
@@ -329,7 +332,7 @@ flowchart LR
 
 | Mark | Module | What it verifies | Bugs it is good at catching |
 |---|---|---|---|
-| `unit` | `tests/robot/`, `tests/sim/` proxies | Hermetic Python/numpy logic co-located with each ROS 2 package | Off-by-one and boundary errors in filters, converters, validators; regressions in pure algorithm code |
+| `unit` | `<pkg>/test/` (co-located) | Hermetic Python/numpy logic co-located with each ROS 2 package | Off-by-one and boundary errors in filters, converters, validators; regressions in pure algorithm code |
 | `build_docker` | `system/test_build_docker.py` | Every image builds; records image sizes | Broken Dockerfiles, deleted apt packages, upstream base-image drift, accidental image bloat |
 | `build_packages` | `system/test_build_packages.py` | `colcon build` inside robot, GCS, and ms-airsim workspaces | Missing `package.xml` dependencies, uninstalled launch/config files, C++ breakage on a clean tree |
 | `liveliness` | `system/test_liveliness.py` | Containers reach Running, `/clock` publishes, tmux panes alive, sentinel ROS 2 nodes present, compute snapshot, stability poll | Launch files that crash on start, nodes that die after 30 s, `ROBOT_NAME`/domain-ID misconfiguration, runaway CPU or memory |
@@ -382,7 +385,8 @@ Run one mark at a time unless you genuinely need both.
 After `run-tests` finishes — pass or fail — a `report` job on `ubuntu-latest`
 downloads the current artifact plus a **baseline** artifact and runs
 [`parse_metrics.py`](https://github.com/castacks/AirStack/blob/main/tests/parse_metrics.py)
-in diff mode.
+in diff mode only when both artifacts have the same complete simulation
+campaign fingerprint (selected tests and parameters).
 
 | Run type | Baseline used |
 |---|---|
@@ -390,13 +394,19 @@ in diff mode.
 | `workflow_dispatch` with `baseline_run_id` | That specific run |
 | `workflow_dispatch` without it | Latest artifact on `main` |
 
-The comment has three sections per test module: a flat **Metrics** table, a
-**Sim publishing rates** pivot (topic Hz aggregates from the `sensors` mark),
-and a **Compute usage** pivot (CPU / memory / GPU per container). Regressions
-are marked with a red circle, improvements with a green one, and the job
-**fails** if any metric moves more than the 20 % threshold in the wrong
-direction. That is the mechanism that catches slow degradation — the kind of
-change where nothing throws but the tracker is quietly 30 % worse.
+For a complete simulation campaign, the comment has pass rates plus a flat
+**Metrics** table, a **Sim publishing rates** pivot (topic Hz aggregates from
+the `sensors` mark), and a **Compute usage** pivot (CPU / memory / GPU per
+container). Regressions are marked with a red circle, improvements with a
+green one, and the job **fails** if any comparable metric moves more than the
+20% threshold in the wrong direction.
+
+`run_meta.json` separates those policy results from CI failures. A collection
+error, zero-test selection, internal pytest error, cancellation, or timeout is
+reported as **simulation metrics are not comparable**. Pass-rate and regression
+tables are suppressed in that case; the infrastructure problem cannot appear as
+a false 0% policy score. A policy assertion that runs and fails remains a real
+simulation result and keeps its recorded error metrics.
 
 ### The artifact
 
@@ -406,6 +416,7 @@ change where nothing throws but the tracker is quietly 30 % worse.
 tests/results/2026-08-06_14-30-00/
 ├── summary.txt    # human-readable per-chain summary — open this first
 ├── results.xml    # JUnit XML: durations, pass/fail per test
+├── run_meta.json  # completion state, pytest exit, selected/executed sim counts
 └── metrics.json   # every recorded metric, including time series
 ```
 
@@ -442,9 +453,12 @@ flowchart TD
   l --> pr
   s --> pr
   a --> pr
-  pr --> ci["Full suite runs on the ephemeral GPU pod"]
-  ci --> rep["Read the metrics comment"]
-  rep --> iter["/pytest with a narrowed mark to confirm a fix"]
+  pr --> fast["unit-tests.yml on ubuntu-latest"]
+  pr --> ci["build_packages on an ephemeral OSMO pod"]
+  fast --> rep["Read automatic check results"]
+  ci --> rep
+  rep --> iter["/pytest with the relevant simulation mark"]
+  iter --> metrics["Read like-for-like policy metrics"]
 ```
 
 Practical rules that follow from how the system is built:
@@ -453,7 +467,7 @@ Practical rules that follow from how the system is built:
 - **Narrow before you re-run.** A `/pytest` with no args re-runs everything. `/pytest -m autonomy --sim msairsim --trajectory-types Circle` re-runs the one chain you are fixing, in a fraction of the time.
 - **Never trust a green launch test against a stale build.** This is why `build_packages` is auto-prepended; keep it that way when writing your own `/pytest` line.
 - **Read `summary.txt` before the raw log.** It groups each flight chain with per-phase wall times and status, so the failing phase is obvious without scrolling a 40-minute log.
-- **Treat the metrics diff as a review artifact.** A PR that turns a metric red needs an explanation in the thread, even when every test passed.
+- **Treat a like-for-like metrics diff as a review artifact.** The reporter compares only identical selected simulation campaigns; a PR that turns a metric red needs an explanation even when every assertion passed.
 - **Bump `VERSION` in `.env` when image content changes.** [`check-version-increment.yml`](https://github.com/castacks/AirStack/blob/main/.github/workflows/check-version-increment.yml) gates the PR on a strictly-greater semver, and merging that bump is what triggers the release build below.
 
 ---
@@ -486,7 +500,8 @@ covers that digest; the job re-signs the same digest under the new tags’ refs)
 
 | Workflow | Runner | Purpose |
 |---|---|---|
-| `system-tests.yml` | Ephemeral OSMO GPU pod | Full test suite + metrics report |
+| `unit-tests.yml` | `ubuntu-latest` | Python unit tests and harness contracts on updates to PRs targeting `main`/`develop` |
+| `system-tests.yml` | Ephemeral OSMO GPU pod | Automatic package-build gate and selectable simulation campaigns + metrics report |
 | `docker-build.yml` | Ephemeral OSMO GPU pod | Retag or rebuild, push, and sign compose images |
 | `check-version-increment.yml` | `ubuntu-latest` | Semver gate on `.env` `VERSION=` |
 | `deploy_docs_from_*.yaml` | `ubuntu-latest` | Versioned MkDocs publish via `mike` |
@@ -525,7 +540,8 @@ down the list.
 | `Cannot connect to the Docker daemon` mid-test | Pod | Inner dockerd crashed — `osmo workflow exec "$WF" runner`, then read `/var/log/dockerd.log` |
 | `No space left on device` | Pod | Bump `storage` in `config.yaml`; Isaac assets plus all images are large |
 | Runner registered, then pytest failed | Tests | A real test failure — the GitHub Actions log and `summary.txt` are canonical |
-| Metrics report job failed with no test failures | Report | A metric regressed past the 20 % threshold; read the diff table |
+| Report says “simulation metrics are not comparable” | Collection/infrastructure | Read the run outcome and pytest exit status in `run_meta.json`; no policy regression was scored |
+| Metrics report job failed with no test failures | Report | A like-for-like metric regressed past the 20% threshold, or report generation itself failed; read the report step log |
 
 To map a GitHub job to its pod:
 
@@ -548,6 +564,7 @@ Full runbook, including credential rotation and worker-side diagnostics:
 
 | Path | Role |
 |---|---|
+| [`.github/workflows/unit-tests.yml`](../../../../.github/workflows/unit-tests.yml) | Fast Python unit/harness gate on GitHub-hosted runners |
 | [`.github/workflows/system-tests.yml`](https://github.com/castacks/AirStack/blob/main/.github/workflows/system-tests.yml) | The test workflow: triggers, arg parsing, image prep, pytest, artifact, metrics report |
 | [`.github/orchestrator/orchestrator.py`](https://github.com/castacks/AirStack/blob/main/.github/orchestrator/orchestrator.py) | The spawn and reap loops, GitHub polling, JIT minting, OSMO CLI plumbing |
 | [`.github/orchestrator/runner-workflow.yaml.j2`](https://github.com/castacks/AirStack/blob/main/.github/orchestrator/runner-workflow.yaml.j2) | Per-job OSMO workflow template |

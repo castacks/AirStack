@@ -2,7 +2,7 @@ name: System Tests
 
 on:
   pull_request:
-    types: [opened]
+    types: [opened, synchronize, reopened]
   issue_comment:
     types: [created]
   workflow_dispatch:
@@ -41,7 +41,7 @@ jobs:
     runs-on: [self-hosted, airstack-ephemeral]
     # Triggers:
     #   - workflow_dispatch (manual)
-    #   - PR opened from the same repo (not a fork) — same-repo guard
+    #   - PR opened, synchronized, or reopened from the same repo — same-repo guard
     #     prevents arbitrary code execution on the self-hosted runner from
     #     untrusted contributors.
     #   - PR comment starting with `/pytest` from a user with write access
@@ -57,6 +57,9 @@ jobs:
        github.event.issue.pull_request != null &&
        startsWith(github.event.comment.body, '/pytest') &&
        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+    concurrency:
+      group: system-tests-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     timeout-minutes: 120
     # Adding any `permissions:` entry disables GITHUB_TOKEN's defaults, so
     # every scope used here has to be re-granted explicitly:
@@ -76,6 +79,10 @@ jobs:
     # is not addressable from `if:` expressions.
     env:
       DOCKER_REGISTRY_PASSWORD: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+    outputs:
+      tested_sha: ${{ steps.identity.outputs.tested_sha }}
+      pr_number: ${{ steps.identity.outputs.pr_number }}
+      check_run_id: ${{ steps.check_create.outputs.id }}
     steps:
       # Uses actions/github-script (Node, bundled with the runner) instead
       # of `gh` so we don't depend on system tools — the ephemeral
@@ -102,6 +109,24 @@ jobs:
             }
             core.setOutput('head_sha', pr.data.head.sha);
             core.setOutput('base_ref', pr.data.base.ref);
+
+      - name: Resolve tested revision identity
+        if: always()
+        id: identity
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          COMMENT_HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          EVENT_SHA: ${{ github.sha }}
+          COMMENT_PR_NUMBER: ${{ github.event.issue.number }}
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [[ "$EVENT_NAME" == "issue_comment" ]]; then
+            echo "tested_sha=${COMMENT_HEAD_SHA:-$EVENT_SHA}" >> "$GITHUB_OUTPUT"
+            echo "pr_number=$COMMENT_PR_NUMBER" >> "$GITHUB_OUTPUT"
+          else
+            echo "tested_sha=$EVENT_SHA" >> "$GITHUB_OUTPUT"
+            echo "pr_number=$EVENT_PR_NUMBER" >> "$GITHUB_OUTPUT"
+          fi
 
       # Parsed up-front (before checkout) so the acknowledgment comment below
       # can echo the resolved args. This step only reads env vars, so it
@@ -134,9 +159,10 @@ jobs:
               if (st := os.environ.get('INPUT_STABLE', '').strip()):
                   args.extend(['--stable-duration', st])
           elif event == 'pull_request':
-              # PR-opened auto-run uses pytest's conftest defaults — same as
-              # /pytest with no args.
-              args = []
+              # Automatic PR validation is deliberately build-scoped. Fast
+              # Python unit tests run in unit-tests.yml; GPU simulation remains
+              # selectable via /pytest or workflow_dispatch.
+              args = ['-m', 'build_packages']
           else:
               body = os.environ.get('COMMENT_BODY', '')
               # Only the first line is parsed — everything below it is
@@ -223,7 +249,7 @@ jobs:
       # Reply on the PR thread so the commenter sees their /pytest was
       # picked up and can confirm we parsed the args correctly. The
       # workflow_dispatch path skips this (no PR to comment on); the
-      # pull_request-opened path skips it too (the PR Checks tab is
+      # pull_request path skips it too (the PR Checks tab is
       # already showing the native run).
       - name: Post acknowledgment comment
         if: github.event_name == 'issue_comment'
@@ -403,41 +429,53 @@ jobs:
         run: |
           # Re-split the shell-quoted args from the parse step so we forward
           # them to pytest as a proper argv list (preserving values like
-          # `-m 'a or b'`). Empty PYTEST_ARGS yields an empty array, so
-          # pytest falls back to its conftest defaults.
-          mapfile -t ARGS < <(python3 -c "import os, shlex; print('\n'.join(shlex.split(os.environ['PYTEST_ARGS'])))")
+          # `-m 'a or b'`). sys.stdout.write is intentional: print('') emits
+          # one blank line, which mapfile turns into an empty positional path
+          # and makes pytest recurse from the repository root.
+          mapfile -t ARGS < <(python3 -c "import os, shlex, sys; sys.stdout.write(''.join(f'{arg}\\n' for arg in shlex.split(os.environ['PYTEST_ARGS'])))")
+          for arg in "${ARGS[@]}"; do
+            if [[ -z "$arg" ]]; then
+              echo "::error::Refusing an empty pytest argument because it expands collection to the repository root."
+              exit 2
+            fi
+          done
+          set +e
           pytest tests/ \
             "${ARGS[@]}" \
             -v -s \
             --log-cli-level=INFO \
             --log-cli-format='%(asctime)s [%(levelname)s] %(name)s: %(message)s' \
             --log-cli-date-format='%H:%M:%S'
+          pytest_status=$?
+          set -e
+          if (( pytest_status != 0 )); then
+            exit "$pytest_status"
+          fi
+
+          # A successful collect-only/non-executed campaign is not a passing
+          # system test. Make that distinction visible in the job conclusion.
+          python3 <<'PYEOF'
+          import json
+          from pathlib import Path
+
+          candidates = list(Path("tests/results").glob("*/run_meta.json"))
+          if not candidates:
+              raise SystemExit("::error::pytest succeeded without run_meta.json")
+          latest = max(candidates, key=lambda path: path.stat().st_mtime)
+          outcome = json.loads(latest.read_text()).get("outcome")
+          if outcome not in {"simulation", "non_simulation"}:
+              raise SystemExit(
+                  f"::error::pytest did not execute a complete campaign ({outcome})"
+              )
+          PYEOF
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-${{ github.sha }}-${{ github.run_id }}
+          name: test-results-${{ steps.identity.outputs.tested_sha }}-${{ github.run_id }}
           path: tests/results/
           retention-days: 90
-
-      # Close out the Check Run with the job's final conclusion. The
-      # `steps.check_create.outputs.id` guard skips this when the open
-      # step didn't run (workflow_dispatch) or failed before producing
-      # an id.
-      - name: Finalize check on PR head
-        if: always() && github.event_name == 'issue_comment' && steps.check_create.outputs.id
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.checks.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              check_run_id: ${{ steps.check_create.outputs.id }},
-              status: 'completed',
-              conclusion: '${{ job.status }}',
-              details_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-            });
 
   report:
     name: Metrics Report
@@ -445,15 +483,21 @@ jobs:
     needs: run-tests
     # Skip when run-tests was skipped (e.g., comment didn't match `/pytest`)
     # so we don't post empty-report comments on every PR comment.
-    if: always() && needs.run-tests.result != 'skipped'
+    if: >
+      always() &&
+      needs.run-tests.result != 'skipped' &&
+      (needs.run-tests.result != 'cancelled' || github.event_name != 'pull_request')
     permissions:
+      actions: read
+      checks: write
+      contents: read
       pull-requests: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          ref: ${{ needs.run-tests.outputs.tested_sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -478,8 +522,9 @@ jobs:
 
       - name: Download current test results
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
-          name: test-results-${{ github.sha }}-${{ github.run_id }}
+          name: test-results-${{ needs.run-tests.outputs.tested_sha }}-${{ github.run_id }}
           path: current-results/
 
       # PR mode (opened or comment-triggered): fetch latest artifact from
@@ -504,9 +549,10 @@ jobs:
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
+          github-token: ${{ github.token }}
           run-id: ${{ inputs.baseline_run_id }}
-          name_is_regexp: true
-          name: "test-results-.*"
+          pattern: "test-results-*"
+          merge-multiple: true
           path: baseline-results/
 
       # Manual dispatch without explicit baseline: fetch latest from main
@@ -548,6 +594,19 @@ jobs:
           CURRENT="${{ steps.dirs.outputs.current }}"
           BASELINE="${{ steps.dirs.outputs.baseline }}"
 
+          if [ -z "$CURRENT" ]; then
+            cat > report.md <<'EOF'
+          ## Run status
+
+          **Simulation metrics are not comparable.** The test job produced no finalized `results.xml` artifact. The runner may have timed out, been cancelled, or failed before pytest started.
+
+          Pass-rate and regression tables are suppressed because no completed test campaign is available.
+          EOF
+            echo "parser_exit=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          set +e
           if [ -n "$BASELINE" ]; then
             python tests/parse_metrics.py \
               --current "$CURRENT" \
@@ -558,6 +617,10 @@ jobs:
               --current "$CURRENT" \
               --output report.md
           fi
+          parser_exit=$?
+          set -e
+          echo "parser_exit=$parser_exit" >> "$GITHUB_OUTPUT"
+          exit "$parser_exit"
 
       - name: Post PR comment
         if: github.event_name == 'issue_comment' || github.event_name == 'pull_request'
@@ -571,9 +634,9 @@ jobs:
             } catch {
               body = '_No metrics report generated._';
             }
-            const header = `## Test Metrics — \`${{ github.sha }}\`\n\n`;
+            const header = `## Test Metrics — \`${{ needs.run-tests.outputs.tested_sha }}\`\n\n`;
             await github.rest.issues.createComment({
-              issue_number: context.issue.number,
+              issue_number: Number('${{ needs.run-tests.outputs.pr_number }}'),
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: header + body,
@@ -583,7 +646,7 @@ jobs:
         if: always()
         run: |
           if [ -f report.md ]; then
-            echo "## Test Metrics — \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "## Test Metrics — \`${{ needs.run-tests.outputs.tested_sha }}\`" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             cat report.md >> "$GITHUB_STEP_SUMMARY"
           else
@@ -593,5 +656,31 @@ jobs:
       - name: Fail on regression
         if: steps.report.outcome == 'failure'
         run: |
-          echo "::error::Metric regression detected — see the report above for details."
+          if [ "${{ steps.report.outputs.parser_exit }}" = "1" ]; then
+            echo "::error::Metric regression detected — see the report above for details."
+          else
+            echo "::error::Metrics report generation failed — see the report step log."
+          fi
           exit 1
+
+      - name: Finalize check on PR head
+        if: always() && github.event_name == 'issue_comment' && needs.run-tests.outputs.check_run_id
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tests = '${{ needs.run-tests.result }}';
+            const report = '${{ steps.report.outcome }}';
+            let conclusion = 'failure';
+            if (tests === 'success' && report === 'success') {
+              conclusion = 'success';
+            } else if (tests === 'cancelled') {
+              conclusion = 'cancelled';
+            }
+            await github.rest.checks.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: Number('${{ needs.run-tests.outputs.check_run_id }}'),
+              status: 'completed',
+              conclusion,
+              details_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Automatic `unit-tests.yml` PR gate on `ubuntu-latest`, plus `run_meta.json` outcome metadata so reports distinguish completed simulation campaigns from collection errors, empty selections, timeouts, and cancellations
 - `overrides/isaac-optitrack-simulation.env` — brings up Isaac Sim with the NatNet emulator and PX4 flying on mocap EKF2 external vision (GPS/baro/range aiding off), i.e. the configuration `tests/system/test_optitrack_e2e.py` runs, reproducible by hand
 - `overrides/l4t-optitrack-realrobot.env` — deployment override for a real Jetson robot flying on OptiTrack mocap (PX4 EKF2 external vision instead of GPS): the NatNet server/body settings, plus the multi-NIC and FCU-parameter notes that path needs
 - Feature notebook workflow (`use-feature-notebook` skill): every agent-implemented feature gets a local, gitignored `notebook/NNN-feature-slug/` entry with a status-tracked `design_spec.md` (written before coding) and `results/` artifacts + self-contained `results_summary.md` that populate the feature's PR description
@@ -24,17 +25,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Unit-test documentation now matches the co-located layout: the `add-unit-tests` and `run-system-tests` skills and the testing docs record which runner each language uses (C++ gtests via `colcon test` under the `build_packages` mark; Python via the root harness, plus `colcon test` for `ament_python` packages), and stop instructing authors to write `@pytest.mark.unit` by hand — `conftest.py` applies it by file location
 - Ephemeral CI GPU runners spawn via NVIDIA OSMO (not OpenStack); `system-tests.yml` / `docker-build.yml` still use `airstack-ephemeral`
 - Default system-test `--sim` is `isaacsim`; pass `--sim msairsim` to opt in to Microsoft AirSim
 - `-m build_packages` CI runs pull `cache_*` images instead of baking sim images
 - `docker-build.yml` retags unchanged images on VERSION bumps (content fingerprint) instead of always rebuilding; floating `cache_*` tags still seed PR layer cache
-- The PR-open test run is unchanged (pytest's full defaults) and now also covers the OptiTrack Circle-trajectory e2e, which configures its own mocap-EV stack. `optitrack` joins the `heavy` mark list in `system-tests.yml`, so an optitrack run is never misclassified as colcon-only and sent down the pull-only image path
+- Automatic OSMO validation runs the pull-only `build_packages` gate whenever a PR is opened, updated, or reopened; GPU-intensive simulation campaigns (including OptiTrack) are selected through `/pytest` or `workflow_dispatch`
 - `robot-l4t` compose service knobs are now env-overridable (`AUTONOMY_ROLE`, `FCU_URL`, and the rosbag path via `BAG_STORAGE_PATH`); `FCU_URL` unquoted so the literal serial path reaches MAVROS
 - `zed-l4t` image: ZED SDK 4.2 → 5.2 with the coupled ROS deps (`zed_msgs` 5.2.1, `point_cloud_transport(_plugins)` 4.x, add `backward_ros`)
 - Unit tests are defined by `tests/colcon_unit_test_packages.yaml`: `conftest.py` collects each listed package's co-located `test/` dir under `--import-mode=importlib` and marks it `unit` (ament lint files are skipped and run under `colcon test`)
 
+### Removed
+
+- Pre-co-location unit-test scaffolding: the six per-layer stub READMEs under `tests/robot/` (which instructed authors to add tests in directories tests no longer live in) and `tests/sim/motive_emulator/README.md` (superseded by `simulation/isaac-sim/extensions/optitrack.natnet.emulator/` and `tests/integration/natnet/`)
+
 ### Fixed
 
+- `pytest tests/` now collects the co-located unit tests before mark filtering. The old guard skipped injection whenever any path was on the command line, and `tests/` is a path — CI collected 97 of 252 items and the Python unit tests ran nowhere. Narrowing (`pytest tests/system/test_x.py`) still skips injection; repository-root and empty-path collection are rejected
+- Empty CI pytest arguments no longer become `pytest tests/ ""` and recurse through the repository; collection/import, setup/teardown, partial, and interrupted artifacts are reported as non-comparable instead of false 0% simulation-policy results, and metric regression runs only for an identical simulation campaign fingerprint
 - Isaac Sim image: PX4 `ubuntu.sh` no longer fails dpkg configure on the NVIDIA base (`ca-certificates` / `software-properties-common`); use `--no-nuttx --no-sim-tools` like ms-airsim
 - Robot image: pin `pytest<8.1` and disable `launch_testing` for colcon unit tests so ROS Jazzy's outdated pytest hook does not abort `colcon test`
 - Robot name resolution now honors a pre-set `ROBOT_NAME` (e.g. injected via docker compose) instead of always overriding it from the container/hostname mapping (`robot/docker/.bashrc`)
