@@ -256,13 +256,14 @@ environments:
     name: downtownwest_s2_frontier
     SPAWN_CONFIGS: '[{"x_m": -33.0, "y_m": 59.0, "orient": [0.0, 0.0, -0.8583, 0.5132]}, {"x_m": -25.0, "y_m": 62.0, "orient": [0.0, 0.0, -0.561, 0.8278]}, {"x_m": -16.0, "y_m": 64.5, "orient": [0.0, 0.0, -0.1586, 0.9873]}, {"x_m": -10.5, "y_m": 56.5, "orient": [0.0, 0.0, 0.2735, 0.9619]}]'
   # spawn rect s3: [[-107.0, -4.0], [-124.8, 8.5]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor), 10.27 m clear of the nearest
+  # 4th drone: 8.55 m clear of the nearest annotated object, 4.03 m of the
+  # nearest peer. The maximin pick was inside a car and never left the ground.
   - <<: [*downtownwest, *multiraven]
     name: downtownwest_s3_multiraven
-    SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}, {"x_m": -115.5, "y_m": 3.0, "orient": [0.0, 0.0, -0.013, 0.9999]}, {"x_m": -111.0, "y_m": 6.5, "orient": [0.0, 0.0, 0.4108, 0.9117]}, {"x_m": -107.55, "y_m": -3.5, "orient": [0.0, 0.0, 0.7576, 0.6527]}]'
+    SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}, {"x_m": -115.5, "y_m": 3.0, "orient": [0.0, 0.0, -0.013, 0.9999]}, {"x_m": -111.0, "y_m": 6.5, "orient": [0.0, 0.0, 0.4108, 0.9117]}, {"x_m": -123.7, "y_m": 1.1, "orient": [0.0, 0.0, -0.7742, 0.6329]}]'
   - <<: [*downtownwest, *frontier]
     name: downtownwest_s3_frontier
-    SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}, {"x_m": -115.5, "y_m": 3.0, "orient": [0.0, 0.0, -0.013, 0.9999]}, {"x_m": -111.0, "y_m": 6.5, "orient": [0.0, 0.0, 0.4108, 0.9117]}, {"x_m": -107.55, "y_m": -3.5, "orient": [0.0, 0.0, 0.7576, 0.6527]}]'
+    SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}, {"x_m": -115.5, "y_m": 3.0, "orient": [0.0, 0.0, -0.013, 0.9999]}, {"x_m": -111.0, "y_m": 6.5, "orient": [0.0, 0.0, 0.4108, 0.9117]}, {"x_m": -123.7, "y_m": 1.1, "orient": [0.0, 0.0, -0.7742, 0.6329]}]'
   # spawn rect s1: [[-20.0, -63.0], [-11.0, -45.0]]  (as recorded)
   # 4th drone: in-rect maximin (3 m floor), 7.35 m clear of the nearest
   - <<: [*moderncitydowntown, *multiraven]
