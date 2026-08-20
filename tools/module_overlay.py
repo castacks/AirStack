@@ -149,11 +149,14 @@ def desired_robot_links(root, modules):
 
 
 def desired_isaac_links(root, modules):
-    """{link_path: relative_target} for isaac_extension launch scripts."""
+    """{link_path: relative_target} for module Isaac launch scripts.
+
+    Keyed off targets, not type: a ros_package module that also targets
+    isaac-sim (e.g. optitrack: robot client + in-sim emulator) ships launch
+    scripts too.
+    """
     links = {}
     for name, manifest in modules.items():
-        if manifest.get("type") != "isaac_extension":
-            continue
         if "isaac-sim" not in (manifest.get("targets") or []):
             continue
         scripts_dir = root / MODULES_REL / name / "launch_scripts"
@@ -218,7 +221,9 @@ def build_compose(root, modules, robot_services):
             for service in robot_services:
                 add_volume(service, f"{module_real}:{ROBOT_CONTAINER_MODULES}/{name}:rw")
 
-        if mtype == "isaac_extension" and "isaac-sim" in targets:
+        # Keyed off targets, not type — hybrid modules (ros_package + isaac-sim
+        # target, e.g. optitrack's client + emulator) need the same placement.
+        if "isaac-sim" in targets:
             any_isaac = True
             # Local-path modules: modules/<name> is a symlink out of the repo,
             # which dangles inside the whole-repo mount — bind the real dir at
