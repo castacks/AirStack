@@ -1,106 +1,50 @@
 #!/usr/bin/env python
 """
 Minimal PegasusApp launcher that:
- - Starts Isaac Sim
+ - Starts Isaac Sim (honoring ISAAC_SIM_HEADLESS / ISAAC_SIM_LIVESTREAM)
  - Enables required extensions
- - Creates a Pegasus world
+ - Creates a Pegasus world with a simple environment and no drones
  - Starts the timeline and steps until closed
+
+Use as the smallest template for a new launch script: copy, add drone configs
+(see example_one_px4_pegasus_launch_script.py) or hooks (see pegasus_app.py).
 """
 
-import carb
-from isaacsim import SimulationApp
+import os
+import sys
 
-# Start Isaac Sim's simulation environment
-simulation_app = SimulationApp({"headless": False})
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from pegasus_app import create_simulation_app
 
-# -----------------------------------
-# The actual script starts here
-# -----------------------------------
-import omni.kit.app
-import omni.timeline
-from omni.isaac.core.world import World
+# Must be created before any omni/pegasus imports.
+simulation_app = create_simulation_app()
 
-# Pegasus imports
-from pegasus.simulator.params import SIMULATION_ENVIRONMENTS
-from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
-
-# Explicitly enable required extensions
-ext_manager = omni.kit.app.get_app().get_extension_manager()
-for ext in [
-    # "airlab.airstack",
-    "omni.graph.core",                  # Core runtime for OmniGraph engine
-    "omni.graph.action",                # Action Graph framework
-    "omni.graph.action_nodes",          # Built-in Action Graph node library
-    "omni.graph.ui",                    # UI scaffolding for graph tools
-    "omni.graph.visualization.nodes",   # Visualization helper nodes
-    "omni.graph.scriptnode",            # Python script node support
-    "omni.graph.window.action",         # Action Graph editor window
-    "omni.graph.window.generic",        # Generic graph UI tools
-    "omni.graph.ui_nodes",              # UI node building helpers
-    "pegasus.simulator",
-]:
-    if not ext_manager.is_extension_enabled(ext):
-        ext_manager.set_extension_enabled(ext, True)
+from pegasus.simulator.params import SIMULATION_ENVIRONMENTS  # noqa: E402
+from pegasus_app import PegasusApp  # noqa: E402
 
 
-class PegasusApp:
-    """
-    Minimal PegasusApp: just loads a Pegasus world and steps simulation
-    """
+class BarebonesApp(PegasusApp):
 
-    def __init__(self):
-        # Timeline for controlling play/stop
-        self.timeline = omni.timeline.get_timeline_interface()
-
-        # Start Pegasus interface + world
-        self.pg = PegasusInterface()
-        self.pg._world = World(**self.pg._world_settings)
-        self.world = self.pg.world
-
-        # Load default environment
-        self.pg.load_environment(SIMULATION_ENVIRONMENTS["Curved Gridroom"])
-        
+    def post_scene_prep(self, stage):
         import omni.graph.core as og
 
-        print("="*60)
-        print("Registered OmniGraph Nodes:")
-        print("="*60)
-
-        # Iterate all registered node types
+        print("=" * 60)
+        print("Registered OmniGraph Nodes (Pegasus/Ascent):")
+        print("=" * 60)
         for node_name in og.get_registered_nodes():
-            if "Pegasus" in node_name or "pegasus" in node_name or "Ascent" in node_name or "ascent" in node_name:
+            if any(k in node_name for k in ("Pegasus", "pegasus", "Ascent", "ascent")):
                 print(f" - {node_name}")
-
-
-
-        # import omni.graph.core as og
-        # print(og.get_node_type("action"))
 
         # Reset so physics/articulations are ready
         self.world.reset()
 
-        self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
-        self.stop_sim = False
-
-    def run(self):
-        if self.play_on_start:
-            self.timeline.play()
-        else:
-            self.timeline.stop()
-
-        # Main loop
-        while simulation_app.is_running() and not self.stop_sim:
-            self.world.step(render=True)
-
-        # Cleanup
-        carb.log_warn("PegasusApp Simulation App is closing.")
-        self.timeline.stop()
-        simulation_app.close()
-
 
 def main():
-    pg_app = PegasusApp()
-    pg_app.run()
+    BarebonesApp(
+        env_url=SIMULATION_ENVIRONMENTS["Curved Gridroom"],
+        drone_configs=[],
+        dome_light=False,
+    ).run()
 
 
 if __name__ == "__main__":
