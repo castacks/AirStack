@@ -110,3 +110,6 @@ docker-compose.fingerprint.yaml
 
 .DS_Store
 gcs/.DS_Store
+
+# Per-run resolved launch config dumps (airstack up)
+/.airstack/runs/

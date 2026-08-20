@@ -864,24 +864,308 @@ function push_cache_tags() {
     done <<< "$tags"
 }
 
+# ---------------------------------------------------------------------------
+# Launch intent: airstack-specific flags on `airstack up`
+# (--sim isaac|airsim, --robots N, --headless, --play/--no-play,
+#  --no-autolaunch, --wait, --dry-run)
+#
+# Flags derive and EXPORT env vars; docker compose interpolation gives shell
+# env highest precedence, so exports win over .env / --env-file without
+# editing any file. Flags set leaf values only — they select among declared
+# configurations and never define new structure (RFC #380 §4 discipline).
+# ---------------------------------------------------------------------------
+
+# Value of NAME in an env file, stripped of quotes and trailing comments.
+function _env_file_value {
+    local name="$1" file="$2" line
+    [ -f "$file" ] || return 0
+    line=$(grep -E "^${name}=" "$file" 2>/dev/null | tail -1)
+    [[ -z "$line" ]] && return 0
+    line="${line#*=}"
+    line="${line%%#*}"
+    # trim whitespace, then surrounding quotes
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    line="${line%\"}"; line="${line#\"}"
+    line="${line%\'}"; line="${line#\'}"
+    echo "$line"
+}
+
+# Resolve NAME the way docker compose interpolation will: OS environment wins,
+# then user --env-file files (later wins), then .env. Extra args are scanned
+# for --env-file tokens.
+function resolve_launch_var {
+    local name="$1"; shift
+    local val
+    val=$(_env_file_value "$name" "$PROJECT_ROOT/.env")
+    local args=("$@") i=0 file
+    while [ $i -lt ${#args[@]} ]; do
+        file=""
+        if [[ "${args[$i]}" == "--env-file" ]]; then
+            i=$((i+1)); file="${args[$i]:-}"
+        elif [[ "${args[$i]}" == --env-file=* ]]; then
+            file="${args[$i]#--env-file=}"
+        fi
+        if [[ -n "$file" ]]; then
+            [[ "$file" != /* ]] && file="$PROJECT_ROOT/$file"
+            local v; v=$(_env_file_value "$name" "$file")
+            [[ -n "$v" ]] && val="$v"
+        fi
+        i=$((i+1))
+    done
+    if [[ -n "${!name:-}" ]]; then val="${!name}"; fi
+    echo "$val"
+}
+
+# Consume intent flags from the arg list; remaining args land in the nameref
+# array. Sets AIRSTACK_INTENT_* globals for apply_launch_intent.
+function parse_launch_intent {
+    local -n _rest_out=$1; shift
+    AIRSTACK_INTENT_SIM=""
+    AIRSTACK_INTENT_ROBOTS=""
+    AIRSTACK_INTENT_HEADLESS=""
+    AIRSTACK_INTENT_PLAY=""
+    AIRSTACK_INTENT_AUTOLAUNCH=""
+    AIRSTACK_DRY_RUN=""
+    AIRSTACK_UP_WAIT=""
+
+    local args=("$@") i=0 a
+    while [ $i -lt ${#args[@]} ]; do
+        a="${args[$i]}"
+        case "$a" in
+            --sim)          i=$((i+1)); AIRSTACK_INTENT_SIM="${args[$i]:-}";;
+            --sim=*)        AIRSTACK_INTENT_SIM="${a#--sim=}";;
+            --robots)       i=$((i+1)); AIRSTACK_INTENT_ROBOTS="${args[$i]:-}";;
+            --robots=*)     AIRSTACK_INTENT_ROBOTS="${a#--robots=}";;
+            --headless)     AIRSTACK_INTENT_HEADLESS="true";;
+            --play)         AIRSTACK_INTENT_PLAY="true";;
+            --no-play)      AIRSTACK_INTENT_PLAY="false";;
+            --no-autolaunch) AIRSTACK_INTENT_AUTOLAUNCH="false";;
+            --wait)         AIRSTACK_UP_WAIT="1";;
+            # NOTE: shadows compose's own `up --dry-run`; ours validates the
+            # derived launch config and exits without starting services.
+            --dry-run)      AIRSTACK_DRY_RUN="1";;
+            *)              _rest_out+=("$a");;
+        esac
+        i=$((i+1))
+    done
+
+    if [[ -n "$AIRSTACK_INTENT_ROBOTS" && ! "$AIRSTACK_INTENT_ROBOTS" =~ ^[1-9][0-9]*$ ]]; then
+        log_error "--robots must be a positive integer (got '$AIRSTACK_INTENT_ROBOTS')"
+        return 1
+    fi
+    case "$AIRSTACK_INTENT_SIM" in
+        ""|isaac|isaacsim|airsim|msairsim|ms-airsim) ;;
+        *) log_error "Unknown --sim '$AIRSTACK_INTENT_SIM' (expected: isaac | airsim)"; return 1;;
+    esac
+    return 0
+}
+
+# Derive + export env vars from the parsed intent. Args: remaining CLI args
+# (scanned for --env-file when resolving current values).
+function apply_launch_intent {
+    if [[ -n "$AIRSTACK_INTENT_SIM" ]]; then
+        local sim_profile urdf
+        case "$AIRSTACK_INTENT_SIM" in
+            isaac|isaacsim)
+                sim_profile="isaac-sim"
+                urdf="robot_descriptions/iris/urdf/iris_with_sensors.pegasus.robot.urdf";;
+            airsim|msairsim|ms-airsim)
+                sim_profile="ms-airsim"
+                urdf="robot_descriptions/iris/urdf/iris_stereo.ms-airsim.urdf";;
+        esac
+        # Swap only the simulator profile; preserve the others (desktop, l4t, ...)
+        local profiles kept=() p
+        profiles=$(resolve_launch_var COMPOSE_PROFILES "$@")
+        IFS=',' read -ra _parr <<< "$profiles"
+        for p in "${_parr[@]}"; do
+            case "$p" in isaac-sim|ms-airsim|simple|"") ;; *) kept+=("$p");; esac
+        done
+        kept+=("$sim_profile")
+        export COMPOSE_PROFILES=$(IFS=','; echo "${kept[*]}")
+        export URDF_FILE="$urdf"
+    fi
+
+    [[ -n "$AIRSTACK_INTENT_ROBOTS" ]]     && export NUM_ROBOTS="$AIRSTACK_INTENT_ROBOTS"
+    [[ -n "$AIRSTACK_INTENT_PLAY" ]]       && export PLAY_SIM_ON_START="$AIRSTACK_INTENT_PLAY"
+    [[ -n "$AIRSTACK_INTENT_AUTOLAUNCH" ]] && export AUTOLAUNCH="$AIRSTACK_INTENT_AUTOLAUNCH"
+    if [[ "$AIRSTACK_INTENT_HEADLESS" == "true" ]]; then
+        export ISAAC_SIM_HEADLESS="true"
+        export MS_AIRSIM_HEADLESS="true"
+        export QT_QPA_PLATFORM="offscreen"
+    fi
+
+    # --robots on Isaac: keep NUM_ROBOTS and the launch script consistent.
+    # The default single-drone script hardcodes exactly one drone; NUM_ROBOTS>1
+    # with it means N robot containers and 1 drone in sim (silent today).
+    local profiles_final
+    profiles_final=$(resolve_launch_var COMPOSE_PROFILES "$@")
+    if [[ -n "$AIRSTACK_INTENT_ROBOTS" && ",$profiles_final," == *",isaac-sim,"* ]]; then
+        local script want=""
+        script=$(resolve_launch_var ISAAC_SIM_SCRIPT_NAME "$@")
+        case "$script" in
+            example_one_px4_pegasus_launch_script.py|example_multi_px4_pegasus_launch_script.py)
+                (( AIRSTACK_INTENT_ROBOTS > 1 )) \
+                    && want="example_multi_px4_pegasus_launch_script.py" \
+                    || want="example_one_px4_pegasus_launch_script.py";;
+            example_one_px4_pegasus_natnet_launch_script.py|example_multi_px4_pegasus_natnet_launch_script.py)
+                (( AIRSTACK_INTENT_ROBOTS > 1 )) \
+                    && want="example_multi_px4_pegasus_natnet_launch_script.py" \
+                    || want="example_one_px4_pegasus_natnet_launch_script.py";;
+            *)
+                if (( AIRSTACK_INTENT_ROBOTS > 1 )); then
+                    log_warn "Custom ISAAC_SIM_SCRIPT_NAME='$script' with --robots $AIRSTACK_INTENT_ROBOTS: make sure it spawns $AIRSTACK_INTENT_ROBOTS drones (reads NUM_ROBOTS)."
+                fi;;
+        esac
+        if [[ -n "$want" && "$want" != "$script" ]]; then
+            log_info "--robots $AIRSTACK_INTENT_ROBOTS → ISAAC_SIM_SCRIPT_NAME=$want (was $script)"
+            export ISAAC_SIM_SCRIPT_NAME="$want"
+        fi
+    fi
+    return 0
+}
+
+# Print the resolved launch configuration and dump it (gitignored) so every
+# run leaves a record of what it actually launched.
+function print_launch_config {
+    local keys=(COMPOSE_PROFILES NUM_ROBOTS URDF_FILE AUTOLAUNCH PLAY_SIM_ON_START
+                ISAAC_SIM_SCRIPT_NAME ISAAC_SIM_USE_STANDALONE ISAAC_SIM_HEADLESS
+                MS_AIRSIM_HEADLESS VERSION DOCKER_IMAGE_BUILD_MODE)
+    local k v lines=()
+    for k in "${keys[@]}"; do
+        v=$(resolve_launch_var "$k" "$@")
+        lines+=("$k=$v")
+    done
+
+    local profiles
+    profiles=$(resolve_launch_var COMPOSE_PROFILES "$@")
+    log_info "Launch config: profiles=$profiles robots=$(resolve_launch_var NUM_ROBOTS "$@") autolaunch=$(resolve_launch_var AUTOLAUNCH "$@") play_on_start=$(resolve_launch_var PLAY_SIM_ON_START "$@")"
+    if [[ ",$profiles," == *",isaac-sim,"* ]]; then
+        log_info "  isaac: script=$(resolve_launch_var ISAAC_SIM_SCRIPT_NAME "$@") headless=$(resolve_launch_var ISAAC_SIM_HEADLESS "$@")"
+    fi
+    log_info "  urdf=$(resolve_launch_var URDF_FILE "$@")"
+
+    echo "--- effective launch config ---"
+    printf '%s\n' "${lines[@]}"
+    echo "--- end effective launch config ---"
+
+    # Dump for reproducibility (precursor of RFC #380's effective_config.yaml).
+    # Best-effort: a read-only checkout (e.g. the tests container) skips it.
+    local run_dir="$PROJECT_ROOT/.airstack/runs/$(date +%Y-%m-%d_%H-%M-%S)"
+    if mkdir -p "$run_dir" 2>/dev/null && printf '%s\n' "${lines[@]}" > "$run_dir/effective_config.env" 2>/dev/null; then
+        log_info "  effective config saved to ${run_dir#$PROJECT_ROOT/}/effective_config.env"
+    fi
+    return 0
+}
+
+# Fail-fast validation of the RESOLVED configuration (env > --env-file > .env),
+# fixing the historical bypass where guards sed'd .env only and missed
+# --env-file overrides. AIRSTACK_SKIP_PREFLIGHT=1 downgrades errors to warnings.
+function preflight_up {
+    local -n _pf_global=$1
+    local -n _pf_subcmd=$2
+    local errors=0
+
+    function _pf_error {
+        if [[ "${AIRSTACK_SKIP_PREFLIGHT:-}" == "1" ]]; then
+            log_warn "(preflight skipped) $1"
+        else
+            log_error "$1"
+            errors=1
+        fi
+    }
+
+    # Resolved profiles + any --profile args passed on the CLI
+    local profiles p i=0
+    profiles=$(resolve_launch_var COMPOSE_PROFILES "${_pf_global[@]}")
+    while [ $i -lt ${#_pf_global[@]} ]; do
+        if [[ "${_pf_global[$i]}" == "--profile" ]]; then
+            i=$((i+1)); profiles+=",${_pf_global[$i]:-}"
+        elif [[ "${_pf_global[$i]}" == --profile=* ]]; then
+            profiles+=",${_pf_global[$i]#--profile=}"
+        fi
+        i=$((i+1))
+    done
+
+    # 1. Exactly one simulator profile
+    local n=0 s
+    for s in isaac-sim ms-airsim simple; do [[ ",$profiles," == *",$s,"* ]] && n=$((n+1)); done
+    if (( n > 1 )); then
+        _pf_error "Only one simulator profile can be active at a time (isaac-sim, ms-airsim, simple). Resolved: $profiles"
+    elif (( n == 0 )); then
+        log_warn "No simulator profile active — robot containers will wait for a sim that never starts. Use 'airstack up --sim isaac|airsim' (or add a sim profile)."
+    fi
+
+    # 2. URDF must match the simulator
+    local urdf
+    urdf=$(resolve_launch_var URDF_FILE "${_pf_global[@]}")
+    if [[ -n "$urdf" ]]; then
+        [[ ",$profiles," == *",ms-airsim,"* && "$urdf" != *.ms-airsim.* ]] && log_warn "URDF_FILE ($urdf) does not match ms-airsim profile. Expected *.ms-airsim.* URDF (or use --sim airsim)."
+        [[ ",$profiles," == *",isaac-sim,"* && "$urdf" != *.pegasus.* && "$urdf" != *.isaacsim.* ]] && log_warn "URDF_FILE ($urdf) does not match isaac-sim profile. Expected *.pegasus.* or *.isaacsim.* URDF (or use --sim isaac)."
+    fi
+
+    if [[ ",$profiles," == *",isaac-sim,"* ]]; then
+        # 3. NUM_ROBOTS vs single-drone launch script (the silent 3-containers-1-drone footgun)
+        local num script
+        num=$(resolve_launch_var NUM_ROBOTS "${_pf_global[@]}")
+        script=$(resolve_launch_var ISAAC_SIM_SCRIPT_NAME "${_pf_global[@]}")
+        if [[ "$num" =~ ^[0-9]+$ ]] && (( num > 1 )) && [[ "$script" == example_one_* ]]; then
+            _pf_error "NUM_ROBOTS=$num but ISAAC_SIM_SCRIPT_NAME='$script' spawns exactly 1 drone: robots 2..$num would have no PX4 to talk to. Fix: 'airstack up --sim isaac --robots $num' (auto-selects the multi script) or set ISAAC_SIM_SCRIPT_NAME=example_multi_px4_pegasus_launch_script.py"
+        fi
+
+        # 4. Files the isaac-sim service hard-requires
+        if [ ! -f "$PROJECT_ROOT/simulation/isaac-sim/docker/omni_pass.env" ]; then
+            _pf_error "simulation/isaac-sim/docker/omni_pass.env is missing (Nucleus credentials). Run 'airstack setup' to create it."
+        fi
+        if [ ! -e "$PROJECT_ROOT/simulation/isaac-sim/extensions/PegasusSimulator/extensions/pegasus.simulator" ]; then
+            _pf_error "PegasusSimulator submodule is empty — the Isaac launch script will fail to import pegasus. Run: git submodule update --init --recursive"
+        fi
+    fi
+
+    # 5. Missing images: compose 'up' silently starts a very long build
+    local imgs img missing=()
+    imgs=$(run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${_pf_global[@]}" config --images 2>/dev/null | sort -u)
+    for img in $imgs; do
+        docker image inspect "$img" >/dev/null 2>&1 || missing+=("$img")
+    done
+    if (( ${#missing[@]} > 0 )); then
+        log_warn "Images not present locally — compose will BUILD them from scratch (can take a long time):"
+        printf '  - %s\n' "${missing[@]}" >&2
+        log_warn "To use prebuilt images instead: airstack image-pull   (set AIRSTACK_NO_IMAGE_BUILD=1 to forbid implicit builds)"
+    fi
+
+    # 6. ROBOT_NAME resolution needs Docker >= 29 (see robot/docker/.bashrc)
+    local docker_major
+    docker_major=$(docker version --format '{{.Server.Version}}' 2>/dev/null | cut -d. -f1)
+    if [[ "$docker_major" =~ ^[0-9]+$ ]] && (( docker_major < 29 )); then
+        log_warn "Docker $docker_major < 29: container-name DNS resolution fails, robots will resolve as 'unknown_robot' on domain 0 (MAVROS will not connect). Upgrade Docker or set ROBOT_NAME_SOURCE=hostname."
+    fi
+
+    unset -f _pf_error
+    return $errors
+}
+
 function cmd_up {
     check_docker
 
+    # Airstack launch-intent flags (consumed before compose sees the args)
+    local rest_args=()
+    parse_launch_intent rest_args "$@" || exit 1
+    apply_launch_intent "${rest_args[@]}" || exit 1
+
     local global_args=()
     local subcmd_args=()
-    classify_compose_args global_args subcmd_args "$@"
+    classify_compose_args global_args subcmd_args "${rest_args[@]}"
 
-    # Ensure only one simulator profile is active
-    local p="${COMPOSE_PROFILES:-$(sed -n 's/^COMPOSE_PROFILES=//p' "$PROJECT_ROOT/.env" 2>/dev/null | tr -d '"')}"
-    for arg in "${global_args[@]}"; do p+=",${arg}"; done
-    local n=0; for s in isaac-sim ms-airsim simple; do [[ ",$p," == *",$s,"* ]] && n=$((n+1)); done
-    (( n > 1 )) && log_error "Only one simulator profile can be active at a time (isaac-sim, ms-airsim, simple)." && exit 1
+    print_launch_config "${global_args[@]}"
+    if ! preflight_up global_args subcmd_args; then
+        log_error "Preflight failed — not starting services. (AIRSTACK_SKIP_PREFLIGHT=1 to override.)"
+        exit 1
+    fi
 
-    # Warn if URDF_FILE doesn't match the active simulator (env var overrides .env)
-    local urdf="${URDF_FILE:-$(sed -n 's/^URDF_FILE=//p' "$PROJECT_ROOT/.env" 2>/dev/null | tr -d '"')}"
-    if [[ -n "$urdf" ]]; then
-        [[ ",$p," == *",ms-airsim,"* && "$urdf" != *.ms-airsim.* ]] && log_warn "URDF_FILE ($urdf) does not match ms-airsim profile. Expected *.ms-airsim.* URDF."
-        [[ ",$p," == *",isaac-sim,"* && "$urdf" != *.pegasus.* && "$urdf" != *.isaacsim.* ]] && log_warn "URDF_FILE ($urdf) does not match isaac-sim profile. Expected *.pegasus.* or *.isaacsim.* URDF."
+    if [[ "$AIRSTACK_DRY_RUN" == "1" ]]; then
+        log_info "--dry-run: configuration validated; not starting services."
+        return 0
     fi
 
     # Add xhost + to allow GUI applications
@@ -903,7 +1187,11 @@ function cmd_up {
         up_opts+=(--no-build)
     fi
     run_docker_compose -f "$PROJECT_ROOT/docker-compose.yaml" "${global_args[@]}" up "${up_opts[@]}" "${subcmd_args[@]}" -d
-    log_info "Services brought up successfully"
+    log_info "Containers started. (Workspaces may still be building and the sim loading — run 'airstack ready' to wait for flight-readiness.)"
+
+    if [[ "$AIRSTACK_UP_WAIT" == "1" ]]; then
+        cmd_ready
+    fi
 }
 
 function cmd_image_build {
@@ -1400,7 +1688,7 @@ function register_builtin_commands {
     COMMAND_HELP["image-pull"]="Pull Docker Compose service images from a registry"
     COMMAND_HELP["images"]="List Docker images filtered by PROJECT_NAME from .env"
     COMMAND_HELP["image-delete"]="Delete all Docker images matching PROJECT_NAME (prompts unless -y)"
-    COMMAND_HELP["up"]="Start services using Docker Compose"
+    COMMAND_HELP["up"]="Start services [--sim isaac|airsim] [--robots N] [--headless] [--play|--no-play] [--no-autolaunch] [--wait] [--dry-run]"
     COMMAND_HELP["down"]="down services"
     COMMAND_HELP["clean"]="Remove all ROS 2 build artifacts (build/, install/, log/)"
     COMMAND_HELP["connect"]="Connect to a running container (supports partial name matching)"
