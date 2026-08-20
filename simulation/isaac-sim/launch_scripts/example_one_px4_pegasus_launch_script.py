@@ -10,13 +10,15 @@ Demonstrates:
  - Optionally saving the prepared scene as a self-contained USD
 """
 
+import os
+
 import carb
 from isaacsim import SimulationApp
 
 # Must be created before any omni imports
-simulation_app = SimulationApp({"headless": False})
+headless = os.environ.get("ISAAC_SIM_HEADLESS", "false").lower() == "true"
+simulation_app = SimulationApp({"headless": headless})
 
-import os
 import sys
 import time
 import asyncio
