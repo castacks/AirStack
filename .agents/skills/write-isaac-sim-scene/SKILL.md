@@ -92,9 +92,9 @@ Subclass `PegasusApp` and override (each receives the loaded USD stage):
 
 - `pre_scene_prep(stage)` — right after the environment loads (e.g. `dedupe_physics_scenes`, `reference_root_prims_under_world` for imported scenes)
 - `post_scene_prep(stage)` — after scale/colliders/dome light, before drones (e.g. overhead map camera)
-- `post_spawn(stage)` — after all drones exist (e.g. author the NatNet mocap interface)
+- `post_spawn(stage)` — after all drones exist (e.g. author extra scene-level prims such as a mocap interface)
 
-Reference subclasses to study (not copy): `example_multi_drone_scene_import.py` (Nucleus scene import, explicit poses, overhead camera, GPS origins) and `example_multi_px4_pegasus_natnet_launch_script.py` (`post_spawn` mocap authoring).
+Reference subclass to study (not copy): `example_multi_drone_scene_import.py` (Nucleus scene import, explicit poses, overhead camera, GPS origins). For a `post_spawn` example (mocap authoring), see the asm_optitrack module's launch scripts.
 
 Stage-prep helpers live in `simulation/isaac-sim/utils/scene_prep.py` (`add_colliders`, `scale_stage_prim`, `add_dome_light`, `add_orthographic_camera`, …) — documented in [spawning_drones.md](../../../docs/simulation/isaac_sim/spawning_drones.md).
 

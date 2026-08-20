@@ -62,8 +62,8 @@ slot/role/topic annotations, which the RFC deliberately excludes.
 
 ### Hook contract (`hooks.host_setup`)
 
-A host-side setup script (precedent:
-`robot/ros_ws/src/perception/natnet_ros2/scripts/download-natnet-sdk.sh`). Every hook
+A host-side setup script (precedent: the asm_optitrack module's
+`natnet_ros2/scripts/download-natnet-sdk.sh`). Every hook
 script MUST be:
 
 - **idempotent** — safe to run on every sync; exits fast when already done,

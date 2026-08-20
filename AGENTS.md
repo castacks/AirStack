@@ -221,7 +221,7 @@ docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo <topic_name> --onc
    - **Run in the robot container** with `colcon test` (after `bws`) for the full ROS 2 build + test. The same co-located test source is collected by the root [`tests/`](tests/) suite (the packages with unit tests are listed in [`tests/colcon_unit_test_packages.yaml`](tests/colcon_unit_test_packages.yaml)), so `airstack test -m unit` runs it too. Marks are declared in [`tests/pytest.ini`](tests/pytest.ini) (`unit`, `build_docker`, `build_packages`, `integration`, `liveliness`, `sensors`, `takeoff_hover_land`, `autonomy`).
 
    ```bash
-   docker exec airstack-robot-desktop-1 bash -c "sws && colcon test --packages-select natnet_ros2 --event-handlers console_direct+"
+   docker exec airstack-robot-desktop-1 bash -c "sws && colcon test --packages-select lidar_point_cloud_filter --event-handlers console_direct+"
    ```
 
 2. **Unit tests (`pytest`, `unit` mark):** Fast, hermetic checks. Test **source** lives co-located with each ROS 2 package in `<package>/test/` (standard colcon convention). [`tests/colcon_unit_test_packages.yaml`](tests/colcon_unit_test_packages.yaml) lists which packages have unit tests, and `tests/conftest.py` collects them from there under `--import-mode=importlib`. To add a package's unit tests, list it in that YAML. Python unit tests run automatically in `unit-tests.yml` on `ubuntu-latest`; C++ gtests run through the `system-tests.yml` `build_packages` path. Example: `airstack test -m unit -v`. See `add-unit-tests` skill.

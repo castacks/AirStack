@@ -35,7 +35,7 @@ State estimation and related perception packages live under `robot/ros_ws/src/pe
 
 ### External pose (motion capture)
 
-- [**NatNet (OptiTrack)**](../../../../robot/ros_ws/src/perception/natnet_ros2/README.md) — Receives rigid-body poses from an external Motive PC over NatNet UDP and publishes `/{robot_name}/perception/optitrack/...` topics. Optional MAVROS bridge for PX4 vision pose. Enabled with `LAUNCH_NATNET=true` in `.env` (off by default).
+- [**OptiTrack (asm_optitrack module)**](../../optitrack.md) — NatNet mocap support (rigid-body poses from a Motive PC, PX4 external-vision fusion bridges) moved out of the trunk into the [asm_optitrack module](https://github.com/castacks/asm_optitrack). Add it with `airstack module add https://github.com/castacks/asm_optitrack --version <tag>`; see [AirStack Modules](../../../development/modules.md).
 
 ## Configuration
 

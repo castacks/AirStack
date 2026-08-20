@@ -155,7 +155,7 @@
           "type": "string",
           "x-airstack-format": "safe-relative-path",
           "x-airstack-check-exists": true,
-          "description": "Script run on the host after sync (precedent: natnet_ros2 scripts/download-natnet-sdk.sh). Must be idempotent, no sudo, and write only inside the module checkout."
+          "description": "Script run on the host after sync (precedent: the asm_optitrack module's natnet_ros2/scripts/download-natnet-sdk.sh). Must be idempotent, no sudo, and write only inside the module checkout."
         }
       }
     },
