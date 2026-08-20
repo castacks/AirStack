@@ -139,6 +139,9 @@ class MonoNavBridge(Node):
         self._trajectory_publisher = self.create_publisher(
             TrajectoryXYZVYaw, "trajectory_segment", 1
         )
+        self._trajectory_override_publisher = self.create_publisher(
+            TrajectoryXYZVYaw, "trajectory_override", 1
+        )
         self._marker_publisher = self.create_publisher(MarkerArray, "trajectory_markers", 1)
         self._status_publisher = self.create_publisher(String, "status", 10)
         self._mode_client = self.create_client(TrajectoryMode, "set_trajectory_mode")
@@ -320,11 +323,21 @@ class MonoNavBridge(Node):
             self._mode_client.call_async(request)
         else:
             self.get_logger().warn("Trajectory mode service is not ready; publishing segment anyway")
-        self._trajectory_publisher.publish(trajectory)
+        replace_trajectory = bool(payload.get("replace", True))
+        if replace_trajectory:
+            self._trajectory_override_publisher.publish(trajectory)
+        else:
+            self._trajectory_publisher.publish(trajectory)
         self.get_logger().info(
-            f"Published MonoNav primitive {primitive_index} with {len(points)} waypoints"
+            f"Published MonoNav primitive {primitive_index} with {len(points)} waypoints "
+            f"({'override' if replace_trajectory else 'segment'})"
         )
-        return {"accepted": True, "visualized": True, "waypoint_count": len(points)}
+        return {
+            "accepted": True,
+            "visualized": True,
+            "waypoint_count": len(points),
+            "trajectory_mode": "override" if replace_trajectory else "segment",
+        }
 
     def pause_trajectory(self):
         if not self._mode_client.service_is_ready():
