@@ -1191,6 +1191,16 @@ function cmd_up {
     local subcmd_args=()
     classify_compose_args global_args subcmd_args "${rest_args[@]}"
 
+    # Module overlay: when `airstack module sync` has generated a compose
+    # override (volume mounts for synced modules), include it automatically so
+    # module packages/extensions reach the containers. Opt out with
+    # AIRSTACK_NO_MODULE_COMPOSE=1. Absent file = no modules = no change.
+    local module_compose="$PROJECT_ROOT/.airstack/generated/docker-compose.modules.yaml"
+    if [[ -f "$module_compose" && "${AIRSTACK_NO_MODULE_COMPOSE:-}" != "1" ]]; then
+        log_info "Module overlay active → including ${module_compose#$PROJECT_ROOT/}"
+        global_args+=(-f "$module_compose")
+    fi
+
     print_launch_config "${global_args[@]}"
     if ! preflight_up global_args subcmd_args; then
         log_error "Preflight failed — not starting services. (AIRSTACK_SKIP_PREFLIGHT=1 to override.)"
