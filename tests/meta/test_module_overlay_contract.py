@@ -50,6 +50,9 @@ def sandbox(tmp_path):
                 sb / ".airstack" / "modules" / "module.sh")
     shutil.copy(REPO / "tools" / "module_overlay.py", sb / "tools" / "module_overlay.py")
     shutil.copy(REPO / "tools" / "validate_module.py", sb / "tools" / "validate_module.py")
+    # (P4) sync also runs the Docker layer planner (conflict gate + plan + lock)
+    shutil.copy(REPO / "tools" / "compose_module_layers.py",
+                sb / "tools" / "compose_module_layers.py")
     shutil.copytree(REPO / "common" / "module_schema", sb / "common" / "module_schema")
     shutil.copytree(
         REPO / FIXTURE_REL,

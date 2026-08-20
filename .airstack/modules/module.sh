@@ -8,7 +8,7 @@
 # the trunk checkout by tools/module_overlay.py (colcon symlinks, Isaac launch
 # scripts + Kit extension mounts, generated compose override).
 #
-# Subcommands: add | remove | list | sync | create | doctor | help
+# Subcommands: add | remove | list | sync | create | lock | doctor | help
 # See `airstack help module` and docs/development/modules.md.
 #
 # Dispatcher note: airstack.sh's fallback argument scan filters ALL occurrences
@@ -20,6 +20,8 @@ MODULE_REPOS_FILE="${PROJECT_ROOT}/modules.repos"
 MODULE_CHECKOUT_DIR="${PROJECT_ROOT}/modules"
 MODULE_OVERLAY_TOOL="${PROJECT_ROOT}/tools/module_overlay.py"
 MODULE_VALIDATOR_TOOL="${PROJECT_ROOT}/tools/validate_module.py"
+# (P4) Docker layer composition planner — RFC #379 §6; see docs/development/modules.md
+MODULE_LAYER_TOOL="${PROJECT_ROOT}/tools/compose_module_layers.py"
 MODULE_GENERATED_COMPOSE=".airstack/generated/docker-compose.modules.yaml"
 MODULE_INTREE_DIR="${PROJECT_ROOT}/robot/ros_ws/src/modules"
 
@@ -271,6 +273,8 @@ function cmd_module_sync {
         log_info "No modules.repos and no modules/ directory — nothing to sync."
         # Still let the overlay clean any leftover artifacts (links, compose).
         python3 "$MODULE_OVERLAY_TOOL" --project-root "$PROJECT_ROOT" || return 1
+        # (P4) …and the layer planner clean stale layer_plan.json / modules.lock.
+        python3 "$MODULE_LAYER_TOOL" --project-root "$PROJECT_ROOT" || return 1
         return 0
     fi
 
@@ -317,6 +321,14 @@ function cmd_module_sync {
 
     # 4. overlay: colcon symlinks, isaac launch scripts, generated compose
     python3 "$MODULE_OVERLAY_TOOL" --project-root "$PROJECT_ROOT" || return 1
+
+    # 4b. (P4) Docker layer composition (RFC #379 §6): dep-conflict hard gate,
+    #     then per-host layer plan + modules.lock (plan-only — no docker calls).
+    if ! python3 "$MODULE_LAYER_TOOL" --check-conflicts --project-root "$PROJECT_ROOT"; then
+        log_error "Module dependency conflict — sync refuses to compose a broken image (RFC #379 §6)."
+        return 1
+    fi
+    python3 "$MODULE_LAYER_TOOL" --project-root "$PROJECT_ROOT" || return 1
 
     # 5. host_setup hooks (idempotent, no sudo, write only inside the module)
     if [ "$no_hooks" = true ]; then
@@ -445,6 +457,10 @@ function cmd_module_remove {
 
     # regenerate the overlay without it (also prunes links + compose entries)
     python3 "$MODULE_OVERLAY_TOOL" --project-root "$PROJECT_ROOT" --remove "$name" || return 1
+
+    # (P4) regenerate the layer plan + modules.lock without it (removes both
+    # when no modules remain, so remove still restores a clean tree)
+    python3 "$MODULE_LAYER_TOOL" --project-root "$PROJECT_ROOT" || return 1
 
     rmdir "$MODULE_CHECKOUT_DIR" 2>/dev/null || true
     log_info "Removed module '${name}' (modules.repos entry, checkout, and overlay artifacts)."
@@ -691,6 +707,14 @@ EOF
     log_info "  3. Track extraction debt as you work: airstack module doctor --drift"
 }
 
+# (P4) `airstack module lock` — alias for the Docker layer planner: recompute
+# .airstack/generated/layer_plan.json + modules.lock (RFC #379 §6). Extra flags
+# pass through (--check-conflicts, --build).
+function cmd_module_lock {
+    _module_check_python || return 1
+    python3 "$MODULE_LAYER_TOOL" --project-root "$PROJECT_ROOT" "$@"
+}
+
 function cmd_module_doctor {
     _module_check_python || return 1
 
@@ -771,6 +795,7 @@ function cmd_module_dispatch {
         list)   cmd_module_list "$@" ;;
         sync)   cmd_module_sync "$@" ;;
         create) cmd_module_create "$@" ;;
+        lock)   cmd_module_lock "$@" ;;   # (P4) layer plan + modules.lock
         doctor) cmd_module_doctor "$@" ;;
         help|-h|--help) print_command_help module ;;
         *)
@@ -784,5 +809,5 @@ function cmd_module_dispatch {
 # Register commands from this module.
 function register_module_commands {
     COMMANDS["module"]="cmd_module_dispatch"
-    COMMAND_HELP["module"]="Manage AirStack modules: add|remove|list|sync|create|doctor (RFC #379; see 'airstack help module')"
+    COMMAND_HELP["module"]="Manage AirStack modules: add|remove|list|sync|create|lock|doctor (RFC #379; see 'airstack help module')"
 }
