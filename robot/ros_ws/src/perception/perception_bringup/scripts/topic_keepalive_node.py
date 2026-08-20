@@ -6,7 +6,9 @@ least one rclcpp subscriber exists on the robot domain. ddsrouter's bare
 DDS reader does not count, so without a local subscriber the topic stops
 publishing and downstream GCS / Foxglove sees nothing. The list mirrors
 every Topic.Value entry in desktop_bringup/rviz/robot.rviz so disabling
-rviz no longer drops topics off the GCS side.
+rviz no longer drops topics off the GCS side — except module-owned topics
+(e.g. MAC-VO's, provided by the asm_macvo module): trunk's keepalive must
+not advertise topics whose publishers live outside trunk.
 """
 
 import os
@@ -15,7 +17,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import (DurabilityPolicy, HistoryPolicy, QoSProfile,
                        ReliabilityPolicy)
-from sensor_msgs.msg import CameraInfo, Image, PointCloud, PointCloud2
+from sensor_msgs.msg import CameraInfo, Image, PointCloud2
 from nav_msgs.msg import Odometry, Path
 from visualization_msgs.msg import Marker, MarkerArray
 from tf2_msgs.msg import TFMessage
@@ -36,16 +38,13 @@ TOPICS = [
     ('sensors/front_stereo/right/image_rect',         Image,        False, SENSOR_QOS),
     ('sensors/front_stereo/left/depth_ground_truth',  Image,        False, SENSOR_QOS),
     ('sensors/front_stereo/right/depth_ground_truth', Image,        False, SENSOR_QOS),
-    ('perception/macvo/disparity',                    Image,        False, SENSOR_QOS),
     ('sensors/front_stereo/left/camera_info',         CameraInfo,   False, DEFAULT_QOS),
     ('sensors/front_stereo/right/camera_info',        CameraInfo,   False, DEFAULT_QOS),
     ('sensors/lidar/point_cloud',                     PointCloud2,  False, SENSOR_QOS),
     ('perception/stereo_image_proc/point_cloud',      PointCloud2,  False, SENSOR_QOS),
     ('droan/expansion_cloud',                         PointCloud2,  False, SENSOR_QOS),
     ('droan/fg_bg_cloud',                             PointCloud2,  False, SENSOR_QOS),
-    ('perception/macvo/point_cloud',                  PointCloud,   False, SENSOR_QOS),
     ('odometry_conversion/odometry',                  Odometry,     False, DEFAULT_QOS),
-    ('macvo/odometry',                                Odometry,     False, DEFAULT_QOS),
     ('global_plan',                                   Path,         False, DEFAULT_QOS),
     ('vdb_mapping/vdb_map_visualization',             Marker,       False, DEFAULT_QOS),
     ('droan/frustum',                                 Marker,       False, DEFAULT_QOS),

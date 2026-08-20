@@ -69,7 +69,7 @@ Runs with `airstack up --profile voxl`. Use this profile when deploying on a Mod
 
 - **Image:** `...:v<TAG>_robot-voxl_<MODE>`
 - **Base image:** `ubuntu:22.04` (no CUDA; VOXL has its own compute stack)
-- **Skipped components:** OpenVDB, MACVO, TensorRT
+- **Skipped components:** OpenVDB (MAC-VO and TensorRT no longer ship in any trunk robot image — they arrive via the `asm_macvo` module's `Dockerfile.module`)
 - **Network:** `host` (relies on the physical network for DDS discovery)
 - **Robot identity:** derived from the device hostname → `ROBOT_NAME_SOURCE=hostname`
 
