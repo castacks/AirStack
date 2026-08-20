@@ -113,3 +113,12 @@ gcs/.DS_Store
 
 # Per-run resolved launch config dumps (airstack up)
 /.airstack/runs/
+
+# AirStack modules (RFC #379) — synced checkouts + overlay artifacts are
+# local-only; trunk never carries module code. See docs/development/modules.md
+/modules/
+/modules.repos
+robot/ros_ws/src/modules/
+simulation/isaac-sim/launch_scripts/modules/
+stacks/.external/
+/.airstack/generated/

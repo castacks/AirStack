@@ -81,6 +81,7 @@ nav:
               - Feature Notebook: docs/development/intermediate/feature_notebook.md
       - Advanced Tutorials:
           - AI Agent Guide: docs/development/advanced/ai_agent_guide.md
+          - AirStack Modules: docs/development/modules.md
           - AirStack CLI Tool:
               - Extending: docs/development/advanced/airstack-cli/extending.md
               - Architecture: docs/development/advanced/airstack-cli/architecture.md
