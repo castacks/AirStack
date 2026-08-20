@@ -10,15 +10,13 @@ Demonstrates:
  - Optionally saving the prepared scene as a self-contained USD
 """
 
-import os
-
 import carb
 from isaacsim import SimulationApp
 
 # Must be created before any omni imports
-headless = os.environ.get("ISAAC_SIM_HEADLESS", "false").lower() == "true"
-simulation_app = SimulationApp({"headless": headless})
+simulation_app = SimulationApp({"headless": False})
 
+import os
 import sys
 import time
 import asyncio
@@ -28,6 +26,7 @@ import omni.timeline
 import omni.usd
 
 from omni.isaac.core.world import World
+from pxr import Gf, UsdGeom, UsdPhysics
 
 # Pegasus imports
 from pegasus.simulator.params import SIMULATION_ENVIRONMENTS
@@ -66,7 +65,29 @@ DRONE_INIT_POS = [
     float(os.environ.get("DRONE_INIT_Y", "0.0")),
     float(os.environ.get("DRONE_INIT_Z", "0.07")),
 ]
+ENABLE_LIDAR = os.environ.get("ENABLE_LIDAR", "false").lower() == "true"
+MONONAV_DEMO_OBSTACLES = (
+    os.environ.get("MONONAV_DEMO_OBSTACLES", "false").lower() == "true"
+)
 # ---------------------------------------------------------
+
+
+def add_mononav_demo_obstacles(stage):
+    """Add a sparse, deterministic slalom course in front of the spawn."""
+    obstacles = (
+        ("CenterGate", (3.0, 0.0, 1.0), (0.6, 0.8, 2.0), (0.95, 0.32, 0.12)),
+        ("LeftOffset", (5.1, -1.7, 1.0), (0.7, 1.0, 2.0), (0.12, 0.48, 0.95)),
+        ("RightOffset", (7.2, 1.6, 1.0), (0.7, 1.0, 2.0), (0.95, 0.78, 0.10)),
+    )
+    for name, position, dimensions, color in obstacles:
+        cube = UsdGeom.Cube.Define(stage, f"/World/MonoNavDemo/{name}")
+        cube.GetSizeAttr().Set(1.0)
+        cube.CreateDisplayColorAttr([Gf.Vec3f(*color)])
+        xform = UsdGeom.Xformable(cube.GetPrim())
+        xform.AddTranslateOp().Set(Gf.Vec3d(*position))
+        xform.AddScaleOp().Set(Gf.Vec3f(*dimensions))
+        UsdPhysics.CollisionAPI.Apply(cube.GetPrim())
+    print(f"[MonoNavDemo] Added {len(obstacles)} static slalom obstacles")
 
 
 # Enable required extensions
@@ -147,6 +168,11 @@ class PegasusApp:
         # Pass intensity/exposure kwargs to override defaults defined in scene_prep.
         add_dome_light(stage)
 
+        if MONONAV_DEMO_OBSTACLES:
+            add_mononav_demo_obstacles(stage)
+            for _ in range(5):
+                omni.kit.app.get_app().update()
+
         # Optionally save the prepared scene as a self-contained USD package.
         # The Collector copies all Nucleus-hosted textures and MDLs locally.
         if SAVE_SCENE_TO:
@@ -177,7 +203,6 @@ class PegasusApp:
             init_orient=[0.0, 0.0, 0.0, 1.0],
         )
 
-        # Add a ZED stereo camera subgraph to the drone
         add_zed_stereo_camera_subgraph(
             parent_graph_handle=graph_handle,
             drone_prim="/World/base_link",
@@ -187,17 +212,19 @@ class PegasusApp:
             camera_rotation_offset=[0.0, 0.0, 0.0], # roll, pitch, yaw in degrees
         )
 
-        # Add an RTX OmniLidar subgraph to the drone (config + variant via alias)
-        add_rtx_lidar_subgraph(
-            parent_graph_handle=graph_handle,
-            drone_prim="/World/base_link",
-            robot_name="robot_1",
-            lidar_config="ouster_os1",
-            lidar_topic_name="point_cloud_raw",
-            lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
-            lidar_rotation_offset=[0.0, 0.0, 0.0],
-            min_range=0.75,
-        )
+        # MonoNav only consumes RGB. RTX lidar startup is expensive, so honor
+        # the existing compose flag and create it only for lidar-based runs.
+        if ENABLE_LIDAR:
+            add_rtx_lidar_subgraph(
+                parent_graph_handle=graph_handle,
+                drone_prim="/World/base_link",
+                robot_name="robot_1",
+                lidar_config="ouster_os1",
+                lidar_topic_name="point_cloud_raw",
+                lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
+                lidar_rotation_offset=[0.0, 0.0, 0.0],
+                min_range=0.75,
+            )
 
         self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
 

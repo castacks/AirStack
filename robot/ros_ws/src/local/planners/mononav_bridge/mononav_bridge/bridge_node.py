@@ -7,6 +7,7 @@ import math
 import struct
 import threading
 import time
+import zlib
 
 import cv2
 import numpy as np
@@ -76,9 +77,12 @@ class _BridgeRequestHandler(BaseHTTPRequestHandler):
         if sample is None:
             self._json_response(503, {"error": "no synchronized camera/pose sample yet"})
             return
-        metadata, jpeg = sample
+        metadata, jpeg, depth = sample
+        metadata = dict(metadata)
+        metadata["jpeg_bytes"] = len(jpeg)
+        metadata["depth_bytes"] = len(depth)
         metadata_bytes = json.dumps(metadata, separators=(",", ":")).encode("utf-8")
-        body = struct.pack("!I", len(metadata_bytes)) + metadata_bytes + jpeg
+        body = struct.pack("!I", len(metadata_bytes)) + metadata_bytes + jpeg + depth
         self.send_response(200)
         self.send_header("Content-Type", "application/octet-stream")
         self.send_header("Content-Length", str(len(body)))
@@ -123,6 +127,7 @@ class MonoNavBridge(Node):
         )
         self._lock = threading.Lock()
         self._camera_info = None
+        self._depth_sample = None
         self._sample = None
         self._sequence = 0
         self._last_frame_wall_time = 0.0
@@ -134,6 +139,7 @@ class MonoNavBridge(Node):
         self._tf_listener = TransformListener(self._tf_buffer, self)
         self.create_subscription(CameraInfo, "camera_info", self._camera_info_callback, qos_profile_sensor_data)
         self.create_subscription(Image, "image", self._image_callback, qos_profile_sensor_data)
+        self.create_subscription(Image, "depth_image", self._depth_callback, qos_profile_sensor_data)
         self.create_subscription(Odometry, "odometry", self._odometry_callback, qos_profile_sensor_data)
 
         self._trajectory_publisher = self.create_publisher(
@@ -189,12 +195,40 @@ class MonoNavBridge(Node):
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         return image
 
+    @staticmethod
+    def _depth_to_meters(msg):
+        encoding = msg.encoding.lower()
+        if encoding == "32fc1":
+            item_size = np.dtype(np.float32).itemsize
+            raw = np.frombuffer(msg.data, dtype=np.float32).reshape(msg.height, msg.step // item_size)
+            depth = raw[:, : msg.width].copy()
+        elif encoding in ("16uc1", "mono16"):
+            item_size = np.dtype(np.uint16).itemsize
+            raw = np.frombuffer(msg.data, dtype=np.uint16).reshape(msg.height, msg.step // item_size)
+            depth = raw[:, : msg.width].astype(np.float32) / 1000.0
+        else:
+            raise ValueError(f"unsupported depth encoding: {msg.encoding}")
+        depth[~np.isfinite(depth)] = 0.0
+        return depth
+
+    def _depth_callback(self, msg):
+        try:
+            depth = self._depth_to_meters(msg)
+        except ValueError as exc:
+            self.get_logger().warn(f"Skipping depth frame: {exc}", throttle_duration_sec=2.0)
+            return
+        stamp = msg.header.stamp.sec + 1.0e-9 * msg.header.stamp.nanosec
+        compressed = zlib.compress(depth.astype("<f4", copy=False).tobytes(), level=1)
+        with self._lock:
+            self._depth_sample = (stamp, msg.width, msg.height, compressed)
+
     def _image_callback(self, msg):
         now = time.monotonic()
         if now - self._last_frame_wall_time < 1.0 / max(self._max_frame_rate, 0.1):
             return
         with self._lock:
             camera_info = self._camera_info
+            depth_sample = self._depth_sample
         if camera_info is None:
             return
         try:
@@ -233,8 +267,19 @@ class MonoNavBridge(Node):
             "k": camera_info["k"],
             "t_world_camera": _transform_matrix(transform.transform).reshape(-1).tolist(),
         }
+        depth_bytes = b""
+        if depth_sample is not None:
+            depth_stamp, depth_width, depth_height, depth_bytes = depth_sample
+            metadata.update(
+                {
+                    "depth_stamp": depth_stamp,
+                    "depth_width": depth_width,
+                    "depth_height": depth_height,
+                    "depth_dtype": "float32_le_m",
+                }
+            )
         with self._lock:
-            self._sample = (metadata, encoded.tobytes())
+            self._sample = (metadata, encoded.tobytes(), depth_bytes)
             self._sequence += 1
         self._last_frame_wall_time = now
 
@@ -247,11 +292,13 @@ class MonoNavBridge(Node):
             sample = self._sample
             odom_stamp = self._last_odom_stamp
             last_command = self._last_command
+            depth_sample = self._depth_sample
         return {
             "ready": sample is not None,
             "sequence": None if sample is None else sample[0]["sequence"],
             "image_stamp": None if sample is None else sample[0]["stamp"],
             "odometry_stamp": odom_stamp,
+            "depth_stamp": None if depth_sample is None else depth_sample[0],
             "execute_commands": self._execute_commands,
             "last_command": last_command,
         }
