@@ -41,8 +41,13 @@ from scene_prep import scale_stage_prim, add_colliders, add_dome_light, save_sce
 
 
 # --------------------- CONFIGURATION ---------------------
-# Environment to load. Swap this URL/key for any other scene.
-ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
+# Environment to load. Keep the original empty scene as the default, while
+# allowing repeatable scene selection from the same launcher.
+ENV_NAME = os.environ.get("ISAAC_SIM_ENVIRONMENT", "Default Environment")
+if ENV_NAME not in SIMULATION_ENVIRONMENTS:
+    available = ", ".join(sorted(SIMULATION_ENVIRONMENTS))
+    raise ValueError(f"Unknown ISAAC_SIM_ENVIRONMENT={ENV_NAME!r}. Available: {available}")
+ENV_URL = SIMULATION_ENVIRONMENTS[ENV_NAME]
 
 # Scale applied to /World/stage. 0.01 converts cm→m for Nucleus assets.
 # Set to 1.0 if the environment is already in meters.
@@ -53,6 +58,14 @@ STAGE_SCALE = 1.0
 SAVE_SCENE_TO = None  # e.g. os.path.expanduser("~/AirStack/my_scene/")
 
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
+
+# Initial vehicle pose in world coordinates. Environment overrides make it
+# possible to reuse this launcher in furnished scenes whose origin is occupied.
+DRONE_INIT_POS = [
+    float(os.environ.get("DRONE_INIT_X", "0.0")),
+    float(os.environ.get("DRONE_INIT_Y", "0.0")),
+    float(os.environ.get("DRONE_INIT_Z", "0.07")),
+]
 # ---------------------------------------------------------
 
 
@@ -160,7 +173,7 @@ class PegasusApp:
             vehicle_id=1,   # MAVLink port = 14540 + vehicle_id
             domain_id=1,    # ROS 2 domain ID — match vehicle_id by convention
             usd_file=DRONE_USD,
-            init_pos=[0.0, 0.0, 0.07],
+            init_pos=DRONE_INIT_POS,
             init_orient=[0.0, 0.0, 0.0, 1.0],
         )
 

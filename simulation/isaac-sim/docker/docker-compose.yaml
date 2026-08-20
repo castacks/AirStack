@@ -39,6 +39,10 @@ services:
       - QT_X11_NO_MITSHM=1
       # Isaac Sim stuff
       - PLAY_SIM_ON_START=${PLAY_SIM_ON_START}
+      - ISAAC_SIM_ENVIRONMENT=${ISAAC_SIM_ENVIRONMENT:-Default Environment}
+      - DRONE_INIT_X=${DRONE_INIT_X:-0.0}
+      - DRONE_INIT_Y=${DRONE_INIT_Y:-0.0}
+      - DRONE_INIT_Z=${DRONE_INIT_Z:-0.07}
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       - ENABLE_LIDAR=${ENABLE_LIDAR:-false}
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
