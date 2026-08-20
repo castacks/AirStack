@@ -461,6 +461,16 @@ jobs:
             echo "All required images present after pull/retag — skipping build."
           fi
 
+      # Build the module's Docker layer chain (RFC #379 §6) — must run AFTER
+      # the trunk base images are present (chain builds FROM them). The
+      # zero-module identity rule makes this a fast no-op for modules with no
+      # docker-relevant declarations; for tier-2/3 modules (Dockerfile.module /
+      # overlay_image) it builds the composed image and points the generated
+      # compose override at it, so the test bring-up actually exercises the
+      # module's dependency layers.
+      - name: Build module Docker layers
+        run: ./airstack.sh module lock --build
+
       - name: Run tests
         env:
           AIRSTACK_ROOT: ${{ github.workspace }}
