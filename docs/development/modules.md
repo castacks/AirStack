@@ -63,7 +63,7 @@ act: re-run `module add <url> --version <new-tag>` (upserts the entry).
 4. Runs `tools/module_overlay.py` (see below).
 5. Runs each module's `hooks.host_setup` script (skip with `--no-hooks`).
    Hook contract: **idempotent, never sudo, writes only inside the module
-   checkout** (precedent: natnet's SDK download script).
+   checkout** (precedent: the asm_optitrack module's NatNet SDK download script).
 
 ## How the overlay works
 
@@ -108,7 +108,7 @@ Placement is driven by the manifest's `type` and `targets`:
 
   Kit extensions under `modules/<name>/exts/*` are mounted into the shared
   Kit exts dir that the isaac-sim command already passes via `--ext-folder`
-  (the same pattern trunk uses for `optitrack.natnet.emulator`) — either
+  (the same pattern trunk uses for `pegasus.simulator`) — either
   automatically, or via the module's own `compose:` fragment when it declares
   one (the fragment is then the source of truth; no double mounts). For
   local-path modules the generated file also binds the real directory over

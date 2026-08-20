@@ -29,7 +29,6 @@ _MODULE_ORDER = [
     "system.test_sensors",
     "system.test_takeoff_hover_land",
     "system.test_fixed_trajectory",
-    "system.test_optitrack_e2e",
 ]
 
 # Within test_takeoff_hover_land, each (env, velocity) runs phases in this chain order.

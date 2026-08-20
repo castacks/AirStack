@@ -149,7 +149,6 @@ function print_command_help {
             echo "Options:"
             echo "  --no-shell    Don't modify shell configuration"
             echo "  --no-config   Skip configuration tasks (Isaac Sim, Nucleus, Git hooks)"
-            echo "  --no-natnet   Skip NatNet SDK installation for OptiTrack motion capture support"
             echo ""
             echo "This command adds an 'airstack' function to your shell profile that will"
             echo "automatically find and use the airstack.sh script from the current directory"
@@ -656,33 +655,18 @@ function cmd_install {
     log_info "Installation complete!"
 }
 
-function cmd_setup_natnet_sdk {
-    local sdk_script="$PROJECT_ROOT/robot/ros_ws/src/perception/natnet_ros2/scripts/download-natnet-sdk.sh"
-
-    if [ ! -f "$sdk_script" ]; then
-        log_warn "NatNet SDK installer not found at $sdk_script"
-        return 0
-    fi
-
-    log_info "Checking NatNet SDK installation..."
-    bash "$sdk_script"
-}
-
 function cmd_setup {
     log_info "Setting up AirStack environment..."
     
     # Check for --no-shell flag
     local modify_shell=true
     local skip_config=false
-    local skip_natnet=false # initially set to false so that the --no-natnet flag can determine whether to skip the NatNet SDK installation
-    
+
     for arg in "$@"; do
         if [ "$arg" == "--no-shell" ]; then
             modify_shell=false
         elif [ "$arg" == "--no-config" ]; then
             skip_config=true
-        elif [ "$arg" == "--no-natnet" ]; then
-            skip_natnet=true
         fi
     done
     
@@ -747,15 +731,6 @@ function cmd_setup {
         fi
     fi
     
-    # Install NatNet SDK unless explicitly skipped.
-    if [ "$skip_natnet" = false ]; then
-        if declare -f "cmd_setup_natnet_sdk" > /dev/null; then
-            cmd_setup_natnet_sdk
-        else
-            log_warn "NatNet SDK setup helper not loaded. Skipping NatNet SDK installation."
-        fi
-    fi
-
     # Run configuration tasks if not skipped
     if [ "$skip_config" = false ]; then
         # Check if the config module is available
@@ -769,7 +744,18 @@ function cmd_setup {
 
     log_info "Making sure git submodules are initialized and updated..."
     git submodule update --init --recursive || log_warn "Failed to update git submodules. Some packages may not launch, please check your git credentials."
-    
+
+    # Sync modules (RFC #379): module hooks (hooks.host_setup) cover host-side
+    # setup steps like proprietary SDK downloads, so setup just re-runs sync.
+    if [ -f "$PROJECT_ROOT/modules.repos" ]; then
+        if declare -f "cmd_module_dispatch" > /dev/null; then
+            log_info "Syncing modules from modules.repos..."
+            cmd_module_dispatch sync || log_warn "Module sync failed — run 'airstack module sync' manually."
+        else
+            log_warn "Module command module not loaded — skipping module sync. Run 'airstack module sync' manually."
+        fi
+    fi
+
     log_info "Setup complete!"
 }
 
@@ -1082,10 +1068,6 @@ function apply_launch_intent {
                 (( AIRSTACK_INTENT_ROBOTS > 1 )) \
                     && want="example_multi_px4_pegasus_launch_script.py" \
                     || want="example_one_px4_pegasus_launch_script.py";;
-            example_one_px4_pegasus_natnet_launch_script.py|example_multi_px4_pegasus_natnet_launch_script.py)
-                (( AIRSTACK_INTENT_ROBOTS > 1 )) \
-                    && want="example_multi_px4_pegasus_natnet_launch_script.py" \
-                    || want="example_one_px4_pegasus_natnet_launch_script.py";;
             *)
                 if (( AIRSTACK_INTENT_ROBOTS > 1 )); then
                     log_warn "Custom ISAAC_SIM_SCRIPT_NAME='$script' with --robots $AIRSTACK_INTENT_ROBOTS: make sure it spawns $AIRSTACK_INTENT_ROBOTS drones (reads NUM_ROBOTS)."
@@ -1222,7 +1204,15 @@ function preflight_up {
         log_warn "Docker $docker_major < 29: container-name DNS resolution fails, robots will resolve as 'unknown_robot' on domain 0 (MAVROS will not connect). Upgrade Docker or set ROBOT_NAME_SOURCE=hostname."
     fi
 
-    # 7. Stack vs legacy AUTONOMY_ROLE dispatch. AUTONOMY_ROLE counts as
+    # 7. Deprecation courtesy (remove after one release): LAUNCH_NATNET no
+    # longer does anything — OptiTrack was extracted to the asm_optitrack module.
+    local _pf_natnet
+    _pf_natnet=$(resolve_launch_var LAUNCH_NATNET "${_pf_global[@]}")
+    if [[ -n "$_pf_natnet" ]]; then
+        log_warn "LAUNCH_NATNET is gone — OptiTrack moved to the asm_optitrack module (airstack module add https://github.com/castacks/asm_optitrack --version <tag>); see docs/development/modules.md"
+    fi
+
+    # 8. Stack vs legacy AUTONOMY_ROLE dispatch. AUTONOMY_ROLE counts as
     # "explicitly set" only via env / --env-file / .env — the compose files'
     # own `${AUTONOMY_ROLE:-full}` default is invisible here, by design.
     local _pf_stack_dir _pf_role

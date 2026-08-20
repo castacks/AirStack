@@ -7,7 +7,6 @@ All launch scripts under `simulation/isaac-sim/launch_scripts/` are thin scenari
 | `barebones_pegasus_launch.py` | Smallest possible scenario: an environment, no drones. Copy this as the template for new launch scripts. |
 | `example_one_px4_pegasus_launch_script.py` | One PX4 drone with the standard sensor stack (ZED stereo + Ouster lidar) in the default environment. |
 | `example_multi_px4_pegasus_launch_script.py` | `NUM_ROBOTS` drones spawned in a row (`row_spawn_configs`). Each drone gets its own ROS domain id (`1..N`). Lidar gated on `ENABLE_LIDAR`. |
-| `example_one/multi_px4_pegasus_natnet_launch_script.py` | Same, plus an OptiTrack NatNet mocap server authored in a `post_spawn` hook. |
 | `example_multi_drone_scene_import.py` | Explicit `DRONE_CONFIGS` in an **imported scene** (USD from a Nucleus server) with per-drone GPS homes. Use this as the starting point for any custom scene. |
 
 ## Writing a launch script with `PegasusApp`
@@ -52,9 +51,9 @@ For anything beyond declarations, subclass and override the hooks — each recei
 
 - `pre_scene_prep(stage)` — after the environment loads, before scale/colliders (e.g. `dedupe_physics_scenes`, `reference_root_prims_under_world`)
 - `post_scene_prep(stage)` — after stage prep, before drones spawn (e.g. the overhead map camera)
-- `post_spawn(stage)` — after all drones spawn (e.g. authoring the NatNet mocap interface)
+- `post_spawn(stage)` — after all drones spawn (e.g. authoring extra scene-level prims such as a mocap interface — the [asm_optitrack module](https://github.com/castacks/asm_optitrack)'s launch scripts use this hook)
 
-`example_multi_drone_scene_import.py` (hooks, Nucleus scene, explicit poses) and the `_natnet_` scripts (`post_spawn`) are the reference subclasses.
+`example_multi_drone_scene_import.py` (hooks, Nucleus scene, explicit poses) is the reference subclass.
 
 To run your script: put it in `simulation/isaac-sim/launch_scripts/`, then `ISAAC_SIM_SCRIPT_NAME=my_script.py airstack up --sim isaac` (see [Docker](docker.md)).
 
