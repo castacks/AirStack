@@ -140,7 +140,7 @@ is configured to be tested.
 ```bash
 # On your development PC, do:
 
-docker compose up autotest
+docker compose up robot-test
 ```
 
 This command will spin up a `robot` container, build the ROS2 workspace, source the workspace and run all the configured tests for the provided packages using `colcon test`. Excessive output log from the build process is presently piped away to preserve readability.
@@ -156,10 +156,10 @@ For example, to disable playing the simulation on startup, you can set the `PLAY
 PLAY_SIM_ON_START=false airstack up
 ```
 
-To change the Isaac Sim scene:
+To change the Isaac Sim scene (launch scripts live in `simulation/isaac-sim/launch_scripts/`):
 
 ```bash
-ISAAC_SIM_SCENE=path/to/your_scene.usd airstack up
+ISAAC_SIM_SCRIPT_NAME=your_launch_script.py airstack up
 ```
 
 To disable autolaunching the stack and simply spawn idle docker containers (useful for debugging):

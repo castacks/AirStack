@@ -163,13 +163,15 @@ airstack install        # Install Docker and dependencies
 
 # Container management
 airstack up [service]    # Start services (robot, isaac-sim, gcs)
-airstack stop [service]  # Stop services
+airstack up --sim isaac|airsim --robots N   # Intent flags: derive profiles/URDF/sim script (add --headless, --play/--no-play, --no-autolaunch, --wait, --dry-run)
+airstack ready           # Wait until the stack is flight-ready (containers → sim /clock → nodes → PX4); --json for scripts
+airstack down [service]  # Stop services
 airstack status          # Show container status
-airstack connect [name]  # Connect to running container
-airstack logs [name]     # View container logs
+airstack connect [name]  # Connect to running container (tmux)
+airstack logs [name]     # View container logs (tmux output is mirrored to docker logs)
 
 # Development tasks
-airstack build          # Build ROS workspace
+airstack image-build    # Build Docker images (ROS workspaces build inside containers via `bws`)
 airstack test           # Run tests
 airstack docs           # Build and serve documentation
 ```
