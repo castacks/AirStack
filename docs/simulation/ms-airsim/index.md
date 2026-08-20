@@ -89,7 +89,7 @@ A video is below:
 
 1. AirSim simulates physics and renders stereo RGB + depth for each vehicle
 2. N PX4 SITL instances run in lockstep with AirSim via TCP (port `4560+i`)
-3. MAVROS in the robot container connects to PX4 SITL via MAVLink UDP (offboard `24540+i`, onboard `24580+i`)
+3. MAVROS in the robot container connects to PX4 SITL via MAVLink UDP (offboard `14540 + ROS_DOMAIN_ID`, see `interface.launch.py`; ports `24540+i`/`24580+i` in `settings.json` are AirSim's own PX4 control channel)
 4. Bridge nodes (one per robot) publish stereo RGB + depth + camera_info to ROS 2 topics
 5. `disparity_expansion` converts depth to disparity for DROAN
 
@@ -119,12 +119,12 @@ The default configuration is a forward-facing **stereo pair** (left + right) plu
 | Property | Default | `.env` override |
 |----------|---------|-----------------|
 | Resolution | 480×300 | `AIRSIM_CAM_WIDTH`, `AIRSIM_CAM_HEIGHT` |
-| FOV | 110° | `AIRSIM_CAM_FOV` |
+| FOV | 90° | `AIRSIM_CAM_FOV` |
 | Baseline (2 × Y offset) | 0.12 m | `AIRSIM_CAM_Y` |
 | Forward (X) offset | 0.4 m | `AIRSIM_CAM_X` |
 | Pitch | 0° | `AIRSIM_CAM_PITCH` |
 
-Cameras are defined per vehicle in the generated `settings.json` under `Vehicles.drone<i>.Cameras`.
+Cameras are defined per vehicle in the generated `settings.json` under `Vehicles.robot_<i>.Cameras`.
 
 ### Bridge node parameters
 

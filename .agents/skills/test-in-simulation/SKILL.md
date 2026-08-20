@@ -395,8 +395,9 @@ Don't just test the happy path:
 If module supports multi-robot:
 
 ```bash
-# Launch multi-robot simulation
-NUM_ROBOTS=2 airstack up isaac-sim robot
+# Launch multi-robot simulation (--robots also selects the multi-drone Isaac script;
+# a bare NUM_ROBOTS=2 with the single-drone default script is rejected by preflight)
+airstack up --sim isaac --robots 2
 
 # Verify each robot runs independently
 docker exec airstack-robot-desktop-1 bash -c "ros2 node list | grep robot"

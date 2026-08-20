@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Intent flags on `airstack up` — `--sim isaac|airsim`, `--robots N`, `--headless`, `--play`/`--no-play`, `--no-autolaunch`, `--wait`, `--dry-run` — deriving the coordinated env-var sets (compose profiles, URDF, single/multi Isaac launch script) as exported leaf values, with a resolved-config banner and a per-run `.airstack/runs/<ts>/effective_config.env` dump; contract-tested in `tests/meta/test_launch_intent_contract.py` (unit mark)
+- `airstack ready` (and `airstack up --wait`): staged flight-readiness gates mirroring the system-test budgets — containers → sim `/clock` → per-robot sentinel nodes → PX4 MAVROS-connected + `local_position/odom` streaming (the armable signal) — with per-gate diagnostics and `--json` for scripts
+- Preflight validation in `airstack up` on **resolved** configuration (env > `--env-file` > `.env`): one-simulator guard no longer bypassed by `--env-file`; `NUM_ROBOTS>1` with the single-drone Isaac script is a named hard error; missing images are listed with an `image-pull` hint before compose starts an implicit build; missing `omni_pass.env` / empty Pegasus submodule / Docker < 29 surfaced on the host (`AIRSTACK_SKIP_PREFLIGHT=1` downgrades errors to warnings)
+- tmux pane output is mirrored to container stdout via shared `.tmux.conf` hooks, so `docker logs` / `airstack logs` now show colcon builds, `ros2 launch` output, sim loading, and crashes
+
 - Automatic `unit-tests.yml` PR gate on `ubuntu-latest`, plus `run_meta.json` outcome metadata so reports distinguish completed simulation campaigns from collection errors, empty selections, timeouts, and cancellations
 - `overrides/isaac-optitrack-simulation.env` — brings up Isaac Sim with the NatNet emulator and PX4 flying on mocap EKF2 external vision (GPS/baro/range aiding off), i.e. the configuration `tests/system/test_optitrack_e2e.py` runs, reproducible by hand
 - `overrides/l4t-optitrack-realrobot.env` — deployment override for a real Jetson robot flying on OptiTrack mocap (PX4 EKF2 external vision instead of GPS): the NatNet server/body settings, plus the multi-NIC and FCU-parameter notes that path needs
@@ -24,6 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Isaac wrapper for the NatNet emulator (USD scene → server) + natnet Pegasus launch scripts, and a dedicated OptiTrack sim e2e test (`optitrack` mark, `tests/system/test_optitrack_e2e.py`) that flies a **Circle trajectory on mocap EKF2 fusion** — GPS, baro and range aiding are disabled for the run, so the OptiTrack stream is the vehicle's only position source and cross-track error scores the whole chain
 
 ### Changed
+
+- Isaac launch scripts deduplicated onto a shared `pegasus_app.PegasusApp` base (`simulation/isaac-sim/launch_scripts/pegasus_app.py`): the six scripts become scenario declarations (~40–170 lines each, net −438 lines) with hooks for NatNet/scene-import extras; behavior verified by full system-test parity (liveliness, sensors, takeoff/hover/land on Isaac). `ISAAC_SIM_HEADLESS` and `ISAAC_SIM_LIVESTREAM` now work uniformly in **every** launch script (previously each was honored by only half of them)
+- Launch-workflow docs corrected against actual behavior: `ISAAC_SIM_SCENE` (nonexistent) replaced by `ISAAC_SIM_SCRIPT_NAME`/`ISAAC_SIM_GUI`, getting-started reflects the paused-by-default sim and Foxglove UI, isaac docker.md defaults table matches `.env`, ms-airsim MAVROS ports/FOV/vehicle naming fixed, AGENTS.md uses the real `down`/`image-build` command names
 
 - Unit-test documentation now matches the co-located layout: the `add-unit-tests` and `run-system-tests` skills and the testing docs record which runner each language uses (C++ gtests via `colcon test` under the `build_packages` mark; Python via the root harness, plus `colcon test` for `ament_python` packages), and stop instructing authors to write `@pytest.mark.unit` by hand — `conftest.py` applies it by file location
 - Ephemeral CI GPU runners spawn via NVIDIA OSMO (not OpenStack); `system-tests.yml` / `docker-build.yml` still use `airstack-ephemeral`
@@ -41,6 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `barebones_pegasus_launch.py` (the documented template script) crashed with `NameError: os` on construction
+- `isaac-sim-livestream` compose service silently produced a black stream when `ISAAC_SIM_SCRIPT_NAME` was a multi-drone script (livestream setup existed only in the single-drone scripts)
+- `NATNET_BODY_NAME`/`NATNET_TARGET_NAME` env overrides documented by the single-drone NatNet script now actually work
+- `airstack up` guards (one-simulator, URDF pairing) validated `.env` only and were bypassed by `--env-file overrides/...`; they now check the resolved configuration
 - `pytest tests/` now collects the co-located unit tests before mark filtering. The old guard skipped injection whenever any path was on the command line, and `tests/` is a path — CI collected 97 of 252 items and the Python unit tests ran nowhere. Narrowing (`pytest tests/system/test_x.py`) still skips injection; repository-root and empty-path collection are rejected
 - Empty CI pytest arguments no longer become `pytest tests/ ""` and recurse through the repository; collection/import, setup/teardown, partial, and interrupted artifacts are reported as non-comparable instead of false 0% simulation-policy results, and metric regression runs only for an identical simulation campaign fingerprint
 - Isaac Sim image: PX4 `ubuntu.sh` no longer fails dpkg configure on the NVIDIA base (`ca-certificates` / `software-properties-common`); use `--no-nuttx --no-sim-tools` like ms-airsim

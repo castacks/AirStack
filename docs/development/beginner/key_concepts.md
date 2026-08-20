@@ -152,19 +152,23 @@ AirStack uses environment variables for configuration, following Docker Compose 
 VERSION=latest
 AUTOLAUNCH=true
 NUM_ROBOTS=1
-ISAAC_SIM_SCENE=simulation/isaac-sim/scenes/two_drone_RetroNeighborhood.usd
+ISAAC_SIM_SCRIPT_NAME=example_one_px4_pegasus_launch_script.py
 ```
 
 **Runtime overrides**:
 ```bash
 # Don't auto-launch (useful for development)
-AUTOLAUNCH=false airstack up
+airstack up --no-autolaunch
 
-# Different scene
-ISAAC_SIM_SCENE=my_scene.usd airstack up
+# Different scene (launch scripts live in simulation/isaac-sim/launch_scripts/)
+ISAAC_SIM_SCRIPT_NAME=my_scene_script.py airstack up
+
+# Pick the simulator and robot count without editing .env
+airstack up --sim airsim
+airstack up --sim isaac --robots 3
 
 # Custom env file with overrides
-airstack --env-file overrides/custom.env up
+airstack up --env-file overrides/custom.env
 ```
 
 You can layer multiple env files to compose configurations. **NOTE**: Unlike docker compose, the airstack cli always uses the root `.env` file as the base, and then applies any additional env files on top of it. This ensures that essential defaults are always present, while still allowing for flexible overrides.

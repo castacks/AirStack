@@ -1,19 +1,66 @@
 # Spawning Drones
 
-The reference launch scripts under `simulation/isaac-sim/launch_scripts/` cover the progression from a single drone in an empty world up to multiple drones in a custom imported scene with per-drone GPS origins:
+All launch scripts under `simulation/isaac-sim/launch_scripts/` are thin scenario declarations on top of one shared base class, **`pegasus_app.PegasusApp`**, which owns the boilerplate every scene needs (SimulationApp creation incl. headless/livestream env handling, Kit extension enabling, Pegasus world + environment loading, stage prep, drone/sensor spawning, the run loop). The reference scripts cover the progression from an empty world up to multiple drones in a custom imported scene with per-drone GPS origins:
 
 | Script | Purpose |
 |---|---|
-| `barebones_pegasus_launch.py` | Minimal Pegasus boilerplate. Single drone, default environment, no scene import. Use as a template for new launch scripts. |
-| `example_one_px4_pegasus_launch_script.py` | One PX4 drone with the standard sensor stack (ZED stereo, optional Ouster lidar) in the default environment. |
-| `example_multi_px4_pegasus_launch_script.py` | `NUM_ROBOTS` drones spawned in a row in the default environment. Each drone gets its own ROS domain id (`1..N`). |
-| `example_multi_drone_scene_import.py` | `NUM_ROBOTS` drones in an **imported scene** (USD from a Nucleus server) with per-drone GPS homes set via `gps_utils.set_gps_origins`. Use this as the starting point for any custom scene. |
+| `barebones_pegasus_launch.py` | Smallest possible scenario: an environment, no drones. Copy this as the template for new launch scripts. |
+| `example_one_px4_pegasus_launch_script.py` | One PX4 drone with the standard sensor stack (ZED stereo + Ouster lidar) in the default environment. |
+| `example_multi_px4_pegasus_launch_script.py` | `NUM_ROBOTS` drones spawned in a row (`row_spawn_configs`). Each drone gets its own ROS domain id (`1..N`). Lidar gated on `ENABLE_LIDAR`. |
+| `example_one/multi_px4_pegasus_natnet_launch_script.py` | Same, plus an OptiTrack NatNet mocap server authored in a `post_spawn` hook. |
+| `example_multi_drone_scene_import.py` | Explicit `DRONE_CONFIGS` in an **imported scene** (USD from a Nucleus server) with per-drone GPS homes. Use this as the starting point for any custom scene. |
 
-The first three are vanilla Pegasus patterns; this page focuses on the multi-drone + custom-scene case where you also need correct GPS homes.
+## Writing a launch script with `PegasusApp`
 
-## The DRONE_CONFIGS pattern
+A launch script is: create the SimulationApp, then declare the scenario. The one hard rule is **import order** — Kit requires the SimulationApp to exist before any `omni.*`/`pegasus.*` import, so every script starts:
 
-`example_multi_drone_scene_import.py` declares all per-drone settings in a single list:
+```python
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from pegasus_app import create_simulation_app
+
+simulation_app = create_simulation_app()   # FIRST — honors ISAAC_SIM_HEADLESS / ISAAC_SIM_LIVESTREAM
+
+from pegasus.simulator.params import SIMULATION_ENVIRONMENTS  # now safe
+from pegasus_app import PegasusApp
+
+def main():
+    PegasusApp(
+        env_url=SIMULATION_ENVIRONMENTS["Default Environment"],  # or an omniverse:// USD URL
+        drone_configs=[{"domain_id": 1, "x_m": 0.0, "y_m": 0.0, "z_m": 0.07}],
+        enable_lidar=True,
+    ).run()
+
+if __name__ == "__main__":
+    main()
+```
+
+Key constructor kwargs (see the docstrings in `pegasus_app.py` for the full list):
+
+| Kwarg | Purpose |
+|---|---|
+| `env_url` | Environment to load — a `SIMULATION_ENVIRONMENTS` key's URL or any USD/Nucleus URL. |
+| `drone_configs` | List of per-drone dicts (below). `row_spawn_configs(n)` builds the standard row layout. |
+| `stage_scale` | Uniform scale applied to `/World/stage` (`0.01` for cm-authored assets). |
+| `enable_camera` / `enable_lidar` + offsets | Standard ZED stereo + RTX lidar sensor stack per drone. |
+| `dome_light` | `True` (defaults), `False`, or a kwargs dict for `add_dome_light`. |
+| `world_gps_origin` | If set, calls `gps_utils.set_gps_origins(drone_configs, world_origin=…)` before PX4 boots. |
+| `scale_spawn_positions` | Convert spawn meters into stage units (imported non-metric scenes). |
+| `save_scene_to` | Export the prepared scene as a self-contained USD package. |
+
+For anything beyond declarations, subclass and override the hooks — each receives the loaded stage:
+
+- `pre_scene_prep(stage)` — after the environment loads, before scale/colliders (e.g. `dedupe_physics_scenes`, `reference_root_prims_under_world`)
+- `post_scene_prep(stage)` — after stage prep, before drones spawn (e.g. the overhead map camera)
+- `post_spawn(stage)` — after all drones spawn (e.g. authoring the NatNet mocap interface)
+
+`example_multi_drone_scene_import.py` (hooks, Nucleus scene, explicit poses) and the `_natnet_` scripts (`post_spawn`) are the reference subclasses.
+
+To run your script: put it in `simulation/isaac-sim/launch_scripts/`, then `ISAAC_SIM_SCRIPT_NAME=my_script.py airstack up --sim isaac` (see [Docker](docker.md)).
+
+## The drone-config dict
+
+Each entry in `drone_configs` describes one drone:
 
 ```python
 DRONE_CONFIGS = [
@@ -24,15 +71,17 @@ DRONE_CONFIGS = [
 
 | Field | Purpose |
 |---|---|
-| `domain_id` | ROS domain id and PX4 vehicle id. The robot container with `ROS_DOMAIN_ID=1` will see this drone. |
+| `domain_id` | ROS domain id and (by default) PX4 vehicle id — MAVLink port is `14540 + vehicle_id`. The robot container with `ROS_DOMAIN_ID=1` will see this drone. |
 | `x_m`, `y_m`, `z_m` | World-frame spawn position in meters. Convention: `+X = East`, `+Y = North`, `+Z = Up`. |
-| `orient` | Spawn orientation quaternion `[x, y, z, w]`. |
+| `orient` | Spawn orientation quaternion `[x, y, z, w]` (default identity). |
+| `prim`, `node_name` | Override the drone's root prim / OmniGraph node name (single-drone scenes use the historical `/World/base_link` / `PX4Multirotor`). |
+| `lidar`, `lidar_min_range`, `camera_offset` | Per-drone sensor overrides of the app-level settings. |
 
-To add another drone, append an entry with a fresh `domain_id` and a non-overlapping spawn position. Make sure the corresponding robot container is launched with the same `ROS_DOMAIN_ID` (`NUM_ROBOTS=N airstack up robot-desktop`).
+To add another drone, append an entry with a fresh `domain_id` and a non-overlapping spawn position, and launch the matching number of robot containers (`airstack up --sim isaac --robots N` keeps `NUM_ROBOTS` and the launch script consistent).
 
 ## Per-drone GPS home — `gps_utils`
 
-PX4 needs a GPS home per vehicle. `simulation/isaac-sim/launch_scripts/gps_utils.py` derives one from each drone's world-frame spawn position so all drones share a consistent geographic anchor and end up at distinct GPS coordinates spaced according to their spawn offsets.
+PX4 needs a GPS home per vehicle. `simulation/isaac-sim/launch_scripts/gps_utils.py` derives one from each drone's world-frame spawn position so all drones share a consistent geographic anchor and end up at distinct GPS coordinates spaced according to their spawn offsets. Pass `world_gps_origin=` to `PegasusApp` (as `example_multi_drone_scene_import.py` does) and the base class makes this call for you before PX4 boots; the underlying helper is:
 
 ```python
 from gps_utils import set_gps_origins, DEFAULT_WORLD_ORIGIN

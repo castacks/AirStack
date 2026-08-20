@@ -72,12 +72,35 @@ Start a bash shell in a robot container, e.g. for robot_1:
 airstack connect robot  # or equivalently: docker exec -it airstack-robot-desktop-1 bash
 ```
 
-To launch more than one robot, prepend with the `NUM_ROBOTS=[NUM]` environment variable, e.g. to launch 2 robots (along with the ground control station and Isaac Sim):
+To launch more than one robot, use `--robots` — it sets `NUM_ROBOTS` **and** keeps the Isaac launch script consistent (a plain `NUM_ROBOTS=2 airstack up` with the single-drone default script is rejected by preflight, since only one drone would exist in sim):
 
 ```bash
-NUM_ROBOTS=2 airstack up
+airstack up --sim isaac --robots 2
 airstack connect robot-1  # to connect to robot 1
 airstack connect robot-2  # to connect to robot 2
+```
+
+### Launch flags and readiness
+
+`airstack up` accepts intent flags that derive the coordinated env-var sets for you (they override `.env` for that run without editing it):
+
+```bash
+airstack up --sim isaac|airsim   # pick the simulator: compose profile + matching URDF (+ Isaac script)
+airstack up --robots N           # NUM_ROBOTS + single/multi Isaac launch script
+airstack up --headless           # no sim window (ISAAC_SIM_HEADLESS / MS_AIRSIM_HEADLESS)
+airstack up --play / --no-play   # PLAY_SIM_ON_START override
+airstack up --no-autolaunch      # idle containers, no tmux launch (development)
+airstack up --wait               # block until the stack is flight-ready
+airstack up --dry-run            # print + validate the resolved config; start nothing
+```
+
+Every `up` prints the resolved launch config and saves it to `.airstack/runs/<timestamp>/effective_config.env`. Preflight validates the resolved values (one simulator profile, URDF pairing, robot-count/script consistency, missing images by name) before compose runs; `AIRSTACK_SKIP_PREFLIGHT=1` downgrades errors to warnings.
+
+`airstack up` returns as soon as containers start — workspaces may still be building and the sim loading. To wait for actual flight-readiness (containers → sim `/clock` → per-robot autonomy nodes → PX4 connected + EKF armable):
+
+```bash
+airstack ready          # staged progress, per-gate diagnostics
+airstack ready --json   # machine-readable (last line), exit 0 when ready
 ```
 
 The previous `docker compose up` launches robot_bringup in a tmux session. To attach to the session within the docker container, e.g. to inspect output, run `tmux a`.
@@ -140,7 +163,7 @@ is configured to be tested.
 ```bash
 # On your development PC, do:
 
-docker compose up autotest
+docker compose up robot-test
 ```
 
 This command will spin up a `robot` container, build the ROS2 workspace, source the workspace and run all the configured tests for the provided packages using `colcon test`. Excessive output log from the build process is presently piped away to preserve readability.
@@ -156,10 +179,10 @@ For example, to disable playing the simulation on startup, you can set the `PLAY
 PLAY_SIM_ON_START=false airstack up
 ```
 
-To change the Isaac Sim scene:
+To change the Isaac Sim scene (launch scripts live in `simulation/isaac-sim/launch_scripts/`):
 
 ```bash
-ISAAC_SIM_SCENE=path/to/your_scene.usd airstack up
+ISAAC_SIM_SCRIPT_NAME=your_launch_script.py airstack up
 ```
 
 To disable autolaunching the stack and simply spawn idle docker containers (useful for debugging):
