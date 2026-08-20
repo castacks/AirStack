@@ -611,7 +611,8 @@ class Recorder:
 
     scope "both": the GCS recorder and the per-robot recorders together —
     one mcap with the fleet view from domain 0 plus one raw-data mcap per
-    robot domain.
+    robot domain. `record.robot_topics` overrides `record.topics` for the
+    per-robot recorders only.
 
     Each recorder is started detached with its PID dropped to a file, and
     stopped with SIGTERM so rosbag2 finalizes the mcap cleanly. (Not SIGINT:
@@ -640,10 +641,19 @@ class Recorder:
             if exclude:
                 sel += f" --exclude-regex {shlex.quote(exclude)}"
             return sel
-        default = (DEFAULT_GCS_RECORD_TOPICS if scope == "gcs"
-                   else DEFAULT_ROBOT_RECORD_TOPICS)
+        # record.robot_topics: a separate list for the per-robot recorders, so a
+        # mission can keep the fleet view on the GCS domain while recording
+        # unbridged high-rate topics (the rayfronts voxel clouds) on each
+        # robot's own domain. Without it both recorders share record.topics.
+        if scope == "robot" and self.cfg.get("robot_topics") is not None:
+            configured = self.cfg["robot_topics"]
+        else:
+            configured = self.cfg.get(
+                "topics",
+                DEFAULT_GCS_RECORD_TOPICS if scope == "gcs"
+                else DEFAULT_ROBOT_RECORD_TOPICS)
         topics = []
-        for t in self.cfg.get("topics", default):
+        for t in configured:
             if "{robot}" in t or "{n}" in t:
                 topics.extend(expand(t, n) for n in robots)
             else:

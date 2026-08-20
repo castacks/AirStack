@@ -24,6 +24,17 @@ int32 bundle_len -1
 # Optional cap on accumulated instances. 0 = unlimited; task completes only on
 # coverage criterion or operator cancel.
 int32 max_instances 0
+# Simulated-time budget in seconds. 0 = unlimited (the task ends on the coverage
+# criterion or an operator/mission cancel, as before).
+#
+# The mission runner's timeout_s is WALL clock, and Isaac Sim's real-time factor
+# falls as drones are added (~0.46 at 2 robots, ~0.34 at 3, ~0.27 at 4), so the
+# same wall budget buys progressively less simulated search and fleet sizes are
+# not comparable. Setting this makes the budget the same in the simulated world
+# for every fleet. Sim time is read from the odometry header stamps, which the
+# sim publishes; keep timeout_s comfortably above the expected wall equivalent
+# so it stays a safety net rather than the binding limit.
+float32 max_sim_seconds 0.0
 # Debug/manual-fly mode: bring up rayfronts + raven and publish all their
 # visualization (grouped rays, frontiers, bounding boxes, discoveries) but do
 # NOT command the drone — the operator flies it manually (e.g. via the

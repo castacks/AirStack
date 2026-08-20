@@ -285,10 +285,19 @@ class SemanticSearchTaskNode(Node):
             cancel_callback=lambda _: CancelResponse.ACCEPT,
             callback_group=self._cbg)
 
+        # Latest simulated time seen on odometry; None until the first
+        # message. Drives the max_sim_seconds budget.
+        self._sim_now_s = None
+
         self._cleanup_existing()
         self.get_logger().info('semantic_search_task ready')
 
     def _odom_cb(self, msg: Odometry):
+        # Odometry is published on the sim clock, so its header stamp is the
+        # cheapest sim-time source available here — no use_sim_time on this node,
+        # which would also change every timestamp it publishes.
+        self._sim_now_s = (float(msg.header.stamp.sec)
+                           + float(msg.header.stamp.nanosec) * 1e-9)
         p = msg.pose.pose.position
         self._cur_pos = [p.x, p.y, p.z]
         q = msg.pose.pose.orientation
@@ -369,12 +378,34 @@ class SemanticSearchTaskNode(Node):
             lvlm_proc, lvlm_q = self._spawn(lvlm_cmd, log_name='lvlm', env=env)
 
             last_status = 'Starting LVLM baseline...'
+            # Same simulated-time budget the raven path uses, so the baseline is
+            # held to an identical clock (see max_sim_seconds in the action).
+            max_sim_s = float(getattr(goal, 'max_sim_seconds', 0.0) or 0.0)
+            sim_t0 = self._sim_now_s
+            sim_budget_hit = False
             while rclpy.ok():
-                if goal_handle.is_cancel_requested:
-                    goal_handle.canceled()
+                if max_sim_s > 0.0 and self._sim_now_s is not None:
+                    if sim_t0 is None:
+                        sim_t0 = self._sim_now_s
+                    elif self._sim_now_s - sim_t0 >= max_sim_s:
+                        self.get_logger().info(
+                            f'sim-time budget reached: '
+                            f'{self._sim_now_s - sim_t0:.1f}s >= {max_sim_s:.1f}s '
+                            f'— ending LVLM search')
+                        sim_budget_hit = True
+                if sim_budget_hit or goal_handle.is_cancel_requested:
+                    metrics_json = self._finalize_metrics(
+                        'sim_time_budget' if sim_budget_hit else 'cancelled')
                     result = SemanticSearchTask.Result()
-                    result.success = False
-                    result.message = 'Cancelled (LVLM baseline)'
+                    if sim_budget_hit:
+                        goal_handle.succeed()
+                        result.success = True
+                        verb = 'Sim-time budget reached'
+                    else:
+                        goal_handle.canceled()
+                        result.success = False
+                        verb = 'Cancelled'
+                    result.message = f'{verb} (LVLM baseline) | metrics={metrics_json}'
                     return result
                 for raw in _drain(lvlm_q):
                     msg = _filter_lvlm(raw)
@@ -1130,8 +1161,25 @@ class SemanticSearchTaskNode(Node):
                 PointCloud2, f'{self._rf_prefix}/voxels_sim/all',
                 _vox_all_cb, 10, callback_group=self._cbg)
 
+            # Simulated-time budget. 0 disables it and the task ends only on the
+            # coverage criterion or a cancel, as before. t0 is the first sim stamp
+            # seen after the search actually starts, so model load and takeoff
+            # settling don't eat into the budget.
+            max_sim_s = float(getattr(goal, 'max_sim_seconds', 0.0) or 0.0)
+            sim_t0 = self._sim_now_s
+            sim_budget_hit = False
+
             while rclpy.ok():
-                if goal_handle.is_cancel_requested:
+                if max_sim_s > 0.0 and self._sim_now_s is not None:
+                    if sim_t0 is None:
+                        sim_t0 = self._sim_now_s
+                    elif self._sim_now_s - sim_t0 >= max_sim_s:
+                        self.get_logger().info(
+                            f'sim-time budget reached: '
+                            f'{self._sim_now_s - sim_t0:.1f}s >= {max_sim_s:.1f}s '
+                            f'— ending search')
+                        sim_budget_hit = True
+                if sim_budget_hit or goal_handle.is_cancel_requested:
                     # Return whatever we've accumulated so the operator still
                     # sees partial discoveries even on cancel.
                     from geometry_msgs.msg import Pose, PoseArray
@@ -1152,17 +1200,26 @@ class SemanticSearchTaskNode(Node):
                     # Cancel = the 15-min limit (or a manual stop). Finalize
                     # metrics before returning so they ride out in the result.
                     # Debug runs aren't real searches — skip the GT scoring.
-                    metrics_json = '' if debug else self._finalize_metrics(
-                        'cancelled')
-                    goal_handle.canceled()
+                    reason = 'sim_time_budget' if sim_budget_hit else 'cancelled'
+                    metrics_json = '' if debug else self._finalize_metrics(reason)
                     result = SemanticSearchTask.Result()
-                    result.success = False
+                    # A sim-budget stop is the run finishing its allotted time,
+                    # not an abort: succeed so the step reads as a completed
+                    # search. Cancel keeps its previous failure semantics.
+                    if sim_budget_hit:
+                        goal_handle.succeed()
+                        result.success = True
+                        verb = 'Sim-time budget reached'
+                    else:
+                        goal_handle.canceled()
+                        result.success = False
+                        verb = 'Cancelled'
                     result.found_poses = cp
                     result.found_labels = cl
                     result.confidence = max(best_conf, cbc)
                     result.objects_found = len(discoveries_by_id)
                     result.message = (
-                        f'Cancelled — {len(discoveries_by_id)} instance(s) '
+                        f'{verb} — {len(discoveries_by_id)} instance(s) '
                         f'found | metrics={metrics_json}')
                     return result
 

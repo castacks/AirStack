@@ -1,46 +1,44 @@
-# four_drone_sweep_b — 4-robot benchmark, vlfm + lvlm.
+# four_drone_rerun_b — 4-robot full comms: the runs that produced no data,
+# plus a requested re-fly of RAVEN-multi on DowntownWest and FireAcademy.
 #
-# The fleet-size study's fourth point. Same 8 scenes x 3 starts, same queries,
-# thresholds, search areas and full-comms radio as the 2- and 3-robot sweeps;
-# the only change is a fourth drone.
+# 18 runs, vlfm + lvlm. Same scenes, spawns, queries, thresholds and
+# search areas as four_drone_sweep_b; this file only narrows the list.
 #
-#   8 scenes x 3 starts = 24 environments x 2 methods = 48 runs
+# WHY THE FAILED ONES FAILED
 #
-# SPAWNS ARE NESTED. Robots 1-3 keep the exact positions and orientations the
-# 2- and 3-robot sweeps flew, so fleet size stays the only difference across all
-# three fleet sizes. Only the 4th entry is new: it sits at the point of the
-# scene's spawn rectangle furthest from the other three (>= 3 m from each, inside
-# the search polygon), heading continuing the layout's fan.
+# 31 of the 35 were not a mission fault. In both halves of the sweep every
+# iteration past ~33 died with `robots [1,2,3,4] not ready within 900s
+# (connected so far: [])` — no robot connected at all. The dds_router leaked
+# across iterations (RSS ~130 MB at iteration 1, ~870 MB by 30, dead from 34
+# on) and never recovered, so whatever was scheduled late failed regardless of
+# scene. The bridged rayfronts voxel clouds were the traffic doing it; they are
+# no longer routed (onboard_all/config/dds_router.yaml) and are recorded per
+# robot instead. This file is also short enough to finish well inside where the
+# leak used to bite.
 #
-# Two environments are placed differently. constructionsite_s3 and shipyard_s2
-# have spawn rectangles 119 m and 206 m from the drones that actually fly them —
-# those two were relocated on 2026-08-07 after failing bring-up 28 consecutive
-# times, and the rectangles were not updated. Putting the 4th drone in the
-# rectangle would strand it a scene away from its fleet, so there it extends the
-# line the current three form, at their own spacing.
+# The other 4 were a real spawn fault: downtownwest_s3's 4th drone sat inside a
+# parked car's footprint and timed out on takeoff for all four methods. It has
+# been moved to (-123.70, 1.10), 8.55 m clear of the nearest annotated object.
+#
+# EXTRACTING THE RE-FLIES
+#
+# The RAVEN-multi DowntownWest/FireAcademy entries replace runs that already
+# have a cached JSON, and extract_mission.sh skips a run whose .json exists.
+# Extract these into a fresh directory, or pass FORCE=1 to overwrite.
 #
 # PRECONDITIONS
 #
-# 1. Full comms. The radio range is a module constant, not a mission key:
-#      coordination_bringup/comms_model.py  COMMS_RANGE_M = 5000
-#    It currently reads 30.0 from the degraded-comms sweep.
+# 1. Full comms — coordination_bringup/comms_model.py COMMS_RANGE_M = 5000
+#    (it reads 30.0 after a degraded-comms sweep).
+# 2. gpu: 4 is correct. robot_4 shares GPU 0 with Isaac Sim via
+#    _pick_rayfronts_gpu's ROS_DOMAIN_ID % n_gpus; the last sweep ran that way
+#    with no CUDA OOM (582 rayfronts batches on robot_4).
 #
-# 2. GPUs. The standard workflow's `gpu: 4` is correct for this mission — do NOT
-#    raise it. semantic_search_task._pick_rayfronts_gpu pins robot N to
-#    ROS_DOMAIN_ID % n_gpus, so at 4 GPUs the mapping is robot_1->1, robot_2->2,
-#    robot_3->3, robot_4->0. Robot 4 shares GPU 0 with Isaac Sim, which keeps one
-#    rayfronts per card instead of doubling two onto GPU 1.
-#
-#    That pairing is what failed at gpu: 3, where the robot sharing the sim's
-#    card lost its rayfronts to a CUDA OOM and hovered for the whole mission.
-#    Check rayfronts_robot_4.log on the first iteration: if it OOMs, the fleet
-#    needs a fifth GPU rather than a different pairing.
-#
-#   airstack osmo:mission osmo/missions/four_drone_sweep_b.yaml --pool <gpu-pool>
+#   airstack osmo:mission osmo/missions/four_drone_rerun_b.yaml --pool <gpu-pool>
 
-name: four_drone_sweep_b
+name: four_drone_rerun_b
 
-nas_dest: /volume4/dsta/raven-4robot/
+nas_dest: /volume4/dsta/raven-4robot-rerun/
 
 stack:
   services: [isaac-sim, robot-desktop, gcs]
@@ -239,193 +237,54 @@ scene_templates:
 # ones. SPAWN_CONFIGS are the first two entries of the matching 3-drone set in
 # multi_raven_mission.yaml, verbatim.
 environments:
-  # spawn rect s1: [[-3.0, -43.0], [9.0, -28.0]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor), 9.30 m clear of the nearest
-  - <<: [*downtownwest, *vlfm]
-    name: downtownwest_s1_vlfm
-    SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0.0, 0.0, 0.698, 0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0.0, 0.0, 0.736, 0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0.0, 0.0, 0.784, 0.621]}, {"x_m": 8.5, "y_m": -42.5, "orient": [0.0, 0.0, 0.8277, 0.5612]}]'
-  - <<: [*downtownwest, *lvlm]
-    name: downtownwest_s1_lvlm
-    SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0.0, 0.0, 0.698, 0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0.0, 0.0, 0.736, 0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0.0, 0.0, 0.784, 0.621]}, {"x_m": 8.5, "y_m": -42.5, "orient": [0.0, 0.0, 0.8277, 0.5612]}]'
-  # spawn rect s2: [[-10.0, 56.0], [-39.0, 67.0]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor), 9.71 m clear of the nearest
-  - <<: [*downtownwest, *vlfm]
-    name: downtownwest_s2_vlfm
-    SPAWN_CONFIGS: '[{"x_m": -33.0, "y_m": 59.0, "orient": [0.0, 0.0, -0.8583, 0.5132]}, {"x_m": -25.0, "y_m": 62.0, "orient": [0.0, 0.0, -0.561, 0.8278]}, {"x_m": -16.0, "y_m": 64.5, "orient": [0.0, 0.0, -0.1586, 0.9873]}, {"x_m": -10.5, "y_m": 56.5, "orient": [0.0, 0.0, 0.2735, 0.9619]}]'
-  - <<: [*downtownwest, *lvlm]
-    name: downtownwest_s2_lvlm
-    SPAWN_CONFIGS: '[{"x_m": -33.0, "y_m": 59.0, "orient": [0.0, 0.0, -0.8583, 0.5132]}, {"x_m": -25.0, "y_m": 62.0, "orient": [0.0, 0.0, -0.561, 0.8278]}, {"x_m": -16.0, "y_m": 64.5, "orient": [0.0, 0.0, -0.1586, 0.9873]}, {"x_m": -10.5, "y_m": 56.5, "orient": [0.0, 0.0, 0.2735, 0.9619]}]'
-  # spawn rect s3: [[-107.0, -4.0], [-124.8, 8.5]]  (as recorded)
-  # 4th drone: 8.55 m clear of the nearest annotated object, 4.03 m of the
-  # nearest peer. The maximin pick was inside a car and never left the ground.
   - <<: [*downtownwest, *vlfm]
     name: downtownwest_s3_vlfm
     SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}, {"x_m": -115.5, "y_m": 3.0, "orient": [0.0, 0.0, -0.013, 0.9999]}, {"x_m": -111.0, "y_m": 6.5, "orient": [0.0, 0.0, 0.4108, 0.9117]}, {"x_m": -123.7, "y_m": 1.1, "orient": [0.0, 0.0, -0.7742, 0.6329]}]'
   - <<: [*downtownwest, *lvlm]
     name: downtownwest_s3_lvlm
     SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}, {"x_m": -115.5, "y_m": 3.0, "orient": [0.0, 0.0, -0.013, 0.9999]}, {"x_m": -111.0, "y_m": 6.5, "orient": [0.0, 0.0, 0.4108, 0.9117]}, {"x_m": -123.7, "y_m": 1.1, "orient": [0.0, 0.0, -0.7742, 0.6329]}]'
-  # spawn rect s1: [[-20.0, -63.0], [-11.0, -45.0]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor), 7.35 m clear of the nearest
-  - <<: [*moderncitydowntown, *vlfm]
-    name: moderncitydowntown_s1_vlfm
-    SPAWN_CONFIGS: '[{"x_m": -17.273, "y_m": -57.947, "orient": [0.0, 0.0, -0.9896, 0.1438]}, {"x_m": -13.396, "y_m": -53.247, "orient": [0.0, 0.0, 0.4571, 0.8894]}, {"x_m": -17.857, "y_m": -48.541, "orient": [0.0, 0.0, -0.632, 0.775]}, {"x_m": -11.5, "y_m": -62.5, "orient": [0.0, 0.0, 0.9632, 0.2689]}]'
-  - <<: [*moderncitydowntown, *lvlm]
-    name: moderncitydowntown_s1_lvlm
-    SPAWN_CONFIGS: '[{"x_m": -17.273, "y_m": -57.947, "orient": [0.0, 0.0, -0.9896, 0.1438]}, {"x_m": -13.396, "y_m": -53.247, "orient": [0.0, 0.0, 0.4571, 0.8894]}, {"x_m": -17.857, "y_m": -48.541, "orient": [0.0, 0.0, -0.632, 0.775]}, {"x_m": -11.5, "y_m": -62.5, "orient": [0.0, 0.0, 0.9632, 0.2689]}]'
-  # spawn rect s2: [[34.4, -3.0], [38.0, -14.8]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor, flush to edge), 3.04 m clear of the nearest
-  - <<: [*moderncitydowntown, *vlfm]
-    name: moderncitydowntown_s2_vlfm
-    SPAWN_CONFIGS: '[{"x_m": 36.2, "y_m": -5.5, "orient": [0.0, 0.0, 0.8872, 0.4613]}, {"x_m": 36.2, "y_m": -9.0, "orient": [0.0, 0.0, 0.9991, 0.0432]}, {"x_m": 36.2, "y_m": -12.5, "orient": [0.0, 0.0, 0.9237, -0.3831]}, {"x_m": 34.4, "y_m": -3.05, "orient": [0.0, 0.0, -0.6752, 0.7376]}]'
-  - <<: [*moderncitydowntown, *lvlm]
-    name: moderncitydowntown_s2_lvlm
-    SPAWN_CONFIGS: '[{"x_m": 36.2, "y_m": -5.5, "orient": [0.0, 0.0, 0.8872, 0.4613]}, {"x_m": 36.2, "y_m": -9.0, "orient": [0.0, 0.0, 0.9991, 0.0432]}, {"x_m": 36.2, "y_m": -12.5, "orient": [0.0, 0.0, 0.9237, -0.3831]}, {"x_m": 34.4, "y_m": -3.05, "orient": [0.0, 0.0, -0.6752, 0.7376]}]'
-  # spawn rect s3: [[-71.9, -11.7], [-64.3, -7.9]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor, flush to edge), 3.13 m clear of the nearest
-  - <<: [*moderncitydowntown, *vlfm]
-    name: moderncitydowntown_s3_vlfm
-    SPAWN_CONFIGS: '[{"x_m": -70.5, "y_m": -8.9, "orient": [0.0, 0.0, -0.3872, 0.922]}, {"x_m": -68.0, "y_m": -10.7, "orient": [0.0, 0.0, 0.0387, 0.9993]}, {"x_m": -65.5, "y_m": -8.9, "orient": [0.0, 0.0, 0.4574, 0.8893]}, {"x_m": -71.9, "y_m": -11.7, "orient": [0.0, 0.0, 0.7904, 0.6126]}]'
-  - <<: [*moderncitydowntown, *lvlm]
-    name: moderncitydowntown_s3_lvlm
-    SPAWN_CONFIGS: '[{"x_m": -70.5, "y_m": -8.9, "orient": [0.0, 0.0, -0.3872, 0.922]}, {"x_m": -68.0, "y_m": -10.7, "orient": [0.0, 0.0, 0.0387, 0.9993]}, {"x_m": -65.5, "y_m": -8.9, "orient": [0.0, 0.0, 0.4574, 0.8893]}, {"x_m": -71.9, "y_m": -11.7, "orient": [0.0, 0.0, 0.7904, 0.6126]}]'
-  # spawn rect s1: [[11.0, 6.5], [-13.0, -6.5]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor), 14.68 m clear of the nearest
-  - <<: [*retroneighborhood, *vlfm]
-    name: retroneighborhood_s1_vlfm
-    SPAWN_CONFIGS: '[{"x_m": 6.764, "y_m": -1.767, "orient": [0.0, 0.0, -0.1193, 0.9929]}, {"x_m": -0.354, "y_m": 2.251, "orient": [0.0, 0.0, 0.8743, 0.4854]}, {"x_m": 2.939, "y_m": 5.117, "orient": [0.0, 0.0, -0.7931, 0.6091]}, {"x_m": -12.5, "y_m": -6.0, "orient": [0.0, 0.0, 0.2434, 0.9699]}]'
-  - <<: [*retroneighborhood, *lvlm]
-    name: retroneighborhood_s1_lvlm
-    SPAWN_CONFIGS: '[{"x_m": 6.764, "y_m": -1.767, "orient": [0.0, 0.0, -0.1193, 0.9929]}, {"x_m": -0.354, "y_m": 2.251, "orient": [0.0, 0.0, 0.8743, 0.4854]}, {"x_m": 2.939, "y_m": 5.117, "orient": [0.0, 0.0, -0.7931, 0.6091]}, {"x_m": -12.5, "y_m": -6.0, "orient": [0.0, 0.0, 0.2434, 0.9699]}]'
-  # spawn rect s2: [[123.6, -12.0], [116.5, -28.0]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor), 5.15 m clear of the nearest
-  - <<: [*retroneighborhood, *vlfm]
-    name: retroneighborhood_s2_vlfm
-    SPAWN_CONFIGS: '[{"x_m": 118.5, "y_m": -15.0, "orient": [0.0, 0.0, 0.9063, 0.4226]}, {"x_m": 121.5, "y_m": -20.0, "orient": [0.0, 0.0, 1.0, 0.0]}, {"x_m": 118.5, "y_m": -25.0, "orient": [0.0, 0.0, 0.9063, -0.4226]}, {"x_m": 123.0, "y_m": -27.5, "orient": [0.0, 0.0, -0.6428, 0.766]}]'
-  - <<: [*retroneighborhood, *lvlm]
-    name: retroneighborhood_s2_lvlm
-    SPAWN_CONFIGS: '[{"x_m": 118.5, "y_m": -15.0, "orient": [0.0, 0.0, 0.9063, 0.4226]}, {"x_m": 121.5, "y_m": -20.0, "orient": [0.0, 0.0, 1.0, 0.0]}, {"x_m": 118.5, "y_m": -25.0, "orient": [0.0, 0.0, 0.9063, -0.4226]}, {"x_m": 123.0, "y_m": -27.5, "orient": [0.0, 0.0, -0.6428, 0.766]}]'
-  # spawn rect s3: [[9.4, -67.5], [-4.0, -104.55]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor), 17.82 m clear of the nearest
-  - <<: [*retroneighborhood, *vlfm]
-    name: retroneighborhood_s3_vlfm
-    SPAWN_CONFIGS: '[{"x_m": 2.0, "y_m": -72.0, "orient": [0.0, 0.0, 0.2869, 0.958]}, {"x_m": 6.0, "y_m": -80.0, "orient": [0.0, 0.0, 0.6649, 0.747]}, {"x_m": 1.0, "y_m": -88.0, "orient": [0.0, 0.0, 0.9183, 0.396]}, {"x_m": 8.75, "y_m": -104.05, "orient": [0.0, 0.0, -0.9996, 0.0292]}]'
-  - <<: [*retroneighborhood, *lvlm]
-    name: retroneighborhood_s3_lvlm
-    SPAWN_CONFIGS: '[{"x_m": 2.0, "y_m": -72.0, "orient": [0.0, 0.0, 0.2869, 0.958]}, {"x_m": 6.0, "y_m": -80.0, "orient": [0.0, 0.0, 0.6649, 0.747]}, {"x_m": 1.0, "y_m": -88.0, "orient": [0.0, 0.0, 0.9183, 0.396]}, {"x_m": 8.75, "y_m": -104.05, "orient": [0.0, 0.0, -0.9996, 0.0292]}]'
-  # spawn rect s1: [[27.5, 3.8], [23.8, 14.4], [26.1, 17.5], [30.0, 11.8]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor), 4.25 m clear of the nearest
-  - <<: [*fireacademy, *vlfm]
-    name: fireacademy_s1_vlfm
-    SPAWN_CONFIGS: '[{"x_m": 27.34, "y_m": 5.359, "orient": [0.0, 0.0, 0.9757, 0.2192]}, {"x_m": 25.982, "y_m": 12.241, "orient": [0.0, 0.0, -0.2076, 0.9782]}, {"x_m": 26.223, "y_m": 15.534, "orient": [0.0, 0.0, -0.3285, 0.9445]}, {"x_m": 29.05, "y_m": 9.3, "orient": [0.0, 0.0, -0.4442, 0.8959]}]'
-  - <<: [*fireacademy, *lvlm]
-    name: fireacademy_s1_lvlm
-    SPAWN_CONFIGS: '[{"x_m": 27.34, "y_m": 5.359, "orient": [0.0, 0.0, 0.9757, 0.2192]}, {"x_m": 25.982, "y_m": 12.241, "orient": [0.0, 0.0, -0.2076, 0.9782]}, {"x_m": 26.223, "y_m": 15.534, "orient": [0.0, 0.0, -0.3285, 0.9445]}, {"x_m": 29.05, "y_m": 9.3, "orient": [0.0, 0.0, -0.4442, 0.8959]}]'
-  # spawn rect s2: [[6.6, 27.4], [9.5, 36.12], [12.86, 32.7], [3.1, 30.8]]  (as recorded)
-  # 4th drone: in-rect maximin (2 m floor), 2.88 m clear of the nearest
-  - <<: [*fireacademy, *vlfm]
-    name: fireacademy_s2_vlfm
-    SPAWN_CONFIGS: '[{"x_m": 5.57, "y_m": 29.69, "orient": [0.0, 0.0, -0.9581, 0.2865]}, {"x_m": 8.02, "y_m": 31.76, "orient": [0.0, 0.0, -0.7472, 0.6646]}, {"x_m": 10.46, "y_m": 33.82, "orient": [0.0, 0.0, -0.3964, 0.9181]}, {"x_m": 8.35, "y_m": 28.9, "orient": [0.0, 0.0, 0.0286, 0.9996]}]'
-  - <<: [*fireacademy, *lvlm]
-    name: fireacademy_s2_lvlm
-    SPAWN_CONFIGS: '[{"x_m": 5.57, "y_m": 29.69, "orient": [0.0, 0.0, -0.9581, 0.2865]}, {"x_m": 8.02, "y_m": 31.76, "orient": [0.0, 0.0, -0.7472, 0.6646]}, {"x_m": 10.46, "y_m": 33.82, "orient": [0.0, 0.0, -0.3964, 0.9181]}, {"x_m": 8.35, "y_m": 28.9, "orient": [0.0, 0.0, 0.0286, 0.9996]}]'
-  # spawn rect s3: [[-46.3, 9.2], [-53.0, 17.0], [-46.2, 23.5], [-40.75, 17.0]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor), 4.62 m clear of the nearest
-  - <<: [*fireacademy, *vlfm]
-    name: fireacademy_s3_vlfm
-    SPAWN_CONFIGS: '[{"x_m": -46.4, "y_m": 12.8, "orient": [0.0, 0.0, -0.5535, 0.8328]}, {"x_m": -49.2, "y_m": 17.2, "orient": [0.0, 0.0, -0.1497, 0.9887]}, {"x_m": -44.8, "y_m": 18.8, "orient": [0.0, 0.0, 0.2822, 0.9594]}, {"x_m": -42.25, "y_m": 14.95, "orient": [0.0, 0.0, 0.6612, 0.7502]}]'
-  - <<: [*fireacademy, *lvlm]
-    name: fireacademy_s3_lvlm
-    SPAWN_CONFIGS: '[{"x_m": -46.4, "y_m": 12.8, "orient": [0.0, 0.0, -0.5535, 0.8328]}, {"x_m": -49.2, "y_m": 17.2, "orient": [0.0, 0.0, -0.1497, 0.9887]}, {"x_m": -44.8, "y_m": 18.8, "orient": [0.0, 0.0, 0.2822, 0.9594]}, {"x_m": -42.25, "y_m": 14.95, "orient": [0.0, 0.0, 0.6612, 0.7502]}]'
-  # spawn rect s1: [[27.63, 2.0], [21.0, -5.8]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor), 4.17 m clear of the nearest
-  - <<: [*constructionsite, *vlfm]
-    name: constructionsite_s1_vlfm
-    SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0.0, 0.0, 0.2886, 0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0.0, 0.0, -0.2699, 0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0.0, 0.0, 0.9137, 0.4063]}, {"x_m": 27.0, "y_m": -3.55, "orient": [0.0, 0.0, -0.5342, 0.8453]}]'
-  - <<: [*constructionsite, *lvlm]
-    name: constructionsite_s1_lvlm
-    SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0.0, 0.0, 0.2886, 0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0.0, 0.0, -0.2699, 0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0.0, 0.0, 0.9137, 0.4063]}, {"x_m": 27.0, "y_m": -3.55, "orient": [0.0, 0.0, -0.5342, 0.8453]}]'
-  # spawn rect s2: [[-21.6, -28.3], [-24.16, -41.0]]  (as recorded)
-  # 4th drone: in-rect maximin (2 m floor), 2.14 m clear of the nearest
-  - <<: [*constructionsite, *vlfm]
-    name: constructionsite_s2_vlfm
-    SPAWN_CONFIGS: '[{"x_m": -22.9, "y_m": -30.5, "orient": [0.0, 0.0, -0.1647, 0.9863]}, {"x_m": -22.9, "y_m": -34.5, "orient": [0.0, 0.0, 0.2676, 0.9635]}, {"x_m": -22.9, "y_m": -38.5, "orient": [0.0, 0.0, 0.6497, 0.7602]}, {"x_m": -23.66, "y_m": -40.5, "orient": [0.0, 0.0, 0.9101, 0.4144]}]'
-  - <<: [*constructionsite, *lvlm]
-    name: constructionsite_s2_lvlm
-    SPAWN_CONFIGS: '[{"x_m": -22.9, "y_m": -30.5, "orient": [0.0, 0.0, -0.1647, 0.9863]}, {"x_m": -22.9, "y_m": -34.5, "orient": [0.0, 0.0, 0.2676, 0.9635]}, {"x_m": -22.9, "y_m": -38.5, "orient": [0.0, 0.0, 0.6497, 0.7602]}, {"x_m": -23.66, "y_m": -40.5, "orient": [0.0, 0.0, 0.9101, 0.4144]}]'
-  # spawn rect s3: [[34.6, -60.0], [56.0, -41.9]]  (DERIVED from this 4-drone layout; the recorded rectangle sat 119 m away)
-  # 4th drone: line-extend forward, 7.47 m clear of the nearest
-  - <<: [*constructionsite, *vlfm]
-    name: constructionsite_s3_vlfm
-    SPAWN_CONFIGS: '[{"x_m": 54.0, "y_m": -58.0, "orient": [0.0, 0.0, 0.9426, 0.334]}, {"x_m": 48.2, "y_m": -53.3, "orient": [0.0, 0.0, 0.9426, 0.334]}, {"x_m": 42.4, "y_m": -48.6, "orient": [0.0, 0.0, 0.9426, 0.334]}, {"x_m": 36.6, "y_m": -43.9, "orient": [0.0, 0.0, 0.9426, 0.334]}]'
-  - <<: [*constructionsite, *lvlm]
-    name: constructionsite_s3_lvlm
-    SPAWN_CONFIGS: '[{"x_m": 54.0, "y_m": -58.0, "orient": [0.0, 0.0, 0.9426, 0.334]}, {"x_m": 48.2, "y_m": -53.3, "orient": [0.0, 0.0, 0.9426, 0.334]}, {"x_m": 42.4, "y_m": -48.6, "orient": [0.0, 0.0, 0.9426, 0.334]}, {"x_m": 36.6, "y_m": -43.9, "orient": [0.0, 0.0, 0.9426, 0.334]}]'
-  # spawn rect s1: [[16.5, -1.2], [22.0, 9.6]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor), 4.10 m clear of the nearest
-  - <<: [*abandonedfactory, *vlfm]
-    name: abandonedfactory_s1_vlfm
-    SPAWN_CONFIGS: '[{"x_m": 20.458, "y_m": 1.499, "orient": [0.0, 0.0, 0.1166, 0.9932]}, {"x_m": 20.46, "y_m": 4.676, "orient": [0.0, 0.0, -0.9881, 0.1541]}, {"x_m": 20.476, "y_m": 8.299, "orient": [0.0, 0.0, 0.4036, 0.9149]}, {"x_m": 17.0, "y_m": -0.7, "orient": [0.0, 0.0, -0.78, 0.6258]}]'
-  - <<: [*abandonedfactory, *lvlm]
-    name: abandonedfactory_s1_lvlm
-    SPAWN_CONFIGS: '[{"x_m": 20.458, "y_m": 1.499, "orient": [0.0, 0.0, 0.1166, 0.9932]}, {"x_m": 20.46, "y_m": 4.676, "orient": [0.0, 0.0, -0.9881, 0.1541]}, {"x_m": 20.476, "y_m": 8.299, "orient": [0.0, 0.0, 0.4036, 0.9149]}, {"x_m": 17.0, "y_m": -0.7, "orient": [0.0, 0.0, -0.78, 0.6258]}]'
-  # spawn rect s2: [[3.2, 57.0], [7.5, 63.0]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor, flush to edge), 3.12 m clear of the nearest
   - <<: [*abandonedfactory, *vlfm]
     name: abandonedfactory_s2_vlfm
     SPAWN_CONFIGS: '[{"x_m": 4.2, "y_m": 58.0, "orient": [0.0, 0.0, -0.998, 0.063]}, {"x_m": 6.6, "y_m": 60.0, "orient": [0.0, 0.0, -0.8779, 0.4789]}, {"x_m": 4.2, "y_m": 61.9, "orient": [0.0, 0.0, -0.5932, 0.805]}, {"x_m": 7.45, "y_m": 57.0, "orient": [0.0, 0.0, -0.1973, 0.9803]}]'
   - <<: [*abandonedfactory, *lvlm]
     name: abandonedfactory_s2_lvlm
     SPAWN_CONFIGS: '[{"x_m": 4.2, "y_m": 58.0, "orient": [0.0, 0.0, -0.998, 0.063]}, {"x_m": 6.6, "y_m": 60.0, "orient": [0.0, 0.0, -0.8779, 0.4789]}, {"x_m": 4.2, "y_m": 61.9, "orient": [0.0, 0.0, -0.5932, 0.805]}, {"x_m": 7.45, "y_m": 57.0, "orient": [0.0, 0.0, -0.1973, 0.9803]}]'
-  # spawn rect s3: [[-61.8, -8.0], [-72.7, 2.5]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor), 6.22 m clear of the nearest
   - <<: [*abandonedfactory, *vlfm]
     name: abandonedfactory_s3_vlfm
     SPAWN_CONFIGS: '[{"x_m": -64.5, "y_m": -5.5, "orient": [0.0, 0.0, -0.3551, 0.9348]}, {"x_m": -68.5, "y_m": -2.5, "orient": [0.0, 0.0, 0.0733, 0.9973]}, {"x_m": -64.5, "y_m": 0.5, "orient": [0.0, 0.0, 0.4879, 0.8729]}, {"x_m": -72.2, "y_m": -7.5, "orient": [0.0, 0.0, 0.8111, 0.5849]}]'
   - <<: [*abandonedfactory, *lvlm]
     name: abandonedfactory_s3_lvlm
     SPAWN_CONFIGS: '[{"x_m": -64.5, "y_m": -5.5, "orient": [0.0, 0.0, -0.3551, 0.9348]}, {"x_m": -68.5, "y_m": -2.5, "orient": [0.0, 0.0, 0.0733, 0.9973]}, {"x_m": -64.5, "y_m": 0.5, "orient": [0.0, 0.0, 0.4879, 0.8729]}, {"x_m": -72.2, "y_m": -7.5, "orient": [0.0, 0.0, 0.8111, 0.5849]}]'
-  # spawn rect s1: [[1105.0, 214.0], [1126.0, 240.0]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor), 16.32 m clear of the nearest
   - <<: [*militarybase, *vlfm]
     name: militarybase_s1_vlfm
     SPAWN_CONFIGS: '[{"x_m": 1110.0, "y_m": 220.0, "orient": [0.0, 0.0, -0.585, 0.811]}, {"x_m": 1116.0, "y_m": 227.0, "orient": [0.0, 0.0, -0.606, 0.795]}, {"x_m": 1122.0, "y_m": 234.0, "orient": [0.0, 0.0, -0.625, 0.78]}, {"x_m": 1105.5, "y_m": 239.5, "orient": [0.0, 0.0, -0.6436, 0.7654]}]'
   - <<: [*militarybase, *lvlm]
     name: militarybase_s1_lvlm
     SPAWN_CONFIGS: '[{"x_m": 1110.0, "y_m": 220.0, "orient": [0.0, 0.0, -0.585, 0.811]}, {"x_m": 1116.0, "y_m": 227.0, "orient": [0.0, 0.0, -0.606, 0.795]}, {"x_m": 1122.0, "y_m": 234.0, "orient": [0.0, 0.0, -0.625, 0.78]}, {"x_m": 1105.5, "y_m": 239.5, "orient": [0.0, 0.0, -0.6436, 0.7654]}]'
-  # spawn rect s2: [[1010.0, 320.0], [1037.0, 345.0]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor), 18.40 m clear of the nearest
   - <<: [*militarybase, *vlfm]
     name: militarybase_s2_vlfm
     SPAWN_CONFIGS: '[{"x_m": 1015.0, "y_m": 325.0, "orient": [0.0, 0.0, -0.8289, 0.5594]}, {"x_m": 1023.0, "y_m": 333.0, "orient": [0.0, 0.0, -0.5149, 0.8573]}, {"x_m": 1031.0, "y_m": 341.0, "orient": [0.0, 0.0, -0.1043, 0.9945]}, {"x_m": 1036.5, "y_m": 320.5, "orient": [0.0, 0.0, 0.3259, 0.9454]}]'
   - <<: [*militarybase, *lvlm]
     name: militarybase_s2_lvlm
     SPAWN_CONFIGS: '[{"x_m": 1015.0, "y_m": 325.0, "orient": [0.0, 0.0, -0.8289, 0.5594]}, {"x_m": 1023.0, "y_m": 333.0, "orient": [0.0, 0.0, -0.5149, 0.8573]}, {"x_m": 1031.0, "y_m": 341.0, "orient": [0.0, 0.0, -0.1043, 0.9945]}, {"x_m": 1036.5, "y_m": 320.5, "orient": [0.0, 0.0, 0.3259, 0.9454]}]'
-  # spawn rect s3: [[1196.0, 205.0], [1211.0, 222.0]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor), 10.70 m clear of the nearest
   - <<: [*militarybase, *vlfm]
     name: militarybase_s3_vlfm
     SPAWN_CONFIGS: '[{"x_m": 1200.0, "y_m": 209.0, "orient": [0.0, 0.0, -0.9858, 0.1679]}, {"x_m": 1204.0, "y_m": 214.0, "orient": [0.0, 0.0, -0.8225, 0.5688]}, {"x_m": 1207.0, "y_m": 219.0, "orient": [0.0, 0.0, -0.5051, 0.8631]}, {"x_m": 1210.5, "y_m": 205.5, "orient": [0.0, 0.0, -0.0931, 0.9957]}]'
   - <<: [*militarybase, *lvlm]
     name: militarybase_s3_lvlm
     SPAWN_CONFIGS: '[{"x_m": 1200.0, "y_m": 209.0, "orient": [0.0, 0.0, -0.9858, 0.1679]}, {"x_m": 1204.0, "y_m": 214.0, "orient": [0.0, 0.0, -0.8225, 0.5688]}, {"x_m": 1207.0, "y_m": 219.0, "orient": [0.0, 0.0, -0.5051, 0.8631]}, {"x_m": 1210.5, "y_m": 205.5, "orient": [0.0, 0.0, -0.0931, 0.9957]}]'
-  # spawn rect s1: [[-54.0, -9.0], [-72.0, -24.0]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor), 11.62 m clear of the nearest
   - <<: [*shipyard, *vlfm]
     name: shipyard_s1_vlfm
     SPAWN_CONFIGS: '[{"x_m": -66.066, "y_m": -11.867, "orient": [0.0, 0.0, -0.9089, 0.417]}, {"x_m": -68.796, "y_m": -14.581, "orient": [0.0, 0.0, -0.6509, 0.7591]}, {"x_m": -61.737, "y_m": -14.407, "orient": [0.0, 0.0, 0.2744, 0.9616]}, {"x_m": -54.5, "y_m": -23.5, "orient": [0.0, 0.0, 0.9535, 0.3014]}]'
   - <<: [*shipyard, *lvlm]
     name: shipyard_s1_lvlm
     SPAWN_CONFIGS: '[{"x_m": -66.066, "y_m": -11.867, "orient": [0.0, 0.0, -0.9089, 0.417]}, {"x_m": -68.796, "y_m": -14.581, "orient": [0.0, 0.0, -0.6509, 0.7591]}, {"x_m": -61.737, "y_m": -14.407, "orient": [0.0, 0.0, 0.2744, 0.9616]}, {"x_m": -54.5, "y_m": -23.5, "orient": [0.0, 0.0, 0.9535, 0.3014]}]'
-  # spawn rect s2: [[30.0, -56.0], [58.0, -43.0]]  (DERIVED from this 4-drone layout; the recorded rectangle sat 206 m away)
-  # 4th drone: line-extend forward, 8.54 m clear of the nearest
   - <<: [*shipyard, *vlfm]
     name: shipyard_s2_vlfm
     SPAWN_CONFIGS: '[{"x_m": 56.0, "y_m": -54.0, "orient": [0.0, 0.0, 0.984, 0.1784]}, {"x_m": 48.0, "y_m": -51.0, "orient": [0.0, 0.0, 0.984, 0.1784]}, {"x_m": 40.0, "y_m": -48.0, "orient": [0.0, 0.0, 0.984, 0.1784]}, {"x_m": 32.0, "y_m": -45.0, "orient": [0.0, 0.0, 0.984, 0.1784]}]'
   - <<: [*shipyard, *lvlm]
     name: shipyard_s2_lvlm
     SPAWN_CONFIGS: '[{"x_m": 56.0, "y_m": -54.0, "orient": [0.0, 0.0, 0.984, 0.1784]}, {"x_m": 48.0, "y_m": -51.0, "orient": [0.0, 0.0, 0.984, 0.1784]}, {"x_m": 40.0, "y_m": -48.0, "orient": [0.0, 0.0, 0.984, 0.1784]}, {"x_m": 32.0, "y_m": -45.0, "orient": [0.0, 0.0, 0.984, 0.1784]}]'
-  # spawn rect s3: [[54.0, -200.0], [46.0, -212.0]]  (as recorded)
-  # 4th drone: in-rect maximin (3 m floor), 5.59 m clear of the nearest
   - <<: [*shipyard, *vlfm]
     name: shipyard_s3_vlfm
     SPAWN_CONFIGS: '[{"x_m": 48.5, "y_m": -203.0, "orient": [0.0, 0.0, 0.45, 0.893]}, {"x_m": 51.5, "y_m": -206.5, "orient": [0.0, 0.0, 0.7853, 0.6192]}, {"x_m": 48.5, "y_m": -209.5, "orient": [0.0, 0.0, 0.9734, 0.2293]}, {"x_m": 53.5, "y_m": -200.5, "orient": [0.0, 0.0, -0.9791, 0.2035]}]'

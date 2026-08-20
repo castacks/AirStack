@@ -449,7 +449,10 @@ ready:
 # recorder process itself won't start.
 record:
   enabled: true
-  scope: gcs
+  # both: the fleet view on the GCS domain (as before) PLUS one mcap per robot
+  # on its own domain. The rayfronts voxel clouds moved to the per-robot
+  # recorder because they are no longer bridged — see robot_topics below.
+  scope: both
   required: true
   topics:
     - /tf
@@ -461,11 +464,23 @@ record:
     - /gcs/payload/{robot}/explored_area_coverage
     - /gcs/payload/{robot}/confirmed_targets
     - /gcs/payload/{robot}/auction_table
-    - /gcs/payload/{robot}/voxel_rgb
     - /gcs/sim_ground
     - /gcs/annotations/bboxes
-    - /rayfronts_debug/{robot}/voxels_sim/all
-    - /rayfronts_debug/{robot}/voxel_rgb
+
+  # Recorded on each robot's OWN domain, never crossing the DDS router. Two
+  # different clouds, both visualisation-only:
+  #   voxel_rgb            x,y,z,rgb — the coloured 3D map, one topic per robot
+  #   voxels_sim/all       x,y,z + sim_0..N — per-query similarity scores, a
+  #                        different cloud entirely, not a coloured map
+  # rayfronts also advertises voxels_sim/q{q}_{label} per registered query (48
+  # on a typical mission); those are NOT recorded — they were only crossing DDS
+  # because the router's allowlist wildcard made it a subscriber. At ~10 MB a
+  # cloud that traffic grew the router's RSS from ~130 MB to ~870 MB over a
+  # sweep until it died. Local frame (FLU / RDF), not the ENU republish
+  # gcs_visualizer used to produce.
+  robot_topics:
+    - /robot_{n}/rayfronts/voxel_rgb
+    - /robot_{n}/rayfronts/msg_serv/voxels_sim/all
 
 on_step_failure: abort_iteration
 
@@ -501,7 +516,11 @@ steps:
   # frontier/vlfm and the lvlm node clamps its own waypoints anyway.
   - action:
       task: semantic_search
-      timeout_s: 900
+      # Wall-clock safety net only — the search now ends itself on the sim-time
+      # budget below. Sized from the worst observed 4-robot sim/wall ratio
+      # (0.236): 900 s would yield just 212 sim s and would bind before the
+      # 300 s budget was ever reached.
+      timeout_s: 1500
       cancel_on_timeout: true
       pass_on_feedback: true
       goal:
@@ -517,3 +536,9 @@ steps:
         score_threshold: "{{env.score_threshold}}"
         voxel_min_cluster_size: "{{env.voxel_min_cluster_size}}"
         bundle_len: 3
+        # Simulated-time budget: semantic_search_task ends the search when the
+        # SIM clock has advanced this far, so every fleet size gets the same
+        # simulated search regardless of Isaac Sim's real-time factor (~0.46 at
+        # 2 robots, ~0.34 at 3, ~0.27 at 4). timeout_s above stays a wall-clock
+        # safety net and must remain comfortably larger than the wall equivalent.
+        max_sim_seconds: 300

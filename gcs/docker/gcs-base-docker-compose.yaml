@@ -45,6 +45,9 @@ services:
       - FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA
       # Number of robots (used by action_relay to spawn per-robot relays)
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
+      # Gossip radio range in metres (coordination_bringup/comms_model.py).
+      # Must match the robots' value; 5000 = effectively unlimited.
+      - COMMS_RANGE_M=${COMMS_RANGE_M:-5000}
       # rayfronts_debug voxel sim-gradient min (raven_nav voxel_score_threshold),
       # read by render_layout.py and foxglove_visualizer_node. Empty → 0.85.
       - VOXEL_SCORE_THRESHOLD=${VOXEL_SCORE_THRESHOLD:-}

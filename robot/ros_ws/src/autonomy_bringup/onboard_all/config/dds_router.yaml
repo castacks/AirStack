@@ -42,24 +42,26 @@ allowlist:
   - name: "rt/$(env ROBOT_NAME)/filtered_frontiers"
   - name: "rt/$(env ROBOT_NAME)/debug/frontier_table"
 
-  # rayfronts per-query semantic voxel heatmaps → GCS (Foxglove debug viz).
-  # Wildcard covers voxels_sim/all (x,y,z,sim_0..N) and the per-query clouds
-  # voxels_sim/q{q}_{label} (x,y,z,sim), whose names are dynamic per mission
-  # query. NOTE: rayfronts uses the /robot_${ROS_DOMAIN_ID}/ prefix here (set in
-  # perception_bringup/rayfronts.launch.xml), NOT $(env ROBOT_NAME). rayfronts
-  # advertises these publishers every cycle but only sends data while a
-  # subscriber exists; the router's reader on the robot domain is that
-  # subscriber, so allowlisting them is enough to start the stream (no
-  # robot-side keepalive needed). The gcs_visualizer transforms the RDF/local
-  # cloud into the global ENU 'map' frame and republishes under /rayfronts_debug.
-  - name: "rt/robot_$(env ROS_DOMAIN_ID)/rayfronts/msg_serv/voxels_sim/*"
-
-  # rayfronts rgb voxel map (the ROS visualizer's voxel_rgb layer: x,y,z,rgb,
-  # already in FLU) → GCS. Same bridge as voxels_sim; gcs_visualizer republishes
-  # it under /rayfronts_debug/<robot>/voxel_rgb (boot-ENU translation only). The
-  # visualizer only streams while a real subscriber exists and the router reader
-  # doesn't count, so voxel_keepalive_node holds it open (rayfronts.launch.xml).
-  - name: "rt/robot_$(env ROS_DOMAIN_ID)/rayfronts/voxel_rgb"
+  # rayfronts semantic voxel clouds are NOT bridged. They are Foxglove debug
+  # visualisation only — no autonomy module and no offline analysis consumes
+  # them (extract_run.py reads odometry + annotations/bboxes and nothing else).
+  #
+  # Two distinct clouds. voxel_rgb is the coloured map (x,y,z,rgb); voxels_sim
+  # carries per-query similarity (x,y,z + sim_0..N) and is not a coloured map.
+  # The wildcard below matched every voxels_sim topic, and rayfronts advertises
+  # one per registered query: 48 clouds per robot on a typical mission, plus
+  # voxel_rgb. At ~10 MB per cloud and four robots that is ~190 point-cloud
+  # streams through this router, and its RSS climbed from ~130 MB to ~870 MB
+  # over a 48-iteration sweep before it died and took every later iteration
+  # with it (robots "not ready within 900s", no robots connected).
+  #
+  # Record them per robot instead — `record.scope: both` with
+  # `record.robot_topics` writes them on the robot's own domain, where they
+  # never cross DDS. Re-enable these two lines only for a live Foxglove session
+  # that needs the voxel layers, and not for a long unattended sweep.
+  #
+  # - name: "rt/robot_$(env ROS_DOMAIN_ID)/rayfronts/msg_serv/voxels_sim/*"
+  # - name: "rt/robot_$(env ROS_DOMAIN_ID)/rayfronts/voxel_rgb"
 
   # behavior tree
   - name: "rt/$(env ROBOT_NAME)/behavior/behavior_tree_commands"

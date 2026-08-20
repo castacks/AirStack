@@ -26,9 +26,14 @@ from coordination_bringup.frame_utils import gps_to_enu
 # per-origin stamp dedup before it reaches peer state, which is why the 50 m
 # (hops=3) and 30 m (hops=2) sweeps remain directly comparable.
 #
-# This is a MODULE CONSTANT, not a parameter: every mission launched from this
-# branch runs at this range, including a re-run of the full-comms benchmark.
-COMMS_RANGE_M = 30.0
+# Set per mission (or per environments: entry) via the COMMS_RANGE_M env var,
+# so one sweep can mix radio ranges instead of needing a source edit and a
+# separate launch per range. Default 5000 = effectively unlimited, i.e. the
+# full-comms benchmark, so a mission that says nothing gets full comms.
+#
+# docker-compose passes it through to the robot and gcs containers; the mission
+# runner's `environments:` entries set it per iteration.
+COMMS_RANGE_M = float(os.environ.get("COMMS_RANGE_M", "5000"))
 MAX_RELAY_HOPS = int(os.environ.get("NUM_ROBOTS", "1")) -1
 
 SOURCE_RELAYED = 1
