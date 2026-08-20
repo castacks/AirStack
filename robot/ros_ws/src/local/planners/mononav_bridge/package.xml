@@ -3,7 +3,7 @@
 <package format="3">
   <name>mononav_bridge</name>
   <version>0.0.1</version>
-  <description>Bridge AirStack RGB and ground-truth camera pose to a MonoNav GPU worker.</description>
+  <description>Bridge AirStack vision and pose data to external GPU planner workers.</description>
   <maintainer email="airlab@andrew.cmu.edu">AirLab</maintainer>
   <license>Apache-2.0</license>
 

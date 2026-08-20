@@ -66,13 +66,14 @@ DRONE_INIT_POS = [
     float(os.environ.get("DRONE_INIT_Z", "0.07")),
 ]
 ENABLE_LIDAR = os.environ.get("ENABLE_LIDAR", "false").lower() == "true"
-MONONAV_DEMO_OBSTACLES = (
-    os.environ.get("MONONAV_DEMO_OBSTACLES", "false").lower() == "true"
+VISION_PLANNER_DEMO_OBSTACLES = (
+    os.environ.get("VISION_PLANNER_DEMO_OBSTACLES", "false").lower() == "true"
+    or os.environ.get("MONONAV_DEMO_OBSTACLES", "false").lower() == "true"
 )
 # ---------------------------------------------------------
 
 
-def add_mononav_demo_obstacles(stage):
+def add_vision_planner_demo_obstacles(stage):
     """Add a sparse, deterministic slalom course in front of the spawn."""
     obstacles = (
         ("CenterGate", (3.0, 0.0, 1.0), (0.6, 0.8, 2.0), (0.95, 0.32, 0.12)),
@@ -80,14 +81,14 @@ def add_mononav_demo_obstacles(stage):
         ("RightOffset", (7.2, 1.6, 1.0), (0.7, 1.0, 2.0), (0.95, 0.78, 0.10)),
     )
     for name, position, dimensions, color in obstacles:
-        cube = UsdGeom.Cube.Define(stage, f"/World/MonoNavDemo/{name}")
+        cube = UsdGeom.Cube.Define(stage, f"/World/VisionPlannerDemo/{name}")
         cube.GetSizeAttr().Set(1.0)
         cube.CreateDisplayColorAttr([Gf.Vec3f(*color)])
         xform = UsdGeom.Xformable(cube.GetPrim())
         xform.AddTranslateOp().Set(Gf.Vec3d(*position))
         xform.AddScaleOp().Set(Gf.Vec3f(*dimensions))
         UsdPhysics.CollisionAPI.Apply(cube.GetPrim())
-    print(f"[MonoNavDemo] Added {len(obstacles)} static slalom obstacles")
+    print(f"[VisionPlannerDemo] Added {len(obstacles)} static slalom obstacles")
 
 
 # Enable required extensions
@@ -168,8 +169,8 @@ class PegasusApp:
         # Pass intensity/exposure kwargs to override defaults defined in scene_prep.
         add_dome_light(stage)
 
-        if MONONAV_DEMO_OBSTACLES:
-            add_mononav_demo_obstacles(stage)
+        if VISION_PLANNER_DEMO_OBSTACLES:
+            add_vision_planner_demo_obstacles(stage)
             for _ in range(5):
                 omni.kit.app.get_app().update()
 
@@ -212,8 +213,8 @@ class PegasusApp:
             camera_rotation_offset=[0.0, 0.0, 0.0], # roll, pitch, yaw in degrees
         )
 
-        # MonoNav only consumes RGB. RTX lidar startup is expensive, so honor
-        # the existing compose flag and create it only for lidar-based runs.
+        # External vision planners consume the camera topics. RTX lidar startup is
+        # expensive, so honor the compose flag and create it only for lidar-based runs.
         if ENABLE_LIDAR:
             add_rtx_lidar_subgraph(
                 parent_graph_handle=graph_handle,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serve synchronized AirStack camera/GT-pose samples and accept MonoNav paths."""
+"""Serve synchronized AirStack vision samples and accept external planner paths."""
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -53,7 +53,7 @@ class _BridgeHttpServer(ThreadingHTTPServer):
 
 
 class _BridgeRequestHandler(BaseHTTPRequestHandler):
-    server_version = "AirStackMonoNav/0.1"
+    server_version = "AirStackVisionPlanner/0.2"
 
     def log_message(self, _format, *_args):
         return
@@ -105,9 +105,10 @@ class _BridgeRequestHandler(BaseHTTPRequestHandler):
             self._json_response(400, {"accepted": False, "error": str(exc)})
 
 
-class MonoNavBridge(Node):
+class VisionPlannerBridge(Node):
     def __init__(self):
-        super().__init__("mononav_bridge")
+        super().__init__("vision_planner_bridge")
+        self.declare_parameter("planner_name", "external_planner")
         self.declare_parameter("server_address", "0.0.0.0")
         self.declare_parameter("server_port", 8765)
         self.declare_parameter("target_frame", "map")
@@ -117,6 +118,7 @@ class MonoNavBridge(Node):
         self.declare_parameter("command_velocity", 0.35)
         self.declare_parameter("anchor_trajectory_to_odometry", True)
 
+        self._planner_name = str(self.get_parameter("planner_name").value)
         self._target_frame = self.get_parameter("target_frame").value
         self._max_frame_rate = float(self.get_parameter("max_frame_rate").value)
         self._jpeg_quality = int(self.get_parameter("jpeg_quality").value)
@@ -159,7 +161,8 @@ class MonoNavBridge(Node):
         self._http_thread = threading.Thread(target=self._http_server.serve_forever, daemon=True)
         self._http_thread.start()
         self.get_logger().info(
-            f"MonoNav bridge listening on {address}:{port}; execute_commands={self._execute_commands}"
+            f"Vision planner bridge ({self._planner_name}) listening on {address}:{port}; "
+            f"execute_commands={self._execute_commands}"
         )
 
     def destroy_node(self):
@@ -294,6 +297,7 @@ class MonoNavBridge(Node):
             last_command = self._last_command
             depth_sample = self._depth_sample
         return {
+            "planner_name": self._planner_name,
             "ready": sample is not None,
             "sequence": None if sample is None else sample[0]["sequence"],
             "image_stamp": None if sample is None else sample[0]["stamp"],
@@ -304,7 +308,7 @@ class MonoNavBridge(Node):
         }
 
     def accept_trajectory(self, payload):
-        primitive_index = int(payload["primitive_index"])
+        command_index = int(payload.get("command_index", payload.get("primitive_index", -1)))
         execute_requested = bool(payload.get("execute", False))
         points = payload["waypoints"]
         if not isinstance(points, list) or not 2 <= len(points) <= 200:
@@ -315,7 +319,7 @@ class MonoNavBridge(Node):
         trajectory.header.frame_id = self._target_frame
         marker = Marker()
         marker.header = trajectory.header
-        marker.ns = "mononav_selected_primitive"
+        marker.ns = f"{self._planner_name}_selected_trajectory"
         marker.id = 0
         marker.type = Marker.LINE_STRIP
         marker.action = Marker.ADD
@@ -348,7 +352,8 @@ class MonoNavBridge(Node):
         self._marker_publisher.publish(MarkerArray(markers=[marker]))
         with self._lock:
             self._last_command = {
-                "primitive_index": primitive_index,
+                "command_index": command_index,
+                "primitive_index": command_index,
                 "waypoint_count": len(points),
                 "stamp": time.time(),
             }
@@ -376,7 +381,7 @@ class MonoNavBridge(Node):
         else:
             self._trajectory_publisher.publish(trajectory)
         self.get_logger().info(
-            f"Published MonoNav primitive {primitive_index} with {len(points)} waypoints "
+            f"Published {self._planner_name} command {command_index} with {len(points)} waypoints "
             f"({'override' if replace_trajectory else 'segment'})"
         )
         return {
@@ -392,7 +397,7 @@ class MonoNavBridge(Node):
         request = TrajectoryMode.Request()
         request.mode = TrajectoryMode.Request.PAUSE
         self._mode_client.call_async(request)
-        self.get_logger().info("Requested trajectory PAUSE from MonoNav worker")
+        self.get_logger().info(f"Requested trajectory PAUSE from {self._planner_name} worker")
         return {"success": True}
 
     def _publish_status(self):
@@ -403,7 +408,7 @@ class MonoNavBridge(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = MonoNavBridge()
+    node = VisionPlannerBridge()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
@@ -415,3 +420,7 @@ def main(args=None):
 
 if __name__ == "__main__":
     main()
+
+
+# Backward-compatible import for downstream code using the first integration name.
+MonoNavBridge = VisionPlannerBridge

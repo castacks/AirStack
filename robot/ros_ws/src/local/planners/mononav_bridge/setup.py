@@ -20,7 +20,7 @@ setup(
     zip_safe=True,
     maintainer="AirLab",
     maintainer_email="airlab@andrew.cmu.edu",
-    description="AirStack transport and trajectory adapter for MonoNav.",
+    description="AirStack transport and trajectory adapter for external vision planners.",
     license="Apache-2.0",
     entry_points={
         "console_scripts": [

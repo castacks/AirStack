@@ -22,6 +22,7 @@
     <node pkg="mononav_bridge" exec="mononav_bridge_node"
           name="bridge" output="screen">
       <param from="$(var mononav_bridge_config)" allow_substs="true" />
+      <param name="planner_name" value="mononav" />
       <param name="execute_commands" value="$(var mononav_bridge_execute_commands)" />
       <remap from="image" to="$(var mononav_bridge_image_in_topic)" />
       <remap from="camera_info" to="$(var mononav_bridge_camera_info_in_topic)" />

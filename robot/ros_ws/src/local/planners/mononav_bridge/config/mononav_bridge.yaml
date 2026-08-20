@@ -1,6 +1,7 @@
 /**:
   ros__parameters:
     use_sim_time: true
+    planner_name: "external_planner"
     server_address: "0.0.0.0"
     server_port: 8765
     target_frame: "map"

@@ -121,6 +121,7 @@ nav:
                       - Disparity Graph Cost Map: robot/ros_ws/src/local/world_models/disparity_graph_cost_map/README.md
               - Planning:
                   - docs/robot/autonomy/local/planning/index.md
+                  - External Vision Planner Bridge: robot/ros_ws/src/local/planners/mononav_bridge/README.md
                   - Trajectory Library: robot/ros_ws/src/local/planners/trajectory_library/README.md
                   - Takeoff Landing Planner:
                       - Overview: robot/ros_ws/src/local/planners/takeoff_landing_planner/README.md
