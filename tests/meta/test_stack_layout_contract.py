@@ -17,6 +17,8 @@ files:
 validated wiring-snapshot run), but when present it must carry the
 machine-readable ``wiring-graph-v1`` trailer that the drift check reads.
 """
+import re
+
 import pytest
 import yaml
 
@@ -114,4 +116,24 @@ class TestStackAnatomy:
         assert graph.get("nodes") is not None, (
             f"{stack.name}: wiring.md trailer has no nodes key — regenerate "
             "it from a wiring-snapshot run"
+        )
+
+
+@pytest.mark.parametrize("stack", _stack_dirs(), ids=_stack_ids())
+def test_no_dispatcher_include(stack):
+    """A stack entry file must never include the dispatcher.
+
+    robot.launch.xml is the DISPATCHER that includes the stack entry file
+    when AIRSTACK_STACK_DIR is set; a stack entry that wraps it recurses
+    infinitely (robot_1/robot_1/... namespace explosion — found the hard way
+    by the asm_optitrack test_stack).
+    """
+    for entry in sorted((stack / "launch").glob("*.launch.xml")):
+        text = entry.read_text(encoding="utf-8")
+        # strip XML comments so prose warnings about the rule don't trip it
+        uncommented = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+        assert "robot.launch.xml" not in uncommented, (
+            f"{stack.name}/{entry.name} includes robot.launch.xml — the "
+            "dispatcher includes stack entries, never the reverse "
+            "(infinite recursion)"
         )
