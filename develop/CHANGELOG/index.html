@@ -5508,7 +5508,15 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <h2 id="unreleased">[Unreleased]<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
 <ul>
-<li>Automatic <code>unit-tests.yml</code> PR gate on <code>ubuntu-latest</code>, plus <code>run_meta.json</code> outcome metadata so reports distinguish completed simulation campaigns from collection errors, empty selections, timeouts, and cancellations</li>
+<li>Intent flags on <code>airstack up</code> — <code>--sim isaac|airsim</code>, <code>--robots N</code>, <code>--headless</code>, <code>--play</code>/<code>--no-play</code>, <code>--no-autolaunch</code>, <code>--wait</code>, <code>--dry-run</code> — deriving the coordinated env-var sets (compose profiles, URDF, single/multi Isaac launch script) as exported leaf values, with a resolved-config banner and a per-run <code>.airstack/runs/&lt;ts&gt;/effective_config.env</code> dump; contract-tested in <code>tests/meta/test_launch_intent_contract.py</code> (unit mark)</li>
+<li><code>airstack ready</code> (and <code>airstack up --wait</code>): staged flight-readiness gates mirroring the system-test budgets — containers → sim <code>/clock</code> → per-robot sentinel nodes → PX4 MAVROS-connected + <code>local_position/odom</code> streaming (the armable signal) — with per-gate diagnostics and <code>--json</code> for scripts</li>
+<li>Preflight validation in <code>airstack up</code> on <strong>resolved</strong> configuration (env &gt; <code>--env-file</code> &gt; <code>.env</code>): one-simulator guard no longer bypassed by <code>--env-file</code>; <code>NUM_ROBOTS&gt;1</code> with the single-drone Isaac script is a named hard error; missing images are listed with an <code>image-pull</code> hint before compose starts an implicit build; missing <code>omni_pass.env</code> / empty Pegasus submodule / Docker &lt; 29 surfaced on the host (<code>AIRSTACK_SKIP_PREFLIGHT=1</code> downgrades errors to warnings)</li>
+<li>
+<p>tmux pane output is mirrored to container stdout via shared <code>.tmux.conf</code> hooks, so <code>docker logs</code> / <code>airstack logs</code> now show colcon builds, <code>ros2 launch</code> output, sim loading, and crashes</p>
+</li>
+<li>
+<p>Automatic <code>unit-tests.yml</code> PR gate on <code>ubuntu-latest</code>, plus <code>run_meta.json</code> outcome metadata so reports distinguish completed simulation campaigns from collection errors, empty selections, timeouts, and cancellations</p>
+</li>
 <li><code>overrides/isaac-optitrack-simulation.env</code> — brings up Isaac Sim with the NatNet emulator and PX4 flying on mocap EKF2 external vision (GPS/baro/range aiding off), i.e. the configuration <code>tests/system/test_optitrack_e2e.py</code> runs, reproducible by hand</li>
 <li><code>overrides/l4t-optitrack-realrobot.env</code> — deployment override for a real Jetson robot flying on OptiTrack mocap (PX4 EKF2 external vision instead of GPS): the NatNet server/body settings, plus the multi-NIC and FCU-parameter notes that path needs</li>
 <li>Feature notebook workflow (<code>use-feature-notebook</code> skill): every agent-implemented feature gets a local, gitignored <code>notebook/NNN-feature-slug/</code> entry with a status-tracked <code>design_spec.md</code> (written before coding) and <code>results/</code> artifacts + self-contained <code>results_summary.md</code> that populate the feature's PR description</li>
@@ -5524,7 +5532,13 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 </ul>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
 <ul>
-<li>Unit-test documentation now matches the co-located layout: the <code>add-unit-tests</code> and <code>run-system-tests</code> skills and the testing docs record which runner each language uses (C++ gtests via <code>colcon test</code> under the <code>build_packages</code> mark; Python via the root harness, plus <code>colcon test</code> for <code>ament_python</code> packages), and stop instructing authors to write <code>@pytest.mark.unit</code> by hand — <code>conftest.py</code> applies it by file location</li>
+<li>Isaac launch scripts deduplicated onto a shared <code>pegasus_app.PegasusApp</code> base (<code>simulation/isaac-sim/launch_scripts/pegasus_app.py</code>): the six scripts become scenario declarations (~40–170 lines each, net −438 lines) with hooks for NatNet/scene-import extras; behavior verified by full system-test parity (liveliness, sensors, takeoff/hover/land on Isaac). <code>ISAAC_SIM_HEADLESS</code> and <code>ISAAC_SIM_LIVESTREAM</code> now work uniformly in <strong>every</strong> launch script (previously each was honored by only half of them)</li>
+<li>
+<p>Launch-workflow docs corrected against actual behavior: <code>ISAAC_SIM_SCENE</code> (nonexistent) replaced by <code>ISAAC_SIM_SCRIPT_NAME</code>/<code>ISAAC_SIM_GUI</code>, getting-started reflects the paused-by-default sim and Foxglove UI, isaac docker.md defaults table matches <code>.env</code>, ms-airsim MAVROS ports/FOV/vehicle naming fixed, AGENTS.md uses the real <code>down</code>/<code>image-build</code> command names</p>
+</li>
+<li>
+<p>Unit-test documentation now matches the co-located layout: the <code>add-unit-tests</code> and <code>run-system-tests</code> skills and the testing docs record which runner each language uses (C++ gtests via <code>colcon test</code> under the <code>build_packages</code> mark; Python via the root harness, plus <code>colcon test</code> for <code>ament_python</code> packages), and stop instructing authors to write <code>@pytest.mark.unit</code> by hand — <code>conftest.py</code> applies it by file location</p>
+</li>
 <li>Ephemeral CI GPU runners spawn via NVIDIA OSMO (not OpenStack); <code>system-tests.yml</code> / <code>docker-build.yml</code> still use <code>airstack-ephemeral</code></li>
 <li>Default system-test <code>--sim</code> is <code>isaacsim</code>; pass <code>--sim msairsim</code> to opt in to Microsoft AirSim</li>
 <li><code>-m build_packages</code> CI runs pull <code>cache_*</code> images instead of baking sim images</li>
@@ -5540,6 +5554,10 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 </ul>
 <h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
 <ul>
+<li><code>barebones_pegasus_launch.py</code> (the documented template script) crashed with <code>NameError: os</code> on construction</li>
+<li><code>isaac-sim-livestream</code> compose service silently produced a black stream when <code>ISAAC_SIM_SCRIPT_NAME</code> was a multi-drone script (livestream setup existed only in the single-drone scripts)</li>
+<li><code>NATNET_BODY_NAME</code>/<code>NATNET_TARGET_NAME</code> env overrides documented by the single-drone NatNet script now actually work</li>
+<li><code>airstack up</code> guards (one-simulator, URDF pairing) validated <code>.env</code> only and were bypassed by <code>--env-file overrides/...</code>; they now check the resolved configuration</li>
 <li><code>pytest tests/</code> now collects the co-located unit tests before mark filtering. The old guard skipped injection whenever any path was on the command line, and <code>tests/</code> is a path — CI collected 97 of 252 items and the Python unit tests ran nowhere. Narrowing (<code>pytest tests/system/test_x.py</code>) still skips injection; repository-root and empty-path collection are rejected</li>
 <li>Empty CI pytest arguments no longer become <code>pytest tests/ ""</code> and recurse through the repository; collection/import, setup/teardown, partial, and interrupted artifacts are reported as non-comparable instead of false 0% simulation-policy results, and metric regression runs only for an identical simulation campaign fingerprint</li>
 <li>Isaac Sim image: PX4 <code>ubuntu.sh</code> no longer fails dpkg configure on the NVIDIA base (<code>ca-certificates</code> / <code>software-properties-common</code>); use <code>--no-nuttx --no-sim-tools</code> like ms-airsim</li>

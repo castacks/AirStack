@@ -6103,7 +6103,7 @@
 <p><strong>What happens:</strong></p>
 <ul>
 <li>Launches Isaac Sim with ROS 2 bridge</li>
-<li>Loads configured scene (via <code>ISAAC_SIM_SCENE</code>)</li>
+<li>Runs the launch script named by <code>ISAAC_SIM_SCRIPT_NAME</code> (or, with <code>ISAAC_SIM_USE_STANDALONE=false</code>, opens the USD in <code>ISAAC_SIM_GUI</code>)</li>
 <li>Publishes sensor topics to ROS 2</li>
 <li>Optionally auto-plays simulation (via <code>PLAY_SIM_ON_START</code>)</li>
 </ul>
@@ -6155,39 +6155,39 @@
 <tr>
 <th>Variable</th>
 <th>Description</th>
-<th>Default</th>
+<th>Default (<code>.env</code>)</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>AUTOLAUNCH</code></td>
 <td>Auto-start Isaac Sim on container launch</td>
-<td><code>false</code></td>
-</tr>
-<tr>
-<td><code>ISAAC_SIM_SCENE</code></td>
-<td>Path to USD scene file</td>
-<td>(set in <code>.env</code>)</td>
-</tr>
-<tr>
-<td><code>ISAAC_SIM_GUI</code></td>
-<td>Launch with GUI (<code>true</code>/<code>false</code>)</td>
-<td><code>true</code></td>
-</tr>
-<tr>
-<td><code>PLAY_SIM_ON_START</code></td>
-<td>Auto-play simulation when GUI opens</td>
 <td><code>true</code></td>
 </tr>
 <tr>
 <td><code>ISAAC_SIM_USE_STANDALONE</code></td>
-<td>Use standalone Python launch</td>
-<td><code>false</code></td>
+<td><code>true</code>: run <code>ISAAC_SIM_SCRIPT_NAME</code>; <code>false</code>: open the <code>ISAAC_SIM_GUI</code> USD</td>
+<td><code>true</code></td>
 </tr>
 <tr>
 <td><code>ISAAC_SIM_SCRIPT_NAME</code></td>
-<td>Standalone script filename</td>
-<td>-</td>
+<td>Standalone launch script in <code>simulation/isaac-sim/launch_scripts/</code></td>
+<td><code>example_one_px4_pegasus_launch_script.py</code></td>
+</tr>
+<tr>
+<td><code>ISAAC_SIM_GUI</code></td>
+<td>Path to a USD scene file (used only when <code>ISAAC_SIM_USE_STANDALONE=false</code>)</td>
+<td><code>simple_pegasus.scene.usd</code></td>
+</tr>
+<tr>
+<td><code>PLAY_SIM_ON_START</code></td>
+<td>Auto-play simulation on start (<code>airstack up --play/--no-play</code>)</td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>ISAAC_SIM_HEADLESS</code></td>
+<td>Run without a window (<code>airstack up --headless</code>)</td>
+<td>unset (<code>false</code>)</td>
 </tr>
 <tr>
 <td><code>PX4_PHYSICS_HZ</code></td>
@@ -6211,7 +6211,7 @@
 </tr>
 </tbody>
 </table>
-<p><code>PX4_PHYSICS_HZ</code> and <code>PX4_RENDERING_HZ</code> are set in the top-level <code>.env</code>. Pegasus defaults to 250 Hz but AirStack runs PX4 at <strong>100 Hz</strong> for near-real-time performance. See <a href="../pegasus_scene_setup/">Pegasus Scene Setup → Physics Rate</a> for valid values and the full configuration flow.</p>
+<p><code>PX4_PHYSICS_HZ</code> and <code>PX4_RENDERING_HZ</code> are set in the isaac-sim compose file (defaults 100/60 there; the Pegasus code default is 250). AirStack runs PX4 at <strong>100 Hz</strong> for near-real-time performance. See <a href="../pegasus_scene_setup/">Pegasus Scene Setup → Physics Rate</a> for valid values and the full configuration flow.</p>
 <p><strong>Example overrides:</strong></p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Launch without GUI (headless)</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">ISAAC_SIM_GUI</span><span class="o">=</span><span class="nb">false</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>isaac-sim
@@ -6373,7 +6373,8 @@
 </li>
 <li>
 <p><strong>View output:</strong>
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>airstack<span class="w"> </span>logs<span class="w"> </span>isaac-sim
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>airstack<span class="w"> </span>logs<span class="w"> </span>isaac-sim<span class="w">      </span><span class="c1"># tmux pane output is mirrored to docker logs</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>airstack<span class="w"> </span>connect<span class="w"> </span>isaac-sim<span class="w">   </span><span class="c1"># attach to the tmux session interactively</span>
 </span></code></pre></div></p>
 </li>
 </ol>

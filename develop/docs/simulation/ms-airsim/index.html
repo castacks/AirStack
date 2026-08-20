@@ -5631,7 +5631,7 @@
 <ol>
 <li>AirSim simulates physics and renders stereo RGB + depth for each vehicle</li>
 <li>N PX4 SITL instances run in lockstep with AirSim via TCP (port <code>4560+i</code>)</li>
-<li>MAVROS in the robot container connects to PX4 SITL via MAVLink UDP (offboard <code>24540+i</code>, onboard <code>24580+i</code>)</li>
+<li>MAVROS in the robot container connects to PX4 SITL via MAVLink UDP (offboard <code>14540 + ROS_DOMAIN_ID</code>, see <code>interface.launch.py</code>; ports <code>24540+i</code>/<code>24580+i</code> in <code>settings.json</code> are AirSim's own PX4 control channel)</li>
 <li>Bridge nodes (one per robot) publish stereo RGB + depth + camera_info to ROS 2 topics</li>
 <li><code>disparity_expansion</code> converts depth to disparity for DROAN</li>
 </ol>
@@ -5699,7 +5699,7 @@
 </tr>
 <tr>
 <td>FOV</td>
-<td>110°</td>
+<td>90°</td>
 <td><code>AIRSIM_CAM_FOV</code></td>
 </tr>
 <tr>
@@ -5719,7 +5719,7 @@
 </tr>
 </tbody>
 </table>
-<p>Cameras are defined per vehicle in the generated <code>settings.json</code> under <code>Vehicles.drone&lt;i&gt;.Cameras</code>.</p>
+<p>Cameras are defined per vehicle in the generated <code>settings.json</code> under <code>Vehicles.robot_&lt;i&gt;.Cameras</code>.</p>
 <h3 id="bridge-node-parameters">Bridge node parameters<a class="headerlink" href="#bridge-node-parameters" title="Permanent link">&para;</a></h3>
 <p>Located at <code>simulation/ms-airsim/ros_ws/src/ms_airsim_ros_bridge/config/bridge.yaml</code>:</p>
 <table>

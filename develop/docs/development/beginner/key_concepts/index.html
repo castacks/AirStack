@@ -5871,17 +5871,21 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">VERSION</span><span class="o">=</span>latest
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">AUTOLAUNCH</span><span class="o">=</span><span class="nb">true</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nv">NUM_ROBOTS</span><span class="o">=</span><span class="m">1</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nv">ISAAC_SIM_SCENE</span><span class="o">=</span>simulation/isaac-sim/scenes/two_drone_RetroNeighborhood.usd
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nv">ISAAC_SIM_SCRIPT_NAME</span><span class="o">=</span>example_one_px4_pegasus_launch_script.py
 </span></code></pre></div></p>
 <p><strong>Runtime overrides</strong>:
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Don't auto-launch (useful for development)</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">AUTOLAUNCH</span><span class="o">=</span><span class="nb">false</span><span class="w"> </span>airstack<span class="w"> </span>up
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>airstack<span class="w"> </span>up<span class="w"> </span>--no-autolaunch
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Different scene</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="nv">ISAAC_SIM_SCENE</span><span class="o">=</span>my_scene.usd<span class="w"> </span>airstack<span class="w"> </span>up
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Different scene (launch scripts live in simulation/isaac-sim/launch_scripts/)</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="nv">ISAAC_SIM_SCRIPT_NAME</span><span class="o">=</span>my_scene_script.py<span class="w"> </span>airstack<span class="w"> </span>up
 </span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Custom env file with overrides</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>airstack<span class="w"> </span>--env-file<span class="w"> </span>overrides/custom.env<span class="w"> </span>up
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Pick the simulator and robot count without editing .env</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>airsim
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>isaac<span class="w"> </span>--robots<span class="w"> </span><span class="m">3</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="c1"># Custom env file with overrides</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>airstack<span class="w"> </span>up<span class="w"> </span>--env-file<span class="w"> </span>overrides/custom.env
 </span></code></pre></div></p>
 <p>You can layer multiple env files to compose configurations. <strong>NOTE</strong>: Unlike docker compose, the airstack cli always uses the root <code>.env</code> file as the base, and then applies any additional env files on top of it. This ensures that essential defaults are always present, while still allowing for flexible overrides.</p>
 <h2 id="what-makes-airstack-different">What Makes AirStack Different<a class="headerlink" href="#what-makes-airstack-different" title="Permanent link">&para;</a></h2>

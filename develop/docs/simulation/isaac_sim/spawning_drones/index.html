@@ -1993,10 +1993,21 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-drone_configs-pattern" class="md-nav__link">
+  <a href="#writing-a-launch-script-with-pegasusapp" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The DRONE_CONFIGS pattern
+        Writing a launch script with PegasusApp
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-drone-config-dict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The drone-config dict
       
     </span>
   </a>
@@ -5747,7 +5758,7 @@
 
 
 <h1 id="spawning-drones">Spawning Drones<a class="headerlink" href="#spawning-drones" title="Permanent link">&para;</a></h1>
-<p>The reference launch scripts under <code>simulation/isaac-sim/launch_scripts/</code> cover the progression from a single drone in an empty world up to multiple drones in a custom imported scene with per-drone GPS origins:</p>
+<p>All launch scripts under <code>simulation/isaac-sim/launch_scripts/</code> are thin scenario declarations on top of one shared base class, <strong><code>pegasus_app.PegasusApp</code></strong>, which owns the boilerplate every scene needs (SimulationApp creation incl. headless/livestream env handling, Kit extension enabling, Pegasus world + environment loading, stage prep, drone/sensor spawning, the run loop). The reference scripts cover the progression from an empty world up to multiple drones in a custom imported scene with per-drone GPS origins:</p>
 <table>
 <thead>
 <tr>
@@ -5758,29 +5769,104 @@
 <tbody>
 <tr>
 <td><code>barebones_pegasus_launch.py</code></td>
-<td>Minimal Pegasus boilerplate. Single drone, default environment, no scene import. Use as a template for new launch scripts.</td>
+<td>Smallest possible scenario: an environment, no drones. Copy this as the template for new launch scripts.</td>
 </tr>
 <tr>
 <td><code>example_one_px4_pegasus_launch_script.py</code></td>
-<td>One PX4 drone with the standard sensor stack (ZED stereo, optional Ouster lidar) in the default environment.</td>
+<td>One PX4 drone with the standard sensor stack (ZED stereo + Ouster lidar) in the default environment.</td>
 </tr>
 <tr>
 <td><code>example_multi_px4_pegasus_launch_script.py</code></td>
-<td><code>NUM_ROBOTS</code> drones spawned in a row in the default environment. Each drone gets its own ROS domain id (<code>1..N</code>).</td>
+<td><code>NUM_ROBOTS</code> drones spawned in a row (<code>row_spawn_configs</code>). Each drone gets its own ROS domain id (<code>1..N</code>). Lidar gated on <code>ENABLE_LIDAR</code>.</td>
+</tr>
+<tr>
+<td><code>example_one/multi_px4_pegasus_natnet_launch_script.py</code></td>
+<td>Same, plus an OptiTrack NatNet mocap server authored in a <code>post_spawn</code> hook.</td>
 </tr>
 <tr>
 <td><code>example_multi_drone_scene_import.py</code></td>
-<td><code>NUM_ROBOTS</code> drones in an <strong>imported scene</strong> (USD from a Nucleus server) with per-drone GPS homes set via <code>gps_utils.set_gps_origins</code>. Use this as the starting point for any custom scene.</td>
+<td>Explicit <code>DRONE_CONFIGS</code> in an <strong>imported scene</strong> (USD from a Nucleus server) with per-drone GPS homes. Use this as the starting point for any custom scene.</td>
 </tr>
 </tbody>
 </table>
-<p>The first three are vanilla Pegasus patterns; this page focuses on the multi-drone + custom-scene case where you also need correct GPS homes.</p>
-<h2 id="the-drone_configs-pattern">The DRONE_CONFIGS pattern<a class="headerlink" href="#the-drone_configs-pattern" title="Permanent link">&para;</a></h2>
-<p><code>example_multi_drone_scene_import.py</code> declares all per-drone settings in a single list:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">DRONE_CONFIGS</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="p">{</span><span class="s2">"domain_id"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"x_m"</span><span class="p">:</span> <span class="o">-</span><span class="mf">3.0</span><span class="p">,</span> <span class="s2">"y_m"</span><span class="p">:</span> <span class="mf">3.5</span><span class="p">,</span> <span class="s2">"z_m"</span><span class="p">:</span> <span class="mf">0.15</span><span class="p">,</span> <span class="s2">"orient"</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]},</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="p">{</span><span class="s2">"domain_id"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">"x_m"</span><span class="p">:</span>  <span class="mf">3.0</span><span class="p">,</span> <span class="s2">"y_m"</span><span class="p">:</span> <span class="mf">3.0</span><span class="p">,</span> <span class="s2">"z_m"</span><span class="p">:</span> <span class="mf">0.15</span><span class="p">,</span> <span class="s2">"orient"</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]},</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">]</span>
+<h2 id="writing-a-launch-script-with-pegasusapp">Writing a launch script with <code>PegasusApp</code><a class="headerlink" href="#writing-a-launch-script-with-pegasusapp" title="Permanent link">&para;</a></h2>
+<p>A launch script is: create the SimulationApp, then declare the scenario. The one hard rule is <strong>import order</strong> — Kit requires the SimulationApp to exist before any <code>omni.*</code>/<code>pegasus.*</code> import, so every script starts:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span><span class="o">,</span><span class="w"> </span><span class="nn">sys</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)))</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pegasus_app</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_simulation_app</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">simulation_app</span> <span class="o">=</span> <span class="n">create_simulation_app</span><span class="p">()</span>   <span class="c1"># FIRST — honors ISAAC_SIM_HEADLESS / ISAAC_SIM_LIVESTREAM</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pegasus.simulator.params</span><span class="w"> </span><span class="kn">import</span> <span class="n">SIMULATION_ENVIRONMENTS</span>  <span class="c1"># now safe</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pegasus_app</span><span class="w"> </span><span class="kn">import</span> <span class="n">PegasusApp</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">PegasusApp</span><span class="p">(</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>        <span class="n">env_url</span><span class="o">=</span><span class="n">SIMULATION_ENVIRONMENTS</span><span class="p">[</span><span class="s2">"Default Environment"</span><span class="p">],</span>  <span class="c1"># or an omniverse:// USD URL</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="n">drone_configs</span><span class="o">=</span><span class="p">[{</span><span class="s2">"domain_id"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"x_m"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">"y_m"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">"z_m"</span><span class="p">:</span> <span class="mf">0.07</span><span class="p">}],</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>        <span class="n">enable_lidar</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="p">)</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">main</span><span class="p">()</span>
+</span></code></pre></div>
+<p>Key constructor kwargs (see the docstrings in <code>pegasus_app.py</code> for the full list):</p>
+<table>
+<thead>
+<tr>
+<th>Kwarg</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>env_url</code></td>
+<td>Environment to load — a <code>SIMULATION_ENVIRONMENTS</code> key's URL or any USD/Nucleus URL.</td>
+</tr>
+<tr>
+<td><code>drone_configs</code></td>
+<td>List of per-drone dicts (below). <code>row_spawn_configs(n)</code> builds the standard row layout.</td>
+</tr>
+<tr>
+<td><code>stage_scale</code></td>
+<td>Uniform scale applied to <code>/World/stage</code> (<code>0.01</code> for cm-authored assets).</td>
+</tr>
+<tr>
+<td><code>enable_camera</code> / <code>enable_lidar</code> + offsets</td>
+<td>Standard ZED stereo + RTX lidar sensor stack per drone.</td>
+</tr>
+<tr>
+<td><code>dome_light</code></td>
+<td><code>True</code> (defaults), <code>False</code>, or a kwargs dict for <code>add_dome_light</code>.</td>
+</tr>
+<tr>
+<td><code>world_gps_origin</code></td>
+<td>If set, calls <code>gps_utils.set_gps_origins(drone_configs, world_origin=…)</code> before PX4 boots.</td>
+</tr>
+<tr>
+<td><code>scale_spawn_positions</code></td>
+<td>Convert spawn meters into stage units (imported non-metric scenes).</td>
+</tr>
+<tr>
+<td><code>save_scene_to</code></td>
+<td>Export the prepared scene as a self-contained USD package.</td>
+</tr>
+</tbody>
+</table>
+<p>For anything beyond declarations, subclass and override the hooks — each receives the loaded stage:</p>
+<ul>
+<li><code>pre_scene_prep(stage)</code> — after the environment loads, before scale/colliders (e.g. <code>dedupe_physics_scenes</code>, <code>reference_root_prims_under_world</code>)</li>
+<li><code>post_scene_prep(stage)</code> — after stage prep, before drones spawn (e.g. the overhead map camera)</li>
+<li><code>post_spawn(stage)</code> — after all drones spawn (e.g. authoring the NatNet mocap interface)</li>
+</ul>
+<p><code>example_multi_drone_scene_import.py</code> (hooks, Nucleus scene, explicit poses) and the <code>_natnet_</code> scripts (<code>post_spawn</code>) are the reference subclasses.</p>
+<p>To run your script: put it in <code>simulation/isaac-sim/launch_scripts/</code>, then <code>ISAAC_SIM_SCRIPT_NAME=my_script.py airstack up --sim isaac</code> (see <a href="../docker/">Docker</a>).</p>
+<h2 id="the-drone-config-dict">The drone-config dict<a class="headerlink" href="#the-drone-config-dict" title="Permanent link">&para;</a></h2>
+<p>Each entry in <code>drone_configs</code> describes one drone:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">DRONE_CONFIGS</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="p">{</span><span class="s2">"domain_id"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"x_m"</span><span class="p">:</span> <span class="o">-</span><span class="mf">3.0</span><span class="p">,</span> <span class="s2">"y_m"</span><span class="p">:</span> <span class="mf">3.5</span><span class="p">,</span> <span class="s2">"z_m"</span><span class="p">:</span> <span class="mf">0.15</span><span class="p">,</span> <span class="s2">"orient"</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]},</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="p">{</span><span class="s2">"domain_id"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">"x_m"</span><span class="p">:</span>  <span class="mf">3.0</span><span class="p">,</span> <span class="s2">"y_m"</span><span class="p">:</span> <span class="mf">3.0</span><span class="p">,</span> <span class="s2">"z_m"</span><span class="p">:</span> <span class="mf">0.15</span><span class="p">,</span> <span class="s2">"orient"</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]},</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="p">]</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -5792,7 +5878,7 @@
 <tbody>
 <tr>
 <td><code>domain_id</code></td>
-<td>ROS domain id and PX4 vehicle id. The robot container with <code>ROS_DOMAIN_ID=1</code> will see this drone.</td>
+<td>ROS domain id and (by default) PX4 vehicle id — MAVLink port is <code>14540 + vehicle_id</code>. The robot container with <code>ROS_DOMAIN_ID=1</code> will see this drone.</td>
 </tr>
 <tr>
 <td><code>x_m</code>, <code>y_m</code>, <code>z_m</code></td>
@@ -5800,16 +5886,24 @@
 </tr>
 <tr>
 <td><code>orient</code></td>
-<td>Spawn orientation quaternion <code>[x, y, z, w]</code>.</td>
+<td>Spawn orientation quaternion <code>[x, y, z, w]</code> (default identity).</td>
+</tr>
+<tr>
+<td><code>prim</code>, <code>node_name</code></td>
+<td>Override the drone's root prim / OmniGraph node name (single-drone scenes use the historical <code>/World/base_link</code> / <code>PX4Multirotor</code>).</td>
+</tr>
+<tr>
+<td><code>lidar</code>, <code>lidar_min_range</code>, <code>camera_offset</code></td>
+<td>Per-drone sensor overrides of the app-level settings.</td>
 </tr>
 </tbody>
 </table>
-<p>To add another drone, append an entry with a fresh <code>domain_id</code> and a non-overlapping spawn position. Make sure the corresponding robot container is launched with the same <code>ROS_DOMAIN_ID</code> (<code>NUM_ROBOTS=N airstack up robot-desktop</code>).</p>
+<p>To add another drone, append an entry with a fresh <code>domain_id</code> and a non-overlapping spawn position, and launch the matching number of robot containers (<code>airstack up --sim isaac --robots N</code> keeps <code>NUM_ROBOTS</code> and the launch script consistent).</p>
 <h2 id="per-drone-gps-home-gps_utils">Per-drone GPS home — <code>gps_utils</code><a class="headerlink" href="#per-drone-gps-home-gps_utils" title="Permanent link">&para;</a></h2>
-<p>PX4 needs a GPS home per vehicle. <code>simulation/isaac-sim/launch_scripts/gps_utils.py</code> derives one from each drone's world-frame spawn position so all drones share a consistent geographic anchor and end up at distinct GPS coordinates spaced according to their spawn offsets.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">gps_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">set_gps_origins</span><span class="p">,</span> <span class="n">DEFAULT_WORLD_ORIGIN</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">set_gps_origins</span><span class="p">(</span><span class="n">DRONE_CONFIGS</span><span class="p">)</span>   <span class="c1"># call once before spawning vehicles</span>
+<p>PX4 needs a GPS home per vehicle. <code>simulation/isaac-sim/launch_scripts/gps_utils.py</code> derives one from each drone's world-frame spawn position so all drones share a consistent geographic anchor and end up at distinct GPS coordinates spaced according to their spawn offsets. Pass <code>world_gps_origin=</code> to <code>PegasusApp</code> (as <code>example_multi_drone_scene_import.py</code> does) and the base class makes this call for you before PX4 boots; the underlying helper is:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">gps_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">set_gps_origins</span><span class="p">,</span> <span class="n">DEFAULT_WORLD_ORIGIN</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">set_gps_origins</span><span class="p">(</span><span class="n">DRONE_CONFIGS</span><span class="p">)</span>   <span class="c1"># call once before spawning vehicles</span>
 </span></code></pre></div>
 <p><code>set_gps_origins</code> does two things per drone:</p>
 <ol>
@@ -5818,72 +5912,72 @@
 </ol>
 <h3 id="world-anchor">World anchor<a class="headerlink" href="#world-anchor" title="Permanent link">&para;</a></h3>
 <p>The world origin maps to <code>DEFAULT_WORLD_ORIGIN = (38.736832, -9.137977, 90.0)</code> — Lisbon, matching the Pegasus default. Override it for a scene set elsewhere:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">set_gps_origins</span><span class="p">(</span><span class="n">DRONE_CONFIGS</span><span class="p">,</span> <span class="n">world_origin</span><span class="o">=</span><span class="p">(</span><span class="mf">40.4433</span><span class="p">,</span> <span class="o">-</span><span class="mf">79.9436</span><span class="p">,</span> <span class="mf">280.0</span><span class="p">))</span>  <span class="c1"># Pittsburgh</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">set_gps_origins</span><span class="p">(</span><span class="n">DRONE_CONFIGS</span><span class="p">,</span> <span class="n">world_origin</span><span class="o">=</span><span class="p">(</span><span class="mf">40.4433</span><span class="p">,</span> <span class="o">-</span><span class="mf">79.9436</span><span class="p">,</span> <span class="mf">280.0</span><span class="p">))</span>  <span class="c1"># Pittsburgh</span>
 </span></code></pre></div>
 <p>The anchor only affects the geographic location reported via GPS; nothing in the scene moves. Pick something close to where you want the drones to "be" — Foxglove's Map panel will center on it, and any GPS-referenced inputs to your stack will be relative to it.</p>
 <h2 id="scene-prep-helpers-scene_preppy">Scene prep helpers — <code>scene_prep.py</code><a class="headerlink" href="#scene-prep-helpers-scene_preppy" title="Permanent link">&para;</a></h2>
 <p><code>simulation/isaac-sim/utils/scene_prep.py</code> is the small toolbox of stage preparation helpers <code>example_multi_drone_scene_import.py</code> uses inside its post-load callback (after the stage is loaded, before drones spawn). The full file has more — what's documented here is what you'll reach for in 95% of scenes.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">utils.scene_prep</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">get_stage_meters_per_unit</span><span class="p">,</span> <span class="n">scale_stage_prim</span><span class="p">,</span> <span class="n">add_colliders</span><span class="p">,</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">add_dome_light</span><span class="p">,</span> <span class="n">save_scene_as_contained_usd</span><span class="p">,</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">add_orthographic_camera</span><span class="p">,</span> <span class="n">add_overhead_camera_publisher</span><span class="p">,</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">)</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">mpu</span><span class="p">,</span> <span class="n">scene_scale_factor</span> <span class="o">=</span> <span class="n">get_stage_meters_per_unit</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">utils.scene_prep</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">get_stage_meters_per_unit</span><span class="p">,</span> <span class="n">scale_stage_prim</span><span class="p">,</span> <span class="n">add_colliders</span><span class="p">,</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">add_dome_light</span><span class="p">,</span> <span class="n">save_scene_as_contained_usd</span><span class="p">,</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">add_orthographic_camera</span><span class="p">,</span> <span class="n">add_overhead_camera_publisher</span><span class="p">,</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">)</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">mpu</span><span class="p">,</span> <span class="n">scene_scale_factor</span> <span class="o">=</span> <span class="n">get_stage_meters_per_unit</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="scaling-scale_stage_prim">Scaling — <code>scale_stage_prim</code><a class="headerlink" href="#scaling-scale_stage_prim" title="Permanent link">&para;</a></h3>
 <p>USD scenes are authored at all sorts of stage units. To apply a uniform scale to the imported stage root once, before drones spawn:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">STAGE_SCALE</span> <span class="o">=</span> <span class="mf">0.01</span>   <span class="c1"># cm → m</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">scale_stage_prim</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="s2">"/World/stage"</span><span class="p">,</span> <span class="n">STAGE_SCALE</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">STAGE_SCALE</span> <span class="o">=</span> <span class="mf">0.01</span>   <span class="c1"># cm → m</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">scale_stage_prim</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="s2">"/World/stage"</span><span class="p">,</span> <span class="n">STAGE_SCALE</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="colliders-add_colliders">Colliders — <code>add_colliders</code><a class="headerlink" href="#colliders-add_colliders" title="Permanent link">&para;</a></h3>
 <p>Recursively applies <code>UsdPhysics.CollisionAPI</code> to every <code>UsdGeom.Mesh</code> under the given prim. Imported environment USDs are usually visual-only; without this, drones fall through buildings.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">stage_prim</span> <span class="o">=</span> <span class="n">stage</span><span class="o">.</span><span class="n">GetPrimAtPath</span><span class="p">(</span><span class="s2">"/World/stage"</span><span class="p">)</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">add_colliders</span><span class="p">(</span><span class="n">stage_prim</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">stage_prim</span> <span class="o">=</span> <span class="n">stage</span><span class="o">.</span><span class="n">GetPrimAtPath</span><span class="p">(</span><span class="s2">"/World/stage"</span><span class="p">)</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">add_colliders</span><span class="p">(</span><span class="n">stage_prim</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Skips prims that already have the API applied. Run it on the stage root after <code>scale_stage_prim</code> returns.</p>
 <h3 id="lighting-add_dome_light">Lighting — <code>add_dome_light</code><a class="headerlink" href="#lighting-add_dome_light" title="Permanent link">&para;</a></h3>
 <p>In case the scene is missing any lights, this adds a dome light that can act like an overhead 'sun'.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">add_dome_light</span><span class="p">(</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">stage</span><span class="p">,</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">prim_path</span><span class="o">=</span><span class="s2">"/World/DomeLight"</span><span class="p">,</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">intensity</span><span class="o">=</span><span class="mf">3500.0</span><span class="p">,</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">exposure</span><span class="o">=-</span><span class="mf">5.0</span><span class="p">,</span>   <span class="c1"># negative = darker; tune per scene</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">add_dome_light</span><span class="p">(</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">stage</span><span class="p">,</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">prim_path</span><span class="o">=</span><span class="s2">"/World/DomeLight"</span><span class="p">,</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">intensity</span><span class="o">=</span><span class="mf">3500.0</span><span class="p">,</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">exposure</span><span class="o">=-</span><span class="mf">5.0</span><span class="p">,</span>   <span class="c1"># negative = darker; tune per scene</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="overhead-camera-add_orthographic_camera-add_overhead_camera_publisher">Overhead camera — <code>add_orthographic_camera</code> + <code>add_overhead_camera_publisher</code><a class="headerlink" href="#overhead-camera-add_orthographic_camera-add_overhead_camera_publisher" title="Permanent link">&para;</a></h3>
 <p>Used as a pair: one drops an orthographic camera over the scene, the other wires an OmniGraph to publish its frame plus three Float32 spec topics (<code>coverage_m</code>, <code>center_x_m</code>, <code>center_y_m</code>) the GCS uses to texture a ground plane in Foxglove's 3D panel.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">cam_path</span> <span class="o">=</span> <span class="n">add_orthographic_camera</span><span class="p">(</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">stage</span><span class="p">,</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">prim_path</span><span class="o">=</span><span class="s2">"/World/MapCamera"</span><span class="p">,</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">altitude_m</span><span class="o">=</span><span class="mf">165.0</span><span class="p">,</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">coverage_m</span><span class="o">=</span><span class="mf">225.0</span><span class="p">,</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">scene_scale_factor</span><span class="o">=</span><span class="n">scene_scale_factor</span><span class="p">,</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">center_x_m</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>   <span class="c1"># set if your area of interest isn't at world origin</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="n">center_y_m</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="p">)</span>
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="n">add_overhead_camera_publisher</span><span class="p">(</span>
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    <span class="n">parent_graph_path</span><span class="o">=</span><span class="s2">"/World/MapCameraGraph"</span><span class="p">,</span>
-</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    <span class="n">camera_prim_path</span><span class="o">=</span><span class="n">cam_path</span><span class="p">,</span>
-</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>    <span class="n">topic</span><span class="o">=</span><span class="s2">"/sim/overhead/image"</span><span class="p">,</span>
-</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>    <span class="n">spec_topic</span><span class="o">=</span><span class="s2">"/sim/overhead/spec"</span><span class="p">,</span>
-</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>    <span class="n">center_x_topic</span><span class="o">=</span><span class="s2">"/sim/overhead/center_x"</span><span class="p">,</span>
-</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>    <span class="n">center_y_topic</span><span class="o">=</span><span class="s2">"/sim/overhead/center_y"</span><span class="p">,</span>
-</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>    <span class="n">frame_id</span><span class="o">=</span><span class="s2">"map"</span><span class="p">,</span>
-</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>    <span class="n">coverage_m</span><span class="o">=</span><span class="mf">225.0</span><span class="p">,</span>
-</span><span id="__span-7-19"><a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>    <span class="n">center_x_m</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
-</span><span id="__span-7-20"><a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>    <span class="n">center_y_m</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
-</span><span id="__span-7-21"><a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a>    <span class="n">pixels_per_meter</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
-</span><span id="__span-7-22"><a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a>    <span class="n">domain_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
-</span><span id="__span-7-23"><a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">cam_path</span> <span class="o">=</span> <span class="n">add_orthographic_camera</span><span class="p">(</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">stage</span><span class="p">,</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">prim_path</span><span class="o">=</span><span class="s2">"/World/MapCamera"</span><span class="p">,</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">altitude_m</span><span class="o">=</span><span class="mf">165.0</span><span class="p">,</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="n">coverage_m</span><span class="o">=</span><span class="mf">225.0</span><span class="p">,</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="n">scene_scale_factor</span><span class="o">=</span><span class="n">scene_scale_factor</span><span class="p">,</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="n">center_x_m</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>   <span class="c1"># set if your area of interest isn't at world origin</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    <span class="n">center_y_m</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="p">)</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="n">add_overhead_camera_publisher</span><span class="p">(</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    <span class="n">parent_graph_path</span><span class="o">=</span><span class="s2">"/World/MapCameraGraph"</span><span class="p">,</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="n">camera_prim_path</span><span class="o">=</span><span class="n">cam_path</span><span class="p">,</span>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>    <span class="n">topic</span><span class="o">=</span><span class="s2">"/sim/overhead/image"</span><span class="p">,</span>
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>    <span class="n">spec_topic</span><span class="o">=</span><span class="s2">"/sim/overhead/spec"</span><span class="p">,</span>
+</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>    <span class="n">center_x_topic</span><span class="o">=</span><span class="s2">"/sim/overhead/center_x"</span><span class="p">,</span>
+</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>    <span class="n">center_y_topic</span><span class="o">=</span><span class="s2">"/sim/overhead/center_y"</span><span class="p">,</span>
+</span><span id="__span-8-17"><a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>    <span class="n">frame_id</span><span class="o">=</span><span class="s2">"map"</span><span class="p">,</span>
+</span><span id="__span-8-18"><a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>    <span class="n">coverage_m</span><span class="o">=</span><span class="mf">225.0</span><span class="p">,</span>
+</span><span id="__span-8-19"><a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>    <span class="n">center_x_m</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+</span><span id="__span-8-20"><a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a>    <span class="n">center_y_m</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+</span><span id="__span-8-21"><a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a>    <span class="n">pixels_per_meter</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
+</span><span id="__span-8-22"><a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>    <span class="n">domain_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-8-23"><a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>Full setup, GCS-side rendering, and tuning knobs are on the <strong><a href="../overhead_camera/">Overhead Camera</a></strong> page.</p>
 <h3 id="saving-a-self-contained-copy-save_scene_as_contained_usd">Saving a self-contained copy — <code>save_scene_as_contained_usd</code><a class="headerlink" href="#saving-a-self-contained-copy-save_scene_as_contained_usd" title="Permanent link">&para;</a></h3>
 <p>For scenes you'd like to keep working with offline (no Nucleus connection), or for sharing a scene with collaborators, collect the root USD plus every referenced asset (textures, MDLs, sublayers) into a local directory:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">save_scene_as_contained_usd</span><span class="p">(</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">source_usd_url</span><span class="o">=</span><span class="n">ENV_URL</span><span class="p">,</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">output_dir</span><span class="o">=</span><span class="s2">"/tmp/collected_scene"</span><span class="p">,</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">save_scene_as_contained_usd</span><span class="p">(</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="n">source_usd_url</span><span class="o">=</span><span class="n">ENV_URL</span><span class="p">,</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="n">output_dir</span><span class="o">=</span><span class="s2">"/tmp/collected_scene"</span><span class="p">,</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>The collected folder contains a standalone root USD with relative references — load it directly via <code>omniverse://localhost/...</code> or a local file path. Note that this collects the <strong>source USD as-is</strong>: scale, colliders, dome light, and any other stage edits applied in this post-load callback are <em>not</em> baked into the saved copy. To capture the live stage with your modifications, first export the in-memory stage to a USD on disk (e.g. via <code>stage.GetRootLayer().Export(...)</code>) and pass that exported path as <code>source_usd_url</code>.</p>
 <h2 id="common-issues">Common issues<a class="headerlink" href="#common-issues" title="Permanent link">&para;</a></h2>

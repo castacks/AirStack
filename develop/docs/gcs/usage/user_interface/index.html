@@ -5729,7 +5729,8 @@
 <p><a href="https://www.youtube.com/watch?v=J577FWRaipg&amp;list=PLpJxwrRy4QbtVD3XxVzg3CAsm-A279d28&amp;index=1"><img alt="Watch the video" src="https://img.youtube.com/vi/J577FWRaipg/0.jpg" /></a></p>
 <h1 id="debugging-tips">Debugging tips:<a class="headerlink" href="#debugging-tips" title="Permanent link">&para;</a></h1>
 <p>launch just the gcs container:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>--profile<span class="w"> </span>deploy<span class="w"> </span>up<span class="w"> </span>gcs
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>gcs<span class="w">          </span><span class="c1"># desktop profile</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>--profile<span class="w"> </span>deploy<span class="w"> </span>up<span class="w"> </span>gcs-real<span class="w">   </span><span class="c1"># deployed GCS hardware</span>
 </span></code></pre></div>
 <h2 id="1-running-docker-in-interactive-mode">1. Running docker in interactive mode:<a class="headerlink" href="#1-running-docker-in-interactive-mode" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-it<span class="w"> </span>gcs<span class="w"> </span>/bin/bash

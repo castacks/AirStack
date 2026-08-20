@@ -5556,17 +5556,17 @@
 </ul>
 <p><strong>Key launch points:</strong></p>
 <ul>
-<li><strong>Launch command:</strong> <code>airstack up isaac-sim</code> or <code>airstack up simple-sim</code></li>
+<li><strong>Launch command:</strong> <code>airstack up --sim isaac</code> (or <code>airstack up isaac-sim</code> to start only the sim service)</li>
 <li><strong>Main process:</strong> The <code>command:</code> in docker-compose.yaml starts the simulator</li>
-<li><strong>Scene selection:</strong> Set via <code>ISAAC_SIM_SCENE</code> environment variable (Isaac Sim)</li>
-<li><strong>Auto-launch:</strong> Controlled by <code>PLAY_SIM_ON_START</code> variable</li>
+<li><strong>Scene selection (Isaac Sim):</strong> the standalone launch script named by <code>ISAAC_SIM_SCRIPT_NAME</code> (in <code>.env</code>) defines the scene and drones; with <code>ISAAC_SIM_USE_STANDALONE=false</code>, <code>ISAAC_SIM_GUI</code> points at a USD file to open instead</li>
+<li><strong>Auto-play:</strong> Controlled by <code>PLAY_SIM_ON_START</code> (or <code>airstack up --play</code>)</li>
 </ul>
 <p><strong>Example:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Launch Isaac Sim with custom scene</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">ISAAC_SIM_SCENE</span><span class="o">=</span>scenes/custom_scene.usd<span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>isaac-sim
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Launch Isaac Sim with a custom launch script</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">ISAAC_SIM_SCRIPT_NAME</span><span class="o">=</span>my_custom_scene.py<span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>isaac
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Launch simple simulator</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>airstack<span class="w"> </span>up<span class="w"> </span>simple-sim
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Come up paused</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>isaac<span class="w"> </span>--no-play
 </span></code></pre></div></p>
 <p><strong>Learn more:</strong> <a href="../development/beginner/airstack-cli/docker_usage/">Docker Workflow</a></p>
 <h2 id="simulation-platforms">Simulation Platforms<a class="headerlink" href="#simulation-platforms" title="Permanent link">&para;</a></h2>
@@ -5627,11 +5627,15 @@
 <ol>
 <li>
 <p><strong>Launch multiple robots:</strong>
-   <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">NUM_ROBOTS</span><span class="o">=</span><span class="m">3</span><span class="w"> </span>airstack<span class="w"> </span>up
-</span></code></pre></div></p>
+   <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>isaac<span class="w"> </span>--robots<span class="w"> </span><span class="m">3</span>
+</span></code></pre></div>
+   (<code>--robots</code> sets <code>NUM_ROBOTS</code> <strong>and</strong> selects the multi-drone launch script.
+   Plain <code>NUM_ROBOTS=3 airstack up</code> is rejected by preflight if
+   <code>ISAAC_SIM_SCRIPT_NAME</code> is still the single-drone default, which spawns
+   exactly one drone.)</p>
 </li>
 <li>
-<p>Each robot gets independent ROS 2 namespace</p>
+<p>Each robot gets an independent ROS 2 namespace and DDS domain</p>
 </li>
 <li>All robots visible in same Isaac Sim scene</li>
 <li>Coordinate via ground control station</li>
@@ -5658,28 +5662,38 @@
 </thead>
 <tbody>
 <tr>
-<td><code>ISAAC_SIM_SCENE</code></td>
-<td>Path to USD scene file</td>
-<td><code>simulation/isaac-sim/scenes/...</code></td>
+<td><code>ISAAC_SIM_SCRIPT_NAME</code></td>
+<td>Standalone launch script (scene + drones) in <code>simulation/isaac-sim/launch_scripts/</code></td>
+<td><code>example_one_px4_pegasus_launch_script.py</code></td>
+</tr>
+<tr>
+<td><code>ISAAC_SIM_USE_STANDALONE</code></td>
+<td><code>true</code>: run the launch script; <code>false</code>: open the USD in <code>ISAAC_SIM_GUI</code></td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>ISAAC_SIM_GUI</code></td>
+<td>USD file to open when not using a standalone script</td>
+<td><code>simple_pegasus.scene.usd</code></td>
 </tr>
 <tr>
 <td><code>PLAY_SIM_ON_START</code></td>
 <td>Auto-start simulation</td>
-<td><code>true</code></td>
+<td><code>false</code></td>
 </tr>
 <tr>
 <td><code>NUM_ROBOTS</code></td>
-<td>Number of robots to spawn</td>
+<td>Number of robot containers (use <code>--robots</code> so the sim matches)</td>
 <td><code>1</code></td>
 </tr>
 </tbody>
 </table>
 <p><strong>Example:</strong>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Custom scene</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">ISAAC_SIM_SCENE</span><span class="o">=</span>scenes/custom.usd<span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>isaac-sim
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Custom launch script</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">ISAAC_SIM_SCRIPT_NAME</span><span class="o">=</span>my_custom_scene.py<span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>isaac
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Don't auto-play</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nv">PLAY_SIM_ON_START</span><span class="o">=</span><span class="nb">false</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>isaac-sim
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Auto-play on start</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>isaac<span class="w"> </span>--play
 </span></code></pre></div></p>
 <p><strong>Pre-built scenes:</strong> Located in <code>scenes/</code> directory</p>
 <ul>

@@ -6,274 +6,44 @@ Demonstrates:
  - Loading a Pegasus world with an environment
  - Scaling the environment prim and adding collision geometry
  - Adding a dome light
-- Spawning a PX4 multirotor with ZED camera and RTX lidar
+ - Spawning a PX4 multirotor with ZED camera and RTX lidar
  - Optionally saving the prepared scene as a self-contained USD
+   (pass ``save_scene_to=`` below)
+
+Env (see pegasus_app.py): ISAAC_SIM_LIVESTREAM, ISAAC_SIM_HEADLESS,
+PLAY_SIM_ON_START.
 """
 
 import os
 import sys
-import time
-import asyncio
 
-import carb
-from isaacsim import SimulationApp
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from pegasus_app import create_simulation_app
 
-_LIVESTREAM = os.environ.get("ISAAC_SIM_LIVESTREAM", "").lower() == "true"
+# Must be created before any omni/pegasus imports.
+simulation_app = create_simulation_app()
 
-# Must be created before any omni imports.
-#
-# When livestreaming, mirror the NVIDIA reference config from
-# simulation/isaac-sim/standalone_examples/api/isaacsim.simulation_app/livestream.py
-# so the Kit GUI (menu bar, toolbar, viewport, status bar) actually gets
-# rendered into the WebRTC stream instead of just the bare 3D viewport.
-# Key field: `hide_ui: False` — SimulationApp's default when `headless=True`
-# is to also hide the UI; the livestream reference opts back into showing
-# it. `display_options=3286` is the same bitmask the reference uses to keep
-# the default grid + axes visible at scene start.
-if _LIVESTREAM:
-    _SIM_APP_CONFIG = {
-        "width": 1280,
-        "height": 720,
-        "window_width": 1920,
-        "window_height": 1080,
-        "headless": True,
-        "hide_ui": False,
-        "renderer": "RaytracedLighting",
-        "display_options": 3286,
-    }
-else:
-    _SIM_APP_CONFIG = {"headless": False}
-
-simulation_app = SimulationApp(launch_config=_SIM_APP_CONFIG)
-
-if _LIVESTREAM:
-    # Headless + WebRTC livestream when ISAAC_SIM_LIVESTREAM=true (set by the
-    # OSMO airstack-osmo-workspace entrypoint and the isaac-sim-livestream
-    # Compose profile). Local desktop dev keeps the original windowed behavior.
-    # Mirrors AirStack's standalone livestream reference at
-    # simulation/isaac-sim/standalone_examples/api/isaacsim.simulation_app/livestream.py
-    from isaacsim.core.utils.extensions import enable_extension
-    simulation_app.set_setting("/app/window/drawMouse", True)
-    simulation_app.set_setting("/app/livestream/enabled", True)
-
-    # Pin the UDP media port so it stays inside the narrow set of ports we
-    # publish from this container and that `airstack osmo:webrtc` forwards.
-    #
-    # Kit 107's WebRTC livestream picks a UDP media port dynamically. The
-    # documented `omni.services.livestream.nvcf` defaults were
-    # minHostPort=47998 / maxHostPort=48020 / fixedHostPort=0, but the
-    # actual Kit binary ignored that range on airstack-dev-13 and bound to
-    # UDP 49042 — outside both the Compose-published port range AND the
-    # default osmo `--udp` forward (47995-48012,49000-49007). Result:
-    # signaling worked (TCP 49100), the WebRTC Streaming Client window
-    # opened, but every media packet was dropped → black viewport +
-    # the `NVST_CCE_DISCONNECTED when m_connectionCount 0 != 1` underflow
-    # storm in the Kit log.
-    #
-    # Set all three settings so whichever code path the plugin reads, it
-    # lands on UDP 49099. The value of 49099 is picked as one-off from the
-    # 49100 signaling port — same range, easy to remember, and TCP/UDP can
-    # coexist on the same number if anyone later wants a single port.
-    LIVESTREAM_UDP_PORT = int(os.environ.get("ISAAC_SIM_LIVESTREAM_UDP_PORT", "49099"))
-    simulation_app.set_setting("/app/livestream/fixedHostPort", LIVESTREAM_UDP_PORT)
-    simulation_app.set_setting("/app/livestream/minHostPort", LIVESTREAM_UDP_PORT)
-    simulation_app.set_setting("/app/livestream/maxHostPort", LIVESTREAM_UDP_PORT)
-
-    enable_extension("omni.kit.livestream.webrtc")
-
-import omni.kit.app
-import omni.timeline
-import omni.usd
-
-from omni.isaac.core.world import World
-
-# Pegasus imports
-from pegasus.simulator.params import SIMULATION_ENVIRONMENTS
-from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
-from pegasus.simulator.ogn.api.spawn_multirotor import spawn_px4_multirotor_node
-from pegasus.simulator.ogn.api.spawn_zed_camera import add_zed_stereo_camera_subgraph
-from pegasus.simulator.ogn.api.spawn_rtx_lidar import add_rtx_lidar_subgraph
-
-sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "utils")))
-from scene_prep import scale_stage_prim, add_colliders, add_dome_light, save_scene_as_contained_usd
-
-
-# --------------------- CONFIGURATION ---------------------
-# Environment to load. Swap this URL/key for any other scene.
-ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
-
-# Scale applied to /World/stage. 0.01 converts cm→m for Nucleus assets.
-# Set to 1.0 if the environment is already in meters.
-STAGE_SCALE = 1.0
-
-# Set to a directory path to export a self-contained USD after scene prep.
-# Set to None to skip saving.
-SAVE_SCENE_TO = None  # e.g. os.path.expanduser("~/AirStack/my_scene/")
-
-DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
-# ---------------------------------------------------------
-
-
-# Enable required extensions
-ext_manager = omni.kit.app.get_app().get_extension_manager()
-for ext in [
-    "omni.graph.core",
-    "omni.graph.action",
-    "omni.graph.action_nodes",
-    "isaacsim.core.nodes",
-    "omni.graph.ui",
-    "omni.graph.visualization.nodes",
-    "omni.graph.scriptnode",
-    "omni.graph.window.action",
-    "omni.graph.window.generic",
-    "omni.graph.ui_nodes",
-    "pegasus.simulator",
-]:
-    if not ext_manager.is_extension_enabled(ext):
-        ext_manager.set_extension_enabled_immediate(ext, True)
-
-
-def wait_for_stage(stage, timeout_s: float = 10.0):
-    """Pump the Kit app loop until /World has content (scene fully loaded)."""
-    for _ in range(int(timeout_s / 0.1)):
-        omni.kit.app.get_app().update()
-        world_prim = stage.GetPrimAtPath("/World")
-        if world_prim.IsValid():
-            non_physics = [c for c in world_prim.GetChildren() if c.GetName() != "PhysicsScene"]
-            if non_physics:
-                return True
-        time.sleep(0.1)
-    return False
-
-
-class PegasusApp:
-
-    def __init__(self):
-        self.timeline = omni.timeline.get_timeline_interface()
-
-        # Start Pegasus interface + world
-        self.pg = PegasusInterface()
-        self.pg._world = World(**self.pg._world_settings)
-        self.world = self.pg.world
-
-        # Keep the timeline stopped throughout setup so that OmniGraph's
-        # OnPlaybackTick never fires.
-        self.timeline.stop()
-
-        # Load environment
-        self.pg.load_environment(ENV_URL)
-
-        stage = omni.usd.get_context().get_stage()
-        if stage is None:
-            raise RuntimeError("Stage failed to load")
-
-        # Wait for the environment to finish loading before modifying it
-        if not wait_for_stage(stage):
-            carb.log_warn("Stage load timed out — continuing anyway.")
-
-        # ----- Scene preparation -----
-
-        # Scale /World/stage if the asset uses non-metric units (e.g. cm).
-        # Remove or set STAGE_SCALE=1.0 if the environment is already in meters.
-        stage_prim = stage.GetPrimAtPath("/World/stage")
-        if stage_prim.IsValid():
-            scale_stage_prim(stage, "/World/stage", STAGE_SCALE)
-
-            # Apply CollisionAPI to every mesh so physics works correctly
-            add_colliders(stage_prim)
-
-            # Let the app process the transform and collision changes
-            for _ in range(10):
-                omni.kit.app.get_app().update()
-        else:
-            carb.log_warn("/World/stage not found — skipping scale and collision.")
-
-        # Add a dome light for uniform scene illumination.
-        # Pass intensity/exposure kwargs to override defaults defined in scene_prep.
-        add_dome_light(stage)
-
-        # Optionally save the prepared scene as a self-contained USD package.
-        # The Collector copies all Nucleus-hosted textures and MDLs locally.
-        if SAVE_SCENE_TO:
-            import tempfile
-            tmp_usd = os.path.join(tempfile.gettempdir(), "prepared_scene.usd")
-            success, error = asyncio.get_event_loop().run_until_complete(
-                omni.usd.get_context().export_as_stage_async(tmp_usd)
-            )
-            if success:
-                os.makedirs(SAVE_SCENE_TO, exist_ok=True)
-                save_scene_as_contained_usd(tmp_usd, SAVE_SCENE_TO)
-                os.remove(tmp_usd)
-            else:
-                carb.log_error(f"Scene export failed: {error}")
-
-        # ----- Spawn drone OmniGraph -----
-        # This only creates the graph topology. The actual drone + PX4
-        # backend are created by compute_base on the first Play tick.
-
-        graph_handle = spawn_px4_multirotor_node(
-            pegasus_node_name="PX4Multirotor",
-            drone_prim="/World/base_link",
-            robot_name="robot_1",
-            vehicle_id=1,   # MAVLink port = 14540 + vehicle_id
-            domain_id=1,    # ROS 2 domain ID — match vehicle_id by convention
-            usd_file=DRONE_USD,
-            init_pos=[0.0, 0.0, 0.07],
-            init_orient=[0.0, 0.0, 0.0, 1.0],
-        )
-
-        # Add a ZED stereo camera subgraph to the drone
-        add_zed_stereo_camera_subgraph(
-            parent_graph_handle=graph_handle,
-            drone_prim="/World/base_link",
-            robot_name="robot_1",
-            camera_name="ZEDCamera",
-            camera_offset=[0.2, 0.0, -0.05],       # X, Y, Z offset from base_link
-            camera_rotation_offset=[0.0, 0.0, 0.0], # roll, pitch, yaw in degrees
-        )
-
-        # Add an RTX OmniLidar subgraph to the drone (config + variant via alias)
-        add_rtx_lidar_subgraph(
-            parent_graph_handle=graph_handle,
-            drone_prim="/World/base_link",
-            robot_name="robot_1",
-            lidar_config="ouster_os1",
-            lidar_topic_name="point_cloud_raw",
-            lidar_offset=[0.0, 0.0, 0.025],  # X, Y, Z offset from drone base_link
-            lidar_rotation_offset=[0.0, 0.0, 0.0],
-            min_range=0.75,
-        )
-
-        self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
-
-    def run(self):
-
-        if self.play_on_start:
-            self.timeline.play()
-        else:
-            self.timeline.stop()
-
-        app = omni.kit.app.get_app()
-        while simulation_app.is_running():
-            # File → Save re-opens the stage, which invalidates the World.
-            # Fall back to app.update() until the extension re-creates it.
-            world = World.instance()
-            if world is not None and hasattr(world, '_scene'):
-                world.step(render=True)
-                if world is not self.world:
-                    self.world = world
-                    self.pg._world = world
-            else:
-                app.update()
-
-        carb.log_warn("Closing simulation.")
-        self.timeline.stop()
-        simulation_app.close()
+from pegasus.simulator.params import SIMULATION_ENVIRONMENTS  # noqa: E402
+from pegasus_app import PegasusApp  # noqa: E402
 
 
 def main():
-    pg_app = PegasusApp()
-    pg_app.run()
+    PegasusApp(
+        # Environment to load. Swap this URL/key for any other scene.
+        env_url=SIMULATION_ENVIRONMENTS["Default Environment"],
+        # 0.01 converts cm→m for Nucleus assets; 1.0 if already in meters.
+        stage_scale=1.0,
+        drone_configs=[
+            {
+                "domain_id": 1,  # MAVLink port = 14540 + vehicle_id (= domain_id)
+                "x_m": 0.0, "y_m": 0.0, "z_m": 0.07,
+                # Single-drone scenes keep the historical prim/node names.
+                "prim": "/World/base_link",
+                "node_name": "PX4Multirotor",
+            }
+        ],
+        enable_lidar=True,
+    ).run()
 
 
 if __name__ == "__main__":

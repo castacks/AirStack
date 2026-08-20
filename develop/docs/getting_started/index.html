@@ -5580,14 +5580,21 @@ If you have permission you can push updated images to the docker server.
 <h2 id="launch">Launch<a class="headerlink" href="#launch" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>airstack<span class="w"> </span>up<span class="w"> </span><span class="c1"># This will launch the robot, ground control station, and isaac sim</span>
 </span></code></pre></div>
-<p>This will automatically launch and play the Isaac scene specified under <code>AirStack/.env</code> (default is the Fire Academy).</p>
+<p>This launches the Isaac Sim scene specified by <code>ISAAC_SIM_SCRIPT_NAME</code> in <code>AirStack/.env</code> (default: a single drone in the Pegasus default environment). By default the sim comes up <strong>paused</strong> (<code>PLAY_SIM_ON_START="false"</code> in <code>.env</code>) — press <strong>Play</strong> in the Isaac Sim window, or launch with <code>airstack up --play</code>.</p>
+<p>Containers start immediately, but the ROS 2 workspace still builds and PX4 still boots in the background. To wait until the drone is actually ready to fly:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>airstack<span class="w"> </span>ready<span class="w">   </span><span class="c1"># or: airstack up --play --wait</span>
+</span></code></pre></div>
+<p>Useful variants (see <code>airstack help up</code>):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>airsim<span class="w">          </span><span class="c1"># MS AirSim instead of Isaac Sim</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>isaac<span class="w"> </span>--robots<span class="w"> </span><span class="m">3</span><span class="w">  </span><span class="c1"># multi-robot (auto-selects the multi-drone scene script)</span>
+</span></code></pre></div>
 <h2 id="move-robot">Move Robot<a class="headerlink" href="#move-robot" title="Permanent link">&para;</a></h2>
-<p>Find the RViz window, <code>Takeoff</code>, then <code>Navigate</code> and <code>Explore</code> in the trajectory window like in this video:</p>
+<p>Open Foxglove in the GCS to command the robot: import the layout <code>/root/airstack_layout_num_robots_1.json</code> (Layouts → Import from file…), connect to <code>ws://localhost:8765</code>, then press <code>Takeoff</code> in the Robot Tasks panel, then <code>Navigate</code> like in this video:</p>
 <iframe width="560" height="315" src="https://www.youtube.com/embed/EAKsHzNIU2I?si=zQUFq8fPst2BIIMz" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 <h2 id="shutdown">Shutdown<a class="headerlink" href="#shutdown" title="Permanent link">&para;</a></h2>
 <p>To shutdown and remove docker containers:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>airstack<span class="w"> </span>down<span class="w"> </span><span class="c1"># This will stop and remove the docker containers</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>airstack<span class="w"> </span>down<span class="w"> </span><span class="c1"># This will stop and remove the docker containers</span>
 </span></code></pre></div>
 <p>Congratulations! You did it. </p>
 
