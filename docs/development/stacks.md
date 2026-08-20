@@ -128,7 +128,7 @@ an explicitly set `AUTONOMY_ROLE`:
 |----------|--------------|-----------|
 | No stack, no explicit `AUTONOMY_ROLE` | Legacy dispatch, compose default role (`full`) — unchanged, no warning | `airstack up --stack full_default` when ready |
 | Explicit `AUTONOMY_ROLE=full` (env / `.env` / `--env-file`) | Legacy dispatch + deprecation warning | `--stack full_default` |
-| `AUTONOMY_ROLE=full` + `local_launch_file:=local_droan_cpu.launch.xml` | Legacy dispatch + warning | `--stack full_droan_cpu` |
-| `local_macvo_obstacle_avoidance.launch.xml` | Broken (wrong arg names, stale topic) | `--stack full_macvo` (fixed) |
+| `local_droan_cpu.launch.xml` variant | **Deleted in P5-E2** — the CPU-DROAN topology lives only in the stack | `--stack full_droan_cpu` |
+| `local_macvo_obstacle_avoidance.launch.xml` | **Deleted in P5-E2** (was broken: wrong arg names, stale topic) | `--stack full_macvo` (fixed) |
 | `AUTONOMY_ROLE=onboard` / `offboard` (split) | Legacy dispatch + warning | split stacks arrive with RFC #380 §2 (`lite_offload_global`) |
 | `--stack X` **and** explicit `AUTONOMY_ROLE` | Stack wins — the role is ignored by the launch dispatch; warning says so | Drop `AUTONOMY_ROLE` |

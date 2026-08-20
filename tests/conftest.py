@@ -85,7 +85,7 @@ def pytest_configure(config):
     run_dir = harness_session.init_run_dir(AIRSTACK_ROOT)
     config.option.xmlpath = str(run_dir / "results.xml")
 
-    # Co-located unit tests import their own package (e.g. `optitrack.natnet.emulator`,
+    # Co-located unit tests import their own package (e.g.
     # `lidar_point_cloud_filter.validation_core`). Put each package/extension import
     # root (the parent of its test/ dir) on sys.path so they resolve without a
     # per-package conftest.py — a second conftest.py collides with this root one as
