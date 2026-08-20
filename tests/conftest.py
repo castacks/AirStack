@@ -27,6 +27,13 @@ def pytest_addoption(parser):
                           "Default isaacsim; pass --sim msairsim to opt in.")
     parser.addoption("--num-robots", default="1,3",
                      help="Comma-separated robot counts, e.g. 1,3")
+    parser.addoption("--stack", default=None,
+                     help="Stack folder under stacks/ to launch instead of "
+                          "the legacy AUTONOMY_ROLE dispatch (sets "
+                          "AIRSTACK_STACK_DIR for airstack up). Default: "
+                          "None (legacy role dispatch). The wiring test "
+                          "drift-checks against stacks/<name>/wiring.md "
+                          "when set.")
     parser.addoption("--stress-iterations", type=int, default=1,
                      help="Number of up/down iterations per (sim, num_robots) config")
     parser.addoption("--stable-duration", type=int, default=120,
@@ -220,6 +227,14 @@ def airstack_env(request):
         env_overrides["QT_QPA_PLATFORM"] = "offscreen"
     env_overrides.update(cfg.get("extra_env", {}))
 
+    # Stack dispatch (RFC #379 §3): route robot.launch.xml to the stack's
+    # entry launch file instead of the legacy AUTONOMY_ROLE role groups.
+    # Container path — stacks/ is bind-mounted at /root/AirStack/stacks.
+    stack = request.config.getoption("--stack")
+    if stack:
+        env_overrides["AIRSTACK_STACK_DIR"] = f"/root/AirStack/stacks/{stack}"
+        env_overrides["AIRSTACK_STACK_ENTRY"] = "stack"
+
     with logger_to(log):
         missing = missing_images(env=env_overrides)
         if missing:
@@ -250,6 +265,8 @@ def airstack_env(request):
         "robot_pattern": "robot.*desktop",
         "up_started_at": t0,
         "cfg": cfg,
+        # None = legacy AUTONOMY_ROLE dispatch; else the stacks/<name> launched.
+        "stack": stack,
     }
 
     tid = current_test_id()

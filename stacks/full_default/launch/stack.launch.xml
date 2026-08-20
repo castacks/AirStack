@@ -1,0 +1,67 @@
+<!--
+  full_default : trunk reference stack (RFC #379 S3, layout per RFC #385 S1).
+
+  WRAP FORM: this entry point captures today's AUTONOMY_ROLE=full topology by
+  including the existing layer bringups verbatim, i.e. the same seven includes
+  onboard_autonomy_all.launch.xml performs with its default args, plus the two
+  role-full extras from autonomy_bringup/launch/robot.launch.xml (the DDS
+  router domain bridge to the GCS and the gossip coordination layer).
+  Flattening the layer bringups' nodes and remaps into this file (the
+  single-locus wiring rule proper) arrives in E2/E3. Until then the remaps
+  still live in the layer bringup files, and this stack's wiring.md (generated
+  by `airstack test -m wiring` with the stack flag) is the observed truth of
+  the running graph.
+
+  Launched by autonomy_bringup/launch/robot.launch.xml when AIRSTACK_STACK_DIR
+  points at this folder (set by `airstack up` with the stack flag,
+  e.g. `airstack up ...stack full_default`; see `airstack help up`). The
+  shared preamble (ROBOT_NAME namespace push, use_sim_time,
+  robot_state_publisher, world/map static TF) runs there unconditionally, so
+  it is NOT repeated here.
+
+  Equivalence claim: launching this stack produces a ROS graph identical to
+  legacy AUTONOMY_ROLE=full.
+-->
+<launch>
+
+  <!-- Autonomy layers (identical to onboard_autonomy_all.launch.xml defaults) -->
+
+  <!-- Interface (MAVROS/PX4 hardware interface + safety) -->
+  <include file="$(find-pkg-share interface_bringup)/launch/interface.launch.py" />
+
+  <!-- Sensors -->
+  <include file="$(find-pkg-share sensors_bringup)/launch/sensors.launch.xml" />
+
+  <!-- Perception (stereo disparity + point cloud; macvo/natnet off by default) -->
+  <include file="$(find-pkg-share perception_bringup)/launch/perception.launch.xml" />
+
+  <!-- Local (task servers, DROAN GPU planner, trajectory + PID controllers) -->
+  <include file="$(find-pkg-share local_bringup)/launch/local.launch.xml" />
+
+  <!-- Global (global planner + world model) -->
+  <include file="$(find-pkg-share global_bringup)/launch/global.launch.xml" />
+
+  <!-- Behavior (behavior tree + safety monitor) -->
+  <include file="$(find-pkg-share behavior_bringup)/launch/behavior.launch.xml" />
+
+  <!-- Logging -->
+  <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" />
+
+  <!-- Role-full extras (from robot.launch.xml's full group) -->
+
+  <!-- Domain Bridge (GCS) -->
+  <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
+    <arg name="config_file"
+      value="$(find-pkg-share autonomy_bringup)/onboard_all/config/dds_router.yaml" />
+    <!-- 0 = robot.launch.xml's gcs_domain default -->
+    <arg name="args" value="gcs_domain:=0" />
+  </include>
+
+  <!-- Gossip coordination layer -->
+  <include file="$(find-pkg-share coordination_bringup)/launch/gossip.launch.xml">
+    <!-- 99 / 1.0 = robot.launch.xml's gossip_domain / gossip_publish_rate defaults -->
+    <arg name="gossip_domain" value="99" />
+    <arg name="publish_rate" value="1.0" />
+  </include>
+
+</launch>

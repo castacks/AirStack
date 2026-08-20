@@ -12,6 +12,14 @@ missing, the test logs a bootstrap instruction and PASSES (goldens are
 committed from a validated local run — see ``tests/goldens/wiring/README.md``);
 if present, ``diff_graphs`` must report identical or the test fails with the
 JSON drift verdict.
+
+Stack mode (RFC #379 §3/§4): with ``--stack <name>`` the fixture launches the
+stack's entry launch file and the golden becomes ``stacks/<name>/wiring.md``
+(one observed-wiring document per stack, committed in the stack folder). The
+observed snapshot is written as ``observed_<name>.md`` and the same
+bootstrap-pass + INSTRUCTION behavior applies when the stack has no wiring.md
+yet. Legacy runs (no ``--stack``) keep the tests/goldens/wiring path
+unchanged.
 """
 import json
 import os
@@ -236,6 +244,12 @@ class TestWiringSnapshot:
         m = get_metrics()
         tid = current_test_id()
 
+        # Legacy (no --stack) keeps the full_default naming and the
+        # tests/goldens/wiring golden; a selected stack owns its golden at
+        # stacks/<name>/wiring.md.
+        stack = airstack_env.get("stack")
+        stack_name = stack or "full_default"
+
         _wait_for_settled_node_sets(airstack_env)
         t0 = time.time()
         graph = _capture_merged_graph(airstack_env)
@@ -243,7 +257,7 @@ class TestWiringSnapshot:
                  round(time.time() - t0, 2), unit="s")
 
         meta = {
-            "stack": "full_default",
+            "stack": stack_name,
             "generated-by": "tests/system/test_wiring_snapshot.py",
             "date": time.strftime("%Y-%m-%d %H:%M:%S"),
             "sim": sim,
@@ -252,7 +266,7 @@ class TestWiringSnapshot:
         }
         out_dir = run_dir() / "wiring"
         out_dir.mkdir(parents=True, exist_ok=True)
-        observed_path = out_dir / "observed_full_default.md"
+        observed_path = out_dir / f"observed_{stack_name}.md"
         observed_path.write_text(ws.render_wiring_md(graph, meta))
         logger.info("Wrote observed wiring snapshot to %s", observed_path)
 
@@ -265,10 +279,13 @@ class TestWiringSnapshot:
         m.record(tid, "wiring_topic_count", len(graph["topics"]),
                  unit="count", direction="higher_is_better")
 
-        golden_path = repo_path(
-            "tests", "goldens", "wiring",
-            f"full_default.{sim}.{num_robots}robot.md",
-        )
+        if stack:
+            golden_path = repo_path("stacks", stack, "wiring.md")
+        else:
+            golden_path = repo_path(
+                "tests", "goldens", "wiring",
+                f"full_default.{sim}.{num_robots}robot.md",
+            )
         if not golden_path.exists():
             logger.info(
                 "INSTRUCTION: no golden at %s — bootstrap by validating the "
