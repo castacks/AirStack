@@ -150,6 +150,31 @@ osmo workflow list --name gha-runner- --pool airstack-ci
 osmo workflow list --name gha-runner- --pool airstack-ci --status RUNNING PENDING WAITING
 ```
 
+## Module repos
+
+Module repos (`asm_*`) that call trunk's reusable
+[`module-system-tests.yml`](https://github.com/castacks/AirStack/blob/main/.github/workflows/module-system-tests.yml) with the
+default `runs-on: [self-hosted, airstack-ephemeral]` queue jobs **in their own
+repo**, and the orchestrator polls exactly one `repo:` per instance. To add an
+`asm_` repo to the poll list, run a second orchestrator instance against it:
+
+1. **Extend the PAT.** The fine-grained GitHub PAT must also cover the module
+   repo with `Actions: read/write` + `Administration: read/write` (JIT runner
+   registration is per-repo). Reuse the existing PAT file if it covers the
+   repo, else stage a second one.
+2. **Copy the config.** `/etc/airstack-orchestrator/config.yaml` →
+   `config-asm-<name>.yaml` with `repo: "castacks/asm_<name>"` and a
+   **distinct `workflow_name_prefix`** (e.g. `gha-runner-asm<name>-`) so the
+   two instances' orphan sweeps don't cancel each other's OSMO workflows.
+3. **Run a second service instance** pointing at the new config and its own
+   state file (copy `airstack-orchestrator.service`, adjust `ExecStart`'s
+   `--config` and `--state`, e.g. `--state /var/lib/airstack-orchestrator/state-asm-<name>.json`).
+
+First-party only: the reusable workflow refuses callers outside the castacks
+org, mirroring the fork-PR block. Org-level polling across registered repos
+(one instance, many repos) is the RFC #379 Phase 4 replacement for this
+per-repo setup.
+
 ## Operational notes
 
 - **State file**: `/var/lib/airstack-orchestrator/state.json` is the in-flight job tracker (`job_id → workflow_id`). Wiping it triggers an orphan sweep on the next reap iteration — active `gha-runner-*` workflows will be cancelled. Don't wipe it while jobs are mid-flight unless that's what you want.
