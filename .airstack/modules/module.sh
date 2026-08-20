@@ -343,9 +343,8 @@ print((data.get("hooks") or {}).get("host_setup") or "")')"
     if [ "$have_any" -eq 1 ]; then
         log_info "Module sync complete."
         if [ -f "$PROJECT_ROOT/$MODULE_GENERATED_COMPOSE" ]; then
-            log_info "To start the stack WITH module mounts, pass the generated compose file:"
-            log_info "  airstack up -f ${MODULE_GENERATED_COMPOSE}"
-            log_info "(automatic wiring into 'airstack up' is Phase P4/P5 — see docs/development/modules.md)"
+            log_info "Module mounts are included automatically by 'airstack up' (${MODULE_GENERATED_COMPOSE})."
+            log_info "(opt out with AIRSTACK_NO_MODULE_COMPOSE=1 — see docs/development/modules.md)"
         fi
         if ls "$PROJECT_ROOT/simulation/isaac-sim/launch_scripts/modules" >/dev/null 2>&1; then
             log_info "Isaac module launch scripts are addressable as ISAAC_SIM_SCRIPT_NAME=modules/<module>/<script>.py"
