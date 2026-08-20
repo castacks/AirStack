@@ -285,6 +285,24 @@ function cmd_module_sync {
     git_count="$(_module_git_count)"
     if [ "$git_count" -gt 0 ]; then
         _module_ensure_vcs || return 1
+        # Self-heal: a managed checkout dir without .git (interrupted clone /
+        # partial remove) makes `vcs import` fail with "destination path
+        # already exists" — clear it so the import can reclone.
+        local _mod_name _mod_dir
+        while IFS= read -r _mod_name; do
+            _mod_dir="$MODULE_CHECKOUT_DIR/$_mod_name"
+            if [ -d "$_mod_dir" ] && [ ! -e "$_mod_dir/.git" ]; then
+                log_warn "modules/${_mod_name} exists without .git (stale partial checkout) — clearing for reclone"
+                rm -rf "$_mod_dir"
+            fi
+        done < <(MODULE_REPOS_FILE="$MODULE_REPOS_FILE" python3 - <<'PY'
+import os, yaml
+with open(os.environ["MODULE_REPOS_FILE"], encoding="utf-8") as f:
+    data = yaml.safe_load(f) or {}
+for name in (data.get("repositories") or {}):
+    print(name)
+PY
+)
         log_info "Importing ${git_count} pinned module repo(s) into modules/ (vcs import --recursive)..."
         if ! vcs import "$MODULE_CHECKOUT_DIR" --input "$MODULE_REPOS_FILE" --recursive; then
             log_error "vcs import failed — check the URLs/pins in modules.repos."
