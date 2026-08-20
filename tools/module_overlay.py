@@ -287,6 +287,45 @@ def _is_overlay_symlink(path, root):
     return True
 
 
+def warn_stale_colcon_caches(root, modules):
+    """Warn when a module package has a colcon cache built from another path.
+
+    A package extracted from trunk into a module (e.g. natnet_ros2:
+    perception/ → modules/asm_optitrack/) keeps its old
+    robot/ros_ws/build/<pkg>/ CMake cache in bind-mounted checkouts; colcon
+    then fails with "source ... does not match the source ... used to
+    generate cache". Observe-and-report only (build artifacts are typically
+    root-owned from the container, so we print the fix, not run it).
+    """
+    ws = root / "robot" / "ros_ws"
+    stale = []
+    for name in modules:
+        module_dir = root / MODULES_REL / name
+        for pkg_xml in module_dir.glob("**/package.xml"):
+            try:
+                import xml.etree.ElementTree as ET
+                pkg = ET.parse(pkg_xml).findtext("name")
+            except Exception:
+                continue
+            if not pkg:
+                continue
+            cache = ws / "build" / pkg / "CMakeCache.txt"
+            if cache.is_file():
+                try:
+                    text = cache.read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    continue
+                if "/src/modules/" not in text:
+                    stale.append(pkg)
+    if stale:
+        pkgs = " ".join(f"/ws/build/{p} /ws/install/{p}" for p in sorted(set(stale)))
+        log(f"WARNING: stale colcon cache(s) for module package(s) "
+            f"{sorted(set(stale))} — built from a pre-extraction source path; "
+            f"colcon will fail until removed. Fix (root-owned artifacts):")
+        log(f"  docker run --rm -v \"$PWD/robot/ros_ws:/ws\" ubuntu:24.04 "
+            f"bash -c 'rm -rf {pkgs}'")
+
+
 def apply_links(desired, link_root, repo_root):
     """Create/refresh desired symlinks; drop stale overlay symlinks under link_root."""
     changed = False
@@ -383,6 +422,7 @@ def run(root, mode="sync", remove=None, robot_services=None):
     # sync / remove
     apply_links(robot_links, root / ROBOT_LINK_REL, root)
     apply_links(isaac_links, root / ISAAC_LINK_REL, root)
+    warn_stale_colcon_caches(root, modules)
 
     if compose is None:
         if generated.exists():
