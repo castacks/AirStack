@@ -118,6 +118,7 @@ gcs/.DS_Store
 # local-only; trunk never carries module code. See docs/development/modules.md
 /modules/
 /modules.repos
+/modules.lock
 robot/ros_ws/src/modules/
 simulation/isaac-sim/launch_scripts/modules/
 stacks/.external/

@@ -191,3 +191,102 @@ hand today.
   against the checkout's `.env` `VERSION` at sync time.
 - **vcs2l** is installed with `pip3 install --user`; make sure `~/.local/bin`
   is on your `PATH` for subsequent shells.
+
+## Docker layer composition
+
+Phase P4 machinery (RFC #379 §6) — it supersedes the "deps recorded but not
+consumed" limitation above. Trunk publishes **one signed base image per host
+type per version**; modules bring their own dependencies, and
+`tools/compose_module_layers.py` (run automatically by `airstack module sync`,
+or on demand via `airstack module lock`) composes them into per-checkout image
+plans. Permutations are never published.
+
+### The three dependency tiers
+
+| Tier | Manifest field | What it becomes | When to use |
+|------|----------------|-----------------|-------------|
+| 1 | `deps: {apt: [...], pip: [...]}` | One generated `RUN apt-get install …` / `RUN pip3 install …` layer **per module** in `.airstack/generated/layers/<host>/Dockerfile.composed` | The default: plain package deps |
+| 2 | `dockerfile: Dockerfile.module` | The module's own fragment, built with `--build-arg BASE_IMAGE=<previous chain link>` (always `ARG BASE_IMAGE`, never a fixed base) | Custom build steps (SDK installs, source builds) |
+| 3 | `overlay_image: <ref>` | A prebuilt overlay pulled instead of built | Monster deps (multi-GB CUDA/Torch stacks) published by the module's own CI |
+
+The chain is deterministic — modules sorted by name within each tier, tiers in
+order 1 → 2 → 3-as-build, grouped per target host (`robot` / `gcs` /
+`isaac-sim` / `ms-airsim`):
+
+```text
+<registry>/airstack:v0.19.0_robot-x86-64_dev          ← trunk base, pulled, never rebuilt
+  → tier-1 layers (one RUN per module → per-module docker layer cache)
+  → tier-2 fragments (BASE_IMAGE = previous link)
+  = <registry>/airstack:v0.19.0_robot-x86-64_dev-m<plan_hash[:8]>
+```
+
+**Tier-3 rule:** a prebuilt overlay was built `FROM` the plain trunk base, so
+docker cannot merge it into a locally built chain. It is used **as-is** only
+when it is the *sole* docker-relevant module for its host. In any other
+composition its module must also carry a `dockerfile:` — the fragment is the
+source of truth and the overlay is just a cache — otherwise the plan errors,
+citing RFC #379 §6.
+
+### Zero-module identity rule
+
+When no module contributes a docker-relevant declaration (empty `deps`, no
+`dockerfile`, no `overlay_image` — e.g. a checkout with only dep-free modules),
+the plan for every host is exactly
+`{base_image: <today's tag>, steps: [], final_tag: <today's tag>}`: no
+`Dockerfile.composed` is generated and the generated compose override carries
+**no `image:` keys**. A module-free or dep-free checkout runs today's images
+byte-identically.
+
+### Artifacts
+
+| Path | What it is | Committed? |
+|------|------------|------------|
+| `.airstack/generated/layer_plan.json` | `{host: {base_image, steps: [{module, tier, dockerfile, dep_hash}], final_tag}}` | gitignored |
+| `.airstack/generated/layers/<host>/Dockerfile.composed` | The tier-1 stage (only for hosts with tier-1 steps) | gitignored |
+| `modules.lock` (repo root) | Per module `{name, pin, dep_hash, targets}` plus `plan_hash`; deterministic serialization — identical inputs give a byte-identical lock | gitignored |
+
+`dep_hash` is a SHA-256 over the module's canonicalized deps, its
+`Dockerfile.module` bytes, and its `overlay_image` ref — so the lock (and the
+`-m<plan_hash[:8]>` tag suffix) moves exactly when a dependency declaration
+moves. Module *code* changes rebuild nothing (source stays volume-mounted; the
+dev loop is still `bws` in the container); a module's *dep* change invalidates
+only its own layer and the links above it.
+
+### Plan vs. build
+
+`airstack module sync` (and `airstack module lock`) is **plan-only**: it writes
+the plan, the composed Dockerfile, and the lock, and never calls docker.
+Actually building the chain is:
+
+```bash
+airstack module lock --build     # = compose_module_layers.py --build
+```
+
+which runs the docker build chain per host (`docker build --build-arg
+BASE_IMAGE=… -f …`, in plan order) and then points the affected services at the
+composed `final_tag` by writing `image:` overrides into
+`.airstack/generated/docker-compose.modules.yaml`. This path is meant for CI /
+the orchestrator and for developers who changed module deps; re-running plain
+`sync` regenerates the override without the `image:` keys. The `robot` host's
+override targets `robot-desktop` (not `robot-l4t`, whose aarch64 image chains
+from `robot-l4t-stack-base`); override the service list with
+`AIRSTACK_MODULE_LAYER_ROBOT_SERVICES` if needed.
+
+### The conflict gate (doctor hard gate #1)
+
+`sync` runs `compose_module_layers.py --check-conflicts` before planning and
+**fails** when two modules pin the same apt/pip package differently for the
+same host (e.g. `tabulate==0.9.0` vs `tabulate==0.8.0`), naming the fighting
+modules. Same-spec duplicates and unpinned duplicates are fine. This is one of
+the two enumerated places where module tooling hard-errors instead of
+observing (RFC #379 §4): composing a broken image would be indistinguishable
+from launching a broken system.
+
+### Trunk publishing is untouched
+
+Composed images (`…-m<hash>` tags) are **per-checkout artifacts**: built where
+they are used, cached per module layer, never pushed by trunk CI. Trunk's
+`docker-build.yml` and its retag planner
+(`.github/workflows/scripts/docker_image_plan.py`) continue to fingerprint,
+build, and sign only the base images — which is precisely why they need no
+change for modules.
