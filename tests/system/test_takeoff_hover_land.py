@@ -64,8 +64,15 @@ METRIC_UNITS = {
 
 
 def _phase_timeout(velocity):
-    """Takeoff/land timeout scaled so 0.5 m/s runs don't time out spuriously."""
-    return max(30.0, TARGET_ALTITUDE_M / velocity + 15.0)
+    """Takeoff/land timeout scaled so 0.5 m/s runs don't time out spuriously.
+
+    The constant covers velocity-independent overhead (touchdown detection,
+    land-detector dwell, disarm). +15 was marginal: 2026-08-20 runs show
+    v=0.5 landings completing at 45.1-45.2s against a 45s send_goal cap —
+    a coin-flip that produced spurious landing timeouts (also observed on
+    3-robot campaigns and the optitrack e2e).
+    """
+    return max(45.0, TARGET_ALTITUDE_M / velocity + 35.0)
 
 
 # ── pytest hooks ───────────────────────────────────────────────────────────
