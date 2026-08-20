@@ -1,16 +1,12 @@
 <!--
   full_default : trunk reference stack (RFC #379 S3, layout per RFC #385 S1).
 
-  WRAP FORM: this entry point captures today's AUTONOMY_ROLE=full topology by
-  including the existing layer bringups verbatim, i.e. the same seven includes
-  onboard_autonomy_all.launch.xml performs with its default args, plus the two
-  role-full extras from autonomy_bringup/launch/robot.launch.xml (the DDS
-  router domain bridge to the GCS and the gossip coordination layer).
-  Flattening the layer bringups' nodes and remaps into this file (the
-  single-locus wiring rule proper) arrives in E2/E3. Until then the remaps
-  still live in the layer bringup files, and this stack's wiring.md (generated
-  by `airstack test -m wiring` with the stack flag) is the observed truth of
-  the running graph.
+  LOCAL LAYER FLATTENED (P5-E2): the Local layer is composed here as a flat
+  set of module-launch includes — each block below reads "this module, these
+  connections". Every module launch file declares its topic endpoints as args
+  with canonical defaults (today's graph), so a bare include means "wired
+  canonically"; only deviations from canonical appear as include args. The
+  other layers remain wrapped (their bringup includes) until E3.
 
   Launched by autonomy_bringup/launch/robot.launch.xml when AIRSTACK_STACK_DIR
   points at this folder (set by `airstack up` with the stack flag,
@@ -20,11 +16,12 @@
   it is NOT repeated here.
 
   Equivalence claim: launching this stack produces a ROS graph identical to
-  legacy AUTONOMY_ROLE=full.
+  legacy AUTONOMY_ROLE=full (this folder's wiring.md is the committed
+  observed baseline).
 -->
 <launch>
 
-  <!-- Autonomy layers (identical to onboard_autonomy_all.launch.xml defaults) -->
+  <!-- ── Wrapped layers (flatten in E3) ─────────────────────────────────── -->
 
   <!-- Interface (MAVROS/PX4 hardware interface + safety) -->
   <include file="$(find-pkg-share interface_bringup)/launch/interface.launch.py" />
@@ -32,11 +29,37 @@
   <!-- Sensors -->
   <include file="$(find-pkg-share sensors_bringup)/launch/sensors.launch.xml" />
 
-  <!-- Perception (stereo disparity + point cloud; macvo/natnet off by default) -->
+  <!-- Perception (stereo disparity + point cloud; macvo off by default; OptiTrack arrives via the asm_optitrack module) -->
   <include file="$(find-pkg-share perception_bringup)/launch/perception.launch.xml" />
 
-  <!-- Local (task servers, DROAN GPU planner, trajectory + PID controllers) -->
-  <include file="$(find-pkg-share local_bringup)/launch/local.launch.xml" />
+  <!-- ── Local layer, flat (module launch files; canonical defaults) ────── -->
+
+  <!-- Takeoff/Land task server: odometry in from odometry_conversion;
+       trajectory_override + mode out to the trajectory controller;
+       arming/extended state from the interface; actions at tasks/{takeoff,land} -->
+  <include file="$(find-pkg-share takeoff_landing_planner)/launch/takeoff_landing_planner.launch.xml" />
+
+  <!-- Fixed-trajectory task server: trajectory_override + mode out to the
+       trajectory controller; action at tasks/fixed_trajectory -->
+  <include file="$(find-pkg-share trajectory_controller)/launch/fixed_trajectory_task.launch.xml" />
+
+  <!-- DROAN local planner (GPU): disparity in from stereo_image_proc (canonical),
+       global_plan in from the global planner, look_ahead/tracking_point in from
+       the trajectory controller, trajectory_segment_to_add out to it;
+       navigate action at tasks/navigate -->
+  <include file="$(find-pkg-share droan_gl)/launch/droan_gl.launch.xml" />
+
+  <!-- Trajectory controller: odometry in from odometry_conversion; serves the
+       trajectory_controller/* topic group (override, segment, mode, tracking
+       point, look_ahead) by relative name in its namespace -->
+  <include file="$(find-pkg-share trajectory_controller)/launch/trajectory_controller.launch.xml" />
+
+  <!-- PID controller: odometry in from odometry_conversion, tracking_point in
+       from the trajectory controller; attitude/thrust command out to the
+       interface (cmd_roll_pitch_yawrate_thrust) -->
+  <include file="$(find-pkg-share pid_controller)/launch/pid_controller.launch.xml" />
+
+  <!-- ── Wrapped layers (flatten in E3) ─────────────────────────────────── -->
 
   <!-- Global (global planner + world model) -->
   <include file="$(find-pkg-share global_bringup)/launch/global.launch.xml" />

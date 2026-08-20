@@ -22,8 +22,5 @@ robot/ros_ws/src/interface/interface_bringup/launch/interface.launch.py
 robot/ros_ws/src/interface/px4_interface/launch/px4_interface.launch.xml
 robot/ros_ws/src/interface/robot_interface/launch/odometry_conversion.xml
 robot/ros_ws/src/local/local_bringup/launch/local.launch.xml
-robot/ros_ws/src/local/local_bringup/launch/local_droan_cpu.launch.xml
 robot/ros_ws/src/local/world_models/disparity_expansion/launch/disparity_pcd.launch.xml
-robot/ros_ws/src/perception/natnet_ros2/launch/mavros_gp_origin.launch.xml
-robot/ros_ws/src/perception/natnet_ros2/launch/px4_param_setter.launch.xml
 robot/ros_ws/src/perception/perception_bringup/launch/perception.launch.xml

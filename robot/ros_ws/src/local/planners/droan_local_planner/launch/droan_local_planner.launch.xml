@@ -1,5 +1,54 @@
+<!--
+  droan_local_planner : canonical module launch file (RFC #379 §2/§4).
+
+  Starts the CPU DROAN local planner as the legacy CPU-variant local bringup
+  did: node `droan_local_planner` in the `droan` namespace (it consumes the
+  expansion clouds disparity_expansion publishes in that same namespace).
+  Every topic endpoint is a declared <arg> defaulting to the canonical name
+  (today's graph). Wiring deviations are passed as include args by the stack
+  entry file (stacks/<name>/launch/) — the single-locus rule: no remap tags and
+  no cross-module rewiring edits here.
+-->
 <launch>
-    <node pkg="droan_local_planner" exec="droan_local_planner" args="--log-level DEBUG">
-        <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml" />
+  <arg name="droan_local_planner_config"
+       default="$(find-pkg-share droan_local_planner)/config/droan.yaml"
+       description="Node parameter YAML (loaded with allow_substs)" />
+
+  <arg name="droan_local_planner_camera_info_topic"
+       default="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info"
+       description="Input camera info for the disparity camera (sensor_msgs/CameraInfo); right camera because the baseline is encoded in the right projection matrix" />
+  <arg name="droan_local_planner_global_plan_topic"
+       default="/$(env ROBOT_NAME)/global_plan"
+       description="Input global waypoint path (nav_msgs/Path)" />
+  <arg name="droan_local_planner_look_ahead_topic"
+       default="/$(env ROBOT_NAME)/trajectory_controller/look_ahead"
+       description="Input trajectory-controller look-ahead point (nav_msgs/Odometry)" />
+  <arg name="droan_local_planner_tracking_point_topic"
+       default="/$(env ROBOT_NAME)/trajectory_controller/tracking_point"
+       description="Input trajectory-controller tracking point (nav_msgs/Odometry)" />
+  <arg name="droan_local_planner_set_trajectory_mode_topic"
+       default="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode"
+       description="Output trajectory-controller mode command" />
+  <arg name="droan_local_planner_trajectory_segment_topic"
+       default="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add"
+       description="Output planned trajectory segment (airstack_msgs/TrajectoryXYZVYaw)" />
+  <arg name="droan_local_planner_navigate_task_action"
+       default="/$(env ROBOT_NAME)/tasks/navigate"
+       description="Navigate task action server name (task_msgs)" />
+
+  <group>
+    <push-ros-namespace namespace="droan" />
+    <set_remap from="camera_info" to="$(var droan_local_planner_camera_info_topic)" />
+    <set_remap from="global_plan" to="$(var droan_local_planner_global_plan_topic)" />
+    <set_remap from="look_ahead" to="$(var droan_local_planner_look_ahead_topic)" />
+    <set_remap from="tracking_point" to="$(var droan_local_planner_tracking_point_topic)" />
+    <set_remap from="set_trajectory_mode" to="$(var droan_local_planner_set_trajectory_mode_topic)" />
+    <set_remap from="trajectory_segment_to_add" to="$(var droan_local_planner_trajectory_segment_topic)" />
+    <set_remap from="~/navigate_task" to="$(var droan_local_planner_navigate_task_action)" />
+
+    <node pkg="droan_local_planner" exec="droan_local_planner" output="screen"
+          args="--log-level DEBUG">
+      <param from="$(var droan_local_planner_config)" allow_substs="true" />
     </node>
+  </group>
 </launch>

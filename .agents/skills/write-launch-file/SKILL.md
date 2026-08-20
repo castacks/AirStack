@@ -154,7 +154,7 @@ The `/**:` wildcard matches any node name — the most portable form.
 - **Missing `description=` on an `<arg>`.** Mandatory in stack files (lint rule 3); expected everywhere.
 - **Forgetting `allow_substs="true"`.** Symptom: parameters contain literal `$(env ROBOT_NAME)` at runtime.
 - **`ROBOT_NAME` unset** → topics like `//odometry`. It is resolved by `robot/docker/.bashrc` via `resolve_robot_name.py`; for ad-hoc `docker exec`, pass `-e ROBOT_NAME=robot_1`.
-- **`<arg>` name collisions across included files.** ROS 2 does not scope args — prefix them (`local_odometry_in_topic`, not `odometry_in_topic`). Passing a wrongly-named arg to an include fails *silently* (the legacy `local_macvo_obstacle_avoidance.launch.xml` bug — superseded by `stacks/full_macvo/`).
+- **`<arg>` name collisions across included files.** ROS 2 does not scope args — prefix them (`local_odometry_in_topic`, not `odometry_in_topic`). Passing a wrongly-named arg to an include fails *silently* (the bug that broke the legacy macvo local-bringup variant — superseded by `stacks/full_macvo/`, which deleted it; see that stack's README).
 - **Editing a module launch file but not rebuilding.** `ros2 launch` reads the *installed* copy. (Stack launch files are exempt — bind-mounted, no build.)
 - **Missing `install(DIRECTORY launch …)` in CMakeLists.txt.** Builds fine, `ros2 launch` can't find it.
 - **Wrong `<remap from/to>` direction** (stack files only): `from` = the name in the node's code, `to` = what it should resolve to.
