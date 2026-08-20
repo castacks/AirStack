@@ -1,9 +1,13 @@
 <!-- Single entry point for all robot deployments.
-     role choices:
+     role choices (legacy AUTONOMY_ROLE dispatch):
        full     - all autonomy modules run on this machine (default: sim/dev desktop, autonomous Jetson)
        onboard  - lite modules only: interface, sensors, perception, local planning, behavior (VOXL, Jetson
 lite, desktop_split sim)
        offboard - global planning only: runs on GCS paired with onboard robots (robot-offboard service)
+     stack dispatch (RFC #379): when AIRSTACK_STACK_DIR is set (airstack up
+     with the stack flag), the stack folder's entry launch file runs instead
+     of the role groups; role is ignored. The shared preamble below runs in
+     both modes.
 -->
 <launch>
   <arg name="sim" default="true" />
@@ -12,6 +16,15 @@ lite, desktop_split sim)
   <arg name="gcs_domain" default="0" />
   <arg name="gossip_domain" default="99" />
   <arg name="gossip_publish_rate" default="1.0" />
+
+  <!-- Stack dispatch (RFC #379 S3): when stack_dir is non-empty, the stack
+       folder's launch/<stack_entry>.launch.xml replaces the AUTONOMY_ROLE
+       role groups below. Defaults come from env vars so both launch wrappers
+       (desktop_bringup, autonomy_bringup) work unchanged; `airstack up` with
+       the stack flag exports them (container paths, e.g.
+       /root/AirStack/stacks/full_default). Empty = legacy role dispatch. -->
+  <arg name="stack_dir" default="$(env AIRSTACK_STACK_DIR '')" />
+  <arg name="stack_entry" default="$(env AIRSTACK_STACK_ENTRY stack)" />
 
   <push_ros_namespace namespace="$(env ROBOT_NAME)" />
 
@@ -30,7 +43,13 @@ lite, desktop_split sim)
     name="world_to_map_broadcaster"
     args="0 0 0 0 0 0 world map" />
 
-  <!-- ── Role dispatch ───────────────────────────────────────────────── -->
+  <!-- ── Stack dispatch (takes precedence over role dispatch) ─────────── -->
+  <group if="$(eval '&quot;$(var stack_dir)&quot; != &quot;&quot;')">
+    <include file="$(var stack_dir)/launch/$(var stack_entry).launch.xml" />
+  </group>
+
+  <!-- ── Role dispatch (legacy; skipped entirely when a stack is selected) -->
+  <group unless="$(eval '&quot;$(var stack_dir)&quot; != &quot;&quot;')">
 
   <!-- full: every autonomy module runs here -->
   <group if="$(eval '&quot;$(var role)&quot; == &quot;full&quot;')">
@@ -75,6 +94,8 @@ lite, desktop_split sim)
   <group if="$(eval '&quot;$(var role)&quot; == &quot;offboard&quot;')">
     <include
       file="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/launch/offboard_autonomy_global.launch.xml" />
+  </group>
+
   </group>
 
 </launch>

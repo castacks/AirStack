@@ -161,6 +161,9 @@ function print_command_help {
             echo "Options:"
             echo "  --build       Build images before starting containers"
             echo "  --recreate    Recreate containers even if their configuration and image haven't changed"
+            echo "  --stack NAME  Launch a stack folder (stacks/NAME/launch/stack.launch.xml) instead of"
+            echo "                the legacy AUTONOMY_ROLE dispatch. NAME:ENTRY selects an alternate entry"
+            echo "                file (launch/ENTRY.launch.xml). See docs/development/stacks.md."
             ;;
         images)
             echo "Usage: airstack images"
@@ -959,6 +962,7 @@ function parse_launch_intent {
     AIRSTACK_INTENT_HEADLESS=""
     AIRSTACK_INTENT_PLAY=""
     AIRSTACK_INTENT_AUTOLAUNCH=""
+    AIRSTACK_INTENT_STACK=""
     AIRSTACK_DRY_RUN=""
     AIRSTACK_UP_WAIT=""
 
@@ -974,6 +978,8 @@ function parse_launch_intent {
             --play)         AIRSTACK_INTENT_PLAY="true";;
             --no-play)      AIRSTACK_INTENT_PLAY="false";;
             --no-autolaunch) AIRSTACK_INTENT_AUTOLAUNCH="false";;
+            --stack)        i=$((i+1)); AIRSTACK_INTENT_STACK="${args[$i]:-}";;
+            --stack=*)      AIRSTACK_INTENT_STACK="${a#--stack=}";;
             --wait)         AIRSTACK_UP_WAIT="1";;
             # NOTE: shadows compose's own `up --dry-run`; ours validates the
             # derived launch config and exits without starting services.
@@ -994,9 +1000,44 @@ function parse_launch_intent {
     return 0
 }
 
+# Validate a --stack selection against the host stacks/ tree and export the
+# CONTAINER paths the launch dispatch reads (stacks/ is bind-mounted at
+# /root/AirStack/stacks by robot-base-docker-compose.yaml). Accepts the
+# split-entry form `<name>:<entry>` (entry names launch/<entry>.launch.xml;
+# reserved for split stacks — RFC #380 §2). Default entry: stack.
+function apply_stack_intent {
+    local stack_name="$AIRSTACK_INTENT_STACK" stack_entry="stack"
+    if [[ "$stack_name" == *:* ]]; then
+        stack_entry="${stack_name#*:}"
+        stack_name="${stack_name%%:*}"
+    fi
+    if [[ -z "$stack_name" || -z "$stack_entry" ]]; then
+        log_error "--stack requires a stack name (got '$AIRSTACK_INTENT_STACK'; expected <name> or <name>:<entry>)"
+        return 1
+    fi
+    local stack_host_dir="$PROJECT_ROOT/stacks/$stack_name"
+    if [[ ! -d "$stack_host_dir" ]]; then
+        local available
+        available=$(ls -1 "$PROJECT_ROOT/stacks" 2>/dev/null | grep -v '^\.' | tr '\n' ' ')
+        log_error "Unknown stack '$stack_name' — $stack_host_dir does not exist. Available stacks: ${available:-<none>}"
+        return 1
+    fi
+    if [[ ! -f "$stack_host_dir/launch/$stack_entry.launch.xml" ]]; then
+        log_error "Stack '$stack_name' has no entry point launch/$stack_entry.launch.xml (expected $stack_host_dir/launch/$stack_entry.launch.xml)"
+        return 1
+    fi
+    export AIRSTACK_STACK_DIR="/root/AirStack/stacks/$stack_name"
+    export AIRSTACK_STACK_ENTRY="$stack_entry"
+    return 0
+}
+
 # Derive + export env vars from the parsed intent. Args: remaining CLI args
 # (scanned for --env-file when resolving current values).
 function apply_launch_intent {
+    if [[ -n "$AIRSTACK_INTENT_STACK" ]]; then
+        apply_stack_intent || return 1
+    fi
+
     if [[ -n "$AIRSTACK_INTENT_SIM" ]]; then
         local sim_profile urdf
         case "$AIRSTACK_INTENT_SIM" in
@@ -1063,7 +1104,8 @@ function apply_launch_intent {
 function print_launch_config {
     local keys=(COMPOSE_PROFILES NUM_ROBOTS URDF_FILE AUTOLAUNCH PLAY_SIM_ON_START
                 ISAAC_SIM_SCRIPT_NAME ISAAC_SIM_USE_STANDALONE ISAAC_SIM_HEADLESS
-                MS_AIRSIM_HEADLESS VERSION DOCKER_IMAGE_BUILD_MODE)
+                MS_AIRSIM_HEADLESS AIRSTACK_STACK_DIR AIRSTACK_STACK_ENTRY
+                VERSION DOCKER_IMAGE_BUILD_MODE)
     local k v lines=()
     for k in "${keys[@]}"; do
         v=$(resolve_launch_var "$k" "$@")
@@ -1077,6 +1119,11 @@ function print_launch_config {
         log_info "  isaac: script=$(resolve_launch_var ISAAC_SIM_SCRIPT_NAME "$@") headless=$(resolve_launch_var ISAAC_SIM_HEADLESS "$@")"
     fi
     log_info "  urdf=$(resolve_launch_var URDF_FILE "$@")"
+    local _stack_dir
+    _stack_dir=$(resolve_launch_var AIRSTACK_STACK_DIR "$@")
+    if [[ -n "$_stack_dir" ]]; then
+        log_info "  stack: dir=$_stack_dir entry=$(resolve_launch_var AIRSTACK_STACK_ENTRY "$@")"
+    fi
 
     echo "--- effective launch config ---"
     printf '%s\n' "${lines[@]}"
@@ -1173,6 +1220,18 @@ function preflight_up {
     docker_major=$(docker version --format '{{.Server.Version}}' 2>/dev/null | cut -d. -f1)
     if [[ "$docker_major" =~ ^[0-9]+$ ]] && (( docker_major < 29 )); then
         log_warn "Docker $docker_major < 29: container-name DNS resolution fails, robots will resolve as 'unknown_robot' on domain 0 (MAVROS will not connect). Upgrade Docker or set ROBOT_NAME_SOURCE=hostname."
+    fi
+
+    # 7. Stack vs legacy AUTONOMY_ROLE dispatch. AUTONOMY_ROLE counts as
+    # "explicitly set" only via env / --env-file / .env — the compose files'
+    # own `${AUTONOMY_ROLE:-full}` default is invisible here, by design.
+    local _pf_stack_dir _pf_role
+    _pf_stack_dir=$(resolve_launch_var AIRSTACK_STACK_DIR "${_pf_global[@]}")
+    _pf_role=$(resolve_launch_var AUTONOMY_ROLE "${_pf_global[@]}")
+    if [[ -n "$_pf_role" && -z "$_pf_stack_dir" ]]; then
+        log_warn "AUTONOMY_ROLE is the legacy dispatch; stacks replace it in 0.21 — try: airstack up --stack full_default"
+    elif [[ -n "$_pf_role" && -n "$_pf_stack_dir" ]]; then
+        log_warn "Both a stack ($_pf_stack_dir) and AUTONOMY_ROLE=$_pf_role are set — the stack wins: robot.launch.xml ignores the role when a stack dir is set."
     fi
 
     unset -f _pf_error
