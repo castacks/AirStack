@@ -25,6 +25,7 @@ _MODULE_ORDER = [
     # build, so they run after build_packages and before the sim tiers.
     "__integration__",
     "system.test_liveliness",
+    "system.test_wiring_snapshot",
     "system.test_sensors",
     "system.test_takeoff_hover_land",
     "system.test_fixed_trajectory",
