@@ -147,16 +147,16 @@ assets:
     usd: 1ac9bf684da3476d918fd086d554bd5c/1ac9bf684da3476d918fd086d554bd5c.usdc
   1b31413d89a4485e93f4bdb9eb735d88:
     author: gilles.schaeck
-    baked_scale: 0.012474
+    baked_scale: 0.039915
     faces: 512
     fit: footprint
     license: by
     size_m:
-    - 2.5
-    - 1.77
-    - 0.115
+    - 8.0
+    - 5.665
+    - 0.367
     source: https://sketchfab.com/3d-models/1b31413d89a4485e93f4bdb9eb735d88
-    target_size_m: 2.5
+    target_size_m: 8.0
     texture_res: 2048
     textures: 3
     title: Planches - Planks
@@ -198,16 +198,16 @@ assets:
     usd: 1ca9bf31b9d34b44a9b9cac8c240a8d7/1ca9bf31b9d34b44a9b9cac8c240a8d7.usdc
   2341e9c2456f4876b2e86a9465724b0d:
     author: andres Hiciano
-    baked_scale: 0.821147
+    baked_scale: 2.985989
     faces: 1044
     fit: footprint
     license: by
     size_m:
-    - 1.534
-    - 2.2
-    - 0.127
+    - 5.577
+    - 8.0
+    - 0.461
     source: https://sketchfab.com/3d-models/2341e9c2456f4876b2e86a9465724b0d
-    target_size_m: 2.2
+    target_size_m: 8.0
     texture_res: 2048
     textures: 6
     title: Planks Of Wood
@@ -402,16 +402,16 @@ assets:
     usd: 599a74c1c8fd4f19bf6754b8128da6b8/599a74c1c8fd4f19bf6754b8128da6b8.usdc
   6644de89c2f0449db3de934744162b63:
     author: headerstock
-    baked_scale: 0.027304
+    baked_scale: 0.018203
     faces: 26943
     fit: footprint
     license: by
     size_m:
-    - 12.0
-    - 10.575
-    - 6.404
+    - 8.0
+    - 7.05
+    - 4.269
     source: https://sketchfab.com/3d-models/6644de89c2f0449db3de934744162b63
-    target_size_m: 12.0
+    target_size_m: 8.0
     texture_res: 1024
     textures: 10
     title: Bungalow The Chase
@@ -521,16 +521,16 @@ assets:
     usd: 8c8fd4fa06eb4b1c8db5bd3584892f3c/8c8fd4fa06eb4b1c8db5bd3584892f3c.usdc
   8cdac192abd044988c314eeb6377a3a0:
     author: PT34
-    baked_scale: 0.025438
+    baked_scale: 0.4
     faces: 1664
-    fit: height
+    fit: footprint
     license: by
     size_m:
-    - 0.509
-    - 0.509
-    - 0.75
+    - 8.0
+    - 8.0
+    - 11.793
     source: https://sketchfab.com/3d-models/8cdac192abd044988c314eeb6377a3a0
-    target_size_m: 0.75
+    target_size_m: 8.0
     texture_res: 2048
     textures: 3
     title: Traffic cone (Game ready)
@@ -606,16 +606,16 @@ assets:
     usd: a3963ab8133b45cab4e60da94d255ac3/a3963ab8133b45cab4e60da94d255ac3.usdc
   a657396d68fa43f0ac7da12a6403d59f:
     author: Sirenko
-    baked_scale: 0.31
+    baked_scale: 3.999999
     faces: 1456
     fit: footprint
     license: by
     size_m:
-    - 0.62
-    - 0.62
-    - 0.046
+    - 8.0
+    - 8.0
+    - 0.598
     source: https://sketchfab.com/3d-models/a657396d68fa43f0ac7da12a6403d59f
-    target_size_m: 0.62
+    target_size_m: 8.0
     texture_res: 2048
     textures: 6
     title: Manhole

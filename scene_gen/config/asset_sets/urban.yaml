@@ -79,16 +79,16 @@ usds:
     # over verbatim; build_city packs from this pool before districts rezone,
     # so leaving it here would keep placing it on blocks that never get rezoned.
     intact:
-      - "Muyang/ModernCityEnvironment/Collected_Building01/SM_MERGED_BP_MBuilding01.usd"
+      - "ModernCityEnvironment/Collected_Building01/SM_MERGED_BP_MBuilding01.usd"
         # authored in metres; already matches the global default (1.0)
-      - {usd: "Muyang/ModernCityEnvironment/Collected_Building02/SM_MERGED_BP_MBuilding02.usd", scale: 0.01}
-      - {usd: "Muyang/ModernCityEnvironment/Collected_Building05/SM_MERGED_BP_MBuilding05.usd", scale: 0.01}
-      - {usd: "Muyang/DownTown/Assets/BG_Building_A.usd", scale: 0.01}
-      - {usd: "Muyang/DownTown/Assets/BG_Building_B.usd", scale: 0.01}
-      - {usd: "Muyang/DownTown/Assets/BG_Building_C.usd", scale: 0.01}
-      - {usd: "Muyang/DownTown/Assets/BG_Building_D.usd", scale: 0.01}
-      - {usd: "Muyang/DownTown/Assets/BG_Building_E.usd", scale: 0.01}
-      - {usd: "Muyang/DownTown/Assets/BG_Building_F.usd", scale: 0.01}
+      - {usd: "ModernCityEnvironment/Collected_Building02/SM_MERGED_BP_MBuilding02.usd", scale: 0.01}
+      - {usd: "ModernCityEnvironment/Collected_Building05/SM_MERGED_BP_MBuilding05.usd", scale: 0.01}
+      - {usd: "DownTown/Assets/BG_Building_A.usd", scale: 0.01}
+      - {usd: "DownTown/Assets/BG_Building_B.usd", scale: 0.01}
+      - {usd: "DownTown/Assets/BG_Building_C.usd", scale: 0.01}
+      - {usd: "DownTown/Assets/BG_Building_D.usd", scale: 0.01}
+      - {usd: "DownTown/Assets/BG_Building_E.usd", scale: 0.01}
+      - {usd: "DownTown/Assets/BG_Building_F.usd", scale: 0.01}
 
     rowhouse:
       - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone02.usd",   scale: 0.01}   # 21.1 x  6.8 x 14.2 m,  4.6k
@@ -107,25 +107,25 @@ usds:
       # NO scale override: this one is authored in METRES, unlike every other
       # Muyang building. urban.yaml lists it bare for that reason; copying the
       # 0.01 off its neighbours renders it 28 cm tall.
-      - {usd: "Muyang/ModernCityEnvironment/Collected_Building01/SM_MERGED_BP_MBuilding01.usd", scale: 1.0}   # 28.5 x 18.5 x 29.0 m, 140k
-      - {usd: "Muyang/DownTown/Assets/BG_Building_D.usd", scale: 0.01}                                        # 64.9 x 34.9 x 33.0 m, 2.8k
+      - {usd: "ModernCityEnvironment/Collected_Building01/SM_MERGED_BP_MBuilding01.usd", scale: 1.0}   # 28.5 x 18.5 x 29.0 m, 140k
+      - {usd: "DownTown/Assets/BG_Building_D.usd", scale: 0.01}                                        # 64.9 x 34.9 x 33.0 m, 2.8k
       # FactoryDistrict: 14 DISTINCT masses, 23-72 m wide, 10-17 m tall, at
       # 4-18k points each. Metre-authored, so no scale. base -1.0 to -1.5 m.
       # This is the variety fix: with only three midrise assets, MBuilding01 and
       # BG_Building_D were landing 77 and 72 times out of 225 buildings.
-      - "Dmytro/Assets/Game/FactoryDistrict/Meshes/Building_TypeD_A.usd"      # 42.0 x 31.5 x 11.7 m,  4,359
-      - "Dmytro/Assets/Game/FactoryDistrict/Meshes/Building_TypeD_B.usd"      # 52.0 x 32.0 x 16.7 m,  4,717
-      - "Dmytro/Assets/Game/FactoryDistrict/Meshes/Building_TypeA_B.usd"      # 24.4 x 47.0 x 11.8 m,  4,774
-      - "Dmytro/Assets/Game/FactoryDistrict/Meshes/Building_TypeA_A.usd"      # 25.0 x 39.7 x 11.9 m,  4,998
-      - "Dmytro/Assets/Game/FactoryDistrict/Meshes/Building_TypeB_B.usd"      # 45.1 x 30.1 x 12.0 m,  5,718
-      - "Dmytro/Assets/Game/FactoryDistrict/Meshes/Building_TypeD_C.usd"      # 72.0 x 32.0 x 16.7 m,  7,087
-      - "Dmytro/Assets/Game/FactoryDistrict/Meshes/Building_TypeB_C.usd"      # 67.1 x 45.1 x 12.0 m,  8,067
-      - "Dmytro/Assets/Game/FactoryDistrict/Meshes/Building_TypeA_C.usd"      # 50.2 x 41.6 x 12.4 m,  8,316
-      - "Dmytro/Assets/Game/FactoryDistrict/Meshes/Building_TypeC_A.usd"      # 25.1 x 25.1 x 11.1 m,  8,980
+      - "FactoryDistrict/Meshes/Building_TypeD_A.usd"      # 42.0 x 31.5 x 11.7 m,  4,359
+      - "FactoryDistrict/Meshes/Building_TypeD_B.usd"      # 52.0 x 32.0 x 16.7 m,  4,717
+      - "FactoryDistrict/Meshes/Building_TypeA_B.usd"      # 24.4 x 47.0 x 11.8 m,  4,774
+      - "FactoryDistrict/Meshes/Building_TypeA_A.usd"      # 25.0 x 39.7 x 11.9 m,  4,998
+      - "FactoryDistrict/Meshes/Building_TypeB_B.usd"      # 45.1 x 30.1 x 12.0 m,  5,718
+      - "FactoryDistrict/Meshes/Building_TypeD_C.usd"      # 72.0 x 32.0 x 16.7 m,  7,087
+      - "FactoryDistrict/Meshes/Building_TypeB_C.usd"      # 67.1 x 45.1 x 12.0 m,  8,067
+      - "FactoryDistrict/Meshes/Building_TypeA_C.usd"      # 50.2 x 41.6 x 12.4 m,  8,316
+      - "FactoryDistrict/Meshes/Building_TypeC_A.usd"      # 25.1 x 25.1 x 11.1 m,  8,980
       # Every FactoryDistrict *_Frame asset is OUT by request — they are open
       # steel frames, not finished buildings.
-      - "Dmytro/Assets/Game/FactoryDistrict/Meshes/Building_TypeC_C.usd"      # 33.1 x 49.1 x 16.0 m, 14,184
-      - "Dmytro/Assets/Game/FactoryDistrict/Meshes/Building_TypeC_D.usd"      # 41.1 x 41.1 x 16.0 m, 17,704
+      - "FactoryDistrict/Meshes/Building_TypeC_C.usd"      # 33.1 x 49.1 x 16.0 m, 14,184
+      - "FactoryDistrict/Meshes/Building_TypeC_D.usd"      # 41.1 x 41.1 x 16.0 m, 17,704
       # Old_Shipyard is OUT by request. Worth recording why it also mattered
       # numerically: its pieces are small in plan (7.2 x 14.4, 28.5 x 5.4), so
       # packing fitted many per block and they took 97 of 301 buildings.
@@ -135,13 +135,13 @@ usds:
     # what makes a bigger city affordable. Footprints are 50-96 m, so these
     # only fit where the subdivider cut a downtown-sized block.
     tower:
-      - {usd: "Muyang/DownTown/Assets/BG_Building_A.usd", scale: 0.01}                                        # 51.3 x 51.3 x  44.7 m, 3.5k
-      - {usd: "Muyang/DownTown/Assets/BG_Building_C.usd", scale: 0.01}                                        # 50.1 x 40.1 x  66.0 m,   756
-      - {usd: "Muyang/DownTown/Assets/BG_Building_E.usd", scale: 0.01}                                        # 60.5 x 36.5 x 131.0 m, 3.5k
-      - {usd: "Muyang/DownTown/Assets/BG_Building_B.usd", scale: 0.01}                                        # 60.3 x 40.2 x  84.1 m, 1.8k
-      - {usd: "Muyang/DownTown/Assets/BG_Building_F.usd", scale: 0.01}                                        # 80.9 x 50.4 x  72.3 m, 4.6k
-      - {usd: "Muyang/ModernCityEnvironment/Collected_Building05/SM_MERGED_BP_MBuilding05.usd", scale: 0.01}   # 27.7 x 20.6 x  62.4 m, 311k
-      - {usd: "Muyang/ModernCityEnvironment/Collected_Building02/SM_MERGED_BP_MBuilding02.usd", scale: 0.01}  # 91.1 x 96.1 x 68.7 m, 471k
+      - {usd: "DownTown/Assets/BG_Building_A.usd", scale: 0.01}                                        # 51.3 x 51.3 x  44.7 m, 3.5k
+      - {usd: "DownTown/Assets/BG_Building_C.usd", scale: 0.01}                                        # 50.1 x 40.1 x  66.0 m,   756
+      - {usd: "DownTown/Assets/BG_Building_E.usd", scale: 0.01}                                        # 60.5 x 36.5 x 131.0 m, 3.5k
+      - {usd: "DownTown/Assets/BG_Building_B.usd", scale: 0.01}                                        # 60.3 x 40.2 x  84.1 m, 1.8k
+      - {usd: "DownTown/Assets/BG_Building_F.usd", scale: 0.01}                                        # 80.9 x 50.4 x  72.3 m, 4.6k
+      - {usd: "ModernCityEnvironment/Collected_Building05/SM_MERGED_BP_MBuilding05.usd", scale: 0.01}   # 27.7 x 20.6 x  62.4 m, 311k
+      - {usd: "ModernCityEnvironment/Collected_Building02/SM_MERGED_BP_MBuilding02.usd", scale: 0.01}  # 91.1 x 96.1 x 68.7 m, 471k
 
   # ---- park content ------------------------------------------------------------
   # A real paved walk instead of `RetroNeighborhood/SM_DriveWay_01`, which is a
@@ -150,7 +150,7 @@ usds:
   # places it at trail_z + base rather than at trail_z, or it floats 16 cm.
   tiles:
     trail:
-      usd: "Dmytro/Assets/Game/Downtown_West/Assets/ground_walkways/SM_ground_mod_walk_tile_a_4m.usd"
+      usd: "Downtown_West/Assets/ground_walkways/SM_ground_mod_walk_tile_a_4m.usd"
       scale: 1.0          # 4.02 x 4.02 x 0.02 m, 75 pts
 
     # The paved sidewalk ring is ONE tile wide and build_city takes that width
@@ -161,7 +161,7 @@ usds:
     # 6 ft through zone. city_detail.zones in the preset sums to match; the two
     # have to move together.
     sidewalk:
-      usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_GroundModule01.usd"
+      usd: "ModernCityEnvironment01/Meshes/SM_GroundModule01.usd"
       scale: 0.70         # 5.00 x 5.00 m authored -> 3.50 m ring
 
   # Co-located stacks placed at ONE point as a park's focal attraction. The
@@ -171,10 +171,10 @@ usds:
     - name: fountain
       radius_m: 6.0       # keep-out for planting and benches
       parts:
-        - "Dmytro/Assets/Game/Downtown_West/Assets/props/prop_fountain/SM_prop_fountain_full.usd"   # 8.63 x 8.36 x 4.96 m, 88.5k
-        - "Dmytro/Assets/Game/Downtown_West/VFX/Meshes/SM_fountain_water_bottom.usd"                # 2.5k
-        - "Dmytro/Assets/Game/Downtown_West/VFX/Meshes/SM_fountain_water_middle.usd"                # 2.5k
-        - "Dmytro/Assets/Game/Downtown_West/VFX/Meshes/SM_fountain_water_top.usd"                   # 2.5k
+        - "Downtown_West/Assets/props/prop_fountain/SM_prop_fountain_full.usd"   # 8.63 x 8.36 x 4.96 m, 88.5k
+        - "Downtown_West/VFX/Meshes/SM_fountain_water_bottom.usd"                # 2.5k
+        - "Downtown_West/VFX/Meshes/SM_fountain_water_middle.usd"                # 2.5k
+        - "Downtown_West/VFX/Meshes/SM_fountain_water_top.usd"                   # 2.5k
 
   # A playground is a COMPOSED SET, not a scatter. The swings and the slide have
   # a fixed relationship to each other — corrected by hand in the viewport and
@@ -192,14 +192,14 @@ usds:
     - name: swings_and_slide
       radius_m: 9.0         # keep-out for planting and benches
       parts:
-        - {usd: "Muyang/CivilianArea/Assets/SM_PlaygroundSwings_02.usd", scale: 0.01,
+        - {usd: "CivilianArea/Assets/SM_PlaygroundSwings_02.usd", scale: 0.01,
            offset_m: [0.0, 0.0],     yaw_deg: 0.0}     # anchor
-        - {usd: "Muyang/CivilianArea/Assets/SM_PlaygroundSlide_01.usd",  scale: 0.01,
+        - {usd: "CivilianArea/Assets/SM_PlaygroundSlide_01.usd",  scale: 0.01,
            offset_m: [7.727, 2.071], yaw_deg: -95.0}
 
   # Ornamental iron park railing, 5.28 m module running along Y, origin centred.
   park_fences:
-    - usd: "Dmytro/Assets/Game/Downtown_West/Assets/props/prop_park_railing/SM_prop_park_railing_rail_a.usd"
+    - usd: "Downtown_West/Assets/props/prop_park_railing/SM_prop_park_railing_rail_a.usd"
       scale: 1.0          # 0.33 x 5.28 x 0.99 m, 1.5k
       yaw-offset: 90.0    # art runs along +Y; parks.py asks for a run along +X
 
@@ -223,7 +223,7 @@ usds:
   # luminaire on the same pole — placing a mast beside a signal put two
   # identical lights on one corner.
   streetlights:
-    - usd: "Dmytro/Assets/Game/Downtown_West/Assets/props/props_light_post/SM_lightpost_light_post_b.usd"
+    - usd: "Downtown_West/Assets/props/props_light_post/SM_lightpost_light_post_b.usd"
       yaw-offset: 270.0
       # 0.55 x 2.19 x 6.01 m, 8,628 pts — ornamental 3-globe, sidewalk scale.
       # 270, not 180: the post carries banners, and at 180 they faced along the
@@ -244,7 +244,7 @@ usds:
     - usd: "airstack://scene_gen/assets/aec/brownstone/Props/ParkBench01/ParkBench01.usd"
       scale: 0.01          # 2.62 x 0.79 x 0.39 m
       tags: ["sidewalk"]
-    - usd: "Dmytro/Assets/Game/Downtown_West/Assets/props/prop_bench_wood/SM_bench_wood_a.usd"
+    - usd: "Downtown_West/Assets/props/prop_bench_wood/SM_bench_wood_a.usd"
       tags: ["park"]       # 3.27 x 0.67 x 0.90 m, 3,551 pts
 
   # REPLACES the inherited pool (no `+`). Every dropped entry was rendered and
@@ -257,7 +257,7 @@ usds:
   #   brownstone OutdoorTrash01  right look, 27,309 pts — 20x every alternative
   # ONE bin, for the same reason as the benches and the lights.
   trash_cans:
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_MLitterBin.usd"
+    - "ModernCityEnvironment01/Meshes/SM_MLitterBin.usd"
       # 0.60 x 0.60 x 0.91 m, 759 pts — black domed civic litter bin
 
   fire_hydrants+:
@@ -269,7 +269,7 @@ usds:
   # other uses. It also carried NO yaw-offset while the real shelter carries
   # 180, so the MobilaShelters were the ones standing backwards to the kerb.
   bus_stops:
-    - usd: "Muyang/DownTown/Assets/BusStop.usd"
+    - usd: "DownTown/Assets/BusStop.usd"
       scale: 0.01
       yaw-offset: 180.0    # opening faces the carriageway
       # If any shelter still faces the building line after this, the fix is to
@@ -292,17 +292,17 @@ usds:
   # bbox centroid, so each assembly is aimed at the approach it governs and
   # swapping the asset cannot silently rotate every signal in the city.
   traffic_lights_mast:
-    - usd: "Dmytro/Assets/Game/Downtown_West/Assets/props/props_streetlight/SM_light_streetlight_complete.usd"
+    - usd: "Downtown_West/Assets/props/props_streetlight/SM_light_streetlight_complete.usd"
       # 1.65 x 8.01 x 10.83 m, 15,845 pts — two heads, arm reaches -Y
   traffic_lights_pole:
-    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_001.usd"
+    - usd: "ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_001.usd"
       # 0.36 x 0.48 x 4.00 m, 2,641 pts
 
   # build_city's own intersection pass is switched off (intersection_chance: 0),
   # so this pool is unused. Kept non-empty so the old path still resolves if the
   # preset is run without the v2 launch script.
   traffic_lights:
-    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_001.usd"
+    - usd: "ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_001.usd"
 
   # ---- new categories ---------------------------------------------------------
   # Street trees, as distinct from `trees` (which the park scatter uses). Only
@@ -335,7 +335,7 @@ usds:
   #     BG_Building_A (control)          0       5/5        0.0%
   #     Scarlet_Oak                      5/6      -        35.5%
   #
-  # Every UE-exported Muyang/Dmytro asset binds PER GEOMSUBSET, so a per-Mesh
+  # Every UE-exported Dmytro asset binds PER GEOMSUBSET, so a per-Mesh
   # test reports the whole library as unbound. BG_Building_A is the control: it
   # reports direct_binding NONE and has always rendered correctly.
   #
@@ -363,7 +363,7 @@ usds:
       # leaf mesh with no material, which renders white. Scarlet_Oak_fall is the
       # same geometry with red leaf art (hue 9.9), so it carries both faults.
       # This is a measured render defect, not a preference.
-    # Muyang/DownTown Tree_A / Tree_B / Tree_C are OUT — the whole pack's
+    # DownTown Tree_A / Tree_B / Tree_C are OUT — the whole pack's
     # vegetation, rejected on how it renders. They shared one leaf atlas, so
     # dropping one and keeping the others would have kept the same look.
     # Only the TREES from that pack go; its paths, patio furniture, bus shelter
@@ -395,22 +395,22 @@ usds:
     - {usd: "CityPark/Props/SM_Stone_05.prop.usd", scale: 0.0083}   # 313.0 -> 2.6 m
     - {usd: "CityPark/Props/SM_Stone_08.prop.usd", scale: 0.0480}   #  54.2 -> 2.6 m
     - {usd: "CityPark/Props/SM_Stone_09.prop.usd", scale: 0.0394}   #  66.0 -> 2.6 m
-    - "Dmytro/Assets/Game/Downtown_West/Assets/props/prop_rocks/SM_rock_large_a_low.usd"   # 2.51 m, as authored
-    - "Dmytro/Assets/Game/Downtown_West/Assets/props/prop_rocks/SM_rock_medium_a_low.usd"  # 2.37 m, as authored
-    - "Dmytro/Assets/Game/Downtown_West/Assets/props/prop_rocks/SM_rock_medium_b_low.usd"  # 2.35 m, as authored
+    - "Downtown_West/Assets/props/prop_rocks/SM_rock_large_a_low.usd"   # 2.51 m, as authored
+    - "Downtown_West/Assets/props/prop_rocks/SM_rock_medium_a_low.usd"  # 2.37 m, as authored
+    - "Downtown_West/Assets/props/prop_rocks/SM_rock_medium_b_low.usd"  # 2.35 m, as authored
 
   # REPLACES the inherited pool (no `+`) to drop SM_Grass_Flowers2, which lives
   # in tracked shared.yaml and so cannot be removed at source. Everything else
   # from shared.yaml is carried over verbatim.
   plants:
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Grass.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Grass_Flowers.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Grass_Flowers1.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bush_1.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bush_2.usd"
-    - {usd: "Muyang/DownTown/Assets/Plant_Red.usd",    scale: 0.01}
-    - {usd: "Muyang/DownTown/Assets/Plant_Purple.usd", scale: 0.01}
-    - {usd: "Muyang/DownTown/Assets/Plant_Pink.usd",   scale: 0.01}
+    - "ModernCityEnvironment01/Meshes/SM_Grass.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Grass_Flowers.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Grass_Flowers1.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Bush_1.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Bush_2.usd"
+    - {usd: "DownTown/Assets/Plant_Red.usd",    scale: 0.01}
+    - {usd: "DownTown/Assets/Plant_Purple.usd", scale: 0.01}
+    - {usd: "DownTown/Assets/Plant_Pink.usd",   scale: 0.01}
 
   # Dmytro ModernCityEnvironment, not the AEC oaks. Three reasons, measured:
   # the oaks are 10-25 m canopies of dense foliage that close over the street;
@@ -434,7 +434,7 @@ usds:
   # there are ~300 of everything rather than 600 of one thing.
   #
   # EMPTY ON PURPOSE — THE LIBRARY IS EXHAUSTED. Every tree in it has now been
-  # rejected by name: Dmytro SM_Tree1/SM_Tree2, Muyang/DownTown Tree_A/B/C, the
+  # rejected by name: Dmytro SM_Tree1/SM_Tree2, DownTown Tree_A/B/C, the
   # whole RetroNeighborhood family (SM_Tree_01..07), and CityPark SM_Tree_03,
   # _04, _05, _08. Nothing bound at street scale remains, so the streets carry
   # no planting at all rather than something already turned down.
@@ -642,7 +642,7 @@ usds:
   # binding only RustedMetal + Light_1900K. No name texture, no variant set
   # anywhere in the pack, so there was nothing to vary.
   #
-  # For real street-name variety: Muyang/DownTown/Assets/StreetSigns_*.usd —
+  # For real street-name variety: DownTown/Assets/StreetSigns_*.usd —
   # 12 distinct textured blades (1st Ave, W 42 st, ...), 8 pts each. They are
   # blades with no post, so they need a mount before they can be a category.
   signs_parking: []

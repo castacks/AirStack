@@ -31,7 +31,7 @@ usds:
   # residential minimum, against 3.5 m in the urban scene.
   tiles:
     sidewalk:
-      usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_GroundModule01.usd"
+      usd: "ModernCityEnvironment01/Meshes/SM_GroundModule01.usd"
       scale: 0.30         # 5.00 x 5.00 m authored -> 1.50 m walk
 
   # ---- LOT FURNITURE  (owner: suburb_lots.py) --------------------------------
@@ -53,7 +53,7 @@ usds:
     # front-yard cap. Measured in the urban set, where parks.py already runs it
     # as a park railing; 1.5k points a module, the cheapest fence in either
     # library. Art runs along +Y, hence the yaw-offset.
-    - usd: "Dmytro/Assets/Game/Downtown_West/Assets/props/prop_park_railing/SM_prop_park_railing_rail_a.usd"
+    - usd: "Downtown_West/Assets/props/prop_park_railing/SM_prop_park_railing_rail_a.usd"
       scale: 1.0          # 0.33 x 5.28 x 0.99 m, 1,528 pts
       yaw-offset: 90.0
       tags: ["low"]

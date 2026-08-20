@@ -18,7 +18,6 @@ dependencies = [
     # serves scripts that run WITHOUT a sim; inside one, Kit's build wins. That
     # is the same split the container already has.
     "usd-core>=25.5",
-
     # --- scene generation / analysis ----------------------------------------
     # FLOORS ARE SET TO ISAACSIM'S EXACT PINS, NOT TO THE NEWEST RELEASE.
     # `isaacsim` pins these hard (pillow==11.3.0, trimesh==4.5.1,
@@ -36,25 +35,33 @@ dependencies = [
     "tabulate>=0.9",
     "psutil>=5.9.8",
     "requests>=2.32.3",
-
     # --- assets: objaverse fetch + mesh handling + previews ------------------
     "objaverse>=0.1.7",
     "trimesh>=4.5.1",
     "pillow>=11.3.0",
     "pyrender>=0.1.45",
-
     # --- street-network stats (tools/osm_street_stats.py) --------------------
     "osmnx>=2.0",
-
     # --- notebooks ----------------------------------------------------------
     "jupyterlab>=4.4",
     # <7.3: isaacsim-kernel pins typing-extensions==4.12.2, and ipykernel
     # 7.3 wants jupyter-client>=8.9, which needs typing-extensions>=4.13.
     "ipykernel>=6.29",
     "ipywidgets>=8.1",
-
     # --- tests --------------------------------------------------------------
     "pytest>=8.0",
+    # --- solid mesh fracture (scene_gen/tools/fracture_blast.py) -------------
+    # trimesh has no boolean of its own: `manifold3d` is the engine it dispatches
+    # to, and without it `trimesh.boolean.intersection` raises outright.
+    "manifold3d>=3.5.2",
+    # `skimage.measure` backs trimesh's marching cubes, which is how an open
+    # shell becomes a closed volume.
+    "scikit-image>=0.26.0",
+    # Embree ray backend. Optional in principle — trimesh falls back to a
+    # pure-Python intersector — but the fallback is orders of magnitude slower
+    # and appearance reprojection casts one ray per face-vertex.
+    "embreex>=4.4.0",
+    "pymeshfix>=0.18.1",
 ]
 
 # Local Isaac Sim, from NVIDIA's index.

@@ -14,25 +14,25 @@ extends: shared
 usds:
   buildings:
     intact:
-      - "Muyang/ModernCityEnvironment/Collected_Building01/SM_MERGED_BP_MBuilding01.usd"
+      - "ModernCityEnvironment/Collected_Building01/SM_MERGED_BP_MBuilding01.usd"
         # authored in meters; already matches the global default (1.0)
-      - usd: "Muyang/ModernCityEnvironment/Collected_Building02/SM_MERGED_BP_MBuilding02.usd"
+      - usd: "ModernCityEnvironment/Collected_Building02/SM_MERGED_BP_MBuilding02.usd"
         scale: 0.01
-      - usd: "Muyang/ModernCityEnvironment/Collected_Building03/SM_MERGED_BP_MBuilding03.usd"
+      - usd: "ModernCityEnvironment/Collected_Building03/SM_MERGED_BP_MBuilding03.usd"
         scale: 0.01
-      - usd: "Muyang/ModernCityEnvironment/Collected_Building05/SM_MERGED_BP_MBuilding05.usd"
+      - usd: "ModernCityEnvironment/Collected_Building05/SM_MERGED_BP_MBuilding05.usd"
         scale: 0.01
-      - usd: "Muyang/DownTown/Assets/BG_Building_A.usd"
+      - usd: "DownTown/Assets/BG_Building_A.usd"
         scale: 0.01
-      - usd: "Muyang/DownTown/Assets/BG_Building_B.usd"
+      - usd: "DownTown/Assets/BG_Building_B.usd"
         scale: 0.01
-      - usd: "Muyang/DownTown/Assets/BG_Building_C.usd"
+      - usd: "DownTown/Assets/BG_Building_C.usd"
         scale: 0.01
-      - usd: "Muyang/DownTown/Assets/BG_Building_D.usd"
+      - usd: "DownTown/Assets/BG_Building_D.usd"
         scale: 0.01
-      - usd: "Muyang/DownTown/Assets/BG_Building_E.usd"
+      - usd: "DownTown/Assets/BG_Building_E.usd"
         scale: 0.01
-      - usd: "Muyang/DownTown/Assets/BG_Building_F.usd"
+      - usd: "DownTown/Assets/BG_Building_F.usd"
         scale: 0.01
       # SM_House_01 was tagged suburban/rural — belongs in a suburban set,
       # not here:
@@ -40,37 +40,37 @@ usds:
       #   scale: 0.01
 
     damaged:
-      - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_4.usd"
+      - usd: "DestroyedBuildings/Assets/destroyed_building_4.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_4_variation_1.usd"
+      - usd: "DestroyedBuildings/Assets/destroyed_building_4_variation_1.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_5.usd"
+      - usd: "DestroyedBuildings/Assets/destroyed_building_5.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_9.usd"
+      - usd: "DestroyedBuildings/Assets/destroyed_building_9.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_10.usd"
+      - usd: "DestroyedBuildings/Assets/destroyed_building_10.usd"
         scale: 0.01
 
     destroyed:
-      - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_1.usd"
+      - usd: "DestroyedBuildings/Assets/destroyed_building_1.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_2.usd"
+      - usd: "DestroyedBuildings/Assets/destroyed_building_2.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_5_variation_1.usd"
+      - usd: "DestroyedBuildings/Assets/destroyed_building_5_variation_1.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_6.usd"
+      - usd: "DestroyedBuildings/Assets/destroyed_building_6.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_7.usd"
+      - usd: "DestroyedBuildings/Assets/destroyed_building_7.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_8.usd"
+      - usd: "DestroyedBuildings/Assets/destroyed_building_8.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_9_variation_1.usd"
+      - usd: "DestroyedBuildings/Assets/destroyed_building_9_variation_1.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_10_variation_1.usd"
+      - usd: "DestroyedBuildings/Assets/destroyed_building_10_variation_1.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_11_variation_1.usd"
+      - usd: "DestroyedBuildings/Assets/destroyed_building_11_variation_1.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/destroyed_building_12.usd"
+      - usd: "DestroyedBuildings/Assets/destroyed_building_12.usd"
         scale: 0.01
 
   debris:
@@ -78,89 +78,89 @@ usds:
     # and brick. Exclusive to this set: a timber-frame suburb leaves none of
     # it (see suburban.yaml).
     pieces:
-      - usd: "Muyang/DestroyedBuildings/Assets/debris_2.usd"
+      - usd: "DestroyedBuildings/Assets/debris_2.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/debris_3.usd"
+      - usd: "DestroyedBuildings/Assets/debris_3.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/debris_4.usd"
+      - usd: "DestroyedBuildings/Assets/debris_4.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/debris_5.usd"
+      - usd: "DestroyedBuildings/Assets/debris_5.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/debris_6.usd"
+      - usd: "DestroyedBuildings/Assets/debris_6.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/debris_7.usd"
+      - usd: "DestroyedBuildings/Assets/debris_7.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/debris_8.usd"
+      - usd: "DestroyedBuildings/Assets/debris_8.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/debris_9.usd"
+      - usd: "DestroyedBuildings/Assets/debris_9.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/debris_10.usd"
+      - usd: "DestroyedBuildings/Assets/debris_10.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/debris_11.usd"
+      - usd: "DestroyedBuildings/Assets/debris_11.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Debris_01.usd"
+      - usd: "DebrisPack/Assets/Debris_01.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Debris_02.usd"
+      - usd: "DebrisPack/Assets/Debris_02.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Debris_03.usd"
+      - usd: "DebrisPack/Assets/Debris_03.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Debris_04.usd"
+      - usd: "DebrisPack/Assets/Debris_04.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Debris_05.usd"
+      - usd: "DebrisPack/Assets/Debris_05.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Debris_06.usd"
+      - usd: "DebrisPack/Assets/Debris_06.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Debris_07.usd"
+      - usd: "DebrisPack/Assets/Debris_07.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Debris_08.usd"
+      - usd: "DebrisPack/Assets/Debris_08.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Debris_09.usd"
+      - usd: "DebrisPack/Assets/Debris_09.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Debris_10.usd"
+      - usd: "DebrisPack/Assets/Debris_10.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Debris_11.usd"
+      - usd: "DebrisPack/Assets/Debris_11.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Debris_12.usd"
+      - usd: "DebrisPack/Assets/Debris_12.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Blok_1_LODs.usd"
+      - usd: "DebrisPack/Assets/Blok_1_LODs.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Blok_2_LODs.usd"
+      - usd: "DebrisPack/Assets/Blok_2_LODs.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Blok_3_LODs.usd"
+      - usd: "DebrisPack/Assets/Blok_3_LODs.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Blok_4_LODs.usd"
+      - usd: "DebrisPack/Assets/Blok_4_LODs.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Brick_red_01.usd"
+      - usd: "DebrisPack/Assets/Brick_red_01.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Brick_red_02.usd"
+      - usd: "DebrisPack/Assets/Brick_red_02.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Brick_red_03.usd"
+      - usd: "DebrisPack/Assets/Brick_red_03.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Brick_red_04.usd"
+      - usd: "DebrisPack/Assets/Brick_red_04.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Brick_red_05.usd"
+      - usd: "DebrisPack/Assets/Brick_red_05.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Brick_red_06.usd"
+      - usd: "DebrisPack/Assets/Brick_red_06.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Brick_red_07.usd"
+      - usd: "DebrisPack/Assets/Brick_red_07.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Brick_white_01.usd"
+      - usd: "DebrisPack/Assets/Brick_white_01.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Brick_white_02.usd"
+      - usd: "DebrisPack/Assets/Brick_white_02.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Brick_white_04.usd"
+      - usd: "DebrisPack/Assets/Brick_white_04.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Brick_white_05.usd"
+      - usd: "DebrisPack/Assets/Brick_white_05.usd"
         scale: 0.01
-      - usd: "Muyang/DebrisPack/Assets/Brick_white_06.usd"
+      - usd: "DebrisPack/Assets/Brick_white_06.usd"
         scale: 0.01
 
     piles:
-      - usd: "Muyang/DestroyedBuildings/Assets/debris_1.usd"
+      - usd: "DestroyedBuildings/Assets/debris_1.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/debris_12.usd"
+      - usd: "DestroyedBuildings/Assets/debris_12.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/debris_14.usd"
+      - usd: "DestroyedBuildings/Assets/debris_14.usd"
         scale: 0.01
-      - usd: "Muyang/DestroyedBuildings/Assets/debris_15.usd"
+      - usd: "DestroyedBuildings/Assets/debris_15.usd"
         scale: 0.01

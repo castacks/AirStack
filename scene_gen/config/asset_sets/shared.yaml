@@ -24,7 +24,7 @@
 #   tree      planters big enough to hold a street tree
 #   stump     trees that are stumps — park scatter only, never potted
 
-asset_root: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/"
+asset_root: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/"
                             # prefix for relative usds.* paths; URLs / absolute paths pass through
 asset_scale: 1              # global unit scale — default fits Dmytro assets (authored in meters);
                             # RetroNeighborhood assets override to 0.01 (authored in cm) below
@@ -70,23 +70,23 @@ fallback_sizes:
 # ---- the shared library ----------------------------------------------------------
 usds:
   tiles:
-    concrete: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_GroundModule01.usd"
-    sidewalk: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_GroundModule01.usd"
+    concrete: "ModernCityEnvironment01/Meshes/SM_GroundModule01.usd"
+    sidewalk: "ModernCityEnvironment01/Meshes/SM_GroundModule01.usd"
              # brick tiles used for sidewalk rings around each block; Dmytro asset, uses global default
     trail:
       usd: "RetroNeighborhood/Props/SM_DriveWay_01.prop.usd"
       scale: 0.01   # RetroNeighborhood authored in cm; override the global default
 
   materials:
-    grass: "Muyang/StandaloneMaterials/Grass/MI_Grass.usd"
-    asphalt: "Muyang/StandaloneMaterials/Asphalt/MI_Asphalt.usd"
+    grass: "StandaloneMaterials/Grass/MI_Grass.usd"
+    asphalt: "StandaloneMaterials/Asphalt/MI_Asphalt.usd"
 
   play_structures:
-    - usd: "Muyang/CivilianArea/Assets/SM_PlaygroundSlide_01.usd"
+    - usd: "CivilianArea/Assets/SM_PlaygroundSlide_01.usd"
       scale: 0.01
-    - usd: "Muyang/CivilianArea/Assets/SM_PlaygroundSwings_01.usd"
+    - usd: "CivilianArea/Assets/SM_PlaygroundSwings_01.usd"
       scale: 0.01
-    - usd: "Muyang/CivilianArea/Assets/SM_PlaygroundSwings_02.usd"
+    - usd: "CivilianArea/Assets/SM_PlaygroundSwings_02.usd"
       scale: 0.01
 
   trees:
@@ -104,9 +104,9 @@ usds:
       scale: 0.01
     - usd: "RetroNeighborhood/Props/SM_Tree_07.prop.usd"
       scale: 0.01
-    # - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Tree1.usd"
-    # - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Tree2.usd"
-    # - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Tree3.usd"
+    # - "ModernCityEnvironment01/Meshes/SM_Tree1.usd"
+    # - "ModernCityEnvironment01/Meshes/SM_Tree2.usd"
+    # - "ModernCityEnvironment01/Meshes/SM_Tree3.usd"
     - usd: "CityPark/Props/SM_Tree_01.prop.usd"
       scale: 0.01
     - usd: "CityPark/Props/SM_Tree_03.prop.usd"
@@ -117,11 +117,11 @@ usds:
       scale: 0.01
     - usd: "CityPark/Props/SM_Tree_08.prop.usd"
       scale: 0.01
-    # - usd: "Muyang/DownTown/Assets/Tree_A.usd"
+    # - usd: "DownTown/Assets/Tree_A.usd"
     #   scale: 0.01
-    # - usd: "Muyang/DownTown/Assets/Tree_B.usd"
+    # - usd: "DownTown/Assets/Tree_B.usd"
     #   scale: 0.01
-    # - usd: "Muyang/DownTown/Assets/Tree_C.usd"
+    # - usd: "DownTown/Assets/Tree_C.usd"
     #   scale: 0.01
     - usd: "CityPark/Props/SM_Stump.prop.usd"
       scale: 0.01
@@ -134,17 +134,17 @@ usds:
       tags: ["stump"]
 
   plants:
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Grass.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Grass_Flowers.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Grass_Flowers1.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Grass_Flowers2.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bush_1.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bush_2.usd"
-    - usd: "Muyang/DownTown/Assets/Plant_Red.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Grass.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Grass_Flowers.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Grass_Flowers1.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Grass_Flowers2.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Bush_1.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Bush_2.usd"
+    - usd: "DownTown/Assets/Plant_Red.usd"
       scale: 0.01
-    - usd: "Muyang/DownTown/Assets/Plant_Purple.usd"
+    - usd: "DownTown/Assets/Plant_Purple.usd"
       scale: 0.01
-    - usd: "Muyang/DownTown/Assets/Plant_Pink.usd"
+    - usd: "DownTown/Assets/Plant_Pink.usd"
       scale: 0.01
 
   rocks:
@@ -158,23 +158,23 @@ usds:
       scale: 0.01
     - usd: "CityPark/Props/SM_Stone_09.prop.usd"
       scale: 0.01
-    - usd: "Muyang/DownTown/Assets/Rock_A.usd"
+    - usd: "DownTown/Assets/Rock_A.usd"
       scale: 0.01
-    - usd: "Muyang/DownTown/Assets/Rock_B.usd"
+    - usd: "DownTown/Assets/Rock_B.usd"
       scale: 0.01
-    - usd: "Muyang/DownTown/Assets/Rock_C.usd"
+    - usd: "DownTown/Assets/Rock_C.usd"
       scale: 0.01
-    - usd: "Muyang/DownTown/Assets/Rock_D.usd"
+    - usd: "DownTown/Assets/Rock_D.usd"
       scale: 0.01
-    - usd: "Muyang/DownTown/Assets/Rock_E.usd"
+    - usd: "DownTown/Assets/Rock_E.usd"
       scale: 0.01
 
   planters:
-    - usd: "Muyang/DownTown/Assets/Planter_A.usd"
+    - usd: "DownTown/Assets/Planter_A.usd"
       scale: 0.01
-    - usd: "Muyang/DownTown/Assets/Planter_B.usd"
+    - usd: "DownTown/Assets/Planter_B.usd"
       scale: 0.01
-    - usd: "Muyang/DownTown/Assets/PlanterLarge_A.usd"
+    - usd: "DownTown/Assets/PlanterLarge_A.usd"
       scale: 0.01
       tags: ["tree"]
 
@@ -182,48 +182,48 @@ usds:
     - usd: "RetroNeighborhood/Props/SM_StreetLight.prop.usd"
       scale: 0.01
       yaw-offset: 90.0
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Lamp_002.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Lamp_005.usd"
-    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Lamp_006.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Lamp_002.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Lamp_005.usd"
+    - usd: "ModernCityEnvironment01/Meshes/SM_Lamp_006.usd"
       tags: ["park"]
 
   bus_stops:
-    - usd: "Muyang/DownTown/Assets/BusStop.usd"
+    - usd: "DownTown/Assets/BusStop.usd"
       scale: 0.01
       yaw-offset: 180.0
 
   trash_cans:
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_MTrashCan.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_003.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_003_01.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_003_02.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_004.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_006.usd"
+    - "ModernCityEnvironment01/Meshes/SM_MTrashCan.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Bin_003.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Bin_003_01.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Bin_003_02.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Bin_004.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Bin_006.usd"
     - usd: "CityPark/Props/SM_Small_Trash_can.prop.usd"
       scale: 0.01
       tags: ["park"]
-    - usd: "Muyang/DownTown/Assets/garbageCan.usd"
+    - usd: "DownTown/Assets/garbageCan.usd"
       scale: 0.01
 
   traffic_lights:
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_001.usd"
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_002.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_001.usd"
+    - "ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_002.usd"
 
   fire_hydrants:
     - usd: "RetroNeighborhood/Props/SM_FireHydrant.prop.usd"
       scale: 0.01
 
   benches:
-    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bench01.usd"
+    - usd: "ModernCityEnvironment01/Meshes/SM_Bench01.usd"
       yaw-offset: -90.0
       tags: ["sidewalk"]
-    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bench02.usd"
+    - usd: "ModernCityEnvironment01/Meshes/SM_Bench02.usd"
       yaw-offset: -90.0
       tags: ["sidewalk"]
-    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bench03.usd"
+    - usd: "ModernCityEnvironment01/Meshes/SM_Bench03.usd"
       yaw-offset: -90.0
       tags: ["sidewalk"]
-    - usd: "Muyang/DownTown/Assets/Bench.usd"
+    - usd: "DownTown/Assets/Bench.usd"
       scale: 0.01
       yaw-offset: 0.0 # TODO?
       tags: ["sidewalk", "park"]
@@ -258,14 +258,14 @@ usds:
     # - usd: "RetroNeighborhood/ZIS-101A_Sport_1938.usdz"
     #   scale: 0.01
     #   axis-up: "Y"
-    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SK_ConstructionTruck01FullyRigged.usd"
-    - usd: "Muyang/DownTown/Assets/Vehicle_A.usd"
+    - usd: "ModernCityEnvironment01/Meshes/SK_ConstructionTruck01FullyRigged.usd"
+    - usd: "DownTown/Assets/Vehicle_A.usd"
       scale: 0.01
       yaw-offset: 90.0
-    - usd: "Muyang/DownTown/Assets/Vehicle_Police.usd"
+    - usd: "DownTown/Assets/Vehicle_Police.usd"
       scale: 0.01
       yaw-offset: 90.0
-    - usd: "Muyang/DownTown/Assets/Vehicle_Taxi.usd"
+    - usd: "DownTown/Assets/Vehicle_Taxi.usd"
       scale: 0.01
       yaw-offset: 90.0
 
@@ -274,9 +274,9 @@ usds:
   # authors static idle/walk poses onto them (see _HUMAN_POSES).
 
   humans:
-    - {usd: "Muyang/People/Assets/rp_carla_rigged_001_ue4.usd", scale: 0.01, yaw-offset: 90}
-    - {usd: "Muyang/People/Assets/rp_claudia_rigged_002_ue4.usd", scale: 0.01, yaw-offset: 90}
-    - {usd: "Muyang/People/Assets/rp_eric_rigged_001_ue4.usd", scale: 0.01, yaw-offset: 90}
-    - {usd: "Muyang/People/Assets/rp_manuel_rigged_001_ue4.usd", scale: 0.01, yaw-offset: 90}
-    - {usd: "Muyang/People/Assets/rp_nathan_rigged_003_ue4.usd", scale: 0.01, yaw-offset: 90}
-    - {usd: "Muyang/People/Assets/rp_sophia_rigged_003_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "People/Assets/rp_carla_rigged_001_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "People/Assets/rp_claudia_rigged_002_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "People/Assets/rp_eric_rigged_001_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "People/Assets/rp_manuel_rigged_001_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "People/Assets/rp_nathan_rigged_003_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "People/Assets/rp_sophia_rigged_003_ue4.usd", scale: 0.01, yaw-offset: 90}

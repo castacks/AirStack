@@ -65,27 +65,27 @@ usds:
     # run 18-33 m, wider than the 12 m houses they replace — which is right,
     # since a wrecked house throws its debris well past its own slab.
     damaged:
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_002.usd"
+      - usd: "WoodenHouseRuins/Assets/SM_house_ruins_002.usd"
         scale: 0.01     # 7.7 m tall
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_004.usd"
+      - usd: "WoodenHouseRuins/Assets/SM_house_ruins_004.usd"
         scale: 0.01     # 9.0 m tall
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_005.usd"
+      - usd: "WoodenHouseRuins/Assets/SM_house_ruins_005.usd"
         scale: 0.01     # 6.4 m tall
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_006.usd"
+      - usd: "WoodenHouseRuins/Assets/SM_house_ruins_006.usd"
         scale: 0.01     # 6.5 m tall
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_007.usd"
+      - usd: "WoodenHouseRuins/Assets/SM_house_ruins_007.usd"
         scale: 0.01     # 8.9 m tall
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_010.usd"
+      - usd: "WoodenHouseRuins/Assets/SM_house_ruins_010.usd"
         scale: 0.01     # 6.9 m tall
 
     destroyed:
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_001.usd"
+      - usd: "WoodenHouseRuins/Assets/SM_house_ruins_001.usd"
         scale: 0.01     # 5.8 m tall
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_003.usd"
+      - usd: "WoodenHouseRuins/Assets/SM_house_ruins_003.usd"
         scale: 0.01     # 3.1 m tall
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_008.usd"
+      - usd: "WoodenHouseRuins/Assets/SM_house_ruins_008.usd"
         scale: 0.01     # 5.8 m tall
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_009.usd"
+      - usd: "WoodenHouseRuins/Assets/SM_house_ruins_009.usd"
         scale: 0.01     # 5.2 m tall
       # The one timber-frame collapse Objaverse had: down on its slab with
       # planks thrown clear.

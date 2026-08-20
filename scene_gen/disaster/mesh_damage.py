@@ -909,7 +909,7 @@ def _grow_subsets(prim, n_faces: int, rim_face: np.ndarray) -> None:
 
 def solidify(prim, thickness: float, ref_centre=None, ref_box=None,
              weld_tol: float = 1e-4, max_span_frac: float = 0.35,
-             max_points: int = 200_000) -> int:
+             max_points: int = 200_000, orient=None) -> int:
     """Extrude *prim*'s shell inward into a slab. Returns faces added, or 0.
 
     *ref_centre* / *ref_box* describe the whole building in world space; pass
@@ -968,6 +968,21 @@ def solidify(prim, thickness: float, ref_centre=None, ref_box=None,
         world, counts, idx, weld_tol, ref_centre)
     if outward is None or med_edge <= 0.0:
         return 0
+    if orient is not None:
+        # An oracle that actually knows which side is outside, supplied by a
+        # caller that can afford one. The radial fallback below `_surface_
+        # normals` only fires on normals leaning inward by more than ~8.6
+        # degrees, so a normal TANGENTIAL to the radial direction — the top
+        # face of a window sill, +Z on a facade that faces +X — is decided by a
+        # sign averaged over the whole prim, which for a prim holding a wall
+        # and a hundred pieces of trim is arbitrary. Those points extrude the
+        # wrong way and the new skin erupts through the facade (measured on an
+        # Objaverse house: 19.6% of vertices pushed a full thickness outward,
+        # 414 of 1216 pieces). Nothing here depends on it — omit it and the
+        # heuristic stands, which is what the in-sim disaster pipeline does,
+        # since this file may not import anything beyond numpy and pxr.
+        outward = outward * np.asarray(
+            orient(world, outward), dtype=np.float64).reshape(-1)[:, None]
     span = float(np.sort(world.max(axis=0) - world.min(axis=0))[1])
     t = min(float(thickness), max_span_frac * span)
     if t <= 1e-6:
@@ -1031,6 +1046,7 @@ def solidify(prim, thickness: float, ref_centre=None, ref_box=None,
 
 
 def solidify_prims(prims, thickness: float, bounds: Bounds = None,
+                   orient=None,
                    **kw) -> dict:
     """`solidify` every prim against one shared centre.
 
@@ -1043,7 +1059,8 @@ def solidify_prims(prims, thickness: float, bounds: Bounds = None,
     box = None if b is None else (b.lo, b.hi)
     done = faces = 0
     for prim in prims:
-        added = solidify(prim, thickness, ref_centre=centre, ref_box=box, **kw)
+        added = solidify(prim, thickness, ref_centre=centre, ref_box=box,
+                         orient=orient, **kw)
         if added:
             done += 1
             faces += added

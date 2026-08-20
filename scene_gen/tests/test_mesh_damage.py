@@ -1,30 +1,17 @@
 """
 Tests for the mesh-damage pipeline: thicken, fail, propagate, settle.
 
-These need only `pxr` — an in-memory stage with a synthetic box stands in for a
-building — so they run on the host with the rest of the suite. No Isaac, no
-Nucleus, no assets.
+Needs only `pxr` — an in-memory stage with a synthetic box stands in for a
+building — so it runs on the host with the rest of the suite.
 
-WHAT IS WORTH GUARDING
-----------------------
-Not "does it look broken", which no assertion can reach, but the properties
-that are load-bearing for the generator and invisible in a screenshot:
-
-* **the failure fields differ in kind.** An earthquake fails a building at the
-  base and a windstorm at the top; a fire spares the envelope and an explosion
-  is local to a point. If these collapse into each other, the disaster axis
-  stops meaning anything and every scene is the same scene.
-* **severity is monotone.** More intensity must free more material. This is the
-  invariant the whole severity-sweep methodology rests on.
-* **fragments are closed.** That is the entire reason stage one exists and the
-  reason the cuts are capped; uncapped, rubble is hollow exactly where a viewer
-  looks into it.
-* **failure propagates.** A lost ground floor has to take the storeys above it
-  with it, or a collapsed building floats.
-* **the USD bookkeeping survives.** Face deletion and solidify both renumber
-  arrays that three other things index by face, and every one of those goes
-  wrong silently.
-* **determinism**, and scale-relativity across a 15 m house and a 90 m tower.
+What is worth guarding is not "does it look broken", which no assertion
+reaches, but the properties that are load-bearing and invisible in a
+screenshot: that the failure fields differ IN KIND (an earthquake fails a
+building at the base and a windstorm at the top, or the disaster axis means
+nothing); that severity is monotone; that fragments are closed; that failure
+propagates, or a collapsed building floats; that the USD bookkeeping survives
+face renumbering; determinism; and scale-relativity across a 15 m house and a
+90 m tower.
 """
 
 import os
