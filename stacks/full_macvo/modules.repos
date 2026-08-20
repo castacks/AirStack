@@ -8,9 +8,14 @@
 # AirStack tooling reads it) declaring the trunk semver range this stack was
 # tested against. sync warns on mismatch; it never gates.
 #
-# This reference stack pulls no external modules yet: every package it launches
-# is trunk-resident (macvo_ros2 lives in robot/ros_ws/src/perception; it is a
-# prime candidate to migrate out as a module later).
+# NOTE(submodules): asm_macvo's macvo_ros2/macvo_ros2/macvo is a git submodule
+# of that repo (the MAC-VO network). `airstack module sync` imports with
+# `vcs import --recursive`, so the submodule arrives automatically.
 airstack_compat: ">=0.19.0-alpha.18 <0.21.0"
-repositories: {}
+repositories:
+  asm_macvo:
+    type: git
+    # Placeholder — update when asm_macvo is pushed and tagged (TRUNK_REMOVAL.md §0).
+    url: git@github.com:castacks/asm_macvo.git
+    version: v0.1.0
 x-local-modules: []

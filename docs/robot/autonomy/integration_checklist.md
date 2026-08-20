@@ -62,7 +62,7 @@ Topics follow this pattern:
 
 Examples:
 
-- `/drone1/perception/macvo/odometry`
+- `/drone1/perception/macvo/odometry` (a module-provided topic — macvo comes from the `asm_macvo` module)
 - `/drone1/local_planner/droan/trajectory`
 - `/drone1/trajectory_controller/tracking_point`
 

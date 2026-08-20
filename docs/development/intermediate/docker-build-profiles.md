@@ -16,8 +16,8 @@ Key inputs:
 | `ROS_DISTRO` | ROS 2 distro to install (e.g. `jazzy`) |
 | `PYTHON_VERSION` | Must match the ROS Python path; **quote in YAML** (e.g. `"3.12"`) |
 | `REAL_ROBOT` | Platform-specific content toggles |
-| `SKIP_MACVO` | Skip MACVO in image when set |
-| `SKIP_TENSORRT` | Skip TensorRT in image when set |
+
+Heavy, algorithm-specific dependencies (e.g. MAC-VO's torch/TensorRT stack) are **not** build-args anymore — they live in each module's `Dockerfile.module` and are layered onto the trunk base image by `airstack module lock --build` (RFC #379 §6).
 
 ## Example profiles
 
@@ -44,8 +44,6 @@ robot-l4t:
     args:
       BASE_IMAGE: *l4t_stack_base_image   # from robot-l4t-stack-base
       REAL_ROBOT: true
-      SKIP_MACVO: true
-      SKIP_TENSORRT: true
       ROS_DISTRO: jazzy
 ```
 
@@ -61,7 +59,6 @@ robot-myboard:
       ROS_DISTRO: jazzy
       PYTHON_VERSION: "3.12"
       REAL_ROBOT: true
-      SKIP_MACVO: true
     # L4T only, when needed:
     # network: host
 ```

@@ -27,7 +27,7 @@ Anatomy is enforced by a unit test: `tests/meta/test_stack_layout_contract.py`
 |-------|----------|
 | [`full_default`](https://github.com/castacks/AirStack/tree/develop/stacks/full_default) | The current full-autonomy topology (GPU `droan_gl` planner) — baseline, graph-identical to legacy `AUTONOMY_ROLE=full`. |
 | [`full_droan_cpu`](https://github.com/castacks/AirStack/tree/develop/stacks/full_droan_cpu) | CPU DROAN planner + live `disparity_expansion` — absorbs `local_droan_cpu.launch.xml`. |
-| [`full_macvo`](https://github.com/castacks/AirStack/tree/develop/stacks/full_macvo) | MAC-VO as the planner's disparity source — supersedes (and fixes) the broken `local_macvo_obstacle_avoidance.launch.xml` variant. |
+| [`full_macvo`](https://github.com/castacks/AirStack/tree/develop/stacks/full_macvo) | MAC-VO as the planner's disparity source — supersedes (and fixes) the broken `local_macvo_obstacle_avoidance.launch.xml` variant. Requires the `asm_macvo` module (`airstack module add asm_macvo`). |
 
 ## Wrap vs. flatten — current status
 

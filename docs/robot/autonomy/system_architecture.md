@@ -234,19 +234,23 @@ graph TB
 
 **Key Modules:**
 
-- `macvo_ros2`: Visual-inertial odometry system
+- `stereo_image_proc`: Stereo disparity + point-cloud estimation (trunk default)
+- `macvo_ros2`: MAC-VO learned visual odometry — **provided by the
+  [asm_macvo](https://github.com/castacks/asm_macvo) module**
+  (`airstack module add asm_macvo`), not trunk. When a stack includes its
+  launch file under the perception namespace it publishes
+  `/[robot]/perception/macvo/{odometry,point_cloud,disparity}`.
 
 **Topics:**
 
 - **Published:**
     - `/[robot]/odometry` - Primary state estimate
-    - `/[robot]/perception/macvo/depth`
-    - `/[robot]/perception/macvo/features`
+    - `/[robot]/perception/stereo_image_proc/disparity`
+    - `/[robot]/perception/stereo_image_proc/point_cloud`
 
 - **Subscribed:**
     - `/[robot]/sensors/*/image`
     - `/[robot]/sensors/*/camera_info`
-    - `/[robot]/interface/mavros/imu`
 
 ### Local Layer
 

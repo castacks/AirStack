@@ -3,10 +3,12 @@
 
   Preset that absorbed (and FIXED) the deleted MAC-VO obstacle-avoidance
   local bringup variant (see README): full autonomy with MAC-VO as the
-  disparity source for the local planner. Two include-line differences from
-  full_default/launch/stack.launch.xml:
-    1. Perception is included with launch_macvo:=true, so the macvo_ros2 node
-       runs and publishes /$ROBOT_NAME/perception/macvo/disparity.
+  disparity source for the local planner. MAC-VO arrives via the asm_macvo
+  MODULE (`airstack module add asm_macvo`, then `module sync` and the lock
+  build step; macvo_ros2 no longer lives in trunk — see the README). Two
+  include-line differences from full_default/launch/stack.launch.xml:
+    1. The macvo_ros2 module launch is included under the perception
+       namespace, so it publishes /$ROBOT_NAME/perception/macvo/disparity.
     2. The droan_gl include overrides its disparity arg to point at MAC-VO's
        real output topic instead of the canonical stereo_image_proc default.
   (The legacy variant file was broken: it passed arg names local.launch.xml
@@ -35,10 +37,16 @@
   <!-- Sensors -->
   <include file="$(find-pkg-share sensors_bringup)/launch/sensors.launch.xml" />
 
-  <!-- Perception : MAC-VO enabled (publishes perception/macvo/disparity) -->
-  <include file="$(find-pkg-share perception_bringup)/launch/perception.launch.xml">
-    <arg name="launch_macvo" value="true" />
-  </include>
+  <!-- Perception : trunk layer defaults (macvo comes from the module below) -->
+  <include file="$(find-pkg-share perception_bringup)/launch/perception.launch.xml" />
+
+  <!-- MAC-VO (asm_macvo module) : canonical-default args, so no args passed.
+       Namespaced under perception so outputs land on
+       /$ROBOT_NAME/perception/macvo/{odometry,point_cloud,disparity}. -->
+  <group>
+    <push-ros-namespace namespace="perception" />
+    <include file="$(find-pkg-share macvo_ros2)/launch/macvo.launch.xml" />
+  </group>
 
   <!-- ── Local layer, flat (module launch files; canonical defaults) ────── -->
 

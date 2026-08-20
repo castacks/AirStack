@@ -1,8 +1,0 @@
-build/*
-install/*
-log/*
-MACVO_ROS2/Model/*
-*.pth
-*.pkl
-*.pyc
-__pycache__/
