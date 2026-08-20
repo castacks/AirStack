@@ -134,14 +134,16 @@ deleting `modules.repos` and syncing) restores a clean tree, and
 
 ## Starting the stack with modules
 
-Until `airstack up` wires the generated file in automatically (Phase P4/P5),
-pass it explicitly — `up` already forwards `-f` to docker compose:
+`airstack up` includes the generated override automatically whenever
+`.airstack/generated/docker-compose.modules.yaml` exists (an info line names
+it in the launch output). No modules synced → no file → byte-identical
+behavior to a module-free checkout.
+
+To launch *without* module mounts while keeping them synced:
 
 ```bash
-airstack up -f .airstack/generated/docker-compose.modules.yaml
+AIRSTACK_NO_MODULE_COMPOSE=1 airstack up
 ```
-
-`module sync` prints this exact line whenever the file exists.
 
 ## The researcher workflow (fork → module)
 
@@ -176,8 +178,6 @@ hand today.
 
 ## Current limitations (honest v1)
 
-- **Manual `-f` line** — the generated compose file is not yet appended by
-  `airstack up` automatically (P4/P5).
 - **Robot volumes attach to `robot-desktop` and `robot-l4t`.** Services that
   `extends:` those from another compose *file* (`robot-desktop-onboard`,
   `robot-offboard`, `simple-robot`, …) re-parse the base file and do not see
