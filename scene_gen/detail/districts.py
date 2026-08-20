@@ -616,7 +616,7 @@ def park_blocks(layout: dict, placements: list):
     """
     blocks = layout.get("blocks", [])
     try:
-        import city_layout
+        from layout import city_layout
         reserved = [b for b in city_layout.PARK_RESERVES if b in blocks]
     except ImportError:
         reserved = []
@@ -1307,7 +1307,7 @@ def remap_buildings(config: dict, layout: dict, placements: list, resolver,
                     rng, district_at) -> int:
     """Pipeline hook: rezone, infill, then rebuild the parks.
 
-    WHY THIS DRIVES THE OTHER PASSES: `generate_city_v2` owns the pipeline and
+    WHY THIS DRIVES THE OTHER PASSES: `generate_scene` owns the pipeline and
     is off-limits to this work, and this is the only hook it offers that
     receives the placement list. `layout` carries a done-flag so a caller that
     grows explicit calls later gets a no-op rather than a doubled scene.
@@ -1321,7 +1321,7 @@ def remap_buildings(config: dict, layout: dict, placements: list, resolver,
     typ_of = rezone_blocks(config, layout, placements, resolver, rng, zone_at)
     infill_blocks(config, layout, placements, resolver, rng, zone_at)
     try:
-        import parks
+        from detail import parks
     except ImportError:
         return len(typ_of)
     parks.build(config, layout, placements, resolver, rng)

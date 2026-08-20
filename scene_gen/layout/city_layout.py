@@ -3,7 +3,7 @@ city_layout.py — anisotropic block subdivision.
 
 Additive: this does not edit `scene_generator`. It builds a drop-in replacement
 for `_subdivide_region_metric` with the same signature and return shape, and
-`generate_city_v2.py` swaps it in around its `build_city` call and restores it
+`generate_scene.py` swaps it in around its `build_city` call and restores it
 afterwards. Configs that don't ask for it are untouched, and the v1 launch
 script never imports this module at all.
 
@@ -84,28 +84,8 @@ from scene_generator import _jitter_posf
 _TOL = 1e-4
 
 
-def _rng_range(v, fallback):
-    """Accept ``[lo, hi]`` or a scalar for a range-valued knob."""
-    if isinstance(v, (list, tuple)) and len(v) >= 2:
-        return float(v[0]), float(v[1])
-    if isinstance(v, (int, float)):
-        return float(v), float(v)
-    return fallback
 
-
-def _weighted(weights: dict, rng, fallback: str):
-    """Draw a key from a ``{name: weight}`` mapping."""
-    items = [(k, float(v)) for k, v in (weights or {}).items() if float(v) > 0.0]
-    total = sum(w for _k, w in items)
-    if total <= 0.0:
-        return fallback
-    r = rng.random() * total
-    for k, w in items:
-        r -= w
-        if r <= 0.0:
-            return k
-    return items[-1][0]
-
+from layout import _rng_range, _weighted  # noqa: E402
 
 def road_class(n_lanes: int) -> str:
     """Functional class from lane count, the only hierarchy signal a corridor
@@ -367,7 +347,7 @@ def make_subdivider(layout_cfg: dict, config: dict = None):
         zone_at, ring_names = None, []
         if zones and config:
             try:
-                import districts
+                from detail import districts
                 zone_at, rings = districts.assign(
                     config, {"region": (-w_m / 2.0, -h_m / 2.0,
                                         w_m / 2.0, h_m / 2.0)})
@@ -416,7 +396,7 @@ def make_subdivider(layout_cfg: dict, config: dict = None):
         area_at = None
         if config:
             try:
-                import districts
+                from detail import districts
                 area_at = districts.zone_field(
                     config, (-w_m / 2.0, -h_m / 2.0, w_m / 2.0, h_m / 2.0))
                 if not hasattr(area_at, "targets_at"):
@@ -725,7 +705,7 @@ class patched:
 
     Monkey-patching rather than a parameter because `build_city` calls
     `_subdivide_region_metric` internally and this work may not edit that file.
-    The swap is scoped and restored in `finally`, and only `generate_city_v2`
+    The swap is scoped and restored in `finally`, and only `generate_scene`
     ever enters it — the original launch path never imports this module, so v1
     scenes are bit-identical.
     """

@@ -1,273 +1,553 @@
-# ASSET SET: suburban — detached single-family houses on residential blocks.
+# The suburban asset set — everything a suburban scene builds with.
 #
-# Extends `shared.yaml`, which carries everything a locale doesn't get to
-# choose: street furniture, greenery, ground tiles, vehicles, people. What is
-# left here is what makes a place a suburb — timber-frame houses, and the
-# wreckage they leave. The debris is written from scratch rather than appended
-# to `urban.yaml`'s: concrete chunks, cinder block and brick read as
-# city-building rubble, wrong for a timber-frame collapse.
+# `extends: suburban_nucleus`: the Nucleus-only subset it layers on. That split is
+# by SOURCE, not by version — suburban_nucleus needs no pre-flight and works
+# offline, this adds the Objaverse and AEC content that does. Point a
+# config at `suburban_nucleus` to build without either.
 #
-# ONE EXCEPTION TO "ONLY BUILDINGS AND DEBRIS": the three kerb-furniture pools
-# at the bottom. `shared.yaml` offers one of everything because it serves a
-# downtown, a suburb and a village at once — four streetlights from three art
-# families, eight bins — and a municipality buys one pole and one bin and
-# repeats them. That is a locale statement rather than a detail-level one, so it
-# belongs here and not in `suburban_v2.yaml`; `build_city` reads these pools
-# directly, so curating them here fixes the plain suburban scene too. The
-# reasoning is urban_v2.yaml's, carried across asset by asset.
+# Extends it so the houses and existing props come across unchanged and this
+# file only adds what the new passes consume. Nothing in `suburban_nucleus.yaml`
+# or `shared.yaml` is edited, so the old scene keeps working.
+#
+# `<key>+` appends to the inherited pool; a bare key REPLACES it.
+#
+# MEASURE BEFORE ADDING. Two lessons carried from the urban set:
+#   * Material binding is per GEOMSUBSET on every UE-exported asset in this
+#     library. A per-Mesh ComputeBoundMaterial reports the whole library as
+#     unbound and is wrong; use tools/material_binding.py.
+#   * `scale` is per asset, never global. The CityPark stones are authored 10x
+#     apart from each other, so one shared scale made two of them enormous and
+#     two of them pebbles. Derive each from its own measured bbox.
 
-extends: shared
+extends: suburban_nucleus
 
-# A detached bungalow, not a downtown block. Only used when a measure fails.
 fallback_sizes:
-  house: [12.0, 12.0]
+  # Only bites when `measure_usds` is off or a measurement fails — but without
+  # an entry a category silently takes the generic 4.0 x 4.0 m default, so a
+  # stop sign would reserve four metres of verge and every clearance test around
+  # it would be wrong. Same value and reason as urban_v2. `house: [12, 12]` from
+  # suburban.yaml survives this block: asset sets merge nested dicts key by key.
+  sign: [0.4, 0.08, 2.4]
 
-# ---- the suburb-specific library --------------------------------------------------
 usds:
-  buildings:
-    intact:
-      # Objaverse assets, named by their dataset uid — that is the whole
-      # identity. `airstack up` downloads and converts anything not in the local
-      # cache (scene_gen/assets/objaverse/<uid>/), so this list works from an
-      # empty checkout; see assets/objaverse/manifest.yaml for provenance and
-      # attribution (all CC-BY, artist "headerstock").
-      #
-      # `target-size-m` is baked into the cached USD at conversion, so there is
-      # deliberately no `scale:` here — nothing to drift from the geometry.
-      # It pins the longest plan dimension: a detached bungalow is ~12 m across.
-      - usd: "objaverse://6644de89c2f0449db3de934744162b63"   # Bungalow The Chase
-        target-size-m: 12
-      - usd: "objaverse://388ea89b91524e4eb79068c24d170619"   # Bungalow-the Weeks
-        target-size-m: 12
-      - usd: "objaverse://1c6d17070d9e4b6595e5de2fa3e20d81"   # Bungalow The Ryder
-        target-size-m: 12
-      - usd: "objaverse://4b7d97e8a74248c79f4704e1967c3577"   # Bungalow The Budd
-        target-size-m: 12
-      - usd: "objaverse://358466b1877b4947aee36a50662d633b"   # Bungalow The Gilchrist
-        target-size-m: 12
-      - usd: "objaverse://85961c7ab0d14a9a8766fe58f28886a8"   # Bungalow The Dawson
-        target-size-m: 12
-      - usd: "objaverse://19331875f8d84137a94003f0660e2a50"   # Bungalow The Haynes
-        target-size-m: 12
-      - usd: "objaverse://1ca9bf31b9d34b44a9b9cac8c240a8d7"   # Bungalow The Crosby
-        target-size-m: 12
-      - usd: "objaverse://bee0da9227fa40029ad5352a2075ead8"   # Bungalow The Hale
-        target-size-m: 12
-      - usd: "objaverse://968ca5757023470ab603067d79f713fc"   # Bungalow The Goodson
-        target-size-m: 12
-      - usd: "objaverse://71474e859887459a96d2d281ffe53f18"   # Bungalow The Colbert
-        target-size-m: 12
-      - usd: "objaverse://ab67dc215f8344eabadeeae05eacd887"   # Bungalow The Cass
-        target-size-m: 12
-      - usd: "objaverse://f87535ec6d9a475db58965aa46ba6979"   # Bungalow The Clayton
-        target-size-m: 12
-      - usd: "objaverse://3bc5f70542014501a1e380891295299e"   # Bungalow The Newport
-        target-size-m: 12
-      - usd: "objaverse://7c64a6d90567428eb511f41036fe2d88"   # Bungalow The Walton
-        target-size-m: 12
+  # A NARROW walk, and only where one exists at all. The paved ring is one tile
+  # wide and build_city takes that width as max(tile.sx, tile.sy), so the tile
+  # scale IS the walk width — there is no separate knob, and city_detail.zones
+  # in the preset must sum to match. 5.00 m authored x 0.30 = 1.50 m, the usual
+  # residential minimum, against 3.5 m in the urban scene.
+  tiles:
+    sidewalk:
+      usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_GroundModule01.usd"
+      scale: 0.30         # 5.00 x 5.00 m authored -> 1.50 m walk
 
-      # RetroNeighborhood houses, mixed in with the bungalows rather than
-      # replacing them. The pack is where this locale's streetlight, hydrant,
-      # driveway tile and sky already come from, so these are the neighbours the
-      # rest of the scene was built around. Fifteen bungalows plus ten of these
-      # is 25 models on a street of ~1,700 houses.
-      #
-      # scale: 0.01 — CENTIMETRE-AUTHORED, the pack's convention and the value
-      # every other RetroNeighborhood entry in this chain already uses.
-      #
-      # NO `target-size-m`, and that is not an omission: it is an OBJAVERSE-ONLY
-      # key. `objaverse_assets.scan_asset_sets` reads it to bake a size into the
-      # cached USD at conversion; `scene_generator` never reads it, so on a
-      # Nucleus path it would be silently ignored and only LOOK like a pinned
-      # size. These arrive at their authored size, correct once scaled.
-      #
-      # Their footprints are MEASURED AT BUILD TIME, not here:
-      # `suburb_scene.house_catalogue` runs the `SizeResolver` inside Isaac Sim
-      # (where Nucleus is already authenticated) and hands `suburb_parcel` the
-      # real sizes, so a house wider than the bungalows' 12 m gets a lot cut for
-      # it instead of overlapping its neighbour. A host-side measure still needs
-      # `pxr`/`omni.client`. If one is far off, drop that line rather than
-      # scaling it — a per-asset scale away from 0.01 resizes the doors and
-      # windows too.
-      - usd: "RetroNeighborhood/Props/SM_House_01.prop.usd"
-        scale: 0.01
-      - usd: "RetroNeighborhood/Props/SM_House_02.prop.usd"
-        scale: 0.01
-      - usd: "RetroNeighborhood/Props/SM_House_03.prop.usd"
-        scale: 0.01
-      - usd: "RetroNeighborhood/Props/SM_House_04.prop.usd"
-        scale: 0.01
-      - usd: "RetroNeighborhood/Props/SM_House_05.prop.usd"
-        scale: 0.01
-      - usd: "RetroNeighborhood/Props/SM_House_06.prop.usd"
-        scale: 0.01
-      - usd: "RetroNeighborhood/Props/SM_House_07.prop.usd"
-        scale: 0.01
-      - usd: "RetroNeighborhood/Props/SM_House_08.prop.usd"
-        scale: 0.01
-      - usd: "RetroNeighborhood/Props/SM_House_09.prop.usd"
-        scale: 0.01
-      - usd: "RetroNeighborhood/Props/SM_House_10.prop.usd"
-        scale: 0.01
-      #
-      # LEFT OUT OF `intact` ON PURPOSE:
-      #   SM_House_01_Lot   a lot/ground plane rather than a building (tiny
-      #     beside SM_House_01), and `suburb_scene.apply_ground` already lays
-      #     block grass, driveways and asphalt as meshes.
-
-    # GARAGES AND WINGS — the add-on half of a house, not a house. Kept out of
-    # `intact` because an extension placed as a whole house is a fragment alone
-    # on a lot; the answer is to COMPOSE, not to drop them.
-    #
-    # `suburb_scene.house_catalogue` pairs each to its parent by the shared stem
-    # (SM_House_04_Extension -> SM_House_04) and measures the UNION of the two,
-    # which is the footprint `suburb_parcel` sizes the lot to. Both parts are
-    # then anchored by their OWN measured centroid — not at the parent's
-    # transform — because `apply_placements` positions every asset by its bbox
-    # centre; emitting both at one point co-centres the wing on the house.
-    #
-    # Only 3 of the 10 houses ship one. Which lots get a garage is therefore
-    # decided by SIZE, not by the archetype flag: `suburb_parcel` picks the
-    # catalogue entry that fits the frontage, biased toward area by the
-    # archetype's scale, so wider "garage"/"full" lots tend toward the union
-    # entries without being guaranteed one. `has_garage` no longer controls it.
-    house_addons:
-      - usd: "RetroNeighborhood/Props/SM_House_04_Extension.prop.usd"
-        scale: 0.01
-      - usd: "RetroNeighborhood/Props/SM_House_06_Extension.prop.usd"
-        scale: 0.01
-      - usd: "RetroNeighborhood/Props/SM_House_10_Extension.prop.usd"
-        scale: 0.01
-
-    # Wooden house ruins (Nucleus, authored in cm). Split by *measured* height
-    # against an intact bungalow's ~6.4 m: walls still standing reads as
-    # damaged, collapsed below roof height reads as destroyed. Their footprints
-    # run 18-33 m, wider than the 12 m houses they replace — which is right,
-    # since a wrecked house throws its debris well past its own slab.
-    damaged:
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_002.usd"
-        scale: 0.01     # 7.7 m tall
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_004.usd"
-        scale: 0.01     # 9.0 m tall
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_005.usd"
-        scale: 0.01     # 6.4 m tall
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_006.usd"
-        scale: 0.01     # 6.5 m tall
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_007.usd"
-        scale: 0.01     # 8.9 m tall
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_010.usd"
-        scale: 0.01     # 6.9 m tall
-
-    destroyed:
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_001.usd"
-        scale: 0.01     # 5.8 m tall
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_003.usd"
-        scale: 0.01     # 3.1 m tall
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_008.usd"
-        scale: 0.01     # 5.8 m tall
-      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_009.usd"
-        scale: 0.01     # 5.2 m tall
-      # The one timber-frame collapse Objaverse had: down on its slab with
-      # planks thrown clear.
-      - usd: "objaverse://a0c01ce35a474545b805c0739806aace"   # Abandoned House
-        target-size-m: 12
-
-  debris:
-    # Wood-frame wreckage: lumber and snapped limbs. Instanced by the hundred,
-    # so both are deliberately low-poly.
-    pieces:
-      - usd: "objaverse://1b31413d89a4485e93f4bdb9eb735d88"   # Planches - Planks (weathered, scattered), 512 faces
-        target-size-m: 2.5
-      - usd: "objaverse://2341e9c2456f4876b2e86a9465724b0d"   # Planks Of Wood (fresh lumber), 534 faces
-        target-size-m: 2.2
-      - usd: "objaverse://aedb8f44f78944c7a1d53ff14c6d3290"   # Wood Stick 08 Remesh (snapped limb), 430 faces
-        target-size-m: 2.5
-        fit: max          # scanned standing on end, so pin its length, not its
-                          # plan — footprint would stretch it into a 7 m spike.
-                          # Debris is dropped and physics-settled, so it lands flat.
-
-    # Scraped earth and mounded rubble — the other half of the aftermath.
-    piles:
-      - usd: "objaverse://b3b11017332040d6b717839c07a782c4"   # Large Dirt Pile, 200 faces
-        target-size-m: 3.0
-      - usd: "objaverse://107f6a1f6aa74449bcd32ef136311d86"   # A pile of sand (dark soil mound)
-        target-size-m: 3.0
-      - usd: "objaverse://042bc78e7d1d4275b3cd87e97f35d11c"   # Low Poly Heap of construction debris
-        target-size-m: 3.5
-      - usd: "objaverse://0ab5415789a1454a925d82f0650910ff"   # Heap of construction old debris
-        target-size-m: 3.0
-      - usd: "objaverse://c7544d9183c24ed3a716f8255536afa8"   # Roof Rubble Pile Debris Tiles (flat scatter)
-        target-size-m: 4.0
-
-  # ---- KERB FURNITURE: fewer models, repeated ---------------------------------
-  # HOW THE OVERRIDE WORKS, because getting it wrong is silent: in
-  # `scene_generator._merge_asset_set` a key written `<name>+` APPENDS to the
-  # inherited list and a bare `<name>:` REPLACES it. These three are bare on
-  # purpose — the point is to own the pool. Resolved lengths are 1 / 2 / 1
-  # rather than shared.yaml's 4 / 8 / 1.
-
-  # ONE streetlight, and the RetroNeighborhood one because that is the art
-  # family the suburban sky and driveways already come from. Scale and yaw
-  # carried over verbatim from shared.yaml (cm-authored; the arm points +Y,
-  # hence the quarter turn).
+  # ---- GROUND MATERIALS  (owner: suburb_scene.apply_ground) ------------------
+  # Overrides shared.yaml's single Nucleus `grass` for THIS set only; the urban
+  # set keeps the shared entries. Dicts merge key by key, so `asphalt` is still
+  # inherited from shared.yaml and is deliberately not repeated here.
   #
-  # Dropped, all three Dmytro/ModernCityEnvironment01: several unrelated lamp
-  # families on one street is what reads as generated.
-  #   SM_Lamp_002, SM_Lamp_005   modern city posts, a second art family
-  #   SM_Lamp_006                the same, and the only `park`-tagged lamp in
-  #                              the chain. Losing the tag is accepted:
-  #                              `parks.py` falls back to the whole pool, so
-  #                              park trails get this pole — which is what a
-  #                              suburban park has anyway. `build_city`'s
-  #                              park-trail lamp pass does not fall back and
-  #                              places none.
-  streetlights:
-    - usd: "RetroNeighborhood/Props/SM_StreetLight.prop.usd"
-      scale: 0.01
+  # These are LOCAL, out of the NVIDIA AEC Brownstone pack, which ships ground
+  # materials as bare `.mdl` modules with no USD alongside them. `_load_mat`
+  # binds `UsdShade.Material` at the prim the value names, so an `.mdl` cannot
+  # be named directly -- each entry points at a hand-authored wrapper layer
+  # under `scene_gen/assets/materials/` whose default prim IS the Material. See
+  # Grass_Cut.usda for the full reasoning.
+  #
+  # The pack has exactly TWO grasses, so `grass_park` and `grass_rough`
+  # necessarily share Grass_Countryside. What matters is that both differ from
+  # the mown `grass` on the lawns -- the park is not supposed to read as an
+  # extension of the front yards.
+  materials:
+    grass: "airstack://scene_gen/assets/materials/Grass_Cut.usda"
+    grass_rough: "airstack://scene_gen/assets/materials/Grass_Countryside.usda"
+    grass_park: "airstack://scene_gen/assets/materials/Grass_Countryside.usda"
+    dirt: "airstack://scene_gen/assets/materials/Dirt.usda"
+    mulch: "airstack://scene_gen/assets/materials/Mulch_Brown.usda"
+
+  # ---- LOT FURNITURE  (owners: suburb_lots.py, suburb_scene.build_placements)
+  # Fences run as MODULES butted end to end along a lot boundary, so what each
+  # entry has to supply is the module length and which axis the art runs along.
+  # The length is read from the measured footprint at run time, taking `sx` or
+  # `sy` according to `yaw-offset` — an asset running along +Y without the
+  # offset would have its 0.33 m rail THICKNESS taken as the module length and
+  # be laid forty times over.
+  #
+  # EVERY ENTRY IS A PLAIN, CONTINUOUS PANEL. Nothing here may be a gate, a
+  # doorway, a post on its own, or a "pack" of loose pieces, and that is the
+  # single most important rule in this pool: `_fence_run` repeats ONE module
+  # end to end, so anything the module contains repeats every few metres, and
+  # any air the module contains becomes a hole every few metres. The pool
+  # carried "Wooden Fence" (objaverse bd8afe2fa6c24d238a761bc4751ebb03) for
+  # exactly this reason and it was wrong — its 5.95 m bbox is a lone post, a
+  # gap, a 3.3 m picket panel, another gap and a solid plank GATE LEAF, so a
+  # tiled run read as panel/gate/panel/gate with a metre of nothing between
+  # each. It is removed, not re-tagged.
+  #
+  # `tags` are which boundary a module may serve. A house draws ONE asset for
+  # its whole perimeter (`suburb_scene._fence_pick`), so "privacy" now means
+  # "may fence a lot at all" and every entry that can carries it; "low" means
+  # additionally short enough for the FRONT yard. US municipal codes cap a
+  # front-yard fence far lower than a rear one — 3.5 ft front / 8 ft rear
+  # (Portland Title 33 §33.110.275.C), 3.5 / 7 ft (Junction City OR JCMC
+  # 17.95.020), 4 / 6 ft (Taylor AZ TTC §18.60.050) — and `suburb_scene` also
+  # re-derives that cap from the MEASURED height (`_FRONT_FENCE_MAX_H_M`, 4 ft),
+  # so a tag that disagrees with the art loses.
+  lot_fences:
+    # ORNAMENTAL IRON — 0.99 m = 3.2 ft, inside every front-yard cap above, and
+    # a plain repeating rail with no gate in it. Measured in the urban set,
+    # where parks.py already runs it as a park railing; 1,528 pts a module, the
+    # cheapest fence in either library. Art runs along +Y, hence the yaw-offset.
+    # TAGGED FOR BOTH BOUNDARIES because the pick is now per HOUSE: an entry
+    # tagged "low" alone could never be drawn, since a house chooses its asset
+    # from the set that can fence a side or rear line. A 3 ft rail right round a
+    # lot is the "open" identity — common on tighter and older US lots — and its
+    # 5.28 m module is the one that reads as a long run rather than as pickets.
+    - usd: "Dmytro/Assets/Game/Downtown_West/Assets/props/prop_park_railing/SM_prop_park_railing_rail_a.usd"
+      scale: 1.0          # 0.33 x 5.28 x 0.99 m, 1,528 pts
       yaw-offset: 90.0
+      tags: ["low", "privacy"]
 
-  # TWO bins where shared.yaml had eight, split by ROLE: a suburb's kerb carries
-  # a DOMESTIC wheelie bin and the civic litter bin is the park one — the
-  # opposite of urban_v2, which kept the civic bin for the kerb.
-  #
-  # Both are Nucleus. The AEC brownstone dustbin used in
-  # `suburban_v2.yard_props` (0.51 x 0.51 x 0.73 m, 630 pts) is deliberately NOT
-  # here: the AEC packs are git-ignored vendor content and the plain `suburban`
-  # set has to run without them.
-  #
-  # Dropped, with urban_v2's measured reasons carried across:
-  #   SM_MTrashCan            black commercial rectangular bin — alley, not kerb
-  #   SM_Bin_003_01, _003_02  recolours of SM_Bin_003, one model in three
-  #                           paint jobs; keeping one recolour is the whole rule
-  #   SM_Bin_006              green 4-wheel COMMUNAL dumpster — a flat block's
-  #                           bin store, not a single-family kerb
-  #   SM_Bin_004              a fourth kerbside model with no role left once one
-  #                           wheelie bin is kept. Surplus variation; no defect
-  #                           claimed against it.
-  #   CityPark SM_Small_Trash_can   the park bin, replaced by SM_MLitterBin.
-  #                           urban_v2 measures it 1.27 m wide — out of scale
-  #                           beside a 0.6 m civic bin.
-  #   Muyang garbageCan       a third art family for a prop this scene places at
-  #                           most a few dozen of.
-  trash_cans:
-    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_003.usd"
-      # Blue two-wheel wheelie bin — the bin a house actually puts out. One
-      # recolour of the three shared.yaml carries.
-    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_MLitterBin.usd"
-      tags: ["park"]
-      # 0.60 x 0.60 x 0.91 m, 759 pts (measured in urban_v2, where it is THE
-      # street bin). Kept only as the park/verge civic bin, so the tag pools in
-      # `build_city` and `parks.py` still select something — and so a domestic
-      # wheelie bin never turns up on a park trail.
+    # CLOSE-BOARD — the standard US side and rear fence, and the replacement for
+    # the gate kit described above. One continuous wall of vertical boards on
+    # two cross-rails: no gate, no free-standing post, no void, so a tiled run
+    # is a continuous fence.
+    # SIZED FROM THE SOURCE GLB host-side before it was converted (no trimesh
+    # here — the glTF accessor min/max pushed through the node matrices):
+    #   36.4 x 879.9 x 1688.0 in source units = 1.918 : 1 length : height,
+    # so pinning the longest PLAN dimension at 3.51 m puts the height at
+    # 3.51 / 1.918 = 1.83 m — 6 ft exactly, the bottom of the 6-8 ft side/rear
+    # band every code above allows. MEASURED AFTER CONVERSION, which is what
+    # the pass actually reads: 3.51 x 0.077 x 1.830 m, 312 faces. Runs along
+    # +X, which is what the pass asks for, so NO yaw-offset.
+    # LICENCE: plain CC-BY, deliberately. The better-looking candidate for this
+    # slot (objaverse 1db7df90…, a painted plank wall at 3.02:1) is CC-BY-NC,
+    # and every other asset in this repo's manifest is `by` or `by-sa` — a
+    # non-commercial clause on a fence that appears on 60% of the lots is not
+    # worth the redistribution question.
+    - usd: "objaverse://1cec32aea61e4959bb1ba9a79ada7cd5"   # "Wood fence", CC-BY
+      target-size-m: 3.51   # pins the longest PLAN dimension; height follows
+      points: 888
+      tags: ["privacy"]
 
-  # UNCHANGED AT ONE. shared.yaml already carries exactly one hydrant model, so
-  # there is nothing to cut; pinned explicitly so a later edit to shared.yaml
-  # cannot widen it silently.
+    # PICKET — the classic small-lot fence, and a short enough module that a
+    # 15 m boundary takes seven of them rather than three, so the run reads as
+    # pickets rather than as panels. One plain panel, no gate.
+    # MEASURED AFTER CONVERSION: 2.00 x 0.09 x 0.96 m, base -0.001, 1,558 pts.
+    # 0.96 m = 3.1 ft, inside the 3.5-4 ft front-yard cap, so this is the entry
+    # that actually closes a front yard. Tagged for both boundaries for the same
+    # reason as the rail: the pick is per house. Runs along +X.
+    - usd: "objaverse://9c2fb0b1afaa450f97ac9f6217ed6dc9"   # "HandPainted Fence", CC-BY
+      target-size-m: 2.0
+      points: 1558
+      tags: ["low", "privacy"]
+
+    # POINT BUDGET. On the GRAPH path `fence` is one of `suburb_scene`'s default
+    # `instance_categories`, so N modules cost one prototype plus N transforms;
+    # the RECT path (`build_city`) passes no instance categories and still pays
+    # N x `points`. A 1600 x 1200 m suburb runs roughly 2,000-3,000 modules once
+    # the compact neighbourhoods are fenced, which un-instanced is 4-7M points
+    # against the ~89M ceiling the urban scene OOM-killed at. The levers, in
+    # order: `fence.chance` per neighbourhood type in the preset, then which
+    # boundaries a type fences, then `module_gap_m` (a gappy fence is worse than
+    # no fence, so it is last).
+
+  # Driveway paving. The pass repeats and STRETCHES a tile from the house out
+  # across the verge and sidewalk to the kerb, so the authored tile size only
+  # sets how far the texture stretches, not the fit — a driveway is 3.0-5.5 m
+  # wide and nothing in the library is. Entries must NOT carry `yaw-offset`:
+  # the stretch is applied in the asset's own frame, before yaw.
+  driveway_tiles:
+    # The library's actual driveway art, and it already resolves — shared.yaml
+    # uses it as the park trail tile, which is what urban_v2 called out as wrong
+    # there. Here it is being used for what it is.
+    # UNVERIFIED: size not measured — Nucleus needs Kit and the container was
+    # off limits for this work. The stretch tiler does not depend on it.
+    - usd: "RetroNeighborhood/Props/SM_DriveWay_01.prop.usd"
+      scale: 0.01         # RetroNeighborhood is authored in cm
+
+
+  # ---- TREES: TWO POOLS, TWO JOBS  (owners: suburb_scene.py, city_detail) ----
+  # A street is not planted with what a back garden is planted with, and a real
+  # neighbourhood repeats a few species rather than showing one of everything.
+  # So the vegetation is split by ROLE, and `suburb_scene.build_placements`
+  # chooses between the two on the `kind` suburb_parcel stamps on every tree:
   #
-  # NOT appended: urban_v2's `fire_hydrants+` AEC hydrant
-  # (brownstone/Props/Hydrant, 0.56 x 0.52 x 1.62 m). A second art family bought
-  # for nothing — hydrants sit at 240 m here (IFC 400 ft hose lay), so the whole
-  # suburb places a few dozen and none is ever seen beside another.
-  fire_hydrants:
-    - usd: "RetroNeighborhood/Props/SM_FireHydrant.prop.usd"
+  #   street_trees   kind "street" (the verge rhythm) and kind "front" — modest
+  #                  crowns only, nothing that reaches out over the carriageway.
+  #                  Also the pool city_detail's street_trees pass reads, though
+  #                  the suburban preset holds that at `spacing_m: 0.0` because
+  #                  the planting belongs to the yard.
+  #   trees          kind "back", block interiors, park scatter and build_city's
+  #                  lawn pass — OPEN SPACE, where a 25 m crown is a specimen
+  #                  rather than an obstruction. `parks.py` still pulls its
+  #                  stumps out of this pool by tag, so they stay in it.
+  #
+  # `yard_trees` below is a third pool: the composed per-lot planting, and the
+  # only one of the three that carries a point budget and sampling weights.
+  #
+  # `trees` REPLACES the inherited pool (no `+`), and that is the whole point.
+  # shared.yaml's 14 entries are RetroNeighborhood SM_Tree_01..07 and CityPark
+  # SM_Tree_01/_03/_04/_05/_08 — every one of which urban_v2 and this file's own
+  # yard_trees note already record as REJECTED BY NAME AND NOT TO BE
+  # REINTRODUCED. Inheriting them is how the suburb ended up planted with one of
+  # everything, including species already turned down for the urban scene.
+  #
+  # COST, MEASURED. Every tree left in the library is AEC archviz vegetation at
+  # 49-305k points; urban_v2 records the search that established there is no
+  # cheap bound green tree anywhere in it. Swept host-side against the shipped
+  # graph preset (config/presets/suburb_net.yaml, seed 3, 1600 x 1200 m),
+  # suburb_parcel emits 1,974 street trees, which at ~55k each is ~109M points
+  # UN-INSTANCED, against the 89.1M that OOM-killed the urban scene. It is not
+  # un-instanced any more on the graph path: `tree` is one of `suburb_scene`'s
+  # default `instance_categories`, so a species costs its points ONCE and the
+  # copies are transforms. The RECT path (`build_city`) passes no instance
+  # categories and does still pay per copy, so this pool is only affordable
+  # there at low density.
+  #
+  # `build_placements` draws UNIFORMLY and charges NO budget — unlike
+  # `suburb_yardplan`, which has a purse. The one live density lever is
+  # `suburb_parcel.street_tree_spacing_m` [16, 30] in suburb_net.yaml; the front
+  # and back tree knobs beside it are inert, because yardplan owns yard
+  # planting.
+  street_trees:
+    - {usd: "airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd", scale: 0.01}
+      # 10.29 x 10.47 x 11.43 m, 54,766 pts, 4/4 bound, 0% unbound, oakleaves1
+      # green. A ~10 m crown clears a 9-11 m residential carriageway from a
+      # verge set back 2.6 m; this is urban_v2's primary street tree.
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Douglas_Fir.usd", scale: 0.01}
+      # 3.02 x 2.77 x 6.03 m, 56,262 pts, 8/8 bound, pine_needles 100% green.
+      # The narrowest crown in the library and the only evergreen — the one tree
+      # that fits between a driveway and a kerb without being shrunk.
+      # "8/8 bound" WAS TRUE AND STILL MISSED A DEFECT: branchM bound a
+      # Default_Material whose MDL module is not in the pack, so 99 points
+      # rendered unshaded on a perfect bind count. Repointed at the trunk's own
+      # TreeBark_10; now 3/3 materials resolve. A bind count cannot see this —
+      # tools/measure_assets.py `mdl` column can. Patch is vendor-side and a
+      # re-extract undoes it: scene_gen/assets/aec/README.md.
+    #
+    # TWO SPECIES, NOT THREE, AND THE LIBRARY IS THE REASON. Every other tree in
+    # it is excluded by urban_v2 on a measured defect or on cost, and those
+    # exclusions are carried across verbatim rather than re-litigated:
+    #   Black_Oak        48,701 pts — the CHEAPEST bound green tree there is,
+    #                    and still out: 19.7 m tall with a 25.4 m crown is a
+    #                    park specimen, not a kerb tree — it would overhang the
+    #                    whole carriageway. It is in `trees` below, which is
+    #                    exactly where urban_v2 put it.
+    #   Largetooth_Aspen 197,775 — right shape for a kerb (5.1 x 5.2 m crown),
+    #                    priced out. urban_v2 excluded it from street_trees on
+    #                    cost at 631 trees; this scene plants 1,974.
+    #   Common_Apple     237,356 — likewise: a 5.9 m crown at 4.3x the cost of
+    #                    the oak. Kept as a rear-garden accent in `yard_trees`.
+    #   American_Beech   305,126, Honey_Locust 331,786, Hawthorn 596,296 —
+    #                    urban_v2's street exclusions on cost, unchanged.
+    #   White_Ash        66k — binds ashtree_leaves_fall1: an AUTUMN variant.
+    #   Service_Berry    84k — 48.0% of faces unbound, renders half white.
+    #   Scarlet_Oak / _fall  40k — 35.5% of faces unbound; _fall is also red.
+    #   Dogwood 184k red, Japanese_Cherry 255k all-blossom — measured in
+    #                    yard_trees below and rejected there for the same reason.
+    #   Blue_Berry_Elder — the one AEC species nobody has measured. NOT added on
+    #                    a guess; measure it with tools/measure_assets.py +
+    #                    material_binding.py first.
+    # The Nucleus alternatives are not available either: every SM_Tree* in the
+    # chain is rejected by name (see the `trees` note above).
+
+  trees:
+    - {usd: "airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Black_Oak/Black_Oak.usd", scale: 0.01}
+      # 25.42 x 24.07 x 19.74 m, 48,701 pts, 10/11 bound, 0.2% unbound (123 pts,
+      # one branch stub), oakleaves1 100% green. THE reason this pool exists:
+      # banned from the kerb for its crown, and the best thing in the library
+      # standing in the middle of a block or a park.
+    - {usd: "airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd", scale: 0.01}
+      # 10.29 x 10.47 x 11.43 m, 54,766 pts. In both pools deliberately — a
+      # species that lines the street and also stands in the open is what makes
+      # a neighbourhood read as one place rather than two.
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Largetooth_Aspen.usd", scale: 0.01}
+      # 5.09 x 5.20 x 7.89 m, 197,775 pts, 2/2 bound, aspenleaf 99.9% green.
+    - {usd: "airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Common_Apple/Common_Apple.usd", scale: 0.01}
+      # 5.86 x 5.23 x 5.59 m, 237,356 pts, 2/2 bound, apple_leaf 100% green.
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/American_Beech.usd", scale: 0.01}
+      # 4.09 x 4.01 x 5.97 m, 305,126 pts, 2/2 bound, beech_leaf 100% green.
+      # Five species: two that carry the canopy and three that are only ever a
+      # few trees each. The expensive three are affordable HERE and not on the
+      # street because an open-space pass places hundreds where a kerb places
+      # thousands.
+    # BLACKLISTED, both sets: the three CityPark stumps. They were kept here so
+    # `parks.py` could select them by tag ("stump"), but every other consumer --
+    # frontage planting, yard planting, open-space scatter -- draws from `trees`
+    # WITHOUT filtering tags, so a stump got planted as a tree (SM_Stump_03 was
+    # found standing in a lawn). Removed rather than re-tagged: `parks.py` falls
+    # back to the whole pool when a tag matches nothing, so it degrades to
+    # ordinary trees rather than breaking. Re-add only behind a pool of their own.
+    #   CityPark/Props/SM_Stump.prop.usd
+    #   CityPark/Props/SM_Stump_02.prop.usd
+    #   CityPark/Props/SM_Stump_03.prop.usd
+
+  # ---- YARD PLANTING  (owner: suburb_yards.py) -------------------------------
+  # Front yards and back yards want different material: a front yard is kept and
+  # visible, a back yard is where the shed and the bigger shrubs go. Which pool
+  # an entry lands in is decided by `tags` and by its MEASURED height — the pass
+  # picks a foundation shrub by asking for 0.4-1.8 m, not by name.
+  #
+  # TWO EXTRA KEYS THIS PASS READS, both ignored by `_parse_usd_entry`:
+  #
+  #   points:  the asset's measured Mesh point count. NOT decoration:
+  #            `suburb_yards.point_budget` is enforced against the sum, and an
+  #            entry with no `points` is treated as costing 0 and will silently
+  #            break the budget. Measure before you add. (The budget is a
+  #            worst-case: on the graph path yardplan emits under `tree` and
+  #            `plant`, both of which `suburb_scene` instances, so the stage
+  #            pays less than the purse charges.)
+  #   weight:  relative sampling weight. This is how the library's handsome
+  #            species stay usable: they cost 4-6x the cheap ones, so they are
+  #            carried as rare accents rather than dropped or allowed to eat the
+  #            whole budget.
+  #
+  # ALL MEASURED WITH tools/measure_assets.py AND tools/material_binding.py at
+  # scale 0.01 (every AEC asset is centimetre-authored, Z-up). Sizes below are
+  # x * y * z in metres AT THAT SCALE — which is what the pass then rescales
+  # per asset from its own bbox, never by a shared multiplier.
+  #
+  # SEASON WAS TRACED THROUGH THE BOUND MATERIAL: material_binding gives the
+  # bound MDLs, the MDL's own `texture_2d(...)` gives the albedo, and the
+  # albedo's green share over alpha-masked pixels gives the season. Sampling a
+  # leaf PNG alone proves nothing — an asset can measure green and render white.
+
+  # 6 species where the scene had 2. Every one: bound (GeomSubset-aware), green,
+  # and affordable enough to be worth its place. The three at the top carry the
+  # planting; the three accents are 4-6x the cost and are weighted to about one
+  # tree in twenty-five.
+  yard_trees:
+    - {usd: "airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Black_Oak/Black_Oak.usd", scale: 0.01,
+       points: 48701, weight: 1.0, tags: ["rear"]}
+      # 25.42 x 24.07 x 19.74 m — the biggest thing in the pool, and the pass
+      # scales it down per placement from this measured height. 10/11 meshes
+      # bound, 0.2% of faces unbound (123 points, one branch stub) — the same
+      # asset and the same defect urban_v2 already ships. Leaves oakleaves1,
+      # 100% green.
+    - {usd: "airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd", scale: 0.01,
+       points: 54766, weight: 1.0, tags: ["front", "rear"]}
+      # 10.29 x 10.47 x 11.43 m. 4/4 bound, 0% unbound. Mixed canopy by design:
+      # oakleaves1 (100% green) on three leaf materials, oakleaves2 (100%
+      # yellow) on the fourth — an oak turning, not an autumn asset.
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Douglas_Fir.usd", scale: 0.01,
+       points: 56262, weight: 0.8, tags: ["front"]}
+      # 3.02 x 2.77 x 6.03 m. 8/8 bound, 0% unbound, 3/3 mdl resolve (only after
+      # the branchM patch — see the street_trees entry above), pine_needles 100%
+      # green. An EVERGREEN, which is what a front yard actually has and what
+      # neither oak can give — and the narrowest crown in the pool, so it is the
+      # one tree that fits a shallow front garden without being shrunk.
+    # ---- accents: 4-6x the cost --------------------------------------------
+    # Weighted to buy about 15 of them in 500 lots, at a measured cost of 12% of
+    # the total tree count (302 trees with accents at 0.30, against 341 at 0.04
+    # for two accents). One tree in twenty-five is a species you do not
+    # otherwise see, for one canopy in eight.
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Largetooth_Aspen.usd", scale: 0.01,
+       points: 197775, weight: 0.30, tags: ["rear"]}
+      # 5.09 x 5.20 x 7.89 m. 2/2 bound. aspenleaf 99.9% green — a Brownstone
+      # deciduous that is NOT autumn, checked rather than assumed.
+    - {usd: "airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Common_Apple/Common_Apple.usd", scale: 0.01,
+       points: 237356, weight: 0.30, tags: ["rear"]}
+      # 5.86 x 5.23 x 5.59 m. 2/2 bound, apple_leaf 100% green. A fruit tree,
+      # which is a back-garden thing and nothing else in the library is.
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/American_Beech.usd", scale: 0.01,
+       points: 305126, weight: 0.20, tags: ["front", "rear"]}
+      # 4.09 x 4.01 x 5.97 m. 2/2 bound, beech_leaf 100% green.
+    #
+    # MEASURED AND REJECTED, each on a number:
+    #   Dogwood            184k  3.1 x 3.0 x 3.4  — all FOUR bound leaf
+    #     materials resolve to red albedos (dogwood_leaf 99.7% red, _v2 95.1%,
+    #     _v3 79.1%, _v4 99.8%). A red ornamental, not the green small-tree
+    #     specimen its size and price suggest — it binds cleanly and is the
+    #     right shape, so only tracing the MDLs catches it.
+    #   Japanese_Cherry    255k  4.9 x 5.7 x 4.6  — binds ONLY
+    #     JapaneseCherry_blossom_Mat (87.9% pink) and bark3: no green leaf
+    #     material at all, so the whole canopy is blossom. Correct for a cherry
+    #     in bloom, but at 255k it buys one pink tree for five green ones.
+    #   Honey_Locust       332k  6.8 x 7.0 x 8.2  — leaf albedo is half green,
+    #     half yellow-orange; borderline, and priced out regardless.
+    #   Hawthorn           596k  9.5 x 7.2 x 8.6  — green and clean, 12x the
+    #     cheapest tree. Unaffordable at yard density.
+    #   Scarlet_Oak / _fall 40k  — 35.5% of faces unbound, renders white.
+    #   White_Ash           66k  — binds ashtree_leaves_fall1: autumn.
+    #   Service_Berry       84k  — 48.0% of faces unbound.
+    # Rejected by name and NOT reintroduced: every Dmytro SM_Tree*, every
+    # Muyang/DownTown Tree_A/B/C, RetroNeighborhood SM_Tree_01..07, CityPark
+    # SM_Tree_03/_04/_05/_08.
+
+  # Shrubs and ground cover. THIS POOL IS WHERE THE LIBRARY HURTS: it has no
+  # cheap shrub. Below 34k points everything is a lawn tuft, and the cheapest
+  # thing that reads as a bush from a metre away is Meadowlark at 83k. The
+  # weights are therefore doing real work — the tufts carry the ground cover and
+  # the shrubs are rationed.
+  yard_shrubs:
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Shrub/Grass_Trimmed_C.usd", scale: 0.01,
+       points: 1220, weight: 1.0}      # 0.24 x 0.26 x 0.09 m — the cheapest asset here by 28x
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Shrub/Grass_Short_C.usd", scale: 0.01,
+       points: 2208, weight: 1.0}      # 0.28 x 0.30 x 0.13 m
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Shrub/Grass_Trimmed_B.usd", scale: 0.01,
+       points: 8476, weight: 0.8}      # 0.62 x 0.64 x 0.10 m
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Shrub/Grass_Short_B.usd", scale: 0.01,
+       points: 15375, weight: 0.6}     # 0.66 x 0.68 x 0.16 m
+      # These four and Grass_Short_A below all bind lawngrass_a_mat, whose
+      # albedo is a khaki (mean RGB 0.63/0.59/0.42, 29% green / 71%
+      # yellow-orange) — dry tussock grass, not lawn. They are ground cover in
+      # the rear yard, kept OUT of the front by the height band there, which
+      # asks for 0.4-1.8 m.
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Shrub/Lupin.usd", scale: 0.01,
+       points: 34685, weight: 0.5}     # 1.65 x 1.38 x 1.37 m
+      # The cheapest thing in the library at shrub height by a factor of 2.4, so
+      # it is the backbone of every foundation row. 7/7 bound; one atlas carries
+      # green foliage (25.5%) and purple flower spikes (45.8% off-hue) — a
+      # flowering perennial, correctly.
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Shrub/Grass_Short_A.usd", scale: 0.01,
+       points: 44922, weight: 0.2}     # 1.29 x 1.29 x 0.16 m
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Shrub/Meadowlark.usd", scale: 0.01,
+       points: 83329, weight: 0.25}    # 0.94 x 1.02 x 0.92 m
+      # 2/2 bound. Binds Meadowlark_flowers -> forsythiaflower (100% yellow) and
+      # bark3: a forsythia in full bloom with NO green leaf material. Yellow all
+      # over, deliberately, and the only true bush under 170k.
+    # ---- accents: 2-4x Meadowlark, so a few per street -------------------------
+    - {usd: "airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Fountain_Grass_Short/Fountain_Grass_Short.usd", scale: 0.01,
+       points: 173997, weight: 0.05}   # 2.02 x 2.05 x 1.47 m — 100% green
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Shrub/Hibiscus.usd", scale: 0.01,
+       points: 195688, weight: 0.05}   # 2.31 x 2.13 x 1.64 m — green leaf, red flower
+      # 3/3 bound AND 3/3 materials RESOLVE — the second half only since the
+      # trunk was patched. As shipped, its 57,920-point trunk bound a bark3 on
+      # an NVIDIA content-server path that is not in the mirror, and rendered
+      # unshaded on a full bind count. See scene_gen/assets/aec/README.md; the
+      # patch is to git-ignored vendor content and a re-extract undoes it.
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Shrub/Yew.usd", scale: 0.01,
+       points: 324028, weight: 0.03}   # 1.23 x 1.24 x 0.73 m — pine_needles, 100% green
+      # THE archetypal clipped foundation shrub, and 324k points for 1.2 m of
+      # it — 266x a Grass_Trimmed_C. Carried at 0.03 for that reason alone.
+    #
+    # MEASURED AND REJECTED:
+    #   Acacia            820k  1.62 x 1.67 x 1.19 — green and bound; a 1.6 m
+    #     shrub at 820k points is 17x the cheapest tree in the scene.
+    #   Forsythia         429k  3.54 x 3.65 x 2.32 — same yellow bloom as
+    #     Meadowlark at 5x the price.
+    #   Prairie_Dropseed  241k / Fountain_Grass_Tall 247k — duplicates of
+    #     Fountain_Grass_Short's look at 1.4x the cost.
+    #   Hydrangea         224k  1.57 x 1.61 x 1.39 — both non-bark materials
+    #     are blooms (hydrangea 97.1% red, rhododendron 73.2% purple); no green
+    #     foliage anywhere in it.
+    #   Sweet_Mock_Orange 212k  0.70 x 0.68 x 0.60 — green, but 212k for a
+    #     knee-high shrub is the worst points-per-metre in the library.
+    #   Goldflame_Spirea  101k  0.32 x 0.31 x 0.20 — 101k for a 30 cm plant.
+
+  # Yard furniture. Tagged by ROLE, because the pass places each where it
+  # belongs: `shed` in a far corner facing the house, `patio` and `bin` against
+  # the house wall, `mailbox` at the street edge. All bound, all cheap — the
+  # whole prop pool costs less than two trees.
+  yard_props:
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Props/Mailbox/MailboxType01.usd", scale: 0.01,
+       points: 264, weight: 1.0, tags: ["mailbox"]}   # 0.65 x 0.52 x 1.34 m
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Props/Mailbox/MailboxType02.usd", scale: 0.01,
+       points: 264, weight: 1.0, tags: ["mailbox"]}   # 0.76 x 0.61 x 1.14 m
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Props/TrashCan/TrashCan.usd", scale: 0.01,
+       points: 630, weight: 1.0, tags: ["bin"]}       # 0.51 x 0.51 x 0.73 m
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Props/ParkBench01/ParkBench01.usd", scale: 0.01,
+       points: 1463, weight: 0.6, tags: ["patio"]}    # 2.62 x 0.79 x 0.39 m — a garden seat
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Props/MobilaShelter/MobilaShelter.usd", scale: 0.01,
+       points: 11698, weight: 1.0, tags: ["shed"]}    # 2.14 x 1.95 x 2.33 m
+      # UNVERIFIED BY EYE, and the one aesthetic call in this file. Authored as
+      # a transit shelter — Frame + Roof, binding Steel_Blued_Frame and
+      # Glass_OpticalWFrit — but at 2.1 x 2.0 x 2.3 m it is shed-sized, and a
+      # steel-and-glass box that size in a back garden reads as a greenhouse or
+      # garden room. It is the ONLY structure in either AEC pack at domestic
+      # scale. If it renders as an obvious bus stop, drop this one line.
+    - {usd: "airstack://scene_gen/assets/aec/brownstone/Props/Kalmar_TblChr/Kalmar_TblChr.usd", scale: 0.01,
+       points: 60806, weight: 1.0, tags: ["patio"]}   # 2.43 x 2.42 x 1.01 m — table and chairs
+      # 10/10 bound, ash and cast steel. As expensive as a whole tree, hence
+      # `patio_chance` rather than one per garden.
+    #
+    # MEASURED AND REJECTED: every Planter_* and PlanterFence* in both packs
+    # payloads live vegetation, which is where their cost comes from —
+    # PlanterBench is 6,777,655 points, more than a fifth of the entire yard
+    # budget in ONE prop. Planter_03 / Ext_Bench_01 are the same 6.0 x 1.0 m
+    # precast street planter (Ext_Bench_01's root prim is literally
+    # `/World/planter_03`), too big and too urban for a garden. Bollard_01 is
+    # 4.8% unbound.
+
+  # ---- STREET FURNITURE THE DETAIL PASSES CONSUME -----------------------------
+  # EMPTY, AND DECLARED SO THE INTENT IS ON RECORD. `city_detail`'s street-tree
+  # pass can place a tree GUARD instead of a bare tree, and each guard asset
+  # carries a PAYLOAD REFERENCE TO ITS OWN TREE — so the guard is not a metal
+  # ring, it is a metal ring plus one of the species this file just priced out.
+  # Measured by urban_v2 with tools/measure_assets.py, after the payload
+  # resolves:
+  #     PlanterFenceType1  215,627 pts   (bundles Largetooth_Aspen 198k)
+  #     PlanterFenceType2  349,638 pts   (bundles Honey_Locust     332k)
+  #     PlanterFenceType3  614,058 pts   (bundles Hawthorn         596k)
+  # against 49-56k for a bare street tree. At guard_chance 0.45 that was 173
+  # guards = 65.8M points, 73.8% of the whole urban scene, and IT OOM-KILLED
+  # ISAAC SIM; even the single kept type measured 12.1M for 56 objects at 800 m.
+  # The guard smuggles back in exactly the species street_trees excludes on
+  # cost, so the exclusion carries here unchanged. Re-enable only with a cheap
+  # tree substituted into the payload.
+  #
+  # An earlier measurement read 17,852 pts for these, because the payload could
+  # not resolve at the time (the pack directory had been renamed) and the tree
+  # was simply missing from the count. Always re-measure after moving packs.
+  planter_fences: []
+
+  # SIGNS — the pool the suburban chain never had, so both `suburb_scene` and
+  # `city_detail` logged "signs_stop: no assets in the set — skipped".
+  # `build_signs` reads `signs_stop` (falling back to `traffic_signs`) and puts
+  # one on every minor approach to a junction of degree >= 3: 119 junctions on
+  # the shipped graph preset, seed 3. A suburb is stop-controlled throughout,
+  # which is what the preset says with `traffic_lights.intersection_chance: 0`,
+  # so these are the traffic control the scene claims to have, not decoration.
+  #
+  # THE STOP SIGN IS THE PACK'S OWN, not urban_v2's Objaverse one:
+  # RetroNeighborhood is already this scene's art family — houses, streetlight,
+  # hydrant, driveway tile and sky all come out of it — so the sign matches by
+  # construction, and being on Nucleus it needs no `prepare_assets.py` download.
+  # cm-authored like every other prop in the pack, hence `scale: 0.01`.
+  #
+  # UNVERIFIED HOST-SIDE: this path was read off a Nucleus listing, not measured
+  # — `pxr`/`omni.client` exist only inside the isaac-sim container. It follows
+  # the pack's exact `SM_*.prop.usd` convention and sits beside
+  # SM_StreetLight/SM_FireHydrant, which this chain already resolves. If it comes
+  # up a placeholder prism, the fallback is urban_v2's, cached and known good:
+  #   {usd: "objaverse://a3963ab8133b45cab4e60da94d255ac3", target-size-m: 2.40, fit: height}
+  signs_stop:
+    - usd: "RetroNeighborhood/Props/SM_Sign_Stop.prop.usd"
       scale: 0.01
+      # FACE POINTED THE WRONG WAY. `build_signs` yaws the sign back down its
+      # own approach so the plate meets the driver; this art needs a further
+      # turn on top of that.
+      # 270, NOT 180: this art's plate faces +-Y, not +-X, so it needs a
+      # QUARTER turn on top of the approach heading, not a half. The urban
+      # path needs no number here at all — `city_detail._prop_yaw` derives
+      # that quarter turn from the MEASURED panel (sx < sy) and discards
+      # the asset's offset. `suburb_scene.build_signs` has no aspect step,
+      # so the correction has to live on the asset until it gains one.
+      yaw-offset: 270.0
+    #
+    # ALSO IN THE PACK, DELIBERATELY NOT WIRED, because no pass would place
+    # either and a pool nothing reads is dead config that reads as intent:
+    #   SM_Sign_Children  a MID-BLOCK warning, and both passes that exist here
+    #     are junction passes (`build_signs` walks approaches to nodes of degree
+    #     >= 3, `city_detail` places at `near_corner_m`). In `signs_stop` it
+    #     would stand at a junction in place of a stop sign. It wants a mid-block
+    #     pass in suburb_scene, which is code, not a config line.
+    #   SM_Sign_OneWay    a one-way plate; a residential street rarely is one,
+    #     and no pool reads it.
+
+  # STILL urban_v2's, because RetroNeighborhood has no street-name blade — the
+  # pack ships a stop, a one-way and a children-crossing sign and nothing that
+  # names a street. Both uids are already cached at this exact size and fit, so
+  # they cost no download either.
+  signs_street_name:
+    - {usd: "objaverse://555fbab686004738b974373f6ad71d82", target-size-m: 2.40, fit: height,
+       yaw-offset: 180.0}  # Road Sign (speed limit), 104f — face was to the kerb
+    - {usd: "objaverse://599a74c1c8fd4f19bf6754b8128da6b8", target-size-m: 2.40, fit: height}  # Street Sign Final, 148f
+    # NOT re-added, urban_v2's findings carried across so nobody retries them:
+    #   13eeb2da… "Road Traffic Sign" (7.2k, 597 likes) — its USD carries a
+    #     `sign_fbx/CINEMA_4D_Editor` prim, the authoring app's editor
+    #     scaffolding exported into the asset, which composes in as junk
+    #     geometry.
+    #   7fac2b1b… "Road signs pack" — 14 signs laid out FLAT in a 2.8 cm plane,
+    #     so it places as a signboard rather than as posts.
+    #   741e5442… "Street Props" — a bench, bins, cones and barriers, i.e. an
+    #     assortment dropped wherever a street-name sign was asked for.

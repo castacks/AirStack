@@ -80,6 +80,22 @@ usds:
   materials:
     grass: "Muyang/StandaloneMaterials/Grass/MI_Grass.usd"
     asphalt: "Muyang/StandaloneMaterials/Asphalt/MI_Asphalt.usd"
+    # A SECOND road surface, mixed with the one above so a suburb does not
+    # read as a single resurfacing job. This is ModularNeighborhood's road
+    # material, and its defaultPrim IS a Material, so it binds directly with
+    # no wrapper .usda (unlike the AEC .mdl set). 512 px full PBR, and the
+    # asphalt carries NO baked lane markings, so the markings pass still owns
+    # them. It is a CROSS-SECTION trim sheet (asphalt 0-0.53, kerb, verge,
+    # sidewalk) — `suburb_scene._make_ribbon` has the matching UV mode, and
+    # `roads.road_tile_share` sets how much of the network uses it.
+    asphalt_road_tile: "Muyang/ModularNeighborhood/Assets/Road_01_Inst.usd"
+    # DRIVEWAY AND PATH. Both were drawn with NO material at all — a flat grey
+    # ribbon — which is why a suburb showed one undifferentiated surface where
+    # the house preview shows a brick drive running to the garage and a concrete
+    # walk running to the door. Both are ModularNeighborhood standalone
+    # Materials, so they bind directly with no wrapper .usda.
+    driveway: "Muyang/ModularNeighborhood/Assets/Driveway_Brick_Old_01.usd"
+    path: "Muyang/ModularNeighborhood/Assets/Concrete_02.usd"
 
   play_structures:
     - usd: "Muyang/CivilianArea/Assets/SM_PlaygroundSlide_01.usd"

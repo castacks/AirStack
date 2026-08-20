@@ -1018,6 +1018,72 @@ def point_in_polygon(poly, p):
     return inside
 
 
+def _arc_cap_bulbs(poly, frontage, net, eids, verge=3.0):
+    """Replace each cul-de-sac tip in a block boundary with the turnaround ARC.
+
+    WHY. A cul-de-sac stem is a DANGLING edge, so `faces()` walks out along it
+    and back, and the inset turns that into a ~9 m slit whose end cap is a
+    diagonal a couple of metres from the tip. The 14.64 m turnaround disc never
+    enters the boundary at all: measured, 84.9% of every paved bulb lies INSIDE
+    the block polygon as nominally buildable land, and the nearest boundary
+    vertex sits 4.5 m from the tip instead of ~14.6 m.
+
+    The consequence is not that houses stand on the paving — the keep-out disc
+    stops that — it is that there is no ARC to hang lots off, so the head of
+    every cul-de-sac comes out bald: 19% of bulbs had no house within 45 m, and
+    of those that did, 30% faced AWAY from the turnaround because they were
+    platted against the straight stem wall instead.
+
+    Putting the arc into the boundary makes the turnaround real frontage that
+    the arclength walk can plat, and demotes the keep-out disc back to a
+    belt-and-braces check. *verge* is the strip between kerb and lot line.
+    """
+    R = DEFAULTS["bulb_radius_m"] + verge
+    for eid in eids:
+        e = net.edges.get(eid)
+        if e is None or e.street_type != "lollipop" or len(e.pts) < 2:
+            continue
+        tip = e.pts[-1]
+        near = [i for i, q in enumerate(poly) if _dist(q, tip) < R]
+        if not near or len(near) >= len(poly) - 2:
+            continue
+        # The run must be contiguous around the ring; rotate so it is.
+        n = len(poly)
+        start = next((i for i in near if (i - 1) % n not in near), None)
+        if start is None:
+            continue
+        run = [start]
+        while (run[-1] + 1) % n in near and len(run) < n:
+            run.append((run[-1] + 1) % n)
+        prev_i, next_i = (run[0] - 1) % n, (run[-1] + 1) % n
+        a0 = math.atan2(poly[prev_i][1] - tip[1], poly[prev_i][0] - tip[0])
+        a1 = math.atan2(poly[next_i][1] - tip[1], poly[next_i][0] - tip[0])
+        # Sweep the way that passes through the OUTWARD stem direction, which
+        # is the side the turnaround actually bulges to.
+        out_ang = math.atan2(tip[1] - e.pts[-2][1], tip[0] - e.pts[-2][0])
+        def _norm(a):
+            while a <= -math.pi:
+                a += 2 * math.pi
+            while a > math.pi:
+                a -= 2 * math.pi
+            return a
+        ccw = _norm(out_ang - a0) % (2 * math.pi) <= _norm(a1 - a0) % (2 * math.pi)
+        sweep = (_norm(a1 - a0) % (2 * math.pi)) if ccw else \
+                -((_norm(a0 - a1)) % (2 * math.pi))
+        steps = max(6, int(abs(sweep) / 0.30))
+        arc = [(tip[0] + R * math.cos(a0 + sweep * k / steps),
+                tip[1] + R * math.sin(a0 + sweep * k / steps))
+               for k in range(1, steps)]
+        keep = [(poly[i], frontage[i]) for i in range(n) if i not in set(run)]
+        # Rebuild with the arc spliced in where the run was. Arc vertices ARE
+        # frontage — that is the whole point.
+        at = keep.index((poly[prev_i], frontage[prev_i]))
+        merged = keep[:at + 1] + [(q, True) for q in arc] + keep[at + 1:]
+        poly = [q for q, _f in merged]
+        frontage = [f for _q, f in merged]
+    return poly, frontage
+
+
 def blocks_from_faces(net, face_list, min_area=400.0, reserve=None,
                       undeveloped_pts=()):
     """Faces inset by the half-width of the road bounding each side.
@@ -1069,6 +1135,9 @@ def blocks_from_faces(net, face_list, min_area=400.0, reserve=None,
         shrunk = offset_polygon(poly, insets)
         if len(shrunk) < 3:
             continue
+        # Give every cul-de-sac head its turnaround arc, or the parcel pass has
+        # no frontage to plat there. See `_arc_cap_bulbs`.
+        shrunk, frontage = _arc_cap_bulbs(shrunk, frontage, net, eids)
         a = polygon_area(shrunk)
         if a < min_area:
             continue

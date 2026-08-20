@@ -3041,7 +3041,7 @@ def apply_placements(stage,
     89.1M that OOM-killed Isaac Sim on the urban scene.
 
     *instance_categories* opts specific categories in. It is opt-in rather than
-    the default because `generate_city_v2.prune_prims` DEACTIVATES SUB-PRIMS
+    the default because `generate_scene.prune_prims` DEACTIVATES SUB-PRIMS
     INSIDE placed assets — a street-name sign with a stop sign welded on, an
     exporter's leftover `CINEMA_4D_Editor` scaffolding — and USD forbids editing
     inside an instance. Any category that pass touches must stay un-instanced.
@@ -3113,7 +3113,13 @@ def apply_placements(stage,
         stx, sty = (float(st[0]), float(st[1])) if st else (1.0, 1.0)
 
         cx_off, cy_off, cz_off = 0.0, 0.0, 0.0
-        if resolver is not None:
+        # `raw_pivot` opts a placement OUT of the centroid correction. A kit
+        # assembled from many pieces is positioned in the ART's own frame — each
+        # wall, door and roof already sits where the artist put it relative to
+        # the others — so re-centring every piece on its own bbox pulls the
+        # building apart. The correction is right for a standalone prop whose
+        # pivot is arbitrary, and wrong for anything self-assembling.
+        if resolver is not None and not p.get("raw_pivot"):
             axis_up_p = p.get("axis_up", "Z")
             fp = resolver.get(usd, p.get("category", "asset"),
                               scale=float(p["scale"]), axis_up=axis_up_p)

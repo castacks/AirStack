@@ -90,12 +90,12 @@ def _resolve(name: str, search: list, what: str = "config") -> str:
 def _with_extends(path: str) -> list:
     """*path* plus every asset set it inherits from, base last.
 
-    Asset sets chain: `suburban_v2` extends `suburban` extends `shared`, and
+    Asset sets chain: `suburban` extends `suburban_nucleus` extends `shared`, and
     the pools live all the way down — the 15 bungalows are in `suburban.yaml`,
-    not in `suburban_v2.yaml`. Scanning only the named file reported "all 2
+    not in `suburban.yaml`. Scanning only the named file reported "all 2
     assets already cached" for a scene that actually wants 24, and the sim then
     rendered every house as a placeholder prism. `scene_generator` resolves the
-    chain (it prints `suburban_v2.yaml <- suburban.yaml <- shared.yaml`); this
+    chain (it prints `suburban.yaml <- suburban_nucleus.yaml <- shared.yaml`); this
     has to do the same, in plain YAML, because it must run without `pxr`.
     """
     import yaml

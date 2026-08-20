@@ -6,10 +6,9 @@
 # houses dropped into it. A suburb is not a downtown with different buildings —
 # its street network, its lotting and its planting are all different in kind.
 #
-# Run it with the v2 launch script, which is the only thing that calls the new
-# passes:
-#     SCENE_CONFIG=suburban_v2 \
-#     ISAAC_SIM_SCRIPT_NAME=city_v2_preview_launch_script.py \
+# Run it with the scene launch script:
+#     SCENE_CONFIG=suburb \
+#     ISAAC_SIM_SCRIPT_NAME=scene_launch_script.py \
 #     airstack up isaac-sim
 #
 # WHAT IS DIFFERENT FROM THE URBAN SCENE, and why each is its own pass:
@@ -32,7 +31,7 @@ locale: suburban
 disaster-type: none
 severity: 0.0
 
-asset-set: suburban_v2
+asset-set: suburban
 
 # Bigger than the urban 800 m: a suburb is lower density, and a neighbourhood
 # with a collector, its looping locals and their cul-de-sacs needs room to read
@@ -271,9 +270,15 @@ overrides:
   # why `lot_fences` in the asset set is tagged `low` / `privacy`:
   #   front  3.5 ft [PDX 33.110.275.C], 3.5 ft [JC 17.95.020], 4 ft [TAY]
   #   rear   8 ft [PDX], 7 ft [JC], 6 ft [TAY]
-  # Miami-Dade RU-1 allows 6 ft in front and is the outlier. The low pool here
-  # measures 0.95-0.99 m (3.1-3.2 ft) and the privacy pool 1.89 m (6.2 ft), so
+  # Miami-Dade RU-1 allows 6 ft in front and is the outlier. `low` measures
+  # 0.96-0.99 m (3.1-3.2 ft) and the tallest `privacy` entry 1.83 m (6.0 ft), so
   # both sit inside the mainstream band.
+  # NOTE, since the graph path changed underneath this: `privacy` no longer
+  # means "tall". It means "may fence a lot boundary at all", so the two short
+  # entries carry it as well — `suburb_scene` picks ONE asset per house and an
+  # entry that only ever served the front could never be drawn. This pass
+  # (`suburb_lots`, the RECT path) still picks per tag, so a lot here can draw
+  # a 3 ft picket on a rear boundary where it used to draw a 6 ft panel.
   #
   # UNVERIFIED, stated plainly: (a) no source was found for a standard wood
   # fence PANEL width, so the module length is whatever each asset measures

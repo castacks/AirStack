@@ -20,8 +20,8 @@ import sys
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(_HERE))
 
-import suburb_net as sn                                        # noqa: E402
-import suburb_parcel as sp                                     # noqa: E402
+from layout import suburb_net as sn                                        # noqa: E402
+from detail import suburb_parcel as sp                                     # noqa: E402
 
 
 def _preset_parcel_cfg():

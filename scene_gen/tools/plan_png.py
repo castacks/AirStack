@@ -1,6 +1,6 @@
 """plan_png.py — top-down plan of the layout, without Isaac Sim.
 
-    python3 tools/plan_png.py --config urban_v2 --out /tmp/plan.png
+    python3 tools/plan_png.py --config downtown --out /tmp/plan.png
 
 WHY THIS WORKS WITHOUT USD
 --------------------------
@@ -98,8 +98,8 @@ def build(config_name):
     import random
     from compile_disaster import resolve_config_path, compile_spec, DEFAULT_BASE
     import scene_generator as sg
-    import city_layout
-    import districts
+    from layout import city_layout
+    from detail import districts
 
     path = resolve_config_path(config_name)
     cfg = compile_spec(yaml.safe_load(open(path)),
@@ -272,7 +272,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--json", action="store_true",
                     help="also write <out>.json — geometry, not pixels")
-    ap.add_argument("--config", default="urban_v2")
+    ap.add_argument("--config", default="downtown")
     # Defaults into the repo, not /tmp: a plan is meant to be looked at, and a
     # scratch path nobody can find is the same as not writing one. Gitignored.
     ap.add_argument("--out", default="")

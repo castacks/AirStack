@@ -76,8 +76,8 @@ against every building in the scene rather than against its own.
 
 import math
 
-from suburb_yards import _Lib, _Budget          # geometry-free, reused as-is
-import suburb_net as sn
+from detail.suburb_yards import _Lib, _Budget, _tagged          # geometry-free, reused as-is
+from layout import suburb_net as sn
 
 DEFAULTS = {
     "point_budget": 30_000_000,
@@ -118,6 +118,8 @@ DEFAULTS = {
     "side_tree_chance": 0.85,
     "side_trees": [1, 2],            # 2 only where the strip is long enough
     "side_shrubs": [1, 3],
+    # See the note where `shrubs` is bound: off by default.
+    "yard_shrubs_enabled": False,
     "side_long_strip_m": 7.5,        # strip length that earns the second tree
     # Planting is held off the lot line by this much. The side and rear fences
     # stand ON that line (`suburb_parcel` plats them from `lot_corners`), so
@@ -129,6 +131,31 @@ DEFAULTS = {
     "clear_fence_m": 0.7,            # to a fence RUN this lot owns
     "tree_min_separation_m": 3.0,
     "darts": 12,                     # tries per tree before the spot is given up
+    # -- SPECIES BY DISTANCE FROM THE WALL -----------------------------------
+    # `yard_trees` spans 3.02 m (Douglas_Fir) to 25.42 m (Black_Oak) of MEASURED
+    # crown, and the draw used to ignore that entirely: a 25 m oak was as likely
+    # two metres off a side wall as in the middle of the garden, which is the
+    # single most obvious thing wrong with the planting from the air.
+    #
+    # So the weighted draw is biased by where in its own yard the tree stands.
+    # The ramp is a GARDEN's, not a suburb's -- `suburb_scene` grades open
+    # ground over 12-40 m, but nothing in a yard is 40 m from its own house:
+    "tree_size_by_distance": True,
+    # ...at or inside 3 m of the wall a tree takes the small end. 3 m is the
+    # foundation strip plus a stand-off, i.e. the closest anything is planted.
+    "tree_size_near_m": 3.0,
+    # ...and 18 m out it takes the big end unreserved. Measured on the shipped
+    # preset: the deepest rear-yard planting station sits ~17 m past the back
+    # wall, so 18 m is "the far corner of a large garden" and the Black_Oak is
+    # reachable there and nowhere else.
+    "tree_size_far_m": 18.0,
+    # How hard the bias bites: weight is multiplied by (1 - |rank - t|) ** this.
+    # 3.0 leaves the far end of the pool ~0.8% of its weight at t=0, i.e. rare
+    # rather than banned -- an old tree beside a house is a real thing, a whole
+    # street of them is not. THE COST WEIGHTS SURVIVE, deliberately: this
+    # multiplies them instead of replacing them, so the expensive accents stay
+    # as rare as `yard_trees` priced them.
+    "tree_size_sharp": 3.0,
 }
 
 
@@ -244,24 +271,79 @@ def _rng_pair(v, fallback):
     return fallback
 
 
-def _pick(pool, rng):
+def _canopy_ranks(pool, resolver):
+    """Each entry's place in the pool by MEASURED crown width, 0.0 to 1.0.
+
+    Returns a list aligned with *pool*, or None when the measurements do not
+    separate it -- under `measure_usds: false`, or with the assets unreachable,
+    every entry falls back to the one `fallback_sizes.tree` and a "ranking" of
+    identical numbers is a ranking by dict order. Half a metre of spread is
+    nothing against the 22 m this library really covers, so below that the
+    caller is told to go back to the plain weighted draw.
+
+    `max(sx, sy)` is the key: crown WIDTH, because what decides whether a tree
+    belongs beside a wall is how far it reaches out, not how tall it is.
+    """
+    if resolver is None or len(pool) < 2:
+        return None
+    sizes = []
+    for e in pool:
+        fp = resolver.get(e["usd"], "tree", scale=e.get("scale", 1.0),
+                          axis_up=e.get("axis_up", "Z"))
+        sizes.append(max(float(fp.get("sx", 0.0) or 0.0),
+                         float(fp.get("sy", 0.0) or 0.0)))
+    lo, hi = min(sizes), max(sizes)
+    if hi - lo <= 0.5:
+        return None
+    order = sorted(range(len(pool)), key=lambda i: (sizes[i], i))
+    ranks = [0.0] * len(pool)
+    for place, i in enumerate(order):
+        ranks[i] = place / float(len(pool) - 1)
+    return ranks
+
+
+def _size_t(dist_m, near_m, far_m):
+    """Where a tree *dist_m* from its own house wall sits on the size ramp.
+
+    0 at or inside `near_m` -- small end of the pool; 1 at or beyond `far_m`.
+    A ramp and not a threshold because the thing being modelled is a gradient:
+    what a householder plants against a wall, what stands in the middle of the
+    garden, and everything between.
+    """
+    if far_m <= near_m:
+        return 1.0 if dist_m >= far_m else 0.0
+    return min(1.0, max(0.0, (float(dist_m) - near_m) / (far_m - near_m)))
+
+
+def _pick(pool, rng, ranks=None, t=None, sharp=3.0):
     """Weighted draw. Species is chosen BEFORE price is checked, deliberately:
     drawing only from what is affordable silently deletes every expensive
-    species, which is the failure `suburb_yards` documents."""
+    species, which is the failure `suburb_yards` documents.
+
+    With *ranks* and *t*, the pool's own weights are MULTIPLIED by a size
+    affinity -- ``(1 - |rank - t|) ** sharp`` -- rather than replaced by one.
+    That is what keeps the cost weighting intact: `yard_trees` prices its
+    handsome species at a twenty-fifth of the cheap ones and this must not
+    quietly undo that while it is choosing a size.
+    """
     if not pool:
         return None
-    total = sum(max(0.0, float(e.get("weight", 1.0))) for e in pool)
+    w = [max(0.0, float(e.get("weight", 1.0))) for e in pool]
+    if ranks is not None and t is not None:
+        tt = min(1.0, max(0.0, float(t)))
+        w = [wi * (1.0 - abs(r - tt)) ** sharp for wi, r in zip(w, ranks)]
+    total = sum(w)
     if total <= 0.0:
         return pool[rng.randrange(len(pool))]
     r = rng.random() * total
-    for e in pool:
-        r -= max(0.0, float(e.get("weight", 1.0)))
+    for e, wi in zip(pool, w):
+        r -= wi
         if r <= 0.0:
             return e
     return pool[-1]
 
 
-def plan(config, parcels, rng, resolver=None):
+def plan(config, parcels, rng, resolver=None, keepout_discs=None):
     """Plant every lot in *parcels*. Returns ``(placements, stats)``.
 
     *parcels* is `suburb_parcel.parcel_blocks` output, so each house carries its
@@ -271,9 +353,22 @@ def plan(config, parcels, rng, resolver=None):
     cfg.update(config.get("suburb_yardplan") or config.get("suburb_yards") or {})
 
     lib = _Lib(config)
-    shrubs = lib.pool("yard_shrubs") or lib.pool("plants")
+    # BUSHES ARE OFF by default. The foundation row, the side-yard fill and the
+    # rear boundary row each drop a handful of shrubs per lot, and at suburb
+    # scale that reads as sparse litter rather than as planting — the plants are
+    # too few and too far apart to compose. Trees carry the greenery instead.
+    # Set `yard_shrubs_enabled: true` to bring them back.
+    shrubs = (lib.pool("yard_shrubs") or lib.pool("plants")) \
+        if cfg.get("yard_shrubs_enabled", False) else []
     trees = lib.pool("yard_trees") or lib.pool("trees")
-    props = lib.pool("yard_props")
+    # SPLIT BY TAG. `yard_props` holds mailboxes, a bin, patio furniture and a
+    # shelter, and the kerb slot below drew from ALL of them — so two thirds of
+    # the time the "mailbox at the kerb" was a table-and-chairs, a garden bench
+    # or a 2.3 m transit shelter, standing in the street. Each now goes where it
+    # belongs.
+    _pp = lib.pool("yard_props")
+    mailboxes = _tagged(_pp, "mailbox")
+    patio_props = [e for e in _pp if "patio" in e["tags"] or "shed" in e["tags"]]
 
     houses = [h for p in parcels for h in p["houses"]]
     if not houses:
@@ -316,6 +411,14 @@ def plan(config, parcels, rng, resolver=None):
     side_shrub_w = float(cfg.get("side_shrub_min_w_m", 1.2))
     side_long = float(cfg.get("side_long_strip_m", 7.5))
     darts = max(1, int(cfg.get("darts", 12)))
+    # SPECIES BY DISTANCE FROM THE WALL. Measured once for the whole suburb --
+    # the pool is six entries and the resolver caches, but the ranking is a
+    # property of the pool and not of the lot.
+    t_ranks = (_canopy_ranks(trees, resolver)
+               if cfg.get("tree_size_by_distance", True) else None)
+    t_near = float(cfg.get("tree_size_near_m", 3.0))
+    t_far = float(cfg.get("tree_size_far_m", 18.0))
+    t_sharp = float(cfg.get("tree_size_sharp", 3.0))
 
     # Every building in the suburb, before anything is planted — one pass over
     # the same `houses` list, so the neighbours are covered too.
@@ -325,12 +428,40 @@ def plan(config, parcels, rng, resolver=None):
     placed_trees = _Spacing(tree_sep)
     tally = {}
     n_side_tree = n_side_shrub = n_rear_tree = n_front_tree = 0
+    n_keepout = 0
+    # Normalised once: `((x, y), r)` in world metres, same shape
+    # `suburb_parcel` takes.
+    _discs = [((float(c[0]), float(c[1])), float(r))
+              for (c, r) in (keepout_discs or ())]
     n_side_narrow = n_side_blocked = 0
 
     def emit(entry, x, y, yaw, category, purse):
-        """Charge the purse, then place. Returns False if unaffordable."""
+        """Charge the purse, then place. Returns False if unaffordable.
+
+        KEEP-OUTS ARE CHECKED FIRST, and before the purse is charged: a prop
+        refused for standing on a cul-de-sac turnaround must not also spend the
+        budget that would have planted a legal one somewhere else.
+        """
         if entry is None:
             return False
+        # This pass plats inside `lot_corners`, and a lot's corners can overhang
+        # a turnaround — the parcel pass keeps HOUSES off the paving but says
+        # nothing about the yard around them, so sheds, patio sets and trees
+        # were being planted on the asphalt. Same disc list `parcel_blocks`
+        # uses, so the two passes agree about where the pavement is.
+        if _discs:
+            nonlocal n_keepout
+            fpk = None
+            if resolver is not None:
+                fpk = resolver.get(entry["usd"], category,
+                                   scale=entry.get("scale", 1.0),
+                                   axis_up=entry.get("axis_up", "Z"))
+            pad = 0.5 * max(float((fpk or {}).get("sx", 0.0) or 0.0),
+                            float((fpk or {}).get("sy", 0.0) or 0.0))
+            for (c, r) in _discs:
+                if (x - c[0]) ** 2 + (y - c[1]) ** 2 <= (r + pad) ** 2:
+                    n_keepout += 1
+                    return False
         pts = float(entry.get("points", 0.0) or 0.0)
         if not purse.can(pts, entry.get("usd")):
             return False
@@ -343,7 +474,10 @@ def plan(config, parcels, rng, resolver=None):
         out.append({
             "usd": entry["usd"], "x_m": x, "y_m": y,
             "z_m": (fp or {}).get("base", 0.0),
-            "yaw_deg": yaw + float(entry.get("yaw_offset", 0.0)),
+            # `_Lib.pool` stores the per-asset offset under "yaw", not
+            # "yaw_offset" — reading the wrong key silently discarded
+            # EVERY yard prop's orientation correction.
+            "yaw_deg": yaw + float(entry.get("yaw", 0.0)),
             "roll_deg": 90.0 if entry.get("axis_up") == "Y" else 0.0,
             "pitch_deg": 0.0, "scale": entry.get("scale", 1.0),
             "category": category, "axis_up": entry.get("axis_up", "Z"),
@@ -415,12 +549,21 @@ def plan(config, parcels, rng, resolver=None):
             return True
 
         def plant_tree(along, deep, pad):
-            """Emit a tree at a local-frame point if everything allows it."""
+            """Emit a tree at a local-frame point if everything allows it.
+
+            SIZE COMES FREE HERE. `along`/`deep` are already in the house's own
+            frame, so the distance from the wall is two subtractions against the
+            half-footprint -- no index, no neighbour search, and it is the right
+            house by construction: the tree belongs to this lot.
+            """
             x, y = world(along, deep)
             if not placed_trees.ok(x, y) or not free(x, y, pad):
                 return False
-            if emit(_pick(trees, rng), x, y, rng.uniform(0, 360), "tree",
-                    budget.tree):
+            wall = math.hypot(max(abs(along) - half_w, 0.0),
+                              max(abs(deep) - half_d, 0.0))
+            if emit(_pick(trees, rng, ranks=t_ranks,
+                          t=_size_t(wall, t_near, t_far), sharp=t_sharp),
+                    x, y, rng.uniform(0, 360), "tree", budget.tree):
                 placed_trees.add(x, y)
                 return True
             return False
@@ -442,9 +585,20 @@ def plan(config, parcels, rng, resolver=None):
                 n_front_tree += 1
 
         # -- front: mailbox at the kerb, facing the street -----------------
-        if props and rng.random() < float(cfg["mailbox_chance"]):
-            x, y = world(half_w * 0.9, -half_d - 8.5)
-            emit(_pick(props, rng), x, y, yaw_deg + 90.0, "plant", budget.other)
+        # THE OFFSET IS CLAMPED. A flat 8.5 m in front of the front wall is
+        # further than most of the platted setback (6.5-11 m), so on the short
+        # half of that range the prop landed past the kerb and in the
+        # carriageway. `front_off` is the real distance to the lot line.
+        if mailboxes and rng.random() < float(cfg["mailbox_chance"]):
+            # `front_off` is centre-to-frontage, so the wall-to-kerb
+            # distance is that minus half the house depth.
+            off = min(8.5, max(1.0, front_off - half_d - 1.0))
+            x, y = world(half_w * 0.9, -half_d - off)
+            # Face the STREET. `yaw_deg` is the frontage tangent, so the street
+            # is at yaw_deg - 90; `+ 90` pointed every one of these into the
+            # block. Same convention `build_frontage` uses for its kerb props.
+            emit(_pick(mailboxes, rng), x, y, yaw_deg - 90.0, "plant",
+                 budget.other)
 
         # -- SIDE YARDS: the gap between the houses, which had nothing in it --
         # The width is DERIVED, never assumed. `house_gap_m` is a 4.0 m minimum,
@@ -527,6 +681,17 @@ def plan(config, parcels, rng, resolver=None):
                          "plant", budget.other)
                 a += step
 
+        # -- rear: the patio set and the shed, which is where they belong ---
+        # These were only ever reachable through the kerb slot above, which is
+        # how a garden table and a shelter ended up on the road.
+        if patio_props and depth > half_d + clear_house + 2.0:
+            px = rng.uniform(-half_lot * 0.5, half_lot * 0.5)
+            py = half_d + (depth - half_d) * rng.uniform(0.35, 0.65)
+            x, y = world(px, py)
+            if free(x, y, 1.4):
+                emit(_pick(patio_props, rng), x, y,
+                     yaw_deg + rng.choice([0.0, 180.0]), "plant", budget.other)
+
         # Canopy over the back garden. The count comes off the AREA the lot
         # actually has behind the house — clamped by `rear_trees` at both ends —
         # so the deep estate garden gets its four and the shallow tight one
@@ -562,7 +727,11 @@ def plan(config, parcels, rng, resolver=None):
              # canopy at all, against one that had the room but no spot left
              # once the buildings, the fences and the neighbours' trees were
              # taken out. The first is geometry, the second is crowding.
-             "side_no_room": n_side_narrow, "side_no_spot": n_side_blocked}
+             "side_no_room": n_side_narrow, "side_no_spot": n_side_blocked,
+             # Props refused for standing on a cul-de-sac turnaround. Worth
+             # reporting rather than swallowing: a non-zero number here with a
+             # zero disc list would mean the caller forgot to pass them.
+             "keepout": n_keepout}
     return out, stats
 
 
@@ -577,6 +746,7 @@ def report(stats):
           f"({stats.get('front_trees', 0)} front / "
           f"{stats.get('side_trees', 0)} side / "
           f"{stats.get('rear_trees', 0)} rear); "
+          f"{stats.get('keepout', 0)} off turnarounds, "
           f"{stats.get('side_no_room', 0)} side strips too narrow, "
           f"{stats.get('side_no_spot', 0)} with no spot left\n"
           f"[yardplan]   {stats['points']:,} of {int(stats['budget']):,} points "

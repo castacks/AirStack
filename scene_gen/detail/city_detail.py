@@ -2,7 +2,7 @@
 city_detail.py — street furniture placed against sidewalk zones.
 
 Additive counterpart to `scene_generator.build_city`'s built-in frontage passes.
-Nothing here edits the generator; `generate_city_v2.py` calls `build()` after
+Nothing here edits the generator; `generate_scene.py` calls `build()` after
 `build_city` and appends the result to the same placement list, and the scene
 config zeroes the built-in spacings so there is exactly one owner of sidewalk
 props.
@@ -373,7 +373,7 @@ def _junction_control(a: dict, b: dict, signal_lanes: int, stop_zones):
     """
     ra, rb = _class_rank(a), _class_rank(b)
     try:
-        from city_layout import junction_control as _published
+        from layout.city_layout import junction_control as _published
         control = _published(a, b, signal_lanes)
     except Exception:
         control = ("signal" if max(int(a.get("n_lanes", 2)),
@@ -1048,7 +1048,7 @@ def _place_bike_delineators(config, layout, resolver, rng, cfg, usds,
         print("[city_detail] bike_lane_delineators: no assets — skipped")
         return []
 
-    import road_markings
+    from detail import road_markings
 
     cat = _CATEGORY["bike_lane_delineators"]
     # A post stands on the carriageway, not on a marking, so it takes the road

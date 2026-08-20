@@ -375,7 +375,7 @@ def _park_blocks(layout, placements):
         except ImportError:
             pass
     try:
-        import districts
+        from detail import districts
         return set(districts.park_blocks(layout, placements))
     except ImportError:
         return set()

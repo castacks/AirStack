@@ -40,6 +40,21 @@ the Isaac Sim launch scripts import it from here.
 | Path | What it is |
 |------|-----------|
 | `scene_generator.py` | The generator: layout, packing, disaster field, USD writing. |
+| `generate_scene.py` | **The detailed-city entry point.** Composes the generator with the `layout/` and `detail/` passes; `generate_scene_on_stage()` writes it to a live stage. |
+| `suburb_scene.py` | **The graph-suburb entry point.** `generate_suburb_on_stage()` — the `layout/suburb_net.py` fabric written to a stage, ground included, since the built-in ground pass consumes axis-aligned rects and this layout has none. |
+| **`layout/`** | **Stage 1 — where blocks, roads and buildings go.** `__init__.py` holds the two config readers both subdividers need. |
+| `layout/city_layout.py` | Anisotropic block subdivision — real grids are directional (Manhattan ~80 m x ~280 m), the built-in BSP tends to 1:1. |
+| `layout/suburb_layout.py` | Hierarchical suburb streets with cul-de-sacs, composed as rects. |
+| `layout/suburb_net.py` | The suburb as a planar **graph** — polyline centrelines, blocks recovered as faces. A junction is the primitive, so streets curve and meet cleanly. |
+| **`detail/`** | **Stage 2 — what is placed on that plan.** |
+| `detail/city_detail.py` | Street furniture against NACTO sidewalk zones, instead of everything on one kerb line. |
+| `detail/districts.py` | Zoning: which building typology goes where, and the park superblocks. |
+| `detail/parks.py` | Composes each park superblock as one designed place. |
+| `detail/road_markings.py` | Crosswalks, stop bars, parking bays, hatching (MUTCD). |
+| `detail/suburb_lots.py` / `detail/suburb_yards.py` | Suburban lotting and yard planting, on the **rect** layout. |
+| `detail/suburb_parcel.py` / `detail/suburb_yardplan.py` | The same two jobs on the **graph** layout: lots hung off frontage arclength, planting composed in each lot's own frame rather than its AABB. |
+| `detail/suburb_park.py` | A large suburban park: facilities at real dimensions, a path network that reaches each, generated court and pitch surfaces. |
+| **`disaster/`** | **Stage 3 — what the event does to the finished scene.** Empty here; the damage passes live on the `muyang` branch. |
 | `compile_disaster.py` | High-level spec → low-level config, and `load_scene_config()`. |
 | `compile_locale.py` | The locale axis: one function per locale (`downtown`/`suburban`/`rural`). |
 | `preset_report.py` | Dry-run every preset and compare the results. |

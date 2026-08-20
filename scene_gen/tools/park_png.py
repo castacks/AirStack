@@ -19,7 +19,7 @@ import sys
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(_HERE))
 
-import suburb_park as pk                                       # noqa: E402
+from detail import suburb_park as pk                                       # noqa: E402
 
 # Surfaces, picked to read as materials rather than as a legend.
 COL = {

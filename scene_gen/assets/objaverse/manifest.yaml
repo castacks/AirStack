@@ -213,6 +213,23 @@ assets:
     title: Bungalow The Crosby
     uid: 1ca9bf31b9d34b44a9b9cac8c240a8d7
     usd: 1ca9bf31b9d34b44a9b9cac8c240a8d7/1ca9bf31b9d34b44a9b9cac8c240a8d7.usdc
+  1db7df90770e44128bc154a96bc0fe4c:
+    author: MrUnity
+    baked_scale: 0.941804
+    faces: 312
+    fit: footprint
+    license: by-nc
+    size_m:
+    - 5.53
+    - 0.127
+    - 1.829
+    source: https://sketchfab.com/3d-models/1db7df90770e44128bc154a96bc0fe4c
+    target_size_m: 5.53
+    texture_res: 4096
+    textures: 3
+    title: Wooden Fences  [Low Poly]
+    uid: 1db7df90770e44128bc154a96bc0fe4c
+    usd: 1db7df90770e44128bc154a96bc0fe4c/1db7df90770e44128bc154a96bc0fe4c.usdc
   2341e9c2456f4876b2e86a9465724b0d:
     author: andres Hiciano
     baked_scale: 0.821147

@@ -417,7 +417,7 @@ def _cells(rect, cell, rng):
 
 def build(config: dict, layout: dict, placements: list, resolver, rng) -> int:
     """Lay out every park superblock. Returns the number of parks built."""
-    import districts
+    from detail import districts
 
     cfg = config.get("parks") or {}
     lay = cfg.get("layout") or {}

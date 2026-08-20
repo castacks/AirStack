@@ -1,20 +1,14 @@
 #!/usr/bin/env python
 """
-Preview launcher for the detailed city (scene_gen/generate_city_v2.py).
+Preview launcher for the detailed city (scene_gen/generate_scene.py).
 
-Deliberately a near-copy of scene_preview_launch_script.py — same base
-environment, same stage prep, same lighting — so that running the two side by
-side isolates the thing under test: the city itself. The only differences are
-which generator entry point is called and which config it defaults to.
+Started as a near-copy of the plain scene preview launcher — same base
+environment, same stage prep, same lighting — and absorbed it when the v1/v2
+split was retired: it was a superset, so there is nothing the other did that
+this does not.
 
-    SCENE_CONFIG=urban_v2 \
-    ISAAC_SIM_SCRIPT_NAME=city_v2_preview_launch_script.py \
-    airstack up isaac-sim
-
-Compare against the unchanged original with:
-
-    SCENE_CONFIG=none \
-    ISAAC_SIM_SCRIPT_NAME=scene_preview_launch_script.py \
+    SCENE_CONFIG=downtown \
+    ISAAC_SIM_SCRIPT_NAME=scene_launch_script.py \
     airstack up isaac-sim
 
 No drone, no sensors, no ROS 2 bridge, so startup is fast and the scene can be
@@ -28,10 +22,12 @@ Open the Kit Script Editor (Window -> Script Editor) and run:
     SCENE_GEN = "/isaac-sim/AirStack/scene_gen"
     ISAAC_DIR = "/isaac-sim/AirStack/simulation/isaac-sim"
     sys.path[:0] = [SCENE_GEN, os.path.join(ISAAC_DIR, "utils")]
-    import scene_generator, city_detail, city_layout, districts, road_markings
-    import generate_city_v2, scene_prep
+    import scene_generator
+    from detail import city_detail, districts, road_markings
+    from layout import city_layout
+    import generate_scene, scene_prep
     for m in (scene_generator, city_detail, city_layout, districts,
-              road_markings, generate_city_v2):
+              road_markings, generate_scene):
         importlib.reload(m)          # pick up edits to the new passes too
     import omni.usd, omni.timeline
     stage = omni.usd.get_context().get_stage()
@@ -39,10 +35,10 @@ Open the Kit Script Editor (Window -> Script Editor) and run:
     _, ssf = scene_prep.get_stage_meters_per_unit(stage)
     # add_colliders_skip_empty, not scene_prep.add_colliders — the stock one
     # floods the log with PhysX errors for point-less stub meshes.
-    import city_v2_preview_launch_script as v2
-    generate_city_v2.reload_city_v2_on_stage(
-        stage, os.path.join(SCENE_GEN, "config", "presets", "urban_v2.yaml"),
-        scene_scale_factor=ssf, add_colliders_fn=v2.add_colliders_skip_empty)
+    import scene_launch_script as sl
+    generate_scene.reload_scene_on_stage(
+        stage, os.path.join(SCENE_GEN, "config", "presets", "downtown.yaml"),
+        scene_scale_factor=ssf, add_colliders_fn=sl.add_colliders_skip_empty)
     omni.timeline.get_timeline_interface().play()
 """
 
@@ -76,14 +72,14 @@ sys.path.insert(0, _SCENE_GEN_DIR)
 from scene_prep import (scale_stage_prim, add_colliders, add_sky,
                         get_stage_meters_per_unit, settle_rigid_props)
 from scene_generator import resolve_sky
-from generate_city_v2 import generate_city_v2_on_stage
+from generate_scene import generate_scene_on_stage
 from compile_disaster import load_scene_config
 
 # ----- CONFIGURATION -----
 ENV_URL     = SIMULATION_ENVIRONMENTS["Default Environment"]
 STAGE_SCALE = 1.00
 SCENE_CONFIG = os.environ.get("SCENE_CONFIG") or os.path.join(
-    _SCENE_GEN_DIR, "config", "presets", "urban_v2.yaml")
+    _SCENE_GEN_DIR, "config", "presets", "downtown.yaml")
 # -------------------------
 
 
@@ -115,11 +111,11 @@ def _remove_env_clutter(stage):
                 continue
             if child.SetActive(False):
                 n += 1
-                carb.log_info(f"[city_v2] deactivated {child.GetPath()}")
+                carb.log_info(f"[scene_gen] deactivated {child.GetPath()}")
             else:
                 UsdGeom.Imageable(child).MakeInvisible()
-                carb.log_info(f"[city_v2] hid {child.GetPath()}")
-    print(f"[city_v2] env clutter: {n} prim(s) deactivated")
+                carb.log_info(f"[scene_gen] hid {child.GetPath()}")
+    print(f"[scene_gen] env clutter: {n} prim(s) deactivated")
 
 
 def _disable_sky_sun(stage):
@@ -138,8 +134,8 @@ def _disable_sky_sun(stage):
             continue
         if prim.IsActive() and prim.SetActive(False):
             n += 1
-            carb.log_info(f"[city_v2] disabled sun {prim.GetPath()}")
-    print(f"[city_v2] sky sun: {n} DistantLight(s) disabled")
+            carb.log_info(f"[scene_gen] disabled sun {prim.GetPath()}")
+    print(f"[scene_gen] sky sun: {n} DistantLight(s) disabled")
     return n
 
 
@@ -168,7 +164,7 @@ def add_colliders_skip_empty(prim):
         if not p.HasAPI(UsdPhysics.CollisionAPI):
             UsdPhysics.CollisionAPI.Apply(p)
             applied += 1
-    print(f"[city_v2] colliders: {applied} applied, {skipped} empty meshes "
+    print(f"[scene_gen] colliders: {applied} applied, {skipped} empty meshes "
           f"skipped")
     return applied, skipped
 
@@ -207,7 +203,8 @@ class CityV2PreviewApp:
         stage_prim = stage.GetPrimAtPath("/World/stage")
         if stage_prim.IsValid():
             scale_stage_prim(stage, "/World/stage", STAGE_SCALE)
-            add_colliders_skip_empty(stage_prim)
+            # colliders off — see the note below
+            # add_colliders_skip_empty(stage_prim)
             for _ in range(10):
                 omni.kit.app.get_app().update()
         else:
@@ -216,13 +213,27 @@ class CityV2PreviewApp:
         config = load_scene_config(SCENE_CONFIG)
 
         _, ssf = get_stage_meters_per_unit(stage)
-        placements = generate_city_v2_on_stage(
+        placements = generate_scene_on_stage(
             stage, config, parent_path="/World/stage/generated",
             scene_scale_factor=ssf)
 
-        generated_prim = stage.GetPrimAtPath("/World/stage/generated")
-        if generated_prim.IsValid():
-            add_colliders_skip_empty(generated_prim)
+        # PHYSICS COLLIDERS ARE OFF, deliberately.
+        #
+        # `add_colliders_skip_empty` applies UsdPhysics.CollisionAPI to EVERY
+        # gprim under the generated root — 76,668 of them on a full suburb —
+        # and PhysX then cooks collision for all of them inside the FIRST
+        # `app.update()`. That one frame ran long enough that the window stopped
+        # responding, X invalidated it (`BadWindow`), and Kit tore down a render
+        # thread through pybind11 without the GIL, which aborts the process.
+        #
+        # Nothing here needs physics yet: this is a capture scene, and neither
+        # rendering nor LiDAR reads CollisionAPI. Re-enable when something has
+        # to fly into the geometry — and filter by category first, because a
+        # drone needs to collide with building shells, trees and poles, not with
+        # hedges, bins, chairs, paving slabs or window frames.
+        #
+        # if generated_prim.IsValid():
+        #     add_colliders_skip_empty(generated_prim)
         for _ in range(10):
             omni.kit.app.get_app().update()
 

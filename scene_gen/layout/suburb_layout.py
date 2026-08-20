@@ -134,28 +134,8 @@ _PUBLISHED_CLASS = {"arterial": "arterial", "collector": "collector",
                     "local": "local", "cul_de_sac": "local"}
 
 
-def _rng_range(v, fallback):
-    """Accept ``[lo, hi]`` or a scalar for a range-valued knob."""
-    if isinstance(v, (list, tuple)) and len(v) >= 2:
-        return float(v[0]), float(v[1])
-    if isinstance(v, (int, float)):
-        return float(v), float(v)
-    return fallback
 
-
-def _weighted(weights: dict, rng, fallback: str):
-    """Draw a key from a ``{name: weight}`` mapping."""
-    items = [(k, float(v)) for k, v in (weights or {}).items() if float(v) > 0.0]
-    total = sum(w for _k, w in items)
-    if total <= 0.0:
-        return fallback
-    r = rng.random() * total
-    for k, w in items:
-        r -= w
-        if r <= 0.0:
-            return k
-    return items[-1][0]
-
+from layout import _rng_range, _weighted  # noqa: E402
 
 def _rect(c):
     return (c["x0"], c["y0"], c["x1"], c["y1"])
@@ -866,7 +846,7 @@ def make_subdivider(layout_cfg: dict, config: dict = None):
         # not an edit to it. Guarded because city_layout is the urban scene's
         # and need not be importable for a suburb run.
         try:
-            import city_layout
+            from layout import city_layout
             city_layout.PARK_RESERVES[:] = list(PARK_RESERVES)
         except ImportError:
             pass

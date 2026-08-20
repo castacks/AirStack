@@ -13,7 +13,7 @@
 #
 #     UV_PYTHON=3.13 uv run --no-project --with objaverse --with pandas \
 #         --with pyyaml --with trimesh \
-#         python scene_gen/prepare_assets.py --asset-set urban_v2
+#         python scene_gen/prepare_assets.py --asset-set urban
 #
 # UV_PYTHON=3.13 is load-bearing. convert_to_usd.py declares
 # `requires-python = ">=3.13"`, which uv satisfies with the newest interpreter
@@ -28,8 +28,8 @@
 #
 # Then run it with the v2 launch script, which is the only thing that calls the
 # new modules:
-#     SCENE_CONFIG=urban_v2 \
-#     ISAAC_SIM_SCRIPT_NAME=city_v2_preview_launch_script.py \
+#     SCENE_CONFIG=downtown \
+#     ISAAC_SIM_SCRIPT_NAME=scene_launch_script.py \
 #     airstack up isaac-sim
 #
 # Loading this through the ORIGINAL launch script is harmless but pointless:
@@ -40,7 +40,7 @@ locale: downtown
 disaster-type: none
 severity: 0.0
 
-asset-set: urban_v2
+asset-set: urban
 # 800 m, not none.yaml's 400. The OSM-calibrated block targets below are
 # 60-95 x 135-200 m; a 400 m region fits about two of those across, so it lands
 # at 14 blocks with only 3 arterial corridors and no readable road hierarchy.

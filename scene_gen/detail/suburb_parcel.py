@@ -66,7 +66,7 @@ and overlaps its neighbour on screen.
 
 import math
 
-from suburb_net import (_add, _sub, _mul, _dot, _unit, _perp, _dist,
+from layout.suburb_net import (_add, _sub, _mul, _dot, _unit, _perp, _dist,
                         polyline_length, point_at, tangent_at,
                         point_in_polygon, polygon_area, seg_seg_dist)
 
@@ -94,14 +94,27 @@ def _side_at(cum, s):
 # something slightly different. Drawn per lot instead, a generated suburb reads
 # as a shuffled catalogue rather than as a subdivision — so archetypes are
 # assigned in RUNS along each block's frontage.
+# A package couples HOW BIG the house is to WHAT IS ON THE PLOT, which is how
+# a real street reads: the small houses are the bare ones and the big ones carry
+# everything. The range is wide on purpose — measured over a full plat it puts
+# `plain` at a 144 m2 mean and `large` at 314 m2, which is most of the
+# catalogue's 100-300 m2 span. Narrower and the correlation is invisible,
+# because the district `size` bias multiplies in on top and washes it out. `plain` used to sit at scale 1.00, so "no fence, no garage" landed
+# on mid-sized houses and the correlation was invisible; it is now genuinely the
+# small end. `pool` is the top of that same ladder.
 ARCHETYPES = {
-    # name          weight  garage   fence   lot scale
-    "plain":       {"w": 0.30, "garage": 0.0, "fence": 0.0, "scale": 1.00},
-    "fenced":      {"w": 0.22, "garage": 0.0, "fence": 1.0, "scale": 1.00},
-    "garage":      {"w": 0.24, "garage": 1.0, "fence": 0.0, "scale": 1.08},
-    "full":        {"w": 0.18, "garage": 1.0, "fence": 1.0, "scale": 1.18},
-    # The big ones: wider lot, deeper setback, everything on it.
-    "large":       {"w": 0.06, "garage": 1.0, "fence": 1.0, "scale": 1.42},
+    # name          weight  garage   fence  pool   lot scale
+    "plain":       {"w": 0.30, "garage": 0.0, "fence": 0.0, "pool": 0.0,
+                    "scale": 0.55},   # small, bare plot
+    "fenced":      {"w": 0.22, "garage": 0.0, "fence": 1.0, "pool": 0.0,
+                    "scale": 0.80},
+    "garage":      {"w": 0.24, "garage": 1.0, "fence": 0.0, "pool": 0.0,
+                    "scale": 1.05},
+    "full":        {"w": 0.18, "garage": 1.0, "fence": 1.0, "pool": 0.0,
+                    "scale": 1.35},
+    # The big ones: wider lot, deeper setback, everything on it — pool included.
+    "large":       {"w": 0.06, "garage": 1.0, "fence": 1.0, "pool": 1.0,
+                    "scale": 1.90},
 }
 
 
@@ -138,12 +151,22 @@ def _draw_archetype(rng):
 # 1,600 sq ft plan goes up on the 40 ft lot and on the 100 ft lot. House size is
 # the archetype's job (ARCHETYPES[...]["scale"]); driving both from width would
 # cancel the effect width is there to produce.
+# `size` biases WHICH house is drawn from the catalogue, on top of what merely
+# FITS. Without it a district changed only its lot width and setback, so a
+# roomy estate block got the same mean footprint as a tight one — the lots grew
+# but the houses on them did not, which is not what a bigger-lot district looks
+# like. It feeds `_pick_size`'s exponent, so it selects up the area ranking
+# rather than scaling a measured asset (which would give a 9 m model 9 m doors).
 DENSITY = {
-    # name           weight   lot width   setback       depth
-    "tight":       {"w": 0.28, "lot": 0.78, "setback": 0.80, "depth": 0.85},
-    "normal":      {"w": 0.44, "lot": 1.00, "setback": 1.00, "depth": 1.00},
-    "loose":       {"w": 0.22, "lot": 1.45, "setback": 1.25, "depth": 1.15},
-    "estate":      {"w": 0.06, "lot": 2.20, "setback": 1.60, "depth": 1.35},
+    # name           weight   lot width   setback       depth        house size
+    "tight":       {"w": 0.28, "lot": 0.78, "setback": 0.80, "depth": 0.85,
+                    "size": 0.72},
+    "normal":      {"w": 0.44, "lot": 1.00, "setback": 1.00, "depth": 1.00,
+                    "size": 1.00},
+    "loose":       {"w": 0.22, "lot": 1.45, "setback": 1.25, "depth": 1.15,
+                    "size": 1.30},
+    "estate":      {"w": 0.06, "lot": 2.20, "setback": 1.60, "depth": 1.35,
+                    "size": 1.75},
 }
 
 
@@ -164,7 +187,64 @@ def _draw_density(rng, mix=None):
     return names[-1]
 
 
+def _density_field(blocks, rng, cfg):
+    """A map of density DISTRICTS over the whole tract, not a per-block draw.
+
+    WHY THIS EXISTS. Density was one independent draw per block, so a tight
+    block could sit between two estate blocks on the same street. That reads as
+    noise rather than as variety — the same lesson the rect-layout module
+    learned and recorded, which the graph layout never inherited. Real tracts
+    are not like that, and the reason is legal rather than aesthetic: plats are
+    recorded separately, so lot width and setback change AT the line between
+    two subdivisions and nowhere else.
+
+    So: seeds on a jittered grid `neighbourhood_m` apart, nearest seed wins.
+    A district is then a contiguous multi-block patch with a ragged boundary
+    you can walk to, which is what a subdivision boundary actually looks like.
+
+    Returns ``(x, y) -> class name``. `neighbourhood_m: 0` restores the old
+    per-block draw, so a preset that wants the noise can still ask for it.
+    """
+    patch = float(cfg.get("neighbourhood_m", 0.0) or 0.0)
+    mix = cfg.get("density_mix")
+    if patch <= 0.0:
+        return lambda _p: _draw_density(rng, mix)
+
+    pts = []
+    for blk in blocks:
+        poly = blk["poly"] if isinstance(blk, dict) else blk
+        pts.extend(poly)
+    if not pts:
+        return lambda _p: _draw_density(rng, mix)
+    x0 = min(q[0] for q in pts); x1 = max(q[0] for q in pts)
+    y0 = min(q[1] for q in pts); y1 = max(q[1] for q in pts)
+
+    seeds = []
+    nx = max(1, int(round((x1 - x0) / patch)))
+    ny = max(1, int(round((y1 - y0) / patch)))
+    for i in range(nx + 1):
+        for j in range(ny + 1):
+            # Jittered by up to half a cell: a pure grid gives straight
+            # district edges that read as a chessboard from the air.
+            cx = x0 + (i + rng.uniform(-0.35, 0.35)) * (x1 - x0) / max(nx, 1)
+            cy = y0 + (j + rng.uniform(-0.35, 0.35)) * (y1 - y0) / max(ny, 1)
+            seeds.append((cx, cy, _draw_density(rng, mix)))
+
+    def at(p):
+        best, bd = seeds[0], float("inf")
+        for sd in seeds:
+            d = (sd[0] - p[0]) ** 2 + (sd[1] - p[1]) ** 2
+            if d < bd:
+                bd, best = d, sd
+        return best[2]
+    return at
+
+
 DEFAULTS = {
+    # DISTRICT SIZE. How far apart the density seeds sit, so how big a patch of
+    # one lot size is. ~300 m is a few blocks — a plat phase. 0 disables the
+    # map and returns to an independent draw per block.
+    "neighbourhood_m": 300.0,
     # How many consecutive lots share an archetype. A builder puts up a phase,
     # not one house; 4-9 lots is a plat phase on a typical block face.
     "archetype_run": [4, 9],
@@ -208,6 +288,9 @@ DEFAULTS = {
     "keepout_discs": (),
     # A lot needs this much depth behind the setback or it is not a lot.
     "min_lot_depth_m": 21.0,
+    # Rear space a pool plot asks for: 2.5 m walk + a 4 m-deep
+    # pool + 2.5 m walk, with a little margin.
+    "pool_rear_m": 9.5,
     # Platted lot depth, 85-125 ft, the band almost every US plat sits in. It
     # is SAMPLED and then trimmed to what the block can give, not simply taken
     # as deep as the block allows: these blocks are 100-200 m through, so
@@ -230,6 +313,19 @@ DEFAULTS = {
     "garage_w_m": 6.0,
     "garage_d_m": 6.5,
     "garage_gap_m": 0.8,         # breezeway between house and garage
+    # HOW FAR BACK OFF THE KERB THE FENCE PERIMETER STARTS, and it is not zero.
+    # `suburb_net.blocks_from_faces` insets every block face by exactly half
+    # that side's carriageway, so the block boundary IS the kerb line — and
+    # `suburb_scene.build_frontage` then lays its sidewalk ring 0.8 m and its
+    # lamps/hydrants/bins 1.6 m INSIDE that same boundary (`furnishing_inset_m`
+    # 1.6, halved for the paving). A fence struck on the raw front lot line
+    # therefore stands in the gutter or on the pavement: measured on seed 3,
+    # 965 of 1,803 front-fence modules (53%) were inside a carriageway by
+    # `_RoadIndex`. 2.5 m clears the 1.6 m furnishing line by most of a metre,
+    # which is also where a real plat puts the fence — behind the utility
+    # strip, not on the kerb. The SIDE runs start from the same inset line, so
+    # the perimeter still closes at its two front corners.
+    "fence_front_inset_m": 2.5,
     # Planting. `suburb_yardplan` owns yard planting; this module keeps only the
     # street rhythm along the verge. `back_trees_per_100m2` is read only under
     # `own_yard_trees`, and NOTHING reads `front_tree_chance` — both are kept
@@ -438,8 +534,8 @@ def _seg_key(p0, p1, q=0.05):
     return (a, b) if a <= b else (b, a)
 
 
-def _line_dupe(segs, a, b, tol=0.60, cos_tol=0.92, min_ov=0.5):
-    """Is this boundary already fenced, by the lot on the other side of it?
+def _line_dupe(segs, a, b, tol=1.20, cos_tol=0.92, min_ov=0.5):
+    """The standing fence line this boundary duplicates, or ``None``.
 
     :func:`_seg_key` catches only the exact case, and the exact case is the rare
     one: two lots agree on the front anchor only to within the chord error of a
@@ -454,6 +550,19 @@ def _line_dupe(segs, a, b, tol=0.60, cos_tol=0.92, min_ov=0.5):
     boundaries while two that run 20 m side by side 10 cm apart are one. Fences
     that merely MEET end to end project to a zero-length overlap and are left
     alone; a block corner is safe because its two faces are tens of degrees apart.
+
+    *tol* IS 1.2 m, NOT 0.6. It is the "same boundary" threshold, and the thing
+    it is really measuring is how far two neighbours' platted side lines can
+    drift apart — each is struck from its own frontage station, so on a curving
+    face they diverge by the chord error over the lot depth. At 0.6 m a
+    measurable tail of pairs fell just outside and BOTH got fenced, which is two
+    fences a metre apart down one side yard. Nothing legitimate lives in the
+    0.6-1.2 m band: the narrowest real gap between two distinct boundaries is a
+    side yard, and `house_gap_m` is 6 m.
+
+    Returns the matching ``fence_lines`` entry (so the caller can extend it in
+    place) rather than a bool, because dropping the duplicate outright is what
+    left the deeper lot's yard half open — see the merge in `parcel_blocks`.
     """
     d = _unit(_sub(b, a))
     ln = _dist(a, b)
@@ -469,8 +578,80 @@ def _line_dupe(segs, a, b, tol=0.60, cos_tol=0.92, min_ov=0.5):
         mid = _add(a, _mul(d, (lo + hi) * 0.5))
         k = max(0.0, min(_dist(q0, q1), _dot(_sub(mid, q0), e)))
         if _dist(mid, _add(q0, _mul(e, k))) <= tol:
-            return True
-    return False
+            return entry
+    return None
+
+
+def _line_union(q0, q1, a, b):
+    """The shortest segment along q0->q1 that covers both it and a->b.
+
+    Projected onto the STANDING line's own direction, not remitred to some
+    average: the fence that is already there is the one that stays, and all this
+    does is lengthen it. Two neighbours' side lines are parallel to within
+    `_line_dupe`'s tolerance by the time this is reached, so the projection
+    loses nothing worth keeping.
+    """
+    d = _unit(_sub(q1, q0))
+    ts = (0.0, _dist(q0, q1), _dot(_sub(a, q0), d), _dot(_sub(b, q0), d))
+    return _add(q0, _mul(d, min(ts))), _add(q0, _mul(d, max(ts)))
+
+
+def _relay(entry, cut, segs, tag):
+    """Move a registered boundary onto *cut*, still as exactly ONE run.
+
+    The registry entry carries a back-pointer into the list that owns its
+    segment (``entry[2]``) and the tuple sitting in it (``entry[3]``) — the same
+    handle :func:`_clip_standing` re-cuts through, so extending a neighbour's
+    fence and cutting one at a new garage go through the same two lines of
+    book-keeping. ``entry[2] is None`` means the line was registered but never
+    fenced (a building stood on all of it when the neighbour platted); this lot
+    may take it over, which is strictly better than leaving the boundary bare.
+    """
+    if entry[2] is None:
+        entry[0], entry[1] = cut
+        entry[2] = segs
+        entry[3] = (cut[0], cut[1], tag)
+        segs.append(entry[3])
+        return
+    i = entry[2].index(entry[3])
+    entry[0], entry[1] = cut
+    entry[3] = (cut[0], cut[1], entry[3][2])
+    entry[2][i] = entry[3]
+
+
+def _clip_seg_cross(a, b, q0, q1, pad=0.35):
+    """Stop a fence run where it CROSSES one that is already standing.
+
+    A fence butts into another fence; it does not pass through it. Lots hung off
+    two faces of the same block genuinely overlap in the corner (see
+    :func:`_clip_seg`), and where they do, one lot's rear line runs straight
+    through its neighbour's side line — measured on seed 3, 57 module pairs
+    interpenetrating by more than 0.25 m, up to 2.4 m, all of them at block
+    corners or on the inside of a curve. Cutting the newcomer at the crossing is
+    the honest reading of "that ground is already fenced".
+
+    Only a PROPER interior crossing counts. A lot's own three runs meet at its
+    two rear corners and the front runs meet the side runs at the front corners;
+    those touch at an endpoint, and *pad* keeps them out of it — a T-join within
+    35 cm of either end is a join, not a crossing.
+
+    Returns the longer surviving piece, or ``None`` if neither is worth keeping.
+    """
+    d = _sub(b, a)
+    e = _sub(q1, q0)
+    den = d[0] * e[1] - d[1] * e[0]
+    if abs(den) < 1e-9:                     # parallel: `_line_dupe`'s business
+        return a, b
+    w = _sub(q0, a)
+    t = (w[0] * e[1] - w[1] * e[0]) / den   # along a->b, normalised
+    s = (w[0] * d[1] - w[1] * d[0]) / den   # along q0->q1, normalised
+    ln, qn = _dist(a, b), _dist(q0, q1)
+    if not (pad < t * ln < ln - pad) or not (pad < s * qn < qn - pad):
+        return a, b
+    hit = _add(a, _mul(d, t))
+    if t * ln >= ln - t * ln:
+        return (a, hit) if t * ln >= 2.0 else None
+    return (hit, b) if ln - t * ln >= 2.0 else None
 
 
 def _seg_box(a, b, t=0.04):
@@ -568,6 +749,7 @@ def parcel_blocks(blocks, rng, cfg=None):
     sts = _rng_pair(c["street_tree_spacing_m"], (16.0, 30.0))
     ld = _rng_pair(c["lot_depth_m"], (26.0, 38.0))
     min_depth = float(c["min_lot_depth_m"])
+    POOL_REAR_M = float(c.get("pool_rear_m", 9.5))
     max_depth = max(min_depth, float(c["max_lot_depth_m"]))
     gap = float(c["house_gap_m"])
     dw = float(c["driveway_w_m"])
@@ -581,6 +763,8 @@ def parcel_blocks(blocks, rng, cfg=None):
     size_order = sorted(range(len(sizes)),
                         key=lambda i: sizes[i][0] * sizes[i][1])
     discs = _norm_discs(c.get("keepout_discs"))
+
+    dens_at = _density_field(blocks, rng, c)
 
     out = []
     for blk in blocks:
@@ -611,11 +795,16 @@ def parcel_blocks(blocks, rng, cfg=None):
             i = _side_at(cum, s)
             return bool(faces_street[i % len(faces_street)])
 
-        # The district this block sits in. One draw, before any lot exists.
-        dens = _draw_density(rng, dens_mix)
+        # The district this block sits in — read off the density MAP at the
+        # block's centre, so neighbouring blocks agree and the tract has
+        # recognisable sub-areas instead of per-block noise.
+        bcx = sum(pxs) / len(pxs)
+        bcy = sum(pys) / len(pys)
+        dens = dens_at((bcx, bcy))
         d_lot = float(DENSITY[dens]["lot"])
         d_set = float(DENSITY[dens]["setback"])
         d_dep = float(DENSITY[dens].get("depth", 1.0))
+        d_size = float(DENSITY[dens].get("size", 1.0))
 
         perim = polyline_length(ring)
         if perim < 40.0:
@@ -671,7 +860,8 @@ def parcel_blocks(blocks, rng, cfg=None):
                 # The catalogue is the authority on how big a house is. See
                 # `house_sizes` in DEFAULTS and :func:`_pick_size`.
                 size_i = _pick_size(sizes, size_order, rng,
-                                    width - gap * 0.5, float(spec["scale"]))
+                                    width - gap * 0.5,
+                                    float(spec["scale"]) * d_size)
                 if size_i is None:
                     n_nofit += 1
                     continue
@@ -715,8 +905,15 @@ def parcel_blocks(blocks, rng, cfg=None):
             # shallower than the house plus a rear yard: a deep setback and a
             # large archetype together put the back wall 35 m in, and a rear lot
             # line in front of its own house would fence the building in half.
+            # REAR ALLOWANCE. 4 m is enough for a yard; a pool needs room for
+            # itself plus a walkable margin at both ends, so a plot whose
+            # package wants one ASKS FOR THE DEPTH UP FRONT. Requesting it
+            # afterwards is how every pool ended up not fitting: the lots were
+            # granted 4 m of rear and the pool needed 9.
+            want_pool = spec.get("pool", 0.0) > 0.0
+            rear_need = POOL_REAR_M if want_pool else 4.0
             want_depth = min(max_depth,
-                             max(min_depth, setback + h_d + 4.0,
+                             max(min_depth, setback + h_d + rear_need,
                                  rng.uniform(*ld) * d_dep))
             lot_depth = _probe_depth(poly, p, n, u, width,
                                      min_depth, want_depth)
@@ -777,15 +974,26 @@ def parcel_blocks(blocks, rng, cfg=None):
                     n_reject += 1
 
             # --- fences -------------------------------------------------------
-            # Sides and rear are the tall close-board run; only the two full
-            # packages also close the front, and that one has to be the LOW
-            # asset — every US code that caps fence height caps the front yard
-            # at 3-4 ft against 6-8 ft elsewhere, so a privacy panel along the
-            # kerb reads as a compound, not a suburb. The tags are the pool
-            # tags in the asset set; they are not decorative.
+            # ONE PERIMETER, PULLED BACK OFF THE KERB. `fence_front_inset_m`
+            # says why the front corners are not `fl`/`fr`: the block boundary
+            # is the kerb line and the pavement is laid inside it, so a fence on
+            # the raw front lot line stands in the road. The SIDE runs start
+            # from the same inset points, which is what keeps the four runs a
+            # closed rectangle rather than three sides and a floating stub.
+            #
+            # Sides and rear are the tall run; only the two full packages also
+            # close the front, and that one carries the "low" tag — every US
+            # code that caps fence height caps the front yard at 3-4 ft against
+            # 6-8 ft elsewhere. The tag is a HEIGHT LIMIT for the renderer to
+            # honour, not a second asset pool: `suburb_scene` draws one asset
+            # per house and simply skips a "low" run its asset is too tall for.
             fence_segs = []
             if spec["fence"] > 0.0:
-                cand = [(fl, rl, "privacy"), (fr, rr, "privacy"),
+                f_in = float(c["fence_front_inset_m"])
+                pf = _add(p, _mul(n, f_in))
+                ffl = _add(fl, _mul(n, f_in))
+                ffr = _add(fr, _mul(n, f_in))
+                cand = [(ffl, rl, "privacy"), (ffr, rr, "privacy"),
                         (rl, rr, "privacy")]
                 blockers = [corners] + [h["corners"] for h in houses] \
                     + [g["corners"] for g in garages]
@@ -799,32 +1007,68 @@ def parcel_blocks(blocks, rng, cfg=None):
                                    (d_off + g_half, half)):
                         if x1 - x0 < 1.5:
                             continue
-                        cand.append((_add(p, _mul(u, x0)),
-                                     _add(p, _mul(u, x1)), "low"))
-                for a, b, tag in cand:
-                    k = _seg_key(a, b)
-                    if k in fenced or _line_dupe(fence_lines, a, b):
-                        continue
-                    fenced.add(k)
+                        cand.append((_add(pf, _mul(u, x0)),
+                                     _add(pf, _mul(u, x1)), "low"))
+
+                def _cut_run(a, b):
+                    """Trim a boundary out of the pavement, the walls and any
+                    fence already standing across it — in that order.
+
+                    Pavement first, because it is the cut that can take the
+                    whole run: a lot beside a bulb has its two side lines
+                    running out of the turnaround, and there is no point asking
+                    which wall a fence stops at when the front half of it is on
+                    the road. Fences last, because a run already shortened by a
+                    wall may no longer cross anything.
+                    """
                     cut = (a, b)
-                    # Pavement before buildings, because it is the cut that can
-                    # take the whole run: a lot beside a bulb has its two side
-                    # lines running out of the turnaround, and there is no point
-                    # asking which wall a fence stops at when the front half of
-                    # it is on the road.
                     for (dc, dr) in blk_discs:
                         cut = _clip_seg_disc(cut[0], cut[1], dc, dr)
                         if cut is None:
-                            break
-                    if cut is not None:
-                        for box in blockers:     # includes this lot's own
-                            cut = _clip_seg(cut[0], cut[1], box)
-                            if cut is None:
-                                break
+                            return None
+                    for box in blockers:         # includes this lot's own
+                        cut = _clip_seg(cut[0], cut[1], box)
+                        if cut is None:
+                            return None
+                    for entry in fence_lines:
+                        if entry[2] is None:
+                            continue             # registered, nothing standing
+                        cut = _clip_seg_cross(cut[0], cut[1],
+                                              entry[0], entry[1])
+                        if cut is None:
+                            return None
+                    return cut
+
+                for a, b, tag in cand:
+                    k = _seg_key(a, b)
+                    if k in fenced:
+                        continue
+                    fenced.add(k)
+                    dupe = _line_dupe(fence_lines, a, b)
+                    if dupe is not None:
+                        # THE NEIGHBOUR ALREADY FENCED THIS BOUNDARY — but only
+                        # to ITS OWN platted depth. Two lots hung off the same
+                        # face take 26 m and 34 m of side yard, so dropping the
+                        # duplicate outright left 8 m of the deeper lot open and
+                        # its rear run starting in mid-air: measured on seed 3,
+                        # 1,033 of 1,412 run endpoints (73%) had no other
+                        # endpoint within 0.35 m of them. So EXTEND the standing
+                        # run over both instead. The boundary is still fenced
+                        # ONCE, by one lot, and the deeper lot's rear run now
+                        # has something to meet.
+                        grown = _cut_run(*_line_union(dupe[0], dupe[1], a, b))
+                        # Never shorter than what is already there: the re-cut
+                        # sees walls the neighbour's run predates, and losing a
+                        # standing fence to gain a longer one is not a trade.
+                        if (grown is not None
+                                and _dist(*grown) >= _dist(dupe[0], dupe[1])):
+                            _relay(dupe, grown, fence_segs, tag)
+                        continue
+                    cut = _cut_run(a, b)
                     if cut is None:
-                        # A building stands on this boundary for its whole
-                        # length. Still registered, so the neighbour does not
-                        # come back and fence it either.
+                        # A building or another fence stands on this boundary
+                        # for its whole length. Still registered, so the
+                        # neighbour does not come back and fence it either.
                         fence_lines.append([a, b, None, None])
                         continue
                     seg = (cut[0], cut[1], tag)
@@ -845,6 +1089,13 @@ def parcel_blocks(blocks, rng, cfg=None):
                            "size_index": size_i,
                            "has_garage": spec["garage"] > 0.0,
                            "has_fence": spec["fence"] > 0.0,
+                           # ...and only if the BLOCK actually granted it.
+                           # `_probe_depth` can come back short on a shallow or
+                           # awkward block, and a pool half in the next street
+                           # is worse than no pool.
+                           "has_pool": (spec.get("pool", 0.0) > 0.0
+                                        and lot_depth - setback - h_d
+                                        >= POOL_REAR_M - 0.5),
                            "lot_width": width,
                            # The lot itself, so the yard can be planted and not
                            # merely recorded: the rectangle, how deep the back

@@ -68,7 +68,7 @@ rejection-sampled 5 m off every path and the ring is a path.
 
 import math
 
-import suburb_net as sn
+from layout import suburb_net as sn
 
 # ---------------------------------------------------------------------------
 # regulation dimensions (metres)

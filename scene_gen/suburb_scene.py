@@ -22,10 +22,10 @@ import random
 from pxr import Gf, Sdf, UsdGeom, Vt
 
 import scene_generator as sg
-import suburb_net as sn
-import suburb_parcel as sp
-import suburb_yardplan as yp
-import suburb_park as spk
+from layout import suburb_net as sn
+from detail import suburb_parcel as sp
+from detail import suburb_yardplan as yp
+from detail import suburb_park as spk
 
 # GROUND STACK, low to high. Two rules, both learned the hard way.
 #
@@ -43,6 +43,13 @@ _Z_ASPHALT = 0.10
 _Z_DRIVE = 0.16
 _Z_CROSSWALK = 0.20
 _Z_DASH = 0.24
+# STOP BARS SIT LOWER THAN THE DASHES. The ladder above was derived for a
+# 1600 x 1200 m plate seen from capture altitude, where 14 cm is far below a
+# pixel. A stop bar is looked at from the street, and at that range 14 cm of air
+# under the paint is plainly visible — the urban markings pass says as much
+# about 2 cm ("at 0.021 the paint visibly floats at close range",
+# `detail/road_markings.py`). Put it just over the crosswalk it sits beside.
+_Z_STOPBAR = 0.205
 # Park surfaces sit just above the block grass they are laid on, with their
 # paint above that, on the same "surface then markings" convention as a street.
 _Z_PARK_SURF = 0.06
@@ -236,6 +243,264 @@ class _RoadIndex:
 
 
 # ---------------------------------------------------------------------------
+# planting: how big a tree, and where there is room for one
+# ---------------------------------------------------------------------------
+# Two questions every planting pass in this file asks, answered once here so
+# `build_placements` and `build_open_planting` cannot drift apart on either.
+
+class _ObbIndex:
+    """Distance from a point to the nearest of a set of ORIENTED boxes.
+
+    HOUSES AND LOTS ARE BOXES WITH A FRAME, so use the frame. `suburb_parcel`
+    hands every house its along-street unit `u` and its measured `w` x `d`, and
+    every lot the same about its own rectangle (`lot_corners` is
+    front-left/front-right/rear-right/rear-left of a true rectangle: `u` across
+    the frontage, the inward normal down the depth). That makes the EXACT
+    point-to-box distance three dot products — no polygon crossing test, no
+    bounding circle that a 20 m L-plan would make useless.
+
+    DISTANCE TO THE WALL, NOT TO THE CENTRE, and that is the whole point of
+    using the box. A kit house is 10-20 m across, so a centre distance calls a
+    tree tucked against the back wall of a 20 m house "10 m away" and the same
+    gap beside a 10 m house "5 m" — the size ramp would be reading house size
+    rather than the clearance it is meant to read.
+
+    Each box registers in every cell it touches once grown by `reach`, so ONE
+    cell lookup is the whole search: anything within `reach` of a query point
+    necessarily registered itself in that point's cell. Same trick, same
+    reason, as `_RoadIndex` above. Answers are capped at `reach` because every
+    consumer's ramp has already saturated by then.
+    """
+
+    def __init__(self, boxes, reach=60.0):
+        self.reach = float(reach)
+        self.cell = max(20.0, self.reach)
+        self.cells = {}
+        for box in boxes:
+            cx, cy, _ux, _uy, hx, hy = box
+            grow = math.hypot(hx, hy) + self.reach
+            gx0 = int(math.floor((cx - grow) / self.cell))
+            gx1 = int(math.floor((cx + grow) / self.cell))
+            gy0 = int(math.floor((cy - grow) / self.cell))
+            gy1 = int(math.floor((cy + grow) / self.cell))
+            for gx in range(gx0, gx1 + 1):
+                for gy in range(gy0, gy1 + 1):
+                    self.cells.setdefault((gx, gy), []).append(box)
+
+    def nearest(self, p):
+        """Metres from *p* to the nearest box wall: 0.0 inside, `reach` if far."""
+        key = (int(math.floor(p[0] / self.cell)),
+               int(math.floor(p[1] / self.cell)))
+        best = self.reach
+        for (cx, cy, ux, uy, hx, hy) in self.cells.get(key, ()):
+            vx, vy = p[0] - cx, p[1] - cy
+            dx = abs(vx * ux + vy * uy) - hx
+            dy = abs(-vx * uy + vy * ux) - hy
+            d = math.hypot(max(dx, 0.0), max(dy, 0.0))
+            if d < best:
+                best = d
+                if best <= 0.0:
+                    break
+        return best
+
+
+def _house_box(h):
+    return (h["c"][0], h["c"][1], h["u"][0], h["u"][1],
+            float(h["w"]) * 0.5, float(h["d"]) * 0.5)
+
+
+def _rect_box(corners):
+    """A four-corner rectangle (in ring order) as an `_ObbIndex` box, or None.
+
+    Serves lots and pool holes alike. Rebuilt from the CORNERS rather than from
+    a centre and a nominal size, because neither is trustworthy: a lot's front
+    half-width is chord-clamped on a curving frontage, and a pool hole is the
+    water rectangle already inset by its coping. The corners are what was
+    actually granted; the nominal numbers are not.
+    """
+    if not corners or len(corners) < 4:
+        return None
+    p0, p1, _p2, p3 = corners[0], corners[1], corners[2], corners[3]
+    ax, ay = p1[0] - p0[0], p1[1] - p0[1]
+    bx, by = p3[0] - p0[0], p3[1] - p0[1]
+    la = math.hypot(ax, ay)
+    lb = math.hypot(bx, by)
+    if la < 1e-6 or lb < 1e-6:
+        return None
+    return (p0[0] + ax * 0.5 + bx * 0.5, p0[1] + ay * 0.5 + by * 0.5,
+            ax / la, ay / la, la * 0.5, lb * 0.5)
+
+
+def _in_rect(p, rect, pad=0.0):
+    """Is *p* inside the AXIS-ALIGNED ``(x0, y0, x1, y1)`` grown by *pad*?"""
+    return (rect[0] - pad <= p[0] <= rect[2] + pad
+            and rect[1] - pad <= p[1] <= rect[3] + pad)
+
+
+class _Occupancy:
+    """What is already standing on the ground, as points on a grid.
+
+    Seeded from the placements made so far, so a planting pass keeps clear of
+    the yard trees, streetlights, hydrants and park furniture that are already
+    there rather than only of its own darts. Cell is the query radius, so a
+    3 x 3 neighbourhood is the whole search; asking for a radius bigger than
+    the cell would silently miss, so it clamps and says so by construction.
+    """
+
+    def __init__(self, cell=8.0):
+        self.cell = max(1.0, float(cell))
+        self.cells = {}
+
+    def add(self, p):
+        key = (int(math.floor(p[0] / self.cell)),
+               int(math.floor(p[1] / self.cell)))
+        self.cells.setdefault(key, []).append((p[0], p[1]))
+
+    def near(self, p, r):
+        r = min(float(r), self.cell)
+        gx = int(math.floor(p[0] / self.cell))
+        gy = int(math.floor(p[1] / self.cell))
+        rr = r * r
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for (qx, qy) in self.cells.get((gx + dx, gy + dy), ()):
+                    if (p[0] - qx) ** 2 + (p[1] - qy) ** 2 < rr:
+                        return True
+        return False
+
+
+class _CanopyPool:
+    """A tree pool RANKED BY MEASURED CANOPY, so a draw can ask for a size.
+
+    WHY RANK A POOL RATHER THAN ADD A THIRD ONE. The asset set already splits
+    trees by ROLE — `street_trees` for the verge, `trees` for open ground — and
+    that split is right: it is what keeps a 25.4 m Black_Oak crown off a 10.7 m
+    carriageway. What it cannot express is that `trees` itself spans 4.1 m
+    (American_Beech) to 25.4 m (Black_Oak) and that WHERE in a block a tree
+    stands should decide which end of that range it comes from. Ranking is the
+    missing half: same pools, same roles, but a draw now carries a size.
+
+    MEASURED, NEVER NAMED. `resolver.get` opens the asset and returns its Z-up
+    footprint; the key is `max(sx, sy)` — the crown WIDTH, which is what has to
+    clear a wall, not the height. On the shipped suburban set that ranks
+    `trees` 4.09 / 5.09 / 5.86 / 10.29 / 25.42 m and `street_trees`
+    3.02 / 10.29 m, which is exactly what the asset set records beside each
+    entry from tools/measure_assets.py.
+
+    DEGENERATE WHEN NOTHING WAS MEASURED, and it says so rather than pretending.
+    Under `measure_usds: false`, or where the assets are unreachable, every
+    entry falls back to the single `fallback_sizes.tree` and the ranking sorts a
+    pool of identical numbers — i.e. by path. `graded` is that test, and a pool
+    that fails it degrades to the uniform draw these passes did before.
+    """
+
+    def __init__(self, resolver, pools, paths, category="tree", band=0.5):
+        self.band = min(1.0, max(0.05, float(band)))
+        ranked = []
+        for u in paths:
+            fp = resolver.get(u, category, scale=pools.scale_of(u),
+                              axis_up=pools.axis_of(u))
+            ranked.append((max(float(fp.get("sx", 0.0) or 0.0),
+                               float(fp.get("sy", 0.0) or 0.0)), u))
+        ranked.sort(key=lambda r: (r[0], r[1]))
+        self.sizes = [r[0] for r in ranked]
+        self.usds = [r[1] for r in ranked]
+
+    def __len__(self):
+        return len(self.usds)
+
+    @property
+    def graded(self):
+        """True when the measurements actually separate the pool.
+
+        Half a metre of spread over the whole pool is nothing next to the 21 m
+        this library really spans, so below it the numbers are a fallback
+        constant and not a measurement.
+        """
+        return len(self.usds) > 1 and (self.sizes[-1] - self.sizes[0]) > 0.5
+
+    def draw(self, rng, t):
+        """One asset from the `band` of the pool nearest size *t* (0 small, 1 big).
+
+        A SLIDING WINDOW RATHER THAN A HARD CUT, deliberately. A suburb where
+        every tree within a dozen metres of a wall is the same species reads as
+        one nursery order; the overlap between the near window and the far one
+        is what keeps it a single neighbourhood with a size gradient across it
+        rather than two plantations meeting at a contour line.
+        """
+        n = len(self.usds)
+        if n == 0:
+            return None
+        if n == 1 or not self.graded:
+            return self.usds[rng.randrange(n)]
+        k = max(1, int(self.band * n + 0.5))
+        lo = int(round(min(1.0, max(0.0, float(t))) * (n - k)))
+        return self.usds[lo + rng.randrange(k)]
+
+
+def _size_t(dist_m, near_m, far_m):
+    """Where a tree at *dist_m* from the nearest house sits on the size ramp.
+
+    0 at or inside `near_m` — small end of the pool; 1 at or beyond `far_m` —
+    big end; linear between. Two knobs rather than one threshold because a step
+    would draw a visible ring of species change round every house, and the
+    thing being modelled is a gradient: what a householder plants next to a
+    wall, what stands out in the middle of the block, and everything between.
+    """
+    if far_m <= near_m:
+        return 1.0 if dist_m >= far_m else 0.0
+    return min(1.0, max(0.0, (float(dist_m) - near_m) / (far_m - near_m)))
+
+
+def _planting_cfg(config):
+    """The planting knobs, read once so every pass agrees on them.
+
+    They live under `suburb_parcel` beside `open_trees_per_100m2`, which is
+    where the two that already existed were.
+    """
+    cfg = config.get("suburb_parcel") or {}
+    return {
+        # Distance from the nearest HOUSE WALL at which a tree may still come
+        # from the big end of the pool. 12 m is a back-garden depth: `lot_depth`
+        # runs 26-38 m and the house eats setback + depth, so a rear-garden tree
+        # is typically 5-12 m off the wall and gets the small end, which is what
+        # a householder actually plants next to a house.
+        "near_m": float(cfg.get("tree_small_near_m", 12.0)),
+        # ...and the distance beyond which it is open ground and takes the big
+        # end unreserved. 40 m clears the deepest lot (38 m) plus its fence, so
+        # anything scoring 1.0 is genuinely land nobody's garden reaches.
+        "far_m": float(cfg.get("tree_big_far_m", 40.0)),
+        # Share of the ranked pool one draw may reach. 0.5 over the 5-entry
+        # `trees` pool is a 3-species window: enough overlap that near and far
+        # planting share species, narrow enough that the 25.4 m Black_Oak is
+        # unreachable at t=0 and the 4.1 m Beech unreachable at t=1.
+        "band": float(cfg.get("tree_size_band", 0.5)),
+        # Trees per 100 m2 on land nobody built on — undeveloped parcels and
+        # the park surround. Unchanged default: a ~10.8 m planting grid.
+        "open_rate": float(cfg.get("open_trees_per_100m2", 0.85) or 0.0),
+        # ...and on the leftover inside a DEVELOPED block, which is thinner
+        # ground: it is the back of somebody's block and `suburb_yardplan` has
+        # already planted the gardens in front of it, so the same rate as
+        # unplatted woodland would be wrong. Swept on the shipped preset at
+        # seed 3, open-land trees over the whole suburb: 0.85 -> 6,273,
+        # 0.45 -> 4,726, 0.25 -> 3,751. 0.45 is a ~14.9 m planting grid — a
+        # treed common behind the houses, not a forest.
+        "fill_rate": float(cfg.get("infill_trees_per_100m2", 0.45) or 0.0),
+        # Trunk to trunk, between trees this pass plants.
+        "gap_m": float(cfg.get("open_tree_gap_m", 6.0) or 6.0),
+        # ...and from anything already standing: a fence line, a lot boundary,
+        # a streetlight, a park bench. 3.0 m is a crown radius at the small end
+        # of the pool.
+        "clear_m": float(cfg.get("open_tree_clear_m", 3.0) or 0.0),
+        # Darts per planting station before the station is given up. The grid
+        # below is stratified rather than uniform, so a station that lands on a
+        # lot usually has free ground within its own cell — one dart threw that
+        # away and left holes exactly where the ground was tightest.
+        "darts": max(1, int(cfg.get("open_tree_darts", 4))),
+    }
+
+
+# ---------------------------------------------------------------------------
 # geometry -> mesh
 # ---------------------------------------------------------------------------
 
@@ -270,8 +535,25 @@ def _mitre_offsets(pts, half_w):
     return left, right
 
 
-def _make_ribbon(stage, path, pts, half_w, z, ssf, uv_scale, color, mat=""):
-    """A quad strip swept along *pts*. One mesh, not one quad per segment."""
+def _make_ribbon(stage, path, pts, half_w, z, ssf, uv_scale, color, mat="",
+                 uv_along_m=0.0, v_span=0.0):
+    """A quad strip swept along *pts*. One mesh, not one quad per segment.
+
+    TWO UV CONVENTIONS, because the two road materials disagree about which
+    axis is which:
+
+    * default (`uv_along_m == 0`) — the original: `u` ACROSS the ribbon and `v`
+      ALONG it, both off the single `uv_scale`. Right for a tileable swatch
+      like `MI_Asphalt`.
+    * trim-sheet (`uv_along_m > 0`) — `u` ALONG the ribbon at one repeat per
+      `uv_along_m`, `v` ACROSS it as a FRACTION of the half width, scaled to
+      `v_span`. `Road_01_Inst` is a cross-section sheet (asphalt 0-0.53, kerb
+      0.53-0.63, verge 0.63-0.83, sidewalk 0.83-1.0), so its `v` is distance
+      from the crown, not distance travelled. Mapped the default way it sweeps
+      the kerb and sidewalk bands DOWN the street, striping grass across the
+      carriageway every few metres. `v_span` under 0.53 keeps every vertex
+      inside the asphalt band whatever the road's width.
+    """
     if len(pts) < 2 or half_w <= 0.0:
         return None
     left, right = _mitre_offsets(pts, half_w)
@@ -292,11 +574,76 @@ def _make_ribbon(stage, path, pts, half_w, z, ssf, uv_scale, color, mat=""):
         idx.extend([a, a + 1, a + 3, a + 2])
     cum = sn._cumulative(pts)
     uvs = []
-    for i in range(len(pts)):
-        v = cum[i] / max(uv_scale, 1e-6)
-        uvs.append(Gf.Vec2f(0.0, v))
-        uvs.append(Gf.Vec2f(2.0 * half_w / max(uv_scale, 1e-6), v))
+    if uv_along_m > 0.0:                       # trim sheet: u along, v across
+        for i in range(len(pts)):
+            u = cum[i] / uv_along_m
+            uvs.append(Gf.Vec2f(u, v_span))    # left edge
+            uvs.append(Gf.Vec2f(u, 0.0))       # crown side
+    else:                                      # tileable swatch: u across
+        for i in range(len(pts)):
+            v = cum[i] / max(uv_scale, 1e-6)
+            uvs.append(Gf.Vec2f(0.0, v))
+            uvs.append(Gf.Vec2f(2.0 * half_w / max(uv_scale, 1e-6), v))
     return _define_mesh(stage, path, verts, counts, idx, uvs, color, mat)
+
+
+def _clip_halfplane(poly, a, b):
+    """Sutherland-Hodgman: the part of *poly* left of the directed line a->b."""
+    if not poly:
+        return []
+    def side(p):
+        return ((b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]))
+    out = []
+    n_pts = len(poly)
+    for i in range(n_pts):
+        cur, nxt = poly[i], poly[(i + 1) % n_pts]
+        sc, sx = side(cur), side(nxt)
+        if sc >= 0.0:
+            out.append(cur)
+        # The intersection has to be emitted on EITHER crossing direction.
+        # Testing only one of them drops half the cut edges and silently
+        # shrinks the result — it measured 2875 m2 against an expected 5950.
+        if (sc >= 0.0) != (sx >= 0.0):
+            t = sc / (sc - sx) if abs(sc - sx) > 1e-12 else 0.0
+            out.append((cur[0] + t * (nxt[0] - cur[0]),
+                        cur[1] + t * (nxt[1] - cur[1])))
+    return out
+
+
+def polygon_minus_convex(poly, hole):
+    """*poly* with a CONVEX *hole* removed, as a list of polygons.
+
+    Cutting a pool into the lawn needs a real subtraction: the water sits below
+    grade, so without a hole the grass simply draws over it and the pool is
+    invisible from above. Raising the water instead would make it a puddle
+    sitting ON the lawn.
+
+    The partition is the standard one for a convex hole — for each hole edge i,
+    take the part of the polygon OUTSIDE edge i but INSIDE edges 0..i-1. Those
+    pieces tile the difference exactly, with no overlap and no T-junctions,
+    which a naive "clip to each edge and union" does not.
+    """
+    hole = list(hole)
+    if len(hole) < 3:
+        return [poly]
+    # orient the hole counter-clockwise so "inside" is consistently left
+    area = sum(hole[i][0] * hole[(i + 1) % len(hole)][1]
+               - hole[(i + 1) % len(hole)][0] * hole[i][1]
+               for i in range(len(hole)))
+    if area < 0:
+        hole = hole[::-1]
+    pieces, n = [], len(hole)
+    for i in range(n):
+        a, b = hole[i], hole[(i + 1) % n]
+        piece = _clip_halfplane(poly, b, a)          # OUTSIDE edge i
+        for j in range(i):
+            c, d = hole[j], hole[(j + 1) % n]
+            piece = _clip_halfplane(piece, c, d)     # inside the earlier ones
+            if not piece:
+                break
+        if len(piece) >= 3:
+            pieces.append(piece)
+    return pieces or [poly]
 
 
 def _make_polygon(stage, path, poly, z, ssf, uv_scale, color, mat=""):
@@ -439,6 +786,7 @@ def apply_park_ground(stage, config, park, gnd, ssf, mats):
 
 
 def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
+                 pool_rects=None,
                  park=None):
     """Asphalt ribbons, block grass, driveways and centreline dashes."""
     roads_cfg = config.get("roads", {}) or {}
@@ -469,6 +817,15 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
         return p
 
     asphalt_mat, grass_mat = _load_mat("asphalt"), _load_mat("grass")
+    # A SECOND road surface, mixed with the first. `asphalt_road_tile` is the
+    # ModularNeighborhood road material — a cross-section trim sheet, so it
+    # needs the trim-sheet UVs above; the original is a plain tileable swatch.
+    # Mixing them per street is what stops a whole suburb reading as one
+    # resurfacing job. Falls back to the original if the set doesn't name it.
+    asphalt_alt = _load_mat("asphalt_road_tile")
+    ROAD_TRIM_REPEAT_M = 8.0    # the tile is 16 m long over u = 0..2
+    ROAD_TRIM_V = 0.50          # asphalt band ends at 0.53; stay inside it
+    alt_share = float(roads_cfg.get("road_tile_share", 0.5)) if asphalt_alt else 0.0
     # THREE GROUNDS, NOT ONE. A single grass made undeveloped land render as
     # mown lawn that nobody had built on, which is the opposite of what the
     # sparseness is for: unplatted ground has to LOOK unplatted or leaving it
@@ -489,31 +846,63 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
                         -0.005, uv_grass, ssf, display_color=(0.24, 0.36, 0.17),
                         mat_prim_path=rough_mat)
 
-    n_road = 0
+    n_road = n_road_alt = 0
+    # Per STREET, not per segment: a road that changes surface halfway along
+    # reads as a patch job. `e.id` keeps the choice stable across rebuilds.
     for e in net.edges.values():
         if e.road_class == "boundary":
             continue
-        if _make_ribbon(stage, f"{gnd}/road_{e.id}", e.pts, e.half_w,
-                        _Z_ASPHALT, ssf, uv_asphalt, (0.15, 0.15, 0.15),
-                        asphalt_mat) is not None:
+        use_alt = alt_share > 0.0 and (hash(("road_surf", e.id)) % 1000) / 1000.0 < alt_share
+        if use_alt:
+            ok = _make_ribbon(stage, f"{gnd}/road_{e.id}", e.pts, e.half_w,
+                              _Z_ASPHALT, ssf, uv_asphalt, (0.15, 0.15, 0.15),
+                              asphalt_alt, uv_along_m=ROAD_TRIM_REPEAT_M,
+                              v_span=ROAD_TRIM_V)
+        else:
+            ok = _make_ribbon(stage, f"{gnd}/road_{e.id}", e.pts, e.half_w,
+                              _Z_ASPHALT, ssf, uv_asphalt, (0.15, 0.15, 0.15),
+                              asphalt_mat)
+        if ok is not None:
             n_road += 1
+            n_road_alt += 1 if use_alt else 0
 
     bulb_r = float(sn.DEFAULTS["bulb_radius_m"])
     n_bulb = 0
     for e in net.edges.values():
         if e.street_type != "lollipop":
             continue
+        # ALWAYS the tileable swatch. `_make_disc` maps UVs planar off world
+        # x/y, so a cross-section trim sheet would sweep verge and sidewalk
+        # across the turnaround. Mixing surfaces is fine; mixing UV conventions
+        # on a shape that cannot express the second one is not.
         _make_disc(stage, f"{gnd}/bulb_{e.id}", e.pts[-1], bulb_r,
                    _Z_ASPHALT, ssf, uv_asphalt, (0.15, 0.15, 0.15), asphalt_mat)
         n_bulb += 1
 
     n_grass = n_rough = 0
+    n_cut = 0
     for i, b in enumerate(blocks):
         wild = bool(b.get("undeveloped"))
         col = (0.26, 0.34, 0.16) if wild else (0.2, 0.5, 0.1)
-        if _make_polygon(stage, f"{gnd}/grass_{i}", b["poly"], _Z_GRASS, ssf,
-                         uv_grass, col,
-                         rough_mat if wild else grass_mat) is not None:
+        # Subtract any pool whose rectangle lands on this block, so the lawn has
+        # a hole to see the water through rather than a sheet over the top.
+        parts = [b["poly"]]
+        for rect in (pool_rects or ()):
+            nxt = []
+            for q in parts:
+                cut = polygon_minus_convex(q, rect)
+                if len(cut) > 1 or (len(cut) == 1 and cut[0] is not q):
+                    n_cut += 1 if len(cut) > 1 else 0
+                nxt += cut
+            parts = nxt
+        ok = False
+        for k, q in enumerate(parts):
+            suffix = "" if len(parts) == 1 else f"_{k}"
+            if _make_polygon(stage, f"{gnd}/grass_{i}{suffix}", q, _Z_GRASS,
+                             ssf, uv_grass, col,
+                             rough_mat if wild else grass_mat) is not None:
+                ok = True
+        if ok:
             n_grass += 1
             n_rough += 1 if wild else 0
 
@@ -587,14 +976,15 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
             continue
         _paint_stop_bar(stage, f"{gnd}/stopbar_{node.id}_{e.id}",
                         sn.point_at(pts, s), sn.tangent_at(pts, s),
-                        e.half_w, ssf, _Z_DASH)
+                        e.half_w, ssf, _Z_STOPBAR)
         n_stop += 1
 
     if park is not None:
         apply_park_ground(stage, config, park, gnd, ssf,
                           (asphalt_mat, grass_mat, park_grass_mat, dirt_mat))
 
-    print(f"[suburb_scene] ground: {n_road} road ribbons, {n_bulb} turnarounds, "
+    print(f"[suburb_scene] ground: {n_road} road ribbons "
+          f"({n_road_alt} on the road tile), {n_bulb} turnarounds, "
           f"{n_grass} block meshes ({n_rough} rough/undeveloped), "
           f"{n_drive} driveways")
     print(f"[suburb_scene] markings: {n_dash} centreline dashes on collectors "
@@ -640,11 +1030,12 @@ class AssetPools:
     def load_tagged(self, raw, tag):
         """Only the entries carrying *tag*.
 
-        `lot_fences` holds two incompatible halves: a 0.99 m rail tagged "low"
-        for a street boundary and a 1.89 m close-board panel tagged "privacy"
-        for a rear one. US codes cap a front fence at 3.5 ft against 6-8 ft
-        rear, so drawing from the whole pool puts a privacy panel along the
-        kerb.
+        A tag is a CAPABILITY, not a sub-pool. In `lot_fences`, "privacy" means
+        an entry may fence a lot boundary at all and "low" additionally means it
+        is short enough for a front yard — US codes cap a front fence at 3.5 ft
+        against 6-8 ft rear — so most entries carry both and the pools overlap
+        on purpose. Reading them as two disjoint halves is what gave one house
+        a picket down its side and a railing across its front.
         """
         paths, sc, au, yo, tags = sg._normalize_usd_list(
             raw, self.asset_scale, self.asset_root)
@@ -737,6 +1128,14 @@ def _park_placements(config, resolver, park, rng, pools):
             cache[key] = pools.load(_raw_pool(config, key))
         return cache[key]
 
+    # BENCH YAW. `shared.yaml` carries `yaw-offset: -90` on the bench art, and
+    # the urban pass DISCARDS the +-90 part of any such offset on purpose —
+    # `city_detail._prop_yaw` derives that quarter turn from the measured
+    # footprint instead, since a bench's long axis is not a matter of opinion.
+    # This pass applies the offset verbatim, so every bench came out a quarter
+    # turn from where urban puts it. Cancel it back out.
+    _BENCH_FIX = {"bench": 90.0}
+
     for pr in park["props"]:
         spec = _PARK_POOLS.get(pr["kind"])
         if spec is None:
@@ -756,7 +1155,8 @@ def _park_placements(config, resolver, park, rng, pools):
         u = (pool[pr["variant"] % len(pool)] if "variant" in pr
              else pool[rng.randrange(len(pool))])
         out.append(pools.place(resolver, u, spec[1], pr["c"][0], pr["c"][1],
-                               pr.get("yaw", 0.0), rng))
+                               pr.get("yaw", 0.0) + _BENCH_FIX.get(spec[1], 0.0),
+                               rng))
 
     # Fence panels: one asset per panel, yawed along its run.
     fence = pool_for("park_fence")
@@ -812,12 +1212,17 @@ def build_frontage(config, resolver, net, blocks, rng, pools):
     walk = pools.load(walk_raw)
     lamps = pools.load(_raw_pool(config, "streetlights"))
     hyd = pools.load(_raw_pool(config, "fire_hydrants"))
+    # KERBSIDE bins only. The modular kit has a bin of its own, but one parked
+    # on every driveway reads as bin day, not as a street; these are the
+    # scene's own `trash_cans` and they go on the verge rhythm with the lamps.
+    bins = pools.load(_raw_pool(config, "trash_cans"))
 
     def spacing(key, default):
         return float((cats.get(key) or {}).get("spacing_m", default) or 0.0)
 
     lamp_sp = spacing("streetlights", 120.0)
     hyd_sp = spacing("fire_hydrants", 240.0)
+    bin_sp = spacing("trash_cans", 190.0)
 
     out = []
     if walk:
@@ -870,7 +1275,8 @@ def build_frontage(config, resolver, net, blocks, rng, pools):
 
         # -- lamps and hydrants, on their own rhythm along the verge -------
         for pool, sp_m, cat in ((lamps, lamp_sp, "streetlight"),
-                                (hyd, hyd_sp, "fire_hydrant")):
+                                (hyd, hyd_sp, "fire_hydrant"),
+                                (bins, bin_sp, "trash_can")):
             if not pool or sp_m <= 0.0:
                 continue
             s = rng.uniform(0.0, sp_m)
@@ -931,8 +1337,275 @@ def build_signs(config, resolver, net, rng, pools):
         # Sign faces back down its own approach, at the driver.
         yaw = math.degrees(math.atan2(-t[1], -t[0]))
         out.append(pools.place(resolver, u, "sign", q[0], q[1], yaw, rng))
-    print(f"[suburb_scene] signs: {len(out)} stop signs")
+    # ---- street-name blades ------------------------------------------------
+    # There was NO placement pass for these at all: the pool resolves fine (two
+    # entries on the suburban set) and `city_detail` puts one on every junction
+    # corner downtown, but nothing in the graph suburb ever read it, so the
+    # street names were simply absent. One blade per junction of degree >= 3,
+    # on the far kerb of the first arm so it does not share a post with the
+    # stop sign already standing on the near one.
+    blades = pools.load(_raw_pool(config, "signs_street_name"))
+    n_blade = 0
+    if blades:
+        seen = set()
+        for node in net.nodes.values():
+            if node.road_degree(net) < 3 or node.id in seen:
+                continue
+            arms = [net.edges[eid] for eid in node.edges
+                    if net.edges[eid].road_class != "boundary"]
+            if not arms:
+                continue
+            seen.add(node.id)
+            e = arms[0]
+            pts = _arm_pts(net, node, e)
+            if sn.polyline_length(pts) < 6.0:
+                continue
+            at = min(5.0, sn.polyline_length(pts) - 1.0)
+            p = sn.point_at(pts, at)
+            t = sn.tangent_at(pts, at)
+            # Opposite kerb from the stop sign: negate the left normal.
+            q = sn._add(p, sn._mul(sn._perp(t), -(e.half_w + 1.2)))
+            u = blades[rng.randrange(len(blades))]
+            # A blade is read from the cross street, so it stands square to this
+            # arm — the same quarter turn `city_detail`'s _TRAFFIC mode applies.
+            yaw = math.degrees(math.atan2(-t[1], -t[0])) + 90.0
+            out.append(pools.place(resolver, u, "sign", q[0], q[1], yaw, rng))
+            n_blade += 1
+    print(f"[suburb_scene] signs: {len(out) - n_blade} stop signs, "
+          f"{n_blade} street-name blades")
     return out
+
+
+# ---------------------------------------------------------------------------
+# lot fences
+# ---------------------------------------------------------------------------
+# FRONT-YARD HEIGHT CAP. Every US fence ordinance that caps height at all caps
+# the front yard at 3.5-4 ft and the side/rear at 6-8 ft; 1.22 m is 4 ft, the
+# permissive end of that. A house draws ONE asset for its whole perimeter (see
+# `_fence_pick` below), so this is the rule that decides whether that asset may
+# also close the front: a 1.9 m close-board panel along the kerb reads as a
+# compound, not a suburb. Houses whose asset is over the cap simply get an open
+# front yard, which is the defining feature of post-war American suburbia and
+# not a compromise.
+_FRONT_FENCE_MAX_H_M = 1.22
+
+# HOW FAR A FENCE MODULE MUST CLEAR THE CARRIAGEWAY. `build_frontage` uses
+# 0.3 m for an upright prop — "it must clear the kerb, not touch it" — and a
+# module is placed by its CENTRE, so half its own thickness hangs past the point
+# being tested. The thickest module in the shipped pool is the 0.33 m park
+# railing, so 0.3 + 0.17 = 0.5 m is that same rule applied to a thing with width.
+_FENCE_ROAD_MARGIN_M = 0.5
+
+
+def _fence_module(resolver, pools, usd):
+    """``(length, thickness, height)`` of one fence module, in metres.
+
+    Which measured axis runs ALONG the fence depends on the entry's yaw-offset:
+    the park railing is authored running +Y with `yaw-offset: 90`, and reading
+    sx for it would take the 0.33 m rail THICKNESS as the module length and lay
+    it forty times over.
+    """
+    fp = resolver.get(usd, "fence", scale=pools.scale_of(usd),
+                      axis_up=pools.axis_of(usd))
+    turned = abs((pools.yaw_of(usd) % 180.0) - 90.0) < 45.0
+    return (max(0.3, float(fp["sy"] if turned else fp["sx"])),
+            max(0.02, float(fp["sx"] if turned else fp["sy"])),
+            float(fp.get("sz") or 0.0))
+
+
+def _fence_box(x, y, yaw_deg, length, thick):
+    """One module as its true oriented rectangle, for the overlap test."""
+    a = math.radians(yaw_deg)
+    return sp._corners(x, y, length, thick, math.cos(a), math.sin(a))
+
+
+class _FenceGrid:
+    """Fence modules already standing, hashed by cell: "is this ground taken?".
+
+    TWO WAYS A FENCE CAN BE IN ANOTHER FENCE, and they need different tests.
+
+    CROSSING. Tested against a HAIRLINE CORE of each module rather than its full
+    box, and that is the whole trick. Two runs that meet at a lot corner
+    necessarily interpenetrate by half a panel thickness — that is a mitre, and
+    the render wants it. Two runs that CROSS interpenetrate along their length.
+    Shrinking both boxes to a 2 cm ribbon that is also 2 cm short at each end
+    separates the first case (they touch at a point) from the second (the
+    ribbons still cross) with no threshold to tune.
+
+    DOUBLING — two fences down one boundary, a metre apart. The cores never
+    touch, so the crossing test is blind to it, and it is most of what the eye
+    reads as "the fences overlap": measured on seed 3, 106 modules. Its cause is
+    two neighbours platting the shared side line from their own frontage
+    stations, so it is caught upstream by `suburb_parcel._line_dupe` — but that
+    is a tolerance on a heuristic, and this is the hard guarantee underneath it.
+    Near-parallel, closer than a side yard could ever be, and actually
+    overlapping along the line, all three.
+    """
+
+    _CORE_M = 0.02
+    # Lateral clearance below which two parallel fences are one fence drawn
+    # twice. The narrowest gap between two genuinely different lot boundaries is
+    # a side yard, and `house_gap_m` is 6 m; 1.2 m is `_line_dupe`'s own
+    # tolerance, so the two passes agree on what "the same boundary" means.
+    _DOUBLE_M = 1.2
+    _DOUBLE_COS = 0.985                    # 10 degrees
+    _DOUBLE_OVERLAP_M = 0.5
+
+    def __init__(self, cell=8.0):
+        self.cell = float(cell)
+        self.cells = {}
+
+    def _core(self, x, y, yaw_deg, length):
+        return _fence_box(x, y, yaw_deg, max(0.1, length - 2 * self._CORE_M),
+                          self._CORE_M)
+
+    def _keys(self, box):
+        x0 = min(q[0] for q in box); x1 = max(q[0] for q in box)
+        y0 = min(q[1] for q in box); y1 = max(q[1] for q in box)
+        for gx in range(int(math.floor(x0 / self.cell)),
+                        int(math.floor(x1 / self.cell)) + 1):
+            for gy in range(int(math.floor(y0 / self.cell)),
+                            int(math.floor(y1 / self.cell)) + 1):
+                yield (gx, gy)
+
+    def _entry(self, x, y, yaw_deg, length):
+        a = math.radians(yaw_deg)
+        ux, uy = math.cos(a), math.sin(a)
+        h = length / 2.0
+        return (self._core(x, y, yaw_deg, length), x, y, ux, uy, h,
+                (x - ux * h, y - uy * h), (x + ux * h, y + uy * h))
+
+    def _reach_box(self, x, y, yaw_deg, length):
+        """The module grown by the doubling reach on every side.
+
+        BOTH the query and the registration use this, and they have to: the
+        doubling test looks sideways, so a module registered only under the
+        cells its 2 cm core crosses is invisible to a query from the next cell
+        over. Measured, that asymmetry let 2 doubled modules a seed through.
+        """
+        return _fence_box(x, y, yaw_deg, length + 2 * self._DOUBLE_M,
+                          2 * self._DOUBLE_M)
+
+    def free(self, x, y, yaw_deg, length):
+        me = self._entry(x, y, yaw_deg, length)
+        seen = set()
+        for k in self._keys(self._reach_box(x, y, yaw_deg, length)):
+            for other in self.cells.get(k, ()):
+                if id(other) in seen:
+                    continue
+                seen.add(id(other))
+                if sp._obb_overlap(me[0], other[0]):
+                    return False
+                if abs(me[3] * other[3] + me[4] * other[4]) < self._DOUBLE_COS:
+                    continue
+                dx, dy = other[1] - me[1], other[2] - me[2]
+                if (me[5] + other[5] - abs(dx * me[3] + dy * me[4])
+                        <= self._DOUBLE_OVERLAP_M):
+                    continue
+                # SEGMENT DISTANCE, not the perpendicular offset in one
+                # module's frame. Two panels 6 degrees apart measure 1.14 m
+                # apart from one and 1.26 m from the other, so a frame-relative
+                # test accepts or rejects the same pair depending on which one
+                # was laid first — and 2 doubled modules a seed slipped through
+                # on exactly that. The distance between the two centre lines is
+                # symmetric, and where they overlap along the line (which the
+                # test above has just established) it IS the offset.
+                if sn.seg_seg_dist(me[6], me[7], other[6],
+                                   other[7]) < self._DOUBLE_M:
+                    return False
+        return True
+
+    def add(self, x, y, yaw_deg, length):
+        e = self._entry(x, y, yaw_deg, length)
+        for k in self._keys(self._reach_box(x, y, yaw_deg, length)):
+            self.cells.setdefault(k, []).append(e)
+
+
+# WHICH FENCE A HOUSE GETS, weighted toward a full-height panel. A fenced US
+# back yard is a 6 ft wood or chain-link fence; a 3 ft picket or rail right
+# round a lot is real but is the minority case, and 3:1 is what keeps it one.
+_FENCE_TALL_WEIGHT = 3.0
+
+
+def _fence_pick(pool, mods, segs, rng):
+    """The ONE asset this house fences its whole perimeter with.
+
+    DRAWN, NOT SCORED, and that is the correction worth recording. Scoring the
+    candidates on how exactly they tile the boundaries picks the SHORTEST module
+    essentially every time — a 2 m picket divides an arbitrary length better
+    than a 5.5 m panel — which put 8,872 of 9,225 modules on one asset: a
+    monotonous suburb rather than a fixed one. So tiling only decides whether an
+    asset CAN serve this house at all, and the choice among the survivors is a
+    weighted draw.
+
+    "Can serve" is counted over the runs the asset would actually DRAW: a panel
+    over the front-yard height cap skips the front runs by design, and must not
+    be marked down for failing to tile something it was never going to lay.
+    """
+    if not pool:
+        return None
+    best, cands = None, []
+    for cand in pool:
+        mod_len, _th, mod_h = mods[cand]
+        todo = [s for s in segs
+                if not (s[2] == "low" and mod_h > _FRONT_FENCE_MAX_H_M)]
+        miss = sum(1 for (a, b, _t) in todo if not _fence_run(a, b, mod_len))
+        if best is None or miss < best:
+            best, cands = miss, [cand]
+        elif miss == best:
+            cands.append(cand)
+    w = [(_FENCE_TALL_WEIGHT if mods[c][2] > _FRONT_FENCE_MAX_H_M else 1.0)
+         for c in cands]
+    t = rng.random() * sum(w)
+    for c, wi in zip(cands, w):
+        t -= wi
+        if t <= 0.0:
+            return c
+    return cands[-1]
+
+
+def _trim_offroad(p0, p1, road, margin, step=0.75):
+    """The longest stretch of p0->p1 that clears the carriageway, or ``None``.
+
+    A POSITIVE test against the centrelines, for the reason :class:`_RoadIndex`
+    gives: the block polygon is nominally the kerb but bulges over it wherever
+    `offset_polygon` hit its mitre limit, and a lot line is a straight chord
+    across a face that curves — at an outside corner it leaves the block
+    entirely. Measured on seed 3, 1,056 of 4,877 fence modules (22%) stood
+    inside a carriageway with the front lot line taken at face value.
+
+    LONGEST STRETCH, not "trim both ends": if the middle of a run is on asphalt
+    then the run crosses a road, and trimming the ends would leave it crossing.
+    Sampled at *step* and then shrunk by half a step on each cut end, because
+    the real kerb crossing lies between two samples and the conservative guess
+    is the one that keeps the fence off the road.
+    """
+    dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+    ln = math.hypot(dx, dy)
+    if ln < 1.0:
+        return None
+    ux, uy = dx / ln, dy / ln
+    n = max(2, int(math.ceil(ln / step)) + 1)
+    ok = [not road.on_road((p0[0] + ux * ln * i / (n - 1),
+                            p0[1] + uy * ln * i / (n - 1)), margin)
+          for i in range(n)]
+    best = run = None
+    for i, good in enumerate(ok + [False]):
+        if good:
+            run = (i, i) if run is None else (run[0], i)
+        elif run is not None:
+            if best is None or run[1] - run[0] > best[1] - best[0]:
+                best = run
+            run = None
+    if best is None:
+        return None
+    half = 0.5 * ln / (n - 1)
+    t0 = ln * best[0] / (n - 1) + (half if best[0] > 0 else 0.0)
+    t1 = ln * best[1] / (n - 1) - (half if best[1] < n - 1 else 0.0)
+    if t1 - t0 < 1.0:
+        return None
+    return ((p0[0] + ux * t0, p0[1] + uy * t0),
+            (p0[0] + ux * t1, p0[1] + uy * t1))
 
 
 def _fence_run(p0, p1, mod_len, min_fit=0.60, max_fit=1.15):
@@ -974,75 +1647,219 @@ def _fence_run(p0, p1, mod_len, min_fit=0.60, max_fit=1.15):
             for i in range(n)]
 
 
-def build_open_planting(config, resolver, net, blocks, rng, pools):
-    """Trees on the land the plat never built on.
+# Placement categories that OCCUPY GROUND, i.e. that the infill has to keep
+# clear of. Houses and fences are absent on purpose: both stand inside a lot
+# rectangle, which is a keep-out in its own right, and one modular house is ~28
+# placements — seeding them would treble the grid to re-answer a question the
+# lot test has already answered.
+_GROUND_OCCUPANTS = frozenset((
+    "tree", "plant", "streetlight", "fire_hydrant", "sign", "bench",
+    "trash_can", "bike_rack", "play_structure", "park_feature", "sidewalk",
+))
 
-    Undeveloped parcels came out as bare mown ground, which reads as a block
-    somebody forgot to build on rather than as land never platted. Unbuilt
-    suburban land is wooded, and planting it is the other half of the rough
-    grass — texture alone does not do it.
 
-    From `trees` (open-space pool, big specimens) at woodland spacing. Roads may
-    cross this land, so candidates are tested against the carriageway.
+def build_open_planting(config, resolver, net, blocks, rng, pools,
+                        parcels=(), info=None, existing=(), pool_rects=(),
+                        park_rect=None):
+    """Trees on every piece of ground the plat left bare.
+
+    THREE KINDS OF BARE GROUND, and this pass used to see only the first:
+
+      undeveloped blocks   land never platted — drainage reserve, woodland, a
+                           phase not sold. `suburb_net` flags them and
+                           `apply_ground` gives them rough grass; without trees
+                           that reads as a block somebody forgot to build on
+                           rather than as land nobody ever built on.
+
+      block interiors      the leftover inside a DEVELOPED block. Lots run
+                           `lot_depth` (26-38 m) in from their frontage while
+                           the median block is 2.8 ha, so on the big ones the
+                           middle is out of every lot's reach: measured on the
+                           shipped preset at seed 3, 125.1 ha of developed
+                           block holding 77.2 ha of platted lot — 47.9 ha of
+                           mown grass behind the back fences, with nothing
+                           standing on it at all.
+
+      the park surround    THE ONE THE EYE GOES TO, and the one that was
+                           invisible to every pass in the file. `suburb_park`
+                           plans its content into the park RECT, but the park's
+                           real extent is `info["park"]["poly"]`: the rect,
+                           plus the `park_pad_m` verge and the frame's ring
+                           offset, plus every undeveloped parcel
+                           `_merge_open_land` folded into it. And a merged
+                           parcel STOPS BEING A BLOCK — `blocks_from_faces`
+                           declines to emit it because its face now covers the
+                           reserve — so it carries no `undeveloped` flag, is in
+                           no `blocks` list, and nothing could find it. That is
+                           the empty area adjoining the park. At seed 3 it is
+                           one parcel of 4.4 ha, against a 12.6 ha park — a
+                           third as much again of the park's own ground,
+                           bare.
+
+    A STRATIFIED GRID, NOT A DART BOARD. The old pass threw `want * 12` uniform
+    darts at a bounding box and stopped when it had enough, which fills a
+    polygon on average and not in fact: the accepted points clump, and the
+    holes it leaves are exactly the "empty spaces with nothing in them". One
+    dart per cell of a `sqrt(100 / rate)` grid, jittered anywhere inside its own
+    cell, covers the region by construction while still reading as planting
+    rather than as an orchard — and where the first dart lands on a lot or a
+    road there are `darts` more tries within the same cell, so tight ground
+    still gets its tree instead of a gap.
+
+    KEEP-OUTS, all of them already computed by somebody else:
+      roads      `_RoadIndex` — the centrelines, because a block polygon can
+                 bulge over the carriageway (see its docstring)
+      turnarounds the lollipop bulb discs, which the centreline test cannot see
+      lots       every `lot_corners` rectangle: house, drive, garage, pool and
+                 yard planting all live inside one, and `suburb_yardplan` owns
+                 that ground
+      pools      the rectangles `build_placements` cut out of the lawn
+      park       the park rect, when its content was built into it
+      standing   everything already placed, via `_GROUND_OCCUPANTS`
+
+    Size comes from the same `_size_t` ramp `build_placements` uses, so a tree
+    just over a back fence is a 4 m Beech and one in the middle of the reserve
+    is a 25 m Black_Oak. Measured over the shipped preset at seed 3: 2,109
+    trees before, 4,726 after — 2,037 on undeveloped blocks, 2,300 in block
+    interiors, 389 around the park — and the share of open ground (sampled on a
+    4 m grid, off the road and out of the houses) within 15 m of a tree goes
+    75.4% -> 96.1%. Nothing lands on a road, a lot, a house, a pool or the park
+    rect at seeds 1, 3, 7 and 12.
     """
-    pool = pools.load(_raw_pool(config, "trees"))
-    open_blocks = [b for b in blocks if b.get("undeveloped")]
-    if not pool or not open_blocks:
+    pc = _planting_cfg(config)
+    cpool = _CanopyPool(resolver, pools, pools.load(_raw_pool(config, "trees")),
+                        band=pc["band"])
+    if not len(cpool):
         return []
 
-    cfg = config.get("suburb_parcel") or {}
-    per_100 = float(cfg.get("open_trees_per_100m2", 0.85) or 0.0)
-    min_gap = float(cfg.get("open_tree_gap_m", 6.0) or 6.0)
-    if per_100 <= 0.0:
+    # -- what to plant, and how thickly ------------------------------------
+    regions = []                     # (poly, trees per 100 m2, tag)
+    for b in blocks:
+        if b.get("undeveloped"):
+            regions.append((b["poly"], pc["open_rate"], "undeveloped"))
+    for p in parcels:
+        regions.append((p["block"], pc["fill_rate"], "interior"))
+    pinfo = (info or {}).get("park") or {}
+    if pinfo.get("poly") and len(pinfo["poly"]) >= 3:
+        regions.append((pinfo["poly"], pc["open_rate"], "park"))
+    if not regions:
         return []
 
+    # -- what not to plant on ----------------------------------------------
     road = _RoadIndex(net)
-    out, n_road, n_close = [], 0, 0
-    for b in open_blocks:
-        poly = b["poly"]
-        area = abs(sn.polygon_area(poly))
-        want = int(area / 100.0 * per_100)
-        if want <= 0:
+    bulb_r = float((config.get("suburb_net") or {}).get(
+        "bulb_radius_m", sn.DEFAULTS["bulb_radius_m"]))
+    bulbs = [e.pts[-1] for e in net.edges.values()
+             if e.street_type == "lollipop"]
+    bulb_idx = _Occupancy(cell=max(bulb_r + pc["clear_m"], 1.0))
+    for q in bulbs:
+        bulb_idx.add(q)
+    houses = [h for p in parcels for h in p["houses"]]
+    house_idx = _ObbIndex([_house_box(h) for h in houses],
+                          reach=max(pc["far_m"], pc["near_m"]) + 1.0)
+    # LOTS AND POOL HOLES IN ONE INDEX. A pool always sits in the rear yard of
+    # the lot that ordered it, so the lot rectangle covers it already — but the
+    # index costs nothing extra and a caller that hands over holes from
+    # somewhere else still gets them honoured.
+    keepout = [b for b in (_rect_box(h.get("lot_corners")) for h in houses)
+               if b is not None]
+    keepout += [b for b in (_rect_box(r) for r in (pool_rects or ()))
+                if b is not None]
+    lot_idx = _ObbIndex(keepout, reach=max(20.0, pc["clear_m"] + 1.0))
+    # TWO GRIDS, TWO RADII. What is already standing only has to be cleared —
+    # `clear_m`, a small crown radius — while two trees from THIS pass owe each
+    # other the full `gap_m`. One grid at the larger radius would hold new
+    # planting six metres off every sidewalk tile on an undeveloped frontage,
+    # and would not be able to say which rule refused a candidate.
+    standing = _Occupancy(cell=max(pc["clear_m"], 1.0))
+    for q in (existing or ()):
+        if q.get("category") in _GROUND_OCCUPANTS:
+            standing.add((q["x_m"], q["y_m"]))
+    mine = _Occupancy(cell=max(pc["gap_m"], 1.0))
+
+    def blocked(q):
+        """Why *q* cannot take a tree, or None."""
+        if road.on_road(q, margin=min(1.5 + pc["clear_m"], 6.0)):
+            return "road"
+        if bulb_idx.near(q, bulb_r + pc["clear_m"]):
+            return "road"
+        if lot_idx.nearest(q) <= pc["clear_m"]:
+            return "lot"
+        # THE HOUSE TOO, not just its lot. A garage wing is allowed to sit on or
+        # over the side lot line, and a lot's front half-width is chord-clamped
+        # on a curving frontage — so a footprint can stick out past the
+        # rectangle it was granted. Measured before this test went in: 22 trees
+        # a seed standing inside a house that no lot rectangle covered.
+        if house_idx.nearest(q) <= pc["clear_m"]:
+            return "lot"
+        if park_rect is not None and _in_rect(q, park_rect, pc["clear_m"]):
+            return "park"
+        if standing.near(q, pc["clear_m"]):
+            return "standing"
+        if mine.near(q, pc["gap_m"]):
+            return "spacing"
+        return None
+
+    out = []
+    tally = {}
+    why = {}
+    for (poly, rate, tag) in regions:
+        if rate <= 0.0:
             continue
-        xs = [p[0] for p in poly]
-        ys = [p[1] for p in poly]
-        # Grid keyed at the rejection radius: O(1) per candidate instead of
-        # O(n), which matters at thousands of trees per reserve.
-        cell = max(min_gap, 1.0)
-        grid = {}
-        placed = 0
-        for _ in range(want * 12):
-            if placed >= want:
-                break
-            q = (rng.uniform(min(xs), max(xs)), rng.uniform(min(ys), max(ys)))
-            if not sn.point_in_polygon(poly, q):
-                continue
-            if road.on_road(q, margin=1.5):
-                n_road += 1
-                continue
-            gx, gy = int(q[0] // cell), int(q[1] // cell)
-            near = False
-            for dx in (-1, 0, 1):
-                for dy in (-1, 0, 1):
-                    for r in grid.get((gx + dx, gy + dy), ()):
-                        if sn._dist(q, r) < min_gap:
-                            near = True
-                            break
-                    if near:
-                        break
-                if near:
+        # Cell side that yields `rate` trees per 100 m2 when every cell takes
+        # one. The grid is anchored on the WORLD, not on the region's bounding
+        # box, so two regions meeting at a street do not double up along it.
+        step = math.sqrt(100.0 / rate)
+        xs = [q[0] for q in poly]
+        ys = [q[1] for q in poly]
+        ix0 = int(math.floor(min(xs) / step))
+        ix1 = int(math.floor(max(xs) / step))
+        iy0 = int(math.floor(min(ys) / step))
+        iy1 = int(math.floor(max(ys) / step))
+        n_here = 0
+        for ix in range(ix0, ix1 + 1):
+            for iy in range(iy0, iy1 + 1):
+                for _ in range(pc["darts"]):
+                    q = ((ix + rng.random()) * step, (iy + rng.random()) * step)
+                    if not sn.point_in_polygon(poly, q):
+                        continue
+                    bad = blocked(q)
+                    if bad is not None:
+                        why[bad] = why.get(bad, 0) + 1
+                        continue
+                    mine.add(q)
+                    u = cpool.draw(rng, _size_t(house_idx.nearest(q),
+                                                pc["near_m"], pc["far_m"]))
+                    out.append(pools.place(resolver, u, "tree", q[0], q[1],
+                                           rng.uniform(0.0, 360.0), rng))
+                    n_here += 1
                     break
-            if near:
-                n_close += 1
-                continue
-            grid.setdefault((gx, gy), []).append(q)
-            u = pool[rng.randrange(len(pool))]
-            out.append(pools.place(resolver, u, "tree", q[0], q[1],
-                                   rng.uniform(0.0, 360.0), rng))
-            placed += 1
-    print(f"[suburb_scene] open land: {len(out)} trees over "
-          f"{len(open_blocks)} undeveloped parcels "
-          f"({n_road} rejected on road, {n_close} for spacing)")
+        tally[tag] = tally.get(tag, 0) + n_here
+    print("[suburb_scene] open planting: %d trees (%s); rejected %s"
+          % (len(out),
+             ", ".join(f"{v} {k}" for k, v in sorted(tally.items())) or "none",
+             ", ".join(f"{v} {k}" for k, v in sorted(why.items())) or "none"))
+    return out
+
+
+def modular_catalogue(config):
+    """The modular-kit styles as catalogue entries, or [] when switched off.
+
+    Same `(w, d)` contract `suburb_parcel` packs against, so the existing lot
+    floor logic sizes the plat around the kit with no special case: the widest
+    style is what sets the minimum lot, exactly as a measured USD would.
+    """
+    if not (config.get("suburb_parcel") or {}).get("modular_houses"):
+        return []
+    from detail import modular_house as mh
+    out = []
+    for style in mh.ORDER:
+        cs = mh.footprint(mh.STYLES[style])
+        xs = [i for i, _ in cs]
+        ys = [j for _, j in cs]
+        out.append({"style": style,
+                    "w": (max(xs) - min(xs) + 1) * mh.CELL_M,
+                    "d": (max(ys) - min(ys) + 1) * mh.CELL_M})
     return out
 
 
@@ -1137,7 +1954,7 @@ def house_catalogue(config, resolver, pools, yaw_off=-90.0):
 
 
 def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
-                     catalogue=None):
+                     catalogue=None, pool_holes_out=None, net=None):
     """Houses, lot furniture and parcel trees, with per-asset corrections.
 
     TWO TREE POOLS, picked on the `kind` stamp `suburb_parcel` already emits.
@@ -1147,14 +1964,45 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
         street / front  ->  `street_trees`, modest crowns only
         back            ->  `trees`, open space, big specimens fine
 
-    `street_trees` falls back to `trees` for sets older than suburban_v2.
+    `street_trees` falls back to `trees` for sets older than the suburban set.
+
+    AND WITHIN EITHER POOL, BY DISTANCE TO THE NEAREST HOUSE WALL. The role
+    split says which pool; it cannot say which end of it. A verge tree beside a
+    house and a verge tree on the frontage of a lot nothing would fit are both
+    "street", and they should not be the same size — so both are drawn through
+    `_CanopyPool` on a `_size_t` ramp off `_ObbIndex`. On the shipped set that
+    is the 3.02 m Douglas_Fir against the 10.29 m Shumard_Oak on the verge, and
+    the 4.09 m Beech against the 25.42 m Black_Oak behind the house.
     """
     houses = pools.load(_raw_pool(config, "buildings", "intact"))
+    n_mod = 0
+    pool_holes = pool_holes_out if pool_holes_out is not None else []
+    mod_share = float((config.get("suburb_parcel") or {})
+                      .get("modular_share", 1.0))
+    pc = _planting_cfg(config)
     open_trees = pools.load(_raw_pool(config, "trees"))
     street_trees = pools.load(_raw_pool(config, "street_trees")) or open_trees
+    open_pool = _CanopyPool(resolver, pools, open_trees, band=pc["band"])
+    street_pool = _CanopyPool(resolver, pools, street_trees, band=pc["band"])
+    # Every house in the SUBURB, not in the block: a tree on the last lot of one
+    # block is metres from the first house of the next one across the street,
+    # and a per-block index would call that open ground.
+    house_idx = _ObbIndex([_house_box(h) for p in parcels for h in p["houses"]],
+                          reach=max(pc["far_m"], pc["near_m"]) + 1.0)
 
-    fence_low = pools.load_tagged(_raw_pool(config, "lot_fences"), "low")
-    fence_priv = pools.load_tagged(_raw_pool(config, "lot_fences"), "privacy")
+    # ONE POOL, NOT TWO. `lot_fences` used to be split into a "low" list for
+    # the front and a "privacy" list for the sides, and a house drew from both —
+    # which is exactly the "some houses have two different fences" defect: on
+    # seed 3, 116 of 224 fenced houses showed two assets. The tags stay, but
+    # they now describe WHAT A MODULE MAY DO rather than which pool it lives in:
+    # every entry that can serve a lot perimeter is tagged "privacy" and goes in
+    # here, and "low" additionally means "short enough for the front yard",
+    # which `_FRONT_FENCE_MAX_H_M` re-derives from the measured height anyway.
+    fence_pool = pools.load_tagged(_raw_pool(config, "lot_fences"), "privacy")
+    fence_mod = {u: _fence_module(resolver, pools, u) for u in fence_pool}
+    fence_taken = _FenceGrid()
+    fence_road = _RoadIndex(net) if net is not None else None
+    n_fence_road = n_fence_clash = 0
 
     out = []
     n_gar = n_fence = 0
@@ -1172,7 +2020,56 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
             if catalogue and h.get("size_index") is not None:
                 ent = catalogue[int(h["size_index"]) % len(catalogue)]
 
-            if ent is None:
+            # A KIT HOUSE COSTS ~28 PRIMS AGAINST A WHOLE-HOUSE USD'S ONE.
+            # The pieces are low-poly, so the point budget is fine (~5M over a
+            # full plat against the 89M that OOM-killed the urban scene), but
+            # 24k un-instanced prims is real composition cost — and they CANNOT
+            # be instanced, because `apply_palette` rebinds subsets inside them
+            # and USD forbids editing inside an instance. `modular_share` is
+            # the dial: 1.0 all kit, 0.0 all whole-house, anything between mixes
+            # them per house on a stable hash.
+            use_mod = (ent is not None and "style" in ent
+                       and (mod_share >= 1.0
+                            or (hash(("mod", p.get("id", 0), h["c"])) % 1000)
+                            / 1000.0 < mod_share))
+            if use_mod:
+                # MODULAR KIT. `build_building` centres the footprint on the
+                # point it is given and faces its front at local -Y, whereas the
+                # whole-house art faces +X — hence the +90. Getting that wrong
+                # turns every house sideways to its own street.
+                from detail import modular_house as mh
+                parts = mh.build_building(ent["style"], h["c"][0], h["c"][1],
+                                          yaw + 90.0, rng, category="house")
+                pal = mh.STYLES[ent["style"]].get("palette")
+                for q in parts:
+                    q["palette"] = pal      # shell only; dressing is the
+                out += parts                # suburb's own job, not the kit's
+                n_mod += 1
+                # The PLOT decides, not the house: `has_pool` comes from the
+                # archetype package, so pools land on the big-lot houses.
+                # Rear space, computed EXACTLY rather than assumed: the lot
+                # runs `lot_depth` inward from its frontage point, and the house
+                # back face sits `dot(c - frontage, n) + d/2` in. Halving
+                # (lot_depth - d) instead understates it by the setback, which
+                # is several metres and is the difference between a pool fitting
+                # and not.
+                fr = h.get("frontage")
+                nn = h.get("n")
+                if fr and nn:
+                    into = ((h["c"][0] - fr[0]) * nn[0]
+                            + (h["c"][1] - fr[1]) * nn[1])
+                    rear = float(h.get("lot_depth", 0.0)) - into - h["d"] / 2.0
+                else:
+                    rear = max(0.0, float(h.get("lot_depth", 0.0))
+                               - float(h.get("d", 0.0))) * 0.5
+                pool, hole = mh.pool_at(ent["style"], h["c"][0], h["c"][1],
+                                        yaw + 90.0,
+                                        force=bool(h.get("has_pool")),
+                                        rear_m=rear)
+                if pool:
+                    out += pool
+                    pool_holes.append(hole)
+            elif ent is None or "style" in ent:
                 # No measurement, so no wing: without the two centroids there is
                 # no way to place it beside its parent rather than inside it.
                 u = houses[rng.randrange(len(houses))]
@@ -1215,47 +2112,81 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
                     out.append(pools.place(resolver, ent["addon"], "house",
                                            ax, ay, yaw, rng))
                     n_gar += 1
-            for (a, b, tag) in (h.get("fence_segs") or ()):
-                pool_f = fence_priv if tag == "privacy" else fence_low
-                if not pool_f:
-                    continue
-                # PICK THE MODULE THAT DIVIDES THIS RUN. The "low" pool holds a
-                # 5.28 m railing and a 2.0 m picket; which tiles a boundary
-                # without squeezing depends on its length, and lots now run from
-                # 16 m to 48 m.
-                best = None
-                for uf in pool_f:
-                    fp = resolver.get(uf, "fence", scale=pools.scale_of(uf),
-                                      axis_up=pools.axis_of(uf))
-                    # Which measured axis runs ALONG the fence depends on the
-                    # entry's yaw-offset: the park railing is authored running
-                    # +Y with `yaw-offset: 90`, and reading sx for it would
-                    # take the 0.33 m rail THICKNESS as the module length and
-                    # lay it forty times over.
-                    turned = abs((pools.yaw_of(uf) % 180.0) - 90.0) < 45.0
-                    mod = max(0.3, float(fp["sy"] if turned else fp["sx"]))
-                    run = _fence_run(a, b, mod)
+            segs = list(h.get("fence_segs") or ())
+            if segs and fence_pool:
+                # ONE ASSET PER HOUSE, ACROSS EVERY BOUNDARY. The pick used to
+                # be cached per TAG, which still let a lot show a picket down
+                # one side and a railing across the front — a repair, not a
+                # fence. `_fence_pick` chooses it once for the whole perimeter,
+                # having seen all of this house's runs at once.
+                uf = h.get("_fence_pick")
+                if uf not in fence_mod:
+                    uf = _fence_pick(fence_pool, fence_mod, segs, rng)
+                    h["_fence_pick"] = uf
+                mod_len, _mod_th, mod_h = (fence_mod[uf] if uf
+                                           else (0.0, 0.0, 0.0))
+                for (a, b, tag) in (segs if uf else ()):
+                    # A "low" run is the FRONT boundary. This house has one
+                    # asset for its whole perimeter, so the front is either
+                    # fenced with that asset or left open — see
+                    # `_FRONT_FENCE_MAX_H_M`.
+                    if tag == "low" and mod_h > _FRONT_FENCE_MAX_H_M:
+                        continue
+                    span = (a, b)
+                    if fence_road is not None:
+                        span = _trim_offroad(a, b, fence_road,
+                                             _FENCE_ROAD_MARGIN_M)
+                        if span is None:
+                            n_fence_road += 1
+                            continue
+                    run = _fence_run(span[0], span[1], mod_len)
                     if not run:
                         continue
-                    if best is None or abs(math.log(run[0][3])) < best[0]:
-                        best = (abs(math.log(run[0][3])), uf, run)
-                if best is None:
-                    continue
-                _, uf, run = best
-                for (fx, fy, fyaw, fit) in run:
-                    out.append(pools.place(resolver, uf, "fence", fx, fy,
-                                           fyaw, rng, scale_mul=fit))
-                    n_fence += 1
+                    # LAST GUARD: ground another fence already stands on. The
+                    # parcel pass cuts a boundary where it crosses a standing
+                    # one, but it only knows about its own block, and `fit`
+                    # stretches a module past the length the cut was made for.
+                    # Modules inside one run abut exactly, so the survivors are
+                    # taken as the LONGEST CONTIGUOUS stretch of free ones —
+                    # a run with a hole punched in its middle is the defect
+                    # this whole pass exists to remove.
+                    free = [fence_taken.free(fx, fy, fyaw, mod_len * fit)
+                            for (fx, fy, fyaw, fit) in run]
+                    if not all(free):
+                        n_fence_clash += 1
+                        lo = hi = None
+                        cur = None
+                        for i, ok in enumerate(free + [False]):
+                            if ok:
+                                cur = (i, i) if cur is None else (cur[0], i)
+                            elif cur is not None:
+                                if lo is None or cur[1] - cur[0] > hi - lo:
+                                    lo, hi = cur
+                                cur = None
+                        if lo is None:
+                            continue
+                        run = run[lo:hi + 1]
+                    for (fx, fy, fyaw, fit) in run:
+                        fence_taken.add(fx, fy, fyaw, mod_len * fit)
+                        out.append(pools.place(resolver, uf, "fence", fx, fy,
+                                               fyaw, rng, scale_mul=fit))
+                        n_fence += 1
         for t in p["trees"]:
-            pool = (street_trees if t.get("kind") in ("street", "front")
-                    else open_trees)
-            if not pool:
+            cp = (street_pool if t.get("kind") in ("street", "front")
+                  else open_pool)
+            if not len(cp):
                 continue
-            u = pool[rng.randrange(len(pool))]
+            u = cp.draw(rng, _size_t(house_idx.nearest(t["c"]),
+                                     pc["near_m"], pc["far_m"]))
             out.append(pools.place(resolver, u, "tree", t["c"][0], t["c"][1],
                                    rng.uniform(0.0, 360.0), rng))
     print(f"[suburb_scene] lot furniture: {n_gar} garages, "
-          f"{n_fence} fence modules")
+          f"{n_fence} fence modules "
+          f"({n_fence_road} runs dropped off the carriageway, "
+          f"{n_fence_clash} shortened off a standing fence)")
+    if fence_pool and fence_road is None:
+        print("[suburb_scene] WARNING: no street net handed to build_placements"
+              " — fences are not being checked against the carriageway")
     return out
 
 
@@ -1269,7 +2200,7 @@ def generate_suburb_on_stage(stage, config,
                              snap_to_ground: bool = False) -> list:
     """Build the graph-based suburb onto a live stage. Returns placements.
 
-    Same shape as `generate_city_v2.generate_city_v2_on_stage` so the launch
+    Same shape as `generate_scene.generate_scene_on_stage` so the launch
     scripts are interchangeable.
     """
     if isinstance(config, str):
@@ -1314,7 +2245,21 @@ def generate_suburb_on_stage(stage, config,
     pools = AssetPools(config)
     yaw_off = float((config.get("suburb_parcel") or {})
                     .get("house_yaw_offset_deg", -90.0))
-    catalogue = house_catalogue(config, resolver, pools, yaw_off)
+    # The kit takes precedence when the preset asks for it. Both catalogues
+    # publish `(w, d)`, so everything downstream — the lot floor, the packer's
+    # overlap test, `house_sizes` — is identical either way.
+    catalogue = modular_catalogue(config)
+    if catalogue:
+        # Before a single prim is written: does every style's roof cover its
+        # footprint, and does every style have a front door? Both have been
+        # wrong in ways only a render revealed.
+        from detail import modular_house as _mh
+        _mh.check()
+        print(f"[suburb_scene] modular kit: {len(catalogue)} styles, "
+              f"{min(e['w'] for e in catalogue):.0f}-"
+              f"{max(e['w'] for e in catalogue):.0f} m wide")
+    else:
+        catalogue = house_catalogue(config, resolver, pools, yaw_off)
     if catalogue and pcfg.get("house_sizes") is None:
         pcfg["house_sizes"] = [(e["w"], e["d"]) for e in catalogue]
         # A LOT NARROWER THAN THE SMALLEST HOUSE CAN NEVER BE BUILT ON. The
@@ -1355,8 +2300,13 @@ def generate_suburb_on_stage(stage, config,
               f"for house size, {pstats.get('keepout_rejected', 0)} for "
               f"standing on a cul-de-sac turnaround")
 
+    _pool_holes = []
+    # `net` is for the fences and nothing else: a lot line is a straight chord
+    # across a block face that curves, so the only authority on where the road
+    # actually is happens to be the centrelines. See `_trim_offroad`.
     placements = build_placements(config, resolver, parcels, rng, pools,
-                                  yaw_off=yaw_off, catalogue=catalogue)
+                                  yaw_off=yaw_off, catalogue=catalogue,
+                                  pool_holes_out=_pool_holes, net=net)
     # -- the park ------------------------------------------------------------
     # suburb_net reserves the ground and frames it with a street; the park's own
     # content is generated here, into that reserve. Generating it separately and
@@ -1380,11 +2330,25 @@ def generate_suburb_on_stage(stage, config,
               f"{pinfo['size'][1]:.0f} m, {len(pinfo['entrances'])} entrances, "
               f"zones {ps['zones']}")
 
-    yard, ystats = yp.plan(config, parcels, rng, resolver=resolver)
+    # Same discs the parcel pass used, so the two agree on where the
+    # pavement is — the yard pass plats inside `lot_corners`, and a lot's
+    # corners can overhang a turnaround.
+    yard, ystats = yp.plan(config, parcels, rng, resolver=resolver,
+                           keepout_discs=pcfg.get("keepout_discs"))
     placements += yard
     yp.report(ystats)
     placements += build_frontage(config, resolver, net, blocks, rng, pools)
-    placements += build_open_planting(config, resolver, net, blocks, rng, pools)
+    # LAST OF THE PLANTING PASSES, and that ordering is what makes it work: it
+    # fills what is left, so it has to be able to see everything that took a
+    # piece of ground before it — the lots, the yard planting, the park's own
+    # content and the frontage props. `park["rect"]` goes in only when the park
+    # was actually built into it; with `park_content: false` that ground is as
+    # bare as any other and gets planted like it.
+    placements += build_open_planting(
+        config, resolver, net, blocks, rng, pools,
+        parcels=parcels, info=info, existing=placements,
+        pool_rects=_pool_holes,
+        park_rect=(pinfo["rect"] if (park is not None and pinfo) else None))
     placements += build_signs(config, resolver, net, rng, pools)
     import collections as _c
     print("[suburb_scene] placements by category: %s"
@@ -1398,7 +2362,7 @@ def generate_suburb_on_stage(stage, config,
     # OOM-killed Isaac Sim on the urban scene.
     #
     # Safe here specifically: instancing forbids editing INSIDE a prim, and the
-    # pass that does that (generate_city_v2.prune_prims) is never called on this
+    # pass that does that (generate_scene.prune_prims) is never called on this
     # path. Houses are left un-instanced so damage variants and per-building
     # edits stay possible.
     sg.apply_placements(stage, placements, parent_path, scene_scale_factor,
@@ -1408,6 +2372,15 @@ def generate_suburb_on_stage(stage, config,
                             ["tree", "plant", "sidewalk", "streetlight",
                              "fire_hydrant", "sign", "crosswalk", "fence",
                              "play_structure"])))
+    # AFTER placement, because it needs each prim_path. The kit ships exactly
+    # ONE wall texture, so without this every modular house is the same cream.
+    # A no-op when the kit is off: nothing carries a `palette`.
+    if any(q.get("palette") for q in placements):
+        from detail import modular_house as mh
+        n_pal = mh.apply_palette(stage, placements, parent_path)
+        print(f"[suburb_scene] palette: {n_pal} subsets rebound")
+
     apply_ground(stage, config, net, blocks, parcels, info["region"],
-                 parent_path, scene_scale_factor, park=park)
+                 parent_path, scene_scale_factor, pool_rects=_pool_holes,
+                 park=park)
     return placements
