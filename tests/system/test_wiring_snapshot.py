@@ -14,6 +14,7 @@ if present, ``diff_graphs`` must report identical or the test fails with the
 JSON drift verdict.
 """
 import json
+import os
 import subprocess
 import time
 
@@ -181,9 +182,30 @@ def _git_short_sha():
             ["git", "rev-parse", "--short", "HEAD"],
             cwd=AIRSTACK_ROOT, capture_output=True, text=True, timeout=10,
         )
-        return result.stdout.strip() or "unknown"
+        if result.stdout.strip():
+            return result.stdout.strip()
     except (OSError, subprocess.TimeoutExpired):
-        return "unknown"
+        pass
+    # The tests container has no git binary; read .git/HEAD directly (repo is
+    # mounted read-only, which is fine for reads).
+    try:
+        git_dir = os.path.join(AIRSTACK_ROOT, ".git")
+        head = open(os.path.join(git_dir, "HEAD")).read().strip()
+        if head.startswith("ref:"):
+            ref = head.split(None, 1)[1]
+            ref_path = os.path.join(git_dir, ref)
+            if os.path.exists(ref_path):
+                return open(ref_path).read().strip()[:12]
+            packed = os.path.join(git_dir, "packed-refs")
+            if os.path.exists(packed):
+                for line in open(packed):
+                    if line.strip().endswith(" " + ref):
+                        return line.split()[0][:12]
+        elif head:
+            return head[:12]
+    except OSError:
+        pass
+    return "unknown"
 
 
 @pytest.mark.timeout(1800)

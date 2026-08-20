@@ -42,8 +42,15 @@ DEFAULT_EXCLUDES = ("/parameter_events", "/rosout")
 # Node-name (final segment) prefixes that are per-process/per-pid artifacts of
 # the launch system or CLI tooling, not stack wiring. transform_listener_impl_*
 # and launch_ros_* carry hex/pid suffixes; _ros2cli* nodes are the probes
-# themselves (ros2 topic info/echo spin one up).
-_EXCLUDED_NODE_PREFIXES = ("launch_ros_", "transform_listener_impl", "_ros2cli")
+# themselves (ros2 topic info/echo spin one up); _CREATED_BY_BARE_DDS_APP_ is
+# the placeholder name rmw reports for non-rclcpp DDS participants (sim
+# bridges, uXRCE agents) — real endpoints, but not stack nodes.
+_EXCLUDED_NODE_PREFIXES = (
+    "launch_ros_",
+    "transform_listener_impl",
+    "_ros2cli",
+    "_CREATED_BY_BARE_DDS_APP_",
+)
 
 _QOS_UNKNOWN = "UNKNOWN"
 
