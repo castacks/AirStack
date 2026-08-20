@@ -9,6 +9,7 @@
 ## (a) <Section name>
 
 **Setup:** <!-- one line: command run, sim/scenario, num robots, iterations -->
+**Run at:** YYYY-MM-DD HH:MM <!-- when this test run was executed -->
 
 | Metric | Value | Pass criterion | Pass? |
 |--------|-------|----------------|-------|

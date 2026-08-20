@@ -37,6 +37,12 @@ Naming rules:
 - **Feature folder:** `NNN-short-kebab-slug`, where `NNN` is zero-padded three digits. Pick the next number by listing `notebook/` and incrementing the highest existing prefix (start at `001` if empty or missing — create `notebook/` yourself, it is not committed).
 - **Results subfolders:** one per lettered test section in `design_spec.md`, named `<letter>-<section-slug>` (e.g. section "(a) Planner core" → `results/a-planner-core/`). The letters MUST match the test-plan section letters in the spec so a reader can navigate spec ↔ results directly.
 
+**Date and timestamp everything.** The notebook is a lab journal, and a journal entry without a date is unusable later. Every design doc, experiment, and results file records when it happened:
+
+- `design_spec.md` header: `Date started` and `Last updated` (update the latter whenever you revise the spec), as `YYYY-MM-DD`.
+- Each test run stored under `results/<letter>-<slug>/`: record the run timestamp (`YYYY-MM-DD HH:MM` local time) — keep the harness's timestamped directory name when copying from `tests/results/<timestamp>/`, or prefix artifact filenames / note the timestamp in the section of `results_summary.md`.
+- `results_summary.md` header: the date written; each per-section **Setup** line: when that run was executed.
+
 ## Workflow
 
 ### 1. On starting a feature — write `design_spec.md`
@@ -66,7 +72,7 @@ Every test run that validates the feature drops its artifacts into the matching 
 - Plots and screenshots (cross-track error curves, Foxglove/RViz captures, sim screenshots)
 - Relevant log excerpts — excerpts, not full container logs
 
-Keep raw artifacts as-produced; interpretation belongs in the summary.
+Keep raw artifacts as-produced; interpretation belongs in the summary. Preserve the run's timestamp with the artifacts (keep the `tests/results/<timestamp>/` directory name, or timestamp-prefix the copied files) so repeated runs of the same section stay distinguishable and ordered.
 
 ### 4. After validation — write `results/results_summary.md`
 
@@ -86,5 +92,6 @@ The PR body for the feature is built from the notebook, since reviewers cannot s
 - ❌ Stale status labels — a spec still marked `DESIGN/TODO` (or a section marked `WIP`) after the work shipped misleads the next reader; update statuses as you go.
 - ❌ Committing `notebook/` or referencing `notebook/...` paths from committed code, docs, or tests — it doesn't exist on other machines or in CI.
 - ❌ Results subfolder letters that don't match the spec's test-plan letters.
+- ❌ Undated documents or results — a spec without `Date started`/`Last updated`, or test artifacts with no run timestamp, can't be sequenced against other runs or the code they tested.
 - ❌ A `results_summary.md` that just links to raw files — embed the tables and figures.
 - ❌ Confusing this with [capture-discovered-knowledge](../capture-discovered-knowledge): the notebook records *per-feature* design and evidence locally; durable repo-wide knowledge still goes to AGENTS.md/skills, and module documentation still follows [update-documentation](../update-documentation).
