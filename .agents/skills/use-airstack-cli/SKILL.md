@@ -355,9 +355,14 @@ airstack config:git-hooks    # Install git pre-commit hooks
 airstack install                                 # Install Docker + nvidia-container-toolkit (one time)
 airstack setup                                   # Add airstack to PATH (one time per shell)
 airstack up                                      # Start default profile from .env
+airstack up --sim isaac|airsim                   # Pick the simulator (profile + URDF + Isaac script derived)
+airstack up --sim isaac --robots 2               # Multi-robot (keeps NUM_ROBOTS and the sim script consistent)
+airstack up --play --wait                        # Auto-play sim, block until flight-ready
+airstack up --dry-run --sim airsim               # Print + validate resolved config; start nothing
+airstack ready                                   # Wait until flight-ready (--json for scripts)
 airstack up robot-desktop                        # Start one service
-AUTOLAUNCH=false airstack up robot-desktop       # Start idle (for development) — IMPORTANT
-NUM_ROBOTS=2 AUTOLAUNCH=false airstack up        # Multi-robot, idle
+airstack up --no-autolaunch robot-desktop        # Start idle (for development) — IMPORTANT
+airstack up --no-autolaunch --robots 2 --sim isaac  # Multi-robot, idle
 airstack status                                  # List running containers
 airstack down                                    # Stop and remove containers
 airstack clean                                   # Stop, remove containers, prune volumes/networks

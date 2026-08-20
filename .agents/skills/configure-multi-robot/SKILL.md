@@ -151,7 +151,7 @@ robot-desktop:
 So `NUM_ROBOTS=3 airstack up` produces **three** robot containers (`airstack-robot-desktop-1`, `-2`, `-3`), each with its own `ROBOT_NAME` and its own `ROS_DOMAIN_ID`. Each container runs the full autonomy stack independently. Cross-robot communication, when needed, goes through the DDS router (see [`onboard_all/config/dds_router.yaml`](../../../robot/ros_ws/src/autonomy_bringup/onboard_all/config/dds_router.yaml)) which bridges allowlisted topics from each per-robot domain into a shared GCS domain.
 
 ```bash
-NUM_ROBOTS=3 airstack up
+airstack up --sim isaac --robots 3   # sets NUM_ROBOTS and the multi-drone Isaac script together
 docker ps --format '{{.Names}}' | grep robot-desktop
 # airstack-robot-desktop-1
 # airstack-robot-desktop-2
@@ -255,13 +255,13 @@ for i in range(1, NUM_ROBOTS + 1):
     spawn_drone(i)
 ```
 
-To use the multi-drone launcher, set in `.env`:
+To use the multi-drone launcher, either launch with `airstack up --sim isaac --robots N` (which selects it automatically) or set in `.env`:
 
 ```
 ISAAC_SIM_SCRIPT_NAME="example_multi_px4_pegasus_launch_script.py"
 ```
 
-(The default `example_one_px4_pegasus_launch_script.py` only spawns one.)
+(The default `example_one_px4_pegasus_launch_script.py` only spawns one; `airstack up` preflight rejects `NUM_ROBOTS>1` with a single-drone script.)
 
 ### Test harness
 
