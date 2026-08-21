@@ -130,16 +130,16 @@ assets:
     usd: 19331875f8d84137a94003f0660e2a50/19331875f8d84137a94003f0660e2a50.usdc
   1ac9bf684da3476d918fd086d554bd5c:
     author: Jeff Smith
-    baked_scale: 0.456023
+    baked_scale: 6.207861
     faces: 500
-    fit: height
+    fit: footprint
     license: by
     size_m:
-    - 0.554
-    - 0.588
-    - 2.2
+    - 7.541
+    - 8.0
+    - 29.949
     source: https://sketchfab.com/3d-models/1ac9bf684da3476d918fd086d554bd5c
-    target_size_m: 2.2
+    target_size_m: 8.0
     texture_res: 1024
     textures: 3
     title: Phone Booth
@@ -164,16 +164,16 @@ assets:
     usd: 1b31413d89a4485e93f4bdb9eb735d88/1b31413d89a4485e93f4bdb9eb735d88.usdc
   1c6d17070d9e4b6595e5de2fa3e20d81:
     author: headerstock
-    baked_scale: 0.028268
+    baked_scale: 0.018845
     faces: 35668
     fit: footprint
     license: by
     size_m:
-    - 12.0
-    - 11.197
-    - 6.63
+    - 8.0
+    - 7.465
+    - 4.42
     source: https://sketchfab.com/3d-models/1c6d17070d9e4b6595e5de2fa3e20d81
-    target_size_m: 12.0
+    target_size_m: 8.0
     texture_res: 1024
     textures: 8
     title: Bungalow The Ryder
@@ -385,16 +385,16 @@ assets:
     usd: 555fbab686004738b974373f6ad71d82/555fbab686004738b974373f6ad71d82.usdc
   599a74c1c8fd4f19bf6754b8128da6b8:
     author: cleskowyak2
-    baked_scale: 0.141474
+    baked_scale: 1.529862
     faces: 132
-    fit: height
+    fit: footprint
     license: by
     size_m:
-    - 0.74
-    - 0.591
-    - 2.4
+    - 8.0
+    - 6.391
+    - 25.953
     source: https://sketchfab.com/3d-models/599a74c1c8fd4f19bf6754b8128da6b8
-    target_size_m: 2.4
+    target_size_m: 8.0
     texture_res: 2048
     textures: 4
     title: Street Sign Final
@@ -419,16 +419,16 @@ assets:
     usd: 6644de89c2f0449db3de934744162b63/6644de89c2f0449db3de934744162b63.usdc
   71474e859887459a96d2d281ffe53f18:
     author: headerstock
-    baked_scale: 0.028332
+    baked_scale: 0.018888
     faces: 29458
     fit: footprint
     license: by
     size_m:
-    - 10.828
-    - 12.0
-    - 6.514
+    - 7.218
+    - 8.0
+    - 4.343
     source: https://sketchfab.com/3d-models/71474e859887459a96d2d281ffe53f18
-    target_size_m: 12.0
+    target_size_m: 8.0
     texture_res: 1024
     textures: 10
     title: Bungalow The Colbert
@@ -572,16 +572,16 @@ assets:
     usd: 9c2fb0b1afaa450f97ac9f6217ed6dc9/9c2fb0b1afaa450f97ac9f6217ed6dc9.usdc
   a0c01ce35a474545b805c0739806aace:
     author: Sengchor
-    baked_scale: 0.68157
+    baked_scale: 0.45438
     faces: 12227
     fit: footprint
     license: by
     size_m:
-    - 12.0
-    - 11.386
-    - 4.254
+    - 8.0
+    - 7.591
+    - 2.836
     source: https://sketchfab.com/3d-models/a0c01ce35a474545b805c0739806aace
-    target_size_m: 12.0
+    target_size_m: 8.0
     texture_res: 2048
     textures: 3
     title: Abandoned House
@@ -844,16 +844,16 @@ assets:
     usd: f3cb9864675e43e0aaba258b5a6163ee/f3cb9864675e43e0aaba258b5a6163ee.usdc
   f80a2a0af6924562be10be7354b7a72f:
     author: jmarcos28
-    baked_scale: 0.901645
+    baked_scale: 4.007309
     faces: 3288
     fit: footprint
     license: by
     size_m:
-    - 1.8
-    - 0.974
-    - 1.263
+    - 8.0
+    - 4.328
+    - 5.611
     source: https://sketchfab.com/3d-models/f80a2a0af6924562be10be7354b7a72f
-    target_size_m: 1.8
+    target_size_m: 8.0
     texture_res: 2048
     textures: 3
     title: Dumpster
