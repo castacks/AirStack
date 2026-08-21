@@ -113,7 +113,7 @@
        global_plan out; navigate/exploration actions under tasks/*. The node
        self-names random_walk_node at the robot root (no namespace push).
        Swapping the global planner = replacing this include; the alternative
-       trunk planners (ensemble_planner, exploration) ship no canonical
+       trunk planners (exploration) ship no canonical
        module launch yet — write one in their package first. -->
   <include file="$(find-pkg-share random_walk_planner)/launch/random_walk_planner.launch.xml" />
 
