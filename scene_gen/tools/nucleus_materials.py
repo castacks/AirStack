@@ -9,6 +9,10 @@
     python3 tools/nucleus_materials.py omniverse://…/Base/Wood/Ash.mdl
     python3 tools/nucleus_materials.py omniverse://…/vMaterials_2/Stone/
 
+    # --list: matching paths on stdout, nothing rendered and nothing fetched
+    python3 tools/nucleus_materials.py concrete --list
+    python3 tools/nucleus_materials.py rust --list | xargs -n1 basename
+
     python3 tools/nucleus_materials.py --reindex        # refresh the search index
 
 Runs on the host through `nucleus.py` — no Kit, no Isaac Sim container — on the
@@ -84,10 +88,15 @@ _TOOLS = os.path.dirname(os.path.abspath(__file__))
 _SCENE_GEN = os.path.dirname(_TOOLS)
 
 #: Where materials live on the AirLab server. `--root` adds more.
+#:
+#: The project root is the whole of `SEI-COA`, not just `StandaloneMaterials`:
+#: each of the 17 asset packs under it keeps its own materials and textures in
+#: `<Pack>/Materials/`, and those are the ones the scene configs actually build
+#: with. The extra breadth is nearly free — the full crawl is ~5s.
 ROOTS = (
     "/NVIDIA/Materials/Base",
     "/NVIDIA/Materials/vMaterials_2",
-    "/Projects/SEI-COA/StandaloneMaterials",
+    "/Projects/SEI-COA",
 )
 
 MATERIAL_EXTS = {".mdl", ".usd", ".usda", ".usdc"}
@@ -110,12 +119,36 @@ _CHANNELS = {
     "metallic", "metalness", "h", "height", "disp", "displacement", "ao",
     "occlusion", "opacity", "mask", "alpha", "spec", "specular", "emissive",
     "emission", "transmission", "bump", "gloss", "cavity", "curvature", "id",
+    # Unreal exports spell the channel out in full — the SEI-COA packs are
+    # full of `*_AmbientOcclusion.png`.
+    "ambientocclusion", "normalmap", "roughnessmap", "heightmap",
+    "opacitymask", "metallicroughness", "displacementmap", "emissivecolor",
 }
 
 
 #: Packed/utility maps, which name their channels instead of using one suffix:
 #: `multi_moss.jpg`, `concrete_wall_aged_R_rough_G_ao_B_cavity.jpg`, `*_mask_*`.
 _PACKED = re.compile(r"(^|_)multi_|_r_[a-z]+_g_|(^|_)mask(_|$)", re.I)
+
+
+def is_material_asset(url: str) -> bool:
+    """True for something worth having in a *material* index.
+
+    The asset packs under `Projects/SEI-COA` are mostly geometry — 4300-odd
+    `*.prop.usd` / `*.stage.usd` meshes against 80 `.mdl` — and indexing those
+    would bury every keyword search under props that happen to share a word.
+    Textures and MDL modules are always materials; a USD only counts when it
+    sits under a `Materials/` directory, which covers both `<Pack>/Materials/`
+    and `StandaloneMaterials/`.
+
+    Only the index is filtered. A direct link to a directory still shows
+    everything in it, props included — asking for a folder by name is asking
+    for what is in it.
+    """
+    ext = os.path.splitext(url)[1].lower()
+    if ext not in MATERIAL_EXTS:            # a texture: always a material
+        return True
+    return ext == ".mdl" or "materials/" in url.lower()
 
 
 def is_channel_map(url: str) -> bool:
@@ -185,6 +218,10 @@ def load_index(roots, workers: int, reindex: bool = False) -> tuple:
     print(f"[index] crawling {len(roots)} roots…", file=sys.stderr)
     t = time.time()
     entries, thumbs = crawl(roots, workers, verbose=True)
+    kept = [u for u in entries if is_material_asset(u)]
+    print(f"[index] {len(entries) - len(kept)} non-material USDs skipped "
+          f"(props, stages)", file=sys.stderr)
+    entries = kept
     os.makedirs(os.path.dirname(INDEX), exist_ok=True)
     with open(INDEX, "w") as fh:
         json.dump({"built": time.time(), "roots": list(roots),
@@ -195,12 +232,19 @@ def load_index(roots, workers: int, reindex: bool = False) -> tuple:
 
 
 def search(entries, terms, limit: int, maps: bool = False) -> list:
-    """Entries matching every term. Real materials sort ahead of raw maps."""
+    """Entries matching every term, best first.
+
+    Project material outranks the NVIDIA libraries: `Projects/SEI-COA` is what
+    the asset sets actually build with, and it would otherwise sort under `N`
+    and fall off the end of a --limit. Real materials outrank raw texture maps
+    for the same reason.
+    """
     terms = [t.lower() for t in terms]
     hits = [u for u in entries if all(t in u.lower() for t in terms)]
     if not maps:
         hits = [u for u in hits if not is_channel_map(u)]
-    hits.sort(key=lambda u: (os.path.splitext(u)[1].lower() in IMAGE_EXTS, u))
+    hits.sort(key=lambda u: (os.path.splitext(u)[1].lower() in IMAGE_EXTS,
+                             "/Projects/" not in u, u))
     return hits[:limit]
 
 
@@ -432,6 +476,8 @@ def main() -> int:
                     help="extra server-relative root to index")
     ap.add_argument("--maps", action="store_true",
                     help="also show normal/ORM/height channel maps")
+    ap.add_argument("--list", action="store_true",
+                    help="print matching paths to stdout, render nothing")
     ap.add_argument("--reindex", action="store_true", help="rebuild the index")
     args = ap.parse_args()
 
@@ -463,6 +509,16 @@ def main() -> int:
     if not urls:
         print(f"no materials matched {' '.join(args.query)!r}", file=sys.stderr)
         return 1
+
+    if args.list:
+        # Paths only, on stdout, so this pipes. Everything else this tool prints
+        # already goes to stderr. Nothing is fetched, so it returns immediately.
+        for url in urls:
+            print(url)
+        if len(urls) == args.limit:
+            print(f"[list] stopped at --limit {args.limit}; raise it for more",
+                  file=sys.stderr)
+        return 0
 
     # No size bump for a single link: the thumbnails are 256px, so enlarging the
     # tile just upscales one and makes the material look softer than it is.
