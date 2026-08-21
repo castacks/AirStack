@@ -123,6 +123,10 @@ scene_gen/assets/nucleus/
 # already on the machine inside the image — re-extract with `nucleus.py --setup`.
 scene_gen/assets/omniclient/
 
+# Search index for scene_gen/tools/nucleus_materials.py — a cached crawl of the
+# Nucleus material roots, rebuilt in ~15 s with `nucleus_materials.py --reindex`.
+scene_gen/assets/nucleus_material_index.json
+
 # Host-side env file for `uv run --env-file` (EULA/consent acceptance).
 # Per-user, like omni_pass.env. Template: .env.host.template
 .env.host
