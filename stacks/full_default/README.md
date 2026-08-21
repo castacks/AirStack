@@ -51,6 +51,8 @@ The shared per-robot preamble (ROBOT_NAME namespace, `use_sim_time`,
 
 ## wiring.md
 
+This stack's observed wiring diagram is committed at [wiring.md](wiring.md).
+
 Generated — the commit arrives with the first snapshot run of
 `airstack test -m wiring --stack full_default` (the harness writes
 `observed_full_default.md` under the run directory; validate it and copy it
