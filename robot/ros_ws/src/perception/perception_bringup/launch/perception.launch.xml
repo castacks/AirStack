@@ -1,4 +1,9 @@
-<!-- PERCEPTION -->
+<!-- PERCEPTION layer bringup: stereo_image_proc disparity + point cloud nodes
+     and the topic keepalive node.
+     Included by: onboard_autonomy_all.launch.xml (AUTONOMY_ROLE dispatch).
+     STATUS: LEGACY, AUTONOMY_ROLE dispatch path, graph-frozen until 0.21;
+     stacks are the maintained wiring (they include stereo_image_proc.launch.xml
+     and topic_keepalive.launch.xml directly). -->
 <launch>
     <arg name="launch_stereo_image_proc" default="true" />
 

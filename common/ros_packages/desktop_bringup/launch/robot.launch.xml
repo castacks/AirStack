@@ -1,9 +1,19 @@
-<!-- Desktop / sim wrapper: delegates to autonomy_bringup and adds RViz. -->
+<!-- Desktop / sim wrapper around autonomy_bringup robot.launch.xml: forwards
+     sim/role/urdf_file and optionally adds RViz. Stack dispatch args
+     (AIRSTACK_STACK_DIR / AIRSTACK_STACK_ENTRY) and gossip/gcs domains flow
+     through env-var defaults inside autonomy_bringup, so both wrappers behave
+     identically.
+     Launched by: the robot container (LAUNCH_PACKAGE=desktop_bringup).
+     STATUS: standalone utility (container entry wrapper). -->
 <launch>
-  <arg name="sim" default="true" />
-  <arg name="role" default="$(env AUTONOMY_ROLE full)" />
-  <arg name="urdf_file" default="$(env URDF_FILE iris_with_sensors.pegasus.robot.urdf)" />
-  <arg name="debug_rviz" default="$(env DEBUG_RVIZ false)" />
+  <arg name="sim" default="true"
+       description="Use simulation time and sim defaults" />
+  <arg name="role" default="$(env AUTONOMY_ROLE full)"
+       description="Legacy AUTONOMY_ROLE dispatch: full | onboard | offboard" />
+  <arg name="urdf_file" default="$(env URDF_FILE iris_with_sensors.pegasus.robot.urdf)"
+       description="Robot description URDF filename (robot_descriptions package)" />
+  <arg name="debug_rviz" default="$(env DEBUG_RVIZ false)"
+       description="Also start RViz with the desktop_bringup robot config" />
 
   <!-- Core robot launch (state publisher, static TFs, autonomy modules) -->
   <include file="$(find-pkg-share autonomy_bringup)/launch/robot.launch.xml">

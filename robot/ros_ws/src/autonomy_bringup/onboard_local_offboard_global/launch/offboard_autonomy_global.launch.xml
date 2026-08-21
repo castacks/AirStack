@@ -1,4 +1,8 @@
-<!-- ROBOT -->
+<!-- Offboard half of the onboard/offboard split: global planning only; every
+     other layer is disabled and runs onboard the paired robot.
+     Included by: autonomy_bringup robot.launch.xml (role=offboard).
+     STATUS: LEGACY, AUTONOMY_ROLE dispatch path, graph-frozen until 0.21;
+     stacks are the maintained wiring. -->
 <launch>
 
   <!-- Autonomy Stack - Module Bringups -->

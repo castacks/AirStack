@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """ROS2 Python launch file for interface bringup.
 
+Launches MAVROS (via mavros_px4.launch.xml), the robot_interface node with the
+MAVROS plugin, the position setpoint publisher, and odometry conversion.
+Included by: stacks/*/launch entry files AND onboard_autonomy_all.launch.xml
+(legacy AUTONOMY_ROLE dispatch) — canonical interface bringup for both paths.
+
 Dynamically computes FCU URL and TGT_SYSTEM from environment variables:
     OFFBOARD_PORT = OFFBOARD_BASE_PORT + ROS_DOMAIN_ID
     ONBOARD_PORT  = ONBOARD_BASE_PORT  + ROS_DOMAIN_ID

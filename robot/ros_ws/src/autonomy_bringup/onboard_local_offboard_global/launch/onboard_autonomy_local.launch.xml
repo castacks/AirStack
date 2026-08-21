@@ -1,4 +1,8 @@
-<!-- ROBOT -->
+<!-- Onboard half of the onboard/offboard split: all layers except global and
+     logging (those run offboard on the GCS).
+     Included by: autonomy_bringup robot.launch.xml (role=onboard).
+     STATUS: LEGACY, AUTONOMY_ROLE dispatch path, graph-frozen until 0.21;
+     stacks are the maintained wiring. -->
 <launch>
 
   <!-- Autonomy Stack - Module Bringups -->
