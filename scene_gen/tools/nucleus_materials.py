@@ -11,10 +11,15 @@
 
     python3 tools/nucleus_materials.py --reindex        # refresh the search index
 
-Runs on the host through `nucleus.py` — no Kit, no Isaac Sim container. Use the
-3.11 interpreter the omni.client binding is built for:
+Runs on the host through `nucleus.py` — no Kit, no Isaac Sim container — on the
+default AirStack host env, `AirStack/.venv` (3.11.15, ENVIRONMENTS.md §1):
 
-    AirStack/.venv/bin/python scene_gen/tools/nucleus_materials.py …
+    AirStack/.venv/bin/python scene_gen/tools/nucleus_materials.py concrete
+
+Nothing extra to install: that env already carries `omni.client`'s cp311
+binding, Pillow and numpy. It is the *only* host env that works — the system
+`python3` is 3.10 and `scenegen/.venv` is 3.13, and the binding is cp311-only.
+Paths are taken from this file, so it can be run from any directory.
 
 WHY THIS IS FAST
 ----------------
@@ -431,7 +436,19 @@ def main() -> int:
     args = ap.parse_args()
 
     roots = list(ROOTS) + args.root
-    nucleus.connect()          # load the runtime once, before any threads
+    try:
+        nucleus.connect()      # load the runtime once, before any threads
+    except Exception as exc:                                     # noqa: BLE001
+        # On the wrong interpreter `nucleus.py` falls through to re-extracting
+        # the runtime from the isaac-sim image, and fails on docker rather than
+        # on the actual cause — so name the actual cause.
+        print(f"\ncould not reach Nucleus: {exc}", file=sys.stderr)
+        if sys.version_info[:2] != (3, 11):
+            print(f"\nThis is Python {sys.version.split()[0]}; the omni.client "
+                  f"binding is cp311-only. Use the default AirStack env:\n"
+                  f"    AirStack/.venv/bin/python "
+                  f"scene_gen/tools/nucleus_materials.py …", file=sys.stderr)
+        return 2
 
     if args.reindex and not args.query:
         load_index(roots, args.workers, reindex=True)
