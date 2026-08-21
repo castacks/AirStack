@@ -30,6 +30,14 @@ on:
         description: "Seconds for test_stable polling window"
         default: "120"
         required: false
+      trajectory_types:
+        description: "Fixed trajectories, comma-separated (e.g. Circle or Circle,Figure8)"
+        default: "Circle,Figure8,Racetrack,Line"
+        required: false
+      takeoff_velocities:
+        description: "Takeoff velocities, comma-separated (e.g. 0.5 or 0.5,1)"
+        default: "0.5"
+        required: false
       baseline_run_id:
         description: "Run ID to use as baseline for metric comparison (blank = latest successful run on main)"
         default: ""
@@ -144,6 +152,8 @@ jobs:
           INPUT_NUM_ROBOTS: ${{ inputs.num_robots }}
           INPUT_ITERATIONS: ${{ inputs.stress_iterations }}
           INPUT_STABLE: ${{ inputs.stable_duration }}
+          INPUT_TRAJECTORIES: ${{ inputs.trajectory_types }}
+          INPUT_TAKEOFF_VELOCITIES: ${{ inputs.takeoff_velocities }}
         run: |
           python3 <<'PYEOF'
           import os, shlex, sys
@@ -161,6 +171,10 @@ jobs:
                   args.extend(['--stress-iterations', it])
               if (st := os.environ.get('INPUT_STABLE', '').strip()):
                   args.extend(['--stable-duration', st])
+              if (trajectories := os.environ.get('INPUT_TRAJECTORIES', '').strip()):
+                  args.extend(['--trajectory-types', trajectories])
+              if (velocities := os.environ.get('INPUT_TAKEOFF_VELOCITIES', '').strip()):
+                  args.extend(['--takeoff-velocities', velocities])
           elif event == 'pull_request':
               # Automatic PR validation is deliberately build-scoped. Fast
               # Python unit tests run in unit-tests.yml; GPU simulation remains

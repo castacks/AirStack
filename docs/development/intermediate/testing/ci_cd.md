@@ -185,7 +185,7 @@ it to Harbor.
 | `unit-tests.yml` pull request | PR to `main`/`develop` opened, synchronized, or reopened (including forks) | `pytest tests/ -m unit` on `ubuntu-latest` |
 | `system-tests.yml` pull request | PR opened, synchronized, or reopened, same-repo branches only | `-m build_packages` on an OSMO worker |
 | `/pytest` PR comment | Any time, from a user with `OWNER`/`MEMBER`/`COLLABORATOR` association | Whatever args you put on the first line of the comment |
-| `workflow_dispatch` | Manual, from the Actions tab | The form inputs: `marks`, `sim`, `num_robots`, `stress_iterations`, `stable_duration`, `baseline_run_id` |
+| `workflow_dispatch` | Manual, from the Actions tab | The form inputs: `marks`, `sim`, `num_robots`, `stress_iterations`, `stable_duration`, `trajectory_types`, `takeoff_velocities`, `baseline_run_id` |
 
 PR pushes re-run the fast unit gate and the pull-only `build_packages` gate.
 GPU-intensive simulations do **not** run automatically; select the campaign

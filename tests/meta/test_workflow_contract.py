@@ -61,3 +61,11 @@ def test_baseline_search_downloads_candidates_then_selects_by_fingerprint():
     assert 'gh run download "$run_id"' in workflow
     assert "select_baseline_path" in workflow
     assert "dawidd6/action-download-artifact" not in workflow
+
+
+def test_manual_campaign_can_select_minimal_algorithm_sweeps():
+    workflow = _workflow()
+    assert "trajectory_types:" in workflow
+    assert "takeoff_velocities:" in workflow
+    assert "args.extend(['--trajectory-types', trajectories])" in workflow
+    assert "args.extend(['--takeoff-velocities', velocities])" in workflow

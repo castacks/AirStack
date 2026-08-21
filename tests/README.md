@@ -566,6 +566,8 @@ opened, updated, or reopened against `main` or `develop`.
 | `num_robots` | `1` | Robot counts |
 | `stress_iterations` | `1` | Iterations per config |
 | `stable_duration` | `120` | Stability polling seconds |
+| `trajectory_types` | `Circle,Figure8,Racetrack,Line` | Fixed-trajectory sweep; set `Circle` for a minimal campaign |
+| `takeoff_velocities` | `0.5` | Takeoff velocity sweep |
 | `baseline_run_id` | _(blank)_ | Run ID for comparison; blank = latest `main` run |
 
 #### Jobs
