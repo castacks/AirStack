@@ -1,14 +1,15 @@
-<!-- LOCAL -->
+<!-- LOCAL layer bringup: takeoff/land and fixed-trajectory task servers, the
+     GPU DROAN local planner, the trajectory controller, and the PID controller.
+     Included by: onboard_autonomy_all.launch.xml (AUTONOMY_ROLE dispatch).
+     STATUS: LEGACY, AUTONOMY_ROLE dispatch path, graph-frozen until 0.21;
+     stacks are the maintained wiring. Alternate modules formerly kept here as
+     ignore blocks (rviz2, CPU DROAN, disparity_expansion) and alternate topic
+     sources (MAC-VO disparity, depth ground truth) are wired by the stack
+     entry files under stacks/*/launch/ instead. -->
 <launch>
     <!-- WARNING: ROS2 does NOT scope launch arguments. Make sure they have unique names -->
     <arg name="local_odometry_in_topic" default="/$(env ROBOT_NAME)/odometry_conversion/odometry" />
-    <!-- <arg name="local_disparity_in_topic" default="/$(env
-    ROBOT_NAME)/perception/macvo/disparity" /> -->
-    <!-- <arg name="local_depth_in_topic" default="none" /> -->
     <arg name="local_disparity_in_topic" default="/$(env ROBOT_NAME)/perception/stereo_image_proc/disparity" />
-    <!-- <arg name="local_depth_in_topic" default="/$(env
-    ROBOT_NAME)/sensors/front_stereo/right/depth_ground_truth" /> -->
-    <arg name="local_depth_in_topic" default="none" />
     <arg name="local_camera_info_in_topic"
         default="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info" />
 
@@ -86,17 +87,6 @@
             <param name="stationary_rewind_distance" value="10." />
             <param name="stationary_rewind_duration" value="20." />
         </node>
-        <?ignore
-        <node pkg="disparity_expansion" exec="disparity_expansion" name="disparity_expansion"
-            output="screen">
-            <param
-                from="$(find-pkg-share disparity_expansion)/config/disparity_expansion_params.yaml" />
-
-            <remap from="disparity" to="$(var local_disparity_in_topic)" />
-            <remap from="depth" to="$(var local_depth_in_topic)" />
-            <remap from="camera_info" to="$(var local_camera_info_in_topic)" />
-        </node>
-        ?>
     </group>
 
     <!-- Control -->
@@ -188,29 +178,5 @@
         <remap from="tracking_point" to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
         <remap from="command" to="/$(env ROBOT_NAME)/interface/cmd_roll_pitch_yawrate_thrust" />
     </node>
-    <?ignore
-  <node pkg="rviz2" exec="rviz2"
-    args="-d $(find-pkg-share local_bringup)/rviz/droan.rviz --ros-args --log-level INFO"
-    output="screen" respawn="true" respawn_delay="1" />
-  ?>
-
-  	<?ignore
-        <node pkg="droan_local_planner" exec="droan_local_planner" output="screen"
-            args="--log-level DEBUG">
-            <param from="$(find-pkg-share droan_local_planner)/config/droan.yaml"
-                allow_substs="true" />
-            <remap from="~/navigate_task" to="/$(env ROBOT_NAME)/tasks/navigate" />
-            <remap from="set_trajectory_mode" to="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode" />
-            <remap from="global_plan" to="/$(env ROBOT_NAME)/global_plan" />
-            <remap from="look_ahead" to="/$(env ROBOT_NAME)/trajectory_controller/look_ahead" />
-            <remap from="tracking_point"
-                to="/$(env ROBOT_NAME)/trajectory_controller/tracking_point" />
-            <!-- we use right because The baseline (\(B\)) is encoded in the last column of the right camera's projection matrix. -->
-            <remap from="camera_info" to="$(var local_camera_info_in_topic)" />
-            <remap from="trajectory_segment_to_add"
-                to="/$(env ROBOT_NAME)/trajectory_controller/trajectory_segment_to_add" />
-          </node>
-	  ?>
-
 
 </launch>

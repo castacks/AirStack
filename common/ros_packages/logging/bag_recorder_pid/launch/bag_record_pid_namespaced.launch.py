@@ -1,3 +1,9 @@
+"""Namespaced wrapper around bag_record_pid_node.launch.py (pushes a
+robot namespace before including it).
+
+Included by: nothing in trunk; run manually (see the package README).
+STATUS: standalone utility.
+"""
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,

@@ -1,12 +1,11 @@
-<!-- SENSORS -->
+<!-- SENSORS layer bringup: LiDAR point cloud filter under the sensors namespace.
+     Included by: onboard_autonomy_all.launch.xml (AUTONOMY_ROLE dispatch).
+     STATUS: LEGACY, AUTONOMY_ROLE dispatch path, graph-frozen until 0.21;
+     stacks are the maintained wiring (they include
+     lidar_point_cloud_filter.launch.xml directly). -->
 <launch>
     <group>
         <push-ros-namespace namespace="sensors"/>
         <include file="$(find-pkg-share lidar_point_cloud_filter)/launch/lidar_point_cloud_filter.launch.xml"/>
     </group>
-    <!-- should we put this under the sensors namespace above? -->
-    <!-- <node
-        pkg="gimbal_stabilizer" exec="gimbal_stabilizer_node" name="gimbal_stabilizer" output="screen">
-    </node> -->
-
 </launch>

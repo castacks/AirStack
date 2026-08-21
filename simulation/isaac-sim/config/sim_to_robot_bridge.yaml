@@ -17,7 +17,8 @@
 # Robot domain topics (domain 1): 
 #   Same topic names - robot services expect namespaced topics
 #
-# TF frames remain non-namespaced to match static_transforms.launch.xml
+# TF frames remain non-namespaced to match the world->map static transform
+# published inline by autonomy_bringup robot.launch.xml
 #
 # Usage:
 #   domain_bridge /config/sim_to_robot_bridge.yaml

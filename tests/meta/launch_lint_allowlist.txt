@@ -13,12 +13,6 @@ robot/docker/zed/ws/src/zed_wrapper/launch/zed_camera.launch.py
 robot/ros_ws/src/behavior/behavior_bringup/launch/behavior.launch.xml
 robot/ros_ws/src/global/global_bringup/launch/global.launch.xml
 robot/ros_ws/src/global/planners/exploration/launch/exploration_launch.xml
-robot/ros_ws/src/global/planners/exploration/launch/robot_launch_gazebo/gz_behavior_launch.xml
-robot/ros_ws/src/global/planners/exploration/launch/robot_launch_gazebo/gz_global_launch.xml
-robot/ros_ws/src/global/planners/exploration/launch/robot_launch_gazebo/gz_interface_launch.xml
-robot/ros_ws/src/global/planners/exploration/launch/robot_launch_gazebo/gz_local_launch.xml
 robot/ros_ws/src/interface/interface_bringup/launch/interface.launch.py
-robot/ros_ws/src/interface/px4_interface/launch/px4_interface.launch.xml
-robot/ros_ws/src/interface/robot_interface/launch/odometry_conversion.xml
 robot/ros_ws/src/local/local_bringup/launch/local.launch.xml
 robot/ros_ws/src/perception/perception_bringup/launch/perception.launch.xml

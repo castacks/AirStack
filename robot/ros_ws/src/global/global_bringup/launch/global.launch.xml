@@ -1,4 +1,9 @@
-<!-- GLOBAL -->
+<!-- GLOBAL layer bringup: VDB mapping world model and the random walk global
+     planner.
+     Included by: onboard_autonomy_all.launch.xml (AUTONOMY_ROLE dispatch).
+     STATUS: LEGACY, AUTONOMY_ROLE dispatch path, graph-frozen until 0.21;
+     stacks are the maintained wiring (they include vdb_mapping_ros2.py and
+     random_walk_planner.launch.xml directly). -->
 <launch>
     <!-- World Model -->
     <include file="$(find-pkg-share vdb_mapping_ros2)/launch/vdb_mapping_ros2.py" >

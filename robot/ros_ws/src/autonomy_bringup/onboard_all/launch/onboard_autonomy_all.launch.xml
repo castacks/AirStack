@@ -1,4 +1,10 @@
-<!-- ROBOT -->
+<!-- Full onboard autonomy: includes every layer bringup (interface, sensors,
+     perception, local, global, behavior, logging) via package/file args; an
+     empty package arg skips that layer.
+     Included by: autonomy_bringup robot.launch.xml (role=full) and the
+     onboard/offboard split wrappers.
+     STATUS: LEGACY, AUTONOMY_ROLE dispatch path, graph-frozen until 0.21;
+     stacks are the maintained wiring. -->
 <launch>
 
   <!-- Package args -->

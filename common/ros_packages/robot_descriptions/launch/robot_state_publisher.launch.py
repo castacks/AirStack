@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
+"""Starts robot_state_publisher with the URDF selected by urdf_file_path.
 
+Included by: autonomy_bringup robot.launch.xml (both stack and legacy
+AUTONOMY_ROLE dispatch run it from the shared preamble).
+STATUS: canonical module launch (included by the robot entry point).
+"""
 import os
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction

@@ -1,3 +1,8 @@
+<!-- BEHAVIOR layer bringup: drone safety monitor under the behavior namespace.
+     Included by: onboard_autonomy_all.launch.xml (AUTONOMY_ROLE dispatch).
+     STATUS: LEGACY, AUTONOMY_ROLE dispatch path, graph-frozen until 0.21;
+     stacks are the maintained wiring (they include
+     drone_safety_monitor.launch.xml directly). -->
 <launch>
     <group>
         <push-ros-namespace namespace="behavior" />
