@@ -23,10 +23,9 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-# Install files.
-install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
-# install(DIRECTORY rviz DESTINATION share/${PROJECT_NAME})
+# Install files. No launch/ anymore: the legacy global.launch.xml went with
+# the removed AUTONOMY_ROLE dispatch — stacks include vdb_mapping_ros2.py and
+# random_walk_planner.launch.xml directly, selecting the config/ files here.
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
-# install(DIRECTORY params DESTINATION share/${PROJECT_NAME})
 
 ament_package()

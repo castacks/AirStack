@@ -1,7 +1,6 @@
 <!-- LOGGING bringup: conditionally starts the bag_record_pid recorder node
      (only when record_bag is true).
-     Included by: stacks/*/launch entry files AND onboard_autonomy_all.launch.xml
-     (legacy AUTONOMY_ROLE dispatch).
+     Included by: stacks/*/launch entry files.
      STATUS: canonical module launch (included by stacks). -->
 <launch>
   <arg name="record_bag" default="$(env RECORD_BAGS false)"

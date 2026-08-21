@@ -174,7 +174,7 @@ airstack install        # Install Docker and dependencies
 # Container management
 airstack up [service]    # Start services (robot, isaac-sim, gcs)
 airstack up --sim isaac|airsim --robots N   # Intent flags: derive profiles/URDF/sim script (add --headless, --play/--no-play, --no-autolaunch, --wait, --dry-run)
-airstack up --stack <name>[:<entry>] --sim isaac   # Stack launch (RFC #379): stacks/<name>/launch/<entry>.launch.xml replaces the legacy AUTONOMY_ROLE dispatch; see docs/development/stacks.md
+airstack up --stack <name>[:<entry>] --sim isaac   # Stack launch (RFC #379): stacks/<name>/launch/<entry>.launch.xml — the ONLY dispatch (no --stack = full_default; legacy AUTONOMY_ROLE was removed); see docs/development/stacks.md
 airstack up --fleet <name> --sim isaac      # Fleet launch (RFC #380): config/fleets/<name>.yaml drives identity/placement/spawns; see docs/development/fleets.md
 airstack fleet list|generate <name>         # Fleet files: table / per-robot compose for heterogeneous fleets
 airstack sync            # Sync from airstack.yaml: modules, external stack repos, fleet validation
@@ -404,7 +404,7 @@ Each major component has its own Docker container:
 
 **Configuration:**
 - Main compose file: `docker-compose.yaml` (includes all component compose files)
-- Environment variables: top-level [`.env`](.env) (image tags, `VERSION`, `NUM_ROBOTS`, `ROBOT_NAME_MAP_CONFIG_FILE`, `ISAAC_SIM_SCRIPT_NAME`, `AUTONOMY_ROLE`, etc.)
+- Environment variables: top-level [`.env`](.env) (image tags, `VERSION`, `NUM_ROBOTS`, `ROBOT_NAME_MAP_CONFIG_FILE`, `ISAAC_SIM_SCRIPT_NAME`, `AIRSTACK_STACK_DIR`, etc.)
 - Per-container shell init: [`robot/docker/.bashrc`](robot/docker/.bashrc) — resolves `ROBOT_NAME` and `ROS_DOMAIN_ID` at startup (see Multi-Robot Configuration below)
 
 **Networking:** Custom bridge network (172.31.0.0/24) for inter-container communication.
@@ -417,11 +417,11 @@ Legacy multi-robot is implemented via Docker Compose **replicas**, not multiple 
 
 `ROBOT_NAME` is **not** set directly in `.env`. Each container computes it at startup: [`robot/docker/.bashrc`](robot/docker/.bashrc) reads `ROBOT_NAME_SOURCE` (`container_name` or `hostname`) and runs [`resolve_robot_name.py`](robot/docker/robot_name_map/resolve_robot_name.py) against the mapping in [`robot/docker/robot_name_map/`](robot/docker/robot_name_map/) (default: [`default_robot_name_map.yaml`](robot/docker/robot_name_map/default_robot_name_map.yaml)). The resolver exports both `ROBOT_NAME` and `ROS_DOMAIN_ID` — robot N gets domain N by default, so each robot is on its own DDS partition.
 
-The autonomy bringup variant is selected by `AUTONOMY_ROLE` (`full` | `onboard` | `offboard`), dispatched in [`robot/ros_ws/src/autonomy_bringup/launch/robot.launch.xml`](robot/ros_ws/src/autonomy_bringup/launch/robot.launch.xml):
+The autonomy topology is selected by a **stack** (`AIRSTACK_STACK_DIR` / `AIRSTACK_STACK_ENTRY`, exported by `airstack up --stack <name>[:<entry>]`), dispatched in [`robot/ros_ws/src/autonomy_bringup/launch/robot.launch.xml`](robot/ros_ws/src/autonomy_bringup/launch/robot.launch.xml). The legacy `AUTONOMY_ROLE` dispatch was removed — a set `AUTONOMY_ROLE` is a preflight error. Reference stacks (see [docs/development/stacks.md](docs/development/stacks.md)):
 
-- **full** — every autonomy module runs on this machine (sim/dev desktop, autonomous Jetson)
-- **onboard** — lite modules only (interface, sensors, perception, local planning, behavior); pairs with **offboard**
-- **offboard** — global planning only; runs on GCS paired with onboard robots
+- **full_default** — every autonomy module runs on this machine (sim/dev desktop, autonomous Jetson); the default when no stack is selected, machine-proven graph-identical to the old `AUTONOMY_ROLE=full`
+- **lite_default** — lite modules only (interface, sensors, perception, local planning, behavior); no global/logging
+- **lite_offload_global** — split stack: `:onboard` (lite, on the vehicle) + `:offboard` (global planning on a ground host), bridged per its `bridge.yaml` (generated DDS-router config)
 
 For Isaac Sim, the default `ISAAC_SIM_SCRIPT_NAME=example_one_px4_pegasus_launch_script.py` only spawns a single drone. Multi-robot Isaac Sim requires `ISAAC_SIM_SCRIPT_NAME=example_multi_px4_pegasus_launch_script.py` (the system test harness sets this automatically when `--num-robots > 1`).
 

@@ -25,7 +25,8 @@ ROS_DOMAIN_ID=0
 
 # Launch Configuration
 AUTOLAUNCH=true
-AUTONOMY_MODE=onboard_all
+# Stack selection (stacks are the only dispatch; unset = full_default)
+AIRSTACK_STACK_DIR=/root/AirStack/stacks/full_default
 
 # Sensor Configuration
 ENABLE_CAMERA=true

@@ -3,14 +3,19 @@
 The first **split stack** (RFC #380 §2): a lite vehicle half plus an offboard
 global-planning half, with an explicit [`bridge.yaml`](bridge.yaml) listing
 everything that crosses the machine boundary. This is the stack-shaped
-successor of the legacy `AUTONOMY_ROLE=onboard` / `offboard` pair.
+successor of the legacy `AUTONOMY_ROLE=onboard` / `offboard` pair (removed —
+stacks are the only dispatch). The router config generated from `bridge.yaml`
+replaced the legacy split's committed
+`onboard_local_offboard_global/config/dds_router.yaml`, deliberately minus
+the `set_trajectory_mode` crossing that config carried (doctor hard gate #2:
+command authority stays onboard).
 
 ## Anatomy
 
 | File | Runs where | What |
 |------|-----------|------|
 | `launch/onboard.launch.xml` | the vehicle | [`lite_default`](../lite_default/README.md)'s topology (interface, sensors, perception, flat Local layer, behavior — no global, no logging) + the DDS router configured **from `bridge.yaml`** + gossip |
-| `launch/offboard.launch.xml` | the ground host (conventionally the GCS machine, domain 0) | the global layer only: `vdb_mapping` + `random_walk` (the `global_bringup` include, as in `full_default`) |
+| `launch/offboard.launch.xml` | the ground host (conventionally the GCS machine, domain 0) | the global layer only: `vdb_mapping` + `random_walk` (the same flat includes as `full_default`'s global layer) |
 | `bridge.yaml` | — | **THE boundary document**: every topic/service/action crossing between the halves — name, type, direction, QoS. Feeds DDS-router config generation; readable in source. |
 
 A split is a stack *shape*, not special machinery: same four-file anatomy,

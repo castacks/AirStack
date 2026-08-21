@@ -33,7 +33,7 @@ Defaults are in `config/lidar_point_cloud_filter.yaml`. `$(env ROBOT_NAME)` is e
 ros2 launch lidar_point_cloud_filter lidar_point_cloud_filter.launch.xml
 ```
 
-Included from `sensors_bringup` under the robot and `sensors` namespaces. Defaults use **`sensors/ouster/point_cloud_raw` → `sensors/ouster/point_cloud`** to match Pegasus / Isaac and `vdb_params`. For RTX-only topic names, override `input_topic` and `output_topic` (for example under `sensors/lidar/...`).
+Included from the stack entry files (stacks/*/launch) under the robot and `sensors` namespaces. Defaults use **`sensors/ouster/point_cloud_raw` → `sensors/ouster/point_cloud`** to match Pegasus / Isaac and `vdb_params`. For RTX-only topic names, override `input_topic` and `output_topic` (for example under `sensors/lidar/...`).
 
 ## System tests (`sensors` mark)
 

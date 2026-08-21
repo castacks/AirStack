@@ -28,12 +28,11 @@ def pytest_addoption(parser):
     parser.addoption("--num-robots", default="1,3",
                      help="Comma-separated robot counts, e.g. 1,3")
     parser.addoption("--stack", default=None,
-                     help="Stack folder under stacks/ to launch instead of "
-                          "the legacy AUTONOMY_ROLE dispatch (sets "
+                     help="Stack folder under stacks/ to launch (sets "
                           "AIRSTACK_STACK_DIR for airstack up). Default: "
-                          "None (legacy role dispatch). The wiring test "
-                          "drift-checks against stacks/<name>/wiring.md "
-                          "when set.")
+                          "None = the default dispatch, stacks/full_default "
+                          "(stacks are the only dispatch). The wiring test "
+                          "drift-checks against stacks/<name>/wiring.md.")
     parser.addoption("--fleet", default=None,
                      help="Fleet preset under config/fleets/ (RFC #380 §2), "
                           "e.g. sim_three_mixed. Sets FLEET_CONFIG_FILE for "
@@ -246,8 +245,8 @@ def airstack_env(request):
     env_overrides.update(cfg.get("extra_env", {}))
 
     # Stack dispatch (RFC #379 §3): route robot.launch.xml to the stack's
-    # entry launch file instead of the legacy AUTONOMY_ROLE role groups.
-    # Container path — stacks/ is bind-mounted at /root/AirStack/stacks.
+    # entry launch file (unset = the full_default default). Container path —
+    # stacks/ is bind-mounted at /root/AirStack/stacks.
     stack = request.config.getoption("--stack")
     if stack:
         env_overrides["AIRSTACK_STACK_DIR"] = f"/root/AirStack/stacks/{stack}"
@@ -304,7 +303,8 @@ def airstack_env(request):
         "robot_pattern": "robot.*desktop",
         "up_started_at": t0,
         "cfg": cfg,
-        # None = legacy AUTONOMY_ROLE dispatch; else the stacks/<name> launched.
+        # None = the default dispatch (stacks/full_default); else the
+        # stacks/<name> explicitly launched.
         "stack": stack,
         # None = legacy NUM_ROBOTS behavior; else the config/fleets/<name> flown.
         "fleet": fleet,

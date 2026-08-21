@@ -5,8 +5,9 @@
 
   Topology = the global layer ONLY — vdb_mapping (global world model) +
   random_walk (global planner), exactly the includes full_default's entry
-  composes for its global layer — mirroring the legacy AUTONOMY_ROLE=offboard
-  dispatch (offboard_autonomy_global.launch.xml: every other layer disabled).
+  composes for its global layer. (Historically the AUTONOMY_ROLE=offboard
+  role — every other layer disabled; that dispatch is removed, stacks are
+  the only dispatch.)
 
   Inputs arrive across the bridge (see ../bridge.yaml): the filtered lidar
   cloud and odometry from the vehicle. Outputs cross back: global_plan and
@@ -23,10 +24,21 @@
 -->
 <launch>
 
-  <!-- Global (global planner + world model): vdb_mapping consumes the bridged
-       sensors/ouster/point_cloud; random_walk consumes the bridged
-       odometry_conversion/odometry + the local vdb map, publishes global_plan
-       and sends navigate-task goals back across the bridge. -->
-  <include file="$(find-pkg-share global_bringup)/launch/global.launch.xml" />
+  <!-- ── Global, flat (same blocks as full_default's global layer) ───────── -->
+
+  <!-- Global world model: VDB occupancy map; the bridged
+       sensors/ouster/point_cloud in, map visualization out (topics live in
+       the params YAML — cross-package config owned by global_bringup,
+       selected here). NOTE: 'config' is the arg name the vendored
+       vdb_mapping_ros2 launch declares. -->
+  <include file="$(find-pkg-share vdb_mapping_ros2)/launch/vdb_mapping_ros2.py">
+    <arg name="config" value="$(find-pkg-share global_bringup)/config/vdb_params.yaml" />
+  </include>
+
+  <!-- Global planner: random walk. The bridged odometry_conversion/odometry
+       + the local vdb map in; global_plan out and navigate-task goals back
+       across the bridge. The node self-names random_walk_node at the robot
+       root (no namespace push). -->
+  <include file="$(find-pkg-share random_walk_planner)/launch/random_walk_planner.launch.xml" />
 
 </launch>

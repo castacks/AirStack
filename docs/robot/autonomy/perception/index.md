@@ -12,11 +12,13 @@ Perception forms the foundation of the autonomy stack by:
 
 ## Launch
 
-Launch files are located under `robot/ros_ws/src/perception/perception_bringup/launch/`.
-
-The main launch command is:
+Launch files are located under `robot/ros_ws/src/perception/perception_bringup/launch/`
+(module launch files; the legacy `perception.launch.xml` layer wrapper was
+removed with the AUTONOMY_ROLE dispatch). The stack entry files include them
+directly:
 ```bash
-ros2 launch perception_bringup perception.launch.xml
+ros2 launch perception_bringup stereo_image_proc.launch.xml
+ros2 launch perception_bringup topic_keepalive.launch.xml
 ```
 
 ## Key Topics

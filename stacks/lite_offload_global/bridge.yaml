@@ -30,8 +30,11 @@
 # `airstack doctor`) exits 1 naming any violation.
 #
 # Seeded from the legacy onboard_local_offboard_global dds_router.yaml
-# allowlist (its extension + the onboard_all base it extends). Deliberately
-# NOT carried over from that allowlist:
+# allowlist (its extension + the onboard_all base it extended). Both legacy
+# role folders are REMOVED — the base allowlist now lives at
+# autonomy_bringup/config/dds_router.yaml, and THIS file (via
+# tools/gen_dds_router.py) fully replaces the legacy split's router config.
+# Deliberately NOT carried over from that allowlist:
 #   - trajectory_controller/set_trajectory_mode (service) — trajectory group:
 #     the hard gate above. Mode changes are owned by the onboard task servers.
 #   - trajectory_controller/trajectory_vis — the trajectory_controller/* group
@@ -40,7 +43,7 @@
 #     split; its viz is already on the ground host, nothing onboard consumes it.
 #   - bag_record/* — lite stacks run no logging layer.
 #   - behavior/global_plan_toggle (service) — no node serves it in the current
-#     graph (vestigial remap in global.launch.xml).
+#     graph (vestigial remap in the deleted legacy global.launch.xml).
 #   - sensors/front_stereo/right/depth_ground_truth — sim-only ground truth.
 
 version: 1

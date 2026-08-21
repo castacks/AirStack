@@ -362,7 +362,7 @@ The workflow auto-prepends `build_packages` when not already specified.
 
 | Layer | Location | Examples |
 | ----- | -------- | -------- |
-| Tracker params | `robot/ros_ws/src/local/controls/trajectory_controller/config/trajectory_controller.yaml` (stack path; legacy `local.launch.xml` keeps its inline copy) | `sphere_radius`, `look_ahead_time`, `search_ahead_factor`, `min_virtual_tracking_velocity` |
+| Tracker params | `robot/ros_ws/src/local/controls/trajectory_controller/config/trajectory_controller.yaml` (selected by the stack entry file) | `sphere_radius`, `look_ahead_time`, `search_ahead_factor`, `min_virtual_tracking_velocity` |
 | Tracker implementation | Replace or fork `trajectory_controller` node | Alternative pure-pursuit, different intersection logic |
 | Low-level control | Swap `pid_controller` for `attitude_controller` in launch | Changes end-to-end error, not tracker-only |
 
@@ -385,7 +385,7 @@ airstack test -m "build_packages or autonomy" \
   --trajectory-types Circle -v
 BASELINE=$(ls -1t tests/results/ | head -1)
 
-# 2. Edit tracker params in local.launch.xml, rebuild
+# 2. Edit tracker params in trajectory_controller.yaml, rebuild
 airstack test -m build_packages -v
 
 # 3. Candidate run
@@ -448,7 +448,7 @@ Action server: `/{robot_name}/tasks/fixed_trajectory` — see also [Tasks and Ta
 | [`robot/.../fixed_trajectory_task.cpp`](../../../../robot/ros_ws/src/local/controls/trajectory_controller/src/fixed_trajectory_task.cpp) | C++ reference path generators |
 | [`robot/.../trajectory_controller.cpp`](../../../../robot/ros_ws/src/local/controls/trajectory_controller/src/trajectory_controller.cpp) | Pure-pursuit path tracker |
 | [`robot/.../trajectory_library.cpp`](../../../../robot/ros_ws/src/local/planners/trajectory_library/src/trajectory_library.cpp) | Trajectory math, sphere intersection |
-| [`robot/.../local.launch.xml`](../../../../robot/ros_ws/src/local/local_bringup/launch/local.launch.xml) | Tracker + PID params |
+| [`robot/.../trajectory_controller.yaml`](../../../../robot/ros_ws/src/local/controls/trajectory_controller/config/trajectory_controller.yaml) + [`pid_controller.yaml`](../../../../robot/ros_ws/src/local/controls/pid_controller/config/pid_controller.yaml) | Tracker + PID params |
 
 ---
 

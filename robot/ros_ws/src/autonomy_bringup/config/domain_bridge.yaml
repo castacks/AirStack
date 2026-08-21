@@ -1,3 +1,7 @@
+# Shared robot <-> GCS domain_bridge topic map (autonomy_bringup/config/).
+# History: lived at onboard_all/config/ under the removed AUTONOMY_ROLE
+# dispatch. Currently has no launch caller (interpolate_domain_bridge.launch.py
+# is the loader); kept as the reference topic map for domain_bridge users.
 name: onboard_all_bridge
 topics:
   # ============= Outgoing from Robot ================
