@@ -97,7 +97,7 @@ For detailed step-by-step instructions, refer to the **`.agents/skills/`** direc
 | [run-system-tests](.agents/skills/run-system-tests) | Running the pytest system test harness (marks, MetricsRecorder, /pytest PR trigger) |
 | [add-behavior-tree-node](.agents/skills/add-behavior-tree-node) | Creating behavior tree nodes |
 | [use-airstack-cli](.agents/skills/use-airstack-cli) | Using the `airstack` CLI and the non-interactive `docker exec` pattern |
-| [configure-multi-robot](.agents/skills/configure-multi-robot) | Setting up multiple robots, ROBOT_NAME namespacing, and ROS_DOMAIN_ID isolation |
+| [configure-multi-robot](.agents/skills/configure-multi-robot) | Setting up multiple robots — fleet files (`--fleet`, heterogeneous + split placement) and legacy NUM_ROBOTS, ROBOT_NAME namespacing, ROS_DOMAIN_ID isolation |
 | [bump-version-and-release](.agents/skills/bump-version-and-release) | Bumping `.env` VERSION and CHANGELOG before merge to clear the version-check gate |
 | [capture-discovered-knowledge](.agents/skills/capture-discovered-knowledge) | After long context-discovery / surprising findings, persist to AGENTS.md or a new skill so the next agent doesn't redo the work |
 | [use-feature-notebook](.agents/skills/use-feature-notebook) | At the start of EVERY feature implementation: create `notebook/NNN-feature-slug/design_spec.md`, store test artifacts under `results/`, write `results/results_summary.md`, and populate the PR from it |
@@ -164,6 +164,9 @@ airstack install        # Install Docker and dependencies
 # Container management
 airstack up [service]    # Start services (robot, isaac-sim, gcs)
 airstack up --sim isaac|airsim --robots N   # Intent flags: derive profiles/URDF/sim script (add --headless, --play/--no-play, --no-autolaunch, --wait, --dry-run)
+airstack up --fleet <name> --sim isaac      # Fleet launch (RFC #380): config/fleets/<name>.yaml drives identity/placement/spawns; see docs/development/fleets.md
+airstack fleet list|generate <name>         # Fleet files: table / per-robot compose for heterogeneous fleets
+airstack sync            # Sync from airstack.yaml: modules, external stack repos, fleet validation
 airstack ready           # Wait until the stack is flight-ready (containers → sim /clock → nodes → PX4); --json for scripts
 airstack down [service]  # Stop services
 airstack status          # Show container status
@@ -389,7 +392,9 @@ Each major component has its own Docker container:
 
 ## Multi-Robot Configuration
 
-Multi-robot is implemented via Docker Compose **replicas**, not multiple namespaces in one container. Setting `NUM_ROBOTS=3` in [`.env`](.env) spawns three separate containers (`airstack-robot-desktop-1`, `-2`, `-3`) via `deploy.replicas: ${NUM_ROBOTS:-1}` in [`robot/docker/docker-compose.yaml`](robot/docker/docker-compose.yaml).
+**Fleet-first (RFC #380, opt-in):** a fleet file under [`config/fleets/`](config/fleets/) declares who exists, which vehicle ([`config/vehicles/`](config/vehicles/)), which stack, and which ground hosts run split-stack offboard halves. `airstack up --fleet <name>` validates it, derives `NUM_ROBOTS`, selects the generic Isaac fleet spawner ([`fleet_spawn.py`](simulation/isaac-sim/launch_scripts/fleet_spawn.py)), and — for heterogeneous fleets — includes generated per-robot compose services (`airstack fleet generate`). Containers resolve their whole fleet entry via [`tools/fleet/resolve_fleet.py`](tools/fleet/resolve_fleet.py) when `FLEET_CONFIG_FILE` is set. Guide: [docs/development/fleets.md](docs/development/fleets.md). Without a fleet, everything below is unchanged (the default).
+
+Legacy multi-robot is implemented via Docker Compose **replicas**, not multiple namespaces in one container. Setting `NUM_ROBOTS=3` in [`.env`](.env) spawns three separate containers (`airstack-robot-desktop-1`, `-2`, `-3`) via `deploy.replicas: ${NUM_ROBOTS:-1}` in [`robot/docker/docker-compose.yaml`](robot/docker/docker-compose.yaml).
 
 `ROBOT_NAME` is **not** set directly in `.env`. Each container computes it at startup: [`robot/docker/.bashrc`](robot/docker/.bashrc) reads `ROBOT_NAME_SOURCE` (`container_name` or `hostname`) and runs [`resolve_robot_name.py`](robot/docker/robot_name_map/resolve_robot_name.py) against the mapping in [`robot/docker/robot_name_map/`](robot/docker/robot_name_map/) (default: [`default_robot_name_map.yaml`](robot/docker/robot_name_map/default_robot_name_map.yaml)). The resolver exports both `ROBOT_NAME` and `ROS_DOMAIN_ID` — robot N gets domain N by default, so each robot is on its own DDS partition.
 

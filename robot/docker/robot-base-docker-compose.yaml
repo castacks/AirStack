@@ -26,6 +26,10 @@ services:
       # Empty = legacy AUTONOMY_ROLE dispatch in robot.launch.xml.
       - AIRSTACK_STACK_DIR=${AIRSTACK_STACK_DIR:-}
       - AIRSTACK_STACK_ENTRY=${AIRSTACK_STACK_ENTRY:-stack}
+      # Fleet dispatch (RFC #380): set by `airstack up --fleet <name>` to the
+      # CONTAINER path of the fleet file (/root/AirStack/config/fleets/...).
+      # Empty = legacy robot_name_map resolution in .bashrc.
+      - FLEET_CONFIG_FILE=${FLEET_CONFIG_FILE:-}
     volumes:
       # display stuff
       - $HOME/.Xauthority:/.Xauthority
@@ -45,6 +49,10 @@ services:
       - ../ros_ws:/root/AirStack/robot/ros_ws:rw
       # reference stack folders (launch entry points read via AIRSTACK_STACK_DIR)
       - ../../stacks:/root/AirStack/stacks:rw
+      # fleet + vehicle configs and the fleet resolver (.bashrc uses them only
+      # when FLEET_CONFIG_FILE is set — RFC #380)
+      - ../../config:/root/AirStack/config:ro
+      - ../../tools/fleet:/root/AirStack/tools/fleet:ro
       # bags
       - ../bags:/bags:rw
 
