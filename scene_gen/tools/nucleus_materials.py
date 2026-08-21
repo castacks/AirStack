@@ -9,6 +9,10 @@
     python3 tools/nucleus_materials.py omniverse://…/Base/Wood/Ash.mdl
     python3 tools/nucleus_materials.py omniverse://…/vMaterials_2/Stone/
 
+    # --list: matching paths on stdout, nothing rendered and nothing fetched
+    python3 tools/nucleus_materials.py concrete --list
+    python3 tools/nucleus_materials.py rust --list | xargs -n1 basename
+
     python3 tools/nucleus_materials.py --reindex        # refresh the search index
 
 Runs on the host through `nucleus.py` — no Kit, no Isaac Sim container — on the
@@ -432,6 +436,8 @@ def main() -> int:
                     help="extra server-relative root to index")
     ap.add_argument("--maps", action="store_true",
                     help="also show normal/ORM/height channel maps")
+    ap.add_argument("--list", action="store_true",
+                    help="print matching paths to stdout, render nothing")
     ap.add_argument("--reindex", action="store_true", help="rebuild the index")
     args = ap.parse_args()
 
@@ -463,6 +469,16 @@ def main() -> int:
     if not urls:
         print(f"no materials matched {' '.join(args.query)!r}", file=sys.stderr)
         return 1
+
+    if args.list:
+        # Paths only, on stdout, so this pipes. Everything else this tool prints
+        # already goes to stderr. Nothing is fetched, so it returns immediately.
+        for url in urls:
+            print(url)
+        if len(urls) == args.limit:
+            print(f"[list] stopped at --limit {args.limit}; raise it for more",
+                  file=sys.stderr)
+        return 0
 
     # No size bump for a single link: the thumbnails are 256px, so enlarging the
     # tile just upscales one and makes the material look softer than it is.
