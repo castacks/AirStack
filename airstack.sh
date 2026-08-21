@@ -1661,15 +1661,25 @@ function cmd_down {
     check_docker
     
     local services=("$@")
-    
+
     # Build compose arguments
     local compose_args=("-f" "$PROJECT_ROOT/docker-compose.yaml")
-    
+
+    # Generated overlays (module mounts, fleet services) must be visible to
+    # `down` too — a fleet-generated service that `down` can't see becomes an
+    # invisible orphan spinning at full CPU (ddsrouters busy-loop without a
+    # sim /clock). --remove-orphans below is the belt-and-braces backstop.
+    local _gen
+    for _gen in "$PROJECT_ROOT/.airstack/generated/docker-compose.modules.yaml" \
+                "$PROJECT_ROOT/.airstack/generated/docker-compose.fleet.yaml"; do
+        [ -f "$_gen" ] && compose_args+=("-f" "$_gen")
+    done
+
     # Add services if specified
     if [ ${#services[@]} -gt 0 ]; then
         compose_args+=("down" "${services[@]}")
     else
-        compose_args+=("--profile" "*" "down")
+        compose_args+=("--profile" "*" "down" "--remove-orphans")
     fi
     
     log_info "Shutting down services: ${services[*]:-all}"
