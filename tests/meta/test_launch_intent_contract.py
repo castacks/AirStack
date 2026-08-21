@@ -241,3 +241,33 @@ def test_stack_and_role_both_set_warns_stack_wins():
     )
     assert "stack wins" in out
     assert "legacy dispatch" not in out
+
+
+# ── override-file golden equivalence (RFC #380 P6, deliverable 8) ───────────
+# overrides/*.env select sims/hardware, not topology — they must keep passing
+# `up --dry-run` unchanged as the fleet/stack machinery lands on top of them.
+
+def test_override_ms_airsim_env_still_derives_expected_config():
+    code, out, cfg = run_up_dry("--env-file", "overrides/ms-airsim.env")
+    assert code == 0, out
+    profiles = cfg["COMPOSE_PROFILES"].split(",")
+    assert "ms-airsim" in profiles and "desktop" in profiles
+    assert "isaac-sim" not in profiles
+    assert cfg["URDF_FILE"].endswith("iris_stereo.ms-airsim.urdf")
+    # sim/hardware override files never opt into fleets on their own
+    assert "FLEET_CONFIG_FILE" not in cfg
+
+
+def test_override_l4t_px4_realrobot_env_still_derives_expected_config():
+    code, out, cfg = run_up_dry(
+        "--env-file", "overrides/l4t-px4-realrobot.env",
+        # Scrub stack/fleet vars a developer shell might carry.
+        env={"AIRSTACK_STACK_DIR": "", "FLEET_CONFIG_FILE": ""},
+    )
+    assert code == 0, out
+    assert cfg["COMPOSE_PROFILES"] == "l4t"
+    assert cfg["NUM_ROBOTS"] == "1"
+    assert cfg["URDF_FILE"].endswith("iris_with_sensors.pegasus.robot.urdf")
+    assert "FLEET_CONFIG_FILE" not in cfg
+    # its explicit AUTONOMY_ROLE still draws (only) the deprecation courtesy
+    assert "legacy dispatch" in out

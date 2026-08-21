@@ -82,6 +82,7 @@ nav:
           - AI Agent Guide: docs/development/advanced/ai_agent_guide.md
           - AirStack Modules: docs/development/modules.md
           - AirStack Stacks: docs/development/stacks.md
+          - AirStack Fleets: docs/development/fleets.md
           - AirStack CLI Tool:
               - Extending: docs/development/advanced/airstack-cli/extending.md
               - Architecture: docs/development/advanced/airstack-cli/architecture.md
