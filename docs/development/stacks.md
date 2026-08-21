@@ -69,6 +69,35 @@ effective config.
 Stack launch files need no `colcon build` — they are read from the bind mount;
 edit and re-launch.
 
+### Why stacks don't launch standalone
+
+It is tempting to `ros2 launch` a stack entry file directly and delete the
+dispatcher. Three reasons the thin `robot.launch.xml` earns its ~50 lines:
+
+1. **Namespace scoping is mechanical, not stylistic.** `push_ros_namespace`
+   only scopes what sits *inside* its enclosing scope, so an included
+   "preamble" file cannot namespace the sibling includes that follow it. The
+   dispatcher pushes `/$ROBOT_NAME` and includes the stack entry *within*
+   that scope — the one arrangement where every stack node lands namespaced
+   without each stack author hand-rolling (and occasionally fumbling) a
+   wrapper group. A stack that wraps the dispatcher instead recurses
+   infinitely; the layout contract test enforces the direction.
+2. **Stack files stay pure wiring documents.** The preamble — `use_sim_time`,
+   `robot_state_publisher`/URDF plumbing, the world→map TF — is *platform*
+   infrastructure, not topology. Keeping it out of stack entries preserves
+   the "entry file *is* the wiring diagram" property, and keeps
+   vehicle-driven URDF generation (RFC #380 §1) a one-file change instead of
+   an every-stack (and every external stack repo) migration.
+3. **It is the seed of the platform module.** RFC #380 Part 2 extracts
+   "interface + controller + safety + preamble" as the `px4_multirotor`
+   platform module; this dispatcher is precisely the file that becomes that
+   platform's bringup. The Directory Atlas (#385) says `autonomy_bringup`
+   *thins* — it does not disappear.
+
+Practically it is also the single point where `AIRSTACK_STACK_DIR`/`_ENTRY`
+resolution happens, so compose, the fleet resolver, and the CLI converge on
+one contract.
+
 ## wiring.md: generation and drift-checking
 
 The wiring-snapshot system test brings the stack up in sim, waits for the node
