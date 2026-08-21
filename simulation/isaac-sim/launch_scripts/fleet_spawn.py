@@ -99,6 +99,12 @@ def fleet_to_drone_configs(fleet, project_root):
             "z_m": float(spawn[2]),
             "lidar": has_lidar,
         })
+    if len(configs) == 1:
+        # Single-robot fleets must be byte-equivalent to the validated
+        # example_one script, including the historical single-drone prim and
+        # node names (multi-style names are for multi-drone scenes).
+        configs[0]["prim"] = "/World/base_link"
+        configs[0]["node_name"] = "PX4Multirotor"
     return configs
 
 
