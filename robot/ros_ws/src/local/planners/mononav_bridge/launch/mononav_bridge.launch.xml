@@ -15,6 +15,7 @@
        default="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode" />
   <arg name="mononav_bridge_config"
        default="$(find-pkg-share mononav_bridge)/config/mononav_bridge.yaml" />
+  <arg name="mononav_bridge_max_frame_rate" default="3.0" />
   <arg name="mononav_bridge_execute_commands" default="false" />
 
   <group>
@@ -23,6 +24,7 @@
           name="bridge" output="screen">
       <param from="$(var mononav_bridge_config)" allow_substs="true" />
       <param name="planner_name" value="mononav" />
+      <param name="max_frame_rate" value="$(var mononav_bridge_max_frame_rate)" />
       <param name="execute_commands" value="$(var mononav_bridge_execute_commands)" />
       <remap from="image" to="$(var mononav_bridge_image_in_topic)" />
       <remap from="camera_info" to="$(var mononav_bridge_camera_info_in_topic)" />

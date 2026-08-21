@@ -39,7 +39,7 @@ paths are visualized but not forwarded to the trajectory controller.
 | `server_address` | `0.0.0.0` | HTTP bind address |
 | `server_port` | `8765` | HTTP port; only one bridge can own it |
 | `target_frame` | `map` | Frame for camera poses and returned trajectories |
-| `max_frame_rate` | `3.0` | Maximum JPEG/depth sample rate in Hz |
+| `max_frame_rate` | `3.0` | Maximum JPEG/depth sample rate in Hz before launch overrides; this does not change the flight-controller rate |
 | `jpeg_quality` | `90` | RGB transport quality |
 | `execute_commands` | `false` | Permit worker trajectories to reach the controller |
 | `anchor_trajectory_to_odometry` | `true` | Remove camera/body translation at the first waypoint |
@@ -54,13 +54,17 @@ Use the generic launch for either planner:
 ros2 launch mononav_bridge vision_planner_bridge.launch.xml \
   vision_planner_name:=collision_avoidance \
   vision_planner_namespace:=collision_avoidance \
+  vision_planner_max_frame_rate:=3.0 \
   vision_planner_execute_commands:=false
 ```
 
-The legacy launch remains available and is equivalent to selecting MonoNav:
+The legacy launch remains available and is equivalent to selecting MonoNav. Its
+bridge-rate argument is independent from the generic launch argument, although both
+currently default to `3.0` Hz:
 
 ```bash
 ros2 launch mononav_bridge mononav_bridge.launch.xml \
+  mononav_bridge_max_frame_rate:=3.0 \
   mononav_bridge_execute_commands:=false
 ```
 
