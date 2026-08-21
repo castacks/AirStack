@@ -112,6 +112,9 @@ def _base_volumes(root):
         # fleet + vehicle configs (FLEET_CONFIG_FILE, CALIBRATION_DIR)
         f"{r}/config:/root/AirStack/config:ro",
         f"{r}/tools/fleet:/root/AirStack/tools/fleet:ro",
+        # generated artifacts split-stack entries read at launch (bridge-derived
+        # DDS-router configs)
+        f"{r}/.airstack/generated:/root/AirStack/.airstack/generated:ro",
     ]
 
 
