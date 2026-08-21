@@ -9,6 +9,8 @@
     python3 tools/nucleus_materials.py omniverse://…/Base/Wood/Ash.mdl
     python3 tools/nucleus_materials.py omniverse://…/vMaterials_2/Stone/
 
+The finished sheet opens in your image viewer; `--no-open` just writes the file.
+
     # --list: matching paths on stdout, nothing rendered and nothing fetched
     python3 tools/nucleus_materials.py concrete --list
     python3 tools/nucleus_materials.py rust --list | xargs -n1 basename
@@ -73,6 +75,7 @@ import io
 import json
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import time
@@ -442,6 +445,30 @@ def sheet(items, tile: int, cols: int | None, label_lines: int = 3):
 
 # ---------------------------------------------------------------------------
 
+def open_file(path: str) -> bool:
+    """Hand *path* to the desktop image viewer. Non-blocking, never raises.
+
+    Detached with `start_new_session`, so the viewer outlives this process and
+    its chatter cannot land in the middle of our output. Returns False when
+    there is nothing to open into — a headless box or an SSH session with no
+    forwarded display — rather than spawning a process that will just fail.
+    """
+    if sys.platform == "darwin":
+        cmd = ["open", path]
+    elif sys.platform.startswith("win"):
+        cmd = ["cmd", "/c", "start", "", path]
+    elif os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"):
+        cmd = ["xdg-open", path]
+    else:
+        return False
+    try:
+        subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, start_new_session=True)
+        return True
+    except OSError:
+        return False
+
+
 def resolve_targets(query, roots, workers, limit, reindex, maps):
     """``(urls, thumbs, slug)`` for either a link or a set of keywords."""
     if len(query) == 1 and "://" in query[0]:
@@ -478,6 +505,8 @@ def main() -> int:
                     help="also show normal/ORM/height channel maps")
     ap.add_argument("--list", action="store_true",
                     help="print matching paths to stdout, render nothing")
+    ap.add_argument("--no-open", action="store_true",
+                    help="don't open the sheet in an image viewer when done")
     ap.add_argument("--reindex", action="store_true", help="rebuild the index")
     args = ap.parse_args()
 
@@ -538,6 +567,8 @@ def main() -> int:
     summary = ", ".join(f"{n} {k}" for k, n in sorted(tiers.items()))
     print(f"{len(items)} materials ({summary}) in {time.time() - t0:.1f}s")
     print(out)
+    if not args.no_open:
+        open_file(out)
     return 0
 
 
