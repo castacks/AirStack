@@ -317,9 +317,14 @@ def _docker(args, timeout=60, check=True):
 
 
 def discover_robot_containers():
-    """Running robot containers (compose replicas), sorted (as ready.sh does)."""
+    """Running robot containers, sorted (mirrors ready.sh): compose replicas
+    (airstack-robot-desktop-N) and fleet-generated services
+    (airstack-robot_N-1); ground-host tenants (gcs-robot_N) are not robots."""
     out = _docker(["ps", "--format", "{{.Names}}"])
-    return sorted(n for n in out.splitlines() if "-robot-" in n)
+    return sorted(
+        n for n in out.splitlines()
+        if ("-robot-" in n or "-robot_" in n) and "gcs-" not in n
+    )
 
 
 def container_identity(container):
@@ -381,15 +386,40 @@ def _batched_topic_info(container, domain, topics, ws):
     return outputs
 
 
-def capture_live_graph(log=print):
-    """Snapshot every running robot's graph and merge into one normalized
-    graph — the same capture tests/system/test_wiring_snapshot.py performs,
-    driven by plain `docker exec` so it runs on any host with the stack up."""
+def container_stack_dir(container):
+    """The container's AIRSTACK_STACK_DIR ('' when legacy role dispatch)."""
+    try:
+        out = _docker(["exec", container, "printenv", "AIRSTACK_STACK_DIR"])
+        return out.strip()
+    except Exception:
+        return ""
+
+
+def capture_live_graph(log=print, stack=None):
+    """Snapshot running robots' graphs and merge into one normalized graph —
+    the same capture tests/system/test_wiring_snapshot.py performs, driven by
+    plain `docker exec` so it runs on any host with the stack up.
+
+    In a heterogeneous fleet, robots run different stacks; when ``stack`` is
+    given, only containers whose AIRSTACK_STACK_DIR names that stack are
+    captured — one wiring.md describes one stack, not the fleet union."""
     ws = _wiring_snapshot()
     containers = discover_robot_containers()
     if not containers:
         raise RuntimeError("no running robot containers (docker ps shows no "
-                           "'-robot-' names) — bring the stack up first")
+                           "robot names) — bring the stack up first")
+    if stack:
+        matched = [c for c in containers
+                   if container_stack_dir(c).rstrip("/").endswith(f"/{stack}")]
+        skipped = [c for c in containers if c not in matched]
+        if skipped:
+            log(f"[doctor] skipping {len(skipped)} robot container(s) on other "
+                f"stacks: {', '.join(skipped)}")
+        if not matched:
+            raise RuntimeError(
+                f"no running robot container has AIRSTACK_STACK_DIR ending in "
+                f"/{stack} — is that stack actually up?")
+        containers = matched
     nodes, topics, edges = set(), {}, []
     for container in containers:
         robot_name, domain = container_identity(container)
@@ -492,7 +522,7 @@ def run_live(root, stack, strict=False, log=print):
             "AIRSTACK_STACK_DIR (airstack up ...stack <name>)")
         return 1
 
-    graph = capture_live_graph(log=log)
+    graph = capture_live_graph(log=log, stack=stack)
 
     exit_code = 0
     safety = check_safety_floor(graph)
@@ -537,7 +567,7 @@ def run_snapshot(root, stack, log=print):
         log(f"[doctor] no stack folder at {stack_dir}")
         return 1
 
-    graph = capture_live_graph(log=log)
+    graph = capture_live_graph(log=log, stack=stack)
     safety = check_safety_floor(graph)
     for message in safety.messages:
         log(f"[doctor] {message}")
