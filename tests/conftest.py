@@ -193,6 +193,17 @@ def pytest_generate_tests(metafunc):
         return
     sims = [s.strip() for s in metafunc.config.getoption("--sim").split(",") if s.strip()]
     nums = [int(x) for x in metafunc.config.getoption("--num-robots").split(",") if x.strip()]
+    fleet = metafunc.config.getoption("--fleet")
+    if fleet:
+        # A fleet defines its own robot roster: campaigns run at exactly the
+        # fleet's robot count — the --num-robots matrix would otherwise spawn
+        # campaigns expecting robots the fleet never declares.
+        import os as _os
+        import yaml as _yaml
+        fleet_path = _os.path.join(AIRSTACK_ROOT, "config", "fleets", f"{fleet}.yaml")
+        with open(fleet_path, encoding="utf-8") as fh:
+            fleet_doc = _yaml.safe_load(fh) or {}
+        nums = [len(fleet_doc.get("robots") or {})]
     iterations = metafunc.config.getoption("--stress-iterations")
     params = [(s, n, i) for s in sims for n in nums for i in range(iterations)]
     ids = [f"{s}-{n}-iter{i}" for s, n, i in params]
