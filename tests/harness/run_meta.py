@@ -110,7 +110,10 @@ def _report_details(reports) -> tuple[dict[str, str], set[str], set[str]]:
             continue
         if report.failed:
             outcome = "failed"
-            if when != "call":
+            if (
+                when != "call"
+                or getattr(report, "airstack_failure_class", "") == "infrastructure"
+            ):
                 infrastructure_error_nodeids.add(nodeid)
         elif report.skipped:
             outcome = "skipped"

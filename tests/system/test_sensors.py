@@ -39,6 +39,7 @@ from system.test_liveliness import (
 class TestSensors:
 
     @pytest.mark.dependency(name="sensors_sim_ready")
+    @pytest.mark.infrastructure
     def test_sim_clock_available(self, airstack_env):
         """Wait for ``/clock`` on the sim container (same readiness gate as liveliness)."""
         cfg = airstack_env["cfg"]

@@ -78,6 +78,20 @@ def test_assertion_with_downstream_dependency_skip_is_finalized_campaign():
     assert meta["simulation_finalized"] == 2
 
 
+def test_call_phase_infrastructure_failure_is_not_an_algorithm_assertion():
+    report = _report("call", "failed")
+    report.airstack_failure_class = "infrastructure"
+    meta = build_run_meta(
+        [_item()],
+        1,
+        reports=[report],
+        campaign_config={"sim": "msairsim", "num_robots": "1"},
+    )
+    assert meta["outcome"] == "incomplete"
+    assert meta["failure_class"] == "infrastructure"
+    assert meta["complete"] is False
+
+
 def _write_run(path, fingerprint, complete=True):
     path.mkdir()
     (path / "results.xml").write_text("<testsuites/>")

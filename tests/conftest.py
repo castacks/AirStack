@@ -171,9 +171,20 @@ def pytest_sessionfinish(session, exitstatus):
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
-    """Attach phase reports to the item so fixtures can inspect pass/fail."""
+    """Attach phase reports and preserve the assertion/infrastructure boundary."""
     outcome = yield
     rep = outcome.get_result()
+    if rep.failed:
+        text = str(rep.longrepr).lower()
+        is_infrastructure = bool(
+            item.get_closest_marker("infrastructure")
+            or rep.when in ("setup", "teardown")
+            or "infrastructure prerequisite" in text
+            or "infrastructure simulator process failure" in text
+        )
+        rep.airstack_failure_class = (
+            "infrastructure" if is_infrastructure else "assertion"
+        )
     setattr(item, f"_rep_{rep.when}", rep)
 
 

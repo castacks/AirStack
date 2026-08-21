@@ -183,6 +183,7 @@ def _poll_until(predicate, timeout, interval, fail_msg):
 
 
 @pytest.mark.liveliness
+@pytest.mark.infrastructure
 @pytest.mark.timeout(1800)
 class TestLiveliness:
 
