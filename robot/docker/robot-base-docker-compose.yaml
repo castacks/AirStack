@@ -53,6 +53,9 @@ services:
       # when FLEET_CONFIG_FILE is set — RFC #380)
       - ../../config:/root/AirStack/config:ro
       - ../../tools/fleet:/root/AirStack/tools/fleet:ro
+      # Generated artifacts split-stack entries read at launch (bridge-derived
+      # DDS-router configs from tools/gen_dds_router.py).
+      - ../../.airstack/generated:/root/AirStack/.airstack/generated:ro
       # bags
       - ../bags:/bags:rw
 

@@ -108,7 +108,33 @@ function cmd_fleet_generate {
         cmd_fleet_list
         return 1
     fi
-    python3 "$FLEET_COMPOSE_GENERATOR" "$fleet_file" --project-root "$PROJECT_ROOT"
+    python3 "$FLEET_COMPOSE_GENERATOR" "$fleet_file" --project-root "$PROJECT_ROOT" || return 1
+    _fleet_generate_bridge_routers "$fleet_file"
+}
+
+# Split stacks referenced by the fleet need their bridge-derived DDS-router
+# configs materialized before launch (the onboard entry loads
+# .airstack/generated/dds_router.<stack>.yaml and fails fast without it).
+function _fleet_generate_bridge_routers {
+    local fleet_file="$1" bridge stack_dir stack_name
+    while IFS= read -r stack_dir; do
+        bridge="$PROJECT_ROOT/$stack_dir/bridge.yaml"
+        [ -f "$bridge" ] || continue
+        stack_name="$(basename "$stack_dir")"
+        log_info "Generating DDS-router config for split stack '${stack_name}' (bridge.yaml)..."
+        python3 "$PROJECT_ROOT/tools/gen_dds_router.py" "$bridge" || return 1
+    done < <(FLEET_FILE="$fleet_file" python3 - <<'PY'
+import os, yaml
+with open(os.environ["FLEET_FILE"], encoding="utf-8") as f:
+    doc = yaml.safe_load(f) or {}
+stacks = set()
+default = ((doc.get("defaults") or {}).get("stack"))
+for robot in (doc.get("robots") or {}).values():
+    stacks.add((robot or {}).get("stack") or default)
+for s in sorted(s for s in stacks if s):
+    print(s)
+PY
+)
 }
 
 # Dispatcher for the `fleet` command group.
