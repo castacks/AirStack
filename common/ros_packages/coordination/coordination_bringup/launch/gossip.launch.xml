@@ -1,22 +1,33 @@
 <!-- Gossip coordination layer bringup.
      Starts the gossip DDS Router bridge and the gossip_node.
-     Included by robot.launch.xml for both 'full' and 'onboard' roles.
+     Included by robot.launch.xml for both 'full' and 'onboard' roles, and by
+     the reference stacks' entry files.
+
+     Args are prefixed (RFC #379 §4: no generic arg names in trunk launch
+     helpers — generic launch configurations leak across sibling includes).
+     `publish_rate` is kept as a DEPRECATED alias: `gossip_publish_rate`
+     defaults to its value, so old callers passing only `publish_rate` still
+     work; new callers pass `gossip_publish_rate`.
 -->
 <launch>
-  <arg name="gossip_domain"  default="99" />
-  <arg name="publish_rate"   default="1.0" />
+  <arg name="gossip_domain" default="99"
+       description="ROS_DOMAIN_ID of the shared gossip DDS domain bridged for /gossip/peers" />
+  <arg name="publish_rate" default="1.0"
+       description="DEPRECATED alias for gossip_publish_rate" />
+  <arg name="gossip_publish_rate" default="$(var publish_rate)"
+       description="PeerProfile publish rate in Hz" />
 
   <!-- Bridge robot domain ↔ gossip domain for /gossip/peers -->
   <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
-    <arg name="config_file"
+    <arg name="dds_router_config_file"
       value="$(find-pkg-share coordination_bringup)/config/gossip_dds_router.yaml" />
-    <arg name="args" value="gossip_domain:=$(var gossip_domain)" />
+    <arg name="dds_router_args" value="gossip_domain:=$(var gossip_domain)" />
   </include>
 
   <!-- Gossip node -->
   <node pkg="coordination_bringup" exec="gossip_node" name="gossip_node" output="screen">
     <param name="robot_name"            value="$(env ROBOT_NAME)" />
-    <param name="publish_rate"          value="$(var publish_rate)" />
+    <param name="publish_rate"          value="$(var gossip_publish_rate)" />
     <param name="payload_topics_config" value="$(find-pkg-share coordination_bringup)/config/gossip_payloads.yaml" />
   </node>
 </launch>

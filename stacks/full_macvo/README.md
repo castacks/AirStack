@@ -53,13 +53,14 @@ airstack ready
 
 ## Known limits
 
-- Partially flattened: the Local layer is composed module-by-module in
-  `stack.launch.xml`; the other layers are still wrapped bringup includes
-  (they flatten in E3).
-- `stereo_image_proc` still runs alongside MAC-VO (perception's
-  `launch_stereo_image_proc` default is kept `true`): the stereo point cloud
-  feeds other consumers, so this stack runs both estimators. A leaner
-  macvo-only preset can flip that arg once downstream consumers are audited.
+- Fully flattened (E2 local, E3 the rest): every layer is composed
+  module-by-module in `stack.launch.xml`, except `interface.launch.py`
+  (wrapped by design — the safety boundary; flattens with RFC #380 Part 2)
+  and `logging.launch.xml` (already a single self-contained module).
+- `stereo_image_proc` still runs alongside MAC-VO (its module include is
+  kept in `stack.launch.xml`): the stereo point cloud feeds other consumers,
+  so this stack runs both estimators. A leaner macvo-only preset can drop
+  that include once downstream consumers are audited.
 - MAC-VO is GPU-heavy; expect reduced sim real-time factor on a shared GPU.
 - No committed equivalence baseline exists for this topology (the legacy
   variant never worked), so the first post-module-swap `wiring.md` snapshot
