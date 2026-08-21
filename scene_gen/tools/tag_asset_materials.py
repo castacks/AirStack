@@ -1,14 +1,28 @@
 #!/usr/bin/env python3
-"""tag_asset_materials.py — click through an asset set and record each asset's material.
+"""tag_asset_materials.py — click through an asset set's buildings and record each one's material.
 
     AirStack/.venv/bin/python scene_gen/tools/tag_asset_materials.py \
-        scene_gen/config/asset_sets/shared.yaml
+        scene_gen/config/asset_sets/urban.yaml
 
 A small Tk window shows one asset at a time — its path, the categories it is
 pooled under, its tags and its per-entry overrides — and four buttons put it in
 `wood`, `concrete`, `brick` or `steel`. You can skip an asset, step back, or
 jump to any index. Keys work too: 1-4 pick a material, `s` skips, arrows step,
 `q` quits.
+
+BUILDINGS ONLY, BY DEFAULT
+--------------------------
+Only assets pooled under `buildings` are listed — `buildings.intact`,
+`.damaged`, `.destroyed`, `.midrise`, `.rowhouse`, `.tower`. Street furniture,
+trees, vehicles and ground tiles are skipped: a material tag means something
+for a structure and very little for a traffic cone.
+
+`--category` retargets that (`--category debris`, or `--category ''` for every
+asset in the set). It matches on the category path, so `buildings` takes
+`buildings.*` but never a `bus_stops` that merely shares a prefix.
+
+Buildings live in the *_nucleus sets and in urban.yaml — `shared.yaml` has none,
+and the tool says so rather than opening an empty window.
 
 `--list` prints the assets it would show and exits, which needs no display and
 is the way to check what a set contains before starting.
@@ -100,13 +114,29 @@ def walk_usds(node, prefix=()):
             yield from walk_usds(item, prefix)
 
 
-def load_assets(path: str) -> tuple:
-    """``(assets, doc)`` — one record per distinct USD, in file order."""
+def in_category(rec: dict, prefix: str) -> bool:
+    """True when the asset is pooled under *prefix* or a child of it.
+
+    Matched on the category path, so `buildings` takes `buildings.intact`,
+    `buildings.damaged`, … but never a `bus_stops` that merely starts with the
+    same letters.
+    """
+    return any(c == prefix or c.startswith(prefix + ".")
+               for c in rec["categories"])
+
+
+def load_assets(path: str, category: str | None = None) -> tuple:
+    """``(assets, doc)`` — one record per distinct USD, in file order.
+
+    *category* keeps only assets pooled under that category path. Filtering
+    happens after de-duplication, so an asset used both as a building and as
+    something else is still matched on its full set of categories.
+    """
     with open(path) as fh:
         doc = yaml.safe_load(fh) or {}
 
     by_path, order = {}, []
-    for category, entry in walk_usds(doc.get("usds") or {}):
+    for cat_path, entry in walk_usds(doc.get("usds") or {}):
         usd = entry.get("usd")
         if not isinstance(usd, str) or not usd:
             continue
@@ -114,7 +144,7 @@ def load_assets(path: str) -> tuple:
             by_path[usd] = {"usd": usd, "categories": [], "tags": [], "extra": {}}
             order.append(usd)
         rec = by_path[usd]
-        cat = ".".join(category)
+        cat = ".".join(cat_path)
         if cat and cat not in rec["categories"]:
             rec["categories"].append(cat)
         for tag in entry.get("tags") or []:
@@ -123,7 +153,10 @@ def load_assets(path: str) -> tuple:
         for key, val in entry.items():
             if key not in _SKIP_KEYS:
                 rec["extra"][key] = val
-    return [by_path[p] for p in order], doc
+    records = [by_path[p] for p in order]
+    if category:
+        records = [r for r in records if in_category(r, category)]
+    return records, doc
 
 
 # ---------------------------------------------------------------------------
@@ -140,17 +173,20 @@ def load_choices(out: str) -> dict:
             for k, v in (doc.get("assets") or {}).items()}
 
 
-def save_choices(out: str, source: str, assets: list, choices: dict) -> None:
+def save_choices(out: str, source: str, assets: list, choices: dict,
+                 category: str | None = None) -> None:
     """Rewrite the sidecar. Temp file + replace, so a crash cannot truncate it."""
-    counts = {m: 0 for m in MATERIALS}
-    counts["skipped"] = 0
-    for usd in choices:
-        mat = choices[usd]
-        counts["skipped" if mat is None else mat] = \
-            counts.get("skipped" if mat is None else mat, 0) + 1
-    counts["undecided"] = len(assets) - len(choices)
-
+    # Anything already in the file that is outside the current filter is carried
+    # through untouched. Without this, tagging with --category buildings would
+    # silently drop decisions made in an earlier run over the whole set.
+    mine = {rec["usd"] for rec in assets}
     body = {}
+    if os.path.exists(out):
+        with open(out) as fh:
+            prior = (yaml.safe_load(fh) or {}).get("assets") or {}
+        body = {k: v for k, v in prior.items() if k not in mine}
+    carried = len(body)
+
     for rec in assets:
         if rec["usd"] not in choices:
             continue
@@ -159,6 +195,19 @@ def save_choices(out: str, source: str, assets: list, choices: dict) -> None:
             "categories": rec["categories"],
             "tags": rec["tags"],
         }
+
+    # Tally only what is in scope now. `choices` is seeded from the whole file,
+    # so entries outside the current category would otherwise be counted as
+    # progress and leave `undecided` short.
+    ours = {k: v for k, v in choices.items() if k in mine}
+    counts = {m: 0 for m in MATERIALS}
+    counts["skipped"] = 0
+    for mat in ours.values():
+        key = "skipped" if mat is None else mat
+        counts[key] = counts.get(key, 0) + 1
+    counts["undecided"] = len(assets) - len(ours)
+    if carried:
+        counts["carried_over"] = carried
 
     header = (
         "# Asset material tags — written by scene_gen/tools/tag_asset_materials.py\n"
@@ -171,6 +220,7 @@ def save_choices(out: str, source: str, assets: list, choices: dict) -> None:
     )
     doc = {
         "source": source,
+        "category": category or "(all)",
         "updated": datetime.datetime.now().isoformat(timespec="seconds"),
         "materials": list(MATERIALS),
         "counts": counts,
@@ -201,8 +251,10 @@ class Session:
     choice and writing the sidecar — is testable without a display.
     """
 
-    def __init__(self, assets: list, out: str, source: str):
+    def __init__(self, assets: list, out: str, source: str,
+                 category: str | None = None):
         self.assets, self.out, self.source = assets, out, source
+        self.category = category
         self.choices = load_choices(out)
         self.i = next((n for n, a in enumerate(assets)
                        if a["usd"] not in self.choices), 0)
@@ -238,18 +290,20 @@ class Session:
         return None
 
     def save(self) -> None:
-        save_choices(self.out, self.source, self.assets, self.choices)
+        save_choices(self.out, self.source, self.assets, self.choices,
+                     self.category)
 
 
 # ---------------------------------------------------------------------------
 # the GUI
 # ---------------------------------------------------------------------------
 
-def run_gui(assets: list, out: str, source: str, previews: str | None) -> int:
+def run_gui(assets: list, out: str, source: str, previews: str | None,
+            category: str | None = None) -> int:
     import tkinter as tk
     from tkinter import ttk
 
-    session = Session(assets, out, source)
+    session = Session(assets, out, source, category)
 
     root = tk.Tk()
     root.title(f"Asset materials — {os.path.basename(source)}")
@@ -407,24 +461,40 @@ def main() -> int:
     ap.add_argument("asset_set", help="asset set YAML to read (never written)")
     ap.add_argument("-o", "--out",
                     help="sidecar to write (default: <asset_set>.materials.yaml)")
+    ap.add_argument("--category", default="buildings", metavar="PATH",
+                    help="only assets pooled under this category "
+                         "(default: buildings; '' for every asset in the set)")
     ap.add_argument("--previews", metavar="DIR",
                     help="show DIR/<asset stem>.png beside each card, if present")
     ap.add_argument("--list", action="store_true",
                     help="print the assets that would be shown, then exit")
     args = ap.parse_args()
 
-    assets, doc = load_assets(args.asset_set)
+    assets, doc = load_assets(args.asset_set, args.category)
     if not assets:
-        # A set that only overrides knobs (urban_intact) has no `usds:` at all.
         parent = doc.get("extends")
-        print(f"no assets under `usds:` in {args.asset_set}"
-              + (f" — it only overrides '{parent}'. Run this on "
-                 f"{parent}.yaml instead." if parent else ""), file=sys.stderr)
+        what = f"`{args.category}` assets" if args.category else "assets"
+        hint = ""
+        if args.category:
+            # Distinguish "this set has none of that category" from "this set
+            # has nothing at all" — the fix differs.
+            everything, _ = load_assets(args.asset_set)
+            if everything:
+                cats = sorted({c.split(".")[0] for r in everything
+                               for c in r["categories"]})
+                hint = (f" It has {len(everything)} other assets, under: "
+                        f"{', '.join(cats)}.")
+        if not hint and parent:
+            hint = (f" It only overrides '{parent}'. Run this on "
+                    f"{parent}.yaml instead.")
+        print(f"no {what} in {args.asset_set}.{hint}", file=sys.stderr)
         return 1
     if doc.get("extends"):
         print(f"note: {os.path.basename(args.asset_set)} extends "
               f"'{doc['extends']}', which is NOT followed — only this file's "
-              f"own {len(assets)} assets are listed.", file=sys.stderr)
+              f"own {len(assets)} "
+              f"{args.category or 'asset'}{'' if args.category else 's'} "
+              f"are listed.", file=sys.stderr)
 
     if args.list:
         for n, rec in enumerate(assets, start=1):
@@ -433,13 +503,16 @@ def main() -> int:
                   f"{'  tags=' + ','.join(rec['tags']) if rec['tags'] else ''}")
         return 0
 
-    out = args.out or os.path.splitext(args.asset_set)[0] + ".materials.yaml"
+    # The category goes in the name so tagging buildings and tagging
+    # everything cannot land in the same file by default.
+    slug = (args.category or "all").replace(".", "_")
+    out = args.out or f"{os.path.splitext(args.asset_set)[0]}.{slug}.materials.yaml"
     if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")
             or sys.platform in ("darwin", "win32")):
         print("no display — this is a GUI tool. Use --list to see the assets.",
               file=sys.stderr)
         return 2
-    return run_gui(assets, out, args.asset_set, args.previews)
+    return run_gui(assets, out, args.asset_set, args.previews, args.category)
 
 
 if __name__ == "__main__":
