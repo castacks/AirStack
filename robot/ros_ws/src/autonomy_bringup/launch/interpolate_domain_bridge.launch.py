@@ -41,19 +41,26 @@ Merge-control YAML tags:
                  topics: !reset
 
 Launch arguments:
-  config_file  (required)
+  domain_bridge_config_file  (required)
       Absolute path to the domain bridge YAML config file.
       Typically resolved with find-pkg-share in the calling launch file, e.g.:
         $(find-pkg-share autonomy_bringup)/config/my_bridge.yaml
 
-  args  (optional, default: "")
+  domain_bridge_args  (optional, default: "")
       Space-separated key:=value pairs that resolve $(var key) tokens in the
       config file, e.g.:  "gcs_domain:=0  robot_domain:=5"
 
+  config_file / args  (DEPRECATED aliases)
+      Pre-RFC#379 generic names for the two arguments above. Generic launch
+      configurations leak across sibling includes in the same launch scope
+      (they are not scoped to the include), so the prefixed names are
+      canonical. The aliases are kept for old callers; the prefixed argument
+      wins when both are set.
+
 Example (XML caller):
   <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_domain_bridge.launch.py">
-    <arg name="config_file" value="$(find-pkg-share autonomy_bringup)/config/bridge.yaml" />
-    <arg name="args"        value="gcs_domain:=0" />
+    <arg name="domain_bridge_config_file" value="$(find-pkg-share autonomy_bringup)/config/bridge.yaml" />
+    <arg name="domain_bridge_args"        value="gcs_domain:=0" />
   </include>
 """
 
@@ -204,8 +211,26 @@ def _load_and_merge_config(config_file):
 
 
 def launch_domain_bridge(context, *args, **kwargs):
-    config_file = LaunchConfiguration('config_file').perform(context)
-    args_str = LaunchConfiguration('args').perform(context)
+    config_file = LaunchConfiguration('domain_bridge_config_file').perform(context)
+    args_str = LaunchConfiguration('domain_bridge_args').perform(context)
+
+    # DEPRECATED aliases (pre-RFC#379 generic names): used only when the
+    # prefixed argument is unset.
+    legacy_config = LaunchConfiguration('config_file').perform(context)
+    legacy_args = LaunchConfiguration('args').perform(context)
+    if not config_file and legacy_config:
+        print("[interpolate_domain_bridge] WARNING: launch argument "
+              "'config_file' is deprecated — use 'domain_bridge_config_file'")
+        config_file = legacy_config
+    if not args_str and legacy_args:
+        print("[interpolate_domain_bridge] WARNING: launch argument "
+              "'args' is deprecated — use 'domain_bridge_args'")
+        args_str = legacy_args
+    if not config_file:
+        raise RuntimeError(
+            "interpolate_domain_bridge: required launch argument "
+            "'domain_bridge_config_file' was not provided"
+        )
 
     # Parse args string: space-separated "key:=value" pairs, e.g. "gcs_domain:=0 foo:=bar"
     variables = {}
@@ -267,20 +292,32 @@ def launch_domain_bridge(context, *args, **kwargs):
 def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
-            'config_file',
+            'domain_bridge_config_file',
+            default_value='',
             description=(
                 'Absolute path to the domain bridge YAML config file. '
                 'Supports $(find-pkg-share PKG), $(env ENV_VAR), $(var key) substitution '
-                'syntax and an "extends:" key for config inheritance.'
+                'syntax and an "extends:" key for config inheritance. Required '
+                '(default is empty only so the deprecated alias can fill in).'
             ),
         ),
         DeclareLaunchArgument(
-            'args',
+            'domain_bridge_args',
             default_value='',
             description=(
                 'Space-separated key:=value pairs used to resolve $(var key) '
                 'substitutions in the config file, e.g. "gcs_domain:=0 foo:=bar".'
             ),
+        ),
+        DeclareLaunchArgument(
+            'config_file',
+            default_value='',
+            description='DEPRECATED alias for domain_bridge_config_file.',
+        ),
+        DeclareLaunchArgument(
+            'args',
+            default_value='',
+            description='DEPRECATED alias for domain_bridge_args.',
         ),
         OpaqueFunction(function=launch_domain_bridge),
     ])

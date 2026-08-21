@@ -354,33 +354,40 @@ Create `config/<package_name>.yaml` with default parameters:
 
 ### 8. Create Launch File
 
-Create `launch/<package_name>.launch.xml` with topic remapping:
+Create `launch/<package_name>.launch.xml` following the canonical module
+launch pattern (RFC #379 §4 — see `.agents/skills/write-launch-file`):
 
 ```xml
 <launch>
-  <!-- Launch arguments for topic remapping -->
-  <arg name="odometry_topic" default="/robot/odometry" />
-  <arg name="output_topic" default="/robot/cmd_vel" />
-  <arg name="config_file" default="$(find-pkg-share your_package_name)/config/your_package_name.yaml" />
+  <!-- Prefixed, described args; defaults = the CANONICAL topic names -->
+  <arg name="your_module_odometry_topic" default="/$(env ROBOT_NAME)/odometry"
+       description="Input odometry (nav_msgs/Odometry)" />
+  <arg name="your_module_output_topic" default="/$(env ROBOT_NAME)/cmd_vel"
+       description="Output velocity command" />
+  <arg name="your_module_config"
+       default="$(find-pkg-share your_package_name)/config/your_package_name.yaml"
+       description="Node parameter YAML (loaded with allow_substs)" />
 
-  <node pkg="your_package_name" 
-        exec="your_node_name" 
-        name="your_node_name" 
-        output="screen">
-    
-    <!-- Load parameters -->
-    <param from="$(var config_file)" allow_substs="true" />
-    
-    <!-- Remap topics -->
-    <remap from="odometry" to="$(var odometry_topic)" />
-    <remap from="cmd_vel" to="$(var output_topic)" />
-  </node>
+  <group>
+    <!-- Bind the node's relative topic names to the declared args -->
+    <set_remap from="odometry" to="$(var your_module_odometry_topic)" />
+    <set_remap from="cmd_vel" to="$(var your_module_output_topic)" />
+
+    <node pkg="your_package_name"
+          exec="your_node_name"
+          name="your_node_name"
+          output="screen">
+      <!-- Load parameters -->
+      <param from="$(var your_module_config)" allow_substs="true" />
+    </node>
+  </group>
 </launch>
 ```
 
 **Key points:**
 - Use `allow_substs="true"` to enable environment variable substitution in config files
-- Define launch arguments for all topic names (enables flexible remapping)
+- Declare a prefixed launch argument (with `description=`) for every topic endpoint, defaulting to the canonical name — never generic names like `config_file` (launch configurations leak across sibling includes)
+- Use `set_remap` inside the module's group; module launch files never use `remap` tags — cross-module rewiring lives in the stack entry file (`stacks/<name>/launch/`), enforced by the single-locus lint (`tests/meta/test_launch_single_locus.py`)
 - Use `$(var arg_name)` to reference launch arguments
 - Use `$(env VAR_NAME)` for environment variables in configs
 
