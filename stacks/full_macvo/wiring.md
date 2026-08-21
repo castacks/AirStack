@@ -1,10 +1,10 @@
 # Wiring snapshot: full_macvo
 
 - **generated-by**: tests/system/test_wiring_snapshot.py
-- **date**: 2026-08-20 22:17:32
+- **date**: 2026-08-21 00:42:32
 - **sim**: isaacsim
 - **num_robots**: 1
-- **source-sha**: d02a3467b72d
+- **source-sha**: f769eecc38b7
 
 ```mermaid
 graph LR
@@ -88,31 +88,32 @@ graph LR
     n71["/robot_1/odometry_conversion/odometry_conversion"]
   end
   subgraph g5["perception"]
-    n72["/robot_1/perception/static_transform_publisher"]
-    n73["/robot_1/perception/stereo_image_proc/disparity_node"]
-    n74["/robot_1/perception/stereo_pointcloud"]
+    n72["/robot_1/perception/macvo/macvo_node"]
+    n73["/robot_1/perception/macvo_ned_tf"]
+    n74["/robot_1/perception/stereo_image_proc/disparity_node"]
+    n75["/robot_1/perception/stereo_pointcloud"]
   end
   subgraph g6["robot_1"]
     n1["/robot_1/Container"]
     n5["/robot_1/gossip_node"]
-    n75["/robot_1/random_walk_node"]
-    n76["/robot_1/robot_state_publisher"]
-    n79["/robot_1/topic_keepalive"]
-    n82["/robot_1/vdb_mapping"]
-    n83["/robot_1/world_to_map_broadcaster"]
+    n76["/robot_1/random_walk_node"]
+    n77["/robot_1/robot_state_publisher"]
+    n80["/robot_1/topic_keepalive"]
+    n83["/robot_1/vdb_mapping"]
+    n84["/robot_1/world_to_map_broadcaster"]
   end
   subgraph g7["root"]
     n0["/action_relay_client"]
   end
   subgraph g8["sensors"]
-    n77["/robot_1/sensors/lidar_point_cloud_filter"]
+    n78["/robot_1/sensors/lidar_point_cloud_filter"]
   end
   subgraph g9["takeoff_landing_planner"]
-    n78["/robot_1/takeoff_landing_planner/takeoff_landing_task"]
+    n79["/robot_1/takeoff_landing_planner/takeoff_landing_task"]
   end
   subgraph g10["trajectory_controller"]
-    n80["/robot_1/trajectory_controller/fixed_trajectory_task"]
-    n81["/robot_1/trajectory_controller/trajectory_control_node"]
+    n81["/robot_1/trajectory_controller/fixed_trajectory_task"]
+    n82["/robot_1/trajectory_controller/trajectory_control_node"]
   end
   d0(["/clock (no publishers)"]) -->|"/clock<br/>Clock"| n1
   d0 -->|"/clock<br/>Clock"| n2
@@ -197,12 +198,13 @@ graph LR
   d0 -->|"/clock<br/>Clock"| n81
   d0 -->|"/clock<br/>Clock"| n82
   d0 -->|"/clock<br/>Clock"| n83
+  d0 -->|"/clock<br/>Clock"| n84
   n34 -->|"/diagnostics<br/>DiagnosticArray"| d1(["/diagnostics (no subscribers)"])
   n36 -->|"/diagnostics<br/>DiagnosticArray"| d1
   n5 -->|"/gossip/peers<br/>PeerProfile"| n5
   n25 -->|"/move_base_simple/goal<br/>PoseStamped"| d2(["/move_base_simple/goal (no subscribers)"])
   d3(["/robot_1/behavior/drone_safety_monitor/command (no publishers)"]) -->|"/robot_1/behavior/drone_safety_monitor/command<br/>String"| n2
-  n2 -->|"/robot_1/behavior/drone_safety_monitor/state_estimate_timed_out<br/>Bool"| n78
+  n2 -->|"/robot_1/behavior/drone_safety_monitor/state_estimate_timed_out<br/>Bool"| n79
   n70 -->|"/robot_1/control/reset_integrators<br/>Empty"| n3
   n3 -->|"/robot_1/control/vx_pid_info<br/>PIDInfo"| d4(["/robot_1/control/vx_pid_info (no subscribers)"])
   n3 -->|"/robot_1/control/vy_pid_info<br/>PIDInfo"| d5(["/robot_1/control/vy_pid_info (no subscribers)"])
@@ -214,27 +216,27 @@ graph LR
   n69 -->|"/robot_1/cross_track_error<br/>PoseStamped"| d11(["/robot_1/cross_track_error (no subscribers)"])
   n4 -->|"/robot_1/droan/background_expanded<br/>Image"| d12(["/robot_1/droan/background_expanded (no subscribers)"])
   d13(["/robot_1/droan/clear_map (no publishers)"]) -->|"/robot_1/droan/clear_map<br/>Empty"| n4
-  d14(["/robot_1/droan/disparity_graph (no publishers)"]) -->|"/robot_1/droan/disparity_graph<br/>MarkerArray"| n79
-  d15(["/robot_1/droan/disparity_map_debug (no publishers)"]) -->|"/robot_1/droan/disparity_map_debug<br/>MarkerArray"| n79
-  d16(["/robot_1/droan/expansion_cloud (no publishers)"]) -->|"/robot_1/droan/expansion_cloud<br/>PointCloud2"| n79
-  d17(["/robot_1/droan/expansion_poly (no publishers)"]) -->|"/robot_1/droan/expansion_poly<br/>MarkerArray"| n79
-  n4 -->|"/robot_1/droan/fg_bg_cloud<br/>PointCloud2"| n79
+  d14(["/robot_1/droan/disparity_graph (no publishers)"]) -->|"/robot_1/droan/disparity_graph<br/>MarkerArray"| n80
+  d15(["/robot_1/droan/disparity_map_debug (no publishers)"]) -->|"/robot_1/droan/disparity_map_debug<br/>MarkerArray"| n80
+  d16(["/robot_1/droan/expansion_cloud (no publishers)"]) -->|"/robot_1/droan/expansion_cloud<br/>PointCloud2"| n80
+  d17(["/robot_1/droan/expansion_poly (no publishers)"]) -->|"/robot_1/droan/expansion_poly<br/>MarkerArray"| n80
+  n4 -->|"/robot_1/droan/fg_bg_cloud<br/>PointCloud2"| n80
   n4 -->|"/robot_1/droan/foreground_expanded<br/>Image"| d18(["/robot_1/droan/foreground_expanded (no subscribers)"])
-  d19(["/robot_1/droan/frustum (no publishers)"]) -->|"/robot_1/droan/frustum<br/>Marker"| n79
-  n4 -->|"/robot_1/droan/graph_vis<br/>MarkerArray"| n79
-  n4 -->|"/robot_1/droan/local_planner_global_plan_vis<br/>MarkerArray"| n79
+  d19(["/robot_1/droan/frustum (no publishers)"]) -->|"/robot_1/droan/frustum<br/>Marker"| n80
+  n4 -->|"/robot_1/droan/graph_vis<br/>MarkerArray"| n80
+  n4 -->|"/robot_1/droan/local_planner_global_plan_vis<br/>MarkerArray"| n80
   d20(["/robot_1/droan/reset_stuck (no publishers)"]) -->|"/robot_1/droan/reset_stuck<br/>Empty"| n4
-  n4 -->|"/robot_1/droan/rewind_info<br/>MarkerArray"| n79
+  n4 -->|"/robot_1/droan/rewind_info<br/>MarkerArray"| n80
   n4 -->|"/robot_1/droan/stuck<br/>Bool"| d21(["/robot_1/droan/stuck (no subscribers)"])
-  n4 -->|"/robot_1/droan/traj_debug<br/>MarkerArray"| n79
-  d22(["/robot_1/droan/trajectory_library_vis (no publishers)"]) -->|"/robot_1/droan/trajectory_library_vis<br/>MarkerArray"| n79
-  d23(["/robot_1/droan/virtual_obstacles (no publishers)"]) -->|"/robot_1/droan/virtual_obstacles<br/>MarkerArray"| n79
+  n4 -->|"/robot_1/droan/traj_debug<br/>MarkerArray"| n80
+  d22(["/robot_1/droan/trajectory_library_vis (no publishers)"]) -->|"/robot_1/droan/trajectory_library_vis<br/>MarkerArray"| n80
+  d23(["/robot_1/droan/virtual_obstacles (no publishers)"]) -->|"/robot_1/droan/virtual_obstacles<br/>MarkerArray"| n80
   n69 -->|"/robot_1/global_plan<br/>Path"| n4
   n69 -->|"/robot_1/global_plan<br/>Path"| n5
-  n69 -->|"/robot_1/global_plan<br/>Path"| n79
-  n75 -->|"/robot_1/global_plan<br/>Path"| n4
-  n75 -->|"/robot_1/global_plan<br/>Path"| n5
-  n75 -->|"/robot_1/global_plan<br/>Path"| n79
+  n69 -->|"/robot_1/global_plan<br/>Path"| n80
+  n76 -->|"/robot_1/global_plan<br/>Path"| n4
+  n76 -->|"/robot_1/global_plan<br/>Path"| n5
+  n76 -->|"/robot_1/global_plan<br/>Path"| n80
   d24(["/robot_1/interface/attitude_thrust_command (no publishers)"]) -->|"/robot_1/interface/attitude_thrust_command<br/>AttitudeThrust"| n70
   d25(["/robot_1/interface/cmd_attitude_thrust (no publishers)"]) -->|"/robot_1/interface/cmd_attitude_thrust<br/>AttitudeThrust"| n70
   n69 -->|"/robot_1/interface/cmd_pose<br/>PoseStamped"| n70
@@ -242,8 +244,8 @@ graph LR
   n3 -->|"/robot_1/interface/cmd_roll_pitch_yawrate_thrust<br/>RollPitchYawrateThrust"| n70
   d27(["/robot_1/interface/cmd_torque_thrust (no publishers)"]) -->|"/robot_1/interface/cmd_torque_thrust<br/>TorqueThrust"| n70
   n69 -->|"/robot_1/interface/cmd_velocity<br/>TwistStamped"| n70
-  n70 -->|"/robot_1/interface/has_control<br/>Bool"| n78
-  n70 -->|"/robot_1/interface/is_armed<br/>Bool"| n78
+  n70 -->|"/robot_1/interface/has_control<br/>Bool"| n79
+  n70 -->|"/robot_1/interface/is_armed<br/>Bool"| n79
   d28(["/robot_1/interface/mavros/actuator_control (no publishers)"]) -->|"/robot_1/interface/mavros/actuator_control<br/>ActuatorControl"| n6
   d29(["/robot_1/interface/mavros/adsb/send (no publishers)"]) -->|"/robot_1/interface/mavros/adsb/send<br/>ADSBVehicle"| n7
   n7 -->|"/robot_1/interface/mavros/adsb/vehicle<br/>ADSBVehicle"| d30(["/robot_1/interface/mavros/adsb/vehicle (no subscribers)"])
@@ -263,7 +265,7 @@ graph LR
   n15 -->|"/robot_1/interface/mavros/esc_status/status<br/>ESCStatus"| d44(["/robot_1/interface/mavros/esc_status/status (no subscribers)"])
   n16 -->|"/robot_1/interface/mavros/esc_telemetry/telemetry<br/>ESCTelemetry"| d45(["/robot_1/interface/mavros/esc_telemetry/telemetry (no subscribers)"])
   n59 -->|"/robot_1/interface/mavros/estimator_status<br/>EstimatorStatus"| d46(["/robot_1/interface/mavros/estimator_status (no subscribers)"])
-  n59 -->|"/robot_1/interface/mavros/extended_state<br/>ExtendedState"| n78
+  n59 -->|"/robot_1/interface/mavros/extended_state<br/>ExtendedState"| n79
   d47(["/robot_1/interface/mavros/fake_gps/mocap/tf (no publishers)"]) -->|"/robot_1/interface/mavros/fake_gps/mocap/tf<br/>TransformStamped"| n17
   n19 -->|"/robot_1/interface/mavros/geofence/fences<br/>WaypointList"| d48(["/robot_1/interface/mavros/geofence/fences (no subscribers)"])
   n20 -->|"/robot_1/interface/mavros/gimbal_control/device/attitude_status<br/>GimbalDeviceAttitudeStatus"| d49(["/robot_1/interface/mavros/gimbal_control/device/attitude_status (no subscribers)"])
@@ -404,83 +406,85 @@ graph LR
   d168(["/robot_1/interface/roll_pitch_yawrate_thrust_command (no publishers)"]) -->|"/robot_1/interface/roll_pitch_yawrate_thrust_command<br/>RollPitchYawrateThrust"| n70
   d169(["/robot_1/interface/torque_thrust_command (no publishers)"]) -->|"/robot_1/interface/torque_thrust_command<br/>TorqueThrust"| n70
   d170(["/robot_1/interface/velocity_command (no publishers)"]) -->|"/robot_1/interface/velocity_command<br/>TwistStamped"| n70
-  d171(["/robot_1/joint_states (no publishers)"]) -->|"/robot_1/joint_states<br/>JointState"| n76
-  d172(["/robot_1/macvo/odometry (no publishers)"]) -->|"/robot_1/macvo/odometry<br/>Odometry"| n79
+  d171(["/robot_1/joint_states (no publishers)"]) -->|"/robot_1/joint_states<br/>JointState"| n77
   n71 -->|"/robot_1/odometry_conversion/odometry<br/>Odometry"| n2
   n71 -->|"/robot_1/odometry_conversion/odometry<br/>Odometry"| n3
   n71 -->|"/robot_1/odometry_conversion/odometry<br/>Odometry"| n69
-  n71 -->|"/robot_1/odometry_conversion/odometry<br/>Odometry"| n75
-  n71 -->|"/robot_1/odometry_conversion/odometry<br/>Odometry"| n78
+  n71 -->|"/robot_1/odometry_conversion/odometry<br/>Odometry"| n76
   n71 -->|"/robot_1/odometry_conversion/odometry<br/>Odometry"| n79
   n71 -->|"/robot_1/odometry_conversion/odometry<br/>Odometry"| n80
   n71 -->|"/robot_1/odometry_conversion/odometry<br/>Odometry"| n81
-  d173(["/robot_1/perception/macvo/disparity (no publishers)"]) -->|"/robot_1/perception/macvo/disparity<br/>DisparityImage"| n4
-  d173 -->|"/robot_1/perception/macvo/disparity<br/>DisparityImage"| n79
-  d174(["/robot_1/perception/macvo/point_cloud (no publishers)"]) -->|"/robot_1/perception/macvo/point_cloud<br/>PointCloud"| n79
-  n73 -->|"/robot_1/perception/stereo_image_proc/disparity<br/>DisparityImage"| n74
-  n74 -->|"/robot_1/perception/stereo_image_proc/point_cloud<br/>PointCloud2"| n79
-  n75 -->|"/robot_1/random_walk_node/goal_point_viz<br/>Marker"| d175(["/robot_1/random_walk_node/goal_point_viz (no subscribers)"])
-  n75 -->|"/robot_1/random_walk_node/traj_viz<br/>Marker"| d176(["/robot_1/random_walk_node/traj_viz (no subscribers)"])
-  n76 -->|"/robot_1/robot_description<br/>String"| d177(["/robot_1/robot_description (no subscribers)"])
-  d178(["/robot_1/sensors/front_stereo/left/camera_info (no publishers)"]) -->|"/robot_1/sensors/front_stereo/left/camera_info<br/>CameraInfo"| n73
-  d178 -->|"/robot_1/sensors/front_stereo/left/camera_info<br/>CameraInfo"| n74
-  d178 -->|"/robot_1/sensors/front_stereo/left/camera_info<br/>CameraInfo"| n79
-  d179(["/robot_1/sensors/front_stereo/left/depth_ground_truth (no publishers)"]) -->|"/robot_1/sensors/front_stereo/left/depth_ground_truth<br/>Image"| n79
-  d180(["/robot_1/sensors/front_stereo/left/image_rect (no publishers)"]) -->|"/robot_1/sensors/front_stereo/left/image_rect<br/>Image"| n73
-  d180 -->|"/robot_1/sensors/front_stereo/left/image_rect<br/>Image"| n74
-  d180 -->|"/robot_1/sensors/front_stereo/left/image_rect<br/>Image"| n79
-  d181(["/robot_1/sensors/front_stereo/right/camera_info (no publishers)"]) -->|"/robot_1/sensors/front_stereo/right/camera_info<br/>CameraInfo"| n4
-  d181 -->|"/robot_1/sensors/front_stereo/right/camera_info<br/>CameraInfo"| n73
-  d181 -->|"/robot_1/sensors/front_stereo/right/camera_info<br/>CameraInfo"| n74
-  d181 -->|"/robot_1/sensors/front_stereo/right/camera_info<br/>CameraInfo"| n79
-  d182(["/robot_1/sensors/front_stereo/right/depth_ground_truth (no publishers)"]) -->|"/robot_1/sensors/front_stereo/right/depth_ground_truth<br/>Image"| n79
-  d183(["/robot_1/sensors/front_stereo/right/image_rect (no publishers)"]) -->|"/robot_1/sensors/front_stereo/right/image_rect<br/>Image"| n73
-  d183 -->|"/robot_1/sensors/front_stereo/right/image_rect<br/>Image"| n79
-  d184(["/robot_1/sensors/lidar/point_cloud (no publishers)"]) -->|"/robot_1/sensors/lidar/point_cloud<br/>PointCloud2"| n79
-  n77 -->|"/robot_1/sensors/ouster/point_cloud<br/>PointCloud2"| n82
-  d185(["/robot_1/sensors/ouster/point_cloud_raw (no publishers)"]) -->|"/robot_1/sensors/ouster/point_cloud_raw<br/>PointCloud2"| n77
-  n78 -->|"/robot_1/takeoff_landing_planner/is_airborne<br/>Bool"| d186(["/robot_1/takeoff_landing_planner/is_airborne (no subscribers)"])
-  d187(["/robot_1/takeoff_landing_planner/trajectory_completion_percentage (no publishers)"]) -->|"/robot_1/takeoff_landing_planner/trajectory_completion_percentage<br/>Float32"| n78
-  n81 -->|"/robot_1/trajectory_controller/closest_point<br/>Odometry"| d188(["/robot_1/trajectory_controller/closest_point (no subscribers)"])
-  n81 -->|"/robot_1/trajectory_controller/look_ahead<br/>Odometry"| n4
-  n81 -->|"/robot_1/trajectory_controller/projected_drone_pose<br/>PoseStamped"| n69
-  n81 -->|"/robot_1/trajectory_controller/tracking_error<br/>Float32"| d189(["/robot_1/trajectory_controller/tracking_error (no subscribers)"])
-  n81 -->|"/robot_1/trajectory_controller/tracking_point<br/>Odometry"| n3
-  n81 -->|"/robot_1/trajectory_controller/tracking_point<br/>Odometry"| n4
-  n81 -->|"/robot_1/trajectory_controller/tracking_point<br/>Odometry"| n69
-  n81 -->|"/robot_1/trajectory_controller/tracking_point<br/>Odometry"| n78
-  n81 -->|"/robot_1/trajectory_controller/tracking_point_velocity_magnitude<br/>Float32"| d190(["/robot_1/trajectory_controller/tracking_point_velocity_magnitude (no subscribers)"])
-  n81 -->|"/robot_1/trajectory_controller/traj_drone_point<br/>Odometry"| d191(["/robot_1/trajectory_controller/traj_drone_point (no subscribers)"])
-  n81 -->|"/robot_1/trajectory_controller/trajectory_completion_percentage<br/>Float32"| n80
-  n81 -->|"/robot_1/trajectory_controller/trajectory_controller_debug_markers<br/>MarkerArray"| n79
-  n78 -->|"/robot_1/trajectory_controller/trajectory_override<br/>TrajectoryXYZVYaw"| n81
-  n80 -->|"/robot_1/trajectory_controller/trajectory_override<br/>TrajectoryXYZVYaw"| n81
-  n4 -->|"/robot_1/trajectory_controller/trajectory_segment_to_add<br/>TrajectoryXYZVYaw"| n81
-  n81 -->|"/robot_1/trajectory_controller/trajectory_time<br/>Float32"| d192(["/robot_1/trajectory_controller/trajectory_time (no subscribers)"])
-  n81 -->|"/robot_1/trajectory_controller/trajectory_vis<br/>MarkerArray"| n79
-  n81 -->|"/robot_1/trajectory_controller/virtual_tracking_point<br/>Odometry"| d193(["/robot_1/trajectory_controller/virtual_tracking_point (no subscribers)"])
-  n82 -->|"/robot_1/vdb_mapping/vdb_map_overwrites<br/>UpdateGrid"| d194(["/robot_1/vdb_mapping/vdb_map_overwrites (no subscribers)"])
-  n82 -->|"/robot_1/vdb_mapping/vdb_map_pointcloud<br/>PointCloud2"| d195(["/robot_1/vdb_mapping/vdb_map_pointcloud (no subscribers)"])
-  n82 -->|"/robot_1/vdb_mapping/vdb_map_sections<br/>UpdateGrid"| d196(["/robot_1/vdb_mapping/vdb_map_sections (no subscribers)"])
-  n82 -->|"/robot_1/vdb_mapping/vdb_map_updates<br/>UpdateGrid"| d197(["/robot_1/vdb_mapping/vdb_map_updates (no subscribers)"])
-  n82 -->|"/robot_1/vdb_mapping/vdb_map_visualization<br/>Marker"| n75
-  n82 -->|"/robot_1/vdb_mapping/vdb_map_visualization<br/>Marker"| n79
+  n71 -->|"/robot_1/odometry_conversion/odometry<br/>Odometry"| n82
+  n72 -->|"/robot_1/perception/macvo/disparity<br/>Image"| n4
+  n72 -->|"/robot_1/perception/macvo/odometry<br/>Odometry"| d172(["/robot_1/perception/macvo/odometry (no subscribers)"])
+  n72 -->|"/robot_1/perception/macvo/point_cloud<br/>PointCloud"| d173(["/robot_1/perception/macvo/point_cloud (no subscribers)"])
+  n74 -->|"/robot_1/perception/stereo_image_proc/disparity<br/>DisparityImage"| n75
+  n75 -->|"/robot_1/perception/stereo_image_proc/point_cloud<br/>PointCloud2"| n80
+  n76 -->|"/robot_1/random_walk_node/goal_point_viz<br/>Marker"| d174(["/robot_1/random_walk_node/goal_point_viz (no subscribers)"])
+  n76 -->|"/robot_1/random_walk_node/traj_viz<br/>Marker"| d175(["/robot_1/random_walk_node/traj_viz (no subscribers)"])
+  n77 -->|"/robot_1/robot_description<br/>String"| d176(["/robot_1/robot_description (no subscribers)"])
+  d177(["/robot_1/sensors/front_stereo/left/camera_info (no publishers)"]) -->|"/robot_1/sensors/front_stereo/left/camera_info<br/>CameraInfo"| n74
+  d177 -->|"/robot_1/sensors/front_stereo/left/camera_info<br/>CameraInfo"| n75
+  d177 -->|"/robot_1/sensors/front_stereo/left/camera_info<br/>CameraInfo"| n80
+  d178(["/robot_1/sensors/front_stereo/left/depth_ground_truth (no publishers)"]) -->|"/robot_1/sensors/front_stereo/left/depth_ground_truth<br/>Image"| n80
+  d179(["/robot_1/sensors/front_stereo/left/image_rect (no publishers)"]) -->|"/robot_1/sensors/front_stereo/left/image_rect<br/>Image"| n72
+  d179 -->|"/robot_1/sensors/front_stereo/left/image_rect<br/>Image"| n74
+  d179 -->|"/robot_1/sensors/front_stereo/left/image_rect<br/>Image"| n75
+  d179 -->|"/robot_1/sensors/front_stereo/left/image_rect<br/>Image"| n80
+  d180(["/robot_1/sensors/front_stereo/right/camera_info (no publishers)"]) -->|"/robot_1/sensors/front_stereo/right/camera_info<br/>CameraInfo"| n4
+  d180 -->|"/robot_1/sensors/front_stereo/right/camera_info<br/>CameraInfo"| n72
+  d180 -->|"/robot_1/sensors/front_stereo/right/camera_info<br/>CameraInfo"| n74
+  d180 -->|"/robot_1/sensors/front_stereo/right/camera_info<br/>CameraInfo"| n75
+  d180 -->|"/robot_1/sensors/front_stereo/right/camera_info<br/>CameraInfo"| n80
+  d181(["/robot_1/sensors/front_stereo/right/depth_ground_truth (no publishers)"]) -->|"/robot_1/sensors/front_stereo/right/depth_ground_truth<br/>Image"| n80
+  d182(["/robot_1/sensors/front_stereo/right/image_rect (no publishers)"]) -->|"/robot_1/sensors/front_stereo/right/image_rect<br/>Image"| n72
+  d182 -->|"/robot_1/sensors/front_stereo/right/image_rect<br/>Image"| n74
+  d182 -->|"/robot_1/sensors/front_stereo/right/image_rect<br/>Image"| n80
+  d183(["/robot_1/sensors/lidar/point_cloud (no publishers)"]) -->|"/robot_1/sensors/lidar/point_cloud<br/>PointCloud2"| n80
+  n78 -->|"/robot_1/sensors/ouster/point_cloud<br/>PointCloud2"| n83
+  d184(["/robot_1/sensors/ouster/point_cloud_raw (no publishers)"]) -->|"/robot_1/sensors/ouster/point_cloud_raw<br/>PointCloud2"| n78
+  n79 -->|"/robot_1/takeoff_landing_planner/is_airborne<br/>Bool"| d185(["/robot_1/takeoff_landing_planner/is_airborne (no subscribers)"])
+  d186(["/robot_1/takeoff_landing_planner/trajectory_completion_percentage (no publishers)"]) -->|"/robot_1/takeoff_landing_planner/trajectory_completion_percentage<br/>Float32"| n79
+  n82 -->|"/robot_1/trajectory_controller/closest_point<br/>Odometry"| d187(["/robot_1/trajectory_controller/closest_point (no subscribers)"])
+  n82 -->|"/robot_1/trajectory_controller/look_ahead<br/>Odometry"| n4
+  n82 -->|"/robot_1/trajectory_controller/projected_drone_pose<br/>PoseStamped"| n69
+  n82 -->|"/robot_1/trajectory_controller/tracking_error<br/>Float32"| d188(["/robot_1/trajectory_controller/tracking_error (no subscribers)"])
+  n82 -->|"/robot_1/trajectory_controller/tracking_point<br/>Odometry"| n3
+  n82 -->|"/robot_1/trajectory_controller/tracking_point<br/>Odometry"| n4
+  n82 -->|"/robot_1/trajectory_controller/tracking_point<br/>Odometry"| n69
+  n82 -->|"/robot_1/trajectory_controller/tracking_point<br/>Odometry"| n79
+  n82 -->|"/robot_1/trajectory_controller/tracking_point_velocity_magnitude<br/>Float32"| d189(["/robot_1/trajectory_controller/tracking_point_velocity_magnitude (no subscribers)"])
+  n82 -->|"/robot_1/trajectory_controller/traj_drone_point<br/>Odometry"| d190(["/robot_1/trajectory_controller/traj_drone_point (no subscribers)"])
+  n82 -->|"/robot_1/trajectory_controller/trajectory_completion_percentage<br/>Float32"| n81
+  n82 -->|"/robot_1/trajectory_controller/trajectory_controller_debug_markers<br/>MarkerArray"| n80
+  n79 -->|"/robot_1/trajectory_controller/trajectory_override<br/>TrajectoryXYZVYaw"| n82
+  n81 -->|"/robot_1/trajectory_controller/trajectory_override<br/>TrajectoryXYZVYaw"| n82
+  n4 -->|"/robot_1/trajectory_controller/trajectory_segment_to_add<br/>TrajectoryXYZVYaw"| n82
+  n82 -->|"/robot_1/trajectory_controller/trajectory_time<br/>Float32"| d191(["/robot_1/trajectory_controller/trajectory_time (no subscribers)"])
+  n82 -->|"/robot_1/trajectory_controller/trajectory_vis<br/>MarkerArray"| n80
+  n82 -->|"/robot_1/trajectory_controller/virtual_tracking_point<br/>Odometry"| d192(["/robot_1/trajectory_controller/virtual_tracking_point (no subscribers)"])
+  n83 -->|"/robot_1/vdb_mapping/vdb_map_overwrites<br/>UpdateGrid"| d193(["/robot_1/vdb_mapping/vdb_map_overwrites (no subscribers)"])
+  n83 -->|"/robot_1/vdb_mapping/vdb_map_pointcloud<br/>PointCloud2"| d194(["/robot_1/vdb_mapping/vdb_map_pointcloud (no subscribers)"])
+  n83 -->|"/robot_1/vdb_mapping/vdb_map_sections<br/>UpdateGrid"| d195(["/robot_1/vdb_mapping/vdb_map_sections (no subscribers)"])
+  n83 -->|"/robot_1/vdb_mapping/vdb_map_updates<br/>UpdateGrid"| d196(["/robot_1/vdb_mapping/vdb_map_updates (no subscribers)"])
+  n83 -->|"/robot_1/vdb_mapping/vdb_map_visualization<br/>Marker"| n76
+  n83 -->|"/robot_1/vdb_mapping/vdb_map_visualization<br/>Marker"| n80
   n34 -->|"/tf<br/>TFMessage"| n69
-  n34 -->|"/tf<br/>TFMessage"| n79
+  n34 -->|"/tf<br/>TFMessage"| n80
   n71 -->|"/tf<br/>TFMessage"| n69
-  n71 -->|"/tf<br/>TFMessage"| n79
-  n76 -->|"/tf<br/>TFMessage"| n69
-  n76 -->|"/tf<br/>TFMessage"| n79
-  n81 -->|"/tf<br/>TFMessage"| n69
-  n81 -->|"/tf<br/>TFMessage"| n79
+  n71 -->|"/tf<br/>TFMessage"| n80
+  n77 -->|"/tf<br/>TFMessage"| n69
+  n77 -->|"/tf<br/>TFMessage"| n80
+  n82 -->|"/tf<br/>TFMessage"| n69
+  n82 -->|"/tf<br/>TFMessage"| n80
   n34 -->|"/tf_static<br/>TFMessage"| n69
-  n34 -->|"/tf_static<br/>TFMessage"| n79
-  n72 -->|"/tf_static<br/>TFMessage"| n69
-  n72 -->|"/tf_static<br/>TFMessage"| n79
-  n76 -->|"/tf_static<br/>TFMessage"| n69
-  n76 -->|"/tf_static<br/>TFMessage"| n79
-  n83 -->|"/tf_static<br/>TFMessage"| n69
-  n83 -->|"/tf_static<br/>TFMessage"| n79
+  n34 -->|"/tf_static<br/>TFMessage"| n80
+  n73 -->|"/tf_static<br/>TFMessage"| n69
+  n73 -->|"/tf_static<br/>TFMessage"| n80
+  n77 -->|"/tf_static<br/>TFMessage"| n69
+  n77 -->|"/tf_static<br/>TFMessage"| n80
+  n84 -->|"/tf_static<br/>TFMessage"| n69
+  n84 -->|"/tf_static<br/>TFMessage"| n80
   n34 -->|"/uas2/mavlink_sink<br/>Mavlink"| n36
   n36 -->|"/uas2/mavlink_source<br/>Mavlink"| n34
 ```
@@ -1342,7 +1346,19 @@ graph LR
 },
 {
 "dir": "sub",
-"node": "/robot_1/perception/static_transform_publisher",
+"node": "/robot_1/perception/macvo/macvo_node",
+"qos_profile": {
+"depth": "UNKNOWN",
+"durability": "VOLATILE",
+"history": "UNKNOWN",
+"reliability": "BEST_EFFORT"
+},
+"topic": "/clock",
+"type": "rosgraph_msgs/msg/Clock"
+},
+{
+"dir": "sub",
+"node": "/robot_1/perception/macvo_ned_tf",
 "qos_profile": {
 "depth": "UNKNOWN",
 "durability": "VOLATILE",
@@ -4305,18 +4321,6 @@ graph LR
 "type": "sensor_msgs/msg/JointState"
 },
 {
-"dir": "sub",
-"node": "/robot_1/topic_keepalive",
-"qos_profile": {
-"depth": "UNKNOWN",
-"durability": "VOLATILE",
-"history": "UNKNOWN",
-"reliability": "RELIABLE"
-},
-"topic": "/robot_1/macvo/odometry",
-"type": "nav_msgs/msg/Odometry"
-},
-{
 "dir": "pub",
 "node": "/robot_1/odometry_conversion/odometry_conversion",
 "qos_profile": {
@@ -4425,6 +4429,18 @@ graph LR
 "type": "nav_msgs/msg/Odometry"
 },
 {
+"dir": "pub",
+"node": "/robot_1/perception/macvo/macvo_node",
+"qos_profile": {
+"depth": "UNKNOWN",
+"durability": "VOLATILE",
+"history": "UNKNOWN",
+"reliability": "RELIABLE"
+},
+"topic": "/robot_1/perception/macvo/disparity",
+"type": "sensor_msgs/msg/Image"
+},
+{
 "dir": "sub",
 "node": "/robot_1/droan/disparity_expander_node",
 "qos_profile": {
@@ -4437,25 +4453,25 @@ graph LR
 "type": "stereo_msgs/msg/DisparityImage"
 },
 {
-"dir": "sub",
-"node": "/robot_1/topic_keepalive",
+"dir": "pub",
+"node": "/robot_1/perception/macvo/macvo_node",
 "qos_profile": {
 "depth": "UNKNOWN",
 "durability": "VOLATILE",
 "history": "UNKNOWN",
-"reliability": "BEST_EFFORT"
+"reliability": "RELIABLE"
 },
-"topic": "/robot_1/perception/macvo/disparity",
-"type": "sensor_msgs/msg/Image"
+"topic": "/robot_1/perception/macvo/odometry",
+"type": "nav_msgs/msg/Odometry"
 },
 {
-"dir": "sub",
-"node": "/robot_1/topic_keepalive",
+"dir": "pub",
+"node": "/robot_1/perception/macvo/macvo_node",
 "qos_profile": {
 "depth": "UNKNOWN",
 "durability": "VOLATILE",
 "history": "UNKNOWN",
-"reliability": "BEST_EFFORT"
+"reliability": "RELIABLE"
 },
 "topic": "/robot_1/perception/macvo/point_cloud",
 "type": "sensor_msgs/msg/PointCloud"
@@ -4594,6 +4610,18 @@ graph LR
 },
 {
 "dir": "sub",
+"node": "/robot_1/perception/macvo/macvo_node",
+"qos_profile": {
+"depth": "UNKNOWN",
+"durability": "VOLATILE",
+"history": "UNKNOWN",
+"reliability": "RELIABLE"
+},
+"topic": "/robot_1/sensors/front_stereo/left/image_rect",
+"type": "sensor_msgs/msg/Image"
+},
+{
+"dir": "sub",
 "node": "/robot_1/perception/stereo_image_proc/disparity_node",
 "qos_profile": {
 "depth": "UNKNOWN",
@@ -4631,6 +4659,18 @@ graph LR
 {
 "dir": "sub",
 "node": "/robot_1/droan/disparity_expander_node",
+"qos_profile": {
+"depth": "UNKNOWN",
+"durability": "VOLATILE",
+"history": "UNKNOWN",
+"reliability": "RELIABLE"
+},
+"topic": "/robot_1/sensors/front_stereo/right/camera_info",
+"type": "sensor_msgs/msg/CameraInfo"
+},
+{
+"dir": "sub",
+"node": "/robot_1/perception/macvo/macvo_node",
 "qos_profile": {
 "depth": "UNKNOWN",
 "durability": "VOLATILE",
@@ -4686,6 +4726,18 @@ graph LR
 "reliability": "BEST_EFFORT"
 },
 "topic": "/robot_1/sensors/front_stereo/right/depth_ground_truth",
+"type": "sensor_msgs/msg/Image"
+},
+{
+"dir": "sub",
+"node": "/robot_1/perception/macvo/macvo_node",
+"qos_profile": {
+"depth": "UNKNOWN",
+"durability": "VOLATILE",
+"history": "UNKNOWN",
+"reliability": "RELIABLE"
+},
+"topic": "/robot_1/sensors/front_stereo/right/image_rect",
 "type": "sensor_msgs/msg/Image"
 },
 {
@@ -5266,7 +5318,7 @@ graph LR
 },
 {
 "dir": "pub",
-"node": "/robot_1/perception/static_transform_publisher",
+"node": "/robot_1/perception/macvo_ned_tf",
 "qos_profile": {
 "depth": "UNKNOWN",
 "durability": "TRANSIENT_LOCAL",
@@ -5446,7 +5498,8 @@ graph LR
 "/robot_1/interface/odom_modifier",
 "/robot_1/interface/robot_interface",
 "/robot_1/odometry_conversion/odometry_conversion",
-"/robot_1/perception/static_transform_publisher",
+"/robot_1/perception/macvo/macvo_node",
+"/robot_1/perception/macvo_ned_tf",
 "/robot_1/perception/stereo_image_proc/disparity_node",
 "/robot_1/perception/stereo_pointcloud",
 "/robot_1/random_walk_node",
@@ -7269,15 +7322,6 @@ graph LR
 },
 "type": "sensor_msgs/msg/JointState"
 },
-"/robot_1/macvo/odometry": {
-"qos": {
-"depth": "UNKNOWN",
-"durability": "VOLATILE",
-"history": "UNKNOWN",
-"reliability": "RELIABLE"
-},
-"type": "nav_msgs/msg/Odometry"
-},
 "/robot_1/odometry_conversion/odometry": {
 "qos": {
 "depth": "UNKNOWN",
@@ -7292,16 +7336,25 @@ graph LR
 "depth": "UNKNOWN",
 "durability": "VOLATILE",
 "history": "UNKNOWN",
-"reliability": "BEST_EFFORT"
+"reliability": "RELIABLE"
 },
 "type": "['sensor_msgs/msg/Image', 'stereo_msgs/msg/DisparityImage']"
+},
+"/robot_1/perception/macvo/odometry": {
+"qos": {
+"depth": "UNKNOWN",
+"durability": "VOLATILE",
+"history": "UNKNOWN",
+"reliability": "RELIABLE"
+},
+"type": "nav_msgs/msg/Odometry"
 },
 "/robot_1/perception/macvo/point_cloud": {
 "qos": {
 "depth": "UNKNOWN",
 "durability": "VOLATILE",
 "history": "UNKNOWN",
-"reliability": "BEST_EFFORT"
+"reliability": "RELIABLE"
 },
 "type": "sensor_msgs/msg/PointCloud"
 },
