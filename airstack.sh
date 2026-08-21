@@ -927,6 +927,7 @@ function parse_launch_intent {
     AIRSTACK_INTENT_PLAY=""
     AIRSTACK_INTENT_AUTOLAUNCH=""
     AIRSTACK_DRY_RUN=""
+    AIRSTACK_CONFIG_ONLY=""
     AIRSTACK_UP_WAIT=""
 
     local args=("$@") i=0 a
@@ -945,6 +946,7 @@ function parse_launch_intent {
             # NOTE: shadows compose's own `up --dry-run`; ours validates the
             # derived launch config and exits without starting services.
             --dry-run)      AIRSTACK_DRY_RUN="1";;
+            --config-only)  AIRSTACK_CONFIG_ONLY="1"; AIRSTACK_DRY_RUN="1";;
             *)              _rest_out+=("$a");;
         esac
         i=$((i+1))
@@ -1114,12 +1116,21 @@ function preflight_up {
         fi
 
         # 4. Files the isaac-sim service hard-requires
-        if [ ! -f "$PROJECT_ROOT/simulation/isaac-sim/docker/omni_pass.env" ]; then
-            _pf_error "simulation/isaac-sim/docker/omni_pass.env is missing (Nucleus credentials). Run 'airstack setup' to create it."
+        if [[ "$AIRSTACK_CONFIG_ONLY" != "1" ]]; then
+            if [ ! -f "$PROJECT_ROOT/simulation/isaac-sim/docker/omni_pass.env" ]; then
+                _pf_error "simulation/isaac-sim/docker/omni_pass.env is missing (Nucleus credentials). Run 'airstack setup' to create it."
+            fi
+            if [ ! -e "$PROJECT_ROOT/simulation/isaac-sim/extensions/PegasusSimulator/extensions/pegasus.simulator" ]; then
+                _pf_error "PegasusSimulator submodule is empty — the Isaac launch script will fail to import pegasus. Run: git submodule update --init --recursive"
+            fi
         fi
-        if [ ! -e "$PROJECT_ROOT/simulation/isaac-sim/extensions/PegasusSimulator/extensions/pegasus.simulator" ]; then
-            _pf_error "PegasusSimulator submodule is empty — the Isaac launch script will fail to import pegasus. Run: git submodule update --init --recursive"
-        fi
+    fi
+
+    # Configuration contracts intentionally stop before Docker, credentials,
+    # images, GPU, and checked-out submodule prerequisites.
+    if [[ "$AIRSTACK_CONFIG_ONLY" == "1" ]]; then
+        unset -f _pf_error
+        return $errors
     fi
 
     # 5. Missing images: compose 'up' silently starts a very long build
@@ -1146,12 +1157,13 @@ function preflight_up {
 }
 
 function cmd_up {
-    check_docker
-
     # Airstack launch-intent flags (consumed before compose sees the args)
     local rest_args=()
     parse_launch_intent rest_args "$@" || exit 1
     apply_launch_intent "${rest_args[@]}" || exit 1
+    if [[ "$AIRSTACK_CONFIG_ONLY" != "1" ]]; then
+        check_docker
+    fi
 
     local global_args=()
     local subcmd_args=()
@@ -1688,7 +1700,7 @@ function register_builtin_commands {
     COMMAND_HELP["image-pull"]="Pull Docker Compose service images from a registry"
     COMMAND_HELP["images"]="List Docker images filtered by PROJECT_NAME from .env"
     COMMAND_HELP["image-delete"]="Delete all Docker images matching PROJECT_NAME (prompts unless -y)"
-    COMMAND_HELP["up"]="Start services [--sim isaac|airsim] [--robots N] [--headless] [--play|--no-play] [--no-autolaunch] [--wait] [--dry-run]"
+    COMMAND_HELP["up"]="Start services [--sim isaac|airsim] [--robots N] [--headless] [--play|--no-play] [--no-autolaunch] [--wait] [--dry-run] [--config-only]"
     COMMAND_HELP["down"]="down services"
     COMMAND_HELP["clean"]="Remove all ROS 2 build artifacts (build/, install/, log/)"
     COMMAND_HELP["connect"]="Connect to a running container (supports partial name matching)"

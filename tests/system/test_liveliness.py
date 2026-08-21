@@ -12,6 +12,8 @@ import time
 import pytest
 
 from conftest import (
+    SimulatorHealthError,
+    collect_failure_diagnostics,
     container_running,
     current_test_id,
     docker_exec,
@@ -92,6 +94,32 @@ def _check_tmux_panes(env):
     summary = ", ".join(f"{c}={n}" for c, n in counts.items())
     logger.info("All tmux panes active (%s)", summary)
     return True, f"all tmux panes active ({summary})"
+
+
+def _check_sim_startup_process(env):
+    """Fast simulator-specific process/prerequisite health probe."""
+    if not container_running(env["sim_container"]):
+        return False, f"{env['sim_container']} stopped"
+    ok, message = _check_tmux_panes(env)
+    if not ok:
+        return ok, message
+    if env["sim"] != "msairsim":
+        return True, message
+    result = docker_exec(
+        env["sim_container"],
+        "binary=${MS_AIRSIM_BINARY_PATH:-"
+        "/ms-airsim-env/Blocks/LinuxNoEditor/Blocks.sh}; "
+        "test -x \"$binary\" && "
+        "nvidia-smi -L >/dev/null && "
+        "pgrep -fa 'Blocks|AirSim|UE4' >/dev/null",
+        timeout=10,
+    )
+    if result.returncode != 0:
+        return False, (
+            "Microsoft AirSim infrastructure prerequisite failed: scene binary "
+            "or GPU is unavailable, or the UE4 process exited"
+        )
+    return True, "Microsoft AirSim scene and UE4 process are healthy"
 
 
 def _check_sentinel_nodes(env):
@@ -203,24 +231,37 @@ class TestLiveliness:
 
     @pytest.mark.dependency(name="sim_ready", depends=["sim_container"])
     def test_sim_ready_time(self, airstack_env):
-        """Wait for first /clock message from the sim container (600s hard timeout)."""
+        """Wait for /clock while failing fast if the simulator process dies."""
         cfg = airstack_env["cfg"]
         m = get_metrics()
         tid = current_test_id()
         start = airstack_env["up_started_at"]
 
-        if (
-            wait_for_first_message(
+        try:
+            ready = wait_for_first_message(
                 airstack_env["sim_container"],
                 "/clock",
                 domain_id=1,
                 setup_bash=cfg["sim_setup_bash"],
                 timeout=600,
+                health_check=lambda: _check_sim_startup_process(airstack_env),
+                health_grace=20,
             )
-            is None
-        ):
+        except SimulatorHealthError as exc:
+            path = collect_failure_diagnostics(
+                airstack_env, str(exc), current_test_id()
+            )
+            pytest.fail(f"{exc}; diagnostics: {path}")
+        if ready is None:
             m.record(tid, "sim_ready_duration_s", "timeout", unit="s")
-            pytest.fail("sim never published /clock within 600s")
+            path = collect_failure_diagnostics(
+                airstack_env,
+                "sim never published /clock within 600s",
+                current_test_id(),
+            )
+            pytest.fail(
+                f"sim never published /clock within 600s; diagnostics: {path}"
+            )
         m.record(tid, "sim_ready_duration_s", round(time.time() - start, 2), unit="s")
 
     @pytest.mark.dependency(name="tmux", depends=["containers"])

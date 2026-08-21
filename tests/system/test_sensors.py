@@ -10,7 +10,14 @@ import time
 
 import pytest
 
-from conftest import current_test_id, get_metrics, logger, wait_for_first_message
+from conftest import (
+    SimulatorHealthError,
+    collect_failure_diagnostics,
+    current_test_id,
+    get_metrics,
+    logger,
+    wait_for_first_message,
+)
 from sensor_probes import (
     STABLE_HZ_DURATION_S,
     STABLE_HZ_WINDOW,
@@ -20,7 +27,11 @@ from sensor_probes import (
     check_robot_stereo_hz,
     check_sim_publishing,
 )
-from system.test_liveliness import _check_sentinel_nodes, _poll_until
+from system.test_liveliness import (
+    _check_sentinel_nodes,
+    _check_sim_startup_process,
+    _poll_until,
+)
 
 
 @pytest.mark.sensors
@@ -34,18 +45,31 @@ class TestSensors:
         m = get_metrics()
         tid = current_test_id()
         start = airstack_env["up_started_at"]
-        if (
-            wait_for_first_message(
+        try:
+            ready = wait_for_first_message(
                 airstack_env["sim_container"],
                 "/clock",
                 domain_id=1,
                 setup_bash=cfg["sim_setup_bash"],
                 timeout=600,
+                health_check=lambda: _check_sim_startup_process(airstack_env),
+                health_grace=20,
             )
-            is None
-        ):
+        except SimulatorHealthError as exc:
+            path = collect_failure_diagnostics(
+                airstack_env, str(exc), current_test_id()
+            )
+            pytest.fail(f"{exc}; diagnostics: {path}")
+        if ready is None:
             m.record(tid, "sensors_sim_ready_duration_s", "timeout", unit="s")
-            pytest.fail("sim never published /clock within 600s")
+            path = collect_failure_diagnostics(
+                airstack_env,
+                "sim never published /clock within 600s",
+                current_test_id(),
+            )
+            pytest.fail(
+                f"sim never published /clock within 600s; diagnostics: {path}"
+            )
         m.record(tid, "sensors_sim_ready_duration_s", round(time.time() - start, 2), unit="s")
 
     @pytest.mark.dependency(name="sensors_nodes", depends=["sensors_sim_ready"])

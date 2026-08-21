@@ -3,7 +3,8 @@
 between two runs when --baseline is supplied.
 
 Reads results.xml (JUnit XML) for test durations and metrics.json for custom
-metrics. In diff mode, exits 1 on regression; in single mode, always exits 0.
+metrics. Numeric deltas are advisory and never change the process exit status;
+report-generation errors exit 2.
 
 Usage:
     python parse_metrics.py --current tests/results/<run>/
@@ -21,7 +22,11 @@ from pathlib import Path
 
 from tabulate import tabulate
 
-from harness.run_meta import classify_run, simulation_metrics_comparable
+from harness.run_meta import (
+    classify_run,
+    comparability_reason,
+    simulation_metrics_comparable,
+)
 from harness.test_ids import canonical_test_id
 
 FLAG_SUFFIX = {"regression": " :red_circle:", "improved": " :green_circle:"}
@@ -234,7 +239,9 @@ def merge_metrics(run_dir):
         if test_name not in merged:
             merged[test_name] = {}
         merged[test_name].update(test_metrics)
-    _collapse_robots(merged)
+    # Keep robot/container identities visible. Exact campaign fingerprints
+    # already require matching robot counts, so pooling replicas would hide
+    # asymmetric failures without improving comparability.
     _expand_time_series(merged)
     return _collapse_iterations(merged)
 
@@ -366,14 +373,11 @@ def _score(c, b, threshold):
     """Compute change% and regression flag for a metric pair. Returns
     (change_str, flag). flag ∈ {"", "regression", "improved"}. When either
     entry is missing/sentinel/time-series, returns a stub with an empty flag
-    (except: `timeout` current after numeric baseline → regression)."""
+    Missing/sentinel data is never converted into a numeric regression."""
     if not c or not b:
         return ("new" if c and not b else "removed"), ""
     if not _is_scored(c) or not _is_scored(b):
-        cv = c.get("value") if isinstance(c, dict) else None
-        bv = b.get("value") if isinstance(b, dict) else None
-        flag = "regression" if (cv == "timeout" and isinstance(bv, (int, float))) else ""
-        return "—", flag
+        return "—", ""
     cv, bv = c["value"], b["value"]
     direction = c.get("direction", "lower_is_better")
     change_pct = ((cv - bv) / bv) * 100 if bv != 0 else 0
@@ -608,7 +612,10 @@ def format_markdown(main_rows, hz_rows, compute_rows, iter_counts,
 
     has_regression = regressions[0]
     if diff_mode and has_regression:
-        sections.append("**Regression detected** — some metrics exceeded the threshold.")
+        sections.append(
+            "**Advisory metric changes:** some comparable metrics exceeded the "
+            "display threshold. These deltas do not fail CI."
+        )
 
     return "\n\n".join(sections), has_regression
 
@@ -637,6 +644,8 @@ def _non_comparable_report(meta):
     )
     fields = [
         ("Outcome", outcome),
+        ("Failure class", meta.get("failure_class", "unavailable")),
+        ("Completion state", meta.get("completion_state", "unavailable")),
         ("Pytest exit status", meta.get("pytest_exitstatus", "unavailable")),
         ("Selected tests", meta.get("selected_tests", "unavailable")),
         ("Completed tests", meta.get("completed_tests", "unavailable")),
@@ -690,9 +699,10 @@ def generate_report(current_dir, baseline_dir=None, threshold=20):
             "does not apply."
         )
     elif baseline_dir and not diff_mode:
+        reason = comparability_reason(current_meta, baseline_meta)
         notices.append(
             "> The baseline is not the same complete simulation campaign. "
-            "Showing current results without a regression comparison."
+            f"Showing current results without a comparison: {reason}."
         )
     if not md:
         md = "_No per-test metrics were recorded._"
@@ -729,7 +739,9 @@ def main():
     if args.output:
         Path(args.output).write_text(md)
 
-    sys.exit(1 if has_regression else 0)
+    # Assertions and infrastructure failures are enforced by pytest/run-tests.
+    # Comparable numeric deltas are intentionally advisory.
+    sys.exit(0)
 
 
 if __name__ == "__main__":

@@ -7,8 +7,8 @@ the drone pose → the ``vision_pose`` bridge feeds MAVROS → PX4 EKF2 fuses it
 This brings the NatNet stack up **once** and asserts only one NatNet-specific test. 
 The cheap, GPU-free half of this (host emulator → ``natnet_ros2`` Hz) lives in ``tests/integration/natnet/``.
 
-Mark: ``optitrack``. Needs Docker + GPU + Isaac Sim license; skips cleanly when the
-isaac-sim image isn't built locally.
+Mark: ``optitrack``. Needs Docker + GPU + Isaac Sim license; missing images/SDK
+are classified as infrastructure prerequisite failures before topic waits.
 """
 import os
 import re
@@ -18,7 +18,9 @@ import pytest
 
 from conftest import (  # noqa: E402 — pytest adds tests/ to sys.path
     airstack_cmd,
+    collect_failure_diagnostics,
     container_running,
+    docker_exec,
     find_container,
     get_metrics,
     get_robot_containers,
@@ -111,6 +113,39 @@ _ARM_COMMAND = 1  # airstack_msgs/srv/RobotCommand.Request.ARM
 _TRAJ_CFG = {"robot_setup_bash": _ROBOT_SETUP_BASH}
 
 
+def _check_optitrack_prerequisites(robot_container: str) -> None:
+    """Fail before topic waits when licensed/build/runtime inputs are absent."""
+    node = ros2_exec(
+        robot_container,
+        "prefix=$(ros2 pkg prefix natnet_ros2 2>/dev/null) && "
+        "test -x \"$prefix/lib/natnet_ros2/natnet_ros2_node\"",
+        domain_id=_ROBOT_DOMAIN,
+        setup_bash=_ROBOT_SETUP_BASH,
+        timeout=20,
+    )
+    emulator = docker_exec(
+        "isaac-sim",
+        "test -d /isaac-sim/AirStack/simulation/isaac-sim/extensions/"
+        "optitrack.natnet.emulator && "
+        "pgrep -fa 'example_one_px4_pegasus_natnet|isaac-sim' >/dev/null",
+        timeout=20,
+    )
+    missing = []
+    if node.returncode != 0:
+        missing.append(
+            "natnet_ros2_node is not installed (the licensed NatNet SDK was "
+            "not provisioned when the robot image was built)"
+        )
+    if emulator.returncode != 0:
+        missing.append("Isaac NatNet emulator extension/process is unavailable")
+    if missing:
+        reason = "OptiTrack infrastructure prerequisite failed: " + "; ".join(missing)
+        diagnostics = collect_failure_diagnostics(
+            _E2E_ENV, reason, "optitrack-prerequisites"
+        )
+        pytest.fail(f"{reason}; diagnostics: {diagnostics}")
+
+
 def _arm_with_retries(container: str) -> None:
     """Arm the vehicle, retrying while PX4's preflight is still rejecting it.
 
@@ -149,16 +184,20 @@ def optitrack_sim_stack(request):
     """Bring the NatNet Isaac stack up once for the module; tear it down after.
 
     Reuses an already-running robot-desktop container (fast local iteration);
-    otherwise brings the stack up. Skips when the isaac-sim image isn't built.
+    otherwise brings the stack up. Missing images fail as infrastructure.
     """
     existing = find_container(_ROBOT_PATTERN)
     if existing and container_running(existing):
+        _check_optitrack_prerequisites(existing)
         yield {"container": existing, "brought_up": False}
         return
 
     missing = missing_images(env=_E2E_ENV)
     if missing:
-        pytest.skip("isaac-sim / robot image not built locally: " + ", ".join(missing))
+        pytest.fail(
+            "OptiTrack infrastructure prerequisite failed: required images are "
+            "missing: " + ", ".join(missing)
+        )
 
     airstack_cmd("down", timeout=120, log_name="optitrack_e2e")
     result = airstack_cmd("up", env_overrides=_E2E_ENV, timeout=300, log_name="optitrack_e2e")
@@ -167,6 +206,7 @@ def optitrack_sim_stack(request):
 
     container = wait_for_container(_ROBOT_PATTERN, timeout=180)
     assert container, "robot-desktop container not Running after 180s"
+    _check_optitrack_prerequisites(container)
     try:
         yield {"container": container, "brought_up": True}
     finally:

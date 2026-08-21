@@ -28,8 +28,8 @@ to fit CI into your day-to-day development loop.
 | Where do CI jobs run? | Python unit tests: `ubuntu-latest`. Build and simulation tests: a fresh OSMO GPU pod, destroyed afterward. |
 | What triggers a run? | PR open/update/reopen runs unit + package-build gates; maintainers select simulations with `/pytest`; `workflow_dispatch` is also available. |
 | What gets tested? | Automatically: Python units/contracts and ROS package builds/tests. Selectably: Docker builds, liveliness, sensors, flight policies, and OptiTrack. |
-| How do I see results? | Checks plus a report comment and `test-results-*` artifact (`summary.txt`, `results.xml`, `run_meta.json`, `metrics.json`). |
-| What fails the build? | Any failed test, or a comparable simulation metric regressing more than 20%. Invalid/incomplete campaigns are labeled, not scored as policy failures. |
+| How do I see results? | Checks plus a report comment and `test-results-*` artifact (`summary.txt`, `results.xml`, `run_meta.json`, `metrics.json`, and bounded failure diagnostics when needed). |
+| What fails the build? | Test assertions, infrastructure/prerequisite failures, or report integrity failures. Comparable numeric metric deltas are advisory. |
 | Who holds the secrets? | Only the orchestrator host. Workers get a single-use JIT token valid for one registration. |
 
 ---
@@ -238,8 +238,8 @@ flowchart TD
   k --> m["pytest tests/ with resolved args"]
   l --> m
   m --> n["Upload tests/results/ artifact, 90-day retention"]
-  n --> o["Finalize Check Run with the job conclusion"]
-  o --> p["report job on ubuntu-latest"]
+  n --> p["report job on ubuntu-latest"]
+  p --> o["Post report, then finalize Check Run"]
 ```
 
 The image-prep step is what makes runs on a cold pod tolerable: it pulls the
@@ -385,8 +385,9 @@ Run one mark at a time unless you genuinely need both.
 After `run-tests` finishes — pass or fail — a `report` job on `ubuntu-latest`
 downloads the current artifact plus a **baseline** artifact and runs
 [`parse_metrics.py`](https://github.com/castacks/AirStack/blob/main/tests/parse_metrics.py)
-in diff mode only when both artifacts have the same complete simulation
-campaign fingerprint (selected tests and parameters).
+in diff mode only after selecting the newest completed artifact with the same
+simulation campaign fingerprint (normalized selected tests and all relevant
+CLI/configuration parameters).
 
 | Run type | Baseline used |
 |---|---|
@@ -399,7 +400,8 @@ For a complete simulation campaign, the comment has pass rates plus a flat
 the `sensors` mark), and a **Compute usage** pivot (CPU / memory / GPU per
 container). Regressions are marked with a red circle, improvements with a
 green one, and the job **fails** if any comparable metric moves more than the
-20% threshold in the wrong direction.
+20% display threshold in the wrong direction. These numeric deltas are advisory:
+they inform review but do not fail the PR.
 
 `run_meta.json` separates those policy results from CI failures. A collection
 error, zero-test selection, internal pytest error, cancellation, or timeout is
@@ -416,8 +418,9 @@ simulation result and keeps its recorded error metrics.
 tests/results/2026-08-06_14-30-00/
 ├── summary.txt    # human-readable per-chain summary — open this first
 ├── results.xml    # JUnit XML: durations, pass/fail per test
-├── run_meta.json  # completion state, pytest exit, selected/executed sim counts
-└── metrics.json   # every recorded metric, including time series
+├── run_meta.json  # schema-v2 completion/failure class + exact campaign config
+├── metrics.json   # every recorded metric, including time series
+└── diagnostics/   # on failure: bounded config, panes, logs, ROS/GPU/command ring
 ```
 
 There are no per-test log files. Live output streams to the Actions log via
@@ -541,7 +544,7 @@ down the list.
 | `No space left on device` | Pod | Bump `storage` in `config.yaml`; Isaac assets plus all images are large |
 | Runner registered, then pytest failed | Tests | A real test failure — the GitHub Actions log and `summary.txt` are canonical |
 | Report says “simulation metrics are not comparable” | Collection/infrastructure | Read the run outcome and pytest exit status in `run_meta.json`; no policy regression was scored |
-| Metrics report job failed with no test failures | Report | A like-for-like metric regressed past the 20% threshold, or report generation itself failed; read the report step log |
+| Metrics report job failed with no test failures | Report | Report generation or artifact integrity failed; numeric metric deltas are advisory and do not cause this conclusion |
 
 To map a GitHub job to its pod:
 
@@ -573,7 +576,7 @@ Full runbook, including credential rotation and worker-side diagnostics:
 | [`.github/orchestrator/config.example.yaml`](https://github.com/castacks/AirStack/blob/main/.github/orchestrator/config.example.yaml) | Every tunable: pool, platform, resources, limits, poll intervals |
 | [`.github/orchestrator/setup.sh`](https://github.com/castacks/AirStack/blob/main/.github/orchestrator/setup.sh) | One-time orchestrator host install |
 | [`tests/conftest.py`](https://github.com/castacks/AirStack/blob/main/tests/conftest.py) | `airstack_env` fixture, collection order, `MetricsRecorder` |
-| [`tests/parse_metrics.py`](https://github.com/castacks/AirStack/blob/main/tests/parse_metrics.py) | Report generation and the regression gate |
+| [`tests/parse_metrics.py`](https://github.com/castacks/AirStack/blob/main/tests/parse_metrics.py) | Comparable advisory report generation and report-integrity gate |
 | [`tests/run_summary.py`](https://github.com/castacks/AirStack/blob/main/tests/run_summary.py) | `summary.txt` generation |
 
 ## See also

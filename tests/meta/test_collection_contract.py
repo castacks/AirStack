@@ -118,7 +118,7 @@ def test_report_uses_the_revision_that_was_actually_tested():
 def test_pr_head_check_is_finalized_after_metrics():
     workflow = repo_path(".github", "workflows", "system-tests.yml").read_text()
     assert workflow.index("- name: Finalize check on PR head") > workflow.index(
-        "- name: Fail on regression"
+        "- name: Fail on report integrity error"
     )
     assert "ref: ${{ needs.run-tests.outputs.tested_sha }}" in workflow
     assert "conclusion: '${{ job.status }}'" not in workflow

@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from harness.test_ids import canonical_test_id
+from harness.test_ids import canonical_test_id, normalize_csv
 
 
 RUN_META_FILENAME = "run_meta.json"
@@ -28,15 +29,54 @@ def is_simulation_test_id(test_id: str) -> bool:
     return canonical.startswith(SIMULATION_MODULES)
 
 
-def campaign_fingerprint(test_ids) -> str:
-    """Stable identity for the exact selected simulation campaign."""
+CAMPAIGN_OPTION_KEYS = (
+    "sim",
+    "num_robots",
+    "stress_iterations",
+    "stable_duration",
+    "stable_interval",
+    "gui",
+    "takeoff_velocities",
+    "trajectory_types",
+    "waypoints",
+    "waypoint_tolerance",
+    "goal_tolerance",
+    "waypoint_timeout",
+)
+
+
+def normalize_campaign_config(raw: dict | None) -> dict:
+    """Return stable, JSON-safe behavior-changing campaign configuration."""
+    raw = raw or {}
+    result = {}
+    for key in CAMPAIGN_OPTION_KEYS:
+        value = raw.get(key)
+        if key in ("sim", "num_robots", "takeoff_velocities", "trajectory_types"):
+            cast = int if key == "num_robots" else str
+            result[key] = normalize_csv(value, cast=cast)
+        elif isinstance(value, Path):
+            result[key] = str(value)
+        elif value is not None:
+            result[key] = value
+    return result
+
+
+def campaign_fingerprint(test_ids, campaign_config: dict | None = None) -> str:
+    """Stable identity for exact tests plus behavior-changing configuration."""
     canonical_ids = sorted(
         canonical_test_id(str(test_id).replace("::", ".")).replace(".py.", ".")
         for test_id in test_ids
     )
     if not canonical_ids:
         return ""
-    payload = "\n".join(canonical_ids).encode()
+    payload = json.dumps(
+        {
+            "test_ids": canonical_ids,
+            "config": normalize_campaign_config(campaign_config),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
     return hashlib.sha256(payload).hexdigest()
 
 
@@ -86,7 +126,8 @@ def _report_details(reports) -> tuple[dict[str, str], set[str], set[str]]:
 
 
 def build_run_meta(items, exitstatus: int, mark_expression: str = "",
-                   reports=None) -> dict:
+                   reports=None, campaign_config: dict | None = None,
+                   tested_identity: dict | None = None) -> dict:
     """Build serializable run metadata from a completed pytest session."""
     report_outcomes, call_nodeids, infrastructure_error_nodeids = _report_details(
         reports
@@ -116,11 +157,16 @@ def build_run_meta(items, exitstatus: int, mark_expression: str = "",
             )
         }
     completed = list(completed_by_id.values())
+    selected_test_ids = sorted(canonical_test_id(item.nodeid) for item in items)
     simulation_items = [
         item for item in items if is_simulation_test_id(str(item.nodeid))
     ]
     simulation_completed = [
         item for item in simulation_items if str(item.nodeid) in call_nodeids
+    ]
+    simulation_finalized = [
+        item for item in simulation_items
+        if str(item.nodeid) in completed_by_id
     ]
     simulation_infrastructure_errors = [
         item
@@ -128,33 +174,55 @@ def build_run_meta(items, exitstatus: int, mark_expression: str = "",
         if str(item.nodeid) in infrastructure_error_nodeids
     ]
 
+    call_failures = [
+        nodeid for nodeid, status in completed_by_id.items()
+        if status == "failed" and nodeid in call_nodeids
+    ]
     if exitstatus == 2:
         # Pytest uses exit 2 for both collection aborts and user/runner
         # interruption. Reports prove that execution had already begun.
         outcome = "incomplete" if completed else "collection_error"
+        failure_class = "interrupted" if completed else "collection"
     elif exitstatus in (3, 4):
         outcome = "internal_error"
+        failure_class = "ci_integrity"
     elif exitstatus == 5 or not items:
         outcome = "no_tests"
+        failure_class = "no_tests"
     elif not call_nodeids:
         outcome = (
             "simulation_not_executed" if simulation_items
             else "tests_not_executed"
         )
+        failure_class = "infrastructure"
     elif simulation_items and not simulation_completed:
         outcome = "simulation_not_executed"
+        failure_class = "infrastructure"
     elif simulation_infrastructure_errors:
         outcome = "incomplete"
-    elif len(simulation_completed) != len(simulation_items):
+        failure_class = "infrastructure"
+    elif len(simulation_finalized) != len(simulation_items):
         outcome = "incomplete"
+        failure_class = "infrastructure"
     elif simulation_items:
         outcome = "simulation"
+        failure_class = "assertion" if call_failures else "none"
     else:
         outcome = "non_simulation"
+        failure_class = "assertion" if call_failures else "none"
 
+    normalized_config = normalize_campaign_config(campaign_config)
+    simulation_ids = [
+        canonical_test_id(item.nodeid)
+        for item in simulation_items
+    ]
+    fingerprint = campaign_fingerprint(simulation_ids, normalized_config)
+    complete = outcome in ("simulation", "non_simulation")
     return {
-        "schema_version": 1,
-        "complete": outcome != "incomplete",
+        "schema_version": 2,
+        "complete": complete,
+        "completion_state": "completed" if complete else outcome,
+        "failure_class": failure_class,
         "outcome": outcome,
         "pytest_exitstatus": int(exitstatus),
         "mark_expression": mark_expression,
@@ -165,18 +233,38 @@ def build_run_meta(items, exitstatus: int, mark_expression: str = "",
         "skipped": completed.count("skipped"),
         "simulation_selected": len(simulation_items),
         "simulation_completed": len(simulation_completed),
-        "campaign_fingerprint": campaign_fingerprint(
-            item.nodeid for item in simulation_items
-        ),
+        "simulation_finalized": len(simulation_finalized),
+        "selected_test_ids": selected_test_ids,
+        "campaign_config": normalized_config,
+        "campaign_fingerprint": fingerprint,
+        "campaign": {
+            "schema_version": 1,
+            "selected_test_ids": sorted(simulation_ids),
+            "config": normalized_config,
+            "fingerprint": fingerprint,
+        },
+        "tested_identity": tested_identity or {
+            "sha": os.environ.get("AIRSTACK_TESTED_SHA", ""),
+            "pr_number": os.environ.get("AIRSTACK_PR_NUMBER", ""),
+        },
     }
 
 
 def write_run_meta(run_dir: Path, items, exitstatus: int,
-                   mark_expression: str = "", reports=None) -> Path:
+                   mark_expression: str = "", reports=None,
+                   campaign_config: dict | None = None,
+                   tested_identity: dict | None = None) -> Path:
     """Write ``run_meta.json`` for a normally completed pytest session."""
     path = Path(run_dir) / RUN_META_FILENAME
     path.write_text(json.dumps(
-        build_run_meta(items, exitstatus, mark_expression, reports),
+        build_run_meta(
+            items,
+            exitstatus,
+            mark_expression,
+            reports,
+            campaign_config,
+            tested_identity,
+        ),
         indent=2,
         sort_keys=True,
     ) + "\n")
@@ -215,7 +303,16 @@ def _classify_junit(results_xml: Path) -> dict:
 
     return {
         "schema_version": 1,
-        "complete": outcome != "incomplete",
+        "complete": outcome in ("simulation", "non_simulation"),
+        "completion_state": (
+            "completed" if outcome in ("simulation", "non_simulation") else outcome
+        ),
+        "failure_class": (
+            "infrastructure" if outcome == "incomplete"
+            else "collection" if outcome == "collection_error"
+            else "no_tests" if outcome == "no_tests"
+            else "assertion" if failures else "none"
+        ),
         "outcome": outcome,
         "pytest_exitstatus": None,
         "mark_expression": "",
@@ -308,3 +405,22 @@ def simulation_metrics_comparable(meta: dict, baseline: dict | None = None) -> b
         and baseline.get("outcome") == "simulation"
         and baseline.get("campaign_fingerprint") == meta["campaign_fingerprint"]
     )
+
+
+def comparability_reason(meta: dict, baseline: dict | None = None) -> str:
+    """Human explanation shared by summaries, reports, and baseline selection."""
+    if not meta:
+        return "run metadata is missing"
+    if not meta.get("complete"):
+        return f"campaign is not complete ({meta.get('completion_state', meta.get('outcome'))})"
+    if meta.get("outcome") != "simulation":
+        return f"run outcome is {meta.get('outcome', 'unknown')}, not a simulation campaign"
+    if not meta.get("campaign_fingerprint"):
+        return "campaign fingerprint is missing"
+    if baseline is None:
+        return "no baseline campaign was supplied"
+    if not baseline.get("complete") or baseline.get("outcome") != "simulation":
+        return "baseline is not a completed simulation campaign"
+    if baseline.get("campaign_fingerprint") != meta.get("campaign_fingerprint"):
+        return "baseline campaign configuration does not match"
+    return ""
