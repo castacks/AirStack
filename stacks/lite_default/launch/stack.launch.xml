@@ -1,0 +1,98 @@
+<!--
+  lite_default : trunk reference stack (RFC #379 S3) — the onboard-lite
+  topology, unsplit.
+
+  This is the AUTONOMY_ROLE=onboard equivalent as a self-contained stack:
+  interface, sensors, perception, the flat Local layer, and behavior run on
+  this machine; there is NO global layer and NO logging layer (mirroring
+  onboard_autonomy_local.launch.xml's subtractions — global_package and
+  logging_package empty). Use it for compute-constrained vehicles (VOXL,
+  Jetson lite) or as the onboard half's reference when authoring a split
+  stack; lite_offload_global/launch/onboard.launch.xml is this file paired
+  with an offboard global half.
+
+  LOCAL LAYER FLATTENED (P5-E2 style, copied from full_default): each block
+  below reads "this module, these connections". Every module launch file
+  declares its topic endpoints as args with canonical defaults (see
+  docs/robot/autonomy/interface_conventions.md), so a bare include means
+  "wired canonically"; only deviations from canonical appear as include args.
+
+  Launched by autonomy_bringup/launch/robot.launch.xml when AIRSTACK_STACK_DIR
+  points at this folder (`airstack up ...stack lite_default`). The shared
+  preamble (ROBOT_NAME namespace push, use_sim_time, robot_state_publisher,
+  world/map static TF) runs there unconditionally, so it is NOT repeated here.
+
+  Equivalence claim: launching this stack produces a ROS graph identical to
+  legacy AUTONOMY_ROLE=onboard (wiring.md, once committed from the first
+  validated snapshot run, is the observed baseline).
+-->
+<launch>
+
+  <!-- ── Wrapped layers (flatten in a later phase) ──────────────────────── -->
+
+  <!-- Interface (MAVROS/PX4 hardware interface + safety) -->
+  <include file="$(find-pkg-share interface_bringup)/launch/interface.launch.py" />
+
+  <!-- Sensors -->
+  <include file="$(find-pkg-share sensors_bringup)/launch/sensors.launch.xml" />
+
+  <!-- Perception (stereo disparity + point cloud; macvo off by default) -->
+  <include file="$(find-pkg-share perception_bringup)/launch/perception.launch.xml" />
+
+  <!-- ── Local layer, flat (module launch files; canonical defaults) ────── -->
+
+  <!-- Takeoff/Land task server: odometry in from odometry_conversion;
+       trajectory_override + mode out to the trajectory controller;
+       arming/extended state from the interface; actions at tasks/{takeoff,land} -->
+  <include file="$(find-pkg-share takeoff_landing_planner)/launch/takeoff_landing_planner.launch.xml" />
+
+  <!-- Fixed-trajectory task server: trajectory_override + mode out to the
+       trajectory controller; action at tasks/fixed_trajectory -->
+  <include file="$(find-pkg-share trajectory_controller)/launch/fixed_trajectory_task.launch.xml" />
+
+  <!-- DROAN local planner (GPU): disparity in from stereo_image_proc (canonical),
+       global_plan in from the global planner (offboard or absent in lite),
+       look_ahead/tracking_point in from the trajectory controller,
+       trajectory_segment_to_add out to it; navigate action at tasks/navigate -->
+  <include file="$(find-pkg-share droan_gl)/launch/droan_gl.launch.xml" />
+
+  <!-- Trajectory controller: odometry in from odometry_conversion; serves the
+       trajectory_controller/* topic group (override, segment, mode, tracking
+       point, look_ahead) by relative name in its namespace. ONBOARD-ONLY per
+       RFC #380 S2 — never place this module offboard. -->
+  <include file="$(find-pkg-share trajectory_controller)/launch/trajectory_controller.launch.xml" />
+
+  <!-- PID controller: odometry in from odometry_conversion, tracking_point in
+       from the trajectory controller; attitude/thrust command out to the
+       interface (cmd_roll_pitch_yawrate_thrust). ONBOARD-ONLY per RFC #380 S2. -->
+  <include file="$(find-pkg-share pid_controller)/launch/pid_controller.launch.xml" />
+
+  <!-- ── Wrapped layers (flatten in a later phase) ──────────────────────── -->
+
+  <!-- Behavior (behavior tree + safety monitor). The safety executive is
+       ONBOARD-ONLY per RFC #380 S2. -->
+  <include file="$(find-pkg-share behavior_bringup)/launch/behavior.launch.xml" />
+
+  <!-- NO global layer and NO logging layer in lite (the AUTONOMY_ROLE=onboard
+       subtractions). Pair with an offboard global half via the
+       lite_offload_global split stack, or fly task-driven missions only. -->
+
+  <!-- Role-onboard extras (from robot.launch.xml's onboard group) -->
+
+  <!-- DDS Router (robot <-> GCS domain bridge): the lean onboard allowlist
+       (camera streams out, global_plan in, plus the shared base list). -->
+  <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
+    <arg name="dds_router_config_file"
+      value="$(find-pkg-share autonomy_bringup)/onboard_local_offboard_global/config/dds_router.yaml" />
+    <!-- 0 = robot.launch.xml's gcs_domain default -->
+    <arg name="dds_router_args" value="gcs_domain:=0" />
+  </include>
+
+  <!-- Gossip coordination layer -->
+  <include file="$(find-pkg-share coordination_bringup)/launch/gossip.launch.xml">
+    <!-- 99 / 1.0 = robot.launch.xml's gossip_domain / gossip_publish_rate defaults -->
+    <arg name="gossip_domain" value="99" />
+    <arg name="gossip_publish_rate" value="1.0" />
+  </include>
+
+</launch>

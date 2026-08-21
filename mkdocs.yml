@@ -151,6 +151,7 @@ nav:
           - Behavior:
               - docs/robot/autonomy/behavior/index.md
           - Integration Guide: docs/robot/autonomy/integration_checklist.md
+          - Interface Conventions Spec: docs/robot/autonomy/interface_conventions.md
           - Coordination:
               - Overview: docs/robot/autonomy/coordination/index.md
               - Payloads & Foxglove: docs/robot/autonomy/coordination/payloads.md
