@@ -114,7 +114,7 @@ if plan is not None and boot is not None:
 
 ### 6. Bridge the source topic across DDS domains
 
-The visualizer can only subscribe to topics that crossed the DDS bridge. Add the source topic to `robot/ros_ws/src/autonomy_bringup/onboard_all/config/dds_router.yaml` under `allowlist`:
+The visualizer can only subscribe to topics that crossed the DDS bridge. Add the source topic to `robot/ros_ws/src/autonomy_bringup/config/dds_router.yaml` under `allowlist` (or, for the split stack, to `stacks/lite_offload_global/bridge.yaml` and regenerate):
 
 ```yaml
 allowlist:

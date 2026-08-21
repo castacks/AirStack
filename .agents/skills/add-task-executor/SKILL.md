@@ -260,9 +260,9 @@ int main(int argc, char* argv[]) {
 
 Only switch to `MultiThreadedExecutor` if you have independent callbacks that genuinely need concurrent execution **and** all shared resources are thread-safe. Nodes that use OpenGL, CUDA, or other thread-affine resources **must** use `rclcpp::spin()` to keep callbacks serialized.
 
-### 3. Add remap to bringup launch
+### 3. Add remap in the stack entry file
 
-In the layer bringup launch file (e.g., `global_bringup/launch/global.launch.xml`):
+In the module's canonical launch file, declare the action endpoint as a topic arg with the canonical default; any deviation is wired in the stack entry file (e.g., `stacks/full_default/launch/stack.launch.xml` — the single-locus rule):
 ```xml
 <remap from="~/your_task" to="/$(env ROBOT_NAME)/tasks/your_task_name" />
 ```

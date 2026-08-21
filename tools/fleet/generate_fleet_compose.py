@@ -73,8 +73,7 @@ HEADER = """\
 """
 
 # The robot-desktop bring-up command, copied verbatim (docker-compose.yaml is
-# the source of truth; the AUTONOMY_ROLE arg is ignored whenever a stack dir
-# is set — every fleet service sets one).
+# the source of truth; every fleet service sets an explicit stack dir/entry).
 ROBOT_COMMAND = (
     "bash -c \" "
     "if [ -z \\\"$$DISPLAY\\\" ] && command -v Xvfb >/dev/null 2>&1; then "
@@ -85,7 +84,7 @@ ROBOT_COMMAND = (
     "service ssh restart; "
     "tmux new -d -s bringup; "
     "if [ $$AUTOLAUNCH == 'true' ]; then "
-    "tmux send-keys -t bringup:0.0 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml role:=$$AUTONOMY_ROLE' ENTER; "
+    "tmux send-keys -t bringup:0.0 'bws && sws && ros2 launch $$LAUNCH_PACKAGE robot.launch.xml' ENTER; "
     "fi; "
     "sleep infinity\""
 )
@@ -135,10 +134,6 @@ def _common_environment():
         "AUTOLAUNCH=${AUTOLAUNCH:-true}",
         "NVIDIA_DRIVER_CAPABILITIES=all",
         "SIM_IP=${SIM_IP:-172.31.0.200}",
-        # role is ignored whenever a stack dir is set (robot.launch.xml); kept
-        # non-empty so the shared bring-up command's role:=$AUTONOMY_ROLE arg
-        # stays well-formed.
-        "AUTONOMY_ROLE=full",
     ]
 
 

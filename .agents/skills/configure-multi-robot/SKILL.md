@@ -191,7 +191,7 @@ robot-desktop:
     replicas: ${NUM_ROBOTS:-1}
 ```
 
-So `NUM_ROBOTS=3 airstack up` produces **three** robot containers (`airstack-robot-desktop-1`, `-2`, `-3`), each with its own `ROBOT_NAME` and its own `ROS_DOMAIN_ID`. Each container runs the full autonomy stack independently. Cross-robot communication, when needed, goes through the DDS router (see [`onboard_all/config/dds_router.yaml`](../../../robot/ros_ws/src/autonomy_bringup/onboard_all/config/dds_router.yaml)) which bridges allowlisted topics from each per-robot domain into a shared GCS domain.
+So `NUM_ROBOTS=3 airstack up` produces **three** robot containers (`airstack-robot-desktop-1`, `-2`, `-3`), each with its own `ROBOT_NAME` and its own `ROS_DOMAIN_ID`. Each container runs the full autonomy stack independently. Cross-robot communication, when needed, goes through the DDS router (see the shared allowlist [`autonomy_bringup/config/dds_router.yaml`](../../../robot/ros_ws/src/autonomy_bringup/config/dds_router.yaml)) which bridges allowlisted topics from each per-robot domain into a shared GCS domain.
 
 ```bash
 airstack up --sim isaac --robots 3   # sets NUM_ROBOTS and the multi-drone Isaac script together
@@ -203,18 +203,17 @@ docker ps --format '{{.Names}}' | grep robot-desktop
 
 The simulator side has to spawn matching vehicles — see [Sim-Side Robot Spawning](#sim-side-robot-spawning).
 
-### `onboard_all` vs `onboard_local_offboard_global` (legacy roles)
+### Full vs. lite vs. split topologies (stacks)
 
-The stack-shaped successors: `--stack full_default` / `--stack lite_default` replace the role values, `--stack lite_offload_global:onboard|:offboard` replaces the split pair, and a fleet entry's `hosts: {offboard: <ground>}` replaces choosing the split *placement* by hand (see Fleet-First above). The role dispatch below still works without a stack/fleet.
+Topology is selected by **stack** — the legacy `AUTONOMY_ROLE` role dispatch was removed (a set `AUTONOMY_ROLE` is now a preflight error): `--stack full_default` (the no-stack default) runs everything on the machine, `--stack lite_default` runs the lite set, `--stack lite_offload_global:onboard|:offboard` is the split pair, and a fleet entry's `hosts: {offboard: <ground>}` declares the split *placement* (see Fleet-First above).
 
-[`autonomy_bringup`](../../../robot/ros_ws/src/autonomy_bringup/) ships two layouts, selected by the `role` arg / `AUTONOMY_ROLE` env var:
+| Stack | What runs onboard | What runs offboard | When to use |
+|-------|-------------------|--------------------|-------------|
+| `full_default` | interface, sensors, perception, local, **global**, behavior, logging | nothing | Sim/dev desktop, autonomous Jetson with enough compute, single-machine deployments |
+| `lite_default` | interface, sensors, perception, local, behavior | nothing (no global anywhere) | Compute-constrained vehicle flying task-driven missions |
+| `lite_offload_global` (`:onboard` + `:offboard`) | interface, sensors, perception, local, behavior | global planning + mapping | VOXL / lite Jetson where global planning is offloaded to a ground station; `desktop_split` profile for debugging the split |
 
-| Variant | Role values | What runs onboard | What runs offboard | When to use |
-|--------|-------------|-------------------|--------------------|-------------|
-| `onboard_all` | `role:=full` | interface, sensors, perception, local, **global**, behavior | nothing | Sim/dev desktop, autonomous Jetson with enough compute, single-machine deployments |
-| `onboard_local_offboard_global` | `role:=onboard` (lite) + `role:=offboard` (GCS) | interface, sensors, perception, local, behavior | global planning + mapping | VOXL / lite Jetson where global planning is offloaded to a ground station; `desktop_split` profile for debugging the split |
-
-The split is significant for multi-robot: with `onboard_local_offboard_global`, **one offboard container is launched per robot** (also via `replicas: ${NUM_ROBOTS}`), all on `ROS_DOMAIN_ID=0`, and each bridges into its own per-robot onboard domain via the domain bridge config in `onboard_local_offboard_global/config/dds_router.yaml`. See [`docs/robot/autonomy_modes.md`](../../../docs/robot/autonomy_modes.md) for the profile matrix.
+The split is significant for multi-robot: with `lite_offload_global`, **one offboard container is launched per robot** (also via `replicas: ${NUM_ROBOTS}`), all on `ROS_DOMAIN_ID=0`, and each bridges into its own per-robot onboard domain via the DDS-router config generated from the stack's `bridge.yaml` (`python3 tools/gen_dds_router.py stacks/lite_offload_global/bridge.yaml` — the generated allowlist deliberately drops the legacy split's `set_trajectory_mode` crossing, doctor hard gate #2). See [`docs/robot/autonomy_modes.md`](../../../docs/robot/autonomy_modes.md) for the profile matrix.
 
 ## Topic and TF Namespacing
 
@@ -449,7 +448,7 @@ Before merging a change that touches anything robot-namespaced:
 - [ ] If you added a new module to a layer bringup, you tested it with `NUM_ROBOTS=2` and confirmed both robots' namespaces look identical under `ros2 node list`
 - [ ] If you added a sim launch script, it reads `NUM_ROBOTS` and spawns vehicles named `robot_1`, `robot_2`, … with matching `vehicle_id` / `domain_id`
 - [ ] If you added a system test that addresses a robot, it loops over `range(1, num_robots + 1)` and uses `domain_id=n` in `ros2_exec(...)`
-- [ ] DDS router allowlists in `onboard_all/config/dds_router.yaml` (or the split equivalent) include any new cross-domain topic your module exposes — otherwise it will not appear on the GCS
+- [ ] DDS router allowlists in `autonomy_bringup/config/dds_router.yaml` (or the split stack's `bridge.yaml`) include any new cross-domain topic your module exposes — otherwise it will not appear on the GCS
 - [ ] Verified end-to-end: `NUM_ROBOTS=3 airstack up`, then `docker exec airstack-robot-desktop-2 bash -c 'ros2 topic list | grep robot_2'` shows the same topics that `airstack-robot-desktop-1` shows under `robot_1`
 
 ## Verification Commands
@@ -486,7 +485,7 @@ docker exec -e ROS_DOMAIN_ID=1 airstack-robot-desktop-1 bash -c \
 - [`docs/robot/autonomy_modes.md`](../../../docs/robot/autonomy_modes.md) — profile matrix (`desktop`, `desktop_split`, `voxl`, `l4t`, `offboard`)
 - [`robot/docker/robot_name_map/`](../../../robot/docker/robot_name_map/) — mapping YAMLs and `resolve_robot_name.py`
 - [`robot/ros_ws/src/autonomy_bringup/launch/robot.launch.xml`](../../../robot/ros_ws/src/autonomy_bringup/launch/robot.launch.xml) — top-level `push_ros_namespace`
-- [`robot/ros_ws/src/autonomy_bringup/onboard_all/config/dds_router.yaml`](../../../robot/ros_ws/src/autonomy_bringup/onboard_all/config/dds_router.yaml) — cross-domain allowlist pattern
+- [`robot/ros_ws/src/autonomy_bringup/config/dds_router.yaml`](../../../robot/ros_ws/src/autonomy_bringup/config/dds_router.yaml) — cross-domain allowlist pattern
 - [`simulation/ms-airsim/config/generate_settings.py`](../../../simulation/ms-airsim/config/generate_settings.py) and [`settings.json.j2`](../../../simulation/ms-airsim/config/settings.json.j2)
 - [`simulation/isaac-sim/launch_scripts/example_multi_px4_pegasus_launch_script.py`](../../../simulation/isaac-sim/launch_scripts/example_multi_px4_pegasus_launch_script.py)
 - [`tests/conftest.py`](../../../tests/conftest.py) — `airstack_env` fixture and `--num-robots` parametrization

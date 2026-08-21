@@ -101,8 +101,8 @@ A stack folder (`stacks/<name>/`) is the unit of topology — see [docs/developm
 
 ```xml
 <!-- Local planner: disparity from MAC-VO instead of stereo -->
-<include file="$(find-pkg-share local_bringup)/launch/local.launch.xml">
-  <arg name="local_disparity_in_topic"
+<include file="$(find-pkg-share droan_gl)/launch/droan_gl.launch.xml">
+  <arg name="droan_gl_disparity_topic"
        value="/$(env ROBOT_NAME)/perception/macvo/disparity" />
 </include>
 ```
@@ -189,7 +189,7 @@ If `ros2 node info` shows a node subscribing to `/odometry` instead of `/<robot_
 
 ## References
 
-- **Stacks:** [docs/development/stacks.md](../../../docs/development/stacks.md) — anatomy, wrap-vs-flatten status, wiring.md generation, AUTONOMY_ROLE deprecation
+- **Stacks:** [docs/development/stacks.md](../../../docs/development/stacks.md) — anatomy, wiring.md generation, the AUTONOMY_ROLE removal/migration table
 - **Canonical topic names:** [docs/robot/autonomy/integration_checklist.md](../../../docs/robot/autonomy/integration_checklist.md)
 - **Reference stack launch files:** `stacks/full_default/launch/stack.launch.xml`, `stacks/full_droan_cpu/`, `stacks/full_macvo/`
 - **Lint:** `tests/meta/test_launch_single_locus.py` + `tests/meta/launch_lint_allowlist.txt`

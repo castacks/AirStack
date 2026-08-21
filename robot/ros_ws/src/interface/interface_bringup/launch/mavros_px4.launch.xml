@@ -2,8 +2,8 @@
      AirStack px4_config.yaml and PX4 plugin list.
      Included by: interface.launch.py (which pushes the interface namespace and
      computes fcu_url / tgt_system).
-     STATUS: canonical module launch (included by stacks via interface.launch.py
-     and by the legacy AUTONOMY_ROLE dispatch). -->
+     STATUS: canonical module launch (included by stacks via
+     interface.launch.py). -->
 <launch>
   <arg name="fcu_url" default="/dev/ttyACM0:57600"
        description="MAVLink FCU connection URL (serial device, tcp://, or udp://)" />

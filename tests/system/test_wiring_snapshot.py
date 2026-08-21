@@ -7,19 +7,17 @@ sentinel nodes are up, snapshots the *running* ROS graph per robot —
 (node/edge names keep their robot namespaces), and renders it to
 ``<run_dir>/wiring/observed_full_default.md`` via ``tests/wiring_snapshot.py``.
 
-Golden logic: if ``tests/goldens/wiring/full_default.<sim>.<N>robot.md`` is
-missing, the test logs a bootstrap instruction and PASSES (goldens are
-committed from a validated local run — see ``tests/goldens/wiring/README.md``);
-if present, ``diff_graphs`` must report identical or the test fails with the
-JSON drift verdict.
-
-Stack mode (RFC #379 §3/§4): with ``--stack <name>`` the fixture launches the
-stack's entry launch file and the golden becomes ``stacks/<name>/wiring.md``
-(one observed-wiring document per stack, committed in the stack folder). The
-observed snapshot is written as ``observed_<name>.md`` and the same
-bootstrap-pass + INSTRUCTION behavior applies when the stack has no wiring.md
-yet. Legacy runs (no ``--stack``) keep the tests/goldens/wiring path
-unchanged.
+Golden logic (RFC #379 §3/§4): every run compares against the launched
+stack's committed wiring baseline, ``stacks/<name>/wiring.md`` (one
+observed-wiring document per stack, committed in the stack folder). No
+``--stack`` means the default dispatch — stacks/full_default (stacks are the
+only dispatch; the legacy AUTONOMY_ROLE path was removed) — so the default
+golden is ``stacks/full_default/wiring.md``. If the stack has no wiring.md
+yet, the test logs a bootstrap INSTRUCTION and PASSES (baselines are
+committed from a validated run — mechanism documented in
+docs/development/stacks.md); if present, ``diff_graphs`` must report
+identical or the test fails with the JSON drift verdict. The observed
+snapshot is written as ``observed_<name>.md`` under the run dir.
 """
 import json
 import os
@@ -244,11 +242,9 @@ class TestWiringSnapshot:
         m = get_metrics()
         tid = current_test_id()
 
-        # Legacy (no --stack) keeps the full_default naming and the
-        # tests/goldens/wiring golden; a selected stack owns its golden at
-        # stacks/<name>/wiring.md.
-        stack = airstack_env.get("stack")
-        stack_name = stack or "full_default"
+        # Each stack owns its golden at stacks/<name>/wiring.md. No --stack =
+        # the default dispatch, stacks/full_default.
+        stack_name = airstack_env.get("stack") or "full_default"
 
         _wait_for_settled_node_sets(airstack_env)
         t0 = time.time()
@@ -279,18 +275,12 @@ class TestWiringSnapshot:
         m.record(tid, "wiring_topic_count", len(graph["topics"]),
                  unit="count", direction="higher_is_better")
 
-        if stack:
-            golden_path = repo_path("stacks", stack, "wiring.md")
-        else:
-            golden_path = repo_path(
-                "tests", "goldens", "wiring",
-                f"full_default.{sim}.{num_robots}robot.md",
-            )
+        golden_path = repo_path("stacks", stack_name, "wiring.md")
         if not golden_path.exists():
             logger.info(
                 "INSTRUCTION: no golden at %s — bootstrap by validating the "
                 "observed snapshot (%s) and copying it to that path, then "
-                "commit it (see tests/goldens/wiring/README.md).",
+                "commit it (mechanism: docs/development/stacks.md).",
                 golden_path, observed_path,
             )
             return

@@ -3,8 +3,8 @@
 
 Launches MAVROS (via mavros_px4.launch.xml), the robot_interface node with the
 MAVROS plugin, the position setpoint publisher, and odometry conversion.
-Included by: stacks/*/launch entry files AND onboard_autonomy_all.launch.xml
-(legacy AUTONOMY_ROLE dispatch) — canonical interface bringup for both paths.
+Included by: stacks/*/launch entry files — the canonical interface bringup
+(wrapped by design until the platform-module refactor, RFC #380 Part 2).
 
 Dynamically computes FCU URL and TGT_SYSTEM from environment variables:
     OFFBOARD_PORT = OFFBOARD_BASE_PORT + ROS_DOMAIN_ID
@@ -127,7 +127,8 @@ def launch_setup(context, *args, **kwargs):
     )
     actions.append(odometry_conversion_node)
 
-    # NOTE: drone_safety_monitor is now launched from behavior_bringup
+    # NOTE: drone_safety_monitor is launched by the stack entry files
+    # (drone_safety_monitor.launch.xml), not here
 
     return actions
 

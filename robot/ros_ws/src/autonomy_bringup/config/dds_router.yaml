@@ -11,7 +11,13 @@
 
 # all topics are bidirectional by default. See https://eprosima-dds-router.readthedocs.io/ for more details
 
-# onboard_all DDS Router
+# Shared robot <-> GCS DDS Router allowlist (autonomy_bringup/config/).
+# History: lived at onboard_all/config/ under the removed AUTONOMY_ROLE
+# dispatch; stacks (RFC #379) now select it directly — the full_* stacks and
+# lite_default point their interpolate_dds_router include here. (The legacy
+# onboard_local_offboard_global extension of this file merged to an identical
+# allowlist, so lite_default uses this base unchanged; the lite_offload_global
+# split stack instead GENERATES its router config from its bridge.yaml.)
 participants:
   - name: "robot"
     kind: "local"

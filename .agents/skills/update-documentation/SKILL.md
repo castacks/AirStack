@@ -726,7 +726,7 @@ feat: Add YourModule local planner
 
 - Implement algorithm based on XYZ paper
 - Add configuration and launch files
-- Integrate into local_bringup
+- Integrate into the stack entry file (stacks/full_default)
 - Add comprehensive README documentation
 - Update mkdocs navigation
 ```

@@ -18,8 +18,9 @@ DDS-router config from it. Contracts pinned here:
 - **Determinism** — generation is a pure function of bridge.yaml: identical
   inputs produce byte-identical router configs, with no timestamps and no
   absolute paths.
-- **Router format** — output parses as YAML and follows the legacy
-  ``onboard_local_offboard_global/config/dds_router.yaml`` conventions:
+- **Router format** — output parses as YAML and follows the shared
+  ``autonomy_bringup/config/dds_router.yaml`` conventions (inherited from the
+  removed legacy split's ``onboard_local_offboard_global`` router config):
   ``$(env ROBOT_NAME)`` interpolation, rt/ topics, rq/rr service pairs, the
   five action sub-endpoints, participants on ``$(env ROS_DOMAIN_ID)`` /
   ``$(var gcs_domain)``.

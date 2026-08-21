@@ -4,7 +4,10 @@ The Exploration Planner is an optional global planner for autonomous flight. It 
 
 ## Functionality
 
-You can comment out the world model and random walk planning module in `global.launch.xml` and add the following line:
+In your stack's entry launch file (e.g. a copy of
+`stacks/full_default/launch/stack.launch.xml`), replace the
+`random_walk_planner.launch.xml` include (and optionally the vdb_mapping
+include) with:
 
 `<include file="$(find-pkg-share exploration_planner)/launch/exploration_launch.xml" />`:
 

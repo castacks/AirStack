@@ -8,8 +8,6 @@
        description="Use simulation time for the foxglove bridge" />
   <arg name="record_bag" default="$(env RECORD_BAGS)"
        description="Unused here; kept for env parity with robot bringup" />
-  <arg name="autonomy_split_type" default="onboard_all"
-       description="Autonomy split: onboard_all or onboard_local_offboard_global" />
 
   <!-- ======== GUI ======== -->
   <!-- launch foxglove-studio with no-sandbox flag -->

@@ -58,20 +58,24 @@ The robot autonomy stack is launched via Docker Compose. The configuration is in
 
 ### Launch Command Hierarchy
 
-The Docker `command:` attribute launches the top-level ROS 2 launch file, which cascades through autonomy layers:
+The Docker `command:` attribute launches the top-level ROS 2 launch file,
+which runs a shared preamble and then the selected **stack** entry file
+(stacks are the only dispatch — the legacy AUTONOMY_ROLE layer cascade was
+removed; see [Stacks](../development/stacks.md)):
 
 ```
-robot.launch.xml                      # Entry point (robot_bringup)
-  └── autonomy.launch.xml             # Autonomy orchestration (autonomy_bringup)
-      ├── interface.launch.xml        # Hardware interface
-      ├── sensors.launch.xml          # Sensor drivers
-      ├── perception.launch.xml       # State estimation
-      ├── local.launch.xml            # Local planning & control
-      ├── global.launch.xml           # Global planning & mapping
-      └── behavior.launch.xml         # Mission execution
+robot.launch.xml                        # Entry point (autonomy_bringup):
+  ├── (preamble: namespace, use_sim_time, robot_state_publisher, world→map TF)
+  └── stacks/<name>/launch/<entry>.launch.xml   # The stack entry file —
+      ├── interface.launch.py                   # a flat list of module
+      ├── lidar_point_cloud_filter.launch.xml   # includes; every connection
+      ├── stereo_image_proc.launch.xml          # is written down here
+      ├── ... (local, global, behavior modules)
+      └── interpolate_dds_router / gossip
 ```
 
-Each `*_bringup` package contains launch files that orchestrate modules in that layer.
+No stack selected = `stacks/full_default`. Each module package ships its own
+canonical launch file; the stack entry file is the single wiring locus.
 
 ### Quick Reference
 

@@ -34,8 +34,9 @@ airstack ready    # waits: containers → sim /clock → nodes → PX4 ready
 
 `--stack full_default` launches
 [`stacks/full_default/launch/stack.launch.xml`](../../stacks/full_default/README.md)
-— a flat list of module includes where every connection is written down —
-instead of the legacy `AUTONOMY_ROLE` dispatch. Command the drone from
+— a flat list of module includes where every connection is written down.
+(Stacks are the only dispatch: with no `--stack`, `full_default` launches
+anyway; this makes the choice explicit.) Command the drone from
 Foxglove exactly as in [Getting Started](index.md#move-robot).
 
 ## 3. Read the wiring — the map of the system
