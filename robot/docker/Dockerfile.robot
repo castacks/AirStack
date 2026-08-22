@@ -148,25 +148,6 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages \
 # TMux config
 RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm
 
-# Diagnostic: Check Python environment before DDS Router build
-RUN echo "=== Python version ===" && \
-    python3 --version && \
-    echo "" && \
-    echo "=== PYTHONPATH ===" && \
-    echo "$PYTHONPATH" && \
-    echo "" && \
-    echo "=== sys.path ===" && \
-    python3 -c "import sys; print('\n'.join(sys.path))" && \
-    echo "" && \
-    echo "=== Checking ament_package ===" && \
-    python3 -c "import ament_package; print('✓ ament_package found at:', ament_package.__file__)" || echo "✗ ament_package NOT found" && \
-    echo "" && \
-    echo "=== Checking dpkg for ament packages ===" && \
-    dpkg -l | grep -i ament || echo "No ament packages found in dpkg" && \
-    echo "" && \
-    echo "=== ROS Python packages ===" && \
-    ls -la /opt/ros/${ROS_DISTRO}/lib/python*/dist-packages/ 2>/dev/null | head -20 || echo "No ROS python packages found"
-
 # Install eProsima DDS Router
 # System library dependencies (Asio, TinyXML2, OpenSSL, yaml-cpp)
 RUN apt update && apt install -y --no-install-recommends \
@@ -259,7 +240,9 @@ ENV ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
 ENV DEBIAN_FRONTEND=
 # ========================
 
-# Install runtime dev tools (no cmake or build-essential)
+# Install runtime dev tools. (The compile toolchain — cmake, build-essential —
+# still arrives below via ros-dev-tools: the runtime image keeps it because
+# `bws` builds the ROS workspace inside this container.)
 RUN apt update && apt install -y --no-install-recommends \
   vim nano tree \
   less htop jq \
@@ -277,7 +260,9 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages --ignore-insta
   "setuptools==79.0.1" \
   wheel
 
-# Install runtime ROS2 packages (no libcgal-dev)
+# Install runtime ROS2 packages. ros-dev-tools pulls in the compile toolchain
+# (cmake, build-essential) — deliberate, since `bws` builds in-container; and
+# ros-*-grid-map pulls CGAL in as a dependency, so libcgal is present here too.
 RUN apt update -y && apt install -y --no-install-recommends \
   ros-dev-tools \
   ros-${ROS_DISTRO}-mavros \

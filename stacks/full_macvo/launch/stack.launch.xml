@@ -136,7 +136,7 @@
   <!-- ── Logging (already a single self-contained module — see header) ───── -->
   <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" />
 
-  <!-- ── Role-full extras (from robot.launch.xml's full group) ──────────── -->
+  <!-- ── Cross-domain extras (formerly robot.launch.xml's full-role group) ─ -->
 
   <!-- Domain Bridge (GCS) -->
   <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">

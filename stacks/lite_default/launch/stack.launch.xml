@@ -28,8 +28,8 @@
   world/map static TF) runs there unconditionally, so it is NOT repeated here.
 
   Equivalence: same topology the removed AUTONOMY_ROLE=onboard dispatch
-  launched (wiring.md, once committed from the first validated snapshot run,
-  is the observed baseline). Note the legacy desktop profile hardcoded
+  launched (this folder's wiring.md is the committed observed baseline).
+  Note the legacy desktop profile hardcoded
   AUTONOMY_ROLE=full, so the desktop-profile "onboard" role was unreachable
   in practice — this stack is the first reachable lite topology on desktop.
 -->

@@ -247,6 +247,32 @@ class TestWiringSnapshot:
         stack_name = airstack_env.get("stack") or "full_default"
 
         _wait_for_settled_node_sets(airstack_env)
+        golden_probe = repo_path("stacks", stack_name, "wiring.md")
+        if golden_probe.exists():
+            # The settle poll proves the graph stopped GROWING, not that it is
+            # COMPLETE: slow-starting nodes (e.g. MAC-VO's multi-minute model
+            # load on a cold container) can join after two identical samples.
+            # When a golden exists it names the expected node set — wait for
+            # it; on timeout capture anyway and let the drift check report.
+            expected_nodes = set(
+                ws.extract_graph_from_md(golden_probe.read_text())["nodes"])
+            deadline = time.time() + 300
+            while time.time() < deadline:
+                live = set()
+                cfg = airstack_env["cfg"]
+                containers = get_robot_containers(airstack_env["robot_pattern"])
+                for n in range(1, airstack_env["num_robots"] + 1):
+                    live.update(_node_list(containers[n - 1], n,
+                                           cfg["robot_setup_bash"]))
+                missing = expected_nodes - live
+                if not missing:
+                    break
+                logger.info("waiting for %d golden node(s) still absent "
+                            "(e.g. %s)", len(missing), sorted(missing)[0])
+                time.sleep(10)
+            else:
+                logger.warning("golden nodes still missing after 300s — "
+                               "capturing anyway; drift will report them")
         t0 = time.time()
         graph = _capture_merged_graph(airstack_env)
         m.record(tid, "wiring_capture_duration_s",
