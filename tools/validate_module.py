@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Validate an AirStack module manifest (``module.yaml``) against the module schema.
 
 The manifest contract is RFC #379 §2 — a *thin* manifest: deps, identity, and test

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Generate the docs-site module/stack catalog from the registry index.
 
 RFC #379 §9 ("Docs"): the main site owns an auto-generated marketplace

@@ -1,7 +1,7 @@
 ---
 name: write-launch-file
 description: Author a ROS 2 launch file for AirStack with the correct conventions. Use when creating or editing any .launch.xml/.launch.py — covers the single-locus wiring rule (remaps live ONLY in stack launch files), canonical-default topic args with descriptions, ROBOT_NAME namespacing, allow_substs parameter loading, and stack-folder composition.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

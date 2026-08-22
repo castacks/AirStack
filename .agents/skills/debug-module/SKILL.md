@@ -1,7 +1,7 @@
 ---
 name: debug-module
 description: Systematically debug ROS 2 modules with autonomous diagnostic strategies. Use when a module is not working as expected. Covers node status, topic connections, data flow analysis, parameter checking, and performance profiling.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

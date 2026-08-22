@@ -1,7 +1,7 @@
 ---
 name: capture-discovered-knowledge
 description: Persist hard-won discoveries to AGENTS.md or a new/existing SKILL.md so future agents don't repeat the discovery cost. Trigger after any long context-discovery task (multi-minute grep / file-reading session, parallel research agents, debugging that took several iterations) or whenever you learn something critical, surprising, undocumented, or that contradicted prior assumptions in AGENTS.md or a skill. Decides between updating AGENTS.md, updating an existing skill, or creating a new skill.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

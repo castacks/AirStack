@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Check implementations for ``airstack doctor`` (RFC #379 §4, RFC #380 §2).
 
 Doctor is **entirely observational**: it never generates, edits, or infers

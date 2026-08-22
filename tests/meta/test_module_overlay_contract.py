@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Contract tests for `airstack module` + tools/module_overlay.py (RFC #379, Phase P2).
 
 The module machinery has host-visible contracts scripts and users depend on:

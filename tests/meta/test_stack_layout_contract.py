@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Stack folder anatomy contract (RFC #379 §3, RFC #385 §1).
 
 Every stack directory under ``stacks/`` (ignoring ``.external``, the gitignored

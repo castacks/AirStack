@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Generate per-robot compose services for a HETEROGENEOUS fleet (RFC #380 §2).
 
 ``deploy.replicas`` can only stamp identical containers, so a fleet whose

@@ -1,7 +1,7 @@
 ---
 name: add-task-executor
 description: Implement a new task executor as a ROS 2 action server in AirStack. Use when adding a new goal-directed task (coverage, search, counting, trajectory following, etc.) that a user can trigger with parameters, monitor via feedback, and cancel. Reference implementation is random_walk_planner (ExplorationTask).
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

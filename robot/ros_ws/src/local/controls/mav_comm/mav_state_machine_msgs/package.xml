@@ -3,9 +3,7 @@
 <package format="3">
   <name>mav_state_machine_msgs</name>
   <version>0.0.0</version>
-  <description>
-    Messages specific to MAV state machine.
-  </description>
+  <description>Message definitions for starting and stopping tasks in MAV state machines.</description>
 
   <maintainer email="christian.lanegger@mavt.ethz.ch">Christian Lanegger</maintainer>
 

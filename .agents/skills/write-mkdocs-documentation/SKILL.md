@@ -1,7 +1,7 @@
 ---
 name: write-mkdocs-documentation
 description: Guidelines for writing effective MkDocs documentation for AirStack. Covers organization, flow, visuals, markdown syntax, navigation structure, module vs system docs, and quality checks. Use when creating or updating documentation.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

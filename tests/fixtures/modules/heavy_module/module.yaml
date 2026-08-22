@@ -4,7 +4,7 @@
 name: heavy_module
 description: Docker-layer fixture with apt/pip deps and a Dockerfile fragment.
 maintainer: test@example.com
-license: MIT
+license: BSD-3-Clause-Clear
 type: ros_package
 airstack_compat: ">=0.19.0 <0.21.0"
 targets: [robot]

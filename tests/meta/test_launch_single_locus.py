@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Single-locus wiring lint (RFC #379 §4.1).
 
 What this lint enforces, precisely: no ``<remap>`` (XML) and no

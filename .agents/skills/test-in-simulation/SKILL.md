@@ -1,7 +1,7 @@
 ---
 name: test-in-simulation
 description: Test modules in Isaac Sim simulation environment end-to-end. Use after implementing and integrating a module to verify functionality. Covers test scenarios, monitoring, recording, and analysis of simulation tests.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

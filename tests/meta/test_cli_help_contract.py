@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """CLI help truthfulness contract.
 
 ``airstack help <cmd>`` text drifts from the code because nothing ties the

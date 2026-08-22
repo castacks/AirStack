@@ -1,5 +1,5 @@
 # Copyright (c) 2024 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Contract tests for the wiring-snapshot tool (RFC #379 §4.4).
 
 ``tests/wiring_snapshot.py`` turns ``ros2 topic info --verbose`` output into a

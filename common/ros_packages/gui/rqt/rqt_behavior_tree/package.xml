@@ -1,7 +1,7 @@
 <package format="2">
   <name>rqt_behavior_tree</name>
   <version>1.0.2</version>
-  <description>rqt_behavior_tree is a Python GUI plugin providing an interactive Python console.</description>
+  <description>rqt GUI plugin for visualizing and commanding AirStack behavior trees.</description>
   <maintainer email="scholz@sim.tu-darmstadt.de">Dorian Scholz</maintainer>
   <maintainer email="mikeblautman@gmail.com">Michael Lautman</maintainer>
 

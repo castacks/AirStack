@@ -1,7 +1,7 @@
 ---
 name: add-ros2-package
 description: Create a new ROS 2 package for the AirStack autonomy stack. Use when implementing a new algorithm module (planner, controller, perception, world model, behavior node). Covers package structure, CMakeLists.txt, package.xml, launch files, and configuration.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack
