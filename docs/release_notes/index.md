@@ -312,6 +312,26 @@ out-of-trunk modules:
   cross-checked against `NUM_ROBOTS` after the handshake; the emulator is
   installed as a Kit extension so launch scripts can import it
 
+## 0.19.0 — 2026-08-22
+
+The launch-workflow and CI-infrastructure release preceding the modular
+transition:
+
+- Intent flags on `airstack up` (`--sim isaac|airsim`, `--robots N`,
+  `--headless`, `--play`/`--no-play`, `--no-autolaunch`, `--wait`,
+  `--dry-run`) deriving coordinated env-var sets, with a resolved-config
+  banner and per-run `effective_config.env` dump
+- `airstack ready` / `airstack up --wait`: staged flight-readiness gates
+  (containers → sim `/clock` → sentinel nodes → PX4 armable) with `--json`
+- Preflight validation on the resolved configuration (one-simulator guard,
+  robot-count vs Isaac script, missing images/credentials surfaced on host)
+- OSMO-backed ephemeral CI GPU runners; automatic `unit-tests.yml` PR gate;
+  `run_meta.json` outcome metadata for honest metrics comparison
+- OptiTrack external-vision configurations for sim (NatNet emulator + PX4
+  EKF2 mocap fusion, e2e-tested) and real Jetson robots
+- tmux pane output mirrored to `docker logs`; feature-notebook workflow;
+  Isaac launch scripts deduplicated onto a shared `PegasusApp` base
+
 ## 1.0.0 — 2024-12-19
 
 First official public release.
