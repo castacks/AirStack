@@ -15,8 +15,7 @@ simulation/
 │   ├── assets/                    # 3D models and props
 │   ├── config/                    # Simulation configurations
 │   ├── extensions/                # Custom Isaac Sim extensions
-│   ├── launch_scripts/            # Python launch scripts
-│   └── standalone_examples/       # Example scenes and scripts
+│   └── launch_scripts/            # Python launch scripts
 ├── ms-airsim/
 │   ├── docker/                    # Microsoft AirSim (legacy) containerization
 │   │   ├── docker-compose.yaml    # Launch configuration
@@ -92,16 +91,15 @@ An open-source drone simulator built on Unreal Engine with native PX4 SITL integ
 
 ### Simple Sim (Lightweight)
 
-A lightweight 2D/3D simulator for basic testing and development when full Isaac Sim fidelity isn't needed.
+A lightweight kinematic simulator (single ROS 2 node, no PX4/MAVROS — it mocks the MAVROS interface directly) for fast iteration when full Isaac Sim fidelity isn't needed. Single robot only. Actively used by core maintainer John Keller. See [Simple Sim](simple_sim/index.md).
 
 **Use cases:**
 
-- Quick algorithm prototyping
-- CI/CD testing
-- Lower hardware requirements
+- Quick algorithm prototyping (planning/control/stereo perception)
+- Machines without an Isaac-class GPU or Omniverse credentials
 - Faster iteration cycles
 
-**Launch:** `airstack up simple-sim`
+**Launch:** `airstack up --sim simple`
 
 **Location:** `simulation/simple-sim/`
 

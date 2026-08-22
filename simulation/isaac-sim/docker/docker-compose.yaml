@@ -95,6 +95,11 @@ services:
       - ../../../.devcontainer/isaac-sim/tasks.json:/isaac-sim/AirStack/.vscode/tasks.json:rw
 
   # ===================================================================================================================
+  # Full Isaac Sim GUI editor for USD/scene editing on any asset (runapp.sh,
+  # no Pegasus/ROS launch script). Deliberately NOT on airstack_network — no
+  # DDS reaches the robots, so it is for scene authoring, not for flying.
+  # Run with: airstack up --profile isaac-sim-gui isaac-sim-gui
+  # See docs/simulation/isaac_sim/docker.md ("GUI-Only Mode").
   isaac-sim-gui:
     extends:
       service: isaac-sim
