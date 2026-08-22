@@ -1375,6 +1375,17 @@ DEFAULTS = {
     # band; at 1400 it is back to 14.4% and 19.5 cul-de-sacs, i.e. the fabric
     # the band was fit to, with the stubs replatted onto land that has houses
     # on it. The attempts are cheap — 6 s across twelve seeds.
+    # CUL-DE-SACS ARE OFF. The turnaround is the hardest piece of this plat to
+    # get right and it kept coming back wrong: the paved bulb is a disc the
+    # block polygon does not know about, so lots were sited on it, fences ran
+    # out into it and driveways fanned round it. `_arc_cap_bulbs` splices the
+    # arc into the block boundary and fixed most of that, but "most" on the one
+    # feature that draws the eye is not good enough. A plat with no dead ends is
+    # a real morphology — the gridiron and warped-parallel eras both have one —
+    # so this is a step back down the ladder, not a broken plat.
+    # Set true to bring them back; every downstream pass keys off the lollipop
+    # edges, so they simply find none.
+    "cul_de_sacs": False,
     "lollipop_attempts": 1400,
     "loop_share": 0.55,            # of successful locals, how many are loops
     "loop_depth_m": [90.0, 230.0],    # how far a loop bulges from its host
@@ -1655,7 +1666,7 @@ def generate(width_m, height_m, rng, cfg=None):
 
     n_lolli = 0
     want_dead = float(c["dead_end_target"])
-    for _ in range(int(c["lollipop_attempts"])):
+    for _ in range(int(c["lollipop_attempts"]) if c.get("cul_de_sacs") else 0):
         if dead_end_share(net, region) >= want_dead:
             break
         sids = net.street_ids("collector", "connector", "loop")

@@ -50,6 +50,12 @@ _Z_DASH = 0.24
 # about 2 cm ("at 0.021 the paint visibly floats at close range",
 # `detail/road_markings.py`). Put it just over the crosswalk it sits beside.
 _Z_STOPBAR = 0.205
+# The front walk sits just over the drive: the two meet at the kerb, and
+# coplanar ribbons z-fight precisely where a viewer is looking.
+_Z_WALK = 0.17
+WALK_W_M = 1.2      # a US front walk; 1.1-1.4 m is the whole range
+UV_DRIVE_M = 2.5    # Driveway_Brick_Old_01: a brick course, not a road
+UV_PATH_M = 2.0     # Concrete_02: slab joints at walk scale
 # Park surfaces sit just above the block grass they are laid on, with their
 # paint above that, on the same "surface then markings" convention as a street.
 _Z_PARK_SURF = 0.06
@@ -790,6 +796,35 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
                  park=None):
     """Asphalt ribbons, block grass, driveways and centreline dashes."""
     roads_cfg = config.get("roads", {}) or {}
+
+    # THE HEIGHT LADDER SCALES WITH THE PLATE, AUTOMATICALLY.
+    #
+    # The constants above are metres, and they were chosen for a 1600 x 1200 m
+    # plate seen from capture altitude — where 14 cm of air under the paint is
+    # far below one pixel, and where the depth buffer at that range needs a gap
+    # that large to not z-fight. Neither of those is a property of the ROAD;
+    # both follow from how far away the camera is, which in practice tracks how
+    # big the plate is. Hard-coding metres therefore bakes one plate size into
+    # the geometry, and every other size is wrong in one direction or the
+    # other: floating paint on a small block, z-fighting on a huge one.
+    #
+    # So the ladder is derived from the region rather than declared. 1600 m
+    # reproduces the tuned values exactly, so existing scenes are unchanged;
+    # a 250 m block gets ~1.6 cm instead of 14 cm. The floor stops it
+    # collapsing to zero on a tiny plate, where depth precision still needs
+    # something to work with. `roads.z_scale` remains as an explicit override.
+    _span = max(float(region[0]), float(region[1])) if region else 1600.0
+    _zs = float(roads_cfg.get("z_scale",
+                              max(0.08, min(1.0, _span / 1600.0))))
+    z_grass = _Z_GRASS * _zs
+    z_asphalt = _Z_ASPHALT * _zs
+    z_drive = _Z_DRIVE * _zs
+    z_crosswalk = _Z_CROSSWALK * _zs
+    z_dash = _Z_DASH * _zs
+    z_stopbar = _Z_STOPBAR * _zs
+    z_walk = _Z_WALK * _zs
+    z_park_surf = _Z_PARK_SURF * _zs
+    z_park_path = _Z_PARK_PATH * _zs
     uv_asphalt = float(roads_cfg.get("asphalt_uv_scale_m", 4.0))
     uv_grass = float(roads_cfg.get("grass_uv_scale_m", 3.0))
     ll = roads_cfg.get("lane_lines", {}) or {}
@@ -842,9 +877,27 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
     rx0, ry0, rx1, ry1 = region
     # The base sheet is everything the blocks do not cover — verges, leftovers,
     # the ground under the whole plat. That is rough ground, not lawn.
-    sg._make_plane_mesh(stage, gnd + "/ground_base", rx0, ry0, rx1, ry1,
-                        -0.005, uv_grass, ssf, display_color=(0.24, 0.36, 0.17),
-                        mat_prim_path=rough_mat)
+    # THE BASE PLANE HAS TO LOSE THE POOLS TOO. The block meshes above already
+    # subtract `pool_rects`, but this backdrop did not — so a pool hole cut
+    # cleanly through the grass only revealed the opaque plane underneath it,
+    # and the pool never became visible. Cut it as a polygon for the same
+    # reason, or skip straight to a plane when there are no pools.
+    _base_poly = [(rx0, ry0), (rx1, ry0), (rx1, ry1), (rx0, ry1)]
+    _base_parts = [_base_poly]
+    for rect in (pool_rects or ()):
+        nxt = []
+        for q in _base_parts:
+            nxt += polygon_minus_convex(q, rect)
+        _base_parts = nxt
+    if len(_base_parts) == 1 and _base_parts[0] is _base_poly:
+        sg._make_plane_mesh(stage, gnd + "/ground_base", rx0, ry0, rx1, ry1,
+                            -0.005, uv_grass, ssf,
+                            display_color=(0.24, 0.36, 0.17),
+                            mat_prim_path=rough_mat)
+    else:
+        for k, q in enumerate(_base_parts):
+            _make_polygon(stage, "{0}/ground_base_{1}".format(gnd, k), q,
+                          -0.005, ssf, uv_grass, (0.24, 0.36, 0.17), rough_mat)
 
     n_road = n_road_alt = 0
     # Per STREET, not per segment: a road that changes surface halfway along
@@ -855,12 +908,12 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
         use_alt = alt_share > 0.0 and (hash(("road_surf", e.id)) % 1000) / 1000.0 < alt_share
         if use_alt:
             ok = _make_ribbon(stage, f"{gnd}/road_{e.id}", e.pts, e.half_w,
-                              _Z_ASPHALT, ssf, uv_asphalt, (0.15, 0.15, 0.15),
+                              z_asphalt, ssf, uv_asphalt, (0.15, 0.15, 0.15),
                               asphalt_alt, uv_along_m=ROAD_TRIM_REPEAT_M,
                               v_span=ROAD_TRIM_V)
         else:
             ok = _make_ribbon(stage, f"{gnd}/road_{e.id}", e.pts, e.half_w,
-                              _Z_ASPHALT, ssf, uv_asphalt, (0.15, 0.15, 0.15),
+                              z_asphalt, ssf, uv_asphalt, (0.15, 0.15, 0.15),
                               asphalt_mat)
         if ok is not None:
             n_road += 1
@@ -876,7 +929,7 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
         # across the turnaround. Mixing surfaces is fine; mixing UV conventions
         # on a shape that cannot express the second one is not.
         _make_disc(stage, f"{gnd}/bulb_{e.id}", e.pts[-1], bulb_r,
-                   _Z_ASPHALT, ssf, uv_asphalt, (0.15, 0.15, 0.15), asphalt_mat)
+                   z_asphalt, ssf, uv_asphalt, (0.15, 0.15, 0.15), asphalt_mat)
         n_bulb += 1
 
     n_grass = n_rough = 0
@@ -898,7 +951,7 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
         ok = False
         for k, q in enumerate(parts):
             suffix = "" if len(parts) == 1 else f"_{k}"
-            if _make_polygon(stage, f"{gnd}/grass_{i}{suffix}", q, _Z_GRASS,
+            if _make_polygon(stage, f"{gnd}/grass_{i}{suffix}", q, z_grass,
                              ssf, uv_grass, col,
                              rough_mat if wild else grass_mat) is not None:
                 ok = True
@@ -906,13 +959,33 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
             n_grass += 1
             n_rough += 1 if wild else 0
 
-    n_drive = 0
+    # DRIVES AND WALKS, aimed at the actual openings.
+    #
+    # Both were drawn with NO material — a flat grey ribbon — and the drive was
+    # aimed by the plat's guess of `house_w * 0.30` to one side, made before
+    # anything knew which house would be built there. Where `build_placements`
+    # left a `plan` on the house, that guess is replaced by the kit's own
+    # answer: brick to the garage door, concrete to the front step. Houses with
+    # no garage keep the platted run, which is a parking pad beside the house
+    # and is where a drive on such a lot really goes.
+    drive_mat, path_mat = _load_mat("driveway"), _load_mat("path")
+    n_drive = n_walk = 0
     for pi, p in enumerate(parcels):
+        p_houses = p.get("houses") or []
         for di, d in enumerate(p["drives"]):
-            if _make_ribbon(stage, f"{gnd}/drive_{pi}_{di}", [d["a"], d["b"]],
-                            d["w"] / 2.0, _Z_DRIVE, ssf, uv_asphalt,
-                            (0.45, 0.45, 0.43)) is not None:
+            plan = p_houses[di].get("plan") if di < len(p_houses) else None
+            run = plan["drive"] if (plan and plan.get("drive")) else (d["a"], d["b"])
+            if _make_ribbon(stage, f"{gnd}/drive_{pi}_{di}", list(run),
+                            d["w"] / 2.0, z_drive, ssf, UV_DRIVE_M,
+                            (0.45, 0.45, 0.43), drive_mat) is not None:
                 n_drive += 1
+            # The walk is the half-metre-higher of the two: they share a kerb
+            # end, and coplanar ribbons z-fight exactly where both are visible.
+            if plan and plan.get("path") and _make_ribbon(
+                    stage, f"{gnd}/walk_{pi}_{di}", list(plan["path"]),
+                    WALK_W_M / 2.0, z_walk, ssf, UV_PATH_M,
+                    (0.62, 0.61, 0.58), path_mat) is not None:
+                n_walk += 1
 
     # 2) MARKINGS, the vocabulary the urban scene paints.
     #
@@ -943,7 +1016,7 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
             t = sn.tangent_at(e.pts, s)
             yaw = math.degrees(math.atan2(t[1], t[0]))
             sg._make_dash_mesh(stage, f"{gnd}/dash_{e.id}_{j}",
-                               c[0], c[1], _Z_DASH, dash_len, dash_w, yaw, ssf,
+                               c[0], c[1], z_dash, dash_len, dash_w, yaw, ssf,
                                display_color=_YELLOW)
             n_dash += 1
 
@@ -961,10 +1034,10 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
         _make_ribbon(stage, f"{gnd}/xwalk_mask_{node.id}_{e.id}",
                      [sn._sub(c, sn._mul(t, _CROSSWALK_DEPTH_M * 0.6)),
                       sn._add(c, sn._mul(t, _CROSSWALK_DEPTH_M * 0.6))],
-                     e.half_w, _Z_CROSSWALK - 0.02, ssf, uv_asphalt,
+                     e.half_w, z_crosswalk - 0.02, ssf, uv_asphalt,
                      (0.15, 0.15, 0.15), asphalt_mat)
         n_xbar += _paint_ladder(stage, f"{gnd}/xwalk_{node.id}_{e.id}",
-                                c, t, e.half_w, ssf, _Z_CROSSWALK)
+                                c, t, e.half_w, ssf, z_crosswalk)
         n_x += 1
 
     # 4) Stop bars, on exactly the arms `build_signs` puts a sign on.
@@ -976,7 +1049,7 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
             continue
         _paint_stop_bar(stage, f"{gnd}/stopbar_{node.id}_{e.id}",
                         sn.point_at(pts, s), sn.tangent_at(pts, s),
-                        e.half_w, ssf, _Z_STOPBAR)
+                        e.half_w, ssf, z_stopbar)
         n_stop += 1
 
     if park is not None:
@@ -986,7 +1059,7 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
     print(f"[suburb_scene] ground: {n_road} road ribbons "
           f"({n_road_alt} on the road tile), {n_bulb} turnarounds, "
           f"{n_grass} block meshes ({n_rough} rough/undeveloped), "
-          f"{n_drive} driveways")
+          f"{n_drive} driveways, {n_walk} front walks")
     print(f"[suburb_scene] markings: {n_dash} centreline dashes on collectors "
           f"({n_dash_cut} suppressed at junctions), {n_x} crossings "
           f"({n_xbar} bars), {n_stop} stop bars")
@@ -1133,8 +1206,22 @@ def _park_placements(config, resolver, park, rng, pools):
     # `city_detail._prop_yaw` derives that quarter turn from the measured
     # footprint instead, since a bench's long axis is not a matter of opinion.
     # This pass applies the offset verbatim, so every bench came out a quarter
-    # turn from where urban puts it. Cancel it back out.
-    _BENCH_FIX = {"bench": 90.0}
+    # turn from where urban puts it.
+    #
+    # A BLANKET +90 CANCELLED THAT FOR EXACTLY HALF THE POOL. It was written
+    # when `benches` was only the three `SM_Bench0*` entries, all declaring
+    # -90. The park-tagged art added since does not: `Muyang/DownTown/Bench`
+    # declares 0 and the two `CityPark/SM_Log_shop*` declare +90, so adding 90
+    # to all six left them 90 and 180 degrees out from each other. The park
+    # draws from the whole pool (`pools.load`, not `load_tagged`), so which
+    # way a park bench faced came down to which entry the seed picked.
+    #
+    # Cancel the entry's OWN declared offset instead — the same
+    # `fix - pools.yaw_of(usd)` idiom the fence pass uses — so every bench
+    # lands on the raw computed yaw whatever art backs it, and the quarter
+    # turn the park wants is one number in one place.
+    _BENCH_QUARTER_TURN = 90.0
+    _BENCH_FIX = {"bench": 90.0}     # picnic tables, unchanged
 
     for pr in park["props"]:
         spec = _PARK_POOLS.get(pr["kind"])
@@ -1154,9 +1241,12 @@ def _park_placements(config, resolver, park, rng, pools):
         # `shared.yaml`, so cutting them would change the street furniture too.
         u = (pool[pr["variant"] % len(pool)] if "variant" in pr
              else pool[rng.randrange(len(pool))])
+        if pr["kind"] == "bench":
+            fix = _BENCH_QUARTER_TURN - pools.yaw_of(u)
+        else:
+            fix = _BENCH_FIX.get(spec[1], 0.0)
         out.append(pools.place(resolver, u, spec[1], pr["c"][0], pr["c"][1],
-                               pr.get("yaw", 0.0) + _BENCH_FIX.get(spec[1], 0.0),
-                               rng))
+                               pr.get("yaw", 0.0) + fix, rng))
 
     # Fence panels: one asset per panel, yawed along its run.
     fence = pool_for("park_fence")
@@ -1398,19 +1488,27 @@ _FENCE_ROAD_MARGIN_M = 0.5
 
 
 def _fence_module(resolver, pools, usd):
-    """``(length, thickness, height)`` of one fence module, in metres.
+    """``(length, thickness, height, yaw_fix)`` of one fence module, in metres.
 
-    Which measured axis runs ALONG the fence depends on the entry's yaw-offset:
-    the park railing is authored running +Y with `yaw-offset: 90`, and reading
-    sx for it would take the 0.33 m rail THICKNESS as the module length and lay
-    it forty times over.
+    THE LONG PLAN AXIS IS THE FENCE, AND IT IS MEASURED. Which authored axis
+    runs along the run used to be read off the entry's `yaw-offset` — off a
+    hand-written declaration — and a wrong one is silent and catastrophic:
+    taking a 7.6 cm board THICKNESS as the module length lays forty-six panels
+    per metre, each turned across the boundary instead of along it. That is
+    exactly the failure this pass keeps coming back with.
+
+    A fence module is longer than it is thick by construction. That is a fact
+    about the geometry, not about anyone's authoring convention, so it is what
+    decides here. `yaw_fix` is what to add to the RUN DIRECTION to land the long
+    axis on it, and for fences it REPLACES the entry's `yaw-offset` rather than
+    compounding with it.
     """
     fp = resolver.get(usd, "fence", scale=pools.scale_of(usd),
                       axis_up=pools.axis_of(usd))
-    turned = abs((pools.yaw_of(usd) % 180.0) - 90.0) < 45.0
-    return (max(0.3, float(fp["sy"] if turned else fp["sx"])),
-            max(0.02, float(fp["sx"] if turned else fp["sy"])),
-            float(fp.get("sz") or 0.0))
+    sx, sy = float(fp["sx"]), float(fp["sy"])
+    if sy > sx:                                   # authored running +Y
+        return (max(0.3, sy), max(0.02, sx), float(fp.get("sz") or 0.0), 90.0)
+    return (max(0.3, sx), max(0.02, sy), float(fp.get("sz") or 0.0), 0.0)
 
 
 def _fence_box(x, y, yaw_deg, length, thick):
@@ -1498,18 +1596,21 @@ class _FenceGrid:
                     return False
                 if abs(me[3] * other[3] + me[4] * other[4]) < self._DOUBLE_COS:
                     continue
+                # BOTH TESTS ARE SYMMETRIC, and they have to be: this runs once
+                # per pair, from whichever module was laid second, so anything
+                # frame-relative accepts or rejects the same pair depending on
+                # the order — 2 doubled modules a seed slipped through on
+                # exactly that. Two panels 8 degrees apart overlap by 0.62 m
+                # projected on one and 0.45 m on the other, and sit 1.41 m apart
+                # measured from one and 0.99 m from the other. So the overlap
+                # takes the SHORTER projected separation (the longer overlap),
+                # and the offset is the distance between the two centre lines —
+                # which, once they overlap along the line, IS the offset.
                 dx, dy = other[1] - me[1], other[2] - me[2]
-                if (me[5] + other[5] - abs(dx * me[3] + dy * me[4])
-                        <= self._DOUBLE_OVERLAP_M):
+                along = min(abs(dx * me[3] + dy * me[4]),
+                            abs(dx * other[3] + dy * other[4]))
+                if me[5] + other[5] - along <= self._DOUBLE_OVERLAP_M:
                     continue
-                # SEGMENT DISTANCE, not the perpendicular offset in one
-                # module's frame. Two panels 6 degrees apart measure 1.14 m
-                # apart from one and 1.26 m from the other, so a frame-relative
-                # test accepts or rejects the same pair depending on which one
-                # was laid first — and 2 doubled modules a seed slipped through
-                # on exactly that. The distance between the two centre lines is
-                # symmetric, and where they overlap along the line (which the
-                # test above has just established) it IS the offset.
                 if sn.seg_seg_dist(me[6], me[7], other[6],
                                    other[7]) < self._DOUBLE_M:
                     return False
@@ -1546,7 +1647,7 @@ def _fence_pick(pool, mods, segs, rng):
         return None
     best, cands = None, []
     for cand in pool:
-        mod_len, _th, mod_h = mods[cand]
+        mod_len, _th, mod_h, _fix = mods[cand]
         todo = [s for s in segs
                 if not (s[2] == "low" and mod_h > _FRONT_FENCE_MAX_H_M)]
         miss = sum(1 for (a, b, _t) in todo if not _fence_run(a, b, mod_len))
@@ -2000,6 +2101,15 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
     # which `_FRONT_FENCE_MAX_H_M` re-derives from the measured height anyway.
     fence_pool = pools.load_tagged(_raw_pool(config, "lot_fences"), "privacy")
     fence_mod = {u: _fence_module(resolver, pools, u) for u in fence_pool}
+    # SAY WHAT WAS MEASURED. A fence laid across its own boundary at forty
+    # panels a metre is obvious in a render and invisible in a log, and it has
+    # now happened twice. One line per asset makes the next one a five-second
+    # read: `len` should be metres, not centimetres.
+    for u in fence_pool:
+        ml, mt, mh, mf = fence_mod[u]
+        print(f"[suburb_scene] fence module {os.path.basename(u):<44} "
+              f"len {ml:5.2f} m  thick {mt:4.2f} m  high {mh:4.2f} m  "
+              f"turned {mf:+.0f} deg (declared {pools.yaw_of(u):+.0f})")
     fence_taken = _FenceGrid()
     fence_road = _RoadIndex(net) if net is not None else None
     n_fence_road = n_fence_clash = 0
@@ -2045,27 +2155,21 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
                     q["palette"] = pal      # shell only; dressing is the
                 out += parts                # suburb's own job, not the kit's
                 n_mod += 1
-                # The PLOT decides, not the house: `has_pool` comes from the
-                # archetype package, so pools land on the big-lot houses.
-                # Rear space, computed EXACTLY rather than assumed: the lot
-                # runs `lot_depth` inward from its frontage point, and the house
-                # back face sits `dot(c - frontage, n) + d/2` in. Halving
-                # (lot_depth - d) instead understates it by the setback, which
-                # is several metres and is the difference between a pool fitting
-                # and not.
-                fr = h.get("frontage")
-                nn = h.get("n")
-                if fr and nn:
-                    into = ((h["c"][0] - fr[0]) * nn[0]
-                            + (h["c"][1] - fr[1]) * nn[1])
-                    rear = float(h.get("lot_depth", 0.0)) - into - h["d"] / 2.0
-                else:
-                    rear = max(0.0, float(h.get("lot_depth", 0.0))
-                               - float(h.get("d", 0.0))) * 0.5
+                # THE SEAM, closed. `plan_lot` is the one place that knows
+                # where this style's garage door and front step land, and it
+                # measures the rear from the same lot record the plat platted.
+                # It is kept ON THE HOUSE so `apply_ground` draws the drive and
+                # the walk to those exact points instead of re-guessing them —
+                # that guess is why drives arrived beside the garage and paths
+                # led to blank wall.
+                plan = mh.plan_lot(h, ent["style"], rng)
+                h["plan"] = plan
+                # The PLOT decides whether there is a pool: `has_pool` comes
+                # from the archetype package, so they land on the big lots.
                 pool, hole = mh.pool_at(ent["style"], h["c"][0], h["c"][1],
                                         yaw + 90.0,
                                         force=bool(h.get("has_pool")),
-                                        rear_m=rear)
+                                        rear_m=plan["rear_m"])
                 if pool:
                     out += pool
                     pool_holes.append(hole)
@@ -2123,8 +2227,11 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
                 if uf not in fence_mod:
                     uf = _fence_pick(fence_pool, fence_mod, segs, rng)
                     h["_fence_pick"] = uf
-                mod_len, _mod_th, mod_h = (fence_mod[uf] if uf
-                                           else (0.0, 0.0, 0.0))
+                mod_len, _mod_th, mod_h, mod_fix = (fence_mod[uf] if uf
+                                                   else (0.0, 0.0, 0.0, 0.0))
+                # `place` adds the entry's yaw-offset; the measured fix is the
+                # authority for fences, so cancel the declaration out.
+                mod_yaw = mod_fix - pools.yaw_of(uf) if uf else 0.0
                 for (a, b, tag) in (segs if uf else ()):
                     # A "low" run is the FRONT boundary. This house has one
                     # asset for its whole perimeter, so the front is either
@@ -2169,7 +2276,8 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
                     for (fx, fy, fyaw, fit) in run:
                         fence_taken.add(fx, fy, fyaw, mod_len * fit)
                         out.append(pools.place(resolver, uf, "fence", fx, fy,
-                                               fyaw, rng, scale_mul=fit))
+                                               fyaw + mod_yaw, rng,
+                                               scale_mul=fit))
                         n_fence += 1
         for t in p["trees"]:
             cp = (street_pool if t.get("kind") in ("street", "front")
@@ -2285,6 +2393,25 @@ def generate_suburb_on_stage(stage, config,
                   f"{lw[0]:.1f} -> {floor:.1f} m: the narrowest density class "
                   f"would not fit the smallest measured house "
                   f"({min(e['w'] for e in catalogue):.1f} m)")
+    if catalogue and catalogue[0].get("style"):
+        # THE PLAT ASKS THE KIT WHERE THE OPENINGS ARE. `suburb_parcel` breaks
+        # the front fence for whatever crosses the front lot line; only this
+        # module knows which style lands on which lot, so it answers rather
+        # than letting the plat guess a position and a side.
+        from detail import modular_house as _mh
+        _dw = float(pcfg.get("driveway_w_m", 3.0))
+
+        def _front_openings(size_index, house_w):
+            spec = _mh.STYLES[catalogue[size_index % len(catalogue)]["style"]]
+            door_x, garage_x, _ = _mh.front_anchors(spec)
+            gaps = [(door_x, WALK_W_M / 2.0 + 0.6, "door")]
+            if garage_x is not None:
+                # "drive" also tells the plat this house's garage is IN THE ART,
+                # so it must not reserve a detached box beside it.
+                gaps.append((garage_x, _dw / 2.0 + 0.6, "drive"))
+            return gaps
+
+        pcfg["front_openings"] = _front_openings
     parcels = sp.parcel_blocks(buildable, rng, pcfg)
     pstats = sp.stats(parcels)
     print(f"[suburb_scene] {pstats['houses']} houses, {pstats['trees']} trees "

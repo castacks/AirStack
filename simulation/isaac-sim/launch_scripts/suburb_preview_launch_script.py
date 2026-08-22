@@ -12,6 +12,13 @@ it defaults to.
     ISAAC_SIM_SCRIPT_NAME=suburb_preview_launch_script.py \
     airstack up isaac-sim
 
+The same suburb with a wildfire running through it — same seed, same layout,
+fire is the only difference:
+
+    SCENE_CONFIG=suburb_wildfire \
+    ISAAC_SIM_SCRIPT_NAME=suburb_preview_launch_script.py \
+    airstack up isaac-sim
+
 Compare against the RECT-subdivider suburb, which is a different generator and
 stays runnable, with:
 
@@ -58,8 +65,18 @@ Open the Kit Script Editor (Window -> Script Editor) and run:
     from compile_disaster import load_scene_config
     cfg = load_scene_config(os.path.join(SCENE_GEN, "config", "presets",
                                          "suburb_net.yaml"))
-    suburb_scene.generate_suburb_on_stage(stage, cfg, scene_scale_factor=ssf)
+    placements = suburb_scene.generate_suburb_on_stage(
+        stage, cfg, scene_scale_factor=ssf)
+    from disaster import fire
+    importlib.reload(fire)
+    stage.RemovePrim(Sdf.Path("/World/flow"))       # clear the old burn
+    driver = fire.apply_wildfire(stage, placements,
+                                 cfg.get("disaster", {}).get("fire"),
+                                 scene_scale_factor=ssf)
     omni.timeline.get_timeline_interface().play()
+
+`driver` must stay referenced - it holds the timeline subscription. Keeping it
+in a Script Editor local is enough; do not let the cell drop it.
 """
 
 import os
@@ -93,6 +110,7 @@ from scene_prep import (scale_stage_prim, add_sky, get_stage_meters_per_unit)
 from scene_generator import resolve_sky
 from suburb_scene import generate_suburb_on_stage
 from compile_disaster import load_scene_config
+from disaster import fire
 
 # ----- CONFIGURATION -----
 ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
@@ -216,7 +234,7 @@ class SuburbPreviewApp:
         config = load_scene_config(SCENE_CONFIG)
 
         _, ssf = get_stage_meters_per_unit(stage)
-        generate_suburb_on_stage(
+        placements = generate_suburb_on_stage(
             stage, config, parent_path="/World/stage/generated",
             scene_scale_factor=ssf)
 
@@ -242,6 +260,15 @@ class SuburbPreviewApp:
 
         add_sky(stage, resolve_sky(config))
         _disable_sky_sun(stage)
+
+        # AFTER the update loop above: fitting an emitter to a tree needs the
+        # referenced asset composed, or ComputeWorldBound returns an empty box.
+        # Assigned to self because the driver owns the timeline subscription
+        # that advances the burn - let it fall out of scope and the fire
+        # freezes on the frame it was created.
+        self.fire = fire.apply_wildfire(
+            stage, placements, config.get("disaster", {}).get("fire"),
+            scene_scale_factor=ssf)
 
         print("\n" + "=" * 70)
         print("SUBURB PREVIEW READY")

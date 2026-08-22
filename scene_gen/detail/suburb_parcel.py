@@ -118,12 +118,38 @@ ARCHETYPES = {
 }
 
 
-def _draw_archetype(rng):
+# WHICH PACKAGE A DISTRICT BUILDS. The archetype was drawn independently of
+# the density class, so `large` (garage, fence, pool, biggest house) landed on a
+# 1346 m2 lot against `plain`'s 1139 — the two were uncorrelated and the estate
+# districts got roomier lots carrying the same houses.
+#
+# The split is measured. `tools/osm_lot_stats.py` over five ordinary suburbs and
+# five large-lot towns: at a >=39 m nearest-house-spacing threshold (2x the
+# ordinary median of 19.5 m) 4.3% of ordinary-suburb dwellings qualify as
+# estate-sized, against 63% in the estate towns. So the authored weights are
+# right for a MIXED tract and badly wrong for a district that is meant to BE
+# low-density.
+ARCH_BY_DENSITY = {
+    "tight":  {"plain": 0.45, "fenced": 0.30, "garage": 0.15,
+               "full": 0.09, "large": 0.01},
+    "normal": None,          # the weights authored on ARCHETYPES
+    "loose":  {"plain": 0.15, "fenced": 0.18, "garage": 0.25,
+               "full": 0.30, "large": 0.12},
+    "estate": {"plain": 0.05, "fenced": 0.07, "garage": 0.10,
+               "full": 0.18, "large": 0.60},   # 0.60 ~ the measured 63%
+}
+
+
+def _draw_archetype(rng, density=None):
     names = list(ARCHETYPES)
-    tot = sum(ARCHETYPES[n]["w"] for n in names)
+    over = ARCH_BY_DENSITY.get(density) if density else None
+    wts = [float(over[n]) if over else float(ARCHETYPES[n]["w"]) for n in names]
+    tot = sum(wts)
+    if tot <= 0.0:
+        return "normal" if "normal" in ARCHETYPES else names[0]
     r = rng.random() * tot
-    for n in names:
-        r -= ARCHETYPES[n]["w"]
+    for n, w in zip(names, wts):
+        r -= w
         if r <= 0.0:
             return n
     return names[-1]
@@ -165,8 +191,19 @@ DENSITY = {
                     "size": 1.00},
     "loose":       {"w": 0.22, "lot": 1.45, "setback": 1.25, "depth": 1.15,
                     "size": 1.30},
-    "estate":      {"w": 0.06, "lot": 2.20, "setback": 1.60, "depth": 1.35,
-                    "size": 1.75},
+    # MEASURED, not guessed — `tools/osm_lot_stats.py`, five ordinary suburbs
+    # against five large-lot towns, 5.76 km2 each. Nearest-house spacing is the
+    # anchor because it reproduces a known plat: Levittown measures 18.1 m
+    # against its platted 60 ft (18.29 m), 1% out. Estate/suburb spacing is
+    # 49.4 / 19.5 = 2.53x, footprint area 2.02x, setback-to-centreline 1.86x.
+    #   lot     2.20 -> 2.4   (measured 2.53, shaded down)
+    #   setback 1.60 -> 2.4   (measured 2.53 — the old value was ~60% short)
+    #   depth   1.35 -> 1.8   (measured 1.86, and that is a LOWER bound: the
+    #                          land figure includes streets, which scale with
+    #                          frontage rather than with area)
+    #   size    1.75 -> 1.95  (footprint 2.02x)
+    "estate":      {"w": 0.06, "lot": 2.40, "setback": 2.40, "depth": 1.80,
+                    "size": 1.95},
 }
 
 
@@ -692,6 +729,27 @@ def _clip_seg(a, b, box, pad=0.10):
     return (a, b) if _dist(a, b) >= 2.0 else None
 
 
+def _front_runs(lo, hi, gaps, min_len=1.5):
+    """`[lo, hi]` less every `(centre, half_width)` opening in *gaps*.
+
+    The front fence has to break wherever something crosses the front lot line
+    — the drive, the walk — and those are the house's openings, not the plat's
+    guess at them. Overlapping gaps merge; a stub shorter than *min_len* is
+    dropped rather than emitted as a two-panel orphan.
+    """
+    runs = []
+    x = lo
+    for a, b in sorted((c - h, c + h) for c, h in gaps):
+        if b <= lo or a >= hi:
+            continue
+        if a - x >= min_len:
+            runs.append((x, a))
+        x = max(x, b)
+    if hi - x >= min_len:
+        runs.append((x, hi))
+    return runs
+
+
 def _clip_standing(lines, box):
     """Re-cut fences already standing where a new garage has just landed.
 
@@ -763,6 +821,21 @@ def parcel_blocks(blocks, rng, cfg=None):
     size_order = sorted(range(len(sizes)),
                         key=lambda i: sizes[i][0] * sizes[i][1])
     discs = _norm_discs(c.get("keepout_discs"))
+    # WHERE THIS HOUSE'S FRONT OPENINGS ARE, asked rather than guessed.
+    # `fn(size_index, house_w) -> [(offset_along_u, half_width, kind), ...]`,
+    # kind being "door" or "drive". The caller knows which asset it will put on
+    # this lot and where that asset's front step and garage door are; this
+    # module cannot. Without it the front fence broke at `house_w * 0.30` on a
+    # coin-flip side, which on the kit houses was the wrong side of the house
+    # 55% of the time — a fence straight across the drive.
+    #
+    # A "drive" opening also means THE ART HAS ITS OWN GARAGE, so no detached
+    # box is reserved for it. Reserving one anyway is a phantom building: it ate
+    # a side yard, clipped the fence around itself and aimed the drive at a
+    # structure that was never placed — 239 of them on seed 3.
+    #
+    # None keeps the old behaviour for sets that cannot answer.
+    openings_fn = c.get("front_openings")
 
     dens_at = _density_field(blocks, rng, c)
 
@@ -805,6 +878,13 @@ def parcel_blocks(blocks, rng, cfg=None):
         d_set = float(DENSITY[dens]["setback"])
         d_dep = float(DENSITY[dens].get("depth", 1.0))
         d_size = float(DENSITY[dens].get("size", 1.0))
+        # The depth CAP is a policy number, so it scales with the district too.
+        # Leaving it at the tract-wide 40 m was silently un-doing the estate
+        # multipliers: a 2.4x setback plus a 20 m house needs 50 m of lot
+        # before any rear yard exists, so every estate lot hit the cap and got
+        # a NEGATIVE back garden. That is why estates had 49% large houses and
+        # not one pool. `_probe_depth` still bounds this by real geometry.
+        blk_max_depth = max(min_depth, max_depth * d_dep)
 
         perim = polyline_length(ring)
         if perim < 40.0:
@@ -823,7 +903,7 @@ def parcel_blocks(blocks, rng, cfg=None):
         s = rng.uniform(0.0, lw[0])
         guard = 0
         run_lo, run_hi = _rng_pair(c.get("archetype_run", [4, 9]), (4.0, 9.0))
-        arch = _draw_archetype(rng)
+        arch = _draw_archetype(rng, dens)
         run_left = int(rng.uniform(run_lo, run_hi + 0.999))
         while s < perim and guard < 4000:
             guard += 1
@@ -847,7 +927,7 @@ def parcel_blocks(blocks, rng, cfg=None):
             # Advance the archetype run. Consecutive lots share a package, so
             # similar houses end up next to each other rather than shuffled.
             if run_left <= 0:
-                arch = _draw_archetype(rng)
+                arch = _draw_archetype(rng, dens)
                 run_left = int(rng.uniform(run_lo, run_hi + 0.999))
             spec = ARCHETYPES[arch]
             run_left -= 1
@@ -912,7 +992,7 @@ def parcel_blocks(blocks, rng, cfg=None):
             # granted 4 m of rear and the pool needed 9.
             want_pool = spec.get("pool", 0.0) > 0.0
             rear_need = POOL_REAR_M if want_pool else 4.0
-            want_depth = min(max_depth,
+            want_depth = min(blk_max_depth,
                              max(min_depth, setback + h_d + rear_need,
                                  rng.uniform(*ld) * d_dep))
             lot_depth = _probe_depth(poly, p, n, u, width,
@@ -939,8 +1019,16 @@ def parcel_blocks(blocks, rng, cfg=None):
             # the right is the single most obvious tell in a generated suburb.
             side = 1.0 if rng.random() < 0.5 else -1.0
 
+            # Does the ART already have a garage? Asked before the box is
+            # reserved, because the answer decides whether to reserve one.
+            art_gaps = (openings_fn(size_i, h_w)
+                        if (openings_fn is not None and size_i is not None)
+                        else None)
+            art_garage = any(len(g) > 2 and g[2] == "drive"
+                             for g in (art_gaps or ()))
+
             garage = None
-            if spec["garage"] > 0.0:
+            if spec["garage"] > 0.0 and not art_garage:
                 g_off = side * (h_w / 2.0 + g_sep + g_w / 2.0)
                 gc = _add(p, _add(_mul(u, g_off),
                                   _mul(n, setback + g_d / 2.0)))
@@ -973,6 +1061,18 @@ def parcel_blocks(blocks, rng, cfg=None):
                     # No garage beats a garage in the neighbour's living room.
                     n_reject += 1
 
+            # WHERE THE PAVING CROSSES THE FRONT LOT LINE, as (offset along u,
+            # half width) — one answer, used by the fence below, published on
+            # the house record for the yard pass, and matching the runs
+            # `suburb_scene` actually draws. Everything that has to stay off the
+            # drive and the walk now reads the same numbers instead of each
+            # re-deriving them from a guess.
+            front_gaps = [(g[0], g[1]) for g in (art_gaps or ())]
+            if not front_gaps:
+                front_gaps = [((g_off if garage is not None
+                                else side * h_w * 0.30),
+                               (g_w if garage is not None else dw) / 2.0 + 0.6)]
+
             # --- fences -------------------------------------------------------
             # ONE PERIMETER, PULLED BACK OFF THE KERB. `fence_front_inset_m`
             # says why the front corners are not `fl`/`fr`: the block boundary
@@ -998,15 +1098,9 @@ def parcel_blocks(blocks, rng, cfg=None):
                 blockers = [corners] + [h["corners"] for h in houses] \
                     + [g["corners"] for g in garages]
                 if arch in ("full", "large"):
-                    # Front run, broken for the drive. A fence across your own
-                    # driveway is worse than no fence.
-                    g_half = (g_w if garage is not None else dw) / 2.0 + 0.6
-                    d_off = (g_off if garage is not None
-                             else side * h_w * 0.30)
-                    for x0, x1 in ((-half, d_off - g_half),
-                                   (d_off + g_half, half)):
-                        if x1 - x0 < 1.5:
-                            continue
+                    # Front run, broken wherever something crosses it. A fence
+                    # across your own driveway is worse than no fence.
+                    for x0, x1 in _front_runs(-half, half, front_gaps):
                         cand.append((_add(pf, _mul(u, x0)),
                                      _add(pf, _mul(u, x1)), "low"))
 
@@ -1088,6 +1182,8 @@ def parcel_blocks(blocks, rng, cfg=None):
                            # one puts the module back to guessing.
                            "size_index": size_i,
                            "has_garage": spec["garage"] > 0.0,
+                           # In the ART, not as a separate box beside the house.
+                           "art_garage": art_garage,
                            "has_fence": spec["fence"] > 0.0,
                            # ...and only if the BLOCK actually granted it.
                            # `_probe_depth` can come back short on a shallow or
@@ -1104,6 +1200,7 @@ def parcel_blocks(blocks, rng, cfg=None):
                            # garage box (None when it did not fit).
                            "lot_corners": lot_corners,
                            "lot_depth": lot_depth,
+                           "front_gaps": front_gaps,
                            "fence_segs": fence_segs,
                            "garage": garage,
                            "density": dens,

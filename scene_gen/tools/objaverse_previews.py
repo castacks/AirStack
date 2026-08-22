@@ -21,6 +21,7 @@ Output per category::
 
     <out>/<category>/003_142L_4772f_1ccd0c76....jpg    rank, likes, faces, uid
     <out>/<category>/index.csv                          uid,name,likes,faces,...
+    <out>/index.html                                    one grid page, all categories
 
 The uid is in the filename on purpose: pick the images you want and the uid can
 be read straight off them, with no cross-referencing.
@@ -35,6 +36,12 @@ import sys
 # Categories the generated city is missing art for. Queries are regexes over
 # name+tags+categories; excludes kill the recurring false positives each one
 # attracts (searching "bollard" is clean, "sign" is not).
+# Fantasy / antiquity look that swamps any "ruins" or "destroyed" query.
+HIST = ("medieval|fantasy|castle|temple|ancient|roman|greek|gothic|dungeon|elven|"
+        "egypt|aztec|maya|mayan|inca|viking|church|cathedral|abbey|monastery|"
+        "shrine|tomb|pyramid|sci-fi|scifi|space|alien|steampunk|halloween|spooky|"
+        "haunted|zombie")
+
 CATEGORIES = {
     "bollard":          ("bollard|parking post", ""),
     "parking_meter":    ("parking meter", ""),
@@ -121,6 +128,176 @@ CATEGORIES = {
     "dog_park":         ("dog park|agility equipment|dog agility", "character"),
     "tennis_practice":  ("practice wall|handball court|pickleball court",
                          "arena|stadium"),
+
+    # ---- disaster / damage ---------------------------------------------------
+    # Art for the *aftermath* — rubble, burnt and collapsed structures, wrecks.
+    # Bare "burnt", "ash", "flood", "ruins", "battlefield" are traps: they pull
+    # in food, Pokémon Ash, Halo's Flood enemies, medieval castles and FPS maps
+    # respectively, so the excludes below are doing real work. HIST strips the
+    # fantasy/antiquity look that dominates "ruins" and "destroyed".
+    "rubble_pile":      ("rubble|rubble pile|pile of rubble|debris pile|debris heap|"
+                         "pile of debris|heap of .*debris",
+                         "barney|flintstones|figurine|pebble|cobble|beach|spaceship|"
+                         "books|figure|laundry|labyrinth|megaman|marine|sack|container"),
+    "brick_pile":       ("brick pile|bricks pile|pile of bricks|brick rubble|"
+                         "bricks rubble|brick heap|heap of .*bricks|broken brick|"
+                         "brick debris|bricks debris", ""),
+    "concrete_debris":  ("concrete chunk|concrete debris|concrete rubble|"
+                         "broken concrete|concrete slab|concrete pile|concrete block|"
+                         "cinder ?block|rebar|concrete piece|concrete fragment",
+                         "sci-fi|scifi|crossbow|weapon|stairs|forge random|fence"),
+    "wood_debris":      ("wood debris|wooden debris|plank debris|planks debris|"
+                         "broken plank|broken planks|broken wood|broken board|"
+                         "broken boards|plank pile|wood pile|pile of wood|scrap wood|"
+                         "broken beam|wooden beam|timber pile|lumber pile",
+                         "firewood|fireplace|campfire|bbq|grill|medieval|fantasy|"
+                         "tmnt|turtle|ninja|goggles|mercedes|skate|platformer|"
+                         "platform game|toon|stylized"),
+    "burnt_wood":       ("burnt wood|burned wood|charred|charcoal|burnt log|"
+                         "burned log|burnt plank|burned plank|burnt timber|"
+                         "burned timber|burnt beam|scorched wood|burn pile|"
+                         "burnt stump|burned stump|burnt trunk|burned trunk",
+                         "bbq|grill|croissant|food|pencil|drawing|sketch|steak|meat|"
+                         "lamp|drawers|coaster|coasters|chair|wall unit|velvet|brass|"
+                         "furniture|iron$|ironing|dead frontier|hellhound|wraith|boss|"
+                         "spider|titan|figure|figurine|statue|gameboy|nintendo|"
+                         "minecraft|generator|kiln|kilns|paving|hardscape|slane|"
+                         "tamales|corn"),
+    "burnt_tree":       ("burnt tree|burned tree|charred tree|scorched tree|"
+                         "burnt forest|burned forest|wildfire|forest fire|bushfire|"
+                         "burnt palm|burned palm|burnt pine|burned pine|dead tree|"
+                         "dead trees",
+                         "halloween|spooky|cartoon|christmas|stylized|haunted|"
+                         "fire truck|firefighter|freefire|free fire|csgo|"
+                         "counter-strike|p2000|bolt|water gun|firefight|skull|toy|"
+                         "kid|citiesskylines|cities skylines|netflix"),
+    # NEARLY EMPTY in Objaverse: one 1M-face "Fire Damaged Roof Section" scan
+    # and an untextured "Burnt Building". Burnt structures have to be built
+    # from burnt_wood / damaged_wall pieces, or textured in-house.
+    "burnt_building":   (r"(?=.*\b(?:burnt|burned|charred|scorched|fire damaged|"
+                         r"fire damage|house fire|after fire)\b)"
+                         r".*\b(?:house|building|wall|roof|beam|timber|cabin|barn|"
+                         r"shed|structure|ruins?|home|apartment|facade)\b",
+                         "teeth|forensic|monster|car|cars|vehicle|truck|van|bus|"
+                         "suv|sedan|police|bulb|knife|tree|fireplace"),
+    "burnt_vehicle":    ("burnt car|burned car|burnt out car|burned out car|"
+                         "burned-out car|burnt vehicle|burned vehicle|car wreck|"
+                         "wrecked car|wrecked truck|wrecked bus|wrecked van|"
+                         "destroyed car|destroyed truck|destroyed vehicle|"
+                         "destroyed bus|crashed car|car crash|abandoned car|"
+                         "abandoned truck|abandoned bus|derelict car|shelled car|"
+                         "burned police",
+                         "sci-fi|scifi|toy|hotwheels|hot wheels|diecast|lego|train|"
+                         "rail|railway|railroad"),
+    "destroyed_building": ("destroyed building|destroyed house|destroyed home|"
+                         "ruined building|ruined house|collapsed building|"
+                         "collapsed house|demolished building|demolished house|"
+                         "demolished|damaged building|damaged house|building ruins|"
+                         "house ruins|bombed building|bombed house|"
+                         "war torn building|abandoned house|abandoned building|"
+                         "derelict house|derelict building|dilapidated|"
+                         "destroyed apartment|ruined apartment|damaged apartment|"
+                         "destroyed shop|destroyed store|destroyed town|"
+                         "destroyed city|destroyed village|ruined city|ruined town|"
+                         "ruined village|earthquake building|earthquake housing",
+                         HIST + "|bathroom|kitchen|interior|cobweb|asset pack|"
+                         "assets|clutter|train|rail|locomotive|tile|tileable|"
+                         "tilable|material|cyberpunk|treehouse|window$|bridge"),
+    "damaged_wall":     ("broken wall|damaged wall|cracked wall|collapsed wall|"
+                         "destroyed wall|ruined wall|wall ruins|wall debris|"
+                         "wall rubble|broken pillar|damaged pillar|broken column|"
+                         "wall piece|wall chunk|wall fragment|hole in wall|"
+                         "blown wall|wall with hole|shelled wall|shelled balcony|"
+                         "shelled garage",
+                         HIST + "|painted wall fragment|vase|ceramic|themet|"
+                         "dwarven|decorated|prehistory"),
+    # 3 hits total ("Roof Rubble Pile", "Damaged roof section", an untextured
+    # "House with broken roof"). Kept so the gap is recorded.
+    "collapsed_roof":   ("collapsed roof|damaged roof|broken roof|roof debris|"
+                         "roof rubble|roof tiles broken|broken roof tiles|"
+                         "destroyed roof|roof collapse|fallen roof", HIST),
+    # The real find here is a cluster of Ukraine photogrammetry scans by one
+    # author ("Shelled wall 01-06", "Shelled car", "Burned car 01/03") — heavy
+    # (100-350k faces, one texture) but exactly the look. Everything else
+    # matching "war" is Call of Duty / Battlefield fan art.
+    "war_damage":       ("war torn|wartorn|war-torn|bombed|shelled|bomb crater|"
+                         "shell crater|artillery crater|bomb damage|blast damage|"
+                         "explosion damage|war damage|war damaged|shell damage",
+                         "moon|lunar|mars|meteor|asteroid|volcano|sci-fi|scifi|"
+                         "space|planet|character|soldier|weapon|gun|rifle|smg|"
+                         "helmet|armor|armour|mech|warhammer|40k|spaceship|ship|"
+                         "battlefield|warzone|halo|call of duty|pubg|gameboy|"
+                         "godzilla|kong|punisher|costume|jaeger|fighter|jet|"
+                         "geology|impact"),
+    "modern_ruins":     ("ruins|ruined|ruin|wreckage",
+                         HIST + "|tree|forest|rock|mountain|statue|column|pillar|"
+                         "arch$|shipwreck|ship|boat|plane|aircraft|character|"
+                         "terrain|landscape|receiver|radio|speaker|arcade|armchair|"
+                         "sofa|chair|undertale|undyne|steps|platform|mosaic|"
+                         "vending|tank|car|cars|sedan|coupe|van|wagon|vehicle|"
+                         "wreck$|bunker|mine"),
+    "post_apocalyptic": ("post-apocalyptic|post apocalyptic|postapocalyptic|"
+                         "apocalypse|apocalyptic|wasteland",
+                         "character|zombie|weapon|gun|rifle|pistol|shotgun|knife|"
+                         "sword|axe|mask|helmet|suit|armor|armour|sci-fi|scifi|"
+                         "creature|monster|mutant|robot|mech|pip-boy|pipboy|drone|"
+                         "spaceship|outfit|clothing|jacket|backpack|bag|bottle|"
+                         "can$|food|psylocke|xmen|x-men|marvel|comics|sexy|pose|"
+                         "beauty|girl|woman|fantasy town|toon|cartoon|welding|"
+                         "arcade|receiver|radio|speaker|gundam|car|cars|vehicle|"
+                         "sedan|truck|van|bus|wagon|train|subway|metro|coupe"),
+    "storm_flood_damage": ("flooded|flood damage|flood damaged|floodwater|"
+                         "flood water|water damage|water damaged|tornado|"
+                         "hurricane damage|storm damage|storm damaged|disaster|"
+                         "tsunami debris|high water",
+                         "halo|mars|nasa|planet|geology|eurofighter|jet|aircraft|"
+                         "kamaz|ural|truck|bottle|can$|drink|totem|inflatable|"
+                         "inflable|drone|yuneec|tablet|cuneiform|medieval|galway|"
+                         "mask|fan|ventilation|satellite|weather|character|"
+                         "freefire|dorothy|movie|beach sign|signboard|typhoon"),
+    "earthquake_ground": ("earthquake|landslide|sinkhole|mudslide|cracked ground|"
+                         "cracked road|cracked earth|cracked asphalt|pothole|"
+                         "potholes|broken road|damaged road|road damage|"
+                         "broken asphalt|broken pavement|broken sidewalk|"
+                         "damaged pavement|damaged concrete|ground crack|"
+                         "train derailment",
+                         "sci-fi|scifi|space|lava|magma|character|mars|nasa|"
+                         "hirise|geology|geolog|fault|seismite|carbonate|"
+                         "limestone|canyon|island|science|fossil|shell$|"
+                         "splitpoint|dem$|relief|library"),
+    "fallen_tree":      ("fallen tree|fallen log|fallen trunk|uprooted|"
+                         "broken tree|snapped tree|fallen branch|tornado tree|"
+                         "storm damaged tree|snapped trunk|broken trunk|"
+                         "windthrow|lying dead tree|lying trunk",
+                         "halloween|spooky|cartoon|christmas|stylized|haunted|"
+                         "mushroom|carved|stump"),
+    "debris_general":   ("debris|wreckage|scrap metal|scrap pile|scrap heap|"
+                         "junk pile|trash pile|garbage pile|junkyard|scrapyard|"
+                         "scrap yard|pile of junk|pile of trash|pile of garbage",
+                         "lab|books|figure|laundry|spaceship|space|medieval|"
+                         "fantasy|dungeon|megaman|marine|labyrinth|psi|oil barrel|"
+                         "ship|spacecraft|cars craft|fortnite|csgo|crate|"
+                         "stone floor|mossy|boulder|quarry|anthropocene|stein|tv$|"
+                         "character|mech|mecha|robot|bot$|gunner|undercarriage|"
+                         "beachcombing|bike|bicycle|drone|drones|course|fallout|"
+                         "coupe|k car|reliant|impala"),
+    "dirt_pile":        ("dirt pile|dirt mound|mud pile|earth pile|soil pile|"
+                         "gravel pile|sand pile|pile of dirt|pile of sand|"
+                         "pile of gravel|mound of dirt|dirt heap|sand heap|"
+                         "gravel heap|rock pile|pile of rocks|stone pile|"
+                         "pile of stones|boulder pile|pile of earth",
+                         "sci-fi|scifi|medieval|fantasy|cartoon|stylized|character|"
+                         "cake|grave|yosemite|sculptural"),
+    "emergency_barriers": ("sandbag|sandbags|jersey barrier|concrete barrier|"
+                         "road block|roadblock|barricade|caution tape|police tape|"
+                         "barrier tape|emergency tent|relief tent|rescue tent|"
+                         "medical tent|triage|emergency shelter|field hospital|"
+                         "disaster relief|hesco",
+                         "medieval|fantasy|castle|sci-fi|scifi|spike|cheval|"
+                         "hedgehog|czech|tank trap|character|soldier|cone|cones|"
+                         "traffic sign|signs|sign package|transit|guard rail|"
+                         "guardrail|metal fence|wood fence|wooden fence|"
+                         "simple fence"),
 }
 
 # Big enough to judge an asset, small enough that a few thousand download fast.
@@ -236,9 +413,59 @@ def main():
             "Sorted by likes, filtered to textured, non-animated assets under\n"
             f"{args.max_faces:,} faces.\n")
 
+    _write_sheet(args.out)
+
     print(f"\n{grand} images across {len(cats)} categories -> {args.out}")
-    print(f"see {readme}")
+    print(f"see {readme} and index.html")
     return 0
+
+
+def _write_sheet(out):
+    """One browsable page: a thumbnail grid per category, uid under every
+    image so a pick can be copied straight off the page. Built from the
+    index.csv in every category folder under *out*, so a ``--only`` rerun
+    refreshes one folder without dropping the others from the page."""
+    from html import escape as e
+    sheet = {}
+    for cat in sorted(os.listdir(out)):
+        idx = os.path.join(out, cat, "index.csv")
+        if not os.path.isfile(idx):
+            continue
+        with open(idx, newline="") as fh:
+            for row in csv.DictReader(fh):
+                if row["file"]:
+                    sheet.setdefault(cat, []).append(
+                        (row["file"], row["uid"], row["name"], int(row["likes"]),
+                         int(row["faces"]), int(row["textures"]),
+                         int(row["texture_res"]), row["license"]))
+    cats = sorted(sheet)
+    parts = [
+        "<!doctype html><meta charset=utf-8><title>Objaverse candidates</title>",
+        "<style>body{font:14px system-ui;margin:16px;background:#111;color:#ddd}"
+        "nav a{margin-right:12px}h2{margin-top:40px}"
+        ".g{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}"
+        ".c{background:#1c1c1c;padding:6px;border-radius:6px}"
+        ".c img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:4px}"
+        ".n{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
+        ".m{color:#999;font-size:12px}code{font-size:11px;color:#8bc;user-select:all}"
+        "</style>",
+        "<nav>" + " ".join(
+            f'<a href="#{e(c)}">{e(c)} ({len(sheet[c])})</a>' for c in cats)
+        + "</nav>",
+    ]
+    for c in cats:
+        parts.append(f'<h2 id="{e(c)}">{e(c)} <small>{len(sheet[c])}</small></h2><div class=g>')
+        for fname, uid, name, likes, faces, tex, res, lic in sheet[c]:
+            src = f"{c}/{fname}"
+            parts.append(
+                f'<div class=c><a href="{e(src)}"><img loading=lazy src="{e(src)}"></a>'
+                f'<div class=n title="{e(name)}">{e(name)}</div>'
+                f'<div class=m>{likes} likes &middot; {faces:,} faces &middot; '
+                f'{tex} tex @ {res}px &middot; {e(str(lic))}</div>'
+                f'<code>{e(uid)}</code></div>')
+        parts.append("</div>")
+    with open(os.path.join(out, "index.html"), "w") as fh:
+        fh.write("\n".join(parts))
 
 
 if __name__ == "__main__":

@@ -163,6 +163,13 @@ RUN cd PX4-Autopilot && \
 
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir lark-parser
 
+# Mesh fracture for the disaster scenes (scene_gen/disaster/fracture.py).
+# trimesh ships with Isaac Sim but is crippled without these two: its
+# boolean engine needs manifold3d, and capped plane slicing needs
+# shapely. Without them the only fracture available is "scatter whole
+# panels", which reads as a stack of rectangles.
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir manifold3d shapely
+
 # TMux config
 RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /isaac-sim/.tmux/plugins/tpm 
 

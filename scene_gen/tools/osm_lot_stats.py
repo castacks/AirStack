@@ -92,49 +92,89 @@ HA_M2 = 10_000.0
 # ---------------------------------------------------------------------------
 # sample B — large-lot / estate residential
 # ---------------------------------------------------------------------------
-# Chosen to be (a) genuinely low-density single-family by ORDINANCE rather than
-# by reputation, so the answer isn't "wealthy area" but "half-acre-plus minimum
-# lot", and (b) spread across four census regions and three eras of platting,
-# so the ratio isn't one region's survey habit. Coordinates recorded here for
-# the same reason `SUBURBS` records its own: the earlier street work named its
-# places only in prose and could not be reproduced.
+# Chosen to be genuinely low-density by ORDINANCE rather than by reputation, so
+# the contrast is "half-acre-plus minimum lot" and not "wealthy area" — and
+# then SCREENED, because the first cut of this list was chosen on zoning alone
+# and two of the five turned out to be measuring OSM's mapping effort instead
+# (the rejects are recorded below). Coordinates are kept here for the same reason `SUBURBS`
+# records its own: the earlier street work named its places only in prose and
+# could not be reproduced.
+#
+# Each entry's measured dwellings-per-km-of-road is given, since that is the
+# screen every one of them had to pass.
 ESTATES = {
-    # Town-wide 1-acre minimum since 1930s zoning, essentially no smaller
-    # district anywhere inside the town line. The cleanest single-class sample
-    # in the US, and the West Coast entry.
-    "atherton_ca":         (37.4590, -122.1990),
-    # 1-acre minimum across the whole town, and desert lots so the plat is
-    # visible from the air. Sun Belt counterpart to Mesa AZ in sample A, which
-    # is 15 km away and platted in the same decades at 1/8 acre.
-    "paradise_valley_az":  (33.5340, -111.9500),
-    # Montgomery County RE-2: two-acre residential estate zoning over most of
-    # the Potomac / Falls Road area. Mid-Atlantic, post-war rather than
-    # pre-war, so it isolates lot size from house age.
+    # Nassau County 2-acre zoning. THE CONTROL: same county, same OSM building
+    # import and same mapper population as Levittown in sample A, 10 km away
+    # and platted at an eighth of the land per dwelling (0.21 ac vs 1.75).
+    # Whatever bias the import carries, this pair carries it on both sides
+    # and it cancels in the ratio.                        11.3 dwellings/km
+    "old_westbury_ny":     (40.7880, -73.5990),
+    # Montgomery County RE-2, two-acre residential estate, over most of the
+    # Potomac / Falls Road area. Carries the land-per-dwelling figure: 483 of
+    # the estate sample's 671 ha of usable landuse.        21.6 dwellings/km
     "potomac_md":          (39.0230, -77.2050),
-    # 1-acre-plus minimum, Midwest, and platted early (1920s-50s) around
-    # Cranbrook — the old-money pattern of curvilinear roads on big wooded
-    # parcels, which is a different geometry from a modern estate cul-de-sac.
+    # 1-acre-plus minimum, Midwest, platted early around Cranbrook: curvilinear
+    # roads on big wooded parcels, which is a different geometry from a modern
+    # estate cul-de-sac. 24 usable tracts, the most of any one
+    # place here.                                          12.3 dwellings/km
     "bloomfield_hills_mi": (42.5800, -83.2450),
-    # Two-acre zoning town-wide, Northeast. Included because NJ/NY estate towns
-    # are the ones most likely to have real per-parcel OSM geometry from a
-    # municipal import, which is the only route to a direct frontage/depth.
-    "saddle_river_nj":     (41.0290, -74.1000),
+    # 1-2 acre minimum, and MassGIS's statewide footprint import means the
+    # buildings are close to complete — which is exactly what the sparse
+    # candidates lacked.                                   13.3 dwellings/km
+    "weston_ma":           (42.3620, -71.3020),
+    # RA-1 backcountry, 1-acre minimum. Contributes spacing, footprint and
+    # setback only: OSM has ZERO landuse=residential polygons in this box, so
+    # it adds nothing to land-per-dwelling.                14.9 dwellings/km
+    "greenwich_ct":        (41.0700, -73.6300),
 }
 
-# MIRRORS, AND WHY THERE IS A LIST RATHER THAN A CONSTANT. `osm_measurements.md`
-# already records that these fail independently and transiently. It happened
-# again mid-run here in a new way worth writing down: overpass-api.de resolves
-# to both A and AAAA records, the AAAA is unroutable from a v4-only host, and
-# its v4 address then started refusing connections outright — which surfaces as
-# `[Errno 101] Network is unreachable` and reads exactly like the host being
-# offline. It was not; kumi answered the same query immediately. So: rotate on
-# failure, and only give up once every mirror has refused.
+# Candidates that were measured and then dropped, kept here so the next person
+# does not re-run them. Both failure modes are worth recognising.
+#
+#   FAILURE 1, the box is bigger than the town. atherton_ca (37.4590,
+#   -122.1990) came back at 37.8 dwellings/km, 1156 m2 per dwelling and 23.0 m
+#   spacing — statistically indistinguishable from sample A. Atherton is 13
+#   km2, so a 5.76 km2 box centred on it is mostly its dense neighbours. A
+#   one-acre town needs a box that fits inside it, or a polygon boundary rather
+#   than a bbox.
+#
+#   FAILURE 2, the buildings are not mapped. saddle_river_nj (41.0290,
+#   -74.1000) returned 55 buildings in 5.76 km2 = 1.1 dwellings/km, and
+#   paradise_valley_az (33.5340, -111.9500) 4.4/km. Two-acre zoning cannot
+#   produce that; the neighbouring places return 11-22. Left in, they would
+#   have reported 6.5-acre lots and 36 m spacing with no warning at all.
+#   lake_forest_il and barrington_hills_il failed the same way on the count
+#   probe and were never measured.
+#
+# NOTE ON REGIONAL SPREAD, because the surviving five are Northeast-heavy
+# (NY, CT, MA, MD) plus one Midwest. That is not a choice; it is what passed.
+# The two Western/Sun Belt candidates failed the screens above, so this sample
+# describes large-lot platting in the eastern half of the US and the West is
+# simply unmeasured here.
+
 ENDPOINTS = (
     "https://overpass-api.de/api/interpreter",
+    "https://overpass.openstreetmap.fr/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
-    "https://overpass.osm.jp/api/interpreter",
     "https://overpass.private.coffee/api/interpreter",
 )
+# CHECK ANY MIRROR YOU ADD AGAINST A KNOWN BOX BEFORE TRUSTING IT. Several of
+# the ones the wiki lists are REGIONAL EXTRACTS that answer an out-of-area
+# query with a valid, cheerful, empty result rather than an error —
+# overpass.osm.ch returns `ways: 0` for Long Island and 200 OK with it, which
+# would have shown up here as "this suburb has no buildings". kumi and
+# private.coffee are the same host behind two names, so they fail together and
+# only count as one mirror. overpass.osm.jp did not answer at all.
+
+
+# NO SPACES IN THE USER-AGENT. openstreetmap.fr sits behind a filter that 403s
+# any UA containing a space or a bracket, which is most of the polite forms the
+# OSM wiki suggests -- "airstack-scene-gen/1.0 (research)" is refused and the
+# same string minus the bracketed part is served. curl gets through because
+# "curl/8.5.0" has no space either. This cost an hour: the 403 arrives in 0.3 s,
+# so the mirror looks alive, answers curl by hand, and only fails under the
+# tool.
+UA = {"User-Agent": "airstack-scene-gen/1.0", "Accept": "*/*"}
 
 
 def _overpass(query, timeout=180, retries=3, endpoints=None):
@@ -146,9 +186,7 @@ def _overpass(query, timeout=180, retries=3, endpoints=None):
     for attempt in range(retries * len(eps)):
         ep = eps[attempt % len(eps)]
         try:
-            req = urllib.request.Request(
-                ep, data=data,
-                headers={"User-Agent": "airstack-scene-gen/1.0 (research)"})
+            req = urllib.request.Request(ep, data=data, headers=UA)
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 return json.loads(r.read().decode())
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError,
@@ -541,6 +579,80 @@ def ratios(a, b):
                       f"{nb / na:.2f}x")
 
 
+# What `suburb_parcel.DENSITY["estate"]` currently carries. Copied rather than
+# imported on purpose: this tool must not drag the generator's import graph in,
+# and a stale copy here is harmless — it is only ever printed next to the
+# measurement so the two can be compared by eye.
+CURRENT_ESTATE = {"lot": 2.20, "setback": 1.60, "depth": 1.35, "w": 0.06}
+
+
+def recommend(a, b):
+    """Turn the ratios into the four numbers an `estate` class actually needs."""
+    print("\n" + "=" * 72)
+    print("WHAT AN `estate` CLASS SHOULD CARRY")
+    print("=" * 72)
+
+    nn_a, nn_b = _med(a["nn"]), _med(b["nn"])
+    la, lb = _med(a["per_dwelling"]), _med(b["per_dwelling"])
+    sa, sb = _med(a["setback"]), _med(b["setback"])
+
+    # WIDTH comes from nearest-neighbour spacing, not from land area. Along a
+    # street the nearest other house is the one next door, so this measures
+    # frontage directly and needs no landuse polygon — which matters, because
+    # landuse coverage is the weakest link in the estate sample.
+    width = (nn_b / nn_a) if (nn_a and nn_b) else None
+
+    # DEPTH is the residual. Land = width x depth, so once width is pinned by
+    # spacing, whatever is left of the land ratio has to be depth. This is the
+    # honest way round: measuring estate lot depth directly needs per-parcel
+    # geometry, which US OSM mostly does not have.
+    land = (lb / la) if (la and lb) else None
+    depth = (land / width) if (land and width) else None
+
+    # SETBACK, net of half a right-of-way, because the measurement is to the
+    # centreline and the generator's is to the lot front line. 50 ft is the
+    # common post-war residential ROW; the ratio's sensitivity to that choice
+    # is printed above, and it is not small.
+    row = 7.6
+    setb = ((sb - row) / (sa - row)) if (sa and sb and sa > row and sb > row) else None
+
+    # WEIGHT. "What share of a low-density district is estate-sized" is a
+    # distribution question, not a median question: the estate sample is not
+    # uniformly estate, and the ordinary sample is not uniformly ordinary.
+    # Threshold at twice the ordinary median spacing and count both ways.
+    share_a = share_b = None
+    if nn_a:
+        cut = 2.0 * nn_a
+        if a["nn"]:
+            share_a = sum(1 for v in a["nn"] if v >= cut) / len(a["nn"])
+        if b["nn"]:
+            share_b = sum(1 for v in b["nn"] if v >= cut) / len(b["nn"])
+
+    rows = [("lot (width)", width, CURRENT_ESTATE["lot"]),
+            ("setback", setb, CURRENT_ESTATE["setback"]),
+            ("depth", depth, CURRENT_ESTATE["depth"]),
+            ("weight in a low-density mix", share_b, CURRENT_ESTATE["w"])]
+    print(f"  {'multiplier vs normal':<30}{'measured':>11}{'current':>10}"
+          f"{'current is':>14}")
+    for label, got, cur in rows:
+        if got is None:
+            print(f"  {label:<30}{'n/a':>11}{cur:>10.2f}{'—':>14}")
+            continue
+        verdict = ("about right" if 0.85 <= cur / got <= 1.18
+                   else ("TOO HIGH" if cur > got else "TOO LOW"))
+        print(f"  {label:<30}{got:>11.2f}{cur:>10.2f}{verdict:>14}")
+
+    if share_a is not None:
+        print(f"\n  {100 * share_a:.1f}% of ORDINARY-suburb dwellings already sit "
+              f"at >= 2x the ordinary median spacing")
+    if share_b is not None:
+        print(f"  {100 * share_b:.1f}% of ESTATE-town dwellings do")
+    print("\n  Reminder: these are RATIOS, so they transfer even though the "
+          "generator's\n  `normal` lot is already wider in metres than a real "
+          "one (its house assets\n  are oversized, which suburb_net.yaml "
+          "documents).")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sample", default="both",
@@ -589,6 +701,7 @@ def main():
 
     if "A" in pooled and "B" in pooled:
         ratios(pooled["A"], pooled["B"])
+        recommend(pooled["A"], pooled["B"])
 
 
 if __name__ == "__main__":

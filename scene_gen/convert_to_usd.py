@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run --script
 # /// script
-# requires-python = ">=3.13"
+# requires-python = "==3.13.*"
 # dependencies = ["bpy", "trimesh", "pycollada"]
 # ///
 """Convert 3D assets (any Blender-importable format) to USD.

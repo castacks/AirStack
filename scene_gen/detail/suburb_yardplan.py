@@ -343,6 +343,48 @@ def _pick(pool, rng, ranks=None, t=None, sharp=3.0):
     return pool[-1]
 
 
+def _clear_of(off, gaps, limit, rng=None, pad=1.5):
+    """A front-yard offset near +/-*off* that no paved run occupies.
+
+    `front_gaps` is where the drive and the walk cross the front lot line, as
+    (offset along the frontage, half width). On this kit both sit on the same
+    side of every style, so a coin-flip side put the specimen tree's trunk
+    within 0.1 m of the drive edge on three styles of eight.
+
+    Done by SUBTRACTING the padded runs from the lot frontage and taking the
+    nearest surviving point, which is exact. Nudging the offset away from
+    whichever run it hit is not: on a lot with two runs, stepping clear of the
+    drive walks straight into the walk, and 113 of 5,000 random lots did.
+    """
+    free, x = [], -limit
+    for a, b in sorted((c - hw - pad, c + hw + pad) for c, hw in gaps):
+        if b <= -limit or a >= limit:
+            continue
+        if a > x:
+            free.append((x, a))
+        x = max(x, b)
+    if limit > x:
+        free.append((x, limit))
+    if not free:
+        return None
+
+    def nearest(t):
+        lo, hi = min(free, key=lambda r: 0.0 if r[0] <= t <= r[1]
+                     else min(abs(t - r[0]), abs(t - r[1])))
+        return min(max(t, lo), hi)
+
+    signs = [-1.0, 1.0]
+    if rng is not None and rng.random() < 0.5:
+        signs.reverse()          # ties would otherwise put every tree left
+    best = None
+    for sgn in signs:
+        a = nearest(sgn * off)
+        cost = abs(a - sgn * off)
+        if best is None or cost < best[0]:
+            best = (cost, a)
+    return best[1]
+
+
 def plan(config, parcels, rng, resolver=None, keepout_discs=None):
     """Plant every lot in *parcels*. Returns ``(placements, stats)``.
 
@@ -579,9 +621,9 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None):
 
         # -- front: one specimen tree, offset to a side, never centred -----
         if trees and rng.random() < float(cfg["specimen_tree_chance"]):
-            side = 1.0 if rng.random() < 0.5 else -1.0
-            if plant_tree(side * (half_w * 0.75 + 1.6), -half_d - 5.0,
-                          clear_house):
+            a = _clear_of(half_w * 0.75 + 1.6, h.get("front_gaps") or (),
+                          half_lot - inset, rng)
+            if a is not None and plant_tree(a, -half_d - 5.0, clear_house):
                 n_front_tree += 1
 
         # -- front: mailbox at the kerb, facing the street -----------------

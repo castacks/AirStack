@@ -256,9 +256,13 @@ def modules(scene):
         if p.get("category") != "fence":
             continue
         u = p["usd"]
-        ln, th, _h = ss._fence_module(res, pools, u)
+        ln, th, _h, fix = ss._fence_module(res, pools, u)
         fit = p["scale"] / max(pools.scale_of(u), 1e-9)
-        ang = math.radians(p["yaw_deg"] - pools.yaw_of(u))
+        # The run direction, recovered. `build_placements` writes
+        # `fyaw + fix - yaw_of` and `place` adds `yaw_of` back, so the stored
+        # yaw is `fyaw + fix` and the module's LONG axis is what `fix` turned
+        # onto the run — subtract it to get the boundary back.
+        ang = math.radians(p["yaw_deg"] - fix)
         out.append({"x": p["x_m"], "y": p["y_m"], "ang": ang,
                     "L": ln * fit, "T": th * fit, "usd": u,
                     "box": sp._corners(p["x_m"], p["y_m"], ln * fit, th * fit,
@@ -328,7 +332,11 @@ def classify(scene, mods, cell=8.0):
                 if abs(ca * cb + sa * sbn) < ss._FenceGrid._DOUBLE_COS:
                     continue
                 dx, dy = b["x"] - a["x"], b["y"] - a["y"]
-                if ((a["L"] + b["L"]) / 2.0 - abs(dx * ca + dy * sa)
+                # Symmetric, exactly as `_FenceGrid.free` computes it — see the
+                # comment there on why a frame-relative overlap is order-
+                # dependent and therefore untestable.
+                along = min(abs(dx * ca + dy * sa), abs(dx * cb + dy * sbn))
+                if ((a["L"] + b["L"]) / 2.0 - along
                         <= ss._FenceGrid._DOUBLE_OVERLAP_M):
                     continue
                 if sn.seg_seg_dist(_ends(a)[0], _ends(a)[1], _ends(b)[0],

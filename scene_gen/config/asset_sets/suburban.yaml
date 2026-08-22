@@ -115,9 +115,15 @@ usds:
     #   36.4 x 879.9 x 1688.0 in source units = 1.918 : 1 length : height,
     # so pinning the longest PLAN dimension at 3.51 m puts the height at
     # 3.51 / 1.918 = 1.83 m — 6 ft exactly, the bottom of the 6-8 ft side/rear
-    # band every code above allows. MEASURED AFTER CONVERSION, which is what
-    # the pass actually reads: 3.51 x 0.077 x 1.830 m, 312 faces. Runs along
-    # +X, which is what the pass asks for, so NO yaw-offset.
+    # band every code above allows.
+    # MEASURED AFTER CONVERSION, which is what the pass actually reads:
+    #   0.076 x 3.51 x 1.83 m, 1,752 verts / 888 tris — cheaper than either
+    # of the other two entries, which matters because this one lands on 60% of
+    # the fenced lots.
+    # THE 3.51 m IS ON Y, hence the yaw-offset — the source runs along its own
+    # Z and the converter maps that to world Y. Without the offset the pass
+    # takes sx, i.e. the 7.6 cm board THICKNESS, as the module length and lays
+    # it forty-six times per metre. Same trap as the park railing above.
     # LICENCE: plain CC-BY, deliberately. The better-looking candidate for this
     # slot (objaverse 1db7df90…, a painted plank wall at 3.02:1) is CC-BY-NC,
     # and every other asset in this repo's manifest is `by` or `by-sa` — a
@@ -125,7 +131,8 @@ usds:
     # worth the redistribution question.
     - usd: "objaverse://1cec32aea61e4959bb1ba9a79ada7cd5"   # "Wood fence", CC-BY
       target-size-m: 3.51   # pins the longest PLAN dimension; height follows
-      points: 888
+      yaw-offset: 90.0
+      points: 1752
       tags: ["privacy"]
 
     # PICKET — the classic small-lot fence, and a short enough module that a
@@ -143,9 +150,13 @@ usds:
     # POINT BUDGET. On the GRAPH path `fence` is one of `suburb_scene`'s default
     # `instance_categories`, so N modules cost one prototype plus N transforms;
     # the RECT path (`build_city`) passes no instance categories and still pays
-    # N x `points`. A 1600 x 1200 m suburb runs roughly 2,000-3,000 modules once
-    # the compact neighbourhoods are fenced, which un-instanced is 4-7M points
-    # against the ~89M ceiling the urban scene OOM-killed at. The levers, in
+    # N x `points`. MEASURED on the graph path over seeds 1-13: 5,300-6,200
+    # modules on a 1600 x 1200 m plat, mixing as 2,788 close-board / 1,679
+    # picket / 823 rail on seed 3, which un-instanced is ~8.8M points against
+    # the ~89M ceiling the urban scene OOM-killed at. (The old figure here said
+    # 2,000-3,000 modules; the count went up when the 5.95 m gate kit was
+    # replaced by a 3.51 m panel, and again when every entry became reachable on
+    # a side or rear boundary.) The levers, in
     # order: `fence.chance` per neighbourhood type in the preset, then which
     # boundaries a type fences, then `module_gap_m` (a gappy fence is worse than
     # no fence, so it is last).

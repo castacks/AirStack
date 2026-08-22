@@ -213,23 +213,23 @@ assets:
     title: Bungalow The Crosby
     uid: 1ca9bf31b9d34b44a9b9cac8c240a8d7
     usd: 1ca9bf31b9d34b44a9b9cac8c240a8d7/1ca9bf31b9d34b44a9b9cac8c240a8d7.usdc
-  1db7df90770e44128bc154a96bc0fe4c:
-    author: MrUnity
-    baked_scale: 0.941804
-    faces: 312
+  1cec32aea61e4959bb1ba9a79ada7cd5:
+    author: DarksProducer
+    baked_scale: 0.002079
+    faces: 888
     fit: footprint
-    license: by-nc
+    license: by
     size_m:
-    - 5.53
-    - 0.127
-    - 1.829
-    source: https://sketchfab.com/3d-models/1db7df90770e44128bc154a96bc0fe4c
-    target_size_m: 5.53
-    texture_res: 4096
-    textures: 3
-    title: Wooden Fences  [Low Poly]
-    uid: 1db7df90770e44128bc154a96bc0fe4c
-    usd: 1db7df90770e44128bc154a96bc0fe4c/1db7df90770e44128bc154a96bc0fe4c.usdc
+    - 0.076
+    - 3.51
+    - 1.83
+    source: https://sketchfab.com/3d-models/1cec32aea61e4959bb1ba9a79ada7cd5
+    target_size_m: 3.51
+    texture_res: 1024
+    textures: 4
+    title: Wood fence
+    uid: 1cec32aea61e4959bb1ba9a79ada7cd5
+    usd: 1cec32aea61e4959bb1ba9a79ada7cd5/1cec32aea61e4959bb1ba9a79ada7cd5.usdc
   2341e9c2456f4876b2e86a9465724b0d:
     author: andres Hiciano
     baked_scale: 0.821147
@@ -774,6 +774,23 @@ assets:
     title: Gazebo
     uid: ab95dfb3816e4160989f26972c4c7c39
     usd: ab95dfb3816e4160989f26972c4c7c39/ab95dfb3816e4160989f26972c4c7c39.usdc
+  ad16f7085cb047b494997cf9efed5059:
+    author: Renafox
+    baked_scale: 0.009433
+    faces: 21578
+    fit: footprint
+    license: by
+    size_m:
+    - 5.942
+    - 6.9
+    - 2.808
+    source: https://sketchfab.com/3d-models/ad16f7085cb047b494997cf9efed5059
+    target_size_m: 6.9
+    texture_res: 2048
+    textures: 5
+    title: Free Burned Police Cars
+    uid: ad16f7085cb047b494997cf9efed5059
+    usd: ad16f7085cb047b494997cf9efed5059/ad16f7085cb047b494997cf9efed5059.usdc
   aedb8f44f78944c7a1d53ff14c6d3290:
     author: Dane Badenhorst
     baked_scale: 0.001103
@@ -1097,3 +1114,20 @@ assets:
     title: Bungalow The Clayton
     uid: f87535ec6d9a475db58965aa46ba6979
     usd: f87535ec6d9a475db58965aa46ba6979/f87535ec6d9a475db58965aa46ba6979.usdc
+  fdf39ca893a64368af45f82a6b6d68a4:
+    author: o0ozexo0o
+    baked_scale: 0.81558
+    faces: 41134
+    fit: footprint
+    license: by
+    size_m:
+    - 12.0
+    - 3.566
+    - 3.103
+    source: https://sketchfab.com/3d-models/fdf39ca893a64368af45f82a6b6d68a4
+    target_size_m: 12.0
+    texture_res: 2048
+    textures: 14
+    title: destroyed Bus 01
+    uid: fdf39ca893a64368af45f82a6b6d68a4
+    usd: fdf39ca893a64368af45f82a6b6d68a4/fdf39ca893a64368af45f82a6b6d68a4.usdc
