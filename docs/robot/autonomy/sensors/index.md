@@ -32,7 +32,7 @@ See `stacks/full_default/launch/stack.launch.xml` for the composed wiring.
 ### Inputs
 
 - `/{robot_name}/sensors/ouster/point_cloud_raw` — Raw cloud from the simulator or driver (typical input to the LiDAR filter)
-- Other hardware- or bridge-specific topics as wired in `sensors_bringup`
+- Other hardware- or bridge-specific topics as wired in the stack entry file (e.g. `stacks/full_default/launch/stack.launch.xml`; the observed graph is recorded in the stack's `wiring.md`)
 
 Topic strings are parameterized with `$(env ROBOT_NAME)` in YAML; override `input_topic` / `output_topic` in the filter config if your stack uses different names.
 
@@ -59,7 +59,8 @@ Topic strings are parameterized with `$(env ROBOT_NAME)` in YAML; override `inpu
 
 ## Configuration
 
-- **Bringup:** `robot/ros_ws/src/sensors/sensors_bringup/config/` and launch XML under `sensors_bringup/launch/`
+- **Module launch files:** each sensor package ships its own canonical launch file — `robot/ros_ws/src/sensors/lidar_point_cloud_filter/launch/lidar_point_cloud_filter.launch.xml`, `robot/ros_ws/src/sensors/camera_param_server/launch/camera_param_server.launch.xml`
+- **Stack wiring:** the stack entry files include these under the `sensors` namespace (`stacks/<name>/launch/*.launch.xml`, e.g. `stacks/full_default/launch/stack.launch.xml`); the observed graph is recorded in `stacks/full_default/wiring.md`
 - **LiDAR filter:** `robot/ros_ws/src/sensors/lidar_point_cloud_filter/config/lidar_point_cloud_filter.yaml` (`near_range_m`, topics, QoS)
 
 ## See Also

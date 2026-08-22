@@ -51,7 +51,7 @@ def pytest_addoption(parser):
                           "Default: headless (no X, good for CI).")
     parser.addoption("--takeoff-velocities", default="0.5",
                      help="Comma-separated takeoff/land velocities (m/s) to "
-                          "sweep in test_takeoff_hover_land. Default: 0.5,1,2")
+                          "sweep in test_takeoff_hover_land. Default: 0.5")
     parser.addoption("--trajectory-types", default="Circle,Figure8,Racetrack,Line",
                      help="Comma-separated fixed trajectory types to sweep in "
                           "test_fixed_trajectory. Default: Circle,Figure8,Racetrack,Line")

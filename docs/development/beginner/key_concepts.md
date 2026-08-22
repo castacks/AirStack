@@ -87,29 +87,47 @@ This modular design means you can:
 
 - Launch only what you need: `airstack up robot-desktop` (skip simulation)
 - Swap components easily (different planners, different simulators)
-- Scale to multiple robots: `NUM_ROBOTS=3 airstack up`
+- Scale to multiple robots: `airstack up --fleet <name>` (or the simple knob `airstack up --robots 3`)
 
 **Learn more:** [Docker Compose Architecture](airstack-cli/docker_usage.md#container-details)
+
+## Stacks, Modules, and Fleets
+
+Beyond containers, AirStack organizes the *autonomy software itself* into three composable concepts (RFC #379/#380):
+
+**Modules** are individual capabilities packaged as thin external repos — a planner, a sensor driver, an Isaac Sim scene library — each carrying a small `module.yaml` manifest. You pull them on demand with `airstack module add <url> --version <tag|sha>` (always pinned to a tag or SHA, never a branch); the CLI validates the manifest, mounts the module into the right containers, and `airstack module list` shows what you have. **Learn more:** [AirStack Modules](../modules.md)
+
+**Stacks** are self-contained topology folders under `stacks/` that say which modules run and how they're wired together. Each stack has a pinned `modules.repos`, plain ROS 2 launch entry points (all cross-module wiring lives in the one entry launch file), and a CI-observed `wiring.md` — the system diagram, captured from the running graph rather than drawn by hand. `airstack up --stack <name>` launches one; with no `--stack`, the reference stack `full_default` launches. Never edit a reference stack — copy it with `airstack stack new full_default my_stack` and rewire the copy. **Learn more:** [AirStack Stacks](../stacks.md)
+
+**Fleets** declare a whole deployment in one YAML file under `config/fleets/`: which robots exist, which vehicle each flies, which stack each runs, and which ground hosts run split-stack offboard halves. `airstack up --fleet <name>` validates the file, derives the robot count, and spawns everything — including heterogeneous fleets where each robot runs a different stack. **Learn more:** [AirStack Fleets](../fleets.md)
+
+For the hands-on tour of all three — fly a reference stack, read its wiring, add a module, make your own stack, scale to a fleet — follow the [Modular AirStack Walkthrough](../../getting_started/modular_airstack.md).
 
 ## Multi-Robot by Design
 
 AirStack assumes you might have multiple robots, even in development. Each robot container gets:
 
-- **Unique ID**: `ROS_DOMAIN_ID` extracted from container name (e.g., `robot-1` → `ROS_DOMAIN_ID=1`)
+- **Unique ID**: `ROS_DOMAIN_ID` resolved from the container name (e.g., `airstack-robot-desktop-1` → `ROS_DOMAIN_ID=1`)
 - **Unique namespace**: All topics under `/{robot_name}/`
 - **Isolated environment**: Own workspace, own state
 - **Shared network**: Can communicate with other robots and GCS
 
-```bash
-# Launch 3 robots
-NUM_ROBOTS=3 airstack up
+The **primary way** to run multiple robots is a **fleet file** (`config/fleets/*.yaml`) — it declares which robots exist, which vehicle each flies, and which stack each runs:
 
-# Connect to specific robot
-airstack connect robot-1
-airstack connect robot-2
+```bash
+# Launch a fleet (robot count, vehicles, and stacks come from the fleet file)
+airstack up --fleet sim_three_mixed --sim isaac
+
+# Simple homogeneous alternative: N identical robots, no fleet file needed
+airstack up --sim isaac --robots 3
+
+# Connect to a specific robot (partial name matching against the real
+# container names airstack-robot-desktop-1, -2, ...)
+airstack connect robot-desktop-1
+airstack connect robot-desktop-2
 ```
 
-Each robot runs independently but can coordinate through the shared ROS 2 network.
+(`NUM_ROBOTS` in `.env` is the same homogeneous knob as `--robots` — fine for N identical robots, but fleets are the primary mechanism whenever robots differ.) Each robot runs independently but can coordinate through the shared ROS 2 network. See [AirStack Fleets](../fleets.md) for the full guide.
 
 ## The Development Loop
 

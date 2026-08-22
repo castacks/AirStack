@@ -304,7 +304,7 @@ That signature took out all four `build_docker` tests and all four
 `build_packages` tests in one run, with each failure looking like an unrelated
 `apt-get`/`WORKDIR` problem.
 
-[`runner-entrypoint.sh`](runner-entrypoint.sh) handles this before starting
+[`runner-entrypoint.sh`](https://github.com/castacks/AirStack/blob/main/.github/orchestrator/runner-entrypoint.sh) handles this before starting
 dockerd. It picks a storage backend by **performing a real overlay mount** to
 test each option rather than trusting the filesystem type, and falls back in
 this order:
@@ -326,6 +326,6 @@ osmo workflow logs "$WF" --task runner | grep -E 'runner-entrypoint|storage driv
 Backends 3 and 4 also set `features.containerd-snapshotter: false`, because
 `storage-driver` is only honoured by the classic image store.
 
-The one-shot [`build-runner-on-osmo.yaml`](build-runner-on-osmo.yaml) builder
+The one-shot [`build-runner-on-osmo.yaml`](https://github.com/castacks/AirStack/blob/main/.github/orchestrator/build-runner-on-osmo.yaml) builder
 sidesteps the same problem differently — `vfs` plus `DOCKER_BUILDKIT=0` — which
 is fine there because it builds one small image.

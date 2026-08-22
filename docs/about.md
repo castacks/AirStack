@@ -99,7 +99,7 @@ See: [System Architecture](robot/autonomy/system_architecture.md)
     
     **Global planning** generates waypoint paths at lower frequency (1 Hz) for exploration and goal navigation.
     
-    See: [Autonomy Modes Tutorial](tutorials/autonomy_modes.md)
+    See: [Autonomy Modes Tutorial](robot/autonomy_modes.md)
 
 !!! question "Can I use my own planner/controller?"
     Yes! AirStack is designed for easy module swapping. Create a ROS 2 package with the correct interface, integrate it into the bringup layer, and you're ready.
@@ -114,7 +114,7 @@ See: [System Architecture](robot/autonomy/system_architecture.md)
 !!! question "Does AirStack support multi-robot missions?"
     Yes! Each robot gets a unique ROS_DOMAIN_ID and namespace. All run independently while coordinating through the Ground Control Station.
     
-    See: [Multi-Robot Simulation Tutorial](tutorials/multi_robot_simulation.md)
+    See: [Robot Identity (multi-robot naming and domains)](robot/docker/robot_identity.md)
 
 !!! question "Can I run AirStack without Docker?"
     While technically possible, we **strongly recommend using Docker**. It ensures consistent environments, simplifies dependency management, and matches how we test and deploy.
@@ -129,12 +129,12 @@ See: [System Architecture](robot/autonomy/system_architecture.md)
 !!! question "Where should I add my custom module?"
     Place it in the appropriate layer under `robot/ros_ws/src/<layer>/<type>/<your_module>/`. For example, a new planner goes in `robot/ros_ws/src/local/planners/my_planner/`.
     
-    See: [AI Agent Guide](development/ai_agent_guide.md)
+    See: [AI Agent Guide](development/advanced/ai_agent_guide.md)
 
 !!! question "How do I test in simulation?"
     Launch AirStack with Isaac Sim, run your module, and verify behavior. Record ROS bags for offline analysis.
     
-    See: [Testing Guide](development/testing/index.md)
+    See: [Testing Guide](development/intermediate/testing/index.md)
 
 ## Contact and Support
 
@@ -158,7 +158,7 @@ Special thanks to all contributors and early adopters who provide valuable feedb
 
 We welcome contributions from AirLab members and collaborators!
 
-See: [Contributing Guide](development/contributing.md)
+See: [Contributing Guide](development/intermediate/contributing.md)
 
 Areas where we especially need help:
 

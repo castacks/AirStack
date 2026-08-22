@@ -24,11 +24,12 @@ This directory contains Agent Skills following the [Agent Skills standard](https
 | [attach-gossip-payload](skills/attach-gossip-payload) | Broadcast custom ROS messages to peers via PeerProfile gossip payloads |
 | [bump-version-and-release](skills/bump-version-and-release) | Bump `.env` VERSION + CHANGELOG to clear the version-check gate |
 | [capture-discovered-knowledge](skills/capture-discovered-knowledge) | Persist hard-won discoveries to AGENTS.md or a skill |
-| [configure-multi-robot](skills/configure-multi-robot) | Multi-robot setup: replicas, ROBOT_NAME, ROS_DOMAIN_ID |
+| [configure-multi-robot](skills/configure-multi-robot) | Multi-robot setup, fleet-first: fleet files under `config/fleets/` (`--fleet`) primary; `NUM_ROBOTS` is the legacy homogeneous knob |
 | [create-module](skills/create-module) | Author a thin module repo (module.yaml manifest, CI, test_stack) |
 | [create-stack](skills/create-stack) | Create a stack folder: `airstack stack new`, wiring bootstrap, split stacks + bridge.yaml, doctor |
 | [debug-module](skills/debug-module) | Systematic autonomous debugging of ROS 2 modules |
 | [docker-build-profiles](skills/docker-build-profiles) | Build-time validation for Docker compose profiles and build args |
+| [extract-module](skills/extract-module) | Extract an in-tree capability into a standalone module repo (TRUNK_REMOVAL.md pattern, sequencing rules, module CI) |
 | [integrate-module-into-layer](skills/integrate-module-into-layer) | Integrate a module into a **stack** (stack entry include, canonical defaults, wiring.md regen, lint) — the layer-bringup workflow is legacy |
 | [run-system-tests](skills/run-system-tests) | Run/extend the pytest system-test harness (marks, MetricsRecorder, /pytest) |
 | [test-in-simulation](skills/test-in-simulation) | End-to-end module testing in Isaac Sim |
@@ -73,4 +74,4 @@ old pattern.
 - **Integration Checklist:** [docs/robot/autonomy/integration_checklist.md](../docs/robot/autonomy/integration_checklist.md)
 - **Stacks Guide:** [docs/development/stacks.md](../docs/development/stacks.md)
 - **Modules Guide:** [docs/development/modules.md](../docs/development/modules.md)
-- **AI Agent Guide:** [docs/development/ai_agent_guide.md](../docs/development/ai_agent_guide.md)
+- **AI Agent Guide:** [docs/development/advanced/ai_agent_guide.md](../docs/development/advanced/ai_agent_guide.md)

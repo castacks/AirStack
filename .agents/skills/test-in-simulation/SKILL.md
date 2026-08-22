@@ -551,8 +551,8 @@ fi
   - [Isaac Sim Testing](https://docs.omniverse.nvidia.com/isaacsim/latest/index.html)
 
 - **AirStack:**
-  - [System Architecture](../docs/robot/autonomy/system_architecture.md)
-  - [Integration Checklist](../docs/robot/autonomy/integration_checklist.md)
+  - [System Architecture](../../../docs/robot/autonomy/system_architecture.md)
+  - [Integration Checklist](../../../docs/robot/autonomy/integration_checklist.md)
 
 - **Related Skills:**
   - [debug-module](../debug-module) - Debugging issues found in testing

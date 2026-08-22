@@ -646,7 +646,7 @@ graph TB
 ## References
 
 - [Integration Checklist](integration_checklist.md) - Module integration guidelines
-- [AI Agent Guide](../../development/ai_agent_guide.md) - Guide for AI agents
+- [AI Agent Guide](../../development/advanced/ai_agent_guide.md) - Guide for AI agents
 - [Layer Documentation](index.md) - Detailed layer descriptions
 - Skills:
 
