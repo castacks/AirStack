@@ -45,8 +45,6 @@ airstack ready
 
 ## wiring.md
 
-This stack's observed wiring diagram is committed at [wiring.md](wiring.md).
-
-Generated — the commit arrives with the first snapshot run of
-`airstack test -m wiring --stack full_droan_cpu`. Once committed, CI
-drift-checks the running graph against it.
+This stack's observed wiring diagram is committed at [wiring.md](wiring.md);
+CI drift-checks the running graph against it. Regenerate via
+`airstack test -m wiring --stack full_droan_cpu`.

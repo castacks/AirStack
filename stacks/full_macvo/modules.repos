@@ -15,7 +15,7 @@ airstack_compat: ">=0.19.0-alpha.18 <0.21.0"
 repositories:
   asm_macvo:
     type: git
-    # Placeholder — update when asm_macvo is pushed and tagged (TRUNK_REMOVAL.md §0).
-    url: git@github.com:castacks/asm_macvo.git
-    version: v0.1.0
+    url: https://github.com/castacks/asm_macvo.git
+    # SHA pin matching the root modules.repos; retag to v0.1.0 at first release.
+    version: 6886737628e20a15385d09a25dce26d98f965ad4
 x-local-modules: []

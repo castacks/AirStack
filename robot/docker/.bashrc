@@ -69,6 +69,16 @@ function cws(){
 source /opt/ros/jazzy/setup.bash
 sws # source the ROS2 workspace by default
 
+# Resolve this container's docker compose container name from inside the
+# container: reverse-DNS the container IP (hostname -> IP -> PTR record),
+# then strip the network suffix. Docker's embedded DNS serves the PTR record
+# with the compose container name (e.g. airstack-robot-desktop-1).
+# https://wiki.psuter.ch/doku.php?id=get_docker_container_name_from_within_the_container
+# WARNING: this technique ONLY works with docker version 29 and up.
+_resolve_container_name() {
+    host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}'
+}
+
 # --- Fleet resolution (RFC #380 §2, OPT-IN) ---
 # When FLEET_CONFIG_FILE is set (airstack up --fleet <name>), resolve this
 # container's WHOLE fleet entry — name, domain, stack placement, vehicle,
@@ -83,9 +93,8 @@ if [ -n "${FLEET_CONFIG_FILE:-}" ] && [ -z "${ROBOT_NAME:-}" ]; then
     if [ "$ROBOT_NAME_SOURCE" == "hostname" ]; then
         fleet_identity=$(hostname)
     else
-        # container-name resolution (same technique as the legacy branch;
-        # needs docker >= 29)
-        fleet_identity=$(host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}')
+        # container-name resolution (shared helper; needs docker >= 29)
+        fleet_identity=$(_resolve_container_name)
         CONTAINER_NAME=":$fleet_identity"
     fi
     fleet_resolver="$HOME/AirStack/tools/fleet/resolve_fleet.py"
@@ -126,9 +135,8 @@ fi
 # Otherwise extract robot name and ROS domain ID from the container/hostname mapping.
 if [ -z "${ROBOT_NAME:-}" ]; then
     if [ "$ROBOT_NAME_SOURCE" == "container_name" ]; then
-        # https://wiki.psuter.ch/doku.php?id=get_docker_container_name_from_within_the_container
-        # WARNING: this technique ONLY works with docker version 29 and up.
-        name_to_map=$(host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}')
+        # container-name resolution (shared helper; needs docker >= 29)
+        name_to_map=$(_resolve_container_name)
         CONTAINER_NAME=":$name_to_map"
     elif [ "$ROBOT_NAME_SOURCE" == "hostname" ]; then
         name_to_map=$(hostname)
@@ -282,8 +290,8 @@ if [ ! -h $HISTFILE ]; then
     # remove existing .bash_history file if it exists
     rm $HISTFILE > /dev/null 2>&1
     # initialize .bash_history file if doesn't exist yet
-    if [ ! -d /.dev/.bash_history ]; then
-        cp $HOME/.dev/.bash_history_init $HOME/.dev/.bash_history
+    if [ ! -f "$HOME/.dev/.bash_history" ]; then
+        cp $HOME/.dev/.bash_history_init $HOME/.dev/.bash_history 2>/dev/null
     fi
     # symlink to /.dev/.bash_history, silently on error
     ln -s $HOME/.dev/.bash_history $HISTFILE > /dev/null 2>&1

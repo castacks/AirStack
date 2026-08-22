@@ -1,8 +1,0 @@
-<!-- Static world-to-map identity TF publisher (world and map coincide).
-     Included by: nothing at present; robot bringup publishes this TF inline in
-     autonomy_bringup robot.launch.xml (orphan candidate, kept for manual use).
-     STATUS: standalone utility. -->
-<launch>
-    <node pkg="tf2_ros" exec="static_transform_publisher" name="world_to_map_broadcaster"
-        args="0 0 0 0 0 0 world map" />
-</launch>

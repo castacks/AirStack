@@ -29,12 +29,6 @@ find_package(PCL REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(message_filters REQUIRED)
 
-###################################
-## ament specific configuration  ##
-###################################
-
-ament_package()
-
 ###########
 ## Build ##
 ###########
@@ -144,3 +138,10 @@ install(DIRECTORY
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME}_node)
 # endif()
+
+###################################
+## ament specific configuration  ##
+###################################
+
+# ament_package() must be the last call in the file (ament requirement).
+ament_package()

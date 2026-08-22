@@ -4,8 +4,11 @@
   Preset that absorbed the deleted CPU-DROAN local bringup variant (see
   README): identical to the full_default stack except the local-planner include —
   the CPU droan_local_planner plus a live disparity_expansion world model
-  instead of the GPU droan_gl module. Everything else is byte-identical to
-  full_default/launch/stack.launch.xml.
+  instead of the GPU droan_gl module. Diff against
+  full_default/launch/stack.launch.xml and exactly two deltas appear: this
+  header comment block, and the local-planner block (the droan_local_planner
+  + disparity_expansion includes replacing the single droan_gl include).
+  Every other line is byte-identical.
 
   ALL LAYERS FLATTENED (P5-E2 local, P5-E3 the rest): every layer is composed
   here as a flat set of module-launch includes — each block below reads "this
@@ -127,7 +130,7 @@
   <!-- ── Logging (already a single self-contained module — see header) ───── -->
   <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" />
 
-  <!-- ── Role-full extras (from robot.launch.xml's full group) ──────────── -->
+  <!-- ── Cross-domain extras (formerly robot.launch.xml's full-role group) ─ -->
 
   <!-- Domain Bridge (GCS) -->
   <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">

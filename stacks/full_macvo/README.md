@@ -62,17 +62,15 @@ airstack ready
   so this stack runs both estimators. A leaner macvo-only preset can drop
   that include once downstream consumers are audited.
 - MAC-VO is GPU-heavy; expect reduced sim real-time factor on a shared GPU.
-- No committed equivalence baseline exists for this topology (the legacy
-  variant never worked), so the first post-module-swap `wiring.md` snapshot
-  IS the baseline.
+- No legacy equivalence baseline exists for this topology (the legacy
+  variant never worked), so the committed `wiring.md` — captured from this
+  stack's own first validated snapshot run — IS the baseline.
 - `modules.repos` pins `asm_macvo`; `docker-compose.yaml` stays an empty stub
   until `airstack module lock --build` generates the per-module compose
   override.
 
 ## wiring.md
 
-This stack's observed wiring diagram is committed at [wiring.md](wiring.md).
-
-Generated — the commit arrives with the first snapshot run of
-`airstack test -m wiring --stack full_macvo`. Once committed, CI drift-checks
-the running graph against it.
+This stack's observed wiring diagram is committed at [wiring.md](wiring.md);
+CI drift-checks the running graph against it. Regenerate via
+`airstack test -m wiring --stack full_macvo`.
