@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-08-22
+
 ### Added
 
 - Intent flags on `airstack up` — `--sim isaac|airsim`, `--robots N`, `--headless`, `--play`/`--no-play`, `--no-autolaunch`, `--wait`, `--dry-run` — deriving the coordinated env-var sets (compose profiles, URDF, single/multi Isaac launch script) as exported leaf values, with a resolved-config banner and a per-run `.airstack/runs/<ts>/effective_config.env` dump; contract-tested in `tests/meta/test_launch_intent_contract.py` (unit mark)
