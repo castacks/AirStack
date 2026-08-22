@@ -21,6 +21,9 @@ services:
     privileged: true
     networks:
       airstack_network:
+        # INVARIANT: every sim service (isaac-sim, ms-airsim, simple-sim)
+        # binds this same fixed address — robot containers reach the sim at
+        # SIM_IP (default 172.31.0.200), so only one sim can run at a time.
         ipv4_address: 172.31.0.200
     environment:
       - DISPLAY
@@ -32,6 +35,15 @@ services:
       - MS_AIRSIM_BINARY_PATH=${MS_AIRSIM_BINARY_PATH:-}
       - MS_AIRSIM_HEADLESS=${MS_AIRSIM_HEADLESS:-false}
       - MS_AIRSIM_PX4_START_DELAY=${MS_AIRSIM_PX4_START_DELAY:-3}
+      # settings.json template knobs (config/generate_settings.py defaults)
+      - AIRSIM_CAM_WIDTH=${AIRSIM_CAM_WIDTH:-480}
+      - AIRSIM_CAM_HEIGHT=${AIRSIM_CAM_HEIGHT:-300}
+      - AIRSIM_CAM_FOV=${AIRSIM_CAM_FOV:-90}
+      - AIRSIM_CAM_X=${AIRSIM_CAM_X:-0.4}
+      - AIRSIM_CAM_Y=${AIRSIM_CAM_Y:-0.06}
+      - AIRSIM_CAM_Z=${AIRSIM_CAM_Z:-0}
+      - AIRSIM_CAM_PITCH=${AIRSIM_CAM_PITCH:-0}
+      - AIRSIM_SPAWN_SPACING=${AIRSIM_SPAWN_SPACING:-3}
     deploy:
       resources:
         reservations:

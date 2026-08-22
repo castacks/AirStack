@@ -2,11 +2,13 @@
 
 The Ground Control Station provides monitoring, control, and mission planning capabilities for AirStack robots. Operators use the GCS to:
 
-- Monitor robot status and sensor feeds
-- Send mission commands and waypoints
-- Visualize robot poses and planned paths
-- Coordinate multi-robot operations
-- Record and analyze mission data
+- Monitor robot status, camera/depth feeds, and sensor streams
+- Send task commands (takeoff, land, navigate, fixed trajectory, search, exploration)
+- Draw waypoint routes and polygon areas directly on the map
+- Visualize robot poses, planned paths, and maps for the whole fleet
+- Record mission data as ROS 2 bags
+
+The main operator interface is **Foxglove Studio**, extended with custom AirStack panels. Everything runs inside one Docker container.
 
 ## Directory Structure
 
@@ -15,87 +17,85 @@ The GCS is organized under `gcs/`:
 ```
 gcs/
 ├── docker/                           # GCS containerization
-│   ├── docker-compose.yaml           # Main launch configuration
-│   ├── gcs-base-docker-compose.yaml  # Shared base service
-│   ├── Dockerfile.gcs                # Image definition
-│   ├── Foxglove/                     # Foxglove Studio configuration
-│   │   ├── layouts/                  # Pre-configured dashboard layouts
-│   │   └── extensions/               # Custom Foxglove extensions
-│   └── resources/                    # GCS assets and resources
+│   ├── docker-compose.yaml           # gcs (sim/dev) + gcs-real (field) services
+│   ├── gcs-base-docker-compose.yaml  # Shared base service (command, env, mounts)
+│   ├── Dockerfile.gcs                # Image: ROS 2 Jazzy + Foxglove Studio + DDS Router
+│   ├── .bashrc                       # Shell config mounted into the container
+│   └── Foxglove/                     # Foxglove Studio app state (mounted, gitignored)
+├── foxglove_extensions/              # Custom Foxglove panels + layout tooling
+│   ├── waypoint-editor/              # Click-to-place waypoint routes
+│   ├── polygon-editor/               # Click-to-draw polygon areas
+│   ├── robot-commands/               # "Robot Tasks" command panel
+│   ├── install.py                    # Installs the panels into Foxglove on startup
+│   ├── render_layout.py              # Renders the NUM_ROBOTS-matched layout
+│   └── airstack_default.json         # Single-robot layout template
 ├── ros_ws/                           # ROS 2 workspace
-│   └── src/                          # Source packages
-│       ├── rqt_gcs/                  # Main GCS GUI panel
-│       ├── rqt_airstack_control_panel/ # Robot control panel
-│       └── ros2tak_tools/            # TAK server integration (optional)
-└── bags/                             # Recorded mission data
+│   └── src/
+│       ├── action_relay/             # Bridges task actions from GCS domain 0 to each robot domain
+│       ├── gcs_visualizer/           # Fleet markers/poses for Foxglove's 3D panel
+│       ├── ros2tak_tools/            # TAK server integration (optional)
+│       ├── rqt_gcs/                  # Experimental RQT panel template (not launched)
+│       ├── rqt_airstack_control_panel/ # Experimental RQT panel template (not launched)
+│       └── common/                   # Mount of common/ros_packages (desktop_bringup, coordination, ...)
+├── saves/                            # Persisted waypoint/polygon editor saves (mounted at /root/.airstack)
+└── bags/                             # Recorded mission data (mounted at /bags)
 ```
 
 ## Launch Structure
 
-The GCS is launched via Docker Compose. The configuration is in `gcs/docker/docker-compose.yaml`.
+The GCS is launched via Docker Compose (`gcs/docker/docker-compose.yaml`, extending `gcs-base-docker-compose.yaml`). On container start it:
 
-**Key components:**
+1. Restarts the SSH daemon
+2. Installs the custom Foxglove extensions (`foxglove_extensions/install.py`)
+3. Renders the multi-robot Foxglove layout to `/root/airstack_layout_num_robots_<N>.json` (`render_layout.py`)
+4. Opens a tmux session named `bringup`
+5. If `AUTOLAUNCH=true`, runs `ros2 launch desktop_bringup gcs.launch.xml` in that session
 
-- **RQT GCS Panel:** Main monitoring and control interface
-- **Foxglove Studio:** Advanced visualization and debugging  
-- **TAK Integration:** Situational awareness via TAK protocol (optional)
+`desktop_bringup/launch/gcs.launch.xml` (in `common/ros_packages`) starts:
+
+| Component | Purpose |
+|-----------|---------|
+| **Foxglove Studio** (desktop app) | Main operator GUI, connects to `ws://localhost:8765` |
+| **foxglove_bridge** | ROS 2 ⇄ Foxglove WebSocket bridge on port 8765 |
+| **Gossip bridge** | Connects GCS domain 0 to the gossip bus (domain 99) |
+| **gcs_visualizer** | Renders per-robot meshes/trajectories/maps in a shared global ENU frame |
+| **action_relay** | One relay per robot: forwards task goals from Foxglove to each robot's domain |
 
 **Launch command:**
 
 ```bash
-# Start GCS container
+# Start GCS container (usually alongside the rest of the stack)
 airstack up gcs
 
-# Access GCS interface
-# - RQT panel opens automatically in container
-# - Or connect to container: airstack connect gcs
+# Attach to the container's tmux session
+airstack connect gcs
 ```
-
-The Docker `command:` launches the GCS ROS 2 nodes and opens the RQT interface.
 
 **Learn more:** [Docker Configuration](docker/index.md)
 
 ## GCS Interfaces
 
-### RQT GCS Panel
-
-The main control interface built with RQT (ROS Qt GUI).
-
-**Features:**
-
-- Real-time robot status monitoring
-- Mission planning and waypoint management
-- Sensor feed visualization  
-- Multi-robot coordination dashboard
-- Emergency controls and safety monitoring
-
-**See:** [User Interface Guide](usage/user_interface.md)
-
 ### Foxglove Studio
 
-Advanced visualization and debugging interface for robotics data.
+The operator GUI. The container runs the Foxglove Studio desktop app on the host's X display; you can also open Foxglove on the host and connect to the bridged WebSocket.
 
 **Features:**
 
-- **3D scene visualization:** View robot poses, paths, and point clouds
-- **Custom layouts:** Pre-configured dashboards for different mission phases
-- **Data recording:** Record and playback mission data
-- **Remote monitoring:** Access via web browser from anywhere
-- **Custom panels:** Extensible with custom visualization plugins
+- **3D scene visualization:** fleet poses, trajectories, global plans, VDB maps ([details](foxglove.md))
+- **Robot Tasks panel:** send takeoff / land / navigate / trajectory / search / exploration commands per robot
+- **Waypoint & polygon editors:** click-to-place routes and areas ([guide](waypoints_and_geofences.md))
+- **Per-robot tabs:** the rendered layout creates one tab per robot for `NUM_ROBOTS` robots
+- **Data recording and playback**
 
-**Configuration:** Pre-configured layouts available in `gcs/docker/Foxglove/layouts/`
+**Connection:** `ws://localhost:8765` inside the container, `ws://localhost:8766` from the host (the `gcs` service publishes 8766→8765). See [GCS Foxglove Visualization](foxglove.md) for the layout import flow.
 
-**Access:** Foxglove runs on port 8765 (configurable via docker-compose)
+### RQT panels (experimental templates)
+
+`rqt_gcs` and `rqt_airstack_control_panel` are experimental RQT panel templates kept in the workspace as starting points. They are **not** part of the launched GCS — Foxglove is the operator interface.
 
 ### TAK Integration (Optional)
 
-Integration with TAK (Team Awareness Kit) servers for military and first responder workflows.
-
-**Use cases:**
-
-- Coordinate with TAK-enabled ground teams
-- Share situational awareness data
-- Integrate with existing TAK infrastructure
+`ros2tak_tools` integrates with TAK (Team Awareness Kit) servers for coordinated situational awareness. It is configured and run separately from the default bringup.
 
 **See:** [WinTAK Installation](wintak/installation.md) | [Command Center](command_center/command_center.md)
 
@@ -106,41 +106,34 @@ Integration with TAK (Team Awareness Kit) servers for military and first respond
 - **Hard Disk:** 60GB free space
 - **RAM:** 8GB minimum, 16GB recommended
 - **CPU:** 4 cores minimum, 8+ recommended
-- **Network:** Access to robot containers (via airstack_network or direct connection)
+- **GPU:** NVIDIA GPU (the service reserves one for rendering)
+- **Network:** access to robot containers (via `airstack_network` or the LAN for `gcs-real`)
 
 **Software:**
 
 - **OS:** Ubuntu 22.04/24.04 LTS
-- **Docker:** Installed via `airstack install`
-- **Display:** X11 display server (for RQT GUI)
+- **Docker:** installed via `airstack install`
+- **Display:** X11 display server (for the Foxglove Studio window)
 
 ## Quick Start
 
-1. **Launch GCS container:**
+1. **Launch the stack** (sim + robots + GCS — the `desktop` profile includes the `gcs` service):
    ```bash
-   airstack up gcs
+   airstack up --sim isaac --robots 1
    ```
 
-2. **Launch robots** (if not already running):
-   ```bash
-   airstack up robot-desktop
-   # Or with multiple robots
-   NUM_ROBOTS=3 airstack up robot-desktop
-   ```
+2. **Foxglove opens automatically** in the GCS container (when `AUTOLAUNCH=true`). Import the rendered layout and connect — see [GCS Foxglove Visualization](foxglove.md).
 
-3. **Access GCS interface:**
-   - RQT panel opens automatically in container
-   - Or connect manually: `airstack connect gcs`
-   - Foxglove: Open browser to `http://localhost:8765`
-
-4. **Monitor and control** robots via the interface
+3. **Command robots** from the Robot Tasks panel; place waypoints with the editors.
 
 **Full tutorial:** [Getting Started](../getting_started/index.md)
 
 ## Next Steps
 
-- **[User Interface Guide](usage/user_interface.md)** - Learn the RQT GCS interface
+- **[Docker Configuration](docker/index.md)** - GCS container internals, profiles, and development workflow
+- **[GCS Foxglove Visualization](foxglove.md)** - Layout import, visualizer topics, extending markers
+- **[Adding Waypoints and Geofences](waypoints_and_geofences.md)** - Interactive editors
+- **[User Interface Guide](usage/user_interface.md)** - Interface walkthrough
 - **[Command Center](command_center/command_center.md)** - Mission planning and execution
 - **[Casualty Assessment](casualty_assessment/casualty_assessment.md)** - Emergency response features
-- **[Docker Configuration](docker/index.md)** - Advanced GCS setup and deployment
 - **[WinTAK Installation](wintak/installation.md)** - Optional TAK integration

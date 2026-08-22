@@ -4,7 +4,16 @@ import copy
 import math
 import struct
 
-# Default world origin — Lisbon (matches gcs_utils.py and gps_utils.py)
+# ── Global ENU world origin — Lisbon (the Pegasus configs.yaml default) ──────
+# KEEP IN SYNC: these constants are replicated in THREE other files that can't
+# import this module across container/mount boundaries (single-sourcing is
+# deferred — documented in the audit):
+#   - gcs/ros_ws/src/gcs_visualizer/gcs_visualizer/gcs_utils.py   (ORIGIN_LAT/LON/ALT)
+#   - gcs/ros_ws/src/action_relay/action_relay/relay_node.py     (ORIGIN_LAT/LON)
+#   - simulation/isaac-sim/launch_scripts/gps_utils.py            (DEFAULT_WORLD_ORIGIN)
+#     (runs inside the isaac container where this package lives under
+#     /isaac-sim/AirStack/common/... — a cross-tree Python import is fragile)
+# If you change the anchor here, change all four together.
 DEFAULT_ORIGIN_LAT = 38.736832
 DEFAULT_ORIGIN_LON = -9.137977
 DEFAULT_ORIGIN_ALT = 90.0
