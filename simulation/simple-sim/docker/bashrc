@@ -118,5 +118,6 @@ fi
 
 alias emacs='emacs -nw'
 
-source /opt/ros/humble/setup.bash
-source /root/ros_ws/install/setup.bash
+source /opt/ros/jazzy/setup.bash
+# The sim workspace colcon-builds at container start; absent on first boot.
+[ -f /root/ros_ws/install/setup.bash ] && source /root/ros_ws/install/setup.bash
