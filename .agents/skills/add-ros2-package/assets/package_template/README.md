@@ -351,8 +351,6 @@ Apache-2.0 (consistent with AirStack)
 - **Maintainer:** Your Name (your.email@example.com)
 - **Contributors:** List additional contributors here
 
-## Changelog
-
-### Version 0.0.1 (YYYY-MM-DD)
-- Initial implementation
-- TODO: Add changelog entries as the module evolves
+<!-- No per-README changelog: change records live in the versioned Release
+     Notes (docs/release_notes/index.md); this README describes only the
+     current system. -->
