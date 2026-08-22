@@ -17,5 +17,5 @@ repositories:
     type: git
     url: https://github.com/castacks/asm_macvo.git
     # SHA pin matching the root modules.repos; retag to v0.1.0 at first release.
-    version: 6886737628e20a15385d09a25dce26d98f965ad4
+    version: 06f3a8c8bdd2f60a5869eee310dc9cda4c75c964
 x-local-modules: []
