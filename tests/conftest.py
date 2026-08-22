@@ -30,11 +30,13 @@ def pytest_addoption(parser):
     parser.addoption("--num-robots", default="1,3",
                      help="Comma-separated robot counts, e.g. 1,3")
     parser.addoption("--stack", default=None,
-                     help="Stack folder under stacks/ to launch (sets "
-                          "AIRSTACK_STACK_DIR for airstack up). Default: "
-                          "None = the default dispatch, stacks/full_default "
-                          "(stacks are the only dispatch). The wiring test "
-                          "drift-checks against stacks/<name>/wiring.md.")
+                     help="Stack to launch as <name>[:<entry>], same syntax "
+                          "as `airstack up --stack` (sets AIRSTACK_STACK_DIR/"
+                          "AIRSTACK_STACK_ENTRY). Split stacks need the entry "
+                          "(e.g. lite_offload_global:onboard). Default: None "
+                          "= the default dispatch, stacks/full_default. The "
+                          "wiring test drift-checks against "
+                          "stacks/<name>/wiring.md.")
     parser.addoption("--fleet", default=None,
                      help="Fleet preset under config/fleets/ (RFC #380 §2), "
                           "e.g. sim_three_mixed. Sets FLEET_CONFIG_FILE for "
@@ -251,10 +253,15 @@ def airstack_env(request):
     # Stack dispatch (RFC #379 §3): route robot.launch.xml to the stack's
     # entry launch file (unset = the full_default default). Container path —
     # stacks/ is bind-mounted at /root/AirStack/stacks.
+    # Accepts the same <name>[:<entry>] syntax as `airstack up --stack` —
+    # split stacks (e.g. lite_offload_global:onboard) have no stack.launch.xml,
+    # only per-half entries, so the bare name would dispatch to a nonexistent
+    # entry and strand the launch after the dispatcher preamble.
     stack = request.config.getoption("--stack")
     if stack:
-        env_overrides["AIRSTACK_STACK_DIR"] = f"/root/AirStack/stacks/{stack}"
-        env_overrides["AIRSTACK_STACK_ENTRY"] = "stack"
+        stack_name, _, stack_entry = stack.partition(":")
+        env_overrides["AIRSTACK_STACK_DIR"] = f"/root/AirStack/stacks/{stack_name}"
+        env_overrides["AIRSTACK_STACK_ENTRY"] = stack_entry or "stack"
 
     # Fleet dispatch (RFC #380 §2): FLEET_CONFIG_FILE (container path) opts
     # the run into fleet resolution; NUM_ROBOTS is derived from the fleet's
@@ -308,8 +315,12 @@ def airstack_env(request):
         "up_started_at": t0,
         "cfg": cfg,
         # None = the default dispatch (stacks/full_default); else the
-        # stacks/<name> explicitly launched.
-        "stack": stack,
+        # stacks/<name> explicitly launched (entry suffix stripped — goldens
+        # and doctor lookups key on the stack folder, not the entry).
+        "stack": stack.partition(":")[0] if stack else None,
+        # None = the folder's default entry (stack.launch.xml); else the
+        # split-stack half explicitly launched (e.g. "onboard").
+        "stack_entry": (stack.partition(":")[2] or None) if stack else None,
         # None = legacy NUM_ROBOTS behavior; else the config/fleets/<name> flown.
         "fleet": fleet,
     }
