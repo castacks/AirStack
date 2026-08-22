@@ -1,7 +1,7 @@
 ---
 name: use-feature-notebook
 description: Maintain a local, gitignored notebook/ directory that records the design spec and test results for every feature an agent implements. Trigger at the START of any feature-implementation task (create notebook/NNN-feature-slug/design_spec.md before writing code), while implementing (keep the spec's per-section status labels DESIGN/TODO / WIP / DONE current), whenever tests for that feature produce output worth keeping (store under results/<section>/), and when opening the feature's PR (populate the PR body from results/results_summary.md).
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

@@ -1,7 +1,7 @@
 ---
 name: use-airstack-cli
 description: Operate AirStack via the airstack CLI — up/down with launch-intent flags (--sim, --robots, --stack, --fleet, --headless, --no-autolaunch, --dry-run, --wait), module management (add/list/sync/remove/create/lock/doctor), stack and fleet commands, doctor and ready checks — and run commands inside containers using the non-interactive docker exec pattern. Use whenever you need to start/stop services, build the workspace, source the workspace, run ros2 commands, or inspect logs in any AirStack container.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

@@ -1,5 +1,5 @@
 # Copyright (c) 2024 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Contract tests for co-located unit-test collection.
 
 Unit-test source lives outside ``tests/``, so ``conftest.pytest_configure`` appends it to

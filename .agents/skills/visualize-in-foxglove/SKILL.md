@@ -1,7 +1,7 @@
 ---
 name: visualize-in-foxglove
 description: Add visualization of a ROS 2 topic to Foxglove/GCS. Use when you want a new topic (path, markers, odometry, etc.) to appear in the Foxglove dashboard on the GCS. Covers DDS router bridging, foxglove_visualizer_node integration, and coordinate frame translation.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

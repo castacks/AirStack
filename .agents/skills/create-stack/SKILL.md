@@ -1,7 +1,7 @@
 ---
 name: create-stack
 description: Create a new AirStack stack folder — copy a reference stack with `airstack stack new`, edit the entry launch file(s), bootstrap wiring.md, and validate with doctor and the unit lints. Covers stack anatomy, split stacks (multiple entry points + bridge.yaml), the control/trajectory placement hard gate, and gen_dds_router.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

@@ -1,7 +1,7 @@
 ---
 name: bump-version-and-release
 description: Bump the AirStack VERSION in .env (semver) before merging a PR that changes Docker image content, and update CHANGELOG. Required to pass the check-version-increment gate and to trigger the docker-build release workflow.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

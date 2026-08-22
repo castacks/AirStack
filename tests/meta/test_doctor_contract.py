@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Contract tests for `airstack doctor` (tools/doctor/ — RFC #379 §4).
 
 Doctor's posture is observe-and-report: it edits nothing and, in default

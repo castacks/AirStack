@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Robot-name-map resolution contract.
 
 Drives ``robot/docker/robot_name_map/resolve_robot_name.py`` as a subprocess

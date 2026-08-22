@@ -1,7 +1,7 @@
 ---
 name: extract-module
 description: Extract an in-tree AirStack capability into a standalone module repo — choose history extraction vs plain copy, author and validate module.yaml, build test_stack/ from a reference stack, handle submodules and host-setup hooks, write a TRUNK_REMOVAL.md checklist, sequence the trunk-removal PR against the module overlay, and wire module CI. Use when graduating a trunk package (or fork research) into an asm_* module per RFC #379.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

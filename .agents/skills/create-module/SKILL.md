@@ -1,7 +1,7 @@
 ---
 name: create-module
 description: Create a new AirStack module repository by hand — author the thin module.yaml manifest, lay out colcon packages with canonical-default launch args (never remaps), add test_stack/ and CI, and validate with tools/validate_module.py. Use when packaging a capability (planner, estimator, sim extension, vehicle data) as a standalone module repo per RFC #379.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

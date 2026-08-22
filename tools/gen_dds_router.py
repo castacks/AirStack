@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Generate a DDS-router config from a split stack's ``bridge.yaml`` (RFC #380 §2).
 
 A split stack carries one launch entry point per host role plus a ``bridge.yaml``

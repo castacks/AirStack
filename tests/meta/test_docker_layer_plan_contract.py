@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Contract tests for tools/compose_module_layers.py (RFC #379 §6, Phase P4).
 
 The layer planner turns synced modules' docker declarations (deps.apt/deps.pip,

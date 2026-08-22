@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Compare two stacks' observed wiring (RFC #379 §3: ``airstack stack diff``).
 
 Copy-drift between stack folders is the accepted trade for folder

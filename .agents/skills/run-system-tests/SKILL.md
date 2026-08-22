@@ -1,7 +1,7 @@
 ---
 name: run-system-tests
 description: Run, interpret, and extend AirStack's pytest system test suite (build_packages, build_docker, liveliness, wiring, sensors, takeoff_hover_land, autonomy, waypoint_flight), trigger runs via /pytest PR comments, and read run_meta.json/metrics.json reports. Use for invoking tests, distinguishing infrastructure failures from policy regressions, or adding a new system test.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

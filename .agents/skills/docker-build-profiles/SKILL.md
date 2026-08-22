@@ -1,7 +1,7 @@
 ---
 name: docker-build-profiles
 description: Build-time validation and guidance for AirStack Docker compose profiles and build args — adding a robot profile, quoting numeric-like YAML args, the L4T/Jetson build chain, and how module-owned dependencies enter images via module layers (airstack module lock --build) now that per-capability SKIP_* build args are gone. Use when adding/updating a compose profile or debugging a Dockerfile.robot build.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

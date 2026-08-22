@@ -93,7 +93,7 @@ We welcome contributions to AirStack! Please see our [Contributing Guidelines](d
 
 ## 📄 License
 
-AirStack is licensed under the Apache 2.0 or MIT license (to be finalized).
+AirStack is licensed under the BSD 3-Clause Clear License (SPDX: BSD-3-Clause-Clear). See the repository [LICENSE](https://github.com/castacks/AirStack/blob/main/LICENSE) file. Vendored third-party packages retain their upstream licenses.
 
 ## 📧 Contact
 

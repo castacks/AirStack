@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Contract tests for the module manifest schema + validator (RFC #379 §2, Phase P1).
 
 ``tools/validate_module.py`` interprets ``common/module_schema/module.schema.json``

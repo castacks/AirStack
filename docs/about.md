@@ -72,10 +72,10 @@ See: [System Architecture](robot/autonomy/system_architecture.md)
 
 ## License
 
-!!! note "License Pending"
-    License to be determined. Likely Apache 2.0 or MIT for open source components.
-    
-    For now, access requires AirLab account and approval.
+!!! note "License"
+    AirStack is licensed under the BSD 3-Clause Clear License (SPDX: BSD-3-Clause-Clear),
+    copyright Carnegie Mellon University, AirLab. Vendored third-party packages retain
+    their upstream licenses.
 
 ## FAQ
 

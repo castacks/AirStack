@@ -1,7 +1,7 @@
 ---
 name: update-documentation
 description: Document new modules and update mkdocs navigation. Use after implementing any new feature or module. Covers README templates, mkdocs.yml updates, mermaid diagrams, and documentation standards for AirStack.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

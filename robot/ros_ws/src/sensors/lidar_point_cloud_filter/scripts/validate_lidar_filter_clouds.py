@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (c) 2024 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """One-shot ROS 2 check for liveliness: filtered LiDAR cloud vs raw (Isaac / Pegasus).
 
 Run inside the robot container with workspace sourced and ROS_DOMAIN_ID set::

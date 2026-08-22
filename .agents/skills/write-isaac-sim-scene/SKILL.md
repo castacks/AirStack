@@ -1,7 +1,7 @@
 ---
 name: write-isaac-sim-scene
 description: Create custom simulation scenarios in Isaac Sim by declaring them on top of the shared pegasus_app.PegasusApp base class. Use when creating test scenarios, multi-robot simulations, or custom environments for testing autonomy modules.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

@@ -1,7 +1,7 @@
 ---
 name: integrate-module-into-layer
 description: Integrate a ROS 2 module into a stack. Use after creating a package to add it to a running topology. Covers the stack entry launch file, canonical-default topic args (usually zero include args), the single-locus wiring rule, wiring.md regeneration, and the launch lint. The old layer-bringup workflow this skill used to teach is legacy.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack
