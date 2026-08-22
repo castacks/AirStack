@@ -333,13 +333,11 @@ Specify license (typically Apache-2.0 for AirStack).
 - **Maintainer:** Name (email)
 - **Contributors:** List contributors
 
-## Changelog
-
-### Version X.Y.Z (YYYY-MM-DD)
-- Feature: Added new capability
-- Fix: Resolved issue with X
-- Change: Modified behavior of Y
 ```
+
+Do not add a per-README "Changelog" section — change records live in the
+versioned Release Notes (`docs/release_notes/index.md`), and READMEs
+describe only the current system.
 
 **Reference template:** `../add-ros2-package/assets/package_template/README.md`
 
@@ -585,10 +583,10 @@ class YourClass:
 
 If your module introduces breaking changes or deprecations:
 
-**File:** `CHANGELOG.md` (repository root)
+**File:** `docs/release_notes/index.md` (the versioned Release Notes — the only place change-relative language belongs; feature docs describe only the current system)
 
 ```markdown
-## [Unreleased]
+## <current version> (Unreleased)
 
 ### Added
 - New module: your_package for <purpose>
