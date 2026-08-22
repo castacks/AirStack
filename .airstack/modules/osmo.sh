@@ -21,15 +21,16 @@ OSMO_STATE_FILE="${OSMO_STATE_DIR}/osmo-state"
 # WebRTC livestream ports — must match the ports published by the
 # isaac-sim-livestream service in
 # simulation/isaac-sim/docker/docker-compose.yaml AND the
-# app.livestream.fixedHostPort setting pinned in the Pegasus launch script
-# (simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_launch_script.py).
+# app.livestream.fixedHostPort setting pinned by
+# simulation/isaac-sim/launch_scripts/pegasus_app.py (which reads
+# ISAAC_SIM_LIVESTREAM_UDP_PORT, default 49099 — mirrored here).
 #
 # Two ports total:
 #   TCP 49100 — omni.kit.livestream.webrtc WebSocket signaling
 #   UDP 49099 — SRTP media (pinned; Kit 107 otherwise picks dynamically and
 #               escapes both the compose-published and CLI-forwarded ranges)
 OSMO_WEBRTC_TCP="49100"
-OSMO_WEBRTC_UDP="49099"
+OSMO_WEBRTC_UDP="${ISAAC_SIM_LIVESTREAM_UDP_PORT:-49099}"
 
 # GCS Foxglove websocket: container 8765 → host 8766 (per
 # gcs/docker/docker-compose.yaml).

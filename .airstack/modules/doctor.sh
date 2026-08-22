@@ -19,14 +19,7 @@ function cmd_doctor {
         print_command_help doctor
         return 0
     fi
-    if ! command -v python3 >/dev/null 2>&1; then
-        log_error "python3 is required for 'airstack doctor'."
-        return 1
-    fi
-    if ! python3 -c 'import yaml' 2>/dev/null; then
-        log_error "PyYAML is required (pip3 install --user pyyaml)."
-        return 1
-    fi
+    _require_python_yaml "'airstack doctor'" || return 1
     python3 "$DOCTOR_TOOL" --project-root "$PROJECT_ROOT" "$@"
 }
 

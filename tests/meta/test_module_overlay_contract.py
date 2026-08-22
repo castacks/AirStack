@@ -48,6 +48,10 @@ def sandbox(tmp_path):
     (sb / "airstack.sh").chmod((sb / "airstack.sh").stat().st_mode | stat.S_IXUSR)
     shutil.copy(REPO / ".airstack" / "modules" / "module.sh",
                 sb / ".airstack" / "modules" / "module.sh")
+    # shared helper library (sourced explicitly by airstack.sh before the
+    # module loader; module.sh relies on _require_python_yaml etc.)
+    shutil.copy(REPO / ".airstack" / "modules" / "_lib.sh",
+                sb / ".airstack" / "modules" / "_lib.sh")
     shutil.copy(REPO / "tools" / "module_overlay.py", sb / "tools" / "module_overlay.py")
     shutil.copy(REPO / "tools" / "validate_module.py", sb / "tools" / "validate_module.py")
     # (P4) sync also runs the Docker layer planner (conflict gate + plan + lock)
