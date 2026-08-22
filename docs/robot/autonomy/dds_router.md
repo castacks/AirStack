@@ -46,7 +46,7 @@ All topics are **bidirectional** by default.
 
 ## Launch file: `interpolate_dds_router.launch.py`
 
-**Location:** [`robot/ros_ws/src/autonomy_bringup/launch/interpolate_dds_router.launch.py`](../../../../robot/ros_ws/src/autonomy_bringup/launch/interpolate_dds_router.launch.py)
+**Location:** [`robot/ros_ws/src/autonomy_bringup/launch/interpolate_dds_router.launch.py`](../../../robot/ros_ws/src/autonomy_bringup/launch/interpolate_dds_router.launch.py)
 
 DDS Router consumes a plain YAML file, but the router configs in AirStack need runtime values (domain IDs, robot names) and shared base configs. `interpolate_dds_router.launch.py` adds three capabilities on top of plain YAML before handing the file to `ddsrouter`:
 
@@ -109,7 +109,7 @@ some_key: !reset
 
 ### `autonomy_bringup/config/dds_router.yaml` — shared allowlist
 
-**Location:** [`robot/ros_ws/src/autonomy_bringup/config/dds_router.yaml`](../../../../robot/ros_ws/src/autonomy_bringup/config/dds_router.yaml)
+**Location:** [`robot/ros_ws/src/autonomy_bringup/config/dds_router.yaml`](../../../robot/ros_ws/src/autonomy_bringup/config/dds_router.yaml)
 
 Selected by the `full_*` stacks and `lite_default` (their entry files pass it
 to `interpolate_dds_router.launch.py`). Historically this lived at
@@ -144,7 +144,7 @@ to `interpolate_dds_router.launch.py`). Historically this lived at
 ### Split-stack router config — generated from `bridge.yaml`
 
 The split stack (`stacks/lite_offload_global`) does NOT use a hand-written
-router config: its [`bridge.yaml`](../../../../stacks/lite_offload_global/bridge.yaml)
+router config: its [`bridge.yaml`](../../../stacks/lite_offload_global/bridge.yaml)
 is the authoritative boundary document, and `tools/gen_dds_router.py`
 generates `.airstack/generated/dds_router.lite_offload_global.yaml` from it
 (loaded by the stack's `onboard` entry).

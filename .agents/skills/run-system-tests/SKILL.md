@@ -1,6 +1,6 @@
 ---
 name: run-system-tests
-description: Run, interpret, and extend AirStack's pytest system test suite (build_packages, build_docker, liveliness, sensors, takeoff_hover_land, autonomy), trigger runs via /pytest PR comments, and read run_meta.json/metrics.json reports. Use for invoking tests, distinguishing infrastructure failures from policy regressions, or adding a new system test.
+description: Run, interpret, and extend AirStack's pytest system test suite (build_packages, build_docker, liveliness, wiring, sensors, takeoff_hover_land, autonomy, waypoint_flight), trigger runs via /pytest PR comments, and read run_meta.json/metrics.json reports. Use for invoking tests, distinguishing infrastructure failures from policy regressions, or adding a new system test.
 license: Apache-2.0
 metadata:
   author: AirLab CMU
@@ -24,8 +24,9 @@ This skill is about the **test harness itself** — pytest marks, fixtures, the 
 
 The suite lives at `tests/` (repo root) and is fully pytest-based. Configuration is in `tests/pytest.ini` and shared infrastructure in `tests/conftest.py`.
 
-- **`tests/system/`** — Docker stack integration tests. Marks: `build_docker`, `build_packages`, `liveliness`, `sensors`, `takeoff_hover_land`, `autonomy`.
+- **`tests/system/`** — Docker stack integration tests. Marks: `build_docker`, `build_packages`, `liveliness`, `wiring`, `sensors`, `takeoff_hover_land`, `autonomy`, `waypoint_flight`.
 - **`tests/integration/`** — Cross-component tests (`integration` mark): robot container + a host-side component, no sim/GPU.
+- **`tests/meta/`** — fast **contract tests** (`unit` mark, no Docker) that pin the CLI/docs/stack contracts: module manifest schema, module overlay, Docker layer plan, launch-intent flags, stack layout, single-locus launch rule, bridge safety, fleet resolution, docs catalog, doctor, wiring snapshot format, metrics reporting, and test collection. They run with `airstack test -m unit` and in `unit-tests.yml`; if you change one of those mechanisms, expect the matching `tests/meta/test_*_contract.py` to fail first.
 - **Unit tests** (`@pytest.mark.unit`) — Hermetic. Source is **co-located** with each ROS 2 package in its own `test/` dir (ROS 2 / colcon convention). `tests/colcon_unit_test_packages.yaml` lists which packages have unit tests; `conftest.py` resolves each to its `test/` dir and collects the non-linter `test_*.py` under `--import-mode=importlib`.
 
 ### Unit tests vs system tests
@@ -57,8 +58,27 @@ For details on the co-located layout and adding new unit tests, see the
 | `tests/system/test_sensors.py` | `sensors` | Topic Hz (Isaac: batched on sim + robot; LiDAR `echo-once` + cloud sanity), RTF, `test_sensor_streams_stable` | Docker daemon, NVIDIA GPU + `nvidia-container-toolkit`, sim license / Omniverse creds |
 | `tests/system/test_takeoff_hover_land.py` | `takeoff_hover_land` | 4-phase flight chain per `(sim, num_robots, iteration, velocity)`: `test_px4_ready` → `test_takeoff` → `test_hover` → `test_landing`. Records altitude error, overshoot, hover stability, landing accuracy, odometry drift | Docker daemon, NVIDIA GPU, sim license |
 | `tests/system/test_fixed_trajectory.py` | `autonomy` | 4-phase flight chain per `(sim, num_robots, iteration, trajectory_type)`: `test_px4_ready` → `test_takeoff` → `test_fixed_trajectory` → `test_landing`. Records cross-track error, path RMSE, trajectory success/time for Circle/Figure8/Racetrack/Line | Docker daemon, NVIDIA GPU, sim license |
+| `tests/system/test_waypoint_flight.py` | `waypoint_flight` | 4-phase flight chain (PX4 ready → takeoff → NavigateTask waypoint route → land); pass/fail judged on the odometry track by `tests/waypoint_checker.py` (in-order corridor arrival, final goal tolerance, per-waypoint timeout) | Docker daemon, NVIDIA GPU, sim license |
+| `tests/system/test_wiring_snapshot.py` | `wiring` | Observed wiring snapshot of the running ROS graph, drift-checked against the committed golden / the stack's `wiring.md` (use with `--stack <name>` to regenerate a stack's wiring) | Docker daemon, NVIDIA GPU, sim license |
 
-The marks are declared in `tests/pytest.ini`. **Do not invent new marks ad-hoc** — register any new mark there or pytest will warn about unknown marks.
+### The full mark set (`tests/pytest.ini`)
+
+All eleven registered marks — **do not invent new marks ad-hoc**; register any new
+mark in `tests/pytest.ini` or pytest will warn about unknown marks:
+
+| Mark | Meaning |
+|------|---------|
+| `unit` | Fast hermetic tests (no Docker stack; numpy / pure Python) — includes `tests/meta/` contract tests |
+| `build_docker` | Docker image build tests |
+| `build_packages` | Colcon workspace build tests |
+| `integration` | Cross-component integration tests (robot container + a host-side component; no sim/GPU) |
+| `liveliness` | Container and process health (Docker, tmux, sentinel ROS 2 nodes) |
+| `wiring` | Observed wiring snapshot of the running ROS graph, drift-checked against a committed golden (`test_wiring_snapshot.py`) |
+| `sensors` | Sim and robot sensor topic rates, LiDAR validation, sim RTF |
+| `takeoff_hover_land` | End-to-end takeoff / hover / land action tests |
+| `autonomy` | Fixed-pattern trajectory path-tracker benchmark (`test_fixed_trajectory.py`) |
+| `waypoint_flight` | Ordered-waypoint navigation judged on the odometry track (`test_waypoint_flight.py`) |
+| `optitrack` | OptiTrack NatNet end-to-end — registered for `asm_optitrack` module CI (tests live in the module repo) |
 
 ### Test ordering (set by `pytest_collection_modifyitems`)
 
@@ -160,6 +180,8 @@ The `airstack_env` fixture is parametrized over `(sim, num_robots, iteration)` t
 |------|---------|---------|---------|
 | `--sim` | `isaacsim` | `airstack_env` | One env-tuple per sim (`msairsim` opt-in) |
 | `--num-robots` | `1,3` | `airstack_env` | Cross-product with sim |
+| `--stack` | `None` (= `full_default`) | `airstack_env` | Stack folder under `stacks/` to launch (sets `AIRSTACK_STACK_DIR` for `airstack up`); the `wiring` test drift-checks against `stacks/<name>/wiring.md` |
+| `--fleet` | `None` (legacy `--num-robots` behavior) | `airstack_env` | Fleet preset under `config/fleets/` (e.g. `sim_three_mixed`); sets `FLEET_CONFIG_FILE` and derives `NUM_ROBOTS` from the fleet's robot count, **overriding `--num-robots`** |
 | `--stress-iterations` | `1` | `airstack_env` | Up/down cycles per `(sim, num_robots)` |
 | `--stable-duration` | `120` | `system.test_liveliness::test_stable` and `system.test_sensors::test_sensor_streams_stable` | Total seconds polled |
 | `--stable-interval` | `10` | `system.test_liveliness::test_stable` and `system.test_sensors::test_sensor_streams_stable` | Seconds between polls |
@@ -290,8 +312,9 @@ If your test...
 
 - Builds a Docker image → reuse `build_docker`
 - Builds a colcon workspace → reuse `build_packages`
-- Verifies the running stack → `liveliness` (infra); sensor topic rates / LiDAR / RTF → `sensors`
-- Drives the autonomy stack to fly → reuse `takeoff_hover_land`
+- Verifies the running stack → `liveliness` (infra); sensor topic rates / LiDAR / RTF → `sensors`; ROS-graph topology drift → `wiring`
+- Drives the autonomy stack to fly → reuse `takeoff_hover_land`; fixed-pattern path tracking → `autonomy`; waypoint navigation → `waypoint_flight`
+- Pins a CLI/docs/stack contract with no Docker stack → a `unit`-marked contract test in `tests/meta/`
 - Doesn't fit any of these → **register a new mark in `tests/pytest.ini`** before using it. Update the table in `tests/README.md` and the AGENTS.md "System Test Suite" table at the same time.
 
 ### 2. File location and naming
@@ -428,6 +451,7 @@ python tests/parse_metrics.py \
 
 - `tests/conftest.py` — pytest hooks + the `airstack_env` / `robot_autonomy_stack` fixtures (re-exports the harness API)
 - `tests/harness/` — helpers split by concern: `session`, `discovery`, `commands`, `containers`, `metrics` (`MetricsRecorder`), `run_meta`, `test_ids`, `sim`, `collection` (ordering)
+- `tests/meta/` — fast contract tests (`unit` mark) pinning CLI/docs/stack contracts
 - `tests/pytest.ini` — mark registration, log format
 - `tests/parse_metrics.py` — markdown reporter, regression diff
 - `tests/README.md` — user-facing docs (CLI options, output layout, CI/CD orchestrator)

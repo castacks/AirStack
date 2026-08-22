@@ -497,8 +497,8 @@ Solution: Added scipy dependency
   - [Debugging with GDB](https://docs.ros.org/en/jazzy/Tutorials/Debugging/Debugging-CPP.html)
 
 - **AirStack:**
-  - [Integration Checklist](../docs/robot/autonomy/integration_checklist.md)
-  - [System Architecture](../docs/robot/autonomy/system_architecture.md)
+  - [Integration Checklist](../../../docs/robot/autonomy/integration_checklist.md)
+  - [System Architecture](../../../docs/robot/autonomy/system_architecture.md)
 
 - **Related Skills:**
   - [add-ros2-package](../add-ros2-package)

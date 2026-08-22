@@ -22,18 +22,18 @@ on:
 
 jobs:
   system-tests:
-    uses: castacks/AirStack/.github/workflows/module-system-tests.yml@v0.19.0
+    uses: castacks/AirStack/.github/workflows/module-system-tests.yml@develop
     with:
-      airstack_ref: v0.19.0    # pin and checkout ref move together
+      airstack_ref: develop    # pin and checkout ref move together
       marks: "build_packages or liveliness"
       sim: isaacsim
     secrets: inherit           # castacks org secrets → registry image cache
 ```
 
-Pin the workflow ref (`@v0.19.0`) and `airstack_ref` **together** — the
-workflow version and the trunk it tests should move as one. During
-pre-release development both may point at a branch; re-pin to a release tag
-as soon as one exists.
+Pin the workflow ref and `airstack_ref` **together** — the workflow version
+and the trunk it tests should move as one. During pre-release development
+both point at the `develop` branch (as above); **pin both to a release tag
+(e.g. `@v0.19.0`) as soon as one exists**.
 
 `secrets: inherit` passes the castacks **org secrets**
 `DOCKER_REGISTRY_URL` / `DOCKER_REGISTRY_USERNAME` / `DOCKER_REGISTRY_PASSWORD`

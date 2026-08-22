@@ -2,7 +2,7 @@
 
 ## Bag Recording
 
-AirStack provides automated bag recording capabilities for capturing ROS2 topic data during flights. The main node for bag recording is located at [common/ros_packages/bag_recorder_pid](../../common/ros_packages/bag_recorder_pid). For detailed configuration options and implementation details, please consult the README in that directory.
+AirStack provides automated bag recording capabilities for capturing ROS2 topic data during flights. The main node for bag recording is located at [common/ros_packages/logging/bag_recorder_pid](../../../common/ros_packages/logging/bag_recorder_pid/README.md). For detailed configuration options and implementation details, please consult the README in that directory.
 
 ### Enabling Bag Recording
 

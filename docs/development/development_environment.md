@@ -4,7 +4,7 @@ Configure your development environment for optimal AirStack development workflow
 
 ## Prerequisites
 
-- Completed [Getting Started](../getting_started.md)
+- Completed [Getting Started](../getting_started/index.md)
 - Docker and Docker Compose installed
 - Basic familiarity with ROS 2 and Linux
 

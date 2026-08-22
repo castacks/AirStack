@@ -65,7 +65,7 @@ Sensors → Perception → World Models → Planners → Controllers → Interfa
 
 Each layer has:
 - **Module packages**: Individual algorithm implementations (e.g., `droan_local_planner`)
-- **Bringup package**: Orchestrates layer launch with topic remapping (e.g., `local_bringup`)
+- **Stack entry launch files**: The launch topology and topic remapping live in the selected stack (e.g., `stacks/full_default/launch/stack.launch.xml`), not in per-layer bringup packages (the old `local_bringup`-style packages were removed)
 
 **Key Insight:** Understanding "what connects to what" is critical. See [Integration Checklist](docs/robot/autonomy/integration_checklist.md) and [System Architecture](docs/robot/autonomy/system_architecture.md).
 
@@ -94,6 +94,7 @@ For detailed step-by-step instructions, refer to the **`.agents/skills/`** direc
 | [add-ros2-package](.agents/skills/add-ros2-package) | Creating a new algorithm module package |
 | [add-task-executor](.agents/skills/add-task-executor) | Implementing a task executor as a ROS 2 action server |
 | [create-module](.agents/skills/create-module) | Packaging a capability as a standalone module repo (thin `module.yaml` manifest, canonical-default launch args, `test_stack/`, CI caller) per RFC #379 |
+| [extract-module](.agents/skills/extract-module) | Extracting an existing in-tree capability into a standalone module repo: history extraction, trunk-removal checklist, duplicate-package sequencing, stale-colcon-cache warning, module CI |
 | [create-stack](.agents/skills/create-stack) | Creating a stack folder (`airstack stack new`), editing entry launch files, bootstrapping `wiring.md`, split stacks + `bridge.yaml` |
 | [integrate-module-into-layer](.agents/skills/integrate-module-into-layer) | Integrating a ROS 2 module into a **stack** (entry launch file, single-locus wiring rule, wiring.md regeneration) — the old layer-bringup workflow is legacy |
 | [write-launch-file](.agents/skills/write-launch-file) | Authoring ROS 2 launch files with AirStack conventions (ROBOT_NAME namespacing, topic remapping, allow_substs) |
@@ -102,6 +103,8 @@ For detailed step-by-step instructions, refer to the **`.agents/skills/`** direc
 | [attach-gossip-payload](.agents/skills/attach-gossip-payload) | Broadcasting custom ROS messages to peers via PeerProfile gossip payloads |
 | [debug-module](.agents/skills/debug-module) | Autonomous debugging of ROS 2 modules |
 | [update-documentation](.agents/skills/update-documentation) | Documenting new modules and updating mkdocs |
+| [write-mkdocs-documentation](.agents/skills/write-mkdocs-documentation) | Writing effective MkDocs documentation: organization, flow, visuals, markdown syntax, navigation structure, module vs system docs, quality checks |
+| [docker-build-profiles](.agents/skills/docker-build-profiles) | Compose profiles and build args — adding a robot profile, YAML quoting, the L4T/Jetson build chain, module-owned deps entering images via module layers (`airstack module lock --build`) |
 | [test-in-simulation](.agents/skills/test-in-simulation) | End-to-end simulation testing of a module |
 | [add-unit-tests](.agents/skills/add-unit-tests) | Adding Python or C++ unit tests to a ROS 2 package (co-located test/ dir listed in colcon_unit_test_packages.yaml, CI workflow, extending to sim/GCS) |
 | [run-system-tests](.agents/skills/run-system-tests) | Running the pytest system test harness (marks, MetricsRecorder, /pytest PR trigger) |
@@ -122,7 +125,7 @@ For detailed step-by-step instructions, refer to the **`.agents/skills/`** direc
 7. Follow `debug_module.md` and `test_in_simulation.md` to verify, saving artifacts under `notebook/NNN-feature-slug/results/<letter>-<section>/`
 8. Write `results/results_summary.md` (embedded tables + figures) and populate the PR body from it
 
-Also see: [AI Agent Quick Guide](docs/development/ai_agent_guide.md)
+Also see: [AI Agent Quick Guide](docs/development/advanced/ai_agent_guide.md)
 
 ## Feature Notebook (`notebook/`)
 
@@ -296,7 +299,7 @@ When a module doesn't work:
 6. Add instrumentation (debug publishers, logging)
 7. Create minimal reproduction test
 
-See detailed debugging workflow: [.agents/skills/debug_module](.agents/skills/debug_module)
+See detailed debugging workflow: [.agents/skills/debug-module](.agents/skills/debug-module)
 
 ## CI/CD
 
@@ -374,7 +377,7 @@ For major features or cross-cutting concerns, create docs in `docs/`:
 ### 4. Update Layer Overview
 Edit `docs/robot/autonomy/<layer>/index.md` to mention the new module.
 
-**Complete workflow:** [.agents/skills/update_documentation](.agents/skills/update_documentation)
+**Complete workflow:** [.agents/skills/update-documentation](.agents/skills/update-documentation)
 
 ## Package Templates
 
@@ -479,10 +482,10 @@ This guide supersedes `CLAUDE.md` (which now symlinks here). Key updates:
 ## Additional Resources
 
 ### Comprehensive Guides
-- [AI Agent Quick Guide](docs/development/ai_agent_guide.md) - Quick reference for agents
+- [AI Agent Quick Guide](docs/development/advanced/ai_agent_guide.md) - Quick reference for agents
 - [Integration Checklist](docs/robot/autonomy/integration_checklist.md) - Module integration requirements
 - [System Architecture](docs/robot/autonomy/system_architecture.md) - Architecture diagrams and data flow
-- [Contributing Guide](docs/development/contributing.md) - Development workflow and PR process
+- [Contributing Guide](docs/development/intermediate/contributing.md) - Development workflow and PR process
 
 ### ROS 2 Documentation
 - [ROS 2 Jazzy Tutorials](https://docs.ros.org/en/jazzy/Tutorials.html)
@@ -494,7 +497,7 @@ This guide supersedes `CLAUDE.md` (which now symlinks here). Key updates:
 - [Autonomy Stack Overview](docs/robot/autonomy/index.md)
 - [Isaac Sim Setup](docs/simulation/isaac_sim/index.md)
 - [Microsoft AirSim (legacy) Setup](docs/simulation/ms-airsim/index.md)
-- [Testing Guide](docs/development/testing/index.md)
+- [Testing Guide](docs/development/intermediate/testing/index.md)
 
 ### External Tools
 - [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) - Documentation framework
@@ -502,4 +505,4 @@ This guide supersedes `CLAUDE.md` (which now symlinks here). Key updates:
 
 ---
 
-**For Agents:** Start with the [AI Agent Quick Guide](docs/development/ai_agent_guide.md) and refer to `.agents/skills/` for specific workflows. Study reference implementations before creating new modules.
+**For Agents:** Start with the [AI Agent Quick Guide](docs/development/advanced/ai_agent_guide.md) and refer to `.agents/skills/` for specific workflows. Study reference implementations before creating new modules.

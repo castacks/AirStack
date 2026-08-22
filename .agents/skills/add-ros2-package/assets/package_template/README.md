@@ -254,7 +254,7 @@ airstack up isaac-sim robot
 # Run test scenario...
 ```
 
-See [test_in_simulation.md](../../.agents/skills/test_in_simulation.md) for detailed testing procedures.
+See the [test-in-simulation skill](../../../test-in-simulation/SKILL.md) for detailed testing procedures.
 
 ## Visualization
 

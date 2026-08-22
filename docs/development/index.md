@@ -27,8 +27,9 @@ Welcome to AirStack development! This guide will help you extend and customize t
 
 - **[Testing Guide](intermediate/testing/index.md)** - Test your modules effectively
   - [Unit Testing](intermediate/testing/unit_testing.md)
-  - [Integration Testing](intermediate/testing/integration_testing.md)
-  - [System Testing](intermediate/testing/system_testing.md)
+  - [Integration Testing](intermediate/testing/index.md)
+  - [System Testing](../../tests/README.md)
+  - [End-to-End Testing](intermediate/testing/end_to_end_testing.md)
   - [CI/CD](intermediate/testing/ci_cd.md)
 - **[Frame Conventions](intermediate/frame_conventions.md)** - Coordinate frame standards
 - **[Docker Build Profiles](intermediate/docker-build-profiles.md)** - Robot image build args and platform profiles (`robot-desktop`, `robot-l4t`, etc.)
@@ -41,6 +42,9 @@ Welcome to AirStack development! This guide will help you extend and customize t
 **Deep dives** into advanced topics:
 
 - **[AI Agent Guide](advanced/ai_agent_guide.md)** - Automate development with AI
+- **[AirStack Modules](modules.md)** - Package capabilities as pinned external module repos
+- **[AirStack Stacks](stacks.md)** - Self-contained topology folders with observed wiring
+- **[AirStack Fleets](fleets.md)** - Declare whole deployments (robots, vehicles, stacks) in one file
 - **[Extending the CLI](advanced/airstack-cli/extending.md)** - Add custom CLI commands
 - **[CLI Architecture](advanced/airstack-cli/architecture.md)** - Understand CLI internals
 
@@ -50,8 +54,8 @@ Welcome to AirStack development! This guide will help you extend and customize t
 
 | Task | Guide |
 |------|-------|
-| Add a new planner | [Integration Checklist](../robot/autonomy/integration_checklist.md) |
-| Add a world model | [Integration Checklist](../robot/autonomy/integration_checklist.md) |
+| Add a new planner | [AirStack Modules](modules.md) + [create-module skill](../../.agents/skills/create-module/SKILL.md) |
+| Add a world model | [AirStack Modules](modules.md) + [create-module skill](../../.agents/skills/create-module/SKILL.md) |
 | Create simulation scene | [Isaac Sim Setup](../simulation/isaac_sim/pegasus_scene_setup.md) |
 | Debug a module | [VSCode Debugging](beginner/vscode/vscode_debug.md) |
 | Build robot images for a platform | [Docker Build Profiles](intermediate/docker-build-profiles.md) |

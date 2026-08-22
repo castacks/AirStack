@@ -7,16 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+This release carries the **Modular AirStack campaign**
+([RFC #379](https://github.com/castacks/AirStack/discussions/379) /
+[RFC #380](https://github.com/castacks/AirStack/discussions/380)): the monolith
+splits into **modules** (thin external repos pulled on demand), **stacks**
+(self-contained topology folders under `stacks/`), and **fleets**
+(`config/fleets/` — who exists, which vehicle, which stack, which ground hosts).
+
+### New repositories
+
+- [castacks/airstack-modules-index](https://github.com/castacks/airstack-modules-index) — the module/stack registry (one YAML per entry; DECLARED compat in the entry, VERIFIED compat CI-stamped under `compat/`)
+- [castacks/asm_macvo](https://github.com/castacks/asm_macvo) — MAC-VO learned stereo visual odometry, extracted from trunk
+- [castacks/asm_optitrack](https://github.com/castacks/asm_optitrack) — OptiTrack NatNet mocap integration (natnet_ros2 client, PX4 external-vision fusion, Motive-compatible NatNet server emulator for Isaac Sim), extracted from trunk
+- [castacks/asm_dfm2_disturbances](https://github.com/castacks/asm_dfm2_disturbances) — Isaac Sim disturbance library (fan/vent force fields, strobe lights, lens flare)
+
 ### Added
 
+- `airstack up --stack <name>[:<entry>]` stack dispatch with **5 reference stacks** under `stacks/` (`full_default`, `full_droan_cpu`, `full_macvo`, `lite_default`, `lite_offload_global`), each carrying pinned `modules.repos` and a CI-observed `wiring.md` graph baseline
+- Module CLI — `airstack module add <url> --version <tag|sha>` (branches refused; local paths allowed), `list|sync|remove|create --in-tree|doctor`, workspace **overlay** of module packages, and auto-generated module compose overrides included by `airstack up`; Docker **module layers** composed via `modules.lock` (`airstack module lock --build`)
+- Fleet system (RFC #380): `airstack up --fleet <name>` driven by `config/fleets/*.yaml` (identity, vehicle from `config/vehicles/`, stack selection, spawns) with `hosts:` split-stack placement onto ground hosts; `airstack fleet list|generate` per-robot compose for heterogeneous fleets; `airstack sync` reconciles `airstack.yaml` (modules, external stack repos, fleet validation)
+- `airstack doctor [--live|--snapshot] [--stack NAME]` — observe-and-report checks with exactly **two hard gates** (module dependency-conflict gate; bridge gate: no control-setpoint / trajectory-group topics may cross a split-stack bridge); `--live` diffs the RUNNING ROS graph against the stack's committed `wiring.md`
+- `airstack stack list|new <src> <dst>|diff <a> <b>` (diff compares generated wiring, not launch XML) — complementing `airstack ready` (below)
+- `tests/meta/` contract-test tier (unit mark) pinning the CLI/docs/stack contracts, plus the `wiring` system-test mark: an observed wiring snapshot of the running graph drift-checked against the stack's committed `stacks/<name>/wiring.md`
+- Split-stack bridging: `stacks/lite_offload_global/bridge.yaml` explicitly lists every boundary crossing and `tools/gen_dds_router.py` generates the DDS-router config from it deterministically (`--check` enforces bridge hard gate #2)
+- New docs pages: [Modules](docs/development/modules.md), [Stacks](docs/development/stacks.md), [Fleets](docs/development/fleets.md), [Module CI](docs/development/module_ci.md), the generated [Module & Stack Catalog](docs/modules/index.md) marketplace, and the [Modular AirStack Walkthrough](docs/getting_started/modular_airstack.md)
 - Intent flags on `airstack up` — `--sim isaac|airsim`, `--robots N`, `--headless`, `--play`/`--no-play`, `--no-autolaunch`, `--wait`, `--dry-run` — deriving the coordinated env-var sets (compose profiles, URDF, single/multi Isaac launch script) as exported leaf values, with a resolved-config banner and a per-run `.airstack/runs/<ts>/effective_config.env` dump; contract-tested in `tests/meta/test_launch_intent_contract.py` (unit mark)
 - `airstack ready` (and `airstack up --wait`): staged flight-readiness gates mirroring the system-test budgets — containers → sim `/clock` → per-robot sentinel nodes → PX4 MAVROS-connected + `local_position/odom` streaming (the armable signal) — with per-gate diagnostics and `--json` for scripts
 - Preflight validation in `airstack up` on **resolved** configuration (env > `--env-file` > `.env`): one-simulator guard no longer bypassed by `--env-file`; `NUM_ROBOTS>1` with the single-drone Isaac script is a named hard error; missing images are listed with an `image-pull` hint before compose starts an implicit build; missing `omni_pass.env` / empty Pegasus submodule / Docker < 29 surfaced on the host (`AIRSTACK_SKIP_PREFLIGHT=1` downgrades errors to warnings)
 - tmux pane output is mirrored to container stdout via shared `.tmux.conf` hooks, so `docker logs` / `airstack logs` now show colcon builds, `ros2 launch` output, sim loading, and crashes
 
 - Automatic `unit-tests.yml` PR gate on `ubuntu-latest`, plus `run_meta.json` outcome metadata so reports distinguish completed simulation campaigns from collection errors, empty selections, timeouts, and cancellations
-- `overrides/isaac-optitrack-simulation.env` — brings up Isaac Sim with the NatNet emulator and PX4 flying on mocap EKF2 external vision (GPS/baro/range aiding off), i.e. the configuration `tests/system/test_optitrack_e2e.py` runs, reproducible by hand
-- `overrides/l4t-optitrack-realrobot.env` — deployment override for a real Jetson robot flying on OptiTrack mocap (PX4 EKF2 external vision instead of GPS): the NatNet server/body settings, plus the multi-NIC and FCU-parameter notes that path needs
 - Feature notebook workflow (`use-feature-notebook` skill): every agent-implemented feature gets a local, gitignored `notebook/NNN-feature-slug/` entry with a status-tracked `design_spec.md` (written before coding) and `results/` artifacts + self-contained `results_summary.md` that populate the feature's PR description
 - Battery and telemetry display in GCS RQT control panel (voltage and percentage per robot when MAVROS battery topic is bridged)
 - `TARGET_ARCH` build arg (default `x86_64`) in `Dockerfile.robot` to arch-parametrize `LD_LIBRARY_PATH`; `docker-compose.yaml` passes `TARGET_ARCH: aarch64` to the `voxl` and `l4t` real-robot image builds
@@ -24,12 +44,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `overrides/l4t-px4-realrobot.env` — site-agnostic deployment override for a single real PX4 robot on a Jetson (aarch64/l4t)
 - `integration` test tier (`tests/integration/`, `integration` mark) with a shared `robot_autonomy_stack` fixture (robot container, no sim/GPU)
 - `waypoint_flight` system test (`tests/system/test_waypoint_flight.py`): takeoff → ordered waypoint route via `NavigateTask` (dispatched as a dense plan) → land, judged on the odometry track by the standalone stdlib-only `tests/waypoint_checker.py` (in-order corridor arrival within `--waypoint-tolerance`, final goal within `--goal-tolerance`, per-waypoint `--waypoint-timeout`); validated end-to-end in Isaac Sim; serves as the standard acceptance check after integrating or swapping a planner module
-- Real-robot PX4 external-vision fusion in `natnet_ros2` (OptiTrack mocap → EKF2): `mavros_gp_origin` (geoid-corrected synthetic GPS origin so `local_position.z` == OptiTrack z, fixing the ~36 m boot offset), `vision_pose_converter`, and a PX4 param **checker** (`px4_param_setter`, `auto_set` off by default; `on_mismatch` warn/halt) — setup guide at `docs/robot/px4_external_vision.md`
-- NatNet server emulator (`optitrack.natnet.emulator`, protocol core) — pure-Python OptiTrack Motive server emulation so `natnet_ros2` can be driven without hardware; host integration tests (`tests/integration/natnet/`) wire it to the robot client
-- Isaac wrapper for the NatNet emulator (USD scene → server) + natnet Pegasus launch scripts, and a dedicated OptiTrack sim e2e test (`optitrack` mark, `tests/system/test_optitrack_e2e.py`) that flies a **Circle trajectory on mocap EKF2 fusion** — GPS, baro and range aiding are disabled for the run, so the OptiTrack stream is the vehicle's only position source and cross-track error scores the whole chain
 
 ### Changed
 
+- **Stacks are the only launch path**: the autonomy topology is selected by `AIRSTACK_STACK_DIR`/`AIRSTACK_STACK_ENTRY` (exported by `airstack up --stack`), dispatched in `autonomy_bringup/launch/robot.launch.xml`. A set `AUTONOMY_ROLE` is now a **preflight hard error**; with no `--stack`, **`full_default`** is the default, machine-proven graph-identical to the old `AUTONOMY_ROLE=full`
+- `robot-desktop` image slimmed **17.1 GB → 6.06 GB (−65%)** by moving MACVO's torch/TensorRT/weights into the `asm_macvo` module Docker layer — the composed image carries the 11.3 GB layer only for MACVO users
+- Shared DDS-router configs moved out of the per-role `onboard_all/` tree up to `autonomy_bringup/config/`; the split-stack router config is now **generated** from the stack's `bridge.yaml` by `tools/gen_dds_router.py` (the generated config deliberately drops the legacy split's `set_trajectory_mode` crossing — doctor hard gate #2)
 - Isaac launch scripts deduplicated onto a shared `pegasus_app.PegasusApp` base (`simulation/isaac-sim/launch_scripts/pegasus_app.py`): the six scripts become scenario declarations (~40–170 lines each, net −438 lines) with hooks for NatNet/scene-import extras; behavior verified by full system-test parity (liveliness, sensors, takeoff/hover/land on Isaac). `ISAAC_SIM_HEADLESS` and `ISAAC_SIM_LIVESTREAM` now work uniformly in **every** launch script (previously each was honored by only half of them)
 - Launch-workflow docs corrected against actual behavior: `ISAAC_SIM_SCENE` (nonexistent) replaced by `ISAAC_SIM_SCRIPT_NAME`/`ISAAC_SIM_GUI`, getting-started reflects the paused-by-default sim and Foxglove UI, isaac docker.md defaults table matches `.env`, ms-airsim MAVROS ports/FOV/vehicle naming fixed, AGENTS.md uses the real `down`/`image-build` command names
 
@@ -39,12 +59,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `-m build_packages` CI runs pull `cache_*` images instead of baking sim images
 - `docker-build.yml` retags unchanged images on VERSION bumps (content fingerprint) instead of always rebuilding; floating `cache_*` tags still seed PR layer cache
 - Automatic OSMO validation runs the pull-only `build_packages` gate whenever a PR is opened, updated, or reopened; GPU-intensive simulation campaigns (including OptiTrack) are selected through `/pytest` or `workflow_dispatch`
-- `robot-l4t` compose service knobs are now env-overridable (`AUTONOMY_ROLE`, `FCU_URL`, and the rosbag path via `BAG_STORAGE_PATH`); `FCU_URL` unquoted so the literal serial path reaches MAVROS
+- `robot-l4t` compose service knobs are now env-overridable (`AUTONOMY_ROLE` (removed on this branch — see below), `FCU_URL`, and the rosbag path via `BAG_STORAGE_PATH`); `FCU_URL` unquoted so the literal serial path reaches MAVROS
 - `zed-l4t` image: ZED SDK 4.2 → 5.2 with the coupled ROS deps (`zed_msgs` 5.2.1, `point_cloud_transport(_plugins)` 4.x, add `backward_ros`)
 - Unit tests are defined by `tests/colcon_unit_test_packages.yaml`: `conftest.py` collects each listed package's co-located `test/` dir under `--import-mode=importlib` and marks it `unit` (ament lint files are skipped and run under `colcon test`)
 
 ### Removed
 
+- The legacy `AUTONOMY_ROLE` launch dispatch and its per-role launch trees (`onboard_all/`, `onboard_local_offboard_global/`) — stacks are the only launch path; a set `AUTONOMY_ROLE` is a preflight error
+- **MACVO extracted from trunk** to [castacks/asm_macvo](https://github.com/castacks/asm_macvo) (install with `airstack module add`)
+- **OptiTrack/NatNet extracted from trunk** to [castacks/asm_optitrack](https://github.com/castacks/asm_optitrack): the `natnet_ros2` client + PX4 external-vision fusion, the NatNet server emulator and its Isaac wrapper, the `optitrack` e2e test, the host integration tests, and the `isaac-optitrack-simulation.env` / `l4t-optitrack-realrobot.env` overrides all live in the module repo now
+- The stillborn `ensemble_planner` skeleton
+- The legacy Gazebo parallel-bringup tree (8 dead files under `exploration/launch/robot_launch_gazebo/`)
+- `tests/goldens/wiring/` — wiring baselines now live per-stack as `stacks/<name>/wiring.md`
 - Pre-co-location unit-test scaffolding: the six per-layer stub READMEs under `tests/robot/` (which instructed authors to add tests in directories tests no longer live in) and `tests/sim/motive_emulator/README.md` (superseded by `simulation/isaac-sim/extensions/optitrack.natnet.emulator/` and `tests/integration/natnet/`)
 
 ### Fixed

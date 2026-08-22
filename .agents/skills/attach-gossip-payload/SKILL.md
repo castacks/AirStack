@@ -1,3 +1,12 @@
+---
+name: attach-gossip-payload
+description: Broadcast any ROS message to all peer robots via the gossip protocol by attaching it as a PeerProfile payload — config-driven via gossip_payloads.yaml, with the peer_profile.py add_payload/get_payload API for consumers. Use when a module needs to share data (frontier maps, sensor summaries, task status) across robots on the gossip domain.
+license: Apache-2.0
+metadata:
+  author: AirLab CMU
+  repository: AirStack
+---
+
 # Skill: Attach Custom Payload to PeerProfile (Gossip Protocol)
 
 ## When to use

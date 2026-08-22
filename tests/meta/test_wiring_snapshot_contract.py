@@ -191,6 +191,16 @@ def test_render_extract_round_trips_graph_exactly():
     assert "```mermaid" in text
     assert ws.extract_graph_from_md(text) == graph
 
+    # The JSON trailer is rendered compact (single line, no spaces) so future
+    # baselines stay ~1k lines; extract must round-trip it regardless.
+    open_i = text.index(ws._TRAILER_OPEN) + len(ws._TRAILER_OPEN)
+    close_i = text.index(ws._TRAILER_CLOSE)
+    trailer_body = text[open_i:close_i].strip("\n")
+    assert "\n" not in trailer_body, "trailer JSON must be one compact line"
+    assert trailer_body == json.dumps(
+        graph, sort_keys=True, separators=(",", ":")
+    ), "trailer JSON must use compact separators (',', ':') and sort_keys"
+
 
 def test_diff_identical_graphs():
     graph = _sample_graph()

@@ -197,6 +197,22 @@ def test_modules_nav_section():
             )
 
 
+def test_every_nav_entry_points_at_an_existing_file():
+    """Every mkdocs nav target must exist (docs_dir is the repo root).
+
+    Guards the 404 class: a nav entry naming a moved/renamed page ships a
+    dead link on the published site without failing the build (we cannot
+    run ``mkdocs --strict`` while pre-existing warnings stand).
+    """
+    missing = [
+        path
+        for path in _flatten_nav(_load_mkdocs()["nav"])
+        if not path.startswith(("http://", "https://"))
+        and not (REPO / path).is_file()
+    ]
+    assert not missing, f"mkdocs.yml nav entries with no file on disk: {missing}"
+
+
 def test_fetched_module_checkouts_are_not_site_pages():
     exclude = _load_mkdocs().get("exclude_docs", "")
     assert "modules/**" in exclude, (

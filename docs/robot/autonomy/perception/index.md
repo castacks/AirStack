@@ -41,7 +41,7 @@ State estimation and related perception packages live under `robot/ros_ws/src/pe
 
 ## Configuration
 
-Perception parameters are configured in `perception_bringup/config/` directory. Common parameters include:
+Perception parameters live in each module package's own `config/` YAML files, overridden per-stack via launch arguments in the stack entry file (`stacks/<name>/launch/*.launch.xml`). Common parameters include:
 
 - Sensor topics to subscribe to
 - Fusion algorithm parameters

@@ -5,6 +5,7 @@ AirStack's **pytest** tree under `tests/` has these roles:
 1. **`tests/system/`** — Docker stack tests (sim + robot + GCS): liveliness, sensor Hz, takeoff/hover/land, image/workspace builds.
 2. **Unit tests** — Fast hermetic tests (`unit` mark) whose **source is co-located** with each ROS 2 package at `<package>/test/`. [`colcon_unit_test_packages.yaml`](colcon_unit_test_packages.yaml) lists which packages have unit tests, and `pytest tests/` collects them from there.
 3. **`tests/integration/`** — Cross-component tests (`integration` mark) that wire the robot container to a host-side component, without a sim or GPU.
+4. **`tests/meta/`** — Contract tests (`unit` mark) that pin the modular-AirStack CLI/docs/stack contracts (see [`tests/meta/README.md`](meta/README.md)).
 
 Pytest hooks and the shared fixtures live in `tests/conftest.py`; reusable helpers are split by concern into the [`tests/harness/`](harness/) package (re-exported through `conftest`). Use `airstack test -m unit -v` for hermetic tests only, or the marks below for the full stack.
 
@@ -20,6 +21,7 @@ Pytest hooks and the shared fixtures live in `tests/conftest.py`; reusable helpe
 |--------|------|---------------|-------------------|
 | [`system/test_build_docker.py`](system/test_build_docker.py) | `build_docker` | Docker image builds (robot-desktop, gcs, isaac-sim, ms-airsim); records image sizes | Docker daemon |
 | [`system/test_build_packages.py`](system/test_build_packages.py) | `build_packages` | `colcon build` inside each container (robot, GCS, ms-airsim ROS workspace) | Docker daemon |
+| [`system/test_wiring_snapshot.py`](system/test_wiring_snapshot.py) | `wiring` | Observed wiring snapshot of the running ROS graph (via [`wiring_snapshot.py`](wiring_snapshot.py)), drift-checked against the stack's committed `stacks/<name>/wiring.md`; writes the observed snapshot to `<run_dir>/wiring/` | Docker daemon, GPU, sim license |
 | [`system/test_liveliness.py`](system/test_liveliness.py) | `liveliness` | Stack bring-up: container Running state, ``/clock`` readiness, tmux panes, sentinel ROS 2 nodes, compute snapshot, infra-only ``test_stable`` (tmux + nodes + compute) | Docker daemon, GPU, sim license |
 | [`system/test_sensors.py`](system/test_sensors.py) | `sensors` | After liveliness in collection order: sim + robot stereo/depth Hz (**Isaac:** batched ``ros2 topic hz`` to avoid bridge overload; **ms-airsim:** single batch), filtered LiDAR via ``echo --once`` + cloud sanity (isaacsim), sim RTF, ``test_sensor_streams_stable`` | Docker daemon, GPU, sim license |
 | [`system/test_takeoff_hover_land.py`](system/test_takeoff_hover_land.py) | `takeoff_hover_land` | End-to-end flight: PX4 readiness gate, takeoff to 10 m, hover stability, land — one chain per (sim, num_robots, iteration, velocity) | Docker daemon, GPU, sim license |
@@ -46,6 +48,28 @@ tests the numpy-only range validation rules in
 
 See [Unit Testing Guide](../docs/development/intermediate/testing/unit_testing.md)
 and the `add-unit-tests` agent skill for full details.
+
+### Meta / contract tests (`tests/meta/`)
+
+Fast contract tests (`unit` mark, no Docker) that pin the RFC #379/#380 CLI,
+docs, and stack contracts so refactors cannot silently break them — see
+[`tests/meta/README.md`](meta/README.md). One line each:
+
+| File | Pins |
+|------|------|
+| [`meta/test_bridge_contract.py`](meta/test_bridge_contract.py) | Split-stack `bridge.yaml` → generated DDS-router config (`tools/gen_dds_router.py`), incl. the no-control-setpoint bridge hard gate |
+| [`meta/test_collection_contract.py`](meta/test_collection_contract.py) | Pytest collection rules: co-located unit-test injection, path narrowing, rejection of repo-root collection |
+| [`meta/test_docker_layer_plan_contract.py`](meta/test_docker_layer_plan_contract.py) | Module Docker layer composition plan (`modules.lock` → layered image build) |
+| [`meta/test_docs_catalog_contract.py`](meta/test_docs_catalog_contract.py) | Generated `docs/modules/` catalog: determinism, drift `--check`, nav entries exist, deploy workflows fetch module docs |
+| [`meta/test_doctor_contract.py`](meta/test_doctor_contract.py) | `airstack doctor` checks: observe-and-report semantics and the two hard gates |
+| [`meta/test_fleet_contract.py`](meta/test_fleet_contract.py) | Fleet file schema/validation, per-robot compose generation, fleet resolver |
+| [`meta/test_launch_intent_contract.py`](meta/test_launch_intent_contract.py) | `airstack up` intent flags → derived env-var sets (profiles, URDF, sim script) |
+| [`meta/test_launch_single_locus.py`](meta/test_launch_single_locus.py) | Repo-wide launch lint: wiring lives in exactly one locus (stack entry files), allowlist in [`meta/launch_lint_allowlist.txt`](meta/launch_lint_allowlist.txt) |
+| [`meta/test_metrics_reporting_contract.py`](meta/test_metrics_reporting_contract.py) | `parse_metrics.py` campaign comparability and regression semantics |
+| [`meta/test_module_manifest_contract.py`](meta/test_module_manifest_contract.py) | `module.yaml` manifest schema + validator behavior |
+| [`meta/test_module_overlay_contract.py`](meta/test_module_overlay_contract.py) | Module workspace overlay (sync/clone/overlay/remove artifacts) |
+| [`meta/test_stack_layout_contract.py`](meta/test_stack_layout_contract.py) | Stack folder anatomy: entry launch files, `modules.repos`, no dispatcher inside entries |
+| [`meta/test_wiring_snapshot_contract.py`](meta/test_wiring_snapshot_contract.py) | The wiring-snapshot tool itself: snapshot format, normalization, drift detection |
 
 ### Integration tests (`tests/integration/`)
 
@@ -75,6 +99,8 @@ Marks can be combined with pytest logic:
 | [`harness/commands.py`](harness/commands.py) | Subprocess / `docker exec` / `ros2` helpers with per-test output capture (`airstack_cmd`, `docker_exec`, `ros2_exec`, `read_log_tail`) |
 | [`harness/containers.py`](harness/containers.py) | Container discovery, compute-usage sampling, image checks (`find_container`, `wait_for_container`, `sample_compute_usage`, `missing_images`) |
 | [`harness/metrics.py`](harness/metrics.py) | `MetricsRecorder`, `get_metrics`, `current_test_id` (writes `metrics.json`) |
+| [`harness/run_meta.py`](harness/run_meta.py) | `run_meta.json` outcome metadata: pytest exit status, campaign fingerprint, completed-vs-infrastructure outcomes |
+| [`harness/test_ids.py`](harness/test_ids.py) | Test-id parsing/formatting shared by metrics recording and reporting |
 | [`harness/sim.py`](harness/sim.py) | `SIM_CONFIG` sim targets + ros2 topic sampling (`sample_hz`, `parallel_sample_hz`, `wait_for_first_message`) |
 | [`harness/collection.py`](harness/collection.py) | Cross-module test ordering + parametrize-id rewrite (`modify_items`) |
 
@@ -116,8 +142,9 @@ Writes custom metrics to `tests/results/<timestamp>/metrics.json` after each `re
 
 ### Output files
 
-Every test run produces a timestamped directory containing only `summary.txt`,
-`results.xml`, `run_meta.json`, and `metrics.json` — there is **no** `logs/` subdirectory and no
+Every test run produces a timestamped directory containing `summary.txt`,
+`results.xml`, `run_meta.json`, and `metrics.json` (plus a `wiring/` subdirectory
+when the `wiring` mark runs) — there is **no** `logs/` subdirectory and no
 per-test log files are written under the run directory.
 
 ```
@@ -126,7 +153,8 @@ tests/results/
     ├── summary.txt        # Human-readable key metrics — open this first
     ├── results.xml        # JUnit XML — test durations and pass/fail status
     ├── run_meta.json      # Completion/outcome and campaign fingerprint
-    └── metrics.json       # Custom metrics (image sizes, Hz, compute, timing)
+    ├── metrics.json       # Custom metrics (image sizes, Hz, compute, timing)
+    └── wiring/            # (wiring mark only) observed_<stack>.md graph snapshots
 ```
 
 Live test output goes to the terminal (pytest `log_cli`). On failure, assertion
@@ -224,11 +252,13 @@ pytest tests/ -m sensors \
 |--------|---------|-------------|
 | `--sim` | `isaacsim` | Comma-separated sim targets (`msairsim` opt-in) |
 | `--num-robots` | `1,3` | Comma-separated robot counts |
-| `--stress-iterations` | `3` | Up/down cycles per (sim, num_robots) config |
+| `--stack` | _(none)_ | Stack folder under `stacks/` to launch (sets `AIRSTACK_STACK_DIR`); default dispatch is `stacks/full_default`. The `wiring` mark drift-checks against `stacks/<name>/wiring.md` |
+| `--fleet` | _(none)_ | Fleet preset under `config/fleets/` (sets `FLEET_CONFIG_FILE`); derives `NUM_ROBOTS` from the fleet's robot count, overriding `--num-robots` |
+| `--stress-iterations` | `1` | Up/down cycles per (sim, num_robots) config |
 | `--stable-duration` | `120` | Seconds ``test_stable`` / ``test_sensor_streams_stable`` poll for |
 | `--stable-interval` | `10` | Seconds between polls in those stability tests |
 | `--gui` | off | Show simulator GUI (disables headless mode) |
-| `--takeoff-velocities` | `0.5,1,2` | Takeoff/land speeds in m/s |
+| `--takeoff-velocities` | `0.5` | Takeoff/land speeds in m/s (e.g. `0.5,1,2` to sweep) |
 
 ---
 
