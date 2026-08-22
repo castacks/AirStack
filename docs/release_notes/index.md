@@ -269,6 +269,10 @@ out-of-trunk modules:
 - Isaac Sim `standalone_examples` copies, stale robot-docker helpers, the
   `ensemble_planner` skeleton, the Gazebo parallel-bringup tree, and
   pre-co-location test scaffolding
+- trajectory_library's vestigial rqt selector (catkin-era GUI source,
+  `plugin.xml`, `setup.py`, launcher script — never installed by its
+  CMakeLists), the orphaned behavior-tree docs images, and an empty
+  integration-testing stub page
 - `tests/goldens/wiring/` — wiring baselines live per-stack as
   `stacks/<name>/wiring.md`
 

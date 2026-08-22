@@ -87,5 +87,4 @@ airstack test -m "build_packages or autonomy" \
 
 - [Unit Testing](unit_testing.md) — `@pytest.mark.unit`, co-located tests, CI workflow
 - [Testing frameworks](testing_frameworks.md) — `colcon test`, rostest patterns
-- [Integration testing](integration_testing.md)
 - [CI/CD Pipeline on OSMO](ci_cd.md) — automatic unit/build gates, selectable full-stack GPU campaigns, triggers, and like-for-like metrics reporting
