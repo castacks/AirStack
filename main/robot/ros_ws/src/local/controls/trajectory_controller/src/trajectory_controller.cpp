@@ -302,7 +302,18 @@ void TrajectoryControlNode::timer_callback() {
                     virtual_time, search_ahead_factor * get_sphere_radius(closest_ahead_wp.velocity().length()),
                     prev_vtp_time + look_ahead_time, robot_point, get_sphere_radius(closest_ahead_wp.velocity().length()),
                     min_virtual_tracking_velocity, &vtp_wp, &end_wp);
-                if (vtp_valid) current_virtual_ahead_time = vtp_wp.get_time() - virtual_time;
+                if (vtp_valid) {
+                    current_virtual_ahead_time = vtp_wp.get_time() - virtual_time;
+                } else {
+                    // Keep the tracking point ahead when sphere intersection fails so the
+                    // controller does not collapse onto the robot projection and stall.
+                    Waypoint ahead_wp(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+                    if (trajectory->get_waypoint_distance_ahead(
+                            virtual_time, get_sphere_radius(closest_ahead_wp.velocity().length()),
+                            &ahead_wp)) {
+                        current_virtual_ahead_time = ahead_wp.get_time() - virtual_time;
+                    }
+                }
 
                 // visualization
                 if (vtp_valid)
@@ -320,14 +331,17 @@ void TrajectoryControlNode::timer_callback() {
                     .add_sphere(target_frame, now,
                                 end_wp.get_x(), end_wp.get_y(), end_wp.get_z(), 0.025f)
                     .set_color(0.f, 0.f, 1.f);
-            } else{
-                RCLCPP_INFO(this->get_logger(), "AHEAD NOT VALID");
-		
-	        markers
-  		    .add_sphere(target_frame, now, robot_point.x(),
-		  	        robot_point.y(), robot_point.z(), 1.)
-		    .set_color(1.f, 0.f, 0.f, 0.7f);
-	    }
+            } else {
+                RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+                                     "AHEAD NOT VALID — advancing virtual_time by elapsed sim time");
+                virtual_time = std::min(trajectory->get_duration(),
+                                        virtual_time + time_multiplier * execute_elapsed);
+
+                markers
+                    .add_sphere(target_frame, now, robot_point.x(), robot_point.y(), robot_point.z(),
+                                1.)
+                    .set_color(1.f, 0.f, 0.f, 0.7f);
+            }
         } else {
             if (new_rewind) {
                 float before = virtual_time;

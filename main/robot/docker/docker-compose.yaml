@@ -14,10 +14,16 @@ services:
       dockerfile: ./Dockerfile.robot
       args:
         BASE_IMAGE: nvidia/cuda:13.0.2-base-ubuntu24.04
+        ROS_DISTRO: jazzy
       tags:
         - *desktop_image
+        # Floating tag republished by docker-build.yml on main/develop. The
+        # versioned tag above never exists yet on a PR (check-version-increment
+        # forces VERSION up), so it can only ever be a cache miss.
+        - &desktop_cache ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:${CACHE_TAG:-cache}_robot-x86-64_${DOCKER_IMAGE_BUILD_MODE}
       cache_from:
         - *desktop_image
+        - *desktop_cache
     # we use tmux sd-keys so that the session stays alive
     environment:
       - ROBOT_NAME_SOURCE=container_name # see .bashrc
@@ -26,10 +32,16 @@ services:
       - LAUNCH_PACKAGE=desktop_bringup  # desktop_bringup adds RViz; real robots use autonomy_bringup
       - AUTONOMY_ROLE=full
       - SIM_IP=${SIM_IP:-172.31.0.200}
+      - LAUNCH_NATNET=${LAUNCH_NATNET:-false}
       # FCU_URL and TGT_SYSTEM not set, dynamically calculated in interface.launch.py
     # 'command' uses variables so that it can be shared across robot-desktop and robot-l4t, with different launch packages and roles.
     command: >
       bash -c "
+      if [ -z \"$$DISPLAY\" ] && command -v Xvfb >/dev/null 2>&1; then
+        tmux new -d -s xvfb 'Xvfb :99 -screen 0 1280x720x24 -ac +extension GLX +render -noreset 2>&1 | tee /tmp/xvfb.log';
+        export DISPLAY=:99;
+        for i in 1 2 3 4 5 6 7 8 9 10; do [ -e /tmp/.X11-unix/X99 ] && break; sleep 1; done;
+      fi;
       service ssh restart;
       tmux new -d -s bringup;
       if [ $$AUTOLAUNCH == 'true' ]; then
@@ -115,15 +127,20 @@ services:
         REAL_ROBOT: true
         SKIP_MACVO: true
         SKIP_TENSORRT: true
+        TARGET_ARCH: aarch64
+        ROS_DISTRO: jazzy
       tags:
         - *voxl_image
+        - &voxl_cache ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:${CACHE_TAG:-cache}_robot-voxl_${DOCKER_IMAGE_BUILD_MODE}
       cache_from:
         - *voxl_image
+        - *voxl_cache
     environment: 
       - ROBOT_NAME_SOURCE=hostname # see .bashrc
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - LAUNCH_PACKAGE=autonomy_bringup
       - AUTONOMY_ROLE=onboard  # VOXL is always lite-only; never runs global planning
+      - LAUNCH_NATNET=${LAUNCH_NATNET:-false}
     command: >
       bash -c "
       tmux new -d -s bringup;
@@ -133,6 +150,25 @@ services:
       sleep infinity"
     network_mode: host
     deploy: !reset {}  # remove nvidia driver for voxl
+
+  # ===================================================================================================================
+  # Intermediate Jetson stack: dusty Jazzy + ROS keyring / pip / OpenCV shim for Dockerfile.robot (same recipe as Ubuntu).
+  # `airstack image-build --profile l4t robot-l4t` builds this first automatically; raw `compose build robot-l4t` may parallelize incorrectly.
+  robot-l4t-stack-base:
+    profiles:
+      - l4t
+    image: &l4t_stack_base_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_robot-l4t-stack-base_${DOCKER_IMAGE_BUILD_MODE}
+    build:
+      dockerfile: ./Dockerfile.l4t-stack-base
+      network: host
+      args:
+        DUSTYNV_IMAGE: dustynv/ros:jazzy-ros-base-r36.4.0-cu128-24.04
+      tags:
+        - *l4t_stack_base_image
+        - &l4t_stack_base_cache ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:${CACHE_TAG:-cache}_robot-l4t-stack-base_${DOCKER_IMAGE_BUILD_MODE}
+      cache_from:
+        - *l4t_stack_base_image
+        - *l4t_stack_base_cache
 
   # ===================================================================================================================
   # for running on an NVIDIA jetson (linux for tegra) device
@@ -147,13 +183,22 @@ services:
     image: &l4t_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_robot-l4t_${DOCKER_IMAGE_BUILD_MODE}
     build:
       dockerfile: ./Dockerfile.robot
+      network: host
       args:
-        BASE_IMAGE: nvcr.io/nvidia/l4t-jetpack:r36.4.0
+        BASE_IMAGE: *l4t_stack_base_image
         REAL_ROBOT: true
+        SKIP_MACVO: true
+        SKIP_TENSORRT: true
+        TARGET_ARCH: aarch64
+        ROS_DISTRO: jazzy
       tags:
         - *l4t_image
+        - &l4t_cache ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:${CACHE_TAG:-cache}_robot-l4t_${DOCKER_IMAGE_BUILD_MODE}
       cache_from:
         - *l4t_image
+        - *l4t_cache
+        - *l4t_stack_base_image
+        - *l4t_stack_base_cache
     # we use tmux send-keys so that the session stays alive
     ipc: host
     command: >
@@ -171,18 +216,20 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    environment: !override
-      - ROBOT_NAME_SOURCE=hostname # see .bashrc
+    runtime: nvidia
+    environment:
+      - ROBOT_NAME_SOURCE=hostname
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - LAUNCH_PACKAGE=autonomy_bringup
-      - AUTONOMY_ROLE=full  # l4t profile: Jetson runs everything onboard
+      - AUTONOMY_ROLE=${AUTONOMY_ROLE:-full}
+      - LAUNCH_NATNET=${LAUNCH_NATNET:-false}
       # mavros mavlink settings
-      - FCU_URL="/dev/ttyTHS4:115200"
+      - FCU_URL=${FCU_URL:-/dev/ttyTHS4:115200}
       - TGT_SYSTEM=1
     # assumes network isolation via a physical router, so uses network_mode=host
     network_mode: host
     volumes:
-      - /media/airlab/Storage/airstack_collection:/bags:rw
+      - ${BAG_STORAGE_PATH:-/media/airlab/Storage/airstack_collection}:/bags:rw
 
   # -----------------------
   # Jetson in lite mode: only local/perception/interface modules run onboard.
@@ -205,12 +252,18 @@ services:
     build:
       context: ./
       dockerfile: zed/Dockerfile.zed-l4t
+      network: host
       args:
         L4T_MAJOR: 36
         L4T_MINOR: 4
         L4T_PATCH: 0
+        IMAGE_NAME: dustynv/ros:jazzy-desktop-r36.4.0-cu128-24.04
+      tags:
+        - *zed_l4t_image
+        - &zed_l4t_cache ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:${CACHE_TAG:-cache}_zed-l4t-36-4-0_${DOCKER_IMAGE_BUILD_MODE}
       cache_from:
         - *zed_l4t_image
+        - *zed_l4t_cache
     command: >
       bash -c "ssh service restart;
       tmux new -d -s zed_driver && 
@@ -228,6 +281,7 @@ services:
     privileged: true
     ipc: host
     pid: host
+    runtime: nvidia
     environment:
       - NVIDIA_DRIVER_CAPABILITIES=all
       - DISPLAY

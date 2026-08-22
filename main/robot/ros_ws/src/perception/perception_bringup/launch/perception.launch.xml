@@ -2,6 +2,9 @@
 <launch>
     <arg name="launch_macvo" default="false" />
     <arg name="launch_stereo_image_proc" default="true" />
+    <!-- Toggle from top-level .env → LAUNCH_NATNET (passed into container via robot-base-docker-compose.yaml) -->
+    <arg name="launch_natnet" default="$(env LAUNCH_NATNET false)"/>
+
     <group>
         <push-ros-namespace namespace="perception" />
         <!-- State and depth estimation -->
@@ -47,6 +50,7 @@
                     to="/$(env ROBOT_NAME)/perception/stereo_image_proc/disparity" />
 
                 <param name="speckle_size" value="300" />
+                <param name="approximate_sync" value="true" />
             </node>
             <!-- Point Cloud Generation -->
             <node
@@ -66,8 +70,14 @@
                 <!-- outputs -->
                 <remap from="disparity" to="/$(env ROBOT_NAME)/perception/stereo_image_proc/disparity" />
                 <remap from="points2" to="/$(env ROBOT_NAME)/perception/stereo_image_proc/point_cloud" />
+                <param name="approximate_sync" value="true" />
             </node>
+        </group>
 
+        <group if="$(var launch_natnet)">
+            <!-- Server IPs + per-robot body/vision_pose profiles live in
+                 natnet_ros2/config/natnet_config.yaml (custom natnet: schema, parsed by the launch file). -->
+            <include file="$(find-pkg-share natnet_ros2)/launch/natnet_ros2.launch.py"/>
         </group>
 
     </group>

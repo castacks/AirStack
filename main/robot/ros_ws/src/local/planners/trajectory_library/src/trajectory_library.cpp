@@ -390,6 +390,7 @@ bool Trajectory::merge(Trajectory traj, double min_time) {
     if (waypoints.size() == 0) {
         waypoints.insert(waypoints.end(), transformed_traj.waypoints.begin(),
                          transformed_traj.waypoints.end());
+        generate_waypoint_times();
         return true;
     }
 
@@ -501,14 +502,14 @@ bool Trajectory::get_waypoint_sphere_intersection(double initial_time, double ah
         Waypoint wp_end = waypoints[i];
 	last_waypoint_index = i;
 
-	// if the very first waypoint we check isn't within the sphere, then return not found
-	if(i == 1 && wp_start.position().distance(sphere_center) > sphere_radius)
-	  return false;
-
         // handle the case that the initial_time is between waypoint i-1 and waypoint i
         if (wp_start.get_time() < initial_time)
             wp_start = wp_start.interpolate(wp_end, (initial_time - wp_start.get_time()) /
                                                         (wp_end.get_time() - wp_start.get_time()));
+
+        // if the first segment we check starts outside the sphere, there is no intersection
+        if (i == 1 && wp_start.position().distance(sphere_center) > sphere_radius)
+            return false;
 
         // sphere line intersection equations:
         // http://www.ambrsoft.com/TrigoCalc/Sphere/SpherLineIntersection_.htm
