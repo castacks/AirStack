@@ -1,6 +1,6 @@
-# OptiTrack (moved to the asm_optitrack module)
+# OptiTrack (asm_optitrack module)
 
-OptiTrack support — the `natnet_ros2` client, the PX4 external-vision fusion bridges, and the NatNet server emulator for Isaac Sim — no longer lives in the AirStack trunk. It was extracted into the standalone [asm_optitrack module](https://github.com/castacks/asm_optitrack). To use it, add the module to your checkout:
+OptiTrack support — the `natnet_ros2` client, the PX4 external-vision fusion bridges, and the NatNet server emulator for Isaac Sim — ships as the standalone [asm_optitrack module](https://github.com/castacks/asm_optitrack) rather than in the AirStack trunk. To use it, add the module to your checkout:
 
 ```bash
 airstack module add https://github.com/castacks/asm_optitrack --version <tag>

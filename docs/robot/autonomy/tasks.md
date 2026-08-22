@@ -8,16 +8,16 @@ See [System Architecture — Node Types](system_architecture.md#node-types-perpe
 
 ## Task Cascade
 
-Behavior sends high-level task goals to global-layer task executors, which in turn delegate navigation to local-layer task executors:
+The operator sends high-level task goals from the GCS (Foxglove robot-commands panel or RViz Tasks Panel) to global-layer task executors, which in turn delegate navigation to local-layer task executors:
 
 ```mermaid
 graph TD
-    BE[behavior_executive] -->|ExplorationTask| RW[random_walk_planner]
+    GCS[GCS operator] -->|ExplorationTask| RW[random_walk_planner]
     RW -->|NavigateTask| DG[droan_gl / droan_local_planner]
     DG -->|TrajectoryXYZVYaw| TC[trajectory_controller]
 ```
 
-All task action servers are remapped to `/{robot_name}/tasks/{task_name}` in the bringup launch files.
+All task action servers are remapped to `/{robot_name}/tasks/{task_name}` in their module launch files.
 
 ## Task Action Types
 
@@ -45,7 +45,7 @@ geometry_msgs/Point current_position
 
 **File:** `action/FixedTrajectoryTask.action`
 **Action server:** `/{robot_name}/tasks/fixed_trajectory`
-**Implemented by:** *(not yet implemented)*
+**Implemented by:** `trajectory_controller` package (`fixed_trajectory_task` node)
 
 Follow a pre-defined trajectory specified by shape type and parameters. With `loop: true`, the trajectory repeats until the task is canceled.
 
@@ -272,7 +272,7 @@ See the [add-task-executor](../../../.agents/skills/add-task-executor) skill for
 2. Create a new package under `robot/ros_ws/src/global/planners/` (or `local/planners/` if it is a navigation executor)
 3. Implement the four action server callbacks: `handle_goal`, `handle_cancel`, `handle_accepted`, `execute`
 4. In `execute()`, delegate navigation to `/{robot_name}/tasks/navigate` (NavigateTask) via an action client
-5. Add a remap in the layer bringup launch file: `<remap from="~/your_task" to="/$(env ROBOT_NAME)/tasks/your_task_name" />`
+5. Add a remap in your module's launch file (included by the stack entry file): `<remap from="~/your_task" to="/$(env ROBOT_NAME)/tasks/your_task_name" />`
 6. Document the node with a **Task Executor** section in its `README.md`
 
 Reference implementation: [random_walk_planner](../../../robot/ros_ws/src/global/planners/random_walk/README.md)

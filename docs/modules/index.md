@@ -4,8 +4,8 @@
      python3 tools/gen_docs_catalog.py --index <registry-checkout>
      (the docs deploy workflows regenerate it against the live registry at build time) -->
 
-The **marketplace catalog** of registered AirStack modules and stacks
-([RFC #379 §7/§9](https://github.com/castacks/AirStack/discussions/379)), rendered from the
+The **marketplace catalog** of registered AirStack modules and stacks,
+rendered from the
 [airstack-modules-index](https://github.com/castacks/airstack-modules-index) registry — one YAML entry per
 module or stack, rosdistro-style. Getting listed = a PR to the registry
 (see the [registry README](https://github.com/castacks/airstack-modules-index#how-to-register-a-module)).
@@ -18,17 +18,17 @@ directory and is never hand-edited.
 
 | Module | Description | Type | Maintainer | Declared compat | Links |
 |--------|-------------|------|------------|-----------------|-------|
-| [dfm2_disturbances](dfm2_disturbances.md) | Isaac Sim disturbance library (fan/vent force fields, strobe lights, lens flare) | `isaac_extension` | maintainers@theairlab.org | `>=0.19.0-alpha.18 <0.20.0` | [repo](https://github.com/castacks/asm_dfm2_disturbances) |
-| [macvo](macvo.md) | MAC-VO learned stereo visual odometry (ICRA 2025 best paper) — macvo_ros2 wrapper around the MAC-VO network, publishing odometry, a covariance-aware point cloud, and the disparity image the local planner can consume | `ros_package` | maintainers@theairlab.org | `>=0.19.0-alpha.18 <0.20.0` | [repo](https://github.com/castacks/asm_macvo) · [full_macvo](../../stacks/full_macvo/README.md) |
-| [optitrack](optitrack.md) | OptiTrack NatNet mocap integration — natnet_ros2 client + PX4 external-vision fusion bridges on the robot, and the Motive-compatible NatNet server emulator for Isaac Sim | `ros_package` | maintainers@theairlab.org | `>=0.19.0-alpha.18 <0.20.0` | [repo](https://github.com/castacks/asm_optitrack) |
+| [dfm2_disturbances](dfm2_disturbances.md) | Isaac Sim disturbance library (fan/vent force fields, strobe lights, lens flare) | `isaac_extension` | ajong@andrew.cmu.edu | `>=0.19.0-alpha.18 <0.20.0` | [repo](https://github.com/castacks/asm_dfm2_disturbances) |
+| [macvo](macvo.md) | MAC-VO learned stereo visual odometry (ICRA 2025 best paper) — macvo_ros2 wrapper around the MAC-VO network, publishing odometry, a covariance-aware point cloud, and the disparity image the local planner can consume | `ros_package` | ajong@andrew.cmu.edu | `>=0.19.0-alpha.18 <0.20.0` | [repo](https://github.com/castacks/asm_macvo) · [full_macvo](../../stacks/full_macvo/README.md) |
+| [optitrack](optitrack.md) | OptiTrack NatNet mocap integration — natnet_ros2 client + PX4 external-vision fusion bridges on the robot, and the Motive-compatible NatNet server emulator for Isaac Sim | `ros_package` | ajong@andrew.cmu.edu | `>=0.19.0-alpha.18 <0.20.0` | [repo](https://github.com/castacks/asm_optitrack) |
 
 ## Registered stacks
 
 A stack is a self-contained topology folder; its pinned `modules.repos`
-*is* a tested-together release set ([RFC #379 §3](https://github.com/castacks/AirStack/discussions/379)).
+*is* a tested-together release set.
 The stacks below are the ones REGISTERED in the index; the site nav's
 **Modules → Reference Stacks** additionally lists every trunk stack
-(registration of the remaining stacks is a registry-side follow-up).
+(not every trunk stack is registered in the index).
 
 | Stack | Description | Declared compat | Wiring | Registry entry |
 |-------|-------------|-----------------|--------|----------------|
@@ -45,7 +45,7 @@ The stacks below are the ones REGISTERED in the index; the site nav's
 - [AirStack Stacks](../development/stacks.md) — stack anatomy, `stack new|diff`,
   wiring snapshots, `doctor`
 - [AirStack Fleets](../development/fleets.md) — fleet files composing stacks
-  into deployments (RFC #380)
+  into deployments
 - [Module CI](../development/module_ci.md) — the reusable system-test workflow
   module repos call; how compat badges are earned
 - [Interface Conventions Spec](../robot/autonomy/interface_conventions.md) —

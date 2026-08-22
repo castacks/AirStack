@@ -4,11 +4,10 @@
 
 This is the versioned specification of AirStack's **interchange points** — the
 narrow waists where modules meet: canonical topic/service/action names,
-message types, QoS profiles, TF frames and units, and rate classes
-([RFC #379 §4.2](https://github.com/castacks/AirStack/discussions/379)). It
-upgrades the topic tables of the
-[Module Integration Checklist](integration_checklist.md) into a citable
-contract; the checklist remains the step-by-step integration workflow.
+message types, QoS profiles, TF frames and units, and rate classes. It
+is the citable contract behind the topic tables of the
+[Module Integration Checklist](integration_checklist.md); the checklist
+remains the step-by-step integration workflow.
 
 **Documentation, not enforcement.** This spec is documentation that modules
 *default to* and conformance tests check — it is never input to any wiring
@@ -23,9 +22,8 @@ observed truth, and `airstack doctor --live` diffs reality against it.
 
 **Conventions in this table are verified against the observed graph** — types
 and QoS below come from `stacks/full_default/wiring.md` (the committed
-wiring-snapshot of the running reference stack), not from memory. Where a
-column reads differently from older docs (e.g. `tracking_point`'s message
-type), the observed graph wins.
+wiring-snapshot of the running reference stack), not from memory. Where any
+other document disagrees with a column here, the observed graph wins.
 
 All names are relative to the robot namespace: canonical topic
 `odometry_conversion/odometry` means `/{robot_name}/odometry_conversion/odometry`
@@ -42,7 +40,7 @@ at runtime (`ROBOT_NAME` namespacing is pushed by the launch preamble).
   `state` (~10–100 Hz), `sensor` (~10–30 Hz), `plan` (~0.1–2 Hz),
   `event` (on change / on command), `latched` (transient-local state).
 - **Placement** — `onboard-only` marks interchanges that must never cross a
-  machine boundary ([RFC #380 §2](https://github.com/castacks/AirStack/discussions/380)):
+  machine boundary:
   the **controller** and the **safety executive** stay on the vehicle so link
   loss leaves it able to failsafe. `doctor` **hard-errors** when
   `control_setpoint` or trajectory-group names appear in any split stack's
@@ -54,7 +52,7 @@ at runtime (`ROBOT_NAME` namespacing is pushed by the launch preamble).
 ## 1. `sensors/*` — sensor naming convention
 
 Sensor topics are namespaced by sensor **id**: `sensors/<sensor_id>/<signal>`.
-Sensor ids become first-class in the vehicle manifest (RFC #380 §1), where
+Sensor ids are first-class in the vehicle manifest, where
 each id pairs the real driver with its sim representation; wiring snapshots
 normalize driver nodes to these ids so sim baselines diff cleanly against
 hardware bring-ups.
@@ -111,7 +109,7 @@ Contrast §5.
 
 All names live under the `trajectory_controller/` namespace (served by
 relative name inside it). **None of these may appear in a `bridge.yaml`** —
-doctor hard gate (RFC #379 §4, RFC #380 §2): `global_plan` crosses,
+a doctor hard gate: `global_plan` crosses,
 trajectory commands don't.
 
 | Canonical name | Kind | Type | QoS | Rate class | Direction |
@@ -119,7 +117,7 @@ trajectory commands don't.
 | `trajectory_controller/trajectory_override` | topic | `airstack_msgs/msg/TrajectoryXYZVYaw` | RELIABLE | event | any module → controller (replaces current trajectory) |
 | `trajectory_controller/trajectory_segment_to_add` | topic | `airstack_msgs/msg/TrajectoryXYZVYaw` | RELIABLE | plan | local planner → controller (appends) |
 | `trajectory_controller/set_trajectory_mode` | service | `airstack_msgs/srv/TrajectoryMode` | (service) | event | task servers → controller |
-| `trajectory_controller/tracking_point` | topic | `airstack_msgs/msg/Odometry` | RELIABLE | state | controller → PID/planners (note: **airstack_msgs**, not nav_msgs; older docs saying `PointStamped` are wrong) |
+| `trajectory_controller/tracking_point` | topic | `airstack_msgs/msg/Odometry` | RELIABLE | state | controller → PID/planners (note: **airstack_msgs**, not nav_msgs, and not `PointStamped`) |
 | `trajectory_controller/look_ahead` | topic | `airstack_msgs/msg/Odometry` | RELIABLE | state | controller → local planner |
 | `trajectory_controller/trajectory_completion_percentage` | topic | `std_msgs/msg/Float32` | RELIABLE | state | controller → task servers |
 
@@ -185,7 +183,7 @@ intents, not control): a split stack lists the crossing actions in its
 | `behavior/drone_safety_monitor/command` | `std_msgs/msg/String` | RELIABLE | event | **onboard-only** |
 
 The safety executive (drone_safety_monitor + the interface's takeover path)
-is marked **onboard-only** per RFC #380 §2: link loss must leave the robot
+is marked **onboard-only**: link loss must leave the robot
 able to failsafe without any ground host in the loop.
 
 ## 10. `gossip` — multi-robot coordination
@@ -223,25 +221,24 @@ them (frame plumbing drifts too).
 ## Versioning and deprecation
 
 This spec is **public API** even though nothing compiles against it —
-modules' launch-arg *defaults* and the conformance tests encode it
-(RFC #379 §8). Changing a canonical name, type, QoS profile, or frame
+modules' launch-arg *defaults* and the conformance tests encode it.
+Changing a canonical name, type, QoS profile, or frame
 convention requires:
 
 1. a **semver-major** bump of this spec,
 2. a **coexistence window** (old and new names both served/accepted),
-3. a short **RFC in the registry repo** (`rfcs/` — the deprecation registry;
-   until the registry repo exists, RFCs live as GitHub Discussions like
-   [#379](https://github.com/castacks/AirStack/discussions/379) /
-   [#380](https://github.com/castacks/AirStack/discussions/380)).
+3. a short **written proposal in the registry repo** (`rfcs/` — the
+   deprecation registry; until the registry repo exists, proposals live as
+   GitHub Discussions on the AirStack repo).
 
 Additions (new interchange points) are semver-minor and are discovered
 through drift reports: three forks patching the same tap point = a missing
-convention (RFC #379 §11). The `doctor` hard-gate list (dep conflicts;
-control/trajectory names in `bridge.yaml`) grows only through the same RFC
-process.
+convention. The `doctor` hard-gate list (dep conflicts;
+control/trajectory names in `bridge.yaml`) grows only through the same
+proposal process.
 
 ## Change log
 
 | Spec | Date | Change |
 |---|---|---|
-| v1.0.0 | 2026-08-20 | Initial versioned spec, recorded from `full_default`'s observed wiring (P5-E3, RFC #379 §4.2). Known v2 candidates: plain `odometry` as the canonical state topic; a structured `global_map` interchange. |
+| v1.0.0 | 2026-08-20 | Initial versioned spec, recorded from `full_default`'s observed wiring. Known v2 candidates: plain `odometry` as the canonical state topic; a structured `global_map` interchange. |

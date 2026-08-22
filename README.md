@@ -17,7 +17,7 @@ and hardware deployment tools — all running in Docker.
 
 ## Modular architecture
 
-AirStack is organized around three concepts ([RFC #379](https://github.com/castacks/AirStack/discussions/379) / [RFC #380](https://github.com/castacks/AirStack/discussions/380)):
+AirStack is organized around three concepts:
 **modules** — thin external repos with a small `module.yaml`, pulled on demand
 (`airstack module add <url> --version <pin>`) and discovered through the
 [module registry](https://github.com/castacks/airstack-modules-index);

@@ -40,8 +40,10 @@ Scenes are pulled from the [AirSim Linux releases](https://github.com/microsoft/
 ### 2. Launch Microsoft AirSim (legacy) + Robot
 
 ```bash
-airstack up --env-file overrides/ms-airsim.env
+airstack up --sim airsim
 ```
+
+(Equivalently: `airstack up --env-file overrides/ms-airsim.env`, which sets the same compose profiles and URDF.)
 
 To build the images first:
 
@@ -59,11 +61,6 @@ To attach to the tmux session:
 ```bash
 airstack connect ms-airsim
 ```
-
-A video is below:
-
-<iframe src="https://private-user-images.githubusercontent.com/4943471/574307425-90c3d9d0-f53a-46a6-a11d-f3690f682e51.mp4?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NzU2NjY4NTIsIm5iZiI6MTc3NTY2NjU1MiwicGF0aCI6Ii80OTQzNDcxLzU3NDMwNzQyNS05MGMzZDlkMC1mNTNhLTQ2YTYtYTExZC1mMzY5MGY2ODJlNTEubXA0P1gtQW16LUFsZ29yaXRobT1BV1M0LUhNQUMtU0hBMjU2JlgtQW16LUNyZWRlbnRpYWw9QUtJQVZDT0RZTFNBNTNQUUs0WkElMkYyMDI2MDQwOCUyRnVzLWVhc3QtMSUyRnMzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNjA0MDhUMTY0MjMyWiZYLUFtei1FeHBpcmVzPTMwMCZYLUFtei1TaWduYXR1cmU9YjM4NjEyODA5Nzg0MzY2ODNmZDlkYzlmODNmMmJhNzkwODA2YWViYjU3Nzc2YjA4ZDhiZThjY2MzNWUyYWViYSZYLUFtei1TaWduZWRIZWFkZXJzPWhvc3QifQ.N11vdWatLn7F3mLDdctHIu3p9eZzO52M9oVnnjwW88M" allowfullscreen width="1920" height="500"></iframe>
-
 
 ## Architecture
 
@@ -107,10 +104,10 @@ Key settings:
 | `ClockType` | `SteppableClock` | Lockstep with PX4 |
 | `VehicleType` | `PX4Multirotor` | PX4 SITL vehicle |
 | `TcpPort` | `4560 + i` | PX4 lockstep connection (per robot `i`) |
-| `ControlPortLocal` | `24540 + i` | AirSim MAVLink proxy local port (moved off `14540+i` so it doesn't intercept PX4 ↔ MAVROS traffic) |
+| `ControlPortLocal` | `24540 + i` | AirSim MAVLink proxy local port (deliberately offset from `14540+i` so the proxy doesn't intercept PX4 ↔ MAVROS traffic) |
 | `ControlPortRemote` | `24580 + i` | AirSim MAVLink proxy remote port |
 
-`settings.json` is generated at container start from [`settings.json.j2`](https://github.com/.../simulation/ms-airsim/config/settings.json.j2) via [`generate_settings.py`](https://github.com/.../simulation/ms-airsim/config/generate_settings.py), which expands per-robot port offsets, spawn positions, and camera parameters.
+`settings.json` is generated at container start from [`settings.json.j2`](https://github.com/castacks/AirStack/blob/main/simulation/ms-airsim/config/settings.json.j2) via [`generate_settings.py`](https://github.com/castacks/AirStack/blob/main/simulation/ms-airsim/config/generate_settings.py), which expands per-robot port offsets, spawn positions, and camera parameters.
 
 ### Cameras
 
@@ -158,7 +155,7 @@ Declared (with these defaults) in `simulation/ms-airsim/ros_ws/src/ms_airsim_ros
 
 ### Project status
 
-Microsoft archived AirSim. For a maintained successor, see [Project AirSim](https://github.com/iamaisim/ProjectAirSim) (UE5, new API — integration planned as a future AirStack feature).
+Microsoft archived AirSim, which is why AirStack labels it "legacy": it remains a stable, supported simulation backend here, but the upstream project receives no new features. For a maintained successor, see [Project AirSim](https://github.com/iamaisim/ProjectAirSim) (UE5, new API).
 
 ## Troubleshooting
 
@@ -169,7 +166,7 @@ Microsoft archived AirSim. For a maintained successor, see [Project AirSim](http
 
 **No depth images:**
 
-- Verify the camera name in `settings.json` matches `bridge.yaml`
+- Verify the camera names in the generated `settings.json` are `front_left` / `front_right` — the names the bridge node requests images by
 - Check AirSim console for rendering errors
 
 **MAVROS won't connect:**

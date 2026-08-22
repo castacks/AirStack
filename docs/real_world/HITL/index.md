@@ -7,14 +7,14 @@ A desktop computer configured according to [here](../../getting_started/index.md
 All machines should connect to the same network. In our test, all machines are connected to the same router with ethernet cables. Ensure that all machines are able to `ping` others' IP addresses.
 
 ### Run
-On the desktop computer, under your Airstack folder, run
-```
+On the desktop computer, under your AirStack folder, run
+```bash
 docker compose up isaac-sim
 ```
-You should see the isaac simulator being launched.
+You should see the Isaac simulator being launched.
 On the Jetson computer, run
-```
-docker compose up robot-l4t
+```bash
+docker compose --profile l4t up robot-l4t
 ```
 Once the scene is played in the Isaac simulator, the rviz GUI on the Jetson should start displaying sensor data, which means the connection is successful. 
 

@@ -1,6 +1,6 @@
 <!--
   lite_offload_global / onboard : the vehicle half of the split stack
-  (RFC #380 S2 — a split is a stack shape: one entry file per host role plus
+  (a split is a stack shape: one entry file per host role plus
   an explicit bridge.yaml).
 
   Topology = lite_default's stack.launch.xml (interface, sensors, perception,
@@ -19,7 +19,7 @@
   (ROBOT_NAME namespace push, use_sim_time, robot_state_publisher, world/map
   static TF) runs there unconditionally, so it is NOT repeated here.
 
-  SAFETY (RFC #379 S4 / #380 S2): the trajectory controller, PID controller,
+  SAFETY: the trajectory controller, PID controller,
   and safety executive below are ONBOARD-ONLY — link loss must leave the
   vehicle able to failsafe. control_setpoint and trajectory-group topics must
   never appear in bridge.yaml; `airstack doctor` hard-errors if they do.
@@ -91,7 +91,7 @@
 
   <!-- Safety monitor: odometry watchdog (state_estimate in from
        odometry_conversion); trajectory mode out to the trajectory controller
-       on safety events. The safety executive is ONBOARD-ONLY per RFC #380 S2. -->
+       on safety events. The safety executive is ONBOARD-ONLY by design: it must keep working when the bridge drops. -->
   <include file="$(find-pkg-share drone_safety_monitor)/launch/drone_safety_monitor.launch.xml" />
 
   <!-- NO global layer onboard — vdb_mapping + random_walk run on the offboard

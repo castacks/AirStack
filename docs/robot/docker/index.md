@@ -15,16 +15,19 @@ robot/docker/
 
 All robot services inherit from the shared `robot_base` service defined in `robot-base-docker-compose.yaml`. Platform-specific services then extend `robot_base` and override only what differs for that target.
 
-```
+```text
 robot_base  (robot-base-docker-compose.yaml)
 │
-├── robot-desktop     (profile: desktop)   x86-64 desktop / simulation
-│   └── simple-robot  (profile: simple)   desktop + simple sim override
-│   └── robot-test    (profile: test)     desktop + colcon test override
+├── robot-desktop          (profile: desktop)        x86-64 desktop / simulation
+│   ├── robot-desktop-onboard (profile: desktop_split)  desktop, lite stack (simulated onboard computer)
+│   ├── simple-robot       (profile: simple)         desktop + simple sim override
+│   └── robot-test         (profile: test)           desktop + colcon test override
 │
-├── robot-voxl    (profile: voxl)      ModalAI VOXL platform
-├── robot-l4t     (profile: l4t)       NVIDIA Jetson (Linux for Tegra)
-└── zed-l4t       (profile: l4t)       ZED camera driver on Jetson
+├── robot-offboard         (profiles: desktop_split, offboard)  offboard/global half on a ground host
+├── robot-voxl-onboard     (profiles: voxl, voxl_onboard)       ModalAI VOXL platform (lite stack)
+├── robot-l4t              (profile: l4t)            NVIDIA Jetson (Linux for Tegra)
+├── robot-l4t-onboard      (profile: l4t_lite)       Jetson, lite stack (global offloaded)
+└── zed-l4t                (profile: l4t)            ZED camera driver on Jetson
 ```
 
 ## Base Service (`robot_base`)
@@ -65,11 +68,11 @@ Runs with `airstack up --profile simple`. Extends `desktop` with `SIM_TYPE=simpl
 
 ### `voxl` — ModalAI VOXL
 
-Runs with `airstack up --profile voxl`. Use this profile when deploying on a ModalAI VOXL flight computer.
+Runs with `airstack up --profile voxl` (service `robot-voxl-onboard`). Use this profile when deploying on a ModalAI VOXL flight computer.
 
 - **Image:** `...:v<TAG>_robot-voxl_<MODE>`
 - **Base image:** `ubuntu:22.04` (no CUDA; VOXL has its own compute stack)
-- **Skipped components:** OpenVDB (MAC-VO and TensorRT no longer ship in any trunk robot image — they arrive via the `asm_macvo` module's `Dockerfile.module`)
+- **Skipped components:** OpenVDB (MAC-VO and TensorRT are not part of any trunk robot image — they arrive via the `asm_macvo` module's `Dockerfile.module`)
 - **Network:** `host` (relies on the physical network for DDS discovery)
 - **Robot identity:** derived from the device hostname → `ROBOT_NAME_SOURCE=hostname`
 

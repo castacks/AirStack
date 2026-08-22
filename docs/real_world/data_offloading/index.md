@@ -56,7 +56,7 @@ Open a web browser to http://localhost:8091 (or the PORT you set). The default u
 ```bash
 cd /opt 
 git clone https://github.com/castacks/storage_tools_device
-cd stroage_tools_device
+cd storage_tools_device
 ```
 
 ### Update the config.yaml

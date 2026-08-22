@@ -10,9 +10,9 @@
 |---|---|
 | Repository | [castacks/asm_optitrack](https://github.com/castacks/asm_optitrack) |
 | Type | `ros_package` |
-| Maintainer | maintainers@theairlab.org |
-| License | MIT |
-| Registered ref | [`2ae094f4b308`](https://github.com/castacks/asm_optitrack/tree/2ae094f4b308b49127761c0605a17ad4ef4f6e31) |
+| Maintainer | ajong@andrew.cmu.edu |
+| License | BSD-3-Clause-Clear |
+| Registered ref | [`be4e0c141ab8`](https://github.com/castacks/asm_optitrack/tree/be4e0c141ab8fd7248119faa7950004dd56136a3) |
 | Declared compat | `>=0.19.0-alpha.18 <0.20.0` |
 | Registry entry | [modules/optitrack.yaml](https://github.com/castacks/airstack-modules-index/blob/main/modules/optitrack.yaml) |
 
@@ -21,13 +21,13 @@
 From an AirStack checkout ([AirStack Modules guide](../development/modules.md)):
 
 ```bash
-airstack module add https://github.com/castacks/asm_optitrack --version 2ae094f4b308b49127761c0605a17ad4ef4f6e31
-airstack up -f .airstack/generated/docker-compose.modules.yaml
+airstack module add https://github.com/castacks/asm_optitrack --version be4e0c141ab8fd7248119faa7950004dd56136a3
+airstack up
 ```
 
 `module add` pins the module in `modules.repos` and syncs it into the
-gitignored `modules/` overlay; the generated compose file mounts it into
-the containers.
+gitignored `modules/` overlay; `airstack up` automatically includes the
+generated compose override that mounts it into the containers.
 
 ## Compatibility: declared vs verified
 
@@ -37,15 +37,15 @@ stamped exclusively by CI runs of the reusable
 [module-system-tests workflow](../development/module_ci.md) — lives in the
 registry's [compat/ matrix](https://github.com/castacks/airstack-modules-index/tree/main/compat)
 ([compat/optitrack.yaml](https://github.com/castacks/airstack-modules-index/blob/main/compat/optitrack.yaml) once stamped).
-A compatibility claim that isn't CI-verified rots (RFC #379 §5): trust the
+A compatibility claim that isn't CI-verified rots: trust the
 matrix, read the declaration as intent.
 
 ## Documentation
 
-- [Module README on GitHub @ `2ae094f4b308`](https://github.com/castacks/asm_optitrack/blob/2ae094f4b308b49127761c0605a17ad4ef4f6e31/README.md)
+- [Module README on GitHub @ `be4e0c141ab8`](https://github.com/castacks/asm_optitrack/blob/be4e0c141ab8fd7248119faa7950004dd56136a3/README.md)
 - *The module repo was not fetched when this page was generated — the*
-  *links above go to GitHub at the registered ref (RFC #379 §9 failure*
-  *isolation: an unreachable module repo never fails the docs deploy).*
+  *links above go to GitHub at the registered ref (failure isolation:*
+  *an unreachable module repo never fails the docs deploy).*
 
 ## Registered stacks using this module
 
@@ -53,4 +53,4 @@ matrix, read the declaration as intent.
 
 ## Registry notes
 
-> registered_ref is a commit SHA because no release tag exists yet: v0.1.0 is pending the first green module-system-tests.yml CI run. Validated end-to-end locally on 2026-08-20 (extraction campaign) — declared marks integration + liveliness + optitrack (full EV-fusion flight e2e) in the module's test_stack on Isaac Sim. Builds against the proprietary OptiTrack NatNet SDK, fetched host-side by hooks.host_setup (never in git, never in images); CI passes NATNET_ACCEPT_LICENSE=1 via hook_env.
+> registered_ref is a commit SHA because no release tag exists yet: v0.1.0 is pending the first green module-system-tests.yml CI run. Validated end-to-end locally on 2026-08-20 — declared marks integration + liveliness + optitrack (full EV-fusion flight e2e) in the module's test_stack on Isaac Sim. Builds against the proprietary OptiTrack NatNet SDK, fetched host-side by hooks.host_setup (never in git, never in images); CI passes NATNET_ACCEPT_LICENSE=1 via hook_env.

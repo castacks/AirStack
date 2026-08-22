@@ -51,7 +51,7 @@ and the `add-unit-tests` agent skill for full details.
 
 ### Meta / contract tests (`tests/meta/`)
 
-Fast contract tests (`unit` mark, no Docker) that pin the RFC #379/#380 CLI,
+Fast contract tests (`unit` mark, no Docker) that pin the modular-AirStack CLI,
 docs, and stack contracts so refactors cannot silently break them — see
 [`tests/meta/README.md`](meta/README.md). One line each:
 
@@ -366,7 +366,7 @@ runs so the drone returns to the ground before the next trajectory type starts.
 | `land_duration_sim_s` | s | Sim-time from 80 % peak descent to < 0.5 m |
 
 
-Metrics reported in one .txt file called summary.txt which automatically populates once your run completes 
+Metrics are also summarized in the run's `summary.txt`, written when the run completes.
 
 ### Default trajectory parameters
 
@@ -388,7 +388,7 @@ airstack test -m autonomy \
   --trajectory-types Circle,Figure8,Racetrack,Line \
   -v
 
-# Circle only (quick check of the known failure case)
+# Circle only (quick single-pattern run)
 airstack test -m autonomy \
   --sim msairsim \
   --num-robots 1 \
@@ -613,7 +613,7 @@ The workflow uses [`dawidd6/action-download-artifact@v6`](https://github.com/daw
 
 ## CI/CD Orchestrator (OSMO-backed ephemeral runners)
 
-AirStack's tests require a GPU, Docker, and a clean filesystem per run, so they execute on **truly ephemeral [NVIDIA OSMO](https://nvidia.github.io/OSMO/) pods** submitted per-job by an orchestrator. Each test job gets a fresh GPU pod that is destroyed once the job completes — no Docker layer carryover, no leaked containers, no shared host state. (This replaced an OpenStack-Nova backend; the GitHub side and the per-job-destroy model are unchanged.)
+AirStack's tests require a GPU, Docker, and a clean filesystem per run, so they execute on **truly ephemeral [NVIDIA OSMO](https://nvidia.github.io/OSMO/) pods** submitted per-job by an orchestrator. Each test job gets a fresh GPU pod that is destroyed once the job completes — no Docker layer carryover, no leaked containers, no shared host state.
 
 ### Architecture
 

@@ -102,9 +102,9 @@ See: [System Architecture](robot/autonomy/system_architecture.md)
     See: [Autonomy Modes Tutorial](robot/autonomy_modes.md)
 
 !!! question "Can I use my own planner/controller?"
-    Yes! AirStack is designed for easy module swapping. Create a ROS 2 package with the correct interface, integrate it into the bringup layer, and you're ready.
+    Yes! AirStack is designed for easy module swapping. Create a ROS 2 package with the correct interface, wire it into a stack's entry launch file, and you're ready.
     
-    See: [Integration Checklist](robot/autonomy/integration_checklist.md)
+    See: [Integration Checklist](robot/autonomy/integration_checklist.md) and [AirStack Stacks](development/stacks.md)
 
 !!! question "How do I add a new sensor?"
     Add sensor integration to the sensors layer, ensuring data is published to standard topics (with correct frame IDs and timestamps).

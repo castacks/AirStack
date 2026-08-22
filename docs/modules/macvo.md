@@ -10,9 +10,9 @@
 |---|---|
 | Repository | [castacks/asm_macvo](https://github.com/castacks/asm_macvo) |
 | Type | `ros_package` |
-| Maintainer | maintainers@theairlab.org |
-| License | MIT |
-| Registered ref | [`7d5763936122`](https://github.com/castacks/asm_macvo/tree/7d5763936122ffcbb7173a635c9d5711e25c2414) |
+| Maintainer | ajong@andrew.cmu.edu |
+| License | BSD-3-Clause-Clear |
+| Registered ref | [`431d7faf1f6f`](https://github.com/castacks/asm_macvo/tree/431d7faf1f6fed20d415bb5e5a88d8dcb0d180df) |
 | Declared compat | `>=0.19.0-alpha.18 <0.20.0` |
 | Registry entry | [modules/macvo.yaml](https://github.com/castacks/airstack-modules-index/blob/main/modules/macvo.yaml) |
 
@@ -21,13 +21,13 @@
 From an AirStack checkout ([AirStack Modules guide](../development/modules.md)):
 
 ```bash
-airstack module add https://github.com/castacks/asm_macvo --version 7d5763936122ffcbb7173a635c9d5711e25c2414
-airstack up -f .airstack/generated/docker-compose.modules.yaml
+airstack module add https://github.com/castacks/asm_macvo --version 431d7faf1f6fed20d415bb5e5a88d8dcb0d180df
+airstack up
 ```
 
 `module add` pins the module in `modules.repos` and syncs it into the
-gitignored `modules/` overlay; the generated compose file mounts it into
-the containers.
+gitignored `modules/` overlay; `airstack up` automatically includes the
+generated compose override that mounts it into the containers.
 
 ## Compatibility: declared vs verified
 
@@ -37,15 +37,15 @@ stamped exclusively by CI runs of the reusable
 [module-system-tests workflow](../development/module_ci.md) — lives in the
 registry's [compat/ matrix](https://github.com/castacks/airstack-modules-index/tree/main/compat)
 ([compat/macvo.yaml](https://github.com/castacks/airstack-modules-index/blob/main/compat/macvo.yaml) once stamped).
-A compatibility claim that isn't CI-verified rots (RFC #379 §5): trust the
+A compatibility claim that isn't CI-verified rots: trust the
 matrix, read the declaration as intent.
 
 ## Documentation
 
-- [Module README on GitHub @ `7d5763936122`](https://github.com/castacks/asm_macvo/blob/7d5763936122ffcbb7173a635c9d5711e25c2414/README.md)
+- [Module README on GitHub @ `431d7faf1f6f`](https://github.com/castacks/asm_macvo/blob/431d7faf1f6fed20d415bb5e5a88d8dcb0d180df/README.md)
 - *The module repo was not fetched when this page was generated — the*
-  *links above go to GitHub at the registered ref (RFC #379 §9 failure*
-  *isolation: an unreachable module repo never fails the docs deploy).*
+  *links above go to GitHub at the registered ref (failure isolation:*
+  *an unreachable module repo never fails the docs deploy).*
 
 ## Registered stacks using this module
 
@@ -53,4 +53,4 @@ matrix, read the declaration as intent.
 
 ## Registry notes
 
-> registered_ref is a commit SHA because no release tag exists yet: v0.1.0 is pending the first green module-system-tests.yml CI run. RFC #379's dogfood case for Docker dependency tiers 2/3: MAC-VO's heavy deps (TensorRT, torch, model weights) live in the module's Dockerfile.module, out of trunk's Dockerfile.robot. Composed-image CI validation (declared marks build_docker + liveliness against the tier-2 layer chain) is still pending — unlike dfm2_disturbances/optitrack, this module has not yet been validated end-to-end. Consumed by trunk reference stack full_macvo.
+> registered_ref is a commit SHA because no release tag exists yet: v0.1.0 is pending the first green module-system-tests.yml CI run. MAC-VO's heavy deps (TensorRT, torch, model weights) live in the module's Dockerfile.module (Docker dependency tier 2), keeping them out of the base robot image. Composed-image CI validation (declared marks build_docker + liveliness against the tier-2 layer chain) is still pending — unlike dfm2_disturbances/optitrack, this module has not yet been validated end-to-end. Consumed by trunk reference stack full_macvo.

@@ -1,8 +1,6 @@
 # Modular AirStack Walkthrough
 
-The end-to-end journey through Modular AirStack
-([RFC #379](https://github.com/castacks/AirStack/discussions/379) /
-[RFC #380](https://github.com/castacks/AirStack/discussions/380)) for a
+The end-to-end journey through Modular AirStack for a
 developer new to the project: fly a **reference stack**, read its **wiring**,
 pull in a **module**, make a **stack of your own**, scale to a **fleet**, and
 let **doctor** check your work. Every command below is real and current.

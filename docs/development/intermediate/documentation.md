@@ -84,7 +84,7 @@ Edit `config/my_planner.yaml`...
 ## Usage
 
 \`\`\`bash
-ros2 launch my_planner_bringup my_planner.launch.xml
+ros2 launch my_planner my_planner.launch.xml
 \`\`\`
 
 ## Testing
@@ -392,7 +392,7 @@ Output in `site/` directory.
 
 - **Module**: A ROS 2 package that implements specific functionality
 - **Layer**: A high-level grouping (interface, sensors, perception, local, global, behavior)
-- **Bringup**: Launch package that orchestrates a layer
+- **Stack**: A folder under `stacks/` whose entry launch file wires modules together (see [AirStack Stacks](../stacks.md))
 - **Topic**: ROS 2 topic for inter-node communication
 - **Node**: ROS 2 node (running process)
 

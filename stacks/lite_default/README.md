@@ -1,12 +1,10 @@
 # `lite_default` — onboard-lite reference stack
 
-The compute-lite topology, unsplit, as a self-contained stack folder
-(RFC #379 §3). This is the stack equivalent of the removed legacy
-`AUTONOMY_ROLE=onboard` role: everything a small vehicle runs on its own
-compute, with the heavy global layer left out entirely. (Historical note:
-the desktop-profile `onboard` role was unreachable in practice —
-`robot-desktop` hardcoded `AUTONOMY_ROLE=full` — so this stack is the first
-reachable lite topology on desktop.)
+The compute-lite topology, unsplit, as a self-contained stack folder:
+everything a small vehicle runs on its own compute, with the heavy global
+layer left out entirely. It exists so compute-constrained vehicles can fly
+task-driven missions without paying for global mapping and planning they
+cannot host.
 
 ## What it launches
 
@@ -34,16 +32,6 @@ logging layer.
   `onboard.launch.xml` is this topology paired with an offboard global half
   and an explicit `bridge.yaml`.
 
-## Equivalence
-
-`airstack up --stack lite_default` produces the topology the removed legacy
-`AUTONOMY_ROLE=onboard` dispatch launched. Verify with the wiring snapshot
-test:
-
-```bash
-airstack test -m wiring --stack lite_default --sim isaacsim --num-robots 1
-```
-
 ## How to run
 
 ```bash
@@ -51,8 +39,14 @@ airstack up --stack lite_default --sim isaac --robots 1
 airstack ready
 ```
 
+Verify the topology with the wiring snapshot test:
+
+```bash
+airstack test -m wiring --stack lite_default --sim isaacsim --num-robots 1
+```
+
 The shared per-robot preamble (ROBOT_NAME namespace, `use_sim_time`,
-`robot_state_publisher`, world→map static TF) still runs in
+`robot_state_publisher`, world→map static TF) runs in
 `autonomy_bringup/launch/robot.launch.xml`, which dispatches to this stack
 when `AIRSTACK_STACK_DIR` is set.
 
