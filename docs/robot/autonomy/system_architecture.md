@@ -43,7 +43,7 @@ They receive data over topics and publish results immediately — there
 is no external activation step. Most of the autonomy stack consists
 of perpetual nodes.
 
-Examples: state estimator, VDB mapper, disparity expander, trajectory controller, behavior tree tick loop.
+Examples: state estimator, VDB mapper, disparity expander, trajectory controller, safety monitor.
 
 ### Task Executors
 
@@ -71,21 +71,22 @@ All task action servers are remapped to `/{robot_name}/tasks/{task_name}` by con
 
 ### Task Cascade
 
-High-level tasks (sent by the behavior layer) cascade down through the stack:
+High-level task goals (sent by the operator from the GCS — the Foxglove
+robot-commands panel or the RViz Tasks Panel) cascade down through the stack:
 
 ```mermaid
 graph TD
-    BE[behavior_executive] -->|ExplorationTask| RW[random_walk_planner]
+    GCS[GCS operator] -->|ExplorationTask| RW[random_walk_planner]
     RW -->|NavigateTask| DG[droan_gl]
     DG -->|trajectory_segment_to_add| TC[trajectory_controller]
 
-    style BE fill:#cce5ff
+    style GCS fill:#cce5ff
     style TC fill:#cce5ff
     style RW fill:#d4edda
     style DG fill:#d4edda
 ```
 
-*Blue = perpetual node, green = task executor.*
+*Blue = perpetual node / external client, green = task executor.*
 
 The global-layer task executor (e.g. `random_walk_planner`) decides
 *where* to go and delegates the actual flying to the local-layer task
@@ -277,18 +278,18 @@ graph TB
     
     subgraph "Controllers"
         TrajControl[Trajectory Controller]
-        AttControl[Attitude Controller]
+        PIDControl[PID Controller]
         
         DROAN --> TrajControl
         TakeoffLanding --> TrajControl
-        TrajControl --> AttControl
+        TrajControl --> PIDControl
     end
     
     Perception -->|Odometry| DROAN
     Perception -->|Disparity| Disparity
     Global -->|Global Plan| DROAN
     
-    AttControl -->|Commands| Interface
+    PIDControl -->|Commands| Interface
 ```
 
 **Key Modules:**
@@ -307,7 +308,8 @@ graph TB
 
 - **Controllers:**
 
-    - `trajectory_controller`: Trajectory tracking
+    - `trajectory_controller`: Pure-pursuit tracking point / look-ahead management
+    - `pid_controller`: Cascaded PID producing attitude/thrust commands
 
 **Topics:**
 
@@ -337,7 +339,7 @@ graph TB
     
     subgraph "Global Planners"
         RandomWalk[Random Walk Explorer]
-        Ensemble[Ensemble Planner]
+        Exploration[Exploration Planner]
     end
     
     Perception -->|Pose| VDBMap
@@ -345,12 +347,12 @@ graph TB
     VDBMap --> Occupancy
     
     Occupancy --> RandomWalk
-    Occupancy --> Ensemble
-    Behavior -->|Goals| RandomWalk
-    Behavior -->|Goals| Ensemble
+    Occupancy --> Exploration
+    GCS[GCS Task Goals] --> RandomWalk
+    GCS --> Exploration
     
     RandomWalk --> GlobalPlan[Global Plan]
-    Ensemble --> GlobalPlan
+    Exploration --> GlobalPlan
     GlobalPlan --> Local
 ```
 
@@ -362,66 +364,55 @@ graph TB
 
 - **Planners:**
 
-    - `random_walk`: Random exploration planner
+    - `random_walk`: Random exploration planner (ExplorationTask executor)
+    - `exploration`: Frontier-based exploration planner (optional alternative)
 
 **Topics:**
 
 - **Subscribed:**
 
     - `/[robot]/odometry`
-    - `/[robot]/sensors/*/pointcloud`
-    - `/[robot]/behavior/mission_goal`
+    - `/[robot]/vdb_mapping/vdb_map_visualization`
 
 - **Published:**
 
     - `/[robot]/global_plan`
-    - `/[robot]/global/map`
-    - `/[robot]/global/occupancy`
+    - `/[robot]/vdb_mapping/vdb_map_pointcloud`
 
 ### Behavior Layer
 
-**Purpose:** High-level mission execution and decision making.
+**Purpose:** Onboard safety supervision. Mission-level sequencing is driven
+by the operator from the GCS through [task executors](tasks.md); the
+behavior layer's job is the part that must never depend on a ground link —
+watching the robot's health and forcing a safe reaction when something
+breaks.
 
 ```mermaid
 graph TB
-    Mission[Mission Manager] -->|Goals| BT[Behavior Tree]
-    BT -->|Evaluate| Conditions{Conditions}
-    Conditions -->|True| Actions[Actions]
-    Conditions -->|False| Fallback[Fallback]
+    Odom[State Estimate] --> SM[drone_safety_monitor]
+    SM -->|state_estimate_timed_out| Planners[Planners / Task Executors]
+    SM -->|safety command| Interface
     
-    Actions -->|Global Goals| Global
-    Actions -->|Local Commands| Local
-    Actions -->|Mode Changes| Interface
-    
-    subgraph "Behavior Tree Components"
-        BT
-        Conditions
-        Actions
-        Fallback
-    end
-    
-    GCS[Ground Control Station] -->|Commands| Mission
-    Autonomy[Autonomy State] --> BT
+    GCS[Ground Control Station] -->|Task goals| Tasks[Task Executors]
+    Tasks --> Global
+    Tasks --> Local
 ```
 
 **Key Modules:**
 
-- `behavior_tree`: Behavior tree framework
-- `behavior_executive`: Mission execution engine
+- `drone_safety_monitor`: Watches the state estimate for timeouts and issues
+  safety commands (onboard-only)
 
 **Topics:**
 
 - **Subscribed:**
 
     - `/[robot]/odometry`
-    - `/[robot]/interface/mavros/state`
-    - `/[robot]/trajectory_controller/trajectory_completion_percentage`
 
 - **Published:**
 
-    - `/[robot]/global/goal`
-    - `/[robot]/trajectory_controller/trajectory_override`
-    - `/[robot]/behavior/mission_state`
+    - `/[robot]/behavior/drone_safety_monitor/state_estimate_timed_out`
+    - `/[robot]/behavior/drone_safety_monitor/command`
 
 ## Complete Data Flow
 
@@ -571,9 +562,10 @@ Specify input and output topics:
 
 ### 3. Configure Launch Integration
 
-Add module to layer bringup with:
+Give the module its own canonical launch file and include it from the stack
+entry file (`stacks/<name>/launch/*.launch.xml`) with:
 
-- Topic remapping
+- Topic remapping (via launch arguments)
 - Namespace configuration
 - Parameter loading
 - Conditional launching (if needed)

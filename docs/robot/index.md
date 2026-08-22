@@ -57,9 +57,9 @@ The robot autonomy stack is launched via Docker Compose. The configuration is in
 ### Launch Command Hierarchy
 
 The Docker `command:` attribute launches the top-level ROS 2 launch file,
-which runs a shared preamble and then the selected **stack** entry file
-(stacks are the only dispatch — the legacy AUTONOMY_ROLE layer cascade was
-removed; see [Stacks](../development/stacks.md)):
+which runs a shared preamble and then the selected **stack** entry file —
+the stack is the only dispatch mechanism (see
+[Stacks](../development/stacks.md)):
 
 ```
 robot.launch.xml                        # Entry point (autonomy_bringup):
@@ -106,8 +106,8 @@ Standard ROS 2 topics used across the autonomy stack:
 |-------|------|-------------|
 | `/$ROBOT_NAME/odometry` | [nav_msgs/Odometry](https://docs.ros.org/en/rolling/p/nav_msgs/interfaces/msg/Odometry.html) | Best estimate of robot state |
 | `/$ROBOT_NAME/global_plan` | [nav_msgs/Path](https://docs.ros.org/en/rolling/p/nav_msgs/interfaces/msg/Path.html) | Target global trajectory |
-| `/$ROBOT_NAME/trajectory_controller/trajectory_override` | airstack_msgs/TrajectoryOverride | Direct trajectory commands |
-| `/$ROBOT_NAME/trajectory_controller/look_ahead` | geometry_msgs/PointStamped | Look-ahead point for planning |
+| `/$ROBOT_NAME/trajectory_controller/trajectory_override` | airstack_msgs/TrajectoryXYZVYaw | Direct trajectory commands |
+| `/$ROBOT_NAME/trajectory_controller/look_ahead` | airstack_msgs/Odometry | Look-ahead point for planning |
 
 **See also:**
 

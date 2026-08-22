@@ -60,22 +60,24 @@ ros2 launch bag_record_pid bag_record_pid_namespaced.launch.py \
 
 ### Controlling Recording
 
+The control topics are named after the node (`<namespace>/<node_name>/...`). The node's default name is `bag_record_node`; in the AirStack stacks it is launched as `bag_record` under the robot namespace, so the topics are `/{robot_name}/bag_record/...`.
+
 Start recording:
 
 ```bash
-ros2 topic pub --once /bag_record_pid/set_recording_status std_msgs/msg/Bool "{data: true}"
+ros2 topic pub --once /bag_record_node/set_recording_status std_msgs/msg/Bool "{data: true}"
 ```
 
 Stop recording:
 
 ```bash
-ros2 topic pub --once /bag_record_pid/set_recording_status std_msgs/msg/Bool "{data: false}"
+ros2 topic pub --once /bag_record_node/set_recording_status std_msgs/msg/Bool "{data: false}"
 ```
 
 Check recording status:
 
 ```bash
-ros2 topic echo /bag_record_pid/bag_recording_status
+ros2 topic echo /bag_record_node/bag_recording_status
 ```
 
 ## Configuration
@@ -249,11 +251,11 @@ All parameters from `bag_record_pid.launch.py` plus:
 
 ### Subscribed
 
-- `<namespace>/bag_record_pid/set_recording_status` (`std_msgs/Bool`): Control recording on/off
+- `<namespace>/<node_name>/set_recording_status` (`std_msgs/Bool`): Control recording on/off
 
 ### Published
 
-- `<namespace>/bag_record_pid/bag_recording_status` (`std_msgs/Bool`): Current recording status (published at 2Hz)
+- `<namespace>/<node_name>/bag_recording_status` (`std_msgs/Bool`): Current recording status (published at 2Hz)
 
 ## Output Files
 
@@ -297,12 +299,12 @@ class BagController(Node):
         super().__init__('bag_controller')
         self.pub = self.create_publisher(
             Bool, 
-            '/bag_record_pid/set_recording_status', 
+            '/bag_record_node/set_recording_status', 
             10
         )
         self.status_sub = self.create_subscription(
             Bool,
-            '/bag_record_pid/bag_recording_status',
+            '/bag_record_node/bag_recording_status',
             self.status_callback,
             10
         )
@@ -334,10 +336,10 @@ class BagController : public rclcpp::Node {
 public:
     BagController() : Node("bag_controller") {
         publisher_ = this->create_publisher<std_msgs::msg::Bool>(
-            "/bag_record_pid/set_recording_status", 10);
+            "/bag_record_node/set_recording_status", 10);
         
         subscription_ = this->create_subscription<std_msgs::msg::Bool>(
-            "/bag_record_pid/bag_recording_status", 10,
+            "/bag_record_node/bag_recording_status", 10,
             std::bind(&BagController::status_callback, this, std::placeholders::_1));
     }
     
@@ -369,15 +371,6 @@ private:
 
 ## Troubleshooting
 
-### Output Directory Does Not Exist
-
-**Error**: "Output directory /logging does not exist"
-
-**Solution**: Ensure the output directory exists before launching:
-```bash
-mkdir -p /logging
-```
-
 ### Topics Not Being Recorded
 
 **Issue**: Specified topics aren't appearing in bag files
@@ -386,7 +379,7 @@ mkdir -p /logging
 1. Verify topics exist: `ros2 topic list`
 2. Check topic names in config (relative vs absolute paths)
 3. Verify namespace settings if using namespaced launch
-4. Ensure recording is started: `ros2 topic echo /bag_record_pid/bag_recording_status`
+4. Ensure recording is started: `ros2 topic echo /bag_record_node/bag_recording_status`
 
 ### Bag Files Too Large
 
@@ -456,6 +449,6 @@ Email: mmayank74567@gmail.com
 
 ## See Also
 
-- [ROS2 Bag Documentation](https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Recording-And-Playing-Back-Data/Recording-And-Playing-Back-Data.html)
+- [ROS 2 Bag Documentation](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Recording-And-Playing-Back-Data/Recording-And-Playing-Back-Data.html)
 - [MCAP Format](https://mcap.dev/)
-- Airstack Documentation: [docs/](../../docs/)
+- AirStack Documentation: [docs/robot/logging](../../../../docs/robot/logging/index.md)

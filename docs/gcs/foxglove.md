@@ -1,6 +1,6 @@
 # GCS Foxglove Visualization
 
-The GCS runs a **Foxglove Studio** browser interface backed by a single ROS 2 node — `foxglove_visualizer_node` — that gathers per-robot data from the cross-domain bridge and republishes it on a small set of GCS-side topics. Foxglove subscribes to those topics and shows the fleet in 3D.
+The GCS runs a **Foxglove Studio** interface backed by a single ROS 2 node — `foxglove_visualizer_node` — that gathers per-robot data from the cross-domain bridge and republishes it on a small set of GCS-side topics. Foxglove subscribes to those topics and shows the fleet in 3D.
 
 This page describes what the node visualizes today, the topic naming convention, and where to edit when you want to change or add a marker type. For the gossip payload visualization (filtered rays, voxel maps, etc.) see [Coordination Payloads](../robot/autonomy/coordination/payloads.md).
 

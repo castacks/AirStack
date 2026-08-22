@@ -2,7 +2,7 @@
 
 This document provides a comprehensive checklist and guidelines for integrating new modules into the AirStack autonomy stack.
 
-> **Canonical names, types, QoS, and frames now live in the versioned
+> **Canonical names, types, QoS, and frames live in the versioned
 > [Interface Conventions Specification](interface_conventions.md)** (v1.0.0) —
 > cite that spec for interchange-point contracts; this page remains the
 > step-by-step integration workflow.
@@ -79,10 +79,10 @@ These topics are used across multiple modules and should be used when applicable
 |-------|------|---------|-------|
 | `/[robot]/odometry` | nav_msgs/Odometry | Primary state estimate | Perception → All |
 | `/[robot]/global_plan` | nav_msgs/Path | Global waypoint path | Global → Local |
-| `/[robot]/trajectory_controller/trajectory_segment_to_add` | airstack_msgs/TrajectorySegment | Local trajectory commands | Local Planner → Controller |
-| `/[robot]/trajectory_controller/trajectory_override` | airstack_msgs/TrajectoryOverride | Direct trajectory override | Behavior → Controller |
-| `/[robot]/trajectory_controller/look_ahead` | geometry_msgs/PointStamped | Look-ahead point for planning | Controller → Local Planner |
-| `/[robot]/trajectory_controller/tracking_point` | geometry_msgs/PointStamped | Current tracking point | Controller → All |
+| `/[robot]/trajectory_controller/trajectory_segment_to_add` | airstack_msgs/TrajectoryXYZVYaw | Local trajectory commands | Local Planner → Controller |
+| `/[robot]/trajectory_controller/trajectory_override` | airstack_msgs/TrajectoryXYZVYaw | Direct trajectory override | Task executors → Controller |
+| `/[robot]/trajectory_controller/look_ahead` | airstack_msgs/Odometry | Look-ahead point for planning | Controller → Local Planner |
+| `/[robot]/trajectory_controller/tracking_point` | airstack_msgs/Odometry | Current tracking point | Controller → All |
 | `/[robot]/trajectory_controller/trajectory_completion_percentage` | std_msgs/Float32 | Trajectory progress | Controller → Planners |
 | `/[robot]/interface/mavros/cmd/takeoff` | mavros_msgs/CommandTOL | Takeoff command | Behavior → Interface |
 | `/[robot]/interface/cmd_vel` | geometry_msgs/Twist | Low-level velocity commands | Controller → Interface |
@@ -137,8 +137,8 @@ These topics are used across multiple modules and should be used when applicable
 - **Outputs:** High-level commands, mode changes
 - **Topics:**
 
-    - `/[robot]/behavior/mission_state`
-    - `/[robot]/behavior/bt_status`
+    - `/[robot]/behavior/drone_safety_monitor/state_estimate_timed_out`
+    - `/[robot]/behavior/drone_safety_monitor/command`
 
 ### Task Action Server Naming Convention
 
@@ -154,7 +154,7 @@ Examples:
 - `/{robot_name}/tasks/navigate` — NavigateTask
 - `/{robot_name}/tasks/coverage` — CoverageTask
 
-Add the remap in the layer bringup launch file:
+Add the remap in the module's launch file:
 
 ```xml
 <remap from="~/your_task"
@@ -201,7 +201,7 @@ Use this checklist when integrating a new module:
 - [ ] Cancel flag checked before completion condition inside
       the `execute()` loop
 - [ ] Action server remapped to `/{robot_name}/tasks/{name}`
-      in the layer bringup launch file
+      in the module's launch file
 - [ ] `rclcpp::spin()` used in `main()` unless callbacks
       genuinely need concurrent execution **and** all shared
       resources are thread-safe (see skill for guidance)
@@ -219,15 +219,13 @@ Use this checklist when integrating a new module:
 ### 4. Launch Integration
 
 - [ ] Module launch file created with topic remapping arguments
-- [ ] Module added to appropriate layer bringup package
+- [ ] Module included in the stack entry file (`stacks/<name>/launch/*.launch.xml`)
 - [ ] Launch arguments use `$(env ROBOT_NAME)` for multi-robot support
 - [ ] Module namespace properly configured
-- [ ] Module included in `autonomy_bringup` launch flow
 
 ### 5. Dependencies
 
 - [ ] All dependencies listed in `package.xml`
-- [ ] Bringup package depends on your package
 - [ ] External dependencies documented in README
 - [ ] Dependencies available in Docker image (or documented for addition)
 
@@ -550,6 +548,6 @@ docker stats airstack-robot-desktop-1
 - [add-task-executor](../../../.agents/skills/add-task-executor) —
   Implementing a task executor action server
 - [integrate-module-into-layer](./../../../.agents/skills/integrate-module-into-layer)
-  — Adding a module to layer bringup
+  — Integrating a module into a stack
 - [test-in-simulation](../../../.agents/skills/test-in-simulation) —
   Testing procedures

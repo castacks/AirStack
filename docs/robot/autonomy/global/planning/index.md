@@ -96,5 +96,5 @@ The random walk planner replans when the robot is getting close to the goal. The
 
 ### Exploration planner
 
-The `exploration` package (`robot/ros_ws/src/global/planners/exploration`) is a frontier-based geometric exploration planner. It is kept as the intended alternative to `random_walk` for planner selection from the RViz Tasks Panel (future).
+The `exploration` package (`robot/ros_ws/src/global/planners/exploration`) is a frontier-based geometric exploration planner — the intended alternative to `random_walk` for planner selection from the RViz Tasks Panel (future).
 

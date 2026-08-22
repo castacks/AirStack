@@ -66,10 +66,10 @@ All commands, grouped by area. Run `airstack help <command>` for full options.
 
 | Command | Description |
 |---------|-------------|
-| `module` | Manage AirStack modules: add\|remove\|list\|sync\|create\|lock\|doctor (RFC #379; see `airstack help module`) |
-| `stack` | Manage stack folders: list\|new\|diff (RFC #379 §3; see `airstack help stack`) |
-| `fleet` | Manage fleet files: list\|generate (RFC #380 §2; see `airstack help fleet`) |
-| `sync` | Sync the checkout from airstack.yaml: modules, external stack repos, fleet validation (RFC #380 §3) |
+| `module` | Manage AirStack modules: add\|remove\|list\|sync\|create\|lock\|doctor (see `airstack help module`) |
+| `stack` | Manage stack folders: list\|new\|diff (see `airstack help stack`) |
+| `fleet` | Manage fleet files: list\|generate (see `airstack help fleet`) |
+| `sync` | Sync the checkout from airstack.yaml: modules, external stack repos, fleet validation |
 
 See the [Modular AirStack Walkthrough](../../../getting_started/modular_airstack.md) and the guides for [Modules](../../modules.md), [Stacks](../../stacks.md), and [Fleets](../../fleets.md).
 
@@ -77,7 +77,7 @@ See the [Modular AirStack Walkthrough](../../../getting_started/modular_airstack
 
 | Command | Description |
 |---------|-------------|
-| `doctor` | Observe-and-report health checks: compose-time gates, `--live` wiring drift, `--snapshot` (RFC #379 §4) |
+| `doctor` | Observe-and-report health checks: compose-time gates, `--live` wiring drift, `--snapshot` |
 | `ready` | Wait until the running stack is flight-ready (containers → sim clock → nodes → PX4); `--json` for scripts |
 | `version` | Display the current AirStack version |
 | `help` | Show help information |
@@ -87,10 +87,9 @@ See the [Modular AirStack Walkthrough](../../../getting_started/modular_airstack
 
 | Command | Description |
 |---------|-------------|
-| `test` | Run tests (options: `--path=PATH`, `--filter=PATTERN`) |
+| `test` | Run pytest in the containerized test runner (all args forward to pytest; see `airstack help test`) |
 | `docs` | Build documentation (options: serve) |
-| `lint` | Lint code |
-| `format` | Format code |
+| `lint` | Static checks: tests/meta contract suite, `bash -n` over the CLI, `py_compile` over `tools/` |
 
 ### Remote Development (OSMO)
 
@@ -110,7 +109,7 @@ See the [Modular AirStack Walkthrough](../../../getting_started/modular_airstack
 
 | Flag | Description |
 |------|-------------|
-| `--sim isaac\|airsim` | Pick the simulator: swaps in the matching compose profile (`isaac-sim` / `ms-airsim`) and selects the matching URDF |
+| `--sim isaac\|airsim\|simple` | Pick the simulator: swaps in the matching compose profile (`isaac-sim` / `ms-airsim`) and selects the matching URDF; `simple` launches the lightweight kinematic simple-sim (no PX4/MAVROS) with the `simple-robot` service in place of `robot-desktop` |
 | `--robots N` | Number of robots (positive integer): exports `NUM_ROBOTS=N` and, on Isaac Sim, auto-selects the single-/multi-drone launch script to match. Mutually exclusive with `--fleet` (the fleet file defines the robot count) |
 | `--headless` | Run the simulator without a GUI (sets `ISAAC_SIM_HEADLESS`, `MS_AIRSIM_HEADLESS`, offscreen Qt) |
 | `--play` / `--no-play` | Start (or don't start) simulation playback automatically (`PLAY_SIM_ON_START`) |

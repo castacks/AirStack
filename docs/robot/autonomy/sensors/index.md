@@ -13,9 +13,8 @@ The sensors layer is responsible for:
 ## Launch
 
 Sensor modules ship their own canonical launch files and are composed by the
-stack entry file under the `sensors` namespace (the legacy `sensors_bringup`
-layer launch was removed with the AUTONOMY_ROLE dispatch). E.g. the trunk
-stacks include:
+stack entry file under the `sensors` namespace. E.g. the trunk stacks
+include:
 
 ```bash
 ros2 launch lidar_point_cloud_filter lidar_point_cloud_filter.launch.xml
@@ -41,7 +40,7 @@ Topic strings are parameterized with `$(env ROBOT_NAME)` in YAML; override `inpu
 - [**LiDAR point cloud filter**](#lidar-point-cloud-filter) (`lidar_point_cloud_filter`) — near-range sphere filter for `PointCloud2`
 - [**Gimbal (simulation)**](gimbal.md) — gimbal extension usage in simulation (documentation only; no robot-side package)
 
-## LiDAR point cloud filter (`lidar_point_cloud_filter`){#lidar-point-cloud-filter}
+## LiDAR point cloud filter
 
 **Package:** `robot/ros_ws/src/sensors/lidar_point_cloud_filter`
 

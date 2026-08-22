@@ -12,10 +12,9 @@ Perception forms the foundation of the autonomy stack by:
 
 ## Launch
 
-Launch files are located under `robot/ros_ws/src/perception/perception_bringup/launch/`
-(module launch files; the legacy `perception.launch.xml` layer wrapper was
-removed with the AUTONOMY_ROLE dispatch). The stack entry files include them
-directly:
+Module launch files are located under
+`robot/ros_ws/src/perception/perception_bringup/launch/`. The stack entry
+files include them directly:
 ```bash
 ros2 launch perception_bringup stereo_image_proc.launch.xml
 ros2 launch perception_bringup topic_keepalive.launch.xml
@@ -37,7 +36,7 @@ State estimation and related perception packages live under `robot/ros_ws/src/pe
 
 ### External pose (motion capture)
 
-- [**OptiTrack (asm_optitrack module)**](../../optitrack.md) — NatNet mocap support (rigid-body poses from a Motive PC, PX4 external-vision fusion bridges) moved out of the trunk into the [asm_optitrack module](https://github.com/castacks/asm_optitrack). Add it with `airstack module add https://github.com/castacks/asm_optitrack --version <tag>`; see [AirStack Modules](../../../development/modules.md).
+- [**OptiTrack (asm_optitrack module)**](../../optitrack.md) — NatNet mocap support (rigid-body poses from a Motive PC, PX4 external-vision fusion bridges), provided by the [asm_optitrack module](https://github.com/castacks/asm_optitrack). Add it with `airstack module add https://github.com/castacks/asm_optitrack --version <tag>`; see [AirStack Modules](../../../development/modules.md).
 
 ## Configuration
 

@@ -1,3 +1,6 @@
+# Static Transforms
+
+Static transforms pin down the fixed geometric relationships between frames — where sensors sit on the body, and how each robot's map frame relates to the world — so that every module can transform data into a common frame without per-module configuration.
 
 ## Frame Conventions
 

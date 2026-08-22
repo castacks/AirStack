@@ -9,6 +9,6 @@ airstack_compat: ">=0.19.0-alpha.18 <0.21.0"   # from the stack's modules.repos 
 wiring: stacks/full_default/wiring.md          # docs site embeds the CI-generated wiring.md from trunk
 notes: >-
   Pulls no external modules (repositories: {} — every launched package is
-  trunk-resident). Equivalence: `airstack up --stack full_default` produces
-  a ROS graph identical to the removed legacy AUTONOMY_ROLE=full dispatch
-  (machine-proven by the wiring snapshot test, -m wiring).
+  trunk-resident). Equivalence claim: `airstack up --stack full_default`
+  produces a ROS graph identical to the legacy AUTONOMY_ROLE=full dispatch,
+  verified by the wiring snapshot test (-m wiring).

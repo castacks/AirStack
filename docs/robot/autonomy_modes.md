@@ -3,8 +3,8 @@
 AirStack uses **stacks** ([docs/development/stacks.md](../development/stacks.md))
 to control which autonomy modules launch inside each container. Each compose
 service carries a default stack — no environment variables need to be set by
-hand. (The legacy `AUTONOMY_ROLE` role system was removed; a set
-`AUTONOMY_ROLE` is a preflight error.)
+hand. (Stacks are the only dispatch mechanism; a set `AUTONOMY_ROLE`
+environment variable is a preflight error.)
 
 | Stack | What runs |
 |---|---|
@@ -33,7 +33,7 @@ Profiles are split into **deployment** and **simulator** categories.
 | `desktop` | Dev desktop | `robot-desktop` + `gcs` | `full_default` |
 | `desktop_split` | Dev desktop | `robot-desktop-onboard` + `robot-offboard` + `gcs` | `lite_default` + `lite_offload_global:offboard` |
 | `l4t` | Jetson | `robot-l4t` + `zed-l4t` | `full_default` |
-| `l4t_lite` | Jetson | `robot-l4t-onboard` + `zed-l4t` | `lite_default` |
+| `l4t_lite` | Jetson | `robot-l4t-onboard` | `lite_default` |
 | `voxl` (alias `voxl_onboard`) | VOXL2 | `robot-voxl-onboard` | `lite_default` (compute-constrained) |
 | `offboard` | Ground station | `robot-offboard` ×N + `gcs-real` | `lite_offload_global:offboard` |
 

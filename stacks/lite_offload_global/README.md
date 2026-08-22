@@ -1,14 +1,12 @@
 # `lite_offload_global` — split stack: lite vehicle, offboard global planning
 
-The first **split stack** (RFC #380 §2): a lite vehicle half plus an offboard
-global-planning half, with an explicit [`bridge.yaml`](bridge.yaml) listing
-everything that crosses the machine boundary. This is the stack-shaped
-successor of the legacy `AUTONOMY_ROLE=onboard` / `offboard` pair (removed —
-stacks are the only dispatch). The router config generated from `bridge.yaml`
-replaced the legacy split's committed
-`onboard_local_offboard_global/config/dds_router.yaml`, deliberately minus
-the `set_trajectory_mode` crossing that config carried (doctor hard gate #2:
-command authority stays onboard).
+A **split stack**: a lite vehicle half plus an offboard global-planning half,
+with an explicit [`bridge.yaml`](bridge.yaml) listing everything that crosses
+the machine boundary. It exists so a compute-constrained vehicle can still
+run exploration-style missions: the heavy global layer moves to a ground
+host, while command authority stays onboard so link loss leaves the vehicle
+able to failsafe. The DDS-router config the onboard half loads is generated
+from `bridge.yaml`, never hand-maintained.
 
 ## Anatomy
 
@@ -33,9 +31,7 @@ python3 tools/gen_dds_router.py stacks/lite_offload_global/bridge.yaml
 # writes .airstack/generated/dds_router.lite_offload_global.yaml
 ```
 
-What crosses (seeded from the legacy `onboard_local_offboard_global`
-DDS-router allowlist, then curated — the full rationale is in `bridge.yaml`'s
-header comments):
+What crosses (the full rationale is in `bridge.yaml`'s header comments):
 
 - **onboard → offboard:** filtered lidar cloud (`sensors/ouster/point_cloud`)
   and odometry (`odometry_conversion/odometry`) — the global layer's inputs —
@@ -46,15 +42,13 @@ header comments):
   of the onboard `droan_gl` server). `tasks/exploration` crosses the other
   way (its server moves offboard with `random_walk`).
 
-**What must never cross (doctor hard gate — RFC #379 §4 / #380 §2):**
-`control_setpoint` and the trajectory group (`trajectory_override`,
-`trajectory_segment_to_add`, `set_trajectory_mode`, `tracking_point`,
-`look_ahead` — the `trajectory_controller/*` group). Command authority stays
-onboard so link loss leaves the vehicle able to failsafe: **`global_plan`
-crosses; trajectory commands don't.** `gen_dds_router.py --check` (run inside
-`airstack doctor`) exits 1 naming any violation. Note the legacy allowlist
-bridged the `set_trajectory_mode` service to the GCS; this stack deliberately
-does not.
+**What must never cross (doctor hard gate):** `control_setpoint` and the
+trajectory group (`trajectory_override`, `trajectory_segment_to_add`,
+`set_trajectory_mode`, `tracking_point`, `look_ahead` — the
+`trajectory_controller/*` group). Command authority stays onboard so link
+loss leaves the vehicle able to failsafe: **`global_plan` crosses; trajectory
+commands don't.** `gen_dds_router.py --check` (run inside `airstack doctor`)
+exits 1 naming any violation.
 
 ## How to run
 
@@ -77,7 +71,7 @@ a running system, `airstack doctor --live --stack lite_offload_global`.
   drawn as boundary crossings. Not committed yet — bootstrap via the wiring
   snapshot run (both entry points up) or `airstack doctor --snapshot` on a
   real bring-up (committed with an `unverified-in-CI` provenance line).
-- Host placement can now be declared instead of conventional: a fleet entry
+- Host placement can be declared instead of conventional: a fleet entry
   with `stack: stacks/lite_offload_global` and `hosts: {offboard: gcs}` places
   the offboard half on the named ground host (`airstack fleet generate` emits
   its service with `AIRSTACK_STACK_ENTRY=offboard`; the robot gets `onboard`).

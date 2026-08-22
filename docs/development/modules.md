@@ -2,11 +2,13 @@
 
 AirStack features can live outside trunk as **modules**: thin repos containing
 code plus a small `module.yaml` manifest — deps, identity, and test metadata,
-never wiring ([RFC #379](https://github.com/castacks/AirStack/discussions/379)).
-A checkout pulls the modules it wants with the `airstack module` command group;
-trunk never carries module code.
+never wiring. Modules exist so that heavy or organization-specific capabilities
+(multi-GB ML dependencies, hardware-vendor SDKs, lab-internal algorithms) stay
+out of trunk while remaining one command away: a checkout pulls the modules it
+wants with the `airstack module` command group, and trunk never carries module
+code.
 
-This page covers the Phase P2 machinery: the CLI, the pinning rule, hooks, and
+This page covers the module machinery: the CLI, the pinning rule, hooks, and
 how the overlay places a module into the containers. The manifest format itself
 is documented in the [module schema README](../../common/module_schema/README.md),
 and module CI in [Module CI](module_ci.md). Agents scaffolding a new module repo
@@ -16,7 +18,7 @@ should follow the `create-module` skill (`.agents/skills/create-module`).
 
 | Path | What it is | Committed? |
 |------|------------|------------|
-| `modules.repos` | Which modules this checkout uses: a [vcs2l](https://github.com/ros-infrastructure/vcs2l)-format `repositories:` list (pinned) plus an `x-local-modules:` list for local paths (vcs tools ignore that key) | gitignored in trunk (a *stack* commits its own copy — Phase P3) |
+| `modules.repos` | Which modules this checkout uses: a [vcs2l](https://github.com/ros-infrastructure/vcs2l)-format `repositories:` list (pinned) plus an `x-local-modules:` list for local paths (vcs tools ignore that key) | gitignored in trunk (a *stack* commits its own copy — see [Stacks](stacks.md)) |
 | `modules/<name>/` | The synced checkouts (git clones, or symlinks to local paths) | gitignored |
 | `robot/ros_ws/src/modules/<name>` | Overlay symlink so colcon builds the module's ROS packages | gitignored |
 | `simulation/isaac-sim/launch_scripts/modules/<name>/` | Overlay symlinks exposing a module's Isaac launch scripts | gitignored |
@@ -41,8 +43,8 @@ airstack module create --in-tree <name>   # scaffold a module boundary in your f
 
 ### The pinning rule
 
-`modules.repos` entries are **pinned to tags or commit SHAs — never branches**
-(RFC #379 §3). A branch ref rots silently; a pinned `.repos` file *is* a
+`modules.repos` entries are **pinned to tags or commit SHAs — never branches**.
+A branch ref rots silently; a pinned `.repos` file *is* a
 tested-together release set. `module add` therefore refuses `--version` values
 that look like branches (`main`, `develop`, …). Moving a pin is a deliberate
 act: re-run `module add <url> --version <new-tag>` (upserts the entry).
@@ -147,7 +149,7 @@ AIRSTACK_NO_MODULE_COMPOSE=1 airstack up
 
 ## The researcher workflow (fork → module)
 
-Research happens in a fork; modularity is a graduation step (RFC #379 §11).
+Research happens in a fork; modularity is a graduation step.
 Day one, put your work behind a directory boundary:
 
 ```bash
@@ -172,9 +174,9 @@ classifies your changes against the merge-base with `origin/develop`:
 files inside `robot/ros_ws/src/modules/` or `modules/` are *contained* (fine);
 everything else is listed as extraction debt to upstream, carry as a
 fragment/override, or propose as a missing convention. The report **informs,
-never blocks**. Graduation (`module extract` into a fresh template repo) is a
-later phase; the `create-module` skill covers authoring the standalone repo by
-hand today.
+never blocks**. An automated `module extract` command (graduating into a fresh
+template repo) is future work; the `create-module` skill covers authoring the
+standalone repo by hand today.
 
 ## Current limitations (honest v1)
 
@@ -184,9 +186,6 @@ hand today.
   override-file additions. Override the set with
   `AIRSTACK_MODULE_ROBOT_SERVICES=svc1,svc2` if you need others.
 - **`gcs` / `ms-airsim` targets** get no placement yet.
-- **Docker composition chain** (per-module dependency layers, `modules.lock`)
-  and **stack folders** are later phases; `deps:`/`dockerfile:`/`overlay_image:`
-  manifest fields are recorded but not consumed.
 - **`airstack_compat`** ranges are validated syntactically but not yet checked
   against the checkout's `.env` `VERSION` at sync time.
 - **vcs2l** is installed with `pip3 install --user`; make sure `~/.local/bin`
@@ -194,9 +193,9 @@ hand today.
 
 ## Docker layer composition
 
-Phase P4 machinery (RFC #379 §6) — it supersedes the "deps recorded but not
-consumed" limitation above. Trunk publishes **one signed base image per host
-type per version**; modules bring their own dependencies, and
+Module dependencies never enter trunk images — that is what keeps the base
+images small and the published set finite. Trunk publishes **one signed base
+image per host type per version**; modules bring their own dependencies, and
 `tools/compose_module_layers.py` (run automatically by `airstack module sync`,
 or on demand via `airstack module lock`) composes them into per-checkout image
 plans. Permutations are never published.
@@ -224,8 +223,7 @@ order 1 → 2 → 3-as-build, grouped per target host (`robot` / `gcs` /
 docker cannot merge it into a locally built chain. It is used **as-is** only
 when it is the *sole* docker-relevant module for its host. In any other
 composition its module must also carry a `dockerfile:` — the fragment is the
-source of truth and the overlay is just a cache — otherwise the plan errors,
-citing RFC #379 §6.
+source of truth and the overlay is just a cache — otherwise the plan errors.
 
 ### Zero-module identity rule
 
@@ -279,7 +277,7 @@ from `robot-l4t-stack-base`); override the service list with
 same host (e.g. `tabulate==0.9.0` vs `tabulate==0.8.0`), naming the fighting
 modules. Same-spec duplicates and unpinned duplicates are fine. This is one of
 the two enumerated places where module tooling hard-errors instead of
-observing (RFC #379 §4): composing a broken image would be indistinguishable
+observing: composing a broken image would be indistinguishable
 from launching a broken system.
 
 ### Trunk publishing is untouched

@@ -1,6 +1,6 @@
 # Exploration Planner
 
-The Exploration Planner is an optional global planner for autonomous flight. It combines the maintaining of an openvdb based voxel occupancy grid map, extract frontier from the map, and generates trajectories that enables the drone to explore previously undiscovered areas. With VDB mapping integrated, you can turn off the vdb_mapping node in the launch xml, and the planner will generate and publish multiple linked straight-line trajectories as a shortened RRT path to a selected viewpoint with collision check.
+The Exploration Planner is an optional global planner for autonomous flight. It maintains an OpenVDB-based voxel occupancy grid map, extracts frontiers from the map, and generates trajectories that let the drone explore unvisited areas. Because it maintains its own map, you can turn off the `vdb_mapping` node in the launch XML; the planner will generate and publish multiple linked straight-line trajectories as a shortened, collision-checked RRT path to a selected viewpoint.
 
 ## Functionality
 
@@ -11,7 +11,7 @@ include) with:
 
 `<include file="$(find-pkg-share exploration_planner)/launch/exploration_launch.xml" />`:
 
-Then when running the robot stack, after taking off, click the `Global Plan` and the exploration planner will work in the place of previous random walk planner. The working process is:
+Then when running the robot stack, after taking off, toggle `Global Plan` (the `~/global_plan_toggle` service) and the exploration planner runs in place of the random walk planner. The working process is:
 
 1. Create and maintain a voxel grid map with odometry and laser scan, to visualize, check topic `"~/vdb_viz"`, where `~` is the namespace.
 2. Extract frontier and select viewpoints for exploration.
@@ -19,9 +19,9 @@ Then when running the robot stack, after taking off, click the `Global Plan` and
 4. Continuously monitor the robot's progress along the published path.
 5. Once the robot completes the current path, a new exploration path will be generated.
 
-This loop continues, enabling the drone to keep explore in the entire space.
+This loop continues, enabling the drone to keep exploring the entire space.
 
-We're still cleaning old params of random walk planner, based on which this exploration is developed. We'll update parameter documentation later.
+The planner is derived from the random walk planner and shares several of its parameters; parameter documentation is still being expanded.
 
 ## Parameters
 | <div style="width:220px">Parameter</div>  | Description

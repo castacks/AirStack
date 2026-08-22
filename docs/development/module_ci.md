@@ -6,7 +6,7 @@ Trunk owns a reusable GitHub Actions workflow,
 that checks out `castacks/AirStack` at a pinned ref, checks out the calling
 module repo next to it, registers the module (`airstack module add` +
 `airstack module sync`), and runs the **existing system-test suite unchanged**
-on a GPU runner ([RFC #379 §5](https://github.com/castacks/AirStack/discussions/379)).
+on a GPU runner.
 A module's CI is therefore a ~12-line caller.
 
 ## Wiring a module repo
@@ -97,8 +97,8 @@ stays unset; only trunk's `docker-build.yml` writes).
 
 The workflow hard-fails when the calling repository is not in the `castacks`
 org. Org GPU runners (OSMO pool, sim licenses) and org registry secrets never
-serve third-party code. External modules will be served by a
-**dispatch-triggered test bench** (RFC #379 §5, Phase 4): trunk receives a
+serve third-party code. External modules will be served by a planned
+**dispatch-triggered test bench**: trunk receives a
 `repository_dispatch {module_repo, module_ref, airstack_ref}`, runs on its own
 runners, and posts a check-run back via a GitHub App — secrets and licenses
 never leave trunk, bench time is gated and rate-limited. Until that lands,
@@ -110,7 +110,7 @@ external authors can run the suite on their own runners by overriding
 System tests double as conformance tests — e.g. `tests/waypoint_checker.py`
 judges the odometry track regardless of which planner produced it, so passing
 `waypoint_flight` *is* the behavioral definition of a working global planner.
-Guidance by module category (RFC #379 §5):
+Guidance by module category:
 
 | Module category | Marks |
 |---|---|
@@ -132,7 +132,7 @@ the claim is inspectable; the CI caller is where they actually run.
   workflow; `sim: msairsim` is the cheap bring-up.
 - **Release / compatibility claim:** the module's full conformance mark set on
   GPU — this run is what stamps the badge.
-- **Trunk-side nightly canary** (Phase 4) runs registered modules against
+- **Trunk-side nightly canary** (planned) runs registered modules against
   `develop` so breakage surfaces the day it lands.
 
 **Badge semantics:** a compat badge reads "module M @ vM passes marks {…} in a

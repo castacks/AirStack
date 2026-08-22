@@ -8,7 +8,7 @@ All launch scripts under `simulation/isaac-sim/launch_scripts/` are thin scenari
 | `example_one_px4_pegasus_launch_script.py` | One PX4 drone with the standard sensor stack (ZED stereo + Ouster lidar) in the default environment. |
 | `example_multi_px4_pegasus_launch_script.py` | `NUM_ROBOTS` drones spawned in a row (`row_spawn_configs`). Each drone gets its own ROS domain id (`1..N`). Lidar gated on `ENABLE_LIDAR`. |
 | `example_multi_drone_scene_import.py` | Explicit `DRONE_CONFIGS` in an **imported scene** (USD from a Nucleus server) with per-drone GPS homes. Use this as the starting point for any custom scene. |
-| `fleet_spawn.py` | Generic fleet spawner (RFC #380): spawn positions, per-robot sensor toggles, and the scene come from the fleet file named by `FLEET_CONFIG_FILE`. Selected automatically by `airstack up --fleet <name>` — not meant to be copied as a template. |
+| `fleet_spawn.py` | Generic fleet spawner: spawn positions, per-robot sensor toggles, and the scene come from the fleet file named by `FLEET_CONFIG_FILE`. Selected automatically by `airstack up --fleet <name>` — not meant to be copied as a template. |
 
 ## Writing a launch script with `PegasusApp`
 
@@ -74,7 +74,7 @@ DRONE_CONFIGS = [
 | `domain_id` | ROS domain id and (by default) PX4 vehicle id — MAVLink port is `14540 + vehicle_id`. The robot container with `ROS_DOMAIN_ID=1` will see this drone. |
 | `x_m`, `y_m`, `z_m` | World-frame spawn position in meters. Convention: `+X = East`, `+Y = North`, `+Z = Up`. |
 | `orient` | Spawn orientation quaternion `[x, y, z, w]` (default identity). |
-| `prim`, `node_name` | Override the drone's root prim / OmniGraph node name (single-drone scenes use the historical `/World/base_link` / `PX4Multirotor`). |
+| `prim`, `node_name` | Override the drone's root prim / OmniGraph node name (single-drone scenes default to `/World/base_link` / `PX4Multirotor`). |
 | `camera`, `lidar`, `lidar_min_range`, `camera_offset` | Per-drone sensor overrides of the app-level settings. |
 
 To add another drone, append an entry with a fresh `domain_id` and a non-overlapping spawn position, and launch the matching number of robot containers (`airstack up --sim isaac --robots N` keeps `NUM_ROBOTS` and the launch script consistent).

@@ -70,12 +70,13 @@ The launch file recognises the same `$(...)` token syntax used in ROS 2 XML laun
 </include>
 ```
 
-!!! note "Renamed launch arguments (RFC #379 §4)"
-    The arguments were renamed from the generic `config_file` / `args` to the
-    prefixed `dds_router_config_file` / `dds_router_args` — generic launch
-    configurations leak across sibling includes in the same launch scope. The
-    old names still work as **deprecated aliases** (the prefixed name wins
-    when both are set); update external callers when convenient.
+!!! note "Prefixed launch arguments"
+    The canonical arguments are the prefixed `dds_router_config_file` /
+    `dds_router_args` — generic names like `config_file` leak across sibling
+    includes in the same launch scope, because ROS 2 launch configurations
+    are global. The generic `config_file` / `args` names are accepted as
+    **deprecated aliases** (the prefixed name wins when both are set);
+    prefer the prefixed names in all callers.
 
 ### 2 — Config inheritance via `extends:`
 
@@ -112,8 +113,7 @@ some_key: !reset
 **Location:** [`robot/ros_ws/src/autonomy_bringup/config/dds_router.yaml`](../../../robot/ros_ws/src/autonomy_bringup/config/dds_router.yaml)
 
 Selected by the `full_*` stacks and `lite_default` (their entry files pass it
-to `interpolate_dds_router.launch.py`). Historically this lived at
-`onboard_all/config/` under the removed AUTONOMY_ROLE dispatch.
+to `interpolate_dds_router.launch.py`).
 
 **Participants:**
 
@@ -126,17 +126,24 @@ to `interpolate_dds_router.launch.py`). Historically this lived at
 
 | Topic / Service |
 |---|
+| `rt/<ROBOT_NAME>/sensors/ouster/point_cloud` |
+| `rt/<ROBOT_NAME>/vdb_mapping/vdb_map_visualization` |
+| `rt/<ROBOT_NAME>/sensors/front_stereo/{left,right}/image_rect` + `camera_info` |
+| `rt/<ROBOT_NAME>/perception/stereo_image_proc/point_cloud` |
 | `rt/<ROBOT_NAME>/odometry_conversion/odometry` |
-| `rt/<ROBOT_NAME>/interface/mavros/global_position/raw/fix` |
-| `rt/<ROBOT_NAME>/behavior/behavior_tree_commands` |
-| `rt/<ROBOT_NAME>/behavior/behavior_tree_graphviz` |
+| `rt/<ROBOT_NAME>/interface/mavros/global_position/global` |
+| `rt/<ROBOT_NAME>/trajectory_controller/trajectory_vis` |
+| `rt/<ROBOT_NAME>/global_plan` |
 | `rq+rr/<ROBOT_NAME>/interface/robot_command` |
 | `rq+rr/<ROBOT_NAME>/trajectory_controller/set_trajectory_mode` |
 | `rq+rr/<ROBOT_NAME>/takeoff_landing_planner/set_takeoff_landing_command` |
 | `rq+rr/<ROBOT_NAME>/behavior/global_plan_toggle` |
 | `rt/<ROBOT_NAME>/bag_record/bag_recording_status` |
 | `rt/<ROBOT_NAME>/bag_record/set_recording_status` |
-| `rt/<ROBOT_NAME>/fixed_trajectory_generator/fixed_trajectory_command` |
+
+Gossip peer profiles are deliberately **not** in this allowlist — they are
+bridged by the dedicated gossip DDS router on domain 99 (bridging them here
+too would cause message amplification).
 
 
 ---
@@ -149,10 +156,9 @@ is the authoritative boundary document, and `tools/gen_dds_router.py`
 generates `.airstack/generated/dds_router.lite_offload_global.yaml` from it
 (loaded by the stack's `onboard` entry).
 
-The generated config replaced the legacy split's committed
-`onboard_local_offboard_global/config/dds_router.yaml` (removed with the
-AUTONOMY_ROLE dispatch) — deliberately minus the `set_trajectory_mode`
-crossing that config carried: command authority stays onboard
+The generated config deliberately contains no `set_trajectory_mode`
+crossing: command authority stays onboard — control-mode and
+trajectory-group names may never cross a split-stack bridge
 (`airstack doctor` hard gate #2).
 
 ---

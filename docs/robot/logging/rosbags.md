@@ -27,43 +27,40 @@ ros2 bag record -a
 
 Record with storage limit:
 ```bash
-ros2 bag record -a --max-bag-size 1000  # 1GB per file
+ros2 bag record -a --max-bag-size 1000000000  # ~1 GB per file (bytes)
 ```
 
-### Automatic Recording
+### Managed Recording
 
-AirStack can automatically record bags using the [bag_recorder_pid](../../../common/ros_packages/logging/bag_recorder_pid/README.md) package.
-
-Configure in the robot launch files to automatically start recording when the autonomy stack launches.
+AirStack manages recording with the [bag_recorder_pid](../../../common/ros_packages/logging/bag_recorder_pid/README.md) package: launch the stack with `RECORD_BAGS=true` to start the recorder node, then toggle recording via its `bag_record/set_recording_status` topic. See the [Logging overview](index.md) for the full workflow.
 
 ## Configuration
 
 ### Topic Selection
 
-Choose topics based on mission objectives:
+Choose topics based on mission objectives. The recorder's config file (selected with `LOG_CONFIG`, in `logging_bringup/config/`) groups topics into named **sections**; relative topic names are prefixed with the robot namespace:
 
 **Minimal set** (state and commands):
 ```yaml
-topics:
-  - /{robot_name}/odometry
-  - /{robot_name}/global_plan
-  - /{robot_name}/trajectory_controller/trajectory_segment_to_add
+sections:
+  state:
+    mcap_qos: mcap_qos.yaml
+    args: []
+    topics:
+      - odometry_conversion/odometry
+      - global_plan
+      - trajectory_controller/trajectory_segment_to_add
 ```
 
-**Standard set** (add sensor data):
+**Full set** (everything for debugging — record all topics except an exclude list):
 ```yaml
-topics:
-  - /{robot_name}/odometry
-  - /{robot_name}/global_plan
-  - /{robot_name}/camera/image_raw/compressed
-  - /{robot_name}/depth/image_raw
-  - /{robot_name}/imu/data
-```
-
-**Full set** (everything for debugging):
-```yaml
-topics:
-  - ".*"  # Record all topics
+sections:
+  everything:
+    mcap_qos: mcap_qos.yaml
+    args: []
+    exclude:
+      - /tf
+      - /tf_static
 ```
 
 ### Storage Management
@@ -78,12 +75,12 @@ On resource-constrained platforms (Jetson, VOXL):
 ## Storage Locations
 
 ### Development (Docker)
-- Bags stored in mounted volume: `robot/bags/`
+- Bags stored in mounted volume: `robot/bags/` (mounted at `/bags` in the container)
 - Persists across container restarts
 
 ### Hardware Deployment
-- Default location: `/opt/airstack/bags/` or local SSD
-- Configure via environment variable: `ROSBAG_DIR`
+- Jetson (`l4t` profile): `/media/airlab/Storage/airstack_collection` on the device is mounted at `/bags`
+- The recorder's target directory is its `output_dir` parameter (set in `logging.launch.xml`, default `/bags`)
 
 ## Playback and Analysis
 
@@ -113,9 +110,9 @@ ros2 bag info path/to/bagfile
 
 Example output:
 ```
-Files:             rosbag2_2024_03_17-14_30_00.db3
+Files:             state_20260317_143000/state_20260317_143000_0.mcap
 Bag size:          1.2 GB
-Storage id:        sqlite3
+Storage id:        mcap
 Duration:          300.5s
 Start:             Mar 17 2024 14:30:00.123
 End:               Mar 17 2024 14:35:00.623
@@ -128,9 +125,16 @@ Topic information:
 
 ### Extract Specific Topics
 
-Convert to a new bag with only specific topics:
+Convert to a new bag with only specific topics using `ros2 bag convert` with an output spec:
 ```bash
-ros2 bag filter input_bag -o output_bag --topics /robot1/odometry /robot1/camera/image_raw
+ros2 bag convert -i input_bag -o out_spec.yaml
+```
+
+```yaml
+# out_spec.yaml
+output_bags:
+  - uri: output_bag
+    topics: [/robot_1/odometry_conversion/odometry, /robot_1/global_plan]
 ```
 
 ## Common Workflows

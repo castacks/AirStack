@@ -42,7 +42,10 @@ The Microsoft AirSim (legacy) service is defined in `simulation/ms-airsim/docker
 Microsoft AirSim (legacy) is gated behind a Docker Compose profile:
 
 ```bash
-# Start alongside the robot stack
+# Start alongside the robot stack (intent flag: selects profiles + matching URDF)
+airstack up --sim airsim
+
+# Equivalent explicit-profile form
 airstack up --profile ms-airsim --profile desktop
 
 # Build the image first
@@ -301,7 +304,7 @@ AIRSIM_CAM_FOV=120 airstack up --profile ms-airsim
 
 - Ensure AirSim binary started successfully (check tmux window 0)
 - The entrypoint retries until the API is ready; check for connection errors in the container logs
-- Verify `ms_airsim_ip` in `bridge.yaml` matches where AirSim is running (default: `127.0.0.1` — same container)
+- Verify the bridge node's `ms_airsim_ip` parameter matches where AirSim is running (default: `127.0.0.1` — same container)
 
 **PX4 SITL won't connect:**
 
@@ -317,7 +320,7 @@ AIRSIM_CAM_FOV=120 airstack up --profile ms-airsim
 
 **No depth images on ROS 2 topics:**
 
-- Verify the camera names in `settings.json` match those in `bridge.yaml`
+- Verify the camera names in the generated `settings.json` are `front_left` / `front_right` — the names the bridge node requests images by
 - Check bridge node output for connection errors (tmux bridge window)
 - Echo the topic: `ros2 topic echo /robot_1/sensors/front_stereo/depth --once`
 

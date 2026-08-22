@@ -1,20 +1,20 @@
 # `full_macvo` — trunk reference stack
 
 Full autonomy with **MAC-VO** as the disparity source for the local planner.
-One of the presets absorbing the `local_*.launch.xml` variant explosion into
-named stacks a few include lines apart (RFC #379 §3).
+Local-planner variants are expressed as named stacks a few include lines
+apart — rather than as launch-file arguments — so each variant is directly
+selectable and carries its own observed wiring baseline.
 
-**Requires: `airstack module add asm_macvo`.** MAC-VO no longer lives in
-trunk — the `macvo_ros2` package, its Python/TensorRT dependencies, and the
-model weights all ship in the [asm_macvo](https://github.com/castacks/asm_macvo)
+**Requires: `airstack module add asm_macvo`.** MAC-VO is not trunk-resident —
+the `macvo_ros2` package, its Python/TensorRT dependencies, and the model
+weights all ship in the [asm_macvo](https://github.com/castacks/asm_macvo)
 module. Until the module is synced (`modules.repos` pins it),
 `$(find-pkg-share macvo_ros2)` in this stack's launch file will not resolve
 and bring-up fails at the macvo include.
 
 ## What it launches
 
-Local layer flattened (E2): identical to
-[`full_default`](../full_default/README.md) except:
+Identical to [`full_default`](../full_default/README.md) except:
 
 1. The module-provided `macvo_ros2/launch/macvo.launch.xml` is included under
    the `perception` namespace, so the `macvo_ros2` node runs and publishes
@@ -23,21 +23,6 @@ Local layer flattened (E2): identical to
 2. The `droan_gl.launch.xml` include passes
    `droan_gl_disparity_topic:=/$ROBOT_NAME/perception/macvo/disparity`,
    wiring the planner's disparity input to MAC-VO's real output topic.
-
-## Supersedes the broken legacy variant
-
-This stack **superseded** (and P5-E2 deleted)
-`robot/ros_ws/src/local/local_bringup/launch/local_macvo_obstacle_avoidance.launch.xml`,
-which was broken three ways:
-
-- It passed `odometry_in_topic` / `disparity_in_topic` / `depth_in_topic` —
-  arg names missing the `local_` prefix, so `local.launch.xml` never saw them
-  and silently used its stereo defaults.
-- Its disparity topic `/$ROBOT_NAME/macvo/disparity` is stale: macvo launches
-  inside the `perception` namespace and actually publishes
-  `/$ROBOT_NAME/perception/macvo/disparity`.
-- It never enabled `launch_macvo` in perception, so the macvo node it
-  pointed at was not even running.
 
 ## How to run
 
@@ -53,18 +38,16 @@ airstack ready
 
 ## Known limits
 
-- Fully flattened (E2 local, E3 the rest): every layer is composed
-  module-by-module in `stack.launch.xml`, except `interface.launch.py`
-  (wrapped by design — the safety boundary; flattens with RFC #380 Part 2)
-  and `logging.launch.xml` (already a single self-contained module).
-- `stereo_image_proc` still runs alongside MAC-VO (its module include is
-  kept in `stack.launch.xml`): the stereo point cloud feeds other consumers,
-  so this stack runs both estimators. A leaner macvo-only preset can drop
-  that include once downstream consumers are audited.
+- Every layer is composed module-by-module in `stack.launch.xml`, except
+  `interface.launch.py` (wrapped by design — the safety boundary) and
+  `logging.launch.xml` (already a single self-contained module).
+- `stereo_image_proc` runs alongside MAC-VO (its module include is kept in
+  `stack.launch.xml`): the stereo point cloud feeds other consumers, so this
+  stack runs both estimators. A leaner macvo-only preset can drop that
+  include once downstream consumers are audited.
 - MAC-VO is GPU-heavy; expect reduced sim real-time factor on a shared GPU.
-- No legacy equivalence baseline exists for this topology (the legacy
-  variant never worked), so the committed `wiring.md` — captured from this
-  stack's own first validated snapshot run — IS the baseline.
+- The committed `wiring.md` — captured from this stack's own first validated
+  snapshot run — is the baseline.
 - `modules.repos` pins `asm_macvo`; `docker-compose.yaml` stays an empty stub
   until `airstack module lock --build` generates the per-module compose
   override.

@@ -16,23 +16,25 @@ Robot configuration includes:
 
 ### Environment Variables
 
-Key environment variables configured in `robot/docker/.env`:
+Key environment variables configured in the top-level `.env` file:
 
 ```bash
-# Robot Identity
-ROBOT_NAME=robot1
-ROS_DOMAIN_ID=0
-
 # Launch Configuration
 AUTOLAUNCH=true
-# Stack selection (stacks are the only dispatch; unset = full_default)
+# Stack selection (stacks are the only dispatch; unset = full_default).
+# Usually set via `airstack up --stack <name>` rather than by hand.
 AIRSTACK_STACK_DIR=/root/AirStack/stacks/full_default
 
-# Sensor Configuration
-ENABLE_CAMERA=true
-ENABLE_LIDAR=false
-CAMERA_TOPIC=/camera/image_raw
+# Multi-robot
+NUM_ROBOTS=1
+
+# Robot identity mapping (name → ROBOT_NAME + ROS_DOMAIN_ID)
+ROBOT_NAME_MAP_CONFIG_FILE=default_robot_name_map.yaml
 ```
+
+`ROBOT_NAME` and `ROS_DOMAIN_ID` are **not** set in `.env` — each container
+resolves them at startup from `ROBOT_NAME_SOURCE` and the mapping config; see
+[Robot Identity](../docker/robot_identity.md).
 
 ### ROS 2 Parameters
 

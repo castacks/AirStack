@@ -51,7 +51,7 @@ services:
       - PLAY_SIM_ON_START=${PLAY_SIM_ON_START}
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       - ENABLE_LIDAR=${ENABLE_LIDAR:-false}
-      # Fleet spawner input (RFC #380): fleet_spawn.py maps the robot-container
+      # Fleet spawner input: fleet_spawn.py maps the robot-container
       # path onto this container's /isaac-sim/AirStack checkout mount.
       - FLEET_CONFIG_FILE=${FLEET_CONFIG_FILE:-}
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}

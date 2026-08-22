@@ -1,6 +1,6 @@
 <!--
   lite_offload_global / offboard : the ground half of the split stack
-  (RFC #380 S2). Runs on the offboard host (conventionally the GCS machine,
+  Runs on the offboard host (conventionally the GCS machine,
   domain 0) paired with vehicles running launch/onboard.launch.xml.
 
   Topology = the global layer ONLY — vdb_mapping (global world model) +

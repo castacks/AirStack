@@ -1,6 +1,6 @@
 # AirStack on OSMO — Recommended Remote Development Workflow
 
-This is AirStack's recommended day-to-day development path going forward.
+This is AirStack's recommended day-to-day development path.
 You submit one OSMO workflow that spins up a GPU pod running the full
 three-container AirStack stack (Isaac Sim, robot-desktop, GCS), attach VS
 Code or Cursor to it over Remote-SSH, and stream Isaac Sim and the GCS
@@ -26,7 +26,7 @@ Why this is the recommended path:
 > **Still want local development on a Linux+GPU desktop?** It works and
 > can be faster for tight inner loops — see
 > [Getting Started](../getting_started/index.md). It just isn't the
-> recommended default anymore.
+> recommended default.
 
 ## Who is this for?
 
@@ -221,17 +221,17 @@ EOF
 
 The `localhost:2200` is what we'll port-forward to in step 4.
 
-> **Already added the old block?** If your `~/.ssh/config` still has
-> `StrictHostKeyChecking accept-new` for `airstack-osmo` from an earlier
-> setup, replace it with the three lines above. As a one-time cleanup of
-> the stale fingerprint left behind by previous pods, also run:
+> **`~/.ssh/config` already has a different `airstack-osmo` block?** If
+> your config carries `StrictHostKeyChecking accept-new` for
+> `airstack-osmo`, replace it with the three lines above, and clean out
+> any saved fingerprint for the port-forward once:
 >
 > ```bash
 > ssh-keygen -R "[localhost]:2200"
 > ```
 >
-> `airstack osmo:ide` does this scrub for you on every run, so you only
-> need it once when migrating.
+> `airstack osmo:ide` does this scrub for you on every run, so at most you
+> need it once.
 
 > **Smoke-test the agent forward** once the pod is up: SSH in and run
 > `ssh-add -l` — you should see your local key listed. If you see "The

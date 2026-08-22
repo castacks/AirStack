@@ -8,7 +8,7 @@ AirStack currently has two e2e suites:
 - **Fixed-trajectory path-tracker benchmark** (`autonomy` mark) — takeoff → execute a fixed pattern (Circle / Figure8 / Racetrack / Line) → land, measuring cross-track error. Documented below.
 
 !!! note "Future work: unify the e2e marks"
-    `takeoff_hover_land` and `autonomy` are separate marks today. As the suite grows they can be consolidated into a single general **e2e** mark/pipeline. Tracked as follow-up — not part of this change.
+    `takeoff_hover_land` and `autonomy` are separate marks today. As the suite grows they can be consolidated into a single general **e2e** mark/pipeline.
 
 ---
 
@@ -407,7 +407,7 @@ Focus on: `cross_track_error_mean_m`, `cross_track_error_max_m`, `path_rmse_m`, 
 
 ## Manual stack usage (without pytest)
 
-Bring up the stack and take off as described in **[Getting Started](../../../getting_started/index.md)** (`airstack up`, then use the RViz task panel). Once the drone is hovering, dispatch a fixed trajectory directly:
+Bring up the stack and take off as described in **[Getting Started](../../../getting_started/index.md)** (`airstack up`, then press `Takeoff` in the Foxglove Robot Tasks panel). Once the drone is hovering, dispatch a fixed trajectory directly:
 
 ```bash
 docker exec -it airstack-robot-desktop-1 bash -c '

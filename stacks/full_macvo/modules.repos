@@ -1,4 +1,4 @@
-# modules.repos : module pins for the full_macvo reference stack (RFC #379 S3).
+# modules.repos : module pins for the full_macvo reference stack.
 #
 # vcstool format, PINNED to tags/commits (never branches). `airstack module sync`
 # reads this file into the gitignored modules/ dir; a stack with a pinned .repos
@@ -17,5 +17,5 @@ repositories:
     type: git
     url: https://github.com/castacks/asm_macvo.git
     # SHA pin matching the root modules.repos; retag to v0.1.0 at first release.
-    version: 269ffc0b6f0892aaae2dab1076025a747819961f
+    version: 431d7faf1f6fed20d415bb5e5a88d8dcb0d180df
 x-local-modules: []

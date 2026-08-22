@@ -20,8 +20,6 @@ Through this approach, AirStack leverages Pegasus to create a flexible, reusable
 
 ## Launch Configuration
 
-Launch Configuration
-
 At the top level of the AirStack simulation environment, a `.env` file controls how Pegasus and Isaac Sim are launched:
 ```bash
 ISAAC_SIM_GUI="omniverse://airlab-nucleus.andrew.cmu.edu/Library/Assets/Pegasus/iris_with_sensors.pegasus.robot.usd"
@@ -112,7 +110,7 @@ Scripts must live in `simulation/isaac-sim/launch_scripts/`. Set `ISAAC_SIM_SCRI
 
 ## RTX OmniLidar and near range (`min_range`) — known limitation {#rtx-lidar-near-range}
 
-AirStack’s Pegasus fork (Isaac Sim **5.1+**) wires **RTX OmniLidar** through OmniGraph helpers such as `add_rtx_lidar_subgraph` in `pegasus.simulator.ogn.api.spawn_rtx_lidar` (used from `simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_launch_script.py`, `example_multi_px4_pegasus_launch_script.py`, etc.). Recent work in this repo switched those scripts from the legacy Ouster graph path to this **RTX** API and reconciled ROS topic names (e.g. raw cloud on `…/sensors/ouster/point_cloud_raw`, filtered consumer topic `…/sensors/ouster/point_cloud`).
+AirStack’s Pegasus fork (Isaac Sim **5.1+**) wires **RTX OmniLidar** through OmniGraph helpers such as `add_rtx_lidar_subgraph` in `pegasus.simulator.ogn.api.spawn_rtx_lidar` (used from `simulation/isaac-sim/launch_scripts/example_one_px4_pegasus_launch_script.py`, `example_multi_px4_pegasus_launch_script.py`, etc.). The lidar publishes the raw cloud on `…/sensors/ouster/point_cloud_raw`; consumers read the filtered topic `…/sensors/ouster/point_cloud`.
 
 ### `min_range` → `nearRangeM` in simulation
 

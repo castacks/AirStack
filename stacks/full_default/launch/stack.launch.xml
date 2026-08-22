@@ -1,5 +1,5 @@
 <!--
-  full_default : trunk reference stack (RFC #379 S3, layout per RFC #385 S1).
+  full_default : trunk reference stack.
 
   ALL LAYERS FLATTENED (P5-E2 local, P5-E3 the rest): every layer is composed
   here as a flat set of module-launch includes — each block below reads "this
@@ -12,7 +12,7 @@
     - interface.launch.py — MAVROS wiring is dense, FCU_URL is env-computed
       in python, and the interface layer is the safety boundary (arming,
       command authority, takeover). It stays a single include until the
-      platform-module refactor (RFC #380 Part 2).
+      platform-module refactor (Part 2).
     - interpolate_dds_router / gossip — cross-domain bridging helpers, not
       robot-graph modules; their wiring lives in DDS-router YAML configs, so
       the include + config-file arg IS their single locus.

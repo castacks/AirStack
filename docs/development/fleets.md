@@ -3,14 +3,15 @@
 A **fleet file** (`config/fleets/*.yaml`) declares a whole deployment in one
 readable document: who exists, which body each robot flies (vehicle), which
 brain it runs (stack), and which ground hosts run each split stack's offboard
-half ([RFC #380 §2](https://github.com/castacks/AirStack/discussions/380)).
+half. Fleets exist to separate *who exists* from *how each robot flies* —
+the stack owns topology, the fleet owns identity and placement.
 The same file drives simulation (spawn positions, scene) and hardware
 (identity, placement) — sim vs. real is a deployment mode of one artifact.
 
 **Everything here is opt-in.** No `--fleet` flag and no `FLEET_CONFIG_FILE`
-env var ⇒ behavior is byte-identical to the legacy path
-(`NUM_ROBOTS` + `robot_name_map` + `ISAAC_SIM_SCRIPT_NAME`), which remains
-the default and fully supported.
+env var ⇒ the replica-based multi-robot configuration
+(`NUM_ROBOTS` + `robot_name_map` + `ISAAC_SIM_SCRIPT_NAME`) runs instead —
+it remains the default and fully supported.
 
 ## The hierarchy
 
@@ -23,7 +24,7 @@ platform class  →  vehicle type   →  vehicle unit      →  robot instance  
 
 - **Platform class** — code: interface, controller, safety behaviors.
   `px4_multirotor` is the only platform today; platform *modules* are
-  RFC #380 Part 2 (future work).
+  future work.
 - **Vehicle type** — data: `config/vehicles/<name>/vehicle.yaml` (URDF,
   sensor suite with each sensor's real driver + sim representation declared
   together, sim asset). See
@@ -38,8 +39,8 @@ platform class  →  vehicle type   →  vehicle unit      →  robot instance  
 ## File tour
 
 `config/fleets/sim_one_default.yaml` — today's default checkout as a fleet
-(one `quad_default` on `full_default`; resolves identically to the legacy
-path — a contract test pins the parity):
+(one `quad_default` on `full_default`; resolves identically to the
+replica-based default — a contract test pins the parity):
 
 ```yaml
 defaults: {vehicle: quad_default, stack: stacks/full_default}
@@ -75,7 +76,7 @@ different stack folder — that division keeps fleet files skimmable.
 A fleet's `stack:` values resolve first as checkout paths (`stacks/...`),
 then as `<alias>/<stack>` against external stack repos declared in
 `airstack.yaml` and fetched by `airstack sync` into gitignored
-`stacks/.external/<alias>/` (RFC #380 §3).
+`stacks/.external/<alias>/`.
 
 ## Running a fleet
 
@@ -115,16 +116,17 @@ a fleet is selected.
   `AIRSTACK_STACK_DIR`, `AIRSTACK_STACK_ENTRY`, `URDF_FILE`, `VEHICLE`,
   `CALIBRATION_DIR`. Identity comes from the container name / hostname
   (exact robot key, else the trailing replica index — the same convention as
-  the legacy map). Pre-set env still wins per variable: an explicit
-  `ROBOT_NAME` skips resolution entirely (heterogeneous-fleet services set it
-  explicitly), and non-empty `ROS_DOMAIN_ID` / `AIRSTACK_STACK_DIR` /
-  `URDF_FILE` keep their values. Resolution failure warns and falls back to
-  the legacy resolver.
-- **Unset/empty** → the legacy `robot_name_map` resolver runs, untouched.
+  the `robot_name_map` resolver). Pre-set env still wins per variable: an
+  explicit `ROBOT_NAME` skips resolution entirely (heterogeneous-fleet
+  services set it explicitly), and non-empty `ROS_DOMAIN_ID` /
+  `AIRSTACK_STACK_DIR` / `URDF_FILE` keep their values. Resolution failure
+  warns and falls back to the `robot_name_map` resolver.
+- **Unset/empty** → the `robot_name_map` resolver runs, exactly as with no
+  fleet.
 
 `network.domain_policy: auto` (the only implemented policy) assigns robot N
-(1-based file order) → domain N — today's rule, byte-compatible with the
-legacy resolver for `robot_1..robot_N` fleets.
+(1-based file order) → domain N — the same rule the `robot_name_map`
+resolver applies for `robot_1..robot_N` fleets.
 
 ## Homogeneous vs. heterogeneous
 
@@ -137,7 +139,7 @@ legacy resolver for `robot_1..robot_N` fleets.
 
 ## Split placement (`hosts:`)
 
-A **split is a stack shape** ([stacks guide](stacks.md#split-stacks-and-bridgeyaml-rfc-380-2)):
+A **split is a stack shape** ([stacks guide](stacks.md#split-stacks-and-bridgeyaml)):
 multiple launch entry points plus a `bridge.yaml`. The fleet decides *where
 each half runs*:
 
@@ -154,14 +156,13 @@ ground:
 - The ground host `gcs` gets a generated service (`gcs-robot_3`) running the
   **same stack** with `AIRSTACK_STACK_ENTRY=offboard`, `ROBOT_NAME=robot_3`
   (the tenant it serves), and `ROS_DOMAIN_ID` = the fleet's `gcs_domain`
-  (default 0) — mirroring the legacy `robot-offboard` service.
+  (default 0) — the same shape as the `robot-offboard` compose service.
 - Every `hosts:` role must match an entry-point launch file of the robot's
   stack, and every named host must exist under `ground:` — both are named
   validation errors. Doctor's bridge hard-gate (no control-setpoint /
   trajectory-group names in any `bridge.yaml`) holds unchanged for every
   split stack a fleet places.
-- The removed legacy `AUTONOMY_ROLE` never enters: the entry point *is* the
-  role.
+- There is no separate role variable: the entry point *is* the role.
 
 ## Simulation
 
@@ -199,17 +200,17 @@ bare `{version: ...}` module pins against a registry, and deriving the
 launch-time fleet default from `airstack.yaml` (select fleets explicitly with
 `--fleet`).
 
-## Migration table (RFC #380 §3)
+## Environment variables under a fleet
 
-| Legacy env var | Under a fleet | Status |
+| Env var | Under a fleet | Precedence |
 |---|---|---|
 | `NUM_ROBOTS` | **Derived** from the fleet's robot count | explicit env still wins (banner) |
-| `ROBOT_NAME_MAP_CONFIG_FILE` | Absorbed: identity resolves from the fleet entry | legacy resolver remains the no-fleet default |
-| `AUTONOMY_ROLE` | **Removed** — the stack entry point *is* the role, derived from `hosts:` | no-fleet/no-stack default is `stacks/full_default`; a set `AUTONOMY_ROLE` is a preflight error |
+| `ROBOT_NAME_MAP_CONFIG_FILE` | Absorbed: identity resolves from the fleet entry | the `robot_name_map` resolver remains the no-fleet default |
+| `AUTONOMY_ROLE` | Not a launch input — the stack entry point *is* the role, derived from `hosts:` | no-fleet/no-stack default is `stacks/full_default`; a set `AUTONOMY_ROLE` is a preflight error |
 | `URDF_FILE` | From the vehicle's `airframe.base_urdf` (pass-through form; xacro generation is future) | explicit env still wins |
 | `ISAAC_SIM_SCRIPT_NAME` | **Derived**: the generic fleet spawner | explicit env still wins |
 | `ROBOT_NAME` / `ROS_DOMAIN_ID` | Resolved per robot (`domain_policy: auto` = robot N → domain N) | pre-set env still wins |
-| `VERSION` | Unchanged (`release:` is informational until the registry lands) | `.env` stays hand-edited |
+| `VERSION` | Unaffected by fleets (`release:` is informational until the registry lands) | `.env` stays hand-edited |
 
 ## CLI reference
 
@@ -223,5 +224,5 @@ python3 tools/fleet/resolve_fleet.py config/fleets/<f>.yaml --table   # inspect
 ```
 
 Contract tests: `tests/meta/test_fleet_contract.py` (resolver parity with the
-legacy map, generation determinism, split placement, the bridge hard-gate,
-precedence, named schema errors).
+`robot_name_map` resolver, generation determinism, split placement, the
+bridge hard-gate, precedence, named schema errors).

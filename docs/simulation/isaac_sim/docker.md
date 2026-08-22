@@ -121,21 +121,21 @@ Key variables for Isaac Sim configuration:
 | `AUTOLAUNCH` | Auto-start Isaac Sim on container launch | `true` |
 | `ISAAC_SIM_USE_STANDALONE` | `true`: run `ISAAC_SIM_SCRIPT_NAME`; `false`: open the `ISAAC_SIM_GUI` USD | `true` |
 | `ISAAC_SIM_SCRIPT_NAME` | Standalone launch script in `simulation/isaac-sim/launch_scripts/` | `example_one_px4_pegasus_launch_script.py` |
-| `ISAAC_SIM_GUI` | Path to a USD scene file (used only when `ISAAC_SIM_USE_STANDALONE=false`) | `simple_pegasus.scene.usd` |
+| `ISAAC_SIM_GUI` | Path to a USD scene file (used only when `ISAAC_SIM_USE_STANDALONE=false`) | `simulation/isaac-sim/assets/scenes/simple_pegasus.scene.usd` |
 | `PLAY_SIM_ON_START` | Auto-play simulation on start (`airstack up --play/--no-play`) | `false` |
 | `ISAAC_SIM_HEADLESS` | Run without a window (`airstack up --headless`) | unset (`false`) |
-| `PX4_PHYSICS_HZ` | Physics step rate for PX4 SITL — also sets PX4 `IMU_INTEG_RATE` | `250` |
-| `PX4_RENDERING_HZ` | Rendering frame rate for PX4 profiles (independent of physics) | `60` |
+| `PX4_PHYSICS_HZ` | Physics step rate for PX4 SITL — also sets PX4 `IMU_INTEG_RATE` | `100` |
+| `PX4_RENDERING_HZ` | Rendering frame rate for PX4 profiles (independent of physics) | `30` |
 | `ARDUPILOT_PHYSICS_HZ` | Physics step rate for ArduPilot SITL | `800` |
 | `ARDUPILOT_RENDERING_HZ` | Rendering frame rate for ArduPilot profiles | `120` |
 
-`PX4_PHYSICS_HZ` and `PX4_RENDERING_HZ` are set in the isaac-sim compose file (defaults 100/60 there; the Pegasus code default is 250). AirStack runs PX4 at **100 Hz** for near-real-time performance. See [Pegasus Scene Setup → Physics Rate](pegasus_scene_setup.md) for valid values and the full configuration flow.
+`PX4_PHYSICS_HZ` and `PX4_RENDERING_HZ` default to 100/30 in the isaac-sim compose file (the Pegasus code default is 250 Hz physics). AirStack runs PX4 at **100 Hz** for near-real-time performance. See [Pegasus Scene Setup → Physics Rate](pegasus_scene_setup.md) for valid values and the full configuration flow.
 
 **Example overrides:**
 
 ```bash
-# Launch without GUI (headless)
-ISAAC_SIM_GUI=false airstack up isaac-sim
+# Launch without a window (headless)
+airstack up --sim isaac --headless
 
 # Don't auto-play simulation
 PLAY_SIM_ON_START=false airstack up isaac-sim
@@ -316,7 +316,7 @@ Access via web browser.
 
 1. **Edit scene files** on host (they're mounted):
    ```
-   simulation/isaac-sim/scenes/my_scene.usd
+   simulation/isaac-sim/assets/scenes/my_scene.usd
    ```
 
 2. **Reload in Isaac Sim:**
