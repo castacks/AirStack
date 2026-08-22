@@ -148,7 +148,6 @@ function print_command_help {
             echo "Options:"
             echo "  --force       Force reinstallation of components"
             echo "  --no-docker   Skip Docker installation"
-            echo "  --with-wintak Install WinTAK VirtualBox environment"
             ;;
         setup)
             echo "Usage: airstack setup [options]"
@@ -165,8 +164,13 @@ function print_command_help {
             echo "Usage: airstack up [service_name] [options]"
             echo ""
             echo "Launch-intent options (consumed by airstack; they derive + export env vars):"
-            echo "  --sim isaac|airsim  Select the simulator: swaps the compose profile and"
-            echo "                      the matching URDF_FILE."
+            echo "  --sim isaac|airsim|simple"
+            echo "                      Select the simulator: swaps the compose profile and"
+            echo "                      the matching URDF_FILE. 'simple' launches the"
+            echo "                      lightweight kinematic simple-sim (no PX4/MAVROS):"
+            echo "                      the simple-robot service replaces robot-desktop"
+            echo "                      (SIM_TYPE=simple), the 'desktop' profile is dropped"
+            echo "                      (no GCS), and URDF_FILE is left unchanged."
             echo "  --robots N          Robot count (NUM_ROBOTS); on Isaac also selects the"
             echo "                      matching one-/multi-drone launch script."
             echo "  --stack NAME        Launch a stack folder (stacks/NAME/launch/stack.launch.xml)."
@@ -328,11 +332,13 @@ function print_command_help {
             echo "  takeoff_hover_land  Takeoff / hover / land flight chain"
             echo "  autonomy        Fixed-pattern trajectory path-tracker benchmark"
             echo "  waypoint_flight Ordered-waypoint navigation judged on the odometry track"
+            echo "  simple_sim      Simple-sim smoke test (containers, /clock, sentinel nodes;"
+            echo "                  run with --sim simplesim --num-robots 1)"
             echo "  optitrack       OptiTrack NatNet end-to-end (tests live in the asm_optitrack module)"
             echo ""
             echo "AirStack-specific options (defaults from tests/conftest.py):"
-            echo "  --sim=TARGETS              Comma-separated sim targets: isaacsim, msairsim"
-            echo "                             (default: isaacsim)"
+            echo "  --sim=TARGETS              Comma-separated sim targets: isaacsim, msairsim,"
+            echo "                             simplesim (default: isaacsim)"
             echo "  --num-robots=COUNTS        Comma-separated robot counts (default: 1,3)"
             echo "  --stack=NAME               Stack folder under stacks/ to launch (default:"
             echo "                             the full_default dispatch)"
@@ -620,16 +626,12 @@ function cmd_install {
     local force=false
     # Check for --no-docker flag
     local install_docker=true
-    # Check for --with-wintak flag
-    local install_wintak=false
-    
+
     for arg in "$@"; do
         if [ "$arg" == "--force" ]; then
             force=true
         elif [ "$arg" == "--no-docker" ]; then
             install_docker=false
-        elif [ "$arg" == "--with-wintak" ]; then
-            install_wintak=true
         fi
     done
     
@@ -792,18 +794,6 @@ function cmd_install {
             fi
         else
             log_warn "Could not determine Docker Compose version. Please ensure Docker Compose v$compose_min_version or newer is installed."
-        fi
-    fi
-    
-    # Install WINTAK if requested
-    if [ "$install_wintak" = true ]; then
-        # Check if the wintak module is available
-        if declare -f "cmd_wintak_install" > /dev/null; then
-            log_info "Installing WINTAK..."
-            cmd_wintak_install
-        else
-            log_error "WINTAK module not loaded. Cannot install WINTAK."
-            log_info "Please make sure the wintak.sh module is in the .airstack/modules directory."
         fi
     fi
     
@@ -1043,7 +1033,7 @@ function push_cache_tags() {
 
 # ---------------------------------------------------------------------------
 # Launch intent: airstack-specific flags on `airstack up`
-# (--sim isaac|airsim, --robots N, --headless, --play/--no-play,
+# (--sim isaac|airsim|simple, --robots N, --headless, --play/--no-play,
 #  --no-autolaunch, --wait, --dry-run)
 #
 # Flags derive and EXPORT env vars; docker compose interpolation gives shell
@@ -1125,8 +1115,8 @@ function parse_launch_intent {
         return 1
     fi
     case "$AIRSTACK_INTENT_SIM" in
-        ""|isaac|isaacsim|airsim|msairsim|ms-airsim) ;;
-        *) log_error "Unknown --sim '$AIRSTACK_INTENT_SIM' (expected: isaac | airsim)"; return 1;;
+        ""|isaac|isaacsim|airsim|msairsim|ms-airsim|simple|simplesim|simple-sim) ;;
+        *) log_error "Unknown --sim '$AIRSTACK_INTENT_SIM' (expected: isaac | airsim | simple)"; return 1;;
     esac
     if [[ -n "$AIRSTACK_INTENT_FLEET" && -n "$AIRSTACK_INTENT_ROBOTS" ]]; then
         log_error "--fleet and --robots are mutually exclusive: the fleet file defines the robot count (RFC #380 §2)."
@@ -1298,7 +1288,7 @@ function apply_launch_intent {
     fi
 
     if [[ -n "$AIRSTACK_INTENT_SIM" ]]; then
-        local sim_profile urdf
+        local sim_profile urdf=""
         case "$AIRSTACK_INTENT_SIM" in
             isaac|isaacsim)
                 sim_profile="isaac-sim"
@@ -1306,17 +1296,33 @@ function apply_launch_intent {
             airsim|msairsim|ms-airsim)
                 sim_profile="ms-airsim"
                 urdf="robot_descriptions/iris/urdf/iris_stereo.ms-airsim.urdf";;
+            simple|simplesim|simple-sim)
+                # simple-sim (lightweight kinematic sim, no PX4/MAVROS): the
+                # simple-robot service (SIM_TYPE=simple) IS the robot container,
+                # so the 'desktop' profile must go too — keeping it would start
+                # robot-desktop alongside simple-robot: two robot_1 graphs on
+                # domain 1. No URDF swap: the sim publishes its own camera TFs
+                # and doesn't consume URDF_FILE.
+                sim_profile="simple";;
         esac
         # Swap only the simulator profile; preserve the others (desktop, l4t, ...)
+        # — except for simple, which also drops 'desktop' (see above).
         local profiles kept=() p
         profiles=$(resolve_launch_var COMPOSE_PROFILES "$@")
         IFS=',' read -ra _parr <<< "$profiles"
         for p in "${_parr[@]}"; do
-            case "$p" in isaac-sim|ms-airsim|simple|"") ;; *) kept+=("$p");; esac
+            case "$p" in
+                isaac-sim|ms-airsim|simple|"") ;;
+                desktop) [[ "$sim_profile" == "simple" ]] || kept+=("$p");;
+                *) kept+=("$p");;
+            esac
         done
         kept+=("$sim_profile")
         export COMPOSE_PROFILES=$(IFS=','; echo "${kept[*]}")
-        export URDF_FILE="$urdf"
+        [[ -n "$urdf" ]] && export URDF_FILE="$urdf"
+        if [[ "$sim_profile" == "simple" ]]; then
+            log_info "--sim simple → simple-robot replaces robot-desktop (profile 'desktop' dropped; no GCS, no MAVROS/PX4)"
+        fi
     fi
 
     # Fleet dispatch (RFC #380 §2): triggered by --fleet, or by an env /
@@ -1466,7 +1472,7 @@ function preflight_up {
     if (( n > 1 )); then
         _pf_error "Only one simulator profile can be active at a time (isaac-sim, ms-airsim, simple). Resolved: $profiles"
     elif (( n == 0 )); then
-        log_warn "No simulator profile active — robot containers will wait for a sim that never starts. Use 'airstack up --sim isaac|airsim' (or add a sim profile)."
+        log_warn "No simulator profile active — robot containers will wait for a sim that never starts. Use 'airstack up --sim isaac|airsim|simple' (or add a sim profile)."
     fi
 
     # 2. URDF must match the simulator
@@ -2120,7 +2126,7 @@ function register_builtin_commands {
     COMMAND_HELP["image-pull"]="Pull Docker Compose service images from a registry"
     COMMAND_HELP["images"]="List Docker images filtered by PROJECT_NAME from .env"
     COMMAND_HELP["image-delete"]="Delete all Docker images matching PROJECT_NAME (prompts unless -y)"
-    COMMAND_HELP["up"]="Start services [--sim isaac|airsim] [--robots N] [--stack NAME] [--fleet NAME] [--headless] [--play|--no-play] [--no-autolaunch] [--wait] [--dry-run]"
+    COMMAND_HELP["up"]="Start services [--sim isaac|airsim|simple] [--robots N] [--stack NAME] [--fleet NAME] [--headless] [--play|--no-play] [--no-autolaunch] [--wait] [--dry-run]"
     COMMAND_HELP["down"]="down services"
     COMMAND_HELP["clean"]="Remove all ROS 2 build artifacts (build/, install/, log/)"
     COMMAND_HELP["connect"]="Connect to a running container (supports partial name matching)"

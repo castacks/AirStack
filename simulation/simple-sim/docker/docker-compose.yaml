@@ -1,7 +1,15 @@
+# simple-sim: lightweight kinematic simulator (no PX4, no MAVROS). One node
+# mocks the MAVROS surface the autonomy stack talks to (state/odom topics,
+# set_mode/arming/takeoff services, attitude setpoint input — hardcoded to
+# robot_1 on ROS_DOMAIN_ID=1) and renders stereo camera images of a single
+# FBX world via OpenGL. Launch with `airstack up --sim simple`, which pairs
+# this service with the simple-robot service (SIM_TYPE=simple) instead of
+# robot-desktop. Actively used by core maintainer John Keller.
 services:
   simple-sim:
     profiles:
       - simple
+    container_name: simple-sim  # stable name, mirrors isaac-sim / ms-airsim
     image: &simple_sim_image ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:v${VERSION}_simple_sim
     build:
       context: ./

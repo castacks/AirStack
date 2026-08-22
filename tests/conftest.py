@@ -23,8 +23,10 @@ from harness.run_meta import write_run_meta
 
 def pytest_addoption(parser):
     parser.addoption("--sim", default="isaacsim",
-                     help="Comma-separated sim targets: isaacsim, msairsim. "
-                          "Default isaacsim; pass --sim msairsim to opt in.")
+                     help="Comma-separated sim targets: isaacsim, msairsim, "
+                          "simplesim. Default isaacsim; pass --sim msairsim "
+                          "to opt in. simplesim only drives the simple_sim "
+                          "smoke test (-m simple_sim).")
     parser.addoption("--num-robots", default="1,3",
                      help="Comma-separated robot counts, e.g. 1,3")
     parser.addoption("--stack", default=None,
@@ -235,7 +237,9 @@ def airstack_env(request):
     env_overrides = {
         "AUTOLAUNCH": "true",
         "NUM_ROBOTS": str(num_robots),
-        "COMPOSE_PROFILES": f"desktop,{cfg['profile']}",
+        # simplesim overrides this: its simple-robot service replaces
+        # robot-desktop, so the desktop profile must stay off (see SIM_CONFIG).
+        "COMPOSE_PROFILES": cfg.get("compose_profiles", f"desktop,{cfg['profile']}"),
         "MS_AIRSIM_HEADLESS": "true" if headless else "false",
         "ISAAC_SIM_HEADLESS": "true" if headless else "false",
     }
@@ -300,7 +304,7 @@ def airstack_env(request):
         "num_robots": num_robots,
         "iteration": iteration,
         "sim_container": cfg["sim_container"],
-        "robot_pattern": "robot.*desktop",
+        "robot_pattern": cfg.get("robot_pattern", "robot.*desktop"),
         "up_started_at": t0,
         "cfg": cfg,
         # None = the default dispatch (stacks/full_default); else the

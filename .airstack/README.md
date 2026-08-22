@@ -24,7 +24,6 @@ a `register_<name>_commands` function that fills the `COMMANDS` /
 | `modules/ready.sh` | `ready` (wait for flight-readiness; `--json`) |
 | `modules/stack.sh` | `stack` (`list`, `new`, `diff`) |
 | `modules/sync.sh` | `sync` (checkout sync from `airstack.yaml`; `--no-hooks`) |
-| `modules/wintak.sh` | `wintak:install`, `wintak:start`, `wintak:stop` |
 
 `airstack help <command>` prints per-command usage; `airstack commands` lists
 everything grouped by prefix. Launch flags on `up` (`--sim`, `--robots`,
