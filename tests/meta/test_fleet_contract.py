@@ -236,7 +236,9 @@ def test_dry_run_fleet_exports():
     assert "robot_1" in out  # the resolved robot table prints
 
 
-def test_dry_run_heterogeneous_fleet_swaps_profile_and_includes_compose():
+def test_dry_run_heterogeneous_fleet_swaps_profile_and_would_generate():
+    """--dry-run derives the fleet config but WRITES NOTHING: the generator
+    prints what it would generate (compose services + split-stack routers)."""
     code, out, cfg = run_up_dry("--fleet", "sim_three_mixed", "--sim", "isaac")
     assert code == 0, out
     assert cfg["NUM_ROBOTS"] == "3"
@@ -244,11 +246,92 @@ def test_dry_run_heterogeneous_fleet_swaps_profile_and_includes_compose():
     assert "fleet" in profiles and "desktop" not in profiles
     assert "isaac-sim" in profiles
     assert "docker-compose.fleet.yaml" in out
+    assert "Would write" in out
+    # split-stack routers are part of the same one-pipeline messaging
+    assert "Would generate DDS-router config" in out
+    assert "lite_offload_global" in out
+
+
+def test_fleet_generate_cli_writes_compose_and_split_stack_routers():
+    """The `airstack fleet generate` path (the real-run pipeline) emits BOTH
+    the per-robot compose services and the DDS-router configs for every split
+    stack the fleet places."""
+    result = subprocess.run(
+        [AIRSTACK, "fleet", "generate", "sim_three_mixed"],
+        capture_output=True, text=True, cwd=str(REPO), timeout=120,
+    )
+    out = result.stdout + result.stderr
+    assert result.returncode == 0, out
+    assert "docker-compose.fleet.yaml" in out
+    assert "dds_router.lite_offload_global.yaml" in out
+
     generated = REPO / ".airstack" / "generated" / "docker-compose.fleet.yaml"
     assert generated.is_file()
     assert yaml.safe_load(generated.read_text())["x-airstack-fleet"] == (
         "config/fleets/sim_three_mixed.yaml"
     )
+    router = REPO / ".airstack" / "generated" / "dds_router.lite_offload_global.yaml"
+    assert router.is_file()
+    assert "allowlist:" in router.read_text()
+
+
+def _write_external_split_checkout(tmp_path):
+    """Synthetic checkout: an <alias>/<stack> EXTERNAL split stack (fetched
+    into stacks/.external/ by `airstack sync`) placed by a fleet."""
+    root = tmp_path / "checkout"
+    veh = root / "config" / "vehicles" / "quadx"
+    veh.mkdir(parents=True)
+    (veh / "vehicle.yaml").write_text(
+        "airframe: {base_urdf: robot_descriptions/x/x.urdf}\n", encoding="utf-8"
+    )
+    stack = root / "stacks" / ".external" / "ext" / "split_x"
+    (stack / "launch").mkdir(parents=True)
+    (stack / "launch" / "onboard.launch.xml").write_text("<launch/>\n")
+    (stack / "launch" / "offboard.launch.xml").write_text("<launch/>\n")
+    (stack / "bridge.yaml").write_text(
+        "stack: split_x\n"
+        "bridge:\n"
+        "  - topic: odometry\n"
+        "    type: nav_msgs/msg/Odometry\n"
+        "    direction: onboard_to_offboard\n"
+        "    qos: reliable\n",
+        encoding="utf-8",
+    )
+    fleets = root / "config" / "fleets"
+    fleets.mkdir(parents=True)
+    fleet_path = fleets / "ext_split.yaml"
+    fleet_path.write_text(
+        "defaults: {vehicle: quadx}\n"
+        "robots:\n"
+        "  r1: {stack: ext/split_x, hosts: {offboard: gcs}}\n"
+        "ground:\n"
+        "  gcs: {}\n",
+        encoding="utf-8",
+    )
+    return root, fleet_path
+
+
+def test_generator_emits_router_for_external_alias_split_stack(tmp_path):
+    """Resolve-aware router generation: a split stack referenced as
+    <alias>/<stack> (stacks/.external/) still gets its DDS-router config."""
+    root, fleet_path = _write_external_split_checkout(tmp_path)
+    code, out, err = run_tool(GENERATOR, str(fleet_path), "--project-root", str(root))
+    assert code == 0, err
+    assert (root / ".airstack" / "generated" / "docker-compose.fleet.yaml").is_file()
+    router = root / ".airstack" / "generated" / "dds_router.split_x.yaml"
+    assert router.is_file(), out
+    assert "dds_router.split_x.yaml" in out
+    assert "rt/$(env ROBOT_NAME)/odometry" in router.read_text()
+
+
+def test_generator_dry_run_writes_nothing_for_external_alias_split_stack(tmp_path):
+    root, fleet_path = _write_external_split_checkout(tmp_path)
+    code, out, err = run_tool(GENERATOR, str(fleet_path),
+                              "--project-root", str(root), "--dry-run")
+    assert code == 0, err
+    assert "Would write" in out and "Would generate DDS-router config" in out
+    assert not (root / ".airstack" / "generated" / "docker-compose.fleet.yaml").exists()
+    assert not (root / ".airstack" / "generated" / "dds_router.split_x.yaml").exists()
 
 
 def test_explicit_num_robots_beats_fleet_with_banner():

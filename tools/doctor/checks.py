@@ -32,6 +32,9 @@ import sys
 import time
 from pathlib import Path
 
+# NOTE: the yaml import doubles as doctor's python3+PyYAML availability check
+# (the shell CLI's twin lives in .airstack/modules/_lib.sh:_require_python_yaml
+# — cross-language dedupe deferred; keep the two behaviors in sync).
 import yaml
 
 # Doctor always runs its own repo's tools, even when --project-root points at

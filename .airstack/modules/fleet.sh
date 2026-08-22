@@ -14,17 +14,6 @@ FLEET_RESOLVER="${PROJECT_ROOT}/tools/fleet/resolve_fleet.py"
 FLEET_COMPOSE_GENERATOR="${PROJECT_ROOT}/tools/fleet/generate_fleet_compose.py"
 FLEET_GENERATED_COMPOSE="${PROJECT_ROOT}/.airstack/generated/docker-compose.fleet.yaml"
 
-function _fleet_check_python {
-    if ! command -v python3 >/dev/null 2>&1; then
-        log_error "python3 is required for 'airstack fleet' commands."
-        return 1
-    fi
-    if ! python3 -c 'import yaml' 2>/dev/null; then
-        log_error "PyYAML is required (pip3 install --user pyyaml)."
-        return 1
-    fi
-}
-
 # Resolve a fleet argument (name or path) to a host-side file path.
 function _fleet_file_of {
     local ref="$1"
@@ -39,7 +28,7 @@ function _fleet_file_of {
 # ── subcommands ──────────────────────────────────────────────────────────────
 
 function cmd_fleet_list {
-    _fleet_check_python || return 1
+    _require_python_yaml "'airstack fleet' commands" || return 1
     if [ ! -d "$FLEETS_DIR" ]; then
         log_error "No fleets directory at ${FLEETS_DIR}."
         return 1
@@ -94,7 +83,7 @@ PY
 }
 
 function cmd_fleet_generate {
-    _fleet_check_python || return 1
+    _require_python_yaml "'airstack fleet' commands" || return 1
     local ref="${1:-}"
     if [ -z "$ref" ] || [ $# -gt 1 ]; then
         log_error "Usage: airstack fleet generate <fleet>"
@@ -108,33 +97,9 @@ function cmd_fleet_generate {
         cmd_fleet_list
         return 1
     fi
-    python3 "$FLEET_COMPOSE_GENERATOR" "$fleet_file" --project-root "$PROJECT_ROOT" || return 1
-    _fleet_generate_bridge_routers "$fleet_file"
-}
-
-# Split stacks referenced by the fleet need their bridge-derived DDS-router
-# configs materialized before launch (the onboard entry loads
-# .airstack/generated/dds_router.<stack>.yaml and fails fast without it).
-function _fleet_generate_bridge_routers {
-    local fleet_file="$1" bridge stack_dir stack_name
-    while IFS= read -r stack_dir; do
-        bridge="$PROJECT_ROOT/$stack_dir/bridge.yaml"
-        [ -f "$bridge" ] || continue
-        stack_name="$(basename "$stack_dir")"
-        log_info "Generating DDS-router config for split stack '${stack_name}' (bridge.yaml)..."
-        python3 "$PROJECT_ROOT/tools/gen_dds_router.py" "$bridge" || return 1
-    done < <(FLEET_FILE="$fleet_file" python3 - <<'PY'
-import os, yaml
-with open(os.environ["FLEET_FILE"], encoding="utf-8") as f:
-    doc = yaml.safe_load(f) or {}
-stacks = set()
-default = ((doc.get("defaults") or {}).get("stack"))
-for robot in (doc.get("robots") or {}).values():
-    stacks.add((robot or {}).get("stack") or default)
-for s in sorted(s for s in stacks if s):
-    print(s)
-PY
-)
+    # One pipeline: the generator writes the compose services AND the split
+    # stacks' bridge-derived DDS-router configs, printing what it generated.
+    python3 "$FLEET_COMPOSE_GENERATOR" "$fleet_file" --project-root "$PROJECT_ROOT"
 }
 
 # Dispatcher for the `fleet` command group.
