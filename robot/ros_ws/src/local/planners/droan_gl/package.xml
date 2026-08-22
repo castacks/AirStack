@@ -26,6 +26,21 @@
   <depend>airstack_msgs</depend>
   <depend>trajectory_library</depend>
 
+  <!-- System libraries linked/included by droan_gl_node (CMakeLists
+       target_link_libraries: glfw dl assimp EGL GL; headers: <glm/*>).
+       rosdep keys verified against the jazzy/noble db:
+         assimp        -> libassimp-dev
+         opengl        -> libgl1-mesa-dev libglu1-mesa-dev  (GL)
+         libglfw3-dev  -> libglfw3-dev
+         libglm-dev    -> libglm-dev
+       EGL has NO rosdep key on Ubuntu 24.04 (libegl-dev / libegl1-mesa-dev
+       do not resolve); libegl-dev is installed explicitly in
+       robot/docker/Dockerfile.robot alongside these. -->
+  <depend>assimp</depend>
+  <depend>opengl</depend>
+  <depend>libglfw3-dev</depend>
+  <depend>libglm-dev</depend>
+
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 
