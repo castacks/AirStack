@@ -19,7 +19,6 @@ AirStack/
 ├── .airstack/               # AirStack configuration directory
 │   └── modules/             # Command modules directory
 │       ├── config.sh        # Configuration module
-│       ├── wintak.sh        # WinTAK module
 │       └── ...              # Other modules
 ```
 
@@ -125,8 +124,8 @@ function cmd_<module>_<command> {
 For example:
 
 ```bash
-function cmd_wintak_install {
-    log_info "Installing WINTAK..."
+function cmd_config_git_hooks {
+    log_info "Configuring Git hooks..."
     # Implementation details...
     return 0
 }
@@ -152,7 +151,6 @@ function print_command_help {
                 echo "Options:"
                 echo "  --force       Force reinstallation of components"
                 echo "  --no-docker   Skip Docker installation"
-                echo "  --with-wintak Install WinTAK VirtualBox environment"
                 ;;
             # Other commands...
         esac

@@ -33,9 +33,6 @@ gcs/
 │   └── src/
 │       ├── action_relay/             # Bridges task actions from GCS domain 0 to each robot domain
 │       ├── gcs_visualizer/           # Fleet markers/poses for Foxglove's 3D panel
-│       ├── ros2tak_tools/            # TAK server integration (optional)
-│       ├── rqt_gcs/                  # Experimental RQT panel template (not launched)
-│       ├── rqt_airstack_control_panel/ # Experimental RQT panel template (not launched)
 │       └── common/                   # Mount of common/ros_packages (desktop_bringup, coordination, ...)
 ├── saves/                            # Persisted waypoint/polygon editor saves (mounted at /root/.airstack)
 └── bags/                             # Recorded mission data (mounted at /bags)
@@ -89,16 +86,6 @@ The operator GUI. The container runs the Foxglove Studio desktop app on the host
 
 **Connection:** `ws://localhost:8765` inside the container, `ws://localhost:8766` from the host (the `gcs` service publishes 8766→8765). See [GCS Foxglove Visualization](foxglove.md) for the layout import flow.
 
-### RQT panels (experimental templates)
-
-`rqt_gcs` and `rqt_airstack_control_panel` are experimental RQT panel templates kept in the workspace as starting points. They are **not** part of the launched GCS — Foxglove is the operator interface.
-
-### TAK Integration (Optional)
-
-`ros2tak_tools` integrates with TAK (Team Awareness Kit) servers for coordinated situational awareness. It is configured and run separately from the default bringup.
-
-**See:** [WinTAK Installation](wintak/installation.md) | [Command Center](command_center/command_center.md)
-
 ## System Requirements
 
 **Hardware:**
@@ -134,6 +121,3 @@ The operator GUI. The container runs the Foxglove Studio desktop app on the host
 - **[GCS Foxglove Visualization](foxglove.md)** - Layout import, visualizer topics, extending markers
 - **[Adding Waypoints and Geofences](waypoints_and_geofences.md)** - Interactive editors
 - **[User Interface Guide](usage/user_interface.md)** - Interface walkthrough
-- **[Command Center](command_center/command_center.md)** - Mission planning and execution
-- **[Casualty Assessment](casualty_assessment/casualty_assessment.md)** - Emergency response features
-- **[WinTAK Installation](wintak/installation.md)** - Optional TAK integration

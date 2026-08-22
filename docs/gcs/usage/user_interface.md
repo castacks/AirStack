@@ -1,39 +1,20 @@
+# User Interface
+
 The GCS control panel shows per-robot status: **Ping**, **Recording**, and **Battery** (voltage and percentage when the robot's MAVROS battery topic is bridged to the GCS).
 
-## The TAK Architecture looks like follows:
+The main operator interface is **Foxglove Studio** — see [GCS Foxglove Visualization](../foxglove.md) and [Adding Waypoints and Geofences](../waypoints_and_geofences.md).
 
-![TAK Architecture](../asset/TAK_ROS_Arch.png)
+## Debugging tips
 
-## Note: Please check out the config file at [config.yaml](../../../gcs/ros_ws/src/ros2tak_tools/config/demo_config.yaml) to understand further on how things are setup.
-
-## Learn how to use the TAK features:
-
-### 1. Sending Robot Query from the TAK Chat.
-
-[![Watch the video](https://img.youtube.com/vi/6YCHd70mCUY/0.jpg)](https://www.youtube.com/watch?v=6YCHd70mCUY&list=PLpJxwrRy4QbtVD3XxVzg3CAsm-A279d28&index=2)
-
-### 2. Displaying automated Casevac icons from the casualty inspections:
-
-[![Watch the video](https://img.youtube.com/vi/J577FWRaipg/0.jpg)](https://www.youtube.com/watch?v=J577FWRaipg&list=PLpJxwrRy4QbtVD3XxVzg3CAsm-A279d28&index=1)
-
-# Debugging tips:
-
-launch just the gcs container:
+Launch just the GCS container:
 
 ```bash
 docker compose up gcs          # desktop profile
 docker compose --profile deploy up gcs-real   # deployed GCS hardware
 ```
 
-## 1. Running docker in interactive mode:
+Run docker in interactive mode:
 
 ```bash
 docker exec -it gcs /bin/bash
-```
-
-## 2. Checking if the messages are being received by the MQTT broker:
-
-```bash
-mosquitto_sub -h localhost -t to_tak -u airlab # Default topic for sending messages to TAK
-mosquitto_sub -h localhost -t healthcheck -u airlab # Default topic for sending healthcheck messages
 ```

@@ -8,7 +8,6 @@
       "includePath": [
         "/opt/ros/humble/include/**",
         "/home/andrew/Development/AirStack/common/ros_packages/airstack_common/include/**",
-        "/home/andrew/Development/AirStack/common/ros_packages/gui/rviz_behavior_tree_panel/include/**",
         "/home/andrew/Development/AirStack/robot/ros_ws/src/behavior/behavior_executive/include/**",
         "/home/andrew/Development/AirStack/robot/ros_ws/src/behavior/behavior_tree/include/**",
         "/home/andrew/Development/AirStack/robot/ros_ws/src/global/planners/ensemble_planner/include/**",

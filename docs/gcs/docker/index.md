@@ -10,7 +10,6 @@ gcs/docker/
 ├── docker-compose.yaml           # gcs (sim/dev) + gcs-real (field) services
 ├── Dockerfile.gcs                # Image: ROS 2 Jazzy desktop + Foxglove Studio
 │                                 #   + foxglove_bridge + eProsima DDS Router
-│                                 #   + mosquitto/gstreamer (TAK tooling deps)
 ├── .bashrc                       # Bash config mounted into the container
 └── Foxglove/                     # Foxglove Studio app state (mounted to
                                   #   /root/.config/Foxglove, gitignored)

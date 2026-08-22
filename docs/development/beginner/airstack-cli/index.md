@@ -104,14 +104,6 @@ See the [Modular AirStack Walkthrough](../../../getting_started/modular_airstack
 | `osmo:foxglove` | Install AirStack Foxglove extensions locally, then port-forward GCS Foxglove websocket (8766:8766) |
 | `osmo:down` | Cancel the active workflow (push to git before running this) |
 
-### WinTAK
-
-| Command | Description |
-|---------|-------------|
-| `wintak:install` | Install WinTAK VirtualBox environment |
-| `wintak:start` | Start WinTAK virtual machine |
-| `wintak:stop` | Stop WinTAK virtual machine |
-
 ## `airstack up` Flags
 
 `airstack up [service...] [flags]` consumes these launch-intent flags before passing everything else through to Docker Compose:
@@ -144,7 +136,6 @@ Options:
 
 - `--force`: Force reinstallation of components
 - `--no-docker`: Skip Docker installation
-- `--with-wintak`: Install WinTAK VirtualBox environment
 
 ### Setup
 
@@ -199,17 +190,4 @@ airstack config:nucleus
 
 # Configure Git hooks
 airstack config:git-hooks
-```
-
-### WinTAK Commands
-
-```bash
-# Install WinTAK
-airstack wintak:install
-
-# Start WinTAK VM
-airstack wintak:start
-
-# Stop WinTAK VM
-airstack wintak:stop
 ```

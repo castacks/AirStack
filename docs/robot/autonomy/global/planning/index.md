@@ -94,3 +94,7 @@ The global planner can do whatever it wants internally with this information.
 
 The random walk planner replans when the robot is getting close to the goal. The random walk planner is a trivial planner that generates a plan by randomly selecting a direction to move in. The random walk planner is useful for testing the robot's ability to follow a plan.
 
+### Exploration planner
+
+The `exploration` package (`robot/ros_ws/src/global/planners/exploration`) is a frontier-based geometric exploration planner. It is kept as the intended alternative to `random_walk` for planner selection from the RViz Tasks Panel (future).
+

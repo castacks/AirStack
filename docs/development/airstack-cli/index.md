@@ -70,7 +70,6 @@ Options:
 
 - `--force`: Force reinstallation of components
 - `--no-docker`: Skip Docker installation
-- `--with-wintak`: Install WinTAK VirtualBox environment
 
 ### Setup
 
@@ -128,17 +127,4 @@ airstack config:nucleus
 
 # Configure Git hooks
 airstack config:git-hooks
-```
-
-### WinTAK Commands
-
-```bash
-# Install WinTAK
-airstack wintak:install
-
-# Start WinTAK VM
-airstack wintak:start
-
-# Stop WinTAK VM
-airstack wintak:stop
 ```

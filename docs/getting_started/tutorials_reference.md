@@ -40,8 +40,8 @@ Learn to monitor and control robots from the GCS.
 | Tutorial | Description | Level |
 |----------|-------------|-------|
 | [User Interface Basics](../gcs/usage/user_interface.md) | Navigate the GCS interface | Beginner |
-| [Command Center Operations](../gcs/command_center/command_center.md) | Mission planning and execution | Intermediate |
-| [Casualty Assessment](../gcs/casualty_assessment/casualty_assessment.md) | Use GCS for search and rescue | Advanced |
+| [GCS Foxglove Visualization](../gcs/foxglove.md) | Visualize the fleet in Foxglove | Beginner |
+| [Adding Waypoints & Geofences](../gcs/waypoints_and_geofences.md) | Interactive route and area editors | Intermediate |
 
 ### 💻 Development Tutorials
 
@@ -97,7 +97,7 @@ Choose a path based on your goals:
 2. [AirStack Fleets](../development/fleets.md)
 3. [AirStack Stacks](../development/stacks.md) (split onboard/offboard stacks)
 4. [Ground Control Station Basics](../gcs/usage/user_interface.md)
-5. [Command Center Operations](../gcs/command_center/command_center.md)
+5. [GCS Foxglove Visualization](../gcs/foxglove.md)
 
 ---
 

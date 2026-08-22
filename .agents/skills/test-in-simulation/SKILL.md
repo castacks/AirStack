@@ -144,11 +144,10 @@ Plan specific tests for your module:
 
 ### 7. Execute Test Scenario
 
-#### Method 1: Manual Commands via Behavior Tree GUI
+#### Method 1: Manual Commands via the GCS
 
 ```bash
-# If behavior tree GUI is available
-# Send commands through rqt_behavior_tree_command
+# Send commands from the Foxglove Robot Tasks panel (see the GCS docs)
 
 # Typical test sequence:
 # 1. Arm drone
