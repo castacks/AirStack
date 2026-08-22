@@ -39,7 +39,7 @@ Topic strings are parameterized with `$(env ROBOT_NAME)` in YAML; override `inpu
 ## Modules
 
 - [**LiDAR point cloud filter**](#lidar-point-cloud-filter) (`lidar_point_cloud_filter`) — near-range sphere filter for `PointCloud2`
-- [**Gimbal stabilizer**](gimbal.md) — gimbal extension usage in simulation
+- [**Gimbal (simulation)**](gimbal.md) — gimbal extension usage in simulation (documentation only; no robot-side package)
 
 ## LiDAR point cloud filter (`lidar_point_cloud_filter`){#lidar-point-cloud-filter}
 
@@ -59,7 +59,7 @@ Topic strings are parameterized with `$(env ROBOT_NAME)` in YAML; override `inpu
 
 ## Configuration
 
-- **Module launch files:** each sensor package ships its own canonical launch file — `robot/ros_ws/src/sensors/lidar_point_cloud_filter/launch/lidar_point_cloud_filter.launch.xml`, `robot/ros_ws/src/sensors/camera_param_server/launch/camera_param_server.launch.xml`
+- **Module launch files:** each sensor package ships its own canonical launch file — `robot/ros_ws/src/sensors/lidar_point_cloud_filter/launch/lidar_point_cloud_filter.launch.xml`
 - **Stack wiring:** the stack entry files include these under the `sensors` namespace (`stacks/<name>/launch/*.launch.xml`, e.g. `stacks/full_default/launch/stack.launch.xml`); the observed graph is recorded in `stacks/full_default/wiring.md`
 - **LiDAR filter:** `robot/ros_ws/src/sensors/lidar_point_cloud_filter/config/lidar_point_cloud_filter.yaml` (`near_range_m`, topics, QoS)
 

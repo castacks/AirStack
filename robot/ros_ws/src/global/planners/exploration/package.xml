@@ -2,7 +2,7 @@
 <package format="3">
   <name>exploration_planner</name>
   <version>0.0.0</version>
-  <description>The exploration planner package</description>
+  <description>Frontier-based geometric exploration planner — kept as the intended alternative to random_walk for planner selection from the RViz Tasks Panel (future)</description>
 
   <maintainer email="junbiny@andrew.cmu.edu">todo</maintainer>
 

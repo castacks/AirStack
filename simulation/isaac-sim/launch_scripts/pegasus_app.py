@@ -80,7 +80,7 @@ def create_simulation_app(launch_config=None):
     derived configuration entirely.
 
     When ``ISAAC_SIM_LIVESTREAM=true``, mirrors the NVIDIA reference config from
-    simulation/isaac-sim/standalone_examples/api/isaacsim.simulation_app/livestream.py
+    /isaac-sim/standalone_examples/api/isaacsim.simulation_app/livestream.py (in-image)
     so the Kit GUI (menu bar, toolbar, viewport, status bar) actually gets
     rendered into the WebRTC stream instead of just the bare 3D viewport.
     Key field: ``hide_ui: False`` — SimulationApp's default when ``headless=True``

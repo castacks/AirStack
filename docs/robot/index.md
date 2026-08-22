@@ -25,13 +25,9 @@ robot/
 │       ├── interface/                # Hardware interface & safety
 │       │   ├── interface_bringup/
 │       │   ├── mavros_interface/
-│       │   ├── px4_interface/
 │       │   └── robot_interface/
 │       ├── sensors/                  # Sensor integration
-│       │   ├── camera_param_server/
-│       │   ├── gimbal_stabilizer/
-│       │   ├── lidar_point_cloud_filter/
-│       │   └── sensor_interfaces/
+│       │   └── lidar_point_cloud_filter/
 │       ├── perception/               # State estimation & perception
 │       │   └── perception_bringup/
 │       ├── local/                    # Local planning, control, world models
@@ -41,11 +37,9 @@ robot/
 │       ├── global/                   # Global planning & mapping
 │       │   ├── global_bringup/
 │       │   ├── planners/
-│       │   ├── waypoint_interface/
 │       │   └── world_models/
 │       ├── behavior/                 # High-level decision making
-│       │   ├── drone_safety_monitor/
-│       │   └── rqt_behavior_tree_command/
+│       │   └── drone_safety_monitor/
 │       └── modules/                  # Synced external modules
 └── bags/                             # ROS 2 bag recordings
 ```
