@@ -43,6 +43,9 @@ docker-compose.yaml  (ROBOT_NAME_SOURCE=container_name | hostname,
   ▼
 robot/docker/.bashrc  (runs on container shell start)
   │
+  ├─ ROBOT_NAME already set in env?    →  KEEP IT, skip resolution entirely
+  │  (guard: `if [ -z "${ROBOT_NAME:-}" ]`; lets an override/compose pin the name)
+  │
   ├─ ROBOT_NAME_SOURCE=container_name  →  resolve `hostname` back to docker container name
   │                                      (e.g. `airstack-robot-desktop-1`)
   ├─ ROBOT_NAME_SOURCE=hostname        →  use OS hostname directly (`robot-1` on real HW)
@@ -67,7 +70,7 @@ The default mapping rule in [`robot/docker/robot_name_map/default_robot_name_map
   robot: 'robot_{1}'
   domain_id: '{1}'
 - pattern: '.*'           # catch-all
-  robot: 'unknown-robot'
+  robot: 'unknown_robot'  # must be a valid ROS token (no hyphen) or launch fails
   domain_id: '0'
 ```
 
@@ -97,9 +100,38 @@ docker exec airstack-robot-desktop-1 bash -c 'echo $ROBOT_NAME $ROS_DOMAIN_ID'
 # robot_1 1
 ```
 
-If you need a non-default name (custom hostname scheme on a physical robot, or you want `drone_alpha` instead of `robot_1`), write a new mapping YAML in `robot/docker/robot_name_map/` and point `ROBOT_NAME_MAP_CONFIG_FILE` at it. Do **not** hardcode `ROBOT_NAME=...` in compose unless you know what you are doing — it bypasses the resolver and you lose `ROS_DOMAIN_ID` co-assignment.
+If you need a non-default name (custom hostname scheme on a physical robot, or you want `drone_alpha` instead of `robot_1`), you have two options:
 
-For a one-off override (e.g. ad hoc debugging):
+1. **Write a mapping YAML** in `robot/docker/robot_name_map/` and point `ROBOT_NAME_MAP_CONFIG_FILE` at it. Preferred when the name should be derived from the machine (hostname/container) — keeps the resolver in charge of `ROS_DOMAIN_ID` co-assignment.
+2. **Rename the device** so the default map resolves it. On real hardware
+   (`ROBOT_NAME_SOURCE=hostname`) the OS hostname *is* the identity, so
+   `hostnamectl set-hostname robot-1` is a complete, one-time fix — and it scales to a
+   fleet, since `robot-2` and `robot-3` then resolve on their own.
+
+!!! danger "Setting `ROBOT_NAME` in an env file does nothing"
+    No compose service declares `ROBOT_NAME` or `ROS_DOMAIN_ID` in its `environment:`
+    block, and Docker Compose only injects a variable into a container if some service
+    names it there. Putting `ROBOT_NAME=robot_1` in an override `.env` sets it for
+    **compose's own interpolation**, not for the container — `.bashrc` sees it unset,
+    the map lookup runs anyway, and there is no error. The robot simply comes up under
+    the resolved name instead of yours.
+
+    `overrides/l4t-px4-realrobot.env` used to ship `ROBOT_NAME` / `ROS_DOMAIN_ID` on
+    this basis; they never had any effect and have been removed. Use a hostname or a
+    map file instead.
+
+    The general lesson applies to **any** deployment knob: it needs a declaration in
+    the service's `environment:` *and* a consumer that reads it. Always
+    [verify](#verification-commands) rather than assuming.
+
+**Never hardcode `ROBOT_NAME` on a service in compose either.** `robot-desktop` and
+friends are reused for every replica, so a pinned name there would collapse all robots
+onto one name and domain and silently break multi-robot. Identity must come from
+something that differs per container — the container name in sim, the device hostname on
+real hardware — or from a map rule that derives it.
+
+For a one-off override (e.g. ad hoc debugging), pass it to the shell directly, which
+does work because `docker exec -e` sets it in the process environment:
 
 ```bash
 docker exec -e ROBOT_NAME=robot_5 -e ROS_DOMAIN_ID=5 -it airstack-robot-desktop-1 bash
@@ -119,7 +151,7 @@ robot-desktop:
 So `NUM_ROBOTS=3 airstack up` produces **three** robot containers (`airstack-robot-desktop-1`, `-2`, `-3`), each with its own `ROBOT_NAME` and its own `ROS_DOMAIN_ID`. Each container runs the full autonomy stack independently. Cross-robot communication, when needed, goes through the DDS router (see [`onboard_all/config/dds_router.yaml`](../../../robot/ros_ws/src/autonomy_bringup/onboard_all/config/dds_router.yaml)) which bridges allowlisted topics from each per-robot domain into a shared GCS domain.
 
 ```bash
-NUM_ROBOTS=3 airstack up
+airstack up --sim isaac --robots 3   # sets NUM_ROBOTS and the multi-drone Isaac script together
 docker ps --format '{{.Names}}' | grep robot-desktop
 # airstack-robot-desktop-1
 # airstack-robot-desktop-2
@@ -223,13 +255,13 @@ for i in range(1, NUM_ROBOTS + 1):
     spawn_drone(i)
 ```
 
-To use the multi-drone launcher, set in `.env`:
+To use the multi-drone launcher, either launch with `airstack up --sim isaac --robots N` (which selects it automatically) or set in `.env`:
 
 ```
 ISAAC_SIM_SCRIPT_NAME="example_multi_px4_pegasus_launch_script.py"
 ```
 
-(The default `example_one_px4_pegasus_launch_script.py` only spawns one.)
+(The default `example_one_px4_pegasus_launch_script.py` only spawns one; `airstack up` preflight rejects `NUM_ROBOTS>1` with a single-drone script.)
 
 ### Test harness
 
@@ -242,7 +274,7 @@ env_overrides = {
 }
 ```
 
-Tests that act on robots iterate `n=1..num_robots` and address them as `/robot_{n}/...` directly (see `_takeoff_one_robot` in `tests/test_takeoff_hover_land.py`). The test sets `ROS_DOMAIN_ID=n` for each per-robot subprocess (`domain_id=n` in `ros2_exec(...)`), matching what the resolver assigned inside the container. **If you write a new test that talks to a robot, follow this same `domain_id=n` + `/robot_{n}/...` pattern.**
+Tests that act on robots iterate `n=1..num_robots` and address them as `/robot_{n}/...` directly (see `_takeoff_one_robot` in `tests/system/test_takeoff_hover_land.py`). The test sets `ROS_DOMAIN_ID=n` for each per-robot subprocess (`domain_id=n` in `ros2_exec(...)`), matching what the resolver assigned inside the container. **If you write a new test that talks to a robot, follow this same `domain_id=n` + `/robot_{n}/...` pattern.**
 
 CLI passthrough:
 
@@ -286,7 +318,7 @@ Without `allow_substs="true"`, the substitution string is loaded literally and t
 If two robots share a domain, every topic collides — both `/robot_1/odometry` publishers will be visible to both subscribers, and DDS will sometimes deliver crossed data. The default `robot_name_map` derives the domain from the robot index, so this only happens if you:
 
 - Hardcode `ROS_DOMAIN_ID` in compose to the same value for two replicas
-- Use a hostname that doesn't match any rule and falls through to the catch-all (both robots get `unknown-robot`, domain `0`)
+- Use a hostname that doesn't match any rule and falls through to the catch-all (both robots get `unknown_robot`, domain `0`)
 
 Always verify after starting:
 
@@ -329,9 +361,30 @@ This is a common foot-gun:
 
 Either keep the remap relative (`to="odometry"`) so it joins the namespace, or write the full path explicitly (`to="/$(env ROBOT_NAME)/odometry"`).
 
-### 9. Hostname doesn't match any rule on real robots
+### 9. Real robots and the `unknown_robot` fallback
 
-On VOXL/Jetson with `ROBOT_NAME_SOURCE=hostname`, the device hostname must match a rule in the mapping YAML. If `hostname` returns `airlab-jetson-42` and your config only matches `robot-N`, the resolver exits non-zero and `ROBOT_NAME` is unset — the autonomy stack will then launch with empty namespaces and break in confusing ways. Either rename the device or extend the mapping config.
+On VOXL/Jetson the service uses `ROBOT_NAME_SOURCE=hostname`, so the **OS hostname** is what gets mapped — not a compose replica index. The stock `default_robot_name_map.yaml` only matches `robot-<n>`, so a device named `airlab-jetson-42` falls through to the catch-all and comes up as **`ROBOT_NAME=unknown_robot`, domain `0`** (with a map that has *no* catch-all, the resolver instead exits non-zero and `ROBOT_NAME` is left unset — same confusing "empty namespace" symptom). This is the usual "why is my real robot `unknown_robot`?" report.
+
+Pick whichever fix matches your topology (see [Configuring a Single Robot](#configuring-a-single-robot)):
+
+- **Quickest, no config:** rename the device — `hostnamectl set-hostname robot-1`. The default map resolves it to `robot_1` on domain 1, and a fleet named `robot-2`, `robot-3`, … resolves the same way with nothing further to maintain.
+- **Hostnames you can't change:** ship a mapping YAML matching them and point `ROBOT_NAME_MAP_CONFIG_FILE` at it. Needs no code change — the variable is already forwarded and `robot_name_map/` is bind-mounted into the container — and keeps the resolver co-assigning `ROS_DOMAIN_ID`.
+
+Setting `ROBOT_NAME` in an override env file is **not** an option: nothing declares it in
+compose, so it never reaches the container. See the danger note under
+[Configuring a Single Robot](#configuring-a-single-robot).
+
+Verify on the device — do this every time, especially after pinning `ROBOT_NAME`, since
+a pin that never reached the container fails silently:
+
+```bash
+docker exec <container> bash -c 'echo "$(hostname) -> ROBOT_NAME=$ROBOT_NAME ROS_DOMAIN_ID=$ROS_DOMAIN_ID"'
+```
+
+If it still reports `unknown_robot` after you set `ROBOT_NAME`, the variable did not
+reach the container. Check that the service (or the base compose file it extends)
+declares it in `environment:` — see the warning under
+[Configuring a Single Robot](#configuring-a-single-robot).
 
 ## Pre-Merge Checklist
 

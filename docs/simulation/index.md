@@ -40,18 +40,18 @@ Simulation components are launched via Docker Compose. Each simulator has its ow
 
 **Key launch points:**
 
-- **Launch command:** `airstack up isaac-sim` or `airstack up simple-sim`
+- **Launch command:** `airstack up --sim isaac` (or `airstack up isaac-sim` to start only the sim service)
 - **Main process:** The `command:` in docker-compose.yaml starts the simulator
-- **Scene selection:** Set via `ISAAC_SIM_SCENE` environment variable (Isaac Sim)
-- **Auto-launch:** Controlled by `PLAY_SIM_ON_START` variable
+- **Scene selection (Isaac Sim):** the standalone launch script named by `ISAAC_SIM_SCRIPT_NAME` (in `.env`) defines the scene and drones; with `ISAAC_SIM_USE_STANDALONE=false`, `ISAAC_SIM_GUI` points at a USD file to open instead
+- **Auto-play:** Controlled by `PLAY_SIM_ON_START` (or `airstack up --play`)
 
 **Example:**
 ```bash
-# Launch Isaac Sim with custom scene
-ISAAC_SIM_SCENE=scenes/custom_scene.usd airstack up isaac-sim
+# Launch Isaac Sim with a custom launch script
+ISAAC_SIM_SCRIPT_NAME=my_custom_scene.py airstack up --sim isaac
 
-# Launch simple simulator
-airstack up simple-sim
+# Come up paused
+airstack up --sim isaac --no-play
 ```
 
 **Learn more:** [Docker Workflow](../development/beginner/airstack-cli/docker_usage.md)
@@ -124,10 +124,14 @@ A lightweight 2D/3D simulator for basic testing and development when full Isaac 
 
 1. **Launch multiple robots:**
    ```bash
-   NUM_ROBOTS=3 airstack up
+   airstack up --sim isaac --robots 3
    ```
+   (`--robots` sets `NUM_ROBOTS` **and** selects the multi-drone launch script.
+   Plain `NUM_ROBOTS=3 airstack up` is rejected by preflight if
+   `ISAAC_SIM_SCRIPT_NAME` is still the single-drone default, which spawns
+   exactly one drone.)
 
-2. Each robot gets independent ROS 2 namespace
+2. Each robot gets an independent ROS 2 namespace and DDS domain
 3. All robots visible in same Isaac Sim scene
 4. Coordinate via ground control station
 
@@ -150,17 +154,19 @@ Key environment variables for simulation (set in `.env` or at runtime):
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `ISAAC_SIM_SCENE` | Path to USD scene file | `simulation/isaac-sim/scenes/...` |
-| `PLAY_SIM_ON_START` | Auto-start simulation | `true` |
-| `NUM_ROBOTS` | Number of robots to spawn | `1` |
+| `ISAAC_SIM_SCRIPT_NAME` | Standalone launch script (scene + drones) in `simulation/isaac-sim/launch_scripts/` | `example_one_px4_pegasus_launch_script.py` |
+| `ISAAC_SIM_USE_STANDALONE` | `true`: run the launch script; `false`: open the USD in `ISAAC_SIM_GUI` | `true` |
+| `ISAAC_SIM_GUI` | USD file to open when not using a standalone script | `simple_pegasus.scene.usd` |
+| `PLAY_SIM_ON_START` | Auto-start simulation | `false` |
+| `NUM_ROBOTS` | Number of robot containers (use `--robots` so the sim matches) | `1` |
 
 **Example:**
 ```bash
-# Custom scene
-ISAAC_SIM_SCENE=scenes/custom.usd airstack up isaac-sim
+# Custom launch script
+ISAAC_SIM_SCRIPT_NAME=my_custom_scene.py airstack up --sim isaac
 
-# Don't auto-play
-PLAY_SIM_ON_START=false airstack up isaac-sim
+# Auto-play on start
+airstack up --sim isaac --play
 ```
 
 **Pre-built scenes:** Located in `scenes/` directory

@@ -8,8 +8,10 @@ services:
       dockerfile: Dockerfile
       tags:
         - *ms_airsim_image
+        - &ms_airsim_cache ${PROJECT_DOCKER_REGISTRY}/${PROJECT_NAME}:${CACHE_TAG:-cache}_ms-airsim
       cache_from:
         - *ms_airsim_image
+        - *ms_airsim_cache
     container_name: ms-airsim
     entrypoint: ""
     command: /root/entrypoint.sh

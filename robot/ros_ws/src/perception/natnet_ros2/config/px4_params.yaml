@@ -1,0 +1,43 @@
+# PX4 parameters for OptiTrack-only (external vision) flight, checked at startup by
+# px4_param_setter. See docs/robot/px4_external_vision.md for what each one does, the
+# tuning rationale, and how to set them in QGroundControl.
+#
+# TYPE MATTERS: integers bare (11), floats with a decimal point (7.0), so the MAVLink
+# param type matches the FCU's declaration.
+#
+# Values assume PX4 >= 1.14. For older firmware use EKF2_AID_MASK: 24 and
+# EKF2_HGT_MODE: 3 instead.
+
+/**:
+  ros__parameters:
+    enabled: true
+    # Check-only by default: read the FCU's params and flag differences, never write.
+    auto_set: false
+    # On mismatch with auto_set:false — 'warn' (log diffs) or 'halt' (exit non-zero).
+    on_mismatch: "warn"
+    # Initial full param pull over serial (115200) is slow; give it time.
+    settle_sec: 10.0
+    retry_period_sec: 2.0
+    max_attempts: 30
+
+    params:
+      # Fuse vision horizontal position (1) + vertical position (2) + yaw (8).
+      EKF2_EV_CTRL: 11
+      # Vision is the height reference.
+      EKF2_HGT_REF: 3
+      EKF2_GPS_CTRL: 0
+      # Magnetometer off; yaw comes from vision.
+      EKF2_MAG_TYPE: 5
+      EKF2_BARO_CTRL: 0
+      # Remove the baro at system level, not just from fusion, so the height datum is
+      # deterministic on every boot. WARNING: no baro backup — indoor mocap only.
+      SYS_HAS_BARO: 0
+      EKF2_RNG_CTRL: 0
+      # Do NOT raise to chase apparent lag; higher is measurably worse (see docs).
+      EKF2_EV_DELAY: 7.0
+      # Use the NOISE floors below rather than the message covariance.
+      EKF2_EV_NOISE_MD: 1
+      # Also sets the innovation gate (EKF2_EVP_GATE sigma wide): 0.05 -> ~25 cm.
+      EKF2_EVP_NOISE: 0.05
+      EKF2_EVA_NOISE: 0.05
+      COM_ARM_WO_GPS: 1

@@ -145,6 +145,11 @@ ENV ACCEPT_EULA="Y"
 # ENV ISAACSIM_PYTHON=/isaac-sim/python.sh
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir -e /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator
 
+# Installing OptiTrack NatNet emulator extension into Kit for plugin discovery.
+COPY extensions/optitrack.natnet.emulator \
+     /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/optitrack.natnet.emulator
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir -e /isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/optitrack.natnet.emulator
+
 # Install PX4 things
 RUN git clone --branch ${PX4_VERSION} --recursive https://github.com/PX4/PX4-Autopilot.git
 
@@ -154,9 +159,23 @@ RUN sed -i \
     's|param set-default IMU_INTEG_RATE 250|param set-default IMU_INTEG_RATE ${PX4_IMU_INTEG_RATE:-250}|' \
     /isaac-sim/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/px4-rc.simulator
 
-# install px4 dependencies and build
-RUN cd PX4-Autopilot && \
-    DEBIAN_FRONTEND=noninteractive ./Tools/setup/ubuntu.sh
+# Install PX4 host deps and build SITL.
+# Match ms-airsim: skip NuttX + Gazebo — Isaac Sim is the simulator, and those
+# toolchains are heavy. PX4's ubuntu.sh still apt-installs
+# software-properties-common whenever /.dockerenv is present; on the nvcr.io
+# Isaac base that package's configure step races with a half-configured
+# ca-certificates/launchpadlib chain and fails with dpkg exit 100. Reconfigure
+# ca-certificates first and drop software-properties-common from the script
+# (add-apt-repository is unused on the --no-nuttx/--no-sim-tools path).
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates && \
+    update-ca-certificates && \
+    dpkg --configure -a || true && \
+    sed -i '/software-properties-common/d' PX4-Autopilot/Tools/setup/ubuntu.sh && \
+    cd PX4-Autopilot && \
+    DEBIAN_FRONTEND=noninteractive ./Tools/setup/ubuntu.sh --no-nuttx --no-sim-tools && \
+    rm -rf /var/lib/apt/lists/*
+
 # build px4
 RUN cd PX4-Autopilot && \
     make px4_sitl

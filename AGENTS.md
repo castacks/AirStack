@@ -43,7 +43,7 @@ AirStack/
 ├── tests/                   # System tests (pytest) + metrics reporting
 ├── .github/
 │   ├── workflows/           # GitHub Actions CI (system-tests, docker-build, etc.)
-│   └── orchestrator/        # OpenStack-backed ephemeral self-hosted runners
+│   └── orchestrator/        # OSMO-backed ephemeral self-hosted runners
 └── .agents/skills/          # Detailed workflow guides for agents
 ```
 
@@ -93,22 +93,43 @@ For detailed step-by-step instructions, refer to the **`.agents/skills/`** direc
 | [debug-module](.agents/skills/debug-module) | Autonomous debugging of ROS 2 modules |
 | [update-documentation](.agents/skills/update-documentation) | Documenting new modules and updating mkdocs |
 | [test-in-simulation](.agents/skills/test-in-simulation) | End-to-end simulation testing of a module |
+| [add-unit-tests](.agents/skills/add-unit-tests) | Adding Python or C++ unit tests to a ROS 2 package (co-located test/ dir listed in colcon_unit_test_packages.yaml, CI workflow, extending to sim/GCS) |
 | [run-system-tests](.agents/skills/run-system-tests) | Running the pytest system test harness (marks, MetricsRecorder, /pytest PR trigger) |
 | [add-behavior-tree-node](.agents/skills/add-behavior-tree-node) | Creating behavior tree nodes |
 | [use-airstack-cli](.agents/skills/use-airstack-cli) | Using the `airstack` CLI and the non-interactive `docker exec` pattern |
 | [configure-multi-robot](.agents/skills/configure-multi-robot) | Setting up multiple robots, ROBOT_NAME namespacing, and ROS_DOMAIN_ID isolation |
 | [bump-version-and-release](.agents/skills/bump-version-and-release) | Bumping `.env` VERSION and CHANGELOG before merge to clear the version-check gate |
 | [capture-discovered-knowledge](.agents/skills/capture-discovered-knowledge) | After long context-discovery / surprising findings, persist to AGENTS.md or a new skill so the next agent doesn't redo the work |
+| [use-feature-notebook](.agents/skills/use-feature-notebook) | At the start of EVERY feature implementation: create `notebook/NNN-feature-slug/design_spec.md`, store test artifacts under `results/`, write `results/results_summary.md`, and populate the PR from it |
 
 **Agent Workflow Example:**
-1. Study reference implementation for module type
-2. Follow `add_ros2_package.md` to create package structure
-3. Implement algorithm with proper topic interfaces
-4. Follow `integrate_module_into_layer.md` to add to bringup
-5. Follow `update_documentation.md` to document
-6. Follow `debug_module.md` and `test_in_simulation.md` to verify
+1. **Create a notebook entry** — follow `use-feature-notebook` to write `notebook/NNN-feature-slug/design_spec.md` (problem context, proposed implementation, lettered test plan) before writing code
+2. Study reference implementation for module type
+3. Follow `add_ros2_package.md` to create package structure
+4. Implement algorithm with proper topic interfaces
+5. Follow `integrate_module_into_layer.md` to add to bringup
+6. Follow `update_documentation.md` to document
+7. Follow `debug_module.md` and `test_in_simulation.md` to verify, saving artifacts under `notebook/NNN-feature-slug/results/<letter>-<section>/`
+8. Write `results/results_summary.md` (embedded tables + figures) and populate the PR body from it
 
 Also see: [AI Agent Quick Guide](docs/development/ai_agent_guide.md)
+
+## Feature Notebook (`notebook/`)
+
+Every feature an agent implements gets a numbered entry under `notebook/` at the repo root — a local lab journal that survives the agent session:
+
+```
+notebook/001-add-new-planner/
+├── design_spec.md              # BEFORE coding: problem context from the session, proposed implementation, lettered test plan
+└── results/
+    ├── results_summary.md      # AFTER testing: self-contained doc with embedded tables + figures, per-section verdicts
+    ├── a-planner-core/         # Raw artifacts per test-plan section (letters match design_spec.md)
+    └── b-planner-hyperparameters/
+```
+
+`notebook/` is **gitignored — local-only on each developer's machine**. Never commit it or reference its paths from committed code. Its content leaves the machine one way: the feature's PR description is populated from `design_spec.md` (motivation, what changed) and `results_summary.md` (validation tables, figures uploaded as PR attachments).
+
+**Full workflow and templates:** [.agents/skills/use-feature-notebook](.agents/skills/use-feature-notebook)
 
 ## Reference Implementations
 
@@ -142,13 +163,15 @@ airstack install        # Install Docker and dependencies
 
 # Container management
 airstack up [service]    # Start services (robot, isaac-sim, gcs)
-airstack stop [service]  # Stop services
+airstack up --sim isaac|airsim --robots N   # Intent flags: derive profiles/URDF/sim script (add --headless, --play/--no-play, --no-autolaunch, --wait, --dry-run)
+airstack ready           # Wait until the stack is flight-ready (containers → sim /clock → nodes → PX4); --json for scripts
+airstack down [service]  # Stop services
 airstack status          # Show container status
-airstack connect [name]  # Connect to running container
-airstack logs [name]     # View container logs
+airstack connect [name]  # Connect to running container (tmux)
+airstack logs [name]     # View container logs (tmux output is mirrored to docker logs)
 
 # Development tasks
-airstack build          # Build ROS workspace
+airstack image-build    # Build Docker images (ROS workspaces build inside containers via `bws`)
 airstack test           # Run tests
 airstack docs           # Build and serve documentation
 ```
@@ -195,34 +218,45 @@ docker exec airstack-robot-desktop-1 bash -c "ros2 topic echo <topic_name> --onc
    - Verify module behavior in isolation
    - Test with synthetic data
    - Located in module's `test/` directory
+   - **Run in the robot container** with `colcon test` (after `bws`) for the full ROS 2 build + test. The same co-located test source is collected by the root [`tests/`](tests/) suite (the packages with unit tests are listed in [`tests/colcon_unit_test_packages.yaml`](tests/colcon_unit_test_packages.yaml)), so `airstack test -m unit` runs it too. Marks are declared in [`tests/pytest.ini`](tests/pytest.ini) (`unit`, `build_docker`, `build_packages`, `integration`, `liveliness`, `sensors`, `takeoff_hover_land`, `autonomy`).
 
-2. **System Level:** Full simulation tests (Isaac Sim or Microsoft AirSim legacy)
+   ```bash
+   docker exec airstack-robot-desktop-1 bash -c "sws && colcon test --packages-select natnet_ros2 --event-handlers console_direct+"
+   ```
+
+2. **Unit tests (`pytest`, `unit` mark):** Fast, hermetic checks. Test **source** lives co-located with each ROS 2 package in `<package>/test/` (standard colcon convention). [`tests/colcon_unit_test_packages.yaml`](tests/colcon_unit_test_packages.yaml) lists which packages have unit tests, and `tests/conftest.py` collects them from there under `--import-mode=importlib`. To add a package's unit tests, list it in that YAML. Python unit tests run automatically in `unit-tests.yml` on `ubuntu-latest`; C++ gtests run through the `system-tests.yml` `build_packages` path. Example: `airstack test -m unit -v`. See `add-unit-tests` skill.
+
+3. **System Level (`tests/system/`):** Full simulation tests (Isaac Sim or Microsoft AirSim legacy)
    - End-to-end autonomy stack testing
    - Real sensor simulation
    - Multi-robot scenarios
-   - Implemented in [`tests/`](tests/) — see below
+   - Pytest modules in [`tests/system/`](tests/system/) — see below
 
-### System Test Suite (`tests/`)
+### System Test Suite (`tests/system/`)
 
-Pytest-based system tests live at the repo root in [`tests/`](tests/). They bring up the full Docker stack (sim + robot + GCS) and verify container health, ROS 2 node presence, compute usage, sensor topic streams (``sensors`` mark), and end-to-end flight behavior.
+Pytest-based system tests live under [`tests/system/`](tests/system/). They bring up the full Docker stack (sim + robot + GCS) and verify container health, ROS 2 node presence, compute usage, sensor topic streams (``sensors`` mark), and end-to-end flight behavior.
 
 | File | Mark | What it tests | Hardware |
 |------|------|---------------|----------|
-| [`tests/test_build_docker.py`](tests/test_build_docker.py) | `build_docker` | Docker image builds (robot-desktop, gcs, isaac-sim, ms-airsim) | Docker |
-| [`tests/test_build_packages.py`](tests/test_build_packages.py) | `build_packages` | `colcon build` inside each container | Docker |
-| [`tests/test_liveliness.py`](tests/test_liveliness.py) | `liveliness` | Stack bring-up: containers, ``/clock`` readiness, tmux, sentinel ROS 2 nodes, compute, infra-only stability poll | Docker, GPU, sim license |
-| [`tests/test_sensors.py`](tests/test_sensors.py) | `sensors` | Topic Hz (Isaac: batched sim + robot ``ros2 topic hz``; filtered LiDAR ``echo-once`` + validation script), RTF, sensor stability time-series | Docker, GPU, sim license |
-| [`tests/test_takeoff_hover_land.py`](tests/test_takeoff_hover_land.py) | `takeoff_hover_land` | 4-phase flight chain (PX4 ready → takeoff → hover → land) per (sim, num_robots, iter, velocity) | Docker, GPU, sim license |
+| [`tests/system/test_build_docker.py`](tests/system/test_build_docker.py) | `build_docker` | Docker image builds (robot-desktop, gcs, isaac-sim, ms-airsim) | Docker |
+| [`tests/system/test_build_packages.py`](tests/system/test_build_packages.py) | `build_packages` | `colcon build` inside each container | Docker |
+| [`tests/system/test_liveliness.py`](tests/system/test_liveliness.py) | `liveliness` | Stack bring-up: containers, ``/clock`` readiness, tmux, sentinel ROS 2 nodes, compute, infra-only stability poll | Docker, GPU, sim license |
+| [`tests/system/test_sensors.py`](tests/system/test_sensors.py) | `sensors` | Topic Hz (Isaac: batched sim + robot ``ros2 topic hz``; filtered LiDAR ``echo-once`` + validation script), RTF, sensor stability time-series | Docker, GPU, sim license |
+| [`tests/system/test_takeoff_hover_land.py`](tests/system/test_takeoff_hover_land.py) | `takeoff_hover_land` | 4-phase flight chain (PX4 ready → takeoff → hover → land) per (sim, num_robots, iter, velocity) | Docker, GPU, sim license |
+| [`tests/system/test_fixed_trajectory.py`](tests/system/test_fixed_trajectory.py) | `autonomy` | 4-phase flight chain (PX4 ready → takeoff → execute Circle/Figure8/Racetrack/Line trajectory → land) per (sim, num_robots, iter, trajectory_type); records cross-track error and path RMSE | Docker, GPU, sim license |
+| [`tests/system/test_waypoint_flight.py`](tests/system/test_waypoint_flight.py) | `waypoint_flight` | 4-phase flight chain (PX4 ready → takeoff → NavigateTask waypoint route → land) per (sim, num_robots, iter); pass/fail judged on the odometry track by the standalone [`tests/waypoint_checker.py`](tests/waypoint_checker.py) (in-order corridor arrival within `--waypoint-tolerance`, final goal within `--goal-tolerance`, per-waypoint `--waypoint-timeout`) | Docker, GPU, sim license |
 
-Shared fixtures, the `airstack_env` parametrized fixture, and `MetricsRecorder` live in [`tests/conftest.py`](tests/conftest.py). Each run produces a timestamped directory under `tests/results/<timestamp>/` with `results.xml`, `metrics.json`, and per-test logs. [`tests/parse_metrics.py`](tests/parse_metrics.py) generates a markdown report (single-run or diff-vs-baseline; exits 1 on regression).
+The pytest hooks and the `airstack_env` / `robot_autonomy_stack` fixtures live in [`tests/conftest.py`](tests/conftest.py); the shared helpers are split by concern into the [`tests/harness/`](tests/harness/) package (`session`, `discovery`, `commands`, `containers`, `metrics` (with `MetricsRecorder`), `run_meta`, `test_ids`, `sim`, `collection`) and re-exported through `conftest`, so `from conftest import <name>` still resolves. Each run produces a timestamped directory under `tests/results/<timestamp>/` with `summary.txt`, `results.xml`, `run_meta.json`, and `metrics.json` (no per-test log files — live output streams to the terminal via `log_cli`). [`tests/parse_metrics.py`](tests/parse_metrics.py) compares only matching, complete simulation campaigns and exits 1 on a genuine metric regression.
 
 **Run via the CLI** (containerized runner — no local Python needed):
 
 ```bash
+airstack test -m unit -v
 airstack test -m "build_docker or build_packages" -v
 airstack test -m liveliness --sim msairsim --num-robots 1 --stress-iterations 1 -v
 airstack test -m sensors --sim isaacsim --num-robots 1 --stress-iterations 1 -v
 airstack test -m takeoff_hover_land --sim msairsim --takeoff-velocities 0.5,1,2 -v
+airstack test -m autonomy --sim msairsim --trajectory-types Circle,Figure8,Racetrack,Line -v
 ```
 
 Full reference: [`tests/README.md`](tests/README.md) — including **liveliness vs
@@ -248,7 +282,8 @@ GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/):
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| [`system-tests.yml`](.github/workflows/system-tests.yml) | PR opened, `/pytest` PR comment (write-access only), or `workflow_dispatch` | Runs the `tests/` suite on an ephemeral GPU runner; posts metrics report (with regression diff vs base branch / `main`) as a PR comment and to the job summary |
+| [`unit-tests.yml`](.github/workflows/unit-tests.yml) | PR to `main`/`develop` opened, synchronized, or reopened | Runs Python unit tests and harness contracts on `ubuntu-latest` |
+| [`system-tests.yml`](.github/workflows/system-tests.yml) | PR opened/synchronized/reopened, `/pytest` PR comment (write-access only), or `workflow_dispatch` | Runs automatic package builds or selected simulation marks on an ephemeral GPU runner; only complete simulation campaigns are compared in metrics reports |
 | [`docker-build.yml`](.github/workflows/docker-build.yml) | Push to `main`/`develop` that changes `.env` (`VERSION=`), or manual dispatch | Builds, pushes, and cosign-signs all compose images on the ephemeral runner |
 | [`check-version-increment.yml`](.github/workflows/check-version-increment.yml) | Pull request | Validates `.env` `VERSION=` is valid semver and strictly greater than the base branch |
 | `deploy_docs_from_{main,develop,release}.yaml` | Push to the matching branch (`docs/**`, `mkdocs.yml`, `*.md`) | Publishes versioned MkDocs site via `mike` |
@@ -257,16 +292,28 @@ GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/):
 
 ### Ephemeral Runner Orchestrator
 
-GPU-required jobs (`runs-on: [self-hosted, airstack-ephemeral]`) execute on **OpenStack VMs spawned per-job and destroyed on completion**. The orchestrator service code lives in [`.github/orchestrator/`](.github/orchestrator/):
+GPU-required jobs (`runs-on: [self-hosted, airstack-ephemeral]`) execute on **ephemeral pods scheduled by [NVIDIA OSMO](https://nvidia.github.io/OSMO/) — one per job, destroyed on completion**. The GitHub side is unchanged from the old OpenStack backend (same labels, JIT tokens, fork guard); only the spawn target moved from "create a Nova VM" to "submit an OSMO workflow". The orchestrator service code lives in [`.github/orchestrator/`](.github/orchestrator/):
 
-- [`orchestrator.py`](.github/orchestrator/orchestrator.py) — Python service: spawn loop polls GitHub for queued jobs matching configured runner labels, mints single-use JIT runner tokens, creates an OpenStack server with cloud-init bootstrap; reap loop deletes the server when the job completes (or after `max_job_minutes`)
-- [`cloud-init.yaml.j2`](.github/orchestrator/cloud-init.yaml.j2) — bootstraps Docker + nvidia-container-toolkit + GH Actions runner on the worker, registers with the JIT token, runs one job, then `shutdown -h`
-- [`config.example.yaml`](.github/orchestrator/config.example.yaml) — flavor / network / keypair / floating-IP pool / runner labels / repo
+- [`orchestrator.py`](.github/orchestrator/orchestrator.py) — Python service: spawn loop polls GitHub for queued jobs matching configured runner labels, mints single-use JIT runner tokens, and submits one OSMO workflow per job (`osmo workflow submit`); reap loop cancels the workflow when the job completes (or after `max_job_minutes`), plus an orphan sweep via `osmo workflow list`
+- [`runner-workflow.yaml.j2`](.github/orchestrator/runner-workflow.yaml.j2) + [`runner.Dockerfile`](.github/orchestrator/runner.Dockerfile) + [`runner-entrypoint.sh`](.github/orchestrator/runner-entrypoint.sh) — the per-job worker: a **privileged**, GPU-enabled OSMO task (prebaked image) that starts an inner Docker daemon (the tests run `airstack up` = docker compose), registers with the JIT token, runs one job, then exits so OSMO reaps the pod
+- [`config.example.yaml`](.github/orchestrator/config.example.yaml) — osmo_url / pool / platform / runner_image / resources / runner labels / repo
 - [`airstack-orchestrator.service`](.github/orchestrator/airstack-orchestrator.service) + [`setup.sh`](.github/orchestrator/setup.sh) — systemd unit and one-time installer
 
-**Why ephemeral:** clean Docker cache per run, no leaked containers, GitHub PAT and OpenStack credentials only on the orchestrator host (workers receive a single-use JIT token bound to one runner registration). State map at `/var/lib/airstack-orchestrator/state.json`; logs via `journalctl -u airstack-orchestrator.service -f`.
+**Why ephemeral:** clean Docker cache per run, no leaked containers; the GitHub PAT and the OSMO service-account token live only on the orchestrator host (workers receive a single-use JIT token bound to one runner registration). CI authenticates to OSMO as a shared, non-personal [service account](https://nvidia.github.io/OSMO/main/deployment_guide/appendix/authentication/service_accounts.html) scoped to a dedicated CI GPU pool, so runs don't consume individuals' quotas. The CI pool's platform must have **"Privileged Mode Allowed"** enabled (docker-in-docker). State map at `/var/lib/airstack-orchestrator/state.json`; logs via `journalctl -u airstack-orchestrator.service -f`.
 
-**Setup, debugging a failed job, and SSH-into-worker procedures:** [`.github/orchestrator/README.md`](.github/orchestrator/README.md) (also exposed as [`tests/ci-cd-orchestrator.md`](tests/ci-cd-orchestrator.md) symlink for the docs site).
+**Nested DinD needs a non-overlayfs Docker data-root.** The OSMO pod's root filesystem is overlayfs, and Linux rejects a directory on overlayfs as an overlay `upperdir` (`EINVAL`). A dockerd storing data on the pod rootfs pulls images fine but fails every build step that needs a real mount, with errors that masquerade as `apt-get`/`WORKDIR` failures:
+
+```
+failed to solve: ... mount source: "overlay", target: ".../buildkit/containerd-overlayfs/cachemounts/...", err: invalid argument
+```
+
+[`runner-entrypoint.sh`](.github/orchestrator/runner-entrypoint.sh) picks a backend by attempting a real overlay mount, preferring a loopback ext4 image at `/var/lib/docker` (real `overlay2`), then a real filesystem already mounted in the pod, then `fuse-overlayfs`, then `vfs`. Landing on `vfs` means builds will be slow and probably run out of disk — check the `[runner-entrypoint] storage:` line in the job log first when Docker builds misbehave. Details: [orchestrator README → Nested DinD and overlayfs](.github/orchestrator/README.md).
+
+**Docker layer cache is a floating tag, not the versioned one.** Every compose service lists two `cache_from` entries: the versioned image (`airstack:v${VERSION}_<suffix>`) and a floating one (`airstack:${CACHE_TAG:-cache}_<suffix>`). Only the floating tag can ever hit on a PR — `check-version-increment` forces `VERSION` up on every PR, so the versioned tag it builds under has by definition never been pushed. Reading and writing are separate switches: `AIRSTACK_REGISTRY_CACHE=1` (set by `system-tests.yml`) pulls and builds with `BUILDKIT_INLINE_CACHE=1`, while `AIRSTACK_REGISTRY_CACHE_PUSH=1` (set only by `docker-build.yml` on main/develop) also publishes both tags. PR runs stay read-only so an unmerged branch can't poison the shared cache or publish an unreleased version. If you add a service with a `build:` section, give it both entries or its builds will always be cold.
+
+**Publish retags when image inputs are unchanged.** `docker-build.yml` runs [`.github/workflows/scripts/docker_image_plan.py`](.github/workflows/scripts/docker_image_plan.py) on VERSION bumps: each service gets a content fingerprint (`org.airstack.content-fingerprint`). If the previous versioned image already has that label, the job registry-retags (`imagetools create`) instead of rebuilding; only changed services rebuild (and refresh `cache_*`). Use `workflow_dispatch` with `force_rebuild=true` to rebuild everything. PR `build_docker` tests still perform real builds.
+
+**Setup, debugging a failed job, and exec-into-worker procedures:** [`.github/orchestrator/README.md`](.github/orchestrator/README.md) (also exposed as [`tests/ci-cd-orchestrator.md`](tests/ci-cd-orchestrator.md) symlink for the docs site).
 
 ## Documentation Requirements
 

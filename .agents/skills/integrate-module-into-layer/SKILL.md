@@ -244,7 +244,7 @@ Launch the complete autonomy stack to test integration:
 
 ```bash
 # Stop any running containers
-airstack stop
+airstack down
 
 # Launch with full autonomy
 AUTOLAUNCH=true airstack up robot-desktop

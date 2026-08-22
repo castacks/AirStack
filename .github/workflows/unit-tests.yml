@@ -1,0 +1,46 @@
+name: Unit Tests
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unit-tests-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Python unit and harness contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tests/requirements.txt
+
+      - name: Install test dependencies
+        run: python -m pip install -r tests/requirements.txt
+
+      - name: Run unit tests
+        env:
+          AIRSTACK_ROOT: ${{ github.workspace }}
+        run: pytest tests/ -m unit
+
+      - name: Upload unit-test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results-${{ github.sha }}-${{ github.run_id }}
+          path: tests/results/
+          retention-days: 30

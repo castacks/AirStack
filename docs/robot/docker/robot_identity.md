@@ -51,7 +51,7 @@ mappings:
     domain_id: '{1}'
 
   - pattern: '.*'
-    robot: 'unknown-robot'
+    robot: 'unknown_robot'  # must be a valid ROS token (no hyphen) or launch fails
     domain_id: '0'
 ```
 
@@ -107,8 +107,24 @@ The serial port for MAVLink (`/dev/ttyTHS4`) is hardcoded for real-robot profile
 export FCU_URL="/dev/ttyTHS4:115200"
 ```
 
-!!! warning "Hostname convention is required"
-    The hostname must match a rule in the mapping config file. If no rule matches, the script exits with an error and `ROBOT_NAME` / `ROS_DOMAIN_ID` will be unset. Make sure every physical robot has a hostname that matches a rule before deployment.
+!!! warning "Hostname convention is required — and it fails quietly"
+    The hostname must match a rule in the mapping config file. With the stock
+    `default_robot_name_map.yaml` the failure is **silent, not loud**: its final `.*`
+    catch-all matches anything, so a device named e.g. `airlab-jetson-42` resolves to
+    `ROBOT_NAME=unknown_robot`, `ROS_DOMAIN_ID=0` with no error and a clean boot. The
+    symptoms surface later — topics under `/unknown_robot`, per-robot config lookups
+    keyed on `ROBOT_NAME` finding no profile, and containers pinned to another domain
+    (`zed-l4t` hardcodes `ROS_DOMAIN_ID=1`) no longer seeing the stack.
+
+    Make sure every physical robot has a hostname that matches a rule before deployment.
+    Run the following to set the hostname on a device:
+    ```
+    hostnamectl set-hostname robot-1
+    ```
+    Then verify the mapping in a shell inside the container:
+    ```bash
+    docker exec <container> bash -c 'echo "$(hostname) -> $ROBOT_NAME / $ROS_DOMAIN_ID"'
+    ```
 
 ### Fallback (anything else)
 
@@ -139,4 +155,4 @@ If you need to override the robot identity for testing, you can set the variable
 docker exec -e ROBOT_NAME=robot_5 -e ROS_DOMAIN_ID=5 -it <container> bash
 ```
 
-Or add them to your project's `.env` file and pass them through in `docker-compose.yaml`.
+Or add them to your project's `.env` file and make sure to pass them through in `docker-compose.yaml`.

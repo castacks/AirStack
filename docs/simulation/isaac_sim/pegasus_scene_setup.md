@@ -29,7 +29,7 @@ ISAAC_SIM_GUI="omniverse://airlab-nucleus.andrew.cmu.edu/Library/Assets/Pegasus/
 ISAAC_SIM_USE_STANDALONE="false"  # "true" or "false"
 # Script name (must be in /AirStack/simulation/isaac-sim/launch_scripts/)
 ISAAC_SIM_SCRIPT_NAME="example_one_px4_pegasus_launch_script.py"
-PLAY_SIM_ON_START="false"  # Not supported in standalone script mode
+PLAY_SIM_ON_START="false"  # honored in both modes; `airstack up --play` overrides
 ```
 
 There are *two modes* for launching Pegasus simulations:
@@ -48,7 +48,7 @@ Python scripts give full programmatic control over every aspect of scene constru
 - **Multi-robot setups** — dynamically spawning N drones with distinct IDs and positions.
 - **CI / headless testing** — running without a GUI.
 
-Example scripts are provided in `simulation/isaac-sim/launch_scripts/`.
+Example scripts are provided in `simulation/isaac-sim/launch_scripts/`. They are all thin subclasses of the shared `pegasus_app.PegasusApp` base class, which owns the boilerplate (SimulationApp creation, extension enabling, world/environment loading, stage prep, drone + sensor spawning, run loop) — see [Spawning Drones](spawning_drones.md) for how to write one.
 
 ### Scene Preparation Utilities
 

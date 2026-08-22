@@ -1,5 +1,5 @@
 [Unit]
-Description=AirStack CI Orchestrator (spawns ephemeral OpenStack runners)
+Description=AirStack CI Orchestrator (submits ephemeral OSMO runner workflows)
 Documentation=https://github.com/castacks/AirStack/tree/main/.github/orchestrator
 After=network-online.target
 Wants=network-online.target
@@ -10,17 +10,20 @@ User=orchestrator
 Group=orchestrator
 WorkingDirectory=/opt/airstack-orchestrator
 
-# Application credential lives in the orchestrator user's home so openstacksdk
-# finds it via the default cloud-config search path.
-Environment=HOME=/home/orchestrator
-Environment=OS_CLIENT_CONFIG_FILE=/home/orchestrator/.config/openstack/clouds.yaml
+# The `osmo` CLI persists its login session under $HOME/XDG dirs. Point them at
+# the (writable) state dir so ProtectHome can stay read-only. setup.sh creates
+# these directories owned by the orchestrator user.
+Environment=HOME=/var/lib/airstack-orchestrator
+Environment=XDG_CONFIG_HOME=/var/lib/airstack-orchestrator/.config
+Environment=XDG_CACHE_HOME=/var/lib/airstack-orchestrator/.cache
+Environment=XDG_STATE_HOME=/var/lib/airstack-orchestrator/.state
 
 ExecStart=/opt/airstack-orchestrator/venv/bin/python \
   /opt/airstack-orchestrator/orchestrator.py \
   --config /etc/airstack-orchestrator/config.yaml \
   --pat /etc/airstack-orchestrator/github-pat \
   --state /var/lib/airstack-orchestrator/state.json \
-  --template /opt/airstack-orchestrator/cloud-init.yaml.j2
+  --template /opt/airstack-orchestrator/runner-workflow.yaml.j2
 
 Restart=always
 RestartSec=10
@@ -33,6 +36,8 @@ KillSignal=SIGTERM
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
+# ReadWritePaths re-grants write access under ProtectSystem/ProtectHome so the
+# OSMO CLI session cache and state.json can be written.
 ReadWritePaths=/var/lib/airstack-orchestrator
 PrivateTmp=true
 

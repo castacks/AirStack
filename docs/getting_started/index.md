@@ -1,5 +1,12 @@
 # Getting Started
 
+!!! tip "On Mac, Windows, or no GPU?"
+
+    This page assumes a Linux desktop with an NVIDIA GPU. If that's not you,
+    use [AirStack on OSMO](../tutorials/airstack_on_osmo.md) instead — you
+    only need an SSH key, the `osmo` CLI, and VS Code or Cursor. No local
+    Docker, no NVIDIA drivers, no `airstack install`.
+
 !!! warning ""
 
     AirStack is currently in ALPHA and only meant for internal usage. 
@@ -82,11 +89,24 @@ airstack image-push
 airstack up # This will launch the robot, ground control station, and isaac sim
 ```
 
-This will automatically launch and play the Isaac scene specified under `AirStack/.env` (default is the Fire Academy).
+This launches the Isaac Sim scene specified by `ISAAC_SIM_SCRIPT_NAME` in `AirStack/.env` (default: a single drone in the Pegasus default environment). By default the sim comes up **paused** (`PLAY_SIM_ON_START="false"` in `.env`) — press **Play** in the Isaac Sim window, or launch with `airstack up --play`.
+
+Containers start immediately, but the ROS 2 workspace still builds and PX4 still boots in the background. To wait until the drone is actually ready to fly:
+
+```bash
+airstack ready   # or: airstack up --play --wait
+```
+
+Useful variants (see `airstack help up`):
+
+```bash
+airstack up --sim airsim          # MS AirSim instead of Isaac Sim
+airstack up --sim isaac --robots 3  # multi-robot (auto-selects the multi-drone scene script)
+```
 
 ## Move Robot
 
-Find the RViz window, `Takeoff`, then `Navigate` and `Explore` in the trajectory window like in this video:
+Open Foxglove in the GCS to command the robot: import the layout `/root/airstack_layout_num_robots_1.json` (Layouts → Import from file…), connect to `ws://localhost:8765`, then press `Takeoff` in the Robot Tasks panel, then `Navigate` like in this video:
 
 <iframe width="560" height="315" src="https://www.youtube.com/embed/EAKsHzNIU2I?si=zQUFq8fPst2BIIMz" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 

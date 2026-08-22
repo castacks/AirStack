@@ -21,7 +21,8 @@ The GCS control panel shows per-robot status: **Ping**, **Recording**, and **Bat
 launch just the gcs container:
 
 ```bash
-docker compose --profile deploy up gcs
+docker compose up gcs          # desktop profile
+docker compose --profile deploy up gcs-real   # deployed GCS hardware
 ```
 
 ## 1. Running docker in interactive mode:

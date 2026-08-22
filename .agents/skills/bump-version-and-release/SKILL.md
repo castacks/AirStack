@@ -64,11 +64,13 @@ Three workflows in `.github/workflows/` interact with `VERSION`:
 - **Trigger:** push to `main` or `develop` whose changed paths include `.env`, **and** the `VERSION=` line in `.env` differs from the previous commit. Also runs on manual `workflow_dispatch`.
 - **Behavior on tag change:**
   1. Runs on a self-hosted ephemeral GPU runner (`[self-hosted, airstack-ephemeral]`).
-  2. `docker compose build` for profiles `desktop,isaac-sim,ms-airsim`.
-  3. `docker compose push` to `${PROJECT_DOCKER_REGISTRY}` (set in `.env` — currently `airlab-docker.andrew.cmu.edu/airstack`).
-  4. Keyless `cosign sign` of every pushed image digest via GitHub OIDC.
-  5. `cosign verify` against the workflow's certificate identity.
+  2. Plans per service via `.github/workflows/scripts/docker_image_plan.py` (content fingerprint vs previous versioned image label).
+  3. **Unchanged image inputs** → registry retag of the previous `v${PREV}_…` digest to `v${VERSION}_…` and `cache_*` (no rebuild).
+  4. **Changed inputs** (or missing/unlabeled previous image, or `force_rebuild=true`) → `docker compose build` / `push` for those services only, labeling the new digest with `org.airstack.content-fingerprint`.
+  5. Keyless `cosign sign` of every published image digest via GitHub OIDC.
+  6. `cosign verify` against the workflow's certificate identity.
 - **Skip behavior:** if the merge commit on `main`/`develop` does not actually change `VERSION=`, the build job is skipped (the check-changes job sets `tag-changed=false`).
+- **Docs-only VERSION bumps:** still required by `check-version-increment`, but publish should retag rather than rebuild once fingerprints are on the previous images. First publish after this feature lands (or `force_rebuild=true`) must rebuild to write the labels.
 
 ### 3. `deploy_docs_from_release.yaml` — versioned docs
 
@@ -76,7 +78,7 @@ Three workflows in `.github/workflows/` interact with `VERSION`:
 - **Behavior:** runs `mike deploy --push --update-aliases <release.tag_name> latest`, publishing the docs site under the release tag and pointing the `latest` alias at it.
 - Companion workflows publish unversioned docs from `main` (default alias `main`) and `develop` (alias `develop`).
 
-So the full release path is: bump `VERSION` → PR → merge to `main`/`develop` (rebuild + push + sign) → cut a GitHub Release matching that VERSION (versioned docs go live).
+So the full release path is: bump `VERSION` → PR → merge to `main`/`develop` (retag unchanged images and/or rebuild changed ones + push + sign) → cut a GitHub Release matching that VERSION (versioned docs go live).
 
 ## Choosing the Bump Type
 
@@ -258,5 +260,5 @@ For a true release (dropping the pre-release suffix):
 
 ## Related Skills
 
-- [`run-system-tests`](../run-system-tests) — what fires on every PR alongside the version check
+- [`run-system-tests`](../run-system-tests) — automatic unit/package gates and how to request simulation campaigns
 - [`update-documentation`](../update-documentation) — for docs-only PRs that may still need a VERSION bump to clear the gate

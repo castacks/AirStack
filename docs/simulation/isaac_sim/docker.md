@@ -45,7 +45,7 @@ airstack up isaac-sim
 **What happens:**
 
 - Launches Isaac Sim with ROS 2 bridge
-- Loads configured scene (via `ISAAC_SIM_SCENE`)
+- Runs the launch script named by `ISAAC_SIM_SCRIPT_NAME` (or, with `ISAAC_SIM_USE_STANDALONE=false`, opens the USD in `ISAAC_SIM_GUI`)
 - Publishes sensor topics to ROS 2
 - Optionally auto-plays simulation (via `PLAY_SIM_ON_START`)
 
@@ -106,20 +106,20 @@ command: >
 
 Key variables for Isaac Sim configuration:
 
-| Variable | Description | Default |
+| Variable | Description | Default (`.env`) |
 |----------|-------------|---------|
-| `AUTOLAUNCH` | Auto-start Isaac Sim on container launch | `false` |
-| `ISAAC_SIM_SCENE` | Path to USD scene file | (set in `.env`) |
-| `ISAAC_SIM_GUI` | Launch with GUI (`true`/`false`) | `true` |
-| `PLAY_SIM_ON_START` | Auto-play simulation when GUI opens | `true` |
-| `ISAAC_SIM_USE_STANDALONE` | Use standalone Python launch | `false` |
-| `ISAAC_SIM_SCRIPT_NAME` | Standalone script filename | - |
+| `AUTOLAUNCH` | Auto-start Isaac Sim on container launch | `true` |
+| `ISAAC_SIM_USE_STANDALONE` | `true`: run `ISAAC_SIM_SCRIPT_NAME`; `false`: open the `ISAAC_SIM_GUI` USD | `true` |
+| `ISAAC_SIM_SCRIPT_NAME` | Standalone launch script in `simulation/isaac-sim/launch_scripts/` | `example_one_px4_pegasus_launch_script.py` |
+| `ISAAC_SIM_GUI` | Path to a USD scene file (used only when `ISAAC_SIM_USE_STANDALONE=false`) | `simple_pegasus.scene.usd` |
+| `PLAY_SIM_ON_START` | Auto-play simulation on start (`airstack up --play/--no-play`) | `false` |
+| `ISAAC_SIM_HEADLESS` | Run without a window (`airstack up --headless`) | unset (`false`) |
 | `PX4_PHYSICS_HZ` | Physics step rate for PX4 SITL — also sets PX4 `IMU_INTEG_RATE` | `250` |
 | `PX4_RENDERING_HZ` | Rendering frame rate for PX4 profiles (independent of physics) | `60` |
 | `ARDUPILOT_PHYSICS_HZ` | Physics step rate for ArduPilot SITL | `800` |
 | `ARDUPILOT_RENDERING_HZ` | Rendering frame rate for ArduPilot profiles | `120` |
 
-`PX4_PHYSICS_HZ` and `PX4_RENDERING_HZ` are set in the top-level `.env`. Pegasus defaults to 250 Hz but AirStack runs PX4 at **100 Hz** for near-real-time performance. See [Pegasus Scene Setup → Physics Rate](pegasus_scene_setup.md) for valid values and the full configuration flow.
+`PX4_PHYSICS_HZ` and `PX4_RENDERING_HZ` are set in the isaac-sim compose file (defaults 100/60 there; the Pegasus code default is 250). AirStack runs PX4 at **100 Hz** for near-real-time performance. See [Pegasus Scene Setup → Physics Rate](pegasus_scene_setup.md) for valid values and the full configuration flow.
 
 **Example overrides:**
 
@@ -329,7 +329,8 @@ Access via web browser.
 
 3. **View output:**
    ```bash
-   airstack logs isaac-sim
+   airstack logs isaac-sim      # tmux pane output is mirrored to docker logs
+   airstack connect isaac-sim   # attach to the tmux session interactively
    ```
 
 ### Debugging
