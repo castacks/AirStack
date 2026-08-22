@@ -10,7 +10,7 @@ services:
         - *simple_sim_image
     entrypoint: ""
     command: >
-      bash -c "ssh service restart;
+      bash -c "service ssh restart;
       tmux new -d -s sim
       && tmux send-keys -t sim
       'cd /models && ./download.sh && cd ~/ros_ws/ && colcon build --symlink-install && source install/setup.bash && ROS_DOMAIN_ID=1 ros2 launch sim sim.launch.xml' ENTER
@@ -20,9 +20,11 @@ services:
     tty: true
     ipc: host
     privileged: true
-    # runtime: nvidia  <-- Removed deprecated runtime key
     networks:
       airstack_network:
+        # INVARIANT: every sim service (isaac-sim, ms-airsim, simple-sim)
+        # binds this same fixed address — robot containers reach the sim at
+        # SIM_IP (default 172.31.0.200), so only one sim can run at a time.
         ipv4_address: 172.31.0.200
     environment:
       - DISPLAY
@@ -47,4 +49,4 @@ services:
       # autonomy stack stuff
       - ../ros_ws:/root/ros_ws:rw # sim-specific ROS packages
       # - ../../../ros_ws/src/fastdds.xml:/root/ros_ws/fastdds.xml:rw  # fastdds.xml - commented out, may not be needed
-      # - ../../../common/inputrc:/etc/inputrc:rw  # commented out - common/ no longer exists
+      # - ../../../common/inputrc:/etc/inputrc:rw  # optional page-up/down history search; kept unmounted

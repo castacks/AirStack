@@ -35,7 +35,10 @@ services:
     privileged: true
     networks:
       airstack_network:
-        ipv4_address: 172.31.0.200 # required to not conflict with other default docker networks on the host machine
+        # INVARIANT: every sim service (isaac-sim, ms-airsim, simple-sim)
+        # binds this same fixed address — robot containers reach the sim at
+        # SIM_IP (default 172.31.0.200), so only one sim can run at a time.
+        ipv4_address: 172.31.0.200
     env_file:
       - ./omni_pass.env
       # PX4 SITL parameter set, applied by rcS at boot.

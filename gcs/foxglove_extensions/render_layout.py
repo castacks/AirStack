@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render airstack_layout_custom.json with NUM_ROBOTS tabs from a single-robot template.
+"""Render /root/airstack_layout_num_robots_<N>.json with NUM_ROBOTS tabs from a single-robot template.
 
 Foxglove layout JSON has no native templating, so we generate it at GCS startup
 based on the NUM_ROBOTS env var. Tab[0] of the input file is treated as the
