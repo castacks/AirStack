@@ -46,6 +46,7 @@ unrelated effects instead of one event.
 Launchers: `house_damage_test_launch_script.py` (severe bench),
 `house_partial_damage_test_launch_script.py` (partial bench),
 `tree_damage_test_launch_script.py` (six burnt-tree methods on grass),
+`burn_ground_preview_launch_script.py` (the floor and nothing else),
 `suburb_mini_wildfire_launch_script.py` (250 x 250 m full scene),
 `fire_test_launch_script.py` (four Flow stacks on empty ground).
 
@@ -564,108 +565,145 @@ charring drives the stress thermally rather than by drying shrinkage — that is
 what produces the alligator grid, and it is the opposite of the intuitive
 "splits along the grain".
 
-**A fire scar on the ground is a MOSAIC**, not a gradient — patchy mottled
-interior inside an irregular fingered outline, with unburned islands the fire
-skipped. No directionality, nothing like the wash on a wall.
+**Cache keys must include the recipe.** Retuning `SOOT_RGB` or `char_bite`
+silently reused maps baked under the old values, so nothing appeared to change.
 
-**The fire burns the ground BETWEEN the trees too.** A per-tree burnt ring
-says only the ground touching each trunk burned, which no fire does — a
-surface fire runs over everything and leaves continuous black ground under and
-between a stand. What varies is SEVERITY (heavy fuel burns down to pale ash
-and bare soil; open grass gets a fast flashy blackening), not presence. The
-green strips between cluster trees were the giveaway.
+---
 
-**OPAQUE GEOMETRY CANNOT FADE, SO BUILD THE TRANSITION OUT OF STEPS.** One
-boundary carrying the whole change from green grass to bare burnt ground reads
-as a cut-out however good its outline is. Four levels — light, medium, heavy
-scorch, then burnt floor — spread that change so no single edge carries it.
-And INTERLEAVE each boundary rather than drawing it: scatter satellites of the
-inner material out past the edge and satellites of the outer one in behind it,
-so the two stipple through each other over a couple of metres. That is how an
-opaque renderer gets a blend.
+# THE GROUND: FOUR ATTEMPTS, ALL REJECTED
 
-**One material on one big patch is a wallpaper.** A soot map tiling every ~3 m
-across a 30 m patch is ten copies of the same blotches, and the eye finds them
-instantly — this is the same "low-frequency contrast is what makes a tile
-visible" finding as the burn textures, arriving from the other direction. It
-needs all three fixes together: BAND-LIMIT the noise so there is no feature
-large enough to recognise, generate SEVERAL maps per level from different
-seeds, and vary the projection scale AND world offset between neighbouring
-patches so nothing lines up.
+The burn scar on the ground is the single hardest thing in this pipeline and
+NOTHING SHIPPED. Four approaches were built and each was rejected on sight;
+the block ships plain grass. This section exists so the fifth attempt starts
+where the fourth stopped instead of retracing the first.
 
-**THE GROUND HAS THREE STATES, NOT TWO.** Blending grass straight into bare
-burnt floor skips the state most of a real burn scar is actually in, and reads
-as a texture swap rather than as fire damage. The middle state is SCORCHED
-GRASS — the grass's own base colour with soot composited onto it, exactly what
-the walls and the boles get — and it is both the transition INTO bare ground
-and the only treatment a lone tree gets at all.
+`burn_ground_preview_launch_script.py` is the bench: the floor, the fire
+field and a row of material configurations, with no houses or trees in the
+way. Every one of the failures below was diagnosed slowly inside a
+twenty-minute full-block build before that bench existed. Use it.
 
-The line between them is fuel continuity: a stand's crowns and litter feed
-each other, so the fire sits in it and burns the ground out completely, while
-one tree in the open has nothing to sustain that and the grass under it chars
-and survives. So bare burnt floor goes under CLUSTERS, nested INSIDE a wider
-scorched ring, and a single tree gets scorch only.
+## What a burn scar actually is
+
+**A fire scar is a MOSAIC**, not a gradient — patchy mottled interior inside
+an irregular fingered outline, with unburned islands the fire skipped where
+the ground was wetter or something broke the run. No directionality, nothing
+like the wash on a wall.
+
+**The fire burns the ground BETWEEN things, not just under them.** A per-tree
+burnt ring says only the ground touching each trunk burned, which no fire
+does — a surface fire runs over everything and leaves continuous black ground
+under and between a stand. What varies is SEVERITY (heavy fuel burns down to
+pale ash and bare soil; open grass gets a fast flashy blackening), not
+presence. Green strips between cluster trees were the giveaway.
 
 **Ground scorch is not wall scorch.** `soot_mask` stretches its noise 8x
 vertically because soot on a wall RISES and smears into licks — that stretch
 is the whole character of it. Ground has no up: run the wall pattern over open
 ground and you get a field of parallel streaks nothing in the scene explains.
-`streak_stretch=1` with `wash_weight=0` leaves pure non-directional mottling,
-which is what a burnt patch of grass is.
+`streak_stretch=1` with `wash_weight=0` leaves pure non-directional mottling.
 
-**BAKE THE MASK, NOT THE GROUND.** `ground_burn_map` bakes grass and burnt
-into one plate-sized image, which kills the repeat but pays twice: 320 m into
-1024 px is 31 cm per pixel — mush at any sane camera height — and the result
-is diffuse-only, so the grass loses the normal and ORM maps doing most of the
-work. It looked terrible. A coverage mask is genuinely low-frequency and loses
-nothing by being baked, so bake ONLY that (`scorch.burn_mask_map`) and let a
-burnt-ground material TILE over the grass at its own scale, revealed by the
-mask as an opacity. Both surfaces keep full detail and all their maps.
+**The ground has THREE states, not two.** Blending grass straight into bare
+burnt floor skips the state most of a real scar is in. The middle one is
+SCORCHED GRASS — the grass's own base colour with soot composited onto it,
+exactly what the walls get. The line between scorched and bare is fuel
+continuity: a stand's crowns and litter feed each other so the fire sits and
+burns the ground out completely, while one tree in the open has nothing to
+sustain that.
 
-**SET `sourceColorSpace` ON EVERY `UsdUVTexture`.** Leaving it at `auto` is
-what turned the burnt ground white. The diagnostic is worth copying: MEASURE
-the sources first — the burnt floor averages 0.18 luma with 0.1% of it above
-0.6, and every other map here is darker still, so a pale washed-out render
-cannot be coming from the texture content and must be coming from the decode.
-An sRGB image taken as linear renders about 2.5x too bright; a NORMAL map
-taken as sRGB decodes to garbage normals and blows the speculars out to white.
-Diffuse is `sRGB`; masks, normals and ORM are data and must be `raw`.
+## Attempt 1 — bake the whole plate
 
-**Blend noise ADDITIVELY into a coverage field and you paint the whole map.**
-`f * 1.15 + (blotch - 0.5) * 0.55` is the obvious way to write "perturb the
-field", and where `f` is zero the noise still contributes up to +0.275 — so
-ground the fire never reached came out speckled with up to 33% burnt overlay
-across 45% of the plate. Perturb the LEVEL SET instead — `(f - (t0 + noise))
-/ softness` — which gives the same fingered boundary and is identically zero
-wherever the field is, because nothing crosses a threshold it was never near.
+Composite grass and burnt ground into ONE image for the entire block
+(`scorch.ground_burn_map`), so there is no tiling repeat and the scar can be
+painted rather than uniform.
 
-**A MASKED TRANSLUCENT OVERLAY DOES NOT SURVIVE THIS RENDERER — use geometry.**
-The overlay needs two textures at two scales (burnt ground tiling every ~9 m,
-mask stretched once across the plate), and OmniPBR carries ONE `texture_scale`
-/ `project_uvw` pair shared by every texture it samples — so it cannot do it,
-and `UsdPreviewSurface` can. That is where it ends, because Hydra here
-translates USD materials to MDL (`UsdToMdl`) and a UsdPreviewSurface whose
-`opacity` is driven by a texture comes out the other side WITHOUT it. The
-plane then draws fully opaque over the entire plate: "you've made the whole
-ground ash color".
+**Why it failed:** resolution and maps. 250 m into 2048 px is 12 cm a pixel
+and 320 m into 1024 px is 31 cm — mush at any sane camera height. And a baked
+composite is diffuse-only, so the grass loses the normal and ORM maps that
+were doing most of the work. It reads as flat paint.
 
-MEASURE BEFORE REDESIGNING — it is what separated this from the colour-space
-bug that looked identical. The scorched-grass map came out at 0.157 luma with
-nothing above 0.5, and the mask at 87.8% fully transparent. Neither can
-produce a white ground, so the fault was not in what was authored but in
-whether it was applied at all.
+## Attempt 2 — tiling material revealed by a baked MASK
 
-The working answer is PATCH GEOMETRY: irregular polygons with ordinary tiling
-OmniPBR materials (`vegetation.scar_patch`). No alpha, no second UV set, only
-the plain-mesh-plus-OmniPBR path everything else here already proves works.
-Give each patch a ~1 mm z step, since coplanar overlapping quads are what
-z-fighting is. And a real fire scar edge is fairly sharp — a metre or two, not
-a long fade — so a hard irregular boundary is closer to the truth than a soft
-one. Wobble the outline at THREE frequencies: one harmonic gives a wavy
-circle, and a circle is exactly what the eye picks out.
+Keep both surfaces at full resolution and tiling at their own scale; bake only
+the coverage MASK, which is genuinely low-frequency and loses nothing by being
+baked. Reveal burnt ground over grass through that mask as an opacity.
 
-**Cache keys must include the recipe.** Retuning `SOOT_RGB` or `char_bite`
-silently reused maps baked under the old values, so nothing appeared to change.
+Sound reasoning, and it needs two textures at two different scales — the burnt
+ground tiling every ~9 m, the mask stretched exactly once across the plate.
+**OmniPBR cannot do that**: it carries ONE `texture_scale` / `project_uvw`
+pair shared by every texture it samples. `UsdPreviewSurface` can, because each
+texture gets its own `UsdUVTexture` with its own `st`.
+
+**Why it failed:** this renderer translates USD materials to MDL (`UsdToMdl`),
+and a `UsdPreviewSurface` whose `opacity` is driven by a texture comes out the
+other side WITHOUT it. The plane drew fully opaque over the whole plate — "you
+have made the whole ground ash color". No error, no warning.
+
+Two real bugs were found and fixed on the way, both worth keeping:
+
+- **`sourceColorSpace` must be set on every `UsdUVTexture`.** Leaving it at
+  `auto` turned the ground white. MEASURE THE SOURCES FIRST — the burnt floor
+  averages 0.18 luma with 0.1% above 0.6, so a pale washed-out render cannot
+  come from the content and must come from the decode. An sRGB image taken as
+  linear renders ~2.5x too bright; a NORMAL map taken as sRGB decodes to
+  garbage normals and blows speculars out to white. Diffuse `sRGB`; masks,
+  normals and ORM are data and must be `raw`.
+- **Do not blend noise ADDITIVELY into a coverage field.** `f * 1.15 +
+  (blotch - 0.5) * 0.55` is the obvious way to write "perturb the field", and
+  where `f` is zero the noise still contributes up to +0.275 — so ground the
+  fire never reached came out speckled with up to 33% burnt overlay across 45%
+  of the plate. Perturb the LEVEL SET instead: `(f - (t0 + noise)) / soft`
+  gives the same fingered boundary and is identically zero where the field is.
+
+## Attempt 3 — opaque patch geometry
+
+No alpha at all. Irregular polygons with ordinary tiling OmniPBR materials, in
+graded rings: grass -> light scorch -> medium -> heavy -> bare burnt floor,
+with satellites of each ring scattered across its own boundary so the two
+stipple through each other. Uses only the plain-mesh-plus-OmniPBR path that
+everything else here proves works.
+
+**Why it failed:** it never stopped looking like patches. The scorched-grass
+maps tile visibly (a soot map repeating every ~3 m across a 30 m patch is ten
+copies of the same blotches), and the steps between rings read as steps rather
+than as a transition however many were added. Band-limiting the noise, three
+maps per level and per-patch scale and offset jitter all helped and none of
+them fixed it.
+
+Worth keeping from it: `vegetation.scar_patch` wobbles its outline at THREE
+frequencies, because one harmonic gives a wavy circle and a circle is exactly
+what the eye picks out; and coplanar overlapping quads need a ~1 mm z step or
+they z-fight.
+
+## Attempt 4 — banded overlay with a constant opacity
+
+Put the falloff in a per-band `opacity_constant` rather than a mask. That
+removes the two-UV-scale problem entirely, so the material can be an OmniPBR —
+MDL natively, nothing to lose in translation. Dice the region into cells,
+bucket by the fire's own `coverage_at`, one merged mesh per band.
+
+This is the one that follows the FIRE rather than the trees, which is right:
+`coverage_at` is the same field that sets every building's damage level, so
+the scar is the ellipse the front actually swept.
+
+**Why it failed:** nothing rendered. The bands build and report correctly —
+5 bands, 3,844 cells, opacities 0.48 to 0.87 — and the floor is empty. Not
+yet diagnosed. The likeliest cause is OmniPBR multiplying `opacity_constant`
+by an unset `opacity_texture` that samples as 0, which would make everything
+fully transparent; the bench's six-square diagnostic row (`plain`, `off`,
+`on_050`, `on_100`, `on_mode1`, `preview`) is built to answer that by
+elimination in one run and has not been read yet.
+
+## If there is a fifth attempt
+
+Start at the bench, and settle the opacity question first — everything else is
+downstream of whether a translucent overlay can render here at all. If it
+cannot, the remaining option is compositing soot into the GRASS material
+itself (what makes walls work) driven by the fire field, accepting that a
+tiling material can only carry so much variation.
+
+---
+
+# The bug catalogue, continued
 
 ## Scene / config
 
@@ -757,10 +795,10 @@ plane and the pool was never visible.
 
 # Known gaps
 
-- **`scorch.ground_burn_map` still never runs in the mini scene** — the guard
-  looks for `ground/ground_base` and the ground is built as per-block meshes
-  (and `ground_base_N` when pools are cut). But prefer `burn_mask_map` +
-  a translucent overlay to it now; see the ground note in the catalogue.
+- **THE GROUND HAS NO BURN SCAR AT ALL** — the block ships plain grass. Four
+  approaches were built and rejected; see "THE GROUND: FOUR ATTEMPTS" above
+  before starting a fifth. `scorch.ground_burn_map` and `scorch.burn_mask_map`
+  both still exist and neither is called by anything.
 - **Road line materials are imported but unbound** — lane dashes use
   `displayColor` with no material by design, so they need explicit rebinding.
 - **No burnable props exist** in the mini block (categories are only `fence`,
@@ -774,12 +812,21 @@ plane and the pool was never visible.
   PointInstancer's `positions` is easy; its per-instance `orientations` are
   quaternions and getting them subtly wrong scatters twigs at impossible
   angles down the fallen trunk.
-- **Tree ash rings are opaque discs with a hard edge.** They want the same
-  treatment as the ground burn scar (baked, fingered, with unburned islands),
-  which is the top outstanding item above.
-- **Vegetation is not wired into `suburb_mini_wildfire` yet.** `tree` is one
-  of `suburb_scene`'s `instance_categories`, so burnable trees have to be
-  un-instanced there exactly as the fences were.
+- **Tree ash rings are opaque discs with a hard edge.** Only the tree bench
+  draws them; the block does not. They have the same unsolved problem as the
+  ground scar and should wait for the same answer.
+- **`snap` and `topple` never fire in the block.** Every tree lands in
+  `scorched` or `torched`, because `level_for_age` only reaches `snag` after
+  the full flame AND smoulder phases and the block's clock does not get there.
+  Both are exercised only in the tree bench. Raise `MINI_ELAPSED` to see them.
+- **Seated debris still carries a collider.** ~12,000 pieces are static
+  geometry the solver never touches, and each is still cooked as a triangle
+  mesh — 36,734 static colliders on the last run. Nothing will ever hit them;
+  they could skip collision entirely.
+- **GPU PhysX is on but unmeasured.** `settle.prepare(gpu=True)` sets
+  `enableGPUDynamics` and the capacities, and `run` prints `Xs solving (GPU)` —
+  168.6 s for 5,479 bodies over 1,400 steps on the last block. No CPU baseline
+  was captured before the switch, so whether it helped is still unknown.
 - Fragments are cut from the module's outer shell, so they are hollow inside.
 - Fracturing at scene-build time will not scale to a full plat; bake fractured
   results to disk and reference them.

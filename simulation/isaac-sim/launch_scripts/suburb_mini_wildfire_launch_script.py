@@ -75,11 +75,6 @@ from disaster import vegetation as veg
 ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
 PARENT = "/World/stage/generated"
 SCENE_CONFIG = os.environ.get("SCENE_CONFIG", "suburb_mini_wildfire")
-BURNT_PNG = ("airstack://scene_gen/assets/materials/megascans/"
-             "Burnt_Forest_Floor/T_uhwpehcdy_2K_B.png")
-# Under the road ladder. On a 250 m plate `apply_ground` puts asphalt at about
-# 1.6 cm, so 0.6 cm keeps the scar on the grass and off the carriageway.
-BURN_Z = 0.006
 SEED = int(os.environ.get("MINI_SEED", "11"))
 # A CEILING, NOT A TARGET. `settle.run` steps in chunks and stops as soon as
 # the busiest body moves less than a millimetre, so a pile that settles in 200
@@ -175,131 +170,6 @@ def cluster_houses(placements, radius_m=13.0):
         else:
             clusters.append({"cx": p["x_m"], "cy": p["y_m"], "items": [p]})
     return [c for c in clusters if len(c["items"]) >= 3]
-
-
-def _burn_overlay_mat(stage, path, texture, opacity, scale_uv=(0.12, 0.12)):
-    """A semi-transparent burnt-ground OmniPBR. Opacity is a CONSTANT.
-
-    WHY THIS CAN WORK WHERE THE LAST ATTEMPT COULD NOT. The previous overlay
-    put the falloff in an opacity TEXTURE on a `UsdPreviewSurface`, because
-    OmniPBR carries one `texture_scale` for every texture it samples and so
-    cannot tile a diffuse while stretching a mask once across the plate. That
-    material then lost its opacity in this renderer's USD-to-MDL translation
-    and drew fully opaque over everything.
-
-    Putting the falloff in a per-patch CONSTANT removes the need for a mask
-    entirely — so the material can be an OmniPBR, which is MDL natively and
-    has nothing to lose in translation. The gradient comes from the geometry
-    being split into bands, each band a uniform opacity.
-    """
-    from pxr import Gf, Sdf, UsdShade
-
-    mat = UsdShade.Material.Define(stage, Sdf.Path(path))
-    sh = UsdShade.Shader.Define(stage, Sdf.Path(path).AppendChild("Shader"))
-    sh.CreateIdAttr("OmniPBR")
-    sh.SetSourceAsset(Sdf.AssetPath("OmniPBR.mdl"), "mdl")
-    sh.SetSourceAssetSubIdentifier("OmniPBR", "mdl")
-    sh.CreateInput("diffuse_texture",
-                   Sdf.ValueTypeNames.Asset).Set(Sdf.AssetPath(texture))
-    sh.CreateInput("diffuse_color_constant",
-                   Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(1.0, 1.0, 1.0))
-    # World triplanar, so the burnt ground tiles at its own metric scale and
-    # the patches need no UVs of their own.
-    sh.CreateInput("project_uvw", Sdf.ValueTypeNames.Bool).Set(True)
-    sh.CreateInput("world_or_object", Sdf.ValueTypeNames.Bool).Set(True)
-    sh.CreateInput("texture_scale",
-                   Sdf.ValueTypeNames.Float2).Set(Gf.Vec2f(*scale_uv))
-    sh.CreateInput("reflection_roughness_constant",
-                   Sdf.ValueTypeNames.Float).Set(0.94)
-    sh.CreateInput("metallic_constant", Sdf.ValueTypeNames.Float).Set(0.0)
-    sh.CreateInput("enable_opacity", Sdf.ValueTypeNames.Bool).Set(True)
-    sh.CreateInput("opacity_constant",
-                   Sdf.ValueTypeNames.Float).Set(float(opacity))
-    # 0 = blend rather than cut out. Any threshold above zero turns a soft
-    # edge into a stippled one.
-    sh.CreateInput("opacity_threshold", Sdf.ValueTypeNames.Float).Set(0.0)
-    sh.CreateInput("opacity_mode", Sdf.ValueTypeNames.Int).Set(0)
-    mat.CreateSurfaceOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
-    mat.CreateDisplacementOutput("mdl").ConnectToSource(sh.ConnectableAPI(),
-                                                        "out")
-    mat.CreateVolumeOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
-    return mat
-
-
-def build_burn_ground(stage, coverage_at, region, ssf, cell_m=4.0, bands=8):
-    """The burn scar as an overlay that follows the FIRE, not the trees.
-
-    `coverage_at` is the fire's own field — the same one that decides every
-    building's damage level — so the scar is the ellipse the front actually
-    swept rather than a union of discs under whatever happened to be planted.
-    That is the difference between the ground agreeing with the scene and
-    merely resembling it.
-
-    ONE MESH PER BAND, not one prim per cell. The region is diced into
-    `cell_m` quads, each quad is bucketed by its coverage, and every quad in a
-    bucket becomes another face of that bucket's single mesh — so a 250 m
-    block costs `bands` prims and `bands` materials instead of a few thousand
-    of each.
-
-    Returns the paths it made.
-    """
-    from pxr import Gf, Sdf, UsdGeom, UsdShade, Vt
-
-    x0, y0, x1, y1 = region
-    nx = max(1, int(round((x1 - x0) / float(cell_m))))
-    ny = max(1, int(round((y1 - y0) / float(cell_m))))
-    dx, dy = (x1 - x0) / nx, (y1 - y0) / ny
-
-    buckets = {}
-    for iy in range(ny):
-        for ix in range(nx):
-            ax, ay = x0 + ix * dx, y0 + iy * dy
-            cov = float(coverage_at(ax + dx * 0.5, ay + dy * 0.5))
-            if cov <= 0.06:
-                continue
-            b = min(int(bands) - 1, int(cov * int(bands)))
-            buckets.setdefault(b, []).append((ax, ay))
-
-    if not buckets:
-        return []
-
-    UsdGeom.Scope.Define(stage, Sdf.Path("/World/burnGround"))
-    made = []
-    for b, cells in sorted(buckets.items()):
-        # Opacity across the bands, floored so the faintest edge still reads
-        # and capped short of 1 so even the core keeps a little grass in it.
-        op = 0.14 + 0.78 * (b + 0.5) / float(bands)
-        mat = _burn_overlay_mat(
-            stage, "{0}/BurnLooks/band_{1}".format(PARENT, b),
-            sg._join_asset_root(BURNT_PNG, ""), op)
-        pts, counts, idx = [], [], []
-        for (ax, ay) in cells:
-            k = len(pts)
-            # A hair of overlap, so neighbouring cells in the same band do not
-            # show a seam where the floating-point edges fail to meet.
-            e = 0.02
-            for (px, py) in ((ax - e, ay - e), (ax + dx + e, ay - e),
-                             (ax + dx + e, ay + dy + e), (ax - e, ay + dy + e)):
-                pts.append(Gf.Vec3f(px * ssf, py * ssf, BURN_Z * ssf))
-            counts.append(4)
-            idx += [k, k + 1, k + 2, k + 3]
-        path = "/World/burnGround/band_{0}".format(b)
-        m = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
-        m.CreatePointsAttr(Vt.Vec3fArray(pts))
-        m.CreateFaceVertexCountsAttr(Vt.IntArray(counts))
-        m.CreateFaceVertexIndicesAttr(Vt.IntArray(idx))
-        m.CreateNormalsAttr(Vt.Vec3fArray([Gf.Vec3f(0, 0, 1)] * len(pts)))
-        m.CreateSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
-        m.CreateDisplayColorAttr([Gf.Vec3f(0.16, 0.15, 0.13)])
-        xs = [p[0] for p in pts]
-        ys = [p[1] for p in pts]
-        m.CreateExtentAttr([Gf.Vec3f(min(xs), min(ys), BURN_Z * ssf),
-                            Gf.Vec3f(max(xs), max(ys), BURN_Z * ssf)])
-        UsdShade.MaterialBindingAPI(m.GetPrim()).Bind(mat)
-        made.append(path)
-        print("[mini] burn ground band {0}: {1} cells at opacity {2:.2f}"
-              .format(b, len(cells), op))
-    return made
 
 
 def consume_prim(stage, placement):
@@ -770,30 +640,29 @@ def main():
             UsdShade.MaterialBindingAPI(prim).Bind(
                 damage._pick(r, finish or "char", mats))
 
-    # THE GROUND: a translucent overlay following the FIRE'S OWN ELLIPSE.
+    # THE GROUND IS PLAIN GRASS, and that is a decision rather than a gap.
     #
-    # The baked-plate version this replaces resampled grass and burnt ground
-    # into one image for the whole block — 250 m into 2048 px is 12 cm a
-    # pixel, and it threw away the grass's normal and ORM maps, so it read as
-    # flat mush. Every later attempt failed on the same point in a different
-    # way: a masked `UsdPreviewSurface` loses its opacity in this renderer's
-    # USD-to-MDL translation and draws opaque, and opaque patches of
-    # scorched-grass texture tile visibly and blend into nothing.
+    # Four approaches were built and all four were rejected on sight:
+    #   baked plate      grass and burnt ground composited into one image for
+    #                    the whole block. 250 m into 2048 px is 12 cm a pixel
+    #                    and it discards the grass's normal and ORM maps, so
+    #                    it reads as flat mush.
+    #   masked overlay   a burnt material revealed by a baked coverage mask.
+    #                    Correct on paper; this renderer translates USD
+    #                    materials to MDL and a `UsdPreviewSurface` loses its
+    #                    opacity on the way, so it drew fully opaque.
+    #   opaque patches   scorched-grass and burnt-floor polygons in graded
+    #                    rings. No alpha needed, but the maps tile visibly and
+    #                    the steps between rings never blended.
+    #   banded overlay   OmniPBR with a per-band `opacity_constant`, following
+    #                    the fire's own ellipse. The geometry builds and the
+    #                    bands report correctly — and nothing renders.
     #
-    # What made the WALLS work was that the burn is an overlay on top of the
-    # surface's own texture, and the ground can have exactly that: the grass
-    # keeps its material untouched underneath, and burnt ground is laid over
-    # it at an opacity that falls off with the fire's own coverage field. The
-    # opacity is a per-band CONSTANT rather than a mask, which is what lets
-    # the material be an OmniPBR — MDL natively, with nothing to lose in
-    # translation.
-    #
-    # And it follows `coverage_at`, the field that already decides every
-    # building's damage level, so the scar IS the ellipse the front swept
-    # rather than a union of discs under whatever happened to be planted.
-    _reg = config.get("layout", {}).get("region_m") or [250, 250]
-    _rw, _rh = float(_reg[0]) * 0.5, float(_reg[1]) * 0.5
-    build_burn_ground(stage, coverage_at, (-_rw, -_rh, _rw, _rh), ssf)
+    # `burn_ground_preview_launch_script.py` is the bench that isolates the
+    # last of these: the floor, the fire field and six material configurations
+    # side by side, with no houses or trees in the way. Settle the question
+    # there, then bring the answer back here — do not debug a surface inside a
+    # twenty-minute build.
 
     # EVERYTHING the front reached is scorched, not just the houses — fences,
     # bins, cars. A burnt street with clean props reads as a film set.
