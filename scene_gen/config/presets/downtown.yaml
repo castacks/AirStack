@@ -53,6 +53,13 @@ region_m: [800, 800]
 seed: 42
 
 overrides:
+  # ROAD ASPHALT, matched to the suburb wildfire scene: the local megascans
+  # asphalt swatch instead of shared.yaml's Nucleus MI_Asphalt. `apply_ground_planes`
+  # reads `usds.materials.asphalt`; the urban marking vocabulary is drawn on
+  # top by `road_markings.py` and is unchanged.
+  usds:
+    materials:
+      asphalt: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
   # ---- block shape -----------------------------------------------------------
   # The built-in BSP always splits whichever side is longer, which drives every
   # block toward square: measured over this same region it gives a median

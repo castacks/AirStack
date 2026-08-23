@@ -138,3 +138,7 @@ scene_gen/**/*_preview.png
 # asset set points at files that were never checked in.
 !scene_gen/assets/materials/*.usda
 scene_gen/**/*_turntable.gif
+scene_gen/assets/baked/
+scene_gen/assets/archetypes/
+scene_gen/assets/materials/scorched/
+nucleus_upload/

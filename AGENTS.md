@@ -98,6 +98,7 @@ For detailed step-by-step instructions, refer to the **`.agents/skills/`** direc
 | [run-system-tests](.agents/skills/run-system-tests) | Running the pytest system test harness (marks, MetricsRecorder, /pytest PR trigger) |
 | [add-behavior-tree-node](.agents/skills/add-behavior-tree-node) | Creating behavior tree nodes |
 | [use-airstack-cli](.agents/skills/use-airstack-cli) | Using the `airstack` CLI and the non-interactive `docker exec` pattern |
+| [run-isaac-sim-launcher](.agents/skills/run-isaac-sim-launcher) | Starting / relaunching an Isaac Sim launch script via `airstack up` + `docker exec isaac-sim tmux`, and reading its output (the pane, a piped host file, the Kit log) — `docker logs` is empty for this container |
 | [configure-multi-robot](.agents/skills/configure-multi-robot) | Setting up multiple robots, ROBOT_NAME namespacing, and ROS_DOMAIN_ID isolation |
 | [bump-version-and-release](.agents/skills/bump-version-and-release) | Bumping `.env` VERSION and CHANGELOG before merge to clear the version-check gate |
 | [capture-discovered-knowledge](.agents/skills/capture-discovered-knowledge) | After long context-discovery / surprising findings, persist to AGENTS.md or a new skill so the next agent doesn't redo the work |

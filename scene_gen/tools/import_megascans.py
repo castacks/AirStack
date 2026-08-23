@@ -49,6 +49,8 @@ NAMES = {
     "road_marking_line": "Road_Marking_Line",
     "painted_line_dense": "Road_Line_Dense",
     "road_line": "Road_Line",
+    "brick_wall_worn": "Brick_Wall_Worn",
+    "damaged_asphalt": "Damaged_Asphalt",
 }
 
 _TEMPLATE = '''#usda 1.0

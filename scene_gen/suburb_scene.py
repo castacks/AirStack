@@ -860,6 +860,28 @@ def apply_park_ground(stage, config, park, gnd, ssf, mats):
           f"markings, {n['path']} paths")
 
 
+def ground_z_scale(config, region):
+    """The factor the z ladder (`_Z_GRASS` ... `_Z_DASH`) is multiplied by.
+
+    Derived from the plate SPAN so 1600 m reproduces the tuned metre values
+    and a 250 m block gets proportionally thinner air under its paint;
+    `roads.z_scale` overrides. `region` is `(x0, y0, x1, y1)`.
+
+    The first version took `max(region[0], region[1])` — the two MINIMUM
+    corners, negative on a centred plate — so the clamp floor of 0.08 was
+    what every scene actually got, whatever its size. Anything that lays a
+    surface into the ladder (the burn overlay sits between grass and
+    asphalt) needs the same number, which is why this is a function.
+    """
+    roads_cfg = config.get("roads", {}) or {}
+    if region:
+        span = max(float(region[2]) - float(region[0]),
+                   float(region[3]) - float(region[1]))
+    else:
+        span = 1600.0
+    return float(roads_cfg.get("z_scale", max(0.08, min(1.0, span / 1600.0))))
+
+
 def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
                  pool_rects=None,
                  park=None):
@@ -882,9 +904,7 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
     # a 250 m block gets ~1.6 cm instead of 14 cm. The floor stops it
     # collapsing to zero on a tiny plate, where depth precision still needs
     # something to work with. `roads.z_scale` remains as an explicit override.
-    _span = max(float(region[0]), float(region[1])) if region else 1600.0
-    _zs = float(roads_cfg.get("z_scale",
-                              max(0.08, min(1.0, _span / 1600.0))))
+    _zs = ground_z_scale(config, region)
     z_grass = _Z_GRASS * _zs
     z_asphalt = _Z_ASPHALT * _zs
     z_drive = _Z_DRIVE * _zs
@@ -1037,17 +1057,30 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
     # answer: brick to the garage door, concrete to the front step. Houses with
     # no garage keep the platted run, which is a parking pad beside the house
     # and is where a drive on such a lot really goes.
+    # A SECOND driveway surface, mixed with the first per drive. `driveway` is
+    # the brick apron (Driveway_Brick_Old_01); `driveway_asphalt` is a poured
+    # asphalt drive. Real streets carry both, so `driveway_asphalt_share` of
+    # them (stable per drive, so rebuilds are consistent) take the asphalt.
     drive_mat, path_mat = _load_mat("driveway"), _load_mat("path")
-    n_drive = n_walk = 0
+    drive_alt = _load_mat("driveway_asphalt")
+    drive_alt_share = (float(roads_cfg.get("driveway_asphalt_share", 0.0))
+                       if drive_alt else 0.0)
+    n_drive = n_walk = n_drive_alt = 0
     for pi, p in enumerate(parcels):
         p_houses = p.get("houses") or []
         for di, d in enumerate(p["drives"]):
             plan = p_houses[di].get("plan") if di < len(p_houses) else None
             run = plan["drive"] if (plan and plan.get("drive")) else (d["a"], d["b"])
+            use_alt_drive = (drive_alt_share > 0.0
+                             and (hash(("drive_surf", pi, di)) % 1000)
+                             / 1000.0 < drive_alt_share)
+            dmat = drive_alt if use_alt_drive else drive_mat
+            dcol = (0.16, 0.16, 0.16) if use_alt_drive else (0.45, 0.45, 0.43)
             if _make_ribbon(stage, f"{gnd}/drive_{pi}_{di}", list(run),
                             d["w"] / 2.0, z_drive, ssf, UV_DRIVE_M,
-                            (0.45, 0.45, 0.43), drive_mat) is not None:
+                            dcol, dmat) is not None:
                 n_drive += 1
+                n_drive_alt += 1 if use_alt_drive else 0
             # The walk is the half-metre-higher of the two: they share a kerb
             # end, and coplanar ribbons z-fight exactly where both are visible.
             if plan and plan.get("path") and _make_ribbon(
@@ -1128,7 +1161,7 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
     print(f"[suburb_scene] ground: {n_road} road ribbons "
           f"({n_road_alt} on the road tile), {n_bulb} turnarounds, "
           f"{n_grass} block meshes ({n_rough} rough/undeveloped), "
-          f"{n_drive} driveways, {n_walk} front walks")
+          f"{n_drive} driveways ({n_drive_alt} asphalt), {n_walk} front walks")
     print(f"[suburb_scene] markings: {n_dash} centreline dashes on collectors "
           f"({n_dash_cut} suppressed at junctions), {n_x} crossings "
           f"({n_xbar} bars), {n_stop} stop bars")
@@ -2140,7 +2173,8 @@ def house_catalogue(config, resolver, pools, yaw_off=-90.0):
 
 
 def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
-                     catalogue=None, pool_holes_out=None, net=None):
+                     catalogue=None, pool_holes_out=None, net=None,
+                     house_instances=None):
     """Houses, lot furniture and parcel trees, with per-asset corrections.
 
     TWO TREE POOLS, picked on the `kind` stamp `suburb_parcel` already emits.
@@ -2236,12 +2270,23 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
                 # whole-house art faces +X — hence the +90. Getting that wrong
                 # turns every house sideways to its own street.
                 from detail import modular_house as mh
-                parts = mh.build_building(ent["style"], h["c"][0], h["c"][1],
-                                          yaw + 90.0, rng, category="house")
                 pal = mh.STYLES[ent["style"]].get("palette")
-                for q in parts:
-                    q["palette"] = pal      # shell only; dressing is the
-                out += parts                # suburb's own job, not the kit's
+                # ASSEMBLY MODE: record the (style, pose) and DO NOT build the
+                # ~28 modules — the 1600 plat references a pre-baked damaged
+                # archetype at this pose instead (see `disaster.bake`). The
+                # drive / walk / pool below still run, because they are cheap
+                # and `apply_ground` needs `h["plan"]`.
+                if house_instances is not None:
+                    house_instances.append(dict(
+                        style=ent["style"], x=h["c"][0], y=h["c"][1],
+                        yaw=yaw + 90.0))
+                else:
+                    parts = mh.build_building(ent["style"], h["c"][0],
+                                              h["c"][1], yaw + 90.0, rng,
+                                              category="house")
+                    for q in parts:
+                        q["palette"] = pal  # shell only; dressing is the
+                    out += parts            # suburb's own job, not the kit's
                 n_mod += 1
                 # THE SEAM, closed. `plan_lot` is the one place that knows
                 # where this style's garage door and front step land, and it
@@ -2423,11 +2468,16 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
 def generate_suburb_on_stage(stage, config,
                              parent_path: str = "/World/stage/generated",
                              scene_scale_factor: float = 1.0,
-                             snap_to_ground: bool = False) -> list:
+                             snap_to_ground: bool = False,
+                             info_out: dict = None,
+                             assembly: bool = False) -> list:
     """Build the graph-based suburb onto a live stage. Returns placements.
 
     Same shape as `generate_scene.generate_scene_on_stage` so the launch
-    scripts are interchangeable.
+    scripts are interchangeable. `info_out`, if given, receives what a later
+    pass laying a surface on the ground needs and cannot recover from the
+    placements: `region` (x0, y0, x1, y1), `pool_rects` (the water holes, as
+    corner rings) and `z_scale` (the ladder factor `apply_ground` used).
     """
     if isinstance(config, str):
         config = sg.load_config(config)
@@ -2549,7 +2599,9 @@ def generate_suburb_on_stage(stage, config,
     # `net` is for the fences and nothing else: a lot line is a straight chord
     # across a block face that curves, so the only authority on where the road
     # actually is happens to be the centrelines. See `_trim_offroad`.
+    _house_instances = [] if assembly else None
     placements = build_placements(config, resolver, parcels, rng, pools,
+                                  house_instances=_house_instances,
                                   yaw_off=yaw_off, catalogue=catalogue,
                                   pool_holes_out=_pool_holes, net=net)
     # -- the park ------------------------------------------------------------
@@ -2578,8 +2630,21 @@ def generate_suburb_on_stage(stage, config,
     # Same discs the parcel pass used, so the two agree on where the
     # pavement is — the yard pass plats inside `lot_corners`, and a lot's
     # corners can overhang a turnaround.
+    #
+    # AND THE POOLS. `suburb_yardplan` is the THIRD pass that plants a tree and
+    # the only one that had no idea swimming pools existed — every "pool" in
+    # that file is an asset pool. It plants the REAR yard, which is exactly
+    # where `modular_house.pool_at` puts the water, so trees stood in pools no
+    # matter how many times the other two passes were fixed.
+    #
+    # They go in as SOLIDS, through the same `_Solids` index and the same
+    # `clear_house_m` margin that already keeps trees out of houses and
+    # garages — an oriented box on the same hash grid, tested by the same
+    # `solids.clear()` call every plant already passes through. A pool is a
+    # thing you cannot plant in for the same reason a house is.
     yard, ystats = yp.plan(config, parcels, rng, resolver=resolver,
-                           keepout_discs=pcfg.get("keepout_discs"))
+                           keepout_discs=pcfg.get("keepout_discs"),
+                           keepout_rings=_pool_holes)
     placements += yard
     yp.report(ystats)
     placements += build_frontage(config, resolver, net, blocks, rng, pools)
@@ -2610,6 +2675,22 @@ def generate_suburb_on_stage(stage, config,
     # pass that does that (generate_scene.prune_prims) is never called on this
     # path. Houses are left un-instanced so damage variants and per-building
     # edits stay possible.
+    _tree_instances = []
+    if assembly:
+        import os as _os
+        kept = []
+        for q in placements:
+            cat = str(q.get("category", ""))
+            if cat.endswith("tree") and q.get("usd"):
+                _species = _os.path.splitext(
+                    _os.path.basename(str(q["usd"])))[0]
+                _tree_instances.append(dict(
+                    species=_species, x=float(q.get("x_m", 0.0)),
+                    y=float(q.get("y_m", 0.0)),
+                    yaw=float(q.get("yaw_deg", 0.0))))
+            else:
+                kept.append(q)      # fences, props, sidewalks, signs stay
+        placements = kept
     sg.apply_placements(stage, placements, parent_path, scene_scale_factor,
                         ground_snap, resolver=resolver,
                         instance_categories=set(config.get(
@@ -2628,4 +2709,11 @@ def generate_suburb_on_stage(stage, config,
     apply_ground(stage, config, net, blocks, parcels, info["region"],
                  parent_path, scene_scale_factor, pool_rects=_pool_holes,
                  park=park)
+    if info_out is not None:
+        info_out.update(region=tuple(info["region"]),
+                        pool_rects=[list(r) for r in _pool_holes],
+                        z_scale=ground_z_scale(config, info["region"]))
+        if assembly:
+            info_out["house_instances"] = _house_instances or []
+            info_out["tree_instances"] = _tree_instances
     return placements

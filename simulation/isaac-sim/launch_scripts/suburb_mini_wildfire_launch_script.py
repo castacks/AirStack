@@ -42,7 +42,15 @@ import time
 import carb
 from isaacsim import SimulationApp
 
-simulation_app = SimulationApp(launch_config={"headless": False})
+simulation_app = SimulationApp(launch_config={
+    "headless": False,
+    # THE GROUND OVERLAY NEEDS FRACTIONAL CUTOUT OPACITY, AND IT HAS TO BE A
+    # COMMAND-LINE FLAG: == disaster.ground.KIT_ARGS (not importable yet —
+    # sys.path is set below). Setting it with carb.settings after startup is
+    # never copied onto the USD render property and the overlay vanishes.
+    "extra_args": ["--/rtx/raytracing/fractionalCutoutOpacity=true",
+                   "--/rtx/pathtracing/fractionalCutoutOpacity=true"],
+})
 
 from isaacsim.core.utils.extensions import enable_extension
 
@@ -67,9 +75,10 @@ sys.path.insert(0, _SCENE_GEN_DIR)
 
 from scene_prep import (scale_stage_prim, add_sky, get_stage_meters_per_unit)
 from scene_generator import resolve_sky
+import suburb_scene as ss
 from suburb_scene import generate_suburb_on_stage
 from compile_disaster import load_scene_config
-from disaster import damage, fire, fracture, settle
+from disaster import damage, fire, fracture, ground, settle
 from disaster import vegetation as veg
 
 ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
@@ -91,6 +100,14 @@ KEEP_PHYSICS = os.environ.get("KEEP_PHYSICS", "0") not in ("0", "", "false")
 # How far through the burn the scene is. The front's own duration, so the far
 # corner has only just been reached while the origin has long gone cold.
 ELAPSED_S = float(os.environ.get("MINI_ELAPSED", "0")) or None
+# The burn scar on the ground (`disaster.ground`). GROUND_* env knobs tune it,
+# the same ones the bench uses; MINI_GROUND=0 leaves the grass plain.
+GROUND_ON = os.environ.get("MINI_GROUND", "1") not in ("0", "false", "no")
+# BAKE: after the full build, export each damaged HOUSE and TREE to its own
+# self-contained USD under this dir (+ a manifest). Reload references them
+# instead of regenerating / fracturing / settling — the per-object proof of
+# the "bake damage, reference it" scaling path. Measures the reload speedup.
+BAKE_DIR = os.environ.get("MINI_BAKE_DIR", "")
 
 # level -> (walls to break, chance each is partial, fracture seeds per module)
 # level -> (walls to break, chance each is partial, fracture seeds,
@@ -243,10 +260,13 @@ def main():
     wait_for_stage(stage)
     _remove_env_clutter(stage)
 
+    _t_build0 = time.time()
     config = load_scene_config(SCENE_CONFIG)
     _, ssf = get_stage_meters_per_unit(stage)
+    binfo = {}        # region, pool holes, z ladder — for the ground overlay
     placements = generate_suburb_on_stage(
-        stage, config, parent_path=PARENT, scene_scale_factor=ssf)
+        stage, config, parent_path=PARENT, scene_scale_factor=ssf,
+        info_out=binfo)
     for _ in range(10):
         omni.kit.app.get_app().update()
     add_sky(stage, resolve_sky(config))
@@ -640,29 +660,47 @@ def main():
             UsdShade.MaterialBindingAPI(prim).Bind(
                 damage._pick(r, finish or "char", mats))
 
-    # THE GROUND IS PLAIN GRASS, and that is a decision rather than a gap.
+    # THE GROUND: a translucent burnt overlay following the fire's own field.
     #
-    # Four approaches were built and all four were rejected on sight:
-    #   baked plate      grass and burnt ground composited into one image for
-    #                    the whole block. 250 m into 2048 px is 12 cm a pixel
-    #                    and it discards the grass's normal and ORM maps, so
-    #                    it reads as flat mush.
-    #   masked overlay   a burnt material revealed by a baked coverage mask.
-    #                    Correct on paper; this renderer translates USD
-    #                    materials to MDL and a `UsdPreviewSurface` loses its
-    #                    opacity on the way, so it drew fully opaque.
-    #   opaque patches   scorched-grass and burnt-floor polygons in graded
-    #                    rings. No alpha needed, but the maps tile visibly and
-    #                    the steps between rings never blended.
-    #   banded overlay   OmniPBR with a per-band `opacity_constant`, following
-    #                    the fire's own ellipse. The geometry builds and the
-    #                    bands report correctly — and nothing renders.
-    #
-    # `burn_ground_preview_launch_script.py` is the bench that isolates the
-    # last of these: the floor, the fire field and six material configurations
-    # side by side, with no houses or trees in the way. Settle the question
-    # there, then bring the answer back here — do not debug a surface inside a
-    # twenty-minute build.
+    # `disaster.ground` — the fourth of the approaches catalogued in the
+    # `build-wildfire-scenes` skill, the one that "drew nothing" until the
+    # fractional-cutout flag (see SimulationApp above) and the single-tile
+    # projection were understood, tuned on `burn_ground_preview_launch_script`
+    # and brought here unchanged. Its own `feathered_coverage` is used rather
+    # than `coverage_at` above: that one steps to 0.45 at the arrival line,
+    # which is right for bucketing a house's scorch and wrong for a surface,
+    # where it ends the scar on a conic with a hard cut against the grass.
+    # The overlay sits between the grass and the asphalt on the same z ladder
+    # `apply_ground` used, so roads, drives and walks stay unburnt over it —
+    # which is correct — and pool holes are skipped, because you cannot
+    # scorch water.
+    n_ground = 0
+    if GROUND_ON:
+        region = tuple(binfo.get("region") or
+                       (-0.5 * float(config["layout"]["region_m"][0]),
+                        -0.5 * float(config["layout"]["region_m"][1]),
+                        0.5 * float(config["layout"]["region_m"][0]),
+                        0.5 * float(config["layout"]["region_m"][1])))
+        zs = float(binfo.get("z_scale") or ss.ground_z_scale(config, region))
+        burn_z = (ss._Z_GRASS + 0.5 * (ss._Z_ASPHALT - ss._Z_GRASS)) * zs
+        knobs = ground.knobs_from_env(max(region[2] - region[0],
+                                          region[3] - region[1]))
+        print("[mini] ground: feather {0:.0f} m, fingers +-{1:.0f} m, islands "
+              "{2:.0%}, overlay z {3:.4f} m".format(
+                  knobs["edge_m"], knobs["finger_m"], knobs["islands"],
+                  burn_z))
+        ground_cov = ground.feathered_coverage(
+            arrival, elapsed, (ox, oy), region,
+            np.random.default_rng(SEED + 23),
+            edge_m=knobs["edge_m"], finger_m=knobs["finger_m"],
+            islands=knobs["islands"])
+        made = ground.build_overlay(
+            stage, ground_cov, region, ssf, burn_z, material_parent=PARENT,
+            cell_m=knobs["cell_m"], bands=knobs["bands"],
+            tile_m=knobs["tile_m"], op_range=knobs["op_range"],
+            skip=ground.skip_rects(binfo.get("pool_rects") or (), pad=0.0))
+        n_ground = len(made)
+        print("[mini] ground overlay: {0} band(s)".format(n_ground))
 
     # EVERYTHING the front reached is scorched, not just the houses — fences,
     # bins, cars. A burnt street with clean props reads as a film set.
@@ -756,7 +794,114 @@ def main():
           "toward {2:.0f} deg".format(ox, oy, fcfg["heading_deg"]))
     print("  buildings: " + ", ".join(
         "{0}={1}".format(k, v) for k, v in sorted(tally.items())))
+    print("  ground:    {0}".format(
+        "{0} overlay band(s)".format(n_ground) if n_ground
+        else "plain grass (MINI_GROUND=0)" if not GROUND_ON
+        else "overlay drew nothing"))
     print("=" * 72 + "\n")
+
+    # RE-ASSERT FRACTIONAL CUTOUT OPACITY AFTER THE STAGE IS BUILT.
+    #
+    # The flag is passed on the kit command line (SimulationApp extra_args)
+    # and maps onto a render-settings USD PROPERTY at startup. This launcher
+    # then brings up a Pegasus ENVIRONMENT stage, and loading a stage that
+    # authors render settings resets that property to its default (OFF) —
+    # so the ground overlay, whose only visibility is fractional cutout,
+    # renders fully transparent even though the command-line flag was right.
+    # (The bench keeps it because its stage is an empty new_stage() with no
+    # authored render settings.) Setting the carb value again here, after the
+    # final stage exists, pushes it back onto the live render property; a few
+    # updates let it take before the loop.
+    for _key in ("/rtx/raytracing/fractionalCutoutOpacity",
+                 "/rtx/pathtracing/fractionalCutoutOpacity"):
+        carb.settings.get_settings().set_bool(_key, True)
+    for _ in range(5):
+        omni.kit.app.get_app().update()
+
+    _t_build = time.time() - _t_build0
+    print("[bake] full build (generate + damage + fracture + settle + scorch "
+          "+ ground + fire) took {0:.1f} s".format(_t_build))
+
+    # BAKE: one self-contained USD per damaged house and per damaged tree.
+    # `disaster.bake.export_object` flattens the stage once, then for each
+    # object copies its scattered prims (surviving modules + `brk_*`
+    # fragments, or the tree subtree + its `tree_debris` pieces) AND the
+    # SHARED materials they bind (SootLooks/BurnLooks), remapping the bindings
+    # so each file stands alone. World transforms ride along, so a reference
+    # lands the object back where it was. A manifest records the files; the
+    # reload references them with no generate / fracture / settle.
+    if BAKE_DIR:
+        # WHY NOT stage.Flatten(): raw USD Flatten() unpacks every crate value
+        # in the composed stage, and chokes (`Usd_CrateFile::_UnpackValue`) on
+        # the custom types the Flow fire / some Kit-schema referenced assets
+        # carry — types Kit's own renderer and exporter handle but core USD
+        # does not. So flatten with KIT's exporter first (the same
+        # `export_as_stage_async` example_one_px4 uses), then SLICE per object
+        # out of that normalised file with `Sdf.CopySpec`, which reads only the
+        # house/tree/material specs and never touches the Flow prims.
+        import asyncio
+        from disaster import bake
+        try:
+            os.makedirs(BAKE_DIR, exist_ok=True)
+            for _ in range(5):
+                omni.kit.app.get_app().update()
+            _t0 = time.time()
+            _tmp = os.path.join(BAKE_DIR, "_flat_tmp.usd")
+            _ok, _err = asyncio.get_event_loop().run_until_complete(
+                omni.usd.get_context().export_as_stage_async(_tmp))
+            if not _ok:
+                raise RuntimeError("export_as_stage failed: {0}".format(_err))
+            # Open the Kit-flattened file; the by-value exporter reads
+            # geometry off THIS stage (raw Sdf.CopySpec / Flatten choke on the
+            # kit modules' unreadable `assetInfo` crate field — see bake.py).
+            src = Usd.Stage.Open(_tmp)
+            records, miss_total = [], 0
+            for bi, c, level, finish, fstate, frags in per_building:
+                if level == "pristine":
+                    continue
+                paths = [it.get("prim_path") for it in c["items"]
+                         if it.get("prim_path")] + list(frags)
+                outp = os.path.join(BAKE_DIR, "house_{0:02d}.usd".format(bi))
+                if bake.export_object(src, None, paths, outp):
+                    m, ok, ms = bake.validate(outp)
+                    miss_total += ms
+                    records.append(dict(kind="house", id=bi, level=level,
+                                        usd=os.path.abspath(outp), meshes=m,
+                                        bound_missing=ms))
+            for ti, q in enumerate(trees):
+                if q.get("_veg_level") in (None, "pristine"):
+                    continue
+                paths = [q["prim_path"]] + list(q.get("_veg_made") or [])
+                outp = os.path.join(BAKE_DIR, "tree_{0:03d}.usd".format(ti))
+                if bake.export_object(src, None, paths, outp):
+                    m, ok, ms = bake.validate(outp)
+                    miss_total += ms
+                    records.append(dict(kind="tree", id=ti,
+                                        level=q.get("_veg_level"),
+                                        usd=os.path.abspath(outp), meshes=m,
+                                        bound_missing=ms))
+            bake.write_manifest(os.path.join(BAKE_DIR, "manifest.json"), records)
+            try:
+                os.remove(_tmp)
+            except OSError:
+                pass
+            _dt = time.time() - _t0
+            nh = sum(1 for r in records if r["kind"] == "house")
+            nt = sum(1 for r in records if r["kind"] == "tree")
+            sz = sum(os.path.getsize(r["usd"]) for r in records
+                     if os.path.exists(r["usd"])) / 1e6
+            print("[bake] {0} house + {1} tree object(s) -> {2} "
+                  "({3:.0f} MB total) in {4:.1f} s; {5} mesh material(s) "
+                  "unresolved".format(nh, nt, BAKE_DIR, sz, _dt, miss_total))
+            print("[bake] RELOAD WITH: MINI_RELOAD_DIR={0} "
+                  "ISAAC_SIM_SCRIPT_NAME=suburb_reload_launch_script.py".format(
+                      os.path.abspath(BAKE_DIR)))
+        except Exception as _exc:
+            # A bake failure must NOT crash the build — keep the app up so the
+            # 25-min scene is not lost and can be inspected / retried.
+            import traceback
+            print("[bake] FAILED (scene kept live): {0}".format(_exc))
+            traceback.print_exc()
 
     timeline.play()
     app = omni.kit.app.get_app()
