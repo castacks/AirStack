@@ -88,6 +88,8 @@ For detailed step-by-step instructions, refer to the **`.agents/skills/`** direc
 | [integrate-module-into-layer](.agents/skills/integrate-module-into-layer) | Adding module to layer bringup |
 | [write-launch-file](.agents/skills/write-launch-file) | Authoring ROS 2 launch files with AirStack conventions (ROBOT_NAME namespacing, topic remapping, allow_substs) |
 | [write-isaac-sim-scene](.agents/skills/write-isaac-sim-scene) | Creating custom simulation scenes |
+| [simulate-water-in-isaac-sim](.agents/skills/simulate-water-in-isaac-sim) | Adding flood / storm-surge / standing water to a scene |
+| [build-wildfire-scenes](.agents/skills/build-wildfire-scenes) | Fire, fracture, physics settling and scorch materials for burnt scenes — includes the bug catalogue |
 | [visualize-in-foxglove](.agents/skills/visualize-in-foxglove) | Adding topic visualization to Foxglove/GCS |
 | [attach-gossip-payload](.agents/skills/attach-gossip-payload) | Broadcasting custom ROS messages to peers via PeerProfile gossip payloads |
 | [debug-module](.agents/skills/debug-module) | Autonomous debugging of ROS 2 modules |

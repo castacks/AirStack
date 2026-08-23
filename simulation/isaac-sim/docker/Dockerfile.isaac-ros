@@ -163,6 +163,14 @@ RUN cd PX4-Autopilot && \
 
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir lark-parser
 
+# Mesh fracture for the disaster scenes (scene_gen/disaster/vtk_fracture.py).
+# trimesh ships with Isaac Sim but is crippled without these: its boolean
+# engine needs manifold3d, capped plane slicing needs shapely, and the Voronoi
+# cutter needs vtk. Without them the only fracture available is "scatter whole
+# panels", which reads as a stack of rectangles. Installing them here means
+# `vtk_fracture.ensure_deps()` never has to pip at runtime.
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir manifold3d shapely vtk
+
 # TMux config
 RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /isaac-sim/.tmux/plugins/tpm 
 
