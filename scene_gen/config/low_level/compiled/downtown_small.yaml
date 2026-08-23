@@ -9,7 +9,7 @@
 # severity      : 0.0
 # spec          : scene_gen/config/presets/downtown_small.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-13 18:03:01
+# compiled      : 2026-08-22 22:20:10
 # spec extras   : {'asset-set': 'urban', 'region_m': [500, 500], 'seed': 42}
 
 seed: 42
