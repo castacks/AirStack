@@ -112,6 +112,12 @@ scene_gen/assets/objaverse/*
 scene_gen/assets/aec/*
 !scene_gen/assets/aec/README.md
 
+# Composited soot/burn maps written by scene_gen/disaster/scorch.py. Keyed by a
+# hash of the source texture and the recipe, so they are a cache, not source:
+# whatever a scene needs is rebuilt on first run. ~200 MB once a wildfire scene
+# has been generated.
+scene_gen/assets/materials/scorched/
+
 # Local mirror of Nucleus assets, for the tools that cannot resolve
 # `omniverse://` — the damage gallery above all (usd-core and Blender both
 # lack the resolver). Rebuild with scene_gen/tools/localize_nucleus_assets.py,
