@@ -550,6 +550,116 @@ def compile_hurricane(sev, spec, region):
     }
 
 
+def compile_wildfire(sev, spec, region):
+    """Fire in the scene, and nothing else — yet.
+
+    Signature — a wind-driven fire front running through the vegetation. Every
+    structural knob is zero on purpose: this stage adds the FIRE ONLY, so a
+    wildfire scene can be looked at and tuned before any question of what the
+    fire does to the buildings is opened.
+
+    That is why `field` is uniform-zero rather than a burn scar. When scorched
+    facades and burnt-out props arrive they belong on the field, driven by the
+    same ellipse the emitters already follow — see `disaster/fire.py`.
+
+    The fire block itself is consumed by `disaster.fire.apply_wildfire`, which
+    runs AFTER the scene is generated: it needs the placements the generator
+    returns, because an emitter is fitted to the bounding box of a real prim.
+    """
+    w, h = region
+    span = max(w, h)
+
+    # Ignition point and wind direction reuse the shared spec keys, so a
+    # wildfire is steered the same way a tornado or hurricane is.
+    ox, oy = spec.get("epicenter", [-span * 0.35, -span * 0.35])
+    heading = float(spec.get("heading_deg", 45.0))
+
+    block = compile_none(sev, spec, region)
+    block["fire"] = {
+        "enabled": True,
+        "origin_m": [float(ox), float(oy)],
+        "heading_deg": heading,
+
+        # Rate of spread. A creeping surface fire at severity 0, a running
+        # crown fire at 1. Severity makes the fire faster, not rounder: the
+        # 4:1 head-to-flank ratio holds across the range.
+        #
+        # 4:1 rather than the 6:1 of an extreme wind event, chosen by measuring
+        # rather than by taste — at 6:1 the burnt region on this plat is a
+        # ~330 m cigar that reads as scattered burning trees from the air,
+        # and 4:1 doubles the fuel inside the front while still being visibly
+        # wind-driven. `tools/fire_png.py` is how that was compared.
+        "head_mps": lerp(0.25, 2.0, sev),
+        "flank_mps": round(lerp(0.25, 2.0, sev) / 4.0, 4),
+        "back_mps": round(lerp(0.25, 2.0, sev) / 12.0, 4),
+        "wind_mps": lerp(1.5, 9.0, sev),
+
+        # How far the front runs, and how much of that it has already done
+        # when the scene opens.
+        #
+        # Both are fractions of the plat rather than absolute seconds, because
+        # the thing being controlled is what you SEE. A front let loose for the
+        # full crossing spends its emitter budget over 1.5 km and reads as
+        # scattered burning trees; held to part of it, the same budget buys a
+        # dense band. The offset then guarantees fire on frame one — a scene
+        # that opens with six minutes of nothing is not a wildfire scene.
+        "duration_s": round(span * lerp(0.50, 1.00, sev)
+                            / max(1e-6, lerp(0.25, 2.0, sev)), 1),
+        # THIS IS A POST-DISASTER SCENE. The offset is most of the way through
+        # the burn on purpose: the front has already crossed the bulk of the
+        # plat, so the majority of fuels open in smoulder or residual and only
+        # a trailing band is still active. A low offset gives an advancing
+        # firestorm, which is a different scene.
+        "start_offset_frac": round(lerp(0.92, 0.70, sev), 3),
+
+        # How much of the burn is still genuinely alight. The rest smokes and
+        # smoulders — remnants, not flames. Severity is what moves this.
+        "flaming_fraction": round(lerp(0.07, 0.30, sev), 3),
+        "intensity_range": [round(lerp(0.15, 0.35, sev), 3), 1.0],
+        "residual_smoke_frac": round(lerp(0.16, 0.10, sev), 3),
+
+        # Embers. A severe fire throws more of them, and further.
+        "spot_chance": lerp(0.01, 0.09, sev),
+        "spot_lead_s": lerp(30.0, 150.0, sev),
+        "jitter_s": lerp(4.0, 14.0, sev),
+
+        # How long one fuel spends in each phase. FLAMING is the only phase
+        # that renders as fire — igniting and smouldering are smoke-only — so
+        # this ratio is what decides whether the scene reads as a fire or as a
+        # smoke machine. Flame now dominates; the earlier 126 s flame against
+        # 228 s smoulder meant most of the front was smoke at any instant.
+        "ignition_s": lerp(10.0, 3.0, sev),
+        "flame_s": lerp(240.0, 150.0, sev),
+        "smoulder_s": lerp(120.0, 60.0, sev),
+
+        # Emitter budget. Only the emitters inside their burn window are
+        # enabled, so the frame-rate number is the PEAK CONCURRENT count, not
+        # this one — `tools/fire_png.py` prints both. Trees in this suburb sit
+        # ~24 m apart, so the spacing knob only bites on denser planting.
+        # Peak concurrent runs at roughly half of `max_emitters`, and this
+        # suburb's ~24 m tree spacing means the cap does all the work while
+        # `emitter_spacing_m` only bites on denser planting.
+        "emitter_spacing_m": lerp(12.0, 6.0, sev),
+        "max_emitters": int(round(lerp(90, 260, sev))),
+
+        # Solver resolution, metres per voxel, and the Flow block pool.
+        #
+        # 0.1 rather than 0.25: a coarse cell averages the burn over so much
+        # volume that temperature never reaches the flame band of the colormap
+        # and the fire renders as grey smoke. 0.1 costs ~15x the blocks of
+        # 0.25, which is what the pool below is for — one block is
+        # 32x16x16 cells, so at 0.1 m it covers 8.2 cubic metres and a tree
+        # fire with its plume runs to roughly 200 blocks.
+        "density_cell_size_m": 0.1,
+        "max_blocks": 16384,
+        # NVIDIA's ramp, verbatim. Pull DOWN toward 0.3 if the flames are
+        # too dim; that brings the orange band within reach of a lower
+        # temperature, at the cost of blowing out a hot fire.
+        "colormap_x_max": 1.0,
+    }
+    return block
+
+
 DISASTERS = {
     "none": compile_none,
     "earthquake": compile_earthquake,
@@ -558,6 +668,7 @@ DISASTERS = {
     "fire": compile_fire,
     "flood": compile_flood,
     "hurricane": compile_hurricane,
+    "wildfire": compile_wildfire,
 }
 
 
