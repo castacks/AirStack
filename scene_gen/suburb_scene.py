@@ -343,6 +343,75 @@ def _in_rect(p, rect, pad=0.0):
             and rect[1] - pad <= p[1] <= rect[3] + pad)
 
 
+
+def _sample_polyline(pts, step_m, half_w):
+    """Points along a polyline, each carrying the ribbon's half-width."""
+    out = []
+    for i in range(len(pts) - 1):
+        ax, ay = float(pts[i][0]), float(pts[i][1])
+        bx, by = float(pts[i + 1][0]), float(pts[i + 1][1])
+        L = math.hypot(bx - ax, by - ay)
+        n = max(1, int(L / max(0.25, float(step_m))))
+        for k in range(n + 1):
+            t = k / float(n)
+            out.append((ax + (bx - ax) * t, ay + (by - ay) * t, float(half_w)))
+    return out
+
+
+def paving_keepout(parcels, step_m=1.0):
+    """Every driveway and front walk, as sampled points with a half-width.
+
+    A TREE ON A DRIVEWAY IS NOT A LOT-KEEPOUT FAILURE. The lot rectangle stops
+    open planting from landing inside somebody's garden, and it works — but a
+    DRIVE crosses the verge to reach the kerb, and the frontage trees are
+    placed out there on purpose, in exactly the strip the drive has to cross.
+    Neither pass knew where the paving was, because drives and walks are drawn
+    later, in `apply_ground`, from the same parcel data.
+
+    So this derives them from that same data, before anything is planted.
+    Ribbons rather than rectangles: a drive to a garage bends, and its
+    bounding box would take out half the frontage with it.
+    """
+    out = []
+    for p in (parcels or ()):
+        p_houses = p.get("houses") or []
+        for di, d in enumerate(p.get("drives") or ()):
+            plan = p_houses[di].get("plan") if di < len(p_houses) else None
+            run = (plan["drive"] if (plan and plan.get("drive"))
+                   else (d["a"], d["b"]))
+            out += _sample_polyline(list(run), step_m,
+                                    float(d.get("w", 3.0)) * 0.5)
+            if plan and plan.get("path"):
+                out += _sample_polyline(list(plan["path"]), step_m,
+                                        WALK_W_M * 0.5)
+    return out
+
+
+class _PavingIndex:
+    """"Is this point on a drive or a walk?", on a grid."""
+
+    def __init__(self, samples, clear_m=1.2):
+        self.clear = float(clear_m)
+        self.r_max = max([s[2] for s in samples], default=0.0) + self.clear
+        self.cell = max(1.0, self.r_max)
+        self.cells = {}
+        for x, y, hw in samples:
+            key = (int(math.floor(x / self.cell)), int(math.floor(y / self.cell)))
+            self.cells.setdefault(key, []).append((x, y, hw))
+
+    def on_paving(self, q):
+        if not self.cells:
+            return False
+        cx = int(math.floor(q[0] / self.cell))
+        cy = int(math.floor(q[1] / self.cell))
+        for i in (cx - 1, cx, cx + 1):
+            for j in (cy - 1, cy, cy + 1):
+                for x, y, hw in self.cells.get((i, j), ()):
+                    if math.hypot(q[0] - x, q[1] - y) <= hw + self.clear:
+                        return True
+        return False
+
+
 class _Occupancy:
     """What is already standing on the ground, as points on a grid.
 
@@ -1545,7 +1614,14 @@ class _FenceGrid:
     # twice. The narrowest gap between two genuinely different lot boundaries is
     # a side yard, and `house_gap_m` is 6 m; 1.2 m is `_line_dupe`'s own
     # tolerance, so the two passes agree on what "the same boundary" means.
-    _DOUBLE_M = 1.2
+    # RAISED 1.2 -> 3.0. 1.2 was `_line_dupe`'s own tolerance, which agrees
+    # with it on what "the same boundary" means but is far tighter than what
+    # the eye calls a doubled fence: two neighbours platting the shared line
+    # from their own frontage stations land 1.5-2.5 m apart, clear the test,
+    # and stand as two parallel fences down one boundary. The nearest two
+    # genuinely DIFFERENT lot lines can be is a side yard, and `house_gap_m`
+    # is 6 m, so 3.0 has room underneath it and nothing real to lose.
+    _DOUBLE_M = 3.0
     _DOUBLE_COS = 0.985                    # 10 degrees
     _DOUBLE_OVERLAP_M = 0.5
 
@@ -1878,10 +1954,19 @@ def build_open_planting(config, resolver, net, blocks, rng, pools,
             standing.add((q["x_m"], q["y_m"]))
     mine = _Occupancy(cell=max(pc["gap_m"], 1.0))
 
+    pave = _PavingIndex(paving_keepout(parcels),
+                        clear_m=float(pc["clear_m"]) * 0.5)
+
     def blocked(q):
         """Why *q* cannot take a tree, or None."""
         if road.on_road(q, margin=min(1.5 + pc["clear_m"], 6.0)):
             return "road"
+        # DRIVES AND FRONT WALKS ARE ROAD TOO, as far as a tree is concerned.
+        # They are drawn later, in `apply_ground`, so nothing here knew they
+        # existed — which is how trees ended up standing on the path to a
+        # front door.
+        if pave.on_paving(q):
+            return "paving"
         if bulb_idx.near(q, bulb_r + pc["clear_m"]):
             return "road"
         if lot_idx.nearest(q) <= pc["clear_m"]:
@@ -2116,6 +2201,9 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
 
     out = []
     n_gar = n_fence = 0
+    # Parcel trees are deferred to a second pass — see the
+    # paving keep-out below.
+    tree_jobs = []
     if not houses:
         print("[suburb_scene] WARNING: no buildings.intact pool in asset set")
     for p in parcels:
@@ -2286,8 +2374,38 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
                 continue
             u = cp.draw(rng, _size_t(house_idx.nearest(t["c"]),
                                      pc["near_m"], pc["far_m"]))
-            out.append(pools.place(resolver, u, "tree", t["c"][0], t["c"][1],
-                                   rng.uniform(0.0, 360.0), rng))
+            # DEFERRED. The paving keep-out needs every parcel's drives and
+            # walks, and a parcel's `plan` — which is what decides where its
+            # drive actually runs — is only stamped as its houses are placed.
+            # Filtering here would test against a half-built map.
+            tree_jobs.append((u, t["c"][0], t["c"][1]))
+    # PAVING KEEP-OUT, now that every parcel has its houses and their plans.
+    # A frontage tree is placed out on the verge on purpose, and a driveway
+    # crosses that verge to reach the kerb — so the two collide by
+    # construction unless one of them knows about the other.
+    pave = _PavingIndex(paving_keepout(parcels),
+                        clear_m=float(pc.get("clear_m", 3.0)) * 0.5)
+    # AND THE POOLS. `build_open_planting` has taken `pool_rects` as a keep-out
+    # from the start; the parcel pass never did, so a frontage or yard tree
+    # could be stationed on top of one. `pool_holes` is filled by this same
+    # function as the houses are placed, so by here it is complete.
+    pool_boxes = [b for b in (_rect_box(r) for r in pool_holes) if b is not None]
+    pool_idx = _ObbIndex(pool_boxes, reach=max(20.0, float(pc.get("clear_m", 3.0)) + 1.0))
+    n_tree = n_tree_paved = n_tree_pool = 0
+    for u, tx, ty in tree_jobs:
+        if pave.on_paving((tx, ty)):
+            n_tree_paved += 1
+            continue
+        if pool_boxes and pool_idx.nearest((tx, ty)) <= float(pc.get("clear_m", 3.0)):
+            n_tree_pool += 1
+            continue
+        out.append(pools.place(resolver, u, "tree", tx, ty,
+                               rng.uniform(0.0, 360.0), rng))
+        n_tree += 1
+    print(f"[suburb_scene] parcel trees: {n_tree} planted, "
+          f"{n_tree_paved} dropped for landing on a drive or a front walk, "
+          f"{n_tree_pool} dropped for landing in a pool")
+
     print(f"[suburb_scene] lot furniture: {n_gar} garages, "
           f"{n_fence} fence modules "
           f"({n_fence_road} runs dropped off the carriageway, "

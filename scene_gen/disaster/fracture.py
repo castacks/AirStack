@@ -47,6 +47,7 @@ without baking the result to disk first.
 """
 
 import math
+import os
 import subprocess
 import sys
 
@@ -84,6 +85,182 @@ def ensure_deps(verbose=True):
     return True
 
 
+
+
+
+# ---------------------------------------------------------------------------
+# Plane slicing — the hot loop, and the one worth a second backend
+# ---------------------------------------------------------------------------
+#
+# EVERY CUT IN THIS FILE GOES THROUGH ONE FUNCTION, and it is where the build
+# time is. A Voronoi fracture is N*(N-1) plane slices; a tree bole is another
+# ten before any debris is cut; a 250 m block runs that over hundreds of
+# trees. Measured on the mini scene, mesh slicing is the single longest phase
+# and it is entirely CPU: trimesh is numpy, and its capping is shapely.
+#
+# `slice_mesh_plane` and VTK's `vtkClipPolyData` agree on the convention that
+# matters — both KEEP the side the normal points to — so they are swappable.
+# VTK's is C++ where trimesh's is Python, which is the whole argument.
+#
+# CAPPING IS THE PART TO GET RIGHT. The naive VTK recipe caps every boundary
+# edge of the result, and these are kit meshes: open shells with no back
+# faces, so that would close holes the asset was authored with and turn a
+# hollow panel into a solid one. `vtkCutter` instead returns exactly the
+# plane's intersection with the surface, which is the cut face and nothing
+# else — the same thing trimesh caps and no more.
+
+_BACKEND = os.environ.get("FRACTURE_BACKEND", "auto").strip().lower()
+_VTK = None
+
+
+def _vtk():
+    """The vtk module, or None. Cached, including the failure."""
+    global _VTK
+    if _VTK is None:
+        if _BACKEND == "trimesh":
+            _VTK = False
+        else:
+            try:
+                import vtk as _v
+                _VTK = _v
+            except Exception:
+                _VTK = False
+                if _BACKEND == "vtk":
+                    print("[fracture] FRACTURE_BACKEND=vtk but vtk will not "
+                          "import; falling back to trimesh")
+    return _VTK or None
+
+
+def ensure_vtk(verbose=True):
+    """Install VTK if it is not here. Returns True when the backend is live."""
+    if _vtk() is not None:
+        return True
+    if _BACKEND == "trimesh":
+        return False
+    if verbose:
+        print("[fracture] installing vtk (C++ plane clipping backend)")
+    try:
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "--no-cache-dir",
+             "--disable-pip-version-check", "-q", "vtk"])
+    except Exception as exc:
+        print("[fracture] could not install vtk: {0}".format(exc))
+        return False
+    global _VTK
+    _VTK = None
+    return _vtk() is not None
+
+
+def _to_vtk(mesh):
+    import vtk
+    from vtk.util import numpy_support as ns
+
+    v = np.ascontiguousarray(np.asarray(mesh.vertices, dtype=np.float64))
+    f = np.asarray(mesh.faces, dtype=np.int64)
+    pts = vtk.vtkPoints()
+    pts.SetData(ns.numpy_to_vtk(v, deep=True))
+    cells = np.hstack([np.full((len(f), 1), 3, dtype=np.int64), f]).ravel()
+    ca = vtk.vtkCellArray()
+    ca.SetCells(len(f), ns.numpy_to_vtkIdTypeArray(cells, deep=True))
+    pd = vtk.vtkPolyData()
+    pd.SetPoints(pts)
+    pd.SetPolys(ca)
+    return pd
+
+
+def _from_vtk(pd):
+    import trimesh
+    import vtk
+    from vtk.util import numpy_support as ns
+
+    tf = vtk.vtkTriangleFilter()
+    tf.SetInputData(pd)
+    tf.Update()
+    out = tf.GetOutput()
+    if out.GetNumberOfPoints() == 0 or out.GetNumberOfPolys() == 0:
+        return None
+    v = ns.vtk_to_numpy(out.GetPoints().GetData())
+    polys = out.GetPolys()
+    try:
+        # VTK 9 keeps connectivity and offsets separately; after the triangle
+        # filter every cell is 3 long, so the connectivity reshapes directly.
+        conn = ns.vtk_to_numpy(polys.GetConnectivityArray())
+        f = conn.reshape(-1, 3)
+    except AttributeError:
+        raw = ns.vtk_to_numpy(polys.GetData()).reshape(-1, 4)
+        f = raw[:, 1:]
+    if not len(f):
+        return None
+    return trimesh.Trimesh(vertices=np.asarray(v, dtype=float),
+                           faces=np.asarray(f, dtype=np.int64), process=False)
+
+
+def _vtk_slice(mesh, normal, origin, cap=True):
+    """`slice_mesh_plane` on VTK. Keeps the side *normal* points to."""
+    import vtk
+
+    pd = _to_vtk(mesh)
+    plane = vtk.vtkPlane()
+    plane.SetOrigin(float(origin[0]), float(origin[1]), float(origin[2]))
+    plane.SetNormal(float(normal[0]), float(normal[1]), float(normal[2]))
+
+    clip = vtk.vtkClipPolyData()
+    clip.SetInputData(pd)
+    clip.SetClipFunction(plane)
+    clip.Update()
+    kept = clip.GetOutput()
+    if kept.GetNumberOfPolys() == 0:
+        return None
+
+    if cap:
+        # THE CUT FACE ONLY — see the note above about open shells.
+        cut = vtk.vtkCutter()
+        cut.SetInputData(pd)
+        cut.SetCutFunction(plane)
+        cut.Update()
+        strip = vtk.vtkStripper()
+        strip.SetInputConnection(cut.GetOutputPort())
+        strip.Update()
+        loops = strip.GetOutput()
+        if loops.GetNumberOfLines():
+            face = vtk.vtkPolyData()
+            face.SetPoints(loops.GetPoints())
+            face.SetPolys(loops.GetLines())
+            fill = vtk.vtkTriangleFilter()
+            fill.SetInputData(face)
+            fill.Update()
+            app = vtk.vtkAppendPolyData()
+            app.AddInputData(kept)
+            app.AddInputData(fill.GetOutput())
+            app.Update()
+            clean = vtk.vtkCleanPolyData()
+            clean.SetInputConnection(app.GetOutputPort())
+            clean.Update()
+            kept = clean.GetOutput()
+    return _from_vtk(kept)
+
+
+def slice_plane(mesh, normal, origin, cap=True):
+    """Cut *mesh* with a plane, keeping the side *normal* points to.
+
+    One entry point for every cut in this module, so the backend is a single
+    switch rather than a search-and-replace. Falls back to trimesh whenever
+    VTK is absent or returns nothing usable — a slice that comes back empty
+    is a legitimate answer (the plane missed the mesh), so the fallback only
+    fires on an EXCEPTION, never on an empty result, or a fragment that
+    genuinely got cut away would be silently resurrected by the other backend.
+    """
+    from trimesh.intersections import slice_mesh_plane
+
+    v = _vtk()
+    if v is not None:
+        try:
+            return _vtk_slice(mesh, normal, origin, cap=cap)
+        except Exception as exc:
+            print("[fracture] vtk slice failed ({0}); using trimesh"
+                  .format(exc))
+    return slice_mesh_plane(mesh, plane_normal=normal, plane_origin=origin,
+                            cap=cap)
 
 
 def _tri(counts, indices):
@@ -140,8 +317,14 @@ def prim_to_mesh(stage, prim_path):
     return mesh if len(mesh.faces) else None
 
 
-def _seeds(mesh, n, rng, mode="uniform", focus=None):
+def _seeds(mesh, n, rng, mode="uniform", focus=None, axis=None):
     """Voronoi seed points. Their arrangement is what decides the break.
+
+    `axis` OVERRIDES the "long axis is the grain" assumption, and a tree is
+    why it exists. Black_Oak's woody bole measures 20.6 x 19.8 x 17.2 m —
+    its limbs reach further than it is tall — so `argmax(span)` picks X and
+    `splinter` produces HORIZONTAL shards out of a standing trunk. The grain
+    of a trunk is Z whatever its crown does, so the caller says so.
 
     `char` is the one matched to real burnt timber, and it is NOT what
     intuition suggests. Work on the topology of crack patterns in charred wood
@@ -157,7 +340,7 @@ def _seeds(mesh, n, rng, mode="uniform", focus=None):
     """
     lo, hi = mesh.bounds
     span = np.maximum(hi - lo, 1e-6)
-    axis = int(np.argmax(span))
+    axis = int(np.argmax(span)) if axis is None else int(axis)
     others = [a for a in range(3) if a != axis]
 
     if mode == "char":
@@ -225,7 +408,7 @@ def roughen(mesh, rng, amount=0.035):
 
 def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
                   min_volume_frac=0.004, rough=0.035, shrink=0.97,
-                  consume=0.30, verbose=False):
+                  consume=0.30, consume_pool=1.25, axis=None, verbose=False):
     """Split one trimesh into Voronoi fragments. Returns a list of trimeshes.
 
     SLICING, NOT BOOLEANS. The first version intersected the mesh with a cell
@@ -235,8 +418,6 @@ def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
     bisector plane with `cap=True` produces the identical Voronoi partition,
     caps the open edges as it goes, and never needs the mesh to be manifold.
     """
-    from trimesh.intersections import slice_mesh_plane
-
     if mesh is None or not len(mesh.faces):
         return []
 
@@ -249,7 +430,7 @@ def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
     bbox_vol = float(np.prod(np.maximum(mesh.extents, 1e-6)))
     keep_min = bbox_vol * float(min_volume_frac)
 
-    pts = _seeds(mesh, int(n_pieces), rng, mode=mode, focus=focus)
+    pts = _seeds(mesh, int(n_pieces), rng, mode=mode, focus=focus, axis=axis)
     keep, out = [], []
     for i, p in enumerate(pts):
         frag = mesh
@@ -261,8 +442,7 @@ def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
             if n < 1e-9:
                 continue
             try:
-                frag = slice_mesh_plane(frag, plane_normal=-d / n,
-                                        plane_origin=(p + q) * 0.5, cap=True)
+                frag = slice_plane(frag, -d / n, (p + q) * 0.5, cap=True)
             except Exception:
                 frag = None
             if frag is None or not len(frag.faces):
@@ -297,7 +477,14 @@ def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
                          for f in keep])
         order = list(np.argsort(vols)[::-1])          # largest first
         n_drop = int(round(len(keep) * float(consume)))
-        pool = order[:min(len(order), max(n_drop, int(n_drop * 1.25)))]
+        # `consume_pool` IS THE STRENGTH OF THE BIAS. Candidates are the
+        # largest `n_drop * consume_pool` fragments and `n_drop` of those are
+        # then chosen at random, so 1.0 removes exactly the biggest pieces and
+        # larger values let progressively smaller ones into the draw. 1.25
+        # leaves a noticeable share of big panels standing; drop it toward 1.0
+        # when the pile still reads as slabs rather than debris.
+        pool = order[:min(len(order),
+                          max(n_drop, int(n_drop * float(consume_pool))))]
         rng.shuffle(pool)
         dropped = set(pool[:n_drop])
         keep = [f for i, f in enumerate(keep) if i not in dropped]
@@ -341,7 +528,7 @@ def _write_mesh(stage, path, mesh, centre_on_centroid=True):
 
 def fracture_partial(stage, prim_path, out_parent, n_pieces, rng,
                      cut_frac=0.5, mode="char", rough=0.035, shrink=0.97,
-                     ragged=0.22, deactivate=True):
+                     ragged=0.22, deactivate=True, consume=0.30, axis=None):
     """Break a wall so that only its upper part comes down.
 
     NO STRAIGHT CUT. The first version sliced the module at a flat plane and
@@ -357,6 +544,11 @@ def fracture_partial(stage, prim_path, out_parent, n_pieces, rng,
     `ragged` is how much the break line wanders, as a fraction of the wall's
     height. 0 gives a level break; 0.22 gives a plausibly collapsed one.
 
+    `consume` is exposed because the default is tuned for a TIMBER WALL, where
+    a third of the material genuinely burns away. A standing trunk is not
+    that: dropping 30% of a stub's cells punches holes through the middle of
+    it and leaves the sections above hanging. Trunks pass something near zero.
+
     Returns `(static_paths, loose_paths)`.
     """
     mesh = prim_to_mesh(stage, prim_path)
@@ -364,7 +556,7 @@ def fracture_partial(stage, prim_path, out_parent, n_pieces, rng,
         return [], []
 
     frags = fracture_mesh(mesh, n_pieces, rng, mode=mode, rough=rough,
-                          shrink=shrink)
+                          shrink=shrink, consume=consume, axis=axis)
     if not frags:
         return [], []
 
@@ -411,7 +603,8 @@ def fracture_partial(stage, prim_path, out_parent, n_pieces, rng,
 
 def fracture_prim(stage, prim_path, out_parent, n_pieces, rng,
                   mode="uniform", rough=0.035, shrink=0.97,
-                  deactivate=True, verbose=True):
+                  deactivate=True, verbose=True, consume=0.30,
+                  consume_pool=1.25, axis=None):
     """Fracture a placed module in the stage. Returns the new prim paths.
 
     Fragments are authored around their OWN centroid with the centroid in the
@@ -427,7 +620,9 @@ def fracture_prim(stage, prim_path, out_parent, n_pieces, rng,
             print("[fracture] no readable mesh under {0}".format(prim_path))
         return []
     frags = fracture_mesh(mesh, n_pieces, rng, mode=mode, rough=rough,
-                          shrink=shrink, verbose=verbose)
+                          shrink=shrink, consume=consume,
+                          consume_pool=consume_pool, axis=axis,
+                          verbose=verbose)
     if not frags:
         if verbose:
             print("[fracture] {0}: {1} faces, watertight={2}, extents={3} "

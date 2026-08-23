@@ -70,12 +70,28 @@ from scene_generator import resolve_sky
 from suburb_scene import generate_suburb_on_stage
 from compile_disaster import load_scene_config
 from disaster import damage, fire, fracture, settle
+from disaster import vegetation as veg
 
 ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
 PARENT = "/World/stage/generated"
 SCENE_CONFIG = os.environ.get("SCENE_CONFIG", "suburb_mini_wildfire")
+BURNT_PNG = ("airstack://scene_gen/assets/materials/megascans/"
+             "Burnt_Forest_Floor/T_uhwpehcdy_2K_B.png")
+# Under the road ladder. On a 250 m plate `apply_ground` puts asphalt at about
+# 1.6 cm, so 0.6 cm keeps the scar on the grass and off the carriageway.
+BURN_Z = 0.006
 SEED = int(os.environ.get("MINI_SEED", "11"))
-SETTLE_STEPS = int(os.environ.get("SETTLE_STEPS", "300"))
+# A CEILING, NOT A TARGET. `settle.run` steps in chunks and stops as soon as
+# the busiest body moves less than a millimetre, so a pile that settles in 200
+# steps costs 200 — this number only decides how long it is willing to wait.
+#
+# 300 -> 900 -> 2400, and the last raise was not a guess: at 900 the run
+# reported "74 body(s) STILL MOVING at bake time", which is the solver saying
+# the ceiling stopped it rather than rest did. Baking writes each body's
+# CURRENT transform, so those 74 were frozen mid-fall — the floating house
+# parts. Everything settles slower as the count climbs and this block now
+# carries ~4,800 bodies against the few hundred 300 was set for.
+SETTLE_STEPS = int(os.environ.get("SETTLE_STEPS", "2400"))
 KEEP_PHYSICS = os.environ.get("KEEP_PHYSICS", "0") not in ("0", "", "false")
 # How far through the burn the scene is. The front's own duration, so the far
 # corner has only just been reached while the origin has long gone cold.
@@ -159,6 +175,131 @@ def cluster_houses(placements, radius_m=13.0):
         else:
             clusters.append({"cx": p["x_m"], "cy": p["y_m"], "items": [p]})
     return [c for c in clusters if len(c["items"]) >= 3]
+
+
+def _burn_overlay_mat(stage, path, texture, opacity, scale_uv=(0.12, 0.12)):
+    """A semi-transparent burnt-ground OmniPBR. Opacity is a CONSTANT.
+
+    WHY THIS CAN WORK WHERE THE LAST ATTEMPT COULD NOT. The previous overlay
+    put the falloff in an opacity TEXTURE on a `UsdPreviewSurface`, because
+    OmniPBR carries one `texture_scale` for every texture it samples and so
+    cannot tile a diffuse while stretching a mask once across the plate. That
+    material then lost its opacity in this renderer's USD-to-MDL translation
+    and drew fully opaque over everything.
+
+    Putting the falloff in a per-patch CONSTANT removes the need for a mask
+    entirely — so the material can be an OmniPBR, which is MDL natively and
+    has nothing to lose in translation. The gradient comes from the geometry
+    being split into bands, each band a uniform opacity.
+    """
+    from pxr import Gf, Sdf, UsdShade
+
+    mat = UsdShade.Material.Define(stage, Sdf.Path(path))
+    sh = UsdShade.Shader.Define(stage, Sdf.Path(path).AppendChild("Shader"))
+    sh.CreateIdAttr("OmniPBR")
+    sh.SetSourceAsset(Sdf.AssetPath("OmniPBR.mdl"), "mdl")
+    sh.SetSourceAssetSubIdentifier("OmniPBR", "mdl")
+    sh.CreateInput("diffuse_texture",
+                   Sdf.ValueTypeNames.Asset).Set(Sdf.AssetPath(texture))
+    sh.CreateInput("diffuse_color_constant",
+                   Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(1.0, 1.0, 1.0))
+    # World triplanar, so the burnt ground tiles at its own metric scale and
+    # the patches need no UVs of their own.
+    sh.CreateInput("project_uvw", Sdf.ValueTypeNames.Bool).Set(True)
+    sh.CreateInput("world_or_object", Sdf.ValueTypeNames.Bool).Set(True)
+    sh.CreateInput("texture_scale",
+                   Sdf.ValueTypeNames.Float2).Set(Gf.Vec2f(*scale_uv))
+    sh.CreateInput("reflection_roughness_constant",
+                   Sdf.ValueTypeNames.Float).Set(0.94)
+    sh.CreateInput("metallic_constant", Sdf.ValueTypeNames.Float).Set(0.0)
+    sh.CreateInput("enable_opacity", Sdf.ValueTypeNames.Bool).Set(True)
+    sh.CreateInput("opacity_constant",
+                   Sdf.ValueTypeNames.Float).Set(float(opacity))
+    # 0 = blend rather than cut out. Any threshold above zero turns a soft
+    # edge into a stippled one.
+    sh.CreateInput("opacity_threshold", Sdf.ValueTypeNames.Float).Set(0.0)
+    sh.CreateInput("opacity_mode", Sdf.ValueTypeNames.Int).Set(0)
+    mat.CreateSurfaceOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
+    mat.CreateDisplacementOutput("mdl").ConnectToSource(sh.ConnectableAPI(),
+                                                        "out")
+    mat.CreateVolumeOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
+    return mat
+
+
+def build_burn_ground(stage, coverage_at, region, ssf, cell_m=4.0, bands=8):
+    """The burn scar as an overlay that follows the FIRE, not the trees.
+
+    `coverage_at` is the fire's own field — the same one that decides every
+    building's damage level — so the scar is the ellipse the front actually
+    swept rather than a union of discs under whatever happened to be planted.
+    That is the difference between the ground agreeing with the scene and
+    merely resembling it.
+
+    ONE MESH PER BAND, not one prim per cell. The region is diced into
+    `cell_m` quads, each quad is bucketed by its coverage, and every quad in a
+    bucket becomes another face of that bucket's single mesh — so a 250 m
+    block costs `bands` prims and `bands` materials instead of a few thousand
+    of each.
+
+    Returns the paths it made.
+    """
+    from pxr import Gf, Sdf, UsdGeom, UsdShade, Vt
+
+    x0, y0, x1, y1 = region
+    nx = max(1, int(round((x1 - x0) / float(cell_m))))
+    ny = max(1, int(round((y1 - y0) / float(cell_m))))
+    dx, dy = (x1 - x0) / nx, (y1 - y0) / ny
+
+    buckets = {}
+    for iy in range(ny):
+        for ix in range(nx):
+            ax, ay = x0 + ix * dx, y0 + iy * dy
+            cov = float(coverage_at(ax + dx * 0.5, ay + dy * 0.5))
+            if cov <= 0.06:
+                continue
+            b = min(int(bands) - 1, int(cov * int(bands)))
+            buckets.setdefault(b, []).append((ax, ay))
+
+    if not buckets:
+        return []
+
+    UsdGeom.Scope.Define(stage, Sdf.Path("/World/burnGround"))
+    made = []
+    for b, cells in sorted(buckets.items()):
+        # Opacity across the bands, floored so the faintest edge still reads
+        # and capped short of 1 so even the core keeps a little grass in it.
+        op = 0.14 + 0.78 * (b + 0.5) / float(bands)
+        mat = _burn_overlay_mat(
+            stage, "{0}/BurnLooks/band_{1}".format(PARENT, b),
+            sg._join_asset_root(BURNT_PNG, ""), op)
+        pts, counts, idx = [], [], []
+        for (ax, ay) in cells:
+            k = len(pts)
+            # A hair of overlap, so neighbouring cells in the same band do not
+            # show a seam where the floating-point edges fail to meet.
+            e = 0.02
+            for (px, py) in ((ax - e, ay - e), (ax + dx + e, ay - e),
+                             (ax + dx + e, ay + dy + e), (ax - e, ay + dy + e)):
+                pts.append(Gf.Vec3f(px * ssf, py * ssf, BURN_Z * ssf))
+            counts.append(4)
+            idx += [k, k + 1, k + 2, k + 3]
+        path = "/World/burnGround/band_{0}".format(b)
+        m = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
+        m.CreatePointsAttr(Vt.Vec3fArray(pts))
+        m.CreateFaceVertexCountsAttr(Vt.IntArray(counts))
+        m.CreateFaceVertexIndicesAttr(Vt.IntArray(idx))
+        m.CreateNormalsAttr(Vt.Vec3fArray([Gf.Vec3f(0, 0, 1)] * len(pts)))
+        m.CreateSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
+        m.CreateDisplayColorAttr([Gf.Vec3f(0.16, 0.15, 0.13)])
+        xs = [p[0] for p in pts]
+        ys = [p[1] for p in pts]
+        m.CreateExtentAttr([Gf.Vec3f(min(xs), min(ys), BURN_Z * ssf),
+                            Gf.Vec3f(max(xs), max(ys), BURN_Z * ssf)])
+        UsdShade.MaterialBindingAPI(m.GetPrim()).Bind(mat)
+        made.append(path)
+        print("[mini] burn ground band {0}: {1} cells at opacity {2:.2f}"
+              .format(b, len(cells), op))
+    return made
 
 
 def consume_prim(stage, placement):
@@ -379,7 +520,19 @@ def main():
                     made = fracture.fracture_prim(
                         stage, path, out,
                         n_pieces=seeds + (3 if hi_floor else 0), rng=nrng,
-                        mode="char", rough=0.045, verbose=False)
+                        mode="char", rough=0.045, verbose=False,
+                        # MORE OF THE HOUSE IS GONE. Timber does not merely
+                        # break in a fire, it burns away, and 30% left piles
+                        # holding too much of what the building was made of.
+                        # The skew stays LARGE-biased: a big surviving panel
+                        # reads as a wall that fell over, and taking those out
+                        # is what makes the remainder read as debris.
+                        consume=0.55,
+                        # ALMOST STRICTLY THE LARGEST. 1.25 kept letting
+                        # mid-size panels into the draw and leaving big ones
+                        # standing; 1.02 means the pieces that go are the
+                        # pieces that read as "a wall that fell over".
+                        consume_pool=1.02)
                     frags.extend(made)
                     # THE SAME TREATMENT AS A PARTIAL BREAK. Generic char maps
                     # made every fragment look like it came from the same
@@ -399,7 +552,14 @@ def main():
                         pr = stage.GetPrimAtPath(pth)
                         if not pr or not pr.IsValid():
                             continue
-                        if heavy is not None and rng.random() < 0.5:
+                        # 0.25, NOT 0.5. The mix was half the fragments
+                        # keeping their own wall texture at maximum scorch and
+                        # half taking the burn maps. That reads as too much
+                        # surviving cladding in a pile that burned: three
+                        # quarters now take the char/ash maps, and the quarter
+                        # that keeps its own texture is what stops the rubble
+                        # going anonymous.
+                        if heavy is not None and rng.random() < 0.25:
                             UsdShade.MaterialBindingAPI(pr).Bind(heavy)
                         else:
                             UsdShade.MaterialBindingAPI(pr).Bind(
@@ -421,7 +581,12 @@ def main():
     import numpy as np
     fnrng = np.random.default_rng(SEED + 5)
     n_gone = n_frac = 0
-    budget = 26
+    # 26 -> 140. The cap is there because fracturing a whole fence line costs
+    # more fragments than the houses do, and 26 was set when the block carried
+    # ~180 fence modules. It now carries ~330, so the transition zone was
+    # showing one part-broken fence in a dozen and every other run was binary:
+    # untouched, or gone. The budget is the thing deciding that, not the fire.
+    budget = 140
     for q in fences:
         d = age(q["x_m"], q["y_m"])
         if d <= 0.0:
@@ -434,12 +599,16 @@ def main():
         # part-broken fences on two consecutive runs: almost everything the
         # front reached sat above 0.62, so the transition zone caught nothing
         # and fences were binary — gone, or merely scorched.
-        if frac_of_burn > 0.80 and frng.random() < 0.85:
+        # WIDENED AGAIN. At >0.80 only the deepest fifth of the burn lost its
+        # fences outright, so most of what the front crossed stood there
+        # scorched and whole — a timber fence is a continuous line of dry fuel
+        # touching the ground and is one of the FIRST things a wildfire takes.
+        if frac_of_burn > 0.55 and frng.random() < 0.90:
             # Deep in the burn: consumed. Deactivating is both right and far
             # cheaper than fracturing a run into gravel.
             if consume_prim(stage, q):
                 n_gone += 1
-        elif frac_of_burn > 0.10 and budget > 0 and frng.random() < 0.75:
+        elif frac_of_burn > 0.04 and budget > 0 and frng.random() < 0.85:
             src_tex = damage.bound_texture(stage, q["prim_path"])
             out = "{0}/fence_brk_{1}".format(
                 PARENT, q["prim_path"].rsplit("/", 1)[-1])
@@ -511,6 +680,80 @@ def main():
     print("[mini] props: {0} of {1} consumed, {2} broken".format(
         n_pgone, len(props), n_pfrac))
 
+    # VEGETATION. The block's trees burn off the SAME burn-age field the
+    # buildings do — `veg.level_for_age` mirrors `damage.level_for_age`
+    # deliberately — so a street of burnt-out houses stands in burnt trees and
+    # the unburnt margin keeps its green ones. Scattering tree damage
+    # independently is what would make the block read as two unrelated events.
+    #
+    # `stand_outcome` then rolls a minority of dead trees down to fallen or
+    # stump. It is deliberately a minority: behind a real front a burnt stand
+    # is a field of STANDING black poles — they come down over months to years
+    # — and a block full of downed trunks reads as a tornado, not a fire.
+    trees = [q for q in placements
+             if str(q.get("category", "")).endswith("tree")
+             and q.get("prim_path")]
+    trng = random.Random(SEED + 13)
+    veg_tally = {}
+    n_veg_loose = 0
+    for q in trees:
+        d = age(q["x_m"], q["y_m"])
+        level, _fstate = veg.level_for_age(d)
+        if level != "pristine":
+            level = veg.stand_outcome(level, trng)
+        veg_tally[level] = veg_tally.get(level, 0) + 1
+        if level == "pristine":
+            continue
+        res = veg.burn_tree(
+            stage, q["prim_path"], level, PARENT,
+            PARENT + "/tree_debris", trng,
+            # HALF the bench's debris, up 5x from a tenth. The per-piece cost
+            # is small — `wood_debris` cuts its stock ONCE per tree and every
+            # piece after that comes off a small mesh — so this multiplies the
+            # count without multiplying the slicing. What it does multiply is
+            # RIGID BODIES: ~3,000 tree pieces becomes ~15,000, and every one
+            # of them is a collider to cook and a body for the solver to carry
+            # to rest. That, not the geometry, is what makes the build long.
+            debris_scale=0.50, verbose=False)
+        loose_all.extend(res["loose"])
+        static_extra.extend(res["statics"])
+        n_veg_loose += len(res["loose"])
+        q["_veg_level"] = level
+        q["_veg_made"] = (res["statics"] + res["loose"]
+                          + list((res.get("info") or {}).get("made") or []))
+    print("[mini] trees: {0} total -> {1}".format(
+        len(trees), ", ".join("{0}={1}".format(k, v)
+                              for k, v in sorted(veg_tally.items()))))
+    print("[mini] trees: {0} loose piece(s)".format(n_veg_loose))
+
+    # DOES ANYTHING STILL REACH THE GROUND? "The stumps seem to be missing so
+    # they look like they're floating" is a claim that can be measured rather
+    # than guessed at: for every burnt tree, find the lowest point of whatever
+    # geometry it still owns — its own prims plus anything the passes wrote
+    # for it — and compare against where it was planted.
+    bc_v = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    gaps = []
+    for q in trees:
+        if q.get("_veg_level") in (None, "pristine"):
+            continue
+        lows = []
+        for path in [q["prim_path"]] + list(q.get("_veg_made") or []):
+            pr = stage.GetPrimAtPath(path)
+            if not pr or not pr.IsValid() or not pr.IsActive():
+                continue
+            r = bc_v.ComputeWorldBound(pr).ComputeAlignedRange()
+            if not r.IsEmpty():
+                lows.append(float(r.GetMin()[2]))
+        if lows:
+            gaps.append(min(lows) - float(q.get("z_m", 0.0)))
+    if gaps:
+        gaps.sort()
+        floating = sum(1 for g in gaps if g > 0.30)
+        print("[mini] trees: base gap min {0:+.2f} m, median {1:+.2f} m, "
+              "max {2:+.2f} m; {3} of {4} sit >0.30 m off the ground".format(
+                  gaps[0], gaps[len(gaps) // 2], gaps[-1], floating,
+                  len(gaps)))
+
     print("[mini] damage mix: " + ", ".join(
         "{0}={1}".format(k, v) for k, v in sorted(tally.items())))
 
@@ -527,69 +770,41 @@ def main():
             UsdShade.MaterialBindingAPI(prim).Bind(
                 damage._pick(r, finish or "char", mats))
 
-    # THE GROUND: one baked texture for the whole plate, not a tiled material.
+    # THE GROUND: a translucent overlay following the FIRE'S OWN ELLIPSE.
     #
-    # A tiled ground repeats — at one tile per 2 m across 250 m that is 125
-    # repeats and reads as a grid of rectangles, and enlarging the tile only
-    # trades a sharp grid for a blurry one. Baking removes the repeat AND lets
-    # the scar be painted: a fire scar is a mosaic, patchy inside an irregular
-    # outline with unburned islands the fire skipped, which no uniform
-    # material can express.
-    gb = stage.GetPrimAtPath(PARENT + "/ground/ground_base")
-    if gb and gb.IsValid():
-        bound = UsdShade.MaterialBindingAPI(gb).ComputeBoundMaterial()[0]
-        grass_tex = (damage._basecolor_texture(bound.GetPrim())
-                     if bound and bound.GetPrim().IsValid() else None)
-        burnt_tex = os.path.join(
-            _SCENE_GEN_DIR, "assets", "materials", "megascans",
-            "Burnt_Forest_Floor", "T_uhwpehcdy_2K_B.png")
-        region = config.get("layout", {}).get("region_m") or [250, 250]
-        if grass_tex and os.path.exists(burnt_tex):
-            from disaster import scorch as _scorch
-            gmap = _scorch.ground_burn_map(
-                region, coverage_at, grass_tex, burnt_tex,
-                np.random.default_rng(SEED), size=2048, verbose=True)
-            if gmap:
-                rw, rh = float(region[0]), float(region[1])
-                gp = UsdGeom.Mesh.Define(stage, Sdf.Path(PARENT + "/burnGround"))
-                gp.CreatePointsAttr([
-                    Gf.Vec3f(-rw / 2, -rh / 2, 0.004),
-                    Gf.Vec3f(rw / 2, -rh / 2, 0.004),
-                    Gf.Vec3f(rw / 2, rh / 2, 0.004),
-                    Gf.Vec3f(-rw / 2, rh / 2, 0.004)])
-                gp.CreateFaceVertexCountsAttr([4])
-                gp.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
-                gp.CreateNormalsAttr([Gf.Vec3f(0, 0, 1)] * 4)
-                gp.CreateExtentAttr([Gf.Vec3f(-rw / 2, -rh / 2, 0.0),
-                                     Gf.Vec3f(rw / 2, rh / 2, 0.01)])
-                # ONE tile across the plate — the whole point of baking.
-                UsdGeom.PrimvarsAPI(gp).CreatePrimvar(
-                    "st", Sdf.ValueTypeNames.TexCoord2fArray,
-                    UsdGeom.Tokens.varying).Set(
-                        [Gf.Vec2f(0, 0), Gf.Vec2f(1, 0),
-                         Gf.Vec2f(1, 1), Gf.Vec2f(0, 1)])
-                gmat = UsdShade.Material.Define(
-                    stage, Sdf.Path(PARENT + "/burnGroundMat"))
-                gsh = UsdShade.Shader.Define(
-                    stage, Sdf.Path(PARENT + "/burnGroundMat/Shader"))
-                gsh.CreateIdAttr("OmniPBR")
-                gsh.SetSourceAsset(Sdf.AssetPath("OmniPBR.mdl"), "mdl")
-                gsh.SetSourceAssetSubIdentifier("OmniPBR", "mdl")
-                gsh.CreateInput("diffuse_texture",
-                                Sdf.ValueTypeNames.Asset).Set(
-                                    Sdf.AssetPath(gmap))
-                gsh.CreateInput("reflection_roughness_constant",
-                                Sdf.ValueTypeNames.Float).Set(0.9)
-                gmat.CreateSurfaceOutput("mdl").ConnectToSource(
-                    gsh.ConnectableAPI(), "out")
-                UsdShade.MaterialBindingAPI(gp.GetPrim()).Bind(gmat)
-                gb.SetActive(False)      # replaced, not overlaid
-                print("[mini] ground: baked burn scar over the whole plate")
+    # The baked-plate version this replaces resampled grass and burnt ground
+    # into one image for the whole block — 250 m into 2048 px is 12 cm a
+    # pixel, and it threw away the grass's normal and ORM maps, so it read as
+    # flat mush. Every later attempt failed on the same point in a different
+    # way: a masked `UsdPreviewSurface` loses its opacity in this renderer's
+    # USD-to-MDL translation and draws opaque, and opaque patches of
+    # scorched-grass texture tile visibly and blend into nothing.
+    #
+    # What made the WALLS work was that the burn is an overlay on top of the
+    # surface's own texture, and the ground can have exactly that: the grass
+    # keeps its material untouched underneath, and burnt ground is laid over
+    # it at an opacity that falls off with the fire's own coverage field. The
+    # opacity is a per-band CONSTANT rather than a mask, which is what lets
+    # the material be an OmniPBR — MDL natively, with nothing to lose in
+    # translation.
+    #
+    # And it follows `coverage_at`, the field that already decides every
+    # building's damage level, so the scar IS the ellipse the front swept
+    # rather than a union of discs under whatever happened to be planted.
+    _reg = config.get("layout", {}).get("region_m") or [250, 250]
+    _rw, _rh = float(_reg[0]) * 0.5, float(_reg[1]) * 0.5
+    build_burn_ground(stage, coverage_at, (-_rw, -_rh, _rw, _rh), ssf)
 
     # EVERYTHING the front reached is scorched, not just the houses — fences,
     # bins, cars. A burnt street with clean props reads as a film set.
-    n_soot = damage.soot_materials(stage, placements, PARENT,
-                                   random.Random(SEED), coverage_at=coverage_at)
+    # TREES ARE EXCLUDED: `disaster.vegetation` has already given every one of
+    # them the treatment its own burn level calls for — browned foliage, a
+    # charred bole, or no crown at all — and a generic soot wash composited on
+    # top would overwrite that with the same map the bins get.
+    n_soot = damage.soot_materials(
+        stage, [q for q in placements
+                if not str(q.get("category", "")).endswith("tree")],
+        PARENT, random.Random(SEED), coverage_at=coverage_at)
     print("[mini] {0} subsets scorched".format(n_soot))
 
     for _ in range(15):

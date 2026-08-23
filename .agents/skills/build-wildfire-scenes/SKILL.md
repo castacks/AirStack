@@ -34,6 +34,7 @@ unrelated effects instead of one event.
 |---|---|
 | `scene_gen/disaster/fire.py` | NVIDIA Flow stack, emitters, spread model, timeline driver |
 | `scene_gen/disaster/damage.py` | damage levels, break-up, scorch/soot materials, burn-age mapping |
+| `scene_gen/disaster/vegetation.py` | burnt trees — defoliation, dead foliage, bole char, snapping, toppling |
 | `scene_gen/disaster/fracture.py` | Voronoi mesh fracture, partial (ragged) breaks, fragment consumption |
 | `scene_gen/disaster/settle.py` | PhysX drop + bake to static, with drop/spread measurement |
 | `scene_gen/disaster/scorch.py` | composites soot onto a surface's own texture; bakes ground burn scars |
@@ -44,6 +45,7 @@ unrelated effects instead of one event.
 
 Launchers: `house_damage_test_launch_script.py` (severe bench),
 `house_partial_damage_test_launch_script.py` (partial bench),
+`tree_damage_test_launch_script.py` (six burnt-tree methods on grass),
 `suburb_mini_wildfire_launch_script.py` (250 x 250 m full scene),
 `fire_test_launch_script.py` (four Flow stacks on empty ground).
 
@@ -272,6 +274,265 @@ to spot — the symptom is a hole in the scene, not an error.
 a dimmer switch. Moving COVERAGE grows the fouled area, which is what looks
 scorched. Uniform is the one thing soot never is.
 
+## Vegetation
+
+**A tree is a bole MESH plus a set of POINT INSTANCERS, and that is the whole
+mechanism.** Every AEC tree is built the same way: one solid Mesh for the
+trunk and primary limbs bound to a bark material, plus N
+`UsdGeomPointInstancer`s each holding exactly ONE prototype, bound to either a
+leaf/needle material or a bark one. Fire consumes fine fuel and leaves wood,
+which maps exactly onto "drop the leaf instances, keep the wood ones" — no
+mesh rebuild, no fracture, no boolean, and per-instance `positions` give a
+height for free, so a crown can be thinned with a gradient rather than
+switched off.
+
+**`invisibleIds` DOES NOTHING IN THIS KIT, and it fails silently.** It is the
+correct USD answer, the attribute exists on every one of these instancers, and
+the write succeeds — and this Hydra delegate does not honour it. 2,894 of
+2,988 leaf instances were marked invisible and every one still rendered, with
+no warning anywhere; the symptom is "the leaves are still on all the trees"
+after a log line saying they were hidden. `vegetation.keep_instances()`
+rewrites the per-instance ARRAYS instead, which always works. Two rules follow:
+filter EVERY per-instance array together (`positions`, `protoIndices`,
+`orientations`, `scales`, `velocities`, `angularVelocities`, `ids`) or they
+desynchronise and instances take each other's poses; and when nothing
+survives, `SetActive(False)` the instancer outright. `MakeInvisible()` on a
+plain Mesh is the same trap — deactivate it.
+
+It is also a big RENDER SAVING, not a cost. Black_Oak's four leaf instancers
+expand to ~2.68M points against a 41k trunk; a burnt stand is roughly 30x
+cheaper than a green one. Every cost note in `suburban.yaml` is about green
+trees and none of it carries over.
+
+**On a burnt tree, EVERY instancer goes — wood included.** The tempting rule
+is "fire takes fine fuel and leaves wood", so keep the woody branch
+scatterers. Wrong: the line is not wood-vs-leaf, it is THICKNESS, and every
+one of those scatterers holds branchlets a centimetre or two through. They
+burn. Keeping them leaves 747 sticks per oak hanging in the canopy, which
+reads as a cloud of disconnected debris, not a skeleton — and the silhouette
+that DOES read is already carried by the one mesh named `*_trunk` or `*_base`,
+because on these assets that mesh is the bole AND its primary limbs (41k
+points, 20 x 20 x 17 m on Black_Oak).
+
+So the burnt-tree rule is by PRIM NAME and deliberately blunt:
+
+    keep      trunk, base, bark, bole, stem
+    remove    every PointInstancer, and any mesh named
+              branch / leaf / leaves / needle / twig / foliage
+
+Name, not material: `Black_Oak_branch2` binds bark and is still a twig. Fall
+back to the material only for what matches neither list — that is what catches
+Common_Apple, whose meshes are named `Apple_bark_Mat` / `Apple_leaf_Mat` after
+their materials rather than after the part.
+
+**NOT EVERY TREE IS INSTANCED, and three of six are not.** Black_Oak, Shumard
+and Douglas_Fir scatter their crowns with PointInstancers. Largetooth_Aspen,
+American_Beech and Common_Apple ship ONE PLAIN MESH literally called `leaves`
+— and Black_Oak carries four extra leaf meshes at its crown top ON TOP of its
+instancers. A defoliation pass that walks only the instancers leaves half the
+library fully green with no error anywhere. Mesh foliage is all-or-nothing
+(there are no per-instance ids to thin), so it takes one roll against the
+survival at its own height.
+
+**The texture is inside the MDL, not in the USD.** These shaders carry only
+`info:mdl:sourceAsset = TreeBark_07.mdl`; the map lives in that module as
+`diffuse_texture: texture_2d("./textures/...")`. So `damage.bound_texture()`
+returns None on EVERY tree and the scorch falls through to plain darkening — a
+dim tree, not a burnt one, silently. `vegetation.material_texture()` reads the
+MDL when the USD has nothing. Paths inside an MDL are relative to the MODULE,
+not to the USD layer that names it.
+
+**Prim and material names are useless; the resolved MDL module is not.**
+Douglas_Fir's `branchM` prototype binds a material literally called
+`Default_Material` that resolves `TreeBark_10.mdl` — it is wood, and any
+name-based classifier calls it unknown or foliage. Classify on the MDL module
+or the texture filename.
+
+**Leaf materials have no opacity map.** Checked before rebuilding them,
+because an alpha-cut leaf card whose material is rebuilt without its cutout
+becomes a solid rectangle. These are plain OmniPBR with a diffuse texture —
+the leaves are modelled geometry — so rebuilding around the same texture is
+safe. But build the replacement in the asset's OWN UV space: `damage._pbr`
+turns on world triplanar whenever it is given a texture, which is right for
+UV-less fracture debris and turns a leaf atlas into coloured noise.
+
+**Black_Oak's woody branchlet prototype binds NO MATERIAL AT ALL.** The
+123-point mesh its 747-instance crown scatterer points at has no binding, so
+those branchlets render untextured. Invisible on a green tree because the
+leaves cover them; strip the leaves for a torched skeleton and the whole crown
+is suddenly the unshaded thing you notice. `bind_bark()` repairs it from the
+tree's own bark so it then takes the same char pass as the trunk. This is an
+asset defect, and `measure_assets.py`'s bind count is what finds this class of
+thing.
+
+**The wash is what made it "look like repeated cylinders".** `soot_mask`
+stacks a directional gradient on two spectral-noise terms. The noise is
+seamless by construction (its DFT is periodic); the WASH is not, so a map that
+repeats three times up a trunk comes back as a repeating sawtooth of light and
+dark bands. A wall's map covers it once and the direction carries real
+information, so a wall keeps it. `wash_weight=0` is now the default for boles.
+
+**`Burnt_Forest_Floor` on the wood beats compositing, and it is worth knowing
+why.** It is a photographed charred surface authored world-triplanar at
+`texture_scale` 0.11 — one tile per ~9 m, so no visible repeat at trunk scale
+— and it carries real normal and ORM maps that a composited diffuse-only map
+cannot. What it costs is the species' bark identity. `char_bole
+(material_path=...)` takes either; the bench's back row stands four
+treatments side by side.
+
+**Scorch height is GEOMETRY, not texture.** A bark map tiles several times up
+a trunk, so a directional wash composited into it repeats as a stack of bands.
+At low severity the black-bottom / clean-top bole IS the signature of a
+surface fire that never got into the crown, so the bole is CUT at scorch
+height and the two pieces take different coverages. Above `scorch_height >= 1`
+nothing is cut, because a torched bole really is charred end to end.
+
+**The bole's longest axis is X, not Z.** Black_Oak's woody bole measures
+20.6 x 19.8 x 17.2 m — the limbs reach further than the tree is tall — so
+`_seeds`' "longest bbox axis is the grain" assumption picks X and `splinter`
+mode turns a standing trunk into horizontal shards. `fracture_mesh(axis=2)`
+was added for this; a trunk's grain is Z whatever its crown does.
+
+**`consume=0.30` punches holes through a trunk.** The default is tuned for a
+timber wall, where a third of the material genuinely burns away. On a standing
+stub it deletes cells out of the middle and leaves the sections above them
+hanging. `fracture_partial(consume=...)` is now exposed; trunks pass ~0.05.
+
+**`roughen` scales by the piece's LONGEST extent.** 0.035 on a 20 m bole
+fragment is a 0.7 m displacement. Trunks pass `rough=0` and rely on the shrink
+alone for PhysX clearance.
+
+**DO NOT VORONOI-FRACTURE A TREE.** This is the one that took three passes to
+see. A Voronoi cell is a region of SPACE, and a tree is mostly air — so a cell
+routinely contains a section of this limb, a section of that one and a stub of
+a third, none of them touching. Authored as one mesh with one rigid body, that
+is a clump of branches hanging in formation in mid-air, and no amount of
+tuning fixes it because the cells are doing exactly what they are defined to
+do. It is the right tool for a wall, which is a slab, and the wrong one here.
+
+What works instead: break with a PLANE (tilted a few degrees so the spar is
+not guillotined level), DELETE what comes off, and put constructed geometry in
+its place — lengths cut from the low trunk, where the bole is a single
+connected column, each passed through `largest_component()`. Every piece is
+then one solid object by construction. `trimesh.split(only_watertight=False)`
+is the check; the watertight filter rejects every kit mesh, since they are
+open shells.
+
+**A fallen tree with its branches on does not lie down.** The limbs hold the
+trunk metres clear of the ground and it reads as floating — but it is not a
+physics bug, the tree really is resting on its branch tips because nothing
+broke them. Real ones lose their limbs going over: thin, fire-weakened, and
+they take the whole impact. `clip_to_column()` cuts the bole to a prism about
+its own axis before it falls; limb stubs inside the radius survive, which is
+what keeps it a tree rather than a sawn pole.
+
+**Consumption skews SMALL on wood and LARGE on a house, and both are right.**
+`fracture_mesh`'s own `consume` is large-biased because a big surviving panel
+reads as a wall that fell over. A tree is the opposite case: what actually
+breaks off a burnt bole and lies on the ground is trunk sections and major
+limbs, while the thin outer branches do not fall — they are CONSUMED, being
+the first fuel to go and most of the reason the top came off at all. Breaking
+high and keeping everything left the ground littered with twigs and no timber.
+`consume_thin()` filters by POINT COUNT, not bounding box: these are Voronoi
+cells, so a cell holding a few branch tips still has a bbox metres across.
+
+**An instance is not a prim, so it cannot be simulated.** After a bole is cut,
+the crown's woody branchlets hang in the air exactly where they were — they
+have no transform to author, no collider and no rigid body. The way out is
+`ComputeInstanceTransformsAtTime`, which gives every instance's matrix, so a
+handful can be BAKED into ordinary meshes at their own transforms, handed to
+the solver, and their instances hidden. The rest of the crown stays instanced
+and costs nothing.
+
+**`_write_mesh` BINDS NOTHING.** It authors points and faces and nothing else
+— no material, no UVs — so every splinter, fallen limb and snapped segment
+comes out unbound and renders as untextured grey beside a charred trunk. The
+house bench binds its fragments explicitly right after fracturing; the
+vegetation path routes every generated piece through `bind_all(wood_material
+(...))` for the same reason. Triplanar, since those meshes have no UVs.
+
+**Cut debris from the FOOT of the tree, and filter by size rather than sorting
+by it.** A slab taken between 18% and 42% of a 17 m oak comes from where the
+LIMBS are, and a Voronoi cell there spans the whole limb spread — which is how
+"splinters" came out several metres across. Down at 2-13% the bole is just
+trunk, about a metre through, so the same seed count gives firewood-sized
+pieces. And reject over a length cap instead of sorting biggest-first and
+taking the top N: that sort guarantees you keep the worst offenders.
+
+**A branching bole's convex hull is a 20 m blob.** PhysX cooks hulls for
+dynamic bodies, so a whole toppled tree comes to rest on the hull of its own
+limb tips — floating, with a metre of air under the trunk. The fix is
+`settle.run(dynamic_approximation="convexDecomposition")`. It is NOT to cut
+the bole into many segments: four segments removed the floating and removed
+the fallen tree with it, because a line of separate logs on the ground does
+not read as a tree that went over. Break it ONCE and fix the collider.
+
+**Baking was NOT what made pieces float, and blaming it cost a round.**
+`bake_result=True` does freeze whatever the pre-roll left mid-air, so it is a
+plausible suspect and turning it off does make the symptom move — the pieces
+carry on falling instead of stopping. But the cause was the FRAGMENTATION: a
+Voronoi cell holding several disconnected branch sections rests wherever its
+combined hull lands, and it will do that baked or live. Fix the fragmentation
+and baking is free. Keep enough settle steps to outlast the LONGEST fall in
+the scene, not the average one, and bake.
+
+**Cut the debris stock ONCE.** Slicing each piece out of the whole 41k-point
+bole is fine at ten pieces and minutes of start-up at thirty. Isolate the
+low-trunk band and clip it to the trunk column first, then cut every piece
+from that — same geometry, a fraction of the work, and it guarantees the
+stock is a single connected column before anything else runs.
+
+**Tip it PAST BALANCE, do not lay it flat.** The first topple rotated the bole
+84 degrees — already horizontal — and handed physics a piece with nowhere left
+to fall, so the resting pose was authored by a formula and read as one
+("fallen in an unnatural way"). 38 degrees plus gravity gets a pose the solver
+found. Same argument `damage.damage_placements(move_felled=False)` makes about
+walls: felling by formula and then simulating is the worst of both.
+
+**Budget settle steps for a real fall.** The house benches use 360 because a
+house's pieces start at head height. A bole segment tipped past balance at
+13 m has a genuine fall ahead of it, and a settle that stops mid-air BAKES the
+piece where it was — which looks exactly like the floating it was meant to
+fix.
+
+**The crown is a different prim from the bole, so cutting one leaves the
+other in the air.** Snapping a trunk at 7.7 m leaves 747 woody branchlets and
+four leaf meshes hanging above the break, because none of them is the mesh
+that was cut. `prune_above()` hides everything still standing over the cut,
+wood included — fine twigs above a burn-through are gone by definition and are
+most of why the top came off.
+
+**Half this pipeline wants a numpy Generator and half wants `random.Random`.**
+`fracture._seeds` calls `rng.uniform(lo, hi, size=...)` and `scorch._noise`
+calls `rng.normal()`; `damage`, `settle` and every launch script pass a stdlib
+`random.Random`. Both mistakes surface as a `TypeError` or `AttributeError`
+tens of seconds into a container launch. `vegetation._nprng()` converts at the
+boundary so callers keep one rng.
+
+**Trees STAY UP, and this is the domain fact that matters most.** The
+intuition that a burnt tree falls over is wrong on the timescale a capture
+cares about: immediately behind a front a burnt stand is a field of standing
+black poles, and they come down over months to years as roots rot. A scene
+full of downed trunks reads as windthrow — a tornado — not a fire. `fallen` is
+deliberately rare in the level mix (~12% of dead trees) and `stump_chance`
+rarer still.
+
+**CROWN SCORCH IS REAL AND IT WAS STILL CUT — the scene is the judge.** The
+plume kills foliage without burning it: leaves turn orange-brown, stay on the
+tree, and a "red belt" is most of what a mixed-severity fire leaves by area.
+That argument is correct and it lost on sight. Sixty full crowns standing in a
+burnt block read as trees the pass MISSED, whatever colour they are, and no
+amount of being right about fire behaviour survives that. Every burnt level
+now strips the crown; what still separates `scorched` from `torched` is the
+BOLE — charred to a third of its height rather than end to end — plus a third
+of the ground debris. Keep the distinction where it costs nothing to read.
+
+**Severity is a property of the STAND, not the tree.** Crown fire carries
+between touching canopies, so a dense clump burns to one severity while an
+isolated tree with clearance usually gets only scorched. Scattering tree
+levels independently across a cluster is what makes a burnt wood look like
+noise instead of a fire.
+
 ## Textures
 
 **Value noise on a lattice shows its grid.** The first generator built
@@ -305,14 +566,124 @@ what produces the alligator grid, and it is the opposite of the intuitive
 
 **A fire scar on the ground is a MOSAIC**, not a gradient — patchy mottled
 interior inside an irregular fingered outline, with unburned islands the fire
-skipped. No directionality, nothing like the wash on a wall. A tiled material
-cannot express it; bake one texture for the whole plate
-(`scorch.ground_burn_map`).
+skipped. No directionality, nothing like the wash on a wall.
+
+**The fire burns the ground BETWEEN the trees too.** A per-tree burnt ring
+says only the ground touching each trunk burned, which no fire does — a
+surface fire runs over everything and leaves continuous black ground under and
+between a stand. What varies is SEVERITY (heavy fuel burns down to pale ash
+and bare soil; open grass gets a fast flashy blackening), not presence. The
+green strips between cluster trees were the giveaway.
+
+**OPAQUE GEOMETRY CANNOT FADE, SO BUILD THE TRANSITION OUT OF STEPS.** One
+boundary carrying the whole change from green grass to bare burnt ground reads
+as a cut-out however good its outline is. Four levels — light, medium, heavy
+scorch, then burnt floor — spread that change so no single edge carries it.
+And INTERLEAVE each boundary rather than drawing it: scatter satellites of the
+inner material out past the edge and satellites of the outer one in behind it,
+so the two stipple through each other over a couple of metres. That is how an
+opaque renderer gets a blend.
+
+**One material on one big patch is a wallpaper.** A soot map tiling every ~3 m
+across a 30 m patch is ten copies of the same blotches, and the eye finds them
+instantly — this is the same "low-frequency contrast is what makes a tile
+visible" finding as the burn textures, arriving from the other direction. It
+needs all three fixes together: BAND-LIMIT the noise so there is no feature
+large enough to recognise, generate SEVERAL maps per level from different
+seeds, and vary the projection scale AND world offset between neighbouring
+patches so nothing lines up.
+
+**THE GROUND HAS THREE STATES, NOT TWO.** Blending grass straight into bare
+burnt floor skips the state most of a real burn scar is actually in, and reads
+as a texture swap rather than as fire damage. The middle state is SCORCHED
+GRASS — the grass's own base colour with soot composited onto it, exactly what
+the walls and the boles get — and it is both the transition INTO bare ground
+and the only treatment a lone tree gets at all.
+
+The line between them is fuel continuity: a stand's crowns and litter feed
+each other, so the fire sits in it and burns the ground out completely, while
+one tree in the open has nothing to sustain that and the grass under it chars
+and survives. So bare burnt floor goes under CLUSTERS, nested INSIDE a wider
+scorched ring, and a single tree gets scorch only.
+
+**Ground scorch is not wall scorch.** `soot_mask` stretches its noise 8x
+vertically because soot on a wall RISES and smears into licks — that stretch
+is the whole character of it. Ground has no up: run the wall pattern over open
+ground and you get a field of parallel streaks nothing in the scene explains.
+`streak_stretch=1` with `wash_weight=0` leaves pure non-directional mottling,
+which is what a burnt patch of grass is.
+
+**BAKE THE MASK, NOT THE GROUND.** `ground_burn_map` bakes grass and burnt
+into one plate-sized image, which kills the repeat but pays twice: 320 m into
+1024 px is 31 cm per pixel — mush at any sane camera height — and the result
+is diffuse-only, so the grass loses the normal and ORM maps doing most of the
+work. It looked terrible. A coverage mask is genuinely low-frequency and loses
+nothing by being baked, so bake ONLY that (`scorch.burn_mask_map`) and let a
+burnt-ground material TILE over the grass at its own scale, revealed by the
+mask as an opacity. Both surfaces keep full detail and all their maps.
+
+**SET `sourceColorSpace` ON EVERY `UsdUVTexture`.** Leaving it at `auto` is
+what turned the burnt ground white. The diagnostic is worth copying: MEASURE
+the sources first — the burnt floor averages 0.18 luma with 0.1% of it above
+0.6, and every other map here is darker still, so a pale washed-out render
+cannot be coming from the texture content and must be coming from the decode.
+An sRGB image taken as linear renders about 2.5x too bright; a NORMAL map
+taken as sRGB decodes to garbage normals and blows the speculars out to white.
+Diffuse is `sRGB`; masks, normals and ORM are data and must be `raw`.
+
+**Blend noise ADDITIVELY into a coverage field and you paint the whole map.**
+`f * 1.15 + (blotch - 0.5) * 0.55` is the obvious way to write "perturb the
+field", and where `f` is zero the noise still contributes up to +0.275 — so
+ground the fire never reached came out speckled with up to 33% burnt overlay
+across 45% of the plate. Perturb the LEVEL SET instead — `(f - (t0 + noise))
+/ softness` — which gives the same fingered boundary and is identically zero
+wherever the field is, because nothing crosses a threshold it was never near.
+
+**A MASKED TRANSLUCENT OVERLAY DOES NOT SURVIVE THIS RENDERER — use geometry.**
+The overlay needs two textures at two scales (burnt ground tiling every ~9 m,
+mask stretched once across the plate), and OmniPBR carries ONE `texture_scale`
+/ `project_uvw` pair shared by every texture it samples — so it cannot do it,
+and `UsdPreviewSurface` can. That is where it ends, because Hydra here
+translates USD materials to MDL (`UsdToMdl`) and a UsdPreviewSurface whose
+`opacity` is driven by a texture comes out the other side WITHOUT it. The
+plane then draws fully opaque over the entire plate: "you've made the whole
+ground ash color".
+
+MEASURE BEFORE REDESIGNING — it is what separated this from the colour-space
+bug that looked identical. The scorched-grass map came out at 0.157 luma with
+nothing above 0.5, and the mask at 87.8% fully transparent. Neither can
+produce a white ground, so the fault was not in what was authored but in
+whether it was applied at all.
+
+The working answer is PATCH GEOMETRY: irregular polygons with ordinary tiling
+OmniPBR materials (`vegetation.scar_patch`). No alpha, no second UV set, only
+the plain-mesh-plus-OmniPBR path everything else here already proves works.
+Give each patch a ~1 mm z step, since coplanar overlapping quads are what
+z-fighting is. And a real fire scar edge is fairly sharp — a metre or two, not
+a long fade — so a hard irregular boundary is closer to the truth than a soft
+one. Wobble the outline at THREE frequencies: one harmonic gives a wavy
+circle, and a circle is exactly what the eye picks out.
 
 **Cache keys must include the recipe.** Retuning `SOOT_RGB` or `char_bite`
 silently reused maps baked under the old values, so nothing appeared to change.
 
 ## Scene / config
+
+**`open_tree_clear_m` is sized for the SMALLEST crown in the pool.** The
+planting keep-outs clear the TRUNK by that distance — the code documents the
+3.0 m default as "a crown radius at the small end of the pool" — so the whole
+model assumes every species in the pool is about that wide. Drop a Black_Oak
+(25.4 m crown) in and its trunk clears the house by the required 3 m while its
+canopy sits on the roof. That is what "trees spawning too close to structures"
+looks like, and the generator's keep-outs are working exactly as written. Fix
+it by matching the pool to the clearance, not by widening the clearance until
+a park specimen fits.
+
+**The container has `SCENE_CONFIG=downtown` in its environment**, which
+silently beats a launch script's own default. Symptom: a "250 x 250 m" scene
+generating 83 houses and 3,284 trees. The only tell is the
+`[compile_disaster] compiled high-level spec` line naming the wrong preset —
+read it on every run, and prefix the relaunch with the config you want.
 
 **100 x 100 m produces ZERO houses.** `suburb_net` needs room for its street
 hierarchy and a lot is 21-30 m wide before carriageway and verge. Measured:
@@ -359,6 +730,18 @@ plane and the pool was never visible.
 | plume z (flame) | 0.3 - min(2.0, height) | capped by REAL settled height; collapsed houses have nothing to climb |
 | plume z (smoke) | 0.15 - min(1.1, height) | smoke never climbs on its own; a debris bed emits at ground level |
 | `rubble` smoke strength | 1.9x | a fully collapsed house is almost pure smoke; partly standing shells are not boosted |
+| tree `fall_chance` | 0.12 | a burnt stand is STANDING; more downed trunks reads as windthrow |
+| tree `consume` (trunk) | 0.05 | the wall default of 0.30 punches holes through a standing stub |
+| bole scorch height, `scorched` | 0.34 | black bottom / clean top is the surface-fire signature |
+| crown `keep_top`, `torched` | 0.06 | a crown at exactly zero looks deleted rather than burnt |
+| snag break height | 0.34 | 0.45 detached only fine upper branches — twigs on the ground, no timber |
+| bole `wash_weight` | 0.0 | the gradient is the only non-seamless term; on a tiling bark map it bands |
+| topple lean | 38 deg | past balance, not flat — gravity finds the pose |
+| topple segments | 4 | one hull per segment; a whole branching bole hulls to a 20 m blob |
+| `consume_thin` keep | 0.16 of max pts | by POINT COUNT — a Voronoi cell's bbox measures the cell, not the wood |
+| debris piece length | 0.14-0.42 m at `scorched` to 0.30-2.10 m at `fallen` | one recipe for every level put metre-long split logs under lightly damaged trees |
+| debris length bias | `random() ** 2.2` | real debris is mostly small with a few large pieces, not a uniform spread |
+| settle steps (trees) | 420 | a segment tipped at 13 m has a real fall; stopping early bakes it mid-air |
 
 # Diagnostics
 
@@ -374,14 +757,29 @@ plane and the pool was never visible.
 
 # Known gaps
 
-- **`scorch.ground_burn_map` is written and tested but never runs** in the mini
-  scene: the guard looks for `ground/ground_base`, but the ground is built as
-  per-block meshes (and now `ground_base_N` when pools are cut). The ground is
-  still plain tiled grass. **This is the top outstanding item.**
+- **`scorch.ground_burn_map` still never runs in the mini scene** — the guard
+  looks for `ground/ground_base` and the ground is built as per-block meshes
+  (and `ground_base_N` when pools are cut). But prefer `burn_mask_map` +
+  a translucent overlay to it now; see the ground note in the catalogue.
 - **Road line materials are imported but unbound** — lane dashes use
   `displayColor` with no material by design, so they need explicit rebinding.
 - **No burnable props exist** in the mini block (categories are only `fence`,
   `house_*`, `plot_pool*`), so the prop-burning pass has nothing to act on.
+- **Mesh foliage cannot be thinned, only switched off.** Aspen, Beech and
+  Apple carry one `leaves` mesh with no per-instance ids, so in a graded
+  cluster they come out either fully leafy or fully bare beside properly
+  thinned instanced neighbours. Fix is the same slice trick the bole uses:
+  cut the leaf mesh into height bands and hide bands.
+- **A toppled tree's crown is pruned, not carried down.** Rotating a
+  PointInstancer's `positions` is easy; its per-instance `orientations` are
+  quaternions and getting them subtly wrong scatters twigs at impossible
+  angles down the fallen trunk.
+- **Tree ash rings are opaque discs with a hard edge.** They want the same
+  treatment as the ground burn scar (baked, fingered, with unburned islands),
+  which is the top outstanding item above.
+- **Vegetation is not wired into `suburb_mini_wildfire` yet.** `tree` is one
+  of `suburb_scene`'s `instance_categories`, so burnable trees have to be
+  un-instanced there exactly as the fences were.
 - Fragments are cut from the module's outer shell, so they are hollow inside.
 - Fracturing at scene-build time will not scale to a full plat; bake fractured
   results to disk and reference them.

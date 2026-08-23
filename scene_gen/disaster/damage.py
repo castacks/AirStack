@@ -661,7 +661,8 @@ def bucket(coverage):
 
 def scorched_material(stage, parent_path, src_mat_prim, level,
                       from_above=False, triplanar=False, cache=None,
-                      texture=None):
+                      texture=None, wash_weight=0.52, scale_uv=(0.28, 0.28),
+                      brightness=1.0):
     """A material that is *this* surface, scorched. Cached by source and level.
 
     Split out of `soot_materials` because two other callers need it: fragments
@@ -683,7 +684,9 @@ def scorched_material(stage, parent_path, src_mat_prim, level,
     # the source prim is still alive and use it after fracturing kills it.
     tex = texture or _basecolor_texture(src_mat_prim)
     key = (str(parent_path), tex or "@none@", int(level), bool(from_above),
-           bool(triplanar))
+           bool(triplanar), round(float(wash_weight), 3),
+           tuple(round(float(v), 3) for v in scale_uv),
+           round(float(brightness), 3))
 
     if key in cache:
         return cache[key]
@@ -703,7 +706,7 @@ def scorched_material(stage, parent_path, src_mat_prim, level,
         # from the wall junction where it would read as a shadow.
         painted = scorch.scorched_texture(
             tex, cov, np.random.default_rng(abs(hash(key)) % (2 ** 31)),
-            from_below=not from_above)
+            from_below=not from_above, wash_weight=wash_weight)
 
     mat = UsdShade.Material.Define(stage, path)
     sh = UsdShade.Shader.Define(stage, path.AppendChild("Shader"))
@@ -713,6 +716,15 @@ def scorched_material(stage, parent_path, src_mat_prim, level,
     if painted:
         sh.CreateInput("diffuse_texture",
                        Sdf.ValueTypeNames.Asset).Set(Sdf.AssetPath(painted))
+        # COVERAGE DECIDES HOW MUCH IS FOULED; THIS DECIDES HOW DARK IT IS.
+        # Compositing tops out — past about 0.95 coverage the map is already
+        # soot almost everywhere and raising it further changes nothing — so
+        # a surface that still reads too light needs the level pulled down,
+        # not more area. `albedo_brightness` is the float that does it; note
+        # it is NOT `albedo_add`, which is also a float and turns things blue.
+        if abs(float(brightness) - 1.0) > 1e-3:
+            sh.CreateInput("albedo_brightness",
+                           Sdf.ValueTypeNames.Float).Set(float(brightness))
     elif tex:
         sh.CreateInput("diffuse_texture",
                        Sdf.ValueTypeNames.Asset).Set(Sdf.AssetPath(tex))
@@ -735,7 +747,7 @@ def scorched_material(stage, parent_path, src_mat_prim, level,
         sh.CreateInput("project_uvw", Sdf.ValueTypeNames.Bool).Set(True)
         sh.CreateInput("world_or_object", Sdf.ValueTypeNames.Bool).Set(True)
         sh.CreateInput("texture_scale",
-                       Sdf.ValueTypeNames.Float2).Set(Gf.Vec2f(0.28, 0.28))
+                       Sdf.ValueTypeNames.Float2).Set(Gf.Vec2f(*scale_uv))
     sh.CreateInput("reflection_roughness_constant",
                    Sdf.ValueTypeNames.Float).Set(0.82)
     sh.CreateInput("metallic_constant", Sdf.ValueTypeNames.Float).Set(0.0)

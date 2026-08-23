@@ -60,7 +60,8 @@ def _iter(prim):
 
 
 def prepare(stage, loose_paths, static_paths, gravity=-9.81,
-            scene_path="/World/physicsScene", kick=0.0, rng=None):
+            scene_path="/World/physicsScene", kick=0.0, rng=None,
+            dynamic_approximation="convexHull", approx_map=None, gpu=True):
     """Physics scene, static colliders, and a rigid body per loose piece."""
     import random as _random
 
@@ -71,6 +72,34 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
     scene = UsdPhysics.Scene.Define(stage, scene_path)
     scene.CreateGravityDirectionAttr().Set(Gf.Vec3f(0.0, 0.0, -1.0))
     scene.CreateGravityMagnitudeAttr().Set(abs(float(gravity)))
+
+    # GPU DYNAMICS. The settle is the one phase here that can actually use the
+    # card — mesh slicing and texture compositing are CPU libraries end to end
+    # — and it is carrying thousands of bodies, which is where a GPU broadphase
+    # and solver earn their keep.
+    #
+    # THE CAPACITIES ARE THE WHOLE STORY. PhysX preallocates fixed GPU buffers
+    # and does not grow them: overflow does not fall back to CPU, it DROPS
+    # contacts, and the symptom is pieces sinking through each other or through
+    # the ground with only a warning in the log. The defaults are sized for a
+    # few hundred bodies. Everything below is raised well past what this scene
+    # needs, because the failure is silent and the memory is cheap next to a
+    # 16 GB card already holding the scene.
+    sx = PhysxSchema.PhysxSceneAPI.Apply(scene.GetPrim())
+    sx.CreateEnableGPUDynamicsAttr(bool(gpu))
+    sx.CreateBroadphaseTypeAttr("GPU" if gpu else "MBP")
+    # TGS converges far better than PGS on deep stacks, which is exactly what
+    # a collapsed house is.
+    sx.CreateSolverTypeAttr("TGS")
+    if gpu:
+        sx.CreateGpuMaxRigidContactCountAttr(4 * 1024 * 1024)
+        sx.CreateGpuMaxRigidPatchCountAttr(1024 * 1024)
+        sx.CreateGpuFoundLostPairsCapacityAttr(2 * 1024 * 1024)
+        sx.CreateGpuFoundLostAggregatePairsCapacityAttr(64 * 1024)
+        sx.CreateGpuTotalAggregatePairsCapacityAttr(64 * 1024)
+        sx.CreateGpuHeapCapacityAttr(256 * 1024 * 1024)
+        sx.CreateGpuTempBufferCapacityAttr(64 * 1024 * 1024)
+        sx.CreateGpuMaxNumPartitionsAttr(8)
 
     # A true infinite plane as a backstop. Even with the fix above, one
     # uncooked collider is enough to lose a piece to infinity, and a piece
@@ -111,7 +140,22 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
         prim = stage.GetPrimAtPath(path)
         if not prim or not prim.IsValid():
             continue
-        if not _apply_collider(prim):
+        # `convexDecomposition` EXISTS FOR TREES. A wall fragment is roughly
+        # convex already, so its hull is the piece and `convexHull` is both
+        # right and cheap. A fallen bole is not: it is a trunk with limbs
+        # coming off it, and its hull is the 20 m blob that contains all of
+        # them — so the trunk comes to rest balanced on the hull of its own
+        # branch tips, a metre clear of the ground, and reads as floating.
+        # Decomposition costs cooking time and fixes exactly that.
+        #
+        # PER-PATH, because that cost is real and only a handful of pieces
+        # need it. A debris stick is convex to within its own bark; cooking a
+        # decomposition for three thousand of them buys nothing and dominates
+        # start-up. `approx_map` lets the caller spend it where it matters.
+        approx = dynamic_approximation
+        if approx_map:
+            approx = approx_map.get(path, dynamic_approximation)
+        if not _apply_collider(prim, approximation=approx):
             continue          # nothing to collide with; leave it where it is
         body = UsdPhysics.RigidBodyAPI.Apply(prim)
         body.CreateRigidBodyEnabledAttr(True)
@@ -233,7 +277,8 @@ def _step(steps, dt=1.0 / 60.0):
 
 
 def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
-        gravity=-9.81, kick=0.0, rng=None, bake_result=True):
+        gravity=-9.81, kick=0.0, rng=None, bake_result=True,
+        dynamic_approximation="convexHull", approx_map=None, gpu=True):
     """prepare -> step physics -> measure -> bake. Returns a short report.
 
     MEASURES WHAT MOVED. A settle that silently does nothing looks identical
@@ -249,14 +294,55 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     import numpy as np
 
     info = prepare(stage, loose_paths, static_paths, gravity=gravity,
-                   kick=kick, rng=rng)
+                   kick=kick, rng=rng,
+                   dynamic_approximation=dynamic_approximation,
+                   approx_map=approx_map, gpu=gpu)
     if not info["bodies"]:
         carb.log_warn("[settle] nothing to settle")
         return info
 
+    import time as _time
+    _t0 = _time.time()
     before = _positions(info["bodies"])
-    info["driver"] = _step(steps)
+
+    # STEP UNTIL IT STOPS MOVING, not for a fixed count. A fixed budget is a
+    # guess about the slowest pile in the scene, and baking freezes whatever
+    # it finds — so guessing low leaves houses frozen mid-collapse, which is
+    # what "a lot of the house hasn't fallen" is. Raising the number is only
+    # ever a bigger guess; measuring is not.
+    #
+    # `steps` is now a CEILING. The loop advances in chunks and stops early
+    # once the busiest body in a chunk moves less than a millimetre, and it
+    # reports how much of the budget it actually needed — so "not enough
+    # steps" becomes visible instead of being inferred from the render.
+    chunk = max(30, int(steps) // 12)
+    used = 0
+    prev = before
+    info["driver"] = None
+    while used < int(steps):
+        n = min(chunk, int(steps) - used)
+        info["driver"] = _step(n)
+        used += n
+        now = _positions(info["bodies"])
+        moved = max((float(np.linalg.norm(np.array(now[k]) - np.array(prev[k])))
+                     for k in prev if k in now), default=0.0)
+        prev = now
+        if moved < 0.001:
+            break
+    info["steps_used"] = used
     after = _positions(info["bodies"])
+
+    # And one last look: how many bodies were STILL MOVING when the budget ran
+    # out. Zero means the pile is genuinely at rest and baking is safe; a
+    # non-zero count is the scene telling you the ceiling is too low.
+    _step(20)
+    settled = _positions(info["bodies"])
+    info["still_moving"] = sum(
+        1 for k in after
+        if k in settled
+        and float(np.linalg.norm(np.array(settled[k]) - np.array(after[k])))
+        > 0.004)
+    after = settled
 
     # HORIZONTAL vs VERTICAL is the whole question. A collapse drops pieces:
     # large -Z, small XY. An explosion throws them: large XY. One number for
@@ -274,11 +360,20 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     info["spread_mean"] = float(np.mean(dh)) if dh else 0.0
     info["spread_max"] = float(np.max(dh)) if dh else 0.0
 
+    info["solve_s"] = _time.time() - _t0
     info["baked"] = bake(stage, info["bodies"]) if bake_result else 0
     if settle_note:
         print("[settle] {0} rigid, {1} static, driver={2}, baked {3}".format(
             info["rigid"], info["static_meshes"], info["driver"],
             info["baked"]))
+        print("[settle]   {0:.1f}s solving ({1})".format(
+            info.get("solve_s", 0.0), "GPU" if gpu else "CPU"))
+        print("[settle]   {0} of {1} steps used; {2} body(s) STILL MOVING at "
+              "bake time{3}".format(
+                  info.get("steps_used", steps), steps,
+                  info.get("still_moving", 0),
+                  "" if not info.get("still_moving")
+                  else "  <-- RAISE THE STEP BUDGET"))
         print("[settle]   drop  mean {0:+.2f} m   (down = collapsing)".format(
             info["drop_mean"]))
         print("[settle]   spread mean {0:.2f} m / max {1:.2f} m   "

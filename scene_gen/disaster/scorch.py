@@ -93,8 +93,19 @@ def _noise(rng, h, w, beta=2.2, stretch_v=1.0, lo=None, hi=None):
     return (a - a.min()) / (a.max() - a.min() + 1e-9)
 
 
-def soot_mask(h, w, rng, coverage=0.5, from_below=True):
+def soot_mask(h, w, rng, coverage=0.5, from_below=True, wash_weight=0.52,
+              streak_stretch=8.0, band=None):
     """How much soot lands where. 0 clean, 1 fully fouled.
+
+    `wash_weight=0` REMOVES THE GRADIENT, and that is what a tiling surface
+    needs. The wash is the only term here that is not seamless: `_noise` is
+    spectral and its DFT is periodic, so streaks and patches tile exactly,
+    but a top-to-bottom ramp baked into a map that repeats three times up a
+    trunk comes back as a repeating sawtooth. The symptom is unmistakable and
+    was reported as "it looks like repeated cylinders" — which is precisely
+    what a banded gradient on a tapered cylinder is. A wall wants the wash,
+    because its map covers the wall once and the direction carries real
+    information; a trunk wants only the seamless terms.
 
     DIRECTION DEPENDS ON WHERE THE FIRE WAS, and for a wildfire it is from
     BELOW. The flame front arrives at ground level and washes up the outside of
@@ -112,14 +123,38 @@ def soot_mask(h, w, rng, coverage=0.5, from_below=True):
       streaks   noise stretched ~8x vertically, so it smears into licks
                 rather than blobs.
       patches   ordinary mottling, so the streaks do not read as a curtain.
+
+    `band=(lo, hi)` BAND-LIMITS both noise terms, and a tiling ground needs
+    it. The texture note further down applies here in full: seamless is not
+    enough, because it is LOW-FREQUENCY CONTRAST that makes a tile visible —
+    one big recognisable blotch of soot is tracked by the eye across every
+    copy, so a scorched lawn repeating every ~3 m reads as wallpaper. Cutting
+    the low frequencies leaves structure only at the scale of a hand, which
+    has nothing large enough to recognise when it repeats.
+
+    `streak_stretch=1` makes the streaks ISOTROPIC, which is what GROUND
+    wants. Soot on a wall rises, so it smears into vertical licks and the
+    stretch is the whole character of it. Ground has no up: a burnt patch of
+    grass is mottled in every direction equally, and running the wall pattern
+    over it lays a field of parallel streaks across open ground that nothing
+    in the scene explains. With `wash_weight=0` as well, what is left is pure
+    non-directional mottling.
     """
     y = np.linspace(1.0, 0.0, h)[:, None]        # 1 at the top of the image
     wash = (1.0 - y) ** 1.5 if from_below else y ** 1.5
 
-    streaks = _noise(rng, h, w, beta=2.0, stretch_v=8.0)
-    patches = _noise(rng, h, w, beta=2.6)
+    lo, hi = (band or (None, None))
+    streaks = _noise(rng, h, w, beta=2.0, stretch_v=float(streak_stretch),
+                     lo=lo, hi=hi)
+    patches = _noise(rng, h, w, beta=2.6, lo=lo, hi=hi)
 
-    m = 0.52 * wash + 0.32 * streaks + 0.26 * patches
+    # With no wash the other two are re-weighted to keep the same total, so
+    # dropping the gradient changes WHERE the soot is and not how much.
+    ww = float(wash_weight)
+    if ww <= 0.0:
+        m = 0.55 * streaks + 0.45 * patches
+    else:
+        m = ww * wash + 0.32 * streaks + 0.26 * patches
     m = (m - m.min()) / (m.max() - m.min() + 1e-9)
     # `coverage` moves the threshold rather than scaling the mask, so a light
     # scorch is a SMALLER fouled area rather than the same area at lower
@@ -143,7 +178,8 @@ def composite(base, mask, soot_rgb=SOOT_RGB, char_bite=0.72):
 
 
 def scorched_texture(url, coverage, rng, out_dir=None, verbose=False,
-                     from_below=True):
+                     from_below=True, wash_weight=0.52, streak_stretch=8.0,
+                     band=None, salt=""):
     """Composite and cache one scorched map. Returns a local path, or None."""
     from PIL import Image
 
@@ -151,11 +187,14 @@ def scorched_texture(url, coverage, rng, out_dir=None, verbose=False,
     os.makedirs(out_dir, exist_ok=True)
     # The recipe is part of the key. Without it, retuning SOOT_RGB or
     # char_bite silently reuses the maps baked under the OLD values and
-    # nothing appears to change.
+    # nothing appears to change — and `wash_weight` is part of the recipe for
+    # exactly that reason.
     key = hashlib.md5(
-        "{0}|{1:.3f}|{2}|{3}".format(
+        "{0}|{1:.3f}|{2}|{3}|w{4:.2f}|s{5}".format(
             url, coverage, int(from_below),
-            "{0}-{1:.2f}".format(SOOT_RGB, 0.72)).encode("utf-8")
+            "{0}-{1:.2f}".format(SOOT_RGB, 0.72), float(wash_weight),
+            "{0}|{1}|{2}".format(float(streak_stretch), band, salt)
+        ).encode("utf-8")
     ).hexdigest()[:16]
     path = os.path.join(out_dir, "scorch_{0}.png".format(key))
     if os.path.exists(path):
@@ -168,7 +207,10 @@ def scorched_texture(url, coverage, rng, out_dir=None, verbose=False,
         return None
     h, w = base.shape[:2]
     out = composite(base, soot_mask(h, w, rng, coverage=coverage,
-                                    from_below=from_below))
+                                    from_below=from_below,
+                                    wash_weight=wash_weight,
+                                    streak_stretch=streak_stretch,
+                                    band=band))
     Image.fromarray((out * 255.0 + 0.5).astype(np.uint8), "RGB").save(path)
     if verbose:
         print("[scorch] {0} @ {1:.2f} -> {2}".format(
@@ -194,22 +236,100 @@ def scorched_texture(url, coverage, rng, out_dir=None, verbose=False,
 # directionality and no streaking — grass burns to black ash over bare soil in
 # patches, and the patches are the signal.
 
-def ground_burn_map(region_m, coverage_fn, grass_url, burnt_url, rng,
-                    size=2048, out_dir=None, verbose=False):
-    """Bake grass-to-burnt across a whole region. Returns a local path.
+def burn_mask_map(region_m, field, rng, size=2048, out_dir=None,
+                  key_extra="", verbose=False):
+    """Bake JUST the burn mask, as greyscale. Returns a local path.
 
-    `coverage_fn(x_m, y_m) -> 0..1` is the fire's own field, so the scar
-    follows the front rather than being painted by hand. Mosaic noise and
-    unburned islands are layered on top, because a field alone gives a smooth
-    gradient and real scars are blotchy.
+    THE COMPANION TO `ground_burn_map`, AND USUALLY THE BETTER ONE. That
+    function bakes grass and burnt ground into a single image for the whole
+    plate, which removes the tiling repeat but pays for it twice: the source
+    detail is resampled down to whatever the plate resolution works out to
+    (320 m into 1024 px is 31 cm per pixel — mush at any sane camera height),
+    and the result is diffuse-only, so the grass loses the normal and ORM maps
+    that were doing most of the work.
+
+    A MASK does not have that problem, because a coverage field genuinely IS
+    low-frequency — it has nothing fine in it to lose. So bake only the mask
+    and let a burnt-ground material TILE over the grass at its own scale,
+    revealed by this as an opacity. Both surfaces keep full detail and all
+    their maps, and the scar still has a painted, mosaic, unrepeating shape.
+
+    `field` is a `size x size` array, row 0 at +Y.
     """
     from PIL import Image
 
     out_dir = out_dir or OUT_DIR
     os.makedirs(out_dir, exist_ok=True)
     w_m, h_m = float(region_m[0]), float(region_m[1])
-    key = hashlib.md5("{0}|{1}|{2}|{3}|{4}".format(
-        grass_url, burnt_url, w_m, h_m, size).encode("utf-8")).hexdigest()[:16]
+    # `levelset2` is the RECIPE, and it is in the key for the reason recorded
+    # against SOOT_RGB: change how the mask is built without changing the key
+    # and every caller silently gets back the map baked under the old rule.
+    key = hashlib.md5("mask|levelset2|{0}|{1}|{2}|{3}".format(
+        w_m, h_m, size, key_extra).encode("utf-8")).hexdigest()[:16]
+    path = os.path.join(out_dir, "burnmask_{0}.png".format(key))
+    if os.path.exists(path):
+        return path
+
+    f = np.asarray(field, dtype=np.float64)
+    if f.shape != (size, size):
+        raise ValueError("field must be {0}x{0}, got {1}".format(size, f.shape))
+
+    # THE BLOTCH MOVES THE BOUNDARY; IT DOES NOT ADD COVERAGE.
+    #
+    # Adding it — `f * 1.15 + (blotch - 0.5) * 0.55` — is the obvious way to
+    # write "perturb the field", and it is wrong in a way that only shows up
+    # away from the fire: where `f` is 0 the noise still contributes up to
+    # +0.275, so the ENTIRE plate comes out speckled with 0-27% burnt ground.
+    # On an overlay that is random black and white spots scattered over grass
+    # the fire never reached, and it is the same defect in the composited
+    # `ground_burn_map` above.
+    #
+    # Perturbing the LEVEL SET instead gives the same fingered, mottled
+    # boundary and is identically zero wherever the field is: the threshold
+    # wanders, but nothing crosses a threshold it was never near.
+    blotch = _noise(rng, size, size, 2.3, lo=0.004, hi=0.05)
+    thresh = 0.22 + (blotch - 0.5) * 0.34
+    m = np.clip((f - thresh) / 0.35, 0.0, 1.0)
+    # Islands only ever REMOVE, so they cannot reintroduce the same bug.
+    isl = _noise(rng, size, size, 2.0, lo=0.012, hi=0.09)
+    m = m * (1.0 - np.clip((isl - 0.80) / 0.20, 0.0, 1.0))
+    m = np.clip(m, 0.0, 1.0) ** 0.85
+
+    Image.fromarray((m * 255.0 + 0.5).astype(np.uint8), "L").save(path)
+    if verbose:
+        print("[scorch] burn mask {0}x{0} -> {1} ({2:.0%} covered)".format(
+            size, os.path.basename(path), float(m.mean())))
+    return path
+
+
+def ground_burn_map(region_m, coverage_fn, grass_url, burnt_url, rng,
+                    size=2048, out_dir=None, verbose=False, field=None,
+                    key_extra=""):
+    """Bake grass-to-burnt across a whole region. Returns a local path.
+
+    `coverage_fn(x_m, y_m) -> 0..1` is the fire's own field, so the scar
+    follows the front rather than being painted by hand. Mosaic noise and
+    unburned islands are layered on top, because a field alone gives a smooth
+    gradient and real scars are blotchy.
+
+    `field` is that same thing already rasterised — a `size x size` array with
+    row 0 at +Y. `np.vectorize` calls `coverage_fn` once PER PIXEL, which at
+    2048 squared is four million Python calls and turns a bake into minutes;
+    a caller that can express its field in numpy should.
+
+    `key_extra` goes into the cache key. THE FIELD IS PART OF THE RECIPE and
+    the key could not see it, so moving the trees and re-baking silently
+    returned the map baked around where they used to be — the same trap
+    recorded for `SOOT_RGB` and `char_bite`.
+    """
+    from PIL import Image
+
+    out_dir = out_dir or OUT_DIR
+    os.makedirs(out_dir, exist_ok=True)
+    w_m, h_m = float(region_m[0]), float(region_m[1])
+    key = hashlib.md5("{0}|{1}|{2}|{3}|{4}|{5}".format(
+        grass_url, burnt_url, w_m, h_m, size,
+        key_extra).encode("utf-8")).hexdigest()[:16]
     path = os.path.join(out_dir, "ground_{0}.png".format(key))
     if os.path.exists(path):
         return path
@@ -240,10 +360,16 @@ def ground_burn_map(region_m, coverage_fn, grass_url, burnt_url, rng,
     b = tiled(burnt, reps)
 
     # The fire's own field, sampled across the plate.
-    ys, xs = np.mgrid[0:size, 0:size]
-    X = (xs / float(size) - 0.5) * w_m
-    Y = (0.5 - ys / float(size)) * h_m
-    field = np.vectorize(coverage_fn)(X, Y).astype(np.float64)
+    if field is None:
+        ys, xs = np.mgrid[0:size, 0:size]
+        X = (xs / float(size) - 0.5) * w_m
+        Y = (0.5 - ys / float(size)) * h_m
+        field = np.vectorize(coverage_fn)(X, Y).astype(np.float64)
+    else:
+        field = np.asarray(field, dtype=np.float64)
+        if field.shape != (size, size):
+            raise ValueError("field must be {0}x{0}, got {1}".format(
+                size, field.shape))
 
     # MOSAIC. Mid-frequency blotching pushes the smooth field into patches,
     # so the boundary fingers in and out the way a real fire edge does.
