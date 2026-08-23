@@ -50,7 +50,7 @@ dependencies = [
     "ipywidgets>=8.1",
     # --- tests --------------------------------------------------------------
     "pytest>=8.0",
-    # --- solid mesh fracture (scene_gen/tools/fracture_blast.py) -------------
+    # --- solid mesh fracture (scene_gen/disaster/) ---------------------------
     # trimesh has no boolean of its own: `manifold3d` is the engine it dispatches
     # to, and without it `trimesh.boolean.intersection` raises outright.
     "manifold3d>=3.5.2",

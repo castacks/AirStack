@@ -113,16 +113,16 @@ assets:
     usd: 13eeb2da01c046a1a0fc8ce8a7e262ab/13eeb2da01c046a1a0fc8ce8a7e262ab.usdc
   19331875f8d84137a94003f0660e2a50:
     author: headerstock
-    baked_scale: 0.027677
+    baked_scale: 0.018451
     faces: 27627
     fit: footprint
     license: by
     size_m:
-    - 10.969
-    - 12.0
-    - 6.246
+    - 7.313
+    - 8.0
+    - 4.164
     source: https://sketchfab.com/3d-models/19331875f8d84137a94003f0660e2a50
-    target_size_m: 12.0
+    target_size_m: 8.0
     texture_res: 1024
     textures: 9
     title: Bungalow The Haynes
@@ -453,16 +453,16 @@ assets:
     usd: 741e544242a9481fa54c1f7bca6e92b2/741e544242a9481fa54c1f7bca6e92b2.usdc
   7c64a6d90567428eb511f41036fe2d88:
     author: headerstock
-    baked_scale: 0.028567
+    baked_scale: 0.019044
     faces: 30165
     fit: footprint
     license: by
     size_m:
-    - 12.0
-    - 11.454
-    - 6.668
+    - 8.0
+    - 7.636
+    - 4.446
     source: https://sketchfab.com/3d-models/7c64a6d90567428eb511f41036fe2d88
-    target_size_m: 12.0
+    target_size_m: 8.0
     texture_res: 1024
     textures: 8
     title: Bungalow The Walton
@@ -487,16 +487,16 @@ assets:
     usd: 7fac2b1b6c5746daa4ac773441c45180/7fac2b1b6c5746daa4ac773441c45180.usdc
   85961c7ab0d14a9a8766fe58f28886a8:
     author: headerstock
-    baked_scale: 0.028708
+    baked_scale: 0.019139
     faces: 25203
     fit: footprint
     license: by
     size_m:
-    - 11.631
-    - 12.0
-    - 6.316
+    - 7.754
+    - 8.0
+    - 4.211
     source: https://sketchfab.com/3d-models/85961c7ab0d14a9a8766fe58f28886a8
-    target_size_m: 12.0
+    target_size_m: 8.0
     texture_res: 1024
     textures: 7
     title: Bungalow The Dawson

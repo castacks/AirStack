@@ -1,0 +1,60 @@
+# Asset list for scene_gen/tools/batch_damage.py — one asset per line.
+#
+#   UV_ENV_FILE=$PWD/.env.host uv run python scene_gen/tools/batch_damage.py \
+#       --assets-file scene_gen/tools/assets.txt \
+#       --severity 0.55 --material brick --rubble --out /tmp/ruins \
+#       --shot /tmp/ruins/sheet
+#
+# EVERY ASSET BELOW IS ALREADY CACHED AT target_size_m = 8.0, so the default
+# --target-size 8 runs with no reconversion. That is not cosmetic: the baked
+# size is compared exactly, so asking for a different one sends all 14 assets
+# back through the Objaverse download-and-convert path (Blender, minutes each).
+# If you change --target-size, expect the first run to be very slow.
+#
+# The three groups exercise the three ways `disaster.solids` can reach a closed
+# volume, which is the main thing worth covering in a smoke test.
+
+# --- thicken: open shells, the common and slowest path (~45 s each) ---------
+# Bungalows: full construction models, ~27-36k faces, 63% zero-thickness sheet.
+objaverse://6644de89c2f0449db3de934744162b63   # Bungalow The Chase    8.0 x 7.0 x 4.3
+objaverse://71474e859887459a96d2d281ffe53f18   # Bungalow The Colbert  7.2 x 8.0 x 4.3
+objaverse://85961c7ab0d14a9a8766fe58f28886a8   # Bungalow The Dawson   7.8 x 8.0 x 4.2
+objaverse://19331875f8d84137a94003f0660e2a50   # Bungalow The Haynes   7.3 x 8.0 x 4.2
+objaverse://1c6d17070d9e4b6595e5de2fa3e20d81   # Bungalow The Ryder    8.0 x 7.5 x 4.4
+objaverse://7c64a6d90567428eb511f41036fe2d88   # Bungalow The Walton   8.0 x 7.6 x 4.4
+
+# --- multi-solid: several closed parts, cut exactly, no thickening ----------
+objaverse://a0c01ce35a474545b805c0739806aace   # Abandoned House   665 closed parts
+objaverse://f80a2a0af6924562be10be7354b7a72f   # Dumpster           31 closed parts
+objaverse://1ac9bf684da3476d918fd086d554bd5c   # Phone Booth         7 closed parts
+objaverse://599a74c1c8fd4f19bf6754b8128da6b8   # Street Sign         3 closed parts
+
+# --- hole-filled: near-watertight, capped and cut exactly (seconds) ---------
+objaverse://8cdac192abd044988c314eeb6377a3a0   # Traffic cone   sharp apex + thin base plate
+objaverse://a657396d68fa43f0ac7da12a6403d59f   # Manhole        flat disc
+objaverse://1b31413d89a4485e93f4bdb9eb735d88   # Planks
+objaverse://2341e9c2456f4876b2e86a9465724b0d   # Planks Of Wood
+
+# ---------------------------------------------------------------------------
+# NOT INCLUDED, and why:
+#
+# Seven more bungalows are cached at target_size_m = 12.0 (The Clayton, Crosby,
+# Gilchrist, Goodson, Hale, Newport, Weeks). Run them as their own batch with
+# --target-size 12, or they all reconvert:
+#
+#   objaverse://f87535ec6d9a475db58965aa46ba6979   # Bungalow The Clayton
+#   objaverse://1ca9bf31b9d34b44a9b9cac8c240a8d7   # Bungalow The Crosby
+#   objaverse://358466b1877b4947aee36a50662d633b   # Bungalow The Gilchrist
+#   objaverse://968ca5757023470ab603067d79f713fc   # Bungalow The Goodson
+#   objaverse://bee0da9227fa40029ad5352a2075ead8   # Bungalow The Hale
+#   objaverse://3bc5f70542014501a1e380891295299e   # Bungalow The Newport
+#   objaverse://388ea89b91524e4eb79068c24d170619   # Bungalow-the Weeks
+#
+# Street props (parking meter, dirt pile, debris heaps, dumpster, manhole,
+# parking post, roof rubble) are cached at their own small sizes — 0.7 m to
+# 4 m — so they need a matching --target-size too, and an earthquake does not
+# have much to say about a manhole.
+#
+# A further 15 assets appear in assets/objaverse/manifest.yaml but have no USD
+# on disk (benches, fences, traffic lights, sign packs). Fetch them with
+# `python3 scene_gen/prepare_assets.py` before referencing them here.
