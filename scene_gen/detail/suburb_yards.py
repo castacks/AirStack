@@ -1213,8 +1213,8 @@ def selftest() -> int:
     if not wired:
         fails.append(("adapter", got))
 
-    print(f"\n{'ALL PASS' if not fails else str(len(fails)) + ' FAILURE(S): '
-          + repr(fails)}")
+    summary = "ALL PASS" if not fails else f"{len(fails)} FAILURE(S): {fails!r}"
+    print(f"\n{summary}")
     return 1 if fails else 0
 
 
