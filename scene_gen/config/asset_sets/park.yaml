@@ -82,22 +82,20 @@ usds:
   # Borrowed from urban_v2, which already vetted and cached it: a bike rack is
   # the same object in a park as on a street.
   bike_racks:
+    # DELIBERATELY THE SAME SPEC AS urban.yaml, character for character.
+    # The objaverse cache is keyed by uid and holds ONE conversion, so two sets
+    # asking for different sizes do not get one each — whichever was prepared
+    # last silently rebakes the other's. This entry used to ask for
+    # `target-size-m: 1.8` (plus a contradictory `scale: 0.01`), which pinned
+    # the PLAN dimension and let the height ride to 3.76 m: not a rack in the
+    # park, and it rebaked urban's racks to the same 3.76 m on the way past.
+    #
+    # 0.75 m on `fit: height` is urban's vetted spec and gives
+    # 0.359 x 0.114 x 0.750 m — a short rack, but a rack. If the park wants a
+    # bigger one, the answer is a DIFFERENT uid, not a second size for this one.
     - usd: "objaverse://8c8fd4fa06eb4b1c8db5bd3584892f3c"
-      target-size-m: 1.8
-      # SCALED DOWN ON SIGHT FROM THE SIM (reported far too big), and the
-      # numbers do not endorse 0.01. Cached size is 1.800 x 0.573 x 3.764 m:
-      # `target-size-m` with the default `fit: footprint` pinned the 1.8 m PLAN
-      # dimension and let the height ride, giving a 3.76 m "rack"; 0.01 takes
-      # that to 18 mm, which is not a rack either.
-      #
-      # The real defect is that this line re-specifies an asset urban_v2 had
-      # already vetted as `target-size-m: 0.75, fit: height`. The objaverse
-      # cache is keyed by uid and holds ONE conversion, so whichever set is
-      # prepared last wins for both — this entry silently rebaked urban's racks.
-      # The vetted spec gives 0.359 x 0.114 x 0.750 m, a short rack but a rack.
-      # Its 1 : 0.32 : 2.09 proportions are a shelter's, not a stand's; it may
-      # simply be the wrong asset.
-      scale: 0.01
+      target-size-m: 0.75
+      fit: height
 
   park_table:
     - usd: "objaverse://e88b5288aa4942739da8aa9af6c7778d"   # Park Table, 1k faces

@@ -9,6 +9,23 @@
 # `size_m` is the asset's real-world bounding box as cached.
 
 assets:
+  02fae7583fb447a484ee5b7c76bef0e6:
+    author: RS
+    baked_scale: 0.415813
+    faces: 22922
+    fit: footprint
+    license: by
+    size_m:
+    - 23.77
+    - 17.974
+    - 0.843
+    source: https://sketchfab.com/3d-models/02fae7583fb447a484ee5b7c76bef0e6
+    target_size_m: 23.77
+    texture_res: 2048
+    textures: 2
+    title: "Tennis Court \U0001F3BE"
+    uid: 02fae7583fb447a484ee5b7c76bef0e6
+    usd: 02fae7583fb447a484ee5b7c76bef0e6/02fae7583fb447a484ee5b7c76bef0e6.usdc
   042bc78e7d1d4275b3cd87e97f35d11c:
     author: Arthur.Zim
     baked_scale: 0.854782
@@ -113,16 +130,16 @@ assets:
     usd: 13eeb2da01c046a1a0fc8ce8a7e262ab/13eeb2da01c046a1a0fc8ce8a7e262ab.usdc
   19331875f8d84137a94003f0660e2a50:
     author: headerstock
-    baked_scale: 0.018451
+    baked_scale: 0.027677
     faces: 27627
     fit: footprint
     license: by
     size_m:
-    - 7.313
-    - 8.0
-    - 4.164
+    - 10.969
+    - 12.0
+    - 6.246
     source: https://sketchfab.com/3d-models/19331875f8d84137a94003f0660e2a50
-    target_size_m: 8.0
+    target_size_m: 12.0
     texture_res: 1024
     textures: 9
     title: Bungalow The Haynes
@@ -147,16 +164,16 @@ assets:
     usd: 1ac9bf684da3476d918fd086d554bd5c/1ac9bf684da3476d918fd086d554bd5c.usdc
   1b31413d89a4485e93f4bdb9eb735d88:
     author: gilles.schaeck
-    baked_scale: 0.039915
+    baked_scale: 0.012474
     faces: 512
     fit: footprint
     license: by
     size_m:
-    - 8.0
-    - 5.665
-    - 0.367
+    - 2.5
+    - 1.77
+    - 0.115
     source: https://sketchfab.com/3d-models/1b31413d89a4485e93f4bdb9eb735d88
-    target_size_m: 8.0
+    target_size_m: 2.5
     texture_res: 2048
     textures: 3
     title: Planches - Planks
@@ -164,16 +181,16 @@ assets:
     usd: 1b31413d89a4485e93f4bdb9eb735d88/1b31413d89a4485e93f4bdb9eb735d88.usdc
   1c6d17070d9e4b6595e5de2fa3e20d81:
     author: headerstock
-    baked_scale: 0.018845
+    baked_scale: 0.028268
     faces: 35668
     fit: footprint
     license: by
     size_m:
-    - 8.0
-    - 7.465
-    - 4.42
+    - 12.0
+    - 11.197
+    - 6.63
     source: https://sketchfab.com/3d-models/1c6d17070d9e4b6595e5de2fa3e20d81
-    target_size_m: 8.0
+    target_size_m: 12.0
     texture_res: 1024
     textures: 8
     title: Bungalow The Ryder
@@ -196,18 +213,35 @@ assets:
     title: Bungalow The Crosby
     uid: 1ca9bf31b9d34b44a9b9cac8c240a8d7
     usd: 1ca9bf31b9d34b44a9b9cac8c240a8d7/1ca9bf31b9d34b44a9b9cac8c240a8d7.usdc
+  1cec32aea61e4959bb1ba9a79ada7cd5:
+    author: DarksProducer
+    baked_scale: 0.002079
+    faces: 888
+    fit: footprint
+    license: by
+    size_m:
+    - 0.076
+    - 3.51
+    - 1.83
+    source: https://sketchfab.com/3d-models/1cec32aea61e4959bb1ba9a79ada7cd5
+    target_size_m: 3.51
+    texture_res: 1024
+    textures: 4
+    title: Wood fence
+    uid: 1cec32aea61e4959bb1ba9a79ada7cd5
+    usd: 1cec32aea61e4959bb1ba9a79ada7cd5/1cec32aea61e4959bb1ba9a79ada7cd5.usdc
   2341e9c2456f4876b2e86a9465724b0d:
     author: andres Hiciano
-    baked_scale: 2.985989
+    baked_scale: 0.821147
     faces: 1044
     fit: footprint
     license: by
     size_m:
-    - 5.577
-    - 8.0
-    - 0.461
+    - 1.534
+    - 2.2
+    - 0.127
     source: https://sketchfab.com/3d-models/2341e9c2456f4876b2e86a9465724b0d
-    target_size_m: 8.0
+    target_size_m: 2.2
     texture_res: 2048
     textures: 6
     title: Planks Of Wood
@@ -400,18 +434,35 @@ assets:
     title: Street Sign Final
     uid: 599a74c1c8fd4f19bf6754b8128da6b8
     usd: 599a74c1c8fd4f19bf6754b8128da6b8/599a74c1c8fd4f19bf6754b8128da6b8.usdc
+  5af5bccf37db4bb2980dd5119bfe427f:
+    author: 1-3D.com
+    baked_scale: 0.01
+    faces: 1068
+    fit: footprint
+    license: by-sa
+    size_m:
+    - 7.32
+    - 1.809
+    - 2.44
+    source: https://sketchfab.com/3d-models/5af5bccf37db4bb2980dd5119bfe427f
+    target_size_m: 7.32
+    texture_res: 512
+    textures: 1
+    title: Football goal 721
+    uid: 5af5bccf37db4bb2980dd5119bfe427f
+    usd: 5af5bccf37db4bb2980dd5119bfe427f/5af5bccf37db4bb2980dd5119bfe427f.usdc
   6644de89c2f0449db3de934744162b63:
     author: headerstock
-    baked_scale: 0.018203
+    baked_scale: 0.027304
     faces: 26943
     fit: footprint
     license: by
     size_m:
-    - 8.0
-    - 7.05
-    - 4.269
+    - 12.0
+    - 10.575
+    - 6.404
     source: https://sketchfab.com/3d-models/6644de89c2f0449db3de934744162b63
-    target_size_m: 8.0
+    target_size_m: 12.0
     texture_res: 1024
     textures: 10
     title: Bungalow The Chase
@@ -419,16 +470,16 @@ assets:
     usd: 6644de89c2f0449db3de934744162b63/6644de89c2f0449db3de934744162b63.usdc
   71474e859887459a96d2d281ffe53f18:
     author: headerstock
-    baked_scale: 0.018888
+    baked_scale: 0.028332
     faces: 29458
     fit: footprint
     license: by
     size_m:
-    - 7.218
-    - 8.0
-    - 4.343
+    - 10.828
+    - 12.0
+    - 6.514
     source: https://sketchfab.com/3d-models/71474e859887459a96d2d281ffe53f18
-    target_size_m: 8.0
+    target_size_m: 12.0
     texture_res: 1024
     textures: 10
     title: Bungalow The Colbert
@@ -453,16 +504,16 @@ assets:
     usd: 741e544242a9481fa54c1f7bca6e92b2/741e544242a9481fa54c1f7bca6e92b2.usdc
   7c64a6d90567428eb511f41036fe2d88:
     author: headerstock
-    baked_scale: 0.019044
+    baked_scale: 0.028567
     faces: 30165
     fit: footprint
     license: by
     size_m:
-    - 8.0
-    - 7.636
-    - 4.446
+    - 12.0
+    - 11.454
+    - 6.668
     source: https://sketchfab.com/3d-models/7c64a6d90567428eb511f41036fe2d88
-    target_size_m: 8.0
+    target_size_m: 12.0
     texture_res: 1024
     textures: 8
     title: Bungalow The Walton
@@ -485,23 +536,57 @@ assets:
     title: Road signs pack
     uid: 7fac2b1b6c5746daa4ac773441c45180
     usd: 7fac2b1b6c5746daa4ac773441c45180/7fac2b1b6c5746daa4ac773441c45180.usdc
+  83b176f63dfc43a4876378a4e12d6f6f:
+    author: Francesco Coldesina
+    baked_scale: 0.004743
+    faces: 79465
+    fit: footprint
+    license: by
+    size_m:
+    - 5.18
+    - 8.0
+    - 11.01
+    source: https://sketchfab.com/3d-models/83b176f63dfc43a4876378a4e12d6f6f
+    target_size_m: 8.0
+    texture_res: 2048
+    textures: 4
+    title: Kids Place
+    uid: 83b176f63dfc43a4876378a4e12d6f6f
+    usd: 83b176f63dfc43a4876378a4e12d6f6f/83b176f63dfc43a4876378a4e12d6f6f.usdc
   85961c7ab0d14a9a8766fe58f28886a8:
     author: headerstock
-    baked_scale: 0.019139
+    baked_scale: 0.028708
     faces: 25203
     fit: footprint
     license: by
     size_m:
-    - 7.754
-    - 8.0
-    - 4.211
+    - 11.631
+    - 12.0
+    - 6.316
     source: https://sketchfab.com/3d-models/85961c7ab0d14a9a8766fe58f28886a8
-    target_size_m: 8.0
+    target_size_m: 12.0
     texture_res: 1024
     textures: 7
     title: Bungalow The Dawson
     uid: 85961c7ab0d14a9a8766fe58f28886a8
     usd: 85961c7ab0d14a9a8766fe58f28886a8/85961c7ab0d14a9a8766fe58f28886a8.usdc
+  8712f53da0e04736802f1bc84ca7df97:
+    author: Glowbox 3D
+    baked_scale: 0.014436
+    faces: 75948
+    fit: footprint
+    license: by
+    size_m:
+    - 4.5
+    - 1.812
+    - 3.132
+    source: https://sketchfab.com/3d-models/8712f53da0e04736802f1bc84ca7df97
+    target_size_m: 4.5
+    texture_res: 2048
+    textures: 3
+    title: Swing Set
+    uid: 8712f53da0e04736802f1bc84ca7df97
+    usd: 8712f53da0e04736802f1bc84ca7df97/8712f53da0e04736802f1bc84ca7df97.usdc
   8c8fd4fa06eb4b1c8db5bd3584892f3c:
     author: aecoviz
     baked_scale: 0.815132
@@ -536,6 +621,23 @@ assets:
     title: Traffic cone (Game ready)
     uid: 8cdac192abd044988c314eeb6377a3a0
     usd: 8cdac192abd044988c314eeb6377a3a0/8cdac192abd044988c314eeb6377a3a0.usdc
+  952a9c257db641229902c36abb97e8bc:
+    author: wolfgar74
+    baked_scale: 0.016
+    faces: 4540
+    fit: footprint
+    license: by
+    size_m:
+    - 4.0
+    - 4.0
+    - 4.026
+    source: https://sketchfab.com/3d-models/952a9c257db641229902c36abb97e8bc
+    target_size_m: 4.0
+    texture_res: 1024
+    textures: 18
+    title: Medieval Fountain Empty (Free)
+    uid: 952a9c257db641229902c36abb97e8bc
+    usd: 952a9c257db641229902c36abb97e8bc/952a9c257db641229902c36abb97e8bc.usdc
   968ca5757023470ab603067d79f713fc:
     author: headerstock
     baked_scale: 0.026549
@@ -553,6 +655,23 @@ assets:
     title: Bungalow The Goodson
     uid: 968ca5757023470ab603067d79f713fc
     usd: 968ca5757023470ab603067d79f713fc/968ca5757023470ab603067d79f713fc.usdc
+  9855438bf7d14f9b8a83e779c03e937f:
+    author: targa
+    baked_scale: 1.49982
+    faces: 996
+    fit: footprint
+    license: by
+    size_m:
+    - 3.0
+    - 1.118
+    - 1.759
+    source: https://sketchfab.com/3d-models/9855438bf7d14f9b8a83e779c03e937f
+    target_size_m: 3.0
+    texture_res: 1024
+    textures: 2
+    title: Seesaw "Type-1"
+    uid: 9855438bf7d14f9b8a83e779c03e937f
+    usd: 9855438bf7d14f9b8a83e779c03e937f/9855438bf7d14f9b8a83e779c03e937f.usdc
   9c2fb0b1afaa450f97ac9f6217ed6dc9:
     author: "Agust\xEDn H\xF6nnun"
     baked_scale: 1.005475
@@ -572,16 +691,16 @@ assets:
     usd: 9c2fb0b1afaa450f97ac9f6217ed6dc9/9c2fb0b1afaa450f97ac9f6217ed6dc9.usdc
   a0c01ce35a474545b805c0739806aace:
     author: Sengchor
-    baked_scale: 0.45438
+    baked_scale: 0.68157
     faces: 12227
     fit: footprint
     license: by
     size_m:
-    - 8.0
-    - 7.591
-    - 2.836
+    - 12.0
+    - 11.386
+    - 4.254
     source: https://sketchfab.com/3d-models/a0c01ce35a474545b805c0739806aace
-    target_size_m: 8.0
+    target_size_m: 12.0
     texture_res: 2048
     textures: 3
     title: Abandoned House
@@ -638,6 +757,23 @@ assets:
     title: Bungalow The Cass
     uid: ab67dc215f8344eabadeeae05eacd887
     usd: ab67dc215f8344eabadeeae05eacd887/ab67dc215f8344eabadeeae05eacd887.usdc
+  ab95dfb3816e4160989f26972c4c7c39:
+    author: ZareShadows
+    baked_scale: 1.190118
+    faces: 5196
+    fit: footprint
+    license: by
+    size_m:
+    - 5.0
+    - 5.0
+    - 3.788
+    source: https://sketchfab.com/3d-models/ab95dfb3816e4160989f26972c4c7c39
+    target_size_m: 5.0
+    texture_res: 4096
+    textures: 3
+    title: Gazebo
+    uid: ab95dfb3816e4160989f26972c4c7c39
+    usd: ab95dfb3816e4160989f26972c4c7c39/ab95dfb3816e4160989f26972c4c7c39.usdc
   aedb8f44f78944c7a1d53ff14c6d3290:
     author: Dane Badenhorst
     baked_scale: 0.001103
@@ -672,6 +808,23 @@ assets:
     title: Traffic Light
     uid: aeed7931c96a4428aa8ff71eb398ee43
     usd: aeed7931c96a4428aa8ff71eb398ee43/aeed7931c96a4428aa8ff71eb398ee43.usdc
+  b1c66721f837407c9afb305ad7099ff0:
+    author: d77danny
+    baked_scale: 0.168168
+    faces: 1854
+    fit: footprint
+    license: by
+    size_m:
+    - 1.68
+    - 1.83
+    - 3.593
+    source: https://sketchfab.com/3d-models/b1c66721f837407c9afb305ad7099ff0
+    target_size_m: 1.83
+    texture_res: 512
+    textures: 10
+    title: Basketball Hoop
+    uid: b1c66721f837407c9afb305ad7099ff0
+    usd: b1c66721f837407c9afb305ad7099ff0/b1c66721f837407c9afb305ad7099ff0.usdc
   b3b11017332040d6b717839c07a782c4:
     author: staticcc
     baked_scale: 0.03482
@@ -689,6 +842,23 @@ assets:
     title: Large Dirt Pile
     uid: b3b11017332040d6b717839c07a782c4
     usd: b3b11017332040d6b717839c07a782c4/b3b11017332040d6b717839c07a782c4.usdc
+  b5c67137ca284754ac494f16b540a2b3:
+    author: austinstanbury
+    baked_scale: 0.163343
+    faces: 144
+    fit: footprint
+    license: by
+    size_m:
+    - 3.0
+    - 2.113
+    - 3.27
+    source: https://sketchfab.com/3d-models/b5c67137ca284754ac494f16b540a2b3
+    target_size_m: 3.0
+    texture_res: 2048
+    textures: 18
+    title: State Park Sign
+    uid: b5c67137ca284754ac494f16b540a2b3
+    usd: b5c67137ca284754ac494f16b540a2b3/b5c67137ca284754ac494f16b540a2b3.usdc
   bb71ca627c5c44aba68c610fbfa24cd2:
     author: Igrium
     baked_scale: 0.470758
@@ -808,6 +978,23 @@ assets:
     title: Parking Meter
     uid: cfaf0f457ca244e59c746ebdd6f3ad6c
     usd: cfaf0f457ca244e59c746ebdd6f3ad6c/cfaf0f457ca244e59c746ebdd6f3ad6c.usdc
+  dd7909ffc4a84a45b3111030c51e43c6:
+    author: Shaddy
+    baked_scale: 0.00416
+    faces: 9256
+    fit: footprint
+    license: by
+    size_m:
+    - 4.977
+    - 5.0
+    - 2.61
+    source: https://sketchfab.com/3d-models/dd7909ffc4a84a45b3111030c51e43c6
+    target_size_m: 5.0
+    texture_res: 1024
+    textures: 24
+    title: The Old Fountain
+    uid: dd7909ffc4a84a45b3111030c51e43c6
+    usd: dd7909ffc4a84a45b3111030c51e43c6/dd7909ffc4a84a45b3111030c51e43c6.usdc
   e03b1d2dfdc0416bb8324d15573ea60c:
     author: NotAnotherApocalypticCo.
     baked_scale: 0.595977
@@ -825,6 +1012,23 @@ assets:
     title: Traffic Cones
     uid: e03b1d2dfdc0416bb8324d15573ea60c
     usd: e03b1d2dfdc0416bb8324d15573ea60c/e03b1d2dfdc0416bb8324d15573ea60c.usdc
+  e88b5288aa4942739da8aa9af6c7778d:
+    author: Gamedirection
+    baked_scale: 1.0
+    faces: 1000
+    fit: footprint
+    license: by
+    size_m:
+    - 2.0
+    - 1.738
+    - 0.763
+    source: https://sketchfab.com/3d-models/e88b5288aa4942739da8aa9af6c7778d
+    target_size_m: 2.0
+    texture_res: 1024
+    textures: 5
+    title: Park Table - Low Poly
+    uid: e88b5288aa4942739da8aa9af6c7778d
+    usd: e88b5288aa4942739da8aa9af6c7778d/e88b5288aa4942739da8aa9af6c7778d.usdc
   f3cb9864675e43e0aaba258b5a6163ee:
     author: qmegel
     baked_scale: 1.590791
@@ -842,6 +1046,23 @@ assets:
     title: Traffic Light
     uid: f3cb9864675e43e0aaba258b5a6163ee
     usd: f3cb9864675e43e0aaba258b5a6163ee/f3cb9864675e43e0aaba258b5a6163ee.usdc
+  f7d34687536a45108fac3bf1a1055ee2:
+    author: KainHunter1997
+    baked_scale: 0.168539
+    faces: 2404
+    fit: footprint
+    license: by
+    size_m:
+    - 2.4
+    - 0.04
+    - 1.011
+    source: https://sketchfab.com/3d-models/f7d34687536a45108fac3bf1a1055ee2
+    target_size_m: 2.4
+    texture_res: 2048
+    textures: 6
+    title: Chain Link Fence Low Poly Version
+    uid: f7d34687536a45108fac3bf1a1055ee2
+    usd: f7d34687536a45108fac3bf1a1055ee2/f7d34687536a45108fac3bf1a1055ee2.usdc
   f80a2a0af6924562be10be7354b7a72f:
     author: jmarcos28
     baked_scale: 4.007309

@@ -87,6 +87,35 @@ def _resolve(name: str, search: list, what: str = "config") -> str:
                      + "\n".join(available))
 
 
+def _set_chain(name: str, seen: list = None) -> list:
+    """*name*'s file and every file it ``extends``, base-last.
+
+    A set that only joins two libraries — `suburban_park` is nothing but
+    ``extends: [park, suburban]`` — holds no ``usds`` of its own, so scanning
+    just its own file finds no assets and the pre-flight reports "nothing to
+    do" for a scene that needs fifteen. `extends` may be a string or a list,
+    matching `scene_generator._load_asset_set`.
+    """
+    import yaml
+
+    seen = list(seen or [])
+    if name in seen:
+        return []
+    seen.append(name)
+
+    path = _resolve(str(name), [ASSET_SETS_DIR], "asset set")
+    with open(path) as f:
+        doc = yaml.safe_load(f) or {}
+
+    parent = doc.get("extends")
+    parents = ([] if not parent
+               else [parent] if isinstance(parent, str) else list(parent))
+    out = [path]
+    for p in parents:
+        out += _set_chain(p, seen)
+    return out
+
+
 def yaml_files_for(config: str = None, asset_set: str = None) -> list:
     """The YAML files to scan for ``objaverse://`` references.
 
@@ -96,7 +125,7 @@ def yaml_files_for(config: str = None, asset_set: str = None) -> list:
     host before the sim ever starts.
     """
     if asset_set:
-        return [_resolve(asset_set, [ASSET_SETS_DIR], "asset set")]
+        return list(dict.fromkeys(_set_chain(asset_set)))
 
     if not config:                       # default: every asset set
         return sorted(glob.glob(os.path.join(ASSET_SETS_DIR, "*.yaml"))
@@ -119,7 +148,7 @@ def yaml_files_for(config: str = None, asset_set: str = None) -> list:
         from compile_locale import default_asset_set
         name = default_asset_set(doc["locale"])
     if name:
-        files.append(_resolve(str(name), [ASSET_SETS_DIR], "asset set"))
+        files += _set_chain(str(name))
     return list(dict.fromkeys(files))    # de-dup, preserve order
 
 
