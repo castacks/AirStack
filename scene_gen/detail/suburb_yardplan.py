@@ -179,9 +179,28 @@ class _Solids:
 
     CELL = 32.0
 
-    def __init__(self, houses, pad_max=2.0):
+    def __init__(self, houses, pad_max=2.0, rings=()):
         self.pad_max = float(pad_max)
         self.g = {}
+        # RINGS ARE SOLIDS TOO. A swimming pool is a thing you cannot plant in
+        # for exactly the reason a house is, so it goes through this index and
+        # not through a mechanism of its own — same oriented box, same grid,
+        # same `clear()` margin. `modular_house.pool_at` returns the water
+        # rectangle as four corners in ring order, which is all this needs.
+        for ring in (rings or ()):
+            if not ring or len(ring) < 4:
+                continue
+            ax, ay = float(ring[0][0]), float(ring[0][1])
+            bx, by = float(ring[1][0]), float(ring[1][1])
+            cx2, cy2 = float(ring[2][0]), float(ring[2][1])
+            w = math.hypot(bx - ax, by - ay)
+            d = math.hypot(cx2 - bx, cy2 - by)
+            if w < 1e-6 or d < 1e-6:
+                continue
+            u = ((bx - ax) / w, (by - ay) / w)
+            c = (0.25 * sum(float(q[0]) for q in ring[:4]),
+                 0.25 * sum(float(q[1]) for q in ring[:4]))
+            self._add(c, u, w, d)
         for h in houses:
             self._add(h.get("c"), h.get("u"), h.get("w"), h.get("d"))
             # `.get`, because `garage` is None on the archetypes that have
@@ -385,7 +404,8 @@ def _clear_of(off, gaps, limit, rng=None, pad=1.5):
     return best[1]
 
 
-def plan(config, parcels, rng, resolver=None, keepout_discs=None):
+def plan(config, parcels, rng, resolver=None, keepout_discs=None,
+         keepout_rings=None):
     """Plant every lot in *parcels*. Returns ``(placements, stats)``.
 
     *parcels* is `suburb_parcel.parcel_blocks` output, so each house carries its
@@ -464,7 +484,8 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None):
 
     # Every building in the suburb, before anything is planted — one pass over
     # the same `houses` list, so the neighbours are covered too.
-    solids = _Solids(houses, pad_max=max(2.0, clear_house + 1.0))
+    solids = _Solids(houses, pad_max=max(2.0, clear_house + 1.0),
+                     rings=keepout_rings)
 
     out = []
     placed_trees = _Spacing(tree_sep)

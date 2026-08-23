@@ -53,7 +53,12 @@ import sys
 
 import numpy as np
 
-_DEPS = ("manifold3d", "shapely")
+# THREE, NOT TWO. `slice_mesh_plane(cap=True)` triangulates the cap polygon
+# through trimesh's `triangulate_polygon`, which needs `mapbox_earcut` (or
+# `triangle`); without it every capped slice logs "try running pip install
+# mapbox-earcut" and comes back empty, and `vegetation.wood_debris` then has
+# no stock to cut. A fresh container from the current image has none of them.
+_DEPS = ("manifold3d", "shapely", "mapbox_earcut")
 
 
 def ensure_deps(verbose=True):

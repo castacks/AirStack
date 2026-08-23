@@ -118,6 +118,15 @@ scene_gen/assets/aec/*
 # has been generated.
 scene_gen/assets/materials/scorched/
 
+# Baked per-object USDs written by `disaster/bake.py` — fracture and settle run
+# once per archetype and the result is referenced, so these are derived from the
+# scene config and rebuilt by the bake launchers. Gigabytes if left in.
+scene_gen/assets/baked/
+scene_gen/assets/archetypes/
+
+# Staging directory for hand-uploading assets to Nucleus.
+nucleus_upload/
+
 # Local mirror of Nucleus assets, for the tools that cannot resolve
 # `omniverse://` — the damage gallery above all (usd-core and Blender both
 # lack the resolver). Rebuild with scene_gen/tools/localize_nucleus_assets.py,

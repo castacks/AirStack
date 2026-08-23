@@ -169,7 +169,7 @@ RUN /isaac-sim/python.sh -m pip install --no-cache-dir lark-parser
 # cutter needs vtk. Without them the only fracture available is "scatter whole
 # panels", which reads as a stack of rectangles. Installing them here means
 # `vtk_fracture.ensure_deps()` never has to pip at runtime.
-RUN /isaac-sim/python.sh -m pip install --no-cache-dir manifold3d shapely vtk
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir manifold3d shapely vtk mapbox_earcut
 
 # TMux config
 RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /isaac-sim/.tmux/plugins/tpm 

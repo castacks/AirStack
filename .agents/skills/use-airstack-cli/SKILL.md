@@ -218,6 +218,11 @@ entry point); later edits are picked up live without rebuilding.
 
 ### CLI logs (recommended)
 
+> **Exception — the `isaac-sim` container.** Its launch script runs inside a tmux
+> session, so `airstack logs isaac-sim` / `docker logs isaac-sim` print nothing.
+> Read the tmux pane or the Kit log instead — see
+> [run-isaac-sim-launcher](../run-isaac-sim-launcher/SKILL.md).
+
 ```bash
 # Tail logs (partial name matching)
 airstack logs robot-desktop

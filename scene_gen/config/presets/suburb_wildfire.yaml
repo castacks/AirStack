@@ -43,6 +43,19 @@ region_m: [1600, 1200]
 seed: 3
 
 overrides:
+  # ROAD + DRIVEWAY MATERIALS, matched to the 250 m mini: the local megascans
+  # asphalt swatch (mixed 50/50 with shared.yaml's ModularNeighborhood road
+  # tile), and a brick/asphalt driveway mix (`driveway` stays the shared brick).
+  usds:
+    materials:
+      asphalt: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
+      # Brick driveways use the worn-brick surface; the asphalt half stays clean
+      # Road_Asphalt (fire-reached asphalt is re-bound to Damaged_Asphalt at
+      # assembly time — see suburb_assemble_launch_script).
+      driveway: "airstack://scene_gen/assets/materials/megascans/Brick_Wall_Worn.usda"
+      driveway_asphalt: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
+  roads:
+    driveway_asphalt_share: 0.5
   layout:
     region_m: [1600, 1200]
 

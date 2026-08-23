@@ -435,8 +435,8 @@ def survey(stage, tree_path, verbose=False):
                                  ", ".join(p.rsplit("/", 1)[-1]
                                            for p in out["unknown"][:4])))
     if out["unbound"]:
-        print("[veg] {0}: {1} mesh(es) bind NO material and render untextured:"
-              " {2}".format(tree_path.rsplit("/", 1)[-1], len(out["unbound"]),
+        print("[veg] {0}: {1} mesh(es) bind NO material (asset defect; "
+              "bind_bark gives them the tree's own bark): {2}".format(tree_path.rsplit("/", 1)[-1], len(out["unbound"]),
                             ", ".join(p.rsplit("/", 1)[-1]
                                       for p in out["unbound"][:4])))
     return out
@@ -1711,10 +1711,10 @@ def wood_debris(stage, info, out_parent, rng, n_pieces=9, radius_m=6.5,
 
     entry = main_bole(stage, info)
     if entry is None:
-        return []
+        return [], []
     mesh = fracture.prim_to_mesh(stage, entry[0])
     if mesh is None:
-        return []
+        return [], []
     lo, hi = mesh.bounds
     h = float(hi[2] - lo[2])
     cx = 0.5 * float(lo[0] + hi[0])
@@ -1736,10 +1736,10 @@ def wood_debris(stage, info, out_parent, rng, n_pieces=9, radius_m=6.5,
                                  cap=True)
     except Exception as exc:
         print("[veg] debris stock failed: {0}".format(exc))
-        return []
+        return [], []
     stock = largest_component(clip_to_column(stock, cx, cy, r_trunk * 1.6))
     if stock is None or not len(stock.faces):
-        return []
+        return [], []
     s_lo, s_hi = stock.bounds
 
     out = "{0}/debris_{1}".format(out_parent,

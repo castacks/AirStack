@@ -39,7 +39,9 @@ _DEST = os.path.join(_MATS, "megascans")
 
 # zip name fragment -> the material name we want to bind by
 NAMES = {
+    "brick_wall_worn": "Brick_Wall_Worn",
     "burnt_forest_floor": "Burnt_Forest_Floor",
+    "damaged_asphalt": "Damaged_Asphalt",
     # Both spellings land on the same material, so a newer pack REPLACES the
     # older one rather than sitting beside it under a generated name.
     "road_asphalt": "Road_Asphalt",

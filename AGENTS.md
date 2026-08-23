@@ -90,6 +90,7 @@ For detailed step-by-step instructions, refer to the **`.agents/skills/`** direc
 | [write-isaac-sim-scene](.agents/skills/write-isaac-sim-scene) | Creating custom simulation scenes |
 | [simulate-water-in-isaac-sim](.agents/skills/simulate-water-in-isaac-sim) | Adding flood / storm-surge / standing water to a scene |
 | [build-wildfire-scenes](.agents/skills/build-wildfire-scenes) | Fire, fracture, physics settling and scorch materials for burnt scenes — includes the bug catalogue |
+| [run-isaac-sim-launcher](.agents/skills/run-isaac-sim-launcher) | Starting / relaunching an Isaac Sim launch script via `airstack up` + `docker exec isaac-sim tmux`, and reading its output (the pane, a piped host file, the Kit log) — `docker logs` is empty for this container |
 | [visualize-in-foxglove](.agents/skills/visualize-in-foxglove) | Adding topic visualization to Foxglove/GCS |
 | [attach-gossip-payload](.agents/skills/attach-gossip-payload) | Broadcasting custom ROS messages to peers via PeerProfile gossip payloads |
 | [debug-module](.agents/skills/debug-module) | Autonomous debugging of ROS 2 modules |
