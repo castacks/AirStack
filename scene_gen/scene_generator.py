@@ -2924,23 +2924,37 @@ def apply_placements(stage,
                      parent_path: str = "/World/stage/generated",
                      scene_scale_factor: float = 1.0,
                      ground_snap=None,
-                     resolver: "SizeResolver | None" = None) -> str:
+                     resolver: "SizeResolver | None" = None,
+                     instance_categories: "set | None" = None) -> str:
     """Write *placements* onto *stage* as USD references under *parent_path*.
 
-    **Not instanceable, deliberately.** `SetInstanceable(True)` was here
-    originally and was removed in 8187043e, because `scene_prep.add_colliders`
-    recursively applies `UsdPhysics.CollisionAPI` to every gprim beneath each
-    placement — and an instanceable prim has no traversable children, so
-    `GetChildren()` returns nothing and no collider is ever applied. The drone
-    would fly through buildings and LiDAR would see nothing.
-    `settle_rigid_props`, `prune_prims`, `apply_surface_overrides` and
+    **Not instanceable by default, deliberately.** `SetInstanceable(True)` was
+    unconditional here originally and was removed in 8187043e, because
+    `scene_prep.add_colliders` recursively applies `UsdPhysics.CollisionAPI` to
+    every gprim beneath each placement — and an instanceable prim has no
+    traversable children, so `GetChildren()` returns nothing and no collider is
+    ever applied. The drone would fly through buildings and LiDAR would see
+    nothing. `settle_rigid_props`, `prune_prims`, `apply_surface_overrides` and
     `_bind_human_pose` all edit inside referenced assets too, so they have the
     same conflict.
 
-    The cost is real — the urban scene OOM-killed at 89.1M points — but the fix
-    is not to re-enable this. It is to pre-author `CollisionAPI` into cached
-    per-asset variants so the prototypes arrive collider-ready, then instance
-    those. That fits the `prepare_assets.py` cache pattern.
+    The cost is real — the urban scene OOM-killed at 89.1M points, and the
+    graph suburb plants 3,384 trees at ~55k points each = ~186M — so
+    *instance_categories* opts INDIVIDUAL CATEGORIES back in. Opt-in, per
+    category, because the constraint above is per-pass, not global: a category
+    may be instanced only if NOTHING that runs later authors inside it. In
+    practice that means it must be touched by none of `add_colliders`,
+    `prune_prims`, `apply_surface_overrides`, `settle_rigid_props`,
+    `_bind_human_pose` — nor by the disaster passes, since `disaster/` scorches
+    and fractures real placed geometry and USD forbids editing inside an
+    instance. `suburb_preview` can instance freely (it calls none of them);
+    `suburb_mini_wildfire` therefore lists only what does not burn, and the
+    urban path cannot use this at all without auditing its prune list first.
+
+    The general fix is still the one 8187043e pointed at: pre-author
+    `CollisionAPI` into cached per-asset variants so prototypes arrive
+    collider-ready, then instance those, which fits the `prepare_assets.py`
+    cache pattern. This parameter is the narrow version that works today.
 
     Metric coordinates are multiplied by *scene_scale_factor* (= 1 /
     meters_per_unit) to land in stage units. Each prim gets translate /
@@ -2957,6 +2971,7 @@ def apply_placements(stage,
     proto_index: dict = {}
     pose_cache: dict = {}
     ssf = float(scene_scale_factor)
+    n_instanced = 0
 
     for i, p in enumerate(placements):
         usd = p["usd"]
@@ -3047,9 +3062,13 @@ def apply_placements(stage,
         xform.AddRotateXYZOp().Set(Gf.Vec3f(roll, pitch, yaw))
         s = float(p["scale"])
         xform.AddScaleOp().Set(Gf.Vec3d(s * stx, s * sty, s))
+        if instance_categories and p.get("category") in instance_categories:
+            prim.SetInstanceable(True)
+            n_instanced += 1
 
     print(f"[scene_gen] Applied {len(placements)} placements under '{parent_path}' "
-          f"({len(proto_index)} unique USDs, scale_factor={ssf})")
+          f"({len(proto_index)} unique USDs, scale_factor={ssf}"
+          + (f", {n_instanced} instanced" if n_instanced else "") + ")")
     return parent_path
 
 

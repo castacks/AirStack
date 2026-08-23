@@ -113,6 +113,19 @@ def convert(zip_path, verbose=True):
                     os.path.join(out, os.path.basename(m)), "wb") as dst:
                 shutil.copyfileobj(src, dst)
 
+    return write_wrapper(name, src=os.path.basename(zip_path), verbose=verbose)
+
+
+def write_wrapper(name, src="(extracted textures)", verbose=True):
+    """Write ``<name>.usda`` for the maps already sitting in ``<name>/``.
+
+    Split out of `convert` because the wrapper is DERIVED from the textures,
+    and the two get separated: the maps are committed but the `.usda` is not,
+    so a fresh clone has every Megascans texture and no material to bind. USD
+    then fails the reference with "Could not open asset ...Road_Asphalt.usda"
+    and the surface falls back to flat colour — quietly, mid-scene.
+    """
+    out = os.path.join(_DEST, name)
     files = sorted(glob.glob(os.path.join(out, "*")))
     if not files:
         return None
@@ -149,7 +162,7 @@ def convert(zip_path, verbose=True):
 
     usda = os.path.join(_DEST, name + ".usda")
     with open(usda, "w") as fh:
-        fh.write(_TEMPLATE.format(name=name, src=os.path.basename(zip_path),
+        fh.write(_TEMPLATE.format(name=name, src=src,
                                   inputs="\n".join(lines)))
     if verbose:
         print("  {0:<22s} base={1} orm={2} normal={3}".format(
@@ -162,12 +175,27 @@ def main():
     ap.add_argument("zips", nargs="*")
     ap.add_argument("--all", action="store_true",
                     help="every *_ue_*.zip in ~/Downloads")
+    ap.add_argument("--rebuild", action="store_true",
+                    help="re-write the .usda wrappers from the textures already "
+                         "in assets/materials/megascans, no zips needed")
     args = ap.parse_args()
+
+    os.makedirs(_DEST, exist_ok=True)
+
+    if args.rebuild:
+        # The textures are committed; the wrappers are generated, so a clone
+        # has the maps and no material. This puts them back without needing
+        # the original packs.
+        names = sorted(d for d in os.listdir(_DEST)
+                       if os.path.isdir(os.path.join(_DEST, d)))
+        for n in names:
+            write_wrapper(n)
+        print(f"[import_megascans] rebuilt {len(names)} wrapper(s) in {_DEST}")
+        return 0
 
     zips = list(args.zips)
     if args.all or not zips:
         zips = sorted(glob.glob(os.path.expanduser("~/Downloads/*_ue_*.zip")))
-    os.makedirs(_DEST, exist_ok=True)
     for z in zips:
         convert(z)
 
