@@ -304,6 +304,20 @@ def positions_by_category(placements: list) -> dict:
     return out
 
 
+def _rel_usd(usd) -> str:
+    """*usd* with this checkout's path taken off the front.
+
+    `airstack://` resolves to an ABSOLUTE path, so the raw string carries the
+    repo root — and a digest over it is only reproducible on the machine and
+    checkout that wrote it. Every `test_matches_baseline` case would fail on a
+    clone at a different path, in CI, or in a git worktree, for no reason to do
+    with the scene. Anchoring to the repo root keeps the asset identity, which
+    is the part worth regressing on.
+    """
+    s = str(usd or "")
+    return s.replace(_SCENE_GEN_DIR, "<scene_gen>") if _SCENE_GEN_DIR in s else s
+
+
 def full_signature(placements: list) -> list:
     """Everything, in emission order — the regression baseline.
 
@@ -312,7 +326,7 @@ def full_signature(placements: list) -> list:
     """
     return [
         [
-            p["category"], p["usd"],
+            p["category"], _rel_usd(p["usd"]),
             _round(p["x_m"]), _round(p["y_m"]), _round(p["z_m"]),
             _round(p["yaw_deg"], 1), _round(p.get("roll_deg", 0.0), 1),
             _round(p.get("pitch_deg", 0.0), 1),
