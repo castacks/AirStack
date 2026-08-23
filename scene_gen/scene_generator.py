@@ -364,8 +364,16 @@ def _measure_footprint(usd_path: str, scale: float, axis_up: str = "Z"):
 SCENE_GEN_DIR = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT = os.path.dirname(SCENE_GEN_DIR)
 
+# AIRSTACK_ASSET_ROOT repoints `airstack://` off the local repo and onto a
+# Nucleus URL (or any other root) — e.g.
+#   AIRSTACK_ASSET_ROOT=omniverse://host:443/Projects/SEI-COA
+# makes `airstack://scene_gen/assets/x` resolve to
+#   omniverse://host:443/Projects/SEI-COA/scene_gen/assets/x
+# so a scene can run entirely off uploaded assets instead of the local mount.
+_AIRSTACK_ROOT = os.environ.get("AIRSTACK_ASSET_ROOT", "").strip() or _REPO_ROOT
+
 LOCAL_ASSET_ROOTS = {
-    "airstack": _REPO_ROOT,
+    "airstack": _AIRSTACK_ROOT,
     "objaverse": os.path.join(SCENE_GEN_DIR, "assets", "objaverse"),
 }
 
@@ -388,7 +396,12 @@ def _expand_scheme(path: str):
     rest = rest.lstrip("/")
     if scheme == "objaverse" and _OBJAVERSE_UID_RE.match(rest):
         rest = os.path.join(rest, rest + ".usdc")
-    return os.path.join(LOCAL_ASSET_ROOTS[scheme], rest)
+    root = LOCAL_ASSET_ROOTS[scheme]
+    # A URL root (omniverse://, s3://, …) must be JOINED as a URL — os.path.join
+    # would leave the "://" but is otherwise fine on posix; be explicit anyway.
+    if "://" in str(root):
+        return str(root).rstrip("/") + "/" + rest
+    return os.path.join(root, rest)
 
 
 def missing_objaverse_assets(config: dict) -> list:

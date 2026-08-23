@@ -123,9 +123,9 @@ def main():
     # 1) LAYOUT + CHEAP DETAIL, houses/trees returned as instances
     t0 = time.time()
     binfo = {}
-    generate_suburb_on_stage(stage, config, parent_path=PARENT,
-                             scene_scale_factor=ssf, info_out=binfo,
-                             assembly=True)
+    placements = generate_suburb_on_stage(stage, config, parent_path=PARENT,
+                                          scene_scale_factor=ssf,
+                                          info_out=binfo, assembly=True)
     add_sky(stage, resolve_sky(config))
     houses = binfo.get("house_instances", [])
     trees = binfo.get("tree_instances", [])
@@ -203,6 +203,56 @@ def main():
         if _ref(stage, "{0}/inst/t_{1}".format(PARENT, i), usd,
                 t["x"], t["y"], t["yaw"], ssf, scale=scale):
             n_t += 1
+
+    # 4b) FENCES + BURNABLE FURNITURE. A timber fence is a line of dry fuel on
+    # the ground and one of the first things a wildfire takes: runs VANISH deep
+    # in the burn and stand SCORCHED at its edge. `apply_ground`/planting built
+    # them intact and un-instanced (see the preset), so damage them here. No
+    # fracture — there is no settle in the assembly, so consumed-or-scorched is
+    # the whole vocabulary (which is most of the read from the air anyway).
+    def coverage_at(x, y):
+        d = age(x, y)
+        if d < 0.0:
+            return 0.0
+        return min(1.0, 0.45 + 0.55 * min(1.0, d / max(1e-6, elapsed)))
+
+    # ONE shared charred material for the survivors, NOT per-subset
+    # `soot_materials`: at 1600 scale the fire reaches ~24k combustible
+    # subsets, and compositing a texture for each blew VRAM to 17 GB and
+    # crashed the render. A fence read from the air is a dark line whether or
+    # not its char is textured, so surviving burnt fences/props take one dark
+    # OmniPBR (a single material, N binds — no textures, no VRAM blow-up).
+    char = damage._pbr(stage, PARENT + "/BurnLooks/fence_char",
+                       (0.05, 0.045, 0.04), 0.9)
+    BURNABLE = ("fence", "bench", "chair", "picnic_table", "table",
+                "trash_can", "play_structure", "planter", "bin", "cafe_set",
+                "swing", "seesaw", "bike_rack", "mailbox", "bus_stop", "car")
+    brng = random.Random(SEED + 5)
+    n_gone = n_char = 0
+    for q in placements:
+        path = q.get("prim_path")
+        cat = str(q.get("category", ""))
+        if not path or not any(k in cat for k in BURNABLE):
+            continue                                   # only combustibles
+        if damage.is_incombustible(cat):
+            continue
+        d = age(float(q.get("x_m", 0.0)), float(q.get("y_m", 0.0)))
+        if d <= 0.0:
+            continue                                   # front never reached it
+        prim = stage.GetPrimAtPath(path)
+        if not prim or not prim.IsValid():
+            continue
+        if d / max(1e-6, span) > 0.55 and brng.random() < 0.90:
+            if prim.SetActive(False):                  # deep burn -> consumed
+                n_gone += 1
+            continue
+        # survivor at the edge -> charred
+        for m in Usd.PrimRange(prim):
+            if m.IsA(UsdGeom.Mesh):
+                UsdShade.MaterialBindingAPI(m).Bind(char)
+        n_char += 1
+    print("[assemble] burnable: {0} consumed, {1} charred (shared material)"
+          .format(n_gone, n_char))
 
     # 5) GROUND SCAR (built on the fly, cheap)
     region = tuple(binfo.get("region") or (-800, -600, 800, 600))

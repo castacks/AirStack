@@ -56,6 +56,17 @@ overrides:
       driveway_asphalt: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
   roads:
     driveway_asphalt_share: 0.5
+    # ROAD-PAINT HEIGHT. The z ladder scales with plate span (1600 m -> 1.0),
+    # which puts markings the full ~14 cm above the road — sub-pixel from
+    # capture altitude but visibly FLOATING at a closer look. Pin it to the
+    # 250 m mini's effective value (~2 cm gap), the range this is viewed at.
+    z_scale: 0.15
+  # UN-INSTANCE FENCES so the wildfire pass can scorch and consume them (USD
+  # forbids authoring inside an instance). Same list the mini uses; metal
+  # street furniture stays instanced. `tree` is out too but harmless — the
+  # assembly references tree archetypes directly, not through this path.
+  instance_categories: ["plant", "sidewalk", "streetlight",
+                        "fire_hydrant", "sign", "crosswalk"]
   layout:
     region_m: [1600, 1200]
 
