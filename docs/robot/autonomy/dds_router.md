@@ -57,18 +57,25 @@ The launch file recognises the same `$(...)` token syntax used in ROS 2 XML laun
 | Token | Resolved from | Error if missing? |
 |---|---|---|
 | `$(env VAR_NAME)` | Shell environment variable | Yes — `RuntimeError` |
-| `$(var VAR_NAME)` | `args` launch argument (space-separated `key:=value` pairs) | Yes — `RuntimeError` |
+| `$(var VAR_NAME)` | `dds_router_args` launch argument (space-separated `key:=value` pairs) | Yes — `RuntimeError` |
 | `$(find-pkg-share PKG)` | `ament_index` share directory of `PKG` | Yes — `RuntimeError` |
 
 **Example** — calling the launch file from XML:
 
 ```xml
 <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
-  <arg name="config_file"
+  <arg name="dds_router_config_file"
        value="$(find-pkg-share autonomy_bringup)/onboard_all/config/dds_router.yaml" />
-  <arg name="args" value="gcs_domain:=0" />
+  <arg name="dds_router_args" value="gcs_domain:=0" />
 </include>
 ```
+
+!!! note "Renamed launch arguments (RFC #379 §4)"
+    The arguments were renamed from the generic `config_file` / `args` to the
+    prefixed `dds_router_config_file` / `dds_router_args` — generic launch
+    configurations leak across sibling includes in the same launch scope. The
+    old names still work as **deprecated aliases** (the prefixed name wins
+    when both are set); update external callers when convenient.
 
 ### 2 — Config inheritance via `extends:`
 

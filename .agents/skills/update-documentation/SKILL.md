@@ -183,12 +183,12 @@ ros2 launch your_package your_package.launch.xml
 
 # With custom config
 ros2 launch your_package your_package.launch.xml \
-    config_file:=/path/to/custom/config.yaml
+    your_module_config:=/path/to/custom/config.yaml
 
-# With topic remapping
+# With custom topic wiring (prefixed args; in a stack these are include args)
 ros2 launch your_package your_package.launch.xml \
-    odometry_topic:=/robot/custom_odom \
-    output_topic:=/robot/custom_output
+    your_module_odometry_topic:=/robot/custom_odom \
+    your_module_output_topic:=/robot/custom_output
 ```
 
 ### Integrated in Autonomy Stack

@@ -52,15 +52,27 @@ _EXCLUDED_NODE_PREFIXES = (
     "_CREATED_BY_BARE_DDS_APP_",
 )
 
+# Substrings marking sim render-pipeline internals whose visibility on the
+# robot domain is timing-dependent (they join the graph once Isaac's SDG
+# pipeline spins up — sometimes before the snapshot, sometimes after). They
+# are prim-path-derived names, not stack wiring; RFC #380 §1 later normalizes
+# sim sensor endpoints to vehicle-manifest sensor ids properly.
+_EXCLUDED_NODE_SUBSTRINGS = (
+    "_Render_PostProcess_SDGPipeline",
+    "_PX4MultirotorGraph_",
+)
+
 _QOS_UNKNOWN = "UNKNOWN"
 
 _HISTORY_RE = re.compile(r"History\s*\(Depth\):\s*([A-Za-z_]+)(?:\s*\((\d+)\))?")
 
 
 def _is_excluded_node(name):
-    """True for launch/CLI helper nodes whose names are pid/hex-suffixed."""
+    """True for launch/CLI helper and sim render-pipeline nodes."""
     segment = name.rsplit("/", 1)[-1]
-    return segment.startswith(_EXCLUDED_NODE_PREFIXES)
+    if segment.startswith(_EXCLUDED_NODE_PREFIXES):
+        return True
+    return any(s in name for s in _EXCLUDED_NODE_SUBSTRINGS)
 
 
 def parse_node_list(text):

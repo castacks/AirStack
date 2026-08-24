@@ -33,9 +33,10 @@ airstack ready
 
 ## Known limits
 
-- Partially flattened: the Local layer is composed module-by-module in
-  `stack.launch.xml`; the other layers are still wrapped bringup includes
-  (they flatten in E3).
+- Fully flattened (E2 local, E3 the rest): every layer is composed
+  module-by-module in `stack.launch.xml`, except `interface.launch.py`
+  (wrapped by design — the safety boundary; flattens with RFC #380 Part 2)
+  and `logging.launch.xml` (already a single self-contained module).
 - CPU DROAN is the slower planner path — use `full_default` (GPU `droan_gl`)
   unless you need to run without the GPU planner or are debugging
   `disparity_expansion`.

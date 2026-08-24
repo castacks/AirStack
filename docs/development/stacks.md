@@ -27,7 +27,9 @@ Anatomy is enforced by a unit test: `tests/meta/test_stack_layout_contract.py`
 |-------|----------|
 | [`full_default`](https://github.com/castacks/AirStack/tree/develop/stacks/full_default) | The current full-autonomy topology (GPU `droan_gl` planner) — baseline, graph-identical to legacy `AUTONOMY_ROLE=full`. |
 | [`full_droan_cpu`](https://github.com/castacks/AirStack/tree/develop/stacks/full_droan_cpu) | CPU DROAN planner + live `disparity_expansion` — absorbs `local_droan_cpu.launch.xml`. |
-| [`full_macvo`](https://github.com/castacks/AirStack/tree/develop/stacks/full_macvo) | MAC-VO as the planner's disparity source — supersedes (and fixes) the broken `local_macvo_obstacle_avoidance.launch.xml` variant. |
+| [`full_macvo`](https://github.com/castacks/AirStack/tree/develop/stacks/full_macvo) | MAC-VO as the planner's disparity source — supersedes (and fixes) the broken `local_macvo_obstacle_avoidance.launch.xml` variant. Requires the `asm_macvo` module (`airstack module add asm_macvo`). |
+| [`lite_default`](https://github.com/castacks/AirStack/tree/develop/stacks/lite_default) | Onboard-lite topology, unsplit — the `AUTONOMY_ROLE=onboard` equivalent: interface, sensors, perception, flat Local layer, behavior; **no global, no logging**. |
+| [`lite_offload_global`](https://github.com/castacks/AirStack/tree/develop/stacks/lite_offload_global) | The first **split stack** (RFC #380 §2): `onboard.launch.xml` (= lite topology) + `offboard.launch.xml` (global layer only) + `bridge.yaml`. Replaces the `onboard`/`offboard` role pair. |
 
 ## Wrap vs. flatten — current status
 
@@ -109,14 +111,123 @@ for the authoring workflow.
 
 ## Making a new stack today
 
-1. Copy a reference stack: `cp -r stacks/full_default stacks/my_stack`
-   (`airstack stack new` arrives in a later phase).
+1. Copy a reference stack: `airstack stack new full_default my_stack`
+   (refuses to overwrite; deliberately does **not** copy `wiring.md` — that
+   is the source stack's observed graph).
 2. Edit `launch/stack.launch.xml` — swap/add/remove module `<include>`s and
    their topic args. Update `README.md`.
 3. Run it: `airstack up --stack my_stack --sim isaac`.
 4. Snapshot the wiring: `airstack test -m wiring --stack my_stack`, validate
    the observed file, commit it as `stacks/my_stack/wiring.md`.
-5. `airstack test -m unit` — the layout contract and the launch lint must pass.
+5. `airstack doctor` and `airstack test -m unit` — the layout contract, the
+   bridge gate, and the launch lint must pass.
+
+The full workflow (including split stacks) is the
+[create-stack skill](https://github.com/castacks/AirStack/blob/develop/.agents/skills/create-stack/SKILL.md).
+
+## Split stacks and `bridge.yaml` (RFC #380 §2)
+
+**A split is a stack shape, not special machinery.** A split stack folder
+carries **multiple launch entry points** — one per host role — plus a
+`bridge.yaml` explicitly listing every topic/service/action that crosses the
+machine boundary (name, type, direction, QoS). The bridge list feeds
+DDS-router config generation and *is* the split, readable in source —
+explicit beats derived. The reference split is
+[`lite_offload_global`](https://github.com/castacks/AirStack/tree/develop/stacks/lite_offload_global):
+
+```text
+stacks/lite_offload_global/
+├── launch/onboard.launch.xml    # the vehicle: lite topology + the DDS router
+├── launch/offboard.launch.xml   # the ground host: global layer only
+├── bridge.yaml                  # THE boundary document
+└── (modules.repos, docker-compose.yaml, README.md, wiring.md as usual)
+```
+
+- **Run each half** with the `NAME:ENTRY` form:
+  `airstack up --stack lite_offload_global:onboard` on the vehicle,
+  `... :offboard` on the ground host. Today's coarse `AUTONOMY_ROLE`
+  trichotomy becomes "which entry point does this host run"; a third machine
+  is just another entry file + bridge section.
+- **Generate the router config** from the bridge list (never hand-edit the
+  output):
+
+  ```bash
+  python3 tools/gen_dds_router.py stacks/lite_offload_global/bridge.yaml
+  # -> .airstack/generated/dds_router.<stack>.yaml (deterministic)
+  ```
+
+- **Anatomy rule:** a stack with two or more entry points **must** carry a
+  `bridge.yaml` (`tests/meta/test_stack_layout_contract.py`).
+- **The placement hard gate:** `control_setpoint` and trajectory-group names
+  (`trajectory_override`, `trajectory_segment_to_add`, `set_trajectory_mode`,
+  `tracking_point`, `look_ahead` — the `trajectory_controller/*` group) must
+  never appear in any `bridge.yaml`. The controller and safety executive are
+  **onboard-only** (link loss must leave the vehicle able to failsafe):
+  `global_plan` crosses, trajectory commands don't. `gen_dds_router.py
+  --check` — run by `airstack doctor` and by
+  `tests/meta/test_bridge_contract.py` — exits 1 naming any violation
+  (RFC #379 §4 / RFC #380 §2). This is one of doctor's **two** enumerated
+  hard gates; growing that list takes the RFC process.
+- **One `wiring.md` per stack, split or not**: the snapshot groups nodes by
+  host and draws bridge edges as boundary crossings.
+
+Canonical names/types/QoS for everything crossing (or forbidden from
+crossing) are in the
+[Interface Conventions Spec](../robot/autonomy/interface_conventions.md).
+
+## The `airstack stack` CLI
+
+```bash
+airstack stack list             # name, entry points (+bridge), wiring.md?, airstack_compat
+airstack stack new <src> <dst>  # copy a reference stack (no wiring.md; refuses overwrite)
+airstack stack diff <a> <b>     # topology diff of two stacks' generated wiring.md
+```
+
+`stack diff` (backed by `tools/stack_diff.py`) compares the **wiring-graph
+trailers** of the two stacks' `wiring.md` files via the same
+`tests/wiring_snapshot.py` machinery CI uses: nodes/edges/topics added or
+removed, QoS and type mismatches — topology differences, never XML
+formatting noise. That, plus shared includable sub-launches, is how
+copy-drift between stack folders stays bounded (RFC #379 §3).
+
+## `airstack doctor`
+
+Observe-and-report health checks (RFC #379 §4). Doctor never generates or
+edits wiring; in default mode it exits non-zero only on the **two enumerated
+hard gates**:
+
+```bash
+airstack doctor                 # compose-time battery:
+                                #  1. module manifests valid          (report)
+                                #  2. overlay integrity               (report)
+                                #  3. HARD GATE: module dep conflicts (RFC #379 §6)
+                                #  4. stack anatomy incl. split=>bridge.yaml (report)
+                                #  5. HARD GATE: control/trajectory names in a
+                                #     bridge.yaml                     (RFC #380 §2)
+
+airstack doctor --live --stack <name>
+                                # capture the RUNNING graph (docker exec per
+                                # robot, same capture as the wiring test) and
+                                # diff it against stacks/<name>/wiring.md —
+                                # exit 1 on drift, 'graph matches wiring.md'
+                                # when identical. Also flags publishers of
+                                # control-setpoint / controller-output topics
+                                # outside the blessed controller chain
+                                # (loud WARN; fatal only with --strict).
+
+airstack doctor --snapshot --stack <name>
+                                # the identical capture, WRITTEN as the
+                                # stack's wiring.md with a provenance line:
+                                # 'observed on <host>, <date>, <sha> —
+                                # unverified-in-CI'. The hardware path for
+                                # stacks that cannot run in CI: an observed
+                                # artifact still can't lie, it is just
+                                # refreshed by hand instead of by CI.
+```
+
+`--stack` is inferred from `AIRSTACK_STACK_DIR` when omitted (exported by
+`airstack up` with the stack flag). `airstack module doctor` remains the
+module-scoped subset (manifests + overlay + `--drift`).
 
 ## AUTONOMY_ROLE deprecation
 
@@ -130,5 +241,6 @@ an explicitly set `AUTONOMY_ROLE`:
 | Explicit `AUTONOMY_ROLE=full` (env / `.env` / `--env-file`) | Legacy dispatch + deprecation warning | `--stack full_default` |
 | `local_droan_cpu.launch.xml` variant | **Deleted in P5-E2** — the CPU-DROAN topology lives only in the stack | `--stack full_droan_cpu` |
 | `local_macvo_obstacle_avoidance.launch.xml` | **Deleted in P5-E2** (was broken: wrong arg names, stale topic) | `--stack full_macvo` (fixed) |
-| `AUTONOMY_ROLE=onboard` / `offboard` (split) | Legacy dispatch + warning | split stacks arrive with RFC #380 §2 (`lite_offload_global`) |
+| `AUTONOMY_ROLE=onboard` (lite, no split) | Legacy dispatch + warning | `--stack lite_default` |
+| `AUTONOMY_ROLE=onboard` / `offboard` (split) | Legacy dispatch + warning | `--stack lite_offload_global:onboard` / `:offboard` (+ `bridge.yaml`) |
 | `--stack X` **and** explicit `AUTONOMY_ROLE` | Stack wins — the role is ignored by the launch dispatch; warning says so | Drop `AUTONOMY_ROLE` |

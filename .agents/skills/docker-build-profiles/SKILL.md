@@ -93,7 +93,8 @@ This section shows the minimal, recommended steps an agent or maintainer should 
       ROS_DISTRO: humble
       PYTHON_VERSION: "3.10"
       REAL_ROBOT: true
-      SKIP_MACVO: true
+     # module-owned deps (e.g. MAC-VO's torch/TensorRT) are NOT build-args:
+     # they layer on via `airstack module lock --build` (RFC #379 S6)
      # for L4T builds only when necessary
      # network: host
   ```

@@ -16,6 +16,12 @@ files:
 ``wiring.md`` is NOT required yet (bootstrap: it is generated from the first
 validated wiring-snapshot run), but when present it must carry the
 machine-readable ``wiring-graph-v1`` trailer that the drift check reads.
+
+Split stacks (RFC #380 §2) extend the anatomy: a stack with **two or more**
+launch entry points is a split stack and MUST carry a ``bridge.yaml``
+explicitly listing every topic/service/action crossing the machine boundary
+(its schema and the control/trajectory placement hard gate are covered by
+``tests/meta/test_bridge_contract.py``).
 """
 import re
 
@@ -96,6 +102,21 @@ class TestStackAnatomy:
         assert len(text) >= 200, (
             f"{stack.name}: README.md is trivial ({len(text)} chars) — state "
             "what the stack is for, how to run it, and its known limits"
+        )
+
+    def test_split_stack_requires_bridge(self, stack):
+        """Two or more entry points = a split stack = an explicit bridge.yaml
+        (RFC #380 §2: the bridge list IS the split, readable in source)."""
+        entries = sorted((stack / "launch").glob("*.launch.xml"))
+        if len(entries) < 2:
+            pytest.skip(f"{stack.name}: unsplit stack "
+                        f"({len(entries)} entry point)")
+        assert (stack / "bridge.yaml").is_file(), (
+            f"{stack.name}: {len(entries)} launch entry points "
+            f"({', '.join(e.name for e in entries)}) but no bridge.yaml — a "
+            "split stack must declare every topic/service/action crossing "
+            "the machine boundary explicitly (RFC #380 §2); generate the "
+            "router config from it with tools/gen_dds_router.py"
         )
 
     def test_wiring_md_trailer_when_present(self, stack):

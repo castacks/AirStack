@@ -5,16 +5,18 @@ This is the stack most users start from and the baseline other stacks are copied
 
 ## What it launches
 
-The entry point `launch/stack.launch.xml` composes the **Local layer as a
-flat set of module-launch includes** (flattened in E2: takeoff/land task
-server, fixed-trajectory task server, GPU DROAN planner, trajectory
-controller, PID controller — each module launch file declares its topic
-endpoints as args with canonical defaults, so bare includes mean canonical
-wiring), and includes the remaining layer bringups — interface, sensors,
-perception, global, behavior, logging — exactly as
-`onboard_autonomy_all.launch.xml` does with default args, plus the two
+The entry point `launch/stack.launch.xml` composes **every layer as a flat
+set of module-launch includes** (Local flattened in E2; sensors, perception,
+global, and behavior in E3): LiDAR near-range filter, stereo
+disparity/point-cloud pair, topic keepalive, takeoff/land task server,
+fixed-trajectory task server, GPU DROAN planner, trajectory controller, PID
+controller, VDB mapping, random-walk global planner, and the drone safety
+monitor — each module launch file declares its topic endpoints as args with
+canonical defaults, so bare includes mean canonical wiring. Plus the two
 role-`full` extras (DDS-router domain bridge to the GCS, gossip coordination
-layer). Flattening the remaining layers arrives in E3.
+layer). Two blocks stay wrapped by design: `interface.launch.py` (the safety
+boundary; flattens with RFC #380 Part 2's platform modules) and
+`logging.launch.xml` (already a single self-contained module).
 
 ## Equivalence claim
 
@@ -39,10 +41,10 @@ The shared per-robot preamble (ROBOT_NAME namespace, `use_sim_time`,
 
 ## Known limits
 
-- Partially flattened: the Local layer is composed module-by-module in
-  `stack.launch.xml`; the other layers' cross-module remaps still live inside
-  their bringup launch files until E3. Grep those bringups (or read
-  `wiring.md`) for their actual topic wiring.
+- The interface layer is a wrapped include (`interface.launch.py`) — its
+  MAVROS wiring is not visible in `stack.launch.xml`; read `wiring.md` for
+  the observed graph. It flattens with the platform-module refactor
+  (RFC #380 Part 2).
 - `modules.repos` pins no external modules yet; every package is trunk-resident.
 - `docker-compose.yaml` is a stub — per-stack image composition arrives with
   the first module pins; trunk compose profiles provide all services.

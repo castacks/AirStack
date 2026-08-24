@@ -2,6 +2,11 @@
 
 This document provides a comprehensive checklist and guidelines for integrating new modules into the AirStack autonomy stack.
 
+> **Canonical names, types, QoS, and frames now live in the versioned
+> [Interface Conventions Specification](interface_conventions.md)** (v1.0.0) —
+> cite that spec for interchange-point contracts; this page remains the
+> step-by-step integration workflow.
+
 ## Overview
 
 When adding a new module to AirStack, proper integration ensures:
@@ -62,7 +67,7 @@ Topics follow this pattern:
 
 Examples:
 
-- `/drone1/perception/macvo/odometry`
+- `/drone1/perception/macvo/odometry` (a module-provided topic — macvo comes from the `asm_macvo` module)
 - `/drone1/local_planner/droan/trajectory`
 - `/drone1/trajectory_controller/tracking_point`
 
