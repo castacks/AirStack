@@ -1,0 +1,52 @@
+# SVG ground control — one drone, gamepad teleop, simulation topics.
+#
+#   ros2 launch svg_ground_control ground_control.launch.py \
+#     config:=$(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/teleop_single.yaml
+#
+# Tests one question: do the sticks move the drone, and does the altitude
+# hold when the left stick is released. One drone, so the CBF has no pair to
+# constrain — see xbox_teleop_test.yaml for the multi-drone CBF test.
+#
+# Spawn the sim with NUM_ROBOTS=1 and run launch_sim_interfaces.sh 1.
+
+swarm_commander:
+  ros__parameters:
+    drone_names: ["drone_1"]
+    drone_modes: "sim"
+    teleop_drones: "drone_1"
+    external_drones: ""
+    cbf_exempt_drones: ""
+
+    scenario: "hover"
+    scenario_speed_mps: 0.6
+    scenario_seed: 7
+    arena_low: [-2.0, -2.0, 0.8]
+    arena_high: [2.0, 2.0, 2.0]
+
+    # One drone spawns at the sim origin, so no offset.
+    drone_position_offsets: [0.0, 0.0, 0.0]
+
+    # Takeoff/hold point, used until /swarm_commander/start.
+    hover_positions: [0.0, 0.0, 1.2]
+
+    state_topic_template: "/{name}/odometry_conversion/odometry"
+    teleop_topic_template: "/svg/{name}/teleop_command"
+
+    control_rate_hz: 20.0
+    state_timeout_s: 0.5
+    teleop_timeout_s: 0.5
+
+    hover_kp: 1.0
+    arrival_threshold_m: 0.15
+    land_speed_mps: 0.3
+    land_complete_altitude_m: 0.15
+
+    cbf_safety_radius_m: 0.55
+    cbf_max_speed_mps: 1.2
+    cbf_alpha: 2.5
+    teleop_max_speed_mps: 1.2
+
+    # Breach -> all drones hold until /swarm_commander/reset_fence.
+    fence_enabled: true
+    fence_min: [-4.0, -2.0, 0.0]
+    fence_max: [4.0, 2.0, 3.0]

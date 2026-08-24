@@ -20,7 +20,9 @@
   <depend>visualization_msgs</depend>
   <depend>airstack_msgs</depend>
   <depend>px4_msgs</depend>
+  <depend>sensor_msgs</depend>
   <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>joy</exec_depend>
 
   <exec_depend>robot_interface</exec_depend>
   <exec_depend>interface_bringup</exec_depend>

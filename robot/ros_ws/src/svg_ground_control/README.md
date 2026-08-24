@@ -46,11 +46,18 @@ Ported from drone_soccer plus goal-tracking and a squeeze profile:
   two holders goal-track explicit posts; the intruder shuttles through the
   gap; the holders must yield and return. Order: `[holder, holder, intruder]`.
 
-`teleop_drones` (comma-separated string) lists operator-driven, **CBF-exempt**
-drones (the moving obstacles) — empty = fully autonomous. `external_drones`
-are tracked for the filter but never commanded (e.g. RC-flown). Drive a
-teleop drone with `ros2 run svg_ground_control keyboard_teleop --ros-args -p
-drone:=drone_3` (one instance per teleop drone).
+`teleop_drones` (comma-separated string) lists operator-driven drones — empty
+= fully autonomous. Teleop is a control-source role, not a safety exemption:
+a teleop drone's commanded velocity is still passed through the CBF filter
+like any autonomous drone unless it is also listed in `cbf_exempt_drones`
+(separate, opt-in, empty by default). `external_drones` are tracked for the
+filter but never commanded (e.g. RC-flown). Drive a teleop drone with
+`ros2 run svg_ground_control keyboard_teleop --ros-args -p drone:=drone_3`
+(one instance per teleop drone).
+
+A gamepad works too — `xbox_teleop` gives continuous proportional sticks
+instead of latched speed steps. See [teleop.md](teleop.md) for both drivers,
+finding your pad's axis numbers, and where each node has to run.
 
 ## Hybrid sim/real, geofence, RViz
 
@@ -79,8 +86,11 @@ squeeze rollout), and [test/functional_squeeze_test.py](test/functional_squeeze_
 
 ## Safety notes
 
-- Teleop drones are CBF-exempt by design — the autonomous drones do the
-  dodging. The operator (you) is the safety authority for the obstacle.
+- Teleop drones are CBF-protected by default, same as autonomous ones — the
+  filter corrects an operator's command like any other drone's. Add a drone
+  to `cbf_exempt_drones` if you deliberately want it uncorrected (e.g. it
+  should act as the moving obstacle the others dodge); in that case the
+  operator becomes the safety authority for it instead of the filter.
 - This stack bypasses `drone_safety_monitor`; PX4 failsafes and the RC kill
   switch are the safety net. Configure them before flying.
 - Stale odometry (> `state_timeout_s`) → zero-velocity command; stale teleop
