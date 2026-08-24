@@ -1,5 +1,5 @@
 # bridge.yaml — the machine boundary of the lite_offload_global split stack
-# (RFC #380 S2: a split stack carries one launch entry point per host role
+# (a split stack carries one launch entry point per host role
 # plus THIS explicit list of every topic/service/action crossing the
 # boundary — the bridge list feeds DDS-router config generation and *is* the
 # split, readable in source; explicit beats derived).
@@ -22,7 +22,7 @@
 #   qos                  : reliable | best_effort (topics; QoS verified
 #                          against full_default's observed wiring.md).
 #
-# HARD GATE (RFC #379 S4 / RFC #380 S2): control_setpoint and trajectory-group
+# HARD GATE: control_setpoint and trajectory-group
 # names (trajectory_override, trajectory_segment_to_add, set_trajectory_mode,
 # tracking_point, look_ahead — the trajectory_controller/* group) must NEVER
 # appear here. Command authority stays onboard; link loss must leave the

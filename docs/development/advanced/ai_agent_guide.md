@@ -25,7 +25,7 @@ This guide provides a concise reference for AI agents working with AirStack. For
 graph LR
     Study[Study Reference<br/>Implementation] --> Create[Create Package<br/>add-ros2-package]
     Create --> Implement[Implement<br/>Algorithm]
-    Implement --> Integrate[Integrate to Layer<br/>integrate-module-into-layer]
+    Implement --> Integrate[Integrate into Stack<br/>integrate-module-into-layer]
     Integrate --> Document[Document<br/>update-documentation]
     Document --> Test[Test in Sim<br/>test-in-simulation]
     Test --> Debug{Works?}
@@ -105,10 +105,10 @@ Quick checklist when adding a module:
 - [ ] Package in correct layer directory
 - [ ] `package.xml` with all dependencies
 - [ ] CMakeLists.txt / setup.py configured
-- [ ] Launch file with topic remapping
+- [ ] Launch file with topic args (canonical defaults, no `<remap>`)
 - [ ] Config file with parameters
 - [ ] README.md with documentation
-- [ ] Added to layer bringup
+- [ ] Included in the stack's entry launch file (`stacks/<name>/launch/`)
 - [ ] Added to mkdocs.yml navigation
 - [ ] Tested standalone
 - [ ] Tested in full stack
@@ -126,7 +126,7 @@ Study these before implementing similar modules:
 | Controller | Trajectory Controller | `robot/ros_ws/src/local/c_controls/trajectory_controller` |
 | World Model | Disparity Expansion | `robot/ros_ws/src/local/world_models/disparity_expansion` |
 | Global Planner | Random Walk | `robot/ros_ws/src/global/planners/random_walk` |
-| Behavior Node | Example Actions | `robot/ros_ws/src/behavior/behavior_tree_example` |
+| Behavior / Safety | Drone Safety Monitor | `robot/ros_ws/src/behavior/drone_safety_monitor` |
 
 ## Autonomous Debugging Strategy
 
@@ -200,8 +200,8 @@ Full documentation workflow: [update-documentation skill](../../../.agents/skill
 - ✅ Use launch arguments for all topics
 
 ### Integration Issues
-- ❌ Not adding module to bringup package
-- ❌ Not updating bringup `package.xml` dependencies
+- ❌ Not including the module in the stack's entry launch file
+- ❌ Putting `<remap>` in the module launch file instead of the stack file
 - ✅ Follow [integrate-module-into-layer](../../../.agents/skills/integrate-module-into-layer)
 
 ### Documentation Issues

@@ -2,7 +2,7 @@
 
 This describes how a small always-on orchestrator service runs GitHub Actions jobs on truly ephemeral GPU workers scheduled by [NVIDIA OSMO](https://nvidia.github.io/OSMO/). The orchestrator is a Python service that continuously polls GitHub for queued workflow jobs, submits a fresh **OSMO workflow** for each one (a single-use JIT runner in a privileged, GPU-enabled container), and reaps it when the job completes. Each CI job runs on a clean pod with no state shared between runs and no long-lived credentials on the worker.
 
-This is a drop-in replacement for the previous OpenStack-Nova backend. The GitHub side is unchanged — `system-tests.yml` still uses `runs-on: [self-hosted, airstack-ephemeral]`, the single-use JIT runner config, and the same-repo fork guard. Only the *spawn target* changed from "create a Nova VM" to "submit an OSMO workflow", so the one-job-per-worker, destroy-after semantics are identical: when the runner's `run.sh` exits after one job, the OSMO task completes and the pod is torn down.
+On the GitHub side, `system-tests.yml` uses `runs-on: [self-hosted, airstack-ephemeral]`, a single-use JIT runner config, and a same-repo fork guard. The worker semantics are one-job-per-worker, destroy-after: when the runner's `run.sh` exits after one job, the OSMO task completes and the pod is torn down.
 
 The orchestrator host is the only machine that holds the GitHub PAT and the OSMO service-account token; workers are destroyed after a single job.
 
@@ -46,7 +46,7 @@ Key properties:
 
 - **Truly ephemeral**: every job runs on a clean pod. No Docker layer cache pollution, no leftover containers, no carry-over from prior runs.
 - **PAT isolation**: the GitHub PAT lives only on the orchestrator. Workers receive a single-use [JIT runner config](https://docs.github.com/en/rest/actions/self-hosted-runners?apiVersion=2022-11-28#create-configuration-for-a-just-in-time-runner-for-a-repository) — a base64 token bound to one runner registration, valid only for a short window.
-- **Service-account auth**: the orchestrator authenticates to OSMO with a shared, non-personal [service-account token](https://nvidia.github.io/OSMO/main/deployment_guide/appendix/authentication/service_accounts.html) (the analog of the old OpenStack application credential). CI runs never route through an individual's account, so PRs don't consume anyone's personal GPU quota and nothing breaks when a person leaves.
+- **Service-account auth**: the orchestrator authenticates to OSMO with a shared, non-personal [service-account token](https://nvidia.github.io/OSMO/main/deployment_guide/appendix/authentication/service_accounts.html). CI runs never route through an individual's account, so PRs don't consume anyone's personal GPU quota and nothing breaks when a person leaves.
 - **Crash-safe reaping**: every workflow is named `gha-runner-<job_id>-<ts>`. The reap loop cancels any active workflow with that prefix not present in `state.json`, so a crashed orchestrator can't leak workflows.
 
 ## Prerequisites
@@ -63,7 +63,7 @@ Key properties:
 
 ### 1. Build & push the runner image
 
-The worker image bakes in Docker CE + compose, the NVIDIA container toolkit, and the GitHub Actions runner (what cloud-init used to install at boot on the VM), so pod start is fast and the JIT token can't expire mid-bootstrap.
+The worker image bakes in Docker CE + compose, the NVIDIA container toolkit, and the GitHub Actions runner, so pod start is fast and the JIT token can't expire mid-bootstrap (no install work at boot).
 
 ```bash
 cd .github/orchestrator
@@ -172,7 +172,7 @@ repo**, and the orchestrator polls exactly one `repo:` per instance. To add an
 
 First-party only: the reusable workflow refuses callers outside the castacks
 org, mirroring the fork-PR block. Org-level polling across registered repos
-(one instance, many repos) is the RFC #379 Phase 4 replacement for this
+(one instance, many repos) is planned as a future replacement for this
 per-repo setup.
 
 ## Operational notes
@@ -251,7 +251,7 @@ osmo workflow logs "$WF" --task runner -n 300    # last 300 lines
 
 ### 4. Break-glass shell into a running worker
 
-If the workflow is still `RUNNING`, exec into the pod (replaces the old SSH-via-floating-IP path):
+If the workflow is still `RUNNING`, exec into the pod:
 
 ```bash
 osmo workflow exec "$WF" runner            # /bin/bash in the runner task

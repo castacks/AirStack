@@ -17,7 +17,7 @@ Key inputs:
 | `PYTHON_VERSION` | Must match the ROS Python path; **quote in YAML** (e.g. `"3.12"`) |
 | `REAL_ROBOT` | Platform-specific content toggles |
 
-Heavy, algorithm-specific dependencies (e.g. MAC-VO's torch/TensorRT stack) are **not** build-args anymore — they live in each module's `Dockerfile.module` and are layered onto the trunk base image by `airstack module lock --build` (RFC #379 §6).
+Heavy, algorithm-specific dependencies (e.g. MAC-VO's torch/TensorRT stack) are **not** build-args — they live in each module's `Dockerfile.module` and are layered onto the trunk base image by `airstack module lock --build` (see [Docker layer composition](../modules.md#docker-layer-composition)).
 
 ## Example profiles
 

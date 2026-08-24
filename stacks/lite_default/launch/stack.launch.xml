@@ -1,5 +1,5 @@
 <!--
-  lite_default : trunk reference stack (RFC #379 S3) — the onboard-lite
+  lite_default : trunk reference stack — the onboard-lite
   topology, unsplit.
 
   This is the lite topology as a self-contained stack (historically the
@@ -81,19 +81,19 @@
   <!-- Trajectory controller: odometry in from odometry_conversion; serves the
        trajectory_controller/* topic group (override, segment, mode, tracking
        point, look_ahead) by relative name in its namespace. ONBOARD-ONLY per
-       RFC #380 S2 — never place this module offboard. -->
+       — never place this module offboard. -->
   <include file="$(find-pkg-share trajectory_controller)/launch/trajectory_controller.launch.xml" />
 
   <!-- PID controller: odometry in from odometry_conversion, tracking_point in
        from the trajectory controller; attitude/thrust command out to the
-       interface (cmd_roll_pitch_yawrate_thrust). ONBOARD-ONLY per RFC #380 S2. -->
+       interface (cmd_roll_pitch_yawrate_thrust). ONBOARD-ONLY. -->
   <include file="$(find-pkg-share pid_controller)/launch/pid_controller.launch.xml" />
 
   <!-- ── Behavior, flat ──────────────────────────────────────────────────── -->
 
   <!-- Safety monitor: odometry watchdog (state_estimate in from
        odometry_conversion); trajectory mode out to the trajectory controller
-       on safety events. The safety executive is ONBOARD-ONLY per RFC #380 S2. -->
+       on safety events. The safety executive is ONBOARD-ONLY by design: it must keep working when the bridge drops. -->
   <include file="$(find-pkg-share drone_safety_monitor)/launch/drone_safety_monitor.launch.xml" />
 
   <!-- NO global layer and NO logging layer in lite. Pair with an offboard

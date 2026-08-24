@@ -54,7 +54,7 @@ Robot
 └── Behavior Layer: High-level decision making
 ```
 
-Capabilities beyond the trunk live in **modules** — thin external repos pulled on demand (`airstack module add <url> --version <pin>`) and listed in the [module registry](https://github.com/castacks/airstack-modules-index) — and multi-robot deployments are declared by **fleet files** under `config/fleets/` (see [RFC #379](https://github.com/castacks/AirStack/discussions/379) / [RFC #380](https://github.com/castacks/AirStack/discussions/380)).
+Capabilities beyond the trunk live in **modules** — thin external repos pulled on demand (`airstack module add <url> --version <pin>`) and listed in the [module registry](https://github.com/castacks/airstack-modules-index) — and multi-robot deployments are declared by **fleet files** under `config/fleets/`.
 
 ## 📁 Repository Structure
 

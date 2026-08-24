@@ -1,4 +1,4 @@
-# Per-stack image composition (RFC #379 S6) arrives with this stack's first
+# Per-stack image composition arrives with this stack's first
 # module pins: the P4 machinery (tools/compose_module_layers.py) composes
 # per-module dependency layers on top of the trunk base image and emits a
 # compose override for `airstack up`.

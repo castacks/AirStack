@@ -5,6 +5,9 @@ site_name: AirStack
 site_dir: ../site
 site_url: "https://docs.theairlab.org/docs/" # Trailing slash is recommended
 exclude_docs: |
+  # docs/README.md is the GitHub-facing readme for the docs/ folder; the site
+  # page for that URL is docs/index.md, and same-dir would otherwise collide.
+  docs/README.md
   **/ros_ws/build
   **/docker/Foxglove
   **/ros_ws/install
@@ -207,6 +210,7 @@ nav:
           - docs/real_world/HITL/index.md
       - Data Offloading:
           - docs/real_world/data_offloading/index.md    
+  - Release Notes: docs/release_notes/index.md
   - About: docs/about.md
 plugins:
   - search

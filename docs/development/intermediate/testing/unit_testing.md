@@ -82,8 +82,9 @@ AIRSTACK_ROOT=$(pwd) pytest tests/ -m unit -v
 |---|---|---|
 | `lidar_point_cloud_filter` | `sensors/lidar_point_cloud_filter/test/test_validation_core.py` | Pure-numpy LiDAR range validation rules |
 
-(The `natnet_ros2` unit tests moved to the
-[asm_optitrack module](https://github.com/castacks/asm_optitrack) and run in its CI.)
+(Unit tests for module-owned packages — e.g. `natnet_ros2` in the
+[asm_optitrack module](https://github.com/castacks/asm_optitrack) — live in
+the module repo and run in its CI.)
 
 ## Adding a new unit test
 

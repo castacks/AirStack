@@ -1,6 +1,6 @@
 ---
 name: bump-version-and-release
-description: Bump the AirStack VERSION in .env (semver) before merging a PR that changes Docker image content, and update CHANGELOG. Required to pass the check-version-increment gate and to trigger the docker-build release workflow.
+description: Bump the AirStack VERSION in .env (semver) before merging a PR that changes Docker image content, and record the change in the versioned Release Notes (docs/release_notes/index.md). Required to pass the check-version-increment gate and to trigger the docker-build release workflow.
 license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
@@ -127,16 +127,21 @@ Open `/.env` and change exactly the `VERSION=` line. Keep the surrounding commen
 
 The validator strips surrounding `"` or `'`, so either quoting style works, but match the existing style (double quotes).
 
-### 3. Update `CHANGELOG.md`
+### 3. Update the Release Notes
 
-Add an entry under `## [Unreleased]` describing your change (see "CHANGELOG Conventions" below). For a true release (no pre-release suffix), promote `[Unreleased]` to a new dated version section.
+All change records live in the versioned Release Notes page,
+`docs/release_notes/index.md` (there is no CHANGELOG.md — this page is the
+single source). Add your bullets under the current version's `##` section
+(see "Release Notes Conventions" below). For a true release (no pre-release
+suffix), stamp that section's heading with the release date and open a fresh
+`## <next-version> (Unreleased)` section above it.
 
 ### 4. Verify locally
 
 ```bash
 airstack version                                    # prints the new value
 grep '^VERSION=' .env                               # sanity-check the literal line
-git diff .env CHANGELOG.md                          # review the diff
+git diff .env docs/release_notes/index.md          # review the diff
 ```
 
 Optional regex preflight (mirrors the CI check):
@@ -155,19 +160,25 @@ Bump version to 0.18.0-alpha.8
 
 Recent commits in this repo use exactly this phrasing (`Bump version to 0.17.0`, `Bump version to 0.16.1`).
 
-## CHANGELOG Conventions
+## Release Notes Conventions
 
-`CHANGELOG.md` follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/) and Semantic Versioning. The literal layout in the repo is:
+`docs/release_notes/index.md` is the versioned change record rendered on
+the docs site — one `##` section per version, newest first, with the current
+in-progress version marked `(Unreleased)`. It is also the ONLY place
+change-relative language ("changed from", "renamed", "removed", RFC/PR
+references) is allowed; feature docs describe only the current system (see
+the `write-mkdocs-documentation` skill).
+
+Layout:
 
 ```markdown
-# Changelog
+# Release Notes
 
-All notable changes to this project will be documented in this file.
+<standing intro paragraph — do not edit per change>
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## <VERSION> (Unreleased)
 
-## [Unreleased]
+<optional narrative paragraph for the release theme>
 
 ### Added
 
@@ -176,39 +187,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - <bullet>
-
-### Fixed
-
-- <bullet>
-
-## [1.0.0] - 2024-12-19
-
-First official public release.
-
-### Added
-
-- <bullets>
-
-### Fixed
-
-- <bullets>
-
-### Changed
-
-- <bullets>
 
 ### Removed
 
-- <bullets>
+- <bullet>
+
+### Fixed
+
+- <bullet>
+
+## <PREV VERSION> — <YYYY-MM-DD>
+
+...
 ```
 
 Rules:
 
-- Use the H2 sections **Added**, **Changed**, **Fixed**, **Removed**, **Deprecated**, **Security** as needed (Keep a Changelog standard set).
-- For pre-release bumps (`-alpha.N`, `-beta.N`, `-rc.N`), keep your bullets under `## [Unreleased]`. Do not create a section per alpha.
-- For a release bump (no suffix), rename `[Unreleased]` to `## [<VERSION>] - <YYYY-MM-DD>` and add a fresh empty `## [Unreleased]` above it.
-- Use ISO date format `YYYY-MM-DD`.
-- Write user-facing prose, not commit log dumps. Mention new modules, breaking changes, and notable behavior shifts.
+- Use the H3 sections **Added**, **Changed**, **Fixed**, **Removed**, **Deprecated**, **Security** as needed; a release may also open with a short narrative and breaking-changes subsection.
+- For pre-release bumps (`-alpha.N`, `-beta.N`, `-rc.N`), keep your bullets under the current `(Unreleased)` section. Do not create a section per alpha.
+- For a release bump (no suffix), retitle the section to `## <VERSION> — <YYYY-MM-DD>` and open a fresh `## <next-version> (Unreleased)` above it.
+- Write user-facing prose, not commit log dumps. Mention new modules, breaking changes, and notable behavior shifts, with what changed FROM what.
 
 ## Common Pitfalls
 
@@ -216,11 +214,11 @@ Rules:
 - **Invalid semver.** Forms like `1.2`, `1.2.3-rc1`, `1.2.3-dev`, `1.2.3+sha.abc`, `v1.2.3`, or empty strings fail with `::error::VERSION '<x>' does not match the required format.` The only allowed pre-release tags are exactly `alpha`, `beta`, `rc`, each followed by a literal dot and an integer (e.g. `-rc.1`, never `-rc1`).
 - **Going backwards.** `0.18.0 → 0.18.0-rc.1` looks like progress but is a regression: release > rc. Always move forward in the comparison tuple.
 - **Two PRs racing for the same number.** Whichever merges last wins; the loser's `check-version-increment` will start failing the moment the base advances past it. Rebase on the updated base branch and bump again.
-- **Bumping but forgetting the CHANGELOG.** No CI gate enforces this, but reviewers will (and the release docs workflow lists what shipped per version, so missing entries become invisible history).
+- **Bumping but forgetting the Release Notes.** No CI gate enforces this, but reviewers will (and the versioned docs deploys snapshot the page per release, so missing entries become invisible history).
 - **Bumping for pure docs PRs.** Wastes a registry tag. Prefer to keep docs-only changes off `.env` if possible — but if the gate is failing, an alpha bump is the path of least resistance.
 - **Editing `VERSION=` quoting.** The extractor regex `^VERSION\s*=\s*["\']?([^"\'#\s]+)` handles double quotes, single quotes, or no quotes, and stops at `#`/whitespace. Don't add inline comments after the value (e.g. `VERSION="0.18.1" # bumped`) — the trailing `# bumped` will be stripped from the value but obscures intent; put comments on their own line above.
 - **Touching only sub-compose `.env` files.** The check looks at the **repo-root** `.env` only. `robot/docker/.env` and friends are container env files, not the version source of truth.
-- **Force-pushing after merge to fix CHANGELOG.** Don't. Land a follow-up PR with the CHANGELOG correction (and, by the rules above, another tiny VERSION bump).
+- **Force-pushing after merge to fix Release Notes.** Don't. Land a follow-up PR with the correction (docs-only, so no VERSION bump needed unless the gate demands one).
 
 ## Release Checklist
 
@@ -229,8 +227,8 @@ For a normal feature/fix PR:
 1. [ ] Confirm the PR changes Docker image content or otherwise warrants a bump (see "When to Use").
 2. [ ] Pick the bump type (see "Choosing the Bump Type").
 3. [ ] Edit `/.env` — change only the `VERSION=` line.
-4. [ ] Update `CHANGELOG.md` under `## [Unreleased]`.
-5. [ ] `airstack version` and `git diff .env CHANGELOG.md` to verify.
+4. [ ] Add your bullets to `docs/release_notes/index.md` under the current `(Unreleased)` version section.
+5. [ ] `airstack version` and `git diff .env docs/release_notes/index.md` to verify.
 6. [ ] Commit (`Bump version to <new>` is the established style).
 7. [ ] Push and open the PR. Confirm `Check VERSION Increment` passes green.
 8. [ ] After review, merge into `develop` (or `main` per branch policy).
@@ -240,7 +238,7 @@ For a true release (dropping the pre-release suffix):
 
 1. [ ] Land final fixes on `develop` with `-rc.N` bumps.
 2. [ ] Open a PR that bumps `VERSION="X.Y.Z-rc.N"` → `VERSION="X.Y.Z"`.
-3. [ ] In the same PR, promote `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` and add a fresh empty `## [Unreleased]`.
+3. [ ] In the same PR, retitle the Release Notes section to `## X.Y.Z — YYYY-MM-DD` and open a fresh `## <next-version> (Unreleased)` above it.
 4. [ ] Merge to `main`.
 5. [ ] Wait for `docker-build.yml` to push and sign all images.
 6. [ ] Create a GitHub Release with tag `X.Y.Z` (matching `VERSION` exactly). Publishing the release fires `deploy_docs_from_release.yaml`, which runs `mike deploy --push --update-aliases X.Y.Z latest` and updates the versioned docs site.
@@ -249,13 +247,12 @@ For a true release (dropping the pre-release suffix):
 ## References
 
 - [`/.env`](../../../.env) — source of truth for `VERSION=`
-- [`/CHANGELOG.md`](../../../CHANGELOG.md) — release history
+- [`/docs/release_notes/index.md`](../../../docs/release_notes/index.md) — the versioned Release Notes (release history)
 - [`/.github/workflows/check-version-increment.yml`](../../../.github/workflows/check-version-increment.yml) — the PR gate (semver regex lives here)
 - [`/.github/workflows/docker-build.yml`](../../../.github/workflows/docker-build.yml) — build/push/sign on tag change
 - [`/.github/workflows/deploy_docs_from_release.yaml`](../../../.github/workflows/deploy_docs_from_release.yaml) — versioned docs on release
 - [`/.github/workflows/deploy_docs_from_main.yaml`](../../../.github/workflows/deploy_docs_from_main.yaml) and [`deploy_docs_from_develop.yaml`](../../../.github/workflows/deploy_docs_from_develop.yaml) — branch-tracking docs aliases
 - [`/airstack.sh`](../../../airstack.sh) — defines `airstack version` and `get_VERSION` (used everywhere image tags are built)
-- [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 - [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html)
 
 ## Related Skills

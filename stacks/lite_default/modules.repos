@@ -1,4 +1,4 @@
-# modules.repos : module pins for the lite_default reference stack (RFC #379 S3).
+# modules.repos : module pins for the lite_default reference stack.
 #
 # vcstool format, PINNED to tags/commits (never branches). `airstack module sync`
 # reads this file into the gitignored modules/ dir; a stack with a pinned .repos

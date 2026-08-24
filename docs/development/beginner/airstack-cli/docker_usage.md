@@ -103,7 +103,7 @@ airstack ready          # staged progress, per-gate diagnostics
 airstack ready --json   # machine-readable (last line), exit 0 when ready
 ```
 
-The previous `docker compose up` launches robot_bringup in a tmux session. To attach to the session within the docker container, e.g. to inspect output, run `tmux a`.
+With `AUTOLAUNCH` enabled (the default), each robot container launches the autonomy stack in a tmux session. To attach to the session within the docker container, e.g. to inspect output, run `tmux a`.
 
 The following commands are available within the robot container:
 
@@ -113,10 +113,10 @@ cws  # cleans workspace
 bws  # builds workspace
 bws --packages-select [your_packages] # builds only desired packages
 sws  # sources workspace
-ros2 launch robot_bringup robot.launch.xml  # top-level launch
+ros2 launch autonomy_bringup robot.launch.xml  # top-level launch (dispatches the selected stack)
 ```
 
-These aliases are defined in `AirStack/robot/.bashrc`.
+These aliases are defined in `AirStack/robot/docker/.bashrc`.
 
 Each robot has `ROS_DOMAIN_ID` set to its ID number. `ROBOT_NAME` is set to `robot_$ROS_DOMAIN_ID`.
 
@@ -138,7 +138,7 @@ On the GCS `ROS_DOMAIN_ID` is set to 0.
 
 The containers mimic the robots' onboard computers on the same network. Therefore we intend to interface with the robots through ssh.
 
-The `gcs` and `docker-robot-*` containers are setup with ssh daemon, so you can ssh into the containers using the IP address.
+The `gcs` and robot containers are set up with an ssh daemon, so you can ssh into the containers using the IP address.
 
 You can get the IP address of each container by running the following command:
 

@@ -75,7 +75,7 @@ If a save doesn't appear in the dropdown after creating it, click the dropdown a
 
 | Symptom | Likely cause |
 |---|---|
-| Clicks don't register | Click capture isn't enabled, or the Publish tool isn't set to **Click position** |
+| Clicks don't register | Click capture isn't enabled, or the Publish tool isn't set to **Publish 2D point** |
 | Clicks register but no marker shows | The 3D panel doesn't have the editor's marker topic enabled — open its Topics list and toggle on `/gcs/waypoints/markers` (or `/gcs/polygon/markers`) |
 | Saves don't persist | Host volume `~/.airstack` not mounted on the GCS container |
 | Save name silently overwrites | Both **+ Add** and **Save** overwrite by name — pick a unique name |

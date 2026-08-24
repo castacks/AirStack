@@ -93,7 +93,7 @@ This modular design means you can:
 
 ## Stacks, Modules, and Fleets
 
-Beyond containers, AirStack organizes the *autonomy software itself* into three composable concepts (RFC #379/#380):
+Beyond containers, AirStack organizes the *autonomy software itself* into three composable concepts:
 
 **Modules** are individual capabilities packaged as thin external repos — a planner, a sensor driver, an Isaac Sim scene library — each carrying a small `module.yaml` manifest. You pull them on demand with `airstack module add <url> --version <tag|sha>` (always pinned to a tag or SHA, never a branch); the CLI validates the manifest, mounts the module into the right containers, and `airstack module list` shows what you have. **Learn more:** [AirStack Modules](../modules.md)
 

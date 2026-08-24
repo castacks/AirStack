@@ -10,9 +10,9 @@
 |---|---|
 | Repository | [castacks/asm_dfm2_disturbances](https://github.com/castacks/asm_dfm2_disturbances) |
 | Type | `isaac_extension` |
-| Maintainer | maintainers@theairlab.org |
-| License | MIT |
-| Registered ref | [`af3daa783248`](https://github.com/castacks/asm_dfm2_disturbances/tree/af3daa783248b07b82165833d419d322ab3137fe) |
+| Maintainer | ajong@andrew.cmu.edu |
+| License | BSD-3-Clause-Clear |
+| Registered ref | [`cf82cdbe5e44`](https://github.com/castacks/asm_dfm2_disturbances/tree/cf82cdbe5e44757e0034a24248ae887c8d91c0b4) |
 | Declared compat | `>=0.19.0-alpha.18 <0.20.0` |
 | Registry entry | [modules/dfm2_disturbances.yaml](https://github.com/castacks/airstack-modules-index/blob/main/modules/dfm2_disturbances.yaml) |
 
@@ -21,13 +21,13 @@
 From an AirStack checkout ([AirStack Modules guide](../development/modules.md)):
 
 ```bash
-airstack module add https://github.com/castacks/asm_dfm2_disturbances --version af3daa783248b07b82165833d419d322ab3137fe
-airstack up -f .airstack/generated/docker-compose.modules.yaml
+airstack module add https://github.com/castacks/asm_dfm2_disturbances --version cf82cdbe5e44757e0034a24248ae887c8d91c0b4
+airstack up
 ```
 
 `module add` pins the module in `modules.repos` and syncs it into the
-gitignored `modules/` overlay; the generated compose file mounts it into
-the containers.
+gitignored `modules/` overlay; `airstack up` automatically includes the
+generated compose override that mounts it into the containers.
 
 ## Compatibility: declared vs verified
 
@@ -37,15 +37,15 @@ stamped exclusively by CI runs of the reusable
 [module-system-tests workflow](../development/module_ci.md) — lives in the
 registry's [compat/ matrix](https://github.com/castacks/airstack-modules-index/tree/main/compat)
 ([compat/dfm2_disturbances.yaml](https://github.com/castacks/airstack-modules-index/blob/main/compat/dfm2_disturbances.yaml) once stamped).
-A compatibility claim that isn't CI-verified rots (RFC #379 §5): trust the
+A compatibility claim that isn't CI-verified rots: trust the
 matrix, read the declaration as intent.
 
 ## Documentation
 
-- [Module README on GitHub @ `af3daa783248`](https://github.com/castacks/asm_dfm2_disturbances/blob/af3daa783248b07b82165833d419d322ab3137fe/README.md)
+- [Module README on GitHub @ `cf82cdbe5e44`](https://github.com/castacks/asm_dfm2_disturbances/blob/cf82cdbe5e44757e0034a24248ae887c8d91c0b4/README.md)
 - *The module repo was not fetched when this page was generated — the*
-  *links above go to GitHub at the registered ref (RFC #379 §9 failure*
-  *isolation: an unreachable module repo never fails the docs deploy).*
+  *links above go to GitHub at the registered ref (failure isolation:*
+  *an unreachable module repo never fails the docs deploy).*
 
 ## Registered stacks using this module
 
@@ -53,4 +53,4 @@ matrix, read the declaration as intent.
 
 ## Registry notes
 
-> Pilot module of RFC #379, hand-built before the tooling existed (see the repo's FRICTION_LOG.md). registered_ref is a commit SHA because no release tag exists yet: v0.1.0 is pending the first green module-system-tests.yml CI run. Validated end-to-end locally on 2026-08-20 (extraction campaign) — declared marks liveliness + takeoff_hover_land in the module's test_stack on Isaac Sim.
+> registered_ref is a commit SHA because no release tag exists yet: v0.1.0 is pending the first green module-system-tests.yml CI run. Validated end-to-end locally on 2026-08-20 — declared marks liveliness + takeoff_hover_land in the module's test_stack on Isaac Sim.

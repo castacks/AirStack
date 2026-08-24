@@ -111,7 +111,7 @@ For detailed step-by-step instructions, refer to the **`.agents/skills/`** direc
 | [add-behavior-tree-node](.agents/skills/add-behavior-tree-node) | Creating behavior tree nodes |
 | [use-airstack-cli](.agents/skills/use-airstack-cli) | Using the `airstack` CLI and the non-interactive `docker exec` pattern |
 | [configure-multi-robot](.agents/skills/configure-multi-robot) | Setting up multiple robots — fleet files (`--fleet`, heterogeneous + split placement) and legacy NUM_ROBOTS, ROBOT_NAME namespacing, ROS_DOMAIN_ID isolation |
-| [bump-version-and-release](.agents/skills/bump-version-and-release) | Bumping `.env` VERSION and CHANGELOG before merge to clear the version-check gate |
+| [bump-version-and-release](.agents/skills/bump-version-and-release) | Bumping `.env` VERSION and recording the change in the versioned Release Notes (docs/release_notes/index.md) before merge to clear the version-check gate |
 | [capture-discovered-knowledge](.agents/skills/capture-discovered-knowledge) | After long context-discovery / surprising findings, persist to AGENTS.md or a new skill so the next agent doesn't redo the work |
 | [use-feature-notebook](.agents/skills/use-feature-notebook) | At the start of EVERY feature implementation: create `notebook/NNN-feature-slug/design_spec.md`, store test artifacts under `results/`, write `results/results_summary.md`, and populate the PR from it |
 
@@ -155,7 +155,7 @@ Study these well-structured modules as examples for different types:
 | **Controller** | Trajectory Controller | `robot/ros_ws/src/local/c_controls/trajectory_controller` |
 | **Global Planner** | Random Walk | `robot/ros_ws/src/global/planners/random_walk` |
 | **Global World Model** | VDB Mapping | `robot/ros_ws/src/global/world_models/vdb_mapping_ros2` |
-| **Behavior** | Behavior Tree | `robot/ros_ws/src/behavior/behavior_tree` |
+| **Behavior** | Drone Safety Monitor | `robot/ros_ws/src/behavior/drone_safety_monitor` |
 
 Each reference shows:
 - Package structure (CMakeLists.txt, package.xml, config, launch)

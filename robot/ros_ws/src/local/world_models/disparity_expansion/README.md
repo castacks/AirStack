@@ -1,4 +1,4 @@
-# README #
+# Disparity Expansion
 
 This package generates a world representation using disparity images. This enables planning in image space by applying C-space expansion in 2.5D disparity images.
 

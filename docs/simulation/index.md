@@ -1,6 +1,8 @@
 # Simulation
 
-AirStack provides high-fidelity simulation environments for developing and testing autonomous systems before deploying to hardware. Simulation enables rapid iteration, safe testing of edge cases, and multi-robot scenarios.
+AirStack provides simulation environments for developing and testing autonomous systems before deploying to hardware. Simulation enables rapid iteration, safe testing of edge cases, and multi-robot scenarios.
+
+Three simulators are supported because no single one covers every development need: **Isaac Sim** (primary) for high-fidelity rendering, physics, and full sensor suites; **Microsoft AirSim (legacy)** for native PX4-in-the-loop testing with pre-built Unreal Engine scenes and no Omniverse dependency; and **Simple Sim** for fast, lightweight iteration on planning and perception code without PX4 or a heavyweight GPU workload. Pick the lightest simulator that exercises what you're working on.
 
 ## Directory Structure
 
@@ -12,10 +14,10 @@ simulation/
 │   ├── docker/                    # Isaac Sim containerization
 │   │   ├── docker-compose.yaml    # Main launch configuration
 │   │   └── Dockerfile.isaac-ros   # Image definition
-│   ├── assets/                    # 3D models and props
-│   ├── config/                    # Simulation configurations
+│   ├── assets/                    # Scenes, 3D models and props
 │   ├── extensions/                # Custom Isaac Sim extensions
-│   └── launch_scripts/            # Python launch scripts
+│   ├── launch_scripts/            # Python launch scripts
+│   └── utils/                     # Shared helpers
 ├── ms-airsim/
 │   ├── docker/                    # Microsoft AirSim (legacy) containerization
 │   │   ├── docker-compose.yaml    # Launch configuration
@@ -85,13 +87,13 @@ An open-source drone simulator built on Unreal Engine with native PX4 SITL integ
 - Depth-based obstacle avoidance testing (DROAN)
 - Environments from the Unreal Engine ecosystem
 
-**Launch:** `airstack up --env-file overrides/ms-airsim.env`
+**Launch:** `airstack up --sim airsim`
 
 **Location:** `simulation/ms-airsim/`
 
 ### Simple Sim (Lightweight)
 
-A lightweight kinematic simulator (single ROS 2 node, no PX4/MAVROS — it mocks the MAVROS interface directly) for fast iteration when full Isaac Sim fidelity isn't needed. Single robot only. Actively used by core maintainer John Keller. See [Simple Sim](simple_sim/index.md).
+A lightweight kinematic simulator (single ROS 2 node, no PX4/MAVROS — it mocks the MAVROS interface directly) for fast iteration when full Isaac Sim fidelity isn't needed. Single robot only. See [Simple Sim](simple_sim/index.md).
 
 **Use cases:**
 
@@ -167,10 +169,7 @@ ISAAC_SIM_SCRIPT_NAME=my_custom_scene.py airstack up --sim isaac
 airstack up --sim isaac --play
 ```
 
-**Pre-built scenes:** Located in `scenes/` directory
-
-- `two_drone_fire_new.usd` - Fire academy scenario
-- `two_drone_RetroNeighborhood.usd` - Urban neighborhood
+**Pre-built scenes:** Located in `simulation/isaac-sim/assets/scenes/` (e.g. `simple_pegasus.scene.usd`); standalone launch scripts in `simulation/isaac-sim/launch_scripts/` build scenes programmatically.
 
 **Learn more:** [Docker Workflow](../development/beginner/airstack-cli/docker_usage.md#docker-compose-variable-overrides)
 

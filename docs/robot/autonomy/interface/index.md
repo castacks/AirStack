@@ -6,11 +6,11 @@ For example, for drones it converts the control commands from the autonomy stack
 ==TODO: This is not our diagram, must replace.==
 ![Interface Diagram](https://404warehouse.net/wp-content/uploads/2016/08/softwareoverview.png?w=800)
 
-The code is located under `AirStack/ros_ws/src/robot/autonomy/interface/`.
+The code is located under `robot/ros_ws/src/interface/`.
 
 ## Launch
 
-Launch files are under `src/autonomy/interface/interface_bringup/launch`.
+Launch files are under `robot/ros_ws/src/interface/interface_bringup/launch`.
 
 The main launch command is `ros2 launch interface_bringup interface.launch.py`.
 
@@ -56,13 +56,13 @@ The RobotInterface node subscribes to:
 - `/$(env ROBOT_NAME)/interface/cmd_roll_pitch_yawrate_thrust` of type `mav_msgs/RollPitchYawrateThrust.msg`
 - `/$(env ROBOT_NAME)/interface/cmd_torque_thrust` of type `mav_msgs/TorqueThrust.msg`
 - `/$(env ROBOT_NAME)/interface/cmd_velocity` of type `geometry_msgs/TwistStamped.msg`
-- `/$(env ROBOT_NAME)/interface/cmd_position` of type `geometry_msgs/PoseStamped.msg`
+- `/$(env ROBOT_NAME)/interface/cmd_pose` of type `geometry_msgs/PoseStamped.msg`
 
-All messages are in the robot's body frame, except `velocity` and `position` which use the frame specified by the message header.
+All messages are in the robot's body frame, except `cmd_velocity` and `cmd_pose` which use the frame specified by the message header.
 
 ## MAVROSInterface
 
-The available implementation in AirStack is called `MAVROSInterface` implemented in `mavros_interface.cpp`. It simply forwards the control commands to the Ascent flight controller (based on Ardupilot) using MAVROS.
+The available implementation in AirStack is called `MAVROSInterface` implemented in `mavros_interface.cpp`. It forwards the control commands over MAVROS to any MAVLink-compatible flight controller (PX4 in simulation).
 
 ## Custom Robot Interface
 
@@ -97,14 +97,16 @@ void your_callback_function(){
 
 Should override all `virtual` functions in `robot_interface.hpp`:
 
-- `cmd_attitude_thrust_callback`
-- `cmd_rate_thrust_callback`
-- `cmd_roll_pitch_yawrate_thrust_callback`
-- `cmd_torque_thrust_callback`
-- `cmd_velocity_callback`
-- `cmd_position_callback`
+- `attitude_thrust_callback`
+- `rate_thrust_callback`
+- `roll_pitch_yawrate_thrust_callback`
+- `torque_thrust_callback`
+- `velocity_callback`
+- `pose_callback`
 - `request_control`
 - `arm`
 - `disarm`
 - `is_armed`
 - `has_control`
+- `takeoff`
+- `land`

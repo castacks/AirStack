@@ -1,5 +1,5 @@
 <!--
-  full_droan_cpu : trunk reference stack (RFC #379 S3, layout per RFC #385 S1).
+  full_droan_cpu : trunk reference stack.
 
   Preset that absorbed the deleted CPU-DROAN local bringup variant (see
   README): identical to the full_default stack except the local-planner include —
@@ -21,7 +21,7 @@
     - interface.launch.py — MAVROS wiring is dense, FCU_URL is env-computed
       in python, and the interface layer is the safety boundary (arming,
       command authority, takeover). It stays a single include until the
-      platform-module refactor (RFC #380 Part 2).
+      platform-module refactor (Part 2).
     - interpolate_dds_router / gossip — cross-domain bridging helpers, not
       robot-graph modules; their wiring lives in DDS-router YAML configs, so
       the include + config-file arg IS their single locus.

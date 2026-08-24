@@ -151,7 +151,7 @@ After successful offload, free space:
 ```bash
 # Remove successfully transferred bags (already done if using --remove-source-files)
 # Or delete bags older than 7 days after verification
-find /opt/airstack/bags -name "*.db3" -mtime +7 -delete
+find /opt/airstack/bags -name "*.mcap" -mtime +7 -delete
 ```
 
 ### Storage Quotas
@@ -171,7 +171,7 @@ Compress before transfer:
 ```bash
 # Compress bags
 cd /opt/airstack/bags
-tar -czf bags_$(date +%Y%m%d_%H%M%S).tar.gz *.db3
+tar -czf bags_$(date +%Y%m%d_%H%M%S).tar.gz *.mcap
 
 # Transfer compressed archive
 rsync -avz --progress bags_*.tar.gz user@groundstation:/data/robot1/
@@ -262,7 +262,7 @@ SOURCE="/data/robot1/bags"
 ARCHIVE="/archive/robot1"
 DAYS_OLD=30
 
-find ${SOURCE} -name "*.db3" -mtime +${DAYS_OLD} -exec tar -czf {}.tar.gz {} \; -delete
+find ${SOURCE} -name "*.mcap" -mtime +${DAYS_OLD} -exec tar -czf {}.tar.gz {} \; -delete
 mv ${SOURCE}/*.tar.gz ${ARCHIVE}/
 ```
 

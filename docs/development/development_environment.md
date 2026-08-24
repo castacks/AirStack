@@ -86,7 +86,7 @@ For frequent rebuilds during development:
 airstack connect airstack-robot-desktop-1 
 
 # Inside container
-cd /opt/ros_ws
+cd /root/AirStack/robot/ros_ws
 bws --packages-select my_package
 sws
 ros2 launch my_package my_launch.xml

@@ -56,8 +56,8 @@ Attach to the session with `airstack connect gcs` (or `tmux attach -t bringup` i
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `AUTOLAUNCH` | Auto-start the GCS bringup in tmux | `false` in the compose file (the `airstack` CLI sets it `true` for full-stack launches) |
-| `NUM_ROBOTS` | Legacy robot count: sizes the rendered layout and the per-robot action relays | `1` |
-| `FLEET_CONFIG_FILE` | Fleet-first roster (RFC #380): when set, `action_relay` derives robot names/domains from the fleet file instead of `NUM_ROBOTS` | unset |
+| `NUM_ROBOTS` | Robot count when no fleet file is set: sizes the rendered layout and the per-robot action relays | `1` |
+| `FLEET_CONFIG_FILE` | Fleet roster: when set, `action_relay` derives robot names/domains from the fleet file instead of `NUM_ROBOTS` | unset |
 | `ROBOT_RELAY_MAP` | `name:domain,...` override for custom robot→domain mappings (wins over both of the above) | unset |
 | `RECORD_BAGS` | Enable bag recording | unset |
 | `DISPLAY` | Host X11 display for the Foxglove Studio window | inherited |
