@@ -12,7 +12,7 @@ There is no ``usdview`` in this environment — the usd-core wheel does not ship
 it and Isaac Sim only exposes ``.kit`` apps — so this is the short path from a
 written file to looking at it.
 
-The ruins that `batch_damage.py` writes are already frozen (kinematic rigid
+The ruins that `quake_preview.py` writes are already frozen (kinematic rigid
 bodies) so nothing moves when the sim ticks; this only references and renders
 them. Pass ``--drop`` to release them instead and watch them fall, which is a
 quick way to see whether a ruin was actually settled or merely looks settled.

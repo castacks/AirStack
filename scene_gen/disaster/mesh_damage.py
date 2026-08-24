@@ -3001,6 +3001,44 @@ def _heading_of(dis: dict):
     return None
 
 
+#: ONE SCRIPT PER DISASTER, resolved lazily by name.
+#:
+#: `mesh_damage` is the API — fields, solidify, interior, the cutter, the
+#: support graph — and a per-disaster script is what says what that disaster
+#: MEANS: which mechanisms are in play at which rung, how big the rubble is,
+#: how much is pulverised. The registry is here rather than an import because
+#: the dependency runs one way: a script imports the API, never the reverse,
+#: and hard-importing `quake` from this module would be a cycle.
+#:
+#: Anything not listed falls through to `damage_building` at a continuous
+#: intensity, which is where every disaster started and where the ones without
+#: a script of their own still are.
+DAMAGE_SCRIPTS = {"earthquake": ("disaster.quake", "at_level")}
+
+
+def damage_one(stage, prim, dtype: str, intensity: float, seed: int = 0,
+               settle_it: bool = False, **kw) -> dict:
+    """Damage one building the way *dtype* means it. The single entry point.
+
+    Routes to the disaster's own script when it has one (`DAMAGE_SCRIPTS`),
+    quantising the continuous local intensity to a LADDER RUNG on the way —
+    a script is written in terms of kinds of damage, not magnitudes, and
+    `levels.level_at` is the one place that conversion lives.
+    """
+    entry = DAMAGE_SCRIPTS.get(str(dtype).lower())
+    if entry is None:
+        return damage_building(stage, prim, dtype, float(intensity),
+                               seed=int(seed), **kw)
+
+    import importlib
+
+    from . import levels as L
+    mod = importlib.import_module(entry[0])
+    level = L.level_at(dtype, float(intensity), L.STRUCTURE).name
+    return getattr(mod, entry[1])(stage, prim, level, seed=int(seed),
+                                  settle_it=bool(settle_it), **kw)
+
+
 def apply_to_stage(stage, config: dict, placements: list) -> dict:
     """Damage the buildings the asset-swap route did not ruin.
 
@@ -3099,11 +3137,23 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
         prim = stage.GetPrimAtPath(p["prim_path"])
         if not prim or not prim.IsValid():
             continue
-        got = damage_building(
-            stage, prim, dtype, float(p["_mesh_damage"]), seed=seed + i * 31,
-            wall_m=wall_m, solid=p.get("usd") in solid_usds,
-            max_edge_m=sub_edge, sub_max_points=sub_max_points,
-            heading_deg=heading, solid_kw=solid_kw, **frac_kw)
+        if str(dtype).lower() in DAMAGE_SCRIPTS:
+            # The script owns the DEFAULTS for fragment size, thresholds and
+            # consume; the config still overrides them where it says so, or a
+            # compiled preset's `mesh_damage.fracture` block would silently
+            # stop meaning anything the moment a disaster grew a script.
+            # `settle_it=False`: the scene settles every loose prim once, in
+            # `scene_prep`, not per building.
+            got = damage_one(stage, prim, dtype, float(p["_mesh_damage"]),
+                             seed=seed + i * 31, solid=p.get("usd") in solid_usds,
+                             max_edge_m=sub_edge, solid_kw=solid_kw,
+                             wall_m=wall_m, **frac_kw)
+        else:
+            got = damage_building(
+                stage, prim, dtype, float(p["_mesh_damage"]), seed=seed + i * 31,
+                wall_m=wall_m, solid=p.get("usd") in solid_usds,
+                max_edge_m=sub_edge, sub_max_points=sub_max_points,
+                heading_deg=heading, solid_kw=solid_kw, **frac_kw)
         if got["field"] is None:
             continue
         tally[got["field"]] = tally.get(got["field"], 0) + 1

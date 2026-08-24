@@ -3,7 +3,7 @@
 
     cd AirStack
     uv run python scene_gen/tools/categorize_assets.py \
-        --asset-set suburban_nucleus --category buildings.intact --rubble
+        --asset-pack suburban_nucleus --category buildings.intact --rubble
 
     uv run python scene_gen/tools/categorize_assets.py \
         --assets-file scene_gen/tools/assets.txt --csv /tmp/report.csv
@@ -22,7 +22,7 @@ No Isaac Sim needed for `objaverse://` / `airstack://` / plain-path assets —
 classification only reads geometry, which usd-core does on the host. Work runs
 in a process pool since it is pure CPU. `omniverse://` assets are the
 exception (only Kit resolves that scheme) and fall back to a single Kit boot
-at the end, same as `batch_damage.py`.
+at the end, the way an offline batch tool has to.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ _SCENE_GEN = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _SCENE_GEN not in sys.path:
     sys.path.insert(0, _SCENE_GEN)
 
-from disaster import asset_sets                                  # noqa: E402
+import asset_pack as asset_packs                                  # noqa: E402
 
 
 def _classify_into_queue(queue, idx, entry, hollow_ratio):
@@ -114,7 +114,7 @@ def _classify(job):
     """Load and classify one asset. Runs in a worker process.
 
     Resolution happens here, not in the parent, for the reason documented in
-    `disaster.asset_sets`: importing `pxr` before Kit boots stops Kit
+    `asset_pack`: importing `pxr` before Kit boots stops Kit
     prepending its own USD build.
     """
     idx, entry, hollow_ratio = job
@@ -205,14 +205,14 @@ def _finish(results, entries, args):
 
 def parse_args(argv=None):
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--asset-set", nargs="+", default=[],
+    p.add_argument("--asset-pack", nargs="+", default=[],
                    help="one or more asset packs: names from "
-                        "config/asset_sets/ or paths to those YAMLs")
+                        "config/asset_packs/ or paths to those YAMLs")
     p.add_argument("--category", nargs="+", default=["buildings"],
                    help="dotted keys under the set's `usds:` to survey "
                         "(default: buildings)")
     p.add_argument("--assets", nargs="*", default=[],
-                   help="asset strings, as the asset sets spell them")
+                   help="asset strings, as the asset packs spell them")
     p.add_argument("--assets-file",
                    help="file with one asset per line; '#' starts a comment, "
                         "whole-line or trailing")
@@ -241,12 +241,12 @@ def main(argv=None):
     if args.assets_file:
         entries += [{"asset": a, "scale": 0.0, "target_size": args.target_size,
                     "up_axis": "z", "source": {os.path.basename(args.assets_file)}}
-                   for a in asset_sets.read_assets_file(args.assets_file)]
-    if args.asset_set:
+                   for a in asset_packs.read_assets_file(args.assets_file)]
+    if args.asset_pack:
         by_path = {}
-        for set_name in args.asset_set:
-            for e in asset_sets.run_isolated(
-                    asset_sets.read_asset_set,
+        for set_name in args.asset_pack:
+            for e in asset_packs.run_isolated(
+                    asset_packs.read_asset_pack,
                     (set_name, args.category, args.target_size)):
                 prior = by_path.get(e["asset"])
                 # An asset can be named by more than one pack (an urban
@@ -266,7 +266,7 @@ def main(argv=None):
         print("[survey] no assets given", flush=True)
         return 1
 
-    parallel_idx, kit_idx = asset_sets.split_kit_only(
+    parallel_idx, kit_idx = asset_packs.split_kit_only(
         entries, key=lambda e: e["asset"])
     jobs = args.jobs or min(mp.cpu_count(), max(len(parallel_idx), 1))
     print(f"[survey] {len(entries)} assets | {jobs} workers | "

@@ -1,9 +1,16 @@
-"""quake — the earthquake pipeline, assembled from the parts that each win.
+"""quake — THE earthquake building-damage pipeline.
 
-WHAT THIS IS
-------------
-Three ways to wreck a building grew up in this repo side by side, and each of
-them is the best at exactly one thing:
+One script per disaster type, all of them calling `mesh_damage` as the API.
+This is the earthquake one, and it is the only one: `generate_scene` and the
+archetype baker both come here for a shaken building. `mesh_damage` owns the
+geometry (fields, solidify, interior, the cutter, the support graph); this file
+owns what an EARTHQUAKE means — which mechanisms are in play at which rung, how
+big the rubble is, how much is pulverised, and when to settle.
+
+WHAT THIS REPLACED
+------------------
+Three ways to wreck a building grew up side by side, and each was the best at
+exactly one thing:
 
     mesh_damage      the FIELD and the CUT. A scalar failure field over world
                      space decides where the building fails, seeds are drawn
@@ -20,9 +27,10 @@ them is the best at exactly one thing:
                      Nothing else here had it, and without it a cut building
                      is a stable arch that sags and never falls.
 
-    earthquake       the LOOK of the pile, via `solids.thicken` — but it pays
+    earthquake       the LOOK of the pile, via `solids.thicken` — but it paid
                      for it with a ray-cast visibility pass that took 358 s on
                      one tower against 33 s for the whole of mesh_damage.
+                     REMOVED; see WHAT EARTHQUAKE.PY HAD THAT THIS DOES NOT.
 
     settle           the COLLAPSE, once `blast` gives the pieces somewhere to
                      go.
@@ -41,6 +49,48 @@ header records a second parallel vocabulary — `lean`, `pancake`, `crumble`,
 the fracture running after it and did not compose. Every line below is a call
 into an existing stage; there is no geometry code in this file, and a fix to
 any stage reaches this pipeline for free.
+
+WHAT EARTHQUAKE.PY HAD THAT THIS DOES NOT — DEBT, WRITTEN DOWN
+--------------------------------------------------------------
+`disaster/earthquake.py` and its scipy cutter `disaster/fracture.py` are gone.
+Four of their ideas did not come across, and they are worth having:
+
+  1. MATERIALS, and height bands.  A `Material` table said how a structure
+     breaks: `shatter` scaled fragment size, `detach` was the release
+     threshold, `block` described the rubble unit as (size, aspect) so a brick
+     fragment came out a lump, a timber a plank, a steel member a beam. And
+     several materials could be assigned in HEIGHT BANDS — `("brick", "wood")`
+     meaning a masonry ground floor under a timber upper, not a speckle.
+     Here `fragment_m` and `release` are properties of the MECHANISM only, so
+     every building breaks like the same substance. Wiring this back wants an
+     asset-pack tag (`tools/tag_asset_materials.py` already exists) feeding
+     per-material overrides into `MECHANISMS`.
+
+  2. OPENINGS AS CRACK INITIATORS.  A real crack starts at a window or door
+     corner, and those are already in the mesh as free-edge boundary loops —
+     `opening_tree` built a k-d tree over them and biased the seeds there, with
+     nothing to annotate. `mesh_damage.cornerness` is the nearest thing now and
+     it is not the same signal: it measures how much the surface TURNS in a
+     neighbourhood, which catches a window reveal only if the reveal has depth.
+     The blocker is cost — boundary edges need a welded soup, and welding
+     1.5M faces a second time inside `fracture_seeds` is not obviously worth
+     it. Revisit if reveals read as under-cracked.
+
+  3. UPWARD PROPAGATION WITH DECAY.  A running maximum up each column of the
+     damage grid, decayed per metre, so a failure low down raised the damage
+     above it and severity bought reach. That is a statement about the FIELD;
+     `release_column` and `unsupported` make the equivalent statement about
+     RELEASE, which is structurally better but does not make the material above
+     a failure crack more finely. Cheap to add as a field post-pass if wanted.
+
+  4. FUSING SURVIVORS.  `_weld_groups`/`_fuse` merged touching anchored chunks
+     into one body. Every anchored fragment is its own prim here, which is
+     correct but costs prims and colliders on a scene of hundreds of buildings.
+     `unsupported` already computes the contact graph this needs.
+
+Not carried over on purpose: the ground-biased random failure BLOBS. `compose`
+plus `sector_mask` describes "several localised failures" better, and with a
+named mechanism behind each one instead of a draw.
 
 THICKENING, AND WHAT "IF NECESSARY" MEANS
 -----------------------------------------
@@ -104,8 +154,9 @@ USAGE
     print(rep["cells"], rep["loose"], rep["settle"]["drop_mean"])
 
 `shatter()` alone is the pure-geometry half — no Isaac, no PhysX — for callers
-that batch many buildings and settle them together (`tools/batch_damage.py`
-does exactly that, and one settle over a grid is much cheaper than N).
+that batch many buildings and settle them together. `archetypes/bake.py` does
+exactly that: it builds a whole grid of archetypes with `settle_it=False` and
+runs one PhysX pass over all of them, which is much cheaper than N.
 """
 
 from collections import namedtuple
@@ -510,8 +561,16 @@ def run(stage, root_prim, intensity, seed=0, blast=BLAST, steps=STEPS,
 # ---------------------------------------------------------------------------
 
 
+#: Recipe knobs `at_level` will let a caller override. Anything else it is
+#: handed is a `shatter` argument and is passed straight through — the two
+#: were once the same `**kwargs` bag, which meant `solid=True` was silently
+#: swallowed into the recipe and a solid asset got thickened anyway.
+OVERRIDABLE = ("intensity", "release", "collapse", "fragment_m", "consume",
+               "blast")
+
+
 def at_level(stage, root_prim, level, seed=0, settle_it=True, steps=STEPS,
-             gpu=True, **override):
+             gpu=True, **kwargs):
     """Break one building to a named RUNG. Severity is not an argument.
 
     A rung is a SET of mechanisms over regions of the plan (`RUNG_PLAN`), not
@@ -519,10 +578,15 @@ def at_level(stage, root_prim, level, seed=0, settle_it=True, steps=STEPS,
     the fracture thresholds come from the worst mechanism in the set, because
     a threshold is a property of the cut and there is only one cut.
 
+    Keyword arguments are split, not merged: the names in `OVERRIDABLE` nudge
+    the recipe, everything else (`solid`, `wall_m`, `max_edge_m`, `solid_kw`)
+    goes to `shatter` untouched.
+
     Returns the shatter report with `level` and (when settled) `settle` added.
     A rung with no plan returns a report that says so and touches nothing —
     `pristine` is a legitimate outcome, not an error.
     """
+    override = {k: kwargs.pop(k) for k in list(kwargs) if k in OVERRIDABLE}
     steps_plan = RUNG_PLAN.get(str(level or "pristine"))
     if not steps_plan:
         return {"level": level, "field": None, "cells": 0, "paths": [],
@@ -548,7 +612,7 @@ def at_level(stage, root_prim, level, seed=0, settle_it=True, steps=STEPS,
     rep = shatter(stage, root_prim, kw["intensity"], seed=seed,
                   fragment_m=kw["fragment_m"],
                   field_fn=field_for(level, seed),
-                  release=kw["release"], collapse=kw["collapse"])
+                  release=kw["release"], collapse=kw["collapse"], **kwargs)
     rep["level"] = level
     rep["mechanisms"] = [n for n, _ in steps_plan]
     # Consume scales with the RUNG's own consume, not with any severity: how

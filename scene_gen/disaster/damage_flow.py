@@ -1,10 +1,40 @@
-"""damage_flow — fracture one building to a structural level.
+"""damage_flow — the KIT-ASSET plugin. Not a damage pipeline.
 
-The per-building break logic, lifted verbatim from
-`suburb_mini_wildfire_launch_script.py` so the archetype bake harness produces
-IDENTICAL wreckage to the live scene. `BREAK_PLAN` and `cascade_supports` live
-here too. The mini launcher keeps its own inline copy for now; this module is
-the reusable one the archetype pipeline calls.
+WHERE THIS SITS
+---------------
+Building damage is `mesh_damage` (the API) plus one script per disaster type
+(`quake` for earthquakes). Those work on any building USD, because all they
+need is geometry. This module is the exception, and it earns it by knowing
+something they cannot: a house assembled by `detail.modular_house` is not a
+mesh, it is a set of PLACED MODULES — `floor`, `wall`, `roof`, `bay_roof`,
+`door`, `porch`, `canopy`, `garage` — and the structurally right way to wreck
+one is to choose modules and remove them, cascading the supports, rather than
+to run a Voronoi field over the lot.
+
+So this is a plugin, reached only for kit-built assets:
+`archetypes.bake.Baker._build_one` dispatches here when `item.build ==
+"modular"` and to the disaster's own script otherwise. Nothing else should
+call it, and it should never grow a code path for an arbitrary USD — that is
+what `quake` is for.
+
+WHAT STILL DUPLICATES THE PIPELINE, AND WHY IT HAS NOT BEEN MERGED
+-------------------------------------------------------------------
+The module SELECTION here (`BREAK_PLAN`, `cascade_supports`) is the part that
+only this module can do. The CUTTING is not: `vtk_fracture.fracture_prim` and
+`fracture_partial` carry their own Voronoi seeding, their own `consume` and
+their own material binding, all of which `mesh_damage` and `quake` now have,
+better — `_fracture_hier` alone is several times faster on anything large.
+
+Merging them wants a "cut this one prim into N pieces" entry on the API, which
+means a uniform failure field, and the kit path is the validated look of the
+suburban wildfire scenes. That is a change worth making deliberately and
+measuring against the existing renders, not as a side effect of consolidating
+the earthquake path. Left as debt on purpose.
+
+`BREAK_PLAN` and `cascade_supports` were lifted verbatim from
+`suburb_mini_wildfire_launch_script.py` so the archetype bake produces
+IDENTICAL wreckage to the live scene. The mini launcher keeps its own inline
+copy for now; this module is the reusable one.
 """
 
 import math
