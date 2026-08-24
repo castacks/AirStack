@@ -327,8 +327,16 @@ class Orchestrator:
         self.privileged = bool(config.get("privileged", True))
         self.host_network = bool(config.get("host_network", False))
 
-        # GitHub.
-        self.repo = config["repo"]
+        # GitHub. `repos:` (list) is the primary key; the legacy singular
+        # `repo:` is still accepted. Every listed repo is polled for queued
+        # jobs and must be visible to the PAT with admin (JIT runner) rights
+        # — trunk plus the asm_* module repos calling the reusable workflow.
+        repos = config.get("repos") or config.get("repo")
+        if isinstance(repos, str):
+            repos = [repos]
+        if not repos:
+            raise KeyError("config needs `repos:` (list) or legacy `repo:`")
+        self.repos: list[str] = list(repos)
         self.runner_labels = config["runner_labels"]
 
         # Limits / timing.
@@ -493,13 +501,17 @@ class Orchestrator:
         active = len(state["jobs"])
         if active >= self.max_concurrent:
             return
-        try:
-            queued = find_queued_jobs(self.repo, self.runner_labels, self.pat)
-        except Exception as e:  # noqa: BLE001
-            log.warning("find_queued_jobs failed: %s", e)
-            return
+        queued: list[tuple[str, dict]] = []
+        for repo in self.repos:
+            try:
+                queued.extend(
+                    (repo, j)
+                    for j in find_queued_jobs(repo, self.runner_labels, self.pat)
+                )
+            except Exception as e:  # noqa: BLE001
+                log.warning("find_queued_jobs(%s) failed: %s", repo, e)
 
-        for job in queued:
+        for repo, job in queued:
             if active >= self.max_concurrent:
                 break
             job_id = job["job_id"]
@@ -512,7 +524,7 @@ class Orchestrator:
             tmp_path: str | None = None
             try:
                 jit = mint_jit_config(
-                    self.repo, workflow_name, self.runner_labels, self.pat
+                    repo, workflow_name, self.runner_labels, self.pat
                 )
                 workflow_yaml = self.render_workflow(workflow_name, jit)
                 tmp_path = self._write_temp_workflow(workflow_name, workflow_yaml)
@@ -528,6 +540,7 @@ class Orchestrator:
                         pass
 
             state["jobs"][job_id] = {
+                "repo": repo,
                 "run_id": job["run_id"],
                 "workflow_id": workflow_id,
                 "workflow_name": live_name,
@@ -550,8 +563,11 @@ class Orchestrator:
         for job_id in list(state["jobs"].keys()):
             entry = state["jobs"][job_id]
             wid = entry["workflow_id"]
+            # Entries written before multi-repo support carry no repo field;
+            # they can only have come from the first (primary) repo.
+            entry_repo = entry.get("repo", self.repos[0])
             try:
-                job = get_job_status(self.repo, job_id, self.pat)
+                job = get_job_status(entry_repo, job_id, self.pat)
             except Exception as e:  # noqa: BLE001
                 log.warning("get_job_status(%s) failed: %s", job_id, e)
                 continue
@@ -607,9 +623,9 @@ class Orchestrator:
 
     def run(self) -> None:
         log.info(
-            "orchestrator started (OSMO backend): repo=%s labels=%s pool=%s "
+            "orchestrator started (OSMO backend): repos=%s labels=%s pool=%s "
             "platform=%s max_concurrent=%d",
-            self.repo, self.runner_labels, self.pool,
+            self.repos, self.runner_labels, self.pool,
             self.platform or "(pool default)", self.max_concurrent,
         )
         last_spawn = 0.0
