@@ -51,7 +51,11 @@ RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/
     (sleep 5 && git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm)
 
 # install FoxGloveStudio and ros-jazzy-foxglove-bridge
-RUN wget -q https://get.foxglove.dev/desktop/latest/foxglove-studio-latest-linux-amd64.deb -O /tmp/foxglove-studio.deb \
+# Pinned (not "latest"): gcs/foxglove_extensions/render_layout.py seeds layouts
+# into the app's local layout store, whose on-disk format we verified against
+# this exact version. Re-verify the store format before bumping.
+ARG FOXGLOVE_VERSION=3.0.0
+RUN wget -q https://get.foxglove.dev/desktop/v${FOXGLOVE_VERSION}/foxglove-studio-${FOXGLOVE_VERSION}-linux-amd64.deb -O /tmp/foxglove-studio.deb \
     && apt -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update \
     && apt -o APT::Get::AllowUnauthenticated=true install -y --no-install-recommends /tmp/foxglove-studio.deb ros-jazzy-foxglove-bridge \
     && rm /tmp/foxglove-studio.deb \

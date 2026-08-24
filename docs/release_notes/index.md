@@ -166,9 +166,20 @@ Feature docs deliberately cite none of these — the design sources live here:
   `NavigateTask` → land, judged on the odometry track by the standalone
   `tests/waypoint_checker.py`; the standard acceptance check after
   integrating or swapping a planner module
+- Foxglove auto-loaded layout: `render_layout.py` seeds the rendered
+  `NUM_ROBOTS`-matched layout directly into the Foxglove desktop app's
+  local layout store and `gcs.launch.xml` selects it via the `layoutId`
+  deep link, so Foxglove opens on the right layout with no manual
+  **Import from file...** step; user-saved edits are hash-detected and
+  never overwritten (delete the layout in the UI to reset). Requires the
+  pinned Foxglove version — see Changed
 
 ### Changed
 
+- `Dockerfile.gcs` pins the Foxglove desktop version (`FOXGLOVE_VERSION`
+  build arg, currently 3.0.0) instead of installing `latest`, since the
+  layout auto-load writes the app's on-disk local-layout record format
+  directly (verified against 3.0.0; re-verify before bumping the pin)
 - `robot-desktop` image slimmed 17.1 GB → ~6 GB (−65%) by moving MACVO's
   torch/TensorRT/weights into the `asm_macvo` module Docker layer; a further
   dependency purge removed unused apt/pip packages (−152 MB) and `droan_gl`'s

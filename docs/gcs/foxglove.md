@@ -8,18 +8,24 @@ This page describes what the node visualizes today, the topic naming convention,
 
 ## Connecting to Foxglove and loading the custom layout
 
-The GCS container regenerates `/root/airstack_layout_num_robots_<N>.json` on every startup, where `<N>` is the current `NUM_ROBOTS`, using `gcs/foxglove_extensions/airstack_default.json` as the single-robot template (see `gcs/foxglove_extensions/render_layout.py`). The file lives only in the container — it's regenerated on startup and disappears on removal.
+**The `NUM_ROBOTS`-matched layout loads automatically — no manual import.** On every GCS container startup, `gcs/foxglove_extensions/render_layout.py` renders an `<N>`-robot layout from the single-robot template (`gcs/foxglove_extensions/airstack_default.json`) and seeds it straight into the Foxglove desktop app's local layout store (`/root/.config/Foxglove/studio-datastores/layouts-local/airstack_default_<N>_robots` — bind-mounted from `gcs/docker/Foxglove`, so it persists across container restarts). `gcs.launch.xml` then opens Foxglove with a deep link that both connects to `ws://localhost:8765` and selects that layout by id, so the app comes up showing **AirStack default (`<N>` robots)** immediately.
 
-To use the locally-rendered, `NUM_ROBOTS`-matched layout:
+### Editing and saving the layout
 
-1. In the Foxglove dashboard, click **Layouts** → **Import from file...**.
-2. The file browser opens in `/root/` by default — select the `airstack_layout_num_robots_<N>.json` matching your `NUM_ROBOTS`.
-3. Back on the dashboard, click **Open connection** and enter:
-    - `ws://localhost:8765` if Foxglove is running inside the GCS container
-    - `ws://localhost:8766` if Foxglove is running on the host
-4. In the top-right corner, click the current layout name and select the imported layout from the dropdown.
+The seeded layout is an ordinary local layout — edit it and use **Save** as usual. Your saved edits are preserved: the seeder detects that the layout no longer matches what it generated and will not overwrite it on later startups (this also means template updates stop propagating to an edited layout). Two ways to manage this:
 
-Foxglove keeps the imported layout in its IndexedDB and re-activates it on subsequent launches — re-import only when you change `NUM_ROBOTS` or edit the template.
+- **Reset to the generated default:** delete the layout in Foxglove's **Layouts** menu — the next container start re-seeds a fresh copy.
+- **Keep your own variant safe forever:** **Save As** a personal copy under a different name; the seeder never touches layouts it didn't create.
+
+### Manual fallback
+
+The rendered layout is also still written to `/root/airstack_layout_num_robots_<N>.json` inside the container, so **Layouts → Import from file...** keeps working — useful when running Foxglove on the host instead of in the container (connect to `ws://localhost:8766` in that case).
+
+!!! note "Foxglove version pin"
+    `Dockerfile.gcs` pins the Foxglove desktop version (`FOXGLOVE_VERSION` build arg) because the auto-load mechanism writes the app's on-disk local-layout record format directly. Before bumping the pin, verify the format in the new version's `studio-datastores/layouts-local/` still matches what `render_layout.py::seed_layout_store` writes.
+
+!!! warning "Robot naming assumption"
+    Layout rendering assumes robots are named `robot_1..robot_N` (the default robot-name map). Fleets with custom robot names (RFC #380) still get the default-named tabs; name-aware rendering is future work.
 
 ## What gets visualized
 
