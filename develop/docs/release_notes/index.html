@@ -6166,6 +6166,12 @@ Feature docs deliberately cite none of these — the design sources live here:</
 </ul>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
 <ul>
+<li>Container autolaunch (robot desktop/voxl/l4t and GCS) now runs through an
+  <code>autolaunch</code> shell helper instead of a bare <code>bws &amp;&amp; sws &amp;&amp; ros2 launch</code>
+  chain: a build failure or launch crash prints an unmissable red
+  "AUTOLAUNCH FAILED" banner in the tmux pane (mirrored to <code>docker logs</code> /
+  <code>airstack logs</code>) instead of silently returning to a prompt with the stack
+  down</li>
 <li><code>Dockerfile.gcs</code> pins the Foxglove desktop version (<code>FOXGLOVE_VERSION</code>
   build arg, currently 3.0.0) instead of installing <code>latest</code>, since the
   layout auto-load writes the app's on-disk local-layout record format
