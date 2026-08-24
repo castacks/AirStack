@@ -270,6 +270,39 @@ function print_command_help {
             echo ""
             echo "Build documentation. If 'serve' is specified, also start a local server."
             ;;
+        module)
+            echo "Usage: airstack module <subcommand> [options]"
+            echo ""
+            echo "Manage AirStack modules (RFC #379): thin external repos declared in"
+            echo "./modules.repos (vcs2l format, PINNED to tags/SHAs — never branches),"
+            echo "synced into the gitignored ./modules/ dir and overlaid into the checkout"
+            echo "by tools/module_overlay.py. Guide: docs/development/modules.md"
+            echo ""
+            echo "Subcommands:"
+            echo "  add <git-url|local-path> [--version <tag-or-sha>] [--no-hooks]"
+            echo "                Record a module in modules.repos and sync. Git URLs MUST be"
+            echo "                pinned with --version (branch names like main/develop are"
+            echo "                refused). Local paths are recorded under x-local-modules."
+            echo "  sync [--no-hooks]"
+            echo "                Clone/link everything in modules.repos (vcs import --recursive),"
+            echo "                validate each module.yaml, place overlay symlinks, regenerate"
+            echo "                .airstack/generated/docker-compose.modules.yaml, run host_setup"
+            echo "                hooks (skipped with --no-hooks)."
+            echo "  list          Table of modules: name, type, version/pin, targets, valid."
+            echo "  remove <name> Drop the modules.repos entry, checkout, and overlay artifacts."
+            echo "  create --in-tree <name>"
+            echo "                Scaffold robot/ros_ws/src/modules/<name>/ (stub module.yaml,"
+            echo "                ament_python package, launch file with canonical-default topic"
+            echo "                args and no remaps, test/) for fork research (RFC #379 §11)."
+            echo "  doctor [--drift]"
+            echo "                No args: validate all manifests + overlay integrity (exit 1"
+            echo "                only when the overlay is broken). --drift: classify changes"
+            echo "                vs merge-base with origin/develop into module-contained vs"
+            echo "                extraction debt — informs, never blocks (always exit 0)."
+            echo ""
+            echo "After sync, start the stack with the module mounts:"
+            echo "  airstack up -f .airstack/generated/docker-compose.modules.yaml"
+            ;;
         *)
             # For commands without specific help, just show the general help
             echo "Usage: airstack $command [options]"
@@ -1157,6 +1190,16 @@ function cmd_up {
     local global_args=()
     local subcmd_args=()
     classify_compose_args global_args subcmd_args "${rest_args[@]}"
+
+    # Module overlay: when `airstack module sync` has generated a compose
+    # override (volume mounts for synced modules), include it automatically so
+    # module packages/extensions reach the containers. Opt out with
+    # AIRSTACK_NO_MODULE_COMPOSE=1. Absent file = no modules = no change.
+    local module_compose="$PROJECT_ROOT/.airstack/generated/docker-compose.modules.yaml"
+    if [[ -f "$module_compose" && "${AIRSTACK_NO_MODULE_COMPOSE:-}" != "1" ]]; then
+        log_info "Module overlay active → including ${module_compose#$PROJECT_ROOT/}"
+        global_args+=(-f "$module_compose")
+    fi
 
     print_launch_config "${global_args[@]}"
     if ! preflight_up global_args subcmd_args; then

@@ -1,0 +1,17 @@
+# Docker-relevant module fixture for tests/meta/test_docker_layer_plan_contract.py:
+# exercises dep tier 1 (apt + pip lists) and tier 2 (Dockerfile.module) of the
+# layer composition chain (RFC #379 §6). Schema: common/module_schema/module.schema.json.
+name: heavy_module
+description: Docker-layer fixture with apt/pip deps and a Dockerfile fragment.
+maintainer: test@example.com
+license: MIT
+type: ros_package
+airstack_compat: ">=0.19.0 <0.21.0"
+targets: [robot]
+
+deps: {apt: [cowsay], pip: [tabulate]}
+dockerfile: Dockerfile.module    # tier 2: built with BASE_IMAGE = previous chain link
+
+tests:
+  packages: []                   # no colcon packages — docker-layer fixture only
+  marks: []
