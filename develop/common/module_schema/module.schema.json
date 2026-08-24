@@ -1,0 +1,198 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AirStack module manifest (module.yaml)",
+  "description": "The thin module manifest from RFC #379 §2: dependencies, identity, and test metadata only. Wiring (topics, remaps, slots) deliberately does NOT live here — a module's interface is its launch file's declared args plus the interface conventions spec. Consumed by tools/validate_module.py, which interprets the draft-07 subset: type, required, properties, enum, pattern, items, additionalProperties, minLength, minItems, plus the custom x-airstack-* annotations documented in common/module_schema/README.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "description",
+    "maintainer",
+    "license",
+    "type",
+    "airstack_compat",
+    "targets"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Module identity: lowercase snake_case, starts with a letter."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 8,
+      "description": "One-line human description shown in the registry catalog."
+    },
+    "maintainer": {
+      "type": "string",
+      "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+      "description": "Named maintainer email — required by governance (RFC #379 §8)."
+    },
+    "license": {
+      "type": "string",
+      "minLength": 1,
+      "description": "SPDX-style license string; checked at registration."
+    },
+    "type": {
+      "type": "string",
+      "enum": ["isaac_extension", "ros_package", "data", "platform"],
+      "description": "What kind of module this is (platform is future — RFC #380 §6)."
+    },
+    "airstack_compat": {
+      "type": "string",
+      "x-airstack-format": "semver-range",
+      "description": "Semver range vs trunk .env VERSION, e.g. \">=0.19.0 <0.21.0\". Branch names and partial versions are invalid."
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": ["robot", "gcs", "isaac-sim", "ms-airsim"]
+      },
+      "description": "Host containers this module touches."
+    },
+    "deps": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {"apt": [], "pip": []},
+      "description": "Dependency tier 1 (RFC #379 §6). rosdep keys live in package.xml, not here.",
+      "properties": {
+        "apt": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "pip": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "dockerfile": {
+      "type": ["string", "null"],
+      "default": null,
+      "pattern": "(^|/)Dockerfile\\.module$",
+      "x-airstack-format": "safe-relative-path",
+      "x-airstack-check-exists": true,
+      "description": "Dependency tier 2: repo-relative path to a Dockerfile.module written against ARG BASE_IMAGE, never a fixed base."
+    },
+    "overlay_image": {
+      "type": ["string", "null"],
+      "default": null,
+      "minLength": 1,
+      "description": "Dependency tier 3: prebuilt overlay image reference for monster deps."
+    },
+    "compose": {
+      "type": ["string", "null"],
+      "default": null,
+      "x-airstack-format": "safe-relative-path",
+      "x-airstack-check-exists": true,
+      "description": "Optional repo-relative docker compose fragment (mounts, env)."
+    },
+    "assets": {
+      "type": "array",
+      "default": [],
+      "description": "Large assets fetched to cache by `airstack sync` — no Git LFS in module repos (RFC #379 §10).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["url", "sha256", "dest"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "pattern": "^https://",
+            "description": "HTTPS download URL (http:// is rejected)."
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Lowercase hex SHA-256 of the asset."
+          },
+          "dest": {
+            "type": "string",
+            "x-airstack-format": "safe-relative-path",
+            "description": "Destination path relative to the module checkout; never absolute, never escaping via '..'."
+          }
+        }
+      }
+    },
+    "docs": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {"readme": "README.md"},
+      "description": "Docs entry points embedded on the versioned site (RFC #379 §9): {readme: path} or {dir: path, nav: path}.",
+      "properties": {
+        "readme": {
+          "type": "string",
+          "x-airstack-format": "safe-relative-path",
+          "x-airstack-check-exists": true
+        },
+        "dir": {
+          "type": "string",
+          "x-airstack-format": "safe-relative-path",
+          "x-airstack-check-exists": true
+        },
+        "nav": {
+          "type": "string",
+          "x-airstack-format": "safe-relative-path",
+          "x-airstack-check-exists": true
+        }
+      }
+    },
+    "foxglove": {
+      "type": ["string", "null"],
+      "default": null,
+      "x-airstack-format": "safe-relative-path",
+      "description": "Optional Foxglove layout/panel fragment so operators can see the module in the field."
+    },
+    "hooks": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Lifecycle hooks. Contract for every hook script: idempotent, never uses sudo, writes only inside the module checkout.",
+      "properties": {
+        "host_setup": {
+          "type": "string",
+          "x-airstack-format": "safe-relative-path",
+          "x-airstack-check-exists": true,
+          "description": "Script run on the host after sync (precedent: natnet_ros2 scripts/download-natnet-sdk.sh). Must be idempotent, no sudo, and write only inside the module checkout."
+        }
+      }
+    },
+    "tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {"packages": [], "marks": []},
+      "description": "Test metadata: colcon unit-test packages (co-located test/) and the system-test marks the module's CI runs (RFC #379 §5).",
+      "properties": {
+        "packages": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "x-airstack-warn-missing-dir": true
+          }
+        },
+        "marks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "unit",
+              "build_docker",
+              "build_packages",
+              "integration",
+              "liveliness",
+              "sensors",
+              "takeoff_hover_land",
+              "autonomy",
+              "waypoint_flight",
+              "optitrack",
+              "wiring"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

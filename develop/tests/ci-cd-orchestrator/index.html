@@ -14,7 +14,7 @@
         <link rel="prev" href="../../docs/development/intermediate/testing/ci_cd/">
       
       
-        <link rel="next" href="../../docs/development/intermediate/frame_conventions/">
+        <link rel="next" href="../../docs/development/module_ci/">
       
       
         
@@ -1080,6 +1080,8 @@
       
         
       
+        
+      
     
     
     
@@ -1418,6 +1420,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#module-repos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module repos
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#operational-notes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1515,6 +1528,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../docs/development/module_ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Module CI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -6011,6 +6052,29 @@
 </span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="c1"># the active list:</span>
 </span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>osmo<span class="w"> </span>workflow<span class="w"> </span>list<span class="w"> </span>--name<span class="w"> </span>gha-runner-<span class="w"> </span>--pool<span class="w"> </span>airstack-ci<span class="w"> </span>--status<span class="w"> </span>RUNNING<span class="w"> </span>PENDING<span class="w"> </span>WAITING
 </span></code></pre></div>
+<h2 id="module-repos">Module repos<a class="headerlink" href="#module-repos" title="Permanent link">&para;</a></h2>
+<p>Module repos (<code>asm_*</code>) that call trunk's reusable
+<a href="https://github.com/castacks/AirStack/blob/main/.github/workflows/module-system-tests.yml"><code>module-system-tests.yml</code></a> with the
+default <code>runs-on: [self-hosted, airstack-ephemeral]</code> queue jobs <strong>in their own
+repo</strong>, and the orchestrator polls exactly one <code>repo:</code> per instance. To add an
+<code>asm_</code> repo to the poll list, run a second orchestrator instance against it:</p>
+<ol>
+<li><strong>Extend the PAT.</strong> The fine-grained GitHub PAT must also cover the module
+   repo with <code>Actions: read/write</code> + <code>Administration: read/write</code> (JIT runner
+   registration is per-repo). Reuse the existing PAT file if it covers the
+   repo, else stage a second one.</li>
+<li><strong>Copy the config.</strong> <code>/etc/airstack-orchestrator/config.yaml</code> →
+   <code>config-asm-&lt;name&gt;.yaml</code> with <code>repo: "castacks/asm_&lt;name&gt;"</code> and a
+   <strong>distinct <code>workflow_name_prefix</code></strong> (e.g. <code>gha-runner-asm&lt;name&gt;-</code>) so the
+   two instances' orphan sweeps don't cancel each other's OSMO workflows.</li>
+<li><strong>Run a second service instance</strong> pointing at the new config and its own
+   state file (copy <code>airstack-orchestrator.service</code>, adjust <code>ExecStart</code>'s
+   <code>--config</code> and <code>--state</code>, e.g. <code>--state /var/lib/airstack-orchestrator/state-asm-&lt;name&gt;.json</code>).</li>
+</ol>
+<p>First-party only: the reusable workflow refuses callers outside the castacks
+org, mirroring the fork-PR block. Org-level polling across registered repos
+(one instance, many repos) is the RFC #379 Phase 4 replacement for this
+per-repo setup.</p>
 <h2 id="operational-notes">Operational notes<a class="headerlink" href="#operational-notes" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>State file</strong>: <code>/var/lib/airstack-orchestrator/state.json</code> is the in-flight job tracker (<code>job_id → workflow_id</code>). Wiping it triggers an orphan sweep on the next reap iteration — active <code>gha-runner-*</code> workflows will be cancelled. Don't wipe it while jobs are mid-flight unless that's what you want.</li>
@@ -6270,13 +6334,13 @@ is fine there because it builds one small image.</p>
         
         
           
-          <a href="../../docs/development/intermediate/frame_conventions/" class="md-footer__link md-footer__link--next" aria-label="Next: Frame Conventions">
+          <a href="../../docs/development/module_ci/" class="md-footer__link md-footer__link--next" aria-label="Next: Module CI">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Frame Conventions
+                Module CI
               </div>
             </div>
             <div class="md-footer__button md-icon">
