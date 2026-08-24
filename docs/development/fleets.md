@@ -160,7 +160,8 @@ ground:
   validation errors. Doctor's bridge hard-gate (no control-setpoint /
   trajectory-group names in any `bridge.yaml`) holds unchanged for every
   split stack a fleet places.
-- Legacy `AUTONOMY_ROLE` never enters: the entry point *is* the role.
+- The removed legacy `AUTONOMY_ROLE` never enters: the entry point *is* the
+  role.
 
 ## Simulation
 
@@ -204,7 +205,7 @@ launch-time fleet default from `airstack.yaml` (select fleets explicitly with
 |---|---|---|
 | `NUM_ROBOTS` | **Derived** from the fleet's robot count | explicit env still wins (banner) |
 | `ROBOT_NAME_MAP_CONFIG_FILE` | Absorbed: identity resolves from the fleet entry | legacy resolver remains the no-fleet default |
-| `AUTONOMY_ROLE` | Absorbed: derived from `hosts:` + the stack's entry points | legacy dispatch remains without a stack/fleet |
+| `AUTONOMY_ROLE` | **Removed** — the stack entry point *is* the role, derived from `hosts:` | no-fleet/no-stack default is `stacks/full_default`; a set `AUTONOMY_ROLE` is a preflight error |
 | `URDF_FILE` | From the vehicle's `airframe.base_urdf` (pass-through form; xacro generation is future) | explicit env still wins |
 | `ISAAC_SIM_SCRIPT_NAME` | **Derived**: the generic fleet spawner | explicit env still wins |
 | `ROBOT_NAME` / `ROS_DOMAIN_ID` | Resolved per robot (`domain_policy: auto` = robot N → domain N) | pre-set env still wins |

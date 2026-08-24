@@ -1,7 +1,13 @@
+<!-- Bag playback visualization: RViz plus a depth-to-pointcloud node for
+     inspecting recorded front_stereo topics.
+     Included by: nothing in trunk (run manually alongside ros2 bag play).
+     STATUS: standalone utility (allowlisted legacy remaps). -->
 <launch>
 
-  <arg name="rviz_config" default="" />
-  <arg name="robot_name" default="robot_1" />
+  <arg name="rviz_config" default=""
+       description="RViz config file to open" />
+  <arg name="robot_name" default="robot_1"
+       description="Robot namespace the bag was recorded under" />
 
   <push_ros_namespace namespace="$(var robot_name)" />
 

@@ -16,13 +16,13 @@ integrate it into a **stack** — the self-contained folder under `stacks/`
 whose entry launch file is the single wiring document for a running topology
 (RFC #379 §3–4). This replaces the legacy layer-bringup workflow.
 
-> **The layer-bringup workflow is LEGACY.** Editing
-> `local_bringup/launch/*.launch.xml` (or any `*_bringup` launch file) to add
-> modules is the old monolith pattern. Those files are frozen: the launch
-> lint (`tests/meta/test_launch_single_locus.py`) forbids new `<remap>`s
-> outside `stacks/*/launch/`, and the grandfather allowlist
-> (`tests/meta/launch_lint_allowlist.txt`) only shrinks. Integrate into a
-> stack instead.
+> **The layer-bringup workflow is GONE.** The legacy layer bringup launch
+> files (`local/perception/sensors/global/behavior *.launch.xml`) were
+> deleted along with the AUTONOMY_ROLE dispatch — there is nothing left to
+> edit there. The launch lint (`tests/meta/test_launch_single_locus.py`)
+> forbids `<remap>`s outside `stacks/*/launch/`, and the grandfather
+> allowlist (`tests/meta/launch_lint_allowlist.txt`) only shrinks. Integrate
+> into a stack.
 
 ## The model (read this first)
 

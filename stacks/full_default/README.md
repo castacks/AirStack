@@ -18,10 +18,13 @@ layer). Two blocks stay wrapped by design: `interface.launch.py` (the safety
 boundary; flattens with RFC #380 Part 2's platform modules) and
 `logging.launch.xml` (already a single self-contained module).
 
-## Equivalence claim
+## Equivalence
 
-`airstack up --stack full_default` produces a ROS graph identical to the legacy
-`AUTONOMY_ROLE=full` dispatch. Verify with the wiring snapshot test:
+`airstack up --stack full_default` produces a ROS graph identical to the
+removed legacy `AUTONOMY_ROLE=full` dispatch — **machine-proven** by the
+wiring-snapshot diff (this folder's `wiring.md` is the committed baseline).
+This stack is also the default: with no stack selected, `robot.launch.xml`
+launches it. Verify with the wiring snapshot test:
 
 ```bash
 airstack test -m wiring --stack full_default --sim isaacsim --num-robots 1
@@ -50,6 +53,8 @@ The shared per-robot preamble (ROBOT_NAME namespace, `use_sim_time`,
   the first module pins; trunk compose profiles provide all services.
 
 ## wiring.md
+
+This stack's observed wiring diagram is committed at [wiring.md](wiring.md).
 
 Generated — the commit arrives with the first snapshot run of
 `airstack test -m wiring --stack full_default` (the harness writes

@@ -1,0 +1,23 @@
+# Registry entry for the macvo module (schema/module-entry.schema.json).
+# airstack_compat is the DECLARED range copied from the module's module.yaml;
+# the VERIFIED matrix lives in compat/macvo.yaml (CI-stamped only).
+name: macvo
+repo: https://github.com/castacks/asm_macvo
+description: >-
+  MAC-VO learned stereo visual odometry (ICRA 2025 best paper) — macvo_ros2
+  wrapper around the MAC-VO network, publishing odometry, a covariance-aware
+  point cloud, and the disparity image the local planner can consume
+maintainer: maintainers@theairlab.org   # placeholder pending a named maintainer (RFC #379 §8)
+license: MIT
+type: ros_package
+registered_ref: 7d5763936122ffcbb7173a635c9d5711e25c2414   # main HEAD, 2026-08-20
+airstack_compat: ">=0.19.0-alpha.18 <0.20.0"               # DECLARED (from module.yaml)
+notes: >-
+  registered_ref is a commit SHA because no release tag exists yet: v0.1.0 is
+  pending the first green module-system-tests.yml CI run. RFC #379's dogfood
+  case for Docker dependency tiers 2/3: MAC-VO's heavy deps (TensorRT, torch,
+  model weights) live in the module's Dockerfile.module, out of trunk's
+  Dockerfile.robot. Composed-image CI validation (declared marks build_docker
+  + liveliness against the tier-2 layer chain) is still pending — unlike
+  dfm2_disturbances/optitrack, this module has not yet been validated
+  end-to-end. Consumed by trunk reference stack full_macvo.

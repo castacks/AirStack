@@ -470,7 +470,19 @@ function cmd_module_remove {
     if [ -L "$MODULE_CHECKOUT_DIR/$name" ]; then
         rm "$MODULE_CHECKOUT_DIR/$name"
     elif [ -d "$MODULE_CHECKOUT_DIR/$name" ]; then
-        rm -rf "$MODULE_CHECKOUT_DIR/$name"
+        # Containers drop root-owned artifacts (__pycache__, build debris)
+        # into mounted module checkouts; a plain rm then fails and leaves a
+        # partial dir that breaks the next `vcs import`. Retry via a
+        # throwaway container when that happens.
+        if ! rm -rf "$MODULE_CHECKOUT_DIR/$name" 2>/dev/null; then
+            log_warn "checkout has root-owned files (created in-container) — removing via docker..."
+            if ! docker run --rm -v "$MODULE_CHECKOUT_DIR:/m" ubuntu:24.04 \
+                    bash -c "rm -rf /m/$name"; then
+                log_error "could not remove modules/$name — remove it manually, e.g.:"
+                log_error "  docker run --rm -v \"$MODULE_CHECKOUT_DIR:/m\" ubuntu:24.04 rm -rf /m/$name"
+                return 1
+            fi
+        fi
     fi
 
     # regenerate the overlay without it (also prunes links + compose entries)

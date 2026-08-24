@@ -22,10 +22,10 @@
        description="Input global waypoint path (nav_msgs/Path)" />
   <arg name="droan_local_planner_look_ahead_topic"
        default="/$(env ROBOT_NAME)/trajectory_controller/look_ahead"
-       description="Input trajectory-controller look-ahead point (nav_msgs/Odometry)" />
+       description="Input trajectory-controller look-ahead point (airstack_msgs/Odometry)" />
   <arg name="droan_local_planner_tracking_point_topic"
        default="/$(env ROBOT_NAME)/trajectory_controller/tracking_point"
-       description="Input trajectory-controller tracking point (nav_msgs/Odometry)" />
+       description="Input trajectory-controller tracking point (airstack_msgs/Odometry)" />
   <arg name="droan_local_planner_set_trajectory_mode_topic"
        default="/$(env ROBOT_NAME)/trajectory_controller/set_trajectory_mode"
        description="Output trajectory-controller mode command" />

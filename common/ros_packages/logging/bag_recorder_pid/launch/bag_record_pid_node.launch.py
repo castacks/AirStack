@@ -1,3 +1,9 @@
+"""Starts the bag_record_node PID-supervised rosbag recorder.
+
+Included by: bag_record_pid.launch.py and bag_record_pid_namespaced.launch.py
+(logging.launch.xml starts the node directly instead).
+STATUS: standalone utility.
+"""
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration

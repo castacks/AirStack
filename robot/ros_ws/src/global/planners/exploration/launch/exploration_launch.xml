@@ -1,3 +1,7 @@
+<!-- exploration_planner: frontier exploration global planner consuming the
+     VDB map and LiDAR point cloud.
+     Included by: nothing in trunk (see the package README for usage).
+     STATUS: standalone utility (allowlisted legacy remaps; wiring unchanged). -->
 <launch>
     <node pkg="exploration_planner" exec="exploration_planner" name="exploration_planner"
         output="screen">

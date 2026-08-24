@@ -33,16 +33,31 @@
        default="$(env AIRSTACK_STACK_DIR)/../../.airstack/generated/dds_router.lite_offload_global.yaml"
        description="DDS-router config for the onboard/offboard bridge; generated from this stack's bridge.yaml by tools/gen_dds_router.py — regenerate after editing bridge.yaml, never hand-edit the output" />
 
-  <!-- ── Wrapped layers (flatten in a later phase) ──────────────────────── -->
+  <!-- ── Interface (wrapped by design) ───────────────────────────────────── -->
 
   <!-- Interface (MAVROS/PX4 hardware interface + safety) -->
   <include file="$(find-pkg-share interface_bringup)/launch/interface.launch.py" />
 
-  <!-- Sensors -->
-  <include file="$(find-pkg-share sensors_bringup)/launch/sensors.launch.xml" />
+  <!-- ── Sensors, flat ───────────────────────────────────────────────────── -->
 
-  <!-- Perception (stereo disparity + point cloud; macvo off by default) -->
-  <include file="$(find-pkg-share perception_bringup)/launch/perception.launch.xml" />
+  <!-- LiDAR near-range filter: raw ouster cloud in, filtered cloud out
+       (canonical defaults, endpoints are node parameters). The namespace
+       group keeps the legacy node path /$ROBOT_NAME/sensors/... -->
+  <group>
+    <push-ros-namespace namespace="sensors" />
+    <include file="$(find-pkg-share lidar_point_cloud_filter)/launch/lidar_point_cloud_filter.launch.xml" />
+  </group>
+
+  <!-- ── Perception, flat ────────────────────────────────────────────────── -->
+
+  <!-- Stereo disparity + point cloud (stereo_image_proc pair): rectified
+       stereo pair in from sensors/front_stereo (canonical); disparity and
+       point_cloud out under perception/stereo_image_proc. -->
+  <include file="$(find-pkg-share perception_bringup)/launch/stereo_image_proc.launch.xml" />
+
+  <!-- Topic keepalive: silently subscribes Isaac Sim's on-demand publishers
+       so they keep publishing with rviz off; no topic endpoints declared -->
+  <include file="$(find-pkg-share perception_bringup)/launch/topic_keepalive.launch.xml" />
 
   <!-- ── Local layer, flat (module launch files; canonical defaults) ────── -->
 
@@ -72,11 +87,12 @@
        interface (cmd_roll_pitch_yawrate_thrust). ONBOARD-ONLY. -->
   <include file="$(find-pkg-share pid_controller)/launch/pid_controller.launch.xml" />
 
-  <!-- ── Wrapped layers (flatten in a later phase) ──────────────────────── -->
+  <!-- ── Behavior, flat ──────────────────────────────────────────────────── -->
 
-  <!-- Behavior (behavior tree + safety monitor). The safety executive is
-       ONBOARD-ONLY per RFC #380 S2. -->
-  <include file="$(find-pkg-share behavior_bringup)/launch/behavior.launch.xml" />
+  <!-- Safety monitor: odometry watchdog (state_estimate in from
+       odometry_conversion); trajectory mode out to the trajectory controller
+       on safety events. The safety executive is ONBOARD-ONLY per RFC #380 S2. -->
+  <include file="$(find-pkg-share drone_safety_monitor)/launch/drone_safety_monitor.launch.xml" />
 
   <!-- NO global layer onboard — vdb_mapping + random_walk run on the offboard
        host (launch/offboard.launch.xml). NO logging layer (lite). -->

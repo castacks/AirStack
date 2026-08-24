@@ -15,10 +15,10 @@ perception, the other local modules, global, behavior, logging, DDS router,
 gossip — matches `full_default` exactly. (This stack absorbed the deleted
 `local_bringup/launch/local_droan_cpu.launch.xml` variant.)
 
-## Equivalence claim
+## Equivalence
 
 `airstack up --stack full_droan_cpu` produces a ROS graph identical to the
-legacy `AUTONOMY_ROLE=full` dispatch with
+removed legacy `AUTONOMY_ROLE=full` dispatch with
 `local_launch_file:=local_droan_cpu.launch.xml` passed to
 `onboard_autonomy_all.launch.xml` (that variant file was deleted in P5-E2;
 this folder's committed `wiring.md`, captured from exactly that legacy
@@ -44,6 +44,8 @@ airstack ready
   stub (trunk compose profiles provide all services).
 
 ## wiring.md
+
+This stack's observed wiring diagram is committed at [wiring.md](wiring.md).
 
 Generated — the commit arrives with the first snapshot run of
 `airstack test -m wiring --stack full_droan_cpu`. Once committed, CI

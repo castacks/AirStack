@@ -1,24 +1,28 @@
 # `lite_default` — onboard-lite reference stack
 
 The compute-lite topology, unsplit, as a self-contained stack folder
-(RFC #379 §3). This is the stack equivalent of the legacy
-`AUTONOMY_ROLE=onboard` dispatch: everything a small vehicle runs on its own
-compute, with the heavy global layer left out entirely.
+(RFC #379 §3). This is the stack equivalent of the removed legacy
+`AUTONOMY_ROLE=onboard` role: everything a small vehicle runs on its own
+compute, with the heavy global layer left out entirely. (Historical note:
+the desktop-profile `onboard` role was unreachable in practice —
+`robot-desktop` hardcoded `AUTONOMY_ROLE=full` — so this stack is the first
+reachable lite topology on desktop.)
 
 ## What it launches
 
 The single entry point `launch/stack.launch.xml` composes:
 
-- **Interface, Sensors, Perception, Behavior** — the layer bringups, exactly
-  as `onboard_autonomy_local.launch.xml` composes them (wrap form).
-- **Local layer, flat** (module launch files with canonical defaults, copied
-  from `full_default`): takeoff/land task server, fixed-trajectory task
-  server, GPU DROAN planner, trajectory controller, PID controller.
-- **Role-onboard extras**: the robot↔GCS DDS router (lean onboard allowlist)
-  and the gossip coordination layer.
+- **Interface** (wrapped by design) plus **Sensors, Perception, Local,
+  Behavior — all flat**: module launch files with canonical defaults, the
+  same blocks as `full_default` (LiDAR filter, stereo_image_proc + topic
+  keepalive, takeoff/land task server, fixed-trajectory task server, GPU
+  DROAN planner, trajectory controller, PID controller, safety monitor).
+- **Cross-domain extras**: the robot↔GCS DDS router (the shared
+  `autonomy_bringup/config/dds_router.yaml` allowlist) and the gossip
+  coordination layer.
 
 **Deliberately absent:** the global layer (vdb_mapping, random_walk) and the
-logging layer — the `AUTONOMY_ROLE=onboard` subtractions.
+logging layer.
 
 ## When to use it
 
@@ -30,10 +34,11 @@ logging layer — the `AUTONOMY_ROLE=onboard` subtractions.
   `onboard.launch.xml` is this topology paired with an offboard global half
   and an explicit `bridge.yaml`.
 
-## Equivalence claim
+## Equivalence
 
-`airstack up --stack lite_default` produces a ROS graph identical to the
-legacy `AUTONOMY_ROLE=onboard` dispatch. Verify with the wiring snapshot test:
+`airstack up --stack lite_default` produces the topology the removed legacy
+`AUTONOMY_ROLE=onboard` dispatch launched. Verify with the wiring snapshot
+test:
 
 ```bash
 airstack test -m wiring --stack lite_default --sim isaacsim --num-robots 1
@@ -66,6 +71,8 @@ when `AIRSTACK_STACK_DIR` is set.
   the first module pins; trunk compose profiles provide all services.
 
 ## wiring.md
+
+This stack's observed wiring diagram is committed at [wiring.md](wiring.md).
 
 Generated — the commit arrives with the first snapshot run of
 `airstack test -m wiring --stack lite_default` (the harness writes

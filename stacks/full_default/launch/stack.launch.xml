@@ -27,9 +27,10 @@
   robot_state_publisher, world/map static TF) runs there unconditionally, so
   it is NOT repeated here.
 
-  Equivalence claim: launching this stack produces a ROS graph identical to
-  legacy AUTONOMY_ROLE=full (this folder's wiring.md is the committed
-  observed baseline).
+  Equivalence: machine-proven identical to the removed AUTONOMY_ROLE=full
+  dispatch (wiring-snapshot diff); this folder's wiring.md is the committed
+  observed baseline. AUTONOMY_ROLE is gone from this branch — stacks are the
+  only dispatch.
 -->
 <launch>
 
@@ -102,7 +103,7 @@
        global_plan out; navigate/exploration actions under tasks/*. The node
        self-names random_walk_node at the robot root (no namespace push).
        Swapping the global planner = replacing this include; the alternative
-       trunk planners (ensemble_planner, exploration) ship no canonical
+       trunk planners (exploration) ship no canonical
        module launch yet — write one in their package first. -->
   <include file="$(find-pkg-share random_walk_planner)/launch/random_walk_planner.launch.xml" />
 
@@ -116,12 +117,12 @@
   <!-- ── Logging (already a single self-contained module — see header) ───── -->
   <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" />
 
-  <!-- ── Role-full extras (from robot.launch.xml's full group) ──────────── -->
+  <!-- ── Cross-domain extras (formerly robot.launch.xml's full-role group) ─ -->
 
   <!-- Domain Bridge (GCS) -->
   <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
     <arg name="dds_router_config_file"
-      value="$(find-pkg-share autonomy_bringup)/onboard_all/config/dds_router.yaml" />
+      value="$(find-pkg-share autonomy_bringup)/config/dds_router.yaml" />
     <!-- 0 = robot.launch.xml's gcs_domain default -->
     <arg name="dds_router_args" value="gcs_domain:=0" />
   </include>

@@ -25,27 +25,25 @@ Anatomy is enforced by a unit test: `tests/meta/test_stack_layout_contract.py`
 
 | Stack | Topology |
 |-------|----------|
-| [`full_default`](https://github.com/castacks/AirStack/tree/develop/stacks/full_default) | The current full-autonomy topology (GPU `droan_gl` planner) — baseline, graph-identical to legacy `AUTONOMY_ROLE=full`. |
+| [`full_default`](https://github.com/castacks/AirStack/tree/develop/stacks/full_default) | The current full-autonomy topology (GPU `droan_gl` planner) — baseline; machine-proven graph-identical to the removed legacy `AUTONOMY_ROLE=full` dispatch, and what launches when no stack is selected. |
 | [`full_droan_cpu`](https://github.com/castacks/AirStack/tree/develop/stacks/full_droan_cpu) | CPU DROAN planner + live `disparity_expansion` — absorbs `local_droan_cpu.launch.xml`. |
 | [`full_macvo`](https://github.com/castacks/AirStack/tree/develop/stacks/full_macvo) | MAC-VO as the planner's disparity source — supersedes (and fixes) the broken `local_macvo_obstacle_avoidance.launch.xml` variant. Requires the `asm_macvo` module (`airstack module add asm_macvo`). |
-| [`lite_default`](https://github.com/castacks/AirStack/tree/develop/stacks/lite_default) | Onboard-lite topology, unsplit — the `AUTONOMY_ROLE=onboard` equivalent: interface, sensors, perception, flat Local layer, behavior; **no global, no logging**. |
-| [`lite_offload_global`](https://github.com/castacks/AirStack/tree/develop/stacks/lite_offload_global) | The first **split stack** (RFC #380 §2): `onboard.launch.xml` (= lite topology) + `offboard.launch.xml` (global layer only) + `bridge.yaml`. Replaces the `onboard`/`offboard` role pair. |
+| [`lite_default`](https://github.com/castacks/AirStack/tree/develop/stacks/lite_default) | Onboard-lite topology, unsplit — the equivalent of the removed `AUTONOMY_ROLE=onboard` role: interface, sensors, perception, flat Local layer, behavior; **no global, no logging**. |
+| [`lite_offload_global`](https://github.com/castacks/AirStack/tree/develop/stacks/lite_offload_global) | The first **split stack** (RFC #380 §2): `onboard.launch.xml` (= lite topology) + `offboard.launch.xml` (global layer only) + `bridge.yaml`. Replaced the removed `onboard`/`offboard` role pair. |
 
 ## Wrap vs. flatten — current status
 
-Stack adoption is a two-step migration:
+The wrap→flatten migration is COMPLETE: every reference stack composes its
+graph as flat module-launch includes, the legacy layer bringup launch files
+(`local/perception/sensors/global/behavior *.launch.xml`) are deleted, and
+the AUTONOMY_ROLE dispatch is gone from `autonomy_bringup` — stacks are the
+only dispatch. Two blocks remain wrapped **by design**: `interface.launch.py`
+(the safety boundary, until RFC #380 Part 2) and the
+`interpolate_dds_router` / gossip helpers (their wiring lives in YAML
+configs). The lint allowlist (below) is down to that deliberate remainder.
 
-- **Wrap form (now):** each reference stack's `stack.launch.xml` *includes*
-  the existing layer bringup files (`interface_bringup`, `local_bringup`, …),
-  capturing today's topology without moving any wiring. The remaps still live
-  inside those layer bringups.
-- **Flatten (next phases):** the layer bringups' nodes and remaps move into
-  the stack entry files, the legacy files shrink, and their lines disappear
-  from the lint allowlist (below). `autonomy_bringup` thins until the
-  AUTONOMY_ROLE dispatch is gone.
-
-In both forms, the stack's `wiring.md` — snapshotted from the running system —
-is the observed truth of the graph.
+The stack's `wiring.md` — snapshotted from the running system — is the
+observed truth of the graph.
 
 ## Running a stack
 
@@ -58,15 +56,47 @@ Mechanics: `--stack <name>` validates `stacks/<name>/launch/stack.launch.xml`
 exists, then exports `AIRSTACK_STACK_DIR=/root/AirStack/stacks/<name>` (the
 *container* path — `stacks/` is bind-mounted into every robot container) and
 `AIRSTACK_STACK_ENTRY=stack`. Inside the container,
-`autonomy_bringup/launch/robot.launch.xml` still runs the shared preamble
+`autonomy_bringup/launch/robot.launch.xml` runs the shared preamble
 (ROBOT_NAME namespace, `use_sim_time`, `robot_state_publisher`, world→map TF),
-then includes the stack entry file *instead of* the legacy role groups.
+then includes the stack entry file. With no stack selected anywhere
+(`--stack` / env / `--env-file` / `.env`), the trunk reference stack
+`full_default` launches — `AIRSTACK_STACK_DIR` is always set in the
+effective config.
 
 `--stack <name>:<entry>` selects an alternate entry file
 (`launch/<entry>.launch.xml`) — reserved for split stacks (RFC #380 §2).
 
 Stack launch files need no `colcon build` — they are read from the bind mount;
 edit and re-launch.
+
+### Why stacks don't launch standalone
+
+It is tempting to `ros2 launch` a stack entry file directly and delete the
+dispatcher. Three reasons the thin `robot.launch.xml` earns its ~50 lines:
+
+1. **Namespace scoping is mechanical, not stylistic.** `push_ros_namespace`
+   only scopes what sits *inside* its enclosing scope, so an included
+   "preamble" file cannot namespace the sibling includes that follow it. The
+   dispatcher pushes `/$ROBOT_NAME` and includes the stack entry *within*
+   that scope — the one arrangement where every stack node lands namespaced
+   without each stack author hand-rolling (and occasionally fumbling) a
+   wrapper group. A stack that wraps the dispatcher instead recurses
+   infinitely; the layout contract test enforces the direction.
+2. **Stack files stay pure wiring documents.** The preamble — `use_sim_time`,
+   `robot_state_publisher`/URDF plumbing, the world→map TF — is *platform*
+   infrastructure, not topology. Keeping it out of stack entries preserves
+   the "entry file *is* the wiring diagram" property, and keeps
+   vehicle-driven URDF generation (RFC #380 §1) a one-file change instead of
+   an every-stack (and every external stack repo) migration.
+3. **It is the seed of the platform module.** RFC #380 Part 2 extracts
+   "interface + controller + safety + preamble" as the `px4_multirotor`
+   platform module; this dispatcher is precisely the file that becomes that
+   platform's bringup. The Directory Atlas (#385) says `autonomy_bringup`
+   *thins* — it does not disappear.
+
+Practically it is also the single point where `AIRSTACK_STACK_DIR`/`_ENTRY`
+resolution happens, so compose, the fleet resolver, and the CLI converge on
+one contract.
 
 ## wiring.md: generation and drift-checking
 
@@ -86,8 +116,9 @@ airstack test -m wiring --stack full_default --sim isaacsim --num-robots 1
   the observed graph — a PR that changes wiring must regenerate `wiring.md`,
   so the review diff shows the topology change.
 
-Legacy runs without `--stack` keep using the golden at
-`tests/goldens/wiring/full_default.<sim>.<N>robot.md`.
+Runs without `--stack` launch the default dispatch — `full_default` — and
+drift-check against its `stacks/full_default/wiring.md` (there is no separate
+goldens tree; each stack folder owns its baseline).
 
 ## The single-locus rule (and its lint)
 
@@ -101,7 +132,9 @@ global_plan stacks/my_stack/` answers "who touches this".
 Enforced by `tests/meta/test_launch_single_locus.py` (`unit` mark, runs in CI):
 
 1. No `<remap>`/`remappings=` outside `stacks/*/launch/` — except files frozen
-   in `tests/meta/launch_lint_allowlist.txt` (the wrap-form legacy set).
+   in `tests/meta/launch_lint_allowlist.txt` (down to the deliberate remainder:
+   a standalone utility, a vendored driver, one module launch awaiting its
+   canonical rewrite, and the interface safety boundary).
 2. The allowlist only shrinks: an entry whose file no longer carries a remap
    fails the lint until its line is deleted.
 3. Stack launch files must describe every `<arg>` they declare.
@@ -145,9 +178,9 @@ stacks/lite_offload_global/
 
 - **Run each half** with the `NAME:ENTRY` form:
   `airstack up --stack lite_offload_global:onboard` on the vehicle,
-  `... :offboard` on the ground host. Today's coarse `AUTONOMY_ROLE`
-  trichotomy becomes "which entry point does this host run"; a third machine
-  is just another entry file + bridge section.
+  `... :offboard` on the ground host. The old coarse `AUTONOMY_ROLE`
+  trichotomy (removed) became "which entry point does this host run"; a
+  third machine is just another entry file + bridge section.
 - **Or declare the placement in a fleet** (RFC #380 §2): a fleet entry with
   `stack: stacks/lite_offload_global` and `hosts: {offboard: gcs}` derives
   both halves — the robot's service gets the `onboard` entry, the named
@@ -236,18 +269,19 @@ airstack doctor --snapshot --stack <name>
 `airstack up` with the stack flag). `airstack module doctor` remains the
 module-scoped subset (manifests + overlay + `--drift`).
 
-## AUTONOMY_ROLE deprecation
+## AUTONOMY_ROLE: removed
 
-`AUTONOMY_ROLE` remains fully functional while stacks land, but it is the
-legacy dispatch — stacks replace it in 0.21. `airstack up` warns when it sees
-an explicitly set `AUTONOMY_ROLE`:
+`AUTONOMY_ROLE` was **removed on this branch** — stacks are the only launch
+dispatch. `airstack up` hard-errors (preflight) when it sees an explicitly
+set `AUTONOMY_ROLE` (env / `.env` / `--env-file`), naming this page.
+Migration:
 
-| You have | What happens | Migration |
-|----------|--------------|-----------|
-| No stack, no explicit `AUTONOMY_ROLE` | Legacy dispatch, compose default role (`full`) — unchanged, no warning | `airstack up --stack full_default` when ready |
-| Explicit `AUTONOMY_ROLE=full` (env / `.env` / `--env-file`) | Legacy dispatch + deprecation warning | `--stack full_default` |
+| You had | Now | Migration |
+|---------|-----|-----------|
+| No stack, no `AUTONOMY_ROLE` (compose default role `full`) | `full_default` launches by default — machine-proven graph-identical to the old `full` role | Nothing to do (or be explicit: `--stack full_default`) |
+| Explicit `AUTONOMY_ROLE=full` | Preflight error | `--stack full_default` (or drop the variable — same stack launches) |
 | `local_droan_cpu.launch.xml` variant | **Deleted in P5-E2** — the CPU-DROAN topology lives only in the stack | `--stack full_droan_cpu` |
 | `local_macvo_obstacle_avoidance.launch.xml` | **Deleted in P5-E2** (was broken: wrong arg names, stale topic) | `--stack full_macvo` (fixed) |
-| `AUTONOMY_ROLE=onboard` (lite, no split) | Legacy dispatch + warning | `--stack lite_default` |
-| `AUTONOMY_ROLE=onboard` / `offboard` (split) | Legacy dispatch + warning | `--stack lite_offload_global:onboard` / `:offboard` (+ `bridge.yaml`) |
-| `--stack X` **and** explicit `AUTONOMY_ROLE` | Stack wins — the role is ignored by the launch dispatch; warning says so | Drop `AUTONOMY_ROLE` |
+| `AUTONOMY_ROLE=onboard` (lite, no split) | Preflight error. (On the desktop profile this role was unreachable anyway — `robot-desktop` hardcoded `AUTONOMY_ROLE=full`.) | `--stack lite_default` |
+| `AUTONOMY_ROLE=onboard` / `offboard` (split) | Preflight error | `--stack lite_offload_global:onboard` / `:offboard` (+ `bridge.yaml`; generate the router config — the generated config deliberately drops the legacy split's `set_trajectory_mode` crossing, doctor hard gate #2) |
+| `--stack X` **and** `AUTONOMY_ROLE` | Preflight error (no silent "stack wins" anymore) | Drop `AUTONOMY_ROLE` |

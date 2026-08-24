@@ -160,9 +160,11 @@ function print_command_help {
             echo "Options:"
             echo "  --build       Build images before starting containers"
             echo "  --recreate    Recreate containers even if their configuration and image haven't changed"
-            echo "  --stack NAME  Launch a stack folder (stacks/NAME/launch/stack.launch.xml) instead of"
-            echo "                the legacy AUTONOMY_ROLE dispatch. NAME:ENTRY selects an alternate entry"
-            echo "                file (launch/ENTRY.launch.xml). See docs/development/stacks.md."
+            echo "  --stack NAME  Launch a stack folder (stacks/NAME/launch/stack.launch.xml)."
+            echo "                Stacks are the only launch dispatch; no --stack (and no stack"
+            echo "                env) launches the trunk reference stack full_default."
+            echo "                NAME:ENTRY selects an alternate entry file"
+            echo "                (launch/ENTRY.launch.xml). See docs/development/stacks.md."
             echo "  --fleet NAME  Launch a fleet (config/fleets/NAME.yaml): exports FLEET_CONFIG_FILE,"
             echo "                derives NUM_ROBOTS, selects the Isaac fleet spawner, and (for"
             echo "                heterogeneous fleets) includes the generated per-robot services."
@@ -1225,6 +1227,19 @@ function apply_launch_intent {
         apply_stack_intent || return 1
     fi
 
+    # Stacks are the ONLY launch dispatch (the legacy AUTONOMY_ROLE dispatch
+    # was removed): no stack selected anywhere (--stack / env / --env-file /
+    # .env) = the trunk reference stack full_default. Exported here so the
+    # effective config always names the stack that will actually launch.
+    # (Fleet runs re-resolve per container: robot/docker/.bashrc overrides
+    # these from the fleet file when FLEET_CONFIG_FILE is set.)
+    if [[ -z "$(resolve_launch_var AIRSTACK_STACK_DIR "$@")" ]]; then
+        export AIRSTACK_STACK_DIR="/root/AirStack/stacks/full_default"
+    fi
+    if [[ -z "$(resolve_launch_var AIRSTACK_STACK_ENTRY "$@")" ]]; then
+        export AIRSTACK_STACK_ENTRY="stack"
+    fi
+
     if [[ -n "$AIRSTACK_INTENT_SIM" ]]; then
         local sim_profile urdf
         case "$AIRSTACK_INTENT_SIM" in
@@ -1440,16 +1455,13 @@ function preflight_up {
         log_warn "LAUNCH_NATNET is gone — OptiTrack moved to the asm_optitrack module (airstack module add https://github.com/castacks/asm_optitrack --version <tag>); see docs/development/modules.md"
     fi
 
-    # 8. Stack vs legacy AUTONOMY_ROLE dispatch. AUTONOMY_ROLE counts as
-    # "explicitly set" only via env / --env-file / .env — the compose files'
-    # own `${AUTONOMY_ROLE:-full}` default is invisible here, by design.
-    local _pf_stack_dir _pf_role
-    _pf_stack_dir=$(resolve_launch_var AIRSTACK_STACK_DIR "${_pf_global[@]}")
+    # 8. AUTONOMY_ROLE was REMOVED (stacks — RFC #379 — are the only launch
+    # dispatch). A set value counts only via env / --env-file / .env; nothing
+    # in the compose files defaults it anymore.
+    local _pf_role
     _pf_role=$(resolve_launch_var AUTONOMY_ROLE "${_pf_global[@]}")
-    if [[ -n "$_pf_role" && -z "$_pf_stack_dir" ]]; then
-        log_warn "AUTONOMY_ROLE is the legacy dispatch; stacks replace it in 0.21 — try: airstack up --stack full_default"
-    elif [[ -n "$_pf_role" && -n "$_pf_stack_dir" ]]; then
-        log_warn "Both a stack ($_pf_stack_dir) and AUTONOMY_ROLE=$_pf_role are set — the stack wins: robot.launch.xml ignores the role when a stack dir is set."
+    if [[ -n "$_pf_role" ]]; then
+        _pf_error "AUTONOMY_ROLE was removed — select a stack: airstack up --stack <name> (see docs/development/stacks.md). Migration: full → full_default (the no-stack default), onboard → lite_default, onboard/offboard split → lite_offload_global:onboard / :offboard."
     fi
 
     unset -f _pf_error

@@ -20,7 +20,7 @@ running in the GCS container.
 Robot container (domain: ROS_DOMAIN_ID)
   └─ publishes topics
 
-DDS Router (onboard_all)
+DDS Router (shared allowlist)
   └─ bridges allowlisted topics to GCS domain
 
 GCS container (domain: 0)
@@ -35,7 +35,7 @@ in the GCS before it will appear in Foxglove. Missing either step = nothing show
 
 ## Step 1 — Bridge the Topic in DDS Router
 
-**File:** `robot/ros_ws/src/autonomy_bringup/onboard_all/config/dds_router.yaml`
+**File:** `robot/ros_ws/src/autonomy_bringup/config/dds_router.yaml`
 
 Add an entry to the `allowlist` for every topic you want on the GCS:
 

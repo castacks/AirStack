@@ -24,7 +24,7 @@
        description="Output trajectory-controller mode command" />
   <arg name="takeoff_landing_tracking_point_topic"
        default="/$(env ROBOT_NAME)/trajectory_controller/tracking_point"
-       description="Input trajectory-controller tracking point (nav_msgs/Odometry)" />
+       description="Input trajectory-controller tracking point (airstack_msgs/Odometry)" />
   <arg name="takeoff_landing_is_armed_topic"
        default="/$(env ROBOT_NAME)/interface/is_armed"
        description="Input arming state from the robot interface (std_msgs/Bool)" />

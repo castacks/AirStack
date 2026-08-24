@@ -6,8 +6,9 @@
 A split stack carries one launch entry point per host role plus a ``bridge.yaml``
 explicitly listing every topic/service/action crossing the machine boundary.
 That list is authoritative and human-readable; this tool derives the eProsima
-DDS Router allowlist config from it — the same format as
-``autonomy_bringup/onboard_local_offboard_global/config/dds_router.yaml`` and
+DDS Router allowlist config from it — the same format as the shared
+``autonomy_bringup/config/dds_router.yaml`` (inherited from the removed
+legacy split's router config) and
 consumed by the same ``interpolate_dds_router.launch.py`` (``$(env ROBOT_NAME)``
 / ``$(var gcs_domain)`` tokens are resolved at launch, per-robot).
 
@@ -190,8 +191,8 @@ def _allowlist_lines(kind, name):
     """DDS endpoint allowlist entries for one bridge entry (relative name).
 
     Topic prefixes per the DDS/ROS 2 mapping documented in
-    onboard_all/config/dds_router.yaml: rt/ topics, rq/…Request + rr/…Reply
-    service pairs, and the five action sub-endpoints.
+    autonomy_bringup/config/dds_router.yaml: rt/ topics, rq/…Request +
+    rr/…Reply service pairs, and the five action sub-endpoints.
     """
     ns = "$(env ROBOT_NAME)"
     if kind == "topic":
@@ -213,7 +214,7 @@ def render_router_config(data, source_rel="bridge.yaml"):
 
     Deterministic: pure function of the input (entries grouped by direction in
     input order; no timestamps, no absolute paths). The output format mirrors
-    autonomy_bringup/onboard_local_offboard_global/config/dds_router.yaml —
+    autonomy_bringup/config/dds_router.yaml —
     participants on $(env ROS_DOMAIN_ID) / $(var gcs_domain), an rt/rq/rr
     allowlist with $(env ROBOT_NAME) interpolation — so the same
     interpolate_dds_router.launch.py consumes it unchanged.

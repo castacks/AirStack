@@ -365,7 +365,6 @@ graph TB
 - **Planners:**
 
     - `random_walk`: Random exploration planner
-    - `ensemble_planner`: Multi-planner coordination
 
 **Topics:**
 

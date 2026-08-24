@@ -119,4 +119,6 @@ To shutdown and remove docker containers:
 airstack down # This will stop and remove the docker containers
 ```
 
-Congratulations! You did it. 
+Congratulations! You did it.
+
+**Next:** the [Modular AirStack Walkthrough](modular_airstack.md) — fly a reference stack, add a module from the [catalog](../modules/index.md), build your own stack, and scale to a fleet. 

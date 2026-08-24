@@ -12,15 +12,16 @@ The sensors layer is responsible for:
 
 ## Launch
 
-Launch files are located under `robot/ros_ws/src/sensors/sensors_bringup/launch/`.
-
-The main launch command is:
+Sensor modules ship their own canonical launch files and are composed by the
+stack entry file under the `sensors` namespace (the legacy `sensors_bringup`
+layer launch was removed with the AUTONOMY_ROLE dispatch). E.g. the trunk
+stacks include:
 
 ```bash
-ros2 launch sensors_bringup sensors.launch.xml
+ros2 launch lidar_point_cloud_filter lidar_point_cloud_filter.launch.xml
 ```
 
-The bringup group uses the `sensors` namespace under each robot; see that package for which nodes are started.
+See `stacks/full_default/launch/stack.launch.xml` for the composed wiring.
 
 ## Key Topics
 
