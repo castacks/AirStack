@@ -1,0 +1,13 @@
+# Per-stack image composition (RFC #379 S6): modules.repos pins asm_macvo, and
+# the P4 machinery (tools/compose_module_layers.py) composes each module's
+# dependency layer (its Dockerfile.module) on top of the trunk base image via
+# `airstack module lock --build`, emitting a compose override for `airstack up`.
+#
+# MAC-VO's dependencies (torch, TensorRT, model weights, ...) are NO longer
+# baked into the trunk robot image — they live in asm_macvo's
+# Dockerfile.module. Run `airstack module add asm_macvo && airstack module
+# sync && airstack module lock --build` before bringing this stack up. The
+# empty services map keeps this file valid YAML for the stack-anatomy contract
+# (tests/meta/test_stack_layout_contract.py); the lock step generates the real
+# override.
+services: {}

@@ -1,0 +1,11 @@
+# Per-stack image composition (RFC #379 S6) arrives with this stack's first
+# module pins: the P4 machinery (tools/compose_module_layers.py) composes
+# per-module dependency layers on top of the trunk base image and emits a
+# compose override for `airstack up`.
+#
+# full_default pins no modules (see modules.repos), so there is nothing to
+# compose yet -- the trunk compose profiles (root docker-compose.yaml,
+# robot/docker/docker-compose.yaml) provide every service meanwhile. The empty
+# services map keeps this file valid YAML for the stack-anatomy contract
+# (tests/meta/test_stack_layout_contract.py).
+services: {}

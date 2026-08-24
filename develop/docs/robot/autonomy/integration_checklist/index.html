@@ -14,7 +14,7 @@
         <link rel="prev" href="../behavior/">
       
       
-        <link rel="next" href="../coordination/">
+        <link rel="next" href="../interface_conventions/">
       
       
         
@@ -1528,6 +1528,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1635,6 +1639,62 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../../development/stacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AirStack Stacks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/fleets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AirStack Fleets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1655,10 +1715,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_5" >
         
           
-          <label class="md-nav__link" for="__nav_3_4_3" id="__nav_3_4_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_4_5" id="__nav_3_4_5_label" tabindex="0">
             
   
   
@@ -1676,8 +1736,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_4_3">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4_5">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1850,8 +1910,6 @@
       
         
           
-        
-      
         
       
         
@@ -2075,34 +2133,6 @@
     
   
     Export Unreal Engine Scene to Isaac Sim
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/natnet_emulator/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    MoCap Emulator
   
 
     
@@ -2643,6 +2673,8 @@
       
         
       
+        
+      
     
     
     
@@ -2946,8 +2978,6 @@
       
         
       
-        
-      
     
     
     
@@ -3009,42 +3039,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/perception/natnet_ros2/" class="md-nav__link">
+      <a href="../../optitrack/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    NatNet (OptiTrack)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../px4_external_vision/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    PX4 External Vision (mocap)
+    OptiTrack (asm_optitrack module)
   
 
     
@@ -4743,6 +4745,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../interface_conventions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interface Conventions Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -4765,7 +4795,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_11" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_12" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -4787,14 +4817,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5_4_11" id="__nav_5_4_11_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5_4_12" id="__nav_5_4_12_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_11_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4_11">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4_12">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -6218,6 +6248,12 @@
 
 <h1 id="module-integration-checklist">Module Integration Checklist<a class="headerlink" href="#module-integration-checklist" title="Permanent link">&para;</a></h1>
 <p>This document provides a comprehensive checklist and guidelines for integrating new modules into the AirStack autonomy stack.</p>
+<blockquote>
+<p><strong>Canonical names, types, QoS, and frames now live in the versioned
+<a href="../interface_conventions/">Interface Conventions Specification</a></strong> (v1.0.0) —
+cite that spec for interchange-point contracts; this page remains the
+step-by-step integration workflow.</p>
+</blockquote>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
 <p>When adding a new module to AirStack, proper integration ensures:</p>
 <ul>
@@ -6297,7 +6333,7 @@ integration in one place.</p>
 </span></code></pre></div></p>
 <p>Examples:</p>
 <ul>
-<li><code>/drone1/perception/macvo/odometry</code></li>
+<li><code>/drone1/perception/macvo/odometry</code> (a module-provided topic — macvo comes from the <code>asm_macvo</code> module)</li>
 <li><code>/drone1/local_planner/droan/trajectory</code></li>
 <li><code>/drone1/trajectory_controller/tracking_point</code></li>
 </ul>
@@ -6862,13 +6898,13 @@ task action types.</p>
         
         
           
-          <a href="../coordination/" class="md-footer__link md-footer__link--next" aria-label="Next: Overview">
+          <a href="../interface_conventions/" class="md-footer__link md-footer__link--next" aria-label="Next: Interface Conventions Spec">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Overview
+                Interface Conventions Spec
               </div>
             </div>
             <div class="md-footer__button md-icon">

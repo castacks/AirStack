@@ -10,8 +10,6 @@ ARG BASE_IMAGE
 ARG REAL_ROBOT
 ARG UPDATE_FLAGS="-o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true"
 ARG INSTALL_FLAGS="-o APT::Get::AllowUnauthenticated=true"
-ARG SKIP_MACVO=false
-ARG SKIP_TENSORRT=false
 ARG TARGET_ARCH=x86_64
 
 ARG PIP_VERSION=24.0
@@ -114,19 +112,6 @@ RUN apt update -y && apt install -y --no-install-recommends \
 
 RUN /opt/ros/${ROS_DISTRO}/lib/mavros/install_geographiclib_datasets.sh
 
-# Install TensorRT (NVIDIA/L4T images only, unless SKIP_TENSORRT=true)
-# Note: TensorRT 8 packages may not be available for Ubuntu 24.04, so this is optional
-RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)" && [ "${SKIP_TENSORRT}" != "true" ]; then \
-  if [ ! -f /etc/apt/sources.list.d/cuda*.list ]; then \
-  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_release -rs | tr -d .)/x86_64/cuda-keyring_1.1-1_all.deb && \
-  dpkg -i cuda-keyring_1.1-1_all.deb || true; \
-  fi && \
-  apt update -y && \
-  apt install -y --no-install-recommends \
-  libnvinfer10 libnvinfer-dev libnvinfer-plugin10 \
-  python3-libnvinfer python3-libnvinfer-dev; \
-  fi
-
 # Install Python dependencies (unconditional)
 # Note: numpy>=1.26 required for Python 3.12 compatibility
 # Using --ignore-installed to avoid conflicts with system packages
@@ -136,7 +121,7 @@ RUN pip3 install --break-system-packages --ignore-installed \
   future \
   lxml \
   matplotlib==3.8.4 \
-  # numpy must be <2.0 for MACVO
+  # kept <2.0 conservatively; audit consumers before relaxing
   numpy~=1.26.4 \
   pkgconfig \
   psutil \
@@ -150,55 +135,15 @@ RUN pip3 install --break-system-packages --ignore-installed \
   six \
   toml \
   scipy \
-  pypose \
   rich \
   tqdm \
-  pillow \
-  flow_vis \
-  h5py \
-  evo \
-  tabulate \
-  einops \
-  timm==0.9.12 \
-  rerun-sdk==0.22.0 \
-  yacs \
-  wandb \
-  loguru \
-  jaxtyping \
-  kornia \
-  typeguard==2.13.3
+  pillow
 
 # Keep pytest < 8.1. ROS Jazzy launch_testing still implements
 # pytest_pycollect_makemodule(path=...), which pluggy rejects after pytest 8.1
 # removed the py.path hook argument (PluginValidationError on colcon test).
 RUN python3 -m pip install --no-cache-dir --break-system-packages \
   "pytest>=7.4,<8.1"
-
-# Install MACVO Python dependencies (skipped if SKIP_MACVO=true)
-RUN if [ "${SKIP_MACVO}" != "true" ]; then \
-  pip3 install --break-system-packages \
-  torch \
-  torchvision \
-  onnx \
-  tensorrt; \
-  fi
-
-# Downloading model weights for MACVO (skipped if SKIP_MACVO=true)
-WORKDIR /model_weights
-RUN if [ "${SKIP_MACVO}" != "true" ]; then \
-  wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth" && \
-  wget -r "https://github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl" && \
-  pwd && ls -R && \
-  mv /model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_FrontendCov.pth /model_weights/MACVO_FrontendCov.pth && \
-  mv /model_weights/github.com/MAC-VO/MAC-VO/releases/download/model/MACVO_posenet.pkl /model_weights/MACVO_posenet.pkl && \
-  rm -rf /model_weights/github.com; \
-  fi
-
-# Fixes for MACVO Integration (skipped if SKIP_MACVO=true)
-RUN if [ "${SKIP_MACVO}" != "true" ]; then \
-  pip install --break-system-packages huggingface_hub && \
-  pip uninstall --break-system-packages matplotlib -y; \
-  fi
 
 # TMux config
 RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm
@@ -252,8 +197,6 @@ ARG BASE_IMAGE
 ARG REAL_ROBOT
 ARG UPDATE_FLAGS="-o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true"
 ARG INSTALL_FLAGS="-o APT::Get::AllowUnauthenticated=true"
-ARG SKIP_MACVO=false
-ARG SKIP_TENSORRT=false
 ARG TARGET_ARCH=x86_64
 
 ARG PIP_VERSION=24.0
@@ -374,20 +317,6 @@ RUN apt update && apt install -y --no-install-recommends \
   libopenvdb-dev \
   && rm -rf /var/lib/apt/lists/*
 
-# Install NVIDIA runtime apt packages (no -dev counterparts; NVIDIA/L4T images only, unless SKIP_TENSORRT=true)
-# Note: TensorRT 8 packages may not be available for Ubuntu 24.04, so this is optional
-RUN if echo "$BASE_IMAGE" | grep -qE "(nvidia|l4t)" && [ "${SKIP_TENSORRT}" != "true" ]; then \
-  if [ ! -f /etc/apt/sources.list.d/cuda*.list ]; then \
-  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_release -rs | tr -d .)/x86_64/cuda-keyring_1.1-1_all.deb && \
-  dpkg -i cuda-keyring_1.1-1_all.deb || true; \
-  fi && \
-  apt update -y && \
-  apt install -y \
-  libnvinfer10 libnvinfer-plugin10 \
-  python3-libnvinfer \
-  && rm -rf /var/lib/apt/lists/*; \
-  fi
-
 # Install Foxglove Studio desktop app only for non-real-robot images
 RUN if [ "${REAL_ROBOT}" != "true" ] && [ "$(dpkg --print-architecture)" = "amd64" ]; then \
       wget -q https://get.foxglove.dev/desktop/latest/foxglove-studio-latest-linux-amd64.deb -O /tmp/foxglove-studio.deb && \
@@ -412,7 +341,6 @@ RUN mkdir /var/run/sshd
 COPY --from=builder /usr/local/bin            /usr/local/bin
 COPY --from=builder /usr/local/lib            /usr/local/lib
 COPY --from=builder /usr/local/include        /usr/local/include
-COPY --from=builder /model_weights            /model_weights
 COPY --from=builder /root/.tmux               /root/.tmux
 
 # Password is airstack

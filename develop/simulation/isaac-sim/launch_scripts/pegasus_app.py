@@ -195,8 +195,8 @@ class PegasusApp:
       scale/colliders (e.g. referencing extra root prims).
     - ``post_scene_prep(stage)`` — after scene prep, before drones spawn
       (e.g. authoring an overhead map camera).
-    - ``post_spawn(stage)``      — after all drones spawn (e.g. authoring a
-      NatNet mocap interface).
+    - ``post_spawn(stage)``      — after all drones spawn (e.g. authoring
+      extra scene-level prims such as a mocap interface).
 
     Each entry in ``drone_configs`` is a dict:
       ``domain_id`` (required) — ROS 2 domain; also the default vehicle_id

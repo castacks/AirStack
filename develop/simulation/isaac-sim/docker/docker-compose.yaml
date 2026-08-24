@@ -48,6 +48,9 @@ services:
       - PLAY_SIM_ON_START=${PLAY_SIM_ON_START}
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       - ENABLE_LIDAR=${ENABLE_LIDAR:-false}
+      # Fleet spawner input (RFC #380): fleet_spawn.py maps the robot-container
+      # path onto this container's /isaac-sim/AirStack checkout mount.
+      - FLEET_CONFIG_FILE=${FLEET_CONFIG_FILE:-}
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
       # Pegasus physics tuning — read by pegasus/simulator/params.py
       - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}
@@ -75,8 +78,6 @@ services:
       - $HOME/docker/isaac-sim/pkg:/isaac-sim/.local/share/ov/pkg:rw \
       # pegasus integration
       - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/:rw
-      # natnet emulator integration
-      - ../extensions/optitrack.natnet.emulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/optitrack.natnet.emulator/:rw
       # omniverse
       - ./omniverse.toml:/isaac-sim/.nvidia-omniverse/config/omniverse.toml:rw
       - ./user.config.json:/isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw # enables pegasus extension; IMPORTANT: set the version number without the trailing .0
@@ -152,7 +153,6 @@ services:
       - $HOME/docker/isaac-sim/data:/isaac-sim/.local/share/ov/data:rw
       - $HOME/docker/isaac-sim/pkg:/isaac-sim/.local/share/ov/pkg:rw
       - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/:rw
-      - ../extensions/optitrack.natnet.emulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/optitrack.natnet.emulator/:rw
       - ./omniverse.toml:/isaac-sim/.nvidia-omniverse/config/omniverse.toml:rw
       - ./user.config.json:/isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw
       - .dev:/isaac-sim/.dev:rw

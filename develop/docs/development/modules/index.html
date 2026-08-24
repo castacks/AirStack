@@ -14,7 +14,7 @@
         <link rel="prev" href="../advanced/ai_agent_guide/">
       
       
-        <link rel="next" href="../advanced/airstack-cli/extending/">
+        <link rel="next" href="../stacks/">
       
       
         
@@ -1541,6 +1541,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1875,6 +1879,62 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../stacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AirStack Stacks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../fleets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AirStack Fleets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1895,10 +1955,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_5" >
         
           
-          <label class="md-nav__link" for="__nav_3_4_3" id="__nav_3_4_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_4_5" id="__nav_3_4_5_label" tabindex="0">
             
   
   
@@ -1916,8 +1976,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_4_3">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4_5">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2090,8 +2150,6 @@
       
         
           
-        
-      
         
       
         
@@ -2315,34 +2373,6 @@
     
   
     Export Unreal Engine Scene to Isaac Sim
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../simulation/isaac_sim/natnet_emulator/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    MoCap Emulator
   
 
     
@@ -2870,6 +2900,8 @@
       
         
       
+        
+      
     
     
     
@@ -3170,8 +3202,6 @@
       
         
       
-        
-      
     
     
     
@@ -3233,42 +3263,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../robot/ros_ws/src/perception/natnet_ros2/" class="md-nav__link">
+      <a href="../../robot/optitrack/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    NatNet (OptiTrack)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../robot/px4_external_vision/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    PX4 External Vision (mocap)
+    OptiTrack (asm_optitrack module)
   
 
     
@@ -4383,6 +4385,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../robot/autonomy/interface_conventions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interface Conventions Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -4405,7 +4435,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_11" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_12" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -4427,14 +4457,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5_4_11" id="__nav_5_4_11_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5_4_12" id="__nav_5_4_12_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_11_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4_11">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4_12">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -5933,7 +5963,7 @@ act: re-run <code>module add &lt;url&gt; --version &lt;new-tag&gt;</code> (upser
 <li>Runs <code>tools/module_overlay.py</code> (see below).</li>
 <li>Runs each module's <code>hooks.host_setup</code> script (skip with <code>--no-hooks</code>).
    Hook contract: <strong>idempotent, never sudo, writes only inside the module
-   checkout</strong> (precedent: natnet's SDK download script).</li>
+   checkout</strong> (precedent: the asm_optitrack module's NatNet SDK download script).</li>
 </ol>
 <h2 id="how-the-overlay-works">How the overlay works<a class="headerlink" href="#how-the-overlay-works" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart LR
@@ -5972,7 +6002,7 @@ act: re-run <code>module add &lt;url&gt; --version &lt;new-tag&gt;</code> (upser
 </span></code></pre></div>
 <p>Kit extensions under <code>modules/&lt;name&gt;/exts/*</code> are mounted into the shared
   Kit exts dir that the isaac-sim command already passes via <code>--ext-folder</code>
-  (the same pattern trunk uses for <code>optitrack.natnet.emulator</code>) — either
+  (the same pattern trunk uses for <code>pegasus.simulator</code>) — either
   automatically, or via the module's own <code>compose:</code> fragment when it declares
   one (the fragment is then the source of truth; no double mounts). For
   local-path modules the generated file also binds the real directory over
@@ -6214,13 +6244,13 @@ change for modules.</p>
         
         
           
-          <a href="../advanced/airstack-cli/extending/" class="md-footer__link md-footer__link--next" aria-label="Next: Extending">
+          <a href="../stacks/" class="md-footer__link md-footer__link--next" aria-label="Next: AirStack Stacks">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Extending
+                AirStack Stacks
               </div>
             </div>
             <div class="md-footer__button md-icon">

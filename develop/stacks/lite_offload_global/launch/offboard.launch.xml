@@ -1,0 +1,32 @@
+<!--
+  lite_offload_global / offboard : the ground half of the split stack
+  (RFC #380 S2). Runs on the offboard host (conventionally the GCS machine,
+  domain 0) paired with vehicles running launch/onboard.launch.xml.
+
+  Topology = the global layer ONLY — vdb_mapping (global world model) +
+  random_walk (global planner), exactly the includes full_default's entry
+  composes for its global layer — mirroring the legacy AUTONOMY_ROLE=offboard
+  dispatch (offboard_autonomy_global.launch.xml: every other layer disabled).
+
+  Inputs arrive across the bridge (see ../bridge.yaml): the filtered lidar
+  cloud and odometry from the vehicle. Outputs cross back: global_plan and
+  navigate-task goals to the onboard local planner. The onboard half runs the
+  DDS router, so no router is launched here (same as the legacy offboard
+  role); this host only needs to be on the bridged domain.
+
+  Launched by autonomy_bringup/launch/robot.launch.xml on the GROUND host when
+  AIRSTACK_STACK_DIR points at this folder and AIRSTACK_STACK_ENTRY=offboard
+  (`airstack up ...stack lite_offload_global:offboard`). The shared preamble
+  (ROBOT_NAME namespace push — the OFFBOARD half still runs inside the
+  vehicle's namespace, use_sim_time, robot_state_publisher, world/map static
+  TF) runs there unconditionally.
+-->
+<launch>
+
+  <!-- Global (global planner + world model): vdb_mapping consumes the bridged
+       sensors/ouster/point_cloud; random_walk consumes the bridged
+       odometry_conversion/odometry + the local vdb map, publishes global_plan
+       and sends navigate-task goals back across the bridge. -->
+  <include file="$(find-pkg-share global_bringup)/launch/global.launch.xml" />
+
+</launch>

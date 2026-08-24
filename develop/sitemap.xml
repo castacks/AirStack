@@ -49,6 +49,14 @@
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
+         <loc>https://docs.theairlab.org/docs/develop/config/local/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/config/vehicles/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
@@ -65,11 +73,19 @@
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/development/fleets/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/development/module_ci/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/development/modules/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/development/stacks/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
@@ -225,7 +241,7 @@
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/docs/robot/px4_external_vision/</loc>
+         <loc>https://docs.theairlab.org/docs/develop/docs/robot/optitrack/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
@@ -238,6 +254,10 @@
     </url>
     <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/robot/autonomy/integration_checklist/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/robot/autonomy/interface_conventions/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
@@ -358,10 +378,6 @@
     </url>
     <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/simulation/isaac_sim/export_stages_from_unreal/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/docs/simulation/isaac_sim/natnet_emulator/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
@@ -493,18 +509,6 @@
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/perception/macvo_ros2/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/perception/macvo_ros2/macvo_ros2/model/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/perception/natnet_ros2/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
          <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/sensors/camera_param_server/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
@@ -513,11 +517,43 @@
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/simulation/isaac-sim/extensions/optitrack.natnet.emulator/</loc>
+         <loc>https://docs.theairlab.org/docs/develop/simulation/isaac-sim/standalone_examples/api/isaacsim.robot.manipulators/rmpflow_supported_robots/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/simulation/isaac-sim/standalone_examples/api/isaacsim.robot.manipulators/rmpflow_supported_robots/</loc>
+         <loc>https://docs.theairlab.org/docs/develop/stacks/full_default/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/stacks/full_default/wiring/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/stacks/full_droan_cpu/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/stacks/full_droan_cpu/wiring/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/stacks/full_macvo/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/stacks/full_macvo/wiring/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/stacks/lite_default/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/stacks/lite_default/wiring/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/stacks/lite_offload_global/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
@@ -538,10 +574,6 @@
     </url>
     <url>
          <loc>https://docs.theairlab.org/docs/develop/tests/integration/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/tests/integration/natnet/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>

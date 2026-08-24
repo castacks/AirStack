@@ -1665,6 +1665,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1775,6 +1779,62 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../stacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AirStack Stacks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../fleets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AirStack Fleets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1795,10 +1855,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_5" >
         
           
-          <label class="md-nav__link" for="__nav_3_4_3" id="__nav_3_4_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_4_5" id="__nav_3_4_5_label" tabindex="0">
             
   
   
@@ -1816,8 +1876,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_4_3">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4_5">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1990,8 +2050,6 @@
       
         
           
-        
-      
         
       
         
@@ -2215,34 +2273,6 @@
     
   
     Export Unreal Engine Scene to Isaac Sim
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../simulation/isaac_sim/natnet_emulator/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    MoCap Emulator
   
 
     
@@ -2770,6 +2800,8 @@
       
         
       
+        
+      
     
     
     
@@ -3070,8 +3102,6 @@
       
         
       
-        
-      
     
     
     
@@ -3133,42 +3163,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/perception/natnet_ros2/" class="md-nav__link">
+      <a href="../../../robot/optitrack/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    NatNet (OptiTrack)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/px4_external_vision/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    PX4 External Vision (mocap)
+    OptiTrack (asm_optitrack module)
   
 
     
@@ -4283,6 +4285,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../../robot/autonomy/interface_conventions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interface Conventions Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -4305,7 +4335,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_11" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_12" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -4327,14 +4357,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5_4_11" id="__nav_5_4_11_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5_4_12" id="__nav_5_4_12_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_11_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4_11">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4_12">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -5791,16 +5821,9 @@
 <td><code>REAL_ROBOT</code></td>
 <td>Platform-specific content toggles</td>
 </tr>
-<tr>
-<td><code>SKIP_MACVO</code></td>
-<td>Skip MACVO in image when set</td>
-</tr>
-<tr>
-<td><code>SKIP_TENSORRT</code></td>
-<td>Skip TensorRT in image when set</td>
-</tr>
 </tbody>
 </table>
+<p>Heavy, algorithm-specific dependencies (e.g. MAC-VO's torch/TensorRT stack) are <strong>not</strong> build-args anymore — they live in each module's <code>Dockerfile.module</code> and are layered onto the trunk base image by <code>airstack module lock --build</code> (RFC #379 §6).</p>
 <h2 id="example-profiles">Example profiles<a class="headerlink" href="#example-profiles" title="Permanent link">&para;</a></h2>
 <p><strong>Desktop</strong> (<code>robot-desktop</code>) — x86-64 dev / simulation:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># robot/docker/docker-compose.yaml (excerpt)</span>
@@ -5820,9 +5843,7 @@
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">args</span><span class="p">:</span>
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">      </span><span class="nt">BASE_IMAGE</span><span class="p">:</span><span class="w"> </span><span class="nv">*l4t_stack_base_image</span><span class="w">   </span><span class="c1"># from robot-l4t-stack-base</span>
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">      </span><span class="nt">REAL_ROBOT</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">      </span><span class="nt">SKIP_MACVO</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">      </span><span class="nt">SKIP_TENSORRT</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">      </span><span class="nt">ROS_DISTRO</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">jazzy</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">      </span><span class="nt">ROS_DISTRO</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">jazzy</span>
 </span></code></pre></div>
 <p><strong>New profile skeleton</strong> — when adding a platform, follow the agent skill for full steps:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">robot-myboard</span><span class="p">:</span>
@@ -5834,9 +5855,8 @@
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">      </span><span class="nt">ROS_DISTRO</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">jazzy</span>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">      </span><span class="nt">PYTHON_VERSION</span><span class="p">:</span><span class="w"> </span><span class="s">"3.12"</span>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">      </span><span class="nt">REAL_ROBOT</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">      </span><span class="nt">SKIP_MACVO</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="c1"># L4T only, when needed:</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">    </span><span class="c1"># network: host</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="c1"># L4T only, when needed:</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="c1"># network: host</span>
 </span></code></pre></div>
 <h2 id="yaml-quoting">YAML quoting<a class="headerlink" href="#yaml-quoting" title="Permanent link">&para;</a></h2>
 <p>Unquoted <code>3.12</code> can be parsed as float <code>3.1</code>, which breaks <code>PYTHONPATH</code> paths. Always quote numeric Python versions:</p>

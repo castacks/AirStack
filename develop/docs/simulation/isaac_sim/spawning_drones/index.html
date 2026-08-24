@@ -1528,6 +1528,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1635,6 +1639,62 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../../development/stacks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AirStack Stacks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../development/fleets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AirStack Fleets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -1655,10 +1715,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_5" >
         
           
-          <label class="md-nav__link" for="__nav_3_4_3" id="__nav_3_4_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_4_5" id="__nav_3_4_5_label" tabindex="0">
             
   
   
@@ -1676,8 +1736,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_4_3">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4_5">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1857,8 +1917,6 @@
       
         
           
-        
-      
         
       
         
@@ -2276,34 +2334,6 @@
     
   
     Export Unreal Engine Scene to Isaac Sim
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../natnet_emulator/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    MoCap Emulator
   
 
     
@@ -2837,6 +2867,8 @@
       
         
       
+        
+      
     
     
     
@@ -3137,8 +3169,6 @@
       
         
       
-        
-      
     
     
     
@@ -3200,42 +3230,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../../robot/ros_ws/src/perception/natnet_ros2/" class="md-nav__link">
+      <a href="../../../robot/optitrack/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    NatNet (OptiTrack)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../robot/px4_external_vision/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    PX4 External Vision (mocap)
+    OptiTrack (asm_optitrack module)
   
 
     
@@ -4350,6 +4352,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../../robot/autonomy/interface_conventions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interface Conventions Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -4372,7 +4402,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_11" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_12" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -4394,14 +4424,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5_4_11" id="__nav_5_4_11_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5_4_12" id="__nav_5_4_12_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_11_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4_11">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4_12">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -5840,10 +5870,6 @@
 <td><code>NUM_ROBOTS</code> drones spawned in a row (<code>row_spawn_configs</code>). Each drone gets its own ROS domain id (<code>1..N</code>). Lidar gated on <code>ENABLE_LIDAR</code>.</td>
 </tr>
 <tr>
-<td><code>example_one/multi_px4_pegasus_natnet_launch_script.py</code></td>
-<td>Same, plus an OptiTrack NatNet mocap server authored in a <code>post_spawn</code> hook.</td>
-</tr>
-<tr>
 <td><code>example_multi_drone_scene_import.py</code></td>
 <td>Explicit <code>DRONE_CONFIGS</code> in an <strong>imported scene</strong> (USD from a Nucleus server) with per-drone GPS homes. Use this as the starting point for any custom scene.</td>
 </tr>
@@ -5917,9 +5943,9 @@
 <ul>
 <li><code>pre_scene_prep(stage)</code> — after the environment loads, before scale/colliders (e.g. <code>dedupe_physics_scenes</code>, <code>reference_root_prims_under_world</code>)</li>
 <li><code>post_scene_prep(stage)</code> — after stage prep, before drones spawn (e.g. the overhead map camera)</li>
-<li><code>post_spawn(stage)</code> — after all drones spawn (e.g. authoring the NatNet mocap interface)</li>
+<li><code>post_spawn(stage)</code> — after all drones spawn (e.g. authoring extra scene-level prims such as a mocap interface — the <a href="https://github.com/castacks/asm_optitrack">asm_optitrack module</a>'s launch scripts use this hook)</li>
 </ul>
-<p><code>example_multi_drone_scene_import.py</code> (hooks, Nucleus scene, explicit poses) and the <code>_natnet_</code> scripts (<code>post_spawn</code>) are the reference subclasses.</p>
+<p><code>example_multi_drone_scene_import.py</code> (hooks, Nucleus scene, explicit poses) is the reference subclass.</p>
 <p>To run your script: put it in <code>simulation/isaac-sim/launch_scripts/</code>, then <code>ISAAC_SIM_SCRIPT_NAME=my_script.py airstack up --sim isaac</code> (see <a href="../docker/">Docker</a>).</p>
 <h2 id="the-drone-config-dict">The drone-config dict<a class="headerlink" href="#the-drone-config-dict" title="Permanent link">&para;</a></h2>
 <p>Each entry in <code>drone_configs</code> describes one drone:</p>

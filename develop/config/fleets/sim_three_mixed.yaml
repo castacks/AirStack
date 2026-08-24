@@ -1,0 +1,45 @@
+# Fleet: sim_three_mixed (RFC #380 §2) — the reference HETEROGENEOUS fleet.
+#
+# Three quads, three different brains — software heterogeneity plus a split
+# placement, in one file:
+#
+#   robot_1  full_default        everything onboard (the baseline topology)
+#   robot_2  lite_default        onboard-lite, unsplit (no global layer at all)
+#   robot_3  lite_offload_global THE SPLIT CASE: its stack has onboard/offboard
+#                                entry points + bridge.yaml; hosts: places the
+#                                offboard half on the ground host `gcs`
+#
+# Heterogeneous ⇒ deploy.replicas cannot stamp it. Generate per-robot services:
+#
+#     airstack fleet generate sim_three_mixed
+#     airstack up --fleet sim_three_mixed --sim isaac
+#
+# (`airstack up --fleet` regenerates and auto-includes the generated compose.)
+# Spawn positions mirror row_spawn_configs(3): a row along X centered at the
+# origin, 2 m apart.
+
+defaults:
+  vehicle: quad_default
+  stack: stacks/full_default
+
+robots:
+  robot_1:
+    spawn: [-2, 0, 0.07]
+  robot_2:
+    stack: stacks/lite_default
+    spawn: [0, 0, 0.07]
+  robot_3:
+    stack: stacks/lite_offload_global   # split stack (onboard/offboard + bridge.yaml)
+    hosts: {offboard: gcs}              # which ground host runs its offboard half
+    spawn: [2, 0, 0.07]
+
+ground:
+  gcs: {}                               # hosts robot_3's offboard half (global layer)
+
+sim:
+  scene: default
+
+network:
+  domain_policy: auto                   # robot N → domain N
+  gossip_domain: 99
+  gcs_domain: 0                         # domain the ground-host containers run on
