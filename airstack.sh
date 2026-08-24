@@ -1051,7 +1051,8 @@ function print_launch_config {
 
     # Dump for reproducibility (precursor of RFC #380's effective_config.yaml).
     # Best-effort: a read-only checkout (e.g. the tests container) skips it.
-    local run_dir="$PROJECT_ROOT/.airstack/runs/$(date +%Y-%m-%d_%H-%M-%S)"
+    # PID suffix keeps back-to-back runs within the same second in distinct dirs.
+    local run_dir="$PROJECT_ROOT/.airstack/runs/$(date +%Y-%m-%d_%H-%M-%S)_$$"
     if mkdir -p "$run_dir" 2>/dev/null && printf '%s\n' "${lines[@]}" > "$run_dir/effective_config.env" 2>/dev/null; then
         log_info "  effective config saved to ${run_dir#$PROJECT_ROOT/}/effective_config.env"
     fi
