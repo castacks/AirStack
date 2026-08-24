@@ -72,7 +72,13 @@ a running system, `airstack doctor --live --stack lite_offload_global`.
   drawn as boundary crossings. Not committed yet — bootstrap via the wiring
   snapshot run (both entry points up) or `airstack doctor --snapshot` on a
   real bring-up (committed with an `unverified-in-CI` provenance line).
-- Host placement is by convention (offboard = GCS machine, domain 0) until the
-  fleet configuration layer (`hosts:` maps, RFC #380 §2–3) lands.
+- Host placement can now be declared instead of conventional: a fleet entry
+  with `stack: stacks/lite_offload_global` and `hosts: {offboard: gcs}` places
+  the offboard half on the named ground host (`airstack fleet generate` emits
+  its service with `AIRSTACK_STACK_ENTRY=offboard`; the robot gets `onboard`).
+  See `config/fleets/sim_three_mixed.yaml` (robot_3) and
+  [docs/development/fleets.md](../../docs/development/fleets.md). The manual
+  `--stack lite_offload_global:onboard|:offboard` form above remains for
+  single-machine runs.
 - `modules.repos` pins no external modules yet; `docker-compose.yaml` is a
   stub (trunk compose profiles provide the services).

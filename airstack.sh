@@ -163,6 +163,42 @@ function print_command_help {
             echo "  --stack NAME  Launch a stack folder (stacks/NAME/launch/stack.launch.xml) instead of"
             echo "                the legacy AUTONOMY_ROLE dispatch. NAME:ENTRY selects an alternate entry"
             echo "                file (launch/ENTRY.launch.xml). See docs/development/stacks.md."
+            echo "  --fleet NAME  Launch a fleet (config/fleets/NAME.yaml): exports FLEET_CONFIG_FILE,"
+            echo "                derives NUM_ROBOTS, selects the Isaac fleet spawner, and (for"
+            echo "                heterogeneous fleets) includes the generated per-robot services."
+            echo "                See docs/development/fleets.md."
+            ;;
+        fleet)
+            echo "Usage: airstack fleet <subcommand>"
+            echo ""
+            echo "Manage fleet files (RFC #380 §2): config/fleets/*.yaml declare who"
+            echo "exists, which vehicle (body), which stack (brain), and which ground"
+            echo "hosts run each split stack's offboard half."
+            echo "Guide: docs/development/fleets.md"
+            echo ""
+            echo "Subcommands:"
+            echo "  list             Table of fleets: robots, vehicles, stacks, shape"
+            echo "                   (homogeneous / heterogeneous / +split)."
+            echo "  generate <fleet> Write .airstack/generated/docker-compose.fleet.yaml:"
+            echo "                   one self-contained service per robot plus one per"
+            echo "                   (ground host x offboard tenant). Homogeneous fleets"
+            echo "                   need no generation (deploy.replicas handles them) —"
+            echo "                   the command says so and writes nothing."
+            echo ""
+            echo "Run a fleet:  airstack up --fleet <name> [--sim isaac|airsim]"
+            ;;
+        sync)
+            echo "Usage: airstack sync"
+            echo ""
+            echo "Sync the checkout from airstack.yaml (RFC #380 §3): upsert its"
+            echo "modules: additions into modules.repos (naming every deviation), run"
+            echo "the module sync, fetch declared external stack repos into gitignored"
+            echo "stacks/.external/<alias>/ (fleets address them as <alias>/<stack>),"
+            echo "validate the declared fleet, and record the resolved sources in"
+            echo ".airstack/generated/effective_sources.yaml."
+            echo ""
+            echo "NOT done (future work): rewriting .env (it stays hand-edited) and"
+            echo "release-set pin resolution against a registry (RFC #379 §7)."
             ;;
         images)
             echo "Usage: airstack images"
@@ -1006,6 +1042,8 @@ function parse_launch_intent {
     AIRSTACK_INTENT_PLAY=""
     AIRSTACK_INTENT_AUTOLAUNCH=""
     AIRSTACK_INTENT_STACK=""
+    AIRSTACK_INTENT_FLEET=""
+    AIRSTACK_FLEET_COMPOSE_FILE=""
     AIRSTACK_DRY_RUN=""
     AIRSTACK_UP_WAIT=""
 
@@ -1023,6 +1061,8 @@ function parse_launch_intent {
             --no-autolaunch) AIRSTACK_INTENT_AUTOLAUNCH="false";;
             --stack)        i=$((i+1)); AIRSTACK_INTENT_STACK="${args[$i]:-}";;
             --stack=*)      AIRSTACK_INTENT_STACK="${a#--stack=}";;
+            --fleet)        i=$((i+1)); AIRSTACK_INTENT_FLEET="${args[$i]:-}";;
+            --fleet=*)      AIRSTACK_INTENT_FLEET="${a#--fleet=}";;
             --wait)         AIRSTACK_UP_WAIT="1";;
             # NOTE: shadows compose's own `up --dry-run`; ours validates the
             # derived launch config and exits without starting services.
@@ -1040,6 +1080,10 @@ function parse_launch_intent {
         ""|isaac|isaacsim|airsim|msairsim|ms-airsim) ;;
         *) log_error "Unknown --sim '$AIRSTACK_INTENT_SIM' (expected: isaac | airsim)"; return 1;;
     esac
+    if [[ -n "$AIRSTACK_INTENT_FLEET" && -n "$AIRSTACK_INTENT_ROBOTS" ]]; then
+        log_error "--fleet and --robots are mutually exclusive: the fleet file defines the robot count (RFC #380 §2)."
+        return 1
+    fi
     return 0
 }
 
@@ -1074,6 +1118,106 @@ function apply_stack_intent {
     return 0
 }
 
+# Fleet dispatch (RFC #380 §2): validate the fleet file, export
+# FLEET_CONFIG_FILE (the CONTAINER path — config/ is bind-mounted at
+# /root/AirStack/config) plus the derived NUM_ROBOTS, switch an
+# untouched-default Isaac script to the generic fleet spawner, and — for
+# HETEROGENEOUS fleets — regenerate the per-robot compose services and swap
+# the desktop profile for the generated services' `fleet` profile (so
+# deploy.replicas doesn't double-spawn identical containers next to them).
+#
+# Everything is leaf-value precedence: explicit OS-env NUM_ROBOTS /
+# ISAAC_SIM_SCRIPT_NAME still win, with an override banner.
+#
+# Arg 1: fleet selector — a name under config/fleets/, a host path, or the
+# container path form (as the test harness passes via FLEET_CONFIG_FILE).
+# Remaining args: passed through to resolve_launch_var (--env-file scanning).
+function apply_fleet_intent {
+    local fleet_ref="$1"; shift
+    fleet_ref="${fleet_ref#/root/AirStack/}"   # container path → checkout-relative
+    local fleet_host
+    if [[ "$fleet_ref" == *.yaml || "$fleet_ref" == */* ]]; then
+        fleet_host="$fleet_ref"
+        [[ "$fleet_host" != /* ]] && fleet_host="$PROJECT_ROOT/$fleet_ref"
+    else
+        fleet_host="$PROJECT_ROOT/config/fleets/$fleet_ref.yaml"
+    fi
+    if [[ ! -f "$fleet_host" ]]; then
+        local available
+        available=$(ls -1 "$PROJECT_ROOT/config/fleets" 2>/dev/null | sed 's/\.yaml$//' | tr '\n' ' ')
+        log_error "Unknown fleet '$fleet_ref' — $fleet_host does not exist. Available fleets: ${available:-<none>}"
+        return 1
+    fi
+    local fleet_name
+    fleet_name="$(basename "$fleet_host" .yaml)"
+
+    if ! python3 "$PROJECT_ROOT/tools/fleet/resolve_fleet.py" "$fleet_host" \
+            --project-root "$PROJECT_ROOT" --validate >/dev/null; then
+        log_error "Fleet '$fleet_name' failed validation (named errors above)."
+        return 1
+    fi
+
+    local fleet_rel="${fleet_host#$PROJECT_ROOT/}"
+    export FLEET_CONFIG_FILE="/root/AirStack/$fleet_rel"
+
+    # NUM_ROBOTS is implicit in the fleet (RFC #380 §3 migration table).
+    local fleet_robots
+    fleet_robots=$(FLEET_HOST="$fleet_host" python3 -c '
+import os, yaml
+with open(os.environ["FLEET_HOST"], encoding="utf-8") as f:
+    print(len((yaml.safe_load(f) or {}).get("robots") or {}))')
+    if [[ -n "${NUM_ROBOTS:-}" && "$NUM_ROBOTS" != "$fleet_robots" ]]; then
+        log_warn "OVERRIDE: explicit NUM_ROBOTS=$NUM_ROBOTS wins over fleet '$fleet_name' ($fleet_robots robot(s)) — containers and sim spawns will disagree with the fleet file."
+    else
+        export NUM_ROBOTS="$fleet_robots"
+    fi
+
+    # Isaac: the fleet spawner reads spawns/vehicles/scene from the fleet file,
+    # replacing the hardcoded one-/multi-drone example scripts. Explicit OS-env
+    # ISAAC_SIM_SCRIPT_NAME still wins; the stock defaults get switched.
+    local profiles script
+    profiles=$(resolve_launch_var COMPOSE_PROFILES "$@")
+    if [[ ",$profiles," == *",isaac-sim,"* ]]; then
+        if [[ -n "${ISAAC_SIM_SCRIPT_NAME:-}" ]]; then
+            [[ "$ISAAC_SIM_SCRIPT_NAME" != "fleet_spawn.py" ]] && \
+                log_warn "OVERRIDE: explicit ISAAC_SIM_SCRIPT_NAME='$ISAAC_SIM_SCRIPT_NAME' wins over the fleet spawner — make sure it spawns fleet '$fleet_name' (reads FLEET_CONFIG_FILE)."
+        else
+            script=$(resolve_launch_var ISAAC_SIM_SCRIPT_NAME "$@")
+            case "$script" in
+                example_one_px4_pegasus_launch_script.py|example_multi_px4_pegasus_launch_script.py|"")
+                    log_info "--fleet $fleet_name → ISAAC_SIM_SCRIPT_NAME=fleet_spawn.py (was ${script:-<unset>})"
+                    export ISAAC_SIM_SCRIPT_NAME="fleet_spawn.py";;
+                fleet_spawn.py) ;;
+                *)
+                    log_warn "Custom ISAAC_SIM_SCRIPT_NAME='$script' with a fleet: make sure it spawns fleet '$fleet_name' (reads FLEET_CONFIG_FILE).";;
+            esac
+        fi
+    fi
+
+    # Heterogeneous fleet → deploy.replicas cannot stamp it: regenerate the
+    # per-robot services and include them (cmd_up adds the -f); homogeneous
+    # fleets keep replicas untouched.
+    AIRSTACK_FLEET_COMPOSE_FILE=""
+    local shape
+    shape=$(python3 "$PROJECT_ROOT/tools/fleet/generate_fleet_compose.py" \
+        "$fleet_host" --project-root "$PROJECT_ROOT" --check-homogeneous) || return 1
+    if [[ "$shape" == "heterogeneous" ]]; then
+        python3 "$PROJECT_ROOT/tools/fleet/generate_fleet_compose.py" \
+            "$fleet_host" --project-root "$PROJECT_ROOT" >/dev/null || return 1
+        AIRSTACK_FLEET_COMPOSE_FILE="$PROJECT_ROOT/.airstack/generated/docker-compose.fleet.yaml"
+        local cur kept=() p
+        cur=$(resolve_launch_var COMPOSE_PROFILES "$@")
+        IFS=',' read -ra _fparr <<< "$cur"
+        for p in "${_fparr[@]}"; do
+            case "$p" in desktop|fleet|"") ;; *) kept+=("$p");; esac
+        done
+        kept+=("fleet")
+        export COMPOSE_PROFILES=$(IFS=','; echo "${kept[*]}")
+        log_info "--fleet $fleet_name is heterogeneous → generated per-robot services (profile 'fleet' replaces 'desktop')"
+    fi
+    return 0
+}
+
 # Derive + export env vars from the parsed intent. Args: remaining CLI args
 # (scanned for --env-file when resolving current values).
 function apply_launch_intent {
@@ -1101,6 +1245,17 @@ function apply_launch_intent {
         kept+=("$sim_profile")
         export COMPOSE_PROFILES=$(IFS=','; echo "${kept[*]}")
         export URDF_FILE="$urdf"
+    fi
+
+    # Fleet dispatch (RFC #380 §2): triggered by --fleet, or by an env /
+    # --env-file / .env FLEET_CONFIG_FILE (the opt-in path the test harness
+    # uses). No fleet anywhere = byte-identical legacy behavior.
+    local _fleet_sel="$AIRSTACK_INTENT_FLEET"
+    if [[ -z "$_fleet_sel" ]]; then
+        _fleet_sel=$(resolve_launch_var FLEET_CONFIG_FILE "$@")
+    fi
+    if [[ -n "$_fleet_sel" ]]; then
+        apply_fleet_intent "$_fleet_sel" "$@" || return 1
     fi
 
     [[ -n "$AIRSTACK_INTENT_ROBOTS" ]]     && export NUM_ROBOTS="$AIRSTACK_INTENT_ROBOTS"
@@ -1145,6 +1300,11 @@ function print_launch_config {
                 ISAAC_SIM_SCRIPT_NAME ISAAC_SIM_USE_STANDALONE ISAAC_SIM_HEADLESS
                 MS_AIRSIM_HEADLESS AIRSTACK_STACK_DIR AIRSTACK_STACK_ENTRY
                 VERSION DOCKER_IMAGE_BUILD_MODE)
+    # FLEET_CONFIG_FILE only appears when a fleet is selected — the no-fleet
+    # effective config stays byte-identical to the pre-fleet contract.
+    local _fleet_cfg
+    _fleet_cfg=$(resolve_launch_var FLEET_CONFIG_FILE "$@")
+    [[ -n "$_fleet_cfg" ]] && keys+=(FLEET_CONFIG_FILE)
     local k v lines=()
     for k in "${keys[@]}"; do
         v=$(resolve_launch_var "$k" "$@")
@@ -1162,6 +1322,17 @@ function print_launch_config {
     _stack_dir=$(resolve_launch_var AIRSTACK_STACK_DIR "$@")
     if [[ -n "$_stack_dir" ]]; then
         log_info "  stack: dir=$_stack_dir entry=$(resolve_launch_var AIRSTACK_STACK_ENTRY "$@")"
+    fi
+    if [[ -n "$_fleet_cfg" ]]; then
+        local _fleet_host="${_fleet_cfg#/root/AirStack/}"
+        [[ "$_fleet_host" != /* ]] && _fleet_host="$PROJECT_ROOT/$_fleet_host"
+        log_info "  fleet: $_fleet_cfg — resolved robots:"
+        if [[ -f "$_fleet_host" ]]; then
+            python3 "$PROJECT_ROOT/tools/fleet/resolve_fleet.py" "$_fleet_host" \
+                --project-root "$PROJECT_ROOT" --table 2>/dev/null | sed 's/^/    /'
+        else
+            log_warn "  fleet file not found on the host side: $_fleet_host"
+        fi
     fi
 
     echo "--- effective launch config ---"
@@ -1305,6 +1476,14 @@ function cmd_up {
     if [[ -f "$module_compose" && "${AIRSTACK_NO_MODULE_COMPOSE:-}" != "1" ]]; then
         log_info "Module overlay active → including ${module_compose#$PROJECT_ROOT/}"
         global_args+=(-f "$module_compose")
+    fi
+
+    # Fleet overlay (RFC #380 §2): apply_fleet_intent regenerated per-robot
+    # services for a heterogeneous fleet — include them (the fleet profile is
+    # already active in COMPOSE_PROFILES; homogeneous fleets never set this).
+    if [[ -n "${AIRSTACK_FLEET_COMPOSE_FILE:-}" ]]; then
+        log_info "Fleet overlay active → including ${AIRSTACK_FLEET_COMPOSE_FILE#$PROJECT_ROOT/}"
+        global_args+=(-f "$AIRSTACK_FLEET_COMPOSE_FILE")
     fi
 
     print_launch_config "${global_args[@]}"
@@ -1482,15 +1661,25 @@ function cmd_down {
     check_docker
     
     local services=("$@")
-    
+
     # Build compose arguments
     local compose_args=("-f" "$PROJECT_ROOT/docker-compose.yaml")
-    
+
+    # Generated overlays (module mounts, fleet services) must be visible to
+    # `down` too — a fleet-generated service that `down` can't see becomes an
+    # invisible orphan spinning at full CPU (ddsrouters busy-loop without a
+    # sim /clock). --remove-orphans below is the belt-and-braces backstop.
+    local _gen
+    for _gen in "$PROJECT_ROOT/.airstack/generated/docker-compose.modules.yaml" \
+                "$PROJECT_ROOT/.airstack/generated/docker-compose.fleet.yaml"; do
+        [ -f "$_gen" ] && compose_args+=("-f" "$_gen")
+    done
+
     # Add services if specified
     if [ ${#services[@]} -gt 0 ]; then
         compose_args+=("down" "${services[@]}")
     else
-        compose_args+=("--profile" "*" "down")
+        compose_args+=("--profile" "*" "down" "--remove-orphans")
     fi
     
     log_info "Shutting down services: ${services[*]:-all}"
@@ -1838,7 +2027,7 @@ function register_builtin_commands {
     COMMAND_HELP["image-pull"]="Pull Docker Compose service images from a registry"
     COMMAND_HELP["images"]="List Docker images filtered by PROJECT_NAME from .env"
     COMMAND_HELP["image-delete"]="Delete all Docker images matching PROJECT_NAME (prompts unless -y)"
-    COMMAND_HELP["up"]="Start services [--sim isaac|airsim] [--robots N] [--headless] [--play|--no-play] [--no-autolaunch] [--wait] [--dry-run]"
+    COMMAND_HELP["up"]="Start services [--sim isaac|airsim] [--robots N] [--stack NAME] [--fleet NAME] [--headless] [--play|--no-play] [--no-autolaunch] [--wait] [--dry-run]"
     COMMAND_HELP["down"]="down services"
     COMMAND_HELP["clean"]="Remove all ROS 2 build artifacts (build/, install/, log/)"
     COMMAND_HELP["connect"]="Connect to a running container (supports partial name matching)"

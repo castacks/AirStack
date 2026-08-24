@@ -34,6 +34,13 @@ def pytest_addoption(parser):
                           "None (legacy role dispatch). The wiring test "
                           "drift-checks against stacks/<name>/wiring.md "
                           "when set.")
+    parser.addoption("--fleet", default=None,
+                     help="Fleet preset under config/fleets/ (RFC #380 §2), "
+                          "e.g. sim_three_mixed. Sets FLEET_CONFIG_FILE for "
+                          "airstack up and derives NUM_ROBOTS from the "
+                          "fleet's robot count (overriding --num-robots). "
+                          "Default: None (legacy --num-robots behavior, "
+                          "unchanged).")
     parser.addoption("--stress-iterations", type=int, default=1,
                      help="Number of up/down iterations per (sim, num_robots) config")
     parser.addoption("--stable-duration", type=int, default=120,
@@ -186,6 +193,17 @@ def pytest_generate_tests(metafunc):
         return
     sims = [s.strip() for s in metafunc.config.getoption("--sim").split(",") if s.strip()]
     nums = [int(x) for x in metafunc.config.getoption("--num-robots").split(",") if x.strip()]
+    fleet = metafunc.config.getoption("--fleet")
+    if fleet:
+        # A fleet defines its own robot roster: campaigns run at exactly the
+        # fleet's robot count — the --num-robots matrix would otherwise spawn
+        # campaigns expecting robots the fleet never declares.
+        import os as _os
+        import yaml as _yaml
+        fleet_path = _os.path.join(AIRSTACK_ROOT, "config", "fleets", f"{fleet}.yaml")
+        with open(fleet_path, encoding="utf-8") as fh:
+            fleet_doc = _yaml.safe_load(fh) or {}
+        nums = [len(fleet_doc.get("robots") or {})]
     iterations = metafunc.config.getoption("--stress-iterations")
     params = [(s, n, i) for s in sims for n in nums for i in range(iterations)]
     ids = [f"{s}-{n}-iter{i}" for s, n, i in params]
@@ -235,6 +253,27 @@ def airstack_env(request):
         env_overrides["AIRSTACK_STACK_DIR"] = f"/root/AirStack/stacks/{stack}"
         env_overrides["AIRSTACK_STACK_ENTRY"] = "stack"
 
+    # Fleet dispatch (RFC #380 §2): FLEET_CONFIG_FILE (container path) opts
+    # the run into fleet resolution; NUM_ROBOTS is derived from the fleet's
+    # robot count (overriding this parametrization's num_robots). `airstack
+    # up` sees the env var, validates the fleet, and auto-includes the
+    # generated per-robot compose when the fleet is heterogeneous. Isaac runs
+    # pin the generic fleet spawner explicitly (parametrized sim scripts in
+    # extra_env would otherwise shadow it). --fleet absent = byte-identical
+    # legacy behavior.
+    fleet = request.config.getoption("--fleet")
+    if fleet:
+        import yaml as _yaml
+        fleet_path = Path(AIRSTACK_ROOT) / "config" / "fleets" / f"{fleet}.yaml"
+        assert fleet_path.is_file(), f"--fleet {fleet}: no such file {fleet_path}"
+        with fleet_path.open(encoding="utf-8") as f:
+            fleet_robots = len((_yaml.safe_load(f) or {}).get("robots") or {})
+        env_overrides["FLEET_CONFIG_FILE"] = f"/root/AirStack/config/fleets/{fleet}.yaml"
+        env_overrides["NUM_ROBOTS"] = str(fleet_robots)
+        num_robots = fleet_robots
+        if sim == "isaacsim":
+            env_overrides["ISAAC_SIM_SCRIPT_NAME"] = "fleet_spawn.py"
+
     with logger_to(log):
         missing = missing_images(env=env_overrides)
         if missing:
@@ -267,6 +306,8 @@ def airstack_env(request):
         "cfg": cfg,
         # None = legacy AUTONOMY_ROLE dispatch; else the stacks/<name> launched.
         "stack": stack,
+        # None = legacy NUM_ROBOTS behavior; else the config/fleets/<name> flown.
+        "fleet": fleet,
     }
 
     tid = current_test_id()

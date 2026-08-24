@@ -47,9 +47,12 @@ function _ready_ros2_exec {
         timeout $timeout_s $cmd" 2>/dev/null
 }
 
-# List running robot containers (compose replicas), one per line.
+# List running robot containers, one per line: compose replicas
+# (airstack-robot-desktop-N) AND fleet-generated per-robot services
+# (airstack-robot_N-1). Ground hosts (gcs-robot_N tenants) are NOT robots —
+# they never run MAVROS/PX4 — so exclude them.
 function _ready_robot_containers {
-    docker ps --format '{{.Names}}' | grep -E -- '-robot-' | sort
+    docker ps --format '{{.Names}}' | grep -E -- '-robot[-_]' | grep -v 'gcs-' | sort
 }
 
 # domain for robot container (via the same .bashrc resolution airstack status uses)

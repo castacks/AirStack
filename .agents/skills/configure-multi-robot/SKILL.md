@@ -1,6 +1,6 @@
 ---
 name: configure-multi-robot
-description: Configure, name, and isolate multiple robots in AirStack. Use whenever launching multi-robot, multiple robots, swarm, or fleet scenarios; setting ROBOT_NAME; debugging cross-robot topic collisions; choosing a ROS_DOMAIN_ID; or namespacing topics, TF frames, and DDS bridges across robots.
+description: Configure, name, and isolate multiple robots in AirStack — fleet files (config/fleets/, airstack up --fleet) first, legacy NUM_ROBOTS second. Use whenever launching multi-robot, multiple robots, swarm, or fleet scenarios; mixing different stacks/vehicles per robot (heterogeneous fleets, split placement via hosts:); setting ROBOT_NAME; debugging cross-robot topic collisions; choosing a ROS_DOMAIN_ID; or namespacing topics, TF frames, and DDS bridges across robots.
 license: Apache-2.0
 metadata:
   author: AirLab CMU
@@ -13,7 +13,8 @@ metadata:
 
 Reach for this skill any time you:
 
-- Spawn more than one robot in simulation (`NUM_ROBOTS > 1`)
+- Spawn more than one robot in simulation (`--fleet <name>` or legacy `NUM_ROBOTS > 1`)
+- Need robots that differ (stack, vehicle, or offboard placement) — a **heterogeneous fleet**
 - Deploy multiple physical aircraft (VOXL, Jetson, etc.)
 - Debug topic collisions, missing topics on `/robot_2/...`, or "two robots talking on the same topic"
 - Write a new launch file or YAML config that hardcodes a topic path
@@ -29,9 +30,51 @@ If you only ever touch one robot, you can usually skip this skill — but the mo
 - Basic understanding of ROS 2 namespaces and TF frame names
 - You have already read [`docs/robot/docker/robot_identity.md`](../../../docs/robot/docker/robot_identity.md), or are willing to as you go — that file is the canonical reference for the resolution mechanism
 
-## How ROBOT_NAME Flows Through the Stack
+## Fleet-First: Declare the Whole Deployment in One File
 
-`ROBOT_NAME` is **not** a single static value. It is computed per container at shell start by `robot/docker/.bashrc` and propagated into every ROS launch substitution. The full chain:
+Since RFC #380 P6, the preferred way to run multiple robots is a **fleet file**
+(`config/fleets/*.yaml`): who exists, which vehicle each flies, which stack
+each runs, and which ground host runs each split stack's offboard half. Full
+guide: [`docs/development/fleets.md`](../../../docs/development/fleets.md).
+
+```bash
+airstack fleet list                              # what exists + shape
+airstack up --fleet sim_one_default --sim isaac  # 1 robot, today's defaults
+airstack up --fleet sim_three_mixed --sim isaac  # heterogeneous: 3 robots, 3 stacks + a split
+```
+
+What `--fleet <name>` does:
+
+- validates the fleet (named errors), exports `FLEET_CONFIG_FILE` (container
+  path), and **derives `NUM_ROBOTS`** from the robot count (explicit env
+  `NUM_ROBOTS` still wins, with a banner)
+- on Isaac, switches an untouched-default `ISAAC_SIM_SCRIPT_NAME` to the
+  generic fleet spawner `fleet_spawn.py` (spawns/scene/sensors from the fleet
+  + vehicle files)
+- **homogeneous** fleets (same vehicle + stack everywhere) keep
+  `deploy.replicas`; each replica resolves its own entry via
+  `tools/fleet/resolve_fleet.py` in `.bashrc` (opt-in: only when
+  `FLEET_CONFIG_FILE` is set)
+- **heterogeneous** fleets get generated per-robot services
+  (`airstack fleet generate <fleet>` →
+  `.airstack/generated/docker-compose.fleet.yaml`, auto-included; the `fleet`
+  compose profile replaces `desktop`)
+- a robot with `hosts: {offboard: gcs}` on a split stack gets its `onboard`
+  entry point, and the named ground host gets a service running the same
+  stack with `AIRSTACK_STACK_ENTRY=offboard` — the declared successor of the
+  `desktop_split` / `offboard` profiles
+
+Test harness: `airstack test -m liveliness --fleet sim_three_mixed ...`
+passes `FLEET_CONFIG_FILE` + the derived `NUM_ROBOTS`; without `--fleet`,
+`--num-robots` behaves exactly as before.
+
+Everything below — the legacy `NUM_ROBOTS` + `robot_name_map` path — remains
+the default without a fleet and is still fully supported; the topic/TF
+namespacing rules and pitfalls apply identically under both paths.
+
+## How ROBOT_NAME Flows Through the Stack (Legacy Path)
+
+`ROBOT_NAME` is **not** a single static value. It is computed per container at shell start by `robot/docker/.bashrc` and propagated into every ROS launch substitution. When `FLEET_CONFIG_FILE` is set, a fleet branch in `.bashrc` resolves the whole fleet entry first (name, domain, stack placement, vehicle — pre-set env still wins per variable, and failures fall back to the legacy resolver below). The legacy chain:
 
 ```
 .env  (ROBOT_NAME_MAP_CONFIG_FILE, NUM_ROBOTS)
@@ -137,9 +180,9 @@ does work because `docker exec -e` sets it in the process environment:
 docker exec -e ROBOT_NAME=robot_5 -e ROS_DOMAIN_ID=5 -it airstack-robot-desktop-1 bash
 ```
 
-## Launching Multiple Robots
+## Launching Multiple Robots (Legacy `NUM_ROBOTS` Path)
 
-AirStack launches multiple robots as **replicas of the same container**, not as multiple namespaces inside one container. Look at [`robot/docker/docker-compose.yaml`](../../../robot/docker/docker-compose.yaml):
+Prefer `airstack up --fleet <name>` (above). Without a fleet, AirStack launches multiple robots as **replicas of the same container**, not as multiple namespaces inside one container — which is also why replicas can only ever be *identical* robots (heterogeneous fleets need the generated per-robot services). Look at [`robot/docker/docker-compose.yaml`](../../../robot/docker/docker-compose.yaml):
 
 ```yaml
 robot-desktop:
@@ -160,7 +203,9 @@ docker ps --format '{{.Names}}' | grep robot-desktop
 
 The simulator side has to spawn matching vehicles — see [Sim-Side Robot Spawning](#sim-side-robot-spawning).
 
-### `onboard_all` vs `onboard_local_offboard_global`
+### `onboard_all` vs `onboard_local_offboard_global` (legacy roles)
+
+The stack-shaped successors: `--stack full_default` / `--stack lite_default` replace the role values, `--stack lite_offload_global:onboard|:offboard` replaces the split pair, and a fleet entry's `hosts: {offboard: <ground>}` replaces choosing the split *placement* by hand (see Fleet-First above). The role dispatch below still works without a stack/fleet.
 
 [`autonomy_bringup`](../../../robot/ros_ws/src/autonomy_bringup/) ships two layouts, selected by the `role` arg / `AUTONOMY_ROLE` env var:
 
@@ -246,6 +291,8 @@ The `ms-airsim` container's `entrypoint.sh` (in `simulation/ms-airsim/docker/`) 
 
 ### Isaac Sim (Pegasus)
 
+With a fleet, [`fleet_spawn.py`](../../../simulation/isaac-sim/launch_scripts/fleet_spawn.py) is selected automatically: spawn positions come from each robot's `spawn:`, the scene from `sim.scene`, and sensor toggles from the vehicle manifests (any `lidar*` sensor enables the RTX lidar subgraph — the per-vehicle `ENABLE_LIDAR` equivalent). The legacy path:
+
 [`simulation/isaac-sim/launch_scripts/example_multi_px4_pegasus_launch_script.py`](../../../simulation/isaac-sim/launch_scripts/example_multi_px4_pegasus_launch_script.py) reads `NUM_ROBOTS` and calls `spawn_drone(i)` in a loop. Each drone is created with `robot_name=f"robot_{index}"`, `vehicle_id=index`, `domain_id=index`, and an X offset for spacing:
 
 ```python
@@ -280,7 +327,12 @@ CLI passthrough:
 
 ```bash
 airstack test -m takeoff_hover_land --sim msairsim --num-robots 1,3 -v
+airstack test -m liveliness --sim isaacsim --fleet sim_three_mixed -v   # fleet-first
 ```
+
+With `--fleet`, the fixture sets `FLEET_CONFIG_FILE`, derives `NUM_ROBOTS`
+from the fleet, and pins `ISAAC_SIM_SCRIPT_NAME=fleet_spawn.py` on Isaac;
+`env["fleet"]` carries the fleet name for tests that need it.
 
 ## Common Pitfalls
 
@@ -427,7 +479,10 @@ docker exec -e ROS_DOMAIN_ID=1 airstack-robot-desktop-1 bash -c \
 
 ## References
 
-- [`docs/robot/docker/robot_identity.md`](../../../docs/robot/docker/robot_identity.md) — canonical reference for the resolution mechanism
+- [`docs/development/fleets.md`](../../../docs/development/fleets.md) — fleets: hierarchy, file tour, split placement, migration table (fleet-first path)
+- [`config/fleets/`](../../../config/fleets/) — `sim_one_default.yaml` (parity with legacy), `sim_three_mixed.yaml` (heterogeneous + split)
+- [`tools/fleet/resolve_fleet.py`](../../../tools/fleet/resolve_fleet.py) — fleet-entry resolver (`--table` to inspect, `--validate` to check)
+- [`docs/robot/docker/robot_identity.md`](../../../docs/robot/docker/robot_identity.md) — canonical reference for the legacy resolution mechanism
 - [`docs/robot/autonomy_modes.md`](../../../docs/robot/autonomy_modes.md) — profile matrix (`desktop`, `desktop_split`, `voxl`, `l4t`, `offboard`)
 - [`robot/docker/robot_name_map/`](../../../robot/docker/robot_name_map/) — mapping YAMLs and `resolve_robot_name.py`
 - [`robot/ros_ws/src/autonomy_bringup/launch/robot.launch.xml`](../../../robot/ros_ws/src/autonomy_bringup/launch/robot.launch.xml) — top-level `push_ros_namespace`

@@ -123,3 +123,8 @@ robot/ros_ws/src/modules/
 simulation/isaac-sim/launch_scripts/modules/
 stacks/.external/
 /.airstack/generated/
+
+# Machine-local config overlay (RFC #380 §1/§3): per-serial calibration and
+# local overrides — never shared through trunk. The README stays committed.
+/config/local/*
+!/config/local/README.md

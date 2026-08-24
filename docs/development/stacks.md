@@ -148,6 +148,13 @@ stacks/lite_offload_global/
   `... :offboard` on the ground host. Today's coarse `AUTONOMY_ROLE`
   trichotomy becomes "which entry point does this host run"; a third machine
   is just another entry file + bridge section.
+- **Or declare the placement in a fleet** (RFC #380 §2): a fleet entry with
+  `stack: stacks/lite_offload_global` and `hosts: {offboard: gcs}` derives
+  both halves — the robot's service gets the `onboard` entry, the named
+  ground host's service gets the same stack with
+  `AIRSTACK_STACK_ENTRY=offboard` (`airstack fleet generate`; the reference
+  is `config/fleets/sim_three_mixed.yaml`, robot_3). See
+  [AirStack Fleets](fleets.md).
 - **Generate the router config** from the bridge list (never hand-edit the
   output):
 

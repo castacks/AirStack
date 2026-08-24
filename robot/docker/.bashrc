@@ -69,6 +69,59 @@ function cws(){
 source /opt/ros/jazzy/setup.bash
 sws # source the ROS2 workspace by default
 
+# --- Fleet resolution (RFC #380 §2, OPT-IN) ---
+# When FLEET_CONFIG_FILE is set (airstack up --fleet <name>), resolve this
+# container's WHOLE fleet entry — name, domain, stack placement, vehicle,
+# calibration overlay — via tools/fleet/resolve_fleet.py. Contract:
+#   - pre-set ROBOT_NAME skips resolution entirely (same guard as the legacy
+#     branch below; heterogeneous-fleet services set it explicitly);
+#   - pre-set non-empty ROS_DOMAIN_ID / AIRSTACK_STACK_DIR(+ENTRY) / URDF_FILE
+#     win over the fleet's values (leaf-value precedence);
+#   - resolution failure warns and falls through to the legacy resolver.
+# FLEET_CONFIG_FILE unset or empty = byte-identical legacy behavior.
+if [ -n "${FLEET_CONFIG_FILE:-}" ] && [ -z "${ROBOT_NAME:-}" ]; then
+    if [ "$ROBOT_NAME_SOURCE" == "hostname" ]; then
+        fleet_identity=$(hostname)
+    else
+        # container-name resolution (same technique as the legacy branch;
+        # needs docker >= 29)
+        fleet_identity=$(host $(host $(hostname) | awk '{print $NF}') | awk '{print $NF}' | awk -F . '{print $1}')
+        CONTAINER_NAME=":$fleet_identity"
+    fi
+    fleet_resolver="$HOME/AirStack/tools/fleet/resolve_fleet.py"
+    if [ -f "$fleet_resolver" ]; then
+        _fleet_prev_domain="${ROS_DOMAIN_ID:-}"
+        _fleet_prev_stack_dir="${AIRSTACK_STACK_DIR:-}"
+        _fleet_prev_stack_entry="${AIRSTACK_STACK_ENTRY:-}"
+        _fleet_prev_urdf="${URDF_FILE:-}"
+        _fleet_exports=$(python3 "$fleet_resolver" "$FLEET_CONFIG_FILE" --name "$fleet_identity")
+        if [ $? -eq 0 ] && [ -n "$_fleet_exports" ]; then
+            eval "$_fleet_exports"
+            export ROBOT_NAME VEHICLE CALIBRATION_DIR
+            # pre-set env wins per variable
+            [ -n "$_fleet_prev_domain" ] && ROS_DOMAIN_ID="$_fleet_prev_domain"
+            export ROS_DOMAIN_ID
+            if [ -n "$_fleet_prev_stack_dir" ]; then
+                AIRSTACK_STACK_DIR="$_fleet_prev_stack_dir"
+                AIRSTACK_STACK_ENTRY="$_fleet_prev_stack_entry"
+            fi
+            export AIRSTACK_STACK_DIR AIRSTACK_STACK_ENTRY
+            [ -n "$_fleet_prev_urdf" ] && URDF_FILE="$_fleet_prev_urdf"
+            export URDF_FILE
+        else
+            echo "WARNING: fleet resolution failed for '$fleet_identity' via" \
+                 "$FLEET_CONFIG_FILE (resolver error above) — falling back to the" \
+                 "legacy robot_name_map resolver."
+        fi
+        unset _fleet_prev_domain _fleet_prev_stack_dir _fleet_prev_stack_entry \
+              _fleet_prev_urdf _fleet_exports
+    else
+        echo "WARNING: FLEET_CONFIG_FILE=$FLEET_CONFIG_FILE is set but $fleet_resolver" \
+             "is missing (tools/fleet should be bind-mounted) — falling back to the" \
+             "legacy robot_name_map resolver."
+    fi
+fi
+
 # If ROBOT_NAME is pre-set (e.g. via docker compose), keep it.
 # Otherwise extract robot name and ROS domain ID from the container/hostname mapping.
 if [ -z "${ROBOT_NAME:-}" ]; then
