@@ -37,36 +37,54 @@ function cmd_dev_docs {
     fi
 }
 
-# Function to lint code
+# Fast host-side static checks: the tests/meta contract+lint suite, bash
+# syntax over the CLI itself, and py_compile over tools/. No Docker stack.
 function cmd_dev_lint {
-    log_info "Linting code..."
-    
-    # Add your linting commands here
-    # For example:
-    # flake8 "$PROJECT_ROOT"
-    echo "Linting command would run here"
+    local failed=0
+
+    log_info "1/3 Contract + lint suite (tests/meta, pytest -m unit-compatible)..."
+    if ! (cd "$PROJECT_ROOT" && env -u PYTHONPATH AIRSTACK_ROOT="$PROJECT_ROOT" \
+            python3 -m pytest tests/meta -q -p no:launch_testing -p no:launch_ros); then
+        log_error "tests/meta failed."
+        failed=1
+    fi
+
+    log_info "2/3 bash -n over airstack.sh and .airstack/modules/*.sh..."
+    local sh_file
+    for sh_file in "$PROJECT_ROOT/airstack.sh" "$PROJECT_ROOT/.airstack/modules"/*.sh; do
+        if ! bash -n "$sh_file"; then
+            log_error "bash syntax error: $sh_file"
+            failed=1
+        fi
+    done
+
+    log_info "3/3 python3 -m py_compile over tools/**/*.py..."
+    local py_files
+    py_files=$(find "$PROJECT_ROOT/tools" -name '*.py' -not -path '*/__pycache__/*')
+    if [ -n "$py_files" ] && ! echo "$py_files" | xargs python3 -m py_compile; then
+        log_error "py_compile failed (see above)."
+        failed=1
+    fi
+
+    if [ "$failed" -ne 0 ]; then
+        log_error "Lint failed."
+        return 1
+    fi
+    log_info "Lint passed."
 }
 
-# Function to format code
-function cmd_dev_format {
-    log_info "Formatting code..."
-    
-    # Add your formatting commands here
-    # For example:
-    # black "$PROJECT_ROOT"
-    echo "Formatting command would run here"
-}
+# NOTE: `airstack format` was unregistered — it was a stub that only echoed.
+# No formatter is configured for this repo yet; re-register a cmd_dev_format
+# here (COMMANDS/COMMAND_HELP) once one is chosen.
 
 # Register commands from this module
 function register_dev_commands {
     COMMANDS["test"]="cmd_dev_test"
     COMMANDS["docs"]="cmd_dev_docs"
     COMMANDS["lint"]="cmd_dev_lint"
-    COMMANDS["format"]="cmd_dev_format"
-    
+
     # Add command help
-    COMMAND_HELP["test"]="Run tests (options: --path=PATH, --filter=PATTERN)"
+    COMMAND_HELP["test"]="Run pytest in the containerized test runner (all args forward to pytest; see 'airstack help test')"
     COMMAND_HELP["docs"]="Build documentation (options: serve)"
-    COMMAND_HELP["lint"]="Lint code"
-    COMMAND_HELP["format"]="Format code"
+    COMMAND_HELP["lint"]="Static checks: tests/meta contract suite, bash -n over the CLI, py_compile over tools/"
 }

@@ -26,10 +26,10 @@ Real-world deployment involves:
 ## Getting Started with Hardware
 
 ### Prerequisites
-- Completed [Getting Started Tutorial](../getting_started.md) in simulation
+- Completed [Getting Started Tutorial](../getting_started/index.md) in simulation
 - Understanding of [System Architecture](../robot/autonomy/system_architecture.md)
 - Access to supported hardware platform
-- Familiarity with [Autonomy Modes](../tutorials/autonomy_modes.md)
+- Familiarity with [Autonomy Modes](../robot/autonomy_modes.md)
 
 ### Deployment Process
 
@@ -50,7 +50,7 @@ Real-world deployment involves:
    - Pre-flight checklist
    - Monitor during operation
    - Post-flight data collection
-   - See: [Deploying to Hardware Tutorial](../tutorials/deploying_to_hardware.md)
+   - See: [Deploying to Hardware Tutorial](deploying_to_hardware.md)
 
 4. **Data Management**
    - Offload ROS bags and logs
@@ -163,12 +163,12 @@ See: [Data Offloading](data_offloading/index.md)
 - [Installation on Hardware](installation/index.md)
 - [HITL Testing](HITL/index.md)
 - [Data Offloading](data_offloading/index.md)
-- [Deploying to Hardware Tutorial](../tutorials/deploying_to_hardware.md)
+- [Deploying to Hardware Tutorial](deploying_to_hardware.md)
 - [Robot Configuration](../robot/configuration/index.md)
 
 ## Next Steps
 
-- **New to hardware deployment?** Start with [Deploying to Hardware Tutorial](../tutorials/deploying_to_hardware.md)
+- **New to hardware deployment?** Start with [Deploying to Hardware Tutorial](deploying_to_hardware.md)
 - **Ready to install?** Follow [Installation Guide](installation/index.md)
 - **Need to test safely?** Set up [HITL Testing](HITL/index.md)
 - **Managing data?** Configure [Data Offloading](data_offloading/index.md)

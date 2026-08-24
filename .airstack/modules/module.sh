@@ -29,15 +29,9 @@ MODULE_INTREE_DIR="${PROJECT_ROOT}/robot/ros_ws/src/modules"
 # rots silently, so `module add` refuses them. Pin a tag or a commit SHA.
 MODULE_BRANCHLIKE_REFS="main master develop devel dev latest trunk head HEAD rolling"
 
+# python/PyYAML availability check: shared _require_python_yaml (_lib.sh).
 function _module_check_python {
-    if ! command -v python3 >/dev/null 2>&1; then
-        log_error "python3 is required for 'airstack module' commands."
-        return 1
-    fi
-    if ! python3 -c 'import yaml' 2>/dev/null; then
-        log_error "PyYAML is required (pip3 install --user pyyaml)."
-        return 1
-    fi
+    _require_python_yaml "'airstack module' commands"
 }
 
 # Ensure a `vcs` binary exists. vcs2l is the MAINTAINED successor of vcstool
@@ -347,6 +341,19 @@ PY
         return 1
     fi
     python3 "$MODULE_LAYER_TOOL" --project-root "$PROJECT_ROOT" || return 1
+    # Plan-only regeneration DROPS any image: overrides a prior
+    # `module lock --build` wrote into the generated compose — containers
+    # would silently run the base image without the module's dep layers
+    # (e.g. macvo without torch). Warn loudly when that just happened.
+    if [ -f "$PROJECT_ROOT/.airstack/generated/layer_plan.json" ] && \
+       ! grep -q "image:" "$PROJECT_ROOT/$MODULE_GENERATED_COMPOSE" 2>/dev/null && \
+       python3 -c "
+import json,sys
+plan = json.load(open('$PROJECT_ROOT/.airstack/generated/layer_plan.json'))
+sys.exit(0 if any(h.get('steps') for h in plan.values()) else 1)" 2>/dev/null; then
+        log_warn "docker-relevant module layers exist but the generated compose has NO image overrides —"
+        log_warn "containers will run the BASE image without module dep layers. Run: airstack module lock --build"
+    fi
 
     # 5. host_setup hooks (idempotent, no sudo, write only inside the module)
     if [ "$no_hooks" = true ]; then

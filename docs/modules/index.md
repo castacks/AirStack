@@ -26,8 +26,9 @@ directory and is never hand-edited.
 
 A stack is a self-contained topology folder; its pinned `modules.repos`
 *is* a tested-together release set ([RFC #379 §3](https://github.com/castacks/AirStack/discussions/379)).
-Trunk's reference stacks below are also in the site nav under
-**Modules → Reference Stacks**.
+The stacks below are the ones REGISTERED in the index; the site nav's
+**Modules → Reference Stacks** additionally lists every trunk stack
+(registration of the remaining stacks is a registry-side follow-up).
 
 | Stack | Description | Declared compat | Wiring | Registry entry |
 |-------|-------------|-----------------|--------|----------------|

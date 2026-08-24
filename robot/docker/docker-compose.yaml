@@ -56,7 +56,6 @@ services:
     ports:
       # for ssh, starting from 2223-2243 on the host port all map to 22 in the container. Assumes no more than 21 robots
       - "2223-2243:22"
-      - "8767-8787:8765" # for Foxglove remote display (range supports up to 21 robots; GCS uses 8765)
     # for multiple robots
     deploy:
       replicas: ${NUM_ROBOTS:-1}
@@ -274,7 +273,7 @@ services:
         - *zed_l4t_image
         - *zed_l4t_cache
     command: >
-      bash -c "ssh service restart;
+      bash -c "service ssh restart;
       tmux new -d -s zed_driver && 
       tmux send-keys -t zed_driver
       'bws && sws && ros2 launch zed_wrapper zed_dual_camera.launch.py pose_cam_serial:='41591402' wire_cam_serial:='44405253' camera_name:=\"robot_1/sensors\" node_name:=\"front_stereo\" ' ENTER
@@ -321,8 +320,8 @@ services:
       bash -il -c "
       echo 'Building and sourcing workspace...';
       bws &> /dev/null && sws &> /dev/null &&
-      echo 'Starting tests for packages: takeoff_landing_planner';
-      colcon test --packages-select takeoff_landing_planner --event-handlers=console_direct+;
+      echo 'Starting colcon tests for the workspace';
+      colcon test --event-handlers=console_direct+;
       TEST_EXIT_CODE=$$?;
       echo \"Tests completed with exit code: $$TEST_EXIT_CODE\";
       exit $$TEST_EXIT_CODE"

@@ -33,11 +33,11 @@ services:
       - FLEET_CONFIG_FILE=${FLEET_CONFIG_FILE:-}
     volumes:
       # display stuff
-      - $HOME/.Xauthority:/.Xauthority
+      - $HOME/.Xauthority:/root/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix
       # developer stuff
       - .dev:/root/.dev:rw # developer config
-      - ../../common/.bash_profile:/root/.bash_profile:rw  # commented out - common/ no longer exists
+      - ../../common/.bash_profile:/root/.bash_profile:rw
       - .bashrc:/root/.bashrc:rw # bash config
       - ../../common/inputrc:/etc/inputrc:rw  
       - ../../common/.tmux.conf:/root/.tmux.conf:rw  

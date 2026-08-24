@@ -38,16 +38,18 @@ CAMERA_TOPIC=/camera/image_raw
 
 Module-specific parameters in YAML files:
 
-**Location**: `robot/ros_ws/src/<layer>/<module>_bringup/config/`
+**Location**: each module package's own `config/` directory
+(`robot/ros_ws/src/<layer>/.../<package>/config/`); stacks override them via
+launch arguments in their entry files (`stacks/<name>/launch/*.launch.xml`).
 
-**Example** (`perception_bringup/config/state_estimation.yaml`):
+**Example** (`robot/ros_ws/src/sensors/lidar_point_cloud_filter/config/lidar_point_cloud_filter.yaml`):
 ```yaml
-state_estimator:
+/**:
   ros__parameters:
-    publish_rate: 100.0
-    use_gps: true
-    imu_topic: /imu/data
-    gps_topic: /gps/fix
+    near_range_m: 0.75
+    input_topic: "/$(env ROBOT_NAME)/sensors/ouster/point_cloud_raw"
+    output_topic: "/$(env ROBOT_NAME)/sensors/ouster/point_cloud"
+    qos_reliable: true
 ```
 
 ## Robot Identity
@@ -360,6 +362,6 @@ ros2 param dump /my_node > current_params.yaml
 ## See Also
 
 - [Robot Identity](../docker/robot_identity.md) - Configuring robot identification
-- [Autonomy Modes](../../tutorials/autonomy_modes.md) - Different operation modes
+- [Autonomy Modes](../autonomy_modes.md) - Different operation modes
 - [HITL Testing](../../real_world/HITL/index.md) - Testing configuration on hardware
 - [Integration Checklist](../autonomy/integration_checklist.md) - Module configuration requirements

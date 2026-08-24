@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Resolve a robot's whole fleet entry from a fleet file (RFC #380 §2).
 
 The fleet-file successor of ``robot/docker/robot_name_map/resolve_robot_name.py``:
@@ -36,7 +36,7 @@ Identity resolution for ``--name`` (top-down, first match wins):
   1. exact robot key match (``--name wanda`` → robot ``wanda``)
   2. trailing replica/host index (``airstack-robot-desktop-2`` / ``robot-2``
      → the 2nd robot in file order) — same convention as the legacy
-     ``default_robot_name_map.yaml`` rule ``.*robot-.*(\\d+)``.
+     ``default_robot_name_map.yaml`` rule ``.*robot-\\D*(\\d+)``.
 
 ``network.domain_policy: auto`` (the only policy implemented) assigns robot N
 (1-based file order) → domain N — today's rule, so a fleet whose robots are

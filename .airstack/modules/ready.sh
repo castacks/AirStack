@@ -14,6 +14,10 @@
 #   4. PX4 ready per robot: MAVROS connected  (300 s)
 #      then local_position/odom streaming (EKF converged = armable; connected
 #      alone fires ~25 s too early and takeoff returns "failed to arm")
+#
+# --json contract: stdout carries ONLY the JSON verdict; all progress lines
+# (banner, ✓/✗ polls, log_info/log_warn) go to stderr, so
+# `airstack ready --json 2>/dev/null | python3 -m json.tool` always parses.
 
 # Defaults match the system-test budgets; overridable from the environment
 # (e.g. READY_CLOCK_TIMEOUT=60 airstack ready).
@@ -23,11 +27,14 @@
 : "${READY_PX4_TIMEOUT:=300}"
 : "${READY_POLL_INTERVAL:=5}"
 
-# Sentinel nodes expected per robot domain (matches tests/system/test_liveliness.py).
+# Sentinel nodes expected per robot, built from the RESOLVED robot name
+# (matches tests/system/test_liveliness.py). For default robot_N fleets the
+# name is robot_<domain>, so behavior is identical to the old domain-derived
+# paths — but fleets with custom robot names now gate on the right graph.
 READY_SENTINEL_TEMPLATES=(
-    "/robot_%d/interface/mavros/mavros"
-    "/robot_%d/robot_state_publisher"
-    "/robot_%d/trajectory_controller/trajectory_control_node"
+    "/%s/interface/mavros/mavros"
+    "/%s/robot_state_publisher"
+    "/%s/trajectory_controller/trajectory_control_node"
 )
 
 function _ready_now { date +%s; }
@@ -45,34 +52,6 @@ function _ready_ros2_exec {
         [ -f /root/AirStack/robot/ros_ws/install/setup.bash ] && source /root/AirStack/robot/ros_ws/install/setup.bash >/dev/null 2>&1
         export ROS_DOMAIN_ID=$domain
         timeout $timeout_s $cmd" 2>/dev/null
-}
-
-# List running robot containers, one per line: compose replicas
-# (airstack-robot-desktop-N) AND fleet-generated per-robot services
-# (airstack-robot_N-1). Ground hosts (gcs-robot_N tenants) are NOT robots —
-# they never run MAVROS/PX4 — so exclude them.
-function _ready_robot_containers {
-    docker ps --format '{{.Names}}' | grep -E -- '-robot[-_]' | grep -v 'gcs-' | sort
-}
-
-# domain for robot container (via the same .bashrc resolution airstack status uses)
-function _ready_domain_of {
-    local container="$1" vars
-    vars=$(docker exec "$container" bash --login -c \
-        'printf "AIRSTACK_VARS:%s:%s\n" "$ROBOT_NAME" "$ROS_DOMAIN_ID"' 2>/dev/null \
-        | grep "^AIRSTACK_VARS:" | tail -1)
-    [ -z "$vars" ] && return 1
-    echo "${vars##*:}"
-}
-
-function _ready_robot_name_of {
-    local container="$1" vars
-    vars=$(docker exec "$container" bash --login -c \
-        'printf "AIRSTACK_VARS:%s:%s\n" "$ROBOT_NAME" "$ROS_DOMAIN_ID"' 2>/dev/null \
-        | grep "^AIRSTACK_VARS:" | tail -1)
-    [ -z "$vars" ] && return 1
-    vars="${vars#AIRSTACK_VARS:}"
-    echo "${vars%%:*}"
 }
 
 # Poll a predicate function until it returns 0 or the timeout expires.
@@ -93,9 +72,12 @@ function _ready_poll {
     done
 }
 
+# Gate helpers share one argument order: <domain> <name> <container>
+# (identity → placement), except gates that need no identity.
+
 function _gate_containers_ok {
     local n
-    n=$(_ready_robot_containers | wc -l)
+    n=$(_robot_containers | wc -l)
     (( n >= 1 ))
 }
 
@@ -105,43 +87,34 @@ function _gate_clock_ok {
 }
 
 function _gate_nodes_ok {
-    local container="$2" domain="$1" nodes tmpl missing=0
+    local domain="$1" name="$2" container="$3" nodes tmpl missing=0
     nodes=$(_ready_ros2_exec "$container" "$domain" "ros2 node list" 10)
     for tmpl in "${READY_SENTINEL_TEMPLATES[@]}"; do
-        local want; want=$(printf "$tmpl" "$domain")
+        local want; want=$(printf "$tmpl" "$name")
         if ! grep -qx "$want" <<< "$nodes"; then missing=1; fi
     done
     (( missing == 0 ))
 }
 
 function _gate_px4_connected_ok {
-    local domain="$1" container="$2"
+    local domain="$1" name="$2" container="$3"
     _ready_ros2_exec "$container" "$domain" \
-        "ros2 topic echo --once --csv --field connected /robot_${domain}/interface/mavros/state" 6 \
+        "ros2 topic echo --once --csv --field connected /${name}/interface/mavros/state" 6 \
         | grep -qx "True"
 }
 
 function _gate_px4_odom_ok {
-    local domain="$1" container="$2"
+    local domain="$1" name="$2" container="$3"
     _ready_ros2_exec "$container" "$domain" \
-        "ros2 topic echo --once /robot_${domain}/interface/mavros/local_position/odom" 6 \
+        "ros2 topic echo --once /${name}/interface/mavros/local_position/odom" 6 \
         | grep -q "pose:"
 }
 
-function cmd_ready {
-    check_docker
-
-    local json=false
-    for arg in "$@"; do
-        case "$arg" in
-            --json) json=true ;;
-        esac
-    done
-
-    local start; start=$(_ready_now)
-    local overall=0
-    # gate results for --json: name=ok|failed
-    local -A results=()
+# Run every gate, filling the caller's `results` map and READY_OVERALL.
+# All output from this function is progress reporting — cmd_ready redirects
+# it wholesale to stderr in --json mode.
+function _ready_run_gates {
+    READY_OVERALL=0
 
     # Heads-up when the stack is idle by design.
     local autolaunch
@@ -158,13 +131,13 @@ function cmd_ready {
     else
         results[containers]=failed
         log_error "No robot containers running. Did you run 'airstack up'? Check: airstack status"
-        overall=1
+        READY_OVERALL=1
     fi
 
     local containers=() c
-    while IFS= read -r c; do [ -n "$c" ] && containers+=("$c"); done < <(_ready_robot_containers)
+    while IFS= read -r c; do [ -n "$c" ] && containers+=("$c"); done < <(_robot_containers)
 
-    if (( overall == 0 )); then
+    if (( READY_OVERALL == 0 )); then
         local first="${containers[0]}"
 
         # ---- Gate 2: sim /clock ----
@@ -174,50 +147,78 @@ function cmd_ready {
             results[sim_clock]=failed
             log_error "Sim never published /clock. Inspect the sim: airstack connect isaac-sim (or ms-airsim), or airstack logs <sim>"
             log_error "If PLAY_SIM_ON_START=false, press Play in the Isaac Sim window."
-            overall=1
+            READY_OVERALL=1
         fi
     fi
 
     # ---- Gates 3+4 per robot ----
-    if (( overall == 0 )); then
+    if (( READY_OVERALL == 0 )); then
         for c in "${containers[@]}"; do
-            local domain name
-            domain=$(_ready_domain_of "$c" || true)
-            name=$(_ready_robot_name_of "$c" || true)
-            if [ -z "$domain" ] || [ "$name" == "unknown_robot" ]; then
+            # One exec resolves both name and domain (_lib.sh helper).
+            local identity domain="" name=""
+            if identity=$(_container_identity "$c"); then
+                IFS=$'\t' read -r name domain <<< "$identity"
+            fi
+            if [ -z "$domain" ] || [ -z "$name" ] || [ "$name" == "unknown_robot" ]; then
                 log_error "$c: ROBOT_NAME/ROS_DOMAIN_ID did not resolve (got '${name:-?}'). See robot/docker/robot_name_map/."
                 results["nodes_${c}"]=failed
-                overall=1
+                READY_OVERALL=1
                 continue
             fi
 
-            if _ready_poll "$READY_NODES_TIMEOUT" "$name (domain $domain): autonomy nodes up" _gate_nodes_ok "$domain" "$c"; then
+            if _ready_poll "$READY_NODES_TIMEOUT" "$name (domain $domain): autonomy nodes up" _gate_nodes_ok "$domain" "$name" "$c"; then
                 results["nodes_${name}"]=ok
             else
                 results["nodes_${name}"]=failed
                 log_error "$name: sentinel nodes missing. The workspace may still be building, or the launch crashed — inspect: airstack connect $c   (tmux window 'bringup'), or airstack logs $c"
-                overall=1
+                READY_OVERALL=1
                 continue
             fi
 
-            if _ready_poll "$READY_PX4_TIMEOUT" "$name: MAVROS connected to PX4" _gate_px4_connected_ok "$domain" "$c"; then
+            if _ready_poll "$READY_PX4_TIMEOUT" "$name: MAVROS connected to PX4" _gate_px4_connected_ok "$domain" "$name" "$c"; then
                 results["px4_connected_${name}"]=ok
             else
                 results["px4_connected_${name}"]=failed
                 log_error "$name: MAVROS never connected to PX4 (port = 14540 + domain). Is the sim running with $((${#containers[@]})) drone(s)? For Isaac multi-robot, ISAAC_SIM_SCRIPT_NAME must be a multi script (use 'airstack up --robots N')."
-                overall=1
+                READY_OVERALL=1
                 continue
             fi
 
-            if _ready_poll "$READY_PX4_TIMEOUT" "$name: PX4 EKF ready (armable)" _gate_px4_odom_ok "$domain" "$c"; then
+            if _ready_poll "$READY_PX4_TIMEOUT" "$name: PX4 EKF ready (armable)" _gate_px4_odom_ok "$domain" "$name" "$c"; then
                 results["px4_ready_${name}"]=ok
             else
                 results["px4_ready_${name}"]=failed
                 log_error "$name: PX4 connected but local_position/odom never streamed (EKF has no local origin)."
-                overall=1
+                READY_OVERALL=1
             fi
         done
     fi
+    return 0   # verdict travels via READY_OVERALL (set -e safety)
+}
+
+function cmd_ready {
+    check_docker
+
+    local json=false
+    for arg in "$@"; do
+        case "$arg" in
+            --json) json=true ;;
+        esac
+    done
+
+    local start; start=$(_ready_now)
+    # gate results for --json: name=ok|failed (filled by _ready_run_gates)
+    local -A results=()
+    READY_OVERALL=0
+
+    # In --json mode ALL progress goes to stderr; stdout stays reserved for
+    # the JSON document (see the contract note at the top of this file).
+    if $json; then
+        _ready_run_gates 1>&2
+    else
+        _ready_run_gates
+    fi
+    local overall=$READY_OVERALL
 
     local total; total=$(_ready_elapsed "$start")
 

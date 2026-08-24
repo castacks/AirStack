@@ -1,0 +1,62 @@
+﻿mdl 1.3;
+
+import ::math::*;
+import ::state::*;
+import ::tex::*;
+import ::anno::*;
+using OmniUe4Function import *;
+using OmniUe4Base import *;
+
+export annotation sampler_color();
+export annotation sampler_normal();
+export annotation sampler_grayscale();
+export annotation sampler_alpha();
+export annotation sampler_masks();
+export annotation sampler_distancefield();
+export annotation dither_masked_off();
+export annotation world_space_normal();
+
+export material M_AisleSign(
+	uniform texture_2d Text = texture_2d("../textures/AisleSign_Text_01.png",::tex::gamma_linear)
+	[[sampler_color()]])
+ = 
+	let {
+	float3 WorldPositionOffset_mdl = float3(0.0,0.0,0.0);
+	float2 CustomizedUV0_mdl = float2(state::texture_coordinate(0).x,1.0-state::texture_coordinate(0).y);
+
+	float4 Local0 = ::unpack_normal_map(tex::lookup_float4(texture_2d("../textures/M_AisleSign/T_AisleSign_N.png",::tex::gamma_linear),float2(CustomizedUV0_mdl.x,1.0-CustomizedUV0_mdl.y),tex::wrap_repeat,tex::wrap_repeat));
+
+	float3 Normal_mdl = float3(Local0.x,Local0.y,Local0.z);
+
+	float4 Local1 = tex::lookup_float4(Text,float2(CustomizedUV0_mdl.x,1.0-CustomizedUV0_mdl.y),tex::wrap_repeat,tex::wrap_repeat);
+	float3 Local2 = (1.0 - float3(Local1.x,Local1.y,Local1.z));
+	float3 Local3 = (Local2 * 2.0);
+	float4 Local4 = tex::lookup_float4(texture_2d("../textures/M_AisleSign/T_AisleSign_D.png",::tex::gamma_srgb),float2(CustomizedUV0_mdl.x,1.0-CustomizedUV0_mdl.y),tex::wrap_repeat,tex::wrap_repeat);
+	float3 Local5 = (1.0 - float3(Local4.x,Local4.y,Local4.z));
+	float3 Local6 = (Local3 * Local5);
+	float3 Local7 = (1.0 - Local6);
+	float3 Local8 = (float3(Local1.x,Local1.y,Local1.z) * 2.0);
+	float3 Local9 = (Local8 * float3(Local4.x,Local4.y,Local4.z));
+	float Local10 = ((float3(Local1.x,Local1.y,Local1.z).x >= 0.5) ? Local7.x : Local9.x);
+	float Local11 = ((float3(Local1.x,Local1.y,Local1.z).y >= 0.5) ? Local7.y : Local9.y);
+	float Local12 = ((float3(Local1.x,Local1.y,Local1.z).z >= 0.5) ? Local7.z : Local9.z);
+	float4 Local13 = tex::lookup_float4(texture_2d("../textures/M_AisleSign/T_AisleSign_ORM.png",::tex::gamma_linear),float2(CustomizedUV0_mdl.x,1.0-CustomizedUV0_mdl.y),tex::wrap_repeat,tex::wrap_repeat);
+
+	float3 EmissiveColor_mdl = float3(0.0,0.0,0.0);
+	float OpacityMask_mdl = 1.0;
+	float3 BaseColor_mdl = float3(float2(Local10,Local11).x,float2(Local10,Local11).y,Local12);
+	float Metallic_mdl = Local13.z;
+	float Specular_mdl = 0.5;
+	float Roughness_mdl = Local13.y;
+
+	} in
+		::OmniUe4Base(
+			base_color: BaseColor_mdl,
+			metallic: Metallic_mdl,
+			roughness: Roughness_mdl,
+			specular: Specular_mdl,
+			normal: Normal_mdl,
+			opacity: OpacityMask_mdl,
+			emissive_color: EmissiveColor_mdl,
+			displacement: WorldPositionOffset_mdl,
+			two_sided: false);

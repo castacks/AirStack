@@ -6,11 +6,15 @@
   <!-- ====== ARGS ====== -->
   <arg name="sim" default="true"
        description="Use simulation time for the foxglove bridge" />
-  <arg name="record_bag" default="$(env RECORD_BAGS)"
-       description="Unused here; kept for env parity with robot bringup" />
 
   <!-- ======== GUI ======== -->
-  <!-- launch foxglove-studio with no-sandbox flag -->
+  <!-- Launch foxglove-studio with the no-sandbox flag (Electron in a root
+       container). The layoutId in the deep link is a Foxglove-app layout id:
+       it selects that layout from the app's local/team layout store when
+       present, and is harmlessly ignored otherwise. The documented layout
+       flow is importing the rendered /root/airstack_layout_num_robots_<N>.json
+       (see docs/gcs/foxglove.md), which supersedes this id for multi-robot
+       runs — kept so single-robot sessions restore the last-used layout. -->
 
   <executable
     cmd="bash -c 'DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY foxglove-studio --no-sandbox &quot;foxglove://open?ds=foxglove-websocket&amp;ds.url=ws://localhost:8765&amp;layoutId=lay_0eLycKBK1l9dAtoR&quot;'"

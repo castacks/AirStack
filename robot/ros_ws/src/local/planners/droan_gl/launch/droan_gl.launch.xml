@@ -6,8 +6,9 @@
   the `droan` namespace. Every topic endpoint is a declared <arg> defaulting
   to the canonical name (today's graph). Wiring deviations — e.g. a MAC-VO
   disparity source — are passed as include args by the stack entry file
-  (stacks/<name>/launch/) — the single-locus rule: no remap tags and no
-  cross-module rewiring edits here.
+  (stacks/<name>/launch/) — the single-locus rule: endpoints are declared args,
+  applied locally via <set_remap>; cross-module REWIRING lives only in
+  stack entry files.
 -->
 <launch>
   <arg name="droan_gl_config"

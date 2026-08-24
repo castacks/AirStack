@@ -1,7 +1,7 @@
 ---
 name: add-unit-tests
 description: Add Python or C++ unit tests to an AirStack ROS 2 package. Covers the co-location pattern (test source in package/test/), registering the package in colcon_unit_test_packages.yaml so pytest tests/ and airstack test -m unit collect it, and how to extend to sim components.
-license: MIT
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

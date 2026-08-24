@@ -9,7 +9,7 @@ This tutorial will cover how to configure and deploy the AirStack autonomy stack
 
 ## Prerequisites
 
-- Completed the [Getting Started](getting_started.md) tutorial.
+- Completed the [Getting Started](../getting_started/index.md) tutorial.
 - Physical robot hardware with a supported flight controller.
 - Network access to the device (SSH or direct connection).
 

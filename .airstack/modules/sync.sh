@@ -26,17 +26,6 @@ EXTERNAL_STACKS_DIR="${PROJECT_ROOT}/stacks/.external"
 EFFECTIVE_SOURCES_FILE="${PROJECT_ROOT}/.airstack/generated/effective_sources.yaml"
 FLEET_RESOLVER_TOOL="${PROJECT_ROOT}/tools/fleet/resolve_fleet.py"
 
-function _sync_check_python {
-    if ! command -v python3 >/dev/null 2>&1; then
-        log_error "python3 is required for 'airstack sync'."
-        return 1
-    fi
-    if ! python3 -c 'import yaml' 2>/dev/null; then
-        log_error "PyYAML is required (pip3 install --user pyyaml)."
-        return 1
-    fi
-}
-
 # Read a scalar key from airstack.yaml (empty when absent).
 function _sync_yaml_scalar {
     AIRSTACK_YAML_FILE="$AIRSTACK_YAML_FILE" SYNC_KEY="$1" python3 - <<'PY'
@@ -83,11 +72,17 @@ PY
 }
 
 function cmd_sync {
-    _sync_check_python || return 1
-    if [ $# -gt 0 ]; then
-        log_error "Usage: airstack sync   (no arguments; configuration lives in airstack.yaml)"
-        return 1
-    fi
+    _require_python_yaml "'airstack sync'" || return 1
+    local no_hooks=false
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --no-hooks) no_hooks=true; shift ;;
+            *)
+                log_error "Usage: airstack sync [--no-hooks]   (configuration lives in airstack.yaml)"
+                return 1
+                ;;
+        esac
+    done
 
     local have_yaml=false
     if [ -f "$AIRSTACK_YAML_FILE" ]; then
@@ -146,7 +141,9 @@ function cmd_sync {
 
     # ── 3. module sync (modules.repos → checkouts → overlay → layer plan) ───
     if declare -f cmd_module_sync >/dev/null; then
-        cmd_module_sync || errors=1
+        local module_sync_args=()
+        [ "$no_hooks" = true ] && module_sync_args+=(--no-hooks)
+        cmd_module_sync "${module_sync_args[@]}" || errors=1
     else
         log_warn "module command group not loaded — skipping module sync."
     fi
@@ -154,6 +151,14 @@ function cmd_sync {
     # ── 4. external stack repos → stacks/.external/<alias>/ ─────────────────
     local stack_count=0
     if [ "$have_yaml" = true ]; then
+        # vcs availability is a per-sync precondition, not a per-row one —
+        # check it once before the loop.
+        local stack_rows
+        stack_rows="$(_sync_stack_rows)"
+        if [ -n "$stack_rows" ] && ! _module_ensure_vcs; then
+            errors=1
+            stack_rows=""
+        fi
         local alias repo sref
         while IFS=$'\t' read -r alias repo sref; do
             [ -n "$alias" ] || continue
@@ -168,7 +173,6 @@ function cmd_sync {
                     errors=1; continue 2
                 fi
             done
-            _module_ensure_vcs || { errors=1; continue; }
             mkdir -p "$EXTERNAL_STACKS_DIR"
             # Same self-heal as the module sync: a checkout without .git makes
             # vcs import refuse; clear it for a clean reclone.
@@ -196,7 +200,7 @@ PY
                 stack_count=$((stack_count + 1))
             fi
             rm -f "$tmp_repos"
-        done < <(_sync_stack_rows)
+        done <<< "$stack_rows"
     fi
 
     # ── 5. validate the declared fleet ───────────────────────────────────────

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Compose per-module Docker layers into per-host image plans (RFC #379 §6, Phase P4).
 
 Trunk publishes one signed base image per host type per version; modules bring

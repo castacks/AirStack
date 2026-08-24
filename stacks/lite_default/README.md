@@ -61,10 +61,9 @@ when `AIRSTACK_STACK_DIR` is set.
 - **No global planner**: `global_plan` has no publisher in this stack.
   DROAN's navigate task still works with direct goals; exploration-style
   missions need `full_default` or the `lite_offload_global` split.
-- Partially flattened: the Local layer is composed module-by-module; the
-  other layers' cross-module remaps still live inside their bringup launch
-  files (grep those bringups, or read `wiring.md` once committed, for their
-  actual topic wiring).
+- All layers are flattened in `launch/stack.launch.xml` (same layout as
+  `full_default`); the interface stays a wrapped include by design, so read
+  [wiring.md](wiring.md) for the observed MAVROS wiring.
 - `modules.repos` pins no external modules yet; every package is
   trunk-resident.
 - `docker-compose.yaml` is a stub — per-stack image composition arrives with
@@ -72,11 +71,6 @@ when `AIRSTACK_STACK_DIR` is set.
 
 ## wiring.md
 
-This stack's observed wiring diagram is committed at [wiring.md](wiring.md).
-
-Generated — the commit arrives with the first snapshot run of
-`airstack test -m wiring --stack lite_default` (the harness writes
-`observed_lite_default.md` under the run directory; validate it and copy it
-here as `wiring.md`). Once committed, CI drift-checks the running graph
-against it. Until a GPU/sim runner flies this stack, `wiring.md` is absent
-and the layout contract skips it (bootstrap rule).
+This stack's observed wiring diagram is committed at [wiring.md](wiring.md);
+CI drift-checks the running graph against it. Regenerate via
+`airstack test -m wiring --stack lite_default`.

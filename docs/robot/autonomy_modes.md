@@ -12,6 +12,13 @@ hand. (The legacy `AUTONOMY_ROLE` role system was removed; a set
 | **`lite_default`** | Lite modules only: interface, sensors, perception, local planning, behavior — no global planner |
 | **`lite_offload_global:onboard`** | The lite set on the vehicle, bridged to an offboard global half per the stack's `bridge.yaml` |
 | **`lite_offload_global:offboard`** | Global planner + world model only — runs on the GCS paired with onboard robots |
+| **`full_droan_cpu`** | `full_default` with the CPU DROAN local planner (`droan_local_planner` + `disparity_expansion`) instead of the GPU `droan_gl` node |
+| **`full_macvo`** | `full_default` with MAC-VO as the disparity source — requires `airstack module add asm_macvo` first |
+
+Instead of picking a stack per container, `airstack up --fleet <name>` launches
+a whole **fleet**: `config/fleets/<name>.yaml` declares who exists, which
+vehicle each robot flies, which stack it runs, and which ground hosts run each
+split stack's offboard half — see [Fleets](../development/fleets.md).
 
 ---
 
@@ -27,7 +34,7 @@ Profiles are split into **deployment** and **simulator** categories.
 | `desktop_split` | Dev desktop | `robot-desktop-onboard` + `robot-offboard` + `gcs` | `lite_default` + `lite_offload_global:offboard` |
 | `l4t` | Jetson | `robot-l4t` + `zed-l4t` | `full_default` |
 | `l4t_lite` | Jetson | `robot-l4t-onboard` + `zed-l4t` | `lite_default` |
-| `voxl` | VOXL2 | `robot-voxl-onboard` | `lite_default` (compute-constrained) |
+| `voxl` (alias `voxl_onboard`) | VOXL2 | `robot-voxl-onboard` | `lite_default` (compute-constrained) |
 | `offboard` | Ground station | `robot-offboard` ×N + `gcs-real` | `lite_offload_global:offboard` |
 
 The hardware-profile defaults are redefinable per deployment (env /
@@ -38,7 +45,7 @@ The hardware-profile defaults are redefinable per deployment (env /
 | Profile | Simulator |
 |---|---|
 | `isaac-sim` | NVIDIA Isaac Sim (Pegasus) |
-| `ms-ms-airsim` | Microsoft AirSim (legacy) (UE4) |
+| `ms-airsim` | Microsoft AirSim (legacy) (UE4) |
 | `simple` | Simple Sim |
 
 Only one simulator profile can be active at a time. `airstack up` will error if multiple are set.

@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Contract tests for tools/compose_module_layers.py (RFC #379 §6, Phase P4).
 
 The layer planner turns synced modules' docker declarations (deps.apt/deps.pip,
@@ -400,6 +400,10 @@ def sandbox(tmp_path):
     (sb / "airstack.sh").chmod((sb / "airstack.sh").stat().st_mode | stat.S_IXUSR)
     shutil.copy(REPO / ".airstack" / "modules" / "module.sh",
                 sb / ".airstack" / "modules" / "module.sh")
+    # shared helper library (sourced explicitly by airstack.sh; module.sh
+    # relies on _require_python_yaml etc.)
+    shutil.copy(REPO / ".airstack" / "modules" / "_lib.sh",
+                sb / ".airstack" / "modules" / "_lib.sh")
     for tool in ("module_overlay.py", "validate_module.py", "compose_module_layers.py"):
         shutil.copy(REPO / "tools" / tool, sb / "tools" / tool)
     shutil.copytree(REPO / "common" / "module_schema", sb / "common" / "module_schema")

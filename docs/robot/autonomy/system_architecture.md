@@ -181,17 +181,16 @@ graph TB
 graph LR
     Camera[Camera Sensors] --> ImgProc[Image Processing]
     Stereo[Stereo Cameras] --> Disparity[Disparity Computation]
-    Gimbal[Gimbal] --> Stabilizer[Gimbal Stabilizer]
-    
+    LiDAR[LiDAR] --> Filter[Point Cloud Filter]
+
     ImgProc --> Perception
     Disparity --> Perception
-    Stabilizer --> Camera
+    Filter --> Perception
 ```
 
 **Key Modules:**
 
-- `camera_param_server`: Camera calibration management
-- `gimbal_stabilizer`: Gimbal control and stabilization
+- `lidar_point_cloud_filter`: LiDAR point cloud filtering
 - Sensor drivers and processors
 
 **Topics:**
@@ -309,7 +308,6 @@ graph TB
 - **Controllers:**
 
     - `trajectory_controller`: Trajectory tracking
-    - `attitude_controller`: Attitude control
 
 **Topics:**
 
@@ -410,7 +408,6 @@ graph TB
 
 - `behavior_tree`: Behavior tree framework
 - `behavior_executive`: Mission execution engine
-- `rqt_behavior_tree_command`: GUI for behavior tree control
 
 **Topics:**
 
@@ -646,7 +643,7 @@ graph TB
 ## References
 
 - [Integration Checklist](integration_checklist.md) - Module integration guidelines
-- [AI Agent Guide](../../development/ai_agent_guide.md) - Guide for AI agents
+- [AI Agent Guide](../../development/advanced/ai_agent_guide.md) - Guide for AI agents
 - [Layer Documentation](index.md) - Detailed layer descriptions
 - Skills:
 

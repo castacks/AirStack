@@ -118,7 +118,7 @@ AirStack’s Pegasus fork (Isaac Sim **5.1+**) wires **RTX OmniLidar** through O
 
 The spawn code maps the Python argument **`min_range`** to the OmniLidar prim attribute **`omni:sensor:Core:nearRangeM`** when it exists, and logs a warning when it does not. The module docstring in `spawn_rtx_lidar.py` states the reality: some Kit builds only express echo spacing in the **vendor lidar JSON profile**, not as a writable **Core** prim attribute, so **setting near range in Isaac does not consistently remove short-range returns**.
 
-**Known bug / policy:** Do **not** rely on Isaac-only `min_range` / `nearRangeM` as your primary near-field cleanup. Use the **robot-side** package **`lidar_point_cloud_filter`** (see [Sensors — LiDAR filter](../../../robot/autonomy/sensors/index.md#lidar-point-cloud-filter)), which applies a configurable **`near_range_m`** sphere filter in the ROS graph and publishes a stable cloud for VDB, exploration, and RViz.
+**Known bug / policy:** Do **not** rely on Isaac-only `min_range` / `nearRangeM` as your primary near-field cleanup. Use the **robot-side** package **`lidar_point_cloud_filter`** (see [Sensors — LiDAR filter](../../robot/autonomy/sensors/index.md#lidar-point-cloud-filter)), which applies a configurable **`near_range_m`** sphere filter in the ROS graph and publishes a stable cloud for VDB, exploration, and RViz.
 
 ## Known bugs and workarounds for Scripted Scene Generation
 

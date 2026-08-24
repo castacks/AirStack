@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Contract tests for `airstack module` + tools/module_overlay.py (RFC #379, Phase P2).
 
 The module machinery has host-visible contracts scripts and users depend on:
@@ -48,6 +48,10 @@ def sandbox(tmp_path):
     (sb / "airstack.sh").chmod((sb / "airstack.sh").stat().st_mode | stat.S_IXUSR)
     shutil.copy(REPO / ".airstack" / "modules" / "module.sh",
                 sb / ".airstack" / "modules" / "module.sh")
+    # shared helper library (sourced explicitly by airstack.sh before the
+    # module loader; module.sh relies on _require_python_yaml etc.)
+    shutil.copy(REPO / ".airstack" / "modules" / "_lib.sh",
+                sb / ".airstack" / "modules" / "_lib.sh")
     shutil.copy(REPO / "tools" / "module_overlay.py", sb / "tools" / "module_overlay.py")
     shutil.copy(REPO / "tools" / "validate_module.py", sb / "tools" / "validate_module.py")
     # (P4) sync also runs the Docker layer planner (conflict gate + plan + lock)

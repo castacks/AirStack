@@ -310,7 +310,10 @@ def render_wiring_md(graph, meta):
         if key in meta:
             lines.append(f"- **{key}**: {meta[key]}")
     lines += ["", "```mermaid", render_mermaid(graph).rstrip("\n"), "```", ""]
-    canonical = json.dumps(graph, sort_keys=True, indent=0)
+    # Compact canonical JSON (one line): keeps future baselines ~1k lines
+    # instead of ~7k. Drift compares parsed graphs, not bytes, so older
+    # indent=0 baselines stay valid until re-blessed.
+    canonical = json.dumps(graph, sort_keys=True, separators=(",", ":"))
     lines += [_TRAILER_OPEN, canonical, _TRAILER_CLOSE, ""]
     return "\n".join(lines)
 

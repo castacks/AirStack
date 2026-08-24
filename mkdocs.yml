@@ -71,7 +71,7 @@ nav:
       - Beginner Tutorials:
           - Key Concepts:
               - Overview: docs/development/beginner/key_concepts.md
-              - CLI Introduction: docs/development/beginner/airstack-cli/info.md
+              - CLI Introduction: docs/development/beginner/airstack-cli/index.md
               - Docker Workflow: docs/development/beginner/airstack-cli/docker_usage.md
           - docs/development/beginner/development_environment.md
           - docs/development/beginner/vscode/vscode_debug.md
@@ -177,7 +177,7 @@ nav:
           - docs/robot/logging/index.md
           - ROS Bags: docs/robot/logging/rosbags.md
           - Data Offloading: docs/robot/logging/data_offloading.md
-          - Bag Recorder: common/ros_packages/bag_recorder_pid/README.md
+          - Bag Recorder: common/ros_packages/logging/bag_recorder_pid/README.md
   - Modules:
       - Catalog: docs/modules/index.md
       - dfm2_disturbances: docs/modules/dfm2_disturbances.md
@@ -198,12 +198,6 @@ nav:
       - Foxglove:
           - Visualization: docs/gcs/foxglove.md
           - Adding Waypoints & Geofences: docs/gcs/waypoints_and_geofences.md
-      - Command Center:
-          - docs/gcs/command_center/command_center.md
-      - Casualty Assessment:
-          - docs/gcs/casualty_assessment/casualty_assessment.md
-      - WinTAK Installation:
-          - docs/gcs/wintak/installation.md
   - Real World:
       - docs/real_world/index.md
       - Deploying to Hardware: docs/real_world/deploying_to_hardware.md

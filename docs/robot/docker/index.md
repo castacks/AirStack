@@ -97,7 +97,7 @@ Key variables are set in the project's `.env` file and forwarded into the contai
 | Variable | Description |
 |---|---|
 | `VERSION` | Image version tag |
-| `DOCKER_IMAGE_BUILD_MODE` | Build mode (e.g. `release`, `dev`) |
+| `DOCKER_IMAGE_BUILD_MODE` | Image-tag discriminator only (`dev` today; a real `prebuilt` workspace-baked stage is future work) |
 | `PROJECT_DOCKER_REGISTRY` | Docker registry prefix |
 | `PROJECT_NAME` | Project / image name |
 | `NUM_ROBOTS` | Number of robot replicas (desktop only, default `1`) |

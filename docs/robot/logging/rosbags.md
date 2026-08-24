@@ -32,7 +32,7 @@ ros2 bag record -a --max-bag-size 1000  # 1GB per file
 
 ### Automatic Recording
 
-AirStack can automatically record bags using the [bag_recorder_pid](../../../common/ros_packages/bag_recorder_pid/README.md) package.
+AirStack can automatically record bags using the [bag_recorder_pid](../../../common/ros_packages/logging/bag_recorder_pid/README.md) package.
 
 Configure in the robot launch files to automatically start recording when the autonomy stack launches.
 
@@ -200,7 +200,7 @@ See: [Data Offloading Guide](data_offloading.md)
 
 ## See Also
 
-- [bag_recorder_pid Package](../../../common/ros_packages/bag_recorder_pid/README.md) - Automatic recording package
+- [bag_recorder_pid Package](../../../common/ros_packages/logging/bag_recorder_pid/README.md) - Automatic recording package
 - [Data Offloading](data_offloading.md) - Transfer bags from robot
 - [Logging Overview](index.md) - AirStack logging infrastructure
 - [ROS 2 Bag Documentation](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Recording-And-Playing-Back-Data/Recording-And-Playing-Back-Data.html)

@@ -1,7 +1,7 @@
 ---
 name: configure-multi-robot
 description: Configure, name, and isolate multiple robots in AirStack — fleet files (config/fleets/, airstack up --fleet) first, legacy NUM_ROBOTS second. Use whenever launching multi-robot, multiple robots, swarm, or fleet scenarios; mixing different stacks/vehicles per robot (heterogeneous fleets, split placement via hosts:); setting ROBOT_NAME; debugging cross-robot topic collisions; choosing a ROS_DOMAIN_ID; or namespacing topics, TF frames, and DDS bridges across robots.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack

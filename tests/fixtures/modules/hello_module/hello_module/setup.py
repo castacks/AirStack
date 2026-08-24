@@ -15,7 +15,7 @@ setup(
     maintainer="AirStack Test Fixture",
     maintainer_email="test@example.com",
     description="Minimal hello-world fixture package for module manifest contract tests.",
-    license="MIT",
+    license="BSD-3-Clause-Clear",
     extras_require={"test": ["pytest"]},
     entry_points={
         "console_scripts": [

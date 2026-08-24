@@ -38,6 +38,25 @@ SIM_CONFIG = {
             "ENABLE_LIDAR": "true",
         },
     },
+    # simple-sim (lightweight kinematic sim, no PX4/MAVROS): the sim node mocks
+    # the MAVROS surface directly, hardcoded to robot_1 on domain 1. Only the
+    # `simple_sim` smoke test (tests/system/test_simple_sim.py) targets it —
+    # run `airstack test -m simple_sim --sim simplesim --num-robots 1`.
+    "simplesim": {
+        "profile": "simple",
+        "sim_container": "simple-sim",  # container_name in simple-sim compose
+        # /clock is rosgraph_msgs — the base distro setup is enough (the sim
+        # workspace colcon-builds at container start, so its setup.bash may
+        # not exist yet on early probe attempts).
+        "sim_setup_bash": "/opt/ros/jazzy/setup.bash",
+        "robot_setup_bash": "/root/AirStack/robot/ros_ws/install/setup.bash",
+        # simple-robot (SIM_TYPE=simple) REPLACES robot-desktop: the desktop
+        # profile must stay off or both robot containers claim robot_1/domain 1.
+        # No GCS either — matches `airstack up --sim simple`.
+        "compose_profiles": "simple",
+        "robot_pattern": "simple-robot",
+        "extra_env": {},
+    },
 }
 
 

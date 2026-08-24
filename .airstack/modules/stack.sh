@@ -12,21 +12,10 @@
 STACKS_DIR="${PROJECT_ROOT}/stacks"
 STACK_DIFF_TOOL="${PROJECT_ROOT}/tools/stack_diff.py"
 
-function _stack_check_python {
-    if ! command -v python3 >/dev/null 2>&1; then
-        log_error "python3 is required for 'airstack stack' commands."
-        return 1
-    fi
-    if ! python3 -c 'import yaml' 2>/dev/null; then
-        log_error "PyYAML is required (pip3 install --user pyyaml)."
-        return 1
-    fi
-}
-
 # ── subcommands ──────────────────────────────────────────────────────────────
 
 function cmd_stack_list {
-    _stack_check_python || return 1
+    _require_python_yaml "'airstack stack' commands" || return 1
     if [ ! -d "$STACKS_DIR" ]; then
         log_error "No stacks/ directory at ${STACKS_DIR}."
         return 1
@@ -120,7 +109,7 @@ function cmd_stack_new {
 }
 
 function cmd_stack_diff {
-    _stack_check_python || return 1
+    _require_python_yaml "'airstack stack' commands" || return 1
     if [ $# -lt 2 ]; then
         log_error "Usage: airstack stack diff <stack-a> <stack-b> [--json]"
         return 1

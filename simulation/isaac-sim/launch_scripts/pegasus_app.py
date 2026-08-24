@@ -80,7 +80,7 @@ def create_simulation_app(launch_config=None):
     derived configuration entirely.
 
     When ``ISAAC_SIM_LIVESTREAM=true``, mirrors the NVIDIA reference config from
-    simulation/isaac-sim/standalone_examples/api/isaacsim.simulation_app/livestream.py
+    /isaac-sim/standalone_examples/api/isaacsim.simulation_app/livestream.py (in-image)
     so the Kit GUI (menu bar, toolbar, viewport, status bar) actually gets
     rendered into the WebRTC stream instead of just the bare 3D viewport.
     Key field: ``hide_ui: False`` — SimulationApp's default when ``headless=True``
@@ -205,6 +205,7 @@ class PegasusApp:
       ``orient`` — quaternion [x, y, z, w] (default identity).
       ``prim`` — drone root prim (default ``/World/drone{i}/base_link``).
       ``node_name`` — Pegasus OmniGraph node name (default ``PX4Multirotor_{i}``).
+      ``camera`` — per-drone camera override (default: app-level ``enable_camera``).
       ``lidar`` — per-drone lidar override (default: app-level ``enable_lidar``).
       ``lidar_min_range`` — per-drone min range (default: app-level value).
     """
@@ -256,6 +257,20 @@ class PegasusApp:
 
         # GPS origins must be written before the PX4 SITL subprocesses start
         # (robot containers read them during their own bring-up).
+        #
+        # Multi-drone default (audit H4): without per-drone PX4_HOME_* values,
+        # every PX4 SITL boots with the same GPS home, so the GCS map renders
+        # the whole fleet stacked at one coordinate. When the caller didn't
+        # pick a world origin, multi-drone spawns are anchored at
+        # gps_utils.DEFAULT_WORLD_ORIGIN (Lisbon — the same anchor the Pegasus
+        # configs.yaml default uses, so the map doesn't move cities).
+        # Single-drone spawns (len == 1) are deliberately left untouched: their
+        # GPS home comes from the PX4/Pegasus defaults and that behavior is
+        # machine-validated — only opt in via an explicit world_gps_origin.
+        if world_gps_origin is None and len(self.drone_configs) > 1:
+            from gps_utils import DEFAULT_WORLD_ORIGIN
+
+            world_gps_origin = DEFAULT_WORLD_ORIGIN
         if world_gps_origin is not None:
             from gps_utils import set_gps_origins
 
@@ -391,7 +406,7 @@ class PegasusApp:
             init_orient=init_orient,
         )
 
-        if self.enable_camera:
+        if cfg.get("camera", self.enable_camera):
             add_zed_stereo_camera_subgraph(
                 parent_graph_handle=graph_handle,
                 drone_prim=drone_prim,

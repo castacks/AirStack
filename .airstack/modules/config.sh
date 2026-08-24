@@ -3,8 +3,8 @@
 # config.sh - Configuration-related commands for AirStack
 # This module provides commands for configuring the AirStack environment
 
-# Helper function for confirmation prompts
-function confirm_no {
+# Confirmation prompt defaulting to No (returns 0 only on an explicit yes)
+function _config_confirm {
     read -r -p "${1:-Are you sure? [y/N]} " response
     case "$response" in
         [yY][eE][sS]|[yY]) 
@@ -26,7 +26,7 @@ function cmd_config_isaac_sim {
     
     log_info "Generating Default IsaacSim Config ($USER_CONFIG_JSON_DESTINATION)"
     
-    if [ -d "$USER_CONFIG_JSON_DESTINATION" ] && [ $(ls -A "$USER_CONFIG_JSON_DESTINATION" | wc -l) == 0 ]; then
+    if [ -d "$USER_CONFIG_JSON_DESTINATION" ] && [ "$(ls -A "$USER_CONFIG_JSON_DESTINATION" | wc -l)" -eq 0 ]; then
         # delete an empty directory with the same name as $USER_CONFIG_JSON_DESTINATION which gets created when
         # docker compose up is run before this script. Doing this will create a directory name user.config.json because
         # it is being mounted as a volume but it doesn't exist yet.
@@ -35,7 +35,11 @@ function cmd_config_isaac_sim {
     
     if [ -f "$USER_CONFIG_JSON_DESTINATION" ]; then
         log_warn "The file $USER_CONFIG_JSON_DESTINATION already exists."
-        confirm_no "Do you want to reset it to the default? [y/N]" && cp "$USER_CONFIG_JSON_SOURCE" "$USER_CONFIG_JSON_DESTINATION"
+        # `_config_confirm && cp` would abort the script under set -e on "no";
+        # keep the decline path alive with an explicit if.
+        if _config_confirm "Do you want to reset it to the default? [y/N]"; then
+            cp "$USER_CONFIG_JSON_SOURCE" "$USER_CONFIG_JSON_DESTINATION"
+        fi
     else
         cp "$USER_CONFIG_JSON_SOURCE" "$USER_CONFIG_JSON_DESTINATION"
     fi

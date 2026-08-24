@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Import smoke tests for the hello_module fixture package.
 
 This fixture lives under ``tests/``, so broad pytest recursion collects it directly

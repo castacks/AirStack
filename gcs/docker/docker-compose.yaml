@@ -1,7 +1,7 @@
 services:
   gcs:
     profiles:
-      - desktop       # standard sim/dev: GCS alongside robot-desktop (full role)
+      - desktop       # standard sim/dev: GCS alongside robot-desktop (unsplit stacks, e.g. full_default)
       - desktop_split # split sim/dev: GCS alongside robot-desktop-onboard + robot-offboard
     extends:
       file: ./gcs-base-docker-compose.yaml
@@ -25,5 +25,3 @@ services:
     network_mode: host
     volumes:
       - $HOME/bags:/bags
-      # TODO: Update rviz config location if needed
-      - ../plot:/plot

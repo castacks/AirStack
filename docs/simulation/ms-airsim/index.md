@@ -128,7 +128,7 @@ Cameras are defined per vehicle in the generated `settings.json` under `Vehicles
 
 ### Bridge node parameters
 
-Located at `simulation/ms-airsim/ros_ws/src/ms_airsim_ros_bridge/config/bridge.yaml`:
+Declared (with these defaults) in `simulation/ms-airsim/ros_ws/src/ms_airsim_ros_bridge/ms_airsim_ros_bridge/bridge_node.py`; the entrypoint starts each bridge with `ros2 run ... --ros-args -p robot_name:=robot_<i>`:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|

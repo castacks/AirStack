@@ -21,28 +21,26 @@ robot/
 ├── ros_ws/                           # ROS 2 workspace
 │   └── src/                          # Source packages (layered architecture)
 │       ├── autonomy_bringup/         # Top-level launch orchestration
+│       ├── common/                   # Shared packages & utilities
 │       ├── interface/                # Hardware interface & safety
 │       │   ├── interface_bringup/
 │       │   ├── mavros_interface/
-│       │   └── ...
+│       │   └── robot_interface/
 │       ├── sensors/                  # Sensor integration
-│       │   ├── sensors_bringup/
-│       │   └── ...
+│       │   └── lidar_point_cloud_filter/
 │       ├── perception/               # State estimation & perception
-│       │   ├── perception_bringup/
-│       │   └── ...
+│       │   └── perception_bringup/
 │       ├── local/                    # Local planning, control, world models
-│       │   ├── local_bringup/
 │       │   ├── planners/
-│       │   ├── c_controls/
+│       │   ├── controls/
 │       │   └── world_models/
 │       ├── global/                   # Global planning & mapping
 │       │   ├── global_bringup/
 │       │   ├── planners/
 │       │   └── world_models/
-│       └── behavior/                 # High-level decision making
-│           ├── behavior_bringup/
-│           └── ...
+│       ├── behavior/                 # High-level decision making
+│       │   └── drone_safety_monitor/
+│       └── modules/                  # Synced external modules
 └── bags/                             # ROS 2 bag recordings
 ```
 

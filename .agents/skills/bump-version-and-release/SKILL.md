@@ -1,7 +1,7 @@
 ---
 name: bump-version-and-release
 description: Bump the AirStack VERSION in .env (semver) before merging a PR that changes Docker image content, and update CHANGELOG. Required to pass the check-version-increment gate and to trigger the docker-build release workflow.
-license: Apache-2.0
+license: BSD-3-Clause-Clear
 metadata:
   author: AirLab CMU
   repository: AirStack
@@ -17,7 +17,7 @@ Bump VERSION when the PR touches:
 
 - Any `Dockerfile` under `robot/`, `simulation/isaac-sim/`, `simulation/ms-airsim/`, `gcs/`, `common/`, or `tests/docker/`
 - `docker-compose.yaml` or any included sub-compose file (when the change affects what is built or installed into images)
-- Code that is **baked into** an image (i.e., copied during build, not bind-mounted at runtime). For `DOCKER_IMAGE_BUILD_MODE="prebuilt"` this includes `robot/ros_ws/src/**`. For `DOCKER_IMAGE_BUILD_MODE="dev"` (the current default in `.env`) the workspace is bind-mounted, so source-only changes there do not strictly require a rebuild — but bumping is still safer if you are unsure.
+- Code that is **baked into** an image (i.e., copied during build, not bind-mounted at runtime). The workspace is bind-mounted (`DOCKER_IMAGE_BUILD_MODE` is a tag discriminator only — a real `prebuilt` workspace-baked stage is future work), so source-only changes under `robot/ros_ws/src/**` do not strictly require a rebuild — but bumping is still safer if you are unsure.
 - Apt packages, pip requirements, ROS package manifests installed during the build
 - Entry-point scripts, tmux configs, or `.bashrc` snippets copied into images
 - Submodule pointer updates that affect image contents

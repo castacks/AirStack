@@ -7,7 +7,9 @@
   perception namespace. Every topic endpoint is a declared <arg> defaulting
   to the canonical name (today's graph). Wiring deviations are passed as
   include args by the stack entry file (stacks/<name>/launch/) — the
-  single-locus rule: no remap tags and no cross-module rewiring edits here.
+  single-locus rule: endpoints are declared args,
+  applied locally via <set_remap>; cross-module REWIRING lives only in
+  stack entry files.
 
   Note: the legacy file also carried a remap from
   /$ROBOT_NAME/stereo_image_proc/disparity — a dead rule (the node resolves

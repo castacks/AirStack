@@ -145,54 +145,54 @@ When developing modules for the AirStack CLI, follow these best practices:
 6. **Use consistent formatting**: Follow the style of the existing modules
 7. **Document your module**: Include comments explaining what your module does
 
-## Real-World Example: WinTAK Module
+## Real-World Example: Config Module
 
-The WinTAK module provides commands for installing and managing the WinTAK virtual machine:
+The config module (`.airstack/modules/config.sh`) provides commands for configuring the AirStack environment:
 
 ```bash
 #!/usr/bin/env bash
 
-# wintak.sh - WINTAK-related commands for AirStack
-# This module provides commands for installing and managing WINTAK
+# config.sh - Configuration-related commands for AirStack
+# This module provides commands for configuring the AirStack environment
 
-# Function to install WINTAK
-function cmd_wintak_install {
-    log_info "Installing WINTAK..."
-    
+# Function to configure Isaac Sim settings
+function cmd_config_isaac_sim {
+    log_info "Configuring Isaac Sim..."
+
     # Implementation details...
-    
+
     return 0
 }
 
-# Function to start WINTAK
-function cmd_wintak_start {
-    log_info "Starting WinTAK..."
-    
+# Function to configure AirLab Omniverse Nucleus Server login
+function cmd_config_nucleus {
+    log_info "Configuring Nucleus..."
+
     # Implementation details...
-    
+
     return 0
 }
 
-# Function to stop WINTAK
-function cmd_wintak_stop {
-    log_info "Stopping WinTAK..."
-    
+# Function to set up Git hooks
+function cmd_config_git_hooks {
+    log_info "Configuring Git hooks..."
+
     # Implementation details...
-    
+
     return 0
 }
 
 # Register commands from this module
-function register_wintak_commands {
-    COMMANDS["wintak:install"]="cmd_wintak_install"
-    COMMANDS["wintak:start"]="cmd_wintak_start"
-    COMMANDS["wintak:stop"]="cmd_wintak_stop"
-    
+function register_config_commands {
+    COMMANDS["config:isaac-sim"]="cmd_config_isaac_sim"
+    COMMANDS["config:nucleus"]="cmd_config_nucleus"
+    COMMANDS["config:git-hooks"]="cmd_config_git_hooks"
+
     # Add command help
-    COMMAND_HELP["wintak:install"]="Install WinTAK VirtualBox environment"
-    COMMAND_HELP["wintak:start"]="Start WinTAK virtual machine"
-    COMMAND_HELP["wintak:stop"]="Stop WinTAK virtual machine"
+    COMMAND_HELP["config:isaac-sim"]="Configure Isaac Sim settings"
+    COMMAND_HELP["config:nucleus"]="Configure Omniverse Nucleus login"
+    COMMAND_HELP["config:git-hooks"]="Set up the repository's Git hooks"
 }
 ```
 
-This module provides three commands for managing WinTAK: `wintak:install`, `wintak:start`, and `wintak:stop`.
+This module provides three commands for configuring the environment: `config:isaac-sim`, `config:nucleus`, and `config:git-hooks`.

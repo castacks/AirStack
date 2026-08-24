@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Generate per-robot compose services for a HETEROGENEOUS fleet (RFC #380 §2).
 
 ``deploy.replicas`` can only stamp identical containers, so a fleet whose
@@ -30,15 +30,24 @@ Output is deterministic: a pure function of the fleet file + checkout layout
 resolve against ambiguous bases when compose merges ``-f`` files, the same
 rule ``tools/module_overlay.py`` follows).
 
+Bridge routers: split stacks placed by the fleet (resolve-aware, so
+``<alias>/<stack>`` external stacks are covered) need their bridge-derived
+DDS-router configs materialized before launch — the onboard entry loads
+``.airstack/generated/dds_router.<stack>.yaml`` and fails fast without it.
+This tool generates them alongside the compose file, so both
+``airstack fleet generate`` and ``airstack up --fleet`` share ONE pipeline.
+
 CLI::
 
     generate_fleet_compose.py <fleet.yaml> [--project-root DIR] [--out PATH]
-                              [--check-homogeneous]
+                              [--check-homogeneous] [--dry-run]
 
 Exit 0 always on success; ``--check-homogeneous`` prints ``homogeneous`` or
-``heterogeneous`` and writes nothing.
+``heterogeneous`` and writes nothing; ``--dry-run`` prints what WOULD be
+generated and writes nothing.
 """
 import argparse
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -56,6 +65,16 @@ from resolve_fleet import (  # noqa: E402
     resolve_fleet,
     validate_fleet,
 )
+
+
+def _load_gen_dds_router():
+    """Import tools/gen_dds_router.py relative to THIS file (not the project
+    root argument), so synthetic checkout roots still find it."""
+    path = _TOOLS_FLEET_DIR.parent / "gen_dds_router.py"
+    spec = importlib.util.spec_from_file_location("airstack_gen_dds_router", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 GENERATED_REL = Path(".airstack/generated/docker-compose.fleet.yaml")
 CONTAINER_ROOT = "/root/AirStack"
@@ -225,6 +244,59 @@ def render(compose):
     )
 
 
+def bridge_stacks(fleet, root):
+    """Checkout-relative dirs of every stack the fleet places that carries a
+    bridge.yaml (split stacks). Resolve-aware: robots' stacks come out of
+    ``resolve_fleet`` (which resolves ``<alias>/<stack>`` external references
+    via ``resolve_stack_path``), and ground tenants reuse those resolved dirs.
+    """
+    resolved = resolve_fleet(fleet, root)
+    stacks = {r["stack"] for r in resolved["robots"]}
+    for cfg in resolved["ground"].values():
+        stacks.update(t["stack"] for t in cfg["tenants"])
+    return sorted(s for s in stacks if (Path(root) / s / "bridge.yaml").is_file())
+
+
+def generate_bridge_routers(fleet, root, dry_run=False):
+    """Materialize DDS-router configs for every split stack the fleet places.
+
+    Writes ``<root>/.airstack/generated/dds_router.<stack>.yaml`` per split
+    stack and prints one line per config. With ``dry_run`` nothing is written.
+    Raises FleetError when a bridge.yaml fails validation (incl. doctor hard
+    gate #2 — command authority stays onboard).
+    """
+    stacks = bridge_stacks(fleet, root)
+    if not stacks:
+        return []
+    gdr = _load_gen_dds_router()
+    root = Path(root)
+    written = []
+    for stack_rel in stacks:
+        bridge_path = root / stack_rel / "bridge.yaml"
+        data = gdr.load_bridge(bridge_path)
+        errors = gdr.validate_bridge(data)
+        gate_errors = [f"{e['path']}: {e['message']}" for e in errors]
+        if gate_errors:
+            raise FleetError(
+                f"bridge.yaml of split stack '{stack_rel}' is invalid:\n  "
+                + "\n  ".join(gate_errors)
+            )
+        out = gdr.default_out_path(bridge_path, root, stack=(data or {}).get("stack"))
+        if dry_run:
+            print(f"Would generate DDS-router config for split stack "
+                  f"'{stack_rel}': {out}")
+        else:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(
+                gdr.render_router_config(data, source_rel=f"{stack_rel}/bridge.yaml"),
+                encoding="utf-8",
+            )
+            print(f"Generated DDS-router config for split stack "
+                  f"'{stack_rel}': {out}")
+        written.append(out)
+    return written
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Generate per-robot compose services for a heterogeneous "
@@ -237,6 +309,9 @@ def main(argv=None):
                              "docker-compose.fleet.yaml)")
     parser.add_argument("--check-homogeneous", action="store_true",
                         help="print 'homogeneous' or 'heterogeneous'; write nothing")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="print what would be generated (compose services "
+                             "+ split-stack DDS-router configs); write nothing")
     args = parser.parse_args(argv)
 
     root = Path(args.project_root) if args.project_root else project_root_of(args.fleet_file)
@@ -269,11 +344,19 @@ def main(argv=None):
             return 0
 
         out = Path(args.out) if args.out else root / GENERATED_REL
-        out.parent.mkdir(parents=True, exist_ok=True)
-        content = render(build_compose(fleet, root, fleet_rel))
-        out.write_text(content, encoding="utf-8")
-        n_services = len(build_compose(fleet, root, fleet_rel)["services"])
-        print(f"Wrote {out} ({n_services} service(s), profile 'fleet').")
+        compose = build_compose(fleet, root, fleet_rel)
+        n_services = len(compose["services"])
+        if args.dry_run:
+            print(f"Would write {out} ({n_services} service(s), profile 'fleet').")
+        else:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(render(compose), encoding="utf-8")
+            print(f"Wrote {out} ({n_services} service(s), profile 'fleet').")
+
+        # Split stacks the fleet places need their bridge-derived DDS-router
+        # configs materialized before launch (the onboard entry loads
+        # .airstack/generated/dds_router.<stack>.yaml and fails fast without it).
+        generate_bridge_routers(fleet, root, dry_run=args.dry_run)
         return 0
     except FleetError as exc:
         print(f"Error: {exc}", file=sys.stderr)

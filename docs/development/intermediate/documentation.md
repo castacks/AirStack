@@ -416,7 +416,7 @@ When adding or modifying documentation:
 
 ### AI-Assisted Documentation
 
-Use the [AI Agent Guide](ai_agent_guide.md) for automated documentation tasks:
+Use the [AI Agent Guide](../advanced/ai_agent_guide.md) for automated documentation tasks:
 
 - Generate README.md from code
 - Update mkdocs.yml navigation
@@ -427,7 +427,7 @@ Use the [AI Agent Guide](ai_agent_guide.md) for automated documentation tasks:
 
 Use the `update-documentation` skill:
 
-See: [.agents/skills/update-documentation](.agents/skills/update-documentation)
+See: [.agents/skills/update-documentation](../../../.agents/skills/update-documentation/SKILL.md)
 
 ## Common Issues
 
@@ -457,6 +457,6 @@ See: [.agents/skills/update-documentation](.agents/skills/update-documentation)
 ## See Also
 
 - [Contributing Guide](contributing.md) - Overall contribution workflow
-- [AI Agent Guide](ai_agent_guide.md) - Automated documentation generation
+- [AI Agent Guide](../advanced/ai_agent_guide.md) - Automated documentation generation
 - [MkDocs Material Documentation](https://squidfunk.github.io/mkdocs-material/) - MkDocs features
 - [Mermaid Documentation](https://mermaid.js.org/) - Diagram syntax

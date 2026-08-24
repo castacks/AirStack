@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Check implementations for ``airstack doctor`` (RFC #379 §4, RFC #380 §2).
 
 Doctor is **entirely observational**: it never generates, edits, or infers
@@ -32,6 +32,9 @@ import sys
 import time
 from pathlib import Path
 
+# NOTE: the yaml import doubles as doctor's python3+PyYAML availability check
+# (the shell CLI's twin lives in .airstack/modules/_lib.sh:_require_python_yaml
+# — cross-language dedupe deferred; keep the two behaviors in sync).
 import yaml
 
 # Doctor always runs its own repo's tools, even when --project-root points at

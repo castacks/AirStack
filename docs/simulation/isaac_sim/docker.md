@@ -63,19 +63,29 @@ ISAAC_SIM_USE_STANDALONE=true ISAAC_SIM_SCRIPT_NAME=my_script.py airstack up isa
 - Advanced scene setup
 - Programmatic control
 
-### 3. GUI-Only Mode
+### 3. GUI-Only Mode (`isaac-sim-gui`)
 
-Launch just the Isaac Sim GUI (no ROS 2):
+The `isaac-sim-gui` compose service opens Isaac Sim's **full GUI editor**
+(`runapp.sh` — no Pegasus launch script, no drones) for USD/scene editing on
+any asset:
 
 ```bash
 airstack up --profile isaac-sim-gui isaac-sim-gui
 ```
 
+(The service sits behind its own `isaac-sim-gui` profile, so both the
+`--profile` flag and the service name are needed; it does not conflict with
+the one-active-simulator rule.)
+
 **Use cases:**
 
-- Scene authoring
-- Testing without robot stack
-- Visual debugging
+- Authoring/editing USD scenes and assets (see [Scene Setup](scene_setup.md))
+- Inspecting assets without bringing up the robot stack
+
+**Not for flying:** the service is deliberately **not** on `airstack_network`
+(`networks: !reset null` in `simulation/isaac-sim/docker/docker-compose.yaml`),
+so no DDS traffic reaches the robot containers and no PX4 is launched. To fly,
+use `airstack up --sim isaac`.
 
 ## Launch Configuration
 

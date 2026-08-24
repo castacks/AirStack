@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Contract tests for split-stack bridge.yaml + tools/gen_dds_router.py
 (RFC #380 §2, RFC #379 §4).
 

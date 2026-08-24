@@ -105,8 +105,6 @@ RUN apt update -y && apt install -y --no-install-recommends \
   ros-${ROS_DISTRO}-rosbag2-storage-mcap \
   ros-${ROS_DISTRO}-xacro \
   ros-${ROS_DISTRO}-ament-package \
-  ros-${ROS_DISTRO}-foxglove-bridge \
-  libcgal-dev \
   python3-colcon-common-extensions \
   && rm -rf /var/lib/apt/lists/*
 
@@ -119,25 +117,18 @@ RUN pip3 install --break-system-packages --ignore-installed \
   "pytest==7.4.*" \
   empy==3.3.4 \
   future \
-  lxml \
+  # matplotlib stays: dev-script consumer + published-image behavior
+  # (its resolver also pulls pillow transitively)
   matplotlib==3.8.4 \
   # kept <2.0 conservatively; audit consumers before relaxing
   numpy~=1.26.4 \
-  pkgconfig \
-  psutil \
-  pygments \
   wheel \
-  pymavlink \
   pyyaml \
   requests \
   # setup tools must be <80 for Jazzy https://github.com/ros2/ros2/issues/1702#issuecomment-3007929996
   setuptools==79.0.1 \
-  six \
-  toml \
-  scipy \
-  rich \
-  tqdm \
-  pillow
+  # scipy stays: position_setpoint_pub
+  scipy
 
 # Keep pytest < 8.1. ROS Jazzy launch_testing still implements
 # pytest_pycollect_makemodule(path=...), which pluggy rejects after pytest 8.1
@@ -147,25 +138,6 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages \
 
 # TMux config
 RUN git clone --depth 1 https://github.com/tmux-plugins/tpm /root/.tmux/plugins/tpm
-
-# Diagnostic: Check Python environment before DDS Router build
-RUN echo "=== Python version ===" && \
-    python3 --version && \
-    echo "" && \
-    echo "=== PYTHONPATH ===" && \
-    echo "$PYTHONPATH" && \
-    echo "" && \
-    echo "=== sys.path ===" && \
-    python3 -c "import sys; print('\n'.join(sys.path))" && \
-    echo "" && \
-    echo "=== Checking ament_package ===" && \
-    python3 -c "import ament_package; print('✓ ament_package found at:', ament_package.__file__)" || echo "✗ ament_package NOT found" && \
-    echo "" && \
-    echo "=== Checking dpkg for ament packages ===" && \
-    dpkg -l | grep -i ament || echo "No ament packages found in dpkg" && \
-    echo "" && \
-    echo "=== ROS Python packages ===" && \
-    ls -la /opt/ros/${ROS_DISTRO}/lib/python*/dist-packages/ 2>/dev/null | head -20 || echo "No ROS python packages found"
 
 # Install eProsima DDS Router
 # System library dependencies (Asio, TinyXML2, OpenSSL, yaml-cpp)
@@ -259,7 +231,9 @@ ENV ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
 ENV DEBIAN_FRONTEND=
 # ========================
 
-# Install runtime dev tools (no cmake or build-essential)
+# Install runtime dev tools. (The compile toolchain — cmake, build-essential —
+# still arrives below via ros-dev-tools: the runtime image keeps it because
+# `bws` builds the ROS workspace inside this container.)
 RUN apt update && apt install -y --no-install-recommends \
   vim nano tree \
   less htop jq \
@@ -277,7 +251,11 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages --ignore-insta
   "setuptools==79.0.1" \
   wheel
 
-# Install runtime ROS2 packages (no libcgal-dev)
+# Install runtime ROS2 packages. ros-dev-tools pulls in the compile toolchain
+# (cmake, build-essential) — deliberate, since `bws` builds in-container.
+# (ros-*-grid-map pulls CGAL in as a transitive dependency where it needs it.)
+# foxglove-bridge was dropped from the robot image (the GCS image installs its
+# own); per-robot Foxglove returns later as an opt-in stack include.
 RUN apt update -y && apt install -y --no-install-recommends \
   ros-dev-tools \
   ros-${ROS_DISTRO}-mavros \
@@ -291,11 +269,8 @@ RUN apt update -y && apt install -y --no-install-recommends \
   ros-${ROS_DISTRO}-rosbag2-storage-mcap \
   ros-${ROS_DISTRO}-xacro \
   ros-${ROS_DISTRO}-ament-package \
-  ros-${ROS_DISTRO}-foxglove-bridge \
   python3-colcon-common-extensions \
   && rm -rf /var/lib/apt/lists/*
-
-# TODO: consider splitting this into a separate "desktop-plus" image, since foxglove-bridge is a large install and not strictly necessary for most robot use cases
 
 # Install emoji font support and refresh font cache
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -328,14 +303,27 @@ RUN if [ "${REAL_ROBOT}" != "true" ] && [ "$(dpkg --print-architecture)" = "amd6
     fi && \
     rm -rf /var/lib/apt/lists/*
 
-# Add ability to SSH (libglfw3-dev and libglm-dev kept per spec)
+# Add ability to SSH
 RUN apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends \
-  openssh-server libglfw3-dev libglm-dev \
+  openssh-server \
   && rm -rf /var/lib/apt/lists/*
 RUN mkdir /var/run/sshd
 
+# droan_gl link deps (assimp/EGL/GL) — declared in its package.xml
+# (robot/ros_ws/src/local/planners/droan_gl: rosdep keys assimp, opengl,
+# libglfw3-dev, libglm-dev). Installed explicitly so the in-container colcon
+# build doesn't rely on ros-desktop transitives. EGL has no rosdep key on
+# jazzy/noble, hence libegl-dev appears only here.
+RUN apt-get ${UPDATE_FLAGS} update && apt-get ${INSTALL_FLAGS} install -y --no-install-recommends \
+  libassimp-dev \
+  libgl1-mesa-dev \
+  libegl-dev \
+  libglfw3-dev \
+  libglm-dev \
+  && rm -rf /var/lib/apt/lists/*
+
 # Copy build artifacts from the builder stage
-# /opt/ros/jazzy is NOT copied — runtime installs the same packages via apt (including foxglove-bridge)
+# /opt/ros/jazzy is NOT copied — runtime installs the same packages via apt
 # /usr/local/lib/python3.12 is NOT copied separately — it is covered by /usr/local/lib below
 # /usr/local/include is copied to provide OpenVDB (and DDS Router) headers for in-container colcon builds
 COPY --from=builder /usr/local/bin            /usr/local/bin
