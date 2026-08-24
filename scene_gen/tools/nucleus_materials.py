@@ -238,7 +238,7 @@ def search(entries, terms, limit: int, maps: bool = False) -> list:
     """Entries matching every term, best first.
 
     Project material outranks the NVIDIA libraries: `Projects/SEI-COA` is what
-    the asset sets actually build with, and it would otherwise sort under `N`
+    the asset packs actually build with, and it would otherwise sort under `N`
     and fall off the end of a --limit. Real materials outrank raw texture maps
     for the same reason.
     """

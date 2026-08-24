@@ -1,18 +1,18 @@
 
 detail:
-  # Street-furniture categories for the `downtown` locale.
+  # Street-furniture categories for the `urban` locale.
   #
   # WHY THIS IS NOT IN default.yaml
   # -------------------------------
   # `default.yaml` is the schema tier: what a knob means and a safe default for
-  # it. This list is not a default — it is the statement "a downtown has these
+  # it. This list is not a default — it is the statement "an urban scene has these
   # eighteen kinds of thing on its pavement, at these spacings". A suburb has
   # five, and `deep_merge` merges dicts key-by-key, so a preset that wants five
   # cannot narrow an inherited eighteen: it would silently get all eighteen at
-  # downtown spacings (bus shelters on residential streets, which is exactly the
+  # urban spacings (bus shelters on residential streets, which is exactly the
   # failure GENERATION.md warns about).
   #
-  # So it lives with the locale that owns it. `compile_locale.compile_downtown`
+  # So it lives with the locale that owns it. `compile_locale.compile_urban`
   # loads this file; the zone geometry, clearances and everything else about HOW
   # the pass works stays in default.yaml, shared by every locale that runs it.
   #
@@ -146,7 +146,7 @@ detail:
       # (122 m) hose lay. The familiar "300 ft commercial, 400 ft sprinklered"
       # wording is a Southern California / Southern Nevada local amendment and
       # is not in the base code.
-      # A commercial downtown sits in the high-fire-flow rows, so 300 ft
+      # A commercial urban sits in the high-fire-flow rows, so 300 ft
       # (91.4 m) BETWEEN HYDRANTS ALONG THE STREET governs, and the code's axis
       # is along the street, not per kerb — so 180 m of frontage, which puts a
       # hydrant every 90 m of street.

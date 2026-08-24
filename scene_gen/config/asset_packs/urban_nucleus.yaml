@@ -1,8 +1,8 @@
-# ASSET SET: urban — a dense modern city (mid-rise blocks, downtown props).
+# ASSET SET: urban — a dense modern city (mid-rise blocks, urban props).
 #
 # Extends `shared.yaml`, which carries everything a locale doesn't get to
 # choose: street furniture, greenery, ground tiles, vehicles, people. What is
-# left here is what actually makes a place a downtown — the buildings, and the
+# left here is what actually makes a place an urban scene — the buildings, and the
 # rubble they leave. This debris (concrete chunks, cinder block, brick) reads
 # as city-building wreckage, so it is exclusive to this set rather than
 # shared — a suburb leaves lumber and scraped earth instead, see
@@ -10,7 +10,7 @@
 
 extends: shared
 
-# ---- the downtown-specific library ------------------------------------------------
+# ---- the urban-specific library ------------------------------------------------
 usds:
   buildings:
     intact:

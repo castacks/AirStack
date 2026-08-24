@@ -3,7 +3,7 @@
 # Distinct from `suburb.yaml`: that drives the RECT subdivider through
 # `build_city`, this drives the street GRAPH through
 # `suburb_scene.generate_suburb_on_stage`. Different code, different geometry —
-# they share only the asset set, and no knob turns one into the other.
+# they share only the asset pack, and no knob turns one into the other.
 #
 # View it with:
 #     SCENE_CONFIG=suburb_net \
@@ -14,11 +14,10 @@
 #     python3 tools/suburb_net_png.py --seed 3 --out _plans/suburb_net.png
 
 locale: suburban
-disaster-type: none
 severity: 0.0
 # suburban for the houses and street furniture, park.yaml for the recreation
 # pools; suburban_park joins the two (see its `extends` note).
-asset-set: suburban_park
+asset-pack: suburban_park
 
 # 1600 x 1200 m is one plat's worth of fabric: enough for three collectors and
 # a proper cul-de-sac population, and it measures in band on every seed.
@@ -108,8 +107,23 @@ overrides:
     # 6-18 m of side yard and still keeps the tight density class at a real
     # post-war 20 m frontage.
     lot_width_m: [30.0, 44.0]
-    # SIDE YARD between neighbours. 4 m put a 20 m house 2 m off the next one;
-    # 6 m is a real gap without thinning the street much (702 houses vs 865).
+    # SIDE YARD between neighbours, and the ONE key that sets it.
+    #
+    # It was authored twice in this file, in the lot-geometry block and again
+    # beside the fit check, with the same 6.0 both times. PyYAML keeps only the
+    # last of a duplicated key, so the first copy and its reasoning were dead
+    # text — and `check_duplicate_yaml_keys` treats that as fatal, which is why
+    # `airstack up` died on ANY scene, not just a suburban one: the check scans
+    # every preset before building anything.
+    #
+    # 4 m put a 20 m house 2 m off the next one; 6 m is a real gap without
+    # thinning the street much (702 houses vs 865). Overlap falls to ~1% at
+    # 3.0 m and 0% inside 3 m at NO measured cost in house count (8.0 starts
+    # costing up to 6%).
+    #
+    # It is also the side yard the FIT CHECK uses -- `house_sizes` admits an
+    # entry only if it clears half of this -- so raising it narrows the
+    # reachable catalogue, and the widest entries go first.
     house_gap_m: 6.0
     # DISTRICTS. Density was one independent draw per BLOCK, so a tight block
     # could sit between two estate blocks on the same street — noise, not
@@ -138,16 +152,6 @@ overrides:
     # nothing.
     house_w_m: [9.0, 13.0]
     house_d_m: [8.0, 11.0]
-    # SIDE YARD, and the number that governs "the houses are too close". The
-    # overlap test pads by HALF this, so 4.0 bought a 2.01 m minimum
-    # wall-to-wall gap with 2.3-2.8% of houses inside 3 m; 6.0 takes it to
-    # 3.0 m and 0% inside 3 m at NO measured cost in house count (8.0 starts
-    # costing up to 6%).
-    #
-    # It is also the side yard the FIT CHECK uses -- `house_sizes` admits an
-    # entry only if it clears half of this -- so raising it narrows the
-    # reachable catalogue, and the widest entries go first.
-    house_gap_m: 6.0
     min_lot_depth_m: 21.0
     driveway_w_m: 3.2
     # Which way a house faces, relative to the frontage tangent. -90 puts the

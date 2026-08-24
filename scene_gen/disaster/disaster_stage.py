@@ -9,9 +9,9 @@ decides what happens to it.
 WHY THIS EXISTS
 ---------------
 `city_detail` places eighteen kinds of street furniture and **none of them
-were affected by the disaster** — a downtown could be hit by a tornado with
+were affected by the disaster** — an urban scene could be hit by a tornado with
 every bench, bin and sign still standing to attention. The built-in frontage
-passes did have topple handling, but the downtown locale switches those off in
+passes did have topple handling, but the urban locale switches those off in
 favour of `city_detail`, so enabling the detailed generator silently made the
 street furniture immune to the event.
 
@@ -55,11 +55,66 @@ placement, and a severity sweep stops being comparable.
 """
 
 import math
+import os
 import random
 
 from scene_generator import (_in_exclusion, _normalize_usd_list,
-                             placement_footprint, _stage,
-                             make_damage_field)
+                             placement_footprint, _stage)
+
+from disaster import levels
+from disaster.field import make_damage_field
+
+#: Loaded archetype manifests, by disaster. Reading one is a JSON parse, but
+#: `apply_to_buildings` is called per scene and a preset sweep calls it dozens
+#: of times; caching also means the "no library" message prints once.
+_ARCH_CACHE: dict = {}
+
+
+def _archetype_url(path: str) -> str:
+    """An absolute archetype path as the generator's asset resolver wants it.
+
+    `airstack://` when the library is inside the repo (portable across
+    checkouts, which the tests' path-anchoring depends on), the raw absolute
+    path when it is not — a library baked to a scratch directory or mounted
+    from elsewhere is still perfectly loadable, just not relocatable.
+    """
+    repo = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    p = os.path.abspath(path)
+    if p.startswith(repo + os.sep):
+        return "airstack://" + os.path.relpath(p, repo).replace(os.sep, "/")
+    return p
+
+
+def _archetypes(disaster_type: str):
+    """Stage A's library for *disaster_type*, or None if it was never baked.
+
+    RETURNING None IS A SUPPORTED STATE, not an error. A fresh checkout has no
+    library — it is gitignored and takes an Isaac Sim session to produce — and
+    a scene must still build without one, falling back to the authored-ruin
+    swap and live mesh damage exactly as it did before Stage A existed. The
+    difference a baked library makes is that EVERY building can be damaged
+    rather than the 50-80 `mesh_damage.fracture.max_buildings` can afford.
+    """
+    key = str(disaster_type or "none").lower()
+    if key in _ARCH_CACHE:
+        return _ARCH_CACHE[key]
+
+    from archetypes import library as _lib
+
+    scene_gen = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.join(_lib.disaster_dir(scene_gen, key), _lib.MANIFEST_NAME)
+    doc = _lib.read_manifest(path)
+    got = _lib.Library(path, doc) if doc.get("archetypes") else None
+    if got is not None:
+        print(f"[disaster_stage] archetype library: {len(got)} baked for "
+              f"'{key}' ({len(got.types())} types)")
+    elif key != "none":
+        print(f"[disaster_stage] no archetype library for '{key}' — falling "
+              f"back to live damage. Bake one with "
+              f"ISAAC_SIM_SCRIPT_NAME=bake_archetypes_launch_script.py")
+    _ARCH_CACHE[key] = got
+    return got
 
 # category -> response class. Categories not listed are left alone, which is
 # the right default: ground tiles, buildings, debris and trail surfaces are
@@ -140,7 +195,7 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
     when fate was assigned during packing, districts received a half-ruined
     city, could not lay its terrace and midrise runs around the rubble, and
     demolished buildings it then could not rebuild — at severity 0.6 the
-    detailed downtown lost 455 of its 919 buildings and the block count moved
+    detailed urban lost 455 of its 919 buildings and the block count moved
     45 -> 43. Rezoning a pristine city and ruining it afterwards makes that
     class of bug unreachable.
 
@@ -165,21 +220,23 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
 
     rng = random.Random(int(config.get("seed", 0)) + 5501)
 
-    # HOW HARD a building is hit, as opposed to WHETHER it is hit.
+    # HOW HARD a building is hit, as opposed to WHETHER it is hit. The field is
+    # a spatial shape; severity is the magnitude; `levels.local_damage` is the
+    # one place their product is written down. See `disaster/levels.py` for why
+    # severity must not be folded into the field instead.
     #
-    # The damage field is spatial: it says this spot is in the corridor, or at
-    # the epicentre. It does not say how bad the event was — `compile_*` gives
-    # earthquake and hurricane a field that reads exactly 1.0 in the core at
-    # every severity, and only the *fractions* move. So mesh damage, which
-    # takes its intensity straight from the field, wrecked every building it
-    # touched at full strength whatever the severity: a 0.2 quake and a 1.0
-    # quake produced identical ruins, and only their number differed. The
-    # severity sweep in the damage gallery is where that finally showed.
-    #
-    # Severity is therefore folded in here. Hand-written low-level configs may
-    # not carry it, and 1.0 is the right default for them — it is what they
-    # already got.
+    # Hand-written low-level configs may not carry a severity, and 1.0 is the
+    # right default for them — it is what they already got.
     sev = float(dis.get("severity", 1.0))
+    dtype = str(dis.get("type", "none"))
+
+    # STAGE A's LIBRARY, if it has been baked. Preferred over everything below:
+    # an archetype is THIS building at THIS level, already fractured and
+    # settled, so referencing one costs nothing at scene time and every
+    # building can have it. The authored-ruin swap and live mesh damage remain
+    # as fallbacks for an unbaked library — see `_archetypes`.
+    arch = _archetypes(dtype)
+    arch_ladder = levels.level_names(dtype)
 
     # Pools and per-asset conventions, resolved the same way build_city does.
     usds = config.get("usds") or {}
@@ -291,6 +348,49 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
         is_destroyed = False
         tilt_standin = True
 
+        # Local field x how bad the event was, and the rung it lands on.
+        # Computed here rather than in the fallback branch because the
+        # archetype swap needs it too, and the two must never disagree about
+        # which level a building is at.
+        p["_mesh_damage"] = levels.local_damage(k, sev)
+        level = levels.level_at(dtype, p["_mesh_damage"]).name
+        p["_damage_level"] = level
+
+        # --- Stage B, step 5: reference the pre-baked archetype -------------
+        if arch is not None and level != "pristine":
+            rec = arch.resolve(p.get("usd", ""), level, arch_ladder)
+            if rec:
+                p["usd"] = _archetype_url(arch.usd_path(rec))
+                # The archetype was exported with its world transform baked and
+                # re-centred to the origin, so it needs no scale, no axis
+                # correction and no base offset — it IS metres, Z-up, sitting
+                # on the ground. Carrying the source asset's scale here is how
+                # a 0.01-scaled Nucleus building would come back 100x too small.
+                p["scale"] = 1.0
+                p["axis_up"] = "Z"
+                p["z_m"] = 0.0
+                # NOT INSTANCED YET, and that is a known gap against SPEC's
+                # "repeated archetypes are instanced so identical references
+                # share geometry."
+                #
+                # `apply_placements` deliberately does not instance (see its
+                # docstring, and 8187043e): `scene_prep.add_colliders` walks
+                # `GetChildren()` to apply `UsdPhysics.CollisionAPI`, and an
+                # instanceable prim has no traversable children — so an
+                # instanced building gets NO COLLIDER and the drone flies
+                # through it. Marking these instanceable here would trade a
+                # memory win for a silently broken sim.
+                #
+                # The unblock is to author colliders INSIDE the archetype at
+                # bake time: once the collider ships as part of the referenced
+                # asset, instancing is free and correct. That belongs in
+                # `archetypes/bake.py`'s export, not here.
+                p["_archetype"] = True
+                p.pop("_mesh_damage", None)
+                is_destroyed = level == arch_ladder[-1]
+                tally["archetype"] = tally.get("archetype", 0) + 1
+                tilt_standin = False
+
         # WHICH MECHANISM, AND WHY THE FATE DECIDES IT.
         #
         # A *destroyed* building prefers an asset swap: a purpose-built ruin —
@@ -307,7 +407,7 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
         prefer_mesh = (mesh_cfg.get("enabled", True)
                        and not want_destroyed
                        and mesh_cfg.get("prefer_for_damaged", True))
-        if not prefer_mesh:
+        if tilt_standin and not prefer_mesh:
             for pool in pools:
                 cands = [u for u in pool if _fits(u, base_fp)]
                 if cands:
@@ -318,6 +418,9 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
                     p["z_m"] = _fp(pick, "house")["base"]
                     is_destroyed = pick in destroyed_set
                     tilt_standin = False
+                    # An authored ruin already looks ruined; deforming it again
+                    # is the "ruin's ruin" that Stage A's plan excludes too.
+                    p.pop("_mesh_damage", None)
                     break
 
         axis_roll = 90.0 if p.get("axis_up") == "Y" else 0.0
@@ -329,8 +432,6 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
             # the generator has always done, and on its own it reads as the
             # building being drunk rather than having failed.
             #
-            # Local field x how bad the event was — see the note at `sev`.
-            p["_mesh_damage"] = float(k) * sev
             p["roll_deg"] = axis_roll + rng.uniform(-6.0, 6.0)
             p["pitch_deg"] = rng.uniform(-6.0, 6.0)
             p["z_m"] -= rng.uniform(0.1, 0.4)

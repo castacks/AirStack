@@ -43,7 +43,7 @@ import snapshot as S  # noqa: E402
 # Every disaster type is covered: their damage fields differ in shape (radial,
 # path, uniform) and each drives a different mix of damage effects, so a leak
 # can hide in one and not another — `car` survived earthquake and moved under
-# all four downtown presets.
+# all four urban presets.
 #
 # NOTE the `urban_v2` and `suburban_v2` sweeps are VACUOUS: both are
 # `disaster-type: none`, so severity is ignored and the two ends are identical
@@ -54,7 +54,6 @@ import snapshot as S  # noqa: E402
 SWEEPS = [
     ("earthquake", 42, [0.0, 0.4, 0.8]),
     ("tornado", 42, [0.0, 0.8]),
-    ("explosion", 42, [0.0, 0.6]),
     ("fire", 42, [0.0, 0.6]),
     ("flood", 42, [0.0, 0.6]),
     ("hurricane", 42, [0.0, 0.6]),
@@ -164,7 +163,7 @@ def test_detail_positions_preserved(preset, seed, severities):
 def test_disaster_stage_affects_detail_props(preset, severity):
     """The disaster reaches `city_detail`'s props.
 
-    It did not, for a while: the downtown locale switches the built-in
+    It did not, for a while: the urban locale switches the built-in
     frontage passes off in favour of `city_detail`, and `city_detail` had no
     disaster handling — so enabling the detailed generator silently made
     street furniture immune to the event. Benches and bins stood to attention

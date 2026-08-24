@@ -1,6 +1,6 @@
-# HIGH-LEVEL scene spec — a small pristine downtown, for quick visual checks.
+# HIGH-LEVEL scene spec — a small pristine urban, for quick visual checks.
 #
-# Same locale, asset set and disaster (none) as `downtown.yaml`; only the
+# Same locale, asset pack and disaster (none) as `urban.yaml`; only the
 # region is smaller, so it builds and loads fast enough to iterate on.
 #
 # WHAT IT IS AND IS NOT GOOD FOR
@@ -11,23 +11,22 @@
 # Not good for: judging the road hierarchy or the district gradient. The
 # OSM-calibrated block targets are 60-95 x 135-200 m, so a 400 m region fits
 # about two of those across and lands at ~14 blocks with only a handful of
-# arterials — `downtown.yaml` uses 800 m precisely because the core/mid/edge
+# arterials — `urban.yaml` uses 800 m precisely because the core/mid/edge
 # gradient needs the room to read. 500 m is the compromise: enough blocks to
 # see zoning vary, small enough to load quickly.
 #
-# For a like-for-like check against what Krrish tuned, use `downtown` itself.
+# For a like-for-like check against what Krrish tuned, use `urban` itself.
 #
-#     SCENE_CONFIG=downtown_small \
+#     SCENE_CONFIG=urban_small \
 #     ISAAC_SIM_SCRIPT_NAME=scene_launch_script.py \
 #     airstack up isaac-sim
 #
-# The Objaverse pre-flight is shared with `downtown` (same asset set), so if
+# The Objaverse pre-flight is shared with `urban` (same asset pack), so if
 # that one has been cached this needs nothing extra.
 
-locale: downtown
-disaster-type: none
+locale: urban
 severity: 0.0
 
-asset-set: urban
+asset-pack: urban
 region_m: [500, 500]
 seed: 42

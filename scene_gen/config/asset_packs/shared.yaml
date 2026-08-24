@@ -1,7 +1,7 @@
 # ASSET SET: shared — everything every locale builds with.
 #
 # Street furniture, greenery, ground tiles, vehicles and people are the same
-# whether the scene is a downtown, a suburb or a village: a bench is a bench.
+# whether the scene is an urban scene, a suburb or a village: a bench is a bench.
 # Only the *buildings* and the *debris they leave* are locale-specific, so
 # those live in the sets that extend this one — see `urban.yaml` (mid-rise
 # concrete) and `suburban.yaml` (detached timber-frame houses).

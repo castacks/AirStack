@@ -1,4 +1,4 @@
-# The suburban asset set — everything a suburban scene builds with.
+# The suburban asset pack — everything a suburban scene builds with.
 #
 # `extends: suburban_nucleus`: the Nucleus-only subset it layers on. That split is
 # by SOURCE, not by version — suburban_nucleus needs no pre-flight and works

@@ -492,40 +492,10 @@ def thin_by_spacing(fuels, spacing_m, max_count):
 # Spread
 # --------------------------------------------------------------------------
 
-def _ignition_time(u, v, head, flank, back):
-    """When the elliptical front reaches wind-frame point (u, v). Seconds.
-
-    At time t the burnt region is an ellipse with semi-axis `a = A*t` along the
-    wind, semi-axis `b = B*t` across it, centred `c = C*t` downwind of the
-    ignition point, where A = (head+back)/2, C = (head-back)/2, B = flank.
-
-    Every axis is linear in t, so substituting s = 1/t turns "smallest t whose
-    ellipse contains (u, v)" into one quadratic in s:
-
-        ((u*s - C)/A)**2 + ((v*s)/B)**2 = 1
-
-    The largest positive root is the earliest arrival. Returns `inf` for points
-    the front never reaches.
-    """
-    A = 0.5 * (head + back)
-    C = 0.5 * (head - back)
-    B = flank
-    if A <= 0.0 or B <= 0.0:
-        return float("inf")
-    if abs(u) < 1e-9 and abs(v) < 1e-9:
-        return 0.0
-
-    qa = (u * u) / (A * A) + (v * v) / (B * B)
-    qb = -2.0 * u * C / (A * A)
-    qc = (C * C) / (A * A) - 1.0
-
-    disc = qb * qb - 4.0 * qa * qc
-    if qa <= 0.0 or disc < 0.0:
-        return float("inf")
-    s = (-qb + math.sqrt(disc)) / (2.0 * qa)
-    if s <= 1e-12:
-        return float("inf")
-    return 1.0 / s
+# The elliptical spread solver now lives in `disaster.field`, where it also
+# backs the `ellipse` damage-field kind — so "when did the front reach here"
+# and "how hard was this spot hit" are answered by the same arithmetic.
+from disaster.field import arrival_time as _ignition_time  # noqa: E402
 
 
 def resolve_start_offset(cfg):

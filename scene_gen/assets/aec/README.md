@@ -82,7 +82,7 @@ extracted. They are assembled demo scenes, not a prop library.
 ## Measured properties
 
 All of it is **centimetre-authored (`metersPerUnit` 0.01) and Z-up**, so every
-asset-set entry needs `scale: 0.01` and no `axis-up` override. Regenerate this
+asset-pack entry needs `scale: 0.01` and no `axis-up` override. Regenerate this
 with `scene_gen/tools/measure_assets.py`.
 
 Props are cheap — 15 assets, 196k points total, 61k worst case (the café set) —

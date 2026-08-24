@@ -1,8 +1,8 @@
-# HIGH-LEVEL scene spec — a pristine downtown with detailed street furniture.
+# HIGH-LEVEL scene spec — a pristine urban with detailed street furniture.
 #
-# The pristine downtown baseline.
+# The pristine urban baseline.
 # region, so the two are directly comparable side by side. What differs is the
-# asset set — this one draws on Objaverse props that `none.yaml`'s Nucleus-only
+# asset pack — this one draws on Objaverse props that `none.yaml`'s Nucleus-only
 # set does not have.
 #
 # WHERE THE SETTINGS WENT (Phase 1 of the three-stage refactor)
@@ -15,17 +15,17 @@
 #
 #   config/low_level/default.yaml        the schema tier — what every knob
 #                                        means, with a safe default
-#   config/low_level/locales/downtown.yaml   downtown's street-furniture
+#   config/low_level/locales/urban.yaml   urban's street-furniture
 #                                        category table (~200 cited lines)
-#   compile_locale.compile_downtown()    which subsystems downtown enables,
+#   compile_locale.compile_urban()    which subsystems urban enables,
 #                                        and the values that are a property of
-#                                        downtown rather than the generator
-#   config/asset_sets/urban_v2.yaml      asset-specific fixups (prim pruning,
+#                                        urban rather than the generator
+#   config/asset_packs/urban_v2.yaml      asset-specific fixups (prim pruning,
 #                                        material overrides) — they name asset
 #                                        uids, so they belong with the assets
 #
-# So a downtown scene now gets the detailed generator by virtue of being a
-# downtown, and this file is back to being what a high-level spec should be:
+# So an urban scene now gets the detailed generator by virtue of being a
+# urban, and this file is back to being what a high-level spec should be:
 # where, what happened, and how bad.
 #
 # PRE-FLIGHT REQUIRED. This scene draws 22 props from Objaverse, so the cache
@@ -34,7 +34,7 @@
 #
 #     UV_PYTHON=3.13 uv run --no-project --with objaverse --with pandas \
 #         --with pyyaml --with trimesh \
-#         python scene_gen/prepare_assets.py --asset-set urban
+#         python scene_gen/prepare_assets.py --asset-pack urban
 #
 # UV_PYTHON=3.13 is load-bearing. convert_to_usd.py declares
 # `requires-python = ">=3.13"`, which uv satisfies with the newest interpreter
@@ -47,15 +47,14 @@
 # Re-running once cached is a sub-second no-op, so it is safe before every
 # launch. `--list` shows state without downloading anything.
 #
-#     SCENE_CONFIG=downtown \
+#     SCENE_CONFIG=urban \
 #     ISAAC_SIM_SCRIPT_NAME=scene_launch_script.py \
 #     airstack up isaac-sim
 
-locale: downtown
-disaster-type: none
+locale: urban
 severity: 0.0
 
-asset-set: urban
+asset-pack: urban
 # 800 m, not none.yaml's 400. The OSM-calibrated block targets are
 # 60-95 x 135-200 m; a 400 m region fits about two of those across, so it lands
 # at 14 blocks with only 3 arterial corridors and no readable road hierarchy.

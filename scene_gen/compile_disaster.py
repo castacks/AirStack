@@ -20,8 +20,8 @@ HIGH-LEVEL SPEC
     severity: 0.6             # 0..1 — 0 is pristine, 1 is as bad as that
                               #        disaster gets
 
-    asset-set: urban          # optional — which asset library to build with
-                              #            (config/asset_sets/)
+    asset-pack: urban          # optional — which asset library to build with
+                              #            (config/asset_packs/)
     seed: 42                  # optional — city layout + disaster RNG
     region_m: [400, 400]      # optional — city extent
 
@@ -70,7 +70,7 @@ import sys
 import yaml
 
 from compile_locale import (LOCALES, compile_locale_settings,
-                            default_asset_set)
+                            default_asset_pack)
 
 _SCENE_GEN_DIR = os.path.dirname(os.path.abspath(__file__))
 _CONFIG_DIR = os.path.join(_SCENE_GEN_DIR, "config")
@@ -86,15 +86,7 @@ DEFAULT_OUT_DIR = os.path.join(_CONFIG_DIR, "low_level", "compiled")
 # Helpers
 # ---------------------------------------------------------------------------
 
-def deep_merge(base: dict, override: dict) -> dict:
-    """Recursively merge *override* into *base* in place: nested dicts merge
-    key-by-key, everything else (scalars, lists) is replaced outright."""
-    for k, v in override.items():
-        if isinstance(v, dict) and isinstance(base.get(k), dict):
-            deep_merge(base[k], v)
-        else:
-            base[k] = v
-    return base
+from config_merge import deep_merge                    # noqa: E402,F401
 
 
 def lerp(lo, hi, t):
@@ -311,72 +303,6 @@ def compile_tornado(sev, spec, region):
     }
 
 
-def compile_explosion(sev, spec, region):
-    """A blast: ground zero is obliterated, damage drops off fast with range.
-
-    Signature — the tightest, most extreme gradient of any type. At the
-    center nothing is left standing; a few hundred meters out the city is
-    barely touched. Debris is thrown outward hard.
-    """
-    w, h = region
-    cx, cy = spec.get("epicenter", [0.0, 0.0])
-    return {
-        # Mesh damage. WHAT it does — where the building fails, how finely
-        # it comes apart and where the pieces go — is the FAILURE FIELD in
-        # `mesh_damage`, keyed off this type, because it differs in kind
-        # between the disasters and this block was being copied identically
-        # into every one of them. What is left here is the budget: how many
-        # buildings can afford to be broken.
-        "mesh_damage": {"fracture": {"enabled": True,
-                                     "max_buildings": 50},
-                        "thickness": thickness_block(50)},
-        "damaged_fraction": lerp(0.1, 0.25, sev),
-        # -> 1.0 at sev=1: "nothing is left standing" at the center per the
-        # docstring above.
-        "destroyed_fraction": lerp(0.3, 1.0, sev),
-        "debris": {
-            "piles_per_building": lerp_pair([2, 3], [4, 7], sev),
-            "pile_max_offset_m": lerp(2.5, 4.5, sev),
-            "pieces_per_building": lerp_pair([8, 16], [20, 38], sev),
-            "pieces_scatter_m": lerp(7.0, 16.0, sev),
-            # Rubble around buildings that are damaged but still
-            # standing, relative to a destroyed one. Not zero: a
-            # cracked, half-collapsed building on a spotless lot is
-            # the most obviously wrong thing in an aerial view.
-            "damaged_debris_scale": lerp(0.35, 0.55, sev),
-            "tilt_chance": lerp(0.15, 0.45, sev),
-            "tilt_deg": [3, lerp(8.0, 14.0, sev)],
-            "sink_m": [0.4, lerp(1.0, 1.8, sev)],
-            "lean_piles": lerp_pair([2, 3], [3, 5], sev),
-            # Tight radial field: the scour is a scorched ring at
-            # ground zero, not a corridor.
-            "path_pieces_per_100m2": lerp(0.6, 2.5, sev),
-            "path_piles_per_100m2": lerp(0.1, 0.5, sev),
-        },
-        "trees_toppled_fraction": lerp(0.3, 0.8, sev),
-        "streetlights_toppled_fraction": lerp(0.3, 0.9, sev),
-        "traffic_lights_toppled_fraction": lerp(0.25, 0.85, sev),
-        "traffic_lights_leaning_fraction": lerp(0.3, 0.6, sev),
-        "traffic_lights_lean_deg": [10, 40],
-        "trash_cans_toppled_fraction": lerp(0.5, 0.95, sev),
-        "trash_cans_scatter_m": lerp(5.0, 12.0, sev),
-        "cars_toppled_fraction": lerp(0.2, 0.7, sev),
-        "cars_strewn": lerp_pair([2, 5], [8, 16], sev),
-        "strewn_topple_fraction": 0.9,
-        "humans_prone_fraction": lerp(0.25, 0.75, sev),
-        "humans_strewn": lerp_pair([2, 5], [8, 16], sev),
-        # Small full-strength core, fast falloff, clean outside.
-        "field": {
-            "kind": "radial",
-            "center": [float(cx), float(cy)],
-            "radius_m": round(max(w, h) * lerp(0.06, 0.22, sev), 1),
-            "falloff_m": round(max(w, h) * lerp(0.15, 0.3, sev), 1),
-            "inside": 1.0,
-            "outside": 0.0,
-        },
-    }
-
-
 def compile_fire(sev, spec, region):
     """A conflagration: gutted inside the burn scar, untouched a street away.
 
@@ -444,6 +370,10 @@ def compile_fire(sev, spec, region):
             "inside": 1.0,
             "outside": 0.0,
         },
+        # What the fire looks like while it is still burning. Inert unless the
+        # launch script calls `disaster.fire.apply_wildfire`, so an urban fire
+        # scene that only wants the aftermath simply never reads it.
+        "fire": _fire_block(sev, spec, region),
     }
 
 
@@ -550,21 +480,18 @@ def compile_hurricane(sev, spec, region):
     }
 
 
-def compile_wildfire(sev, spec, region):
-    """Fire in the scene, and nothing else — yet.
+def _fire_block(sev, spec, region):
+    """The NVIDIA Flow fire front: emitters, spread rates and the burn window.
 
-    Signature — a wind-driven fire front running through the vegetation. Every
-    structural knob is zero on purpose: this stage adds the FIRE ONLY, so a
-    wildfire scene can be looked at and tuned before any question of what the
-    fire does to the buildings is opened.
+    Split out of what used to be a separate `wildfire` disaster type. That type
+    was `compile_none` plus this block — the fire with every structural knob
+    deliberately zeroed, "so a wildfire scene can be looked at and tuned before
+    any question of what the fire does to the buildings is opened". That
+    question is open now, so the two halves are one disaster: `compile_fire`
+    supplies what the fire DOES and this supplies what it LOOKS like.
 
-    That is why `field` is uniform-zero rather than a burn scar. When scorched
-    facades and burnt-out props arrive they belong on the field, driven by the
-    same ellipse the emitters already follow — see `disaster/fire.py`.
-
-    The fire block itself is consumed by `disaster.fire.apply_wildfire`, which
-    runs AFTER the scene is generated: it needs the placements the generator
-    returns, because an emitter is fitted to the bounding box of a real prim.
+    Consumed by `disaster.fire.apply_wildfire`, which runs AFTER generation:
+    an emitter is fitted to the bounding box of a real prim.
     """
     w, h = region
     span = max(w, h)
@@ -574,8 +501,7 @@ def compile_wildfire(sev, spec, region):
     ox, oy = spec.get("epicenter", [-span * 0.35, -span * 0.35])
     heading = float(spec.get("heading_deg", 45.0))
 
-    block = compile_none(sev, spec, region)
-    block["fire"] = {
+    return {
         "enabled": True,
         "origin_m": [float(ox), float(oy)],
         "heading_deg": heading,
@@ -657,18 +583,18 @@ def compile_wildfire(sev, spec, region):
         # temperature, at the cost of blowing out a hot fire.
         "colormap_x_max": 1.0,
     }
-    return block
 
 
+#: The disaster types SPEC.md names. `none` is deliberately absent: a pristine
+#: scene is severity 0 (or no `disaster-type` at all), not a sixth type — one
+#: fewer thing to keep in sync, and it makes "pristine" a point on the severity
+#: axis rather than a special case beside it.
 DISASTERS = {
-    "none": compile_none,
     "earthquake": compile_earthquake,
     "tornado": compile_tornado,
-    "explosion": compile_explosion,
+    "hurricane": compile_hurricane,
     "fire": compile_fire,
     "flood": compile_flood,
-    "hurricane": compile_hurricane,
-    "wildfire": compile_wildfire,
 }
 
 
@@ -678,11 +604,12 @@ DISASTERS = {
 
 def compile_spec(spec: dict, base: dict) -> dict:
     """High-level *spec* + *base* low-level config -> low-level config."""
-    dtype = str(spec.get("disaster-type", spec.get("disaster_type", "none"))).lower()
-    if dtype not in DISASTERS:
+    dtype = str(spec.get("disaster-type",
+                         spec.get("disaster_type", "none"))).lower()
+    if dtype != "none" and dtype not in DISASTERS:
         raise ValueError(
             f"unknown disaster-type {dtype!r}; expected one of "
-            f"{', '.join(sorted(DISASTERS))}")
+            f"{', '.join(sorted(DISASTERS))}, or omit it for a pristine scene")
 
     sev = float(spec.get("severity", 1.0))
     if not 0.0 <= sev <= 1.0:
@@ -707,19 +634,20 @@ def compile_spec(spec: dict, base: dict) -> dict:
     # ---- LOCALE axis: how the place is laid out (see compile_locale.py).
     # Applied before the disaster so a disaster's overrides still win, and
     # before `overrides:` so the user's escape hatch wins over both.
-    locale = spec.get("locale", "downtown")
+    locale = spec.get("locale", "urban")
     deep_merge(cfg, compile_locale_settings(locale, spec))
     cfg["locale"] = str(locale).lower()
 
-    # An explicit asset-set wins; otherwise the locale picks a sensible one
-    # (downtown -> urban art, suburban -> houses).
-    asset_set = spec.get("asset-set", spec.get("asset_set"))
-    cfg["asset_set"] = asset_set or default_asset_set(locale)
+    # An explicit asset-pack wins; otherwise the locale picks a sensible one
+    # (urban -> urban art, suburban -> houses).
+    asset_pack = spec.get("asset-pack", spec.get("asset_pack"))
+    cfg["asset_pack"] = asset_pack or default_asset_pack(locale)
 
     region = tuple(float(v) for v in cfg["layout"]["region_m"])
 
-    # Severity 0 means untouched, whatever the type claims to be.
-    fn = DISASTERS[dtype] if sev > 0.0 else compile_none
+    # Severity 0 means untouched, whatever the type claims to be — and no type
+    # at all means the same thing.
+    fn = DISASTERS[dtype] if (dtype != "none" and sev > 0.0) else compile_none
     cfg["disaster"] = fn(sev, spec, region)
     # The compiled config drops `disaster-type` (it is a high-level key),
     # which left the low level unable to say what had happened to it —
@@ -741,16 +669,32 @@ def compile_spec(spec: dict, base: dict) -> dict:
     # would suggest editing them there has an effect. Keep them only as
     # provenance in the header comment.
     for k in ("disaster-type", "disaster_type", "severity", "overrides",
-              "epicenter", "heading_deg", "asset-set",
+              "epicenter", "heading_deg", "asset-pack",
               "presets_path",
               "preset_file"):
         cfg.pop(k, None)
     return cfg
 
 
+#: Top-level keys only a compiled low-level config carries. `default.yaml` is
+#: grouped by stage, so these three ARE the low level's shape.
+_LOW_LEVEL_KEYS = ("layout", "detail", "disaster")
+
+
 def is_high_level(cfg: dict) -> bool:
-    """True if *cfg* is a high-level disaster spec rather than a scene config."""
-    return bool(cfg.get("disaster-type") or cfg.get("disaster_type"))
+    """True if *cfg* is a high-level scene spec rather than a compiled config.
+
+    Tests for the low level's SHAPE rather than for one high-level key.
+    Keying off `disaster-type` was fine only while every spec had to carry one;
+    it is optional now (omitting it means a pristine scene), so a pristine
+    preset would otherwise be mistaken for an already-compiled config and fed
+    to the generator raw.
+    """
+    if any(k in cfg for k in _LOW_LEVEL_KEYS):
+        return False
+    return bool(cfg.get("disaster-type") or cfg.get("disaster_type")
+                or cfg.get("locale") or cfg.get("severity") is not None
+                or cfg.get("asset-pack") or cfg.get("overrides"))
 
 
 def resolve_config_path(name_or_path: str) -> str:
@@ -822,16 +766,16 @@ def load_scene_config(name_or_path: str, base_path: str = None) -> dict:
               f"{os.path.relpath(path, _REPO_ROOT)}")
 
     # Which config this is. Nothing downstream can otherwise tell — a compiled
-    # config carries its asset set and its disaster type but not its own name,
-    # so tools that write a file per scene had to guess and named a `downtown`
-    # run after its asset set, `urban`. Underscore-prefixed like every other
+    # config carries its asset pack and its disaster type but not its own name,
+    # so tools that write a file per scene had to guess and named a `urban`
+    # run after its asset pack, `urban`. Underscore-prefixed like every other
     # internal marker (`_footprint_m`, `_mesh_damage`), so it never collides
     # with a generator setting.
     cfg["_name"] = os.path.splitext(os.path.basename(path))[0]
 
     # Lazy so `--list` and plain compilation stay free of the pxr dependency.
     import scene_generator
-    cfg = scene_generator.resolve_asset_set(cfg, path)
+    cfg = scene_generator.resolve_asset_pack(cfg, path)
     return scene_generator.validate_config(cfg, path)
 
 
@@ -849,7 +793,7 @@ def _header(spec: dict, source: str, base: str) -> str:
         "# Edit the high-level spec (or low_level/default.yaml) and recompile:",
         f"#     python3 compile_disaster.py {os.path.basename(source)}",
         "#",
-        f"# locale        : {spec.get('locale', 'downtown')}",
+        f"# locale        : {spec.get('locale', 'urban')}",
         f"# disaster-type : {dtype}",
         f"# severity      : {sev}",
         f"# spec          : {source}",

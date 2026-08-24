@@ -5,7 +5,7 @@
 # rubble drops at the facades rather than flying; nothing is blown anywhere.
 # Attenuates radially from the epicenter across the whole city.
 
-locale: suburban      # downtown | suburban | rural — how the place is laid out
+locale: suburban      # urban | suburban | rural — how the place is laid out
 
 disaster-type: earthquake
 severity: 1.0          # 0..1

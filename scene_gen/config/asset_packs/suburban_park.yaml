@@ -6,7 +6,7 @@
 # the park set has no reason to carry houses — so this joins the two.
 #
 # Cache both halves before `airstack up`:
-#     .venv/bin/python scene_gen/prepare_assets.py --asset-set suburban_park
+#     .venv/bin/python scene_gen/prepare_assets.py --asset-pack suburban_park
 #
 # ORDER MATTERS AND IS NOT ALPHABETICAL. Parents merge LEFT TO RIGHT, so the
 # LAST one wins any pool they share. park.yaml extends shared, which still

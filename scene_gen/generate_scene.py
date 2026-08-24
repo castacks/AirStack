@@ -51,7 +51,7 @@ def check_duplicate_yaml_keys(paths=None) -> int:
 
     if paths is None:
         cfg = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config")
-        paths = (glob.glob(os.path.join(cfg, "asset_sets", "*.yaml"))
+        paths = (glob.glob(os.path.join(cfg, "asset_packs", "*.yaml"))
                  + glob.glob(os.path.join(cfg, "presets", "*.yaml"))
                  + glob.glob(os.path.join(cfg, "low_level", "*.yaml")))
 
@@ -92,8 +92,8 @@ def _config_name(config: dict) -> str:
     """A filename stem for this scene.
 
     `load_scene_config` stamps `_name`. The fallbacks are for a config dict
-    built by hand (the tests do this) and are deliberately NOT `asset_set`:
-    naming a `downtown` run after `urban` is worse than calling it "scene",
+    built by hand (the tests do this) and are deliberately NOT `asset_pack`:
+    naming a `urban` run after `urban` is worse than calling it "scene",
     because it looks like an answer.
     """
     name = config.get("_name")
@@ -109,7 +109,7 @@ def write_run_plan(config: dict, layout, placements, resolver,
 
     `tools/plan_png.py` draws the same maps on the host in a second, but it has
     to approximate one thing: it cannot measure a USD it cannot open, so it
-    reads footprints out of the asset-set comments and falls back to
+    reads footprints out of the asset-pack comments and falls back to
     `fallback_sizes` for anything unmeasured. Footprint is what packing keys
     off, so that approximation does not blur the plan — it *changes* it. On the
     suburban set, where none of the objaverse entries carry a size comment,
@@ -467,7 +467,7 @@ def build_scene(config: dict, resolver, stop_after: str = "disaster"):
     # drops every intact building to re-pack its block by typology and treats
     # a ruin as an immovable obstacle, so when fate was assigned during packing
     # it received a half-ruined city and demolished buildings it could not then
-    # rebuild — the detailed downtown lost 455 of 919 buildings at severity
+    # rebuild — the detailed urban lost 455 of 919 buildings at severity
     # 0.6. Every pass that rewrites the layout now sees a pristine city.
     disaster_stage.apply_to_buildings(config, layout, placements, resolver)
     disaster_stage.apply(config, layout, placements)
@@ -483,14 +483,22 @@ def generate_scene_on_stage(stage,
                               config,
                               parent_path: str = "/World/stage/generated",
                               scene_scale_factor: float = 1.0,
-                              snap_to_ground: bool = False) -> list:
-    """Build the detailed city onto a live stage. Returns the placement list."""
+                              snap_to_ground: bool = False,
+                              resolver=None) -> list:
+    """Build the detailed city onto a live stage. Returns the placement list.
+
+    *resolver* lets a caller share one `SizeResolver` (and so one measurement
+    cache) across several scenes. A severity sweep builds the same asset pack
+    three or five times over, and re-measuring every asset per scene is the
+    dominant cost of it — see `bake_scene.py`.
+    """
     check_duplicate_yaml_keys()
 
     if isinstance(config, str):
         config = sg.load_config(config)
 
-    resolver = sg._make_resolver(config)
+    if resolver is None:
+        resolver = sg._make_resolver(config)
     placements, layout, base_counts = build_scene(config, resolver)
 
     # A plan of what was just built, every run. Costs a fraction of a second

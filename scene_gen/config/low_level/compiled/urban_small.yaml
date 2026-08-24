@@ -2,15 +2,15 @@
 #
 # Low-level scene config compiled by scene_gen/compile_disaster.py.
 # Edit the high-level spec (or low_level/default.yaml) and recompile:
-#     python3 compile_disaster.py downtown_small.yaml
+#     python3 compile_disaster.py urban_small.yaml
 #
-# locale        : downtown
+# locale        : urban
 # disaster-type : none
 # severity      : 0.0
-# spec          : scene_gen/config/presets/downtown_small.yaml
+# spec          : scene_gen/config/presets/urban_small.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-23 14:03:22
-# spec extras   : {'asset-set': 'urban', 'region_m': [500, 500], 'seed': 42}
+# compiled      : 2026-08-23 21:43:38
+# spec extras   : {'asset-pack': 'urban', 'region_m': [500, 500], 'seed': 42}
 
 seed: 42
 exclusions:
@@ -18,7 +18,7 @@ exclusions:
   - 0.0
   - 0.0
   radius: 10.0
-asset_set: urban
+asset_pack: urban
 measure_usds: true
 layout:
   region_m:
@@ -513,4 +513,4 @@ detail:
       cafe_sets:
         zone: frontage
         spacing_m: 400.0
-locale: downtown
+locale: urban

@@ -1,4 +1,4 @@
-# The urban asset set — everything a urban scene builds with.
+# The urban asset pack — everything an urban scene builds with.
 #
 # `extends: urban_nucleus`: the Nucleus-only subset it layers on. That split is
 # by SOURCE, not by version — urban_nucleus needs no pre-flight and works
@@ -131,9 +131,9 @@ usds:
       # packing fitted many per block and they took 97 of 301 buildings.
 
     # 44-131 m tall. The six BG_Building_* are massing shells and cost
-    # 756-4,643 points EACH — a tower downtown is effectively free, which is
+    # 756-4,643 points EACH — a tower urban is effectively free, which is
     # what makes a bigger city affordable. Footprints are 50-96 m, so these
-    # only fit where the subdivider cut a downtown-sized block.
+    # only fit where the subdivider cut an urban-sized block.
     tower:
       - {usd: "DownTown/Assets/BG_Building_A.usd", scale: 0.01}                                        # 51.3 x 51.3 x  44.7 m, 3.5k
       - {usd: "DownTown/Assets/BG_Building_C.usd", scale: 0.01}                                        # 50.1 x 40.1 x  66.0 m,   756
@@ -156,7 +156,7 @@ usds:
     # The paved sidewalk ring is ONE tile wide and build_city takes that width
     # as max(tile.sx, tile.sy), so the TILE SIZE is the sidewalk width — there is
     # no separate knob. SM_GroundModule01 is authored 5.00 x 5.00 m, which put a
-    # 5 m downtown-avenue pavement on every street in the city. 0.70 gives a
+    # 5 m urban-avenue pavement on every street in the city. 0.70 gives a
     # 3.5 m ring, which is an ordinary urban sidewalk and still carries the NACTO
     # 6 ft through zone. city_detail.zones in the preset sums to match; the two
     # have to move together.
@@ -277,7 +277,7 @@ usds:
 
   # Placed by build_city's own intersection pass (intersection_chance stays 0.9),
   # not by city_detail — appending here is enough to widen the pool.
-  # REPLACES the inherited pool (no `+`). The DowntownWest signal: a full US
+  # REPLACES the inherited pool (no `+`). The UrbanWest signal: a full US
   # mast-arm assembly — two 3-lens heads on a 7.7 m arm, pedestrian head and
   # controller on the pole, street-name blade, plus a luminaire. It IS the
   # arterial streetlight above with the arm fitted, so poles match at every
@@ -307,7 +307,7 @@ usds:
   # ---- new categories ---------------------------------------------------------
   # Street trees, as distinct from `trees` (which the park scatter uses). Only
   # the cheap end of the AEC vegetation: the expensive species are 300k-800k
-  # points each and a downtown places hundreds of these. See assets/aec/README.md.
+  # points each and an urban scene places hundreds of these. See assets/aec/README.md.
   # GREEN FOLIAGE ONLY. The Brownstone deciduous trees are autumn variants —
   # their materials bind oakleaves1_fall2/5/6.png and ashtree_leaves_fall1.mdl —
   # which is where the red and orange trees came from. The Tower pack ships the
@@ -318,7 +318,7 @@ usds:
   #   Scarlet_Oak_fall (Brownstone) 40k — autumn, the red trees
   #   White_Ash                     66k — autumn (ashtree_leaves_fall1)
   #   Service_Berry                 84k — season unverified
-  #   Douglas_Fir                   56k — conifer; wrong for a downtown kerb,
+  #   Douglas_Fir                   56k — conifer; wrong for an urban kerb,
   #                                       and the likely source of the pale ones
   # Park-scatter trees. REPLACES the inherited pool (no `+`).
   #
@@ -380,7 +380,7 @@ usds:
   # CityPark stones are boulder assets authored small; at the inherited 0.01
   # they sit ankle-high, so a seating circle built around them reads as an empty
   # roundabout. 2.5x puts them at knee-to-waist height — something the ring is
-  # plausibly built around. The DowntownWest rocks are metre-authored and are
+  # plausibly built around. The UrbanWest rocks are metre-authored and are
   # already the right size, so they carry no scale.
   rocks:
     # PER-ASSET, DERIVED FROM MEASUREMENT, not a blanket multiplier. The
@@ -389,7 +389,7 @@ usds:
     # boulders the size of a building and the other two pebbles. Each is scaled
     # to the same ~2.6 m max dimension: big enough to build a seating circle
     # around, small enough to sit under a canopy.
-    # The DowntownWest rocks are metre-authored at 2.35-2.51 m, already the
+    # The UrbanWest rocks are metre-authored at 2.35-2.51 m, already the
     # target, so they carry no scale.
     - {usd: "CityPark/Props/SM_Stone_04.prop.usd", scale: 0.0053}   # 487.6 -> 2.6 m
     - {usd: "CityPark/Props/SM_Stone_05.prop.usd", scale: 0.0083}   # 313.0 -> 2.6 m
@@ -583,7 +583,7 @@ usds:
     # REMOVED 13eeb2da… "Road Traffic Sign" (7.2k, 597 likes): its USD carries a
     # `sign_fbx/CINEMA_4D_Editor` prim — the authoring app's editor scaffolding
     # exported into the asset, which composes into the scene as junk geometry.
-    # Both packs removed after splitting them with asset_packs.py. A cluster is
+    # Both packs removed after splitting them with tools/split_usd_pack.py. A cluster is
     # fine when it is a cluster of the right thing; these are not:
     #   7fac2b1b… Road signs pack — 14 signs laid out FLAT in a 2.8 cm plane, so
     #             it places as a signboard rather than posts
@@ -599,7 +599,7 @@ usds:
 
   # Carriageway props — placed by city_detail.build_road_surface, which walks
   # the road corridors rather than the block frontage ring.
-  # Different art from the DowntownWest SM_sewer_cap_* set, which is out by
+  # Different art from the UrbanWest SM_sewer_cap_* set, which is out by
   # request. One of each — a city uses one municipal casting pattern, not three.
   manholes:
     - {usd: "objaverse://a657396d68fa43f0ac7da12a6403d59f", target-size-m: 0.62, fit: footprint}  # Manhole, 1,456f
@@ -633,7 +633,7 @@ usds:
 
   # Held back: 8d6cf232… Ticket vending machine (654f) — the only **by-nc**
   # licence in the picked set, and a ticket machine rather than a newsstand.
-  # Kept out so the whole asset set stays uniformly CC-BY.
+  # Kept out so the whole asset pack stays uniformly CC-BY.
   newspaper_boxes: []
 
   # REMOVED. These were the repeated lit pylons: the Tower pack ships exactly

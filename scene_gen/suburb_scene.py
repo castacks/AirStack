@@ -447,7 +447,7 @@ class _Occupancy:
 class _CanopyPool:
     """A tree pool RANKED BY MEASURED CANOPY, so a draw can ask for a size.
 
-    WHY RANK A POOL RATHER THAN ADD A THIRD ONE. The asset set already splits
+    WHY RANK A POOL RATHER THAN ADD A THIRD ONE. The asset pack already splits
     trees by ROLE — `street_trees` for the verge, `trees` for open ground — and
     that split is right: it is what keeps a 25.4 m Black_Oak crown off a 10.7 m
     carriageway. What it cannot express is that `trees` itself spans 4.1 m
@@ -459,7 +459,7 @@ class _CanopyPool:
     footprint; the key is `max(sx, sy)` — the crown WIDTH, which is what has to
     clear a wall, not the height. On the shipped suburban set that ranks
     `trees` 4.09 / 5.09 / 5.86 / 10.29 / 25.42 m and `street_trees`
-    3.02 / 10.29 m, which is exactly what the asset set records beside each
+    3.02 / 10.29 m, which is exactly what the asset pack records beside each
     entry from tools/measure_assets.py.
 
     DEGENERATE WHEN NOTHING WAS MEASURED, and it says so rather than pretending.
@@ -797,7 +797,7 @@ def apply_park_ground(stage, config, park, gnd, ssf, mats):
     # watered less than a front garden, so the park reads as its own ground
     # rather than as an extension of the blocks around it — which is the whole
     # point of giving it a separate key. Falls back to the street grass when the
-    # asset set declares no `grass_park`, so older sets are unaffected.
+    # asset pack declares no `grass_park`, so older sets are unaffected.
     turf = park_grass_mat or grass_mat
     n = {"slab": 0, "mark": 0, "path": 0}
 
@@ -955,7 +955,7 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
     # sparseness is for: unplatted ground has to LOOK unplatted or leaving it
     # empty reads as a missing row of houses. `grass_rough` is the AEC pack's
     # Grass_Countryside, `grass` its Grass_Cut. Both fall back to `grass`, so an
-    # asset set that declares neither behaves exactly as before.
+    # asset pack that declares neither behaves exactly as before.
     rough_mat = _load_mat("grass_rough") or grass_mat
     park_grass_mat = _load_mat("grass_park") or grass_mat
     dirt_mat = _load_mat("dirt")
@@ -1273,7 +1273,7 @@ def _shift_park(park, dx, dy):
 
 
 # Park prop kind -> (asset pool key, placement category). The pools live in
-# config/asset_sets/park.yaml; a kind with no pool is skipped and logged rather
+# config/asset_packs/park.yaml; a kind with no pool is skipped and logged rather
 # than silently dropped.
 _PARK_POOLS = {
     "hoop":           ("park_hoop", "park_feature"),
@@ -1532,7 +1532,7 @@ def build_signs(config, resolver, net, rng, pools):
     # ---- street-name blades ------------------------------------------------
     # There was NO placement pass for these at all: the pool resolves fine (two
     # entries on the suburban set) and `city_detail` puts one on every junction
-    # corner downtown, but nothing in the graph suburb ever read it, so the
+    # corner urban, but nothing in the graph suburb ever read it, so the
     # street names were simply absent. One blade per junction of degree >= 3,
     # on the far kerb of the first arm so it does not share a post with the
     # stop sign already standing on the near one.
@@ -2239,7 +2239,7 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
     # paving keep-out below.
     tree_jobs = []
     if not houses:
-        print("[suburb_scene] WARNING: no buildings.intact pool in asset set")
+        print("[suburb_scene] WARNING: no buildings.intact pool in asset pack")
     for p in parcels:
         for h in p["houses"]:
             if not houses:

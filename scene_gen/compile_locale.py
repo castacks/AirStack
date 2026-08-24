@@ -4,22 +4,22 @@ compile_locale.py — the LOCALE axis of a high-level scene spec.
 
 A locale is *how the place is laid out*: block size, how much of a block is
 built on, whether the ground between buildings is pavement or lawn, how dense
-the street furniture is. It is not the same thing as the asset set, which is
-only *what the buildings look like* — a downtown built out of house models is
-still a downtown, which is exactly the failure this axis exists to fix.
+the street furniture is. It is not the same thing as the asset pack, which is
+only *what the buildings look like* — an urban scene built out of house models is
+still an urban scene, which is exactly the failure this axis exists to fix.
 
 The governing difference:
 
-    downtown  default ground = pavement, default state = full
+    urban     default ground = pavement, default state = full
     suburb    default ground = grass,    default state = mostly empty
 
 Each locale is a function returning low-level generator settings, registered
 in LOCALES. compile_disaster.py applies it under the disaster settings, so
 the two axes compose: any locale × any disaster × any severity.
 
-Locales also name a *default* asset set, used when the spec doesn't give one.
+Locales also name a *default* asset pack, used when the spec doesn't give one.
 
-See GENERATION.md ("Locales: downtown vs suburb") for the characteristics
+See GENERATION.md ("Locales: urban vs suburb") for the characteristics
 each of these encodes.
 """
 
@@ -29,23 +29,14 @@ _LOCALE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            "config", "low_level", "locales")
 
 
-def _deep_merge(base: dict, override: dict) -> dict:
-    """Recursive in-place merge. Same semantics as compile_disaster.deep_merge,
-    duplicated rather than imported to keep this module free of that import
-    cycle (compile_disaster imports this one)."""
-    for k, v in override.items():
-        if isinstance(v, dict) and isinstance(base.get(k), dict):
-            _deep_merge(base[k], v)
-        else:
-            base[k] = v
-    return base
+from config_merge import deep_merge as _deep_merge      # noqa: E402,F401
 
 
 def _locale_config(name: str) -> dict:
     """Load `config/low_level/locales/<name>.yaml`, or {} if there is none.
 
     Most locale settings are a handful of scalars and read best as the dicts
-    below. A few are bulky, heavily-cited tables — downtown's eighteen
+    below. A few are bulky, heavily-cited tables — urban's eighteen
     street-furniture categories run to ~200 lines — and those live in YAML
     beside the other config rather than being transcribed into Python.
     """
@@ -66,15 +57,15 @@ def _locale_config(name: str) -> dict:
 # two locales is readable.
 # ---------------------------------------------------------------------------
 
-def compile_downtown(spec):
+def compile_urban(spec):
     """Dense urban core: paved wall-to-wall, built to the sidewalk, busy.
 
-    Downtown is the locale the *detailed* generator was built for, so this is
+    Urban is the locale the *detailed* generator was built for, so this is
     where the detailed subsystems get switched on: anisotropic blocks
     (`layout.anisotropic`), radial zoning (`districts`) and NACTO-zoned street
     furniture (`city_detail`). Their settings live in `default.yaml` — this
     only enables them and supplies the values that are genuinely a property of
-    *downtown* rather than of the generator.
+    *urban* rather than of the generator.
 
     Enabling `city_detail` means the built-in frontage passes must go quiet:
     the two would otherwise both place benches, and the built-in one puts every
@@ -105,7 +96,7 @@ def compile_downtown(spec):
                   # NACTO Urban Street Design Guide: 10 ft travel lanes.
                   "lane_width_m": 3.3,
                   "lane_lines": {"dash_length_m": 3.0, "dash_gap_m": 9.0}},
-        # Street trees are potted; nothing grows out of a downtown block.
+        # Street trees are potted; nothing grows out of an urban block.
         "trees": {"lawn_density_per_100m2": 0.0},
         "plants": {"lawn_density_per_100m2": 0.0},
         # --- built-in frontage passes: off, city_detail owns the sidewalk ---
@@ -135,9 +126,9 @@ def compile_downtown(spec):
             "tree_min_separation_m": 4.0,
         },
     }
-    # The street-furniture category table (locales/downtown.yaml) — bulky and
+    # The street-furniture category table (locales/urban.yaml) — bulky and
     # heavily cited, so it stays in YAML.
-    _deep_merge(settings, _locale_config("downtown"))
+    _deep_merge(settings, _locale_config("urban"))
     return settings
 
 
@@ -154,7 +145,7 @@ def compile_suburban(spec):
     Every change here follows from "grass, not pavement, is the default
     surface": blocks stop being paved, houses hold back from the street,
     trees stand in the lawn instead of in planters, cars move onto driveways,
-    and the downtown street kit (benches, bins, shelters, signals) goes away.
+    and the urban street kit (benches, bins, shelters, signals) goes away.
     """
     settings = {
         # Long blocks, few intersections.
@@ -176,7 +167,7 @@ def compile_suburban(spec):
         "planters": {"tree_spacing_m": 0.0, "plant_spacing_m": 0.0},
         # --- built-in frontage passes: off, city_detail owns the sidewalk ---
         # A suburb's street kit is sparse, but it is the same *pass* that
-        # places it as downtown's now — see locales/suburban.yaml.
+        # places it as urban's now — see locales/suburban.yaml.
         "streetlights": {"spacing_m": 0.0},
         "benches": {"spacing_m": 0.0},
         "trash_cans": {"spacing_m": 0.0},
@@ -186,7 +177,7 @@ def compile_suburban(spec):
         # and its rule is better than the flat 5% chance this used to carry —
         # a junction gets a signal when it carries `signals.signal_lanes` (4)
         # or more. A suburb's roads are two lanes, so it gets none, which is
-        # what GENERATION.md means by "a signal reads as downtown". Stop
+        # what GENERATION.md means by "a signal reads as urban". Stop
         # signs are the suburban answer (locales/suburban.yaml), pending art.
         # Cars belong on the drive beside the house.
         "driveways": {"chance": 0.75, "width_m": 3.2, "car_chance": 0.6},
@@ -207,7 +198,7 @@ def compile_rural(spec):
     """
     return {
         # Built-in frontage passes keep the sidewalk here; the
-        # NACTO-zoned pass is a downtown thing.
+        # NACTO-zoned pass is an urban thing.
         **_NO_CITY_DETAIL,
         "layout": {"min_block_m": 150, "max_block_m": 320},
         "packing": {
@@ -246,14 +237,14 @@ def compile_rural(spec):
 
 
 LOCALES = {
-    "downtown": compile_downtown,
+    "urban": compile_urban,
     "suburban": compile_suburban,
     "rural": compile_rural,
 }
 
-# Asset set used when a spec names a locale but no asset-set.
-DEFAULT_ASSET_SETS = {
-    "downtown": "urban",
+# Asset pack used when a spec names a locale but no asset-pack.
+DEFAULT_ASSET_PACKS = {
+    "urban": "urban",
     "suburban": "suburban",
     "rural": "suburban",   # no rural set yet — suburban art is the closest fit
 }
@@ -270,12 +261,12 @@ def compile_locale_settings(locale: str, spec: dict) -> dict:
     return restage(LOCALES[key](spec))
 
 
-def default_asset_set(locale: str) -> str:
-    return DEFAULT_ASSET_SETS.get(str(locale).lower(), "urban")
+def default_asset_pack(locale: str) -> str:
+    return DEFAULT_ASSET_PACKS.get(str(locale).lower(), "urban")
 
 
 if __name__ == "__main__":
     print("locales:")
     for name, fn in sorted(LOCALES.items()):
         summary = (fn.__doc__ or "").strip().splitlines()[0]
-        print(f"  {name:<10} (assets: {DEFAULT_ASSET_SETS[name]:<9}) {summary}")
+        print(f"  {name:<10} (assets: {DEFAULT_ASSET_PACKS[name]:<9}) {summary}")

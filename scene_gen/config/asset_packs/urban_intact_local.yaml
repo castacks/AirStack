@@ -6,7 +6,7 @@
 # building, so it is exactly the set worth previewing — and it is the one the
 # preview tool cannot open. `tools/damage_gallery.py` runs on host usd-core and
 # renders under Blender, and neither has an `omniverse://` resolver, so
-# `--list --asset-set urban_intact` reports `0/9 buildings resolve locally` and
+# `--list --asset-pack urban_intact` reports `0/9 buildings resolve locally` and
 # the gallery comes out empty.
 #
 # `tools/localize_nucleus_assets.py` mirrors the assets down into
@@ -41,7 +41,7 @@
 #
 # USAGE
 #   python3 tools/localize_nucleus_assets.py   # in the container; see its docs
-#   python3 tools/damage_gallery.py --asset-set urban_intact_local --rows 9
+#   python3 tools/damage_gallery.py --asset-pack urban_intact_local --rows 9
 #
 # `--list` says `9/9` when the mirror is present and `0/9` when it is not,
 # which is the whole diagnostic.

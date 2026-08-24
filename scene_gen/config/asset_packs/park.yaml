@@ -5,7 +5,7 @@
 # the top metadata hit. Extends `shared` for trees and generic furniture.
 #
 # Cache them before `airstack up`:
-#     .venv/bin/python scene_gen/prepare_assets.py --asset-set park
+#     .venv/bin/python scene_gen/prepare_assets.py --asset-pack park
 #
 # `target-size-m` is baked into the cached USD at conversion, so there is
 # deliberately no `scale:` on these — nothing to drift from the geometry. It

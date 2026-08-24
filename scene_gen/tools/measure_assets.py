@@ -2,7 +2,7 @@
 """
 measure_assets.py — compact size/cost table for a set of USD assets.
 
-Written for vetting the NVIDIA AEC packs before wiring them into an asset set:
+Written for vetting the NVIDIA AEC packs before wiring them into an asset pack:
 their entries need a real `scale` (the packs are not all authored in meters) and
 `fallback_sizes` needs real footprints, while the point counts say whether an
 archviz asset is affordable at city density.
@@ -16,7 +16,7 @@ isaac-sim container, which is the easy way to get pxr on the path:
 
 Columns:
     mpu       metersPerUnit as authored (1.0 = meters, 0.01 = centimeters)
-    up        stage up-axis ("Y" needs axis-up: "Y" in the asset-set entry)
+    up        stage up-axis ("Y" needs axis-up: "Y" in the asset-pack entry)
     x/y/z     bounding box size, converted to METERS
     base      bbox min-z in meters — the generator's ground offset
     pts       total Mesh points; the poly-budget proxy

@@ -4,12 +4,12 @@
 # Edit the high-level spec (or low_level/default.yaml) and recompile:
 #     python3 compile_disaster.py fire.yaml
 #
-# locale        : downtown
+# locale        : urban
 # disaster-type : fire
 # severity      : 0.6
 # spec          : scene_gen/config/presets/fire.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-23 14:03:22
+# compiled      : 2026-08-23 21:43:37
 # spec extras   : {'epicenter': [0, 0], 'region_m': [800, 800], 'seed': 42}
 
 seed: 42
@@ -18,7 +18,7 @@ exclusions:
   - 0.0
   - 0.0
   radius: 10.0
-asset_set: urban
+asset_pack: urban
 measure_usds: true
 layout:
   region_m:
@@ -325,6 +325,34 @@ disaster:
     falloff_m: 40.0
     inside: 1.0
     outside: 0.0
+  fire:
+    enabled: true
+    origin_m:
+    - 0.0
+    - 0.0
+    heading_deg: 45.0
+    head_mps: 1.3
+    flank_mps: 0.325
+    back_mps: 0.1083
+    wind_mps: 6.0
+    duration_s: 492.3
+    start_offset_frac: 0.788
+    flaming_fraction: 0.208
+    intensity_range:
+    - 0.27
+    - 1.0
+    residual_smoke_frac: 0.124
+    spot_chance: 0.058
+    spot_lead_s: 102.0
+    jitter_s: 10.0
+    ignition_s: 5.8
+    flame_s: 186.0
+    smoulder_s: 84.0
+    emitter_spacing_m: 8.4
+    max_emitters: 192
+    density_cell_size_m: 0.1
+    max_blocks: 16384
+    colormap_x_max: 1.0
   type: fire
   severity: 0.6
 detail:
@@ -543,4 +571,4 @@ detail:
       cafe_sets:
         zone: frontage
         spacing_m: 400.0
-locale: downtown
+locale: urban

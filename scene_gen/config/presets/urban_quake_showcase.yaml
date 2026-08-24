@@ -1,0 +1,167 @@
+# HIGH-LEVEL scene spec — a 200 m urban block wrecked by a severe earthquake.
+#
+# WHAT THIS IS FOR
+# ----------------
+# Showing off the earthquake damage model on INTACT urban assets, in a scene
+# small enough to load quickly. Baked end to end: `airstack up` is the only
+# command it needs.
+#
+# It sits between the two presets that already exist:
+#
+#   urban_quake_tiny   105 m, severity 0.9 — the smallest scene that is still
+#                      a scene, tuned to show a LADDER (four rungs, one
+#                      building left untouched for contrast).
+#   earthquake_intact  800 m, the whole detailed city at severity 1.0 — the
+#                      real thing, and minutes to build.
+#
+# This one is the demo: severity 1.0 over 15 buildings, nine of them pancaked,
+# from ~3,160 placements against `urban`'s ~36k — about 11x cheaper.
+#
+# WHY INTACT ASSETS ARE THE POINT
+# -------------------------------
+# `urban_intact` is `urban` with `buildings.damaged` and `.destroyed` emptied.
+# On the plain `urban` pack `apply_to_buildings` PREFERS swapping in a
+# purpose-built ruin for a destroyed fate, so most of what you would see is
+# authored art rather than the damage model. With those pools empty every
+# wrecked building is wrecked FROM AN INTACT MODEL — by a Stage A archetype
+# where one is baked, by live mesh damage where one is not. That is the thing
+# under test.
+#
+# Debris is deliberately kept: rubble is what a wrecked building sheds, not a
+# ruin asset.
+#
+# WHY 200 m, AND WHY MEASURING IT UNDER KIT IS NOT OPTIONAL
+# --------------------------------------------------------
+# `urban`'s buildings are Nucleus assets and they are BIG. The block packer
+# will not put a building in a block that cannot hold it, so below ~200 m most
+# of them go unplaced and the scene comes up nearly empty. Measured under Kit
+# at seed 42:
+#
+#     140 m ->  4 buildings   (8 of 9 large buildings unplaced)
+#     200 m -> 15             (7 of 9 — the small ones now fit)
+#     260 m -> 19             (3 of 9)
+#
+# 200 m is the knee: it is the smallest region that reads as a wrecked
+# NEIGHBOURHOOD rather than as a handful of separate wrecked buildings, and
+# 260 m buys four more buildings for 70% more ground and a thinner-spread
+# field (only 10 of 19 damaged).
+#
+# **Measure this under Kit, never under a plain `python3`.** A plain
+# interpreter cannot open a Nucleus asset, so it falls back to default
+# footprints, packs completely differently, and cheerfully reports 13 buildings
+# at 140 m where Kit places 4. Every count and every coordinate below came from
+# Kit. This is the same trap `archetypes/bake_cli.py --used-only` exists to
+# avoid, and it is worth restating because a host-side sweep looks perfectly
+# healthy while being wrong.
+#
+# Still one district — `districts.min_region_m` is 300, so the zoning gradient
+# does not apply at this size and is not meant to.
+#
+# THE FIELD IS RESIZED TO THE REGION, and it has to be.
+# `compile_earthquake` sizes the epicentre off `max(w, h)`: at severity 1.0
+# that is a 90 m fully-hit core with a 110 m falloff. Left alone on a 200 m
+# region that reads 1.0 almost everywhere and every building lands on the SAME
+# rung — physically defensible, and nothing to look at.
+#
+# The override below keeps a big 45 m core (this is meant to look severe) but
+# carries the falloff 105 m out from it, i.e. to 150 m against the region's
+# 141 m half-diagonal, so the gradient is still falling when it reaches the
+# corner. Reaching the corner is the part that matters: a falloff that stops
+# short leaves a flat rim where every outlying building reads exactly `outside`
+# and lands on an identical rung, which looks like a bug.
+#
+# WHICH RUNG THE FIELD PUTS EACH BUILDING ON  (seed 42, measured under Kit)
+#
+# 11 of the 15 buildings are hit. Whether a building is damaged at all is a
+# separate draw from how hard — against `damaged_fraction` +
+# `destroyed_fraction` (0.35 + 0.55 at severity 1.0) scaled by the same field,
+# so near the epicentre it is close to certain and only the fringe gets a
+# reprieve.
+#
+#        x, y        dist   field   level              hit?
+#     (  11, -33)    35.1   1.000   pancaked           spared
+#     ( -13,  31)    33.1   1.000   pancaked           yes
+#     ( -42, -24)    48.4   0.998   pancaked           spared
+#     (  34,  36)    49.1   0.997   pancaked           yes
+#     (  45, -35)    56.6   0.980   pancaked           yes
+#     ( -64,  31)    71.5   0.905   pancaked           yes
+#     (  69,  20)    71.8   0.903   pancaked           yes
+#     ( -18,  71)    73.3   0.893   pancaked           yes
+#     (  27, -70)    74.9   0.882   pancaked           yes
+#     ( -76, -23)    79.5   0.848   partial_collapse   spared
+#     (  74, -30)    80.0   0.844   partial_collapse   yes
+#     ( -50, -65)    81.4   0.833   partial_collapse   yes
+#     (  69,  54)    87.8   0.782   partial_collapse   spared
+#     (  73, -76)   104.8   0.638   soft_storey        yes
+#     ( -76,  73)   105.6   0.631   soft_storey        yes
+#
+# The `hit?` column is specific to a FULLY BAKED library, and that is not
+# pedantry: which buildings are spared moved when the library went from
+# partial to complete, because the fate pass consumes its RNG differently
+# depending on whether an archetype is available. The `level` column and the
+# 9/4/2 spread are stable either way.
+#
+# Three rungs, weighted hard to the top: nine buildings pancaked, four in
+# partial collapse, two with a failed ground storey. Sweep severity against
+# 0.0 for a like-for-like pristine comparison; the layout is identical by
+# construction (`tests/test_layout_decoupling`).
+#
+# BAKED — nothing to run before `airstack up`
+# -------------------------------------------
+# Stage A (the archetype library) is what makes the damage LOAD rather than be
+# computed: an archetype is this building at this level, already fractured and
+# settled, so `disaster_stage` references it instead of fracturing live and the
+# per-scene PhysX settle for fracture fragments goes away entirely.
+# `disaster_stage` finds the library on disk by itself — no config points at
+# it. Rebuild it with:
+#
+#     docker exec isaac-sim bash -c "cd /isaac-sim && ./python.sh \
+#         AirStack/scene_gen/archetypes/bake_cli.py \
+#         --config urban_quake_showcase --used-only"
+#
+# The container rather than the host because the bake has to open the Nucleus
+# buildings, and `omni_pass.env` is where the credentials are.
+#
+# `--used-only` bakes just the types this scene places and resolves that set
+# INSIDE Kit, for the reason spelled out above. The trimmed library is specific
+# to this SEED, this REGION and this ENVIRONMENT — change `region_m` and the
+# packer picks different buildings, so re-bake or the new ones fall back to
+# live mesh damage. Without any library the scene still builds; it is just
+# slower and needs the fragment settle.
+#
+# AS BAKED TODAY: 32 archetypes, and all 11 damaged buildings are
+# archetype-backed — no building falls back to live fracture. Six building
+# types x the full five-rung ladder, plus two tree species.
+#
+# KNOWN GAP: the vegetation `fallen` and `stump` rungs do NOT export — the
+# baker needs a trimesh triangulation engine (`mapbox_earcut` or `triangle`)
+# that neither the container nor AirStack/.venv currently carries, and it fails
+# as "No available triangulation engine!". Trees are therefore `pristine`-only
+# in the library and a toppled tree falls back down the ladder. Barely visible
+# here: `compile_earthquake` puts `trees_toppled_fraction` at 0.0-0.1, because
+# shaking rarely fells a tree. It would matter for tornado or wildfire.
+#
+#     airstack up isaac-sim
+
+locale: urban
+disaster-type: earthquake
+
+# Severe, and the top of the ladder is the point. `pancaked` sits at 0.88 on
+# the earthquake structure ladder and local damage is `field x severity`, so
+# anything below ~0.9 cannot reach it even at the epicentre.
+severity: 1.0
+
+asset-pack: urban_intact
+region_m: [200, 200]
+seed: 42
+
+overrides:
+  disaster:
+    field:
+      # Sized to a neighbourhood rather than to a city — see the note above.
+      # `radius_m` is the fully-hit core; `falloff_m` carries the gradient out
+      # to 150 m against a 141 m half-diagonal, so it is still falling at the
+      # corner and no building sits in dead flat outside.
+      radius_m: 45.0
+      falloff_m: 105.0
+      outside: 0.40

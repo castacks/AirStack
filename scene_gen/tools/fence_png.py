@@ -79,7 +79,7 @@ def _glb_size(uid, target_m, fit="footprint"):
     `plan_png.measured_sizes` scrapes `# a x b x c m` comments and only matches
     entries written as a `.usd` path, so it never sees an `objaverse://<uid>`
     one; those are read from `assets/objaverse/manifest.yaml` instead. This is
-    the third case: an entry the asset set names but `prepare_assets.py` has not
+    the third case: an entry the asset pack names but `prepare_assets.py` has not
     converted yet, which is exactly the state the repo is in the moment a new
     fence is added to `lot_fences`. Without it the tool sizes a brand-new panel
     from `fallback_sizes` and draws a fiction.
@@ -152,7 +152,7 @@ def _glb_size(uid, target_m, fit="footprint"):
 
 def _sizes(cfg):
     """`{basename: (sx, sy, sz)}` for everything the scene can ask about."""
-    sets = os.path.join(_SCENE_GEN, "config", "asset_sets")
+    sets = os.path.join(_SCENE_GEN, "config", "asset_packs")
     out = measured_sizes([os.path.join(sets, f) for f in os.listdir(sets)
                           if f.endswith(".yaml")])
     man_path = os.path.join(_SCENE_GEN, "assets", "objaverse", "manifest.yaml")
@@ -163,7 +163,7 @@ def _sizes(cfg):
         s = e.get("size_m")
         if s:
             out[uid + ".usdc"] = (float(s[0]), float(s[1]), float(s[2]))
-    # Objaverse entries the asset set names but the cache has not converted.
+    # Objaverse entries the asset pack names but the cache has not converted.
     for raw in (cfg.get("usds", {}) or {}).values():
         for entry in (raw if isinstance(raw, list) else []):
             if not isinstance(entry, dict):
@@ -198,7 +198,7 @@ def build(seed=None, config_name="suburb_net"):
     path = resolve_config_path(config_name)
     cfg = compile_spec(yaml.safe_load(open(path)),
                        yaml.safe_load(open(DEFAULT_BASE)))
-    cfg = sg.resolve_asset_set(cfg, path)
+    cfg = sg.resolve_asset_pack(cfg, path)
     cfg["measure_usds"] = False
     if seed is not None:
         cfg["seed"] = int(seed)

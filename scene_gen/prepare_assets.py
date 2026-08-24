@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pre-flight: cache the Objaverse assets a scene needs, before ``airstack up``.
 
-Asset sets reference Objaverse objects by uid (``objaverse://<uid>``). Those are
+Asset packs reference Objaverse objects by uid (``objaverse://<uid>``). Those are
 **not** in the repo — they're downloaded from Objaverse and converted to USD
 into a local cache at ``scene_gen/assets/objaverse/<uid>/``. Run this once on
 the host and every later ``airstack up`` just reads the cache.
@@ -14,15 +14,15 @@ writes.
 
 Usage
 -----
-    # everything every asset set references, skipping what's already cached
+    # everything every asset pack references, skipping what's already cached
     python3 scene_gen/prepare_assets.py
 
     # just what one scene needs (preset, compiled config, or bare name)
     python3 scene_gen/prepare_assets.py suburban
     python3 scene_gen/prepare_assets.py config/presets/tornado.yaml
 
-    # or name an asset set directly
-    python3 scene_gen/prepare_assets.py --asset-set urban
+    # or name an asset pack directly
+    python3 scene_gen/prepare_assets.py --asset-pack urban
 
     # see what would happen, download nothing
     python3 scene_gen/prepare_assets.py --list
@@ -57,18 +57,18 @@ CONFIG_SEARCH = [
     os.path.join(CONFIG_DIR, "presets"),
     os.path.join(CONFIG_DIR, "low_level", "compiled"),
     os.path.join(CONFIG_DIR, "low_level"),
-    os.path.join(CONFIG_DIR, "asset_sets"),
+    os.path.join(CONFIG_DIR, "asset_packs"),
 ]
 
 
-ASSET_SETS_DIR = os.path.join(CONFIG_DIR, "asset_sets")
+ASSET_PACKS_DIR = os.path.join(CONFIG_DIR, "asset_packs")
 
 
 def _resolve(name: str, search: list, what: str = "config") -> str:
     """Find a config by path or bare name within *search*.
 
-    The scope matters: an asset set and a preset can share a name (``suburban``
-    is both), so resolving a set has to look only in ``asset_sets/`` rather
+    The scope matters: an asset pack and a preset can share a name (``suburban``
+    is both), so resolving a set has to look only in ``asset_packs/`` rather
     than falling through the generic order and picking up the preset.
     """
     if os.path.isfile(name):
@@ -94,7 +94,7 @@ def _set_chain(name: str, seen: list = None) -> list:
     ``extends: [park, suburban]`` — holds no ``usds`` of its own, so scanning
     just its own file finds no assets and the pre-flight reports "nothing to
     do" for a scene that needs fifteen. `extends` may be a string or a list,
-    matching `scene_generator._load_asset_set`.
+    matching `scene_generator._load_asset_pack`.
     """
     import yaml
 
@@ -103,7 +103,7 @@ def _set_chain(name: str, seen: list = None) -> list:
         return []
     seen.append(name)
 
-    path = _resolve(str(name), [ASSET_SETS_DIR], "asset set")
+    path = _resolve(str(name), [ASSET_PACKS_DIR], "asset pack")
     with open(path) as f:
         doc = yaml.safe_load(f) or {}
 
@@ -116,20 +116,20 @@ def _set_chain(name: str, seen: list = None) -> list:
     return out
 
 
-def yaml_files_for(config: str = None, asset_set: str = None) -> list:
+def yaml_files_for(config: str = None, asset_pack: str = None) -> list:
     """The YAML files to scan for ``objaverse://`` references.
 
     Deliberately resolved with plain YAML rather than through
-    ``scene_generator.resolve_asset_set``: that would pull in ``pxr``, which
+    ``scene_generator.resolve_asset_pack``: that would pull in ``pxr``, which
     the host venv doesn't have — and this script's whole job is to run on the
     host before the sim ever starts.
     """
-    if asset_set:
-        return list(dict.fromkeys(_set_chain(asset_set)))
+    if asset_pack:
+        return list(dict.fromkeys(_set_chain(asset_pack)))
 
-    if not config:                       # default: every asset set
-        return sorted(glob.glob(os.path.join(ASSET_SETS_DIR, "*.yaml"))
-                      + glob.glob(os.path.join(ASSET_SETS_DIR, "*.yml")))
+    if not config:                       # default: every asset pack
+        return sorted(glob.glob(os.path.join(ASSET_PACKS_DIR, "*.yaml"))
+                      + glob.glob(os.path.join(ASSET_PACKS_DIR, "*.yml")))
 
     import yaml
 
@@ -138,15 +138,15 @@ def yaml_files_for(config: str = None, asset_set: str = None) -> list:
         doc = yaml.safe_load(f) or {}
 
     # Scan the config itself (it may inline `usds`, or override a set's), plus
-    # the asset set it resolves to. An explicit set wins — high-level specs
-    # write `asset-set`, low-level configs `asset_set`; otherwise the spec's
+    # the asset pack it resolves to. An explicit set wins — high-level specs
+    # write `asset-pack`, low-level configs `asset_pack`; otherwise the spec's
     # `locale` picks one, via the same mapping the compiler uses so this can't
     # drift from what the scene will actually load.
     files = [path]
-    name = doc.get("asset_set") or doc.get("asset-set")
+    name = doc.get("asset_pack") or doc.get("asset-pack")
     if not name and doc.get("locale"):
-        from compile_locale import default_asset_set
-        name = default_asset_set(doc["locale"])
+        from compile_locale import default_asset_pack
+        name = default_asset_pack(doc["locale"])
     if name:
         files += _set_chain(str(name))
     return list(dict.fromkeys(files))    # de-dup, preserve order
@@ -174,22 +174,22 @@ def main() -> int:
         description="Download + convert the Objaverse assets a scene needs, "
                     "into the local cache used by `airstack up`.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="With no config, processes every asset set and caches whatever "
+        epilog="With no config, processes every asset pack and caches whatever "
                "is missing.")
     ap.add_argument("config", nargs="?",
                     help="scene config (preset, compiled, or bare name) whose "
-                         "assets to prepare; default: all asset sets")
-    ap.add_argument("--asset-set", help="name an asset set directly instead")
+                         "assets to prepare; default: all asset packs")
+    ap.add_argument("--asset-pack", help="name an asset pack directly instead")
     ap.add_argument("--list", action="store_true",
                     help="show what is cached / missing and exit; downloads nothing")
     ap.add_argument("--force", action="store_true",
                     help="re-download and re-convert even if already cached")
     args = ap.parse_args()
 
-    files = yaml_files_for(args.config, args.asset_set)
-    wanted = oa.scan_asset_sets(files)
+    files = yaml_files_for(args.config, args.asset_pack)
+    wanted = oa.scan_asset_packs(files)
 
-    scope = args.asset_set or args.config or "all asset sets"
+    scope = args.asset_pack or args.config or "all asset packs"
     rel = ", ".join(os.path.relpath(f, _SCENE_GEN_DIR) for f in files)
     print(f"[prepare_assets] {scope} -> {rel}")
 
@@ -252,7 +252,17 @@ def _report_missing_local(files) -> int:
     """
     import yaml
 
-    import scene_generator as sg
+    # Best-effort: this is a REPORT, and it must not be able to abort the
+    # conversion it precedes. `scene_generator` imports `pxr` at module scope,
+    # which the documented `uv run --with objaverse …` environment does not
+    # carry — so an oversized asset stayed oversized because a warning about a
+    # DIFFERENT asset class could not import.
+    try:
+        import scene_generator as sg
+    except ImportError as exc:
+        print(f"[prepare_assets] skipping the local-asset check ({exc}); "
+              "add --with usd-core to include it")
+        return 0
 
     missing = set()
     for f in files:

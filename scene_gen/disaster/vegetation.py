@@ -132,12 +132,26 @@ _PLAN = {
 }
 
 
-def plan_for(level):
-    """`(keep_base, keep_top, bole_cov, browning, scorch_h, geometry)`."""
+def plan_for(level, fire: bool = True):
+    """`(keep_base, keep_top, bole_cov, browning, scorch_h, geometry)`.
+
+    The LAST column is geometry — `snap`, `topple`, `stump` — and it is not
+    fire-specific at all: a tree is felled the same way by wind, by shaking, or
+    by a burnt-through bole. The three columns before it are (bole char
+    coverage, browning, scorch height), which ARE fire.
+
+    `fire=False` keeps the geometry and zeroes those three, which is what an
+    earthquake or a tornado needs: a snapped trunk with no soot on it. Without
+    it the only way to fell a tree was to char it, so a tornado archetype came
+    out looking like it had been on fire.
+    """
     if level not in _PLAN:
         raise ValueError("unknown tree level {0!r}; expected one of {1}"
                          .format(level, ", ".join(TREE_LEVELS)))
-    return _PLAN[level]
+    keep, keep_top, cov, brown, scorch_h, geom = _PLAN[level]
+    if not fire:
+        cov, brown, scorch_h = 0.0, 0.0, 0.0
+    return keep, keep_top, cov, brown, scorch_h, geom
 
 
 def level_for_age(dt, ignition_s=6.0, flame_s=180.0, smoulder_s=90.0,
@@ -2064,7 +2078,8 @@ def ash_ring(stage, path, x_m, y_m, radius_m, rng, mat_prim_path="",
 
 def burn_tree(stage, tree_path, level, parent_path, out_parent, rng,
               bole_material="", bole_scale_uv=(0.28, 0.28), debris=True,
-              debris_scale=1.0, limbs=True, ground_z=0.0, verbose=False):
+              debris_scale=1.0, limbs=True, ground_z=0.0, verbose=False,
+              fire: bool = True):
     """Take one placed tree to *level*. Returns a dict of what it produced.
 
     `{"statics": [...], "loose": [...], "info": <survey>}` — the caller hands
@@ -2079,7 +2094,7 @@ def burn_tree(stage, tree_path, level, parent_path, out_parent, rng,
     if not info.get("bole") and not info.get("leaf_pi"):
         return res
 
-    keep, keep_top, cov, brown, scorch_h, geom = plan_for(level)
+    keep, keep_top, cov, brown, scorch_h, geom = plan_for(level, fire)
 
     # REPAIR FIRST. Black_Oak's woody branchlet prototype binds no material at
     # all; leave it and the char pass has nothing to re-bind, so a torched

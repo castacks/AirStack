@@ -4,13 +4,13 @@
 # Edit the high-level spec (or low_level/default.yaml) and recompile:
 #     python3 compile_disaster.py earthquake.yaml
 #
-# locale        : downtown
+# locale        : urban
 # disaster-type : earthquake
 # severity      : 1.0
 # spec          : scene_gen/config/presets/earthquake.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-23 14:03:22
-# spec extras   : {'asset-set': 'urban', 'region_m': [800, 800], 'seed': 42}
+# compiled      : 2026-08-23 21:43:37
+# spec extras   : {'asset-pack': 'urban', 'region_m': [800, 800], 'seed': 42}
 
 seed: 42
 exclusions:
@@ -18,7 +18,7 @@ exclusions:
   - 0.0
   - 0.0
   radius: 10.0
-asset_set: urban
+asset_pack: urban
 measure_usds: true
 layout:
   region_m:
@@ -540,4 +540,4 @@ detail:
       cafe_sets:
         zone: frontage
         spacing_m: 400.0
-locale: downtown
+locale: urban

@@ -83,6 +83,27 @@ def _rebuild_material(out, dst_path, src_mat_prim):
     def fix(p):
         return p.ReplacePrefix(old, new) if p.HasPrefix(old) else p
 
+    def anchor(v):
+        """Asset paths re-anchored to where they resolve NOW.
+
+        `a.Get()` hands back the AUTHORED string, and for these packs that is
+        relative to the source layer — `Textures/Foo_BaseColor.png` sitting
+        next to the building on Nucleus. Re-authoring it verbatim into an
+        archetype under `assets/archetypes/` silently re-anchors it to THAT
+        directory, where no `Textures/` exists, so every texture drops and the
+        building renders untextured. `resolvedPath` is the absolute location
+        the source resolved to, which stays correct from anywhere.
+
+        Falls back to the authored path when nothing resolved, so an asset
+        that was already absolute or already broken is left exactly as it was.
+        """
+        if isinstance(v, Sdf.AssetPath):
+            return Sdf.AssetPath(v.resolvedPath or v.path)
+        if isinstance(v, Sdf.AssetPathArray):
+            return Sdf.AssetPathArray(
+                [Sdf.AssetPath(a.resolvedPath or a.path) for a in v])
+        return v
+
     for src in Usd.PrimRange(src_mat_prim):
         if src == src_mat_prim:
             dp = out.GetPrimAtPath(dst_path)
@@ -97,7 +118,7 @@ def _rebuild_material(out, dst_path, src_mat_prim):
             except Exception:
                 v = None
             if v is not None:
-                na.Set(v)
+                na.Set(anchor(v))
             conns = a.GetConnections()
             if conns:
                 na.SetConnections([fix(c) for c in conns])

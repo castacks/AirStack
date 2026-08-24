@@ -57,13 +57,13 @@ ASSETS MUST BE LOCAL
 Nucleus (`omniverse://`) does not resolve under plain usd-core or under Blender,
 so a gallery can only be built from assets that are on disk: the `objaverse://`
 cache (`prepare_assets.py`) and the repo's own `airstack://` packs. `--list`
-says which of an asset set's buildings qualify.
+says which of an asset pack's buildings qualify.
 
 **suburban** works out of the box — all 15 of its houses and all 8 of its
 debris assets are cached. The **urban** library lives on Nucleus and reports
 `0/9`; for that side, `tools/localize_nucleus_assets.py` mirrors it down (from
 inside the isaac-sim container, the only place with the resolver) and
-`--asset-set urban_intact_local` points at the mirror.
+`--asset-pack urban_intact_local` points at the mirror.
 
 WHAT A SHEET IS EVIDENCE OF
 ---------------------------
@@ -85,7 +85,7 @@ Usage
     python3 tools/damage_gallery.py --no-render        # USDs only
     python3 tools/damage_gallery.py --wall-thickness 0 # the "before" sheet
     python3 tools/damage_gallery.py --bare-columns     # + debris-free twins
-    python3 tools/damage_gallery.py --asset-set urban_intact_local --rows 9
+    python3 tools/damage_gallery.py --asset-pack urban_intact_local --rows 9
 
 Run with the system `python3`, not `AirStack/.venv` — same reason
 `preset_report.py` gives: `scene_generator` imports `pxr` at module scope and
@@ -133,15 +133,15 @@ _TALLY_COUNTERS = ("fragments", "loose", "shattered", "thickened",
 # ---------------------------------------------------------------------------
 
 
-def load_asset_set(asset_set: str) -> dict:
-    """A validated config carrying *asset_set*'s pools and conventions."""
+def load_asset_pack(asset_pack: str) -> dict:
+    """A validated config carrying *asset_pack*'s pools and conventions."""
     with open(cd.DEFAULT_BASE) as fh:
         cfg = yaml.safe_load(fh)
-    cfg["asset_set"] = asset_set
-    anchor = os.path.join(_SCENE_GEN, "config", "asset_sets",
-                          f"{asset_set}.yaml")
+    cfg["asset_pack"] = asset_pack
+    anchor = os.path.join(_SCENE_GEN, "config", "asset_packs",
+                          f"{asset_pack}.yaml")
     with contextlib.redirect_stdout(io.StringIO()):
-        cfg = sg.resolve_asset_set(cfg, anchor)
+        cfg = sg.resolve_asset_pack(cfg, anchor)
         cfg = sg.validate_config(cfg, anchor)
     return cfg
 
@@ -165,7 +165,7 @@ _LABEL_RE = re.compile(r"""(?:objaverse://)?([0-9a-fA-F]{32}|[\w.-]+\.usdc?)"""
 
 
 def asset_labels() -> dict:
-    """Human names for assets, scraped off the asset sets' own comments.
+    """Human names for assets, scraped off the asset packs' own comments.
 
     A row labelled `6644de89c2f0449db3de934744162b63` says nothing; the set
     that references it already says "Bungalow The Chase" in the comment beside
@@ -174,7 +174,7 @@ def asset_labels() -> dict:
     direction of falling back to the uid.
     """
     out: dict = {}
-    d = os.path.join(_SCENE_GEN, "config", "asset_sets")
+    d = os.path.join(_SCENE_GEN, "config", "asset_packs")
     for fn in sorted(os.listdir(d)):
         if not fn.endswith(".yaml"):
             continue
@@ -538,7 +538,7 @@ def severity_columns(disaster: str, severities, bare: bool = False) -> list:
     return [("pristine", "pristine", 0.0, True)] + cols
 
 
-def build_gallery(asset_set="suburban", rows=5, seed=42, fate="damaged",
+def build_gallery(asset_pack="suburban", rows=5, seed=42, fate="damaged",
                   specs=None, out_dir=DEFAULT_OUT, pick=None, settle=True,
                   title="Procedural building damage", quiet=False,
                   wall_m=None) -> dict:
@@ -548,13 +548,13 @@ def build_gallery(asset_set="suburban", rows=5, seed=42, fate="damaged",
     one asset closely; otherwise the first *rows* of them (0 for all).
     """
     specs = list(specs or disaster_columns(0.8))
-    base = load_asset_set(asset_set)
+    base = load_asset_pack(asset_pack)
     base["measure_usds"] = True
 
     pool = [b for b in buildings_of(base) if b["local"]]
     if not pool:
         raise SystemExit(
-            f"no locally-resolvable buildings in asset set {asset_set!r}. "
+            f"no locally-resolvable buildings in asset pack {asset_pack!r}. "
             "Run `prepare_assets.py` for its objaverse assets, or pick a set "
             "whose buildings are on disk — see --list.")
     chosen = ([pool[i % len(pool)] for i in pick] if pick
@@ -572,9 +572,9 @@ def build_gallery(asset_set="suburban", rows=5, seed=42, fate="damaged",
              if wall_m else "walls thickened (pipeline default)")
     manifest = {
         "title": title,
-        "subtitle": (f"asset set {asset_set} · {sev_txt} · fate {fate} · "
+        "subtitle": (f"asset pack {asset_pack} · {sev_txt} · fate {fate} · "
                      f"seed {seed} · {walls} · {settled}"),
-        "asset_set": asset_set, "seed": seed, "fate": fate,
+        "asset_pack": asset_pack, "seed": seed, "fate": fate,
         "settle": bool(settle), "wall_m": wall_m,
         "bare_suffix": BARE_SUFFIX,
         "columns": [label for label, _, _, _ in specs], "rows": [],
@@ -626,7 +626,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__.split("\n")[0],
         formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--asset-set", default="suburban")
+    ap.add_argument("--asset-pack", default="suburban")
     ap.add_argument("--rows", type=int, default=5,
                     help="buildings in the sheet; 0 for every local one")
     ap.add_argument("--severity", type=float, default=0.8)
@@ -676,17 +676,17 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.list:
-        cfg = load_asset_set(args.asset_set)
+        cfg = load_asset_pack(args.asset_pack)
         rows = buildings_of(cfg)
         n = sum(1 for b in rows if b["local"])
-        print(f"{args.asset_set}: {n}/{len(rows)} buildings resolve locally")
+        print(f"{args.asset_pack}: {n}/{len(rows)} buildings resolve locally")
         for i, b in enumerate(rows):
             print(f"  [{i:2d}] {'ok ' if b['local'] else 'REMOTE'}  "
                   f"{b['name']:30s} {b['usd']}")
         if n < len(rows):
             print("\nREMOTE entries live on Nucleus, which neither usd-core "
                   "nor Blender can resolve.\nRun prepare_assets.py for "
-                  "objaverse:// assets, or use --asset-set suburban.")
+                  "objaverse:// assets, or use --asset-pack suburban.")
         return 0
 
     if args.sweep:
@@ -700,7 +700,7 @@ def main() -> int:
         specs = disaster_columns(args.severity, types, bare=args.bare_columns)
         title = "Procedural building damage"
 
-    man = build_gallery(asset_set=args.asset_set, rows=args.rows,
+    man = build_gallery(asset_pack=args.asset_pack, rows=args.rows,
                         seed=args.seed, fate=args.fate, specs=specs,
                         out_dir=args.out, settle=not args.no_settle,
                         title=args.title or title,

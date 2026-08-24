@@ -27,7 +27,7 @@ ZONING, NOT A HEIGHT GRADIENT
 A radial height gradient alone produces a city where every block is the same
 KIND of place and only the storey count changes. Real cities zone by *type* —
 a district of party-wall row houses, a district of mid-rise apartment blocks, a
-downtown of towers — and the boundaries are patchy rather than concentric.
+urban of towers — and the boundaries are patchy rather than concentric.
 
 So a **typology** (`districts.typologies.*`) owns a building pool, a height
 profile and a preferred block size, and the radial rings only supply the
@@ -49,7 +49,7 @@ Typologies differ in how their blocks are built, not only in what fills them:
   asset is therefore never in `buildings.intact` (where `build_city` would pick
   it uniformly and scatter it) — it lives in its own pool and is only ever
   placed by this pass, in a run.
-* `pack` — guillotine packing from the typology's pool, as downtown does.
+* `pack` — guillotine packing from the typology's pool, as urban does.
 
 BLOCK SIZE
 ----------
@@ -159,7 +159,7 @@ class _AreaMap:
     around one dominant CBD, not bands. So typology is decided by growing
     regions outward from a small number of nuclei on a coarse lattice, and the
     radial rings survive only as the PRIOR on where those nuclei land — the
-    downtown still tends to sit centrally without the city reading as banded.
+    urban still tends to sit centrally without the city reading as banded.
 
     Growth is Dijkstra from every nucleus at once with jittered edge costs,
     which is what makes a boundary wander instead of coming out as the straight
@@ -220,9 +220,9 @@ class _AreaMap:
             for _try in range(24):
                 # Multiple-nuclei still has ONE dominant CBD. Left to chance the
                 # innermost ring is a small target and most seeds land outside
-                # it, so a city comes out with no downtown at all — nucleus 0 is
+                # it, so a city comes out with no urban at all — nucleus 0 is
                 # therefore forced into the core ring.
-                if k == 0 and zcfg.get("downtown", True):
+                if k == 0 and zcfg.get("urban", True):
                     i = int(self.nx * rnd.uniform(0.38, 0.62))
                     j = int(self.ny * rnd.uniform(0.38, 0.62))
                 else:
@@ -304,7 +304,7 @@ class _AreaMap:
 
         Sampled over a small cross rather than at the point alone, so block size
         GRADES across an area boundary over `blend_m` instead of snapping from
-        a 40 m residential block to a 110 m downtown one in a single street.
+        a 40 m residential block to a 110 m urban one in a single street.
         """
         # BLEND ONLY WITHIN A TYPOLOGY. Averaging a cell with neighbours of a
         # DIFFERENT typology does not grade the seam, it destroys the target:
@@ -988,14 +988,14 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
                for n in typologies}
 
     # Never demolish what cannot be rebuilt. This pass drops every intact
-    # building and re-packs the block from its typology pools, so an asset set
+    # building and re-packs the block from its typology pools, so an asset pack
     # that does not define those pools loses its buildings outright — and
     # silently, because ruins are not in the intact set and survive, leaving a
-    # city of nothing but rubble. That is what happened when the `downtown`
+    # city of nothing but rubble. That is what happened when the `urban`
     # locale started enabling districts (Phase 1) for presets still on the v1
     # `urban` set: houses went 0 at severity 0 and *rose* with severity.
     if not any(pool_of.values()):
-        print("[districts] no typology pools resolve for this asset set — "
+        print("[districts] no typology pools resolve for this asset pack — "
               "leaving buildings as packed")
         return {}
 

@@ -177,14 +177,14 @@ POOL_SETBACK_M = 9.0        # from the house, so it clears the fence
 # it has to hold a 5 m pool with clearance at each end, or the pool lands on
 # the fence.
 FRONT_YARD_M, BACK_YARD_M = 10.0, 20.0
-# The scene's existing vehicle pool, copied from `config/asset_sets/shared.yaml`
+# The scene's existing vehicle pool, copied from `config/asset_packs/shared.yaml`
 # (`usds.cars`) so this catalogue shows what the suburb actually places. Paths
 # are relative to that file's `asset_root`, hence the explicit prefix here.
 # (usd, scale, axis_up, yaw_offset)
 _LIB = "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/"
 # Residential drives only, so no taxi and no police car — those are livery
 # vehicles and read as odd parked outside a house. The extra 90 deg on top of
-# the asset set's own `yaw-offset` is measured: these come in broadside to the
+# the asset pack's own `yaw-offset` is measured: these come in broadside to the
 # drive without it.
 CAR_YAW_EXTRA = 90.0
 CARS = [

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""tag_asset_materials.py — click through an asset set's buildings and record each one's material.
+"""tag_asset_materials.py — click through an asset pack's buildings and record each one's material.
 
     AirStack/.venv/bin/python scene_gen/tools/tag_asset_materials.py \
-        scene_gen/config/asset_sets/urban.yaml
+        scene_gen/config/asset_packs/urban.yaml
 
 A small Tk window shows one asset at a time — its path, the categories it is
-pooled under, its tags and its per-entry overrides — and four buttons put it in
-`wood`, `concrete`, `brick` or `steel`. You can skip an asset, step back, or
-jump to any index. Keys work too: 1-4 pick a material, `s` skips, arrows step,
-`q` quits.
+pooled under, its tags and its per-entry overrides — and five buttons put it in
+`wood`, `concrete`, `brick`, `steel` or `glass`. You can skip an asset, step
+back, or jump to any index. Keys work too: 1-5 pick a material, `s` skips,
+arrows step, `q` quits.
 
 BUILDINGS ONLY, BY DEFAULT
 --------------------------
@@ -29,7 +29,7 @@ is the way to check what a set contains before starting.
 
 WHAT IT WRITES, AND WHAT IT DOES NOT TOUCH
 ------------------------------------------
-The input asset set is opened read-only and never written. Choices go to a
+The input asset pack is opened read-only and never written. Choices go to a
 separate sidecar YAML (`--out`, default `<input>.materials.yaml`), so nothing
 here can disturb a live scene config: the sidecar is a record of decisions for
 you to act on deliberately, not something the generator reads.
@@ -72,6 +72,21 @@ descriptive enough to judge from in practice.
 
 If you do render a preview set later, `--previews DIR` will show `DIR/<stem>.png`
 beside the card with no further changes here.
+
+WITHOUT A DISPLAY
+-----------------
+`--labels FILE` records decisions from a YAML file and exits, which is the only
+way in on a headless box (and the way an agent uses this tool). It writes the
+same sidecar through the same writer, so a GUI session can pick the file up and
+carry on:
+
+    Reference_Brownstone02: brick          # keyed by path or by stem
+    BG_Building_C:
+      material: glass
+      note: dark curtain wall, ribbon glazing over half the facade
+
+`note` is optional and is kept in the sidecar. `--list` still works headless
+and prints exactly the keys `--labels` accepts.
 """
 
 from __future__ import annotations
@@ -84,14 +99,14 @@ import tempfile
 
 import yaml
 
-MATERIALS = ("wood", "concrete", "brick", "steel")
+MATERIALS = ("wood", "concrete", "brick", "steel", "glass")
 
 #: Per-entry keys that are not metadata worth showing on the card.
 _SKIP_KEYS = {"usd", "tags"}
 
 
 # ---------------------------------------------------------------------------
-# reading the asset set
+# reading the asset pack
 # ---------------------------------------------------------------------------
 
 def walk_usds(node, prefix=()):
@@ -173,8 +188,22 @@ def load_choices(out: str) -> dict:
             for k, v in (doc.get("assets") or {}).items()}
 
 
+def load_notes(out: str) -> dict:
+    """``{usd: note}`` for decisions that carry one. Missing = no note.
+
+    Read back and rewritten so a GUI session over a sidecar `--labels` wrote
+    does not silently drop the reasoning recorded with each choice.
+    """
+    if not os.path.exists(out):
+        return {}
+    with open(out) as fh:
+        doc = yaml.safe_load(fh) or {}
+    return {k: (v or {}).get("note")
+            for k, v in (doc.get("assets") or {}).items() if (v or {}).get("note")}
+
+
 def save_choices(out: str, source: str, assets: list, choices: dict,
-                 category: str | None = None) -> None:
+                 category: str | None = None, notes: dict | None = None) -> None:
     """Rewrite the sidecar. Temp file + replace, so a crash cannot truncate it."""
     # Anything already in the file that is outside the current filter is carried
     # through untouched. Without this, tagging with --category buildings would
@@ -195,6 +224,8 @@ def save_choices(out: str, source: str, assets: list, choices: dict,
             "categories": rec["categories"],
             "tags": rec["tags"],
         }
+        if (notes or {}).get(rec["usd"]):
+            body[rec["usd"]]["note"] = notes[rec["usd"]]
 
     # Tally only what is in scope now. `choices` is seeded from the whole file,
     # so entries outside the current category would otherwise be counted as
@@ -213,7 +244,7 @@ def save_choices(out: str, source: str, assets: list, choices: dict,
         "# Asset material tags — written by scene_gen/tools/tag_asset_materials.py\n"
         "#\n"
         "# A record of decisions, NOT something the generator reads. Nothing here\n"
-        "# has been applied to the asset set; do that deliberately.\n"
+        "# has been applied to the asset pack; do that deliberately.\n"
         "#\n"
         "# material: null means the asset was skipped — seen, no material chosen.\n"
         "# An asset missing from `assets:` was never reached.\n"
@@ -256,6 +287,7 @@ class Session:
         self.assets, self.out, self.source = assets, out, source
         self.category = category
         self.choices = load_choices(out)
+        self.notes = load_notes(out)
         self.i = next((n for n, a in enumerate(assets)
                        if a["usd"] not in self.choices), 0)
 
@@ -291,7 +323,57 @@ class Session:
 
     def save(self) -> None:
         save_choices(self.out, self.source, self.assets, self.choices,
-                     self.category)
+                     self.category, self.notes)
+
+
+# ---------------------------------------------------------------------------
+# headless — the same decisions, from a file
+# ---------------------------------------------------------------------------
+
+def run_labels(assets: list, out: str, source: str, category: str | None,
+               path: str) -> int:
+    """Record decisions from a YAML file. No display, same sidecar, same writer.
+
+    Keys match an asset by its full pack path or by its stem, so the file can
+    be written against `--list` output without repeating long Nucleus paths. A
+    key that matches nothing is an error and NOTHING is written: a typo that
+    silently recorded no decision would look exactly like a successful run.
+    """
+    with open(path) as fh:
+        wanted = yaml.safe_load(fh) or {}
+
+    by_key = {}
+    for rec in assets:
+        by_key.setdefault(rec["usd"], rec)
+        by_key.setdefault(os.path.splitext(os.path.basename(rec["usd"]))[0], rec)
+
+    session = Session(assets, out, source, category)
+    bad = []
+    for key, val in wanted.items():
+        rec = by_key.get(str(key))
+        if rec is None:
+            bad.append(f"{key}: no such asset in this set")
+            continue
+        if isinstance(val, dict):
+            material, note = val.get("material"), val.get("note")
+        else:
+            material, note = val, None
+        if material is not None and material not in MATERIALS:
+            bad.append(f"{key}: '{material}' is not one of {', '.join(MATERIALS)}")
+            continue
+        session.choices[rec["usd"]] = material
+        if note:
+            session.notes[rec["usd"]] = note
+
+    if bad:
+        for line in bad:
+            print(f"error: {line}", file=sys.stderr)
+        print("nothing written.", file=sys.stderr)
+        return 1
+
+    session.save()
+    print(f"{session.decided} of {len(assets)} assets decided -> {out}")
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -431,7 +513,7 @@ def run_gui(assets: list, out: str, source: str, previews: str | None,
         # Digits belong to the jump box while it has focus.
         if root.focus_get() is jump_entry:
             return
-        if event.keysym in ("1", "2", "3", "4"):
+        if event.keysym in tuple(str(n) for n in range(1, len(MATERIALS) + 1)):
             choose(MATERIALS[int(event.keysym) - 1])
         elif event.keysym.lower() == "s":
             choose(None)
@@ -458,19 +540,22 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__.split("\n")[0],
         formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("asset_set", help="asset set YAML to read (never written)")
+    ap.add_argument("asset_pack", help="asset pack YAML to read (never written)")
     ap.add_argument("-o", "--out",
-                    help="sidecar to write (default: <asset_set>.materials.yaml)")
+                    help="sidecar to write (default: <asset_pack>.materials.yaml)")
     ap.add_argument("--category", default="buildings", metavar="PATH",
                     help="only assets pooled under this category "
                          "(default: buildings; '' for every asset in the set)")
     ap.add_argument("--previews", metavar="DIR",
                     help="show DIR/<asset stem>.png beside each card, if present")
+    ap.add_argument("--labels", metavar="FILE",
+                    help="record decisions from FILE and exit (no display "
+                         "needed); see WITHOUT A DISPLAY above")
     ap.add_argument("--list", action="store_true",
                     help="print the assets that would be shown, then exit")
     args = ap.parse_args()
 
-    assets, doc = load_assets(args.asset_set, args.category)
+    assets, doc = load_assets(args.asset_pack, args.category)
     if not assets:
         parent = doc.get("extends")
         what = f"`{args.category}` assets" if args.category else "assets"
@@ -478,7 +563,7 @@ def main() -> int:
         if args.category:
             # Distinguish "this set has none of that category" from "this set
             # has nothing at all" — the fix differs.
-            everything, _ = load_assets(args.asset_set)
+            everything, _ = load_assets(args.asset_pack)
             if everything:
                 cats = sorted({c.split(".")[0] for r in everything
                                for c in r["categories"]})
@@ -487,10 +572,10 @@ def main() -> int:
         if not hint and parent:
             hint = (f" It only overrides '{parent}'. Run this on "
                     f"{parent}.yaml instead.")
-        print(f"no {what} in {args.asset_set}.{hint}", file=sys.stderr)
+        print(f"no {what} in {args.asset_pack}.{hint}", file=sys.stderr)
         return 1
     if doc.get("extends"):
-        print(f"note: {os.path.basename(args.asset_set)} extends "
+        print(f"note: {os.path.basename(args.asset_pack)} extends "
               f"'{doc['extends']}', which is NOT followed — only this file's "
               f"own {len(assets)} "
               f"{args.category or 'asset'}{'' if args.category else 's'} "
@@ -506,13 +591,15 @@ def main() -> int:
     # The category goes in the name so tagging buildings and tagging
     # everything cannot land in the same file by default.
     slug = (args.category or "all").replace(".", "_")
-    out = args.out or f"{os.path.splitext(args.asset_set)[0]}.{slug}.materials.yaml"
+    out = args.out or f"{os.path.splitext(args.asset_pack)[0]}.{slug}.materials.yaml"
+    if args.labels:
+        return run_labels(assets, out, args.asset_pack, args.category, args.labels)
     if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")
             or sys.platform in ("darwin", "win32")):
         print("no display — this is a GUI tool. Use --list to see the assets.",
               file=sys.stderr)
         return 2
-    return run_gui(assets, out, args.asset_set, args.previews, args.category)
+    return run_gui(assets, out, args.asset_pack, args.previews, args.category)
 
 
 if __name__ == "__main__":

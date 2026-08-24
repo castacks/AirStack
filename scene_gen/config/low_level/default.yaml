@@ -1,11 +1,11 @@
 # LOW-LEVEL procedural city spec — consumed by utils/scene_generator.py.
 #
 # This is the base low-level config: every GENERATOR knob, with the city
-# untouched by any disaster. The assets themselves live in an asset set
-# (../asset_sets/<name>.yaml) named by `asset_set:` below — settings and asset
+# untouched by any disaster. The assets themselves live in an asset pack
+# (../asset_packs/<name>.yaml) named by `asset_pack:` below — settings and asset
 # sources are deliberately separate, so a scene can be re-skinned by naming a
 # different set. utils/compile_disaster.py builds on this file: a high-level
-# spec in ../presets/ (disaster type + severity + asset set) compiles into a
+# spec in ../presets/ (disaster type + severity + asset pack) compiles into a
 # low-level config under ./compiled/. See ../../GENERATION.md.
 #
 # Usage:
@@ -16,7 +16,7 @@
 # Units: meters. +X = East, +Y = North, +Z = Up. Region centered on origin.
 #
 # PIPELINE (generation order):
-#   0. resolve   — asset_set merged in; relative usds.* paths prefixed with
+#   0. resolve   — asset_pack merged in; relative usds.* paths prefixed with
 #                  asset_root; per-USD footprint measured from bbox
 #                  (measure_usds) else fallback_sizes — both from the set
 #   1. roads     — metric BSP subdivision into blocks + road corridors (roads.*)
@@ -65,12 +65,12 @@ exclusions:
     radius: 10.0             # keep the takeoff pad clear
 
 # ---- step 0: assets -----------------------------------------------------------
-# WHICH assets to build with. The named set (../asset_sets/<name>.yaml) supplies
+# WHICH assets to build with. The named set (../asset_packs/<name>.yaml) supplies
 # asset_root, asset_scale, sky, orientation, fallback_sizes and the whole usds
 # library; this file supplies only the generator settings that use them. Swap
 # the set to re-skin a scene without touching a single knob below.
 # Anything the set defines can still be overridden here — this file wins.
-asset_set: urban
+asset_pack: urban
 
 measure_usds: true          # true = measure footprints from USD bboxes (needs asset access);
                             # per-category fallback_sizes used when a measurement fails
@@ -142,7 +142,7 @@ layout:
         main_road_chance_short: 0.50
         lanes_main: 4
         lanes_secondary: 2
-        # Downtown gives its kerb to loading and bus stops, not to parking.
+        # Urban gives its kerb to loading and bus stops, not to parking.
         parking_policy: {none: 0.45, one_side: 0.35, both: 0.20}
       mid:
         main_road_chance_long: 0.85
@@ -206,13 +206,13 @@ layout:
     max_parks: 3            # optional cap; set min = max to pin an exact count
 
     # ---- locale shape (set by the `locale:` axis — see compile_locale.py) ----
-    pave_blocks: true         # true  = downtown: concrete wall-to-wall between
+    pave_blocks: true         # true  = urban: concrete wall-to-wall between
                               #         buildings, greenery only in parks/planters
                               # false = suburb/rural: the block stays lawn and only
                               #         buildings + driveways are hard surface
     setback_m: 0.0            # m — hold buildings back from the sidewalk; the strip
                               # left in front stays lawn (front yards). 0 = built
-                              # out to the sidewalk, downtown-style
+                              # out to the sidewalk, urban-style
 
     placeholders:             # filler prisms for gaps no library building fits
       enabled: false
@@ -474,7 +474,7 @@ layout:
   # RemovePrim would not take.
   # ---- force roughness on over-glossy library materials -----------------------
   # Authored once per MATERIAL, not per prim: the material lives in a referenced
-  # layer and every instance shares it. The DowntownWest walk tile is lit for an
+  # layer and every instance shares it. The UrbanWest walk tile is lit for an
   # archviz still and comes back looking like wet stone in a daylit park.
   # 1.0 is fully matte; drop toward 0.7 if it reads too flat.
 
@@ -521,7 +521,7 @@ layout:
       # of `mid` almost entirely is what turns those buildings from scattered
       # oddities into a neighbourhood.
       - {name: core, to_frac: 0.45, furniture_scale: 1.0,
-         mix: {tower: 0.85, midrise: 0.15, rowhouse: 0.00}}   # downtown, not the measured mix
+         mix: {tower: 0.85, midrise: 0.15, rowhouse: 0.00}}   # urban, not the measured mix
       - {name: mid,  to_frac: 0.60, furniture_scale: 1.3,
          mix: {tower: 0.35, midrise: 0.62, rowhouse: 0.03}}
       # Pulled in from 0.72 and the share raised from 0.75: the terrace ring is
@@ -574,7 +574,7 @@ layout:
         height_sigma: 0.20
         # Sized so the two terraces back to back very nearly ARE the block:
         # 2 x 21.1 = 42.2 m of building, leaving 4-8 m down the middle. That is
-        # a service alley, which is what a downtown terrace block has — not a
+        # a service alley, which is what an urban scene terrace block has — not a
         # rear yard. Anything wider reads as back gardens and makes the row
         # houses look like suburban detached stock that happens to be touching.
         # This is deliberately BELOW the measured 61 m p50: the measurement is
@@ -756,7 +756,7 @@ detail:
     house_margin_m: 1.5       # m — keep-out ring around buildings / trail tiles
     lawn_density_per_100m2: 0.0  # trees per 100 m² of RESIDENTIAL lawn (needs
                               # packing.pave_blocks false — a paved block has no
-                              # lawn). 0 = downtown: street trees only, potted in
+                              # lawn). 0 = urban: street trees only, potted in
                               # tree-tagged planters (planters.tree_spacing_m)
     lawn_min_separation_m: 6.0   # m — minimum lawn-tree-to-tree distance
 
@@ -951,9 +951,9 @@ detail:
     # THESE MUST SUM TO THE PAVED RING WIDTH, which is not a config value: the
     # ring is exactly ONE sidewalk tile wide and `build_city` takes that width as
     # max(tile.sx, tile.sy). SM_GroundModule01 is authored 5.00 x 5.00 m, so
-    # every sidewalk in the city was 5 m wide whatever these said — a downtown
+    # every sidewalk in the city was 5 m wide whatever these said — an urban scene
     # avenue section applied to every residential street. The tile is scaled to
-    # 0.70 in the asset set to give a 3.5 m ring, and the zones below sum to
+    # 0.70 in the asset pack to give a 3.5 m ring, and the zones below sum to
     # match; changing one without the other puts props on grass or leaves a
     # metre of unused paving.
     zones:

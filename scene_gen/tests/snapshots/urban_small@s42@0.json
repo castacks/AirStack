@@ -1,6 +1,6 @@
 {
- "case": "downtown_small@s42@0",
- "preset": "downtown_small",
+ "case": "urban_small@s42@0",
+ "preset": "urban_small",
  "seed": 42,
  "severity": 0.0,
  "n_placements": 14432,

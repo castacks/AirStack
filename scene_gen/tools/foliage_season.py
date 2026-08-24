@@ -18,7 +18,7 @@ Order of operations, always:
        resolves to. For MDL materials the albedo is inside the .mdl, not in the
        USD, so read the mdl's texture_2d() path rather than trusting a filename.
 
-Asset and texture NAMES do not say the season (Nucleus's DowntownWest oaks and
+Asset and texture NAMES do not say the season (Nucleus's UrbanWest oaks and
 the Muyang trees are named identically whatever colour they are), so this reads
 the actual leaf base-colour image off Nucleus and reports its mean hue. Runs in
 the isaac-sim container behind SimulationApp, same as nucleus_catalogue.py.

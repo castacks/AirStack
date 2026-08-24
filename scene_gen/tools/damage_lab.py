@@ -44,7 +44,7 @@ is the generator's own code path.
 
 **Budgets do not bite here.** `fracture.max_buildings` rations work across a
 whole city; with one building it always includes it. So a building that never
-thickens here is one the asset set declared `solid: true`, or one the failure
+thickens here is one the asset pack declared `solid: true`, or one the failure
 field dismissed before stage one because nothing on it would ever come free —
 not the budget. See `verify_faithful()`.
 
@@ -220,15 +220,15 @@ def resolve(spec: str, scale: float = None, axis_up: str = None,
             "label": os.path.basename(usd)}
 
 
-def from_asset_set(asset_set: str = "urban_intact_local") -> list:
-    """Every building in *asset_set* that is on disk, ready for `resolve`.
+def from_asset_pack(asset_pack: str = "urban_intact_local") -> list:
+    """Every building in *asset_pack* that is on disk, ready for `resolve`.
 
     Thin wrapper over `damage_gallery.buildings_of`, which is what `--list`
     reports; use it to damage the same library a scene would.
     """
-    cfg = dg.load_asset_set(asset_set)
+    cfg = dg.load_asset_pack(asset_pack)
     return [{"usd": b["usd"], "scale": b["scale"], "axis_up": b["axis_up"],
-             "source": "asset_set", "label": os.path.basename(b["usd"])}
+             "source": "asset_pack", "label": os.path.basename(b["usd"])}
             for b in dg.buildings_of(cfg) if dg._on_disk(b["usd"])]
 
 
@@ -246,7 +246,7 @@ def _deep_merge(base: dict, over: dict) -> dict:
 
 def damage(asset: dict, disaster: str = "earthquake", severity: float = 0.8,
            seed: int = 42, fate: str = "damaged", overrides: dict = None,
-           debris: bool = True, settle: bool = True, asset_set: str = "suburban",
+           debris: bool = True, settle: bool = True, asset_pack: str = "suburban",
            name: str = None, quiet: bool = True) -> dict:
     """Wreck *asset* through the real pipeline. Returns the cell report + path.
 
@@ -260,11 +260,11 @@ def damage(asset: dict, disaster: str = "earthquake", severity: float = 0.8,
                                    "thickness": {"wall_m": 0.4}}}
         overrides={"debris": {"pieces_per_building": [40, 60]}}
 
-    *asset_set* only supplies the DEBRIS pools (and their scales); the building
+    *asset_pack* only supplies the DEBRIS pools (and their scales); the building
     is *asset*, whatever set it came from. `suburban` is the default because its
     debris is fully cached locally.
     """
-    base = dg.load_asset_set(asset_set)
+    base = dg.load_asset_pack(asset_pack)
     label = name or f"{asset['label'].rsplit('.', 1)[0]}_{disaster}_s{severity}"
     out = os.path.join(OUT_DIR, dg._slug(label) + ".usd")
 

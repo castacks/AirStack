@@ -140,6 +140,14 @@ scene_gen/assets/omniclient/
 
 # Search index for scene_gen/tools/nucleus_materials.py — a cached crawl of the
 # Nucleus material roots, rebuilt in ~15 s with `nucleus_materials.py --reindex`.
+# Persistent asset footprint measurements (scene_gen/measure_cache.py). Derived,
+# machine-specific, and keyed on each asset's mtime/size so it self-invalidates.
+scene_gen/assets/.measurements.json
+
+# Offline scene cache (scene_gen/scene_cache.py) — layout, pristine and
+# disaster scenes keyed by the high-level config.
+scene_gen/assets/scenes/
+
 scene_gen/assets/nucleus_material_index.json
 
 # Host-side env file for `uv run --env-file` (EULA/consent acceptance).

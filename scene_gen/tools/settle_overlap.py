@@ -98,7 +98,7 @@ def overlaps(box, settle, cell: float = 8.0):
     """``{index: (deepest overlap, how many things it overlaps)}``.
 
     Bucketed into a uniform grid first: the pairwise form is O(n^2) and a
-    damaged downtown carries tens of thousands of props.
+    damaged urban carries tens of thousands of props.
     """
     grid = collections.defaultdict(list)
     for i, b in enumerate(box):

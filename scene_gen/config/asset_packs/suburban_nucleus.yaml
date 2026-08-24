@@ -11,7 +11,7 @@
 
 extends: shared
 
-# A detached bungalow, not a downtown block. Only used when a measure fails.
+# A detached bungalow, not an urban block. Only used when a measure fails.
 fallback_sizes:
   house: [12.0, 12.0]
 

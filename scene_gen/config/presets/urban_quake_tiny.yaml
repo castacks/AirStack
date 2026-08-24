@@ -1,0 +1,110 @@
+# HIGH-LEVEL scene spec — a 105 m urban block after an earthquake.
+#
+# THE SMALLEST SCENE THAT IS STILL A SCENE.
+# Six buildings, one block, real damage. For iterating on the disaster stage,
+# the archetype library and the launch path without paying for a city.
+#
+# WHY 105 m
+# ---------
+# Not a round number, and not arbitrary. The urban locale packs blocks between
+# `min_block_m: 30` and `max_block_m: 200`, so the region size decides how many
+# buildings fit, and the curve is steep — measured at seed 42:
+#
+#      90 m -> 4 buildings      110 m -> 6
+#     100 m -> 5                115 m -> 8
+#     105 m -> 6                120 m -> 8
+#
+# 105 m is the middle of the 6-building plateau, so a small retune of packing
+# or a different asset pack does not silently change the count. Below 90 m the
+# subdivider stops making a usable block at all.
+#
+# WHAT IT COSTS
+# -------------
+# ~660 placements against `urban`'s ~36k — roughly 55x cheaper. Most of that is
+# 484 pavement tiles (`pave_blocks` is what makes downtown downtown); the six
+# buildings, sixteen street trees and thirty debris pieces are the rest.
+#
+# THE FIELD IS RESIZED TO THE REGION, and it has to be.
+# `compile_earthquake` sizes the epicentre off `max(w, h)` — at 105 m that is a
+# 37.8 m core with a 57.8 m falloff, which swallows the whole scene: every
+# building reads field 1.0 and lands on the SAME rung. That is physically right
+# for a 105 m footprint and useless for looking at a ladder, so the override
+# below shrinks the core to 8 m and lets it fall off across the block.
+#
+# Severity 0.9 rather than 0.7 for the same reason: local damage is
+# `field x severity`, so 0.7 caps out at 0.70 and the top rung (`pancaked`,
+# at 0.88) is unreachable no matter where a building stands.
+#
+# Together they spread the six buildings across four rungs at seed 42 — see
+# the table at the bottom. Sweep severity against 0.0 for a like-for-like
+# pristine comparison; the layout is identical by construction
+# (`tests/test_layout_decoupling`).
+#
+#     SCENE_CONFIG=urban_quake_tiny \
+#     ISAAC_SIM_SCRIPT_NAME=scene_launch_script.py \
+#     airstack up isaac-sim
+#
+# WHICH RUNG THE FIELD PUTS EACH BUILDING ON  (seed 42; local = field x severity)
+#
+# This is the level a building gets IF it is damaged. Whether it is damaged at
+# all is a separate draw, against `damaged_fraction` + `destroyed_fraction`
+# scaled by the same field — about 0.82 at the epicentre down to 0.13 at the
+# far corner, so roughly 2-3 of the 6 are hit on any given seed. Raise the
+# severity or reseed if you want more of them wrecked at once.
+#
+#        x, y        dist   field   local   level
+#     (  -1,  -6)     6.0   1.000   0.900   pancaked
+#     (  -6,  25)    25.8   0.624   0.562   soft_storey
+#     (  -1, -32)    31.9   0.420   0.378   cracked
+#     (  20,  25)    32.2   0.412   0.371   cracked
+#     ( -32,   9)    33.2   0.379   0.341   cracked
+#     ( -32, -27)    41.7   0.159   0.144   pristine
+#
+# Four of the earthquake ladder's five rungs, plus one untouched building for
+# contrast. Re-derive it any time with:
+#
+#     python3 scene_gen/archetypes/plan.py --config urban_quake_tiny --used-only
+#
+# STAGE A. This draws on the full `urban` pack, so a whole-pack bake is 198
+# archetypes — about 2.2 h at the measured ~40 s each. The scene places only a
+# handful of types, so bake those instead:
+#
+#     set -a; . .env.host; set +a
+#     .venv/bin/python scene_gen/archetypes/bake_cli.py \
+#         --config urban_quake_tiny --used-only
+#
+# 16 archetypes, ~7 minutes. Let `bake_cli` work the set out rather than
+# pasting one from `plan.py`: which buildings get placed depends on measured
+# footprints, and a plain `python3` cannot open a Nucleus asset, so it packs
+# differently — it reports 5 structure types here where Kit reports 2. The
+# trimmed library is specific to this SEED and this ENVIRONMENT both.
+#
+# Without any library the scene still builds: it falls back to live mesh
+# damage, which for six buildings is a perfectly reasonable few minutes.
+
+locale: urban
+disaster-type: earthquake
+severity: 0.9
+
+# INTACT BUILDINGS ONLY. `urban_intact` is `urban` with `buildings.damaged`
+# and `.destroyed` emptied, so no purpose-built ruin can be swapped in and
+# every wrecked building is wrecked from an intact model — by a Stage A
+# archetype where one is baked, and by live mesh damage where one is not.
+#
+# That is what makes this scene worth looking at: on the plain `urban` pack
+# `apply_to_buildings` PREFERS the swap for a destroyed fate, so most of what
+# you see is authored art rather than the pipeline under test. Debris is kept
+# deliberately — rubble is what a wrecked building sheds, not a ruin asset.
+asset-pack: urban_intact
+region_m: [105, 105]
+seed: 42
+
+overrides:
+  disaster:
+    field:
+      # Sized to a block rather than to a city. `radius_m` is the fully-hit
+      # core; `falloff_m` carries it out past the far corner (the region's
+      # half-diagonal is 74 m) so no building sits in dead flat outside.
+      radius_m: 8.0
+      falloff_m: 40.0
+      outside: 0.1

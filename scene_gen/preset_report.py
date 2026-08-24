@@ -150,7 +150,7 @@ def build_stats(config_path, args):
 
     return {
         "locale": str(cfg.get("locale", "-"))[:9],
-        "assets": str(cfg.get("asset_set", "-"))[:9],
+        "assets": str(cfg.get("asset_pack", "-"))[:9],
         "buildings": len(houses),
         # A "damaged" building is one that took the damaged fate by EITHER
         # route: an asset swap (its usd is in the damaged pool) or mesh damage

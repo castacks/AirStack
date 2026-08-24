@@ -14,7 +14,7 @@ arbitrary meshes.
 
 Blender is Z-up and its glTF importer rotates Y-up source art on import, so
 converted USDs come out **Z-up** — the scene generator's default. They do
-*not* need `axis-up: "Y"` in an asset set.
+*not* need `axis-up: "Y"` in an asset pack.
 
 The `bpy` wheel only ships for CPython 3.13 and pins an older numpy, so this is
 written as a PEP 723 single-file script: `uv run --script` builds an isolated
@@ -181,7 +181,7 @@ def apply_target_size(target_m: float, fit: str) -> float:
 
     glb carries no canonical unit, so an Objaverse asset arrives at whatever
     size its author used. Baking the metric scale in here — rather than
-    recording it for the asset set to re-apply — means the cached USD is
+    recording it for the asset pack to re-apply — means the cached USD is
     already in meters, so a config just names the asset and nothing has to keep
     a scale factor in sync with it.
 

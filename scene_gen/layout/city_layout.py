@@ -17,7 +17,7 @@ Halving whichever side is longer drives every block toward 1:1, and it does:
 measured over a 400x400 m region, the built-in subdivision yields a median
 long:short ratio of **1.2x** with a 38 m short side.
 
-Real downtown grids are strongly directional. Manhattan runs ~80 m between
+Real urban grids are strongly directional. Manhattan runs ~80 m between
 streets and ~280 m between avenues — roughly 1:3.5 — and the two road classes
 differ as well: the sparse axis carries the wide avenues, the dense axis the
 narrow streets. Square blocks and uniform road widths are the two things that
@@ -106,7 +106,7 @@ def junction_control(a: dict, b: dict, signal_lanes: int = 4) -> str:
 
     BOTH legs have to be arterial, not either. Signalising on ``max`` means a
     two-lane side street meeting an avenue becomes a full signalised junction,
-    and since half the corridors in a downtown are arterial that swallows nearly
+    and since half the corridors in an urban scene are arterial that swallows nearly
     every crossing: measured, 38 of 50 junctions signalised and only 10 stop
     signs in the whole city. A minor road meeting a main road is ordinarily a
     two-way stop — the side street stops, the arterial runs — and a signal is
@@ -190,7 +190,7 @@ def _park_reserves(aniso, config, x0, y0, x1, y1, targets, hw, rng):
 
     Sized as a multiple of the LOCAL block target rather than in absolute
     metres, so a park stays proportionate to its neighbourhood's grain: a park
-    in a row-house district is a garden square, one downtown is a civic park.
+    in a row-house district is a garden square, one urban is a civic park.
     """
     cfg = aniso.get("parks") or {}
     if not cfg.get("enabled", True):
@@ -314,7 +314,7 @@ def make_subdivider(layout_cfg: dict, config: dict = None):
 
         # Block size follows LAND USE, not the whole-region average. Six of the
         # ten stock buildings are 50-81 m wide and simply cannot be placed on a
-        # 46 m block, so a downtown has to be cut coarser than a row-house
+        # 46 m block, so an urban scene has to be cut coarser than a row-house
         # district or half the library is unplaceable. districts.zone_field
         # blends its targets across an area boundary, so the grain grades
         # rather than stepping in one street.

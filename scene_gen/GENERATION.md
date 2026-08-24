@@ -20,15 +20,15 @@ Python scripts:
   low_level/compiled/tornado.yaml LOW LEVEL — every generator knob
           │                       (generated, do not edit)
           │                            │
-          │   scene_generator.py       │ asset_set: urban
+          │   scene_generator.py       │ asset_pack: urban
           │                            ▼
-          │                  asset_sets/urban.yaml   ASSETS — what to build with
+          │                  asset_packs/urban.yaml   ASSETS — what to build with
           ▼                                          (paths, scales, art conventions)
         the scene
 ```
 
 Generator settings and asset sources are separate concerns: a low-level config
-says *how* to lay out a city, an asset set says *what* to build it from. Point
+says *how* to lay out a city, an asset pack says *what* to build it from. Point
 a config at a different set to re-skin a scene without touching a single knob.
 
 ## The three stages
@@ -37,8 +37,8 @@ Generation runs in three stages, and **a low-level config is grouped by which
 stage consumes it**:
 
 ```yaml
-seed: 42              # scene-wide metaparameters: seed, asset_set,
-asset_set: urban      # exclusions, measure_usds, usds, locale
+seed: 42              # scene-wide metaparameters: seed, asset_pack,
+asset_pack: urban      # exclusions, measure_usds, usds, locale
 layout:               # WHERE things go — the city plan
   region_m, min_block_m, max_block_m, split_jitter, anisotropic,
   packing, frontage, roads, districts
@@ -84,7 +84,7 @@ leftover:
 
 | locale | `detail/city_detail.py` | the built-in frontage passes in `build_city` |
 |---|---|---|
-| downtown | **on** — NACTO sidewalk zones | zeroed (`spacing_m: 0.0`) |
+| urban | **on** — NACTO sidewalk zones | zeroed (`spacing_m: 0.0`) |
 | suburban | off | **live** — 94 streetlights, 64 hydrants, 17 benches |
 | rural | off | live, but mostly zeroed: no kerb to put anything on |
 
@@ -94,11 +94,71 @@ built-in spacings — and why a locale that keeps the built-in passes sets
 `city_detail.enabled: false` rather than clearing `categories` (`deep_merge`
 cannot narrow an inherited dict).
 
-So a `spacing_m: 0.0` in `compile_downtown` is **not** dead config. The same
+So a `spacing_m: 0.0` in `compile_urban` is **not** dead config. The same
 key carries a real value for suburban, where the built-in pass is what places
 the furniture. Deleting the built-in passes would leave suburban streets bare;
 migrating suburban to `city_detail` first needs a suburban category table in
 `config/low_level/locales/`.
+
+## The pipeline, in three stages
+
+`SPEC.md` is the authority; this is the map from it to the code.
+
+**Stage A — bake the archetype library** (`archetypes/`). Once, exhaustively,
+independent of any layout: every displaceable asset TYPE crossed with every
+damage LEVEL, exported as a self-contained USD under
+`assets/archetypes/<disaster>/<type>_<level>.usd`.
+
+    python3 scene_gen/archetypes/plan.py --config urban --disaster earthquake
+    scene_gen/archetypes/bake_cli.py --config urban --disaster earthquake
+
+Runs offline and exits with a status code. Measured ~40 s per library
+archetype plus one global PhysX settle, so a whole pack is hours — price it
+with `plan.py` first, and use `--used-only` while iterating.
+
+**Stage B — assemble a scene** (`bake_scene.py`, or a launch script). Layout,
+detail and disaster over the placement list; each damaged building references
+the archetype its level calls for instead of being fractured live.
+
+    python3 scene_gen/bake_scene.py --config urban_quake_tiny --severity 0,0.5,0.9
+
+**Stage C — `airstack up`.** Load the baked stage; targets and conditions are
+placed at load time.
+
+### severity, field, level
+
+Three things that are easy to conflate and are not the same:
+
+| term | what it is | scope |
+|------|-----------|-------|
+| **severity** | how bad the event was, continuous 0-1, from the high-level config | whole scene |
+| **field** | `f(x, y) -> 0..1`, a pure spatial SHAPE (`disaster/field.py`) | whole scene |
+| **level** | which rung of the disaster's ladder one asset lands on (`disaster/levels.py`) | one asset |
+
+`local damage = field(x, y) x severity`, and the level is the rung that lands
+on. **Severity shapes the field, never the ladder** — that is what lets one
+archetype library serve every severity, and it is enforced by
+`tests/test_severity_shapes_only_the_field.py`. Severity must not be folded
+into the field either: `disaster_stage` draws against the raw field while the
+fractions are already severity-lerped, so a field carrying severity would
+apply it twice.
+
+Ladders are per (disaster, asset kind) — a wildfire leaves a house
+`burned_out` and the oak beside it a `snag`. Vegetation rung names are
+constrained to what `disaster.vegetation.plan_for` can render.
+
+### The caches
+
+| cache | what it holds | keyed on |
+|-------|---------------|----------|
+| `assets/objaverse/` | converted Objaverse USDs | uid + `target-size-m` + fit |
+| `assets/.measurements.json` | asset footprints (`measure_cache.py`) | path + axis-up, invalidated by mtime/size |
+| `assets/archetypes/` | Stage A library | disaster / type / level |
+| `assets/scenes/` | finished scenes (`scene_cache.py`) | tier 1: seed + pack + locale + layout; tier 2: the whole `disaster:` block |
+
+All gitignored. The scene cache's two tiers mirror the load-bearing invariant:
+a locale and a seed fix the layout, severity only decides what happens to it,
+so a severity sweep is one pristine entry with several children.
 
 ## Layout
 
@@ -109,10 +169,11 @@ the Isaac Sim launch scripts import it from here.
 | Path | What it is |
 |------|-----------|
 | `scene_generator.py` | The generator core: layout, packing, disaster field, USD writing. Also `_stage()` / `restage()` / `STAGE_OF`. |
-| `generate_city_v2.py` | **The entry point.** `build_scene()` runs the three stages in pure Python (the offline consumers use it); `generate_city_v2_on_stage()` adds the USD writing. |
+| `generate_scene.py` | **The urban entry point.** `build_scene()` runs the three stages in pure Python (the offline consumers use it); `generate_scene_on_stage()` adds the USD writing. |
+| `suburb_scene.py` | **The suburban entry point.** `generate_suburb_on_stage()` builds a `layout/suburb_net.py` graph layout, with its own polygon/polyline ground writer. |
+| `asset_pack.py` | Reads a `config/asset_packs/*.yaml` pack into plain asset entries. |
 | **`layout/`** | **Stage 1 — where blocks, roads and buildings go.** |
 | `layout/city_layout.py` | Anisotropic block subdivision — real grids are directional (Manhattan ~80 m x ~280 m), the built-in BSP tends to 1:1. |
-| `layout/suburb_layout.py` | Hierarchical suburb streets with cul-de-sacs. **Not wired to an entry point yet.** |
 | **`detail/`** | **Stage 2 — what is placed on that plan.** |
 | `detail/city_detail.py` | Street furniture against NACTO sidewalk zones, instead of everything on one kerb line. |
 | `detail/districts.py` | Zoning: which building typology goes where, and the park superblocks. |
@@ -123,7 +184,14 @@ the Isaac Sim launch scripts import it from here.
 | `disaster/disaster_stage.py` | Building fate, debris, and prop effects by response class rather than per-kind knobs. |
 | `disaster/mesh_damage.py` | Deforms a building's actual geometry — the USD port of `scenegen/damage.py`'s operators, plus the profiles the disaster types compose. |
 | `compile_disaster.py` | High-level spec → low-level config, and `load_scene_config()`. |
-| `compile_locale.py` | The locale axis: one function per locale (`downtown`/`suburban`/`rural`). |
+| `compile_locale.py` | The locale axis: one function per locale (`urban`/`suburban`/`rural`). |
+| `config_merge.py` | The one `deep_merge`, in a module neither compiler owns (they form an import cycle). |
+| **`archetypes/`** | **Stage A.** `plan.py` enumerates the grid (free, no sim); `bake.py` builds it; `bake_cli.py` is the offline entry point; `library.py` addresses the result. |
+| `disaster/field.py` | The damage field: `uniform` / `radial` / `path` / `ellipse`. The wildfire front is a field kind, not special-cased. |
+| `disaster/levels.py` | The ladders, `local_damage` and the one quantiser. |
+| `measure_cache.py` | Persistent asset footprints — SPEC's "measure assets / use cached". |
+| `scene_cache.py` + `bake_scene.py` | **Entrypoint 1.** Generate a scene offline into the two-tier cache. |
+| `tools/split_usd_pack.py` | Splits a multi-object USD into its separable sub-prims (unrelated to asset packs). |
 | `preset_report.py` | Dry-run every preset and compare the results. |
 | `tools/settle_overlap.py` | Screens a scene for props that spawn inside each other — the PhysX depenetration impulse is what launches debris out of the region. Host-side, seconds. |
 | `tools/plan_png.py` | **Top-down plan of a scene, in about a second.** Two maps: pristine layout, and damage over the field. Calls the same `load_scene_config` → `build_scene` the launch script does, so it previews the real pipeline. |
@@ -134,11 +202,11 @@ the Isaac Sim launch scripts import it from here.
 | `objaverse_assets.py` / `convert_to_usd.py` / `render_usd.py` | The Objaverse → USD asset pipeline that backs it: search, download, Blender conversion, preview. |
 | `inspect_usd_asset.py` | Print a USD's prims, bbox and up-axis. |
 | `config/presets/*.yaml` | **High-level specs.** Hand-written, one per scenario. Name a locale, a disaster type and a severity. |
-| `config/asset_sets/shared.yaml` | **Shared assets.** Everything every locale builds with — street furniture, greenery, tiles, vehicles, people — plus `asset_root`, `asset_scale`, `sky`, `orientation`, `fallback_sizes`. No `buildings` or `debris`: those read as a specific material (concrete rubble, timber wreckage) and belong entirely to the set whose damage they are. Not named directly by a config. |
-| `config/asset_sets/<locale>.yaml` | **Specialized sets.** `extends: shared`, then only what makes that locale itself: its buildings and the debris they leave. |
-| `config/low_level/default.yaml` | **The schema tier.** Hand-written, grouped by stage (`layout:` / `detail:` / `disaster:`): what every knob means and a safe default for it, with the full comments and citations. Names an asset set rather than listing assets. |
-| `config/low_level/locales/<name>.yaml` | Bulky locale-owned tables that cannot live in `default.yaml` because `deep_merge` cannot narrow them — currently downtown's 18 street-furniture categories. Loaded by that locale's compiler. |
-| `config/low_level/compiled/*.yaml` | **Generated.** `default.yaml` + the disaster's settings, carrying `asset_set:` by reference (so it stays short and the set stays single-source). Don't edit — recompile. |
+| `config/asset_packs/shared.yaml` | **Shared assets.** Everything every locale builds with — street furniture, greenery, tiles, vehicles, people — plus `asset_root`, `asset_scale`, `sky`, `orientation`, `fallback_sizes`. No `buildings` or `debris`: those read as a specific material (concrete rubble, timber wreckage) and belong entirely to the set whose damage they are. Not named directly by a config. |
+| `config/asset_packs/<locale>.yaml` | **Specialized packs.** `extends: shared`, then only what makes that locale itself: its buildings and the debris they leave. |
+| `config/low_level/default.yaml` | **The schema tier.** Hand-written, grouped by stage (`layout:` / `detail:` / `disaster:`): what every knob means and a safe default for it, with the full comments and citations. Names an asset pack rather than listing assets. |
+| `config/low_level/locales/<name>.yaml` | Bulky locale-owned tables that cannot live in `default.yaml` because `deep_merge` cannot narrow them — currently urban's 18 street-furniture categories. Loaded by that locale's compiler. |
+| `config/low_level/compiled/*.yaml` | **Generated.** `default.yaml` + the disaster's settings, carrying `asset_pack:` by reference (so it stays short and the set stays single-source). Don't edit — recompile. |
 | `assets/objaverse/<uid>/` | Cache of converted Objaverse USDs, keyed by dataset uid (git-ignored, rebuilt by `prepare_assets.py`) + the committed `manifest.yaml`. |
 | `notebooks/` | Asset exploration (see *Finding assets worth importing*). |
 
@@ -146,17 +214,17 @@ What stays in `simulation/isaac-sim/`: `utils/scene_prep.py` (Isaac Sim stage
 tooling — colliders, sky, settling — shared with the plain Pegasus launch
 scripts) and the launch scripts themselves, which are the sim's entry points.
 
-### Asset sets
+### Asset packs
 
-A set is resolved at load time by `scene_generator.resolve_asset_set()`, which
+A set is resolved at load time by `scene_generator.resolve_asset_pack()`, which
 merges it *under* the config — so a config can override anything a set defines,
 but normally just names one:
 
 ```yaml
-asset_set: urban          # low-level config
+asset_pack: urban          # low-level config
 ```
 ```yaml
-asset-set: urban          # high-level spec (compiles into the above)
+asset-pack: urban          # high-level spec (compiles into the above)
 ```
 
 `tags` on an asset entry select **behavior**, not locale — the generator pools
@@ -167,11 +235,11 @@ lives in, not by a tag.
 
 #### Shared base + specializations
 
-A bench is a bench whether the scene is a downtown or a suburb, so the props
+A bench is a bench whether the scene is an urban scene or a suburb, so the props
 every locale shares live once in `shared.yaml` and each locale set extends it:
 
 ```yaml
-extends: shared          # asset set inherits the shared library
+extends: shared          # asset pack inherits the shared library
 
 usds:
   buildings:             # every set defines its own — never shared
@@ -194,14 +262,14 @@ not between `shared` and a locale for `buildings`/`debris`. `extends` chains
 (base-first) and detects cycles; the resolved lineage is printed at load:
 
 ```
-[scene_gen] asset set: suburban (suburban.yaml <- shared.yaml)
+[scene_gen] asset pack: suburban (suburban.yaml <- shared.yaml)
 ```
 
-To add a locale: create `config/asset_sets/<name>.yaml` with `extends: shared`,
+To add a locale: create `config/asset_packs/<name>.yaml` with `extends: shared`,
 define its `buildings`, append its `debris`, and point a spec at it with
-`asset-set: <name>` (or let `locale:` pick it — see `compile_locale.py`).
+`asset-pack: <name>` (or let `locale:` pick it — see `compile_locale.py`).
 `suburban.yaml` is exactly this: detached timber-frame houses in place of
-downtown blocks, with lumber and scraped earth appended to the debris instead
+urban blocks, with lumber and scraped earth appended to the debris instead
 of the cinder block a mid-rise leaves behind.
 
 ### Where assets can live
@@ -222,14 +290,14 @@ passes through untouched, as do absolute paths. They're defined in
 
 ## Objaverse assets
 
-Nucleus is finite, and building out a new asset set is bottlenecked on finding
+Nucleus is finite, and building out a new asset pack is bottlenecked on finding
 art. [Objaverse 1.0](https://objaverse.allenai.org/) adds ~799k Sketchfab
 objects, but ships **glb**, not USD. `objaverse_assets.py` closes the gap, and
 `convert_to_usd.py` does the conversion through headless Blender so materials
 and textures survive.
 
 **An Objaverse asset is identified by its dataset uid — nothing else.** An
-asset set names one directly:
+asset pack names one directly:
 
 ```yaml
 - usd: "objaverse://6644de89c2f0449db3de934744162b63"   # Bungalow The Chase
@@ -252,7 +320,7 @@ airstack up isaac-sim
 ```
 
 ```
-[prepare_assets] suburban -> config/presets/suburban.yaml, config/asset_sets/suburban.yaml
+[prepare_assets] suburban -> config/presets/suburban.yaml, config/asset_packs/suburban.yaml
 [prepare_assets] 5 of 5 assets need fetching (downloading + converting to USD; …)
 [objaverse] 6644de89…: not cached — downloading and converting…
 [objaverse] 6644de89…: 12.0 x 10.575 x 6.404 m  26,943 faces  Bungalow The Chase
@@ -262,9 +330,9 @@ airstack up isaac-sim
 
 | Invocation | Scope |
 |---|---|
-| `prepare_assets.py` | every asset set; caches whatever is missing |
+| `prepare_assets.py` | every asset pack; caches whatever is missing |
 | `prepare_assets.py <config>` | just that scene — a preset, a compiled config, a bare name, or a path |
-| `prepare_assets.py --asset-set urban` | one asset set directly |
+| `prepare_assets.py --asset-pack urban` | one asset pack directly |
 | `--list` | show cached / stale / missing and exit; downloads nothing |
 | `--force` | re-convert even if cached (after changing `target-size-m`) |
 
@@ -295,7 +363,7 @@ python3 objaverse_assets.py list --yaml                   # cached + paste-ready
 
 `manifest.yaml` is committed and records uid, title, author, license, baked
 scale and measured size — provenance and attribution, not the source of truth.
-The asset sets are; `prepare_assets.py` rebuilds the cache from them.
+The asset packs are; `prepare_assets.py` rebuilds the cache from them.
 
 ### Sizing
 
@@ -389,11 +457,11 @@ low-level config** for runs you want pinned to an exact on-disk record.
 ## High-level spec
 
 ```yaml
-locale: downtown          # downtown | suburban | rural — how the place is laid out
+locale: urban          # urban | suburban | rural — how the place is laid out
 disaster-type: tornado    # none | earthquake | tornado | hurricane | fire | explosion | flood
 severity: 0.7             # 0..1 — 0 is pristine, 1 is as bad as that disaster gets
 
-asset-set: urban          # optional — the locale already implies one
+asset-pack: urban          # optional — the locale already implies one
 seed: 42                  # optional — city layout + disaster RNG
 region_m: [400, 400]      # optional — city extent
 
@@ -410,23 +478,23 @@ Severity 0 compiles to a pristine city whatever the type says, and the locale
 still applies (that is what `suburban.yaml` is).
 
 
-# Locales: downtown vs suburb
+# Locales: urban vs suburb
 
-**An asset set is not a locale.** Swapping `asset-set: urban` for
-`asset-set: suburban` changes *what* gets placed but keeps every generator
-setting — so the result is a downtown built out of houses: blocks paved
+**An asset pack is not a locale.** Swapping `asset-pack: urban` for
+`asset-pack: suburban` changes *what* gets placed but keeps every generator
+setting — so the result is an urban scene built out of houses: blocks paved
 wall-to-wall, houses shoulder-to-shoulder at the sidewalk, a streetlight every
 18 m, traffic lights at 90% of intersections, and grass only inside the two or
 three designated parks. Real suburbs differ in *layout*, not just in art.
 
-The short version: **downtown's default ground surface is pavement and its
+The short version: **urban's default ground surface is pavement and its
 default state is full; a suburb's default ground surface is grass and its
 default state is mostly empty.** Almost every difference below follows from
 that one sentence.
 
 ## Characteristics
 
-| | Downtown | Suburb |
+| | Urban | Suburb |
 |---|---|---|
 | **Ground inside a block** | Paved wall-to-wall; greenery only in designated parks and planters | Grass by default; every house sits on a lawn, so most of the block is green |
 | **Blocks** | Small and frequent — 30–70 m, dense intersection grid | Large and long — 60–150 m, few intersections, cul-de-sacs and loops |
@@ -437,7 +505,7 @@ that one sentence.
 | **Trees** | Only where potted — street trees live in planters | Trees stand **directly in grass**: front lawns, back yards, and the verge. No planters. Dominant visual element |
 | **Other vegetation** | Plant boxes on the sidewalk | Shrubs against house foundations, hedges on lot lines, garden beds |
 | **Street furniture** | Dense: lights ~18 m, benches, trash cans ~25 m, bus shelters, planters | Sparse to absent: lights 40–60 m, **no** benches / public bins / planters / bus stops on residential streets; hydrants remain |
-| **Traffic control** | Signals at ~90% of intersections | Signals essentially never (stop signs instead) — a signal reads as downtown |
+| **Traffic control** | Signals at ~90% of intersections | Signals essentially never (stop signs instead) — a signal reads as urban |
 | **Vehicles** | Dense on-street parking both sides, plus moving traffic | Sparse on-street; cars belong in **driveways beside houses** |
 | **People** | Continuous sidewalk pedestrians | Very few; occasional figure on a lawn or driveway |
 | **Parks** | Rare, small, and the only green — high contrast with surroundings | Larger and more common, but low contrast: they read as a *break in the houses*, not a break in the concrete |
@@ -451,11 +519,11 @@ function per locale, registered in `LOCALES`. It is applied *under* the
 disaster settings and under `overrides:`, so the axes compose freely: any
 locale × any disaster × any severity.
 
-A locale also supplies a **default asset set** (`downtown` → `urban`,
+A locale also supplies a **default asset pack** (`urban` → `urban`,
 `suburban`/`rural` → `suburban`), so naming a locale is usually enough;
-`asset-set:` still overrides it when you want to mix.
+`asset-pack:` still overrides it when you want to mix.
 
-| Setting | downtown | suburban | rural |
+| Setting | urban | suburban | rural |
 |---|---|---|---|
 | `layout.min/max_block_m` | 30 / 70 | 60 / 150 | 150 / 320 |
 | `packing.building_gap_m` | 2.5 | 9 | 30 |
@@ -484,7 +552,7 @@ Numbers alone couldn't do it; these are behaviours the generator gained:
 1. **`packing.pave_blocks`** — a packed block used to get concrete
    wall-to-wall unconditionally. With it false the block stays lawn and only
    buildings and driveways are hard surface. *The single biggest change:*
-   downtown lays 4305 concrete tiles, the same-size suburb lays 226 (all
+   urban lays 4305 concrete tiles, the same-size suburb lays 226 (all
    driveway).
 2. **`packing.setback_m`** — insets the packing rect from the sidewalk, so
    houses hold back behind a front yard instead of landing on the property
@@ -507,13 +575,13 @@ Pristine scene, same 400 × 400 m region and seed, offline footprints:
 
 ```
 locale     blocks houses concrete  trees plants lights signal bench  bin  cars drives  ppl
-downtown       56    240     4305    260    157    400     77   198  189   116      0  207
+urban       56    240     4305    260    157    400     77   198  189   116      0  207
 suburban       16     99      226    856   1214     98      1    24   10    62     70   54
 rural           4      9       63   1759    742      0      0     0    0     6      7   31
 ```
 
 Concrete collapses by 95%, trees triple, and the street kit thins out — the
-suburb is now green, sparse and set back rather than a downtown of small
+suburb is now green, sparse and set back rather than an urban scene of small
 buildings.
 
 
@@ -570,7 +638,7 @@ thing that's invisible in a dry `preset_report.py` run but immediately obvious
 the moment you fly over the loaded scene.
 
 That ceiling is necessary but not sufficient. Two more places have to honor it
-for oversized buildings specifically — a downtown's skyscraper-sized intact
+for oversized buildings specifically — an urban scene's skyscraper-sized intact
 models are much bigger than any damaged/destroyed model in the library (91 m
 vs. ~52 m footprint, measured), and both of the following silently defeat a
 `destroyed_fraction: 1.0` if left unguarded:
@@ -751,7 +819,7 @@ it would replace, so a building that merely cracks is left alone.
 
 Mesh damage is a **budget**, not something every marked building gets:
 thickening doubles a mesh's point count and each fragment is a prim PhysX has
-to rest, so doing it to all 167 buildings a severity-0.6 downtown marks would
+to rest, so doing it to all 167 buildings a severity-0.6 urban marks would
 author thousands onto a scene that has OOM-killed before. The budget goes to
 the worst-hit buildings — the ones at the epicentre or on the track — and the
 rest keep the tilt-and-sink the disaster stage already gave them. Buildings the
@@ -783,7 +851,7 @@ open edges, before anything breaks it. It runs after the profile (which is what
 punches the holes, so their edges get rimmed) and before the fracture (which
 then cuts a solid).
 
-**Every mesh is thickened unless the asset set says otherwise.** The pipeline
+**Every mesh is thickened unless the asset pack says otherwise.** The pipeline
 does not try to work out whether a model is already solid — two attempts at
 that are in the history and both were wrong in practice. The first compared the
 *enclosed volume* against a slab of the surface, which for a CLOSED building is
@@ -795,7 +863,7 @@ the volume of the air in its rooms:
 | `BG_Building_A` | 143,792 m³ | "solid" | **3.11 m** |
 | objaverse house | 62 m³ | shell | 0.014 m |
 
-so every Nucleus building in a downtown was left as a paper balloon. The second
+so every Nucleus building in an urban scene was left as a paper balloon. The second
 was a ray probe, which is right, but is still a guess about art remade on every
 run. The author of an asset already knows the answer, so it is **declared**:
 
@@ -818,7 +886,7 @@ operator exists to remove. Buildings skipped this way are reported as
 `already_solid` in the `[mesh_damage]` tally, so a run says how many.
 
 Same budget shape as `fracture`, spent on the same worst-hit buildings, because
-doubling the point count of every damaged building in a downtown is not
+doubling the point count of every damaged building in an urban scene is not
 affordable.
 
 ```yaml

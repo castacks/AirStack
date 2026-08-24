@@ -1,9 +1,9 @@
 # Objaverse assets cached locally, written by scene_gen/objaverse_assets.py.
-# Keyed by Objaverse uid — the same id the asset sets reference as objaverse://<uid>.
+# Keyed by Objaverse uid — the same id the asset packs reference as objaverse://<uid>.
 #
 # A record for provenance and attribution, NOT the source of truth: the asset
 # sets are. The USDs are git-ignored; `prepare_assets.py` rebuilds them
-# from whatever the asset sets reference.
+# from whatever the asset packs reference.
 #
 # `baked_scale` is already applied to the USD — do not re-apply it in a config.
 # `size_m` is the asset's real-world bounding box as cached.
@@ -147,16 +147,16 @@ assets:
     usd: 19331875f8d84137a94003f0660e2a50/19331875f8d84137a94003f0660e2a50.usdc
   1ac9bf684da3476d918fd086d554bd5c:
     author: Jeff Smith
-    baked_scale: 6.207861
+    baked_scale: 0.456023
     faces: 500
-    fit: footprint
+    fit: height
     license: by
     size_m:
-    - 7.541
-    - 8.0
-    - 29.949
+    - 0.554
+    - 0.588
+    - 2.2
     source: https://sketchfab.com/3d-models/1ac9bf684da3476d918fd086d554bd5c
-    target_size_m: 8.0
+    target_size_m: 2.2
     texture_res: 1024
     textures: 3
     title: Phone Booth
@@ -419,16 +419,16 @@ assets:
     usd: 555fbab686004738b974373f6ad71d82/555fbab686004738b974373f6ad71d82.usdc
   599a74c1c8fd4f19bf6754b8128da6b8:
     author: cleskowyak2
-    baked_scale: 1.529862
+    baked_scale: 0.141474
     faces: 132
-    fit: footprint
+    fit: height
     license: by
     size_m:
-    - 8.0
-    - 6.391
-    - 25.953
+    - 0.74
+    - 0.591
+    - 2.4
     source: https://sketchfab.com/3d-models/599a74c1c8fd4f19bf6754b8128da6b8
-    target_size_m: 8.0
+    target_size_m: 2.4
     texture_res: 2048
     textures: 4
     title: Street Sign Final
@@ -606,16 +606,16 @@ assets:
     usd: 8c8fd4fa06eb4b1c8db5bd3584892f3c/8c8fd4fa06eb4b1c8db5bd3584892f3c.usdc
   8cdac192abd044988c314eeb6377a3a0:
     author: PT34
-    baked_scale: 0.4
+    baked_scale: 0.025438
     faces: 1664
-    fit: footprint
+    fit: height
     license: by
     size_m:
-    - 8.0
-    - 8.0
-    - 11.793
+    - 0.509
+    - 0.509
+    - 0.75
     source: https://sketchfab.com/3d-models/8cdac192abd044988c314eeb6377a3a0
-    target_size_m: 8.0
+    target_size_m: 0.75
     texture_res: 2048
     textures: 3
     title: Traffic cone (Game ready)
@@ -725,16 +725,16 @@ assets:
     usd: a3963ab8133b45cab4e60da94d255ac3/a3963ab8133b45cab4e60da94d255ac3.usdc
   a657396d68fa43f0ac7da12a6403d59f:
     author: Sirenko
-    baked_scale: 3.999999
+    baked_scale: 0.31
     faces: 1456
     fit: footprint
     license: by
     size_m:
-    - 8.0
-    - 8.0
-    - 0.598
+    - 0.62
+    - 0.62
+    - 0.046
     source: https://sketchfab.com/3d-models/a657396d68fa43f0ac7da12a6403d59f
-    target_size_m: 8.0
+    target_size_m: 0.62
     texture_res: 2048
     textures: 6
     title: Manhole
@@ -1065,16 +1065,16 @@ assets:
     usd: f7d34687536a45108fac3bf1a1055ee2/f7d34687536a45108fac3bf1a1055ee2.usdc
   f80a2a0af6924562be10be7354b7a72f:
     author: jmarcos28
-    baked_scale: 4.007309
+    baked_scale: 0.901645
     faces: 3288
     fit: footprint
     license: by
     size_m:
-    - 8.0
-    - 4.328
-    - 5.611
+    - 1.8
+    - 0.974
+    - 1.263
     source: https://sketchfab.com/3d-models/f80a2a0af6924562be10be7354b7a72f
-    target_size_m: 8.0
+    target_size_m: 1.8
     texture_res: 2048
     textures: 3
     title: Dumpster

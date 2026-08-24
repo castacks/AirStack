@@ -3,7 +3,7 @@
 # WHY THIS EXISTS
 # ---------------
 # Until this file, suburban and rural kept the *built-in* frontage passes in
-# `build_city` while downtown used `detail/city_detail.py`. Two implementations
+# `build_city` while urban used `detail/city_detail.py`. Two implementations
 # of the same concern, each owning different locales — which meant the built-in
 # passes could not be deleted, and a fix to one never reached the other.
 #
@@ -22,9 +22,9 @@
 # never placed — that is how `city_detail` expresses "this does not belong
 # here", and it is cleaner than carrying a dozen `spacing_m: 0.0` entries.
 #
-# Two things a suburb has that a downtown does not:
+# Two things a suburb has that an urban scene does not:
 #   * mailboxes at the kerb, one per house frontage;
-#   * overhead utility poles — a downtown buries its services.
+#   * overhead utility poles — an urban scene buries its services.
 #
 # And one it does not: street trees. Suburban trees stand in lawns and yards,
 # scattered by the `trees.lawn_density_per_100m2` pass, not potted in planters
@@ -36,10 +36,10 @@
 
 detail:
   city_detail:
-    # The suburban sidewalk section. A downtown pavement runs kerb to building;
+    # The suburban sidewalk section. An urban scene pavement runs kerb to building;
     # a post-war suburb puts a grass verge between kerb and walk, and the walk
     # itself is narrow — often absent entirely. The verge is what the furnishing
-    # zone becomes here, which is why it is wider than downtown's 1.35 m.
+    # zone becomes here, which is why it is wider than urban's 1.35 m.
     zones:
       curb_m: 0.15
       furnishing_m: 1.5     # the grass verge — where the poles and boxes stand
@@ -59,13 +59,13 @@ detail:
       fire_hydrants:
         {zone: furnishing, spacing_m: 90.0}
 
-      # NO ART YET. The `suburban` asset set has no utility_poles, mailboxes
+      # NO ART YET. The `suburban` asset pack has no utility_poles, mailboxes
       # or sign pools, so these three are skipped at generation time (a
       # category with no pool places nothing, silently and by design). They
-      # are listed so that adding the art is a pure asset-set change.
+      # are listed so that adding the art is a pure asset-pack change.
       #
       # Overhead distribution. The visual signature of a post-war suburb, and
-      # absent downtown where services are buried.
+      # absent urban where services are buried.
       utility_poles:
         {zone: furnishing, spacing_m: 45.0}
 
@@ -78,6 +78,6 @@ detail:
         {zone: furnishing, spacing_m: 0.0, near_corner_m: 4.0}
 
       # Stop signs rather than signals: a suburb's junctions are unsignalised
-      # (traffic_lights.intersection_chance is 0.05 here against downtown's 0.9).
+      # (traffic_lights.intersection_chance is 0.05 here against urban's 0.9).
       signs_stop:
         {zone: furnishing, spacing_m: 0.0, near_corner_m: 6.0}

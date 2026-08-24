@@ -2,13 +2,13 @@
 """Objaverse -> USD asset pipeline for the scene generator.
 
 The scene generator references USDs. Most of the library lives on Nucleus
-(``omniverse://…``), which is fine but finite — building out a new asset set
+(``omniverse://…``), which is fine but finite — building out a new asset pack
 (suburban, rural, …) is bottlenecked on finding art. Objaverse 1.0 has ~800k
 Sketchfab objects with rich metadata, but ships **glb**, not USD, so it can't
 be referenced directly.
 
 This module closes that gap. **Assets are identified by their Objaverse uid**,
-and an asset set references one directly::
+and an asset pack references one directly::
 
     - usd: "objaverse://6644de89c2f0449db3de934744162b63"
       target-size-m: 12
@@ -20,7 +20,7 @@ referencing the same object share one copy, and the config stays meaningful
 even with an empty cache.
 
 The cache is **derived state, not a checked-in asset**. ``prepare_assets.py``
-walks the asset sets and downloads + converts whatever is missing — run it on
+walks the asset packs and downloads + converts whatever is missing — run it on
 the host before ``airstack up``, which then just reads the cache through the
 repo bind-mount. (It has to be the host: the sim container has no ``uv``,
 ``objaverse`` or Blender.)
@@ -52,7 +52,7 @@ Usage (CLI)
     # cache one object by uid, sized to a 12 m plan dimension
     python3 scene_gen/objaverse_assets.py ensure <uid> --target-size 12
 
-    # what's cached, and paste-ready asset-set entries
+    # what's cached, and paste-ready asset-pack entries
     python3 scene_gen/objaverse_assets.py list --yaml
 
 Usage (library)
@@ -65,7 +65,7 @@ Usage (library)
 The converted USDs and downloaded glbs are **git-ignored** (textures run to
 tens of MB). ``manifest.yaml`` is committed for provenance and attribution —
 uid, title, author, license, baked scale and measured size — but it is a
-record, not the source of truth: the asset sets are, and ``prepare_assets.py``
+record, not the source of truth: the asset packs are, and ``prepare_assets.py``
 rebuilds the cache from them.
 """
 
@@ -83,7 +83,7 @@ import sys
 _SCENE_GEN_DIR = os.path.dirname(os.path.abspath(__file__))
 
 ASSET_DIR = os.path.join(_SCENE_GEN_DIR, "assets", "objaverse")
-ASSET_SETS_DIR = os.path.join(_SCENE_GEN_DIR, "config", "asset_sets")
+ASSET_PACKS_DIR = os.path.join(_SCENE_GEN_DIR, "config", "asset_packs")
 MANIFEST = os.path.join(ASSET_DIR, "manifest.yaml")
 CATALOG_CACHE = os.path.join(ASSET_DIR, ".catalog.parquet")
 CONVERTER = os.path.join(_SCENE_GEN_DIR, "convert_to_usd.py")
@@ -287,7 +287,7 @@ def scale_for(extents, target_size_m: float, fit: str = "footprint") -> float:
 def cache_path(uid: str, fmt: str = "usdc") -> str:
     """Where the converted USD for *uid* lives: ``<uid>/<uid>.usdc``.
 
-    Keyed by the Objaverse uid and nothing else, so an asset set can name
+    Keyed by the Objaverse uid and nothing else, so an asset pack can name
     ``objaverse://<uid>`` and the cache is a pure function of that — no local
     slug to keep in sync, and two sets referencing the same object share one
     copy.
@@ -306,7 +306,7 @@ def convert(src: str, uid: str, *, target_size_m: float = 0.0,
     inferable from the source mesh.
 
     With *target_size_m* the metric scale is **baked into the USD**, so the
-    cached asset is already in meters and an asset set never carries a scale
+    cached asset is already in meters and an asset pack never carries a scale
     factor that could drift from the geometry.
 
     Runs :mod:`convert_to_usd` under ``uv run --script``: it needs headless
@@ -363,14 +363,14 @@ def save_manifest(data: dict) -> None:
     with open(MANIFEST, "w") as f:
         f.write("# Objaverse assets cached locally, written by "
                 "scene_gen/objaverse_assets.py.\n"
-                "# Keyed by Objaverse uid — the same id the asset sets "
+                "# Keyed by Objaverse uid — the same id the asset packs "
                 "reference as objaverse://<uid>.\n"
                 "#\n"
                 "# A record for provenance and attribution, NOT the source of "
                 "truth: the asset\n"
                 "# sets are. The USDs are git-ignored; "
                 "`prepare_assets.py` rebuilds them\n"
-                "# from whatever the asset sets reference.\n"
+                "# from whatever the asset packs reference.\n"
                 "#\n"
                 "# `baked_scale` is already applied to the USD — do not "
                 "re-apply it in a config.\n"
@@ -413,7 +413,7 @@ def ensure(uid: str, *, target_size_m: float = 0.0, fit: str = "footprint",
         "usd": os.path.relpath(usd, ASSET_DIR),
         "target_size_m": float(target_size_m) or None,
         "fit": fit if target_size_m else None,
-        # Baked into the USD, recorded for provenance only — an asset set does
+        # Baked into the USD, recorded for provenance only — an asset pack does
         # not (and must not) re-apply it.
         "baked_scale": round(scale, 6),
         "size_m": [round(e, 3) for e in extents],
@@ -463,8 +463,8 @@ def _catalog_if_cached():
 OBJAVERSE_RE = re.compile(r"objaverse://([0-9a-fA-F]{32})")
 
 
-def scan_asset_sets(paths=None) -> dict:
-    """Collect every ``objaverse://<uid>`` referenced by the asset sets.
+def scan_asset_packs(paths=None) -> dict:
+    """Collect every ``objaverse://<uid>`` referenced by the asset packs.
 
     Returns ``{uid: target_size_m}``. Reads the YAML as a plain nested
     structure rather than resolving it through the generator, so this stays
@@ -473,8 +473,8 @@ def scan_asset_sets(paths=None) -> dict:
     import yaml
 
     if paths is None:
-        paths = sorted(glob.glob(os.path.join(ASSET_SETS_DIR, "*.yaml"))
-                       + glob.glob(os.path.join(ASSET_SETS_DIR, "*.yml")))
+        paths = sorted(glob.glob(os.path.join(ASSET_PACKS_DIR, "*.yaml"))
+                       + glob.glob(os.path.join(ASSET_PACKS_DIR, "*.yml")))
 
     wanted: dict = {}
 
@@ -526,16 +526,16 @@ def is_cached(uid: str, target_size_m: float = 0.0,
 
 
 def pending(paths=None) -> list:
-    """Uids the asset sets reference that need downloading or re-converting.
+    """Uids the asset packs reference that need downloading or re-converting.
 
     What ``prepare_assets.py`` iterates over, and what ``--list`` reports.
     """
-    return [uid for uid, spec in sorted(scan_asset_sets(paths).items())
+    return [uid for uid, spec in sorted(scan_asset_packs(paths).items())
             if not is_cached(uid, spec["target_size_m"], spec["fit"])]
 
 
-def asset_set_entries(uids=None) -> str:
-    """Render cached assets as YAML ready to paste into an asset set."""
+def asset_pack_entries(uids=None) -> str:
+    """Render cached assets as YAML ready to paste into an asset pack."""
     data = load_manifest()
     out = []
     for uid, e in sorted(data["assets"].items(),
@@ -591,8 +591,8 @@ def _cmd_list(args):
         print(f"{uid:34s} {size:22s} {e['faces']:9,d}  "
               f"{e.get('license', '?'):<9s} {e.get('title', '')[:32]}{present}")
     if args.yaml:
-        print("\n--- asset-set entries ---")
-        print(asset_set_entries())
+        print("\n--- asset-pack entries ---")
+        print(asset_pack_entries())
 
 
 def main() -> int:
@@ -625,7 +625,7 @@ def main() -> int:
     e.set_defaults(func=_cmd_ensure)
 
     l = sub.add_parser("list", help="show cached assets")
-    l.add_argument("--yaml", action="store_true", help="also print asset-set entries")
+    l.add_argument("--yaml", action="store_true", help="also print asset-pack entries")
     l.set_defaults(func=_cmd_list)
 
     args = ap.parse_args()

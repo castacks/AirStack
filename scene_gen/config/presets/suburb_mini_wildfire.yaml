@@ -23,14 +23,14 @@
 
 locale: suburban
 
-disaster-type: wildfire
+disaster-type: fire
 severity: 0.65
 
 # Bottom-left corner of the block. The front runs up the diagonal from here.
 epicenter: [-125, -125]
 heading_deg: 45
 
-asset-set: suburban_park
+asset-pack: suburban_park
 region_m: [250, 250]
 seed: 3
 
@@ -67,7 +67,7 @@ overrides:
     region_m: [250, 250]
 
   # Empty pools rather than a flag: a bare key REPLACES the inherited pool
-  # (see the asset-set header), so this is how vegetation is removed without
+  # (see the asset-pack header), so this is how vegetation is removed without
   # touching the shared sets every other scene uses.
   usds:
     # BURNT GROUND AND NEW ROAD SURFACES. These are the only keys
@@ -117,7 +117,7 @@ overrides:
     # pool" — so the whole model assumes every species in the pool has roughly
     # that crown. Black_Oak's is 25.4 m across. Its trunk cleared the house by
     # the required 3 m and its canopy sat squarely on the roof. It is a park
-    # specimen and the asset set says so; a 250 m residential block is exactly
+    # specimen and the asset pack says so; a 250 m residential block is exactly
     # where it does not belong.
     # OPEN GROUND TAKES THE WHOLE LIBRARY. Nothing here has to clear a
     # building: `build_open_planting` refuses anything within `clear_m` of a
@@ -220,8 +220,23 @@ overrides:
     # 6-18 m of side yard and still keeps the tight density class at a real
     # post-war 20 m frontage.
     lot_width_m: [30.0, 44.0]
-    # SIDE YARD between neighbours. 4 m put a 20 m house 2 m off the next one;
-    # 6 m is a real gap without thinning the street much (702 houses vs 865).
+    # SIDE YARD between neighbours, and the ONE key that sets it.
+    #
+    # It was authored twice in this file, in the lot-geometry block and again
+    # beside the fit check, with the same 6.0 both times. PyYAML keeps only the
+    # last of a duplicated key, so the first copy and its reasoning were dead
+    # text — and `check_duplicate_yaml_keys` treats that as fatal, which is why
+    # `airstack up` died on ANY scene, not just a suburban one: the check scans
+    # every preset before building anything.
+    #
+    # 4 m put a 20 m house 2 m off the next one; 6 m is a real gap without
+    # thinning the street much (702 houses vs 865). Overlap falls to ~1% at
+    # 3.0 m and 0% inside 3 m at NO measured cost in house count (8.0 starts
+    # costing up to 6%).
+    #
+    # It is also the side yard the FIT CHECK uses -- `house_sizes` admits an
+    # entry only if it clears half of this -- so raising it narrows the
+    # reachable catalogue, and the widest entries go first.
     house_gap_m: 6.0
     # DISTRICTS. Density was one independent draw per BLOCK, so a tight block
     # could sit between two estate blocks on the same street — noise, not
@@ -250,16 +265,6 @@ overrides:
     # nothing.
     house_w_m: [9.0, 13.0]
     house_d_m: [8.0, 11.0]
-    # SIDE YARD, and the number that governs "the houses are too close". The
-    # overlap test pads by HALF this, so 4.0 bought a 2.01 m minimum
-    # wall-to-wall gap with 2.3-2.8% of houses inside 3 m; 6.0 takes it to
-    # 3.0 m and 0% inside 3 m at NO measured cost in house count (8.0 starts
-    # costing up to 6%).
-    #
-    # It is also the side yard the FIT CHECK uses -- `house_sizes` admits an
-    # entry only if it clears half of this -- so raising it narrows the
-    # reachable catalogue, and the widest entries go first.
-    house_gap_m: 6.0
     min_lot_depth_m: 21.0
     driveway_w_m: 3.2
     # Which way a house faces, relative to the frontage tangent. -90 puts the
@@ -288,7 +293,7 @@ overrides:
     street_tree_spacing_m: [22.0, 40.0]
     # OPEN-GROUND AND BLOCK-INTERIOR PLANTING, back at the full plat's own
     # rates. These were cut to 0.03 / 0.02 when un-instancing made every tree
-    # cost its own points and a mis-set SCENE_CONFIG made a downtown-sized
+    # cost its own points and a mis-set SCENE_CONFIG made an urban-sized
     # region look like this one — 3,284 trees. On the real 250 m block at
     # default rates the pass plants a couple of hundred, and a burnt one is
     # CHEAPER than a green one anyway: `strip_to_trunk` deletes the crown

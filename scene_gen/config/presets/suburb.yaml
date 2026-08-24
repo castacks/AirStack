@@ -2,8 +2,8 @@
 #
 # The pristine suburb baseline.
 # the two can be compared side by side. That one is a stub: it sets
-# `locale: suburban` and inherits everything, which gives a downtown grid with
-# houses dropped into it. A suburb is not a downtown with different buildings —
+# `locale: suburban` and inherits everything, which gives an urban scene grid with
+# houses dropped into it. A suburb is not an urban scene with different buildings —
 # its street network, its lotting and its planting are all different in kind.
 #
 # Run it with the scene launch script:
@@ -13,9 +13,6 @@
 #
 # WHAT IS DIFFERENT FROM THE URBAN SCENE, and why each is its own pass:
 #
-#   suburb_layout.py   Streets. A downtown is a grid; a post-war suburb is a
-#                      hierarchy — collector, looping local street, cul-de-sac —
-#                      and the BSP cannot express a dead end at all.
 #   suburb_lots.py     Neighbourhoods and lotting. A block is subdivided into
 #                      LOTS, each with a house set back from the street, a
 #                      driveway to the kerb, and front/rear yards. Which of
@@ -28,10 +25,9 @@
 # `road_markings.py` for stop bars and centre lines.
 
 locale: suburban
-disaster-type: none
 severity: 0.0
 
-asset-set: suburban
+asset-pack: suburban
 # Bigger than the urban 800 m: a suburb is lower density, and a neighbourhood
 # with a collector, its looping locals and their cul-de-sacs needs room to read
 # as one place rather than as a fragment. Watch the point budget — the urban
@@ -39,7 +35,7 @@ asset-set: suburban
 #
 # 1600 x 1200 m = 1.92 km², six neighbourhood cells. The size is not arbitrary:
 # below about 1.2 km the arterial border ring is a large fraction of the whole
-# network and the measured street density comes out at a downtown's 14 km/km²
+# network and the measured street density comes out at an urban scene's 14 km/km²
 # instead of a suburb's. Swept host-side, this size lands at 10.9-12.5 km/km²
 # against 7.4-12.4 measured over five real suburbs. 1600 x 1600 verifies just as
 # cleanly and matches the OSM sample box exactly, but is 33% more land to fill
@@ -48,155 +44,10 @@ region_m: [1600, 1200]
 seed: 42
 
 overrides:
-  # ---- STREETS  (owner: suburb_layout.py) ------------------------------------
-  # A post-war suburb is a HIERARCHY, not a grid: arterials on the section line,
-  # collectors between them, local streets that serve lots and stop. The BSP in
-  # `scene_generator` (and the anisotropic one in `city_layout`) splits every
-  # cell edge to edge, so it cannot make a street that stops — which means it
-  # cannot make a cul-de-sac, the one form this fabric is defined by.
-  # `suburb_layout.py` therefore composes corridors top-down instead of
-  # recursively splitting, and recovers the blocks as the complement.
+  # STREETS are the built-in BSP subdivider: this preset lays out rect blocks.
+  # For a suburb with real hierarchy — curving collectors, loops and cul-de-sacs
+  # — use the `suburb_net` preset, which builds the street network as a graph.
   #
-  # THE LIMIT: everything downstream consumes axis-aligned rects, so these
-  # streets are STRAIGHT. Real suburban streets curve. The realism here is
-  # topological — hierarchy, dead ends, T-junctions, loops, varied grain — not
-  # geometric, and curvature needs edits to tracked code that this may not make.
-  suburb_layout:
-    enabled: true
-
-    # WIDTHS. The single biggest visual difference from the urban scene, and in
-    # every source the driver is the PARKING configuration, not the class:
-    #   VDOT Road Design Manual App. B(1) (Subdivision Street Design Guide),
-    #     Table B(1)-1, 25 mph, <=2000 ADT: 24 ft no parking, 24 ft parking one
-    #     side, 29 ft parking both sides, face of curb to face of curb.
-    #   Iowa SUDAS 5C-1, Table 5C-1.01: local residential lane 10.5 ft, parking
-    #     lane 8 ft, collector/arterial lane 12 ft; footnote 10 QUANTISES every
-    #     two-lane roadway to 26 / 31 / 34 / 37 ft.
-    #   ITE/CNU RP-036A "Designing Walkable Urban Thoroughfares" ch.9: 10-12 ft
-    #     lanes on arterials, 10-11 ft on collectors; parking 8 ft commercial,
-    #     7 ft residential. (RP-036A covers arterials and collectors ONLY — it
-    #     has no local-street or "queuing street" guidance, so nothing here is
-    #     attributed to it that it does not say.)
-    #   Larimer County Urban Area Street Standards Table 7-2 (Loveland): Minor
-    #     Collector 38 ft roadway; City of Napa Table 3.1: local 36 ft.
-    # The rect a corridor publishes is lanes*lane_w_m + 2*parking_m, because
-    # `apply_ground_planes` paints the whole rect; `carriage` carries the
-    # travelled way for the markings pass.
-    classes:
-      # Section-line arterial: the border ring, and the only 4-lane road here.
-      # 4 x 11.5 ft = 46 ft, inside RP-036A's 10-12 ft arterial lane band. No
-      # kerb parking — SUDAS 5C-2(O) does not allow it on arterials.
-      arterial:   {lanes: 4, lane_w_m: 3.5,  parking_m: 0.0}
-      # 2 x 11 ft + 2 x 8 ft = 38 ft, exactly Loveland's Minor Collector.
-      collector:  {lanes: 2, lane_w_m: 3.35, parking_m: 2.44,
-                   parking_policy: {none: 0.30, one_side: 0.45, both: 0.25}}
-      # 2 x 10.5 ft (SUDAS local residential) + 2 x 7 ft (RP-036A residential
-      # parking) = 35 ft, on SUDAS's 34 ft quantisation step.
-      local:      {lanes: 2, lane_w_m: 3.20, parking_m: 2.13,
-                   parking_policy: {one_side: 0.30, both: 0.70}}
-      # 20 ft EXACTLY: the width IFC Table D103.4 requires of a 151-500 ft dead
-      # end, and the 20 ft clear traveled way RP-036A says fire districts want.
-      # No kerb parking; the whole width is the fire lane.
-      cul_de_sac: {lanes: 2, lane_w_m: 3.05, parking_m: 0.0}
-
-    # Collectors divide the suburb into neighbourhood cells.
-    #
-    # FHWA's *Highway Functional Classification* Table III-1 gives SUBURBAN
-    # arterial spacing as 1-2 miles — the section-line grid — and that is what
-    # `region_m` expresses, since the border ring IS the arterial network.
-    # FHWA gives NO numeric collector spacing (only a 3/4-mile trip-length split
-    # between major and minor collectors), so this range is measured off OSM:
-    # 380-620 m between tertiary/secondary streets in the five sampled suburbs.
-    collector_spacing_m: [380, 620]
-
-    # Local street grid inside a cell. Two independent checks:
-    #   OSM: block faces run 87-176 m short side and 197-287 m long in the five
-    #     suburbs; these settings produce 89-150 short and 188-360 long once the
-    #     dead-end spurs are discounted the way OSM's face-finding discounts them.
-    #   LEED v4 ND, SLL Prerequisite "Smart Location" Option 2, requires a
-    #     through-connection at least every 600 ft (180 m) on average and at
-    #     least every 800 ft (245 m). 165-265 m brackets exactly that.
-    # No verified ordinance MAXIMUM block length was found, so none is claimed.
-    block_short_m: [72, 118]
-    block_long_m:  [165, 265]
-
-    # Two lot depths back to back, so nothing narrower can appear between two
-    # through streets. Zoning minima: Fremont CA Table 18.90.040 min lot depth
-    # 100 ft, Concord CA Table 18.30.030 min 85 ft; and the US Census median new
-    # for-sale lot of ~8,400 sq ft over a 70 ft frontage back-computes to ~114 ft
-    # (34.7 m). So one lot depth is ~26-35 m and two are 52-70 m.
-    #
-    # A cul-de-sac may back onto the next street across ONE lot depth, hence the
-    # separate smaller figure. Both clear SUDAS Table 5L-3.05's 75 ft (22.9 m)
-    # minimum intersection clearance on a local residential street.
-    min_gap_m: 62.0
-    stub_gap_m: 34.0
-    jitter: 0.35
-
-    # How each neighbourhood cell is laid out. Mixing the three is what stops
-    # the suburb reading as one repeated motif:
-    #   ladder       rails along the cell, rungs across it, most of them
-    #                stopping on a rail rather than crossing — this is where the
-    #                T-junctions come from
-    #   loop         ring street round an interior superblock, fed by stems
-    #   cul_cluster  one street through the cell and nothing else; the
-    #                cul-de-sacs do the rest
-    cell_patterns: {ladder: 0.40, loop: 0.35, cul_cluster: 0.25}
-    # Measured: 69-87% of suburban junctions are three-way, against 38% in a
-    # pre-war grid. A rung that runs through makes two four-way junctions; one
-    # that stops on a rail makes a T. Hence a low through chance.
-    rung_through_chance: 0.30
-
-    cul_de_sac:
-      # Counted directly from OSM: a degree-1 node on a residential way IS a
-      # cul-de-sac. The five suburbs give 3-16 per km² (12-35% of all nodes),
-      # against 4/km² and 6-8% for a pre-war gridded neighbourhood.
-      # Barrington-Leigh & Millard-Ball, PNAS 2015 112(27):8244, SI Table S2,
-      # agrees from a different direction: US intersections BUILT in 1993-97 are
-      # 26.6% dead ends, 2008-12 are 19.1%, with metro extremes 19-42%
-      # (Greensboro-Winston-Salem 42.4%, Harrisburg-York 19.0%).
-      per_km2: [10, 18]
-      # LENGTH. The floor is IFC D103.4: a dead end over 150 ft (45.7 m) needs a
-      # turnaround, so anything shorter would not have one. The cap is chosen so
-      # every cul-de-sac stays inside Table D103.4's 151-500 ft tier, where a
-      # 20 ft width is sufficient — 140 m is 459 ft. It also clears the tighter
-      # real caps: many Iowa cities stop at 500-600 ft, IFC recommends under
-      # 750 ft, and ITE/ULI/ASCE want under 1,000 ft or under 200 trips/day,
-      # which for single-family at 8-10 trips/day is about 20 lots.
-      # Measured dead-end stub length in the five suburbs: 37-119 m median.
-      length_m: [46, 140]
-      # TURNAROUND. A fire-apparatus dimension, not a styling choice. IFC Table
-      # D103.4 lists exactly three acceptable forms and Figure D103.1 dimensions
-      # them: a 96 ft DIAMETER cul-de-sac (so 48 ft = 14.6 m radius, to the
-      # driving surface, NOT to the ROW line), a 120 ft hammerhead (60 ft each
-      # side of the stem), and a 60 ft "Y". Iowa SUDAS 5C-2(P) adopts the same
-      # radius: "the minimum radius for cul-de-sacs is 45 feet", against IFC's
-      # 48. A ROW radius would be larger — 60-120 ft is quoted as typical — and
-      # is not what this is.
-      #
-      # 48 ft is 14.630 m; this rounds UP, because the code figure is a minimum
-      # and a bulb built at 14.60 comes out 8 mm short of 96 ft.
-      bulb_radius_m: 14.64
-      # The hammerhead form, at IFC's 120 ft: the arm reaches 60 ft (18.3 m)
-      # either side of the stem centreline, of which the stem itself is 10 ft, so
-      # the arm extends 15.25 m past the kerb.
-      hammerhead_share: 0.25
-      hammerhead_arm_m: 15.25
-
-    # PARKS — the urban park composition reused (parks.py owns what goes inside;
-    # this only reserves the land), but much bigger, as asked. A park is a loop
-    # cell whose interior is never built on, so it comes out with four street
-    # frontages and no road through it, which is what `parks.py` expects.
-    #
-    # Sized in absolute metres rather than as a multiple of the block target the
-    # way the urban scene does it: 150-250 m a side is 2.3-6.2 ha, against the
-    # urban parks' ~0.7-3 ha. That is a neighbourhood park in the NRPA sense
-    # rather than a garden square, which is the right unit for a suburb.
-    parks:
-      enabled: true
-      count: [1, 2]
-      side_m: [150, 250]
-
   # ---- NEIGHBOURHOODS, LOTS, HOUSES  (owner: suburb_lots.py) -----------------
   #
   # WHERE THESE NUMBERS COME FROM. Lot geometry is not a matter of taste — it is
@@ -266,7 +117,7 @@ overrides:
   # at the apron, which is a simplification, not a code figure.
   #
   # FENCES: US codes split front from rear almost universally, and the split is
-  # why `lot_fences` in the asset set is tagged `low` / `privacy`:
+  # why `lot_fences` in the asset pack is tagged `low` / `privacy`:
   #   front  3.5 ft [PDX 33.110.275.C], 3.5 ft [JC 17.95.020], 4 ft [TAY]
   #   rear   8 ft [PDX], 7 ft [JC], 6 ft [TAY]
   # Miami-Dade RU-1 allows 6 ft in front and is the outlier. The low pool here
@@ -537,7 +388,7 @@ overrides:
           patio_chance: 0.55
 
   # ---- street furniture: a suburb carries very little ------------------------
-  # The downtown kit is switched off at the source rather than thinned, because
+  # The urban kit is switched off at the source rather than thinned, because
   # a suburb genuinely has none of it: no parking meters, no bike racks, no
   # bus shelters on a residential street, no traffic signals.
   parking_meters: {spacing_m: 0.0}
@@ -556,7 +407,7 @@ overrides:
     # the zoned pass, so it opts back in explicitly.
     enabled: true
 
-    # THE SIDEWALK IS MOSTLY NOT THERE. A downtown pavement runs kerb to
+    # THE SIDEWALK IS MOSTLY NOT THERE. An urban scene pavement runs kerb to
     # building on both sides of every street; a post-war suburb often has grass
     # straight to the kerb, and where a walk exists it is narrow. The paved ring
     # is ONE sidewalk tile wide and `build_city` takes that width as
@@ -580,7 +431,7 @@ overrides:
       signs_stop:      {zone: furnishing, spacing_m: 0.0, near_corner_m: 6.0,
                         control: stop, sightline: true}
       signs_street_name: {zone: furnishing, spacing_m: 0.0, near_corner_m: 3.0}
-      # Sparse compared with downtown: a residential street is lit at the
+      # Sparse compared with urban: a residential street is lit at the
       # junctions and little else, and hydrants sit at the IFC 400 ft hose lay
       # rather than the tighter commercial figure.
       streetlights:    {zone: furnishing, spacing_m: 120.0}
@@ -600,7 +451,7 @@ overrides:
       bike_lanes: {enabled: false}
       turn_lane_flares: false
       no_parking_hatch: false
-      # A residential street is marked far more lightly than a downtown one:
+      # A residential street is marked far more lightly than an urban scene one:
       # no centre line on a local street, no parking bays, and crossings only
       # where a collector is involved.
       crosswalks: true

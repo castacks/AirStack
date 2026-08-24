@@ -2,11 +2,11 @@
 
 Lives at the repo root rather than under `simulation/isaac-sim/` because the
 generator itself is sim-agnostic — it only needs `pxr`, and it carries its own
-configs, asset sets and asset pipeline. The Isaac Sim launch scripts import it
+configs, asset packs and asset pipeline. The Isaac Sim launch scripts import it
 from here; see [`../simulation/isaac-sim/README.md`](../simulation/isaac-sim/README.md).
 
 Start with [GENERATION.md](GENERATION.md) for the config system (high-level
-disaster specs -> low-level configs -> asset sets) and the Objaverse asset
+disaster specs -> low-level configs -> asset packs) and the Objaverse asset
 pipeline. This file covers how the generator itself works.
 
 Builds an irregular neighborhood in Isaac Sim by referencing a library of USD
@@ -22,7 +22,7 @@ the same city.
 |------|------|
 | [`scene_generator.py`](scene_generator.py) | Core module: footprint measurement, city layout, USD composition. Also runs as an offline CLI. |
 | [`compile_disaster.py`](compile_disaster.py) | Compiles a high-level disaster spec (type + severity) into a low-level scene config. One function per disaster type. Its `load_scene_config()` is what lets the launch scripts accept either level. |
-| [`config/`](GENERATION.md) | The scene configs: hand-written high-level `presets/`, the `low_level/default.yaml` base, generated `low_level/compiled/`, and `asset_sets/`. See [GENERATION.md](GENERATION.md). |
+| [`config/`](GENERATION.md) | The scene configs: hand-written high-level `presets/`, the `low_level/default.yaml` base, generated `low_level/compiled/`, and `asset_packs/`. See [GENERATION.md](GENERATION.md). |
 | [`generated_scene_launch_script.py`](../simulation/isaac-sim/launch_scripts/generated_scene_launch_script.py) | Single-drone launcher that builds the city at runtime, then preps it and spawns the drone. |
 | [`scene_prep.py`](../simulation/isaac-sim/utils/scene_prep.py) | Existing helpers (`scale_stage_prim`, `add_colliders`, `add_dome_light`, `get_stage_meters_per_unit`) the launch script reuses. |
 
@@ -212,3 +212,37 @@ Script Editor.
 - **Terrain-following:** set `SNAP_TO_GROUND = True` in the launch script. It
   uses `_make_physx_ground_snap`, which raycasts down onto terrain colliders;
   requires colliders applied and the physics scene stepped first.
+
+## Offline, in one page
+
+Nothing below needs Isaac Sim except the Stage A bake, and that runs headless
+and exits.
+
+```bash
+# 1. cache the Objaverse assets a pack needs (once, and after any
+#    `target-size-m` edit — the size is baked at CONVERSION time, so editing a
+#    pack does nothing until this re-runs)
+UV_PYTHON=3.13 uv run --no-project --with objaverse --with pandas \
+    --with pyyaml --with trimesh python scene_gen/prepare_assets.py \
+    --asset-pack urban
+python3 scene_gen/prepare_assets.py --asset-pack urban --list   # stale vs cached
+
+# 2. price a Stage A bake before committing to it
+python3 scene_gen/archetypes/plan.py --config urban_quake_tiny --used-only
+
+# 3. bake the archetype library (headless, exits with a status code)
+set -a; . .env.host; set +a
+.venv/bin/python scene_gen/archetypes/bake_cli.py \
+    --config urban_quake_tiny --used-only
+
+# 4. generate scenes into the two-tier cache — one layout, several severities
+python3 scene_gen/bake_scene.py --config urban_quake_tiny --severity 0,0.5,0.9
+python3 scene_gen/scene_cache.py                      # what is cached
+
+# 5. fly in it
+airstack up isaac-sim                                 # reads SCENE_CONFIG in .env
+```
+
+A missing archetype library is not an error: Stage B falls back to live mesh
+damage and says so. That means **a scene can look fine and still not be using
+the library** — check the log for `archetype library: N baked`, not the scene.

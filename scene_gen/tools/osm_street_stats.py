@@ -266,7 +266,7 @@ def measure(name, center, dist, ox, do_furniture=True, do_zoning=True,
     # Centreline length of the drive network. Taken from the UNDIRECTED graph:
     # OSMnx returns a MultiDiGraph, so a two-way street is two reciprocal edges
     # and a one-way street is one. Halving the directed sum is therefore only
-    # right where nothing is one-way — measured downtown Chicago is 84% one-way
+    # right where nothing is one-way — measured urban Chicago is 84% one-way
     # by length, where halving undercuts the true centreline by nearly 2x.
     street_m = sum(float(d.get("length") or 0.0)
                    for _, _, d in Gp.to_undirected().edges(data=True))

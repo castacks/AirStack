@@ -86,9 +86,9 @@ STRUCTURE_CATEGORIES = {"house", "sidewalk", "concrete"}
 #   1. the RNG leaks are fixed, so nothing is *relaid out* by severity — good,
 #      and this test is what keeps it that way;
 #   2. almost nothing is actually displaced yet. Scatter exists only in the
-#      built-in frontage pass, which the downtown locale switches off in favour
+#      built-in frontage pass, which the urban locale switches off in favour
 #      of `city_detail` — and `city_detail` props get no disaster effects at
-#      all. So downtown street furniture is currently immune to the event.
+#      all. So urban street furniture is currently immune to the event.
 #
 # Fixing (2) will move categories into this set, and that is correct, not a
 # regression. What must never happen is a category moving because a
@@ -105,8 +105,8 @@ HOUSE_FALLBACK = [15.0, 15.0]
 # decoupling; the second seed guards against a coincidence at seed 42.
 DEFAULT_CASES = [
     # Pristine baselines, both locales and a fast one.
-    ("downtown", 42, 0.0),
-    ("downtown_small", 42, 0.0),
+    ("urban", 42, 0.0),
+    ("urban_small", 42, 0.0),
     ("suburb", 42, 0.0),
     # Every disaster type — the fields differ in shape (radial, path, uniform)
     # and each drives a different mix of effects, so a leak can hide in one.
@@ -115,7 +115,6 @@ DEFAULT_CASES = [
     ("earthquake", 42, 0.8),
     ("tornado", 42, 0.0),
     ("tornado", 42, 0.8),
-    ("explosion", 42, 0.6),
     ("fire", 42, 0.6),
     ("flood", 42, 0.6),
     ("hurricane", 42, 0.6),
@@ -134,10 +133,10 @@ def build(preset: str, seed: int, severity: float):
     """Compile *preset* at *severity*/*seed* and run the layout.
 
     Mirrors `compile_disaster.load_scene_config` exactly (compile_spec ->
-    resolve_asset_set -> validate_config) rather than calling it, because the
+    resolve_asset_pack -> validate_config) rather than calling it, because the
     severity override has to land on the spec *before* compilation and
     load_scene_config takes a path, not a dict. The preset path stays the
-    anchor so asset-set resolution behaves identically.
+    anchor so asset-pack resolution behaves identically.
     """
     import yaml
 
@@ -162,14 +161,14 @@ def build(preset: str, seed: int, severity: float):
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         cfg = cd.compile_spec(spec, base)
-        cfg = sg.resolve_asset_set(cfg, preset_path)
+        cfg = sg.resolve_asset_pack(cfg, preset_path)
         cfg = sg.validate_config(cfg, preset_path)
 
         # Offline footprints: no Nucleus, deterministic, and fast.
         cfg["measure_usds"] = False
         cfg.setdefault("fallback_sizes", {})["house"] = list(HOUSE_FALLBACK)
 
-        resolver = sg._make_resolver(cfg)
+        resolver = sg._make_resolver(cfg, cache=False)
         placements, layout = run_layout(cfg, resolver)
     return placements, layout
 
@@ -227,11 +226,11 @@ def build_for_disaster(preset: str, seed: int, severity: float):
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         cfg = cd.compile_spec(spec, base)
-        cfg = sg.resolve_asset_set(cfg, preset_path)
+        cfg = sg.resolve_asset_pack(cfg, preset_path)
         cfg = sg.validate_config(cfg, preset_path)
         cfg["measure_usds"] = False
         cfg.setdefault("fallback_sizes", {})["house"] = list(HOUSE_FALLBACK)
-        placements, layout = run_layout(cfg, sg._make_resolver(cfg))
+        placements, layout = run_layout(cfg, sg._make_resolver(cfg, cache=False))
     return cfg, layout, placements
 
 
@@ -247,7 +246,7 @@ def build_full_positions(preset: str, seed: int, severity: float) -> dict:
 
 def _resolver_for(cfg):
     import scene_generator as sg
-    return sg._make_resolver(cfg)
+    return sg._make_resolver(cfg, cache=False)
 
 
 def geometry_signature(layout: dict) -> dict:

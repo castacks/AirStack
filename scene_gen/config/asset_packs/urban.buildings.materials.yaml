@@ -1,0 +1,224 @@
+# Asset material tags — written by scene_gen/tools/tag_asset_materials.py
+#
+# A record of decisions, NOT something the generator reads. Nothing here
+# has been applied to the asset pack; do that deliberately.
+#
+# material: null means the asset was skipped — seen, no material chosen.
+# An asset missing from `assets:` was never reached.
+source: scene_gen/config/asset_packs/urban.yaml
+category: buildings
+updated: '2026-08-24T04:39:03'
+materials:
+- wood
+- concrete
+- brick
+- steel
+- glass
+counts:
+  wood: 0
+  concrete: 11
+  brick: 8
+  steel: 6
+  glass: 3
+  skipped: 0
+  undecided: 0
+assets:
+  ModernCityEnvironment/Collected_Building01/SM_MERGED_BP_MBuilding01.usd:
+    material: concrete
+    categories:
+    - buildings.intact
+    - buildings.midrise
+    tags: []
+    note: 'Early-20thC commercial block, ~10 storeys: continuous stone/terracotta
+      pilasters, punched windows, heavy cornice, storefront base. Clad frame, spalls
+      in chunks.'
+  ModernCityEnvironment/Collected_Building02/SM_MERGED_BP_MBuilding02.usd:
+    material: concrete
+    categories:
+    - buildings.intact
+    - buildings.tower
+    tags: []
+    note: Large courtyard apartment/institutional complex, precast panel facades with
+      dense small punched windows. Facade materials are one atlas per elevation, no
+      per-material evidence.
+  ModernCityEnvironment/Collected_Building05/SM_MERGED_BP_MBuilding05.usd:
+    material: glass
+    categories:
+    - buildings.intact
+    - buildings.tower
+    tags: []
+    note: 'Curtain-wall tower on a pale concrete podium. Confirmed by area: MI_MBuilding05_SkyscraperWindows
+      is 42.6% of the surface, the largest single binding by a factor of three.'
+  DownTown/Assets/BG_Building_A.usd:
+    material: concrete
+    categories:
+    - buildings.intact
+    - buildings.tower
+    tags: []
+    note: Mid-rise on light piers with recessed punched windows and a tan base band.
+      Single UnrealMaterial atlas, so this is a form call.
+  DownTown/Assets/BG_Building_B.usd:
+    material: concrete
+    categories:
+    - buildings.intact
+    - buildings.tower
+    tags: []
+    note: Office slab, grey precast panels with vertical punched windows and a light
+      spandrel band each floor. Solid wall dominates over glazing.
+  DownTown/Assets/BG_Building_C.usd:
+    material: glass
+    categories:
+    - buildings.intact
+    - buildings.tower
+    tags: []
+    note: Dark office tower, continuous ribbon glazing alternating with equally deep
+      spandrels. Borderline against concrete; glazing reads as the envelope.
+  DownTown/Assets/BG_Building_D.usd:
+    material: concrete
+    categories:
+    - buildings.intact
+    - buildings.midrise
+    tags: []
+    note: Light 6-storey block, regular punched windows over a storefront base.
+  DownTown/Assets/BG_Building_E.usd:
+    material: concrete
+    categories:
+    - buildings.intact
+    - buildings.tower
+    tags: []
+    note: Pale setback tower with strong vertical fins/mullions, Art-Deco massing.
+      Fins are cladding on a frame.
+  DownTown/Assets/BG_Building_F.usd:
+    material: glass
+    categories:
+    - buildings.intact
+    - buildings.tower
+    tags: []
+    note: Teal-tinted glazing in a dense mullion grid across the whole facade of all
+      three setbacks, over a light base.
+  airstack://scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone02.usd:
+    material: brick
+    categories:
+    - buildings.rowhouse
+    tags: []
+    note: "3-storey rowhouse, stoop and fire escape, solid party walls. Called brick\
+      \ for the BEHAVIOUR \u2014 unreinforced masonry. The asset's own bindings say\
+      \ Concrete_Block (84.1% of surface area), so an automatic rule reading the USD\
+      \ would say concrete instead."
+  airstack://scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone2Row.usd:
+    material: brick
+    categories:
+    - buildings.rowhouse
+    tags: []
+    note: Two Brownstone02 units joined; same construction.
+  airstack://scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone5Row.usd:
+    material: brick
+    categories:
+    - buildings.rowhouse
+    tags: []
+    note: Five Brownstone02 units joined; same construction.
+  airstack://scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone6Row.usd:
+    material: brick
+    categories:
+    - buildings.rowhouse
+    tags: []
+    note: Six Brownstone02 units joined; same construction.
+  airstack://scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone8Row.usd:
+    material: brick
+    categories:
+    - buildings.rowhouse
+    tags: []
+    note: Eight Brownstone02 units joined; same construction.
+  airstack://scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone10Row.usd:
+    material: brick
+    categories:
+    - buildings.rowhouse
+    tags: []
+    note: Ten Brownstone02 units joined; same construction.
+  airstack://scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone11Row.usd:
+    material: brick
+    categories:
+    - buildings.rowhouse
+    tags: []
+    note: Eleven Brownstone02 units joined; same construction.
+  airstack://scene_gen/assets/aec/brownstone/Assets/Create_Brownstone02/Reference_Brownstone12Row.usd:
+    material: brick
+    categories:
+    - buildings.rowhouse
+    tags: []
+    note: Twelve Brownstone02 units joined; same construction.
+  FactoryDistrict/Meshes/Building_TypeD_A.usd:
+    material: concrete
+    categories:
+    - buildings.midrise
+    tags: []
+    note: Single-storey block building, concrete-block walls in two tones with steel
+      columns and a corrugated roof. Walls, not frame, dominate the envelope.
+  FactoryDistrict/Meshes/Building_TypeD_B.usd:
+    material: concrete
+    categories:
+    - buildings.midrise
+    tags: []
+    note: "Concrete-block box, steel columns, flat roof. Binds no corrugated metal\
+      \ at all \u2014 Cement_A, Concrete_C, Concrete_Trim_A, Steel_A, Master_Glass."
+  FactoryDistrict/Meshes/Building_TypeA_B.usd:
+    material: steel
+    categories:
+    - buildings.midrise
+    tags: []
+    note: Long single-storey shed, corrugated walls and a sawtooth glazed roof. Binds
+      CorrugatedMetal_B, Metal_A, MetalPainted_A, Roof_A.
+  FactoryDistrict/Meshes/Building_TypeA_A.usd:
+    material: steel
+    categories:
+    - buildings.midrise
+    tags: []
+    note: 'Two-storey shed: blue corrugated-metal walls over a rendered plinth, metal
+      roof. Binds CorrugatedMetal_B, Metal_A, MetalPainted_A, Roof_A.'
+  FactoryDistrict/Meshes/Building_TypeB_B.usd:
+    material: concrete
+    categories:
+    - buildings.midrise
+    tags: []
+    note: "Single-storey warehouse box, concrete-block walls with visible coursing\
+      \ and concrete pilasters. No corrugated cladding at all \u2014 binds Cement_A,\
+      \ Concrete_D_Floor, Concrete_Trim_A, Steel_A only as frame."
+  FactoryDistrict/Meshes/Building_TypeD_C.usd:
+    material: concrete
+    categories:
+    - buildings.midrise
+    tags: []
+    note: Longer TypeD variant with an entry canopy; same block envelope.
+  FactoryDistrict/Meshes/Building_TypeB_C.usd:
+    material: concrete
+    categories:
+    - buildings.midrise
+    tags: []
+    note: L-plan twin of TypeB_B, same concrete-block envelope.
+  FactoryDistrict/Meshes/Building_TypeA_C.usd:
+    material: steel
+    categories:
+    - buildings.midrise
+    tags: []
+    note: Pitched-roof shed, corrugated walls over a rendered base. Binds CorrugatedMetal_B,
+      Metal_A, MetalPainted_A, Roof_A.
+  FactoryDistrict/Meshes/Building_TypeC_A.usd:
+    material: steel
+    categories:
+    - buildings.midrise
+    tags: []
+    note: 'Two-storey industrial building on an exposed steel frame: dark columns
+      each bay, corrugated panels and glazing between, block only at the base. Binds
+      CorrugatedMetal_A and _B, Steel_A, Master_Glass.'
+  FactoryDistrict/Meshes/Building_TypeC_C.usd:
+    material: steel
+    categories:
+    - buildings.midrise
+    tags: []
+    note: Longer TypeC variant; same steel frame with corrugated infill panels.
+  FactoryDistrict/Meshes/Building_TypeC_D.usd:
+    material: steel
+    categories:
+    - buildings.midrise
+    tags: []
+    note: L-plan TypeC variant; same steel frame with corrugated infill panels.

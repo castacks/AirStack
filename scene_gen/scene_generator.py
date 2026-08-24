@@ -89,7 +89,7 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, UsdSkel, Vt
 #              vehicles, people, park furnishing
 #   disaster:  what the event does to the finished scene
 #
-# plus the scene-wide metaparameters (`seed`, `asset_set`, `exclusions`,
+# plus the scene-wide metaparameters (`seed`, `asset_pack`, `exclusions`,
 # `measure_usds`, `usds`, …) which belong to no single stage.
 #
 # `_stage` is how every module reaches into one. It tolerates a missing stage
@@ -111,7 +111,7 @@ def stage(config: dict, name: str) -> dict:
 
 
 # Which stage owns each settings block. Anything not listed is a scene-wide
-# metaparameter (`seed`, `asset_set`, `usds`, `exclusions`, …) and stays at the
+# metaparameter (`seed`, `asset_pack`, `usds`, `exclusions`, …) and stays at the
 # top level.
 STAGE_OF = {
     # layout — where blocks, roads and buildings go
@@ -159,19 +159,11 @@ def restage(settings: dict) -> dict:
     return out
 
 
-def _deep_merge(base: dict, override: dict) -> dict:
-    """Recursively merge *override* into *base* in place: nested dicts merge
-    key-by-key, everything else (scalars, lists) is replaced outright."""
-    for k, v in override.items():
-        if isinstance(v, dict) and isinstance(base.get(k), dict):
-            _deep_merge(base[k], v)
-        else:
-            base[k] = v
-    return base
+from config_merge import deep_merge as _deep_merge      # noqa: E402,F401
 
 
-def _merge_asset_set(base: dict, child: dict) -> dict:
-    """Merge *child* asset set over *base* in place.
+def _merge_asset_pack(base: dict, child: dict) -> dict:
+    """Merge *child* asset pack over *base* in place.
 
     Like :func:`_deep_merge`, except a key written ``<name>+`` **appends** to
     the inherited list instead of replacing it — for a category the child
@@ -193,13 +185,13 @@ def _merge_asset_set(base: dict, child: dict) -> dict:
             base[key] = ((list(inherited) if isinstance(inherited, list) else [])
                          + (list(v) if isinstance(v, list) else [v]))
         elif isinstance(v, dict) and isinstance(base.get(k), dict):
-            _merge_asset_set(base[k], v)
+            _merge_asset_pack(base[k], v)
         else:
             base[k] = v
     return base
 
 
-def _find_asset_set(name: str, dirs: list) -> str:
+def _find_asset_pack(name: str, dirs: list) -> str:
     candidates = [str(name)]
     for d in dirs:
         candidates += [os.path.join(d, str(name)),
@@ -208,12 +200,12 @@ def _find_asset_set(name: str, dirs: list) -> str:
     path = next((c for c in candidates if os.path.isfile(c)), None)
     if path is None:
         searched = "\n".join(f"    {os.path.normpath(d)}" for d in dirs)
-        raise ValueError(f"asset_set {name!r} not found. Searched:\n{searched}")
+        raise ValueError(f"asset_pack {name!r} not found. Searched:\n{searched}")
     return path
 
 
-def _load_asset_set(name: str, dirs: list, chain: list = None) -> tuple:
-    """Load an asset set and everything it ``extends``, base-first.
+def _load_asset_pack(name: str, dirs: list, chain: list = None) -> tuple:
+    """Load an asset pack and everything it ``extends``, base-first.
 
     Returns ``(merged_dict, [paths in resolution order])``.
     """
@@ -221,15 +213,15 @@ def _load_asset_set(name: str, dirs: list, chain: list = None) -> tuple:
 
     chain = list(chain or [])
     if name in chain:
-        raise ValueError("asset_set extends cycle: "
+        raise ValueError("asset_pack extends cycle: "
                          + " -> ".join(chain + [str(name)]))
     chain.append(name)
 
-    path = _find_asset_set(name, dirs)
+    path = _find_asset_pack(name, dirs)
     with open(path) as f:
         doc = yaml.safe_load(f)
     if not isinstance(doc, dict):
-        raise ValueError(f"asset set {path!r} did not parse to a mapping")
+        raise ValueError(f"asset pack {path!r} did not parse to a mapping")
 
     parent = doc.pop("extends", None)
     if not parent:
@@ -239,20 +231,20 @@ def _load_asset_set(name: str, dirs: list, chain: list = None) -> tuple:
     # AND the park's recreation pools, and neither has any reason to carry the
     # other's. `prepare_assets._with_extends` already accepted a list; this side
     # did not, so a list resolved on the host and then died at scene build with
-    # `asset_set "[...]" not found`. The two now agree.
+    # `asset_pack "[...]" not found`. The two now agree.
     parents = [parent] if isinstance(parent, str) else list(parent)
     base, paths = {}, []
     for parent_name in parents:
-        b, ps = _load_asset_set(str(parent_name), dirs, chain)
-        base = _merge_asset_set(base, b) if base else b
+        b, ps = _load_asset_pack(str(parent_name), dirs, chain)
+        base = _merge_asset_pack(base, b) if base else b
         paths += ps
-    return _merge_asset_set(base, doc), paths + [path]
+    return _merge_asset_pack(base, doc), paths + [path]
 
 
-def resolve_asset_set(config: dict, config_path: str = None) -> dict:
-    """Merge the asset set named by ``config['asset_set']`` into *config*.
+def resolve_asset_pack(config: dict, config_path: str = None) -> dict:
+    """Merge the asset pack named by ``config['asset_pack']`` into *config*.
 
-    An asset set (``config/asset_sets/<name>.yaml``) holds
+    An asset pack (``config/asset_packs/<name>.yaml``) holds
     *what the assets are* — ``asset_root``, ``asset_scale``, ``sky``,
     ``orientation``, ``fallback_sizes`` and the whole ``usds`` library — so a
     scene can be re-skinned by naming a different set. The config wins on
@@ -263,29 +255,29 @@ def resolve_asset_set(config: dict, config_path: str = None) -> dict:
     loaded first and the child merged over it, with ``<key>+`` appending to an
     inherited list rather than replacing it.
 
-    ``asset_set`` may be a bare name or a path. No-op when absent (a config
+    ``asset_pack`` may be a bare name or a path. No-op when absent (a config
     carrying its own ``usds`` is still valid).
     """
-    name = config.get("asset_set")
+    name = config.get("asset_pack")
     if not name:
         return config
 
     here = os.path.dirname(os.path.abspath(__file__))
-    dirs = [os.path.join(here, "config", "asset_sets")]
+    dirs = [os.path.join(here, "config", "asset_packs")]
     if config_path:
         cfg_dir = os.path.dirname(os.path.abspath(config_path))
         # low_level/<cfg>.yaml and low_level/compiled/<cfg>.yaml both sit
         # under config/, so look up as well as alongside.
-        dirs[:0] = [os.path.join(cfg_dir, "asset_sets"),
-                    os.path.join(cfg_dir, "..", "asset_sets"),
-                    os.path.join(cfg_dir, "..", "..", "asset_sets")]
+        dirs[:0] = [os.path.join(cfg_dir, "asset_packs"),
+                    os.path.join(cfg_dir, "..", "asset_packs"),
+                    os.path.join(cfg_dir, "..", "..", "asset_packs")]
 
-    assets, paths = _load_asset_set(str(name), dirs)
+    assets, paths = _load_asset_pack(str(name), dirs)
 
     merged = _deep_merge(assets, config)      # config overrides the set
-    merged["asset_set"] = name
+    merged["asset_pack"] = name
     lineage = " <- ".join(os.path.basename(p) for p in reversed(paths))
-    print(f"[scene_gen] asset set: {name} ({lineage})")
+    print(f"[scene_gen] asset pack: {name} ({lineage})")
     return merged
 
 
@@ -310,7 +302,7 @@ def validate_config(config: dict, source: str = "<config>") -> dict:
     if "usds" not in config:
         raise ValueError(
             f"City config {source!r} has no 'usds' library — name an asset "
-            "set with `asset_set: <name>` (see config/asset_sets/), "
+            "set with `asset_pack: <name>` (see config/asset_packs/), "
             "or inline a usds section.")
     if "layout" not in config or "region_m" not in config["layout"]:
         raise ValueError(f"City config {source!r} has no 'layout.region_m' "
@@ -333,7 +325,7 @@ def validate_config(config: dict, source: str = "<config>") -> dict:
             print(f"[scene_gen]   … and {len(absent) - 10} more")
         print("[scene_gen] Fix: run this on the host, then relaunch:")
         print("[scene_gen]   python3 scene_gen/prepare_assets.py "
-              f"{config.get('asset_set') or ''}".rstrip())
+              f"{config.get('asset_pack') or ''}".rstrip())
 
     return config
 
@@ -341,9 +333,9 @@ def validate_config(config: dict, source: str = "<config>") -> dict:
 def load_config(config_path: str) -> dict:
     """Load and lightly validate a **low-level** city-generator YAML spec.
 
-    A low-level spec holds the generator settings and names an asset set
-    (``asset_set: urban``) for the asset library itself, which is merged in
-    here — see :func:`resolve_asset_set`. Author them by hand
+    A low-level spec holds the generator settings and names an asset pack
+    (``asset_pack: urban``) for the asset library itself, which is merged in
+    here — see :func:`resolve_asset_pack`. Author them by hand
     (``low_level/default.yaml``) or compile them from a high-level disaster
     spec with ``compile_disaster.py``, which writes into ``low_level/compiled/``.
 
@@ -358,7 +350,7 @@ def load_config(config_path: str) -> dict:
         config = yaml.safe_load(f)
 
     if isinstance(config, dict):
-        config = resolve_asset_set(config, config_path)
+        config = resolve_asset_pack(config, config_path)
     return validate_config(config, config_path)
 
 
@@ -641,12 +633,12 @@ def _parse_usd_entry(entry, default_scale: float, asset_root: str = ""):
 
 
 def solid_assets(config: dict) -> set:
-    """USD paths the asset set declares as already solid, so `solidify` skips them.
+    """USD paths the asset pack declares as already solid, so `solidify` skips them.
 
     **Declared, not detected.** This used to be decided at runtime — a ray probe
     asking how much material sat behind each surface, and before that, wrongly,
     the enclosed volume. Both are guesses about art, remade every run, on
-    geometry whose author already knows the answer. A flag in the asset set says
+    geometry whose author already knows the answer. A flag in the asset pack says
     it once:
 
         buildings:
@@ -742,12 +734,17 @@ class SizeResolver:
     thousands of times and printed a fallback line for each.
     """
 
-    def __init__(self, asset_scale: float, fallback_sizes: dict, measure: bool):
+    def __init__(self, asset_scale: float, fallback_sizes: dict, measure: bool,
+                 cache=None):
         self.scale = float(asset_scale)
         self.fallback = fallback_sizes or {}
         self.measure = bool(measure)
         self._raw: dict = {}            # (path, axis_up) -> unit-scale fp or None
         self._by_scale: dict = {}       # (path, scale, axis_up) -> scaled fp
+        # Persistent across PROCESSES, where `_raw` is only across placements.
+        # SPEC names "measure assets / use cached" as a pipeline step; this is
+        # the "cached" half. None disables it (the tests want a cold resolver).
+        self._cache = cache
 
     def _raw_footprint(self, usd_path: str, category: str, axis_up: str):
         """Unit-scale measurement for *usd_path*, or None. Opens the USD once."""
@@ -755,8 +752,16 @@ class SizeResolver:
         if key in self._raw:
             return self._raw[key]
 
+        if self._cache is not None and self.measure:
+            hit, fp = self._cache.get(usd_path, axis_up)
+            if hit:
+                self._raw[key] = fp
+                return fp
+
         fp = _measure_footprint_raw(usd_path, axis_up) if self.measure else None
         self._raw[key] = fp
+        if self._cache is not None and self.measure:
+            self._cache.put(usd_path, axis_up, fp)
         if fp is not None:
             print(f"[scene_gen] measured {category}: {os.path.basename(usd_path)} "
                   f"-> {fp['sx']:.2f} x {fp['sy']:.2f} m "
@@ -801,7 +806,7 @@ def placement_footprint(resolver, p: dict, category: str = None) -> dict:
     """Footprint of a placement that already exists, measured as it was placed.
 
     **Scale and axis belong to the placement.** Every pass that re-derives them
-    from an asset-set pool gets them wrong for anything the pass did not
+    from an asset-pack pool gets them wrong for anything the pass did not
     normalise itself: `disaster_stage` looked up standing buildings through the
     per-asset overrides of its *ruin* pools, missed, and fell back to the
     config-wide `asset_scale` (1.0) while the AEC packs carry `scale: 0.01`.
@@ -849,154 +854,17 @@ def _in_rect(x, y, rect) -> bool:
 # ---------------------------------------------------------------------------
 # Damage field — where the disaster actually hit
 #
-# Every disaster knob under ``disaster.*`` is a *maximum*, reached only where
-# the field reads 1.0. ``disaster.field`` shapes that intensity over the
-# region, which is what separates disaster types from each other: an
-# earthquake attenuates radially from its epicenter, a tornado carves a
-# narrow path and leaves the rest of the city untouched, a blast falls off
-# sharply from ground zero. Absent a field, intensity is a flat 1.0
-# everywhere (the historical behavior).
+# The model itself lives in `disaster/field.py`; this file is the USD writer
+# and had no business owning it. Re-exported here because `build_city` and a
+# dozen callers import these names from `scene_generator`.
 # ---------------------------------------------------------------------------
 
-def _smoothstep(t: float) -> float:
-    """Hermite ease on [0, 1] — softer edges than a linear ramp."""
-    t = min(1.0, max(0.0, t))
-    return t * t * (3.0 - 2.0 * t)
-
-
-def _point_segment_dist(px, py, ax, ay, bx, by) -> float:
-    vx, vy = bx - ax, by - ay
-    seg2 = vx * vx + vy * vy
-    if seg2 < 1e-12:
-        return math.hypot(px - ax, py - ay)
-    t = max(0.0, min(1.0, ((px - ax) * vx + (py - ay) * vy) / seg2))
-    return math.hypot(px - (ax + t * vx), py - (ay + t * vy))
-
-
-def _path_segments(cfg: dict, region: tuple) -> list:
-    """Segments for a ``field.kind: path`` track, building the default
-    straight sweep across *region* on ``heading_deg`` when no explicit
-    ``points`` are given. Shared by :func:`make_damage_field` and
-    :func:`make_scour_density` so both agree on where the track actually is.
-    """
-    pts = cfg.get("points")
-    if not pts:
-        rx0, ry0, rx1, ry1 = region
-        mx, my = (rx0 + rx1) / 2.0, (ry0 + ry1) / 2.0
-        ang = math.radians(float(cfg.get("heading_deg", 45.0)))
-        reach = math.hypot(rx1 - rx0, ry1 - ry0)
-        pts = [[mx - math.cos(ang) * reach, my - math.sin(ang) * reach],
-               [mx + math.cos(ang) * reach, my + math.sin(ang) * reach]]
-    return [(float(pts[i][0]), float(pts[i][1]),
-             float(pts[i + 1][0]), float(pts[i + 1][1]))
-            for i in range(len(pts) - 1)] or [
-        (float(pts[0][0]), float(pts[0][1]),
-         float(pts[0][0]), float(pts[0][1]))]
-
-
-def make_damage_field(field_cfg: dict, region: tuple):
-    """Build ``f(x, y) -> intensity`` (0..1) from a ``disaster.field`` spec.
-
-    ``kind``:
-      * ``uniform`` — ``inside`` everywhere (default when no field is given).
-      * ``radial``  — ``inside`` within ``radius_m`` of ``center``, easing to
-        ``outside`` over the next ``falloff_m``. Earthquakes, blasts.
-      * ``path``    — ``inside`` within ``width_m`` of the ``points``
-        polyline, easing to ``outside`` over ``falloff_m``. Tornado tracks.
-
-    *region* is ``(x0, y0, x1, y1)`` in meters; a ``path`` with no explicit
-    ``points`` gets a default track crossing the region at ``heading_deg``.
-
-    The returned callable carries ``.lo`` / ``.hi`` — the intensity bounds
-    over the whole region. Callers use them to decide what is *possible*
-    anywhere (e.g. whether any building can stay intact) before sampling.
-    """
-    cfg = field_cfg or {}
-    kind = str(cfg.get("kind", "uniform")).lower()
-    inside = float(cfg.get("inside", 1.0))
-    outside = float(cfg.get("outside", 0.0))
-
-    def _tag(fn, lo, hi):
-        fn.lo, fn.hi = lo, hi
-        return fn
-
-    if kind == "uniform":
-        return _tag(lambda x, y: inside, inside, inside)
-
-    def _ease(dist, full, fall):
-        """inside within *full*, easing to outside across *fall* beyond it."""
-        if dist <= full:
-            return inside
-        return inside + (outside - inside) * _smoothstep(
-            (dist - full) / max(fall, 1e-6))
-
-    if kind == "radial":
-        cx, cy = cfg.get("center", [0.0, 0.0])
-        cx, cy = float(cx), float(cy)
-        radius = float(cfg.get("radius_m", 80.0))
-        falloff = float(cfg.get("falloff_m", 120.0))
-        return _tag(lambda x, y: _ease(math.hypot(x - cx, y - cy),
-                                       radius, falloff),
-                    min(inside, outside), max(inside, outside))
-
-    if kind == "path":
-        half_w = float(cfg.get("width_m", 60.0)) / 2.0
-        falloff = float(cfg.get("falloff_m", 40.0))
-        segs = _path_segments(cfg, region)
-
-        def f(x, y):
-            d = min(_point_segment_dist(x, y, *s) for s in segs)
-            return _ease(d, half_w, falloff)
-
-        return _tag(f, min(inside, outside), max(inside, outside))
-
-    raise ValueError(f"Unknown disaster.field.kind {kind!r} "
-                     "(expected uniform, radial or path)")
-
-
-def make_scour_density(field_cfg: dict, region: tuple, shape: float = 1.6):
-    """Build ``g(x, y) -> [0, 1]``: a density *gradient* peaked at the
-    disaster's core (track centerline / epicenter), falling smoothly to 0 at
-    the same distance where :func:`make_damage_field`'s own ease finishes.
-
-    Distinct from ``make_damage_field``'s intensity, which is a *plateau* —
-    flat ``inside`` through the whole width or radius, easing only at the
-    very edge. That shape is right for deciding whether a building in the
-    corridor survives (a tornado hits everything in its path about equally
-    hard), but wrong for ground scour: in real tornado aftermath the debris
-    is visibly densest right under the vortex track and thins out well
-    before the edge of the damage zone, not uniform across the whole width.
-
-    Reuses the field's own geometry (its track / epicenter, width/radius and
-    falloff) so the *extent* debris can appear in is exactly what
-    ``disaster.field`` already configures — only the density gradient inside
-    that extent changes. ``shape`` > 1 concentrates density nearer the core
-    than a plain smoothstep falloff would; 1.0 is just the smoothstep.
-    """
-    cfg = field_cfg or {}
-    kind = str(cfg.get("kind", "uniform")).lower()
-
-    def _peak(d, reach):
-        t = min(1.0, max(0.0, d / max(reach, 1e-6)))
-        return (1.0 - _smoothstep(t)) ** shape
-
-    if kind == "path":
-        half_w = float(cfg.get("width_m", 60.0)) / 2.0
-        falloff = float(cfg.get("falloff_m", 40.0))
-        reach = half_w + falloff
-        segs = _path_segments(cfg, region)
-        return lambda x, y: _peak(min(_point_segment_dist(x, y, *s)
-                                      for s in segs), reach)
-
-    if kind == "radial":
-        cx, cy = cfg.get("center", [0.0, 0.0])
-        cx, cy = float(cx), float(cy)
-        radius = float(cfg.get("radius_m", 80.0))
-        falloff = float(cfg.get("falloff_m", 120.0))
-        reach = radius + falloff
-        return lambda x, y: _peak(math.hypot(x - cx, y - cy), reach)
-
-    return lambda x, y: 1.0   # uniform field: no core to concentrate around
+from disaster.field import (                        # noqa: E402,F401
+    make_damage_field, make_scour_density,
+    path_segments as _path_segments,
+    point_segment_dist as _point_segment_dist,
+    smoothstep as _smoothstep,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -1627,7 +1495,7 @@ def build_city(config: dict, resolver: SizeResolver):
     pack_cfg    = _stage(config, "layout").get("packing", {})
     bld_gap_m   = float(pack_cfg.get("building_gap_m", 2.5))
     park_chance = float(pack_cfg.get("park_block_chance", 0.12))
-    # Locale knobs: downtown paves a block wall-to-wall and builds out to the
+    # Locale knobs: urban paves a block wall-to-wall and builds out to the
     # sidewalk; a suburb leaves the block as lawn and sets houses back from it.
     pave_blocks = bool(pack_cfg.get("pave_blocks", True))
     setback_m   = float(pack_cfg.get("setback_m", 0.0))
@@ -2042,7 +1910,7 @@ def build_city(config: dict, resolver: SizeResolver):
             park_blocks.append((blk, inset))
             continue
 
-        # Downtown: pave the block interior wall-to-wall, so buildings and
+        # Urban: pave the block interior wall-to-wall, so buildings and
         # filler prisms sit on pavement built out to the sidewalk. Suburb
         # (pave_blocks false): the block stays lawn, and only the ground each
         # building and driveway actually covers is hard surface.
@@ -2103,7 +1971,7 @@ def build_city(config: dict, resolver: SizeResolver):
     # =======================================================================
     # DRIVEWAYS — a paved strip from each house out to the nearest street,
     # with a car on some of them. Suburban cars belong beside the house, not
-    # at the kerb; downtown leaves this off (driveways.chance 0).
+    # at the kerb; urban leaves this off (driveways.chance 0).
     # =======================================================================
     drive_chance = float(drive_cfg.get("chance", 0.0))
     if drive_chance > 0.0 and concrete_fp is not None and block_of_building:
@@ -2429,15 +2297,15 @@ def build_city(config: dict, resolver: SizeResolver):
     park_block_set = {b for (b, _i) in park_blocks}
     park_insets = [inset for (_b, inset) in park_blocks]
 
-    # Residential lawns: the un-paved part of a packed block. Downtown paves
+    # Residential lawns: the un-paved part of a packed block. Urban paves
     # its blocks (pave_blocks), so there is no lawn and these stay empty;
     # a suburb grows trees and shrubs here, which is what makes it read as
-    # a suburb rather than a downtown of small buildings.
+    # a suburb rather than an urban scene of small buildings.
     lawn_insets = ([inset for (_b, inset) in residential_blocks]
                    if not pave_blocks else [])
 
     # ---- Trees: parks get bare-ground trees, densely and evenly spread;
-    # suburban lawns get them at their own density. Downtown street trees are
+    # suburban lawns get them at their own density. Urban street trees are
     # potted in tree-tagged planters along the frontage instead — see the
     # planter passes in the street-furniture section below.
     if tree_usds and (park_insets or lawn_insets):
@@ -2535,7 +2403,7 @@ def build_city(config: dict, resolver: SizeResolver):
     # line at the kerb.
     #
     # They are gone. `detail/city_detail.py` places all of it now, against the
-    # NACTO sidewalk section, for every locale — downtown since Krrish's work,
+    # NACTO sidewalk section, for every locale — urban since Krrish's work,
     # suburban since locales/suburban.yaml. Keeping both meant a category
     # placed twice if a spacing was ever un-zeroed, and the built-in pass had a
     # structural flaw the zoned one does not: every category shared one 2 m
@@ -2973,10 +2841,30 @@ def apply_placements(stage,
     ssf = float(scene_scale_factor)
     n_instanced = 0
 
+    missing_refs: set = set()
+
     for i, p in enumerate(placements):
         usd = p["usd"]
         group = proto_index.setdefault(usd, len(proto_index))
         prim_path = f"{parent_path}/{p.get('category', 'asset')}_{group}_{i}"
+        # LOCAL SCHEMES MUST BE EXPANDED HERE, and the failure is silent.
+        # USD has never heard of `airstack://` (same note as `damage._TEX_DIR`),
+        # and `AddReference` returns True for an asset it cannot open — the
+        # prim simply composes empty, so a dangling reference looks exactly
+        # like a building that was never placed.
+        #
+        # Pack-declared assets are expanded by `_normalize_usd_list` when the
+        # pool is built, but anything injected into a placement AFTERWARDS is
+        # not. `disaster_stage` writes an `airstack://` archetype URL (on
+        # purpose — placements stay relocatable, and the Stage B tests assert
+        # that form), which meant every archetype-backed building came up
+        # invisible and the scene showed only its debris.
+        ref_url = _expand_scheme(usd) or usd
+        if ref_url != usd and ref_url not in missing_refs \
+                and not os.path.exists(ref_url):
+            missing_refs.add(ref_url)
+            print(f"[scene_gen] WARN: {usd} -> {ref_url} is not on disk; "
+                  f"that prim will compose empty")
         # No local typeName: some assets (e.g. Dmytro/Unreal exports) have a
         # Mesh as their root prim, and a local "Xform" opinion would override
         # the referenced "Mesh" type — attributes still compose (bbox looks
@@ -2984,8 +2872,8 @@ def apply_placements(stage,
         # typeless def lets the referenced asset's own type win.
         prim = stage.DefinePrim(prim_path)
         p["prim_path"] = prim_path      # so callers can post-process (settling)
-        if not prim.GetReferences().AddReference(usd):
-            print(f"[scene_gen] WARN: failed to reference {usd} at {prim_path}")
+        if not prim.GetReferences().AddReference(ref_url):
+            print(f"[scene_gen] WARN: failed to reference {ref_url} at {prim_path}")
             continue
         # Some asset packs (e.g. Dmytro) wrap their geometry in an internal
         # payload arc for streaming. Prims composed into an already-running
@@ -3072,11 +2960,25 @@ def apply_placements(stage,
     return parent_path
 
 
-def _make_resolver(config: dict) -> SizeResolver:
+def _make_resolver(config: dict, cache=None) -> SizeResolver:
+    """The resolver for *config*, backed by the on-disk measurement cache.
+
+    Pass ``cache=False`` for a cold resolver (the tests want one, so a stale
+    cache can never make a failing measurement look like a passing one).
+    """
+    # `is None` / `is False`, never truthiness: `MeasureCache` defines
+    # `__len__`, so an EMPTY cache is falsy and `cache or None` silently
+    # discarded the very cache a cold run had just been handed.
+    if cache is None:
+        from measure_cache import MeasureCache
+        cache = MeasureCache()
+    elif cache is False:
+        cache = None
     return SizeResolver(
         asset_scale=float(config.get("asset_scale", 1.0)),
         fallback_sizes=config.get("fallback_sizes", {}),
         measure=bool(config.get("measure_usds", True)),
+        cache=cache,
     )
 
 
@@ -3176,35 +3078,22 @@ def generate_scene_on_stage(stage,
         stage, config, parent_path, scene_scale_factor, snap_to_ground)
 
 
-def reload_scene_on_stage(stage,
-                          config,
+# `reload_scene_on_stage` is `generate_scene.reload_scene_on_stage`. It used to
+# be duplicated here, and the two copies drifted: this one never learned about
+# the mesh-damage fragments the other appends, so a reload in the Script Editor
+# produced a subtly different scene from a fresh launch. One pipeline, one
+# reload — see `generate_scene_on_stage` just above, which delegates the same way.
+def reload_scene_on_stage(stage, config,
                           parent_path: str = "/World/stage/generated",
                           scene_scale_factor: float = 1.0,
                           snap_to_ground: bool = False,
                           add_colliders_fn=None) -> list:
-    """Clear a previously generated subtree and regenerate it in place — for
-    iterating on the config *without restarting Isaac Sim*.
-
-    Run from the Kit Script Editor (or any code holding the live stage). Removes
-    everything under *parent_path*, re-reads *config* from disk, and rebuilds.
-    Stop the timeline before calling if physics is running.
-
-    Pass ``add_colliders_fn=scene_prep.add_colliders`` to apply colliders to the
-    new geometry (kept as a parameter so this module stays sim-agnostic).
-    """
-    if stage.GetPrimAtPath(parent_path).IsValid():
-        stage.RemovePrim(Sdf.Path(parent_path))
-        print(f"[scene_gen] Cleared existing '{parent_path}'")
-
-    placements = generate_scene_on_stage(
-        stage, config, parent_path, scene_scale_factor, snap_to_ground)
-
-    if add_colliders_fn is not None:
-        gen = stage.GetPrimAtPath(parent_path)
-        if gen.IsValid():
-            add_colliders_fn(gen)
-
-    return placements
+    """Clear a generated subtree and rebuild it in place, without restarting
+    Isaac Sim. Delegates to `generate_scene`, which is the one pipeline."""
+    import generate_scene
+    return generate_scene.reload_scene_on_stage(
+        stage, config, parent_path, scene_scale_factor, snap_to_ground,
+        add_colliders_fn)
 
 
 # ---------------------------------------------------------------------------

@@ -360,20 +360,19 @@ def _hits(x, y, mod, fp, yaw, rects, clear=0.35):
 def _park_blocks(layout, placements):
     """The blocks that are parks, which this pass must not lot.
 
-    `suburb_layout` publishes its park superblocks as a module global, the same
-    handshake `city_layout` uses; `districts.park_blocks` is the fallback for a
-    run whose subdivider is the built-in one. "Has no buildings" is deliberately
-    NOT the test — a block nothing fit is also empty, and it needs lotting.
+    `city_layout` publishes its park superblocks as a module global;
+    `districts.park_blocks` is the fallback for a run whose subdivider is the
+    built-in one. "Has no buildings" is deliberately NOT the test — a block
+    nothing fit is also empty, and it needs lotting.
     """
     blocks = layout.get("blocks") or []
-    for mod in ("suburb_layout", "city_layout"):
-        try:
-            m = __import__(mod)
-            got = [b for b in getattr(m, "PARK_RESERVES", []) if b in blocks]
-            if got:
-                return set(got)
-        except ImportError:
-            pass
+    try:
+        m = __import__("city_layout")
+        got = [b for b in getattr(m, "PARK_RESERVES", []) if b in blocks]
+        if got:
+            return set(got)
+    except ImportError:
+        pass
     try:
         from detail import districts
         return set(districts.park_blocks(layout, placements))

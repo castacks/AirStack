@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""asset_packs.py — split a multi-object USD "pack" into its separable props.
+"""split_usd_pack.py — split a multi-object USD "pack" into its separable props.
 
-Several Objaverse entries in the asset sets are **packs**: one file holding a
+Several Objaverse entries in the asset packs are **packs**: one file holding a
 whole tray of props (a dozen road signs laid out in a row, a barrier-and-cone
 set, a bike rack with bikes already at it). Referencing one lands the entire
 cluster, and ``target-size-m`` then sizes the *spread* rather than any single
@@ -11,7 +11,7 @@ The sub-objects are individually addressable once the pack is on the stage, so
 the fix is to reference a **sub-prim** instead of the pack's default prim.
 This module finds those sub-prims and measures them:
 
-    from asset_packs import split_pack, sub_objects
+    from split_usd_pack import split_pack, sub_objects
 
     split = split_pack("objaverse://7fac2b1b6c5746daa4ac773441c45180")
     for s in split.subs:
@@ -51,7 +51,7 @@ Run it (plain pxr — no SimulationApp, no Nucleus needed for local packs)::
     docker run --rm -v <repo>:/isaac-sim/AirStack --entrypoint bash <image> -c '
       U=$(ls -d /isaac-sim/extscache/omni.usd.libs-*/ | head -1)
       export PYTHONPATH="$U:$PYTHONPATH"; export LD_LIBRARY_PATH="$U/bin:$LD_LIBRARY_PATH"
-      cd /isaac-sim && ./python.sh /isaac-sim/AirStack/scene_gen/asset_packs.py \
+      cd /isaac-sim && ./python.sh /isaac-sim/AirStack/scene_gen/tools/split_usd_pack.py \
         objaverse://7fac2b1b6c5746daa4ac773441c45180 --yaml'
 
 Columns printed by the CLI:
@@ -61,7 +61,7 @@ Columns printed by the CLI:
     pts        Mesh points in that subtree; the poly-budget share
     sep        "yes" when no sibling box overlaps this one
 
-Note for whoever wires this into an asset set: ``scene_generator`` currently
+Note for whoever wires this into an asset pack: ``scene_generator`` currently
 authors ``prim.GetReferences().AddReference(usd)`` with no prim path, so it
 targets the default prim. Referencing a sub-object needs the two-argument form,
 ``AddReference(usd, Sdf.Path(sub_prim_path))``. ``--yaml`` prints entries with a
@@ -82,7 +82,7 @@ try:
     from pxr import Usd, UsdGeom
 except ImportError as exc:                                  # pragma: no cover
     raise SystemExit(
-        "asset_packs needs pxr. Run it inside the isaac-sim container with\n"
+        "split_usd_pack needs pxr. Run it inside the isaac-sim container with\n"
         '  U=$(ls -d /isaac-sim/extscache/omni.usd.libs-*/ | head -1)\n'
         '  PYTHONPATH="$U" LD_LIBRARY_PATH="$U/bin" ./python.sh ...\n'
         f"(import error: {exc})"
@@ -475,7 +475,7 @@ def _print_split(split: PackSplit, show_all: bool) -> None:
 
 
 def _print_yaml(split: PackSplit, show_all: bool) -> None:
-    """Paste-ready asset-set entries, one per separable sub-object.
+    """Paste-ready asset-pack entries, one per separable sub-object.
 
     ``target-size-m`` is the sub-object's own measured size, so the entry
     reproduces the prop at its authored scale instead of stretching one item to
@@ -513,7 +513,7 @@ def main(argv=None) -> int:
     ap.add_argument("--all", action="store_true",
                     help="list overlapping candidates too, not just separable ones")
     ap.add_argument("--yaml", action="store_true",
-                    help="also print paste-ready asset-set entries")
+                    help="also print paste-ready asset-pack entries")
     ap.add_argument("--json", action="store_true",
                     help="emit machine-readable JSON instead of a table")
     args = ap.parse_args(argv)

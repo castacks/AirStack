@@ -30,7 +30,7 @@ THE ONE DEVIATION, AND WHY
 --------------------------
 The resolver. `sg._make_resolver` measures real USD bounding boxes, which needs
 every asset resolvable — Nucleus included. `StubResolver` answers from the
-sizes already recorded in the asset-set comments instead, so the whole thing
+sizes already recorded in the asset-pack comments instead, so the whole thing
 runs on the host in about a second. That is the only substitution, and
 un-measured assets are counted in the subtitle so you know which footprints not
 to trust.
@@ -64,7 +64,7 @@ _USD = re.compile(r'["\']([^"\']+\.usda?)["\']')
 
 
 def measured_sizes(paths):
-    """`{usd basename: (sx, sy, sz)}` scraped from the asset-set comments.
+    """`{usd basename: (sx, sy, sz)}` scraped from the asset-pack comments.
 
     The comment may sit on the entry's own line or the line after it, so both
     are considered. Basename rather than full path: the same asset is written
@@ -99,7 +99,7 @@ class StubResolver:
     plan — it changes it. Measured against the sim on the same config:
 
         suburb     plan 1947 houses   sim 1853   no shared position
-        downtown   plan  266 houses   sim  346
+        urban   plan  266 houses   sim  346
 
     because the sim measures every USD's real bounds while this reads the
     `# 21.1 x 6.8 x 14.2 m` comments and falls back to `fallback_sizes` for
@@ -146,7 +146,7 @@ def build(config_name, stop_after="disaster"):
     cfg = load_scene_config(path)          # <- what scene_launch_script calls
     cfg["measure_usds"] = False            # StubResolver answers instead
 
-    sets = os.path.join(_SCENE_GEN, "config", "asset_sets")
+    sets = os.path.join(_SCENE_GEN, "config", "asset_packs")
     sizes = measured_sizes([os.path.join(sets, f)
                             for f in os.listdir(sets) if f.endswith(".yaml")])
     res = StubResolver(sizes, cfg.get("fallback_sizes"))

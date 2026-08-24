@@ -20,7 +20,7 @@ OmniPBR reads all of them directly, including the packed ORM via
 WHY A .usda WRAPPER
 -------------------
 Same reason `Grass_Cut.usda` exists: a material has to BE a
-`UsdShade.Material` to be bindable, and the asset set references materials by
+`UsdShade.Material` to be bindable, and the asset pack references materials by
 USD path. This writes one wrapper per surface with the texture paths anchored
 relative to the layer, so the result is portable between the host and the
 container mount.

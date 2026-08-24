@@ -5,12 +5,12 @@
 #     python3 compile_disaster.py suburb_mini_wildfire.yaml
 #
 # locale        : suburban
-# disaster-type : wildfire
+# disaster-type : fire
 # severity      : 0.65
 # spec          : scene_gen/config/presets/suburb_mini_wildfire.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-23 14:03:23
-# spec extras   : {'epicenter': [-125, -125], 'heading_deg': 45, 'asset-set': 'suburban_park', 'region_m': [250, 250], 'seed': 3, 'overrides': {'disaster': {'fire': {'flank_mps': 0.7, 'duration_s': 300.0}}, 'instance_categories': ['plant', 'sidewalk', 'streetlight', 'fire_hydrant', 'sign', 'crosswalk'], 'layout': {'region_m': [250, 250]}, 'usds': {'materials': {'grass': 'airstack://scene_gen/assets/materials/Grass_Countryside.usda', 'grass_rough': 'airstack://scene_gen/assets/materials/Grass_Countryside.usda', 'grass_park': 'airstack://scene_gen/assets/materials/Grass_Cut.usda', 'dirt': 'airstack://scene_gen/assets/materials/Dirt.usda', 'asphalt': 'airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda', 'driveway': 'airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda', 'path': 'airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda'}, 'lot_fences': [{'usd': 'objaverse://1cec32aea61e4959bb1ba9a79ada7cd5', 'yaw-offset': 90.0, 'tags': ['low', 'privacy']}], 'trees': [{'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Black_Oak/Black_Oak.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Largetooth_Aspen.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Common_Apple/Common_Apple.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/American_Beech.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Douglas_Fir.usd', 'scale': 0.01}], 'street_trees': [{'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Douglas_Fir.usd', 'scale': 0.01}], 'yard_trees': [{'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd', 'scale': 0.01}], 'yard_shrubs': [], 'plants': []}, 'suburb_net': {'block_area_target_m2': 40000.0, 'block_area_min_m2': 7000.0, 'collectors': 3, 'collector_wander': 0.28, 'min_gap_m': 88.0, 'junction_skew_deg': 38.0, 'four_way_chance': 0.35, 'dead_end_target': 0.24, 'bulb_radius_m': 14.64, 'lollipop_len_m': [55.0, 170.0], 'grain_weight': 2.6, 'grain_swirl_deg': 34.0, 'grain_period_m': 620.0}, 'suburb_parcel': {'modular_houses': True, 'modular_share': 1.0, 'lot_width_m': [30.0, 44.0], 'house_gap_m': 6.0, 'neighbourhood_m': 400.0, 'density_mix': {'tight': 0.15, 'normal': 0.36, 'loose': 0.34, 'estate': 0.15}, 'setback_m': [6.5, 11.0], 'house_w_m': [9.0, 13.0], 'house_d_m': [8.0, 11.0], 'min_lot_depth_m': 21.0, 'driveway_w_m': 3.2, 'house_yaw_offset_deg': -90.0, 'back_trees_per_100m2': 0.055, 'front_tree_chance': 0.45, 'street_tree_spacing_m': [22.0, 40.0], 'open_trees_per_100m2': 0.85, 'infill_trees_per_100m2': 0.45, 'open_tree_gap_m': 6.0, 'open_tree_clear_m': 5.5}}}
+# compiled      : 2026-08-23 21:43:37
+# spec extras   : {'epicenter': [-125, -125], 'heading_deg': 45, 'asset-pack': 'suburban_park', 'region_m': [250, 250], 'seed': 3, 'overrides': {'disaster': {'fire': {'flank_mps': 0.7, 'duration_s': 300.0}}, 'instance_categories': ['plant', 'sidewalk', 'streetlight', 'fire_hydrant', 'sign', 'crosswalk'], 'layout': {'region_m': [250, 250]}, 'usds': {'materials': {'grass': 'airstack://scene_gen/assets/materials/Grass_Countryside.usda', 'grass_rough': 'airstack://scene_gen/assets/materials/Grass_Countryside.usda', 'grass_park': 'airstack://scene_gen/assets/materials/Grass_Cut.usda', 'dirt': 'airstack://scene_gen/assets/materials/Dirt.usda', 'asphalt': 'airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda', 'driveway': 'airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda', 'path': 'airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda'}, 'lot_fences': [{'usd': 'objaverse://1cec32aea61e4959bb1ba9a79ada7cd5', 'yaw-offset': 90.0, 'tags': ['low', 'privacy']}], 'trees': [{'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Black_Oak/Black_Oak.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Largetooth_Aspen.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Common_Apple/Common_Apple.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/American_Beech.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Douglas_Fir.usd', 'scale': 0.01}], 'street_trees': [{'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Douglas_Fir.usd', 'scale': 0.01}], 'yard_trees': [{'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd', 'scale': 0.01}], 'yard_shrubs': [], 'plants': []}, 'suburb_net': {'block_area_target_m2': 40000.0, 'block_area_min_m2': 7000.0, 'collectors': 3, 'collector_wander': 0.28, 'min_gap_m': 88.0, 'junction_skew_deg': 38.0, 'four_way_chance': 0.35, 'dead_end_target': 0.24, 'bulb_radius_m': 14.64, 'lollipop_len_m': [55.0, 170.0], 'grain_weight': 2.6, 'grain_swirl_deg': 34.0, 'grain_period_m': 620.0}, 'suburb_parcel': {'modular_houses': True, 'modular_share': 1.0, 'lot_width_m': [30.0, 44.0], 'house_gap_m': 6.0, 'neighbourhood_m': 400.0, 'density_mix': {'tight': 0.15, 'normal': 0.36, 'loose': 0.34, 'estate': 0.15}, 'setback_m': [6.5, 11.0], 'house_w_m': [9.0, 13.0], 'house_d_m': [8.0, 11.0], 'min_lot_depth_m': 21.0, 'driveway_w_m': 3.2, 'house_yaw_offset_deg': -90.0, 'back_trees_per_100m2': 0.055, 'front_tree_chance': 0.45, 'street_tree_spacing_m': [22.0, 40.0], 'open_trees_per_100m2': 0.85, 'infill_trees_per_100m2': 0.45, 'open_tree_gap_m': 6.0, 'open_tree_clear_m': 5.5}}}
 
 seed: 3
 exclusions:
@@ -18,7 +18,7 @@ exclusions:
   - 0.0
   - 0.0
   radius: 10.0
-asset_set: suburban_park
+asset_pack: suburban_park
 measure_usds: true
 layout:
   region_m:
@@ -265,36 +265,66 @@ layout:
         - 135.0
         - 190.0
 disaster:
-  damaged_fraction: 0.0
-  destroyed_fraction: 0.0
+  mesh_damage:
+    fracture:
+      enabled: true
+      max_buildings: 70
+    thickness:
+      enabled: true
+      wall_m: 0.5
+      max_buildings: 70
+  damaged_fraction: 0.54
+  destroyed_fraction: 0.202
   debris:
     piles_per_building:
-    - 0
-    - 0
+    - 2
+    - 5
+    pile_max_offset_m: 2.475
     pieces_per_building:
-    - 0
-    - 0
-    damaged_debris_scale: 0.0
-    tilt_chance: 0.0
-    path_pieces_per_100m2: 0.0
-    path_piles_per_100m2: 0.0
-  trees_toppled_fraction: 0.0
-  streetlights_toppled_fraction: 0.0
-  traffic_lights_toppled_fraction: 0.0
-  traffic_lights_leaning_fraction: 0.0
-  trash_cans_toppled_fraction: 0.0
-  trash_cans_scatter_m: 0.0
-  cars_toppled_fraction: 0.0
+    - 9
+    - 17
+    pieces_scatter_m: 3.95
+    damaged_debris_scale: 0.613
+    tilt_chance: 0.148
+    tilt_deg:
+    - 2
+    - 5
+    sink_m:
+    - 0.2
+    - 0.6
+    lean_piles:
+    - 1
+    - 3
+    path_pieces_per_100m2: 0.885
+    path_piles_per_100m2: 0.213
+    path_min_intensity: 0.3
+  trees_toppled_fraction: 0.792
+  streetlights_toppled_fraction: 0.085
+  traffic_lights_toppled_fraction: 0.072
+  traffic_lights_leaning_fraction: 0.148
+  traffic_lights_lean_deg:
+  - 5
+  - 15
+  trash_cans_toppled_fraction: 0.56
+  trash_cans_scatter_m: 0.59
+  cars_toppled_fraction: 0.056
   cars_strewn:
-  - 0
-  - 0
-  humans_prone_fraction: 0.0
+  - 1
+  - 2
+  strewn_topple_fraction: 0.15
+  humans_prone_fraction: 0.425
   humans_strewn:
-  - 0
-  - 0
+  - 2
+  - 6
   field:
-    kind: uniform
-    inside: 0.0
+    kind: radial
+    center:
+    - -125.0
+    - -125.0
+    radius_m: 72.2
+    falloff_m: 12.5
+    inside: 1.0
+    outside: 0.0
   fire:
     enabled: true
     origin_m:
@@ -323,7 +353,7 @@ disaster:
     density_cell_size_m: 0.1
     max_blocks: 16384
     colormap_x_max: 1.0
-  type: wildfire
+  type: fire
   severity: 0.65
 detail:
   trees:

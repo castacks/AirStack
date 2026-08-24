@@ -1,4 +1,4 @@
-# The urban asset set with NO RUIN ART — every building starts intact, so all
+# The urban asset pack with NO RUIN ART — every building starts intact, so all
 # structural damage has to come from `disaster/mesh_damage.py`.
 #
 # WHY THIS EXISTS
@@ -30,7 +30,7 @@
 # procedurally wrecked buildings standing on clean ground.
 #
 # USAGE
-#   asset-set: urban_intact        # in a preset, beside `locale:`
+#   asset-pack: urban_intact        # in a preset, beside `locale:`
 #
 # The suburban twin is the same three lines over `extends: suburban`.
 

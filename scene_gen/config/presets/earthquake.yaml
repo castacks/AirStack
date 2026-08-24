@@ -1,17 +1,17 @@
-# HIGH-LEVEL scene spec — the detailed downtown, after a major earthquake.
+# HIGH-LEVEL scene spec — the detailed urban, after a major earthquake.
 #
 # THE POINT OF THIS FILE
 # ----------------------
 # Composing a disaster with the *detailed* city was impossible before the
-# config hoist. `downtown.yaml` used to carry ~1,100 lines under `overrides:`,
+# config hoist. `urban.yaml` used to carry ~1,100 lines under `overrides:`,
 # and `overrides` is deep-merged LAST — after the locale axis and after the
 # disaster axis — so any disaster settings it produced were promptly overwritten
 # by the preset's own block. The two axes could not both be expressed.
 #
-# Now that those settings live in `default.yaml`, `locales/downtown.yaml` and
-# `compile_locale.compile_downtown()`, this file is all it needs to be: a
+# Now that those settings live in `default.yaml`, `locales/urban.yaml` and
+# `compile_locale.compile_urban()`, this file is all it needs to be: a
 # locale, a disaster, and a severity. The detailed generator comes from being a
-# downtown; the damage comes from the disaster axis; they compose.
+# urban; the damage comes from the disaster axis; they compose.
 #
 # WHAT IT EXERCISES THAT THE PRISTINE PRESETS DO NOT
 # ---------------------------------------------------
@@ -23,25 +23,25 @@
 #
 # Severity 0.6 is the calibrated point: the hand-tuned original earthquake sits
 # at 0.5-0.6, so this is "a bad one" rather than a worst case. Sweep it against
-# `downtown.yaml` (the same scene at severity 0) to see damage alone — the
+# `urban.yaml` (the same scene at severity 0) to see damage alone — the
 # layout is identical between them by construction, which is the guarantee the
 # tests in `tests/` enforce.
 #
-# Shares the Objaverse pre-flight with `downtown` (same asset set):
+# Shares the Objaverse pre-flight with `urban` (same asset pack):
 #
 #     UV_PYTHON=3.13 uv run --no-project --with objaverse --with pandas \
 #         --with pyyaml --with trimesh \
-#         python scene_gen/prepare_assets.py --asset-set urban
+#         python scene_gen/prepare_assets.py --asset-pack urban
 #
 #     SCENE_CONFIG=earthquake \
 #     ISAAC_SIM_SCRIPT_NAME=scene_launch_script.py \
 #     airstack up isaac-sim
 
-locale: downtown
+locale: urban
 disaster-type: earthquake
 severity: 1.0
 
-asset-set: urban
+asset-pack: urban
 # Matches urban_v2.yaml, so the two are directly comparable side by side.
 region_m: [800, 800]
 seed: 42
