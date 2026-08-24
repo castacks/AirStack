@@ -9,15 +9,15 @@
 
   <!-- ======== GUI ======== -->
   <!-- Launch foxglove-studio with the no-sandbox flag (Electron in a root
-       container). The layoutId in the deep link is a Foxglove-app layout id:
-       it selects that layout from the app's local/team layout store when
-       present, and is harmlessly ignored otherwise. The documented layout
-       flow is importing the rendered /root/airstack_layout_num_robots_<N>.json
-       (see docs/gcs/foxglove.md), which supersedes this id for multi-robot
-       runs — kept so single-robot sessions restore the last-used layout. -->
+       container). The layoutId in the deep link matches the layout that
+       gcs/foxglove_extensions/render_layout.py seeds into the app's local
+       layout store on container startup (layout_id()), so the
+       NUM_ROBOTS-matched layout is active immediately with no manual import
+       (see docs/gcs/foxglove.md). -->
+
 
   <executable
-    cmd="bash -c 'DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY foxglove-studio --no-sandbox &quot;foxglove://open?ds=foxglove-websocket&amp;ds.url=ws://localhost:8765&amp;layoutId=lay_0eLycKBK1l9dAtoR&quot;'"
+    cmd="bash -c 'DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY foxglove-studio --no-sandbox &quot;foxglove://open?ds=foxglove-websocket&amp;ds.url=ws://localhost:8765&amp;layoutId=airstack_default_${NUM_ROBOTS:-1}_robots&quot;'"
     output="screen"/>
 
   <node pkg="foxglove_bridge" exec="foxglove_bridge" output="screen" respawn="true" respawn_delay="1">
