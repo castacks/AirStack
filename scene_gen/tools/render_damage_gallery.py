@@ -322,7 +322,12 @@ def compose(manifest: dict, tiles: dict, out: Path, title: str) -> None:
             if key in tiles:
                 sheet.paste(Image.open(tiles[key]).convert("RGB"), (x, y))
             st = row["stats"].get(col) or {}
-            if col == "pristine":
+            # A caller that already knows what its cell should say puts it in
+            # `note`. `damage_spread.py` reports cells/loose/seconds; the
+            # debris counts below mean nothing there.
+            if st.get("note") and col != "pristine":
+                note = st["note"]
+            elif col == "pristine":
                 note = (f"{st.get('footprint_m', ['?', '?'])[0]}"
                         f"x{st.get('footprint_m', ['?', '?'])[1]} m, "
                         f"h {st.get('height_m', '?')} m")

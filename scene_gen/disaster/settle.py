@@ -59,9 +59,87 @@ def _iter(prim):
     return Usd.PrimRange(prim)
 
 
+def blast_velocities(stage, paths, speed, centre=None, up=0.35, falloff=1.0):
+    """Outward radial launch velocity per body: `{path: (vx, vy, vz)}`.
+
+    WHY A BLAST AND NOT A BIGGER `kick`
+    -----------------------------------
+    `kick` is isotropic noise — it breaks the symmetry of an interlocked stack
+    but has no preferred direction, so raising it just jitters the pile harder
+    in place. Voronoi fragments tile the original volume with ZERO gap, and a
+    tiling of convex cells under gravity alone is a stable arch: measured on
+    the 96 m tower, 30 of 30 bodies were still grinding against each other
+    after 1500 steps having dropped 3 m. The pieces have to be moved APART
+    before gravity has anything to work with.
+
+    So this is a radial impulse about the structure's own vertical axis,
+    strongest at the centre and decaying outward, with an upward component so
+    the pile opens rather than merely sliding. That is what a collapse looks
+    like from the inside: material is thrown off the axis, then falls.
+
+    *centre* defaults to the plan centroid of *paths* at their lowest z — the
+    base of the structure, so pieces are thrown out and up rather than down
+    into the ground. *falloff* scales the radius over which the speed decays;
+    *up* is the vertical share of the speed.
+
+    Returns a dict rather than authoring anything, so the caller decides when
+    the velocities land — they must be assigned AFTER the bodies are dynamic.
+    """
+    import numpy as np
+
+    from pxr import Usd, UsdGeom
+
+    if speed <= 0.0 or not paths:
+        return {}
+
+    # THE BOUNDING BOX, NOT THE TRANSFORM. A fragment's position may live in
+    # either place depending on who cut it: `vtk_fracture` centres each piece
+    # on its centroid and puts that in an xformOp, while `mesh_damage` authors
+    # points in the root's local space and gives the fragment NO transform at
+    # all. Reading the translate returns the parent's origin for every one of
+    # the latter, so every radius came out zero, every outward direction was
+    # undefined, and the whole blast collapsed into one uniform shove straight
+    # up. The world bound is where the geometry actually is, either way.
+    bb = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                           [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
+    cen = {}
+    for p in paths:
+        prim = stage.GetPrimAtPath(p)
+        if not prim or not prim.IsValid():
+            continue
+        box = bb.ComputeWorldBound(prim).ComputeAlignedRange()
+        if box.IsEmpty():
+            continue
+        cen[p] = np.array(box.GetMidpoint(), dtype=float)
+    if not cen:
+        return {}
+
+    pts = np.array(list(cen.values()))
+    if centre is None:
+        centre = np.array([pts[:, 0].mean(), pts[:, 1].mean(), pts[:, 2].min()])
+    centre = np.asarray(centre, dtype=float)
+
+    horiz = pts[:, :2] - centre[:2]
+    radius = max(1e-6, float(np.linalg.norm(horiz, axis=1).max()))
+
+    out = {}
+    for p, c in cen.items():
+        d = c[:2] - centre[:2]
+        r = float(np.linalg.norm(d))
+        unit = d / r if r > 1e-6 else np.zeros(2)
+        # Linear decay to zero at the outer edge: the core is thrown hardest,
+        # the facade barely at all, which is what keeps the footprint from
+        # ballooning outward into a starburst.
+        mag = float(speed) * max(0.0, 1.0 - r / (radius * max(1e-6, falloff)))
+        out[p] = (float(unit[0] * mag), float(unit[1] * mag),
+                  float(mag * up))
+    return out
+
+
 def prepare(stage, loose_paths, static_paths, gravity=-9.81,
             scene_path="/World/physicsScene", kick=0.0, rng=None,
-            dynamic_approximation="convexHull", approx_map=None, gpu=True):
+            dynamic_approximation="convexHull", approx_map=None, gpu=True,
+            blast=0.0, blast_center=None, blast_up=0.35, blast_falloff=1.0):
     """Physics scene, static colliders, and a rigid body per loose piece."""
     import random as _random
 
@@ -69,6 +147,8 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
     from pxr import PhysxSchema
 
     rng = rng or _random.Random(0)
+    burst = blast_velocities(stage, loose_paths, blast, centre=blast_center,
+                             up=blast_up, falloff=blast_falloff)
     scene = UsdPhysics.Scene.Define(stage, scene_path)
     scene.CreateGravityDirectionAttr().Set(Gf.Vec3f(0.0, 0.0, -1.0))
     scene.CreateGravityMagnitudeAttr().Set(abs(float(gravity)))
@@ -166,7 +246,19 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
         px = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
         px.CreateLinearDampingAttr(0.55)
         px.CreateAngularDampingAttr(2.2)
-        px.CreateMaxLinearVelocityAttr(4.0)
+        # THE CAP HAS TO CLEAR BOTH THE BLAST AND FREE FALL, and it used to
+        # clear neither. It was 4 m/s, described as "right for a piece that is
+        # only falling" — but a fragment dropping off a 66 m building reaches
+        # 36 m/s, so 4 m/s is not a safety cap on falling, it IS the fall
+        # speed. Everything descended in slow motion, nothing landed inside
+        # the step budget, and pieces nudged sideways kept travelling at the
+        # cap for the whole simulation: measured on a 1,161-cell collapse,
+        # 703 of 755 bodies were still moving at the ceiling and the spread
+        # reached 116 m. That reads as a detonation and was a clamp.
+        #
+        # 30 m/s is free fall from about 45 m, which covers the library, and
+        # the cap still catches a solver blow-up.
+        px.CreateMaxLinearVelocityAttr(max(30.0, float(blast) * 1.5))
         px.CreateMaxAngularVelocityAttr(5.0)
         # THE EXPLOSION KNOB. When PhysX finds two bodies overlapping it pushes
         # them apart, and by default it may do so at any speed — which turns
@@ -187,11 +279,17 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
         # Just enough to break the interlock. The previous values — 0.9 m/s
         # with +-25 rad/s of spin, i.e. four revolutions a second — were an
         # explosion, not a nudge.
-        if kick > 0.0:
+        #
+        # The BLAST is the directed half of the same job and composes with it:
+        # `kick` decides that a piece moves, `blast` decides which way. See
+        # `blast_velocities`.
+        bv = burst.get(path)
+        if kick > 0.0 or bv:
+            base = bv or (0.0, 0.0, 0.0)
             body.CreateVelocityAttr(Gf.Vec3f(
-                float(rng.uniform(-kick, kick)),
-                float(rng.uniform(-kick, kick)),
-                0.0))
+                float(base[0] + rng.uniform(-kick, kick)),
+                float(base[1] + rng.uniform(-kick, kick)),
+                float(base[2])))
             body.CreateAngularVelocityAttr(Gf.Vec3f(
                 float(rng.uniform(-kick, kick)),
                 float(rng.uniform(-kick, kick)),
@@ -210,6 +308,22 @@ def bake(stage, bodies):
     orient / scale. Rebuilding the op order rather than editing the existing
     ops matters: PhysX may have authored an `orient` alongside the `rotateXYZ`
     that `apply_placements` wrote, and leaving both composes them twice.
+
+    THE OPS ARE REMOVED, NOT JUST UNORDERED
+    ---------------------------------------
+    `ClearXformOpOrder` clears the ORDER and leaves the attributes behind, and
+    `AddXformOp` refuses to re-type an attribute that already exists — it
+    raises `has typeName 'float3' which does not match the requested precision
+    'PrecisionDouble'`, which pxr surfaces to Python as an exception, so the
+    whole bake dies partway through.
+
+    Whether it fires depends on who authored the translate first, which is why
+    it hid for so long. A fragment that comes out of `vtk_fracture._write_mesh`
+    already has a `Gf.Vec3d` translate, so PhysX updates that same double
+    attribute and the precision matches. A fragment from
+    `mesh_damage.fracture_to_stage` has NO transform at all — its points are
+    authored in the root's local space — so PhysX creates `xformOp:translate`
+    itself at FLOAT precision, and every mesh-damaged building failed to bake.
     """
     from pxr import Gf, UsdGeom, UsdPhysics
 
@@ -218,7 +332,20 @@ def bake(stage, bodies):
     for prim in bodies:
         if not prim or not prim.IsValid():
             continue
+        # PARENT SPACE, NOT WORLD SPACE. An xformOp is read relative to the
+        # prim's parent, so authoring the local-to-world matrix is only correct
+        # when the parent is the identity. `vtk_fracture` puts its fragments
+        # under a plain Scope and got away with it; `mesh_damage` parents its
+        # fragments to the BUILDING, which carries the placement's translate,
+        # rotate and scale — so a world matrix authored there applies all three
+        # a second time. On the centimetre-authored AEC packs (`scale: 0.01`)
+        # that shrinks every settled fragment 100x and throws it off, which
+        # reads as the rubble having vanished. Same double-transform trap
+        # `mesh_damage.fracture_to_stage` documents for authoring POINTS.
         m = xf.GetLocalToWorldTransform(prim)
+        parent = prim.GetParent()
+        if parent and not parent.IsPseudoRoot():
+            m = m * xf.GetLocalToWorldTransform(parent).GetInverse()
         tr = Gf.Transform(m)
         t = tr.GetTranslation()
         q = tr.GetRotation().GetQuat()
@@ -226,6 +353,9 @@ def bake(stage, bodies):
 
         x = UsdGeom.Xformable(prim)
         x.ClearXformOpOrder()
+        for name in list(prim.GetPropertyNames()):
+            if name.startswith("xformOp:"):
+                prim.RemoveProperty(name)
         x.AddTranslateOp().Set(Gf.Vec3d(t))
         x.AddOrientOp().Set(Gf.Quatf(q.GetReal(), Gf.Vec3f(q.GetImaginary())))
         x.AddScaleOp().Set(Gf.Vec3f(sc))
@@ -278,7 +408,8 @@ def _step(steps, dt=1.0 / 60.0):
 
 def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         gravity=-9.81, kick=0.0, rng=None, bake_result=True,
-        dynamic_approximation="convexHull", approx_map=None, gpu=True):
+        dynamic_approximation="convexHull", approx_map=None, gpu=True,
+        blast=0.0, blast_center=None, blast_up=0.35, blast_falloff=1.0):
     """prepare -> step physics -> measure -> bake. Returns a short report.
 
     MEASURES WHAT MOVED. A settle that silently does nothing looks identical
@@ -296,7 +427,9 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     info = prepare(stage, loose_paths, static_paths, gravity=gravity,
                    kick=kick, rng=rng,
                    dynamic_approximation=dynamic_approximation,
-                   approx_map=approx_map, gpu=gpu)
+                   approx_map=approx_map, gpu=gpu,
+                   blast=blast, blast_center=blast_center,
+                   blast_up=blast_up, blast_falloff=blast_falloff)
     if not info["bodies"]:
         carb.log_warn("[settle] nothing to settle")
         return info

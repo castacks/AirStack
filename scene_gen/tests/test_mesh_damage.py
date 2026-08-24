@@ -30,7 +30,7 @@ from disaster import mesh_damage as M  # noqa: E402
 # "Accessed schema on invalid prim" a long way from the cause.
 _STAGES = []
 
-DISASTERS = ["earthquake", "explosion", "tornado", "hurricane", "fire", "flood"]
+DISASTERS = ["earthquake", "tornado", "hurricane", "fire", "flood"]
 
 
 # ---------------------------------------------------------------------------
@@ -338,27 +338,6 @@ def test_wind_throws_everything_the_same_way():
     assert (e[moved, 1] > 0).all(), "debris did not travel due north"
     assert np.abs(e[moved, 0]).max() < 1e-6, "debris drifted cross-wind"
     assert (e[moved, 2] > 0).all(), "nothing was lofted"
-
-
-def test_explosion_is_local_to_its_epicentre():
-    """A blast is a bite out of a building; a smooth global falloff reads as an
-    earthquake with an off-centre origin."""
-    f = M.failure_field("explosion", UNIT, 0.8, 11, epicenter=(1.0, 0.0, 0.15))
-    near = _sample(f, UNIT, u=0.95, v=0.0, t=0.15)
-    far = _sample(f, UNIT, u=-0.95, v=0.0, t=0.9)
-    assert near > 0.5
-    assert far < 0.05
-
-
-def test_explosion_throws_material_radially_outward():
-    f = M.failure_field("explosion", UNIT, 0.9, 11, epicenter=(1.0, 0.0, 0.15))
-    c = UNIT.to_world((1.0, 0.0, 0.15))
-    p = c + np.array([[1.0, 0, 0], [-1.0, 0, 0], [0, 1.0, 0], [0, -1.0, 0]])
-    e = f.ejecta(p)
-    # Each displacement points away from the charge.
-    assert (np.einsum("ij,ij->i", e, p - c) > 0).all()
-
-
 def test_fire_consumes_the_inside_and_spares_the_envelope():
     """Timber spans burn; masonry in compression does not. The surviving
     envelope IS the silhouette that distinguishes fire from wind."""
@@ -633,10 +612,19 @@ def test_capping_is_what_closes_a_fracture():
 
     The rate is a function of how big the cells are relative to the geometry —
     a bigger cell has a more complicated cross-section and more chances to hit
-    a case `_cap_fan` declines. Measured on this box: 70% at 30 cells, 89% at
-    70. The bound below is deliberately well under either, because what is
-    being pinned is that capping is the difference between "no fragment is
-    closed" and "most are", not any particular percentage.
+    a case `_cap_fan` declines, so this is measured at a stated cell count
+    rather than at whatever the default happens to be. Measured on this box:
+    60% at 30 cells, 71% at 69, 79% at 130. What is being pinned is that
+    capping is the difference between "no fragment is closed" and "most are",
+    not any particular percentage.
+
+    NOT ASSERTED AT THE COARSE END, deliberately. Thirty cells on this box is
+    a thirty-fragment sample and the rate swings 0.41 to 0.60 on reseeding or
+    on `CORNER_GAIN`, which is sampling noise rather than a property. It is
+    also not the regime the pipeline runs in any more: `quake` sizes rubble in
+    absolute metres, so a real building is hundreds to thousands of cells.
+    Both counts asserted here are in that regime, where the rate is stable to
+    within a few points across seeds and corner gains.
     """
     prims = M.mesh_prims(box(scale=10.0))
     b = M.bounds_of(prims)
@@ -644,15 +632,17 @@ def test_capping_is_what_closes_a_fracture():
     b = M.bounds_of(prims)
     fail = M.failure_field("earthquake", b, 0.9, 42)
 
-    def closed(cap):
-        frags = M.fracture(prims, b, fail, seed=42, cap=cap)
+    def closed(cap, max_cells):
+        frags = M.fracture(prims, b, fail, seed=42, cap=cap,
+                           max_cells=max_cells)
         assert len(frags) >= 8
         n_closed = sum(1 for f in frags
                        if open_edge_count(f.verts, f.faces) == 0)
         return n_closed / len(frags)
 
-    assert closed(False) < 0.05
-    assert closed(True) > 0.60
+    assert closed(False, 140) < 0.05
+    assert closed(True, 140) > 0.70
+    assert closed(True, 300) > 0.70
 
 
 # ---------------------------------------------------------------------------
@@ -678,21 +668,20 @@ def test_fracture_divides_the_material_not_the_air():
 
 
 def test_seeds_go_where_the_damage_is():
-    """Cell density follows the field: fine at the epicentre, coarse or absent
-    away from it. That gradient is what makes a blast crater read as
-    pulverised against the slab cracking further out."""
+    """Cell density follows the field: fine where demand is highest, coarse or
+    absent away from it. That gradient is what makes a soft-storey collapse
+    read as pulverised at the base against the upper floors merely cracking."""
     prims = M.mesh_prims(box(scale=10.0))
     b = M.bounds_of(prims)
-    fail = M.failure_field("explosion", b, 0.9, 3, epicenter=(1.0, 0.0, 0.2))
+    fail = M.failure_field("earthquake", b, 0.9, 3)
     soup, _ = M._mesh_soup(prims, lambda c: fail.damage(c) >= 0.12)
     seeds = M.fracture_seeds(soup, fail, 1.2, 3, 48)
     assert len(seeds) >= 8
     # Every seed sits where the field actually damaged something.
     assert (fail.damage(seeds) > 0.0).all()
-    # …and their centre of mass is pulled toward the charge, not the building.
-    epi = b.to_world((1.0, 0.0, 0.2))
-    assert np.linalg.norm(seeds.mean(axis=0) - epi) < \
-        np.linalg.norm(b.center - epi)
+    # …and their centre of mass is pulled DOWN the shear profile, toward the
+    # base, rather than sitting at the centroid of the geometry.
+    assert seeds[:, 2].mean() < b.center[2]
 
 
 def test_crack_spacing_is_respected():
@@ -941,7 +930,7 @@ def test_apply_to_stage_runs_the_compiled_config(dtype):
         assert out["tally"].get("thickened") == 2
 
 
-@pytest.mark.parametrize("dtype", ["earthquake", "explosion", "tornado",
+@pytest.mark.parametrize("dtype", ["earthquake", "tornado",
                                    "hurricane", "fire"])
 def test_severity_frees_more_material(dtype):
     """The invariant the whole generator rests on, end to end."""
@@ -1053,7 +1042,7 @@ def test_disabling_the_pipeline_is_honoured():
 
 
 def test_a_solid_asset_is_not_thickened():
-    """`solid: true` in the asset set says the art already has wall volume;
+    """`solid: true` in the asset pack says the art already has wall volume;
     thickening it again costs points and gains nothing."""
     st, placements = stage_with_buildings(1)
     placements[0]["_mesh_damage"] = 0.9

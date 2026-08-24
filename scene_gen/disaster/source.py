@@ -1,6 +1,6 @@
 """source — one asset, resolved and read into plain arrays.
 
-Front end for the damage pipeline: turns an asset-set string
+Front end for the damage pipeline: turns an asset-pack string
 (``objaverse://``, ``omniverse://``, ``airstack://`` or a path) into triangles,
 UVs, per-triangle material ids and the ``Material`` prims they refer to.
 
@@ -27,7 +27,7 @@ class Source:
 
 
 def resolve_asset(spec: str, target_size: float) -> str:
-    """An asset-set asset string to something `Usd.Stage.Open` accepts.
+    """An asset-pack asset string to something `Usd.Stage.Open` accepts.
 
     Delegates to the generator's own resolver so `objaverse://` etc. mean here
     exactly what they mean in a config, and triggers the same download-and-
@@ -63,7 +63,7 @@ def load_source(stage, root_path: str, asset: str, target_size: float,
     `Material` prims land on the stage with their shader networks and texture
     paths intact, and the chunks simply bind to them.
     """
-    from pxr import Sdf, Usd, UsdGeom, UsdShade
+    from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
 
     src = UsdGeom.Xform.Define(stage, root_path)
     src.GetPrim().GetReferences().AddReference(asset)
@@ -131,6 +131,21 @@ def load_source(stage, root_path: str, asset: str, target_size: float,
         points = points * scale
     else:
         scale = 1.0
+
+    # THE STAGE HAS TO AGREE WITH THE POINTS. Everything above rescales the
+    # numpy array only, but the prim under `root_path` is still the reference
+    # at its AUTHORED size — and `earthquake.shake` hands that PRIM PATH to
+    # `solids.thicken`, which re-reads the geometry off the stage. So the two
+    # halves of one pipeline disagreed by exactly the scale factor.
+    #
+    # On an objaverse asset authored near 1 m that is a small error nobody
+    # noticed. On a centimetre-authored Nucleus building (`scale: 0.01`) it is
+    # 100x: `solids.visible_faces` sizes its ray grid as radius/spacing, so a
+    # 96 m tower read as 9,612 units asked for a (596624, 596624) meshgrid and
+    # died trying to allocate 2.59 TiB. It only stays hidden on assets where
+    # `close_directly` succeeds and `thicken` never runs.
+    if scale != 1.0:
+        src.AddScaleOp().Set(Gf.Vec3f(float(scale), float(scale), float(scale)))
 
     UsdGeom.Imageable(src).MakeInvisible()
     if not quiet:
