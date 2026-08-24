@@ -96,7 +96,6 @@ nav:
           - Overhead Camera: docs/simulation/isaac_sim/overhead_camera.md
           - docs/simulation/isaac_sim/ascent_sitl_extension.md
           - docs/simulation/isaac_sim/export_stages_from_unreal.md
-          - MoCap Emulator: docs/simulation/isaac_sim/natnet_emulator.md
       - Microsoft AirSim (legacy):
           - docs/simulation/ms-airsim/index.md
           - Docker: docs/simulation/ms-airsim/docker.md
@@ -121,8 +120,7 @@ nav:
               - Gimbal: docs/robot/autonomy/sensors/gimbal.md
           - Perception:
               - docs/robot/autonomy/perception/index.md
-              - NatNet (OptiTrack): robot/ros_ws/src/perception/natnet_ros2/README.md
-              - PX4 External Vision (mocap): docs/robot/px4_external_vision.md
+              - OptiTrack (asm_optitrack module): docs/robot/optitrack.md
           - Local:
               - docs/robot/autonomy/local/index.md
               - World Model:

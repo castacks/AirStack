@@ -90,14 +90,6 @@ def test_robots_1_selects_single_script_even_if_env_says_multi():
     assert cfg["ISAAC_SIM_SCRIPT_NAME"] == "example_one_px4_pegasus_launch_script.py"
 
 
-def test_robots_respects_natnet_script_pair():
-    _, _, cfg = run_up_dry(
-        "--sim", "isaac", "--robots", "2",
-        env={"ISAAC_SIM_SCRIPT_NAME": "example_one_px4_pegasus_natnet_launch_script.py"},
-    )
-    assert cfg["ISAAC_SIM_SCRIPT_NAME"] == "example_multi_px4_pegasus_natnet_launch_script.py"
-
-
 def test_robots_never_overrides_custom_script():
     code, out, cfg = run_up_dry(
         "--sim", "isaac", "--robots", "2",

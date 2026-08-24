@@ -69,6 +69,10 @@ on:
         description: "Module-relative directory of extra pytest tests, appended to the pytest paths only if it exists in the module checkout."
         type: string
         default: "tests"
+      hook_env:
+        description: "Newline-separated KEY=VALUE pairs exported when running the module's hooks.host_setup (e.g. an explicit proprietary-license acceptance like NATNET_ACCEPT_LICENSE=1). Values are caller-visible in logs — never secrets."
+        type: string
+        default: ""
       runs_on:
         description: "JSON array string parsed into runs-on."
         type: string
@@ -271,6 +275,10 @@ jobs:
           ")"
           if [[ -n "$hook" ]]; then
             echo "Running hooks.host_setup: $hook (idempotent by manifest contract)"
+            # Export caller-provided hook env (e.g. explicit license acceptance).
+            while IFS= read -r kv; do
+              [[ -n "$kv" ]] && export "${kv?}" && echo "hook env: $kv"
+            done <<< "${{ inputs.hook_env }}"
             (cd module-under-test && bash "$hook")
           else
             echo "No hooks.host_setup declared."

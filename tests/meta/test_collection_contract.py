@@ -52,8 +52,8 @@ def test_broad_invocations_collect_unit_tests(cwd, args):
         (TESTS_DIR, ["system/test_liveliness.py"]),
         (TESTS_DIR, ["system/test_liveliness.py::TestLiveliness::test_x"]),
         (_REPO, ["tests/system/test_sensors.py"]),
-        (_REPO, ["tests/integration/natnet"]),
-        (_REPO, ["simulation/isaac-sim/extensions/optitrack.natnet.emulator/test/test_frames.py"]),
+        (_REPO, ["tests/integration"]),
+        (_REPO, ["robot/ros_ws/src/sensors/lidar_point_cloud_filter/test/test_validation_core.py"]),
         (_REPO, ["."]),                         # never recurse over the repo on host
         (_REPO, [""]),
         (_REPO, ["tests/", ""]),

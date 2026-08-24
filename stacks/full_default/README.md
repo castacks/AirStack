@@ -5,12 +5,16 @@ This is the stack most users start from and the baseline other stacks are copied
 
 ## What it launches
 
-Wrap form (E1): the entry point `launch/stack.launch.xml` includes the existing
-layer bringups — interface, sensors, perception, local, global, behavior,
-logging — exactly as `onboard_autonomy_all.launch.xml` does with default args,
-plus the two role-`full` extras (DDS-router domain bridge to the GCS, gossip
-coordination layer). Flattening the layer bringups' nodes and remaps into the
-stack file (the single-locus wiring rule) arrives in a later phase (E2/E3).
+The entry point `launch/stack.launch.xml` composes the **Local layer as a
+flat set of module-launch includes** (flattened in E2: takeoff/land task
+server, fixed-trajectory task server, GPU DROAN planner, trajectory
+controller, PID controller — each module launch file declares its topic
+endpoints as args with canonical defaults, so bare includes mean canonical
+wiring), and includes the remaining layer bringups — interface, sensors,
+perception, global, behavior, logging — exactly as
+`onboard_autonomy_all.launch.xml` does with default args, plus the two
+role-`full` extras (DDS-router domain bridge to the GCS, gossip coordination
+layer). Flattening the remaining layers arrives in E3.
 
 ## Equivalence claim
 
@@ -35,9 +39,10 @@ The shared per-robot preamble (ROBOT_NAME namespace, `use_sim_time`,
 
 ## Known limits
 
-- Wrap form: cross-module remaps still live inside the layer bringup launch
-  files, not in `stack.launch.xml`. Grep the layer bringups (or read
-  `wiring.md` once committed) for the actual topic wiring.
+- Partially flattened: the Local layer is composed module-by-module in
+  `stack.launch.xml`; the other layers' cross-module remaps still live inside
+  their bringup launch files until E3. Grep those bringups (or read
+  `wiring.md`) for their actual topic wiring.
 - `modules.repos` pins no external modules yet; every package is trunk-resident.
 - `docker-compose.yaml` is a stub — per-stack image composition arrives with
   the first module pins; trunk compose profiles provide all services.

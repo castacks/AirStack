@@ -1,1 +1,0 @@
-"""NatNet simulation components."""

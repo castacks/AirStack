@@ -9,7 +9,6 @@
 
 robot:
   packages:
-    - natnet_ros2
     - lidar_point_cloud_filter
   # Linter skip lives in lidar_point_cloud_filter setup.cfg + test/conftest.py.
   # ament pytest does not honor PYTEST_ADDOPTS -m.
@@ -18,6 +17,7 @@ robot:
 
 # Simulation-side extensions (globbed under simulation/**/<pkg>/test). Collected by
 # `pytest tests/` on the host runner; not part of the robot colcon workspace.
+# Currently empty: optitrack.natnet.emulator moved to the asm_optitrack module
+# (its tests run in the module repo's CI).
 sim:
-  packages:
-    - optitrack.natnet.emulator
+  packages: []

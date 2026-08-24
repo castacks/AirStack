@@ -7,18 +7,22 @@ named stacks a few include lines apart (RFC #379 §3).
 
 ## What it launches
 
-Wrap form (E1): identical to [`full_default`](../full_default/README.md)
-except the Local layer include is
-`local_bringup/launch/local_droan_cpu.launch.xml`. Everything else — interface,
-sensors, perception, global, behavior, logging, DDS router, gossip — matches
-`full_default` exactly.
+Local layer flattened (E2): identical to
+[`full_default`](../full_default/README.md) except the DROAN include lines —
+`droan_local_planner.launch.xml` plus `disparity_expansion.launch.xml`
+instead of `droan_gl.launch.xml`. Everything else — interface, sensors,
+perception, the other local modules, global, behavior, logging, DDS router,
+gossip — matches `full_default` exactly. (This stack absorbed the deleted
+`local_bringup/launch/local_droan_cpu.launch.xml` variant.)
 
 ## Equivalence claim
 
 `airstack up --stack full_droan_cpu` produces a ROS graph identical to the
 legacy `AUTONOMY_ROLE=full` dispatch with
 `local_launch_file:=local_droan_cpu.launch.xml` passed to
-`onboard_autonomy_all.launch.xml`.
+`onboard_autonomy_all.launch.xml` (that variant file was deleted in P5-E2;
+this folder's committed `wiring.md`, captured from exactly that legacy
+configuration, remains the observed baseline the flat form must match).
 
 ## How to run
 
@@ -29,8 +33,9 @@ airstack ready
 
 ## Known limits
 
-- Wrap form: cross-module remaps still live inside the layer bringup launch
-  files, not in `stack.launch.xml`.
+- Partially flattened: the Local layer is composed module-by-module in
+  `stack.launch.xml`; the other layers are still wrapped bringup includes
+  (they flatten in E3).
 - CPU DROAN is the slower planner path — use `full_default` (GPU `droan_gl`)
   unless you need to run without the GPU planner or are debugging
   `disparity_expansion`.

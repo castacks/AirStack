@@ -362,7 +362,7 @@ The workflow auto-prepends `build_packages` when not already specified.
 
 | Layer | Location | Examples |
 | ----- | -------- | -------- |
-| Tracker params | `robot/ros_ws/src/local/local_bringup/launch/local.launch.xml` (or `local_droan_cpu.launch.xml`) | `sphere_radius`, `look_ahead_time`, `search_ahead_factor`, `min_virtual_tracking_velocity` |
+| Tracker params | `robot/ros_ws/src/local/controls/trajectory_controller/config/trajectory_controller.yaml` (stack path; legacy `local.launch.xml` keeps its inline copy) | `sphere_radius`, `look_ahead_time`, `search_ahead_factor`, `min_virtual_tracking_velocity` |
 | Tracker implementation | Replace or fork `trajectory_controller` node | Alternative pure-pursuit, different intersection logic |
 | Low-level control | Swap `pid_controller` for `attitude_controller` in launch | Changes end-to-end error, not tracker-only |
 
