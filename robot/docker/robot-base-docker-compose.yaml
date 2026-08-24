@@ -23,6 +23,11 @@ services:
       - DEBUG_RVIZ=${DEBUG_RVIZ:-false}
       # OptiTrack / NatNet
       - NATNET_SERVER_IP=${NATNET_SERVER_IP:-172.31.0.200}
+      # Stack dispatch (RFC #379): set by `airstack up --stack <name>` to the
+      # CONTAINER path of the stack folder (/root/AirStack/stacks/<name>).
+      # Empty = legacy AUTONOMY_ROLE dispatch in robot.launch.xml.
+      - AIRSTACK_STACK_DIR=${AIRSTACK_STACK_DIR:-}
+      - AIRSTACK_STACK_ENTRY=${AIRSTACK_STACK_ENTRY:-stack}
     volumes:
       # display stuff
       - $HOME/.Xauthority:/.Xauthority
@@ -40,6 +45,8 @@ services:
       - ../../common/ros_packages:/root/AirStack/robot/ros_ws/src/common:rw
       - ../../common/fastdds.xml:/root/AirStack/robot/ros_ws/src/fastdds.xml
       - ../ros_ws:/root/AirStack/robot/ros_ws:rw
+      # reference stack folders (launch entry points read via AIRSTACK_STACK_DIR)
+      - ../../stacks:/root/AirStack/stacks:rw
       # bags
       - ../bags:/bags:rw
 

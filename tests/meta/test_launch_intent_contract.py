@@ -178,3 +178,74 @@ def test_invalid_sim_is_fatal():
     code, out, _ = run_up_dry("--sim", "gazebo", check=False)
     assert code != 0
     assert "gazebo" in out
+
+
+# ── --stack dispatch (RFC #379 §3, P5-E1) ──────────────────────────────────
+
+def test_stack_flag_exports_container_paths():
+    """--stack validates host-side but exports the CONTAINER path (stacks/ is
+    bind-mounted at /root/AirStack/stacks)."""
+    _, _, cfg = run_up_dry("--sim", "isaac", "--stack", "full_default")
+    assert cfg["AIRSTACK_STACK_DIR"] == "/root/AirStack/stacks/full_default"
+    assert cfg["AIRSTACK_STACK_ENTRY"] == "stack"
+
+
+def test_stack_split_entry_form():
+    """--stack <name>:<entry> selects launch/<entry>.launch.xml (reserved for
+    split stacks; the default entry file also resolves through it)."""
+    _, _, cfg = run_up_dry("--sim", "isaac", "--stack", "full_default:stack")
+    assert cfg["AIRSTACK_STACK_DIR"] == "/root/AirStack/stacks/full_default"
+    assert cfg["AIRSTACK_STACK_ENTRY"] == "stack"
+
+
+def test_unknown_stack_is_fatal():
+    code, out, _ = run_up_dry("--stack", "no_such_stack", check=False)
+    assert code != 0
+    assert "no_such_stack" in out
+    assert "full_default" in out  # error lists the available stacks
+
+
+def test_stack_missing_entry_is_fatal():
+    code, out, _ = run_up_dry("--stack", "full_default:onboard", check=False)
+    assert code != 0
+    assert "onboard.launch.xml" in out
+
+
+def test_no_stack_leaves_stack_vars_empty():
+    """Legacy path: no --stack → both stack vars empty in effective config."""
+    _, _, cfg = run_up_dry(
+        "--sim", "isaac",
+        # Scrub any stack vars inherited from the invoking shell.
+        env={"AIRSTACK_STACK_DIR": "", "AIRSTACK_STACK_ENTRY": ""},
+    )
+    assert cfg.get("AIRSTACK_STACK_DIR", "") == ""
+
+
+def test_autonomy_role_without_stack_warns_deprecation():
+    """AUTONOMY_ROLE explicitly set (env/--env-file) + no stack → one
+    deprecation warning pointing at --stack."""
+    _, out, _ = run_up_dry(
+        "--sim", "isaac",
+        env={"AUTONOMY_ROLE": "full", "AIRSTACK_STACK_DIR": ""},
+    )
+    assert "legacy dispatch" in out
+    assert "--stack full_default" in out
+
+
+def test_no_deprecation_warning_without_explicit_role():
+    """The compose files' own ${AUTONOMY_ROLE:-full} default must NOT trip the
+    warning — only an explicit env / --env-file / .env value does."""
+    _, out, _ = run_up_dry(
+        "--sim", "isaac",
+        env={"AUTONOMY_ROLE": "", "AIRSTACK_STACK_DIR": ""},
+    )
+    assert "legacy dispatch" not in out
+
+
+def test_stack_and_role_both_set_warns_stack_wins():
+    _, out, _ = run_up_dry(
+        "--sim", "isaac", "--stack", "full_default",
+        env={"AUTONOMY_ROLE": "full"},
+    )
+    assert "stack wins" in out
+    assert "legacy dispatch" not in out
