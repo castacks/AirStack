@@ -13,7 +13,9 @@
   global bringup) so they resolve against the parent $ROBOT_NAME namespace at
   runtime; the arg targets are absolute. Wiring deviations are passed as
   include args by the stack entry file (stacks/<name>/launch/) — the
-  single-locus rule: no remap tags and no cross-module rewiring edits here.
+  single-locus rule: endpoints are declared args,
+  applied locally via <set_remap>; cross-module REWIRING lives only in
+  stack entry files.
 -->
 <launch>
   <arg name="random_walk_config"

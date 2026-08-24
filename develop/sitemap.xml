@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/AGENTS/</loc>
+         <loc>https://docs.theairlab.org/docs/develop/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/CHANGELOG/</loc>
+         <loc>https://docs.theairlab.org/docs/develop/AGENTS/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
@@ -34,10 +34,6 @@
     </url>
     <url>
          <loc>https://docs.theairlab.org/docs/develop/common/ros_packages/gui/rviz/3d_waypoint_rviz2_plugin/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/common/ros_packages/gui/rviz/rviz_behavior_tree_panel/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
@@ -161,10 +157,6 @@
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/docs/development/intermediate/testing/integration_testing/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/development/intermediate/testing/testing_frameworks/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
@@ -185,14 +177,6 @@
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/docs/gcs/casualty_assessment/casualty_assessment/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/docs/gcs/command_center/command_center/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/gcs/docker/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
@@ -201,15 +185,31 @@
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/docs/gcs/wintak/installation/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/getting_started/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/getting_started/modular_airstack/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/getting_started/tutorials_reference/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/modules/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/modules/dfm2_disturbances/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/modules/macvo/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/modules/optitrack/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
@@ -230,6 +230,10 @@
     </url>
     <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/real_world/installation/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/release_notes/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
@@ -270,14 +274,6 @@
     </url>
     <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/robot/autonomy/behavior/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/docs/robot/autonomy/behavior/behavior_executive/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/docs/robot/autonomy/behavior/behavior_tree/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
@@ -421,18 +417,6 @@
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/gcs/ros_ws/src/ros2tak_tools/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/gcs/ros_ws/src/rqt_airstack_control_panel/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/gcs/ros_ws/src/rqt_gcs/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
          <loc>https://docs.theairlab.org/docs/develop/git-hooks/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
@@ -457,19 +441,7 @@
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/interface/mavros_interface/launch/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
          <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/local/controls/mav_comm/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/local/controls/px4_msgs/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/local/controls/px4_msgs/CONTRIBUTING/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
@@ -509,15 +481,7 @@
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/sensors/camera_param_server/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
          <loc>https://docs.theairlab.org/docs/develop/robot/ros_ws/src/sensors/lidar_point_cloud_filter/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/simulation/isaac-sim/standalone_examples/api/isaacsim.robot.manipulators/rmpflow_supported_robots/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
@@ -565,15 +529,11 @@
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/tests/goldens/wiring/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/tests/goldens/wiring/full_default.isaacsim.1robot/</loc>
-         <lastmod>2026-08-24</lastmod>
-    </url>
-    <url>
          <loc>https://docs.theairlab.org/docs/develop/tests/integration/</loc>
+         <lastmod>2026-08-24</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/tests/meta/</loc>
          <lastmod>2026-08-24</lastmod>
     </url>
     <url>

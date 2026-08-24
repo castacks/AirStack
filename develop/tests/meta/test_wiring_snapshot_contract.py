@@ -1,5 +1,5 @@
 # Copyright (c) 2024 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Contract tests for the wiring-snapshot tool (RFC #379 §4.4).
 
 ``tests/wiring_snapshot.py`` turns ``ros2 topic info --verbose`` output into a
@@ -190,6 +190,16 @@ def test_render_extract_round_trips_graph_exactly():
     assert "- **sim**: isaacsim" in text
     assert "```mermaid" in text
     assert ws.extract_graph_from_md(text) == graph
+
+    # The JSON trailer is rendered compact (single line, no spaces) so future
+    # baselines stay ~1k lines; extract must round-trip it regardless.
+    open_i = text.index(ws._TRAILER_OPEN) + len(ws._TRAILER_OPEN)
+    close_i = text.index(ws._TRAILER_CLOSE)
+    trailer_body = text[open_i:close_i].strip("\n")
+    assert "\n" not in trailer_body, "trailer JSON must be one compact line"
+    assert trailer_body == json.dumps(
+        graph, sort_keys=True, separators=(",", ":")
+    ), "trailer JSON must use compact separators (',', ':') and sort_keys"
 
 
 def test_diff_identical_graphs():

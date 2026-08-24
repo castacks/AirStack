@@ -14,9 +14,10 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
+# config/ carries the shared DDS-router YAML (moved up from the removed
+# AUTONOMY_ROLE role folders onboard_all/ and onboard_local_offboard_global/
+# — stacks select it directly).
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
-install(DIRECTORY onboard_all DESTINATION share/${PROJECT_NAME})
-install(DIRECTORY onboard_local_offboard_global DESTINATION share/${PROJECT_NAME})
 
 ament_package()

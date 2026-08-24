@@ -20,7 +20,7 @@ RUN apt-get -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngrad
     
 # Install Python dependencies
 #RUN pip3 install empy future lxml matplotlib numpy pkgconfig psutil pygments \
-#    wheel pymavlink pyyaml requests setuptools six toml scipy pytak paho-mqtt sphinx utm
+#    wheel pymavlink pyyaml requests setuptools six toml scipy sphinx utm
 
 # Configure SSH
 RUN mkdir /var/run/sshd && echo 'root:airstack' | chpasswd && \

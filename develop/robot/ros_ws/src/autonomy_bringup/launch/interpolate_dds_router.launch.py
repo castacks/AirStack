@@ -20,7 +20,7 @@ Config inheritance via 'extends:':
   extending file.  The 'extends:' key itself is stripped from the final merged config.
 
   Example:
-    extends: "$(find-pkg-share my_pkg)/config/base_router.yaml"
+    extends: "$(find-pkg-share autonomy_bringup)/config/dds_router.yaml"
     participants:
       - name: "extra"
         kind: "local"
@@ -40,7 +40,7 @@ Launch arguments:
   dds_router_config_file  (required)
       Absolute path to the DDS Router YAML config file.
       Typically resolved with find-pkg-share in the calling launch file, e.g.:
-        $(find-pkg-share autonomy_bringup)/config/my_router.yaml
+        $(find-pkg-share autonomy_bringup)/config/dds_router.yaml
 
   dds_router_args  (optional, default: "")
       Space-separated key:=value pairs that resolve $(var key) tokens in the
@@ -55,7 +55,7 @@ Launch arguments:
 
 Example (XML caller):
   <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
-    <arg name="dds_router_config_file" value="$(find-pkg-share autonomy_bringup)/config/router.yaml" />
+    <arg name="dds_router_config_file" value="$(find-pkg-share autonomy_bringup)/config/dds_router.yaml" />
     <arg name="dds_router_args"        value="gcs_domain:=0" />
   </include>
 """

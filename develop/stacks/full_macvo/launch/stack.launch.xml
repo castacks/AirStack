@@ -1,5 +1,5 @@
 <!--
-  full_macvo : trunk reference stack (RFC #379 S3, layout per RFC #385 S1).
+  full_macvo : trunk reference stack.
 
   Preset that absorbed (and FIXED) the deleted MAC-VO obstacle-avoidance
   local bringup variant (see README): full autonomy with MAC-VO as the
@@ -26,7 +26,7 @@
     - interface.launch.py — MAVROS wiring is dense, FCU_URL is env-computed
       in python, and the interface layer is the safety boundary (arming,
       command authority, takeover). It stays a single include until the
-      platform-module refactor (RFC #380 Part 2).
+      platform-module refactor (Part 2).
     - interpolate_dds_router / gossip — cross-domain bridging helpers, not
       robot-graph modules; their wiring lives in DDS-router YAML configs, so
       the include + config-file arg IS their single locus.
@@ -122,7 +122,7 @@
        global_plan out; navigate/exploration actions under tasks/*. The node
        self-names random_walk_node at the robot root (no namespace push).
        Swapping the global planner = replacing this include; the alternative
-       trunk planners (ensemble_planner, exploration) ship no canonical
+       trunk planners (exploration) ship no canonical
        module launch yet — write one in their package first. -->
   <include file="$(find-pkg-share random_walk_planner)/launch/random_walk_planner.launch.xml" />
 
@@ -136,12 +136,12 @@
   <!-- ── Logging (already a single self-contained module — see header) ───── -->
   <include file="$(find-pkg-share logging_bringup)/launch/logging.launch.xml" />
 
-  <!-- ── Role-full extras (from robot.launch.xml's full group) ──────────── -->
+  <!-- ── Cross-domain extras (formerly robot.launch.xml's full-role group) ─ -->
 
   <!-- Domain Bridge (GCS) -->
   <include file="$(find-pkg-share autonomy_bringup)/launch/interpolate_dds_router.launch.py">
     <arg name="dds_router_config_file"
-      value="$(find-pkg-share autonomy_bringup)/onboard_all/config/dds_router.yaml" />
+      value="$(find-pkg-share autonomy_bringup)/config/dds_router.yaml" />
     <!-- 0 = robot.launch.xml's gcs_domain default -->
     <arg name="dds_router_args" value="gcs_domain:=0" />
   </include>

@@ -1,11 +1,15 @@
 # Copyright (c) 2026 Carnegie Mellon University
-# MIT License - see LICENSE in the repository root for full text.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 """Single-locus wiring lint (RFC #379 §4.1).
 
-All cross-module remaps belong in a stack's entry launch files
-(``stacks/*/launch/``). Module and layer launch files declare topic args with
-canonical defaults but never ``<remap>`` (XML) or ``remappings=`` (Python
-launch).
+What this lint enforces, precisely: no ``<remap>`` (XML) and no
+``remappings=`` (Python launch) in any launch file outside
+``stacks/*/launch/``, except the shrinking grandfather allowlist. Module
+launch files declare their topic endpoints as ``<arg>``s with canonical
+defaults and apply them to their own node locally via ``<set_remap>`` — that
+is the sanctioned pattern and is deliberately NOT matched by this lint's
+regex. Cross-module REWIRING (pointing one module at another's non-canonical
+topic) lives only in stack entry files, as include args.
 
 The rule lands mid-migration (wrap form, P5-E1), so the launch files that
 carried remaps at freeze time are grandfathered in

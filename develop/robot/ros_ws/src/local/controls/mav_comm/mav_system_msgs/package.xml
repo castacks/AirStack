@@ -3,9 +3,7 @@
 <package format="3">
   <name>mav_system_msgs</name>
   <version>0.0.0</version>
-  <description>
-    Messages specific to MAV utils scripts.
-  </description>
+  <description>Messages for MAV system status such as CPU and process information.</description>
 
   <maintainer email="christian.lanegger@mavt.ethz.ch">Christian Lanegger</maintainer>
 

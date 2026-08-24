@@ -90,13 +90,14 @@ def fleet_to_drone_configs(fleet, project_root):
         entry = entry or {}
         spawn = entry.get("spawn", [0.0, 0.0, DEFAULT_SPAWN_Z])
         vehicle = entry.get("vehicle", defaults.get("vehicle", ""))
-        _has_cam, has_lidar = vehicle_sensor_flags(project_root, vehicle)
+        has_cam, has_lidar = vehicle_sensor_flags(project_root, vehicle)
         configs.append({
             "domain_id": i,           # MAVLink port = 14540 + vehicle_id (= domain_id)
             "robot_name": name,
             "x_m": float(spawn[0]),
             "y_m": float(spawn[1]),
             "z_m": float(spawn[2]),
+            "camera": has_cam,
             "lidar": has_lidar,
         })
     if len(configs) == 1:
@@ -144,7 +145,7 @@ def main():
           f"{len(drone_configs)} drone(s): "
           + ", ".join(
               f"{c['robot_name']}@({c['x_m']:g},{c['y_m']:g},{c['z_m']:g})"
-              f"{' +lidar' if c['lidar'] else ''}"
+              f"{' +cam' if c['camera'] else ''}{' +lidar' if c['lidar'] else ''}"
               for c in drone_configs))
 
     # ── Isaac/Pegasus imports — deferred (see module docstring) ──────────────
@@ -161,7 +162,8 @@ def main():
         env_url=fleet_env_url(fleet, SIMULATION_ENVIRONMENTS),
         stage_scale=1.0,
         drone_configs=drone_configs,
-        # Per-robot "lidar" keys above override this app-level default.
+        # Per-robot "camera"/"lidar" keys above override the app-level
+        # defaults (enable_camera defaults True in PegasusApp).
         enable_lidar=False,
     ).run()
     return 0

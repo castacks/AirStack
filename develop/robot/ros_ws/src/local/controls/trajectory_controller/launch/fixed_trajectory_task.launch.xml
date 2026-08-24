@@ -5,8 +5,9 @@
   did: node `fixed_trajectory_task` in the `trajectory_controller` namespace.
   Every topic endpoint is a declared <arg> defaulting to the canonical name
   (today's graph). Wiring deviations are passed as include args by the stack
-  entry file (stacks/<name>/launch/) — the single-locus rule: no remap tags and
-  no cross-module rewiring edits here.
+  entry file (stacks/<name>/launch/) — the single-locus rule: endpoints are declared args,
+  applied locally via <set_remap>; cross-module REWIRING lives only in
+  stack entry files.
 -->
 <launch>
   <arg name="fixed_trajectory_odometry_topic"

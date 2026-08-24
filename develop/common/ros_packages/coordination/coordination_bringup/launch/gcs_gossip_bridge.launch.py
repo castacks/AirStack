@@ -1,4 +1,8 @@
-"""Launches the GCS-side DDS Router bridging /gossip/peers between GCS domain (0) and gossip domain (99)."""
+"""Launches the GCS-side DDS Router bridging /gossip/peers between GCS domain (0) and gossip domain (99).
+
+Included by: desktop_bringup gcs.launch.xml (gcs container entry).
+STATUS: canonical module launch for the GCS gossip bridge.
+"""
 
 import os
 
