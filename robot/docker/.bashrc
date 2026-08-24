@@ -66,6 +66,31 @@ function cws(){
     fi
 }
 
+# Build → source → launch, with an unmissable banner when a stage fails.
+# Used by the docker-compose AUTOLAUNCH tmux commands: a bare
+# `bws && sws && ros2 launch ...` dies silently on a build failure — the tmux
+# pane just returns to a prompt and `docker logs` shows nothing — so bringup
+# failures went unnoticed. Also fine to use interactively.
+function _autolaunch_banner(){
+    local line='!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+    printf '\n\033[1;97;41m%s\033[0m\n' "$line" "  AUTOLAUNCH FAILED on $(hostname) (ROBOT_NAME=${ROBOT_NAME:-unset})" "  $1" "  Scroll up in this tmux pane (airstack connect) or 'airstack logs'" "  for the first error." "$line"
+    # Plain repeat so the message survives log processors that strip ANSI.
+    printf '%s\n' "AUTOLAUNCH FAILED: $1"
+}
+function autolaunch(){
+    if ! bws; then
+        _autolaunch_banner "colcon build (bws) failed — the stack was NOT launched"
+        return 1
+    fi
+    sws
+    ros2 launch "$@"
+    local rc=$?
+    if [ $rc -ne 0 ]; then
+        _autolaunch_banner "ros2 launch $* exited with code $rc — the stack is DOWN"
+        return $rc
+    fi
+}
+
 source /opt/ros/jazzy/setup.bash
 sws # source the ROS2 workspace by default
 
