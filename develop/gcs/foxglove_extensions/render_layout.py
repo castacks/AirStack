@@ -1,15 +1,30 @@
 #!/usr/bin/env python3
-"""Render /root/airstack_layout_num_robots_<N>.json with NUM_ROBOTS tabs from a single-robot template.
+"""Render and auto-load a NUM_ROBOTS-tab Foxglove layout from a single-robot template.
 
 Foxglove layout JSON has no native templating, so we generate it at GCS startup
 based on the NUM_ROBOTS env var. Tab[0] of the input file is treated as the
 canonical robot_1 template; we replicate it for robots 1..NUM_ROBOTS, mint
 unique panel IDs per tab, and patch the 3D panel's per-robot transforms /
 topics / namespaces to cover the same range.
+
+Besides the manual-import copy in /root/, the rendered layout is seeded
+directly into the Foxglove desktop app's local layout store
+(<userData>/studio-datastores/layouts-local/<layout-id> — one plain-JSON file
+per layout; verified against foxglove-studio 3.0.0) under the deterministic id
+``airstack_default_<N>_robots``. gcs.launch.xml then opens Foxglove with a
+``layoutId=airstack_default_<N>_robots`` deep link, so the right layout is
+active on startup with no manual import.
+
+User edits are preserved: a sidecar state file (<userData>/airstack/
+seed_state.json) records the hash of what we last seeded, and a store record
+whose baseline no longer matches that hash (i.e. the user saved their own
+changes) is never overwritten. Deleting the layout in the Foxglove UI resets
+it — the next container start re-seeds a fresh copy.
 """
 
 import argparse
 import copy
+import hashlib
 import json
 import os
 import re
@@ -161,6 +176,87 @@ def expand_layout(template_json: dict, num_robots: int) -> dict:
     return out
 
 
+def layout_id(num_robots: int) -> str:
+    """Deterministic local-layout id; must match the layoutId deep link in
+    desktop_bringup gcs.launch.xml."""
+    return f'airstack_default_{num_robots}_robots'
+
+
+def _hash_layout(data: dict) -> str:
+    return hashlib.sha256(
+        json.dumps(data, sort_keys=True).encode()).hexdigest()
+
+
+def _write_json_atomic(path: str, obj) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + '.tmp'
+    with open(tmp, 'w') as f:
+        json.dump(obj, f, indent=2)
+    os.replace(tmp, path)
+
+
+def seed_layout_store(rendered: dict, num_robots: int, userdata: str) -> None:
+    """Seed the rendered layout into Foxglove desktop's local layout store.
+
+    Store format (foxglove-studio 3.0.0): one JSON file per layout at
+    <userData>/studio-datastores/layouts-local/<id> with
+    {id, name, permission, baseline:{data, savedAt}}. The dir is enumerated by
+    readdir, so nothing but layout records may live in it — the seeder's own
+    state goes to <userData>/airstack/seed_state.json instead.
+    """
+    from datetime import datetime, timezone
+
+    lid = layout_id(num_robots)
+    store_dir = os.path.join(userdata, 'studio-datastores', 'layouts-local')
+    record_path = os.path.join(store_dir, lid)
+    state_path = os.path.join(userdata, 'airstack', 'seed_state.json')
+
+    state = {}
+    if os.path.exists(state_path):
+        try:
+            with open(state_path) as f:
+                state = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            state = {}
+
+    new_hash = _hash_layout(rendered)
+
+    existing_baseline_hash = None
+    if os.path.exists(record_path):
+        try:
+            with open(record_path) as f:
+                existing_baseline_hash = _hash_layout(
+                    json.load(f)['baseline']['data'])
+        except (json.JSONDecodeError, KeyError, OSError, TypeError):
+            existing_baseline_hash = None  # corrupt record → reseed
+
+    if existing_baseline_hash is not None:
+        last_seeded = state.get(lid)
+        if existing_baseline_hash != last_seeded:
+            print(f'layout "{lid}" has user-saved edits — leaving it alone '
+                  '(delete it in Foxglove\'s Layouts menu to reset to the '
+                  'generated default)')
+            return
+        if existing_baseline_hash == new_hash:
+            print(f'layout "{lid}" already up to date in {store_dir}')
+            return
+
+    record = {
+        'id': lid,
+        'name': f'AirStack default ({num_robots} '
+                f'robot{"s" if num_robots != 1 else ""})',
+        'permission': 'CREATOR_WRITE',
+        'baseline': {
+            'data': rendered,
+            'savedAt': datetime.now(timezone.utc).isoformat(),
+        },
+    }
+    _write_json_atomic(record_path, record)
+    state[lid] = new_hash
+    _write_json_atomic(state_path, state)
+    print(f'seeded layout "{lid}" → {record_path}')
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--input', help='Source template JSON (LAYOUT_TEMPLATE env)',
@@ -173,6 +269,12 @@ def main():
                     default=os.environ.get('LAYOUT_OUTPUT'))
     ap.add_argument('--num-robots', type=int,
                     default=int(os.environ.get('NUM_ROBOTS', '1')))
+    ap.add_argument('--foxglove-userdata',
+                    help='Foxglove desktop userData dir to seed the layout '
+                    'into (FOXGLOVE_USERDATA env); pass an empty string to '
+                    'skip seeding.',
+                    default=os.environ.get('FOXGLOVE_USERDATA',
+                                           '/root/.config/Foxglove'))
     args = ap.parse_args()
     if args.output is None:
         args.output = f'/root/airstack_layout_num_robots_{args.num_robots}.json'
@@ -181,12 +283,11 @@ def main():
         template = json.load(f)
     rendered = expand_layout(template, args.num_robots)
 
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
-    tmp = args.output + '.tmp'
-    with open(tmp, 'w') as f:
-        json.dump(rendered, f, indent=2)
-    os.replace(tmp, args.output)
+    _write_json_atomic(args.output, rendered)
     print(f'rendered {args.num_robots}-robot layout → {args.output}')
+
+    if args.foxglove_userdata:
+        seed_layout_store(rendered, args.num_robots, args.foxglove_userdata)
 
 
 if __name__ == '__main__':

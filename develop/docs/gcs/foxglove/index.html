@@ -5377,6 +5377,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Connecting to Foxglove and loading the custom layout">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#editing-and-saving-the-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Editing and saving the layout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manual-fallback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual fallback
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -6039,19 +6067,23 @@
 <p>This page describes what the node visualizes today, the topic naming convention, and where to edit when you want to change or add a marker type. For the gossip payload visualization (filtered rays, voxel maps, etc.) see <a href="../../robot/autonomy/coordination/payloads/">Coordination Payloads</a>.</p>
 <p><img alt="Full GCS Foxglove view — overhead-textured 3D panel on top, Robot Tasks panel and per-robot camera + depth feeds along the bottom" src="../foxglove_full_screen.png" /></p>
 <h2 id="connecting-to-foxglove-and-loading-the-custom-layout">Connecting to Foxglove and loading the custom layout<a class="headerlink" href="#connecting-to-foxglove-and-loading-the-custom-layout" title="Permanent link">&para;</a></h2>
-<p>The GCS container regenerates <code>/root/airstack_layout_num_robots_&lt;N&gt;.json</code> on every startup, where <code>&lt;N&gt;</code> is the current <code>NUM_ROBOTS</code>, using <code>gcs/foxglove_extensions/airstack_default.json</code> as the single-robot template (see <code>gcs/foxglove_extensions/render_layout.py</code>). The file lives only in the container — it's regenerated on startup and disappears on removal.</p>
-<p>To use the locally-rendered, <code>NUM_ROBOTS</code>-matched layout:</p>
-<ol>
-<li>In the Foxglove dashboard, click <strong>Layouts</strong> → <strong>Import from file...</strong>.</li>
-<li>The file browser opens in <code>/root/</code> by default — select the <code>airstack_layout_num_robots_&lt;N&gt;.json</code> matching your <code>NUM_ROBOTS</code>.</li>
-<li>Back on the dashboard, click <strong>Open connection</strong> and enter:<ul>
-<li><code>ws://localhost:8765</code> if Foxglove is running inside the GCS container</li>
-<li><code>ws://localhost:8766</code> if Foxglove is running on the host</li>
+<p><strong>The <code>NUM_ROBOTS</code>-matched layout loads automatically — no manual import.</strong> On every GCS container startup, <code>gcs/foxglove_extensions/render_layout.py</code> renders an <code>&lt;N&gt;</code>-robot layout from the single-robot template (<code>gcs/foxglove_extensions/airstack_default.json</code>) and seeds it straight into the Foxglove desktop app's local layout store (<code>/root/.config/Foxglove/studio-datastores/layouts-local/airstack_default_&lt;N&gt;_robots</code> — bind-mounted from <code>gcs/docker/Foxglove</code>, so it persists across container restarts). <code>gcs.launch.xml</code> then opens Foxglove with a deep link that both connects to <code>ws://localhost:8765</code> and selects that layout by id, so the app comes up showing <strong>AirStack default (<code>&lt;N&gt;</code> robots)</strong> immediately.</p>
+<h3 id="editing-and-saving-the-layout">Editing and saving the layout<a class="headerlink" href="#editing-and-saving-the-layout" title="Permanent link">&para;</a></h3>
+<p>The seeded layout is an ordinary local layout — edit it and use <strong>Save</strong> as usual. Your saved edits are preserved: the seeder detects that the layout no longer matches what it generated and will not overwrite it on later startups (this also means template updates stop propagating to an edited layout). Two ways to manage this:</p>
+<ul>
+<li><strong>Reset to the generated default:</strong> delete the layout in Foxglove's <strong>Layouts</strong> menu — the next container start re-seeds a fresh copy.</li>
+<li><strong>Keep your own variant safe forever:</strong> <strong>Save As</strong> a personal copy under a different name; the seeder never touches layouts it didn't create.</li>
 </ul>
-</li>
-<li>In the top-right corner, click the current layout name and select the imported layout from the dropdown.</li>
-</ol>
-<p>Foxglove keeps the imported layout in its IndexedDB and re-activates it on subsequent launches — re-import only when you change <code>NUM_ROBOTS</code> or edit the template.</p>
+<h3 id="manual-fallback">Manual fallback<a class="headerlink" href="#manual-fallback" title="Permanent link">&para;</a></h3>
+<p>The rendered layout is also still written to <code>/root/airstack_layout_num_robots_&lt;N&gt;.json</code> inside the container, so <strong>Layouts → Import from file...</strong> keeps working — useful when running Foxglove on the host instead of in the container (connect to <code>ws://localhost:8766</code> in that case).</p>
+<div class="admonition note">
+<p class="admonition-title">Foxglove version pin</p>
+<p><code>Dockerfile.gcs</code> pins the Foxglove desktop version (<code>FOXGLOVE_VERSION</code> build arg) because the auto-load mechanism writes the app's on-disk local-layout record format directly. Before bumping the pin, verify the format in the new version's <code>studio-datastores/layouts-local/</code> still matches what <code>render_layout.py::seed_layout_store</code> writes.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Robot naming assumption</p>
+<p>Layout rendering assumes robots are named <code>robot_1..robot_N</code> (the default robot-name map). Fleets with custom robot names (RFC #380) still get the default-named tabs; name-aware rendering is future work.</p>
+</div>
 <h2 id="what-gets-visualized">What gets visualized<a class="headerlink" href="#what-gets-visualized" title="Permanent link">&para;</a></h2>
 <p>The visualizer auto-discovers any robot whose topics match the AirStack convention (default prefix: <code>robot</code>). For each discovered robot it subscribes to a fixed set of suffixes:</p>
 <table>
