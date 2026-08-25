@@ -53,6 +53,20 @@ from disaster import levels
 from disaster.field import make_damage_field
 
 
+def _pack_materials(config):
+    """`scene_generator.asset_materials`, memoised on the config it came from.
+
+    Stage A asks per archetype and the walk covers the whole `usds` tree.
+    """
+    got = getattr(_pack_materials, "_cache", None)
+    if got is not None and got[0] is config:
+        return got[1]
+    from scene_generator import asset_materials
+    table = asset_materials(config)
+    _pack_materials._cache = (config, table)
+    return table
+
+
 class Disaster:
     """The general form. Subclasses override only what differs.
 
@@ -107,7 +121,8 @@ class Disaster:
 
         return md.DAMAGE_SCRIPTS.get(self.name)
 
-    def damage_archetype(self, stage, prim, level, *, seed, config, intensity):
+    def damage_archetype(self, stage, prim, level, *, seed, config, intensity,
+                         source=""):
         """Wreck one clean instance for the archetype library. Stage A, step 3b.
 
         BY RUNG WHERE A SCRIPT EXISTS, by intensity where one does not. A
@@ -138,13 +153,21 @@ class Disaster:
         # it points its wreckage in four directions. Scripts and operators with
         # no bearing accept and ignore it.
         heading = md._heading_of(dis)
-        # WHAT THE ARCHETYPE IS MADE OF, from the locale (`compile_disaster.
-        # LOCALE_MATERIAL`). Stage A bakes the art a scene is assembled from,
-        # so a library baked as masonry cannot be placed into a suburb as
-        # timber: the wall thickness and the fragment shape are already in the
-        # geometry by then.
+        # WHAT THE ARCHETYPE IS MADE OF — THE ASSET'S OWN CONSTRUCTION FIRST.
+        # The locale material (`compile_disaster.LOCALE_MATERIAL`) is the right
+        # answer for a suburb, where every house is timber frame, and the wrong
+        # one for a downtown block, where no two buildings are built alike. It
+        # used to be the only answer here, so every archetype in the library
+        # was cut as masonry however the pack described it: a glass-and-steel
+        # tower shed brick at every break, and the floors `fill_interior`
+        # authors inside it came out clad in brick too. The LIVE path has read
+        # the pack per asset since the material table landed; Stage A has to do
+        # the same lookup, because the wall thickness and the fragment shape
+        # are baked into the geometry and cannot be corrected at placement.
         mcfg = dis.get("mesh_damage") or {}
-        mat = md.material(mcfg.get("material"))
+        kind = md.material_for_asset(source, mcfg.get("material"),
+                                     _pack_materials(config))
+        mat = md.material(kind)
         script = self.damage_script
         if script is not None:
             # `settle_it=False`: Stage A settles the WHOLE grid in one PhysX
@@ -152,14 +175,13 @@ class Disaster:
             # run the solver once per archetype and then again over everything.
             return getattr(importlib.import_module(script[0]), script[1])(
                 stage, prim, level, seed=seed, settle_it=False,
-                material=mcfg.get("material") or md.DEFAULT_MATERIAL,
-                heading_deg=heading)
+                material=kind, heading_deg=heading)
 
         thick = mcfg.get("thickness") or {}
         return md.damage_building(
             stage, prim, self.name, intensity, seed=seed,
             wall_m=float(thick.get("wall_m", mat.wall_m)), grain=mat.grain,
-            heading_deg=heading)
+            core_material_kind=kind, heading_deg=heading)
 
     # -- Stage B -----------------------------------------------------------
     def bake_stage_b(self, stage, config, placements, scene_scale_factor=1.0):

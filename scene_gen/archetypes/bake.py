@@ -350,7 +350,12 @@ WHICH damage runs is the disaster's own decision, not this
 
         got = self.model.damage_archetype(
             self.stage, prim, level, seed=seed, config=self.config,
-            intensity=self._intensity(item.kind, level))
+            intensity=self._intensity(item.kind, level),
+            # WHICH ASSET this archetype is, so Stage A can look up what it is
+            # built of. Without it every archetype was cut as the locale's one
+            # material — masonry for a downtown block of concrete, steel and
+            # glass towers.
+            source=str(item.source))
         frags = list(got.get("loose", ()))
         self.loose.extend(frags)
         return [prim_path] + list(got.get("paths", ())), []
