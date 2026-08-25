@@ -9,6 +9,8 @@ Env:
    single-drone example script always enables LiDAR; AirStack pytest ``isaacsim`` liveliness
    sets ``ENABLE_LIDAR=true`` so behavior matches.
  - PLAY_SIM_ON_START (default true): autoplay timeline
+ - ISAAC_SIM_SCENE / ISAAC_SIM_STAGE_SCALE (set by `airstack up --scene`):
+   scene to load — a Pegasus catalog key or USD URL (default: Default Environment)
  - ISAAC_SIM_HEADLESS / ISAAC_SIM_LIVESTREAM: see pegasus_app.py
 """
 
@@ -22,7 +24,11 @@ from pegasus_app import create_simulation_app
 simulation_app = create_simulation_app()
 
 from pegasus.simulator.params import SIMULATION_ENVIRONMENTS  # noqa: E402
-from pegasus_app import PegasusApp, row_spawn_configs  # noqa: E402
+from pegasus_app import (  # noqa: E402
+    PegasusApp,
+    resolve_scene_from_env,
+    row_spawn_configs,
+)
 
 NUM_ROBOTS = int(os.environ.get("NUM_ROBOTS", "1"))
 ENABLE_LIDAR = os.environ.get("ENABLE_LIDAR", "false").lower() == "true"
@@ -30,9 +36,11 @@ ENABLE_LIDAR = os.environ.get("ENABLE_LIDAR", "false").lower() == "true"
 
 def main():
     print(f"[example_multi] Spawning {NUM_ROBOTS} drone(s), lidar={'on' if ENABLE_LIDAR else 'off'}")
+    env_url, stage_scale = resolve_scene_from_env(SIMULATION_ENVIRONMENTS)
+    print(f"[example_multi] Scene: {env_url} (stage_scale={stage_scale})")
     PegasusApp(
-        env_url=SIMULATION_ENVIRONMENTS["Default Environment"],
-        stage_scale=1.0,
+        env_url=env_url,
+        stage_scale=stage_scale,
         # Spread drones along X: -2, 0, 2, 4, ... centered near origin
         drone_configs=row_spawn_configs(NUM_ROBOTS),
         enable_lidar=ENABLE_LIDAR,

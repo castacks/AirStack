@@ -55,6 +55,11 @@ services:
       # path onto this container's /isaac-sim/AirStack checkout mount.
       - FLEET_CONFIG_FILE=${FLEET_CONFIG_FILE:-}
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
+      # Scene selection (`airstack up --scene <shortname>` → simulation/scenes.yaml):
+      # a Pegasus SIMULATION_ENVIRONMENTS key or a USD URL, resolved by the
+      # launch scripts (pegasus_app.resolve_scene_from_env). Empty = script default.
+      - ISAAC_SIM_SCENE=${ISAAC_SIM_SCENE:-}
+      - ISAAC_SIM_STAGE_SCALE=${ISAAC_SIM_STAGE_SCALE:-}
       # Pegasus physics tuning — read by pegasus/simulator/params.py
       - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}
       - ARDUPILOT_PHYSICS_HZ=${ARDUPILOT_PHYSICS_HZ:-800}

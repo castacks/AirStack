@@ -104,6 +104,7 @@ nav:
               - Architecture: docs/development/advanced/airstack-cli/architecture.md
   - Simulation:
       - docs/simulation/index.md
+      - docs/simulation/scenes.md
       - Isaac Sim:
           - docs/simulation/isaac_sim/index.md
           - Docker: docs/simulation/isaac_sim/docker.md

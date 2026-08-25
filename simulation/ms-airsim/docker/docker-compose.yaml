@@ -33,6 +33,10 @@ services:
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - MS_AIRSIM_BINARY_PATH=${MS_AIRSIM_BINARY_PATH:-}
+      # Scene selection (`airstack up --scene <shortname>` → simulation/scenes.yaml):
+      # a fetch_scene.sh key; the entrypoint auto-fetches it when the UE binary
+      # is absent. Empty = blocks. Ignored when MS_AIRSIM_BINARY_PATH is set.
+      - MS_AIRSIM_SCENE=${MS_AIRSIM_SCENE:-}
       - MS_AIRSIM_HEADLESS=${MS_AIRSIM_HEADLESS:-false}
       - MS_AIRSIM_PX4_START_DELAY=${MS_AIRSIM_PX4_START_DELAY:-3}
       # settings.json template knobs (config/generate_settings.py defaults)

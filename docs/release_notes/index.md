@@ -128,6 +128,28 @@ Feature docs deliberately cite none of these — the design sources live here:
   `--dry-run` — deriving the coordinated env-var sets as exported leaf
   values, with a resolved-config banner and a per-run
   `.airstack/runs/<ts>/effective_config.env` dump; contract-tested
+- `airstack up --scene <shortname>`: simulator-agnostic scene selection via
+  a new catalog (`simulation/scenes.yaml`, resolved host-side by
+  `simulation/resolve_scene.py`). Isaac maps shortnames to Pegasus catalog
+  keys or Nucleus USD URLs (exported as `ISAAC_SIM_SCENE` +
+  `ISAAC_SIM_STAGE_SCALE`; the example launch scripts and `fleet_spawn.py`
+  now resolve their scene from these instead of hardcoding `env_url`);
+  MS AirSim maps to `fetch_scene.sh` keys (`MS_AIRSIM_SCENE` — the
+  entrypoint's auto-fetch, previously Blocks-only, now fetches any catalog
+  scene, and an interactive `airstack up` asks before a multi-GB download).
+  The `fetch_scene.sh` catalog was corrected to the UE4 binaries that
+  actually exist in the AirSim v1.8.1 release: `forest`, `soccerfield`, and
+  `building99` were removed (their zips were never published, or are empty),
+  `airsimnh` now downloads `AirSimNH.zip` (was the nonexistent
+  `Neighborhood.zip`), and `africasavannah` / `msbuild2018` were added; the
+  entrypoint resolves the UE launcher by glob after extraction, so zips whose
+  inner `.sh` doesn't match the folder name still boot.
+  Unknown scene = error + per-simulator availability table. Five stages were
+  published to the guest-readable
+  `omniverse://airlab-nucleus.andrew.cmu.edu:443/Public/AirStack/Stages/`
+  (AbandonedFactory, AbandonedWarehouse day/night, ChemicalPlant,
+  ConstructionSite, RetroNeighborhood) and cataloged with per-stage scale.
+  See [Simulation Scenes](../simulation/scenes.md)
 - `airstack ready` (and `airstack up --wait`): staged flight-readiness gates
   mirroring the system-test budgets — containers → sim `/clock` → per-robot
   sentinel nodes → PX4 MAVROS-connected + `local_position/odom` streaming —

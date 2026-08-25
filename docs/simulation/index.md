@@ -43,7 +43,7 @@ Simulation components are launched via Docker Compose. Each simulator has its ow
 
 - **Launch command:** `airstack up --sim isaac` (or `airstack up isaac-sim` to start only the sim service)
 - **Main process:** The `command:` in docker-compose.yaml starts the simulator
-- **Scene selection (Isaac Sim):** the standalone launch script named by `ISAAC_SIM_SCRIPT_NAME` (in `.env`) defines the scene and drones; with `ISAAC_SIM_USE_STANDALONE=false`, `ISAAC_SIM_GUI` points at a USD file to open instead
+- **Scene selection:** `airstack up --scene <shortname>` picks the environment for whichever simulator is active — see [Simulation Scenes](scenes.md). The standalone launch script named by `ISAAC_SIM_SCRIPT_NAME` (in `.env`) defines the drones and honors the selected scene; with `ISAAC_SIM_USE_STANDALONE=false`, `ISAAC_SIM_GUI` points at a USD file to open instead
 - **Auto-play:** Controlled by `PLAY_SIM_ON_START` (or `airstack up --play`)
 
 **Example:**

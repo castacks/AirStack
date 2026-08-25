@@ -185,6 +185,29 @@ def row_spawn_configs(num_robots, spacing_m=2.0, z_m=0.07):
     return configs
 
 
+def resolve_scene_from_env(simulation_environments,
+                           default_key="Default Environment"):
+    """Resolve the ISAAC_SIM_SCENE / ISAAC_SIM_STAGE_SCALE env vars set by
+    `airstack up --scene <shortname>` (simulation/scenes.yaml).
+
+    Returns ``(env_url, stage_scale)``. ISAAC_SIM_SCENE may be a Pegasus
+    ``SIMULATION_ENVIRONMENTS`` key, or a USD reference (``omniverse://`` /
+    ``https://`` URL or ``*.usd*`` path) used verbatim. Unset → ``default_key``.
+    """
+    scene = os.environ.get("ISAAC_SIM_SCENE", "").strip()
+    scale = float(os.environ.get("ISAAC_SIM_STAGE_SCALE") or 1.0)
+    if not scene:
+        return simulation_environments[default_key], scale
+    if scene in simulation_environments:
+        return simulation_environments[scene], scale
+    if "://" in scene or scene.endswith((".usd", ".usda", ".usdc", ".usdz")):
+        return scene, scale
+    raise ValueError(
+        f"ISAAC_SIM_SCENE '{scene}' is neither a SIMULATION_ENVIRONMENTS key "
+        f"nor a USD reference (keys: {', '.join(sorted(simulation_environments))})"
+    )
+
+
 class PegasusApp:
     """Base Pegasus launch app: world + environment + scene prep + drones.
 

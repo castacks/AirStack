@@ -183,6 +183,12 @@ function print_command_help {
             echo "                      heterogeneous fleets) generates the per-robot services plus"
             echo "                      split-stack DDS-router configs. Mutually exclusive with"
             echo "                      --robots. See docs/development/fleets.md."
+            echo "  --scene NAME        Select the simulation scene by shortname (simulation/scenes.yaml):"
+            echo "                      maps NAME to the selected simulator's scene reference and"
+            echo "                      exports it (Isaac: ISAAC_SIM_SCENE [+ ISAAC_SIM_STAGE_SCALE] —"
+            echo "                      a Pegasus catalog key or Nucleus USD URL; MS AirSim:"
+            echo "                      MS_AIRSIM_SCENE — a pre-built UE4 scene, auto-fetched if"
+            echo "                      missing). Unknown scene = error + table of available scenes."
             echo "  --headless          Run the sim without a GUI (ISAAC_SIM_HEADLESS/MS_AIRSIM_HEADLESS)."
             echo "  --play / --no-play  Start the sim playing, or paused (PLAY_SIM_ON_START)."
             echo "  --no-autolaunch     Start containers idle (AUTOLAUNCH=false; launch manually)."
@@ -1126,6 +1132,7 @@ function parse_launch_intent {
     AIRSTACK_INTENT_AUTOLAUNCH=""
     AIRSTACK_INTENT_STACK=""
     AIRSTACK_INTENT_FLEET=""
+    AIRSTACK_INTENT_SCENE=""
     AIRSTACK_FLEET_COMPOSE_FILE=""
     AIRSTACK_DRY_RUN=""
     AIRSTACK_UP_WAIT=""
@@ -1146,6 +1153,8 @@ function parse_launch_intent {
             --stack=*)      AIRSTACK_INTENT_STACK="${a#--stack=}";;
             --fleet)        i=$((i+1)); AIRSTACK_INTENT_FLEET="${args[$i]:-}";;
             --fleet=*)      AIRSTACK_INTENT_FLEET="${a#--fleet=}";;
+            --scene)        i=$((i+1)); AIRSTACK_INTENT_SCENE="${args[$i]:-}";;
+            --scene=*)      AIRSTACK_INTENT_SCENE="${a#--scene=}";;
             --wait)         AIRSTACK_UP_WAIT="1";;
             # NOTE: shadows compose's own `up --dry-run`; ours validates the
             # derived launch config and exits without starting services.
@@ -1413,6 +1422,77 @@ function apply_launch_intent {
             export ISAAC_SIM_SCRIPT_NAME="$want"
         fi
     fi
+
+    # --scene: map the shortname to the ACTIVE simulator's scene reference via
+    # simulation/scenes.yaml and export it (leaf values only). Unknown scene or
+    # wrong simulator = the resolver prints the availability table and we fail.
+    if [[ -n "$AIRSTACK_INTENT_SCENE" ]]; then
+        local scene_sim=""
+        [[ ",$profiles_final," == *",isaac-sim,"* ]] && scene_sim="isaac"
+        [[ ",$profiles_final," == *",ms-airsim,"* ]] && scene_sim="msairsim"
+        if [[ -z "$scene_sim" ]]; then
+            log_error "--scene requires an Isaac or MS AirSim profile (resolved profiles: ${profiles_final:-<none>}); simple-sim has no scene catalog. Use 'airstack up --sim isaac|airsim --scene $AIRSTACK_INTENT_SCENE'."
+            python3 "$PROJECT_ROOT/simulation/resolve_scene.py" --table >&2 || true
+            return 1
+        fi
+        local scene_exports line
+        if ! scene_exports=$(python3 "$PROJECT_ROOT/simulation/resolve_scene.py" \
+                --sim "$scene_sim" --scene "$AIRSTACK_INTENT_SCENE"); then
+            return 1  # resolver already printed the error + table on stderr
+        fi
+        while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            export "${line?}"
+            log_info "--scene $AIRSTACK_INTENT_SCENE → $line"
+        done <<< "$scene_exports"
+        if [[ "$scene_sim" == "msairsim" ]]; then
+            ensure_msairsim_scene "$(resolve_launch_var MS_AIRSIM_SCENE "$@")" "$@" || return 1
+        fi
+    fi
+    return 0
+}
+
+# MS AirSim scenes are pre-built UE4 binaries fetched into the (bind-mounted)
+# scenes dir on first use. When --scene selects one that is not present
+# locally, offer to download it now (interactive) so the multi-GB fetch
+# doesn't silently happen inside the container; non-interactive runs keep the
+# in-container auto-fetch (visible in the airsim tmux window).
+function ensure_msairsim_scene {
+    local scene_key="$1"; shift
+    local fetch_sh="$PROJECT_ROOT/simulation/ms-airsim/assets/scenes/fetch_scene.sh"
+
+    # An explicit binary path bypasses the catalog entirely.
+    local bin
+    bin=$(resolve_launch_var MS_AIRSIM_BINARY_PATH "$@")
+    if [[ -n "$bin" ]]; then
+        log_warn "--scene is overridden by MS_AIRSIM_BINARY_PATH=$bin (the explicit binary path wins in the container). Unset MS_AIRSIM_BINARY_PATH to use --scene."
+        return 0
+    fi
+
+    local env_dir name
+    env_dir=$(resolve_launch_var MS_AIRSIM_ENV_DIR "$@")
+    [[ -z "$env_dir" ]] && env_dir="$PROJECT_ROOT/simulation/ms-airsim/assets/scenes"
+    [[ "$env_dir" != /* ]] && env_dir="$PROJECT_ROOT/${env_dir#./}"
+    name=$(bash "$fetch_sh" --name "$scene_key") || {
+        log_error "fetch_scene.sh does not know scene key '$scene_key' (simulation/scenes.yaml out of sync?)"
+        return 1
+    }
+    if compgen -G "$env_dir/$name/LinuxNoEditor/*.sh" > /dev/null; then
+        return 0
+    fi
+    log_warn "MS AirSim scene '$name' is not present locally under $env_dir."
+    if [[ -t 0 && -t 1 && "${AIRSTACK_ASSUME_YES:-}" != "1" ]]; then
+        local ans
+        read -r -p "Download it now from github.com/microsoft/AirSim v1.8.1 (can be several GB)? [Y/n] " ans
+        case "$ans" in
+            n|N|no|NO)
+                log_error "Aborted. Point MS_AIRSIM_BINARY_PATH at an existing scene binary, or rerun and accept the download."
+                return 1;;
+        esac
+        SCENES_DIR="$env_dir" bash "$fetch_sh" "$scene_key" || return 1
+    else
+        log_info "Non-interactive run: the airsim container will auto-fetch '$name' on first launch (progress in the airsim tmux window)."
+    fi
     return 0
 }
 
@@ -1428,6 +1508,11 @@ function print_launch_config {
     local _fleet_cfg
     _fleet_cfg=$(resolve_launch_var FLEET_CONFIG_FILE "$@")
     [[ -n "$_fleet_cfg" ]] && keys+=(FLEET_CONFIG_FILE)
+    # Scene keys likewise only appear when a scene is selected (--scene or env).
+    local _sk
+    for _sk in ISAAC_SIM_SCENE ISAAC_SIM_STAGE_SCALE MS_AIRSIM_SCENE; do
+        [[ -n "$(resolve_launch_var "$_sk" "$@")" ]] && keys+=("$_sk")
+    done
     local k v lines=()
     for k in "${keys[@]}"; do
         v=$(resolve_launch_var "$k" "$@")
@@ -1438,7 +1523,14 @@ function print_launch_config {
     profiles=$(resolve_launch_var COMPOSE_PROFILES "$@")
     log_info "Launch config: profiles=$profiles robots=$(resolve_launch_var NUM_ROBOTS "$@") autolaunch=$(resolve_launch_var AUTOLAUNCH "$@") play_on_start=$(resolve_launch_var PLAY_SIM_ON_START "$@")"
     if [[ ",$profiles," == *",isaac-sim,"* ]]; then
-        log_info "  isaac: script=$(resolve_launch_var ISAAC_SIM_SCRIPT_NAME "$@") headless=$(resolve_launch_var ISAAC_SIM_HEADLESS "$@")"
+        local _isaac_scene
+        _isaac_scene=$(resolve_launch_var ISAAC_SIM_SCENE "$@")
+        log_info "  isaac: script=$(resolve_launch_var ISAAC_SIM_SCRIPT_NAME "$@") headless=$(resolve_launch_var ISAAC_SIM_HEADLESS "$@")${_isaac_scene:+ scene=$_isaac_scene}"
+    fi
+    if [[ ",$profiles," == *",ms-airsim,"* ]]; then
+        local _airsim_scene
+        _airsim_scene=$(resolve_launch_var MS_AIRSIM_SCENE "$@")
+        [[ -n "$_airsim_scene" ]] && log_info "  ms-airsim: scene=$_airsim_scene"
     fi
     log_info "  urdf=$(resolve_launch_var URDF_FILE "$@")"
     local _stack_dir
