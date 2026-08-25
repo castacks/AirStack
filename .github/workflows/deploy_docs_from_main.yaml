@@ -58,7 +58,7 @@ jobs:
       - name: Build Docs Website
         run: |
           VERSION=$(grep -m1 '^VERSION=' .env | cut -d= -f2- | tr -d '"')
-          mike deploy --push --title "${VERSION} (main, stable)" main
+          mike deploy --push --title "${VERSION} (stable)" main
           mike set-default main --push
       # mike re-sorts versions.json on every deploy ("main" sorts above
       # "develop"), so pin develop — the higher, unreleased version — back
