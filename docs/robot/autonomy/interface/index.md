@@ -3,8 +3,27 @@
 The interface defines the communication between the autonomy stack running on the onboard computer and the robot's control unit.
 For example, for drones it converts the control commands from the autonomy stack into MAVLink messages for the flight controller.
 
-==TODO: This is not our diagram, must replace.==
-![Interface Diagram](https://404warehouse.net/wp-content/uploads/2016/08/softwareoverview.png?w=800)
+```mermaid
+graph LR
+    subgraph Autonomy stack
+        C[Controllers]
+        O["odometry_conversion node"]
+    end
+    subgraph Interface layer
+        RI["robot_interface node<br/>(MAVROSInterface)"]
+        M[MAVROS]
+    end
+    FCU["Flight controller (FCU)<br/>PX4 via MAVLink"]
+
+    C -->|"interface/cmd_velocity, interface/cmd_pose,<br/>interface/cmd_roll_pitch_yawrate_thrust, ... (spec §6)"| RI
+    RI --> M
+    M <--> FCU
+    M -->|"interface/mavros/* state (spec §7)"| C
+    M -->|interface/mavros/local_position/odom| O
+    O -->|"odometry_conversion/odometry (spec §2)"| C
+```
+
+Command topics are the [`control_setpoint` interchange (spec §6)](../interface_conventions.md#6-control_setpoint-controller-interface-command-onboard-only); vehicle state comes back out through the [`interface_status` group (spec §7)](../interface_conventions.md#7-interface_status-group-vehicle-state-out-of-the-interface-layer) and the canonical [`odometry` topic (spec §2)](../interface_conventions.md#2-odometry-primary-state-estimate).
 
 The code is located under `robot/ros_ws/src/interface/`.
 
@@ -13,6 +32,7 @@ The code is located under `robot/ros_ws/src/interface/`.
 Launch files are under `robot/ros_ws/src/interface/interface_bringup/launch`.
 
 The main launch command is `ros2 launch interface_bringup interface.launch.py`.
+It starts MAVROS (under the `interface` namespace), the `robot_interface` node, the position setpoint publisher, and the `odometry_conversion` node.
 
 ### FCU URL and Target System
 
@@ -34,15 +54,16 @@ MAVROS is skipped entirely when `SIM_TYPE=simple`.
 ## RobotInterface
 
 Package `robot_interface` is a ROS2 node that interfaces with the robot's hardware.
-The `RobotInterface` _gets robot state_ and forwards it to the autonomy stack,
-and also _translates control commands_ from the autonomy stack into the command for the underlying hardware.
+The `RobotInterface` _translates control commands_ from the autonomy stack into the command for the underlying hardware, and reports arming/control status back to the stack.
 Note the base class is unimplemented.
 Specific implementations should extend `class RobotInterface` in `robot_interface.hpp`, for example `class MAVROSInterface`.
 
 ### State
 
-The `RobotInterface` class broadcasts the robot's pose as a TF2 transform.
-It also publishes the robot's odometry as a `nav_msgs/Odometry` message to `$(env ROBOT_NAME)/interface/robot_interface/odometry`.
+Vehicle state flows out of the interface layer on two paths:
+
+- The `robot_interface` node publishes `interface/is_armed` and `interface/has_control` (`std_msgs/Bool`), and MAVROS itself publishes the vehicle state topics under `interface/mavros/*` (e.g. `state`, `extended_state`, `global_position/global`) — see [spec §7](../interface_conventions.md#7-interface_status-group-vehicle-state-out-of-the-interface-layer).
+- The canonical odometry is **not** produced by `RobotInterface` implementations. A separate `odometry_conversion` node (also in the `robot_interface` package) subscribes to `interface/mavros/local_position/odom`, republishes it as the canonical `odometry_conversion/odometry` (`nav_msgs/Odometry`, `map` frame — see [spec §2](../interface_conventions.md#2-odometry-primary-state-estimate)), and broadcasts the corresponding `map → base_link` TF (plus a stabilized variant).
 
 ### Commands
 
@@ -68,30 +89,12 @@ The available implementation in AirStack is called `MAVROSInterface` implemented
 
 If you're using a different robot control unit with its own custom API, then you need to create an associated RobotInterface. Implementations should do the following:
 
-### Broadcast State
+### Provide State
 
-Implementations of `RobotInterface` should obtain the robot's pose and broadcast it as a TF2 transform.
-
-Should look something like:
-
-```c++
-// callback function triggered by some loop
-void your_callback_function(){
-    // ...
-    geometry_msgs::msg::TransformStamped t;
-    // populate the transform, e.g.:
-    t.header = // some header
-    t.transform.translation.x = // some value
-    t.transform.translation.y = // some value
-    t.transform.translation.z = // some value
-    t.transform.rotation = // some quaternion
-    // Send the transformation
-    this->tf_broadcaster_->sendTransform(t);
-    // ...
-}
-```
-
-==TODO: our code doesn't currently do it like this, it instead uses an external odometry_conversion node.==
+Your interface (or its underlying driver, as MAVROS does) should publish the robot's native odometry.
+Do not broadcast pose TF or publish the canonical odometry topic from the interface itself — that is the job of the existing `odometry_conversion` node.
+Instead, point the `interface_odometry_in_topic` launch argument of `interface.launch.py` (default: `/$(env ROBOT_NAME)/interface/mavros/local_position/odom`) at your interface's odometry output.
+The `odometry_conversion` node then produces the canonical `odometry_conversion/odometry` in the `map` frame and broadcasts the `map → base_link` transform, so every downstream consumer works unchanged.
 
 ### Override Command Handling
 

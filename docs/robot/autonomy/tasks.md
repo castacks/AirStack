@@ -41,6 +41,68 @@ geometry_msgs/Point current_position
 
 ---
 
+### TakeoffTask
+
+**File:** `action/TakeoffTask.action`
+**Action server:** `/{robot_name}/tasks/takeoff`
+**Implemented by:** `takeoff_landing_planner`
+
+Take off to a target altitude. The goal is rejected if the robot is not armed, offboard control is not active, or the state estimate has timed out.
+
+#### Goal
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `target_altitude_m` | float32 | Altitude to climb to (m) |
+| `velocity_m_s` | float32 | Ascent velocity (m/s) |
+
+#### Result
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `success` | bool | True if the target altitude was reached; false if rejected, canceled, or error |
+| `message` | string | Completion reason |
+
+#### Feedback
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `status` | string | Task status string |
+| `current_altitude_m` | float32 | Current altitude (m) |
+| `target_altitude_m` | float32 | Target altitude (m) |
+
+---
+
+### LandTask
+
+**File:** `action/LandTask.action`
+**Action server:** `/{robot_name}/tasks/land`
+**Implemented by:** `takeoff_landing_planner`
+
+Land the robot at its current position.
+
+#### Goal
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `velocity_m_s` | float32 | Descent velocity (m/s); `0.0` = use default from config |
+
+#### Result
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `success` | bool | True if the robot landed; false if canceled or error |
+| `message` | string | Completion reason |
+
+#### Feedback
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `status` | string | Task status string |
+| `current_altitude_m` | float32 | Current altitude (m) |
+
+---
+
 ### FixedTrajectoryTask
 
 **File:** `action/FixedTrajectoryTask.action`

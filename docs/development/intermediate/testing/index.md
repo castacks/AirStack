@@ -31,17 +31,12 @@ locally with no Docker or GPU needed.
 
 ## System tests (`tests/system/`)
 
-Full Docker-stack integration tests. The canonical reference is
-**[`tests/README.md`](../../../../tests/README.md)**. In short:
-
-| Mark | Module | Role |
-|---|---|---|
-| `build_docker` | `system/test_build_docker.py` | Docker image builds |
-| `build_packages` | `system/test_build_packages.py` | `colcon build` inside containers |
-| `liveliness` | `system/test_liveliness.py` | Containers, `/clock` readiness, tmux, sentinel ROS 2 nodes, compute, infra-only stability poll |
-| `sensors` | `system/test_sensors.py` | Sim + robot stereo/depth Hz, filtered LiDAR (`echo --once` + validation script on Isaac), sim RTF, sensor stability time-series |
-| `takeoff_hover_land` | `system/test_takeoff_hover_land.py` | Four-phase flight chain per configuration (takeoff → hover → land) |
-| `autonomy` | `system/test_fixed_trajectory.py` | Fixed-pattern path-tracker benchmark (takeoff → trajectory → land) |
+Full Docker-stack integration tests, selected by pytest mark — from cheap
+build gates (`build_docker`, `build_packages`) through stack bring-up
+(`liveliness`, `wiring`, `sensors`) to full flight campaigns
+(`takeoff_hover_land`, `autonomy`, `waypoint_flight`). The canonical mark
+reference — what each mark runs and verifies — is
+**[`tests/README.md`](../../../../tests/README.md)**.
 
 Collection order is defined in `tests/conftest.py` (unit tests first, then
 `build_docker` → `build_packages` → `liveliness` → `sensors` → `takeoff_hover_land`
@@ -86,5 +81,5 @@ airstack test -m "build_packages or autonomy" \
 ## Other testing docs
 
 - [Unit Testing](unit_testing.md) — `@pytest.mark.unit`, co-located tests, CI workflow
-- [Testing frameworks](testing_frameworks.md) — `colcon test`, rostest patterns
+- [System test suite reference](../../../../tests/README.md) — marks, fixtures, CLI options
 - [CI/CD Pipeline on OSMO](ci_cd.md) — automatic unit/build gates, selectable full-stack GPU campaigns, triggers, and like-for-like metrics reporting

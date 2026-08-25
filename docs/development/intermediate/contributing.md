@@ -13,16 +13,17 @@ If you need to add a dependency that's not in the docker image, please add a sec
 Please make sure to document your work.
 Docs are under `AirStack/docs/`. The navigation tree is under `AirStack/mkdocs.yml`.
 
+The site nav is organized by the [Diátaxis](https://diataxis.fr) quadrants — **Tutorials**, **How-to Guides**, **Reference**, and **Concepts**. Every new page is exactly one of the four: pick the quadrant first with the decision tree in the [Documentation Guide](documentation.md#2-system-documentation), then nav-link the page under the matching tab. Module `README.md` files are exempt (they intentionally combine all four for one package).
+
 This documentation is built with Material MKDocs.
 Visit [mkdocs.org](https://www.mkdocs.org) and [mkdocs-material](https://squidfunk.github.io/mkdocs-material/) to learn how to use it.
 
 ### Commands
 
 ```
-pip install mkdocs-material
-mkdocs serve
+airstack docs
 ```
-Launches docs on https://localhost:8000.
+Launches docs on https://localhost:8000 (containerized — no local Python needed; changes auto-reload).
 
 - `mkdocs -h` - Print help message and exit.
 

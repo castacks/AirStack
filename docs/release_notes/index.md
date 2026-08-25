@@ -19,6 +19,75 @@ its own notes. -->
 
 ## 0.20.0 (Unreleased)
 
+**Documentation overhaul (Diátaxis restructuring).** The docs site was
+audited against the [Diátaxis](https://diataxis.fr) framework and
+reorganized; page URLs are preserved (moves are covered by redirects):
+
+- The nav is now organized by document kind — **Tutorials / How-to Guides /
+  Reference / Concepts** tabs — replacing the difficulty-tier
+  ("Beginner/Intermediate/Advanced Tutorials") buckets, which contained no
+  tutorials. The doc-authoring standards (Documentation Guide, mkdocs
+  skills) now prescribe the quadrant taxonomy and include a decision tree.
+- 18 verified doc/code mismatches fixed, including: a phantom
+  `--recreate` flag and missing `--scene` in the CLI reference; phantom
+  `ROBOT_LAUNCH_PACKAGE`/`ROBOT_LAUNCH_FILE` env vars (real: `LAUNCH_PACKAGE`);
+  nonexistent `airstack_msgs/TrajectorySegment`/`TrajectoryOverride` types in
+  doc templates (real: `TrajectoryXYZVYaw`); the MS-AirSim tmux window
+  ordering (bridges launch before PX4) and MAVLink port math; the Getting
+  Started Foxglove step (layout now auto-seeds; manual import retired).
+- Removed superseded pages with redirects: the Ascent-era scene-setup pair,
+  the pre-harness testing-frameworks page, the orphaned tutorials index and
+  two stale duplicate pages (development_environment, airstack-cli index).
+  The git-hooks docker-versioning READMEs are now deprecation notices — the
+  hook they described conflicts with the semver `check-version-increment`
+  gate (note: `airstack config git-hooks` still installs it; CLI removal is
+  a follow-up).
+- Pages that documented never-built or fabricated behavior were rewritten
+  from the code: global planning (the unimplemented Global-Manager/
+  PlanRequest protocol is gone), the robot interface page (state flows via
+  `odometry_conversion`), robot configuration, HITL (now uses the
+  `gcs-real` `hitl` profile and Foxglove verification), rosbags, and the
+  robot-side data-offloading page (now points at the storage-tools
+  workflow).
+- Hybrid pages split by audience: `system_architecture.md` (explanation
+  core; drifted topic tables replaced with links into the interface
+  conventions spec), CI/CD (new **Using CI** how-to), GCS Foxglove (new
+  **Extending the Visualizer**), Isaac Sim docker (new **Container
+  Workflows**). Duplicated hot tables (topics, CLI flags, pytest marks,
+  requirements) now live in one canonical home each.
+- Previously off-site references added to the nav: the `vehicle.yaml` and
+  `module.yaml` schemas, local calibration contract, the RViz tasks/waypoint
+  panel manuals, the LiDAR point-cloud filter README, and the OSMO lab-admin
+  guide. New reference pages: the complete `.env` schema, the
+  `airstack_msgs` interface reference, the trajectory-library YAML format,
+  and a supported-platform matrix. New/rewritten onboarding: Deploying to
+  Hardware and Operating the GCS.
+- The Interface Conventions Specification was bumped to **v1.0.1**: §8 now
+  lists all eight `task_msgs` actions (added `tasks/coverage` and
+  `tasks/chat`, both defined with no shipped executor).
+- Six new how-to guides: Adding a State Estimator, Adding a Planner,
+  Creating a Multi-Agent Coordination Algorithm (grouped under a new
+  How-to → Autonomy section), Creating a Custom Stack Topology, Adding a
+  Vehicle Type/Unit/Platform, and Getting the Most out of Your Coding
+  Agent (the feature-notebook workflow). Each presents the in-tree
+  package vs `airstack module create --in-tree` module-scaffolding
+  choice. The Concepts tab now sits directly after Tutorials, and the
+  UE→Isaac export tutorial was refreshed (new walkthrough video, export
+  as Z-up in meters, note that UE Decals — paint markings, dirt,
+  puddles — do not export).
+- Five new beginner tutorials completing the learning path: Fly a Mission
+  from the GCS, Change a Parameter (the edit→relaunch loop; config YAML is
+  symlink-installed from the bind-mounted source, so no rebuild), Write
+  Your First Module (`airstack module create --in-tree` scaffold, with a
+  fix-it note for the scaffold's double-namespace stub), Your First Fleet
+  (two-robot fleet file, per-robot Foxglove tabs), and Build and Fly Your
+  Own Scene (GUI stage → scene catalog → `--scene` flight → baked
+  `*.scene.usd`). New how-to: Adding a Controller (verified
+  trajectory_controller → pid_controller → interface command chain);
+  Adding a Planner expanded into Adding a World Model and Planner
+  (local world-model/planner matched pairs vs the spec'd global map
+  interchange).
+
 This release restructures AirStack from a monolith into **modules**,
 **stacks**, and **fleets**, implementing
 [RFC #379 (Modular AirStack)](https://github.com/castacks/AirStack/discussions/379)

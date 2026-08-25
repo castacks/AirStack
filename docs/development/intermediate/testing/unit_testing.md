@@ -211,4 +211,4 @@ or CI needed.
 - [`.agents/skills/add-unit-tests`](../../../../.agents/skills/add-unit-tests/SKILL.md) — step-by-step agent workflow
 - [System tests](../../../../tests/README.md) — full Docker-stack integration tests
 - [CI/CD](ci_cd.md) — pipeline overview and ephemeral runner architecture
-- [Testing frameworks](testing_frameworks.md) — `colcon test`, ament linters
+- [System test suite reference](../../../../tests/README.md) — marks, fixtures, CLI options

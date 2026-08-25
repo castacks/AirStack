@@ -165,7 +165,7 @@ proceeds and the container auto-fetches it inside the `airsim` tmux window.
 You can also pre-fetch manually:
 
 ```bash
-./simulation/ms-airsim/assets/scenes/fetch_scene.sh forest
+./simulation/ms-airsim/assets/scenes/fetch_scene.sh blocks
 ```
 
 An explicit `MS_AIRSIM_BINARY_PATH` (pointing at any extracted UE4 binary)

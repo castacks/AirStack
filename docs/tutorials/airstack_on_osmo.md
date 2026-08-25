@@ -1,12 +1,14 @@
 # AirStack on OSMO — Recommended Remote Development Workflow
 
-This is AirStack's recommended day-to-day development path.
+This is AirStack's recommended **remote** development path — for Mac and
+Windows users, machines without a local NVIDIA GPU, or anyone who wants to
+develop against the lab's shared GPU pool.
 You submit one OSMO workflow that spins up a GPU pod running the full
 three-container AirStack stack (Isaac Sim, robot-desktop, GCS), attach VS
 Code or Cursor to it over Remote-SSH, and stream Isaac Sim and the GCS
 Foxglove dashboard back to your browser.
 
-Why this is the recommended path:
+Why this is the recommended remote path:
 
 - **Pooled GPUs.** A lab's GPUs are shared on-demand across the whole team
   instead of pinned one-per-desktop. Onboarding doesn't require buying
@@ -23,15 +25,15 @@ Why this is the recommended path:
 - **Hardware bigger than your laptop.** The pod has more CPU/RAM/GPU than
   most dev laptops, even if you have a GPU laptop.
 
-> **Still want local development on a Linux+GPU desktop?** It works and
-> can be faster for tight inner loops — see
-> [Getting Started](../getting_started/index.md). It just isn't the
-> recommended default.
+> **Have a Linux+GPU desktop?** Local development is the golden path —
+> it's faster for tight inner loops. See
+> [Getting Started](../getting_started/index.md). OSMO is the recommended
+> alternative when local isn't an option.
 
 ## Who is this for?
 
-Anyone developing AirStack — Mac, Windows, or Linux, with or without a
-local GPU.
+Anyone developing AirStack remotely — Mac, Windows, or Linux, especially
+without a local GPU.
 
 You're comfortable using `git` from a terminal, you have an SSH key
 (`~/.ssh/id_ed25519` or similar), and you have either VS Code or Cursor

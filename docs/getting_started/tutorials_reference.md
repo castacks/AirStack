@@ -1,109 +1,37 @@
-# What's Next? Tutorials by Topic
+# What's Next?
 
-Now that you have AirStack running, explore these hands-on tutorials to learn specific workflows. Each section below contains focused tutorials for that area of AirStack.
+You've flown the stack — here's where to go next, organized by what you're trying to do. The docs are arranged in four kinds: **Tutorials** (guided lessons), **How-to Guides** (task recipes), **Reference** (look-up tables and specs), and **Concepts** (how and why the system is built this way).
 
-### 🎮 Simulation Tutorials
+## Continue learning
 
-Learn to work with Isaac Sim and create custom simulation scenarios.
+The tutorial sequence, in order:
 
-| Tutorial | Description | Level |
-|----------|-------------|-------|
-| [Spawning Drones](../simulation/isaac_sim/spawning_drones.md) | Launch scripts for one or many drones in Isaac Sim | Beginner |
-| [Custom Scene Setup](../simulation/isaac_sim/scene_setup.md) | Create custom Isaac Sim environments | Intermediate |
-| [Pegasus Scene Setup](../simulation/isaac_sim/pegasus_scene_setup.md) | Build scenes with Pegasus extension | Intermediate |
+1. [Fly a Mission from the GCS](fly_a_mission.md) — take off, place waypoints, run a Navigate task, land, save your mission.
+2. [Change a Parameter](change_a_parameter.md) — the edit → relaunch → observe development loop in ten minutes.
+3. [Modular AirStack Walkthrough](modular_airstack.md) — fly a reference stack, read its wiring, add a module, make your own stack, launch a fleet.
+4. [Write Your First Module](first_module.md) — scaffold a module, implement a node, wire it into your own stack, see it in the wiring.
+5. [Your First Fleet](first_fleet.md) — a two-robot fleet file, both drones in Foxglove, tasks to each.
+6. [Build and Fly Your Own Scene](build_your_own_scene.md) — author a stage, register it in the scene catalog, fly it.
+7. [Deploy to Hardware](../real_world/deploying_to_hardware.md) — from bench-ready Jetson to first-flight checks.
 
-### 🤖 Robot Autonomy Tutorials
+## By goal
 
-Understand the autonomy stack and configure different operation modes.
+| I want to… | Go to | Kind |
+|---|---|---|
+| Set up my dev environment (local or remote) | [Development Environment Setup](../development/beginner/development_environment.md) · [Remote Development on OSMO](../tutorials/airstack_on_osmo.md) | How-to |
+| Understand the big picture first | [Key Concepts](../development/beginner/key_concepts.md) · [System Architecture](../robot/autonomy/system_architecture.md) | Concepts |
+| Build my own algorithm module | [Integration Checklist](../robot/autonomy/integration_checklist.md) · [Modules](../development/modules.md) | How-to / Concepts |
+| Customize the simulation | [Scenes](../simulation/scenes.md) · [Spawning Drones](../simulation/isaac_sim/spawning_drones.md) | How-to |
+| Operate the GCS | [Waypoints & Geofences](../gcs/waypoints_and_geofences.md) · [Foxglove Visualization](../gcs/foxglove.md) | How-to |
+| Run more robots | [Fleets](../development/fleets.md) · [Robot Identity](../robot/docker/robot_identity.md) | Concepts |
+| Deploy to real hardware | [Robot & Field overview](../real_world/index.md) | How-to |
+| Look up a command, topic, or config value | [CLI Reference](../development/beginner/airstack-cli/index.md) · [Interface Conventions Spec](../robot/autonomy/interface_conventions.md) | Reference |
+| Run or write tests | [Testing Overview](../development/intermediate/testing/index.md) | How-to |
+| Contribute changes back | [Contributing Guide](../development/intermediate/contributing.md) | How-to |
 
-| Tutorial | Description | Level |
-|----------|-------------|-------|
-| [Autonomy Modes](../robot/autonomy_modes.md) | Understand onboard vs offboard stack placement | Beginner |
-| [System Architecture Overview](../robot/autonomy/system_architecture.md) | Deep dive into the layered architecture | Intermediate |
-| [Module Integration](../robot/autonomy/integration_checklist.md) | Add custom modules to the stack | Advanced |
+## Suggested paths
 
-### 🧩 Modular AirStack Tutorials
-
-Compose the autonomy software from modules, stacks, and fleets.
-
-| Tutorial | Description | Level |
-|----------|-------------|-------|
-| [Modular AirStack Walkthrough](modular_airstack.md) | Fly a reference stack, add a module, make your own stack, scale to a fleet | Beginner |
-| [AirStack Modules](../development/modules.md) | Pull in pinned external capability repos with `airstack module add` | Intermediate |
-| [AirStack Stacks](../development/stacks.md) | Self-contained topology folders with CI-observed wiring | Intermediate |
-| [AirStack Fleets](../development/fleets.md) | Declare whole deployments (robots, vehicles, stacks) in one YAML file | Intermediate |
-
-### 📡 Ground Control Station Tutorials
-
-Learn to monitor and control robots from the GCS.
-
-| Tutorial | Description | Level |
-|----------|-------------|-------|
-| [User Interface Basics](../gcs/usage/user_interface.md) | Navigate the GCS interface | Beginner |
-| [GCS Foxglove Visualization](../gcs/foxglove.md) | Visualize the fleet in Foxglove | Beginner |
-| [Adding Waypoints & Geofences](../gcs/waypoints_and_geofences.md) | Interactive route and area editors | Intermediate |
-
-### 💻 Development Tutorials
-
-Customize AirStack and add your own algorithms.
-
-| Tutorial | Description | Level |
-|----------|-------------|-------|
-| [Fork Your Own Project](../development/beginner/fork_your_own_project.md) | Fork or template AirStack for your project | Beginner |
-| [Development Environment Setup](../development/beginner/development_environment.md) | Configure your IDE and tools | Beginner |
-| [AI-Assisted Development](../development/advanced/ai_agent_guide.md) | Use AI agents to accelerate development | Intermediate |
-
-### 🚁 Real World Deployment Tutorials
-
-Deploy AirStack to real hardware and fly autonomous missions.
-
-| Tutorial | Description | Level |
-|----------|-------------|-------|
-| [Deploying to Hardware](../real_world/deploying_to_hardware.md) | Install AirStack on Jetson or VOXL | Intermediate |
-| [HITL Testing](../real_world/HITL/index.md) | Hardware-in-the-loop testing workflow | Intermediate |
-
----
-
-## Learning Paths
-
-Choose a path based on your goals:
-
-**🎯 I want to develop algorithms:**
-
-1. Complete Getting Started (you are here! ✓)
-2. [Modular AirStack Walkthrough](modular_airstack.md)
-3. [System Architecture](../robot/autonomy/system_architecture.md)
-4. [AirStack Modules](../development/modules.md) and [AirStack Stacks](../development/stacks.md)
-5. [Development Environment](../development/beginner/development_environment.md)
-6. [AI-Assisted Development](../development/advanced/ai_agent_guide.md)
-
-**🚁 I want to deploy to hardware:**
-
-1. Complete Getting Started (you are here! ✓)
-2. [Autonomy Modes](../robot/autonomy_modes.md)
-3. [HITL Testing](../real_world/HITL/index.md)
-4. [Deploying to Hardware](../real_world/deploying_to_hardware.md)
-
-**🎮 I want to create custom simulations:**
-
-1. Complete Getting Started (you are here! ✓)
-2. [Spawning Drones](../simulation/isaac_sim/spawning_drones.md)
-3. [Custom Scene Setup](../simulation/isaac_sim/scene_setup.md)
-4. [Pegasus Scene Setup](../simulation/isaac_sim/pegasus_scene_setup.md)
-
-**👥 I want to coordinate multi-robot teams:**
-
-1. Complete Getting Started (you are here! ✓)
-2. [AirStack Fleets](../development/fleets.md)
-3. [AirStack Stacks](../development/stacks.md) (split onboard/offboard stacks)
-4. [Ground Control Station Basics](../gcs/usage/user_interface.md)
-5. [GCS Foxglove Visualization](../gcs/foxglove.md)
-
----
-
-## Additional Resources
-
-- **[Development Guide](../development/index.md)** - Comprehensive developer documentation
-- **[System Architecture](../robot/autonomy/system_architecture.md)** - Understanding the autonomy stack
-- **[Contributing Guide](../development/intermediate/contributing.md)** - How to contribute to AirStack
-- **[About & FAQ](../about.md)** - Project information and frequently asked questions
+- **Simulation user**: Get AirStack Flying → Scenes → Spawning Drones → Waypoints & Geofences.
+- **Module developer**: Modular AirStack Walkthrough → Key Concepts → Integration Checklist → Interface Conventions Spec.
+- **Robot deployer**: Key Concepts → Robot Identity → Robot & Field overview → Deployment Topologies.
+- **Contributor**: Development Environment Setup → Testing Overview → Contributing Guide.

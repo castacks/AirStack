@@ -240,20 +240,25 @@ nav:
 
 ### Organization Pattern
 
+The site nav is organized by the [Diátaxis](https://diataxis.fr) quadrants — top-level tabs are document *kinds*, with product areas grouped inside each tab:
+
 ```
-docs/
-├── getting_started/        # New user onboarding
-├── development/            # Developer guides
-│   ├── beginner/          # Entry-level tutorials
-│   ├── intermediate/      # Testing, best practices
-│   └── advanced/          # Deep dives
-├── robot/                 # Robot-specific docs
-│   ├── autonomy/          # Autonomy stack integration
-│   └── configuration/     # Configuration guides
-└── simulation/            # Simulation setup
+nav tabs (mkdocs.yml)
+├── Tutorials        # learning-oriented lessons (getting_started/, guided walkthroughs)
+├── How-to Guides    # task recipes (dev env, docker, simulation, GCS, field, testing, contributing)
+├── Reference        # look-up material (CLI, configuration schemas, interface spec, containers, packages)
+├── Concepts         # explanation (architecture, modular design, identity, sim platforms)
+├── Release Notes
+└── About
+
+File locations stay stable (docs/development/, docs/robot/, docs/simulation/, …);
+the nav labels — not directories — carry the taxonomy. New pages: pick the
+quadrant first (see the decision tree in docs/development/intermediate/documentation.md),
+then add the file under the closest existing directory and nav-link it in the
+matching tab.
 
 robot/ros_ws/src/
-├── local/planners/my_planner/README.md    # Module docs
+├── local/planners/my_planner/README.md    # Module docs (all-in-one; exempt from the one-quadrant rule)
 └── perception/state_est/README.md         # Module docs
 ```
 
