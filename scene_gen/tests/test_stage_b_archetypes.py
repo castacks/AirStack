@@ -292,3 +292,50 @@ def test_export_keeps_relative_textures_resolvable(tmp_path):
     # every prim otherwise, and stricter builds ignore the binding.
     mesh = next(p for p in got.Traverse() if p.IsA(UsdGeom.Mesh))
     assert mesh.HasAPI(UsdShade.MaterialBindingAPI)
+
+
+def test_export_merges_settled_fragments_per_material(tmp_path):
+    """A settled wreck is static at load, so its ~60 fragments export as one
+    mesh per material with a static collider — the renderer and PhysX pay
+    per mesh, on every launch, for geometry that is fixed at bake time."""
+    from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics, UsdShade
+    from disaster import bake as B
+
+    st = _box_source(0.0, 0.0)
+    brick = UsdShade.Material.Define(st, "/World/Looks/Brick")
+    core = UsdShade.Material.Define(st, "/World/Looks/Core")
+    UsdShade.MaterialBindingAPI.Apply(
+        st.GetPrimAtPath("/World/Bldg/box")).Bind(brick)
+    UsdGeom.Scope.Define(st, "/World/Bldg/fragments")
+    n_tri = 0
+    for i in range(3):
+        m = UsdGeom.Mesh.Define(st, f"/World/Bldg/fragments/frag_{i:03d}")
+        m.CreatePointsAttr([Gf.Vec3f(0, 0, 0), Gf.Vec3f(1, 0, 0),
+                            Gf.Vec3f(0, 1, 0), Gf.Vec3f(1, 1, 1)])
+        m.CreateFaceVertexCountsAttr([3, 3])
+        m.CreateFaceVertexIndicesAttr([0, 1, 2, 1, 3, 2])
+        UsdGeom.PrimvarsAPI(m).CreatePrimvar(
+            "st", Sdf.ValueTypeNames.TexCoord2fArray,
+            UsdGeom.Tokens.vertex).Set([Gf.Vec2f(0, 0)] * 4)
+        UsdGeom.Xformable(m).AddTranslateOp().Set(Gf.Vec3d(5.0 * i, 0, 0))
+        UsdShade.MaterialBindingAPI.Apply(m.GetPrim()).Bind(brick)
+        sub = UsdGeom.Subset.CreateGeomSubset(
+            m, "mat_core", UsdGeom.Tokens.face, [1], "materialBind")
+        UsdShade.MaterialBindingAPI.Apply(sub.GetPrim()).Bind(core)
+        n_tri += 2
+    out = tmp_path / "T.usd"
+    assert B.export_object(st, None, ["/World/Bldg"], str(out))
+    got = Usd.Stage.Open(str(out))
+    meshes = {p.GetName(): p for p in got.Traverse() if p.IsA(UsdGeom.Mesh)}
+    assert set(meshes) == {"box", "rubble_Brick", "rubble_Core"}, meshes
+    tri = {n: len(UsdGeom.Mesh(p).GetFaceVertexCountsAttr().Get())
+           for n, p in meshes.items()}
+    assert tri["rubble_Brick"] + tri["rubble_Core"] == n_tri
+    assert tri["rubble_Core"] == 3                     # one face per fragment
+    rb = meshes["rubble_Brick"]
+    assert rb.HasAPI(UsdPhysics.CollisionAPI)
+    assert str(UsdShade.MaterialBindingAPI(rb).ComputeBoundMaterial()[0]
+               .GetPrim().GetName()) == "Brick"
+    pts = UsdGeom.Mesh(rb).GetPointsAttr().Get()
+    assert len(UsdGeom.PrimvarsAPI(rb).GetPrimvar("st").Get()) == len(pts)
+    assert max(p[0] for p in pts) > 9.0                # world space kept

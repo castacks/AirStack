@@ -30,12 +30,21 @@ the codebase's two surviving damage stacks both find a home:
     vegetation reference the USD, then `disaster.vegetation.burn_tree`, which
                works on the instancer rather than the mesh.
 
-ONE SETTLE FOR THE WHOLE GRID
------------------------------
-Every cell is laid out on a spaced grid and PhysX runs ONCE over all of them,
-then each is exported re-centred to the origin. Settling per cell would pay the
-simulation start-up cost hundreds of times; this is the single most important
-thing the original script got right and it is preserved verbatim.
+ONE CELL AT A TIME: BUILD, SETTLE, EXPORT, UNLOAD
+-------------------------------------------------
+The original script laid every cell out on a grid and ran PhysX ONCE over all
+of them, to pay the simulation start-up once. With ~1,200-cell rubble that is
+the wrong trade, measured (2026-08-25, `--config urban_quake_tiny --used-only`,
+16 cells): the resident geometry ran the GPU out of memory from cell 6 onward
+(26,888 Vulkan OOM errors), and the single settle over 5,064 bodies then took
+975 s, left 4,825 of them still moving at the step ceiling and DROPPED NOTHING
+(drop median -0.02 m). Every baked tower was a cracked plate standing at full
+height, and always had been.
+
+So each cell is settled and exported as soon as it is built, then removed from
+the stage. A cell is ~900 bodies and settles in seconds; the simulation
+start-up it pays per cell is smaller than the settle it saves. Grid positions
+are kept so nothing else about a cell changes.
 """
 
 from __future__ import annotations
@@ -61,8 +70,10 @@ from disaster import levels as L                                # noqa: E402
 #: a piece of its neighbour.
 GRID_M = 40.0
 
-#: PhysX steps for the one settle pass. From the original bake script.
-SETTLE_STEPS = 420
+#: Ceiling on PhysX steps per cell's settle. `settle.run` stops as soon as
+#: the pile is at rest, so this only binds on a collapse still moving: a
+#: piece off a 70 m tower needs ~4 s just to reach the ground.
+SETTLE_STEPS = 900
 
 
 def prepare_stage(stage):
@@ -93,6 +104,28 @@ def prepare_stage(stage):
     key.CreateIntensityAttr(2200.0)
     key.AddRotateXYZOp().Set(Gf.Vec3f(-45.0, 0.0, 30.0))
     return stage
+
+
+def _centroid_z(stage, path) -> float:
+    """World z of the mean vertex of the mesh at *path* (metres)."""
+    import numpy as np
+    from pxr import Gf, Usd, UsdGeom
+    prim = stage.GetPrimAtPath(path)
+    if not prim or not prim.IsValid():
+        return 0.0
+    xf = UsdGeom.XformCache()
+    acc, n = np.zeros(3), 0
+    for gp in Usd.PrimRange(prim):
+        if not gp.IsA(UsdGeom.Mesh):
+            continue
+        pts = gp.GetAttribute("points").Get()
+        if not pts:
+            continue
+        c = np.asarray(pts, dtype=float).mean(axis=0)
+        w = xf.GetLocalToWorldTransform(gp).Transform(Gf.Vec3d(*c))
+        acc += np.array(w) * len(pts)
+        n += len(pts)
+    return float(acc[2] / n) if n else 0.0
 
 
 def _cell_xy(idx: int, ncol: int, y0: float = 0.0) -> tuple:
@@ -127,6 +160,7 @@ class Baker:
         self.loose = []
         self.static = []
         self.records = []
+        self._missing = 0
 
     # -- build ------------------------------------------------------------
     def build(self, items: list, ssf: float) -> int:
@@ -147,18 +181,48 @@ class Baker:
             t_cell = time.time()
             print(f"[stage-a] {idx + 1}/{len(combos)} {it.type}_{level} "
                   f"({it.build}/{it.kind})", flush=True)
+            n_loose, n_static = len(self.loose), len(self.static)
             try:
                 paths, extra = self._build_one(it, level, x, y, cell, ssf)
             except Exception as exc:                            # noqa: BLE001
                 # One bad asset must not cost the other 200 archetypes.
                 print(f"[stage-a] SKIP {it.type}_{level}: "
                       f"{type(exc).__name__}: {exc}")
+                self._unload(cell)
                 continue
             self.cells.append((it, level, x, y, paths, extra))
+            # This cell's own loose pieces and statics — see the module
+            # docstring for why the settle is per cell.
+            stats = self._settle_cell(paths, self.loose[n_loose:],
+                                      self.static[n_static:])
+            # CONVERGED OR NOT EXPORTED. Fragments are merged into static
+            # meshes on export, which takes away the scene's own settle as a
+            # second chance at a bad pose — so a pose is only baked when the
+            # solver actually finished with it: nothing still moving, nothing
+            # through the floor. A frozen mid-air collapse is rejected the
+            # way an untextured archetype is.
+            if stats and not stats["converged"]:
+                print(f"[stage-a] REJECTED {it.type}_{level}: settle did not "
+                      f"converge ({stats['still_moving']} still moving, "
+                      f"{stats['through_floor']} through the floor, "
+                      f"{stats['steps_used']}/{stats['steps']} steps)")
+                self._missing += 1
+            else:
+                self._export_cell(it, level, x, y, paths, extra, stats)
+            self._unload(cell)
             dt = time.time() - t_cell
             if dt > 5.0:
                 print(f"[stage-a]     {dt:.0f}s", flush=True)
         return len(self.cells)
+
+    def _unload(self, cell):
+        """Take a finished cell off the stage so it stops costing memory."""
+        from pxr import Sdf
+        prim = self.stage.GetPrimAtPath(Sdf.Path(cell))
+        if prim and prim.IsValid():
+            prim.SetActive(False)
+            self.stage.RemovePrim(Sdf.Path(cell))
+        self._pump(2)
 
     def _build_one(self, item, level, x, y, cell, ssf):
         if item.build == "modular":
@@ -338,37 +402,67 @@ WHICH damage runs is the disaster's own decision, not this
             pass
 
     # -- settle -----------------------------------------------------------
-    def settle(self):
-        """One PhysX pass over the whole grid. See the module docstring."""
+    def _settle_cell(self, paths, loose, static):
+        """PhysX over ONE cell: its loose pieces against its own standing
+        geometry. See the module docstring for why not the whole grid.
+        Returns the convergence stats, or None when there was nothing to
+        settle (a pristine cell converges trivially)."""
         from disaster import settle as S
+        if not loose:
+            return None
+        statics = list(static)
+        for p in paths:
+            pr = self.stage.GetPrimAtPath(p)
+            if pr and pr.IsValid() and pr.IsActive():
+                statics.append(p)
+        self._pump(5)
+        print(f"[stage-a]     settling {len(loose)} loose fragment(s)",
+              flush=True)
+        info = S.run(self.stage, list(loose), statics, steps=SETTLE_STEPS,
+                     kick=0.15, rng=random.Random(self.seed), bake_result=True)
+        self._pump(5)
+        # Through the floor is judged at the piece's CENTROID: a fragment is
+        # authored with no xformOp, so its prim origin is the building's and
+        # follows the piece down — a 40 m drop reads as 40 m underground.
+        lost = sum(1 for p in loose if _centroid_z(self.stage, p) < -2.0)
+        stats = {"bodies": int(info.get("rigid", len(loose))),
+                 "still_moving": int(info.get("still_moving", 0)),
+                 "through_floor": int(lost),
+                 "steps_used": int(info.get("steps_used", 0)),
+                 "steps": int(SETTLE_STEPS),
+                 "drop_median_m": round(float(info.get("drop_median", 0.0)), 2),
+                 "spread_max_m": round(float(info.get("spread_max", 0.0)), 1)}
+        stats["converged"] = (stats["still_moving"] == 0
+                              and stats["through_floor"] == 0)
+        return stats
 
-        for _it, _lv, _x, _y, paths, _extra in self.cells:
-            for p in paths:
-                pr = self.stage.GetPrimAtPath(p)
-                if pr and pr.IsValid() and pr.IsActive():
-                    self.static.append(p)
-        self._pump(20)
-        if self.loose:
-            print(f"[stage-a] settling {len(self.loose)} loose fragment(s)")
-            S.run(self.stage, self.loose, self.static, steps=SETTLE_STEPS,
-                  kick=0.15, rng=random.Random(self.seed), bake_result=True)
-        self._pump(10)
+    def settle(self):
+        """Kept for the old build -> settle -> export sequence; every cell
+        has already been settled as it was built."""
+        return None
 
     # -- export -----------------------------------------------------------
     def export(self) -> list:
-        """Write one self-contained USD per cell, re-centred to the origin."""
+        """The records of every cell exported so far — each cell is written
+        as soon as it is settled (`_export_cell`)."""
+        return self.records
+
+    def _export_cell(self, item, level, x, y, paths, extra,
+                     settle=None) -> bool:
+        """One self-contained USD for a cell, re-centred to the origin."""
         from disaster import bake as B
 
         out = lib.disaster_dir(_SCENE_GEN, self.disaster, self.out_dir)
         os.makedirs(out, exist_ok=True)
-        missing = 0
-        for item, level, x, y, paths, extra in self.cells:
+        if True:
             dst = os.path.join(out, lib.archetype_name(item.type, level)
                                + ".usd")
             try:
                 if not B.export_object(self.stage, None, list(paths) + list(extra),
                                        dst, recenter=(x, y, 0.0)):
-                    continue
+                    print(f"[stage-a] nothing to export for "
+                          f"{os.path.basename(dst)}")
+                    return False
                 meshes, _ok, unbound = B.validate(dst)
                 # Bound is not textured — see `bake.unresolved_textures`.
                 # A library of black boxes is worse than no library, so an
@@ -377,14 +471,14 @@ WHICH damage runs is the disaster's own decision, not this
             except Exception as exc:                            # noqa: BLE001
                 print(f"[stage-a] export FAILED {os.path.basename(dst)}: "
                       f"{type(exc).__name__}: {exc}")
-                continue
+                return False
             if untex:
                 print(f"[stage-a] REJECTED {os.path.basename(dst)}: "
                       f"{len(untex)} texture(s) resolve to nothing, e.g. "
                       f"{untex[0]}")
-                self._missing = getattr(self, "_missing", 0) + len(untex)
-                continue
-            missing += unbound
+                self._missing += len(untex)
+                return False
+            self._missing += unbound
             self.records.append({
                 "type": item.type, "level": level, "kind": item.kind,
                 "build": item.build, "source": str(item.source),
@@ -397,13 +491,19 @@ WHICH damage runs is the disaster's own decision, not this
                 # that survives being moved or copied to Nucleus.
                 "usd": os.path.basename(dst),
                 "meshes": meshes, "bound_missing": unbound,
+                # How the settle ended, so a library says whether its wrecks
+                # are piles (see the convergence gate in `build`).
+                "settle": settle or {"bodies": 0, "converged": True},
             })
-        self._missing = missing
-        return self.records
+        return True
 
     def write_manifest(self) -> str:
         out = lib.disaster_dir(_SCENE_GEN, self.disaster, self.out_dir)
-        return lib.write_manifest(
+        # MERGED into what is there. A `--used-only` or `--only` bake is a
+        # partial one by design; replacing the manifest with its records
+        # silently un-baked every other type in the library (measured: a
+        # tiny bake left the showcase with 2 of its 10 building types).
+        return lib.merge_manifest(
             os.path.join(out, lib.MANIFEST_NAME), self.records,
             {"disaster": self.disaster, "seed": self.seed,
              "asset_pack": self.config.get("asset_pack"),

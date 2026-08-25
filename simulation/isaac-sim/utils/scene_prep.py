@@ -537,11 +537,12 @@ def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
             # Judged on the written-back POSES, not on velocities: a body that
             # is asleep reports zero, and so would a velocity that never got
             # written — and the two are indistinguishable from here.
-            # Below 4 cm/s — the same creep the still-moving count below
-            # tolerates; a millimetre was never met by a 900-body pile that
-            # PhysX itself reported asleep.
+            # Below 0.1 m/s over the half second — the same creep the
+            # still-moving count below tolerates. Tighter thresholds were
+            # never met: a millimetre by a 900-body pile PhysX reported
+            # asleep, 4 cm/s by 24 parked props (204 of 205 frames used).
             cur = _centroids(prims, pivot)
-            if max((cur[k] - prev[k]).GetLength() for k in cur) < 0.02 / mpu:
+            if max((cur[k] - prev[k]).GetLength() for k in cur) < 0.05 / mpu:
                 break
             prev = cur
         sim_s = _time.time() - t_sim

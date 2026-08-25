@@ -88,6 +88,15 @@ def write_manifest(path: str, records: list, meta: dict = None) -> str:
     return path
 
 
+def merge_manifest(path: str, records: list, meta: dict = None) -> str:
+    """`write_manifest`, keeping every existing record this bake did not
+    redo. A record is identified by (type, level); the new one wins."""
+    old = read_manifest(path).get("archetypes") or []
+    fresh = {(r.get("type"), r.get("level")) for r in records}
+    kept = [r for r in old if (r.get("type"), r.get("level")) not in fresh]
+    return write_manifest(path, list(records) + kept, meta)
+
+
 def read_manifest(path: str) -> dict:
     if not os.path.isfile(path):
         return {}

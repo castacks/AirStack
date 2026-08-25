@@ -206,3 +206,21 @@ def test_library_survives_being_moved(tmp_path):
     shutil.copytree(src, dst)
     L_ = lib.Library(str(dst / lib.MANIFEST_NAME))
     assert os.path.exists(L_.usd_path(L_.get("ranch", "rubble")))
+
+
+def test_a_partial_bake_merges_into_the_manifest(tmp_path):
+    """A `--used-only` bake must not un-bake every type it did not touch —
+    a tiny bake left the showcase with 2 of its 10 building types."""
+    path = str(tmp_path / lib.MANIFEST_NAME)
+    old = [{"type": "A", "level": "pristine", "usd": "A_pristine.usd"},
+           {"type": "A", "level": "pancaked", "usd": "A_pancaked.usd"},
+           {"type": "B", "level": "pristine", "usd": "B_pristine.usd"}]
+    lib.write_manifest(path, old, {"disaster": "earthquake"})
+    new = [{"type": "A", "level": "pancaked", "usd": "A_pancaked.usd",
+            "meshes": 99}]
+    lib.merge_manifest(path, new, {"disaster": "earthquake", "seed": 7})
+    doc = lib.read_manifest(path)
+    recs = {(r["type"], r["level"]): r for r in doc["archetypes"]}
+    assert set(recs) == {("A", "pristine"), ("A", "pancaked"), ("B", "pristine")}
+    assert recs[("A", "pancaked")]["meshes"] == 99          # the new one won
+    assert doc["seed"] == 7

@@ -145,13 +145,30 @@ def _rebuild_material(out, dst_path, src_mat_prim):
     return dst_path
 
 
+#: Prim paths with this component are fracture output (`mesh_damage`
+#: authors fragments under `<building>/fragments/`), merged on export.
+FRAGMENT_SCOPE = "fragments"
+
+
 def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
-                  recenter=None):
+                  recenter=None, merge_fragments=True):
     """Write one object's meshes + materials to a self-contained USD by value.
 
     `src_stage` is a stage (typically the Kit-flattened scene) that has the
     object at `obj_paths`. `_flat_unused` is ignored (kept for call
     compatibility). Returns True if any mesh was written.
+
+    FRAGMENTS ARE MERGED, one mesh per material (`merge_fragments`). A settled
+    archetype is static at scene load — its prims never enter the scene's
+    settle, and findability keys off the `_archetype` flag, not the mesh
+    structure — so ~60 rigid-body-shaped meshes per wreck bought nothing and
+    cost twice: the renderer composites and binds every one of them (warm-up
+    4.3 s -> 25.8 s on tiny with the same 18 materials) and PhysX cooks a
+    collider per mesh on every launch (`settle cook 6.7 s`) for geometry that
+    is fixed at bake time. Merged, a wreck is a handful of static trimeshes
+    with their colliders authored here, cooked once. Points go to world space
+    (re-centred), `st` rides along per vertex, and the retained shell keeps
+    its own mesh and subsets exactly as before.
     """
     from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
     _off = Gf.Vec3d(*recenter) if recenter else None
@@ -210,10 +227,14 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
                     ("trunk", "bole", "bark", "base", "stem", "wood", "char")):
                 wood_mat[0] = mp
 
+    frags = []                # fragment meshes, merged after the loop
     for r in roots:
         rname = r.GetName()
         for prim in Usd.PrimRange(r):
             if not prim.IsA(UsdGeom.Mesh):
+                continue
+            if merge_fragments and FRAGMENT_SCOPE in prim.GetPath().pathString.split("/"):
+                frags.append(prim)
                 continue
             dst = unique(root, rname if prim == r else prim.GetName())
             dm = UsdGeom.Mesh.Define(out, dst)
@@ -241,6 +262,10 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
                 unbound.append(dm.GetPrim())
             n_mesh += 1
 
+    if frags:
+        n_mesh += _merge_fragments(out, root, frags, xf_cache, _off,
+                                   material_for, unique, _note)
+
     # UNBOUND MESHES TAKE THE OBJECT'S OWN BARK. Some kit prototypes ship with
     # NO material binding at all — Black_Oak's woody branchlet prototype is the
     # known one (`bind_bark` repairs the trunk-level meshes but not the
@@ -255,6 +280,94 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
 
     out.GetRootLayer().Save()
     return n_mesh > 0
+
+
+def _merge_fragments(out, root, frags, xf_cache, off, material_for, unique,
+                     note) -> int:
+    """One `rubble_<material>` mesh per material from *frags*. Returns count."""
+    import numpy as np
+    from pxr import Gf, Sdf, UsdGeom, UsdPhysics, UsdShade, Vt
+
+    buckets = {}                  # out material path (or None) -> lists
+    for prim in frags:
+        mesh = UsdGeom.Mesh(prim)
+        pts = mesh.GetPointsAttr().Get()
+        counts = mesh.GetFaceVertexCountsAttr().Get()
+        idx = mesh.GetFaceVertexIndicesAttr().Get()
+        if not pts or not counts or not idx:
+            continue
+        P = np.asarray(pts, dtype=np.float64)
+        m = Gf.Matrix4d(xf_cache.GetLocalToWorldTransform(prim))
+        if off is not None:
+            m = m.SetTranslateOnly(m.ExtractTranslation() - off)
+        M = np.array(m).reshape(4, 4)
+        P = np.c_[P, np.ones(len(P))] @ M
+        P = P[:, :3]
+        counts = np.asarray(counts, dtype=np.int64)
+        idx = np.asarray(idx, dtype=np.int64)
+        pv = UsdGeom.PrimvarsAPI(prim).GetPrimvar("st")
+        st = None
+        if pv and pv.GetInterpolation() == UsdGeom.Tokens.vertex:
+            v = pv.Get()
+            if v is not None and len(v) == len(P):
+                st = np.asarray(v, dtype=np.float64)
+        # per-face material: the prim's binding, overridden by its subsets
+        fmat = np.full(len(counts), -1, dtype=np.int64)
+        mats = [material_for(prim)]
+        for sub in UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(prim)):
+            faces = sub.GetIndicesAttr().Get()
+            mp = material_for(sub.GetPrim())
+            if faces is None or mp is None:
+                continue
+            mats.append(mp)
+            fmat[np.asarray(faces, dtype=np.int64)] = len(mats) - 1
+        fmat[fmat < 0] = 0
+        starts = np.concatenate([[0], np.cumsum(counts)[:-1]])
+        for k, mp in enumerate(mats):
+            sel = np.nonzero(fmat == k)[0]
+            if not len(sel):
+                continue
+            b = buckets.setdefault(mp, {"P": [], "st": [], "counts": [],
+                                        "idx": [], "n": 0})
+            fv = np.concatenate([idx[starts[f]:starts[f] + counts[f]]
+                                 for f in sel])
+            used = np.unique(fv)
+            remap = np.empty(len(P), dtype=np.int64)
+            remap[used] = np.arange(len(used)) + b["n"]
+            b["P"].append(P[used])
+            b["st"].append(st[used] if st is not None
+                           else np.zeros((len(used), 2)))
+            b["counts"].append(counts[sel])
+            b["idx"].append(remap[fv])
+            b["n"] += len(used)
+
+    n = 0
+    for mp, b in buckets.items():
+        name = "rubble_" + (mp.rsplit("/", 1)[-1] if mp else "unbound")
+        dm = UsdGeom.Mesh.Define(out, unique(root, name))
+        dm.CreatePointsAttr(Vt.Vec3fArray.FromNumpy(
+            np.concatenate(b["P"]).astype(np.float32)))
+        dm.CreateFaceVertexCountsAttr(Vt.IntArray.FromNumpy(
+            np.concatenate(b["counts"]).astype(np.int32)))
+        dm.CreateFaceVertexIndicesAttr(Vt.IntArray.FromNumpy(
+            np.concatenate(b["idx"]).astype(np.int32)))
+        dm.CreateDoubleSidedAttr(True)
+        dm.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+        UsdGeom.PrimvarsAPI(dm).CreatePrimvar(
+            "st", Sdf.ValueTypeNames.TexCoord2fArray,
+            UsdGeom.Tokens.vertex).Set(Vt.Vec2fArray.FromNumpy(
+                np.concatenate(b["st"]).astype(np.float32)))
+        # A static collider, authored once here rather than cooked from a
+        # convex hull per fragment on every launch.
+        UsdPhysics.CollisionAPI.Apply(dm.GetPrim())
+        UsdPhysics.MeshCollisionAPI.Apply(dm.GetPrim()) \
+            .CreateApproximationAttr().Set(UsdPhysics.Tokens.none)
+        if mp:
+            UsdShade.MaterialBindingAPI.Apply(dm.GetPrim()).Bind(
+                UsdShade.Material(out.GetPrimAtPath(mp)))
+            note(mp, name)
+        n += 1
+    return n
 
 
 def validate(out_path, root="/Baked"):

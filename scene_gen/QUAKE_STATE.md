@@ -51,7 +51,13 @@ not yet re-measured), still-moving 0, settle 8 s sim / 14.6 s phase. Findability
 (`findability.py --config urban_quake_tiny --seeds 1,2,3`): PASS, 12/12 clear.
 
 **Open after this pass, in priority order:**
-0. **THE BAKE'S SETTLE DOES NOT SETTLE.** `bake_cli --config urban_quake_tiny --used-only`
+0. **THE BAKE'S SETTLE DID NOT SETTLE — fix in tree, UNVALIDATED until the next re-bake.**
+   `archetypes/bake.py` now builds, settles, exports and UNLOADS one cell at a time
+   (`_settle_cell` / `_export_cell` / `_unload`, `SETTLE_STEPS` 420 -> 900 as a ceiling with
+   `settle.run`'s early exit) and `write_manifest` MERGES (`library.merge_manifest`). Needs
+   one `bake_cli --config urban_quake_tiny --used-only` in the container to confirm: expect
+   no Vulkan OOM, `[settle] drop median` clearly negative per cell, and pancaked archetypes
+   that are piles. The measured failure it replaces: `bake_cli --config urban_quake_tiny --used-only`
    (2026-08-25): 16 cells resident on one stage, GPU out of memory from cell 6 onward
    (26,888 Vulkan OOM errors), then ONE settle over 5,064 bodies: 975 s, 4825 still moving
    at 420/420 steps, drop median -0.02 m, spread max 179 m. Nothing fell, so every baked
@@ -71,7 +77,14 @@ not yet re-measured), still-moving 0, settle 8 s sim / 14.6 s phase. Findability
    metres in the air or underground. Wants a pivot at the footprint centre — or a sink only.
 5. `urban_quake_tiny` places 4 buildings where its header promises 6 ("8/9 large buildings
    have no block that fits") — packing vs measured footprints, not a unit bug. G2 scope.
-6. Older items below still stand (moment test, pile inflation, slab over-fragmentation).
+6. **Load cost of a textured, placed wreck** (post-fix warm tiny 55 s vs 25 s pre-fix, which
+   had EMPTY wrecks): renderer warm-up 25.8 s with the same 18 MDL materials — driven by the
+   ~60 fragment meshes per wreck, not by material count — and `settle cook 6.7 s`, PhysX
+   cooking a convex hull per fragment mesh on every launch for geometry that is fixed at
+   bake time. Levers (Mission 2's read, unmeasured): cook colliders once at bake and store
+   them in the archetype; merge fragments that ended up touching into one mesh at export;
+   cheaper approximations for small debris.
+7. Older items below still stand (moment test, pile inflation, slab over-fragmentation).
 
 **Done, uncommitted (2026-08-24 pass, landed in 93775b51):**
 
