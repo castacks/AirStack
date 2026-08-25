@@ -45,6 +45,10 @@
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>
+         <loc>https://docs.theairlab.org/docs/develop/common/ros_packages/msgs/airstack_msgs/</loc>
+         <lastmod>2026-08-25</lastmod>
+    </url>
+    <url>
          <loc>https://docs.theairlab.org/docs/develop/config/local/</loc>
          <lastmod>2026-08-25</lastmod>
     </url>
@@ -65,7 +69,11 @@
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/docs/development/development_environment/</loc>
+         <loc>https://docs.theairlab.org/docs/develop/docs/development/adding_a_vehicle/</loc>
+         <lastmod>2026-08-25</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/development/creating_a_stack/</loc>
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>
@@ -85,6 +93,10 @@
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/development/working_with_coding_agents/</loc>
+         <lastmod>2026-08-25</lastmod>
+    </url>
+    <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/development/advanced/ai_agent_guide/</loc>
          <lastmod>2026-08-25</lastmod>
     </url>
@@ -94,10 +106,6 @@
     </url>
     <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/development/advanced/airstack-cli/extending/</loc>
-         <lastmod>2026-08-25</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/docs/development/airstack-cli/</loc>
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>
@@ -157,15 +165,19 @@
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/docs/development/intermediate/testing/testing_frameworks/</loc>
-         <lastmod>2026-08-25</lastmod>
-    </url>
-    <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/development/intermediate/testing/unit_testing/</loc>
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/development/intermediate/testing/using_ci/</loc>
+         <lastmod>2026-08-25</lastmod>
+    </url>
+    <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/gcs/</loc>
+         <lastmod>2026-08-25</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/gcs/extending_foxglove/</loc>
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>
@@ -186,6 +198,26 @@
     </url>
     <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/getting_started/</loc>
+         <lastmod>2026-08-25</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/getting_started/build_your_own_scene/</loc>
+         <lastmod>2026-08-25</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/getting_started/change_a_parameter/</loc>
+         <lastmod>2026-08-25</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/getting_started/first_fleet/</loc>
+         <lastmod>2026-08-25</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/getting_started/first_module/</loc>
+         <lastmod>2026-08-25</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/getting_started/fly_a_mission/</loc>
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>
@@ -221,6 +253,10 @@
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/real_world/supported_platforms/</loc>
+         <lastmod>2026-08-25</lastmod>
+    </url>
+    <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/real_world/HITL/</loc>
          <lastmod>2026-08-25</lastmod>
     </url>
@@ -253,6 +289,14 @@
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/robot/autonomy/adding_a_controller/</loc>
+         <lastmod>2026-08-25</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/robot/autonomy/adding_a_world_model_and_planner/</loc>
+         <lastmod>2026-08-25</lastmod>
+    </url>
+    <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/robot/autonomy/dds_router/</loc>
          <lastmod>2026-08-25</lastmod>
     </url>
@@ -278,6 +322,10 @@
     </url>
     <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/robot/autonomy/coordination/</loc>
+         <lastmod>2026-08-25</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/robot/autonomy/coordination/creating_coordination_algorithms/</loc>
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>
@@ -321,6 +369,10 @@
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/robot/autonomy/perception/adding_a_state_estimator/</loc>
+         <lastmod>2026-08-25</lastmod>
+    </url>
+    <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/robot/autonomy/sensors/</loc>
          <lastmod>2026-08-25</lastmod>
     </url>
@@ -330,6 +382,10 @@
     </url>
     <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/robot/configuration/</loc>
+         <lastmod>2026-08-25</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.theairlab.org/docs/develop/docs/robot/configuration/environment_variables/</loc>
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>
@@ -369,7 +425,7 @@
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>
-         <loc>https://docs.theairlab.org/docs/develop/docs/simulation/isaac_sim/ascent_sitl_extension/</loc>
+         <loc>https://docs.theairlab.org/docs/develop/docs/simulation/isaac_sim/container_workflows/</loc>
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>
@@ -386,10 +442,6 @@
     </url>
     <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/simulation/isaac_sim/pegasus_scene_setup/</loc>
-         <lastmod>2026-08-25</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/docs/simulation/isaac_sim/scene_setup/</loc>
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>
@@ -410,10 +462,6 @@
     </url>
     <url>
          <loc>https://docs.theairlab.org/docs/develop/docs/simulation/simple_sim/docker/</loc>
-         <lastmod>2026-08-25</lastmod>
-    </url>
-    <url>
-         <loc>https://docs.theairlab.org/docs/develop/docs/tutorials/</loc>
          <lastmod>2026-08-25</lastmod>
     </url>
     <url>
