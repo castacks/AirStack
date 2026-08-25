@@ -77,8 +77,8 @@ Modules communicate via ROS 2 topics. Common standard topics:
 |--------------|------|---------|
 | `/{robot_name}/odometry` | nav_msgs/Odometry | Robot state estimation |
 | `/{robot_name}/global_plan` | nav_msgs/Path | Global waypoint path |
-| `/{robot_name}/trajectory_controller/trajectory_override` | airstack_msgs/TrajectoryOverride | Direct trajectory commands |
-| `/{robot_name}/trajectory_controller/trajectory_segment_to_add` | airstack_msgs/TrajectorySegment | Planned trajectory segment |
+| `/{robot_name}/trajectory_controller/trajectory_override` | airstack_msgs/TrajectoryXYZVYaw | Direct trajectory commands |
+| `/{robot_name}/trajectory_controller/trajectory_segment_to_add` | airstack_msgs/TrajectoryXYZVYaw | Planned trajectory segment |
 | `/{robot_name}/trajectory_controller/look_ahead` | geometry_msgs/PointStamped | Look-ahead point for planning |
 
 **Note:** Topics are remapped in bringup launch files to connect modules. Input/output topics should be configurable via launch arguments.
@@ -152,7 +152,7 @@ Study these well-structured modules as examples for different types:
 |------------|------------------|----------|
 | **Local Planner** | DROAN Local Planner | `robot/ros_ws/src/local/planners/droan_local_planner` |
 | **Local World Model** | Disparity Expansion | `robot/ros_ws/src/local/world_models/disparity_expansion` |
-| **Controller** | Trajectory Controller | `robot/ros_ws/src/local/c_controls/trajectory_controller` |
+| **Controller** | Trajectory Controller | `robot/ros_ws/src/local/controls/trajectory_controller` |
 | **Global Planner** | Random Walk | `robot/ros_ws/src/global/planners/random_walk` |
 | **Global World Model** | VDB Mapping | `robot/ros_ws/src/global/world_models/vdb_mapping_ros2` |
 | **Behavior** | Drone Safety Monitor | `robot/ros_ws/src/behavior/drone_safety_monitor` |

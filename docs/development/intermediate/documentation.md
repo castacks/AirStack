@@ -68,7 +68,7 @@ graph LR
 - `/robot1/obstacle_map` (sensor_msgs/PointCloud2) - Obstacles
 
 ### Published
-- `/robot1/trajectory` (airstack_msgs/TrajectorySegment) - Planned trajectory
+- `/robot1/trajectory` (airstack_msgs/TrajectoryXYZVYaw) - Planned trajectory
 
 ## Parameters
 

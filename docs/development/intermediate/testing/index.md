@@ -39,9 +39,11 @@ Full Docker-stack integration tests. The canonical reference is
 | `build_docker` | `system/test_build_docker.py` | Docker image builds |
 | `build_packages` | `system/test_build_packages.py` | `colcon build` inside containers |
 | `liveliness` | `system/test_liveliness.py` | Containers, `/clock` readiness, tmux, sentinel ROS 2 nodes, compute, infra-only stability poll |
+| `wiring` | `system/test_wiring_snapshot.py` | Observed wiring snapshot of the running ROS graph, drift-checked against the stack's committed `stacks/<name>/wiring.md` |
 | `sensors` | `system/test_sensors.py` | Sim + robot stereo/depth Hz, filtered LiDAR (`echo --once` + validation script on Isaac), sim RTF, sensor stability time-series |
 | `takeoff_hover_land` | `system/test_takeoff_hover_land.py` | Four-phase flight chain per configuration (takeoff → hover → land) |
 | `autonomy` | `system/test_fixed_trajectory.py` | Fixed-pattern path-tracker benchmark (takeoff → trajectory → land) |
+| `waypoint_flight` | `system/test_waypoint_flight.py` | Ordered-waypoint navigation (takeoff → `NavigateTask` route → land), judged on the odometry track by `waypoint_checker.py` |
 
 Collection order is defined in `tests/conftest.py` (unit tests first, then
 `build_docker` → `build_packages` → `liveliness` → `sensors` → `takeoff_hover_land`

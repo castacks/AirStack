@@ -2,10 +2,11 @@
 
 !!! tip "On Mac, Windows, or no GPU?"
 
-    This page assumes a Linux desktop with an NVIDIA GPU. If that's not you,
-    use [AirStack on OSMO](../tutorials/airstack_on_osmo.md) instead — you
-    only need an SSH key, the `osmo` CLI, and VS Code or Cursor. No local
-    Docker, no NVIDIA drivers, no `airstack install`.
+    This page assumes a Linux desktop with an NVIDIA GPU. If you don't have
+    one, [AirStack on OSMO](../tutorials/airstack_on_osmo.md) is the
+    recommended remote development path — you only need an SSH key, the
+    `osmo` CLI, and VS Code or Cursor. No local Docker, no NVIDIA drivers,
+    no `airstack install`.
 
 !!! warning ""
 
@@ -22,12 +23,12 @@ By the end of this tutorial, you will have the autonomy stack running on your ma
 
 ## Requirements
 
-You need at least 25GB free to install the Docker image.
+The Docker images take about 25GB; we recommend at least 100GB of free disk space.
 
 Check the hardware requirements for the NVIDIA Isaac Sim [here](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/requirements.html).
-A GPU of GeForce RTX 4080 or higher is recommended for the best performance.
+An NVIDIA RTX 3070 is the minimum GPU; a GeForce RTX 4080 or better is recommended for the best performance.
 
-AirStack is primarily tested on Ubuntu 22.04. 
+AirStack is tested on Ubuntu 22.04 and 24.04. 
 
 ## Clone
 ```bash
@@ -106,9 +107,12 @@ airstack up --sim isaac --robots 3  # multi-robot (auto-selects the multi-drone 
 
 ## Move Robot
 
-Open Foxglove in the GCS to command the robot: import the layout `/root/airstack_layout_num_robots_1.json` (Layouts → Import from file…), connect to `ws://localhost:8765`, then press `Takeoff` in the Robot Tasks panel, then `Navigate` like in this video:
+Foxglove opens automatically in the GCS with the AirStack layout already loaded — no manual import or connection needed (see [GCS Foxglove Visualization](../gcs/foxglove.md)). Press `Takeoff` in the Robot Tasks panel, then `Navigate`, like in this video:
 
 <iframe width="560" height="315" src="https://www.youtube.com/embed/EAKsHzNIU2I?si=zQUFq8fPst2BIIMz" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
+!!! note
+    If you instead connect a Foxglove running on the host, the bridge is exposed on host port `8766` (container port `8765`): connect to `ws://localhost:8766`.
 
 
 ## Shutdown

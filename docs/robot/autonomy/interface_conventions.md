@@ -1,6 +1,6 @@
 # Interface Conventions Specification
 
-**Spec version: v1.0.0** (semver — see [Versioning and deprecation](#versioning-and-deprecation))
+**Spec version: v1.0.1** (semver — see [Versioning and deprecation](#versioning-and-deprecation))
 
 This is the versioned specification of AirStack's **interchange points** — the
 narrow waists where modules meet: canonical topic/service/action names,
@@ -168,6 +168,8 @@ skill). All types come from `task_msgs`:
 | `tasks/fixed_trajectory` | `task_msgs/action/FixedTrajectoryTask` | trajectory_controller pkg (onboard) |
 | `tasks/exploration` | `task_msgs/action/ExplorationTask` | random_walk (global planner) |
 | `tasks/semantic_search` | `task_msgs/action/SemanticSearchTask` | (module-provided) |
+| `tasks/coverage` | `task_msgs/action/CoverageTask` | (defined in `task_msgs`; no shipped executor) |
+| `tasks/chat` | `task_msgs/action/ChatTask` | (defined in `task_msgs`; no shipped executor) |
 
 Related service: `takeoff_landing_planner/set_takeoff_landing_command`
 (`airstack_msgs/srv/TakeoffLandingCommand`) — the GCS-facing takeoff/land
@@ -241,4 +243,5 @@ proposal process.
 
 | Spec | Date | Change |
 |---|---|---|
+| v1.0.1 | 2026-08-25 | §8: added `tasks/coverage` and `tasks/chat` rows so the table covers all eight `task_msgs` actions; both are defined in `task_msgs` with no shipped executor. Documentation-only. |
 | v1.0.0 | 2026-08-20 | Initial versioned spec, recorded from `full_default`'s observed wiring. Known v2 candidates: plain `odometry` as the canonical state topic; a structured `global_map` interchange. |

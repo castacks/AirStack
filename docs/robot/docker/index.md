@@ -42,7 +42,7 @@ robot_base  (robot-base-docker-compose.yaml)
 | **ROS workspace** | `common/ros_packages` is mounted into the ROS 2 workspace `src/common` |
 | **Shell config** | `.bashrc` and `inputrc` are bind-mounted so the developer experience is consistent across rebuilds |
 | **Bags** | `robot/bags/` is mounted at `/bags` for recording and playback |
-| **Launch variables** | All `*_LAUNCH_PACKAGE` / `*_LAUNCH_FILE` environment variables are forwarded from the host `.env` file |
+| **Launch variables** | `LAUNCH_PACKAGE` is set per service in the compose files; the launch file is `robot.launch.xml` (hardcoded in the compose command) |
 
 ## Platform Profiles
 
@@ -105,7 +105,7 @@ Key variables are set in the project's `.env` file and forwarded into the contai
 | `PROJECT_NAME` | Project / image name |
 | `NUM_ROBOTS` | Number of robot replicas (desktop only, default `1`) |
 | `AUTOLAUNCH` | Whether to auto-start the ROS 2 stack on container start (default `true`) |
-| `ROBOT_LAUNCH_PACKAGE` / `ROBOT_LAUNCH_FILE` | Top-level ROS 2 launch target |
+| `LAUNCH_PACKAGE` | Top-level ROS 2 launch package: `desktop_bringup` (adds RViz; desktop/sim) or `autonomy_bringup` (real robots / headless). The launch file is always `robot.launch.xml`, hardcoded in the compose command |
 | `OFFBOARD_BASE_PORT` / `ONBOARD_BASE_PORT` | MAVLink UDP port base values (desktop/sim only) |
 | `ROBOT_NAME_MAP_CONFIG_FILE` | YAML mapping config used to resolve a name to `ROBOT_NAME` and `ROS_DOMAIN_ID` (default: `default_robot_name_map.yaml`) |
 | `DEBUG_RVIZ` | If `true`, launches RViz alongside the robot via `desktop_bringup/robot.launch.xml` (default: `false`) |

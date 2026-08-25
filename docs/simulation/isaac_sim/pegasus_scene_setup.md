@@ -22,9 +22,9 @@ Through this approach, AirStack leverages Pegasus to create a flexible, reusable
 
 At the top level of the AirStack simulation environment, a `.env` file controls how Pegasus and Isaac Sim are launched:
 ```bash
-ISAAC_SIM_GUI="omniverse://airlab-nucleus.andrew.cmu.edu/Library/Assets/Pegasus/iris_with_sensors.pegasus.robot.usd"
+ISAAC_SIM_GUI="/isaac-sim/AirStack/simulation/isaac-sim/assets/scenes/simple_pegasus.scene.usd"
 # Set to "true" to launch Isaac Sim using a standalone Python script instead of a USD file
-ISAAC_SIM_USE_STANDALONE="false"  # "true" or "false"
+ISAAC_SIM_USE_STANDALONE="true"  # "true" or "false"
 # Script name (must be in /AirStack/simulation/isaac-sim/launch_scripts/)
 ISAAC_SIM_SCRIPT_NAME="example_one_px4_pegasus_launch_script.py"
 PLAY_SIM_ON_START="true"  # honored in both modes; `airstack up --no-play` overrides

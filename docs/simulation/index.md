@@ -74,7 +74,6 @@ Isaac Sim is our primary simulation platform, offering:
 
 - [Isaac Sim Overview](isaac_sim/index.md)
 - [Pegasus Scene Setup](isaac_sim/pegasus_scene_setup.md)
-- [Ascent SITL Extension](isaac_sim/ascent_sitl_extension.md)
 - [Export from Unreal Engine](isaac_sim/export_stages_from_unreal.md)
 
 ### Microsoft AirSim (legacy) (Unreal Engine)

@@ -294,14 +294,6 @@ tmux a -t isaac
 
 For remote access, use Isaac Sim streaming:
 
-**Native streaming:**
-```bash
-# Inside container
-./runheadless.native.sh
-```
-
-Connect with [Omniverse Streaming Client](https://docs.omniverse.nvidia.com/streaming-client/latest/user-manual.html).
-
 **WebRTC streaming:**
 ```bash
 # Inside container

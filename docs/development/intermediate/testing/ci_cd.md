@@ -336,9 +336,11 @@ flowchart LR
 | `build_docker` | `system/test_build_docker.py` | Every image builds; records image sizes | Broken Dockerfiles, deleted apt packages, upstream base-image drift, accidental image bloat |
 | `build_packages` | `system/test_build_packages.py` | `colcon build` inside robot, GCS, and ms-airsim workspaces | Missing `package.xml` dependencies, uninstalled launch/config files, C++ breakage on a clean tree |
 | `liveliness` | `system/test_liveliness.py` | Containers reach Running, `/clock` publishes, tmux panes alive, sentinel ROS 2 nodes present, compute snapshot, stability poll | Launch files that crash on start, nodes that die after 30 s, `ROBOT_NAME`/domain-ID misconfiguration, runaway CPU or memory |
+| `wiring` | `system/test_wiring_snapshot.py` | Observed wiring snapshot of the running ROS graph, drift-checked against the stack's committed `stacks/<name>/wiring.md` | Topic remaps that silently disconnect, nodes publishing into the void, launch-file edits that change the graph without updating `wiring.md` |
 | `sensors` | `system/test_sensors.py` | Stereo and depth publish rates on both sim and robot side, filtered LiDAR liveness plus geometry sanity, sim real-time factor, time-series stability | Broken sim-to-ROS bridges, sensor Hz that silently halves, RTF collapse from a heavy new node, LiDAR filter range regressions |
 | `takeoff_hover_land` | `system/test_takeoff_hover_land.py` | Four-phase chain per (sim, robots, iteration, velocity): PX4 ready → takeoff to 10 m → hover → land | Controller tuning regressions, altitude overshoot, hover drift, state-estimation bias against ground truth, PX4/MAVROS handshake breakage |
 | `autonomy` | `system/test_fixed_trajectory.py` | Same chain with a Circle / Figure8 / Racetrack / Line pattern in the middle; records cross-track error and path RMSE | Path-tracker regressions, trajectory-library math errors, velocity/acceleration limit violations that show up as corner-cutting |
+| `waypoint_flight` | `system/test_waypoint_flight.py` | Same chain with an ordered `NavigateTask` waypoint route in the middle; the odometry track is judged by the standalone `waypoint_checker.py` (in-order corridor arrival, final-goal tolerance, per-waypoint timeout) | Waypoint sequencing regressions, behavior-tree/navigation task breakage, routes that skip or stall at a waypoint |
 
 ### The flight chain
 

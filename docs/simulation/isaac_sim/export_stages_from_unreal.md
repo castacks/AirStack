@@ -24,7 +24,7 @@ Omniverse doesn't perform well with large amounts of vegetation. Anything with c
 
 That said you can still achieve photorealism by substituting complex geometries for high quality textures. Isaac seems to do fine with high quality textures.
 
-**Optimization:** After exporting, edit the file with [USD Composer](https://docs.omniverse.nvidia.com/composer/latest/index.html) and run the [Scene Optimizer extension](https://docs.omniverse.nvidia.com/extensions/latest/ext_scene-optimizer.html) for faster performance. USD Composer can be installed via [Omniverse Launcher](https://docs.omniverse.nvidia.com/launcher/latest/index.html).
+**Optimization:** After exporting, edit the file with [USD Composer](https://docs.omniverse.nvidia.com/composer/latest/index.html) and run the [Scene Optimizer extension](https://docs.omniverse.nvidia.com/extensions/latest/ext_scene-optimizer.html) for faster performance. USD Composer / USD Explorer can be installed from NVIDIA's current distribution channel (the Omniverse Launcher has been discontinued).
 
 **Verify the Scale:**  The Omniverse exporter exports in centimeters, but Isaac Sim natively works in meters. For consistency, follow these steps to [change the scene units to be meters](https://forums.developer.nvidia.com/t/how-to-change-units-of-the-grid-from-centimeters-to-meters/301285#:~:text=Find%20the%20%E2%80%9CMeters%20Per%20Unit%E2%80%9D%20property%20and%20set%20it%20to%201%20for%20meters).
 
@@ -35,4 +35,4 @@ To check the scale of the scene, you can add a cube in Isaac Sim and compare it 
 Adding physics to the stage is as simple as adding a `Physics` property with the "Colliders Preset", as described in the [Isaac docs](https://docs.omniverse.nvidia.com/isaacsim/latest/gui_tutorials/tutorial_intro_simple_objects.html#adding-physics-properties).
 Then save the scene as `[YOUR_ENVIRONMENT_NAME].scene.usd` to clarify that it's a physics-enabled scene.
 
-You're now ready to add robots to the scene on the next page.
+You're now ready to add robots to the scene — see [Spawning Drones](spawning_drones.md).

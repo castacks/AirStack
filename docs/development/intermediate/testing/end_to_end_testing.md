@@ -432,7 +432,6 @@ Action server: `/{robot_name}/tasks/fixed_trajectory` — see also [Tasks and Ta
 | `trajectory_success = 0` | Tracker stall or timeout | Check trajectory_controller logs; rebuild the workspace (`-m build_packages`) |
 | Cross-track error &gt;&gt; 5 m | Wrong tracker params or frame bug | Compare launch params; check world-frame transform |
 | Tests run for hours | Default `--num-robots 1,3` (and `--sim msairsim` if opted in) | Pin `--sim isaacsim --num-robots 1 --stress-iterations 1` |
-| Unknown mark warning `autonomy` | Mark not in `pytest.ini` | Harmless; filter still works |
 
 ---
 

@@ -88,7 +88,7 @@ docker exec airstack-robot-desktop-1 bash -c "ros2 bag record -a -o /tmp/test"
 /[robot_name]/[layer]/[module]/[data_type]
 ```
 
-Example: `/drone1/local_planner/droan/trajectory`
+Example: `/drone1/trajectory_controller/trajectory_segment_to_add`
 
 ### Standard Topics
 - `/[robot]/odometry` - State estimate
@@ -123,7 +123,7 @@ Study these before implementing similar modules:
 | Module Type | Reference | Location |
 |------------|-----------|----------|
 | Local Planner | DROAN | `robot/ros_ws/src/local/planners/droan_local_planner` |
-| Controller | Trajectory Controller | `robot/ros_ws/src/local/c_controls/trajectory_controller` |
+| Controller | Trajectory Controller | `robot/ros_ws/src/local/controls/trajectory_controller` |
 | World Model | Disparity Expansion | `robot/ros_ws/src/local/world_models/disparity_expansion` |
 | Global Planner | Random Walk | `robot/ros_ws/src/global/planners/random_walk` |
 | Behavior / Safety | Drone Safety Monitor | `robot/ros_ws/src/behavior/drone_safety_monitor` |

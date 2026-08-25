@@ -125,8 +125,9 @@ One command group — run `airstack help osmo` for the full reference.
 | `--dry-run` | Validate the resolved configuration and preflight checks, then exit without starting services |
 | `--stack NAME[:ENTRY]` | Launch a stack folder: `stacks/NAME/launch/ENTRY.launch.xml` (default entry `stack`). Stacks are the only launch dispatch; no `--stack` launches the trunk reference stack `full_default`. See [Stacks](../../stacks.md) |
 | `--fleet NAME` | Launch a fleet (`config/fleets/NAME.yaml`): exports `FLEET_CONFIG_FILE`, derives `NUM_ROBOTS`, selects the Isaac fleet spawner, and (for heterogeneous fleets) includes the generated per-robot services. See [Fleets](../../fleets.md) |
+| `--scene NAME` | Select the simulation scene by shortname from the shared scene catalog (`simulation/scenes.yaml`): maps `NAME` to the active simulator's scene reference and exports it. See [Scenes](../../../simulation/scenes.md) |
 
-Also supported: `--build` (build images before starting), `--recreate` (recreate containers), and `--env-file FILE` (layer an extra env file on top of the root `.env`).
+Also supported: `--build` (build images before starting) and `--env-file FILE` (layer an extra env file on top of the root `.env`).
 
 ## Command Details
 
