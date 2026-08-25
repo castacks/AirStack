@@ -65,14 +65,14 @@ Dev desktop
 ```
 
 ```bash
-# Isaac Sim (set in .env: COMPOSE_PROFILES="desktop,isaac-sim"):
-airstack up
+# Isaac Sim:
+airstack up --sim isaac
 
 # Microsoft AirSim (legacy):
-COMPOSE_PROFILES="desktop,ms-airsim" airstack up
+airstack up --sim airsim
 
 # Multiple simulated robots:
-NUM_ROBOTS=3 airstack up
+airstack up --sim isaac --robots 3
 ```
 
 Each replica gets a unique `ROBOT_NAME` (`robot_1`, `robot_2`, `robot_3`) and `ROS_DOMAIN_ID` (1, 2, 3)
@@ -133,8 +133,8 @@ Lite modules run on the Jetson; global planning runs on the ground station.
 # On the Jetson:
 airstack --profile l4t_lite up
 
-# On the ground station (set NUM_ROBOTS to match fleet size):
-NUM_ROBOTS=3 airstack --profile offboard up
+# On the ground station (--robots must match the fleet size):
+airstack --profile offboard up --robots 3
 ```
 
 ---
@@ -149,7 +149,7 @@ for global planning. Global planning must always run on the GCS.
 airstack --profile voxl up
 
 # On the ground station:
-NUM_ROBOTS=3 airstack --profile offboard up
+airstack --profile offboard up --robots 3
 ```
 
 ---

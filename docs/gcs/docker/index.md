@@ -66,10 +66,10 @@ Attach to the session with `airstack connect gcs` (or `tmux attach -t bringup` i
 
 ```bash
 # Don't auto-launch (for development)
-AUTOLAUNCH=false airstack up gcs
+airstack up gcs --no-autolaunch
 
 # Three robots: three relays + a 3-tab layout
-NUM_ROBOTS=3 airstack up --sim isaac --robots 3
+airstack up --sim isaac --robots 3
 ```
 
 ## Networking
@@ -103,7 +103,7 @@ ssh -p 2222 root@localhost    # password: airstack
 
 ```bash
 # Start GCS without auto-launch
-AUTOLAUNCH=false airstack up gcs
+airstack up gcs --no-autolaunch
 
 # Inside the container
 airstack connect gcs

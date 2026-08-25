@@ -59,7 +59,7 @@ The recommended extensions can be installed automatically in VSCode. When you op
 
 1. **Start containers without autolaunch**:
    ```bash
-   AUTOLAUNCH=false airstack up robot-desktop
+   airstack up robot-desktop --no-autolaunch
    ```
 
 2. **Build your changes**:

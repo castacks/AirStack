@@ -135,7 +135,7 @@ Here's what a typical development session looks like:
 
 ```bash
 # 1. Start containers (without auto-launching the stack)
-AUTOLAUNCH=false airstack up robot-desktop
+airstack up robot-desktop --no-autolaunch
 
 # 2. Connect to the robot container
 airstack connect robot

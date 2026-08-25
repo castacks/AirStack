@@ -173,22 +173,18 @@ This command will spin up a `robot` container, build the ROS2 workspace, source 
 As mentioned above, the `airstack` CLI is a wrapper around Docker Compose.
 Therefore, it supports [variable interpolation](https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/) in the `docker-compose.yaml` file, allowing you to adjust project settings by modifying environment variables.
 
-For example, to disable playing the simulation on startup, you can set the `PLAY_SIM_ON_START` variable to `false`:
+For settings that have a launch-intent flag, prefer the flag — it derives
+the env vars for you (see the [flag reference](index.md)): `--no-play`
+instead of `PLAY_SIM_ON_START=false`, `--no-autolaunch` instead of
+`AUTOLAUNCH=false`, `--robots N` instead of `NUM_ROBOTS=N`, plus `--sim`,
+`--headless`, `--scene`, `--stack`, and `--fleet`.
 
-```bash
-PLAY_SIM_ON_START=false airstack up
-```
-
-To change the Isaac Sim scene (launch scripts live in `simulation/isaac-sim/launch_scripts/`):
+Environment variables remain the mechanism for everything **without** a
+flag. For example, to run a custom Isaac Sim launch script (they live in
+`simulation/isaac-sim/launch_scripts/`):
 
 ```bash
 ISAAC_SIM_SCRIPT_NAME=your_launch_script.py airstack up
-```
-
-To disable autolaunching the stack and simply spawn idle docker containers (useful for debugging):
-
-```bash
-AUTOLAUNCH=false airstack up
 ```
 
 A list of all available environment variables is in the default `.env` file in the project root directory, which allows specifying all the variables in one place.

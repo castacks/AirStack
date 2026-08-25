@@ -82,10 +82,10 @@ canonical launch file; the stack entry file is the single wiring locus.
 airstack up robot-desktop
 
 # Start without auto-launch (for development)
-AUTOLAUNCH=false airstack up robot-desktop
+airstack up robot-desktop --no-autolaunch
 
 # Multiple robots
-NUM_ROBOTS=3 airstack up robot-desktop
+airstack up robot-desktop --robots 3
 
 # Different platforms (profiles)
 airstack up --profile l4t        # NVIDIA Jetson

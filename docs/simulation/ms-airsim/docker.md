@@ -95,13 +95,13 @@ The container runs `entrypoint.sh`, which:
 
 ```bash
 # Two robots
-NUM_ROBOTS=2 airstack up --profile ms-airsim
+airstack up --sim airsim --robots 2
 
 # Headless (no GUI, uses UE4's -RenderOffScreen)
-MS_AIRSIM_HEADLESS=true airstack up --profile ms-airsim
+airstack up --sim airsim --headless
 
-# Custom scene binary
-MS_AIRSIM_ENV_DIR=/data/airsim_envs MS_AIRSIM_BINARY_PATH=/ms-airsim-env/CityEnviron/LinuxNoEditor/CityEnviron.sh airstack up --profile ms-airsim
+# Custom scene binary (no flag equivalent)
+MS_AIRSIM_ENV_DIR=/data/airsim_envs MS_AIRSIM_BINARY_PATH=/ms-airsim-env/CityEnviron/LinuxNoEditor/CityEnviron.sh airstack up --sim airsim
 ```
 
 ## Settings Generation
@@ -235,7 +235,8 @@ airstack logs ms-airsim
 
 ## Multi-Robot Support
 
-Set `NUM_ROBOTS` to spawn multiple vehicles. Each robot gets:
+Use `airstack up --robots N` (which sets `NUM_ROBOTS`) to spawn multiple
+vehicles. Each robot gets:
 
 - A named vehicle in `settings.json` (`robot_1`, `robot_2`, …)
 - Its own PX4 SITL instance with unique ports
@@ -244,7 +245,7 @@ Set `NUM_ROBOTS` to spawn multiple vehicles. Each robot gets:
 
 ```bash
 # Launch with 3 robots
-NUM_ROBOTS=3 airstack up --profile ms-airsim --profile desktop
+airstack up --sim airsim --robots 3
 ```
 
 ## Image Management
@@ -288,7 +289,7 @@ docker exec ms-airsim bash -c "cd /root/ros_ws && colcon build --symlink-install
 Change camera or vehicle parameters via environment variables and restart the container — `settings.json` is regenerated each time.
 
 ```bash
-AIRSIM_CAM_FOV=120 airstack up --profile ms-airsim
+AIRSIM_CAM_FOV=120 airstack up --sim airsim
 ```
 
 ## Troubleshooting

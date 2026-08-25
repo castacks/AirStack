@@ -196,11 +196,11 @@ ros2 launch your_package your_package.launch.xml \
 The module is automatically launched when the autonomy stack starts:
 
 ```bash
-# Full autonomy stack
+# Full autonomy stack (autolaunches by default)
 airstack up robot-desktop
 
-# Or with specific configuration
-AUTOLAUNCH=true airstack up robot-desktop
+# Or start idle and launch manually
+airstack up robot-desktop --no-autolaunch
 ```
 
 The module is integrated in: `<layer>_bringup/launch/<layer>.launch.xml`
