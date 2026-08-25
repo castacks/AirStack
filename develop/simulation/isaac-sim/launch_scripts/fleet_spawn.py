@@ -110,16 +110,26 @@ def fleet_to_drone_configs(fleet, project_root):
 
 
 def fleet_env_url(fleet, simulation_environments):
-    """Resolve ``sim.scene`` against Pegasus SIMULATION_ENVIRONMENTS."""
+    """Resolve ``sim.scene`` against Pegasus SIMULATION_ENVIRONMENTS.
+
+    An exported ``ISAAC_SIM_SCENE`` (from ``airstack up --scene``) wins over
+    the fleet file's ``sim.scene``.
+    """
     scene = (fleet.get("sim") or {}).get("scene", "default")
+    env_scene = os.environ.get("ISAAC_SIM_SCENE", "").strip()
+    if env_scene:
+        if scene not in (None, "", "default"):
+            print(f"[fleet_spawn] --scene override: ISAAC_SIM_SCENE='{env_scene}' "
+                  f"replaces the fleet's sim.scene '{scene}'")
+        scene = env_scene
     if scene in (None, "", "default"):
         return simulation_environments["Default Environment"]
     if scene in simulation_environments:
         return simulation_environments[scene]
-    if str(scene).endswith(".usd"):
+    if "://" in str(scene) or str(scene).endswith((".usd", ".usda", ".usdc", ".usdz")):
         return scene
     raise ValueError(
-        f"sim.scene '{scene}' is neither a SIMULATION_ENVIRONMENTS key nor a .usd path "
+        f"sim.scene '{scene}' is neither a SIMULATION_ENVIRONMENTS key nor a USD reference "
         f"(keys: {', '.join(sorted(simulation_environments))})"
     )
 
@@ -160,7 +170,8 @@ def main():
 
     PegasusApp(
         env_url=fleet_env_url(fleet, SIMULATION_ENVIRONMENTS),
-        stage_scale=1.0,
+        # `airstack up --scene` exports the matching stage scale; default 1.0.
+        stage_scale=float(os.environ.get("ISAAC_SIM_STAGE_SCALE") or 1.0),
         drone_configs=drone_configs,
         # Per-robot "camera"/"lidar" keys above override the app-level
         # defaults (enable_camera defaults True in PegasusApp).

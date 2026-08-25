@@ -18,15 +18,25 @@ tmux new -d -s ms-airsim -n airsim
 # window list (airsim, robot_<i>_px4, robot_<i>_bridge) has room to breathe.
 tmux set-option -t ms-airsim status-right ''
 
-# Scene resolution. If MS_AIRSIM_BINARY_PATH is unset, the airsim tmux window
-# auto-fetches Blocks so the download is visible. If set, the file must exist.
+# Scene resolution. An explicit MS_AIRSIM_BINARY_PATH wins (and must exist).
+# Otherwise MS_AIRSIM_SCENE (a fetch_scene.sh key, set by `airstack up
+# --scene <shortname>`; default blocks) picks the scene, and the airsim tmux
+# window auto-fetches it so the download is visible.
 FETCH_PREFIX=""
 if [ -z "$MS_AIRSIM_BINARY_PATH" ]; then
-    MS_AIRSIM_BINARY_PATH="/ms-airsim-env/Blocks/LinuxNoEditor/Blocks.sh"
-    FETCH_PREFIX="SCENES_DIR=/ms-airsim-env bash /ms-airsim-env/fetch_scene.sh blocks && chown -R ms-airsim:ms-airsim /ms-airsim-env/Blocks && chmod -R a+rwX /ms-airsim-env/Blocks && "
+    MS_AIRSIM_SCENE="${MS_AIRSIM_SCENE:-blocks}"
+    SCENE_NAME="$(bash /ms-airsim-env/fetch_scene.sh --name "$MS_AIRSIM_SCENE")" || {
+        echo "ERROR: unknown MS_AIRSIM_SCENE='$MS_AIRSIM_SCENE' (see fetch_scene.sh for valid keys)." >&2
+        exit 1
+    }
+    # The launcher is usually <NAME>.sh, but resolve by glob AFTER the fetch
+    # (in the tmux shell) so zips whose inner launcher is named differently
+    # still work. Single-quoted: expands post-download, not here.
+    MS_AIRSIM_BINARY_PATH='$(ls /ms-airsim-env/'"$SCENE_NAME"'/LinuxNoEditor/*.sh | head -1)'
+    FETCH_PREFIX="SCENES_DIR=/ms-airsim-env bash /ms-airsim-env/fetch_scene.sh $MS_AIRSIM_SCENE && chown -R ms-airsim:ms-airsim /ms-airsim-env/$SCENE_NAME && chmod -R a+rwX /ms-airsim-env/$SCENE_NAME && "
 elif [ ! -f "$MS_AIRSIM_BINARY_PATH" ]; then
     echo "ERROR: MS_AIRSIM_BINARY_PATH=$MS_AIRSIM_BINARY_PATH does not exist." >&2
-    echo "Extract the scene into the mounted volume, or unset MS_AIRSIM_BINARY_PATH to auto-fetch Blocks." >&2
+    echo "Extract the scene into the mounted volume, or unset MS_AIRSIM_BINARY_PATH to auto-fetch a scene (MS_AIRSIM_SCENE, default blocks)." >&2
     exit 1
 fi
 
