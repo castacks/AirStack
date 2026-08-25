@@ -563,7 +563,7 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         gravity=-9.81, kick=0.0, rng=None, bake_result=True,
         dynamic_approximation="convexHull", approx_map=None, gpu=True,
         blast=0.0, blast_center=None, blast_up=0.35, blast_falloff=1.0,
-        depenetration=DEPENETRATION_MS):
+        depenetration=DEPENETRATION_MS, max_travel_m=40.0):
     """prepare -> step physics -> measure -> bake. Returns a short report.
 
     MEASURES WHAT MOVED. A settle that silently does nothing looks identical
@@ -625,6 +625,32 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     # non-zero count is the scene telling you the ceiling is too low.
     _step(20)
     settled = _positions(info["bodies"])
+
+    # WHAT LEFT THE BUILDING IS NOT PART OF THE BUILDING. A handful of pieces
+    # get shot out by depenetration and never land: measured on
+    # `SM_MERGED_BP_MBuilding05_soft_storey`, the still-moving pieces were
+    # travelling at 9.3 m/s after 30 s of simulation, which is not a pile
+    # settling slowly, it is debris in flight. Held in, they keep the cell
+    # from ever converging and the gate throws the whole wreck away; frozen,
+    # they hang in mid-air. So they are deactivated — the same answer
+    # `scene_prep.settle_rigid_props` reaches on the live path — and the
+    # convergence question is asked of the rubble that is actually still there.
+    flung = []
+    if max_travel_m:
+        lim = float(max_travel_m)
+        for k in list(settled):
+            if k not in before:
+                continue
+            d = np.array(settled[k]) - np.array(before[k])
+            if float(np.linalg.norm(d[:2])) > lim:
+                flung.append(k)
+        for k in flung:
+            pr = stage.GetPrimAtPath(k)
+            if pr and pr.IsValid():
+                pr.SetActive(False)
+            settled.pop(k, None)
+    info["flung"] = len(flung)
+
     _moved = [float(np.linalg.norm(np.array(settled[k]) - np.array(after[k])))
               for k in after if k in settled]
     info["still_moving"] = sum(1 for d in _moved if d > 0.004)
@@ -671,6 +697,9 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         print("[settle]   fastest still-moving piece {0:.2f} m/s, p95 "
               "{1:.3f} m/s (creep is < 0.05; free fall is > 1)".format(
                   info.get("creep_max_ms", 0.0), info.get("creep_p95_ms", 0.0)))
+        if info.get("flung"):
+            print("[settle]   {0} piece(s) thrown past {1:.0f} m and "
+                  "deactivated".format(info["flung"], float(max_travel_m)))
         print("[settle]   {0} of {1} steps used; {2} body(s) STILL MOVING at "
               "bake time{3}".format(
                   info.get("steps_used", steps), steps,
