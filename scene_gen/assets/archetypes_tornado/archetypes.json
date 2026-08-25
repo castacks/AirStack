@@ -1,389 +1,5 @@
 [
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_cottage_pristine.usd",
-  "meshes": 13,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "cottage",
-  "level": "pristine"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_cottage_roof_stripped.usd",
-  "meshes": 32,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "cottage",
-  "level": "roof_stripped"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_cottage_roof_collapsed.usd",
-  "meshes": 40,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "cottage",
-  "level": "roof_collapsed"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_cottage_partial_collapse.usd",
-  "meshes": 114,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "cottage",
-  "level": "partial_collapse"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_cottage_leveled.usd",
-  "meshes": 150,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "cottage",
-  "level": "leveled"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_cottage_swept.usd",
-  "meshes": 74,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "cottage",
-  "level": "swept"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_two_storey_pristine.usd",
-  "meshes": 21,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "two_storey",
-  "level": "pristine"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_two_storey_roof_stripped.usd",
-  "meshes": 43,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "two_storey",
-  "level": "roof_stripped"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_two_storey_roof_collapsed.usd",
-  "meshes": 55,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "two_storey",
-  "level": "roof_collapsed"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_two_storey_partial_collapse.usd",
-  "meshes": 235,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "two_storey",
-  "level": "partial_collapse"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_two_storey_leveled.usd",
-  "meshes": 233,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "two_storey",
-  "level": "leveled"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_two_storey_swept.usd",
-  "meshes": 116,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "two_storey",
-  "level": "swept"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_wide_house_pristine.usd",
-  "meshes": 33,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "wide_house",
-  "level": "pristine"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_wide_house_roof_stripped.usd",
-  "meshes": 86,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "wide_house",
-  "level": "roof_stripped"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_wide_house_roof_collapsed.usd",
-  "meshes": 106,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "wide_house",
-  "level": "roof_collapsed"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_wide_house_partial_collapse.usd",
-  "meshes": 354,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "wide_house",
-  "level": "partial_collapse"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_wide_house_leveled.usd",
-  "meshes": 356,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "wide_house",
-  "level": "leveled"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_wide_house_swept.usd",
-  "meshes": 172,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "wide_house",
-  "level": "swept"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_ranch_pristine.usd",
-  "meshes": 23,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "ranch",
-  "level": "pristine"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_ranch_roof_stripped.usd",
-  "meshes": 57,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "ranch",
-  "level": "roof_stripped"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_ranch_roof_collapsed.usd",
-  "meshes": 71,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "ranch",
-  "level": "roof_collapsed"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_ranch_partial_collapse.usd",
-  "meshes": 197,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "ranch",
-  "level": "partial_collapse"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_ranch_leveled.usd",
-  "meshes": 227,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "ranch",
-  "level": "leveled"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_ranch_swept.usd",
-  "meshes": 123,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "ranch",
-  "level": "swept"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_terrace_pristine.usd",
-  "meshes": 38,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "terrace",
-  "level": "pristine"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_terrace_roof_stripped.usd",
-  "meshes": 113,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "terrace",
-  "level": "roof_stripped"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_terrace_roof_collapsed.usd",
-  "meshes": 160,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "terrace",
-  "level": "roof_collapsed"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_terrace_partial_collapse.usd",
-  "meshes": 453,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "terrace",
-  "level": "partial_collapse"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_terrace_leveled.usd",
-  "meshes": 445,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "terrace",
-  "level": "leveled"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_terrace_swept.usd",
-  "meshes": 201,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "terrace",
-  "level": "swept"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_villa_pristine.usd",
-  "meshes": 18,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "villa",
-  "level": "pristine"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_villa_roof_stripped.usd",
-  "meshes": 39,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "villa",
-  "level": "roof_stripped"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_villa_roof_collapsed.usd",
-  "meshes": 54,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "villa",
-  "level": "roof_collapsed"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_villa_partial_collapse.usd",
-  "meshes": 170,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "villa",
-  "level": "partial_collapse"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_villa_leveled.usd",
-  "meshes": 200,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "villa",
-  "level": "leveled"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_villa_swept.usd",
-  "meshes": 105,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "villa",
-  "level": "swept"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_family_pristine.usd",
-  "meshes": 50,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "l_family",
-  "level": "pristine"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_family_roof_stripped.usd",
-  "meshes": 94,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "l_family",
-  "level": "roof_stripped"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_family_roof_collapsed.usd",
-  "meshes": 130,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "l_family",
-  "level": "roof_collapsed"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_family_partial_collapse.usd",
-  "meshes": 550,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "l_family",
-  "level": "partial_collapse"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_family_leveled.usd",
-  "meshes": 547,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "l_family",
-  "level": "leveled"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_family_swept.usd",
-  "meshes": 253,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "l_family",
-  "level": "swept"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_bungalow_pristine.usd",
-  "meshes": 30,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "l_bungalow",
-  "level": "pristine"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_bungalow_roof_stripped.usd",
-  "meshes": 72,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "l_bungalow",
-  "level": "roof_stripped"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_bungalow_roof_collapsed.usd",
-  "meshes": 85,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "l_bungalow",
-  "level": "roof_collapsed"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_bungalow_partial_collapse.usd",
-  "meshes": 246,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "l_bungalow",
-  "level": "partial_collapse"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_bungalow_leveled.usd",
-  "meshes": 269,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "l_bungalow",
-  "level": "leveled"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_bungalow_swept.usd",
-  "meshes": 142,
-  "bound_missing": 0,
-  "kind": "house",
-  "style": "l_bungalow",
-  "level": "swept"
- },
- {
   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Black_Oak_limbed.usd",
   "meshes": 33,
   "bound_missing": 0,
@@ -566,5 +182,389 @@
   "kind": "tree",
   "species": "American_Beech",
   "level": "snapped"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_cottage_pristine.usd",
+  "meshes": 13,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "cottage",
+  "level": "pristine"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_cottage_roof_stripped.usd",
+  "meshes": 38,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "cottage",
+  "level": "roof_stripped"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_cottage_roof_collapsed.usd",
+  "meshes": 53,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "cottage",
+  "level": "roof_collapsed"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_cottage_partial_collapse.usd",
+  "meshes": 106,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "cottage",
+  "level": "partial_collapse"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_cottage_leveled.usd",
+  "meshes": 172,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "cottage",
+  "level": "leveled"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_cottage_swept.usd",
+  "meshes": 76,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "cottage",
+  "level": "swept"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_two_storey_pristine.usd",
+  "meshes": 21,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "two_storey",
+  "level": "pristine"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_two_storey_roof_stripped.usd",
+  "meshes": 42,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "two_storey",
+  "level": "roof_stripped"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_two_storey_roof_collapsed.usd",
+  "meshes": 99,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "two_storey",
+  "level": "roof_collapsed"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_two_storey_partial_collapse.usd",
+  "meshes": 238,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "two_storey",
+  "level": "partial_collapse"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_two_storey_leveled.usd",
+  "meshes": 230,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "two_storey",
+  "level": "leveled"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_two_storey_swept.usd",
+  "meshes": 122,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "two_storey",
+  "level": "swept"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_wide_house_pristine.usd",
+  "meshes": 33,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "wide_house",
+  "level": "pristine"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_wide_house_roof_stripped.usd",
+  "meshes": 88,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "wide_house",
+  "level": "roof_stripped"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_wide_house_roof_collapsed.usd",
+  "meshes": 107,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "wide_house",
+  "level": "roof_collapsed"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_wide_house_partial_collapse.usd",
+  "meshes": 367,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "wide_house",
+  "level": "partial_collapse"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_wide_house_leveled.usd",
+  "meshes": 376,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "wide_house",
+  "level": "leveled"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_wide_house_swept.usd",
+  "meshes": 165,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "wide_house",
+  "level": "swept"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_ranch_pristine.usd",
+  "meshes": 23,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "ranch",
+  "level": "pristine"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_ranch_roof_stripped.usd",
+  "meshes": 70,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "ranch",
+  "level": "roof_stripped"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_ranch_roof_collapsed.usd",
+  "meshes": 68,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "ranch",
+  "level": "roof_collapsed"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_ranch_partial_collapse.usd",
+  "meshes": 184,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "ranch",
+  "level": "partial_collapse"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_ranch_leveled.usd",
+  "meshes": 253,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "ranch",
+  "level": "leveled"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_ranch_swept.usd",
+  "meshes": 123,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "ranch",
+  "level": "swept"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_terrace_pristine.usd",
+  "meshes": 38,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "terrace",
+  "level": "pristine"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_terrace_roof_stripped.usd",
+  "meshes": 105,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "terrace",
+  "level": "roof_stripped"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_terrace_roof_collapsed.usd",
+  "meshes": 166,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "terrace",
+  "level": "roof_collapsed"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_terrace_partial_collapse.usd",
+  "meshes": 429,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "terrace",
+  "level": "partial_collapse"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_terrace_leveled.usd",
+  "meshes": 448,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "terrace",
+  "level": "leveled"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_terrace_swept.usd",
+  "meshes": 227,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "terrace",
+  "level": "swept"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_villa_pristine.usd",
+  "meshes": 18,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "villa",
+  "level": "pristine"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_villa_roof_stripped.usd",
+  "meshes": 40,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "villa",
+  "level": "roof_stripped"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_villa_roof_collapsed.usd",
+  "meshes": 55,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "villa",
+  "level": "roof_collapsed"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_villa_partial_collapse.usd",
+  "meshes": 176,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "villa",
+  "level": "partial_collapse"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_villa_leveled.usd",
+  "meshes": 218,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "villa",
+  "level": "leveled"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_villa_swept.usd",
+  "meshes": 107,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "villa",
+  "level": "swept"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_family_pristine.usd",
+  "meshes": 50,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "l_family",
+  "level": "pristine"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_family_roof_stripped.usd",
+  "meshes": 102,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "l_family",
+  "level": "roof_stripped"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_family_roof_collapsed.usd",
+  "meshes": 116,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "l_family",
+  "level": "roof_collapsed"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_family_partial_collapse.usd",
+  "meshes": 537,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "l_family",
+  "level": "partial_collapse"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_family_leveled.usd",
+  "meshes": 561,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "l_family",
+  "level": "leveled"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_family_swept.usd",
+  "meshes": 254,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "l_family",
+  "level": "swept"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_bungalow_pristine.usd",
+  "meshes": 30,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "l_bungalow",
+  "level": "pristine"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_bungalow_roof_stripped.usd",
+  "meshes": 82,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "l_bungalow",
+  "level": "roof_stripped"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_bungalow_roof_collapsed.usd",
+  "meshes": 95,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "l_bungalow",
+  "level": "roof_collapsed"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_bungalow_partial_collapse.usd",
+  "meshes": 257,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "l_bungalow",
+  "level": "partial_collapse"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_bungalow_leveled.usd",
+  "meshes": 285,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "l_bungalow",
+  "level": "leveled"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_l_bungalow_swept.usd",
+  "meshes": 149,
+  "bound_missing": 0,
+  "kind": "house",
+  "style": "l_bungalow",
+  "level": "swept"
  }
 ]
