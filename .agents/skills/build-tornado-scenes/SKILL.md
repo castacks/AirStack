@@ -195,6 +195,40 @@ Missing any one produces nothing, with no error:
   at 2.0 burns its whole `n_pieces * 6` attempt budget and returns an empty
   list, silently.
 
+## DO NOT COPY THE FIRE BAKE'S `convexDecomposition`
+
+The wildfire archetype bake passes
+`approx_map = {p: "convexDecomposition" for p in tree_loose}`, and it needs
+to: the burnt path TOPPLES a bole, and a whole branching trunk hulls to a
+20 m blob, so it comes to rest balanced on its own limb tips and reads as
+floating.
+
+**The wind path never topples anything.** A windthrown tree is `tip_tree` — a
+transform on the intact prim, simulated by nothing — so the only loose tree
+geometry is debris sticks and `fell_branches` limbs, and a stick is convex to
+within its own bark. Carrying the map across cost **20+ minutes on a settle
+that takes 61 seconds with plain hulls**: the limbs are branchy enough to hit
+`ConvexDecompositionTask: polygon limit reached`, and the hull sets that come
+out of that make every solver step crawl.
+
+**It does not look like a bug.** There is no error and no traceback; the
+process sits at ~30% of one core, logs nothing at all, and the last line in
+the Kit log is that `polygon limit reached` info message. That line is the
+entire diagnosis. The check that tells slow from deadlocked is
+`ps -eo pid,pcpu,comm` inside the container — burning CPU means slow, idle
+means wedged.
+
+## Waiting on a relaunch: PIN THE LOG FILE
+
+A harness that waits for a banner by grepping
+`$(ls -t "$KITLOGDIR" | head -1)` has a race that produces FALSE SUCCESS.
+Between sending a relaunch to the pane and the new process creating its own
+log, the newest file is still the PREVIOUS run's — which already contains the
+banner being waited for. The waiter returns instantly, the chain advances,
+and it reports a step finished that has not started. Capture the log path once
+after the relaunch (with a sleep long enough for the new process to create
+it) and grep that fixed path.
+
 ## `settle` needed a `bias`, and TWO ceilings eat it if you forget them
 
 `kick` is deliberately zero-mean — it exists only to break the perfect
@@ -296,6 +330,39 @@ Two things that are not obvious:
   is left on disk for a future caller to reference by accident. The effect is
   small — the asset set plants Black_Oak only in open ground, never on the
   frontage — but without it every park specimen in the track is half-buried.
+
+### THE TRUNKS ARE OPEN SHELLS, AND TIPPING ONE SHOWS YOU
+
+Reported off the second scene: *"the fallen down ones look like they are
+hollow cylinders instead of tree trunks that broke or uprooted"* — and it is
+true of the ASSETS, not of the damage code. Measured boundary edges in the
+lowest 3% of each bole: **Shumard_Oak 75, American_Beech 19, Douglas_Fir 9**.
+Every trunk is an open tube at the bottom. Standing, that hole is underground
+and nobody has ever seen it. `tip_tree` lifts the base clear of the ground and
+rotates it toward the camera, and you look straight down the inside.
+
+`root_ball` plugs it, and does the second job too — a tree that was CUT leaves
+a stump, a tree that BLEW OVER leaves a mass of root and earth at the end of
+its trunk, which is the clearest way to tell them apart at any distance.
+
+**It took two tries and both failures were the same mistake: sizing in the
+abstract instead of deriving from the geometry.**
+
+- *A flat plate* (`root_plate`, now unused). One polygon standing on edge. At
+  160 fallen trees it read as brown cardboard cutouts over the mud — and,
+  being a plane, it plugged nothing, because a plane has no inside.
+- *A ball at an absolute 1.1-1.9 m radius.* A trunk on these species is about
+  0.3 m, so every ball rendered three to five times the tree it belonged to.
+  With a hard taper (0.72) on 11 sides it read as a CONE: a field of brown
+  tents. Worse than the plates.
+- *Sized to the trunk.* `wood_debris` already measures the bole for its own
+  cuts, so it publishes `info["trunk_r"]` and the ball is `1.5 x` that, capped
+  at 0.85 m, taper softened to 0.88 on 13 sides. A lump at the base instead of
+  a landmark.
+
+The same lesson runs through the tree lean (bisect against the measured
+crown, do not pick an angle) and the plank cells (a regular lattice guarantees
+identical pieces). **Derive it from the asset.**
 
 ### MESH FOLIAGE MUST BE EXEMPTED FROM `defoliate`
 
@@ -540,6 +607,8 @@ because a corridor whose edges are off-frame is not a corridor.
 | `min_aspect` (tree debris) | 1.25 | 2.0 rejects every plank-shaped piece, silently |
 | `len_bias` (tree debris) | 1.15 | the fire path's 2.2 produces mostly charcoal-sized pieces |
 | tree debris `thick_m` | 0.10-0.30 | a limb torn off a live tree, not a burnt stick |
+| root ball radius | 1.5 x measured `trunk_r`, capped 0.85 m | absolute metres gave 3-5x the tree — a field of brown tents |
+| root ball taper / sides | 0.88 / 13 | a hard taper on few sides reads as a cone |
 | tree lean (`fallen`) | 74-82 deg MAX, then seated | the resting angle is set by the crown, not chosen — `seat_band` bisects it down per species |
 | `seat_band` | (-1.1, -0.15) m | the crown presses into the turf rather than hovering over it |
 | `lean_min_deg` | 46 | below this it reads as leaning, not fallen; the two widest crowns clamp here |
@@ -656,13 +725,6 @@ and oblique, because what has to be judged is a gradient across a corridor.
   that has been through an EF3 is also crushed, and nothing here does that.
 - **No power lines, poles or transformers.** Downed lines are one of the most
   characteristic features of a real track and the asset set has no cable.
-- **Root plates are OFF by default** (`wind_tree(root_plates=True)` brings
-  them back). The feature is physically right — a windthrown tree levers a
-  wheel of earth out of the ground, and it is the cue that separates a fallen
-  tree from a felled one — but the implementation is a flat untextured polygon
-  standing on edge, and at 160 fallen trees in a track it was 160 brown slabs
-  dominating every frame. A feature that looks worse than its absence stays
-  off until it looks better; the fix is thickness and a real soil normal.
 - **The plank field carries a collider-free mesh with no LOD.** It is five
   merged meshes, so it is cheap, but at ~8k boards on a 500 m plate a 1600 m
   plat would want chunking by region rather than by stock class alone.

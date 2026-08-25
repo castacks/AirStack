@@ -590,10 +590,23 @@ class Stack:
                     log("waiting for gcs container")
                 time.sleep(cfg["poll_interval_s"])
             if "gcs_relay" not in ready_at:
+                # Name what DID come up. "missing robots [1]" on its own cannot
+                # distinguish a relay that crashed from one that never built
+                # from a GCS that launched nothing at all.
+                gcs = gcs_container()
+                seen = ""
+                if gcs:
+                    probe = ros2_exec(gcs, "timeout 20 ros2 node list", domain_id=0,
+                                      setup_bash=GCS_SETUP_BASH, timeout=40)
+                    seen = (probe.stdout or "").strip() or "(no nodes on domain 0)"
                 raise RuntimeError(
                     f"GCS action_relay not ready within {cfg['timeout_s']}s — "
                     f"is the gcs service in stack.services/profiles and "
-                    f"AUTOLAUNCH=true? (or set command_route: robot)")
+                    f"AUTOLAUNCH=true? (or set command_route: robot)\n"
+                    f"nodes actually on the GCS domain:\n{seen}\n"
+                    f"The GCS bringup runs in tmux, so its real output is in "
+                    f"logs/tmux/<gcs>.tmux-bringup.log in this iteration's "
+                    f"artifacts, and any build failure in logs/colcon/.")
         return ready_at
 
 
@@ -1184,6 +1197,91 @@ def snapshot_raven_results(dest_dir):
         f"→ {dest_dir}")
 
 
+def snapshot_tmux_panes(dest_dir):
+    """Capture every container's tmux pane scrollback.
+
+    THIS IS THE ONE THAT MATTERS AND IT WAS MISSING. Every container in this
+    stack runs its real work inside tmux — isaac-sim in session `isaac`, the
+    robot and GCS bringup in `bringup` — so `docker logs` is EMPTY for all of
+    them and `snapshot_container_logs` captures nothing but the entrypoint
+    banner. A colcon build failure, a launch that died on a missing package, a
+    Python traceback out of a node: all of it lands in the pane and nowhere
+    else, which is why a mission can fail with no evidence in the artifacts.
+
+    `-S -100000` reaches past tmux's 2000-line default history-limit; that cap
+    is why the START of a long bringup scrolls away, so anything already lost
+    to it stays lost — this only guarantees what tmux still holds.
+    """
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    for name in stack_containers():
+        r = docker_exec(name, "tmux list-sessions -F '#{session_name}' 2>/dev/null",
+                        timeout=20)
+        sessions = [x.strip() for x in (r.stdout or "").splitlines() if x.strip()]
+        if not sessions:
+            (dest_dir / f"{name}.tmux-NONE.log").write_text(
+                "no tmux sessions in this container\n", encoding="utf-8")
+            continue
+        for sess in sessions:
+            panes = docker_exec(
+                name, f"tmux list-panes -t {shlex.quote(sess)} -F '#{{pane_id}}' 2>/dev/null",
+                timeout=20)
+            ids = [x.strip() for x in (panes.stdout or "").splitlines() if x.strip()] or [""]
+            for pid in ids:
+                tgt = f"{sess}{'.' + pid if pid else ''}"
+                cap = docker_exec(
+                    name, f"tmux capture-pane -p -J -S -100000 -t {shlex.quote(tgt)} 2>&1",
+                    timeout=90)
+                suffix = f"{sess}{('-' + pid.lstrip('%')) if pid and len(ids) > 1 else ''}"
+                (dest_dir / f"{name}.tmux-{suffix}.log").write_text(
+                    cap.stdout or "", encoding="utf-8")
+
+
+def snapshot_build_logs(dest_dir):
+    """colcon's own build logs. A package that fails to build takes its node
+    down with it, and the reason is in `log/latest_build`, not in the pane
+    (the pane shows the summary line, not the compiler error)."""
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    tar = "/tmp/colcon_build_logs.tar.gz"
+    targets = list(robot_containers())
+    g = gcs_container()
+    if g:
+        targets.append(g)
+    for name in targets:
+        made = docker_exec(
+            name,
+            'W="${ROS2_WS_DIR:-/root/AirStack/robot/ros_ws}"; '
+            f'[ -d "$W/log" ] && tar czf {tar} -C "$W" log 2>/dev/null && echo COLLECTED',
+            timeout=120)
+        if "COLLECTED" in (made.stdout or ""):
+            out = dest_dir / name
+            out.mkdir(parents=True, exist_ok=True)
+            sh(["docker", "cp", f"{name}:{tar}", str(out / "colcon_logs.tar.gz")],
+               timeout=180)
+
+
+def snapshot_ros_graph(dest_dir, num_robots, setup_bash):
+    """What was actually RUNNING, per DDS domain. A readiness gate that times
+    out says which node it wanted; this says which nodes existed, which is the
+    other half of that sentence."""
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    probes = []
+    g = gcs_container()
+    if g:
+        probes.append((g, 0, GCS_SETUP_BASH))
+    rc = robot_containers()
+    if rc:
+        for n in range(1, num_robots + 1):
+            probes.append((rc[0], n, setup_bash))
+    for container, domain, sb in probes:
+        parts = []
+        for cmd in ("ros2 node list", "ros2 topic list", "ros2 action list"):
+            r = ros2_exec(container, f"timeout 20 {cmd}", domain_id=domain,
+                          setup_bash=sb, timeout=40)
+            parts.append(f"$ {cmd}   (domain {domain})\n{r.stdout}{r.stderr}\n")
+        (dest_dir / f"rosgraph_{container}_domain{domain}.txt").write_text(
+            "\n".join(parts), encoding="utf-8")
+
+
 def snapshot_container_logs(dest_dir):
     dest_dir.mkdir(parents=True, exist_ok=True)
     pats = ("airstack", "isaac-sim", "ms-airsim")
@@ -1552,6 +1650,22 @@ def run_iteration(stack, mission, iter_dir):
             recorder.collect(iter_dir / "bags")
         if container is not None or list_containers("airstack", all_states=True):
             snapshot_container_logs(iter_dir / "logs")
+            # The pane scrollback is the real log for every container here —
+            # see snapshot_tmux_panes. Taken FIRST of the new three: it is the
+            # one that explains a failure, and the others can time out.
+            try:
+                snapshot_tmux_panes(iter_dir / "logs" / "tmux")
+            except Exception as e:
+                log(f"WARN: tmux pane capture failed: {e}")
+            try:
+                snapshot_build_logs(iter_dir / "logs" / "colcon")
+            except Exception as e:
+                log(f"WARN: colcon log capture failed: {e}")
+            try:
+                snapshot_ros_graph(iter_dir / "logs" / "rosgraph",
+                                   stack.num_robots, stack.setup_bash)
+            except Exception as e:
+                log(f"WARN: ros graph capture failed: {e}")
             snapshot_task_logs(iter_dir / "logs")
             # Metrics live in the robot ./cache mount, not the bag staging dir —
             # collect them before down() so osmo:fetch includes them.

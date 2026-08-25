@@ -1,189 +1,5 @@
 [
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Black_Oak_limbed.usd",
-  "meshes": 33,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "Black_Oak",
-  "level": "limbed"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Black_Oak_leaning.usd",
-  "meshes": 23,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "Black_Oak",
-  "level": "leaning"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Black_Oak_snapped.usd",
-  "meshes": 45,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "Black_Oak",
-  "level": "snapped"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Shumard_Oak_limbed.usd",
-  "meshes": 17,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "Shumard_Oak",
-  "level": "limbed"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Shumard_Oak_leaning.usd",
-  "meshes": 12,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "Shumard_Oak",
-  "level": "leaning"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Shumard_Oak_fallen.usd",
-  "meshes": 31,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "Shumard_Oak",
-  "level": "fallen"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Shumard_Oak_snapped.usd",
-  "meshes": 43,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "Shumard_Oak",
-  "level": "snapped"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Douglas_Fir_limbed.usd",
-  "meshes": 61,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "Douglas_Fir",
-  "level": "limbed"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Douglas_Fir_leaning.usd",
-  "meshes": 32,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "Douglas_Fir",
-  "level": "leaning"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Douglas_Fir_fallen.usd",
-  "meshes": 67,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "Douglas_Fir",
-  "level": "fallen"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Douglas_Fir_snapped.usd",
-  "meshes": 47,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "Douglas_Fir",
-  "level": "snapped"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Largetooth_Aspen_limbed.usd",
-  "meshes": 15,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "Largetooth_Aspen",
-  "level": "limbed"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Largetooth_Aspen_leaning.usd",
-  "meshes": 10,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "Largetooth_Aspen",
-  "level": "leaning"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Largetooth_Aspen_fallen.usd",
-  "meshes": 29,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "Largetooth_Aspen",
-  "level": "fallen"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Largetooth_Aspen_snapped.usd",
-  "meshes": 41,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "Largetooth_Aspen",
-  "level": "snapped"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Common_Apple_limbed.usd",
-  "meshes": 15,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "Common_Apple",
-  "level": "limbed"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Common_Apple_leaning.usd",
-  "meshes": 10,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "Common_Apple",
-  "level": "leaning"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Common_Apple_fallen.usd",
-  "meshes": 29,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "Common_Apple",
-  "level": "fallen"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Common_Apple_snapped.usd",
-  "meshes": 41,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "Common_Apple",
-  "level": "snapped"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_American_Beech_limbed.usd",
-  "meshes": 15,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "American_Beech",
-  "level": "limbed"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_American_Beech_leaning.usd",
-  "meshes": 10,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "American_Beech",
-  "level": "leaning"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_American_Beech_fallen.usd",
-  "meshes": 29,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "American_Beech",
-  "level": "fallen"
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_American_Beech_snapped.usd",
-  "meshes": 41,
-  "bound_missing": 0,
-  "kind": "tree",
-  "species": "American_Beech",
-  "level": "snapped"
- },
- {
   "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/house_cottage_pristine.usd",
   "meshes": 13,
   "bound_missing": 0,
@@ -566,5 +382,189 @@
   "kind": "house",
   "style": "l_bungalow",
   "level": "swept"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Black_Oak_limbed.usd",
+  "meshes": 34,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "Black_Oak",
+  "level": "limbed"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Black_Oak_leaning.usd",
+  "meshes": 23,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "Black_Oak",
+  "level": "leaning"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Black_Oak_snapped.usd",
+  "meshes": 45,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "Black_Oak",
+  "level": "snapped"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Shumard_Oak_limbed.usd",
+  "meshes": 17,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "Shumard_Oak",
+  "level": "limbed"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Shumard_Oak_leaning.usd",
+  "meshes": 12,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "Shumard_Oak",
+  "level": "leaning"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Shumard_Oak_fallen.usd",
+  "meshes": 32,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "Shumard_Oak",
+  "level": "fallen"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Shumard_Oak_snapped.usd",
+  "meshes": 43,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "Shumard_Oak",
+  "level": "snapped"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Douglas_Fir_limbed.usd",
+  "meshes": 61,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "Douglas_Fir",
+  "level": "limbed"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Douglas_Fir_leaning.usd",
+  "meshes": 32,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "Douglas_Fir",
+  "level": "leaning"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Douglas_Fir_fallen.usd",
+  "meshes": 68,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "Douglas_Fir",
+  "level": "fallen"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Douglas_Fir_snapped.usd",
+  "meshes": 47,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "Douglas_Fir",
+  "level": "snapped"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Largetooth_Aspen_limbed.usd",
+  "meshes": 15,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "Largetooth_Aspen",
+  "level": "limbed"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Largetooth_Aspen_leaning.usd",
+  "meshes": 10,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "Largetooth_Aspen",
+  "level": "leaning"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Largetooth_Aspen_fallen.usd",
+  "meshes": 30,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "Largetooth_Aspen",
+  "level": "fallen"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Largetooth_Aspen_snapped.usd",
+  "meshes": 41,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "Largetooth_Aspen",
+  "level": "snapped"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Common_Apple_limbed.usd",
+  "meshes": 15,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "Common_Apple",
+  "level": "limbed"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Common_Apple_leaning.usd",
+  "meshes": 10,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "Common_Apple",
+  "level": "leaning"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Common_Apple_fallen.usd",
+  "meshes": 30,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "Common_Apple",
+  "level": "fallen"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_Common_Apple_snapped.usd",
+  "meshes": 41,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "Common_Apple",
+  "level": "snapped"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_American_Beech_limbed.usd",
+  "meshes": 15,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "American_Beech",
+  "level": "limbed"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_American_Beech_leaning.usd",
+  "meshes": 10,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "American_Beech",
+  "level": "leaning"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_American_Beech_fallen.usd",
+  "meshes": 30,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "American_Beech",
+  "level": "fallen"
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_tornado/tree_American_Beech_snapped.usd",
+  "meshes": 41,
+  "bound_missing": 0,
+  "kind": "tree",
+  "species": "American_Beech",
+  "level": "snapped"
  }
 ]

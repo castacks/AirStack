@@ -320,7 +320,24 @@ def main():
     for _ in range(20):
         omni.kit.app.get_app().update()
     if all_loose:
-        approx_map = {pth: "convexDecomposition" for pth in tree_loose}
+        # HULLS, NOT DECOMPOSITION, AND THAT IS A REAL DIFFERENCE FROM THE
+        # FIRE BAKE — which passes `convexDecomposition` for every tree body.
+        #
+        # It needs it: the burnt path TOPPLES a bole, and a whole branching
+        # trunk hulls to a 20 m blob so it comes to rest balanced on its own
+        # limb tips, floating. The wind path never topples anything. A
+        # windthrown tree is `tip_tree` — a transform on the intact prim, not
+        # a simulated body — so the only loose tree geometry here is debris
+        # sticks and `fell_branches` limbs, and a stick is convex to within
+        # its own bark.
+        #
+        # Copying the fire bake's map cost 20+ MINUTES on a settle that takes
+        # 61 SECONDS with hulls. The limbs are branchy enough to hit
+        # `ConvexDecompositionTask: polygon limit reached`, and the hull sets
+        # that come out of that make every solver step crawl — the process
+        # sits at 30% of one core, logging nothing, looking hung. That log
+        # line is the entire diagnosis; there is no error.
+        approx_map = {}
         bias = wind_flow.throw_bias(0.0, 0.0, THROW_MPS)
         print("[tarch] settling {0} bodies with a {1:.1f} m/s bias toward +X"
               .format(len(all_loose), THROW_MPS))

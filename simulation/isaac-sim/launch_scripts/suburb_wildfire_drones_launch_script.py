@@ -233,8 +233,12 @@ POLE_R_M = 0.35
 POLE_SCOPE = "/_people_poles"
 ROW_POLE_SCOPE = "/_rowhome_poles"
 
-_BURNT_WOOD = ("airstack://scene_gen/assets/materials/megascans/"
-               "Burnt_Forest_Floor.usda")
+# `Burnt_Forest_Floor` IS DELIBERATELY NOT USED ON TREES OR LOGS any more.
+# It is a photographed GROUND surface; wrapped round a trunk or a log it
+# reads as ground standing up. `veg.char_bole` records the same finding on
+# a standing bole and rejected it there too. Generated log debris takes
+# `veg.bark_material` (real bark, dark-tinted for a burnt scene); the ground
+# scar still uses the surface, which is what it is for.
 
 
 # --------------------- DRONE CONFIGURATION ---------------------
@@ -457,54 +461,34 @@ def build_people_poles(stage, recs, ssf):
 
 
 def _load_burnt_wood(stage):
-    """Reference the charred surface once and return its Material."""
-    path = PARENT + "/BurnLooks/blockage_wood"
-    prim = stage.GetPrimAtPath(path)
-    if not (prim and prim.IsValid()):
-        prim = stage.DefinePrim(Sdf.Path(path))
-        prim.GetReferences().AddReference(sg._join_asset_root(_BURNT_WOOD, ""))
-        prim.Load()
-    mat = UsdShade.Material.Get(stage, path)
-    if mat:
-        return mat
-    for c in prim.GetChildren():
-        if c.IsA(UsdShade.Material):
-            return UsdShade.Material(c)
-    return None
+    """The material for generated log debris: BARK, not burnt ground.
+
+    Was a reference to `Burnt_Forest_Floor`, chosen because a flat
+    colour "has no normal or ORM map, so a cylinder lit by one sun
+    reads as painted pipe". The reasoning was right and the surface was
+    wrong: it is a photographed GROUND texture, and `veg.char_bole`
+    records the same experiment on a standing trunk and rejected it —
+    ground wrapped round a log reads as ground. `veg.bark_material` is
+    real oak bark at 4K WITH a normal map, tinted dark here because
+    this is a burnt scene; a charred log is charred BARK.
+    """
+    return veg.bark_material(stage, PARENT + "/BurnLooks/log_bark",
+                             tile_m=1.7, tint=(0.30, 0.26, 0.23))
 
 
 def _tube(stage, path, p0, p1, r0, r1, ssf, sides=8):
-    """A tapered cylinder from p0 to p1 — one log or limb of the blockage."""
-    ax, ay, az = p0
-    bx, by, bz = p1
-    dx, dy, dz = bx - ax, by - ay, bz - az
-    ln = math.sqrt(dx * dx + dy * dy + dz * dz) or 1.0
-    ux, uy, uz = dx / ln, dy / ln, dz / ln
-    tmp = (0.0, 0.0, 1.0) if abs(uz) < 0.9 else (1.0, 0.0, 0.0)
-    vx = uy * tmp[2] - uz * tmp[1]
-    vy = uz * tmp[0] - ux * tmp[2]
-    vz = ux * tmp[1] - uy * tmp[0]
-    vl = math.sqrt(vx * vx + vy * vy + vz * vz) or 1.0
-    vx, vy, vz = vx / vl, vy / vl, vz / vl
-    wx, wy, wz = uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx
-    pts, counts, idx = [], [], []
-    for k in range(sides):
-        a = 2.0 * math.pi * k / sides
-        ca, sa = math.cos(a), math.sin(a)
-        for (px, py, pz, r) in ((ax, ay, az, r0), (bx, by, bz, r1)):
-            pts.append(Gf.Vec3f((px + (vx * ca + wx * sa) * r) * ssf,
-                                (py + (vy * ca + wy * sa) * r) * ssf,
-                                (pz + (vz * ca + wz * sa) * r) * ssf))
-    for k in range(sides):
-        a0, a1 = 2 * k, 2 * ((k + 1) % sides)
-        counts.append(4)
-        idx += [a0, a1, a1 + 1, a0 + 1]
-    m = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
-    m.CreatePointsAttr(pts)
-    m.CreateFaceVertexCountsAttr(counts)
-    m.CreateFaceVertexIndicesAttr(idx)
-    m.CreateSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
-    return m.GetPrim()
+    """One log or limb of the blockage — see `veg.log_mesh`.
+
+    The private implementation this replaces authored the barrel quads
+    and NOTHING ELSE, so every piece was an open tube you could see
+    straight down the inside of, and it was a mathematically exact
+    cylinder — the one shape nothing in a forest has. Together those
+    are why a fallen log read as a hollow pipe rather than as a trunk
+    that broke. `log_mesh` caps both ends and jitters the girth.
+    """
+    return veg.log_mesh(stage, path, p0, p1, r0, r1, ssf,
+                        sides=max(7, int(sides) + 1),
+                        rng=random.Random(abs(hash(path)) % 99991))
 
 
 def _place_debris(stage, spec, ssf, i, mat):

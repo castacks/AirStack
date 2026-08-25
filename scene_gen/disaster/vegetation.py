@@ -1772,6 +1772,11 @@ def wood_debris(stage, info, out_parent, rng, n_pieces=9, radius_m=6.5,
     # it once and cut the pieces from THAT. Same geometry, a fraction of the
     # work, and it also guarantees the stock is one connected column.
     r_trunk = _column_radius(mesh, float(lo[2]) + h * float(band[0])) or 0.6
+    # PUBLISHED, because anything else built at the foot of this tree has to
+    # be sized against the TREE and there is nowhere else to get that number.
+    # A root ball authored at an absolute 1.1-1.9 m sits on a 0.3 m trunk as a
+    # three-metre brown tent; the same thing at 1.5x the trunk is a lump.
+    info["trunk_r"] = float(r_trunk)
     z_lo = float(lo[2]) + h * float(band[0])
     z_hi = float(lo[2]) + h * float(band[1])
     try:
@@ -2578,7 +2583,7 @@ def root_plate(stage, path, x_m, y_m, radius_m, azimuth_deg, rng,
 def wind_tree(stage, tree_path, level, parent_path, out_parent, rng,
               azimuth_deg=0.0, wood_material_path="", soil_material_path="",
               debris=True, debris_scale=1.0, ground_z=0.0,
-              seated_collide=True, root_plates=False, verbose=False):
+              seated_collide=True, root_balls=True, verbose=False):
     """Take one tree apart with WIND. The tornado counterpart of `burn_tree`.
 
     Returns the same dict shape — `{"statics", "loose", "seated", "info",
@@ -2692,43 +2697,53 @@ def wind_tree(stage, tree_path, level, parent_path, out_parent, rng,
             lean = rng.uniform(74.0, 82.0)
             # The lift is the root plate's own radius, which is both why the
             # base is off the ground and how far up it is.
-            r_plate = rng.uniform(1.1, 1.9)
-            lift = r_plate * 0.62
+            # SIZED TO THE TRUNK, NOT IN ABSOLUTE METRES. `wood_debris`
+            # measures the bole and publishes `trunk_r`; a root mass is a bit
+            # wider than the stem it tore out with, not a fixed 1.5 m — which
+            # on these species is three to five TIMES the trunk and renders as
+            # a faceted brown tent standing beside the tree.
+            _tr = float(info.get("trunk_r") or 0.32)
+            r_plate = max(0.28, min(0.85, _tr * 1.5))
+            lift = r_plate * 0.5
             band = (-1.1, -0.15)
         lean = tip_tree(stage, tree_path, lean,
                         azimuth_deg=float(azimuth_deg), lift_m=lift,
                         seat_band=band, lean_min_deg=46.0)
         res["lean_deg"] = float(lean)
-        # ROOT PLATES ARE OFF BY DEFAULT, AND THAT IS A JUDGEMENT AGAINST A
-        # FEATURE THAT IS PHYSICALLY CORRECT. A windthrown tree really does
-        # lever a wheel of earth out of the ground, and it really is the cue
-        # that tells a fallen tree from a felled one. But this implementation
-        # is a flat untextured polygon standing on edge, and at 160 fallen
-        # trees in a track that is 160 brown slabs — they dominated every
-        # frame of the first assembled scene and read as cardboard cutouts
-        # scattered over the mud, not as earth. A feature that looks worse
-        # than its absence is off until it looks better; `root_plates=True`
-        # brings it back, and "give it thickness and a real soil normal" is
-        # the fix when someone returns to it.
-        if r_plate > 0.0 and root_plates:
+        # THE ROOT BALL IS ON, AND IT IS NOT THE FLAT PLATE THAT WAS OFF.
+        # `root_plate` authored one flat polygon on edge; at a hundred-odd
+        # fallen trees those read as brown cardboard cutouts and, being
+        # planes, plugged nothing. `root_ball` is a closed lumpy mass that
+        # covers the trunk's OPEN BASE — see that function for the measured
+        # boundary-edge counts and why the hole is visible only once a tree
+        # is tipped.
+        if r_plate > 0.0 and root_balls:
             from pxr import UsdGeom as _UG
 
             # THE BASE, NOT THE BOUNDING-BOX CENTRE. The bbox of a tree lying
             # down is centred halfway along its trunk, which would put the
-            # root plate in the middle of the crown. `tip_tree` pivots about
+            # root ball in the middle of the crown. `tip_tree` pivots about
             # the local origin and leaves the translate op holding it, so the
             # translate IS the base — read it back rather than measuring.
             base = stage.GetPrimAtPath(tree_path)
             cx = cy = 0.0
+            cz = float(lift)
             for op in _UG.Xformable(base).GetOrderedXformOps():
                 if op.GetOpName().split(":")[-1] == "translate":
                     v = op.Get()
-                    cx, cy = float(v[0]), float(v[1])
+                    cx, cy, cz = float(v[0]), float(v[1]), float(v[2])
                     break
-            plate = root_plate(
-                stage, "{0}/rootplate_{1}".format(
-                    out_parent, _tag(info, tree_path)),
-                cx, cy, r_plate, float(azimuth_deg) + 180.0, rng,
+            # The trunk's direction after tipping: +Z leaned by `lean` toward
+            # `azimuth_deg`. The ball straddles the base along it.
+            _a = math.radians(float(azimuth_deg))
+            _l = math.radians(float(lean))
+            tdir = (math.sin(_l) * math.cos(_a),
+                    math.sin(_l) * math.sin(_a),
+                    math.cos(_l))
+            plate = root_ball(
+                stage, "{0}/rootball_{1}".format(out_parent,
+                                                 _tag(info, tree_path)),
+                (cx, cy), cz, tdir, r_plate, rng,
                 mat_prim_path=soil_material_path, ssf=1.0)
             res["statics"].append(plate)
 
@@ -2739,14 +2754,266 @@ def wind_tree(stage, tree_path, level, parent_path, out_parent, rng,
             seen.add(p)
             made.append(p)
     if made:
+        # THE TREE'S OWN BARK, NEVER SAWN LUMBER. A broken limb is the same
+        # wood as the tree it came off, and binding `planks`' Ash_Planks
+        # milled-timber surface to it is visibly wrong — a pale, flat-sawn
+        # board texture wrapped round a branch. That fallback belongs to the
+        # HOUSE debris, where the material really is dimensional lumber.
+        #
+        # The bark texture is not in the USD. These shaders carry only
+        # `info:mdl:sourceAsset = TreeBark_07.mdl` and the map lives inside
+        # that module, so `damage.bound_texture` returns None on every tree in
+        # this library and `material_texture` reads the MDL instead. Three
+        # steps, in order of how right they are:
+        #
+        #   1. a triplanar OmniPBR built around the tree's own bark TEXTURE —
+        #      correct, and triplanar because `fracture._write_mesh` authors
+        #      no UVs at all, so a UV-space material repeats inside every
+        #      triangle;
+        #   2. failing that, the tree's own bark MATERIAL bound directly. It
+        #      maps imperfectly on UV-less debris, but it is the right wood;
+        #   3. and only if the tree has no bark material at all does anything
+        #      generic get used.
         mat = None
         if wood_material_path:
             from pxr import UsdShade as _US
             mat = _US.Material(stage.GetPrimAtPath(wood_material_path)) or None
+        bark_prim = (stage.GetPrimAtPath(info["bark_mat"])
+                     if info.get("bark_mat") else None)
         if not mat:
-            mat = plain_wood(stage, parent_path,
-                             texture=material_texture(
-                                 stage.GetPrimAtPath(info["bark_mat"])
-                                 if info.get("bark_mat") else None) or "")
-        bind_all(stage, made, mat, verbose=verbose)
+            tex = material_texture(bark_prim) or ""
+            if tex:
+                mat = plain_wood(stage, parent_path, texture=tex)
+            elif bark_prim is not None and bark_prim.IsValid():
+                from pxr import UsdShade as _US2
+                mat = _US2.Material(bark_prim) or None
+                if verbose:
+                    print("[veg]   {0}: no readable bark texture; binding the "
+                          "tree's own bark material to its debris"
+                          .format(_tag(info, tree_path)))
+        if mat:
+            bind_all(stage, made, mat, verbose=verbose)
+        elif verbose:
+            print("[veg]   {0}: NO wood material for debris — it will render "
+                  "untextured".format(_tag(info, tree_path)))
     return res
+
+
+# ===========================================================================
+# GENERATED LOG GEOMETRY
+#
+# For the pieces no asset supplies — the strewn timber of a road blockage,
+# limbs across a carriageway. It lives here rather than in a launch script
+# because two launchers carried a private copy of it and both copies had the
+# same two defects.
+# ===========================================================================
+
+# REAL OAK BARK, NOT THE BURNT FOREST FLOOR. The 4K vMaterials set carries a
+# normal map, which is what the previous choice was actually reaching for —
+# its docstring said a flat colour "reads as painted pipe" and picked
+# `Burnt_Forest_Floor` for its normal/ORM maps. But that is a photographed
+# GROUND surface, and `char_bole` records the same experiment on a standing
+# trunk and REJECTED it for exactly the same reason: ground wrapped round a
+# log reads as ground. Bark is the texture a log wants, and it has a normal
+# map too. This applies to the WILDFIRE path as much as the wind one — a
+# burnt log is charred bark, not soil.
+BARK_BASE = ("airstack://scene_gen/assets/aec/brownstone/Materials/"
+             "vMaterials_2/Wood/textures/bark_oak_diff.jpg")
+BARK_NORMAL = ("airstack://scene_gen/assets/aec/brownstone/Materials/"
+               "vMaterials_2/Wood/textures/bark_oak_norm.jpg")
+
+
+def bark_material(stage, path, tile_m=1.7, tint=(1.0, 1.0, 1.0)):
+    """Oak bark, world-triplanar, for generated log geometry.
+
+    Triplanar because a generated log carries no UVs. `tile_m` ~1.7 puts a
+    bark tile a bit under two metres, so a half-metre log gets a plausible
+    patch of grain rather than the whole 4K sheet squeezed onto it. `tint`
+    darkens it for a burnt scene without reaching for a different surface.
+    """
+    from pxr import Gf, Sdf, UsdShade
+
+    import scene_generator as sg
+
+    existing = UsdShade.Material.Get(stage, path)
+    if existing:
+        return existing
+    mat = UsdShade.Material.Define(stage, Sdf.Path(path))
+    sh = UsdShade.Shader.Define(stage, Sdf.Path(path).AppendChild("Shader"))
+    sh.CreateIdAttr("OmniPBR")
+    sh.SetSourceAsset(Sdf.AssetPath("OmniPBR.mdl"), "mdl")
+    sh.SetSourceAssetSubIdentifier("OmniPBR", "mdl")
+    sh.CreateInput("diffuse_texture", Sdf.ValueTypeNames.Asset).Set(
+        Sdf.AssetPath(sg._join_asset_root(BARK_BASE, "")))
+    sh.CreateInput("normalmap_texture", Sdf.ValueTypeNames.Asset).Set(
+        Sdf.AssetPath(sg._join_asset_root(BARK_NORMAL, "")))
+    sh.CreateInput("diffuse_color_constant",
+                   Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*tint))
+    sh.CreateInput("project_uvw", Sdf.ValueTypeNames.Bool).Set(True)
+    sh.CreateInput("world_or_object", Sdf.ValueTypeNames.Bool).Set(True)
+    k = 1.0 / max(1e-6, float(tile_m))
+    sh.CreateInput("texture_scale",
+                   Sdf.ValueTypeNames.Float2).Set(Gf.Vec2f(k, k))
+    sh.CreateInput("reflection_roughness_constant",
+                   Sdf.ValueTypeNames.Float).Set(0.88)
+    sh.CreateInput("metallic_constant", Sdf.ValueTypeNames.Float).Set(0.0)
+    mat.CreateSurfaceOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
+    mat.CreateDisplacementOutput("mdl").ConnectToSource(sh.ConnectableAPI(),
+                                                        "out")
+    mat.CreateVolumeOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
+    return mat
+
+
+def log_mesh(stage, path, p0, p1, r0, r1, ssf, sides=9, rng=None,
+             rough=0.17, cap=True):
+    """A CAPPED, IRREGULAR tapered log from p0 to p1. Returns the prim.
+
+    Replaces the `_tube` both wildfire launchers carried privately, which had
+    two defects that between them are why a fallen log "looks like a hollow
+    cylinder instead of a tree trunk that broke or uprooted":
+
+      * NO END CAPS. It authored the barrel quads and nothing else, so every
+        piece was an open tube and the camera looked straight down the inside
+        of it. Capped here with a fan from a centre vertex at each end, wound
+        so both caps face outward.
+      * PERFECTLY CIRCULAR, PERFECTLY TAPERED. A real log is neither, and a
+        mathematically exact cylinder is the one shape nothing in a forest
+        has — it reads as pipe however it is textured. `rough` jitters each
+        ring vertex radially (0.17 = +-17% of the radius) and the two ends
+        jitter independently, so a piece is lumpy along its length as well as
+        round its girth.
+
+    `sides=9` rather than 8: a low EVEN side count presents two parallel
+    silhouette edges and reads as a hexagonal or octagonal prism; an odd one
+    never does.
+
+    Normals are authored faceVarying. The renderer's fallback averages them at
+    shared vertices, which rounds the cap edge into the barrel and undoes the
+    point of capping.
+    """
+    import random as _random
+
+    from pxr import Gf, Sdf, UsdGeom, Vt
+
+    rng = rng or _random.Random(0)
+    ax, ay, az = p0
+    bx, by, bz = p1
+    dx, dy, dz = bx - ax, by - ay, bz - az
+    ln = math.sqrt(dx * dx + dy * dy + dz * dz) or 1.0
+    ux, uy, uz = dx / ln, dy / ln, dz / ln
+    tmp = (0.0, 0.0, 1.0) if abs(uz) < 0.9 else (1.0, 0.0, 0.0)
+    vx = uy * tmp[2] - uz * tmp[1]
+    vy = uz * tmp[0] - ux * tmp[2]
+    vz = ux * tmp[1] - uy * tmp[0]
+    vl = math.sqrt(vx * vx + vy * vy + vz * vz) or 1.0
+    vx, vy, vz = vx / vl, vy / vl, vz / vl
+    wx, wy, wz = uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx
+
+    pts = []
+    for k in range(sides):
+        a = 2.0 * math.pi * k / sides
+        ca, sa = math.cos(a), math.sin(a)
+        for (px, py, pz, r) in ((ax, ay, az, r0), (bx, by, bz, r1)):
+            rr = r * (1.0 + rng.uniform(-float(rough), float(rough)))
+            pts.append(((px + (vx * ca + wx * sa) * rr) * ssf,
+                        (py + (vy * ca + wy * sa) * rr) * ssf,
+                        (pz + (vz * ca + wz * sa) * rr) * ssf))
+    c0 = len(pts)
+    pts.append((ax * ssf, ay * ssf, az * ssf))
+    c1 = len(pts)
+    pts.append((bx * ssf, by * ssf, bz * ssf))
+
+    counts, idx, nrm = [], [], []
+
+    def _n(i0, i1, i2):
+        p, q, r = pts[i0], pts[i1], pts[i2]
+        e1 = (q[0] - p[0], q[1] - p[1], q[2] - p[2])
+        e2 = (r[0] - q[0], r[1] - q[1], r[2] - q[2])
+        n = (e1[1] * e2[2] - e1[2] * e2[1],
+             e1[2] * e2[0] - e1[0] * e2[2],
+             e1[0] * e2[1] - e1[1] * e2[0])
+        m = math.sqrt(sum(c * c for c in n)) or 1.0
+        return Gf.Vec3f(n[0] / m, n[1] / m, n[2] / m)
+
+    for k in range(sides):
+        a0, a1 = 2 * k, 2 * ((k + 1) % sides)
+        f = (a0, a1, a1 + 1, a0 + 1)
+        counts.append(4)
+        idx += list(f)
+        nrm += [_n(f[0], f[1], f[2])] * 4
+    if cap:
+        for k in range(sides):
+            a0, a1 = 2 * k, 2 * ((k + 1) % sides)
+            # Start cap faces -u, end cap faces +u.
+            for f in ((c0, a1, a0), (c1, a0 + 1, a1 + 1)):
+                counts.append(3)
+                idx += list(f)
+                nrm += [_n(f[0], f[1], f[2])] * 3
+
+    m = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
+    m.CreatePointsAttr(Vt.Vec3fArray([Gf.Vec3f(*p) for p in pts]))
+    m.CreateFaceVertexCountsAttr(Vt.IntArray(counts))
+    m.CreateFaceVertexIndicesAttr(Vt.IntArray(idx))
+    m.CreateNormalsAttr(Vt.Vec3fArray(nrm))
+    m.SetNormalsInterpolation(UsdGeom.Tokens.faceVarying)
+    m.CreateSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    zs = [p[2] for p in pts]
+    m.CreateExtentAttr([Gf.Vec3f(min(xs), min(ys), min(zs)),
+                        Gf.Vec3f(max(xs), max(ys), max(zs))])
+    return m.GetPrim()
+
+
+def root_ball(stage, path, base_xy, base_z, trunk_dir, radius_m, rng,
+              mat_prim_path="", ssf=1.0):
+    """The torn mass of root and soil at the foot of an UPROOTED tree.
+
+    TWO JOBS, AND THE FIRST ONE IS STRUCTURAL. Every trunk in this library is
+    an OPEN SHELL at its base — measured boundary edges at the lowest 3% of
+    the bole: Shumard_Oak 75, American_Beech 19, Douglas_Fir 9. Standing, that
+    hole is underground and nobody sees it. `tip_tree` lifts the base clear of
+    the ground and rotates it toward the camera, and you then look straight
+    down the inside of the trunk — which is exactly the "fallen trees look
+    like hollow cylinders instead of tree trunks that broke or uprooted"
+    report. This plugs it.
+
+    The second job is the read: a tree that was CUT leaves a stump, a tree
+    that BLEW OVER leaves a wheel of earth at the end of its trunk, and that
+    is the single clearest way to tell the two apart at any distance.
+
+    NOT THE FLAT PLATE THIS REPLACES. `root_plate` authored a single flat
+    polygon standing on edge; at a hundred-odd fallen trees they read as brown
+    cardboard cutouts scattered over the mud, and they did not plug anything
+    because a plane has no inside. This is a closed, LUMPY mass built on
+    `log_mesh` — a short drum along the trunk axis at 1.5x the trunk radius
+    with the girth jitter turned right up, so it is irregular in every
+    direction and watertight.
+    """
+    import math as _math
+
+    from pxr import UsdShade
+
+    dx, dy, dz = trunk_dir
+    n = _math.sqrt(dx * dx + dy * dy + dz * dz) or 1.0
+    dx, dy, dz = dx / n, dy / n, dz / n
+    bx, by = float(base_xy[0]), float(base_xy[1])
+    r = float(radius_m)
+    # Straddle the base: back along the trunk axis into the ground the roots
+    # came out of, and a little way up the trunk so it grips the bole rather
+    # than sitting beside it.
+    p0 = (bx - dx * r * 0.85, by - dy * r * 0.85, base_z - dz * r * 0.85)
+    p1 = (bx + dx * r * 0.55, by + dy * r * 0.55, base_z + dz * r * 0.55)
+    prim = log_mesh(stage, path, p0, p1, r, r * 0.88, ssf, sides=13, rng=rng,
+                    # 0.38 against a log's 0.17 — a root mass is not remotely
+                    # round, and this is what stops it reading as a barrel.
+                    # Taper kept mild (0.88, not 0.72) and the side count odd
+                    # and higher: a strong taper on few sides reads as a CONE,
+                    # which is how the first version came out — a field of
+                    # brown tents.
+                    rough=0.38)
+    if mat_prim_path:
+        mat = UsdShade.Material(stage.GetPrimAtPath(mat_prim_path))
+        if mat:
+            UsdShade.MaterialBindingAPI.Apply(prim).Bind(mat)
+    return path

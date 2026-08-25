@@ -44,6 +44,12 @@ services:
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
       # Scene to generate; empty falls back to the launch script default
       - SCENE_CONFIG=${SCENE_CONFIG:-}
+      # Must match the robot/gcs containers — mixed transport modes across
+      # containers have no common data channel, and the isaacsim ros2 bridge
+      # ships its own Fast DDS whose SHM segments are incompatible with the
+      # ROS Jazzy one, so RTPS-over-TCP is what actually interoperates.
+      - FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-LARGE_DATA}
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-}
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
       # never reaches the launch script, which looks like the script ignoring
@@ -152,6 +158,12 @@ services:
       - ISAAC_SIM_USE_STANDALONE=true
       - ISAAC_SIM_HEADLESS=true
       - SCENE_CONFIG=${SCENE_CONFIG:-}
+      # Must match the robot/gcs containers — mixed transport modes across
+      # containers have no common data channel, and the isaacsim ros2 bridge
+      # ships its own Fast DDS whose SHM segments are incompatible with the
+      # ROS Jazzy one, so RTPS-over-TCP is what actually interoperates.
+      - FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-LARGE_DATA}
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-}
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
       # never reaches the launch script, which looks like the script ignoring
