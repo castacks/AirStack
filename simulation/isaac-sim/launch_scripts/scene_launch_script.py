@@ -136,14 +136,18 @@ def review_snapshots(stage, config, placements, victims, ssf, out_dir):
     resolver = sg._make_resolver(config)
     blocks = []
     tallest = 0.0
+    size = {}                       # placement id -> (radius_m, height_m)
     for p in houses:
+        h = 0.0
         try:
             fp = sg.placement_footprint(resolver, p, "house")
             r = 0.5 * math.hypot(float(fp.get("sx", 20.0)),
                                  float(fp.get("sy", 20.0)))
-            tallest = max(tallest, float(fp.get("sz", 0.0)))
+            h = float(fp.get("sz", 0.0))
+            tallest = max(tallest, h)
         except Exception:                                     # noqa: BLE001
             r = 15.0
+        size[id(p)] = (r, h)
         blocks.append((float(p["x_m"]), float(p["y_m"]), r + 4.0))
 
     def oblique(name, x, y, dist, h, tz, away_from=None):
@@ -219,11 +223,20 @@ def review_snapshots(stage, config, placements, victims, ssf, out_dir):
     # times and they do not come out alike — a texture or a material that is
     # wrong on one instance and right on the others is invisible in a review
     # that only ever photographs two of them.
+    # FRAME THE BUILDING, NOT A FIXED 48 m. These assets run from a 20 m shed
+    # to a 96 m tower, and one distance cannot hold both: at 48 m the camera
+    # sat INSIDE an 81 m wreck and photographed the inside of its own facade,
+    # or the sky through it. Pull back with the footprint and climb with the
+    # height, and aim a third of the way up rather than at the ground.
     for i, p in enumerate(wrecks[:REVIEW_WRECKS], start=5):
         stem = os.path.splitext(os.path.basename(str(p.get("usd", "b"))))[0]
+        r, hgt = size.get(id(p), (15.0, 0.0))
         written.append(oblique(
             f"{i:02d}_collapsed_{p.get('_damage_level')}_{stem}.png",
-            p["x_m"], p["y_m"], dist=48.0, h=22.0, tz=5.0))
+            p["x_m"], p["y_m"],
+            dist=max(45.0, 1.6 * r + 25.0),
+            h=max(20.0, 0.55 * hgt + 12.0),
+            tz=max(4.0, 0.3 * hgt)))
     # 4. one victim, the most visible one (numbered after the wrecks)
     order = {"open": 0, "partial": 1, "occluded": 2}
     vis = sorted((v for v in victims if "x" in v and "y" in v),

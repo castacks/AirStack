@@ -1,0 +1,39 @@
+# HIGH-LEVEL scene spec — a 500 m downtown district after a severe earthquake.
+#
+# THE BIG MAP. `urban_quake_showcase` is the 200 m demo and this is the scene a
+# search actually needs: far enough across that a drone cannot see it all from
+# one hover, with an epicentre worth flying toward and undamaged blocks at the
+# edge to be ruled out.
+#
+# WHY IT MUST RUN ON BAKED ARCHETYPES
+# -----------------------------------
+# Live mesh damage is ~60 s a building (measured 2026-08-25, and 300 s on the
+# 317k-point MBuilding05). At 200 m that is 14 buildings and a ten-minute load,
+# which is already the limit of tolerable; a 500 m region is 6x the area. So
+# this preset is meant to be run with the Stage A library — bake once with
+#
+#     scene_gen/archetypes/bake_cli.py --config urban_quake_500 --used-only
+#
+# and every wreck after that is a reference to a settled, merged, static USD.
+# `SCENE_ARCHETYPES=0` still works and still damages every building live; it is
+# how the library gets checked, and it is not a way to load this scene.
+#
+# THE FIELD IS SIZED TO THE MAP, not to a neighbourhood. The half-diagonal is
+# 354 m, so a 120 m core and a 260 m falloff leave the far corners in the
+# `outside` floor — standing buildings, which is what makes the epicentre read
+# as an epicentre rather than as the whole world being broken.
+
+locale: urban
+disaster-type: earthquake
+severity: 1.0
+
+asset-pack: urban_intact
+region_m: [500, 500]
+seed: 42
+
+overrides:
+  disaster:
+    field:
+      radius_m: 120.0
+      falloff_m: 260.0
+      outside: 0.15

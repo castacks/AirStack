@@ -3635,7 +3635,15 @@ REF_RADIUS_M = 12.0
 #: near-linear in cells since `_fracture_hier`, but the SETTLE is not — every
 #: cell is a rigid body with a cooked collider and PhysX cost climbs with the
 #: contacts between them. Set from measurement; see `tools/quake_preview.py`.
-MAX_CELLS_CAP = 1200
+#:
+#: RAISED FROM 1,200 ON 2026-08-25, because a per-building ceiling is a
+#: fragment size in disguise and it lands on the biggest building hardest: an
+#: 81x50x72 m shell asks for ~4,000 cells and a 28x21x62 m tower for ~1,100,
+#: so one ceiling gave the first 3.4 m rubble and the second 1.0 m in the same
+#: earthquake. The scene-wide ceiling that actually bounds the compute is
+#: `SCENE_CELL_BUDGET`, which drops whole buildings instead of coarsening
+#: every one of them.
+MAX_CELLS_CAP = 4000
 
 
 def wall_for(root_prim, wall_m=WALL_M, ref_m=REF_RADIUS_M, cap=WALL_M_MAX):
@@ -3670,6 +3678,14 @@ def cells_for(root_prim, fragment_m=2.0, cap=None):
     # (measured 2026-08-25: Vulkan OOM on urban_quake_showcase). Coarser rubble
     # is the cheap trade: the pieces get bigger, the collapse still reads.
     env_top = os.environ.get("SCENE_MAX_CELLS", "").strip()
+    # A FLAT PER-BUILDING CEILING MAKES THE BIGGEST BUILDING THE UGLIEST.
+    # `cells_for` asks for area / fragment_m**2, so an 81x50x72 m massing shell
+    # wants ~4,000 cells and a 28x21x62 m tower wants ~1,100. Capping both at
+    # the same number cuts the first by 7x and the second by 2x, and the cap
+    # is a FRAGMENT SIZE in disguise: measured on the 500 m map at 600 cells,
+    # BG_Building_F came out 3.4 m thick with a 15.5 m span while everything
+    # else was ~1.0 m and 4.8 m. Rubble from one earthquake should be one size.
+    # `SCENE_CELL_BUDGET` is the scene-wide answer (see `damage_budget`).
     if env_top:
         try:
             top = max(24, min(top, int(env_top)))
@@ -4076,6 +4092,34 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
     # whole pass is done, so a scene that is working looks identical to one
     # that has hung. One line per building, before and after.
     work = rank[:budget]
+    # SPEND THE SCENE'S CELLS ON FEWER BUILDINGS RATHER THAN COARSEN THEM ALL.
+    # The compute ceiling is a whole-scene one — every cell is a rigid body
+    # with a cooked collider, and the renderer holds every fragment mesh — so
+    # it belongs here, where buildings can be dropped, and not in `cells_for`,
+    # where the only way to pay it is to make the rubble bigger.
+    cell_budget = os.environ.get("SCENE_CELL_BUDGET", "").strip()
+    if cell_budget and not os.environ.get("SCENE_MAX_CELLS", "").strip():
+        try:
+            left = int(cell_budget)
+        except ValueError:
+            left = 0
+        if left > 0:
+            kept, spent = [], 0
+            for i, p in work:
+                prim = stage.GetPrimAtPath(p["prim_path"])
+                if not prim or not prim.IsValid():
+                    continue
+                want = cells_for(prim, material(
+                    material_for_asset(p.get("usd"), cfg.get("material"),
+                                       pack_materials)).fragment_m)
+                if spent and spent + want > left:
+                    continue
+                kept.append((i, p))
+                spent += want
+            if kept:
+                print(f"[mesh_damage] cell budget {left}: {len(kept)} of "
+                      f"{len(work)} building(s) fit, {spent} cells", flush=True)
+                work = kept
     for n, (i, p) in enumerate(work, 1):
         prim = stage.GetPrimAtPath(p["prim_path"])
         if not prim or not prim.IsValid():

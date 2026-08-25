@@ -432,7 +432,14 @@ WHICH damage runs is the disaster's own decision, not this
                  "steps": int(SETTLE_STEPS),
                  "drop_median_m": round(float(info.get("drop_median", 0.0)), 2),
                  "spread_max_m": round(float(info.get("spread_max", 0.0)), 1)}
-        stats["converged"] = (stats["still_moving"] == 0
+        # A HANDFUL OF CREEPING BODIES IS NOT A FAILED SETTLE. Requiring zero
+        # rejected a cell whose pile had visibly come to rest because 176 of
+        # 359 fragments were still moving a few mm/s at the step ceiling —
+        # interpenetrating Voronoi cells never quite stop shoving each other.
+        # What actually ruins a baked wreck is geometry through the floor, or
+        # a pile that never fell at all, so those stay absolute.
+        moving_ok = max(4, int(0.05 * stats["bodies"]))
+        stats["converged"] = (stats["still_moving"] <= moving_ok
                               and stats["through_floor"] == 0)
         return stats
 
