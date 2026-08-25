@@ -88,5 +88,5 @@ airstack test -m "build_packages or autonomy" \
 ## Other testing docs
 
 - [Unit Testing](unit_testing.md) — `@pytest.mark.unit`, co-located tests, CI workflow
-- [Testing frameworks](testing_frameworks.md) — `colcon test`, rostest patterns
+- [System test suite reference](../../../../tests/README.md) — marks, fixtures, CLI options
 - [CI/CD Pipeline on OSMO](ci_cd.md) — automatic unit/build gates, selectable full-stack GPU campaigns, triggers, and like-for-like metrics reporting

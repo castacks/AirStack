@@ -9,7 +9,7 @@ Learn to work with Isaac Sim and create custom simulation scenarios.
 | Tutorial | Description | Level |
 |----------|-------------|-------|
 | [Spawning Drones](../simulation/isaac_sim/spawning_drones.md) | Launch scripts for one or many drones in Isaac Sim | Beginner |
-| [Custom Scene Setup](../simulation/isaac_sim/scene_setup.md) | Create custom Isaac Sim environments | Intermediate |
+| [Custom Scene Setup](../simulation/isaac_sim/pegasus_scene_setup.md) | Create custom Isaac Sim environments | Intermediate |
 | [Pegasus Scene Setup](../simulation/isaac_sim/pegasus_scene_setup.md) | Build scenes with Pegasus extension | Intermediate |
 
 ### 🤖 Robot Autonomy Tutorials
@@ -88,7 +88,7 @@ Choose a path based on your goals:
 
 1. Complete Getting Started (you are here! ✓)
 2. [Spawning Drones](../simulation/isaac_sim/spawning_drones.md)
-3. [Custom Scene Setup](../simulation/isaac_sim/scene_setup.md)
+3. [Custom Scene Setup](../simulation/isaac_sim/pegasus_scene_setup.md)
 4. [Pegasus Scene Setup](../simulation/isaac_sim/pegasus_scene_setup.md)
 
 **👥 I want to coordinate multi-robot teams:**

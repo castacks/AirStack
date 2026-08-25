@@ -79,7 +79,7 @@ the one-active-simulator rule.)
 
 **Use cases:**
 
-- Authoring/editing USD scenes and assets (see [Scene Setup](scene_setup.md))
+- Authoring/editing USD scenes and assets (see [Pegasus Scene Setup](pegasus_scene_setup.md))
 - Inspecting assets without bringing up the robot stack
 
 **Not for flying:** the service is deliberately **not** on `airstack_network`

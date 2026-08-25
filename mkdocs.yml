@@ -115,7 +115,6 @@ nav:
           - docs/simulation/isaac_sim/pegasus_scene_setup.md
           - Spawning Drones: docs/simulation/isaac_sim/spawning_drones.md
           - Overhead Camera: docs/simulation/isaac_sim/overhead_camera.md
-          - docs/simulation/isaac_sim/ascent_sitl_extension.md
           - docs/simulation/isaac_sim/export_stages_from_unreal.md
       - Microsoft AirSim (legacy):
           - docs/simulation/ms-airsim/index.md
@@ -225,6 +224,13 @@ plugins:
   - redirects:
       redirect_maps:
         'index.md': 'docs/index.md'
+        # Fossil pages removed in the Diátaxis docs overhaul
+        'docs/simulation/isaac_sim/scene_setup.md': 'docs/simulation/isaac_sim/pegasus_scene_setup.md'
+        'docs/simulation/isaac_sim/ascent_sitl_extension.md': 'docs/simulation/isaac_sim/pegasus_scene_setup.md'
+        'docs/development/intermediate/testing/testing_frameworks.md': 'docs/development/intermediate/testing/index.md'
+        'docs/development/development_environment.md': 'docs/development/beginner/development_environment.md'
+        'docs/development/airstack-cli/index.md': 'docs/development/beginner/airstack-cli/index.md'
+        'docs/tutorials/index.md': 'docs/getting_started/tutorials_reference.md'
 repo_name: castacks/AirStack
 repo_url: https://github.com/castacks/AirStack
 theme:

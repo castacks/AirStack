@@ -124,7 +124,7 @@ See: [System Architecture](robot/autonomy/system_architecture.md)
 !!! question "How do I debug a module?"
     Build with debug symbols, use ROS 2 tools (`ros2 topic echo`, `ros2 node info`), and leverage the debug-module skill from the AI Agent Guide.
     
-    See: [Development Environment](development/development_environment.md)
+    See: [Development Environment](development/beginner/development_environment.md)
 
 !!! question "Where should I add my custom module?"
     Place it in the appropriate layer under `robot/ros_ws/src/<layer>/<type>/<your_module>/`. For example, a new planner goes in `robot/ros_ws/src/local/planners/my_planner/`.
