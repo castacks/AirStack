@@ -4,7 +4,15 @@ You've flown the stack — here's where to go next, organized by what you're try
 
 ## Continue learning
 
-- [Modular AirStack Walkthrough](modular_airstack.md) — the second tutorial: fly a reference stack, read its wiring, add a module, make your own stack, launch a fleet.
+The tutorial sequence, in order:
+
+1. [Fly a Mission from the GCS](fly_a_mission.md) — take off, place waypoints, run a Navigate task, land, save your mission.
+2. [Change a Parameter](change_a_parameter.md) — the edit → relaunch → observe development loop in ten minutes.
+3. [Modular AirStack Walkthrough](modular_airstack.md) — fly a reference stack, read its wiring, add a module, make your own stack, launch a fleet.
+4. [Write Your First Module](first_module.md) — scaffold a module, implement a node, wire it into your own stack, see it in the wiring.
+5. [Your First Fleet](first_fleet.md) — a two-robot fleet file, both drones in Foxglove, tasks to each.
+6. [Build and Fly Your Own Scene](build_your_own_scene.md) — author a stage, register it in the scene catalog, fly it.
+7. [Deploy to Hardware](../real_world/deploying_to_hardware.md) — from bench-ready Jetson to first-flight checks.
 
 ## By goal
 

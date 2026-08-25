@@ -70,7 +70,12 @@ nav:
   - Home: docs/index.md
   - Tutorials:
       - Get AirStack Flying: docs/getting_started/index.md
+      - Fly a Mission from the GCS: docs/getting_started/fly_a_mission.md
+      - Change a Parameter: docs/getting_started/change_a_parameter.md
       - Modular AirStack Walkthrough: docs/getting_started/modular_airstack.md
+      - Write Your First Module: docs/getting_started/first_module.md
+      - Your First Fleet: docs/getting_started/first_fleet.md
+      - Build and Fly Your Own Scene: docs/getting_started/build_your_own_scene.md
       - Deploy to Hardware: docs/real_world/deploying_to_hardware.md
       - What Next: docs/getting_started/tutorials_reference.md
   - Concepts:
@@ -110,7 +115,8 @@ nav:
           - Export Stages from Unreal: docs/simulation/isaac_sim/export_stages_from_unreal.md
       - Autonomy:
           - Add a State Estimator: docs/robot/autonomy/perception/adding_a_state_estimator.md
-          - Add a Planner: docs/robot/autonomy/adding_a_planner.md
+          - Add a World Model and Planner: docs/robot/autonomy/adding_a_world_model_and_planner.md
+          - Add a Controller: docs/robot/autonomy/adding_a_controller.md
           - Create a Coordination Algorithm: docs/robot/autonomy/coordination/creating_coordination_algorithms.md
           - Coordination Payloads: docs/robot/autonomy/coordination/payloads.md
           - Integration Checklist: docs/robot/autonomy/integration_checklist.md

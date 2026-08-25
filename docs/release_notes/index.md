@@ -75,6 +75,18 @@ reorganized; page URLs are preserved (moves are covered by redirects):
   UE→Isaac export tutorial was refreshed (new walkthrough video, export
   as Z-up in meters, note that UE Decals — paint markings, dirt,
   puddles — do not export).
+- Five new beginner tutorials completing the learning path: Fly a Mission
+  from the GCS, Change a Parameter (the edit→relaunch loop; config YAML is
+  symlink-installed from the bind-mounted source, so no rebuild), Write
+  Your First Module (`airstack module create --in-tree` scaffold, with a
+  fix-it note for the scaffold's double-namespace stub), Your First Fleet
+  (two-robot fleet file, per-robot Foxglove tabs), and Build and Fly Your
+  Own Scene (GUI stage → scene catalog → `--scene` flight → baked
+  `*.scene.usd`). New how-to: Adding a Controller (verified
+  trajectory_controller → pid_controller → interface command chain);
+  Adding a Planner expanded into Adding a World Model and Planner
+  (local world-model/planner matched pairs vs the spec'd global map
+  interchange).
 
 This release restructures AirStack from a monolith into **modules**,
 **stacks**, and **fleets**, implementing
