@@ -71,9 +71,21 @@ PHASES = [
     ("base colliders",    r"\[scene_gen\] colliders:"),
     ("config compile",    r"\[compile_disaster\]"),
     ("asset pack",        r"\[scene_gen\] asset pack:"),
-    ("generate + damage", r"\[scene_gen\] Applied \d+ placements"),
+    ("generate + place",  r"\[scene_gen\] Applied \d+ placements"),
+    # Live fracture runs AFTER the placements are applied — it operates on the
+    # stage — so without its own boundary it is charged to whatever comes next.
+    # It was 64 s of a 96 s `urban_quake_live` run hiding inside "colliders".
+    # Absent on the archetype path, where the damage is a reference swap.
+    ("live mesh damage",  r"\[mesh_damage\] .*fragments="),
     ("scene colliders",   r"\[scene_gen\] colliders:"),
-    ("settle",            r"\[scene_prep\] settle:"),
+    # `settle` used to be ONE phase ending at its first print, which charged it
+    # with everything between the colliders and it. That is not physics: the
+    # launcher pumps `app.update()` after generating, and the renderer spends
+    # that pump compiling MDL materials for every new prim — 27 s of the 30 s
+    # on a cold run. The settle's own summary line reports setup/cook/sim/freeze
+    # and totals ~2.8 s cold. Splitting them keeps the gate honest.
+    ("renderer warmup (MDL)", r"\[scene_prep\] settle: physics scene"),
+    ("settle (physics)",   r"\[scene_prep\] settle: \d+ props \|"),
     ("sky + targets",     r"={10,}"),
 ]
 BANNER = re.compile(r"(READY|COMPLETE)\s*$")
@@ -169,7 +181,7 @@ def kit_log_phases():
     r = dexec(f'D={json_quote(KIT_LOG_DIR)}; ls -t "$D" | head -1')
     name = r.stdout.strip()
     if not name:
-        return [], None, ""
+        return [], None, "", {"distinct_materials": 0, "rtpso_wait_s": 0}
     r = dexec(f'cat {json_quote(KIT_LOG_DIR + "/" + name)}')
     lines = r.stdout.splitlines()
 
@@ -177,6 +189,7 @@ def kit_log_phases():
     # `colliders:` lines apart. A marker the launcher never prints must NOT
     # consume the scan position, or every later phase reads as missing too —
     # so `i` only advances on a hit.
+    stats = renderer_stats(lines)
     marks, i = [], 0
     for label, pat in PHASES:
         rx = re.compile(pat)
@@ -184,7 +197,23 @@ def kit_log_phases():
         marks.append((label, None if j is None else _stamp_at(lines, j)))
         if j is not None:
             i = j + 1
-    return marks, _kit_epoch(lines), name
+    return marks, _kit_epoch(lines), name, stats
+
+
+def renderer_stats(lines):
+    """What the renderer-warmup slice is actually made of.
+
+    Two thirds of a cold load is the renderer compiling things, and both halves
+    scale with content the scene code chooses: MDL compilation with the number
+    of DISTINCT materials in the scene (not the number of prims — identical
+    materials compile once), and the RtPso wait with the shader permutations
+    those materials need. Reporting both makes a materials change comparable
+    before and after, which a wall-clock total alone does not.
+    """
+    mats = set(re.findall(r"MaterialPool/(mat_[0-9a-f]+)", "\n".join(lines)))
+    rtpso = [int(m) for m in re.findall(
+        r"RtPso async group async compilation: (\d+) seconds", "\n".join(lines))]
+    return {"distinct_materials": len(mats), "rtpso_wait_s": max(rtpso or [0])}
 
 
 def _stamp_at(lines, j, look_back=8):
@@ -219,7 +248,7 @@ def _kit_epoch(lines):
     return None
 
 
-def report(args, t0, t_ready, marks, kit_epoch, log_name, banner):
+def report(args, t0, t_ready, marks, kit_epoch, log_name, banner, stats):
     total = t_ready - t0
     # Kit's clock zero, as an offset from t0. Everything before it is container
     # start + python.sh + interpreter import, which no Kit-side instrumentation
@@ -251,6 +280,8 @@ def report(args, t0, t_ready, marks, kit_epoch, log_name, banner):
     print("-" * (w + 26))
     print(f"{'TOTAL (' + args.mode + ')':<{w}}  {total:>9.1f}  {'':>11}")
     print("=" * (w + 26))
+    print(f"renderer cost: {stats['distinct_materials']} distinct MDL materials "
+          f"compiled, {stats['rtpso_wait_s']}s RtPso shader wait")
     print(f"banner: {banner}")
     print(f"kit log: {log_name}")
     print("note: `container + python.sh` is anchored on Kit's 1 s absolute log "
@@ -269,6 +300,7 @@ def report(args, t0, t_ready, marks, kit_epoch, log_name, banner):
             "total_s": round(total, 1),
             "phases": [{"phase": l, "seconds": None if d is None else round(d, 1)}
                        for l, d, _ in rows],
+            "renderer": stats,
             "kit_log": log_name, "banner": banner,
         }, f, indent=2)
     print(f"wrote {os.path.relpath(path, REPO)}")
@@ -332,8 +364,8 @@ def main():
     if t_ready is None:
         sys.exit(f"[bench] {banner}")
 
-    marks, kit_epoch, log_name = kit_log_phases()
-    report(args, t0, t_ready, marks, kit_epoch, log_name, banner)
+    marks, kit_epoch, log_name, stats = kit_log_phases()
+    report(args, t0, t_ready, marks, kit_epoch, log_name, banner, stats)
 
 
 if __name__ == "__main__":
