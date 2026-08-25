@@ -9,7 +9,7 @@
 # severity      : 0.0
 # spec          : scene_gen/config/presets/urban_small.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-23 21:43:38
+# compiled      : 2026-08-24 19:59:16
 # spec extras   : {'asset-pack': 'urban', 'region_m': [500, 500], 'seed': 42}
 
 seed: 42
@@ -513,4 +513,33 @@ detail:
       cafe_sets:
         zone: frontage
         spacing_m: 400.0
+targets:
+  enabled: true
+  count_per_km2: 60.0
+  count_clamp:
+  - 4
+  - 60
+  seed: null
+  occupancy: day
+  owns_humans: false
+  cohorts:
+    inside_rubble: 0.0
+    exit_ring: 0.0
+    street: 0.0
+    open_space: 0.0
+    rubble_edge: 0.0
+  damaged_from: soft_storey
+  bury_frac:
+  - 0.3
+  - 0.8
+  exit_ring_m: 5.0
+  street_band_m: 15.0
+  clearance_m: 8.0
+  cluster_size:
+  - 3
+  - 8
+  cluster_radius_m: 6.0
+  min_separation_m: 1.5
+  parent_path: /World/targets
+  semantic_class: person
 locale: urban

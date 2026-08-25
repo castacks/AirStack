@@ -81,6 +81,7 @@ from scene_prep import (scale_stage_prim, add_colliders, add_sky,
 from scene_generator import resolve_sky
 from generate_scene import generate_scene_on_stage
 from compile_disaster import load_scene_config
+from disaster import kinds
 
 # ----- CONFIGURATION -----
 ENV_URL     = SIMULATION_ENVIRONMENTS["Default Environment"]
@@ -233,10 +234,23 @@ class CityV2PreviewApp:
             stage,
             settle_selection(placements),
             ground_path="/World/stage/generated/ground",
+            # For the per-category outcome breakdown — the fracture's loose
+            # fragments and the generator's toppled props settle in the same
+            # pass and fail in completely different ways.
+            placements=placements,
         )
 
         add_sky(stage, resolve_sky(config))
         _disable_sky_sun(stage)
+
+        # ----- Stage C: the people, and anything the USD could not carry -----
+        # See scene_gen/targets.py: victims are placed at load time, not baked,
+        # so one city can be searched repeatedly with a fresh population.
+        disaster = kinds.get(config)
+        disaster.place_targets(stage, config, placements=placements,
+                               parent_path="/World/stage/targets",
+                               scene_scale_factor=ssf)
+        disaster.attach_runtime(stage)
 
         print("\n" + "=" * 70)
         print("CITY V2 PREVIEW READY")

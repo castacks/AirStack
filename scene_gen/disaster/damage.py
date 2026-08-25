@@ -674,7 +674,7 @@ def scorched_material(stage, parent_path, src_mat_prim, level,
 
     from pxr import Gf, Sdf, UsdShade
 
-    from . import scorch
+    from . import mesh_damage, scorch
 
     cache = _CACHE if cache is None else cache
     soot_scope = Sdf.Path(parent_path).AppendChild("SootLooks")
@@ -705,7 +705,8 @@ def scorched_material(stage, parent_path, src_mat_prim, level,
         # is fouled by what lands on it, so top-down keeps the heavy end away
         # from the wall junction where it would read as a shadow.
         painted = scorch.scorched_texture(
-            tex, cov, np.random.default_rng(abs(hash(key)) % (2 ** 31)),
+            tex, cov, np.random.default_rng(
+                mesh_damage.stable_seed(key, mod=2 ** 31)),
             from_below=not from_above, wash_weight=wash_weight)
 
     mat = UsdShade.Material.Define(stage, path)

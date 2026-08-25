@@ -9,7 +9,7 @@
 # severity      : 0.65
 # spec          : scene_gen/config/presets/suburb_mini_wildfire.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-23 21:43:37
+# compiled      : 2026-08-24 19:59:13
 # spec extras   : {'epicenter': [-125, -125], 'heading_deg': 45, 'asset-pack': 'suburban_park', 'region_m': [250, 250], 'seed': 3, 'overrides': {'disaster': {'fire': {'flank_mps': 0.7, 'duration_s': 300.0}}, 'instance_categories': ['plant', 'sidewalk', 'streetlight', 'fire_hydrant', 'sign', 'crosswalk'], 'layout': {'region_m': [250, 250]}, 'usds': {'materials': {'grass': 'airstack://scene_gen/assets/materials/Grass_Countryside.usda', 'grass_rough': 'airstack://scene_gen/assets/materials/Grass_Countryside.usda', 'grass_park': 'airstack://scene_gen/assets/materials/Grass_Cut.usda', 'dirt': 'airstack://scene_gen/assets/materials/Dirt.usda', 'asphalt': 'airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda', 'driveway': 'airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda', 'path': 'airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda'}, 'lot_fences': [{'usd': 'objaverse://1cec32aea61e4959bb1ba9a79ada7cd5', 'yaw-offset': 90.0, 'tags': ['low', 'privacy']}], 'trees': [{'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Black_Oak/Black_Oak.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Largetooth_Aspen.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Common_Apple/Common_Apple.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/American_Beech.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Douglas_Fir.usd', 'scale': 0.01}], 'street_trees': [{'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd', 'scale': 0.01}, {'usd': 'airstack://scene_gen/assets/aec/brownstone/Assets/Vegetation/Trees/Douglas_Fir.usd', 'scale': 0.01}], 'yard_trees': [{'usd': 'airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Shumard_Oak/Shumard_Oak.usd', 'scale': 0.01}], 'yard_shrubs': [], 'plants': []}, 'suburb_net': {'block_area_target_m2': 40000.0, 'block_area_min_m2': 7000.0, 'collectors': 3, 'collector_wander': 0.28, 'min_gap_m': 88.0, 'junction_skew_deg': 38.0, 'four_way_chance': 0.35, 'dead_end_target': 0.24, 'bulb_radius_m': 14.64, 'lollipop_len_m': [55.0, 170.0], 'grain_weight': 2.6, 'grain_swirl_deg': 34.0, 'grain_period_m': 620.0}, 'suburb_parcel': {'modular_houses': True, 'modular_share': 1.0, 'lot_width_m': [30.0, 44.0], 'house_gap_m': 6.0, 'neighbourhood_m': 400.0, 'density_mix': {'tight': 0.15, 'normal': 0.36, 'loose': 0.34, 'estate': 0.15}, 'setback_m': [6.5, 11.0], 'house_w_m': [9.0, 13.0], 'house_d_m': [8.0, 11.0], 'min_lot_depth_m': 21.0, 'driveway_w_m': 3.2, 'house_yaw_offset_deg': -90.0, 'back_trees_per_100m2': 0.055, 'front_tree_chance': 0.45, 'street_tree_spacing_m': [22.0, 40.0], 'open_trees_per_100m2': 0.85, 'infill_trees_per_100m2': 0.45, 'open_tree_gap_m': 6.0, 'open_tree_clear_m': 5.5}}}
 
 seed: 3
@@ -271,8 +271,9 @@ disaster:
       max_buildings: 70
     thickness:
       enabled: true
-      wall_m: 0.5
+      wall_m: 0.15
       max_buildings: 70
+    material: timber
   damaged_fraction: 0.54
   destroyed_fraction: 0.202
   debris:
@@ -530,6 +531,35 @@ detail:
         zone: furnishing
         spacing_m: 0.0
         near_corner_m: 6.0
+targets:
+  enabled: true
+  count_per_km2: 60.0
+  count_clamp:
+  - 4
+  - 60
+  seed: null
+  occupancy: day
+  owns_humans: false
+  cohorts:
+    inside_rubble: 0.0
+    exit_ring: 0.0
+    street: 0.0
+    open_space: 0.0
+    rubble_edge: 0.0
+  damaged_from: soft_storey
+  bury_frac:
+  - 0.3
+  - 0.8
+  exit_ring_m: 5.0
+  street_band_m: 15.0
+  clearance_m: 8.0
+  cluster_size:
+  - 3
+  - 8
+  cluster_radius_m: 6.0
+  min_separation_m: 1.5
+  parent_path: /World/targets
+  semantic_class: person
 locale: suburban
 instance_categories:
 - plant

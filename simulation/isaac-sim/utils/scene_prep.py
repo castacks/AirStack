@@ -205,7 +205,8 @@ def settle_selection(placements) -> list:
 
 def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
                        ground_path: str = None, max_travel_m: float = 12.0,
-                       report: int = 5) -> int:
+                       report: int = 5, gpu: bool = True,
+                       placements=None) -> int:
     """Drop props to a natural resting pose under physics, then freeze them.
 
     The scene generator places toppled/strewn props (flipped cars, downed
@@ -252,6 +253,50 @@ def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
     *report* prints that many worst-travelled props, so a run says whether the
     clamps are holding rather than leaving it to be eyeballed in the viewport.
 
+    WHICH DEVICE THIS RUNS ON
+    -------------------------
+    Until this reported it, nobody knew. The function defines a bare
+    `UsdPhysics.Scene` when the stage has none and otherwise takes whatever it
+    finds, so the settle inherited PhysX's defaults (CPU dynamics, CPU
+    broadphase, PGS) or the environment's settings, silently either way — and
+    a settle that ran on the CPU is indistinguishable in the log from one that
+    ran on the GPU with undersized buffers. Both are slow and both drop pieces
+    through the floor.
+
+    So the scene's actual configuration is now printed every run, along with a
+    setup / cook / sim / freeze timing split. **Cooking is the part a GPU does
+    not help**: a convex hull per mesh is CPU work that happens on the first
+    frame after `play()`, which is why it is timed separately.
+
+    *gpu* selects the device and defaults to True, which is worth 41x on a
+    real collapse — 907 fragments of a fractured building settled in **2.4 s
+    against 98.4 s** on the CPU scene the launcher used to inherit, at
+    indistinguishable quality (335 vs 294 pieces lost through the ground, 18.5
+    vs 18.8 m median travel). It applies `disaster.settle.configure_scene`,
+    which is also where the GPU buffer capacities come from; raising them is
+    not optional, because PhysX preallocates fixed buffers, overflow DROPS
+    contacts rather than falling back, and the symptom is pieces sinking
+    through the ground. The scene the launcher inherits carries the stock
+    524288-contact buffer; this asks for 4M.
+
+    False leaves it on the CPU, None leaves the scene exactly as found and only
+    reports it. `SCENE_SETTLE_GPU=1` / `=0` sets it from the environment.
+
+    WHAT IS ACTUALLY IN HERE
+    ------------------------
+    Two populations with nothing in common but a flag. The generator's
+    approximated-pose props — a toppled streetlight, a flipped car, scattered
+    debris — are a few hundred prims that physics is meant to *correct*. The
+    fracture's loose fragments (`category: "debris_fragment"`, appended by
+    `generate_scene`) are thousands of prims that physics is meant to *place*,
+    and they arrive interpenetrating because a Voronoi cut leaves neighbouring
+    cells sharing a face.
+
+    They fail differently and they need different fixes, so pass *placements*
+    and the outcome is reported per category. Without it the summary reads
+    "691 fell through the ground" and cannot say whether the rubble is broken
+    or the debris props are.
+
     Call BEFORE spawning robot/vehicle graphs: the timeline runs briefly.
     Returns the number of props settled.
     """
@@ -261,6 +306,10 @@ def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
     prims = [p for p in prims if p and p.IsValid()]
     if not prims:
         return 0
+
+    t_setup = _time.time()
+    cat_of = {str(p["prim_path"]): str(p.get("category") or "?")
+              for p in (placements or ()) if p.get("prim_path")}
 
     if ground_path:
         ground = stage.GetPrimAtPath(ground_path)
@@ -273,6 +322,37 @@ def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
     if not any(p.IsA(UsdPhysics.Scene) for p in two_levels):
         UsdPhysics.Scene.Define(stage, Sdf.Path("/World/PhysicsScene"))
         print("[scene_prep] settle: defined /World/PhysicsScene")
+
+    # The device, and the buffers it was given. `disaster.settle` owns both
+    # (one copy of `GPU_CAPACITIES`, not two — a drifted capacity fails
+    # silently); it is imported lazily because this module is also used by
+    # launch scripts that never put scene_gen on the path.
+    if gpu is None:
+        env = os.environ.get("SCENE_SETTLE_GPU", "").strip().lower()
+        if env:
+            gpu = env not in ("0", "false", "no", "off")
+    try:
+        from disaster import settle as _settle
+    except ImportError:
+        _settle = None
+        if gpu is not None:
+            print("[scene_prep] settle: SCENE_SETTLE_GPU set but scene_gen is "
+                  "not importable — leaving the physics scene as found")
+    if _settle is not None:
+        if gpu is not None:
+            _settle.configure_scene(stage, gpu=bool(gpu))
+        cfg = _settle.describe_scene(stage)
+        if not cfg:
+            print("[scene_prep] settle: no physics scene found")
+        elif not cfg.get("physx_api"):
+            print(f"[scene_prep] settle: physics scene {cfg['scene']} has no "
+                  "PhysxSceneAPI — PhysX defaults (CPU dynamics, PGS solver)")
+        else:
+            print(f"[scene_prep] settle: physics scene {cfg['scene']} — "
+                  f"GPU dynamics {'ON' if cfg.get('gpu') else 'off'}, "
+                  f"broadphase {cfg.get('broadphase')}, "
+                  f"solver {cfg.get('solver')}, "
+                  f"contact buffer {cfg.get('gpuMaxRigidContactCount')}")
 
     # Optional: only inside Isaac's Kit python, not in plain usd-core. Without
     # it the clamps are skipped and only `max_travel_m` catches the launches.
@@ -309,13 +389,81 @@ def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
 
     app = omni.kit.app.get_app()
     timeline = omni.timeline.get_timeline_interface()
-    timeline.stop()
-    timeline.play()
     steps = max(1, int(sim_seconds * 60.0))
     print(f"[scene_prep] settle: simulating {len(prims)} props "
-          f"for ~{sim_seconds:.1f}s ({steps} frames)…")
-    for _ in range(steps):
+          f"for ~{sim_seconds:.1f}s ({steps} frames)…", flush=True)
+    setup_s = _time.time() - t_setup
+    dt = 1.0 / 60.0
+
+    # STEP THE PHYSICS, NOT THE APPLICATION. `app.update()` is a whole Kit
+    # frame — renderer, Fabric sync, USD change notifications — and PhysX
+    # writes every body's transform back into USD on every one of them. A
+    # settle wants none of that: nothing reads the intermediate poses, only the
+    # final one. So this steps the simulation directly and asks for the
+    # write-back exactly once, at the end (`update_transformations`).
+    #
+    # Measured on 8,000 boxed bodies over 179 frames (`tools/settle_bench.py`),
+    # same scene, same PhysX:
+    #
+    #     timeline.play() + app.update()              126.8 s
+    #     stepped directly, write-back on              95.2 s
+    #     stepped directly, write-back off              2.6 s
+    #
+    # THAT BENCHMARK IS TOO KIND, and the real scene says so: 907 fragments of
+    # an actual fractured building cost 98.4 s here, 350x more per body-step
+    # than the boxes. Clean convex boxes dropped into free space barely touch
+    # the solver, so on them the USD write-back is everything; Voronoi shell
+    # fragments spawn interpenetrating by metres and the CONTACT SOLVE is
+    # everything. Both fixes are real, they just matter to different scenes —
+    # which is why `gpu` defaults to True (98.4 s -> 2.4 s on that same real
+    # collapse) and why this loop still avoids the per-step write-back.
+    #
+    # `SCENE_SETTLE_STEP=timeline` restores the old loop for comparison.
+    stepper = os.environ.get("SCENE_SETTLE_STEP", "physx").strip().lower()
+    physx = None
+    if stepper != "timeline":
+        try:
+            from omni.physx import get_physx_interface
+            physx = get_physx_interface()
+        except ImportError:
+            print("[scene_prep] settle: omni.physx unavailable — stepping the "
+                  "timeline instead")
+
+    t_cook = _time.time()
+    if physx is not None:
+        # COOKING IS ASYNC AND IT IS NOT OPTIONAL. A convex hull is cooked off
+        # the main thread when the collider is authored; stepping before the
+        # tasks finish simulates bodies that have no collision yet, which is
+        # indistinguishable in the output from a body that fell through the
+        # ground. There is no task-count query on the cooking interface in this
+        # build, so this pumps a bounded number of frames and lets them drain.
+        for _ in range(10):
+            app.update()
+        physx.start_simulation()
+        cook_s = _time.time() - t_cook
+
+        t_sim = _time.time()
+        now = 0.0
+        for _ in range(steps):
+            physx.update_simulation(dt, now)
+            now += dt
+        # The one write-back. `updateToFastCache=False, updateToUsd=True`:
+        # the transforms have to land in USD, because that is what the freeze
+        # pass below reads and re-authors. Velocities come too, because a pose
+        # sampled while a body is still moving is not a resting pose — see the
+        # still-moving count below.
+        physx.update_transformations(False, True, True)
+        sim_s = _time.time() - t_sim
+    else:
+        timeline.stop()
+        timeline.play()
         app.update()
+        cook_s = _time.time() - t_cook
+        t_sim = _time.time()
+        for _ in range(steps - 1):
+            app.update()
+        sim_s = _time.time() - t_sim
+    t_freeze = _time.time()
 
     # Capture settled transforms before stopping (stop resets the sim pose).
     floor_z = -2.0 / mpu    # anything below fell through the ground
@@ -327,31 +475,66 @@ def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
         parent_world = cache.GetLocalToWorldTransform(prim.GetParent())
         pos = world.ExtractTranslation()
         settled[prim.GetPath()] = (world * parent_world.GetInverse(), pos)
-    timeline.stop()
+    # AFTER the capture, in both paths: `stop()` and `reset_simulation()` both
+    # restore the authored poses, so reading them afterwards reads the poses
+    # the props started at rather than the ones they settled into.
+    if physx is not None:
+        physx.reset_simulation()
+    else:
+        timeline.stop()
     app.update()
 
-    n_ok = n_lost = n_flung = 0
+    n_ok = n_lost = n_flung = n_moving = 0
     travel = []
+    by_cat = {}
     for prim in prims:
         local, pos = settled[prim.GetPath()]
         moved = (pos - start[prim.GetPath()]).GetLength()
         travel.append((moved * mpu, prim.GetPath()))
+        cat = by_cat.setdefault(cat_of.get(str(prim.GetPath()), "?"),
+                                {"n": 0, "ok": 0, "lost": 0, "flung": 0,
+                                 "moving": 0})
+        cat["n"] += 1
+        # STILL MOVING IS NOT SETTLED, AND THE DIFFERENCE IS NOT COSMETIC.
+        # This pass steps a FIXED `sim_seconds` with no rest check, and 3 s is
+        # less than the problem takes: a fragment released from the top of a
+        # 66 m tower needs ~3.7 s just to reach the ground in free fall. So a
+        # body can be sampled mid-flight and then judged for how far it has
+        # "travelled" — which is how `max_travel_m` comes to revert pieces for
+        # the crime of falling. Counting them is what separates "the settle
+        # threw it" from "the settle was not finished".
+        vel = prim.GetAttribute("physics:velocity").Get()
+        speed = Gf.Vec3f(*vel).GetLength() if vel is not None else 0.0
+        if speed > 0.1 / mpu:
+            n_moving += 1
+            cat["moving"] += 1
         if pos[2] < floor_z:
             n_lost += 1     # tunnelled through the ground — keep authored pose
+            cat["lost"] += 1
         elif moved > limit:
             # Launched out of a penetration. Its authored spot is where the
             # generator meant it to be; a solver artifact hundreds of metres
             # away is not an improvement on that.
             n_flung += 1
+            cat["flung"] += 1
         else:
             xform = UsdGeom.Xformable(prim)
             xform.ClearXformOpOrder()
             xform.AddTransformOp().Set(local)
             n_ok += 1
+            cat["ok"] += 1
         prim.RemoveAPI(UsdPhysics.RigidBodyAPI)
 
     travel.sort(reverse=True)
     med = travel[len(travel) // 2][0] if travel else 0.0
+    if n_moving:
+        print(f"[scene_prep] settle: NOT CONVERGED — {n_moving} of {len(prims)}"
+              f" still moving at {sim_seconds:.1f}s. Poses below are sampled "
+              f"mid-motion, and `max_travel_m` is reverting some of them for "
+              f"having fallen.")
+    print(f"[scene_prep] settle: {len(prims)} props | setup {setup_s:.1f}s  "
+          f"cook {cook_s:.1f}s  sim {sim_s:.1f}s ({steps - 1} frames)  "
+          f"freeze {_time.time() - t_freeze:.1f}s")
     print(f"[scene_prep] settle: froze {n_ok} props at rest"
           + (f", {n_lost} fell through the ground (kept authored pose)"
              if n_lost else "")
@@ -360,6 +543,15 @@ def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
     if travel:
         print(f"[scene_prep] settle: travel median {med:.2f} m, "
               f"max {travel[0][0]:.1f} m")
+    # Per category, worst first by what did NOT settle: the fragments and the
+    # props fail for different reasons and only this says which is which.
+    for name, c in sorted(by_cat.items(),
+                          key=lambda kv: -(kv[1]["lost"] + kv[1]["flung"])):
+        if len(by_cat) < 2:
+            break
+        print(f"[scene_prep] settle:   {name:<18} {c['n']:>5}  "
+              f"rest {c['ok']:>5}  through-floor {c['lost']:>5}  "
+              f"flung {c['flung']:>5}  still-moving {c['moving']:>5}")
     if report and travel and travel[0][0] > max_travel_m:
         print(f"[scene_prep] settle: worst {min(report, len(travel))} — "
               "these started inside other geometry:")

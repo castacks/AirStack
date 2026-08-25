@@ -946,13 +946,18 @@ def build(config: dict, layout: dict, placements: list, resolver, rng) -> int:
 
         # ---- people, on the walks and out on the greensward. They stand ON
         # the paving, so paving is the one reservation they ignore.
-        if human_usds:
-            hstep = float(_stage(config, "detail").get("humans", {}).get("trail_spacing_m", 30.0))
+        # Both counts come from `detail.humans`, and zero means zero: a config
+        # whose targets block `owns_humans` zeroes them so Stage C is the only
+        # thing that puts a person in the scene (compile_disaster).
+        hcfg = _stage(config, "detail").get("humans", {})
+        hstep = float(hcfg.get("trail_spacing_m", 30.0))
+        idlers = int((hcfg.get("per_block") or [0, 3])[-1])
+        if human_usds and (hstep > 0.0 or idlers > 0):
             for hx, hy, hyaw in _walk_paths(paths + ring_paths,
                                             hstep or 1e9, 0.15):
                 place(rng.choice(human_usds), "human", hx, hy, hyaw,
                       ignore=_FLAT)
-            for _ in range(rng.randint(3, 7)):
+            for _ in range(rng.randint(3, 7) if idlers else 0):
                 a_ = rng.uniform(0.0, 2.0 * math.pi)
                 rr = lawn_r * math.sqrt(rng.random())
                 place(rng.choice(human_usds), "human",

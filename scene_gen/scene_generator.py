@@ -2687,6 +2687,105 @@ _HUMAN_POSES = {
         "thigh_r": ((1.0, 0.0, 0.0), 14.0),       # right leg back
         "calf_r": ((1.0, 0.0, 0.0), 18.0),        # trailing knee bent
     },
+
+    # ---- Stage C victim poses (see targets.py) ----------------------------
+    # Same convention as the two above, extended rather than re-derived: +Y on
+    # a LEFT joint lowers that arm (so -Y raises it), -X on a thigh swings the
+    # leg forward (the characters face -Y). The three LYING poses are authored
+    # UPRIGHT here and laid flat by the placer's roll — `targets.to_placements`
+    # picks the roll sign from the pose name, so `prone` is face-down and
+    # `supine` face-up rather than a coin flip.
+    #
+    # Poses are drawn from what aerial SAR datasets actually contain (SARD:
+    # standing, sitting, lying, and "exhausted or injured" positions), because
+    # the point of them is to be recognisable from above.
+
+    # On the back, limbs relaxed and slightly splayed — the posture a casualty
+    # is found in, not the stiff cross the T-pose gives.
+    "supine": {
+        "upperarm_l": ((0.0, 1.0, 0.0), 30.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -30.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), 12.0),
+        "lowerarm_r": ((0.0, 1.0, 0.0), -12.0),
+        "thigh_l": ((0.0, 1.0, 0.0), 8.0),
+        "thigh_r": ((0.0, 1.0, 0.0), -8.0),
+        "calf_l": ((1.0, 0.0, 0.0), 10.0),
+    },
+    # Face-down, one arm thrown up past the head: the "fell while running"
+    # silhouette, and the one that reads least like a mannequin from the air.
+    "prone": {
+        "upperarm_l": ((0.0, 1.0, 0.0), -70.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), -20.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -35.0),
+        "lowerarm_r": ((0.0, 1.0, 0.0), -15.0),
+        "thigh_r": ((1.0, 0.0, 0.0), -12.0),
+        "calf_r": ((1.0, 0.0, 0.0), 25.0),
+    },
+    # Curled on one side. The void-space posture: knees to chest, arms tucked,
+    # spine rounded — small enough to fit the gap that kept them alive.
+    "fetal": {
+        "spine_02": ((1.0, 0.0, 0.0), -18.0),
+        "thigh_l": ((1.0, 0.0, 0.0), -75.0),
+        "thigh_r": ((1.0, 0.0, 0.0), -70.0),
+        "calf_l": ((1.0, 0.0, 0.0), 85.0),
+        "calf_r": ((1.0, 0.0, 0.0), 80.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 55.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -55.0),
+        "lowerarm_l": ((1.0, 0.0, 0.0), -70.0),
+        "lowerarm_r": ((1.0, 0.0, 0.0), -70.0),
+    },
+    # Drop, cover, hold on — crouched under whatever was overhead. Upright, so
+    # it stands on its feet; used for the trapped cohort in a standing void.
+    "crouch": {
+        "spine_02": ((1.0, 0.0, 0.0), -28.0),
+        "thigh_l": ((1.0, 0.0, 0.0), -80.0),
+        "thigh_r": ((1.0, 0.0, 0.0), -80.0),
+        "calf_l": ((1.0, 0.0, 0.0), 95.0),
+        "calf_r": ((1.0, 0.0, 0.0), 95.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 25.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -25.0),
+        "lowerarm_l": ((1.0, 0.0, 0.0), -80.0),   # arms up over the head
+        "lowerarm_r": ((1.0, 0.0, 0.0), -80.0),
+    },
+    # Sitting on the ground, legs out front — the walking wounded, waiting.
+    "seated": {
+        "spine_02": ((1.0, 0.0, 0.0), 10.0),
+        "thigh_l": ((1.0, 0.0, 0.0), -88.0),
+        "thigh_r": ((1.0, 0.0, 0.0), -88.0),
+        "calf_l": ((1.0, 0.0, 0.0), 12.0),
+        "calf_r": ((1.0, 0.0, 0.0), 12.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 40.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -40.0),
+    },
+    # Kneeling beside someone — what a bystander at a collapse is doing.
+    "kneeling": {
+        "spine_02": ((1.0, 0.0, 0.0), -20.0),
+        "thigh_l": ((1.0, 0.0, 0.0), -25.0),
+        "thigh_r": ((1.0, 0.0, 0.0), -20.0),
+        "calf_l": ((1.0, 0.0, 0.0), 105.0),
+        "calf_r": ((1.0, 0.0, 0.0), 100.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 35.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -35.0),
+        "lowerarm_l": ((1.0, 0.0, 0.0), -45.0),
+        "lowerarm_r": ((1.0, 0.0, 0.0), -45.0),
+    },
+    # Standing, left arm straight overhead: the signal-to-aircraft pose, and
+    # the one an aerial searcher has the best chance of catching.
+    "wave_up": {
+        "upperarm_l": ((0.0, 1.0, 0.0), -135.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), -15.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -45.0),
+        "lowerarm_r": ((0.0, 1.0, 0.0), -8.0),
+    },
+    # Down but signalling: one arm reaching out past the head, the other at
+    # the side. Laid flat by the placer like the other lying poses.
+    "wave_down": {
+        "upperarm_l": ((0.0, 1.0, 0.0), -100.0),
+        "lowerarm_l": ((1.0, 0.0, 0.0), -30.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -30.0),
+        "lowerarm_r": ((0.0, 1.0, 0.0), -10.0),
+        "thigh_l": ((0.0, 1.0, 0.0), 10.0),
+    },
 }
 
 

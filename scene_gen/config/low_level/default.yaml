@@ -1085,3 +1085,53 @@ detail:
       # of street the 80 m per-kerb spacing implies, so it only ever removes a
       # genuine corner duplicate.
       streetlights:  {traffic_lights: 18.0, streetlights: 20.0}
+
+# ---- STAGE C: targets ------------------------------------------------------
+# WHO is in the finished scene to be found, and where. Placed at load time by
+# targets.py — NOT baked into the scene USD, so one baked city can be
+# re-populated with a different `seed` below and searched again. Each target is
+# written out with its cohort, pose and visibility class (targets.json + prim
+# customData), which is the ground truth a search run is scored against.
+#
+# The cohort model, and the literature it comes from, is documented in
+# targets.py. Zero weights = no targets, which is what every disaster type
+# except earthquake compiles to today.
+targets:
+  enabled: true
+  count_per_km2: 60.0        # people per km2 of region. NOT scaled by severity:
+                             # severity decides where people ended up, not how
+                             # many there were — holding N fixed is what makes a
+                             # severity sweep comparable.
+  count_clamp: [4, 60]       # [min, max] — absolute bounds on the population
+  seed: null                 # null = scene seed + 20255. Set it to re-roll the
+                             # people without touching the city.
+  occupancy: day             # night | day | commute — Hazus's time-of-day split;
+                             # shifts the mix indoors/outdoors (see OCCUPANCY)
+  owns_humans: false         # true = Stage C places EVERY human in the scene, and
+                             # the compiler zeroes the Stage B scenery humans so
+                             # nothing unlabelled can be mistaken for a target
+
+  # How the population divides. Renormalised, then modulated by `occupancy`; a
+  # cohort with nowhere to go hands its share to street/open_space.
+  cohorts:
+    inside_rubble: 0.0       # trapped in a collapsed building, near the edge
+    exit_ring: 0.0           # struck escaping, just outside a damaged facade
+    street: 0.0              # caught outdoors, where the field hit hardest
+    open_space: 0.0          # survivors gathered in parks and plazas
+    rubble_edge: 0.0         # bystanders/rescuers at the edge of a pile
+
+  damaged_from: soft_storey  # ladder rung at or past which a building can trap
+                             # someone (disaster/levels.py LADDERS)
+  bury_frac: [0.3, 0.8]      # [min, max] of body height sunk into the rubble
+  exit_ring_m: 5.0           # m — how far outside the facade the escapers fell
+  street_band_m: 15.0        # m — width of the street band used when no road
+                             # corridor list reached Stage C (USD-only survey)
+  clearance_m: 8.0           # m — gathered survivors keep this far from any
+                             # facade; it is why they read as being in the park
+  cluster_size: [3, 8]       # [min, max] people per gathered group
+  cluster_radius_m: 6.0      # m — group spread
+  min_separation_m: 1.5      # m — no two targets closer than this
+
+  parent_path: /World/targets
+  semantic_class: person     # Replicator label; the cohort rides along as a
+                             # second `victim` label

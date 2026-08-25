@@ -46,6 +46,14 @@ services:
       - SCENE_CONFIG=${SCENE_CONFIG:-}
       # Physics settle pass: 1 / 0 / -cat,cat / cat,cat (scene_prep.settle_selection)
       - SCENE_SETTLE=${SCENE_SETTLE:-1}
+      # 0 skips Stage A's baked archetypes so every building is damaged live
+      - SCENE_ARCHETYPES=${SCENE_ARCHETYPES:-}
+      # Settle device (1/0, empty = leave the scene as found) and stepping mode
+      # ("timeline" restores the pre-instrumentation loop) — scene_prep.settle
+      - SCENE_SETTLE_GPU=${SCENE_SETTLE_GPU:-}
+      - SCENE_SETTLE_STEP=${SCENE_SETTLE_STEP:-}
+      # Cap on buildings damaged LIVE, overriding the preset's max_buildings
+      - SCENE_DAMAGE_BUDGET=${SCENE_DAMAGE_BUDGET:-}
       # Pegasus physics tuning — read by pegasus/simulator/params.py
       - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}
       - ARDUPILOT_PHYSICS_HZ=${ARDUPILOT_PHYSICS_HZ:-800}
@@ -134,6 +142,14 @@ services:
       - SCENE_CONFIG=${SCENE_CONFIG:-}
       # Physics settle pass: 1 / 0 / -cat,cat / cat,cat (scene_prep.settle_selection)
       - SCENE_SETTLE=${SCENE_SETTLE:-1}
+      # 0 skips Stage A's baked archetypes so every building is damaged live
+      - SCENE_ARCHETYPES=${SCENE_ARCHETYPES:-}
+      # Settle device (1/0, empty = leave the scene as found) and stepping mode
+      # ("timeline" restores the pre-instrumentation loop) — scene_prep.settle
+      - SCENE_SETTLE_GPU=${SCENE_SETTLE_GPU:-}
+      - SCENE_SETTLE_STEP=${SCENE_SETTLE_STEP:-}
+      # Cap on buildings damaged LIVE, overriding the preset's max_buildings
+      - SCENE_DAMAGE_BUDGET=${SCENE_DAMAGE_BUDGET:-}
     # Publish the WebRTC livestream ports to the pod NS. Bridge-mode +
     # publish (the conservative choice) keeps the rest of the stack on
     # airstack_network for DDS multicast.

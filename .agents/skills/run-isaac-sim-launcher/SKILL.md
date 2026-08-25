@@ -1,6 +1,6 @@
 ---
 name: run-isaac-sim-launcher
-description: Launch, relaunch and READ THE OUTPUT of an Isaac Sim standalone launch script (scene_gen scenes, the damage / fire / ground benches) through `airstack up isaac-sim` + `docker exec isaac-sim tmux ...`. Use whenever you need to see a scene, iterate on a launcher, pass SCENE_CONFIG / env vars / Kit settings, or find out why a launch died. `docker logs isaac-sim` is EMPTY for this container — this skill is how you actually see what the script printed.
+description: Launch, relaunch and READ THE OUTPUT of an Isaac Sim standalone launch script (scene_gen scenes, the damage / fire / ground benches) through `airstack up isaac-sim` + `docker exec isaac-sim tmux ...`. Use whenever you need to see a scene, iterate on a launcher, pass SCENE_CONFIG / env vars / Kit settings, or find out why a launch died. Also covers SEEING the scene — placing a review camera, writing viewport PNGs to a path the host can read (`utils/snapshots.py` + `SNAP_DIR`) — and talking to Nucleus (list / stat / upload with `omni.client`, standalone, no SimulationApp). `docker logs isaac-sim` is EMPTY for this container — this skill is how you actually see what the script printed.
 license: Apache-2.0
 metadata:
   author: AirLab CMU
@@ -20,6 +20,11 @@ metadata:
   `[soot]` counts, readiness banners, Python tracebacks.
 - Passing `SCENE_CONFIG`, launcher env knobs (`GROUND_ELAPSED`, `KEEP_PHYSICS`,
   `MINI_ELAPSED`, ...) or Kit/carb settings (`--/rtx/...`) to a run.
+- LOOKING at what it built: `SNAP_DIR=`, `utils/snapshots.py`, and getting the
+  PNGs somewhere the host can read them (section 5).
+- Listing, uploading or verifying anything on Nucleus — materials, stages,
+  archetypes (section 6). That part needs no app and no pane, so it is safe
+  while someone else is driving the container.
 
 This is the Isaac-specific companion to [use-airstack-cli](../use-airstack-cli/SKILL.md).
 Everything there about `docker exec <c> bash -c "..."` (never `-it`) still holds.
@@ -178,7 +183,328 @@ docker exec isaac-sim tmux send-keys -t isaac \
   reinstalls on the next run; a process restart is ~2 min, a recreate is
   longer; and the piped log keeps going across a relaunch.
 
-## 5. Running Python inside the LIVE app
+## 5. SEE the scene — cameras and snapshots
+
+Sections 2 and 3 tell you the bench BUILT; only a picture tells you it built
+the right thing. `simulation/isaac-sim/utils/snapshots.py` is the missing
+sense: a camera prim the launcher aims, the active viewport retargeted to it,
+and a PNG on the host. Every bench that has it is off by default and turns on
+with one env var on the relaunch line (section 4) — this is the real invocation
+of the last people-bench run, read back out of the piped pane log:
+
+```bash
+docker exec isaac-sim tmux send-keys -t isaac \
+  'clear; SCENE_CONFIG=suburb_wildfire UNITS=A,C SNAP_DIR=/isaac-sim/.nvidia-omniverse/logs/people_ac PYTHONPATH="$ISAAC_SIM_PYTHONPATH" /isaac-sim/python.sh /isaac-sim/AirStack/simulation/isaac-sim/launch_scripts/people_showcase_launch_script.py --ext-folder ~/.local/share/ov/data/documents/Kit/shared/exts' ENTER
+```
+
+The knob is `SNAP_DIR` in `people_showcase`, `car_occupants`,
+`suburb_assemble`; `URBAN_SNAP_DIR` in the `urban_*` benches; `CAT_SNAP_DIR` in
+`modern_city_catalogue`. Empty = no captures, and the run is otherwise
+identical.
+
+### SNAP_DIR must sit under the mounted log directory
+
+    container   /isaac-sim/.nvidia-omniverse/logs/<name>
+    host        ~/docker/isaac-sim/logs/<name>
+
+That bind mount — the same one section 2b pipes the pane log into — is the ONLY
+reason a capture is readable from outside the container. Point `SNAP_DIR` at
+`/tmp/snaps` and the PNGs are written, announced in the log, and unreachable by
+the agent that asked for them. Then just read the host path:
+
+```bash
+ls -l ~/docker/isaac-sim/logs/people_ac/          # A_obl.png A_top.png C_obl.png C_top.png row.png
+grep -a '\[snapshots\] ->' ~/docker/isaac-sim/logs/isaac_pane.log | tail
+```
+
+### Marking something too small to see
+
+A person is two or three pixels from 200 m up, and a per-victim close-up is a
+fight with whatever stands between the camera and the subject. A coloured post
+(`UsdGeom.Cylinder`, ~0.35 m radius, 8 m tall, `displayColor` by category)
+authored over each subject turns one wide plumb shot into the answer for all of
+them at once — `targets_showcase_launch_script.py` does this with `MARKERS=1`.
+
+### The API — `utils/snapshots.py`
+
+*Signatures, defaults and rationale below are READ FROM SOURCE* —
+`utils/snapshots.py` and the two benches that call it — *because the camera
+calls need a live stage and this write-up did not start one.* What WAS checked
+on disk: the container→host mapping, the 1280x720 frame, the root ownership and
+the `row.png` framing failure, against the PNGs two separate runs left behind in
+`~/docker/isaac-sim/logs/` (`people_ac/`, `cluster/`). To confirm the rest,
+add a `SNAP_DIR=` to the next run you own and diff the PNG names against the
+table.
+
+Coordinates are STAGE units, not metres. Get the factor from
+`scene_prep.get_stage_meters_per_unit(stage) -> (mpu, ssf)` and multiply: on a
+cm stage `mpu=0.01`, `ssf=100`.
+
+| call | what it does |
+|---|---|
+| `place_camera(stage, eye, target, focal_mm=18.0)` | defines/reuses `/World/ReviewCamera` (20.955 mm aperture, clip 0.5–20000), puts it at `eye` looking at `target` — both 3-tuples in stage units on a Z-up stage — and points the active viewport at it |
+| `snapshot(path, frames=40)` | `hide_decorations()`, pump `frames` app updates so the ray-traced image converges, capture, pump 10 more; `makedirs` the parent for you |
+| `views_around(stage, {name: (x, y)}, out_dir, ssf=1.0, top_h=60.0, obl_dist=45.0, obl_h=22.0, frames=40)` | `<name>_top.png` + `<name>_obl.png` per point. Takes METRES and applies `ssf` itself — the one entry point that does. The oblique looks from the south-west, which keeps the default sky's sun on the subject |
+| `overview(stage, centre, span_m, out_path, ssf=1.0, frames=40)` | one plumb shot with the eye at `span_m * 0.95` |
+| `hide_decorations()` | kills grid / outline / gizmos. `capture_viewport_to_file` grabs what the viewport DRAWS, so Kit's world reference grid lands in the PNG and reads as a defect in the scene — it was misdiagnosed twice, once on a bench with no overlay in it at all. Read the comment block above `_DECOR_SETTINGS` before writing your own capture |
+
+Captures come out **1280x720** (measured on every PNG in
+`~/docker/isaac-sim/logs/*`) and there is no resolution argument. More detail
+means moving the camera, not asking for a bigger image.
+
+### Choosing an eye and a target
+
+At the default 18 mm on that 20.955 mm aperture the frame is **1.16 x the eye
+height** wide and **0.65 x** tall (computed from the focal/aperture in
+`place_camera` and the measured 1280x720; the `row.png` miss below is the
+empirical check). So `h ≈ span / 1.16` frames `span` metres
+across, and `overview(..., span_m, ...)` at `0.95 * span_m` covers `1.11 *
+span_m` horizontally by `0.62 * span_m` vertically.
+
+- **Top-down**: `eye=(x, y, h)`, `target=(x, y, 0)`. `_look_at` PINS the yaw to
+  0 in this case so +X is right and +Y is up, the way a map reads — the
+  `atan2(0, 0)` fallthrough quarter-turns the image, and a car pointing along
+  +Y was once read off such a capture as pointing along +X and an asset's
+  yaw-offset "fixed" against it.
+- **Oblique**: `eye=(x-d, y-d, obl_h)` with `d = dist/√2`, `target=(x, y, ~1 m)`
+  — aim at subject height, not at 0, or the subject sits at the top of the frame.
+- **Close-ups scale off the measured object**, never a constant.
+  `car_occupants` stands off at `length*1.25` at 30 mm because a fixed 5.2 m
+  suits a coupe and puts the camera *inside* an 8.4 m van — the first van
+  capture was a close-up of one door panel.
+- **Frame the context, not just the subject.** `people_showcase` widened to
+  `top_h=62 / obl_dist=52` deliberately: the burnt trees are what say
+  "wildfire", and a shot tight enough to miss them is a shot of a car park.
+
+### Import it BY FILE PATH, at the tail, inside a try
+
+```python
+if SNAP_DIR:
+    try:
+        import importlib.util as _ilu
+        _sp = os.path.join(_ISAAC_SIM_DIR, "utils", "snapshots.py")
+        _spec = _ilu.spec_from_file_location("snapshots", _sp)
+        _snaps = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_snaps)
+        _snaps.overview(stage, (20.0, 20.0), 300.0,
+                        os.path.join(SNAP_DIR, "row.png"), ssf)
+        _snaps.views_around(stage, {"C": (-20.0, 0.0)}, SNAP_DIR, ssf,
+                            top_h=62.0, obl_dist=52.0, obl_h=26.0)
+        print("[bench] snapshots -> {0}".format(SNAP_DIR))
+    except Exception as exc:
+        print("[bench] snapshots FAILED: {0}".format(exc))
+```
+
+That is the shape both benches use, lifted from
+`people_showcase_launch_script.py`. Three deliberate choices, all worth copying:
+
+1. **By path, not `import snapshots`** — the module's own docstring: Isaac's
+   script runner does not reliably set `__file__`. The benches DO reach
+   `scene_prep` / `scene_generator` through `sys.path.insert` at the top, so the
+   by-path idiom is specifically about this late, optional import, which must
+   not depend on a `sys.path` entry set 600 lines earlier still being intact.
+2. **At the tail, after the banner** — `snapshots.py` does
+   `import carb, omni.kit.app` and `from pxr import ...` at module level, and
+   `omni.kit.app` / `pxr` only exist once `SimulationApp(...)` has built the Kit
+   environment. That is the same reason every launcher's own `pxr` import sits
+   BELOW its `SimulationApp(...)` call.
+3. **Wrapped in `try`** — a failed capture must not take down a scene someone
+   is looking at (section 8). The bench prints `snapshots FAILED: ...` and
+   carries on into `while simulation_app.is_running()`.
+
+`car_occupants` adds a fourth: flow needs TIME before it is photographed.
+`timeline.play()` then 240 `app.update()`s, THEN the captures — the emitters
+inject fuel per step, so a shot at t=0 is of an empty grid.
+
+### What bites
+
+- **A bench's `overview` frames the FULL station row even when `UNITS=` built a
+  subset.** `people_showcase` hard-codes `overview(stage, (20, 20), 300.0, ...)`,
+  which covers x ∈ [-146, 186]; with `UNITS=A,C` station A (x=-180) is 34 m off
+  frame and `row.png` came back as an empty green field with the C pool a
+  40-pixel rectangle near the middle. The per-unit `<UID>_top.png` /
+  `<UID>_obl.png` are the useful ones for a subset run; `row.png` only means
+  something on a full build.
+- **The PNGs land root-owned.** The container runs as uid 0, so both the files
+  (`root:root 644`) and the directory (`root:root 755`) are owned by root and a
+  uid-1000 host shell cannot delete or overwrite them —
+  `test -w ~/docker/isaac-sim/logs/people_ac` fails. Reading is fine. Clean up
+  from inside: `docker exec isaac-sim rm -rf /isaac-sim/.nvidia-omniverse/logs/<name>`.
+- **`[snapshots] -> path` prints before the file exists.**
+  `capture_viewport_to_file` returns "a future-like object that can be awaited
+  to ensure the capture completes" and `snapshot()` discards it, pumping 10
+  frames instead. That is enough in a loop, but trust `ls -l` on the host over
+  the print for the LAST capture before an exit.
+- **Do not copy the inline camera code out of `urban_buildings`,
+  `urban_showcase` or `modern_city_catalogue`.** Those carry a pre-`snapshots.py`
+  `aim_camera` / `snapshot` pair that has neither `hide_decorations()` nor the
+  plumb-view yaw pin — i.e. exactly the two bugs `snapshots.py` exists to fix.
+  Import `utils/snapshots.py`.
+
+## 6. Nucleus — list, upload and verify WITHOUT booting an app
+
+`omni.client` runs standalone under the Kit python in this container — no
+`SimulationApp`, no GPU, no pane. Measured **0.83 s** wall for `docker exec` +
+connect + list of a real Nucleus folder, against the headless app boot that
+`scene_gen/tools/nucleus_browse.py` and `nucleus_catalogue.py` still pay (their
+docstrings say ~80 s; section 2c measured 133 s cold / 14 s warm for a full
+launcher). Their shared premise — "`pxr`/`omni.client` only import after
+SimulationApp has started" — is stale; the real blocker was a library path, see
+below. Because it never touches the pane or the GPU, this is also the ONE thing
+in this skill that is safe to run against a container someone else is using.
+
+```bash
+docker exec isaac-sim bash -c '
+  EXT=/isaac-sim/kit/extscore/omni.client.lib
+  LIB=$(ls -d /isaac-sim/extscache/omni.client-*/bin | head -1)
+  LD_LIBRARY_PATH="/isaac-sim/kit:$LIB:$LD_LIBRARY_PATH" PYTHONPATH="$EXT" \
+  /isaac-sim/kit/python/bin/python3 - <<PY
+import omni.client as c
+c.initialize()
+r, entries = c.list("omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/materials/megascans")
+print(r, [(e.relative_path, e.flags) for e in entries])
+c.shutdown()
+PY'
+```
+
+Both env vars are load-bearing, and each fails differently:
+
+| dropped | failure |
+|---|---|
+| `PYTHONPATH=/isaac-sim/kit/extscore/omni.client.lib` | `ModuleNotFoundError: No module named 'omni'` |
+| `/isaac-sim/kit` on `LD_LIBRARY_PATH` | `ImportError: libcarb.so: cannot open shared object file: No such file or directory`, raised from `omni/client/impl/__init__.py` |
+
+`libcarb.so` is at `/isaac-sim/kit/libcarb.so` and nowhere else on the default
+path; that second error, not a real dependency on Kit, is what the "boot an app
+first" folklore was actually describing. The `extscache` `bin` entry is belt
+and braces — `_omniclient*.so` finds `libomniclient.so` by RPATH, so
+`LD_LIBRARY_PATH=/isaac-sim/kit` alone lists and stats fine — but keep it: the
+USD resolver below has no such RPATH.
+
+Credentials need nothing: the image env carries `OMNI_USER=$omni-api-token`
+and `OMNI_PASS`, and `initialize()` picks them up.
+
+### API surface (all blocking wrappers over `*_with_callback`)
+
+| call | returns / notes |
+|---|---|
+| `initialize()` / `shutdown()` | bracket the session |
+| `list(url)` | `(Result, [ListEntry])`; entries have `.relative_path`, `.size`, `.flags` (`4` = folder, `515` = file — or test `flags & omni.client.ItemFlags.CAN_HAVE_CHILDREN`) |
+| `stat(url)` | `(Result, ListEntry)` — the existence/size check |
+| `copy(src, dst, behavior=CopyBehavior.ERROR_IF_EXISTS)` | **the upload.** `src` is an absolute IN-CONTAINER path, `dst` an `omniverse://` URL. Handles a single file or a whole folder tree in one call, creating the destination folder |
+| `create_folder(url)` | one level; unnecessary before a folder `copy` |
+| `delete(url)` | file or whole tree |
+| `move`, `read_file`, `write_file`, `get_server_info` | also present |
+
+`copy` defaults to **ERROR_IF_EXISTS** — re-uploading a material you are
+iterating on returns `Result.ERROR_ALREADY_EXISTS` and writes nothing. Pass
+`behavior=c.CopyBehavior.OVERWRITE` when you mean to replace.
+
+### Where things go
+
+The repo is bind-mounted at `/isaac-sim/AirStack`, so a host path
+`/home/<you>/SEI-COA/disaster-dataset/X` is `/isaac-sim/AirStack/X` inside —
+that is the `copy` source, no `docker cp` needed.
+
+The project asset root is
+
+    omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA
+
+which is what `airstack://` becomes when `AIRSTACK_ASSET_ROOT` is set to it, so
+`airstack://scene_gen/assets/materials/megascans/Worn_Pavement.usda` lands at
+`.../Projects/SEI-COA/scene_gen/assets/materials/megascans/Worn_Pavement.usda`.
+`AIRSTACK_ASSET_ROOT` is NOT set in the container today (checked): by default
+`scene_gen/scene_generator.py` resolves `airstack://` against the repo root,
+i.e. the local bind mount. Uploading buys you (a) other machines and (b) a run
+with `AIRSTACK_ASSET_ROOT=omniverse://...:443/Projects/SEI-COA` on the launch
+line, which sources every asset off Nucleus instead.
+
+### A megascans material is TWO uploads
+
+    Worn_Pavement.usda      the OmniPBR wrapper  (~1.2–1.5 kB)
+    Worn_Pavement/          T_<id>_2K_B.png, _N.png, _ORM.png  (~7–10 MB each)
+
+because the wrapper names its maps RELATIVELY:
+
+    asset inputs:diffuse_texture = @./Damaged_Asphalt/T_vizcebf_2K_B.png@
+
+so the folder name must equal the wrapper stem exactly. Every material already
+up there follows this (`Brick_Wall_Worn`, `Burnt_Forest_Floor`,
+`Damaged_Asphalt`, `Road_Asphalt`, `Road_Line*`, `Road_Marking_Line`,
+`Worn_Pavement`) — match it. Nucleus grows a `.thumbs/` of its own inside each
+folder; that is server-side, not something you upload or copy back.
+
+So the upload is two `copy` calls, one of them a folder:
+
+```python
+import omni.client as c
+c.initialize()
+SRC = "/isaac-sim/AirStack/scene_gen/assets/materials/megascans"      # the bind mount
+DST = ("omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA"
+       "/scene_gen/assets/materials/megascans")
+OW = c.CopyBehavior.OVERWRITE
+print(c.copy(f"{SRC}/Worn_Pavement.usda", f"{DST}/Worn_Pavement.usda", behavior=OW))
+print(c.copy(f"{SRC}/Worn_Pavement",      f"{DST}/Worn_Pavement",      behavior=OW))
+c.shutdown()
+```
+
+*The `copy`/`create_folder`/`delete` semantics above — folder trees copied in
+one call, the destination folder created for you, `ERROR_ALREADY_EXISTS`
+without `OVERWRITE`, `delete` removing a whole tree — were verified live
+against a throwaway `.../Projects/SEI-COA/_agent_probe` path, then deleted. The
+material paths in this block are illustrative; the mechanism under them is not.*
+
+### Verify the upload landed
+
+`copy` returning `Result.OK` is necessary, not sufficient. Check size and then
+open the stage:
+
+```bash
+docker exec isaac-sim bash -c '
+  EXT=/isaac-sim/kit/extscore/omni.client.lib
+  LD_LIBRARY_PATH="/isaac-sim/kit" PYTHONPATH="$EXT" /isaac-sim/kit/python/bin/python3 - <<PY
+import omni.client as c
+c.initialize()
+B="omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/materials/megascans/"
+print(c.stat(B+"Worn_Pavement.usda")[1].size)
+print([ (e.relative_path, e.size) for e in c.list(B+"Worn_Pavement")[1] ])
+c.shutdown()
+PY'
+```
+
+against `stat -c%s` on the local originals. Then read the USD itself — also
+standalone, also sub-second:
+
+```bash
+docker exec isaac-sim bash -c '
+  U=$(ls -d /isaac-sim/extscache/omni.usd.libs-*/ | head -1)
+  R=$(ls -d /isaac-sim/extscache/omni.usd_resolver-*/ | head -1)
+  C=/isaac-sim/kit/extscore/omni.client.lib
+  LD_LIBRARY_PATH="/isaac-sim/kit:${U}bin:${R}lib:$C/bin" PYTHONPATH="$U:$C" \
+  PXR_PLUGINPATH_NAME="${R}usd/omni_usd_resolver/resources" \
+  /isaac-sim/kit/python/bin/python3 -c "
+from pxr import Usd, UsdGeom
+s = Usd.Stage.Open(\"omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/materials/megascans/Damaged_Asphalt.usda\")
+print(UsdGeom.GetStageMetersPerUnit(s), [p.GetName() for p in s.Traverse()])
+"'
+# -> 0.01 ['Damaged_Asphalt', 'Shader']      in 0.8 s
+```
+
+`pxr` imports standalone too (`omni.usd.libs` in `extscache`), so the second
+half of the `nucleus_catalogue.py` docstring is stale as well — but
+`Usd.Stage.Open` on an `omniverse://` URL additionally needs
+`PXR_PLUGINPATH_NAME` pointed at the OmniUsdResolver resources AND
+`omni.client.lib/bin` on the library path, or the plugin load fails with
+`libomniclient.so: cannot open shared object file` and USD reports only
+`Failed to open layer @omniverse://...@`. Kit normally sets both up, which is
+why booting an app "works".
+
+`scene_gen/tools/nucleus_browse.py` (recursive listing) and
+`nucleus_catalogue.py` (bbox / prim tree / walk, driven by a JSON job file)
+still exist and are the right tools for a deep crawl — neither uploads, and
+both pay the app boot.
+
+## 7. Running Python inside the LIVE app
 
 There is no headless exec-into-Kit path. What exists:
 
@@ -190,7 +516,7 @@ There is no headless exec-into-Kit path. What exists:
 - **Do not hot-swap textures** under a running app to dodge a relaunch — it
   crashed Isaac (`Aborted (core dumped)`). Relaunch via section 4 instead.
 
-## 6. Stopping — mostly, don't
+## 8. Stopping — mostly, don't
 
 - If a person is looking at the GUI, the running container IS the deliverable.
   Do not `timeout` the launch, do not `stop`/`down` it, and ask before
@@ -212,6 +538,19 @@ There is no headless exec-into-Kit path. What exists:
 | old run's output mistaken for the new run | stale scrollback | `tmux clear-history -t isaac` after C-c, and prefix the relaunch with `clear;` (`clear` alone leaves tmux history intact) |
 | `ImportError: manifold3d` after a recreate | `down` destroyed runtime pip installs | relaunch via tmux, not `down`; or let `fracture.ensure_deps()` reinstall |
 | `airstack: command not found` | it is a shell function from `airstack setup` | `./airstack.sh` from the repo root |
+| snapshots taken but no PNG anywhere on the host | `SNAP_DIR` outside the mounted log tree | put it under `/isaac-sim/.nvidia-omniverse/logs/<name>` = `~/docker/isaac-sim/logs/<name>` |
+| the overview / `row.png` is an empty field | the bench's `overview()` frames the FULL station row; `UNITS=` built a subset | read the per-unit `<UID>_top.png` / `_obl.png`; `row.png` only means something on a full build |
+| cannot delete or overwrite a PNG under `~/docker/isaac-sim/logs/` | the container runs as uid 0, so files AND the directory are `root:root` | `docker exec isaac-sim rm -rf /isaac-sim/.nvidia-omniverse/logs/<name>` |
+| the last capture is missing though `[snapshots] -> ...` printed | `capture_viewport_to_file` returns a future that `snapshot()` discards | trust `ls -l` on the host, not the print; keep the trailing `app.update()` pump |
+| a top-down capture is quarter-turned, or Kit's grid is baked into the PNG | a launcher's own inline camera code (`urban_*`, `modern_city_catalogue`) predates `snapshots.py` | import `utils/snapshots.py`; do not copy the inline pair |
+| `ModuleNotFoundError: No module named 'omni'` under `kit/python/bin/python3` | `PYTHONPATH=/isaac-sim/kit/extscore/omni.client.lib` missing | use the section 6 invocation verbatim |
+| `ImportError: libcarb.so: cannot open shared object file` | `/isaac-sim/kit` missing from `LD_LIBRARY_PATH` | same; this error — not a real Kit dependency — is why the repo's Nucleus tools boot an app |
+| `omni.client.copy` returns `Result.ERROR_ALREADY_EXISTS` | default `CopyBehavior.ERROR_IF_EXISTS` | `behavior=omni.client.CopyBehavior.OVERWRITE` when replacing |
+| a Nucleus material renders untextured | the `<Name>/` texture folder was not uploaded next to `<Name>.usda`, or was renamed | the wrapper names its maps as `@./<Name>/T_*.png@` — folder stem must match |
+| the whole `isaac-sim` CONTAINER dies (exit 137, container gone) while a GUI scene was up | a second Kit process was started — a headless `./python.sh ...` alongside the running launcher | one Kit at a time. Stop the pane's launcher (C-c) before any standalone `python.sh` run, or expect to lose the scene on screen. Reported twice in one day, and misread the first time as the user stopping the sim (coasei-db, 2026-08-24) |
+| every PhysX raycast returns nothing, in a bench that authored colliders | a `UsdPhysics.Scene` plus `add_colliders` is NOT enough — the query structures are only populated once the timeline has STEPPED | `timeline.play()`, pump ~5 `app.update()`s, `timeline.stop()` before querying. Static colliders do not move while it ticks. A ground-snap that silently finds nothing lands everything at z=0, which looks plausible in a capture |
+| `UnboundLocalError: cannot access local variable 'omni'` from a line that ran fine before | a function-local `import omni.timeline` makes `omni` local to the WHOLE function, so every earlier `omni.kit.app...` in it breaks | import Kit modules at module scope, below `SimulationApp(...)` |
+| a close-up capture is pure black, or a picture of the inside of a rock | the camera is INSIDE geometry — a quake scene has 15 m rubble piles and 20+ m facades, and an oblique 14 m out at 7 m up lands in one | shoot plumb from well above (`overview(..., span_m=90)`), and mark small subjects with a coloured post rather than framing them tightly |
 
 ## Cheatsheet
 
@@ -236,6 +575,26 @@ docker exec isaac-sim tmux send-keys -t isaac 'clear; SCENE_CONFIG=<preset> <ENV
 
 # is it alive / what is it doing
 docker exec isaac-sim bash -c 'pgrep -af launch_script | head -2; nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv,noheader'
+
+# snapshots: add SNAP_DIR to the relaunch line, under the MOUNTED log dir, then read them on the host
+#   ... SCENE_CONFIG=<preset> SNAP_DIR=/isaac-sim/.nvidia-omniverse/logs/<name> PYTHONPATH="$ISAAC_SIM_PYTHONPATH" ...
+ls -l ~/docker/isaac-sim/logs/<name>/                     # root-owned 1280x720 PNGs
+grep -a '\[snapshots\] ->' ~/docker/isaac-sim/logs/isaac_pane.log | tail
+docker exec isaac-sim rm -rf /isaac-sim/.nvidia-omniverse/logs/<name>   # they are root-owned
+
+# Nucleus WITHOUT a SimulationApp (~0.8 s): list / stat / upload / verify
+docker exec isaac-sim bash -c '
+  EXT=/isaac-sim/kit/extscore/omni.client.lib
+  LIB=$(ls -d /isaac-sim/extscache/omni.client-*/bin | head -1)
+  LD_LIBRARY_PATH="/isaac-sim/kit:$LIB:$LD_LIBRARY_PATH" PYTHONPATH="$EXT" \
+  /isaac-sim/kit/python/bin/python3 -c "
+import omni.client as c
+c.initialize()
+B=\"omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/materials/megascans/\"
+r, es = c.list(B); print(r, [e.relative_path for e in es])
+# c.copy(\"/isaac-sim/AirStack/scene_gen/assets/materials/megascans/X.usda\", B+\"X.usda\", behavior=c.CopyBehavior.OVERWRITE)
+# c.copy(\"/isaac-sim/AirStack/scene_gen/assets/materials/megascans/X\",      B+\"X\",      behavior=c.CopyBehavior.OVERWRITE)
+c.shutdown()"'
 ```
 
 ## References
@@ -243,6 +602,10 @@ docker exec isaac-sim bash -c 'pgrep -af launch_script | head -2; nvidia-smi --q
 - [`simulation/isaac-sim/docker/docker-compose.yaml`](../../../simulation/isaac-sim/docker/docker-compose.yaml) — the exact tmux line, env and mounts
 - [`simulation/isaac-sim/docker/.bashrc`](../../../simulation/isaac-sim/docker/.bashrc) — defines `ISAAC_SIM_PYTHONPATH`
 - [`scene_gen/reload_scene.py`](../../../scene_gen/reload_scene.py) — in-app reload (Script Editor)
+- [`simulation/isaac-sim/utils/snapshots.py`](../../../simulation/isaac-sim/utils/snapshots.py) — the camera / capture API; its comment blocks hold the grid and plumb-yaw stories
+- [`simulation/isaac-sim/launch_scripts/people_showcase_launch_script.py`](../../../simulation/isaac-sim/launch_scripts/people_showcase_launch_script.py) and [`car_occupants_launch_script.py`](../../../simulation/isaac-sim/launch_scripts/car_occupants_launch_script.py) — the tails show the by-path import and the framing choices
+- [`scene_gen/scene_generator.py`](../../../scene_gen/scene_generator.py) — `airstack://` / `AIRSTACK_ASSET_ROOT` resolution
+- [`scene_gen/tools/nucleus_browse.py`](../../../scene_gen/tools/nucleus_browse.py), [`nucleus_catalogue.py`](../../../scene_gen/tools/nucleus_catalogue.py) — recursive listing and USD measurement; read-only, and their "boot an app first" docstrings are stale (section 6)
 - Related skills: [use-airstack-cli](../use-airstack-cli/SKILL.md),
   [build-wildfire-scenes](../build-wildfire-scenes/SKILL.md),
   [write-isaac-sim-scene](../write-isaac-sim-scene/SKILL.md),

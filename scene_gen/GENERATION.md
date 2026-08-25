@@ -118,12 +118,107 @@ with `plan.py` first, and use `--used-only` while iterating.
 
 **Stage B — assemble a scene** (`bake_scene.py`, or a launch script). Layout,
 detail and disaster over the placement list; each damaged building references
-the archetype its level calls for instead of being fractured live.
+the archetype its level calls for instead of being fractured live. Then the
+disaster's own `bake_stage_b` hook authors whatever it adds that is *not* a
+placement — for fire, the Flow rig and the burn (see below); for everything
+else, nothing.
 
     python3 scene_gen/bake_scene.py --config urban_quake_tiny --severity 0,0.5,0.9
+    python3 scene_gen/bake_scene.py --config fire
 
-**Stage C — `airstack up`.** Load the baked stage; targets and conditions are
-placed at load time.
+**Stage C — `airstack up`** (`targets.py`, and the launch scripts). Load the
+stage; place the targets, recording where they are; apply anything the USD
+could not carry (`attach_runtime` — fire's carb settings; nothing for the
+others).
+
+    ISAAC_SIM_SCRIPT_NAME=baked_scene_launch_script.py \
+    SCENE_CONFIG=urban_quake_showcase airstack up isaac-sim
+
+    TARGET_SEED=7 SCENE_CONFIG=urban_quake_showcase ... # same city, new people
+
+`scene_launch_script.py` and `generated_scene_launch_script.py` run the same
+two Stage C steps after generating in process;
+`baked_scene_launch_script.py` is the entrypoint-2 form that opens a scene the
+cache already holds.
+
+### The targets are not part of the scene
+
+Victims are placed at LOAD time and deliberately never baked, because they are
+not scenery — they are what is being searched for. Baking them would mean one
+population per baked city, so a second search trial on the same city would be
+scored against the same answer key. `targets.seed` (or `TARGET_SEED=`) re-rolls
+them against an unchanged USD.
+
+Where people are is a model, not a scatter: five cohorts — trapped inside a
+collapsed footprint (edge-biased, where the survivable voids are), struck just
+outside a damaged facade while escaping, caught in the street, gathered in the
+parks clear of every facade, and standing at the edge of a pile — mixed by an
+`occupancy` (night / day / commute) knob. The weights come from post-earthquake
+casualty and USAR literature, cited in `targets.py`'s docstring. Every type but
+earthquake compiles to zero weights and places nobody.
+
+Each target carries a **visibility class** (`open` / `partial` / `occluded`),
+so a run can be scored on what was findable rather than on what existed. Ground
+truth lands in three places: `targets.json` beside the scene, `customData
+["airstack:victim"]` on the prim, and a Replicator `class=person` label.
+
+**Earthquake scenes have no scenery humans.** `compile_disaster` zeroes
+`detail.humans.*` and the `humans_prone_fraction` / `humans_strewn` aftermath
+knobs whenever `targets.owns_humans` is set, because an unlabelled pedestrian
+in a scene whose humans are the ground truth is a false positive by
+construction. That is what moved the earthquake snapshots.
+
+### One class per disaster: `disaster/kinds.py`
+
+Everything a *type* decides used to be a branch in whichever stage needed it —
+`if self.disaster == "earthquake"` in the baker, `fire=(self.disaster ==
+"fire")` beside it, and a launch script that was the only thing that knew how
+to light a fire. A `Disaster` is that decision set in one place, with a
+subclass per type, and the stages call hooks instead of naming types:
+
+| hook | stage | what it decides |
+|------|-------|-----------------|
+| `field(dis, region)` | B | which `DamageField` — the config's `kind` wins, `default_field_kind` is the fallback |
+| `ladder(kind)` | A, B | the rungs an asset can land on (`levels.LADDERS`) |
+| `damage_archetype(...)` | A | how one clean instance is wrecked, by rung where the type has a damage script, by intensity where it does not |
+| `chars_vegetation` | A | whether a felled tree comes out charred |
+| `bake_stage_b(...)` | B | what the type authors onto the finished scene that is not a placement |
+| `attach_runtime(stage)` | C | what a loaded scene has to be told that the USD could not carry |
+| `place_targets(...)` | C | who is in the scene to be found, and where (`targets.py`; config-driven, so no subclass overrides it) |
+
+Two things it deliberately does **not** own. `compile_disaster.py` still owns
+what a severity means for each type — that is config compilation, and it runs
+on the host with no stage. And which damage script wrecks a building stays in
+`mesh_damage.DAMAGE_SCRIPTS`, because the live path dispatches off it too;
+`Disaster.damage_script` reads that registry rather than shadowing it, so a
+library can never be baked with damage the live path would not have produced.
+
+### Fire is baked, not scripted
+
+The fire used to be Stage C by accident: `apply_wildfire` built the emitters at
+load time and a `WildfireDriver` poked their attributes off a timeline
+callback, so a fire scene could not be written to a USD at all while an
+earthquake scene could. Nothing about it actually needed a running sim — the
+emitters are one sphere fitted per fuel prim, and the schedule is solved in
+closed form from the same elliptical front the damage field uses.
+
+So `fire.bake_emitters` authors the whole rig plus the burn as **timeSamples**,
+and `bake_scene.py` produces a fire scene that plays with no Python at all.
+`apply_wildfire` is unchanged and still drives the live path; both go through
+one `build_emitters`, and one `burn_windows` defines the clock they share.
+
+What still cannot bake, and why it is a sidecar rather than a bug:
+
+| | |
+|---|---|
+| the voxel solve | Flow simulates at render time; there is no volume cache to write (the FlowUSD volume writer is an Isaac 6.0 feature) |
+| the carb settings | `rtx/flow/*` is renderer state, not scene description — recorded as `customData` on `/World/flow` and applied by `attach_runtime` |
+| segmentation of the flame | Replicator's annotators do not see the Flow volume in 5.1, so only the emitter region carries a label |
+
+Per-emitter ground truth (`t_ignite_s`, `intensity`, `will_flame`) is stamped
+on each emitter as `customData`, so the burn state at any frame is recoverable
+from the file — `WildfireDriver.burn_report` can only answer that while a
+driver is alive.
 
 ### severity, field, level
 
@@ -187,7 +282,9 @@ the Isaac Sim launch scripts import it from here.
 | `compile_locale.py` | The locale axis: one function per locale (`urban`/`suburban`/`rural`). |
 | `config_merge.py` | The one `deep_merge`, in a module neither compiler owns (they form an import cycle). |
 | **`archetypes/`** | **Stage A.** `plan.py` enumerates the grid (free, no sim); `bake.py` builds it; `bake_cli.py` is the offline entry point; `library.py` addresses the result. |
-| `disaster/field.py` | The damage field: `uniform` / `radial` / `path` / `ellipse`. The wildfire front is a field kind, not special-cased. |
+| `disaster/field.py` | The damage field: one `DamageField` subclass per shape — `uniform` / `radial` / `path` / `ellipse`. Intensity and scour density come off the same object, so the corridor debris lies in cannot drift from the corridor damage is in. The wildfire front is a field kind, not special-cased. |
+| `disaster/kinds.py` | One `Disaster` per type, and the stage hooks each fills in. |
+| `disaster/fire.py` | The wildfire: spread model, Flow rig, and the burn — live (`apply_wildfire`) or baked into the USD (`bake_emitters`). |
 | `disaster/levels.py` | The ladders, `local_damage` and the one quantiser. |
 | `measure_cache.py` | Persistent asset footprints — SPEC's "measure assets / use cached". |
 | `scene_cache.py` + `bake_scene.py` | **Entrypoint 1.** Generate a scene offline into the two-tier cache. |
@@ -677,6 +774,15 @@ In `compile_disaster.py`:
    `severity: 0.9` both read correctly.
 2. Register it in `DISASTERS`.
 3. Add a `presets/<name>.yaml`.
+4. Add a `LADDERS` entry in `disaster/levels.py` — the rungs Stage A bakes.
+5. Add a `Disaster` subclass in `disaster/kinds.py` if the type needs anything
+   the base does not give it: a different default field shape, charred
+   vegetation, or work in Stage B or C. Most types need only `name` and
+   `default_field_kind`.
+
+No stage needs editing for any of that. If you find yourself adding a branch on
+the type name inside `archetypes/bake.py` or `generate_scene.py`, it belongs on
+the class instead — that is the whole point of the hooks.
 
 Use the shared vocabulary so types stay comparable: `damaged_fraction` /
 `destroyed_fraction` for structural loss, `debris.*` for rubble volume and
@@ -800,6 +906,18 @@ appearance:
 exactly this: the tornado's material is a hundred metres downwind and the
 fire's is inside the building.
 
+**A field is not the whole of a disaster type.** The field says where a
+building fails; what a whole *rung of the ladder* means — which mechanisms are
+in play, how big the debris is, how much of the mass leaves the lot, how hard
+it is thrown — is a per-disaster SCRIPT on the `mesh_damage` API, listed in
+`mesh_damage.DAMAGE_SCRIPTS` and called by rung rather than by intensity:
+[`disaster/quake.py`](disaster/quake.py) for `earthquake` and
+[`disaster/tornado.py`](disaster/tornado.py) for `tornado`. The types without a
+script still go through `damage_building` at a continuous intensity, which is
+where all of them started. Severity appears in none of the scripts: its only
+job is choosing which rung a building lands on, which is what lets Stage A bake
+one archetype library and reuse it at every severity.
+
 **Only the fragments that came free are settled.** `fracture_to_stage` splits
 its output into *loose* and *anchored*, and only the loose ones get a placement
 marked `settle`. Handing every fragment to PhysX makes gravity level the
@@ -828,6 +946,7 @@ field will never break are dismissed *before* they are thickened.
 ```yaml
 disaster:
   mesh_damage:
+    material: timber        # what the buildings are made of — see below
     fracture:
       enabled: true
       max_buildings: 60     # the budget; everything else has a default
@@ -835,6 +954,24 @@ disaster:
       # fragment_m (world size of a chunk), min_cells, max_cells,
       # support, release, collapse, neighbors, min_faces, cap
 ```
+
+### What the buildings are made of comes from the locale, not the disaster
+
+`material` names a row of `mesh_damage.MATERIALS` and supplies three things
+the disaster has no opinion about: how thick a wall is (`thickness.wall_m`),
+what SHAPE a fragment comes out (masonry a lump, timber a plank), and how big
+one is by default. A stud wall breaks into the same planks whether it was
+shaken or blown down, so `compile_disaster.LOCALE_MATERIAL` sets it off the
+locale — `urban` is masonry at a 0.5 m wall, `suburban` and `rural` are timber
+at 0.15 m — and every disaster reads it from that one place: the live path
+(`mesh_damage.apply_to_stage`), the Stage A bake (`kinds.damage_archetype`)
+and the per-type scripts (`quake.at_level`, `tornado.at_level`), which rescale
+their masonry-quoted rubble size and blast speed by it.
+
+Getting it wrong is the single most visible way an urban-tuned ladder fails on
+a house: a 6.4 m bungalow thickened to a half-metre wall and diced into
+isotropic 2 m lumps is a pile of concrete where a collapsed wooden house
+belongs.
 
 ### Walls need thickness before they can break
 

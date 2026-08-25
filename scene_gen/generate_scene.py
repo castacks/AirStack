@@ -32,6 +32,7 @@ from detail import city_detail
 from layout import city_layout
 from disaster import disaster_stage
 from detail import districts
+from disaster import kinds
 from disaster import mesh_damage
 from detail import road_markings
 
@@ -556,6 +557,18 @@ def generate_scene_on_stage(stage,
     road_markings.apply(stage, config, layout, parent_path, scene_scale_factor,
                         hydrants=_at("fire_hydrant"),
                         bus_stops=_at("bus_stop"))
+
+    # Stage B, last step: whatever this disaster authors onto the finished
+    # scene that is not a placement. Only fire has any — its Flow rig, its
+    # emitters and the burn as timeSamples — and it runs here, after every prim
+    # exists, because an emitter is fitted to a real prim's bounding box.
+    #
+    # A HOOK RATHER THAN AN `if fire:`. The whole point of the staged pipeline
+    # is that adding a disaster costs a `LADDERS` entry and a compiler, not an
+    # edit to the stage that runs it; a branch here would be the fourth place
+    # that has to learn a new type's name.
+    kinds.get(config).bake_stage_b(stage, config, placements,
+                                   scene_scale_factor)
 
     _report(base_counts, _tally(placements))
     return placements

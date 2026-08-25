@@ -79,6 +79,9 @@ is numpy and the only Blender-shaped dependency was reading and writing points.
 """
 
 import math
+import os
+import time
+from collections import namedtuple
 
 import numpy as np
 
@@ -92,6 +95,27 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, Vt
 # Everything above this line is numpy on (N, 3) world-space arrays. These are
 # the dozen functions that make a `UsdGeom.Mesh` look like one.
 # ---------------------------------------------------------------------------
+
+
+def stable_seed(*parts, mod: int = 9973) -> int:
+    """A reproducible small integer from *parts*. Use instead of `hash()`.
+
+    PYTHON'S `hash()` IS SALTED PER PROCESS for str and bytes, so
+    ``abs(hash((asset, level))) % 9973`` draws a DIFFERENT seed every run. Every
+    caller of it was quietly opting out of the one invariant this generator
+    rests on — config plus seed reproduces the scene — and the symptom is the
+    least alarming one possible: the output looks fine, it is just never the
+    same twice, so a severity sweep compares two different cities and an
+    archetype re-bake silently replaces the library.
+
+    `crc32` is not a hash function in the security sense and does not need to
+    be. It needs to be cheap, well spread over small inputs, and identical in
+    every process, which it is and `hash()` is not.
+    """
+    import zlib
+
+    key = "\x1f".join(str(p) for p in parts).encode("utf-8")
+    return int(zlib.crc32(key) % int(mod))
 
 
 def deinstance(root: "Usd.Prim") -> int:
@@ -158,9 +182,32 @@ def get_points(prim) -> np.ndarray:
     return local @ M[:3, :3] + M[3, :3]
 
 
+# VT ARRAYS ARE BUILT WITH `FromNumpy`, NEVER WITH A LIST COMPREHENSION.
+#
+# `Vt.Vec3fArray([Gf.Vec3f(*p) for p in arr])` is one Python call and one
+# temporary object PER VERTEX, and a fractured building has millions of them:
+# profiled on one `BG_Building_F` at `partial_collapse`, the three conversions
+# these helpers replace cost 107 s of a 428 s fracture — a quarter of it, spent
+# entirely on marshalling. `FromNumpy` hands the buffer over in one call.
+#
+# It is strict about dtype (int32 / float32) and about shape, so the cast is
+# done here rather than at each call site.
+
+def _vt_int(arr) -> Vt.IntArray:
+    """Any integer sequence -> Vt.IntArray."""
+    return Vt.IntArray.FromNumpy(np.ascontiguousarray(arr, dtype=np.int32))
+
+
 def _vec3f(arr: np.ndarray):
     """(N, 3) float array -> Vt.Vec3fArray, the type the attribute wants."""
-    return Vt.Vec3fArray([Gf.Vec3f(*map(float, p)) for p in arr])
+    return Vt.Vec3fArray.FromNumpy(
+        np.ascontiguousarray(arr, dtype=np.float32).reshape(-1, 3))
+
+
+def _vec2f(arr: np.ndarray):
+    """(N, 2) float array -> Vt.Vec2fArray, for UVs."""
+    return Vt.Vec2fArray.FromNumpy(
+        np.ascontiguousarray(arr, dtype=np.float32).reshape(-1, 2))
 
 
 def set_points(prim, world: np.ndarray) -> None:
@@ -364,7 +411,7 @@ def _filter_by_element(attr, primvar, interpolation, keep, fv_keep) -> None:
         if ind is None or len(ind) != len(mask):
             return
         primvar.SetIndices(
-            Vt.IntArray([int(v) for v in np.asarray(ind)[mask]]))
+            _vt_int(np.asarray(ind)[mask]))
         return
 
     vals = attr.Get() if attr else None
@@ -392,7 +439,7 @@ def _renumber_subsets(prim, keep: np.ndarray) -> None:
         a = np.asarray(ind, dtype=np.int64)
         a = a[(a >= 0) & (a < len(keep))]
         a = a[keep[a]]
-        sub.GetIndicesAttr().Set(Vt.IntArray([int(v) for v in new_of[a]]))
+        sub.GetIndicesAttr().Set(_vt_int(new_of[a]))
 
 
 def delete_faces(prim, keep, deactivate: bool = True) -> int:
@@ -448,9 +495,9 @@ def delete_faces(prim, keep, deactivate: bool = True) -> int:
 
     fv_keep = np.repeat(keep, counts)
     mesh.GetFaceVertexCountsAttr().Set(
-        Vt.IntArray([int(c) for c in counts[keep]]))
+        _vt_int(counts[keep]))
     mesh.GetFaceVertexIndicesAttr().Set(
-        Vt.IntArray([int(i) for i in idx[fv_keep]]))
+        _vt_int(idx[fv_keep]))
 
     _filter_by_element(mesh.GetNormalsAttr(), None,
                        mesh.GetNormalsInterpolation(), keep, fv_keep)
@@ -506,7 +553,7 @@ def _resubset(prim, face_src: np.ndarray) -> None:
         keep = keep[keep <= int(face_src.max())]
         want[keep] = True
         new = np.nonzero(want[face_src])[0]
-        sub.GetIndicesAttr().Set(Vt.IntArray([int(i) for i in new]))
+        sub.GetIndicesAttr().Set(_vt_int(new))
 
 
 def subdivide(prim, max_edge: float, max_points: int = 400_000,
@@ -662,9 +709,9 @@ def subdivide(prim, max_edge: float, max_points: int = 400_000,
         return 0
 
     n_tri = len(pt)
-    mesh.GetFaceVertexCountsAttr().Set(Vt.IntArray([3] * n_tri))
+    mesh.GetFaceVertexCountsAttr().Set(_vt_int(np.full(n_tri, 3)))
     mesh.GetFaceVertexIndicesAttr().Set(
-        Vt.IntArray([int(i) for i in pt.reshape(-1)]))
+        _vt_int(pt.reshape(-1)))
     set_points(prim, pts)
 
     for attr, rebuild, arr in fv_sets:
@@ -861,7 +908,7 @@ def _gather_by_element(attr, primvar, interpolation, face_src, fv_src,
             if len(a) <= int(take.max()):
                 return
             a = a[take]
-        primvar.SetIndices(Vt.IntArray([int(v) for v in a]))
+        primvar.SetIndices(_vt_int(a))
         return
 
     vals = attr.Get() if attr else None
@@ -904,7 +951,7 @@ def _grow_subsets(prim, n_faces: int, rim_face: np.ndarray) -> None:
         mine = np.isin(rim_face, a)
         out = np.concatenate([a, a + n_faces,
                               2 * n_faces + np.nonzero(mine)[0]])
-        sub.GetIndicesAttr().Set(Vt.IntArray([int(v) for v in out]))
+        sub.GetIndicesAttr().Set(_vt_int(out))
 
 
 def solidify(prim, thickness: float, ref_centre=None, ref_box=None,
@@ -1322,7 +1369,8 @@ def field_earthquake(bounds: Bounds, intensity: float, seed: int = 0,
 
 def _field_wind(name: str, bounds: Bounds, intensity: float, seed: int,
                 heading_deg, exponent: float, amp: float,
-                throw: float, lift: float, char: float = 0.0) -> Failure:
+                throw: float, lift: float, char: float = 0.0,
+                windward: float = 0.45, floor: float = 0.0) -> Failure:
     """The shared shape of a windstorm: it fails a building from the top down.
 
     Wind speed rises with height through the boundary layer and the load goes
@@ -1336,8 +1384,27 @@ def _field_wind(name: str, bounds: Bounds, intensity: float, seed: int,
     hemisphere the storm came from, and everything that comes free travels the
     SAME bearing. That shared bearing is the whole signature: it is what makes
     a tornado track read as a track rather than as a row of bomb sites.
+
+    *windward* is HOW MUCH of the demand that bias owns, on the same reading as
+    `field_earthquake`'s `asymmetry`: the leeward face sees ``1 - 2*windward``
+    of the load, so 0.5 fails one side of the building and nothing else, and 0
+    is plan-uniform. Plan-uniform is the right shape for a direct hit — a house
+    under the vortex is loaded from every side in turn and does not have a
+    sheltered face — which is why it is a parameter and not the 0.45 that was
+    baked in.
+
+    *floor* is how much of the load reaches the GROUND. The height profile is
+    ``t ** exponent``, which is zero at the sill for any positive exponent, so
+    on its own it cannot fail the bottom course of a wall however hard it is
+    driven — and a building hit head-on by a tornado fails at the sill plate
+    first, from suction and from debris impact rather than from wind speed.
+    Without this the top rung of the tornado ladder came out as a house with
+    its roof and upper walls gone standing on an untouched ground floor, which
+    is the rung below it. 0 is the pure profile and the default.
     """
     i = float(np.clip(intensity, 0.0, 1.0))
+    w = float(np.clip(windward, 0.0, 0.5))
+    fl = float(np.clip(floor, 0.0, 1.0))
     rng = np.random.default_rng(seed + 5)
     if heading_deg is None:
         heading_deg = float(rng.uniform(0.0, 360.0))
@@ -1347,9 +1414,10 @@ def _field_wind(name: str, bounds: Bounds, intensity: float, seed: int,
 
     def damage(p):
         u, v, t = plan_coords(bounds, p)
-        prof = np.clip(t, 0.0, 1.0) ** exponent
+        prof = fl + (1.0 - fl) * np.clip(t, 0.0, 1.0) ** exponent
         # The storm travels along +d, so it strikes the face at -d.
-        wind = 0.55 + 0.45 * np.clip(-(u * dx + v * dy), -1.0, 1.0)
+        wind = np.clip((1.0 - w) + w * np.clip(-(u * dx + v * dy), -1.0, 1.0),
+                       0.0, None)
         gust = 0.75 + 0.45 * _grain(p, 0.6 * r, seed + 31)
         return np.clip(amp * prof * wind * np.clip(gust, 0.0, None), 0.0, 1.0)
 
@@ -1365,14 +1433,28 @@ def _field_wind(name: str, bounds: Bounds, intensity: float, seed: int,
 
 
 def field_tornado(bounds: Bounds, intensity: float, seed: int = 0,
-                  heading_deg=None, **_) -> Failure:
-    """A narrow, violent corridor: a deep peel thrown a long way along track."""
+                  heading_deg=None, exponent=None, amp=None, throw=None,
+                  lift=None, windward: float = 0.45, floor: float = 0.0,
+                  **_) -> Failure:
+    """A narrow, violent corridor: a deep peel thrown a long way along track.
+
+    Every shape knob defaults to the intensity-derived value it has always had
+    and can be overridden by a caller that knows which MECHANISM it is asking
+    for — see `disaster/tornado.py`, which is the only one that does. `throw`
+    and `lift` are given as fractions of the building (`Bounds.frac`) when
+    overridden, so "thrown its own length downwind" means the same on a
+    bungalow and on a tower.
+    """
     i = float(np.clip(intensity, 0.0, 1.0))
     return _field_wind("tornado", bounds, i, seed, heading_deg,
-                       exponent=2.4 - 1.2 * i,
-                       amp=0.90 + 0.55 * i,
-                       throw=bounds.frac(0.22 + 0.50 * i),
-                       lift=bounds.frac(0.06 + 0.16 * i))
+                       exponent=(2.4 - 1.2 * i) if exponent is None
+                       else float(exponent),
+                       amp=(0.90 + 0.55 * i) if amp is None else float(amp),
+                       throw=bounds.frac(0.22 + 0.50 * i if throw is None
+                                         else float(throw)),
+                       lift=bounds.frac(0.06 + 0.16 * i if lift is None
+                                        else float(lift)),
+                       windward=float(windward), floor=float(floor))
 
 
 def field_hurricane(bounds: Bounds, intensity: float, seed: int = 0,
@@ -1814,58 +1896,81 @@ def _clip_by_plane(verts, faces, normal, origin, uv=None, fmat=None,
     keep_mat = fmat[whole] if fmat is not None else None
     cut = np.nonzero((n_in == 1) | (n_in == 2))[0]
 
-    new_v, new_uv, new_f, new_m = [], [], [], []
+    # THE CUT FACES, ALL AT ONCE.
+    #
+    # Sutherland-Hodgman is a per-polygon walk, but every polygon here is a
+    # TRIANGLE against ONE plane, so the walk is three fixed edge slots and the
+    # whole thing is a masked gather. It used to be a Python loop with an
+    # `_add` closure appending one vertex at a time: profiled on a single
+    # `BG_Building_F`, that closure was 24.1M calls and 127 s of a 428 s
+    # fracture, with `_clip_by_plane` itself another 100 s on top — 63% of the
+    # time, on one core, while the other 23 sat idle. Cells are clipped by a
+    # dozen planes each and every cell pays it.
+    #
+    # The output order is the part that has to be preserved exactly, because
+    # the fan below and the caller's UV interpolation both depend on it: each
+    # edge slot k contributes vertex `a` (if inside) and then the crossing
+    # point (if the edge crosses), in that order. Interleaving the two (F, 3)
+    # masks into one (F, 6) mask reproduces it, and `np.nonzero` on a 2-D mask
+    # yields row-major order, i.e. slot order within each face.
     base = len(verts)
-    for fi in cut:
-        tri = faces[fi]
-        poly, poly_uv = [], []
+    if len(cut):
+        tri = faces[cut]                              # (F, 3)
+        ia, ib = tri, tri[:, [1, 2, 0]]
+        da, db = d[ia], d[ib]                         # (F, 3)
 
-        def _add(p, q=None, t=None):
-            if q is None:
-                poly.append(verts[p])
-                if uv is not None:
-                    poly_uv.append(uv[p])
-            else:
-                poly.append(verts[p] + t * (verts[q] - verts[p]))
-                if uv is not None:
-                    poly_uv.append(uv[p] + t * (uv[q] - uv[p]))
+        inside_a = da <= 0.0
+        # A SIGN CHANGE IN EITHER DIRECTION IS A CROSSING.
+        #
+        # This used to be `(da < 0) < (db < 0) or (da > 0) > (db > 0)`, and
+        # both of those clauses are true only for outside -> inside — so a
+        # straddling triangle recorded ONE crossing where it has two. A
+        # triangle with one vertex inside then clipped to two points and was
+        # dropped by the `< 3` guard below; one with two inside came out as a
+        # triangle instead of a quad. Every cut face in every cell was
+        # affected.
+        denom = da - db
+        cross = ((da < 0.0) != (db < 0.0)) & (np.abs(denom) > 1e-12)
+        t = da / np.where(cross, denom, 1.0)          # masked; never 0/0
 
-        for k in range(3):
-            a, b = tri[k], tri[(k + 1) % 3]
-            da, db = d[a], d[b]
-            if da <= 0.0:
-                _add(a)
-            # A SIGN CHANGE IN EITHER DIRECTION IS A CROSSING.
-            #
-            # This used to be `(da < 0) < (db < 0) or (da > 0) > (db > 0)`,
-            # and both of those clauses are true only for outside -> inside —
-            # so a straddling triangle recorded ONE crossing where it has two.
-            # A triangle with one vertex inside then clipped to two points and
-            # was dropped by the `len(poly) < 3` guard below; one with two
-            # inside came out as a triangle instead of a quad. Every cut face
-            # in every Voronoi cell was affected.
-            if (da < 0.0) != (db < 0.0) and abs(db - da) > 1e-12:
-                _add(a, b, da / (da - db))
-        if len(poly) < 3:
-            continue
-        start = base + len(new_v)
-        new_v.extend(poly)
-        new_uv.extend(poly_uv)
-        for k in range(1, len(poly) - 1):           # fan
-            new_f.append([start, start + k, start + k + 1])
+        va, vb = verts[ia], verts[ib]                 # (F, 3, 3)
+        pts_a = va
+        pts_x = va + t[:, :, None] * (vb - va)
+        cand = np.stack([pts_a, pts_x], axis=2).reshape(len(cut), 6, 3)
+        take = np.stack([inside_a, cross], axis=2).reshape(len(cut), 6)
+
+        # A face that clips to fewer than three points contributes NOTHING —
+        # not a face and not its vertices. Dropping the rows before the gather
+        # is what keeps that true.
+        cnt = take.sum(axis=1)
+        ok = cnt >= 3
+        take[~ok] = False
+        cnt = cnt[ok]
+
+        if len(cnt):
+            rows, _cols = np.nonzero(take)
+            new_v = cand[take]                        # (sum cnt, 3)
+            ends = np.cumsum(cnt)
+            starts = base + ends - cnt                # first vertex of each
+
+            # Fan: (start, start+k, start+k+1) for k in 1 .. cnt-2.
+            ntri = cnt - 2
+            rep = np.repeat(starts, ntri)
+            k = (np.arange(int(ntri.sum()))
+                 - np.repeat(np.cumsum(ntri) - ntri, ntri) + 1)
+            nf = np.stack([rep, rep + k, rep + k + 1], axis=1)
+
+            verts = np.concatenate([verts, new_v])
+            if uv is not None:
+                ua, ub = uv[ia], uv[ib]
+                uv_c = np.stack([ua, ua + t[:, :, None] * (ub - ua)],
+                                axis=2).reshape(len(cut), 6, uv.shape[1])
+                uv = np.concatenate([uv, uv_c[take]])
+            keep = np.concatenate([keep, nf]) if len(keep) else nf
             if fmat is not None:
-                new_m.append(fmat[fi])
-
-    if new_v:
-        verts = np.concatenate([verts, np.asarray(new_v, dtype=np.float64)])
-        if uv is not None:
-            uv = np.concatenate([uv, np.asarray(new_uv, dtype=np.float64)])
-        nf = np.asarray(new_f, dtype=np.int64)
-        keep = np.concatenate([keep, nf]) if len(keep) else nf
-        if fmat is not None:
-            nm = np.asarray(new_m, dtype=np.int64)
-            keep_mat = (np.concatenate([keep_mat, nm])
-                        if keep_mat is not None and len(keep_mat) else nm)
+                nm = np.repeat(fmat[cut][ok], ntri)
+                keep_mat = (np.concatenate([keep_mat, nm])
+                            if keep_mat is not None and len(keep_mat) else nm)
 
     if cap and len(keep):
         centre, cf = _cap_fan(verts, keep, n, origin)
@@ -1989,7 +2094,7 @@ def _face_material_ids(prim, n_faces: int, table: list, index: dict):
     return out
 
 
-def _mesh_soup(prims, select=None):
+def _mesh_soup(prims, select=None, masks=None):
     """``(Soup, taken)`` — the prims' geometry as one soup, and what it took.
 
     *select* maps an (F, 3) array of world-space face centroids to a boolean
@@ -2000,6 +2105,11 @@ def _mesh_soup(prims, select=None):
 
     That predicate is how the failure field decides what comes apart. With
     ``select=None`` the whole building is consumed.
+
+    *masks* names the faces directly, one boolean array per prim, for the
+    caller that has already decided — `fracture_to_stage` uses it to lift an
+    orphaned slab out of the source it was left on, where the deciding was
+    done by the support graph and not by the field.
     """
     V, UV, F, M, taken = [], [], [], [], []
     table, index = [], {}
@@ -2012,7 +2122,9 @@ def _mesh_soup(prims, select=None):
             taken.append(None)
             continue
 
-        if select is None:
+        if masks is not None:
+            take = np.asarray(masks[len(taken)], dtype=bool)
+        elif select is None:
             take = np.ones(len(counts), dtype=bool)
         else:
             cen = (np.add.reduceat(pts[idx], _fv_starts(counts), axis=0)
@@ -2054,11 +2166,18 @@ def _mesh_soup(prims, select=None):
 #: as pulverised against the coarse cracking further out.
 SEED_GAMMA = 1.5
 
-#: How much a corner outweighs flat wall when seeds are drawn. At 3.0 a fully
-#: turning neighbourhood is four times as likely to start a crack as a flat
-#: one — enough to put the cracks on the geometry without starving the middle
-#: of a facade, which would come off as one slab.
-CORNER_GAIN = 3.0
+#: How strongly a corner REPELS a seed. See `cornerness` for why the sign is
+#: this way round: a Voronoi seed is the middle of a fragment, not a crack, so
+#: seeding the corners buries them inside intact cells. At 0.9 a fully turning
+#: neighbourhood is a tenth as likely to hold a seed as flat wall, which puts
+#: the pair of seeds that straddle an edge onto the flat either side of it and
+#: their bisector — the crack — along the edge.
+CORNER_AVOID = 0.9
+
+#: Floor under that, so a corner is unlikely to be seeded rather than
+#: forbidden. Zero would mean a building whose damaged region is ALL corner —
+#: a truss, a railing, a parapet run — draws no seeds at all and never breaks.
+CORNER_FLOOR = 0.1
 
 
 def cornerness(soup: Soup, cell_m: float) -> np.ndarray:
@@ -2066,9 +2185,23 @@ def cornerness(soup: Soup, cell_m: float) -> np.ndarray:
 
     Concrete does not crack at random: it breaks at the geometry that
     concentrates stress, which on a building is corners, reveals, parapets and
-    the edges of openings — flat wall between them comes off in slabs. Biasing
-    the seeds toward those places is what makes rubble look broken rather than
-    diced.
+    the edges of openings — flat wall between them comes off in slabs. So the
+    corners and the edge seams are where the cracks should BE.
+
+    WHICH IS WHY THE SEEDS ARE PUSHED AWAY FROM THEM, NOT TOWARD THEM
+    ----------------------------------------------------------------
+    This had the sign the wrong way round, and the render is what says so: the
+    corners and the roof-to-wall seams were the parts that stayed whole. A
+    Voronoi seed is the CENTRE of a fragment; the cracks are the bisectors
+    halfway between seeds. Seeding a corner therefore does the opposite of what
+    it sounds like — it puts the corner in the middle of a cell, wraps it in
+    one intact lump of geometry, and guarantees the one place the building
+    should have split is the one place it cannot.
+
+    Turn it around and the mechanism works with the cut rather than against it:
+    seeds land on the flat wall either side of an edge, the bisector between
+    them falls on the edge, and the building comes apart along its seams. See
+    `CORNER_AVOID`.
 
     The measure is the spread of face normals in a neighbourhood, and the
     neighbourhood is a VOXEL rather than a k-d query: candidates run to
@@ -2098,9 +2231,75 @@ def cornerness(soup: Soup, cell_m: float) -> np.ndarray:
     return np.clip(1.0 - mean, 0.0, 1.0)[inv]
 
 
+#: HOW A MATERIAL BREAKS, as the shape of the unit it breaks INTO.
+#:
+#: This is the `block` column of the `Material` table `disaster/earthquake.py`
+#: carried before it was deleted, and which `quake.py`'s header lists as debt
+#: item 1: "a brick fragment came out a lump, a timber a plank, a steel member
+#: a beam". Everything in this module was isotropic until now, so every
+#: building broke like the same substance — masonry — and a timber-framed
+#: house came apart into rubble that reads as concrete.
+#:
+#: `wall_m`  how thick the material actually is. A masonry wall is half a
+#:           metre; a stud wall is a 90 mm stud with sheathing and siding on
+#:           it, so ~0.15 m, and the difference is the single most visible
+#:           thing about a pile of house debris.
+#: `grain`   the ASPECT of a fragment, as a per-axis multiplier on the cut
+#:           spacing. Normalised to unit geometric mean by `grain_vec`, so it
+#:           changes a fragment's SHAPE and not its size. (1, 1, 1) is the
+#:           isotropic lump this module has always made. Timber is long along
+#:           the run of the framing and short across it.
+#: `fragment_m` the fragment size the material wants, when a caller has no
+#:           opinion of its own.
+Material = namedtuple("Material", "wall_m grain fragment_m")
+
+MATERIALS = {
+    # Brick, block, concrete: a lump, and a thick one.
+    "masonry": Material(0.50, (1.0, 1.0, 1.0), 2.0),
+    # Stud framing, sheathing, siding, rafters. Long, thin and flat: a plank.
+    # The long axis is the framing run, the short one is across the boards,
+    # and the thin one comes free from `wall_m` rather than from the grain —
+    # a fragment cut out of a 0.15 m wall is 0.15 m thick whatever the cut
+    # does, which is why `grain`'s z is not the plank's thickness.
+    "timber": Material(0.15, (2.6, 1.0, 0.55), 1.2),
+    # A beam: long in one direction and stubby in the other two.
+    "steel": Material(0.30, (3.2, 0.8, 0.8), 2.4),
+}
+
+#: What an asset is made of when nothing says otherwise. Masonry, because that
+#: is what every number in this module meant before the table existed.
+DEFAULT_MATERIAL = "masonry"
+
+
+def material(name) -> Material:
+    """The `Material` for *name*, falling back to `DEFAULT_MATERIAL`.
+
+    Unknown degrades rather than raising, for the reason `levels.NONE_LADDER`
+    does: a typo in an asset set should not fail a bake an hour in.
+    """
+    if isinstance(name, Material):
+        return name
+    return MATERIALS.get(str(name or DEFAULT_MATERIAL).lower(),
+                         MATERIALS[DEFAULT_MATERIAL])
+
+
+def grain_vec(grain) -> np.ndarray:
+    """A grain as a (3,) array normalised to unit geometric mean.
+
+    Normalised because the grain must say what SHAPE a fragment is and not how
+    big it is — `fragment_m` is the one place size is decided, and an
+    un-normalised grain would silently scale it. With the geometric mean at 1
+    the cell volume is unchanged and only the aspect moves.
+    """
+    g = np.asarray(grain if grain is not None else (1.0, 1.0, 1.0),
+                   dtype=np.float64).reshape(3)
+    g = np.maximum(np.abs(g), 1e-6)
+    return g / float(np.prod(g) ** (1.0 / 3.0))
+
+
 def fracture_seeds(soup: Soup, failure: Failure, fragment_m: float,
                    seed: int, max_cells: int, spacing_frac: float = 0.7,
-                   oversample: int = 8) -> np.ndarray:
+                   oversample: int = 8, grain=None) -> np.ndarray:
     """Voronoi seeds, (S, 3) world space, drawn against the failure field.
 
     THE SIZE OF A FRAGMENT IS THE SPACING BETWEEN CRACKS
@@ -2156,14 +2355,22 @@ def fracture_seeds(soup: Soup, failure: Failure, fragment_m: float,
     cen = soup.centroids()
     d = np.clip(failure.damage(cen), 0.0, 1.0)
     # Damage says WHERE the building failed; cornerness says where, within
-    # that, the crack actually starts. Multiplying keeps the first as the gate
-    # — an undamaged corner is still not seeded — and lets the second choose
-    # among the faces the field already condemned.
-    w = (d ** SEED_GAMMA) * (1.0 + CORNER_GAIN * cornerness(soup, fragment_m))
+    # that, the crack actually runs. Multiplying keeps the first as the gate —
+    # an undamaged wall is still not seeded — and lets the second push the
+    # seeds off the seams so the cut lands on them (see `cornerness`).
+    w = (d ** SEED_GAMMA) * np.maximum(
+        CORNER_FLOOR, 1.0 - CORNER_AVOID * cornerness(soup, fragment_m))
     nz = np.nonzero(w > 1e-6)[0]
     if len(nz) < 2:
         return np.zeros((0, 3))
 
+    # THE THINNING HAPPENS IN GRAIN SPACE. The Poisson rule below rejects a
+    # candidate that is within `radius` of one already kept, and doing that on
+    # world distance would space the seeds isotropically — which is exactly
+    # what makes every fragment a lump. Measuring the same rejection on
+    # `(p - q) / g` lets seeds sit closer together across the grain than along
+    # it, and the Voronoi cells that fall out of it are elongated by `g`.
+    g = grain_vec(grain)
     rng = np.random.default_rng(int(seed) + 7)
     k = int(min(len(nz), max(int(max_cells) * int(oversample), 2)))
     # Weighted and UNSORTED: the draw already puts more candidates where the
@@ -2185,7 +2392,8 @@ def fracture_seeds(soup: Soup, failure: Failure, fragment_m: float,
         for q, r in zip(cand, radius):
             if n:
                 lim = np.maximum(rad[:n], r)
-                if (((pts[:n] - q) ** 2).sum(axis=1) < lim * lim).any():
+                if ((((pts[:n] - q) / g) ** 2).sum(axis=1)
+                        < lim * lim).any():
                     continue
             pts[n], rad[n] = q, r
             n += 1
@@ -2395,7 +2603,7 @@ def _fracture_hier(soup: Soup, seeds: np.ndarray, neighbors: int = 24,
 def fracture(prims, bounds: Bounds, failure: Failure, seed: int = 0,
              fragment_m: float = 2.5, max_cells: int = 32,
              support: float = 0.12, neighbors: int = 24,
-             min_faces: int = 4, cap: bool = True) -> list:
+             min_faces: int = 4, cap: bool = True, grain=None) -> list:
     """Shatter *prims* along *failure*. Returns a list of `Soup` fragments.
 
     The read-only half of `fracture_to_stage` — nothing is authored and the
@@ -2403,8 +2611,15 @@ def fracture(prims, bounds: Bounds, failure: Failure, seed: int = 0,
     """
     soup, _taken = _mesh_soup(
         prims, lambda cen: failure.damage(cen) >= support)
-    seeds = fracture_seeds(soup, failure, fragment_m, seed, max_cells)
-    return _fracture_hier(soup, seeds, neighbors, min_faces, cap=cap)
+    seeds = fracture_seeds(soup, failure, fragment_m, seed, max_cells,
+                           grain=grain)
+    g = grain_vec(grain)
+    if np.allclose(g, 1.0):
+        return _fracture_hier(soup, seeds, neighbors, min_faces, cap=cap)
+    scaled = Soup(soup.verts / g, soup.uv, soup.faces, soup.fmat, soup.mats)
+    return [Soup(f.verts * g, f.uv, f.faces, f.fmat, f.mats)
+            for f in _fracture_hier(scaled, seeds / g, neighbors, min_faces,
+                                    cap=cap)]
 
 
 def _bind_materials(stage, mesh, frag: Soup) -> None:
@@ -2445,101 +2660,298 @@ def _bind_materials(stage, mesh, frag: Soup) -> None:
         faces = np.nonzero(frag.fmat == i)[0]
         sub = UsdGeom.Subset.CreateGeomSubset(
             mesh, f"mat_{int(i)}", UsdGeom.Tokens.face,
-            Vt.IntArray([int(x) for x in faces]), "materialBind")
+            _vt_int(faces), "materialBind")
         UsdShade.MaterialBindingAPI.Apply(sub.GetPrim()).Bind(mat)
 
 
-def _aabbs(frags: list) -> tuple:
-    """Per-fragment axis-aligned bounds, ``(lo (N,3), hi (N,3))``."""
-    lo = np.array([f.verts.min(axis=0) for f in frags])
-    hi = np.array([f.verts.max(axis=0) for f in frags])
-    return lo, hi
+# ---------------------------------------------------------------------------
+# SUPPORT — what is still standing, and what was left hanging in the air
+#
+# Two kinds of thing can float, and only one of them was ever checked:
+#
+#   * a FRAGMENT with nothing left under it. `release_column` asks whether the
+#     FIELD failed the material below a piece, which is a statement about the
+#     damage and not about what is still there: the field below a fragment can
+#     be pristine while every piece that was actually holding it up has been
+#     thrown clear.
+#   * the RETAINED remainder — the faces whose damage never reached `support`,
+#     so they were never cut at all. On any BANDED mechanism that is most of
+#     the building: `soft_storey` fails a window at the base and leaves the
+#     twenty storeys above it untouched, and untouched is not the same as
+#     supported. Those faces used to enter the graph as unconditional ROOTS,
+#     i.e. as ground, which is exactly backwards — and is why a roof plate hung
+#     in the air over the rubble on every heavy rung of the ladder.
+#
+# So both are entities in ONE graph, and the graph is resolved on GEOMETRY
+# rather than on the field: an entity stands if it reaches the ground, or if it
+# rests on something that does. Everything else falls, and the retained parts
+# that fall are cut out of their source prims and handed to the settle as
+# rigid bodies — a soft storey going means the block above it comes down whole,
+# which is the one thing that rung is supposed to look like.
+#
+# WHAT THIS GRAPH DOES NOT ASK is whether the load path it found could carry
+# the load. It is a reachability test: connected to the ground, therefore
+# standing. A real structure also has to survive the MOMENT, and the case where
+# the difference shows is a cantilever — `shear_off` on BG_Building_C takes a
+# bite out of the middle of the tower and leaves the mass above the bite
+# hanging off the core beside it, which is a legal load path and not a building
+# anyone would leave standing. Fixing it wants a span test (free length against
+# depth, per component) rather than a better contact test, so it is written
+# down here rather than bolted onto the traversal.
+#
+# CONTACT IS VOXEL OCCUPANCY, NOT AABB OVERLAP. A box is a usable stand-in for
+# a 2 m Voronoi chunk and a hopeless one for the L-shaped top twenty storeys of
+# a tower: that box spans the whole plan, overlaps every fragment in the storey
+# below it, and one surviving chunk anywhere underneath declares the block
+# supported. Surfaces are sampled at a fixed areal density and hashed into a
+# grid instead, so "rests on" is asked of the material and not of its extent.
+# ---------------------------------------------------------------------------
+
+#: Grid edge for the support graph, in metres. Small against the 2 m rubble
+#: the pipeline makes, so resting on something means resting on it rather than
+#: being somewhere above it; large enough that a 96 m tower is a few hundred
+#: cells a side.
+SUPPORT_CELL_M = 0.5
+
+#: Ceiling on surface samples per entity set, so a 300k-face tower cannot turn
+#: the support pass into the expensive stage. Over it the density is scaled
+#: down uniformly — coarser, not partial.
+SUPPORT_SAMPLE_CAP = 1_500_000
 
 
-def _rests_on(lo: np.ndarray, hi: np.ndarray, pts: np.ndarray,
-              tol: float) -> np.ndarray:
-    """Which boxes have one of *pts* in their lower slab. Voxel-hashed."""
-    step = max(float(tol) * 2.0, 1e-3)
-    org = pts.min(axis=0)
-    occupied = set(map(tuple, np.floor((pts - org) / step).astype(np.int64)))
-    out = np.zeros(len(lo), dtype=bool)
-    for i in range(len(lo)):
-        # The lower slab only: a fragment is held up by what is under it, not
-        # by what it happens to stand beside.
-        a = np.floor((lo[i] - tol - org) / step).astype(np.int64)
-        b = np.floor((np.array([hi[i, 0], hi[i, 1],
-                                lo[i, 2] + tol]) - org) / step).astype(np.int64)
-        for x in range(a[0], b[0] + 1):
-            for y in range(a[1], b[1] + 1):
-                for z in range(a[2], b[2] + 1):
-                    if (x, y, z) in occupied:
-                        out[i] = True
-                        break
-                if out[i]:
-                    break
-            if out[i]:
-                break
-    return out
+def _surface_samples(verts, faces, step, seed=0, cap=SUPPORT_SAMPLE_CAP):
+    """Points covering a triangle soup at ~one per *step* squared, plus verts.
 
-
-def unsupported(frags: list, freed: np.ndarray, bounds: Bounds,
-                retained: np.ndarray = None, tol: float = 0.35) -> np.ndarray:
-    """Also free every anchored fragment with no load path to the ground.
-
-    THE FLOATING-GEOMETRY BUG THIS FIXES
-    -------------------------------------
-    `release_column` asks whether the FIELD failed the material below a
-    fragment. That is a statement about the damage, not about what is left
-    standing, and the two come apart as soon as `consume` deletes fragments or
-    a neighbour is thrown clear: the field below a piece can be perfectly
-    intact while every piece that was actually holding it up has gone. Those
-    fragments stayed anchored, were handed to the settle as STATIC colliders,
-    and hung in the air over the rubble.
-
-    So support is resolved on the fragments that exist, after the release
-    decision: anything resting on the ground is supported, anything touching a
-    supported fragment from above is supported, and the fixpoint of that is
-    the part of the building still standing. Everything else falls.
-
-    Contact is AABB overlap grown by *tol* — fragments were inset by `shrink`
-    and cut with a hairline gap, so exact touching is not a test that can be
-    run on this geometry.
-
-    *retained* is the geometry that was never fractured at all: faces below
-    the `support` threshold stay on the source prims, and on any partial
-    failure they are most of the building. Leaving them out makes the ground
-    the only thing that can hold anything up, so a tower cracked at the tenth
-    floor has every fragment above the crack floating over nothing and the
-    whole building is released — measured on the test box, 32 of 32 fragments
-    came free where 20 should have. They are passed in as face centroids and
-    hashed to a voxel grid, because there are up to millions of them.
+    Vertices alone are not a sampling. `subdivide` floors the edge length at
+    4 m, so one wall triangle can span sixty support cells and occupy none of
+    them between its corners — which reads as a hole in the material and frees
+    whatever was resting there. Area-proportional barycentric samples make the
+    density a property of the GRID rather than of the tessellation.
     """
-    n = len(frags)
-    if not n:
-        return freed
-    lo, hi = _aabbs(frags)
-    cz = (lo[:, 2] + hi[:, 2]) * 0.5
+    if not len(faces):
+        return np.zeros((0, 3)), np.zeros(0, dtype=np.int64)
+    v = verts[faces]
+    area = 0.5 * np.linalg.norm(np.cross(v[:, 1] - v[:, 0],
+                                         v[:, 2] - v[:, 0]), axis=1)
+    per = max(float(step) * float(step) * 0.5, 1e-9)
+    n = np.clip(np.ceil(area / per), 1, 4096).astype(np.int64)
+    tot = int(n.sum())
+    if cap and tot > cap:
+        n = np.maximum(1, (n * (float(cap) / float(tot))).astype(np.int64))
+    idx = np.repeat(np.arange(len(faces), dtype=np.int64), n)
+    rng = np.random.default_rng(int(seed) + 17)
+    r = rng.random((len(idx), 2))
+    su = np.sqrt(r[:, 0])
+    b = np.stack([1.0 - su, su * (1.0 - r[:, 1]), su * r[:, 1]], axis=1)
+    pts = (v[idx] * b[:, :, None]).sum(axis=1)
+    own = np.repeat(np.arange(len(faces), dtype=np.int64), 3)
+    return (np.vstack([pts, v.reshape(-1, 3)]),
+            np.concatenate([idx, own]))
 
-    # Overlap in x/y/z, grown by tol. n is in the low thousands, so the dense
-    # form is a few million bools — cheaper than building a tree.
-    touch = np.ones((n, n), dtype=bool)
-    for ax in range(3):
-        touch &= (lo[:, ax][:, None] <= hi[:, ax][None, :] + tol) & \
-                 (hi[:, ax][:, None] >= lo[:, ax][None, :] - tol)
-    np.fill_diagonal(touch, False)
-    # j can hold i up only if it sits below it.
-    below = touch & (cz[None, :] < cz[:, None])
 
-    standing = (~freed) & (lo[:, 2] <= bounds.base_z + tol)
-    if retained is not None and len(retained):
-        standing |= (~freed) & _rests_on(lo, hi, retained, tol)
-    for _ in range(n):
-        grew = (~freed) & (below @ standing)
-        nxt = standing | grew
+class _Grid:
+    """A fixed voxel grid over a point set, with points packed to int64 keys."""
+
+    __slots__ = ("org", "step", "shape")
+
+    def __init__(self, lo, hi, step):
+        self.org = np.asarray(lo, dtype=float) - float(step)
+        self.step = float(step)
+        span = np.asarray(hi, dtype=float) + float(step) - self.org
+        self.shape = np.maximum(2, np.ceil(span / self.step) + 2).astype(
+            np.int64)
+
+    def ijk(self, pts):
+        v = np.floor((np.asarray(pts, dtype=float) - self.org)
+                     / self.step).astype(np.int64)
+        return np.clip(v, 0, self.shape - 1)
+
+    def pack(self, ijk):
+        return ((ijk[:, 0] * self.shape[1] + ijk[:, 1]) * self.shape[2]
+                + ijk[:, 2])
+
+    def keys(self, pts):
+        return self.pack(self.ijk(pts))
+
+    def unpack(self, keys):
+        iz = keys % self.shape[2]
+        rest = keys // self.shape[2]
+        return np.stack([rest // self.shape[1], rest % self.shape[1], iz],
+                        axis=1)
+
+    def shift(self, keys, offsets):
+        """Every *keys* moved by each (dx, dy, dz), out-of-range dropped."""
+        base = self.unpack(keys)
+        out = []
+        for d in offsets:
+            q = base + np.asarray(d, dtype=np.int64)
+            ok = ((q >= 0) & (q < self.shape)).all(axis=1)
+            if ok.any():
+                out.append(self.pack(q[ok]))
+        return np.unique(np.concatenate(out)) if out else np.zeros(
+            0, dtype=np.int64)
+
+
+#: The 13 lexicographically-positive offsets of the 26-neighbourhood: one per
+#: undirected voxel adjacency, so connectivity is found without doing each
+#: edge twice.
+_ADJ26 = [(dx, dy, dz)
+          for dx in (-1, 0, 1) for dy in (-1, 0, 1) for dz in (-1, 0, 1)
+          if (dx, dy, dz) > (0, 0, 0)]
+
+#: Where a supporter may sit relative to what it holds up: one cell below it,
+#: allowing a cell of lateral slop, or in the same cell. Not above, and not a
+#: whole cell to the side at the SAME level — a fragment is held up by what is
+#: beneath it, not by what it stands beside, and the difference is the whole
+#: reason a wall pinned between two others still falls when the floor goes.
+_HOLD = [(0, 0, 0)] + [(dx, dy, 1) for dx in (-1, 0, 1) for dy in (-1, 0, 1)]
+
+
+def _voxel_components(grid, keys):
+    """26-connected component label per input key.
+
+    Hooking plus pointer-jumping rather than a union-find loop: the retained
+    remainder of a real tower is a few hundred thousand voxels and this stays
+    in numpy, where a Python loop over the same edges does not.
+    """
+    uniq = np.unique(keys)
+    if not len(uniq):
+        return np.zeros(0, dtype=np.int64), 0
+    base = grid.unpack(uniq)
+    ei, ej = [], []
+    for d in _ADJ26:
+        q = base + np.asarray(d, dtype=np.int64)
+        ok = ((q >= 0) & (q < grid.shape)).all(axis=1)
+        if not ok.any():
+            continue
+        nk = grid.pack(q[ok])
+        j = np.searchsorted(uniq, nk)
+        j = np.clip(j, 0, len(uniq) - 1)
+        hit = uniq[j] == nk
+        if hit.any():
+            ei.append(np.nonzero(ok)[0][hit])
+            ej.append(j[hit])
+    lab = np.arange(len(uniq), dtype=np.int64)
+    if ei:
+        a, b = np.concatenate(ei), np.concatenate(ej)
+        for _ in range(64):
+            prev = lab
+            nxt = lab.copy()
+            np.minimum.at(nxt, a, lab[b])
+            np.minimum.at(nxt, b, lab[a])
+            lab = nxt[nxt]                       # pointer jumping
+            if np.array_equal(lab, prev):
+                break
+    _, lab = np.unique(lab, return_inverse=True)
+    return lab[np.searchsorted(uniq, keys)], int(lab.max()) + 1
+
+
+def _standing(grid, keys, ent, low, ground, n_ent, forced_free):
+    """Fixpoint of "reaches the ground". Bool over entities.
+
+    *keys* / *ent* / *low* are per-SAMPLE: which cell it is in, which entity it
+    belongs to, and whether it is in the bottom of that entity's own extent —
+    the last is what keeps a same-cell contact from meaning "held up by the
+    wall next to me" everywhere up a facade.
+    """
+    ks, es, lw = keys, ent, low
+    standing = np.asarray(ground, dtype=bool) & ~forced_free
+    for _ in range(int(n_ent) + 1):
+        if not standing.any():
+            break
+        # Every cell a standing entity could be holding something up in.
+        held = grid.shift(np.unique(ks[standing[es]]), _HOLD)
+        if not len(held):
+            break
+        j = np.clip(np.searchsorted(held, ks), 0, len(held) - 1)
+        cand = np.unique(es[(held[j] == ks) & lw])
+        nxt = standing.copy()
+        nxt[cand] = True
+        nxt &= ~forced_free
         if nxt.sum() == standing.sum():
             break
         standing = nxt
-    return freed | ~standing
+    return standing
+
+
+def unsupported(frags: list, freed: np.ndarray, bounds: Bounds,
+                retained=None, tol: float = 0.35,
+                cell_m: float = SUPPORT_CELL_M, seed: int = 0):
+    """Free everything with no load path to the ground. See the note above.
+
+    *retained* is ``(points, sample_face, n_faces)`` for the geometry the cut
+    left on the source prims — surface samples, which face each came off, and
+    how many retained faces there are. It is grouped into connected components
+    and each component stands or falls on its own.
+
+    Returns ``(freed, orphan_face)``: the fragment release mask, extended with
+    everything the graph could not hold up, and an int array over the retained
+    faces giving the id of the orphaned component each belongs to, or -1 for a
+    face that is still standing.
+    """
+    n = len(frags)
+    ret_pts = ret_face = None
+    n_ret_faces = 0
+    if retained is not None:
+        ret_pts, ret_face, n_ret_faces = retained
+    if not n:
+        return freed, np.full(int(n_ret_faces), -1, dtype=np.int64)
+
+    freed = np.asarray(freed, dtype=bool).copy()
+    step = max(float(cell_m), 1e-3)
+
+    # --- sample every entity's surface --------------------------------------
+    pts, ent = [], []
+    for i, f in enumerate(frags):
+        p, _ = _surface_samples(f.verts, f.faces, step, seed=seed + i)
+        if len(p):
+            pts.append(p)
+            ent.append(np.full(len(p), i, dtype=np.int64))
+    if not pts:
+        return freed, np.full(int(n_ret_faces), -1, dtype=np.int64)
+
+    all_pts = np.vstack(pts + ([ret_pts] if ret_pts is not None
+                               and len(ret_pts) else []))
+    lo = np.minimum(all_pts.min(axis=0), [0.0, 0.0, float(bounds.base_z)])
+    grid = _Grid(lo, all_pts.max(axis=0), step)
+
+    # --- the retained remainder, split into pieces that stand or fall -------
+    comp = np.zeros(0, dtype=np.int64)
+    n_comp = 0
+    if ret_pts is not None and len(ret_pts):
+        comp, n_comp = _voxel_components(grid, grid.keys(ret_pts))
+        pts.append(ret_pts)
+        ent.append(n + comp)
+    pts = np.vstack(pts)
+    ent = np.concatenate(ent)
+    n_ent = n + n_comp
+
+    # --- who is where, and which samples are at an entity's own base --------
+    keys = grid.keys(pts)
+    z = pts[:, 2]
+    base = np.full(n_ent, np.inf)
+    np.minimum.at(base, ent, z)
+    top = np.full(n_ent, -np.inf)
+    np.maximum.at(top, ent, z)
+    band = np.maximum(step, 0.25 * (top - base))
+    low = z <= base[ent] + band[ent]
+    ground = base <= float(bounds.base_z) + float(tol)
+
+    forced = np.zeros(n_ent, dtype=bool)
+    forced[:n] = freed                      # the cut already let these go
+    standing = _standing(grid, keys, ent, low, ground, n_ent, forced)
+
+    freed |= ~standing[:n]
+    orphan_face = np.full(int(n_ret_faces), -1, dtype=np.int64)
+    if n_comp and ret_face is not None and len(ret_face):
+        fell = ~standing[n:]
+        # A face belongs to the component its samples landed in; the first is
+        # as good as any, since a face is far smaller than a component.
+        face_comp = np.full(int(n_ret_faces), -1, dtype=np.int64)
+        face_comp[ret_face[::-1]] = comp[::-1]
+        keep = (face_comp >= 0) & fell[np.maximum(face_comp, 0)]
+        orphan_face[keep] = face_comp[keep]
+    return freed, orphan_face
 
 
 def fracture_to_stage(stage, root_prim, bounds: Bounds, failure: Failure,
@@ -2548,7 +2960,8 @@ def fracture_to_stage(stage, root_prim, bounds: Bounds, failure: Failure,
                       support: float = 0.12, release: float = 0.50,
                       collapse: float = 0.80, neighbors: int = 24,
                       min_faces: int = 4, cap: bool = True,
-                      shrink: float = 1.0) -> dict:
+                      shrink: float = 1.0, grain=None,
+                      gap_m: float = 0.0) -> dict:
     """Break *root_prim* along *failure* and author the fragments.
 
     Returns ``{"paths": [...], "loose": [...], "cells": n}``; `loose` is the
@@ -2587,14 +3000,9 @@ def fracture_to_stage(stage, root_prim, bounds: Bounds, failure: Failure,
     centroid. Rigidly, because a fragment is a rigid body — the earlier
     per-vertex, height-scaled throw sheared every piece as it moved it.
 
-    Points are written in the ROOT's local space, not in world space.
-    Everything upstream works in world space — that is this module's whole
-    convention — but a fragment is a child of the building prim and inherits
-    its transform, and `apply_placements` gives that prim the placement's
-    translate, rotate and scale. Authoring world points under it applies all
-    three a second time: on the centimetre-authored AEC packs (`scale: 0.01`)
-    that puts the debris a hundred times too small and a long way from the
-    building it came off.
+    `slabs` is the subset of `loose` that was never cut: whole pieces of the
+    building that lost their load path. See the SUPPORT note above, and
+    `quake.collapse`, which is where they stop being treated as rubble.
     """
     prims = mesh_prims(root_prim)
     if not prims:
@@ -2609,10 +3017,27 @@ def fracture_to_stage(stage, root_prim, bounds: Bounds, failure: Failure,
     if float(np.max(failure.damage(soup.centroids()))) < release:
         return {"paths": [], "loose": [], "cells": 0}
 
-    seeds = fracture_seeds(soup, failure, fragment_m, seed, max_cells)
+    seeds = fracture_seeds(soup, failure, fragment_m, seed, max_cells,
+                           grain=grain)
     if len(seeds) < 2:
         return {"paths": [], "loose": [], "cells": 0}
-    frags = _fracture_hier(soup, seeds, neighbors, min_faces, cap=cap)
+    # THE WHOLE CUT RUNS IN GRAIN SPACE, and then comes back. Dividing every
+    # vertex and seed by `g` turns the anisotropic partition we want into the
+    # isotropic one this cutter already makes, and a diagonal affine map takes
+    # planes to planes — so every bisector is still a plane, every closed
+    # fragment is still closed, and `_cap_fan`, `_clip_by_plane`, `_kd_groups`
+    # and the radius-based early exit all keep working untouched. That is why
+    # the anisotropy is a change of coordinates here rather than a rewrite of
+    # the cutter: there is no version of "clip by an ellipsoid" to write.
+    g = grain_vec(grain)
+    if not np.allclose(g, 1.0):
+        soup = Soup(soup.verts / g, soup.uv, soup.faces, soup.fmat, soup.mats)
+        frags = _fracture_hier(soup, seeds / g, neighbors, min_faces, cap=cap)
+        frags = [Soup(f.verts * g, f.uv, f.faces, f.fmat, f.mats)
+                 for f in frags]
+        soup = Soup(soup.verts * g, soup.uv, soup.faces, soup.fmat, soup.mats)
+    else:
+        frags = _fracture_hier(soup, seeds, neighbors, min_faces, cap=cap)
     if not frags:
         # Nothing came apart. Leave the source intact — deleting the damaged
         # region with no fragments to replace it would just punch a hole.
@@ -2624,18 +3049,17 @@ def fracture_to_stage(stage, root_prim, bounds: Bounds, failure: Failure,
                     for f in frags])
     below = release_column(cen, failure, bounds)
     freed = (own >= release) | (below >= collapse)
-    # Nothing may be left hanging in the air — see `unsupported`. The faces
-    # the soup did not take are still on the building and still holding it up,
-    # so they are what the support graph is rooted in besides the ground.
-    keep = []
-    for prim, take in zip(prims, taken):
-        fc = face_centroids(prim)
-        if fc is None or not len(fc):
-            continue
-        keep.append(fc if take is None else fc[~take])
-    retained = np.vstack(keep) if keep else None
-    freed = unsupported(frags, freed, bounds, retained=retained)
-    if not freed.any():
+    # Nothing may be left hanging in the air — see the SUPPORT note above. The
+    # faces the soup did not take are still on the building, and the graph has
+    # to decide for each connected piece of them whether it is holding the
+    # building up or being held up by it.
+    ret_pts, ret_face, ret_of, n_ret = _retained_samples(
+        prims, taken, max(float(SUPPORT_CELL_M), 1e-3), seed=seed)
+    freed, orphan = unsupported(
+        frags, freed, bounds,
+        retained=(ret_pts, ret_face, n_ret) if n_ret else None, seed=seed)
+    slabs = _orphan_masks(orphan, ret_of, prims, taken)
+    if not freed.any() and not slabs:
         # Nothing moved, so nothing is worth authoring: an anchored fragment is
         # cut where the geometry was and is indistinguishable from the source
         # it would replace. Checked here rather than only on the field's
@@ -2669,39 +3093,194 @@ def fracture_to_stage(stage, root_prim, bounds: Bounds, failure: Failure,
         # in for the source they replaced, so shrinking them opens visible
         # seams across a wall that never moved. Only what is about to be
         # simulated needs the gap.
-        if freed[i] and shrink != 1.0:
+        # AN ABSOLUTE GAP, NOT A PROPORTIONAL ONE, once the fragments stop
+        # being lumps. `shrink` takes a fixed fraction off every axis, so the
+        # gap it opens is proportional to that axis's own extent — fine while
+        # a fragment is roughly cubic, and wrong the moment `grain` makes it a
+        # plank: a 4.8 m x 0.9 m board inset by 3% gets 7 cm of clearance
+        # along its length and 1.4 cm across its thin axis, which is where its
+        # neighbours actually are. Measured, that is enough to keep the pile
+        # interpenetrating: `walls_breached` went from -1.1 m (masonry) to
+        # +2.5 m (timber) on the same house and seed, i.e. the plank pile
+        # launching where the lump pile settled.
+        #
+        # `gap_m` insets every axis by the SAME distance instead, which is
+        # what the solver needs and what a fraction can only approximate on a
+        # shape it was tuned for. Off by default so `shrink` keeps its
+        # long-standing meaning for the isotropic path.
+        if freed[i] and gap_m and gap_m > 0.0:
+            c = v.mean(axis=0)
+            d = v - c
+            ext = np.abs(d).max(axis=0)
+            # FLOORED AT 0.75, and the floor is the whole lesson. Without it
+            # the clamp sat at 0.2, so a fragment cut from a 0.15 m stud wall
+            # lost 80% of its thin axis and came out a 3 cm sliver — and a
+            # convex hull that thin is degenerate enough that PhysX resolves
+            # its contacts with impulses that throw the pile. Measured on the
+            # Colbert at `walls_breached`: +5.0 m with the proportional inset,
+            # +12.8 m with an unfloored absolute one. The gap is meant to give
+            # the solver a legal start, not to whittle the geometry away.
+            f = np.clip(1.0 - float(gap_m) / np.maximum(ext, 1e-9), 0.75, 1.0)
+            v = c + d * f
+        elif freed[i] and shrink != 1.0:
             c = v.mean(axis=0)
             v = c + (v - c) * float(shrink)
-
-        p = scope.AppendChild(f"frag_{i:03d}")
-        mesh = UsdGeom.Mesh.Define(stage, p)
-        local = v @ root_inv[:3, :3] + root_inv[3, :3]
-        mesh.GetPointsAttr().Set(_vec3f(local))
-        mesh.GetFaceVertexCountsAttr().Set(Vt.IntArray([3] * len(fr.faces)))
-        mesh.GetFaceVertexIndicesAttr().Set(
-            Vt.IntArray([int(x) for x in fr.faces.reshape(-1)]))
-        # See the note in `fill_interior`: a fragment is looked at from both
-        # sides once the building is open.
-        mesh.CreateDoubleSidedAttr(True)
-        # The soup is unwelded, so UVs are already one per vertex.
-        if fr.uv is not None and len(fr.uv) == len(v):
-            pv = UsdGeom.PrimvarsAPI(mesh).CreatePrimvar(
-                "st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex)
-            pv.Set(Vt.Vec2fArray([Gf.Vec2f(float(a), float(b))
-                                  for a, b in fr.uv]))
-        _bind_materials(stage, mesh, fr)
-        paths.append(str(p))
+        p = _author_soup(stage, scope.AppendChild(f"frag_{i:03d}"),
+                         fr, v, root_inv)
+        paths.append(p)
         if freed[i]:
-            loose.append(str(p))
+            loose.append(p)
+
+    # --- the orphans: whole uncut pieces with nothing under them any more ----
+    #
+    # Authored as ONE body each and NOT inset, because a slab is not rubble:
+    # it is the part of the building that never failed, and it should land
+    # looking like the part of the building that never failed.
+    slab_paths = []
+    for k, masks in enumerate(slabs):
+        soup, _ = _mesh_soup(prims, masks=masks)
+        if not len(soup):
+            continue
+        p = _author_soup(stage, scope.AppendChild(f"slab_{k:03d}"),
+                         soup, soup.verts, root_inv)
+        paths.append(p)
+        loose.append(p)
+        slab_paths.append(p)
 
     # Only now: the soup had to be built from the faces before they went.
     # `deactivate` is refused for the prim the fragments were authored under —
     # see `delete_faces`; retiring it would take them with it.
-    for prim, take in zip(prims, taken):
-        if take is not None and take.any():
-            delete_faces(prim, ~take, deactivate=prim != root_prim)
-    return {"paths": paths, "loose": loose, "cells": len(frags)}
+    gone = [np.zeros(0, dtype=bool)] * len(prims)
+    for masks in slabs:
+        for i, m in enumerate(masks):
+            gone[i] = m if not len(gone[i]) else (gone[i] | m)
+    for i, (prim, take) in enumerate(zip(prims, taken)):
+        drop = None if take is None else take.copy()
+        if len(gone[i]):
+            drop = gone[i] if drop is None else (drop | gone[i])
+        if drop is not None and drop.any():
+            delete_faces(prim, ~drop, deactivate=prim != root_prim)
 
+    # WHAT IS STILL STANDING, BY PATH. The retained remainder the graph kept is
+    # the part of the building that did not fall, and the pile has to land ON
+    # it. It is not in `paths` — it was never cut, so it has no fragment — and
+    # leaving it out of the settle is why a sheared-off wing fell straight
+    # through the half that was supposed to be holding: measured on
+    # BG_Building_C's `shear_off`, the settle ran with 825 rigid bodies and TWO
+    # static colliders, then spent its whole 4,000-step budget with 566 bodies
+    # still moving.
+    # THE ROOT PRIM IS IN THIS LIST when the root is itself the mesh, which the
+    # merged AEC assets are. That is only safe because `settle._apply_collider`
+    # skips prims that already carry a rigid body: the fragments are authored
+    # as the root's own children, so a subtree walk reaches every one of them.
+    standing = []
+    for prim in prims:
+        p = prim.GetPrim() if hasattr(prim, "GetPrim") else prim
+        if not p.IsActive():
+            continue
+        fc = face_centroids(p)
+        if fc is not None and len(fc):
+            standing.append(str(p.GetPath()))
+    return {"paths": paths, "loose": loose, "cells": len(frags),
+            "slabs": slab_paths, "standing": standing}
+
+
+def _author_soup(stage, path, soup: Soup, verts: np.ndarray, root_inv):
+    """One `Soup` as a `UsdGeom.Mesh` under *path*. Returns the path as a str.
+
+    Points are written in the ROOT's local space, not in world space.
+    Everything upstream works in world space — that is this module's whole
+    convention — but a fragment is a child of the building prim and inherits
+    its transform, and `apply_placements` gives that prim the placement's
+    translate, rotate and scale. Authoring world points under it applies all
+    three a second time: on the centimetre-authored AEC packs (`scale: 0.01`)
+    that puts the debris a hundred times too small and a long way from the
+    building it came off.
+    """
+    mesh = UsdGeom.Mesh.Define(stage, path)
+    local = verts @ root_inv[:3, :3] + root_inv[3, :3]
+    mesh.GetPointsAttr().Set(_vec3f(local))
+    mesh.GetFaceVertexCountsAttr().Set(_vt_int(np.full(len(soup.faces), 3)))
+    mesh.GetFaceVertexIndicesAttr().Set(
+        _vt_int(soup.faces.reshape(-1)))
+    # See the note in `fill_interior`: a fragment is looked at from both sides
+    # once the building is open.
+    mesh.CreateDoubleSidedAttr(True)
+    # The soup is unwelded, so UVs are already one per vertex.
+    if soup.uv is not None and len(soup.uv) == len(verts):
+        pv = UsdGeom.PrimvarsAPI(mesh).CreatePrimvar(
+            "st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex)
+        pv.Set(_vec2f(soup.uv))
+    _bind_materials(stage, mesh, soup)
+    return str(path)
+
+
+def _retained_samples(prims, taken, step, seed=0):
+    """Surface samples of everything the cut LEFT on the source prims.
+
+    ``(pts, sample_face, face_owner, n_faces)`` where *sample_face* indexes a
+    flat list of every retained face across every prim and *face_owner* is the
+    ``(prim, face)`` that list came from — which is what lets an orphaned
+    component be cut back out of the prims it was spread over.
+    """
+    pts, sfa, own = [], [], []
+    base = 0
+    for pi, (prim, take) in enumerate(zip(prims, taken)):
+        counts, idx = _face_arrays(prim)
+        if counts is None:
+            continue
+        pt = get_points(prim)
+        if not len(pt) or int(idx.max()) >= len(pt):
+            continue
+        keep = np.ones(len(counts), dtype=bool) if take is None else ~take
+        if not keep.any():
+            continue
+        slots, src = _triangulate(counts)
+        if not len(slots):
+            continue
+        sel = keep[src]
+        slots, src = slots[sel], src[sel]
+        if not len(slots):
+            continue
+        # Retained faces are numbered densely, so a sample can name one
+        # without carrying the prim's own face numbering around.
+        num = np.full(len(counts), -1, dtype=np.int64)
+        num[keep] = base + np.arange(int(keep.sum()), dtype=np.int64)
+        v = pt[idx[slots.reshape(-1)]]
+        f = np.arange(len(slots) * 3, dtype=np.int64).reshape(-1, 3)
+        p, tri = _surface_samples(v, f, step, seed=seed + pi)
+        if len(p):
+            pts.append(p)
+            sfa.append(num[src[tri]])
+        own.append(np.stack([np.full(int(keep.sum()), pi, dtype=np.int64),
+                             np.nonzero(keep)[0]], axis=1))
+        base += int(keep.sum())
+    if not pts:
+        return None, None, np.zeros((0, 2), dtype=np.int64), 0
+    return (np.vstack(pts), np.concatenate(sfa), np.vstack(own), base)
+
+
+def _orphan_masks(orphan, ret_of, prims, taken):
+    """Per-component, per-prim face masks for the retained pieces that fell."""
+    if orphan is None or not len(orphan) or not len(ret_of):
+        return []
+    sizes = []
+    for prim in prims:
+        counts, _ = _face_arrays(prim)
+        sizes.append(0 if counts is None else len(counts))
+    out = []
+    for c in np.unique(orphan[orphan >= 0]):
+        rows = ret_of[np.nonzero(orphan == c)[0]]
+        masks = []
+        for pi, n in enumerate(sizes):
+            m = np.zeros(n, dtype=bool)
+            mine = rows[rows[:, 0] == pi]
+            if len(mine) and n:
+                m[mine[:, 1]] = True
+            masks.append(m)
+        if any(m.any() for m in masks):
+            out.append(masks)
+    return out
 
 # ---------------------------------------------------------------------------
 # soot — the one thing damage does to materials rather than to geometry
@@ -2864,7 +3443,74 @@ def _scale_input(inp, keep: float) -> None:
 #: it does have to supply is the budget (`max_buildings`), because that is a
 #: property of the scene rather than of the disaster.
 FRACTURE_KEYS = ("fragment_m", "max_cells", "support", "release",
-                 "collapse", "neighbors", "min_faces", "cap", "shrink")
+                 "collapse", "neighbors", "min_faces", "cap", "shrink",
+                 "grain", "gap_m")
+
+
+# ---------------------------------------------------------------------------
+# THE BUDGET — how thick a wall is and how many cells to spend on one building
+#
+# Neither of these is a statement about a disaster: a wall is half a metre
+# thick whether it is shaken or blown over, and the cell count is set by the
+# rubble size the script asked for and by what PhysX can afford. They live here
+# so every per-disaster script gets the same answer.
+#
+# NOTE: `disaster/quake.py` still carries its own identical copies, written
+# before there was a second script. They should be deleted in favour of these.
+# ---------------------------------------------------------------------------
+
+#: Metres of wall on a REFERENCE-sized building. A wall is about half a metre
+#: thick on a bungalow and on a tower alike, which is why `solidify` takes an
+#: absolute length — but the two do not read the same. On a 12 m house 0.5 m is
+#: masonry; on a 96 m tower it is 0.5% of the span, a foil skin inside a 10 m
+#: Voronoi cell, and the fragments come out looking hollow. So the wall grows
+#: with the building, slowly (square root, not linear — a skyscraper has
+#: thicker walls than a house, not eight times thicker) and to a ceiling.
+WALL_M = 0.5
+WALL_M_MAX = 2.0
+
+#: Building radius `WALL_M` is quoted for.
+REF_RADIUS_M = 12.0
+
+#: Compute ceiling on cells for ONE building. Not a design number: the cut is
+#: near-linear in cells since `_fracture_hier`, but the SETTLE is not — every
+#: cell is a rigid body with a cooked collider and PhysX cost climbs with the
+#: contacts between them. Set from measurement; see `tools/quake_preview.py`.
+MAX_CELLS_CAP = 1200
+
+
+def wall_for(root_prim, wall_m=WALL_M, ref_m=REF_RADIUS_M, cap=WALL_M_MAX):
+    """Wall thickness for this building's size. See `WALL_M`."""
+    prims = mesh_prims(root_prim)
+    b = bounds_of(prims) if prims else None
+    if b is None or not b.radius:
+        return float(wall_m)
+    scale = math.sqrt(max(1.0, float(b.radius) / float(ref_m)))
+    return float(min(float(cap), float(wall_m) * scale))
+
+
+def cells_for(root_prim, fragment_m=2.0, cap=None):
+    """How many cells this building needs to break into *fragment_m* rubble.
+
+    Derived from the building's own envelope area — facades plus roof, which is
+    the surface a Voronoi cut actually tiles — divided by the area one fragment
+    covers. So the COUNT varies with the building and the SIZE does not, which
+    is the way round rubble works.
+
+    `cap` is a compute ceiling, not a design choice. When it binds,
+    `fracture_seeds` widens the spacing and the rubble gets coarser — the
+    failure this parameterisation exists to make visible rather than silent, so
+    callers report it.
+    """
+    prims = mesh_prims(root_prim)
+    b = bounds_of(prims) if prims else None
+    top = int(MAX_CELLS_CAP if cap is None else cap)
+    if b is None:
+        return top
+    w, d, h = (float(x) for x in b.dims)
+    area = 2.0 * (w + d) * h + w * d
+    want = int(round(area / max(float(fragment_m) ** 2, 1e-6)))
+    return int(max(24, min(top, want)))
 
 
 def damage_building(stage, root_prim, disaster_type: str, intensity: float,
@@ -2974,6 +3620,13 @@ def damage_building(stage, root_prim, disaster_type: str, intensity: float,
     out["paths"] = cut["paths"]
     out["loose"] = cut["loose"]
     out["cells"] = cut["cells"]
+    # The uncut pieces that lost their load path — see the SUPPORT note. The
+    # caller needs them by name: they are the one part of `loose` that must
+    # not be consumed and must not get a convex-hull collider.
+    out["slabs"] = cut.get("slabs") or []
+    # The uncut material the support graph KEPT — static colliders for the
+    # settle, so the pile lands on the part of the building still there.
+    out["standing"] = cut.get("standing") or []
     # Stage four — settling the loose fragments — is PhysX's, and it belongs to
     # the caller: `generate_scene` gives each loose path a placement marked
     # `settle: True`, which is how every other approximated-pose prop reaches
@@ -3013,7 +3666,8 @@ def _heading_of(dis: dict):
 #: Anything not listed falls through to `damage_building` at a continuous
 #: intensity, which is where every disaster started and where the ones without
 #: a script of their own still are.
-DAMAGE_SCRIPTS = {"earthquake": ("disaster.quake", "at_level")}
+DAMAGE_SCRIPTS = {"earthquake": ("disaster.quake", "at_level"),
+                  "tornado": ("disaster.tornado", "at_level")}
 
 
 def damage_one(stage, prim, dtype: str, intensity: float, seed: int = 0,
@@ -3027,6 +3681,13 @@ def damage_one(stage, prim, dtype: str, intensity: float, seed: int = 0,
     """
     entry = DAMAGE_SCRIPTS.get(str(dtype).lower())
     if entry is None:
+        # No script, so there is no ladder to rescale and `material` means
+        # only the fragment SHAPE. Translated here rather than forwarded:
+        # `damage_building` passes what it does not name to
+        # `fracture_to_stage`, which has no `material` and would raise.
+        mat = material(kw.pop("material", None))
+        kw.setdefault("grain", mat.grain)
+        kw.setdefault("wall_m", mat.wall_m)
         return damage_building(stage, prim, dtype, float(intensity),
                                seed=int(seed), **kw)
 
@@ -3091,7 +3752,8 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
         # failure, which is the right read for "something knocked it down".
         dtype = str(dis.get("type") or "earthquake").lower()
     if FAILURE_FIELDS.get(dtype) is None:
-        return {"tally": {}, "fragments": [], "loose": []}
+        return {"tally": {}, "fragments": [], "loose": [],
+                "slabs": []}
 
     seed = int(config.get("seed", 0))
     heading = _heading_of(dis)
@@ -3102,7 +3764,8 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
     scfg = cfg.get("subdivide") or {}
 
     if not cfg.get("enabled", True) or not fcfg.get("enabled", True):
-        return {"tally": {}, "fragments": [], "loose": []}
+        return {"tally": {}, "fragments": [], "loose": [],
+                "slabs": []}
 
     # One budget for one pipeline. `fracture.max_buildings` and
     # `thickness.max_buildings` are the spellings the compiler emits today and
@@ -3114,7 +3777,32 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
                  or fcfg.get("max_buildings")
                  or tcfg.get("max_buildings") or 40)
 
-    wall_m = float(tcfg.get("wall_m", 0.5)) if tcfg.get("enabled", True) else 0.0
+    # AN ENVIRONMENT CAP, because the budget and the damage PATH are set in
+    # different places and a preset's budget is written for the path it
+    # expects. `urban_quake_showcase` carries `max_buildings: 60` because it
+    # was written around a baked archetype library, where the budget costs
+    # nothing; running it with `SCENE_ARCHETYPES=0` hands all fourteen of its
+    # wrecked buildings to live mesh damage instead, and the scene that was
+    # meant to load in minutes takes hours. This bounds that without editing a
+    # preset — a knob for looking at a scene, not a scene parameter, which is
+    # why it lives in the environment and not in the config.
+    env_budget = os.environ.get("SCENE_DAMAGE_BUDGET", "").strip()
+    if env_budget:
+        try:
+            budget = max(0, int(env_budget))
+        except ValueError:
+            print(f"[mesh_damage] SCENE_DAMAGE_BUDGET={env_budget!r} is not an "
+                  f"integer — keeping the config's {budget}")
+
+    # WHAT THE BUILDINGS ARE MADE OF. A property of the PLACE, not of the
+    # event — a suburb is timber frame whether it was shaken or blown down —
+    # so `compile_disaster` sets it from the locale and both the wall
+    # thickness and the fragment shape follow from it. Masonry when nothing
+    # says otherwise, which is what every number in this module meant before
+    # `MATERIALS` existed.
+    mat = material(cfg.get("material"))
+    wall_m = (float(tcfg.get("wall_m", mat.wall_m))
+              if tcfg.get("enabled", True) else 0.0)
     solid_kw = {k: tcfg[k] for k in ("max_points", "max_span_frac", "weld_tol")
                 if k in tcfg}
     # Assets whose art already has material in the walls. Declared in the asset
@@ -3129,14 +3817,30 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
     cands = [(i, p) for i, p in enumerate(placements)
              if p.get("_mesh_damage") and p.get("prim_path")]
     rank = sorted(cands, key=lambda ip: (-float(ip[1]["_mesh_damage"]), ip[0]))
+    if cands:
+        print(f"[mesh_damage] {len(cands)} building(s) marked for damage, "
+              f"budget {budget}"
+              + (f" (SCENE_DAMAGE_BUDGET={env_budget})" if env_budget else "")
+              + (f" — {len(cands) - budget} keep the tilt-and-sink stand-in"
+                 if len(cands) > budget else ""), flush=True)
 
     tally: dict = {}
     fragments: list = []
     loose: list = []
-    for i, p in rank[:budget]:
+    slabs: list = []
+    # Live damage is tens of seconds A BUILDING and prints nothing until the
+    # whole pass is done, so a scene that is working looks identical to one
+    # that has hung. One line per building, before and after.
+    work = rank[:budget]
+    for n, (i, p) in enumerate(work, 1):
         prim = stage.GetPrimAtPath(p["prim_path"])
         if not prim or not prim.IsValid():
             continue
+        t_one = time.time()
+        print(f"[mesh_damage] {n}/{len(work)} "
+              f"{os.path.basename(str(p.get('usd', '')))} "
+              f"{p.get('_damage_level', '?')} "
+              f"(intensity {float(p['_mesh_damage']):.2f}) ...", flush=True)
         if str(dtype).lower() in DAMAGE_SCRIPTS:
             # The script owns the DEFAULTS for fragment size, thresholds and
             # consume; the config still overrides them where it says so, or a
@@ -3144,16 +3848,31 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
             # stop meaning anything the moment a disaster grew a script.
             # `settle_it=False`: the scene settles every loose prim once, in
             # `scene_prep`, not per building.
+            # `heading_deg` reaches a script too. A windstorm's whole
+            # signature is that every building on the track fails on the same
+            # side and throws its debris the same way; without the scene's
+            # bearing each one picks its own at random and the track reads as
+            # a row of unrelated bomb sites. Scripts that have no bearing
+            # (`quake`) accept and ignore it.
             got = damage_one(stage, prim, dtype, float(p["_mesh_damage"]),
                              seed=seed + i * 31, solid=p.get("usd") in solid_usds,
                              max_edge_m=sub_edge, solid_kw=solid_kw,
-                             wall_m=wall_m, **frac_kw)
+                             heading_deg=heading, wall_m=wall_m,
+                             material=cfg.get("material") or DEFAULT_MATERIAL,
+                             **frac_kw)
         else:
             got = damage_building(
                 stage, prim, dtype, float(p["_mesh_damage"]), seed=seed + i * 31,
                 wall_m=wall_m, solid=p.get("usd") in solid_usds,
                 max_edge_m=sub_edge, sub_max_points=sub_max_points,
-                heading_deg=heading, solid_kw=solid_kw, **frac_kw)
+                heading_deg=heading, solid_kw=solid_kw,
+                # No ladder here, so the material reaches the cut as the only
+                # thing it can say without one: the SHAPE of a fragment.
+                **{"grain": mat.grain, **frac_kw})
+        print(f"[mesh_damage] {n}/{len(work)} done in "
+              f"{time.time() - t_one:.0f}s  "
+              f"cells={got.get('cells', 0)} loose={len(got.get('loose') or ())}",
+              flush=True)
         if got["field"] is None:
             continue
         tally[got["field"]] = tally.get(got["field"], 0) + 1
@@ -3168,14 +3887,22 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
         if got["paths"]:
             fragments.extend(got["paths"])
             loose.extend(got["loose"])
+            slabs.extend(got.get("slabs") or ())
             tally["shattered"] = tally.get("shattered", 0) + 1
             tally["fragments"] = tally.get("fragments", 0) + len(got["paths"])
             tally["loose"] = tally.get("loose", 0) + len(got["loose"])
+            if got.get("slabs"):
+                tally["slabs"] = tally.get("slabs", 0) + len(got["slabs"])
 
     if tally:
         print("[mesh_damage] "
               + "  ".join(f"{k}={v}" for k, v in sorted(tally.items())))
-    return {"tally": tally, "fragments": fragments, "loose": loose}
+    # `slabs` is a subset of `loose`: uncut pieces that lost their load path.
+    # Reported separately because they are not debris — nothing threw them —
+    # so anything measuring where an event put the material has to leave them
+    # out. See `fracture_to_stage` and the SUPPORT note.
+    return {"tally": tally, "fragments": fragments, "loose": loose,
+            "slabs": slabs}
 
 
 # ---------------------------------------------------------------------------
@@ -3486,9 +4213,9 @@ def fill_interior(stage, root_prim, bounds: Bounds, storey_m: float = 3.5,
     path = root_prim.GetPath().AppendChild("interior")
     mesh = UsdGeom.Mesh.Define(stage, path)
     mesh.CreatePointsAttr(_vec3f(local))
-    mesh.CreateFaceVertexCountsAttr(Vt.IntArray([3] * len(faces)))
+    mesh.CreateFaceVertexCountsAttr(_vt_int(np.full(len(faces), 3)))
     mesh.CreateFaceVertexIndicesAttr(
-        Vt.IntArray([int(x) for x in faces.reshape(-1)]))
+        _vt_int(faces.reshape(-1)))
     mesh.CreateExtentAttr([Gf.Vec3f(*map(float, local.min(0))),
                            Gf.Vec3f(*map(float, local.max(0)))])
     mesh.CreateSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
@@ -3502,7 +4229,7 @@ def fill_interior(stage, root_prim, bounds: Bounds, storey_m: float = 3.5,
     uv = _triplanar_uv(local, faces, uv_m)
     pv = UsdGeom.PrimvarsAPI(mesh).CreatePrimvar(
         "st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.faceVarying)
-    pv.Set(Vt.Vec2fArray([Gf.Vec2f(float(a), float(b)) for a, b in uv]))
+    pv.Set(_vec2f(uv))
 
     mat = _dominant_material(prims)
     if mat is not None:

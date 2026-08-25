@@ -53,6 +53,7 @@ if _SCENE_GEN not in sys.path:
 
 from archetypes import library as lib                           # noqa: E402
 from archetypes import plan as P                                # noqa: E402
+from disaster import kinds                                      # noqa: E402
 from disaster import levels as L                                # noqa: E402
 
 #: Metres between grid cells. Must exceed the largest asset's footprint plus
@@ -115,6 +116,10 @@ class Baker:
         self.stage = stage
         self.config = config
         self.disaster = str(disaster or "none").lower()
+        # The type's own behaviour — which damage script wrecks an archetype,
+        # and whether a felled tree comes out charred. `self.disaster` stays a
+        # string because it is also a directory name and a manifest field.
+        self.model = kinds.get(self.disaster)
         self.out_dir = out_dir
         self.seed = int(seed)
         self.parent = parent
@@ -164,9 +169,15 @@ class Baker:
 
     def _rng(self, item, level):
         """Per-cell RNG. Seeded on (type, level) so re-baking one archetype
-        reproduces it exactly, and so two cells never share a stream."""
-        return random.Random(self.seed + (abs(hash((item.type, level)))
-                                          % 100_000))
+        reproduces it exactly, and so two cells never share a stream.
+
+        `md.stable_seed`, not `hash()` — Python salts str hashing per process,
+        so the sentence above was false in exactly the way that is hardest to
+        notice: every bake looked right and no two were the same."""
+        from disaster import mesh_damage as md
+
+        return random.Random(
+            self.seed + md.stable_seed(item.type, level, mod=100_000))
 
     def _build_modular(self, item, level, x, y, cell, ssf):
         """Kit house: assemble, then break with `damage_flow`."""
@@ -204,14 +215,12 @@ class Baker:
     def _build_library(self, item, level, x, y, cell, ssf):
         """Arbitrary building USD: reference it, then the disaster's pipeline.
 
-        ONE SCRIPT PER DISASTER, ALL OF THEM ON THE `mesh_damage` API. For an
-        earthquake that script is `disaster.quake`, and it is called by RUNG
-        rather than by intensity: a rung is a set of mechanisms over regions of
-        the plan (`quake.RUNG_PLAN`), so the archetype gets the composed
-        failure — one wing sheared off, the ground floor gone under another,
-        the rest cracked — instead of one mode at a midpoint intensity.
-        Everything else still goes through `mesh_damage.damage_building`
-        directly until it has a script of its own.
+WHICH damage runs is the disaster's own decision, not this
+        function's: `Disaster.damage_archetype` routes to the type's script
+        where it has one (`mesh_damage.DAMAGE_SCRIPTS` — `disaster.quake` for
+        an earthquake, `disaster.tornado` for a tornado) and to the
+        asset-generic operators where it does not. This stage stays
+        type-agnostic and never names a disaster.
 
         `solid=False`, unlike the code this replaced. That call passed
         `solid=True` unconditionally with a docstring explaining why Stage A
@@ -222,7 +231,6 @@ class Baker:
         so far is the paper shell it was written to prevent.
         """
         from disaster import mesh_damage as md
-        from disaster import quake
 
         prim_path = f"{cell}/asset"
         # AT THE SCENE'S SCALE. The Nucleus packs are centimetre-authored, so
@@ -236,25 +244,11 @@ class Baker:
         prim = self.stage.GetPrimAtPath(prim_path)
         if not prim or not prim.IsValid():
             return [prim_path], []
-        seed = self.seed + abs(hash(level)) % 9973
+        seed = self.seed + md.stable_seed(level)
 
-        if self.disaster == "earthquake":
-            # `settle_it=False`: Stage A settles the WHOLE grid in one PhysX
-            # pass at the end (`Baker.settle`), so a per-cell settle here would
-            # run the solver once per archetype and then again over everything.
-            got = quake.at_level(self.stage, prim, level, seed=seed,
-                                 settle_it=False)
-        else:
-            dis = (self.config.get("disaster") or {})
-            thick = ((dis.get("mesh_damage") or {}).get("thickness") or {})
-            # Intensity is the MIDPOINT of the rung's band, not its threshold:
-            # the threshold is where the rung starts, so using it would render
-            # every archetype at the gentlest damage its name allows.
-            got = md.damage_building(
-                self.stage, prim, self.disaster,
-                self._intensity(item.kind, level), seed=seed,
-                wall_m=float(thick.get("wall_m", 0.5)),
-                heading_deg=md._heading_of(dis))
+        got = self.model.damage_archetype(
+            self.stage, prim, level, seed=seed, config=self.config,
+            intensity=self._intensity(item.kind, level))
         frags = list(got.get("loose", ()))
         self.loose.extend(frags)
         return [prim_path] + list(got.get("paths", ())), []
@@ -277,7 +271,7 @@ class Baker:
                             debris_scale=0.5, ground_z=0.0, verbose=False,
                             # Only a fire chars a tree. Everything else uses
                             # the same felling geometry with no soot on it.
-                            fire=(self.disaster == "fire"))
+                            fire=self.model.chars_vegetation)
         extra = (list(res.get("statics", [])) + list(res.get("loose", []))
                  + list((res.get("info") or {}).get("made", [])))
         self.loose.extend(res.get("loose", ()))

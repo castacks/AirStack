@@ -205,6 +205,8 @@ from . import mesh_damage as md
 #: produces it and the fracture thresholds that read it.
 #:
 #: `intensity`   how hard this mechanism drives its own field.
+#: `support`     damage below which material is not cut at all. THE KNOB THAT
+#:               DECIDES WHETHER A RUNG SHOWS A BLOCK OR A PILE — see below.
 #: `release`     a fragment's own damage at which it comes free.
 #: `collapse`    damage in the column BELOW a fragment at which it comes free
 #:               for lack of support.
@@ -219,30 +221,63 @@ from . import mesh_damage as md
 #: `storey_at`   where that band sits, 0 = ground floor.
 Mech = namedtuple(
     "Mech",
-    "intensity release collapse fragment_m consume blast asymmetry "
+    "intensity support release collapse fragment_m consume blast asymmetry "
     "shear_band storey_band storey_at")
 
+# WHY `support` IS A MECHANISM PROPERTY AND NOT A CONSTANT
+# --------------------------------------------------------
+# It is the damage below which material is never cut, so it decides what stays
+# WHOLE — and "what stays whole" is most of the difference between a soft
+# storey and a pancake. Left at one low value for every mechanism it flattened
+# the ladder from the other end: a rung's `crack` component puts ~0.2 damage
+# over the entire building, 0.12 takes that into the soup, and so every rung
+# diced the whole tower and settled it into the same heap of 2 m rubble. The
+# block that a soft storey is supposed to drop intact was already confetti
+# before the settle began. Measured on the 20 x 20 x 60 m box, share of faces
+# in the UPPER HALF of the building over each mechanism's threshold — i.e. how
+# much of the mass that should stay whole gets cut:
+#
+#     rung                >= 0.12   >= 0.28   >= 0.42
+#     cracked                86%       15%       1%
+#     soft_storey            95%       31%       1%
+#     partial_collapse       92%       38%       9%
+#     pancaked               91%       75%      35%
+#
+# At 0.12 every rung takes essentially the whole building; at its own value
+# each rung takes what it means to take, and `pancaked` is the only one that
+# still eats the top.
+#
+# The cut takes the DOMINANT mechanism's value, the way `consume` and `blast`
+# already do: there is only one cut, and the rung is named after the mechanism
+# that defines it.
 MECHANISMS = {
     # Fracture lines on a building that stays up. `release` just under the
-    # field's peak, nothing consumed, nothing thrown.
-    "crack": Mech(0.60, 0.56, 0.95, 2.2, 0.00, 0.0, 0.35, 1.00, 0.00, 0.00),
+    # field's peak, nothing consumed, nothing thrown. `support` well up so the
+    # cut is confined to the places the field really failed — a cracked
+    # building that has been diced everywhere is not cracked, it is rubble
+    # holding its shape.
+    "crack":
+        Mech(0.60, 0.30, 0.56, 0.95, 2.2, 0.00, 0.0, 0.35, 1.00, 0.00, 0.00),
     # THE GROUND FLOOR GOES AND THE REST COMES DOWN ON IT. `storey_band`
-    # confines the failure to a window at the base, so the mass above is never
-    # cut — it loses its support instead, which `unsupported` detects and the
-    # settle turns into a topple onto the wreckage. Without the band the
-    # height profile merely makes a low failure LIKELY, and the rung came out
-    # looking like a pancake with pieces hanging over it.
+    # confines the failure to a window at the base and `support` at 0.42 keeps
+    # the mass above out of the soup entirely, so it is never cut: it loses its
+    # support instead, and the graph in `mesh_damage.unsupported` hands it to
+    # the settle as ONE rigid body that topples onto the wreckage. Both halves
+    # are needed. With the band alone the rest of the rung's field still
+    # cleared a low threshold, the block was diced, and the rung came out as a
+    # pancake with pieces hanging over it.
     "soft_storey":
-        Mech(0.95, 0.34, 0.45, 1.8, 0.35, 0.0, 0.25, 1.00, 0.30, 0.06),
+        Mech(0.95, 0.42, 0.34, 0.45, 1.8, 0.35, 0.0, 0.25, 1.00, 0.30, 0.06),
     # One side shears off full height and leaves the floor plates showing.
     # asymmetry 1.0 with a narrow band makes the boundary an edge: the far
     # side evaluates under `support`, is never cut, and keeps its own
     # textures. `blast` is nearly off — this side should DROP, not scatter.
     "shear_off":
-        Mech(0.95, 0.42, 0.45, 2.0, 0.30, 0.5, 1.00, 0.22, 0.00, 0.00),
+        Mech(0.95, 0.28, 0.42, 0.45, 2.0, 0.30, 0.5, 1.00, 0.22, 0.00, 0.00),
     # Everything releases and over half the mass is pulverised into the voids.
+    # The one mechanism that really does want the whole building in the soup.
     "pancake":
-        Mech(1.00, 0.30, 0.40, 1.6, 0.55, 1.5, 0.20, 1.00, 0.00, 0.00),
+        Mech(1.00, 0.12, 0.30, 0.40, 1.6, 0.55, 1.5, 0.20, 1.00, 0.00, 0.00),
 }
 
 #: WHAT A RUNG IS: a list of ``(mechanism, share of the plan)``, worst first.
@@ -270,24 +305,42 @@ RUNG_PLAN = {
 }
 
 
-def plan_for(level):
+def steps_for(level, plan=None):
+    """The ``[(mechanism, share), ...]`` a rung means, or an explicit *plan*.
+
+    `plan` is how a caller asks for a composition the ladder does not name —
+    one mechanism on its own, or a pairing being looked at. It is checked
+    against `MECHANISMS` here so a typo fails at the call rather than as an
+    empty field an hour into a bake.
+    """
+    if plan is not None:
+        out = [(str(n), float(s)) for n, s in plan]
+        bad = [n for n, _ in out if n not in MECHANISMS]
+        if bad:
+            raise KeyError(f"no such mechanism: {bad}; "
+                           f"have {sorted(MECHANISMS)}")
+        return out
+    return list(RUNG_PLAN.get(str(level or "pristine")) or [])
+
+
+def plan_for(level, plan=None):
     """The DOMINANT mechanism for a rung, or None for `pristine`/unknown.
 
     Unknown degrades to "nothing happened" rather than raising, for the reason
     `levels.NONE_LADDER` does: a typo should not fail a bake that has already
     cost an hour.
     """
-    steps = RUNG_PLAN.get(str(level or "pristine"))
+    steps = steps_for(level, plan)
     return MECHANISMS[steps[0][0]] if steps else None
 
 
-def field_for(level, seed=0):
+def field_for(level, seed=0, plan=None):
     """``f(bounds) -> Failure`` for a rung: every mechanism, composed.
 
     A factory rather than a field because `solidify` moves the bounds the
     field is anchored to — see `mesh_damage.damage_building`.
     """
-    steps = RUNG_PLAN.get(str(level or "pristine")) or []
+    steps = steps_for(level, plan)
 
     def build(bounds):
         parts = []
@@ -345,6 +398,20 @@ REF_RADIUS_M = 12.0
 #: material was pulverised — and `cells_for` derives the count so the budget
 #: does not bind first.
 RUBBLE_M = 2.0
+
+#: WHAT A BUILDING IS MADE OF when the caller does not say. Masonry, because
+#: every number in this file — `RUBBLE_M`, each mechanism's `fragment_m`,
+#: `WALL_M`, `BLAST` — was quoted against brick and concrete towers.
+#:
+#: A DETACHED HOUSE IS NOT ONE. The suburban library is timber frame, and
+#: running it as masonry is not a smaller version of the same failure: it
+#: extrudes 0.5 m walls into a 6.4 m bungalow (a house whose walls are a
+#: twelfth of its height), and it breaks them into isotropic half-tonne lumps
+#: — a pile of concrete where a collapsed wooden house belongs. `MATERIALS`
+#: carries the wall thickness, the plank aspect and the fragment size; the
+#: caller that knows the asset (the asset set, `tools/damage_spread.py`'s row
+#: table) passes `material="timber"` and nothing in the ladder changes.
+MATERIAL = md.DEFAULT_MATERIAL
 
 #: Compute ceiling on cells for ONE building. Not a design number: the cut is
 #: near-linear in cells since `_fracture_hier`, but the SETTLE is not — every
@@ -414,10 +481,11 @@ def cells_for(root_prim, fragment_m=RUBBLE_M, cap=None):
     return int(max(24, min(top, want)))
 
 
-def shatter(stage, root_prim, intensity, seed=0, wall_m=WALL_M,
-            fragment_m=RUBBLE_M, max_cells=None, shrink=SHRINK, solid=False,
+def shatter(stage, root_prim, intensity, seed=0, wall_m=None,
+            fragment_m=None, max_cells=None, shrink=SHRINK, solid=False,
             max_edge_m=4.0, solid_kw=None, field_fn=None, field_kw=None,
-            auto_cells=True, interior=True, **fracture_kw):
+            auto_cells=True, interior=True, material=MATERIAL, grain=None,
+            **fracture_kw):
     """Field, thicken, cut. Returns `mesh_damage.damage_building`'s report.
 
     Pure geometry: numpy and pxr, no Kit and no PhysX, so this runs on the host
@@ -427,7 +495,23 @@ def shatter(stage, root_prim, intensity, seed=0, wall_m=WALL_M,
     `max_cells` defaults to whatever `fragment_m` rubble implies for this
     building (`cells_for`). Pass a number with `auto_cells=False` to take it
     literally.
+
+    WHAT THE BUILDING IS MADE OF is *material* (`mesh_damage.MATERIALS`), and
+    it supplies the three things this file has no business deciding: how thick
+    the wall is, what SHAPE a fragment comes out, and how big it is when the
+    caller has no opinion. All three are properties of the construction and
+    not of the event — a quake and a storm break the same stud wall into the
+    same planks — so they are looked up rather than tuned here, and an
+    explicit `wall_m`, `grain` or `fragment_m` still wins. Masonry by default,
+    because that is what every number in this file was quoted against.
     """
+    mat = md.material(material)
+    if wall_m is None:
+        wall_m = mat.wall_m
+    if grain is None:
+        grain = mat.grain
+    if fragment_m is None:
+        fragment_m = mat.fragment_m
     n = cells_for(root_prim, fragment_m) if auto_cells or max_cells is None \
         else int(max_cells)
     w = wall_for(root_prim, wall_m) if auto_cells else float(wall_m)
@@ -436,7 +520,7 @@ def shatter(stage, root_prim, intensity, seed=0, wall_m=WALL_M,
         wall_m=float(w), solid=bool(solid), max_edge_m=float(max_edge_m),
         interior=bool(interior),
         field_fn=field_fn, solid_kw=solid_kw, field_kw=field_kw,
-        fragment_m=float(fragment_m),
+        fragment_m=float(fragment_m), grain=grain,
         max_cells=int(n), shrink=float(shrink), **fracture_kw)
     rep["cells_wanted"] = n
     rep["cells_capped"] = bool(n >= MAX_CELLS_CAP)
@@ -481,6 +565,15 @@ def consume(stage, report, fraction=CONSUME, pool=1.25, seed=0):
     loose = list(report.get("loose") or [])
     if not loose or fraction <= 0.0:
         return 0
+    # NEVER THE SLABS. `consume` draws from the LARGEST pieces, and an orphaned
+    # slab — the part of the building that never failed, released whole because
+    # what held it up is gone — is always the largest thing in the pile. Left
+    # in the draw it is the first thing deleted, which pulverises the one piece
+    # the rung is about and puts the roof back in mid-air by another route.
+    slabs = set(report.get("slabs") or ())
+    loose = [p for p in loose if p not in slabs]
+    if not loose:
+        return 0
 
     bb = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
                            [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
@@ -508,19 +601,28 @@ def consume(stage, report, fraction=CONSUME, pool=1.25, seed=0):
         prim = stage.GetPrimAtPath(p)
         if prim and prim.IsValid():
             prim.SetActive(False)
-    report["loose"] = [p for p in loose if p not in gone]
+    report["loose"] = [p for p in (report.get("loose") or [])
+                       if p not in gone]
     report["paths"] = [p for p in (report.get("paths") or []) if p not in gone]
     report["consumed"] = len(gone)
     return len(gone)
 
 
 def collapse(stage, report, seed=0, blast=BLAST, steps=STEPS, kick=0.15,
-             gpu=True, bake_result=True):
+             gpu=True, bake_result=True, **settle_kw):
     """Drop what came free and freeze it. Needs Kit — `settle` imports carb.
 
     Anchored fragments are handed over as STATIC colliders rather than being
     ignored: they are what the loose pieces land on, and a pile that falls
     through the part of the building still standing is not a collapse.
+
+    ORPHANED SLABS ARE THE EXCEPTION TO EVERY DEFAULT HERE. A slab is a whole
+    uncut piece of the building that lost its support (`mesh_damage`'s SUPPORT
+    note), so unlike a 2 m chunk of rubble it is neither convex nor small:
+    a convex hull of the top twenty storeys of an L-plan tower is a solid
+    prism, and it lands on the pile balanced on a footprint the building never
+    had. They get a decomposition instead, which is worth the cook time when
+    there are a handful of them and thousands of everything else.
     """
     import random
 
@@ -529,11 +631,18 @@ def collapse(stage, report, seed=0, blast=BLAST, steps=STEPS, kick=0.15,
     loose = list(report.get("loose") or [])
     if not loose:
         return {}
+    slabs = [p for p in report.get("slabs") or () if p in set(loose)]
+    # Anchored FRAGMENTS plus the uncut material that never left the source
+    # prims. Both are static colliders and both are load-bearing for the look:
+    # a pile that falls through the half of the building still standing is not
+    # a collapse. See `mesh_damage.fracture_to_stage`'s `standing`.
     anchored = [p for p in report.get("paths") or [] if p not in set(loose)]
+    anchored += list(report.get("standing") or ())
     return settle.run(stage, loose, anchored, steps=int(steps),
                       kick=float(kick), blast=float(blast),
+                      approx_map={p: "convexDecomposition" for p in slabs},
                       rng=random.Random(int(seed)), gpu=bool(gpu),
-                      bake_result=bool(bake_result))
+                      bake_result=bool(bake_result), **settle_kw)
 
 
 def run(stage, root_prim, intensity, seed=0, blast=BLAST, steps=STEPS,
@@ -565,33 +674,29 @@ def run(stage, root_prim, intensity, seed=0, blast=BLAST, steps=STEPS,
 #: handed is a `shatter` argument and is passed straight through — the two
 #: were once the same `**kwargs` bag, which meant `solid=True` was silently
 #: swallowed into the recipe and a solid asset got thickened anyway.
-OVERRIDABLE = ("intensity", "release", "collapse", "fragment_m", "consume",
-               "blast")
+OVERRIDABLE = ("intensity", "support", "release", "collapse", "fragment_m",
+               "consume", "blast")
 
 
-def at_level(stage, root_prim, level, seed=0, settle_it=True, steps=STEPS,
-             gpu=True, **kwargs):
-    """Break one building to a named RUNG. Severity is not an argument.
+def recipe(level, plan=None, material=MATERIAL) -> dict:
+    """The fracture knobs a rung means, on a building made of *material*.
 
-    A rung is a SET of mechanisms over regions of the plan (`RUNG_PLAN`), not
-    one mode — see the note there. The composed field is built by `field_for`;
-    the fracture thresholds come from the worst mechanism in the set, because
-    a threshold is a property of the cut and there is only one cut.
+    Split out of `at_level` because it is the whole of what a rung IS in
+    numbers, it needs no stage, and it is the thing that has to stay true when
+    the same ladder is run on a timber house instead of a masonry tower.
 
-    Keyword arguments are split, not merged: the names in `OVERRIDABLE` nudge
-    the recipe, everything else (`solid`, `wall_m`, `max_edge_m`, `solid_kw`)
-    goes to `shatter` untouched.
-
-    Returns the shatter report with `level` and (when settled) `settle` added.
-    A rung with no plan returns a report that says so and touches nothing —
-    `pristine` is a legitimate outcome, not an error.
+    THE THRESHOLDS ARE THE RUNG'S AND THE LENGTHS ARE THE MATERIAL'S. A rung
+    names a kind of failure — how much of the building is cut (`support`), how
+    much of what is cut comes free (`release`, `collapse`), how much is
+    pulverised (`consume`) — and none of that changes with what the walls are
+    made of. What does change is the SIZE of the piece it comes apart into,
+    and therefore the push it needs to clear its neighbour, so `fragment_m`
+    and `blast` are rescaled by the material's own fragment size against the
+    masonry `RUBBLE_M` every number in `MECHANISMS` was quoted against.
     """
-    override = {k: kwargs.pop(k) for k in list(kwargs) if k in OVERRIDABLE}
-    steps_plan = RUNG_PLAN.get(str(level or "pristine"))
+    steps_plan = steps_for(level, plan)
     if not steps_plan:
-        return {"level": level, "field": None, "cells": 0, "paths": [],
-                "loose": [], "thickened": 0, "dismissed": True}
-
+        return {}
     mechs = [MECHANISMS[n] for n, _ in steps_plan]
     top = mechs[0]
     kw = {
@@ -603,16 +708,58 @@ def at_level(stage, root_prim, level, seed=0, settle_it=True, steps=STEPS,
         # The finest spacing in the set — rubble is sized by the mechanism
         # that pulverised it, not averaged with the one that only cracked.
         "fragment_m": min(m.fragment_m for m in mechs),
+        # THE DOMINANT one's, not the most permissive: there is one cut, and
+        # how much of the building it leaves whole is what the rung is named
+        # after. Taking the minimum here would let `crack` — which every rung
+        # carries as its background — dice the whole tower on every rung.
+        "support": top.support,
         "consume": top.consume,
         "blast": top.blast,
         "intensity": top.intensity,
     }
+    scale = md.material(material).fragment_m / RUBBLE_M
+    kw["fragment_m"] *= scale
+    kw["blast"] *= scale
+    return kw
+
+
+def at_level(stage, root_prim, level, seed=0, settle_it=True, steps=STEPS,
+             gpu=True, plan=None, material=MATERIAL, **kwargs):
+    """Break one building to a named RUNG. Severity is not an argument.
+
+    A rung is a SET of mechanisms over regions of the plan (`RUNG_PLAN`), not
+    one mode — see the note there. The composed field is built by `field_for`;
+    the fracture thresholds come from the worst mechanism in the set, because
+    a threshold is a property of the cut and there is only one cut.
+
+    Keyword arguments are split, not merged: the names in `OVERRIDABLE` nudge
+    the recipe, everything else (`solid`, `wall_m`, `max_edge_m`, `solid_kw`)
+    goes to `shatter` untouched.
+
+    `plan` overrides `RUNG_PLAN` with an explicit ``[(mechanism, share), ...]``
+    and makes *level* a label. That is not a scene path — the ladder is what
+    ships — it is how `tools/quake_mechanisms.py` renders one mechanism on its
+    own, which is the only way to see which of them is doing what.
+
+    Returns the shatter report with `level` and (when settled) `settle` added.
+    A rung with no plan returns a report that says so and touches nothing —
+    `pristine` is a legitimate outcome, not an error.
+    """
+    override = {k: kwargs.pop(k) for k in list(kwargs) if k in OVERRIDABLE}
+    steps_plan = steps_for(level, plan)
+    if not steps_plan:
+        return {"level": level, "field": None, "cells": 0, "paths": [],
+                "loose": [], "thickened": 0, "dismissed": True}
+
+    kw = recipe(level, plan=plan, material=material)
     kw.update(override)
 
     rep = shatter(stage, root_prim, kw["intensity"], seed=seed,
                   fragment_m=kw["fragment_m"],
-                  field_fn=field_for(level, seed),
-                  release=kw["release"], collapse=kw["collapse"], **kwargs)
+                  field_fn=field_for(level, seed, plan),
+                  material=material,
+                  support=kw["support"], release=kw["release"],
+                  collapse=kw["collapse"], **kwargs)
     rep["level"] = level
     rep["mechanisms"] = [n for n, _ in steps_plan]
     # Consume scales with the RUNG's own consume, not with any severity: how

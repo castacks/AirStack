@@ -1,0 +1,87 @@
+# HIGH-LEVEL scene spec — the SMALL URBAN QUAKE, DAMAGED LIVE.
+#
+# WHAT THIS IS FOR
+# ----------------
+# Looking at what the earthquake code does TODAY, in one `airstack up`, with
+# nothing baked in between. `urban_quake_showcase` renders Stage A's archetype
+# library, so what you see there is whatever `archetypes/bake_cli.py` was last
+# run against — it keeps rendering the old damage model long after the model
+# has moved, and looks like a pipeline regression when it is a stale bake.
+# This preset turns the library OFF (`archetypes: false`), so every wrecked
+# building is fractured and settled at scene time by `disaster/quake.py` and
+# `disaster/mesh_damage.py`.
+#
+#     SCENE_CONFIG=urban_quake_live \
+#     ISAAC_SIM_SCRIPT_NAME=scene_launch_script.py \
+#     airstack up isaac-sim
+#
+# WHAT IT COSTS  (measured end to end, RTX 5090)
+# ----------------------------------------------
+#     airstack up -> scene ready              224 s
+#       of which: live fracture, 1 building     62 s
+#                 settle, 907 props              7 s  (setup+cook+sim+freeze)
+#                 the rest is Kit startup, the Pegasus environment,
+#                 asset measurement, 796 placements and collider cooking
+#
+# It was 620 s. Three things moved it: the fracture's inner loops were
+# vectorised (384 s -> 62 s, see `_clip_by_plane` and `_vt_int` in
+# `mesh_damage.py`), the settle stopped writing every body's transform back to
+# USD on every step, and the settle moved onto the GPU (98.4 s -> 2.4 s, see
+# `scene_prep.settle_rigid_props`).
+#
+# At 62 s a building, three would fit in about six minutes. `max_buildings` is
+# the knob.
+#
+# `max_buildings: 1` spends the budget on the WORST-HIT building —
+# `apply_to_stage` ranks by local intensity, so it is always the epicentre you
+# are looking at, never whichever building the packer reached first. Any
+# building past the cap keeps the tilt-and-sink stand-in `disaster_stage` gave
+# it, which is an intact model rotated and sunk, not damaged geometry.
+#
+# `subdivide` (refining every face to a 4 m edge before the cut) is still
+# worth knowing about: it is cheap itself but multiplies the triangles the
+# cutter chews, and turning it off was a 3x win BEFORE the cutter was
+# vectorised. Measure again before reaching for it — the balance has moved.
+#
+# 105 m AND SIX BUILDINGS is `urban_quake_tiny`'s geometry; its header has the
+# sizing measurements and the reason the field has to be resized to the block.
+# `urban_intact` for the reason it gives too: on the plain `urban` pack a
+# destroyed building prefers an authored ruin, so most of what you would see
+# is art rather than the pipeline under test.
+
+locale: urban
+disaster-type: earthquake
+
+# Local damage is `field x severity` and `pancaked` sits at 0.88, so anything
+# below ~0.9 cannot reach the top rung even at the epicentre.
+severity: 0.9
+
+asset-pack: urban_intact
+region_m: [105, 105]
+seed: 42
+
+overrides:
+  disaster:
+    # THE POINT OF THIS PRESET. False means `disaster_stage` never looks at
+    # `assets/archetypes/earthquake/`, so no building can be swapped for a
+    # pre-baked one and every damaged building goes through live mesh damage.
+    # `SCENE_ARCHETYPES=1` in the environment overrides this for one run;
+    # `SCENE_ARCHETYPES=0` does the same to a preset that leaves it on.
+    archetypes: false
+    mesh_damage:
+      # One building, ~62 s. See the table above.
+      fracture:
+        max_buildings: 1
+      thickness:
+        max_buildings: 1
+      # Coarser fragment shapes, and less work for the cutter. Was a 3x
+      # win before the cutter was vectorised; re-measure before relying on it.
+      # subdivide:
+      #   enabled: false
+    field:
+      # Sized to a block rather than to a city: `radius_m` is the fully-hit
+      # core, `falloff_m` carries the gradient past the far corner (the
+      # half-diagonal is 74 m) so no building sits in dead flat outside.
+      radius_m: 8.0
+      falloff_m: 40.0
+      outside: 0.1

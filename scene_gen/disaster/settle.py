@@ -33,14 +33,30 @@ rather than on all of them.
 
 import carb
 
+#: Cap on how fast PhysX may push two overlapping bodies apart, m/s. See the
+#: note where it is applied. This is the knob that decides whether a pile
+#: settles or inflates, and it is exposed because the right value depends on
+#: how much the colliders overlap to begin with — which for convex hulls of
+#: Voronoi-cut SHELL fragments can be metres, not millimetres.
+DEPENETRATION_MS = 0.6
 
-def _apply_collider(prim, approximation="convexHull"):
-    """Collision on every mesh under *prim*. Returns how many were set."""
+
+def _apply_collider(prim, approximation="convexHull", skip_dynamic=False):
+    """Collision on every mesh under *prim*. Returns how many were set.
+
+    `skip_dynamic` passes over anything that is already a rigid body. That is
+    what makes it safe to hand over a whole BUILDING as static geometry: the
+    single-mesh AEC assets are a Mesh at their default prim, the fragments cut
+    out of them are authored as its children, and walking the subtree would
+    otherwise put a triangle-mesh collider on every dynamic body in the pile.
+    """
     from pxr import UsdGeom, UsdPhysics
 
     n = 0
     for p in _iter(prim):
         if not p.IsA(UsdGeom.Mesh):
+            continue
+        if skip_dynamic and p.HasAPI(UsdPhysics.RigidBodyAPI):
             continue
         pts = p.GetAttribute("points")
         # The kit ships material-only USDs whose meshes carry no points; PhysX
@@ -136,10 +152,106 @@ def blast_velocities(stage, paths, speed, centre=None, up=0.35, falloff=1.0):
     return out
 
 
+#: GPU BUFFER CAPACITIES, and why they are all raised at once.
+#:
+#: PhysX preallocates fixed GPU buffers and does not grow them: overflow does
+#: not fall back to CPU, it DROPS contacts, and the symptom is pieces sinking
+#: through each other or through the ground with only a warning in the log.
+#: The defaults are sized for a few hundred bodies. Everything here is well
+#: past what a single collapse needs, because the failure is silent and the
+#: memory is cheap next to a card already holding the scene.
+#:
+#: Attribute name -> value, so `describe_scene` can read back exactly what
+#: `configure_scene` claims to have set.
+GPU_CAPACITIES = {
+    "gpuMaxRigidContactCount": 4 * 1024 * 1024,
+    "gpuMaxRigidPatchCount": 1024 * 1024,
+    "gpuFoundLostPairsCapacity": 2 * 1024 * 1024,
+    "gpuFoundLostAggregatePairsCapacity": 64 * 1024,
+    "gpuTotalAggregatePairsCapacity": 64 * 1024,
+    "gpuHeapCapacity": 256 * 1024 * 1024,
+    "gpuTempBufferCapacity": 64 * 1024 * 1024,
+    "gpuMaxNumPartitions": 8,
+}
+
+
+def configure_scene(stage, scene_prim=None, gpu: bool = True) -> dict:
+    """Put the settle's PhysX settings on a physics scene. Returns what it set.
+
+    THE SETTLE IS THE ONE PHASE HERE THAT CAN USE THE CARD — mesh slicing and
+    texture compositing are CPU libraries end to end — and it is the phase
+    carrying thousands of bodies, which is where a GPU broadphase and solver
+    earn their keep.
+
+    Shared rather than inlined in `prepare` because the SCENE-WIDE settle
+    (`simulation/isaac-sim/utils/scene_prep.py:settle_rigid_props`) needs the
+    identical configuration and had none of it: it defined a bare
+    `UsdPhysics.Scene` and inherited whatever PhysX defaults happened to be in
+    force. Two copies of `GPU_CAPACITIES` would drift, and a drifted capacity
+    fails silently — see the note there.
+    """
+    from pxr import PhysxSchema, UsdPhysics
+
+    if scene_prim is None:
+        scene_prim = next((p for p in stage.Traverse()
+                           if p.IsA(UsdPhysics.Scene)), None)
+    if scene_prim is None:
+        return {}
+
+    sx = PhysxSchema.PhysxSceneAPI.Apply(scene_prim)
+    sx.CreateEnableGPUDynamicsAttr(bool(gpu))
+    sx.CreateBroadphaseTypeAttr("GPU" if gpu else "MBP")
+    # TGS converges far better than PGS on deep stacks, which is exactly what
+    # a collapsed building is.
+    sx.CreateSolverTypeAttr("TGS")
+    was = {"gpu": bool(gpu), "broadphase": "GPU" if gpu else "MBP",
+           "solver": "TGS", "scene": str(scene_prim.GetPath())}
+    if gpu:
+        for name, value in GPU_CAPACITIES.items():
+            attr = getattr(sx, "Create" + name[0].upper() + name[1:] + "Attr")
+            attr().Set(value)
+        was.update(GPU_CAPACITIES)
+    return was
+
+
+def describe_scene(stage) -> dict:
+    """What the stage's physics scene is ACTUALLY set to, or {} if there is none.
+
+    Reported rather than assumed: a settle that silently ran on the CPU and one
+    that ran on the GPU with undersized buffers look the same from the outside
+    — slow, and pieces through the floor — and neither announces itself.
+    """
+    from pxr import PhysxSchema, UsdPhysics
+
+    prim = next((p for p in stage.Traverse() if p.IsA(UsdPhysics.Scene)), None)
+    if prim is None:
+        return {}
+    out = {"scene": str(prim.GetPath()),
+           "physx_api": bool(prim.HasAPI(PhysxSchema.PhysxSceneAPI))}
+    if not out["physx_api"]:
+        # No PhysxSceneAPI at all: PhysX runs this scene on its own defaults,
+        # which is CPU dynamics with a CPU broadphase and the PGS solver.
+        return out
+    sx = PhysxSchema.PhysxSceneAPI(prim)
+    def _get(getter, default=None):
+        attr = getattr(sx, getter, None)
+        if attr is None:
+            return default
+        got = attr().Get()
+        return default if got is None else got
+    out["gpu"] = bool(_get("GetEnableGPUDynamicsAttr", False))
+    out["broadphase"] = str(_get("GetBroadphaseTypeAttr", "?"))
+    out["solver"] = str(_get("GetSolverTypeAttr", "?"))
+    for name in GPU_CAPACITIES:
+        out[name] = _get("Get" + name[0].upper() + name[1:] + "Attr")
+    return out
+
+
 def prepare(stage, loose_paths, static_paths, gravity=-9.81,
             scene_path="/World/physicsScene", kick=0.0, rng=None,
             dynamic_approximation="convexHull", approx_map=None, gpu=True,
-            blast=0.0, blast_center=None, blast_up=0.35, blast_falloff=1.0):
+            blast=0.0, blast_center=None, blast_up=0.35, blast_falloff=1.0,
+            depenetration=DEPENETRATION_MS):
     """Physics scene, static colliders, and a rigid body per loose piece."""
     import random as _random
 
@@ -153,33 +265,7 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
     scene.CreateGravityDirectionAttr().Set(Gf.Vec3f(0.0, 0.0, -1.0))
     scene.CreateGravityMagnitudeAttr().Set(abs(float(gravity)))
 
-    # GPU DYNAMICS. The settle is the one phase here that can actually use the
-    # card — mesh slicing and texture compositing are CPU libraries end to end
-    # — and it is carrying thousands of bodies, which is where a GPU broadphase
-    # and solver earn their keep.
-    #
-    # THE CAPACITIES ARE THE WHOLE STORY. PhysX preallocates fixed GPU buffers
-    # and does not grow them: overflow does not fall back to CPU, it DROPS
-    # contacts, and the symptom is pieces sinking through each other or through
-    # the ground with only a warning in the log. The defaults are sized for a
-    # few hundred bodies. Everything below is raised well past what this scene
-    # needs, because the failure is silent and the memory is cheap next to a
-    # 16 GB card already holding the scene.
-    sx = PhysxSchema.PhysxSceneAPI.Apply(scene.GetPrim())
-    sx.CreateEnableGPUDynamicsAttr(bool(gpu))
-    sx.CreateBroadphaseTypeAttr("GPU" if gpu else "MBP")
-    # TGS converges far better than PGS on deep stacks, which is exactly what
-    # a collapsed house is.
-    sx.CreateSolverTypeAttr("TGS")
-    if gpu:
-        sx.CreateGpuMaxRigidContactCountAttr(4 * 1024 * 1024)
-        sx.CreateGpuMaxRigidPatchCountAttr(1024 * 1024)
-        sx.CreateGpuFoundLostPairsCapacityAttr(2 * 1024 * 1024)
-        sx.CreateGpuFoundLostAggregatePairsCapacityAttr(64 * 1024)
-        sx.CreateGpuTotalAggregatePairsCapacityAttr(64 * 1024)
-        sx.CreateGpuHeapCapacityAttr(256 * 1024 * 1024)
-        sx.CreateGpuTempBufferCapacityAttr(64 * 1024 * 1024)
-        sx.CreateGpuMaxNumPartitionsAttr(8)
+    configure_scene(stage, scene.GetPrim(), gpu=gpu)
 
     # A true infinite plane as a backstop. Even with the fix above, one
     # uncooked collider is enough to lose a piece to infinity, and a piece
@@ -203,18 +289,7 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
     UsdPhysics.CollisionAPI.Apply(
         stage.GetPrimAtPath(scene_path + "/floor/plane"))
 
-    # STATIC GEOMETRY GETS A TRIANGLE MESH, NOT A HULL. The ground is a flat
-    # quad and the convex hull of a planar polygon is degenerate — PhysX has
-    # no volume to cook, so the collider silently does nothing and every
-    # fragment falls straight through the world. Static colliders may be
-    # concave in PhysX, so "none" (use the real triangles) is both valid and
-    # more accurate here; only the dynamic bodies need hulls.
     n_static = n_body = 0
-    for path in static_paths:
-        prim = stage.GetPrimAtPath(path)
-        if prim and prim.IsValid():
-            n_static += _apply_collider(prim, approximation="none")
-
     bodies = []
     for path in loose_paths:
         prim = stage.GetPrimAtPath(path)
@@ -264,7 +339,7 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
         # them apart, and by default it may do so at any speed — which turns
         # fracture fragments that start in contact into shrapnel. Capping the
         # separation speed makes penetration resolve as a shove instead.
-        px.CreateMaxDepenetrationVelocityAttr(0.6)
+        px.CreateMaxDepenetrationVelocityAttr(float(depenetration))
         px.CreateSolverPositionIterationCountAttr(16)
         px.CreateSolverVelocityIterationCountAttr(2)
         px.CreateSleepThresholdAttr(0.02)
@@ -297,6 +372,24 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
         UsdPhysics.MassAPI.Apply(prim).CreateDensityAttr(420.0)   # timber
         bodies.append(prim)
         n_body += 1
+
+    # STATIC GEOMETRY GETS A TRIANGLE MESH, NOT A HULL. The ground is a flat
+    # quad and the convex hull of a planar polygon is degenerate — PhysX has
+    # no volume to cook, so the collider silently does nothing and every
+    # fragment falls straight through the world. Static colliders may be
+    # concave in PhysX, so "none" (use the real triangles) is both valid and
+    # more accurate here; only the dynamic bodies need hulls.
+    #
+    # AND IT RUNS LAST, skipping anything already dynamic. The static list may
+    # name a whole building — the part of it the fracture left standing — and
+    # on a single-mesh asset the fragments are that prim's own children. Doing
+    # this pass first, or without the guard, cooks a triangle-mesh collider
+    # onto every rigid body in the pile.
+    for path in static_paths:
+        prim = stage.GetPrimAtPath(path)
+        if prim and prim.IsValid():
+            n_static += _apply_collider(prim, approximation="none",
+                                        skip_dynamic=True)
 
     return {"bodies": bodies, "static_meshes": n_static, "rigid": n_body}
 
@@ -409,7 +502,8 @@ def _step(steps, dt=1.0 / 60.0):
 def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         gravity=-9.81, kick=0.0, rng=None, bake_result=True,
         dynamic_approximation="convexHull", approx_map=None, gpu=True,
-        blast=0.0, blast_center=None, blast_up=0.35, blast_falloff=1.0):
+        blast=0.0, blast_center=None, blast_up=0.35, blast_falloff=1.0,
+        depenetration=DEPENETRATION_MS):
     """prepare -> step physics -> measure -> bake. Returns a short report.
 
     MEASURES WHAT MOVED. A settle that silently does nothing looks identical
@@ -429,7 +523,8 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
                    dynamic_approximation=dynamic_approximation,
                    approx_map=approx_map, gpu=gpu,
                    blast=blast, blast_center=blast_center,
-                   blast_up=blast_up, blast_falloff=blast_falloff)
+                   blast_up=blast_up, blast_falloff=blast_falloff,
+                   depenetration=depenetration)
     if not info["bodies"]:
         carb.log_warn("[settle] nothing to settle")
         return info
@@ -490,6 +585,12 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     info["moved_mean"] = float(np.mean(d)) if d else 0.0
     info["moved_max"] = float(np.max(d)) if d else 0.0
     info["drop_mean"] = float(np.mean(dv)) if dv else 0.0
+    # AND THE MEDIAN, which is the one to tune against. A pile is thousands of
+    # bodies and a handful of them get launched — one slab catapulted off the
+    # top of the wreckage carried the mean from -3 m to +7.4 m on BG_Building_F
+    # and read as an explosion that never happened. The median says where the
+    # material went; the mean says whether anything got thrown.
+    info["drop_median"] = float(np.median(dv)) if dv else 0.0
     info["spread_mean"] = float(np.mean(dh)) if dh else 0.0
     info["spread_max"] = float(np.max(dh)) if dh else 0.0
 
@@ -507,8 +608,9 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
                   info.get("still_moving", 0),
                   "" if not info.get("still_moving")
                   else "  <-- RAISE THE STEP BUDGET"))
-        print("[settle]   drop  mean {0:+.2f} m   (down = collapsing)".format(
-            info["drop_mean"]))
+        print("[settle]   drop  median {0:+.2f} m / mean {1:+.2f} m   "
+              "(down = collapsing)".format(info["drop_median"],
+                                           info["drop_mean"]))
         print("[settle]   spread mean {0:.2f} m / max {1:.2f} m   "
               "(large = exploding)".format(info["spread_mean"],
                                            info["spread_max"]))

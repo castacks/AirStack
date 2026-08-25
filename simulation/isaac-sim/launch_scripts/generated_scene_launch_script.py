@@ -57,6 +57,7 @@ from scene_generator import generate_scene_on_stage, resolve_sky
 # Accepts a config at either level: a high-level disaster spec is
 # compiled in memory, a low-level scene config is used as is.
 from compile_disaster import load_scene_config
+from disaster import kinds
 
 
 # --------------------- CONFIGURATION ---------------------
@@ -215,6 +216,19 @@ class PegasusApp:
 
         # Sky + ambient light: borrowed stage prims or HDRI dome per config `sky:`.
         add_sky(stage, resolve_sky(config))
+
+        # ----- Stage C: the people, and anything the USD could not carry -----
+        # Targets are placed HERE rather than during generation on purpose:
+        # they are not part of the scene, they are what is being searched for,
+        # so the same city can be re-populated with a different `targets.seed`
+        # (scene_gen/targets.py). Ground truth lands in targets.json.
+        # `attach_runtime` applies fire's carb settings; every other type
+        # returns 0.
+        disaster = kinds.get(config)
+        disaster.place_targets(stage, config, placements=placements,
+                               parent_path="/World/stage/targets",
+                               scene_scale_factor=scene_scale_factor)
+        disaster.attach_runtime(stage)
 
         # ----- Spawn drone OmniGraph -----
         graph_handle = spawn_px4_multirotor_node(

@@ -29,6 +29,10 @@ HIGH-LEVEL SPEC
     epicenter: [0, 0]         # earthquake / explosion / fire — where it struck
     heading_deg: 35           # tornado / hurricane — direction of travel
 
+    # optional, Stage C (the people to be found — see targets.py):
+    occupancy: day            # night | day | commute — time-of-day population split
+    target-seed: 7            # re-roll the victims without moving the city
+
     overrides:                # optional escape hatch, deep-merged last:
       packing:                # any low-level setting, verbatim
         min_parks: 4
@@ -159,6 +163,26 @@ def compile_none(sev, spec, region):
 #: profiles both punch holes and (flood aside) shatter — the two things a
 #: zero-thickness shell renders as paper. The budget mirrors `fracture`'s,
 #: because it is the same buildings and the same reason (see `solidify`).
+#: WHAT THE BUILT FABRIC OF A LOCALE IS MADE OF, and how thick its walls are.
+#:
+#: A downtown block is masonry and concrete; a subdivision is timber frame,
+#: and a rural one is timber too. That is a property of the PLACE and not of
+#: what hit it — the same stud wall breaks into the same planks whether it was
+#: shaken or blown down — so it is compiled off the locale and every disaster
+#: reads it from one place (`mesh_damage.apply_to_stage`, which hands it to
+#: the disaster's script).
+#:
+#: The wall figures MIRROR `disaster/mesh_damage.py`'s `MATERIALS` and are
+#: repeated rather than imported: this compiler must run on a plain `python3`
+#: with no numpy and no `pxr`, and `mesh_damage` needs both. `tests/
+#: test_quake.py` holds the two tables to the same numbers.
+LOCALE_MATERIAL = {
+    "urban": ("masonry", 0.5),
+    "suburban": ("timber", 0.15),
+    "rural": ("timber", 0.15),
+}
+
+
 def thickness_block(max_buildings: int) -> dict:
     # 0.5 m, not 0.25: a fragment cut from a quarter-metre slab still
     # reads as a sheet at rubble scale. `max_span_frac` keeps it from
@@ -602,6 +626,64 @@ DISASTERS = {
 # Compilation
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# STAGE C — who is in the scene to be found
+#
+# The disaster compilers above decide what happened to the CITY. This decides
+# what happened to the PEOPLE, and it is a separate axis: the population is a
+# property of the place and the hour, while the disaster decides only where
+# that population ends up. Hence no severity lerp here — `targets.py` holds N
+# fixed across a severity sweep on purpose (see its docstring), so "how many
+# did the search find" means the same thing at every severity.
+#
+# Weights follow the 2023 Türkiye casualty split (36.8% rescued from under
+# rubble, 40.1% injured escaping, 19.8% recovered from under rubble) plus the
+# post-quake convergence on open space that every account of a large urban
+# earthquake describes. Sources are cited in `targets.py`.
+# ---------------------------------------------------------------------------
+
+TARGET_COHORTS = {
+    "earthquake": {"inside_rubble": 0.35, "exit_ring": 0.20, "street": 0.15,
+                   "open_space": 0.25, "rubble_edge": 0.05},
+}
+
+#: What "Stage C owns every human" costs the Stage B detail pass. Scenery
+#: people are unlabelled, so leaving them in would put humans in the scene that
+#: are not in the ground truth — every one of them a false positive a search
+#: run would be penalised for finding.
+_NO_SCENERY_HUMANS = {
+    "detail": {"humans": {"per_block": [0, 0],
+                          "sidewalk_spacing_m": 0.0,
+                          "trail_spacing_m": 0.0}},
+}
+
+
+def compile_targets(dtype, sev, spec):
+    """The low-level ``targets`` block for a disaster type at severity *sev*.
+
+    Empty for a type with no cohort weights. NOT gated on severity, and that is
+    load-bearing rather than tidy: `owns_humans` zeroes the Stage B scenery
+    people, so gating it on severity would make a DETAIL-stage input a function
+    of severity — the exact thing `tests/test_layout_decoupling.py` exists to
+    forbid. It cost 100 of 128 benches moving between severity 0.0 and 0.4 on
+    the first attempt, because the humans that vanished had been holding places
+    in the shared occupancy grid.
+
+    At severity 0 the field is flat zero, so nobody is trapped and the whole
+    population ends up outdoors, alive: an undamaged city whose people are all
+    labelled targets. That is the right answer for a control run.
+    """
+    cohorts = TARGET_COHORTS.get(dtype)
+    if not cohorts:
+        return {}
+    out = {"cohorts": dict(cohorts), "owns_humans": True}
+    for key, dest in (("occupancy", "occupancy"), ("target-seed", "seed"),
+                      ("target_seed", "seed")):
+        if key in spec:
+            out[dest] = spec[key]
+    return out
+
+
 def compile_spec(spec: dict, base: dict) -> dict:
     """High-level *spec* + *base* low-level config -> low-level config."""
     dtype = str(spec.get("disaster-type",
@@ -656,6 +738,28 @@ def compile_spec(spec: dict, base: dict) -> dict:
     cfg["disaster"]["type"] = dtype
     cfg["disaster"]["severity"] = sev
 
+    # ---- WHAT THE BUILDINGS ARE MADE OF (see `LOCALE_MATERIAL`). Written
+    # after the disaster block because the disaster owns the budgets and the
+    # locale owns the fabric, and a suburb of timber houses thickened to a
+    # half-metre masonry wall is the single most visible way an urban-tuned
+    # ladder goes wrong on a house.
+    mat, wall_m = LOCALE_MATERIAL.get(cfg["locale"], LOCALE_MATERIAL["urban"])
+    mdb = cfg["disaster"].get("mesh_damage")
+    if mdb:
+        mdb["material"] = mat
+        if mdb.get("thickness"):
+            mdb["thickness"]["wall_m"] = wall_m
+
+    # ---- STAGE C axis: the people. Separate from the damage model, and
+    # before `overrides:` so the escape hatch still wins over it.
+    tgt = compile_targets(dtype, sev, spec)
+    if tgt:
+        deep_merge(cfg.setdefault("targets", {}), tgt)
+        if cfg["targets"].get("owns_humans"):
+            deep_merge(cfg, copy.deepcopy(_NO_SCENERY_HUMANS))
+            cfg["disaster"]["humans_prone_fraction"] = 0.0
+            cfg["disaster"]["humans_strewn"] = [0, 0]
+
     # Escape hatch: raw low-level overrides win over everything.
     if spec.get("overrides"):
         # Restaged first: `overrides:` is authored flat (one line per knob) and
@@ -670,6 +774,7 @@ def compile_spec(spec: dict, base: dict) -> dict:
     # provenance in the header comment.
     for k in ("disaster-type", "disaster_type", "severity", "overrides",
               "epicenter", "heading_deg", "asset-pack",
+              "occupancy", "target-seed", "target_seed",
               "presets_path",
               "preset_file"):
         cfg.pop(k, None)

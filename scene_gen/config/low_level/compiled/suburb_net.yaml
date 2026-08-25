@@ -9,7 +9,7 @@
 # severity      : 0.0
 # spec          : scene_gen/config/presets/suburb_net.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-23 21:43:38
+# compiled      : 2026-08-24 19:59:13
 # spec extras   : {'asset-pack': 'suburban_park', 'region_m': [1600, 1200], 'seed': 3, 'overrides': {'layout': {'region_m': [1600, 1200]}, 'suburb_net': {'block_area_target_m2': 40000.0, 'block_area_min_m2': 7000.0, 'collectors': 3, 'collector_wander': 0.28, 'min_gap_m': 88.0, 'junction_skew_deg': 38.0, 'four_way_chance': 0.35, 'dead_end_target': 0.24, 'bulb_radius_m': 14.64, 'lollipop_len_m': [55.0, 170.0], 'grain_weight': 2.6, 'grain_swirl_deg': 34.0, 'grain_period_m': 620.0}, 'suburb_parcel': {'modular_houses': True, 'modular_share': 1.0, 'lot_width_m': [30.0, 44.0], 'house_gap_m': 6.0, 'neighbourhood_m': 400.0, 'density_mix': {'tight': 0.15, 'normal': 0.36, 'loose': 0.34, 'estate': 0.15}, 'setback_m': [6.5, 11.0], 'house_w_m': [9.0, 13.0], 'house_d_m': [8.0, 11.0], 'min_lot_depth_m': 21.0, 'driveway_w_m': 3.2, 'house_yaw_offset_deg': -90.0, 'back_trees_per_100m2': 0.055, 'front_tree_chance': 0.45, 'street_tree_spacing_m': [16.0, 30.0]}}}
 
 seed: 3
@@ -472,6 +472,35 @@ detail:
         zone: furnishing
         spacing_m: 0.0
         near_corner_m: 6.0
+targets:
+  enabled: true
+  count_per_km2: 60.0
+  count_clamp:
+  - 4
+  - 60
+  seed: null
+  occupancy: day
+  owns_humans: false
+  cohorts:
+    inside_rubble: 0.0
+    exit_ring: 0.0
+    street: 0.0
+    open_space: 0.0
+    rubble_edge: 0.0
+  damaged_from: soft_storey
+  bury_frac:
+  - 0.3
+  - 0.8
+  exit_ring_m: 5.0
+  street_band_m: 15.0
+  clearance_m: 8.0
+  cluster_size:
+  - 3
+  - 8
+  cluster_radius_m: 6.0
+  min_separation_m: 1.5
+  parent_path: /World/targets
+  semantic_class: person
 locale: suburban
 suburb_net:
   block_area_target_m2: 40000.0

@@ -620,11 +620,11 @@ def test_capping_is_what_closes_a_fracture():
 
     NOT ASSERTED AT THE COARSE END, deliberately. Thirty cells on this box is
     a thirty-fragment sample and the rate swings 0.41 to 0.60 on reseeding or
-    on `CORNER_GAIN`, which is sampling noise rather than a property. It is
+    on `CORNER_AVOID`, which is sampling noise rather than a property. It is
     also not the regime the pipeline runs in any more: `quake` sizes rubble in
     absolute metres, so a real building is hundreds to thousands of cells.
     Both counts asserted here are in that regime, where the rate is stable to
-    within a few points across seeds and corner gains.
+    within a few points across seeds and corner weights.
     """
     prims = M.mesh_prims(box(scale=10.0))
     b = M.bounds_of(prims)
@@ -981,12 +981,23 @@ def test_the_storm_bearing_is_read_off_the_compiled_config():
         placements[0]["_mesh_damage"] = 0.95
         c = compiled_disaster_config("tornado", severity=0.95)
         c["disaster"]["field"]["heading_deg"] = heading
-        out = M.apply_to_stage(st, c, placements)
-        assert out["loose"], "nothing was thrown"
+        # THE CENTRE IS READ BEFORE THE DAMAGE. Fragments are authored as
+        # children of the building prim, so its bounds afterwards are the
+        # bounds of the debris — and on the rung where the whole structure is
+        # freed and thrown together, that reference travels with the thing it
+        # is supposed to be a reference for and every bearing reads as zero.
         centre = M.bounds_of(M.mesh_prims(
             st.GetPrimAtPath(placements[0]["prim_path"]))).center
+        out = M.apply_to_stage(st, c, placements)
+        # NOT THE SLABS. `loose` also carries whole uncut pieces that lost
+        # their load path (`fracture_to_stage`'s SUPPORT note) — the wind did
+        # not throw those, gravity dropped them where they stood, and they are
+        # the largest bodies in the pile. Averaging them in is averaging the
+        # building back into the measurement.
+        thrown = [p for p in out["loose"] if p not in set(out["slabs"])]
+        assert thrown, "nothing was thrown"
         debris = np.array([M.get_points(st.GetPrimAtPath(p)).mean(axis=0)
-                           for p in out["loose"]]).mean(axis=0)
+                           for p in thrown]).mean(axis=0)
         return debris - centre
 
     # Opposed bearings, so the two are as far apart as the knob can put them.
@@ -1015,6 +1026,42 @@ def test_the_budget_goes_to_the_worst_hit_buildings():
     assert out["fragments"]
     assert all(f.startswith(placements[2]["prim_path"])
                for f in out["fragments"])
+
+
+def test_the_environment_can_cap_the_budget(monkeypatch):
+    """`SCENE_DAMAGE_BUDGET` bounds live damage without editing a preset.
+
+    A preset's `max_buildings` is written for the path it expects: the ones
+    tuned around a baked archetype library carry a budget of 60 because an
+    archetype costs nothing to place. Turning the library off
+    (`SCENE_ARCHETYPES=0`) hands every one of those buildings to live mesh
+    damage, which is hours rather than minutes — so the cap has to be
+    reachable from outside the config.
+    """
+    st, placements = stage_with_buildings(4)
+    for p, k in zip(placements, (0.15, 0.2, 0.95, 0.3)):
+        p["_mesh_damage"] = k
+    cfg = compiled_disaster_config("earthquake")
+    cfg["disaster"]["mesh_damage"]["fracture"]["max_buildings"] = 4
+
+    monkeypatch.setenv("SCENE_DAMAGE_BUDGET", "1")
+    out = M.apply_to_stage(st, cfg, placements)
+
+    # One building damaged, and it is the WORST-HIT one, not the first placed.
+    assert out["fragments"]
+    assert all(f.startswith(placements[2]["prim_path"])
+               for f in out["fragments"])
+
+
+def test_a_junk_budget_in_the_environment_is_ignored(monkeypatch):
+    """A typo must not silently disable the damage stage."""
+    st, placements = stage_with_buildings(2)
+    for p in placements:
+        p["_mesh_damage"] = 0.9
+    cfg = compiled_disaster_config("earthquake")
+
+    monkeypatch.setenv("SCENE_DAMAGE_BUDGET", "lots")
+    assert M.apply_to_stage(st, cfg, placements)["fragments"]
 
 
 def test_the_config_still_overrides_the_defaults():
@@ -1173,3 +1220,147 @@ def test_scorch_does_not_compound_on_a_shared_material():
     assert M.scorch(prims, M.failure_field("fire", b, 0.9, 3)) == 1
     once = float(tex.GetInput("scale").Get()[0])
     assert once > 0.0
+
+
+# ---------------------------------------------------------------------------
+# where the cracks land, and what is left holding the building up
+# ---------------------------------------------------------------------------
+
+
+def test_the_cracks_run_along_the_edges_not_around_them():
+    """Corners and seams are WEAK POINTS, so the cut has to land on them.
+
+    This had the sign the wrong way round and the property is what says so.
+    A Voronoi seed is the CENTRE of a fragment and the cracks are the
+    bisectors halfway between seeds, so biasing the seeds toward high
+    `cornerness` — which is what `CORNER_GAIN` used to do — buries every corner
+    in the middle of an intact cell and guarantees the one place the building
+    should split is the one place it cannot.
+
+    Measured as distance to the nearest crack: for a face, ``d2 - d1`` over its
+    two nearest seeds is zero exactly on a bisector and grows into the middle
+    of a cell. A corner should be closer to a crack than flat wall is.
+    """
+    prims = M.mesh_prims(box(scale=12.0, n=8, height=1.4))
+    for mp in prims:
+        M.subdivide(mp, 2.0)
+    b = M.bounds_of(prims)
+    M.solidify_prims(prims, 0.4, bounds=b)
+    b = M.bounds_of(prims)
+    fail = M.failure_field("earthquake", b, 0.95, 3)
+
+    soup, _ = _mesh_soup_all(prims)
+    frag_m = 1.5
+    seeds = M.fracture_seeds(soup, fail, frag_m, 3, 400)
+    assert len(seeds) > 40
+
+    cen = soup.centroids()
+    corner = M.cornerness(soup, frag_m)
+    d = np.linalg.norm(cen[:, None, :] - seeds[None, :, :], axis=2)
+    near = np.sort(d, axis=1)[:, :2]
+    to_crack = (near[:, 1] - near[:, 0]) * 0.5
+
+    hot = corner >= np.percentile(corner, 90)
+    flat = corner <= np.percentile(corner, 40)
+    assert hot.sum() > 20 and flat.sum() > 20
+    assert to_crack[hot].mean() < to_crack[flat].mean(), (
+        "corners are no nearer a crack than flat wall is — the seeds are not "
+        "being pushed off the seams")
+
+
+def _mesh_soup_all(prims):
+    """The whole of *prims* as one soup, damage ignored."""
+    return M._mesh_soup(prims)
+
+
+def _band(bounds, lo, hi):
+    """A field that fails a horizontal slice of the building and nothing else."""
+    def damage(p):
+        t = (p[:, 2] - bounds.base_z) / max(bounds.height, 1e-9)
+        return np.where((t >= lo) & (t <= hi), 1.0, 0.0)
+    return M.Failure("earthquake", damage)
+
+
+def test_the_block_above_a_failed_storey_is_released_whole():
+    """A soft storey means the mass above it COMES DOWN, not that it hovers.
+
+    The bug this pins: `support` leaves undamaged material on the source prims
+    uncut, and uncut used to mean unconsidered — the retained remainder was fed
+    to the support graph as an unconditional root, i.e. as ground. So a
+    building whose ground floor was pulverised kept every storey above it
+    exactly where it was, and the ladder's heavy rungs rendered as a pile of
+    rubble with a roof plate floating over it.
+
+    Here the field fails a band at the base and nothing else, so everything
+    above is retained. It has to come back as a `slab` — one released body, not
+    a thousand fragments — and it has to be gone from the source prim.
+    """
+    prim = box(scale=14.0, n=8, height=3.0)
+    prims = M.mesh_prims(prim)
+    for mp in prims:
+        M.subdivide(mp, 3.0)
+    b = M.bounds_of(prims)
+    M.solidify_prims(prims, 0.4, bounds=b)
+    b = M.bounds_of(prims)
+
+    before = sum(len(M.face_centroids(p)) for p in prims)
+    rep = M.fracture_to_stage(prim.GetStage(), prim, b, _band(b, 0.0, 0.18),
+                              seed=1, fragment_m=1.5, max_cells=300,
+                              support=0.5, release=0.5, collapse=0.6)
+    assert rep["cells"] > 20
+    assert rep["slabs"], "the mass above the failed storey was left in the air"
+    assert set(rep["slabs"]) <= set(rep["loose"])
+
+    # `prims`, captured before the cut: `mesh_prims` walks the subtree and
+    # would now count the fragments authored under it as well.
+    after = sum(len(M.face_centroids(p) or ()) for p in prims
+                if p.GetPrim().IsActive())
+    assert after < before * 0.25, (
+        "the released block is still on the source prim as well as authored "
+        "as a body, so the building is there twice")
+
+
+def test_only_what_is_above_a_failed_band_comes_free():
+    """The other half of the same property: `support` is not a licence to drop
+    everything. A band failed in the MIDDLE leaves the material below it on the
+    source prim, standing on the ground, and takes only the block above.
+    """
+    prim = box(scale=14.0, n=8, height=3.0)
+    prims = M.mesh_prims(prim)
+    for mp in prims:
+        M.subdivide(mp, 3.0)
+    b = M.bounds_of(prims)
+    M.solidify_prims(prims, 0.4, bounds=b)
+    b = M.bounds_of(prims)
+    cut = b.base_z + 0.62 * b.height
+
+    rep = M.fracture_to_stage(prim.GetStage(), prim, b, _band(b, 0.55, 0.70),
+                              seed=1, fragment_m=1.5, max_cells=300,
+                              support=0.5, release=0.5, collapse=0.6)
+    assert rep["cells"] > 20
+    assert len(rep["slabs"]) == 1, "the top should come off as ONE block"
+
+    # `prims`, captured before the cut: `mesh_prims` walks the subtree and
+    # would now return the fragments and the slab as well.
+    left = np.vstack([M.face_centroids(p) for p in prims
+                      if p.GetPrim().IsActive()
+                      and M.face_centroids(p) is not None])
+    assert (left[:, 2] < cut).mean() > 0.9, (
+        "material below the failed band was released; only the block above it "
+        "had lost its load path")
+
+
+
+
+def test_seeds_are_the_same_in_every_process():
+    """`hash()` is salted per process, so anything seeded off it is not seeded.
+
+    Pinned as literal values rather than as `f(x) == f(x)`, which is true of
+    `hash()` too and catches nothing. These numbers are what a second process
+    has to agree with, and the whole determinism claim — config plus seed
+    reproduces the scene — rests on that being true across a re-bake.
+    """
+    assert M.stable_seed("bg_c", "crack") == 8785
+    assert M.stable_seed("bg_f", "pancake") == 5210
+    assert M.stable_seed("soft_storey", mod=100_000) == 87144
+    assert 0 <= M.stable_seed(("a", 1), 2.5) < 9973

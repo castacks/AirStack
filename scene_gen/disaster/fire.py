@@ -59,14 +59,30 @@ metersPerUnit) on the way into USD, the same convention `apply_placements`
 uses. Emitters live under an identity-transform scope so `position` and
 `halfSize` share one frame.
 
-USAGE
------
+TWO PATHS, ONE BURN
+-------------------
     from disaster import fire
+
+    # LIVE — a launch script, iterating. The driver owns the timeline
+    # subscription that advances the burn; drop it and the fire freezes.
     driver = fire.apply_wildfire(stage, placements, config.get("fire", {}),
                                  scene_scale_factor=ssf)
 
-Keep the returned driver alive — it holds the timeline subscription that
-advances the burn.
+    # BAKED — a dataset scene. The burn is authored as USD timeSamples, so the
+    # stage plays it with no Python at all. `Disaster.bake_stage_b` calls this
+    # as Stage B's last step; `bake_scene.py` gets it for free.
+    fire.bake_emitters(stage, placements, config.get("fire", {}),
+                       scene_scale_factor=ssf)
+
+They differ in exactly one thing — what happens to the schedule — and share
+everything before it (`build_emitters`) and the clock it runs on
+(`burn_windows`). A baked scene that played a different fire from the live one
+would be invisible until someone looked at a frame, so the two are not allowed
+separate definitions of either.
+
+What does NOT bake is the voxel solve (Flow's, at render time) and the carb
+settings that let it render — those are recorded as customData on
+`/World/flow` and re-applied by `attach_runtime`.
 """
 
 import math
@@ -79,6 +95,51 @@ from pxr import Gf, Sdf, Usd, UsdGeom
 FLOW_LAYER = 3
 
 FLOW_ROOT = "/World/flow"
+
+#: RENDERER STATE THAT IS NOT USD, and the reason a baked fire scene needs a
+#: sidecar at all. Flow's rendering is gated on carb settings, so a stage that
+#: carries a perfect emitter rig still shows nothing until these are on.
+#: `setup_flow_stack` applies them and stamps them onto `/World/flow` as
+#: customData, so a dataset consumer can recover them from the file.
+CARB_SETTINGS = {
+    "rtx/flow/enabled": True,
+    "rtx/flow/rayTracedReflectionsEnabled": True,
+    "rtx/flow/rayTracedTranslucencyEnabled": True,
+    "rtx/flow/pathTracingEnabled": True,
+    # THE BLOCK POOL LIVES HERE, not on flowRender/renderSettings. Setting
+    # only the USD attribute leaves the pool at its 4096 default and Flow logs
+    # "Maximum Flow blocks of 4096 in use" while every emitter after the first
+    # few silently gets nothing — which reads as "the fire is only in a couple
+    # of places". Overridden per scene with the config's `max_blocks`.
+    "rtx/flow/maxBlocks": 16384,
+}
+
+#: Flow's own settings all take effect through `ChangeSetting` after startup,
+#: so unlike the burn scar (`disaster.ground.KIT_ARGS`, whose fractional-cutout
+#: flag must be on the command line or the overlay silently vanishes) a fire
+#: scene needs no `extra_args`. Left here as the answer to the question,
+#: because it is the first thing anyone asks after reading `ground`.
+KIT_ARGS: list = []
+
+
+def apply_carb_settings(settings: dict) -> int:
+    """Push *settings* into carb. Returns how many landed; 0 outside Kit.
+
+    Best effort by design: the offline bake authors the whole Flow rig with no
+    Kit at all, and must not fail for want of a renderer.
+    """
+    try:
+        import omni.kit.commands
+    except Exception:                                          # noqa: BLE001
+        return 0
+    n = 0
+    for path, value in (settings or {}).items():
+        try:
+            omni.kit.commands.execute("ChangeSetting", path=path, value=value)
+            n += 1
+        except Exception:                                      # noqa: BLE001
+            pass
+    return n
 
 # Anything whose placement category matches one of these is fuel. Substring
 # match, because the suburb names categories by role (`street_tree`, `yard_tree`)
@@ -223,12 +284,17 @@ def _child(stage, path, type_name):
     return prim
 
 
-def _set(prim, name, type_name, value):
+def _set(prim, name, type_name, value, time=None):
     """Author *name* on *prim*, complaining loudly if the prim is not there.
 
     This used to `return` quietly on an invalid prim, which is how an entire
     Flow configuration went missing without a single line of output — see
     `_child` for what was actually wrong.
+
+    *time* is a TIME CODE, not seconds. `None` authors the default value, which
+    is what the live driver does — it re-authors on every state change and the
+    stage is never saved. `write_schedule` passes a timecode instead, so the
+    same call authors a keyframe and the burn survives into the USD.
     """
     if prim is None or not prim.IsValid():
         print("[fire] WARNING: cannot author {0!r} — prim missing".format(name))
@@ -236,7 +302,10 @@ def _set(prim, name, type_name, value):
     attr = prim.GetAttribute(name)
     if not attr:
         attr = prim.CreateAttribute(name, type_name, custom=True)
-    attr.Set(value)
+    if time is None:
+        attr.Set(value)
+    else:
+        attr.Set(value, time)
 
 
 def setup_flow_stack(stage, *, layer=FLOW_LAYER, density_cell_size_m=0.1,
@@ -257,24 +326,19 @@ def setup_flow_stack(stage, *, layer=FLOW_LAYER, density_cell_size_m=0.1,
     if stage.GetPrimAtPath(sim_path).IsValid():
         return stage.GetPrimAtPath(sim_path)
 
-    UsdGeom.Scope.Define(stage, Sdf.Path(root))
-
-    try:
-        import omni.kit.commands
-        for path in ("rtx/flow/enabled",
-                     "rtx/flow/rayTracedReflectionsEnabled",
-                     "rtx/flow/rayTracedTranslucencyEnabled",
-                     "rtx/flow/pathTracingEnabled"):
-            omni.kit.commands.execute("ChangeSetting", path=path, value=True)
-        # THE BLOCK POOL LIVES HERE, not on flowRender/renderSettings.
-        # Setting only the USD attribute leaves the pool at its 4096 default
-        # and Flow logs "Maximum Flow blocks of 4096 in use" while every
-        # emitter after the first few silently gets nothing — which reads as
-        # "the fire is only in a couple of places".
-        omni.kit.commands.execute("ChangeSetting", path="rtx/flow/maxBlocks",
-                                  value=int(max_blocks))
-    except Exception:
-        pass
+    scope = UsdGeom.Scope.Define(stage, Sdf.Path(root)).GetPrim()
+    # SO A BAKED SCENE IS SELF-DESCRIBING. Everything below this line is USD
+    # and travels with the file; the carb settings do not, and a dataset
+    # consumer who does not apply them sees no fire at all. Recording them
+    # here is the difference between "the scene is broken" and "you are
+    # missing two flags" — `apply_carb_settings` reads it back.
+    scope.SetCustomDataByKey("airstack:flow", {
+        "carb": dict(CARB_SETTINGS, **{"rtx/flow/maxBlocks": int(max_blocks)}),
+        "layer": int(layer),
+        "density_cell_size_m": float(density_cell_size_m),
+    })
+    apply_carb_settings(dict(CARB_SETTINGS,
+                             **{"rtx/flow/maxBlocks": int(max_blocks)}))
 
     sim = _flow_create(stage, sim_path, "FlowSimulate")
     _set(sim, "layer", Sdf.ValueTypeNames.Int, int(layer))
@@ -580,7 +644,7 @@ def plan_ignition(fuels, cfg, rng):
 
 def add_fire_emitter(stage, target_path, emitter_path, bbox_cache, *,
                      layer=FLOW_LAYER, wind=(0.0, 0.0, 0.0), cfg=None,
-                     intensity=1.0, rng=None):
+                     intensity=1.0, rng=None, fallback=None):
     """A `FlowEmitterSphere` sitting low in the target prim's bounding box.
 
     A SPHERE, not the box the incident extension uses. A box fitted to a whole
@@ -595,31 +659,42 @@ def add_fire_emitter(stage, target_path, emitter_path, bbox_cache, *,
     the same fire at lower opacity.
     """
     cfg = cfg or DEFAULTS
-    target = stage.GetPrimAtPath(target_path)
-    if not target.IsValid():
-        return None
-
-    box = bbox_cache.ComputeWorldBound(target).ComputeAlignedBox()
-    if box.IsEmpty():
-        return None
-    lo, hi = box.GetMin(), box.GetMax()
-    half_x = max(1e-3, (hi[0] - lo[0]) * 0.5)
-    half_y = max(1e-3, (hi[1] - lo[1]) * 0.5)
-
     lo_r, hi_r = cfg.get("emitter_radius_m", [0.7, 2.6])
-    radius = 0.42 * (half_x + half_y) * 0.5 * (0.55 + 0.45 * intensity)
-    radius = max(float(lo_r), min(float(hi_r), radius))
-    if rng is not None:
-        radius *= rng.uniform(0.82, 1.22)
+    target = stage.GetPrimAtPath(target_path)
 
-    # Low in the volume: base plus a little under one radius, so the sphere
-    # straddles the ground rather than floating.
-    cz = lo[2] + radius * 0.8
-    cx = (hi[0] + lo[0]) * 0.5
-    cy = (hi[1] + lo[1]) * 0.5
-    if rng is not None:
-        cx += rng.uniform(-half_x, half_x) * 0.3
-        cy += rng.uniform(-half_y, half_y) * 0.3
+    box = (bbox_cache.ComputeWorldBound(target).ComputeAlignedBox()
+           if target.IsValid() else None)
+    if box is None or box.IsEmpty():
+        # NO BOUNDS. Live, that means a broken prim and the emitter is skipped
+        # — the count is the diagnostic. Offline it usually means the asset is
+        # on Nucleus and this host cannot open it, which must not cost the bake
+        # its fire: the placement's own position is exactly as good a spot, and
+        # only the radius degrades from measured to mid-range.
+        if fallback is None:
+            return None
+        radius = (float(lo_r) + float(hi_r)) * 0.5 * (0.55 + 0.45 * intensity)
+        if rng is not None:
+            radius *= rng.uniform(0.82, 1.22)
+        cx, cy = float(fallback[0]), float(fallback[1])
+        cz = (float(fallback[2]) if len(fallback) > 2 else 0.0) + radius * 0.8
+    else:
+        lo, hi = box.GetMin(), box.GetMax()
+        half_x = max(1e-3, (hi[0] - lo[0]) * 0.5)
+        half_y = max(1e-3, (hi[1] - lo[1]) * 0.5)
+
+        radius = 0.42 * (half_x + half_y) * 0.5 * (0.55 + 0.45 * intensity)
+        radius = max(float(lo_r), min(float(hi_r), radius))
+        if rng is not None:
+            radius *= rng.uniform(0.82, 1.22)
+
+        # Low in the volume: base plus a little under one radius, so the sphere
+        # straddles the ground rather than floating.
+        cz = lo[2] + radius * 0.8
+        cx = (hi[0] + lo[0]) * 0.5
+        cy = (hi[1] + lo[1]) * 0.5
+        if rng is not None:
+            cx += rng.uniform(-half_x, half_x) * 0.3
+            cy += rng.uniform(-half_y, half_y) * 0.3
 
     prim = _flow_create(stage, emitter_path, "FlowEmitterSphere")
     if not prim or not prim.IsValid():
@@ -674,18 +749,21 @@ STATE_EMISSION = {
 }
 
 
-def set_emission(prim, state, scale=1.0):
-    """Author one emitter's fuel / smoke / temperature for a visual state."""
+def set_emission(prim, state, scale=1.0, time=None):
+    """Author one emitter's fuel / smoke / temperature for a visual state.
+
+    *time* is a timecode or None — see `_set`.
+    """
     e = STATE_EMISSION.get(state)
     if e is None:
-        _set(prim, "enabled", Sdf.ValueTypeNames.Bool, False)
+        _set(prim, "enabled", Sdf.ValueTypeNames.Bool, False, time)
         return False
-    _set(prim, "enabled", Sdf.ValueTypeNames.Bool, True)
-    _set(prim, "fuel", Sdf.ValueTypeNames.Float, e["fuel"] * scale)
-    _set(prim, "smoke", Sdf.ValueTypeNames.Float, e["smoke"] * scale)
-    _set(prim, "temperature", Sdf.ValueTypeNames.Float, e["temperature"])
+    _set(prim, "enabled", Sdf.ValueTypeNames.Bool, True, time)
+    _set(prim, "fuel", Sdf.ValueTypeNames.Float, e["fuel"] * scale, time)
+    _set(prim, "smoke", Sdf.ValueTypeNames.Float, e["smoke"] * scale, time)
+    _set(prim, "temperature", Sdf.ValueTypeNames.Float, e["temperature"], time)
     _set(prim, "coupleRateTemperature", Sdf.ValueTypeNames.Float,
-         e["couple_temp"])
+         e["couple_temp"], time)
     return True
 
 
@@ -817,6 +895,85 @@ _STATE_NAMES = {
     SMOULDERING: "smouldering", RESIDUAL: "residual",
 }
 
+#: Burn state -> the visual it emits. `STATE_EMISSION` holds the numbers.
+_STATE_VIS = {IGNITING: "smoke", FLAMING: "flame", SMOULDERING: "smoulder",
+              RESIDUAL: "residual"}
+
+
+def burn_windows(cfg, will_flame=True):
+    """THE BURN CLOCK, as ``[(duration_s, state), ...]`` from ignition.
+
+    The single definition of how long a fuel spends in each state. Both
+    consumers read it here rather than restating the boundaries: `state_at`
+    walks it to answer "what is this fuel doing now" for the live driver, and
+    `burn_breakpoints` walks it to answer "when does it change" for the baked
+    timeSamples. Restating them was how the two could have drifted, and a
+    schedule that disagrees with the playback is invisible until someone looks
+    at a frame.
+
+    A `None` duration is the terminal state — see `WildfireDriver` for why that
+    is RESIDUAL and not "off". A zero-length window is a state this fuel skips:
+    that is how `will_flame=False` sends it straight from IGNITING to
+    SMOULDERING.
+    """
+    return [(float(cfg["ignition_s"]), IGNITING),
+            (float(cfg["flame_s"]) if will_flame else 0.0, FLAMING),
+            (float(cfg["smoulder_s"]), SMOULDERING),
+            (None, RESIDUAL)]
+
+
+def state_at(elapsed, t_ignite, cfg, will_flame=True):
+    """What one fuel is doing at *elapsed* seconds on the scene's clock."""
+    d = elapsed - t_ignite
+    if d < 0.0:
+        return UNBURNT
+    acc = 0.0
+    for dur, st in burn_windows(cfg, will_flame):
+        if dur is None:
+            return st
+        acc += dur
+        if d < acc:
+            return st
+    return RESIDUAL
+
+
+def burn_breakpoints(t_ignite, cfg, will_flame=True):
+    """``[(t_seconds, state), ...]`` — every moment this fuel changes state.
+
+    Ascending and strictly increasing: a zero-length window is dropped rather
+    than authored as two keyframes at the same time, which is what a
+    non-flaming fuel would otherwise produce at the FLAMING boundary.
+    """
+    out, t = [], float(t_ignite)
+    for dur, st in burn_windows(cfg, will_flame):
+        if dur is None:
+            out.append((t, st))          # the terminal state starts here
+            break
+        if dur > 0.0:
+            out.append((t, st))          # this state starts at t, ends at t+dur
+            t += dur
+    return out
+
+
+def author_state(prim, state, intensity=1.0, time=None):
+    """Author one emitter's Flow attributes for a burn *state*.
+
+    THE ONLY PLACE the state -> attribute mapping is written. The live driver
+    calls it with `time=None` (default values, re-authored each change); the
+    bake calls it with a timecode (keyframes). Same numbers either way, which
+    is the point — a baked scene has to look like the live one.
+    """
+    if state == UNBURNT:
+        _set(prim, "enabled", Sdf.ValueTypeNames.Bool, False, time)
+        _set(prim, "fuel", Sdf.ValueTypeNames.Float, 0.0, time)
+        _set(prim, "smoke", Sdf.ValueTypeNames.Float, 0.0, time)
+        return True
+    # Delegated so the non-flaming states zero TEMPERATURE as well as fuel.
+    # Leaving heat on is what made smoke-only emitters render as glowing
+    # balls — see STATE_EMISSION.
+    return set_emission(prim, _STATE_VIS.get(state, "residual"),
+                        scale=intensity, time=time)
+
 
 class WildfireDriver:
     """Advances every emitter through its burn states as the timeline runs.
@@ -843,9 +1000,6 @@ class WildfireDriver:
         # [prim, t_ignite, intensity, will_flame, state]
         self.entries = [[prim, t, inten, flames, UNBURNT]
                         for prim, t, inten, flames in entries]
-        self.ignition_s = float(cfg["ignition_s"])
-        self.flame_s = float(cfg["flame_s"])
-        self.smoulder_s = float(cfg["smoulder_s"])
         self._sub = None
         self._labelled = set()
 
@@ -858,32 +1012,7 @@ class WildfireDriver:
         self.update(0.0)
 
     def state_at(self, elapsed, t_ignite, will_flame=True):
-        d = elapsed - t_ignite
-        if d < 0.0:
-            return UNBURNT
-        if d < self.ignition_s:
-            return IGNITING
-        flame = self.flame_s if will_flame else 0.0
-        if d < self.ignition_s + flame:
-            return FLAMING
-        if d < self.ignition_s + flame + self.smoulder_s:
-            return SMOULDERING
-        return RESIDUAL
-
-    def _apply(self, prim, state, intensity):
-        cfg = self.cfg
-        k = float(intensity)
-        if state == UNBURNT:
-            _set(prim, "enabled", Sdf.ValueTypeNames.Bool, False)
-            _set(prim, "fuel", Sdf.ValueTypeNames.Float, 0.0)
-            _set(prim, "smoke", Sdf.ValueTypeNames.Float, 0.0)
-            return
-        # Delegated so the non-flaming states zero TEMPERATURE as well as
-        # fuel. Leaving heat on is what made smoke-only emitters render as
-        # glowing balls — see STATE_EMISSION.
-        vis = {IGNITING: "smoke", FLAMING: "flame",
-               SMOULDERING: "smoulder"}.get(state, "residual")
-        set_emission(prim, vis, scale=k)
+        return state_at(elapsed, t_ignite, self.cfg, will_flame)
 
     def update(self, elapsed):
         cfg = self.cfg
@@ -894,7 +1023,7 @@ class WildfireDriver:
             if state == prev:
                 continue
             entry[4] = state
-            self._apply(prim, state, inten)
+            author_state(prim, state, inten)
             if label and state in (IGNITING, FLAMING):
                 self._label(prim, cfg["semantic_class"])
 
@@ -939,25 +1068,31 @@ class WildfireDriver:
 
 
 # --------------------------------------------------------------------------
-# Entry point
+# Entry points
 # --------------------------------------------------------------------------
 
-def apply_wildfire(stage, placements, cfg=None, *, scene_scale_factor=1.0,
-                   root=FLOW_ROOT, verbose=True):
-    """Burn a scene. Returns a `WildfireDriver`, or None if disabled.
+def build_emitters(stage, placements, cfg=None, *, scene_scale_factor=1.0,
+                   root=FLOW_ROOT, verbose=True, offline=False):
+    """Everything the live burn and the baked burn do identically.
 
-    `placements` is what `generate_suburb_on_stage` / `build_city` return —
-    every entry already carries the `prim_path` this needs.
+    Picks the fuels, plans the ignition schedule, authors the Flow rig and one
+    disabled emitter per fuel. Returns ``(entries, merged_cfg)`` where entries
+    is ``[(prim, t_ignite_s, intensity, will_flame), ...]`` — or
+    ``(None, merged_cfg)`` if there is nothing to burn.
 
-    THE RETURN VALUE MUST BE KEPT ALIVE. It owns the timeline subscription
-    that advances the burn; drop it and the fire stops where it stands.
+    What the two paths do with that differs, and only that: `apply_wildfire`
+    hands it to a `WildfireDriver` that ticks it off the timeline;
+    `bake_emitters` writes it into the USD as timeSamples.
+
+    *offline* is for a bake outside Kit, where a referenced asset may not
+    resolve and so has no bounding box — see `add_fire_emitter`.
     """
     import random
 
     merged = dict(DEFAULTS)
     merged.update(cfg or {})
     if not merged.get("enabled", True):
-        return None
+        return None, merged
 
     ssf = float(scene_scale_factor)
     rng = random.Random(merged["seed"])
@@ -975,7 +1110,7 @@ def apply_wildfire(stage, placements, cfg=None, *, scene_scale_factor=1.0,
             else:
                 print("[fire] no fuel found — no placement category matched "
                       "{" + cats + "}")
-        return None
+        return None, merged
 
     kept = thin_by_spacing(fuels, float(merged["emitter_spacing_m"]),
                            int(merged["max_emitters"]))
@@ -984,7 +1119,7 @@ def apply_wildfire(stage, placements, cfg=None, *, scene_scale_factor=1.0,
         if verbose:
             print("[fire] the front reaches no fuel — check origin_m, "
                   "heading_deg and duration_s")
-        return None
+        return None, merged
 
     setup_flow_stack(stage, layer=FLOW_LAYER,
                      density_cell_size_m=float(merged["density_cell_size_m"]),
@@ -1006,11 +1141,12 @@ def apply_wildfire(stage, placements, cfg=None, *, scene_scale_factor=1.0,
                                    useExtentsHint=True)
 
     entries = []
-    for i, (_x, _y, path, t_ig, inten, flames) in enumerate(planned):
+    for i, (x, y, path, t_ig, inten, flames) in enumerate(planned):
         prim = add_fire_emitter(
             stage, path, "{0}/fire_{1:04d}".format(emitters_root, i),
             bbox_cache, layer=FLOW_LAYER, wind=wind, cfg=merged,
-            intensity=inten, rng=rng)
+            intensity=inten, rng=rng,
+            fallback=(x, y) if offline else None)
         if prim is not None:
             entries.append((prim, t_ig, inten, flames))
 
@@ -1018,7 +1154,7 @@ def apply_wildfire(stage, placements, cfg=None, *, scene_scale_factor=1.0,
         if verbose:
             print("[fire] every fuel prim had an empty bounding box — "
                   "nothing to emit from")
-        return None
+        return None, merged
 
     if verbose:
         last = planned[-1][3]
@@ -1029,4 +1165,145 @@ def apply_wildfire(stage, placements, cfg=None, *, scene_scale_factor=1.0,
                       len(entries) - n_flame, last,
                       merged["density_cell_size_m"], merged["max_blocks"]))
 
+    return entries, merged
+
+
+def apply_wildfire(stage, placements, cfg=None, *, scene_scale_factor=1.0,
+                   root=FLOW_ROOT, verbose=True):
+    """Burn a scene LIVE. Returns a `WildfireDriver`, or None if disabled.
+
+    `placements` is what `generate_suburb_on_stage` / `build_city` return —
+    every entry already carries the `prim_path` this needs.
+
+    THE RETURN VALUE MUST BE KEPT ALIVE. It owns the timeline subscription
+    that advances the burn; drop it and the fire stops where it stands. That
+    is what `bake_emitters` exists to avoid for a dataset scene.
+    """
+    entries, merged = build_emitters(
+        stage, placements, cfg, scene_scale_factor=scene_scale_factor,
+        root=root, verbose=verbose)
+    if not entries:
+        return None
     return WildfireDriver(stage, entries, merged)
+
+
+def bake_emitters(stage, placements, cfg=None, *, scene_scale_factor=1.0,
+                  root=FLOW_ROOT, verbose=True) -> dict:
+    """Burn a scene INTO THE USD. Returns a small report.
+
+    Same rig, same schedule, no Python at playback: the emitter attributes are
+    authored as timeSamples instead of being poked by a timeline callback, so
+    the stage carries its own fire and `airstack up` only has to hit play.
+
+    What still does NOT bake, and cannot: the voxel solve itself, which Flow
+    runs at render time, and the carb settings that let it render at all —
+    those are stamped onto `/World/flow` as customData by `setup_flow_stack`
+    for a consumer to read back with `apply_carb_settings`.
+    """
+    entries, merged = build_emitters(
+        stage, placements, cfg, scene_scale_factor=scene_scale_factor,
+        root=root, verbose=verbose, offline=True)
+    if not entries:
+        return {"emitters": 0, "end_s": 0.0}
+    return write_schedule(stage, entries, merged, root=root, verbose=verbose)
+
+
+def write_schedule(stage, entries, cfg, root=FLOW_ROOT, verbose=True) -> dict:
+    """Author the burn as USD timeSamples. Returns a small report.
+
+    HELD, NOT RAMPED. USD interpolates float samples linearly, so two keyframes
+    an ignition apart would have an emitter fade up over two minutes instead of
+    catching. Each transition therefore authors the OUTGOING state one frame
+    earlier and the incoming state on the frame itself: constant in between,
+    and a single-frame ramp at the change. That is local to these attributes,
+    where `Usd.Stage.SetInterpolationType(Held)` would silently restate the
+    rule for every animated attribute on the stage.
+
+    Fuel the front had already passed when the scene opens has a NEGATIVE
+    ignition time (see `plan_ignition`), so its early breakpoints are behind
+    t=0. Those are not authored; the state they leave it in is authored at t=0
+    instead, which is what puts a burnt-over neighbourhood on frame one.
+    """
+    from pxr import Sdf, Usd
+
+    # AUTHORED, not inherited from the default. `GetTimeCodesPerSecond` answers 24
+    # whether or not anyone said so, and the seconds->timecode conversion below
+    # is the only thing that makes the schedule mean anything — a consumer that
+    # assumed 60 would play the burn 2.5x fast. Writing it makes the file say.
+    if not stage.GetRootLayer().HasTimeCodesPerSecond():
+        stage.SetTimeCodesPerSecond(float(stage.GetTimeCodesPerSecond() or 24.0))
+    tcps = float(stage.GetTimeCodesPerSecond() or 24.0)
+    hold = 1.0                                   # one timecode = one frame
+
+    end_tc = 0.0
+    for prim, t_ig, inten, flames in entries:
+        author_state(prim, state_at(0.0, t_ig, cfg, flames), inten, time=0.0)
+        prev = state_at(0.0, t_ig, cfg, flames)
+        for t_s, state in burn_breakpoints(t_ig, cfg, flames):
+            tc = t_s * tcps
+            if tc <= 0.0:
+                continue
+            if tc > hold:
+                author_state(prim, prev, inten, time=tc - hold)
+            author_state(prim, state, inten, time=tc)
+            prev = state
+            end_tc = max(end_tc, tc)
+        # GROUND TRUTH, on the prim it belongs to. `WildfireDriver.burn_report`
+        # can say what every emitter is doing at time t only while the driver
+        # is alive; a baked scene has no driver, so the schedule has to travel
+        # with the emitter or the burn state is unrecoverable from the file.
+        prim.SetCustomDataByKey("airstack:fire", {
+            "t_ignite_s": float(t_ig),
+            "intensity": float(inten),
+            "will_flame": bool(flames),
+        })
+
+    if end_tc > 0.0:
+        stage.SetStartTimeCode(min(stage.GetStartTimeCode(), 0.0))
+        stage.SetEndTimeCode(max(stage.GetEndTimeCode(), end_tc))
+
+    scope = stage.GetPrimAtPath(Sdf.Path(root))
+    if scope and scope.IsValid():
+        meta = dict(scope.GetCustomDataByKey("airstack:flow") or {})
+        # The clock the times above are on. `start_offset` is why frame 0 is
+        # already mid-burn, and without it "which frame is which burn state"
+        # is not recoverable from the file.
+        meta.update({
+            "emitters": len(entries),
+            "baked": True,
+            "time_codes_per_second": tcps,
+            "end_time_code": end_tc,
+            "duration_s": float(cfg["duration_s"]),
+            "start_offset_s": resolve_start_offset(cfg),
+            "ignition_s": float(cfg["ignition_s"]),
+            "flame_s": float(cfg["flame_s"]),
+            "smoulder_s": float(cfg["smoulder_s"]),
+        })
+        scope.SetCustomDataByKey("airstack:flow", meta)
+
+    if verbose:
+        print("[fire] baked {0} emitter(s) as timeSamples over {1:.0f} s "
+              "({2:.0f} timecodes at {3:.0f} fps)"
+              .format(len(entries), end_tc / tcps, end_tc, tcps))
+    return {"emitters": len(entries), "end_s": end_tc / tcps,
+            "end_time_code": end_tc}
+
+
+def attach_runtime(stage, root=FLOW_ROOT) -> int:
+    """Stage C: apply the renderer state a baked fire scene records.
+
+    A stage that came off `bake_emitters` has the whole rig and the whole
+    schedule, and still renders nothing until the carb settings are on. This
+    reads them back off `/World/flow` and applies them — the one thing loading
+    a fire scene has to do that loading an earthquake scene does not.
+
+    Returns how many settings landed; 0 outside Kit, or for a scene with no
+    fire in it.
+    """
+    from pxr import Sdf
+
+    scope = stage.GetPrimAtPath(Sdf.Path(root))
+    if not scope or not scope.IsValid():
+        return 0
+    meta = scope.GetCustomDataByKey("airstack:flow") or {}
+    return apply_carb_settings(dict(meta.get("carb") or {}))

@@ -2,15 +2,15 @@
 #
 # Low-level scene config compiled by scene_gen/compile_disaster.py.
 # Edit the high-level spec (or low_level/default.yaml) and recompile:
-#     python3 compile_disaster.py urban_quake_showcase.yaml
+#     python3 compile_disaster.py urban_quake_live.yaml
 #
 # locale        : urban
 # disaster-type : earthquake
-# severity      : 1.0
-# spec          : scene_gen/config/presets/urban_quake_showcase.yaml
+# severity      : 0.9
+# spec          : scene_gen/config/presets/urban_quake_live.yaml
 # base          : scene_gen/config/low_level/default.yaml
 # compiled      : 2026-08-24 19:59:15
-# spec extras   : {'asset-pack': 'urban_intact', 'region_m': [200, 200], 'seed': 42, 'overrides': {'disaster': {'field': {'radius_m': 45.0, 'falloff_m': 105.0, 'outside': 0.4}}}}
+# spec extras   : {'asset-pack': 'urban_intact', 'region_m': [105, 105], 'seed': 42, 'overrides': {'disaster': {'archetypes': False, 'mesh_damage': {'fracture': {'max_buildings': 1}, 'thickness': {'max_buildings': 1}}, 'field': {'radius_m': 8.0, 'falloff_m': 40.0, 'outside': 0.1}}}}
 
 seed: 42
 exclusions:
@@ -22,8 +22,8 @@ asset_pack: urban_intact
 measure_usds: true
 layout:
   region_m:
-  - 200
-  - 200
+  - 105
+  - 105
   min_block_m: 30
   max_block_m: 200
   split_jitter: 0.25
@@ -268,44 +268,44 @@ disaster:
   mesh_damage:
     fracture:
       enabled: true
-      max_buildings: 60
+      max_buildings: 1
     thickness:
       enabled: true
       wall_m: 0.5
-      max_buildings: 60
+      max_buildings: 1
     material: masonry
-  damaged_fraction: 0.35
-  destroyed_fraction: 0.55
+  damaged_fraction: 0.32
+  destroyed_fraction: 0.497
   debris:
     piles_per_building:
     - 4
-    - 7
-    pile_max_offset_m: 4.0
+    - 6
+    pile_max_offset_m: 3.8
     pieces_per_building:
-    - 14
-    - 26
-    pieces_scatter_m: 7.0
-    damaged_debris_scale: 0.55
-    tilt_chance: 0.7
+    - 13
+    - 24
+    pieces_scatter_m: 6.6
+    damaged_debris_scale: 0.53
+    tilt_chance: 0.655
     tilt_deg:
     - 3
-    - 12.0
+    - 11.5
     sink_m:
     - 0.5
-    - 2.2
+    - 2.1
     lean_piles:
     - 3
     - 5
-  trees_toppled_fraction: 0.1
-  streetlights_toppled_fraction: 0.5
-  traffic_lights_toppled_fraction: 0.45
-  traffic_lights_leaning_fraction: 0.5
+  trees_toppled_fraction: 0.09
+  streetlights_toppled_fraction: 0.455
+  traffic_lights_toppled_fraction: 0.409
+  traffic_lights_leaning_fraction: 0.465
   traffic_lights_lean_deg:
   - 8
-  - 38.0
-  trash_cans_toppled_fraction: 0.8
-  trash_cans_scatter_m: 2.0
-  cars_toppled_fraction: 0.15
+  - 36.2
+  trash_cans_toppled_fraction: 0.745
+  trash_cans_scatter_m: 1.85
+  cars_toppled_fraction: 0.136
   cars_strewn:
   - 2
   - 5
@@ -319,12 +319,13 @@ disaster:
     center:
     - 0.0
     - 0.0
-    radius_m: 45.0
-    falloff_m: 105.0
+    radius_m: 8.0
+    falloff_m: 40.0
     inside: 1.0
-    outside: 0.4
+    outside: 0.1
   type: earthquake
-  severity: 1.0
+  severity: 0.9
+  archetypes: false
 detail:
   trees:
     house_margin_m: 1.5

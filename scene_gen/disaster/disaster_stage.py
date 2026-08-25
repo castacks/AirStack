@@ -61,8 +61,7 @@ import random
 from scene_generator import (_in_exclusion, _normalize_usd_list,
                              placement_footprint, _stage)
 
-from disaster import levels
-from disaster.field import make_damage_field
+from disaster import kinds, levels
 
 #: Loaded archetype manifests, by disaster. Reading one is a JSON parse, but
 #: `apply_to_buildings` is called per scene and a preset sweep calls it dozens
@@ -84,6 +83,30 @@ def _archetype_url(path: str) -> str:
     if p.startswith(repo + os.sep):
         return "airstack://" + os.path.relpath(p, repo).replace(os.sep, "/")
     return p
+
+
+def _archetypes_wanted(dis: dict) -> bool:
+    """Whether Stage A's library may be used at all.
+
+    Off means every damaged building is wrecked LIVE, by `mesh_damage`, at
+    scene time. That is the slow path by design — it is also the only one that
+    shows the current damage code, since an archetype is whatever the library
+    was baked from. Turn it off to look at a pipeline change without a re-bake:
+
+        disaster: {archetypes: false}    # in a preset's `overrides:`
+        SCENE_ARCHETYPES=0               # same thing, without editing a config
+
+    The env var wins, so a baked preset can be switched to live for one run.
+    """
+    env = os.environ.get("SCENE_ARCHETYPES")
+    if env is not None and env.strip() != "":
+        want = env.strip().lower() not in ("0", "false", "no", "off")
+    else:
+        want = bool((dis or {}).get("archetypes", True))
+    if not want:
+        print("[disaster_stage] archetype library disabled — damaging every "
+              "building live (mesh_damage)")
+    return want
 
 
 def _archetypes(disaster_type: str):
@@ -209,7 +232,11 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
     if not dis or not region:
         return {}
 
-    field = make_damage_field(dis.get("field"), tuple(region))
+    # THE DISASTER'S OWN FIELD. `Disaster.field` still honours the compiled
+    # `field.kind`, so this is the same shape it always was — but "where did
+    # this event hit" is now asked of the event rather than assembled from its
+    # config at three separate call sites.
+    field = kinds.get(dis.get("type")).field(dis, tuple(region))
     if field.hi <= 0.0:
         return {}
 
@@ -235,7 +262,7 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
     # settled, so referencing one costs nothing at scene time and every
     # building can have it. The authored-ruin swap and live mesh damage remain
     # as fallbacks for an unbaked library — see `_archetypes`.
-    arch = _archetypes(dtype)
+    arch = _archetypes(dtype) if _archetypes_wanted(dis) else None
     arch_ladder = levels.level_names(dtype)
 
     # Pools and per-asset conventions, resolved the same way build_city does.
@@ -575,7 +602,7 @@ def apply(config: dict, layout: dict, placements: list,
     if not region:
         return {}
     x0, y0, x1, y1 = region
-    field = make_damage_field(dis.get("field"), (x0, y0, x1, y1))
+    field = kinds.get(dis.get("type")).field(dis, (x0, y0, x1, y1))
     if field.hi <= 0.0:
         return {}                      # `none` — nothing to do
 
@@ -646,8 +673,6 @@ def apply_path_scour(config: dict, layout: dict, placements: list,
     Draws come from the disaster stream, distinct from the layout stream, for
     the reason in this module's header.
     """
-    from scene_generator import make_scour_density
-
     dis = _stage(config, "disaster")
     region = layout.get("region")
     if not dis or not region:
@@ -659,7 +684,7 @@ def apply_path_scour(config: dict, layout: dict, placements: list,
     if path_pieces <= 0.0 and path_piles <= 0.0:
         return {}
 
-    field = make_damage_field(dis.get("field"), tuple(region))
+    field = kinds.get(dis.get("type")).field(dis, tuple(region))
     if field.hi <= 0.0:
         return {}
 
@@ -708,11 +733,14 @@ def apply_path_scour(config: dict, layout: dict, placements: list,
     area_100 = (x1 - x0) * (y1 - y0) / 100.0 * mean_k
 
     # Density gradient, peaked on the track centerline / epicenter and tapering
-    # toward the edge — see `make_scour_density` for why this has to be
-    # separate from the field itself, which stays a flat plateau (correctly)
-    # for building and topple placement.
-    density = make_scour_density(dis.get("field"), (x0, y0, x1, y1),
-                                 shape=path_shape)
+    # toward the edge — see `DamageField.density` for why this has to be
+    # separate from the intensity itself, which stays a flat plateau
+    # (correctly) for building and topple placement.
+    #
+    # OFF THE SAME FIELD OBJECT. The two used to be built from the config
+    # independently and each dispatched on `kind` in its own way, so the
+    # corridor debris lay on could drift from the corridor the damage was in.
+    density = field.scour_density(shape=path_shape)
 
     # Buildings as they FINALLY stand — this runs after districts has rezoned
     # and after fate has been assigned, so it is the real footprint list, not
