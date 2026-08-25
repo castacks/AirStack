@@ -35,6 +35,8 @@ captures and an otherwise identical run.
     OCCUPANCY    night | day | commute, for SCENE mode
     COUNT_PER_KM2 override the population density, for SCENE mode
     MARKERS      0 to drop the coloured posts over each victim (SCENE mode)
+    PROBE_INTERIORS  N candidate spots just inside a standing open-shell
+                 building to test against the real geometry (SCENE mode, 0 off)
 """
 
 import os
@@ -75,6 +77,11 @@ TARGET_SEED = os.environ.get("TARGET_SEED", "")
 OCCUPANCY = os.environ.get("OCCUPANCY", "")
 COUNT_PER_KM2 = os.environ.get("COUNT_PER_KM2", "")
 MARKERS = os.environ.get("MARKERS", "1").lower() not in ("0", "false", "")
+#: Probe the building-interior stratum: sample candidate spots just inside a
+#: standing open-shell building and ask the REAL geometry whether a sightline
+#: gets out. See `targets.interior_candidates` for why only the stage can
+#: answer this. Off by default — it places nobody, it only measures.
+PROBE_INTERIORS = int(os.environ.get("PROBE_INTERIORS", "0") or 0)
 # -------------------------
 
 #: Metres between characters in the pose row.
@@ -239,7 +246,49 @@ def _scene(stage, ssf: float):
     if MARKERS:
         _mark(stage, victims, ssf)
     _sky_check(stage, victims, ssf)
+    if PROBE_INTERIORS:
+        _probe_interiors(stage, config, placements, ssf)
     return config, victims
+
+
+def _probe_interiors(stage, config, placements, ssf: float) -> None:
+    """Is "inside a standing building" a stratum? Ask the geometry.
+
+    `targets.interior_candidates` samples spots just inside the facade of a
+    standing OPEN-SHELL building — a person at a window. Whether any of them is
+    findable is not answerable offline: the analytic model is one opaque box
+    per standing building, so it calls every one of them buried by
+    construction. Here there are real walls with real holes in them, so
+    `findability.check_on_stage` gives a real answer.
+
+    Nobody is placed. This prints a report and nothing else, which is the point
+    — the stratum becomes a cohort only if the numbers say it should.
+    """
+    import findability
+    import scene_generator
+    import targets
+
+    # Its own resolver, but a WARM one: `targets.place` has already measured
+    # every asset in this scene through the shared `measure_cache`, so this is
+    # a dictionary lookup rather than a second round of Nucleus round trips.
+    # Passing None instead would fall back to the 12x12x12 m stand-in footprint
+    # and put the candidates in the wrong place.
+    resolver = scene_generator._make_resolver(config)
+    sv = targets.survey_from_placements(
+        placements, None, resolver,
+        str((config.get("disaster") or {}).get("type", "none")))
+    targets.mark_cut_geometry(stage, sv)
+    cands = targets.interior_candidates(
+        sv, targets.settings(config), targets.rng_for(config), PROBE_INTERIORS)
+    if not cands:
+        print("[targets_bench] interior probe: no standing open-shell "
+              "building in this scene — nothing to sample")
+        return
+    rows = findability.check_on_stage(stage, cands, ssf)
+    print(findability.format_report(rows, f"INTERIOR PROBE ({SCENE})"))
+    ok = sum(1 for r in rows if r["verdict"] != "buried")
+    print(f"[targets_bench] interior probe: {ok}/{len(rows)} candidates "
+          f"reachable — {'a stratum' if ok else 'not a stratum'}")
 
 
 def _sky_check(stage, victims, ssf: float, max_m: float = 400.0):
