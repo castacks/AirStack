@@ -38,6 +38,12 @@ import carb
 #: settles or inflates, and it is exposed because the right value depends on
 #: how much the colliders overlap to begin with — which for convex hulls of
 #: Voronoi-cut SHELL fragments can be metres, not millimetres.
+#: TRIED AT 0.3 AND PUT BACK ON 2026-08-25. The theory was that a cell released
+#: as ~550 overlapping hulls is inflated rather than settled, so a gentler
+#: shove would help. It does the opposite, measured on the same archetype:
+#: at 0.6 the `cracked` cell came to rest in 750 steps with nothing moving; at
+#: 0.3 it still had 32 bodies creeping after 1,800. A slow separation is a
+#: separation that never finishes, and the pile never sleeps.
 DEPENETRATION_MS = 0.6
 
 
@@ -255,7 +261,7 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
     """Physics scene, static colliders, and a rigid body per loose piece."""
     import random as _random
 
-    from pxr import Gf, Sdf, UsdPhysics, UsdShade
+    from pxr import Gf, Sdf, Usd, UsdPhysics, UsdShade
     from pxr import PhysxSchema
 
     rng = rng or _random.Random(0)
@@ -280,7 +286,30 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
     pm.CreateRestitutionAttr(0.0)
 
     from pxr import UsdGeom
+    # UNDER THE GEOMETRY, NOT AT z=0. The backstop is an infinite half-space,
+    # so anything that STARTS below it starts deeply penetrating it, and PhysX
+    # answers a deep penetration by ejecting the body — upward, hard. These
+    # assets carry foundations a metre or more below their own origin, so at
+    # z=0 the backstop launched every sub-grade piece: measured on
+    # `BG_Building_A_cracked`, drop median -0.42 m against a MEAN of +1.22 m
+    # and a spread reaching 73 m, which is a handful of pieces thrown while
+    # the rest behaved. Sitting the plane just under the lowest point keeps it
+    # a backstop and stops it being a catapult.
+    lo_z = 0.0
+    _bb = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    for _p in list(loose_paths) + list(static_paths or ()):
+        _pr = stage.GetPrimAtPath(_p)
+        if not _pr or not _pr.IsValid():
+            continue
+        _r = _bb.ComputeWorldBound(_pr).ComputeAlignedRange()
+        if not _r.IsEmpty():
+            lo_z = min(lo_z, float(_r.GetMin()[2]))
     floor = UsdGeom.Xform.Define(stage, scene_path + "/floor").GetPrim()
+    if lo_z < 0.0:
+        UsdGeom.Xformable(floor).AddTranslateOp().Set(
+            Gf.Vec3d(0.0, 0.0, lo_z - 0.05))
+        print(f"[settle]   floor at z = {lo_z - 0.05:.2f} "
+              f"(geometry reaches below grade)")
     plane = UsdPhysics.CollisionAPI.Apply(floor)
     plane.CreateCollisionEnabledAttr(True)
     floor.CreateAttribute("physics:approximation",

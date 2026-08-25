@@ -73,7 +73,11 @@ GRID_M = 40.0
 #: Ceiling on PhysX steps per cell's settle. `settle.run` stops as soon as
 #: the pile is at rest, so this only binds on a collapse still moving: a
 #: piece off a 70 m tower needs ~4 s just to reach the ground.
-SETTLE_STEPS = 900
+#: RAISED FROM 900 ON 2026-08-25: at 900 (15 s of sim) a 557-fragment
+#: soft-storey collapse had every body still moving when the budget ran out,
+#: and `settle.run` stops early the moment the pile is quiet, so a higher
+#: ceiling costs nothing on the cells that were already converging.
+SETTLE_STEPS = 1800
 
 
 def prepare_stage(stage):

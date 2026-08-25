@@ -365,11 +365,19 @@ def field_for(level, seed=0, plan=None):
     return build
 
 
-#: Inset applied to loose fragments, as a fraction of their own size. 0.97 is
-#: `vtk_fracture`'s long-standing value and is a hairline at building scale:
-#: 1.5 cm on a 1 m chunk. Large enough that the solver starts legal, small
-#: enough that the gap does not read as a gap.
-SHRINK = 0.97
+#: Inset applied to loose fragments, as a fraction of their own size. 0.97 was
+#: `vtk_fracture`'s long-standing value — a 1.5 cm hairline on a 1 m chunk,
+#: "large enough that the solver starts legal".
+#:
+#: IT IS NOT LARGE ENOUGH, because the solver does not see the fragment: it
+#: sees a CONVEX HULL of it, and the hull of a Voronoi-cut shell piece bulges
+#: well past the geometry. So neighbours start deeply overlapped however fine
+#: the hairline, and PhysX spends the settle shoving them apart — measured on
+#: `SM_MERGED_BP_MBuilding01_soft_storey`, 557 fragments dropped a median of
+#: 4 cm while spreading 6.5 m sideways, which is a pile being inflated rather
+#: than one coming to rest. 0.90 is 5 cm on a 0.5 m piece: still not a gap you
+#: can see in rubble, and enough hull clearance to start legal.
+SHRINK = 0.90
 
 #: TARGET RUBBLE SIZE, in metres, for every building in the library.
 #:
