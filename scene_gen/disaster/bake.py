@@ -142,9 +142,21 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
         return False
 
     out = Usd.Stage.CreateNew(out_path)
-    UsdGeom.Scope.Define(out, root)
+    # AN XFORM, NOT A SCOPE. `apply_placements` references an archetype onto a
+    # typeless holder so the asset's own type wins (a single-Mesh asset must
+    # stay a Mesh), and then authors translate/rotate/scale on that holder. A
+    # Scope is not Xformable, so a Scope-rooted archetype composed fine and
+    # was then SKIPPED by the placement — every archetype-backed building came
+    # up as an empty lot with a debris ring around it.
+    UsdGeom.Xform.Define(out, root)
     out.SetDefaultPrim(out.GetPrimAtPath(root))
     UsdGeom.Scope.Define(out, root + "/Looks")
+    # What the geometry below actually is — the world transform is baked and
+    # the source was measured in metres, Z-up. Left unauthored, the layer
+    # reports USD's fallbacks (Y-up, centimetres) and anything that measures
+    # the archetype from its metadata scales it a hundredfold.
+    UsdGeom.SetStageUpAxis(out, UsdGeom.Tokens.z)
+    UsdGeom.SetStageMetersPerUnit(out, 1.0)
 
     xf_cache = UsdGeom.XformCache(Usd.TimeCode.Default())
     matmap, used = {}, {}

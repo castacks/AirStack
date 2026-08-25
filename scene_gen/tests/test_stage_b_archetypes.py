@@ -172,3 +172,86 @@ def test_a_partial_library_falls_back_but_still_places(config, monkeypatch):
     assert hit
     assert all("_cracked.usd" in p["usd"] for p in hit)
     assert library.misses, "fell back silently instead of recording it"
+
+
+# --------------------------------------------------------------------------
+# The swap has to COMPOSE, not just resolve. Everything above checks the
+# placement list; none of it puts an archetype on a stage, which is how a
+# library whose every root was a (non-Xformable) Scope shipped and every
+# archetype-backed building came up as an empty lot with a debris ring.
+
+def _box_source(x, y):
+    """A 10 x 6 x 4 m box building at (x, y), the way a scene would hold it."""
+    from pxr import Gf, Usd, UsdGeom
+    src = Usd.Stage.CreateInMemory()
+    UsdGeom.SetStageUpAxis(src, UsdGeom.Tokens.z)
+    UsdGeom.SetStageMetersPerUnit(src, 1.0)
+    UsdGeom.Xform.Define(src, "/World")
+    xf = UsdGeom.Xform.Define(src, "/World/Bldg")
+    xf.AddTranslateOp().Set(Gf.Vec3d(x, y, 0.0))
+    m = UsdGeom.Mesh.Define(src, "/World/Bldg/box")
+    pts = [(a, b, c) for c in (0.0, 4.0) for b in (0.0, 6.0) for a in (0.0, 10.0)]
+    m.CreatePointsAttr([Gf.Vec3f(*p) for p in pts])
+    m.CreateFaceVertexCountsAttr([4] * 6)
+    m.CreateFaceVertexIndicesAttr([0, 1, 3, 2, 4, 6, 7, 5, 0, 4, 5, 1,
+                                   2, 3, 7, 6, 0, 2, 6, 4, 1, 5, 7, 3])
+    return src
+
+
+def _world_min(stage, path):
+    from pxr import Usd, UsdGeom
+    cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                              [UsdGeom.Tokens.default_])
+    return cache.ComputeWorldBound(stage.GetPrimAtPath(path)) \
+        .ComputeAlignedRange().GetMin()
+
+
+def _place(url):
+    from pxr import Usd, UsdGeom
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.Xform.Define(stage, "/World")
+    p = {"usd": url, "category": "house", "x_m": 20.0, "y_m": -30.0,
+         "z_m": 0.0, "yaw_deg": 0.0, "scale": 1.0, "axis_up": "Z"}
+    sg.apply_placements(stage, [p], parent_path="/World/gen", resolver=None)
+    return stage, p["prim_path"]
+
+
+def test_a_baked_archetype_composes_where_it_was_placed(tmp_path, monkeypatch):
+    from pxr import Sdf, Usd, UsdGeom
+    from disaster import bake as B
+
+    monkeypatch.setitem(sg.LOCAL_ASSET_ROOTS, "airstack", str(tmp_path))
+    out = tmp_path / "arch" / "T_pancaked.usd"
+    out.parent.mkdir()
+    assert B.export_object(_box_source(100.0, 50.0), None, ["/World/Bldg"],
+                           str(out), recenter=(100.0, 50.0, 0.0))
+
+    # The archetype says what it is: metres, Z-up, an Xformable root.
+    st = Usd.Stage.Open(str(out))
+    assert st.GetDefaultPrim().IsA(UsdGeom.Xformable)
+    assert UsdGeom.GetStageUpAxis(st) == UsdGeom.Tokens.z
+    assert UsdGeom.GetStageMetersPerUnit(st) == 1.0
+
+    # It can be measured through the scheme the placement carries ...
+    fp = sg._measure_footprint_raw("airstack://arch/T_pancaked.usd")
+    assert fp is not None
+    assert abs(fp["sx"] - 10.0) < 1e-3 and abs(fp["sy"] - 6.0) < 1e-3
+
+    # ... and it lands on its lot, re-centred, rather than being skipped.
+    stage, path = _place("airstack://arch/T_pancaked.usd")
+    assert stage.GetPrimAtPath(path).IsA(UsdGeom.Xformable)
+    lo = _world_min(stage, path)
+    assert abs(lo[0] - 20.0) < 1e-3 and abs(lo[1] + 30.0) < 1e-3 \
+        and abs(lo[2]) < 1e-3
+
+    # A library baked before the root became an Xform is promoted in place:
+    # Scope -> Xform loses nothing, and re-baking hours of archetypes to fix
+    # a prim type is not a reasonable ask.
+    legacy = tmp_path / "arch" / "T_legacy.usd"
+    layer = Sdf.Layer.FindOrOpen(str(out))
+    layer.GetPrimAtPath("/Baked").typeName = "Scope"
+    layer.Export(str(legacy))
+    stage, path = _place("airstack://arch/T_legacy.usd")
+    assert stage.GetPrimAtPath(path).IsA(UsdGeom.Xformable)
+    lo = _world_min(stage, path)
+    assert abs(lo[0] - 20.0) < 1e-3 and abs(lo[1] + 30.0) < 1e-3

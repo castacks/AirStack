@@ -385,8 +385,12 @@ def _measure_footprint_raw(usd_path: str, axis_up: str = "Z"):
     stage is the expensive part — a Nucleus round trip — so callers should cache
     on ``(usd_path, axis_up)`` and never on the scale.
     """
+    # Local schemes are expanded here too: `disaster_stage` injects
+    # `airstack://` archetype URLs after the pools were normalised, and USD
+    # cannot open the scheme itself — the archetype then measured as the
+    # 30 x 20 m category fallback and its footprint check was meaningless.
     try:
-        stage = Usd.Stage.Open(usd_path)
+        stage = Usd.Stage.Open(_expand_scheme(usd_path) or usd_path)
     except Exception as e:
         print(f"[scene_gen] measure: could not open {usd_path}: {e}")
         return None
@@ -2974,6 +2978,14 @@ def apply_placements(stage,
         if not prim.GetReferences().AddReference(ref_url):
             print(f"[scene_gen] WARN: failed to reference {ref_url} at {prim_path}")
             continue
+        # A SCOPE-ROOTED ASSET GETS PROMOTED. Stage A libraries baked before
+        # 2026-08-25 root every archetype at a `Scope`, which composes but is
+        # not Xformable, so the transform below could not be authored and the
+        # building was silently skipped. Scope -> Xform is lossless (both are
+        # plain containers), so a local Xform opinion is the right repair;
+        # a Mesh root is left alone for the reason given above.
+        if prim.GetTypeName() == "Scope":
+            prim.SetTypeName("Xform")
         # Some asset packs (e.g. Dmytro) wrap their geometry in an internal
         # payload arc for streaming. Prims composed into an already-running
         # stage don't auto-load nested payloads the way Usd.Stage.Open() does,
