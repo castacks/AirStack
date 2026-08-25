@@ -201,6 +201,50 @@ def test_a_yawed_footprint_is_not_read_as_an_axis_aligned_one():
     assert T.edge_depth_m(b, 0.0, 14.0) == pytest.approx(1.0)
 
 
+# -- the building-interior stratum, and why it is not a cohort yet --------
+
+def test_the_sealed_ruins_are_not_shells():
+    """The finding that decides what an interior stratum can be: being a RUIN
+    is not what exposes an interior. The authored `SM_house_ruins_*` wrecks are
+    the most sealed assets in the library (closed_area_frac 0.95-1.00), while
+    the rowhouses are open shells with real rooms behind the facade. What
+    opens a building up is the live fracture, which is what `cut` tracks."""
+    assert T.is_shell("Reference_Brownstone12Row.usd")
+    assert not T.is_shell("SM_house_ruins_007.usd")
+    assert not T.is_shell("")
+
+
+def test_interior_candidates_are_standing_shells_near_a_facade(scenes):
+    import random
+
+    cfg, sv, _v = scenes[("earthquake", 42)]
+    st = T.settings(cfg)
+    cands = T.interior_candidates(sv, st, random.Random(1))
+    assert cands
+    band = float(st["interior_band_m"])
+    # By position, not by `prim_path`: an offline survey has no prims, so every
+    # placement's path is "" and a lookup on it would compare nothing.
+    homes = [b for b in sv["buildings"] if b["shell"] and not b["cut"]]
+    assert homes
+    for c in cands:
+        assert any(T._inside(b, c["x"], c["y"]) for b in homes), c
+        assert 0.0 <= c["wall_depth_m"] <= band + 1e-6
+
+
+def test_the_analytic_backend_cannot_adjudicate_an_interior(scenes):
+    """Pinned because it is the REASON this is not a cohort. The analytic model
+    is one opaque box per standing building, so everyone inside is `buried` by
+    construction and a person at a window is invisible by the same
+    construction. Only the stage knows where the openings are, so the decision
+    belongs to `check_on_stage` and a real launch."""
+    import random
+
+    cfg, sv, _v = scenes[("earthquake", 42)]
+    rows = F.check(T.interior_candidates(sv, T.settings(cfg), random.Random(1)),
+                   F.occluders_from_survey(sv))
+    assert rows and all(r["verdict"] == "buried" for r in rows)
+
+
 # -- 3. the gate ----------------------------------------------------------
 
 def test_no_victim_is_buried(scenes):

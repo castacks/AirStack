@@ -148,6 +148,9 @@ DEFAULTS = {
     # `in_vehicle` victim directly — they are not settled onto anything, or a
     # downward probe would rest them on the roof of the car they are inside.
     "seat_frac": 0.45,
+    # Metres in from a standing building's facade that `interior_candidates`
+    # will probe. Not a cohort — see that function.
+    "interior_band_m": 3.0,
     "clearance_m": 8.0,
     "cluster_size": [3, 8],
     "cluster_radius_m": 6.0,
@@ -241,6 +244,9 @@ def survey_from_placements(placements, layout=None, resolver=None,
             # fracture is only known from the stage, and `mark_cut_geometry`
             # fills those in.
             "cut": bool(p.get("_archetype")),
+            # Open shell with an interior a sightline could reach, or a sealed
+            # solid. Only `interior_candidates` reads it.
+            "shell": is_shell(p.get("usd", "")),
             "prim_path": p.get("prim_path", ""),
         })
     # Debris is surveyed for one reason: to keep people OUT of it. The piles a
@@ -331,6 +337,7 @@ def survey_from_stage(stage, config: dict) -> dict:
         dmg = levels.local_damage(field(x, y), sev)
         src = str(prim.GetCustomDataByKey("sourceAsset") or "")
         buildings.append({
+            "shell": is_shell(src),
             "cut": bool(prim.GetChild(FRAGMENT_SCOPE).IsValid()
                         or "/archetypes/" in src),
             "x": x, "y": y,
@@ -383,6 +390,102 @@ def mark_cut_geometry(stage, survey: dict) -> int:
             b["cut"] = True
             found += 1
     return found
+
+
+#: Where `categorize_assets.py` recorded, per building asset, whether it is a
+#: closed solid or an open shell. See `disaster/survey.py` for the measurement.
+BUILDING_INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "assets", "BUILDING_ASSETS.csv")
+#: Past this share of closed surface area an asset is a sealed volume rather
+#: than a shell with openings. The authored `SM_house_ruins_*` wrecks sit at
+#: 0.95-1.00 — being a ruin is not what exposes an interior.
+SEALED_CLOSED_FRAC = 0.6
+
+
+def shell_assets(path: str = "") -> set:
+    """Basenames of the building assets that are OPEN SHELLS, not solids.
+
+    An open shell has an interior a sightline can in principle reach: the
+    `Reference_Brownstone*` rowhouses are 35% closed with real rooms behind the
+    facade. A sealed one does not.
+
+    Cached on the module because it is a file read in the middle of a survey.
+    Missing file, missing column, unreadable row: not a shell. This decides
+    whether a person may be put INSIDE a building, so the failure has to be the
+    conservative one.
+    """
+    global _SHELLS
+    if _SHELLS is None:
+        _SHELLS = set()
+        try:
+            import csv
+
+            with open(path or BUILDING_INDEX) as fh:
+                for row in csv.DictReader(fh):
+                    if row.get("error") or row.get("timed_out") == "True":
+                        continue
+                    try:
+                        closed = float(row.get("closed_area_frac") or 1.0)
+                    except ValueError:
+                        continue
+                    if closed < SEALED_CLOSED_FRAC:
+                        _SHELLS.add(os.path.basename(row.get("asset", "")))
+        except OSError:
+            pass
+    return _SHELLS
+
+
+_SHELLS = None
+
+
+def is_shell(usd: str) -> bool:
+    return bool(usd) and os.path.basename(str(usd)) in shell_assets()
+
+
+def interior_candidates(survey: dict, cfg: dict, rng, n: int = 24) -> list:
+    """Candidate victim spots INSIDE standing buildings, near a facade.
+
+    The stratum the brief calls "building interior at survivable damage
+    levels", and the one the analytic backend cannot adjudicate: it models a
+    standing building as one opaque box, so everything inside it is `buried` by
+    construction, and everything a window would make visible is invisible by
+    the same construction. Only the stage knows where the openings are.
+
+    So this generates the candidates and hands the question to
+    `findability.check_on_stage`. It samples an OPEN-SHELL building (the
+    rowhouses; never the sealed `SM_house_ruins_*`), standing rather than cut,
+    at a rung below `damaged_from` — survivable damage, a building someone
+    could still be inside — within `interior_band_m` of one face, because a
+    person by a window is the only interior spot a sightline could reach.
+
+    Returns victim-shaped dicts, so the report and the stage check take them
+    unchanged. NOT wired into `sample_targets`: whether this becomes a cohort
+    is a measurement, not a guess.
+    """
+    ladder = survey.get("ladder") or []
+    floor = _level_index(cfg.get("damaged_from", "soft_storey"), ladder) or 1
+    homes = [b for b in survey.get("buildings") or ()
+             if b.get("shell") and not b.get("cut") and b["level_i"] < floor]
+    if not homes:
+        return []
+    band = float(cfg.get("interior_band_m", 3.0))
+    out = []
+    for i in range(n):
+        b = rng.choice(homes)
+        hx, hy = b["w"] / 2.0, b["h"] / 2.0
+        nx, ny = _face_toward(b, math.cos(rng.random() * math.tau),
+                              math.sin(rng.random() * math.tau))
+        d = max(0.3, min(band, min(hx, hy) * 0.9)) * rng.random()
+        lx, ly = ((nx * (hx - d), rng.uniform(-0.75, 0.75) * hy) if nx
+                  else (rng.uniform(-0.75, 0.75) * hx, ny * (hy - d)))
+        x, y = from_local(b, lx, ly)
+        out.append({"id": i, "cohort": "interior", "visibility": "partial",
+                    "pose": "crouch", "lying": False,
+                    "x": round(x, 3), "y": round(y, 3), "z": 1.0,
+                    "surface_z": 0.0, "building": b.get("prim_path", ""),
+                    "level": b.get("level", ""),
+                    "wall_depth_m": round(edge_depth_m(b, x, y), 3)})
+    return out
 
 
 def field_of(config: dict):
