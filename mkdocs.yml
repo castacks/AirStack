@@ -229,25 +229,35 @@ theme:
     - navigation.indexes
     - navigation.path
     - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
     # - navigation.expand
     - navigation.footer
     - navigation.top
     - navigation.sections
     - search.highlight
     - search.suggest
+    - search.share
     - toc.integrate
     - toc.follow
     - content.code.copy
+    - content.code.annotate
+    - content.tooltips
+  font:
+    text: Inter
+    code: JetBrains Mono
   logo: docs/assets/airstack_white.png
   name: material
   palette:
-    - accent: pink
+    - accent: custom
       primary: custom
       scheme: default
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
-    - accent: pink
+    - accent: custom
       primary: custom
       scheme: slate
       toggle:
