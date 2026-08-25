@@ -157,6 +157,9 @@ docker exec isaac-sim tmux send-keys -t isaac C-c
 # 2. wait until the shell prompt is back (a few seconds; Kit shuts down cleanly)
 docker exec isaac-sim tmux capture-pane -p -J -t isaac | grep -v '^$' | tail -1
 #    -> '[DOCKER Isaac]root@<id>:~#'
+# 2b. IF THE SCRIPT SPAWNED DRONES, kill the orphaned PX4s. See below — this is
+#     not optional, and skipping it costs a whole run.
+docker exec isaac-sim bash -c 'pkill -9 -f px4_sitl_default/bin/px4; sleep 2'
 # 3. drop the old run's scrollback, so `capture-pane` cannot hand you stale output as this run
 docker exec isaac-sim tmux clear-history -t isaac
 # 4. send the new line — `clear;` wipes the visible screen too (for a human attached to the pane)
@@ -178,6 +181,33 @@ docker exec isaac-sim tmux send-keys -t isaac \
   of them onto a USD render-settings property and the renderer reads the
   property from then on, so a late `set_bool` is never copied across — the
   fractional-cutout overlay silently vanished the run that tried it.
+### Ctrl-C ORPHANS PX4, and the next run fails in a way that blames the sim
+
+Pegasus starts one `px4` process per drone as a CHILD of the Kit process, and
+Ctrl-C on Kit does not take them with it. They keep running, keep holding their
+instance directory and their uxrce/MAVLink ports, and keep answering MAVLink.
+
+What that looks like on the next launch is not "a stale process":
+
+- the pane sits on `[px4_mavlink_backend] Waiting for first hearbeat` forever
+  and the scene never reaches its READY banner;
+- the newly spawned `px4` shows up as `<defunct>` — it could not take the
+  instance directory the orphan still holds;
+- meanwhile **MAVROS in the robot container connects happily** and even prints
+  the FCU version, because it found the ORPHAN. So `mavros/state` looks fine;
+- but no `local_position/odom` ever arrives, so `TakeoffTask` is rejected with
+  `state estimate timed out`, which reads like a takeoff-planner bug.
+
+Check for them before blaming anything else:
+
+```bash
+docker exec isaac-sim bash -c 'pgrep -af px4_sitl_default/bin/px4'
+```
+
+Any PID older than the current Kit process is an orphan. `pkill -9 -f
+px4_sitl_default/bin/px4` and relaunch. When in doubt with drones in the scene,
+`down` + `up` the container — it is the only way that cannot leave one behind.
+
 - Why not `down` + `up`: `down` REMOVES the container, so anything pip-installed
   into it at runtime (`manifold3d`, `shapely` for fracture) is gone and
   reinstalls on the next run; a process restart is ~2 min, a recreate is

@@ -970,10 +970,13 @@ is built:
   (species, pose) in `["tree_instances"]` INSTEAD of building their geometry
   (`build_placements(house_instances=...)` records-and-skips; the tree
   placements are pulled out before `apply_placements`).
-- `suburb_assemble_launch_script.py` references `house_<style>_<level>.usd` /
+- `scene_gen/scene_api.build_scene` references `house_<style>_<level>.usd` /
   `tree_<species>_<level>.usd` at each instance's pose and fire-derived level,
   builds the ground scar with `disaster.ground`, and marks every reference
   `SetInstanceable(True)` so repeated archetypes SHARE geometry.
+  `suburb_assemble_launch_script.py` is one thin caller of it; the drone
+  launcher with `SCENE_CONFIG` set is the other — see
+  [launch-generated-scene-with-drones](../launch-generated-scene-with-drones/SKILL.md).
 
 Measured on `suburb_wildfire` (1600 x 1200): 504 houses + 9,465 trees
 referenced (0 missing) in ~450 s total (236 s of it the layout), 10.4 GB GPU,

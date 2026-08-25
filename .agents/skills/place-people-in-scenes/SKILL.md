@@ -33,7 +33,8 @@ scene and get pictures out of it).
 | `scene_gen/disaster/people.py` | the whole planner: scenarios, quotas, the seat table, blockage debris. Touches NO stage — pure Python, so it runs and is asserted host-side |
 | `scene_gen/detail/vehicles.py` | `CABIN_RULES`, `open_cabin`, `can_open_cabin`, `strip_glass`, `car_pose_for_lane` |
 | `scene_gen/scene_generator.py` | `_HUMAN_POSES`, `_POSE_Z_OFFSET`, `_bind_human_pose` — the UsdSkel posing |
-| `simulation/isaac-sim/launch_scripts/suburb_assemble_launch_script.py` | authors the plan onto the stage; owns Flow, the glades, the locator poles |
+| `scene_gen/scene_api.py` | `build_scene` authors the plan onto the stage; owns Flow, the glades, the locator poles, and the ORDER (cars before the scorch pass, people after) |
+| `simulation/isaac-sim/launch_scripts/suburb_assemble_launch_script.py` | the thin launcher for `build_scene` — env knobs, banner, SNAP_DIR |
 | `simulation/isaac-sim/launch_scripts/car_occupants_launch_script.py` | the occupant bench — five cars, one person each, three cameras per car |
 | `simulation/isaac-sim/launch_scripts/people_showcase_launch_script.py` | every survivor situation side by side on one small plate |
 

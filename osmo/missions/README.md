@@ -207,6 +207,7 @@ encoder and that drone hovers for the whole mission. The pod needs
 | 1–3 | 4 | sim→0, robot N→N | `osmo/workflows/airstack-mission.yaml` |
 | 4 | 5 | sim→0, robot N→N | — (4-robot sweeps ran at `gpu: 4`, robot_4 sharing GPU 0) |
 | 5 | 6 | sim→0, robot N→N | `osmo/workflows/airstack-mission-5robot.yaml` |
+| 1 + a VLM server | 2 | sim→0, robot_1→1, VLM→1 | `osmo/workflows/airstack-mission-2gpu.yaml` |
 
 `gpu: 5` does **not** fix a 5-robot run: `5 % 5 = 0` moves the collision to
 robot_5 instead of removing it. Six is the first safe count.
@@ -216,6 +217,29 @@ claims (`_pick_conavgpt_gpu()`), so a 1-robot run on the stock 4-GPU workflow
 puts it on GPU 3 alone. When the fleet claims every card — 5 robots on `gpu: 6`
 — it shares the leader's card with robot_1's rayfronts and warns in the log.
 `CONAVGPT_ASSIGNER_GPU` overrides the choice (`-1` = don't pin).
+
+A mission that also runs a **conavgpt2 VLM server** (`conavgpt2.vlm_server`,
+started by a `run` step inside robot container 1) must keep it off Isaac Sim's
+card too, and for a different reason than rayfronts: the sim does not OOM, its
+RTX render graph fails every frame and stops publishing camera images
+altogether. `CONAVGPT2_VLM_GPU` (mission `env:`, forwarded by
+`robot/docker/robot-base-docker-compose.yaml`) is what the start step exports as
+`CUDA_VISIBLE_DEVICES` for the server process; empty = don't pin, which is right
+on a one-GPU box and wrong on a pod. `OPENAI_BASE_URL` reaches the node the same
+way — `vlm_client.resolve()` reads it when the `vlm_base_url` parameter is empty,
+which is its default. `osmo/missions/conavgpt2_wildfire_1robot.yaml` is the
+worked example, including the `/health` gate that keeps the node's preflight from
+racing the weight load, the `run` step that launches the planner AFTER that gate,
+and the collection step that copies the round table and the server's per-request
+metrics off the container before it is torn down.
+
+`ZED_PITCH_DEG` travels the same path and is read by BOTH sides: the Isaac launch
+script tilts the ZED by it, and `conavgpt2` uses it as the default for
+`camera_pitch_rad`. That is deliberate — TF walks the URDF, the URDF models no
+mount pitch, so a camera the sim tilted is one TF cannot see and a planner that
+is not told unprojects every point to the wrong bearing without erroring. Set it
+in one place or not at all. It is a CoNavGPT setting; every other method here
+assumes the level mount, so leave it unset in their missions.
 
 A mission whose fleet outgrows the default `resources:` block selects its own
 workflow with `--workflow` (path is repo-relative or absolute):

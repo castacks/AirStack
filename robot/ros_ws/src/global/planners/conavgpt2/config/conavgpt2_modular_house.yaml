@@ -1,0 +1,46 @@
+# Overlay for the modular_house preview bench — the LOCAL smoke test, not a
+# mission. Loaded on top of conavgpt2.yaml, so only what differs is here.
+#
+# The scene: `modular_house_preview_launch_script.py` with SPAWN_DRONE=1 — the
+# 8-style house catalogue on a 4-wide grid (pitch 52 x 58 m), its plot dressing
+# and the loose-prop strip, on flat ground, one drone at (0, -45). Extent is
+# roughly x[-105, 105] y[-130, 30], so a 300 m grid holds all of it with margin
+# and lands on 62.5 cm cells — fine enough that a house is ~20 cells across.
+conavgpt2:
+  ros__parameters:
+    num_robots: 1
+
+    # 300 m instead of the mission's 500: a 500 m grid over a 200 m scene spends
+    # most of its cells on ground that is never observed, and every frontier
+    # then sits on the edge of the map rather than on the edge of the scene.
+    map_extent_m: 300.0
+
+    # Houses in this kit top out near 10 m. The band has to EXCLUDE the ground
+    # (free space is what frontiers grow from) and INCLUDE the shells.
+    obstacle_min_z_m: 1.5
+    obstacle_max_z_m: 12.0
+
+    # The ZED is mounted level, so at 15 m AGL the ground first appears ~28 m
+    # ahead and the near field is empty sky. 12 m puts more ground in frame
+    # while still clearing every roof.
+    flight_altitude_m: 12.0
+    goal_tolerance_m: 5.0
+
+    # A 300 m map fills in far faster than a 1600 m plat, so a 30 s round spends
+    # most of its time flying to a stale assignment.
+    round_period_s: 20.0
+
+    # Cars come with the plot dressing (`plot_car`), so this is a target that is
+    # actually IN the scene. There are no people in the catalogue.
+    goal_name: 'car'
+    detection_classes: ['car', 'house', 'building', 'tree', 'fence', 'person']
+
+    # Pinned, not left to ultralytics' bare-filename resolution: unset, it
+    # resolves them relative to the CWD and otherwise re-downloads from GitHub
+    # on every fresh container. /root/.cache is a host mount.
+    yolo_world_weights: '/root/.cache/conavgpt2_weights/yolov8l-world.pt'
+    mobile_sam_weights: '/root/.cache/conavgpt2_weights/mobile_sam.pt'
+    ultralytics_weights_dir: '/root/.cache/conavgpt2_weights'
+
+    # First run: keep the PNGs so a bad round can be looked at, not guessed at.
+    save_debug_images: true

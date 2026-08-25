@@ -12,6 +12,13 @@
 # card comfortably and a 24 GB card only just. If rayfronts reports OOM in the
 # robot log, move to airstack-mission.yaml (gpu: 4) rather than tuning.
 #
+# NOT FOR osmo/missions/conavgpt_wildfire_1robot.yaml. That one adds a
+# conavgpt2 VLM server to the same card and the pair broke Isaac Sim two
+# different ways: `robots [1] not ready within 1800s` + NV_ERR_NO_MEMORY on an
+# OSMO submission, and locally an RTX render graph that failed every frame
+# ("Render Graph on device 0 has failed during recording") so no camera image
+# was ever published. It runs on osmo/workflows/airstack-mission-2gpu.yaml.
+#
 # Same workspace image and pod layout as airstack-dev.yaml, but instead of a
 # single `airstack up` for an interactive session, this runs a batch mission:
 # osmo/workspace/mission_runner.py executes the mission spec named by
@@ -96,7 +103,7 @@ workflow:
       environment:
         # Mission selection — repo-relative path into the clone. Override at
         # submit time to run a different mission.
-        OSMO_MISSION_FILE: "osmo/missions/conavgpt_wildfire_1robot.yaml"
+        OSMO_MISSION_FILE: "osmo/missions/example_takeoff_land.yaml"
         # true  → pod sleeps after the mission; fetch results over ssh, then
         #         `airstack osmo:down` (results die with the pod!).
         # false → task exits when the mission ends: GPU freed, /osmo/output

@@ -1,16 +1,27 @@
 # conavgpt_wildfire_1robot — CoNavGPT on the PROCEDURAL wildfire suburb, 1 drone.
 #
 # The first mission that flies a GENERATED scene rather than a finished Nucleus
-# stage. `suburb_wildfire_drones_launch_script.py` builds the 1600 x 1200 m plat
-# in-process (layout, fire field, damage archetypes, ground scar, survivors) and
-# then spawns PX4 drones into it, so nothing has to be exported to Nucleus first.
-# That build costs ~450 s BEFORE PX4 comes up, which is what `ready.timeout_s`
-# below is sized for — the default 600 s would time out during the scene build.
+# stage. It runs the SAME launcher every other mission runs
+# (`example_multi_drone_scene_import.py`); setting `SCENE_CONFIG` instead of
+# `ENV_URL` is what switches its scene source, so `scene_gen/scene_api.py`
+# builds the 1600 x 1200 m plat in-process (layout, fire field, damage
+# archetypes, ground scar, survivors) and the drones go in on top of the
+# result. Nothing has to be exported to Nucleus first. That build costs ~450 s
+# BEFORE PX4 comes up, which is what `ready.timeout_s` below is sized for — the
+# default 600 s would time out during the scene build.
 #
-# Submit (1 GPU, see osmo/workflows/airstack-mission-1gpu.yaml):
+# TWO GPUs, and they are not interchangeable. Isaac Sim gets GPU 0 to itself;
+# the conavgpt2 VLM server gets GPU 1. Measured on one 16 GB card, the two
+# together (8.9 + 3.3 GB of 16.3) left Isaac's RTX render graph failing every
+# frame with "Render Graph on device 0 has failed during recording (Error code:
+# 1)" and not one camera image was ever published — which reads as a planner
+# that never planned. OSMO's cards are 48 GB, so the split buys ISOLATION, not
+# headroom. Full account: osmo/workflows/airstack-mission-2gpu.yaml.
+#
+# Submit (2 GPUs — the 1-GPU workflow reproduces the failure above):
 #   airstack osmo:mission osmo/missions/conavgpt_wildfire_1robot.yaml \
-#     --pool <gpu-pool> --branch multi-raven \
-#     --workflow osmo/workflows/airstack-mission-1gpu.yaml
+#     --pool <gpu-pool> --branch krrishj/disaster-dataset \
+#     --workflow osmo/workflows/airstack-mission-2gpu.yaml
 #
 # Schema: osmo/missions/README.md
 
@@ -25,13 +36,19 @@ method: conavgpt
 env:
   NUM_ROBOTS: 1
   ISAAC_SIM_HEADLESS: "true"
+  # GPU 0 is Isaac Sim's alone. The compose default is already 0, but
+  # Stack.apply_env only MERGES env, so an omitted var inherits whatever the
+  # previous mission on this pod left set.
+  ISAAC_SIM_CUDA_DEVICES: "0"
   ISAAC_SIM_USE_STANDALONE: "true"
-  ISAAC_SIM_SCRIPT_NAME: suburb_wildfire_drones_launch_script.py
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
   PLAY_SIM_ON_START: "true"
 
-  # The scene is BUILT, not loaded — no ENV_URL. `airstack://` must resolve to
-  # Nucleus because a pod's clone carries only the small tracked materials, not
-  # the multi-GB AEC tree packs the archetypes reference.
+  # The scene is BUILT, not loaded — SCENE_CONFIG and NO ENV_URL, which is the
+  # whole of the source selection. `airstack://` must resolve to Nucleus
+  # because a pod's clone carries only the small tracked materials, not the
+  # multi-GB AEC tree packs the archetypes reference, and the damage-archetype
+  # bake is untracked so the launcher falls back to the copy under this root.
   SCENE_CONFIG: suburb_wildfire
   AIRSTACK_ASSET_ROOT: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA"
 
@@ -48,6 +65,11 @@ env:
   PEOPLE_POLES: "1"
 
   CONAVGPT_BASELINE: "true"
+  # The VLM the CoNavGPT node queries: a conavgpt2.vlm_server the steps below
+  # start inside robot container 1 — same container the node runs in, hence
+  # localhost. GPU 1, the card Isaac Sim does not have.
+  CONAVGPT2_VLM_GPU: "1"
+  OPENAI_BASE_URL: "http://localhost:8000/v1"
   FRONTIER_ONLY_BASELINE: "false"
   VLFM_BASELINE: "false"
   LVLM_BASELINE: "false"
@@ -116,6 +138,73 @@ steps:
       timeout_s: 900
       attempts: 5
       retry_delay_s: 15
+
+  # Qwen2.5-VL's weights, pulled with retries so a flaky HF fetch fails HERE and
+  # says so, instead of surfacing as a silent readiness timeout two steps down.
+  # /root/.cache is a mounted volume, so the server's own load finds them.
+  - run:
+      container: robot_1
+      cmd: /opt/lvlm-venv/bin/python -c "import os; from huggingface_hub import snapshot_download; snapshot_download(os.environ.get('CONAVGPT2_VLM_MODEL') or 'Qwen/Qwen2.5-VL-3B-Instruct')"
+      timeout_s: 1800
+      attempts: 5
+      retry_delay_s: 15
+
+  # The VLM server, backgrounded in robot container 1 — the same container the
+  # CoNavGPT node runs in, which is why OPENAI_BASE_URL is localhost. Pinned by
+  # CONAVGPT2_VLM_GPU: exporting CUDA_VISIBLE_DEVICES hides GPU 0 from this
+  # process entirely, so `--device cuda:0` IS physical GPU 1 and nothing in the
+  # server's tree can allocate on Isaac Sim's card even by accident. Exported
+  # only when the var is set — an EMPTY CUDA_VISIBLE_DEVICES means NO devices,
+  # not "unset", and torch then fails every allocation as if the driver were
+  # broken. mkdir stays in the FOREGROUND: folded into the `... &` chain it
+  # backgrounds too and the pidfile write races the directory into existence.
+  - run:
+      container: robot_1
+      cmd: |
+        mkdir -p /tmp/conavgpt2
+        GPU="${CONAVGPT2_VLM_GPU:-}"
+        if [ -n "$GPU" ] && [ "$GPU" != "-1" ]; then export CUDA_VISIBLE_DEVICES="$GPU"; fi
+        echo "vlm_server CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>}"
+        # --model follows CONAVGPT2_VLM_MODEL because the NODE reads the same
+        # var, and preflight refuses to start unless /v1/models reports exactly
+        # the id the node asked for. Unset on both sides = Qwen2.5-VL-3B, the
+        # size these GPU numbers were measured at; a 48 GB card can take the 7B
+        # unquantised, but that also wants --quantization none here.
+        MODEL_ARGS=""
+        if [ -n "${CONAVGPT2_VLM_MODEL:-}" ]; then MODEL_ARGS="--model ${CONAVGPT2_VLM_MODEL}"; fi
+        nohup /opt/lvlm-venv/bin/python -m conavgpt2.vlm_server \
+          --port 8000 --device cuda:0 $MODEL_ARGS \
+          --metrics-jsonl /tmp/conavgpt2/vlm_server_requests.jsonl \
+          > /tmp/conavgpt2/vlm_server.log 2>&1 &
+        echo $! > /tmp/conavgpt2/vlm_server.pid
+        sleep 5
+        if kill -0 "$(cat /tmp/conavgpt2/vlm_server.pid)" 2>/dev/null; then
+          echo VLM_SERVER_STARTED
+        else
+          echo VLM_SERVER_DEAD; tail -n 40 /tmp/conavgpt2/vlm_server.log; exit 1
+        fi
+      timeout_s: 120
+
+  # Gate before anything can query. conavgpt2's vlm_preflight RAISES on an
+  # unreachable endpoint, so a server still loading weights is a dead planner,
+  # not a wait. vlm_server runs engine.load() and the warmup generate BEFORE
+  # uvicorn binds the port, so a port that answers already means "loaded";
+  # /health's own status is checked anyway so a later lazy load still gates.
+  # Same shape as the `ready:` block above — poll on a fixed interval, bounded,
+  # and say what it saw when it gives up.
+  - run:
+      container: robot_1
+      cmd: |
+        for i in $(seq 1 90); do
+          if curl -sf http://localhost:8000/health | grep -q '"status": *"ok"'; then
+            echo VLM_READY; curl -s http://localhost:8000/health; echo; exit 0
+          fi
+          kill -0 "$(cat /tmp/conavgpt2/vlm_server.pid)" 2>/dev/null || {
+            echo VLM_SERVER_EXITED; tail -n 40 /tmp/conavgpt2/vlm_server.log; exit 1; }
+          sleep 10
+        done
+        echo VLM_NOT_READY_AFTER_900s; tail -n 40 /tmp/conavgpt2/vlm_server.log; exit 1
+      timeout_s: 960
 
   - action:
       task: takeoff

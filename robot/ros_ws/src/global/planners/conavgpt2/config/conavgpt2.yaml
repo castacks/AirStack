@@ -1,0 +1,121 @@
+# Defaults for the conavgpt2 node. Top-level key must match the node name.
+#
+# Values marked NEEDS TUNING have a defensible default but have not been checked
+# against a real run; see the README section of the same name.
+conavgpt2:
+  ros__parameters:
+
+    # ── team ────────────────────────────────────────────────────────────────
+    # AirStack gives each robot its own container AND its own ROS_DOMAIN_ID, so
+    # one process normally sees exactly one robot. num_robots > 1 only works
+    # where the other robots' camera topics are actually visible.
+    num_robots: 1
+    robot_names: ['']              # empty -> robot_name_template x num_robots
+    robot_name_template: 'robot_{i}'
+    robot_index_base: 1
+
+    # ── inputs (every topic is a parameter; these are the AirStack names) ────
+    rgb_topic_template: '/{robot}/sensors/front_stereo/left/image_rect'
+    depth_topic_template: '/{robot}/sensors/front_stereo/left/depth_ground_truth'
+    camera_info_topic_template: '/{robot}/sensors/front_stereo/left/camera_info'
+    odom_topic_template: '/{robot}/odometry_conversion/odometry'
+    navsat_topic_template: '/{robot}/interface/mavros/global_position/raw/fix'
+
+    # ── outputs ─────────────────────────────────────────────────────────────
+    navigate_action_template: '/{robot}/tasks/navigate'
+    global_plan_topic_template: '/{robot}/global_plan'
+    map_image_topic: '/conavgpt2/map_image'
+    vlm_image_topic: '/conavgpt2/vlm_prompt_image'
+    agent_image_topic_template: '/{robot}/conavgpt2/agent_image'
+    round_stats_topic: '/conavgpt2/round_stats'
+    occupancy_topic: '/conavgpt2/occupancy'
+    frontier_marker_topic: '/conavgpt2/frontiers'
+    frontier_marker_max_cells: 400   # cubes per frontier; thinned, not truncated
+    run_complete_topic: '/conavgpt2/run_complete'
+
+    # ── frames ──────────────────────────────────────────────────────────────
+    map_frame: 'map'
+    pose_source: 'tf'              # 'tf' (exact, same domain only) | 'odom'
+    camera_optical_frame_template: 'camera_left'
+    frame_mode: 'local'            # 'local' | 'global_enu' (needed to merge robots)
+    map_origin_xy: [0.0, 0.0]      # grid centre in the merge frame; must be set for global_enu
+    camera_pitch_rad: 0.0          # the scene mounts the ZED level; do not invent one
+    camera_offset_xyz: [0.209, 0.060, -0.037]   # base_link -> camera_left, odom path only
+
+    # ── sensor conditioning ─────────────────────────────────────────────────
+    sync_slop_s: 0.10
+    sync_queue_size: 10
+    depth_encoding_scale: 1.0      # AirStack depth is 32FC1 metres
+    depth_min_m: 0.5
+    depth_max_m: 60.0              # NEEDS TUNING
+    depth_border_px: 0
+    frame_width: 640               # upstream's render composites the FPV at 640x480
+    frame_height: 480
+
+    # ── map geometry ────────────────────────────────────────────────────────
+    map_extent_m: 500.0            # upstream shipped 24 m: a house, not a suburb
+    map_cells: 480                 # must stay 480: the VLM overlay assumes it
+    map_resolution_cm: 0           # 0 -> derived from map_extent_m / map_cells
+    map_size_cm: 0                 # 0 -> derived
+    obstacle_min_z_m: 2.0          # NEEDS TUNING - ground vs structure, in m AGL
+    obstacle_max_z_m: 15.0         # NEEDS TUNING
+    scene_voxel_m: 0.25            # upstream 0.05, indoor
+    scene_dbscan_eps_m: 0.0        # upstream 0.1; 0 with min_points 0 disables
+    scene_dbscan_min_points: 0
+    frontier_threshold_points: 20
+    incremental_mapping: true
+
+    # ── cadence ─────────────────────────────────────────────────────────────
+    plan_period_s: 1.0
+    round_period_s: 30.0           # 0 -> upstream's every-num_local_steps cadence
+    num_local_steps: 25
+    warmup_steps: 0                # upstream spun the robot for 30 steps first
+    # SIM seconds of flight before the run is declared over and planning
+    # stops (the node stays up so the final map survives). 0 = unbounded.
+    # Matches semantic_search_task's max_sim_seconds so a CoNavGPT run is
+    # bounded by the same budget as every other baseline here.
+    max_sim_seconds: 0.0
+    nav_mode: 'gpt'                # 'gpt' | 'nearest'
+
+    # ── target ──────────────────────────────────────────────────────────────
+    goal_name: 'person'
+    detection_classes: ['person', 'car', 'truck', 'house', 'building', 'tree', 'smoke', 'fire']
+    sem_threshold: 0.5             # NEEDS TUNING - upstream 0.85, indoor close range
+
+    # ── actuation ───────────────────────────────────────────────────────────
+    flight_altitude_m: 15.0
+    goal_tolerance_m: 6.0
+    nav_goal_timeout_s: 60.0
+    goal_change_threshold_m: 5.0
+    path_extension_m: 2.0
+    # How droan_gl is driven.
+    #   'activator'      one EMPTY NavigateTask goal; droan enters ADD_SEGMENT
+    #                    and steers by the global_plan TOPIC this node
+    #                    republishes every tick, until cancelled. A new VLM
+    #                    assignment lands within one plan tick.
+    #   'goal_per_round' a fresh goal carrying the path each round. Needs a
+    #                    cancel first, and droan's execute loop notices a cancel
+    #                    only at 1 Hz, so the re-send can be rejected with
+    #                    "task already active" and the drone keeps flying the
+    #                    previous assignment.
+    nav_activation: 'activator'
+    activator_retry_s: 3.0
+
+    # ── perception backend ──────────────────────────────────────────────────
+    device: 'cuda:0'
+    gpu_id: 0
+    dump_location: '/tmp/conavgpt2'
+    results_dir: ''                # '' -> dump_location
+    save_debug_images: false
+    publish_vis: true
+    publish_agent_images: true
+    yolo_world_weights: ''         # '' -> ultralytics resolves 'yolov8l-world.pt'
+    mobile_sam_weights: ''         # '' -> ultralytics resolves 'mobile_sam.pt'
+    ultralytics_weights_dir: ''   # '' -> ultralytics' relative 'weights' (the CWD!)
+
+    # ── VLM backend (OpenAI-compatible; NOT OpenAI) ─────────────────────────
+    vlm_base_url: ''               # '' -> OPENAI_BASE_URL -> http://localhost:8000/v1
+    vlm_model: ''                  # '' -> CONAVGPT2_VLM_MODEL -> Qwen/Qwen2.5-VL-3B-Instruct
+    vlm_api_key: ''                # '' -> OPENAI_API_KEY -> EMPTY
+    vlm_timeout_s: 60.0
+    vlm_preflight: true

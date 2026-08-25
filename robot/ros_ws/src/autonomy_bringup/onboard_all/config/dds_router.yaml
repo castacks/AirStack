@@ -32,6 +32,15 @@ allowlist:
   - name: "rt/$(env ROBOT_NAME)/sensors/front_stereo/right/depth_ground_truth"
   - name: "rt/$(env ROBOT_NAME)/perception/stereo_image_proc/point_cloud"
 
+  # TRANSFORMS. Without these the GCS domain has odometry but no frames, so
+  # Foxglove's 3D panel has nothing to place the robot — or anything published
+  # in `map` — against, and every marker silently fails to render. The GCS
+  # publishes no transforms of its own, so although the router is bidirectional
+  # this only ever flows robot -> gcs. Note the missions' `record:` gcs-scope
+  # list already asks for /tf and /tf_static; until now that recorded nothing.
+  - name: "rt/tf"
+  - name: "rt/tf_static"
+
   # state information
   - name: "rt/$(env ROBOT_NAME)/odometry_conversion/odometry"
   - name: "rt/$(env ROBOT_NAME)/interface/mavros/global_position/global"
@@ -41,6 +50,26 @@ allowlist:
   # raven_nav exploration debug — visible to operator in Foxglove
   - name: "rt/$(env ROBOT_NAME)/filtered_frontiers"
   - name: "rt/$(env ROBOT_NAME)/debug/frontier_table"
+
+  # conavgpt2: the BEV the VLM is actually shown, and the per-round trace of
+  # what it was asked and answered. These are the two topics that make a bad
+  # assignment explicable after the fact instead of just visible as a bad
+  # waypoint. NOT namespaced by robot — one node drives the whole team, as
+  # upstream does, so the map is the team's, not a robot's.
+  #
+  # The per-agent annotated FPV (/{robot}/conavgpt2/agent_image) and the
+  # candidate strip (/conavgpt2/vlm_prompt_image) are deliberately NOT here:
+  # both are per-TICK images, and the rayfronts note below is what happens when
+  # image streams go through this router. Watch those on the robot domain
+  # directly (foxglove_bridge in the robot container, host port 8767+N).
+  - name: "rt/conavgpt2/map_image"
+  - name: "rt/conavgpt2/round_stats"
+  # The same grid and frontiers as message types rather than as a picture, so
+  # they draw in the 3D panel over the sim ground. One OccupancyGrid at 480x480
+  # is 230 KB at 1 Hz — an order of magnitude under the image above, and both
+  # are TRANSIENT_LOCAL so a panel that connects late is not blank.
+  - name: "rt/conavgpt2/occupancy"
+  - name: "rt/conavgpt2/frontiers"
 
   # rayfronts semantic voxel clouds are NOT bridged. They are Foxglove debug
   # visualisation only — no autonomy module and no offline analysis consumes

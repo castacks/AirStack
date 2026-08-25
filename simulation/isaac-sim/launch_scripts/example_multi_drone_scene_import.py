@@ -1,18 +1,116 @@
 #!/usr/bin/env python3
+"""
+Spawn PX4 drones into a scene. The scene comes from ONE of two sources.
+
+  ENV_URL (the default)  a finished USD pulled off Nucleus by
+                         `pg.load_environment`. This is the historical path and
+                         nothing about it changes.
+  SCENE_CONFIG=<preset>  a GENERATED scene: `scene_gen/scene_api.build_scene`
+                         authors the whole plat into the stage in-process —
+                         layout, fire field, damage archetypes, ground scar,
+                         survivors. Nothing is loaded and NOTHING IS RESCALED.
+
+Setting SCENE_CONFIG is what selects the second path; every `_GENERATED` guard
+below is that switch. See
+`.agents/skills/launch-generated-scene-with-drones/SKILL.md` for the env knobs,
+the traps, and why the generated path skips STAGE_SCALE.
+"""
+
+import os
 
 import carb
 from isaacsim import SimulationApp
 
+SCENE_CONFIG = os.environ.get("SCENE_CONFIG", "").strip()
+_GENERATED = bool(SCENE_CONFIG)
+
+# fractionalCutoutOpacity: this renderer forces cutout opacity to 1.0 unless
+# asked otherwise, which makes car glass opaque and hides every occupant the
+# people pass put inside a vehicle. Both raster and path-traced paths need it,
+# and the flag has to be BOTH a startup arg and a carb setting re-asserted
+# after the stage is composed (see PegasusApp._build_generated_scene).
+_CUTOUT_ARGS = ["--/rtx/raytracing/fractionalCutoutOpacity=true",
+                "--/rtx/pathtracing/fractionalCutoutOpacity=true"]
+_LIVESTREAM = _GENERATED and os.environ.get(
+    "ISAAC_SIM_LIVESTREAM", "").lower() == "true"
+
 # Start Isaac Sim's simulation environment (Must start this before importing omni modules)
-simulation_app = SimulationApp({"headless": False})
+if not _GENERATED:
+    simulation_app = SimulationApp({"headless": False})
+elif _LIVESTREAM:
+    # Mirrors the NVIDIA reference config — headless with the UI kept VISIBLE,
+    # so the Kit GUI is what renders into the WebRTC stream. See
+    # example_one_px4_pegasus_launch_script.py for the full rationale.
+    simulation_app = SimulationApp(launch_config={
+        "width": 1280,
+        "height": 720,
+        "window_width": 1920,
+        "window_height": 1080,
+        "headless": True,
+        "hide_ui": False,
+        "renderer": "RaytracedLighting",
+        "display_options": 3286,
+        "extra_args": _CUTOUT_ARGS,
+    })
+else:
+    simulation_app = SimulationApp(launch_config={
+        "headless": os.getenv("ISAAC_SIM_HEADLESS", "false").lower() == "true",
+        "extra_args": _CUTOUT_ARGS,
+    })
+
+if _GENERATED:
+    from isaacsim.core.utils.extensions import enable_extension
+
+    if _LIVESTREAM:
+        # Pin the UDP media port to the single port the isaac-sim-livestream
+        # profile publishes; Kit 107 otherwise picks a dynamic one outside the
+        # forwarded set and the viewport stays black.
+        simulation_app.set_setting("/app/window/drawMouse", True)
+        simulation_app.set_setting("/app/livestream/enabled", True)
+        _LS_PORT = int(os.environ.get("ISAAC_SIM_LIVESTREAM_UDP_PORT", "49099"))
+        simulation_app.set_setting("/app/livestream/fixedHostPort", _LS_PORT)
+        simulation_app.set_setting("/app/livestream/minHostPort", _LS_PORT)
+        simulation_app.set_setting("/app/livestream/maxHostPort", _LS_PORT)
+        enable_extension("omni.kit.livestream.webrtc")
+
+    # Flow supplies the plumes over the road blockages. Enable before the scene
+    # modules import, since `disaster.fire` touches Flow prim types.
+    enable_extension("omni.flowusd")
 
 # Set local Nucleus as asset root before importing Pegasus (which resolves it at import time)
+# Unrelated to AIRSTACK_ASSET_ROOT: this one is NVIDIA's Isaac asset tree,
+# which is where Pegasus' default environment comes from.
 carb.settings.get_settings().set(
     "/persistent/isaac/asset_root/default",
     "omniverse://airlab-nucleus.andrew.cmu.edu/NVIDIA/Assets/Isaac/5.1"
 )
 
-import os
+if _GENERATED:
+    # pymavlink waits on its socket with select.select(), which cannot handle
+    # file descriptors >= 1024. DDS-over-TCP (fastdds LARGE_DATA) opens a TCP
+    # connection per remote participant, pushing this process's fd numbers past
+    # that, and every MAVLink read then throws "filedescriptor out of range in
+    # select()". poll() has no fd-number limit. Must run before Pegasus creates
+    # its MAVLink connections. Scoped to this path so the ENV_URL path stays
+    # exactly what it was.
+    import select as _select
+    import time as _time
+    from pymavlink import mavutil as _mavutil
+
+    def _mavfile_select_poll(self, timeout):
+        if self.fd is None:
+            _time.sleep(min(timeout, 0.5))
+            return True
+        poller = _select.poll()
+        poller.register(self.fd, _select.POLLIN)
+        try:
+            return len(poller.poll(timeout * 1000)) > 0
+        except OSError:
+            return False
+
+    _mavutil.mavfile.select = _mavfile_select_poll
+
+import json
 import sys
 import time
 
@@ -42,6 +140,20 @@ from scene_prep import (
     add_orthographic_camera, add_overhead_camera_publisher,
 )
 
+if _GENERATED:
+    from pegasus.simulator.params import SIMULATION_ENVIRONMENTS
+    from spawn_utils import generate_spawn_configs
+
+    # scene_gen goes on sys.path only for the generated path, and only after
+    # everything alongside this script has been imported: it drops a dozen bare
+    # module names (`layout`, `detail`, `disaster`, `scene_generator`) at the
+    # front of the search order, and there is no reason to hand the ENV_URL
+    # path that exposure.
+    sys.path.insert(0, os.path.normpath(os.path.join(
+        _LAUNCH_SCRIPTS_DIR, "..", "..", "..", "scene_gen")))
+    from scene_api import build_scene, LOCAL_ARCH_DIR
+    from disaster import people as ppl
+
 
 # --------------------- CONFIGURATION ---------------------
 NUCLEUS_SERVER = "airlab-nucleus.andrew.cmu.edu"
@@ -66,7 +178,55 @@ ENV_URL = f"omniverse://{NUCLEUS_SERVER}/Library/Stages/Muyang/LevelTest2.usd" #
 
 STAGE_SCALE = 0.01
 
+# --------------------- GENERATED SCENE (SCENE_CONFIG) ---------------------
+# Only read when SCENE_CONFIG is set. `AIRSTACK_ASSET_ROOT` repoints
+# `airstack://` onto Nucleus for pods whose clone carries no local AEC tree;
+# `scene_generator` reads it at IMPORT time, so it must already be in the
+# environment when this process starts — nothing here writes it.
+if _GENERATED:
+    # Pegasus' flat default env, NOT a finished scene: it exists only to give
+    # PegasusInterface a World with a PhysicsScene to hang the plat off.
+    BASE_ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
+    SCENE_PARENT = "/World/stage/generated"
+    SEED = int(os.environ.get("MINI_SEED", "11"))
+    # None -> scene_api.default_arch_dir(): the local bake if it exists, else
+    # the copy under AIRSTACK_ASSET_ROOT on Nucleus. A URL is fine — the bake
+    # directory is untracked, so a pod's fresh clone has none, and
+    # `os.listdir` cannot enumerate `omniverse://`.
+    ARCH_DIR = os.environ.get("ARCH_DIR") or None
+    # Survivor ground truth is written with plain `open()`, so it lands on the
+    # FILESYSTEM even when the bake it is named after lives on Nucleus.
+    PEOPLE_JSON = os.environ.get("PEOPLE_JSON") or os.path.join(
+        LOCAL_ARCH_DIR, "humans_{0}.json".format(SEED))
+    POLES = os.environ.get("PEOPLE_POLES", "").strip().lower() in (
+        "1", "true", "yes")
+    BURN_FRAC = float(os.environ.get("MINI_BURN_FRAC", "0.45"))
+    ELAPSED = float(os.environ.get("MINI_ELAPSED", "0"))
+    # off | ground | all. The plat is ~10^5 prims and `add_colliders` is a
+    # Python recursion that prints per mesh, so a full pass is minutes of log
+    # spam — and mostly futile: houses and trees are referenced INSTANCEABLE
+    # (what keeps 9k trees inside VRAM) and `GetChildren()` does not descend
+    # into an instance, so they get no collider either way. `ground` gives the
+    # drone the one surface it needs to land on and take off from.
+    COLLIDERS = os.environ.get("SUBURB_COLLIDERS", "ground").strip().lower()
+
 DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/pegasus/simulator/assets/Robots/Iris/iris.usd"
+
+# DOWNWARD tilt of every drone's ZED, in degrees about the body Y axis —
+# positive is down. Default 0 is the LEVEL mount every method in this stack
+# assumes today; a mission that wants a tilt sets ZED_PITCH_DEG in its `env:`.
+#
+# Set for CoNavGPT runs. CoNavGPT builds its occupancy map by unprojecting FPV
+# depth and rasterising it top-down, so a level camera at 15-40 m AGL spends the
+# top half of every frame on sky and never sees the ground under the drone,
+# leaving a permanent hole in the map around the robot.
+#
+# THE PLANNER MUST BE TOLD, because TF walks the URDF and the URDF models NO
+# mount pitch: a camera tilted here is a camera TF cannot see, and every point
+# would unproject to the wrong bearing without a word of warning. conavgpt2
+# reads this SAME variable as the default for its camera_pitch_rad so the two
+# cannot drift apart; any other consumer of this tilt must do likewise.
+ZED_PITCH_DEG = float(os.environ.get("ZED_PITCH_DEG", "").strip() or 0.0)
 
 # Lighting
 ADD_DOME_LIGHT = False
@@ -101,6 +261,78 @@ DRONE_CONFIGS = [
     {"domain_id": 3, "x_m": -3.0, "y_m": -3.0, "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M, "orient": [0.0, 0.0, 0.0, 1.0], "lidar_min_range": 0.75},
     ]
 
+# SPAWN_CONFIGS / SPAWN_POLY, GENERATED PATH ONLY. The three spots above are
+# metres from the origin and mean nothing on a 1600 x 1200 m plat, so the
+# generated path takes its fleet from the mission instead: SPAWN_CONFIGS is a
+# JSON list of dicts needing only x_m/y_m, SPAWN_POLY randomizes NUM_ROBOTS
+# spawns inside a rect or convex polygon. Deliberately NOT applied to the
+# ENV_URL path, whose fleet is the list above and stays that way.
+if _GENERATED:
+    NUM_ROBOTS = int(os.environ.get("NUM_ROBOTS") or 1)
+    SPAWN_HEIGHT_ABOVE_FLOOR_M = float(os.environ.get("SPAWN_HEIGHT_M") or 0.5)
+    LIDAR_MIN_RANGE_M = 0.75
+
+    # DEFAULT SPAWN, DERIVED — not eyeballed. One drone on a 10.7 m local road
+    # at the SE flank of the suburb_wildfire plat:
+    #   * 166 s of arrival-time margin outside the severity-0.6 fire front at
+    #     MINI_BURN_FRAC=0.45, so it starts in clear air rather than smoke;
+    #   * 381 m from the burn centre at (19, 110) — close enough that the scar
+    #     is the first thing in frame, far enough not to spawn inside it;
+    #   * yaw 138.1 deg = atan2(110 - -144.3, 19 - 302.4), i.e. facing the burn
+    #     centre, which as a quaternion [x, y, z, w] about +Z is
+    #     [0, 0, sin(69.05 deg), cos(69.05 deg)] = [0, 0, 0.9342, 0.3568].
+    # Changing MINI_SEED / MINI_BURN_FRAC / the preset's epicenter invalidates
+    # the margin figure; the point stays on road either way.
+    _DEFAULT_DRONE_CONFIGS = [
+        {"domain_id": 1, "x_m": 302.4, "y_m": -144.3,
+         "z_m": SPAWN_HEIGHT_ABOVE_FLOOR_M,
+         "orient": [0.0, 0.0, 0.9342, 0.3568],
+         "lidar_min_range": LIDAR_MIN_RANGE_M},
+    ]
+
+    _SPAWN_CONFIGS = os.environ.get("SPAWN_CONFIGS")
+    _SPAWN_POLY = os.environ.get("SPAWN_POLY")
+    if _SPAWN_CONFIGS:
+        DRONE_CONFIGS = json.loads(_SPAWN_CONFIGS)
+        for _i, _c in enumerate(DRONE_CONFIGS, start=1):
+            _c.setdefault("domain_id", _i)
+            _c.setdefault("z_m", SPAWN_HEIGHT_ABOVE_FLOOR_M)
+            _c.setdefault("orient", [0.0, 0.0, 0.0, 1.0])
+            _c.setdefault("lidar_min_range", LIDAR_MIN_RANGE_M)
+        _spawn_seed = "hardcoded"
+    elif _SPAWN_POLY:
+        _spawn_seed = os.environ.get("SPAWN_SEED") or "{0}-{1}".format(
+            time.time_ns(), os.getpid())
+        DRONE_CONFIGS = generate_spawn_configs(
+            json.loads(_SPAWN_POLY),
+            n=NUM_ROBOTS,
+            z_m=SPAWN_HEIGHT_ABOVE_FLOOR_M,
+            lidar_min_range=LIDAR_MIN_RANGE_M,
+            min_dist=float(os.environ.get("SPAWN_MIN_DIST_M") or 3.0),
+            margin=float(os.environ.get("SPAWN_MARGIN_M") or 0.0),
+            seed=_spawn_seed,
+        )
+    else:
+        DRONE_CONFIGS = [dict(c) for c in _DEFAULT_DRONE_CONFIGS[:NUM_ROBOTS]]
+        _spawn_seed = None
+
+    if len(DRONE_CONFIGS) != NUM_ROBOTS:
+        # Not fatal — the robot containers are what NUM_ROBOTS actually sizes,
+        # and a mismatch shows up as a robot with no airframe rather than a
+        # crash. Say so loudly, because that failure otherwise reads as a PX4
+        # timeout.
+        print("[spawn] WARNING: NUM_ROBOTS={0} but {1} spawn config(s) — robot "
+              "containers without an airframe will never report ready"
+              .format(NUM_ROBOTS, len(DRONE_CONFIGS)), flush=True)
+
+    print("[spawn] SCENE_CONFIG={0} (BUILT in-process, no ENV_URL)"
+          .format(SCENE_CONFIG), flush=True)
+    print("[spawn] AIRSTACK_ASSET_ROOT={0}"
+          .format(os.environ.get("AIRSTACK_ASSET_ROOT") or "<repo>"), flush=True)
+    print("[spawn] SPAWN_SEED={0}".format(_spawn_seed), flush=True)
+    print("[spawn] DRONE_CONFIGS={0}".format(json.dumps(DRONE_CONFIGS)),
+          flush=True)
+
 # Top-down "map" camera. Captures one aerial of the static scene that the
 # GCS visualizer turns into a textured ground in Foxglove's 3D panel. The
 # camera centers on (OVERHEAD_CENTER_X_M, OVERHEAD_CENTER_Y_M) in world
@@ -116,6 +348,17 @@ OVERHEAD_CENTER_X_TOPIC = "/sim/overhead/center_x"
 OVERHEAD_CENTER_Y_TOPIC = "/sim/overhead/center_y"
 OVERHEAD_FRAME_ID      = "map"
 OVERHEAD_DOMAIN_ID     = 0
+
+# THE PLAT, NOT THE SPAWN CROP. A generated region is 1600 x 1200 m centred on
+# the origin and the 225 m default above is a crop of it that is useless as a
+# mission map. 1600 m x 1.28 px/m = 2048 px, which is the helper's
+# max_resolution — asking for more is silently clamped.
+if _GENERATED:
+    OVERHEAD_ALTITUDE_M   = float(os.environ.get("OVERHEAD_ALTITUDE_M") or 400.0)
+    OVERHEAD_COVERAGE_M   = float(os.environ.get("OVERHEAD_COVERAGE_M") or 1600.0)
+    OVERHEAD_CENTER_X_M   = float(os.environ.get("OVERHEAD_CENTER_X_M") or 0.0)
+    OVERHEAD_CENTER_Y_M   = float(os.environ.get("OVERHEAD_CENTER_Y_M") or 0.0)
+    OVERHEAD_PX_PER_METER = float(os.environ.get("OVERHEAD_PX_PER_METER") or 1.28)
 # ---------------------------------------------------------
 
 
@@ -166,7 +409,8 @@ class PegasusApp:
 
         omni.client.initialize()
         nucleus_stat(f"omniverse://{NUCLEUS_SERVER}")
-        nucleus_stat(ENV_URL)
+        if not _GENERATED:
+            nucleus_stat(ENV_URL)
 
         # Timeline for controlling play/stop
         self.timeline = omni.timeline.get_timeline_interface()
@@ -178,7 +422,7 @@ class PegasusApp:
 
         self.timeline.stop()
 
-        self.pg.load_environment(ENV_URL)
+        self.pg.load_environment(BASE_ENV_URL if _GENERATED else ENV_URL)
 
         stage = omni.usd.get_context().get_stage()
         if stage is None:
@@ -187,29 +431,26 @@ class PegasusApp:
         if not wait_for_stage(stage):
             carb.log_warn("Stage load timed out — continuing anyway.")
 
+        if _GENERATED:
+            # The Pegasus default env was loaded only to give the World a valid
+            # base; its ground plane and lighting go straight back off, because
+            # the generated plat brings its own ground and the config's sky.
+            for _name in ("GroundPlane", "Environment"):
+                _p = stage.GetPrimAtPath("/World/" + _name)
+                if _p and _p.IsValid():
+                    _p.SetActive(False)
+
         dedupe_physics_scenes(stage)
 
-        # ----- Scene preparation -----
-        # Bring in sky/sun/environment prims that sit at root level in the
-        # source USD next to the defaultPrim that pg.load_environment already
-        # loaded into /World/stage. reference_root_prims_under_world skips
-        # the defaultPrim, so this can't duplicate geometry.
-        reference_root_prims_under_world(stage, ENV_URL)
-
-        stage_prim = stage.GetPrimAtPath("/World/stage")
-        if stage_prim.IsValid():
-            scale_stage_prim(stage, "/World/stage", STAGE_SCALE)
-            add_colliders(stage_prim)
-            for _ in range(10):
-                omni.kit.app.get_app().update()
+        if _GENERATED:
+            # Units FIRST: the plat is authored in metres x ssf, and that is
+            # also why nothing rescales it afterwards.
+            mpu, s = get_stage_meters_per_unit(stage)
+            self._build_generated_scene(stage, s)
         else:
-            carb.log_warn("/World/stage not found — skipping scale and collision.")
-
-        if ADD_DOME_LIGHT:
-            add_dome_light(stage, DOME_LIGHT_PATH, DOME_LIGHT_INTENSITY, DOME_LIGHT_EXPOSURE)
-
-        # Units
-        mpu, s = get_stage_meters_per_unit(stage)
+            self._prepare_env_url_scene(stage)
+            # Units
+            mpu, s = get_stage_meters_per_unit(stage)
 
         # Top-down orthographic camera over (0, 0). Publishes one JPEG aerial
         # of the static scene at low rate; the GCS visualizer republishes it
@@ -260,7 +501,7 @@ class PegasusApp:
                 robot_name=f"robot_{i}",
                 camera_name="ZEDCamera",
                 camera_offset=[0.21, 0.0, 0.05],
-                camera_rotation_offset=[0.0, 0.0, 0.0],
+                camera_rotation_offset=[0.0, ZED_PITCH_DEG, 0.0],
             )
 
             add_rtx_lidar_subgraph(
@@ -274,6 +515,38 @@ class PegasusApp:
                 min_range=cfg["lidar_min_range"],
             )
 
+        # POST-SCALE ONLY, so the generated path never does it: there is no
+        # scale_stage_prim on a generated plat, and toggling ~10^5 prims off
+        # and on for 8 s buys nothing.
+        if not _GENERATED:
+            self._clear_post_scale_artifact(stage)
+
+        self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
+        self.stop_sim = False
+        if _GENERATED:
+            self._print_drone_banner()
+
+    def _prepare_env_url_scene(self, stage):
+        # ----- Scene preparation -----
+        # Bring in sky/sun/environment prims that sit at root level in the
+        # source USD next to the defaultPrim that pg.load_environment already
+        # loaded into /World/stage. reference_root_prims_under_world skips
+        # the defaultPrim, so this can't duplicate geometry.
+        reference_root_prims_under_world(stage, ENV_URL)
+
+        stage_prim = stage.GetPrimAtPath("/World/stage")
+        if stage_prim.IsValid():
+            scale_stage_prim(stage, "/World/stage", STAGE_SCALE)
+            add_colliders(stage_prim)
+            for _ in range(10):
+                omni.kit.app.get_app().update()
+        else:
+            carb.log_warn("/World/stage not found — skipping scale and collision.")
+
+        if ADD_DOME_LIGHT:
+            add_dome_light(stage, DOME_LIGHT_PATH, DOME_LIGHT_INTENSITY, DOME_LIGHT_EXPOSURE)
+
+    def _clear_post_scale_artifact(self, stage):
         # Toggle /World/stage off and on to clear a post-scale visual artifact
         # that lingers until the prim is deactivated/reactivated.
         stage_prim = stage.GetPrimAtPath("/World/stage")
@@ -285,8 +558,92 @@ class PegasusApp:
                 app.update()
             stage_prim.SetActive(True)
 
-        self.play_on_start = os.environ.get("PLAY_SIM_ON_START", "true").lower() == "true"
-        self.stop_sim = False
+    # ----------------------- GENERATED SCENE -----------------------
+
+    def _build_generated_scene(self, stage, s):
+        """Author the plat, then everything that needs the geometry to exist."""
+        info = {}
+        st = build_scene(stage, SCENE_CONFIG, s, arch_dir=ARCH_DIR, seed=SEED,
+                         burn_frac=BURN_FRAC, elapsed=ELAPSED, poles=POLES,
+                         parent_path=SCENE_PARENT, people_json=PEOPLE_JSON,
+                         info_out=info)
+        # The extra_args form only covers startup; re-assert once the stage is
+        # composed so car glass stays see-through for the whole run.
+        for _key in ("/rtx/raytracing/fractionalCutoutOpacity",
+                     "/rtx/pathtracing/fractionalCutoutOpacity"):
+            carb.settings.get_settings().set_bool(_key, True)
+        app = omni.kit.app.get_app()
+        for _ in range(30):
+            app.update()
+        self._print_scene_banner(st)
+        self._add_scene_colliders(stage)
+
+    def _add_scene_colliders(self, stage):
+        if COLLIDERS == "off":
+            print("[scene] colliders: OFF (SUBURB_COLLIDERS=off)", flush=True)
+            return
+        target = (SCENE_PARENT + "/ground") if COLLIDERS == "ground" else "/World/stage"
+        prim = stage.GetPrimAtPath(target)
+        if not (prim and prim.IsValid()):
+            carb.log_warn("{0} not found - no colliders added.".format(target))
+            return
+        t0 = time.time()
+        add_colliders(prim)
+        app = omni.kit.app.get_app()
+        for _ in range(10):
+            app.update()
+        print("[scene] colliders on {0} in {1:.0f}s"
+              .format(target, time.time() - t0), flush=True)
+
+    def _print_scene_banner(self, st):
+        r = st["region"]
+        print("\n" + "=" * 72, flush=True)
+        print("SCENE BUILT - {0} ({1:.0f} x {2:.0f} m, by reference)".format(
+            st["scene_config"], r[2] - r[0], r[3] - r[1]))
+        print("  assembly    {0:.0f} s".format(st["seconds"]))
+        print("  archetypes  {0}".format(st["arch_dir"]))
+        print("  fire        t+{0:.0f} s elapsed over a {1:.0f} s span "
+              "(burn_frac {2:.2f}, seed {3})".format(
+                  st["elapsed_s"], st["span_s"], st["burn_frac"], st["seed"]))
+        print("  houses      {0} referenced ({1} missing); {2}".format(
+            st["houses"], st["houses_missing"],
+            ", ".join("%s=%d" % kv for kv in sorted(st["house_tally"].items()))))
+        print("  trees       {0} referenced ({1} missing); {2}".format(
+            st["trees"], st["trees_missing"],
+            ", ".join("%s=%d" % kv for kv in sorted(st["tree_tally"].items()))))
+        print("  ground scar {0} band(s); {1} Flow emitter(s)".format(
+            st["bands"], st["flow"]))
+        print("  people      {0} authored ({1} alive), {2} car(s), "
+              "{3} blocker(s) -> {4}".format(
+                  st["people"], st["people_alive"], st["cars"], st["blockers"],
+                  st["people_json"]))
+        for _name in ppl.SCENARIOS:
+            print("    {0:<18} {1:>3}".format(
+                _name, st["people_tally"].get(_name, 0)))
+        if st["poles"]:
+            print("  poles       {0} locator marker(s) (PEOPLE_POLES)".format(
+                st["poles"]))
+        print("  NEXT        colliders, map camera, then {0} PX4 drone(s)"
+              .format(len(DRONE_CONFIGS)))
+        print("=" * 72 + "\n", flush=True)
+
+    def _print_drone_banner(self):
+        print("\n" + "=" * 72, flush=True)
+        print("DRONES UP - {0} PX4 multirotor(s) on {1}".format(
+            len(DRONE_CONFIGS), SCENE_CONFIG))
+        for cfg in DRONE_CONFIGS:
+            print("  robot_{0}  domain {0}  ({1:.1f}, {2:.1f}, {3:.1f}) m  "
+                  "orient {4}".format(cfg["domain_id"], cfg["x_m"], cfg["y_m"],
+                                      cfg["z_m"], cfg["orient"]))
+        print("  overhead    {0} @ {1:.0f} m coverage, centred "
+              "({2:.0f}, {3:.0f})".format(OVERHEAD_TOPIC, OVERHEAD_COVERAGE_M,
+                                          OVERHEAD_CENTER_X_M,
+                                          OVERHEAD_CENTER_Y_M))
+        print("  timeline    {0}".format(
+            "PLAY" if self.play_on_start else "STOPPED (PLAY_SIM_ON_START)"))
+        print("  PX4 is now booting; mission readiness gates on that, not on "
+              "this banner.")
+        print("=" * 72 + "\n", flush=True)
 
     def run(self):
         if self.play_on_start:

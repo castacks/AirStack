@@ -40,7 +40,10 @@ services:
       # Isaac Sim stuff
       - PLAY_SIM_ON_START=${PLAY_SIM_ON_START}
       - NUM_ROBOTS=${NUM_ROBOTS:-1}
-      - ENABLE_LIDAR=${ENABLE_LIDAR:-false}
+      # EMPTY when unset, not 'false': each launch script has its own
+      # default (off for example_multi_px4, on for the multi-drone scene
+      # import) and a compose default silently overrides both.
+      - ENABLE_LIDAR=${ENABLE_LIDAR:-}
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
       # Scene to generate; empty falls back to the launch script default
       - SCENE_CONFIG=${SCENE_CONFIG:-}
@@ -49,7 +52,12 @@ services:
       # ships its own Fast DDS whose SHM segments are incompatible with the
       # ROS Jazzy one, so RTPS-over-TCP is what actually interoperates.
       - FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-LARGE_DATA}
-      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-}
+      # MUST default to a device, not to empty. An empty CUDA_VISIBLE_DEVICES
+      # is not "unset" — it means NO devices, and Kit then fails every
+      # allocation with `cudaErrorNoDevice` while `nvidia-smi -L` still
+      # lists the card, which reads like a driver fault rather than a
+      # config one. Override per host with ISAAC_SIM_CUDA_DEVICES.
+      - CUDA_VISIBLE_DEVICES=${ISAAC_SIM_CUDA_DEVICES:-0}
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
       # never reaches the launch script, which looks like the script ignoring
@@ -64,6 +72,9 @@ services:
       - STAGE_SCALE=${STAGE_SCALE:-}
       - OVERHEAD_CENTER_X_M=${OVERHEAD_CENTER_X_M:-}
       - OVERHEAD_CENTER_Y_M=${OVERHEAD_CENTER_Y_M:-}
+      - OVERHEAD_COVERAGE_M=${OVERHEAD_COVERAGE_M:-}
+      - OVERHEAD_ALTITUDE_M=${OVERHEAD_ALTITUDE_M:-}
+      - OVERHEAD_PX_PER_METER=${OVERHEAD_PX_PER_METER:-}
       - RESULTS_SCENE=${RESULTS_SCENE:-}
       - GT_ANNOTATIONS=${GT_ANNOTATIONS:-off}
       # The generated wildfire plat: where its baked archetypes come from, and
@@ -72,6 +83,20 @@ services:
       - ARCH_DIR=${ARCH_DIR:-}
       - AIRSTACK_ASSET_ROOT=${AIRSTACK_ASSET_ROOT:-}
       - PEOPLE_POLES=${PEOPLE_POLES:-}
+      # Preview-scene knobs (modular_house_preview_launch_script.py). Same rule
+      # as the spawn block above: a var not listed here never reaches the script.
+      # All are forwarded EMPTY-tolerant; the script supplies the defaults.
+      - SPAWN_DRONE=${SPAWN_DRONE:-}
+      - HOUSE_LIMIT=${HOUSE_LIMIT:-}
+      - HOUSE_SEED=${HOUSE_SEED:-}
+      - HOUSE_SPACING=${HOUSE_SPACING:-}
+      - HOUSE_DRESS=${HOUSE_DRESS:-}
+      - DRONE_XY=${DRONE_XY:-}
+      - DRONE_Z_M=${DRONE_Z_M:-}
+      # Downward ZED tilt in degrees. Empty/0 = the level mount every
+      # method but CoNavGPT assumes; conavgpt2 reads the same var so the
+      # planner's camera_pitch_rad cannot disagree with the mount.
+      - ZED_PITCH_DEG=${ZED_PITCH_DEG:-}
       # Pegasus physics tuning — read by pegasus/simulator/params.py
       - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}
       - ARDUPILOT_PHYSICS_HZ=${ARDUPILOT_PHYSICS_HZ:-800}
@@ -100,6 +125,17 @@ services:
       - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/:rw
       # omniverse
       - ./omniverse.toml:/isaac-sim/.nvidia-omniverse/config/omniverse.toml:rw
+      # The DDS profile, MOUNTED rather than left to the image. Dockerfile.isaac-ros
+      # COPYs docker/fastdds.xml to /isaac-sim/.ros/fastdds.xml at BUILD time, so
+      # an image built before that file last changed carries the old profile —
+      # which is what happened here: the image predates the LARGE_DATA switch and
+      # still shipped a UDP-only profile with useBuiltinTransports=false. The
+      # robot and gcs containers announce TCP locators (common/fastdds.xml), an
+      # Isaac writer with no TCP transport can never match them, and the symptom
+      # is camera topics that ADVERTISE and never deliver a frame. Mounting it
+      # makes the file config rather than a build artefact, like .bashrc and
+      # omniverse.toml beside it.
+      - ./fastdds.xml:/isaac-sim/.ros/fastdds.xml:ro
       - ./user.config.json:/isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw # enables pegasus extension; IMPORTANT: set the version number without the trailing .0
       # developer stuff
       - .dev:/isaac-sim/.dev:rw # developer config
@@ -157,13 +193,22 @@ services:
       - ISAAC_SIM_LIVESTREAM=true
       - ISAAC_SIM_USE_STANDALONE=true
       - ISAAC_SIM_HEADLESS=true
+      # EMPTY when unset, not 'false': each launch script has its own
+      # default (off for example_multi_px4, on for the multi-drone scene
+      # import) and a compose default silently overrides both.
+      - ENABLE_LIDAR=${ENABLE_LIDAR:-}
       - SCENE_CONFIG=${SCENE_CONFIG:-}
       # Must match the robot/gcs containers — mixed transport modes across
       # containers have no common data channel, and the isaacsim ros2 bridge
       # ships its own Fast DDS whose SHM segments are incompatible with the
       # ROS Jazzy one, so RTPS-over-TCP is what actually interoperates.
       - FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-LARGE_DATA}
-      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-}
+      # MUST default to a device, not to empty. An empty CUDA_VISIBLE_DEVICES
+      # is not "unset" — it means NO devices, and Kit then fails every
+      # allocation with `cudaErrorNoDevice` while `nvidia-smi -L` still
+      # lists the card, which reads like a driver fault rather than a
+      # config one. Override per host with ISAAC_SIM_CUDA_DEVICES.
+      - CUDA_VISIBLE_DEVICES=${ISAAC_SIM_CUDA_DEVICES:-0}
       # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
       # forward the host environment automatically — a var absent here simply
       # never reaches the launch script, which looks like the script ignoring
@@ -178,6 +223,9 @@ services:
       - STAGE_SCALE=${STAGE_SCALE:-}
       - OVERHEAD_CENTER_X_M=${OVERHEAD_CENTER_X_M:-}
       - OVERHEAD_CENTER_Y_M=${OVERHEAD_CENTER_Y_M:-}
+      - OVERHEAD_COVERAGE_M=${OVERHEAD_COVERAGE_M:-}
+      - OVERHEAD_ALTITUDE_M=${OVERHEAD_ALTITUDE_M:-}
+      - OVERHEAD_PX_PER_METER=${OVERHEAD_PX_PER_METER:-}
       - RESULTS_SCENE=${RESULTS_SCENE:-}
       - GT_ANNOTATIONS=${GT_ANNOTATIONS:-off}
       # The generated wildfire plat: where its baked archetypes come from, and
@@ -186,6 +234,20 @@ services:
       - ARCH_DIR=${ARCH_DIR:-}
       - AIRSTACK_ASSET_ROOT=${AIRSTACK_ASSET_ROOT:-}
       - PEOPLE_POLES=${PEOPLE_POLES:-}
+      # Preview-scene knobs (modular_house_preview_launch_script.py). Same rule
+      # as the spawn block above: a var not listed here never reaches the script.
+      # All are forwarded EMPTY-tolerant; the script supplies the defaults.
+      - SPAWN_DRONE=${SPAWN_DRONE:-}
+      - HOUSE_LIMIT=${HOUSE_LIMIT:-}
+      - HOUSE_SEED=${HOUSE_SEED:-}
+      - HOUSE_SPACING=${HOUSE_SPACING:-}
+      - HOUSE_DRESS=${HOUSE_DRESS:-}
+      - DRONE_XY=${DRONE_XY:-}
+      - DRONE_Z_M=${DRONE_Z_M:-}
+      # Downward ZED tilt in degrees. Empty/0 = the level mount every
+      # method but CoNavGPT assumes; conavgpt2 reads the same var so the
+      # planner's camera_pitch_rad cannot disagree with the mount.
+      - ZED_PITCH_DEG=${ZED_PITCH_DEG:-}
     # Publish the WebRTC livestream ports to the pod NS. Bridge-mode +
     # publish (the conservative choice) keeps the rest of the stack on
     # airstack_network for DDS multicast.
@@ -203,6 +265,17 @@ services:
       - $HOME/docker/isaac-sim/pkg:/isaac-sim/.local/share/ov/pkg:rw
       - ../extensions/PegasusSimulator/extensions/pegasus.simulator:/isaac-sim/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/:rw
       - ./omniverse.toml:/isaac-sim/.nvidia-omniverse/config/omniverse.toml:rw
+      # The DDS profile, MOUNTED rather than left to the image. Dockerfile.isaac-ros
+      # COPYs docker/fastdds.xml to /isaac-sim/.ros/fastdds.xml at BUILD time, so
+      # an image built before that file last changed carries the old profile —
+      # which is what happened here: the image predates the LARGE_DATA switch and
+      # still shipped a UDP-only profile with useBuiltinTransports=false. The
+      # robot and gcs containers announce TCP locators (common/fastdds.xml), an
+      # Isaac writer with no TCP transport can never match them, and the symptom
+      # is camera topics that ADVERTISE and never deliver a frame. Mounting it
+      # makes the file config rather than a build artefact, like .bashrc and
+      # omniverse.toml beside it.
+      - ./fastdds.xml:/isaac-sim/.ros/fastdds.xml:ro
       - ./user.config.json:/isaac-sim/.local/share/ov/data/Kit/Isaac-Sim Full/5.1/user.config.json:rw
       - .dev:/isaac-sim/.dev:rw
       - .bashrc:/isaac-sim/.bashrc:rw

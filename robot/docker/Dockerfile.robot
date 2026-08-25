@@ -421,5 +421,65 @@ RUN python3 -m venv --system-site-packages /opt/lvlm-venv \
  && /opt/lvlm-venv/bin/pip install --no-cache-dir \
       "transformers==4.57.6" bitsandbytes accelerate "numpy<2"
 
+# Co-NavGPT2 baseline. SYSTEM python, not a venv: the node is an ordinary ROS
+# package that must import rclpy and cv_bridge, and every pin below was measured
+# against this image rather than guessed. Three separate installs, because each
+# flag is load-bearing:
+#
+# 1. open3d --no-deps. Its declared deps drag in pandas + scikit-learn, and
+#    modern pandas requires numpy>=2 -- which silently upgraded numpy to 2.5.2
+#    and broke both scipy and cv_bridge when tried. Only core geometry is used
+#    (PointCloud, voxel_down_sample, transform, KDTreeFlann, cluster_dbscan),
+#    so its dep tree is dead weight anyway.
+# 2. The import-time deps open3d actually needs, pinned. `import open3d` reaches
+#    visualization/draw_plotly and dies without `dash`; dash needs no numpy, so
+#    it cannot drag numpy 2 in. --ignore-installed blinker is required because
+#    Debian's python3-blinker ships no RECORD and pip refuses to replace it.
+#    "setuptools<80" is NOT optional: dash's tree pulls setuptools 84, which
+#    violates colcon-core's <80 and breaks `colcon build`.
+# 3. ultralytics/supervision --no-deps: both declare opencv-python, and a pip
+#    cv2 shadows the ROS cv2 at /usr/lib/python3/dist-packages that cv_bridge is
+#    built against. Their other deps are already in system site-packages; the
+#    ones that were not -- py-cpuinfo and defusedxml (supervision imports it for
+#    pascal_voc) -- are installed by name above. ultralytics-thop is in THIS
+#    group rather than that one because it declares an unpinned torch: resolved
+#    normally it upgrades torch 2.9.1 -> 2.13.0 and orphans torchvision
+#    0.24.1+cu130, whose compiled ops then fail to register, so `import
+#    torchvision` dies with "operator torchvision::nms does not exist" and takes
+#    YOLO-World's NMS with it. It needs only the torch already in the image.
+# 4. ultralytics' CLIP fork, --no-deps for the same opencv reason. YOLO-World is
+#    open-vocabulary, so set_classes() encodes the prompt vocabulary with CLIP —
+#    and upstream Co-NavGPT2 calls set_classes in the DETECTOR'S CONSTRUCTOR, so
+#    without this the conavgpt2 node dies at startup with
+#    "ModuleNotFoundError: No module named 'clip'". ultralytics ships a lazy
+#    check_requirements("git+.../CLIP.git") fallback for exactly this case, but
+#    it shells out to pip WITHOUT --break-system-packages, so under PEP 668 it
+#    fails and the retry `import clip` raises anyway.
+#
+# The trailing check fails the BUILD rather than letting a shadowed cv2, an
+# upgraded numpy, or a colcon-breaking setuptools reach a run.
+RUN pip install --no-cache-dir --break-system-packages --no-deps "open3d>=0.19" \
+ && pip install --no-cache-dir --break-system-packages --ignore-installed blinker \
+      "numpy<2" "setuptools<80" dash configargparse addict nbformat pyquaternion \
+      scikit-fmm openai py-cpuinfo defusedxml \
+ && pip install --no-cache-dir --break-system-packages --no-deps \
+      ultralytics ultralytics-thop "supervision==0.19.0" \
+ && pip install --no-cache-dir --break-system-packages --no-deps \
+      "clip @ git+https://github.com/ultralytics/CLIP.git" \
+ && python3 -c "import numpy, cv2, clip, colcon_core, cv_bridge, open3d, skfmm, ultralytics, supervision, openai; \
+assert numpy.__version__.startswith('1.'), numpy.__version__; \
+assert cv2.__file__.startswith('/usr/lib/python3'), cv2.__file__; \
+import torch, torchvision; \
+torchvision.ops.nms(torch.tensor([[0.,0.,1.,1.]]), torch.tensor([0.9]), 0.5); \
+print('conavgpt2 deps ok: numpy', numpy.__version__, 'cv2', cv2.__version__, 'open3d', open3d.__version__, 'torch', torch.__version__, 'tv', torchvision.__version__, 'clip models', len(clip.available_models()))"
+
+# The VLM Co-NavGPT2 queries is served over an OpenAI-compatible endpoint. The
+# server reuses lvlm-venv (transformers/bitsandbytes/accelerate already there);
+# these are only the HTTP layer. NOT qwen-vl-utils: nothing imports it — the
+# server does its own PIL decode and hands min_pixels/max_pixels straight to
+# AutoProcessor.
+RUN /opt/lvlm-venv/bin/pip install --no-cache-dir \
+      fastapi uvicorn
+
 FROM ${FINAL_STAGE} AS final
 

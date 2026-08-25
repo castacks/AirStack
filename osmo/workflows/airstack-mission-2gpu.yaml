@@ -1,0 +1,235 @@
+# AirStack batch mission workflow on OSMO — TWO GPUs: Isaac Sim alone on
+# GPU 0, every process that loads a model on GPU 1.
+#
+# Identical to airstack-mission.yaml except `resources:` and this header. It
+# exists for osmo/missions/conavgpt2_wildfire_1robot.yaml: one robot, one Isaac
+# Sim building the 1600 x 1200 m generated wildfire plat (SCENE_CONFIG
+# suburb_wildfire; the search area inside it is ~1292 x 1041 m), and one
+# conavgpt2 VLM server (`conavgpt2.vlm_server`) that the mission starts inside
+# robot container 1.
+#
+# WHY TWO GPUS — the honest reason, which is NOT the one this header used to
+# give. It is MEMORY AND LATENCY ISOLATION for a large VLM: Qwen2.5-VL-32B in
+# nf4 is ~20 GB of weights before KV and the vision tower, and it is served by
+# transformers at batch 1 with no KV reuse, so a round re-prefills ~455 prompt
+# tokens plus up to six images every time. Giving it a card of its own keeps
+# that off the sim's allocator and keeps round latency predictable.
+#
+# WHAT THIS FILE USED TO CLAIM, AND WHY IT WAS WRONG. It recorded an incident in
+# which Isaac Sim (~8.9 GB) and a 4-bit VLM (~3.3 GB) co-resident on one 16 GB
+# card produced
+#
+#     Render Graph on device 0 has failed during recording (Error code: 1)
+#
+# every frame, with no camera image ever published — and concluded that Isaac's
+# RTX renderer "wants its device to itself". That conclusion was correlation.
+# Re-tested on 2026-08-25 on the same 16 GB card: Isaac Sim and a 4-bit
+# Qwen2.5-VL ran CO-RESIDENT at 9.0 of 16.3 GB with RGB, depth and /clock all
+# publishing at ~53 Hz into the robot container, and CoNavGPT2 flew.
+#
+# The actual cause of "no camera frames reach ROS" was a STALE DDS PROFILE baked
+# into the isaac-sim image: Dockerfile.isaac-ros COPYs docker/fastdds.xml at
+# BUILD time, that file switched to LARGE_DATA three hours after the image in
+# use was built, and the image therefore still shipped a UDP-only profile with
+# useBuiltinTransports=false. The robot and gcs containers announce TCP locators
+# (common/fastdds.xml), an Isaac writer with no TCP transport can never match
+# them, and the symptom is topics that ADVERTISE and never deliver — which reads
+# exactly like a planner that never planned. Fixed by MOUNTING the file
+# (simulation/isaac-sim/docker/docker-compose.yaml) so it stops being a build
+# artefact.
+#
+# Keep the split anyway, for the reason at the top. But do not carry the
+# isolation theory forward into sizing decisions: it is not true.
+#
+# WHO GETS WHICH INDEX, AND WHAT ENFORCES IT
+#
+#   GPU 0  Isaac Sim        simulation/isaac-sim/docker/docker-compose.yaml sets
+#                           CUDA_VISIBLE_DEVICES=${ISAAC_SIM_CUDA_DEVICES:-0}.
+#                           The mission pins ISAAC_SIM_CUDA_DEVICES: "0"
+#                           explicitly rather than leaning on that default,
+#                           because Stack.apply_env only MERGES env, so an
+#                           omitted var inherits whatever the previous mission
+#                           on the pod left set.
+#   GPU 1  conavgpt2 VLM    The mission's server-start step exports
+#          server           CUDA_VISIBLE_DEVICES=1 for that process alone, so
+#                           the server's own `--device cuda:0` IS physical
+#                           GPU 1 and nothing in that process tree can reach
+#                           GPU 0 even by accident.
+#   GPU 1  robot_1's        semantic_search_task._pick_rayfronts_gpu() pins
+#          rayfronts        robot N to ROS_DOMAIN_ID % n_gpus. At n_gpus = 2,
+#                           1 % 2 = 1 — GPU 1, NOT the sim's card. Under
+#                           CONAVGPT_BASELINE _pick_conavgpt_gpu() finds every
+#                           card claimed ({0} for the sim, {1} for rayfronts),
+#                           warns, and falls back to the same GPU 1. Three
+#                           models on a 48 GB card is fine; any of them on
+#                           GPU 0 is the incident above.
+#
+# ONE ROBOT ONLY, and the modulo is why. `gpu: 2` is safe at 1 robot precisely
+# because 1 % 2 = 1. A second robot maps 2 % 2 = 0 and drops its rayfronts onto
+# Isaac Sim's card — the exact pairing airstack-mission.yaml (gpu: 4) and
+# airstack-mission-5robot.yaml (gpu: 6) exist to avoid. A 2-robot CoNavGPT run
+# needs gpu: 3, not this file.
+#
+# Do NOT fall back to airstack-mission-1gpu.yaml for this mission. Both pickers
+# return None at n_gpus <= 1, so nothing is pinned there and the sim, rayfronts
+# and the VLM all co-tenant by default — which is the configuration that
+# produced both failures above.
+#
+# `airstack osmo:mission` defaults to airstack-mission.yaml, so select this one:
+#
+#   airstack osmo:mission osmo/missions/conavgpt2_wildfire_1robot.yaml \
+#     --pool <gpu-pool> --branch krrishj/disaster-dataset \
+#     --workflow osmo/workflows/airstack-mission-2gpu.yaml
+#
+# Same workspace image and pod layout as airstack-dev.yaml, but instead of a
+# single `airstack up` for an interactive session, this runs a batch mission:
+# osmo/workspace/mission_runner.py executes the mission spec named by
+# OSMO_MISSION_FILE — repeated cycles of
+#
+#   airstack down → airstack up → wait for PX4 ready → record mcap bags
+#   → run steps (takeoff / land / navigate / any ros2 command) → collect
+#   bags + logs → airstack down
+#
+# NO IMAGE REBUILD NEEDED. The mission engine is NOT baked into the image:
+# the command below reuses the baked entrypoint for pod setup only
+# (OSMO_AIRSTACK_UP=false → sshd, inner dockerd, branch clone, creds, registry
+# login — no `airstack up`), then hands off to mission_launcher.sh FROM THE
+# CLONE. So `git push` your branch and resubmit; the launcher + runner + spec
+# all come from the branch. (The launcher pip-installs PyYAML at runtime if
+# the image predates it.)
+#
+# Mission specs live in osmo/missions/ (cloned with the branch, so what you
+# push is what runs). Schema: osmo/missions/README.md.
+#
+# To submit without the wrapper (the same thing, spelled out):
+#
+#   osmo workflow submit osmo/workflows/airstack-mission-2gpu.yaml \
+#     --pool <gpu-pool> \
+#     --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)" \
+#                "OSMO_MISSION_FILE=osmo/missions/conavgpt2_wildfire_1robot.yaml" \
+#                "AIRSTACK_BRANCH=krrishj/disaster-dataset"
+#
+# Results land in /osmo/output/airstack-mission-results (symlinked from
+# /root/AirStack/osmo/results). With the default OSMO_MISSION_KEEP_ALIVE=true
+# the pod stays alive after the mission so you can pull artifacts from your
+# laptop:
+#
+#   airstack osmo:fetch ./results/
+#
+# Set OSMO_MISSION_KEEP_ALIVE=false for fire-and-forget runs: the task exits
+# cleanly when the mission ends, which frees the GPU and triggers the
+# `outputs:` upload below (if a destination bucket is configured).
+#
+# NAS upload: if the airlab-storage credential is set (airstack osmo:setup) and
+# the mission spec has `nas_dest:`, the pod rsyncs results to airlab-storage
+# then tears itself down — no laptop fetch needed. See mission_launcher.sh.
+
+workflow:
+  name: airstack-mission-2gpu
+  groups:
+  - name: airstack
+    tasks:
+    - name: workspace
+      lead: true
+      image: airlab-docker.andrew.cmu.edu/airstack/airstack-osmo-workspace:latest
+      # Required so the inner dockerd can run (same DinD setup as airstack-dev).
+      privileged: true
+      # Bootstrap: run the baked entrypoint for pod setup ONLY
+      # (OSMO_AIRSTACK_UP=false), backgrounded, then hand off to the launcher
+      # that ships in the freshly-cloned branch. This is what makes the
+      # mission engine rebuild-free — see the header comment.
+      command: ["bash", "-c"]
+      args:
+      - |
+        set -uo pipefail
+        log() { echo "[mission-bootstrap] $*"; }
+        log "starting pod setup via baked entrypoint (OSMO_AIRSTACK_UP=false)"
+        # Baked entrypoint for pod setup, backgrounded. `tee` streams its logs to
+        # `osmo workflow logs` and to a file the launcher greps for the terminal
+        # "sleeping forever" line. `tee` holds THIS task's stdout pipe open, so
+        # mission_launcher.sh kills BAKED_PID before it exits — otherwise
+        # osmo_exec never sees pipe EOF on our exit and the pod never frees the
+        # GPU (it hangs at RUNNING until exec_timeout).
+        OSMO_AIRSTACK_UP=false /usr/local/bin/entrypoint.sh 2>&1 \
+          | tee /tmp/baked-entrypoint.log &
+        export BAKED_PID=$!
+        LAUNCHER=/root/AirStack/osmo/workspace/mission_launcher.sh
+        log "waiting for branch clone to provide $LAUNCHER"
+        for i in $(seq 1 600); do [ -f "$LAUNCHER" ] && break; sleep 2; done
+        if [ ! -f "$LAUNCHER" ]; then
+          log "ERROR: $LAUNCHER not found after clone wait; sleeping for SSH debug"
+          exec sleep infinity
+        fi
+        log "handing off to mission_launcher.sh"
+        exec bash "$LAUNCHER"
+      environment:
+        # Mission selection — repo-relative path into the clone. Override at
+        # submit time to run a different mission.
+        # conavgpt2, not conavgpt: the UPSTREAM implementation, which this
+        # file's GPU split exists for. `airstack osmo:mission` overrides this at
+        # submit time anyway; it matters only for a raw `osmo workflow submit`.
+        OSMO_MISSION_FILE: "osmo/missions/conavgpt2_wildfire_1robot.yaml"
+        # true  → pod sleeps after the mission; fetch results over ssh, then
+        #         `airstack osmo:down` (results die with the pod!).
+        # false → task exits when the mission ends: GPU freed, /osmo/output
+        #         uploaded to `outputs:` destinations.
+        OSMO_MISSION_KEEP_ALIVE: "false"
+        AIRSTACK_BRANCH: "krrishj/disaster-dataset"        # branch entrypoint.sh clones
+        AIRSTACK_REPO_URL: "https://github.com/castacks/AirStack.git"
+        # SSH_PUB_KEY is supplied at submit time (needed for osmo:fetch):
+        #   --set-env "SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)"
+      # Uncomment and point at a bucket the OSMO deployment can write to, to
+      # have /osmo/output uploaded automatically when the task exits (only
+      # meaningful with OSMO_MISSION_KEEP_ALIVE=false — a canceled workflow
+      # does not upload outputs):
+      #
+      # outputs:
+      #   - url: s3://<bucket>/airstack-missions/{{workflow_id}}/
+      credentials:
+        # Same per-user credentials as airstack-dev.yaml — see
+        # docs/tutorials/airstack_on_osmo.md "Step 0" / `airstack osmo:setup`.
+        # These map OSMO credential fields → pod env vars; no secret values live
+        # in this file.
+        airlab-nucleus:
+          OMNI_USER: omni_user
+          OMNI_PASS: omni_pass
+          OMNI_SERVER: omni_server
+        airlab-docker-login:
+          AIRLAB_REGISTRY_USER: username
+          AIRLAB_REGISTRY_PASS: password
+        # Optional: NAS result upload. Absent credential → nothing injected →
+        # upload disabled. Enabled per-mission via `nas_dest:` in the spec.
+        airlab-storage:
+          AIRLAB_STORAGE_USER: username
+          AIRLAB_STORAGE_PASS: password
+          AIRLAB_STORAGE_HOST: host
+
+  resources:
+    default:
+      # One robot, exactly as airstack-mission-1gpu.yaml (cpu 16 / 64Gi), plus
+      # the VLM server — which is a process, not a robot. airstack-mission.yaml
+      # adds ~7 cpu and ~16Gi per ADDED ROBOT over those numbers (16/64Gi at 1
+      # robot -> 30/96Gi at 3); the server carries no rayfronts, no ROS graph
+      # and no sim, so it gets a fraction of a robot's share, not a whole one:
+      # +4 cpu for its four --prep-workers doing base64/JPEG decode and the
+      # image processor beside uvicorn, and +16Gi for the safetensors load peak,
+      # which bitsandbytes quantises host-side on the way to the card.
+      cpu: 20
+      # TWO, and no more. GPU 0 is Isaac Sim's alone; GPU 1 carries the VLM
+      # server. NOTE the conavgpt2 mission runs NO rayfronts — it is the
+      # upstream method, which maps from RGBD itself — so unlike the other
+      # missions here nothing else lands on GPU 1 beside the model.
+      gpu: 2
+      memory: 80Gi
+      # 400Gi is NOT unchanged-and-fine any more. Qwen2.5-VL-32B is ~65 GB of
+      # safetensors into the /root/.cache the robot image mounts, where the 3B
+      # this file was originally sized for was ~8 GB. The plat build and the
+      # mcaps still dominate, but the margin is 65 GB smaller than it reads.
+      # A 72B model would not fit under this line.
+      storage: 400Gi
+
+  timeout:
+    # With keep-alive the pod sleeps after the mission until this expires (then
+    # it's gone — fetch first). Sized to stay up ~30h post-mission for
+    # osmo:fetch (mission itself runs in the first ~1-2h).
+    exec_timeout: 100h

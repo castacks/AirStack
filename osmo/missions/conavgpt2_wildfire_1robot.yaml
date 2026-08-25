@@ -1,0 +1,339 @@
+# conavgpt2_wildfire_1robot — UPSTREAM Co-NavGPT2 on the procedural wildfire
+# suburb, one drone, an open-weight VLM on a card of its own.
+#
+# NOT the same method as `conavgpt_wildfire_1robot.yaml`. That mission sets
+# CONAVGPT_BASELINE=true, which runs rayfronts + raven_nav and adds the
+# `conavgpt_baseline` assigner to hand raven a frontier region — a hybrid where
+# raven still does the navigating. THIS mission runs the vendored upstream
+# implementation end to end: its own RGBD occupancy map, its own frontiers, its
+# own FMM path, its own NavigateTask. No rayfronts, no raven, no RADIO encoder.
+#
+# THE VLM. Co-NavGPT's paper uses GPT-4o, whose parameter count has never been
+# published, so "closest to the paper" can only mean closest on the public
+# vision-language benchmarks. That is Qwen2.5-VL-32B-Instruct: it lands in
+# GPT-4o's range where 7B clearly does not, and nf4 puts it at ~20 GB on a 48 GB
+# card. 72B would be closer still, but nf4 weights alone are ~40 GB before KV
+# and the vision tower, and bitsandbytes at that size pushes a round past a
+# minute. Swap the model with CONAVGPT2_VLM_MODEL; nothing else here changes.
+#
+# TWO GPUs. GPU 0 is Isaac Sim's, GPU 1 is the VLM server's. Note this is for
+# MEMORY and predictable latency, not for the reason the 2-GPU workflow header
+# originally gave: the "co-tenancy kills the RTX render graph" theory was tested
+# on a 16 GB card on 2026-08-25 and DISPROVED — Isaac and a 4-bit VLM ran
+# co-resident at 9.0/16.3 GB with cameras publishing at 53 Hz. The real cause of
+# that incident was a stale DDS profile baked into the isaac-sim image.
+#
+# Submit:
+#   airstack osmo:mission osmo/missions/conavgpt2_wildfire_1robot.yaml \
+#     --pool <gpu-pool> --branch krrishj/disaster-dataset \
+#     --workflow osmo/workflows/airstack-mission-2gpu.yaml
+#
+# Schema: osmo/missions/README.md
+
+name: conavgpt2_wildfire_1robot
+nas_dest: /volume2/coa-sei
+
+stack:
+  services: [isaac-sim, robot-desktop, gcs]
+
+method: conavgpt2
+
+env:
+  NUM_ROBOTS: 1
+  ISAAC_SIM_HEADLESS: "true"
+  ISAAC_SIM_CUDA_DEVICES: "0"
+  ISAAC_SIM_USE_STANDALONE: "true"
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  PLAY_SIM_ON_START: "true"
+
+  SCENE_CONFIG: suburb_wildfire
+  AIRSTACK_ASSET_ROOT: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA"
+
+  SPAWN_CONFIGS: '[{"x_m": 302.4, "y_m": -144.3, "orient": [0.0, 0.0, 0.9342, 0.3568]}]'
+  SPAWN_HEIGHT_M: "0.5"
+  PEOPLE_POLES: "1"
+
+  # ZED tilted 30 deg DOWN, and this is a CoNavGPT-specific setting — every
+  # other method in this stack assumes the level mount, so the variable is unset
+  # in their missions and the launcher's default is 0.
+  #
+  # CoNavGPT builds its map by unprojecting FPV depth and rasterising it
+  # top-down. Level at 15-40 m AGL, the top half of every frame is sky and the
+  # ground under the drone is never observed, so the map keeps a permanent hole
+  # around the robot. At 30 deg the top ray is still ~9 deg above the horizon
+  # (context kept) while the bottom ray meets the ground metres ahead.
+  #
+  # The SAME variable reaches the robot container, where conavgpt2 uses it as
+  # the default for camera_pitch_rad — TF walks the URDF, the URDF models no
+  # pitch, so the planner has to be told or it unprojects to the wrong bearing
+  # silently. One variable, both sides, no way to desync.
+  ZED_PITCH_DEG: "30"
+
+  # The VLM the node queries, served by conavgpt2.vlm_server inside robot
+  # container 1 — same container as the node, hence localhost.
+  CONAVGPT2_VLM_MODEL: "Qwen/Qwen2.5-VL-32B-Instruct"
+  CONAVGPT2_VLM_GPU: "1"
+  OPENAI_BASE_URL: "http://localhost:8000/v1"
+
+  # Every other method OFF. conavgpt2 is not a semantic_search baseline: it is
+  # launched directly in the steps below and drives droan_gl itself.
+  CONAVGPT_BASELINE: "false"
+  FRONTIER_ONLY_BASELINE: "false"
+  VLFM_BASELINE: "false"
+  LVLM_BASELINE: "false"
+  COMMS_RANGE_M: 5000
+  RESULTS_SCENE: SuburbWildfire
+
+# The plat build runs before the drone exists, so PX4 readiness is ~500 s out on
+# a good run. 1800 s leaves room for a cold shader cache on top.
+ready:
+  timeout_s: 1800
+  poll_interval_s: 10
+
+up_timeout_s: 3600
+
+iterations: 1
+iteration_attempts: 2
+on_step_failure: abort_iteration
+command_route: gcs
+
+record:
+  enabled: true
+  scope: both
+  required: true
+  topics:
+    - /tf
+    - /tf_static
+    - /{robot}/odometry_conversion/odometry
+    - /{robot}/interface/mavros/global_position/global
+    - /{robot}/global_plan
+    - /gcs/robot_markers
+    - /gcs/map_origin/location
+    - /gcs/{robot}/location
+    - /gcs/sim_ground
+    - /sim/overhead/image
+    - /sim/overhead/spec
+    - /sim/overhead/center_x
+    - /sim/overhead/center_y
+    # Bridged to the GCS domain by dds_router.yaml.
+    - /conavgpt2/map_image
+    - /conavgpt2/occupancy
+    - /conavgpt2/frontiers
+    - /conavgpt2/round_stats
+  robot_topics:
+    - /tf
+    - /tf_static
+    - /robot_{n}/odometry_conversion/odometry
+    - /robot_{n}/global_plan
+    # conavgpt2's own trace. round_stats is the round table — what the VLM was
+    # asked, what it answered, how long it took, how many tokens. map_image is
+    # the exact BEV it was shown, which is what makes a bad assignment
+    # explicable after the fact rather than merely visible as a bad waypoint.
+    # vlm_prompt_image and agent_image are per-tick images and are recorded HERE
+    # rather than bridged, for the reason dds_router.yaml gives.
+    - /conavgpt2/map_image
+    - /conavgpt2/vlm_prompt_image
+    - /conavgpt2/occupancy
+    - /conavgpt2/frontiers
+    - /conavgpt2/round_stats
+    - /conavgpt2/run_complete
+    - /robot_{n}/conavgpt2/agent_image
+
+steps:
+  # ── weights, pulled before the clock matters ───────────────────────────────
+  # Qwen2.5-VL-32B is ~65 GB of safetensors. /root/.cache is a mounted volume,
+  # so the server's own load finds them. Generous timeout and retries so a flaky
+  # HF fetch fails HERE, by name, instead of surfacing as a readiness timeout
+  # two steps down.
+  - run:
+      container: robot_1
+      cmd: /opt/lvlm-venv/bin/python -c "import os; from huggingface_hub import snapshot_download; p = snapshot_download(os.environ['CONAVGPT2_VLM_MODEL']); print('weights at', p)"
+      timeout_s: 5400
+      attempts: 3
+      retry_delay_s: 30
+
+  # YOLO-World + MobileSAM, pinned to a fixed path rather than left to
+  # ultralytics' bare-filename resolution (which resolves relative to the CWD
+  # and re-downloads from GitHub otherwise). The scene overlay names this
+  # directory. CLIP is imported by YOLO-World's set_classes(), which upstream
+  # calls in the detector's CONSTRUCTOR — the node cannot start without it.
+  - run:
+      container: robot_1
+      cmd: |
+        set -e
+        mkdir -p /root/.cache/conavgpt2_weights
+        cd /root/.cache/conavgpt2_weights
+        for f in yolov8l-world.pt mobile_sam.pt; do
+          [ -s "$f" ] || python3 -c "
+        from ultralytics.utils.downloads import attempt_download_asset
+        attempt_download_asset('$f')"
+        done
+        ls -la
+        # CLIP is imported by YOLO-World's set_classes(), which upstream calls in
+        # the DETECTOR'S CONSTRUCTOR — no clip, no node. Dockerfile.robot installs
+        # it, but an image built before that line was added will not have it, and
+        # ultralytics' own lazy check_requirements fallback shells out to pip
+        # WITHOUT --break-system-packages, so under PEP 668 it fails and the
+        # retry `import clip` raises anyway. Self-heal rather than fail a run on
+        # an image-age mismatch; a rebuilt image makes this a no-op.
+        python3 -c "import clip" 2>/dev/null || \
+          pip install --break-system-packages --no-cache-dir --no-deps \
+            "clip @ git+https://github.com/ultralytics/CLIP.git"
+        python3 -c "import clip; print('clip ok:', len(clip.available_models()), 'models')"
+        # Pre-pull CLIP ViT-B/32 into the SAME directory the scene overlay pins
+        # ultralytics' WEIGHTS_DIR to, so set_classes() does not download 338 MB
+        # mid-flight into whatever the CWD happens to be.
+        python3 -c "
+        import clip
+        clip.load('ViT-B/32', device='cpu',
+                  download_root='/root/.cache/conavgpt2_weights/clip')
+        print('clip ViT-B/32 cached')"
+      timeout_s: 900
+      attempts: 3
+      retry_delay_s: 15
+
+  # ── the VLM server, on GPU 1 ───────────────────────────────────────────────
+  # CUDA_VISIBLE_DEVICES hides GPU 0 from this process entirely, so `--device
+  # cuda:0` IS physical GPU 1 and nothing in the server's tree can allocate on
+  # Isaac Sim's card even by accident. Exported only when the var is set: an
+  # EMPTY CUDA_VISIBLE_DEVICES means NO devices, not "unset", and torch then
+  # fails every allocation as if the driver were broken.
+  #
+  # mkdir stays in the FOREGROUND: folded into the `... &` chain it backgrounds
+  # too and the pidfile write races the directory into existence.
+  - run:
+      container: robot_1
+      cmd: |
+        mkdir -p /tmp/conavgpt2
+        GPU="${CONAVGPT2_VLM_GPU:-}"
+        if [ -n "$GPU" ] && [ "$GPU" != "-1" ]; then export CUDA_VISIBLE_DEVICES="$GPU"; fi
+        echo "vlm_server CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>} model=${CONAVGPT2_VLM_MODEL:-<default>}"
+        MODEL_ARGS=""
+        if [ -n "${CONAVGPT2_VLM_MODEL:-}" ]; then MODEL_ARGS="--model ${CONAVGPT2_VLM_MODEL}"; fi
+        nohup /opt/lvlm-venv/bin/python -m conavgpt2.vlm_server \
+          --port 8000 --device cuda:0 $MODEL_ARGS \
+          --quantization nf4 --compute-dtype bfloat16 \
+          --metrics-jsonl /tmp/conavgpt2/vlm_server_requests.jsonl \
+          > /tmp/conavgpt2/vlm_server.log 2>&1 &
+        echo $! > /tmp/conavgpt2/vlm_server.pid
+        sleep 10
+        if kill -0 "$(cat /tmp/conavgpt2/vlm_server.pid)" 2>/dev/null; then
+          echo VLM_SERVER_STARTED
+        else
+          echo VLM_SERVER_DEAD; tail -n 60 /tmp/conavgpt2/vlm_server.log; exit 1
+        fi
+      timeout_s: 180
+      attempts: 3
+      retry_delay_s: 20
+
+  # Gate before anything can query. conavgpt2's vlm_preflight RAISES on an
+  # unreachable endpoint, so a server still loading weights is a dead planner,
+  # not a wait. vlm_server runs engine.load() and the warmup generate BEFORE
+  # uvicorn binds, so a port that answers already means "loaded"; /health's own
+  # status is checked anyway. 30 minutes because reading ~65 GB of safetensors
+  # and quantising it to nf4 is minutes, not seconds.
+  - run:
+      container: robot_1
+      cmd: |
+        for i in $(seq 1 180); do
+          if curl -sf http://localhost:8000/health | grep -q '"status": *"ok"'; then
+            echo VLM_READY; curl -s http://localhost:8000/health; echo; exit 0
+          fi
+          kill -0 "$(cat /tmp/conavgpt2/vlm_server.pid)" 2>/dev/null || {
+            echo VLM_SERVER_EXITED; tail -n 60 /tmp/conavgpt2/vlm_server.log; exit 1; }
+          sleep 10
+        done
+        echo VLM_NOT_READY_AFTER_1800s; tail -n 60 /tmp/conavgpt2/vlm_server.log; exit 1
+      timeout_s: 1860
+
+  # ── fly ────────────────────────────────────────────────────────────────────
+  - action:
+      task: takeoff
+      goal: {target_altitude_m: 20.0, velocity_m_s: 2.0}
+      timeout_s: 300
+
+  - wait: 5
+
+  # The planner. Backgrounded, AFTER the health gate — the node's preflight is
+  # fatal, so launching it at bring-up (which is when a bringup-wired node would
+  # start) would kill it before the server exists.
+  #
+  # Two overlays, applied in order: conavgpt2_paper.yaml restores upstream's own
+  # cadence (assign every num_local_steps=25 AGENT STEPS, not on a wall clock)
+  # and detector threshold; conavgpt2_suburb_wildfire.yaml then sets what only
+  # the scene can know — extent, obstacle band, altitude, target — and wins
+  # where the two disagree, because upstream's 24 m indoor grid cannot describe
+  # a 1600 m plat.
+  - run:
+      container: robot_1
+      cmd: |
+        mkdir -p /tmp/conavgpt2
+        CFG=$(ros2 pkg prefix conavgpt2)/share/conavgpt2/config
+        nohup ros2 launch conavgpt2 conavgpt2.launch.xml \
+          method_params_file:=$CFG/conavgpt2_paper.yaml \
+          scene_params_file:=$CFG/conavgpt2_suburb_wildfire.yaml \
+          > /tmp/conavgpt2/node.log 2>&1 &
+        echo $! > /tmp/conavgpt2/node.pid
+        sleep 20
+        if kill -0 "$(cat /tmp/conavgpt2/node.pid)" 2>/dev/null; then
+          echo CONAVGPT2_NODE_STARTED; grep -a "conavgpt2 starting" /tmp/conavgpt2/node.log || true
+        else
+          echo CONAVGPT2_NODE_DEAD; tail -n 60 /tmp/conavgpt2/node.log; exit 1
+        fi
+      timeout_s: 240
+      attempts: 2
+      retry_delay_s: 15
+
+  # The run itself. The node stops planning and latches /conavgpt2/run_complete
+  # once max_sim_seconds of SIM time have passed (set in the scene overlay), so
+  # this gates on sim time the way every other method here does — wall clock is
+  # the wrong budget, because RTF varies with scene and card.
+  #
+  # The topic is TRANSIENT_LOCAL precisely so this poll cannot miss the edge.
+  - run:
+      container: robot_1
+      cmd: |
+        for i in $(seq 1 240); do
+          if timeout 10 ros2 topic echo /conavgpt2/run_complete --once 2>/dev/null | grep -q "data: true"; then
+            echo RUN_COMPLETE; exit 0
+          fi
+          kill -0 "$(cat /tmp/conavgpt2/node.pid)" 2>/dev/null || {
+            echo CONAVGPT2_NODE_EXITED; tail -n 60 /tmp/conavgpt2/node.log; exit 1; }
+          sleep 15
+        done
+        echo RUN_DID_NOT_COMPLETE; tail -n 40 /tmp/conavgpt2/node.log; exit 1
+      timeout_s: 3900
+
+  # ── collect, THEN land ─────────────────────────────────────────────────────
+  # `record:` captures ROS topics only. The round table, the server's per-request
+  # metrics and both logs live on the container filesystem and would die with it
+  # at `airstack down` — which is how every measurement this run was built to
+  # produce gets thrown away.
+  - run:
+      container: robot_1
+      cmd: |
+        DEST=/root/AirStack/results/conavgpt2
+        mkdir -p "$DEST"
+        cp -v /tmp/conavgpt2/conavgpt2_rounds.jsonl "$DEST"/ 2>/dev/null || echo "no rounds jsonl"
+        cp -v /tmp/conavgpt2/vlm_server_requests.jsonl "$DEST"/ 2>/dev/null || echo "no server jsonl"
+        cp -v /tmp/conavgpt2/vlm_server.log "$DEST"/ 2>/dev/null || true
+        cp -v /tmp/conavgpt2/node.log "$DEST"/ 2>/dev/null || true
+        curl -s http://localhost:8000/metrics > "$DEST"/vlm_server_metrics.json 2>/dev/null || true
+        ls -la "$DEST"
+      timeout_s: 180
+    optional: true
+
+  - run:
+      container: robot_1
+      cmd: |
+        kill "$(cat /tmp/conavgpt2/node.pid)" 2>/dev/null || true
+        kill "$(cat /tmp/conavgpt2/vlm_server.pid)" 2>/dev/null || true
+        sleep 3; echo stopped
+      timeout_s: 60
+    optional: true
+
+  - action:
+      task: land
+      goal: {}
+      timeout_s: 240
+    optional: true

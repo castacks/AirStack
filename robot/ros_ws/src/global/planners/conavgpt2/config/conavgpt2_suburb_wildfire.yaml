@@ -1,0 +1,76 @@
+# Scene overlay for the generated 1600 x 1200 m wildfire suburb
+# (SCENE_CONFIG=suburb_wildfire, scene_gen/config/presets/suburb_wildfire.yaml).
+# Used by osmo/missions/conavgpt_wildfire_1robot.yaml. Layered LAST, so it wins
+# over conavgpt2_paper.yaml where the two disagree about geometry.
+conavgpt2:
+  ros__parameters:
+
+    # ── map geometry ───────────────────────────────────────────────────────
+    # 480 cells is fixed — upstream stamps the robot markers on the VLM's
+    # candidate images in 480-pixel coordinates — so EXTENT ALONE sets the cell
+    # size, and covering the plat is what forces the cells coarse.
+    #
+    # The mission's search area is x[-546, 746] y[-452, 589] and the drone
+    # spawns at (302.4, -144.3). frame_mode is 'local', so the grid is centred
+    # on that spawn point, and the far corner of the search area is 848 m away:
+    # 1700 m of extent is what reaches it. That gives 354 cm cells — a 12 m
+    # house is 3-4 cells. Coarse, but this is a frontier-exploration grid, not
+    # a semantic map, and the alternative is a grid that crops the search area.
+    #
+    # A tighter grid is available at the cost of an untested path: frame_mode
+    # 'global_enu' with map_origin_xy at the search-area centre (100.0, 68.5)
+    # needs only 1292 m of extent (269 cm cells) because it is centred on the
+    # area rather than on the corner the drone happens to start in. That is
+    # ALSO what >1 robot requires (see README) — but it depends on GPS
+    # anchoring that has not been flown, so it is not the default here.
+    map_extent_m: 1700.0
+    frame_mode: 'local'
+
+    # Ground must stay OUT of the band — a cell that is seen but empty in the
+    # band is what upstream calls free, and frontiers grow from free cells.
+    # Houses and canopy on this plat top out near 15 m; the drone flies 15-40 m
+    # AGL per the mission's semantic_search bounds.
+    obstacle_min_z_m: 2.0
+    obstacle_max_z_m: 15.0
+
+    # 354 cm cells make a 25 cm voxel pointless — it is 14x finer than the grid
+    # it rasterises into, and the cloud is the per-tick cost that scales.
+    scene_voxel_m: 1.0
+
+    # ── run budget ─────────────────────────────────────────────────────────
+    # SIM seconds, matching what the other baselines' missions give
+    # semantic_search_task (max_sim_seconds: 600), so a CoNavGPT run covers the
+    # same simulated time rather than the same wall clock — RTF varies with
+    # scene and card, and this plat is heavy.
+    #
+    # One drone will not cover 1292 x 1041 m in 600 s. That is fine: the run
+    # ends on sim time and coverage is a reported number, not a criterion.
+    max_sim_seconds: 600.0
+
+    # The mount tilt is NOT set here. It comes from ZED_PITCH_DEG, the same
+    # variable the Isaac launch script reads to tilt the physical camera, so
+    # the two cannot disagree. Setting camera_pitch_rad here would override
+    # that and silently decouple the planner from the mount.
+
+    # ── actuation ──────────────────────────────────────────────────────────
+    # Inside the mission's min/max_altitude_agl (15-40 m).
+    flight_altitude_m: 20.0
+    goal_tolerance_m: 10.0
+    depth_max_m: 80.0
+
+    # ── target ─────────────────────────────────────────────────────────────
+    # The mission searches for survivors; the plat places 59 of them.
+    goal_name: 'person'
+    detection_classes: ['person', 'car', 'truck', 'house', 'building', 'tree',
+                        'smoke', 'fire', 'road', 'rubble']
+
+    # Pinned rather than left to ultralytics' bare-filename resolution, which
+    # resolves relative to the CWD and otherwise re-downloads from GitHub on
+    # every fresh container. /root/.cache is a mounted volume on the pod.
+    yolo_world_weights: '/root/.cache/conavgpt2_weights/yolov8l-world.pt'
+    mobile_sam_weights: '/root/.cache/conavgpt2_weights/mobile_sam.pt'
+    ultralytics_weights_dir: '/root/.cache/conavgpt2_weights'
+
+    # The mcap carries the map render; the PNGs would be one per agent per tick
+    # for the whole run.
+    save_debug_images: false

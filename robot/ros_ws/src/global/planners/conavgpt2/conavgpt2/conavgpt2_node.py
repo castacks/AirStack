@@ -1,0 +1,1353 @@
+"""Co-NavGPT2 as an AirStack global planner.
+
+This is the ROS 2 wrapper around the UPSTREAM implementation (vendored under
+`conavgpt2/vendor/`, see VENDORED.md). Upstream builds its own occupancy +
+explored map and its own frontiers straight from RGBD — no semantic map, no
+rayfronts — merges every robot's cloud into one grid, renders a top view with one
+numbered frontier per candidate image, and asks a VLM which frontier each robot
+should take.
+
+Three things are ours rather than upstream's, and only these three:
+
+  * Actuation. Upstream PUBs `speedctl` strings over ZMQ to hardcoded Unitree Go2
+    IPs. Here the selected goal becomes a `task_msgs/action/NavigateTask` goal on
+    `/{robot}/tasks/navigate`, so droan_gl flies it with obstacle avoidance, and
+    the same path is published on `/{robot}/global_plan` for Foxglove/gossip.
+  * Visualisation. Upstream runs an open3d GUI window in a second process. That
+    cannot exist in a headless container, so the top view (the very image the VLM
+    is shown) is published as `sensor_msgs/Image` instead.
+  * The VLM endpoint. Upstream constructs `OpenAI()` at import against
+    api.openai.com. Here base_url/model/api_key are parameters pointing at any
+    OpenAI-compatible server (default: a locally served Qwen2.5-VL).
+
+Everything between the pixels and the goal point is upstream's code.
+"""
+
+import json
+import math
+import os
+import signal
+import threading
+import time
+from argparse import Namespace
+
+import numpy as np
+import rclpy
+import rclpy.executors
+import tf2_ros
+from cv_bridge import CvBridge
+from geometry_msgs.msg import Point, PoseStamped
+from nav_msgs.msg import OccupancyGrid, Odometry, Path
+from rclpy.action import ActionClient
+from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.node import Node
+from rclpy.qos import (DurabilityPolicy, HistoryPolicy, QoSProfile,
+                       ReliabilityPolicy)
+from sensor_msgs.msg import CameraInfo, Image, NavSatFix
+from std_msgs.msg import Bool, ColorRGBA, String
+from visualization_msgs.msg import Marker, MarkerArray
+
+import message_filters
+
+try:
+    from coordination_bringup.frame_utils import gps_to_enu
+except ImportError:   # same flat-earth constants the rest of the stack uses
+    def gps_to_enu(lat, lon, alt, origin_lat=38.736832, origin_lon=-9.137977,
+                   origin_alt=90.0):
+        return ((lon - origin_lon) * 111320.0 * math.cos(math.radians(origin_lat)),
+                (lat - origin_lat) * 111320.0,
+                alt - origin_alt)
+
+try:
+    from task_msgs.action import NavigateTask
+    _TASK_MSGS_OK = True
+except ImportError as _exc:  # built by colcon, absent from the bare image
+    NavigateTask = None
+    _TASK_MSGS_OK = False
+    _TASK_MSGS_ERR = _exc
+
+try:
+    import cv2
+    import open3d as o3d
+
+    from conavgpt2 import vlm_client
+    from conavgpt2.airstack_agent import AirStackAgent, o3d_xz_to_map_xy
+    from conavgpt2.vendor import system_prompt
+    from conavgpt2.vendor.arguments import get_args
+    from conavgpt2.vendor.utils import chat_utils
+    from conavgpt2.vendor.utils import explored_map_utils
+    from conavgpt2.vendor.utils import visualization as vu
+    from conavgpt2.vendor.utils.explored_map_utils import Global_Map_Proc, detect_frontier
+    _VENDOR_OK = True
+except ImportError as _exc:
+    _VENDOR_OK = False
+    _VENDOR_ERR = _exc
+
+
+# FLU body -> RDF camera optical. Columns are the optical axes written in body
+# coordinates: right = -y_body, down = -z_body, forward = +x_body.
+R_FLU_TO_RDF = np.array([
+    [0.0, 0.0, 1.0],
+    [-1.0, 0.0, 0.0],
+    [0.0, -1.0, 0.0],
+])
+
+DEFAULT_CLASSES = [
+    'person', 'car', 'truck', 'house', 'building', 'tree', 'smoke', 'fire',
+]
+
+
+def _quat_to_rot(x, y, z, w):
+    n = math.sqrt(x * x + y * y + z * z + w * w)
+    if n == 0.0:
+        return np.eye(3)
+    x, y, z, w = x / n, y / n, z / n, w / n
+    return np.array([
+        [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+        [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+        [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)],
+    ])
+
+
+class _NavGoal:
+    """Per-robot NavigateTask bookkeeping. droan_gl rejects a second goal while one
+    is active, so a new endpoint has to cancel the old goal before it can be sent."""
+
+    def __init__(self):
+        self.handle = None
+        self.result_future = None
+        self.endpoint = None
+        self.sent_at = 0.0
+
+
+class CoNavGPT2Node(Node):
+
+    def __init__(self):
+        super().__init__('conavgpt2')
+
+        # ── robots and topics ─────────────────────────────────────────────────
+        # Upstream's ros_multi_nav.py is one process for the whole team, because a
+        # single merged grid and a single VLM call are the method. Kept that way:
+        # this node subscribes to every robot and commands every robot.
+        # AirStack runs one container per robot on its OWN ROS_DOMAIN_ID, so a
+        # single process normally sees exactly one robot. num_robots > 1 is only
+        # meaningful where the other robots' sensor topics are actually visible
+        # (a bridged domain); see README.
+        self._num_robots = int(self._p('num_robots', int(os.environ.get('NUM_ROBOTS', '1'))))
+        names = [n for n in self._p('robot_names', ['']) if n]
+        if not names:
+            template = self._p('robot_name_template', 'robot_{i}')
+            base = int(self._p('robot_index_base', 1))
+            names = [template.format(i=base + k) for k in range(self._num_robots)]
+            if self._num_robots == 1 and os.environ.get('ROBOT_NAME'):
+                names = [os.environ['ROBOT_NAME']]
+        self._robots = names
+        self._num_robots = len(self._robots)
+
+        self._rgb_tpl = self._p(
+            'rgb_topic_template', '/{robot}/sensors/front_stereo/left/image_rect')
+        self._depth_tpl = self._p(
+            'depth_topic_template',
+            '/{robot}/sensors/front_stereo/left/depth_ground_truth')
+        self._info_tpl = self._p(
+            'camera_info_topic_template',
+            '/{robot}/sensors/front_stereo/left/camera_info')
+        self._odom_tpl = self._p(
+            'odom_topic_template', '/{robot}/odometry_conversion/odometry')
+        self._nav_tpl = self._p('navigate_action_template', '/{robot}/tasks/navigate')
+        self._plan_tpl = self._p('global_plan_topic_template', '/{robot}/global_plan')
+        self._agent_image_tpl = self._p(
+            'agent_image_topic_template', '/{robot}/conavgpt2/agent_image')
+        self._map_image_topic = self._p('map_image_topic', '/conavgpt2/map_image')
+        self._vlm_image_topic = self._p('vlm_image_topic', '/conavgpt2/vlm_prompt_image')
+        # The same grid and the same frontiers as the rendered map image, but as
+        # real message types, so Foxglove's Map/3D panels can draw them over the
+        # sim ground instead of showing a picture of them.
+        self._occupancy_topic = self._p('occupancy_topic', '/conavgpt2/occupancy')
+        self._frontier_topic = self._p('frontier_marker_topic', '/conavgpt2/frontiers')
+        # Cap on cubes per frontier marker. A frontier region on a coarse grid
+        # can be thousands of cells; beyond a few hundred the shape is already
+        # readable and the rest is bandwidth.
+        self._frontier_max_cells = int(self._p('frontier_marker_max_cells', 400))
+
+        self._map_frame = self._p('map_frame', 'map')
+        # TF is exact (it walks the real URDF chain) but the frames are bare, i.e.
+        # unprefixed, so it only resolves for robots on this ROS domain. The odom
+        # path is the fallback and works for any robot whose odometry is visible.
+        self._pose_source = self._p('pose_source', 'tf')
+        self._cam_frame_tpl = self._p('camera_optical_frame_template', 'camera_left')
+        self._navsat_tpl = self._p(
+            'navsat_topic_template',
+            '/{robot}/interface/mavros/global_position/raw/fix')
+        # DOWNWARD pitch of the camera relative to what the URDF models, in
+        # radians. It describes a PHYSICAL MOUNT, not a preference: set it
+        # without a matching mount and every point unprojects to the wrong
+        # bearing, silently.
+        #
+        # The URDF chain is plain FLU->RDF with no pitch, so this is the whole
+        # mount rotation on the odometry path AND the correction TF needs on the
+        # tf path — TF walks that same pitchless chain, so a camera the launch
+        # script tilted is a camera TF does not know about.
+        #
+        # It therefore defaults to ZED_PITCH_DEG, the same environment variable
+        # the launch script reads to tilt the camera, so the two cannot drift
+        # apart. An explicit parameter still wins.
+        self._camera_pitch = float(self._p('camera_pitch_rad', 0.0))
+        if self._camera_pitch == 0.0:
+            try:
+                self._camera_pitch = math.radians(
+                    float(os.environ.get('ZED_PITCH_DEG', '0') or 0.0))
+            except ValueError:
+                self._camera_pitch = 0.0
+        # base_link -> camera_left from iris_with_sensors.pegasus.robot.urdf, with
+        # the +90 deg base_link->body yaw already folded in. Only used when TF is
+        # unavailable; the rotation is the plain FLU->RDF, which that chain equals.
+        self._camera_offset = [float(v) for v in self._p(
+            'camera_offset_xyz', [0.209, 0.060, -0.037])]
+        # Robots do NOT share a map origin: each robot's 'map' is anchored on its
+        # own boot GPS. Merging several robots into one grid therefore has to
+        # happen in global ENU, reached by adding each robot's boot_enu offset.
+        self._frame_mode = self._p('frame_mode', 'local')
+        # Centre of the occupancy grid, in the merge frame. In 'local' mode the
+        # merge frame is the robot's own map and 0,0 (its takeoff point) is right.
+        # In 'global_enu' it is sim-world ENU, where 0,0 is the GPS origin and the
+        # drones spawn hundreds of metres away — set this to the middle of the
+        # search area or the whole cloud is cropped away.
+        self._map_origin_xy = [float(v) for v in self._p('map_origin_xy', [0.0, 0.0])]
+
+        # ── sensor conditioning ───────────────────────────────────────────────
+        self._sync_slop = float(self._p('sync_slop_s', 0.10))
+        self._sync_queue = int(self._p('sync_queue_size', 10))
+        # 1.0 for 32FC1 metres, 0.001 for 16UC1 millimetres (upstream's RealSense).
+        self._depth_scale = float(self._p('depth_encoding_scale', 1.0))
+        self._depth_min_m = float(self._p('depth_min_m', 0.5))
+        self._depth_max_m = float(self._p('depth_max_m', 60.0))
+        self._depth_border_px = int(self._p('depth_border_px', 0))
+        # Upstream's render composites the FPV at exactly 640x480; intrinsics are
+        # rescaled to match, so this is a resize, not a crop.
+        self._frame_w = int(self._p('frame_width', 640))
+        self._frame_h = int(self._p('frame_height', 480))
+
+        # ── map geometry ──────────────────────────────────────────────────────
+        # Upstream ships map_size_cm=2400 — a 24x24 m map, sized for a quadruped
+        # in a house. Our scenes are 500-1600 m, where a 24 m map is smaller than
+        # one block and every frontier is a wall of the map. Expressed in metres
+        # and cells here so it can be set per scene.
+        #
+        # 480 cells is not arbitrary: write_number() stamps the robot markers on
+        # the VLM's candidate images using 480-pixel coordinates, so the grid has
+        # to be 480 across for those markers to land on the right place.
+        self._map_cells = int(self._p('map_cells', 480))
+        self._map_extent_m = float(self._p('map_extent_m', 500.0))
+        # Explicit overrides, in upstream's own units; 0 means "derive from the
+        # extent above" and keeps map_size_cm an exact multiple of the resolution.
+        self._map_resolution = int(self._p('map_resolution_cm', 0))
+        if self._map_resolution <= 0:
+            self._map_resolution = max(
+                1, int(round(self._map_extent_m * 100.0 / self._map_cells)))
+        self._map_size_cm = int(self._p('map_size_cm', 0))
+        if self._map_size_cm <= 0:
+            self._map_size_cm = self._map_resolution * self._map_cells
+
+        # Which slab of altitude counts as an obstacle, in map-frame metres (z is
+        # AGL, because each robot's 'map' is anchored at its takeoff point on the
+        # ground). Upstream's map_height_cm=130 is a 1.3 m band centred on a
+        # quadruped's camera: "what I would walk into". From 15-40 m AGL that
+        # distinction is useless — everything observed is below it. The aerial
+        # equivalent is GROUND vs STRUCTURE: bare terrain near z=0 is free space,
+        # anything standing up out of it is an obstacle. Buildings and canopy here
+        # top out around 15 m, so [2, 15] separates the two. Ground must stay OUT
+        # of the band: a cell that is seen but has nothing in the band is what
+        # upstream calls free, and free cells are what frontiers grow from.
+        # NEEDS TUNING against a real run.
+        self._obst_min_z = float(self._p('obstacle_min_z_m', 2.0))
+        self._obst_max_z = float(self._p('obstacle_max_z_m', 15.0))
+        self._scene_voxel = float(self._p('scene_voxel_m', 0.25))
+        self._scene_eps = float(self._p('scene_dbscan_eps_m', 0.0))
+        self._scene_min_pts = int(self._p('scene_dbscan_min_points', 0))
+        self._frontier_threshold = int(self._p('frontier_threshold_points', 20))
+        self._incremental = bool(self._p('incremental_mapping', True))
+
+        # ── planning cadence ──────────────────────────────────────────────────
+        self._num_local_steps = int(self._p('num_local_steps', 25))
+        self._warmup_steps = int(self._p('warmup_steps', 0))
+        self._plan_period_s = float(self._p('plan_period_s', 1.0))
+        # One VLM call assigns the WHOLE team, so cost scales with FRONTIER count
+        # (one top-view image per candidate), not with robot count. If a call takes
+        # longer than this, every robot is flying to a stale assignment — which is
+        # why an overrun is warned about by name below. 0 falls back to upstream's
+        # step-based cadence (every num_local_steps ticks).
+        self._round_period_s = float(self._p('round_period_s', 30.0))
+        self._results_dir = str(self._p('results_dir', ''))
+        # SIM seconds of flight before the run is declared over, matching how
+        # every other baseline here is bounded (semantic_search_task's
+        # max_sim_seconds). 0 = unbounded. Wall clock is the wrong budget: RTF
+        # varies with scene and card, so two runs of the same wall duration
+        # cover different amounts of ground.
+        self._max_sim_seconds = float(self._p('max_sim_seconds', 0.0))
+        self._nav_mode = self._p('nav_mode', 'gpt')
+        self._goal_name = self._p('goal_name', 'person')
+        classes = [c for c in self._p('detection_classes', DEFAULT_CLASSES) if c]
+        if self._goal_name not in classes:
+            classes = classes + [self._goal_name]
+        self._classes = classes
+        self._sem_threshold = float(self._p('sem_threshold', 0.5))
+
+        # ── actuation ─────────────────────────────────────────────────────────
+        self._altitude = float(self._p('flight_altitude_m', 15.0))
+        self._goal_tolerance = float(self._p('goal_tolerance_m', 6.0))
+        self._nav_timeout = float(self._p('nav_goal_timeout_s', 60.0))
+        self._goal_change_m = float(self._p('goal_change_threshold_m', 5.0))
+        self._path_extension_m = float(self._p('path_extension_m', 2.0))
+        # How droan_gl is driven. 'activator' sends ONE empty NavigateTask and
+        # steers by the /global_plan topic this node already publishes every
+        # tick; 'goal_per_round' sends a fresh goal carrying the path. See
+        # _ensure_activator() for why the first is the default.
+        self._nav_activation = self._p('nav_activation', 'activator')
+        self._activator_retry_s = float(self._p('activator_retry_s', 3.0))
+
+        # ── perception backend ────────────────────────────────────────────────
+        self._device = self._p('device', 'cuda:0')
+        self._gpu_id = int(self._p('gpu_id', 0))
+        self._dump_location = self._p('dump_location', '/tmp/conavgpt2')
+        self._save_debug_images = bool(self._p('save_debug_images', False))
+        self._publish_vis = bool(self._p('publish_vis', True))
+        self._publish_agent_images = bool(self._p('publish_agent_images', True))
+        yolo_w = self._p('yolo_world_weights', '')
+        sam_w = self._p('mobile_sam_weights', '')
+        if yolo_w:
+            os.environ['CONAVGPT2_YOLO_WORLD_WEIGHTS'] = yolo_w
+        if sam_w:
+            os.environ['CONAVGPT2_SAM_WEIGHTS'] = sam_w
+        # ultralytics' WEIGHTS_DIR defaults to the literal string 'weights',
+        # which is RELATIVE — it resolves against the CWD, and the CWD under
+        # `ros2 launch` is the colcon workspace root. YOLO-World's set_classes()
+        # then downloads CLIP ViT-B/32 (338 MB) into robot/ros_ws/weights/ on
+        # every fresh container. Pin it to somewhere mounted and absolute.
+        # SETTINGS and the already-imported constant both, because
+        # ultralytics.nn.text_model does `from ultralytics.utils import
+        # WEIGHTS_DIR` and reads the attribute, not the setting.
+        ultra_dir = str(self._p('ultralytics_weights_dir', ''))
+        if ultra_dir:
+            try:
+                import ultralytics.utils as _uu
+                from pathlib import Path as _Path
+                os.makedirs(ultra_dir, exist_ok=True)
+                _uu.SETTINGS.update({'weights_dir': ultra_dir})
+                _uu.WEIGHTS_DIR = _Path(ultra_dir)
+            except Exception as exc:
+                self.get_logger().warn(
+                    f'could not pin ultralytics weights_dir to {ultra_dir}: {exc}')
+
+        # ── VLM backend ───────────────────────────────────────────────────────
+        base_url, model, api_key = vlm_client.resolve(
+            self._p('vlm_base_url', ''), self._p('vlm_model', ''),
+            self._p('vlm_api_key', ''))
+        self._vlm_timeout = float(self._p('vlm_timeout_s', 60.0))
+        self._vlm_preflight = bool(self._p('vlm_preflight', True))
+        vlm_client.configure(base_url, model, api_key, self._num_robots,
+                             self._vlm_timeout)
+
+        # ── upstream's argparse Namespace, built without touching sys.argv ────
+        self._args = self._build_args()
+        explored_map_utils.SCENE_VOXEL_M = self._scene_voxel
+        explored_map_utils.SCENE_DBSCAN_EPS_M = self._scene_eps
+        explored_map_utils.SCENE_DBSCAN_MIN_POINTS = self._scene_min_pts
+
+        # Body +y (left) is optical -x, so a DOWNWARD body pitch p is a rotation
+        # of -p about the optical x axis. Applied on the right of a
+        # camera->map pose, which rotates the camera's own axes.
+        _c, _s = math.cos(self._camera_pitch), math.sin(self._camera_pitch)
+        self._T_mount_pitch = np.array([
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, _c, _s, 0.0],
+            [0.0, -_s, _c, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ])
+
+        map_size = self._map_size_cm // self._map_resolution
+        if map_size != 480:
+            self.get_logger().warn(
+                f'grid is {map_size} cells, not 480. Upstream stamps the robot '
+                'markers on the VLM candidate images in 480-pixel coordinates, so '
+                'they will land in the wrong place. Set map_cells:=480 (and leave '
+                'map_size_cm/map_resolution_cm at 0 to derive from map_extent_m).')
+
+        # ── state ─────────────────────────────────────────────────────────────
+        self._lock = threading.Lock()
+        self._obs = [{} for _ in self._robots]
+        self._stamp = [None] * self._num_robots
+        self._nav = [_NavGoal() for _ in self._robots]
+        self._boot_enu = [None] * self._num_robots
+        self._goal_points = []
+        self._round = 0
+        self._last_round_start = None
+        self._stop = False
+        self._sim_t0 = None
+        self._run_complete = False
+        self._bridge = CvBridge()
+        self._agents = None
+        self._map_process = None
+        self._agents_ready = threading.Event()
+
+        # ── ROS I/O ───────────────────────────────────────────────────────────
+        self._cbg = ReentrantCallbackGroup()
+        # Isaac's camera/odometry streams are BEST_EFFORT; a RELIABLE subscriber
+        # gets a QoS mismatch and silently receives nothing.
+        sensor_qos = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,
+                                history=HistoryPolicy.KEEP_LAST, depth=5)
+        self._syncs = []
+        self._plan_pubs = []
+        self._agent_image_pubs = []
+        self._nav_clients = []
+        for i, robot in enumerate(self._robots):
+            rgb_sub = message_filters.Subscriber(
+                self, Image, self._rgb_tpl.format(robot=robot), qos_profile=sensor_qos)
+            depth_sub = message_filters.Subscriber(
+                self, Image, self._depth_tpl.format(robot=robot), qos_profile=sensor_qos)
+            sync = message_filters.ApproximateTimeSynchronizer(
+                [rgb_sub, depth_sub], queue_size=self._sync_queue, slop=self._sync_slop)
+            sync.registerCallback(
+                lambda rgb, depth, idx=i: self._rgbd_callback(idx, rgb, depth))
+            self._syncs.append(sync)
+
+            self.create_subscription(
+                CameraInfo, self._info_tpl.format(robot=robot),
+                lambda msg, idx=i: self._camera_info_callback(idx, msg),
+                sensor_qos, callback_group=self._cbg)
+            self.create_subscription(
+                Odometry, self._odom_tpl.format(robot=robot),
+                lambda msg, idx=i: self._odom_callback(idx, msg),
+                sensor_qos, callback_group=self._cbg)
+            if self._frame_mode == 'global_enu':
+                self.create_subscription(
+                    NavSatFix, self._navsat_tpl.format(robot=robot),
+                    lambda msg, idx=i: self._navsat_callback(idx, msg),
+                    sensor_qos, callback_group=self._cbg)
+
+            self._plan_pubs.append(self.create_publisher(
+                Path, self._plan_tpl.format(robot=robot), 10))
+            self._agent_image_pubs.append(self.create_publisher(
+                Image, self._agent_image_tpl.format(robot=robot), 1))
+            self._nav_clients.append(ActionClient(
+                self, NavigateTask, self._nav_tpl.format(robot=robot),
+                callback_group=self._cbg))
+
+        self._map_image_pub = self.create_publisher(Image, self._map_image_topic, 1)
+        self._vlm_image_pub = self.create_publisher(Image, self._vlm_image_topic, 1)
+        # TRANSIENT_LOCAL: a Foxglove panel that connects mid-run should draw the
+        # map it already has rather than stay blank until the next tick.
+        latched = QoSProfile(reliability=ReliabilityPolicy.RELIABLE,
+                             durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                             history=HistoryPolicy.KEEP_LAST, depth=1)
+        self._occupancy_pub = self.create_publisher(
+            OccupancyGrid, self._occupancy_topic, latched)
+        self._frontier_pub = self.create_publisher(
+            MarkerArray, self._frontier_topic, latched)
+        # Depth 10 rather than latched: every round must survive into the mcap, and
+        # TRANSIENT_LOCAL depth 1 would keep only the last one.
+        self._round_stats_pub = self.create_publisher(
+            String, self._p('round_stats_topic', '/conavgpt2/round_stats'), 10)
+        # Latched, because it is a one-shot edge a mission step polls for with
+        # `ros2 topic echo --once` — which would otherwise have to be listening
+        # at the exact moment the budget ran out.
+        self._complete_pub = self.create_publisher(
+            Bool, self._p('run_complete_topic', '/conavgpt2/run_complete'),
+            QoSProfile(reliability=ReliabilityPolicy.RELIABLE,
+                       durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                       history=HistoryPolicy.KEEP_LAST, depth=1))
+        self._stats_path = os.path.join(
+            self._results_dir or self._dump_location, 'conavgpt2_rounds.jsonl')
+
+        self._tf_buffer = tf2_ros.Buffer(cache_time=rclpy.duration.Duration(seconds=30.0))
+        self._tf_listener = tf2_ros.TransformListener(self._tf_buffer, self)
+
+        self.get_logger().info(
+            f'conavgpt2 starting | robots={self._robots} | goal="{self._goal_name}" | '
+            f'nav_mode={self._nav_mode} | grid={map_size}x{map_size} @ '
+            f'{self._map_resolution} cm = {self._map_size_cm / 100.0:.0f} m across | '
+            f'obstacle band z=[{self._obst_min_z}, {self._obst_max_z}] m AGL | '
+            f'camera pitch {math.degrees(self._camera_pitch):.1f} deg down | '
+            f'vlm={model} @ {base_url}')
+
+        # YOLO-World + MobileSAM load takes tens of seconds; keep callbacks live.
+        threading.Thread(target=self._init_agents, daemon=True).start()
+        threading.Thread(target=self._plan_loop, daemon=True).start()
+
+    # ── parameters ────────────────────────────────────────────────────────────
+
+    def _p(self, name, default):
+        return self.declare_parameter(name, default).value
+
+    def _build_args(self):
+        """Upstream reads its configuration from argparse. `get_args([])` gives the
+        upstream defaults without consuming --ros-args, then ROS parameters win."""
+        args = get_args([])
+        args.num_agents = self._num_robots
+        args.num_local_steps = self._num_local_steps
+        args.map_resolution = self._map_resolution
+        args.map_size_cm = self._map_size_cm
+        # Upstream centres the obstacle slab on the camera height and takes its
+        # thickness from map_height_cm; expressed here as an explicit z range.
+        args.map_height_cm = int(round((self._obst_max_z - self._obst_min_z) * 100))
+        args.sem_threshold = self._sem_threshold
+        args.nav_mode = self._nav_mode
+        args.dump_location = self._dump_location
+        args.frame_width = self._frame_w
+        args.frame_height = self._frame_h
+        args.device = self._device
+        args.gpu_id = self._gpu_id
+        args.cuda = str(self._device).startswith('cuda')
+        args.visualize = 0                       # no cv2.imshow / open3d GUI
+        # Upstream gates computing the annotated FPV and the per-agent map render
+        # on print_images; AirStackAgent._visualize suppresses the file writes
+        # unless save_debug_images is on.
+        args.print_images = 1 if (self._publish_vis and self._publish_agent_images) else 0
+        args.rank = 0
+        return args
+
+    @property
+    def _slab_center_z(self):
+        return 0.5 * (self._obst_min_z + self._obst_max_z)
+
+    # ── perception init ───────────────────────────────────────────────────────
+
+    def _init_agents(self):
+        try:
+            if self._vlm_preflight:
+                vlm_client.preflight(self.get_logger())
+            agents = []
+            for i in range(self._num_robots):
+                agent = AirStackAgent(
+                    self._args, i, self._goal_name, classes=self._classes,
+                    depth_min_m=self._depth_min_m, depth_max_m=self._depth_max_m,
+                    depth_border_px=self._depth_border_px)
+                agent.save_debug_images = self._save_debug_images
+                agents.append(agent)
+            self._map_process = Global_Map_Proc(self._args)
+            self._agents = agents
+            self._agents_ready.set()
+            self.get_logger().info('conavgpt2: agents ready')
+        except Exception as exc:
+            self.get_logger().fatal(f'conavgpt2 failed to start: {exc}')
+            self._stop = True
+            raise
+
+    # ── subscriptions ─────────────────────────────────────────────────────────
+
+    def _rgbd_callback(self, i, rgb_msg, depth_msg):
+        try:
+            rgb = self._bridge.imgmsg_to_cv2(rgb_msg, desired_encoding='rgb8')
+            depth = self._bridge.imgmsg_to_cv2(depth_msg, desired_encoding='passthrough')
+            depth = np.asarray(depth, dtype=np.float32) * self._depth_scale
+
+            sw = self._frame_w / float(rgb.shape[1])
+            sh = self._frame_h / float(rgb.shape[0])
+            if (rgb.shape[1], rgb.shape[0]) != (self._frame_w, self._frame_h):
+                rgb = cv2.resize(rgb, (self._frame_w, self._frame_h),
+                                 interpolation=cv2.INTER_AREA)
+            if (depth.shape[1], depth.shape[0]) != (self._frame_w, self._frame_h):
+                depth = cv2.resize(depth, (self._frame_w, self._frame_h),
+                                   interpolation=cv2.INTER_NEAREST)
+            with self._lock:
+                self._obs[i]['rgb'] = np.ascontiguousarray(rgb)
+                self._obs[i]['depth'] = depth
+                self._obs[i]['rgb_scale'] = (sw, sh)
+                self._stamp[i] = depth_msg.header.stamp
+        except Exception as exc:
+            self.get_logger().warn(f'[{self._robots[i]}] rgbd callback failed: {exc}')
+
+    def _camera_info_callback(self, i, msg):
+        with self._lock:
+            first = 'cam_K_raw' not in self._obs[i]
+            self._obs[i]['cam_K_raw'] = (msg.k[0], msg.k[4], msg.k[2], msg.k[5])
+        if first and msg.k[0] > 0.0:
+            # Upstream hardcodes hfov=79 (the RealSense D455). Nothing here uses
+            # that: the intrinsics come off the wire. Logged so the geometry can be
+            # sanity-checked against the ZED without reading the USD.
+            hfov = math.degrees(2.0 * math.atan(0.5 * msg.width / msg.k[0]))
+            vfov = math.degrees(2.0 * math.atan(0.5 * msg.height / msg.k[4]))
+            self.get_logger().info(
+                f'[{self._robots[i]}] camera_info {msg.width}x{msg.height} '
+                f'fx={msg.k[0]:.1f} fy={msg.k[4]:.1f} -> hfov={hfov:.1f} deg, '
+                f'vfov={vfov:.1f} deg, frame={msg.header.frame_id}')
+
+    def _odom_callback(self, i, msg):
+        p = msg.pose.pose.position
+        q = msg.pose.pose.orientation
+        T = np.eye(4)
+        T[:3, :3] = _quat_to_rot(q.x, q.y, q.z, q.w)
+        T[:3, 3] = [p.x, p.y, p.z]
+        with self._lock:
+            self._obs[i]['odom'] = T
+
+    def _navsat_callback(self, i, msg):
+        """boot_enu anchors this robot's local 'map' origin in global ENU.
+
+        The node can start long after takeoff, so gps_to_enu(fix) alone would
+        anchor wherever the drone happens to be; subtracting the concurrent odom
+        pose recovers the origin. Same derivation as raven_nav/lvlm_baseline.
+        """
+        if self._boot_enu[i] is not None:
+            return
+        with self._lock:
+            odom = self._obs[i].get('odom')
+        if odom is None:
+            return
+        enu = np.array(gps_to_enu(msg.latitude, msg.longitude, msg.altitude))
+        self._boot_enu[i] = enu - odom[:3, 3]
+        self.get_logger().info(
+            f'[{self._robots[i]}] boot_enu = {self._boot_enu[i][:2].round(2).tolist()}')
+
+    def _offset(self, i):
+        """XY translation from this robot's local `map` frame into the grid frame.
+
+        grid = local + boot_enu - map_origin. Z stays AGL, matching how the rest of
+        the stack lifts local -> global.
+        """
+        origin = np.array([self._map_origin_xy[0], self._map_origin_xy[1], 0.0])
+        if self._frame_mode != 'global_enu':
+            return -origin
+        b = self._boot_enu[i]
+        if b is None:
+            return None
+        return np.array([b[0], b[1], 0.0]) - origin
+
+    # ── pose ──────────────────────────────────────────────────────────────────
+
+    def _camera_pose(self, i, odom_T, stamp):
+        """4x4 pose of the camera OPTICAL frame (RDF) expressed in the map frame."""
+        if self._pose_source == 'tf':
+            frame = self._cam_frame_tpl.format(robot=self._robots[i])
+            try:
+                tf = self._tf_buffer.lookup_transform(
+                    self._map_frame, frame, rclpy.time.Time(),
+                    timeout=rclpy.duration.Duration(seconds=0.2))
+                t = tf.transform.translation
+                r = tf.transform.rotation
+                T = np.eye(4)
+                T[:3, :3] = _quat_to_rot(r.x, r.y, r.z, r.w)
+                T[:3, 3] = [t.x, t.y, t.z]
+                # TF walks the URDF, which models no mount pitch. A launch script
+                # that tilted the camera produces a real camera TF cannot see, so
+                # rotate the frame TF returned by that known mount angle. Position
+                # is untouched: the tilt is about the camera's own centre.
+                return T @ self._T_mount_pitch
+            except tf2_ros.TransformException as exc:
+                # TF frames are unprefixed, so a peer robot on another ROS domain
+                # will never resolve; fall through to its odometry instead.
+                self.get_logger().warn(
+                    f'[{self._robots[i]}] TF {self._map_frame}->{frame} failed '
+                    f'({exc}); using odometry + static camera extrinsics',
+                    throttle_duration_sec=10.0)
+
+        if odom_T is None:
+            return None
+        pitch = self._camera_pitch
+        R_pitch = np.array([
+            [math.cos(pitch), 0.0, math.sin(pitch)],
+            [0.0, 1.0, 0.0],
+            [-math.sin(pitch), 0.0, math.cos(pitch)],
+        ])
+        T_body_cam = np.eye(4)
+        T_body_cam[:3, :3] = R_pitch @ R_FLU_TO_RDF
+        T_body_cam[:3, 3] = self._camera_offset
+        return odom_T @ T_body_cam
+
+    # ── main loop ─────────────────────────────────────────────────────────────
+
+    def _plan_loop(self):
+        self._agents_ready.wait()
+        while rclpy.ok() and not self._stop:
+            started = time.time()
+            try:
+                self._tick()
+            except Exception as exc:
+                self.get_logger().error(f'conavgpt2 tick failed: {exc}', throttle_duration_sec=5.0)
+            sleep_for = self._plan_period_s - (time.time() - started)
+            if sleep_for > 0:
+                time.sleep(sleep_for)
+
+    def _snapshot(self):
+        with self._lock:
+            out = []
+            for i in range(self._num_robots):
+                o = self._obs[i]
+                if 'rgb' not in o or 'depth' not in o or 'cam_K_raw' not in o:
+                    return None
+                if 'odom' not in o and self._pose_source != 'tf':
+                    return None
+                sw, sh = o['rgb_scale']
+                fx, fy, cx, cy = o['cam_K_raw']
+                out.append({
+                    'rgb': o['rgb'],
+                    'depth': o['depth'],
+                    # Intrinsics must follow the resize applied in the callback.
+                    'cam_K': Namespace(fx=fx * sw, fy=fy * sh, cx=cx * sw, cy=cy * sh),
+                    'odom': o.get('odom'),
+                    'stamp': self._stamp[i],
+                })
+            return out
+
+    def _sim_budget_spent(self):
+        """True once max_sim_seconds of SIM time have passed since the first tick
+        that had data. use_sim_time is on, so get_clock() is /clock — which only
+        advances while the sim timeline plays, and stops when it is paused."""
+        if self._max_sim_seconds <= 0.0:
+            return False
+        now = self.get_clock().now().nanoseconds / 1e9
+        if now <= 0.0:                      # /clock has not arrived yet
+            return False
+        if self._sim_t0 is None:
+            self._sim_t0 = now
+            return False
+        return (now - self._sim_t0) >= self._max_sim_seconds
+
+    def _finish_run(self):
+        """Sim budget spent: stop commanding, hold position, say so once.
+
+        The node deliberately stays alive — the map, the frontier markers and
+        the round table are what a run is read from afterwards, and they are all
+        latched topics that would disappear with the process."""
+        self._run_complete = True
+        for i, nav in enumerate(self._nav):
+            if nav.handle is not None:
+                try:
+                    self._await(nav.handle.cancel_goal_async(), 2.0)
+                except Exception:
+                    pass
+                nav.handle = None
+                nav.result_future = None
+        msg = Bool()
+        msg.data = True
+        self._complete_pub.publish(msg)
+        self.get_logger().info(
+            f'conavgpt2: sim budget spent ({self._max_sim_seconds:.0f} s) after '
+            f'{self._round} VLM rounds — planning stopped, node left up for the '
+            'final map')
+
+    def _tick(self):
+        if self._run_complete:
+            return
+        snap = self._snapshot()
+        if snap is None:
+            self.get_logger().info('conavgpt2: waiting for rgb/depth/camera_info/odometry',
+                                   throttle_duration_sec=10.0)
+            return
+        if self._sim_budget_spent():
+            self._finish_run()
+            return
+
+        merged = o3d.geometry.PointCloud()
+        visited_vis, vis_pose_pred, grid_pose, o3d_pose = [], [], [], []
+        found_goal = False
+
+        offsets = []
+        for i, agent in enumerate(self._agents):
+            pose = self._camera_pose(i, snap[i]['odom'], snap[i]['stamp'])
+            if pose is None:
+                return
+            offset = self._offset(i)
+            if offset is None:
+                self.get_logger().info(
+                    f'[{self._robots[i]}] waiting for the first GPS fix to anchor '
+                    'its map in global ENU (frame_mode=global_enu)',
+                    throttle_duration_sec=10.0)
+                return
+            offsets.append(offset)
+            pose = pose.copy()
+            pose[:3, 3] = pose[:3, 3] + offset
+            obs = {'rgb': snap[i]['rgb'], 'depth': snap[i]['depth'],
+                   'cam_K': snap[i]['cam_K'], 'pose': pose}
+
+            agent.mapping(obs)
+
+            if self._incremental:
+                # Upstream re-rasterises every point ever seen on every tick, which
+                # is unbounded in both memory and time. Global_Map_Proc already
+                # accumulates into its own grids, so feeding it only this tick's
+                # cloud is equivalent and bounded.
+                contribution = agent.point_sum
+                agent.point_sum = o3d.geometry.PointCloud()
+            else:
+                contribution = agent.point_sum
+            merged += contribution
+
+            visited_vis.append(agent.visited_vis)
+            vis_pose_pred.append([
+                agent.current_grid_pose[1] * 480.0 / agent.map_size,
+                int((agent.map_size - agent.current_grid_pose[0]) * 480.0 / agent.map_size),
+                np.deg2rad(agent.relative_angle)])
+            grid_pose.append(agent.current_grid_pose)
+            o3d_pose.append(agent.camera_position)
+            found_goal = found_goal or agent.found_goal
+
+        for agent in self._agents:
+            agent.open3d_pose = o3d_pose
+
+        merged = self._crop_to_map(merged)
+        obstacle_map, explored_map, top_view_map = self._map_process.Map_Extraction(
+            merged, self._slab_center_z)
+
+        target_score, target_edge_map, target_point_list = self._map_process.Frontier_Det(
+            threshold_point=self._frontier_threshold)
+
+        step = self._agents[0].l_step
+        if self._round_period_s > 0.0:
+            assignment_due = (not self._goal_points
+                              or self._last_round_start is None
+                              or (time.time() - self._last_round_start) >= self._round_period_s)
+        else:
+            assignment_due = (not self._goal_points
+                              or step % self._num_local_steps == self._num_local_steps - 1)
+        if assignment_due and not found_goal:
+            self._assign(target_edge_map, target_point_list, top_view_map,
+                         vis_pose_pred, obstacle_map, explored_map, grid_pose, step)
+
+        while len(self._goal_points) < self._num_robots:
+            self._goal_points.append(list(self._agents[len(self._goal_points)]
+                                          .current_grid_pose))
+
+        goal_maps = []
+        for i, agent in enumerate(self._agents):
+            agent.obstacle_map = obstacle_map
+            agent.explored_map = explored_map
+            agent.act(self._goal_points[i], grid_pose)
+            agent.found_goal = found_goal
+            goal_maps.append(agent.goal_map)
+            self._command(i, agent, offsets[i])
+
+        if self._publish_vis:
+            self._publish_map_image(step, vis_pose_pred, obstacle_map, explored_map,
+                                    visited_vis, target_edge_map, goal_maps,
+                                    top_view_map)
+            self._publish_occupancy(obstacle_map, explored_map)
+            self._publish_frontiers(target_edge_map, target_point_list)
+            if self._publish_agent_images:
+                self._publish_agent_images_now()
+
+    def _crop_to_map(self, pcd):
+        """Map_Extraction indexes the grid without clamping, so a point sitting
+        exactly on the +halfsize boundary lands one cell past the end."""
+        if len(pcd.points) == 0:
+            return pcd
+        half = self._map_size_cm / 100.0 / 2.0 - self._map_resolution / 100.0
+        box = o3d.geometry.AxisAlignedBoundingBox(
+            min_bound=(-half, -1e6, -half), max_bound=(half, 1e6, half))
+        return pcd.crop(box)
+
+    # ── frontier assignment ───────────────────────────────────────────────────
+
+    def _assign(self, target_edge_map, target_point_list, top_view_map,
+                vis_pose_pred, obstacle_map, explored_map, grid_pose, step):
+        self._goal_points = []
+        map_size = obstacle_map.shape[0]
+
+        if self._nav_mode == 'gpt':
+            if len(target_point_list) > 0 and step >= self._warmup_steps:
+                round_start = time.time()
+                since_last = (None if self._last_round_start is None
+                              else round_start - self._last_round_start)
+                self._last_round_start = round_start
+                self._round += 1
+
+                # Request build: rendering one top-view per frontier and base64ing
+                # them is the part that grows with frontier count on OUR side.
+                t_build = time.time()
+                candidate_maps = chat_utils.get_all_candidate_maps(
+                    target_edge_map, top_view_map, vis_pose_pred)
+                message = chat_utils.message_prepare(
+                    system_prompt.system_prompt, candidate_maps, self._goal_name)
+                build_s = time.time() - t_build
+                payload_bytes = sum(len(b.getvalue()) for b in candidate_maps)
+
+                t_call = time.time()
+                assignment = chat_utils.chat_with_gpt4v(message)
+                call_s = time.time() - t_call
+
+                self._record_round(assignment, len(target_point_list), candidate_maps,
+                                   payload_bytes, build_s, call_s, since_last)
+                if self._publish_vis:
+                    self._publish_vlm_image(candidate_maps)
+                for i in range(self._num_robots):
+                    self._goal_points.append(self._resolve_frontier(
+                        assignment, i, target_point_list, map_size))
+            else:
+                for _ in range(self._num_robots):
+                    self._goal_points.append(self._random_goal(map_size))
+
+        elif self._nav_mode == 'nearest':
+            for i in range(self._num_robots):
+                _, _, points = detect_frontier(
+                    explored_map, obstacle_map, grid_pose[i],
+                    threshold_point=self._frontier_threshold)
+                self._goal_points.append(
+                    points[0] if points else self._random_goal(map_size))
+        else:
+            raise ValueError(f'unknown nav_mode {self._nav_mode!r}')
+
+    def _record_round(self, assignment, num_frontiers, candidate_maps,
+                      payload_bytes, build_s, call_s, since_last):
+        """Per-round telemetry: JSONL under the results dir, a String topic so it
+        lands in the mcap, and one INFO line."""
+        call = dict(chat_utils.LAST_CALL)
+        server_s = call.get('server_s') or 0.0
+        total_s = build_s + call_s
+        budget = (self._round_period_s if self._round_period_s > 0.0
+                  else self._num_local_steps * self._plan_period_s)
+        overran = budget > 0.0 and total_s > budget
+
+        stats = {
+            'round': self._round,
+            'stamp': time.time(),
+            'sim_time': self.get_clock().now().nanoseconds * 1e-9,
+            'num_robots': self._num_robots,
+            'num_frontiers': num_frontiers,
+            'num_images': len(candidate_maps),
+            'image_payload_bytes': int(payload_bytes),
+            'build_s': round(build_s, 4),
+            'call_s': round(call_s, 4),
+            'server_s': round(server_s, 4),
+            'total_s': round(total_s, 4),
+            'attempts': call.get('attempts'),
+            'model': call.get('model'),
+            'prompt_tokens': call.get('prompt_tokens'),
+            'completion_tokens': call.get('completion_tokens'),
+            'total_tokens': call.get('total_tokens'),
+            'parse': call.get('parse'),
+            'invalid_ids': call.get('invalid_ids'),
+            'errors': call.get('errors'),
+            'response_text': call.get('response_text'),
+            'assignment': {k: str(v) for k, v in (assignment or {}).items()},
+            'round_period_s': round(since_last, 4) if since_last is not None else None,
+            'round_budget_s': budget,
+            'overran': bool(overran),
+            'overrun_s': round(total_s - budget, 4) if overran else 0.0,
+        }
+
+        try:
+            os.makedirs(os.path.dirname(self._stats_path), exist_ok=True)
+            with open(self._stats_path, 'a') as fh:
+                fh.write(json.dumps(stats) + '\n')
+        except OSError as exc:
+            self.get_logger().warn(f'[conavgpt2] round log write failed: {exc}',
+                                   throttle_duration_sec=30.0)
+        msg = String()
+        msg.data = json.dumps(stats)
+        self._round_stats_pub.publish(msg)
+
+        tok = (f"{stats['prompt_tokens']}+{stats['completion_tokens']} tok"
+               if stats['prompt_tokens'] is not None else 'tok n/a')
+        self.get_logger().info(
+            f"[conavgpt2] round {self._round} | {num_frontiers} frontiers, "
+            f"{self._num_robots} robot{'s' if self._num_robots != 1 else ''} | "
+            f"{total_s:.1f} s (server {server_s:.1f}) | {tok} | {stats['parse']}")
+        if overran:
+            self.get_logger().warn(
+                f"[conavgpt2] round {self._round} OVERRAN its period by "
+                f"{stats['overrun_s']:.1f} s ({total_s:.1f} s vs {budget:.1f} s budget, "
+                f"{num_frontiers} frontier images, {payload_bytes / 1024:.0f} KiB) "
+                '— every robot is now flying to a stale assignment')
+        if call.get('invalid_ids'):
+            self.get_logger().warn(
+                f"[conavgpt2] round {self._round}: model returned frontier ids that "
+                f"were not offered: {call['invalid_ids']}")
+
+    def _resolve_frontier(self, assignment, i, target_point_list, map_size):
+        try:
+            idx = int(str(assignment[f'robot_{i}']).split('_')[1])
+            return target_point_list[idx]
+        except (KeyError, ValueError, IndexError):
+            self.get_logger().warn(
+                f'conavgpt2: unusable assignment for robot_{i}: {assignment!r}')
+            return target_point_list[0] if target_point_list else self._random_goal(map_size)
+
+    def _random_goal(self, map_size):
+        action = np.random.rand(2) * (map_size - 1)
+        return [int(action[0]), int(action[1])]
+
+    # ── actuation ─────────────────────────────────────────────────────────────
+
+    def _goal_xy(self, i, agent):
+        """Where upstream wants this robot to go, in map-frame metres."""
+        if agent.found_goal and agent.nearest_point is not None:
+            # A detected target: its nearest point cloud sample, in open3d metres.
+            p = np.asarray(agent.nearest_point)
+            return o3d_xz_to_map_xy(p[0], p[2])
+        return agent.grid_to_map_xy(*self._goal_points[i])
+
+    def _build_path(self, agent, goal_xy, offset):
+        """FMM waypoints from upstream's own planner, then the goal, then a short
+        extension so droan_gl has a heading through the final pose."""
+        pts = [p for p in agent.plan_path_map_xy()]
+        pts.append(goal_xy)
+
+        # Drop waypoints that double back onto the goal, and de-duplicate.
+        cleaned = []
+        for p in pts:
+            if not cleaned or math.dist(p, cleaned[-1]) > 0.5:
+                cleaned.append(p)
+        if len(cleaned) >= 2:
+            a, b = np.array(cleaned[-2]), np.array(cleaned[-1])
+            d = b - a
+            n = np.linalg.norm(d)
+            direction = d / n if n > 1e-6 else np.array([1.0, 0.0])
+        else:
+            direction = np.array([1.0, 0.0])
+        cleaned.append(tuple(np.array(cleaned[-1]) + direction * self._path_extension_m))
+
+        path = Path()
+        path.header.stamp = self.get_clock().now().to_msg()
+        path.header.frame_id = self._map_frame
+        for x, y in cleaned:
+            ps = PoseStamped()
+            ps.header = path.header
+            # The grid lives in the merge frame; droan_gl wants this robot's own
+            # local 'map', so drop the boot_enu offset back off on the way out.
+            ps.pose.position.x = float(x - offset[0])
+            ps.pose.position.y = float(y - offset[1])
+            ps.pose.position.z = float(self._altitude)
+            ps.pose.orientation.w = 1.0
+            path.poses.append(ps)
+        return path
+
+    def _command(self, i, agent, offset):
+        goal_xy = self._goal_xy(i, agent)
+        path = self._build_path(agent, goal_xy, offset)
+        self._plan_pubs[i].publish(path)
+
+        if self._nav_activation == 'activator':
+            self._ensure_activator(i)
+            return
+
+        nav = self._nav[i]
+        endpoint = np.array([path.poses[-1].pose.position.x,
+                             path.poses[-1].pose.position.y,
+                             path.poses[-1].pose.position.z])
+
+        active = nav.handle is not None and nav.result_future is not None \
+            and not nav.result_future.done()
+        if active:
+            moved = nav.endpoint is None or \
+                float(np.linalg.norm(endpoint - nav.endpoint)) > self._goal_change_m
+            timed_out = (time.time() - nav.sent_at) > self._nav_timeout
+            if not moved and not timed_out:
+                return
+            try:
+                cancel_future = nav.handle.cancel_goal_async()
+                # droan_gl's execute loop runs at rclcpp::Rate(1.0) and only
+                # notices a cancel on a tick, so the goal stays ACTIVE for up to
+                # a second after the ack. Re-sending inside that window is
+                # rejected with "task already active" and the drone silently
+                # keeps flying the previous round's assignment.
+                self._await(cancel_future, 2.0)
+                self._await(nav.result_future, 2.0)
+            except Exception:
+                pass
+            nav.handle = None
+            nav.result_future = None
+
+        if not self._nav_clients[i].wait_for_server(timeout_sec=2.0):
+            self.get_logger().warn(
+                f'[{self._robots[i]}] NavigateTask server not available '
+                f'({self._nav_tpl.format(robot=self._robots[i])})',
+                throttle_duration_sec=10.0)
+            return
+
+        goal = NavigateTask.Goal()
+        goal.global_plan = path
+        goal.goal_tolerance_m = self._goal_tolerance
+        send_future = self._nav_clients[i].send_goal_async(goal)
+        deadline = time.time() + 3.0
+        while not send_future.done() and time.time() < deadline and rclpy.ok() \
+                and not self._stop:
+            time.sleep(0.02)
+        handle = send_future.result() if send_future.done() else None
+        if handle is None or not getattr(handle, 'accepted', False):
+            self.get_logger().warn(f'[{self._robots[i]}] NavigateTask goal not accepted',
+                                   throttle_duration_sec=10.0)
+            return
+        nav.handle = handle
+        nav.result_future = handle.get_result_async()
+        nav.endpoint = endpoint
+        nav.sent_at = time.time()
+
+    def _await(self, future, timeout_s):
+        """Block this planning thread until `future` resolves. The node spins on
+        its own executor thread, so waiting here does not deadlock it."""
+        deadline = time.time() + timeout_s
+        while future is not None and not future.done() and time.time() < deadline \
+                and rclpy.ok() and not self._stop:
+            time.sleep(0.02)
+        return future is not None and future.done()
+
+    def _ensure_activator(self, i):
+        """Keep ONE empty NavigateTask goal alive on droan_gl.
+
+        droan_gl treats a goal whose `global_plan` is empty as a pure activator:
+        it enters ADD_SEGMENT and steers by the `global_plan` TOPIC until
+        cancelled, rather than flying a path baked into the goal
+        (`droan_gl_node.cpp` `execute_navigate`). Since this node republishes the
+        FMM path every tick anyway, that makes the topic the single steering
+        source and a new VLM assignment takes effect within one plan tick.
+
+        A fresh goal per round cannot do that: it has to cancel the previous one
+        first, droan notices a cancel only on its 1 Hz tick, and the re-send lands
+        inside that window and is rejected with "task already active" — leaving
+        the drone flying round 1's assignment for the rest of the run.
+        """
+        nav = self._nav[i]
+        if nav.handle is not None and nav.result_future is not None \
+                and not nav.result_future.done():
+            return
+        # Rejected or finished: back off before retrying, so a droan that is
+        # still winding a cancelled goal down is not hammered every tick.
+        if nav.sent_at and (time.time() - nav.sent_at) < self._activator_retry_s:
+            return
+        nav.sent_at = time.time()
+        robot = self._robots[i]
+        if not self._nav_clients[i].wait_for_server(timeout_sec=2.0):
+            self.get_logger().warn(
+                f'[{robot}] NavigateTask server not available '
+                f'({self._nav_tpl.format(robot=robot)})',
+                throttle_duration_sec=10.0)
+            return
+        goal = NavigateTask.Goal()          # empty global_plan == activator
+        goal.goal_tolerance_m = self._goal_tolerance
+        send_future = self._nav_clients[i].send_goal_async(goal)
+        self._await(send_future, 3.0)
+        handle = send_future.result() if send_future.done() else None
+        if handle is None or not getattr(handle, 'accepted', False):
+            self.get_logger().warn(
+                f'[{robot}] droan_gl activator not accepted — retrying in '
+                f'{self._activator_retry_s:.0f} s', throttle_duration_sec=10.0)
+            return
+        nav.handle = handle
+        nav.result_future = handle.get_result_async()
+        nav.endpoint = None
+        self.get_logger().info(
+            f'[{robot}] droan_gl activated — steering by '
+            f'{self._plan_tpl.format(robot=robot)}')
+
+    # ── visualisation ─────────────────────────────────────────────────────────
+
+    def _grid_origin_cells(self):
+        """`origins_grid` is the cell the map frame's origin sits in. Map_Extraction
+        offsets by int(map_size/2), and grid_to_map_xy reads origins_grid; they
+        agree, but read the agent's so the two can never drift apart."""
+        agent = self._agents[0]
+        return float(int(agent.origins_grid[0])), float(int(agent.origins_grid[1]))
+
+    def _publish_occupancy(self, obstacle_map, explored_map):
+        """Upstream's own grid as a nav_msgs/OccupancyGrid.
+
+        Values follow the ROS convention rather than upstream's two float
+        planes: -1 where nothing has been observed, 0 for observed-and-free,
+        100 for an obstacle. "Free" here means a cell whose points all fall
+        OUTSIDE the obstacle altitude band — which is exactly what upstream
+        grows frontiers from, so this is the map the method actually reasons
+        over, not a re-derivation of it.
+        """
+        try:
+            size = int(obstacle_map.shape[0])
+            res = self._map_resolution / 100.0
+            grid = np.full((size, size), -1, dtype=np.int8)
+            grid[explored_map > 0.1] = 0
+            grid[obstacle_map > 0.1] = 100
+
+            # Upstream indexes [i, j] with i along +x and j along +o3d_z, and
+            # map_y = -o3d_z. An OccupancyGrid is row-major in (y, x) with +y
+            # increasing by row, so transpose and flip the row order.
+            data = np.flipud(grid.T)
+
+            ox, oy = self._grid_origin_cells()
+            msg = OccupancyGrid()
+            msg.header.stamp = self.get_clock().now().to_msg()
+            msg.header.frame_id = self._map_frame
+            msg.info.resolution = res
+            msg.info.width = size
+            msg.info.height = size
+            # Lower-left CORNER of cell (0, 0), not its centre: upstream floors
+            # into the grid, so cell i spans [(i - ox) * res, (i - ox + 1) * res).
+            msg.info.origin.position.x = -ox * res
+            msg.info.origin.position.y = -(size - oy) * res
+            msg.info.origin.position.z = 0.0
+            msg.info.origin.orientation.w = 1.0
+            msg.data = data.reshape(-1).tolist()
+            self._occupancy_pub.publish(msg)
+        except Exception as exc:
+            self.get_logger().warn(f'occupancy publish failed: {exc}',
+                                   throttle_duration_sec=10.0)
+
+    def _publish_frontiers(self, target_edge_map, target_point_list):
+        """Every candidate frontier, drawn as the CELLS it actually occupies.
+
+        Not a sphere at the centroid: a frontier is a connected run of free-space
+        boundary, and its shape and extent are what make an assignment look
+        sensible or not. `Frontier_Det` already labels the map with region k+1
+        for frontier k, so the cells are free to read — one CUBE_LIST at exactly
+        the grid resolution reproduces the region without inventing a radius.
+
+        The id is the id in the VLM prompt — `frontier_0` is the first image the
+        model was shown — so a round-table assignment can be pointed at directly.
+        Green is the frontier a robot was assigned this round; red is a candidate
+        that was offered and not taken.
+
+        There are never more than SIX: upstream's `Frontier_Det` breaks at
+        `i == 5`, which is what bounds the VLM prompt to six images.
+        """
+        try:
+            agent = self._agents[0]
+            res = self._map_resolution / 100.0
+            assigned = {(int(g[0]), int(g[1])) for g in self._goal_points}
+            edge = np.asarray(target_edge_map)
+
+            ma = MarkerArray()
+            # DELETEALL first: the count shrinks as the map closes, and without
+            # it the previous round's extra markers stay on screen forever.
+            clear = Marker()
+            clear.header.frame_id = self._map_frame
+            clear.action = Marker.DELETEALL
+            ma.markers.append(clear)
+
+            stamp = self.get_clock().now().to_msg()
+            for k, p in enumerate(target_point_list):
+                is_goal = (int(p[0]), int(p[1])) in assigned
+                colour = (ColorRGBA(r=0.1, g=0.9, b=0.2, a=0.9) if is_goal
+                          else ColorRGBA(r=0.9, g=0.25, b=0.1, a=0.7))
+
+                m = Marker()
+                m.header.stamp = stamp
+                m.header.frame_id = self._map_frame
+                m.ns = 'conavgpt2_frontier'
+                m.id = k
+                m.type = Marker.CUBE_LIST
+                m.action = Marker.ADD
+                m.pose.orientation.w = 1.0
+                # One grid cell per cube, so the drawn region IS the region.
+                m.scale.x = m.scale.y = res
+                m.scale.z = res * 0.5
+                m.color = colour
+                cells = np.argwhere(edge == (k + 1))
+                # A frontier can run to thousands of cells on a coarse grid;
+                # THIN rather than truncate — truncating would draw only one end
+                # of the region and misrepresent where it is.
+                stride = max(1, len(cells) // max(1, self._frontier_max_cells))
+                for ci, cj in cells[::stride]:
+                    gx, gy = agent.grid_to_map_xy(int(ci), int(cj))
+                    m.points.append(Point(x=float(gx), y=float(gy),
+                                          z=float(self._altitude)))
+                if not m.points:
+                    continue
+                ma.markers.append(m)
+
+                cx, cy = agent.grid_to_map_xy(p[0], p[1])
+                t = Marker()
+                t.header.stamp = stamp
+                t.header.frame_id = self._map_frame
+                t.ns = 'conavgpt2_frontier_id'
+                t.id = k
+                t.type = Marker.TEXT_VIEW_FACING
+                t.action = Marker.ADD
+                t.pose.position.x = float(cx)
+                t.pose.position.y = float(cy)
+                # Label floats a fixed number of CELLS above the region, so it
+                # stays legible whether a cell is 0.6 m or 3.5 m.
+                t.pose.position.z = float(self._altitude) + 6.0 * res
+                t.pose.orientation.w = 1.0
+                t.scale.z = max(1.5, 8.0 * res)
+                t.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=0.95)
+                t.text = f'frontier_{k}'
+                ma.markers.append(t)
+
+            self._frontier_pub.publish(ma)
+        except Exception as exc:
+            self.get_logger().warn(f'frontier marker publish failed: {exc}',
+                                   throttle_duration_sec=10.0)
+
+    def _publish_image(self, pub, bgr_or_rgb, frame_id, rgb=False):
+        try:
+            img = bgr_or_rgb if rgb else bgr_or_rgb[:, :, ::-1]
+            msg = self._bridge.cv2_to_imgmsg(
+                np.ascontiguousarray(img.astype(np.uint8)), encoding='rgb8')
+            msg.header.stamp = self.get_clock().now().to_msg()
+            msg.header.frame_id = frame_id
+            pub.publish(msg)
+        except Exception as exc:
+            self.get_logger().warn(f'image publish failed: {exc}',
+                                   throttle_duration_sec=10.0)
+
+    def _publish_map_image(self, step, vis_pose_pred, obstacle_map, explored_map,
+                           visited_vis, target_edge_map, goal_maps, top_view_map):
+        saved = self._args.print_images
+        self._args.print_images = 1 if self._save_debug_images else 0
+        try:
+            image = vu.Visualize(
+                self._args, step, vis_pose_pred, obstacle_map, explored_map,
+                self._goal_name, visited_vis, target_edge_map, goal_maps,
+                # Visualize() drops top_view_map straight into a BGR canvas, but it
+                # is filled from RGB colours; pre-swap so the published image reads
+                # correctly. The VLM's candidate images go through PIL and are
+                # already right, so they are left alone.
+                top_view_map[:, :, ::-1])
+        finally:
+            self._args.print_images = saved
+        if image is not None:
+            self._publish_image(self._map_image_pub, image, self._map_frame)
+
+    def _publish_vlm_image(self, candidate_maps):
+        """The exact frames handed to the VLM, tiled — the single most useful thing
+        to look at when an assignment makes no sense."""
+        tiles = []
+        for buf in candidate_maps:
+            arr = cv2.imdecode(np.frombuffer(buf.getvalue(), np.uint8), cv2.IMREAD_COLOR)
+            if arr is not None:
+                tiles.append(cv2.resize(arr, (480, 480), interpolation=cv2.INTER_NEAREST))
+        if tiles:
+            self._publish_image(self._vlm_image_pub, np.hstack(tiles), self._map_frame)
+
+    def _publish_agent_images_now(self):
+        for i, agent in enumerate(self._agents):
+            if agent.annotated_image is not None:
+                self._publish_image(self._agent_image_pubs[i], agent.annotated_image,
+                                    self._robots[i])
+
+
+def main(args=None):
+    if not _VENDOR_OK:
+        raise SystemExit(
+            f'conavgpt2: vendored dependencies unavailable ({_VENDOR_ERR}). '
+            'It needs scikit-fmm, open3d, ultralytics, supervision==0.19.0 and '
+            'openai; see the package README for the venv install.')
+    if not _TASK_MSGS_OK:
+        raise SystemExit(
+            f'conavgpt2: task_msgs unavailable ({_TASK_MSGS_ERR}). Build the '
+            'workspace (bws) and source it (sws) first.')
+
+    rclpy.init(args=args)
+    node = CoNavGPT2Node()
+    executor = rclpy.executors.MultiThreadedExecutor()
+    executor.add_node(node)
+
+    def _on_term(_sig, _frm):
+        node._stop = True
+        raise KeyboardInterrupt
+
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            signal.signal(sig, _on_term)
+        except ValueError:
+            pass        # not the main thread
+
+    try:
+        executor.spin()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node._stop = True
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

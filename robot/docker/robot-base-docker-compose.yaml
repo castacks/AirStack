@@ -27,6 +27,30 @@ services:
       - CONAVGPT_REPLAN_ON_REACH_M=${CONAVGPT_REPLAN_ON_REACH_M:-8.0}
       # Empty = auto (highest card no rayfronts claims); -1 = don't pin.
       - CONAVGPT_ASSIGNER_GPU=${CONAVGPT_ASSIGNER_GPU:-}
+      # conavgpt2 talks to an OpenAI-compatible VLM endpoint. vlm_client.resolve()
+      # falls back to these env names when the vlm_base_url / vlm_model
+      # parameters are empty, which is their default in config/conavgpt2.yaml —
+      # so the endpoint has to reach the node through the container env, not
+      # through the mission's `env:` alone. Compose forwards nothing it does not
+      # name here.
+      # Empty by default. A hardcoded localhost:8000 default reaches every
+      # robot container in every mission, so any conavgpt2 run WITHOUT a
+      # local server preflight-fails against a dead port instead of
+      # falling through to whatever endpoint the operator configured.
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+      - CONAVGPT2_VLM_MODEL=${CONAVGPT2_VLM_MODEL:-}
+      # Card conavgpt2.vlm_server is pinned to. Empty = don't pin (a one-GPU
+      # box, where there is nothing to choose). NOT 0 on a multi-GPU pod: Isaac
+      # Sim owns GPU 0 and co-tenanting the VLM with it fails the RTX render
+      # graph every frame — see osmo/workflows/airstack-mission-2gpu.yaml.
+      - CONAVGPT2_VLM_GPU=${CONAVGPT2_VLM_GPU:-}
+      # Downward ZED tilt in degrees, THE SAME VARIABLE the Isaac launch
+      # script reads to tilt the mount. conavgpt2 uses it as the default
+      # for camera_pitch_rad because TF walks the URDF, which models no
+      # pitch — so a tilt the sim applied is one TF cannot see, and a
+      # planner that is not told unprojects every point to the wrong
+      # bearing without erroring. One var, both sides, no way to desync.
+      - ZED_PITCH_DEG=${ZED_PITCH_DEG:-}
       - RAYFRONTS_COMPUTE_PROB=${RAYFRONTS_COMPUTE_PROB:-True}
       - LVLM_BASELINE=${LVLM_BASELINE:-false}
       - URDF_FILE=${URDF_FILE}
