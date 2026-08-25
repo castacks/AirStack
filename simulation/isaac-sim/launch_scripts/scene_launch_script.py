@@ -131,11 +131,13 @@ def review_snapshots(stage, config, placements, victims, ssf, out_dir):
     import scene_generator as sg
     resolver = sg._make_resolver(config)
     blocks = []
+    tallest = 0.0
     for p in houses:
         try:
             fp = sg.placement_footprint(resolver, p, "house")
             r = 0.5 * math.hypot(float(fp.get("sx", 20.0)),
                                  float(fp.get("sy", 20.0)))
+            tallest = max(tallest, float(fp.get("sz", 0.0)))
         except Exception:                                     # noqa: BLE001
             r = 15.0
         blocks.append((float(p["x_m"]), float(p["y_m"]), r + 4.0))
@@ -184,7 +186,11 @@ def review_snapshots(stage, config, placements, victims, ssf, out_dir):
 
     written = []
     # 1. the whole map, plumb
-    written.append(snaps.overview(stage, (ex, ey), span * 1.05,
+    # High enough to clear the tallest tower with room to spare: on a 105 m
+    # map the eye at 0.95 x span sat just above a 70 m roof and the overview
+    # was a picture of that roof.
+    written.append(snaps.overview(stage, (ex, ey),
+                                  max(span * 1.05, 1.6 * tallest + 60.0),
                                   os.path.join(out_dir, "01_overview_plumb.png"),
                                   ssf, frames=48))
     # 2. three street-height obliques: the epicentre and two other spots

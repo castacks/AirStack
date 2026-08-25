@@ -51,7 +51,15 @@ not yet re-measured), still-moving 0, settle 8 s sim / 14.6 s phase. Findability
 (`findability.py --config urban_quake_tiny --seeds 1,2,3`): PASS, 12/12 clear.
 
 **Open after this pass, in priority order:**
-1. **Re-bake the archetype library.** On disk it predates ed09e719 (quake wiring) AND the
+0. **THE BAKE'S SETTLE DOES NOT SETTLE.** `bake_cli --config urban_quake_tiny --used-only`
+   (2026-08-25): 16 cells resident on one stage, GPU out of memory from cell 6 onward
+   (26,888 Vulkan OOM errors), then ONE settle over 5,064 bodies: 975 s, 4825 still moving
+   at 420/420 steps, drop median -0.02 m, spread max 179 m. Nothing fell, so every baked
+   tower is a cracked plate standing at full height — and always was. Wants settle + export
+   + unload PER CELL (a cell is ~900 bodies and settles in 8 s in the scene path), or the
+   renderer off; and `write_manifest` must MERGE, not replace (a `--used-only` bake dropped
+   the showcase's other 8 types; records reconstructed by hand, marked `stale: true`).
+1. **Re-bake the archetype library** — tiny's 14/16 done (stumps missing), textured; On disk it predates ed09e719 (quake wiring) AND the
    core material AND the Xform root. `bake_cli.py --config urban_quake_tiny --used-only`
    (31 archetypes under Kit's packing). Blocked 2026-08-25 on the container being `down`ed.
 2. **G2 gallery per seed** — nothing rendered yet since the fixes; the live scene never got a
