@@ -196,7 +196,7 @@ airstack connect [name]  # Connect to running container (tmux)
 airstack logs [name]     # View container logs (tmux output is mirrored to docker logs)
 
 # Development tasks
-airstack image-build    # Build Docker images (ROS workspaces build inside containers via `bws`)
+airstack images build    # Build Docker images (ROS workspaces build inside containers via `bws`)
 airstack test           # Run tests
 airstack docs           # Build and serve documentation
 ```

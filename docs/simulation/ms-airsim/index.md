@@ -22,15 +22,21 @@ Microsoft AirSim (legacy) provides an alternative simulation backend for AirStac
 
 ### 1. Scene (auto-fetched on first launch)
 
-If `MS_AIRSIM_BINARY_PATH` is unset, the container's entrypoint auto-downloads the Blocks scene (~200 MB) into `simulation/ms-airsim/assets/scenes/Blocks/` inside the `airsim` tmux window on first launch. Progress and any errors are visible there.
+If `MS_AIRSIM_BINARY_PATH` is unset, the container's entrypoint auto-downloads the selected scene (Blocks by default, ~200 MB) into `simulation/ms-airsim/assets/scenes/` inside the `airsim` tmux window on first launch. Progress and any errors are visible there.
+
+The easiest way to pick a scene is the launch flag — it maps a shortname to the right UE4 binary and, when the scene isn't downloaded yet, asks before fetching it (see [Simulation Scenes](../scenes.md) for the full catalog):
+
+```bash
+airstack up --sim airsim --scene neighborhood
+```
 
 To pre-fetch (e.g. before CI) or pick a different scene, run the helper directly:
 
 ```bash
 ./simulation/ms-airsim/assets/scenes/fetch_scene.sh              # blocks (default)
-./simulation/ms-airsim/assets/scenes/fetch_scene.sh airsimnh     # or: abandonedpark, forest,
-                                                                 # landscapemountains, soccerfield,
-                                                                 # building99, zhangjiajie
+./simulation/ms-airsim/assets/scenes/fetch_scene.sh airsimnh     # or: abandonedpark,
+                                                                 # landscapemountains, zhangjiajie,
+                                                                 # africasavannah, msbuild2018
 ```
 
 To use a scene that isn't one of the presets, extract it yourself into `simulation/ms-airsim/assets/scenes/` and set `MS_AIRSIM_BINARY_PATH` to its `.sh` path inside the container.
@@ -48,7 +54,7 @@ airstack up --sim airsim
 To build the images first:
 
 ```bash
-airstack image-build --profile ms-airsim
+airstack images build --profile ms-airsim
 ```
 
 The container runs `1 + 2*NUM_ROBOTS` tmux windows:

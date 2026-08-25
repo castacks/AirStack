@@ -35,10 +35,10 @@ All commands, grouped by area. Run `airstack help <command>` for full options.
 |---------|-------------|
 | `install` | Install dependencies (Docker Engine, NVIDIA Container Toolkit) |
 | `setup` | Configure AirStack settings and add to shell profile |
-| `config` | Run all configuration tasks |
-| `config:isaac-sim` | Configure Isaac Sim settings |
-| `config:nucleus` | Configure AirLab Nucleus login |
-| `config:git-hooks` | Set up Git hooks |
+| `config` | Run all configuration tasks (`airstack help config` for the group) |
+| `config isaac-sim` | Configure Isaac Sim settings |
+| `config nucleus` | Configure AirLab Nucleus login |
+| `config git-hooks` | Set up Git hooks |
 
 ### Container Lifecycle
 
@@ -53,14 +53,18 @@ All commands, grouped by area. Run `airstack help <command>` for full options.
 
 ### Docker Images
 
+One command group — run `airstack help images` for the full reference.
+(The old `image-build`/`image-push`/`image-pull`/`image-delete`/`rmi`
+spellings still work but are deprecated.)
+
 | Command | Description |
 |---------|-------------|
-| `image-build` | Build or rebuild Docker Compose service images |
-| `image-push` | Push Docker Compose service images to a registry |
-| `image-pull` | Pull Docker Compose service images from a registry |
-| `images` | List Docker images filtered by PROJECT_NAME from .env |
-| `image-delete` | Delete all Docker images matching PROJECT_NAME (prompts unless -y) |
-| `rmi` | Remove Docker images by search term |
+| `images` | List Docker images filtered by PROJECT_NAME from .env (alias: `images list`) |
+| `images build` | Build or rebuild Docker Compose service images |
+| `images push` | Push Docker Compose service images to a registry |
+| `images pull` | Pull Docker Compose service images from a registry |
+| `images delete` | Delete all Docker images matching PROJECT_NAME (prompts unless -y) |
+| `images rm` | Remove Docker images by search term |
 
 ### Modules, Stacks, and Fleets
 
@@ -93,15 +97,18 @@ See the [Modular AirStack Walkthrough](../../../getting_started/modular_airstack
 
 ### Remote Development (OSMO)
 
+One command group — run `airstack help osmo` for the full reference.
+(The old `osmo:<sub>` spellings still work but are deprecated.)
+
 | Command | Description |
 |---------|-------------|
-| `osmo:setup` | One-time per-user OSMO credential setup (airlab-docker-registry, airlab-docker-login, airlab-nucleus) |
-| `osmo:up` | Submit osmo/workflows/airstack-dev.yaml with your SSH pubkey injected (`--pool POOL`, `--key PATH`, `--branch BRANCH`) |
-| `osmo:logs` | Follow the workspace task logs |
-| `osmo:ide` | Port-forward sshd (2200:22) and open VS Code/Cursor on Host airstack-osmo |
-| `osmo:webrtc` | Port-forward Isaac Sim WebRTC ranges (TCP foreground + UDP background) |
-| `osmo:foxglove` | Install AirStack Foxglove extensions locally, then port-forward GCS Foxglove websocket (8766:8766) |
-| `osmo:down` | Cancel the active workflow (push to git before running this) |
+| `osmo setup` | One-time per-user OSMO credential setup (airlab-docker-registry, airlab-docker-login, airlab-nucleus) |
+| `osmo up` | Submit osmo/workflows/airstack-dev.yaml with your SSH pubkey injected (`--pool POOL`, `--key PATH`, `--branch BRANCH`) |
+| `osmo logs` | Follow the workspace task logs |
+| `osmo ide` | Port-forward sshd (2200:22) and open VS Code/Cursor on Host airstack-osmo |
+| `osmo webrtc` | Port-forward Isaac Sim WebRTC ranges (TCP foreground + UDP background) |
+| `osmo foxglove` | Install AirStack Foxglove extensions locally, then port-forward GCS Foxglove websocket (8766:8766) |
+| `osmo down` | Cancel the active workflow (push to git before running this) |
 
 ## `airstack up` Flags
 
@@ -182,11 +189,11 @@ airstack logs robot-desktop-1
 airstack config
 
 # Configure Isaac Sim
-airstack config:isaac-sim
+airstack config isaac-sim
 
 # Configure Nucleus
-airstack config:nucleus
+airstack config nucleus
 
 # Configure Git hooks
-airstack config:git-hooks
+airstack config git-hooks
 ```

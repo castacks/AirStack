@@ -57,7 +57,7 @@ docker login airlab-docker.andrew.cmu.edu
 ## <Enter your andrew password>
 
 ## Pull the images in the docker compose file
-airstack image-pull
+airstack images pull
 ```
 
 The images will be pulled from the server automatically. This might take a while since the images are large.
@@ -72,13 +72,13 @@ The images will be pulled from the server automatically. This might take a while
 
     ```bash
     cd AirStack/
-    airstack image-build
+    airstack images build
     ```
 
 If you have permission you can push updated images to the docker server.
 
 ```bash
-airstack image-push
+airstack images push
 ```
 
 </details>

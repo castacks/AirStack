@@ -120,11 +120,11 @@ In addition to the core commands, the AirStack CLI includes several module-speci
 airstack config
 
 # Configure Isaac Sim
-airstack config:isaac-sim
+airstack config isaac-sim
 
 # Configure Nucleus
-airstack config:nucleus
+airstack config nucleus
 
 # Configure Git hooks
-airstack config:git-hooks
+airstack config git-hooks
 ```

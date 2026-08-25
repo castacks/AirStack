@@ -94,17 +94,17 @@ Prefer the `airstack` CLI over raw `docker compose` for day-to-day use:
 
 ```bash
 # Build a compose service image
-airstack image-build robot-desktop
+airstack images build robot-desktop
 
 # Build and start a service
-airstack image-build robot-desktop
+airstack images build robot-desktop
 airstack up robot-desktop
 
 # Inspect the robot image build with full output
-airstack image-build --target builder --progress=plain robot-desktop
+airstack images build --target builder --progress=plain robot-desktop
 
 # Jetson: stack-base is built first automatically
-airstack image-build --profile l4t robot-l4t
+airstack images build --profile l4t robot-l4t
 
 # Open a shell in a running container
 airstack connect robot-desktop --command=bash
@@ -118,6 +118,6 @@ airstack logs robot-desktop
 1. Pick a service name and `BASE_IMAGE` for the target platform.
 2. Add a service block in `robot/docker/docker-compose.yaml` with quoted `build.args`.
 3. For L4T/Jetson, consider `network: host` on `build:` and the stack-base image pattern.
-4. Run `airstack image-build <service>` and verify the builder stage imports ROS Python packages.
+4. Run `airstack images build <service>` and verify the builder stage imports ROS Python packages.
 
 For copy-paste validation commands, compose templates, and agent-oriented checklists, see `.agents/skills/docker-build-profiles/SKILL.md`.

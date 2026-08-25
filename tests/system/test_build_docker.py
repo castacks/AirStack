@@ -7,7 +7,7 @@ from conftest import airstack_cmd, read_log_tail, docker_image_size_mb, get_metr
 class TestDockerBuilds:
 
     def _build_and_record(self, service, env=None):
-        result = airstack_cmd("image-build", service, timeout=3600)
+        result = airstack_cmd("images", "build", service, timeout=3600)
         assert result.returncode == 0, f"{service} build failed (exit {result.returncode}):\n{read_log_tail()}"
 
         size = docker_image_size_mb(service, env=env)

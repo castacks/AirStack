@@ -16,7 +16,7 @@ cd AirStack
 ./airstack.sh install   # docker, compose, NVIDIA Container Toolkit
 ./airstack.sh setup     # enables the `airstack` command
 source ~/.bashrc        # or ~/.zshrc
-airstack image-pull     # or: airstack image-build
+airstack images pull     # or: airstack images build
 ```
 
 ## 2. Fly a reference stack

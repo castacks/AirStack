@@ -19,7 +19,7 @@ Creating custom simulation environments for testing autonomy modules, multi-robo
 
 ## Prerequisites
 
-- Isaac Sim container image present (`airstack image-pull`)
+- Isaac Sim container image present (`airstack images pull`)
 - The scenario you want: which environment, how many drones, which sensors
 
 ## How a Scene Reaches the Simulator

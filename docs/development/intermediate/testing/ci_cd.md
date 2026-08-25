@@ -201,7 +201,7 @@ The first line is parsed with `shlex`; everything after it is free-form notes.
 Checking whether the DDS bridge fix holds under 3 robots — see thread above.
 ```
 
-`-m build_packages` is **pull-only**: it retags floating `cache_*` images onto the PR `VERSION` tag and never runs `image-build` (and does not pull Isaac Sim). Use that when iterating on colcon/pytest failures. For other marks, add `--no-image-build` to skip the bake:
+`-m build_packages` is **pull-only**: it retags floating `cache_*` images onto the PR `VERSION` tag and never runs `images build` (and does not pull Isaac Sim). Use that when iterating on colcon/pytest failures. For other marks, add `--no-image-build` to skip the bake:
 
 ```text
 /pytest -m build_packages
@@ -234,7 +234,7 @@ flowchart TD
   h --> j{"marks contain build_docker?"}
   i --> j
   j -- yes --> l["Skip image prep — those tests build themselves"]
-  j -- no --> k["airstack image-pull for the active profiles<br/>fall back to image-build for anything missing"]
+  j -- no --> k["airstack images pull for the active profiles<br/>fall back to images build for anything missing"]
   k --> m["pytest tests/ with resolved args"]
   l --> m
   m --> n["Upload tests/results/ artifact, 90-day retention"]

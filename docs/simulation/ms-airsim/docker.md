@@ -49,7 +49,7 @@ airstack up --sim airsim
 airstack up --profile ms-airsim --profile desktop
 
 # Build the image first
-airstack image-build --profile ms-airsim
+airstack images build --profile ms-airsim
 ```
 
 Alternatively, set `COMPOSE_PROFILES=ms-airsim,desktop` in `.env` and run `airstack up`.
@@ -263,7 +263,7 @@ docker compose -f simulation/ms-airsim/docker/docker-compose.yaml pull
 
 ```bash
 # Build image
-airstack image-build --profile ms-airsim
+airstack images build --profile ms-airsim
 
 # Or directly
 docker compose -f simulation/ms-airsim/docker/docker-compose.yaml build
