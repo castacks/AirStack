@@ -4,6 +4,45 @@ Mission 2 (`.agents/MISSIONS.md`): `airstack up` to an interactive earthquake
 scene in reasonable wall-clock. This file is the durable record; the board
 (`.agents/board.md`) carries the timing table.
 
+## STATUS — stopped 2026-08-25, nothing in flight
+
+Orchestration ended and this mission stopped before its container queue was
+run. Everything below is committed and `scene_gen/tests` was green at the last
+run (374 passed, 1 skipped). **Nothing is half-done.** What is NOT true yet:
+
+- **The in-Kit fixture was never captured**, so
+  `test_a_host_build_matches_the_in_kit_reference` SKIPS. Host-vs-Kit agreement
+  is therefore still unproven, and the bake-cache plan is **on hold**, not
+  unblocked. Capture it with one run:
+  `load_bench --config urban_quake_tiny --emit-manifest scene_gen/tests/fixtures/in_kit_urban_quake_tiny_s42.json`
+- **Write-through measurement persistence is unconfirmed in Kit.** The mechanism
+  is tested host-side, but that a launch now leaves Nucleus entries in
+  `.measurements.json` was never observed.
+- **The shader-cache mount was never A/B'd.** The ~32 s `RtPso` saving is
+  diagnosed and reasoned, not banked. The *before* arm exists (two pre-mount
+  cold runs: kit startup 72.9 s and 70.2 s); the *after* arm needs one
+  `--cold` run. It would be a cross-session comparison, and should be reported
+  as one.
+- **There is no cold gate**, because no post-fix cold run was ever taken. The
+  orchestrator's rule was "next post-fix cold measurement +25%"; the
+  measurement does not exist.
+- **Every timing here predates `599c2573`** (per-cell bake, merged wreck
+  export). That commit changes fragment counts and collider cooking, which are
+  two of the three slices that moved last — so re-baseline before quoting any
+  number below.
+
+The queue, in the order it was agreed, for whoever picks this up:
+
+1. Capture the in-Kit fixture (one run; doubles as the post-fix re-baseline).
+2. Confirm a launch leaves Nucleus entries in `.measurements.json`, then that a
+   host bake with a warm file matches Kit. That is what unblocks the cache.
+3. `--cold` once for the shader-cache A/B and the cold gate.
+4. `urban_quake_showcase` baked cold+warm, plus one live row at
+   `max_buildings: 2` (see the projection below for why not the full matrix).
+5. Scaling curve, then `urban_quake_large` — which does not exist and was
+   deliberately not invented alone; it needs agreeing with whoever owns looks,
+   so the scene benchmarked is the scene reviewed.
+
 ## How to measure
 
     python3 scene_gen/tools/load_bench.py --config urban_quake_tiny          # warm
