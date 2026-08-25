@@ -193,6 +193,16 @@ def main(argv=None) -> int:
                               only=selections[dtype])
             failed += res["wanted"] - res["baked"]
     except BaseException:
+        # PRINT IT FIRST. `SimulationApp.close()` hard-exits the process (see
+        # the note below), so the `raise` under it never runs and the traceback
+        # never reaches the log: a bake that died on its third cell looked
+        # exactly like one that finished, right down to the exit code. Three
+        # runs were spent theorising about process contention and physics
+        # before anyone noticed the error was simply being swallowed.
+        import traceback
+        traceback.print_exc()
+        sys.stdout.flush()
+        sys.stderr.flush()
         app.close()
         raise
 

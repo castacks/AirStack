@@ -306,8 +306,16 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
             lo_z = min(lo_z, float(_r.GetMin()[2]))
     floor = UsdGeom.Xform.Define(stage, scene_path + "/floor").GetPrim()
     if lo_z < 0.0:
-        UsdGeom.Xformable(floor).AddTranslateOp().Set(
-            Gf.Vec3d(0.0, 0.0, lo_z - 0.05))
+        # REUSE THE OP. The floor outlives the cell — a batch bake settles
+        # dozens of buildings against this same prim — and `AddTranslateOp` on
+        # a prim that already has one raises, which killed the 500 m bake on
+        # its third cell.
+        xf = UsdGeom.Xformable(floor)
+        op = next((o for o in xf.GetOrderedXformOps()
+                   if o.GetOpType() == UsdGeom.XformOp.TypeTranslate), None)
+        if op is None:
+            op = xf.AddTranslateOp()
+        op.Set(Gf.Vec3d(0.0, 0.0, lo_z - 0.05))
         print(f"[settle]   floor at z = {lo_z - 0.05:.2f} "
               f"(geometry reaches below grade)")
     plane = UsdPhysics.CollisionAPI.Apply(floor)
@@ -348,8 +356,15 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
         # balls: every contact converts a drop into lateral speed and the pile
         # sprays outward. Real rubble is lossy — it lands, grinds, and stops.
         px = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
-        px.CreateLinearDampingAttr(0.55)
-        px.CreateAngularDampingAttr(2.2)
+        # RAISED 2026-08-25 (0.55/2.2 -> 1.2/3.2). A pile of Voronoi fragments
+        # never stops on its own: the cells start interpenetrating, the solver
+        # shoves them apart, and the shove feeds motion back in faster than
+        # 0.55 takes it out. Measured baking the 500 m library, cells of 700-1000
+        # fragments still had 60-80% of their bodies moving after 1,800 steps
+        # (30 s of sim) — long past any fall — while 300-fragment cells came to
+        # rest in 1,050. Rubble is lossy: it lands, grinds and stops.
+        px.CreateLinearDampingAttr(1.2)
+        px.CreateAngularDampingAttr(3.2)
         # THE CAP HAS TO CLEAR BOTH THE BLAST AND FREE FALL, and it used to
         # clear neither. It was 4 m/s, described as "right for a piece that is
         # only falling" — but a fragment dropping off a 66 m building reaches
@@ -371,7 +386,10 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
         px.CreateMaxDepenetrationVelocityAttr(float(depenetration))
         px.CreateSolverPositionIterationCountAttr(16)
         px.CreateSolverVelocityIterationCountAttr(2)
-        px.CreateSleepThresholdAttr(0.02)
+        # And let them sleep. 0.02 m^2/s^2 is a body still twitching; a piece
+        # that has landed and is being nudged by its neighbours never gets
+        # under it, so the pile reports "still moving" forever.
+        px.CreateSleepThresholdAttr(0.15)
         UsdShade.MaterialBindingAPI.Apply(prim).Bind(
             UsdShade.Material(stage.GetPrimAtPath(mat_path)),
             bindingStrength=UsdShade.Tokens.weakerThanDescendants,
@@ -507,7 +525,20 @@ def _step(steps, dt=1.0 / 60.0):
     """
     try:
         from isaacsim.core.api import SimulationContext
-        sc = SimulationContext(stage_units_in_meters=1.0)
+        # ONE CONTEXT FOR THE WHOLE PROCESS. `SimulationContext` owns the
+        # stage, so constructing a second one tears down the first one's —
+        # which in a batch is fatal and silent: baking the 500 m library, cell
+        # 2 settled, cell 3 called this again, and the app logged "Unexpected
+        # reference count of 2 for UsdStage ... while being closed" and shut
+        # down with status 0. A one-cell bake never saw it, which is how the
+        # per-cell build/settle/export/unload loop shipped unvalidated.
+        sc = None
+        try:
+            sc = SimulationContext.instance()
+        except Exception:                                       # noqa: BLE001
+            sc = None
+        if sc is None:
+            sc = SimulationContext(stage_units_in_meters=1.0)
         sc.initialize_physics()
         sc.play()
         for _ in range(int(steps)):
