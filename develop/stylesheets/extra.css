@@ -281,11 +281,22 @@
 .splash-container {
     position: relative;
     width: 100%;
-    height: calc(100vh - 98px);
-    min-height: 600px;
+    /* Grow with the hero content: a fixed height + overflow:hidden clipped
+       the CTAs/footnote on short laptop viewports. */
+    height: auto;
+    min-height: calc(100vh - 98px);
     overflow: hidden;
     margin-top: 0;
     padding-top: 1rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.splash-container > .md-grid {
+    flex: 1;
+    display: flex;
+    width: 100%;
+    min-width: 0; /* flex items default to min-width:auto → pre overflows on phones */
 }
 
 .splash-background {
@@ -329,13 +340,20 @@
     position: relative;
     z-index: 3;
     margin: 0;
-    height: 100%;
+    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
     color: white;
-    padding-top: 5rem;
+    padding: 4rem 0 2.5rem;
+    min-width: 0;
+    width: 100%;
+}
+
+.mdx-hero__content {
+    min-width: 0;
+    max-width: 100%;
 }
 
 .mdx-hero__badge {
@@ -731,7 +749,7 @@
 }
 
 .as-terminal--hero {
-    max-width: 40rem;
+    max-width: min(40rem, 100%);
     margin: 0 auto;
     text-align: left;
     background: rgba(13, 16, 22, 0.82);
@@ -742,6 +760,41 @@
 
 .as-terminal--hero code {
     font-size: 0.64rem;
+}
+
+/* Short laptop viewports (13" MacBooks etc.): tighten the hero so the
+   quickstart, CTAs, and footnote all fit without clipping or scrolling. */
+@media screen and (max-height: 900px) {
+    .mdx-hero {
+        padding: 2.5rem 0 2rem;
+    }
+
+    .mdx-hero h1 {
+        font-size: clamp(1.9rem, 4.5vw, 2.7rem);
+        margin-bottom: 0.7rem;
+    }
+
+    .mdx-hero p {
+        font-size: clamp(0.9rem, 1.6vw, 1.05rem);
+        margin-bottom: 1.4rem;
+    }
+
+    .mdx-hero__badge {
+        margin-bottom: 1rem;
+    }
+
+    .as-terminal--hero code {
+        font-size: 0.6rem;
+        line-height: 1.6;
+    }
+
+    .mdx-hero__actions {
+        margin-top: 1.1rem;
+    }
+
+    .mdx-hero__footnote {
+        margin-top: 0.9rem !important;
+    }
 }
 
 /* --------------------------------------------------------------------------
@@ -776,8 +829,8 @@
 
 @media screen and (max-width: 600px) {
     .splash-container {
-        min-height: 540px;
-        height: calc(100svh - 98px);
+        height: auto;
+        min-height: calc(100svh - 98px);
     }
 
     .mdx-hero h1 br {
