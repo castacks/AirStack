@@ -507,9 +507,16 @@ def check_placed(stage, victims: list, scene_scale_factor: float = 1.0,
     they" — which is the difference between a recall number that means
     something and one that does not.
     """
+    import time
+
+    t0 = time.perf_counter()
     rows = check_on_stage(stage, victims, scene_scale_factor)
+    dt = time.perf_counter() - t0
     if not rows:
         return []
+    print(f"[findability] {len(rows)} victim(s) x {len(directions())} bearings "
+          f"in {dt:.2f}s ({dt / max(len(rows), 1) * 1e3:.1f} ms each) — set "
+          f"`targets.validate: false` to skip this in the load path")
     for v, r in zip(victims, rows):
         v["findability"] = {k: r[k] for k in
                             ("verdict", "escape_m", "open_dirs", "best_dir")}

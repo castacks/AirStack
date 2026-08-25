@@ -32,6 +32,8 @@ captures and an otherwise identical run.
     SCENE        a scene config name (e.g. urban_quake_tiny); empty to skip
     ASSET_CONFIG which config supplies the human assets for the pose row
     TARGET_SEED  re-roll the victims in SCENE mode
+    TARGET_SEEDS comma list of targets.seed values, run one after another on
+                 the SAME built city — the G3 three-seed run in one launch
     OCCUPANCY    night | day | commute, for SCENE mode
     COUNT_PER_KM2 override the population density, for SCENE mode
     MARKERS      0 to drop the coloured posts over each victim (SCENE mode)
@@ -74,6 +76,12 @@ SCENE = os.environ.get("SCENE", "")
 ASSET_CONFIG = os.environ.get("ASSET_CONFIG", "urban")
 SNAP_DIR = os.environ.get("SNAP_DIR", "")
 TARGET_SEED = os.environ.get("TARGET_SEED", "")
+#: A comma list of `targets.seed` values to run Stage C at, one after another,
+#: ON THE SAME BUILT SCENE. G3 wants three seeds and the city is identical
+#: across them by construction, so rebuilding it three times would pay Kit
+#: startup and a full generate twice for nothing.
+TARGET_SEEDS = [s.strip() for s in
+                os.environ.get("TARGET_SEEDS", "").split(",") if s.strip()]
 OCCUPANCY = os.environ.get("OCCUPANCY", "")
 COUNT_PER_KM2 = os.environ.get("COUNT_PER_KM2", "")
 MARKERS = os.environ.get("MARKERS", "1").lower() not in ("0", "false", "")
@@ -237,17 +245,46 @@ def _scene(stage, ssf: float):
     tl.play()
     for _ in range(5):
         omni.kit.app.get_app().update()
-    tl.stop()
+    # Left PLAYING rather than stopped, but THAT IS NOT THE FIX AND THIS BENCH
+    # IS STILL BLIND. Measured 2026-08-25 on `urban_quake_tiny`, both ways
+    # round: `add_colliders` authored every collider (the log lists them), the
+    # PhysicsScene exists, the timeline has stepped — and every raycast in
+    # `_sky_check` and in `findability.check_on_stage` still misses. A scene
+    # query that hits nothing reads exactly like a scene with nothing in the
+    # way, which is how this bench reported "24/24 interior candidates
+    # reachable" from probes that never touched geometry. DO NOT BELIEVE A
+    # RAYCAST NUMBER FROM THIS BENCH until that is fixed.
+    #
+    # Best remaining hypothesis, untested: a bare stage plus
+    # `UsdPhysics.Scene.Define` never gets PhysX to ATTACH. The production
+    # `scene_launch_script.py` goes through Pegasus/World, which builds a
+    # SimulationContext, and its probes do hit — so the fix to try first is
+    # standing up a SimulationContext here rather than defining the scene prim
+    # by hand. Until then, in-sim findability evidence comes from
+    # `scene_launch_script.py`, where `targets.place` prints the same report.
 
-    victims = kinds.get(config).place_targets(
-        stage, config, placements=placements,
-        parent_path="/World/stage/targets", scene_scale_factor=ssf)
     add_sky(stage, resolve_sky(config))
-    if MARKERS:
-        _mark(stage, victims, ssf)
-    _sky_check(stage, victims, ssf)
     if PROBE_INTERIORS:
         _probe_interiors(stage, config, placements, ssf)
+
+    # One built city, N populations. `targets.seed` is a separate RNG stream
+    # from the scene's, so re-rolling it is the whole point of Stage C being
+    # Stage C — the same baked city searched again with different people.
+    victims = []
+    for seed in (TARGET_SEEDS or [TARGET_SEED]):
+        if seed:
+            config.setdefault("targets", {})["seed"] = int(seed)
+        if stage.GetPrimAtPath(Sdf.Path("/World/stage/targets")).IsValid():
+            stage.RemovePrim(Sdf.Path("/World/stage/targets"))
+            for _ in range(2):
+                omni.kit.app.get_app().update()
+        print(f"\n===== STAGE C  targets.seed={seed or '(default)'} =====")
+        victims = kinds.get(config).place_targets(
+            stage, config, placements=placements,
+            parent_path="/World/stage/targets", scene_scale_factor=ssf)
+        _sky_check(stage, victims, ssf)
+    if MARKERS:
+        _mark(stage, victims, ssf)
     return config, victims
 
 
