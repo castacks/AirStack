@@ -78,16 +78,25 @@ stub's namespace would nest your node at `/robot_1/robot_1/odom_echo`.
 ## 3. Build it in the robot container
 
 All builds happen inside Docker — start the robot container without
-autolaunch, then build just your package with the `bws` alias:
+autolaunch, then hop in with `airstack connect` (it attaches to the
+container's tmux session; open a fresh shell window with ++ctrl+b++ then
+++c++) and build just your package with the `bws` alias:
 
 ```bash
 airstack up robot-desktop --no-autolaunch
-docker exec airstack-robot-desktop-1 bash -c "bws --packages-select odom_echo"
-docker exec airstack-robot-desktop-1 bash -c "sws && ros2 pkg list | grep odom_echo"
+airstack connect robot-desktop
+```
+
+Then, inside the container:
+
+```bash
+bws --packages-select odom_echo
+sws && ros2 pkg list | grep odom_echo
 ```
 
 **Check:** the last command prints `odom_echo` — colcon found the package
 through the `ros_ws` bind mount, and the build persists across restarts.
+Detach from the container with ++ctrl+b++ then ++d++ (or `exit`).
 
 ## 4. Wire it into a stack of your own
 
@@ -108,13 +117,17 @@ airstack up --stack my_stack --sim isaac
 airstack ready
 ```
 
-**Check:** the node is alive under the robot namespace, reporting a live rate:
+**Check:** the node is alive under the robot namespace, reporting a live rate.
+Connect to the container (`airstack connect robot-desktop`, new window with
+++ctrl+b++ ++c++) and run:
 
 ```bash
-docker exec airstack-robot-desktop-1 bash -c "ros2 node list | grep odom_echo"
+ros2 node list | grep odom_echo
 # /robot_1/odom_echo
-docker logs airstack-robot-desktop-1 2>&1 | grep "odometry rate"
 ```
+
+Your node's log lines (`odometry rate ...`) are also visible from the host via
+`docker logs airstack-robot-desktop-1` — tmux output is mirrored there.
 
 ## 5. See it in the wiring
 

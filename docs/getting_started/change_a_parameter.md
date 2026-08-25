@@ -37,11 +37,12 @@ takeoff_velocity: 1.0   # -> 0.2
 ```
 
 **Check:** the *installed* copy inside the container already shows your edit —
-bind mount plus symlink-install, no `bws` needed:
+bind mount plus symlink-install, no `bws` needed. Hop into the container with
+`airstack connect robot-desktop` (opens the container's tmux session; new
+shell window with ++ctrl+b++ ++c++) and run:
 
 ```bash
-docker exec airstack-robot-desktop-1 bash -c \
-  "grep takeoff_velocity ~/AirStack/robot/ros_ws/install/takeoff_landing_planner/share/takeoff_landing_planner/config/takeoff_landing_planner.yaml"
+grep takeoff_velocity ~/AirStack/robot/ros_ws/install/takeoff_landing_planner/share/takeoff_landing_planner/config/takeoff_landing_planner.yaml
 ```
 
 ## 3. Relaunch the robot stack
@@ -55,11 +56,12 @@ airstack up robot-desktop
 airstack ready
 ```
 
-**Check:** the running node now holds your value — this prints `Double value is: 0.2`:
+**Check:** the running node now holds your value. Connect again
+(`airstack connect robot-desktop`, ++ctrl+b++ ++c++ for a shell window) and
+run — it prints `Double value is: 0.2`:
 
 ```bash
-docker exec airstack-robot-desktop-1 bash -c \
-  "sws && ros2 param get /robot_1/takeoff_landing_planner/takeoff_landing_task takeoff_velocity"
+sws && ros2 param get /robot_1/takeoff_landing_planner/takeoff_landing_task takeoff_velocity
 ```
 
 ## 4. See the effect
