@@ -73,6 +73,24 @@ nav:
       - Modular AirStack Walkthrough: docs/getting_started/modular_airstack.md
       - Deploy to Hardware: docs/real_world/deploying_to_hardware.md
       - What Next: docs/getting_started/tutorials_reference.md
+  - Concepts:
+      - Key Concepts: docs/development/beginner/key_concepts.md
+      - System Architecture: docs/robot/autonomy/system_architecture.md
+      - Modular AirStack:
+          - Modules: docs/development/modules.md
+          - Stacks: docs/development/stacks.md
+          - Fleets: docs/development/fleets.md
+      - Robot Identity: docs/robot/docker/robot_identity.md
+      - Simulation Platforms:
+          - Overview: docs/simulation/index.md
+          - Isaac Sim: docs/simulation/isaac_sim/index.md
+          - Pegasus Extension: docs/simulation/isaac_sim/pegasus_scene_setup.md
+          - Microsoft AirSim (legacy): docs/simulation/ms-airsim/index.md
+          - Simple Sim: docs/simulation/simple_sim/index.md
+      - Ground Control Station: docs/gcs/index.md
+      - CI/CD Architecture: docs/development/intermediate/testing/ci_cd.md
+      - CLI Architecture: docs/development/advanced/airstack-cli/architecture.md
+      - Frame Conventions: docs/development/intermediate/frame_conventions.md
   - How-to Guides:
       - Overview: docs/development/index.md
       - Development Environment:
@@ -90,6 +108,12 @@ nav:
           - Overhead Camera: docs/simulation/isaac_sim/overhead_camera.md
           - Gimbal: docs/robot/autonomy/sensors/gimbal.md
           - Export Stages from Unreal: docs/simulation/isaac_sim/export_stages_from_unreal.md
+      - Autonomy:
+          - Add a State Estimator: docs/robot/autonomy/perception/adding_a_state_estimator.md
+          - Add a Planner: docs/robot/autonomy/adding_a_planner.md
+          - Create a Coordination Algorithm: docs/robot/autonomy/coordination/creating_coordination_algorithms.md
+          - Coordination Payloads: docs/robot/autonomy/coordination/payloads.md
+          - Integration Checklist: docs/robot/autonomy/integration_checklist.md
       - GCS Operation:
           - Waypoints & Geofences: docs/gcs/waypoints_and_geofences.md
           - Foxglove Visualization: docs/gcs/foxglove.md
@@ -98,14 +122,14 @@ nav:
       - Robot & Field:
           - Overview: docs/real_world/index.md
           - Install on Hardware: docs/real_world/installation/index.md
+          - Add a Vehicle or Platform: docs/development/adding_a_vehicle.md
           - HITL Testing: docs/real_world/HITL/index.md
           - Data Offloading: docs/real_world/data_offloading/index.md
           - Data Offloading (DIY patterns): docs/robot/logging/data_offloading.md
           - Logging: docs/robot/logging/index.md
           - ROS Bags: docs/robot/logging/rosbags.md
-          - Coordination Payloads: docs/robot/autonomy/coordination/payloads.md
       - Modules & Stacks:
-          - Integration Checklist: docs/robot/autonomy/integration_checklist.md
+          - Create a Custom Stack: docs/development/creating_a_stack.md
           - Module CI: docs/development/module_ci.md
       - Testing:
           - Overview: docs/development/intermediate/testing/index.md
@@ -116,6 +140,7 @@ nav:
           - Contributing Guide: docs/development/intermediate/contributing.md
           - Documentation Guide: docs/development/intermediate/documentation.md
           - Feature Notebook: docs/development/intermediate/feature_notebook.md
+          - Working with Coding Agents: docs/development/working_with_coding_agents.md
           - Extending the CLI: docs/development/advanced/airstack-cli/extending.md
   - Reference:
       - CLI: docs/development/beginner/airstack-cli/index.md
@@ -191,24 +216,6 @@ nav:
           - CI/CD Orchestrator Runbook: tests/ci-cd-orchestrator.md
           - OSMO Lab Admin Guide: osmo/README.md
       - AI Agent Guide: docs/development/advanced/ai_agent_guide.md
-  - Concepts:
-      - Key Concepts: docs/development/beginner/key_concepts.md
-      - System Architecture: docs/robot/autonomy/system_architecture.md
-      - Modular AirStack:
-          - Modules: docs/development/modules.md
-          - Stacks: docs/development/stacks.md
-          - Fleets: docs/development/fleets.md
-      - Robot Identity: docs/robot/docker/robot_identity.md
-      - Simulation Platforms:
-          - Overview: docs/simulation/index.md
-          - Isaac Sim: docs/simulation/isaac_sim/index.md
-          - Pegasus Extension: docs/simulation/isaac_sim/pegasus_scene_setup.md
-          - Microsoft AirSim (legacy): docs/simulation/ms-airsim/index.md
-          - Simple Sim: docs/simulation/simple_sim/index.md
-      - Ground Control Station: docs/gcs/index.md
-      - CI/CD Architecture: docs/development/intermediate/testing/ci_cd.md
-      - CLI Architecture: docs/development/advanced/airstack-cli/architecture.md
-      - Frame Conventions: docs/development/intermediate/frame_conventions.md
   - Release Notes: docs/release_notes/index.md
   - About: docs/about.md
 plugins:

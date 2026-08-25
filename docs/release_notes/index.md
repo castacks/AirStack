@@ -65,6 +65,16 @@ reorganized; page URLs are preserved (moves are covered by redirects):
 - The Interface Conventions Specification was bumped to **v1.0.1**: §8 now
   lists all eight `task_msgs` actions (added `tasks/coverage` and
   `tasks/chat`, both defined with no shipped executor).
+- Six new how-to guides: Adding a State Estimator, Adding a Planner,
+  Creating a Multi-Agent Coordination Algorithm (grouped under a new
+  How-to → Autonomy section), Creating a Custom Stack Topology, Adding a
+  Vehicle Type/Unit/Platform, and Getting the Most out of Your Coding
+  Agent (the feature-notebook workflow). Each presents the in-tree
+  package vs `airstack module create --in-tree` module-scaffolding
+  choice. The Concepts tab now sits directly after Tutorials, and the
+  UE→Isaac export tutorial was refreshed (new walkthrough video, export
+  as Z-up in meters, note that UE Decals — paint markings, dirt,
+  puddles — do not export).
 
 This release restructures AirStack from a monolith into **modules**,
 **stacks**, and **fleets**, implementing

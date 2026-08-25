@@ -9,7 +9,10 @@ Generally, Unreal Engine environments can be found on Epic Games' [Fab Marketpla
 
 The below video explains how to export an Unreal Engine environment to an Isaac Sim stage.
 
-<iframe width="840" height="473" src="https://www.youtube.com/embed/y9qP7wcinHM?si=i5TVd1CFbJUYhWz7" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<iframe width="840" height="473" src="https://www.youtube.com/embed/cMjO7Sb7Zmo" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
+!!! warning "Two settings to change from the video"
+    Unlike what the video shows, set the export **Up Axis to Z-up** and the **scale to meters**. AirStack and Isaac Sim work in Z-up meters (see [Frame Conventions](../../development/intermediate/frame_conventions.md)); exporting this way avoids the unit/orientation fix-ups later on this page.
 
 You can save this file as `[YOUR_ENVIRONMENT_NAME].stage.usd`.
 
@@ -24,9 +27,11 @@ Omniverse doesn't perform well with large amounts of vegetation. Anything with c
 
 That said you can still achieve photorealism by substituting complex geometries for high quality textures. Isaac seems to do fine with high quality textures.
 
+**Decals don't export:** Unreal Engine Decals do not export well to USD, so any decorations applied as decals — paint markings, road lines, dirt, puddles, and similar surface details — won't come across. If those details matter for your scene, bake them into the surface textures instead.
+
 **Optimization:** After exporting, edit the file with [USD Composer](https://docs.omniverse.nvidia.com/composer/latest/index.html) and run the [Scene Optimizer extension](https://docs.omniverse.nvidia.com/extensions/latest/ext_scene-optimizer.html) for faster performance. USD Composer / USD Explorer can be installed from NVIDIA's current distribution channel (the Omniverse Launcher has been discontinued).
 
-**Verify the Scale:**  The Omniverse exporter exports in centimeters, but Isaac Sim natively works in meters. For consistency, follow these steps to [change the scene units to be meters](https://forums.developer.nvidia.com/t/how-to-change-units-of-the-grid-from-centimeters-to-meters/301285#:~:text=Find%20the%20%E2%80%9CMeters%20Per%20Unit%E2%80%9D%20property%20and%20set%20it%20to%201%20for%20meters).
+**Verify the Scale:** Isaac Sim natively works in meters. If you set the export scale to meters as instructed above, this is already correct — but if a stage was exported in centimeters (the exporter's old default), follow these steps to [change the scene units to be meters](https://forums.developer.nvidia.com/t/how-to-change-units-of-the-grid-from-centimeters-to-meters/301285#:~:text=Find%20the%20%E2%80%9CMeters%20Per%20Unit%E2%80%9D%20property%20and%20set%20it%20to%201%20for%20meters).
 
 To check the scale of the scene, you can add a cube in Isaac Sim and compare it to the exported scene. The cube is 1m x 1m x 1m.
 
