@@ -140,6 +140,14 @@
     z-index: 5;
 }
 
+/* Search: keep the results dropdown above the tabs bar (z 3) and the
+   version selector text (z 5), which share the header's stacking context.
+   Material's .md-search__output is only z 1, so without this the dropdown
+   renders behind them. .md-search is already position:relative upstream. */
+.md-search {
+    z-index: 6;
+}
+
 /* Search field: soft pill */
 .md-search__form {
     border-radius: 0.45rem;
