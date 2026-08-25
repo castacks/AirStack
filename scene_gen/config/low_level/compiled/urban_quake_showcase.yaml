@@ -9,7 +9,7 @@
 # severity      : 1.0
 # spec          : scene_gen/config/presets/urban_quake_showcase.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-24 19:59:15
+# compiled      : 2026-08-25 00:33:42
 # spec extras   : {'asset-pack': 'urban_intact', 'region_m': [200, 200], 'seed': 42, 'overrides': {'disaster': {'field': {'radius_m': 45.0, 'falloff_m': 105.0, 'outside': 0.4}}}}
 
 seed: 42
@@ -560,6 +560,8 @@ targets:
   bury_frac:
   - 0.3
   - 0.8
+  rubble_rim_m: 3.0
+  validate: true
   exit_ring_m: 5.0
   street_band_m: 15.0
   clearance_m: 8.0

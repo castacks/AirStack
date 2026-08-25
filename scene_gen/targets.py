@@ -132,6 +132,10 @@ DEFAULTS = {
     "owns_humans": False,
     "cohorts": {},
     "bury_frac": [0.3, 0.8],
+    # Metres in from a collapsed footprint's face that a trapped victim may be
+    # sampled. Keep it at or under `findability.COVER_M` — see
+    # `_s_inside_rubble`.
+    "rubble_rim_m": 3.0,
     "clearance_m": 8.0,
     "cluster_size": [3, 8],
     "cluster_radius_m": 6.0,
@@ -139,6 +143,9 @@ DEFAULTS = {
     "exit_ring_m": 5.0,
     "street_band_m": 15.0,
     "damaged_from": "soft_storey",
+    # Run `findability.check_on_stage` after placing, stamp each victim with
+    # its verdict, and print the report. See `place`.
+    "validate": True,
     "parent_path": "/World/targets",
     "semantic_class": "person",
 }
@@ -203,10 +210,10 @@ def survey_from_placements(placements, layout=None, resolver=None,
     for p in placements or []:
         if p.get("category") not in _BUILDING_CATS:
             continue
-        w, h = _footprint(p, resolver)
+        w, h, z = _footprint(p, resolver)
         buildings.append({
             "x": float(p.get("x_m", 0.0)), "y": float(p.get("y_m", 0.0)),
-            "w": w, "h": h,
+            "w": w, "h": h, "z": z,
             "yaw": float(p.get("yaw_deg", 0.0)),
             "level": str(p.get("_damage_level", "pristine")),
             "level_i": _level_index(p.get("_damage_level", "pristine"), ladder),
@@ -227,10 +234,10 @@ def survey_from_placements(placements, layout=None, resolver=None,
     for p in placements or []:
         if p.get("category") not in _RUBBLE_CATS:
             continue
-        w, h = _footprint(p, resolver, "debris")
+        w, h, z = _footprint(p, resolver, "debris")
         debris.append({"x": float(p.get("x_m", 0.0)),
                        "y": float(p.get("y_m", 0.0)),
-                       "r": max(w, h) / 2.0})
+                       "r": max(w, h) / 2.0, "z": z})
     lay = layout or {}
     return {
         "region": _wh(lay.get("region")) or _region_of(buildings),
@@ -274,7 +281,7 @@ def survey_from_stage(stage, config: dict) -> dict:
         lo, hi = rng_box.GetMin(), rng_box.GetMax()
         x, y = (lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0
         if cat in _RUBBLE_CATS:
-            debris.append({"x": x, "y": y,
+            debris.append({"x": x, "y": y, "z": float(hi[2] - lo[2]),
                            "r": max(float(hi[0] - lo[0]),
                                     float(hi[1] - lo[1])) / 2.0})
             continue
@@ -285,6 +292,8 @@ def survey_from_stage(stage, config: dict) -> dict:
                         or "/archetypes/" in src),
             "x": x, "y": y,
             "w": float(hi[0] - lo[0]), "h": float(hi[1] - lo[1]),
+            "z": float(hi[2] - lo[2]),
+            # World bounds are already rotated, so the box is axis-aligned.
             "yaw": 0.0,
             "level": levels.level_at(dtype, dmg).name,
             "level_i": _level_index(levels.level_at(dtype, dmg).name, ladder),
@@ -373,15 +382,20 @@ def _region_of(buildings) -> tuple:
 
 
 def _footprint(p, resolver, kind: str = "house") -> tuple:
-    """A placement's world XY footprint, measured where possible."""
+    """A placement's world extent, ``(w, h, height)``, measured where possible.
+
+    The HEIGHT is what `findability` casts a nadir sightline against: a person
+    under a twelve-metre building is not visible from a drone, and a model that
+    stopped at the footprint would say they were.
+    """
     if resolver is not None:
         try:
             from disaster.disaster_stage import placement_footprint
             fp = placement_footprint(resolver, p, kind)
-            return float(fp["sx"]), float(fp["sy"])
+            return float(fp["sx"]), float(fp["sy"]), float(fp["sz"])
         except Exception:
             pass
-    return (12.0, 12.0) if kind == "house" else (3.0, 3.0)
+    return (12.0, 12.0, 12.0) if kind == "house" else (3.0, 3.0, 2.0)
 
 
 # ---------------------------------------------------------------------------
@@ -475,21 +489,71 @@ def _street_dir(b, survey) -> tuple:
     return best[0] / n, best[1] / n
 
 
+def to_local(b, x, y) -> tuple:
+    """(x, y) in the building's own frame, so `w`/`h` mean what they say.
+
+    THE FOOTPRINT IS NOT AXIS-ALIGNED. `w`/`h` come from
+    `placement_footprint`, which measures the asset in ITS frame; the placement
+    then yaws it. Treating the pair as a world AABB is wrong by the difference
+    between the two whenever the footprint is not square, and at yaw 90° it
+    swaps them outright — measured on `urban_quake_tiny` seed 3, where a 30x20
+    building at yaw 90° let an `exit_ring` victim be sited INSIDE it, opaque
+    from all seventeen search sightlines. Every footprint predicate goes
+    through here.
+    """
+    a = math.radians(-float(b.get("yaw") or 0.0))
+    dx, dy = x - b["x"], y - b["y"]
+    c, sn = math.cos(a), math.sin(a)
+    return dx * c - dy * sn, dx * sn + dy * c
+
+
+def from_local(b, lx, ly) -> tuple:
+    """The inverse of `to_local` — a point in the footprint frame, in world."""
+    a = math.radians(float(b.get("yaw") or 0.0))
+    c, sn = math.cos(a), math.sin(a)
+    return b["x"] + lx * c - ly * sn, b["y"] + lx * sn + ly * c
+
+
+def _inside(b, x, y, pad=0.0) -> bool:
+    lx, ly = to_local(b, x, y)
+    return abs(lx) <= b["w"] / 2.0 + pad and abs(ly) <= b["h"] / 2.0 + pad
+
+
 def _inside_any(x, y, buildings, pad=0.0) -> bool:
-    for b in buildings:
-        if (abs(x - b["x"]) <= b["w"] / 2.0 + pad
-                and abs(y - b["y"]) <= b["h"] / 2.0 + pad):
-            return True
-    return False
+    return any(_inside(b, x, y, pad) for b in buildings)
 
 
 def _dist_to_buildings(x, y, buildings) -> float:
     best = float("inf")
     for b in buildings:
-        dx = max(abs(x - b["x"]) - b["w"] / 2.0, 0.0)
-        dy = max(abs(y - b["y"]) - b["h"] / 2.0, 0.0)
+        lx, ly = to_local(b, x, y)
+        dx = max(abs(lx) - b["w"] / 2.0, 0.0)
+        dy = max(abs(ly) - b["h"] / 2.0, 0.0)
         best = min(best, math.hypot(dx, dy))
     return best
+
+
+def edge_depth_m(b, x, y) -> float:
+    """How far inside the footprint of *b* the point (x, y) is, in metres.
+
+    Negative outside. This is the quantity `findability` charges a horizontal
+    sightline for: the rubble it has to cross to reach someone in the pile.
+    """
+    lx, ly = to_local(b, x, y)
+    return min(b["w"] / 2.0 - abs(lx), b["h"] / 2.0 - abs(ly))
+
+
+def _face_toward(b, ux, uy) -> tuple:
+    """The footprint face a searcher on the (ux, uy) side meets, in local axes.
+
+    Returns a unit local normal — ``(±1, 0)`` or ``(0, ±1)``.
+    """
+    a = math.radians(-float(b.get("yaw") or 0.0))
+    c, sn = math.cos(a), math.sin(a)
+    lx, ly = ux * c - uy * sn, ux * sn + uy * c
+    if abs(lx) >= abs(ly):
+        return (1.0 if lx >= 0 else -1.0, 0.0)
+    return (0.0, 1.0 if ly >= 0 else -1.0)
 
 
 def _in_debris(x, y, survey) -> bool:
@@ -510,22 +574,59 @@ def _in_roads(x, y, roads) -> bool:
 # -- one sampler per cohort. Each returns (x, y, extra) or None. -------------
 
 def _s_inside_rubble(rng, survey, cfg, damaged):
-    """Inside a collapsed footprint, biased to the street-facing edge.
+    """Inside a collapsed footprint, in the RIM BAND behind one face.
 
-    `t**0.35` pushes the draw toward 1 — the edge — because that is where the
-    voids that people are recovered alive from are: beside the perimeter
-    structure, near the exits, not in the deep middle of the pile.
+    Two things want the same answer here and they are worth stating together.
+
+    USAR doctrine says survivors are recovered from the PERIMETER of a collapse
+    — beside the perimeter structure, in stairwells, near the exits — not from
+    the deep middle of the pile. And `findability` says a sightline can only
+    reach so far into rubble before the person at the end of it is buried
+    rather than obstructed: `findability.COVER_M`.
+
+    So the depth is sampled DIRECTLY, in metres in from one face, rather than
+    as a fraction of the footprint. `rubble_rim_m` is that band, and it is the
+    same 3 m the validator charges, which is what makes the cohort findable BY
+    CONSTRUCTION instead of by luck. The predecessor's `t**0.35` fraction-based
+    draw is what this replaces: on a 30 m footprint it put people 6-10 m deep,
+    and `urban_quake_tiny` seed 1 failed the gate at 9.74 m of cover.
     """
     if not damaged:
         return None
     b = rng.choice(damaged)
-    ux, uy = _street_dir(b, survey)
-    t = rng.random() ** 0.35
     hx, hy = b["w"] / 2.0, b["h"] / 2.0
-    x = b["x"] + ux * hx * t + rng.uniform(-0.3, 0.3) * hx * (1.0 - t)
-    y = b["y"] + uy * hy * t + rng.uniform(-0.3, 0.3) * hy * (1.0 - t)
+    nx, ny = _face_toward(b, *_street_dir(b, survey))
+    rim = max(0.2, min(float(cfg.get("rubble_rim_m", 3.0)), min(hx, hy) * 0.9))
+    d = rim * rng.random() ** 0.7          # shallow more often than deep
+    lat = rng.uniform(-0.75, 0.75)         # along the face, clear of the corners
+    if nx:
+        lx, ly = nx * (hx - d), lat * hy
+    else:
+        lx, ly = lat * hx, ny * (hy - d)
+    x, y = from_local(b, lx, ly)
     return x, y, {"building": b["prim_path"], "level": b["level"],
+                  "rubble_depth_m": round(edge_depth_m(b, x, y), 3),
                   "bury_frac": rng.uniform(*cfg.get("bury_frac", [0.3, 0.8]))}
+
+
+def _outside_face(rng, b, survey, out_m, lat=0.5):
+    """A point *out_m* clear of one face of *b*, on the street side.
+
+    In the footprint's OWN frame, which the previous version was not: it scaled
+    the world street vector by each half-extent independently, so a diagonal
+    street direction produced a point still inside the footprint whenever the
+    offset was small. `_inside_any` then failed to reject it because it was not
+    yaw-aware either, and the two bugs cancelled into a victim sealed inside a
+    building — `urban_quake_tiny` seed 3, opaque from all 17 sightlines.
+    """
+    nx, ny = _face_toward(b, *_street_dir(b, survey))
+    hx, hy = b["w"] / 2.0, b["h"] / 2.0
+    t = rng.uniform(-lat, lat)
+    if nx:
+        lx, ly = nx * (hx + out_m), t * hy
+    else:
+        lx, ly = t * hx, ny * (hy + out_m)
+    return from_local(b, lx, ly)
 
 
 def _s_exit_ring(rng, survey, cfg, damaged):
@@ -533,12 +634,9 @@ def _s_exit_ring(rng, survey, cfg, damaged):
     if not damaged:
         return None
     b = rng.choice(damaged)
-    ux, uy = _street_dir(b, survey)
     out = rng.uniform(0.5, float(cfg.get("exit_ring_m", 5.0)))
-    lat = rng.uniform(-0.5, 0.5)
-    x = b["x"] + ux * (b["w"] / 2.0 + out) - uy * lat * b["w"] / 2.0
-    y = b["y"] + uy * (b["h"] / 2.0 + out) + ux * lat * b["h"] / 2.0
-    if _inside_any(x, y, survey["buildings"]):
+    x, y = _outside_face(rng, b, survey, out)
+    if _inside_any(x, y, survey["buildings"], pad=0.5):
         return None
     return x, y, {"building": b["prim_path"], "level": b["level"]}
 
@@ -584,10 +682,8 @@ def _s_rubble_edge(rng, survey, cfg, damaged):
     if not damaged:
         return None
     b = rng.choice(damaged)
-    ux, uy = _street_dir(b, survey)
-    x = b["x"] + ux * (b["w"] / 2.0 + rng.uniform(3.0, 8.0))
-    y = b["y"] + uy * (b["h"] / 2.0 + rng.uniform(3.0, 8.0))
-    if _inside_any(x, y, survey["buildings"]):
+    x, y = _outside_face(rng, b, survey, rng.uniform(3.0, 8.0))
+    if _inside_any(x, y, survey["buildings"], pad=0.5):
         return None
     return x, y, {"building": b["prim_path"]}
 
@@ -865,7 +961,15 @@ def settle_on_surface(stage, victims: list, placements: list,
         surface = 0.0 if surface is None else float(surface) / scale
         target = surface
         if v["cohort"] == "inside_rubble":
-            target -= float(v.get("bury_frac", 0.5)) * height_m
+            # SINK INTO THE PILE, NOT THROUGH IT. `bury_frac` is a fraction of
+            # the BODY, so on a shallow pile it can ask for more depth than the
+            # pile has: a crouching victim is 1.7 m tall and a pancaked pile is
+            # often under 2 m, so `bury_frac: 0.8` puts them under the terrain,
+            # where no sightline reaches them from any bearing and the ground
+            # truth claims a person inside the earth. Grade is the floor.
+            target = max(surface - float(v.get("bury_frac", 0.5)) * height_m,
+                         0.0)
+        v["surface_z"] = round(surface, 3)
         shift = target - lo_m
         if abs(shift) < 1e-4:
             continue
@@ -1022,6 +1126,12 @@ def place(stage, config: dict, placements=None, layout=None, resolver=None,
             "damage": float(v["damage"]),
         })
         _label(prim, cls, v["cohort"])
+
+    if cfg.get("validate", True):
+        import findability
+
+        findability.check_placed(stage, victims, scene_scale_factor,
+                                 str(config.get("_name") or ""))
 
     gt = write_ground_truth(victims, config, out_path or default_gt_path(config))
     s = summary(victims)

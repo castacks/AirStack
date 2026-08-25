@@ -1122,7 +1122,17 @@ targets:
 
   damaged_from: soft_storey  # ladder rung at or past which a building can trap
                              # someone (disaster/levels.py LADDERS)
-  bury_frac: [0.3, 0.8]      # [min, max] of body height sunk into the rubble
+  bury_frac: [0.3, 0.8]      # [min, max] of body height sunk into the rubble,
+                             # clamped at grade — a fraction of a 1.7 m body is
+                             # more depth than a shallow pile has
+  rubble_rim_m: 3.0          # m — how far in from a collapsed footprint's face
+                             # a trapped victim may be. Keep it at or under
+                             # findability.COVER_M: the placer puts people
+                             # where a search sightline reaches, and
+                             # tests/test_findability.py checks that it did
+  validate: true             # run findability.check_on_stage after placing,
+                             # stamp each victim with its verdict and print the
+                             # report (Stage C only; needs PhysX)
   exit_ring_m: 5.0           # m — how far outside the facade the escapers fell
   street_band_m: 15.0        # m — width of the street band used when no road
                              # corridor list reached Stage C (USD-only survey)

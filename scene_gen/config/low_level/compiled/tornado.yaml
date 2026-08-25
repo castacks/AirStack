@@ -9,7 +9,7 @@
 # severity      : 1.0
 # spec          : scene_gen/config/presets/tornado.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-24 19:59:14
+# compiled      : 2026-08-25 00:33:42
 # spec extras   : {'heading_deg': 35, 'region_m': [800, 800], 'seed': 42}
 
 seed: 42
@@ -561,6 +561,8 @@ targets:
   bury_frac:
   - 0.3
   - 0.8
+  rubble_rim_m: 3.0
+  validate: true
   exit_ring_m: 5.0
   street_band_m: 15.0
   clearance_m: 8.0
