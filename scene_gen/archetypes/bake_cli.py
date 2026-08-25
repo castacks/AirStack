@@ -79,6 +79,10 @@ def _parse(argv=None):
     ap.add_argument("--out", default="",
                     help="output root (default: scene_gen/assets/archetypes)")
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--skip-existing", action="store_true",
+                    help="leave alone any archetype already baked and in the "
+                         "manifest; the only way to resume an interrupted "
+                         "bake, or to re-cut just what a changed knob affects")
     ap.add_argument("--only", default="",
                     help="comma-separated type slugs to bake")
     ap.add_argument("--used-only", action="store_true",
@@ -190,7 +194,8 @@ def main(argv=None) -> int:
             stage_a.prepare_stage(ctx.get_stage())
             res = stage_a.run(ctx.get_stage(), config, dtype,
                               out_dir=args.out, seed=args.seed,
-                              only=selections[dtype])
+                              only=selections[dtype],
+                              skip_existing=args.skip_existing)
             failed += res["wanted"] - res["baked"]
     except BaseException:
         # PRINT IT FIRST. `SimulationApp.close()` hard-exits the process (see

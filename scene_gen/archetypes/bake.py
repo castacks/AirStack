@@ -50,6 +50,7 @@ are kept so nothing else about a cell changes.
 from __future__ import annotations
 
 import math
+import json
 import os
 import random
 import sys
@@ -167,11 +168,33 @@ class Baker:
         self._missing = 0
 
     # -- build ------------------------------------------------------------
-    def build(self, items: list, ssf: float) -> int:
-        """Lay every (type, level) out on the grid and damage it in place."""
+    def build(self, items: list, ssf: float, skip_existing: bool = False) -> int:
+        """Lay every (type, level) out on the grid and damage it in place.
+
+        *skip_existing* leaves alone any cell whose USD is already on disk and
+        already in the manifest. A bake has no other resume: changing one knob
+        and restarting re-cuts all 86 cells from scratch, which is 90 minutes,
+        and most of it is work that the knob does not affect — `pristine` is
+        the source asset re-exported and comes out byte-identical every time.
+        Baking the 500 m library, that cost four passes over the same cells.
+        """
         from pxr import UsdGeom, Sdf
 
         combos = [(it, lv) for it in items for lv in it.levels]
+        if skip_existing:
+            have = {r.get("usd") for r in self._existing_records()}
+            keep = []
+            for it, lv in combos:
+                name = lib.archetype_name(it.type, lv) + ".usd"
+                if name in have and os.path.exists(
+                        os.path.join(lib.disaster_dir(_SCENE_GEN, self.disaster,
+                                                      self.out_dir), name)):
+                    continue
+                keep.append((it, lv))
+            if len(keep) < len(combos):
+                print(f"[stage-a] resume: {len(combos) - len(keep)} cell(s) "
+                      f"already baked, {len(keep)} to do", flush=True)
+            combos = keep
         ncol = _grid_columns(len(combos))
         print(f"[stage-a] {len(combos)} cells on a {ncol}-column grid")
 
@@ -218,6 +241,17 @@ class Baker:
             if dt > 5.0:
                 print(f"[stage-a]     {dt:.0f}s", flush=True)
         return len(self.cells)
+
+    def _existing_records(self) -> list:
+        """Records from the manifest already on disk, or empty."""
+        path = os.path.join(
+            lib.disaster_dir(_SCENE_GEN, self.disaster, self.out_dir),
+            "manifest.json")
+        try:
+            data = json.load(open(path))
+        except Exception:                                       # noqa: BLE001
+            return []
+        return data.get("archetypes", data) if isinstance(data, dict) else data
 
     def _unload(self, cell):
         """Take a finished cell off the stage so it stops costing memory."""
@@ -523,7 +557,7 @@ WHICH damage runs is the disaster's own decision, not this
 
 def run(stage, config: dict, disaster: str, out_dir: str = "",
         seed: int = 7, parent: str = "/World/stage/generated",
-        ssf: float = 1.0, only=None) -> dict:
+        ssf: float = 1.0, only=None, skip_existing: bool = False) -> dict:
     """Bake one disaster's archetype library. Returns a summary dict.
 
     *only* restricts the bake to a set of ``(type, kind)`` pairs. A full bake
@@ -549,7 +583,7 @@ def run(stage, config: dict, disaster: str, out_dir: str = "",
         fracture.ensure_deps()
     t0 = time.time()
     baker = Baker(stage, config, dtype, out_dir, seed, parent)
-    baker.build(items, ssf)
+    baker.build(items, ssf, skip_existing=skip_existing)
     baker.settle()
     recs = baker.export()
     manifest = baker.write_manifest()
