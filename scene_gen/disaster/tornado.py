@@ -343,6 +343,21 @@ TREE_LEVELS = ("pristine", "limbed", "leaning", "fallen", "snapped")
 # does. The threshold that matters is `fallen` — a windthrown tree with its
 # crown on the ground is the most legible single feature of a track from the
 # air, and it wants to be the majority outcome inside the corridor.
+# SPECIES WHOSE CROWN IS TOO WIDE TO LIE DOWN, so they SNAP instead of
+# uprooting. Not a fudge — it is the real bias, and the numbers are why:
+# `tip_tree` seats a windthrown tree by bisecting its lean until its lowest
+# point is just into the turf, and measured across the library that works for
+# every species except Black_Oak, whose 25.4 m crown is still 8.2 m below
+# grade at the shallowest lean the level allows. A tree that large genuinely
+# does tend to fail in the STEM rather than at the roots: its root plate is
+# enormous and its trunk section is what runs out of capacity first.
+#
+# The effect is small in practice — the suburban asset set plants Black_Oak
+# only in open ground (`suburb_tornado.yaml` keeps it out of the frontage
+# pool, where a 25 m canopy sits on the roof), so this promotes a handful of
+# park specimens and nothing on the streets.
+NO_UPROOT = ("Black_Oak",)
+
 _TREE_CUTS = ((0.07, "pristine"),
               (0.30, "limbed"),
               (0.46, "leaning"),
@@ -371,7 +386,7 @@ def house_level_for_intensity(i, rng, jitter=0.07):
     return _ladder(_HOUSE_CUTS, i, rng, jitter)
 
 
-def tree_level_for_intensity(i, rng, jitter=0.09):
+def tree_level_for_intensity(i, rng, jitter=0.09, species=None):
     """Damage level for a tree standing where intensity is `i`.
 
     A LARGER JITTER THAN THE HOUSES GET, on purpose. Whether a given tree goes
@@ -380,8 +395,16 @@ def tree_level_for_intensity(i, rng, jitter=0.09):
     tree at a given distance did the same thing is the one thing that never
     happens. Same argument the wildfire skill makes for severity being a
     property of the STAND, run the other way.
+
+    `species` promotes `fallen` to `snapped` for the wide-crowned species —
+    see `NO_UPROOT`. Omit it and the ladder is returned unmodified, which is
+    what a caller that has no species to hand (the host-side plan against a
+    placement with no `usd`) should get.
     """
-    return _ladder(_TREE_CUTS, i, rng, jitter)
+    lv = _ladder(_TREE_CUTS, i, rng, jitter)
+    if lv == "fallen" and species and str(species) in NO_UPROOT:
+        return "snapped"
+    return lv
 
 
 # `_PLAN`-shaped override for `vegetation.burn_tree`, which reads its level

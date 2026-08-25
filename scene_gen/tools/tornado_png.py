@@ -89,9 +89,21 @@ def _house_xy(placements):
 
 
 def _tree_xy(placements):
-    return [(float(q.get("x_m", 0.0)), float(q.get("y_m", 0.0)))
-            for q in placements
-            if "tree" in str(q.get("category", ""))]
+    """Every tree placement as `(x, y, species)`.
+
+    SPECIES MATTERS TO THE TALLY, because `tree_level_for_intensity` promotes
+    `fallen` to `snapped` for the wide-crowned ones (`tornado.NO_UPROOT`).
+    Derived from the USD basename, which is exactly how
+    `suburb_scene.generate_suburb_on_stage` derives it for the assembly, so
+    the two agree.
+    """
+    out = []
+    for q in placements:
+        if "tree" not in str(q.get("category", "")):
+            continue
+        sp = os.path.splitext(os.path.basename(str(q.get("usd", ""))))[0]
+        out.append((float(q.get("x_m", 0.0)), float(q.get("y_m", 0.0)), sp))
+    return out
 
 
 def main():
@@ -122,8 +134,8 @@ def main():
     h_lv, t_lv = [], []
     for (x, y, _fp) in houses:
         h_lv.append(tn.house_level_for_intensity(inten(x, y), rng))
-    for (x, y) in trees:
-        t_lv.append(tn.tree_level_for_intensity(inten(x, y), rng))
+    for (x, y, sp) in trees:
+        t_lv.append(tn.tree_level_for_intensity(inten(x, y), rng, species=sp))
     ht, tt = collections.Counter(h_lv), collections.Counter(t_lv)
 
     summ = tn.summarise(tcfg, region, np.random.default_rng(seed + 23))
@@ -140,8 +152,10 @@ def main():
         n_plank += len(planks.scatter_from_wreck(
             x, y, fp, inten(x, y), tcfg["heading_deg"], tcfg["throw_m"], dbg,
             n_pieces=140))
+    # SAME `per_100m2` AND `cell_m` THE LAUNCHER USES, or the budget printed
+    # here is not the budget that gets built.
     n_track = len(planks.scatter_over_region(
-        region, inten, tcfg["heading_deg"], dbg, per_100m2=1.6))
+        region, inten, tcfg["heading_deg"], dbg, per_100m2=4.5, cell_m=10.0))
 
     print("\n[tornado_png] {0}".format(args.config))
     print("  region        {0:.0f} x {1:.0f} m, seed {2}".format(rw, rh, seed))

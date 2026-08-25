@@ -216,13 +216,48 @@ Two things that are not obvious:
   the existing ops BY NAME rather than by position, because a tree may have
   been placed by `apply_placements` (translate + rotateZ + scale) or by a bake
   grid (translate + scale).
-- **Lean 72-82 degrees, not 90, and lift the base.** Flat puts the bole IN the
-  ground and reads as a log somebody placed. More importantly, rotating about
-  the base drives whatever was on the downwind side of the trunk *under* the
-  lawn — at 82 degrees a crown point 10 m out on that side ends up ~7.8 m
-  below grade. The `lift_m` is the root plate's own radius, which is both the
-  physical reason the base is off the ground and what keeps the crown out of
-  it.
+- **Lean is an OUTPUT, not an input — measure it.** Flat (90°) puts the bole
+  IN the ground and reads as a log somebody placed. Worse, rotating about the
+  base drives whatever was on the downwind side of the trunk *under* the lawn,
+  and how far under is set by the CROWN RADIUS, which in this pool spans 6 m
+  (Douglas_Fir) to 25 m (Black_Oak). One fixed lean is therefore wrong for
+  every species but the one it was tuned on. Measured at lean 77 with a 1.4 m
+  lift, the lowest point of each tree:
+
+  | species | min z |
+  |---|---|
+  | Douglas_Fir | −0.12 m (barely touches) |
+  | Largetooth_Aspen | −0.98 m |
+  | American_Beech | −0.47 m |
+  | Shumard_Oak | **−3.81 m** |
+  | Black_Oak | **−11.95 m** — buried to mid-canopy |
+
+  The physics behind the fix is the wildfire skill's own observation read from
+  the other side: *a fallen tree with its branches on does not lie down*. Its
+  limbs hold it clear of the ground, and that is not a bug — "the tree really
+  is resting on its branch tips because nothing broke them". A fire-killed
+  tree loses those limbs and drops flat; a windthrown tree **in leaf** keeps
+  them and comes to rest propped on its own crown, 20–30° above horizontal.
+
+  So `tip_tree(seat_band=(lo, hi))` treats `lean_deg` as a MAXIMUM and
+  bisects down until the tree's lowest point lands just into the turf
+  (−1.1 to −0.15 m). `min_z` falls monotonically with lean, so plain bisection
+  converges in a handful of `BBoxCache` reads. **Build a fresh `BBoxCache` per
+  measurement** — it is a cache, and reusing one across a transform change
+  hands back the pre-change bound, so the bisection converges on a number that
+  is not what is on the stage. Result after seating: every species lands in
+  band except the two widest crowns, which clamp at `lean_min_deg` (46°).
+
+- **`tornado.NO_UPROOT` — the widest crowns SNAP instead.** Black_Oak is still
+  8.2 m under at the shallowest allowed lean, and no angle fixes a 25 m crown
+  lying on a flat plane. The real bias is the answer: a tree that large tends
+  to fail in the STEM rather than at the roots, because its root plate is
+  enormous and its trunk section runs out of capacity first. So
+  `tree_level_for_intensity(..., species=...)` promotes `fallen` to `snapped`
+  for those species, and the bake skips the combination so no stale archetype
+  is left on disk for a future caller to reference by accident. The effect is
+  small — the asset set plants Black_Oak only in open ground, never on the
+  frontage — but without it every park specimen in the track is half-buried.
 
 ### `drop_to_ground` MUST be off for the tipped levels
 
@@ -443,7 +478,7 @@ because a corridor whose edges are off-frame is not a corridor.
 | `throw_speed_mps` | 4 -> 11 by severity | the SETTLE bias; every metre of it costs settle steps |
 | settle `max_speed` | 2.2 x throw | the 4.0 default silently clamps the bias |
 | settle `damping` | 0.16 | 0.55 bleeds over half the speed away per second |
-| settle steps (bake) | 700 | a thrown fragment has a trajectory as well as a fall; `steps` is a CEILING with early exit, so a generous budget is free on the quick cells |
+| settle steps (bake) | 1200 | MEASURED: 700 consumed all of itself and left 182 of 7,219 bodies still moving — baked mid-flight. A thrown fragment is airborne far longer than a falling one. `steps` is a CEILING with early exit, so a generous budget is free on the quick cells; watch the STILL MOVING line |
 | `consume` | 0 to `leveled`, 0.62 at `swept` | wind displaces; only at EF4-5 is the material genuinely off the lot |
 | `consume_pool` | 1.6 | soft bias — the big recognisable pieces are what make a track read |
 | `rough` (plank) | 0.010 | 0.045 bows a thin board |
@@ -451,7 +486,9 @@ because a corridor whose edges are off-frame is not a corridor.
 | `min_aspect` (tree debris) | 1.25 | 2.0 rejects every plank-shaped piece, silently |
 | `len_bias` (tree debris) | 1.15 | the fire path's 2.2 produces mostly charcoal-sized pieces |
 | tree debris `thick_m` | 0.10-0.30 | a limb torn off a live tree, not a burnt stick |
-| tree lean (`fallen`) | 72-82 deg | 90 puts the bole in the ground; the lift keeps the crown out of it |
+| tree lean (`fallen`) | 74-82 deg MAX, then seated | the resting angle is set by the crown, not chosen — `seat_band` bisects it down per species |
+| `seat_band` | (-1.1, -0.15) m | the crown presses into the turf rather than hovering over it |
+| `lean_min_deg` | 46 | below this it reads as leaning, not fallen; the two widest crowns clamp here |
 | `tilt_p` (planks) | 0.22 | debris photographs as a mat; a uniform tilt is a jackstraw pile |
 | plank yaw | heading + 90, sigma 46 deg | long thin objects lie across a flow more often than along it |
 | `MUD_TILE_M` | 45 | 1K pack; one tile across 500 m is 0.5 m/px |
@@ -509,7 +546,7 @@ which turns the iteration loop from minutes into a fraction of one.
 | var | default | what |
 |---|---|---|
 | `TOR_PLANKS` | 140 | boards per wrecked house; 0 disables the field |
-| `TOR_TRACK_PER100` | 1.6 | boards per 100 m2 of corridor |
+| `TOR_TRACK_PER100` | 4.5 | boards per 100 m2 of corridor; scaled by `intensity ** 1.4`, so the edge stays sparse |
 | `TOR_GROUND` | 1 | 0 disables the mud overlay |
 | `MUD_TILE_M` / `MUD_BANDS` / `MUD_OPACITY_*` / `MUD_ISLANDS` / `MUD_GAMMA` | see `tornado.knobs_from_env` | overlay tuning |
 | `TOR_SEED` | 11 | the damage draws (not the layout seed, which is in the preset) |

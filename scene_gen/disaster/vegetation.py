@@ -2356,7 +2356,8 @@ def plain_wood(stage, parent_path, texture="", scale_uv=(0.30, 0.30),
                                 tile_m=1.1)
 
 
-def tip_tree(stage, tree_path, lean_deg, azimuth_deg=0.0, lift_m=0.0):
+def tip_tree(stage, tree_path, lean_deg, azimuth_deg=0.0, lift_m=0.0,
+             seat_band=None, lean_min_deg=44.0, iters=8):
     """Rotate a WHOLE placed tree about its own base. Returns the lean applied.
 
     THIS IS THE CHEAPEST CORRECT THING IN THE WHOLE PIPELINE, and it only
@@ -2384,8 +2385,31 @@ def tip_tree(stage, tree_path, lean_deg, azimuth_deg=0.0, lift_m=0.0):
     ground actually does — and it is also what keeps the far side of the crown
     from sinking metres below grade, since rotating about the base drives
     anything that was on the downwind side of the trunk under the lawn.
+
+    `seat_band=(lo, hi)` MEASURES INSTEAD OF ASSUMING, and it is what makes
+    this work across the library rather than on one species. The depth a
+    tipped crown reaches below grade is set by the CROWN RADIUS, and this pool
+    spans 6 m (Douglas_Fir) to 25 m (Black_Oak) — so one fixed lean is wrong
+    for every tree but the one it was tuned on. Measured at lean 77 with a
+    1.4 m lift: Douglas_Fir's lowest point sits at -0.12 m (it barely touches),
+    Shumard_Oak's at -3.81, Black_Oak's at -11.95, which is a tree buried to
+    the middle of its canopy.
+
+    The physical fact behind the fix is the one the wildfire skill records
+    from the other side: **a fallen tree with its branches on does not lie
+    down**. Its limbs hold it clear of the ground, and that is not a bug —
+    "the tree really is resting on its branch tips because nothing broke
+    them". A fire-killed tree loses those limbs and drops flat; a windthrown
+    tree in leaf keeps them and comes to rest propped on its own crown, twenty
+    to thirty degrees above horizontal. So the RESTING ANGLE is an output, not
+    an input: `lean_deg` becomes a maximum and the lean is bisected down until
+    the tree's lowest point lands in `seat_band` metres of grade (slightly
+    negative, so the crown presses into the turf rather than hovering over
+    it). A tree whose crown is too big to seat even at `lean_min_deg` keeps
+    that minimum and stays partly buried, which is also what happens to a real
+    one — the buried branches break.
     """
-    from pxr import Gf, UsdGeom
+    from pxr import Gf, Usd, UsdGeom
 
     prim = stage.GetPrimAtPath(tree_path)
     if not prim or not prim.IsValid():
@@ -2395,34 +2419,79 @@ def tip_tree(stage, tree_path, lean_deg, azimuth_deg=0.0, lift_m=0.0):
     # Read what is there by NAME rather than by position: the tree may have
     # been placed by `apply_placements` (translate + rotateZ + scale) or by a
     # bake grid (translate + scale), and assuming an order is how a scale gets
-    # silently dropped.
+    # silently dropped. Captured ONCE, so the seating loop below can re-apply
+    # from the original pose instead of compounding its own lift.
     vals = {}
     for op in xf.GetOrderedXformOps():
         vals[op.GetOpName().split(":")[-1]] = op.Get()
-    xf.SetXformOpOrder([])
-
-    t = vals.get("translate") or Gf.Vec3d(0.0, 0.0, 0.0)
-    xf.AddTranslateOp().Set(Gf.Vec3d(float(t[0]), float(t[1]),
-                                     float(t[2]) + float(lift_m)))
-    if "rotateZ" in vals and vals["rotateZ"] is not None:
-        xf.AddRotateZOp().Set(float(vals["rotateZ"]))
+    base_t = vals.get("translate") or Gf.Vec3d(0.0, 0.0, 0.0)
     a = math.radians(float(azimuth_deg))
     # Perpendicular to the fall direction, so tipping about it carries the
     # crown toward that azimuth — the same construction `topple` uses.
     axis = Gf.Vec3d(-math.sin(a), math.cos(a), 0.0)
-    # BUILT FROM COMPONENTS. `Gf.Rotation(...).GetQuat()` is a Quatd and
-    # `AddOrientOp()` defaults to FLOAT precision, so handing the Quatd
-    # straight over relies on a cross-precision constructor. Reading the real
-    # and imaginary parts out and rebuilding a Quatf cannot depend on that.
-    _q = Gf.Rotation(axis, float(lean_deg)).GetQuat()
-    _im = _q.GetImaginary()
-    xf.AddOrientOp().Set(Gf.Quatf(float(_q.GetReal()),
-                                  float(_im[0]), float(_im[1]),
-                                  float(_im[2])))
-    sc = vals.get("scale")
-    if sc is not None:
-        xf.AddScaleOp().Set(Gf.Vec3f(float(sc[0]), float(sc[1]), float(sc[2])))
-    return float(lean_deg)
+
+    def _apply(lean):
+        xf.SetXformOpOrder([])
+        xf.AddTranslateOp().Set(Gf.Vec3d(float(base_t[0]), float(base_t[1]),
+                                         float(base_t[2]) + float(lift_m)))
+        if "rotateZ" in vals and vals["rotateZ"] is not None:
+            xf.AddRotateZOp().Set(float(vals["rotateZ"]))
+        # BUILT FROM COMPONENTS. `Gf.Rotation(...).GetQuat()` is a Quatd and
+        # `AddOrientOp()` defaults to FLOAT precision, so handing the Quatd
+        # straight over relies on a cross-precision constructor. Reading the
+        # real and imaginary parts out and rebuilding a Quatf cannot depend
+        # on that.
+        q = Gf.Rotation(axis, float(lean)).GetQuat()
+        im = q.GetImaginary()
+        xf.AddOrientOp().Set(Gf.Quatf(float(q.GetReal()), float(im[0]),
+                                      float(im[1]), float(im[2])))
+        sc = vals.get("scale")
+        if sc is not None:
+            xf.AddScaleOp().Set(Gf.Vec3f(float(sc[0]), float(sc[1]),
+                                         float(sc[2])))
+
+    if not seat_band:
+        _apply(lean_deg)
+        return float(lean_deg)
+
+    lo, hi = float(seat_band[0]), float(seat_band[1])
+
+    def _min_z(lean):
+        _apply(lean)
+        # A FRESH CACHE EVERY TIME. `BBoxCache` is a cache: reusing one across
+        # a transform change hands back the bound from before the change, and
+        # the bisection then converges on a number that is not what is on the
+        # stage.
+        bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                               [UsdGeom.Tokens.default_])
+        r = bc.ComputeWorldBound(prim).ComputeAlignedRange()
+        return None if r.IsEmpty() else float(r.GetMin()[2])
+
+    # min_z falls monotonically as the lean grows, so plain bisection on the
+    # lean converges. Clamp first: if the tree cannot be seated at the
+    # shallowest allowed lean it never will be, and iterating is wasted.
+    lean_hi, lean_lo = float(lean_deg), float(lean_min_deg)
+    z = _min_z(lean_hi)
+    if z is None or lo <= z <= hi:
+        return lean_hi
+    if z > hi:                       # floating even fully tipped
+        return lean_hi
+    z = _min_z(lean_lo)
+    if z is not None and z < lo:     # buried even at the shallowest lean
+        return lean_lo
+    for _ in range(int(iters)):
+        mid = 0.5 * (lean_lo + lean_hi)
+        z = _min_z(mid)
+        if z is None:
+            break
+        if z < lo:
+            lean_hi = mid
+        elif z > hi:
+            lean_lo = mid
+        else:
+            return mid
+    _apply(lean_lo)
+    return lean_lo
 
 
 def root_plate(stage, path, x_m, y_m, radius_m, azimuth_deg, rng,
@@ -2592,21 +2661,27 @@ def wind_tree(stage, tree_path, level, parent_path, out_parent, rng,
         res["loose"] += l
     elif geom in ("lean", "uproot"):
         if geom == "lean":
+            # Root-sprung, not thrown. Still standing on its own roots, so
+            # there is no plate and nothing to seat.
             lean = rng.uniform(19.0, 38.0)
-            lift = 0.0
-            r_plate = 0.0
+            lift, r_plate, band = 0.0, 0.0, None
         else:
-            # NOT FLAT. 72-82 degrees leaves the trunk a few degrees off
-            # horizontal, which is where a real one comes to rest — its crown
-            # is holding it up. Laying it at 90 puts the bole IN the ground
-            # and reads as a log that was placed there.
-            lean = rng.uniform(72.0, 82.0)
+            # A MAXIMUM, NOT A POSE. 82 degrees is as far over as a tree in
+            # leaf ever gets; where it actually stops is where its own crown
+            # stops it, and that depends on the crown's radius — 6 m on a
+            # Douglas Fir, 25 m on a Black Oak. `tip_tree(seat_band=...)`
+            # bisects down from here until the tree's lowest point is just
+            # into the turf. See that function for the measurements.
+            lean = rng.uniform(74.0, 82.0)
             # The lift is the root plate's own radius, which is both why the
             # base is off the ground and how far up it is.
             r_plate = rng.uniform(1.6, 3.0)
             lift = r_plate * 0.62
-        tip_tree(stage, tree_path, lean, azimuth_deg=float(azimuth_deg),
-                 lift_m=lift)
+            band = (-1.1, -0.15)
+        lean = tip_tree(stage, tree_path, lean,
+                        azimuth_deg=float(azimuth_deg), lift_m=lift,
+                        seat_band=band, lean_min_deg=46.0)
+        res["lean_deg"] = float(lean)
         if r_plate > 0.0:
             from pxr import UsdGeom as _UG
 

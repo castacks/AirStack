@@ -263,7 +263,13 @@ def main():
     # ---- TREES -----------------------------------------------------------
     tree_specs = []           # [species, level, X, Y, tree_path, extra_paths]
     tree_loose = []           # -> convexDecomposition (a limb is not convex)
-    tcombos = [(sp, lv) for sp in TREE_SPECIES for lv in TREE_LEVELS]
+    # SKIP WHAT THE ASSEMBLY WILL NEVER ASK FOR. `tornado.NO_UPROOT` promotes
+    # `fallen` to `snapped` for the wide-crowned species, so baking their
+    # fallen archetype is pure cost — and a stale one on disk is worse than
+    # absent, because it would be referenced by any future caller that forgot
+    # the promotion.
+    tcombos = [(sp, lv) for sp in TREE_SPECIES for lv in TREE_LEVELS
+               if not (lv == "fallen" and sp in tn.NO_UPROOT)]
     tcol = max(1, int(math.ceil(math.sqrt(len(tcombos)))))
     y0 = (len(hcombos) // ncol + 2) * GRID    # trees below the house grid
     for idx, (sp, lv) in enumerate(tcombos if "tree" in KINDS else []):
@@ -293,6 +299,15 @@ def main():
         all_static.extend(res.get("statics", []))
         tree_loose.extend(res.get("loose", []))
         tree_specs.append([sp, lv, X, Y, tp, extra])
+        # THE SEATED LEAN IS THE DIAGNOSTIC for the whole windthrow path, and
+        # it is not recoverable after the export. `tip_tree` bisects it down
+        # per species until the crown is just into the turf, so a value stuck
+        # at the 46 deg floor means that species' crown is too wide to lie
+        # down and it should be in `tornado.NO_UPROOT` — which is exactly how
+        # Black_Oak was found. Printed here rather than inferred later.
+        if res.get("lean_deg"):
+            print("[tarch]   {0:<18} {1:<8} seated at {2:.0f} deg".format(
+                sp, lv, res["lean_deg"]))
     print("[tarch] built {0} tree grid cells".format(len(tree_specs)))
 
     # ---- settle the whole grid once, WITH A WIND ---------------------------
@@ -310,13 +325,19 @@ def main():
         print("[tarch] settling {0} bodies with a {1:.1f} m/s bias toward +X"
               .format(len(all_loose), THROW_MPS))
         settle.run(stage, all_loose, all_static,
-                   # MORE STEPS THAN THE FIRE BAKE'S 420. A thrown fragment
-                   # has a trajectory as well as a fall, and `run` treats
-                   # `steps` as a CEILING with an early exit once nothing is
-                   # moving — so a generous budget costs nothing on the cells
-                   # that settle quickly and is the difference between a
-                   # baked-mid-flight board and a landed one on the rest.
-                   steps=700, kick=0.15,
+                   # FAR MORE STEPS THAN THE FIRE BAKE'S 420, and 700 was
+                   # still not enough: measured on the first full run, all
+                   # 700 were consumed and 182 of 7,219 bodies were STILL
+                   # MOVING when it baked — frozen mid-flight, which is the
+                   # one failure `bake_result` can produce and the wildfire
+                   # skill warns about. A thrown fragment has a trajectory as
+                   # well as a fall, and at 9 m/s into 0.16 damping it is
+                   # airborne for a long time. `run` treats `steps` as a
+                   # CEILING with an early exit once nothing is moving, so a
+                   # generous budget costs nothing on the cells that settle
+                   # quickly. Watch the "STILL MOVING" line: if it is not
+                   # zero, this number is too low.
+                   steps=1200, kick=0.15,
                    rng=random.Random(SEED), bake_result=True,
                    approx_map=approx_map,
                    bias=bias,

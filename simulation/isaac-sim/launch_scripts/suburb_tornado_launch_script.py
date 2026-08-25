@@ -56,7 +56,7 @@ Env knobs:
     SCENE_CONFIG  preset (default `suburb_tornado`)
     TOR_SEED      layout seed override for the damage draws (default 11)
     TOR_PLANKS    boards per wrecked house (default 140); 0 disables the field
-    TOR_TRACK_PER100  boards per 100 m2 of corridor (default 1.6)
+    TOR_TRACK_PER100  boards per 100 m2 of corridor (default 4.5)
     TOR_GROUND    0 disables the mud overlay
     MUD_*         overlay tuning — see `disaster.tornado.knobs_from_env`
     SNAP_DIR      write viewport PNGs here (must be under the mounted log dir)
@@ -114,7 +114,13 @@ ARCH_DIR = os.environ.get(
     "ARCH_DIR", os.path.join(_SCENE_GEN_DIR, "assets", "archetypes_tornado"))
 ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
 N_PLANKS = int(os.environ.get("TOR_PLANKS", "140"))
-TRACK_PER100 = float(os.environ.get("TOR_TRACK_PER100", "1.6"))
+# 4.5 BOARDS PER 100 m2 OF CORRIDOR, and the number is lower than it sounds
+# because the density is scaled by `intensity ** 1.4`: at the path edge it is
+# almost nothing and only the core gets the full rate. Measured on this preset,
+# 1.6 put one board every ~13 m across the track, which reads as litter rather
+# than as a debris field; 4.5 puts one every ~5 m in the core and still leaves
+# the shoulders sparse. Cheap either way — the whole field is five meshes.
+TRACK_PER100 = float(os.environ.get("TOR_TRACK_PER100", "4.5"))
 DO_GROUND = os.environ.get("TOR_GROUND", "1").strip().lower() not in (
     "0", "false", "no")
 SNAP_DIR = os.environ.get("SNAP_DIR", "")
@@ -274,11 +280,46 @@ def main():
         htally[level] = htally.get(level, 0) + 1
         key = "house_{0}_{1}".format(h["style"], level)
         usd = arch.get(key) or arch.get("house_{0}_pristine".format(h["style"]))
-        if not usd:
-            miss_h += 1
-            continue
         yaw = (throw_deg + drng.uniform(-14.0, 14.0)
                if level in _TRACK_YAWED else h["yaw"])
+        if not usd:
+            # BUILD IT LIVE INSTEAD OF LEAVING A HOLE. A missing archetype
+            # used to `continue`, which is the worst possible failure mode for
+            # a scene you are about to look at: the plat comes up with the
+            # streets, the debris and the scour all present and the BUILDINGS
+            # simply absent, and nothing on screen says why. An empty lot also
+            # reads as a deliberate feature — this is a disaster scene — so it
+            # is not even obviously wrong.
+            #
+            # The kit can always build the house; what it cannot do cheaply is
+            # WRECK it, which is the whole reason the archetypes exist. So the
+            # fallback is an intact house at the right pose, counted and
+            # reported separately, and its damage is carried entirely by the
+            # plank field. Good enough to fly, obvious in the banner, and it
+            # keeps a half-baked library usable.
+            miss_h += 1
+            try:
+                _fp = "{0}/inst/h_{1}".format(PARENT, i)
+                UsdGeom.Scope.Define(stage, Sdf.Path(_fp))
+                _pls = mh.build_building(h["style"], h["x"], h["y"], yaw,
+                                         random.Random(SEED + i),
+                                         category="house")
+                _hpal = h.get("palette") or mh.STYLES[h["style"]].get("palette")
+                if _hpal:
+                    for _q in _pls:
+                        _q["palette"] = _hpal
+                sg.apply_placements(stage, _pls, _fp, ssf)
+                mh.apply_palette(stage, _pls, _fp)
+                n_h += 1
+                if level != "pristine":
+                    wrecks.append((h["x"], h["y"],
+                                   fp_by_style.get(h["style"], 12.0), it,
+                                   level))
+            except Exception as _exc:
+                if miss_h == 1:
+                    print("[tornado] live house fallback FAILED: {0}"
+                          .format(_exc))
+            continue
         # Row homes are recoloured per unit, and USD forbids authoring inside
         # an instance — so a terrace opts out of instancing. A few dozen
         # prims against a plate's worth; the trees are what the budget is for.
@@ -309,7 +350,7 @@ def main():
     for i, t in enumerate(trees):
         it = float(inten(t["x"], t["y"]))
         sp = t["species"]
-        level = tn.tree_level_for_intensity(it, trng)
+        level = tn.tree_level_for_intensity(it, trng, species=sp)
         ttally[level] = ttally.get(level, 0) + 1
         if level == "pristine":
             usd = sg._join_asset_root(TREE_SPECIES.get(sp, ""), "")
@@ -327,8 +368,15 @@ def main():
             yaw = (throw_deg + trng.uniform(-38.0, 38.0)
                    if level in _TREE_TRACK_YAWED else t["yaw"])
         if not usd:
+            # SAME ARGUMENT AS THE HOUSES: a green tree at the right place is
+            # a far better failure than no tree at all, and for vegetation the
+            # fallback is free — the species USD is what a `pristine` tree
+            # references anyway.
             miss_t += 1
-            continue
+            usd = sg._join_asset_root(TREE_SPECIES.get(sp, ""), "")
+            scale, yaw = 0.01, t["yaw"]
+            if not usd:
+                continue
         if _ref(stage, "{0}/inst/t_{1}".format(PARENT, i), usd,
                 t["x"], t["y"], yaw, ssf, scale=scale):
             n_t += 1
@@ -460,17 +508,24 @@ def main():
     print("  track       {0:.0f} m wide toward {1:.0f} deg, {2:.1%} of the "
           "plate".format(tcfg["width_m"], tcfg["heading_deg"],
                          summ["in_path_frac"]))
-    print("  houses      {0} referenced ({1} missing); {2}".format(
-        n_h, miss_h, ", ".join("%s=%d" % kv for kv in sorted(htally.items()))))
-    print("  trees       {0} referenced ({1} missing); {2}".format(
-        n_t, miss_t, ", ".join("%s=%d" % kv for kv in sorted(ttally.items()))))
+    print("  houses      {0} placed ({1} built LIVE and INTACT — archetype "
+          "missing); {2}".format(
+              n_h, miss_h,
+              ", ".join("%s=%d" % kv for kv in sorted(htally.items()))))
+    print("  trees       {0} placed ({1} fell back to the green species USD); "
+          "{2}".format(
+              n_t, miss_t,
+              ", ".join("%s=%d" % kv for kv in sorted(ttally.items()))))
     print("  debris      {0} board(s); {1} prop(s) blown away, {2} car(s) "
           "moved".format(n_boards, n_gone, n_car))
     print("  scour       {0} band(s) of Soil_Mud".format(len(made_g)))
     if miss_h or miss_t:
-        print("  !! MISSING ARCHETYPES — bake them with "
-              "bake_tornado_archetypes_launch_script.py into {0}"
-              .format(ARCH_DIR))
+        print("  !! {0} house(s) and {1} tree(s) are UNDAMAGED because their "
+              "archetype is missing.".format(miss_h, miss_t))
+        print("     The track, the debris and the scour are all real; the "
+              "STRUCTURES are not.")
+        print("     Bake them with bake_tornado_archetypes_launch_script.py "
+              "into {0}".format(ARCH_DIR))
     if DO_GROUND and not made_g:
         print("  !! NO SCOUR BANDS. Either the track misses the plate or the "
               "coverage is zero everywhere — check tools/tornado_png.py")
