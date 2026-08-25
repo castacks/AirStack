@@ -5,9 +5,7 @@ Functions:
     get_stage_meters_per_unit   — Read stage unit scale
     scale_stage_prim            — Apply a uniform scale transform to a prim
     add_colliders               — Recursively apply CollisionAPI to all meshes
-    settle_rigid_props          — Physics-drop toppled props to rest, then freeze
     add_dome_light              — Add or update a dome light on the stage
-    add_sky                     — Skybox from HDRI (dome texture) or borrowed stage prims
     save_scene_as_contained_usd — Collect all assets into a self-contained directory
 """
 
@@ -17,7 +15,7 @@ import re
 import time as _time
 import omni.kit.app
 import omni.usd
-from pxr import Gf, Usd, UsdGeom, UsdPhysics, UsdLux, Sdf
+from pxr import Gf, UsdGeom, UsdPhysics, UsdLux, Sdf
 
 
 # ---------------------------------------------------------------------------
@@ -143,100 +141,6 @@ def add_colliders(prim):
 
 
 # ---------------------------------------------------------------------------
-# Physics settling
-# ---------------------------------------------------------------------------
-
-def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
-                       ground_path: str = None) -> int:
-    """Drop props to a natural resting pose under physics, then freeze them.
-
-    The scene generator places toppled/strewn props (flipped cars, downed
-    streetlights) at *approximated* orientations, which leaves some floating
-    or interpenetrating. This gives each prim in *prim_paths* a dynamic rigid
-    body with convex-hull colliders, plays the timeline for *sim_seconds* so
-    they fall to rest, captures the settled transforms, stops the timeline
-    (which resets the sim), authors the captured transforms back, and strips
-    the rigid bodies — so the props stay parked exactly where physics left
-    them. Colliders are kept, so the settled props remain solid to sensors
-    and the drone.
-
-    *ground_path*, if given, gets static colliders applied first (the props
-    need something to land on — pass the generated ground subtree).
-
-    Call BEFORE spawning robot/vehicle graphs: the timeline runs briefly.
-    Returns the number of props settled.
-    """
-    import omni.timeline
-
-    prims = [stage.GetPrimAtPath(p) for p in prim_paths]
-    prims = [p for p in prims if p and p.IsValid()]
-    if not prims:
-        return 0
-
-    if ground_path:
-        ground = stage.GetPrimAtPath(ground_path)
-        if ground.IsValid():
-            add_colliders(ground)
-
-    # Physics needs a scene; standalone preview stages may not have one.
-    roots = list(stage.GetPseudoRoot().GetChildren())
-    two_levels = roots + [c for r in roots for c in r.GetChildren()]
-    if not any(p.IsA(UsdPhysics.Scene) for p in two_levels):
-        UsdPhysics.Scene.Define(stage, Sdf.Path("/World/PhysicsScene"))
-        print("[scene_prep] settle: defined /World/PhysicsScene")
-
-    # Dynamic rigid bodies need convex colliders (triangle-mesh collision is
-    # static-only in PhysX) — approximate every gprim under each prop.
-    for prim in prims:
-        UsdPhysics.RigidBodyAPI.Apply(prim)
-        for gp in Usd.PrimRange(prim):
-            if gp.IsA(UsdGeom.Gprim):
-                UsdPhysics.CollisionAPI.Apply(gp)
-            if gp.IsA(UsdGeom.Mesh):
-                mc = UsdPhysics.MeshCollisionAPI.Apply(gp)
-                mc.CreateApproximationAttr().Set(UsdPhysics.Tokens.convexHull)
-
-    app = omni.kit.app.get_app()
-    timeline = omni.timeline.get_timeline_interface()
-    timeline.stop()
-    timeline.play()
-    steps = max(1, int(sim_seconds * 60.0))
-    print(f"[scene_prep] settle: simulating {len(prims)} props "
-          f"for ~{sim_seconds:.1f}s ({steps} frames)…")
-    for _ in range(steps):
-        app.update()
-
-    # Capture settled transforms before stopping (stop resets the sim pose).
-    mpu = UsdGeom.GetStageMetersPerUnit(stage) or 1.0
-    floor_z = -2.0 / mpu    # anything below fell through the ground
-    cache = UsdGeom.XformCache()
-    settled = {}
-    for prim in prims:
-        world = cache.GetLocalToWorldTransform(prim)
-        parent_world = cache.GetLocalToWorldTransform(prim.GetParent())
-        settled[prim.GetPath()] = (world * parent_world.GetInverse(),
-                                   world.ExtractTranslation()[2])
-    timeline.stop()
-    app.update()
-
-    n_ok = n_lost = 0
-    for prim in prims:
-        local, world_z = settled[prim.GetPath()]
-        if world_z < floor_z:
-            n_lost += 1     # tunnelled through the ground — keep authored pose
-        else:
-            xform = UsdGeom.Xformable(prim)
-            xform.ClearXformOpOrder()
-            xform.AddTransformOp().Set(local)
-            n_ok += 1
-        prim.RemoveAPI(UsdPhysics.RigidBodyAPI)
-    print(f"[scene_prep] settle: froze {n_ok} props at rest"
-          + (f", {n_lost} fell through the ground (kept authored pose)"
-             if n_lost else ""))
-    return n_ok
-
-
-# ---------------------------------------------------------------------------
 # Lighting
 # ---------------------------------------------------------------------------
 
@@ -271,33 +175,6 @@ def add_dome_light(stage, prim_path: str = "/World/DomeLight", intensity: float 
         dome.CreateTextureFormatAttr().Set(texture_format)
     print(f"[scene_prep] Dome light set at '{prim_path}' "
           f"(intensity={intensity}, exposure={exposure}, texture={texture_file})")
-
-
-def add_sky(stage, sky_path: str = "", prim_path: str = "/World/DomeLight",
-            intensity: float = 3500.0, exposure: float = -3.0):
-    """Set up sky + ambient lighting from a config-resolved *sky_path*.
-
-    Dispatches on the path:
-      - ``.usd``/``.usda``/``.usdc`` — borrow the sky: reference the stage's
-        root prims that sit *outside* its defaultPrim (sky sphere, sun,
-        environment lights) under /World. Only those subtrees are composed,
-        not the stage's main geometry, so this stays cheap. Skips the plain
-        dome light when it pulls something in (borrowed stages bring their
-        own lighting).
-      - anything else non-empty — treated as an equirect HDRI for the dome
-        light's skybox texture.
-      - empty — plain untextured dome light.
-    """
-    if sky_path and os.path.splitext(sky_path.split("?")[0])[1].lower() in (
-            ".usd", ".usda", ".usdc"):
-        pulled = reference_root_prims_under_world(stage, sky_path)
-        if pulled:
-            print(f"[scene_prep] Sky borrowed from {sky_path}: {pulled}")
-            return
-        print(f"[scene_prep] No borrowable root prims in {sky_path}; "
-              f"falling back to plain dome light")
-        sky_path = ""
-    add_dome_light(stage, prim_path, intensity, exposure, texture_file=sky_path or None)
 
 
 # ---------------------------------------------------------------------------

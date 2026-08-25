@@ -1,9 +1,0 @@
-# HIGH-LEVEL scene spec — see earthquake.yaml for the full key list.
-#
-# City-wide wind and rain: tornado-like damage mechanisms spread evenly over
-# the whole region at lower intensity — no untouched zone, no narrow track.
-
-locale: downtown      # downtown | suburban | rural — how the place is laid out
-
-disaster-type: hurricane
-severity: 0.6
