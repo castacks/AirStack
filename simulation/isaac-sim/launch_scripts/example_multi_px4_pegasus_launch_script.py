@@ -27,6 +27,7 @@ from pegasus.simulator.params import SIMULATION_ENVIRONMENTS  # noqa: E402
 from pegasus_app import (  # noqa: E402
     PegasusApp,
     resolve_scene_from_env,
+    resolve_spawn_center_from_env,
     row_spawn_configs,
 )
 
@@ -41,8 +42,10 @@ def main():
     PegasusApp(
         env_url=env_url,
         stage_scale=stage_scale,
-        # Spread drones along X: -2, 0, 2, 4, ... centered near origin
-        drone_configs=row_spawn_configs(NUM_ROBOTS),
+        # Spread drones along X, centered on ISAAC_SIM_SPAWN_XY (default origin)
+        drone_configs=row_spawn_configs(
+            NUM_ROBOTS, center_xy=resolve_spawn_center_from_env()
+        ),
         enable_lidar=ENABLE_LIDAR,
     ).run()
 

@@ -60,6 +60,20 @@ services:
       # launch scripts (pegasus_app.resolve_scene_from_env). Empty = script default.
       - ISAAC_SIM_SCENE=${ISAAC_SIM_SCENE:-}
       - ISAAC_SIM_STAGE_SCALE=${ISAAC_SIM_STAGE_SCALE:-}
+      # Viewport follow-camera (pegasus_app.py): domain id of the drone to
+      # chase (default 1; off/none/0 disables) and its world-frame x,y,z
+      # offset in meters.
+      - ISAAC_SIM_FOLLOW_CAM=${ISAAC_SIM_FOLLOW_CAM:-}
+      - ISAAC_SIM_FOLLOW_CAM_OFFSET=${ISAAC_SIM_FOLLOW_CAM_OFFSET:-}
+      # Spawn-row center "x,y" in meters (default origin) — for scenes whose
+      # origin is cluttered; see launch_scripts/pegasus_app.py.
+      - ISAAC_SIM_SPAWN_XY=${ISAAC_SIM_SPAWN_XY:-}
+      # Dome light override "intensity[,exposure]" for dim indoor scenes.
+      - ISAAC_SIM_DOME_LIGHT=${ISAAC_SIM_DOME_LIGHT:-}
+      # Multiply the scene's own lights (office/hospital ceiling lights are
+      # authored dim); follow-cam headlight intensity for unlit interiors.
+      - ISAAC_SIM_LIGHT_BOOST=${ISAAC_SIM_LIGHT_BOOST:-}
+      - ISAAC_SIM_FOLLOW_CAM_LIGHT=${ISAAC_SIM_FOLLOW_CAM_LIGHT:-}
       # Pegasus physics tuning — read by pegasus/simulator/params.py
       - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}
       - ARDUPILOT_PHYSICS_HZ=${ARDUPILOT_PHYSICS_HZ:-800}
