@@ -36,6 +36,10 @@ extra:
       link: https://x.com/airlabcmu
 extra_css:
   - stylesheets/extra.css
+# Trim the Release Notes page to the section matching the .env VERSION at
+# build time, so each mike-deployed docs version shows only its own notes.
+hooks:
+  - docs/hooks/release_notes_current_version.py
 markdown_extensions:
   - admonition
   - attr_list
