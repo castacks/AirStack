@@ -71,9 +71,14 @@ function cmd_config_nucleus {
             -e "s/^OMNI_PASS=.*$/OMNI_PASS=$escaped_api_token/" \
             "$OMNI_PASS_SOURCE" > "$OMNI_PASS_DESTINATION"
         log_info "Nucleus login configuration complete"
+    elif [ -f "$OMNI_PASS_DESTINATION" ]; then
+        # Blank input must actually skip: the file may hold a working API
+        # token, and overwriting it with the guest template would silently
+        # break Nucleus auth.
+        log_info "Skipping Nucleus login configuration (keeping existing $OMNI_PASS_DESTINATION)"
     else
         cp "$OMNI_PASS_SOURCE" "$OMNI_PASS_DESTINATION"
-        log_info "Skipping Nucleus login configuration"
+        log_info "Skipping Nucleus login configuration (created guest defaults)"
     fi
 }
 
