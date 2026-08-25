@@ -122,7 +122,7 @@ Key variables for Isaac Sim configuration:
 | `ISAAC_SIM_USE_STANDALONE` | `true`: run `ISAAC_SIM_SCRIPT_NAME`; `false`: open the `ISAAC_SIM_GUI` USD | `true` |
 | `ISAAC_SIM_SCRIPT_NAME` | Standalone launch script in `simulation/isaac-sim/launch_scripts/` | `example_one_px4_pegasus_launch_script.py` |
 | `ISAAC_SIM_GUI` | Path to a USD scene file (used only when `ISAAC_SIM_USE_STANDALONE=false`) | `simulation/isaac-sim/assets/scenes/simple_pegasus.scene.usd` |
-| `PLAY_SIM_ON_START` | Auto-play simulation on start (`airstack up --play/--no-play`) | `false` |
+| `PLAY_SIM_ON_START` | Auto-play simulation on start (`airstack up --play/--no-play`) | `true` |
 | `ISAAC_SIM_HEADLESS` | Run without a window (`airstack up --headless`) | unset (`false`) |
 | `PX4_PHYSICS_HZ` | Physics step rate for PX4 SITL — also sets PX4 `IMU_INTEG_RATE` | `100` |
 | `PX4_RENDERING_HZ` | Rendering frame rate for PX4 profiles (independent of physics) | `30` |
@@ -138,7 +138,7 @@ Key variables for Isaac Sim configuration:
 airstack up --sim isaac --headless
 
 # Don't auto-play simulation
-PLAY_SIM_ON_START=false airstack up isaac-sim
+airstack up isaac-sim --no-play
 
 # Launch with standalone script
 ISAAC_SIM_USE_STANDALONE=true ISAAC_SIM_SCRIPT_NAME=custom_scene.py airstack up isaac-sim

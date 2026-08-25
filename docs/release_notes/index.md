@@ -208,6 +208,10 @@ Feature docs deliberately cite none of these — the design sources live here:
 
 ### Changed
 
+- **The simulator now starts playing by default**: `PLAY_SIM_ON_START`
+  defaults to `true` in `.env` (was `false`). Pass `airstack up --no-play`
+  to come up paused and press Play yourself; `--play` remains available as
+  an explicit override
 - Container autolaunch (robot desktop/voxl/l4t and GCS) now runs through an
   `autolaunch` shell helper instead of a bare `bws && sws && ros2 launch`
   chain: a build failure or launch crash prints an unmissable red

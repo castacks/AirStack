@@ -27,7 +27,7 @@ ISAAC_SIM_GUI="omniverse://airlab-nucleus.andrew.cmu.edu/Library/Assets/Pegasus/
 ISAAC_SIM_USE_STANDALONE="false"  # "true" or "false"
 # Script name (must be in /AirStack/simulation/isaac-sim/launch_scripts/)
 ISAAC_SIM_SCRIPT_NAME="example_one_px4_pegasus_launch_script.py"
-PLAY_SIM_ON_START="false"  # honored in both modes; `airstack up --play` overrides
+PLAY_SIM_ON_START="true"  # honored in both modes; `airstack up --no-play` overrides
 ```
 
 There are *two modes* for launching Pegasus simulations:

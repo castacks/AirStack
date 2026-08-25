@@ -32,7 +32,7 @@ Env vars every script honors automatically (via the base class — do not re-imp
 |---|---|
 | `ISAAC_SIM_HEADLESS` | run without a window |
 | `ISAAC_SIM_LIVESTREAM` (+`_UDP_PORT`) | headless + WebRTC livestream |
-| `PLAY_SIM_ON_START` | auto-play the timeline after setup (`airstack up --play`) |
+| `PLAY_SIM_ON_START` | auto-play the timeline after setup — on by default (`airstack up --no-play` starts paused) |
 
 ## Steps
 

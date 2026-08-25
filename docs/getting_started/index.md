@@ -89,12 +89,12 @@ airstack images push
 airstack up # This will launch the robot, ground control station, and isaac sim
 ```
 
-This launches the Isaac Sim scene specified by `ISAAC_SIM_SCRIPT_NAME` in `AirStack/.env` (default: a single drone in the Pegasus default environment). By default the sim comes up **paused** (`PLAY_SIM_ON_START="false"` in `.env`) — press **Play** in the Isaac Sim window, or launch with `airstack up --play`.
+This launches the Isaac Sim scene specified by `ISAAC_SIM_SCRIPT_NAME` in `AirStack/.env` (default: a single drone in the Pegasus default environment). By default the sim comes up **playing** (`PLAY_SIM_ON_START="true"` in `.env`) — launch with `airstack up --no-play` to come up paused and press **Play** in the Isaac Sim window yourself.
 
 Containers start immediately, but the ROS 2 workspace still builds and PX4 still boots in the background. To wait until the drone is actually ready to fly:
 
 ```bash
-airstack ready   # or: airstack up --play --wait
+airstack ready   # or: airstack up --wait
 ```
 
 Useful variants (see `airstack help up`):
