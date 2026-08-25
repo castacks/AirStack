@@ -359,13 +359,13 @@ Create `README.md` in the package directory with:
 Add the module README to the navigation structure:
 ```yaml
 nav:
-  - Robot:
-      - Autonomy Modules:
+  - Reference:
+      - Autonomy Packages:
           - Local:
-              - Planning:
-                  - Your Module:
-                      - robot/ros_ws/src/local/planners/your_package/README.md
+              - Your Module: robot/ros_ws/src/local/planners/your_package/README.md
 ```
+
+The nav is organized by [Diátaxis](https://diataxis.fr) tabs (Tutorials / How-to Guides / Reference / Concepts); package READMEs live under Reference → Autonomy Packages. Pick the quadrant for any new system-level page with the decision tree in [docs/development/intermediate/documentation.md](docs/development/intermediate/documentation.md).
 
 The `same-dir` plugin allows linking to README files outside the `docs/` directory.
 

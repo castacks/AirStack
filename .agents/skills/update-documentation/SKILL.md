@@ -351,15 +351,12 @@ Find the appropriate section based on your module type:
 
 ```yaml
 nav:
-  - Robot:
-      - Autonomy Modules:
+  - Reference:
+      - Autonomy Packages:
           - Local:
-              - Planning:
-                  # Existing modules
-                  - Trajectory Library:
-                      - robot/ros_ws/src/local/planners/trajectory_library/README.md
-                  - DROAN Local Planner:
-                      - robot/ros_ws/src/local/planners/droan_local_planner/README.md
+              # Existing modules
+              - Trajectory Library: robot/ros_ws/src/local/planners/trajectory_library/README.md
+              - DROAN Local Planner: robot/ros_ws/src/local/planners/droan_local_planner/README.md
                   # Add your module HERE
                   - Your Module Name:
                       - robot/ros_ws/src/local/planners/your_package/README.md

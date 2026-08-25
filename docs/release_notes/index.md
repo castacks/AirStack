@@ -19,6 +19,53 @@ its own notes. -->
 
 ## 0.20.0 (Unreleased)
 
+**Documentation overhaul (Diátaxis restructuring).** The docs site was
+audited against the [Diátaxis](https://diataxis.fr) framework and
+reorganized; page URLs are preserved (moves are covered by redirects):
+
+- The nav is now organized by document kind — **Tutorials / How-to Guides /
+  Reference / Concepts** tabs — replacing the difficulty-tier
+  ("Beginner/Intermediate/Advanced Tutorials") buckets, which contained no
+  tutorials. The doc-authoring standards (Documentation Guide, mkdocs
+  skills) now prescribe the quadrant taxonomy and include a decision tree.
+- 18 verified doc/code mismatches fixed, including: a phantom
+  `--recreate` flag and missing `--scene` in the CLI reference; phantom
+  `ROBOT_LAUNCH_PACKAGE`/`ROBOT_LAUNCH_FILE` env vars (real: `LAUNCH_PACKAGE`);
+  nonexistent `airstack_msgs/TrajectorySegment`/`TrajectoryOverride` types in
+  doc templates (real: `TrajectoryXYZVYaw`); the MS-AirSim tmux window
+  ordering (bridges launch before PX4) and MAVLink port math; the Getting
+  Started Foxglove step (layout now auto-seeds; manual import retired).
+- Removed superseded pages with redirects: the Ascent-era scene-setup pair,
+  the pre-harness testing-frameworks page, the orphaned tutorials index and
+  two stale duplicate pages (development_environment, airstack-cli index).
+  The git-hooks docker-versioning READMEs are now deprecation notices — the
+  hook they described conflicts with the semver `check-version-increment`
+  gate (note: `airstack config git-hooks` still installs it; CLI removal is
+  a follow-up).
+- Pages that documented never-built or fabricated behavior were rewritten
+  from the code: global planning (the unimplemented Global-Manager/
+  PlanRequest protocol is gone), the robot interface page (state flows via
+  `odometry_conversion`), robot configuration, HITL (now uses the
+  `gcs-real` `hitl` profile and Foxglove verification), rosbags, and the
+  robot-side data-offloading page (now points at the storage-tools
+  workflow).
+- Hybrid pages split by audience: `system_architecture.md` (explanation
+  core; drifted topic tables replaced with links into the interface
+  conventions spec), CI/CD (new **Using CI** how-to), GCS Foxglove (new
+  **Extending the Visualizer**), Isaac Sim docker (new **Container
+  Workflows**). Duplicated hot tables (topics, CLI flags, pytest marks,
+  requirements) now live in one canonical home each.
+- Previously off-site references added to the nav: the `vehicle.yaml` and
+  `module.yaml` schemas, local calibration contract, the RViz tasks/waypoint
+  panel manuals, the LiDAR point-cloud filter README, and the OSMO lab-admin
+  guide. New reference pages: the complete `.env` schema, the
+  `airstack_msgs` interface reference, the trajectory-library YAML format,
+  and a supported-platform matrix. New/rewritten onboarding: Deploying to
+  Hardware and Operating the GCS.
+- The Interface Conventions Specification was bumped to **v1.0.1**: §8 now
+  lists all eight `task_msgs` actions (added `tasks/coverage` and
+  `tasks/chat`, both defined with no shipped executor).
+
 This release restructures AirStack from a monolith into **modules**,
 **stacks**, and **fleets**, implementing
 [RFC #379 (Modular AirStack)](https://github.com/castacks/AirStack/discussions/379)
