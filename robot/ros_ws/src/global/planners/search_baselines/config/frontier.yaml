@@ -1,0 +1,33 @@
+# Frontier exploration with VISIT COST — the geometric arm that still tries to
+# cover ground well.
+#
+# It does NOT blacklist visited frontiers. Blacklisting removes them
+# permanently, which ends coverage the moment the map is explored once; the
+# detector is imperfect, so the operator WANTS repeated passes. Instead visited
+# ground accrues a cost, and selection is `info_gain - weight * visit_cost`.
+#
+# The intended dynamic: as coverage completes every frontier carries a similar
+# visit cost, the differences wash out, selection reverts to pure information
+# gain, and the drone sweeps the sector again rather than stopping.
+#
+# Needs NO GPU service — no VLM, no ITM. YOLO-World still runs in-process for
+# target detection, exactly as it does for every other arm.
+search_planner:
+  ros__parameters:
+    nav_mode: 'frontier'
+    vlm_preflight: false
+
+    frontier_source: 'voxel3d'
+    visit_cost_weight: 1.0
+    # Radius of the visit deposit. Roughly the ground the camera resolves at
+    # cruise, so flying over an area marks about what it actually observed.
+    visit_cost_radius_m: 25.0
+    # 0 = never forget. Non-zero makes long-ago-visited ground attractive again
+    # sooner, which shortens the interval between passes at the cost of
+    # revisiting before the first pass is finished.
+    visit_cost_decay_per_s: 0.0
+
+    # Sector the region and stay in it. At 1 robot this is the padded region
+    # itself, so the pipeline is exercised without changing behaviour.
+    sector_partition: 'strips'
+    search_area_pad_m: 25.0

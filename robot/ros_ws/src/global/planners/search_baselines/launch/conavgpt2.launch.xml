@@ -1,0 +1,23 @@
+<!-- Co-NavGPT2: a generative VLM is shown one top-down BEV per frontier and
+     assigns one to each robot.
+
+     NEEDS: search_baselines vlm_server on port 8000 (~5.9 GiB at 7B nf4).
+
+       ros2 launch search_baselines conavgpt2.launch.xml scene_params_file:=<scene>.yaml
+-->
+<launch>
+  <arg name="scene_params_file" />
+  <arg name="num_robots" default="$(env NUM_ROBOTS 1)" />
+  <arg name="results_dir" default="" />
+  <!-- conavgpt2_paper.yaml restores upstream's own cadence and threshold; pass
+       the base config instead for the scene tuned values. -->
+  <arg name="method_params_file"
+       default="$(find-pkg-share search_baselines)/config/paper.yaml" />
+
+  <include file="$(find-pkg-share search_baselines)/launch/_planner.launch.xml">
+    <arg name="method_params_file" value="$(var method_params_file)" />
+    <arg name="scene_params_file" value="$(var scene_params_file)" />
+    <arg name="num_robots" value="$(var num_robots)" />
+    <arg name="results_dir" value="$(var results_dir)" />
+  </include>
+</launch>

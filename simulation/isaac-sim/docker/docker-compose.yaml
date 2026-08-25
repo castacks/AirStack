@@ -94,7 +94,7 @@ services:
       - DRONE_XY=${DRONE_XY:-}
       - DRONE_Z_M=${DRONE_Z_M:-}
       # Downward ZED tilt in degrees. Empty/0 = the level mount every
-      # method but CoNavGPT assumes; conavgpt2 reads the same var so the
+      # method but CoNavGPT assumes; search_planner reads the same var so the
       # planner's camera_pitch_rad cannot disagree with the mount.
       - ZED_PITCH_DEG=${ZED_PITCH_DEG:-}
       # Pegasus physics tuning — read by pegasus/simulator/params.py
@@ -245,7 +245,7 @@ services:
       - DRONE_XY=${DRONE_XY:-}
       - DRONE_Z_M=${DRONE_Z_M:-}
       # Downward ZED tilt in degrees. Empty/0 = the level mount every
-      # method but CoNavGPT assumes; conavgpt2 reads the same var so the
+      # method but CoNavGPT assumes; search_planner reads the same var so the
       # planner's camera_pitch_rad cannot disagree with the mount.
       - ZED_PITCH_DEG=${ZED_PITCH_DEG:-}
     # Publish the WebRTC livestream ports to the pod NS. Bridge-mode +

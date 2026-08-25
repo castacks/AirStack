@@ -51,25 +51,32 @@ allowlist:
   - name: "rt/$(env ROBOT_NAME)/filtered_frontiers"
   - name: "rt/$(env ROBOT_NAME)/debug/frontier_table"
 
-  # conavgpt2: the BEV the VLM is actually shown, and the per-round trace of
-  # what it was asked and answered. These are the two topics that make a bad
-  # assignment explicable after the fact instead of just visible as a bad
-  # waypoint. NOT namespaced by robot — one node drives the whole team, as
-  # upstream does, so the map is the team's, not a robot's.
+  # search_baselines (search_planner): the BEV the VLM is actually shown, and
+  # the per-round trace of what it was asked and answered. These are the two
+  # topics that make a bad assignment explicable after the fact instead of just
+  # visible as a bad waypoint. Method-neutral names — vlfm, conavgpt2 and
+  # nearest are one node with a parameter, so the same two topics serve every
+  # arm. One node still drives the whole team, so the map is the team's, not a
+  # robot's, but it is published under the FIRST robot's namespace so this
+  # router (and the keepalive and the Foxglove layouts) can address it the same
+  # way as everything else here.
   #
-  # The per-agent annotated FPV (/{robot}/conavgpt2/agent_image) and the
-  # candidate strip (/conavgpt2/vlm_prompt_image) are deliberately NOT here:
-  # both are per-TICK images, and the rayfronts note below is what happens when
-  # image streams go through this router. Watch those on the robot domain
-  # directly (foxglove_bridge in the robot container, host port 8767+N).
-  - name: "rt/conavgpt2/map_image"
-  - name: "rt/conavgpt2/round_stats"
+  # The per-agent annotated FPV (/$(env ROBOT_NAME)/search/agent_image) and the
+  # candidate strip (/$(env ROBOT_NAME)/search/vlm_prompt_image) are
+  # deliberately NOT here: both are per-TICK images, and the rayfronts note
+  # below is what happens when image streams go through this router. Watch
+  # those on the robot domain directly (foxglove_bridge in the robot container,
+  # host port 8767+N).
+  - name: "rt/$(env ROBOT_NAME)/search/map_image"
+  - name: "rt/$(env ROBOT_NAME)/search/round_stats"
   # The same grid and frontiers as message types rather than as a picture, so
   # they draw in the 3D panel over the sim ground. One OccupancyGrid at 480x480
   # is 230 KB at 1 Hz — an order of magnitude under the image above, and both
   # are TRANSIENT_LOCAL so a panel that connects late is not blank.
-  - name: "rt/conavgpt2/occupancy"
-  - name: "rt/conavgpt2/frontiers"
+  - name: "rt/$(env ROBOT_NAME)/occupancy"
+  - name: "rt/$(env ROBOT_NAME)/frontiers"
+  # /$(env ROBOT_NAME)/voxel_map (the planner's three-state voxel cloud) is NOT
+  # bridged, for the same bandwidth reason as the rayfronts clouds below.
 
   # rayfronts semantic voxel clouds are NOT bridged. They are Foxglove debug
   # visualisation only — no autonomy module and no offline analysis consumes

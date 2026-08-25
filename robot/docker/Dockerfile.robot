@@ -450,7 +450,7 @@ RUN python3 -m venv --system-site-packages /opt/lvlm-venv \
 # 4. ultralytics' CLIP fork, --no-deps for the same opencv reason. YOLO-World is
 #    open-vocabulary, so set_classes() encodes the prompt vocabulary with CLIP —
 #    and upstream Co-NavGPT2 calls set_classes in the DETECTOR'S CONSTRUCTOR, so
-#    without this the conavgpt2 node dies at startup with
+#    without this the search_planner node dies at startup with
 #    "ModuleNotFoundError: No module named 'clip'". ultralytics ships a lazy
 #    check_requirements("git+.../CLIP.git") fallback for exactly this case, but
 #    it shells out to pip WITHOUT --break-system-packages, so under PEP 668 it

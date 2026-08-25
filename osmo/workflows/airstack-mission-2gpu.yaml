@@ -5,7 +5,7 @@
 # exists for osmo/missions/conavgpt2_wildfire_1robot.yaml: one robot, one Isaac
 # Sim building the 1600 x 1200 m generated wildfire plat (SCENE_CONFIG
 # suburb_wildfire; the search area inside it is ~1292 x 1041 m), and one
-# conavgpt2 VLM server (`conavgpt2.vlm_server`) that the mission starts inside
+# conavgpt2 VLM server (`search_baselines.vlm_server`) that the mission starts inside
 # robot container 1.
 #
 # WHY TWO GPUS — the honest reason, which is NOT the one this header used to

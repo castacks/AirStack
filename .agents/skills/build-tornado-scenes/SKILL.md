@@ -583,6 +583,123 @@ because a corridor whose edges are off-frame is not a corridor.
 
 ---
 
+# People: `disaster/tornado_people.py`
+
+**Not `disaster.people` with the names changed.** A wildfire gives hours and
+people MOVE, so that module is a model of EGRESS — refuge car parks, roadways,
+gridlock, the cul-de-sac trap, location as a function of the road network. A
+tornado gives ten to fifteen minutes and nobody evacuates: people shelter where
+they already were, the building fails around them, and the survivors walk out.
+Location is a function of where they LIVED and what the wind did to it. Four of
+the six wildfire scenarios have no counterpart here at all.
+
+## The fact the module turns on: almost everyone survives, on their feet
+
+| | |
+|---|---|
+| Joplin **catastrophic** zone (total structural destruction) | 4,716 people, 122 dead — **97.4% survived** |
+| Joplin whole path | 13,547 people, 161 dead (1.2%), ~1,371 injured — **~89% alive and mobile** |
+| Injury severity (Niederkrotenthaler 2013, n=1,398 across 39 hospitals) | **89% minor** (ISS<10), 6% moderate, 5% severe; **86% discharged home** |
+| Deaths | **86.6% on scene** (Chiu 2013); 94% (May 2000) |
+
+A scene built on "a levelled block is a morgue" is wrong in the most costly way
+available: it would be EMPTY of the targets the benchmark exists to find. The
+corridor is full of standing, walking, digging people, and the visible
+population does NOT thin toward the centreline — with the houses gone there is
+nothing left to occlude anyone.
+
+## People cluster — over 90% of them
+
+Chiu et al. recorded who each victim was found with: with other deceased AND
+survivors 26.3%, with other deceased 24.7%, with other survivors 21.1%,
+**ALONE only 7.7%**. Group placement is the empirical default, and a CLUSTER is
+itself the strongest aerial indicator that somebody is trapped under it.
+
+## The epoch is T+30-60 min, and it is not a lighting choice
+
+The only window in which aerial victim detection has any value, and the peak of
+visible human density. Joplin's professional rubble-rescue count was
+**seventeen**, against 1,371 injured; the earthquake literature puts civilian
+extrication at 60-100%. Greensburg: 68% of households did SAR, 28% starting
+immediately. So: **no responders, no heavy equipment, no search markings, no
+triage tents** — those are T+12-24 h artefacts, and by then there is nobody
+left alive to find.
+
+## `thrown` is capped at one or two, and here is the arithmetic
+
+CDC surveilled all 338 deaths in the April 2011 outbreak, recording location of
+INJURY and of RECOVERY separately (MMWR 61(28)): **90.5% injured indoors, 3.3%
+outdoors when hit, but 37.0% of bodies recovered outdoors.** Brown 2002:
+"picked up / blown by tornado" was the mechanism for **43% of hospitalised**
+injuries and only **6% of treated-and-released** — being thrown is a severity
+marker, not a common experience.
+
+Applied to ~39 damaged houses (~100 residents, Joplin path rates): 0.8 dead x
+37% + 1.25 hospitalised x 43% = **under one person in the whole 500 m scene.**
+Long-range lofting is record-book territory (398 m, Matt Suter, an F2,
+GPS-measured; 76 m for a family on a mattress at Dawson Springs) and there is
+**no published distribution of throw distances**. And a thrown figure is
+PRONE — anyone walking in the open emerged and walked there.
+
+**Do not drive deposition with the `throw` field.** The 78%-left statistic is
+for lightweight debris lofted into the parent storm, not bodies; near-surface
+flow is CONVERGENT toward the centreline (Karstens et al., 10,300 tree falls at
+Joplin, 94,500 at Tuscaloosa). There is no published azimuthal distribution for
+victim deposition, so a strong fan would be an invented claim.
+
+## `trapped_partial` is the hard one, and it is a dataset decision
+
+Fully buried is an unlabellable target; fully exposed is not a trapped person.
+The scenario emits its OWN boards across the lower body rather than trusting
+whatever the wreck archetype left there, and sinks the figure by a fraction of
+the local debris depth. **Its correctness cannot be read off the code** — it
+has to be confirmed from a render at capture altitude, which is what the bench
+is for.
+
+It is also deliberately over-represented: Chiu records "trapped in rubble" as
+the mechanism for **1.7%** of fatalities and "crushed" for 18.7%, so a true
+rate would put well under one in the scene. A dozen is a benchmark decision,
+recorded as such in the module so nobody later reads the share as an estimate.
+
+## What is deliberately absent
+
+- **`parking_refuge`** — the largest wildfire scenario (0.30) and it has NO
+  tornado counterpart. Moore, Joplin and Mayfield had no public shelters at
+  all; Moore's EMA explains why (10-15 min is not enough to leave, drive, park
+  and get inside). Observed use ~4% where one exists, 0% where none does.
+- **`gridlock`** — only Oklahoma City ever produced a mass traffic reversal
+  (El Reno 2013, broadcast-directed, metro-arterial). Moore 2013 had ZERO
+  vehicle deaths, and fleeing by car was PROTECTIVE in every study that
+  measured it (Daley 2005: severe-injury OR 0.2).
+- **Cellars, safe rooms, house interiors** — where people actually shelter, and
+  unscoreable by a drone. This is `disaster.people`'s `exposed_interior`
+  lesson and it is not relitigated.
+- **Bystanders at the track edge** — real (40% go outside to look) but out of
+  scope; this scene is about the people the tornado HIT.
+
+## Vehicles: use the measured displacement rates
+
+Paulikas, Schmidlin & Marshall 2016, 959 vehicles across 12 tornadoes:
+
+| | displaced | rolled / tipped |
+|---|---|---|
+| EF0 | 10% | — |
+| EF1-EF2 | 36% | 5% |
+| EF3-EF4 | 63% | 15% |
+| EF5 | 69% | 31% |
+
+**These are UNCONDITIONAL shares of all vehicles in the zone.** Testing a tip
+probability only on cars that had already passed a move probability multiplies
+the two and produced an effective 6% where the data says 15% — measured, 5 of
+25 cars moved and NONE tipped. One draw against nested thresholds.
+
+And `toss_prim` MEASURES the prop to seat it. A car pivots about its own origin
+on the ground, so rolling it 90 degrees swings half the BODY below grade by
+half the car's WIDTH — which is not the 0.7 m the first version guessed for
+everything, and not the same for a hatchback and a pickup.
+
+---
+
 # Current knob values, and why
 
 | knob | value | why |

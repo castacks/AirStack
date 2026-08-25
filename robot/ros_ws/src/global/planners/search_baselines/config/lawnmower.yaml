@@ -1,0 +1,29 @@
+# Boustrophedon coverage — the operational floor every semantic method must beat.
+#
+# Ignores frontiers entirely and flies fixed lanes across its sector until the
+# episode ends, then repeats. The frontier machinery still runs (the occupancy
+# map is published, and the same detector and deviation logic apply) but nothing
+# reads its output for selection, so its logs will show no frontier activity.
+#
+# Lane spacing comes from the camera footprint at altitude with overlap, NOT a
+# round number: spacing wider than the footprint leaves unobserved gaps between
+# lanes and would understate what this baseline actually achieves.
+#
+# Needs NO GPU service.
+search_planner:
+  ros__parameters:
+    nav_mode: 'lawnmower'
+    vlm_preflight: false
+
+    # 0 -> derived from flight_altitude_m, the camera hfov and the overlap below.
+    lawnmower_spacing_m: 0.0
+    lawnmower_overlap_frac: 0.2
+    # 'auto' runs lanes along the sector's LONGER axis: fewer turns, and a turn
+    # costs time while covering nothing.
+    lawnmower_axis: 'auto'
+    lawnmower_reach_radius_m: 8.0
+
+    # Sector the region and stay in it. At 1 robot this is the padded region
+    # itself, so the pipeline is exercised without changing behaviour.
+    sector_partition: 'strips'
+    search_area_pad_m: 25.0

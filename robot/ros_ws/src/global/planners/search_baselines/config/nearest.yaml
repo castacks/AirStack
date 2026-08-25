@@ -1,0 +1,6 @@
+# Geometric control — the floor a semantic method has to beat.
+# Nearest in-bounds frontier, no VLM, no ITM, no GPU service.
+search_planner:
+  ros__parameters:
+    nav_mode: 'nearest'
+    vlm_preflight: false

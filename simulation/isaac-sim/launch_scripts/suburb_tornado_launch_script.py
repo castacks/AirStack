@@ -104,6 +104,7 @@ import suburb_scene as ss                                      # noqa: E402
 from suburb_scene import generate_suburb_on_stage              # noqa: E402
 from compile_disaster import load_scene_config                 # noqa: E402
 from disaster import ground, planks, wind_flow                 # noqa: E402
+from disaster import tornado_people as tpp                     # noqa: E402
 from disaster import tornado as tn                             # noqa: E402
 from detail import modular_house as mh                         # noqa: E402
 
@@ -123,9 +124,32 @@ N_PLANKS = int(os.environ.get("TOR_PLANKS", "140"))
 TRACK_PER100 = float(os.environ.get("TOR_TRACK_PER100", "4.5"))
 DO_GROUND = os.environ.get("TOR_GROUND", "1").strip().lower() not in (
     "0", "false", "no")
+DO_PEOPLE = os.environ.get("TOR_PEOPLE", "1").strip().lower() not in (
+    "0", "false", "no")
+PEOPLE_JSON = os.environ.get(
+    "PEOPLE_JSON", os.path.join(ARCH_DIR, "humans_{0}.json".format(SEED)))
 SNAP_DIR = os.environ.get("SNAP_DIR", "")
 if SNAP_DIR:
     os.makedirs(SNAP_DIR, exist_ok=True)
+
+
+def _rigged_humans(config, rp):
+    """The RIGGED RenderPeople, which are the only ones a pose can bind to.
+
+    `posed_standing` assets are static meshes frozen in one attitude — binding
+    a `walk` or `crouch` pose to one does nothing at all and the figure ships
+    in whatever attitude it was authored in. Same selection
+    `disaster.people.build_ctx` makes, with the same fallback.
+    """
+    from suburb_scene import _raw_pool
+
+    pools = rp[1]
+    raw = _raw_pool(config, "humans")
+    rigged = pools.load_tagged(raw, "rigged")
+    if not rigged:
+        posed = pools.load_tagged(raw, "posed_standing")
+        rigged = [u for u in pools.load(raw) if u not in posed]
+    return rigged
 
 TREE_SPECIES = {
     "Black_Oak": "airstack://scene_gen/assets/aec/tower/Assets/Vegetation/Black_Oak/Black_Oak.usd",
@@ -169,40 +193,13 @@ def _ref(stage, dst, usd, x, y, yaw, ssf, scale=1.0, instance=True):
     return True
 
 
-def _toss(stage, prim_path, dx, dy, roll_deg, yaw_jitter_deg, lift_m=0.0):
-    """Move and roll an already-placed prop — a car, a bin, a play structure.
-
-    THE ONE THING A TORNADO DOES THAT A FIRE DOES NOT, applied to the things
-    the assembly has already built. A burnt car is an ordinary car standing in
-    a black landscape; a car in a track has been PUSHED, and often rolled onto
-    its side. That is cheap to author here and impossible to bake into an
-    archetype, because these are per-placement props rather than per-type.
-
-    Rebuilds the op order rather than appending, for the same reason
-    `vegetation.tip_tree` does: a prim placed by `apply_placements` carries
-    translate + rotateZ + maybe scale, and appending a rotate to the end of
-    that list applies it in the wrong frame — the prop orbits the origin
-    instead of rolling in place.
-    """
-    prim = stage.GetPrimAtPath(prim_path)
-    if not prim or not prim.IsValid():
-        return False
-    xf = UsdGeom.Xformable(prim)
-    vals = {}
-    for op in xf.GetOrderedXformOps():
-        vals[op.GetOpName().split(":")[-1]] = op.Get()
-    t = vals.get("translate") or Gf.Vec3d(0.0, 0.0, 0.0)
-    xf.SetXformOpOrder([])
-    xf.AddTranslateOp().Set(Gf.Vec3d(float(t[0]) + dx, float(t[1]) + dy,
-                                     float(t[2]) + lift_m))
-    xf.AddRotateZOp().Set(float(vals.get("rotateZ") or 0.0)
-                          + float(yaw_jitter_deg))
-    if abs(roll_deg) > 0.01:
-        xf.AddRotateXOp().Set(float(roll_deg))
-    sc = vals.get("scale")
-    if sc is not None:
-        xf.AddScaleOp().Set(Gf.Vec3f(float(sc[0]), float(sc[1]), float(sc[2])))
-    return True
+# `_toss` MOVED TO `disaster.tornado.toss_prim`. It was here first, then the
+# people preview needed exactly the same seating maths to stand a toppled car
+# up correctly — and a second copy of a routine whose whole point is that it
+# MEASURES rather than guesses is the fastest way to end up with two different
+# guesses again. Aliased rather than renamed at the call sites so the diff
+# stays about the move.
+_toss = tn.toss_prim
 
 
 def wait_for_stage(stage, timeout_s=20.0):
@@ -274,10 +271,13 @@ def main():
     htally = {}
     pal_jobs = []
     wrecks = []          # (x, y, footprint, intensity) for the plank field
+    intact = []          # standing houses — the neighbour-dig prior
     for i, h in enumerate(houses):
         it = float(inten(h["x"], h["y"]))
         level = tn.house_level_for_intensity(it, drng)
         htally[level] = htally.get(level, 0) + 1
+        if level == "pristine":
+            intact.append((h["x"], h["y"]))
         key = "house_{0}_{1}".format(h["style"], level)
         usd = arch.get(key) or arch.get("house_{0}_pristine".format(h["style"]))
         yaw = (throw_deg + drng.uniform(-14.0, 14.0)
@@ -381,6 +381,12 @@ def main():
                 t["x"], t["y"], yaw, ssf, scale=scale):
             n_t += 1
 
+    # The resolver measures every asset's real footprint and the pools resolve
+    # tag queries; both are needed by the people pass and neither is cheap, so
+    # they are built once here rather than per scenario.
+    resolver_pools = (sg._make_resolver(config), ss.AssetPools(config))
+    drng = random.Random(SEED + 404)
+
     # 5) STREET FURNITURE, FENCES AND CARS IN THE CORRIDOR -------------------
     #
     # `damage.INCOMBUSTIBLE` IS THE WRONG LIST HERE and it is worth saying so
@@ -394,7 +400,8 @@ def main():
              "play_structure", "swing", "seesaw", "bus_stop", "cafe_set",
              "bike_rack", "goal", "basket", "hoop")
     frng = random.Random(SEED + 13)
-    n_gone = n_car = 0
+    n_gone = n_car = n_car_in = n_car_tip = 0
+    car_recs = []        # {x, y, toppled} for `in_vehicle`
     for q in placements:
         path = q.get("prim_path")
         cat = str(q.get("category", ""))
@@ -416,24 +423,79 @@ def main():
                 pr = stage.GetPrimAtPath(path)
                 if pr and pr.IsValid() and pr.SetActive(False):
                     n_gone += 1
-        elif "car" in cat and it > 0.22:
-            # PUSHED AND ROLLED. Vehicles strewn along a track are one of the
-            # most legible features in the reference photograph, and they are
-            # also the only prop in this scene that a viewer knows the correct
-            # resting pose of — which is exactly why moving them is worth the
-            # code.
+        elif "car" in cat:
+            n_car_in += 1
+            if it <= 0.12:
+                continue
+            # THE POSE LADDER. Vehicles are the most legible objects in a
+            # debris field — a viewer knows a car's correct resting pose, so a
+            # wrong one is read instantly — and they were the explicit second
+            # element of Joplin's search doctrine ("house by house, CAR BY
+            # CAR, block by block"). Worth getting right.
+            #
+            # Measured displacement rates, Paulikas, Schmidlin & Marshall 2016
+            # (959 vehicles across 12 tornadoes), which is what this ladder is
+            # built from rather than from taste:
+            #
+            #   EF0        10% shifted
+            #   EF1-EF2    36% displaced,  5% rolled or lofted
+            #   EF3-EF4    63% displaced, 15% rolled or lofted
+            #   EF5        69% moved,     31% tipped
+            #
+            # So even on the centreline only about a third go over, and two
+            # thirds are merely SHOVED — parked askew, nosed into a kerb,
+            # pushed off a drive. A corridor where every car is upside down is
+            # as wrong as one where none is.
+            # ONE DRAW, NOT TWO NESTED ONES. Paulikas' rates are
+            # UNCONDITIONAL shares of all vehicles in the damage zone — "EF5
+            # 69% moved, 31% tipped" means 31% of ALL cars, not 31% of the 69%
+            # that moved. Testing `p_tip` only after a car had already passed
+            # `p_move` multiplied the two together and produced an effective
+            # tip rate of 6% where the data says 15%: measured on the first
+            # run, 5 of 25 cars in the path moved and NONE tipped. A tipped
+            # car is displaced by definition, so the correct structure is a
+            # single draw against nested thresholds.
+            p_move = 0.10 + 0.62 * it
+            p_tip = 0.05 + 0.30 * (it ** 1.5)
+            roll_draw = frng.random()
+            if roll_draw > p_move:
+                continue
             d = float(tcfg["throw_m"]) * (it ** 1.6) * frng.uniform(0.2, 0.9)
             a = math.radians(throw_deg + frng.uniform(-40.0, 40.0))
-            roll = (frng.choice((-1.0, 1.0)) * frng.uniform(62.0, 118.0)
-                    if frng.random() < min(0.75, it) else
-                    frng.uniform(-9.0, 9.0))
+            pitch = 0.0
+            if roll_draw < p_tip:
+                r = frng.random()
+                if r < 0.55:
+                    # ON ITS SIDE. The commonest tipped pose by far — a car
+                    # rolls about its long axis and stops against its own
+                    # roof rail.
+                    roll = frng.choice((-1.0, 1.0)) * frng.uniform(74.0, 106.0)
+                elif r < 0.85:
+                    # ON ITS ROOF. Needs the full turn, not 90 more degrees:
+                    # a car that has gone all the way over is resting on its
+                    # roof and pillars, which is a flatter, wider silhouette
+                    # than on-its-side and reads differently from the air.
+                    roll = frng.choice((-1.0, 1.0)) * frng.uniform(158.0, 202.0)
+                else:
+                    # NOSED IN. Thrown against something and left standing on
+                    # its front end — rare, and the single most arresting
+                    # vehicle pose in a real damage photograph.
+                    roll = frng.uniform(-30.0, 30.0)
+                    pitch = frng.choice((-1.0, 1.0)) * frng.uniform(38.0, 72.0)
+                n_car_tip += 1
+            else:
+                roll = frng.uniform(-7.0, 7.0)
             if _toss(stage, path, math.cos(a) * d * ssf,
                      math.sin(a) * d * ssf, roll,
-                     frng.uniform(-70.0, 70.0),
-                     lift_m=(0.7 * ssf if abs(roll) > 30.0 else 0.0)):
+                     frng.uniform(-80.0, 80.0), pitch_deg=pitch):
                 n_car += 1
-    print("[tornado] corridor: {0} fence/furniture prim(s) blown away, "
-          "{1} car(s) pushed or rolled".format(n_gone, n_car))
+                car_recs.append({
+                    "x": float(q.get("x_m", 0.0)) + math.cos(a) * d,
+                    "y": float(q.get("y_m", 0.0)) + math.sin(a) * d,
+                    "toppled": abs(roll) > 30.0 or abs(pitch) > 30.0})
+    print("[tornado] corridor: {0} fence/furniture prim(s) blown away; "
+          "{1} of {2} car(s) in the path moved, {3} of those tipped onto a "
+          "side, roof or nose".format(n_gone, n_car, n_car_in, n_car_tip))
 
     # 6) THE PLANK FIELD ------------------------------------------------------
     #
@@ -486,6 +548,82 @@ def main():
             # on the surface — the same exclusion the burn scar makes.
             skip=ground.skip_rects(binfo.get("pool_rects") or (), pad=0.0))
 
+    # 7b) THE PEOPLE ---------------------------------------------------------
+    #
+    # LAST, DELIBERATELY. Every pass above moves, deletes or re-materialises
+    # something, and a survivor is not debris — `disaster.people` holds people
+    # back past the wildfire scorch pass for the same reason. Nothing here
+    # touches a figure once it is placed.
+    n_people = n_trap = 0
+    p_recs = []
+    if DO_PEOPLE:
+        try:
+            pcfg = tpp.resolve_cfg(config)
+            # ROAD POINTS: the carriageway is the only navigable ground in a
+            # levelled subdivision, and it is where `street` and `assisted`
+            # put people. Sampled off the street graph and kept only where the
+            # track actually reached — a walker on an untouched street at the
+            # far corner is a bystander, and this scene is about the people
+            # the tornado hit.
+            road_pts = []
+            _net = binfo.get("net")
+            for _e in (getattr(_net, "edges", {}) or {}).values():
+                _pts = list(getattr(_e, "pts", ()) or ())
+                for _i in range(0, max(0, len(_pts) - 1), 2):
+                    _ax, _ay = float(_pts[_i][0]), float(_pts[_i][1])
+                    if inten(_ax, _ay) < 0.15:
+                        continue
+                    _bx, _by = float(_pts[_i + 1][0]), float(_pts[_i + 1][1])
+                    road_pts.append((_ax, _ay, math.degrees(
+                        math.atan2(_by - _ay, _bx - _ax))))
+            pctx = {
+                "wrecks": [{"x": w[0], "y": w[1], "fp": w[2],
+                            "intensity": w[3], "level": w[4]} for w in wrecks],
+                "intact": intact,
+                "road_pts": road_pts,
+                "cars": car_recs,
+                "throw_deg": throw_deg,
+                "humans": _rigged_humans(config, resolver_pools),
+                "resolver": resolver_pools[0],
+                "asset_pools": resolver_pools[1],
+            }
+            p_humans, p_debris, p_recs = tpp.plan_people(
+                pcfg, pctx, random.Random(SEED + 91))
+            if p_humans:
+                sg.apply_placements(stage, p_humans, PARENT + "/people", ssf,
+                                    resolver=resolver_pools[0],
+                                    instance_categories=set())
+                n_people = len(p_humans)
+            if p_debris:
+                # The boards that make `trapped_partial` partial. Same
+                # `planks` path as the main debris field, so a board over a
+                # casualty and a board in the field are the same material.
+                _spec = [{"x": d["x"], "y": d["y"], "z": d["z"],
+                          "l": d["len"], "w": d["wide"],
+                          "t": drng.uniform(0.02, 0.05), "yaw": d["yaw"],
+                          "pitch": drng.uniform(-8.0, 8.0),
+                          "roll": drng.uniform(-10.0, 10.0),
+                          "class": ("sheathing" if d["wide"] > 0.4
+                                    else "board")}
+                         for d in p_debris]
+                planks.build(stage, PARENT + "/trap_debris", _spec,
+                             planks.materials(stage, PARENT), ssf,
+                             verbose=False)
+                n_trap = len(_spec)
+            tpp.write_records(PEOPLE_JSON, p_recs, meta={
+                "seed": SEED, "scene_config": SCENE_CONFIG,
+                "epoch_min": pcfg.get("epoch_min"),
+                "track_deg": float(tcfg["heading_deg"]),
+                "throw_deg": throw_deg,
+                "in_path_frac": summ["in_path_frac"]})
+            print("[tornado] people: {0} authored, {1} board(s) over trapped "
+                  "figures, ground truth -> {2}".format(
+                      n_people, n_trap, PEOPLE_JSON))
+        except Exception as _exc:
+            import traceback
+            print("[tornado] PEOPLE PASS FAILED: {0}".format(_exc))
+            traceback.print_exc()
+
     # 8) RE-ASSERT THE CUTOUT FLAG, AFTER THE STAGE LOAD ---------------------
     #
     # THE COMMAND-LINE FLAG IS NOT ENOUGH IN A SCENE THAT LOADS A STAGE. Kit
@@ -516,9 +654,19 @@ def main():
           "{2}".format(
               n_t, miss_t,
               ", ".join("%s=%d" % kv for kv in sorted(ttally.items()))))
-    print("  debris      {0} board(s); {1} prop(s) blown away, {2} car(s) "
-          "moved".format(n_boards, n_gone, n_car))
+    print("  debris      {0} board(s); {1} prop(s) blown away".format(
+        n_boards, n_gone))
+    print("  vehicles    {0} of {1} in the path moved, {2} tipped".format(
+        n_car, n_car_in, n_car_tip))
     print("  scour       {0} band(s) of Soil_Mud".format(len(made_g)))
+    if DO_PEOPLE:
+        _ps = tpp.summarise(p_recs)
+        print("  people      {0}; {1}".format(
+            _ps["total"], ", ".join("%s=%d" % kv for kv in
+                                    sorted(_ps["by_scenario"].items()))))
+        print("              visibility {0}; ground truth -> {1}".format(
+            ", ".join("%s=%d" % kv for kv in
+                      sorted(_ps["by_visibility"].items())), PEOPLE_JSON))
     if miss_h or miss_t:
         print("  !! {0} house(s) and {1} tree(s) are UNDAMAGED because their "
               "archetype is missing.".format(miss_h, miss_t))

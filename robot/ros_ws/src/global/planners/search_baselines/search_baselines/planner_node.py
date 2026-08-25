@@ -43,7 +43,7 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.node import Node
 from rclpy.qos import (DurabilityPolicy, HistoryPolicy, QoSProfile,
                        ReliabilityPolicy)
-from sensor_msgs.msg import CameraInfo, Image, NavSatFix
+from sensor_msgs.msg import CameraInfo, Image, NavSatFix, PointCloud2, PointField
 from std_msgs.msg import Bool, ColorRGBA, String
 from visualization_msgs.msg import Marker, MarkerArray
 
@@ -70,8 +70,14 @@ try:
     import cv2
     import open3d as o3d
 
-    from conavgpt2 import vlm_client
-    from conavgpt2.airstack_agent import AirStackAgent, o3d_xz_to_map_xy
+    from search_baselines import vlm_client
+    from search_baselines import itm_client as vlfm_scorer
+    from search_baselines import lawnmower as lm
+    from search_baselines import sector as sect
+    from search_baselines.value_map import ValueMap
+    from search_baselines.visit_cost import VisitCost
+    from search_baselines.voxel_map import VoxelMap
+    from search_baselines.airstack_agent import AirStackAgent, o3d_xz_to_map_xy
     from conavgpt2.vendor import system_prompt
     from conavgpt2.vendor.arguments import get_args
     from conavgpt2.vendor.utils import chat_utils
@@ -123,7 +129,7 @@ class _NavGoal:
 class CoNavGPT2Node(Node):
 
     def __init__(self):
-        super().__init__('conavgpt2')
+        super().__init__('search_planner')
 
         # ── robots and topics ─────────────────────────────────────────────────
         # Upstream's ros_multi_nav.py is one process for the whole team, because a
@@ -157,19 +163,30 @@ class CoNavGPT2Node(Node):
         self._nav_tpl = self._p('navigate_action_template', '/{robot}/tasks/navigate')
         self._plan_tpl = self._p('global_plan_topic_template', '/{robot}/global_plan')
         self._agent_image_tpl = self._p(
-            'agent_image_topic_template', '/{robot}/conavgpt2/agent_image')
-        self._map_image_topic = self._p('map_image_topic', '/conavgpt2/map_image')
-        self._vlm_image_topic = self._p('vlm_image_topic', '/conavgpt2/vlm_prompt_image')
+            'agent_image_topic_template', '/{robot}/search/agent_image')
+        # Templates, formatted against the FIRST robot: one node drives the
+        # whole team, so its map and round table are the team's, but they still
+        # live under a robot namespace so the rest of the stack (dds_router,
+        # keepalive, Foxglove layouts) can address them the usual way.
+        _r0 = self._robots[0]
+        self._map_image_topic = self._p(
+            'map_image_topic', '/{robot}/search/map_image').format(robot=_r0)
+        self._vlm_image_topic = self._p(
+            'vlm_image_topic', '/{robot}/search/vlm_prompt_image').format(robot=_r0)
         # The same grid and the same frontiers as the rendered map image, but as
         # real message types, so Foxglove's Map/3D panels can draw them over the
         # sim ground instead of showing a picture of them.
-        self._occupancy_topic = self._p('occupancy_topic', '/conavgpt2/occupancy')
-        self._frontier_topic = self._p('frontier_marker_topic', '/conavgpt2/frontiers')
+        self._occupancy_topic = self._p(
+            'occupancy_topic', '/{robot}/occupancy').format(robot=_r0)
+        self._frontier_topic = self._p(
+            'frontier_marker_topic', '/{robot}/frontiers').format(robot=_r0)
+        self._voxel_cloud_topic = self._p(
+            'voxel_cloud_topic', '/{robot}/voxel_map').format(robot=_r0)
         # Cap on cubes per frontier marker. A frontier region on a coarse grid
         # can be thousands of cells; beyond a few hundred the shape is already
         # readable and the rest is bandwidth.
         self._frontier_max_cells = int(self._p('frontier_marker_max_cells', 400))
-        # What /conavgpt2/frontiers draws.
+        # What the frontier marker topic draws.
         #   'centroids' just the goal point per frontier — the single point a
         #               robot is actually sent to, which is what upstream's
         #               `Goal_point` is. Least clutter.
@@ -294,6 +311,170 @@ class CoNavGPT2Node(Node):
                 self._max_frontiers_limit,
                 max(6, round(6.0 * self._map_extent_m / 240.0))))
         self._frontier_order = str(self._p('frontier_order', 'smallest'))
+
+        # ── where frontiers come from ────────────────────────────────────────
+        #   'slab2d'  upstream Co-NavGPT2: the cloud is rasterised into ONE
+        #             altitude slab and frontiers are contours of the free
+        #             region. Every frontier is at the same height by
+        #             construction, because the map has no height.
+        #   'voxel3d' rayfronts' definition: a three-state voxel map built by
+        #             RAY CARVING (empty / occupied / unobserved), and a frontier
+        #             is an EMPTY voxel with unobserved neighbours. Frontiers
+        #             appear at every height the camera has actually seen
+        #             through, and each carries its own z.
+        #
+        # vdb_mapping is not used for this even though it also carves: it
+        # publishes occupied voxels only (vdb_map_pointcloud /
+        # vdb_map_visualization), and FREE-vs-UNOBSERVED is the whole basis of a
+        # frontier. It would also require the lidar, which costs ~3x the sim
+        # rate and sees 360 degrees where VLFM's value is camera-FOV bound.
+        self._frontier_source = str(self._p('frontier_source', 'slab2d'))
+        self._vox_size = float(self._p('voxel_size_m', 2.0))
+        self._vox_carve_samples = int(self._p('voxel_carve_samples', 24))
+        self._vox_max_points = int(self._p('voxel_max_points_per_tick', 20000))
+        self._vox_neigh_r = int(self._p('voxel_neighborhood_r', 1))
+        self._vox_min_unobs = int(self._p('voxel_min_unobserved', 3))
+        self._vox_min_empty = int(self._p('voxel_min_empty', 1))
+        self._vox_min_occ = int(self._p('voxel_min_occupied', 0))
+        self._vox_subsample = int(self._p('voxel_frontier_subsample', 2))
+        # Height span of the voxel MAP, in map-frame metres. Distinct from the
+        # flight band: the map has to contain the ground and the buildings or
+        # nothing is ever carved as empty. 0 on the max derives it from the
+        # obstacle band and the altitude ceiling.
+        self._vox_z_min = float(self._p('voxel_z_min_m', 0.0))
+        self._vox_z_max = float(self._p('voxel_z_max_m', 0.0))
+        self._vox_cloud_max_points = int(self._p('voxel_cloud_max_points', 120000))
+        # WHERE FRONTIERS MAY BE, which is not the same question as where the
+        # drone may fly. Conflating them is a footgun in both directions: a
+        # frontier band of 3-20 m over a suburb is sensible, and flying at 3 m
+        # between 10 m houses is not. 0 falls back to the flight band.
+        self._fr_z_min = float(self._p('frontier_z_min_m', 0.0))
+        self._fr_z_max = float(self._p('frontier_z_max_m', 0.0))
+        self._voxel_map = None
+        self._frontier_z = []
+        self._frontier_candidates = []
+
+        # ── VLFM (nav_mode 'vlfm') ───────────────────────────────────────────
+        # Score the CURRENT view against the target, paint it over the ground the
+        # camera can see, pick the frontier standing in the highest-value cell.
+        # Same map, same frontiers and same actuation as nav_mode 'gpt' — only
+        # the SELECTION differs, which is what makes the two comparable.
+        #
+        # keyframe_period_s is the whole cost/benefit: canonical VLFM scores at
+        # camera rate with a ~50 ms ITM model, this scores with a generative VLM
+        # at ~2.5 s a call. Too short and calls queue behind each other and every
+        # score is stale; too long and the value map is nearly empty.
+        self._vlfm_keyframe_s = float(self._p('vlfm_keyframe_period_s', 3.0))
+        self._vlfm_max_range = float(self._p('vlfm_value_range_m', 0.0)) \
+            or self._depth_max_m
+        self._vlfm_min_conf = float(self._p('vlfm_min_confidence', 0.02))
+        # Frontier score = value - distance_penalty_per_m * metres. 0 makes it
+        # pure argmax value, which will happily send the drone across the map
+        # for a marginally better cell.
+        self._vlfm_dist_penalty = float(self._p('vlfm_distance_penalty', 0.002))
+        self._vlfm_img_max_side = int(self._p('vlfm_image_max_side', 512))
+        # ── commitment ───────────────────────────────────────────────────────
+        # Argmax every tick makes the drone thrash: the value map moves as it
+        # flies, two frontiers trade places, and it turns around having reached
+        # neither. Same hysteresis raven_nav's frontier_behavior uses, and the
+        # same three knobs:
+        #   a target is held for at least lock_s,
+        #   a rival must beat it by swap_margin_frac of the current score,
+        #   and it is released on arrival within unlock_radius_m.
+        # NOTE this is OURS, not the paper's — I do not have VLFM's reference
+        # implementation to say what it does about oscillation.
+        self._lock_s = float(self._p('frontier_lock_s', 6.0))
+        self._swap_frac = float(self._p('frontier_swap_margin_frac', 0.35))
+        self._unlock_radius = float(self._p('frontier_unlock_radius_m', 8.0))
+        self._locked_goal = None
+        self._locked_score = None
+        self._locked_at = 0.0
+
+        # ── frontier arm: visit cost, not a blacklist ────────────────────────
+        # Blacklisting a visited frontier removes it permanently, which ends
+        # coverage the moment the map is explored once. The detector is
+        # imperfect, so repeated passes are wanted. Cost instead of removal.
+        self._visit_weight = float(self._p('visit_cost_weight', 1.0))
+        self._visit_radius = float(self._p('visit_cost_radius_m', 25.0))
+        self._visit_decay = float(self._p('visit_cost_decay_per_s', 0.0))
+        self._visit_cost = None
+        self._last_visit_t = None
+
+        # ── lawnmower arm ────────────────────────────────────────────────────
+        self._lm_spacing = float(self._p('lawnmower_spacing_m', 0.0))
+        self._lm_overlap = float(self._p('lawnmower_overlap_frac', 0.2))
+        self._lm_axis = str(self._p('lawnmower_axis', 'auto'))
+        self._lm_reach = float(self._p('lawnmower_reach_radius_m', 8.0))
+        self._lm_path = None
+        self._lm_idx = 0
+        # The BLIP-2 ITM service. Separate from the generative endpoint on
+        # purpose: they are different models doing different jobs, and only this
+        # one is fast enough to share across a fleet.
+        self._vlfm_url = str(self._p('vlfm_itm_url', 'http://localhost:8100'))
+        self._vlfm_prompt = str(self._p('vlfm_prompt', ''))
+        # Tile grid for scoring. [1, 1] is canonical whole-frame VLFM; anything
+        # larger exists because BLIP-2 resizes to 224 and destroys small aerial
+        # targets — see vlfm_scorer.score_view_tiled for the measurements.
+        tiles = list(self._p('vlfm_tiles', [2, 3]) or [2, 3])
+        self._vlfm_rows = max(1, int(tiles[0]))
+        self._vlfm_cols = max(1, int(tiles[1] if len(tiles) > 1 else 1))
+
+        # ── search area + altitude band ──────────────────────────────────────
+        # A frontier outside the polygon is not a candidate at all. Flat list
+        # [x0,y0,x1,y1,...] because ROS 2 parameters have no nested arrays.
+        # Default is [0.0], not []: rclpy infers a parameter's type from its
+        # default and an EMPTY list has no inferable type, so declare_parameter
+        # raises. One element is the smallest thing that types as DOUBLE_ARRAY,
+        # and anything under 3 points (6 numbers) is not a polygon anyway.
+        poly = [float(v) for v in (self._p('search_area_xy', [0.0]) or [])]
+        self._search_poly = (np.asarray(poly, dtype=float).reshape(-1, 2)
+                             if len(poly) >= 6 and len(poly) % 2 == 0 else None)
+        self._min_alt = float(self._p('min_altitude_agl_m', 0.0))
+        self._max_alt = float(self._p('max_altitude_agl_m', 0.0))
+
+        # ── sector ───────────────────────────────────────────────────────────
+        # Grow the region by a margin, split it N ways, take this robot's slice.
+        # Every robot computes the SAME partition from the same inputs and reads
+        # off its own index, so no messages are exchanged — which is the whole
+        # point of a static-sector arm. At n=1 this is a no-op returning the
+        # padded region, so the machinery exists without changing single-drone
+        # behaviour.
+        self._sector_mode = str(self._p('sector_partition', 'none'))
+        self._sector_axis = str(self._p('sector_axis', 'auto'))
+        self._sector_pad = float(self._p('search_area_pad_m', 0.0))
+        self._sector_index = int(self._p('sector_index', -1))
+        if self._search_poly is not None and self._sector_mode != 'none':
+            idx = (self._sector_index if self._sector_index >= 0
+                   else max(0, self._robot_index_of_self()))
+            try:
+                sub = sect.sector_for(self._search_poly, self._num_robots, idx,
+                                      mode=self._sector_mode,
+                                      axis=self._sector_axis,
+                                      margin_m=self._sector_pad)
+                # An EMPTY sector would be read as "degenerate" downstream, and
+                # this module's convention is that a degenerate polygon means
+                # UNBOUNDED. That is right for a mistyped geofence and very wrong
+                # here: it would silently remove this robot's confinement instead
+                # of confining it. Refuse rather than fly unbounded.
+                if sub is None or len(sub) < 3:
+                    raise ValueError(
+                        f'sector {idx} of {self._num_robots} came back empty; '
+                        'refusing to run unbounded')
+                self._search_poly = np.asarray(sub, dtype=float)
+                self.get_logger().info(
+                    f'sector {idx + 1}/{self._num_robots} ({self._sector_mode}, '
+                    f'pad {self._sector_pad:.0f} m): {len(self._search_poly)} pts, '
+                    f'{sect.polygon_area(self._search_poly):.0f} m2')
+            except Exception as exc:
+                raise RuntimeError(f'sector partition failed: {exc}') from exc
+        elif self._search_poly is not None and self._sector_pad > 0.0:
+            self._search_poly = np.asarray(
+                sect.pad_polygon(self._search_poly, self._sector_pad), dtype=float)
+        self._vlfm_scores = 0
+        self._vlfm_score_fail = 0
+        self._vlfm_server_s = 0.0
+        self._last_keyframe = 0.0
+        self._value_map = None
         self._incremental = bool(self._p('incremental_mapping', True))
 
         # ── planning cadence ──────────────────────────────────────────────────
@@ -517,28 +698,39 @@ class CoNavGPT2Node(Node):
                              history=HistoryPolicy.KEEP_LAST, depth=1)
         self._occupancy_pub = self.create_publisher(
             OccupancyGrid, self._occupancy_topic, latched)
+        # VLFM's value field, as an OccupancyGrid because that is the message a
+        # viewer already knows how to colour: 0..100 is the value, -1 is "never
+        # scored" and draws transparent.
+        self._voxel_pub = self.create_publisher(
+            PointCloud2, self._voxel_cloud_topic, latched)
+        self._value_pub = self.create_publisher(
+            OccupancyGrid, self._p('value_map_topic',
+                                   '/{robot}/value_map').format(robot=_r0),
+            latched)
         self._frontier_pub = self.create_publisher(
             MarkerArray, self._frontier_topic, latched)
         # Depth 10 rather than latched: every round must survive into the mcap, and
         # TRANSIENT_LOCAL depth 1 would keep only the last one.
         self._round_stats_pub = self.create_publisher(
-            String, self._p('round_stats_topic', '/conavgpt2/round_stats'), 10)
+            String, self._p('round_stats_topic',
+                            '/{robot}/search/round_stats').format(robot=_r0), 10)
         # Latched, because it is a one-shot edge a mission step polls for with
         # `ros2 topic echo --once` — which would otherwise have to be listening
         # at the exact moment the budget ran out.
         self._complete_pub = self.create_publisher(
-            Bool, self._p('run_complete_topic', '/conavgpt2/run_complete'),
+            Bool, self._p('run_complete_topic',
+                          '/{robot}/search/run_complete').format(robot=_r0),
             QoSProfile(reliability=ReliabilityPolicy.RELIABLE,
                        durability=DurabilityPolicy.TRANSIENT_LOCAL,
                        history=HistoryPolicy.KEEP_LAST, depth=1))
         self._stats_path = os.path.join(
-            self._results_dir or self._dump_location, 'conavgpt2_rounds.jsonl')
+            self._results_dir or self._dump_location, 'search_planner_rounds.jsonl')
 
         self._tf_buffer = tf2_ros.Buffer(cache_time=rclpy.duration.Duration(seconds=30.0))
         self._tf_listener = tf2_ros.TransformListener(self._tf_buffer, self)
 
         self.get_logger().info(
-            f'conavgpt2 starting | robots={self._robots} | goal="{self._goal_name}" | '
+            f'search_planner starting | robots={self._robots} | goal="{self._goal_name}" | '
             f'nav_mode={self._nav_mode} | grid={map_size}x{map_size} @ '
             f'{self._map_resolution} cm = {self._map_size_cm / 100.0:.0f} m across | '
             f'obstacle band z=[{self._obst_min_z}, {self._obst_max_z}] m AGL | '
@@ -551,6 +743,14 @@ class CoNavGPT2Node(Node):
         threading.Thread(target=self._plan_loop, daemon=True).start()
 
     # ── parameters ────────────────────────────────────────────────────────────
+
+    def _robot_index_of_self(self):
+        """This container's index in `robot_names`, from ROBOT_NAME. Each robot
+        runs its own planner, so 'which slice is mine' is answered locally."""
+        me = os.environ.get('ROBOT_NAME', '')
+        if me in self._robots:
+            return self._robots.index(me)
+        return 0
 
     def _p(self, name, default):
         return self.declare_parameter(name, default).value
@@ -590,8 +790,22 @@ class CoNavGPT2Node(Node):
 
     def _init_agents(self):
         try:
-            if self._vlm_preflight:
+            # ONLY nav_mode 'gpt' talks to the generative endpoint. 'vlfm' scores
+            # with BLIP-2 ITM and 'nearest' uses no model at all, so preflighting
+            # a chat server they will never call turns an absent (and
+            # unnecessary) 6 GB service into a fatal startup error.
+            if self._vlm_preflight and self._nav_mode == 'gpt':
                 vlm_client.preflight(self.get_logger())
+            elif self._nav_mode == 'vlfm':
+                try:
+                    h = vlfm_scorer.health(self._vlfm_url)
+                    self.get_logger().info(
+                        f'vlfm: ITM endpoint OK ({h.get("model")} on '
+                        f'{h.get("device")}, {h.get("gpu_gib")} GiB) @ {self._vlfm_url}')
+                except Exception as exc:
+                    raise RuntimeError(
+                        f'vlfm: no BLIP-2 ITM server at {self._vlfm_url} ({exc}). '
+                        'Start it with: ros2 run search_baselines itm_server') from exc
             agents = []
             for i in range(self._num_robots):
                 agent = AirStackAgent(
@@ -601,11 +815,83 @@ class CoNavGPT2Node(Node):
                 agent.save_debug_images = self._save_debug_images
                 agents.append(agent)
             self._map_process = Global_Map_Proc(self._args)
+            if self._frontier_source == 'voxel3d':
+                half = self._map_size_cm / 100.0 / 2.0
+                # The MAP must span the height the WORLD occupies, not the
+                # height the drone is allowed to fly at. Sizing it to the flight
+                # band was wrong and showed up immediately: with the band at
+                # [8, 25] m the map covered only empty air, the ground and the
+                # houses (0-12 m) fell outside it entirely, and every frontier
+                # came back at 9 m — the bottom layer — because that was the
+                # only place carved rays clipped the volume.
+                #
+                # The flight band still applies, but as a filter on CANDIDATES
+                # (`z_range` in frontiers()), which is a different question:
+                # where geometry is, versus where the drone may go.
+                zlo = self._vox_z_min
+                zhi = (self._vox_z_max if self._vox_z_max > 0.0 else
+                       max(self._obst_max_z, self._max_alt, self._fr_z_max)
+                       + 2.0 * self._vox_size)
+                zlo, zhi = min(zlo, zhi), max(zlo, zhi)
+                self._voxel_map = VoxelMap((-half, -half, zlo - self._vox_size),
+                                           (half, half, zhi + self._vox_size),
+                                           self._vox_size)
+                d = self._voxel_map.dims
+                self.get_logger().info(
+                    f'voxel3d: {d[0]}x{d[1]}x{d[2]} voxels @ {self._vox_size:.1f} m, '
+                    f'z [{zlo:.1f}, {zhi:.1f}] m, '
+                    f'frontier = empty voxel with >= {self._vox_min_unobs} '
+                    f'unobserved neighbours in r={self._vox_neigh_r}')
+            size0 = self._map_size_cm // self._map_resolution
+            origin0 = (int(agents[0].origins_grid[0]), int(agents[0].origins_grid[1]))
+            if self._nav_mode == 'frontier':
+                self._visit_cost = VisitCost(
+                    size0, self._map_resolution / 100.0, origin0,
+                    radius_m=self._visit_radius,
+                    decay_per_s=self._visit_decay, weight=self._visit_weight)
+                self.get_logger().info(
+                    f'frontier: visit cost {size0}x{size0} @ '
+                    f'{self._map_resolution / 100.0:.2f} m, deposit radius '
+                    f'{self._visit_radius:.0f} m, weight {self._visit_weight:.2f}, '
+                    f'decay {self._visit_decay:g}/s')
+            if self._nav_mode == 'lawnmower':
+                if self._search_poly is None:
+                    raise RuntimeError(
+                        'lawnmower needs a sector: set search_area_xy (a lawnmower '
+                        'over an unbounded region has no lanes to fly)')
+                spacing = self._lm_spacing
+                if spacing <= 0.0:
+                    with self._lock:
+                        hfov = self._obs[0].get('hfov_rad')
+                    if not hfov:
+                        raise RuntimeError(
+                            'lawnmower spacing is derived from the camera footprint '
+                            'but no camera_info has arrived yet')
+                    spacing = lm.spacing_for_footprint(
+                        self._altitude, hfov, self._lm_overlap)
+                self._lm_path = lm.boustrophedon(
+                    self._search_poly, spacing, axis=self._lm_axis)
+                self._lm_idx = 0
+                self.get_logger().info(
+                    f'lawnmower: {len(self._lm_path)} waypoints, lane spacing '
+                    f'{spacing:.1f} m ({self._lm_overlap:.0%} overlap at '
+                    f'{self._altitude:.0f} m), axis={self._lm_axis}')
+            if self._nav_mode == 'vlfm':
+                size = self._map_size_cm // self._map_resolution
+                self._value_map = ValueMap(
+                    size, self._map_resolution / 100.0,
+                    (int(agents[0].origins_grid[0]), int(agents[0].origins_grid[1])))
+                self.get_logger().info(
+                    f'vlfm: value map {size}x{size} @ '
+                    f'{self._map_resolution / 100.0:.2f} m, keyframe every '
+                    f'{self._vlfm_keyframe_s:.1f} s, range {self._vlfm_max_range:.0f} m'
+                    + (f', search area {len(self._search_poly)} pts'
+                       if self._search_poly is not None else ', NO search area'))
             self._agents = agents
             self._agents_ready.set()
-            self.get_logger().info('conavgpt2: agents ready')
+            self.get_logger().info('search_planner: agents ready')
         except Exception as exc:
-            self.get_logger().fatal(f'conavgpt2 failed to start: {exc}')
+            self.get_logger().fatal(f'search_planner failed to start: {exc}')
             self._stop = True
             raise
 
@@ -637,6 +923,11 @@ class CoNavGPT2Node(Node):
         with self._lock:
             first = 'cam_K_raw' not in self._obs[i]
             self._obs[i]['cam_K_raw'] = (msg.k[0], msg.k[4], msg.k[2], msg.k[5])
+            if msg.k[0] > 0.0:
+                # VLFM needs the real horizontal FOV to paint its value cone;
+                # a wrong one either spills value onto ground the camera never
+                # saw or starves the cells it did.
+                self._obs[i]['hfov_rad'] = 2.0 * math.atan(0.5 * msg.width / msg.k[0])
         if first and msg.k[0] > 0.0:
             # Upstream hardcodes hfov=79 (the RealSense D455). Nothing here uses
             # that: the intrinsics come off the wire. Logged so the geometry can be
@@ -739,7 +1030,7 @@ class CoNavGPT2Node(Node):
             try:
                 self._tick()
             except Exception as exc:
-                self.get_logger().error(f'conavgpt2 tick failed: {exc}', throttle_duration_sec=5.0)
+                self.get_logger().error(f'search_planner tick failed: {exc}', throttle_duration_sec=5.0)
             sleep_for = self._plan_period_s - (time.time() - started)
             if sleep_for > 0:
                 time.sleep(sleep_for)
@@ -798,7 +1089,7 @@ class CoNavGPT2Node(Node):
         msg.data = True
         self._complete_pub.publish(msg)
         self.get_logger().info(
-            f'conavgpt2: sim budget spent ({self._max_sim_seconds:.0f} s) after '
+            f'search_planner: sim budget spent ({self._max_sim_seconds:.0f} s) after '
             f'{self._round} VLM rounds — planning stopped, node left up for the '
             'final map')
 
@@ -807,7 +1098,7 @@ class CoNavGPT2Node(Node):
             return
         snap = self._snapshot()
         if snap is None:
-            self.get_logger().info('conavgpt2: waiting for rgb/depth/camera_info/odometry',
+            self.get_logger().info('search_planner: waiting for rgb/depth/camera_info/odometry',
                                    throttle_duration_sec=10.0)
             return
         if self._sim_budget_spent():
@@ -837,6 +1128,14 @@ class CoNavGPT2Node(Node):
                    'cam_K': snap[i]['cam_K'], 'pose': pose}
 
             agent.mapping(obs)
+            if self._nav_mode == 'vlfm':
+                self._vlfm_keyframe(i, agent, pose)
+            if self._visit_cost is not None:
+                now = time.time()
+                if self._last_visit_t is not None and self._visit_decay > 0.0:
+                    self._visit_cost.decay(now - self._last_visit_t)
+                self._last_visit_t = now
+                self._visit_cost.visit(self._agent_xy(agent))
 
             if self._incremental:
                 # Upstream re-rasterises every point ever seen on every tick, which
@@ -865,8 +1164,12 @@ class CoNavGPT2Node(Node):
         obstacle_map, explored_map, top_view_map = self._map_process.Map_Extraction(
             merged, self._slab_center_z)
 
-        target_score, target_edge_map, target_point_list = self._map_process.Frontier_Det(
-            threshold_point=self._frontier_threshold)
+        if self._frontier_source == 'voxel3d' and self._voxel_map is not None:
+            target_edge_map, target_point_list = self._voxel_frontiers(merged)
+        else:
+            _, target_edge_map, target_point_list = self._map_process.Frontier_Det(
+                threshold_point=self._frontier_threshold)
+            self._frontier_z = []
 
         # Instance bookkeeping BEFORE the assignment gate, because whether any
         # unvisited target remains is exactly what decides between "fly to it"
@@ -883,6 +1186,7 @@ class CoNavGPT2Node(Node):
         else:
             assignment_due = (not self._goal_points
                               or step % self._num_local_steps == self._num_local_steps - 1)
+        self._frontier_candidates = list(target_point_list)
         if assignment_due and not found_goal:
             self._assign(target_edge_map, target_point_list, top_view_map,
                          vis_pose_pred, obstacle_map, explored_map, grid_pose, step)
@@ -906,8 +1210,277 @@ class CoNavGPT2Node(Node):
                                     top_view_map)
             self._publish_occupancy(obstacle_map, explored_map)
             self._publish_frontiers(target_edge_map, target_point_list)
+            if self._value_map is not None:
+                self._publish_value_map()
+            if self._voxel_map is not None:
+                self._publish_voxel_cloud()
             if self._publish_agent_images:
                 self._publish_agent_images_now()
+
+    def _voxel_frontiers(self, merged):
+        """Integrate this tick's cloud and extract 3D frontiers.
+
+        Returns the same two things upstream's `Frontier_Det` does — a labelled
+        edge map and a list of [i, j] grid cells — so everything downstream (the
+        BEV render the VLM is shown, the value lookup, the goal) is unchanged.
+        The difference is that each candidate ALSO has a height, kept in
+        `self._frontier_z` and used for the waypoint altitude, which is what a
+        2D slab can never provide.
+        """
+        agent = self._agents[0]
+        size = self._map_size_cm // self._map_resolution
+        edge = np.zeros((size, size), dtype=np.float32)
+        self._frontier_z = []
+        try:
+            pts = np.asarray(merged.points)
+            if pts.shape[0]:
+                # merged is in upstream's open3d frame; the voxel map works in
+                # the map frame, so convert before integrating.
+                world = np.stack(
+                    [pts[:, 0], -pts[:, 2], pts[:, 1]], axis=1)
+                cam = agent.camera_position
+                cam_map = np.array([cam[0], -cam[2], cam[1]], dtype=float)
+                self._voxel_map.integrate(
+                    cam_map, world, carve_samples=self._vox_carve_samples,
+                    max_points=self._vox_max_points)
+
+            # Candidate band: the frontier band when set, else the flight band.
+            zlo = self._fr_z_min if self._fr_z_min > 0 else (
+                self._min_alt if self._min_alt > 0 else None)
+            zhi = self._fr_z_max if self._fr_z_max > 0 else (
+                self._max_alt if self._max_alt > 0 else None)
+            fr, gain = self._voxel_map.frontiers(
+                neighborhood_r=self._vox_neigh_r,
+                min_unobserved=self._vox_min_unobs,
+                min_empty=self._vox_min_empty,
+                min_occupied=self._vox_min_occ,
+                z_range=(zlo, zhi) if (zlo is not None and zhi is not None) else None,
+                subsample=self._vox_subsample)
+            if fr.shape[0] == 0:
+                return edge, []
+
+            # Inside the search area, if one is set — cheaper here than after
+            # they have been turned into candidates.
+            keep = self._points_in_polygon(fr[:, :2], self._search_poly)
+            fr, gain = fr[keep], gain[keep]
+            if fr.shape[0] == 0:
+                return edge, []
+
+            # Best first. Unobserved-neighbour count IS the information gain, so
+            # unlike the 2D path there is no ambiguity about which to keep.
+            order = np.argsort(-gain)[:self._max_frontiers]
+            pts_out = []
+            for rank, k in enumerate(order):
+                i, j = agent.map_xy_to_grid(float(fr[k, 0]), float(fr[k, 1]))
+                pts_out.append([i, j])
+                self._frontier_z.append(float(fr[k, 2]))
+                # Label the cell (and a small disc) so the BEV render and the
+                # marker path show something at this candidate's location.
+                r = 2
+                edge[max(0, i - r):min(size, i + r + 1),
+                     max(0, j - r):min(size, j + r + 1)] = rank + 1
+            return edge, pts_out
+        except Exception as exc:
+            self.get_logger().warn(f'voxel3d frontier extraction failed: {exc}',
+                                   throttle_duration_sec=10.0)
+            return edge, []
+
+    # ── VLFM ──────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _points_in_polygon(pts_xy, poly_xy):
+        """Vectorised even-odd ray cast. Same routine raven_nav uses to enforce
+        its geofence, so a frontier that one method calls out of bounds is out of
+        bounds for the other too."""
+        pts_xy = np.asarray(pts_xy, dtype=float)
+        if pts_xy.size == 0 or poly_xy is None or poly_xy.shape[0] < 3:
+            return np.ones(len(pts_xy), dtype=bool)
+        x, y = pts_xy[:, 0], pts_xy[:, 1]
+        inside = np.zeros(len(pts_xy), dtype=bool)
+        M = poly_xy.shape[0]
+        for i in range(M):
+            x1, y1 = poly_xy[i]
+            x2, y2 = poly_xy[(i + 1) % M]
+            straddles = (y1 > y) != (y2 > y)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                xint = (x2 - x1) * (y - y1) / (y2 - y1) + x1
+            inside ^= straddles & (x < xint)
+        return inside
+
+    def _vlfm_keyframe(self, i, agent, pose):
+        """Score this view and paint it, if a keyframe is due.
+
+        Deliberately SYNCHRONOUS in the plan loop: the score describes the view
+        at this pose, and running it in the background would paint it at
+        whatever pose the drone had drifted to by the time the reply arrived.
+        The cost is that the tick blocks for the call, which is exactly the
+        bottleneck `vlfm_keyframe_period_s` trades against.
+        """
+        now = time.time()
+        if self._value_map is None or (now - self._last_keyframe) < self._vlfm_keyframe_s:
+            return
+        self._last_keyframe = now
+        with self._lock:
+            rgb = self._obs[i].get('rgb')
+            hfov = self._obs[i].get('hfov_rad')
+        if rgb is None or not hfov:
+            return
+
+        score = vlfm_scorer.score_view_tiled(
+            rgb, self._goal_name, rows=self._vlfm_rows, cols=self._vlfm_cols,
+            base_url=self._vlfm_url, timeout=self._vlm_timeout,
+            max_side=self._vlfm_img_max_side,
+            text=(self._vlfm_prompt or None))
+        info = dict(vlfm_scorer.LAST_SCORE)
+        self._vlfm_server_s += float(info.get('round_trip_s') or 0.0)
+        if score is None:
+            # NOT zero: a failed call is no information. Painting 0 would tell
+            # the map this view is actively unpromising.
+            self._vlfm_score_fail += 1
+            self.get_logger().warn(
+                f'vlfm: view score failed ({info.get("error") or info.get("response")})',
+                throttle_duration_sec=15.0)
+            return
+        self._vlfm_scores += 1
+
+        cam_xy = (float(pose[0, 3]), float(pose[1, 3]))
+        # Optical +z is forward; its ground projection is where the camera looks.
+        fwd = pose[:3, 2]
+        heading = math.atan2(float(fwd[1]), float(fwd[0]))
+        n = self._value_map.observe(cam_xy, heading, hfov, self._vlfm_max_range,
+                                    score)
+        self.get_logger().info(
+            f'vlfm: score {max(score):.2f} '
+            f'cols={[round(v, 2) for v in score]} for "{self._goal_name}" | '
+            f'{1000.0 * (info.get("round_trip_s") or 0.0):.0f} ms '
+            f'| painted {n} cells | {self._vlfm_scores} scored, '
+            f'{self._vlfm_score_fail} failed', throttle_duration_sec=10.0)
+
+    def _vlfm_pick(self, target_point_list, agent):
+        """Frontier standing in the highest-value cell, inside the search area.
+
+        Falls back to the NEAREST in-bounds frontier while the value map is still
+        empty — at t=0 nothing has been scored, and argmax over a field of zeros
+        is an arbitrary choice dressed up as a decision.
+        """
+        if not target_point_list:
+            return None
+        xy = np.array([agent.grid_to_map_xy(p[0], p[1]) for p in target_point_list])
+        keep = self._points_in_polygon(xy, self._search_poly)
+        if not keep.any():
+            self.get_logger().warn(
+                f'vlfm: all {len(xy)} frontiers are outside the search area',
+                throttle_duration_sec=15.0)
+            return None
+        idx = np.flatnonzero(keep)
+        here = np.array(self._agent_xy(agent))
+
+        best, best_score, scored_any = None, -1e9, False
+        for k in idx:
+            i_c, j_c = int(target_point_list[k][0]), int(target_point_list[k][1])
+            v = self._value_map.value_at(i_c, j_c) if self._value_map else 0.0
+            c = (self._value_map.conf[i_c, j_c]
+                 if self._value_map and 0 <= i_c < self._value_map.size
+                 and 0 <= j_c < self._value_map.size else 0.0)
+            if c > self._vlfm_min_conf:
+                scored_any = True
+            d = float(np.linalg.norm(xy[k] - here))
+            sc = v - self._vlfm_dist_penalty * d
+            if sc > best_score:
+                best_score, best = sc, k
+        if not scored_any:
+            best = int(idx[np.argmin(np.linalg.norm(xy[idx] - here, axis=1))])
+            best_score = 0.0
+            self.get_logger().info(
+                'vlfm: value map still unscored — nearest in-bounds frontier',
+                throttle_duration_sec=15.0)
+        return self._commit(list(target_point_list[best]), best_score, xy[best], here)
+
+    def _frontier_pick(self, target_point_list, agent):
+        """Frontier maximising information gain MINUS accumulated visit cost.
+
+        Nothing is ever removed from consideration. As coverage completes the
+        visit costs equalise, their differences stop deciding anything, and
+        selection reverts to information gain — so the drone sweeps the sector
+        again instead of declaring it done. That repeat pass is the point: the
+        detector misses people, and a second look is the cheapest way to find
+        them.
+        """
+        if not target_point_list:
+            return None
+        xy = np.array([agent.grid_to_map_xy(p[0], p[1]) for p in target_point_list])
+        keep = self._points_in_polygon(xy, self._search_poly)
+        if not keep.any():
+            self.get_logger().warn(
+                f'frontier: all {len(xy)} candidates are outside the sector',
+                throttle_duration_sec=15.0)
+            return None
+        idx = np.flatnonzero(keep)
+        here = np.array(self._agent_xy(agent))
+
+        # Information gain: the voxel path already ranks candidates by
+        # unobserved-neighbour count, so position in the list IS the ranking.
+        # Normalised to [0, 1] because visit cost is, and `weight` only means
+        # something if the two are commensurate.
+        n = len(target_point_list)
+        best, best_score, best_xy = None, -1e9, None
+        for k in idx:
+            gain = 1.0 - (float(k) / max(1, n - 1)) if n > 1 else 1.0
+            d = float(np.linalg.norm(xy[k] - here))
+            gain -= self._vlfm_dist_penalty * d
+            i_c, j_c = int(target_point_list[k][0]), int(target_point_list[k][1])
+            sc = (self._visit_cost.score(gain, i_c, j_c)
+                  if self._visit_cost is not None else gain)
+            if sc > best_score:
+                best_score, best, best_xy = sc, k, xy[k]
+        if best is None:
+            return None
+        return self._commit(list(target_point_list[best]), best_score, best_xy, here)
+
+    def _lawnmower_pick(self, agent):
+        """The next lane waypoint, as a grid cell.
+
+        Wraps at the end of the path — the caller runs until the sim budget is
+        spent, so the lanes are a loop and a second pass is expected, not an
+        overrun.
+        """
+        if self._lm_path is None or len(self._lm_path) == 0:
+            return None
+        here = np.array(self._agent_xy(agent))
+        self._lm_idx, wp = lm.next_waypoint(
+            self._lm_path, here, self._lm_idx, self._lm_reach)
+        return list(agent.map_xy_to_grid(float(wp[0]), float(wp[1])))
+
+    def _commit(self, cand, cand_score, cand_xy, here):
+        """Hold the current target unless the challenger is clearly better.
+
+        Without this the drone re-argmaxes every tick, and because the value map
+        shifts as it flies, two frontiers swap places repeatedly and it arrives
+        at neither.
+        """
+        now = time.time()
+        if self._locked_goal is None:
+            self._locked_goal, self._locked_score, self._locked_at = \
+                cand, cand_score, now
+            return list(cand)
+
+        # Reached it -> release and take the challenger.
+        if math.dist(tuple(here), tuple(cand_xy)) <= self._unlock_radius \
+                and list(cand) == list(self._locked_goal):
+            self._locked_goal, self._locked_score, self._locked_at = \
+                cand, cand_score, now
+            return list(cand)
+
+        held_for = now - self._locked_at
+        margin = self._swap_frac * (abs(self._locked_score or 0.0) + 1e-6)
+        if held_for >= self._lock_s and cand_score > (self._locked_score or 0.0) + margin:
+            self.get_logger().info(
+                f'vlfm: swap after {held_for:.1f} s — {cand_score:.3f} beats '
+                f'{self._locked_score:.3f} by more than {margin:.3f}',
+                throttle_duration_sec=5.0)
+            self._locked_goal, self._locked_score, self._locked_at = \
+                cand, cand_score, now
+        return list(self._locked_goal)
 
     def _crop_to_map(self, pcd):
         """Map_Extraction indexes the grid without clamping, so a point sitting
@@ -958,6 +1531,27 @@ class CoNavGPT2Node(Node):
             else:
                 for _ in range(self._num_robots):
                     self._goal_points.append(self._random_goal(map_size))
+
+        elif self._nav_mode == 'vlfm':
+            for i in range(self._num_robots):
+                pick = self._vlfm_pick(target_point_list, self._agents[i])
+                self._goal_points.append(
+                    pick if pick is not None else self._random_goal(map_size))
+
+        elif self._nav_mode == 'frontier':
+            for i in range(self._num_robots):
+                self._goal_points.append(
+                    self._frontier_pick(target_point_list, self._agents[i])
+                    or self._random_goal(map_size))
+
+        elif self._nav_mode == 'lawnmower':
+            # No frontier is consulted at all: the lane path IS the plan. The
+            # occupancy map still builds and publishes, so the run is readable
+            # against the other arms, but nothing reads it for selection.
+            for i in range(self._num_robots):
+                self._goal_points.append(
+                    self._lawnmower_pick(self._agents[i])
+                    or self._random_goal(map_size))
 
         elif self._nav_mode == 'nearest':
             for i in range(self._num_robots):
@@ -1025,7 +1619,7 @@ class CoNavGPT2Node(Node):
             with open(self._stats_path, 'a') as fh:
                 fh.write(json.dumps(stats) + '\n')
         except OSError as exc:
-            self.get_logger().warn(f'[conavgpt2] round log write failed: {exc}',
+            self.get_logger().warn(f'[search_planner] round log write failed: {exc}',
                                    throttle_duration_sec=30.0)
         msg = String()
         msg.data = json.dumps(stats)
@@ -1034,18 +1628,18 @@ class CoNavGPT2Node(Node):
         tok = (f"{stats['prompt_tokens']}+{stats['completion_tokens']} tok"
                if stats['prompt_tokens'] is not None else 'tok n/a')
         self.get_logger().info(
-            f"[conavgpt2] round {self._round} | {num_frontiers} frontiers, "
+            f"[search_planner] round {self._round} | {num_frontiers} frontiers, "
             f"{self._num_robots} robot{'s' if self._num_robots != 1 else ''} | "
             f"{total_s:.1f} s (server {server_s:.1f}) | {tok} | {stats['parse']}")
         if overran:
             self.get_logger().warn(
-                f"[conavgpt2] round {self._round} OVERRAN its period by "
+                f"[search_planner] round {self._round} OVERRAN its period by "
                 f"{stats['overrun_s']:.1f} s ({total_s:.1f} s vs {budget:.1f} s budget, "
                 f"{num_frontiers} frontier images, {payload_bytes / 1024:.0f} KiB) "
                 '— every robot is now flying to a stale assignment')
         if call.get('invalid_ids'):
             self.get_logger().warn(
-                f"[conavgpt2] round {self._round}: model returned frontier ids that "
+                f"[search_planner] round {self._round}: model returned frontier ids that "
                 f"were not offered: {call['invalid_ids']}")
 
     def _resolve_frontier(self, assignment, i, target_point_list, map_size):
@@ -1177,6 +1771,24 @@ class CoNavGPT2Node(Node):
         """Where this agent currently is, in map-frame metres."""
         return agent.grid_to_map_xy(*agent.current_grid_pose)
 
+    def _frontier_altitude(self, i):
+        """Height of the frontier this robot was assigned, when the frontier
+        source supplies one. A 2D slab cannot, so this returns None there and
+        the caller falls back to the configured cruise altitude."""
+        if self._frontier_source != 'voxel3d' or not self._frontier_z:
+            return None
+        try:
+            goal = self._goal_points[i]
+        except (IndexError, TypeError):
+            return None
+        # _goal_points holds grid cells; match it back to the candidate it came
+        # from so the z belongs to THIS frontier and not to whichever was last.
+        for k, p in enumerate(self._frontier_candidates):
+            if int(p[0]) == int(goal[0]) and int(p[1]) == int(goal[1]):
+                if k < len(self._frontier_z):
+                    return self._clamp_alt(self._frontier_z[k])
+        return None
+
     def _waypoint_z(self, agent):
         """Altitude for this tick's waypoints, in map-frame metres.
 
@@ -1185,9 +1797,13 @@ class CoNavGPT2Node(Node):
         the one place a 2D method has to be told what "there" means in 3D.
         """
         if self._inspect_altitude <= 0.0 or not getattr(agent, 'found_goal', False):
-            return self._altitude
+            fz = self._frontier_altitude(self._agents.index(agent)
+                                         if agent in self._agents else 0)
+            # _frontier_altitude already clamps to the FLIGHT band, so a
+            # frontier at 3 m does not fly the drone at 3 m.
+            return fz if fz is not None else self._clamp_alt(self._altitude)
         if getattr(agent, 'nearest_point', None) is None:
-            return self._inspect_altitude
+            return self._clamp_alt(self._inspect_altitude)
         # open3d axis 1 is height, and T_MAP_TO_O3D maps map z -> o3d y, so this
         # IS the detection's height above the takeoff plane. Descend to the
         # standoff above whatever was actually seen rather than to a fixed AGL,
@@ -1195,8 +1811,19 @@ class CoNavGPT2Node(Node):
         try:
             target_z = float(np.asarray(agent.nearest_point)[1])
         except (TypeError, ValueError, IndexError):
-            return self._inspect_altitude
-        return max(self._inspect_altitude, target_z + self._inspect_altitude)
+            return self._clamp_alt(self._inspect_altitude)
+        return self._clamp_alt(max(self._inspect_altitude,
+                                   target_z + self._inspect_altitude))
+
+    def _clamp_alt(self, z):
+        """Hold the waypoint inside the mission's altitude band. 0 on either
+        bound leaves that side unconstrained, so a scene that does not care about
+        a floor or a ceiling does not have to invent one."""
+        if self._min_alt > 0.0:
+            z = max(z, self._min_alt)
+        if self._max_alt > 0.0:
+            z = min(z, self._max_alt)
+        return z
 
     def _path_msg(self, pts, offset, z=None):
         z = self._altitude if z is None else z
@@ -1360,7 +1987,7 @@ class CoNavGPT2Node(Node):
 
         That is the map the method actually reasons over, not a re-derivation
         of it. Note it is NOT the same as the greyscale in
-        /conavgpt2/map_image, which is upstream's own render: there white is
+        the map_image topic, which is upstream's own render: there white is
         unknown, light grey is free and dark grey is obstacle, with the red
         frontier boundary drawn on top.
         """
@@ -1402,6 +2029,73 @@ class CoNavGPT2Node(Node):
             self._occupancy_pub.publish(msg)
         except Exception as exc:
             self.get_logger().warn(f'occupancy publish failed: {exc}',
+                                   throttle_duration_sec=10.0)
+
+    def _publish_value_map(self):
+        """The value field on the SAME grid geometry as the occupancy topic, so
+        the two overlay cell-for-cell in Foxglove with no resampling."""
+        try:
+            vm = self._value_map
+            data = np.flipud(vm.as_occupancy_bytes().T)
+            res = self._map_resolution / 100.0
+            ox, oy = self._grid_origin_cells()
+            msg = OccupancyGrid()
+            msg.header.stamp = self.get_clock().now().to_msg()
+            msg.header.frame_id = self._map_frame
+            msg.info.resolution = res
+            msg.info.width = vm.size
+            msg.info.height = vm.size
+            msg.info.origin.position.x = -ox * res
+            msg.info.origin.position.y = -(vm.size - oy) * res
+            # Just above the occupancy layer so the two do not z-fight.
+            msg.info.origin.position.z = self._occupancy_z + 0.25
+            msg.info.origin.orientation.w = 1.0
+            msg.data = data.reshape(-1).tolist()
+            self._value_pub.publish(msg)
+        except Exception as exc:
+            self.get_logger().warn(f'value map publish failed: {exc}',
+                                   throttle_duration_sec=10.0)
+
+    def _publish_voxel_cloud(self):
+        """The three-state voxel map as a coloured XYZRGB cloud.
+
+        Green empty, red occupied, unobserved omitted. This is the map the
+        frontier definition actually reads, so seeing it is the only way to tell
+        a carving problem (nothing green) from a frontier-criteria problem
+        (plenty green, no frontiers).
+        """
+        try:
+            xyz, rgb = self._voxel_map.as_points(
+                max_points=self._vox_cloud_max_points)
+            if xyz.shape[0] == 0:
+                return
+            packed = ((np.clip(rgb[:, 0] * 255, 0, 255).astype(np.uint32) << 16)
+                      | (np.clip(rgb[:, 1] * 255, 0, 255).astype(np.uint32) << 8)
+                      | np.clip(rgb[:, 2] * 255, 0, 255).astype(np.uint32))
+            arr = np.zeros(xyz.shape[0], dtype=[
+                ('x', np.float32), ('y', np.float32), ('z', np.float32),
+                ('rgb', np.uint32)])
+            arr['x'], arr['y'], arr['z'] = (xyz[:, 0], xyz[:, 1], xyz[:, 2])
+            arr['rgb'] = packed
+            msg = PointCloud2()
+            msg.header.stamp = self.get_clock().now().to_msg()
+            msg.header.frame_id = self._map_frame
+            msg.height = 1
+            msg.width = arr.shape[0]
+            msg.fields = [
+                PointField(name='x', offset=0, datatype=PointField.FLOAT32, count=1),
+                PointField(name='y', offset=4, datatype=PointField.FLOAT32, count=1),
+                PointField(name='z', offset=8, datatype=PointField.FLOAT32, count=1),
+                PointField(name='rgb', offset=12, datatype=PointField.UINT32, count=1),
+            ]
+            msg.is_bigendian = False
+            msg.point_step = 16
+            msg.row_step = 16 * arr.shape[0]
+            msg.is_dense = True
+            msg.data = arr.tobytes()
+            self._voxel_pub.publish(msg)
+        except Exception as exc:
+            self.get_logger().warn(f'voxel cloud publish failed: {exc}',
                                    throttle_duration_sec=10.0)
 
     def _stamp_target(self, grid, xy, size):
@@ -1459,7 +2153,12 @@ class CoNavGPT2Node(Node):
                 if self._frontier_style in ('cells', 'both'):
                     self._add_region(ma, edge, k, stamp, colour, res, agent)
                 cx, cy = agent.grid_to_map_xy(p[0], p[1])
-                self._add_centroid(ma, k, cx, cy, stamp, is_goal, res)
+                # The frontier's OWN height when the source supplies one. Drawing
+                # 3D frontiers at a single altitude would hide the only thing
+                # that distinguishes them from the 2D slab.
+                cz = (self._frontier_z[k]
+                      if k < len(self._frontier_z) else self._altitude)
+                self._add_centroid(ma, k, cx, cy, cz, stamp, is_goal, res)
 
             self._frontier_pub.publish(ma)
         except Exception as exc:
@@ -1486,14 +2185,15 @@ class CoNavGPT2Node(Node):
         # THIN rather than truncate: truncating would draw only one end of the
         # region and misrepresent where it is.
         stride = max(1, len(cells) // max(1, self._frontier_max_cells))
+        zk = (self._frontier_z[k] if k < len(self._frontier_z)
+              else self._altitude)
         for ci, cj in cells[::stride]:
             gx, gy = agent.grid_to_map_xy(int(ci), int(cj))
-            m.points.append(Point(x=float(gx), y=float(gy),
-                                  z=float(self._altitude)))
+            m.points.append(Point(x=float(gx), y=float(gy), z=float(zk)))
         if m.points:
             ma.markers.append(m)
 
-    def _add_centroid(self, ma, k, cx, cy, stamp, is_goal, res):
+    def _add_centroid(self, ma, k, cx, cy, cz, stamp, is_goal, res):
         """The goal point, sized to goal_tolerance_m — so what is drawn is the
         disc the drone has to reach, not an arbitrary blob — plus the id the VLM
         was shown, so an assignment in the round table can be pointed at."""
@@ -1506,7 +2206,7 @@ class CoNavGPT2Node(Node):
         c.action = Marker.ADD
         c.pose.position.x = float(cx)
         c.pose.position.y = float(cy)
-        c.pose.position.z = float(self._altitude)
+        c.pose.position.z = float(cz)
         c.pose.orientation.w = 1.0
         c.scale.x = c.scale.y = c.scale.z = 2.0 * self._goal_tolerance
         c.color = (ColorRGBA(r=0.1, g=1.0, b=0.3, a=0.85) if is_goal
@@ -1524,11 +2224,11 @@ class CoNavGPT2Node(Node):
         t.pose.position.y = float(cy)
         # Floats a fixed number of CELLS above the point, so it stays legible
         # whether a cell is 0.6 m or 3.5 m.
-        t.pose.position.z = float(self._altitude) + 6.0 * res
+        t.pose.position.z = float(cz) + 6.0 * res
+        t.text = f'frontier_{k} @ {cz:.0f}m'
         t.pose.orientation.w = 1.0
         t.scale.z = max(1.5, 8.0 * res)
         t.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=0.95)
-        t.text = f'frontier_{k}'
         ma.markers.append(t)
 
     def _publish_image(self, pub, bgr_or_rgb, frame_id, rgb=False):

@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>search_baselines</name>
+  <version>0.0.0</version>
+  <description>Semantic-search baselines. One shared planner — RGBD occupancy, 2D or 3D voxel frontiers, search area and altitude bounds, value maps, droan actuation — with one launch file per method (vlfm, conavgpt2, nearest), so the arms differ only in how a frontier is chosen</description>
+  <maintainer email="todo@todo.todo">todo</maintainer>
+  <license>TODO</license>
+
+  <!-- the vendored upstream Co-NavGPT2 library -->
+  <exec_depend>conavgpt2</exec_depend>
+  <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>cv_bridge</depend>
+  <depend>message_filters</depend>
+  <depend>tf2_ros</depend>
+  <depend>task_msgs</depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

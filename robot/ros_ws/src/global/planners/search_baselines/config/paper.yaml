@@ -1,11 +1,11 @@
 # Upstream/paper settings, for fidelity to Co-NavGPT2 rather than to our scene.
-# Layered on conavgpt2.yaml. Every value here is upstream's own default, taken
+# Layered on planner.yaml. Every value here is upstream's own default, taken
 # from `vendor/arguments.py`; anything upstream ships that is NOT here is
 # omitted deliberately and the reason is given.
 #
 # Paper: Co-NavGPT: Multi-Robot Cooperative Visual Semantic Navigation Using
 # Vision Language Models — arXiv 2310.07937v3. Upstream commit 891ba099.
-conavgpt2:
+search_planner:
   ros__parameters:
 
     # ── ASSIGNMENT CADENCE — the paper's, exactly ───────────────────────────

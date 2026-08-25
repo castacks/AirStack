@@ -2,7 +2,7 @@
 # (SCENE_CONFIG=suburb_wildfire, scene_gen/config/presets/suburb_wildfire.yaml).
 # Used by osmo/missions/conavgpt_wildfire_1robot.yaml. Layered LAST, so it wins
 # over conavgpt2_paper.yaml where the two disagree about geometry.
-conavgpt2:
+search_planner:
   ros__parameters:
 
     # ── map geometry ───────────────────────────────────────────────────────
@@ -73,6 +73,14 @@ conavgpt2:
 
     # ── actuation ──────────────────────────────────────────────────────────
     # Inside the mission's min/max_altitude_agl (15-40 m).
+    # ── search bounds ──────────────────────────────────────────────────────
+    # Frontiers may sit from just above head height to well above the rooflines;
+    # the drone flies the band above that. Two different questions.
+    frontier_z_min_m: 3.0
+    frontier_z_max_m: 20.0
+    min_altitude_agl_m: 15.0
+    max_altitude_agl_m: 40.0
+
     flight_altitude_m: 20.0
     goal_tolerance_m: 10.0
     # Drop to 10 m AGL once the target is seen, so the confirmation

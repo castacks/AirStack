@@ -1,8 +1,10 @@
-# conavgpt2_wildfire_1robot — upstream Co-NavGPT2, 1 drone.
+# lawnmower_wildfire_1robot — boustrophedon coverage, 1 drone.
 #
-# A generative VLM is shown one top-down BEV per frontier and assigns one to
-# each robot. Qwen2.5-VL-7B nf4 (~5.9 GiB) is the field-deployable size; the
-# model and quantisation are env vars, so 32B nf4 is one change away.
+# The operational floor: fixed lanes across the sector until the episode ends,
+# then repeat. Reacts to nothing except a detected target. Lane spacing comes
+# from the camera footprint at altitude, so the coverage it reports is real.
+#
+# ONE GPU is enough: no VLM, no ITM.
 #
 # NO semantic_search_task. The planner is launched directly by a `run` step
 # below — the mission runner's escape hatch is an arbitrary shell command, so a
@@ -10,19 +12,19 @@
 # its own RGBD map, its own frontiers and its own actuation.
 #
 # Submit:
-#   airstack osmo:mission osmo/missions/conavgpt2_wildfire_1robot.yaml \
+#   airstack osmo:mission osmo/missions/lawnmower_wildfire_1robot.yaml \
 #     --pool <gpu-pool> --branch <branch> \
 #     --workflow osmo/workflows/airstack-mission-1gpu.yaml
 #
 # Schema: osmo/missions/README.md
 
-name: conavgpt2_wildfire_1robot
+name: lawnmower_wildfire_1robot
 nas_dest: /volume2/coa-sei
 
 stack:
   services: [isaac-sim, robot-desktop, gcs]
 
-method: conavgpt2
+method: lawnmower
 
 env:
   NUM_ROBOTS: 1
@@ -71,10 +73,6 @@ env:
   # people pass's own humans.json, so the GT and the scenario cannot disagree.
   # Written to both annotation dirs and drawn on /gcs/annotations/bboxes.
   GT_ANNOTATIONS: "on"
-
-  CONAVGPT2_VLM_MODEL: "Qwen/Qwen2.5-VL-7B-Instruct"
-  CONAVGPT2_VLM_QUANT: "nf4"
-  OPENAI_BASE_URL: "http://localhost:8000/v1"
 
 ready:
   timeout_s: 1800
@@ -143,47 +141,6 @@ steps:
       attempts: 3
       retry_delay_s: 15
 
-  # The generative VLM Co-NavGPT queries. 7B nf4 is ~5.9 GiB — far larger than
-  # VLFM's ITM scorer, which is why this arm wants a card of its own.
-  - run:
-      container: robot_1
-      cmd: /opt/lvlm-venv/bin/python -c "import os; from huggingface_hub import snapshot_download; print('weights at', snapshot_download(os.environ['CONAVGPT2_VLM_MODEL']))"
-      timeout_s: 5400
-      attempts: 3
-      retry_delay_s: 30
-
-  - run:
-      container: robot_1
-      cmd: |
-        mkdir -p /tmp/search
-        GPU="${CONAVGPT2_VLM_GPU:-}"
-        if [ -n "$GPU" ] && [ "$GPU" != "-1" ]; then export CUDA_VISIBLE_DEVICES="$GPU"; fi
-        nohup /opt/lvlm-venv/bin/python -m search_baselines.vlm_server \
-          --port 8000 --device cuda:0 --model "$CONAVGPT2_VLM_MODEL" \
-          --quantization "${CONAVGPT2_VLM_QUANT:-nf4}" --compute-dtype bfloat16 \
-          --metrics-jsonl /tmp/search/vlm_requests.jsonl \
-          > /tmp/search/vlm_server.log 2>&1 &
-        echo $! > /tmp/search/vlm.pid
-        sleep 10
-        kill -0 "$(cat /tmp/search/vlm.pid)" 2>/dev/null && echo VLM_STARTED || {
-          echo VLM_DEAD; tail -n 60 /tmp/search/vlm_server.log; exit 1; }
-      timeout_s: 180
-      attempts: 3
-      retry_delay_s: 20
-
-  - run:
-      container: robot_1
-      cmd: |
-        for i in $(seq 1 180); do
-          curl -sf http://localhost:8000/health | grep -q '"status": *"ok"' && {
-            echo VLM_READY; curl -s http://localhost:8000/health; echo; exit 0; }
-          kill -0 "$(cat /tmp/search/vlm.pid)" 2>/dev/null || {
-            echo VLM_EXITED; tail -n 60 /tmp/search/vlm_server.log; exit 1; }
-          sleep 10
-        done
-        echo VLM_NOT_READY; tail -n 60 /tmp/search/vlm_server.log; exit 1
-      timeout_s: 1860
-
   - action:
       task: takeoff
       goal: {target_altitude_m: 20.0, velocity_m_s: 2.0}
@@ -198,7 +155,7 @@ steps:
       cmd: |
         mkdir -p /tmp/search
         CFG=$(ros2 pkg prefix search_baselines)/share/search_baselines/config
-        nohup ros2 launch search_baselines conavgpt2.launch.xml \
+        nohup ros2 launch search_baselines lawnmower.launch.xml \
           scene_params_file:=$CFG/suburb_wildfire.yaml \
           > /tmp/search/planner.log 2>&1 &
         echo $! > /tmp/search/planner.pid
@@ -235,12 +192,11 @@ steps:
   - run:
       container: robot_1
       cmd: |
-        DEST=/root/AirStack/results/conavgpt2
+        DEST=/root/AirStack/results/lawnmower
         mkdir -p "$DEST"
         cp -v /tmp/search/*.jsonl "$DEST"/ 2>/dev/null || echo "no jsonl"
         cp -v /tmp/search/*.log "$DEST"/ 2>/dev/null || true
         cp -v /tmp/conavgpt2/search_planner_rounds.jsonl "$DEST"/ 2>/dev/null || true
-        curl -s http://localhost:8000/metrics > "$DEST"/vlm_metrics.json 2>/dev/null || true
         ls -la "$DEST"
       timeout_s: 180
     optional: true
@@ -249,7 +205,6 @@ steps:
       container: robot_1
       cmd: |
         kill "$(cat /tmp/search/planner.pid)" 2>/dev/null || true
-        kill "$(cat /tmp/search/vlm.pid)" 2>/dev/null || true
         sleep 3; echo stopped
       timeout_s: 60
     optional: true

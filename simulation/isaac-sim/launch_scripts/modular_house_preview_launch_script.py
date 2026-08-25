@@ -171,8 +171,8 @@ RESULTS_SCENE = _env("RESULTS_SCENE", "ModularHousePreview")
 # the bottom ray meets the ground a few metres ahead instead of ~15.
 #
 # THE NODE MUST BE TOLD. TF walks the URDF, which models no pitch, so a tilted
-# camera is one TF cannot see. conavgpt2 reads this SAME variable as the default
-# for camera_pitch_rad precisely so the two cannot disagree.
+# camera is one TF cannot see. search_planner reads this SAME variable as the
+# default for camera_pitch_rad precisely so the two cannot disagree.
 ZED_PITCH_DEG = float(_env("ZED_PITCH_DEG", "0"))
 
 # Top-down orthographic camera over the catalogue. The GCS visualizer

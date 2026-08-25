@@ -527,6 +527,105 @@ def _island_field(region, rng, islands, n=256, band_m=(18.0, 55.0)):
 
 
 # ---------------------------------------------------------------------------
+# posing props that are already on the stage
+# ---------------------------------------------------------------------------
+
+def toss_prim(stage, prim_path, dx, dy, roll_deg, yaw_jitter_deg, pitch_deg=0.0,
+          seat=True):
+    """Move, roll and pitch an already-placed prop. Returns True if it moved.
+
+    THE ONE THING A TORNADO DOES THAT A FIRE DOES NOT, applied to the things
+    the assembly has already built. A burnt car is an ordinary car standing in
+    a black landscape; a car in a track has been PUSHED, and very often rolled
+    onto its side or its roof. That is cheap to author here and impossible to
+    bake into an archetype, because these are per-placement props rather than
+    per-type.
+
+    IT MEASURES THE PROP TO SEAT IT, which the first version did not. That one
+    took a `lift_m` argument and every caller passed the same guessed 0.7 m for
+    anything rolled past 30 degrees. A car pivots about its own origin — which
+    on these assets is the middle of the wheelbase, ON the ground — so rolling
+    it 90 degrees swings half the BODY below grade, and how far below is half
+    the car's WIDTH, which is not 0.7 m and is not the same for a hatchback and
+    a pickup. Half of them sank into the road and the rest hovered.
+
+    So: take the prop's own untransformed bounding box, apply exactly the
+    rotation about to be authored, and lift by whatever that puts under the
+    old ground contact. Exact for any prop and any angle, and it costs one
+    bbox query.
+
+    Rebuilds the op order rather than appending, for the same reason
+    `vegetation.tip_tree` does: a prim placed by `apply_placements` carries
+    translate + rotateZ + maybe scale, and appending a rotate to the end of
+    that list applies it in the wrong frame — the prop orbits the world origin
+    instead of rolling in place.
+    """
+    from pxr import Gf, Usd, UsdGeom
+
+    prim = stage.GetPrimAtPath(prim_path)
+    if not prim or not prim.IsValid():
+        return False
+    xf = UsdGeom.Xformable(prim)
+    vals = {}
+    for op in xf.GetOrderedXformOps():
+        vals[op.GetOpName().split(":")[-1]] = op.Get()
+    t = vals.get("translate") or Gf.Vec3d(0.0, 0.0, 0.0)
+    sc = vals.get("scale")
+    sx, sy, sz = ((float(sc[0]), float(sc[1]), float(sc[2])) if sc is not None
+                  else (1.0, 1.0, 1.0))
+
+    lift = 0.0
+    if seat and (abs(roll_deg) > 0.01 or abs(pitch_deg) > 0.01):
+        try:
+            bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                                   [UsdGeom.Tokens.default_])
+            r = bc.ComputeUntransformedBound(prim).ComputeAlignedRange()
+            if not r.IsEmpty():
+                mn, mx = r.GetMin(), r.GetMax()
+                cr, sr = (math.cos(math.radians(roll_deg)),
+                          math.sin(math.radians(roll_deg)))
+                cp, sp = (math.cos(math.radians(pitch_deg)),
+                          math.sin(math.radians(pitch_deg)))
+                z_before = float(mn[2]) * sz          # current ground contact
+                z_after = None
+                # Only Z matters, and rotateZ does not change it — so the
+                # world z of a corner is the z of Ry(pitch) * Rx(roll) applied
+                # to the scaled corner. Eight corners, take the lowest.
+                for cx_ in (float(mn[0]), float(mx[0])):
+                    for cy_ in (float(mn[1]), float(mx[1])):
+                        for cz_ in (float(mn[2]), float(mx[2])):
+                            x_, y_, z_ = cx_ * sx, cy_ * sy, cz_ * sz
+                            # Rx(roll): y,z rotate
+                            y2, z2 = y_ * cr - z_ * sr, y_ * sr + z_ * cr
+                            # Ry(pitch): z,x rotate
+                            z3 = -x_ * sp + z2 * cp
+                            z_after = z3 if z_after is None else min(z_after,
+                                                                     z3)
+                if z_after is not None:
+                    lift = z_before - z_after
+        except Exception:
+            lift = 0.0
+
+    xf.SetXformOpOrder([])
+    xf.AddTranslateOp().Set(Gf.Vec3d(float(t[0]) + dx, float(t[1]) + dy,
+                                     float(t[2]) + lift))
+    xf.AddRotateZOp().Set(float(vals.get("rotateZ") or 0.0)
+                          + float(yaw_jitter_deg))
+    # ORDER IS Rz * Ry * Rx, matching the seating maths above. Pitch before
+    # roll in the list means roll is applied first about the car's own long
+    # axis, which is what "rolled onto its side" means; pitching a car that is
+    # already on its side then stands it on its nose, which is the pose a car
+    # thrown against a wall ends up in.
+    if abs(pitch_deg) > 0.01:
+        xf.AddRotateYOp().Set(float(pitch_deg))
+    if abs(roll_deg) > 0.01:
+        xf.AddRotateXOp().Set(float(roll_deg))
+    if sc is not None:
+        xf.AddScaleOp().Set(Gf.Vec3f(sx, sy, sz))
+    return True
+
+
+# ---------------------------------------------------------------------------
 # host-side reporting
 # ---------------------------------------------------------------------------
 

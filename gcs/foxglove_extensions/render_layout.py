@@ -64,8 +64,15 @@ def _robot_color_hex(n: int) -> str:
     return f'#{round(r * 255):02x}{round(g * 255):02x}{round(b * 255):02x}ff'
 
 
-def inject_conavgpt2(layout: dict) -> None:
-    """Add the conavgpt2 layers to every 3D panel, as an OVERLAY.
+def inject_search_planner(layout: dict) -> None:
+    """Add the search_planner layers to every 3D panel, as an OVERLAY.
+
+    Method-neutral: vlfm, conavgpt2 and nearest are the same node under a
+    parameter, so these two layers serve every arm. The planner drives the whole
+    team from one process, so there is a single grid and a single frontier set,
+    published under the FIRST robot's namespace — hence robot_1 below and in
+    `invalidColor`, injected identically into every tab rather than swapped per
+    robot the way `replace_robot_n` does for per-robot topics.
 
     The occupancy grid is the same flat plane as the sim ground, so it is only
     readable as a layer if it is translucent and the ground under it is not —
@@ -86,7 +93,7 @@ def inject_conavgpt2(layout: dict) -> None:
         if not (pid.startswith('3D!') and isinstance(cfg, dict)):
             continue
         topics = cfg.setdefault('topics', {})
-        topics['/conavgpt2/occupancy'] = {
+        topics['/robot_1/occupancy'] = {
             'visible': True,
             'colorMode': 'custom',
             'alpha': 0.25,
@@ -100,7 +107,7 @@ def inject_conavgpt2(layout: dict) -> None:
             'invalidColor': _robot_color_hex(1),   # 101 target  -> robot colour
             'frameLocked': False,
         }
-        topics['/conavgpt2/frontiers'] = {'visible': True}
+        topics['/robot_1/frontiers'] = {'visible': True}
         # GT from the layout generator (scene_annotations.py). Namespaced per
         # class, so house/car/tree/person can be toggled independently.
         topics['/gcs/annotations/bboxes'] = {'visible': True}
@@ -311,7 +318,7 @@ def main():
         template = json.load(f)
     rendered = expand_layout(template, args.num_robots)
     inject_rayfronts_debug(rendered, args.num_robots, args.voxel_threshold)
-    inject_conavgpt2(rendered)
+    inject_search_planner(rendered)
 
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
     tmp = args.output + '.tmp'

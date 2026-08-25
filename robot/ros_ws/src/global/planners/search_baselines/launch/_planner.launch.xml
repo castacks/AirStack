@@ -1,0 +1,22 @@
+<!-- The shared planner. Not launched directly: every method launch file
+     includes this with its own method_params_file, so the map, the frontiers,
+     the search area and the actuation are identical across methods and only the
+     selection policy differs. That is what makes the arms comparable. -->
+<launch>
+  <arg name="method_params_file" />
+  <arg name="scene_params_file" />
+  <arg name="num_robots" default="$(env NUM_ROBOTS 1)" />
+  <arg name="results_dir" default="" />
+
+  <node pkg="search_baselines" exec="search_planner" name="search_planner"
+        output="screen">
+    <param from="$(find-pkg-share search_baselines)/config/planner.yaml"
+           allow_substs="true" />
+    <param name="use_sim_time" value="true" />
+    <param name="num_robots" value="$(var num_robots)" />
+    <param name="results_dir" value="$(var results_dir)" />
+    <!-- method then scene, so the scene has the last word on geometry -->
+    <param from="$(var method_params_file)" allow_substs="true" />
+    <param from="$(var scene_params_file)" allow_substs="true" />
+  </node>
+</launch>

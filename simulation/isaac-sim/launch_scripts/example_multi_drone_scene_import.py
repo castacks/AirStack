@@ -223,8 +223,9 @@ DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/
 #
 # THE PLANNER MUST BE TOLD, because TF walks the URDF and the URDF models NO
 # mount pitch: a camera tilted here is a camera TF cannot see, and every point
-# would unproject to the wrong bearing without a word of warning. conavgpt2
-# reads this SAME variable as the default for its camera_pitch_rad so the two
+# would unproject to the wrong bearing without a word of warning.
+# search_planner reads this SAME variable as the default for its
+# camera_pitch_rad so the two
 # cannot drift apart; any other consumer of this tilt must do likewise.
 ZED_PITCH_DEG = float(os.environ.get("ZED_PITCH_DEG", "").strip() or 0.0)
 

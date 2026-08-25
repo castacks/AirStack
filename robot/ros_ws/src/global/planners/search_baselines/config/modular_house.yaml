@@ -6,7 +6,7 @@
 # and the loose-prop strip, on flat ground, one drone at (0, -45). Extent is
 # roughly x[-105, 105] y[-130, 30], so a 300 m grid holds all of it with margin
 # and lands on 62.5 cm cells — fine enough that a house is ~20 cells across.
-conavgpt2:
+search_planner:
   ros__parameters:
     num_robots: 1
 
@@ -32,6 +32,29 @@ conavgpt2:
     # The ZED is mounted level, so at 15 m AGL the ground first appears ~28 m
     # ahead and the near field is empty sky. 12 m puts more ground in frame
     # while still clearing every roof.
+    # ── search area + altitude band ────────────────────────────────────────
+    # A property of the BENCH, not of any one method, so CoNavGPT and VLFM are
+    # held to the same bounds and their results stay comparable.
+    #
+    # The catalogue, from the generated ground truth
+    # (annotations/ModularHousePreview.json): world x[-93.1, 93.7]
+    # y[-130.0, 17.0]. .env anchors the map at the spawn (0, -20), so in MAP
+    # coordinates that is x[-100, 100] y[-115, 42] with ~5 m of pad. A frontier
+    # outside it is not a candidate — which is what stops the drift into the
+    # empty ground north of the catalogue seen on the early CoNavGPT runs.
+    search_area_xy: [-100.0, -115.0,
+                      100.0, -115.0,
+                      100.0,   42.0,
+                     -100.0,   42.0]
+    # Houses top out near 10 m: stay above them, and below the height where the
+    # ground leaves the depth clip.
+    min_altitude_agl_m: 8.0
+    max_altitude_agl_m: 25.0
+    # Frontiers may sit anywhere from just above head height to well
+    # above the rooflines; the drone still flies the band above.
+    frontier_z_min_m: 3.0
+    frontier_z_max_m: 20.0
+
     flight_altitude_m: 12.0
     goal_tolerance_m: 5.0
     # Drop to 8 m AGL once the target is seen, so the confirmation
@@ -41,6 +64,9 @@ conavgpt2:
     # A 300 m map fills in far faster than a 1600 m plat, so a 30 s round spends
     # most of its time flying to a stale assignment.
     round_period_s: 20.0
+    # Same 600 sim s every arm gets on the plat, so a bench run terminates
+    # the same way and the two are read the same way.
+    max_sim_seconds: 600.0
 
     # Cars come with the plot dressing (`plot_car`), so this is a target that is
     # actually IN the scene. There are no people in the catalogue.

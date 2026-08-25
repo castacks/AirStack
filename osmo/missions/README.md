@@ -218,7 +218,7 @@ puts it on GPU 3 alone. When the fleet claims every card — 5 robots on `gpu: 6
 — it shares the leader's card with robot_1's rayfronts and warns in the log.
 `CONAVGPT_ASSIGNER_GPU` overrides the choice (`-1` = don't pin).
 
-A mission that also runs a **conavgpt2 VLM server** (`conavgpt2.vlm_server`,
+A mission that also runs a **conavgpt2 VLM server** (`search_baselines.vlm_server`,
 started by a `run` step inside robot container 1) must keep it off Isaac Sim's
 card too, and for a different reason than rayfronts: the sim does not OOM, its
 RTX render graph fails every frame and stops publishing camera images
@@ -234,7 +234,7 @@ and the collection step that copies the round table and the server's per-request
 metrics off the container before it is torn down.
 
 `ZED_PITCH_DEG` travels the same path and is read by BOTH sides: the Isaac launch
-script tilts the ZED by it, and `conavgpt2` uses it as the default for
+script tilts the ZED by it, and `search_planner` uses it as the default for
 `camera_pitch_rad`. That is deliberate — TF walks the URDF, the URDF models no
 mount pitch, so a camera the sim tilted is one TF cannot see and a planner that
 is not told unprojects every point to the wrong bearing without erroring. Set it

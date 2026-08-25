@@ -22,7 +22,7 @@ Two things it does that a stock example server does not:
    estimates.
 
 Run:
-    /opt/lvlm-venv/bin/python -m conavgpt2.vlm_server --port 8000
+    /opt/lvlm-venv/bin/python -m search_baselines.vlm_server --port 8000
 """
 
 from __future__ import annotations
@@ -553,7 +553,7 @@ class Engine:
 # ── app ──────────────────────────────────────────────────────────────────────
 
 def build_app(engine: Engine, metrics: Metrics, args):
-    app = FastAPI(title="conavgpt2 local VLM", version="1.0")
+    app = FastAPI(title="search_baselines local VLM", version="1.0")
 
     def _auth(authorization: Optional[str]):
         if not args.api_key:

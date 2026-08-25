@@ -64,19 +64,27 @@ TOPICS = [
     ('/tf',                                           TFMessage,    True,  DEFAULT_QOS),
     ('/tf_static',                                    TFMessage,    True,  DEFAULT_QOS),
 
-    # conavgpt2. ABSOLUTE (True): one node drives the whole team, as upstream
-    # does, so its map and round table are the TEAM's and carry no robot
-    # namespace.
+    # search_baselines (search_planner). Method-neutral names: vlfm, conavgpt2
+    # and nearest are one node with a parameter, so one set of entries covers
+    # every arm. Relative (absolute=False) like the rest of this list: one node
+    # still drives the whole team, but it publishes the team's map under the
+    # FIRST robot's namespace, which on a 1-robot container is this ROBOT_NAME.
     #
     # Without a subscriber here these never reach the GCS. The DDS router
     # bridges on discovery, and until something in this container actually
     # subscribes there is no local reader to discover — which is why the topics
     # would appear on the GCS only after someone ran `ros2 topic echo`, and
     # vanish again. Exactly the reason this node exists.
-    ('/conavgpt2/occupancy',                          OccupancyGrid, True, DEFAULT_QOS),
-    ('/conavgpt2/frontiers',                          MarkerArray,   True, DEFAULT_QOS),
-    ('/conavgpt2/map_image',                          Image,         True, DEFAULT_QOS),
-    ('/conavgpt2/round_stats',                        String,        True, DEFAULT_QOS),
+    ('occupancy',                                     OccupancyGrid, False, DEFAULT_QOS),
+    ('frontiers',                                     MarkerArray,   False, DEFAULT_QOS),
+    ('search/map_image',                              Image,         False, DEFAULT_QOS),
+    ('search/round_stats',                            String,        False, DEFAULT_QOS),
+    # The three-state voxel map (free / occupied / frontier) the 3D frontier
+    # extraction runs on — the volumetric counterpart of the flat `occupancy`
+    # grid above, and the only view that shows why a frontier exists at a given
+    # height. Not in the DDS allowlist (point-cloud bandwidth); keeping a local
+    # reader alive is still what lets a robot-domain Foxglove see it at all.
+    ('voxel_map',                                     PointCloud2,   False, SENSOR_QOS),
 ]
 
 

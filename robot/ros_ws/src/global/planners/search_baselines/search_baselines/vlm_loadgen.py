@@ -10,7 +10,7 @@ The worst case is the one that matters: every drone's round lands at the same
 instant, so each level fires all its clients simultaneously and waits for the
 last answer. That makespan is what has to fit inside `round_period_s`.
 
-    /opt/lvlm-venv/bin/python -m conavgpt2.vlm_loadgen \
+    /opt/lvlm-venv/bin/python -m search_baselines.vlm_loadgen \
         --base-url http://localhost:8000/v1 --levels 1,2,5 --rounds 3
 """
 

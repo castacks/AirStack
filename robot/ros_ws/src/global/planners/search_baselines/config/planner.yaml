@@ -2,7 +2,7 @@
 #
 # Values marked NEEDS TUNING have a defensible default but have not been checked
 # against a real run; see the README section of the same name.
-conavgpt2:
+search_planner:
   ros__parameters:
 
     # ── team ────────────────────────────────────────────────────────────────
@@ -24,19 +24,25 @@ conavgpt2:
     # ── outputs ─────────────────────────────────────────────────────────────
     navigate_action_template: '/{robot}/tasks/navigate'
     global_plan_topic_template: '/{robot}/global_plan'
-    map_image_topic: '/conavgpt2/map_image'
-    vlm_image_topic: '/conavgpt2/vlm_prompt_image'
-    agent_image_topic_template: '/{robot}/conavgpt2/agent_image'
-    round_stats_topic: '/conavgpt2/round_stats'
-    occupancy_topic: '/conavgpt2/occupancy'
-    frontier_marker_topic: '/conavgpt2/frontiers'
+    map_image_topic: '/{robot}/search/map_image'
+    vlm_image_topic: '/{robot}/search/vlm_prompt_image'
+    agent_image_topic_template: '/{robot}/search/agent_image'
+    round_stats_topic: '/{robot}/search/round_stats'
+    occupancy_topic: '/{robot}/occupancy'
+    frontier_marker_topic: '/{robot}/frontiers'
     frontier_marker_max_cells: 400   # cubes per frontier; thinned, not truncated
     # 'centroids' (the goal point only) | 'cells' (the region) | 'both'
     frontier_marker_style: 'centroids'
     # Draw height above map z=0. The sim ground is a flat plane at world
     # z=0 and so is this grid; at the same height they z-fight.
     occupancy_z_offset_m: 0.5
-    run_complete_topic: '/conavgpt2/run_complete'
+    run_complete_topic: '/{robot}/search/run_complete'
+    value_map_topic: '/{robot}/value_map'
+    # The three-state voxel map as a coloured cloud: green empty, red
+    # occupied, unobserved omitted. Deliberately NOT bridged to the GCS
+    # (dds_router's own note explains why point clouds are not) — watch it
+    # on the robot domain.
+    voxel_cloud_topic: '/{robot}/voxel_map'
 
     # ── frames ──────────────────────────────────────────────────────────────
     map_frame: 'map'
@@ -76,6 +82,35 @@ conavgpt2:
     # 'smallest' (upstream: indoors a small frontier is a doorway) |
     # 'largest'  (outdoors from the air the prior inverts)
     frontier_order: 'smallest'
+
+    # ── where frontiers come from ───────────────────────────────────────────
+    #   'slab2d'  upstream: ONE altitude slab, so every frontier is at the same
+    #             height because the map has no height.
+    #   'voxel3d' rayfronts' definition: a three-state voxel map built by ray
+    #             CARVING, frontier = EMPTY voxel with unobserved neighbours.
+    #             Frontiers appear at every height actually seen through, and
+    #             each carries its own z, which becomes the waypoint altitude.
+    frontier_source: 'slab2d'
+    voxel_size_m: 2.0
+    voxel_carve_samples: 24          # samples along each ray when carving free
+    voxel_max_points_per_tick: 20000
+    voxel_neighborhood_r: 1          # (2r+1)^3 box, as rayfronts' neighborhood_r
+    voxel_min_unobserved: 3          # rayfronts' min_unobserved
+    voxel_min_empty: 1
+    # rayfronts can demand a nearby surface to suppress frontiers in open sky.
+    # Indoors that helps; from the air it would delete the frontiers that matter.
+    voxel_min_occupied: 0
+    voxel_frontier_subsample: 2
+    # Height span of the voxel MAP (map-frame metres) — NOT the flight band.
+    # The map must contain the ground and the buildings or nothing is ever
+    # carved empty and no frontier can form. min_/max_altitude_agl_m still
+    # filter which frontiers are CANDIDATES; that is a different question.
+    # Where FRONTIERS may be — a different question from where the drone may
+    # fly (min_/max_altitude_agl_m). 0 falls back to the flight band.
+    frontier_z_min_m: 0.0
+    frontier_z_max_m: 0.0
+    voxel_z_min_m: 0.0
+    voxel_z_max_m: 0.0               # 0 -> obstacle ceiling / altitude ceiling + pad
     incremental_mapping: true
 
     # ── cadence ─────────────────────────────────────────────────────────────
@@ -88,7 +123,13 @@ conavgpt2:
     # Matches semantic_search_task's max_sim_seconds so a CoNavGPT run is
     # bounded by the same budget as every other baseline here.
     max_sim_seconds: 0.0
-    nav_mode: 'gpt'                # 'gpt' | 'nearest'
+    # 'gpt'     upstream Co-NavGPT: the VLM picks a frontier from numbered BEVs
+    # 'vlfm'    VLFM: the VLM scores the live RGB, the score is painted into a
+    #           value map, and the frontier in the highest-value cell wins
+    # 'nearest' geometric control: closest frontier, no VLM at all
+    # All three share the SAME map, frontiers and actuation, so a difference
+    # in results is attributable to the selection policy and nothing else.
+    nav_mode: 'gpt'
 
     # ── target ──────────────────────────────────────────────────────────────
     goal_name: 'person'
@@ -155,3 +196,61 @@ conavgpt2:
     vlm_api_key: ''                # '' -> OPENAI_API_KEY -> EMPTY
     vlm_timeout_s: 60.0
     vlm_preflight: true
+
+    # ── VLFM (nav_mode 'vlfm') ──────────────────────────────────────────────
+    # Seconds between view scorings. BLIP-2 ITM measures 17.4 ms (57 Hz), so
+    # this is NOT throughput-bound — it is capped well under the camera's 15-20
+    # Hz because scoring every frame buys nothing: consecutive frames from a
+    # moving drone overlap almost entirely, and rayfronts runs its own semantics
+    # at 0.5-1 Hz with VLFM-style exploration working fine.
+    #
+    # MEASURED at the shipped 2x3 tiling: 69 ms per keyframe (6 tiles batched).
+    #   5 Hz (0.2 s) -> 35% duty per robot ->  3 robots off one scorer
+    #   2 Hz (0.5 s) -> 14% duty per robot ->  7 robots
+    #   1 Hz (1.0 s) ->  7% duty per robot -> 14 robots
+    # 0.2 is right for the 1-robot benches. Raise it before adding robots, and
+    # check /metrics on the ITM server rather than assuming.
+    vlfm_keyframe_period_s: 0.2
+    vlfm_value_range_m: 0.0        # 0 -> depth_max_m
+    vlfm_min_confidence: 0.02      # below this a cell counts as unscored
+    vlfm_distance_penalty: 0.002   # per metre; 0 = pure argmax value
+    # Commitment, so the drone does not re-argmax every tick and thrash between
+    # two frontiers that keep trading places as the value map fills. Modelled on
+    # raven_nav's frontier_behavior (lock 6 s, 35% swap margin). NOT from the
+    # VLFM paper — its reference implementation is not available here.
+    frontier_lock_s: 6.0
+    frontier_swap_margin_frac: 0.35
+    frontier_unlock_radius_m: 8.0
+    vlfm_image_max_side: 512       # BLIP-2 resizes to 224 internally anyway
+    # The BLIP-2 ITM service (conavgpt2.blip2_itm_server). SEPARATE from the
+    # generative endpoint: different model, different job, and only this one is
+    # fast enough (17 ms) to serve a fleet from one instance.
+    vlfm_itm_url: 'http://localhost:8100'
+    vlfm_prompt: ''                # '' -> the server's "Seems like there is a {target} ahead."
+    # [rows, cols] tiles per keyframe. [1,1] is canonical whole-frame VLFM.
+    # Larger because BLIP-2 resizes to 224x224 and a 13 px person in a 946 px
+    # frame becomes 3 px: measured, the WHOLE-frame score of a scene with 8
+    # people (0.090) is BELOW a flat grey image (0.129), while 2x3 tiling
+    # gives 0.423. Rows collapse by max, columns paint their own bearing.
+    # Cost: ~71 ms/keyframe batched at 2x3, so ~7 robots at 2 Hz.
+    vlfm_tiles: [2, 3]
+
+    # ── search area + altitude band (all modes) ─────────────────────────────
+    # Flat [x0,y0,x1,y1,...] because ROS 2 params have no nested arrays. A
+    # frontier outside the polygon is not a candidate. Empty = unbounded.
+    # [0.0] means UNBOUNDED. Not [] — rclpy infers a parameter's type from its
+    # value and an empty list has none, so it raises at declare time.
+    search_area_xy: [0.0]
+    # Sector partitioning. 'none' = the whole search area. 'strips' splits it
+    # into NUM_ROBOTS equal-AREA slices along its long axis; 'grid' uses roughly
+    # square tiles. Every robot computes the same partition and reads off its
+    # own index, so nothing is exchanged — that is the defining property of a
+    # static-sector arm. At NUM_ROBOTS=1 all modes are a no-op.
+    sector_partition: 'none'
+    sector_axis: 'auto'
+    sector_index: -1               # -1 -> derive from ROBOT_NAME
+    # Grow the region before splitting, so a drone may work slightly outside the
+    # nominal disaster boundary rather than being cut off at it.
+    search_area_pad_m: 0.0
+    min_altitude_agl_m: 0.0        # 0 = no floor
+    max_altitude_agl_m: 0.0        # 0 = no ceiling

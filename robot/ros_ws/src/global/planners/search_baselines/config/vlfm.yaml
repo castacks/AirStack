@@ -1,0 +1,42 @@
+# VLFM as a METHOD overlay — nav_mode and the scorer, nothing scene-specific.
+#
+# Pair it with a SCENE overlay, exactly as paper.yaml is:
+#   method_params_file:=.../config/vlfm.yaml
+#   scene_params_file:=.../config/modular_house.yaml
+#
+# That split is what makes the comparison controlled: VLFM and CoNavGPT run the
+# same map geometry, the same frontiers, the same search area and the same
+# actuation on a given scene, and differ only in how a frontier is chosen.
+search_planner:
+  ros__parameters:
+    nav_mode: 'vlfm'
+
+    # 3D frontiers. VLFM flies in 3D in the raven baselines, and a 2D slab can
+    # only ever hand it candidates at one height. Ray carving also gives the
+    # empty-vs-unobserved distinction the frontier definition needs, which the
+    # slab does not have.
+    frontier_source: 'voxel3d'
+    voxel_size_m: 2.0
+
+    # Needs NO generative VLM. BLIP-2 ITM is 2.5 GiB against Qwen-7B's 5.9 GiB,
+    # and preflight for the chat endpoint is skipped in this mode.
+    vlfm_itm_url: 'http://localhost:8100'
+
+    # 2x3 tiles per keyframe, rows collapsed by max, columns painted into their
+    # own bearing. Measured on a fire scene with ~8 people, each ~3 px after
+    # BLIP-2's 224 resize:
+    #   whole frame  0.090   <- BELOW a flat grey image (0.129)
+    #   2x3 tiles    0.423
+    # Whole-frame scoring is not merely weak for small aerial targets, it is
+    # anti-correlated. [1, 1] restores canonical VLFM for a fidelity run.
+    vlfm_tiles: [2, 3]
+
+    # 69 ms per keyframe at 2x3 -> 5 Hz is ~35% of one scorer per robot.
+    # 2 Hz fits 7 robots, 1 Hz fits 14. Raise before adding robots.
+    vlfm_keyframe_period_s: 0.2
+
+    vlfm_value_range_m: 40.0
+    vlfm_min_confidence: 0.02
+    # Per metre of travel, subtracted from value. 0 is pure argmax, which will
+    # cross the whole map for a marginally better cell.
+    vlfm_distance_penalty: 0.004

@@ -1,0 +1,23 @@
+<!-- VLFM: BLIP-2 ITM scores the live RGB, the score is painted into a value map
+     over the camera's cone, and the frontier standing in the highest-value cell
+     wins.
+
+     NEEDS: search_baselines itm_server on port 8100 (~2.5 GiB).
+     Does NOT need the generative VLM: this mode never contacts it.
+
+       ros2 run search_baselines itm_server
+       ros2 launch search_baselines vlfm.launch.xml scene_params_file:=<scene>.yaml
+-->
+<launch>
+  <arg name="scene_params_file" />
+  <arg name="num_robots" default="$(env NUM_ROBOTS 1)" />
+  <arg name="results_dir" default="" />
+
+  <include file="$(find-pkg-share search_baselines)/launch/_planner.launch.xml">
+    <arg name="method_params_file"
+         value="$(find-pkg-share search_baselines)/config/vlfm.yaml" />
+    <arg name="scene_params_file" value="$(var scene_params_file)" />
+    <arg name="num_robots" value="$(var num_robots)" />
+    <arg name="results_dir" value="$(var results_dir)" />
+  </include>
+</launch>

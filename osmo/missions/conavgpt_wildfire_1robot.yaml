@@ -65,7 +65,7 @@ env:
   PEOPLE_POLES: "1"
 
   CONAVGPT_BASELINE: "true"
-  # The VLM the CoNavGPT node queries: a conavgpt2.vlm_server the steps below
+  # The VLM the CoNavGPT node queries: a search_baselines.vlm_server the steps below
   # start inside robot container 1 — same container the node runs in, hence
   # localhost. GPU 1, the card Isaac Sim does not have.
   CONAVGPT2_VLM_GPU: "1"
@@ -172,7 +172,7 @@ steps:
         # unquantised, but that also wants --quantization none here.
         MODEL_ARGS=""
         if [ -n "${CONAVGPT2_VLM_MODEL:-}" ]; then MODEL_ARGS="--model ${CONAVGPT2_VLM_MODEL}"; fi
-        nohup /opt/lvlm-venv/bin/python -m conavgpt2.vlm_server \
+        nohup /opt/lvlm-venv/bin/python -m search_baselines.vlm_server \
           --port 8000 --device cuda:0 $MODEL_ARGS \
           --metrics-jsonl /tmp/conavgpt2/vlm_server_requests.jsonl \
           > /tmp/conavgpt2/vlm_server.log 2>&1 &
