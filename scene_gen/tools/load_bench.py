@@ -45,6 +45,7 @@ ready to paste into the board's timing table.
 """
 
 import argparse
+import ast
 import calendar
 import json
 import os
@@ -171,6 +172,15 @@ def wait_for_banner(timeout_s, poll_s=0.5):
     return None, f"timed out after {timeout_s}s"
 
 
+def _kit_log_lines():
+    """Lines of the newest Kit log, or [] when it cannot be read."""
+    r = dexec(f'D={json_quote(KIT_LOG_DIR)}; ls -t "$D" | head -1')
+    name = r.stdout.strip()
+    if not name:
+        return []
+    return dexec(f'cat {json_quote(KIT_LOG_DIR + "/" + name)}').stdout.splitlines()
+
+
 def kit_log_phases():
     """Read the newest Kit log and pull the first stamp for each phase marker.
 
@@ -198,6 +208,29 @@ def kit_log_phases():
         if j is not None:
             i = j + 1
     return marks, _kit_epoch(lines), name, stats
+
+
+def scene_manifest(lines):
+    """What the in-Kit run actually placed, for the bake-cache acceptance test.
+
+    A host bake and an in-Kit generate must agree, and they demonstrably did
+    not — a plain interpreter cannot open a Nucleus asset, footprints fall back
+    to guesses, and footprints drive block sizing. Only Kit can produce the
+    reference, so it is captured here from the run's own prints and committed
+    as a fixture the host-runnable test compares against.
+    """
+    out = {}
+    for line in lines:
+        m = re.search(r"Placements by category: (\{[^}]*\})", line)
+        if m:
+            try:
+                out["by_category"] = ast.literal_eval(m.group(1))
+            except (ValueError, SyntaxError):
+                pass
+        m = re.search(r"Applied (\d+) placements under '([^']*generated)'", line)
+        if m:
+            out["applied"] = int(m.group(1))
+    return out
 
 
 def renderer_stats(lines):
@@ -323,6 +356,9 @@ def main():
                         "shader cache are created from scratch")
     p.add_argument("--env", nargs="*", default=[], metavar="K=V",
                    help="extra env for the run, e.g. SCENE_ARCHETYPES=0")
+    p.add_argument("--emit-manifest", default="", metavar="PATH",
+                   help="also write what this in-Kit run placed, as the "
+                        "reference fixture for the bake-cache acceptance test")
     p.add_argument("--timeout", type=float, default=1800)
     args = p.parse_args()
     args.mode = "cold" if args.cold else "warm"
@@ -366,6 +402,17 @@ def main():
 
     marks, kit_epoch, log_name, stats = kit_log_phases()
     report(args, t0, t_ready, marks, kit_epoch, log_name, banner, stats)
+
+    if args.emit_manifest:
+        man = scene_manifest(_kit_log_lines())
+        if not man.get("by_category"):
+            sys.exit("[bench] no placement counts in the Kit log — nothing to emit")
+        man.update(config=args.config, seed=args.seed, kit_log=log_name)
+        os.makedirs(os.path.dirname(os.path.abspath(args.emit_manifest)),
+                    exist_ok=True)
+        with open(args.emit_manifest, "w") as f:
+            json.dump(man, f, indent=2, sort_keys=True)
+        print(f"wrote in-Kit manifest -> {args.emit_manifest}")
 
 
 if __name__ == "__main__":

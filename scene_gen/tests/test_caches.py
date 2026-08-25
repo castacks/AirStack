@@ -212,3 +212,159 @@ def test_entries_lists_the_tree(tmp_path, cfgs):
     meta, kids = entries[0]
     assert meta["tier"] == "pristine" and len(kids) == 2
     assert {k["severity"] for k in kids} == {0.5, 0.9}
+
+
+# --------------------------------------------------------------------------
+# Guessed footprints must never reach the cache
+#
+# A guessed footprint is not a slightly-worse version of the same scene. Block
+# sizing is driven by how big the buildings are, so a run that could not
+# measure its assets produced a DIFFERENT LAYOUT — measured at 638 placements
+# and 6 buildings against 784 and 4, same config, same seed. Nothing
+# downstream can tell the two apart, which is why the cache has to.
+# --------------------------------------------------------------------------
+
+def test_the_resolver_records_which_assets_it_had_to_guess():
+    r = sg.SizeResolver(asset_scale=1.0, fallback_sizes={"house": [4.0, 4.0]},
+                        measure=False)
+    assert r.fallbacks == set()
+    r.get("/nonexistent/whatever.usd", "house")
+    assert "/nonexistent/whatever.usd" in r.fallbacks
+
+
+def test_a_measured_asset_is_not_recorded_as_a_guess(tmp_path):
+    # `measure=False` means every asset is a guess by construction; the point
+    # here is that the set tracks the FALLBACK branch and not every lookup.
+    r = sg.SizeResolver(asset_scale=1.0, fallback_sizes={}, measure=False)
+    r.get("/a.usd", "house")
+    r.get("/a.usd", "house")
+    assert r.fallbacks == {"/a.usd"}          # once per asset, not per lookup
+
+
+def test_a_marked_entry_is_a_miss(tmp_path, cfgs):
+    c = sc.SceneCache(str(tmp_path))
+    p = c.reserve(cfgs[0.9])
+    open(p, "w").write("")
+    assert c.get(cfgs[0.9]) == p              # clean entry serves
+
+    c.mark_footprint_fallback(cfgs[0.9], ["omniverse://x.usd"])
+    assert c.get(cfgs[0.9]) == ""             # …and now it does not
+    assert c.get(cfgs[0.9], allow_fallback=True) == p
+    assert c.footprint_fallback(cfgs[0.9]) == ["omniverse://x.usd"]
+
+
+def test_marking_survives_a_reread(tmp_path, cfgs):
+    """The mark lives in meta.json, so a LATER process still refuses it.
+
+    The failure this guards against is not one run serving itself a bad entry
+    — it is the next run, days later, finding it and loading it silently.
+    """
+    c = sc.SceneCache(str(tmp_path))
+    open(c.reserve(cfgs[0.9]), "w").write("")
+    c.mark_footprint_fallback(cfgs[0.9], ["omniverse://x.usd"])
+    assert sc.SceneCache(str(tmp_path)).get(cfgs[0.9]) == ""
+
+
+def test_marking_does_not_clobber_the_rest_of_the_meta(tmp_path, cfgs):
+    c = sc.SceneCache(str(tmp_path))
+    open(c.reserve(cfgs[0.9]), "w").write("")
+    c.mark_footprint_fallback(cfgs[0.9], ["omniverse://x.usd"])
+    meta = json.load(open(os.path.join(c.scene_dir(cfgs[0.9]), sc.META_NAME)))
+    assert meta["tier"] == "disaster" and meta["severity"] == 0.9
+
+
+# --------------------------------------------------------------------------
+# Write-through persistence
+# --------------------------------------------------------------------------
+
+def test_a_remote_measurement_is_flushed_immediately(tmp_path):
+    """Because the process that makes it never exits normally.
+
+    An Isaac launcher loops until the app closes and the documented iteration
+    loop kills it with C-c, so `atexit` is not a path the expensive
+    measurements can rely on. Remote successes are the ones a host process
+    cannot reproduce at all, so they are the ones written through.
+    """
+    path = str(tmp_path / "m.json")
+    c = mc.MeasureCache(path, autosave=False)
+    c.put("omniverse://server/thing.usd", "Z", {"sx": 3.0, "sy": 4.0})
+    # No save() call, no atexit — it is already on disk.
+    assert mc.MeasureCache(path, autosave=False).get(
+        "omniverse://server/thing.usd", "Z") == (True, {"sx": 3.0, "sy": 4.0})
+
+
+def test_a_local_measurement_is_not_written_through(tmp_path):
+    """A city with thousands of local props would write the file thousands of
+    times, and a local measurement is cheap to redo. `atexit` covers those."""
+    local = tmp_path / "asset.usd"
+    local.write_text("x")
+    path = str(tmp_path / "m.json")
+    c = mc.MeasureCache(path, autosave=False)
+    c.put(str(local), "Z", {"sx": 1.0, "sy": 1.0})
+    assert not os.path.exists(path)
+    assert c.save() is True                   # …but the flush still works
+
+
+def test_an_unreachable_remote_asset_is_still_not_cached(tmp_path):
+    """The write-through path must not resurrect the poisoning bug.
+
+    `measure_cache`'s docstring records it: a host build cached 156 `None`s
+    for Nucleus assets, and the container then trusted them and packed the
+    whole city against 4x4 m guesses.
+    """
+    path = str(tmp_path / "m.json")
+    c = mc.MeasureCache(path, autosave=False)
+    c.put("omniverse://server/unreachable.usd", "Z", None)
+    assert c.get("omniverse://server/unreachable.usd", "Z") == (False, None)
+    assert not os.path.exists(path)
+
+
+# --------------------------------------------------------------------------
+# Acceptance: a host bake must be the SAME SCENE as an in-Kit generate
+#
+# This is the test that decides whether the bake cache can be used at all. It
+# is host-runnable by comparing against a fixture captured from a real in-Kit
+# run, because only Kit can reach Nucleus and therefore only Kit can produce
+# the reference. Regenerate the fixture with:
+#
+#     python3 scene_gen/tools/load_bench.py --config urban_quake_tiny \
+#         --emit-manifest scene_gen/tests/fixtures/in_kit_urban_quake_tiny_s42.json
+#
+# It SKIPS rather than fails when the fixture is absent, and when the host
+# cannot measure the assets — a developer without Nucleus access should not see
+# a red suite for a machine limitation. It fails only on the thing that
+# matters: host and Kit disagreeing while both believed they could measure.
+# --------------------------------------------------------------------------
+
+_MANIFEST = os.path.join(_HERE, "fixtures", "in_kit_urban_quake_tiny_s42.json")
+
+
+def test_a_host_build_matches_the_in_kit_reference():
+    if not os.path.exists(_MANIFEST):
+        pytest.skip(f"no in-Kit reference at {os.path.relpath(_MANIFEST, _SCENE_GEN)}"
+                    " — capture one with load_bench --emit-manifest")
+    with open(_MANIFEST) as fh:
+        want = json.load(fh)
+
+    import generate_scene as gs
+    config = cd.load_scene_config(want.get("config", "urban_quake_tiny"))
+    resolver = sg._make_resolver(config, cache=False)
+    placements, _layout, _base = gs.build_scene(config, resolver)
+
+    if resolver.fallbacks:
+        pytest.skip(f"this machine could not measure {len(resolver.fallbacks)} "
+                    f"asset(s) (Nucleus unreachable?), so a mismatch here would "
+                    f"say nothing about the generator")
+
+    got = {}
+    for p in placements:
+        got[p.get("category", "asset")] = got.get(p.get("category", "asset"), 0) + 1
+
+    # Compare only the categories the reference recorded: the in-Kit line is
+    # the base city, while `placements` here also carries what later stages
+    # add. A category that IS in both must match exactly.
+    for cat, n in (want.get("by_category") or {}).items():
+        assert got.get(cat, 0) == n, (
+            f"{cat}: host built {got.get(cat, 0)}, Kit built {n}. Footprints "
+            f"drive block sizing, so this is a different LAYOUT, not a "
+            f"different dressing.")

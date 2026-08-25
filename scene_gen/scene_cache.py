@@ -53,6 +53,10 @@ PRISTINE_NAME = "pristine.usd"
 SCENE_NAME = "scene.usd"
 META_NAME = "meta.json"
 
+#: Meta key listing assets whose footprint was GUESSED rather than measured.
+#: Its presence makes an entry unservable — see `get`.
+FALLBACK_KEY = "footprint_fallback"
+
 
 def _digest(obj) -> str:
     return hashlib.sha256(
@@ -127,10 +131,39 @@ class SceneCache:
         return os.path.join(self.pristine_dir(config), LAYOUT_NAME)
 
     # -- read -------------------------------------------------------------
-    def get(self, config: dict) -> str:
-        """The cached scene USD for *config*, or "" on a miss."""
+    def get(self, config: dict, allow_fallback: bool = False) -> str:
+        """The cached scene USD for *config*, or "" on a miss.
+
+        An entry built on GUESSED footprints is a miss, loudly. It is not a
+        slightly-worse version of the same scene: footprints drive block
+        sizing, so a run that could not measure its assets produced a
+        different LAYOUT — measured at 638 placements and 6 buildings against
+        784 and 4 for the same config and seed. Serving that as the scene the
+        config names is the worst thing this cache could do, because nothing
+        downstream can tell.
+        """
         p = self.scene_usd(config)
-        return p if os.path.isfile(p) else ""
+        if not os.path.isfile(p):
+            return ""
+        guessed = self.footprint_fallback(config)
+        if guessed and not allow_fallback:
+            print(f"[scene_cache] REFUSING {p}: built with {len(guessed)} "
+                  f"guessed footprint(s), so its layout is not this config's "
+                  f"layout. Re-bake where the assets are reachable.")
+            return ""
+        return p
+
+    def footprint_fallback(self, config: dict) -> list:
+        """Assets this entry had to guess the footprint of ([] when clean)."""
+        meta = _read(os.path.join(self.scene_dir(config), META_NAME))
+        return list(meta.get(FALLBACK_KEY) or [])
+
+    def mark_footprint_fallback(self, config: dict, assets) -> None:
+        """Record that this entry was built on guessed footprints."""
+        d = self.scene_dir(config)
+        meta = _read(os.path.join(d, META_NAME))
+        meta[FALLBACK_KEY] = sorted(assets)
+        self._write_meta(d, meta)
 
     def layout(self, config: dict) -> dict:
         """The cached layout, or {}. Available even when only tier 1 is warm."""

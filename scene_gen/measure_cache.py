@@ -50,6 +50,20 @@ assets are re-tried every run, which is the cost of being right.
 A corrupt or unreadable cache is ignored rather than fatal. It is an
 optimisation, and refusing to build a scene because a cache file got truncated
 would be a worse failure than the one it prevents.
+
+WRITE-THROUGH, NOT AT EXIT
+--------------------------
+A successful measurement is flushed to disk as soon as it is made, rather than
+by the `atexit` handler alone. The handler is still registered — it catches the
+local assets, where a write per measurement would be pure overhead — but it
+cannot be the only path, because **the process that does the measuring worth
+keeping never exits normally**. An Isaac launch script loops until the app
+closes and the documented iteration loop kills it with `C-c`, so the expensive
+half (Nucleus round trips, which are the only measurements a host process
+cannot reproduce at all) was never reaching disk.
+
+Only REMOTE successes are written through. Local ones are cheap to redo and
+would make a scene with thousands of props write the file thousands of times.
 """
 
 from __future__ import annotations
@@ -137,6 +151,12 @@ class MeasureCache:
             return
         self._data[self._key(usd_path, axis_up)] = {"stat": stat, "fp": fp}
         self._dirty = True
+        # Write through on a remote success. `stat` is empty exactly for the
+        # assets a host process cannot measure at all, and those are the ones
+        # a launcher killed with C-c would otherwise never persist. See the
+        # module docstring.
+        if fp is not None and not stat:
+            self.save()
 
     def save(self) -> bool:
         """Atomic write. Returns whether anything was written."""

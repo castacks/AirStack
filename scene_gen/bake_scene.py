@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import sys
 
 _SCENE_GEN = os.path.dirname(os.path.abspath(__file__))
@@ -84,7 +85,7 @@ def _compile(name: str, severity):
 
 
 def bake_one(config: dict, cache, resolver, force: bool,
-             require_archetypes: bool) -> dict:
+             require_archetypes: bool, allow_fallback: bool = False) -> dict:
     """Build one scene into the cache. Returns a small report."""
     from pxr import Usd, UsdGeom
 
@@ -115,9 +116,34 @@ def bake_one(config: dict, cache, resolver, force: bool,
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)
     UsdGeom.Xform.Define(stage, "/World")
 
+    # Which assets this scene had to GUESS the footprint of. Snapshot first:
+    # the resolver is shared across a severity sweep, so an earlier scene's
+    # guesses must not be attributed to this one.
+    guessed_before = set(getattr(resolver, "fallbacks", ()))
     placements = gs.generate_scene_on_stage(stage, config, "/World/generated",
                                             1.0, resolver=resolver)
     stage.GetRootLayer().Save()
+
+    guessed = sorted(set(getattr(resolver, "fallbacks", ())) - guessed_before)
+    if guessed:
+        if not allow_fallback:
+            # Discard rather than keep: a half-written entry that a later run
+            # finds and serves is exactly the failure this guard exists for.
+            shutil.rmtree(cache.scene_dir(config), ignore_errors=True)
+            raise SystemExit(
+                f"[bake_scene] REFUSING to cache {key}: {len(guessed)} asset(s) "
+                f"had no measurable footprint, so this scene's LAYOUT is not "
+                f"the layout this config names — footprints drive block "
+                f"sizing.\n  " + "\n  ".join(guessed[:10])
+                + (f"\n  … and {len(guessed) - 10} more" if len(guessed) > 10 else "")
+                + "\n\nA plain `python3` cannot open a Nucleus asset. Bake where "
+                  "the assets are reachable, or warm scene_gen/assets/"
+                  ".measurements.json from a run that can reach them. "
+                  "--allow-footprint-fallback overrides this, and marks the "
+                  "entry unservable so nothing loads it by accident.")
+        cache.mark_footprint_fallback(config, guessed)
+        print(f"[bake_scene] WARNING: {key} built with {len(guessed)} guessed "
+              f"footprint(s); marked unservable.")
 
     # Counted apart because only the first is a correctness gap — see the
     # module docstring.
@@ -143,6 +169,10 @@ def main(argv=None) -> int:
     ap.add_argument("--require-archetypes", action="store_true",
                     help="fail unless a Stage A library exists, so the result "
                          "needs no PhysX settle")
+    ap.add_argument("--allow-footprint-fallback", action="store_true",
+                    help="bake even when a footprint had to be guessed. The "
+                         "entry is marked unservable, so it is for inspection "
+                         "and tests, not for loading.")
     ap.add_argument("--list", action="store_true",
                     help="show what would be built, and exit")
     args = ap.parse_args(argv)
@@ -173,7 +203,7 @@ def main(argv=None) -> int:
     reports = []
     for cfg in configs:
         rep = bake_one(cfg, cache, resolver, args.force,
-                       args.require_archetypes)
+                       args.require_archetypes, args.allow_footprint_fallback)
         reports.append(rep)
         if rep["cached"]:
             print(f"[bake_scene] {rep['key']}  cached  {rep['usd']}")

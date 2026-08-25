@@ -745,6 +745,14 @@ class SizeResolver:
         self.measure = bool(measure)
         self._raw: dict = {}            # (path, axis_up) -> unit-scale fp or None
         self._by_scale: dict = {}       # (path, scale, axis_up) -> scaled fp
+        # Assets whose footprint is a per-category GUESS rather than a
+        # measurement. A guessed footprint is not a cosmetic downgrade: block
+        # sizing is driven by how big the buildings are, so a run that guesses
+        # produces a DIFFERENT LAYOUT from one that measures — 638 placements
+        # and 6 buildings against 784 and 4, on the same config and seed. That
+        # is only discoverable by comparing two runs, so callers that persist a
+        # scene (`bake_scene`, `scene_cache`) read this and refuse.
+        self.fallbacks: set = set()
         # Persistent across PROCESSES, where `_raw` is only across placements.
         # SPEC names "measure assets / use cached" as a pipeline step; this is
         # the "cached" half. None disables it (the tests want a cold resolver).
@@ -771,6 +779,7 @@ class SizeResolver:
                   f"-> {fp['sx']:.2f} x {fp['sy']:.2f} m "
                   f"(unit scale, up={axis_up})")
         else:
+            self.fallbacks.add(usd_path)
             fb = self.fallback.get(category, [4.0, 4.0])
             print(f"[scene_gen] fallback {category}: {os.path.basename(usd_path)} "
                   f"-> {float(fb[0]):.2f} x {float(fb[1]):.2f} m")
