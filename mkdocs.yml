@@ -68,7 +68,7 @@ markdown_extensions:
       permalink: true
 nav:
   - Home: docs/index.md
-  - Tutorials:
+  - Beginner Tutorials:
       - Get AirStack Flying: docs/getting_started/index.md
       - Fly a Mission from the GCS: docs/getting_started/fly_a_mission.md
       - Change a Parameter: docs/getting_started/change_a_parameter.md
