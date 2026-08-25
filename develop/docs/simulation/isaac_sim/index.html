@@ -5857,6 +5857,10 @@
 <p>The primary simulator we support is <a href="https://docs.omniverse.nvidia.com/isaacsim/latest/index.html">NVIDIA Isaac Sim</a>. 
 We chose Isaac Sim as the best balance between photorealism and physics simulation.</p>
 <p>Isaac Sim is built on <a href="https://developer.nvidia.com/omniverse">NVIDIA Omniverse</a>, which provides a physically-based rendering engine and accurate rigid-body physics. This combination allows us to create realistic scenes that behave and look close to the real world.</p>
+<video controls muted loop playsinline preload="metadata" style="max-width: 100%;">
+  <source src="../../assets/media/isaac_sim_demo.mp4" type="video/mp4">
+</video>
+<p><em>Three drones running the full AirStack autonomy stack in Isaac Sim (<code>airstack up --sim isaac --robots 3 --scene full-warehouse</code>): parallel <code>TakeoffTask</code> actions followed by concurrent Circle and Figure-8 <code>FixedTrajectoryTask</code> patterns, viewed from the built-in follow camera (<code>ISAAC_SIM_FOLLOW_CAM</code>).</em></p>
 <h2 id="why-isaac-sim">Why Isaac Sim<a class="headerlink" href="#why-isaac-sim" title="Permanent link">&para;</a></h2>
 <h3 id="ros-2-integration">ROS 2 Integration<a class="headerlink" href="#ros-2-integration" title="Permanent link">&para;</a></h3>
 <p>Isaac Sim has native support for ROS 2 via the Isaac ROS bridge, enabling seamless communication of sensor topics, transforms, and commands.

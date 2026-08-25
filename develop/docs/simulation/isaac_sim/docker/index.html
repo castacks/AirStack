@@ -6477,7 +6477,7 @@ use <code>airstack up --sim isaac</code>.</p>
 <tr>
 <td><code>PLAY_SIM_ON_START</code></td>
 <td>Auto-play simulation on start (<code>airstack up --play/--no-play</code>)</td>
-<td><code>false</code></td>
+<td><code>true</code></td>
 </tr>
 <tr>
 <td><code>ISAAC_SIM_HEADLESS</code></td>
@@ -6512,7 +6512,7 @@ use <code>airstack up --sim isaac</code>.</p>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>isaac<span class="w"> </span>--headless
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Don't auto-play simulation</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="nv">PLAY_SIM_ON_START</span><span class="o">=</span><span class="nb">false</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>isaac-sim
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>airstack<span class="w"> </span>up<span class="w"> </span>isaac-sim<span class="w"> </span>--no-play
 </span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Launch with standalone script</span>
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="nv">ISAAC_SIM_USE_STANDALONE</span><span class="o">=</span><span class="nb">true</span><span class="w"> </span><span class="nv">ISAAC_SIM_SCRIPT_NAME</span><span class="o">=</span>custom_scene.py<span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>isaac-sim

@@ -5846,7 +5846,7 @@
 <li><strong>Launch command:</strong> <code>airstack up --sim isaac</code> (or <code>airstack up isaac-sim</code> to start only the sim service)</li>
 <li><strong>Main process:</strong> The <code>command:</code> in docker-compose.yaml starts the simulator</li>
 <li><strong>Scene selection:</strong> <code>airstack up --scene &lt;shortname&gt;</code> picks the environment for whichever simulator is active — see <a href="scenes/">Simulation Scenes</a>. The standalone launch script named by <code>ISAAC_SIM_SCRIPT_NAME</code> (in <code>.env</code>) defines the drones and honors the selected scene; with <code>ISAAC_SIM_USE_STANDALONE=false</code>, <code>ISAAC_SIM_GUI</code> points at a USD file to open instead</li>
-<li><strong>Auto-play:</strong> Controlled by <code>PLAY_SIM_ON_START</code> (or <code>airstack up --play</code>)</li>
+<li><strong>Auto-play:</strong> On by default — controlled by <code>PLAY_SIM_ON_START</code> (<code>airstack up --no-play</code> starts paused)</li>
 </ul>
 <p><strong>Example:</strong>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Launch Isaac Sim with a custom launch script</span>
@@ -5965,7 +5965,7 @@
 <tr>
 <td><code>PLAY_SIM_ON_START</code></td>
 <td>Auto-start simulation</td>
-<td><code>false</code></td>
+<td><code>true</code></td>
 </tr>
 <tr>
 <td><code>NUM_ROBOTS</code></td>
@@ -5978,8 +5978,8 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Custom launch script</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">ISAAC_SIM_SCRIPT_NAME</span><span class="o">=</span>my_custom_scene.py<span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>isaac
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Auto-play on start</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>isaac<span class="w"> </span>--play
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Start paused (press Play in the sim window yourself)</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>isaac<span class="w"> </span>--no-play
 </span></code></pre></div></p>
 <p><strong>Pre-built scenes:</strong> Located in <code>simulation/isaac-sim/assets/scenes/</code> (e.g. <code>simple_pegasus.scene.usd</code>); standalone launch scripts in <code>simulation/isaac-sim/launch_scripts/</code> build scenes programmatically.</p>
 <p><strong>Learn more:</strong> <a href="../development/beginner/airstack-cli/docker_usage/#docker-compose-variable-overrides">Docker Workflow</a></p>

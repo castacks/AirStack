@@ -6389,13 +6389,13 @@
 </table>
 <p><strong>Example overrides:</strong></p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Two robots</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nv">NUM_ROBOTS</span><span class="o">=</span><span class="m">2</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--profile<span class="w"> </span>ms-airsim
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>airsim<span class="w"> </span>--robots<span class="w"> </span><span class="m">2</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Headless (no GUI, uses UE4's -RenderOffScreen)</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nv">MS_AIRSIM_HEADLESS</span><span class="o">=</span><span class="nb">true</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--profile<span class="w"> </span>ms-airsim
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>airsim<span class="w"> </span>--headless
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Custom scene binary</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="nv">MS_AIRSIM_ENV_DIR</span><span class="o">=</span>/data/airsim_envs<span class="w"> </span><span class="nv">MS_AIRSIM_BINARY_PATH</span><span class="o">=</span>/ms-airsim-env/CityEnviron/LinuxNoEditor/CityEnviron.sh<span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--profile<span class="w"> </span>ms-airsim
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Custom scene binary (no flag equivalent)</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="nv">MS_AIRSIM_ENV_DIR</span><span class="o">=</span>/data/airsim_envs<span class="w"> </span><span class="nv">MS_AIRSIM_BINARY_PATH</span><span class="o">=</span>/ms-airsim-env/CityEnviron/LinuxNoEditor/CityEnviron.sh<span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>airsim
 </span></code></pre></div>
 <h2 id="settings-generation">Settings Generation<a class="headerlink" href="#settings-generation" title="Permanent link">&para;</a></h2>
 <p>Microsoft AirSim (legacy) is configured via <code>settings.json</code>, which is generated from a Jinja2 template at container startup:</p>
@@ -6524,7 +6524,8 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>airstack<span class="w"> </span>logs<span class="w"> </span>ms-airsim
 </span></code></pre></div>
 <h2 id="multi-robot-support">Multi-Robot Support<a class="headerlink" href="#multi-robot-support" title="Permanent link">&para;</a></h2>
-<p>Set <code>NUM_ROBOTS</code> to spawn multiple vehicles. Each robot gets:</p>
+<p>Use <code>airstack up --robots N</code> (which sets <code>NUM_ROBOTS</code>) to spawn multiple
+vehicles. Each robot gets:</p>
 <ul>
 <li>A named vehicle in <code>settings.json</code> (<code>robot_1</code>, <code>robot_2</code>, …)</li>
 <li>Its own PX4 SITL instance with unique ports</li>
@@ -6532,7 +6533,7 @@
 <li>Vehicles are spawned 3 m apart along the Y-axis (configurable via <code>AIRSIM_SPAWN_SPACING</code>)</li>
 </ul>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Launch with 3 robots</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="nv">NUM_ROBOTS</span><span class="o">=</span><span class="m">3</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--profile<span class="w"> </span>ms-airsim<span class="w"> </span>--profile<span class="w"> </span>desktop
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>airsim<span class="w"> </span>--robots<span class="w"> </span><span class="m">3</span>
 </span></code></pre></div>
 <h2 id="image-management">Image Management<a class="headerlink" href="#image-management" title="Permanent link">&para;</a></h2>
 <h3 id="pulling-pre-built-images">Pulling Pre-built Images<a class="headerlink" href="#pulling-pre-built-images" title="Permanent link">&para;</a></h3>
@@ -6561,7 +6562,7 @@
 </span></code></pre></div>
 <h3 id="iterating-on-settings">Iterating on Settings<a class="headerlink" href="#iterating-on-settings" title="Permanent link">&para;</a></h3>
 <p>Change camera or vehicle parameters via environment variables and restart the container — <code>settings.json</code> is regenerated each time.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nv">AIRSIM_CAM_FOV</span><span class="o">=</span><span class="m">120</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--profile<span class="w"> </span>ms-airsim
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nv">AIRSIM_CAM_FOV</span><span class="o">=</span><span class="m">120</span><span class="w"> </span>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>airsim
 </span></code></pre></div>
 <h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
 <p><strong>AirSim binary won't launch:</strong></p>

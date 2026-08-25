@@ -6069,14 +6069,14 @@ Combine with a simulator profile.</p>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── robot-desktop × N   [stack: full_default]
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>└── gcs
 </span></code></pre></div>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Isaac Sim (set in .env: COMPOSE_PROFILES="desktop,isaac-sim"):</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>airstack<span class="w"> </span>up
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Isaac Sim:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>isaac
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Microsoft AirSim (legacy):</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nv">COMPOSE_PROFILES</span><span class="o">=</span><span class="s2">"desktop,ms-airsim"</span><span class="w"> </span>airstack<span class="w"> </span>up
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>airsim
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Multiple simulated robots:</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="nv">NUM_ROBOTS</span><span class="o">=</span><span class="m">3</span><span class="w"> </span>airstack<span class="w"> </span>up
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>airstack<span class="w"> </span>up<span class="w"> </span>--sim<span class="w"> </span>isaac<span class="w"> </span>--robots<span class="w"> </span><span class="m">3</span>
 </span></code></pre></div>
 <p>Each replica gets a unique <code>ROBOT_NAME</code> (<code>robot_1</code>, <code>robot_2</code>, <code>robot_3</code>) and <code>ROS_DOMAIN_ID</code> (1, 2, 3)
 automatically from the <a href="../docker/robot_identity/"><code>robot_name_map</code></a>.</p>
@@ -6120,8 +6120,8 @@ global planning onboard, or when no GCS is available.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># On the Jetson:</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>airstack<span class="w"> </span>--profile<span class="w"> </span>l4t_lite<span class="w"> </span>up
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># On the ground station (set NUM_ROBOTS to match fleet size):</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="nv">NUM_ROBOTS</span><span class="o">=</span><span class="m">3</span><span class="w"> </span>airstack<span class="w"> </span>--profile<span class="w"> </span>offboard<span class="w"> </span>up
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># On the ground station (--robots must match the fleet size):</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>airstack<span class="w"> </span>--profile<span class="w"> </span>offboard<span class="w"> </span>up<span class="w"> </span>--robots<span class="w"> </span><span class="m">3</span>
 </span></code></pre></div>
 <hr />
 <h2 id="profile-voxl-offboard">Profile: <code>voxl</code> + <code>offboard</code><a class="headerlink" href="#profile-voxl-offboard" title="Permanent link">&para;</a></h2>
@@ -6131,7 +6131,7 @@ for global planning. Global planning must always run on the GCS.</p>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>airstack<span class="w"> </span>--profile<span class="w"> </span>voxl<span class="w"> </span>up
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># On the ground station:</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="nv">NUM_ROBOTS</span><span class="o">=</span><span class="m">3</span><span class="w"> </span>airstack<span class="w"> </span>--profile<span class="w"> </span>offboard<span class="w"> </span>up
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>airstack<span class="w"> </span>--profile<span class="w"> </span>offboard<span class="w"> </span>up<span class="w"> </span>--robots<span class="w"> </span><span class="m">3</span>
 </span></code></pre></div>
 <hr />
 <h2 id="launching-manually-without-autolaunch">Launching manually (without AUTOLAUNCH)<a class="headerlink" href="#launching-manually-without-autolaunch" title="Permanent link">&para;</a></h2>

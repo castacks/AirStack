@@ -5847,30 +5847,19 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#landing-page-simulation-cameralighting-alpha13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Landing page &amp; simulation camera/lighting (alpha.13)
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#0190-2026-08-22" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        0.19.0 — 2026-08-22
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#100-2024-12-19" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1.0.0 — 2024-12-19
-      
-    </span>
-  </a>
   
 </li>
       
@@ -5938,10 +5927,19 @@
 <h1 id="release-notes">Release Notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
 <p>Feature docs deliberately describe only the system as it exists — never how
 it got that way — so that every page reads standalone. This page is the one
-place where change context lives, organized by version: what changed, from
-what, and why. If you last used AirStack on an earlier release, read the
-sections between your version and the current one; every other docs page
-assumes the current design.</p>
+place where change context lives: what changed, from what, and why.</p>
+<p>The published site shows only the notes for the docs version you are
+viewing. To read another version's notes, switch versions with the selector
+in the header. Versioned release-notes pages exist from <strong>0.19.0</strong> onward;
+notes for older releases (0.18.0 and earlier) live on the
+<a href="https://github.com/castacks/AirStack/releases">GitHub releases page</a>.</p>
+<!-- Contributors: this source file keeps one `##` section per version
+(0.19.0 and newer — older notes live only on GitHub Releases), newest
+first. A build hook (docs/hooks/release_notes_current_version.py,
+registered in mkdocs.yml) trims the rendered page to the section matching
+the repo-root .env VERSION, so each mike-deployed docs version carries only
+its own notes. -->
+
 <h2 id="0200-unreleased">0.20.0 (Unreleased)<a class="headerlink" href="#0200-unreleased" title="Permanent link">&para;</a></h2>
 <p>This release restructures AirStack from a monolith into <strong>modules</strong>,
 <strong>stacks</strong>, and <strong>fleets</strong>, implementing
@@ -6225,6 +6223,10 @@ Feature docs deliberately cite none of these — the design sources live here:</
 </ul>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
 <ul>
+<li><strong>The simulator now starts playing by default</strong>: <code>PLAY_SIM_ON_START</code>
+  defaults to <code>true</code> in <code>.env</code> (was <code>false</code>). Pass <code>airstack up --no-play</code>
+  to come up paused and press Play yourself; <code>--play</code> remains available as
+  an explicit override</li>
 <li>Container autolaunch (robot desktop/voxl/l4t and GCS) now runs through an
   <code>autolaunch</code> shell helper instead of a bare <code>bws &amp;&amp; sws &amp;&amp; ros2 launch</code>
   chain: a build failure or launch crash prints an unmissable red
@@ -6377,33 +6379,28 @@ out-of-trunk modules:</p>
   cross-checked against <code>NUM_ROBOTS</code> after the handshake; the emulator is
   installed as a Kit extension so launch scripts can import it</li>
 </ul>
-<h2 id="0190-2026-08-22">0.19.0 — 2026-08-22<a class="headerlink" href="#0190-2026-08-22" title="Permanent link">&para;</a></h2>
-<p>The launch-workflow and CI-infrastructure release preceding the modular
-transition:</p>
+<h3 id="landing-page-simulation-cameralighting-alpha13">Landing page &amp; simulation camera/lighting (alpha.13)<a class="headerlink" href="#landing-page-simulation-cameralighting-alpha13" title="Permanent link">&para;</a></h3>
 <ul>
-<li>Intent flags on <code>airstack up</code> (<code>--sim isaac|airsim</code>, <code>--robots N</code>,
-  <code>--headless</code>, <code>--play</code>/<code>--no-play</code>, <code>--no-autolaunch</code>, <code>--wait</code>,
-  <code>--dry-run</code>) deriving coordinated env-var sets, with a resolved-config
-  banner and per-run <code>effective_config.env</code> dump</li>
-<li><code>airstack ready</code> / <code>airstack up --wait</code>: staged flight-readiness gates
-  (containers → sim <code>/clock</code> → sentinel nodes → PX4 armable) with <code>--json</code></li>
-<li>Preflight validation on the resolved configuration (one-simulator guard,
-  robot-count vs Isaac script, missing images/credentials surfaced on host)</li>
-<li>OSMO-backed ephemeral CI GPU runners; automatic <code>unit-tests.yml</code> PR gate;
-  <code>run_meta.json</code> outcome metadata for honest metrics comparison</li>
-<li>OptiTrack external-vision configurations for sim (NatNet emulator + PX4
-  EKF2 mocap fusion, e2e-tested) and real Jetson robots</li>
-<li>tmux pane output mirrored to <code>docker logs</code>; feature-notebook workflow;
-  Isaac launch scripts deduplicated onto a shared <code>PegasusApp</code> base</li>
-</ul>
-<h2 id="100-2024-12-19">1.0.0 — 2024-12-19<a class="headerlink" href="#100-2024-12-19" title="Permanent link">&para;</a></h2>
-<p>First official public release.</p>
-<ul>
-<li>Docker image <code>robot-l4t</code> for Jetson AGX; automatic Isaac Sim scene
-  load/play; random walk planner; DROAN trajectory-library local planner;
-  initial multi-robot GCS visualization</li>
-<li>Isaac Sim 4.1.0 → 4.2.0; unified docker image naming on AirStack's
-  version</li>
+<li><strong>Docs landing page redesigned</strong> around four demonstrated pillars
+  (one-command bring-up, sim-to-vehicle code parity, full-stack CI, agent
+  readiness): real quickstart commands with copy buttons, the actual
+  <code>airstack ready</code> checklist, a live test-mark matrix, and a fresh
+  autoplay hero video (Isaac full-warehouse and office, Foxglove's live
+  3-robot trajectory traces, MS AirSim neighborhood and ZhangJiajie) —
+  40 s / 5.4 MB, replacing the 37 MB splash GIF. Per-simulator and Foxglove
+  clips are embedded in their docs sections, and the architecture image is
+  now an unedited full-system desktop capture (sim + GCS + CLI, live).</li>
+<li><strong>Isaac launch scripts grew camera/spawn/lighting env knobs</strong>
+  (<code>pegasus_app.py</code>, plumbed through the isaac-sim compose service):
+  <code>ISAAC_SIM_FOLLOW_CAM</code> / <code>_OFFSET</code> — a smoothed viewport chase camera
+  tracking a drone via live Pegasus vehicle state (also fixes the black
+  viewport at spawn on cm-authored stages; on by default, <code>off</code> disables);
+  <code>ISAAC_SIM_SPAWN_XY</code> — recenter the spawn row away from a cluttered scene
+  origin; <code>ISAAC_SIM_LIGHT_BOOST</code> — multiply the scene's own lights
+  (de-instances light-bearing subtrees first, so e.g. the NVIDIA office's
+  121 instanceable ceiling lights become editable);
+  <code>ISAAC_SIM_FOLLOW_CAM_LIGHT</code> — headlight riding the follow camera;
+  <code>ISAAC_SIM_DOME_LIGHT</code> — dome-light intensity/exposure override.</li>
 </ul>
 
 

@@ -10,9 +10,11 @@ Functions:
 """
 
 import asyncio
+import math
+
 import omni.kit.app
 import omni.usd
-from pxr import Gf, UsdGeom, UsdPhysics, UsdLux, Sdf
+from pxr import Gf, Usd, UsdGeom, UsdPhysics, UsdLux, Sdf
 
 
 # ---------------------------------------------------------------------------
@@ -164,6 +166,50 @@ def add_dome_light(stage, prim_path: str = "/World/DomeLight", intensity: float 
 # one-shot aerial of the static sim scene that the GCS visualizer will
 # convert into a textured ground in Foxglove's 3D panel.
 # ---------------------------------------------------------------------------
+
+def boost_scene_lights(stage, factor: float, root_path: str = "/World") -> int:
+    """Multiply every scene light's brightness under ``root_path`` by ``factor``.
+
+    Applied as ``exposure += log2(factor)`` so it composes with whatever the
+    asset authored. Instanceable subtrees that contain lights (e.g. the NVIDIA
+    office/hospital ``BP_CeilingLight*`` prims) are de-instanced first so their
+    lights become editable. The AirStack dome light is skipped — tune that via
+    ``add_dome_light`` / ``ISAAC_SIM_DOME_LIGHT`` instead.
+
+    Returns the number of lights adjusted.
+    """
+    root = stage.GetPrimAtPath(root_path)
+    if not root.IsValid() or factor <= 0 or factor == 1.0:
+        return 0
+
+    proxies = Usd.TraverseInstanceProxies(Usd.PrimAllPrimsPredicate)
+
+    def subtree_has_light(prim):
+        return any(p.HasAPI(UsdLux.LightAPI) for p in Usd.PrimRange(prim, proxies))
+
+    # De-instance light-bearing instances (repeat for nested instancing).
+    for _ in range(3):
+        changed = False
+        for prim in Usd.PrimRange(root):
+            if prim.IsInstance() and subtree_has_light(prim):
+                prim.SetInstanceable(False)
+                changed = True
+        if not changed:
+            break
+
+    add = math.log2(factor)
+    count = 0
+    for prim in Usd.PrimRange(root):
+        if prim.GetPath() == Sdf.Path("/World/DomeLight"):
+            continue
+        if not prim.HasAPI(UsdLux.LightAPI):
+            continue
+        exposure = UsdLux.LightAPI(prim).GetExposureAttr()
+        current = exposure.Get() or 0.0
+        exposure.Set(float(current) + add)
+        count += 1
+    return count
+
 
 def add_orthographic_camera(stage,
                             prim_path: str = "/World/MapCamera",
