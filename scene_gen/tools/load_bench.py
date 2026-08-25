@@ -191,7 +191,8 @@ def kit_log_phases():
     r = dexec(f'D={json_quote(KIT_LOG_DIR)}; ls -t "$D" | head -1')
     name = r.stdout.strip()
     if not name:
-        return [], None, "", {"distinct_materials": 0, "rtpso_wait_s": 0}
+        return [], None, "", {"distinct_materials": 0, "rtpso_wait_s": 0,
+                              "gprims": 0}
     r = dexec(f'cat {json_quote(KIT_LOG_DIR + "/" + name)}')
     lines = r.stdout.splitlines()
 
@@ -243,10 +244,19 @@ def renderer_stats(lines):
     those materials need. Reporting both makes a materials change comparable
     before and after, which a wall-clock total alone does not.
     """
-    mats = set(re.findall(r"MaterialPool/(mat_[0-9a-f]+)", "\n".join(lines)))
+    blob = "\n".join(lines)
+    mats = set(re.findall(r"MaterialPool/(mat_[0-9a-f]+)", blob))
     rtpso = [int(m) for m in re.findall(
-        r"RtPso async group async compilation: (\d+) seconds", "\n".join(lines))]
-    return {"distinct_materials": len(mats), "rtpso_wait_s": max(rtpso or [0])}
+        r"RtPso async group async compilation: (\d+) seconds", blob)]
+    # Colliders are applied to every gprim in the generated scene, so this line
+    # is the closest thing the launcher prints to a mesh count. It is the
+    # measure that ACTUALLY tracked the renderer slice: on urban_quake_tiny the
+    # distinct-material count stayed at 18 across the archetype fix while
+    # renderer warmup went 4.3s -> 25.8s, because what changed was ~120 new
+    # fragment meshes to composite and bind, not the materials on them.
+    gprims = [int(m) for m in re.findall(r"colliders: (\d+) applied", blob)]
+    return {"distinct_materials": len(mats), "rtpso_wait_s": max(rtpso or [0]),
+            "gprims": max(gprims or [0])}
 
 
 def _stamp_at(lines, j, look_back=8):
@@ -313,8 +323,9 @@ def report(args, t0, t_ready, marks, kit_epoch, log_name, banner, stats):
     print("-" * (w + 26))
     print(f"{'TOTAL (' + args.mode + ')':<{w}}  {total:>9.1f}  {'':>11}")
     print("=" * (w + 26))
-    print(f"renderer cost: {stats['distinct_materials']} distinct MDL materials "
-          f"compiled, {stats['rtpso_wait_s']}s RtPso shader wait")
+    print(f"renderer cost: {stats['gprims']} gprims, "
+          f"{stats['distinct_materials']} distinct MDL materials compiled, "
+          f"{stats['rtpso_wait_s']}s RtPso shader wait")
     print(f"banner: {banner}")
     print(f"kit log: {log_name}")
     print("note: `container + python.sh` is anchored on Kit's 1 s absolute log "

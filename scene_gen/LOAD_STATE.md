@@ -15,6 +15,12 @@ launcher's stdout into the same file, so one pass over that log dates every
 phase boundary the launcher already prints. The host clock supplies only `t0`
 and the readiness banner.
 
+Kit's logs live at `/isaac-sim/kit/logs/...` inside the container and that path
+is NOT mounted, so **a container recreate destroys every previous run's log**.
+The per-run JSON under `scene_gen/_bench/` is in the repo and survives, which is
+why it, and not the log, is the record. Capture anything you need out of a log
+before the next `down`.
+
 **cold** = `airstack down isaac-sim` + `up`. **warm** = the launcher re-sent to
 the tmux pane. They differ by 5x and `airstack up` on an existing container does
 nothing at all, so a timing without one of those two words is meaningless.
