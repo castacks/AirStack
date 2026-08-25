@@ -1364,3 +1364,58 @@ def test_seeds_are_the_same_in_every_process():
     assert M.stable_seed("bg_f", "pancake") == 5210
     assert M.stable_seed("soft_storey", mod=100_000) == 87144
     assert 0 <= M.stable_seed(("a", 1), 2.5) < 9973
+
+
+# ---------------------------------------------------------------------------
+# the cut faces show the material's core, from ONE shared material
+# ---------------------------------------------------------------------------
+
+def test_cut_faces_get_one_shared_core_material():
+    """A broken wall shows brick at the break, not a second copy of its siding
+    — and every break in the scene binds the SAME core prim, because the
+    renderer compiles each distinct MDL material at load."""
+    st = Usd.Stage.CreateInMemory()
+    _STAGES.append(st)
+    UsdGeom.Xform.Define(st, "/World")
+    prim = box(st, "/World/B", scale=10.0)
+    mesh_prim = M.mesh_prims(prim)[0].GetPrim()
+    siding = UsdShade.Material.Define(st, "/World/Looks/Siding")
+    UsdShade.MaterialBindingAPI.Apply(mesh_prim).Bind(siding)
+
+    core = M.core_material(st, "masonry")
+    assert core == "/World/Looks/FractureCore_masonry"
+    assert M.core_material(st, "masonry") == core        # defined once
+    b = M.bounds_of([mesh_prim])
+    cut = M.fracture_to_stage(st, prim, b,
+                              M.Failure("t", lambda p: np.ones(len(p))),
+                              seed=3, core=core)
+    assert cut["paths"]
+
+    with_core = 0
+    for path in cut["paths"]:
+        frag = st.GetPrimAtPath(path)
+        bound = {str(UsdShade.MaterialBindingAPI(p).ComputeBoundMaterial()[0]
+                     .GetPrim().GetPath())
+                 for p in [frag] + [s.GetPrim() for s in
+                                    UsdGeom.Subset.GetAllGeomSubsets(
+                                        UsdGeom.Imageable(frag))]}
+        # The exterior is still the exterior ...
+        assert "/World/Looks/Siding" in bound
+        with_core += core in bound
+    # ... and the cut faces are the core, on a real share of the pieces.
+    assert with_core >= len(cut["paths"]) // 2
+    cores = [p for p in st.Traverse() if "FractureCore" in p.GetName()]
+    assert len(cores) == 1
+
+
+def test_a_scene_binds_one_core_per_material_kind():
+    """`apply_to_stage` on two buildings makes ONE core material, not two."""
+    st, placements = stage_with_buildings(2)
+    for p in placements:
+        p["_mesh_damage"] = 0.9
+    out = M.apply_to_stage(st, compiled_disaster_config("earthquake"),
+                           placements)
+    assert out["fragments"]
+    cores = [str(p.GetPath()) for p in st.Traverse()
+             if p.GetName().startswith("FractureCore_")]
+    assert len(cores) == 1, cores

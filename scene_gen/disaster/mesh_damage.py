@@ -1863,7 +1863,7 @@ def _cap_fan(verts, faces, normal, origin, tol_rel: float = 1e-9):
 
 
 def _clip_by_plane(verts, faces, normal, origin, uv=None, fmat=None,
-                   cap: bool = False):
+                   cap: bool = False, cap_mat=None):
     """Keep the half of a triangle soup on the negative side of a plane.
 
     Sutherland-Hodgman per triangle: a triangle straddling the plane is cut to
@@ -1987,11 +1987,15 @@ def _clip_by_plane(verts, faces, normal, origin, uv=None, fmat=None,
                     axis=0, keepdims=True)])
             keep = np.concatenate([keep, cf])
             if fmat is not None:
-                # The interior takes the majority material of the piece it
-                # closes; there is no separate "cut face" material in the
-                # source, and inventing one would not bind to anything.
-                mid = (int(np.bincount(keep_mat).argmax())
-                       if keep_mat is not None and len(keep_mat) else 0)
+                # The cut face is *cap_mat* when the caller supplied one — a
+                # shared "fracture core" (`core_material`), because a broken
+                # wall shows brick and concrete at the break, not a second
+                # copy of its siding. Otherwise the majority material of the
+                # piece it closes: the source has no cut-face material, and
+                # inventing one here would bind to nothing.
+                mid = int(cap_mat) if cap_mat is not None else (
+                    int(np.bincount(keep_mat).argmax())
+                    if keep_mat is not None and len(keep_mat) else 0)
                 keep_mat = np.concatenate(
                     [keep_mat if keep_mat is not None else np.zeros(0, np.int64),
                      np.full(len(cf), mid, dtype=np.int64)])
@@ -2408,7 +2412,7 @@ def fracture_seeds(soup: Soup, failure: Failure, fragment_m: float,
 
 def _fracture_soup(soup: Soup, seeds: np.ndarray, neighbors: int = 24,
                    min_faces: int = 4, cap: bool = True,
-                   with_index: bool = False) -> list:
+                   with_index: bool = False, cap_mat=None) -> list:
     """Clip *soup* into one `Soup` per seed. Cells too small to see are dropped.
 
     Each cell is its candidate geometry clipped by the perpendicular bisector
@@ -2482,7 +2486,7 @@ def _fracture_soup(soup: Soup, seeds: np.ndarray, neighbors: int = 24,
             if gap > 2.0 * float(np.linalg.norm(cv - p, axis=1).max()):
                 break
             cv, cf, cuv, cm = _clip_by_plane(cv, cf, q - p, (p + q) * 0.5,
-                                             cuv, cm, cap=cap)
+                                             cuv, cm, cap=cap, cap_mat=cap_mat)
         if len(cf) >= min_faces:
             frag = Soup(cv, cuv, cf, cm, soup.mats)
             out.append((i, frag) if with_index else frag)
@@ -2516,7 +2520,7 @@ def _kd_groups(seeds: np.ndarray, n: int) -> np.ndarray:
 def _fracture_hier(soup: Soup, seeds: np.ndarray, neighbors: int = 24,
                    min_faces: int = 4, cap: bool = True, branch: int = 8,
                    leaf: int = 12, flat_below: int = 64,
-                   _depth: int = 0) -> list:
+                   _depth: int = 0, cap_mat=None) -> list:
     """`_fracture_soup`, but in O(faces x branch x depth) instead of O(faces x cells).
 
     WHY THIS EXISTS
@@ -2567,14 +2571,16 @@ def _fracture_hier(soup: Soup, seeds: np.ndarray, neighbors: int = 24,
     n = len(seeds)
     stop = max(int(flat_below), 2) if _depth == 0 else max(int(leaf), 2)
     if n <= stop or len(soup) == 0:
-        return _fracture_soup(soup, seeds, neighbors, min_faces, cap=cap)
+        return _fracture_soup(soup, seeds, neighbors, min_faces, cap=cap,
+                              cap_mat=cap_mat)
 
     b = min(int(branch), n)
     lab = _kd_groups(seeds, b)
     centres = np.array([seeds[lab == g].mean(axis=0)
                         for g in range(b) if (lab == g).any()])
     if len(centres) < 2:
-        return _fracture_soup(soup, seeds, neighbors, min_faces, cap=cap)
+        return _fracture_soup(soup, seeds, neighbors, min_faces, cap=cap,
+                              cap_mat=cap_mat)
 
     # REASSIGN TO THE NEAREST CENTRE. A k-d group's own centroid is not
     # necessarily the closest one to every seed in it, and a seed sitting
@@ -2589,14 +2595,15 @@ def _fracture_hier(soup: Soup, seeds: np.ndarray, neighbors: int = 24,
     # `min_faces=1` here: a block is scaffolding, not a fragment, and dropping
     # a thin one throws away every fine cell inside it.
     for g, block in _fracture_soup(soup, centres, neighbors, 1, cap=cap,
-                                   with_index=True):
+                                   with_index=True, cap_mat=cap_mat):
         mine = seeds[lab == g]
         if len(mine) < 2:
             if len(block) >= min_faces:
                 out.append(block)
             continue
         out.extend(_fracture_hier(block, mine, neighbors, min_faces, cap,
-                                  branch, leaf, flat_below, _depth + 1))
+                                  branch, leaf, flat_below, _depth + 1,
+                                  cap_mat=cap_mat))
     return out
 
 
@@ -2620,6 +2627,79 @@ def fracture(prims, bounds: Bounds, failure: Failure, seed: int = 0,
     return [Soup(f.verts * g, f.uv, f.faces, f.fmat, f.mats)
             for f in _fracture_hier(scaled, seeds / g, neighbors, min_faces,
                                     cap=cap)]
+
+
+#: Fracture-core looks, per `MATERIALS` kind: what a break through the
+#: material shows. Masonry gets a worn-brick megascans surface, projected in
+#: world space (`project_uvw`) so a cut face needs no UVs of its own. Timber
+#: and steel have no surface in the repo yet and get a flat, correctly
+#: coloured core — still an improvement on siding wrapped round a splintered
+#: stud. `texture` is a scene_gen asset path; `tile_m` is metres per tile.
+CORE_LOOKS = {
+    "masonry": {"texture": "airstack://scene_gen/assets/materials/megascans/"
+                           "Brick_Wall_Worn/T_sexkaitb_1K_B.jpg",
+                "normal": "airstack://scene_gen/assets/materials/megascans/"
+                          "Brick_Wall_Worn/T_sexkaitb_1K_N.jpg",
+                "orm": "airstack://scene_gen/assets/materials/megascans/"
+                       "Brick_Wall_Worn/T_sexkaitb_1K_ORM.jpg",
+                "tile_m": 2.8, "color": (0.62, 0.48, 0.40), "roughness": 0.9},
+    "timber": {"color": (0.55, 0.42, 0.27), "roughness": 0.85},
+    "steel": {"color": (0.36, 0.36, 0.38), "roughness": 0.55,
+              "metallic": 0.6},
+}
+
+
+def core_material(stage, kind=None) -> str:
+    """The SHARED fracture-core material for *kind*, defined once. Its path.
+
+    One material per kind per stage, not per building and never per fragment:
+    every distinct MDL material in a scene is compiled by the renderer at
+    load (measured: two thirds of a cold load is the renderer compiling), so a
+    core material is authored under `/World/Looks` the first time it is asked
+    for and every cut face in the scene binds to that one prim.
+    """
+    from pxr import Sdf, UsdShade
+
+    import scene_generator as sg
+
+    kind = str(kind or DEFAULT_MATERIAL).lower()
+    look = CORE_LOOKS.get(kind, CORE_LOOKS[DEFAULT_MATERIAL])
+    scope = "/World/Looks" if stage.GetPrimAtPath("/World") else "/Looks"
+    path = f"{scope}/FractureCore_{kind}"
+    if stage.GetPrimAtPath(path):
+        return path
+    UsdGeom.Scope.Define(stage, scope)
+    mat = UsdShade.Material.Define(stage, Sdf.Path(path))
+    sh = UsdShade.Shader.Define(stage, Sdf.Path(path).AppendChild("Shader"))
+    sh.CreateIdAttr("OmniPBR")
+    sh.SetSourceAsset(Sdf.AssetPath("OmniPBR.mdl"), "mdl")
+    sh.SetSourceAssetSubIdentifier("OmniPBR", "mdl")
+    sh.CreateInput("diffuse_color_constant",
+                   Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*look["color"]))
+    sh.CreateInput("reflection_roughness_constant",
+                   Sdf.ValueTypeNames.Float).Set(float(look["roughness"]))
+    sh.CreateInput("metallic_constant",
+                   Sdf.ValueTypeNames.Float).Set(float(look.get("metallic", 0.0)))
+    if look.get("texture"):
+        sh.CreateInput("diffuse_texture", Sdf.ValueTypeNames.Asset).Set(
+            Sdf.AssetPath(sg._join_asset_root(look["texture"], "")))
+        if look.get("normal"):
+            sh.CreateInput("normalmap_texture", Sdf.ValueTypeNames.Asset).Set(
+                Sdf.AssetPath(sg._join_asset_root(look["normal"], "")))
+        if look.get("orm"):
+            sh.CreateInput("enable_ORM_texture",
+                           Sdf.ValueTypeNames.Bool).Set(True)
+            sh.CreateInput("ORM_texture", Sdf.ValueTypeNames.Asset).Set(
+                Sdf.AssetPath(sg._join_asset_root(look["orm"], "")))
+        sh.CreateInput("project_uvw", Sdf.ValueTypeNames.Bool).Set(True)
+        sh.CreateInput("world_or_object", Sdf.ValueTypeNames.Bool).Set(True)
+        k = 1.0 / float(look.get("tile_m", 2.0))
+        sh.CreateInput("texture_scale",
+                       Sdf.ValueTypeNames.Float2).Set(Gf.Vec2f(k, k))
+    for out in ("Surface", "Displacement", "Volume"):
+        getattr(mat, f"Create{out}Output")("mdl").ConnectToSource(
+            sh.ConnectableAPI(), "out")
+    return path
 
 
 def _bind_materials(stage, mesh, frag: Soup) -> None:
@@ -2961,8 +3041,11 @@ def fracture_to_stage(stage, root_prim, bounds: Bounds, failure: Failure,
                       collapse: float = 0.80, neighbors: int = 24,
                       min_faces: int = 4, cap: bool = True,
                       shrink: float = 1.0, grain=None,
-                      gap_m: float = 0.0) -> dict:
+                      gap_m: float = 0.0, core=None) -> dict:
     """Break *root_prim* along *failure* and author the fragments.
+
+    *core* is the path of a material for the CUT faces — see `core_material`.
+    None keeps the cut faces in the material of the piece they close.
 
     Returns ``{"paths": [...], "loose": [...], "cells": n}``; `loose` is the
     subset of `paths` that came free of the structure, and the only fragments
@@ -3021,6 +3104,13 @@ def fracture_to_stage(stage, root_prim, bounds: Bounds, failure: Failure,
                            grain=grain)
     if len(seeds) < 2:
         return {"paths": [], "loose": [], "cells": 0}
+    cap_mat = None
+    if core:
+        # One more slot in the soup's material table; every cap face the cut
+        # makes below is filed under it and `_bind_materials` gives it a
+        # subset. The table is shared by reference with the fragments.
+        soup.mats.append(str(core))
+        cap_mat = len(soup.mats) - 1
     # THE WHOLE CUT RUNS IN GRAIN SPACE, and then comes back. Dividing every
     # vertex and seed by `g` turns the anisotropic partition we want into the
     # isotropic one this cutter already makes, and a diagonal affine map takes
@@ -3032,12 +3122,14 @@ def fracture_to_stage(stage, root_prim, bounds: Bounds, failure: Failure,
     g = grain_vec(grain)
     if not np.allclose(g, 1.0):
         soup = Soup(soup.verts / g, soup.uv, soup.faces, soup.fmat, soup.mats)
-        frags = _fracture_hier(soup, seeds / g, neighbors, min_faces, cap=cap)
+        frags = _fracture_hier(soup, seeds / g, neighbors, min_faces, cap=cap,
+                               cap_mat=cap_mat)
         frags = [Soup(f.verts * g, f.uv, f.faces, f.fmat, f.mats)
                  for f in frags]
         soup = Soup(soup.verts * g, soup.uv, soup.faces, soup.fmat, soup.mats)
     else:
-        frags = _fracture_hier(soup, seeds, neighbors, min_faces, cap=cap)
+        frags = _fracture_hier(soup, seeds, neighbors, min_faces, cap=cap,
+                               cap_mat=cap_mat)
     if not frags:
         # Nothing came apart. Leave the source intact — deleting the damaged
         # region with no fragments to replace it would just punch a hole.
@@ -3515,7 +3607,7 @@ def damage_building(stage, root_prim, disaster_type: str, intensity: float,
                     max_edge_m: float = 4.0, sub_max_points: int = 400_000,
                     heading_deg=None, solid_kw: dict = None,
                     field_fn=None, field_kw: dict = None, interior: bool = True,
-                    interior_kw: dict = None,
+                    interior_kw: dict = None, core_material_kind=None,
                     **fracture_kw) -> dict:
     """Run the four stages on one building. Returns a small report.
 
@@ -3612,7 +3704,11 @@ def damage_building(stage, root_prim, disaster_type: str, intensity: float,
                                         **(interior_kw or {}))
 
     # --- stage three: propagation -------------------------------------------
-    cut = fracture_to_stage(stage, root_prim, b, fail, seed=seed,
+    # The cut faces show the material's CORE (`core_material`), shared
+    # scene-wide; None keeps them in the material of the piece they close.
+    core = (core_material(stage, core_material_kind)
+            if core_material_kind else None)
+    cut = fracture_to_stage(stage, root_prim, b, fail, seed=seed, core=core,
                             **fracture_kw)
     out["paths"] = cut["paths"]
     out["loose"] = cut["loose"]
@@ -3697,6 +3793,48 @@ def damage_one(stage, prim, dtype: str, intensity: float, seed: int = 0,
                                   settle_it=bool(settle_it), **kw)
 
 
+def damage_budget(dis: dict) -> tuple:
+    """How many marked buildings live mesh damage will cut: ``(n, env)``.
+
+    One budget for one pipeline. `fracture.max_buildings` and
+    `thickness.max_buildings` are the spellings the compiler emits today and
+    are read as aliases; they were always set to the same number, because
+    thickening a building nobody was going to break is wasted memory and
+    breaking one that was left as paper is the artifact stage one exists to
+    prevent.
+
+    AN ENVIRONMENT CAP, because the budget and the damage PATH are set in
+    different places and a preset's budget is written for the path it
+    expects. `urban_quake_showcase` carries `max_buildings: 60` because it
+    was written around a baked archetype library, where the budget costs
+    nothing; running it with `SCENE_ARCHETYPES=0` hands all fourteen of its
+    wrecked buildings to live mesh damage instead, and the scene that was
+    meant to load in minutes takes hours. This bounds that without editing a
+    preset — a knob for looking at a scene, not a scene parameter, which is
+    why it lives in the environment and not in the config.
+
+    Shared with `disaster_stage`, which has to know the same number: the
+    tilt-and-sink stand-in is for the buildings this budget will NOT reach,
+    and applying it to the ones it will pitches an 80 m tower 6 degrees about
+    its corner before the cut, so a whole end of the rubble is authored
+    metres underground.
+    """
+    cfg = (dis or {}).get("mesh_damage") or {}
+    fcfg = cfg.get("fracture") or {}
+    tcfg = cfg.get("thickness") or {}
+    budget = int(cfg.get("max_buildings")
+                 or fcfg.get("max_buildings")
+                 or tcfg.get("max_buildings") or 40)
+    env_budget = os.environ.get("SCENE_DAMAGE_BUDGET", "").strip()
+    if env_budget:
+        try:
+            budget = max(0, int(env_budget))
+        except ValueError:
+            print(f"[mesh_damage] SCENE_DAMAGE_BUDGET={env_budget!r} is not an "
+                  f"integer — keeping the config's {budget}")
+    return budget, env_budget
+
+
 def apply_to_stage(stage, config: dict, placements: list) -> dict:
     """Damage the buildings the asset-swap route did not ruin.
 
@@ -3764,32 +3902,7 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
         return {"tally": {}, "fragments": [], "loose": [],
                 "slabs": []}
 
-    # One budget for one pipeline. `fracture.max_buildings` and
-    # `thickness.max_buildings` are the spellings the compiler emits today and
-    # are read as aliases; they were always set to the same number, because
-    # thickening a building nobody was going to break is wasted memory and
-    # breaking one that was left as paper is the artifact stage one exists to
-    # prevent.
-    budget = int(cfg.get("max_buildings")
-                 or fcfg.get("max_buildings")
-                 or tcfg.get("max_buildings") or 40)
-
-    # AN ENVIRONMENT CAP, because the budget and the damage PATH are set in
-    # different places and a preset's budget is written for the path it
-    # expects. `urban_quake_showcase` carries `max_buildings: 60` because it
-    # was written around a baked archetype library, where the budget costs
-    # nothing; running it with `SCENE_ARCHETYPES=0` hands all fourteen of its
-    # wrecked buildings to live mesh damage instead, and the scene that was
-    # meant to load in minutes takes hours. This bounds that without editing a
-    # preset — a knob for looking at a scene, not a scene parameter, which is
-    # why it lives in the environment and not in the config.
-    env_budget = os.environ.get("SCENE_DAMAGE_BUDGET", "").strip()
-    if env_budget:
-        try:
-            budget = max(0, int(env_budget))
-        except ValueError:
-            print(f"[mesh_damage] SCENE_DAMAGE_BUDGET={env_budget!r} is not an "
-                  f"integer — keeping the config's {budget}")
+    budget, env_budget = damage_budget(dis)
 
     # WHAT THE BUILDINGS ARE MADE OF. A property of the PLACE, not of the
     # event — a suburb is timber frame whether it was shaken or blown down —
@@ -3864,7 +3977,9 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
                 max_edge_m=sub_edge, sub_max_points=sub_max_points,
                 heading_deg=heading, solid_kw=solid_kw,
                 # No ladder here, so the material reaches the cut as the only
-                # thing it can say without one: the SHAPE of a fragment.
+                # things it can say without one: the SHAPE of a fragment and
+                # the look of its cut faces.
+                core_material_kind=cfg.get("material") or DEFAULT_MATERIAL,
                 **{"grain": mat.grain, **frac_kw})
         print(f"[mesh_damage] {n}/{len(work)} done in "
               f"{time.time() - t_one:.0f}s  "

@@ -455,13 +455,20 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
             # Nothing in either ruin pool fits this footprint. Mark it for
             # mesh damage, which runs once the prims are on the stage
             # (mesh_damage.apply_to_stage) and actually deforms the building.
-            # The tilt-and-sink below is the fallback's fallback — it is what
-            # the generator has always done, and on its own it reads as the
+            # The tilt-and-sink is the fallback's fallback — it is what the
+            # generator has always done, and on its own it reads as the
             # building being drunk rather than having failed.
             #
-            p["roll_deg"] = axis_roll + rng.uniform(-6.0, 6.0)
-            p["pitch_deg"] = rng.uniform(-6.0, 6.0)
-            p["z_m"] -= rng.uniform(0.1, 0.4)
+            # DRAWN HERE, APPLIED AFTER THE LOOP, and only to the buildings
+            # the mesh-damage budget will not reach. A building that IS going
+            # to be cut must keep its true pose: pitched 6 degrees about its
+            # corner and sunk, an 80 m tower had one end authored metres
+            # underground, and every fragment cut there "fell through the
+            # ground" before the settle began. Drawing unconditionally keeps
+            # the RNG stream where it was.
+            p["_standin"] = (axis_roll + rng.uniform(-6.0, 6.0),
+                             rng.uniform(-6.0, 6.0),
+                             rng.uniform(0.1, 0.4))
         tally["damaged" if not is_destroyed else "destroyed"] = \
             tally.get("damaged" if not is_destroyed else "destroyed", 0) + 1
 
@@ -572,6 +579,7 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
                 _emit(du, x_, y_, _fp(du, "debris")["base"] + 0.4,
                       "debris", _sc(du) * rng.uniform(0.7, 1.2), settle=True)
 
+    _apply_standins(placements, dis)
     placements.extend(new_placements)
     if tally:
         print("[disaster] buildings  "
@@ -583,6 +591,32 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
         print("[disaster] outside the region, dropped  "
               + "  ".join(f"{k}={v}" for k, v in sorted(dropped.items())))
     return tally
+
+
+def _apply_standins(placements: list, dis: dict) -> None:
+    """Tilt-and-sink the marked buildings live mesh damage will not cut.
+
+    Ranked exactly as `mesh_damage.apply_to_stage` spends its budget — worst
+    hit first, placement order breaking ties — so the two never disagree
+    about which buildings get the stand-in and which get the cut.
+    """
+    from disaster import mesh_damage
+
+    marked = [(i, p) for i, p in enumerate(placements) if "_standin" in p]
+    if not marked:
+        return
+    budget = mesh_damage.damage_budget(dis)[0] if (
+        (dis.get("mesh_damage") or {}).get("enabled", True)) else 0
+    rank = sorted((ip for ip in marked if ip[1].get("_mesh_damage")),
+                  key=lambda ip: (-float(ip[1]["_mesh_damage"]), ip[0]))
+    cut = {i for i, _ in rank[:budget]}
+    for i, p in marked:
+        roll, pitch, sink = p.pop("_standin")
+        if i in cut:
+            continue
+        p["roll_deg"] = roll
+        p["pitch_deg"] = pitch
+        p["z_m"] -= sink
 
 
 def apply(config: dict, layout: dict, placements: list,

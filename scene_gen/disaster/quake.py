@@ -466,6 +466,7 @@ def shatter(stage, root_prim, intensity, seed=0, wall_m=None,
         interior=bool(interior),
         field_fn=field_fn, solid_kw=solid_kw, field_kw=field_kw,
         fragment_m=float(fragment_m), grain=grain,
+        core_material_kind=material if isinstance(material, str) else None,
         max_cells=int(n), shrink=float(shrink), **fracture_kw)
     rep["cells_wanted"] = n
     rep["cells_capped"] = bool(n >= md.MAX_CELLS_CAP)

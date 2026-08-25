@@ -13,6 +13,7 @@ Functions:
 """
 
 import asyncio
+import math
 import os
 import re
 import time as _time
@@ -203,6 +204,43 @@ def settle_selection(placements) -> list:
     return [p["prim_path"] for p in marked]
 
 
+def _local_centroid(prim):
+    """Mean vertex of the meshes under *prim*, in *prim*'s own frame.
+
+    Where a piece IS, as opposed to where its prim origin is. A fracture
+    fragment is authored with no xformOp, so its origin is the BUILDING's
+    origin — a piece 40 m up a tower that drops 40 m carries that origin 40 m
+    below the ground, and one that merely rotates while falling sweeps it
+    through tens of metres. Judged at the origin, half of a real collapse
+    read as "fell through the ground" and most of the rest as "flung".
+    """
+    import numpy as np
+    xf = UsdGeom.XformCache()
+    acc, n = Gf.Vec3d(0.0, 0.0, 0.0), 0
+    for gp in Usd.PrimRange(prim):
+        if not gp.IsA(UsdGeom.Mesh):
+            continue
+        pts = gp.GetAttribute("points").Get()
+        if not pts:
+            continue
+        m = xf.ComputeRelativeTransform(gp, prim)[0]
+        c = np.asarray(pts, dtype=float).mean(axis=0)
+        acc += m.Transform(Gf.Vec3d(*c)) * len(pts)
+        n += len(pts)
+    return acc / n if n else Gf.Vec3d(0.0, 0.0, 0.0)
+
+
+#: Placement category of the fracture's loose pieces (`generate_scene`).
+FRAGMENT = "debris_fragment"
+
+
+def _centroids(prims, pivot) -> dict:
+    """World centroid of every prim, from the transforms PhysX wrote back."""
+    xf = UsdGeom.XformCache()
+    return {p.GetPath(): xf.GetLocalToWorldTransform(p).Transform(pivot[p.GetPath()])
+            for p in prims}
+
+
 def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
                        ground_path: str = None, max_travel_m: float = 12.0,
                        report: int = 5, gpu: bool = True,
@@ -316,6 +354,24 @@ def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
         if ground.IsValid():
             add_colliders(ground)
 
+    # A HALF-SPACE UNDER THE GROUND. The generated ground is a zero-thickness
+    # quad, and a 0.3 m slab fragment arriving at the 20 m/s velocity cap
+    # covers 0.33 m a step — so it can be above the quad on one step and
+    # clear below it on the next, and PhysX never sees a contact. Measured on
+    # a 72 m partial collapse: 142 of 872 fragments through the floor, most of
+    # them released from 20-40 m up. An infinite plane collider is a solid
+    # half-space, which nothing can pass; `disaster.settle.prepare` has used
+    # one as a backstop since it first lost a piece to infinity. Just below
+    # the ground so the ground's own collider still decides where things
+    # rest, and deactivated again once the poses are frozen.
+    floor_prim = UsdGeom.Xform.Define(stage, "/World/settle_floor").GetPrim()
+    UsdGeom.Xformable(floor_prim).AddTranslateOp().Set(
+        Gf.Vec3d(0.0, 0.0, -0.1 / (UsdGeom.GetStageMetersPerUnit(stage) or 1.0)))
+    floor_plane = UsdGeom.Plane.Define(stage, "/World/settle_floor/plane")
+    floor_plane.CreateAxisAttr("Z")
+    UsdPhysics.CollisionAPI.Apply(floor_plane.GetPrim())
+    floor_prim.SetActive(True)
+
     # Physics needs a scene; standalone preview stages may not have one.
     roots = list(stage.GetPseudoRoot().GetChildren())
     two_levels = roots + [c for r in roots for c in r.GetChildren()]
@@ -382,16 +438,35 @@ def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
                 mc.CreateApproximationAttr().Set(UsdPhysics.Tokens.convexHull)
 
     # Where everything started, so the freeze pass can tell a prop that settled
-    # from one that was fired.
+    # from one that was fired. At each piece's own centroid — see
+    # `_local_centroid` for why the prim origin is the wrong point.
     start_cache = UsdGeom.XformCache()
+    pivot = {p.GetPath(): _local_centroid(p) for p in prims}
     start = {p.GetPath(): start_cache.GetLocalToWorldTransform(p)
-             .ExtractTranslation() for p in prims}
+             .Transform(pivot[p.GetPath()]) for p in prims}
+    # The prim-ORIGIN ruler too, so one run reports both and the change of
+    # ruler is checkable rather than asserted. Diagnostic only.
+    start_origin = {p.GetPath(): start_cache.GetLocalToWorldTransform(p)
+                    .ExtractTranslation() for p in prims}
 
     app = omni.kit.app.get_app()
     timeline = omni.timeline.get_timeline_interface()
-    steps = max(1, int(sim_seconds * 60.0))
+    # HOW LONG. `sim_seconds` was a fixed 3 s budget, which is less than a
+    # piece needs just to FALL off a 66 m tower — so a tall collapse was
+    # sampled mid-air, judged to have travelled, and reverted into the sky.
+    # It is now the FLOOR. The ceiling is the time the highest piece needs to
+    # reach the ground under the 20 m/s velocity cap plus that budget to come
+    # to rest, and the loop below stops as soon as nothing is moving — so a
+    # scene of parked cars still costs half a second of sim.
+    g, vcap = 9.81, 20.0
+    h = max((float(c[2]) * mpu for c in start.values()), default=0.0)
+    fall = (h / vcap + vcap / (2.0 * g)) if h > vcap * vcap / (2.0 * g) \
+        else math.sqrt(2.0 * max(h, 0.0) / g)
+    ceiling_s = max(float(sim_seconds), fall + float(sim_seconds))
+    steps = max(1, int(ceiling_s * 60.0))
     print(f"[scene_prep] settle: simulating {len(prims)} props "
-          f"for ~{sim_seconds:.1f}s ({steps} frames)…", flush=True)
+          f"for up to {ceiling_s:.1f}s ({steps} frames; highest piece "
+          f"{h:.0f} m)…", flush=True)
     setup_s = _time.time() - t_setup
     dt = 1.0 / 60.0
 
@@ -444,16 +519,33 @@ def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
 
         t_sim = _time.time()
         now = 0.0
-        for _ in range(steps):
-            physx.update_simulation(dt, now)
-            now += dt
-        # The one write-back. `updateToFastCache=False, updateToUsd=True`:
-        # the transforms have to land in USD, because that is what the freeze
-        # pass below reads and re-authors. Velocities come too, because a pose
-        # sampled while a body is still moving is not a resting pose — see the
-        # still-moving count below.
-        physx.update_transformations(False, True, True)
+        done = 0
+        chunk = 30          # half a second of sim between rest checks
+        prev = dict(start)
+        while done < steps:
+            n = min(chunk, steps - done)
+            for _ in range(n):
+                physx.update_simulation(dt, now)
+                now += dt
+            done += n
+            # One write-back PER CHUNK, not per step (per step was the 95 s).
+            # `updateToFastCache=False, updateToUsd=True`: the transforms have
+            # to land in USD, because that is what the freeze pass below reads
+            # and re-authors. Velocities come too, for the still-moving count.
+            physx.update_transformations(False, True, True)
+            # AT REST = nothing moved a millimetre in the last half second.
+            # Judged on the written-back POSES, not on velocities: a body that
+            # is asleep reports zero, and so would a velocity that never got
+            # written — and the two are indistinguishable from here.
+            # Below 4 cm/s — the same creep the still-moving count below
+            # tolerates; a millimetre was never met by a 900-body pile that
+            # PhysX itself reported asleep.
+            cur = _centroids(prims, pivot)
+            if max((cur[k] - prev[k]).GetLength() for k in cur) < 0.02 / mpu:
+                break
+            prev = cur
         sim_s = _time.time() - t_sim
+        steps = done
     else:
         timeline.stop()
         timeline.play()
@@ -473,8 +565,9 @@ def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
     for prim in prims:
         world = cache.GetLocalToWorldTransform(prim)
         parent_world = cache.GetLocalToWorldTransform(prim.GetParent())
-        pos = world.ExtractTranslation()
-        settled[prim.GetPath()] = (world * parent_world.GetInverse(), pos)
+        pos = world.Transform(pivot[prim.GetPath()])
+        settled[prim.GetPath()] = (world * parent_world.GetInverse(), pos,
+                                   world.ExtractTranslation())
     # AFTER the capture, in both paths: `stop()` and `reset_simulation()` both
     # restore the authored poses, so reading them afterwards reads the poses
     # the props started at rather than the ones they settled into.
@@ -484,25 +577,44 @@ def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
         timeline.stop()
     app.update()
 
-    n_ok = n_lost = n_flung = n_moving = 0
+    n_ok = n_lost = n_flung = n_moving = n_gone = 0
+    old_lost = old_flung = 0
+    z_lost, z_flung = [], []       # where the failures STARTED, in metres
     travel = []
     by_cat = {}
     for prim in prims:
-        local, pos = settled[prim.GetPath()]
-        moved = (pos - start[prim.GetPath()]).GetLength()
+        local, pos, origin = settled[prim.GetPath()]
+        delta = pos - start[prim.GetPath()]
+        if origin[2] < floor_z:
+            old_lost += 1
+        elif (origin - start_origin[prim.GetPath()]).GetLength() > limit:
+            old_flung += 1
+        is_frag = cat_of.get(str(prim.GetPath())) == FRAGMENT
+        # A FRAGMENT IS MEANT TO FALL. Its vertical displacement is the
+        # collapse working, so only the horizontal part counts as travel; and
+        # its authored pose is where it was CUT — inside the intact shell,
+        # tens of metres up — so there is nothing to revert it to. A fragment
+        # the solver lost is deactivated instead of being left in the sky.
+        moved = math.hypot(delta[0], delta[1]) if is_frag else delta.GetLength()
         travel.append((moved * mpu, prim.GetPath()))
+        # A piece off the top of a tower legitimately lands further out than
+        # one off a bungalow: a collapse's debris field runs to about half
+        # the drop. `max_travel_m` stays the floor of the limit. Measured on
+        # the 72 m partial collapse with the backstop in: at a third of the
+        # drop 181 of 884 pieces were over the line, from a median start of
+        # 35 m — rubble across the street, not a solver launch (those read
+        # 130 m). Half the drop keeps the street rubble.
+        z0 = float(start[prim.GetPath()][2])
+        lim = max(limit, 0.5 * z0) if is_frag else limit
         cat = by_cat.setdefault(cat_of.get(str(prim.GetPath()), "?"),
                                 {"n": 0, "ok": 0, "lost": 0, "flung": 0,
                                  "moving": 0})
         cat["n"] += 1
         # STILL MOVING IS NOT SETTLED, AND THE DIFFERENCE IS NOT COSMETIC.
-        # This pass steps a FIXED `sim_seconds` with no rest check, and 3 s is
-        # less than the problem takes: a fragment released from the top of a
-        # 66 m tower needs ~3.7 s just to reach the ground in free fall. So a
-        # body can be sampled mid-flight and then judged for how far it has
-        # "travelled" — which is how `max_travel_m` comes to revert pieces for
-        # the crime of falling. Counting them is what separates "the settle
-        # threw it" from "the settle was not finished".
+        # The loop above stops when everything is at rest or when the ceiling
+        # runs out; only the second case leaves bodies moving here, and then
+        # the poses below are sampled mid-flight. Counting them is what
+        # separates "the settle threw it" from "the settle was not finished".
         vel = prim.GetAttribute("physics:velocity").Get()
         speed = Gf.Vec3f(*vel).GetLength() if vel is not None else 0.0
         if speed > 0.1 / mpu:
@@ -511,12 +623,21 @@ def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
         if pos[2] < floor_z:
             n_lost += 1     # tunnelled through the ground — keep authored pose
             cat["lost"] += 1
-        elif moved > limit:
-            # Launched out of a penetration. Its authored spot is where the
-            # generator meant it to be; a solver artifact hundreds of metres
-            # away is not an improvement on that.
+            z_lost.append(float(start[prim.GetPath()][2]) * mpu)
+            if is_frag:
+                prim.SetActive(False)
+                n_gone += 1
+        elif moved > lim:
+            # Launched out of a penetration. A prop's authored spot is where
+            # the generator meant it to be; a solver artifact hundreds of
+            # metres away is not an improvement on that. A fragment has no
+            # such spot — see above.
             n_flung += 1
             cat["flung"] += 1
+            z_flung.append(float(start[prim.GetPath()][2]) * mpu)
+            if is_frag:
+                prim.SetActive(False)
+                n_gone += 1
         else:
             xform = UsdGeom.Xformable(prim)
             xform.ClearXformOpOrder()
@@ -524,12 +645,13 @@ def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
             n_ok += 1
             cat["ok"] += 1
         prim.RemoveAPI(UsdPhysics.RigidBodyAPI)
+    floor_prim.SetActive(False)
 
     travel.sort(reverse=True)
     med = travel[len(travel) // 2][0] if travel else 0.0
     if n_moving:
         print(f"[scene_prep] settle: NOT CONVERGED — {n_moving} of {len(prims)}"
-              f" still moving at {sim_seconds:.1f}s. Poses below are sampled "
+              f" still moving at {steps / 60.0:.1f}s. Poses below are sampled "
               f"mid-motion, and `max_travel_m` is reverting some of them for "
               f"having fallen.")
     print(f"[scene_prep] settle: {len(prims)} props | setup {setup_s:.1f}s  "
@@ -539,10 +661,23 @@ def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
           + (f", {n_lost} fell through the ground (kept authored pose)"
              if n_lost else "")
           + (f", {n_flung} flung past {max_travel_m:.0f} m (reverted)"
-             if n_flung else ""))
+             if n_flung else "")
+          + (f" — {n_gone} of those are fragments and were deactivated"
+             if n_gone else ""))
     if travel:
         print(f"[scene_prep] settle: travel median {med:.2f} m, "
               f"max {travel[0][0]:.1f} m")
+    for name, zs in (("through-floor", z_lost), ("flung", z_flung)):
+        if zs:
+            zs = sorted(zs)
+            q = lambda f: zs[min(len(zs) - 1, int(f * len(zs)))]
+            print(f"[scene_prep] settle: {name} pieces started at z = "
+                  f"{q(0.0):.1f} / {q(0.25):.1f} / {q(0.5):.1f} / "
+                  f"{q(0.75):.1f} / {zs[-1]:.1f} m (min/q1/median/q3/max)")
+    if old_lost or old_flung:
+        print(f"[scene_prep] settle: (the prim-origin ruler would have called "
+              f"{old_lost} through-floor and {old_flung} flung — see "
+              f"`_local_centroid`)")
     # Per category, worst first by what did NOT settle: the fragments and the
     # props fail for different reasons and only this says which is which.
     for name, c in sorted(by_cat.items(),
