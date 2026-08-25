@@ -1,0 +1,295 @@
+# ASSET SET: shared — everything every locale builds with.
+#
+# Street furniture, greenery, ground tiles, vehicles and people are the same
+# whether the scene is a downtown, a suburb or a village: a bench is a bench.
+# Only the *buildings* and the *debris they leave* are locale-specific, so those
+# live in the sets that extend this one — `urban.yaml` (mid-rise concrete) and
+# `suburban.yaml` (detached timber-frame houses).
+#
+# Don't name this set from a scene config; point at a locale set, which pulls
+# this in via `extends: shared`.
+#
+# Entry forms:  "path.usd"                                (global asset_scale, Z-up)
+#           or  {usd: "path.usd", scale: 1.0, axis-up: "Y", yaw-offset: 90}
+# Per-asset overrides: scale (unit conversion), axis-up ("Y" for Y-up-authored
+# art, fixed via +90° roll), yaw-offset (deg — for art whose front isn't +X;
+# added to every computed yaw, e.g. a streetlight arm that points +Y needs -90).
+# Relative paths are resolved against asset_root; `objaverse://` and
+# `airstack://` resolve to repo-local directories instead (see
+# scene_generator.LOCAL_ASSET_ROOTS).
+#
+# `tags` select *behavior*, not locale — the generator pools on them:
+#   park      furniture used only along park trails (never street frontage)
+#   sidewalk  benches used only on street frontage
+#   tree      planters big enough to hold a street tree
+#   stump     trees that are stumps — park scatter only, never potted
+
+asset_root: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/"
+                            # prefix for relative usds.* paths; URLs / absolute paths pass through
+asset_scale: 1              # global unit scale — default fits Dmytro assets (authored in meters);
+                            # RetroNeighborhood assets override to 0.01 (authored in cm) below
+
+# sky: equirect HDRI (.exr/.hdr) applied to the dome light, OR a stage .usd
+# whose root sky/environment prims (outside its defaultPrim) get borrowed.
+# RetroNeighborhood's /Environment holds a dynamic-sky rig + dome light and
+# no geometry, so borrowing it costs almost nothing at load time.
+sky: "RetroNeighborhood/RetroNeighborhood.stage.usd"
+
+# ---- per-family yaw offsets (deg), added to auto-computed rotations -----------
+# Art conventions of the shared library. For a single misaligned asset, prefer
+# a per-USD yaw-offset in its usds entry.
+orientation:
+  house_front:   0.0        # building front facing offset
+  car_front:     0.0        # 0 = car art faces +X (its direction of travel)
+  traffic_light_front: 0.0  # 0 = art faces +X (auto-yawed toward intersection center)
+
+# ---- footprints [x, y(, z)] m — used when measure_usds is false or a measure fails
+# `house`, `debris` and `debris_pile` are locale-specific; the sets that extend
+# this one override them.
+fallback_sizes:
+  concrete:      [4.0, 4.0, 0.1]   # thin slab — z feeds the walking-surface height
+  sidewalk:      [2.0, 2.0, 0.1]   # thin slab — z feeds the walking-surface height
+  trail:         [4.0, 3.0, 0.1]
+  rock:          [1.5, 1.5]
+  house:         [48.0, 48.0]
+  tree:          [3.0, 3.0]
+  plant:         [1.0, 1.0]
+  streetlight:   [1.0, 1.0]
+  bench:         [2.0, 0.6, 0.9]
+  car:           [4.5, 2.0, 1.5]
+  fire_hydrant:  [0.5, 0.5, 0.9]
+  trash_can:     [0.8, 0.8, 1.2]
+  traffic_light: [1.0, 1.0, 6.0]
+  human:         [1.2, 0.35, 1.8]  # A-pose bbox; y = body depth (prone lift)
+  bus_stop:      [4.0, 1.5, 2.5]
+  planter:       [1.0, 1.0, 0.5]
+  play_structure: [4.0, 2.0, 2.5]
+  debris_pile:   [3.0, 3.0, 1.5]
+  debris:        [1.5, 1.5, 0.8]
+
+# ---- the shared library ----------------------------------------------------------
+usds:
+  tiles:
+    concrete: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_GroundModule01.usd"
+    sidewalk: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_GroundModule01.usd"
+             # brick tiles used for sidewalk rings around each block; Dmytro asset, uses global default
+    trail:
+      usd: "RetroNeighborhood/Props/SM_DriveWay_01.prop.usd"
+      scale: 0.01   # RetroNeighborhood authored in cm; override the global default
+
+  materials:
+    grass: "Muyang/StandaloneMaterials/Grass/MI_Grass.usd"
+    asphalt: "Muyang/StandaloneMaterials/Asphalt/MI_Asphalt.usd"
+    # A SECOND road surface, mixed with the one above so a suburb does not
+    # read as a single resurfacing job. This is ModularNeighborhood's road
+    # material, and its defaultPrim IS a Material, so it binds directly with
+    # no wrapper .usda (unlike the AEC .mdl set). 512 px full PBR, and the
+    # asphalt carries NO baked lane markings, so the markings pass still owns
+    # them. It is a CROSS-SECTION trim sheet (asphalt 0-0.53, kerb, verge,
+    # sidewalk) — `suburb_scene._make_ribbon` has the matching UV mode, and
+    # `roads.road_tile_share` sets how much of the network uses it.
+    asphalt_road_tile: "Muyang/ModularNeighborhood/Assets/Road_01_Inst.usd"
+    # DRIVEWAY AND PATH. Both were drawn with NO material at all — a flat grey
+    # ribbon — which is why a suburb showed one undifferentiated surface where
+    # the house preview shows a brick drive running to the garage and a concrete
+    # walk running to the door. Both are ModularNeighborhood standalone
+    # Materials, so they bind directly with no wrapper .usda.
+    driveway: "Muyang/ModularNeighborhood/Assets/Driveway_Brick_Old_01.usd"
+    path: "Muyang/ModularNeighborhood/Assets/Concrete_02.usd"
+
+  play_structures:
+    - usd: "Muyang/CivilianArea/Assets/SM_PlaygroundSlide_01.usd"
+      scale: 0.01
+    - usd: "Muyang/CivilianArea/Assets/SM_PlaygroundSwings_01.usd"
+      scale: 0.01
+    - usd: "Muyang/CivilianArea/Assets/SM_PlaygroundSwings_02.usd"
+      scale: 0.01
+
+  trees:
+    # Commented out below, and all of them also rejected BY NAME in urban_v2 and
+    # suburban_v2: RetroNeighborhood SM_Tree_01, Dmytro SM_Tree1/2/3, Muyang
+    # Tree_A/B/C. The pool stays as-is for the urban and village sets;
+    # suburban_v2 replaces it outright.
+    # - usd: "RetroNeighborhood/Props/SM_Tree_01.prop.usd"
+    #   scale: 0.01
+    - usd: "RetroNeighborhood/Props/SM_Tree_02.prop.usd"
+      scale: 0.01
+    - usd: "RetroNeighborhood/Props/SM_Tree_03.prop.usd"
+      scale: 0.01
+    - usd: "RetroNeighborhood/Props/SM_Tree_04.prop.usd"
+      scale: 0.01
+    - usd: "RetroNeighborhood/Props/SM_Tree_05.prop.usd"
+      scale: 0.01
+    - usd: "RetroNeighborhood/Props/SM_Tree_06.prop.usd"
+      scale: 0.01
+    - usd: "RetroNeighborhood/Props/SM_Tree_07.prop.usd"
+      scale: 0.01
+    # - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Tree1.usd"
+    # - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Tree2.usd"
+    # - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Tree3.usd"
+    - usd: "CityPark/Props/SM_Tree_01.prop.usd"
+      scale: 0.01
+    - usd: "CityPark/Props/SM_Tree_03.prop.usd"
+      scale: 0.01
+    - usd: "CityPark/Props/SM_Tree_04.prop.usd"
+      scale: 0.01
+    - usd: "CityPark/Props/SM_Tree_05.prop.usd"
+      scale: 0.01
+    - usd: "CityPark/Props/SM_Tree_08.prop.usd"
+      scale: 0.01
+    # - usd: "Muyang/DownTown/Assets/Tree_A.usd"
+    #   scale: 0.01
+    # - usd: "Muyang/DownTown/Assets/Tree_B.usd"
+    #   scale: 0.01
+    # - usd: "Muyang/DownTown/Assets/Tree_C.usd"
+    #   scale: 0.01
+    - usd: "CityPark/Props/SM_Stump.prop.usd"
+      scale: 0.01
+      tags: ["stump"]
+    - usd: "CityPark/Props/SM_Stump_02.prop.usd"
+      scale: 0.01
+      tags: ["stump"]
+    - usd: "CityPark/Props/SM_Stump_03.prop.usd"
+      scale: 0.01
+      tags: ["stump"]
+
+  plants:
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Grass.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Grass_Flowers.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Grass_Flowers1.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Grass_Flowers2.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bush_1.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bush_2.usd"
+    - usd: "Muyang/DownTown/Assets/Plant_Red.usd"
+      scale: 0.01
+    - usd: "Muyang/DownTown/Assets/Plant_Purple.usd"
+      scale: 0.01
+    - usd: "Muyang/DownTown/Assets/Plant_Pink.usd"
+      scale: 0.01
+
+  rocks:
+    - usd: "CityPark/Props/SM_Stone_04.prop.usd"
+      scale: 0.01
+    - usd: "CityPark/Props/SM_Stone_05.prop.usd"
+      scale: 0.01
+    # SM_Stone_06 commented out, reason not recorded.
+    - usd: "CityPark/Props/SM_Stone_08.prop.usd"
+      scale: 0.01
+    - usd: "CityPark/Props/SM_Stone_09.prop.usd"
+      scale: 0.01
+    - usd: "Muyang/DownTown/Assets/Rock_A.usd"
+      scale: 0.01
+    - usd: "Muyang/DownTown/Assets/Rock_B.usd"
+      scale: 0.01
+    - usd: "Muyang/DownTown/Assets/Rock_C.usd"
+      scale: 0.01
+    - usd: "Muyang/DownTown/Assets/Rock_D.usd"
+      scale: 0.01
+    - usd: "Muyang/DownTown/Assets/Rock_E.usd"
+      scale: 0.01
+
+  planters:
+    - usd: "Muyang/DownTown/Assets/Planter_A.usd"
+      scale: 0.01
+    - usd: "Muyang/DownTown/Assets/Planter_B.usd"
+      scale: 0.01
+    - usd: "Muyang/DownTown/Assets/PlanterLarge_A.usd"
+      scale: 0.01
+      tags: ["tree"]
+
+  streetlights:
+    - usd: "RetroNeighborhood/Props/SM_StreetLight.prop.usd"
+      scale: 0.01
+      yaw-offset: 90.0
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Lamp_002.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Lamp_005.usd"
+    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Lamp_006.usd"
+      tags: ["park"]
+
+  bus_stops:
+    - usd: "Muyang/DownTown/Assets/BusStop.usd"
+      scale: 0.01
+      yaw-offset: 180.0
+
+  trash_cans:
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_MTrashCan.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_003.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_003_01.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_003_02.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_004.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_006.usd"
+    - usd: "CityPark/Props/SM_Small_Trash_can.prop.usd"
+      scale: 0.01
+      tags: ["park"]
+    - usd: "Muyang/DownTown/Assets/garbageCan.usd"
+      scale: 0.01
+
+  traffic_lights:
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_001.usd"
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Traffic_Lamp_002.usd"
+
+  fire_hydrants:
+    - usd: "RetroNeighborhood/Props/SM_FireHydrant.prop.usd"
+      scale: 0.01
+
+  benches:
+    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bench01.usd"
+      yaw-offset: -90.0
+      tags: ["sidewalk"]
+    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bench02.usd"
+      yaw-offset: -90.0
+      tags: ["sidewalk"]
+    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bench03.usd"
+      yaw-offset: -90.0
+      tags: ["sidewalk"]
+    - usd: "Muyang/DownTown/Assets/Bench.usd"
+      scale: 0.01
+      yaw-offset: 0.0 # TODO?
+      tags: ["sidewalk", "park"]
+    - usd: "CityPark/Props/SM_Log_shop.prop.usd"
+      scale: 0.01
+      yaw-offset: 90.0
+      tags: ["park"]
+    - usd: "CityPark/Props/SM_Log_shop_02.prop.usd"
+      scale: 0.01
+      yaw-offset: 90.0
+      tags: ["park"]
+
+  cars:
+    - usd: "RetroNeighborhood/130.usdz"
+      scale: 0.01
+      axis-up: "Y"           # authored Y-up; fixed to Z-up for Isaac Sim
+      yaw-offset: 90.0
+    - usd: "RetroNeighborhood/FREE_GMC_Motorhome_reimagined_low_poly.usdz"
+      scale: 0.01
+      axis-up: "Y"
+      yaw-offset: 90.0
+    - usd: "RetroNeighborhood/Nissan_Fairlady_Z_S30240Z_1978.usdz"
+      scale: 0.01
+      axis-up: "Y"
+      yaw-offset: 90.0
+    # Commented out, reason not recorded — all RetroNeighborhood .usdz at
+    # scale 0.01, axis-up Y: FREE_Merc_Hovercar (a hovercar, so not a street
+    # car), Old_Rusty_Car, ZIS-101A_Sport_1938.
+    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SK_ConstructionTruck01FullyRigged.usd"
+    - usd: "Muyang/DownTown/Assets/Vehicle_A.usd"
+      scale: 0.01
+      yaw-offset: 90.0
+    - usd: "Muyang/DownTown/Assets/Vehicle_Police.usd"
+      scale: 0.01
+      yaw-offset: 90.0
+    - usd: "Muyang/DownTown/Assets/Vehicle_Taxi.usd"
+      scale: 0.01
+      yaw-offset: 90.0
+
+  # RenderPeople rigged humans: cm-authored (scale 0.01), art faces -Y
+  # (yaw-offset 90). UsdSkel rigs with no animation clip — the generator
+  # authors static idle/walk poses onto them (see _HUMAN_POSES).
+
+  humans:
+    - {usd: "Muyang/People/Assets/rp_carla_rigged_001_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "Muyang/People/Assets/rp_claudia_rigged_002_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "Muyang/People/Assets/rp_eric_rigged_001_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "Muyang/People/Assets/rp_manuel_rigged_001_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "Muyang/People/Assets/rp_nathan_rigged_003_ue4.usd", scale: 0.01, yaw-offset: 90}
+    - {usd: "Muyang/People/Assets/rp_sophia_rigged_003_ue4.usd", scale: 0.01, yaw-offset: 90}

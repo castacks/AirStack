@@ -53,3 +53,26 @@ raven_nav:
     # Meters of travel one unit of semantic similarity is worth in the VLFM cost
     # blend. Higher -> pursue the target harder; lower -> spread out / explore more.
     vlfm_value_weight: 300.0
+
+    # Run the Co-NavGPT baseline ("VLM-Assign" arm, arXiv:2310.07937 adapted to
+    # multi-target / non-co-located starts): one VLM call per round assigns each
+    # robot a numbered frontier region; everything else is frontier exploration.
+    # Last in the precedence chain (frontier_only > vlfm > conavgpt) so an
+    # over-specified mission still runs exactly one baseline.
+    conavgpt_baseline: false
+    # Which robot hosts the single assigner node. One VLM call serves the whole
+    # team, so exactly one robot must run it; the rest read the answer over gossip.
+    conavgpt_leader_id: 1
+    # Upper bound on seconds between VLM rounds. Reaching the assigned region,
+    # losing it, or an expired assignment all open a round early, so this only
+    # caps how long a stale plan can stand when nothing else happens.
+    conavgpt_round_period_s: 30.0
+    # How many numbered regions the VLM is shown. More context costs prompt
+    # length and makes the numbering harder for a small model to keep straight.
+    conavgpt_max_regions: 12
+    # An assignment older than this is not worth flying to (the map has moved on):
+    # the robot reverts to nearest-frontier and the round is scored as a fallback.
+    conavgpt_assignment_ttl_s: 90.0
+    # Arriving inside this radius of the assigned region ends the round early —
+    # without it a robot would sit on a finished region until the period lapsed.
+    conavgpt_replan_on_reach_m: 8.0

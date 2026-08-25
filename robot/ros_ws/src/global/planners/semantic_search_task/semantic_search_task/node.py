@@ -288,6 +288,11 @@ class SemanticSearchTaskNode(Node):
         # Latest simulated time seen on odometry; None until the first
         # message. Drives the max_sim_seconds budget.
         self._sim_now_s = None
+        # Real-time factor of the SEARCH phase (sim seconds / wall seconds),
+        # measured from the first sim stamp after the search starts. RTF falls
+        # as drones are added, so a fixed sim-time budget costs a different
+        # amount of wall clock per fleet size — this is what says how much.
+        self._rtf = None
 
         self._cleanup_existing()
         self.get_logger().info('semantic_search_task ready')
@@ -382,11 +387,15 @@ class SemanticSearchTaskNode(Node):
             # held to an identical clock (see max_sim_seconds in the action).
             max_sim_s = float(getattr(goal, 'max_sim_seconds', 0.0) or 0.0)
             sim_t0 = self._sim_now_s
+            # Wall clock is anchored to the SAME instant as sim_t0 so the ratio
+            # is the search phase's alone, not diluted by model load or takeoff.
+            wall_t0 = time.time() if sim_t0 is not None else None
             sim_budget_hit = False
             while rclpy.ok():
                 if max_sim_s > 0.0 and self._sim_now_s is not None:
                     if sim_t0 is None:
                         sim_t0 = self._sim_now_s
+                        wall_t0 = time.time()
                     elif self._sim_now_s - sim_t0 >= max_sim_s:
                         self.get_logger().info(
                             f'sim-time budget reached: '
@@ -394,6 +403,7 @@ class SemanticSearchTaskNode(Node):
                             f'— ending LVLM search')
                         sim_budget_hit = True
                 if sim_budget_hit or goal_handle.is_cancel_requested:
+                    self._note_rtf(sim_t0, wall_t0, max_sim_s)
                     metrics_json = self._finalize_metrics(
                         'sim_time_budget' if sim_budget_hit else 'cancelled')
                     result = SemanticSearchTask.Result()
@@ -451,6 +461,28 @@ class SemanticSearchTaskNode(Node):
         self._task_active = True
         return GoalResponse.ACCEPT
 
+    def _note_rtf(self, sim_t0, wall_t0, max_sim_s) -> None:
+        """Record the search phase's sim-vs-wall rate. Called once, on exit."""
+        if sim_t0 is None or wall_t0 is None or self._sim_now_s is None:
+            return
+        sim_s = float(self._sim_now_s - sim_t0)
+        wall_s = max(1e-6, time.time() - wall_t0)
+        self._rtf = {
+            'sim_seconds': round(sim_s, 1),
+            'wall_seconds': round(wall_s, 1),
+            'rtf': round(sim_s / wall_s, 4),
+            'budget_sim_seconds': round(float(max_sim_s), 1),
+            'num_robots': int(os.getenv('NUM_ROBOTS', '0') or 0),
+        }
+        # One greppable line: the container log snapshot is where this is read
+        # back from after a mission, without unpacking the action result.
+        self.get_logger().info(
+            f'[rtf] search phase: {sim_s:.1f} sim s in {wall_s:.1f} wall s '
+            f'-> RTF {sim_s / wall_s:.3f} '
+            f'({self._rtf["num_robots"]} robot(s)); a {max_sim_s:.0f} s budget '
+            f'costs ~{(max_sim_s / (sim_s / wall_s)) / 60.0:.1f} min of wall '
+            f'clock at this rate')
+
     def _finalize_metrics(self, reason: str) -> str:
         """Compile all robots' raven dumps + score vs ground truth on exit.
 
@@ -479,6 +511,8 @@ class SemanticSearchTaskNode(Node):
                  '--class-filter', class_filter, '--class-aware'],
                 check=False, timeout=120, capture_output=True, text=True)
             summary = {'reason': reason}
+            if self._rtf is not None:
+                summary['rtf'] = self._rtf
             with open(os.path.join(RESULTS_DIR, 'metrics.json')) as f:
                 m = _json.load(f)
                 summary['detections'] = m.get('detections')
@@ -594,6 +628,49 @@ class SemanticSearchTaskNode(Node):
             f'{n_gpus} GPU(s) visible; robot {robot_id} -> GPU {gpu}'
             + (' (shared with Isaac Sim)' if gpu == 0 else ''))
         return str(gpu)
+
+    def _pick_conavgpt_gpu(self) -> str | None:
+        """GPU index for the Co-NavGPT assigner: the highest card no rayfronts
+        claims, else the leader's own card.
+
+        The assigner is a 2B VLM in 8-bit sharing a process tree with the
+        leader's rayfronts, so inheriting `_pick_rayfronts_gpu()` puts two
+        models on one card while higher cards sit idle — the same shape as the
+        OOM that cost a drone a whole mission at 3 GPUs / 3 robots. Rayfronts
+        occupies ``1..NUM_ROBOTS`` mod n_gpus, so anything above the fleet is
+        free. Override with CONAVGPT_ASSIGNER_GPU (``-1`` = don't pin).
+        """
+        override = os.getenv('CONAVGPT_ASSIGNER_GPU', '').strip()
+        if override:
+            return None if override == '-1' else override
+        try:
+            out = subprocess.run(['nvidia-smi', '-L'], capture_output=True,
+                                 text=True, timeout=10).stdout
+            n_gpus = sum(1 for line in out.splitlines()
+                         if line.startswith('GPU '))
+        except Exception:
+            return None
+        if n_gpus <= 1:
+            return None
+        try:
+            n_robots = int(os.getenv('NUM_ROBOTS', '1') or 1)
+        except ValueError:
+            n_robots = 1
+        # GPU 0 is Isaac Sim's; robot N takes N % n_gpus.
+        claimed = {0} | {r % n_gpus for r in range(1, n_robots + 1)}
+        free = [g for g in range(n_gpus) if g not in claimed]
+        if free:
+            gpu = max(free)
+            self.get_logger().info(
+                f'{n_gpus} GPU(s), {n_robots} robot(s); conavgpt_assigner -> '
+                f'GPU {gpu} (no rayfronts on it)')
+            return str(gpu)
+        gpu = self._pick_rayfronts_gpu()
+        self.get_logger().warn(
+            f'{n_gpus} GPU(s) all claimed by {n_robots} robot(s) + Isaac Sim; '
+            f'conavgpt_assigner shares GPU {gpu} with the leader\'s rayfronts '
+            f'— watch it for CUDA OOM, or give the pod another GPU')
+        return gpu
 
     def _spawn(self, cmd: list, log_name: str | None = None,
                env: dict | None = None) -> tuple:
@@ -897,7 +974,7 @@ class SemanticSearchTaskNode(Node):
             self.get_logger().info(
                 f'search_area: {n_pts} vertices (unconstrained search)')
 
-        rayfronts_proc = raven_proc = None
+        rayfronts_proc = raven_proc = conavgpt_proc = None
         navigate_send_future = None
         rayfronts_q = raven_q = queue.Queue()
 
@@ -1036,6 +1113,24 @@ class SemanticSearchTaskNode(Node):
                 # product is map coverage rather than a comparable score.
                 '-p', ('vlfm_ray_blacklist:='
                        f'{os.getenv("VLFM_RAY_BLACKLIST", "false").strip().lower()}'),
+                # CONAVGPT_BASELINE=true → Co-NavGPT "VLM-Assign" baseline: one
+                # VLM call per round assigns every robot a numbered frontier
+                # region. Last in the precedence chain, so FRONTIER_ONLY_BASELINE
+                # and VLFM_BASELINE both override it.
+                '-p', ('conavgpt_baseline:='
+                       f'{os.getenv("CONAVGPT_BASELINE", "false").strip().lower()}'),
+                # The assigner runs on exactly one robot; every other robot reads
+                # its answer over gossip. Must match the spawn guard below.
+                '-p', ('conavgpt_leader_id:='
+                       f'{os.getenv("CONAVGPT_LEADER_ID", "1").strip()}'),
+                '-p', ('conavgpt_round_period_s:='
+                       f'{os.getenv("CONAVGPT_ROUND_PERIOD_S", "30.0").strip()}'),
+                '-p', ('conavgpt_max_regions:='
+                       f'{os.getenv("CONAVGPT_MAX_REGIONS", "12").strip()}'),
+                '-p', ('conavgpt_assignment_ttl_s:='
+                       f'{os.getenv("CONAVGPT_ASSIGNMENT_TTL_S", "90.0").strip()}'),
+                '-p', ('conavgpt_replan_on_reach_m:='
+                       f'{os.getenv("CONAVGPT_REPLAN_ON_REACH_M", "8.0").strip()}'),
                 # End at 80% coverage; osmo enforces the 15-min limit by cancel.
                 '-p', f'coverage_complete_threshold:={RESULTS_COVERAGE_THRESHOLD}',
                 '-p', f'results_dir:={RESULTS_DIR}',
@@ -1056,6 +1151,47 @@ class SemanticSearchTaskNode(Node):
                 if gval >= sentinel:
                     raven_args += ['-p', f'{pname}:={gval}']
             raven_proc, raven_q = self._spawn(raven_args, log_name='raven')
+
+            # Co-NavGPT: one VLM call serves the whole team, so the assigner is
+            # a single extra process on the leader robot only — not a separate
+            # execute branch. Everything else on this path (rayfronts, raven,
+            # droan follow, results) is unchanged.
+            if os.getenv('CONAVGPT_BASELINE', 'false').strip().lower() \
+                    in ('1', 'true', 'yes'):
+                leader = os.getenv('CONAVGPT_LEADER_ID', '1').strip()
+                if robot_name == f'robot_{leader}':
+                    cg_env = None
+                    cg_gpu = self._pick_conavgpt_gpu()
+                    if cg_gpu is not None:
+                        cg_env = {**os.environ, 'CUDA_VISIBLE_DEVICES': cg_gpu}
+                        self.get_logger().info(
+                            f'conavgpt_assigner pinned to GPU {cg_gpu}')
+                    cg_ros_args = [
+                        '--ros-args',
+                        '-p', 'use_sim_time:=true',
+                        # Same directory raven dumps to, so conavgpt_rounds.jsonl
+                        # lands next to the run it belongs to.
+                        '-p', f'results_dir:={RESULTS_DIR}',
+                    ]
+                    # Isolated venv (transformers/bitsandbytes/accelerate),
+                    # same as the LVLM baseline; `ros2 run` where it isn't built.
+                    venv_py = '/opt/lvlm-venv/bin/python'
+                    if os.path.exists(venv_py):
+                        cg_cmd = [venv_py, '-m',
+                                  'conavgpt_baseline.conavgpt_assigner_node'] \
+                            + cg_ros_args
+                    else:
+                        cg_cmd = ['ros2', 'run', 'conavgpt_baseline',
+                                  'conavgpt_assigner_node'] + cg_ros_args
+                    conavgpt_proc, _cg_q = self._spawn(
+                        cg_cmd, log_name='conavgpt', env=cg_env)
+                    self.get_logger().info(
+                        f'CoNavGPT assigner started on {robot_name} '
+                        f'(leader) — peers read its assignment over gossip')
+                else:
+                    self.get_logger().info(
+                        f'CoNavGPT baseline: {robot_name} is not the leader '
+                        f'(robot_{leader}) — consuming assignments over gossip')
 
 
             best_conf = 0.0
@@ -1167,12 +1303,15 @@ class SemanticSearchTaskNode(Node):
             # settling don't eat into the budget.
             max_sim_s = float(getattr(goal, 'max_sim_seconds', 0.0) or 0.0)
             sim_t0 = self._sim_now_s
+            # Wall clock anchored to the SAME instant as sim_t0 — see _note_rtf.
+            wall_t0 = time.time() if sim_t0 is not None else None
             sim_budget_hit = False
 
             while rclpy.ok():
                 if max_sim_s > 0.0 and self._sim_now_s is not None:
                     if sim_t0 is None:
                         sim_t0 = self._sim_now_s
+                        wall_t0 = time.time()
                     elif self._sim_now_s - sim_t0 >= max_sim_s:
                         self.get_logger().info(
                             f'sim-time budget reached: '
@@ -1180,6 +1319,7 @@ class SemanticSearchTaskNode(Node):
                             f'— ending search')
                         sim_budget_hit = True
                 if sim_budget_hit or goal_handle.is_cancel_requested:
+                    self._note_rtf(sim_t0, wall_t0, max_sim_s)
                     # Return whatever we've accumulated so the operator still
                     # sees partial discoveries even on cancel.
                     from geometry_msgs.msg import Pose, PoseArray
@@ -1333,6 +1473,9 @@ class SemanticSearchTaskNode(Node):
                 if hit_max or polygon_done:
                     # 80% coverage reached — same finalize as the cancel path.
                     reason = 'max_instances' if hit_max else 'coverage'
+                    # Finishing early still prices the run: this is the wall
+                    # cost of a completed search rather than of a full budget.
+                    self._note_rtf(sim_t0, wall_t0, max_sim_s)
                     metrics_json = self._finalize_metrics(reason)
                     goal_handle.succeed()
                     result = SemanticSearchTask.Result()
@@ -1382,6 +1525,7 @@ class SemanticSearchTaskNode(Node):
             self._cancel_navigate_task(navigate_send_future)
             self._kill('rayfronts', rayfronts_proc)
             self._kill('raven', raven_proc)
+            self._kill('conavgpt', conavgpt_proc)
             # Clear the latched polygon so the next task isn't constrained
             # by this one's search_area.
             self._publish_search_area(Polygon())

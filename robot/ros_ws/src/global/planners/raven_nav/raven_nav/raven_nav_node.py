@@ -70,6 +70,7 @@ _NAV_MODE_TAG = {
     'Ray-based':      'ray',
     'Voxel-based':    'voxel',
     'VLFM-based':     'vlfm',
+    'CoNavGPT-based': 'conavgpt',
     'Complete':       'complete',
 }
 
@@ -280,9 +281,55 @@ class RavenNavNode(Node):
                 + f' | value_weight={self._vlfm_value_weight:g}'
                 ' | coordinated: peer repulsion + novelty ON'
                 f' | ray blacklist={"ON" if self._vlfm_ray_blacklist else "OFF"}')
-        # In either baseline the semantic auction/consensus is inert (baselines
+        # Run the Co-NavGPT baseline ("VLM-Assign" arm): one VLM call per round
+        # assigns every robot a numbered frontier region; navigation is
+        # otherwise frontier exploration (see behaviors/conavgpt_behavior.py).
+        # Last in the precedence chain, so an over-specified mission still runs
+        # exactly one baseline.
+        self._conavgpt_baseline = bool(self.declare_parameter(
+            'conavgpt_baseline', False).value)
+        if self._conavgpt_baseline and (self._frontier_only_baseline
+                                        or self._vlfm_baseline):
+            self.get_logger().warn(
+                'conavgpt_baseline dropped — '
+                + ('frontier_only_baseline' if self._frontier_only_baseline
+                   else 'vlfm_baseline')
+                + ' takes precedence')
+            self._conavgpt_baseline = False
+        # Which robot hosts the single assigner node; everyone else consumes
+        # its answer over gossip.
+        self._conavgpt_leader_id = int(self.declare_parameter(
+            'conavgpt_leader_id', 1).value)
+        # Upper bound on seconds between VLM rounds. Reaching the assigned
+        # region, losing it, or an expired assignment all open a round early.
+        self._conavgpt_round_period_s = float(self.declare_parameter(
+            'conavgpt_round_period_s', 30.0).value)
+        # How many numbered regions the VLM is shown. More context costs
+        # prompt length and makes the numbering harder for the model to track.
+        self._conavgpt_max_regions = int(self.declare_parameter(
+            'conavgpt_max_regions', 12).value)
+        # An assignment older than this is not worth flying to; the robot
+        # reverts to nearest-frontier and the round is scored as a fallback.
+        self._conavgpt_assignment_ttl_s = float(self.declare_parameter(
+            'conavgpt_assignment_ttl_s', 90.0).value)
+        # Arriving inside this radius of the assigned region ends the round.
+        self._conavgpt_replan_on_reach_m = float(self.declare_parameter(
+            'conavgpt_replan_on_reach_m', 8.0).value)
+        if self._conavgpt_baseline:
+            self.get_logger().info(
+                f'conavgpt_baseline=true — navigation is Co-NavGPT VLM-Assign '
+                f'(adapted: multi-target, non-co-located starts) | '
+                f'leader=robot_{self._conavgpt_leader_id} '
+                f'({"THIS robot hosts the assigner" if self._my_id == self._conavgpt_leader_id else "remote"}) '
+                f'| round<={self._conavgpt_round_period_s:g}s '
+                f'regions<={self._conavgpt_max_regions} '
+                f'ttl={self._conavgpt_assignment_ttl_s:g}s '
+                f'reach={self._conavgpt_replan_on_reach_m:g}m')
+
+        # In any baseline the semantic auction/consensus is inert (baselines
         # ignore assigned/committed), so its per-tick logs are just noise.
-        self._is_baseline = self._frontier_only_baseline or self._vlfm_baseline
+        self._is_baseline = (self._frontier_only_baseline or self._vlfm_baseline
+                             or self._conavgpt_baseline)
         self._peer_state.verbose_bids = not self._is_baseline
 
         timer_period = self.declare_parameter('timer_period', 0.5).value
@@ -333,6 +380,20 @@ class RavenNavNode(Node):
             String, f'{self._prefix}/committed_target', 10)
         self._nav_mode_pub = self.create_publisher(
             String, f'{self._prefix}/navigation_mode', 10)
+        # Co-NavGPT round I/O. Created only in that baseline so every other run
+        # keeps exactly the topic graph it had.
+        self._conavgpt_request_pub = None
+        self._conavgpt_round_table_pub = None
+        if self._conavgpt_baseline:
+            self._conavgpt_request_pub = self.create_publisher(
+                String, f'{self._prefix}/conavgpt/assign_request', 10)
+            # The assigner owns round_table on the leader (its summary names the
+            # model and the whole team's answer). Everywhere else there is no
+            # assigner, so raven_nav publishes its own local view — one
+            # publisher per robot either way, on the assigner's latched QoS.
+            if self._my_id != self._conavgpt_leader_id:
+                self._conavgpt_round_table_pub = self.create_publisher(
+                    String, f'{self._prefix}/conavgpt/round_table', LATCHED_QOS)
         self._my_bids_pub = self.create_publisher(
             BidVector, f'{self._prefix}/bids', 10)
         self._ray_table_pub = self.create_publisher(
@@ -469,6 +530,11 @@ class RavenNavNode(Node):
             vlfm_value_weight=self._vlfm_value_weight,
             vlfm_use_voxel_targets=self._vlfm_use_voxel_targets,
             vlfm_ray_blacklist=self._vlfm_ray_blacklist,
+            conavgpt_leader_id=self._conavgpt_leader_id,
+            conavgpt_max_regions=self._conavgpt_max_regions,
+            conavgpt_round_period_s=self._conavgpt_round_period_s,
+            conavgpt_assignment_ttl_s=self._conavgpt_assignment_ttl_s,
+            conavgpt_replan_on_reach_m=self._conavgpt_replan_on_reach_m,
         )
 
         # Temporal gate on ray bearings (disabled when ray_confirm_hits <= 1).
@@ -543,6 +609,12 @@ class RavenNavNode(Node):
             PolygonStamped,
             f'{self._prefix}/raven_nav/search_area',
             self._search_area_cb, LATCHED_QOS)
+        if self._conavgpt_baseline:
+            # Own assignment: only the leader has a local assigner publishing
+            # here; every other robot gets the same JSON over gossip instead.
+            self.create_subscription(
+                String, f'{self._prefix}/conavgpt/assignment',
+                self._conavgpt_assignment_cb, 10)
 
         self.create_timer(timer_period, self._timer_cb)
 
@@ -1710,22 +1782,21 @@ class RavenNavNode(Node):
                     f'@ENU=({pos_enu[0]:.1f},{pos_enu[1]:.1f},{pos_enu[2]:.1f}) '
                     f't={now:.2f}')
 
-    def _drain_vlfm_intent(self) -> None:
-        """Move VLFMBehavior's pursue/release records into the result log,
-        converted from the local 'map' frame to world ENU.
+    def _drain_intent_log(self, behavior) -> None:
+        """Move a baseline behavior's pursue/release records into the result
+        log, converted from the local 'map' frame to world ENU.
 
-        This is what the VLFM baseline can offer in place of raven's `my_task`:
-        the target it deliberately went after, and when. Without it a visit can
+        This is what a baseline can offer in place of raven's `my_task`: the
+        target it deliberately went after, and when. Without it a visit can
         only be scored on proximity, which credits a drone that happened to fly
         over an object exactly as much as one that was sent to it — and credits
         a drone that chased a 'house' and passed a gas tank instead."""
-        vb = self._behavior_manager.vlfm_behavior
         # Hold, don't drop, until the GPS anchor lands: the records carry their
         # own timestamps, so a deferred flush is lossless, and the first seconds
         # of a run are when the first target is picked up.
-        if self._boot_enu is None or not vb.intent_log:
+        if self._boot_enu is None or not behavior.intent_log:
             return
-        pending, vb.intent_log = vb.intent_log, []
+        pending, behavior.intent_log = behavior.intent_log, []
         for rec in pending:
             p = self._local_to_world(np.asarray(rec['pos'], dtype=float))
             ev = {k: v for k, v in rec.items() if k != 'pos'}
@@ -1771,6 +1842,105 @@ class RavenNavNode(Node):
         b = self._boot_enu
         p = np.asarray(p, dtype=float)
         return np.array([p[0] + b[0], p[1] + b[1], p[2]], dtype=float)
+
+    def _world_to_local(self, p) -> np.ndarray:
+        """Inverse of _local_to_world: subtract boot ENU in X/Y, keep Z as AGL."""
+        b = self._boot_enu
+        p = np.asarray(p, dtype=float)
+        return np.array([p[0] - b[0], p[1] - b[1], p[2]], dtype=float)
+
+    # ── Co-NavGPT round I/O ──────────────────────────────────────────────────
+    #
+    # EVERY coordinate on these wires is global ENU, because every robot's
+    # local 'map' frame is anchored on its OWN boot GPS — robot_1's (0,0) and
+    # robot_2's (0,0) are different places. The behavior only ever sees the
+    # local frame; the lift happens here, on the way out, and the drop back
+    # happens here too, on the way in.
+
+    def _conavgpt_assignment_cb(self, msg: String) -> None:
+        self._conavgpt_apply_assignment(msg.data, 'own')
+
+    def _conavgpt_apply_assignment(self, raw, source: str) -> None:
+        if not self._conavgpt_baseline or not raw:
+            return
+        try:
+            payload = json.loads(str(raw))
+        except (json.JSONDecodeError, TypeError):
+            self.get_logger().warn(
+                f'[conavgpt] unparseable assignment from {source}',
+                throttle_duration_sec=10.0)
+            return
+        if not isinstance(payload, dict):
+            return
+        # A `regions` echo is the only coordinate-bearing part of an
+        # assignment; it arrives in global ENU and has to come back down into
+        # this robot's local frame before it can be flown to.
+        w2l = self._world_to_local if self._boot_enu is not None else None
+        self._behavior_manager.conavgpt_behavior.consume_assignment(
+            payload, self._my_id, world_to_local=w2l,
+            debug_logger=self.get_logger())
+
+    def _conavgpt_ctx(self, fresh_peers) -> dict:
+        """Round inputs only the CoNavGPT baseline needs."""
+        return {
+            'is_leader': self._my_id == self._conavgpt_leader_id,
+            'query': ', '.join(self._target_objects or []),
+            'fresh_peers': fresh_peers,
+            'found_targets': [
+                (h.label, np.asarray(h.center, dtype=float))
+                for h in self._house_boxes()],
+        }
+
+    def _conavgpt_request_to_global(self, req: dict) -> dict:
+        """Lift a local-'map' assign_request into the shared global ENU frame."""
+        def _xy(x, y):
+            g = self._local_to_world(np.array([float(x), float(y), 0.0]))
+            return float(g[0]), float(g[1])
+
+        out = dict(req)
+        out['frame'] = 'global_enu'
+        out['search_area'] = [list(_xy(pt[0], pt[1]))
+                              for pt in req.get('search_area', [])]
+        out['robots'] = []
+        for r in req.get('robots', []):
+            e = dict(r)
+            e['x'], e['y'] = _xy(r['x'], r['y'])
+            out['robots'].append(e)
+        out['regions'] = []
+        for r in req.get('regions', []):
+            e = dict(r)
+            e['x'], e['y'] = _xy(r['x'], r['y'])
+            out['regions'].append(e)
+        out['found'] = []
+        for f in req.get('found', []):
+            e = dict(f)
+            e['x'], e['y'] = _xy(f['x'], f['y'])
+            out['found'].append(e)
+        return out
+
+    def _conavgpt_publish_round(self) -> None:
+        """Drain the behavior's pending request + round summary onto the wire."""
+        beh = self._behavior_manager.conavgpt_behavior
+        if self._conavgpt_round_table_pub is not None and beh.round_table_text:
+            self._conavgpt_round_table_pub.publish(
+                String(data=beh.round_table_text))
+        req, beh.pending_request = beh.pending_request, None
+        if req is None or self._conavgpt_request_pub is None:
+            return
+        if self._boot_enu is None:
+            # No GPS anchor yet, so nothing can be expressed in the shared
+            # frame. Drop the request rather than publish local coordinates
+            # the assigner would read as global ones.
+            self.get_logger().warn(
+                '[conavgpt] round dropped — no GPS anchor yet',
+                throttle_duration_sec=10.0)
+            return
+        self._conavgpt_request_pub.publish(
+            String(data=json.dumps(self._conavgpt_request_to_global(req))))
+        self.get_logger().info(
+            f'[conavgpt] round {req["round"]} requested: '
+            f'{len(req["regions"])} region(s), {len(req["robots"])} robot(s), '
+            f'query="{req["query"]}"')
 
     def _write_results(self) -> None:
         """Serialize own AABBs (world frame) + event log + path length."""
@@ -2956,8 +3126,27 @@ class RavenNavNode(Node):
                     self._vox_xyz, self._vox_scores, self._query_labels,
                     voxel_targets, committed_origin=None, committed_dir=None)
                 self._mark_reached(self._cur_pose)
-            self._drain_vlfm_intent()
+            self._drain_intent_log(
+                self._behavior_manager.vlfm_behavior)
             self._behavior_manager.behavior_mode = 'VLFM-based'
+        elif self._conavgpt_baseline:
+            # Co-NavGPT baseline. Selection is the VLM's; everything else is
+            # frontier exploration, so hard-force CoNavGPT-based and let voxel
+            # MODE stay off. The published method carries a 2D detector, and
+            # passive voxel detection is its honest analog: clusters populate
+            # for anything the drone flies past, but never steer it.
+            self._behavior_manager.voxel_behavior.condition_check(
+                self._vox_xyz, self._vox_scores, self._query_labels,
+                voxel_targets, committed_origin=None, committed_dir=None)
+            self._mark_reached(self._cur_pose)
+            # Peers relay the leader's assignment; a non-leader has no local
+            # assigner, so this is its only source.
+            for _pname, _praw in \
+                    self._peer_state.peer_conavgpt_assignment.items():
+                self._conavgpt_apply_assignment(_praw, _pname)
+            self._drain_intent_log(
+                self._behavior_manager.conavgpt_behavior)
+            self._behavior_manager.behavior_mode = 'CoNavGPT-based'
         else:
             self._behavior_manager.mode_select(
                 query_labels=self._query_labels,
@@ -3099,7 +3288,12 @@ class RavenNavNode(Node):
                 ray_scores=self._ray_scores,
                 ray_dirs=self._ray_dirs,
                 target_objects=self._target_objects,
+                conavgpt_ctx=(self._conavgpt_ctx(fresh_peers)
+                              if self._conavgpt_baseline else None),
             )
+
+        if self._conavgpt_baseline:
+            self._conavgpt_publish_round()
 
         self._nav_mode_pub.publish(
             String(data=_NAV_MODE_TAG.get(self._behavior_mode, 'idle')))

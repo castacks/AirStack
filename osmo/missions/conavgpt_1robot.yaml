@@ -1,0 +1,487 @@
+# conavgpt_1robot — SINGLE-ROBOT ablation of the CoNavGPT (VLM-Assign) baseline,
+# across all 8 scenes x 3 fixed start locations (24 runs).
+#
+# This is the same method with a fleet of one: each round the VLM is shown one
+# numbered robot and the numbered frontier regions and assigns that robot one
+# region. It is the degenerate case on purpose — it isolates "does the VLM pick
+# good regions" from "does the VLM divide work well". Two axes go dead here and
+# nothing should be read off them: the gossip distribution path is exercised
+# only trivially (the leader is the sole consumer of its own assignment, so an
+# assignment can never be stale-by-comms), and the comms axis is meaningless —
+# COMMS_RANGE_M below is the no-limit sentinel and must not be swept.
+#
+# Method (Co-NavGPT, Yu et al. arXiv:2310.07937, "VLM-Assign" arm): every round
+# ONE 2B VLM call looks at the team's shared BEV with numbered frontier regions
+# and numbered robots and returns a robot -> region assignment; the assignment
+# is gossiped and each robot flies to its region. A robot with no fresh
+# assignment falls back to nearest-viable-frontier and the round is marked
+# `fallback: true` — that degradation is a measured result, not a run failure.
+# The published method is single-target with co-located starts; this is the
+# multi-target, non-co-located, time-integrated adaptation.
+#
+# multi_raven_mission.yaml IS THE SOURCE OF TRUTH. Its scene templates, queries,
+# background queries, search areas, detection thresholds, spawn layouts and
+# steps block are copied verbatim here so the numbers are directly comparable
+# with multi-raven / frontier / vlfm / lvlm. The ONLY intended behavioural
+# differences are CONAVGPT_BASELINE=true and the fleet size.
+#
+# Depends on the CONAVGPT_BASELINE passthrough in
+# robot/docker/robot-base-docker-compose.yaml; without it the flag never reaches
+# raven_nav and this silently runs as full multi-raven coordination. Check the
+# first iteration's raven log says CoNavGPT-based before trusting a sweep.
+#
+# GPU mapping (semantic_search_task._pick_rayfronts_gpu: gpu = ROS_DOMAIN_ID %
+# n_gpus). On the stock 4-GPU pod: robot_1 -> GPU 1, and GPU 0 stays Isaac Sim's
+# alone. The InternVL3-2B assigner is pinned the same way, so it shares GPU 1
+# with robot_1's rayfronts — the only card with two tenants, and the reason the
+# stock workflow is still the right size here.
+#
+# Submit with the STOCK workflow:
+#   airstack osmo:mission osmo/missions/conavgpt_1robot.yaml --pool <gpu-pool>
+#
+# Or locally:
+#   python3 osmo/workspace/mission_runner.py osmo/missions/conavgpt_1robot.yaml \
+#     --airstack-root "$(pwd)"
+#
+# Schema reference: osmo/missions/README.md
+
+name: conavgpt_1robot
+
+# Beside the rest of the 300-sim-second family, which is the set these runs are
+# scored against.
+nas_dest: /volume4/dsta/raven-simtime300/
+
+stack:
+  services: [isaac-sim, robot-desktop, gcs]
+
+env:
+  NUM_ROBOTS: 1
+  ISAAC_SIM_HEADLESS: "true"
+  ISAAC_SIM_USE_STANDALONE: "true"
+  # Honours SPAWN_CONFIGS verbatim (the NUM_ROBOTS-driven default script would
+  # ignore it); a 1-entry SPAWN_CONFIGS spawns exactly one drone.
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  PLAY_SIM_ON_START: "true"
+  # The one behavioural switch this file exists for.
+  CONAVGPT_BASELINE: "true"
+  # Pinned false, not left to the node defaults: Stack.apply_env only MERGES env
+  # vars, and the precedence chain is frontier > vlfm > conavgpt, so a sticky
+  # true from an earlier mission on the same pod would silently outrank
+  # CoNavGPT and the run would be mislabelled rather than fail.
+  FRONTIER_ONLY_BASELINE: "false"
+  VLFM_BASELINE: "false"
+  LVLM_BASELINE: "false"
+  # The thresholds in the templates below are SOFTMAX probabilities; with raw
+  # cosines (which top out near 0.16) a 0.5 gate rejects every voxel and the run
+  # detects nothing. Set explicitly for the same sticky-env reason as above.
+  RAYFRONTS_COMPUTE_PROB: "True"
+  # No-limit sentinel. With one robot there is no peer to be out of range of;
+  # this exists so the value is pinned rather than inherited.
+  COMMS_RANGE_M: 5000
+
+# ── scene templates ────────────────────────────────────────────────────────
+# Per-scene inputs (map, stage scale, spawn height, query, thresholds, search
+# area), anchored once and merged into that scene's three spawn entries via
+# `<<:` so all three start locations run byte-identical settings. STAGE_SCALE
+# and SPAWN_HEIGHT_M are set on EVERY scene on purpose: mission_runner.apply_env
+# only merges env vars, so an omitted key silently inherits the previous
+# iteration's value. `scene_templates` is not a recognized top-level mission
+# key — the runner ignores it; it exists only to hold the anchors.
+scene_templates:
+  downtownwest: &downtownwest
+    ENV_URL: "Library/Stages/Dmytro/downtown_edited_v3_818.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "DowntownWest"
+    query: "fountain, car, truck"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 50
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
+    search_area:
+      points:
+        - {x: 160.0, y: 100.0, z: 0.0}
+        - {x: 160.0, y: -100.0, z: 0.0}
+        - {x: -260.0, y: -100.0, z: 0.0}
+        - {x: -260.0, y: 100.0, z: 0.0}
+
+  moderncitydowntown: &moderncitydowntown
+    ENV_URL: "Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "ModernCityDowntown"
+    query: "yellow truck, obelisk, bankomat, cafe table, car"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 30
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
+    search_area:
+      points:
+        - {x: -100.0, y: -110.0, z: 0.0}
+        - {x: -100.0, y: 100.0, z: 0.0}
+        - {x: 80.0, y: 100.0, z: 0.0}
+        - {x: 80.0, y: -110.0, z: 0.0}
+
+  retroneighborhood: &retroneighborhood
+    ENV_URL: "Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
+    STAGE_SCALE: "0.01"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "RetroNeighborhood"
+    query: "house, bus stop, blue container, red container"
+    voxel_score_threshold: 0.6
+    score_threshold: -1
+    voxel_min_cluster_size: 50
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
+    search_area:
+      points:
+        - {x: -150.0, y: -110.0, z: 0.0}
+        - {x: -150.0, y: 70.0, z: 0.0}
+        - {x: 170.0, y: 70.0, z: 0.0}
+        - {x: 170.0, y: -110.0, z: 0.0}
+
+  fireacademy: &fireacademy
+    ENV_URL: "Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
+    STAGE_SCALE: "0.01"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "FireAcademy"
+    query: "red building, water tower, fuel tank, radio tower"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 30
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building facade, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
+    search_area:
+      points:
+        - {x: 13.0, y: -135.0, z: 0.0}
+        - {x: 135.0, y: -13.0, z: 0.0}
+        - {x: 13.0, y: 135.0, z: 0.0}
+        - {x: -135.0, y: 13.0, z: 0.0}
+
+  constructionsite: &constructionsite
+    ENV_URL: "Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
+    STAGE_SCALE: "0.01"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "ConstructionSite"
+    query: "forklift, tower crane, blue tarp"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 80
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, ground"
+    # Widened to a rectangle: the s3 spawn (x ~ -55) and two query props sat
+    # outside the old quadrilateral (x[-40,76] y[-71,50]).
+    search_area:
+      points:
+        - {x: 95.0, y: 65.0, z: 0.0}
+        - {x: 95.0, y: -90.0, z: 0.0}
+        - {x: -75.0, y: -90.0, z: 0.0}
+        - {x: -75.0, y: 65.0, z: 0.0}
+
+  abandonedfactory: &abandonedfactory
+    ENV_URL: "Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "1.0"
+    RESULTS_SCENE: "AbandonedFactory"
+    query: "building, water tower, white silo"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 30
+    background_queries: "pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, ground"
+    search_area:
+      points:
+        - {x: 45.0, y: 102.0, z: 0.0}
+        - {x: 45.0, y: -97.0, z: 0.0}
+        - {x: -109.0, y: -97.0, z: 0.0}
+        - {x: -109.0, y: 102.0, z: 0.0}
+
+  militarybase: &militarybase
+    ENV_URL: "Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "1.0"
+    RESULTS_SCENE: "MilitaryBase"
+    query: "guard tower, radio tower, bridge, helicopter"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 50
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
+    # Widened: the s2 spawn (1015, 325..341) sat outside the old x>=1030,
+    # y<=320 rectangle.
+    search_area:
+      points:
+        - {x: 1295.0, y: 360.0, z: 0.0}
+        - {x: 1000.0, y: 360.0, z: 0.0}
+        - {x: 1000.0, y: -165.0, z: 0.0}
+        - {x: 1295.0, y: -165.0, z: 0.0}
+
+  shipyard: &shipyard
+    ENV_URL: "Library/Stages/Dmytro/edit_v1_shipyard.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "2.0"
+    RESULTS_SCENE: "Shipyard"
+    query: "ship, crane"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 50
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
+    search_area:
+      points:
+        - {x: -250.0, y: 250.0, z: 0.0}
+        - {x: 250.0, y: 250.0, z: 0.0}
+        - {x: 250.0, y: -250.0, z: 0.0}
+        - {x: -250.0, y: -250.0, z: 0.0}
+
+# ── 24 runs: 8 scenes x 3 start locations ──────────────────────────────────
+# SPAWN_CONFIGS holds drone 1 of each source-of-truth layout, unchanged, so a
+# 1-robot run starts exactly where robot_1 starts in every other mission.
+environments:
+  # ---- DowntownWest ----
+  # spawn rect s1: [[-3, -43], [9, -28]]
+  - <<: *downtownwest
+    name: downtownwest_s1
+    SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0.0, 0.0, 0.698, 0.716]}]'
+
+  # spawn rect s2: [[-10, 56], [-39, 67]]
+  - <<: *downtownwest
+    name: downtownwest_s2
+    SPAWN_CONFIGS: '[{"x_m": -33.0, "y_m": 59.0, "orient": [0.0, 0.0, -0.8583, 0.5132]}]'
+
+  # spawn rect s3: [[-107, -4], [-124.8, 8.5]]
+  - <<: *downtownwest
+    name: downtownwest_s3
+    SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}]'
+
+  # ---- ModernCityDowntown ----
+  # spawn rect s1: [[-20, -63], [-11, -45]]
+  - <<: *moderncitydowntown
+    name: moderncitydowntown_s1
+    SPAWN_CONFIGS: '[{"x_m": -17.273, "y_m": -57.947, "orient": [0.0, 0.0, -0.9896, 0.1438]}]'
+
+  # spawn rect s2: [[34.4, -3], [38, -14.8]]
+  - <<: *moderncitydowntown
+    name: moderncitydowntown_s2
+    SPAWN_CONFIGS: '[{"x_m": 36.2, "y_m": -5.5, "orient": [0.0, 0.0, 0.8872, 0.4613]}]'
+
+  # spawn rect s3: [[-71.9, -11.7], [-64.3, -7.9]]
+  - <<: *moderncitydowntown
+    name: moderncitydowntown_s3
+    SPAWN_CONFIGS: '[{"x_m": -70.5, "y_m": -8.9, "orient": [0.0, 0.0, -0.3872, 0.922]}]'
+
+  # ---- RetroNeighborhood ----
+  # spawn rect s1: [[11, 6.5], [-13, -6.5]]
+  - <<: *retroneighborhood
+    name: retroneighborhood_s1
+    SPAWN_CONFIGS: '[{"x_m": 6.764, "y_m": -1.767, "orient": [0.0, 0.0, -0.1193, 0.9929]}]'
+
+  # spawn rect s2: [[123.6, -12], [116.5, -28]]
+  - <<: *retroneighborhood
+    name: retroneighborhood_s2
+    SPAWN_CONFIGS: '[{"x_m": 118.5, "y_m": -15.0, "orient": [0.0, 0.0, 0.9063, 0.4226]}]'
+
+  # spawn rect s3: [[9.4, -67.5], [-4, -104.55]]
+  - <<: *retroneighborhood
+    name: retroneighborhood_s3
+    SPAWN_CONFIGS: '[{"x_m": 2.0, "y_m": -72.0, "orient": [0.0, 0.0, 0.2869, 0.958]}]'
+
+  # ---- FireAcademy ----
+  # spawn rect s1: [[27.5, 3.8], [23.8, 14.4], [26.1, 17.5], [30, 11.8]]
+  - <<: *fireacademy
+    name: fireacademy_s1
+    SPAWN_CONFIGS: '[{"x_m": 27.34, "y_m": 5.359, "orient": [0.0, 0.0, 0.9757, 0.2192]}]'
+
+  # spawn rect s2: [[12.86, 32.7], [9.5, 36.12], [3.1, 30.8], [6.6, 27.4]]
+  - <<: *fireacademy
+    name: fireacademy_s2
+    SPAWN_CONFIGS: '[{"x_m": 5.57, "y_m": 29.69, "orient": [0.0, 0.0, -0.9581, 0.2865]}]'
+
+  # spawn rect s3: [[-46.3, 9.2], [-53, 17], [-46.2, 23.5], [-40.75, 17]]
+  - <<: *fireacademy
+    name: fireacademy_s3
+    SPAWN_CONFIGS: '[{"x_m": -46.4, "y_m": 12.8, "orient": [0.0, 0.0, -0.5535, 0.8328]}]'
+
+  # ---- ConstructionSite ----
+  # spawn rect s1: [[27.63, 2], [21, -5.8]]
+  - <<: *constructionsite
+    name: constructionsite_s1
+    SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0.0, 0.0, 0.2886, 0.9575]}]'
+
+  # spawn rect s2: [[-21.6, -28.3], [-24.16, -41]]
+  - <<: *constructionsite
+    name: constructionsite_s2
+    SPAWN_CONFIGS: '[{"x_m": -22.9, "y_m": -30.5, "orient": [0.0, 0.0, -0.1647, 0.9863]}]'
+
+  # spawn rect s3: [[34.6, -60.0], [56.0, -41.9]]
+  - <<: *constructionsite
+    name: constructionsite_s3
+    SPAWN_CONFIGS: '[{"x_m": 54.0, "y_m": -58.0, "orient": [0.0, 0.0, 0.9426, 0.334]}]'
+
+  # ---- AbandonedFactory ----
+  # spawn rect s1: [[16.5, -1.2], [22, 9.6]]
+  - <<: *abandonedfactory
+    name: abandonedfactory_s1
+    SPAWN_CONFIGS: '[{"x_m": 20.458, "y_m": 1.499, "orient": [0.0, 0.0, 0.1166, 0.9932]}]'
+
+  # spawn rect s2: [[3.2, 57], [7.5, 63]]
+  - <<: *abandonedfactory
+    name: abandonedfactory_s2
+    SPAWN_CONFIGS: '[{"x_m": 4.2, "y_m": 58.0, "orient": [0.0, 0.0, -0.998, 0.063]}]'
+
+  # spawn rect s3: [[-61.8, -8], [-72.7, 2.5]]
+  - <<: *abandonedfactory
+    name: abandonedfactory_s3
+    SPAWN_CONFIGS: '[{"x_m": -64.5, "y_m": -5.5, "orient": [0.0, 0.0, -0.3551, 0.9348]}]'
+
+  # ---- MilitaryBase ----
+  # spawn rect s1: [[1105, 214], [1126, 240]]
+  - <<: *militarybase
+    name: militarybase_s1
+    SPAWN_CONFIGS: '[{"x_m": 1110.0, "y_m": 220.0, "orient": [0.0, 0.0, -0.585, 0.811]}]'
+
+  # spawn rect s2: [[1010, 320], [1037, 345]]
+  - <<: *militarybase
+    name: militarybase_s2
+    SPAWN_CONFIGS: '[{"x_m": 1015.0, "y_m": 325.0, "orient": [0.0, 0.0, -0.8289, 0.5594]}]'
+
+  # spawn rect s3: [[1196, 205], [1211, 222]]
+  - <<: *militarybase
+    name: militarybase_s3
+    SPAWN_CONFIGS: '[{"x_m": 1200.0, "y_m": 209.0, "orient": [0.0, 0.0, -0.9858, 0.1679]}]'
+
+  # ---- Shipyard ----
+  # spawn rect s1: [[-54, -9], [-72, -24]]
+  - <<: *shipyard
+    name: shipyard_s1
+    SPAWN_CONFIGS: '[{"x_m": -66.066, "y_m": -11.867, "orient": [0.0, 0.0, -0.9089, 0.417]}]'
+
+  # spawn rect s2: [[30.0, -56.0], [58.0, -43.0]]
+  - <<: *shipyard
+    name: shipyard_s2
+    SPAWN_CONFIGS: '[{"x_m": 56.0, "y_m": -54.0, "orient": [0.0, 0.0, 0.984, 0.1784]}]'
+
+  # spawn rect s3: [[54, -200], [46, -212]]
+  - <<: *shipyard
+    name: shipyard_s3
+    SPAWN_CONFIGS: '[{"x_m": 48.5, "y_m": -203.0, "orient": [0.0, 0.0, 0.45, 0.893]}]'
+
+# Send goals through the GCS action_relay — the exact path Foxglove uses.
+command_route: gcs
+
+# Tags results dirs iter_NNN__<scene>__conavgpt; without it resolve_method finds
+# no known token in the mission name and labels every iteration "na".
+method: conavgpt
+
+# grouped: each entry runs `iterations` times in a row, in file order, so a
+# scene's start locations stay adjacent. iterations is PER ENTRY.
+environment_order: grouped
+# 1: one flight per (scene, start). The sweep is the environments list, not
+# repeats — repeats buy less than another scene at this cost per run.
+iterations: 1
+
+# 3: a lost takeoff / a semantic_search goal that never gets feedback is a
+# harness fault, not a result, so redo the whole clean down->up->fly->down.
+iteration_attempts: 3
+
+ready:
+  # 600 s: single-robot PX4 bring-up is the fastest case in the fleet, and this
+  # is the value every 1-3 robot mission in the family already uses.
+  timeout_s: 600
+
+record:
+  enabled: true
+  # both: the GCS mcap holds the bridged fleet view; the per-robot mcaps hold
+  # the conavgpt topics, which are robot-domain only — the gossip payload
+  # visualizer has no handler for "assignment", so nothing conavgpt reaches
+  # /gcs/payload/*.
+  scope: both
+  # The bags ARE the deliverable here; don't fly a run unrecorded.
+  required: true
+  topics:
+    - /tf
+    - /tf_static
+    - /{robot}/odometry_conversion/odometry
+    - /gcs/robot_markers
+    - /gcs/payload/{robot}/filtered_rays
+    - /gcs/payload/{robot}/filtered_frontiers
+    - /gcs/payload/{robot}/explored_area_coverage
+    - /gcs/payload/{robot}/confirmed_targets
+    - /gcs/payload/{robot}/auction_table
+    - /gcs/sim_ground
+    - /gcs/annotations/bboxes
+  robot_topics:
+    - /robot_{n}/rayfronts/voxel_rgb
+    - /robot_{n}/rayfronts/msg_serv/voxels_sim/all
+    # conavgpt debug set (contract sec. "Topics"). assign_request + map_image
+    # only ever publish on the leader; rosbag2 waits on absent topics, so
+    # recording them on every robot domain is free and survives a leader change.
+    - /robot_{n}/conavgpt/assign_request
+    - /robot_{n}/conavgpt/assignment
+    - /robot_{n}/conavgpt/map_image
+    - /robot_{n}/conavgpt/round_table
+
+# abort_iteration: a failed precondition (no RADIO weights, no takeoff) makes
+# the rest of that flight meaningless, but the next scene is still worth flying.
+on_step_failure: abort_iteration
+
+steps:
+  # rayfronts' encoder. Pre-pulled once into the shared /root/.cache so the
+  # first in-node load can't time out mid-iteration.
+  - run:
+      container: robot_1
+      cmd: python3 -c "import torch; torch.hub.load('NVlabs/RADIO', 'radio_model', version='c-radio_v3-b', skip_validation=True, adaptor_names=['siglip2','sam'])"
+      timeout_s: 900
+      attempts: 5
+      retry_delay_s: 15
+
+  # The assigner's VLM. Leader-only at runtime, but the cache mount is shared,
+  # so one pull on robot_1 serves whichever robot ends up leading.
+  - run:
+      container: robot_1
+      cmd: python3 -c "from huggingface_hub import snapshot_download; snapshot_download('OpenGVLab/InternVL3-2B')"
+      timeout_s: 900
+      attempts: 5
+      retry_delay_s: 15
+
+  - action:
+      task: takeoff
+      goal: {target_altitude_m: 12.0, velocity_m_s: 1.0}
+      timeout_s: 180
+
+  - wait: 5
+
+  # 2400 s wall backstop for a 300 sim-second budget — deliberately loose.
+  # The sim budget must be what ends the run; if the WALL timeout binds first
+  # the run covers less simulated ground than its peers and stops being
+  # comparable, which is the one failure this whole scheme exists to prevent.
+  # 1200 s only covers 300 sim s down to RTF 0.25; 2400 s covers it to 0.125,
+  # well under anything a single robot should ever produce. An unused backstop
+  # costs nothing — the step ends when the sim budget is hit.
+  # cancel_on_timeout still lets the task compile its metrics.
+  - action:
+      task: semantic_search
+      timeout_s: 2400
+      cancel_on_timeout: true
+      pass_on_feedback: true
+      goal:
+        query: "{{env.query}}"
+        background_queries: "{{env.background_queries}}"
+        search_area: "{{env.search_area}}"
+        min_altitude_agl: 5.0
+        max_altitude_agl: 20.0
+        min_flight_speed: 0.5
+        max_flight_speed: 1.0
+        confidence_threshold: 0.95
+        # Per-scene voxel similarity gate (see each scene template above).
+        voxel_score_threshold: "{{env.voxel_score_threshold}}"
+        # Per-scene ray score gate + voxel cluster size (-1 on an entry = raven_nav default).
+        score_threshold: "{{env.score_threshold}}"
+        voxel_min_cluster_size: "{{env.voxel_min_cluster_size}}"
+        # Consensus bundle length (head executed, tail reserved + replanned).
+        bundle_len: 3
+        # 300 simulated seconds, the budget the whole simtime300 family uses.
+        # Isaac's real-time factor falls as drones are added, so scoring on sim
+        # time is the only way 1- and 5-robot runs mean the same thing.
+        #
+        # RAISING THIS: semantic_search_task logs one `[rtf]` line per run
+        # (sim s, wall s, ratio, and the projected wall cost of the budget) and
+        # puts the same numbers in the action result. Read it out of the first
+        # sweep's container logs, then size a larger budget from the MEASURED
+        # rate rather than the extrapolated one — and raise timeout_s with it,
+        # keeping wall >= sim / (worst measured RTF) with margin.
+        max_sim_seconds: 300

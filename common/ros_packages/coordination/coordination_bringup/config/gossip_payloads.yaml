@@ -119,6 +119,12 @@ payload_topics:
   - topic: "/{robot_name}/raven_nav/explore_bid"
     type: "std_msgs/msg/String"
 
+  # Co-NavGPT assignment (conavgpt_assigner_node, leader robot only) — JSON
+  # {round, assignments{robot_id: region_id}, model, latency_s, fallback, ...}.
+  # One VLM answer for the whole team, so non-leaders can only get it here.
+  - topic: "/{robot_name}/conavgpt/assignment"
+    type: "std_msgs/msg/String"
+
   # ── Add more payloads below ────────────────────────────────────────────────
   # - topic: "/{robot_name}/your/topic"
   #   type: "your_msgs/msg/YourType"

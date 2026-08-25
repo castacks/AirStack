@@ -1,0 +1,16 @@
+# HIGH-LEVEL scene spec — compiled by utils/compile_disaster.py into
+# low_level/compiled/earthquake.yaml, which scene_generator.py then builds.
+#
+# Ground shaking: structures fail in place. Buildings pancake, lean and sink;
+# rubble drops at the facades rather than flying; nothing is blown anywhere.
+# Attenuates radially from the epicenter across the whole city.
+
+locale: suburban      # downtown | suburban | rural — how the place is laid out
+
+disaster-type: earthquake
+severity: 1.0          # 0..1
+# seed: 42             # city layout + disaster RNG
+# region_m: [400, 400] # city extent
+# overrides:           # raw low-level settings, deep-merged last
+#   packing:
+#     min_parks: 4

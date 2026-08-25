@@ -840,7 +840,7 @@ function cmd_osmo_autofetch {
 
 # osmo:mission — submit airstack-mission.yaml with a mission spec selected.
 #
-# Usage: airstack osmo:mission <mission.yaml> [--pool POOL] [--key PATH]
+# Usage: airstack osmo:mission <mission.yaml> [--pool POOL] [--key PATH] [--workflow PATH]
 #                              [--branch BRANCH] [--no-keep-alive]
 #                              [--auto-fetch DUR] [--nas-dest PATH]
 #                              [--no-nas-upload]
@@ -870,6 +870,7 @@ function cmd_osmo_mission {
     local auto_fetch_dur=""
     local nas_dest=""
     local no_nas_upload="false"
+    local workflow_file=""
     local extra_args=()
 
     while [ $# -gt 0 ]; do
@@ -880,6 +881,7 @@ function cmd_osmo_mission {
             --no-keep-alive) keep_alive="false"; shift ;;
             --auto-fetch)    auto_fetch_dur="$2"; shift 2 ;;
             --nas-dest)      nas_dest="$2"; shift 2 ;;
+            --workflow)      workflow_file="$2"; shift 2 ;;
             --no-nas-upload) no_nas_upload="true"; shift ;;
             -*)              extra_args+=("$1"); shift ;;
             *)
@@ -906,7 +908,7 @@ function cmd_osmo_mission {
     fi
 
     if [ -z "$mission" ]; then
-        log_error "Usage: airstack osmo:mission <mission.yaml> [--pool POOL] [--branch BRANCH] [--no-keep-alive]"
+        log_error "Usage: airstack osmo:mission <mission.yaml> [--pool POOL] [--branch BRANCH] [--workflow PATH] [--no-keep-alive]"
         log_error "Available missions:"
         ls "${PROJECT_ROOT}/osmo/missions/"*.yaml 2>/dev/null \
             | sed "s|${PROJECT_ROOT}/|  |" >&2
@@ -927,11 +929,21 @@ function cmd_osmo_mission {
         fi
     fi
 
+    # Fleet size can outgrow the default workflow's `resources:` block (a
+    # 5-robot run needs gpu: 6 to keep every rayfronts off Isaac Sim's card),
+    # so the workflow is selectable. Relative paths resolve against the repo.
     local workflow_yaml="${PROJECT_ROOT}/osmo/workflows/airstack-mission.yaml"
+    if [ -n "$workflow_file" ]; then
+        case "$workflow_file" in
+            /*) workflow_yaml="$workflow_file" ;;
+            *)  workflow_yaml="${PROJECT_ROOT}/${workflow_file#"${PROJECT_ROOT}"/}" ;;
+        esac
+    fi
     if [ ! -f "$workflow_yaml" ]; then
         log_error "Workflow file not found: ${workflow_yaml}"
         return 1
     fi
+    log_info "Workflow: ${workflow_yaml#"${PROJECT_ROOT}"/}"
 
     # The pod runs the mission file from its clone of origin/<branch>, so an
     # unpushed mission spec is the most common "why is it running the wrong

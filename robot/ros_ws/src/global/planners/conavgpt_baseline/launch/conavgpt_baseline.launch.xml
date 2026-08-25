@@ -1,0 +1,15 @@
+<launch>
+  <!--
+    Standalone launch for the Co-NavGPT (VLM-Assign) assigner. In the osmo
+    missions semantic_search_task spawns this node directly, on the leader robot
+    only, through /opt/lvlm-venv/bin/python; this launch file is for manual /
+    single-robot debugging. Topics are namespaced by ROBOT_NAME inside the node,
+    so no remaps are needed here.
+  -->
+  <node pkg="conavgpt_baseline" exec="conavgpt_assigner_node"
+        name="conavgpt_assigner" output="screen">
+    <param from="$(find-pkg-share conavgpt_baseline)/config/conavgpt_baseline.yaml"
+           allow_substs="true" />
+    <param name="use_sim_time" value="true" />
+  </node>
+</launch>

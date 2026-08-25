@@ -1,0 +1,273 @@
+# ASSET SET: suburban — detached single-family houses on residential blocks.
+#
+# Extends `shared.yaml`, which carries everything a locale doesn't get to
+# choose: street furniture, greenery, ground tiles, vehicles, people. What is
+# left here is what makes a place a suburb — timber-frame houses, and the
+# wreckage they leave. The debris is written from scratch rather than appended
+# to `urban.yaml`'s: concrete chunks, cinder block and brick read as
+# city-building rubble, wrong for a timber-frame collapse.
+#
+# ONE EXCEPTION TO "ONLY BUILDINGS AND DEBRIS": the three kerb-furniture pools
+# at the bottom. `shared.yaml` offers one of everything because it serves a
+# downtown, a suburb and a village at once — four streetlights from three art
+# families, eight bins — and a municipality buys one pole and one bin and
+# repeats them. That is a locale statement rather than a detail-level one, so it
+# belongs here and not in `suburban_v2.yaml`; `build_city` reads these pools
+# directly, so curating them here fixes the plain suburban scene too. The
+# reasoning is urban_v2.yaml's, carried across asset by asset.
+
+extends: shared
+
+# A detached bungalow, not a downtown block. Only used when a measure fails.
+fallback_sizes:
+  house: [12.0, 12.0]
+
+# ---- the suburb-specific library --------------------------------------------------
+usds:
+  buildings:
+    intact:
+      # Objaverse assets, named by their dataset uid — that is the whole
+      # identity. `airstack up` downloads and converts anything not in the local
+      # cache (scene_gen/assets/objaverse/<uid>/), so this list works from an
+      # empty checkout; see assets/objaverse/manifest.yaml for provenance and
+      # attribution (all CC-BY, artist "headerstock").
+      #
+      # `target-size-m` is baked into the cached USD at conversion, so there is
+      # deliberately no `scale:` here — nothing to drift from the geometry.
+      # It pins the longest plan dimension: a detached bungalow is ~12 m across.
+      - usd: "objaverse://6644de89c2f0449db3de934744162b63"   # Bungalow The Chase
+        target-size-m: 12
+      - usd: "objaverse://388ea89b91524e4eb79068c24d170619"   # Bungalow-the Weeks
+        target-size-m: 12
+      - usd: "objaverse://1c6d17070d9e4b6595e5de2fa3e20d81"   # Bungalow The Ryder
+        target-size-m: 12
+      - usd: "objaverse://4b7d97e8a74248c79f4704e1967c3577"   # Bungalow The Budd
+        target-size-m: 12
+      - usd: "objaverse://358466b1877b4947aee36a50662d633b"   # Bungalow The Gilchrist
+        target-size-m: 12
+      - usd: "objaverse://85961c7ab0d14a9a8766fe58f28886a8"   # Bungalow The Dawson
+        target-size-m: 12
+      - usd: "objaverse://19331875f8d84137a94003f0660e2a50"   # Bungalow The Haynes
+        target-size-m: 12
+      - usd: "objaverse://1ca9bf31b9d34b44a9b9cac8c240a8d7"   # Bungalow The Crosby
+        target-size-m: 12
+      - usd: "objaverse://bee0da9227fa40029ad5352a2075ead8"   # Bungalow The Hale
+        target-size-m: 12
+      - usd: "objaverse://968ca5757023470ab603067d79f713fc"   # Bungalow The Goodson
+        target-size-m: 12
+      - usd: "objaverse://71474e859887459a96d2d281ffe53f18"   # Bungalow The Colbert
+        target-size-m: 12
+      - usd: "objaverse://ab67dc215f8344eabadeeae05eacd887"   # Bungalow The Cass
+        target-size-m: 12
+      - usd: "objaverse://f87535ec6d9a475db58965aa46ba6979"   # Bungalow The Clayton
+        target-size-m: 12
+      - usd: "objaverse://3bc5f70542014501a1e380891295299e"   # Bungalow The Newport
+        target-size-m: 12
+      - usd: "objaverse://7c64a6d90567428eb511f41036fe2d88"   # Bungalow The Walton
+        target-size-m: 12
+
+      # RetroNeighborhood houses, mixed in with the bungalows rather than
+      # replacing them. The pack is where this locale's streetlight, hydrant,
+      # driveway tile and sky already come from, so these are the neighbours the
+      # rest of the scene was built around. Fifteen bungalows plus ten of these
+      # is 25 models on a street of ~1,700 houses.
+      #
+      # scale: 0.01 — CENTIMETRE-AUTHORED, the pack's convention and the value
+      # every other RetroNeighborhood entry in this chain already uses.
+      #
+      # NO `target-size-m`, and that is not an omission: it is an OBJAVERSE-ONLY
+      # key. `objaverse_assets.scan_asset_sets` reads it to bake a size into the
+      # cached USD at conversion; `scene_generator` never reads it, so on a
+      # Nucleus path it would be silently ignored and only LOOK like a pinned
+      # size. These arrive at their authored size, correct once scaled.
+      #
+      # Their footprints are MEASURED AT BUILD TIME, not here:
+      # `suburb_scene.house_catalogue` runs the `SizeResolver` inside Isaac Sim
+      # (where Nucleus is already authenticated) and hands `suburb_parcel` the
+      # real sizes, so a house wider than the bungalows' 12 m gets a lot cut for
+      # it instead of overlapping its neighbour. A host-side measure still needs
+      # `pxr`/`omni.client`. If one is far off, drop that line rather than
+      # scaling it — a per-asset scale away from 0.01 resizes the doors and
+      # windows too.
+      - usd: "RetroNeighborhood/Props/SM_House_01.prop.usd"
+        scale: 0.01
+      - usd: "RetroNeighborhood/Props/SM_House_02.prop.usd"
+        scale: 0.01
+      - usd: "RetroNeighborhood/Props/SM_House_03.prop.usd"
+        scale: 0.01
+      - usd: "RetroNeighborhood/Props/SM_House_04.prop.usd"
+        scale: 0.01
+      - usd: "RetroNeighborhood/Props/SM_House_05.prop.usd"
+        scale: 0.01
+      - usd: "RetroNeighborhood/Props/SM_House_06.prop.usd"
+        scale: 0.01
+      - usd: "RetroNeighborhood/Props/SM_House_07.prop.usd"
+        scale: 0.01
+      - usd: "RetroNeighborhood/Props/SM_House_08.prop.usd"
+        scale: 0.01
+      - usd: "RetroNeighborhood/Props/SM_House_09.prop.usd"
+        scale: 0.01
+      - usd: "RetroNeighborhood/Props/SM_House_10.prop.usd"
+        scale: 0.01
+      #
+      # LEFT OUT OF `intact` ON PURPOSE:
+      #   SM_House_01_Lot   a lot/ground plane rather than a building (tiny
+      #     beside SM_House_01), and `suburb_scene.apply_ground` already lays
+      #     block grass, driveways and asphalt as meshes.
+
+    # GARAGES AND WINGS — the add-on half of a house, not a house. Kept out of
+    # `intact` because an extension placed as a whole house is a fragment alone
+    # on a lot; the answer is to COMPOSE, not to drop them.
+    #
+    # `suburb_scene.house_catalogue` pairs each to its parent by the shared stem
+    # (SM_House_04_Extension -> SM_House_04) and measures the UNION of the two,
+    # which is the footprint `suburb_parcel` sizes the lot to. Both parts are
+    # then anchored by their OWN measured centroid — not at the parent's
+    # transform — because `apply_placements` positions every asset by its bbox
+    # centre; emitting both at one point co-centres the wing on the house.
+    #
+    # Only 3 of the 10 houses ship one. Which lots get a garage is therefore
+    # decided by SIZE, not by the archetype flag: `suburb_parcel` picks the
+    # catalogue entry that fits the frontage, biased toward area by the
+    # archetype's scale, so wider "garage"/"full" lots tend toward the union
+    # entries without being guaranteed one. `has_garage` no longer controls it.
+    house_addons:
+      - usd: "RetroNeighborhood/Props/SM_House_04_Extension.prop.usd"
+        scale: 0.01
+      - usd: "RetroNeighborhood/Props/SM_House_06_Extension.prop.usd"
+        scale: 0.01
+      - usd: "RetroNeighborhood/Props/SM_House_10_Extension.prop.usd"
+        scale: 0.01
+
+    # Wooden house ruins (Nucleus, authored in cm). Split by *measured* height
+    # against an intact bungalow's ~6.4 m: walls still standing reads as
+    # damaged, collapsed below roof height reads as destroyed. Their footprints
+    # run 18-33 m, wider than the 12 m houses they replace — which is right,
+    # since a wrecked house throws its debris well past its own slab.
+    damaged:
+      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_002.usd"
+        scale: 0.01     # 7.7 m tall
+      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_004.usd"
+        scale: 0.01     # 9.0 m tall
+      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_005.usd"
+        scale: 0.01     # 6.4 m tall
+      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_006.usd"
+        scale: 0.01     # 6.5 m tall
+      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_007.usd"
+        scale: 0.01     # 8.9 m tall
+      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_010.usd"
+        scale: 0.01     # 6.9 m tall
+
+    destroyed:
+      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_001.usd"
+        scale: 0.01     # 5.8 m tall
+      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_003.usd"
+        scale: 0.01     # 3.1 m tall
+      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_008.usd"
+        scale: 0.01     # 5.8 m tall
+      - usd: "Muyang/WoodenHouseRuins/Assets/SM_house_ruins_009.usd"
+        scale: 0.01     # 5.2 m tall
+      # The one timber-frame collapse Objaverse had: down on its slab with
+      # planks thrown clear.
+      - usd: "objaverse://a0c01ce35a474545b805c0739806aace"   # Abandoned House
+        target-size-m: 12
+
+  debris:
+    # Wood-frame wreckage: lumber and snapped limbs. Instanced by the hundred,
+    # so both are deliberately low-poly.
+    pieces:
+      - usd: "objaverse://1b31413d89a4485e93f4bdb9eb735d88"   # Planches - Planks (weathered, scattered), 512 faces
+        target-size-m: 2.5
+      - usd: "objaverse://2341e9c2456f4876b2e86a9465724b0d"   # Planks Of Wood (fresh lumber), 534 faces
+        target-size-m: 2.2
+      - usd: "objaverse://aedb8f44f78944c7a1d53ff14c6d3290"   # Wood Stick 08 Remesh (snapped limb), 430 faces
+        target-size-m: 2.5
+        fit: max          # scanned standing on end, so pin its length, not its
+                          # plan — footprint would stretch it into a 7 m spike.
+                          # Debris is dropped and physics-settled, so it lands flat.
+
+    # Scraped earth and mounded rubble — the other half of the aftermath.
+    piles:
+      - usd: "objaverse://b3b11017332040d6b717839c07a782c4"   # Large Dirt Pile, 200 faces
+        target-size-m: 3.0
+      - usd: "objaverse://107f6a1f6aa74449bcd32ef136311d86"   # A pile of sand (dark soil mound)
+        target-size-m: 3.0
+      - usd: "objaverse://042bc78e7d1d4275b3cd87e97f35d11c"   # Low Poly Heap of construction debris
+        target-size-m: 3.5
+      - usd: "objaverse://0ab5415789a1454a925d82f0650910ff"   # Heap of construction old debris
+        target-size-m: 3.0
+      - usd: "objaverse://c7544d9183c24ed3a716f8255536afa8"   # Roof Rubble Pile Debris Tiles (flat scatter)
+        target-size-m: 4.0
+
+  # ---- KERB FURNITURE: fewer models, repeated ---------------------------------
+  # HOW THE OVERRIDE WORKS, because getting it wrong is silent: in
+  # `scene_generator._merge_asset_set` a key written `<name>+` APPENDS to the
+  # inherited list and a bare `<name>:` REPLACES it. These three are bare on
+  # purpose — the point is to own the pool. Resolved lengths are 1 / 2 / 1
+  # rather than shared.yaml's 4 / 8 / 1.
+
+  # ONE streetlight, and the RetroNeighborhood one because that is the art
+  # family the suburban sky and driveways already come from. Scale and yaw
+  # carried over verbatim from shared.yaml (cm-authored; the arm points +Y,
+  # hence the quarter turn).
+  #
+  # Dropped, all three Dmytro/ModernCityEnvironment01: several unrelated lamp
+  # families on one street is what reads as generated.
+  #   SM_Lamp_002, SM_Lamp_005   modern city posts, a second art family
+  #   SM_Lamp_006                the same, and the only `park`-tagged lamp in
+  #                              the chain. Losing the tag is accepted:
+  #                              `parks.py` falls back to the whole pool, so
+  #                              park trails get this pole — which is what a
+  #                              suburban park has anyway. `build_city`'s
+  #                              park-trail lamp pass does not fall back and
+  #                              places none.
+  streetlights:
+    - usd: "RetroNeighborhood/Props/SM_StreetLight.prop.usd"
+      scale: 0.01
+      yaw-offset: 90.0
+
+  # TWO bins where shared.yaml had eight, split by ROLE: a suburb's kerb carries
+  # a DOMESTIC wheelie bin and the civic litter bin is the park one — the
+  # opposite of urban_v2, which kept the civic bin for the kerb.
+  #
+  # Both are Nucleus. The AEC brownstone dustbin used in
+  # `suburban_v2.yard_props` (0.51 x 0.51 x 0.73 m, 630 pts) is deliberately NOT
+  # here: the AEC packs are git-ignored vendor content and the plain `suburban`
+  # set has to run without them.
+  #
+  # Dropped, with urban_v2's measured reasons carried across:
+  #   SM_MTrashCan            black commercial rectangular bin — alley, not kerb
+  #   SM_Bin_003_01, _003_02  recolours of SM_Bin_003, one model in three
+  #                           paint jobs; keeping one recolour is the whole rule
+  #   SM_Bin_006              green 4-wheel COMMUNAL dumpster — a flat block's
+  #                           bin store, not a single-family kerb
+  #   SM_Bin_004              a fourth kerbside model with no role left once one
+  #                           wheelie bin is kept. Surplus variation; no defect
+  #                           claimed against it.
+  #   CityPark SM_Small_Trash_can   the park bin, replaced by SM_MLitterBin.
+  #                           urban_v2 measures it 1.27 m wide — out of scale
+  #                           beside a 0.6 m civic bin.
+  #   Muyang garbageCan       a third art family for a prop this scene places at
+  #                           most a few dozen of.
+  trash_cans:
+    - "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_Bin_003.usd"
+      # Blue two-wheel wheelie bin — the bin a house actually puts out. One
+      # recolour of the three shared.yaml carries.
+    - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SM_MLitterBin.usd"
+      tags: ["park"]
+      # 0.60 x 0.60 x 0.91 m, 759 pts (measured in urban_v2, where it is THE
+      # street bin). Kept only as the park/verge civic bin, so the tag pools in
+      # `build_city` and `parks.py` still select something — and so a domestic
+      # wheelie bin never turns up on a park trail.
+
+  # UNCHANGED AT ONE. shared.yaml already carries exactly one hydrant model, so
+  # there is nothing to cut; pinned explicitly so a later edit to shared.yaml
+  # cannot widen it silently.
+  #
+  # NOT appended: urban_v2's `fire_hydrants+` AEC hydrant
+  # (brownstone/Props/Hydrant, 0.56 x 0.52 x 1.62 m). A second art family bought
+  # for nothing — hydrants sit at 240 m here (IFC 400 ft hose lay), so the whole
+  # suburb places a few dozen and none is ever seen beside another.
+  fire_hydrants:
+    - usd: "RetroNeighborhood/Props/SM_FireHydrant.prop.usd"
+      scale: 0.01

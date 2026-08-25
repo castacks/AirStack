@@ -1,0 +1,206 @@
+# HIGH-LEVEL scene spec — the graph-based suburb, on fire.
+#
+# `suburb_net.yaml` with a wildfire on it, and NOTHING ELSE CHANGED. The whole
+# layout block below is a verbatim copy, so the two scenes are the same suburb
+# from the same seed and the only difference you are looking at is the fire.
+# Edit the layout in `suburb_net.yaml` and copy the `overrides:` block across —
+# presets have no inheritance, which is the price of that guarantee.
+#
+# FIRE ONLY, DELIBERATELY. Nothing is scorched, collapsed or displaced:
+# `compile_wildfire` zeroes every structural knob so the fire itself can be
+# judged first. Damage comes later, on the same ellipse.
+#
+# View it with:
+#     SCENE_CONFIG=suburb_wildfire \
+#     ISAAC_SIM_SCRIPT_NAME=suburb_preview_launch_script.py \
+#     airstack up isaac-sim
+#
+# Or check the plan on the host, no Isaac Sim needed:
+#     python3 tools/suburb_net_png.py --seed 3 --out _plans/suburb_net.png
+
+locale: suburban
+
+disaster-type: wildfire
+# 0 is a fire creeping through the understory; 1 is a crown fire running the
+# length of the plat. Everything about the burn scales off this — see
+# `compile_wildfire` in compile_disaster.py.
+severity: 0.6
+
+# Where it was set. Upwind of centre rather than in the far corner: the plat's
+# planting is even, so a corner ignition spends most of the run crossing the
+# thin edge. From here the front is into dense fabric almost immediately and
+# still leaves a clear unburnt half to fly toward.
+epicenter: [-400, -300]
+# Which way the wind pushes it. 45 deg = toward +x +y, i.e. up the diagonal.
+heading_deg: 45
+# suburban for the houses and street furniture, park.yaml for the recreation
+# pools; suburban_park joins the two (see its `extends` note).
+asset-set: suburban_park
+
+# 1600 x 1200 m is one plat's worth of fabric: enough for three collectors and
+# a proper cul-de-sac population, and it measures in band on every seed.
+region_m: [1600, 1200]
+seed: 3
+
+overrides:
+  # ROAD + DRIVEWAY MATERIALS, matched to the 250 m mini: the local megascans
+  # asphalt swatch (mixed 50/50 with shared.yaml's ModularNeighborhood road
+  # tile), and a brick/asphalt driveway mix (`driveway` stays the shared brick).
+  usds:
+    materials:
+      asphalt: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
+      # Brick driveways use the worn-brick surface; the asphalt half stays clean
+      # Road_Asphalt (fire-reached asphalt is re-bound to Damaged_Asphalt at
+      # assembly time — see suburb_assemble_launch_script).
+      driveway: "airstack://scene_gen/assets/materials/megascans/Brick_Wall_Worn.usda"
+      driveway_asphalt: "airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda"
+  roads:
+    driveway_asphalt_share: 0.5
+    # ROAD-PAINT HEIGHT. The z ladder scales with plate span (1600 m -> 1.0),
+    # which puts markings the full ~14 cm above the road — sub-pixel from
+    # capture altitude but visibly FLOATING at a closer look. Pin it to the
+    # 250 m mini's effective value (~2 cm gap), the range this is viewed at.
+    z_scale: 0.15
+  # UN-INSTANCE FENCES so the wildfire pass can scorch and consume them (USD
+  # forbids authoring inside an instance). Same list the mini uses; metal
+  # street furniture stays instanced. `tree` is out too but harmless — the
+  # assembly references tree archetypes directly, not through this path.
+  instance_categories: ["plant", "sidewalk", "streetlight",
+                        "fire_hydrant", "sign", "crosswalk"]
+  layout:
+    region_m: [1600, 1200]
+
+  # ---- street network (suburb_net.py) ----------------------------------------
+  # Every knob here has a default in suburb_net.DEFAULTS; only the ones worth
+  # saying out loud are repeated, with what they are measured against.
+  suburb_net:
+    # Splitting stops when a face is under this. It is the single strongest
+    # control on the fabric: raising it trades street density for block size,
+    # and the two cannot both be pushed at once. 40k m2 is where all four
+    # measured morphology stats sit in band on 8/8 seeds.
+    block_area_target_m2: 40000.0
+    block_area_min_m2: 7000.0
+
+    # Curvilinear routes crossing the interior. These are the spine the whole
+    # fabric hangs off, so three is a floor rather than a target.
+    collectors: 3
+    collector_wander: 0.28
+
+    # Centreline to centreline. Two lot depths back to back plus the road.
+    min_gap_m: 88.0
+
+    # Real plats meet at 70-110 degrees, not exactly 90; the swing is also what
+    # keeps the curve between two junctions inside its 30 m minimum radius.
+    junction_skew_deg: 38.0
+    # Share of face splits that land on an existing junction, making a four-way.
+    # Suburbia is T-dominated but not T-exclusive: measured 69-87% three-way.
+    four_way_chance: 0.35
+
+    # Cul-de-sacs are grown until this share of nodes are dead ends, which is
+    # the measured signature of the fabric rather than a fixed count.
+    # Barrington-Leigh & Millard-Ball (PNAS 2015): 19-42% across US metros.
+    dead_end_target: 0.24
+    # IFC Fig D103.1: 96 ft driving-surface diameter = 14.64 m radius.
+    bulb_radius_m: 14.64
+    lollipop_len_m: [55.0, 170.0]
+
+    # Plat grain: how strongly neighbouring streets prefer to run parallel.
+    # At 0 the network reads as organic — an old town centre grown by accident —
+    # rather than as platted suburbia. This is most of what makes it read
+    # American.
+    grain_weight: 2.6
+    grain_swirl_deg: 34.0
+    grain_period_m: 620.0
+
+  # ---- lots, houses, planting (suburb_parcel.py) -----------------------------
+  suburb_parcel:
+    # FRONTAGE PER DWELLING, and the number that decides how much of the house
+    # catalogue is reachable: a lot admits an asset only if it fits with its
+    # side yard, so a narrow range deletes the wide entries from the pool —
+    # which are exactly the ones carrying a garage wing.
+    #
+    # MEASURED, sweeping the range against a 10-entry catalogue (3 of them with
+    # wings) over 3 seeds:
+    #
+    #   lot_width_m    houses   refused   lots with a garage wing
+    #   [17, 26]        2974      488            17.4%
+    #   [19, 28]        2906       33            24.2%
+    #   [21, 30]        2694        0            27.0%
+    #   [23, 33]        2554        0            31.4%
+    #   [25, 36]        2456        0            33.3%
+    #
+    # [21, 30] is the knee: refusals reach zero and the wing share rises by half
+    # again, for 9% fewer houses. Past it the extra variety is bought purely by
+    # thinning the street. The DENSITY classes still spread this widely -- tight
+    # is 16-23 m (54-77 ft, the classic post-war lot), estate 46-66 m.
+    # THE MODULAR KIT. Houses are assembled from
+    # `/Library/Stages/Muyang/ModularNeighborhood/` rather than placed as whole
+    # USDs — see `detail/modular_house.py`. Eight styles, 10-20 m wide and
+    # 10-20 m deep, all on the kit's 5 m module.
+    modular_houses: true
+    # 1.0 = every house from the kit (~28 prims each, ~24k over a full plat);
+    # lower it to mix whole-house USDs back in if that is too heavy. The kit
+    # houses cannot be instanced — the palette rebinds subsets inside them.
+    modular_share: 1.0
+    # WIDENED FOR THE KIT. The [21, 30] knee below was measured against the
+    # whole-house pack, whose widest entry is ~16 m. The kit's L-plans are 20 m
+    # across, which on a 21 m lot leaves half a metre of side yard — the houses
+    # fit but the street reads as a terrace. 26-38 m gives the widest style
+    # 6-18 m of side yard and still keeps the tight density class at a real
+    # post-war 20 m frontage.
+    lot_width_m: [30.0, 44.0]
+    # SIDE YARD between neighbours. 4 m put a 20 m house 2 m off the next one;
+    # 6 m is a real gap without thinning the street much (702 houses vs 865).
+    house_gap_m: 6.0
+    # DISTRICTS. Density was one independent draw per BLOCK, so a tight block
+    # could sit between two estate blocks on the same street — noise, not
+    # variety. Seeds this far apart on a jittered grid, nearest seed wins, so a
+    # district is a contiguous patch of a few blocks with a ragged edge.
+    #
+    # MEASURED, as % of block pairs within 180 m sharing a class (seed 3):
+    #     0 m (per-block draw)  39.7%   <- indistinguishable from random
+    #   200 m                   39.7%   <- seeds denser than blocks; degenerate
+    #   300 m                   61.8%
+    #   400 m                   67.6%
+    # 400 m is ~2-3 blocks across, which is a plat phase.
+    neighbourhood_m: 400.0
+    # Shifted off the DENSITY defaults toward the roomier classes, which is what
+    # buys the spacing. With the district `size` bias this yields a real
+    # gradient rather than four differently-sized lot maps carrying the same
+    # houses — mean footprint by district: tight 160, normal 229, loose 272,
+    # estate 304 m2, and the share of the largest styles goes 10% -> 55%.
+    density_mix: {tight: 0.15, normal: 0.36, loose: 0.34, estate: 0.15}
+    # Zoning ordinances put the front setback at 20-30 ft almost everywhere.
+    setback_m: [6.5, 11.0]
+    # NOMINAL FALLBACK ONLY, and unread on this path. `suburb_scene` measures
+    # the pack at build time (`house_catalogue`, garage wing folded in) and
+    # hands `suburb_parcel` a `house_sizes` list; these are used only when that
+    # list is absent — an empty house pool, or another caller that measures
+    # nothing.
+    house_w_m: [9.0, 13.0]
+    house_d_m: [8.0, 11.0]
+    # SIDE YARD, and the number that governs "the houses are too close". The
+    # overlap test pads by HALF this, so 4.0 bought a 2.01 m minimum
+    # wall-to-wall gap with 2.3-2.8% of houses inside 3 m; 6.0 takes it to
+    # 3.0 m and 0% inside 3 m at NO measured cost in house count (8.0 starts
+    # costing up to 6%).
+    #
+    # It is also the side yard the FIT CHECK uses -- `house_sizes` admits an
+    # entry only if it clears half of this -- so raising it narrows the
+    # reachable catalogue, and the widest entries go first.
+    house_gap_m: 6.0
+    min_lot_depth_m: 21.0
+    driveway_w_m: 3.2
+    # Which way a house faces, relative to the frontage tangent. -90 puts the
+    # front toward the kerb IF the asset is authored facing +X; the Objaverse
+    # bungalows do not record their facing, so flip to +90 if they come up
+    # backs-to-the-street. This is the one value here that cannot be derived.
+    house_yaw_offset_deg: -90.0
+    # Planting. Only `street_tree_spacing_m` is live here: `suburb_yardplan`
+    # owns yard planting, so `suburb_parcel` reads `back_trees_per_100m2` only
+    # under `own_yard_trees` (off by default) and nothing reads
+    # `front_tree_chance` at all. Both are kept for callers that use
+    # `suburb_parcel` without yardplan.
+    back_trees_per_100m2: 0.055
+    front_tree_chance: 0.45
+    street_tree_spacing_m: [16.0, 30.0]

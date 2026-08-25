@@ -168,11 +168,77 @@ model download) before the step is marked failed.
     request: {}
 ```
 
+## Method selection
+
+Which planner `semantic_search_task` spawns is chosen by env vars in `env:`.
+They are mutually exclusive and resolved in a fixed precedence order —
+`FRONTIER_ONLY_BASELINE` > `VLFM_BASELINE` > `CONAVGPT_BASELINE` — with the
+loser named in a warning, so setting two is a silent mis-run, not an error.
+
+| Env var | Default | Method |
+|---|---|---|
+| *(none set)* | — | Full multi-raven coordination |
+| `FRONTIER_ONLY_BASELINE` | `false` | Frontier-only exploration, no semantic cues |
+| `VLFM_BASELINE` | `false` | Greedy semantic-ray (VLFM-style) navigation |
+| `LVLM_BASELINE` | `false` | FPV + InternVL3-2B navigation (replaces rayfronts) |
+| `CONAVGPT_BASELINE` | `false` | **Co-NavGPT "VLM-Assign"**: one VLM call per round assigns every robot a numbered frontier region; the assignment is gossiped, and a robot without a fresh one falls back to nearest-frontier |
+
+`CONAVGPT_BASELINE` additionally spawns `conavgpt_assigner_node` (InternVL3-2B)
+on the leader robot only (`conavgpt_leader_id`, default `robot_1`). Its debug
+topics — `/{robot}/conavgpt/assign_request`, `/…/assignment`, `/…/map_image`,
+`/…/round_table` — are robot-domain only (the GCS payload visualizer has no
+handler for them), so record them via `record.scope: both` +
+`record.robot_topics`, as `conavgpt_1robot.yaml` / `conavgpt_5robot.yaml` do.
+
+Because `Stack.apply_env` only *merges* env vars, an omitted flag inherits
+whatever the previous mission on that pod set. Pin all four explicitly rather
+than relying on defaults.
+
+## GPU sizing vs. fleet size
+
+`semantic_search_task._pick_rayfronts_gpu()` pins robot N's rayfronts to
+`GPU (N % n_gpus)`, and Isaac Sim is pinned to GPU 0. The overflow robot
+therefore wraps onto the **sim's** card, where rayfronts OOMs loading its
+encoder and that drone hovers for the whole mission. The pod needs
+`gpu: NUM_ROBOTS + 1`:
+
+| Robots | GPUs | Mapping | Workflow |
+|---|---|---|---|
+| 1–3 | 4 | sim→0, robot N→N | `osmo/workflows/airstack-mission.yaml` |
+| 4 | 5 | sim→0, robot N→N | — (4-robot sweeps ran at `gpu: 4`, robot_4 sharing GPU 0) |
+| 5 | 6 | sim→0, robot N→N | `osmo/workflows/airstack-mission-5robot.yaml` |
+
+`gpu: 5` does **not** fix a 5-robot run: `5 % 5 = 0` moves the collision to
+robot_5 instead of removing it. Six is the first safe count.
+
+Under `CONAVGPT_BASELINE` the assigner takes the highest GPU no rayfronts
+claims (`_pick_conavgpt_gpu()`), so a 1-robot run on the stock 4-GPU workflow
+puts it on GPU 3 alone. When the fleet claims every card — 5 robots on `gpu: 6`
+— it shares the leader's card with robot_1's rayfronts and warns in the log.
+`CONAVGPT_ASSIGNER_GPU` overrides the choice (`-1` = don't pin).
+
+A mission whose fleet outgrows the default `resources:` block selects its own
+workflow with `--workflow` (path is repo-relative or absolute):
+
+```bash
+airstack osmo:mission osmo/missions/conavgpt_5robot.yaml \
+  --pool <gpu-pool> --branch <your-branch> \
+  --workflow osmo/workflows/airstack-mission-5robot.yaml
+```
+
 ## Notes
 
 - For `NUM_ROBOTS > 1` on Isaac Sim, set
   `ISAAC_SIM_SCRIPT_NAME: example_multi_px4_pegasus_launch_script.py` in
-  `env:` — the default script spawns a single drone.
+  `env:` — the default script spawns a single drone. The scene-import script
+  (`example_multi_drone_scene_import.py`) instead takes its fleet size from the
+  length of `SPAWN_CONFIGS`, so a one-entry list is a valid 1-robot mission.
+- `SPAWN_CONFIGS` layouts must keep every drone inside that start's spawn
+  rectangle and all drones >= 3 m apart (`SPAWN_MIN_DIST_M`, the same gate the
+  randomized `SPAWN_POLY` path enforces). Not every rectangle admits an
+  arbitrary fleet size: `conavgpt_5robot.yaml` drops `fireacademy_s2` and
+  `constructionsite_s2` because neither can hold 5 drones at 3 m without moving
+  the source-of-truth spawns.
 - Missions run unattended: keep `ISAAC_SIM_HEADLESS: "true"`,
   `ISAAC_SIM_USE_STANDALONE: "true"` and `PLAY_SIM_ON_START: "true"` unless
   you're watching via the WebRTC livestream profile.

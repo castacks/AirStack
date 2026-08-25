@@ -84,6 +84,10 @@ class PeerState:
     peer_ray_leads: Dict[str, list]        = field(default_factory=dict)
     # name -> distance (m) to that peer's nearest viable frontier; -1 = none.
     peer_explore_dist: Dict[str, float]    = field(default_factory=dict)
+    # name -> raw Co-NavGPT assignment JSON. Kept as the verbatim string: only
+    # the leader publishes one, it is the whole team's answer (not this peer's
+    # slice of it), and raven_nav parses it against its own robot id.
+    peer_conavgpt_assignment: Dict[str, str] = field(default_factory=dict)
     peer_last_seen:  Dict[str, float]      = field(default_factory=dict)
     peer_ids:        Dict[str, int]        = field(default_factory=dict)
 
@@ -191,6 +195,10 @@ class PeerState:
             except (ValueError, TypeError, KeyError):
                 pass
             self.peer_ray_leads[name] = out
+
+        assign_msg, _ = profile.get_payload_by_name_with_stamp("assignment")
+        if assign_msg is not None:
+            self.peer_conavgpt_assignment[name] = str(assign_msg.data)
 
         front_msg, _ = profile.get_payload_by_name_with_stamp("shared_frontiers")
         if front_msg is not None:

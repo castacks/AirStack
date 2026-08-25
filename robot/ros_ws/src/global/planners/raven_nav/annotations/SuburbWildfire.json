@@ -1,0 +1,1300 @@
+[
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    33.63,
+    -270.28,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    -50.9
+   ]
+  },
+  "scenario": "parking_refuge",
+  "people_id": "p0000"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    11.08,
+    -263.55,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    -40.4
+   ]
+  },
+  "scenario": "parking_refuge",
+  "people_id": "p0001"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    24.11,
+    -260.95,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    210.6
+   ]
+  },
+  "scenario": "parking_refuge",
+  "people_id": "p0002"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    28.04,
+    -265.19,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    31.6
+   ]
+  },
+  "scenario": "parking_refuge",
+  "people_id": "p0003"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    6.2,
+    -271.95,
+    0.89
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    213.2
+   ]
+  },
+  "scenario": "parking_refuge",
+  "people_id": "p0004"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    23.88,
+    -251.9,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    -51.0
+   ]
+  },
+  "scenario": "parking_refuge",
+  "people_id": "p0005"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    34.04,
+    -273.27,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    289.8
+   ]
+  },
+  "scenario": "parking_refuge",
+  "people_id": "p0006"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -0.02,
+    -267.85,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    92.2
+   ]
+  },
+  "scenario": "parking_refuge",
+  "people_id": "p0007"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    13.9,
+    -255.51,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    108.8
+   ]
+  },
+  "scenario": "parking_refuge",
+  "people_id": "p0008"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    31.64,
+    -275.64,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    182.2
+   ]
+  },
+  "scenario": "parking_refuge",
+  "people_id": "p0009"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    0.18,
+    -262.79,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    30.8
+   ]
+  },
+  "scenario": "parking_refuge",
+  "people_id": "p0010"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    16.7,
+    -254.19,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    59.9
+   ]
+  },
+  "scenario": "parking_refuge",
+  "people_id": "p0011"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    30.82,
+    -269.27,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    -97.9
+   ]
+  },
+  "scenario": "parking_refuge",
+  "people_id": "p0012"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    6.11,
+    -270.46,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    129.8
+   ]
+  },
+  "scenario": "parking_refuge",
+  "people_id": "p0013"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    26.55,
+    -259.18,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    248.9
+   ]
+  },
+  "scenario": "parking_refuge",
+  "people_id": "p0014"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    33.16,
+    -271.63,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    -96.6
+   ]
+  },
+  "scenario": "parking_refuge",
+  "people_id": "p0015"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    12.38,
+    -269.65,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    287.8
+   ]
+  },
+  "scenario": "parking_refuge",
+  "people_id": "p0016"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    16.45,
+    -259.88,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    114.5
+   ]
+  },
+  "scenario": "parking_refuge",
+  "people_id": "p0017"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -181.63,
+    -28.22,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    204.0
+   ]
+  },
+  "scenario": "open_ground",
+  "people_id": "p0018"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -178.72,
+    -25.31,
+    0.01
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    -81.2
+   ]
+  },
+  "scenario": "open_ground",
+  "people_id": "p0019"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -191.82,
+    -25.8,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    31.5
+   ]
+  },
+  "scenario": "open_ground",
+  "people_id": "p0020"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -186.51,
+    -23.71,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    38.4
+   ]
+  },
+  "scenario": "open_ground",
+  "people_id": "p0021"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    336.59,
+    113.44,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    78.4
+   ]
+  },
+  "scenario": "open_ground",
+  "people_id": "p0022"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    342.46,
+    122.37,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    -40.3
+   ]
+  },
+  "scenario": "open_ground",
+  "people_id": "p0023"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    345.69,
+    117.41,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    -38.8
+   ]
+  },
+  "scenario": "open_ground",
+  "people_id": "p0024"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    348.44,
+    114.19,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    237.2
+   ]
+  },
+  "scenario": "open_ground",
+  "people_id": "p0025"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -364.54,
+    -411.73,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    90.8
+   ]
+  },
+  "scenario": "open_ground",
+  "people_id": "p0026"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -367.11,
+    -411.8,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    86.3
+   ]
+  },
+  "scenario": "open_ground",
+  "people_id": "p0027"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -364.47,
+    -409.7,
+    0.87
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    -8.1
+   ]
+  },
+  "scenario": "open_ground",
+  "people_id": "p0028"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -355.05,
+    -410.5,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    -30.2
+   ]
+  },
+  "scenario": "open_ground",
+  "people_id": "p0029"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    511.05,
+    549.31,
+    -0.75
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    312.5
+   ]
+  },
+  "scenario": "pools",
+  "people_id": "p0030"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    509.33,
+    549.08,
+    -0.75
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    338.9
+   ]
+  },
+  "scenario": "pools",
+  "people_id": "p0031"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -122.27,
+    -380.55,
+    -0.89
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    423.7
+   ]
+  },
+  "scenario": "pools",
+  "people_id": "p0032"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -120.84,
+    -377.63,
+    -0.87
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    266.0
+   ]
+  },
+  "scenario": "pools",
+  "people_id": "p0033"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    132.11,
+    -97.63,
+    -0.75
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    372.2
+   ]
+  },
+  "scenario": "pools",
+  "people_id": "p0034"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    130.85,
+    -95.7,
+    -0.87
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    415.6
+   ]
+  },
+  "scenario": "pools",
+  "people_id": "p0035"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -78.67,
+    442.63,
+    0.87
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    266.7
+   ]
+  },
+  "scenario": "gridlock",
+  "people_id": "p0036"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -56.57,
+    443.54,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    342.0
+   ]
+  },
+  "scenario": "gridlock",
+  "people_id": "p0037"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -71.17,
+    440.38,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    452.7
+   ]
+  },
+  "scenario": "gridlock",
+  "people_id": "p0038"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -44.91,
+    442.44,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    359.9
+   ]
+  },
+  "scenario": "gridlock",
+  "people_id": "p0039"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -50.76,
+    437.46,
+    0.89
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    340.6
+   ]
+  },
+  "scenario": "gridlock",
+  "people_id": "p0040"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -53.07,
+    442.89,
+    0.45
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    332.4
+   ]
+  },
+  "scenario": "gridlock",
+  "people_id": "p0041"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -70.81,
+    444.42,
+    0.87
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    458.1
+   ]
+  },
+  "scenario": "gridlock",
+  "people_id": "p0042"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -63.55,
+    444.08,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    351.4
+   ]
+  },
+  "scenario": "gridlock",
+  "people_id": "p0043"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -58.09,
+    443.72,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    361.9
+   ]
+  },
+  "scenario": "gridlock",
+  "people_id": "p0044"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -58.3,
+    439.21,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    169.5
+   ]
+  },
+  "scenario": "gridlock",
+  "people_id": "p0045"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -188.8,
+    461.46,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    263.1
+   ]
+  },
+  "scenario": "gridlock",
+  "people_id": "p0046"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -110.36,
+    445.48,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    263.0
+   ]
+  },
+  "scenario": "gridlock",
+  "people_id": "p0047"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -186.64,
+    461.86,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    254.6
+   ]
+  },
+  "scenario": "gridlock",
+  "people_id": "p0048"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -33.47,
+    442.63,
+    0.06
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    -2.2
+   ]
+  },
+  "scenario": "gridlock",
+  "people_id": "p0049"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -505.7,
+    -175.28,
+    0.89
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    253.1
+   ]
+  },
+  "scenario": "at_home",
+  "people_id": "p0050"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    433.19,
+    139.96,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    169.3
+   ]
+  },
+  "scenario": "at_home",
+  "people_id": "p0051"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    391.62,
+    73.22,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    76.9
+   ]
+  },
+  "scenario": "at_home",
+  "people_id": "p0052"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    540.17,
+    514.08,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    95.3
+   ]
+  },
+  "scenario": "at_home",
+  "people_id": "p0053"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    705.67,
+    466.18,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    255.4
+   ]
+  },
+  "scenario": "at_home",
+  "people_id": "p0054"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -501.88,
+    -120.45,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    -2.8
+   ]
+  },
+  "scenario": "at_home",
+  "people_id": "p0055"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    -337.55,
+    181.66,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    298.9
+   ]
+  },
+  "scenario": "exposed_interior",
+  "people_id": "p0056"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    267.53,
+    -43.75,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    246.7
+   ]
+  },
+  "scenario": "exposed_interior",
+  "people_id": "p0057"
+ },
+ {
+  "class": "person",
+  "bbox_world": {
+   "center_xyz_m": [
+    252.25,
+    158.28,
+    0.88
+   ],
+   "size_xyz_m": [
+    0.6,
+    0.45,
+    1.75
+   ],
+   "orientation_deg": [
+    0.0,
+    0.0,
+    445.5
+   ]
+  },
+  "scenario": "exposed_interior",
+  "people_id": "p0058"
+ }
+]
