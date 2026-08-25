@@ -84,6 +84,7 @@ nav:
           - Build Profiles: docs/development/intermediate/docker-build-profiles.md
       - Simulation:
           - Scenes: docs/simulation/scenes.md
+          - Isaac Sim Container Workflows: docs/simulation/isaac_sim/container_workflows.md
           - Spawning Drones: docs/simulation/isaac_sim/spawning_drones.md
           - Overhead Camera: docs/simulation/isaac_sim/overhead_camera.md
           - Gimbal: docs/robot/autonomy/sensors/gimbal.md
@@ -91,6 +92,7 @@ nav:
       - GCS Operation:
           - Waypoints & Geofences: docs/gcs/waypoints_and_geofences.md
           - Foxglove Visualization: docs/gcs/foxglove.md
+          - Extending the Visualizer: docs/gcs/extending_foxglove.md
           - User Interface: docs/gcs/usage/user_interface.md
       - Robot & Field:
           - Overview: docs/real_world/index.md
@@ -109,6 +111,7 @@ nav:
           - Overview: docs/development/intermediate/testing/index.md
           - Unit Testing: docs/development/intermediate/testing/unit_testing.md
           - End-to-End Testing: docs/development/intermediate/testing/end_to_end_testing.md
+          - Using CI: docs/development/intermediate/testing/using_ci.md
       - Contributing:
           - Contributing Guide: docs/development/intermediate/contributing.md
           - Documentation Guide: docs/development/intermediate/documentation.md
