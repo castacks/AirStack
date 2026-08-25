@@ -438,6 +438,9 @@
     max-width: 61rem;
     margin: 0 auto;
     padding: 0 0.8rem;
+    /* Belt and braces: wide artifacts scroll inside their own cards; the
+       landing column itself never scrolls horizontally. */
+    overflow-x: clip;
 }
 
 .as-section {
@@ -487,6 +490,12 @@
     margin-top: 0;
 }
 
+/* Grid/flex items default to min-width:auto, letting wide <pre> content
+   blow the column past the viewport on phones. */
+.as-section__grid > * {
+    min-width: 0;
+}
+
 .as-section__artifact {
     min-width: 0;
 }
@@ -500,6 +509,8 @@
     background: #14181f;
     box-shadow: var(--as-shadow-md);
     text-align: left;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .as-terminal__bar,
@@ -843,6 +854,10 @@
 
     .as-matrix {
         grid-template-columns: 1fr 1fr;
+    }
+
+    .as-matrix__item code {
+        font-size: 0.62rem;
     }
 }
 
