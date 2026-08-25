@@ -579,7 +579,7 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
                 _emit(du, x_, y_, _fp(du, "debris")["base"] + 0.4,
                       "debris", _sc(du) * rng.uniform(0.7, 1.2), settle=True)
 
-    _apply_standins(placements, dis)
+    _apply_standins(placements, dis, resolver)
     placements.extend(new_placements)
     if tally:
         print("[disaster] buildings  "
@@ -593,12 +593,19 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
     return tally
 
 
-def _apply_standins(placements: list, dis: dict) -> None:
+def _apply_standins(placements: list, dis: dict, resolver=None) -> None:
     """Tilt-and-sink the marked buildings live mesh damage will not cut.
 
     Ranked exactly as `mesh_damage.apply_to_stage` spends its budget — worst
     hit first, placement order breaking ties — so the two never disagree
     about which buildings get the stand-in and which get the cut.
+
+    THE SINK COVERS THE LIFTED CORNER. `apply_placements` rotates about the
+    footprint's base centre, so a 6 degree pitch on an 80 m building raises
+    one end 4 m into the air — a floating building, which is worse than an
+    intact one. The sink is therefore the drawn amount PLUS whatever the
+    tilt lifts the highest base corner by, so every corner ends at or below
+    grade: a leaning ruin has settled into the ground, not levitated off it.
     """
     from disaster import mesh_damage
 
@@ -614,9 +621,20 @@ def _apply_standins(placements: list, dis: dict) -> None:
         roll, pitch, sink = p.pop("_standin")
         if i in cut:
             continue
+        axis_roll = 90.0 if p.get("axis_up") == "Y" else 0.0
+        lift = 0.0
+        if resolver is not None:
+            try:
+                fp = placement_footprint(resolver, p, "house")
+                lift = (0.5 * float(fp.get("sx", 0.0))
+                        * abs(math.sin(math.radians(pitch)))
+                        + 0.5 * float(fp.get("sy", 0.0))
+                        * abs(math.sin(math.radians(roll - axis_roll))))
+            except Exception:                                 # noqa: BLE001
+                lift = 0.0
         p["roll_deg"] = roll
         p["pitch_deg"] = pitch
-        p["z_m"] -= sink
+        p["z_m"] -= sink + lift
 
 
 def apply(config: dict, layout: dict, placements: list,
