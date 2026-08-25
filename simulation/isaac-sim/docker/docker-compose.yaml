@@ -74,6 +74,14 @@ services:
       # isaac sim stuff
       - $HOME/docker/isaac-sim/cache/main:/isaac-sim/.cache:rw \
       - $HOME/docker/isaac-sim/cache/computecache:/isaac-sim/.nv/ComputeCache:rw \
+      # Kit's shader caches. NOT covered by the `.cache` mount above — Kit puts
+      # these under its install root, so without this line they live in the
+      # container's writable layer and `airstack down` destroys 700 MB of them.
+      # Measured: a cold `airstack up` spends ~32 s in `RtPso async group async
+      # compilation`, and `nv_shadercache` afterwards holds exactly the two
+      # files that run built. The image ships this directory EMPTY, so a bind
+      # mount masks nothing.
+      - $HOME/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw \
       - $HOME/docker/isaac-sim/logs:/isaac-sim/.nvidia-omniverse/logs:rw \
       - $HOME/docker/isaac-sim/config:/isaac-sim/.nvidia-omniverse/config:rw \
       - $HOME/docker/isaac-sim/data:/isaac-sim/.local/share/ov/data:rw \
