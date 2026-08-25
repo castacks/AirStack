@@ -49,6 +49,8 @@ placed into. `Disaster.damage_script` reads that registry; it does not shadow
 it.
 """
 
+import os
+
 from disaster import levels
 from disaster.field import make_damage_field
 
@@ -168,6 +170,12 @@ class Disaster:
         kind = md.material_for_asset(source, mcfg.get("material"),
                                      _pack_materials(config))
         mat = md.material(kind)
+        # SAY IT, so a wrong material is visible in the bake log rather than
+        # only in the finished scene. The live path prints the same thing on
+        # its per-building line.
+        print(f"[stage-a]     material: {kind}"
+              + (f" (pack says {os.path.basename(str(source))})" if source else ""),
+              flush=True)
         script = self.damage_script
         if script is not None:
             # `settle_it=False`: Stage A settles the WHOLE grid in one PhysX
