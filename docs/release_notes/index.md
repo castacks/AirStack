@@ -19,6 +19,10 @@ its own notes. -->
 
 ## 0.20.0 (Unreleased)
 
+- Fixed: the docs search dropdown rendered behind the nav-tabs bar and the
+  version-selector text (custom z-indexes inside the header's stacking
+  context); the search subtree is now lifted above both.
+
 **Documentation overhaul (Diátaxis restructuring).** The docs site was
 audited against the [Diátaxis](https://diataxis.fr) framework and
 reorganized; page URLs are preserved (moves are covered by redirects):
