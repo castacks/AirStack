@@ -25,6 +25,8 @@ import os
 import sys
 import tempfile
 
+import pytest
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _SCENE_GEN = os.path.dirname(_HERE)
 if _SCENE_GEN not in sys.path:
@@ -49,6 +51,7 @@ def _config(severity=0.8, occupancy="day", seed=42, target_seed=None,
         "owns_humans": True,
         "cohorts": {"inside_rubble": 0.35, "exit_ring": 0.20, "street": 0.15,
                     "open_space": 0.25, "rubble_edge": 0.05},
+        "seat_frac": 0.45,
     }
     tgt.update(targets_over)
     return {
@@ -82,8 +85,13 @@ def _survey(levels_=("pancaked", "partial_collapse", "cracked", "pristine"),
             i += 1
     roads = [{"x0": -200.0, "y0": -6.0, "x1": 200.0, "y1": 6.0},
              {"x0": -6.0, "y0": -200.0, "x1": 6.0, "y1": 200.0}]
+    # Upright cars parked along the east-west corridor, at assorted yaws so a
+    # sampler that reads the footprint as axis-aligned is caught.
+    vehicles = [{"x": -150.0 + i * 20.0, "y": 3.0, "w": 4.5, "h": 2.0,
+                 "z": 1.5, "yaw": (i * 37) % 360,
+                 "prim_path": f"/World/generated/car_{i}"} for i in range(12)]
     return {"region": REGION, "buildings": buildings, "roads": roads,
-            "ladder": LADDER}
+            "vehicles": vehicles, "ladder": LADDER}
 
 
 def _sample(config=None, survey=None):
@@ -167,6 +175,53 @@ def test_a_standin_is_not_a_place_to_be_trapped():
     assert not [v for v in vs if v["cohort"] in ("inside_rubble", "exit_ring",
                                                  "rubble_edge")]
     # The people still exist; they are outdoors.
+    assert len(vs) >= T.target_count(sv, T.settings(_config())) - 2
+
+
+# -- the vehicle stratum ---------------------------------------------------
+
+def _in_vehicle_config(**over):
+    cfg = _config(occupancy="commute", **over)
+    cfg["targets"]["cohorts"] = {"in_vehicle": 1.0}
+    return cfg
+
+
+def test_victims_in_vehicles_are_in_a_seat():
+    """Inside the car's footprint — in the CAR's frame, since it is parked at a
+    yaw — and at seat height rather than on the road or on the roof."""
+    sv = _survey()
+    # 12 cars, more people than seats — the rest go outdoors through the usual
+    # shortfall path, which is why this filters rather than asserting on all.
+    vs = _by_cohort(_sample(_in_vehicle_config(), sv)).get("in_vehicle", [])
+    assert len(vs) >= 8
+    for v in vs:
+        car = next(c for c in sv["vehicles"] if c["prim_path"] == v["vehicle"])
+        assert T._inside(car, v["x"], v["y"]), v
+        assert v["seat_z"] == pytest.approx(0.45 * car["z"])
+        assert v["pose"] == "seated" and not v["lying"]
+
+
+def test_a_toppled_car_is_not_a_seat():
+    """`disaster.cars_toppled_fraction` turns cars over on every seed, and a
+    car on its roof is not somewhere to put a person."""
+    placements = [
+        {"category": "car", "x_m": 0.0, "y_m": 0.0, "yaw_deg": 0.0,
+         "roll_deg": 0.0, "prim_path": "/upright"},
+        {"category": "car", "x_m": 10.0, "y_m": 0.0, "yaw_deg": 0.0,
+         "roll_deg": 92.0, "prim_path": "/on_its_side"},
+        {"category": "car", "x_m": 20.0, "y_m": 0.0, "yaw_deg": 0.0,
+         "pitch_deg": -80.0, "prim_path": "/nose_down"},
+    ]
+    sv = T.survey_from_placements(placements, None, None, "earthquake")
+    assert [c["prim_path"] for c in sv["vehicles"]] == ["/upright"]
+
+
+def test_a_scene_with_no_cars_hands_that_share_on():
+    """Same rule as every other cohort: the people existed either way."""
+    sv = _survey()
+    sv["vehicles"] = []
+    vs = _sample(_in_vehicle_config(), sv)
+    assert not [v for v in vs if v["cohort"] == "in_vehicle"]
     assert len(vs) >= T.target_count(sv, T.settings(_config())) - 2
 
 

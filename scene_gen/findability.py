@@ -190,6 +190,17 @@ def occluders_from_survey(survey: dict) -> list:
             "z0": -UNDER_M, "z1": float(d.get("z") or max(1.0, r)),
             "porous": True, "what": "debris",
         })
+    for v in survey.get("vehicles") or ():
+        # Porous, because a car is mostly glass. The `in_vehicle` cohort is
+        # the spec's "inside a vehicle is fine": obstructed from every bearing,
+        # hidden from none.
+        out.append({
+            "shape": "box", "x": float(v["x"]), "y": float(v["y"]),
+            "hw": float(v["w"]) / 2.0, "hh": float(v["h"]) / 2.0,
+            "yaw": float(v.get("yaw") or 0.0),
+            "z0": 0.0, "z1": float(v.get("z") or 1.5),
+            "porous": True, "what": v.get("prim_path") or "vehicle",
+        })
     # THE EARTH IS OPAQUE, and it has to be in the list or the model has a
     # basement. Every bearing points upward, so a ray from a victim below grade
     # is the one case where the ground is between them and daylight; without
@@ -239,6 +250,10 @@ def settle_offline(victims: list, occluders: list) -> None:
     are sunk into it by the same `bury_frac` the placer uses.
     """
     for v in victims:
+        if v.get("cohort") == "in_vehicle":
+            v["surface_z"] = 0.0
+            v["z"] = float(v.get("seat_z") or 0.6)
+            continue
         s = surface_z(float(v["x"]), float(v["y"]), occluders)
         z = s
         if v.get("cohort") == "inside_rubble":
@@ -380,7 +395,7 @@ def _row(v: dict, escapes: list) -> dict:
 #: cuts a building into, so a collapsed building reads porous here for the same
 #: reason `cut` makes it porous in the analytic model.
 POROUS_CATS = frozenset(("debris", "debris_pile", "debris_fragment", "rubble",
-                         "victim"))
+                         "car", "victim"))
 
 #: Step past a surface before casting again, so the next cast does not
 #: re-report the one just hit.

@@ -50,7 +50,8 @@ something every locale and every disaster has (a damaged building, its street
 frontage, a road, open ground, a rubble pile). Earthquake ships non-zero
 weights; every other type ships zeros and behaves exactly as it did before.
 
-    inside_rubble   trapped in a collapsed building, edge-biased, sunk into it
+    inside_rubble   trapped in a collapsed building, in the rim band, sunk in
+    in_vehicle      caught in a car, in a seat, visible through the glass
     exit_ring       struck escaping, just outside a damaged facade
     street          caught outdoors, on the road, where the field hit hardest
     open_space      survivors gathered in parks and plazas, in clusters
@@ -79,7 +80,8 @@ import random
 
 # Cohort names, in the order they are allotted. Order matters only for the
 # largest-remainder allotment being reproducible.
-COHORTS = ("inside_rubble", "exit_ring", "street", "open_space", "rubble_edge")
+COHORTS = ("inside_rubble", "in_vehicle", "exit_ring", "street", "open_space",
+           "rubble_edge")
 
 #: Where a cohort's share goes when it cannot be sited — `inside_rubble` in a
 #: scene with no collapsed buildings, say. The people existed either way.
@@ -88,6 +90,7 @@ _OUTDOOR = ("street", "open_space")
 #: Poses drawn per cohort, and how often. Names index `scene_generator._HUMAN_POSES`.
 _POSES = {
     "inside_rubble": (("fetal", 0.4), ("crouch", 0.35), ("supine", 0.25)),
+    "in_vehicle":    (("seated", 1.0),),
     "exit_ring":     (("prone", 0.4), ("supine", 0.35), ("wave_down", 0.25)),
     "street":        (("prone", 0.4), ("supine", 0.35), ("fetal", 0.25)),
     "open_space":    (("idle", 0.4), ("seated", 0.25), ("kneeling", 0.2),
@@ -106,6 +109,9 @@ LYING = frozenset(("prone", "supine", "fetal", "wave_down"))
 #: on what was FINDABLE rather than on what existed.
 _VISIBILITY = {
     "inside_rubble": (("occluded", 0.7), ("partial", 0.3)),
+    # Glass is not a wall. Someone in a car is behind something from every
+    # bearing and hidden by none of them.
+    "in_vehicle":    (("partial", 1.0),),
     "exit_ring":     (("partial", 0.5), ("open", 0.5)),
     "street":        (("open", 0.85), ("partial", 0.15)),
     "open_space":    (("open", 1.0),),
@@ -115,11 +121,13 @@ _VISIBILITY = {
 #: Occupancy multipliers on the cohort weights (Hazus's time-of-day split).
 #: Renormalised after, so these are ratios rather than absolute shares.
 OCCUPANCY = {
-    "night":   {"inside_rubble": 2.0, "exit_ring": 1.2, "street": 0.2,
-                "open_space": 0.8, "rubble_edge": 0.5},
+    "night":   {"inside_rubble": 2.0, "in_vehicle": 0.3, "exit_ring": 1.2,
+                "street": 0.2, "open_space": 0.8, "rubble_edge": 0.5},
     "day":     {},
-    "commute": {"inside_rubble": 0.7, "exit_ring": 0.9, "street": 1.6,
-                "open_space": 1.1, "rubble_edge": 1.0},
+    # The rush hour is the one time of day a meaningful share of the population
+    # is inside a car rather than a building.
+    "commute": {"inside_rubble": 0.7, "in_vehicle": 2.5, "exit_ring": 0.9,
+                "street": 1.6, "open_space": 1.1, "rubble_edge": 1.0},
 }
 
 #: Fallback when the config carries no `targets` block at all.
@@ -136,6 +144,10 @@ DEFAULTS = {
     # sampled. Keep it at or under `findability.COVER_M` — see
     # `_s_inside_rubble`.
     "rubble_rim_m": 3.0,
+    # Where a seat is, as a fraction of the vehicle's height. Sets the Z of an
+    # `in_vehicle` victim directly — they are not settled onto anything, or a
+    # downward probe would rest them on the roof of the car they are inside.
+    "seat_frac": 0.45,
     "clearance_m": 8.0,
     "cluster_size": [3, 8],
     "cluster_radius_m": 6.0,
@@ -191,6 +203,13 @@ _BUILDING_CATS = ("building", "house")
 #: big one — the 10-15 m mounds — and leaving it off this tuple is why the
 #: first debris-aware run still put a casualty inside one.
 _RUBBLE_CATS = ("debris", "debris_pile", "debris_fragment", "rubble")
+#: Things with a cabin someone can be inside. Glass makes them obstructions
+#: rather than walls — see `findability.POROUS_CATS`, which agrees.
+_VEHICLE_CATS = ("car",)
+#: Past this much roll or pitch a vehicle is on its side or its roof, and its
+#: seats are not a place to put anybody. `disaster.cars_toppled_fraction`
+#: turns some of them over on every seed.
+UPRIGHT_DEG = 30.0
 
 
 def _level_index(level: str, ladder: list) -> int:
@@ -238,10 +257,24 @@ def survey_from_placements(placements, layout=None, resolver=None,
         debris.append({"x": float(p.get("x_m", 0.0)),
                        "y": float(p.get("y_m", 0.0)),
                        "r": max(w, h) / 2.0, "z": z})
+    vehicles = []
+    for p in placements or []:
+        if p.get("category") not in _VEHICLE_CATS:
+            continue
+        if (abs(float(p.get("roll_deg", 0.0))) > UPRIGHT_DEG
+                or abs(float(p.get("pitch_deg", 0.0))) > UPRIGHT_DEG):
+            continue
+        w, h, z = _footprint(p, resolver, "car")
+        vehicles.append({"x": float(p.get("x_m", 0.0)),
+                         "y": float(p.get("y_m", 0.0)),
+                         "w": w, "h": h, "z": z,
+                         "yaw": float(p.get("yaw_deg", 0.0)),
+                         "prim_path": p.get("prim_path", "")})
     lay = layout or {}
     return {
         "region": _wh(lay.get("region")) or _region_of(buildings),
         "debris": debris,
+        "vehicles": vehicles,
         "buildings": buildings,
         "roads": [dict(r) if isinstance(r, dict) else _rect(r)
                   for r in (lay.get("road_corridors") or [])],
@@ -270,10 +303,11 @@ def survey_from_stage(stage, config: dict) -> dict:
 
     cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
                               [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
-    buildings, debris = [], []
+    buildings, debris, vehicles = [], [], []
     for prim in stage.Traverse():
         cat = prim.GetCustomDataByKey("assetCategory")
-        if cat not in _BUILDING_CATS and cat not in _RUBBLE_CATS:
+        if (cat not in _BUILDING_CATS and cat not in _RUBBLE_CATS
+                and cat not in _VEHICLE_CATS):
             continue
         rng_box = cache.ComputeWorldBound(prim).ComputeAlignedRange()
         if rng_box.IsEmpty():
@@ -284,6 +318,15 @@ def survey_from_stage(stage, config: dict) -> dict:
             debris.append({"x": x, "y": y, "z": float(hi[2] - lo[2]),
                            "r": max(float(hi[0] - lo[0]),
                                     float(hi[1] - lo[1])) / 2.0})
+            continue
+        if cat in _VEHICLE_CATS:
+            # World bounds are already rotated, so the box is axis-aligned and
+            # a little larger than the car; a seat is well inside either way.
+            vehicles.append({"x": x, "y": y, "yaw": 0.0,
+                             "w": float(hi[0] - lo[0]),
+                             "h": float(hi[1] - lo[1]),
+                             "z": float(hi[2] - lo[2]),
+                             "prim_path": str(prim.GetPath())})
             continue
         dmg = levels.local_damage(field(x, y), sev)
         src = str(prim.GetCustomDataByKey("sourceAsset") or "")
@@ -300,7 +343,7 @@ def survey_from_stage(stage, config: dict) -> dict:
             "prim_path": str(prim.GetPath()),
         })
     return {"region": region, "buildings": buildings, "roads": [],
-            "debris": debris, "ladder": ladder}
+            "debris": debris, "vehicles": vehicles, "ladder": ladder}
 
 
 #: The scope `mesh_damage` authors a building's fragments under. Its presence
@@ -629,6 +672,34 @@ def _outside_face(rng, b, survey, out_m, lat=0.5):
     return from_local(b, lx, ly)
 
 
+def _s_in_vehicle(rng, survey, cfg, damaged):
+    """In a seat of an upright vehicle.
+
+    The spec allows a victim inside a vehicle and calls them findable, and that
+    is right for a reason worth writing down: a car is the one enclosure in the
+    scene made mostly of GLASS. Someone in a driver's seat is obstructed from
+    every bearing and hidden from none, which is exactly the `partial` case the
+    search is supposed to be hard at — and unlike a building interior it needs
+    no opening to be modelled, because the windows are the opening.
+
+    No `_in_debris` exemption and no damage requirement: an undamaged street
+    full of stopped traffic is where these people are.
+    """
+    vehicles = survey.get("vehicles") or []
+    if not vehicles:
+        return None
+    v = rng.choice(vehicles)
+    # A seat, not the centroid: front or back, left or right, in the car's own
+    # frame. Two people in the same car would fail `min_separation_m` anyway,
+    # so this is about not putting everyone on the gear stick.
+    lx = rng.choice((-0.22, 0.18)) * v["w"]
+    ly = rng.choice((-0.25, 0.25)) * v["h"]
+    x, y = from_local(v, lx, ly)
+    return x, y, {"vehicle": v["prim_path"],
+                  "seat_z": round(float(cfg.get("seat_frac", 0.45))
+                                  * float(v["z"]), 3)}
+
+
 def _s_exit_ring(rng, survey, cfg, damaged):
     """Just outside a damaged facade, on the street side."""
     if not damaged:
@@ -716,6 +787,7 @@ def sample_targets(survey: dict, config: dict, rng=None) -> list:
         "severity", 1.0)) > 0.0 else None
     samplers = {
         "inside_rubble": lambda: _s_inside_rubble(rng, survey, cfg, damaged),
+        "in_vehicle":    lambda: _s_in_vehicle(rng, survey, cfg, damaged),
         "exit_ring":     lambda: _s_exit_ring(rng, survey, cfg, damaged),
         "street":        lambda: _s_street(rng, survey, cfg, damaged, hit),
         "open_space":    lambda: _s_open_space(rng, survey, cfg, damaged, hit),
@@ -875,6 +947,12 @@ def to_placements(victims: list, config: dict, resolver, rng) -> list:
         else:
             z = fp["base"]
             roll = axis_roll
+        if v["cohort"] == "in_vehicle":
+            # Straight to the seat. `settle_on_surface` skips this cohort, so
+            # this is the final Z rather than an estimate: a downward probe
+            # would find the roof of the car they are sitting in and rest them
+            # on top of it.
+            z = fp["base"] + float(v.get("seat_z", 0.6))
         if v["cohort"] == "inside_rubble":
             # Sink into the pile by a fraction of the body's VERTICAL extent,
             # which is its height standing and its depth lying — using the
@@ -948,6 +1026,8 @@ def settle_on_surface(stage, victims: list, placements: list,
     scale = float(ssf) or 1.0
     moved = 0
     for v, p in zip(victims, placements):
+        if v["cohort"] == "in_vehicle":
+            continue                       # already in a seat — see `to_placements`
         prim = stage.GetPrimAtPath(p.get("prim_path", ""))
         if not prim or not prim.IsValid():
             continue

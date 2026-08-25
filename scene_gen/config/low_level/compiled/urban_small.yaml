@@ -9,7 +9,7 @@
 # severity      : 0.0
 # spec          : scene_gen/config/presets/urban_small.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-25 00:33:42
+# compiled      : 2026-08-25 00:39:58
 # spec extras   : {'asset-pack': 'urban', 'region_m': [500, 500], 'seed': 42}
 
 seed: 42

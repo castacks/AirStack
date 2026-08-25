@@ -135,6 +135,27 @@ def test_a_gap_narrower_than_open_m_is_not_a_way_out():
     assert _verdict(_victim(0.0, 0.0), sv) == "buried"
 
 
+def test_a_car_is_an_obstruction_and_not_a_wall():
+    """The spec allows a victim inside a vehicle and calls them findable. A car
+    is the one enclosure in the scene made mostly of glass: obstructed from
+    every bearing, hidden from none."""
+    sv = _survey()
+    sv["vehicles"] = [{"x": 40.0, "y": 40.0, "w": 4.5, "h": 2.0, "z": 1.5,
+                       "yaw": 30.0, "prim_path": "/World/car"}]
+    seated = _victim(40.0, 40.0, z=0.675, cohort="in_vehicle", lying=False)
+    row = F.check([seated], F.occluders_from_survey(sv))[0]
+    assert row["verdict"] == "partial"
+    assert 0.0 < row["escape_m"] <= F.COVER_M
+
+
+def test_a_seated_victim_is_not_settled_onto_the_car():
+    """`settle_offline` and `targets.settle_on_surface` both skip this cohort.
+    A downward probe from above finds the ROOF of the car they are inside."""
+    v = {"id": 0, "cohort": "in_vehicle", "x": 0.0, "y": 0.0, "seat_z": 0.675}
+    F.settle_offline([v], [])
+    assert v["z"] == pytest.approx(0.675)
+
+
 # -- 2. findable by construction ------------------------------------------
 
 def test_the_trapped_are_in_the_rim_band(scenes):

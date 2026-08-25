@@ -9,7 +9,7 @@
 # severity      : 1.0
 # spec          : scene_gen/config/presets/suburb_earthquake.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-25 00:33:42
+# compiled      : 2026-08-25 00:39:58
 
 seed: 42
 exclusions:
@@ -511,9 +511,10 @@ targets:
   cohorts:
     inside_rubble: 0.35
     exit_ring: 0.2
-    street: 0.15
+    street: 0.12
     open_space: 0.25
     rubble_edge: 0.05
+    in_vehicle: 0.03
   damaged_from: soft_storey
   bury_frac:
   - 0.3

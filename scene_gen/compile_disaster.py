@@ -643,8 +643,13 @@ DISASTERS = {
 # ---------------------------------------------------------------------------
 
 TARGET_COHORTS = {
-    "earthquake": {"inside_rubble": 0.35, "exit_ring": 0.20, "street": 0.15,
-                   "open_space": 0.25, "rubble_edge": 0.05},
+    # `in_vehicle` is the one share not in the Türkiye split, which counted
+    # casualties by how they were RESCUED rather than where they were. It comes
+    # out of `street`: someone stopped in traffic was caught outdoors in every
+    # sense but the one that matters to a camera. Small by day and multiplied
+    # by 2.5 at `occupancy: commute` (targets.OCCUPANCY).
+    "earthquake": {"inside_rubble": 0.35, "in_vehicle": 0.03, "exit_ring": 0.20,
+                   "street": 0.12, "open_space": 0.25, "rubble_edge": 0.05},
 }
 
 #: What "Stage C owns every human" costs the Stage B detail pass. Scenery
