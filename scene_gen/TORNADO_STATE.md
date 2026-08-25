@@ -283,6 +283,5 @@ settle statistics worth reading on these assets.
 5. **`wall_for` / `cells_for` are duplicated.** They are asset-geometry
    budgeting, not disaster semantics, so they now live in `mesh_damage`
    (`WALL_M`, `REF_RADIUS_M`, `MAX_CELLS_CAP` with them) and this script uses
-   them from there. `quake.py` still carries its own byte-identical copies —
-   left alone only to stay out of concurrent work on that file, and they should
-   be deleted.
+   them from there. *(Resolved 2026-08-25: `quake.py`'s copies deleted; it
+   now calls `md.wall_for` / `md.cells_for`.)*

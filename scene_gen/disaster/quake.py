@@ -371,19 +371,6 @@ def field_for(level, seed=0, plan=None):
 #: enough that the gap does not read as a gap.
 SHRINK = 0.97
 
-#: Metres of wall on a REFERENCE-sized building. A wall is about half a metre
-#: thick on a bungalow and on a tower alike, which is why `solidify` takes an
-#: absolute length — but the two do not read the same. On a 12 m house 0.5 m
-#: is masonry; on a 96 m tower it is 0.5% of the span, a foil skin inside a
-#: 10 m Voronoi cell, and the fragments come out looking hollow. So the wall
-#: grows with the building, slowly (square root, not linear — a skyscraper has
-#: thicker walls than a house, not eight times thicker) and to a ceiling.
-WALL_M = 0.5
-WALL_M_MAX = 2.0
-
-#: Building radius `WALL_M` is quoted for.
-REF_RADIUS_M = 12.0
-
 #: TARGET RUBBLE SIZE, in metres, for every building in the library.
 #:
 #: A chunk of broken concrete is a metre or two across whether it fell off a
@@ -395,13 +382,13 @@ REF_RADIUS_M = 12.0
 #: scale the spacing up until the seeds fit. Twenty-metre "rubble".
 #:
 #: Each mechanism sets its own `fragment_m` around this — finer where the
-#: material was pulverised — and `cells_for` derives the count so the budget
+#: material was pulverised — and `mesh_damage.cells_for` derives the count so the budget
 #: does not bind first.
 RUBBLE_M = 2.0
 
 #: WHAT A BUILDING IS MADE OF when the caller does not say. Masonry, because
 #: every number in this file — `RUBBLE_M`, each mechanism's `fragment_m`,
-#: `WALL_M`, `BLAST` — was quoted against brick and concrete towers.
+#: `mesh_damage.WALL_M`, `BLAST` — was quoted against brick and concrete towers.
 #:
 #: A DETACHED HOUSE IS NOT ONE. The suburban library is timber frame, and
 #: running it as masonry is not a smaller version of the same failure: it
@@ -412,12 +399,6 @@ RUBBLE_M = 2.0
 #: caller that knows the asset (the asset set, `tools/damage_spread.py`'s row
 #: table) passes `material="timber"` and nothing in the ladder changes.
 MATERIAL = md.DEFAULT_MATERIAL
-
-#: Compute ceiling on cells for ONE building. Not a design number: the cut is
-#: near-linear in cells since `_fracture_hier`, but the SETTLE is not — every
-#: cell is a rigid body with a cooked collider and PhysX cost climbs with the
-#: contacts between them. Set from measurement; see `tools/quake_preview.py`.
-MAX_CELLS_CAP = 1200
 
 #: Outward launch speed at the structure's axis, m/s. Gravity alone cannot
 #: separate a Voronoi tiling; see `settle.blast_velocities`. Kept modest
@@ -445,42 +426,6 @@ CONSUME = 0.45
 STEPS = 4000
 
 
-def wall_for(root_prim, wall_m=WALL_M, ref_m=REF_RADIUS_M, cap=WALL_M_MAX):
-    """Wall thickness for this building's size. See `WALL_M`."""
-    prims = md.mesh_prims(root_prim)
-    b = md.bounds_of(prims) if prims else None
-    if b is None or not b.radius:
-        return float(wall_m)
-    import math as _m
-    scale = _m.sqrt(max(1.0, float(b.radius) / float(ref_m)))
-    return float(min(float(cap), float(wall_m) * scale))
-
-
-def cells_for(root_prim, fragment_m=RUBBLE_M, cap=None):
-    """How many cells this building needs to break into *fragment_m* rubble.
-
-    Derived from the building's own envelope area — facades plus roof, which
-    is the surface a Voronoi cut actually tiles — divided by the area one
-    fragment covers. So the COUNT varies with the building and the SIZE does
-    not, which is the way round rubble works.
-
-    `cap` is a compute ceiling, not a design choice, and it is deliberately
-    high enough not to bind on the library's largest asset. When it does bind,
-    `fracture_seeds` widens the spacing and the rubble gets coarser — that is
-    the failure this parameterisation exists to make visible rather than
-    silent, so it is reported by `shatter` as `cells_capped`.
-    """
-    prims = md.mesh_prims(root_prim)
-    b = md.bounds_of(prims) if prims else None
-    if b is None:
-        return int(MAX_CELLS_CAP if cap is None else cap)
-    w, d, h = (float(x) for x in b.dims)
-    area = 2.0 * (w + d) * h + w * d
-    want = int(round(area / max(float(fragment_m) ** 2, 1e-6)))
-    top = int(MAX_CELLS_CAP if cap is None else cap)
-    return int(max(24, min(top, want)))
-
-
 def shatter(stage, root_prim, intensity, seed=0, wall_m=None,
             fragment_m=None, max_cells=None, shrink=SHRINK, solid=False,
             max_edge_m=4.0, solid_kw=None, field_fn=None, field_kw=None,
@@ -493,7 +438,7 @@ def shatter(stage, root_prim, intensity, seed=0, wall_m=None,
     wants.
 
     `max_cells` defaults to whatever `fragment_m` rubble implies for this
-    building (`cells_for`). Pass a number with `auto_cells=False` to take it
+    building (`mesh_damage.cells_for`). Pass a number with `auto_cells=False` to take it
     literally.
 
     WHAT THE BUILDING IS MADE OF is *material* (`mesh_damage.MATERIALS`), and
@@ -512,9 +457,9 @@ def shatter(stage, root_prim, intensity, seed=0, wall_m=None,
         grain = mat.grain
     if fragment_m is None:
         fragment_m = mat.fragment_m
-    n = cells_for(root_prim, fragment_m) if auto_cells or max_cells is None \
+    n = md.cells_for(root_prim, fragment_m) if auto_cells or max_cells is None \
         else int(max_cells)
-    w = wall_for(root_prim, wall_m) if auto_cells else float(wall_m)
+    w = md.wall_for(root_prim, wall_m) if auto_cells else float(wall_m)
     rep = md.damage_building(
         stage, root_prim, "earthquake", float(intensity), seed=int(seed),
         wall_m=float(w), solid=bool(solid), max_edge_m=float(max_edge_m),
@@ -523,7 +468,7 @@ def shatter(stage, root_prim, intensity, seed=0, wall_m=None,
         fragment_m=float(fragment_m), grain=grain,
         max_cells=int(n), shrink=float(shrink), **fracture_kw)
     rep["cells_wanted"] = n
-    rep["cells_capped"] = bool(n >= MAX_CELLS_CAP)
+    rep["cells_capped"] = bool(n >= md.MAX_CELLS_CAP)
     return rep
 
 

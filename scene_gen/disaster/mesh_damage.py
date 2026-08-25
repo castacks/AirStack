@@ -3454,9 +3454,6 @@ FRACTURE_KEYS = ("fragment_m", "max_cells", "support", "release",
 # thick whether it is shaken or blown over, and the cell count is set by the
 # rubble size the script asked for and by what PhysX can afford. They live here
 # so every per-disaster script gets the same answer.
-#
-# NOTE: `disaster/quake.py` still carries its own identical copies, written
-# before there was a second script. They should be deleted in favour of these.
 # ---------------------------------------------------------------------------
 
 #: Metres of wall on a REFERENCE-sized building. A wall is about half a metre
