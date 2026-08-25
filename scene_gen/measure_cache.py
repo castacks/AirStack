@@ -99,13 +99,26 @@ class MeasureCache:
     measured", and re-deriving it costs the same failed open every time.
     """
 
-    def __init__(self, path: str = "", autosave: bool = True):
+    def __init__(self, path: str = "", autosave: bool = True,
+                 readonly: bool = False):
         self.path = path or DEFAULT_PATH
         self.hits = 0
         self.misses = 0
         self._dirty = False
+        # READERS MUST NOT WRITE. A save is a whole-file read-modify-write, so
+        # two processes holding the file at once do not merge — the second one
+        # to save replaces the first one's entries with its own. That is not
+        # hypothetical: a host preview run and a container bake overlapped and
+        # the cache went from 114 entries to 28, after which every host tool
+        # packed the city against `fallback_sizes` again.
+        #
+        # A consumer that cannot measure anything the cache does not already
+        # have (any host-side tool: `Usd.Stage.Open` on `omniverse://` needs
+        # `omni.usd_resolver`, which is Kit's) has nothing to contribute and
+        # everything to lose, so it opens the cache readonly.
+        self.readonly = bool(readonly)
         self._data = self._load()
-        if autosave:
+        if autosave and not self.readonly:
             # Flush at exit rather than making every caller remember. A run
             # that measures 150 assets and then crashes should still leave the
             # next one warm, and the write is atomic so a half-file is not a
@@ -160,7 +173,7 @@ class MeasureCache:
 
     def save(self) -> bool:
         """Atomic write. Returns whether anything was written."""
-        if not self._dirty:
+        if self.readonly or not self._dirty:
             return False
         try:
             os.makedirs(os.path.dirname(self.path), exist_ok=True)
@@ -168,6 +181,13 @@ class MeasureCache:
                                        suffix=".tmp")
             with os.fdopen(fd, "w") as fh:
                 json.dump({"version": VERSION, "entries": self._data}, fh)
+            # `mkstemp` is 0600 by the OS, and the process that writes the
+            # cache worth having is the container's — running as root, onto a
+            # bind mount. That left the file unreadable to the host user, so
+            # every host tool silently got an EMPTY cache and packed the city
+            # against `fallback_sizes`. The cache is measurements of public
+            # assets; there is nothing in it to keep private.
+            os.chmod(tmp, 0o644)
             os.replace(tmp, self.path)
         except OSError as exc:
             print(f"[measure_cache] could not save: {exc}")

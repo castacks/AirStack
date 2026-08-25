@@ -202,7 +202,7 @@ def test_severity_reaches_the_individual_building(preset):
 
     def worst(severity):
         cfg, layout, placements = S.build_for_disaster(preset, 42, severity)
-        resolver = sg._make_resolver(cfg)
+        resolver = sg._make_resolver(cfg, cache=False)   # cold: see `snapshot.py`
         with contextlib.redirect_stdout(io.StringIO()):
             disaster_stage.apply_to_buildings(cfg, layout, placements, resolver)
         marked = [p["_mesh_damage"] for p in placements if p.get("_mesh_damage")]

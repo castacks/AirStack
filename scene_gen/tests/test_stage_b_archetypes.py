@@ -68,7 +68,11 @@ def no_library(monkeypatch):
 
 
 def _build(config):
-    resolver = sg._make_resolver(config)
+    # COLD. `_make_resolver` defaults to the on-disk measurement cache, so a
+    # test that takes the default asserts against whatever a container run
+    # last measured — the layout changes under it and the failure looks like a
+    # code regression. `snapshot.py` already builds cold for this reason.
+    resolver = sg._make_resolver(config, cache=False)
     placements, layout, _ = generate_scene.build_scene(config, resolver)
     return placements
 

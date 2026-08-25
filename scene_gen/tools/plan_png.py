@@ -8,6 +8,12 @@ Writes two maps beside each other:
     <config>_damage.png   the same scene after stage 3, shaded by what the
                           disaster did to it, over the damage field
 
+The damage map also carries the LADDER: a star at the epicentre (or a dashed
+centreline for a track), a labelled contour where each rung takes over, and a
+count of the buildings on each rung. That is the answer to "how far out does
+`pancaked` reach", which is otherwise only visible by baking the scene and
+looking at it.
+
 THE SAME PIPELINE THE SIM RUNS
 ------------------------------
 This calls `compile_disaster.load_scene_config` and `generate_scene.build_scene`
@@ -26,14 +32,14 @@ The split is at exactly the point where the scene stops being numbers and
 becomes geometry. Everything left of it is shared; everything right of it is
 what this tool exists to avoid paying for.
 
-THE ONE DEVIATION, AND WHY
---------------------------
-The resolver. `sg._make_resolver` measures real USD bounding boxes, which needs
-every asset resolvable — Nucleus included. `StubResolver` answers from the
-sizes already recorded in the asset-pack comments instead, so the whole thing
-runs on the host in about a second. That is the only substitution, and
-un-measured assets are counted in the subtitle so you know which footprints not
-to trust.
+WHERE THE FOOTPRINTS COME FROM
+------------------------------
+The same `sg._make_resolver` the launch script uses, reading the measurement
+cache the sim itself wrote (`assets/.measurements.json`). Footprint drives
+block packing, so this is not a detail: on `earthquake` the old
+comment-scraped `StubResolver` built 266 buildings where the sim built 204,
+with whole blocks zoned differently. The stub is still the fallback when there
+is no cache, and which resolver ran is printed. See `resolver_for`.
 
 WHAT IT IS NOT
 --------------
@@ -99,20 +105,19 @@ class StubResolver:
     plan — it changes it. Measured against the sim on the same config:
 
         suburb     plan 1947 houses   sim 1853   no shared position
-        urban   plan  266 houses   sim  346
+        urban      plan  266 buildings   sim  204
 
     because the sim measures every USD's real bounds while this reads the
     `# 21.1 x 6.8 x 14.2 m` comments and falls back to `fallback_sizes` for
     anything without one — which on the suburban set is *every* house, since
     those entries carry name comments but not size comments.
 
-    Making this measure the local assets is the obvious fix and is NOT done
-    here: a first attempt at it moved suburb to 2049 rather than to 1853,
-    i.e. further away, so the divergence is not the comment table alone. Until
-    that is understood, the honest tool is the one that says how much it
-    guessed — `[N assets un-measured]` in the subtitle — and defers to
-    `generate_scene.write_run_plan`, which renders from inside the sim off the
-    real resolver and is correct by construction.
+    NO LONGER THE DEFAULT. `resolver_for` reads the sim's own measurement
+    cache instead and reproduces its layout; this is what runs on a machine
+    that has no cache yet. It is kept, rather than deleted, because a plan
+    with `[N assets un-measured]` on it still answers "roughly where are the
+    blocks" on a fresh checkout — and because the numbers above are the
+    record of how wrong "roughly" can be.
     """
 
     def __init__(self, sizes, fallbacks):
@@ -132,6 +137,56 @@ class StubResolver:
                 "cx": 0.0, "cy": 0.0}
 
 
+def resolver_for(cfg):
+    """The real measuring resolver when the measurement cache can answer it,
+    the comment-scraped stub when it cannot.
+
+    THIS IS THE DIFFERENCE BETWEEN A PLAN AND A PICTURE OF A DIFFERENT CITY.
+    Footprint is what block packing keys off, so a guessed size does not blur
+    the map — it changes the layout. Against the sim's own `_run` plan for
+    `earthquake`: the stub built 266 buildings (119 midrise / 101 rowhouse /
+    46 tower) where the sim built 204 (146 / 22 / 36). It was not a rounding
+    difference; whole blocks were zoned differently.
+
+    `scene_gen/assets/.measurements.json` already holds the sim's own
+    measurements — `SizeResolver` writes it inside the container, where
+    Nucleus is reachable — so the host does not have to measure anything to
+    agree with it. Reading it takes the same `_make_resolver` the launch
+    script uses and lands on 209 buildings, which is the sim's layout.
+
+    The stub stays as the fallback for a machine with no cache (a fresh
+    checkout, a CI box): a wrong-but-instant plan with `[N assets
+    un-measured]` on it beats no plan. Which one ran is printed, because the
+    two answer differently and the difference matters.
+
+    Nothing here reaches the network. A Nucleus asset the cache does not
+    carry fails to open on the host and falls back — that is the residue in
+    `[N assets un-measured]`, and it is props and ruins, not the buildings
+    the blocks are packed around.
+    """
+    import scene_generator as sg
+    from measure_cache import MeasureCache
+
+    # READONLY: a host process cannot measure a Nucleus asset (that needs
+    # Kit's `omni.usd_resolver`), so it has nothing to add — and a save here
+    # would replace whatever a concurrent container run has measured, which is
+    # how this cache went from 114 entries to 28 mid-session.
+    cache = MeasureCache(autosave=False, readonly=True)
+    if len(cache):
+        print(f"[plan] measured footprints: {len(cache)} cached "
+              f"({os.path.basename(cache.path)})")
+        return sg._make_resolver(cfg, cache=cache)
+
+    print("[plan] NO measurement cache — footprints are comment-scraped "
+          "guesses and THE LAYOUT WILL DIFFER FROM THE SIM. Launch the scene "
+          "once to build the cache.")
+    cfg["measure_usds"] = False            # StubResolver answers instead
+    sets = os.path.join(_SCENE_GEN, "config", "asset_packs")
+    sizes = measured_sizes([os.path.join(sets, f)
+                            for f in os.listdir(sets) if f.endswith(".yaml")])
+    return StubResolver(sizes, cfg.get("fallback_sizes"))
+
+
 def build(config_name, stop_after="disaster"):
     """Compile and run the generator exactly as the launch script does.
 
@@ -144,12 +199,7 @@ def build(config_name, stop_after="disaster"):
 
     path = resolve_config_path(config_name)
     cfg = load_scene_config(path)          # <- what scene_launch_script calls
-    cfg["measure_usds"] = False            # StubResolver answers instead
-
-    sets = os.path.join(_SCENE_GEN, "config", "asset_packs")
-    sizes = measured_sizes([os.path.join(sets, f)
-                            for f in os.listdir(sets) if f.endswith(".yaml")])
-    res = StubResolver(sizes, cfg.get("fallback_sizes"))
+    res = resolver_for(cfg)
 
     placements, layout, _counts = generate_scene.build_scene(
         cfg, res, stop_after=stop_after)
@@ -212,6 +262,43 @@ def field_of(cfg, layout):
     return f if f.hi > 0.0 else None
 
 
+def rung_overlay(ax, grid, xs, ys, dtype, sev, field):
+    """The ladder drawn on the field: where each rung takes over, and the core
+    the field attenuates from.
+
+    Contoured on LOCAL DAMAGE (`levels.local_damage` — field x severity), not
+    on the field itself, because that is what the quantiser reads. At severity
+    0.5 an earthquake reaches nothing above 0.5 anywhere, so there is no
+    `pancaked` ring to draw — contouring the field's own 0.88 would draw one
+    and claim a rung the scene never bakes.
+
+    A rung whose threshold falls outside the field's range is skipped rather
+    than contoured at nothing: matplotlib answers an out-of-range level with a
+    warning and an empty path, which reads on the map as "that rung is here,
+    just very thin".
+    """
+    from disaster import levels
+    dmg = grid * float(sev)
+    inside = [r for r in levels.ladder(dtype)
+              if r.at > 0.0 and dmg.min() < r.at < dmg.max()]
+    if inside:
+        cs = ax.contour(xs, ys, dmg, levels=[r.at for r in inside],
+                        colors="#ffe9b0", linewidths=0.9, zorder=3.6)
+        ax.clabel(cs, fmt={r.at: r.name for r in inside}, fontsize=7,
+                  colors="#ffe9b0")
+
+    # The core. A track has a centreline and an epicentre is a point; a
+    # uniform field (hurricane) has neither and gets no marker, rather than a
+    # marker at the origin that would read as an epicentre it does not have.
+    for sx0, sy0, sx1, sy1 in getattr(field, "segments", ()) or ():
+        ax.plot([sx0, sx1], [sy0, sy1], color="#ffd166", lw=1.0, ls="--",
+                zorder=6)
+    core = getattr(field, "center", None) or getattr(field, "origin", None)
+    if core:
+        ax.plot([core[0]], [core[1]], marker="*", ms=18, color="#ffd166",
+                mec="k", mew=0.6, zorder=6)
+
+
 def draw(cfg, layout, placements, res, out_path, title="",
          damage=None, field=None):
     import matplotlib
@@ -219,7 +306,13 @@ def draw(cfg, layout, placements, res, out_path, title="",
     import matplotlib.pyplot as plt
     from matplotlib.patches import Circle, Rectangle
 
+    import scene_generator as sg
+    from disaster import levels
+
     x0, y0, x1, y1 = layout["region"]
+    dis = sg._stage(cfg, "disaster") or {}
+    dtype = dis.get("type") if dis.get("type") != "none" else None
+    sev = float(dis.get("severity", 1.0) or 0.0)
     fig, ax = plt.subplots(figsize=(13, 13))
     ax.set_facecolor("#2b2b2b")                       # asphalt shows through
     typ_of = layout.get("_typology_of") or {}
@@ -263,8 +356,9 @@ def draw(cfg, layout, placements, res, out_path, title="",
     if field is not None:
         import numpy as np
         n = 128
-        grid = np.array([[field(x, y) for x in np.linspace(x0, x1, n)]
-                         for y in np.linspace(y0, y1, n)])
+        xs = np.linspace(x0, x1, n)
+        ys = np.linspace(y0, y1, n)
+        grid = np.array([[field(x, y) for x in xs] for y in ys])
         # One hue, opacity carrying the value — NOT a colormap. Every diverging
         # or perceptual map peaks in brightness somewhere in its middle, so an
         # `inferno` field drew the mild corners brighter than the full-strength
@@ -275,6 +369,8 @@ def draw(cfg, layout, placements, res, out_path, title="",
         rgba[..., 3] = np.clip(grid, 0.0, 1.0) * 0.55
         ax.imshow(rgba, extent=(x0, x1, y0, y1), origin="lower",
                   interpolation="bilinear", zorder=2.5)
+        if dtype:
+            rung_overlay(ax, grid, xs, ys, dtype, sev, field)
 
     # Debris under the buildings: it is ground cover, and drawn on top it
     # would hide the very fates it is evidence for.
@@ -292,6 +388,7 @@ def draw(cfg, layout, placements, res, out_path, title="",
     fate_of = {id(p): (f, i) for p, f, i in (damage or [])}
     counts = {}
     n_fate = {}
+    n_rung = {}
     for p in placements:
         if p.get("category") not in ("house", "building"):
             continue
@@ -307,6 +404,13 @@ def draw(cfg, layout, placements, res, out_path, title="",
                 str(p.get("usd", ""))):
             t = "midrise"
         counts[t] = counts.get(t, 0) + 1
+        if field is not None and dtype:
+            # The rung Stage B would put this building on — the same
+            # `level_for` the assembler calls, so the ring a building sits
+            # inside on the map is the archetype it gets in the scene.
+            rung = levels.level_for(dtype, field, float(p["x_m"]),
+                                    float(p["y_m"]), sev).name
+            n_rung[rung] = n_rung.get(rung, 0) + 1
         face, edge, lw, alpha = _COLOUR.get(t, "#7f8fa6"), "#111", 0.3, 1.0
         if damage is not None:
             fate, inten = fate_of.get(id(p), ("intact", 0.0))
@@ -334,13 +438,21 @@ def draw(cfg, layout, placements, res, out_path, title="",
         sub += ("\nfate: " + "  ".join(f"{k} {v}" for k, v in sorted(n_fate.items()))
                 + "   debris: "
                 + "  ".join(f"{k} {v}" for k, v in sorted(n_debris.items())))
+    if n_rung:
+        # Ladder order, not alphabetical: the whole point of the ladder is
+        # that its rungs are ordered, and sorting `pancaked` before
+        # `soft_storey` hides that.
+        sub += "\nrung: " + "  ".join(
+            f"{r.name} {n_rung[r.name]}" for r in levels.ladder(dtype)
+            if r.name in n_rung)
     if park:
         sub += f"\npark: {park}"
-    # `guessed` is the StubResolver's own bookkeeping. The real
-    # `SizeResolver` measures every asset it can open and has no such
-    # attribute — and when THAT is the resolver there is nothing to warn
-    # about, because nothing was approximated.
-    guessed = getattr(res, "guessed", ())
+    # `guessed` is `StubResolver`'s bookkeeping, `fallbacks` is the real
+    # `SizeResolver`'s — and the stub has a `fallbacks` too (its size table),
+    # so this asks for the stub's name first rather than taking whichever is
+    # non-empty.
+    guessed = (res.guessed if hasattr(res, "guessed")
+               else getattr(res, "fallbacks", ()))
     if guessed:
         sub += f"   [{len(guessed)} assets un-measured]"
     ax.set_title(f"{title}\n{sub}", color="#ddd", fontsize=10)
