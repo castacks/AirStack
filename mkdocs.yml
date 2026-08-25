@@ -106,6 +106,7 @@ nav:
           - AirStack CLI Tool:
               - Extending: docs/development/advanced/airstack-cli/extending.md
               - Architecture: docs/development/advanced/airstack-cli/architecture.md
+          - OSMO Lab Admin Guide: osmo/README.md
   - Simulation:
       - docs/simulation/index.md
       - docs/simulation/scenes.md
@@ -126,6 +127,8 @@ nav:
       - docs/robot/index.md
       - Configuration:
           - docs/robot/configuration/index.md
+          - Vehicle Config Schema: config/vehicles/README.md
+          - Local Calibration: config/local/README.md
       - Docker:
           - docs/robot/docker/index.md
           - Robot Identity: docs/robot/docker/robot_identity.md
@@ -133,10 +136,13 @@ nav:
           - Overview: docs/robot/autonomy/index.md
           - System Architecture: docs/robot/autonomy/system_architecture.md
           - Tasks and Task Executors: docs/robot/autonomy/tasks.md
+          - RViz Tasks Panel: common/ros_packages/gui/rviz/rviz_tasks_panel/README.md
+          - RViz 3D Waypoint Plugin: common/ros_packages/gui/rviz/3d_waypoint_rviz2_plugin/README.md
           - Interface:
               - docs/robot/autonomy/interface/index.md
           - Sensors:
               - docs/robot/autonomy/sensors/index.md
+              - LiDAR Point Cloud Filter: robot/ros_ws/src/sensors/lidar_point_cloud_filter/README.md
               - Gimbal: docs/robot/autonomy/sensors/gimbal.md
           - Perception:
               - docs/robot/autonomy/perception/index.md
@@ -187,6 +193,7 @@ nav:
           - Bag Recorder: common/ros_packages/logging/bag_recorder_pid/README.md
   - Modules:
       - Catalog: docs/modules/index.md
+      - module.yaml Schema: common/module_schema/README.md
       - dfm2_disturbances: docs/modules/dfm2_disturbances.md
       - macvo: docs/modules/macvo.md
       - optitrack: docs/modules/optitrack.md
