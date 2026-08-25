@@ -48,6 +48,7 @@ services:
       - SCENE_SETTLE=${SCENE_SETTLE:-1}
       # 0 skips Stage A's baked archetypes so every building is damaged live
       - SCENE_ARCHETYPES=${SCENE_ARCHETYPES:-}
+      - SCENE_MAX_CELLS=${SCENE_MAX_CELLS:-}
       # Settle device (1/0, empty = leave the scene as found) and stepping mode
       # ("timeline" restores the pre-instrumentation loop) — scene_prep.settle
       - SCENE_SETTLE_GPU=${SCENE_SETTLE_GPU:-}
@@ -152,6 +153,7 @@ services:
       - SCENE_SETTLE=${SCENE_SETTLE:-1}
       # 0 skips Stage A's baked archetypes so every building is damaged live
       - SCENE_ARCHETYPES=${SCENE_ARCHETYPES:-}
+      - SCENE_MAX_CELLS=${SCENE_MAX_CELLS:-}
       # Settle device (1/0, empty = leave the scene as found) and stepping mode
       # ("timeline" restores the pre-instrumentation loop) — scene_prep.settle
       - SCENE_SETTLE_GPU=${SCENE_SETTLE_GPU:-}

@@ -685,6 +685,45 @@ def solid_assets(config: dict) -> set:
     return out
 
 
+def asset_materials(config: dict) -> dict:
+    """USD path -> the construction the asset pack declares for it.
+
+    The sibling of `solid_assets`, and declared for the same reason: what a
+    building is made of is a fact about the art, known to whoever authored it,
+    and not something to re-derive every run.
+
+        buildings:
+          tower:
+            - {usd: ".../BG_Building_F.usd", material: glass}
+
+    Read by `mesh_damage.apply_to_stage`, which turns the FACADE named here
+    into the STRUCTURE behind it (`mesh_damage.STRUCTURE_OF`) — a curtain-wall
+    tower is glass on the outside and a steel frame at every break. Unlisted
+    assets fall back to the scene-wide `mesh_damage.material`, which is a
+    property of the locale rather than of the building.
+    """
+    root = str(config.get("asset_root", "") or "")
+    out: dict = {}
+
+    def walk(node):
+        if isinstance(node, dict):
+            if isinstance(node.get("usd"), str):
+                kind = node.get("material")
+                if kind:
+                    raw = str(node["usd"])
+                    out[raw] = str(kind)
+                    out[_join_asset_root(raw, root)] = str(kind)
+                return
+            for v in node.values():
+                walk(v)
+        elif isinstance(node, (list, tuple)):
+            for v in node:
+                walk(v)
+
+    walk(config.get("usds") or {})
+    return out
+
+
 def _normalize_usd_list(lst, default_scale: float, asset_root: str = ""):
     """Return ``(path_list, scale_overrides, axis_up_overrides, yaw_overrides,
     tag_overrides)`` from a raw YAML USD list.

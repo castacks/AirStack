@@ -100,6 +100,10 @@ SNAP_DIR = os.environ.get("SNAP_DIR", "").strip()
 _COLLAPSED = ("pancaked", "partial_collapse", "soft_storey")
 
 
+#: How many wreck close-ups the review writes (`REVIEW_WRECKS=` to override).
+REVIEW_WRECKS = int(os.environ.get("REVIEW_WRECKS", "8") or 8)
+
+
 def review_snapshots(stage, config, placements, victims, ssf, out_dir):
     """The G2 review set: overview, street obliques, wrecks, one victim.
 
@@ -189,8 +193,12 @@ def review_snapshots(stage, config, placements, victims, ssf, out_dir):
     # High enough to clear the tallest tower with room to spare: on a 105 m
     # map the eye at 0.95 x span sat just above a 70 m roof and the overview
     # was a picture of that roof.
+    # FRAME THE MAP, not the tallest asset. `1.6 * tallest + 60` put the eye
+    # 270 m up over a 200 m block — the whole scene rendered as a small square
+    # in the middle. Clearing the tallest roof is a floor on the height, not
+    # the thing being framed.
     written.append(snaps.overview(stage, (ex, ey),
-                                  max(span * 1.05, 1.6 * tallest + 60.0),
+                                  max(span * 1.05, tallest + 40.0),
                                   os.path.join(out_dir, "01_overview_plumb.png"),
                                   ssf, frames=48))
     # 2. three street-height obliques: the epicentre and two other spots
@@ -206,13 +214,17 @@ def review_snapshots(stage, config, placements, victims, ssf, out_dir):
     for i, (name, x, y) in enumerate(spots[:3], start=2):
         written.append(oblique(f"{i:02d}_street_oblique_{name}.png",
                                x, y, dist=60.0, h=14.0, tz=6.0))
-    # 3. two close-ups of collapsed buildings, nearest the epicentre first
-    for i, p in enumerate(wrecks[:2], start=5):
+    # 3. close-ups of collapsed buildings, nearest the epicentre first. EVERY
+    # instance, not the first two: the library places the same asset several
+    # times and they do not come out alike — a texture or a material that is
+    # wrong on one instance and right on the others is invisible in a review
+    # that only ever photographs two of them.
+    for i, p in enumerate(wrecks[:REVIEW_WRECKS], start=5):
         stem = os.path.splitext(os.path.basename(str(p.get("usd", "b"))))[0]
         written.append(oblique(
             f"{i:02d}_collapsed_{p.get('_damage_level')}_{stem}.png",
             p["x_m"], p["y_m"], dist=48.0, h=22.0, tz=5.0))
-    # 4. one victim, the most visible one
+    # 4. one victim, the most visible one (numbered after the wrecks)
     order = {"open": 0, "partial": 1, "occluded": 2}
     vis = sorted((v for v in victims if "x" in v and "y" in v),
                  key=lambda v: order.get(str(v.get("visibility")), 3))
@@ -221,7 +233,8 @@ def review_snapshots(stage, config, placements, victims, ssf, out_dir):
         home = next(((float(p["x_m"]), float(p["y_m"])) for p in houses
                      if p.get("prim_path") == v.get("building")), None)
         written.append(oblique(
-            f"07_victim_{v.get('cohort', 'x')}_{v.get('visibility', 'x')}.png",
+            f"{5 + min(len(wrecks), REVIEW_WRECKS):02d}_victim_"
+            f"{v.get('cohort', 'x')}_{v.get('visibility', 'x')}.png",
             float(v["x"]), float(v["y"]), dist=9.0, h=4.0,
             tz=float(v.get("z", 0.0)) + 0.8, away_from=home))
     written = [w for w in written if w]

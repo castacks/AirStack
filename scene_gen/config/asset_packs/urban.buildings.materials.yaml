@@ -1,7 +1,9 @@
 # Asset material tags — written by scene_gen/tools/tag_asset_materials.py
 #
-# A record of decisions, NOT something the generator reads. Nothing here
-# has been applied to the asset pack; do that deliberately.
+# The SURVEY behind the tags, not the tags themselves. Applied to
+# `urban.yaml` on 2026-08-25 as per-asset `material:` keys, which is what the
+# generator reads (`scene_generator.asset_materials`). Re-running the tagger
+# rewrites this file only; applying it again is a deliberate step.
 #
 # material: null means the asset was skipped — seen, no material chosen.
 # An asset missing from `assets:` was never reached.

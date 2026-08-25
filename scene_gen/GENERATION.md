@@ -292,6 +292,7 @@ the Isaac Sim launch scripts import it from here.
 | `preset_report.py` | Dry-run every preset and compare the results. |
 | `tools/settle_overlap.py` | Screens a scene for props that spawn inside each other — the PhysX depenetration impulse is what launches debris out of the region. Host-side, seconds. |
 | `tools/plan_png.py` | **Top-down plan of a scene, in about a second.** Two maps: pristine layout, and damage over the field. Calls the same `load_scene_config` → `build_scene` the launch script does, so it previews the real pipeline. |
+| `tools/quake_png.py` | **The earthquake plan: the epicentre and the rungs.** Rings where each rung of the ladder takes over, in metres, with the buildings on each. The radial counterpart to `tools/fire_png.py` — the ring radii are bisected on the field object itself, so they cannot drift from `disaster/field.py`. |
 | `tools/damage_gallery.py` + `tools/render_damage_gallery.py` | Preview what each disaster does to a building, as a rows-are-buildings / columns-are-disasters contact sheet. Builds through the real pipeline (host `python3`), renders with Cycles (`uv run --script`). |
 | `tests/` | Host-side layout guardrails — no Isaac, no Nucleus, seconds to run. See [`tests/README.md`](tests/README.md). |
 | `reload_scene.py` | Regenerate on a live Isaac Sim stage without restarting. |
@@ -299,6 +300,17 @@ the Isaac Sim launch scripts import it from here.
 | `objaverse_assets.py` / `convert_to_usd.py` / `render_usd.py` | The Objaverse → USD asset pipeline that backs it: search, download, Blender conversion, preview. |
 | `inspect_usd_asset.py` | Print a USD's prims, bbox and up-axis. |
 | `config/presets/*.yaml` | **High-level specs.** Hand-written, one per scenario. Name a locale, a disaster type and a severity. |
+**What a building is made of is declared in the asset pack**, per asset, beside
+its scale — `{usd: ".../BG_Building_F.usd", scale: 0.01, material: glass}`.
+That names the FACADE; `mesh_damage.STRUCTURE_OF` turns it into the structure a
+break exposes (glass curtain wall → steel frame, brick → masonry, concrete →
+concrete, wood → timber), which decides the fragment shape, the wall thickness
+and the material on every cut face. Unlisted assets fall back to the scene-wide
+`mesh_damage.material`, which is a property of the LOCALE (a suburb is timber
+frame) and is the wrong answer for a downtown block, where every building is
+different. `scene_gen/config/asset_packs/urban.buildings.materials.yaml` is the
+survey those tags came from. Sibling declaration: `solid: true` (stage 1 above).
+
 | `config/asset_packs/shared.yaml` | **Shared assets.** Everything every locale builds with — street furniture, greenery, tiles, vehicles, people — plus `asset_root`, `asset_scale`, `sky`, `orientation`, `fallback_sizes`. No `buildings` or `debris`: those read as a specific material (concrete rubble, timber wreckage) and belong entirely to the set whose damage they are. Not named directly by a config. |
 | `config/asset_packs/<locale>.yaml` | **Specialized packs.** `extends: shared`, then only what makes that locale itself: its buildings and the debris they leave. |
 | `config/low_level/default.yaml` | **The schema tier.** Hand-written, grouped by stage (`layout:` / `detail:` / `disaster:`): what every knob means and a safe default for it, with the full comments and citations. Names an asset pack rather than listing assets. |
@@ -854,9 +866,20 @@ Two mechanisms ruin a building, and the fate drawn for it decides which:
 Mesh damage is **one pipeline in four stages**, and a disaster type gets to
 choose exactly one thing about it: where the building fails.
 
-1. **Thicken** (`solidify`). Give the shell wall volume — see below. Nothing
-   downstream can look like broken masonry until a wall has a thickness to
-   break through.
+1. **Thicken** (`solidify`) — *only a hollow shell*. Give the shell wall volume
+   so a cut has something to break through, instead of cutting paper. **A
+   building is not a solid lump**, and two gates keep it from being treated as
+   one: an asset the pack marks `solid: true` already has material in its
+   walls, and an asset that ships its own floors and partitions
+   (`interior_fill` measures it, threshold `already_filled`) is not thickened
+   either — extruding the surface inward there thickens geometry that is
+   already material.
+1½. **Fill** (`fill_interior`) — *the other half of the same decision*. A
+   hollow tower gets floor slabs and a column grid authored inside it, so a
+   break shows stacked floors rather than an empty box. Skipped for anything
+   under `min_radius_m` (a house's shell genuinely is the house) and for the
+   assets from the gate above, which would otherwise get a second set of slabs
+   driven through the first.
 2. **Fail** (`failure_field`). Evaluate a scalar **failure field** over world
    space: `damage(p) ∈ [0, 1]`, how much of the material at *p* has lost its
    integrity, plus an `ejecta(p)` saying where the event threw it. **This is

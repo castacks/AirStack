@@ -2268,11 +2268,57 @@ MATERIALS = {
     "timber": Material(0.15, (2.6, 1.0, 0.55), 1.2),
     # A beam: long in one direction and stubby in the other two.
     "steel": Material(0.30, (3.2, 0.8, 0.8), 2.4),
+    # Cast frame and slab: thicker than brick, and it breaks into blocks and
+    # slabs rather than into a lump — a floor plate is one of the two things a
+    # concrete building sheds, and it is flat.
+    "concrete": Material(0.60, (1.6, 1.4, 0.6), 2.6),
 }
 
 #: What an asset is made of when nothing says otherwise. Masonry, because that
 #: is what every number in this module meant before the table existed.
 DEFAULT_MATERIAL = "masonry"
+
+#: What a PARTICULAR asset is built of, by name fragment. The scene-wide
+#: `material` is a property of the locale — a suburb is timber frame whether it
+#: was shaken or blown down — but a downtown block is not one construction, and
+#: reading it as one puts brick cut faces through a glass-and-steel tower. That
+#: is what a viewer sees first: the fracture core is world-projected onto every
+#: cut face, so on a curtain-wall building the WHOLE wreck reads as brick.
+#: First match wins on the asset's file name; anything unlisted falls back to
+#: the scene material. Overridable per scene with `mesh_damage.materials`.
+#: The facade an asset pack names is not what a break exposes. A curtain-wall
+#: tower is glass outside and a steel frame at every cut; a brick rowhouse is
+#: brick all the way through. `asset_materials` reads the cladding off the
+#: pack (`scene_generator.asset_materials`) and this turns it into the
+#: STRUCTURE the fracture core and the grain should be.
+STRUCTURE_OF = {
+    "glass": "steel",       # curtain wall on a frame
+    "brick": "masonry",
+    "concrete": "concrete",
+    "stone": "masonry",
+    "wood": "timber",
+    "timber": "timber",
+    "steel": "steel",
+    "masonry": "masonry",
+}
+
+
+def material_for_asset(usd, default=None, table=None) -> str:
+    """The STRUCTURE kind for one asset — see `STRUCTURE_OF`.
+
+    *table* is `scene_generator.asset_materials(config)`: what the asset pack
+    declares this building is clad in. Anything unlisted falls back to
+    *default*, the scene-wide material, which is a property of the locale.
+    """
+    raw = (table or {}).get(str(usd or ""))
+    if not raw:
+        base = os.path.basename(str(usd or ""))
+        raw = next((v for k, v in (table or {}).items()
+                    if base and os.path.basename(str(k)) == base), None)
+    if not raw:
+        return str(default or DEFAULT_MATERIAL)
+    kind = STRUCTURE_OF.get(str(raw).lower(), str(raw).lower())
+    return kind if kind in MATERIALS else str(default or DEFAULT_MATERIAL)
 
 
 def material(name) -> Material:
@@ -2646,6 +2692,9 @@ CORE_LOOKS = {
     "timber": {"color": (0.55, 0.42, 0.27), "roughness": 0.85},
     "steel": {"color": (0.36, 0.36, 0.38), "roughness": 0.55,
               "metallic": 0.6},
+    # Grey, matte, no brick coursing — the thing the masonry core was standing
+    # in for on every tower in the library.
+    "concrete": {"color": (0.60, 0.60, 0.58), "roughness": 0.85},
 }
 
 
@@ -3552,11 +3601,20 @@ FRACTURE_KEYS = ("fragment_m", "max_cells", "support", "release",
 #: thick on a bungalow and on a tower alike, which is why `solidify` takes an
 #: absolute length — but the two do not read the same. On a 12 m house 0.5 m is
 #: masonry; on a 96 m tower it is 0.5% of the span, a foil skin inside a 10 m
-#: Voronoi cell, and the fragments come out looking hollow. So the wall grows
+#: Voronoi cell, and the fragments came out looking hollow. So the wall grows
 #: with the building, slowly (square root, not linear — a skyscraper has
 #: thicker walls than a house, not eight times thicker) and to a ceiling.
+#:
+#: THE CEILING CAME DOWN FROM 2.0 m ON 2026-08-25, and the growth is a
+#: correction now rather than a substitute for structure. A 2 m wall cut by an
+#: 8 m cell is a ROCK: the fragment is a lump with mass in every direction, so
+#: a wrecked curtain-wall tower read as broken masonry no matter what material
+#: it was given. The hollow-fragment problem that justified 2 m is what
+#: `fill_interior` exists for — floors and columns inside the shell — and with
+#: those authored the wall can stay wall-thick and the pieces come out as
+#: panels and slabs.
 WALL_M = 0.5
-WALL_M_MAX = 2.0
+WALL_M_MAX = 0.8
 
 #: Building radius `WALL_M` is quoted for.
 REF_RADIUS_M = 12.0
@@ -3594,6 +3652,17 @@ def cells_for(root_prim, fragment_m=2.0, cap=None):
     prims = mesh_prims(root_prim)
     b = bounds_of(prims) if prims else None
     top = int(MAX_CELLS_CAP if cap is None else cap)
+    # SCENE_MAX_CELLS lowers the ceiling for a whole run. A 200 m scene damages
+    # 14 buildings, and at the default ~1,200 cells each that is ~16k fragment
+    # meshes — enough to exhaust GPU memory during the settle and the render
+    # (measured 2026-08-25: Vulkan OOM on urban_quake_showcase). Coarser rubble
+    # is the cheap trade: the pieces get bigger, the collapse still reads.
+    env_top = os.environ.get("SCENE_MAX_CELLS", "").strip()
+    if env_top:
+        try:
+            top = max(24, min(top, int(env_top)))
+        except ValueError:
+            pass
     if b is None:
         return top
     w, d, h = (float(x) for x in b.dims)
@@ -3611,8 +3680,8 @@ def damage_building(stage, root_prim, disaster_type: str, intensity: float,
                     **fracture_kw) -> dict:
     """Run the four stages on one building. Returns a small report.
 
-    ``{"field": name|None, "thickened": n_meshes, "cells": n,
-       "paths": [...], "loose": [...]}``
+    ``{"field": name|None, "thickened": n_meshes, "already_inside": bool,
+       "cells": n, "paths": [...], "loose": [...]}``
 
     ORDER IS THE ARGUMENT, NOT AN IMPLEMENTATION DETAIL
     ---------------------------------------------------
@@ -3635,7 +3704,8 @@ def damage_building(stage, root_prim, disaster_type: str, intensity: float,
       it consumes and there would be nothing left to read a material binding
       off. The fragments bind the same materials, so they inherit the soot.
     """
-    out = {"field": None, "thickened": 0, "cells": 0, "paths": [], "loose": [],
+    out = {"field": None, "thickened": 0, "already_inside": False,
+           "cells": 0, "paths": [], "loose": [],
            "dismissed": False}
     deinstance(root_prim)
     prims = mesh_prims(root_prim)
@@ -3681,8 +3751,25 @@ def damage_building(stage, root_prim, disaster_type: str, intensity: float,
         out["dismissed"] = True         # nothing here will ever come free
         return out
 
+    # WHAT IS ALREADY INSIDE decides both of the next two stages, so it is
+    # measured once here rather than twice. A building is not a solid lump:
+    # `solidify` extrudes the outer SURFACE inward, which is right for a shell
+    # (a facade with nothing behind it cuts into paper) and wrong for a tower
+    # that ships its own floors and partitions — there it thickens geometry
+    # that is already material, and `fill_interior` would then author a second
+    # set of slabs through the first. Below `min_radius_m` the question does
+    # not arise: a house's shell genuinely is the house.
+    ikw = dict(interior_kw or {})
+    _min_r = float(ikw.get("min_radius_m", 25.0))
+    has_inside = bool(
+        prims and b is not None and b.radius >= _min_r
+        and interior_fill(prims, b, float(ikw.get("storey_m", 3.5)),
+                          float(ikw.get("cell_m", 3.0)))
+        >= float(ikw.get("already_filled", 0.35)))
+    out["already_inside"] = has_inside
+
     # --- stage one: thickness -----------------------------------------------
-    if wall_m and wall_m > 0.0 and not solid:
+    if wall_m and wall_m > 0.0 and not solid and not has_inside:
         got = solidify_prims(prims, float(wall_m), bounds=b,
                              **(solid_kw or {}))
         out["thickened"] = got["meshes"]
@@ -3699,9 +3786,8 @@ def damage_building(stage, root_prim, disaster_type: str, intensity: float,
     # and a hollow shell reads as paper through any of those holes.
     # `fill_interior` declines on anything under its own size floor, so a shed
     # still costs nothing.
-    if interior:
-        out["interior"] = fill_interior(stage, root_prim, b,
-                                        **(interior_kw or {}))
+    if interior and not has_inside:
+        out["interior"] = fill_interior(stage, root_prim, b, **ikw)
 
     # --- stage three: propagation -------------------------------------------
     # The cut faces show the material's CORE (`core_material`), shared
@@ -3876,7 +3962,7 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
     The per-building seed keys off the placement index, so re-ranking changes
     *which* buildings are damaged and never *how* one of them is.
     """
-    from scene_generator import _stage, solid_assets
+    from scene_generator import _stage, asset_materials, solid_assets
 
     dis = _stage(config, "disaster")
     dtype = str(config.get("disaster_type")
@@ -3911,13 +3997,15 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
     # says otherwise, which is what every number in this module meant before
     # `MATERIALS` existed.
     mat = material(cfg.get("material"))
-    wall_m = (float(tcfg.get("wall_m", mat.wall_m))
-              if tcfg.get("enabled", True) else 0.0)
+    thicken = bool(tcfg.get("enabled", True))
+    scene_wall_m = float(tcfg.get("wall_m", mat.wall_m)) if thicken else 0.0
     solid_kw = {k: tcfg[k] for k in ("max_points", "max_span_frac", "weld_tol")
                 if k in tcfg}
     # Assets whose art already has material in the walls. Declared in the asset
     # set, not detected — see `scene_generator.solid_assets`.
     solid_usds = solid_assets(config)
+    # WHAT EACH BUILDING IS MADE OF, from the pack — see `STRUCTURE_OF`.
+    pack_materials = asset_materials(config)
 
     sub_edge = (float(scfg.get("max_edge_m", 4.0))
                 if scfg.get("enabled", True) else 0.0)
@@ -3947,10 +4035,20 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
         if not prim or not prim.IsValid():
             continue
         t_one = time.time()
+        # Per ASSET, not per scene: see `ASSET_MATERIALS`.
+        kind = material_for_asset(p.get("usd"), cfg.get("material"),
+                                  pack_materials)
+        # A steel frame is not walled like a brick terrace. When the pack names
+        # the construction it also decides the wall, since `tcfg.wall_m` is the
+        # LOCALE's answer and a downtown block is not one construction.
+        wall_m = (material(kind).wall_m
+                  if thicken and p.get("usd") in pack_materials
+                  else scene_wall_m)
         print(f"[mesh_damage] {n}/{len(work)} "
               f"{os.path.basename(str(p.get('usd', '')))} "
               f"{p.get('_damage_level', '?')} "
-              f"(intensity {float(p['_mesh_damage']):.2f}) ...", flush=True)
+              f"(intensity {float(p['_mesh_damage']):.2f}, {kind}) ...",
+              flush=True)
         if str(dtype).lower() in DAMAGE_SCRIPTS:
             # The script owns the DEFAULTS for fragment size, thresholds and
             # consume; the config still overrides them where it says so, or a
@@ -3968,7 +4066,7 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
                              seed=seed + i * 31, solid=p.get("usd") in solid_usds,
                              max_edge_m=sub_edge, solid_kw=solid_kw,
                              heading_deg=heading, wall_m=wall_m,
-                             material=cfg.get("material") or DEFAULT_MATERIAL,
+                             material=kind,
                              **frac_kw)
         else:
             got = damage_building(
@@ -3979,8 +4077,8 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
                 # No ladder here, so the material reaches the cut as the only
                 # things it can say without one: the SHAPE of a fragment and
                 # the look of its cut faces.
-                core_material_kind=cfg.get("material") or DEFAULT_MATERIAL,
-                **{"grain": mat.grain, **frac_kw})
+                core_material_kind=kind,
+                **{"grain": material(kind).grain, **frac_kw})
         print(f"[mesh_damage] {n}/{len(work)} done in "
               f"{time.time() - t_one:.0f}s  "
               f"cells={got.get('cells', 0)} loose={len(got.get('loose') or ())}",
