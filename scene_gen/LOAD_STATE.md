@@ -148,6 +148,37 @@ limitation should not read as a red suite — and fails only when host and Kit
 disagree while both believed they could measure. **The fixture is not captured
 yet**, so the test currently skips. Capturing it is the first container task.
 
+## Projected, not measured: the live path on `urban_quake_showcase`
+
+Wanted as a fallback while the baked archetype library produces frozen mid-air
+shards. The arithmetic says it is not a fallback for `airstack up`:
+
+- Measured: `urban_quake_live` fractures ONE building in **64 s**
+  (`cells=1153 loose=872`). That preset pins `fracture.max_buildings: 1`
+  because one building is what the budget buys.
+- `urban_quake_showcase` compiles to `fracture.max_buildings: 60` — effectively
+  uncapped — and its header documents **11 of 15 buildings hit** at severity 1.0.
+- 11 x ~64 s is **~700 s of fracture alone**, before Kit startup (~85 s cold),
+  renderer warmup, colliders or settle.
+
+64 s is likely a floor rather than an average: per-building cost scales with
+mesh complexity, and `pancaked` at severity 1.0 cuts more cells than the
+`partial_collapse` that was measured. Stage A's bake shows the same spread —
+~158 s/cell on the 317k-point MBuilding05.
+
+**The unmeasured second-order effect is the one to watch.** One live building
+produced 872 loose fragments; eleven would be ~9,600 rigid bodies. The settle
+did 907 props in 7.2 s, and 9,600 is a different regime — do not assume linear.
+
+The knob that makes live affordable reverts the reason for wanting it:
+`SCENE_DAMAGE_BUDGET` / `fracture.max_buildings` caps how many buildings are
+fractured live, and anything past the cap keeps the tilt-and-sink stand-in — an
+intact model rotated and sunk, not damaged geometry. Capped live is minutes and
+mostly stand-ins; uncapped live is correct and tens of minutes.
+
+**All of the above is arithmetic on two measurements. Measure it before acting:**
+`urban_quake_showcase` live vs baked, cold and warm, four rows.
+
 ## Open, in priority order
 
 1. Capture the in-Kit fixture (`load_bench --emit-manifest`) so the acceptance
@@ -156,7 +187,9 @@ yet**, so the test currently skips. Capturing it is the first container task.
 2. A/B the shader-cache mount: two cold starts in a row.
 3. Re-baseline `urban_quake_tiny` post-archetype-fix (`bfb42c7e`) — the PRE-FIX
    rows measured a scene whose two wrecked buildings composed empty.
-4. Scaling curve: `urban_quake_showcase`, then a large map, to see how
+4. `urban_quake_showcase` live vs baked, cold and warm — see the projection
+   above. Decides whether `airstack up` can fall back to the live path.
+5. Scaling curve: `urban_quake_showcase`, then a large map, to see how
    generate / damage / renderer-warmup scale before committing to the cache.
-5. `urban_quake_large` does not exist yet and has to be agreed with Mission 1,
+6. `urban_quake_large` does not exist yet and has to be agreed with Mission 1,
    so that the scene benchmarked is the scene reviewed.
