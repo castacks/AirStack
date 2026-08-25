@@ -2681,6 +2681,9 @@ def fracture(prims, bounds: Bounds, failure: Failure, seed: int = 0,
 #: and steel have no surface in the repo yet and get a flat, correctly
 #: coloured core — still an improvement on siding wrapped round a splintered
 #: stud. `texture` is a scene_gen asset path; `tile_m` is metres per tile.
+#: NVIDIA's base material library, mounted on the same Nucleus as the assets.
+_NV_BASE = "omniverse://airlab-nucleus.andrew.cmu.edu:443/NVIDIA/Materials/Base/"
+
 CORE_LOOKS = {
     "masonry": {"texture": "airstack://scene_gen/assets/materials/megascans/"
                            "Brick_Wall_Worn/T_sexkaitb_1K_B.jpg",
@@ -2690,11 +2693,20 @@ CORE_LOOKS = {
                        "Brick_Wall_Worn/T_sexkaitb_1K_ORM.jpg",
                 "tile_m": 2.8, "color": (0.62, 0.48, 0.40), "roughness": 0.9},
     "timber": {"color": (0.55, 0.42, 0.27), "roughness": 0.85},
-    "steel": {"color": (0.36, 0.36, 0.38), "roughness": 0.55,
+    # A FLAT COLOUR IS NOT A MATERIAL AT THIS SCALE. Untextured, a cut face is
+    # a single unbroken tone across a 10 m fragment, and a wrecked block came
+    # out looking like folded paper — the brightness of the concrete read as
+    # white under any key light. These are NVIDIA's base materials, which ship
+    # the same BaseColor/N/ORM triple the megascans do.
+    "steel": {"texture": _NV_BASE + "Metals/Steel_Carbon/Steel_Carbon_BaseColor.png",
+              "normal": _NV_BASE + "Metals/Steel_Carbon/Steel_Carbon_N.png",
+              "orm": _NV_BASE + "Metals/Steel_Carbon/Steel_Carbon_ORM.png",
+              "tile_m": 1.6, "color": (0.34, 0.34, 0.36), "roughness": 0.55,
               "metallic": 0.6},
-    # Grey, matte, no brick coursing — the thing the masonry core was standing
-    # in for on every tower in the library.
-    "concrete": {"color": (0.60, 0.60, 0.58), "roughness": 0.85},
+    "concrete": {"texture": _NV_BASE + "Masonry/Concrete_Rough/Concrete_Rough_BaseColor.png",
+                 "normal": _NV_BASE + "Masonry/Concrete_Rough/Concrete_Rough_N.png",
+                 "orm": _NV_BASE + "Masonry/Concrete_Rough/Concrete_Rough_ORM.png",
+                 "tile_m": 2.2, "color": (0.42, 0.42, 0.40), "roughness": 0.85},
 }
 
 
@@ -3787,7 +3799,8 @@ def damage_building(stage, root_prim, disaster_type: str, intensity: float,
     # `fill_interior` declines on anything under its own size floor, so a shed
     # still costs nothing.
     if interior and not has_inside:
-        out["interior"] = fill_interior(stage, root_prim, b, **ikw)
+        out["interior"] = fill_interior(stage, root_prim, b,
+                                        core_kind=core_material_kind, **ikw)
 
     # --- stage three: propagation -------------------------------------------
     # The cut faces show the material's CORE (`core_material`), shared
@@ -3919,6 +3932,39 @@ def damage_budget(dis: dict) -> tuple:
             print(f"[mesh_damage] SCENE_DAMAGE_BUDGET={env_budget!r} is not an "
                   f"integer — keeping the config's {budget}")
     return budget, env_budget
+
+
+def fragment_shape(stage, paths) -> dict:
+    """Thickness and span of the pieces, in metres. The shape of the rubble.
+
+    A wall fragment is a PLATE: two big faces of facade with a thin cut edge
+    between them. A cell that came out as a solid polyhedron is a rock, and the
+    two are indistinguishable in a count of fragments or a picture of a pile —
+    which is how a fracture that reads as chunky survives a review. So it is
+    measured: the smallest bounding-box dimension is the thickness, the largest
+    is the span, and `plate` is the fraction whose ratio is at least 4:1.
+    """
+    thick, span = [], []
+    for path in paths or ():
+        prim = stage.GetPrimAtPath(path)
+        if not prim or not prim.IsValid():
+            continue
+        pts = get_points(prim)
+        if pts is None or len(pts) < 4:
+            continue
+        d = np.sort(np.ptp(np.asarray(pts, dtype=np.float64), axis=0))
+        thick.append(float(d[0]))
+        span.append(float(d[2]))
+    if not thick:
+        return {}
+    thick = np.asarray(thick)
+    span = np.asarray(span)
+    ratio = span / np.maximum(thick, 1e-6)
+    return {"n": int(len(thick)),
+            "thick_p50": float(np.median(thick)),
+            "thick_p90": float(np.percentile(thick, 90)),
+            "span_p50": float(np.median(span)),
+            "plate_frac": float(np.mean(ratio >= 4.0))}
 
 
 def apply_to_stage(stage, config: dict, placements: list) -> dict:
@@ -4079,9 +4125,13 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
                 # the look of its cut faces.
                 core_material_kind=kind,
                 **{"grain": material(kind).grain, **frac_kw})
+        shape = fragment_shape(stage, got.get("loose") or ())
         print(f"[mesh_damage] {n}/{len(work)} done in "
               f"{time.time() - t_one:.0f}s  "
-              f"cells={got.get('cells', 0)} loose={len(got.get('loose') or ())}",
+              f"cells={got.get('cells', 0)} loose={len(got.get('loose') or ())}"
+              + (f"  thickness {shape['thick_p50']:.2f}/{shape['thick_p90']:.2f} m"
+                 f" (p50/p90), span {shape['span_p50']:.1f} m,"
+                 f" {shape['plate_frac'] * 100:.0f}% plates" if shape else ""),
               flush=True)
         if got["field"] is None:
             continue
@@ -4321,7 +4371,7 @@ def fill_interior(stage, root_prim, bounds: Bounds, storey_m: float = 3.5,
                   column_m: float = 0.9, column_every: int = 3,
                   inset: float = 0.0, uv_m: float = 4.0,
                   min_radius_m: float = 25.0, already_filled: float = 0.35,
-                  max_boxes: int = 20000) -> int:
+                  max_boxes: int = 20000, core_kind=None) -> int:
     """Author floor slabs and a column grid inside *root_prim*. Returns boxes.
 
     `solidify` extrudes the outer SURFACE inward and stops, because the
@@ -4359,9 +4409,18 @@ def fill_interior(stage, root_prim, bounds: Bounds, storey_m: float = 3.5,
     floor where that level actually encloses space.
 
     Two things make the result read as building rather than as scaffolding:
-    it is bound to the building's own dominant material (`_dominant_material`)
-    rather than left white, and it carries projected UVs (`_triplanar_uv`) so
-    that material has somewhere to land.
+    it is bound to a material rather than left white, and it carries projected
+    UVs (`_triplanar_uv`) so that material has somewhere to land.
+
+    THAT MATERIAL IS THE STRUCTURE'S, NOT THE BUILDING'S BIGGEST. Binding
+    `_dominant_material` was the first answer and it is wrong on exactly the
+    buildings this pass exists for: a curtain-wall tower's largest material by
+    face count IS THE GLASS (`MI_MBuilding05_SkyscraperWindows` is 42.6% of
+    that asset's surface, three times the next), so every floor slab and every
+    column came out clad in window. `core_kind` binds the same fracture core
+    the cut faces use — concrete floors in a concrete building — and the
+    dominant material stays the fallback for an asset whose construction the
+    pack does not name.
     """
     prims = mesh_prims(root_prim)
     if not prims or bounds is None or bounds.radius < float(min_radius_m):
@@ -4441,7 +4500,13 @@ def fill_interior(stage, root_prim, bounds: Bounds, storey_m: float = 3.5,
         "st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.faceVarying)
     pv.Set(_vec2f(uv))
 
-    mat = _dominant_material(prims)
+    mat = None
+    if core_kind:
+        mat = UsdShade.Material.Get(stage, core_material(stage, core_kind))
+        if mat and not mat.GetPrim().IsValid():
+            mat = None
+    if mat is None:
+        mat = _dominant_material(prims)
     if mat is not None:
         UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(mat)
     return n_box
