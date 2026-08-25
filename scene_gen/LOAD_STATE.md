@@ -98,40 +98,61 @@ Serving one of these as a cache entry for the other would be the worst failure
 this cache could have — a scene that is not the scene the config names, with
 nothing in the output to say so.
 
-### The fix, and why it should work
+### Landed: it can no longer serve the wrong scene silently
 
-`measure_cache.py` persists footprints keyed on `(path, axis_up)`, and it
-already handles the dangerous half correctly: a remote asset that FAILED to
-measure is deliberately not cached, so a host run cannot poison the file with
-`None`s (the docstring records that exact incident — 156 of 214 entries). A
-remote asset that measured SUCCESSFULLY *is* stored, with an empty stat token
-that matches on read.
+The divergence itself is not fixed — a host bake still cannot measure Nucleus
+assets — but it can no longer be mistaken for a good scene.
 
-So the path is: let Kit measure once, and the host bake inherits it. The repo is
-bind-mounted into the container, so both processes share
-`scene_gen/assets/.measurements.json`.
+- `SizeResolver.fallbacks` records every asset whose footprint was GUESSED.
+- `bake_scene.py` refuses to cache a scene built on guesses and DISCARDS the
+  half-written entry, so a later run cannot find it. `--allow-footprint-fallback`
+  overrides for inspection and marks the entry unservable.
+- `SceneCache.get()` treats a marked entry as a miss and prints why. The mark
+  lives in `meta.json`, because the failure being guarded is not one run
+  serving itself a bad entry — it is the next run, days later, loading it.
+- Verified end to end: a host bake of `urban_quake_tiny` now exits 1 naming 39
+  unmeasurable Nucleus assets, and the entry is gone from the cache.
 
-**Open question, and it is the next thing to test.** That file currently holds
-30 entries, all LOCAL assets, all written by a host run — no Nucleus entries at
-all, although Kit demonstrably measured nine Nucleus buildings minutes earlier
-(`measured house: BG_Building_A.usd -> ...` in the Kit log). `MeasureCache.save`
-is registered with `atexit`, and a launcher never exits normally: it loops until
-the app closes and the documented iteration loop kills it with `C-c`. The
-hypothesis is that **Kit runs never persist their measurements at all**, in which
-case every launch re-measures every Nucleus asset over the network, and the host
-bake can never inherit anything.
+### The remaining fix, and why it should work
 
-Cheap to test with the container: launch, reach the banner, then check whether
-`.measurements.json` has gained Nucleus entries — before killing the process and
-after. If it has not, the fix is to save the cache at a point the launcher
-actually reaches rather than at exit.
+`measure_cache.py` persists footprints keyed on `(path, axis_up)` and already
+handles the dangerous half correctly: a remote asset that FAILED to measure is
+deliberately not cached, so a host run cannot poison the file with `None`s (its
+docstring records that exact incident — 156 of 214 entries). A remote asset that
+measured SUCCESSFULLY *is* stored, with an empty stat token that matches on read.
 
-Until that is settled, **do not use `bake_scene.py` for a Nucleus-backed pack**.
+So: let Kit measure once, and the host bake inherits it. The repo is bind-mounted
+into the container, so both processes share `scene_gen/assets/.measurements.json`.
+
+**`save` used to be reachable only through `atexit`, and a launcher never exits
+normally** — it loops until the app closes and the documented iteration loop
+kills it with `C-c`. That is very likely why the file holds 30 local entries and
+no Nucleus ones, although Kit demonstrably measured nine Nucleus buildings
+minutes earlier. Remote successes are now **written through** as they are made.
+
+Still to confirm in-Kit: that a launch now leaves Nucleus entries behind, and
+that a host bake with a warm file then matches Kit. Until that passes, do not
+use `bake_scene.py` for a Nucleus-backed pack.
+
+### The acceptance test
+
+`tests/test_caches.py::test_a_host_build_matches_the_in_kit_reference` compares
+a host build against a fixture captured from a real in-Kit run. Only Kit can
+reach Nucleus, so only Kit can produce the reference:
+
+    python3 scene_gen/tools/load_bench.py --config urban_quake_tiny \
+        --emit-manifest scene_gen/tests/fixtures/in_kit_urban_quake_tiny_s42.json
+
+It skips when the fixture is absent or when the host cannot measure — a machine
+limitation should not read as a red suite — and fails only when host and Kit
+disagree while both believed they could measure. **The fixture is not captured
+yet**, so the test currently skips. Capturing it is the first container task.
 
 ## Open, in priority order
 
-1. Test the measurement-cache hypothesis above. It gates the bake cache, and if
-   it is right it is also a per-launch cost nobody has counted.
+1. Capture the in-Kit fixture (`load_bench --emit-manifest`) so the acceptance
+   test stops skipping, then confirm a launch leaves Nucleus entries in
+   `.measurements.json` and that a host bake with a warm file matches Kit.
 2. A/B the shader-cache mount: two cold starts in a row.
 3. Re-baseline `urban_quake_tiny` post-archetype-fix (`bfb42c7e`) — the PRE-FIX
    rows measured a scene whose two wrecked buildings composed empty.
