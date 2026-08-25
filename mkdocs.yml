@@ -71,6 +71,7 @@ nav:
   - Tutorials:
       - Get AirStack Flying: docs/getting_started/index.md
       - Modular AirStack Walkthrough: docs/getting_started/modular_airstack.md
+      - Deploy to Hardware: docs/real_world/deploying_to_hardware.md
       - What Next: docs/getting_started/tutorials_reference.md
   - How-to Guides:
       - Overview: docs/development/index.md
@@ -93,11 +94,10 @@ nav:
           - Waypoints & Geofences: docs/gcs/waypoints_and_geofences.md
           - Foxglove Visualization: docs/gcs/foxglove.md
           - Extending the Visualizer: docs/gcs/extending_foxglove.md
-          - User Interface: docs/gcs/usage/user_interface.md
+          - Operating the GCS: docs/gcs/usage/user_interface.md
       - Robot & Field:
           - Overview: docs/real_world/index.md
           - Install on Hardware: docs/real_world/installation/index.md
-          - Deploying to Hardware: docs/real_world/deploying_to_hardware.md
           - HITL Testing: docs/real_world/HITL/index.md
           - Data Offloading: docs/real_world/data_offloading/index.md
           - Data Offloading (DIY patterns): docs/robot/logging/data_offloading.md
@@ -121,6 +121,7 @@ nav:
       - CLI: docs/development/beginner/airstack-cli/index.md
       - Configuration:
           - Robot Configuration: docs/robot/configuration/index.md
+          - Environment Variables: docs/robot/configuration/environment_variables.md
           - Vehicle Config Schema: config/vehicles/README.md
           - Local Calibration: config/local/README.md
           - Static Transforms: docs/robot/static_transforms/index.md
@@ -128,6 +129,7 @@ nav:
           - Interface Conventions Spec: docs/robot/autonomy/interface_conventions.md
           - Tasks and Task Executors: docs/robot/autonomy/tasks.md
           - DDS Router: docs/robot/autonomy/dds_router.md
+          - airstack_msgs: common/ros_packages/msgs/airstack_msgs/README.md
       - Containers:
           - Robot: docs/robot/docker/index.md
           - Isaac Sim: docs/simulation/isaac_sim/docker.md
@@ -135,6 +137,7 @@ nav:
           - Simple Sim: docs/simulation/simple_sim/docker.md
           - GCS: docs/gcs/docker/index.md
       - Deployment Topologies: docs/robot/autonomy_modes.md
+      - Platform Matrix: docs/real_world/supported_platforms.md
       - Reference Stacks:
           - full_default: stacks/full_default/README.md
           - full_droan_cpu: stacks/full_droan_cpu/README.md
