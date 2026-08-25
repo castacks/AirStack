@@ -5,7 +5,67 @@
 `earthquake.py`/`fracture.py` deleted (debt noted in quake's header). Rungs compose mechanisms;
 rubble sized in metres via `_fracture_hier` (~1,160 cells/building, capped at `MAX_CELLS_CAP=1200`).
 
-**Done, uncommitted (this pass):**
+**Landed 2026-08-25 (coasei-a1 [320d95], commits 93775b51 → 260fd9bf):**
+
+1. **Archetype-backed buildings were EMPTY on `airstack up`** (bfb42c7e). `bake.export_object`
+   rooted every archetype at a `Scope`; `apply_placements` references onto a typeless holder so
+   the asset's type wins, a Scope is not Xformable, and the placement was skipped — two debris
+   rings around two empty lots in `urban_quake_tiny`. Root is now an `Xform` (+ Z-up/metres
+   metadata), a Scope-rooted reference is promoted in place (old libraries place without a
+   re-bake), and `_measure_footprint_raw` expands `airstack://`. Every look/timing taken on an
+   archetype preset before this was of a scene with no wrecked buildings in it.
+2. **The settle was judging the wrong point** (260fd9bf, `scene_prep.settle_rigid_props`).
+   Fragments have no xformOp, so travel and "through the floor" were measured at the BUILDING's
+   origin. Same 872-fragment run, both rulers: origin 378 through-floor / 352 flung, centroid
+   142 / 98, PhysX reporting 0 bodies moving. Reverting the "failures" to their authored pose
+   put them back inside the intact shell — that was Mission 3's mid-air ghost. Now: centroid
+   travel, rest-checked chunked stepping (ceiling from the highest piece's fall time),
+   fragments judged on horizontal travel with a drop-scaled limit and DEACTIVATED when over
+   it, infinite half-space backstop under the ground (0.3 m slab pieces at the 20 m/s cap
+   cross a zero-thickness quad in one step: through-floor 142 -> 0, max travel 131 -> 52 m).
+3. **Tilt-and-sink stand-in only beyond the mesh-damage budget** (`disaster_stage`,
+   `mesh_damage.damage_budget`). A building about to be cut keeps its true pose — pitched
+   6 deg about its corner an 80 m tower had one end authored underground.
+4. **Cut faces show a fracture core** (`mesh_damage.core_material`, `CORE_LOOKS`): one shared
+   OmniPBR per material kind (masonry = worn-brick megascans, world-projected so caps need no
+   UVs; timber/steel flat). `cap_mat` threads through `_clip_by_plane`; `quake.shatter` and
+   `apply_to_stage` opt in. One material prim per scene (renderer compiles each distinct MDL).
+5. `wall_for`/`cells_for` duplicates deleted from quake.py (685ca60f).
+6. **Archetype-backed buildings rendered as BLACK BOXES** — the bake re-authored every
+   texture path verbatim (`Textures/Building_C_Proxy_BaseColor.png`, relative to the
+   source layer on Nucleus) into `assets/archetypes/earthquake/`, where no `Textures/`
+   exists; a missing `UsdUVTexture` file is a silent fallback, and the diffuse fallback is
+   (0, 0, 0). `bake.validate` said "bound", which is not "textured". Now `anchor()` resolves
+   a relative path against the layer that authored it when `resolvedPath` is empty,
+   `bake.unresolved_textures()` counts maps that resolve to nothing, and the Stage A
+   exporter REJECTS an archetype with any. Confirmed not lighting: identical under a key
+   light (`_damage_lab`-free evidence: `~/docker/isaac-sim/logs/quake_showcase_r2/`).
+7. **Review captures**: `SNAP_DIR=/isaac-sim/.nvidia-omniverse/logs/<name>` on the
+   `scene_launch_script.py` line writes overview / street obliques / wreck close-ups / one
+   victim (`review_snapshots`), with a review-only key light; cameras pick the bearing with
+   the most clearance from building FOOTPRINTS (centre-distance put the eye inside towers).
+
+**Measured, 2026-08-25, `urban_quake_live` seed 42 (BG_Building_F partial_collapse, 884 loose):**
+rest 703, through-floor 0, flung 181 at a limit of 1/3 the drop (raised to 1/2 in 260fd9bf,
+not yet re-measured), still-moving 0, settle 8 s sim / 14.6 s phase. Findability gate
+(`findability.py --config urban_quake_tiny --seeds 1,2,3`): PASS, 12/12 clear.
+
+**Open after this pass, in priority order:**
+1. **Re-bake the archetype library.** On disk it predates ed09e719 (quake wiring) AND the
+   core material AND the Xform root. `bake_cli.py --config urban_quake_tiny --used-only`
+   (31 archetypes under Kit's packing). Blocked 2026-08-25 on the container being `down`ed.
+2. **G2 gallery per seed** — nothing rendered yet since the fixes; the live scene never got a
+   snapshot (`scene_launch_script.py` has no `SNAP_DIR`; add one or use `targets_showcase`).
+3. **The rest check never triggers** on a real pile (455/456 frames used, PhysX asleep): a
+   body somewhere creeps > 4 cm/s for the whole ceiling. Harmless (ceiling bounds it) but the
+   early exit Mission 2 wanted is not happening on collapses; parked-car scenes do exit early.
+4. **The stand-in's pitch is about the CORNER**, so a beyond-budget tower still has one end
+   metres in the air or underground. Wants a pivot at the footprint centre — or a sink only.
+5. `urban_quake_tiny` places 4 buildings where its header promises 6 ("8/9 large buildings
+   have no block that fits") — packing vs measured footprints, not a unit bug. G2 scope.
+6. Older items below still stand (moment test, pile inflation, slab over-fragmentation).
+
+**Done, uncommitted (2026-08-24 pass, landed in 93775b51):**
 
 1. **Floating slabs — fixed, and the fix was in the wrong half of the graph.**
    `unsupported` used to hand the RETAINED remainder (faces under `support`, never cut)

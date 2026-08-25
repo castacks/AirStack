@@ -83,7 +83,7 @@ def _rebuild_material(out, dst_path, src_mat_prim):
     def fix(p):
         return p.ReplacePrefix(old, new) if p.HasPrefix(old) else p
 
-    def anchor(v):
+    def anchor(v, attr=None):
         """Asset paths re-anchored to where they resolve NOW.
 
         `a.Get()` hands back the AUTHORED string, and for these packs that is
@@ -94,14 +94,34 @@ def _rebuild_material(out, dst_path, src_mat_prim):
         building renders untextured. `resolvedPath` is the absolute location
         the source resolved to, which stays correct from anywhere.
 
-        Falls back to the authored path when nothing resolved, so an asset
-        that was already absolute or already broken is left exactly as it was.
+        AND `resolvedPath` IS EMPTY for these Nucleus-relative paths under
+        Kit, so the first library was baked with the relative paths verbatim
+        and every archetype-backed building rendered as a black box — the
+        UsdUVTexture diffuse `fallback` is (0, 0, 0). When nothing resolved, a
+        relative path is anchored against the LAYER that authored it
+        (`Sdf.ComputeAssetPathRelativeToLayer`), which is what a relative
+        asset path means. Absolute paths and URLs pass through untouched.
         """
+        def one(ap):
+            if ap.resolvedPath:
+                return Sdf.AssetPath(ap.resolvedPath)
+            raw = ap.path
+            if not raw or "://" in raw or raw.startswith(("/", "~")):
+                return Sdf.AssetPath(raw)
+            stack = (attr.GetPropertyStack(Usd.TimeCode.Default())
+                     if attr is not None else [])
+            for spec in stack:
+                try:
+                    full = Sdf.ComputeAssetPathRelativeToLayer(spec.layer, raw)
+                except Exception:                           # noqa: BLE001
+                    continue
+                if full and full != raw:
+                    return Sdf.AssetPath(full)
+            return Sdf.AssetPath(raw)
         if isinstance(v, Sdf.AssetPath):
-            return Sdf.AssetPath(v.resolvedPath or v.path)
+            return one(v)
         if isinstance(v, Sdf.AssetPathArray):
-            return Sdf.AssetPathArray(
-                [Sdf.AssetPath(a.resolvedPath or a.path) for a in v])
+            return Sdf.AssetPathArray([one(a) for a in v])
         return v
 
     for src in Usd.PrimRange(src_mat_prim):
@@ -118,7 +138,7 @@ def _rebuild_material(out, dst_path, src_mat_prim):
             except Exception:
                 v = None
             if v is not None:
-                na.Set(anchor(v))
+                na.Set(anchor(v, a))
             conns = a.GetConnections()
             if conns:
                 na.SetConnections([fix(c) for c in conns])
@@ -205,7 +225,7 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
             bound_here = False
             mp = material_for(prim)
             if mp:
-                UsdShade.MaterialBindingAPI(dm.GetPrim()).Bind(
+                UsdShade.MaterialBindingAPI.Apply(dm.GetPrim()).Bind(
                     UsdShade.Material(out.GetPrimAtPath(mp)))
                 _note(mp, prim.GetName()); bound_here = True
             for sub in UsdGeom.Subset.GetAllGeomSubsets(UsdGeom.Imageable(prim)):
@@ -214,7 +234,7 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
                 _copy_attrs_by_value(sp, ds.GetPrim(), skip_xform=False)
                 smp = material_for(sp)
                 if smp:
-                    UsdShade.MaterialBindingAPI(ds.GetPrim()).Bind(
+                    UsdShade.MaterialBindingAPI.Apply(ds.GetPrim()).Bind(
                         UsdShade.Material(out.GetPrimAtPath(smp)))
                     _note(smp, sp.GetName()); bound_here = True
             if not bound_here:
@@ -230,7 +250,7 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
     fallback = wood_mat[0] or (object_mats[0] if object_mats else None)
     if fallback:
         for prim in unbound:
-            UsdShade.MaterialBindingAPI(prim).Bind(
+            UsdShade.MaterialBindingAPI.Apply(prim).Bind(
                 UsdShade.Material(out.GetPrimAtPath(fallback)))
 
     out.GetRootLayer().Save()
@@ -258,6 +278,33 @@ def validate(out_path, root="/Baked"):
         ok += 1 if bound else 0
         miss += 0 if bound else 1
     return (meshes, ok, miss)
+
+
+def unresolved_textures(out_path, root="/Baked") -> list:
+    """Texture inputs in the exported file that resolve to nothing.
+
+    `validate` says a mesh is BOUND; it cannot say the material is TEXTURED,
+    and the first library passed it with every map pointing at a `Textures/`
+    directory that does not exist beside the archetype. This is the check
+    that would have caught it: every `asset`-typed shader input under *root*
+    that has a path and no `resolvedPath`, reported so the bake can refuse.
+    """
+    from pxr import Sdf, Usd, UsdShade
+
+    st = Usd.Stage.Open(out_path)
+    if st is None:
+        return []
+    bad = []
+    for prim in Usd.PrimRange(st.GetPrimAtPath(root)):
+        if not prim.IsA(UsdShade.Shader):
+            continue
+        for inp in UsdShade.Shader(prim).GetInputs():
+            if inp.GetTypeName() != Sdf.ValueTypeNames.Asset:
+                continue
+            v = inp.Get()
+            if isinstance(v, Sdf.AssetPath) and v.path and not v.resolvedPath:
+                bad.append(f"{prim.GetPath()}.{inp.GetBaseName()} = {v.path}")
+    return bad
 
 
 def write_manifest(path, records):

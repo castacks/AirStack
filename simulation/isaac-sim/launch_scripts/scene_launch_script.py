@@ -93,6 +93,135 @@ SCENE_CONFIG = os.environ.get("SCENE_CONFIG") or os.path.join(
 
 _ENV_CLUTTER = {"GroundPlane", "Environment"}
 
+#: Where to write review captures; empty = none (the default run).
+SNAP_DIR = os.environ.get("SNAP_DIR", "").strip()
+
+#: The rungs that read as a collapse — what a close-up should be of.
+_COLLAPSED = ("pancaked", "partial_collapse", "soft_storey")
+
+
+def review_snapshots(stage, config, placements, victims, ssf, out_dir):
+    """The G2 review set: overview, street obliques, wrecks, one victim.
+
+    Everything in metres, `snapshots` applies `ssf`. Files are numbered in
+    the order a reviewer should look at them and named by what they show.
+    """
+    import importlib.util as _ilu
+    import math
+
+    spec = _ilu.spec_from_file_location(
+        "snapshots", os.path.join(_ISAAC_SIM_DIR, "utils", "snapshots.py"))
+    snaps = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(snaps)
+
+    def shot(name, eye, target, frames=48):
+        snaps.place_camera(stage, tuple(v * ssf for v in eye),
+                           tuple(v * ssf for v in target))
+        return snaps.snapshot(os.path.join(out_dir, name), frames)
+
+    region = (config.get("layout") or {}).get("region_m") or [200, 200]
+    span = float(max(region))
+    field = (config.get("disaster") or {}).get("field") or {}
+    ex, ey = (float(v) for v in (field.get("center") or (0.0, 0.0)))
+    houses = [p for p in placements if p.get("category") == "house"]
+    # Footprints, so "clear of a building" means clear of its EXTENT: a
+    # centre-distance test put the eye inside an 80 m tower whose centre was
+    # 45 m away. Circumscribed radius plus a margin, from the resolver's
+    # measured (and cached) footprints.
+    import scene_generator as sg
+    resolver = sg._make_resolver(config)
+    blocks = []
+    for p in houses:
+        try:
+            fp = sg.placement_footprint(resolver, p, "house")
+            r = 0.5 * math.hypot(float(fp.get("sx", 20.0)),
+                                 float(fp.get("sy", 20.0)))
+        except Exception:                                     # noqa: BLE001
+            r = 15.0
+        blocks.append((float(p["x_m"]), float(p["y_m"]), r + 4.0))
+
+    def oblique(name, x, y, dist, h, tz, away_from=None):
+        """Eye *dist* out at height *h*, on the bearing with the most room.
+
+        A fixed south-west eye lands inside a neighbouring tower in a dense
+        downtown (measured: five of seven first captures were of the inside
+        of a wall). Score each of 16 bearings by the distance from the eye to
+        the nearest OTHER building centre, and prefer the side away from
+        *away_from* — a victim's own building, say.
+        """
+        best, best_s = None, -1e9
+        for k in range(16):
+            a = 2.0 * math.pi * k / 16.0
+            e = (x + dist * math.cos(a), y + dist * math.sin(a))
+            s_ = min((math.hypot(e[0] - cx, e[1] - cy) - r
+                      for cx, cy, r in blocks
+                      if math.hypot(cx - x, cy - y) > 3.0), default=1e9)
+            if away_from is not None:
+                bx, by = away_from[0] - x, away_from[1] - y
+                nb = math.hypot(bx, by) or 1.0
+                s_ -= 30.0 * (bx * math.cos(a) + by * math.sin(a)) / nb
+            if s_ > best_s:
+                best, best_s = e, s_
+        return shot(name, (best[0], best[1], h), (x, y, tz))
+    wrecks = sorted((p for p in houses
+                     if p.get("_damage_level") in _COLLAPSED),
+                    key=lambda p: -float(p.get("_mesh_damage") or
+                                         (1.0 if p.get("_archetype") else 0.0)))
+    wrecks.sort(key=lambda p: math.hypot(p["x_m"] - ex, p["y_m"] - ey))
+
+    # A KEY LIGHT FOR THE REVIEW ONLY. The dome alone leaves the scene dim
+    # and every north face black; `_disable_sky_sun` switches the sky rig's
+    # own sun off on purpose (it is a hard directional light on top of the
+    # dome), so the review adds its own, angled from the south-west where
+    # the obliques look from, and leaves the default run's lighting alone.
+    from pxr import Gf, Sdf, UsdLux
+    key = UsdLux.DistantLight.Define(stage, Sdf.Path("/World/ReviewKey"))
+    key.CreateIntensityAttr(2500.0)
+    key.CreateAngleAttr(1.0)
+    UsdGeom.Xformable(key.GetPrim()).ClearXformOpOrder()
+    UsdGeom.Xformable(key.GetPrim()).AddRotateXYZOp().Set(
+        Gf.Vec3f(-50.0, 0.0, 35.0))
+
+    written = []
+    # 1. the whole map, plumb
+    written.append(snaps.overview(stage, (ex, ey), span * 1.05,
+                                  os.path.join(out_dir, "01_overview_plumb.png"),
+                                  ssf, frames=48))
+    # 2. three street-height obliques: the epicentre and two other spots
+    spots = [("epicentre", ex, ey)]
+    far = sorted(houses, key=lambda p: -math.hypot(p["x_m"] - ex, p["y_m"] - ey))
+    if far:
+        spots.append(("far_corner", far[0]["x_m"], far[0]["y_m"]))
+    mid = [p for p in houses if 0.25 * span < math.hypot(p["x_m"] - ex,
+                                                          p["y_m"] - ey)]
+    if mid:
+        spots.append(("mid_block", mid[len(mid) // 2]["x_m"],
+                      mid[len(mid) // 2]["y_m"]))
+    for i, (name, x, y) in enumerate(spots[:3], start=2):
+        written.append(oblique(f"{i:02d}_street_oblique_{name}.png",
+                               x, y, dist=60.0, h=14.0, tz=6.0))
+    # 3. two close-ups of collapsed buildings, nearest the epicentre first
+    for i, p in enumerate(wrecks[:2], start=5):
+        stem = os.path.splitext(os.path.basename(str(p.get("usd", "b"))))[0]
+        written.append(oblique(
+            f"{i:02d}_collapsed_{p.get('_damage_level')}_{stem}.png",
+            p["x_m"], p["y_m"], dist=48.0, h=22.0, tz=5.0))
+    # 4. one victim, the most visible one
+    order = {"open": 0, "partial": 1, "occluded": 2}
+    vis = sorted((v for v in victims if "x" in v and "y" in v),
+                 key=lambda v: order.get(str(v.get("visibility")), 3))
+    if vis:
+        v = vis[0]
+        home = next(((float(p["x_m"]), float(p["y_m"])) for p in houses
+                     if p.get("prim_path") == v.get("building")), None)
+        written.append(oblique(
+            f"07_victim_{v.get('cohort', 'x')}_{v.get('visibility', 'x')}.png",
+            float(v["x"]), float(v["y"]), dist=9.0, h=4.0,
+            tz=float(v.get("z", 0.0)) + 0.8, away_from=home))
+    written = [w for w in written if w]
+    print(f"[snapshots] {len(written)} review capture(s) -> {out_dir}")
+    return written
+
 
 def _remove_env_clutter(stage):
     """Deactivate the GroundPlane and Environment xforms the base environment
@@ -247,9 +376,9 @@ class CityV2PreviewApp:
         # See scene_gen/targets.py: victims are placed at load time, not baked,
         # so one city can be searched repeatedly with a fresh population.
         disaster = kinds.get(config)
-        disaster.place_targets(stage, config, placements=placements,
-                               parent_path="/World/stage/targets",
-                               scene_scale_factor=ssf)
+        victims = disaster.place_targets(stage, config, placements=placements,
+                                         parent_path="/World/stage/targets",
+                                         scene_scale_factor=ssf)
         disaster.attach_runtime(stage)
 
         print("\n" + "=" * 70)
@@ -257,6 +386,17 @@ class CityV2PreviewApp:
         print(f"  config: {SCENE_CONFIG}")
         print("  reload: see the snippet in this script's docstring")
         print("=" * 70 + "\n")
+
+        # ----- review captures, only when asked (SNAP_DIR=...) --------------
+        # After the banner so nothing that parses the launcher's prints
+        # (scene_gen/tools/load_bench.py) sees a different run. Point SNAP_DIR
+        # under /isaac-sim/.nvidia-omniverse/logs/ so the host can read it.
+        if SNAP_DIR:
+            try:
+                review_snapshots(stage, config, placements, victims or [],
+                                 ssf, SNAP_DIR)
+            except Exception as exc:                             # noqa: BLE001
+                print(f"[snapshots] review captures FAILED: {exc}")
 
         self.timeline.play()
 

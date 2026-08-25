@@ -370,9 +370,19 @@ WHICH damage runs is the disaster's own decision, not this
                                        dst, recenter=(x, y, 0.0)):
                     continue
                 meshes, _ok, unbound = B.validate(dst)
+                # Bound is not textured — see `bake.unresolved_textures`.
+                # A library of black boxes is worse than no library, so an
+                # archetype whose maps resolve to nothing is not recorded.
+                untex = B.unresolved_textures(dst)
             except Exception as exc:                            # noqa: BLE001
                 print(f"[stage-a] export FAILED {os.path.basename(dst)}: "
                       f"{type(exc).__name__}: {exc}")
+                continue
+            if untex:
+                print(f"[stage-a] REJECTED {os.path.basename(dst)}: "
+                      f"{len(untex)} texture(s) resolve to nothing, e.g. "
+                      f"{untex[0]}")
+                self._missing = getattr(self, "_missing", 0) + len(untex)
                 continue
             missing += unbound
             self.records.append({

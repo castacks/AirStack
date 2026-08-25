@@ -255,3 +255,40 @@ def test_a_baked_archetype_composes_where_it_was_placed(tmp_path, monkeypatch):
     assert stage.GetPrimAtPath(path).IsA(UsdGeom.Xformable)
     lo = _world_min(stage, path)
     assert abs(lo[0] - 20.0) < 1e-3 and abs(lo[1] + 30.0) < 1e-3
+
+
+def test_export_keeps_relative_textures_resolvable(tmp_path):
+    """The first library was black: every texture was authored relative to
+    the SOURCE layer (`Textures/x.png` beside the building) and re-anchored
+    verbatim into the archetype directory, where no `Textures/` exists."""
+    from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
+    from disaster import bake as B
+
+    src_dir = tmp_path / "src"
+    (src_dir / "Textures").mkdir(parents=True)
+    tex = src_dir / "Textures" / "wall.png"
+    tex.write_bytes(b"\x89PNG\r\n\x1a\n")
+    src_path = str(src_dir / "building.usda")
+    st = _box_source(0.0, 0.0)
+    mat = UsdShade.Material.Define(st, "/World/Looks/Wall")
+    sh = UsdShade.Shader.Define(st, "/World/Looks/Wall/tex")
+    sh.CreateIdAttr("UsdUVTexture")
+    sh.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(
+        Sdf.AssetPath("Textures/wall.png"))
+    UsdShade.MaterialBindingAPI.Apply(
+        st.GetPrimAtPath("/World/Bldg/box")).Bind(mat)
+    st.GetRootLayer().Export(src_path)
+    st = Usd.Stage.Open(src_path)
+
+    out = tmp_path / "arch" / "T.usd"
+    out.parent.mkdir()
+    assert B.export_object(st, None, ["/World/Bldg"], str(out))
+    assert B.unresolved_textures(str(out)) == []
+    got = Usd.Stage.Open(str(out))
+    shader = next(p for p in got.Traverse() if p.GetName() == "tex")
+    ap = UsdShade.Shader(shader).GetInput("file").Get()
+    assert ap.path == str(tex) or ap.resolvedPath == str(tex), ap
+    # and the exported file binds through an APPLIED schema — pxr warns on
+    # every prim otherwise, and stricter builds ignore the binding.
+    mesh = next(p for p in got.Traverse() if p.IsA(UsdGeom.Mesh))
+    assert mesh.HasAPI(UsdShade.MaterialBindingAPI)
