@@ -625,11 +625,17 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     # non-zero count is the scene telling you the ceiling is too low.
     _step(20)
     settled = _positions(info["bodies"])
-    info["still_moving"] = sum(
-        1 for k in after
-        if k in settled
-        and float(np.linalg.norm(np.array(settled[k]) - np.array(after[k])))
-        > 0.004)
+    _moved = [float(np.linalg.norm(np.array(settled[k]) - np.array(after[k])))
+              for k in after if k in settled]
+    info["still_moving"] = sum(1 for d in _moved if d > 0.004)
+    # HOW FAST, not just how many. The count above trips at 4 mm per 20 steps
+    # (~1 cm/s), which cannot tell a fragment creeping on top of a pile — at
+    # rest to any viewer — from one in free fall that will hang in mid-air the
+    # moment the bake freezes it. Only the second is a picture of an
+    # explosion, and only the speed distinguishes them.
+    info["creep_max_ms"] = (max(_moved) * 3.0) if _moved else 0.0
+    info["creep_p95_ms"] = (float(np.percentile(_moved, 95)) * 3.0
+                            if _moved else 0.0)
     after = settled
 
     # HORIZONTAL vs VERTICAL is the whole question. A collapse drops pieces:
@@ -662,6 +668,9 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
             info["baked"]))
         print("[settle]   {0:.1f}s solving ({1})".format(
             info.get("solve_s", 0.0), "GPU" if gpu else "CPU"))
+        print("[settle]   fastest still-moving piece {0:.2f} m/s, p95 "
+              "{1:.3f} m/s (creep is < 0.05; free fall is > 1)".format(
+                  info.get("creep_max_ms", 0.0), info.get("creep_p95_ms", 0.0)))
         print("[settle]   {0} of {1} steps used; {2} body(s) STILL MOVING at "
               "bake time{3}".format(
                   info.get("steps_used", steps), steps,

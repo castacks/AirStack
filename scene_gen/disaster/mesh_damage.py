@@ -4071,6 +4071,19 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
 
     sub_edge = (float(scfg.get("max_edge_m", 4.0))
                 if scfg.get("enabled", True) else 0.0)
+    # SUBDIVISION IS THE SIZE OF THE WRECK. Every fragment keeps its share of
+    # the subdivided source surface, so halving the edge length quadruples the
+    # triangles in the rubble — and a baked archetype carries all of it to
+    # disk. Measured 2026-08-25: the 500 m library came out 14 GB at 4 m edges
+    # and 800 cells, `MBuilding05_partial_collapse` alone 3 GB, and loading 67
+    # of those exhausted 125 GB of host RAM. `SCENE_SUBDIVIDE_M` coarsens it
+    # for a run without editing a preset, the way `SCENE_MAX_CELLS` does.
+    env_edge = os.environ.get("SCENE_SUBDIVIDE_M", "").strip()
+    if env_edge and sub_edge:
+        try:
+            sub_edge = max(sub_edge, float(env_edge))
+        except ValueError:
+            pass
     sub_max_points = int(scfg.get("max_points", 400_000))
     frac_kw = {k: fcfg[k] for k in FRACTURE_KEYS if k in fcfg}
 

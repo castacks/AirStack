@@ -355,6 +355,29 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
     rx0, ry0, rx1, ry1 = ([float(v) for v in region] if region
                           else (0.0, 0.0, 0.0, 0.0))
 
+    # Which buildings may spend an archetype — see the note at the swap.
+    arch_ok = None
+    _budget = os.environ.get("SCENE_ARCHETYPE_BUDGET", "").strip()
+    if arch is not None and _budget:
+        try:
+            n_arch = int(_budget)
+        except ValueError:
+            n_arch = 0
+        if n_arch > 0:
+            _cand = [(levels.local_damage(field(q["x_m"], q["y_m"]), sev), i, q)
+                     for i, q in enumerate(placements)
+                     if q.get("category") == "house"
+                     and field(q["x_m"], q["y_m"]) > 0.0]
+            # Worst first, index breaking ties so the choice is deterministic.
+            _cand.sort(key=lambda r: (-r[0], r[1]))
+            arch_ok = {id(q) for _, _, q in _cand[:n_arch]}
+            print(f"[disaster_stage] archetype budget {n_arch}: "
+                  f"{len(arch_ok)} of {len(_cand)} damaged building(s) get a "
+                  f"baked wreck, the rest tilt and sink", flush=True)
+
+    def _arch_allowed(q):
+        return arch_ok is None or id(q) in arch_ok
+
     for p in placements:
         if p.get("category") != "house":
             continue
@@ -384,7 +407,16 @@ def apply_to_buildings(config: dict, layout: dict, placements: list,
         p["_damage_level"] = level
 
         # --- Stage B, step 5: reference the pre-baked archetype -------------
-        if arch is not None and level != "pristine":
+        # A WRECK COSTS MEMORY, SO SPEND THEM WHERE THE DAMAGE IS. The fracture
+        # inflates a building ~14x — `SM_MERGED_BP_MBuilding01_cracked` is 7.1M
+        # points against the source asset's 0.5M — and a reference is not
+        # instanced (see the note below), so every placement is resident in
+        # full. Measured 2026-08-25: 67 archetype buildings on the 500 m map
+        # exhausted 125 GB of host RAM and the kernel killed Kit mid-load.
+        # `SCENE_ARCHETYPE_BUDGET` keeps the N most damaged as real wrecks and
+        # leaves the rest to the tilt-and-sink stand-in, which is what the
+        # epicentre wants anyway: broken in the middle, standing at the edges.
+        if arch is not None and level != "pristine" and _arch_allowed(p):
             rec = arch.resolve(p.get("usd", ""), level, arch_ladder)
             if rec:
                 p["usd"] = _archetype_url(arch.usd_path(rec))
