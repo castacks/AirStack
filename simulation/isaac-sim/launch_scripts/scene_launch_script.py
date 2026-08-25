@@ -75,7 +75,7 @@ _SCENE_GEN_DIR = os.path.normpath(
     os.path.join(_ISAAC_SIM_DIR, "..", "..", "scene_gen"))
 sys.path.insert(0, os.path.join(_ISAAC_SIM_DIR, "utils"))
 sys.path.insert(0, _SCENE_GEN_DIR)
-from scene_prep import (scale_stage_prim, add_colliders, add_sky,
+from scene_prep import (ensure_scene_queries, scale_stage_prim, add_colliders, add_sky,
                         get_stage_meters_per_unit, settle_rigid_props,
                         settle_selection)
 from scene_generator import resolve_sky
@@ -381,6 +381,9 @@ class CityV2PreviewApp:
         # ----- Stage C: the people, and anything the USD could not carry -----
         # See scene_gen/targets.py: victims are placed at load time, not baked,
         # so one city can be searched repeatedly with a fresh population.
+        # The settle above ended with `reset_simulation()`, which leaves
+        # PhysX with no scene to query — Stage C's raycasts would all miss.
+        ensure_scene_queries(stage)
         disaster = kinds.get(config)
         victims = disaster.place_targets(stage, config, placements=placements,
                                          parent_path="/World/stage/targets",

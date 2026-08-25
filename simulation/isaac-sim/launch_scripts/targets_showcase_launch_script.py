@@ -62,7 +62,7 @@ _SCENE_GEN_DIR = os.path.normpath(
 sys.path.insert(0, os.path.join(_ISAAC_SIM_DIR, "utils"))
 sys.path.insert(0, _SCENE_GEN_DIR)
 
-from scene_prep import add_colliders, add_sky, get_stage_meters_per_unit
+from scene_prep import add_colliders, add_sky, get_stage_meters_per_unit, ensure_scene_queries
 from scene_generator import resolve_sky
 from compile_disaster import load_scene_config
 from disaster import kinds
@@ -240,11 +240,8 @@ def _scene(stage, ssf: float):
     # at module scope on purpose: a function-local `import omni.timeline` makes
     # `omni` local to the whole function, and every earlier `omni.kit.app` line
     # in it dies with UnboundLocalError.)
-    tl = omni.timeline.get_timeline_interface()
-    tl.stop()
-    tl.play()
-    for _ in range(5):
-        omni.kit.app.get_app().update()
+    # Attach PhysX for queries and PROVE it (prints LIVE/BLIND).
+    ensure_scene_queries(stage)
     # Left PLAYING rather than stopped, but THAT IS NOT THE FIX AND THIS BENCH
     # IS STILL BLIND. Measured 2026-08-25 on `urban_quake_tiny`, both ways
     # round: `add_colliders` authored every collider (the log lists them), the

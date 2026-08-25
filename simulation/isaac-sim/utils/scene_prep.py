@@ -697,6 +697,63 @@ def settle_rigid_props(stage, prim_paths, sim_seconds: float = 3.0,
 
 
 # ---------------------------------------------------------------------------
+# PhysX scene queries without the timeline
+# ---------------------------------------------------------------------------
+
+def ensure_scene_queries(stage, probe_path: str = "/World/stage/generated/ground") -> bool:
+    """Make `raycast_closest` see the stage's colliders, and PROVE it with a probe.
+
+    PhysX answers scene queries only against a scene it has attached and
+    parsed, and two things in the load path leave it with none: a stopped
+    timeline (`stop()` releases the scene) and `settle_rigid_props`, which ends
+    with `reset_simulation()`. Stage C ran after both, so every raycast in
+    `targets.settle_on_surface` and `findability.check_on_stage` missed in
+    ~4 us — and a miss reads exactly like open air, which is how two sessions
+    reported clean bills of health from probes that never touched geometry.
+
+    Attaches without playing (nothing moves: the settle has stripped every
+    RigidBodyAPI), then casts one ray down at *probe_path*'s centre. Returns
+    True only if that ray HITS; a False means no raycast after it is worth
+    anything, and it says so on stdout.
+    """
+    try:
+        import carb
+        import omni.physx
+        from omni.physx import get_physx_scene_query_interface
+    except Exception as exc:                                    # noqa: BLE001
+        print(f"[scene_prep] scene queries: PhysX unavailable ({exc})")
+        return False
+    if not any(p.IsA(UsdPhysics.Scene) for p in stage.Traverse()):
+        UsdPhysics.Scene.Define(stage, Sdf.Path("/World/PhysicsScene"))
+    physx = omni.physx.acquire_physx_interface()
+    physx.start_simulation()
+    physx.force_load_physics_from_usd()
+    physx.update_simulation(0.0, 0.0)
+    omni.kit.app.get_app().update()
+
+    x = y = 0.0
+    probe = stage.GetPrimAtPath(probe_path)
+    if probe and probe.IsValid():
+        rng = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_]) \
+            .ComputeWorldBound(probe).ComputeAlignedRange()
+        if not rng.IsEmpty():
+            mid = (rng.GetMin() + rng.GetMax()) * 0.5
+            x, y = float(mid[0]), float(mid[1])
+    mpu = UsdGeom.GetStageMetersPerUnit(stage) or 1.0
+    top = 500.0 / mpu
+    hit = get_physx_scene_query_interface().raycast_closest(
+        carb.Float3(x, y, top), carb.Float3(0.0, 0.0, -1.0), top * 2.0)
+    ok = bool(hit and hit.get("hit"))
+    if ok:
+        print(f"[scene_prep] scene queries: LIVE — probe at ({x:.1f}, {y:.1f}) hit "
+              f"{hit.get('collision', '?')} at z = {hit['position'][2] * mpu:.2f} m")
+    else:
+        print(f"[scene_prep] scene queries: BLIND — probe at ({x:.1f}, {y:.1f}) hit "
+              "nothing; every raycast after this is worthless")
+    return ok
+
+
+# ---------------------------------------------------------------------------
 # Lighting
 # ---------------------------------------------------------------------------
 
