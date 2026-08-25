@@ -3789,12 +3789,13 @@ def damage_building(stage, root_prim, disaster_type: str, intensity: float,
     # not arise: a house's shell genuinely is the house.
     ikw = dict(interior_kw or {})
     _min_r = float(ikw.get("min_radius_m", 25.0))
-    has_inside = bool(
-        prims and b is not None and b.radius >= _min_r
-        and interior_fill(prims, b, float(ikw.get("storey_m", 3.5)),
-                          float(ikw.get("cell_m", 3.0)))
-        >= float(ikw.get("already_filled", 0.35)))
+    measured_fill = (interior_fill(prims, b, float(ikw.get("storey_m", 3.5)),
+                                   float(ikw.get("cell_m", 3.0)))
+                     if prims and b is not None else 0.0)
+    has_inside = bool(b is not None and b.radius >= _min_r
+                      and measured_fill >= float(ikw.get("already_filled", 0.35)))
     out["already_inside"] = has_inside
+    out["interior_fill"] = round(float(measured_fill), 3)
 
     # --- stage one: thickness -----------------------------------------------
     if wall_m and wall_m > 0.0 and not solid and not has_inside:
@@ -3816,7 +3817,8 @@ def damage_building(stage, root_prim, disaster_type: str, intensity: float,
     # still costs nothing.
     if interior and not has_inside:
         out["interior"] = fill_interior(stage, root_prim, b,
-                                        core_kind=core_material_kind, **ikw)
+                                        core_kind=core_material_kind,
+                                        measured=measured_fill, **ikw)
 
     # --- stage three: propagation -------------------------------------------
     # The cut faces show the material's CORE (`core_material`), shared
@@ -4182,14 +4184,22 @@ def apply_to_stage(stage, config: dict, placements: list) -> dict:
                 # the look of its cut faces.
                 core_material_kind=kind,
                 **{"grain": material(kind).grain, **frac_kw})
+        # WHAT THE ASSET WENT INTO THE CUTTER AS. A fragment can only be a
+        # piece of whatever was there when the cut ran, so a wreck made of
+        # rock-shaped chunks rather than walls, floors and columns is a
+        # building that reached stage three hollow. Say it per building.
+        prep = (f"  prep: fill {got.get('interior_fill', 0):.2f}"
+                + (" (has its own interior)" if got.get("already_inside")
+                   else f", thickened {got.get('thickened', 0)} mesh(es)"
+                        f", authored {got.get('interior', 0)} box(es)"))
         shape = fragment_shape(stage, got.get("loose") or ())
         print(f"[mesh_damage] {n}/{len(work)} done in "
               f"{time.time() - t_one:.0f}s  "
               f"cells={got.get('cells', 0)} loose={len(got.get('loose') or ())}"
               + (f"  thickness {shape['thick_p50']:.2f}/{shape['thick_p90']:.2f} m"
                  f" (p50/p90), span {shape['span_p50']:.1f} m,"
-                 f" {shape['plate_frac'] * 100:.0f}% plates" if shape else ""),
-              flush=True)
+                 f" {shape['plate_frac'] * 100:.0f}% plates" if shape else "")
+              + prep, flush=True)
         if got["field"] is None:
             continue
         tally[got["field"]] = tally.get(got["field"], 0) + 1
@@ -4428,7 +4438,7 @@ def fill_interior(stage, root_prim, bounds: Bounds, storey_m: float = 3.5,
                   column_m: float = 0.9, column_every: int = 3,
                   inset: float = 0.0, uv_m: float = 4.0,
                   min_radius_m: float = 25.0, already_filled: float = 0.35,
-                  max_boxes: int = 20000, core_kind=None) -> int:
+                  max_boxes: int = 20000, core_kind=None, measured=None) -> int:
     """Author floor slabs and a column grid inside *root_prim*. Returns boxes.
 
     `solidify` extrudes the outer SURFACE inward and stops, because the
@@ -4482,7 +4492,20 @@ def fill_interior(stage, root_prim, bounds: Bounds, storey_m: float = 3.5,
     prims = mesh_prims(root_prim)
     if not prims or bounds is None or bounds.radius < float(min_radius_m):
         return 0
-    if interior_fill(prims, bounds, storey_m, cell_m) >= float(already_filled):
+    # MEASURE THE INTACT ASSET, NOT THE THICKENED ONE. `damage_building` asks
+    # this question before it touches the geometry and hands the answer down
+    # as *measured*; re-deriving it here reads a building that `solidify` has
+    # already changed. That is not a subtle difference: thickening extends the
+    # walls inward by up to 0.8 m, which lands in exactly the ring of plan
+    # cells that survive the one-cell erosion below, so the occupancy crosses
+    # `already_filled` and this pass declines the job it was called to do. The
+    # building then goes into the cutter as a thick-walled empty box, and its
+    # fragments come out as wall chunks closed with cap faces — rock-shaped,
+    # with no floors or columns in them, while the standing half keeps
+    # uniformly thick walls around an empty interior.
+    fill = interior_fill(prims, bounds, storey_m, cell_m) \
+        if measured is None else float(measured)
+    if fill >= float(already_filled):
         return 0
 
     pts = [get_points(p) for p in prims]
