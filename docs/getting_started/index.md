@@ -98,12 +98,14 @@ Containers start immediately, but the ROS 2 workspace still builds and PX4 still
 airstack ready   # or: airstack up --wait
 ```
 
-Useful variants (see `airstack help up`):
+Useful variants:
 
 ```bash
 airstack up --sim airsim          # MS AirSim instead of Isaac Sim
 airstack up --sim isaac --robots 3  # multi-robot (auto-selects the multi-drone scene script)
 ```
+
+The full set of launch flags is in the [CLI reference](../development/beginner/airstack-cli/index.md#airstack-up-flags) (or `airstack help up`).
 
 ## Move Robot
 

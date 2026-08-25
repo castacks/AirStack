@@ -3,7 +3,7 @@
 This document provides a comprehensive checklist and guidelines for integrating new modules into the AirStack autonomy stack.
 
 > **Canonical names, types, QoS, and frames live in the versioned
-> [Interface Conventions Specification](interface_conventions.md)** (v1.0.0) —
+> [Interface Conventions Specification](interface_conventions.md)** —
 > cite that spec for interchange-point contracts; this page remains the
 > step-by-step integration workflow.
 
@@ -54,115 +54,34 @@ integration in one place.
 
 ---
 
-## Standard Topic Patterns
+## Standard Interfaces
 
-AirStack uses standardized topic naming conventions to ensure consistent communication between modules.
+Canonical topic/service/action names, message types, QoS profiles, and
+frames for every interchange point are defined in the versioned
+[Interface Conventions Specification](interface_conventions.md) — do not
+copy its tables here. The sections you will cite most while integrating:
 
-### Topic Naming Convention
+- [State estimation (`odometry`)](interface_conventions.md#2-odometry-primary-state-estimate)
+- [Trajectory controller surface](interface_conventions.md#5-trajectory-group-the-trajectory-controllers-contract-onboard-only)
+- [Interface commands (`control_setpoint`)](interface_conventions.md#6-control_setpoint-controller-interface-command-onboard-only)
+  and [interface status](interface_conventions.md#7-interface_status-group-vehicle-state-out-of-the-interface-layer)
+- [Task action servers (`tasks/*`)](interface_conventions.md#8-tasks-task-action-servers)
 
-Topics follow this pattern:
-```
-/[robot_name]/[layer]/[module]/[data_type]
-```
+What the checklist adds on top of the spec:
 
-Examples:
+- **Every input/output topic must be remappable via launch arguments.**
+  Default each one to its canonical name from the spec so a conventional
+  stack needs zero remaps; only deviations belong in the stack entry file.
+- **Task action servers** must be remapped to
+  `/{robot_name}/tasks/{task_name}` in the module's launch file:
 
-- `/drone1/perception/macvo/odometry` (a module-provided topic — macvo comes from the `asm_macvo` module)
-- `/drone1/local_planner/droan/trajectory`
-- `/drone1/trajectory_controller/tracking_point`
+    ```xml
+    <remap from="~/your_task"
+           to="/$(env ROBOT_NAME)/tasks/your_task_name" />
+    ```
 
-### Common Standard Topics
-
-These topics are used across multiple modules and should be used when applicable:
-
-| Topic | Type | Purpose | Layer |
-|-------|------|---------|-------|
-| `/[robot]/odometry` | nav_msgs/Odometry | Primary state estimate | Perception → All |
-| `/[robot]/global_plan` | nav_msgs/Path | Global waypoint path | Global → Local |
-| `/[robot]/trajectory_controller/trajectory_segment_to_add` | airstack_msgs/TrajectoryXYZVYaw | Local trajectory commands | Local Planner → Controller |
-| `/[robot]/trajectory_controller/trajectory_override` | airstack_msgs/TrajectoryXYZVYaw | Direct trajectory override | Task executors → Controller |
-| `/[robot]/trajectory_controller/look_ahead` | airstack_msgs/Odometry | Look-ahead point for planning | Controller → Local Planner |
-| `/[robot]/trajectory_controller/tracking_point` | airstack_msgs/Odometry | Current tracking point | Controller → All |
-| `/[robot]/trajectory_controller/trajectory_completion_percentage` | std_msgs/Float32 | Trajectory progress | Controller → Planners |
-| `/[robot]/interface/mavros/cmd/takeoff` | mavros_msgs/CommandTOL | Takeoff command | Behavior → Interface |
-| `/[robot]/interface/cmd_vel` | geometry_msgs/Twist | Low-level velocity commands | Controller → Interface |
-
-### Layer-Specific Topic Patterns
-
-#### Interface Layer
-- **Inputs:** Commands from control layer
-- **Outputs:** Robot state, sensor raw data
-- **Topics:**
-
-  - `/[robot]/interface/mavros/state`
-  - `/[robot]/interface/mavros/local_position/pose`
-  - `/[robot]/interface/battery_state`
-
-#### Sensors Layer
-- **Inputs:** Raw sensor data from interface
-- **Outputs:** Processed sensor data
-- **Topics:**
-
-  - `/[robot]/sensors/[sensor_name]/[data_type]`
-  - Example: `/[robot]/sensors/front_stereo/left/image`
-  - Example: `/[robot]/sensors/front_stereo/disparity`
-
-#### Perception Layer
-- **Inputs:** Sensor data
-- **Outputs:** Odometry, environment understanding
-- **Topics:**
-
-  - `/[robot]/perception/[module]/odometry`
-  - `/[robot]/perception/[module]/depth`
-  - `/[robot]/odometry` (aggregated/primary odometry)
-
-#### Local Layer
-- **Inputs:** Odometry, local sensor data, global plan
-- **Outputs:** Local trajectories, cost maps
-- **Topics:**
-  - World Models: `/[robot]/local/[module]/cost_map`
-  - Planners: `/[robot]/local/[module]/trajectory`
-  - Controllers: `/[robot]/trajectory_controller/cmd`
-
-#### Global Layer
-- **Inputs:** Global map, robot pose, goal
-- **Outputs:** Global plan, map updates
-- **Topics:**
-  - Mapping: `/[robot]/global/[module]/map`
-  - Planning: `/[robot]/global_plan`
-
-#### Behavior Layer
-
-- **Inputs:** Mission commands, autonomy state
-- **Outputs:** High-level commands, mode changes
-- **Topics:**
-
-    - `/[robot]/behavior/drone_safety_monitor/state_estimate_timed_out`
-    - `/[robot]/behavior/drone_safety_monitor/command`
-
-### Task Action Server Naming Convention
-
-All task action servers must be remapped to:
-
-```text
-/{robot_name}/tasks/{task_name}
-```
-
-Examples:
-
-- `/{robot_name}/tasks/exploration` — ExplorationTask
-- `/{robot_name}/tasks/navigate` — NavigateTask
-- `/{robot_name}/tasks/coverage` — CoverageTask
-
-Add the remap in the module's launch file:
-
-```xml
-<remap from="~/your_task"
-       to="/$(env ROBOT_NAME)/tasks/your_task_name" />
-```
-
-The `~/` prefix expands to the node's private namespace at runtime,
-making the action name configurable without hardcoding.
+    The `~/` prefix expands to the node's private namespace at runtime,
+    making the action name configurable without hardcoding.
 
 See [Task Executors](tasks.md) for the complete list of defined
 task action types.

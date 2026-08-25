@@ -104,7 +104,7 @@ set_gps_origins(DRONE_CONFIGS, world_origin=(40.4433, -79.9436, 280.0))  # Pitts
 
 The anchor only affects the geographic location reported via GPS; nothing in the scene moves. Pick something close to where you want the drones to "be" — Foxglove's Map panel will center on it, and any GPS-referenced inputs to your stack will be relative to it.
 
-## Scene prep helpers — `scene_prep.py`
+## Scene prep helpers — `scene_prep.py` {#scene-prep-helpers}
 
 `simulation/isaac-sim/utils/scene_prep.py` is the small toolbox of stage preparation helpers `example_multi_drone_scene_import.py` uses inside its post-load callback (after the stage is loaded, before drones spawn). The full file has more — what's documented here is what you'll reach for in 95% of scenes.
 

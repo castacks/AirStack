@@ -23,6 +23,10 @@ Microsoft AirSim (legacy) provides an alternative simulation backend for AirStac
 - Archived project (no new features, but stable)
 - UE 4.27 only (older engine)
 
+## Project status
+
+Microsoft archived AirSim, which is why AirStack labels it "legacy": it remains a stable, supported simulation backend here, but the upstream project receives no new features. For a maintained successor, see [Project AirSim](https://github.com/iamaisim/ProjectAirSim) (UE5, new API).
+
 ## Quick Start
 
 ### 1. Scene (auto-fetched on first launch)
@@ -56,18 +60,9 @@ airstack up --sim airsim
 
 (Equivalently: `airstack up --env-file overrides/ms-airsim.env`, which sets the same compose profiles and URDF.)
 
-To build the images first:
+To build or pull the images first, see [Docker reference → Image Management](docker.md#image-management).
 
-```bash
-airstack images build --profile ms-airsim
-```
-
-The container runs `1 + 2*NUM_ROBOTS` tmux windows:
-- **Window 0**: AirSim binary (Unreal Engine rendering)
-- **Windows 1..N**: one PX4 SITL instance per robot
-- **Windows N+1..2N**: one ROS 2 bridge node per robot (depth + stereo RGB + camera_info)
-
-To attach to the tmux session:
+To attach to the container's tmux session (window layout and startup sequence are detailed in the [Docker reference](docker.md#accessing-the-container)):
 
 ```bash
 airstack connect ms-airsim
@@ -130,9 +125,10 @@ The default configuration is a forward-facing **stereo pair** (left + right) plu
 | FOV | 90° | `AIRSIM_CAM_FOV` |
 | Baseline (2 × Y offset) | 0.12 m | `AIRSIM_CAM_Y` |
 | Forward (X) offset | 0.4 m | `AIRSIM_CAM_X` |
+| Vertical (Z) offset | 0 m | `AIRSIM_CAM_Z` |
 | Pitch | 0° | `AIRSIM_CAM_PITCH` |
 
-Cameras are defined per vehicle in the generated `settings.json` under `Vehicles.robot_<i>.Cameras`.
+Cameras are defined per vehicle in the generated `settings.json` under `Vehicles.robot_<i>.Cameras`. Override the `.env` variables and restart the container to regenerate `settings.json` (see [Docker reference → Settings Generation](docker.md#settings-generation)).
 
 ### Bridge node parameters
 
@@ -147,11 +143,7 @@ Declared (with these defaults) in `simulation/ms-airsim/ros_ws/src/ms_airsim_ros
 
 ### Environment variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SIM_IP` | `172.31.0.200` | Simulation container IP |
-| `MS_AIRSIM_ENV_DIR` | `simulation/ms-airsim/assets/scenes` | Host path to extracted AirSim scenes |
-| `MS_AIRSIM_BINARY_PATH` | _(unset → auto-fetch Blocks)_ | Path to binary inside container. If unset, the entrypoint fetches Blocks and points at it. |
+Container-level environment variables (`AUTOLAUNCH`, `NUM_ROBOTS`, `SIM_IP`, `MS_AIRSIM_*`) are documented in the [Docker reference → Environment Variables](docker.md#environment-variables).
 
 ## Published ROS 2 Topics
 
@@ -164,24 +156,30 @@ Declared (with these defaults) in `simulation/ms-airsim/ros_ws/src/ms_airsim_ros
 | `/{robot_name}/sensors/front_stereo/depth` | `sensor_msgs/Image` | Depth image (32FC1, meters) |
 | `/clock` | `rosgraph_msgs/Clock` | Simulation clock from AirSim |
 
-### Project status
-
-Microsoft archived AirSim, which is why AirStack labels it "legacy": it remains a stable, supported simulation backend here, but the upstream project receives no new features. For a maintained successor, see [Project AirSim](https://github.com/iamaisim/ProjectAirSim) (UE5, new API).
-
 ## Troubleshooting
 
 **Bridge can't connect to Microsoft AirSim (legacy):**
 
-- Ensure the AirSim binary is running and `settings.json` is loaded
-- Check that `ms_airsim_ip` parameter matches where AirSim is running
+- Ensure the AirSim binary is running (`airsim` tmux window) and `settings.json` is loaded
+- The entrypoint retries until the AirSim API is ready; check for connection errors in the container logs
+- Check that the bridge node's `ms_airsim_ip` parameter matches where AirSim is running (default: `127.0.0.1` — same container)
 
 **No depth images:**
 
 - Verify the camera names in the generated `settings.json` are `front_left` / `front_right` — the names the bridge node requests images by
 - Check AirSim console for rendering errors
+- Echo the topic: `ros2 topic echo /robot_1/sensors/front_stereo/depth --once`
 
 **MAVROS won't connect:**
 
 - Verify `SIM_IP=172.31.0.200` is set in `.env` (default)
-- Ensure PX4 SITL has started (check AirSim console for MAVLink messages)
-- Check port configuration: offboard=24540+i, onboard=24580+i
+- Ensure PX4 SITL has started (look for `[mavlink]` output in the `robot_<i>_px4` tmux window)
+- Check port configuration: offboard `14540 + ROS_DOMAIN_ID` (see Data flow above); AirSim's own control channel uses `24540+i`/`24580+i`
+
+For container-level issues (UE4 binary won't launch, GPU/Vulkan access, PX4 lockstep connection, DDS topic visibility across containers), see the [Docker reference → Troubleshooting](docker.md#troubleshooting).
+
+## See Also
+
+- [Docker Configuration](docker.md) — container reference: services, env vars, networking, tmux layout, startup sequence
+- [Simulation Scenes](../scenes.md) — scene catalog and fetch helper
+- [Simulation Overview](../index.md) — choosing between simulators

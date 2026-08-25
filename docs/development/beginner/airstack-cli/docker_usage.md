@@ -82,17 +82,15 @@ airstack connect robot-2  # to connect to robot 2
 
 ### Launch flags and readiness
 
-`airstack up` accepts intent flags that derive the coordinated env-var sets for you (they override `.env` for that run without editing it):
+`airstack up` accepts intent flags that derive the coordinated env-var sets for you (they override `.env` for that run without editing it). For example:
 
 ```bash
-airstack up --sim isaac|airsim   # pick the simulator: compose profile + matching URDF (+ Isaac script)
-airstack up --robots N           # NUM_ROBOTS + single/multi Isaac launch script
-airstack up --headless           # no sim window (ISAAC_SIM_HEADLESS / MS_AIRSIM_HEADLESS)
-airstack up --play / --no-play   # PLAY_SIM_ON_START override
-airstack up --no-autolaunch      # idle containers, no tmux launch (development)
-airstack up --wait               # block until the stack is flight-ready
-airstack up --dry-run            # print + validate the resolved config; start nothing
+airstack up --sim isaac --robots 2   # simulator profile + matching URDF + multi-drone script
+airstack up --no-autolaunch          # idle containers, no tmux launch (development)
+airstack up --headless --wait        # no sim window; block until flight-ready
 ```
+
+The full flags table (`--play`/`--no-play`, `--dry-run`, `--stack`, `--fleet`, `--scene`, ...) is in the [CLI reference](index.md#airstack-up-flags).
 
 Every `up` prints the resolved launch config and saves it to `.airstack/runs/<timestamp>/effective_config.env`. Preflight validates the resolved values (one simulator profile, URDF pairing, robot-count/script consistency, missing images by name) before compose runs; `AIRSTACK_SKIP_PREFLIGHT=1` downgrades errors to warnings.
 

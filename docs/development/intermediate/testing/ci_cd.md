@@ -330,6 +330,10 @@ flowchart LR
   th --> au["autonomy<br/>trajectory tracking"]
 ```
 
+The table below focuses on what each suite *catches*; the authoritative mark
+list and per-mark reference live in
+[`tests/README.md`](../../../../tests/README.md).
+
 | Mark | Module | What it verifies | Bugs it is good at catching |
 |---|---|---|---|
 | `unit` | `<pkg>/test/` (co-located) | Hermetic Python/numpy logic co-located with each ROS 2 package | Off-by-one and boundary errors in filters, converters, validators; regressions in pure algorithm code |
