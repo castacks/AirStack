@@ -348,6 +348,8 @@ class CoNavGPT2Node(Node):
         # drone may fly. Conflating them is a footgun in both directions: a
         # frontier band of 3-20 m over a suburb is sensible, and flying at 3 m
         # between 10 m houses is not. 0 falls back to the flight band.
+        self._fr_z_stratify = bool(
+            self._p('frontier_z_stratify', True))
         self._fr_z_min = float(self._p('frontier_z_min_m', 0.0))
         self._fr_z_max = float(self._p('frontier_z_max_m', 0.0))
         self._voxel_map = None
@@ -395,7 +397,9 @@ class CoNavGPT2Node(Node):
         # coverage the moment the map is explored once. The detector is
         # imperfect, so repeated passes are wanted. Cost instead of removal.
         self._visit_weight = float(self._p('visit_cost_weight', 1.0))
-        self._visit_radius = float(self._p('visit_cost_radius_m', 25.0))
+        # NOT _visit_radius: that name is the target-revisit geofence set
+        # further down, which would otherwise silently clobber this.
+        self._visit_cost_radius = float(self._p('visit_cost_radius_m', 25.0))
         self._visit_decay = float(self._p('visit_cost_decay_per_s', 0.0))
         self._visit_cost = None
         self._last_visit_t = None
@@ -554,6 +558,9 @@ class CoNavGPT2Node(Node):
         self._inst_eps = float(self._p('target_cluster_eps_m', 4.0))
         self._inst_min_pts = int(self._p('target_cluster_min_points', 10))
         self._visit_radius = float(self._p('target_visit_radius_m', 12.0))
+        self._trail = []                 # map-frame (x, y, z) breadcrumbs
+        self._trail_max = int(self._p('trail_max_points', 4000))
+        self._trail_min_step_m = float(self._p('trail_min_step_m', 1.0))
         self._visited_targets = []       # map-frame (x, y) of visited instances
         self._target_instances = []      # map-frame (x, y) of every instance seen
         self._active_target = None       # the one currently being flown to
@@ -709,6 +716,14 @@ class CoNavGPT2Node(Node):
             latched)
         self._frontier_pub = self.create_publisher(
             MarkerArray, self._frontier_topic, latched)
+        # Where the robot is, where it has been, and every target instance with
+        # its visit state — in the SAME map frame as the frontiers and the voxel
+        # cloud. The GCS visualiser draws its robot markers in a GPS-anchored
+        # global ENU frame instead, which does not line up with this one.
+        self._search_marker_pub = self.create_publisher(
+            MarkerArray, self._p('search_marker_topic',
+                                 '/{robot}/search/markers').format(robot=_r0),
+            latched)
         # Depth 10 rather than latched: every round must survive into the mcap, and
         # TRANSIENT_LOCAL depth 1 would keep only the last one.
         self._round_stats_pub = self.create_publisher(
@@ -847,12 +862,12 @@ class CoNavGPT2Node(Node):
             if self._nav_mode == 'frontier':
                 self._visit_cost = VisitCost(
                     size0, self._map_resolution / 100.0, origin0,
-                    radius_m=self._visit_radius,
+                    radius_m=self._visit_cost_radius,
                     decay_per_s=self._visit_decay, weight=self._visit_weight)
                 self.get_logger().info(
                     f'frontier: visit cost {size0}x{size0} @ '
                     f'{self._map_resolution / 100.0:.2f} m, deposit radius '
-                    f'{self._visit_radius:.0f} m, weight {self._visit_weight:.2f}, '
+                    f'{self._visit_cost_radius:.0f} m, weight {self._visit_weight:.2f}, '
                     f'decay {self._visit_decay:g}/s')
             if self._nav_mode == 'lawnmower':
                 if self._search_poly is None:
@@ -1177,6 +1192,7 @@ class CoNavGPT2Node(Node):
         if self._track_instances:
             self._update_targets(self._agents[0])
             found_goal = self._active_target is not None
+        self._publish_search_markers(self._agents[0])
 
         step = self._agents[0].l_step
         if self._round_period_s > 0.0:
@@ -1266,9 +1282,7 @@ class CoNavGPT2Node(Node):
             if fr.shape[0] == 0:
                 return edge, []
 
-            # Best first. Unobserved-neighbour count IS the information gain, so
-            # unlike the 2D path there is no ambiguity about which to keep.
-            order = np.argsort(-gain)[:self._max_frontiers]
+            order = self._rank_frontiers(fr, gain)
             pts_out = []
             for rank, k in enumerate(order):
                 i, j = agent.map_xy_to_grid(float(fr[k, 0]), float(fr[k, 1]))
@@ -1284,6 +1298,41 @@ class CoNavGPT2Node(Node):
             self.get_logger().warn(f'voxel3d frontier extraction failed: {exc}',
                                    throttle_duration_sec=10.0)
             return edge, []
+
+    def _rank_frontiers(self, fr, gain):
+        """Indices of the frontiers to offer, best first.
+
+        Unobserved-neighbour count IS the information gain, so ranking by it
+        alone is unambiguous — but it is also degenerate: the least-observed
+        height wins every slot, all six candidates come back at one z, and the
+        3D map buys nothing over the 2D slab. Take the best frontier at each
+        height before taking a second one anywhere, so the offered set spans
+        the band. Levels are visited in order of their best frontier, so the
+        single best candidate overall is still rank 0.
+        """
+        order = np.argsort(-gain)
+        if not self._fr_z_stratify:
+            return order[:self._max_frontiers]
+
+        levels = {}
+        for k in order:
+            # floor, not round: voxel centres sit at odd multiples of half
+            # the voxel size, and round()'s ties-to-even merges adjacent
+            # layers in pairs — which silently drops every other height.
+            levels.setdefault(
+                int(float(fr[k, 2]) // self._vox_size), []).append(k)
+        # Best-first across levels, not lowest-first: otherwise the ground
+        # layer would always be offered as frontier_0.
+        by_gain = sorted(levels, key=lambda z: -gain[levels[z][0]])
+
+        picked = []
+        for rnd in range(max(len(v) for v in levels.values())):
+            for z in by_gain:
+                if rnd < len(levels[z]):
+                    picked.append(levels[z][rnd])
+                    if len(picked) >= self._max_frontiers:
+                        return np.asarray(picked, dtype=int)
+        return np.asarray(picked, dtype=int)
 
     # ── VLFM ──────────────────────────────────────────────────────────────────
 
@@ -1684,6 +1733,101 @@ class CoNavGPT2Node(Node):
             c = pts[m].mean(axis=0)
             out.append(o3d_xz_to_map_xy(c[0], c[2]))
         return out
+
+    def _publish_search_markers(self, agent):
+        """Robot, trail and target instances, in the map frame.
+
+        This is the answer to "where is it, where has it been, and what has it
+        already dealt with". Target colour IS the visit state, so a glance says
+        whether an instance still owes a visit:
+
+            RED     seen, not yet visited — still a candidate
+            YELLOW  the instance being flown to right now
+            GREEN   visited; inside target_visit_radius_m it is never chosen
+                    again, which is what stops the repeated-visit loop
+
+        The green discs are drawn at the geofence radius rather than at some
+        arbitrary size, so what is on screen is literally the region that
+        suppresses a revisit.
+        """
+        try:
+            here = self._agent_xy(agent)
+            # camera_position is open3d (x, y, z); map z is its y, the same
+            # convention the voxel integration uses.
+            z = float(agent.camera_position[1])
+            if (not self._trail
+                    or math.dist(self._trail[-1][:2], here)
+                    >= self._trail_min_step_m):
+                self._trail.append((float(here[0]), float(here[1]), z))
+                if len(self._trail) > self._trail_max:
+                    del self._trail[0]
+
+            stamp = self.get_clock().now().to_msg()
+            ma = MarkerArray()
+
+            def _mk(ns, mid, mtype):
+                m = Marker()
+                m.header.stamp = stamp
+                m.header.frame_id = self._map_frame
+                m.ns, m.id, m.type = ns, mid, mtype
+                m.action = Marker.ADD
+                m.pose.orientation.w = 1.0
+                return m
+
+            # The robot. Sized to be legible over a 240 m map, not to scale.
+            r = _mk('search_robot', 0, Marker.SPHERE)
+            r.pose.position.x, r.pose.position.y, r.pose.position.z = (
+                float(here[0]), float(here[1]), z)
+            r.scale.x = r.scale.y = r.scale.z = 4.0
+            r.color = ColorRGBA(r=0.1, g=0.6, b=1.0, a=0.95)
+            ma.markers.append(r)
+
+            lbl = _mk('search_robot_id', 0, Marker.TEXT_VIEW_FACING)
+            lbl.pose.position.x, lbl.pose.position.y = float(here[0]), float(here[1])
+            lbl.pose.position.z = z + 4.0
+            lbl.scale.z = 3.0
+            lbl.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=0.95)
+            lbl.text = f'{self._robots[0]} @ {z:.0f}m'
+            ma.markers.append(lbl)
+
+            if len(self._trail) > 1:
+                t = _mk('search_trail', 0, Marker.LINE_STRIP)
+                t.scale.x = 0.6
+                t.color = ColorRGBA(r=0.1, g=0.6, b=1.0, a=0.55)
+                t.points = [Point(x=p[0], y=p[1], z=p[2]) for p in self._trail]
+                ma.markers.append(t)
+
+            active = self._active_target
+            for k, xy in enumerate(self._target_instances):
+                done = self._is_visited(xy)
+                is_active = (active is not None
+                             and math.dist(active, xy) < 1e-6)
+                d = _mk('search_target', k, Marker.CYLINDER)
+                d.pose.position.x, d.pose.position.y = float(xy[0]), float(xy[1])
+                d.pose.position.z = 0.5
+                # Visited discs show the geofence itself; unvisited ones are
+                # drawn small, because their extent is not yet meaningful.
+                rad = self._visit_radius if done else 4.0
+                d.scale.x = d.scale.y = 2.0 * rad
+                d.scale.z = 1.0
+                d.color = (ColorRGBA(r=0.1, g=0.9, b=0.2, a=0.35) if done
+                           else ColorRGBA(r=1.0, g=0.85, b=0.1, a=0.75) if is_active
+                           else ColorRGBA(r=1.0, g=0.15, b=0.1, a=0.75))
+                ma.markers.append(d)
+
+                tl = _mk('search_target_id', k, Marker.TEXT_VIEW_FACING)
+                tl.pose.position.x, tl.pose.position.y = float(xy[0]), float(xy[1])
+                tl.pose.position.z = 6.0
+                tl.scale.z = 2.5
+                tl.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=0.9)
+                state = 'VISITED' if done else ('VISITING' if is_active else 'FOUND')
+                tl.text = f'{self._goal_name} {k} {state}'
+                ma.markers.append(tl)
+
+            self._search_marker_pub.publish(ma)
+        except Exception as exc:
+            self.get_logger().warn(f'search marker publish failed: {exc}',
+                                   throttle_duration_sec=10.0)
 
     def _is_visited(self, xy):
         return any(math.dist(xy, v) <= self._visit_radius

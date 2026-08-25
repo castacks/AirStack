@@ -107,6 +107,9 @@ search_planner:
     # filter which frontiers are CANDIDATES; that is a different question.
     # Where FRONTIERS may be — a different question from where the drone may
     # fly (min_/max_altitude_agl_m). 0 falls back to the flight band.
+    # Offer the best frontier at each height before a second one anywhere.
+    # Pure gain order collapses all candidates onto the least-observed height.
+    frontier_z_stratify: true
     frontier_z_min_m: 0.0
     frontier_z_max_m: 0.0
     voxel_z_min_m: 0.0

@@ -77,6 +77,7 @@ TOPICS = [
     # vanish again. Exactly the reason this node exists.
     ('occupancy',                                     OccupancyGrid, False, DEFAULT_QOS),
     ('frontiers',                                     MarkerArray,   False, DEFAULT_QOS),
+    ('search/markers',                                MarkerArray,   False, DEFAULT_QOS),
     ('search/map_image',                              Image,         False, DEFAULT_QOS),
     ('search/round_stats',                            String,        False, DEFAULT_QOS),
     # The three-state voxel map (free / occupied / frontier) the 3D frontier
