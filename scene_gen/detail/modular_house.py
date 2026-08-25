@@ -1327,8 +1327,15 @@ def build_catalogue(rng, cols=4, pitch_x=52.0, pitch_y=58.0, dress=True):
         # ONLY the shell takes the palette. Tagging the plot dressing too is
         # what rebound the fences, hedges and driveway to the house's wall
         # material — a timber-clad fence panel is not what `wood_white` means.
+        #
+        # `group` says which pieces are ONE BUILDING. A house is authored wall
+        # by wall, so anything scoring or annotating these placements needs to
+        # know that a dozen of them are a single object; without it a ground
+        # truth built from placements reports one house as twelve detections.
+        # Shell only — the plot dressing is its own set of objects.
         for p in shell:
             p["palette"] = STYLES[style].get("palette")
+            p["group"] = f"house_{n}"
         out += shell
         if dress:
             out += dress_plot(style, cx, cy, yaw, rng)

@@ -228,6 +228,25 @@ DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/
 # cannot drift apart; any other consumer of this tilt must do likewise.
 ZED_PITCH_DEG = float(os.environ.get("ZED_PITCH_DEG", "").strip() or 0.0)
 
+# RTX lidar per drone. Defaults to ON, which is what this launcher has always
+# done — an UNSET value means "unchanged", not "off", because the compose file
+# forwards ENABLE_LIDAR empty rather than false (each launcher owns its own
+# default; example_multi_px4_pegasus_launch_script.py's is off).
+#
+# Worth turning OFF for a CoNavGPT mission. That method consumes no lidar and no
+# point clouds — it builds its occupancy map purely from RGBD depth — and the
+# lidar is expensive: measured 2026-08-25 on the house bench, cameras fall from
+# ~53 Hz to ~17 Hz and /clock from ~53 to ~15 Hz with it attached. Since an OSMO
+# run is bounded in SIM seconds, that is a ~3x multiplier on the WALL CLOCK, and
+# therefore on the GPU hours, for identical coverage.
+#
+# It is NOT off because of the fault §4.1 once blamed on it. That was retested
+# with the lidar attached and the scene produced no cudaErrorIllegalAddress, no
+# render-graph failure and no dropped frames; the real cause was a stale DDS
+# profile in the isaac-sim image. Anything that needs vdb_mapping needs this on.
+ENABLE_LIDAR = (os.environ.get("ENABLE_LIDAR", "").strip().lower()
+                or "true") in ("1", "true", "yes", "on")
+
 # Lighting
 ADD_DOME_LIGHT = False
 DOME_LIGHT_PATH = "/World/DomeLight"
@@ -504,16 +523,17 @@ class PegasusApp:
                 camera_rotation_offset=[0.0, ZED_PITCH_DEG, 0.0],
             )
 
-            add_rtx_lidar_subgraph(
-                parent_graph_handle=graph_handle,
-                drone_prim=f"/World/drone{i}/base_link",
-                robot_name=f"robot_{i}",
-                lidar_config="ouster_os1",
-                lidar_topic_name="point_cloud_raw",
-                lidar_offset=[0.0, 0.0, 0.025],
-                lidar_rotation_offset=[0.0, 0.0, 0.0],
-                min_range=cfg["lidar_min_range"],
-            )
+            if ENABLE_LIDAR:
+                add_rtx_lidar_subgraph(
+                    parent_graph_handle=graph_handle,
+                    drone_prim=f"/World/drone{i}/base_link",
+                    robot_name=f"robot_{i}",
+                    lidar_config="ouster_os1",
+                    lidar_topic_name="point_cloud_raw",
+                    lidar_offset=[0.0, 0.0, 0.025],
+                    lidar_rotation_offset=[0.0, 0.0, 0.0],
+                    min_range=cfg["lidar_min_range"],
+                )
 
         # POST-SCALE ONLY, so the generated path never does it: there is no
         # scale_stage_prim on a generated plat, and toggling ~10^5 prims off
@@ -577,6 +597,7 @@ class PegasusApp:
             app.update()
         self._print_scene_banner(st)
         self._add_scene_colliders(stage)
+        self._write_scene_annotations(stage, st)
 
     def _add_scene_colliders(self, stage):
         if COLLIDERS == "off":
@@ -594,6 +615,50 @@ class PegasusApp:
             app.update()
         print("[scene] colliders on {0} in {1:.0f}s"
               .format(target, time.time() - t0), flush=True)
+
+    def _write_scene_annotations(self, stage, st):
+        """Ground truth for a GENERATED scene, from the generator's own record.
+
+        The survivors are the point of these scenes and they are the one class
+        nothing else can supply: their positions exist only in the people pass's
+        `humans.json`, which is written from the same records the scenario was
+        authored from. Reading GT from there means the boxes and the scenario
+        cannot disagree.
+
+        Off unless GT_ANNOTATIONS is set — it overwrites the annotation file for
+        RESULTS_SCENE, and a hand-authored file for a Nucleus stage of the same
+        name is not something to clobber by default.
+        """
+        if os.environ.get("GT_ANNOTATIONS", "off").strip().lower() not in (
+                "1", "true", "yes", "on"):
+            return
+        scene = os.environ.get("RESULTS_SCENE", "").strip()
+        if not scene:
+            print("[annotations] GT_ANNOTATIONS is on but RESULTS_SCENE is "
+                  "unset — nothing to name the file after, skipping")
+            return
+        try:
+            import scene_annotations as sa
+        except ImportError as exc:
+            print(f"[annotations] unavailable: {exc}")
+            return
+        # launch_scripts/ -> isaac-sim/ -> simulation/ -> repo root
+        repo = os.path.normpath(
+            os.path.join(_LAUNCH_SCRIPTS_DIR, "..", "..", ".."))
+        boxes = []
+        pj = (st or {}).get("people_json") if isinstance(st, dict) else None
+        if pj:
+            boxes += sa.boxes_from_people(sa.people_records(pj))
+        # Everything else the generator placed that maps to a class, measured
+        # off the composed stage. `placements` is only present when the API
+        # hands it back; people alone are still worth writing without it.
+        placements = (st or {}).get("placements") if isinstance(st, dict) else None
+        if placements:
+            boxes += sa.boxes_from_placements(stage, placements)
+        if not boxes:
+            print("[annotations] nothing to write (no people_json, no placements)")
+            return
+        sa.write_annotations(scene, boxes, sa.annotation_dirs(repo))
 
     def _print_scene_banner(self, st):
         r = st["region"]

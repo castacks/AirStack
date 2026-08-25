@@ -10,10 +10,19 @@ conavgpt2:
   ros__parameters:
     num_robots: 1
 
-    # 300 m instead of the mission's 500: a 500 m grid over a 200 m scene spends
-    # most of its cells on ground that is never observed, and every frontier
-    # then sits on the edge of the map rather than on the edge of the scene.
-    map_extent_m: 300.0
+    # SIZED TO THE SCENE, measured rather than guessed. The generated ground
+    # truth (annotations/ModularHousePreview.json, 56 boxes) puts the catalogue
+    # at x[-93.1, 93.7] y[-130.0, 17.0] — 186.8 x 147.0 m. The grid is centred
+    # on the SPAWN (map origin), which .env puts at (0, -20), and the furthest
+    # scene corner from there is 110 m. 240 m of extent covers all of it with
+    # 10 m to spare.
+    #
+    # `map_cells` is FIXED at 480 (the VLM overlay stamps robot markers in
+    # 480-pixel coordinates), so extent sets CELL SIZE, not cell count: 240 m
+    # gives 0.50 m per cell, where the previous 300 m gave 0.62 m. Matching the
+    # scene therefore buys resolution AND stops the drone drifting into empty
+    # grid — at 300 m a third of the cells were ground that does not exist.
+    map_extent_m: 240.0
 
     # Houses in this kit top out near 10 m. The band has to EXCLUDE the ground
     # (free space is what frontiers grow from) and INCLUDE the shells.
@@ -25,6 +34,9 @@ conavgpt2:
     # while still clearing every roof.
     flight_altitude_m: 12.0
     goal_tolerance_m: 5.0
+    # Drop to 8 m AGL once the target is seen, so the confirmation
+    # pass is an actual look rather than a cruise-altitude flyover.
+    inspect_altitude_m: 8.0
 
     # A 300 m map fills in far faster than a 1600 m plat, so a 30 s round spends
     # most of its time flying to a stale assignment.
@@ -32,8 +44,12 @@ conavgpt2:
 
     # Cars come with the plot dressing (`plot_car`), so this is a target that is
     # actually IN the scene. There are no people in the catalogue.
-    goal_name: 'car'
-    detection_classes: ['car', 'house', 'building', 'tree', 'fence', 'person']
+    # 'house' rather than 'car': the catalogue has 8 houses and only 4 cars, and
+    # houses are large enough to clear sem_threshold from cruise altitude — so
+    # this is the target that actually exercises the DETECTION path (found_goal
+    # -> nearest_point -> descend to inspect_altitude_m), which 'car' never did.
+    goal_name: 'house'
+    detection_classes: ['house', 'building', 'car', 'tree', 'fence', 'person']
 
     # Pinned, not left to ultralytics' bare-filename resolution: unset, it
     # resolves them relative to the CWD and otherwise re-downloads from GitHub

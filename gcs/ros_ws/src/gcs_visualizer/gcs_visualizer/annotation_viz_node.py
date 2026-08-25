@@ -110,9 +110,40 @@ class AnnotationViz(Node):
 
     # ------------------------------------------------------------------ JSON
 
-    def _scene_path_for(self, scene_name):
+    def _annotation_dirs(self):
+        """Where to look for `<scene>.json`, most specific first.
+
+        The package SHARE dir is a build-time COPY, so a scene whose ground
+        truth is generated at run time — the procedural scenes write theirs from
+        the layout generator, see `simulation/isaac-sim/utils/scene_annotations.py`
+        — lands in the SOURCE tree and never reaches the copy without a rebuild.
+        Both containers bind-mount the same repo, so preferring the source tree
+        is what lets the simulator hand this node a fresh GT in the same run.
+
+        ANNOTATIONS_DIR overrides both, for a GT that lives somewhere else
+        entirely (a mission's results dir, a hand-tuned file).
+        """
+        dirs = []
+        env_dir = os.environ.get('ANNOTATIONS_DIR', '').strip()
+        if env_dir:
+            dirs.append(env_dir)
         share = get_package_share_directory('gcs_visualizer')
-        return os.path.join(share, 'annotations', f'{scene_name}.json')
+        # <ws>/install/gcs_visualizer/share/gcs_visualizer -> <ws>/src/...
+        src = os.path.normpath(os.path.join(
+            share, '..', '..', '..', '..', 'src', 'gcs_visualizer', 'annotations'))
+        dirs.append(src)
+        dirs.append(os.path.join(share, 'annotations'))
+        return dirs
+
+    def _scene_path_for(self, scene_name):
+        candidates = [os.path.join(d, f'{scene_name}.json')
+                      for d in self._annotation_dirs()]
+        for path in candidates:
+            if os.path.isfile(path):
+                return path
+        # Nothing found: return the share path so the existing "missing file"
+        # log names the place a hand-authored GT would normally live.
+        return candidates[-1]
 
     def _load_scene(self, scene_name):
         path = self._scene_path_for(scene_name)

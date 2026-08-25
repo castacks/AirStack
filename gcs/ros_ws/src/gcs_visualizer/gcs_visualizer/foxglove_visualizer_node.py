@@ -198,6 +198,13 @@ class FoxgloveVisualizerNode(Node):
         self._overhead_max_grid_n = int(self.get_parameter(
             'overhead_max_grid_resolution').value)
         self._ground_published = False
+        # OPAQUE by default. This is the BOTTOM layer — the scene itself — and
+        # anything drawn over it (an occupancy grid, frontier markers, GT boxes)
+        # is what should be translucent. At the old 0.7 the ground washed out
+        # against the viewport background and every overlay on top of it read as
+        # muddy rather than as a layer.
+        self._ground_alpha = float(
+            self.declare_parameter('ground_alpha', 1.0).value)
         self._pending_image = None    # cache image until all specs arrive
         self._ground_pub = self.create_publisher(
             Marker, '/gcs/sim_ground', LATCHED_QOS)
@@ -708,7 +715,8 @@ class FoxgloveVisualizerNode(Node):
                 x_left = cx + (col / N - 0.5) * coverage
                 x_right = x_left + cell
                 r, g, b = pixels[row, col]
-                color = ColorRGBA(r=r/255.0, g=g/255.0, b=b/255.0, a=0.7)
+                color = ColorRGBA(r=r/255.0, g=g/255.0, b=b/255.0,
+                                  a=self._ground_alpha)
 
                 p_tl = Point(x=x_left,  y=y_top, z=-0.01)
                 p_tr = Point(x=x_right, y=y_top, z=-0.01)

@@ -31,6 +31,11 @@ conavgpt2:
     occupancy_topic: '/conavgpt2/occupancy'
     frontier_marker_topic: '/conavgpt2/frontiers'
     frontier_marker_max_cells: 400   # cubes per frontier; thinned, not truncated
+    # 'centroids' (the goal point only) | 'cells' (the region) | 'both'
+    frontier_marker_style: 'centroids'
+    # Draw height above map z=0. The sim ground is a flat plane at world
+    # z=0 and so is this grid; at the same height they z-fight.
+    occupancy_z_offset_m: 0.5
     run_complete_topic: '/conavgpt2/run_complete'
 
     # ── frames ──────────────────────────────────────────────────────────────
@@ -63,6 +68,14 @@ conavgpt2:
     scene_dbscan_eps_m: 0.0        # upstream 0.1; 0 with min_points 0 disables
     scene_dbscan_min_points: 0
     frontier_threshold_points: 20
+    # 0 -> derived from map_extent_m (6 at 240 m, linear, capped by the
+    # limit below). Upstream's hardcoded value is 6. Every extra frontier is
+    # another BEV image in the prompt (~290 tokens) and more prefill time.
+    max_frontiers: 0
+    max_frontiers_limit: 12
+    # 'smallest' (upstream: indoors a small frontier is a doorway) |
+    # 'largest'  (outdoors from the air the prior inverts)
+    frontier_order: 'smallest'
     incremental_mapping: true
 
     # ── cadence ─────────────────────────────────────────────────────────────
@@ -99,6 +112,29 @@ conavgpt2:
     #                    "task already active" and the drone keeps flying the
     #                    previous assignment.
     nav_activation: 'activator'
+    # What goes on /global_plan.
+    #   'waypoints' two poses (goal + path_extension_m beyond it), droan's
+    #               local planner does the rest. This is raven_nav's shape
+    #               and what the rest of this stack is tuned for.
+    #   'fmm_path'  upstream's full FMM waypoint list. Truer to Co-NavGPT,
+    #               but planned on a 0.6-3.5 m grid against droan's own
+    #               finer avoidance.
+    plan_output: 'waypoints'
+    # Descend to this AGL once the target is DETECTED (found_goal), for the
+    # confirmation pass; 0 = never descend, hold flight_altitude_m, which is
+    # upstream's behaviour. Upstream is a 2D method on a quadruped and has
+    # no altitude at all, so both of these are this port's inventions.
+    inspect_altitude_m: 0.0
+    # Target INSTANCES. Upstream has none: one merged cloud, one bool, one
+    # nearest point, and nothing that retires a target — so it flies to the
+    # closest instance and stays. With this on, the cloud is clustered into
+    # instances, arriving within target_visit_radius_m blacklists one, and
+    # the planner moves to the nearest unvisited. Frontier exploration
+    # resumes when none are left.
+    target_instances: true
+    target_cluster_eps_m: 4.0        # gap that separates two instances
+    target_cluster_min_points: 10
+    target_visit_radius_m: 12.0      # arrive within this == visited
     activator_retry_s: 3.0
 
     # ── perception backend ──────────────────────────────────────────────────

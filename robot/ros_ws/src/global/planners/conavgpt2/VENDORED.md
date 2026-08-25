@@ -95,6 +95,16 @@ The biggest change, and the one that makes an offline open-weight VLM work.
    required exactly one extra key, the `"reason"` field, so a model that omitted
    the reason was rejected as malformed).
 7. Connection errors now name `CONFIG.base_url` instead of saying "OpenAI API".
+8. **`message_prepare`'s "two robots" is now `CONFIG.num_agents`.** Upstream
+   writes the literal string `"two robots need to find a "` into the user turn,
+   because the paper is a two-robot method. On any other team size that is a
+   false statement to the model, and the model ACTS ON IT — observed live at
+   `num_agents=1`, every round: *"Robot 0 is closer to the car... Robot 1 should
+   explore the other frontier to cover the remaining area."* It reserves a
+   frontier for a robot that does not exist, and so declines to send the one
+   real robot to the frontier it just called best. The count and the plural are
+   now taken from `CONFIG.num_agents`, which is already the team size everywhere
+   else in the file.
 
 **The request shape is untouched and is plain OpenAI vision**, verified by
 building a real two-frontier message and inspecting it: `messages` =

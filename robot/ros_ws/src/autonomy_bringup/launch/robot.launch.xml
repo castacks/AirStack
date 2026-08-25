@@ -25,10 +25,35 @@ lite, desktop_split sim)
     <arg name="use_sim_time" value="$(var sim)" />
   </include>
 
-  <!-- Static TFs (world → map) -->
-  <node pkg="tf2_ros" exec="static_transform_publisher"
-    name="world_to_map_broadcaster"
-    args="0 0 0 0 0 0 world map" />
+  <!-- world -> map.
+       IDENTITY IS A LIE whenever the drone does not spawn at the world origin.
+       `map` is anchored at the TAKEOFF POINT (PX4's local origin comes from the
+       GPS home position, which gps_utils.set_gps_origins derives from the spawn
+       pose), so odometry, TF, /global_plan and any grid published in `map` sit
+       offset from world by exactly the spawn offset — while the sim's overhead
+       ground texture and the GCS robot markers are in world ENU. Measured:
+       45 m on the house bench (DRONE_XY=0,-45), 340 m on suburb_wildfire.
+       The default DRONE_CONFIGS spawn at the origin, which is why this has
+       never shown up.
+
+       Left as identity by DEFAULT because making it truthful changes the frame
+       every previously recorded mission replays in. MAP_ANCHOR_ENU=true swaps
+       in a node that MEASURES the offset (world ENU from the GPS fix minus the
+       same instant's odometry) and publishes that instead. -->
+  <arg name="map_anchor_enu" default="$(env MAP_ANCHOR_ENU false)" />
+
+  <group unless="$(eval '&quot;$(var map_anchor_enu)&quot;.lower() == &quot;true&quot;')">
+    <node pkg="tf2_ros" exec="static_transform_publisher"
+      name="world_to_map_broadcaster"
+      args="0 0 0 0 0 0 world map" />
+  </group>
+
+  <group if="$(eval '&quot;$(var map_anchor_enu)&quot;.lower() == &quot;true&quot;')">
+    <node pkg="coordination_bringup" exec="map_anchor_node"
+      name="world_to_map_broadcaster" output="screen">
+      <param name="spawn_height_m" value="$(env SPAWN_HEIGHT_M 0.0)" />
+    </node>
+  </group>
 
   <!-- ── Role dispatch ───────────────────────────────────────────────── -->
 

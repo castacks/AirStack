@@ -64,6 +64,48 @@ def _robot_color_hex(n: int) -> str:
     return f'#{round(r * 255):02x}{round(g * 255):02x}{round(b * 255):02x}ff'
 
 
+def inject_conavgpt2(layout: dict) -> None:
+    """Add the conavgpt2 layers to every 3D panel, as an OVERLAY.
+
+    The occupancy grid is the same flat plane as the sim ground, so it is only
+    readable as a layer if it is translucent and the ground under it is not —
+    hence alpha 0.55 here and `ground_alpha` 1.0 in foxglove_visualizer_node.
+    (The node also lifts the grid by occupancy_z_offset_m so the two planes do
+    not z-fight.)
+
+    colorMode `custom` and not the default: `costmap` maps 0..100 through a
+    nav-stack cost palette that says nothing here, because this grid only ever
+    holds three values — 0 free, 100 occupied, -1 unknown. Free is drawn pale
+    and occupied dark, and unknown is fully transparent so the ground shows
+    through and the grid reads as COVERAGE rather than as a sheet over the
+    scene.
+
+    Frontier markers are opaque: they are the decision being visualised.
+    """
+    for pid, cfg in layout.get('configById', {}).items():
+        if not (pid.startswith('3D!') and isinstance(cfg, dict)):
+            continue
+        topics = cfg.setdefault('topics', {})
+        topics['/conavgpt2/occupancy'] = {
+            'visible': True,
+            'colorMode': 'custom',
+            'alpha': 0.25,
+            # FOUR classes out of a message type that defines three. ROS
+            # OccupancyGrid is -1 unknown plus 0..100 cost, so the node stamps
+            # detected target instances with 101 — outside that range, which a
+            # viewer paints with its INVALID colour. That is the fourth slot.
+            'minColor': '#ffffff',        #   0  free space      -> white
+            'maxColor': '#000000',        # 100  obstacle        -> black
+            'unknownColor': '#00000000',  #  -1  never observed  -> transparent
+            'invalidColor': _robot_color_hex(1),   # 101 target  -> robot colour
+            'frameLocked': False,
+        }
+        topics['/conavgpt2/frontiers'] = {'visible': True}
+        # GT from the layout generator (scene_annotations.py). Namespaced per
+        # class, so house/car/tree/person can be toggled independently.
+        topics['/gcs/annotations/bboxes'] = {'visible': True}
+
+
 def inject_rayfronts_debug(layout: dict, num_robots: int,
                            voxel_threshold: float) -> None:
     """Add per-robot settings for /rayfronts_debug/<robot>/voxels_sim/all to
@@ -269,6 +311,7 @@ def main():
         template = json.load(f)
     rendered = expand_layout(template, args.num_robots)
     inject_rayfronts_debug(rendered, args.num_robots, args.voxel_threshold)
+    inject_conavgpt2(rendered)
 
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
     tmp = args.output + '.tmp'

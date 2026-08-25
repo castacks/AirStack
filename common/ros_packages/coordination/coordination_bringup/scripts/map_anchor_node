@@ -1,0 +1,3 @@
+#!/usr/bin/env python3
+from coordination_bringup.map_anchor_node import main
+main()

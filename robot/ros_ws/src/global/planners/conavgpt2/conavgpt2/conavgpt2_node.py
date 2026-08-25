@@ -169,6 +169,18 @@ class CoNavGPT2Node(Node):
         # can be thousands of cells; beyond a few hundred the shape is already
         # readable and the rest is bandwidth.
         self._frontier_max_cells = int(self._p('frontier_marker_max_cells', 400))
+        # What /conavgpt2/frontiers draws.
+        #   'centroids' just the goal point per frontier — the single point a
+        #               robot is actually sent to, which is what upstream's
+        #               `Goal_point` is. Least clutter.
+        #   'cells'     the frontier REGION, one cube per grid cell.
+        #   'both'      region plus its centroid.
+        self._frontier_style = str(self._p('frontier_marker_style', 'centroids'))
+        # Height the OccupancyGrid is drawn at, above the map frame's z=0. The
+        # sim's ground texture is a flat plane at world z=0 and the grid is a
+        # flat plane too, so at the same height they Z-FIGHT and the overlay
+        # flickers between the two. Lift it clear.
+        self._occupancy_z = float(self._p('occupancy_z_offset_m', 0.5))
 
         self._map_frame = self._p('map_frame', 'map')
         # TF is exact (it walks the real URDF chain) but the frames are bare, i.e.
@@ -266,6 +278,22 @@ class CoNavGPT2Node(Node):
         self._scene_eps = float(self._p('scene_dbscan_eps_m', 0.0))
         self._scene_min_pts = int(self._p('scene_dbscan_min_points', 0))
         self._frontier_threshold = int(self._p('frontier_threshold_points', 20))
+        # How many frontiers get offered to the VLM. Upstream hardcodes 6, which
+        # is a PROMPT-SIZE bound (one BEV image each), not a mapping one — and
+        # six candidates over a 240 m bench is a very different proposition from
+        # six over a 1200 m plat covering 25x the area.
+        #
+        # 0 derives it from the extent, so a bigger world automatically gets more
+        # candidates without anyone remembering to change it: 6 at 240 m, scaling
+        # linearly, capped by max_frontiers_limit because every extra frontier is
+        # another ~290 prompt tokens and more time in prefill.
+        self._max_frontiers = int(self._p('max_frontiers', 0))
+        self._max_frontiers_limit = int(self._p('max_frontiers_limit', 12))
+        if self._max_frontiers <= 0:
+            self._max_frontiers = int(min(
+                self._max_frontiers_limit,
+                max(6, round(6.0 * self._map_extent_m / 240.0))))
+        self._frontier_order = str(self._p('frontier_order', 'smallest'))
         self._incremental = bool(self._p('incremental_mapping', True))
 
         # ── planning cadence ──────────────────────────────────────────────────
@@ -305,6 +333,49 @@ class CoNavGPT2Node(Node):
         # _ensure_activator() for why the first is the default.
         self._nav_activation = self._p('nav_activation', 'activator')
         self._activator_retry_s = float(self._p('activator_retry_s', 3.0))
+        # What goes on /global_plan.
+        #   'waypoints' two poses — the goal, and one path_extension_m beyond it
+        #              along the approach — and droan's local planner finds its
+        #              own way there. This is what raven_nav publishes
+        #              (frontier_behavior.py: target_waypoint + 2 m * direction),
+        #              and it is the pattern the rest of this stack is tuned for.
+        #   'fmm_path' upstream's full FMM waypoint list through its own
+        #              occupancy grid. Higher fidelity to Co-NavGPT, which plans
+        #              around the map it built — but that grid is 0.6 m per cell
+        #              here and 3.5 m on the plat, so the path it produces fights
+        #              droan's own avoidance at a resolution droan does better.
+        self._plan_output = self._p('plan_output', 'waypoints')
+        # Altitude to drop to once the target has actually been DETECTED, in m
+        # AGL. 0 disables it and the drone holds flight_altitude_m for the whole
+        # run, which is upstream's behaviour — Co-NavGPT is a 2D method on a
+        # quadruped and has no altitude concept at all, so cruise height is
+        # something this port had to invent.
+        #
+        # Search happens from cruise, where the camera covers ground fastest;
+        # this is for the confirmation pass, when `found_goal` is set and
+        # `nearest_point` gives the detection's real height. A person is on the
+        # ground and a 20 m standoff is not a look.
+        self._inspect_altitude = float(self._p('inspect_altitude_m', 0.0))
+
+        # ── target INSTANCES ─────────────────────────────────────────────────
+        # Upstream has no concept of one: `object_pcd` is a single merged cloud
+        # of every detected goal-class point, `found_goal` is a bool, and
+        # `nearest_point` is the nearest sample in that cloud. So it flies to the
+        # closest instance and stops — object-GOAL navigation, where the episode
+        # ends on arrival. Nothing marks anything complete, so on a scene with
+        # several instances it latches onto the first and never moves on.
+        #
+        # This clusters the cloud into instances, remembers which have been
+        # visited, and hands the planner the nearest UNVISITED one. When they run
+        # out, found_goal is released and frontier exploration resumes — which is
+        # what turns "find a house" into "find the houses".
+        self._track_instances = bool(self._p('target_instances', True))
+        self._inst_eps = float(self._p('target_cluster_eps_m', 4.0))
+        self._inst_min_pts = int(self._p('target_cluster_min_points', 10))
+        self._visit_radius = float(self._p('target_visit_radius_m', 12.0))
+        self._visited_targets = []       # map-frame (x, y) of visited instances
+        self._target_instances = []      # map-frame (x, y) of every instance seen
+        self._active_target = None       # the one currently being flown to
 
         # ── perception backend ────────────────────────────────────────────────
         self._device = self._p('device', 'cuda:0')
@@ -353,6 +424,8 @@ class CoNavGPT2Node(Node):
         explored_map_utils.SCENE_VOXEL_M = self._scene_voxel
         explored_map_utils.SCENE_DBSCAN_EPS_M = self._scene_eps
         explored_map_utils.SCENE_DBSCAN_MIN_POINTS = self._scene_min_pts
+        explored_map_utils.MAX_FRONTIERS = self._max_frontiers
+        explored_map_utils.FRONTIER_ORDER = self._frontier_order
 
         # Body +y (left) is optical -x, so a DOWNWARD body pitch p is a rotation
         # of -p about the optical x axis. Applied on the right of a
@@ -385,6 +458,8 @@ class CoNavGPT2Node(Node):
         self._stop = False
         self._sim_t0 = None
         self._run_complete = False
+        # Identifies this process's rows in an appended results file.
+        self._run_id = f'{int(time.time())}-{os.getpid()}'
         self._bridge = CvBridge()
         self._agents = None
         self._map_process = None
@@ -468,6 +543,7 @@ class CoNavGPT2Node(Node):
             f'{self._map_resolution} cm = {self._map_size_cm / 100.0:.0f} m across | '
             f'obstacle band z=[{self._obst_min_z}, {self._obst_max_z}] m AGL | '
             f'camera pitch {math.degrees(self._camera_pitch):.1f} deg down | '
+            f'<= {self._max_frontiers} frontiers ({self._frontier_order} kept) | '
             f'vlm={model} @ {base_url}')
 
         # YOLO-World + MobileSAM load takes tens of seconds; keep callbacks live.
@@ -792,6 +868,13 @@ class CoNavGPT2Node(Node):
         target_score, target_edge_map, target_point_list = self._map_process.Frontier_Det(
             threshold_point=self._frontier_threshold)
 
+        # Instance bookkeeping BEFORE the assignment gate, because whether any
+        # unvisited target remains is exactly what decides between "fly to it"
+        # and "ask the VLM for a frontier".
+        if self._track_instances:
+            self._update_targets(self._agents[0])
+            found_goal = self._active_target is not None
+
         step = self._agents[0].l_step
         if self._round_period_s > 0.0:
             assignment_due = (not self._goal_points
@@ -898,6 +981,12 @@ class CoNavGPT2Node(Node):
         overran = budget > 0.0 and total_s > budget
 
         stats = {
+            # Which RUN this row belongs to. The file is opened 'a' (never
+            # clobber a previous run's results) and `round` restarts at 1 every
+            # process, so without this two runs in the same results dir — an
+            # iteration retry, a relaunch after a crash — interleave into one
+            # file that reads as a single long run. Group by run_id.
+            'run_id': self._run_id,
             'round': self._round,
             'stamp': time.time(),
             'sim_time': self.get_clock().now().nanoseconds * 1e-9,
@@ -916,6 +1005,12 @@ class CoNavGPT2Node(Node):
             'total_tokens': call.get('total_tokens'),
             'parse': call.get('parse'),
             'invalid_ids': call.get('invalid_ids'),
+            # Whether upstream's six-frontier cap dropped anything this round,
+            # and what it dropped. `n_offered` is what the VLM saw;
+            # `n_above_threshold` is what existed. See LAST_DET's note: the cap
+            # keeps the SMALLEST regions, so a non-empty `areas_dropped` means
+            # the biggest frontiers were the ones withheld.
+            'frontier_det': dict(explored_map_utils.LAST_DET),
             'errors': call.get('errors'),
             'response_text': call.get('response_text'),
             'assignment': {k: str(v) for k, v in (assignment or {}).items()},
@@ -968,17 +1063,98 @@ class CoNavGPT2Node(Node):
 
     # ── actuation ─────────────────────────────────────────────────────────────
 
+    def _instance_centroids(self, agent):
+        """Cluster `object_pcd` into instances, as map-frame (x, y) centroids.
+
+        DBSCAN rather than connected components: the cloud is unstructured
+        detection samples, not a raster, and instances are separated by real gaps
+        (52 m between houses on this bench). `target_cluster_eps_m` is that gap
+        scale — too large and two neighbouring houses merge into one instance,
+        too small and one house splits into several.
+        """
+        pcd = getattr(agent, 'object_pcd', None)
+        if pcd is None or len(pcd.points) < self._inst_min_pts:
+            return []
+        pts = np.asarray(pcd.points)
+        try:
+            labels = np.array(pcd.cluster_dbscan(
+                eps=self._inst_eps, min_points=self._inst_min_pts,
+                print_progress=False))
+        except Exception as exc:
+            self.get_logger().warn(f'target clustering failed: {exc}',
+                                   throttle_duration_sec=30.0)
+            return []
+        out = []
+        for lab in set(int(x) for x in labels if x >= 0):
+            m = labels == lab
+            c = pts[m].mean(axis=0)
+            out.append(o3d_xz_to_map_xy(c[0], c[2]))
+        return out
+
+    def _is_visited(self, xy):
+        return any(math.dist(xy, v) <= self._visit_radius
+                   for v in self._visited_targets)
+
+    def _update_targets(self, agent):
+        """Refresh instances, retire any the drone has now reached, and choose
+        the nearest unvisited one. Returns that target, or None."""
+        self._target_instances = self._instance_centroids(agent)
+        if not self._target_instances:
+            self._active_target = None
+            return None
+
+        here = self._agent_xy(agent)
+        # Retire on ARRIVAL, not on detection — the point of the blacklist is
+        # "we have been there", and a target retired on sight would let the
+        # drone tick instances off from across the map without ever visiting.
+        for xy in self._target_instances:
+            if math.dist(here, xy) <= self._visit_radius and not self._is_visited(xy):
+                self._visited_targets.append(xy)
+                self.get_logger().info(
+                    f'target VISITED at ({xy[0]:.1f}, {xy[1]:.1f}) — '
+                    f'{len(self._visited_targets)} done, blacklisted; '
+                    f'{sum(1 for t in self._target_instances if not self._is_visited(t))} '
+                    'unvisited in view')
+
+        unvisited = [t for t in self._target_instances if not self._is_visited(t)]
+        if not unvisited:
+            self._active_target = None
+            return None
+        self._active_target = min(unvisited, key=lambda t: math.dist(here, t))
+        return self._active_target
+
     def _goal_xy(self, i, agent):
-        """Where upstream wants this robot to go, in map-frame metres."""
-        if agent.found_goal and agent.nearest_point is not None:
-            # A detected target: its nearest point cloud sample, in open3d metres.
+        """Where this robot should go, in map-frame metres."""
+        if self._track_instances:
+            # The nearest UNVISITED instance, not upstream's nearest point of a
+            # merged cloud — that would keep re-selecting a target already flown
+            # to, because nothing in upstream retires one.
+            if self._active_target is not None:
+                return self._active_target
+        elif agent.found_goal and agent.nearest_point is not None:
             p = np.asarray(agent.nearest_point)
             return o3d_xz_to_map_xy(p[0], p[2])
         return agent.grid_to_map_xy(*self._goal_points[i])
 
     def _build_path(self, agent, goal_xy, offset):
-        """FMM waypoints from upstream's own planner, then the goal, then a short
-        extension so droan_gl has a heading through the final pose."""
+        """The Path droan_gl steers by.
+
+        'waypoints' (default) is raven_nav's shape: the goal, then one point
+        past it along the approach direction so droan has a heading THROUGH the
+        final pose rather than stopping dead on it. Two poses, and the local
+        planner owns everything between here and there.
+
+        'fmm_path' prepends upstream's own FMM waypoints. See `plan_output`.
+        """
+        if self._plan_output == 'waypoints':
+            cur = self._agent_xy(agent)
+            d = np.array(goal_xy) - np.array(cur)
+            n = float(np.linalg.norm(d))
+            direction = d / n if n > 1e-6 else np.array([1.0, 0.0])
+            pts = [tuple(goal_xy),
+                   tuple(np.array(goal_xy) + direction * self._path_extension_m)]
+            return self._path_msg(pts, offset, self._waypoint_z(agent))
+
         pts = [p for p in agent.plan_path_map_xy()]
         pts.append(goal_xy)
 
@@ -995,18 +1171,46 @@ class CoNavGPT2Node(Node):
         else:
             direction = np.array([1.0, 0.0])
         cleaned.append(tuple(np.array(cleaned[-1]) + direction * self._path_extension_m))
+        return self._path_msg(cleaned, offset, self._waypoint_z(agent))
 
+    def _agent_xy(self, agent):
+        """Where this agent currently is, in map-frame metres."""
+        return agent.grid_to_map_xy(*agent.current_grid_pose)
+
+    def _waypoint_z(self, agent):
+        """Altitude for this tick's waypoints, in map-frame metres.
+
+        Cruise, unless the target has been detected and inspect_altitude_m is
+        set. Upstream has no z at all — its goal is a 2D grid cell — so this is
+        the one place a 2D method has to be told what "there" means in 3D.
+        """
+        if self._inspect_altitude <= 0.0 or not getattr(agent, 'found_goal', False):
+            return self._altitude
+        if getattr(agent, 'nearest_point', None) is None:
+            return self._inspect_altitude
+        # open3d axis 1 is height, and T_MAP_TO_O3D maps map z -> o3d y, so this
+        # IS the detection's height above the takeoff plane. Descend to the
+        # standoff above whatever was actually seen rather than to a fixed AGL,
+        # so a target on a roof is not approached at ground height.
+        try:
+            target_z = float(np.asarray(agent.nearest_point)[1])
+        except (TypeError, ValueError, IndexError):
+            return self._inspect_altitude
+        return max(self._inspect_altitude, target_z + self._inspect_altitude)
+
+    def _path_msg(self, pts, offset, z=None):
+        z = self._altitude if z is None else z
         path = Path()
         path.header.stamp = self.get_clock().now().to_msg()
         path.header.frame_id = self._map_frame
-        for x, y in cleaned:
+        for x, y in pts:
             ps = PoseStamped()
             ps.header = path.header
             # The grid lives in the merge frame; droan_gl wants this robot's own
             # local 'map', so drop the boot_enu offset back off on the way out.
             ps.pose.position.x = float(x - offset[0])
             ps.pose.position.y = float(y - offset[1])
-            ps.pose.position.z = float(self._altitude)
+            ps.pose.position.z = float(z)
             ps.pose.orientation.w = 1.0
             path.poses.append(ps)
         return path
@@ -1142,11 +1346,23 @@ class CoNavGPT2Node(Node):
         """Upstream's own grid as a nav_msgs/OccupancyGrid.
 
         Values follow the ROS convention rather than upstream's two float
-        planes: -1 where nothing has been observed, 0 for observed-and-free,
-        100 for an obstacle. "Free" here means a cell whose points all fall
-        OUTSIDE the obstacle altitude band — which is exactly what upstream
-        grows frontiers from, so this is the map the method actually reasons
-        over, not a re-derivation of it.
+        planes:
+
+            -1  UNKNOWN   never observed. Foxglove draws this transparent, so
+                          the sim ground shows through and the grid reads as
+                          coverage.
+             0  FREE      observed, and every point in the cell fell OUTSIDE
+                          the obstacle altitude band. Frontiers grow from the
+                          boundary of THIS, which is why the band must exclude
+                          the ground.
+           100  OCCUPIED  something stands inside [obstacle_min_z_m,
+                          obstacle_max_z_m] here.
+
+        That is the map the method actually reasons over, not a re-derivation
+        of it. Note it is NOT the same as the greyscale in
+        /conavgpt2/map_image, which is upstream's own render: there white is
+        unknown, light grey is free and dark grey is obstacle, with the red
+        frontier boundary drawn on top.
         """
         try:
             size = int(obstacle_map.shape[0])
@@ -1154,6 +1370,15 @@ class CoNavGPT2Node(Node):
             grid = np.full((size, size), -1, dtype=np.int8)
             grid[explored_map > 0.1] = 0
             grid[obstacle_map > 0.1] = 100
+
+            # TARGET cells, stamped over the obstacle layer — a detected house IS
+            # an obstacle, and which of the two you want to see is the target.
+            # 101 is deliberately OUTSIDE the ROS 0..100 range so a viewer paints
+            # it with its "invalid" colour, giving a fourth distinct class in a
+            # message type that only defines three. See the layout's
+            # invalidColor.
+            for xy in self._target_instances:
+                self._stamp_target(grid, xy, size)
 
             # Upstream indexes [i, j] with i along +x and j along +o3d_z, and
             # map_y = -o3d_z. An OccupancyGrid is row-major in (y, x) with +y
@@ -1171,7 +1396,7 @@ class CoNavGPT2Node(Node):
             # into the grid, so cell i spans [(i - ox) * res, (i - ox + 1) * res).
             msg.info.origin.position.x = -ox * res
             msg.info.origin.position.y = -(size - oy) * res
-            msg.info.origin.position.z = 0.0
+            msg.info.origin.position.z = self._occupancy_z
             msg.info.origin.orientation.w = 1.0
             msg.data = data.reshape(-1).tolist()
             self._occupancy_pub.publish(msg)
@@ -1179,21 +1404,37 @@ class CoNavGPT2Node(Node):
             self.get_logger().warn(f'occupancy publish failed: {exc}',
                                    throttle_duration_sec=10.0)
 
+    def _stamp_target(self, grid, xy, size):
+        """Paint a disc of TARGET cells at a map-frame instance centroid.
+
+        A disc rather than the detected cells themselves: the detection cloud is
+        sparse and speckled, and what matters visually is "there is a target
+        here", at the radius the blacklist actually uses.
+        """
+        res = self._map_resolution / 100.0
+        ox, oy = self._grid_origin_cells()
+        ci = int(np.floor(xy[0] / res) + ox)
+        cj = int(np.floor(-xy[1] / res) + oy)
+        r = max(1, int(round(self._visit_radius / res)))
+        i0, i1 = max(0, ci - r), min(size, ci + r + 1)
+        j0, j1 = max(0, cj - r), min(size, cj + r + 1)
+        if i0 >= i1 or j0 >= j1:
+            return
+        ii, jj = np.ogrid[i0:i1, j0:j1]
+        grid[i0:i1, j0:j1][(ii - ci) ** 2 + (jj - cj) ** 2 <= r * r] = 101
+
     def _publish_frontiers(self, target_edge_map, target_point_list):
-        """Every candidate frontier, drawn as the CELLS it actually occupies.
+        """The candidate frontiers, as `frontier_marker_style` asks for.
 
-        Not a sphere at the centroid: a frontier is a connected run of free-space
-        boundary, and its shape and extent are what make an assignment look
-        sensible or not. `Frontier_Det` already labels the map with region k+1
-        for frontier k, so the cells are free to read — one CUBE_LIST at exactly
-        the grid resolution reproduces the region without inventing a radius.
+        The CENTROID is upstream's `Goal_point` — the single point a robot is
+        actually sent to — and is what the VLM's `frontier_N` id refers to. The
+        REGION is the connected run of free-space boundary that centroid came
+        from; it reads as a line rather than a dot because that is what a
+        frontier is. Default is centroids only, because the regions are the
+        noisier half and the decision lives in the centroid.
 
-        The id is the id in the VLM prompt — `frontier_0` is the first image the
-        model was shown — so a round-table assignment can be pointed at directly.
-        Green is the frontier a robot was assigned this round; red is a candidate
-        that was offered and not taken.
-
-        There are never more than SIX: upstream's `Frontier_Det` breaks at
+        Green is the frontier assigned this round, orange one that was offered
+        and not taken. There are never more than SIX — `Frontier_Det` breaks at
         `i == 5`, which is what bounds the VLM prompt to six images.
         """
         try:
@@ -1201,6 +1442,7 @@ class CoNavGPT2Node(Node):
             res = self._map_resolution / 100.0
             assigned = {(int(g[0]), int(g[1])) for g in self._goal_points}
             edge = np.asarray(target_edge_map)
+            stamp = self.get_clock().now().to_msg()
 
             ma = MarkerArray()
             # DELETEALL first: the count shrinks as the map closes, and without
@@ -1210,60 +1452,84 @@ class CoNavGPT2Node(Node):
             clear.action = Marker.DELETEALL
             ma.markers.append(clear)
 
-            stamp = self.get_clock().now().to_msg()
             for k, p in enumerate(target_point_list):
                 is_goal = (int(p[0]), int(p[1])) in assigned
                 colour = (ColorRGBA(r=0.1, g=0.9, b=0.2, a=0.9) if is_goal
                           else ColorRGBA(r=0.9, g=0.25, b=0.1, a=0.7))
-
-                m = Marker()
-                m.header.stamp = stamp
-                m.header.frame_id = self._map_frame
-                m.ns = 'conavgpt2_frontier'
-                m.id = k
-                m.type = Marker.CUBE_LIST
-                m.action = Marker.ADD
-                m.pose.orientation.w = 1.0
-                # One grid cell per cube, so the drawn region IS the region.
-                m.scale.x = m.scale.y = res
-                m.scale.z = res * 0.5
-                m.color = colour
-                cells = np.argwhere(edge == (k + 1))
-                # A frontier can run to thousands of cells on a coarse grid;
-                # THIN rather than truncate — truncating would draw only one end
-                # of the region and misrepresent where it is.
-                stride = max(1, len(cells) // max(1, self._frontier_max_cells))
-                for ci, cj in cells[::stride]:
-                    gx, gy = agent.grid_to_map_xy(int(ci), int(cj))
-                    m.points.append(Point(x=float(gx), y=float(gy),
-                                          z=float(self._altitude)))
-                if not m.points:
-                    continue
-                ma.markers.append(m)
-
+                if self._frontier_style in ('cells', 'both'):
+                    self._add_region(ma, edge, k, stamp, colour, res, agent)
                 cx, cy = agent.grid_to_map_xy(p[0], p[1])
-                t = Marker()
-                t.header.stamp = stamp
-                t.header.frame_id = self._map_frame
-                t.ns = 'conavgpt2_frontier_id'
-                t.id = k
-                t.type = Marker.TEXT_VIEW_FACING
-                t.action = Marker.ADD
-                t.pose.position.x = float(cx)
-                t.pose.position.y = float(cy)
-                # Label floats a fixed number of CELLS above the region, so it
-                # stays legible whether a cell is 0.6 m or 3.5 m.
-                t.pose.position.z = float(self._altitude) + 6.0 * res
-                t.pose.orientation.w = 1.0
-                t.scale.z = max(1.5, 8.0 * res)
-                t.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=0.95)
-                t.text = f'frontier_{k}'
-                ma.markers.append(t)
+                self._add_centroid(ma, k, cx, cy, stamp, is_goal, res)
 
             self._frontier_pub.publish(ma)
         except Exception as exc:
             self.get_logger().warn(f'frontier marker publish failed: {exc}',
                                    throttle_duration_sec=10.0)
+
+    def _add_region(self, ma, edge, k, stamp, colour, res, agent):
+        """One cube per grid cell of frontier k, so the drawn region IS the
+        region — no radius is invented."""
+        m = Marker()
+        m.header.stamp = stamp
+        m.header.frame_id = self._map_frame
+        m.ns = 'conavgpt2_frontier'
+        m.id = k
+        m.type = Marker.CUBE_LIST
+        m.action = Marker.ADD
+        m.pose.orientation.w = 1.0
+        m.scale.x = m.scale.y = res
+        m.scale.z = res * 0.5
+        m.color = colour
+        cells = np.argwhere(edge == (k + 1))
+        if not len(cells):
+            return
+        # THIN rather than truncate: truncating would draw only one end of the
+        # region and misrepresent where it is.
+        stride = max(1, len(cells) // max(1, self._frontier_max_cells))
+        for ci, cj in cells[::stride]:
+            gx, gy = agent.grid_to_map_xy(int(ci), int(cj))
+            m.points.append(Point(x=float(gx), y=float(gy),
+                                  z=float(self._altitude)))
+        if m.points:
+            ma.markers.append(m)
+
+    def _add_centroid(self, ma, k, cx, cy, stamp, is_goal, res):
+        """The goal point, sized to goal_tolerance_m — so what is drawn is the
+        disc the drone has to reach, not an arbitrary blob — plus the id the VLM
+        was shown, so an assignment in the round table can be pointed at."""
+        c = Marker()
+        c.header.stamp = stamp
+        c.header.frame_id = self._map_frame
+        c.ns = 'conavgpt2_frontier_goal'
+        c.id = k
+        c.type = Marker.SPHERE
+        c.action = Marker.ADD
+        c.pose.position.x = float(cx)
+        c.pose.position.y = float(cy)
+        c.pose.position.z = float(self._altitude)
+        c.pose.orientation.w = 1.0
+        c.scale.x = c.scale.y = c.scale.z = 2.0 * self._goal_tolerance
+        c.color = (ColorRGBA(r=0.1, g=1.0, b=0.3, a=0.85) if is_goal
+                   else ColorRGBA(r=1.0, g=0.6, b=0.1, a=0.55))
+        ma.markers.append(c)
+
+        t = Marker()
+        t.header.stamp = stamp
+        t.header.frame_id = self._map_frame
+        t.ns = 'conavgpt2_frontier_id'
+        t.id = k
+        t.type = Marker.TEXT_VIEW_FACING
+        t.action = Marker.ADD
+        t.pose.position.x = float(cx)
+        t.pose.position.y = float(cy)
+        # Floats a fixed number of CELLS above the point, so it stays legible
+        # whether a cell is 0.6 m or 3.5 m.
+        t.pose.position.z = float(self._altitude) + 6.0 * res
+        t.pose.orientation.w = 1.0
+        t.scale.z = max(1.5, 8.0 * res)
+        t.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=0.95)
+        t.text = f'frontier_{k}'
+        ma.markers.append(t)
 
     def _publish_image(self, pub, bgr_or_rgb, frame_id, rgb=False):
         try:

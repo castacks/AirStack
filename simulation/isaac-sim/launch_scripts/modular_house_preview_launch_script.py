@@ -93,6 +93,7 @@ sys.path.insert(0, os.path.join(_ISAAC_SIM_DIR, "launch_scripts"))
 from scene_prep import (scale_stage_prim, add_sky, get_stage_meters_per_unit,
                         add_colliders, add_orthographic_camera,
                         add_overhead_camera_publisher)
+import scene_annotations as sa
 import scene_generator as sg
 from detail import modular_house
 
@@ -145,6 +146,18 @@ DRONE_Z_M = float(_env("DRONE_Z_M", "1.0"))
 # paths are comparable and "cameras go dark with the lidar attached" is one
 # flag apart from "they do not".
 ENABLE_LIDAR = _flag("ENABLE_LIDAR")
+
+# Emit ground-truth boxes for what the layout generator placed — houses, cars,
+# trees, pool, props — measured off the composed stage and written to the same
+# annotation files the GCS already draws (`/gcs/annotations/bboxes`) and raven's
+# scorer already reads. The generator knows exactly what it placed, so its GT
+# should come from the generator rather than be hand-authored or measured back
+# off a render.
+#
+# RESULTS_SCENE names the file, because that is the variable the GCS's
+# annotation_viz_node already uses to choose one.
+GT_ANNOTATIONS = _flag("GT_ANNOTATIONS")
+RESULTS_SCENE = _env("RESULTS_SCENE", "ModularHousePreview")
 
 # DOWNWARD tilt of the ZED, in degrees, about the drone's body Y — positive is
 # down. Default 0 keeps the LEVEL mount every other method in this stack assumes;
@@ -341,6 +354,15 @@ class ModularHousePreviewApp:
 
         report_missing(stage, placements)
         add_sky(stage, "")
+
+        if GT_ANNOTATIONS:
+            # AFTER apply_placements, because every box is read off the composed
+            # stage — a placement has no world bound until it is referenced in.
+            repo = os.path.normpath(os.path.join(_ISAAC_SIM_DIR, "..", ".."))
+            boxes = sa.boxes_from_placements(stage, placements)
+            sa.write_annotations(RESULTS_SCENE, boxes, sa.annotation_dirs(repo))
+            print("[modular_house] set RESULTS_SCENE={0} on the GCS to draw "
+                  "these".format(RESULTS_SCENE))
 
         if SPAWN_DRONE:
             self._spawn_drone(stage, ssf)

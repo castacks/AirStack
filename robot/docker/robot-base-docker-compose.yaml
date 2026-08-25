@@ -39,6 +39,10 @@ services:
       # falling through to whatever endpoint the operator configured.
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
       - CONAVGPT2_VLM_MODEL=${CONAVGPT2_VLM_MODEL:-}
+      # nf4 | int8 | none. Read by the mission's server-start step, not by
+      # the node — the node only ever talks HTTP and does not care how the
+      # thing on the other end was quantised.
+      - CONAVGPT2_VLM_QUANT=${CONAVGPT2_VLM_QUANT:-}
       # Card conavgpt2.vlm_server is pinned to. Empty = don't pin (a one-GPU
       # box, where there is nothing to choose). NOT 0 on a multi-GPU pod: Isaac
       # Sim owns GPU 0 and co-tenanting the VLM with it fails the RTX render
@@ -51,6 +55,16 @@ services:
       # planner that is not told unprojects every point to the wrong
       # bearing without erroring. One var, both sides, no way to desync.
       - ZED_PITCH_DEG=${ZED_PITCH_DEG:-}
+      # Publish the MEASURED world->map transform instead of the hardcoded
+      # identity in robot.launch.xml. `map` is anchored at the takeoff
+      # point, so identity is only true when the drone spawns at the world
+      # origin — 45 m out on the house bench, 340 m on suburb_wildfire,
+      # which is what makes the drone and its plan float off the sim
+      # ground in Foxglove. Default false: making it truthful changes the
+      # frame every previously recorded mission replays in.
+      - MAP_ANCHOR_ENU=${MAP_ANCHOR_ENU:-}
+      # Takeoff height above the ground plane; the z half of that offset.
+      - SPAWN_HEIGHT_M=${SPAWN_HEIGHT_M:-}
       - RAYFRONTS_COMPUTE_PROB=${RAYFRONTS_COMPUTE_PROB:-True}
       - LVLM_BASELINE=${LVLM_BASELINE:-false}
       - URDF_FILE=${URDF_FILE}

@@ -14,6 +14,33 @@ from conavgpt2.vendor.utils.fmm_planner import FMMPlanner
 # Outdoor drone scale needs different values from upstream's indoor 4 m depth:
 # a 5 cm voxel over a 60 m scene is millions of points, and a 10 cm DBSCAN eps
 # discards nearly all of them as noise. The ROS wrapper overwrites these.
+# Per-call frontier-detection telemetry, read by the ROS wrapper after every
+# tick. `Frontier_Det` keeps at most SIX frontiers and returns no indication
+# that it dropped any, so without this there is no way to see the cap binding.
+#
+# NOTE the selection is ASCENDING BY AREA (`reverse=False`) and breaks at the
+# 6th, so what upstream keeps is the six SMALLEST regions above threshold — the
+# LARGEST frontiers, the ones with the most unexplored space behind them, are
+# the ones discarded. Recorded here rather than changed: it is upstream's
+# method. `areas_dropped` is what says whether it matters on a given map.
+LAST_DET = {}
+
+# How many frontiers `Frontier_Det` offers. Upstream hardcodes SIX (`if i == 5:
+# break`) — one BEV image per frontier in the VLM prompt, so this is a prompt-
+# size bound, not a mapping one. Six is reasonable for a Habitat apartment and
+# arbitrary for a 1200 m plat, where the same six cover 40,000x the area. The
+# node sets it from `max_frontiers`.
+MAX_FRONTIERS = 6
+
+# Which frontiers survive the cap when there are more than MAX_FRONTIERS.
+#   'smallest' upstream: ascending by area, keep the first N. Indoors a small
+#              frontier is usually a DOORWAY into an unexplored room, so this is
+#              a sensible prior there.
+#   'largest'  descending: keep the biggest. Outdoors from the air a large
+#              frontier is open ground not yet covered and a small one is a gap
+#              between two buildings, so the indoor prior inverts.
+FRONTIER_ORDER = 'smallest'
+
 SCENE_VOXEL_M = 0.05
 SCENE_DBSCAN_EPS_M = 0.1
 SCENE_DBSCAN_MIN_POINTS = 15
@@ -256,14 +283,32 @@ class Global_Map_Proc():
             if props[i].area > threshold_point:
                 dict_cost[i] = props[i].area
 
+        # Telemetry only — the selection below is untouched. Same shape as
+        # chat_utils.LAST_CALL: upstream discards the fact that it dropped
+        # anything, so there is no way to know from the outside whether the
+        # six-frontier cap is binding.
+        LAST_DET.clear()
+        LAST_DET.update({
+            "n_regions": len(props),
+            "n_above_threshold": len(dict_cost),
+            "n_offered": min(len(dict_cost), MAX_FRONTIERS),
+            "max_frontiers": MAX_FRONTIERS,
+            "order": FRONTIER_ORDER,
+            "threshold_point": threshold_point,
+        })
+
         if dict_cost:
-            dict_cost = sorted(dict_cost.items(), key=lambda x: x[1], reverse=False)
+            dict_cost = sorted(dict_cost.items(), key=lambda x: x[1],
+                               reverse=(FRONTIER_ORDER == 'largest'))
+            LAST_DET["areas_all_sorted"] = [v for _, v in dict_cost]
+            LAST_DET["areas_offered"] = [v for _, v in dict_cost[:MAX_FRONTIERS]]
+            LAST_DET["areas_dropped"] = [v for _, v in dict_cost[MAX_FRONTIERS:]]
 
             for i, (key, value) in enumerate(dict_cost):
                 Goal_edge[img_label == key + 1] = i + 1
                 Goal_point.append([int(props[key].centroid[0]), int(props[key].centroid[1])])
                 Goal_area_list.append(value)
-                if i == 5:
+                if i + 1 >= MAX_FRONTIERS:
                     break
 
         return  Goal_area_list, Goal_edge, Goal_point

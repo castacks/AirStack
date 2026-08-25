@@ -9,11 +9,16 @@
 # robot container 1.
 #
 # WHY TWO GPUS — the honest reason, which is NOT the one this header used to
-# give. It is MEMORY AND LATENCY ISOLATION for a large VLM: Qwen2.5-VL-32B in
-# nf4 is ~20 GB of weights before KV and the vision tower, and it is served by
-# transformers at batch 1 with no KV reuse, so a round re-prefills ~455 prompt
-# tokens plus up to six images every time. Giving it a card of its own keeps
-# that off the sim's allocator and keeps round latency predictable.
+# give. It is LATENCY ISOLATION: the server is transformers at batch 1 with no
+# KV reuse, so every round re-prefills ~455 prompt tokens plus up to six images,
+# and sharing an allocator with the sim makes that time unpredictable. Giving it
+# a card of its own also leaves headroom to swap the model up without re-sizing
+# anything (7B nf4 ~5.5 GB, 7B bf16 ~16 GB, 32B nf4 ~20 GB).
+#
+# It is NOT a headroom requirement at the size the mission ships. Measured on a
+# 16 GB card on 2026-08-25: Isaac Sim, a 4-bit Qwen2.5-VL, YOLO-World and
+# MobileSAM all co-resident at 12.0 of 16.3 GB, with the RTX lidar on, cameras
+# at 17 Hz and CoNavGPT2 flying. One 48 GB card would hold this mission.
 #
 # WHAT THIS FILE USED TO CLAIM, AND WHY IT WAS WRONG. It recorded an incident in
 # which Isaac Sim (~8.9 GB) and a 4-bit VLM (~3.3 GB) co-resident on one 16 GB
@@ -221,11 +226,11 @@ workflow:
       # missions here nothing else lands on GPU 1 beside the model.
       gpu: 2
       memory: 80Gi
-      # 400Gi is NOT unchanged-and-fine any more. Qwen2.5-VL-32B is ~65 GB of
-      # safetensors into the /root/.cache the robot image mounts, where the 3B
-      # this file was originally sized for was ~8 GB. The plat build and the
-      # mcaps still dominate, but the margin is 65 GB smaller than it reads.
-      # A 72B model would not fit under this line.
+      # The plat build and the mcaps dominate this. Model weights land in the
+      # /root/.cache the robot image mounts and scale with the model the mission
+      # picks: ~8 GB at 3B, ~16 GB at 7B (what conavgpt2_wildfire_1robot ships),
+      # ~65 GB at 32B. Only the last one meaningfully eats this line, and a 72B
+      # would not fit under it at all.
       storage: 400Gi
 
   timeout:

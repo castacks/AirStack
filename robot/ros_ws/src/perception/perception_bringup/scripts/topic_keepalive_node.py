@@ -16,7 +16,8 @@ from rclpy.node import Node
 from rclpy.qos import (DurabilityPolicy, HistoryPolicy, QoSProfile,
                        ReliabilityPolicy)
 from sensor_msgs.msg import CameraInfo, Image, PointCloud, PointCloud2
-from nav_msgs.msg import Odometry, Path
+from nav_msgs.msg import OccupancyGrid, Odometry, Path
+from std_msgs.msg import String
 from visualization_msgs.msg import Marker, MarkerArray
 from tf2_msgs.msg import TFMessage
 
@@ -62,6 +63,20 @@ TOPICS = [
     ('trajectory_controller/trajectory_vis',          MarkerArray,  False, DEFAULT_QOS),
     ('/tf',                                           TFMessage,    True,  DEFAULT_QOS),
     ('/tf_static',                                    TFMessage,    True,  DEFAULT_QOS),
+
+    # conavgpt2. ABSOLUTE (True): one node drives the whole team, as upstream
+    # does, so its map and round table are the TEAM's and carry no robot
+    # namespace.
+    #
+    # Without a subscriber here these never reach the GCS. The DDS router
+    # bridges on discovery, and until something in this container actually
+    # subscribes there is no local reader to discover — which is why the topics
+    # would appear on the GCS only after someone ran `ros2 topic echo`, and
+    # vanish again. Exactly the reason this node exists.
+    ('/conavgpt2/occupancy',                          OccupancyGrid, True, DEFAULT_QOS),
+    ('/conavgpt2/frontiers',                          MarkerArray,   True, DEFAULT_QOS),
+    ('/conavgpt2/map_image',                          Image,         True, DEFAULT_QOS),
+    ('/conavgpt2/round_stats',                        String,        True, DEFAULT_QOS),
 ]
 
 

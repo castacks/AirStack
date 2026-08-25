@@ -10,11 +10,22 @@
 #
 # THE VLM. Co-NavGPT's paper uses GPT-4o, whose parameter count has never been
 # published, so "closest to the paper" can only mean closest on the public
-# vision-language benchmarks. That is Qwen2.5-VL-32B-Instruct: it lands in
-# GPT-4o's range where 7B clearly does not, and nf4 puts it at ~20 GB on a 48 GB
-# card. 72B would be closer still, but nf4 weights alone are ~40 GB before KV
-# and the vision tower, and bitsandbytes at that size pushes a round past a
-# minute. Swap the model with CONAVGPT2_VLM_MODEL; nothing else here changes.
+# vision-language benchmarks. On that measure the ordering is 32B > 7B > 3B, and
+# 32B is the closest that fits a 48 GB card.
+#
+# This mission runs 7B, not 32B, and the reason is DEPLOYABILITY rather than
+# benchmark score: 32B in nf4 is ~20 GB of weights from a ~65 GB download, which
+# is not a thing that flies. 7B in nf4 is ~5.5 GB — small enough for onboard
+# compute, so what this run measures is a configuration that could actually be
+# fielded, not one that only exists on a pod.
+#
+# Both knobs are env vars and nothing else changes with them:
+#   CONAVGPT2_VLM_MODEL  Qwen/Qwen2.5-VL-{3B,7B,32B}-Instruct
+#   CONAVGPT2_VLM_QUANT  nf4 | int8 | none
+# 7B at `none` (bf16, ~16 GB) is the quality ceiling this pod has room for and
+# is one variable away; 32B at nf4 is one more. The server is Qwen2.5-VL-only
+# (`Qwen2_5_VLForConditionalGeneration` is imported by name in vlm_server.py),
+# so staying in this family is what keeps the swap free.
 #
 # TWO GPUs. GPU 0 is Isaac Sim's, GPU 1 is the VLM server's. Note this is for
 # MEMORY and predictable latency, not for the reason the 2-GPU workflow header
@@ -53,6 +64,17 @@ env:
   SPAWN_HEIGHT_M: "0.5"
   PEOPLE_POLES: "1"
 
+  # RTX lidar OFF. CoNavGPT consumes no lidar and no point clouds — it builds its
+  # occupancy map purely from RGBD depth unprojection — and the lidar costs about
+  # 3x the sim rate (measured 2026-08-25: cameras ~53 -> ~17 Hz, /clock ~53 -> 15
+  # Hz). This run is bounded in SIM seconds, so that multiplier lands entirely on
+  # wall clock and therefore on GPU hours, for identical coverage.
+  #
+  # Off for COST, not for correctness: the CUDA fault §4.1 once blamed on the
+  # lidar was retested with it attached and did not reproduce. Turn it back on
+  # for anything that needs vdb_mapping.
+  ENABLE_LIDAR: "false"
+
   # ZED tilted 30 deg DOWN, and this is a CoNavGPT-specific setting — every
   # other method in this stack assumes the level mount, so the variable is unset
   # in their missions and the launcher's default is 0.
@@ -69,9 +91,26 @@ env:
   # silently. One variable, both sides, no way to desync.
   ZED_PITCH_DEG: "30"
 
+  # Publish the MEASURED world->map transform rather than the hardcoded
+  # identity. `map` is anchored at the TAKEOFF POINT, so identity is only
+  # true when the drone spawns at the world origin. This mission spawns at
+  # (302.4, -144.3), so everything published in `map` — the drone's own TF,
+  # /global_plan, the conavgpt2 occupancy grid and frontiers — renders 340 m
+  # from the sim ground and the GCS robot markers, both of which are in
+  # world ENU. Measured on the house bench: the node recovered the 45 m
+  # spawn offset to within 0.01 m from GPS vs odometry.
+  #
+  # Default is false stack-wide, because making the transform truthful
+  # changes the frame every previously recorded mission replays in.
+  MAP_ANCHOR_ENU: "true"
+
   # The VLM the node queries, served by conavgpt2.vlm_server inside robot
   # container 1 — same container as the node, hence localhost.
-  CONAVGPT2_VLM_MODEL: "Qwen/Qwen2.5-VL-32B-Instruct"
+  CONAVGPT2_VLM_MODEL: "Qwen/Qwen2.5-VL-7B-Instruct"
+  # nf4 ~5.5 GB, int8 ~8 GB, none ~16 GB bf16. nf4 is the field-realistic one;
+  # this pod has room for `none` if the question is quality rather than
+  # deployability.
+  CONAVGPT2_VLM_QUANT: "nf4"
   CONAVGPT2_VLM_GPU: "1"
   OPENAI_BASE_URL: "http://localhost:8000/v1"
 
@@ -141,10 +180,10 @@ record:
 
 steps:
   # ── weights, pulled before the clock matters ───────────────────────────────
-  # Qwen2.5-VL-32B is ~65 GB of safetensors. /root/.cache is a mounted volume,
-  # so the server's own load finds them. Generous timeout and retries so a flaky
-  # HF fetch fails HERE, by name, instead of surfacing as a readiness timeout
-  # two steps down.
+  # Qwen2.5-VL-7B is ~16 GB of safetensors (32B would be ~65 GB, which is what
+  # the timeout is still sized for). /root/.cache is a mounted volume, so the
+  # server's own load finds them. Retries so a flaky HF fetch fails HERE, by
+  # name, instead of surfacing as a readiness timeout two steps down.
   - run:
       container: robot_1
       cmd: /opt/lvlm-venv/bin/python -c "import os; from huggingface_hub import snapshot_download; p = snapshot_download(os.environ['CONAVGPT2_VLM_MODEL']); print('weights at', p)"
@@ -207,12 +246,12 @@ steps:
         mkdir -p /tmp/conavgpt2
         GPU="${CONAVGPT2_VLM_GPU:-}"
         if [ -n "$GPU" ] && [ "$GPU" != "-1" ]; then export CUDA_VISIBLE_DEVICES="$GPU"; fi
-        echo "vlm_server CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>} model=${CONAVGPT2_VLM_MODEL:-<default>}"
+        echo "vlm_server CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>} model=${CONAVGPT2_VLM_MODEL:-<default>} quant=${CONAVGPT2_VLM_QUANT:-nf4}"
         MODEL_ARGS=""
         if [ -n "${CONAVGPT2_VLM_MODEL:-}" ]; then MODEL_ARGS="--model ${CONAVGPT2_VLM_MODEL}"; fi
         nohup /opt/lvlm-venv/bin/python -m conavgpt2.vlm_server \
           --port 8000 --device cuda:0 $MODEL_ARGS \
-          --quantization nf4 --compute-dtype bfloat16 \
+          --quantization "${CONAVGPT2_VLM_QUANT:-nf4}" --compute-dtype bfloat16 \
           --metrics-jsonl /tmp/conavgpt2/vlm_server_requests.jsonl \
           > /tmp/conavgpt2/vlm_server.log 2>&1 &
         echo $! > /tmp/conavgpt2/vlm_server.pid

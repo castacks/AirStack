@@ -103,6 +103,7 @@ For detailed step-by-step instructions, refer to the **`.agents/skills/`** direc
 | [run-isaac-sim-launcher](.agents/skills/run-isaac-sim-launcher) | Starting / relaunching an Isaac Sim launch script via `airstack up` + `docker exec isaac-sim tmux`, and reading its output (the pane, a piped host file, the Kit log) — `docker logs` is empty for this container |
 | [configure-multi-robot](.agents/skills/configure-multi-robot) | Setting up multiple robots, ROBOT_NAME namespacing, and ROS_DOMAIN_ID isolation |
 | [bump-version-and-release](.agents/skills/bump-version-and-release) | Bumping `.env` VERSION and CHANGELOG before merge to clear the version-check gate |
+| [benchmark-disaster-dataset](.agents/skills/benchmark-disaster-dataset) | Running a search-and-rescue benchmark: the method matrix, the `.env`-driven stack bring-up, what must scale with scene size, detector thresholds, and the traps that cost a run |
 | [capture-discovered-knowledge](.agents/skills/capture-discovered-knowledge) | After long context-discovery / surprising findings, persist to AGENTS.md or a new skill so the next agent doesn't redo the work |
 
 **Agent Workflow Example:**

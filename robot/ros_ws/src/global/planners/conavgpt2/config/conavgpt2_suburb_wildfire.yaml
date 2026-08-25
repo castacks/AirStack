@@ -26,6 +26,25 @@ conavgpt2:
     map_extent_m: 1700.0
     frame_mode: 'local'
 
+    # frontier_threshold_points counts CELLS ALONG THE FRONTIER BOUNDARY, so its
+    # physical meaning moves with cell size — and cell size moves with extent,
+    # because map_cells is fixed at 480:
+    #
+    #   bench   240 m  -> 0.50 m/cell -> the default 20 cells = 10 m of boundary
+    #   plat   1700 m  -> 3.54 m/cell -> the default 20 cells = 71 m of boundary
+    #
+    # Left at 20 the plat discards any frontier shorter than 71 m, which is most
+    # of them. 6 cells is ~21 m here, the same order as the bench's 10 m.
+    frontier_threshold_points: 6
+
+    # ...and with a low threshold on a large map, ORDER starts to matter. The cap
+    # keeps the SMALLEST regions (explored_map_utils.FRONTIER_ORDER): sensible
+    # indoors where a small frontier is a doorway, wrong here where it is a gap
+    # between two houses while the big ones are open ground nobody has covered.
+    # Without this the candidates offered to the VLM are the most trivial on the
+    # map.
+    frontier_order: 'largest'
+
     # Ground must stay OUT of the band — a cell that is seen but empty in the
     # band is what upstream calls free, and frontiers grow from free cells.
     # Houses and canopy on this plat top out near 15 m; the drone flies 15-40 m
@@ -56,7 +75,32 @@ conavgpt2:
     # Inside the mission's min/max_altitude_agl (15-40 m).
     flight_altitude_m: 20.0
     goal_tolerance_m: 10.0
+    # Drop to 10 m AGL once the target is seen, so the confirmation
+    # pass is an actual look rather than a cruise-altitude flyover.
+    inspect_altitude_m: 10.0
     depth_max_m: 80.0
+
+    # ── detector ───────────────────────────────────────────────────────────
+    # OVERRIDES conavgpt2_paper.yaml's 0.85, and this is the case the scene
+    # overlay exists for: 0.85 is upstream's INDOOR CLOSE-RANGE number and is
+    # simply unreachable at aerial range.
+    #
+    # Measured 2026-08-25 with YOLO-World on a real render of this scene
+    # (a fire-scene frame containing ~6-8 people), using this mission's class
+    # list, at the ZED's actual 480x300 before the node's upscale:
+    #
+    #   real people        0.701, 0.601, 0.287, 0.138, 0.067
+    #   at threshold 0.85  ->  0 people detected      <- the paper's value
+    #   at threshold 0.50  ->  2
+    #   at threshold 0.40  ->  2
+    #   at threshold 0.25  ->  3
+    #
+    # 0.6: comfortably above the highest FALSE positive measured on the house
+    # bench (a spurious `person` at 0.32 in a scene containing no people) and
+    # still under the real detections above. Keeps the two confident people and
+    # drops the 0.287 tail — precision over recall, deliberately, because a
+    # false survivor sends the drone across the plat for nothing.
+    sem_threshold: 0.6
 
     # ── target ─────────────────────────────────────────────────────────────
     # The mission searches for survivors; the plat places 59 of them.

@@ -131,9 +131,18 @@ def message_prepare(prompt, candidate_map_list, navigation_instruct):
     message.append({"role": "system", "content": prompt})
 
     image_contents = []
+    # Upstream hardcodes "two robots" here, because the paper is a two-robot
+    # method. Left as a literal it is a LIE to the model on any other team size,
+    # and the model acts on it: at num_agents=1 it reserves a frontier for a
+    # robot that does not exist ("Robot 1 should explore the other frontier to
+    # cover the remaining area") and so declines to send the one real robot to
+    # the best frontier. CONFIG.num_agents is already the team size everywhere
+    # else in this file; use it.
+    n = max(1, int(getattr(CONFIG, "num_agents", 2) or 1))
+    subject = "1 robot needs" if n == 1 else f"{n} robots need"
     image_contents.append({
         "type": "text",
-        "text": "two robots need to find a " + navigation_instruct,
+        "text": f"{subject} to find a " + navigation_instruct,
     })
     for base64_image in base64_image_list:
         image_contents.append({
