@@ -322,7 +322,8 @@ def prim_to_mesh(stage, prim_path):
     return mesh if len(mesh.faces) else None
 
 
-def _seeds(mesh, n, rng, mode="uniform", focus=None, axis=None):
+def _seeds(mesh, n, rng, mode="uniform", focus=None, axis=None,
+           aspect=None):
     """Voronoi seed points. Their arrangement is what decides the break.
 
     Modes: `uniform` (isotropic rubble), `char` (the alligator grid of burnt
@@ -396,13 +397,23 @@ def _seeds(mesh, n, rng, mode="uniform", focus=None, axis=None):
         # reads as a crate of bricks. 0.18 of the cell pitch keeps every piece
         # recognisably a board and no two the same.
         cross = [a for a in range(3) if a != axis]
-        # Aim for cells `ar` times longer along the grain than across it. Solve
-        # n = n_long * n_a * n_b subject to that ratio on the physical spans.
-        ar = 5.0
+        # ASPECT IS DRAWN PER MODULE, NOT FIXED. A single `ar` gives every
+        # module in the building the same board proportion, and the pieces
+        # come out visibly interchangeable. `aspect` is a (lo, hi) range so a
+        # caller can say what KIND of board this module sheds — a wall sheds
+        # long studs (high ratio), a roof sheds SHEETS (low ratio) — and
+        # within that, each module still draws its own.
+        alo, ahi = ((3.5, 7.0) if aspect is None
+                    else (float(aspect[0]), float(aspect[1])))
+        ar = alo + (ahi - alo) * float(rng.random())
         s_l, s_a, s_b = span[axis], span[cross[0]], span[cross[1]]
         # Cell edge lengths (e_l, e_a, e_b) with e_l = ar * e_cross, and
         # (s_l/e_l) * (s_a/e_a) * (s_b/e_b) = n.
-        e_c = max(1e-4, (s_l * s_a * s_b / (ar * max(n, 1))) ** (1.0 / 3.0))
+        # Build the lattice for MORE sites than asked, because ~30% of them
+        # are deleted below to merge cells. Without this the dropout silently
+        # under-delivers by a third.
+        target = max(1, int(round(n / 0.70)))
+        e_c = max(1e-4, (s_l * s_a * s_b / (ar * target)) ** (1.0 / 3.0))
 
         def _counts(edge):
             return {axis: max(1, int(round(s_l / (ar * edge)))),
@@ -426,9 +437,9 @@ def _seeds(mesh, n, rng, mode="uniform", focus=None, axis=None):
         counts = _counts(e_c)
         for _ in range(6):
             prod = counts[0] * counts[1] * counts[2]
-            if prod <= cap * max(n, 1):
+            if prod <= cap * target:
                 break
-            e_c *= (prod / (cap * max(n, 1))) ** (1.0 / 3.0)
+            e_c *= (prod / (cap * target)) ** (1.0 / 3.0)
             counts = _counts(e_c)
         pts = []
         for i in range(counts[0]):
@@ -438,9 +449,38 @@ def _seeds(mesh, n, rng, mode="uniform", focus=None, axis=None):
                     q = np.empty(3)
                     for a in range(3):
                         step = span[a] / counts[a]
+                        # 0.34 rather than 0.18. The jitter is the ONLY thing
+                        # separating one cell from the next in a regular
+                        # lattice, and at 0.18 a roof plate came apart into
+                        # two dozen boards identical to within a few
+                        # centimetres — reported from the assembled scene as
+                        # "a lot of the roof plate, very repetitive".
                         q[a] = (lo[a] + step * (idx[a] + 0.5)
-                                + (rng.random() - 0.5) * step * 0.18)
+                                + (rng.random() - 0.5) * step * 0.34)
                     pts.append(q)
+
+        # DROP SITES TO MERGE CELLS — the move that actually buys diversity.
+        #
+        # Jitter alone perturbs a cell's POSITION and barely its SIZE: a
+        # lattice of N sites gives N cells of about one lattice volume each,
+        # however hard you shake them. Deleting a share of the sites is what
+        # changes that — every cell adjacent to a hole expands to absorb it,
+        # so what comes out is a MIX of single-width boards, double-width
+        # ones, and the occasional big panel where two holes fell together.
+        #
+        # That is also what a building actually sheds. Sheathing does not
+        # disintegrate into a uniform grid of identical rectangles; it tears
+        # along some fastener lines and not others, so a debris field is
+        # mostly standard sections with a minority of larger pieces still
+        # joined. `keep` is the share of lattice sites that survive.
+        #
+        # The lattice was built for `n / keep` sites (see `target` above) so
+        # the surviving count still lands near what the caller asked for.
+        keep = 0.70
+        if len(pts) > 3:
+            m = max(2, int(round(len(pts) * keep)))
+            sel = rng.permutation(len(pts))[:m]
+            pts = [pts[int(i)] for i in sel]
         return np.asarray(pts)
 
     if mode == "splinter":
@@ -486,7 +526,8 @@ def roughen(mesh, rng, amount=0.035):
 
 def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
                   min_volume_frac=0.004, rough=0.035, shrink=0.97,
-                  consume=0.30, consume_pool=1.25, axis=None, verbose=False):
+                  consume=0.30, consume_pool=1.25, axis=None, aspect=None,
+                  verbose=False):
     """Split one trimesh into Voronoi fragments. Returns a list of trimeshes.
 
     SLICING, NOT BOOLEANS. The first version intersected the mesh with a cell
@@ -508,7 +549,8 @@ def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
     bbox_vol = float(np.prod(np.maximum(mesh.extents, 1e-6)))
     keep_min = bbox_vol * float(min_volume_frac)
 
-    pts = _seeds(mesh, int(n_pieces), rng, mode=mode, focus=focus, axis=axis)
+    pts = _seeds(mesh, int(n_pieces), rng, mode=mode, focus=focus,
+                 axis=axis, aspect=aspect)
     keep, out = [], []
     for i, p in enumerate(pts):
         frag = mesh
@@ -607,7 +649,7 @@ def _write_mesh(stage, path, mesh, centre_on_centroid=True):
 def fracture_partial(stage, prim_path, out_parent, n_pieces, rng,
                      cut_frac=0.5, mode="char", rough=0.035, shrink=0.97,
                      ragged=0.22, deactivate=True, consume=0.30, axis=None,
-                     min_volume_frac=0.004):
+                     min_volume_frac=0.004, aspect=None):
     """Break a wall so that only its upper part comes down.
 
     NO STRAIGHT CUT. The first version sliced the module at a flat plane and
@@ -636,7 +678,7 @@ def fracture_partial(stage, prim_path, out_parent, n_pieces, rng,
 
     frags = fracture_mesh(mesh, n_pieces, rng, mode=mode, rough=rough,
                           shrink=shrink, consume=consume, axis=axis,
-                          min_volume_frac=min_volume_frac)
+                          aspect=aspect, min_volume_frac=min_volume_frac)
     if not frags:
         return [], []
 
@@ -684,7 +726,8 @@ def fracture_partial(stage, prim_path, out_parent, n_pieces, rng,
 def fracture_prim(stage, prim_path, out_parent, n_pieces, rng,
                   mode="uniform", rough=0.035, shrink=0.97,
                   deactivate=True, verbose=True, consume=0.30,
-                  consume_pool=1.25, axis=None, min_volume_frac=0.004):
+                  consume_pool=1.25, axis=None, min_volume_frac=0.004,
+                  aspect=None):
     """Fracture a placed module in the stage. Returns the new prim paths.
 
     Fragments are authored around their OWN centroid with the centroid in the
@@ -710,7 +753,8 @@ def fracture_prim(stage, prim_path, out_parent, n_pieces, rng,
     frags = fracture_mesh(mesh, n_pieces, rng, mode=mode, rough=rough,
                           shrink=shrink, consume=consume,
                           consume_pool=consume_pool, axis=axis,
-                          min_volume_frac=min_volume_frac, verbose=verbose)
+                          aspect=aspect, min_volume_frac=min_volume_frac,
+                          verbose=verbose)
     if not frags:
         if verbose:
             print("[fracture] {0}: {1} faces, watertight={2}, extents={3} "

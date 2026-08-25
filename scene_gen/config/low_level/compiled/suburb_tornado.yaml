@@ -9,8 +9,8 @@
 # severity      : 0.82
 # spec          : scene_gen/config/presets/suburb_tornado.yaml
 # base          : scene_gen/config/low_level/default.yaml
-# compiled      : 2026-08-24 22:15:33
-# spec extras   : {'epicenter': [-90, -150], 'heading_deg': 38, 'asset-set': 'suburban_park', 'region_m': [500, 500], 'seed': 10, 'overrides': {'disaster': {'tornado': {'width_m': 155.0, 'core_frac': 0.22, 'throw_m': 34.0, 'throw_speed_mps': 9.0}}, 'usds': {'materials': {'asphalt': 'airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda', 'driveway': 'airstack://scene_gen/assets/materials/megascans/Brick_Wall_Worn.usda', 'driveway_asphalt': 'airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda'}}, 'roads': {'driveway_asphalt_share': 0.5, 'z_scale': 0.16}, 'instance_categories': ['plant', 'sidewalk', 'streetlight', 'fire_hydrant', 'sign', 'crosswalk'], 'layout': {'region_m': [500, 500]}, 'suburb_net': {'block_area_target_m2': 26000.0, 'block_area_min_m2': 5000.0, 'collectors': 2, 'collector_wander': 0.28, 'min_gap_m': 78.0, 'junction_skew_deg': 38.0, 'four_way_chance': 0.35, 'dead_end_target': 0.24, 'bulb_radius_m': 14.64, 'lollipop_len_m': [55.0, 170.0], 'grain_weight': 2.6, 'grain_swirl_deg': 34.0, 'grain_period_m': 320.0}, 'suburb_park': {'parking_m': [64.0, 40.0], 'parking_apron_w_m': 8.0}, 'suburb_parcel': {'modular_houses': True, 'modular_share': 1.0, 'lot_width_m': [26.0, 38.0], 'house_gap_m': 6.0, 'neighbourhood_m': 180.0, 'density_mix': {'tight': 0.15, 'normal': 0.36, 'loose': 0.34, 'estate': 0.15}, 'setback_m': [6.5, 11.0], 'row_share': 0.225, 'row_housing': {'unit_gap_m': 2.5, 'units_per_row': [3, 5], 'front_setback_m': 7.5, 'bays_per_dwelling': 1.75, 'green_m': 6.0}, 'house_w_m': [9.0, 13.0], 'house_d_m': [8.0, 11.0], 'min_lot_depth_m': 21.0, 'junction_skew_clear_deg': 30.0, 'junction_skew_clear_m': 2.0, 'driveway_w_m': 3.2, 'house_yaw_offset_deg': -90.0, 'back_trees_per_100m2': 0.055, 'front_tree_chance': 0.45, 'street_tree_spacing_m': [16.0, 30.0], 'pool_rear_m': 20.0, 'pool_rear_min_m': 9.5, 'pool_tree_clear_m': 11.0}, 'cars': {'driveway_chance': 0.55, 'court_occupancy': 0.6, 'street_density': 0.12, 'slot_spacing_m': [7.0, 9.0], 'slot_gap_chance': 0.18, 'junction_clear_m': 8.0, 'apron_clear_m': 1.5, 'hydrant_clear_m': 3.0, 'kerb_gap_m': 0.35, 'drive_rear_clear_m': 1.0, 'drive_nose_clear_m': 0.8, 'vintage_chance': 0.06, 'strip_glass': True, 'max_cars': 220}}}
+# compiled      : 2026-08-24 22:52:51
+# spec extras   : {'epicenter': [-90, -150], 'heading_deg': 38, 'asset-set': 'suburban_park', 'region_m': [500, 500], 'seed': 10, 'overrides': {'disaster': {'tornado': {'width_m': 155.0, 'core_frac': 0.22, 'throw_m': 34.0, 'throw_speed_mps': 9.0}}, 'usds': {'materials': {'asphalt': 'airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda', 'driveway': 'airstack://scene_gen/assets/materials/megascans/Brick_Wall_Worn.usda', 'driveway_asphalt': 'airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda'}}, 'roads': {'driveway_asphalt_share': 0.5, 'z_scale': 0.16}, 'instance_categories': ['plant', 'sidewalk', 'streetlight', 'fire_hydrant', 'sign', 'crosswalk'], 'layout': {'region_m': [500, 500]}, 'suburb_net': {'block_area_target_m2': 19000.0, 'block_area_min_m2': 5000.0, 'collectors': 2, 'collector_wander': 0.28, 'min_gap_m': 64.0, 'junction_skew_deg': 38.0, 'four_way_chance': 0.35, 'dead_end_target': 0.24, 'bulb_radius_m': 14.64, 'lollipop_len_m': [55.0, 170.0], 'grain_weight': 2.6, 'grain_swirl_deg': 34.0, 'grain_period_m': 320.0}, 'suburb_park': {'parking_m': [64.0, 40.0], 'parking_apron_w_m': 8.0}, 'suburb_parcel': {'modular_houses': True, 'modular_share': 1.0, 'lot_width_m': [22.0, 32.0], 'house_gap_m': 4.5, 'neighbourhood_m': 180.0, 'density_mix': {'tight': 0.34, 'normal': 0.4, 'loose': 0.2, 'estate': 0.06}, 'setback_m': [6.5, 11.0], 'row_share': 0.225, 'row_housing': {'unit_gap_m': 2.5, 'units_per_row': [3, 5], 'front_setback_m': 7.5, 'bays_per_dwelling': 1.75, 'green_m': 6.0}, 'house_w_m': [9.0, 13.0], 'house_d_m': [8.0, 11.0], 'min_lot_depth_m': 21.0, 'junction_skew_clear_deg': 30.0, 'junction_skew_clear_m': 2.0, 'driveway_w_m': 3.2, 'house_yaw_offset_deg': -90.0, 'back_trees_per_100m2': 0.055, 'front_tree_chance': 0.45, 'street_tree_spacing_m': [16.0, 30.0], 'pool_rear_m': 20.0, 'pool_rear_min_m': 9.5, 'pool_tree_clear_m': 11.0}, 'cars': {'driveway_chance': 0.55, 'court_occupancy': 0.6, 'street_density': 0.12, 'slot_spacing_m': [7.0, 9.0], 'slot_gap_chance': 0.18, 'junction_clear_m': 8.0, 'apron_clear_m': 1.5, 'hydrant_clear_m': 3.0, 'kerb_gap_m': 0.35, 'drive_rear_clear_m': 1.0, 'drive_nose_clear_m': 0.8, 'vintage_chance': 0.06, 'strip_glass': True, 'max_cars': 220}}}
 
 asset_set: suburban_park
 benches:
@@ -226,11 +226,11 @@ instance_categories:
 - sign
 - crosswalk
 suburb_net:
-  block_area_target_m2: 26000.0
+  block_area_target_m2: 19000.0
   block_area_min_m2: 5000.0
   collectors: 2
   collector_wander: 0.28
-  min_gap_m: 78.0
+  min_gap_m: 64.0
   junction_skew_deg: 38.0
   four_way_chance: 0.35
   dead_end_target: 0.24
@@ -250,15 +250,15 @@ suburb_parcel:
   modular_houses: true
   modular_share: 1.0
   lot_width_m:
-  - 26.0
-  - 38.0
-  house_gap_m: 6.0
+  - 22.0
+  - 32.0
+  house_gap_m: 4.5
   neighbourhood_m: 180.0
   density_mix:
-    tight: 0.15
-    normal: 0.36
-    loose: 0.34
-    estate: 0.15
+    tight: 0.34
+    normal: 0.4
+    loose: 0.2
+    estate: 0.06
   setback_m:
   - 6.5
   - 11.0

@@ -140,8 +140,46 @@ runs *across* the grain (Bartlett et al., arXiv 1604.01249). A wall in a wind
 does not craze — it DELAMINATES along its fasteners into the sections the mill
 cut.
 
-Three settings have to move together with it, and missing any one produces
-nothing with no error:
+## A REGULAR LATTICE MAKES IDENTICAL CELLS — that is the whole point and it is
+## also the problem
+
+Reported off the first assembled scene, verbatim: *"in the debris there's a
+lot of the roofplate for some reason. It's very repetitive and looks weird."*
+
+It is not a tuning miss, it is the construction. A lattice of N sites gives N
+cells of about one lattice volume EACH, and jitter perturbs a cell's POSITION
+rather than its SIZE — so a 5 x 5 x 0.1 m roof plate at `counts=[2, 12, 1]`
+came apart into two dozen boards identical to within a few centimetres. The
+same mechanism that makes the cells rectangular makes them interchangeable.
+
+Three things fix it, and they are independent:
+
+- **DROP ~30% OF THE LATTICE SITES.** This is the one that matters. Every cell
+  adjacent to a hole expands to absorb it, so the output is a MIX — single-
+  width boards, double-width ones, the occasional big panel where two holes
+  fell together. It is also what a building actually sheds: sheathing tears
+  along some fastener lines and not others, so a real debris field is mostly
+  standard sections with a minority of larger pieces still joined. Build the
+  lattice for `n / keep` sites so the surviving count still lands near what
+  the caller asked for.
+- **DRAW THE ASPECT RATIO PER MODULE, and by module TYPE.** One `ar` for the
+  whole building gives every module the same board proportion. `aspect` is a
+  (lo, hi) range and `_seeds` draws inside it per module: a roof sheds SHEETS
+  (1.3–2.6), a floor mid (2.4–4.8), a wall long framing (3.5–7.0). Giving the
+  roof the wall's ratio is exactly what produced the identical strips.
+- **VARY THE MATERIAL, and give roofs their underside.** Bare fragments all
+  taking one pale timber removed the last thing separating one piece from the
+  next — they now draw across the whole `planks.STOCK` list, which spans
+  near-white framing to dark decking. And a roof's own cladding is shingle, so
+  twenty roof fragments is twenty identical dark slabs; half a torn roof lands
+  face-down on its bare deck, so roof fragments take timber 18% more often.
+
+Jitter went 0.18 → 0.34 alongside, but on its own it is not enough — it moves
+the cells, it does not resize them.
+
+## Three settings have to move with `mode="plank"`
+
+Missing any one produces nothing, with no error:
 
 - **`rough` down to ~0.010.** 0.045 on a thin board visibly bows it, and a
   snapped stud has crisp sawn faces with one splintered end.
@@ -258,6 +296,22 @@ Two things that are not obvious:
   is left on disk for a future caller to reference by accident. The effect is
   small — the asset set plants Black_Oak only in open ground, never on the
   frontage — but without it every park specimen in the track is half-buried.
+
+### MESH FOLIAGE MUST BE EXEMPTED FROM `defoliate`
+
+Half this library ships its crown as ONE PLAIN MESH rather than as
+PointInstancers — Largetooth_Aspen, American_Beech, Common_Apple. A mesh has
+no per-instance ids, so it cannot be thinned: `defoliate` takes ONE roll
+against the survival at its height and either keeps it whole or deactivates it
+whole. That is a fair approximation for a fire, where a crown either survives
+or is consumed.
+
+It is wrong for wind, and visibly so. At `limbed`'s `keep=0.80 / keep_top=0.60`
+those three species come out **fully bare about a third of the time** — which
+is the one thing a windthrown tree must not look like, and on a mixed-species
+street a scatter of bare trees reads as a burnt stand standing in an otherwise
+undamaged suburb. `defoliate(keep_meshes=True)` skips them: instanced crowns
+still thin, mesh crowns come through intact. `wind_tree` always passes it.
 
 ### `drop_to_ground` MUST be off for the tipped levels
 
@@ -500,6 +554,29 @@ because a corridor whose edges are off-frame is not a corridor.
 
 # Workflow
 
+## COUNT BUILDINGS, NOT MODULES
+
+The first cut of `tornado_png.py` filtered the placement list for anything
+categorised `house*`. That counts the KIT MODULES a house is assembled from:
+it reported **247 houses on a plate the assembly then built 38 of**, and every
+number downstream — the damage tallies, the plank budget, the "has the
+gradient collapsed" warning — was wrong by that factor, in the direction that
+makes a sparse scene look adequately dense on paper.
+
+The modules carry no per-building id, so there is nothing to group them by.
+The fix is to ask for the list the assembly itself uses:
+`fence_png.build(house_instances=[])` threads that straight into
+`suburb_scene.build_placements`, which records each house's (style, pose) and
+skips emitting its ~28 modules. Host-side and assembly counts then agree by
+construction rather than by coincidence.
+
+**The plate was genuinely sparse once the count was honest.** 37 houses on
+500 x 500 m against a reference photograph of dense post-war suburb. Fixed in
+the preset alone — no re-bake, since density is a layout property:
+`block_area_target_m2` 26000 -> 19000, `min_gap_m` 78 -> 64, `lot_width_m`
+[26,38] -> [22,32], `house_gap_m` 6.0 -> 4.5, and `density_mix` shifted toward
+the tight classes. Result: **151 houses, 41 of them in the track.**
+
 ## Iterate host-side first
 
     python3 scene_gen/tools/tornado_png.py --config suburb_tornado
@@ -579,6 +656,13 @@ and oblique, because what has to be judged is a gradient across a corridor.
   that has been through an EF3 is also crushed, and nothing here does that.
 - **No power lines, poles or transformers.** Downed lines are one of the most
   characteristic features of a real track and the asset set has no cable.
+- **Root plates are OFF by default** (`wind_tree(root_plates=True)` brings
+  them back). The feature is physically right — a windthrown tree levers a
+  wheel of earth out of the ground, and it is the cue that separates a fallen
+  tree from a felled one — but the implementation is a flat untextured polygon
+  standing on edge, and at 160 fallen trees in a track it was 160 brown slabs
+  dominating every frame. A feature that looks worse than its absence stays
+  off until it looks better; the fix is thickness and a real soil normal.
 - **The plank field carries a collider-free mesh with no LOD.** It is five
   merged meshes, so it is cheap, but at ~8k boards on a 500 m plate a 1600 m
   plat would want chunking by region rather than by stock class alone.

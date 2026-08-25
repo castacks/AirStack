@@ -686,8 +686,19 @@ def _smoothstep(t):
 
 
 def defoliate(stage, info, rng, keep=0.0, keep_top=None, gradient=(0.0, 0.9),
-              verbose=False):
+              keep_meshes=False, verbose=False):
     """Hide foliage. Returns `(hidden, total, hidden_meshes)`.
+
+    `keep_meshes=True` EXEMPTS MESH FOLIAGE, and the wind path needs it. Half
+    this library ships its crown as ONE PLAIN MESH rather than as instances
+    (Aspen, Beech, Apple), and a mesh cannot be thinned — it takes a single
+    roll and is either kept whole or deactivated whole. That is a reasonable
+    approximation for a FIRE, where a crown either survives or is consumed.
+    It is wrong for WIND: at `keep=0.7` those three species come out fully
+    BARE about a third of the time, which is the one thing a windthrown tree
+    must not look like, and on a mixed-species street it reads as a burnt
+    stand standing in an undamaged suburb. With this set, instanced crowns
+    still thin and mesh crowns come through intact.
 
     Removal goes through `keep_instances`, which rewrites the instancer's
     per-instance arrays. `invisibleIds` would be the tidier answer and this
@@ -750,6 +761,8 @@ def defoliate(stage, info, rng, keep=0.0, keep_top=None, gradient=(0.0, 0.9),
         r = bc.ComputeWorldBound(prim).ComputeAlignedRange()
         z = (0.5 * (r.GetMin()[2] + r.GetMax()[2]) if not r.IsEmpty()
              else 0.5 * (z0 + z1))
+        if keep_meshes:
+            continue
         if rng.random() >= _survival(z):
             # DEACTIVATE, not MakeInvisible. Same lesson as `invisibleIds`:
             # only removal is reliably removal here, and a leaf mesh that is
@@ -2565,7 +2578,7 @@ def root_plate(stage, path, x_m, y_m, radius_m, azimuth_deg, rng,
 def wind_tree(stage, tree_path, level, parent_path, out_parent, rng,
               azimuth_deg=0.0, wood_material_path="", soil_material_path="",
               debris=True, debris_scale=1.0, ground_z=0.0,
-              seated_collide=True, verbose=False):
+              seated_collide=True, root_plates=False, verbose=False):
     """Take one tree apart with WIND. The tornado counterpart of `burn_tree`.
 
     Returns the same dict shape — `{"statics", "loose", "seated", "info",
@@ -2636,8 +2649,12 @@ def wind_tree(stage, tree_path, level, parent_path, out_parent, rng,
     # does — it strips the exposed top harder than the sheltered interior —
     # and leaves a thinner but still green crown.
     if keep < 1.0 or keep_top < 1.0:
+        # `keep_meshes=True` — a wind THINS a crown, it does not delete one.
+        # See `defoliate`: mesh foliage is all-or-nothing, so without this the
+        # three mesh-crown species come out fully bare about a third of the
+        # time and read as burnt rather than as wind-damaged.
         defoliate(stage, info, rng, keep=keep, keep_top=keep_top,
-                  verbose=verbose)
+                  keep_meshes=True, verbose=verbose)
 
     # ---- 3. limbs down ---------------------------------------------------
     if n_limbs > 0:
@@ -2675,14 +2692,25 @@ def wind_tree(stage, tree_path, level, parent_path, out_parent, rng,
             lean = rng.uniform(74.0, 82.0)
             # The lift is the root plate's own radius, which is both why the
             # base is off the ground and how far up it is.
-            r_plate = rng.uniform(1.6, 3.0)
+            r_plate = rng.uniform(1.1, 1.9)
             lift = r_plate * 0.62
             band = (-1.1, -0.15)
         lean = tip_tree(stage, tree_path, lean,
                         azimuth_deg=float(azimuth_deg), lift_m=lift,
                         seat_band=band, lean_min_deg=46.0)
         res["lean_deg"] = float(lean)
-        if r_plate > 0.0:
+        # ROOT PLATES ARE OFF BY DEFAULT, AND THAT IS A JUDGEMENT AGAINST A
+        # FEATURE THAT IS PHYSICALLY CORRECT. A windthrown tree really does
+        # lever a wheel of earth out of the ground, and it really is the cue
+        # that tells a fallen tree from a felled one. But this implementation
+        # is a flat untextured polygon standing on edge, and at 160 fallen
+        # trees in a track that is 160 brown slabs — they dominated every
+        # frame of the first assembled scene and read as cardboard cutouts
+        # scattered over the mud, not as earth. A feature that looks worse
+        # than its absence is off until it looks better; `root_plates=True`
+        # brings it back, and "give it thickness and a real soil normal" is
+        # the fix when someone returns to it.
+        if r_plate > 0.0 and root_plates:
             from pxr import UsdGeom as _UG
 
             # THE BASE, NOT THE BOUNDING-BOX CENTRE. The bbox of a tree lying

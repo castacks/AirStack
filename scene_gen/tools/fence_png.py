@@ -188,7 +188,7 @@ def _sizes(cfg):
 # the scene
 # ---------------------------------------------------------------------------
 
-def build(seed=None, config_name="suburb_net"):
+def build(seed=None, config_name="suburb_net", house_instances=None):
     """The suburb, up to and including `build_placements`, on the host.
 
     Mirrors `suburb_scene.generate_suburb_on_stage` step for step down to the
@@ -229,10 +229,19 @@ def build(seed=None, config_name="suburb_net"):
             pcfg["lot_width_m"] = [need / tight,
                                    max(lw[1], need / tight * 1.35)]
     parcels = sp.parcel_blocks(buildable, rng, pcfg)
+    # `house_instances` IS THE ASSEMBLY CONTRACT, passed straight through.
+    # Given a list, `build_placements` records each house's (style, pose) into
+    # it and does NOT emit that house's ~28 kit modules — which is exactly
+    # what a host-side tool reasoning about BUILDINGS wants, and the only way
+    # to count them correctly: the modules carry no per-building id, so
+    # counting placements counts modules and over-reports by more than an
+    # order of magnitude. Default None keeps every existing caller unchanged.
     placements = ss.build_placements(cfg, res, parcels, rng, pools,
                                      yaw_off=yaw_off, catalogue=catalogue,
-                                     pool_holes_out=[], net=net)
+                                     pool_holes_out=[], net=net,
+                                     house_instances=house_instances)
     return {"cfg": cfg, "res": res, "pools": pools, "net": net,
+            "house_instances": house_instances or [],
             "blocks": blocks, "info": info, "parcels": parcels,
             "placements": placements,
             "discs": [((float(c[0]), float(c[1])), float(r))

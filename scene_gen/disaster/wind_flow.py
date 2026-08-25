@@ -121,13 +121,19 @@ def _debris_material(stage, parent, cache, texture, rng, bare_p, planks_mats):
     keeps a module-level cache for exactly this reason, and the plain path
     needs one just as much.
     """
-    from . import damage
+    from . import damage, planks
 
     if rng.random() < bare_p or not texture:
-        # `planks.STOCK` keys are what the plank field itself is grouped by,
-        # so a fragment and a loose board off the same house take the same
-        # material and read as the same material.
-        return planks_mats.get("stud") or planks_mats.get("board")
+        # DRAW ACROSS THE WHOLE STOCK LIST, not always `stud`. Every bare
+        # fragment taking one material is half of why the first assembled
+        # scene read as repetitive: the pieces were already similar in SHAPE,
+        # and giving them all the same pale timber removed the last thing
+        # separating one from the next. `planks._TINT` spreads them from
+        # near-white framing to dark decking, and these are the same five
+        # materials the loose plank field carries — so a fragment and a board
+        # lying beside it still agree about what a house is made of.
+        return planks_mats.get(planks._weighted(rng)) \
+            or planks_mats.get("stud")
     m = cache.get(texture)
     if m is None:
         # 0.45 repeats per metre = one tile a bit over two metres, which is
@@ -215,6 +221,14 @@ def wreck_building(stage, parent, items, tag, level, rng, nrng, planks_mats,
         n_seed = roof_seeds if is_roof else seeds
         if not n_seed:
             continue
+        # WHAT SHAPE THIS MODULE SHEDS. A roof comes apart into SHEETS —
+        # sheathing and decking, wide and squarish — while a wall comes apart
+        # into long framing members. One aspect range for both gave the roof
+        # a couple of dozen identical 2.5 x 0.4 m strips, which is what "a
+        # lot of the roof plate, very repetitive" was. `_seeds` draws its own
+        # ratio inside the range per module, so no two modules split alike.
+        asp = ((1.3, 2.6) if is_roof
+               else ((2.4, 4.8) if sub == "floor" else (3.5, 7.0)))
         out = "{0}/brk_{1}_{2}".format(parent, tag, path.rsplit("/", 1)[-1])
         src_tex = damage.bound_texture(stage, path)
         cut = ((0.72, 0.94) if (id(q) in light_ids and light_high)
@@ -224,13 +238,13 @@ def wreck_building(stage, parent, items, tag, level, rng, nrng, planks_mats,
                               or rng.random() < partial_p):
             st, lo = fracture.fracture_partial(
                 stage, path, out, n_pieces=n_seed, rng=nrng,
-                cut_frac=rng.uniform(*cut), mode="plank",
+                cut_frac=rng.uniform(*cut), mode="plank", aspect=asp,
                 rough=0.010, consume=consume * 0.5)
             made = list(st) + list(lo)
         else:
             made = fracture.fracture_prim(
                 stage, path, out, n_pieces=n_seed, rng=nrng,
-                mode="plank", rough=0.010, verbose=False,
+                mode="plank", aspect=asp, rough=0.010, verbose=False,
                 consume=consume, consume_pool=1.6,
                 # A SHEET OF SHEATHING IS THIN, and the default cull is a
                 # fraction of the module's own bounding-box volume — which a
@@ -242,7 +256,14 @@ def wreck_building(stage, parent, items, tag, level, rng, nrng, planks_mats,
             pr = stage.GetPrimAtPath(pth)
             if not pr or not pr.IsValid():
                 continue
-            m = _debris_material(stage, parent, cache, src_tex, rng, bare_p,
+            # A ROOF SHOWS ITS UNDERSIDE. Fragments keep the module's own
+            # cladding by default, and for a roof that cladding is shingle —
+            # so a roof breaking into twenty pieces gives twenty shingled
+            # slabs, all the same dark grey, which is most of what reads as
+            # repetition. Half a torn roof lands face-down on its bare deck,
+            # so roof fragments take pale timber more often than walls do.
+            m = _debris_material(stage, parent, cache, src_tex, rng,
+                                 min(0.88, bare_p + (0.18 if is_roof else 0.0)),
                                  planks_mats)
             if m is not None:
                 UsdShade.MaterialBindingAPI(pr).Bind(m)

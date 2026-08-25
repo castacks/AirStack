@@ -70,22 +70,25 @@ _TCOLOUR = {"pristine": "#2f7d32", "limbed": "#8bbf4a", "leaning": "#c9b23d",
             "fallen": "#a8632a", "snapped": "#5a2f17"}
 
 
-def _house_xy(placements):
-    """Every house placement as `(x, y, footprint_m)`.
+def _house_xy(instances, catalogue):
+    """Every HOUSE as `(x, y, footprint_m)` — one entry per building.
 
-    Footprint is the longer plan dimension where the placement records one and
-    a 12 m nominal where it does not — it is only used to size the debris mat,
-    and being a metre out on that changes nothing anyone can see.
+    COUNT BUILDINGS, NOT MODULES. The first cut of this filtered the placement
+    list for anything categorised `house*`, which counts the KIT MODULES a
+    house is assembled from: it reported 247 houses on a plate that the
+    assembly then built 38 of, and every downstream number — the damage
+    tallies, the plank budget, the "is the gradient collapsed" warning — was
+    wrong by that factor. The modules carry no per-building id, so there is
+    nothing to group them by; the fix is to ask `build_placements` for its
+    `house_instances` list, which is the same list the assembly launcher
+    references archetypes from.
+
+    Footprint comes from the style's catalogue entry, which is what the
+    assembly uses to size each wreck's debris mat.
     """
-    out = []
-    for q in placements:
-        cat = str(q.get("category", ""))
-        if "house" not in cat or "floor" in cat or "wall" in cat:
-            continue
-        fp = max(float(q.get("w_m", 0.0) or 0.0),
-                 float(q.get("d_m", 0.0) or 0.0)) or 12.0
-        out.append((float(q.get("x_m", 0.0)), float(q.get("y_m", 0.0)), fp))
-    return out
+    fp_by_style = {e["style"]: max(e["w"], e["d"]) for e in catalogue}
+    return [(float(h["x"]), float(h["y"]),
+             fp_by_style.get(h.get("style"), 12.0)) for h in instances]
 
 
 def _tree_xy(placements):
@@ -117,7 +120,8 @@ def main():
     ap.add_argument("--out", default="_plans/tornado.png")
     args = ap.parse_args()
 
-    scene = fence_png.build(seed=args.seed, config_name=args.config)
+    scene = fence_png.build(seed=args.seed, config_name=args.config,
+                            house_instances=[])
     cfg_all = scene["cfg"]
     tcfg = tn.resolve_cfg(cfg_all)
 
@@ -129,7 +133,9 @@ def main():
     inten = tn.intensity_field(tcfg, region, np.random.default_rng(seed + 23))
     rng = random.Random(seed + 5)
 
-    houses = _house_xy(scene["placements"])
+    import suburb_scene as _ss
+    houses = _house_xy(scene["house_instances"],
+                       _ss.modular_catalogue(cfg_all))
     trees = _tree_xy(scene["placements"])
     h_lv, t_lv = [], []
     for (x, y, _fp) in houses:

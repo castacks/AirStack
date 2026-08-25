@@ -156,7 +156,7 @@ overrides:
     # control on the fabric: raising it trades street density for block size,
     # and the two cannot both be pushed at once. 40k m2 is where all four
     # measured morphology stats sit in band on 8/8 seeds.
-    block_area_target_m2: 26000.0
+    block_area_target_m2: 19000.0
     block_area_min_m2: 5000.0
 
     # Curvilinear routes crossing the interior. These are the spine the whole
@@ -165,7 +165,7 @@ overrides:
     collector_wander: 0.28
 
     # Centreline to centreline. Two lot depths back to back plus the road.
-    min_gap_m: 78.0
+    min_gap_m: 64.0
 
     # Real plats meet at 70-110 degrees, not exactly 90; the swing is also what
     # keeps the curve between two junctions inside its 30 m minimum radius.
@@ -255,10 +255,10 @@ overrides:
     # fit but the street reads as a terrace. 26-38 m gives the widest style
     # 6-18 m of side yard and still keeps the tight density class at a real
     # post-war 20 m frontage.
-    lot_width_m: [26.0, 38.0]
+    lot_width_m: [22.0, 32.0]
     # SIDE YARD between neighbours. 4 m put a 20 m house 2 m off the next one;
     # 6 m is a real gap without thinning the street much (702 houses vs 865).
-    house_gap_m: 6.0
+    house_gap_m: 4.5
     # DISTRICTS. Density was one independent draw per BLOCK, so a tight block
     # could sit between two estate blocks on the same street — noise, not
     # variety. Seeds this far apart on a jittered grid, nearest seed wins, so a
@@ -276,7 +276,7 @@ overrides:
     # gradient rather than four differently-sized lot maps carrying the same
     # houses — mean footprint by district: tight 160, normal 229, loose 272,
     # estate 304 m2, and the share of the largest styles goes 10% -> 55%.
-    density_mix: {tight: 0.15, normal: 0.36, loose: 0.34, estate: 0.15}
+    density_mix: {tight: 0.34, normal: 0.40, loose: 0.20, estate: 0.06}
     # Zoning ordinances put the front setback at 20-30 ft almost everywhere.
     setback_m: [6.5, 11.0]
     # ---- ROW HOMES: attached rows around a shared parking court ------------
@@ -381,7 +381,7 @@ overrides:
     # It is also the side yard the FIT CHECK uses -- `house_sizes` admits an
     # entry only if it clears half of this -- so raising it narrows the
     # reachable catalogue, and the widest entries go first.
-    house_gap_m: 6.0
+    house_gap_m: 4.5
     min_lot_depth_m: 21.0
     # ---- SKEWED BLOCK CORNERS: WHERE A LOT IS NOT PLATTED AT ALL -----------
     # `suburb_net.junction_skew_deg` above lets two streets meet up to 38
