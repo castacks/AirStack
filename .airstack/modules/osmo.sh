@@ -41,12 +41,39 @@ OSMO_SSH_PORT="2200:22"
 # Default `osmo workflow port-forward` connect-timeout (24h).
 OSMO_PF_TIMEOUT="${OSMO_PF_TIMEOUT:-86400}"
 
+# Binary used for UDP port-forwards. NVIDIA's osmo CLI cannot do UDP at all in
+# any 6.x release: src/lib/utils/port_forward.py:303 hands bare coroutines to
+# asyncio.wait(), which since Python 3.11 raises
+#     TypeError: Passing coroutines is forbidden, use tasks explicitly.
+# and the 6.3.x bundles embed CPython 3.14. Only run_udp is affected -- the TCP
+# path already wraps its coroutines in asyncio.create_task() -- so osmo:webrtc
+# looks like it works (signaling connects on ${OSMO_WEBRTC_TCP}) but the stream
+# stays black, because no SRTP media ever arrives on ${OSMO_WEBRTC_UDP}.
+#
+# osmo/patch_osmo_udp.py builds a fixed copy of the installed bundle here. Run
+# it once after installing or upgrading the osmo CLI.
+OSMO_PATCHED_BIN="${OSMO_PATCHED_BIN:-${HOME}/.airstack/osmo-patched/osmo-cli/osmo-cli}"
+
 # Helper: ensure the osmo CLI is on PATH.
 function _osmo_check_cli {
     if ! command -v osmo >/dev/null 2>&1; then
         log_error "osmo CLI not found on PATH. Install from https://github.com/NVIDIA/OSMO and run 'osmo login'."
         return 1
     fi
+}
+
+# Helper: echo the binary to run UDP port-forwards with. Falls back to the
+# stock (broken) `osmo` so the failure stays visible in the log rather than
+# turning into a silently missing media stream. Warnings go to stderr so they
+# don't end up in the command substitution.
+function _osmo_udp_bin {
+    if [ -x "$OSMO_PATCHED_BIN" ]; then
+        echo "$OSMO_PATCHED_BIN"
+        return 0
+    fi
+    log_warn "No patched osmo CLI at ${OSMO_PATCHED_BIN} -- UDP forwarding will fail." >&2
+    log_warn "Build one with: python3 ${PROJECT_ROOT}/osmo/patch_osmo_udp.py" >&2
+    echo "osmo"
 }
 
 # Helper: strip leading/trailing whitespace + CR/NUL bytes from the
@@ -120,19 +147,47 @@ function _osmo_prompt {
     fi
 }
 
-# osmo:setup — interactively register the three OSMO credentials AirStack
-# needs (airlab-docker-registry, airlab-docker-login, airlab-nucleus).
-# Idempotent — re-running rotates the credentials.
+# Helper: _osmo_prompt variant that falls back to $3 on empty input.
+function _osmo_prompt_default {
+    local var_name="$1"
+    local prompt_text="$2"
+    local default_val="$3"
+    local saved_stty=""
+
+    if [ -t 0 ]; then
+        saved_stty="$(stty -g 2>/dev/null || true)"
+        if [ -n "$saved_stty" ]; then
+            trap 'stty "$saved_stty" 2>/dev/null; trap - INT' INT
+            stty -icanon 2>/dev/null
+        fi
+    fi
+    read -r -p "${prompt_text} [${default_val}]: " "$var_name"
+    if [ -n "$saved_stty" ]; then
+        stty "$saved_stty" 2>/dev/null
+        trap - INT
+    fi
+
+    _osmo_trim "$var_name"
+    if [ -z "${!var_name}" ]; then
+        printf -v "$var_name" '%s' "$default_val"
+    fi
+}
+
+# osmo:setup — interactively register the OSMO credentials AirStack needs
+# (airlab-docker-registry, airlab-docker-login, airlab-nucleus, optional
+# airlab-storage). Idempotent — re-running rotates the credentials.
 function cmd_osmo_setup {
     _osmo_check_cli || return 1
 
     cat >&2 <<'EOF'
 
-This sets up the three per-user OSMO credentials AirStack-on-OSMO needs:
+This sets up the per-user OSMO credentials AirStack-on-OSMO needs:
 
   1. airlab-docker-registry  (REGISTRY) — for OSMO to pull the workspace image
   2. airlab-docker-login     (GENERIC)  — for the inner dockerd to pull AirStack images
   3. airlab-nucleus          (GENERIC)  — for Isaac Sim Nucleus access
+  4. airlab-storage          (GENERIC)  — OPTIONAL: push mission results to the
+                                          airlab-storage NAS + auto-teardown
 
 You'll be asked for:
 
@@ -140,6 +195,9 @@ You'll be asked for:
   - your AirLab Docker password (same as your Andrew password)
   - your Nucleus API token (https://airlab-nucleus.andrew.cmu.edu/omni/web3/
     → right-click cloud → API Tokens). NOT your Andrew password.
+  - (optional) your airlab-storage password — the SEPARATE Samba/SFTP/rsync
+    password set at https://airlab-storage.andrew.cmu.edu:4001/#/forgot-pwd,
+    NOT your Andrew/Docker password.
 
 Values go directly to OSMO; nothing is written to disk locally.
 
@@ -202,7 +260,33 @@ EOF
                   "omni_server=${omni_server}" \
         || { log_error "osmo credential set airlab-nucleus failed"; return 1; }
 
-    log_info "All three credentials registered. List them with: osmo credential list"
+    # Optional: airlab-storage NAS upload. Only the password is a secret; the
+    # destination path is set per-mission (nas_dest: in the mission spec).
+    local want_storage=""
+    read -r -p "Configure airlab-storage NAS upload (optional)? [y/N]: " want_storage
+    case "$want_storage" in
+        y|Y|yes|Yes)
+            local storage_user storage_pass storage_host
+            _osmo_prompt_default storage_user "airlab-storage username (Andrew ID)" "$andrew_id"
+            _osmo_prompt         storage_pass "airlab-storage password (hidden; the SEPARATE Samba/SFTP/rsync password)" true || return 1
+            _osmo_prompt_default storage_host "airlab-storage host" "airlab-storage.andrew.cmu.edu"
+
+            log_info "Refreshing airlab-storage (GENERIC)..."
+            osmo credential delete airlab-storage >/dev/null 2>&1 || true
+            osmo credential set airlab-storage \
+                --type GENERIC \
+                --payload "username=${storage_user}" \
+                          "password=${storage_pass}" \
+                          "host=${storage_host}" \
+                || { log_error "osmo credential set airlab-storage failed"; return 1; }
+            log_info "airlab-storage registered. Set 'nas_dest: /volume<X>/<share>/...' in a mission spec to upload results + auto-teardown."
+            ;;
+        *)
+            log_info "Skipping airlab-storage — NAS upload stays disabled (missions keep-alive as before)."
+            ;;
+    esac
+
+    log_info "Credentials registered. List them with: osmo credential list"
     log_info "Next: airstack osmo:up [--pool POOL]"
 }
 
@@ -615,8 +699,10 @@ function cmd_osmo_webrtc {
     _osmo_check_cli || return 1
     local wf; wf="$(_osmo_wf_id)" || return 1
 
+    local udp_bin; udp_bin="$(_osmo_udp_bin)"
+
     log_info "Spawning UDP port-forward in background: ${OSMO_WEBRTC_UDP}"
-    nohup osmo workflow port-forward "$wf" workspace \
+    nohup "$udp_bin" workflow port-forward "$wf" workspace \
         --port "$OSMO_WEBRTC_UDP" --udp \
         --connect-timeout "$OSMO_PF_TIMEOUT" \
         > "${OSMO_STATE_DIR}/webrtc-udp.log" 2>&1 &
@@ -686,6 +772,372 @@ function cmd_osmo_foxglove {
         --connect-timeout "$OSMO_PF_TIMEOUT"
 }
 
+# Parse a duration (90s / 30m / 8h / bare number = minutes) to seconds.
+function _osmo_parse_duration {
+    local v="$1"
+    if [[ "$v" =~ ^([0-9]+)([smh]?)$ ]]; then
+        local n="${BASH_REMATCH[1]}" u="${BASH_REMATCH[2]}"
+        case "$u" in
+            s) echo "$n" ;;
+            h) echo $(( n * 3600 )) ;;
+            *) echo $(( n * 60 )) ;;   # m or bare → minutes
+        esac
+    else
+        log_error "invalid duration '$v' — use e.g. 8h, 480m, 3600s, or a bare number (minutes)"
+        return 1
+    fi
+}
+
+function _osmo_hms {
+    printf '%dh%02dm' $(( $1 / 3600 )) $(( ($1 % 3600) / 60 ))
+}
+
+# Block until the mission finishes (the workspace log prints "mission_runner
+# exited") or cap_s elapses, then run osmo:fetch. Requires keep-alive so the
+# pod is still up to fetch from.
+function _osmo_wait_and_fetch {
+    local wf="$1" cap_s="$2"
+    local dest="${OSMO_AUTOFETCH_DEST:-./osmo-results}"
+    local poll="${OSMO_AUTOFETCH_POLL_S:-120}"
+    local start now elapsed snapshot status
+    start="$(date +%s)"
+    log_info "auto-fetch armed: polling every ${poll}s for completion (cap $(_osmo_hms "$cap_s")) → ${dest}"
+    log_info "  keep this terminal open (or background with nohup/tmux) until the fetch runs."
+    while :; do
+        now="$(date +%s)"; elapsed=$(( now - start ))
+        status="$(osmo workflow query "$wf" 2>/dev/null | awk -F': +' '/^Status/ {print $2; exit}' | tr -d ' \r\n' || true)"
+        case "$status" in
+            PENDING|RUNNING|"") ;;
+            *) log_warn "workflow ${wf} is ${status} — ending wait, attempting fetch."; break ;;
+        esac
+        snapshot="$(timeout 25 osmo workflow logs "$wf" -t workspace -n 600 2>/dev/null || true)"
+        if printf '%s\n' "$snapshot" | grep -q "mission_runner exited"; then
+            log_info "mission complete (after $(_osmo_hms "$elapsed")) — fetching."
+            break
+        fi
+        if [ "$elapsed" -ge "$cap_s" ]; then
+            log_warn "auto-fetch cap reached ($(_osmo_hms "$cap_s")) without completion — fetching what's there."
+            break
+        fi
+        sleep "$poll"
+    done
+    AIRSTACK_OSMO_WF="$wf" cmd_osmo_fetch "$dest"
+}
+
+# osmo:autofetch — attach the auto-fetch poller to an already-running mission
+# (one submitted without --auto-fetch, or whose terminal was closed). Polls the
+# workspace log for completion, then runs osmo:fetch.
+#
+# Usage: airstack osmo:autofetch [DUR]   (DUR = max-wait cap, default 8h; uses
+#        the saved workflow id, or AIRSTACK_OSMO_WF to target a specific one.)
+function cmd_osmo_autofetch {
+    _osmo_check_cli || return 1
+    local wf; wf="$(_osmo_wf_id)" || return 1
+    local cap_s
+    cap_s="$(_osmo_parse_duration "${1:-8h}")" || return 1
+    _osmo_wait_and_fetch "$wf" "$cap_s"
+}
+
+# osmo:mission — submit airstack-mission.yaml with a mission spec selected.
+#
+# Usage: airstack osmo:mission <mission.yaml> [--pool POOL] [--key PATH] [--workflow PATH]
+#                              [--branch BRANCH] [--no-keep-alive]
+#                              [--auto-fetch DUR] [--nas-dest PATH]
+#                              [--no-nas-upload]
+#
+# <mission.yaml> is a repo-relative path (e.g. osmo/missions/example_takeoff_land.yaml).
+# The pod clones the branch and runs the mission spec from that clone, so the
+# mission file must be committed and pushed. --no-keep-alive makes the task
+# exit when the mission ends (frees the GPU, triggers the workflow's
+# `outputs:` upload) instead of sleeping for `airstack osmo:fetch`.
+#
+# --auto-fetch DUR blocks after submit, polling the workspace log for mission
+# completion and running osmo:fetch as soon as it's done (DUR — e.g. 8h, 480m —
+# is the max wait before fetching anyway). Requires keep-alive (the default).
+#
+# If the airlab-storage credential is set (airstack osmo:setup) and the mission
+# spec has `nas_dest:` (or --nas-dest PATH overrides it), the pod rsyncs results
+# to the NAS then tears itself down. --no-nas-upload suppresses that.
+function cmd_osmo_mission {
+    _osmo_check_cli || return 1
+
+    local mission=""
+    local pool="${OSMO_POOL:-}"
+    local pubkey_file=""
+    local branch=""
+    local branch_explicit=false
+    local keep_alive="true"
+    local auto_fetch_dur=""
+    local nas_dest=""
+    local no_nas_upload="false"
+    local workflow_file=""
+    local extra_args=()
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --pool)          pool="$2"; shift 2 ;;
+            --key)           pubkey_file="$2"; shift 2 ;;
+            --branch)        branch="$2"; branch_explicit=true; shift 2 ;;
+            --no-keep-alive) keep_alive="false"; shift ;;
+            --auto-fetch)    auto_fetch_dur="$2"; shift 2 ;;
+            --nas-dest)      nas_dest="$2"; shift 2 ;;
+            --workflow)      workflow_file="$2"; shift 2 ;;
+            --no-nas-upload) no_nas_upload="true"; shift ;;
+            -*)              extra_args+=("$1"); shift ;;
+            *)
+                if [ -z "$mission" ]; then mission="$1"; else extra_args+=("$1"); fi
+                shift ;;
+        esac
+    done
+
+    # Validate --auto-fetch up front (fail before submitting on a bad value).
+    local auto_fetch_cap_s=""
+    if [ -n "$auto_fetch_dur" ]; then
+        if [ "$keep_alive" != "true" ]; then
+            log_error "--auto-fetch requires the pod to stay alive; don't combine it with --no-keep-alive."
+            return 1
+        fi
+        auto_fetch_cap_s="$(_osmo_parse_duration "$auto_fetch_dur")" || return 1
+    fi
+
+    # NAS auto-upload tears the pod down on completion, so --auto-fetch (which
+    # needs the pod alive) is moot when it runs. Best-effort heads-up.
+    if [ -n "$auto_fetch_dur" ] && [ "$no_nas_upload" != "true" ] \
+       && osmo credential list 2>/dev/null | grep -q 'airlab-storage'; then
+        log_warn "airlab-storage is configured; a mission with nas_dest set uploads + tears down, making --auto-fetch moot."
+    fi
+
+    if [ -z "$mission" ]; then
+        log_error "Usage: airstack osmo:mission <mission.yaml> [--pool POOL] [--branch BRANCH] [--workflow PATH] [--no-keep-alive]"
+        log_error "Available missions:"
+        ls "${PROJECT_ROOT}/osmo/missions/"*.yaml 2>/dev/null \
+            | sed "s|${PROJECT_ROOT}/|  |" >&2
+        return 1
+    fi
+    # Normalize to a repo-relative path — that's what the pod resolves
+    # against its clone of the branch.
+    mission="${mission#"${PROJECT_ROOT}"/}"
+    if [ ! -f "${PROJECT_ROOT}/${mission}" ]; then
+        log_error "Mission file not found locally: ${PROJECT_ROOT}/${mission}"
+        return 1
+    fi
+
+    if [ -z "$pubkey_file" ]; then
+        if ! pubkey_file="$(_osmo_pick_pubkey)"; then
+            log_error "No SSH public key found in ~/.ssh. Generate one with: ssh-keygen -t ed25519"
+            return 1
+        fi
+    fi
+
+    # Fleet size can outgrow the default workflow's `resources:` block (a
+    # 5-robot run needs gpu: 6 to keep every rayfronts off Isaac Sim's card),
+    # so the workflow is selectable. Relative paths resolve against the repo.
+    local workflow_yaml="${PROJECT_ROOT}/osmo/workflows/airstack-mission.yaml"
+    if [ -n "$workflow_file" ]; then
+        case "$workflow_file" in
+            /*) workflow_yaml="$workflow_file" ;;
+            *)  workflow_yaml="${PROJECT_ROOT}/${workflow_file#"${PROJECT_ROOT}"/}" ;;
+        esac
+    fi
+    if [ ! -f "$workflow_yaml" ]; then
+        log_error "Workflow file not found: ${workflow_yaml}"
+        return 1
+    fi
+    log_info "Workflow: ${workflow_yaml#"${PROJECT_ROOT}"/}"
+
+    # The pod runs the mission file from its clone of origin/<branch>, so an
+    # unpushed mission spec is the most common "why is it running the wrong
+    # thing" failure — same auto-pin + pushed check as osmo:up.
+    if [ "$branch_explicit" = false ] && [ -z "$branch" ]; then
+        branch="$(_osmo_local_branch)"
+        if [ -n "$branch" ]; then
+            log_info "Auto-detected local branch '${branch}'; pod will clone from origin/${branch} (override with --branch main)."
+        fi
+    fi
+    if [ -n "$branch" ]; then
+        _osmo_check_branch_pushed "$branch"
+    fi
+
+    local cmd=(osmo workflow submit "$workflow_yaml")
+    if [ -n "$pool" ]; then
+        cmd+=(--pool "$pool")
+    else
+        log_warn "No --pool provided and OSMO_POOL is unset; using your osmo profile's default pool."
+    fi
+    # Single --set-env: the flag is variadic and a second occurrence silently
+    # drops the first (see cmd_osmo_up).
+    local env_kvs=(
+        "SSH_PUB_KEY=$(cat "$pubkey_file")"
+        "OSMO_MISSION_FILE=${mission}"
+        "OSMO_MISSION_KEEP_ALIVE=${keep_alive}"
+    )
+    if [ -n "$branch" ]; then
+        env_kvs+=("AIRSTACK_BRANCH=${branch}")
+    fi
+    if [ -n "$nas_dest" ]; then
+        env_kvs+=("OSMO_MISSION_UPLOAD_DEST=${nas_dest}")
+    fi
+    if [ "$no_nas_upload" = "true" ]; then
+        env_kvs+=("OSMO_MISSION_NO_UPLOAD=true")
+    fi
+    cmd+=(--set-env "${env_kvs[@]}")
+    if [ ${#extra_args[@]} -gt 0 ]; then
+        cmd+=("${extra_args[@]}")
+    fi
+
+    log_info "Submitting mission '${mission}' (keep_alive=${keep_alive}): ${cmd[*]}"
+    local output
+    if ! output="$("${cmd[@]}" 2>&1)"; then
+        echo "$output" >&2
+        log_error "osmo workflow submit failed."
+        return 1
+    fi
+    echo "$output"
+
+    local wf_id
+    wf_id="$(echo "$output" | awk -F'- ' '/^Workflow ID/ {print $2; exit}' | tr -d ' \r\n')"
+    if [ -z "$wf_id" ]; then
+        log_warn "Could not parse workflow id from submit output. Set it manually:"
+        log_warn "  echo <wf-id> > ${OSMO_STATE_FILE}"
+        return 0
+    fi
+    _osmo_save_wf_id "$wf_id"
+
+    if [ -n "$auto_fetch_cap_s" ]; then
+        _osmo_wait_and_fetch "$wf_id" "$auto_fetch_cap_s"
+        return $?
+    fi
+
+    log_info "Next steps:"
+    log_info "  airstack osmo:logs        # follow mission progress"
+    log_info "  airstack osmo:fetch       # download bags + results (keep-alive mode)"
+    log_info "  airstack osmo:down        # cancel when done (results die with the pod!)"
+    if [ -n "$nas_dest" ] && [ "$no_nas_upload" != "true" ]; then
+        log_info "NAS upload armed → results go to ${nas_dest}/<name>/<stamp>/, then the pod tears itself down."
+    fi
+}
+
+# osmo:fetch — download mission results (mcap bags, logs, summaries) from the
+# pod to the laptop over the authenticated ssh port-forward.
+#
+# Usage: airstack osmo:fetch [dest-dir]
+#
+# Incremental and resumable (rsync): safe to run mid-mission to pull finished
+# iterations while the next one flies, and again later to top up. Falls back
+# to scp -r (non-incremental) if rsync isn't installed.
+#
+# Note: the osmo CLI also ships `osmo workflow rsync download`, which could
+# replace the port-forward + ssh below; we use the ssh path because the
+# sshd + port-forward channel is already validated infrastructure for this
+# workflow (osmo:ide) and works uniformly across osmo CLI versions.
+function cmd_osmo_fetch {
+    _osmo_check_cli || return 1
+    local wf; wf="$(_osmo_wf_id)" || return 1
+
+    local dest="${1:-./osmo-results}"
+    local remote_path="/root/AirStack/osmo/results/"   # trailing slash: rsync
+                                                       # follows the symlink to
+                                                       # /osmo/output/... on pods
+    local local_port="${OSMO_SSH_PORT%%:*}"
+    local ssh_opts=(-p "$local_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
+
+    # Reuse an existing ssh port-forward (e.g. from osmo:ide) or spawn one
+    # for the duration of the fetch — same pattern as osmo:ide.
+    local pf_pid=""
+    if ! nc -z localhost "$local_port" 2>/dev/null; then
+        log_info "osmo workflow port-forward ${wf} workspace --port ${OSMO_SSH_PORT} (for the duration of the fetch)"
+        osmo workflow port-forward "$wf" workspace --port "$OSMO_SSH_PORT" --connect-timeout 600 \
+            > "${OSMO_STATE_DIR}/fetch-pf.log" 2>&1 &
+        pf_pid=$!
+        trap '[ -n "'"$pf_pid"'" ] && kill "'"$pf_pid"'" 2>/dev/null; trap - EXIT INT TERM' EXIT INT TERM
+        local waited=0
+        until nc -z localhost "$local_port" 2>/dev/null; do
+            sleep 1; waited=$((waited+1))
+            if [ "$waited" -ge 30 ]; then
+                log_error "Timed out waiting for port-forward on :${local_port}. Log: ${OSMO_STATE_DIR}/fetch-pf.log"
+                return 1
+            fi
+            if ! kill -0 "$pf_pid" 2>/dev/null; then
+                log_error "port-forward exited early. Tail:"
+                tail -10 "${OSMO_STATE_DIR}/fetch-pf.log" >&2
+                return 1
+            fi
+        done
+    fi
+
+    mkdir -p "$dest"
+    log_info "Fetching ${remote_path} → ${dest}"
+    local rc
+    if command -v rsync >/dev/null 2>&1; then
+        rsync -az --partial --info=progress2 -e "ssh ${ssh_opts[*]}" \
+            "root@localhost:${remote_path}" "$dest/"
+        rc=$?
+    else
+        log_warn "rsync not found; falling back to scp -r (non-incremental)."
+        scp "${ssh_opts[@]}" -r "root@localhost:${remote_path}." "$dest/"
+        rc=$?
+    fi
+
+    if [ -n "$pf_pid" ]; then
+        kill "$pf_pid" 2>/dev/null
+        trap - EXIT INT TERM
+    fi
+
+    if [ "$rc" -ne 0 ]; then
+        log_error "Fetch failed (exit ${rc}). Is the workflow still running, and has the mission produced results yet?"
+        return 1
+    fi
+    log_info "Done. Open any .mcap under ${dest} directly in Foxglove (Open local file)."
+}
+
+# osmo:stop — gracefully stop the running mission: SIGINT to mission_runner
+# on the pod → current step aborts, recorders finalize their mcaps, bags +
+# logs are collected, stack goes down. The pod itself stays alive
+# (keep-alive), so follow with `airstack osmo:fetch` to download results.
+function cmd_osmo_stop {
+    _osmo_check_cli || return 1
+    local wf; wf="$(_osmo_wf_id)" || return 1
+
+    local local_port="${OSMO_SSH_PORT%%:*}"
+    local ssh_opts=(-p "$local_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
+
+    # Reuse an existing ssh port-forward or spawn one for this command —
+    # same pattern as osmo:fetch.
+    local pf_pid=""
+    if ! nc -z localhost "$local_port" 2>/dev/null; then
+        log_info "osmo workflow port-forward ${wf} workspace --port ${OSMO_SSH_PORT} (for the stop)"
+        osmo workflow port-forward "$wf" workspace --port "$OSMO_SSH_PORT" --connect-timeout 600 \
+            > "${OSMO_STATE_DIR}/stop-pf.log" 2>&1 &
+        pf_pid=$!
+        local waited=0
+        until nc -z localhost "$local_port" 2>/dev/null; do
+            sleep 1; waited=$((waited+1))
+            if [ "$waited" -ge 30 ]; then
+                log_error "Timed out waiting for port-forward on :${local_port}. Log: ${OSMO_STATE_DIR}/stop-pf.log"
+                [ -n "$pf_pid" ] && kill "$pf_pid" 2>/dev/null
+                return 1
+            fi
+        done
+    fi
+
+    log_info "Sending stop signal to mission_runner on the pod..."
+    ssh "${ssh_opts[@]}" root@localhost \
+        "pkill -INT -f 'osmo/workspace/mission_runner\.py' \
+         && echo 'stop signal delivered' \
+         || echo 'no running mission_runner found (mission already finished?)'"
+    local rc=$?
+
+    if [ -n "$pf_pid" ]; then
+        kill "$pf_pid" 2>/dev/null
+    fi
+    if [ "$rc" -ne 0 ]; then
+        log_error "ssh to pod failed (exit ${rc})."
+        return 1
+    fi
+    log_info "Mission stopping: current step aborts, recordings finalize, bags + logs are collected, stack goes down."
+    log_info "Watch progress: airstack osmo:logs    Download results: airstack osmo:fetch"
+}
+
 # osmo:down — cancel the active workflow. Reminds you to push first.
 function cmd_osmo_down {
     _osmo_check_cli || return 1
@@ -693,6 +1145,7 @@ function cmd_osmo_down {
 
     log_warn "About to cancel workflow '${wf}'."
     log_warn "Anything not pushed to git in /root/AirStack inside the pod will be LOST."
+    log_warn "Mission results (bags/logs) on the pod are lost too — run 'airstack osmo:fetch' first."
     log_warn "Hit Ctrl-C in the next 5 seconds to abort."
     sleep 5
     osmo workflow cancel "$wf"
@@ -703,14 +1156,22 @@ function cmd_osmo_down {
 function register_osmo_commands {
     COMMANDS["osmo:setup"]="cmd_osmo_setup"
     COMMANDS["osmo:up"]="cmd_osmo_up"
+    COMMANDS["osmo:mission"]="cmd_osmo_mission"
+    COMMANDS["osmo:fetch"]="cmd_osmo_fetch"
+    COMMANDS["osmo:autofetch"]="cmd_osmo_autofetch"
+    COMMANDS["osmo:stop"]="cmd_osmo_stop"
     COMMANDS["osmo:logs"]="cmd_osmo_logs"
     COMMANDS["osmo:ide"]="cmd_osmo_ide"
     COMMANDS["osmo:webrtc"]="cmd_osmo_webrtc"
     COMMANDS["osmo:foxglove"]="cmd_osmo_foxglove"
     COMMANDS["osmo:down"]="cmd_osmo_down"
 
-    COMMAND_HELP["osmo:setup"]="One-time per-user OSMO credential setup (airlab-docker-registry, airlab-docker-login, airlab-nucleus)"
+    COMMAND_HELP["osmo:setup"]="One-time per-user OSMO credential setup (airlab-docker-registry, airlab-docker-login, airlab-nucleus, optional airlab-storage for NAS upload)"
     COMMAND_HELP["osmo:up"]="Submit osmo/workflows/airstack-dev.yaml with your SSH pubkey injected (--pool POOL, --key PATH, --branch BRANCH)"
+    COMMAND_HELP["osmo:mission"]="Submit a batch mission (osmo/missions/*.yaml): repeated up→fly→record→down cycles (--pool POOL, --branch BRANCH, --no-keep-alive, --auto-fetch DUR, --nas-dest PATH, --no-nas-upload)"
+    COMMAND_HELP["osmo:fetch"]="Download mission results (mcap bags, logs, summaries) from the pod over ssh — incremental, safe to run mid-mission (osmo:fetch [dest-dir])"
+    COMMAND_HELP["osmo:autofetch"]="Attach the auto-fetch poller to the running mission (saved id or AIRSTACK_OSMO_WF): poll the workspace log until done, then osmo:fetch (osmo:autofetch [DUR], default 8h)"
+    COMMAND_HELP["osmo:stop"]="Gracefully stop the running mission: abort current step, finalize mcaps, collect bags+logs, stack down (pod stays up for osmo:fetch)"
     COMMAND_HELP["osmo:logs"]="Follow the workspace task logs (osmo workflow logs <id> -t workspace -n 500; OSMO_LOGS_TASK / OSMO_LOGS_TAIL override)"
     COMMAND_HELP["osmo:ide"]="Port-forward sshd (2200:22) and open VS Code/Cursor on Host airstack-osmo"
     COMMAND_HELP["osmo:webrtc"]="Port-forward Isaac Sim WebRTC ranges (TCP foreground + UDP background)"

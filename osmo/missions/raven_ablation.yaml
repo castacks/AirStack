@@ -1,0 +1,333 @@
+# raven_ablation — data capture for an OFFLINE detector ablation.
+#
+# Eight runs, one start on each scene. The progress numbers are not the point;
+# the point is to record enough to sweep detection threshold, cluster size and
+# background-query set afterwards WITHOUT re-flying.
+#
+# COVERAGE IS THE PRODUCT. An offline sweep can only score ground truth the
+# drones actually mapped — the first three-scene capture reached just 28 of 72
+# annotated targets, so most "misses" were flight coverage, not detection. Hence
+# VLFM_BASELINE=true with VLFM_USE_VOXEL_TARGETS=false: frontier-style costs for
+# broad sweep, biased toward high-similarity rays, and no go-to-object lock to
+# cut a run short. See the env block for the value-weight rescaling this needs.
+#
+# Four load-bearing choices:
+#
+# 1. RAYFRONTS_COMPUTE_PROB=False — raw cosine similarities, not a softmax over
+#    the query set. Raw scores are per-label independent, so dropping a
+#    background query offline leaves every other column untouched. Under softmax
+#    every column moves when the vocabulary changes, so the background-query
+#    ablation would need one flight per subset. This is what makes the whole
+#    experiment possible.
+#      => the per-scene voxel_score_threshold values below are softmax-era and
+#         are MEANINGLESS on this scale. Sweep the gate offline; do not read
+#         anything into the runtime detections this mission produces. With VLFM
+#         driving and voxel targets off, nothing reads them anyway — VLFM ranks
+#         raw cosines and never thresholds. score_threshold is already -1, which
+#         is what keeps the peer ray relay from dropping every cosine-scale ray.
+#
+# 2. record.scope: robot — records /robot_N/rayfronts/msg_serv/voxels_sim/all,
+#    the topic raven_nav actually subscribes to, on each robot's own DDS domain
+#    and at its true rate. Earlier missions recorded the GCS-side
+#    /rayfronts_debug/... republish, which is a visualisation relay at ~0.1 Hz —
+#    far too sparse to model the temporal confirmer.
+#
+# 3. Every scene registers the SAME 108-label bank: 64 background
+#    classes (ground, vegetation, built surface, poles, clutter — the things
+#    target voxels must out-score) plus 52 annotation classes carried as
+#    distractor columns. Offline you can only REMOVE columns, never add them, so
+#    the bank must be a superset of every subset you may want to test.
+#
+# SIZE WARNING: each label adds 4 bytes per voxel. At ~70k voxels/robot this is
+# ~31 MB per published cloud against ~4 MB for a normal run, recorded per robot
+# at full rate. Expect very large bags and budget pod disk accordingly; the
+# runner now uploads and prunes each iteration as it finishes.
+#
+#   airstack osmo:mission osmo/missions/raven_ablation.yaml --pool <gpu-pool>
+
+name: raven_ablation
+
+nas_dest: /volume4/dsta/raven-multi/
+
+stack:
+  services: [isaac-sim, robot-desktop, gcs]
+
+env:
+  NUM_ROBOTS: 3
+  ISAAC_SIM_HEADLESS: "true"
+  ISAAC_SIM_USE_STANDALONE: "true"
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  PLAY_SIM_ON_START: "true"
+  RAYFRONTS_COMPUTE_PROB: "False"
+  FRONTIER_ONLY_BASELINE: "false"
+  # VLFM explore is the coverage policy for this capture: frontier-style costs
+  # (distance + peer repulsion + novelty) biased toward high-similarity rays, so
+  # the drones sweep broadly but lean at target regions. Nothing here is scored
+  # online — the point is to overfly as many annotated objects as possible.
+  VLFM_BASELINE: "true"
+  # No voxel search. VLFM never closes on the 3D semantic field, so no run is
+  # cut short by a go-to-object lock and coverage keeps growing for the full
+  # 15 minutes.
+  VLFM_USE_VOXEL_TARGETS: "false"
+  # Raw cosines spread ~10x less than softmaxed scores, so the 300.0 default
+  # leaves distance dominant and VLFM collapses into plain frontier. 1500 keeps
+  # a real but not overpowering pull toward targets — full parity would be
+  # ~3000, deliberately undershot here to protect coverage. Calibrate against
+  # the per-component "[vlfm] explore" log line.
+  VLFM_VALUE_WEIGHT: "1500.0"
+  # Frontier-style ray blacklist: a reached goal is banned for 180 s, and three
+  # stalls at one spot ban it outright. Keeps the drones opening new ground
+  # instead of re-selecting a high-similarity frontier they already worked.
+  # NOT part of VLFM — capture-only, off by default everywhere else.
+  VLFM_RAY_BLACKLIST: "true"
+  LVLM_BASELINE: "false"
+
+# ── scene templates ────────────────────────────────────────────────────────
+# Per-scene inputs (map, stage scale, spawn height, query, thresholds, search
+# area), anchored once and merged into that scene's three spawn entries via
+# `<<:` so all three start locations run byte-identical settings. STAGE_SCALE
+# and SPAWN_HEIGHT_M are set on EVERY scene on purpose: mission_runner.apply_env
+# only merges env vars, so an omitted key silently inherits the previous
+# iteration's value. `scene_templates` is not a recognized top-level mission
+# key — the runner ignores it; it exists only to hold the anchors.
+scene_templates:
+  downtownwest: &downtownwest
+    ENV_URL: "Library/Stages/Dmytro/downtown_edited_v3_818.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "DowntownWest"
+    query: "fountain, car, truck"
+    voxel_score_threshold: 0.67
+    score_threshold: -1
+    voxel_min_cluster_size: -1
+    background_queries: "road, asphalt, concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, field, mountain, hill, water, pond, river, rubble, tree, bush, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, electrical cable, street lamp, street light, flood light, traffic signal, sign, billboard, antenna, mast, car, truck, container, pipe, tank, barrier, cone, crate, pallet, scaffolding, trailer, sky, ground, airfield, asphalt roller, atv, bankomat, biotoilet, blue container, blue tarp, bridge, bus stop, cabling winches, cafe table, chimney, construction lift, crane, fire hydrant, food stand, forklift, fountain, fuel tank, green container, guard tower, helicopter, human, mobile radar, obelisk, orange tarp, orange towercrane, outhouse, porch, radio tower, red building, red car, red container, ship, ship construction, traffic light, trash bin, tunnel, water tower, white silo, yellow car, yellow motorhome, yellow towercrane, yellow truck"
+    search_area:
+      points:
+        - {x: 160.0, y: 100.0, z: 0.0}
+        - {x: 160.0, y: -100.0, z: 0.0}
+        - {x: -260.0, y: -100.0, z: 0.0}
+        - {x: -260.0, y: 100.0, z: 0.0}
+
+  moderncitydowntown: &moderncitydowntown
+    ENV_URL: "Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "ModernCityDowntown"
+    query: "yellow truck, obelisk, bankomat, cafe table, car"
+    voxel_score_threshold: 0.65
+    score_threshold: -1
+    voxel_min_cluster_size: -1
+    background_queries: "road, asphalt, concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, field, mountain, hill, water, pond, river, rubble, tree, bush, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, electrical cable, street lamp, street light, flood light, traffic signal, sign, billboard, antenna, mast, car, truck, container, pipe, tank, barrier, cone, crate, pallet, scaffolding, trailer, sky, ground, airfield, asphalt roller, atv, bankomat, biotoilet, blue container, blue tarp, bridge, bus stop, cabling winches, cafe table, chimney, construction lift, crane, fire hydrant, food stand, forklift, fountain, fuel tank, green container, guard tower, helicopter, human, mobile radar, obelisk, orange tarp, orange towercrane, outhouse, porch, radio tower, red building, red car, red container, ship, ship construction, traffic light, trash bin, tunnel, water tower, white silo, yellow car, yellow motorhome, yellow towercrane, yellow truck"
+    search_area:
+      points:
+        - {x: -100.0, y: -110.0, z: 0.0}
+        - {x: -100.0, y: 100.0, z: 0.0}
+        - {x: 80.0, y: 100.0, z: 0.0}
+        - {x: 80.0, y: -110.0, z: 0.0}
+
+  retroneighborhood: &retroneighborhood
+    ENV_URL: "Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
+    STAGE_SCALE: "0.01"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "RetroNeighborhood"
+    query: "house, bus stop, blue container, red container"
+    voxel_score_threshold: 0.65
+    score_threshold: -1
+    voxel_min_cluster_size: 45
+    background_queries: "road, asphalt, concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, field, mountain, hill, water, pond, river, rubble, tree, bush, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, electrical cable, street lamp, street light, flood light, traffic signal, sign, billboard, antenna, mast, car, truck, container, pipe, tank, barrier, cone, crate, pallet, scaffolding, trailer, sky, ground, airfield, asphalt roller, atv, bankomat, biotoilet, blue container, blue tarp, bridge, bus stop, cabling winches, cafe table, chimney, construction lift, crane, fire hydrant, food stand, forklift, fountain, fuel tank, green container, guard tower, helicopter, human, mobile radar, obelisk, orange tarp, orange towercrane, outhouse, porch, radio tower, red building, red car, red container, ship, ship construction, traffic light, trash bin, tunnel, water tower, white silo, yellow car, yellow motorhome, yellow towercrane, yellow truck"
+    search_area:
+      points:
+        - {x: -150.0, y: -110.0, z: 0.0}
+        - {x: -150.0, y: 70.0, z: 0.0}
+        - {x: 170.0, y: 70.0, z: 0.0}
+        - {x: 170.0, y: -110.0, z: 0.0}
+
+  fireacademy: &fireacademy
+    ENV_URL: "Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
+    STAGE_SCALE: "0.01"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "FireAcademy"
+    query: "red building, water tower, fuel tank, radio tower"
+    voxel_score_threshold: 0.68
+    score_threshold: -1
+    voxel_min_cluster_size: -1
+    background_queries: "road, asphalt, concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, field, mountain, hill, water, pond, river, rubble, tree, bush, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, electrical cable, street lamp, street light, flood light, traffic signal, sign, billboard, antenna, mast, car, truck, container, pipe, tank, barrier, cone, crate, pallet, scaffolding, trailer, sky, ground, airfield, asphalt roller, atv, bankomat, biotoilet, blue container, blue tarp, bridge, bus stop, cabling winches, cafe table, chimney, construction lift, crane, fire hydrant, food stand, forklift, fountain, fuel tank, green container, guard tower, helicopter, human, mobile radar, obelisk, orange tarp, orange towercrane, outhouse, porch, radio tower, red building, red car, red container, ship, ship construction, traffic light, trash bin, tunnel, water tower, white silo, yellow car, yellow motorhome, yellow towercrane, yellow truck"
+    search_area:
+      points:
+        - {x: 13.0, y: -135.0, z: 0.0}
+        - {x: 135.0, y: -13.0, z: 0.0}
+        - {x: 13.0, y: 135.0, z: 0.0}
+        - {x: -135.0, y: 13.0, z: 0.0}
+
+  constructionsite: &constructionsite
+    ENV_URL: "Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
+    STAGE_SCALE: "0.01"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "ConstructionSite"
+    query: "forklift, tower crane, blue tarp"
+    voxel_score_threshold: 0.65
+    score_threshold: -1
+    voxel_min_cluster_size: -1
+    background_queries: "road, asphalt, concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, field, mountain, hill, water, pond, river, rubble, tree, bush, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, electrical cable, street lamp, street light, flood light, traffic signal, sign, billboard, antenna, mast, car, truck, container, pipe, tank, barrier, cone, crate, pallet, scaffolding, trailer, sky, ground, airfield, asphalt roller, atv, bankomat, biotoilet, blue container, blue tarp, bridge, bus stop, cabling winches, cafe table, chimney, construction lift, crane, fire hydrant, food stand, forklift, fountain, fuel tank, green container, guard tower, helicopter, human, mobile radar, obelisk, orange tarp, orange towercrane, outhouse, porch, radio tower, red building, red car, red container, ship, ship construction, traffic light, trash bin, tunnel, water tower, white silo, yellow car, yellow motorhome, yellow towercrane, yellow truck"
+    # Widened to a rectangle: the s3 spawn (x ~ -55) and two query props sat
+    # outside the old quadrilateral (x[-40,76] y[-71,50]).
+    search_area:
+      points:
+        - {x: 95.0, y: 65.0, z: 0.0}
+        - {x: 95.0, y: -90.0, z: 0.0}
+        - {x: -75.0, y: -90.0, z: 0.0}
+        - {x: -75.0, y: 65.0, z: 0.0}
+
+  abandonedfactory: &abandonedfactory
+    ENV_URL: "Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "1.0"
+    RESULTS_SCENE: "AbandonedFactory"
+    query: "building, water tower, white silo"
+    voxel_score_threshold: 0.65
+    score_threshold: -1
+    voxel_min_cluster_size: -1
+    background_queries: "road, asphalt, concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, field, mountain, hill, water, pond, river, rubble, tree, bush, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, electrical cable, street lamp, street light, flood light, traffic signal, sign, billboard, antenna, mast, car, truck, container, pipe, tank, barrier, cone, crate, pallet, scaffolding, trailer, sky, ground, airfield, asphalt roller, atv, bankomat, biotoilet, blue container, blue tarp, bridge, bus stop, cabling winches, cafe table, chimney, construction lift, crane, fire hydrant, food stand, forklift, fountain, fuel tank, green container, guard tower, helicopter, human, mobile radar, obelisk, orange tarp, orange towercrane, outhouse, porch, radio tower, red building, red car, red container, ship, ship construction, traffic light, trash bin, tunnel, water tower, white silo, yellow car, yellow motorhome, yellow towercrane, yellow truck"
+    search_area:
+      points:
+        - {x: 45.0, y: 102.0, z: 0.0}
+        - {x: 45.0, y: -97.0, z: 0.0}
+        - {x: -109.0, y: -97.0, z: 0.0}
+        - {x: -109.0, y: 102.0, z: 0.0}
+
+  militarybase: &militarybase
+    ENV_URL: "Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "1.0"
+    RESULTS_SCENE: "MilitaryBase"
+    query: "guard tower, radio tower, bridge, helicopter"
+    voxel_score_threshold: 0.68
+    score_threshold: -1
+    voxel_min_cluster_size: -1
+    background_queries: "road, asphalt, concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, field, mountain, hill, water, pond, river, rubble, tree, bush, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, electrical cable, street lamp, street light, flood light, traffic signal, sign, billboard, antenna, mast, car, truck, container, pipe, tank, barrier, cone, crate, pallet, scaffolding, trailer, sky, ground, airfield, asphalt roller, atv, bankomat, biotoilet, blue container, blue tarp, bridge, bus stop, cabling winches, cafe table, chimney, construction lift, crane, fire hydrant, food stand, forklift, fountain, fuel tank, green container, guard tower, helicopter, human, mobile radar, obelisk, orange tarp, orange towercrane, outhouse, porch, radio tower, red building, red car, red container, ship, ship construction, traffic light, trash bin, tunnel, water tower, white silo, yellow car, yellow motorhome, yellow towercrane, yellow truck"
+    # Widened: the s2 spawn (1015, 325..341) sat outside the old x>=1030,
+    # y<=320 rectangle.
+    search_area:
+      points:
+        - {x: 1295.0, y: 360.0, z: 0.0}
+        - {x: 1000.0, y: 360.0, z: 0.0}
+        - {x: 1000.0, y: -165.0, z: 0.0}
+        - {x: 1295.0, y: -165.0, z: 0.0}
+
+  shipyard: &shipyard
+    ENV_URL: "Library/Stages/Dmytro/edit_v1_shipyard.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "2.0"
+    RESULTS_SCENE: "Shipyard"
+    query: "ship, crane"
+    voxel_score_threshold: 0.65
+    score_threshold: -1
+    voxel_min_cluster_size: -1
+    background_queries: "road, asphalt, concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, field, mountain, hill, water, pond, river, rubble, tree, bush, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, electrical cable, street lamp, street light, flood light, traffic signal, sign, billboard, antenna, mast, car, truck, container, pipe, tank, barrier, cone, crate, pallet, scaffolding, trailer, sky, ground, airfield, asphalt roller, atv, bankomat, biotoilet, blue container, blue tarp, bridge, bus stop, cabling winches, cafe table, chimney, construction lift, crane, fire hydrant, food stand, forklift, fountain, fuel tank, green container, guard tower, helicopter, human, mobile radar, obelisk, orange tarp, orange towercrane, outhouse, porch, radio tower, red building, red car, red container, ship, ship construction, traffic light, trash bin, tunnel, water tower, white silo, yellow car, yellow motorhome, yellow towercrane, yellow truck"
+    search_area:
+      points:
+        - {x: -250.0, y: 250.0, z: 0.0}
+        - {x: 250.0, y: 250.0, z: 0.0}
+        - {x: 250.0, y: -250.0, z: 0.0}
+        - {x: -250.0, y: -250.0, z: 0.0}
+
+# ── 8 runs: every scene, one start each ────────────────────────────────────
+# The first three were flown already; bag size came in tolerable, so the
+# remaining five are enabled. Spawns are the _s1 triples from
+# multi_raven_mission.yaml so starts match the main benchmark.
+environments:
+
+  # ---- Shipyard ----
+  - <<: *shipyard
+    name: shipyard_s1
+    SPAWN_CONFIGS: '[{"x_m": -66.066, "y_m": -11.867, "orient": [0.0, 0.0, -0.9089, 0.417]}, {"x_m": -68.796, "y_m": -14.581, "orient": [0.0, 0.0, -0.6509, 0.7591]}, {"x_m": -61.737, "y_m": -14.407, "orient": [0.0, 0.0, 0.2744, 0.9616]}]'
+
+  # ---- FireAcademy ----
+  - <<: *fireacademy
+    name: fireacademy_s1
+    SPAWN_CONFIGS: '[{"x_m": 27.34, "y_m": 5.359, "orient": [0.0, 0.0, 0.9757, 0.2192]}, {"x_m": 25.982, "y_m": 12.241, "orient": [0.0, 0.0, -0.2076, 0.9782]}, {"x_m": 26.223, "y_m": 15.534, "orient": [0.0, 0.0, -0.3285, 0.9445]}]'
+
+  # ---- DowntownWest ----
+  - <<: *downtownwest
+    name: downtownwest_s1
+    SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0.0, 0.0, 0.698, 0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0.0, 0.0, 0.736, 0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0.0, 0.0, 0.784, 0.621]}]'
+
+  # ---- ModernCityDowntown ----
+  - <<: *moderncitydowntown
+    name: moderncitydowntown_s1
+    SPAWN_CONFIGS: '[{"x_m": -17.273, "y_m": -57.947, "orient": [0.0, 0.0, -0.9896, 0.1438]}, {"x_m": -13.396, "y_m": -53.247, "orient": [0.0, 0.0, 0.4571, 0.8894]}, {"x_m": -17.857, "y_m": -48.541, "orient": [0.0, 0.0, -0.632, 0.775]}]'
+
+  # ---- RetroNeighborhood ----
+  - <<: *retroneighborhood
+    name: retroneighborhood_s1
+    SPAWN_CONFIGS: '[{"x_m": 6.764, "y_m": -1.767, "orient": [0.0, 0.0, -0.1193, 0.9929]}, {"x_m": -0.354, "y_m": 2.251, "orient": [0.0, 0.0, 0.8743, 0.4854]}, {"x_m": 2.939, "y_m": 5.117, "orient": [0.0, 0.0, -0.7931, 0.6091]}]'
+
+  # ---- ConstructionSite ----
+  - <<: *constructionsite
+    name: constructionsite_s1
+    SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0.0, 0.0, 0.2886, 0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0.0, 0.0, -0.2699, 0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0.0, 0.0, 0.9137, 0.4063]}]'
+
+  # ---- AbandonedFactory ----
+  - <<: *abandonedfactory
+    name: abandonedfactory_s1
+    SPAWN_CONFIGS: '[{"x_m": 20.458, "y_m": 1.499, "orient": [0.0, 0.0, 0.1166, 0.9932]}, {"x_m": 20.46, "y_m": 4.676, "orient": [0.0, 0.0, -0.9881, 0.1541]}, {"x_m": 20.476, "y_m": 8.299, "orient": [0.0, 0.0, 0.4036, 0.9149]}]'
+
+  # ---- MilitaryBase ----
+  - <<: *militarybase
+    name: militarybase_s1
+    SPAWN_CONFIGS: '[{"x_m": 1110.0, "y_m": 220.0, "orient": [0.0, 0.0, -0.585, 0.811]}, {"x_m": 1116.0, "y_m": 227.0, "orient": [0.0, 0.0, -0.606, 0.795]}, {"x_m": 1122.0, "y_m": 234.0, "orient": [0.0, 0.0, -0.625, 0.78]}]'
+
+command_route: gcs
+
+environment_order: grouped
+iterations: 1
+iteration_attempts: 3
+
+ready:
+  timeout_s: 900
+
+# One recorder per robot on its own domain, capturing ONLY the semantic voxel
+# cloud. That topic is the entire map every publish, so nothing else is worth
+# the disk.
+record:
+  enabled: true
+  scope: robot
+  required: true
+  topics:
+    - /robot_{n}/rayfronts/msg_serv/voxels_sim/all
+
+on_step_failure: abort_iteration
+
+steps:
+  - run:
+      container: robot_1
+      cmd: python3 -c "import torch; torch.hub.load('NVlabs/RADIO', 'radio_model', version='c-radio_v3-b', skip_validation=True, adaptor_names=['siglip2','sam'])"
+      timeout_s: 900
+      attempts: 5
+      retry_delay_s: 15
+
+  - action:
+      task: takeoff
+      goal: {target_altitude_m: 12.0, velocity_m_s: 1.0}
+      timeout_s: 180
+
+  - wait: 5
+
+  - action:
+      task: semantic_search
+      timeout_s: 900
+      cancel_on_timeout: true
+      pass_on_feedback: true
+      goal:
+        query: "{{env.query}}"
+        background_queries: "{{env.background_queries}}"
+        search_area: "{{env.search_area}}"
+        min_altitude_agl: 5.0
+        max_altitude_agl: 20.0
+        min_flight_speed: 0.5
+        max_flight_speed: 1.0
+        confidence_threshold: 0.95
+        voxel_score_threshold: "{{env.voxel_score_threshold}}"
+        score_threshold: "{{env.score_threshold}}"
+        voxel_min_cluster_size: "{{env.voxel_min_cluster_size}}"
+        bundle_len: 3

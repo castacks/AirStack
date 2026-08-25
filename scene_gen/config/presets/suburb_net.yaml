@@ -50,6 +50,10 @@ overrides:
 
     # Real plats meet at 70-110 degrees, not exactly 90; the swing is also what
     # keeps the curve between two junctions inside its 30 m minimum radius.
+    # THE LOTS AT A SKEWED CORNER ARE NOT THIS KNOB'S PROBLEM TO FIX. Two lot
+    # rectangles hung off two frontages meeting at 52 degrees run through each
+    # other, and the answer is to refuse one of them, not to square the street:
+    # see `suburb_parcel.junction_skew_clear_deg` below.
     junction_skew_deg: 38.0
     # Share of face splits that land on an existing junction, making a four-way.
     # Suburbia is T-dominated but not T-exclusive: measured 69-87% three-way.
@@ -70,6 +74,16 @@ overrides:
     grain_weight: 2.6
     grain_swirl_deg: 34.0
     grain_period_m: 620.0
+
+  # ---- the park (suburb_park.py) ---------------------------------------------
+  # ONLY THE REFUGE LOT IS SURFACED HERE, and for the reason `suburb_wildfire`
+  # gives at more length: every other park dimension is a regulation figure and
+  # lives in `suburb_park.DEFAULTS`, whereas the car park's bay count is a
+  # SCENE parameter — it is how many survivors a later pass can stand on it.
+  # 64 x 40 m is 2 double-loaded modules x 2 rows x 18 bays = 72.
+  suburb_park:
+    parking_m: [64.0, 40.0]
+    parking_apron_w_m: 8.0
 
   # ---- lots, houses, planting (suburb_parcel.py) -----------------------------
   suburb_parcel:
@@ -131,6 +145,92 @@ overrides:
     density_mix: {tight: 0.15, normal: 0.36, loose: 0.34, estate: 0.15}
     # Zoning ordinances put the front setback at 20-30 ft almost everywhere.
     setback_m: [6.5, 11.0]
+    # ---- ROW HOMES: attached rows around a shared parking court ------------
+    # A minority fabric, on purpose. The plat this generator makes is DETACHED
+    # suburbia — one dwelling per lot, a driveway per door, a back garden — and
+    # that is one American morphology, not the only one. Garden apartments /
+    # attached townhouses pack the dwellings onto a fraction of the ground and
+    # share what a detached lot keeps private: no back garden, no garage, no
+    # driveway per door, and ONE parking court that every unit walks to.
+    #
+    # It earns its place in THIS dataset rather than being decoration:
+    #   * an attached row has no defensible space between units, so it loses the
+    #     whole run where a detached plat loses houses in a scatter;
+    #   * the court concentrates every vehicle the development owns on one slab
+    #     — the obvious refuge (bare asphalt) and the obvious trap;
+    #   * ONE drive serves the cluster, so one blockage strands every unit.
+    # See `detail/row_housing.py`, and
+    # `simulation/isaac-sim/launch_scripts/cluster_housing_launch_script.py`
+    # for the hand-composed bench every dimension in it came off.
+    #
+    # SHARE OF DISTRICT SEEDS, not of blocks — it is drawn by the same
+    # `neighbourhood_m` map that assigns lot size, so a row-home area is a
+    # CONTIGUOUS PATCH of blocks (one development) and not a court dropped on a
+    # street of detached houses. At `neighbourhood_m: 400` a 1600 x 1200 m crop
+    # carries 20 seeds and 38-51 developed blocks.
+    #
+    # MEASURED over 16 seeds (1-16), 1600 x 1200 m, 38-54 developed blocks each.
+    # "seeds with any" is how many of the 16 got at least one development;
+    # "courts" is the median and range per seed; "row share of houses" is the
+    # median and range of row units as a fraction of all dwellings:
+    #
+    #   row_share   seeds with any   courts/seed      row share of houses
+    #     0.00          0 / 16          0             0%      (feature inert)
+    #     0.10         10 / 16          1  (0-13)     2%      (0-17%)
+    #     0.12         12 / 16          2  (0-13)     3%      (0-28%)
+    #     0.15         15 / 16          6  (0-21)     8%      (0-34%)
+    #
+    # 0.15 is the value here: at 0.10-0.12 half the seeds carry no row homes at
+    # all and the ones that do usually carry a single development, which is too
+    # thin to be a fabric the dataset can learn anything from. At 0.15 nearly
+    # every seed has one or two developments and the three mixes come out even
+    # (33/33/35 clusters over the 16 seeds). The seed that still gets none is
+    # not a fault: its one row district lands on a block whose only room for a
+    # court is against the CROP BOUNDARY, which is not a street and cannot be
+    # fronted.
+    #
+    # ABOUT 40% OF ROW BLOCKS ARE REFUSED and plat normally instead (51 refused
+    # against 73 built over those 16 seeds). A development is 60-93 m across
+    # the frontage by 50-90 m deep, and this generator's blocks run 5.7k-51k m2
+    # with 15-30% of them triangular, so the smaller and more wedge-shaped ones
+    # cannot take one. That is reported as `row_rejected`, not swallowed.
+    # RAISED TO 1.5x THE MEASURED 0.15, on the ask for more row-home
+    # LOCATIONS (not bigger ones — `units_per_row` and the court are
+    # untouched). The table above is still the evidence for the shape of the
+    # curve; this trades a little of the detached fabric for roughly half
+    # again as many developments.
+    row_share: 0.225
+    # The cluster geometry itself lives in `row_housing.DEFAULTS`, where each
+    # knob carries the measurement behind it. Only the ones this preset has an
+    # opinion about are repeated here.
+    row_housing:
+      # Between party walls. The kit models every unit as a free-standing shell
+      # with its own end walls, so they cannot butt into a true shared wall
+      # without interpenetrating; 2.5 m is the tightest that stays clean and
+      # still reads as a terrace. The bench's number, approved on sight.
+      unit_gap_m: 2.5
+      # Units per row, largest first. 5 x 2 is the bench; 3 is where a "row"
+      # stops being one. The planner never shrinks a unit to make a fit — the
+      # art is measured, and the rest of this pipeline exists to stop it being
+      # guessed at.
+      units_per_row: [3, 5]
+      # Court edge to front wall. Under about 6 m the units front directly onto
+      # parked cars, which is what a badly-designed one does.
+      front_setback_m: 7.5
+      # Parking supply, per dwelling. The bench painted bays down the whole
+      # length of both kerbs — 50 for 10 units — because the court is as long
+      # as the row. Five spaces per dwelling is a shopping centre; US
+      # multifamily zoning asks 1.5-2.0. The slab still runs the full length
+      # (the aisle has to reach every footway) and only the middle of each kerb
+      # is marked out.
+      bays_per_dwelling: 1.75
+      # Communal green behind each row, where a detached plat would have put
+      # private gardens. A MAXIMUM, not a requirement: the core (court +
+      # setbacks + units) is what must fit the block and the green is grown
+      # into whatever is left, so a tight site gets a two-metre amenity strip
+      # instead of losing the development. Deliberately under
+      # `pool_rear_min_m` (9.5) so no unit can acquire a swimming pool.
+      green_m: 6.0
     # NOMINAL FALLBACK ONLY, and unread on this path. `suburb_scene` measures
     # the pack at build time (`house_catalogue`, garage wing folded in) and
     # hands `suburb_parcel` a `house_sizes` list; these are used only when that
@@ -149,6 +249,59 @@ overrides:
     # reachable catalogue, and the widest entries go first.
     house_gap_m: 6.0
     min_lot_depth_m: 21.0
+    # ---- SKEWED BLOCK CORNERS: WHERE A LOT IS NOT PLATTED AT ALL -----------
+    # `suburb_net.junction_skew_deg` above lets two streets meet up to 38
+    # degrees off the normal, because real plats do. What that costs is at the
+    # CORNERS, and it is not the streets' fault: a lot here is a RECTANGLE HUNG
+    # OFF ONE FRONTAGE, so where two frontages meet, both corner lots claim the
+    # ground between them. At a square corner that shared ground is a corner
+    # square and reads as an ordinary suburban corner. Off square it is a whole
+    # lot's worth, and what shows on screen is the NEIGHBOUR'S FENCE RUN across
+    # your back garden — measured over seeds 3/5/8 before this knob existed,
+    # 627 of 2,858 fence runs (22%) stood inside a lot that was not their own,
+    # 11.8 km of fence, up to 65 m in one run. `_FenceGrid` and
+    # `tools/fence_check` were both blind to it: it is not a crossing and not a
+    # doubling, so both reported zero while it was happening.
+    #
+    # A lot is refused when its rectangle comes within `junction_skew_clear_m`
+    # of one already platted across a block corner further off square than
+    # `junction_skew_clear_deg`, in EITHER direction — a 125-degree corner is
+    # as skewed as a 55-degree one, and its lots overlap MORE: 246 m2 mean
+    # over the 67 pairs at 100-130 degrees against 152 over the 87 pairs
+    # at 20-55. Refusals are counted as `skew_yield`;
+    # `tools/suburb_net_png.py` prints them beside the other refusal counts.
+    #
+    # MEASURED over seeds 3/5/8 — houses, then the overlapping corner-lot pairs
+    # and the square metres of lot-on-lot overlap left at corners:
+    #
+    #   clear_deg   corners kept   houses           pairs   corner overlap
+    #   90 (off)    everything     1853              335    68.0k m2
+    #   35          55-125         1794   (-3.2%)    259    52.6k
+    #   30          60-120         1757   (-5.2%)    214    36.1k   <- here
+    #   25          65-115         1710   (-7.7%)    172    33.9k
+    #   20          70-110         1687   (-9.0%)    150    29.1k
+    #
+    # 30 is the knee: 35 -> 30 buys 24% of the overlap for 2% of the houses,
+    # 30 -> 25 buys 3% more for another 2.5%. At 30, overlap between lots at
+    # corners MORE than 30 degrees off square is essentially gone — 130 pairs /
+    # 26.3k m2 over the three seeds down to 12 pairs / 209 m2 — and the fence
+    # runs standing inside a lot ACROSS such a corner fall from 119 to 8, 4.2%
+    # of all runs to 0.3%. `tools/fence_check` asserts that as
+    # `trespass_skew_frac`. Trespass overall falls from 627 runs / 11.8 km to
+    # 509 / 9.4 km; what is left is at corners NEAR square and on curving
+    # faces, which is the pre-existing corner behaviour `suburb_parcel`
+    # documents and has no packing pass to fix.
+    #
+    # DO NOT FIX THIS BY NARROWING `junction_skew_deg`. The skew is a measured
+    # property of the street fabric and squaring every junction is a different,
+    # worse suburb; the defect is in what gets PLATTED at the corner.
+    junction_skew_clear_deg: 30.0
+    # Daylight the two lots must keep at such a corner. Well under the
+    # narrowest side yard `house_gap_m` (6 m) can produce, so it cannot refuse
+    # a lot that had real room — but enough that a lot line grazing its
+    # neighbour's does not put two fences a foot apart, which
+    # `_FenceGrid._DOUBLE_M` would then drop one of.
+    junction_skew_clear_m: 2.0
     driveway_w_m: 3.2
     # Which way a house faces, relative to the frontage tangent. -90 puts the
     # front toward the kerb IF the asset is authored facing +X; the Objaverse
@@ -163,3 +316,100 @@ overrides:
     back_trees_per_100m2: 0.055
     front_tree_chance: 0.45
     street_tree_spacing_m: [16.0, 30.0]
+    # POOL LOTS. The `large` package (6% of lots) is the only one that gets a
+    # pool, and it asks the plat for its rear yard UP FRONT — granted only what
+    # the water occupies, the result is fence-pool-fence with no garden round
+    # it. 20 m buys a walk, the 4 m pool, a rear walk and ~8 m of lawn, and
+    # `pool_rear_min_m` is what a pool actually needs, so a block that cannot
+    # give 20 still gets its pool with a smaller garden instead of losing it.
+    pool_rear_m: 20.0
+    pool_rear_min_m: 9.5
+    # NO TREE THIS CLOSE TO A POOL'S WATER RECTANGLE, measured from the rect
+    # edge. This is a DEBRIS number, not a crown number: on the wildfire preset
+    # every tree is replaced by a baked burnt archetype that scatters wood over
+    # 7.5-10.5 m about its trunk (`disaster/vegetation.py` `_DEBRIS` — 10.5 m
+    # at `fallen` and `stump`), so 11.0 clears the worst case with half a metre
+    # in hand. Kept here as well as on `suburb_wildfire` so the two presets stay
+    # the same suburb: a keep-out that only exists on the burnt one would move
+    # every pool lot's planting between them. Shrubs and props are unaffected.
+    pool_tree_clear_m: 11.0
+
+  # ---- parked cars (suburb_scene.build_cars) ---------------------------------
+  # THE POOL IS CHOSEN BY TAG, not by this block: `shared.yaml` marks each
+  # vehicle `residential` / `livery` / `commercial` / `rv` / `vintage`, and the
+  # driveway and kerb passes draw `residential`. Before that, a construction
+  # truck, a motorhome, a squad car and a taxi were four of seven entries in one
+  # flat pool drawn uniformly, so about half the cars parked outside a house
+  # were not cars anybody parks outside a house.
+  cars:
+    # Share of driveways holding a car. A real suburb at midday has one in
+    # roughly half its drives — the rest are at work — and 1.0 reads as an
+    # evacuation, which is a different scene and a later pass. The car is
+    # nosed toward the garage and fitted to its own MEASURED length, so a
+    # short drive keeps its car only if the car fits on it.
+    driveway_chance: 0.55
+    # Share of a row-home court's BAYS holding a car. Not a share of dwellings:
+    # `row_housing.bays_per_dwelling` already sized the supply at 1.75 per
+    # unit, so 0.6 of the bays is roughly one car per dwelling — about what
+    # `driveway_chance` leaves standing in a detached street at midday. A
+    # cluster has no driveways at all, so this is where ALL of its cars are,
+    # which is the concentration the morphology is here to model.
+    court_occupancy: 0.6
+    # Share of kerb slots holding a car. GENERATION.md's locale table:
+    # downtown is "dense on-street parking both sides", suburban is "sparse
+    # on-street; cars belong in driveways beside houses". At 7-9 m slots, 0.12
+    # is about one car per 65 m of kerb — a few cars on a street, not a rank.
+    # Kerb parking runs on `local` and `cul_de_sac` only; an arterial or a
+    # collector is the through road and gets none.
+    street_density: 0.12
+    slot_spacing_m: [7.0, 9.0]   # a car plus the room to get out of the space
+    slot_gap_chance: 0.18        # break the rank, so slots are not a lattice
+    # KEEP-OUTS. `junction_clear_m` is measured from the edge of the junction's
+    # asphalt blob, the same semantics `city_detail` uses for its 7.5 m; the
+    # apron figure is how far a kerb car stays off a driveway's dropped kerb;
+    # a hydrant may never be boxed in.
+    junction_clear_m: 8.0
+    apron_clear_m: 1.5
+    hydrant_clear_m: 3.0
+    kerb_gap_m: 0.35             # gutter showing between tyre and kerb
+    # Driveway fit: rear bumper this far inside the kerb line, nose this far
+    # short of the garage face. Both are measured against the car that was
+    # actually drawn, not a nominal 4.5 m box.
+    drive_rear_clear_m: 1.0
+    drive_nose_clear_m: 0.8
+    # Share of cars drawn from the `vintage` tag instead of `residential`.
+    # NOTHING CARRIES THAT TAG TODAY: the 1938 tourer that did was measured at
+    # 6.95 x 10.48 m and dropped (see `shared.yaml`). `load_tagged` does not
+    # fall back to the whole pool, so an empty sub-pool zeroes this knob rather
+    # than quietly re-admitting the trucks — the number is kept for whenever a
+    # correctly-sized period car is added.
+    vintage_chance: 0.06
+    # REMOVE THE GLASS, don't try to make it transparent. This renderer forces
+    # fractional opacity to 1.0 (see `detail/vehicles` and the wildfire skill),
+    # so a 0.2-opacity windscreen renders SOLID and hides anyone inside. Only
+    # the `glass_separable` assets have anything to strip.
+    strip_glass: true
+    max_cars: 700                # un-instanced geometry; this is the ceiling
+
+  # ---- SURVIVORS  (disaster/people.py) — OFF IN THIS PRESET ------------------
+  # `total: 0` on purpose, and the block is kept only so the schema is visible
+  # from the preset a reader opens first.
+  #
+  # WHY ZERO RATHER THAN A SMALL PEACETIME POPULATION. Every one of the six
+  # scenarios `disaster/people.py` plans is a FIRE BEHAVIOUR: a refuge lot, a
+  # refuge on open ground, people sheltering in pools, a gridlocked egress
+  # queue behind a fallen tree, people in front yards at the burn edge, and a
+  # person on the floor plate of a house whose roof has fallen in. Four of the
+  # six are selected by burn age and one by a damage level, and this preset has
+  # no fire — `age` is negative everywhere and `level` is `pristine`
+  # everywhere, so the planner would degenerate to two scenarios placing
+  # people by dice. That is a worse scene than none, and it would be silently
+  # worse.
+  #
+  # A peacetime suburb's people are pedestrians on sidewalks, walkers on park
+  # trails and idlers on lawns — which `scene_generator` already places from
+  # its own `humans:` block, on the frontage geometry, and which is a different
+  # pass with a different prior. Turn THAT on here if this preset ever wants
+  # people; do not turn this one on.
+  people:
+    total: 0

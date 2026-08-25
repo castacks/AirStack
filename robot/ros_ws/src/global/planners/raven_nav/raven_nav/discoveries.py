@@ -8,8 +8,7 @@ visualizer. It's produced each tick from:
 
 Two rules govern aggregation:
   1. ConfirmedTargets (AABBs) dedupe by spatial overlap — AABB intersection
-     OR centroid-to-centroid distance below half_diag_A + half_diag_B + margin.
-     Confidence/status of the merged entry takes the strongest input.
+     OR surface gap below margin. Confidence/status takes the strongest input.
   2. RayTargets that were attached to a BB during build_targets are absorbed
      into the corresponding ConfirmedTarget. RayTargets without a bb_id stay
      as separate Discoveries with status='confirmed' or 'unconfirmed'.
@@ -29,36 +28,61 @@ import numpy as np
 from raven_nav.ray_targets import RayTarget
 
 
-DEDUP_MARGIN_M = 8.0
-# Distance buffer added on top of (half_diag_a + half_diag_b) when deciding
-# whether two same-label ConfirmedTargets refer to the same physical instance.
-# 8 m glues together typical voxel-fragment AABBs of a single house even when
-# the fragments are small (~2-3 m half-diag each). Tighten if you observe two
-# genuinely distinct objects merging; loosen if a single object keeps splitting
-# into multiple discoveries.
+# Max surface gap (not centroid distance) for two same-label AABBs to count as
+# one instance. Detected boxes run ~1-2 m oversized, so anything above ~1 m
+# bridges the street gap between adjacent buildings (RetroNeighborhood min
+# true gap: 5.5 m) and chains a row into one box.
+DEDUP_MARGIN_M = 1.0
+
+# Merged boxes never grow beyond this xy extent (> largest expected target):
+# blocks fragment-union chaining across neighbouring targets. A fragment that
+# would over-grow the union stays a separate box.
+MAX_TARGET_EXTENT_M = 28.0
+
+# Same-instance identity for VISITED transfer is overlap-based, not gap-based:
+# fragments of one large building sit farther apart (<= ~12 m for 25 m houses)
+# than two adjacent buildings' gap (5.5 m), so no distance radius separates
+# them. Small gap allowance for offset zero-overlap fragments only.
+SAME_INSTANCE_IOU = 0.15
+SAME_INSTANCE_CONTAIN = 0.5
+SAME_INSTANCE_GAP_M = 1.0
+
+
+def same_instance_xy(ca, sa, cb, sb) -> bool:
+    """True if two xy AABBs (centre, size) are one physical instance:
+    meaningful overlap, one mostly inside the other, or near-touching."""
+    ca, sa, cb, sb = (np.asarray(v, dtype=float) for v in (ca, sa, cb, sb))
+    lo = np.maximum(ca[:2] - sa[:2] / 2.0, cb[:2] - sb[:2] / 2.0)
+    hi = np.minimum(ca[:2] + sa[:2] / 2.0, cb[:2] + sb[:2] / 2.0)
+    inter = float(np.prod(np.clip(hi - lo, 0.0, None)))
+    if inter > 0.0:
+        va = float(np.prod(np.maximum(sa[:2], 1e-6)))
+        vb = float(np.prod(np.maximum(sb[:2], 1e-6)))
+        iou = inter / (va + vb - inter)
+        if iou >= SAME_INSTANCE_IOU or inter / min(va, vb) >= SAME_INSTANCE_CONTAIN:
+            return True
+    gap = np.maximum(np.abs(ca[:2] - cb[:2]) - (sa[:2] + sb[:2]) / 2.0, 0.0)
+    return float(np.linalg.norm(gap)) <= SAME_INSTANCE_GAP_M
 
 
 @dataclass
 class ConfirmedTarget:
     """A 3D AABB hypothesis fed in from voxel_behavior. Frame: local 'map'."""
     label: str
-    center: np.ndarray  # (3,)
-    size:   np.ndarray  # (3,) full extents
-    status: str = 'observing'   # 'observing' | 'visited'
+    center: np.ndarray
+    size:   np.ndarray
+    status: str = 'observing'
     confidence: float = 0.0
     ts: float = 0.0
-
-    def half_diag(self) -> float:
-        return float(np.linalg.norm(self.size) / 2.0)
 
 
 @dataclass
 class Discovery:
     instance_id: str
     label: str
-    position: np.ndarray  # (3,) centroid (BB center or triangulated point)
-    size: Optional[np.ndarray] = None  # (3,) when AABB known, else None
-    status: str = 'unconfirmed'        # unconfirmed | confirmed | visited
+    position: np.ndarray
+    size: Optional[np.ndarray] = None
+    status: str = 'unconfirmed'
     confidence: float = 0.0
     contributing_robots: List[str] = field(default_factory=list)
     last_update_ts: float = 0.0
@@ -74,14 +98,22 @@ def aabb_overlap(a: ConfirmedTarget, b: ConfirmedTarget) -> bool:
     )
 
 
+def aabb_surface_gap(a: ConfirmedTarget, b: ConfirmedTarget) -> float:
+    """Shortest distance between the two AABBs' surfaces. 0 if they overlap or
+    one is a subset of the other."""
+    ha = a.size / 2.0
+    hb = b.size / 2.0
+    gap = np.maximum(np.abs(a.center - b.center) - (ha + hb), 0.0)
+    return float(np.linalg.norm(gap))
+
+
 def _should_merge(a: ConfirmedTarget, b: ConfirmedTarget,
                   margin: float = DEDUP_MARGIN_M) -> bool:
     if a.label != b.label:
         return False
     if aabb_overlap(a, b):
         return True
-    d = float(np.linalg.norm(a.center - b.center))
-    return d <= (a.half_diag() + b.half_diag() + margin)
+    return aabb_surface_gap(a, b) <= margin
 
 
 def _merge_two(a: ConfirmedTarget, b: ConfirmedTarget) -> ConfirmedTarget:
@@ -106,26 +138,93 @@ def _merge_two(a: ConfirmedTarget, b: ConfirmedTarget) -> ConfirmedTarget:
     )
 
 
-def merge_confirmed_targets(
-    sources: List[ConfirmedTarget],
-) -> List[ConfirmedTarget]:
-    """Dedup a flat list of ConfirmedTargets (own + every peer) into a clean set."""
+# Cross-robot "same target" test: two boxes coincide enough to be one physical
+# target — meaningful overlap (IoU) or one largely inside the other. Unlike the
+# gap-based local combine, this never chains across distinct adjacent targets.
+SIMILAR_IOU = 0.1
+SIMILAR_CONTAIN = 0.5
+
+
+def _aabb_inter_vol(a: ConfirmedTarget, b: ConfirmedTarget) -> float:
+    inter = np.clip(
+        np.minimum(a.center + a.size / 2.0, b.center + b.size / 2.0)
+        - np.maximum(a.center - a.size / 2.0, b.center - b.size / 2.0), 0.0, None)
+    return float(np.prod(inter))
+
+
+def _same_target(a: ConfirmedTarget, b: ConfirmedTarget) -> bool:
+    if a.label != b.label:
+        return False
+    iv = _aabb_inter_vol(a, b)
+    if iv <= 0.0:
+        return False
+    va = float(np.prod(a.size))
+    vb = float(np.prod(b.size))
+    iou = iv / (va + vb - iv) if (va + vb - iv) > 0 else 0.0
+    contain = iv / max(min(va, vb), 1e-9)
+    return iou >= SIMILAR_IOU or contain >= SIMILAR_CONTAIN
+
+
+def _union_within_cap(a: ConfirmedTarget, b: ConfirmedTarget) -> bool:
+    """Union may not grow past MAX_TARGET_EXTENT_M in xy (absorbing a
+    contained fragment into an already-large box is fine — no growth)."""
+    lo = np.minimum(a.center - a.size / 2.0, b.center - b.size / 2.0)
+    hi = np.maximum(a.center + a.size / 2.0, b.center + b.size / 2.0)
+    ext = (hi - lo)[:2]
+    cur = np.maximum(a.size[:2], b.size[:2])
+    return bool(np.all((ext <= MAX_TARGET_EXTENT_M) | (ext <= cur + 1e-6)))
+
+
+def _greedy_merge(sources, predicate) -> List[ConfirmedTarget]:
+    # Canonical sort so the greedy merge is order-independent (same set per robot).
+    sources = sorted(
+        sources,
+        key=lambda ct: (str(ct.label), float(ct.center[0]),
+                        float(ct.center[1]), float(ct.center[2])))
     out: List[ConfirmedTarget] = []
     for ct in sources:
-        merged_idx = None
-        for i, existing in enumerate(out):
-            if _should_merge(existing, ct):
-                merged_idx = i
-                break
-        if merged_idx is None:
+        idx = next((i for i, e in enumerate(out)
+                    if predicate(e, ct) and _union_within_cap(e, ct)), None)
+        if idx is None:
             out.append(ct)
         else:
-            out[merged_idx] = _merge_two(out[merged_idx], ct)
+            out[idx] = _merge_two(out[idx], ct)
     return out
 
 
+def merge_confirmed_targets(sources: List[ConfirmedTarget]) -> List[ConfirmedTarget]:
+    """Local combine: glue a robot's own nearby fragments (overlap or gap within
+    margin) into per-target boxes before transmit."""
+    return _greedy_merge(sources, _should_merge)
+
+
+def merge_similar_targets(sources: List[ConfirmedTarget]) -> List[ConfirmedTarget]:
+    """Cross-robot merge: fuse only boxes that are the SAME target (overlap /
+    containment). Dissimilar boxes are distinct targets and stay split."""
+    return _greedy_merge(sources, _same_target)
+
+
+def _house_pred(a: ConfirmedTarget, b: ConfirmedTarget) -> bool:
+    if a.label != b.label:
+        return False
+    if _same_target(a, b):
+        return True
+    if a.status == 'visited' or b.status == 'visited':
+        # Overlap-based (xy): a visited fragment flips only the box it is
+        # actually part of — a gap radius here cascades visits across
+        # adjacent buildings (measured: 27-60% spurious visits).
+        return same_instance_xy(a.center, a.size, b.center, b.size)
+    return False
+
+
+def merge_house_boxes(sources: List[ConfirmedTarget]) -> List[ConfirmedTarget]:
+    """One box per house for display + visited-flip: same-target boxes coincide,
+    and a visited fragment flips the same-instance (overlapping) box."""
+    return _greedy_merge(sources, _house_pred)
+
+
 def _stable_id(label: str, center: np.ndarray) -> str:
-    snap = np.round(center, 0).astype(int)  # 1m grid snap
+    snap = np.round(center, 0).astype(int)
     h = hashlib.md5(f"{label}|{snap[0]},{snap[1]},{snap[2]}".encode()).hexdigest()
     return h[:10]
 

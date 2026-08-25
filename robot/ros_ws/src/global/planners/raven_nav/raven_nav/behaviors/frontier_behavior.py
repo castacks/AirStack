@@ -26,53 +26,64 @@ def _points_in_polygon(pts_xy: np.ndarray, poly_xy: np.ndarray) -> np.ndarray:
 
 
 def _peer_penalty(viewpoints, peer_state, my_id,
-                  repulsion_weight=30.0,
+                  repulsion_weight=50.0,
                   repulsion_scale=15.0,
                   tie_distance=10.0,
-                  tie_surcharge_mul=2.0):
+                  tie_surcharge_mul=2.0,
+                  peer_weight=None):
     """Returns (penalty(M,), breakdown). Lower penalty = better.
 
-    Soft repulsion = weight * exp(-d / scale), applied around every peer
-    waypoint. Higher-id robot also pays tie_surcharge for candidates within
-    tie_distance of any peer waypoint — asymmetric so two robots eyeing the
-    same frontier can't both defer (lower id wins).
-
-    Tuned to bias hard against frontiers near peer waypoints: weight is
-    doubled (15→30) and scale halved (30→15) so the penalty concentrates
-    in the close-range zone (~0–20 m) instead of decaying gently out to
-    60 m+. tie_distance widened to 10 m so the asymmetric surcharge fires
-    over a meaningful neighborhood, not just kissing-distance.
+    Soft 2D-xy repulsion = weight * exp(-d / scale) around where each peer is
+    (peer_positions) and is heading (peer_waypoints). Higher-id robot pays
+    tie_surcharge near a peer waypoint so two robots can't both defer.
+    peer_weight ({name: 0..1} age weight) scales each peer's repulsion; a
+    stale/dead peer stops repelling. None = all 1 (legacy).
     """
     M = viewpoints.shape[0]
     pen = np.zeros(M, dtype=np.float64)
     breakdown = []
     if peer_state is None or M == 0:
         return pen, breakdown
+
+    def _pw(name):
+        return 1.0 if peer_weight is None else float(peer_weight.get(name, 0.0))
+
+    vp_xy = viewpoints[:, :2]
     for name, wp in peer_state.peer_waypoints.items():
         peer_id = peer_state.peer_ids.get(name)
-        if peer_id is None:
+        pw = _pw(name)
+        if peer_id is None or pw <= 0.0:
             continue
-        d = np.linalg.norm(viewpoints - wp[None, :], axis=1)
-        repulsion = repulsion_weight * np.exp(-d / repulsion_scale)
+        d = np.linalg.norm(vp_xy - np.asarray(wp, dtype=float)[None, :2], axis=1)
+        repulsion = pw * repulsion_weight * np.exp(-d / repulsion_scale)
         pen += repulsion
         surcharge = np.zeros(M, dtype=np.float64)
         applied_tb = my_id > peer_id
         if applied_tb:
             close = d < tie_distance
-            surcharge[close] = repulsion_weight * tie_surcharge_mul
+            surcharge[close] = pw * repulsion_weight * tie_surcharge_mul
             pen += surcharge
         breakdown.append({
-            'name': name, 'peer_id': peer_id,
+            'name': name, 'peer_id': peer_id, 'w': pw,
             'repulsion': repulsion, 'surcharge': surcharge,
             'nearest_d': float(d.min()) if d.size else float('inf'),
             'applied_tiebreak': applied_tb,
         })
+    # Repel around where peers currently are, too (not just their waypoints).
+    for name, pos in getattr(peer_state, 'peer_positions', {}).items():
+        pw = _pw(name)
+        if peer_state.peer_ids.get(name) is None or pw <= 0.0:
+            continue
+        d = np.linalg.norm(vp_xy - np.asarray(pos, dtype=float)[None, :2], axis=1)
+        pen += pw * repulsion_weight * np.exp(-d / repulsion_scale)
     return pen, breakdown
 
 
-NOVELTY_WEIGHT = 60.0
+NOVELTY_WEIGHT = 100.0
 NOVELTY_NEIGHBORHOOD_CELLS = 5
-BLACKLIST_RADIUS_M = 10.0
+# Exclusion radius around a blacklisted spot; small so it doesn't wipe out
+# reachable frontiers near one unreachable point.
+BLACKLIST_RADIUS_M = 4.0
 
 
 def _nearest_dist(pts_xy: np.ndarray, centers_xy: np.ndarray) -> np.ndarray:
@@ -142,6 +153,10 @@ class FrontierBehavior:
     STUCK_TIMEOUT_S = 5.0
     MAX_STRIKES = 3
     BLACKLIST_RADIUS_M = BLACKLIST_RADIUS_M
+    # Group repeated stuck events onto one strike; wider than the exclusion radius.
+    STRIKE_GROUP_RADIUS_M = 6.0
+    # Blacklist entries expire so dead zones self-heal.
+    BLACKLIST_TTL_S = 60.0
 
     MOMENTUM_WEIGHT = 20.0
     REVERSE_SURCHARGE = 40.0
@@ -172,6 +187,9 @@ class FrontierBehavior:
         self._prev_pose_xy = None
         self._prev_pose_time_s = None
         self._vel_xy = np.zeros(2, dtype=np.float64)
+        # Last good heading; reused when stopped so the reverse/momentum
+        # penalty keeps applying and the drone doesn't dart back over seen ground.
+        self._last_heading_xy = None
 
         self._lock_time_s = None
 
@@ -208,7 +226,8 @@ class FrontierBehavior:
         self._prev_pose_time_s = now
 
     def _score_point(self, pt, robot_pos, heading_xy, peer_state, my_id,
-                     completed_cells, cell_size_m, committed_target_dir):
+                     completed_cells, cell_size_m, committed_target_dir,
+                     peer_weight=None):
         pt = np.asarray(pt, dtype=np.float64).reshape(1, 3)
         d = float(np.linalg.norm(pt[0] - robot_pos))
         s = d - self.INFO_GAIN_WEIGHT * float(np.log1p(1.0))
@@ -219,7 +238,7 @@ class FrontierBehavior:
                 cs = float(v @ heading_xy) / n
                 s += self.MOMENTUM_WEIGHT * (1.0 - cs)
                 s += self.REVERSE_SURCHARGE * max(-cs, 0.0)
-        pen, _ = _peer_penalty(pt, peer_state, my_id)
+        pen, _ = _peer_penalty(pt, peer_state, my_id, peer_weight=peer_weight)
         s += float(pen[0])
         if completed_cells:
             density = _neighborhood_density(
@@ -240,37 +259,49 @@ class FrontierBehavior:
     def _heading_xy(self, cur_pose_np, target_waypoint):
         speed = float(np.linalg.norm(self._vel_xy))
         if speed >= self.MIN_HEADING_SPEED_M:
-            return self._vel_xy / speed
+            self._last_heading_xy = self._vel_xy / speed
+            return self._last_heading_xy
         if target_waypoint is not None:
             v = np.asarray(target_waypoint[:2], dtype=np.float64) - np.asarray(
                 cur_pose_np[:2], dtype=np.float64)
             n = float(np.linalg.norm(v))
             if n > 1e-6:
-                return v / n
-        return None
+                self._last_heading_xy = v / n
+                return self._last_heading_xy
+        # Stopped at the waypoint: keep the last heading so anti-backtracking
+        # still applies, instead of dropping it (which lets distance bias pick
+        # a nearby frontier behind us → re-covering seen ground).
+        return self._last_heading_xy
 
     def _blacklist_array(self) -> np.ndarray:
+        # Drop expired entries so dead zones self-heal (see BLACKLIST_TTL_S).
+        now = self._now_s()
+        self._blacklist_xy = [b for b in self._blacklist_xy
+                              if b['expiry_s'] > now]
         if not self._blacklist_xy:
             return np.zeros((0, 2), dtype=np.float64)
-        return np.stack(self._blacklist_xy)
+        return np.stack([b['xy'] for b in self._blacklist_xy])
 
     def _register_strike(self, target_xy: np.ndarray, debug_logger) -> None:
         """Increment strike count for target_xy; blacklist after MAX_STRIKES."""
         for s in self._strikes:
-            if np.linalg.norm(target_xy - s['xy']) <= self.BLACKLIST_RADIUS_M:
+            if np.linalg.norm(target_xy - s['xy']) <= self.STRIKE_GROUP_RADIUS_M:
                 s['count'] += 1
                 if debug_logger is not None:
                     debug_logger.warn(
                         f'[stuck] strike {s["count"]}/{self.MAX_STRIKES} at '
                         f'({s["xy"][0]:.1f},{s["xy"][1]:.1f})')
                 if s['count'] >= self.MAX_STRIKES:
-                    self._blacklist_xy.append(s['xy'].copy())
+                    self._blacklist_xy.append(
+                        {'xy': s['xy'].copy(),
+                         'expiry_s': self._now_s() + self.BLACKLIST_TTL_S})
                     self._strikes = [x for x in self._strikes if x is not s]
                     if debug_logger is not None:
                         debug_logger.warn(
                             f'[stuck] blacklisting frontier near '
-                            f'({s["xy"][0]:.1f},{s["xy"][1]:.1f}) — '
-                            f'unreachable after {self.MAX_STRIKES} restarts')
+                            f'({s["xy"][0]:.1f},{s["xy"][1]:.1f}) for '
+                            f'{self.BLACKLIST_TTL_S:.0f}s — unreachable after '
+                            f'{self.MAX_STRIKES} restarts')
                 return
         self._strikes.append({'xy': target_xy.copy(), 'count': 1})
         if debug_logger is not None:
@@ -292,7 +323,7 @@ class FrontierBehavior:
 
         if (self._tracked_target_xy is None
                 or np.linalg.norm(target_xy - self._tracked_target_xy)
-                > self.BLACKLIST_RADIUS_M):
+                > self.STRIKE_GROUP_RADIUS_M):
             self._tracked_target_xy = target_xy.copy()
             self._last_motion_xy = np.asarray(cur_pose_np[:2], dtype=np.float64).copy()
             self._last_motion_time_s = now
@@ -327,7 +358,8 @@ class FrontierBehavior:
                 committed_target_dir=None,
                 committed_target_origin=None,
                 completed_zones_xy=None,
-                cell_size_m=0.5):
+                cell_size_m=0.5,
+                peer_weight=None):
         completed_cells = _cells_set_from_xys(completed_zones_xy, cell_size_m)
         viewpoint_publisher = publisher_dict['viewpoint']
         raw_frontier_publisher = publisher_dict.get('raw_frontiers')
@@ -388,8 +420,10 @@ class FrontierBehavior:
         if blacklist_xy.shape[0] > 0 and own_frontiers.shape[0] > 0:
             d_bl = _nearest_dist(own_frontiers[:, :2], blacklist_xy)
             keep_mask = d_bl > self.BLACKLIST_RADIUS_M
-            blacklist_dropped_own = int((~keep_mask).sum())
-            own_frontiers = own_frontiers[keep_mask]
+            # Soft: skip if it would drop every frontier (don't strand).
+            if keep_mask.any():
+                blacklist_dropped_own = int((~keep_mask).sum())
+                own_frontiers = own_frontiers[keep_mask]
 
         # Publish the kept set (post altitude+polygon+zone filter) so an
         # operator can watch it shrink in real time in Foxglove. Always
@@ -430,7 +464,9 @@ class FrontierBehavior:
                     if pf_filt.shape[0] > 0 and blacklist_xy.shape[0] > 0:
                         d_peer_bl = _nearest_dist(
                             pf_filt[:, :2], blacklist_xy)
-                        pf_filt = pf_filt[d_peer_bl > self.BLACKLIST_RADIUS_M]
+                        peer_keep = d_peer_bl > self.BLACKLIST_RADIUS_M
+                        if peer_keep.any():
+                            pf_filt = pf_filt[peer_keep]
                     if pf_filt.shape[0] > 0:
                         # Pad peer xyz with zero counts to match own (N,6).
                         if n_cols > pf_filt.shape[1]:
@@ -487,10 +523,14 @@ class FrontierBehavior:
         if blacklist_xy.shape[0] > 0 and viewpoints.shape[0] > 0:
             d_cent = _nearest_dist(viewpoints[:, :2], blacklist_xy)
             bl_keep = d_cent > self.BLACKLIST_RADIUS_M
-            viewpoints = viewpoints[bl_keep]
-            cluster_sizes = cluster_sizes[bl_keep]
-            if viewpoints.shape[0] == 0:
-                return waypoint_locked, target_waypoint, target_waypoint2
+            # Soft: keep all if blacklist would drop every viewpoint (don't stall).
+            if bl_keep.any():
+                viewpoints = viewpoints[bl_keep]
+                cluster_sizes = cluster_sizes[bl_keep]
+            elif debug_logger is not None:
+                debug_logger.warn(
+                    '[stuck] all viewpoints blacklisted — ignoring blacklist '
+                    'this tick', throttle_duration_sec=2.0)
 
         robot_pos = cur_pose_np
         distances = np.linalg.norm(viewpoints - robot_pos, axis=1)
@@ -509,7 +549,8 @@ class FrontierBehavior:
             scores = scores + self.REVERSE_SURCHARGE * np.clip(-cos_sim, 0.0, 1.0)
 
         base_scores = scores.copy()
-        peer_pen, peer_breakdown = _peer_penalty(viewpoints, peer_state, my_id)
+        peer_pen, peer_breakdown = _peer_penalty(
+            viewpoints, peer_state, my_id, peer_weight=peer_weight)
         scores = scores + peer_pen
 
         # Novelty: fraction of cells in a (2k+1)^2 window around each viewpoint
@@ -553,8 +594,17 @@ class FrontierBehavior:
         best_score = float(scores[top_indices[0]])
         gap = self.TIE_BREAK_FRAC * (abs(best_score) + 1e-6)
         tied = [i for i in top_indices if abs(scores[i] - best_score) <= gap]
-        best_idx = (tied[np.random.randint(0, len(tied))]
-                    if len(tied) > 1 else int(top_indices[0]))
+        # Deterministic tie-break: among near-tied candidates prefer the one most
+        # aligned with current heading (continuity), not a random pick — random
+        # ties made the drone redirect / wander each time it re-picked.
+        if len(tied) > 1 and heading_xy is not None:
+            def _align(i):
+                v = viewpoints[i][:2] - robot_pos[:2]
+                n = float(np.linalg.norm(v))
+                return float(v @ heading_xy) / n if n > 1e-6 else -1.0
+            best_idx = max(tied, key=_align)
+        else:
+            best_idx = int(top_indices[0])
         best_cent = viewpoints[best_idx]
 
         # Compact summary: own frontier count, peer counts, zones, dropped.
@@ -658,7 +708,8 @@ class FrontierBehavior:
         if not swap:
             cur_score = self._score_point(
                 target_waypoint, robot_pos, heading_xy, peer_state, my_id,
-                completed_cells, cell_size_m, committed_target_dir)
+                completed_cells, cell_size_m, committed_target_dir,
+                peer_weight=peer_weight)
             margin = self.SWAP_IMPROVEMENT_FRAC * (abs(cur_score) + 1e-6)
             beats = best_score < cur_score - margin
             if beats and locked_for_s >= self.MIN_LOCK_DURATION_S:

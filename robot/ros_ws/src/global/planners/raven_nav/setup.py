@@ -1,3 +1,5 @@
+from glob import glob
+
 from setuptools import find_packages, setup
 
 package_name = 'raven_nav'
@@ -11,6 +13,11 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', ['launch/raven_nav.launch.xml']),
         ('share/' + package_name + '/config', ['config/raven_nav.yaml']),
+        # Ground-truth scene annotations, mirrored from gcs_visualizer/annotations
+        # so the metrics scripts can score detections against ground truth
+        # in-container (the robot workspace has no GCS source). Keep in sync if
+        # the canonical GCS annotations change.
+        ('share/' + package_name + '/annotations', glob('annotations/*.json')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -23,6 +30,10 @@ setup(
         'console_scripts': [
             'raven_nav_node = raven_nav.raven_nav_node:main',
             'view_ray_tables = raven_nav.view_ray_tables:main',
+            'view_auction_tables = raven_nav.view_auction_tables:main',
+            'analyze_auction_solve = raven_nav.analyze_auction_solve:main',
+            'compile_results = raven_nav.compile_results:main',
+            'compare_to_groundtruth = raven_nav.compare_to_groundtruth:main',
         ],
     },
 )

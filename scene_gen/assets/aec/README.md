@@ -45,6 +45,9 @@ vendor originals.
 |---|---|---|---|
 | `brownstone/Assets/Vegetation/Shrub/Hibiscus.usd` | `/Root/Looks/bark3/Shader` | `../../../ov-content/Library/Assets/Vegetation/Trees/materials/bark3.mdl` | `../Trees/materials/bark3.mdl` |
 | `brownstone/Assets/Vegetation/Trees/Douglas_Fir.usd` | `/Root/Looks/Default_Material/Default_Material` | `./materials/Default_Material.mdl` | `./materials/TreeBark_10.mdl`, subIdentifier `.::materials::TreeBark_10::TreeBark_10` |
+| `brownstone/Assets/Vegetation/Trees/American_Beech.usd` | `American_Beech_leaf.inputs:reflectionroughness_texture` | `../../../Library/AEC/Assets/Vegetation/Trees/materials/textures/beech_leaf_roughness.png` | `omniverse://airlab-nucleus.andrew.cmu.edu:443/NVIDIA/Demos/AEC/BrownstoneDemo/Materials/textures/beech_leaf_roughness.png` |
+| `tower/Assets/Vegetation/Common_Apple/Common_Apple.usd` | leaf `inputs:normalmap_texture` | `./Library/AEC/Assets/Vegetation/Trees/materials/textures/hollyprivet_normal.png` | `omniverse://airlab-nucleus.andrew.cmu.edu:443/NVIDIA/Demos/AEC/BrownstoneDemo/Materials/textures/hollyprivet_normal.png` |
+| `brownstone/Assets/Vegetation/Shrub/Goldflame_Spirea.usd` | `goldenflamespirea_{mat,gradient}` `info:mdl:sourceAsset` | `../../../ov-content/Library/AEC/Assets/Vegetation/Shrub/materials/goldenflamespirea_*.mdl` | `omniverse://airlab-nucleus.andrew.cmu.edu:443/NVIDIA/Demos/AEC/BrownstoneDemo/Materials/MDL/goldenflamespirea_*.mdl` |
 
 * **Hibiscus** — the `trunk` mesh (57,920 points, a third of the asset) pointed
   at an NVIDIA content-server path that was never mirrored. The identical module
@@ -59,6 +62,21 @@ vendor originals.
   known-bad row invites the next curator to re-derive it. Dropping the binding
   instead would have traded a broken material for an unbound mesh, which is the
   same pixels.
+* **Vegetation shared-library textures (Beech / Common_Apple / Goldflame_Spirea)**
+  — three leaf/shrub materials point at a shared `Library/AEC/.../materials/`
+  (or `ov-content/Library/AEC/...`) tree that this mirror never carried, so the
+  roughness/normal maps and the spirea MDL rendered flat/unshaded (`[UsdToMdl]
+  ... can not be found` at load, and `[EntityResolver] FAILED` from a Nucleus
+  root). The AEC packs were reorganized on `airlab-nucleus` under
+  **`/NVIDIA/Demos/AEC/`** — `Assets/Vegetation/Trees` is gone (Douglas_Fir now
+  lives in `BrownstoneDemo/Props/`), and the shared textures/MDLs consolidated
+  into `BrownstoneDemo/Materials/{textures,MDL}/`. Each broken relative ref was
+  repointed at its **absolute** `omniverse://…/NVIDIA/Demos/AEC/BrownstoneDemo/`
+  URL (by basename), which resolves from any asset root — local or Nucleus — and
+  bakes into the archetypes as that absolute URL via `disaster.bake`'s asset
+  re-anchoring. The tree USDs themselves stay on this local mirror: it is the
+  authoritative source, since `American_Beech.usd` is **not** in the Nucleus AEC
+  library at all.
 
 To re-detect after a re-extract, run `tools/measure_assets.py` over
 `*/Assets/Vegetation` and look at its `mdl` column (materials that resolve /

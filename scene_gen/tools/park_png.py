@@ -1,6 +1,7 @@
 """park_png.py — detailed top-down plan of a `suburb_park` layout.
 
     python3 tools/park_png.py --seed 3 --out _plans/park.png
+    python3 tools/park_png.py --seed 3 --net --out _plans/park_net.png
 
 Draws the park as SURFACES with their real materials and real line markings,
 not as labelled boxes: the basketball compound is a painted slab inside a
@@ -8,6 +9,16 @@ chain-link run, the playground is sand, the pitch is mown grass with its
 penalty areas on it. That is the point of the drawing — a box labelled
 "basketball" tells you nothing about whether four courts actually fit, and the
 markings are the check that they do.
+
+`--net` LAYS THE STREETS FIRST. The refuge parking lot is the one facility
+sited from outside the park — it goes on the entrance nearest the courts, and
+its apron has to reach that entrance's kerb — so a drawing made with invented
+entrances cannot show whether it is right. With `--net` this runs
+`suburb_net.generate` exactly as `suburb_scene.generate_suburb_on_stage` does
+(same seed offset, same rng, park-local translation of `info["park"]
+["entrances"]`), so the plan is the one the scene will build. It costs a few
+seconds of street generation; without it the module's own synthetic south
+entrance is used and the rest of the park is unchanged.
 """
 
 import argparse
@@ -20,6 +31,7 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(_HERE))
 
 from detail import suburb_park as pk                                       # noqa: E402
+from layout import suburb_net as sn                                        # noqa: E402
 
 # Surfaces, picked to read as materials rather than as a legend.
 COL = {
@@ -35,6 +47,11 @@ COL = {
     "fence":       "#9aa3ab",
     "picnic":      "#6b7f4e",
     "bike":        "#8f6f52",   # sealed bike circuit, darker than footpath
+    # The refuge lot. Deliberately NOT the court asphalt: the two are the same
+    # material in the scene, and on the plan the whole question is whether the
+    # lot has landed on a court, which two identical greys would hide.
+    "parking":     "#33393f",
+    "apron":       "#3d444b",   # the drive across the verge, a shade lighter
 }
 
 PROP = {                 # colour, radius in metres, z-order
@@ -73,6 +90,17 @@ def draw(park, out_path, title=""):
     from matplotlib.patches import Circle
 
     x0, y0, x1, y1 = park["region"]
+    # THE APRON LIVES OUTSIDE THE PARK. It crosses the verge to the frame
+    # street's kerb, `park_pad_m` beyond the rect, so a frame set to the rect
+    # clips off the half of it that answers the question the drawing is for —
+    # does the lot actually meet the street. Widened HERE, before the figure,
+    # so `ppm` (and every line width derived from it) is still to scale.
+    lot = pk.parking_info(park)
+    if lot and lot["apron"]:
+        px = [q[0] for q in lot["apron"]] + [x0, x1]
+        py = [q[1] for q in lot["apron"]] + [y0, y1]
+        x0, x1 = min(px) - 4.0, max(px) + 4.0
+        y0, y1 = min(py) - 4.0, max(py) + 4.0
     W, H = x1 - x0, y1 - y0
     fig, ax = plt.subplots(figsize=(16, 16 * H / W))
     ppm = fig.dpi * fig.get_size_inches()[0] / W        # points per metre
@@ -132,6 +160,27 @@ def draw(park, out_path, title=""):
         elif k == "picnic":
             _poly(ax, z["corners"], facecolor=COL["picnic"], edgecolor="none",
                   zorder=2)
+        elif k == "parking":
+            # Apron UNDER the slab, so where they meet reads as one surface
+            # rather than as two rectangles with a seam.
+            if lot and lot["apron"]:
+                _poly(ax, lot["apron"], facecolor=COL["apron"],
+                      edgecolor="none", zorder=1)
+            _poly(ax, z["corners"], facecolor=COL["parking"],
+                  edgecolor="none", zorder=2)
+            markings(z.get("lines", []), cx, cy, yaw, lw=0.10)
+            # A tick per bay, pointing the way a nosed-in car faces. This is
+            # the check that the SCHEDULE the survivors/cars pass consumes
+            # agrees with the paint — the lines come from the layout and the
+            # bays from `parking_info`, and if the two disagreed it would show
+            # here as ticks straddling a stall line.
+            for b in (lot or {}).get("bays", ()):
+                a = math.radians(b["yaw_deg"])
+                bx, by = b["centre"]
+                ax.plot([bx - math.cos(a) * 1.6, bx + math.cos(a) * 1.6],
+                        [by - math.sin(a) * 1.6, by + math.sin(a) * 1.6],
+                        color="#7f9bb5", lw=max(0.5, 0.10 * ppm),
+                        solid_capstyle="butt", zorder=7)
 
     # 2) paths — ONE shared-use way per route, drawn as its two sides.
     # Not two networks: a separate bike circuit had to weave past the pedestrian
@@ -195,6 +244,10 @@ def draw(park, out_path, title=""):
         ax.add_patch(Circle(p["c"], r, facecolor=col, edgecolor="none",
                             alpha=0.95, zorder=z))
 
+    if lot and lot["apron"]:
+        # Where the apron meets the kerb — the point a car turns in at.
+        ax.plot([lot["entrance"][0]], [lot["entrance"][1]], marker="v",
+                ms=7, color="#e8d24a", zorder=11)
     ax.set_xlim(x0, x1)
     ax.set_ylim(y0, y1)
     ax.set_aspect("equal")
@@ -207,18 +260,52 @@ def draw(park, out_path, title=""):
     plt.close(fig)
 
 
+def _net_entrances(seed, region_m):
+    """The real park reserve and its entrances, in PARK-LOCAL coords.
+
+    Mirrors `suburb_scene.generate_suburb_on_stage`'s park block exactly — same
+    `random.Random(seed + 7717)`, same `sn.generate`, same recentring on the
+    reserve — so `--net` draws the park the scene will actually build rather
+    than one planned against invented entrances.
+    """
+    rng = random.Random(seed + 7717)
+    _net, _blks, info = sn.generate(float(region_m[0]), float(region_m[1]),
+                                    rng, {})
+    pinfo = info.get("park")
+    if not pinfo:
+        return None, None, None
+    px0, py0, px1, py1 = pinfo["rect"]
+    dx, dy = (px0 + px1) / 2.0, (py0 + py1) / 2.0
+    ents = [{"gate": (e["gate"][0] - dx, e["gate"][1] - dy),
+             "p": (e["p"][0] - dx, e["p"][1] - dy),
+             "dir": e["dir"], "side": e["side"]} for e in pinfo["entrances"]]
+    return [px1 - px0, py1 - py0], ents, rng
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=3)
     ap.add_argument("--width", type=float, default=None)
     ap.add_argument("--height", type=float, default=None)
     ap.add_argument("--out", default="_plans/park.png")
+    ap.add_argument("--net", action="store_true",
+                    help="lay the streets first and use the real entrances")
+    ap.add_argument("--net-region", type=float, nargs=2,
+                    default=[1600.0, 1200.0], metavar=("W", "H"))
     args = ap.parse_args()
 
     cfg = {}
+    rng = random.Random(args.seed)
+    if args.net:
+        size, ents, rng = _net_entrances(args.seed, args.net_region)
+        if ents is None:
+            raise SystemExit("[park] suburb_net reserved no park")
+        cfg["region_m"] = size
+        cfg["entrances"] = ents
+        print(f"[park] streets laid: {len(ents)} entrances, sides "
+              f"{sorted({e['side'] for e in ents})}")
     if args.width and args.height:
         cfg["region_m"] = [args.width, args.height]
-    rng = random.Random(args.seed)
     park = pk.plan(rng, cfg)
     s = pk.stats(park)
     W = park["region"][2] - park["region"][0]
@@ -239,6 +326,24 @@ def main():
     pads = sorted({round(z.get("pad_m", 0.0), 1) for z in park["zones"]})
     print(f"[park] padding breaches (band {pads} m off the path EDGE): {graze}"
           + ("  <-- BROKEN" if graze else "  OK"))
+    # THE REFUGE LOT. `check`/`check_pad`/`check_reach` measure paths against
+    # facilities and cover the lot for free, because it is a zone like any
+    # other; what they do NOT measure is facility-on-facility overlap, which is
+    # the one thing the lot can get wrong that the courts cannot — it is sited
+    # against a street rather than by `_place`.
+    bays, over, off, alen = pk.check_parking(park)
+    lot = pk.parking_info(park)
+    if lot:
+        print(f"[park] refuge lot: {lot['w']:.0f} x {lot['d']:.0f} m, "
+              f"{lot['rows']} rows x {lot['bays_per_row']} = {bays} bays, "
+              f"yaw {lot['yaw_deg']:.0f} deg, apron {alen:.1f} m to the kerb "
+              f"at ({lot['entrance'][0]:.0f}, {lot['entrance'][1]:.0f})")
+        print(f"[park] lot overlapping other facilities: {over}"
+              + ("  <-- BROKEN" if over else "  OK")
+              + f"; bays off the slab: {off}"
+              + ("  <-- BROKEN" if off else "  OK"))
+    else:
+        print("[park] refuge lot: NONE  <-- BROKEN unless `parking` is off")
     # And the check that the padding did not simply strand everything: a band
     # nothing may enter is a facility nobody can walk to.
     got, tot = pk.check_reach(park)

@@ -1,0 +1,167 @@
+# conavgpt_wildfire_1robot — CoNavGPT on the PROCEDURAL wildfire suburb, 1 drone.
+#
+# The first mission that flies a GENERATED scene rather than a finished Nucleus
+# stage. `suburb_wildfire_drones_launch_script.py` builds the 1600 x 1200 m plat
+# in-process (layout, fire field, damage archetypes, ground scar, survivors) and
+# then spawns PX4 drones into it, so nothing has to be exported to Nucleus first.
+# That build costs ~450 s BEFORE PX4 comes up, which is what `ready.timeout_s`
+# below is sized for — the default 600 s would time out during the scene build.
+#
+# Submit (1 GPU, see osmo/workflows/airstack-mission-1gpu.yaml):
+#   airstack osmo:mission osmo/missions/conavgpt_wildfire_1robot.yaml \
+#     --pool <gpu-pool> --branch multi-raven \
+#     --workflow osmo/workflows/airstack-mission-1gpu.yaml
+#
+# Schema: osmo/missions/README.md
+
+name: conavgpt_wildfire_1robot
+nas_dest: /volume2/coa-sei
+
+stack:
+  services: [isaac-sim, robot-desktop, gcs]
+
+method: conavgpt
+
+env:
+  NUM_ROBOTS: 1
+  ISAAC_SIM_HEADLESS: "true"
+  ISAAC_SIM_USE_STANDALONE: "true"
+  ISAAC_SIM_SCRIPT_NAME: suburb_wildfire_drones_launch_script.py
+  PLAY_SIM_ON_START: "true"
+
+  # The scene is BUILT, not loaded — no ENV_URL. `airstack://` must resolve to
+  # Nucleus because a pod's clone carries only the small tracked materials, not
+  # the multi-GB AEC tree packs the archetypes reference.
+  SCENE_CONFIG: suburb_wildfire
+  AIRSTACK_ASSET_ROOT: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA"
+
+  # One drone on a 10.7 m local road at the SE flank: 166 s of margin outside
+  # the fire front (so it starts in clear air, not smoke) and 381 m from the
+  # burn centre at (19, 110), yawed to face it. Derived from the layout and the
+  # severity-0.6 ellipse, not eyeballed.
+  SPAWN_CONFIGS: '[{"x_m": 302.4, "y_m": -144.3, "orient": [0.0, 0.0, 0.9342, 0.3568]}]'
+  SPAWN_HEIGHT_M: "0.5"
+
+  # Locator poles ON for this run: the point of it is to look at the result in
+  # Foxglove, and 59 people over 1600 x 1200 m are otherwise unfindable. They
+  # carry no semantic label, so they generate no annotation.
+  PEOPLE_POLES: "1"
+
+  CONAVGPT_BASELINE: "true"
+  FRONTIER_ONLY_BASELINE: "false"
+  VLFM_BASELINE: "false"
+  LVLM_BASELINE: "false"
+  RAYFRONTS_COMPUTE_PROB: "True"
+  COMMS_RANGE_M: 5000
+  RESULTS_SCENE: SuburbWildfire
+
+# The scene build runs before the drone exists, so PX4 readiness is ~500 s out
+# on a good run. 1800 s leaves room for a cold shader cache on top.
+ready:
+  timeout_s: 1800
+  poll_interval_s: 10
+
+up_timeout_s: 3600
+
+iterations: 1
+iteration_attempts: 2
+on_step_failure: abort_iteration
+command_route: gcs
+
+# scope: both — the fleet view on the GCS domain plus the robot-domain topics
+# (the conavgpt debug set and the rayfronts clouds are not bridged to the GCS).
+record:
+  enabled: true
+  scope: both
+  required: true
+  topics:
+    - /tf
+    - /tf_static
+    - /{robot}/odometry_conversion/odometry
+    - /{robot}/interface/mavros/global_position/global
+    - /{robot}/global_plan
+    - /gcs/robot_markers
+    - /gcs/map_origin/location
+    - /gcs/{robot}/location
+    - /gcs/payload/{robot}/filtered_rays
+    - /gcs/payload/{robot}/filtered_frontiers
+    - /gcs/payload/{robot}/explored_area_coverage
+    - /gcs/payload/{robot}/confirmed_targets
+    - /gcs/sim_ground
+    - /sim/overhead/image
+    - /sim/overhead/spec
+    - /sim/overhead/center_x
+    - /sim/overhead/center_y
+  robot_topics:
+    - /tf
+    - /tf_static
+    - /robot_{n}/odometry_conversion/odometry
+    - /robot_{n}/global_plan
+    - /robot_{n}/navigation_mode
+    # CoNavGPT's own trace: what the VLM was asked, what it answered, and the
+    # exact BEV it was shown. map_image is the one that makes a bad round
+    # explicable after the fact rather than just visible as a bad waypoint.
+    - /robot_{n}/conavgpt/assign_request
+    - /robot_{n}/conavgpt/assignment
+    - /robot_{n}/conavgpt/map_image
+    - /robot_{n}/conavgpt/round_table
+    - /robot_{n}/raven_nav/confirmed_targets
+    - /robot_{n}/rayfronts/voxel_rgb
+
+steps:
+  # rayfronts' encoder, pulled once before the clock matters.
+  - run:
+      container: robot_1
+      cmd: python3 -c "import torch; torch.hub.load('NVlabs/RADIO', 'radio_model', version='c-radio_v3-b', skip_validation=True, adaptor_names=['siglip2','sam'])"
+      timeout_s: 900
+      attempts: 5
+      retry_delay_s: 15
+
+  - action:
+      task: takeoff
+      goal: {target_altitude_m: 20.0, velocity_m_s: 2.0}
+      timeout_s: 300
+
+  - wait: 5
+
+  - action:
+      task: semantic_search
+      # 600 sim s at 1 drone should be well under this; the sim budget is what
+      # ends the run, and the wall clock is only the net under it.
+      timeout_s: 3600
+      cancel_on_timeout: true
+      pass_on_feedback: true
+      goal:
+        query: "person"
+        background_queries: "road, asphalt, grass, burnt grass, ash, house, burnt house, rubble, tree, burnt tree, car, fence, swimming pool, parked car, smoke"
+        # Sized to CONTAIN EVERY GT PERSON with 40 m of pad, not to the burn
+        # ellipse. The ellipse (x[-530,600] y[-430,590]) left one at_home
+        # survivor at (706, 466) outside the polygon, and a target the drone is
+        # forbidden to fly to is an unreachable recall point that looks like a
+        # planner failure. Checked against annotations/SuburbWildfire.json:
+        # 59 of 59 inside.
+        #
+        # One drone will not cover 1291 x 1041 m in the budget. That is fine
+        # here — the run ends on sim time, and coverage% is a reported number
+        # rather than a completion criterion.
+        search_area:
+          points:
+            - {x: -546.0, y: -452.0, z: 0.0}
+            - {x: 746.0, y: -452.0, z: 0.0}
+            - {x: 746.0, y: 589.0, z: 0.0}
+            - {x: -546.0, y: 589.0, z: 0.0}
+        min_altitude_agl: 15.0
+        max_altitude_agl: 40.0
+        min_flight_speed: 1.0
+        max_flight_speed: 4.0
+        confidence_threshold: 0.95
+        voxel_score_threshold: 0.5
+        score_threshold: -1
+        voxel_min_cluster_size: 20
+        max_sim_seconds: 600
+
+  - action:
+      task: land
+      goal: {}
+      timeout_s: 240
+    optional: true

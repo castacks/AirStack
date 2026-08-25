@@ -1,0 +1,292 @@
+# GENERATED FILE — do not edit by hand.
+#
+# Low-level scene config compiled by scene_gen/compile_disaster.py.
+# Edit the high-level spec (or low_level/default.yaml) and recompile:
+#     python3 compile_disaster.py suburb_tornado.yaml
+#
+# locale        : suburban
+# disaster-type : tornado
+# severity      : 0.82
+# spec          : scene_gen/config/presets/suburb_tornado.yaml
+# base          : scene_gen/config/low_level/default.yaml
+# compiled      : 2026-08-24 22:15:33
+# spec extras   : {'epicenter': [-90, -150], 'heading_deg': 38, 'asset-set': 'suburban_park', 'region_m': [500, 500], 'seed': 10, 'overrides': {'disaster': {'tornado': {'width_m': 155.0, 'core_frac': 0.22, 'throw_m': 34.0, 'throw_speed_mps': 9.0}}, 'usds': {'materials': {'asphalt': 'airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda', 'driveway': 'airstack://scene_gen/assets/materials/megascans/Brick_Wall_Worn.usda', 'driveway_asphalt': 'airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda'}}, 'roads': {'driveway_asphalt_share': 0.5, 'z_scale': 0.16}, 'instance_categories': ['plant', 'sidewalk', 'streetlight', 'fire_hydrant', 'sign', 'crosswalk'], 'layout': {'region_m': [500, 500]}, 'suburb_net': {'block_area_target_m2': 26000.0, 'block_area_min_m2': 5000.0, 'collectors': 2, 'collector_wander': 0.28, 'min_gap_m': 78.0, 'junction_skew_deg': 38.0, 'four_way_chance': 0.35, 'dead_end_target': 0.24, 'bulb_radius_m': 14.64, 'lollipop_len_m': [55.0, 170.0], 'grain_weight': 2.6, 'grain_swirl_deg': 34.0, 'grain_period_m': 320.0}, 'suburb_park': {'parking_m': [64.0, 40.0], 'parking_apron_w_m': 8.0}, 'suburb_parcel': {'modular_houses': True, 'modular_share': 1.0, 'lot_width_m': [26.0, 38.0], 'house_gap_m': 6.0, 'neighbourhood_m': 180.0, 'density_mix': {'tight': 0.15, 'normal': 0.36, 'loose': 0.34, 'estate': 0.15}, 'setback_m': [6.5, 11.0], 'row_share': 0.225, 'row_housing': {'unit_gap_m': 2.5, 'units_per_row': [3, 5], 'front_setback_m': 7.5, 'bays_per_dwelling': 1.75, 'green_m': 6.0}, 'house_w_m': [9.0, 13.0], 'house_d_m': [8.0, 11.0], 'min_lot_depth_m': 21.0, 'junction_skew_clear_deg': 30.0, 'junction_skew_clear_m': 2.0, 'driveway_w_m': 3.2, 'house_yaw_offset_deg': -90.0, 'back_trees_per_100m2': 0.055, 'front_tree_chance': 0.45, 'street_tree_spacing_m': [16.0, 30.0], 'pool_rear_m': 20.0, 'pool_rear_min_m': 9.5, 'pool_tree_clear_m': 11.0}, 'cars': {'driveway_chance': 0.55, 'court_occupancy': 0.6, 'street_density': 0.12, 'slot_spacing_m': [7.0, 9.0], 'slot_gap_chance': 0.18, 'junction_clear_m': 8.0, 'apron_clear_m': 1.5, 'hydrant_clear_m': 3.0, 'kerb_gap_m': 0.35, 'drive_rear_clear_m': 1.0, 'drive_nose_clear_m': 0.8, 'vintage_chance': 0.06, 'strip_glass': True, 'max_cars': 220}}}
+
+asset_set: suburban_park
+benches:
+  spacing_m: 0.0
+bus_stops:
+  spacing_m: 0.0
+cars:
+  density: 0.04
+  lane_offset_frac: 0.3
+  yaw_jitter_deg: 4.0
+  driveway_chance: 0.55
+  court_occupancy: 0.6
+  street_density: 0.12
+  slot_spacing_m:
+  - 7.0
+  - 9.0
+  slot_gap_chance: 0.18
+  junction_clear_m: 8.0
+  apron_clear_m: 1.5
+  hydrant_clear_m: 3.0
+  kerb_gap_m: 0.35
+  drive_rear_clear_m: 1.0
+  drive_nose_clear_m: 0.8
+  vintage_chance: 0.06
+  strip_glass: true
+  max_cars: 220
+disaster:
+  damaged_fraction: 0.264
+  destroyed_fraction: 0.847
+  debris:
+    piles_per_building:
+    - 2
+    - 4
+    pile_max_offset_m: 3.23
+    pieces_per_building:
+    - 16
+    - 30
+    pieces_scatter_m: 15.84
+    tilt_chance: 0.173
+    tilt_deg:
+    - 2
+    - 5
+    sink_m:
+    - 0.2
+    - 0.6
+    lean_piles:
+    - 1
+    - 2
+    path_pieces_per_100m2: 3.014
+    path_piles_per_100m2: 0.601
+    path_min_intensity: 0.2
+  trees_toppled_fraction: 0.851
+  streetlights_toppled_fraction: 0.724
+  traffic_lights_toppled_fraction: 0.678
+  traffic_lights_leaning_fraction: 0.528
+  traffic_lights_lean_deg:
+  - 12
+  - 41.94
+  trash_cans_toppled_fraction: 0.851
+  trash_cans_scatter_m: 12.2
+  cars_toppled_fraction: 0.51
+  cars_strewn:
+  - 9
+  - 17
+  strewn_topple_fraction: 0.85
+  humans_prone_fraction: 0.428
+  humans_strewn:
+  - 4
+  - 10
+  field:
+    kind: path
+    heading_deg: 38.0
+    width_m: 130.0
+    falloff_m: 40.0
+    inside: 1.0
+    outside: 0.0
+  tornado:
+    enabled: true
+    origin_m:
+    - -90.0
+    - -150.0
+    heading_deg: 38.0
+    width_m: 155.0
+    core_frac: 0.22
+    peak: 0.901
+    wobble_m: 16.0
+    wobble_period_m: 800.0
+    along_period_m: 475.0
+    along_min: 0.653
+    width_min: 0.755
+    edge_noise_m: 25.0
+    curl_deg: 20.0
+    spread_deg: 30.52
+    throw_m: 34.0
+    throw_speed_mps: 9.0
+driveways:
+  car_chance: 0.6
+  chance: 0.75
+  width_m: 3.2
+exclusions:
+- center:
+  - 0.0
+  - 0.0
+  radius: 10.0
+fire_hydrants:
+  spacing_m: 70.0
+frontage:
+  curb_margin_m: 0.3
+  verge_m: 1.5
+humans:
+  house_margin_m: 1.0
+  min_separation_m: 2.0
+  per_block:
+  - 0
+  - 1
+  sidewalk_spacing_m: 150.0
+  trail_spacing_m: 30.0
+layout:
+  max_block_m: 150
+  min_block_m: 60
+  region_m:
+  - 500
+  - 500
+  split_jitter: 0.25
+  tile_overlap: 1.02
+measure_usds: true
+packing:
+  building_gap_m: 9.0
+  max_parks: 4
+  min_parks: 2
+  park_block_chance: 0.15
+  pave_blocks: false
+  placeholders:
+    enabled: false
+    height_m:
+    - 8
+    - 30
+    max_footprint_m: 20.0
+    min_footprint_m: 5.0
+  setback_m: 9.0
+parks:
+  bench_spacing_m: 14.0
+  furniture_offset_m: 0.8
+  playground_chance: 0.7
+  playground_margin_m: 2.0
+  playground_spacing_m: 5.0
+  playground_structures:
+  - 2
+  - 3
+  rock_min_separation_m: 2.5
+  rocks_per_park:
+  - 3
+  - 8
+  streetlight_spacing_m: 22.0
+  trail_margin_m: 4.0
+  trail_waypoints:
+  - 2
+  - 4
+  trash_can_spacing_m: 30.0
+  tree_density_per_100m2: 0.8
+  tree_min_separation_m: 4.0
+planters:
+  plant_slot_m: 0.7
+  plant_spacing_m: 0.0
+  soil_level_frac: 0.75
+  tree_spacing_m: 0.0
+plants:
+  house_margin_m: 1.5
+  lawn_density_per_100m2: 1.4
+  lawn_house_margin_m: 0.6
+  min_separation_m: 1.0
+  per_block:
+  - 4
+  - 12
+roads:
+  asphalt_uv_scale_m: 4.0
+  border_lanes: 2
+  grass_uv_scale_m: 3.0
+  lane_lines:
+    center_line_width_m: 0.2
+    dash_gap_m: 3.0
+    dash_length_m: 3.0
+    dash_width_m: 0.15
+  lane_width_m: 3.5
+  main_road_chance: 0.05
+  main_road_lanes: 2
+  secondary_road_lanes: 2
+  driveway_asphalt_share: 0.5
+  z_scale: 0.16
+seed: 10
+streetlights:
+  spacing_m: 50.0
+traffic_lights:
+  corner_margin_m: 1.0
+  intersection_chance: 0.05
+trash_cans:
+  spacing_m: 0.0
+trees:
+  house_margin_m: 1.5
+  lawn_density_per_100m2: 0.9
+  lawn_min_separation_m: 6.0
+locale: suburban
+usds:
+  materials:
+    asphalt: airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda
+    driveway: airstack://scene_gen/assets/materials/megascans/Brick_Wall_Worn.usda
+    driveway_asphalt: airstack://scene_gen/assets/materials/megascans/Road_Asphalt.usda
+instance_categories:
+- plant
+- sidewalk
+- streetlight
+- fire_hydrant
+- sign
+- crosswalk
+suburb_net:
+  block_area_target_m2: 26000.0
+  block_area_min_m2: 5000.0
+  collectors: 2
+  collector_wander: 0.28
+  min_gap_m: 78.0
+  junction_skew_deg: 38.0
+  four_way_chance: 0.35
+  dead_end_target: 0.24
+  bulb_radius_m: 14.64
+  lollipop_len_m:
+  - 55.0
+  - 170.0
+  grain_weight: 2.6
+  grain_swirl_deg: 34.0
+  grain_period_m: 320.0
+suburb_park:
+  parking_m:
+  - 64.0
+  - 40.0
+  parking_apron_w_m: 8.0
+suburb_parcel:
+  modular_houses: true
+  modular_share: 1.0
+  lot_width_m:
+  - 26.0
+  - 38.0
+  house_gap_m: 6.0
+  neighbourhood_m: 180.0
+  density_mix:
+    tight: 0.15
+    normal: 0.36
+    loose: 0.34
+    estate: 0.15
+  setback_m:
+  - 6.5
+  - 11.0
+  row_share: 0.225
+  row_housing:
+    unit_gap_m: 2.5
+    units_per_row:
+    - 3
+    - 5
+    front_setback_m: 7.5
+    bays_per_dwelling: 1.75
+    green_m: 6.0
+  house_w_m:
+  - 9.0
+  - 13.0
+  house_d_m:
+  - 8.0
+  - 11.0
+  min_lot_depth_m: 21.0
+  junction_skew_clear_deg: 30.0
+  junction_skew_clear_m: 2.0
+  driveway_w_m: 3.2
+  house_yaw_offset_deg: -90.0
+  back_trees_per_100m2: 0.055
+  front_tree_chance: 0.45
+  street_tree_spacing_m:
+  - 16.0
+  - 30.0
+  pool_rear_m: 20.0
+  pool_rear_min_m: 9.5
+  pool_tree_clear_m: 11.0

@@ -1,9 +1,24 @@
 raven_nav:
   ros__parameters:
     timer_period: 0.5       # seconds between behavior loop iterations
-    score_threshold: 0.68   # minimum softmax sim score to consider a ray
+    score_threshold: 0.65   # minimum softmax sim score to consider a ray
     min_altitude_agl: 3.0   # filter rays/frontiers below this altitude (m)
     max_altitude_agl: 15.0  # filter rays/frontiers above this altitude (m)
+    # Temporal confirmation: a detection must persist across N ticks before it
+    # counts, then rides out up to *_track_max_misses dropped ticks. 1 = off.
+    voxel_confirm_hits: 2
+    voxel_track_max_misses: 4
+    # Drop confirmed AABBs below this confidence (semantic score * persistence);
+    # 0 = report all. Raise (~0.3) to cut flickery low-persistence false positives.
+    voxel_min_confidence: 0.0
+    ray_confirm_hits: 2
+    ray_track_max_misses: 4
+    # Ray-commit hysteresis: switch ray only if a rival beats it by this fraction
+    # and the current one has been held this long (s).
+    commit_swap_improvement_frac: 0.25
+    commit_min_hold_s: 4.0
+    # Engage voxel-mode on a cluster within this range even without a ray commit.
+    voxel_proximity_engage_m: 12.0
     # Must match the query order registered in RayFronts (target + background)
     query_labels:
       - 'red building'
@@ -11,3 +26,53 @@ raven_nav:
       - 'radio tower'
     # Which of the above to actually navigate toward (empty = all query_labels)
     target_labels: []
+    # Confirmed BBs join the auction alongside rays. Rays bid as if their target
+    # is this factor further than the ray origin, so they don't look closer than a
+    # real BB. Main BB-vs-ray knob; tune per scene (larger = favor BBs).
+    ray_reach_factor: 3.0
+    # Gentle behind-only heading penalty for ray/BB target selection (front/side
+    # free): nearest-first, but won't fully reverse for a marginally-behind target.
+    target_behind_penalty_weight: 8.0
+    # Assignment hysteresis: a different target must beat the committed one by this
+    # much for the auction to switch (stops Hungarian swapping near-equal matchings).
+    commit_switch_margin_m: 8.0
+    # Max tasks per robot in the consensus bundle (head executed, tail reserved
+    # + replanned each tick). 1 = single-target.
+    bundle_len: 3
+    # Publish /debug/auction_solve JSON (full solve trace) + [auction] log lines.
+    debug_auction: true
+    # Run the frontier-only baseline: navigation ignores semantic cues.
+    # (semantic_search_task spawns raven_nav with -p args, not this file,
+    # and currently sets this to true — see semantic_search_task/node.py.)
+    frontier_only_baseline: false
+    # Run the VLFM baseline: semantic-ray exploration (blended with frontier-style
+    # distance + peer-repulsion + novelty costs for multi-robot coordination) +
+    # voxel go-to-object (behaviors/vlfm_behavior.py). Mutually exclusive with
+    # frontier_only_baseline. Uses voxel_score_threshold for the go-to-object gate.
+    vlfm_baseline: false
+    # Meters of travel one unit of semantic similarity is worth in the VLFM cost
+    # blend. Higher -> pursue the target harder; lower -> spread out / explore more.
+    vlfm_value_weight: 300.0
+
+    # Run the Co-NavGPT baseline ("VLM-Assign" arm, arXiv:2310.07937 adapted to
+    # multi-target / non-co-located starts): one VLM call per round assigns each
+    # robot a numbered frontier region; everything else is frontier exploration.
+    # Last in the precedence chain (frontier_only > vlfm > conavgpt) so an
+    # over-specified mission still runs exactly one baseline.
+    conavgpt_baseline: false
+    # Which robot hosts the single assigner node. One VLM call serves the whole
+    # team, so exactly one robot must run it; the rest read the answer over gossip.
+    conavgpt_leader_id: 1
+    # Upper bound on seconds between VLM rounds. Reaching the assigned region,
+    # losing it, or an expired assignment all open a round early, so this only
+    # caps how long a stale plan can stand when nothing else happens.
+    conavgpt_round_period_s: 30.0
+    # How many numbered regions the VLM is shown. More context costs prompt
+    # length and makes the numbering harder for a small model to keep straight.
+    conavgpt_max_regions: 12
+    # An assignment older than this is not worth flying to (the map has moved on):
+    # the robot reverts to nearest-frontier and the round is scored as a fallback.
+    conavgpt_assignment_ttl_s: 90.0
+    # Arriving inside this radius of the assigned region ends the round early —
+    # without it a robot would sit on a finished region until the period lapsed.
+    conavgpt_replan_on_reach_m: 8.0

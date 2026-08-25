@@ -42,6 +42,27 @@ THE INVARIANTS, and why each is one.
       few metres and the air around it is a hole every few metres. The named
       uid is the one that was in `lot_fences` and caused exactly that.
 
+  no run standing in the neighbour's garden
+      REPORTED AS A RATE, not asserted at zero, and it is a question about the
+      PLAT rather than about the modules — so it is measured on
+      `suburb_parcel`'s own `fence_segs` and not on what `_fence_run` tiled
+      along them. A lot is a rectangle hung off one frontage, so two lots hung
+      off two frontages of the same block overlap in the corner between them
+      and one lot's run then stands inside the other's lot. That is not a
+      crossing (the runs need never touch) and not a doubling (they are not
+      parallel), so the three tests above are all blind to it, and it is most
+      of what "the fences overlap" turns out to mean on a zoom: measured over
+      seeds 3/5/8, 627 of 2,858 runs and 11.8 km of fence before
+      `junction_skew_clear_deg` existed, 509 and 9.4 km after — and, of
+      those, the ones across a SKEWED corner went 119 to 8.
+      TWO CAPS, because only one of them is a guarantee. Across ALL corners it
+      is a loose ceiling: a corner near square is the pre-existing corner
+      behaviour `suburb_parcel` documents and has no packing pass to fix, and
+      most of the rest is two lots on one face where the street curves. Across
+      a SKEWED corner it is near zero by construction — those lots are refused
+      outright — and that cap is what fails if the rule is turned off or
+      breaks.
+
   run continuity
       Consecutive modules along a collinear fence LINE must meet within 25 cm.
       Grouped by line rather than by run because `_fence_run` tiles a single run
@@ -51,6 +72,7 @@ THE INVARIANTS, and why each is one.
 """
 
 import argparse
+import math
 import os
 import sys
 
@@ -59,6 +81,10 @@ sys.path.insert(0, _HERE)
 
 from fence_png import (build, modules, classify, house_assets,   # noqa: E402
                        continuity)
+# `fence_png` puts scene_gen on the path when it imports; this is the same
+# `_corner_deg` the plat gates on, imported rather than restated so the test
+# and the rule can never disagree about what "off square" means.
+from detail import suburb_parcel as sp                           # noqa: E402
 
 # Assets that are NOT plain repeating panels. `bd8afe2f` — Objaverse "Wooden
 # Fence" — is a lone post, a gap, a picket panel, a gap and a solid GATE LEAF
@@ -73,6 +99,130 @@ GATE_ASSETS = ("bd8afe2fa6c24d238a761bc4751ebb03", "_Door", "_Doorway",
 # and comfortably below the 1.8% it measured before the rework.
 MAX_BREAK_FRAC = 0.03
 
+# Share of fence RUNS allowed to stand inside a lot that is not their own, at
+# ALL corners. A ceiling rather than a guarantee — see the docstring: most of
+# what is left is two lots on one face where the street curves, and the corners
+# near square that `suburb_parcel` documents and does not pack. Measured after
+# `junction_skew_clear_deg`: 16.5, 17.8, 19.1, 22.8% on seeds 3, 5, 8, 1.
+MAX_TRESPASS_FRAC = 0.30
+# ...and the share allowed at a corner more than `junction_skew_clear_deg` off
+# square, which IS a guarantee: those lots are refused outright, so no fence of
+# theirs exists to stand anywhere. Not zero, because a cul-de-sac WEDGE lot is
+# outside that rule (the wedge machinery owns it) and its radial frontage
+# normal can read as a skewed corner against a stem lot's. Measured over seeds
+# 3/5/8: 119 of 2,858 runs (4.16%) before, 8 of 2,874 (0.28%) after.
+MAX_SKEW_TRESPASS_FRAC = 0.01
+# Less than this much of a run inside a neighbour's lot is a lot line landing a
+# hair inside another, not a fence in a garden. Half a lot width would be
+# absurd; half a metre would be noise.
+TRESPASS_MIN_M = 1.0
+
+
+def _seg_in_quad(a, b, quad):
+    """Length of the segment *a*-*b* lying inside a convex quad.
+
+    Half-plane clipping in the segment's own parameter, which is exact for a
+    convex polygon and needs nothing from `suburb_parcel` — the same arithmetic
+    `_clip_seg` does against a building, asked for a length instead of a cut.
+    """
+    poly = list(quad)
+    ar = 0.0
+    for i in range(len(poly)):
+        j = (i + 1) % len(poly)
+        ar += poly[i][0] * poly[j][1] - poly[j][0] * poly[i][1]
+    if ar < 0.0:
+        poly = list(reversed(poly))
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    t0, t1 = 0.0, 1.0
+    for i in range(len(poly)):
+        p, q = poly[i], poly[(i + 1) % len(poly)]
+        nx, ny = q[1] - p[1], -(q[0] - p[0])        # outward for a CCW ring
+        den = nx * dx + ny * dy
+        num = nx * (a[0] - p[0]) + ny * (a[1] - p[1])
+        if abs(den) < 1e-12:
+            if num > 0.0:
+                return 0.0
+            continue
+        t = -num / den
+        if den > 0.0:
+            t1 = min(t1, t)
+        else:
+            t0 = max(t0, t)
+        if t0 > t1:
+            return 0.0
+    return max(0.0, t1 - t0) * math.hypot(dx, dy)
+
+
+def trespass(scene, cell=25.0):
+    """`(runs, total_m, skew_runs, worst)` — fence runs in somebody else's lot.
+
+    Lots are hashed by cell so this is not 2,000 runs against 2,000 lots. Only
+    a run more than `TRESPASS_MIN_M` inside a foreign lot counts.
+
+    ``skew_runs`` is the subset whose two lots front a corner more than
+    `junction_skew_clear_deg` OFF SQUARE — the population `suburb_parcel`
+    refuses to plat, and so the one this can hold to near zero. The band
+    excludes a "corner" under 20 degrees (two lots back to back across a
+    shallow block, which is a block-depth question) and over 160 (two lots on
+    one face where the street curves).
+    """
+    skew_deg = float((scene.get("cfg", {}).get("suburb_parcel") or {}).get(
+        "junction_skew_clear_deg", sp.DEFAULTS["junction_skew_clear_deg"]))
+    houses = [h for p in scene["parcels"] for h in p["houses"]]
+    lots, keys = [], []
+    for h in houses:
+        q = h.get("lot_corners")
+        lots.append(q)
+        if not q:
+            keys.append(((0.0, 0.0), -1.0))
+            continue
+        cx = sum(v[0] for v in q) / len(q)
+        cy = sum(v[1] for v in q) / len(q)
+        keys.append(((cx, cy),
+                     max(math.hypot(v[0] - cx, v[1] - cy) for v in q)))
+    grid = {}
+    for i, (c, r) in enumerate(keys):
+        if r < 0.0:
+            continue
+        rr = int(r // cell) + 1
+        gx, gy = int(c[0] // cell), int(c[1] // cell)
+        for ax in range(gx - rr, gx + rr + 1):
+            for ay in range(gy - rr, gy + rr + 1):
+                grid.setdefault((ax, ay), []).append(i)
+
+    n, total, skew, worst = 0, 0.0, 0, []
+    for hi, h in enumerate(houses):
+        for seg in (h.get("fence_segs") or ()):
+            a, b = seg[0], seg[1]
+            m = ((a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0)
+            r = math.hypot(b[0] - a[0], b[1] - a[1]) / 2.0
+            rr = int(r // cell) + 2
+            gx, gy = int(m[0] // cell), int(m[1] // cell)
+            cand = set()
+            for ax in range(gx - rr, gx + rr + 1):
+                for ay in range(gy - rr, gy + rr + 1):
+                    cand.update(grid.get((ax, ay), ()))
+            best, who = 0.0, None
+            for li in cand:
+                if li == hi or not lots[li]:
+                    continue
+                c, lr = keys[li]
+                if math.hypot(c[0] - m[0], c[1] - m[1]) > lr + r:
+                    continue
+                ln = _seg_in_quad(a, b, lots[li])
+                if ln > best:
+                    best, who = ln, li
+            if best > TRESPASS_MIN_M:
+                n += 1
+                total += best
+                worst.append((best, m))
+                if who is not None and h.get("n") and houses[who].get("n"):
+                    th = sp._corner_deg(h["n"], houses[who]["n"])
+                    if 20.0 <= th <= 160.0 and abs(th - 90.0) > skew_deg:
+                        skew += 1
+    worst.sort(reverse=True)
+    return n, total, skew, worst[:8]
+
 
 def check(seed, config_name="suburb_net", verbose=False):
     """`(stats, failures)` for one seed."""
@@ -84,12 +234,22 @@ def check(seed, config_name="suburb_net", verbose=False):
     gates = [i for i, m in enumerate(mods)
              if any(g in m["usd"] for g in GATE_ASSETS)]
     multi = sum(n for k, n in assets.items() if k > 1)
+    tres_n, tres_m, tres_skew, tres_worst = trespass(scene)
+    runs = sum(len(h.get("fence_segs") or ())
+               for p in scene["parcels"] for h in p["houses"])
 
     stats = {"seed": seed, "modules": len(mods),
              "on_road": len(bad["on_road"]), "in_bulb": len(bad["in_bulb"]),
              "crossing": len(bad["crossing"]), "doubled": len(bad["doubled"]),
              "houses_fenced": sum(assets.values()),
              "houses_multi_asset": multi, "gate_modules": len(gates),
+             # The PLAT-level defect, on the runs rather than on the modules.
+             "runs": runs, "trespass_runs": tres_n,
+             "trespass_m": round(tres_m, 1),
+             "trespass_frac": round(tres_n / runs, 4) if runs else 0.0,
+             "trespass_skew_runs": tres_skew,
+             "trespass_skew_frac": (round(tres_skew / runs, 4) if runs
+                                    else 0.0),
              "break_pairs": cont["pairs"], "breaks": cont["breaks"],
              "break_frac": round(cont["break_frac"], 4)}
 
@@ -109,6 +269,19 @@ def check(seed, config_name="suburb_net", verbose=False):
     if gates:
         fails.append(f"{len(gates)} modules using a gate/doorway asset "
                      f"({mods[gates[0]]['usd'].rsplit('/', 1)[-1]})")
+    if stats["trespass_skew_frac"] > MAX_SKEW_TRESPASS_FRAC:
+        fails.append(f"{tres_skew}/{runs} fence runs standing inside a lot "
+                     f"across a SKEWED corner "
+                     f"({stats['trespass_skew_frac']:.1%} > "
+                     f"{MAX_SKEW_TRESPASS_FRAC:.0%}) — "
+                     f"`junction_skew_clear_deg` should have refused those lots")
+    if stats["trespass_frac"] > MAX_TRESPASS_FRAC:
+        fails.append(f"{tres_n}/{runs} fence runs standing inside a lot that "
+                     f"is not their own ({stats['trespass_frac']:.1%} > "
+                     f"{MAX_TRESPASS_FRAC:.0%}, {tres_m:.0f} m of fence)")
+        if verbose:
+            for (ln, m) in tres_worst:
+                fails.append(f"      {ln:.1f} m at ({m[0]:.1f}, {m[1]:.1f})")
     if cont["break_frac"] > MAX_BREAK_FRAC:
         fails.append(f"{cont['breaks']}/{cont['pairs']} consecutive modules "
                      f"more than 0.25 m apart ({cont['break_frac']:.1%} > "

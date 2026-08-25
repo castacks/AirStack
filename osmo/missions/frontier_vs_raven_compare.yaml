@@ -1,0 +1,303 @@
+# frontier_vs_raven_compare — 1-to-1 comparison of THREE methods (frontier-only
+# baseline vs full raven coordination vs FPV+LVLM baseline), across scenes
+# (RetroNeighborhood, ConstructionSite; FireAcademy stubbed), 2 replicas/scene.
+# Despite the name, this runs all three methods on the identical spawn layout.
+#
+# WHY THIS EXISTS:
+#   frontier_exploration (FRONTIER_ONLY_BASELINE=true) and multi_raven_mission
+#   (full coordination) each re-randomize the drone spawn layout every bring-up,
+#   so a frontier run and a raven run never start from the same positions —
+#   making a head-to-head comparison confounded by spawn luck. This mission
+#   pins SPAWN_SEED per (scene, replica), so the frontier run and its paired
+#   raven run spawn the drones at the *identical* randomized positions + yaws.
+#   Positions/headings are still randomized (different per scene + per replica),
+#   just reproducible across the two methods of each pair.
+#
+# HOW THE 1-TO-1 WORKS:
+#   The isaac-sim launch script (example_multi_drone_scene_import.py) builds the
+#   layout with generate_spawn_configs(seed=SPAWN_SEED). Given identical
+#   SPAWN_POLY + NUM_ROBOTS + SPAWN_MIN_DIST_M + SPAWN_MARGIN_M + SPAWN_SEED, the
+#   output is deterministic. Each scene's block (ENV_URL, SPAWN_POLY, …) is a
+#   YAML anchor shared by all three entries of a triple, so those inputs are
+#   guaranteed byte-identical; only the method flags differ.
+#
+#   METHOD FLAGS: frontier = FRONTIER_ONLY_BASELINE true,  VLFM_BASELINE false, LVLM_BASELINE false
+#                 raven    = FRONTIER_ONLY_BASELINE false, VLFM_BASELINE false, LVLM_BASELINE false
+#                 vlfm     = FRONTIER_ONLY_BASELINE false, VLFM_BASELINE true,  LVLM_BASELINE false
+#                 lvlm     = FRONTIER_ONLY_BASELINE false, VLFM_BASELINE false, LVLM_BASELINE true
+#   (frontier wins over vlfm, and LVLM_BASELINE=true wins over both, in
+#   semantic_search_task / raven_nav.)
+#
+#   NOTE: env vars are sticky across iterations (mission_runner.apply_env only
+#   merges, never clears), so EVERY entry must set ALL THREE of
+#   FRONTIER_ONLY_BASELINE, VLFM_BASELINE, and LVLM_BASELINE (and its
+#   SPAWN_CONFIGS) explicitly — else a value leaks from the prior run. The
+#   entries below predate the vlfm method and set only the first and last; add
+#   VLFM_BASELINE explicitly to every entry before adding vlfm rows.
+#
+# SCHEDULE (round_robin, iterations = 12 = run each entry once), triples adjacent:
+#   01 retro/r1 frontier   02 retro/r1 raven   03 retro/r1 lvlm    ← same spawn layout
+#   04 retro/r2 frontier   05 retro/r2 raven   06 retro/r2 lvlm    ← same spawn layout
+#   07 constr/r1 frontier  08 constr/r1 raven  09 constr/r1 lvlm
+#   10 constr/r2 frontier  11 constr/r2 raven  12 constr/r2 lvlm
+#   (FireAcademy block stubbed/commented below — add an lvlm entry per replica
+#    to re-enable it, and bump iterations accordingly.)
+#
+# Run on OSMO (4 GPU / 24 CPU / 96Gi / 500Gi — GPU 0 is Isaac Sim, robot N gets GPU N):
+#   airstack osmo:mission osmo/missions/frontier_vs_raven_compare.yaml --pool <gpu-pool>
+# Or locally:
+#   python3 osmo/workspace/mission_runner.py \
+#     osmo/missions/frontier_vs_raven_compare.yaml --airstack-root "$(pwd)"
+#
+# Schema reference: osmo/missions/README.md
+
+name: frontier_vs_raven_compare
+
+stack:
+  services: [isaac-sim, robot-desktop, gcs]
+
+env:
+  NUM_ROBOTS: 3
+  ISAAC_SIM_HEADLESS: "true"
+  ISAAC_SIM_USE_STANDALONE: "true"
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  PLAY_SIM_ON_START: "true"
+  # Not set here on purpose: FRONTIER_ONLY_BASELINE is set per-entry below so the
+  # two methods can be A/B'd without leaking between iterations.
+
+# ── scene anchors ───────────────────────────────────────────────────────────
+# Per-scene inputs that MUST be identical across a frontier/raven pair (any
+# difference in SPAWN_POLY / NUM_ROBOTS / spacing breaks the 1-to-1 even at a
+# fixed seed). Defined once here, merged into both entries of each pair via
+# `<<:`. This block is not a recognized top-level mission key — the runner
+# ignores it; it exists only to hold the anchors.
+scene_templates:
+  retroneighborhood: &retro
+    ENV_URL: "Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
+    STAGE_SCALE: "0.01"
+    # Fixed spawn: SPAWN_CONFIGS set per entry below (replica -1/-2). Re-randomize
+    # by uncommenting SPAWN_POLY and dropping the per-entry SPAWN_CONFIGS.
+    # SPAWN_POLY: "[[11, 6.5], [-13, -6.5]]"
+    SPAWN_HEIGHT_M: "0.3"
+    # GT annotation file (annotations/<RESULTS_SCENE>.json) for finalize scoring.
+    RESULTS_SCENE: "RetroNeighborhood"
+    query: "house"
+    voxel_score_threshold: 0.87
+    score_threshold: 0.62
+    voxel_min_cluster_size: 65
+    background_queries: "road, grass, mountain, parking lot, tree, fence, billboard, electrical cables, container, utility pole, car garage, street light"
+    search_area:
+      points:
+        - {x: -150.0, y: -110.0, z: 0.0}
+        - {x: -150.0, y: 70.0, z: 0.0}
+        - {x: 170.0, y: 70.0, z: 0.0}
+        - {x: 170.0, y: -110.0, z: 0.0}
+
+  fireacademy: &fire
+    ENV_URL: "Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
+    SPAWN_POLY: "[[27.5, 3.8], [23.8, 14.4], [26.1, 17.5], [30, 11.8]]"
+    STAGE_SCALE: "0.01"
+    SPAWN_HEIGHT_M: "0.3"
+    RESULTS_SCENE: "FireAcademy"
+    query: "red walled building, water tower, radio tower"
+    background_queries: "road, grass, mountain, parking lot, tree, utility pole, flood light, shipping container, gas tank"
+    search_area:
+      points:
+        - {x: 13.0, y: -135.0, z: 0.0}
+        - {x: 135.0, y: -13.0, z: 0.0}
+        - {x: 13.0, y: 135.0, z: 0.0}
+        - {x: -135.0, y: 13.0, z: 0.0}
+
+  constructionsite: &constr
+    ENV_URL: "Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
+    # Fixed spawn: SPAWN_CONFIGS set per entry below (replica -1/-2).
+    # SPAWN_POLY: "[[27.63, 2], [21, -5.8]]"
+    STAGE_SCALE: "0.01"
+    SPAWN_HEIGHT_M: "0.3"
+    RESULTS_SCENE: "ConstructionSite"
+    query: "forklift, tower crane, blue tarp"
+    background_queries: "road, grass, mountain, parking lot, building, stone"
+    voxel_score_threshold: 0.68
+    score_threshold: 0.6
+    voxel_min_cluster_size: 10
+    # Widened to a rectangle: the s3 spawn (x ~ -55) and two query props sat
+    # outside the old quadrilateral (x[-40,76] y[-71,50]).
+    search_area:
+      points:
+        - {x: 95.0, y: 65.0, z: 0.0}
+        - {x: 95.0, y: -90.0, z: 0.0}
+        - {x: -75.0, y: -90.0, z: 0.0}
+        - {x: -75.0, y: 65.0, z: 0.0}
+
+
+# ── the 12 runs ─────────────────────────────────────────────────────────────
+# Each pair shares one SPAWN_SEED (so the layout matches) and differs only in
+# FRONTIER_ONLY_BASELINE. SPAWN_SEED is unique per (scene, replica) so the two
+# replicas — and the three scenes — each get a different randomized layout.
+environments:
+  # ---- RetroNeighborhood ----
+  # - <<: *retro
+  #   name: retro_r1_frontier
+  #   SPAWN_CONFIGS: '[{"x_m": 8.303, "y_m": 3.526, "orient": [0,0,-0.392,0.92]}, {"x_m": -6.541, "y_m": -3.959, "orient": [0,0,0.5888,0.8083]}, {"x_m": 0.402, "y_m": 3.586, "orient": [0,0,0.4584,0.8888]}]'
+  #   FRONTIER_ONLY_BASELINE: "true"
+  #   LVLM_BASELINE: "false"
+  # - <<: *retro
+  #   name: retro_r1_raven
+  #   SPAWN_CONFIGS: '[{"x_m": 8.303, "y_m": 3.526, "orient": [0,0,-0.392,0.92]}, {"x_m": -6.541, "y_m": -3.959, "orient": [0,0,0.5888,0.8083]}, {"x_m": 0.402, "y_m": 3.586, "orient": [0,0,0.4584,0.8888]}]'
+  #   FRONTIER_ONLY_BASELINE: "false"
+  #   LVLM_BASELINE: "false"
+  - <<: *retro
+    name: retro_r1_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 8.303, "y_m": 3.526, "orient": [0,0,-0.392,0.92]}, {"x_m": -6.541, "y_m": -3.959, "orient": [0,0,0.5888,0.8083]}, {"x_m": 0.402, "y_m": 3.586, "orient": [0,0,0.4584,0.8888]}]'
+    FRONTIER_ONLY_BASELINE: "false"
+    LVLM_BASELINE: "true"
+  # # - <<: *retro
+  # #   name: retro_r2_frontier
+  # #   SPAWN_CONFIGS: '[{"x_m": -11.323, "y_m": -3.956, "orient": [0,0,0.803,0.5959]}, {"x_m": 0.977, "y_m": 0.338, "orient": [0,0,-0.9754,0.2203]}, {"x_m": -3.943, "y_m": 2.377, "orient": [0,0,0.6611,0.7503]}]'
+  # #   FRONTIER_ONLY_BASELINE: "true"
+  # #   LVLM_BASELINE: "false"
+  # - <<: *retro
+    # name: retro_r2_raven
+    # SPAWN_CONFIGS: '[{"x_m": -11.323, "y_m": -3.956, "orient": [0,0,0.803,0.5959]}, {"x_m": 0.977, "y_m": 0.338, "orient": [0,0,-0.9754,0.2203]}, {"x_m": -3.943, "y_m": 2.377, "orient": [0,0,0.6611,0.7503]}]'
+    # FRONTIER_ONLY_BASELINE: "false"
+    # LVLM_BASELINE: "false"
+  # - <<: *retro
+  #   name: retro_r2_lvlm
+  #   SPAWN_CONFIGS: '[{"x_m": -11.323, "y_m": -3.956, "orient": [0,0,0.803,0.5959]}, {"x_m": 0.977, "y_m": 0.338, "orient": [0,0,-0.9754,0.2203]}, {"x_m": -3.943, "y_m": 2.377, "orient": [0,0,0.6611,0.7503]}]'
+  #   FRONTIER_ONLY_BASELINE: "false"
+  #   LVLM_BASELINE: "true"
+
+  # ---- FireAcademy ----
+  # - <<: *fire
+  #   name: fire_r1_frontier
+  #   SPAWN_SEED: "fireacademy-1"
+  #   FRONTIER_ONLY_BASELINE: "true"
+  # - <<: *fire
+  #   name: fire_r1_raven
+  #   SPAWN_SEED: "fireacademy-1"
+  #   FRONTIER_ONLY_BASELINE: "false"
+  # - <<: *fire
+  #   name: fire_r2_frontier
+  #   SPAWN_SEED: "fireacademy-2"
+  #   FRONTIER_ONLY_BASELINE: "true"
+  # - <<: *fire
+  #   name: fire_r2_raven
+  #   SPAWN_SEED: "fireacademy-2"
+  #   FRONTIER_ONLY_BASELINE: "false"
+
+  # ---- ConstructionSite ----
+  # - <<: *constr
+  #   name: constr_r1_frontier
+  #   SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.2886,0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,-0.2699,0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,0.9137,0.4063]}]'
+  #   FRONTIER_ONLY_BASELINE: "true"
+  #   LVLM_BASELINE: "false"
+  # - <<: *constr
+  #   name: constr_r1_raven
+  #   SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.2886,0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,-0.2699,0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,0.9137,0.4063]}]'
+  #   FRONTIER_ONLY_BASELINE: "false"
+  #   LVLM_BASELINE: "false"
+  # - <<: *constr
+  #   name: constr_r1_lvlm
+  #   SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.2886,0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,-0.2699,0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,0.9137,0.4063]}]'
+  #   FRONTIER_ONLY_BASELINE: "false"
+  #   LVLM_BASELINE: "true"
+  # - <<: *constr
+  #   name: constr_r2_frontier
+  #   SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.7071,0.7071]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,1.0,0.0]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,-0.7071,0.7071]}]'
+  #   FRONTIER_ONLY_BASELINE: "true"
+  #   LVLM_BASELINE: "false"
+  # - <<: *constr
+  #   name: constr_r2_raven
+  #   SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.7071,0.7071]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,1.0,0.0]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,-0.7071,0.7071]}]'
+  #   FRONTIER_ONLY_BASELINE: "false"
+  #   LVLM_BASELINE: "false"
+  - <<: *constr
+    name: constr_r2_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0,0,0.7071,0.7071]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0,0,1.0,0.0]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0,0,-0.7071,0.7071]}]'
+    FRONTIER_ONLY_BASELINE: "false"
+    LVLM_BASELINE: "true"
+
+# Send goals through the GCS action_relay — the exact path Foxglove uses.
+command_route: gcs
+
+# round_robin: iteration i → environments[(i-1) % N], and `iterations` is the
+# TOTAL run count. 12 == one run per entry (each scene/replica triple back-to-back).
+environment_order: round_robin
+iterations: 5
+
+# Redo an iteration (clean down→up→fly→down) if a step up to and including
+# semantic_search fails — i.e. the precondition steps fail, or semantic_search
+# never gets feedback after its own retries. The fixed SPAWN_SEED makes a redo
+# reproduce the exact same spawn layout, so the 1-to-1 pairing is preserved.
+# Up to 3 attempts per iteration.
+iteration_attempts: 3
+
+ready:
+  timeout_s: 600
+
+# Identical recording + steps for both methods (fairness): the only difference
+# between a pair is FRONTIER_ONLY_BASELINE.
+record:
+  enabled: true
+  scope: gcs
+  required: true
+  topics:
+    - /tf
+    - /tf_static
+    - /{robot}/odometry_conversion/odometry
+    - /gcs/robot_markers
+    - /gcs/payload/{robot}/filtered_rays
+    - /gcs/payload/{robot}/filtered_frontiers
+    - /gcs/payload/{robot}/explored_area_coverage
+    - /gcs/payload/{robot}/confirmed_targets
+    - /gcs/payload/{robot}/auction_table
+    - /gcs/sim_ground
+    - /gcs/annotations/bboxes
+
+on_step_failure: abort_iteration
+
+steps:
+  # Pre-cache both methods' models (robot_1 only; cache mount shared across
+  # replicas). RADIO is used by frontier/raven (rayfronts); InternVL3 by the LVLM
+  # entries. Both are idempotent cache-hits after the first download, so running
+  # them every iteration is cheap and lets any method start without a load timeout.
+  - run:
+      container: robot_1
+      cmd: python3 -c "import torch; torch.hub.load('NVlabs/RADIO', 'radio_model', version='c-radio_v3-b', skip_validation=True, adaptor_names=['siglip2','sam'])"
+      timeout_s: 900
+      attempts: 5
+      retry_delay_s: 15
+
+  - run:
+      container: robot_1
+      cmd: python3 -c "from huggingface_hub import snapshot_download; snapshot_download('OpenGVLab/InternVL3-2B')"
+      timeout_s: 900
+      attempts: 5
+      retry_delay_s: 15
+
+  - action:
+      task: takeoff
+      goal: {target_altitude_m: 8.0, velocity_m_s: 1.0}
+      timeout_s: 180
+
+  - wait: 5
+
+  # Run budget = 15 min OR 80% explored, whichever first (cancel_on_timeout lets
+  # semantic_search_task run its compile + metrics finalize on the deadline).
+  # pass_on_feedback: this comparison only needs the search to RUN in each method
+  # — pass as soon as feedback is seen, regardless of outcome; redo the iteration
+  # only if no feedback arrives after the retries.
+  - action:
+      task: semantic_search
+      timeout_s: 900
+      cancel_on_timeout: true
+      pass_on_feedback: true
+      goal:
+        query: "{{env.query}}"
+        background_queries: "{{env.background_queries}}"
+        search_area: "{{env.search_area}}"
+        min_altitude_agl: 10.0
+        max_altitude_agl: 20.0
+        min_flight_speed: 0.5
+        max_flight_speed: 1.0
+        confidence_threshold: 0.95

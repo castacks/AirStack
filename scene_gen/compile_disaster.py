@@ -220,6 +220,12 @@ def compile_tornado(sev, spec, region):
     than settling, so tilt/sink stays low.
     """
     w, h = region
+    # The track passes through `epicenter` if one is given, and through the
+    # middle of the plate otherwise. Centre rather than a corner: a corridor
+    # entering at a corner clips the thin end of the fabric and most of the
+    # plate never sees it, which is the same mistake the wildfire preset
+    # records about corner ignitions.
+    ox, oy = spec.get("epicenter", [0.0, 0.0])
     return {
         "damaged_fraction": lerp(0.1, 0.3, sev),
         # -> 1.0 at sev=1: "total destruction in a corridor" per the docstring
@@ -266,6 +272,71 @@ def compile_tornado(sev, spec, region):
             "falloff_m": round(max(w, h) * 0.08, 1),
             "inside": 1.0,
             "outside": 0.0,
+        },
+
+        # THE TRACK AS THE DAMAGE PIPELINE READS IT, alongside `field` rather
+        # than instead of it. `field` is the generic per-disaster mask the
+        # scene generator applies to placement-level knobs; this block is the
+        # tornado's own model, consumed by `disaster.tornado` and by the bake
+        # and assembly launchers. Same relationship `fire` has to the wildfire
+        # compiler's `field`, and for the same reason: the launchers need the
+        # geometry of the event, not a scalar per placement.
+        "tornado": {
+            "enabled": True,
+            "origin_m": [float(ox), float(oy)],
+            "heading_deg": float(spec.get("heading_deg", 35.0)),
+
+            # WIDTH IN METRES, NOT AS A FRACTION OF THE PLATE, and that is a
+            # deliberate departure from `field.width_m` above. A tornado path
+            # is a physical width — US significant tracks run a few hundred
+            # metres — and scaling it with the plate means a 500 m scene and
+            # a 1600 m one get corridors that damage the same PROPORTION of
+            # the fabric, which is exactly wrong: the smaller scene should
+            # show a narrower path through fewer houses, not the same picture
+            # at a different zoom. Capped at 40% of the plate so a small
+            # region still keeps intact suburb on both sides — a corridor
+            # whose edges are off-frame is not a corridor. 0.32 rather than a
+            # half: measured off `tornado.jpeg`, the swathe is roughly a
+            # quarter to a third of the frame, and the intact fabric either
+            # side is what makes it read as a track at all.
+            "width_m": round(min(0.32 * min(w, h),
+                                 lerp(80.0, 320.0, sev)), 1),
+            "core_frac": lerp(0.22, 0.38, sev),
+            "peak": lerp(0.45, 1.0, sev),
+
+            # The meander and the breathing, both as fractions of the plate so
+            # a track crossing a small scene still wanders visibly within it.
+            # A WANDER, NOT A SNAKE. At a period of 0.7 of the plate the
+            # centreline completes two full cycles across it and reads as a
+            # drawn S-curve — the exact failure the wobble exists to avoid.
+            # Long wavelength and modest amplitude: the track should look like
+            # it drifted, not like it was steered.
+            "wobble_m": round(max(w, h) * 0.032, 1),
+            "wobble_period_m": round(max(w, h) * 1.60, 1),
+            "along_period_m": round(max(w, h) * 0.95, 1),
+            # A SEVERE TRACK IS MORE UNIFORM, not less. Weak tornadoes skip —
+            # they touch down, lift and touch down again — while a violent one
+            # is continuously on the ground for its whole length.
+            "along_min": lerp(0.35, 0.72, sev),
+            "width_min": lerp(0.55, 0.80, sev),
+            "edge_noise_m": round(max(w, h) * 0.05, 1),
+
+            # Where the debris went. `curl_deg` is toward the LEFT of travel:
+            # for a cyclonic vortex the rotational and translational winds add
+            # on the right flank and oppose on the left, so material lofted on
+            # the strong side is carried across and deposited on the weak one.
+            "curl_deg": 20.0,
+            "spread_deg": lerp(42.0, 28.0, sev),
+            "throw_m": lerp(12.0, 42.0, sev),
+
+            # The settle bias, in m/s. This is what `settle.run(bias=...)`
+            # gets when the archetypes are baked, and it is capped low on
+            # purpose: the fragments only have to CLEAR the footprint and lean
+            # downtrack, because the long-range debris is authored by
+            # `disaster.planks` rather than simulated. Ten metres a second of
+            # initial velocity against 0.18 damping carries a board a few
+            # metres, which is the whole job.
+            "throw_speed_mps": lerp(4.0, 11.0, sev),
         },
     }
 

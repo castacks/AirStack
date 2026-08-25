@@ -16,6 +16,15 @@
 # library has the one that fits a given park — so this set supplies only the
 # objects that stand on it. Same for the soccer pitch and the playground sand.
 #
+# AND THE SAME FOR THE REFUGE PARKING LOT, for the same reason twice over: it
+# is a striped rectangle at a fixed stall size (2.7 x 5.5 m), and the bays it
+# publishes have to be the bays that are painted — a sourced lot asset would
+# put the paint somewhere `info["park"]["parking"]["bays"]` does not know
+# about, and the survivors/cars pass stands its people on that schedule. The
+# lot's slab is the ROAD asphalt (`usds.materials.asphalt`), not a park
+# surface; only the cars that end up on it come from a pool, and those are
+# `shared.yaml`'s vehicles drawn by the later pass, not from here.
+#
 # BLEACHERS and RUNNING TRACKS are absent because Objaverse has neither:
 # "bleacher" returns 1 match, every phrasing of running track returns 0.
 

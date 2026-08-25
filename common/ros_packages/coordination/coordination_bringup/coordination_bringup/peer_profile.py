@@ -30,6 +30,9 @@ class PeerProfile:
     waypoint: PoseStamped = field(default_factory=PoseStamped)
     source: Source = Source.DIRECT
     relay_hops: int = 0
+    relay_lat: float = 0.0
+    relay_lon: float = 0.0
+    relay_alt: float = 0.0
 
     _payloads: List[Dict[str, Any]] = field(default_factory=list, repr=False)
 
@@ -114,6 +117,9 @@ class PeerProfile:
         msg.waypoint = self.waypoint
         msg.source = int(self.source)
         msg.relay_hops = self.relay_hops
+        msg.relay_lat = self.relay_lat
+        msg.relay_lon = self.relay_lon
+        msg.relay_alt = self.relay_alt
         msg.payloads = [
             PeerProfilePayloadMsg(
                 stamp=p.get("stamp") or PeerProfilePayloadMsg().stamp,
@@ -133,6 +139,9 @@ class PeerProfile:
         profile.waypoint = msg.waypoint
         profile.source = Source(msg.source)
         profile.relay_hops = msg.relay_hops
+        profile.relay_lat = msg.relay_lat
+        profile.relay_lon = msg.relay_lon
+        profile.relay_alt = msg.relay_alt
         profile._payloads = [
             {"name": p.payload_name, "type": p.payload_type, "data": bytes(p.payload_data), "stamp": p.stamp}
             for p in msg.payloads

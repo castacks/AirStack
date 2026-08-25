@@ -1,17 +1,26 @@
 from raven_nav.behaviors.frontier_behavior import FrontierBehavior
 from raven_nav.behaviors.ray_behavior import RayBehavior
 from raven_nav.behaviors.voxel_behavior import VoxelBehavior
+from raven_nav.behaviors.vlfm_behavior import VLFMBehavior
+from raven_nav.behaviors.conavgpt_behavior import CoNavGPTBehavior
 
 
 class BehaviorManager:
-    def __init__(self, get_clock, publisher_dict, score_threshold=0.68,
+    def __init__(self, get_clock, publisher_dict, score_threshold=0.75,
                  min_altitude=1.5, max_altitude=100.0,
-                 voxel_score_threshold=0.7, voxel_min_cluster_size=30):
+                 voxel_score_threshold=0.9, voxel_min_cluster_size=30,
+                 voxel_confirm_hits=2, voxel_track_max_misses=4,
+                 voxel_proximity_engage_m=12.0, voxel_min_confidence=0.0,
+                 vlfm_value_weight=300.0, vlfm_use_voxel_targets=False,
+                 vlfm_ray_blacklist=False,
+                 conavgpt_leader_id=1, conavgpt_max_regions=12,
+                 conavgpt_round_period_s=30.0,
+                 conavgpt_assignment_ttl_s=90.0,
+                 conavgpt_replan_on_reach_m=8.0):
         self.behavior_mode = 'Frontier-based'
         self.get_clock = get_clock
-        self.frontier_behavior = FrontierBehavior(self.get_clock,
-                                                   min_altitude=min_altitude,
-                                                   max_altitude=max_altitude)
+        self.frontier_behavior = FrontierBehavior(
+            self.get_clock, min_altitude=min_altitude, max_altitude=max_altitude)
         current_target_pub = publisher_dict.get('current_target')
         self.ray_behavior = RayBehavior(self.get_clock, current_target_pub,
                                         score_threshold=score_threshold,
@@ -19,7 +28,29 @@ class BehaviorManager:
                                         max_altitude=max_altitude)
         self.voxel_behavior = VoxelBehavior(self.get_clock,
                                             score_threshold=voxel_score_threshold,
-                                            min_cluster_size=voxel_min_cluster_size)
+                                            min_cluster_size=voxel_min_cluster_size,
+                                            confirm_hits=voxel_confirm_hits,
+                                            track_max_misses=voxel_track_max_misses,
+                                            proximity_engage_m=voxel_proximity_engage_m,
+                                            min_confidence=voxel_min_confidence)
+        # VLFM baseline: force-selected by the node's vlfm_baseline flag, so it is
+        # NOT in the priority list (same as Frontier under frontier_only_baseline).
+        self.vlfm_behavior = VLFMBehavior(
+            self.get_clock, min_altitude=min_altitude, max_altitude=max_altitude,
+            voxel_score_threshold=voxel_score_threshold,
+            voxel_min_cluster_size=voxel_min_cluster_size,
+            value_weight=vlfm_value_weight,
+            use_voxel_targets=vlfm_use_voxel_targets,
+            ray_blacklist=vlfm_ray_blacklist)
+        # Co-NavGPT baseline: force-selected by the node's conavgpt_baseline
+        # flag, so it is NOT in the priority list either.
+        self.conavgpt_behavior = CoNavGPTBehavior(
+            self.get_clock, min_altitude=min_altitude, max_altitude=max_altitude,
+            leader_id=conavgpt_leader_id,
+            max_regions=conavgpt_max_regions,
+            round_period_s=conavgpt_round_period_s,
+            assignment_ttl_s=conavgpt_assignment_ttl_s,
+            replan_on_reach_m=conavgpt_replan_on_reach_m)
         # Priority order: Voxel > Ray > Frontier.
         self.behaviors = [self.voxel_behavior, self.ray_behavior, self.frontier_behavior]
 
@@ -29,13 +60,15 @@ class BehaviorManager:
 
     def mode_select(self, query_labels, target_objects,
                     vox_xyz=None, vox_scores=None,
-                    committed_origin=None, committed_dir=None):
+                    committed_origin=None, committed_dir=None, cur_pose=None,
+                    committed_bb_center=None):
         for behavior in self.behaviors:
             if behavior.name == 'Voxel-based':
                 if behavior.condition_check(
                         vox_xyz, vox_scores, query_labels, target_objects,
                         committed_origin=committed_origin,
-                        committed_dir=committed_dir):
+                        committed_dir=committed_dir, cur_pose=cur_pose,
+                        committed_bb_center=committed_bb_center):
                     self.behavior_mode = behavior.name
                     return
             else:
@@ -51,13 +84,36 @@ class BehaviorManager:
                          debug_logger=None, assigned_target=None,
                          committed_target_dir=None,
                          committed_target_origin=None,
-                         completed_zones_xy=None, cell_size_m=0.5):
+                         completed_zones_xy=None, cell_size_m=0.5,
+                         committed_bb_center=None, peer_weights=None,
+                         ray_origins=None, ray_scores=None, ray_dirs=None,
+                         target_objects=None, conavgpt_ctx=None):
+        if behavior_mode == 'CoNavGPT-based':
+            # conavgpt_ctx carries the round inputs only this baseline needs
+            # (leadership, query text, peer freshness, confirmed targets) —
+            # kept in one dict so the shared signature stays readable.
+            return self.conavgpt_behavior.execute(
+                frontiers, cur_pose_np, waypoint_locked,
+                target_waypoint, target_waypoint2, publisher_dict,
+                peer_state=peer_state, my_id=my_id,
+                search_area_xy=search_area_xy, debug_logger=debug_logger,
+                completed_zones_xy=completed_zones_xy, cell_size_m=cell_size_m,
+                **(conavgpt_ctx or {}))
+        if behavior_mode == 'VLFM-based':
+            return self.vlfm_behavior.execute(
+                ray_origins, ray_scores, ray_dirs, vox_xyz, vox_scores,
+                query_labels, target_objects, cur_pose_np, waypoint_locked,
+                target_waypoint, target_waypoint2, publisher_dict,
+                search_area_xy=search_area_xy, debug_logger=debug_logger,
+                peer_state=peer_state, my_id=my_id, peer_weights=peer_weights,
+                completed_zones_xy=completed_zones_xy, cell_size_m=cell_size_m)
         if behavior_mode == 'Voxel-based':
             return self.voxel_behavior.execute(
                 vox_xyz, vox_scores, query_labels, cur_pose_np,
                 waypoint_locked, target_waypoint, target_waypoint2, publisher_dict,
                 committed_origin=committed_target_origin,
-                committed_dir=committed_target_dir)
+                committed_dir=committed_target_dir,
+                committed_bb_center=committed_bb_center)
         elif behavior_mode == 'Ray-based':
             return self.ray_behavior.execute(
                 cur_pose_np, waypoint_locked,
@@ -76,4 +132,5 @@ class BehaviorManager:
                 committed_target_dir=committed_target_dir,
                 committed_target_origin=committed_target_origin,
                 completed_zones_xy=completed_zones_xy,
-                cell_size_m=cell_size_m)
+                cell_size_m=cell_size_m,
+                peer_weight=peer_weights)

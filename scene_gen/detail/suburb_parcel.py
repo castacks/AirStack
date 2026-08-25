@@ -52,6 +52,22 @@ is how the caller — which has the net, and so the real per-edge radius — say
 where that pavement is; house, garage, fence and tree are all refused or cut
 back out of it.
 
+A CUL-DE-SAC HEAD IS PLATTED RADIALLY, NOT WALKED
+-------------------------------------------------
+Keeping things off the paving is only half of it. `suburb_net` splices the
+turnaround ARC into the block boundary so the head has frontage at all, and
+that frontage turns 330 degrees in about 100 m — which the arclength rule
+above handles by giving every station a rectangle on its own tangent, and
+neighbouring stations on such an arc are 40 to 80 degrees apart. A real plat
+does the obvious thing instead and hangs WEDGE LOTS off the arc: side lines
+along the two bounding radii, so they converge on the turnaround centre and are
+shared exactly between neighbours; the house on a chord facing that centre; the
+drive aimed at the paving; the front fence following the arc rather than
+cutting the chord across it. `blk["bulbs"]` is how the head announces itself
+and `_lot_jobs` plats every head BEFORE the streets that reach them, because
+whichever lot is issued first keeps the ground they both want. See the block
+comment above :func:`_bulb_runs`.
+
 WHAT IT DOES NOT DO
 -------------------
 No USD, and no asset library: this module cannot look a house up. What it can
@@ -69,6 +85,7 @@ import math
 from layout.suburb_net import (_add, _sub, _mul, _dot, _unit, _perp, _dist,
                         polyline_length, point_at, tangent_at,
                         point_in_polygon, polygon_area, seg_seg_dist)
+from detail import row_housing as rh
 
 
 def _ring_cum(ring):
@@ -224,8 +241,42 @@ def _draw_density(rng, mix=None):
     return names[-1]
 
 
+# The class name a ROW-HOME DISTRICT carries. Not a member of `DENSITY`, and
+# deliberately not: every entry there is a set of MULTIPLIERS on a lot width, a
+# setback and a lot depth, and a row-home cluster has none of those things —
+# it has a pitch, a court and a party gap. Making it a fifth density class
+# would have meant inventing four numbers that mean nothing, and every
+# `DENSITY[dens]` lookup in this file would have silently used them.
+ROW_CLASS = "row"
+
+
+def _draw_seed_class(rng, mix, row_share, row_cfg):
+    """One district seed's class, and what a row district additionally needs.
+
+    Returns ``(name, extra)`` where *extra* is None for the ordinary density
+    classes and ``{"mix": ..., "palette_set": ...}`` for a row-home district.
+
+    THE MIX IS DRAWN HERE, ON THE SEED, AND NOT ON THE BLOCK. That is the whole
+    of requirement "different row-home areas use different house types": a
+    district is a contiguous patch of blocks, so drawing the mix once per seed
+    makes every block in one patch part of ONE development, and the next patch
+    a different builder's. Drawn per block instead, two adjacent row blocks
+    would be a terrace beside a cottage court, which reads as the catalogue
+    being dealt out rather than as two developments.
+
+    NOTHING IS DRAWN WHEN `row_share` IS ZERO, and the short-circuit is
+    load-bearing rather than tidy: an unconditional `rng.random()` here would
+    shift the whole downstream sequence, so every seed's plat would change the
+    moment this feature was merged even with the feature switched off.
+    """
+    if row_share > 0.0 and rng.random() < row_share:
+        return ROW_CLASS, {"mix": rh.draw_mix(rng, row_cfg),
+                           "palette_set": rh.draw_palette_set(rng, row_cfg)}
+    return _draw_density(rng, mix), None
+
+
 def _density_field(blocks, rng, cfg):
-    """A map of density DISTRICTS over the whole tract, not a per-block draw.
+    """A map of DISTRICTS over the whole tract, not a per-block draw.
 
     WHY THIS EXISTS. Density was one independent draw per block, so a tight
     block could sit between two estate blocks on the same street. That reads as
@@ -239,20 +290,27 @@ def _density_field(blocks, rng, cfg):
     A district is then a contiguous multi-block patch with a ragged boundary
     you can walk to, which is what a subdivision boundary actually looks like.
 
-    Returns ``(x, y) -> class name``. `neighbourhood_m: 0` restores the old
-    per-block draw, so a preset that wants the noise can still ask for it.
+    A district may also be a ROW-HOME DEVELOPMENT rather than a lot size —
+    `row_share` of the seeds draw `ROW_CLASS` instead, and carry the row mix
+    and colour set the whole patch is built from. See :func:`_draw_seed_class`.
+
+    Returns ``(x, y) -> (class name, extra)``, *extra* being None except on a
+    row district. `neighbourhood_m: 0` restores the old per-block draw, so a
+    preset that wants the noise can still ask for it.
     """
     patch = float(cfg.get("neighbourhood_m", 0.0) or 0.0)
     mix = cfg.get("density_mix")
+    share = max(0.0, min(1.0, float(cfg.get("row_share", 0.0) or 0.0)))
+    row_cfg = dict(cfg.get("row_housing") or {})
     if patch <= 0.0:
-        return lambda _p: _draw_density(rng, mix)
+        return lambda _p: _draw_seed_class(rng, mix, share, row_cfg)
 
     pts = []
     for blk in blocks:
         poly = blk["poly"] if isinstance(blk, dict) else blk
         pts.extend(poly)
     if not pts:
-        return lambda _p: _draw_density(rng, mix)
+        return lambda _p: _draw_seed_class(rng, mix, share, row_cfg)
     x0 = min(q[0] for q in pts); x1 = max(q[0] for q in pts)
     y0 = min(q[1] for q in pts); y1 = max(q[1] for q in pts)
 
@@ -265,7 +323,7 @@ def _density_field(blocks, rng, cfg):
             # district edges that read as a chessboard from the air.
             cx = x0 + (i + rng.uniform(-0.35, 0.35)) * (x1 - x0) / max(nx, 1)
             cy = y0 + (j + rng.uniform(-0.35, 0.35)) * (y1 - y0) / max(ny, 1)
-            seeds.append((cx, cy, _draw_density(rng, mix)))
+            seeds.append((cx, cy) + _draw_seed_class(rng, mix, share, row_cfg))
 
     def at(p):
         best, bd = seeds[0], float("inf")
@@ -273,7 +331,7 @@ def _density_field(blocks, rng, cfg):
             d = (sd[0] - p[0]) ** 2 + (sd[1] - p[1]) ** 2
             if d < bd:
                 bd, best = d, sd
-        return best[2]
+        return best[2], best[3]
     return at
 
 
@@ -288,6 +346,29 @@ DEFAULTS = {
     # Per-block density mix, as {class: weight}. None = the weights authored on
     # DENSITY. A preset that wants a uniform tract passes {"normal": 1.0}.
     "density_mix": None,
+    # ROW-HOME DEVELOPMENTS. The share of district SEEDS (not of blocks) that
+    # build attached rows around a shared parking court instead of detached
+    # lots — see `detail/row_housing.py` for what one is and why the dataset
+    # wants it. It lives here rather than in that module's own DEFAULTS because
+    # it is a question about the DISTRICT MAP, which is this file's: it is
+    # drawn by `_density_field` alongside `density_mix` and `neighbourhood_m`,
+    # and a reader tuning the mix of fabrics needs the three of them together.
+    #
+    # 0.0 by default, so no preset gains a row-home area by accident and the
+    # `rng` sequence of an existing seed is untouched (see `_draw_seed_class`
+    # on why that short-circuit matters). At `neighbourhood_m: 400` a
+    # 1600 x 1200 m crop carries ~20 seeds and ~45 developed blocks, so 0.12
+    # is two or three row districts covering a handful of blocks — a minority
+    # fabric, which is what it is in a real suburb.
+    "row_share": 0.0,
+    # ...and the cluster GEOMETRY, passed straight through to
+    # `row_housing.plan_cluster`, whose own DEFAULTS document every knob with
+    # the measurement behind it. ONE key rather than a dozen flat ones on
+    # purpose: the party gap, the bay module and the court setback are that
+    # module's business and this dict would otherwise become the authority on
+    # numbers it does not own — the same mistake `house_sizes` exists to stop
+    # this module making about footprints.
+    "row_housing": None,
     # Frontage per dwelling. US suburban lots run 50-80 ft wide; 20 m is a
     # 66 ft lot, the commonest post-war width.
     "lot_width_m": [17.0, 26.0],
@@ -325,9 +406,103 @@ DEFAULTS = {
     "keepout_discs": (),
     # A lot needs this much depth behind the setback or it is not a lot.
     "min_lot_depth_m": 21.0,
-    # Rear space a pool plot asks for: 2.5 m walk + a 4 m-deep
-    # pool + 2.5 m walk, with a little margin.
-    "pool_rear_m": 9.5,
+    # HOW FAR OFF SQUARE A BLOCK CORNER MAY BE BEFORE ITS LOTS ARE REFUSED.
+    #
+    # `suburb_net` meets its streets at up to `junction_skew_deg` (38 degrees)
+    # off the normal on purpose — real plats meet at 70-110 degrees, not
+    # exactly 90 — so the block corners this pass walks past run anywhere from
+    # 52 to 128 degrees. That is right for the STREETS and wrong for what gets
+    # platted at them: a lot is a RECTANGLE HUNG OFF ONE FRONTAGE, so where two
+    # frontages meet, both corner lots claim the ground between them. At a
+    # square corner the shared ground is a modest corner square and reads as
+    # the ordinary suburban corner it is. Off square it is a whole lot's worth,
+    # and what shows on screen is the neighbour's FENCE RUN across your back
+    # garden: measured over seeds 3/5/8 before this knob existed, 627 of 2,858
+    # fence runs (22%) stood inside a lot that was not their own — 11.8 km of
+    # fence, up to 65 m in a single run. That is not a crossing and not a
+    # doubling, so `suburb_scene._FenceGrid` and `tools/fence_check` were both
+    # blind to it while reporting zero.
+    #
+    # THE GATE IS DEPARTURE FROM SQUARE, IN EITHER DIRECTION. A 125-degree
+    # corner is as skewed as a 55-degree one, and measured over seeds
+    # 3/5/8, its lots overlap MORE — the 67 overlapping pairs at 100-130
+    # degrees average 246 m2 against the 87 pairs at 20-55 degrees' 152.
+    # Both ends, one number.
+    #
+    # A lot is refused when its rectangle comes within `junction_skew_clear_m`
+    # of one already platted across a boundary corner further off square than
+    # this. Nothing is refused for merely being near a skewed junction: a lot
+    # whose rectangle clears its neighbour's is a lot whose fences clear them
+    # too. The refusals are counted as `skew_yield`.
+    #
+    # MEASURED, sweeping the angle over seeds 3/5/8 on the scene
+    # `tools/fence_png.py` builds — houses, then the overlapping corner-lot
+    # pairs and the square metres of lot-on-lot overlap left at corners:
+    #
+    #   this knob   corners kept   houses           pairs   corner overlap
+    #   90 (off)    everything     1853              335    68.0k m2
+    #   35          55-125         1794   (-3.2%)    259    52.6k
+    #   30          60-120         1757   (-5.2%)    214    36.1k
+    #   25          65-115         1710   (-7.7%)    172    33.9k
+    #   20          70-110         1687   (-9.0%)    150    29.1k
+    #
+    # 30 IS THE KNEE and is the value here. Going 35 -> 30 buys 24% of the
+    # overlap for 2% of the houses; 30 -> 25 buys 3% more for another 2.5% of
+    # the houses, and it keeps costing after that. 70-110 is the band the
+    # `junction_skew_deg` comment names as what real plats do and would be the
+    # principled choice, but it is 9% of the plat for 6 points more overlap
+    # than 30 removes, and a street thinned by one house in eleven is its own
+    # defect. Set to 90.0 to turn the rule off and get the old plat back.
+    #
+    # WHAT 30 ACTUALLY GUARANTEES, which is narrower than the table above and
+    # is the point: overlap between two lots at a corner MORE than 30 degrees
+    # off square goes from 130 pairs / 26.3k m2 to 12 pairs / 209 m2, and the
+    # fence runs standing inside a lot across such a corner go from 119 to 8
+    # (4.2% of all runs to 0.3%). `tools/fence_check` asserts the second as
+    # `trespass_skew_frac`. The rest of the table moves because refusing a lot
+    # shifts every `rng` draw after it, not because the rule reached corners
+    # near square — it does not, on purpose.
+    "junction_skew_clear_deg": 30.0,
+    # ...and how much daylight those two lots must keep. This is the *pad*
+    # handed to :func:`_convex_overlap`, so 0.0 would mean only "they must not
+    # actually overlap" and a positive value asks for a gap as well. The lot
+    # lines are where the fences are struck and two fences a foot apart read as
+    # one fence drawn twice — `suburb_scene._FenceGrid._DOUBLE_M` calls
+    # anything inside 3 m doubled and drops the second — so a lot line that
+    # merely grazes its neighbour's still costs a fence. 2.0 m is well under
+    # the narrowest side yard `house_gap_m` (6 m) could ever produce, so it
+    # cannot refuse a lot that had real room.
+    "junction_skew_clear_m": 2.0,
+    # Rear space a pool plot ASKS FOR. It used to be the 9.5 m the pool itself
+    # occupies (2.5 m walk + a 4 m pool + 2.5 m walk) and that is the wrong
+    # question: granted exactly what it occupies, the lot came out fence-pool-
+    # fence with no garden round the water, and the trunk of any tree the yard
+    # pass could still fit stood within a couple of metres of the coping. 20 m
+    # buys the walk, the pool, a rear walk and ~8 m of lawn — the difference
+    # between a pool in a back garden and a pool that IS the back garden.
+    "pool_rear_m": 20.0,
+    # ...and what a pool actually NEEDS, which is a different number and has to
+    # stay one. The plat cannot always grant 20 m — a shallow or awkward block
+    # is bounded by `_probe_depth` and by the block polygon — and refusing a
+    # pool on every lot that came back at 14 would delete most of the 6%
+    # package rather than give it a bigger garden. `has_pool` tests against
+    # THIS, `modular_house.pool_at` re-clamps the water into whatever rear was
+    # actually granted, and the lawn is what varies in between. Matches
+    # `POOL_WALK_M + 4 + POOL_REAR_WALK_M` over there.
+    "pool_rear_min_m": 9.5,
+    # No TREE within this of a pool's water rectangle, measured from the rect
+    # EDGE. Not a crown-clearance number: the wildfire pass replaces every tree
+    # with a baked burnt archetype that scatters wood debris over a 7.5-10.5 m
+    # radius about the trunk (`disaster/vegetation.py` `_DEBRIS`, worst case
+    # 10.5 m at `fallen`/`stump`), and that debris is authored as loose
+    # geometry with no idea the water is there. At the old generic 2.0 m
+    # clearance the rubble landed IN the pool. 11.0 m clears the worst case
+    # with half a metre in hand. SHRUBS AND PROPS ARE NOT AFFECTED — they carry
+    # no debris, and a planter at the poolside is the point of a poolside.
+    # Read by `suburb_yardplan.plan`, `suburb_scene.build_open_planting` and
+    # the final sweep in `suburb_scene.generate_suburb_on_stage`; it lives here
+    # because this is where the other planting knobs live.
+    "pool_tree_clear_m": 11.0,
     # Platted lot depth, 85-125 ft, the band almost every US plat sits in. It
     # is SAMPLED and then trimmed to what the block can give, not simply taken
     # as deep as the block allows: these blocks are 100-200 m through, so
@@ -412,6 +587,191 @@ def _obb_overlap(a, b, pad=0.0):
             if amax + pad < bmin or bmax + pad < amin:
                 return False
     return True
+
+
+def _convex_overlap(a, b, pad=0.0):
+    """Separating-axis test between two CONVEX polygons of any vertex count.
+
+    :func:`_obb_overlap` takes only two normals per shape because a rectangle
+    has only two; a wedge lot is a trapezoid and its four edges point four
+    ways, so the rectangle version reports a separation that is not there. Same
+    contract otherwise, *pad* included — a negative *pad* asks whether they
+    overlap by more than that much, which is what "a lot may clip its
+    neighbour's corner, but not stand in its garden" needs.
+    """
+    for poly in (a, b):
+        n = len(poly)
+        for i in range(n):
+            ex = poly[(i + 1) % n][0] - poly[i][0]
+            ey = poly[(i + 1) % n][1] - poly[i][1]
+            if abs(ex) < 1e-12 and abs(ey) < 1e-12:
+                continue
+            nv = _unit((-ey, ex))
+            amin = min(_dot(nv, p) for p in a)
+            amax = max(_dot(nv, p) for p in a)
+            bmin = min(_dot(nv, p) for p in b)
+            bmax = max(_dot(nv, p) for p in b)
+            if amax + pad < bmin or bmax + pad < amin:
+                return False
+    return True
+
+
+# WHAT COUNTS AS A CORNER OF THE BLOCK BOUNDARY, AND HOW FAR EITHER SIDE OF
+# ONE THE SKEW RULE LOOKS.
+#
+# `junction_skew_clear_deg` is a test on the angle between two lots' frontages,
+# and that angle ALONE cannot say what it is looking at. Four different things
+# land in the same range:
+#
+#   two lots on ONE face                 normals parallel     "corner" 180
+#   two lots either side of a JUNCTION   normals 90 apart     "corner"  90
+#   two lots on a CURVING face, 44 m     normals up to 84     "corner"  96  (!)
+#   two lots BACK TO BACK across a       normals opposite     "corner"   0
+#     block too shallow for two tiers
+#
+# The third is the one that bites: `min_radius_m` for a local street is 30 m
+# and a loose lot is 44 m wide, so two CONSECUTIVE lots on a bend can have
+# their normals 84 degrees apart with no junction anywhere near them, and to a
+# test that only sees normals they look exactly like a right-angle corner.
+# Refusing them cost 31% of the houses on seeds 3/5/8 — measured, and the
+# reason this is a two-part test.
+#
+# So the pair is qualified on the BOUNDARY first: the two stations must have a
+# real corner of the ring between them. A corner is a vertex that turns more
+# than `_SKEW_CORNER_TURN_DEG` in one step. `suburb_net` samples a street every
+# ~6 m and holds it to a 30 m radius, so a curve turns at most ~11.5 degrees
+# per vertex by construction and 20-25 in the measured worst case (the mitres
+# `offset_polygon` leaves at a junction blob); a street meeting another turns
+# 52-128 at a single vertex. 30 degrees sits in the gap. Vertices closer
+# together than `_SKEW_CORNER_MERGE_M` and turning the same way are summed
+# first, because a junction is sometimes mitred into two or three vertices a
+# metre apart and each carries only a share of the turn.
+#
+# ...and there has to be AT LEAST ONE of them between the two stations, walked
+# the short way. That is the test that takes the same-face case away, and it is
+# the only part of this that is clean. Measured over seeds 3/5/8, every
+# overlapping lot pair cross-tabulated by corners-between against the corner
+# angle, as pairs/m2:
+#
+#   corners       theta 0-20   20-40    40-70   70-110  110-130  130-165   165+
+#     0                  -        -        -        -        -    4/412  194/3602
+#     1                  -        -    6/2196 43/10824  30/7423  7/1806   1/106
+#     2                  -    8/799  29/4598 69/14221  11/3168    1/288       -
+#     3+           11/2251  17/2671 86/16066  20/3679        -        -       -
+#
+# Read the first row: with NO corner between them, a pair is at 130-180 degrees
+# and averages 19 m2 — two lots on one face, overlapping by a sliver where the
+# street curves. That is not a corner and must not be refused.
+#
+# The COUNT beyond one is not clean and is not used. A block ring carries about
+# eight detected corners against three to six faces — mitre spikes off
+# `offset_polygon`, and tight bends that turn 30 degrees at one vertex — so
+# genuine adjacent-face pairs turn up under 2 and 3 as readily as under 1.
+#
+# TRIED AND REJECTED: an arclength reach instead of a corner count, on the
+# reasoning that the two lots either side of a corner are a lot width apart.
+# They are not. On a wedge-shaped block two long faces converge at a sharp apex
+# and the lots that end up inside each other are 100-260 m apart along the
+# boundary and nowhere near the apex — measured on seed 3, a 90 m reach saw
+# only 54 of the 108 overlapping corner pairs and 12.2k of their 19.2k m2, and
+# the ones it missed were the biggest (a 1,019 m2 pair at 57 degrees, 149 m of
+# boundary apart). Counting corners has no length in it at all, and the overlap
+# test is its own distance filter: two lots 300 m apart do not overlap.
+#
+# ...and finally on the ANGLE BAND, which is a guard rather than the rule. Two
+# lots BACK TO BACK across a block too shallow for two tiers have their normals
+# opposite, which reads as a 0-degree corner and is nothing of the kind — 11
+# pairs over the three seeds, bottom-left of the table. Their rear yards really
+# do interpenetrate, and this deliberately does not touch it: that is a shallow
+# BLOCK, not a skewed junction, and refusing one of them would delete a whole
+# street face rather than a corner. Left for whoever fixes the block-depth
+# question. The upper limit is the same guard against a corner detected inside
+# what is really one face.
+_SKEW_CORNER_TURN_DEG = 30.0
+_SKEW_CORNER_MERGE_M = 3.5
+_SKEW_THETA_MIN = 20.0
+_SKEW_THETA_MAX = 160.0
+
+
+def _turn_corners(poly, cum, runs):
+    """Arclengths at which the block boundary turns a real corner.
+
+    Turnaround vertices are excluded outright. A cul-de-sac head IS a corner at
+    each end of its arc, but the ground either side of that corner is already
+    governed by the wedge machinery — `_lot_jobs` plats the head first and
+    `wedge_yield` refuses the stem lot that stands in it — and letting the skew
+    rule refuse it as well would double-count the same yield under two names.
+    """
+    n = len(poly)
+    if n < 3:
+        return ()
+    skip = set()
+    for (_spec, i0, i1) in (runs or ()):
+        i = i0
+        for _ in range(n):
+            skip.add(i)
+            if i == i1:
+                break
+            i = (i + 1) % n
+        skip.add((i0 - 1) % n)
+        skip.add((i1 + 1) % n)
+    turn = []
+    for i in range(n):
+        d0 = _sub(poly[i], poly[i - 1])
+        d1 = _sub(poly[(i + 1) % n], poly[i])
+        if _dot(d0, d0) < 1e-18 or _dot(d1, d1) < 1e-18:
+            turn.append(0.0)
+            continue
+        d0, d1 = _unit(d0), _unit(d1)
+        turn.append(math.degrees(math.atan2(d0[0] * d1[1] - d0[1] * d1[0],
+                                            _dot(d0, d1))))
+    out, used = [], [False] * n
+    for i in range(n):
+        if used[i] or i in skip or abs(turn[i]) < 1.0:
+            continue
+        used[i] = True
+        grp, tot, j = [i], turn[i], i
+        for _ in range(n):
+            k = (j + 1) % n
+            if (used[k] or k in skip or abs(turn[k]) < 1.0
+                    or turn[k] * turn[i] <= 0.0
+                    or _dist(poly[j], poly[k]) > _SKEW_CORNER_MERGE_M):
+                break
+            used[k] = True
+            grp.append(k)
+            tot += turn[k]
+            j = k
+        if abs(tot) >= _SKEW_CORNER_TURN_DEG:
+            out.append(cum[max(grp, key=lambda q: abs(turn[q]))])
+    return tuple(sorted(out))
+
+
+def _across_corner(a, b, perim, corners):
+    """Is there a corner of the boundary between stations *a* and *b*?
+
+    Walked the SHORT way round. See the block comment above: a pair with none
+    is two lots on ONE face and is not this rule's business, whatever angle
+    the face has curved through between them.
+    """
+    if not corners or perim <= 0.0:
+        return False
+    lo, hi = (a, b) if a <= b else (b, a)
+    if hi - lo <= perim - (hi - lo):
+        return any(lo < cs < hi for cs in corners)
+    return any(cs > hi or cs < lo for cs in corners)
+
+
+def _corner_deg(n_a, n_b):
+    """The angle the two frontages meet at, given their INWARD normals.
+
+    180 for two lots on one face, 90 for a square corner, 52 for the sharpest
+    corner `junction_skew_deg` can make and 128 for the bluntest. Reported off
+    the normals rather than off the tangents because a tangent is only defined
+    up to its sign — `u` is the frontage direction of the walk, so two faces
+    walked in opposite senses would compare as their own supplement.
+    """
+    d = max(-1.0, min(1.0, _dot(_unit(n_a), _unit(n_b))))
+    return 180.0 - math.degrees(math.acos(d))
 
 
 def _norm_discs(v):
@@ -782,12 +1142,298 @@ def _inward(poly, p, t):
     return n
 
 
+# ---------------------------------------------------------------------------
+# cul-de-sac heads: frontage that is an ARC, and the WEDGE LOTS hung off it
+# ---------------------------------------------------------------------------
+# A TURNAROUND IS NOT A STREET, AND A LOT ON ONE IS NOT A RECTANGLE.
+#
+# `suburb_net._arc_cap_bulbs` puts the 17.64 m turnaround arc into the block
+# boundary, which is what gives the head of a cul-de-sac any frontage at all.
+# Walking that arc with the ordinary arclength rule then plats a RECTANGLE per
+# station — tangent frontage, parallel side lines, inward normal at the
+# station's own midpoint — and on a boundary that turns 330 degrees in 100 m
+# that is wrong in every way at once:
+#
+#   * the side lines of two neighbours are parallel to two DIFFERENT normals,
+#     33 degrees apart on a five-lot head, so consecutive lot rectangles cross
+#     each other near the kerb and leave a widening wedge of nobody's land at
+#     the back. Both defects are drawn: overlapping front fences, and a rear
+#     fence ending in mid-air.
+#   * the front lot line is a chord of the arc, so it CUTS THE PAVING — 2.8 m
+#     of it on a five-lot head, more on a four — and `_clip_seg_disc` then has
+#     to take the front fence out again, which is why bulbs came out fenced on
+#     three sides.
+#   * the deep half of the rectangle points wherever the station's normal
+#     pointed, not away from the turnaround, so a lot at the throat plats its
+#     back yard down the stem carriageway.
+#
+# A real plat does the obvious thing instead: the side lines are RADII of the
+# turnaround, so they converge on its centre, are shared exactly between
+# neighbours, and the lot is a pie wedge — narrow at the kerb (18-25 m of arc)
+# and wider at the rear, which is also why the house fits even though the
+# frontage looks short. Everything downstream follows from the frame:
+#
+#     n  = the radius at the lot's mid-angle, pointing AWAY from the bulb
+#     u  = the tangent there, so the house yaw faces the turnaround centre
+#     side lines   along the two bounding radii
+#     front line   the arc itself, never a chord across it
+#     drive        radial, from the house front to the PAVED radius
+#
+# The count is chosen, not stumbled into: the arclength walk would issue as
+# many lots as the sampled width happened to allow, and the shipped preset
+# samples 30-44 m — one and a half lots round a whole turnaround. So the head
+# is platted as N EQUAL WEDGES with N picked from the frontage the lots
+# actually get, which is measured at the house rather than at the kerb.
+
+
+def _bulb_runs(poly, bulbs, tol=0.6, min_run=4):
+    """Which boundary vertices are a turnaround kerb, as ``(spec, i0, i1)``.
+
+    `suburb_net.blocks_from_faces` publishes one entry per bulb it spliced into
+    this block (``blk["bulbs"]``), so the centre and the radius are known
+    exactly and the run is just the vertices sitting on that circle. It is
+    RE-FOUND here rather than carried as indices because two bulbs on one block
+    splice one after the other, and the second splice renumbers the first.
+
+    ``i1`` may be less than ``i0`` — the run wraps the ring's start, which is
+    an artefact of where the face traversal happened to begin. `_rotate_ring`
+    is what takes that case away.
+    """
+    n = len(poly)
+    out = []
+    for spec in (bulbs or ()):
+        try:
+            c = (float(spec["c"][0]), float(spec["c"][1]))
+            r = float(spec["r"])
+        except (TypeError, KeyError, IndexError, ValueError):
+            continue
+        on = [abs(_dist(q, c) - r) < tol for q in poly]
+        if not any(on) or all(on):
+            continue
+        start = next((i for i in range(n) if on[i] and not on[(i - 1) % n]),
+                     None)
+        if start is None:
+            continue
+        run = [start]
+        while on[(run[-1] + 1) % n] and len(run) < n:
+            run.append((run[-1] + 1) % n)
+        if len(run) < min_run:
+            continue
+        out.append((spec, run[0], run[-1]))
+    return out
+
+
+def _rotate_ring(poly, frontage, k):
+    """Re-start the boundary at vertex *k*, frontage flags with it.
+
+    The arclength walk is linear from 0 to the perimeter, so an arc that
+    straddles the ring's start would be platted as two half-turnarounds with a
+    seam down the middle. Where the ring starts carries no meaning — the face
+    traversal picked it — so it is simply moved.
+    """
+    n = len(poly)
+    k %= max(1, n)
+    if k == 0:
+        return poly, frontage
+    out = list(poly[k:]) + list(poly[:k])
+    if frontage is not None and len(frontage) == n:
+        frontage = list(frontage[k:]) + list(frontage[:k])
+    return out, frontage
+
+
+def _arc_record(poly, cum, spec, i0, i1, discs, want_w, setback,
+                min_kerb_m=11.0, n_lo=4, n_hi=7, min_sweep=1.2):
+    """One turnaround as a platting job: the span, the sweep and HOW MANY lots.
+
+    *want_w* is the frontage this block's district would have given a lot on a
+    straight street, and it is compared against the arc AT THE HOUSE — radius
+    plus setback — not at the kerb. That is the whole reason a cul-de-sac lot
+    can be 20 m at the kerb and still take a 14 m house: the wedge is half as
+    wide again by the time it reaches the front wall. Comparing at the kerb
+    instead gives three lots round a head that comfortably holds five.
+
+    ``r`` is the radius the lots are struck from, which is the boundary arc
+    unless the caller's keep-out disc is bigger — a preset may ask for more
+    front yard than the 3 m verge `_arc_cap_bulbs` uses, and lots must start
+    outside whatever it asked for or every house on the head is refused.
+
+    Returns ``None`` when this is not a turnaround worth platting radially: a
+    sliver of arc left over at a block corner is better walked as ordinary
+    frontage than cut into three wedges of nothing.
+    """
+    c = (float(spec["c"][0]), float(spec["c"][1]))
+    r = float(spec["r"])
+    for (dc, dr) in (discs or ()):
+        if _dist(dc, c) < 1.0:
+            r = max(r, dr)
+    n = len(poly)
+    ang = [math.atan2(q[1] - c[1], q[0] - c[0]) for q in poly]
+    sweep, i = 0.0, i0
+    while i != i1:
+        j = (i + 1) % n
+        d = ang[j] - ang[i]
+        while d > math.pi:
+            d -= 2.0 * math.pi
+        while d < -math.pi:
+            d += 2.0 * math.pi
+        sweep += d
+        i = j
+    if abs(sweep) < min_sweep:
+        return None
+    s0, s1 = cum[i0], cum[i1]
+    if s1 - s0 < 20.0:
+        return None
+    # How many lots. Measured where the houses stand, then pulled back until
+    # every lot still has a plattable frontage at the kerb. A FULL TURNAROUND
+    # gets the count a real one has whatever the district asks for — 4 to 7
+    # round the head, which is what the 96 ft bulb was dimensioned to serve.
+    # An estate district would otherwise ask for two and a half 89 m frontages
+    # and get three lots the size of the block, and that is not what a
+    # large-lot cul-de-sac looks like: the wedge is how a big lot gets a
+    # modest frontage, not a reason to plat fewer of them.
+    lots = int(round((r + setback) * abs(sweep) / max(want_w, 1.0)))
+    full = abs(sweep) >= 4.5
+    lots = max(n_lo if full else 1, min(n_hi, lots))
+    while lots > (n_lo if full else 1) and r * abs(sweep) / lots < min_kerb_m:
+        lots -= 1
+    return {"c": c, "r": r, "rp": float(spec.get("r_pave", r)),
+            "s0": s0, "s1": s1, "a0": ang[i0], "sweep": sweep, "n": lots}
+
+
+def _arc_at(arcs, s, eps=1e-6):
+    """The turnaround whose frontage covers arclength *s*, or ``None``."""
+    for a in arcs:
+        if a["s0"] - eps <= s < a["s1"] - eps:
+            return a
+    return None
+
+
+def _next_arc_s(arcs, s):
+    """Arclength at which the next turnaround's frontage begins, or ``None``.
+
+    What it is for: a lot issued just before a bulb must not be allowed to run
+    its frontage into the arc, because the arc is already spoken for by the
+    wedges. Stopping the straight lot short is the transition — no overlap, and
+    the two platting rules meet at one station rather than fighting over a span.
+    """
+    nxt = None
+    for a in arcs:
+        if a["s0"] > s and (nxt is None or a["s0"] < nxt):
+            nxt = a["s0"]
+    return nxt
+
+
+def _wedge_at(arc, s):
+    """The wedge of *arc* that starts at arclength *s*.
+
+    ``a_l``/``a_r`` are the LEFT and RIGHT bounding radii in the walk's own
+    sense of left and right (-u and +u), whichever way round the arc the ring
+    happens to run, so the lot corners come out in the order every other lot on
+    the block uses.
+    """
+    span = arc["s1"] - arc["s0"]
+    if span <= 1e-6:
+        return None
+    k = int((s - arc["s0"]) / span * arc["n"] + 1e-6)
+    k = max(0, min(arc["n"] - 1, k))
+    a_l = arc["a0"] + arc["sweep"] * (float(k) / arc["n"])
+    a_r = arc["a0"] + arc["sweep"] * (float(k + 1) / arc["n"])
+    return {"arc": arc, "k": k,
+            "a_l": a_l, "a_r": a_r, "a_m": 0.5 * (a_l + a_r),
+            "half_ang": abs(arc["sweep"]) / (2.0 * arc["n"]),
+            "sgn": 1.0 if arc["sweep"] >= 0.0 else -1.0,
+            "s_end": arc["s0"] + span * (float(k + 1) / arc["n"])}
+
+
+def _ray(c, r, a):
+    return (c[0] + r * math.cos(a), c[1] + r * math.sin(a))
+
+
+def _lot_jobs(perim, arcs, rng, lw, d_lot, start, min_split_m=12.0, cap=4000):
+    """Every lot this block will be offered, as ``(station, width, wedge)``.
+
+    THE HEADS COME FIRST, and that ordering is the point of the function.
+    Lots are issued in list order and each one is refused if it overlaps
+    something already standing, so whatever is platted first wins the contested
+    ground. Walking the ring in arclength order gives that ground to whichever
+    lot the traversal happened to reach first — which, on a block with a
+    cul-de-sac notched into it, is a stem lot: the stem walls run past the
+    throat, a 30-44 m frontage there puts a big house within 30 m of the tip,
+    and the first two wedges of the head were then refused for overlapping it.
+    Measured on the scene `tools/fence_png.py` builds over seeds 3, 5 and 8, 58
+    turnarounds: platted in ring order the heads took 107 houses between them,
+    three of them none at all; platted first, 230 and none bald.
+
+    A cul-de-sac head is the feature the eye goes to and the stem is ordinary
+    street, so the head is platted first and the stem takes what is left. The
+    walk then skips the arcs it already covered, and a straight lot that would
+    run into one is cut short at its start — or dropped, if what is left of it
+    is not a lot. Either way the two rules meet at one station.
+    """
+    jobs = []
+    for a in arcs:
+        span = a["s1"] - a["s0"]
+        for k in range(a["n"]):
+            s_k = a["s0"] + span * (float(k) / a["n"])
+            w = _wedge_at(a, s_k)
+            if w is not None:
+                jobs.append((s_k, span / a["n"], w))
+    s = start
+    while s < perim and len(jobs) < cap:
+        here = _arc_at(arcs, s)
+        if here is not None:
+            s = here["s1"]
+            continue
+        width = rng.uniform(*lw) * d_lot
+        nxt = _next_arc_s(arcs, s)
+        if nxt is not None and s + width > nxt:
+            width = nxt - s
+            if width < min_split_m:
+                s = nxt
+                continue
+        jobs.append((s, width, None))
+        s += width
+    return jobs
+
+
+def _probe_wedge(poly, c, r, a_l, a_r, lo, hi, step=1.0):
+    """How deep this wedge may run before it leaves the block.
+
+    Same contract as :func:`_probe_depth`, tested on the two bounding RADII and
+    the mid-ray rather than on a rectangle's corners — with one difference that
+    matters at the throat, where the arc meets the stem walls: it returns
+    ``None`` when the lot cannot even reach *lo*. The rectangular probe is
+    allowed to hand back its minimum regardless, because a shallow lot on a
+    street is merely shallow; a wedge at the throat that is granted its minimum
+    anyway has platted its back yard down the cul-de-sac's own carriageway.
+    """
+    a_m = 0.5 * (a_l + a_r)
+
+    def ok(d):
+        for a in (a_l, a_m, a_r):
+            if not point_in_polygon(poly, _ray(c, r + d, a)):
+                return False
+        return True
+
+    if not ok(lo):
+        return None
+    best, d = lo, lo
+    while d < hi - 1e-9:
+        d = min(d + step, hi)
+        if ok(d):
+            best = d
+        else:
+            break
+    return best
+
+
 def parcel_blocks(blocks, rng, cfg=None):
     """Lots, houses, drives and trees for every block.
 
     Returns ``[{"block": poly, "density": name, "houses": [...],
     "drives": [...], "trees": [...], "garages_rejected": n,
-    "keepout_rejected": n, "size_rejected": n}, ...]`` where each house is
+    "keepout_rejected": n, "size_rejected": n, "wedge_lots": n,
+    "wedge_yield": n, "skew_yield": n}, ...]`` where each house is
     ``{"c": (x, y), "w": w, "d": d, "u": (ux, uy), "corners": [...]}``
     plus the lot it stands on: ``lot_corners`` (front_left, front_right,
     rear_right, rear_left), ``lot_depth``, ``fence_segs``
@@ -796,6 +1442,30 @@ def parcel_blocks(blocks, rng, cfg=None):
     GROUND, not an asset request; see `garage_w_m`). With ``cfg["house_sizes"]``
     supplied, ``size_index`` says which measured entry the footprint came from
     and the caller is expected to place that asset.
+
+    A block whose DISTRICT drew `ROW_CLASS` is not platted into lots at all:
+    `row_housing.plan_cluster` sites one or two courts of attached row homes
+    on it and the block reports ``clusters`` (the court, its bay schedule in
+    `suburb_park.parking_info`'s shape, the single access drive, the footway to
+    every door and the communal green) with an EMPTY ``drives`` list. Its house
+    records are this same dict with ``garage: None``, no ``fence_segs``,
+    ``has_pool: False`` and three extra keys — ``row``, ``cluster`` and
+    ``palette``. Ordinary blocks carry ``clusters: ()``. See `row_share`.
+
+    A lot on a cul-de-sac head is a WEDGE and not a rectangle — ``lot_corners``
+    is then a trapezoid whose side lines are radii of the turnaround, and its
+    front edge is the CHORD of an arc the fences follow rather than a straight
+    lot line. ``wedge_lots`` counts them; ``wedge_yield`` counts the street lots
+    refused for standing in one. See the block comment above
+    :func:`_bulb_runs`, and `suburb_net.blocks_from_faces` for ``blk["bulbs"]``.
+
+    ``skew_yield`` counts the street lots refused for standing in ANOTHER
+    STREET LOT at a block corner more than ``junction_skew_clear_deg`` off
+    square. It is the only one of these counts that is a deliberate thinning
+    rather than a failure to fit something: `suburb_net` meets its streets at
+    up to 38 degrees off the normal on purpose, and two rectangles hung off two
+    frontages that meet at 52 degrees run through each other. Corners near
+    square are left alone. See `junction_skew_clear_deg` in DEFAULTS.
     """
     c = dict(DEFAULTS)
     c.update(cfg or {})
@@ -807,8 +1477,20 @@ def parcel_blocks(blocks, rng, cfg=None):
     sts = _rng_pair(c["street_tree_spacing_m"], (16.0, 30.0))
     ld = _rng_pair(c["lot_depth_m"], (26.0, 38.0))
     min_depth = float(c["min_lot_depth_m"])
-    POOL_REAR_M = float(c.get("pool_rear_m", 9.5))
+    POOL_REAR_M = float(c.get("pool_rear_m", 20.0))
+    # What the pool needs, as against what its lot asks for. See the two
+    # entries in DEFAULTS: the ask buys the garden, the minimum is what
+    # decides whether there is a pool at all.
+    POOL_REAR_MIN_M = min(POOL_REAR_M, float(c.get("pool_rear_min_m", 9.5)))
     max_depth = max(min_depth, float(c["max_lot_depth_m"]))
+    # HOW FAR OFF SQUARE A CORNER MAY BE, and how much daylight its two lots
+    # must keep. Clamped at 90 because that is the whole range there is —
+    # a corner cannot be more than 90 degrees off square — so 90 reads as "off",
+    # and the test below short-circuits on it rather than measuring every pair
+    # to conclude nothing. See both entries in DEFAULTS.
+    skew_deg = min(90.0, max(0.0, float(c.get("junction_skew_clear_deg",
+                                              30.0))))
+    skew_pad = float(c.get("junction_skew_clear_m", 2.0))
     gap = float(c["house_gap_m"])
     dw = float(c["driveway_w_m"])
     g_w = float(c["garage_w_m"])
@@ -844,8 +1526,20 @@ def parcel_blocks(blocks, rng, cfg=None):
         if isinstance(blk, dict):
             poly = blk["poly"]
             faces_street = blk.get("frontage")
+            bulb_specs = blk.get("bulbs") or ()
         else:
             poly, faces_street = blk, None
+            bulb_specs = ()
+        # THE TURNAROUNDS ON THIS BLOCK, before anything is measured off the
+        # ring. Where the ring starts is arbitrary, and an arc that straddles
+        # that start would be walked as two pieces; re-starting the ring past
+        # the last one costs nothing and takes the case away entirely. See
+        # `_rotate_ring`.
+        runs = _bulb_runs(poly, bulb_specs)
+        if any(i1 < i0 for (_sp, i0, i1) in runs):
+            _, _, i_end = max(runs, key=lambda t: t[2])
+            poly, faces_street = _rotate_ring(poly, faces_street, i_end + 1)
+            runs = _bulb_runs(poly, bulb_specs)
         ring = list(poly) + [poly[0]]
         cum = _ring_cum(ring)
         # The bulbs that can possibly reach this block. Every candidate on the
@@ -873,11 +1567,18 @@ def parcel_blocks(blocks, rng, cfg=None):
         # recognisable sub-areas instead of per-block noise.
         bcx = sum(pxs) / len(pxs)
         bcy = sum(pys) / len(pys)
-        dens = dens_at((bcx, bcy))
-        d_lot = float(DENSITY[dens]["lot"])
-        d_set = float(DENSITY[dens]["setback"])
-        d_dep = float(DENSITY[dens].get("depth", 1.0))
-        d_size = float(DENSITY[dens].get("size", 1.0))
+        dens, dens_extra = dens_at((bcx, bcy))
+        # A ROW-HOME DISTRICT HAS NO DENSITY MULTIPLIERS, so it borrows
+        # `normal`'s for the handful of things that still run on a cluster
+        # block — the cul-de-sac wedge sizing above and the depth cap below.
+        # Nothing on the cluster path reads them; they exist so a block that
+        # tries to be a cluster and fails can plat as an ordinary one without a
+        # second lookup.
+        _dm = DENSITY.get(dens) or DENSITY["normal"]
+        d_lot = float(_dm["lot"])
+        d_set = float(_dm["setback"])
+        d_dep = float(_dm.get("depth", 1.0))
+        d_size = float(_dm.get("size", 1.0))
         # The depth CAP is a policy number, so it scales with the district too.
         # Leaving it at the tract-wide 40 m was silently un-doing the estate
         # multipliers: a 2.4x setback plus a 20 m house needs 50 m of lot
@@ -886,11 +1587,36 @@ def parcel_blocks(blocks, rng, cfg=None):
         # not one pool. `_probe_depth` still bounds this by real geometry.
         blk_max_depth = max(min_depth, max_depth * d_dep)
 
+        # ...and the turnarounds as platting jobs, which needs the district:
+        # how many wedges a head takes is a question about how wide a lot this
+        # district builds. See `_arc_record`.
+        want_w = 0.5 * (lw[0] + lw[1]) * d_lot
+        arcs = []
+        for (bspec, i0, i1) in runs:
+            rec = _arc_record(poly, cum, bspec, i0, i1, blk_discs, want_w,
+                              0.5 * (sb[0] + sb[1]) * d_set)
+            if rec is not None:
+                arcs.append(rec)
+
         perim = polyline_length(ring)
+        # WHERE THIS BOUNDARY TURNS A CORNER, once, before any lot is offered.
+        # The skew rule needs it for every candidate pair and it is a property
+        # of the ring, not of the lot. Skipped entirely when the rule is off.
+        skew_corners = (_turn_corners(poly, cum, runs) if skew_deg < 90.0
+                        else ())
         if perim < 40.0:
+            # Too small for anything, a cluster included — so a row district
+            # that lands here is recorded as a refusal and the block reports
+            # the ordinary class, rather than showing up in the stats as a
+            # row-home block with no row homes on it.
+            _row_tiny = 1 if dens == ROW_CLASS else 0
+            dens = "normal" if _row_tiny else dens
             out.append({"block": poly, "density": dens, "houses": [],
-                        "drives": [], "trees": [], "garages_rejected": 0,
-                        "keepout_rejected": 0, "size_rejected": 0})
+                        "drives": [], "trees": [], "clusters": (),
+                        "garages_rejected": 0,
+                        "keepout_rejected": 0, "size_rejected": 0,
+                        "wedge_yield": 0, "skew_yield": 0, "wedge_lots": 0,
+                        "row_rejected": _row_tiny})
             continue
 
         houses, drives, trees = [], [], []
@@ -900,22 +1626,81 @@ def parcel_blocks(blocks, rng, cfg=None):
         n_reject = 0
         n_keepout = 0                # lots lost to a turnaround
         n_nofit = 0                  # ...and to a frontage nothing measured fits
-        s = rng.uniform(0.0, lw[0])
-        guard = 0
+        n_wedge_yield = 0            # ...and to a cul-de-sac head's wedge lots
+        n_skew_yield = 0             # ...and to a block corner well off square
+        n_row_reject = 0             # ...and a row district that would not fit
+        wedge_lots = []              # the wedge quads already platted here
+        # Street lots already platted here, as `(station, inward normal, quad)`.
+        # Kept beside `houses` rather than read back off it because the skew
+        # test needs the boundary STATION, which the house record does not
+        # carry, and because a wedge lot must not be in it — a wedge's normal is
+        # a turnaround radius, not a frontage normal, so comparing the two would
+        # report a corner where there is only a cul-de-sac.
+        street_lots = []
+        clusters = ()
+
+        # -- A ROW-HOME BLOCK IS NOT PLATTED INTO LOTS AT ALL -----------------
+        # The whole block goes to `row_housing`, which sites one or two courts
+        # with their rows and hands back house records in this module's own
+        # shape. A block is NOT half cluster and half street lots: a
+        # development boundary in real platting runs along a street or a
+        # recorded plat line, not down the middle of a block face, and mixing
+        # the two would also mean the lot walk had to test every station
+        # against a court it cannot see.
+        #
+        # WHEN IT WILL NOT FIT — too small a block, a catalogue with none of
+        # the mix's styles in it, a turnaround eating the only frontage — the
+        # block falls back to ORDINARY platting at `normal` density and says so
+        # in `row_rejected`. `normal` rather than a fresh draw because the
+        # district's zoning question was never asked: the seed said "row home",
+        # not "tight" or "estate", and inventing an answer would also consume
+        # an `rng` draw that the successful case does not.
+        if dens == ROW_CLASS:
+            rcfg = dict(c.get("row_housing") or {})
+            rcfg.update(mix=(dens_extra or {}).get("mix"),
+                        palette_set=(dens_extra or {}).get("palette_set"),
+                        house_sizes=c.get("house_sizes"),
+                        house_styles=c.get("house_styles"),
+                        front_openings=openings_fn,
+                        keepout_discs=blk_discs)
+            plan = rh.plan_cluster(poly, faces_street, rng, rcfg)
+            if plan is None:
+                n_row_reject = 1
+                dens = "normal"
+            else:
+                clusters = plan["clusters"]
+                houses = list(plan["houses"])
+
         run_lo, run_hi = _rng_pair(c.get("archetype_run", [4, 9]), (4.0, 9.0))
         arch = _draw_archetype(rng, dens)
         run_left = int(rng.uniform(run_lo, run_hi + 0.999))
-        while s < perim and guard < 4000:
-            guard += 1
-            width = rng.uniform(*lw) * d_lot
-            st = s
-            s += width
+        # EVERY LOT THIS BLOCK WILL BE OFFERED, IN THE ORDER IT IS OFFERED —
+        # turnaround heads before the streets that lead to them. See
+        # :func:`_lot_jobs` for why the order is not simply arclength. A block
+        # that took a cluster is offered NOTHING: its ground is spoken for.
+        for (st, width, wedge) in (() if clusters else
+                                   _lot_jobs(perim, arcs, rng, lw, d_lot,
+                                             rng.uniform(0.0, lw[0]))):
+            arc = wedge["arc"] if wedge is not None else None
+            s = st + width
             mid = st + width / 2.0
             if not is_frontage(mid):
                 continue
-            p = point_at(ring, mid)
-            t = tangent_at(ring, mid)
-            n = _inward(poly, p, t)
+            if wedge is not None:
+                # The wedge's own frame, struck from the turnaround centre
+                # rather than read off the boundary: `n` is the radius at the
+                # lot's mid-angle pointing away from the bulb, `u` the tangent
+                # there — so the house yaw faces the turnaround, which is the
+                # one thing every house round a cul-de-sac has in common.
+                a_c, a_r0 = arc["c"], arc["r"]
+                p = _ray(a_c, a_r0, wedge["a_m"])
+                n = (math.cos(wedge["a_m"]), math.sin(wedge["a_m"]))
+                u = _mul(_perp(n), wedge["sgn"])
+                t = u
+            else:
+                p = point_at(ring, mid)
+                t = tangent_at(ring, mid)
+                n = _inward(poly, p, t)
 
             # A lot needs real depth behind the setback. Probing the inward ray
             # is what keeps houses off the thin necks of an awkward block
@@ -936,11 +1721,24 @@ def parcel_blocks(blocks, rng, cfg=None):
             # The extra frontage an estate lot buys is side yard, and the extra
             # depth behind the house is the back yard the user is asking for.
             setback = rng.uniform(*sb) * d_set
+            # HOW MUCH FRONTAGE THE HOUSE ACTUALLY GETS. On a street that is
+            # the platted width; on a wedge the side lines diverge, so the
+            # building line is wider than the kerb line by the ratio of their
+            # radii — a 20 m frontage on a 17.6 m turnaround gives 29 m at a
+            # 8 m setback, which is the difference between a cul-de-sac that
+            # holds five houses and one that holds three. Measured as the CHORD
+            # between the two side lines at the setback radius, so it is a real
+            # distance across the lot and not an arclength that overstates it.
+            if wedge is not None:
+                build_w = 2.0 * (arc["r"] + setback) * math.sin(
+                    min(wedge["half_ang"], math.pi / 2.0))
+            else:
+                build_w = width
             if sizes:
                 # The catalogue is the authority on how big a house is. See
                 # `house_sizes` in DEFAULTS and :func:`_pick_size`.
                 size_i = _pick_size(sizes, size_order, rng,
-                                    width - gap * 0.5,
+                                    build_w - gap * 0.5,
                                     float(spec["scale"]) * d_size)
                 if size_i is None:
                     n_nofit += 1
@@ -948,7 +1746,7 @@ def parcel_blocks(blocks, rng, cfg=None):
                 h_w, h_d = sizes[size_i]
             else:
                 size_i = None
-                h_w = min(rng.uniform(*hw) * spec["scale"], width - gap)
+                h_w = min(rng.uniform(*hw) * spec["scale"], build_w - gap)
                 h_d = rng.uniform(*hd) * spec["scale"]
                 if h_w < 7.0:
                     continue
@@ -975,10 +1773,6 @@ def parcel_blocks(blocks, rng, cfg=None):
                    for g in garages):
                 continue
 
-            # This house may stand on a line an earlier lot already fenced —
-            # see :func:`_clip_seg` on why lots overlap at all.
-            _clip_standing(fence_lines, corners)
-
             # --- the lot rectangle -------------------------------------------
             # Frontage width along the kerb, `lot_depth` inward, left/right
             # taken against the frontage tangent: left = -u, right = +u. Never
@@ -992,26 +1786,159 @@ def parcel_blocks(blocks, rng, cfg=None):
             # granted 4 m of rear and the pool needed 9.
             want_pool = spec.get("pool", 0.0) > 0.0
             rear_need = POOL_REAR_M if want_pool else 4.0
-            want_depth = min(blk_max_depth,
+            # ...AND THE CAP HAS TO MOVE WITH THE ASK. `blk_max_depth` is the
+            # tract cap scaled by the district's own `depth` multiplier, which
+            # on a tight block is BELOW the 20 m rear a pool now asks for — so
+            # the request was granted by `max(...)` and clipped straight back
+            # off by `min(...)`, and the lot came back too shallow for the
+            # thing it was platted for. A pool lot is allowed the tract-wide
+            # `max_lot_depth_m` whatever district it sits in: it is the 6%
+            # package, and being the deep lot on the street is what it is for.
+            # `_probe_depth` still bounds this by the real block geometry, so
+            # nothing here can push a lot out over the far kerb.
+            depth_cap = max(blk_max_depth, max_depth) if want_pool \
+                else blk_max_depth
+            want_depth = min(depth_cap,
                              max(min_depth, setback + h_d + rear_need,
                                  rng.uniform(*ld) * d_dep))
-            lot_depth = _probe_depth(poly, p, n, u, width,
-                                     min_depth, want_depth)
-            # Half-width is capped by the CHORD back to the two stations this
-            # lot actually runs between. On a straight face that is exactly
-            # `width / 2`; on a curving one the chord is shorter than the arc,
-            # and taking the arc would push the corner past the neighbouring
-            # lot's — a 34 m estate frontage on a curve overshoots by ~4 m,
-            # which is four metres of two lots' front fences in the same place.
-            # Surveyors plat curved frontage as chord bearings for this reason.
-            half = min(width / 2.0,
-                       _dist(p, point_at(ring, st)),
-                       _dist(p, point_at(ring, s)))
-            fl = _add(p, _mul(u, -half))
-            fr = _add(p, _mul(u, half))
-            rl = _add(fl, _mul(n, lot_depth))
-            rr = _add(fr, _mul(n, lot_depth))
+            if wedge is not None:
+                # THE WEDGE. Side lines are the two bounding RADII, so the pair
+                # a neighbour shares is the same line struck from the same
+                # centre — no crossing near the kerb, no orphan strip at the
+                # back, and no arithmetic keeping two independent lots in step.
+                # `_probe_wedge` refuses outright rather than granting a
+                # minimum: at the throat, where the arc meets the stem walls,
+                # the minimum runs down the cul-de-sac's own carriageway.
+                lot_depth = _probe_wedge(poly, a_c, a_r0,
+                                         wedge["a_l"], wedge["a_r"],
+                                         min_depth, want_depth)
+                if lot_depth is None:
+                    continue
+                fl = _ray(a_c, a_r0, wedge["a_l"])
+                fr = _ray(a_c, a_r0, wedge["a_r"])
+                rl = _ray(a_c, a_r0 + lot_depth, wedge["a_l"])
+                rr = _ray(a_c, a_r0 + lot_depth, wedge["a_r"])
+                # The front lot line is the ARC between `fl` and `fr`, and the
+                # quad records its chord — which dips inside the kerb circle by
+                # r(1 - cos(half angle)), up to 4 m on a four-lot head. Nothing
+                # is built off that chord: the fences below follow the arc, and
+                # every pass that plats inside `lot_corners` is handed the same
+                # keep-out disc this one is.
+                half = (a_r0 + float(c["fence_front_inset_m"])) \
+                    * wedge["half_ang"]
+            else:
+                lot_depth = _probe_depth(poly, p, n, u, width,
+                                         min_depth, want_depth)
+                # Half-width is capped by the CHORD back to the two stations
+                # this lot actually runs between. On a straight face that is
+                # exactly `width / 2`; on a curving one the chord is shorter
+                # than the arc, and taking the arc would push the corner past
+                # the neighbouring lot's — a 34 m estate frontage on a curve
+                # overshoots by ~4 m, which is four metres of two lots' front
+                # fences in the same place. Surveyors plat curved frontage as
+                # chord bearings for this reason.
+                half = min(width / 2.0,
+                           _dist(p, point_at(ring, st)),
+                           _dist(p, point_at(ring, s)))
+                fl = _add(p, _mul(u, -half))
+                fr = _add(p, _mul(u, half))
+                rl = _add(fl, _mul(n, lot_depth))
+                rr = _add(fr, _mul(n, lot_depth))
             lot_corners = [fl, fr, rr, rl]
+
+            # THE STREET GIVES WAY TO THE HEAD. The throat is a block corner
+            # like any other, and lots hung off the two faces meeting at a
+            # corner overlap there — see :func:`_clip_seg`, which exists to
+            # cope with exactly that. It is worse at a turnaround: the wedge's
+            # end side line is a radius pointing back down the stem, so the
+            # ground it claims is the ground the last stem lot wants, and the
+            # two lots' side fences then run through each other for 20 m.
+            # Since the head is platted first anyway (`_lot_jobs`), the rule is
+            # simply that a lot may clip a wedge's corner but not stand in its
+            # garden. Between two street lots the same rule is applied ONLY at
+            # a corner well off square — see the skew test below; at a corner
+            # near square it is the pre-existing corner behaviour this module
+            # documents and does not have the packing pass to fix.
+            #
+            # WEDGES ARE TESTED TOO, and they have to be — `cul_de_sac_gap_
+            # factor` lets two stubs end 48 m apart, which is closer than two
+            # 40 m-deep heads can both be platted, so the far side of one head
+            # lands in the far side of the other. Two wedges of the SAME head
+            # share their side line to the bit, so the tolerance passes them
+            # without a special case.
+            if wedge_lots and any(_convex_overlap(lot_corners, q, pad=-2.0)
+                                  for q in wedge_lots):
+                n_wedge_yield += 1
+                continue
+
+            # --- A SKEWED CORNER IS NOT PLATTED THROUGH -----------------------
+            # The one place two STREET lots are held apart. See
+            # `junction_skew_clear_deg` in DEFAULTS for the measurement and for
+            # why the gate is departure from square rather than the angle
+            # itself. Three conditions, and all three are needed:
+            #
+            #   the two frontages must actually MEET AT A CORNER — tested on
+            #     the boundary walk, because two lots on ONE face that curves
+            #     have their normals up to 84 degrees apart and are
+            #     indistinguishable from a corner pair by angle. The
+            #     `_SKEW_THETA_MIN/MAX` band rides along with this test as a
+            #     second guard: see `_turn_corners`' block comment;
+            #   that corner must be more than `junction_skew_clear_deg` off
+            #     square, in either direction;
+            #   and the two lot quads must be within `junction_skew_clear_m` of
+            #     each other. Nothing is refused for merely being NEAR a skewed
+            #     corner: a lot whose rectangle clears its neighbour's is a lot
+            #     whose fences clear them too, however sharp the junction it
+            #     happens to sit at, and refusing it would delete houses to fix
+            #     a defect that is not there.
+            #
+            # Whichever lot reached the corner first keeps it, which is the same
+            # rule the wedge test above uses and is what a real plat does: the
+            # corner belongs to the lot that FRONTS one street, and the other
+            # street's run stops clear of its side yard.
+            #
+            # TRIED AND REJECTED: a plain keep-out — refuse any lot whose
+            # frontage is within R metres of a skewed corner. It does not
+            # target the offending lot, because the lot that ends up inside its
+            # neighbour is often not the one nearest the corner: lots here are
+            # 30-44 m wide and on a wedge-shaped block the pair can be 100 m
+            # of boundary apart. Measured over seeds 3/5/8, against the 130
+            # overlapping pairs / 26.3k m2 at corners more than 30 degrees off
+            # square:
+            #
+            #   R      houses lost     of that overlap it would remove
+            #   10 m    19  (1.0%)      15 pairs,  3.5k m2  (13%)
+            #   20 m    77  (4.2%)      28 pairs,  7.4k m2  (28%)
+            #   30 m   147  (7.9%)      44 pairs, 10.1k m2  (38%)
+            #   40 m   216 (11.7%)      50 pairs, 10.3k m2  (39%)
+            #
+            # It plateaus at 39% however wide it gets. The quad test below
+            # costs 5.2% of the houses and removes 99.2%.
+            if wedge is None and skew_deg < 90.0 and street_lots:
+                hit = False
+                for (s_o, n_o, q_o) in street_lots:
+                    if not _across_corner(mid, s_o, perim, skew_corners):
+                        continue
+                    theta = _corner_deg(n, n_o)
+                    if not (_SKEW_THETA_MIN <= theta <= _SKEW_THETA_MAX):
+                        continue
+                    if abs(theta - 90.0) <= skew_deg:
+                        continue
+                    if _convex_overlap(lot_corners, q_o, pad=skew_pad):
+                        hit = True
+                        break
+                if hit:
+                    n_skew_yield += 1
+                    continue
+
+            if wedge is not None:
+                wedge_lots.append(lot_corners)
+            else:
+                street_lots.append((mid, n, lot_corners))
+
+            # This house may stand on a line an earlier lot already fenced —
+            # see :func:`_clip_seg` on why lots overlap at all.
+            _clip_standing(fence_lines, corners)
 
             # --- which side the car lives on ---------------------------------
             # Drawn before the garage, because the drive and the garage have to
@@ -1090,9 +2017,18 @@ def parcel_blocks(blocks, rng, cfg=None):
             fence_segs = []
             if spec["fence"] > 0.0:
                 f_in = float(c["fence_front_inset_m"])
+                if wedge is not None:
+                    # SAME PERIMETER, STRUCK RADIALLY. The two side runs start
+                    # `f_in` out along their OWN radius, not along the lot's
+                    # mid-normal — offsetting both corners by one normal turns
+                    # the shared side line into two lines a metre apart, which
+                    # is the doubled-fence defect the plan colours cyan.
+                    ffl = _ray(a_c, a_r0 + f_in, wedge["a_l"])
+                    ffr = _ray(a_c, a_r0 + f_in, wedge["a_r"])
+                else:
+                    ffl = _add(fl, _mul(n, f_in))
+                    ffr = _add(fr, _mul(n, f_in))
                 pf = _add(p, _mul(n, f_in))
-                ffl = _add(fl, _mul(n, f_in))
-                ffr = _add(fr, _mul(n, f_in))
                 cand = [(ffl, rl, "privacy"), (ffr, rr, "privacy"),
                         (rl, rr, "privacy")]
                 blockers = [corners] + [h["corners"] for h in houses] \
@@ -1100,9 +2036,37 @@ def parcel_blocks(blocks, rng, cfg=None):
                 if arch in ("full", "large"):
                     # Front run, broken wherever something crosses it. A fence
                     # across your own driveway is worse than no fence.
-                    for x0, x1 in _front_runs(-half, half, front_gaps):
-                        cand.append((_add(pf, _mul(u, x0)),
-                                     _add(pf, _mul(u, x1)), "low"))
+                    if wedge is not None:
+                        # AND ON A WEDGE IT FOLLOWS THE ARC. The chord between
+                        # the two front corners cuts the turnaround — 2.8 m of
+                        # it on a five-lot head — so a straight front fence
+                        # there is a fence in the road, and `_clip_seg_disc`
+                        # would delete most of it rather than bend it. Each
+                        # surviving run is emitted as a few chords along the
+                        # kerb radius instead, which is what a fence built to
+                        # follow a curved lot line looks like anyway.
+                        rf = a_r0 + f_in
+                        # The gaps are offsets in the HOUSE's frame, measured
+                        # across the building line; the fence is an arc two
+                        # radii further in, where the same drive crosses a
+                        # shorter span. Scaling by the radius ratio is what
+                        # keeps the opening over the drive instead of a metre
+                        # and a half round the curve from it.
+                        k_r = rf / max(a_r0 + setback, 1e-6)
+                        arc_gaps = [(o * k_r, hwd * k_r)
+                                    for (o, hwd) in front_gaps]
+                        for x0, x1 in _front_runs(-half, half, arc_gaps):
+                            k = max(1, int(abs(x1 - x0) / rf / 0.32) + 1)
+                            pts = [_ray(a_c, rf,
+                                        wedge["a_m"] + wedge["sgn"]
+                                        * (x0 + (x1 - x0) * i / k) / rf)
+                                   for i in range(k + 1)]
+                            for i in range(k):
+                                cand.append((pts[i], pts[i + 1], "low"))
+                    else:
+                        for x0, x1 in _front_runs(-half, half, front_gaps):
+                            cand.append((_add(pf, _mul(u, x0)),
+                                         _add(pf, _mul(u, x1)), "low"))
 
                 def _cut_run(a, b):
                     """Trim a boundary out of the pavement, the walls and any
@@ -1185,13 +2149,17 @@ def parcel_blocks(blocks, rng, cfg=None):
                            # In the ART, not as a separate box beside the house.
                            "art_garage": art_garage,
                            "has_fence": spec["fence"] > 0.0,
-                           # ...and only if the BLOCK actually granted it.
-                           # `_probe_depth` can come back short on a shallow or
-                           # awkward block, and a pool half in the next street
-                           # is worse than no pool.
+                           # ...and only if the BLOCK actually granted enough
+                           # for one. `_probe_depth` can come back short on a
+                           # shallow or awkward block, and a pool half in the
+                           # next street is worse than no pool. Tested against
+                           # the MINIMUM, not against `pool_rear_m`: the ask is
+                           # what buys the garden, and holding the admission
+                           # test to it would refuse most of the package the
+                           # moment the ask went up.
                            "has_pool": (spec.get("pool", 0.0) > 0.0
                                         and lot_depth - setback - h_d
-                                        >= POOL_REAR_M - 0.5),
+                                        >= POOL_REAR_MIN_M),
                            "lot_width": width,
                            # The lot itself, so the yard can be planted and not
                            # merely recorded: the rectangle, how deep the back
@@ -1221,6 +2189,16 @@ def parcel_blocks(blocks, rng, cfg=None):
             else:
                 a0 = _add(p, _mul(u, side * h_w * 0.30))
                 a1 = _add(a0, _mul(n, setback + 0.5))
+            if wedge is not None:
+                # AIM IT AT THE TURNAROUND. Offsetting along the tangent puts
+                # the apron on the tangent LINE, which leaves the kerb behind
+                # as the arc curves away — and the kerb here is not the lot
+                # line either: `_arc_cap_bulbs` leaves a verge, so the asphalt
+                # is `r_pave` and the lot starts three metres further out. So
+                # the run is struck from the house end back to the paved
+                # radius, and every drive on the head points at its centre.
+                a0 = _ray(a_c, arc["rp"], math.atan2(a1[1] - a_c[1],
+                                                     a1[0] - a_c[0]))
             drives.append({"a": a0, "b": a1, "w": dw,
                            # A garage apron IS the pad; without one it is the
                            # `garage_share` coin flip as before.
@@ -1235,6 +2213,22 @@ def parcel_blocks(blocks, rng, cfg=None):
 
         # Street trees: a rhythm along the kerb, independent of the lots, which
         # is how a verge is actually planted.
+        #
+        # ON A CLUSTER BLOCK THE KERB IS STILL A KERB and still gets its verge
+        # trees — the one thing a row-home development shares with the street
+        # it fronts. What it must not get is a tree in the access drive: that
+        # drive crosses the verge exactly where these are planted, and it is
+        # the only route in, so a tree standing in it is not a cosmetic defect.
+        # Same test the house loop uses, against the cluster's paving axes.
+        row_paving = [(a, b, hw) for cl in clusters for (a, b, hw)
+                      in cl["paving"]]
+
+        def _on_cluster_paving(q, r):
+            for (a, b, hw) in row_paving:
+                if seg_seg_dist(a, b, q, q) < hw + r:
+                    return True
+            return False
+
         u_s = rng.uniform(0.0, sts[1])
         while u_s < perim:
             if not is_frontage(u_s):
@@ -1243,16 +2237,23 @@ def parcel_blocks(blocks, rng, cfg=None):
             p = point_at(ring, u_s)
             t = tangent_at(ring, u_s)
             n = _inward(poly, p, t)
-            q = _add(p, _mul(n, 2.6))
+            r = rng.uniform(*tr)
+            # A verge tree goes 2.6 m in from the block boundary. AROUND A
+            # TURNAROUND THAT IS NOT ENOUGH: the keep-out disc is the paving
+            # plus a front-yard margin and the boundary arc sits on it, so a
+            # tree 2.6 m in was inside the disc by its own crown radius and the
+            # `on_bulb` test below threw every one of them away — a bald ring
+            # of houses with no planting at all in front of them. Stepping out
+            # by the crown as well puts the trunk where a real cul-de-sac's
+            # verge trees stand, just inside the front lot line.
+            step = 2.6 + (r if _arc_at(arcs, u_s) is not None else 0.0)
+            q = _add(p, _mul(n, step))
             if point_in_polygon(poly, q):
-                r = rng.uniform(*tr)
-                # A verge tree goes 2.6 m in from the block boundary, which
-                # around a turnaround is 2.6 m into the asphalt: the boundary
-                # the offset is measured from is not the edge of the bulb.
                 on_bulb = any(_dist(q, dc) < dr + r for (dc, dr) in blk_discs)
-                if not on_bulb and not any(
-                        _dist(q, h["c"]) < max(h["w"], h["d"]) / 2.0 + r
-                        for h in houses):
+                if (not on_bulb and not _on_cluster_paving(q, r)
+                        and not any(
+                            _dist(q, h["c"]) < max(h["w"], h["d"]) / 2.0 + r
+                            for h in houses)):
                     trees.append({"c": q, "r": r, "kind": "street"})
             u_s += rng.uniform(*sts)
 
@@ -1285,13 +2286,45 @@ def parcel_blocks(blocks, rng, cfg=None):
 
         out.append({"block": poly, "density": dens, "houses": houses,
                     "drives": drives, "trees": trees,
+                    # THE SHARED GEOMETRY A ROW-HOME BLOCK HAS AND A PLATTED
+                    # ONE DOES NOT: the court (with its bay schedule in
+                    # `suburb_park.parking_info`'s schema), the single access
+                    # drive, the footway to every door and the communal green.
+                    # Empty tuple on every ordinary block, so a consumer can
+                    # test it without a default. `drives` stays EMPTY on a
+                    # cluster block, which is what keeps the driveway passes —
+                    # `apply_ground`, `paving_keepout`, `build_cars` — off it:
+                    # each walks `p["drives"]` and indexes `p["houses"]` by the
+                    # same ordinal, so a partial list would mis-pair them.
+                    "clusters": clusters,
                     "garages_rejected": n_reject,
                     # Reported rather than swallowed: a thinned-out street is
-                    # its own defect, and these are the two numbers that say
-                    # whether a keep-out or a catalogue with nothing narrow
-                    # enough in it caused one.
+                    # its own defect, and these are the numbers that say
+                    # whether a keep-out, a catalogue with nothing narrow
+                    # enough in it, or a cul-de-sac head that was platted
+                    # first caused one.
                     "keepout_rejected": n_keepout,
-                    "size_rejected": n_nofit})
+                    "size_rejected": n_nofit,
+                    "wedge_yield": n_wedge_yield,
+                    # ...and to a block corner more than
+                    # `junction_skew_clear_deg` off square, where two lots
+                    # hung off the two frontages would have stood in each
+                    # other. This is the ONE count that is a deliberate
+                    # thinning rather than a failure — see the DEFAULTS entry —
+                    # so a run whose houses/block has dropped can be read
+                    # against it instead of being blamed on the catalogue.
+                    "skew_yield": n_skew_yield,
+                    # How many lots on this block are cul-de-sac wedges. The
+                    # one number that says whether the turnarounds got platted
+                    # at all, which no other count distinguishes.
+                    "wedge_lots": len(wedge_lots),
+                    # 1 when this block drew a row-home district and could not
+                    # fit a court in it, so fell back to ordinary platting.
+                    # Reported rather than swallowed for the same reason the
+                    # counts above are: a row_share that produces no clusters
+                    # is either a share set too low or a block set too small,
+                    # and only this number tells them apart.
+                    "row_rejected": n_row_reject})
     return out
 
 
@@ -1309,7 +2342,20 @@ def stats(parcels):
         k = h.get("archetype")
         arch[k] = arch.get(k, 0) + 1
     depths = [h["lot_depth"] for h in hs if "lot_depth" in h]
+    # ROW HOMES, counted separately from everything above. A cluster unit IS a
+    # house and is in `n_h`, but the numbers that say whether the feature ran —
+    # how many developments, how many courts, how many bays, which mixes and
+    # which styles — are recoverable from nowhere else.
+    cls = [cl for p in parcels for cl in (p.get("clusters") or ())]
+    row = rh.stats(cls)
     return {"houses": n_h, "trees": n_t,
+            "row_blocks": sum(1 for p in parcels
+                              if p.get("clusters")),
+            "row_courts": row["courts"], "row_units": row["units"],
+            "row_bays": row["bays"], "row_mixes": row["mixes"],
+            "row_styles": row["styles"], "row_palettes": row["palettes"],
+            "row_rejected": sum(int(p.get("row_rejected", 0))
+                                for p in parcels),
             "blocks_built": len(per), "blocks": len(parcels),
             "houses_per_built_block": (sum(per) / len(per)) if per else 0.0,
             "garages": sum(1 for h in hs if h.get("garage")),
@@ -1319,6 +2365,13 @@ def stats(parcels):
                                     for p in parcels),
             "size_rejected": sum(int(p.get("size_rejected", 0))
                                  for p in parcels),
+            "wedge_yield": sum(int(p.get("wedge_yield", 0))
+                               for p in parcels),
+            # Lots refused for standing in a neighbour's at a block corner more
+            # than `junction_skew_clear_deg` off square. The only one of these
+            # counts that is a deliberate thinning rather than a failure.
+            "skew_yield": sum(int(p.get("skew_yield", 0)) for p in parcels),
+            "wedge_lots": sum(int(p.get("wedge_lots", 0)) for p in parcels),
             "fenced_houses": sum(1 for h in hs if h.get("fence_segs")),
             "fence_segs": sum(len(h.get("fence_segs") or ()) for h in hs),
             "density_blocks": dens, "archetypes": arch,

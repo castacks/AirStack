@@ -15,7 +15,8 @@ is a painted rectangle and no asset library has the one that fits your park:
     from assets   hoop, fence panel, gazebo, fountain, park sign, picnic
                   table, swing set / play structure / seesaw, tennis court
     generated     court slabs and their line markings, soccer pitch and its
-                  markings, playground sand, path network, fence runs
+                  markings, playground sand, path network, fence runs,
+                  the refuge parking lot — slab, bay lines and apron
 
 DIMENSIONS, WHICH ARE NOT NEGOTIABLE
 ------------------------------------
@@ -26,6 +27,40 @@ DIMENSIONS, WHICH ARE NOT NEGOTIABLE
     soccer       park pitch, inside the 90-120 x 45-90 m the Laws allow:
                  100 x 64 m with a 9.15 m centre circle, 16.5 m penalty area
                  and 5.5 m goal area
+    parking      2.7 x 5.5 m bay (9 x 18 ft) served by a 7.0 m aisle — the
+                 width a 90-degree stall needs to back out into — so a
+                 double-loaded module is 5.5 + 7.0 + 5.5 = 18.0 m deep
+
+THE REFUGE LOT IS A FACILITY, NOT A CAR PARK BOLTED ON
+------------------------------------------------------
+The park carries one large parking lot, and it is here because of what the
+scene is FOR: in the wildfire evacuations this dataset is modelled on, the
+"temporary refuge areas" people were directed to were almost all parking
+lots — a hectare of asphalt with nothing on it to burn, next to open ground,
+reachable by road. A later pass puts groups of survivors and a few cars on
+it, so what it has to publish is not a slab but a SCHEDULE OF BAYS.
+
+That fixes three things about where it goes:
+
+    against the frame street   a lot you cannot drive into is not a refuge.
+        It sits `parking_setback_m` inside the park boundary on the side of
+        a REAL entrance — `plan` is handed `suburb_net`'s `park_entrances`
+        and picks the one nearest the courts — and an apron at least 7 m wide
+        crosses the verge from the kerb to the lot's street face.
+    on the sports side         because that is where the entrances and the
+        hard surface already are, and because a lot dropped in the middle of
+        the greensward is the one thing that would read as generated.
+    as an oriented rectangle   so it claims ground with the courts, paths
+        route round it, trees are rejection-sampled off it, and the picnic
+        and playground pads keep their clearance. It is in `zones`, so every
+        pass that already respects a facility respects this one for free.
+
+The layout is the ordinary double-loaded one: rows of bays along the
+frontage, a 7 m aisle between each back-to-back pair, and an end lane at
+each end joining one aisle to the next — that ring is the internal loop, and
+it is what the apron feeds. At the default 64 x 40 m that is 2 modules x 2
+rows x 18 bays = 72, i.e. 35.6 m2 a bay including circulation, which is what
+a surface lot actually costs.
 
 The tennis COURT is an asset here rather than generated, because a full court
 was available; its markings therefore come with it and this module only places
@@ -100,6 +135,26 @@ SOCCER = {
     "goal_w": 7.32,
 }
 
+# The refuge lot, at the same standing as the courts above: these are the
+# figures a surface car park is actually striped to, not preferences.
+#
+#   bay     2.7 x 5.5 m is the 9 x 18 ft standard stall. Narrower (2.4 m) is a
+#           compact bay and wrong for a lot people will be told to shelter on.
+#   aisle   7.0 m is the two-way aisle a 90-degree stall needs to back out
+#           into; below about 6.7 m the manoeuvre takes two bites.
+#   loop    the end lane joining one aisle to the next. Same 7.0 m, because it
+#           carries the same traffic and a lane that narrows at the turn is
+#           where a lot jams — which is the one failure mode a refuge may not
+#           have.
+#   edge    kerb strip between the outermost bay's back line and the lot
+#           boundary, so a wheel stop has somewhere to be.
+PARKING = {
+    "bay": (2.7, 5.5),
+    "aisle": 7.0,
+    "loop": 7.0,
+    "edge": 1.0,
+}
+
 DEFAULTS = {
     "region_m": [420.0, 300.0],
     "edge_buffer_m": 12.0,        # tree belt inside the park boundary
@@ -122,6 +177,46 @@ DEFAULTS = {
     "n_tennis": 3,
     "n_soccer": 2,
     "playground_m": [46.0, 34.0],
+    # ---- refuge parking lot ------------------------------------------------
+    # SIZED BY THE BAY COUNT, not by taste. The depth is what fixes the rows:
+    # 40 m holds exactly two 18 m double-loaded modules with a metre of kerb
+    # strip either side, and 58 m would hold three but is a car park with a
+    # park round it rather than the other way about. The frontage is then what
+    # fixes the bays per row — 64 m less the two 7 m end lanes is a 50 m strip,
+    # 18 bays at 2.7 m — so the lot lands at 2 x 2 x 18 = 72 bays on 2,560 m2.
+    # A groups-of-survivors pass wants 70-90 marked bays to work with; 60 m
+    # frontage gives 68 and 68 is under it, which is the whole reason this is
+    # 64 and not the round number.
+    "parking": True,
+    "parking_m": [64.0, 40.0],
+    "parking_bay_m": [2.7, 5.5],
+    "parking_aisle_m": 7.0,
+    "parking_loop_m": 7.0,
+    "parking_edge_m": 1.0,
+    # Grass between the park boundary and the lot's street face. Not zero: the
+    # boundary is where the park's own planting belt and its fence line would
+    # go, and a slab flush to it reads as the street having been widened.
+    "parking_setback_m": 3.0,
+    # THE APRON, and 7 m is a floor rather than a figure. Two cars must pass in
+    # it — one arriving at a refuge while another leaves is the case it exists
+    # for — so it is the aisle width, plus a metre because a bellmouth flares.
+    "parking_apron_w_m": 8.0,
+    # ...and how long it is allowed to get. Nominally the drive is the verge
+    # plus the setback (20 + 3 = 23 m); anything much past that means the lot
+    # has slid a long way off its entrance and is being served by a diagonal,
+    # so the search moves to the next entrance instead. See `_place_parking`.
+    "parking_apron_max_m": 45.0,
+    # How far outside the park boundary the kerb is, i.e. how long the apron
+    # has to be. Overridden by the real entrance when `entrances` is supplied;
+    # this is only the standalone fallback, and it matches `suburb_net`'s
+    # `park_pad_m` (the verge no street centreline may enter).
+    "parking_kerb_m": 20.0,
+    # The lot may sit outside `edge_buffer_m` — that band is the tree belt, and
+    # a lot AGAINST the street is the point. It keeps this much off the park
+    # rect instead, which is only what stops the slab bleeding over the edge.
+    "parking_rect_inset_m": 3.0,
+    # See `facility_pad`: a kerb, not a fence, so the band is a verge.
+    "parking_pad_m": 3.0,
     "picnic_areas": 3,
     "picnic_m": [30.0, 22.0],
     # A 30 x 22 m picnic ground is 660 m2; six tables on it is one per 110 m2,
@@ -313,6 +408,104 @@ def soccer_markings():
     return out
 
 
+def _merge_spans(spans, tol=1e-6):
+    """Union of 1-D intervals that touch or overlap."""
+    out = []
+    for (a, b) in sorted(spans):
+        if out and a <= out[-1][1] + tol:
+            out[-1][1] = max(out[-1][1], b)
+        else:
+            out.append([a, b])
+    return [(a, b) for (a, b) in out]
+
+
+def parking_layout(w, d, bay=None, aisle=None, loop=None, edge=None):
+    """Bays and paint for a *w* x *d* surface lot, in LOCAL coords.
+
+    LOCAL +X RUNS ALONG THE STREET FRONTAGE and local +y into the park, so the
+    apron always meets the -y face. Everything here is generated for the same
+    reason the court slabs are: a lot is a striped rectangle at a fixed stall
+    size and no asset library has the one that fits a given park.
+
+    THE LAYOUT IS THE ORDINARY DOUBLE-LOADED ONE, and it is worth saying why it
+    is not the obvious "fill the rectangle with rows":
+
+        rows along the FRONTAGE, not across it. Across it, each aisle would
+        dead-end on the street face and on the far boundary, and a lot whose
+        aisles have no through route is a lot that gridlocks the moment two
+        cars meet — which for a refuge is the failure that matters.
+        an END LANE at each end, `loop` wide. That is the internal loop: aisle
+        -> end lane -> next aisle -> other end lane, a closed ring, and the
+        apron feeds straight into one end lane rather than into the back of a
+        row of bays.
+        rows BACK TO BACK across a module boundary, so two rows share one back
+        line — which is both how a lot is striped and half the line meshes.
+
+    Returns ``{"bays", "lines", "lanes", "n_bay", "rows", "module_m"}`` — bays
+    as ``(lx, ly, face)`` with *face* the local-y direction a nosed-in car
+    points, lines as local polylines in the same form the court markings use,
+    lanes as the two end-lane centre offsets in local x. None if the rectangle
+    is too small to stripe.
+    """
+    bw, bd = (bay or PARKING["bay"])
+    bw, bd = float(bw), float(bd)
+    aisle = PARKING["aisle"] if aisle is None else float(aisle)
+    loop = PARKING["loop"] if loop is None else float(loop)
+    edge = PARKING["edge"] if edge is None else float(edge)
+
+    module = 2.0 * bd + aisle
+    usable = d - 2.0 * edge
+    n_mod = int(usable // module) if module > 0 else 0
+    single = False
+    if n_mod < 1:
+        # Too shallow for a double-loaded module: one row against one aisle.
+        # Not a fallback anybody should hit at the shipped size — it is here so
+        # a knob set to something silly degrades instead of dividing by zero.
+        module = bd + aisle
+        if usable < module:
+            return None
+        n_mod, single = 1, True
+
+    block = n_mod * module
+    y0 = -block / 2.0
+    strip = w - 2.0 * loop
+    n_bay = int(strip // bw) if bw > 0 else 0
+    if n_bay < 1:
+        return None
+    used = n_bay * bw
+    x0 = -used / 2.0
+
+    rows = []
+    for m in range(n_mod):
+        base = y0 + m * module
+        # back line on `base`, mouth `bd` further in: a car nosed in points -y
+        rows.append((base, base + bd, -1.0))
+        if not single:
+            top = base + module
+            rows.append((top, top - bd, 1.0))
+
+    bays, backs, div = [], {}, {}
+    for (yb, yf, face) in rows:
+        mid = (yb + yf) / 2.0
+        for i in range(n_bay):
+            bays.append((x0 + (i + 0.5) * bw, mid, face))
+        for i in range(n_bay + 1):
+            div.setdefault(round(x0 + i * bw, 4), []).append(
+                (min(yb, yf), max(yb, yf)))
+        # Keyed by y, so the two rows of a back-to-back pair collapse to the
+        # one line they are actually striped with.
+        backs[round(yb, 4)] = (x0, x0 + used)
+
+    lines = [[(a, y), (b, y)] for (y, (a, b)) in sorted(backs.items())]
+    for x, spans in sorted(div.items()):
+        for (a, b) in _merge_spans(spans):
+            lines.append([(x, a), (x, b)])
+
+    return {"bays": bays, "lines": lines, "n_bay": n_bay, "rows": len(rows),
+            "module_m": module,
+            "lanes": [(-w / 2.0 + x0) / 2.0, (w / 2.0 + x0 + used) / 2.0]}
+
+
 # ---------------------------------------------------------------------------
 # oriented-box placement — a facility asks for a spot and slides off it only
 # when something is already there (the shelf packer this replaced is in the
@@ -380,6 +573,161 @@ def _place(inner, placed, gap, w, h, fx, fy, yaw, rng):
                     continue
                 return (cx, cy), yaw + dy, c
     return None, None, None
+
+
+def to_world(z, p):
+    """A point in facility *z*'s own frame, in park coords."""
+    a = math.radians(z["yaw"])
+    ux, uy = math.cos(a), math.sin(a)
+    return (z["centre"][0] + ux * p[0] - uy * p[1],
+            z["centre"][1] + uy * p[0] + ux * p[1])
+
+
+def to_local(z, p):
+    """Inverse of :func:`to_world`.
+
+    EVERYTHING THE PARKING LOT PUBLISHES IS STORED LOCAL, and that is not a
+    style choice: `suburb_scene._shift_park` translates a park built at the
+    origin into its reserve by moving `centre`, `corners`, path points, fences
+    and props, and it knows nothing about bays or aprons. Local offsets ride
+    along with `centre` for free, so the lot cannot come apart in the shift —
+    which is exactly the class of bug the court markings avoid by being local
+    line lists rather than world polylines.
+    """
+    a = math.radians(z["yaw"])
+    ux, uy = math.cos(a), math.sin(a)
+    dx, dy = p[0] - z["centre"][0], p[1] - z["centre"][1]
+    return (dx * ux + dy * uy, -dx * uy + dy * ux)
+
+
+def _place_parking(rect, placed, gap, w, d, gate, inward, kerb_pt, setback,
+                   lanes, apron_w, apron_max=45.0, keep_out=(), keep_m=10.0,
+                   slide_m=120.0, push_m=45.0, step=3.0):
+    """Site the refuge lot against the frontage at *gate*.
+
+    NOT `_place`. The other facilities spiral outward from a fraction of the
+    park and are free to swing off the base yaw, because nothing outside the
+    park cares which way a picnic ground faces. This one is pinned by the
+    STREET: its yaw is the frontage's, its street face stays `setback` in from
+    the park boundary, and the apron still has to reach the kerb after it
+    moves. So the only freedoms are a slide ALONG the frontage and a push
+    inland, and they are not equal freedoms.
+
+    THE CANDIDATES ARE RANKED, NOT SCANNED IN ORDER, because the first legal
+    position is very often the wrong one and it took two goes to see why:
+
+        push    metres inland past the setback. Weighted hardest — the lot is
+                supposed to be ON the street, and a lot 45 m in with a drive
+                hanging off it is a lot in the trees.
+        skew    how far the apron leans, i.e. the offset between the gate and
+                the end lane the mouth sits in. The mouth goes in an END lane
+                (that is where circulation is; the middle of the street face is
+                the back of a row of bays), so a lot centred on its gate has a
+                28 m lean over a 23 m run — a drive crossing the verge at 50
+                degrees. Sliding the LOT by a lane offset squares it up and
+                costs nothing: an entrance thirty metres along the same
+                frontage is still that entrance.
+        slide   distance from the gate, weighted lightly, as the tie-break
+                that keeps the lot next to the entrance it was chosen for.
+
+    *keep_out* are points the slab may not swallow — the park's own gates,
+    which anchor the ends of the spine and cannot be pushed out of a facility
+    the way an intermediate waypoint can. Miss this and the path network is
+    routed from a node inside the car park, which `check` reports as a spine
+    crossing a facility and no amount of re-routing can fix.
+
+    Returns ``(centre, yaw_deg, corners, apron_corners, mouth)`` or five Nones.
+    """
+    inward = sn._unit(inward)
+    if sn._norm(inward) < 1e-9:
+        return (None,) * 5
+    # Local +x along the frontage, local +y inward — see `parking_layout`.
+    u = (inward[1], -inward[0])
+    yaw = math.degrees(math.atan2(u[1], u[0]))
+    lanes = list(lanes) or [0.0]
+
+    cands = []
+    n_s = int(slide_m / step)
+    for j in range(int(push_m / step) + 1):
+        push = j * step
+        for i in range(-n_s, n_s + 1):
+            s = i * step
+            # The gate sits at local x = -s, the lot having slid by +s.
+            lx = min(lanes, key=lambda v: abs(v + s))
+            cands.append((push + 0.9 * abs(lx + s) + 0.10 * abs(s),
+                          push, s, lx))
+    cands.sort(key=lambda t: t[0])
+
+    for (_cost, push, s, lx) in cands:
+        out = setback + push + d / 2.0
+        cx = gate[0] + u[0] * s + inward[0] * out
+        cy = gate[1] + u[1] * s + inward[1] * out
+        cor = _obb(cx, cy, w, d, yaw)
+        if not _inside(cor, rect):
+            continue
+        swallowed = False
+        for q in keep_out:
+            _near, ins, dd = _nearest_on_obb(q, cor)
+            if ins or dd < keep_m:
+                swallowed = True
+                break
+        if swallowed:
+            continue
+        if any(_sat_overlap(cor, q, gap) for q in placed):
+            continue
+        mouth = (cx + u[0] * lx - inward[0] * (d / 2.0),
+                 cy + u[1] * lx - inward[1] * (d / 2.0))
+        if sn._dot(sn._sub(mouth, kerb_pt), inward) < 1.0:
+            continue              # kerb is already past the lot: no apron
+        # AND THE DRIVE HAS TO BE A DRIVE. Nominally it is the verge plus the
+        # setback, ~23 m; the cap is what stops a lot that had to slide a long
+        # way sideways being served by a diagonal across the park's frontage.
+        # Rejecting here rather than shortening it sends the search on to the
+        # next entrance, which is the right answer.
+        if sn._dist(mouth, kerb_pt) > apron_max:
+            continue
+        h = apron_w / 2.0
+        apron = [(kerb_pt[0] - u[0] * h, kerb_pt[1] - u[1] * h),
+                 (kerb_pt[0] + u[0] * h, kerb_pt[1] + u[1] * h),
+                 (mouth[0] + u[0] * h, mouth[1] + u[1] * h),
+                 (mouth[0] - u[0] * h, mouth[1] - u[1] * h)]
+        # The apron crosses the verge and the setback, where nothing should be
+        # standing — but a picnic ground slid to the boundary would be, and a
+        # drive laid over one is worse than a lot sited a lane along.
+        if any(_sat_overlap(apron, q, 0.5) for q in placed):
+            continue
+        return (cx, cy), yaw, cor, apron, mouth
+    return (None,) * 5
+
+
+def _entrance_frame(e, rect, kerb_m):
+    """``(gate, inward unit normal, kerb point)`` for one park entrance.
+
+    *e* is a `suburb_net` `park_entrances` record IN PARK-LOCAL COORDS — `gate`
+    on the park's own boundary, `p` out on the reserve boundary where the
+    street is, `dir` the inward normal. Only `gate` (or `p`) is required; the
+    rest is derived off the boundary the point is nearest, so a caller with a
+    bare (x, y) still gets a usable frame.
+    """
+    g = tuple(e.get("gate") or e.get("p") or (0.0, 0.0))
+    n = e.get("dir")
+    x0, y0, x1, y1 = rect
+    if not n:
+        side = e.get("side")
+        if side is None:
+            d = {"W": g[0] - x0, "E": x1 - g[0],
+                 "S": g[1] - y0, "N": y1 - g[1]}
+            side = min(d, key=d.get)
+        n = {"W": (1.0, 0.0), "E": (-1.0, 0.0),
+             "S": (0.0, 1.0), "N": (0.0, -1.0)}.get(side, (0.0, 1.0))
+    n = sn._unit((float(n[0]), float(n[1])))
+    # The gate is on the park boundary; clamp it there, because an entrance
+    # read off a finished street graph can be a few centimetres off.
+    g = (max(x0, min(x1, g[0])), max(y0, min(y1, g[1])))
+    kerb = e.get("p")
+    if kerb is None:
+        kerb = (g[0] - n[0] * kerb_m, g[1] - n[1] * kerb_m)
+    return g, n, (float(kerb[0]), float(kerb[1]))
 
 
 def _nearest_on_obb(q, corners):
@@ -960,6 +1308,14 @@ def facility_pad(z, c):
     """
     if z.get("fenced"):
         return float(c.get("facility_pad_fenced_m", c["facility_pad_m"]))
+    if z["kind"] == "parking":
+        # A CAR PARK'S EDGE IS A KERB, and a footway along a kerb is where a
+        # footway goes — there is no fence to graze and nothing standing in
+        # the margin, so the full band is 6 m of grass nobody asked for. It
+        # also costs: the lot is pinned to the frontage and cannot slide off
+        # the spine the way a picnic ground can, so the wide band came back as
+        # padding breaches on the tour rather than as clearance.
+        return float(c.get("parking_pad_m", 3.0))
     return float(c["facility_pad_m"])
 
 
@@ -1250,7 +1606,12 @@ def plan(rng, cfg=None):
         (a) FACILITIES, plus the set pieces that are destinations rather than
             furniture — fountains, gazebos, the sign. Their dimensions are
             fixed, so they claim ground first and everything else works round
-            them.
+            them. The refuge parking lot goes in here too, ahead of the soft
+            facilities, because it is the only one sited from OUTSIDE the park:
+            `cfg["entrances"]` is `suburb_net`'s `park_entrances` translated
+            into park-local coords, and the lot takes the one nearest the
+            courts. Left out, it falls back to a synthetic south entrance so
+            the module still stands alone.
         (b) PATHS, routed between what is already standing and joining each
             facility square on to its boundary.
         (c) TREES, into whatever green is left, clear of facilities AND paths.
@@ -1404,6 +1765,115 @@ def plan(rng, cfg=None):
                 ly = -tblk / 2 + th / 2 + i * (th + 2.0)
                 z["courts"].append({"centre": local(z, 0.0, ly),
                                     "yaw": z["yaw"]})
+
+    # -- the refuge parking lot ---------------------------------------------
+    # PLACED WITH THE COURTS, not after the soft facilities, because it is the
+    # one thing here whose position is dictated from OUTSIDE the park: it has
+    # to be on a street. Going in before the playground and the picnic grounds
+    # means those slide off it rather than it slide off them, which is the
+    # right precedence — a picnic ground can be anywhere and a refuge lot
+    # cannot. It draws no rng, so adding it moves nothing downstream that its
+    # own footprint does not.
+    apron_box = None
+    if bool(c.get("parking", True)):
+        lw, ld = _rng_pair(c["parking_m"], (64.0, 40.0))
+        bay = _rng_pair(c["parking_bay_m"], PARKING["bay"])
+        lot_lay = parking_layout(lw, ld, bay,
+                                 float(c["parking_aisle_m"]),
+                                 float(c["parking_loop_m"]),
+                                 float(c["parking_edge_m"]))
+        if lot_lay is not None:
+            # WHICH ENTRANCE. The sports end of the park is where the hard
+            # surface, the floodlighting and the people arriving by car already
+            # are, so the lot goes on the entrance nearest the courts — and
+            # falls back to the pitches, then to the south boundary, so a park
+            # configured with no courts at all still gets a lot on a street.
+            crt = [z for z in zones
+                   if z["kind"] in ("basketball_compound", "tennis_block")]
+            if not crt:
+                crt = [z for z in zones if z["kind"] == "soccer"]
+            if crt:
+                anchor = (sum(z["centre"][0] for z in crt) / len(crt),
+                          sum(z["centre"][1] for z in crt) / len(crt))
+            else:
+                anchor = (0.0, -hh)
+            kerb_m = float(c["parking_kerb_m"])
+            ents = list(c.get("entrances") or [])
+            if ents:
+                # NEAREST THE COURTS FIRST, then the next nearest. One
+                # entrance is not enough to try: the one closest to the courts
+                # can be the one whose frontage the tennis block is already
+                # standing on, and a lot forced onto it ends up inland with a
+                # long diagonal drive. The neighbouring entrance is thirty
+                # metres of walk further and a better car park.
+                frames = sorted((_entrance_frame(e, region, kerb_m)
+                                 for e in ents),
+                                key=lambda f: sn._dist(f[0], anchor))
+            else:
+                # Standalone (no street network): synthesise the south
+                # entrance `suburb_net` would have put nearest the courts.
+                gx = max(-hw + lw / 2.0, min(hw - lw / 2.0, anchor[0]))
+                frames = [((gx, -hh), (0.0, 1.0), (gx, -hh - kerb_m))]
+            ins = float(c["parking_rect_inset_m"])
+            lot_rect = (-hw + ins, -hh + ins, hw - ins, hh - ins)
+            # THE LADDER. Three things can be given up and they are not worth
+            # the same, so the loop nesting IS the priority order:
+            #
+            #   (1) CLEARANCE, innermost, spent first. The full facility gap is
+            #       22.6 m; the rungs go down to `facility_pad_m`. A refuge lot
+            #       6 m off a court fence still reads as a car park beside a
+            #       court, which is what real parks look like.
+            #   (2) THE ENTRANCE, next, so an entrance nearer the courts gets
+            #       the WHOLE clearance ladder before the next gate is looked
+            #       at. Measured over 13 seeds: entrance-outermost puts 11 of
+            #       them on the south frontage 61-88 m from the courts;
+            #       clearance-outermost sends four of those to the far side of
+            #       the park because a distant gate happened to clear 22.6 m
+            #       while the near one wanted 16.
+            #   (3) THE DRIVE, outermost, given up last. The first pass will
+            #       not take a lot more than 9 m inland or an apron more than
+            #       8 m longer than the verge it crosses; without that cap seed
+            #       3 took its nearest gate anyway and sat 15 m inland with a
+            #       38 m lean on the drive — a car park in the trees.
+            setb = float(c["parking_setback_m"])
+            amax = float(c["parking_apron_max_m"])
+            lc = None
+            rungs = (gap, gap * 0.72, gap * 0.5, float(c["facility_pad_m"]))
+            for tight in (True, False):
+                for (gate, nrm, kerb_pt) in frames:
+                    for g in rungs:
+                        # The drive's nominal length is the verge this entrance
+                        # actually has, not a constant: the reserve pad is one
+                        # figure but a gate on a corner fillet is further out.
+                        nom = sn._dist(gate, kerb_pt) + setb
+                        lc, lyaw, lcor, apron, mouth = _place_parking(
+                            lot_rect, placed, g, lw, ld, gate, nrm, kerb_pt,
+                            setb, lot_lay["lanes"],
+                            float(c["parking_apron_w_m"]),
+                            min(nom + 8.0, amax) if tight else amax,
+                            keep_out=gates,
+                            push_m=9.0 if tight else 45.0)
+                        if lc is not None:
+                            break
+                    if lc is not None:
+                        break
+                if lc is not None:
+                    break
+            if lc is not None:
+                placed.append(lcor)
+                z = {"kind": "parking", "centre": lc, "w": lw, "h": ld,
+                     "yaw": lyaw, "corners": lcor,
+                     "lines": lot_lay["lines"],
+                     "n_bay_row": lot_lay["n_bay"], "n_rows": lot_lay["rows"]}
+                # Local, so `_shift_park` carries them for free (`to_local`).
+                z["bays_local"] = [(bx, by) for (bx, by, _f) in
+                                   lot_lay["bays"]]
+                z["bay_face"] = [f for (_x, _y, f) in lot_lay["bays"]]
+                z["apron_local"] = [to_local(z, q) for q in apron]
+                z["mouth_local"] = to_local(z, mouth)
+                z["entrance_local"] = to_local(z, kerb_pt)
+                zones.append(z)
+                apron_box = apron
 
     pw, ph = _rng_pair(c["playground_m"], (46.0, 34.0))
     add("playground", pw, ph, 0.62, 0.50, surface="sand")
@@ -1639,6 +2109,14 @@ def plan(rng, cfg=None):
     # Built from `zones` rather than from `placed` so the pads below stay
     # index-aligned with their facilities; the corner lists are the same
     # objects either way, which is what the identity-based `exempt` relies on.
+    # THE APRON IS AN OBSTACLE, not a zone. It is a driveway across the verge,
+    # so nothing may be planted on it and no path may run down it — but it is
+    # not a facility either: it owns no padding band of its own and nothing
+    # should route a spur to it. `features` is exactly that category (the
+    # fountain and gazebo keep-outs), so it goes there, which also keeps
+    # `obstacles` index-aligned with `zones` for the pads below.
+    if apron_box is not None:
+        features.append(apron_box)
     obstacles = [z["corners"] for z in zones] + features
     # THE PADDING BAND, one figure per obstacle. Recorded on the zone too, so
     # the checks below measure what the plan promised rather than re-deriving
@@ -2409,6 +2887,88 @@ def plan(rng, cfg=None):
             "fences": fences, "props": props}
 
 
+def parking_zone(park):
+    """The refuge lot's zone, or None if the park has no parking."""
+    for z in park["zones"]:
+        if z["kind"] == "parking":
+            return z
+    return None
+
+
+def parking_info(park):
+    """The refuge lot in WORLD coords — what the survivors/cars pass reads.
+
+    THE ONE PLACE THE LOCAL STORAGE IS UNDONE. Everything about the lot is kept
+    in the facility's own frame so `suburb_scene._shift_park` cannot leave the
+    bays behind when it moves the slab (see `to_local`); this resolves it once,
+    against whatever `centre` the park ended up at, so no consumer has to know
+    the convention. Call it AFTER the shift.
+
+    Schema::
+
+        {"corners": [(x, y) x4],      # the slab, CCW, world
+         "centre":  (x, y),
+         "yaw_deg": float,            # +x runs along the street frontage
+         "w": float, "d": float,      # frontage x depth, metres
+         "bays":    [{"centre": (x, y), "yaw_deg": float}, ...],
+         "apron":   [(x, y) x4],      # kerb -> lot, CCW, world
+         "entrance": (x, y),          # where the apron meets the street
+         "mouth":   (x, y),           # where it meets the lot
+         "rows": int, "bays_per_row": int}
+
+    A bay's ``yaw_deg`` is the heading a car nosed into it points — away from
+    the aisle it reversed out of, i.e. the lot's yaw +-90 depending on which
+    side of the aisle the bay is on.
+    """
+    z = parking_zone(park)
+    if z is None:
+        return None
+    faces = z.get("bay_face") or [1.0] * len(z.get("bays_local", ()))
+    return {
+        "corners": [tuple(q) for q in z["corners"]],
+        "centre": tuple(z["centre"]),
+        "yaw_deg": float(z["yaw"]),
+        "w": float(z["w"]), "d": float(z["h"]),
+        "bays": [{"centre": to_world(z, p),
+                  "yaw_deg": float(z["yaw"]) + (90.0 if f > 0 else -90.0)}
+                 for (p, f) in zip(z["bays_local"], faces)],
+        "apron": [to_world(z, p) for p in z.get("apron_local", ())],
+        "entrance": to_world(z, z["entrance_local"]),
+        "mouth": to_world(z, z["mouth_local"]),
+        "rows": int(z.get("n_rows", 0)),
+        "bays_per_row": int(z.get("n_bay_row", 0)),
+    }
+
+
+def check_parking(park, gap=0.0):
+    """The refuge lot's own self-test.
+
+    ``(bays, overlaps, off_slab, apron_len_m)`` — the bay count, how many other
+    facilities the slab runs into, how many bays fall outside their own slab,
+    and how long the apron is. The first three must be (>0, 0, 0) and the last
+    must be positive, or the lot is not a lot anybody can drive onto.
+
+    Facility non-overlap is not covered by `check`/`check_pad`/`check_reach`:
+    those measure PATHS against facilities, and `_place` is what keeps the
+    facilities off each other. The lot is the first thing here sited by an
+    outside constraint rather than by `_place`, so it is the first that can get
+    that wrong, and it says so out loud.
+    """
+    z = parking_zone(park)
+    if z is None:
+        return 0, 0, 0, 0.0
+    over = sum(1 for q in park["zones"]
+               if q is not z and _sat_overlap(z["corners"], q["corners"], gap))
+    off = 0
+    hw, hh = z["w"] / 2.0, z["h"] / 2.0
+    for p in z.get("bays_local", ()):
+        if abs(p[0]) > hw + 1e-6 or abs(p[1]) > hh + 1e-6:
+            off += 1
+    a = z.get("apron_local")
+    alen = sn._dist(to_world(z, a[0]), to_world(z, a[3])) if a else 0.0
+    return len(z.get("bays_local", ())), over, off, alen
+
+
 def check(park, eps=0.25):
     """How many (path segment, facility) pairs actually cross. Must be zero.
 
@@ -2654,6 +3214,8 @@ def stats(park):
     from collections import Counter
     z = Counter(x["kind"] for x in park["zones"])
     p = Counter(x["kind"] for x in park["props"])
+    lot = parking_zone(park)
     return {"zones": dict(z), "props": dict(p),
             "fence_panels": len(park["fences"]),
+            "parking_bays": len(lot.get("bays_local", ())) if lot else 0,
             "paths": len(park["paths"])}

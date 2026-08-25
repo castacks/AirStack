@@ -432,9 +432,25 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
     mailboxes = _tagged(_pp, "mailbox")
     patio_props = [e for e in _pp if "patio" in e["tags"] or "shed" in e["tags"]]
 
-    houses = [h for p in parcels for h in p["houses"]]
+    # ROW HOMES ARE NOT PLANTED HERE, and the reason is the first line of this
+    # module's docstring: every dimension is read off THE LOT, and an attached
+    # row home does not have one. `suburb_parcel` gives a cluster unit a
+    # `lot_corners` that is its footprint plus the footway strip and two metres
+    # of bin store, because something downstream has to reserve that ground —
+    # but there is no front yard to compose a foundation row across (the
+    # footway to the court runs through it), no side yard between two units
+    # 2.5 m apart, and no back garden at all. The ground behind and between the
+    # rows is COMMUNAL: `row_housing` publishes it as the cluster's greens, and
+    # `suburb_scene.build_open_planting` plants it as block interior, which is
+    # what it is.
+    #
+    # They are still in `solids` below — a tree from a NEIGHBOURING lot must
+    # not be planted inside one.
+    all_houses = [h for p in parcels for h in p["houses"]]
+    houses = [h for h in all_houses if not h.get("row")]
+    n_row_skipped = len(all_houses) - len(houses)
     if not houses:
-        return [], {"lots": 0}
+        return [], {"lots": 0, "row_skipped": n_row_skipped}
     # Budget is allocated per unit area, so a big lot gets proportionally more
     # and the spend is uniform in points per square metre across the suburb.
     # SHUFFLED, and that is load-bearing rather than tidy. A purse carries its
@@ -484,8 +500,30 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
 
     # Every building in the suburb, before anything is planted — one pass over
     # the same `houses` list, so the neighbours are covered too.
-    solids = _Solids(houses, pad_max=max(2.0, clear_house + 1.0),
+    # EVERY house in the suburb, row homes included — see above: they are
+    # excluded from being PLANTED, not from being planted AROUND.
+    solids = _Solids(all_houses, pad_max=max(2.0, clear_house + 1.0),
                      rings=keepout_rings)
+    # THE POOLS AGAIN, AT A MUCH BIGGER RADIUS AND FOR TREES ONLY.
+    # `keepout_rings` already goes into `solids` above, which stops anything
+    # being planted IN the water — a 2.6 m margin, the generic one a house
+    # gets. That is the right number for a shrub and the wrong one for a tree,
+    # because a tree in this dataset does not stay a tree: the wildfire pass
+    # swaps every one for a baked burnt archetype carrying wood debris
+    # scattered 7.5-10.5 m about its trunk (`disaster/vegetation.py`
+    # `_DEBRIS`), so a trunk 2 m from the coping puts broken timber in the
+    # water. Same index, same oriented boxes, same `clear()` — a second one at
+    # the debris radius, consulted only by `plant_tree`.
+    #
+    # The knob lives under `suburb_parcel` with the other planting clearances
+    # (`open_tree_clear_m`, `tree_clear_m`), because `build_open_planting` and
+    # the final sweep in `suburb_scene` enforce the same distance and three
+    # copies of it in three sections is three chances to disagree.
+    pool_clear = float((config.get("suburb_parcel") or {})
+                       .get("pool_tree_clear_m", 11.0))
+    pool_water = (_Solids((), pad_max=max(pool_clear, 0.1),
+                          rings=keepout_rings)
+                  if (pool_clear > 0.0 and keepout_rings) else None)
 
     out = []
     placed_trees = _Spacing(tree_sep)
@@ -496,7 +534,7 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
     # `suburb_parcel` takes.
     _discs = [((float(c[0]), float(c[1])), float(r))
               for (c, r) in (keepout_discs or ())]
-    n_side_narrow = n_side_blocked = 0
+    n_side_narrow = n_side_blocked = n_pool_tree = 0
 
     def emit(entry, x, y, yaw, category, purse):
         """Charge the purse, then place. Returns False if unaffordable.
@@ -621,6 +659,14 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
             """
             x, y = world(along, deep)
             if not placed_trees.ok(x, y) or not free(x, y, pad):
+                return False
+            # A TREE ONLY. The station is not re-tried anywhere else: a lot
+            # with a pool in it has less plantable rear yard than one without,
+            # which is the correct answer and is why the count drops slightly
+            # on pool lots and nowhere else.
+            if pool_water is not None and not pool_water.clear(x, y, pool_clear):
+                nonlocal n_pool_tree
+                n_pool_tree += 1
                 return False
             wall = math.hypot(max(abs(along) - half_w, 0.0),
                               max(abs(deep) - half_d, 0.0))
@@ -776,6 +822,9 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
                         break
 
     stats = {"lots": len(houses), "placed": len(out), "tally": tally,
+             # Row homes seen and deliberately left alone. Reported so a run
+             # whose yard count drops says WHY rather than looking thinned.
+             "row_skipped": n_row_skipped,
              "points": budget.spent, "budget": budget.total,
              "refused": budget.refused,
              # The canopy purse on its own, because it is the one that used to
@@ -794,7 +843,11 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
              # Props refused for standing on a cul-de-sac turnaround. Worth
              # reporting rather than swallowing: a non-zero number here with a
              # zero disc list would mean the caller forgot to pass them.
-             "keepout": n_keepout}
+             "keepout": n_keepout,
+             # ...and tree stations refused for standing inside the burnt
+             # archetype's debris radius of a pool. Same argument: zero here on
+             # a preset that has pools means the rings never arrived.
+             "pool_trees": n_pool_tree}
     return out, stats
 
 
@@ -803,7 +856,10 @@ def report(stats):
     pct = 100.0 * stats["points"] / max(1.0, stats["budget"])
     lots = max(1, stats["lots"])
     canopy = stats["tally"].get("tree", 0)
-    print(f"[yardplan] {stats['placed']} placed across {stats['lots']} lots\n"
+    row = stats.get("row_skipped", 0)
+    print(f"[yardplan] {stats['placed']} placed across {stats['lots']} lots"
+          + (f" ({row} row homes skipped: shared ground, no private yard)"
+             if row else "") + "\n"
           f"[yardplan]   {t}\n"
           f"[yardplan]   {canopy / lots:.2f} trees per lot "
           f"({stats.get('front_trees', 0)} front / "
@@ -811,7 +867,8 @@ def report(stats):
           f"{stats.get('rear_trees', 0)} rear); "
           f"{stats.get('keepout', 0)} off turnarounds, "
           f"{stats.get('side_no_room', 0)} side strips too narrow, "
-          f"{stats.get('side_no_spot', 0)} with no spot left\n"
+          f"{stats.get('side_no_spot', 0)} with no spot left, "
+          f"{stats.get('pool_trees', 0)} inside a pool's debris radius\n"
           f"[yardplan]   {stats['points']:,} of {int(stats['budget']):,} points "
           f"({pct:.0f}%), {stats['refused']} refused on budget "
           f"({stats.get('tree_points', 0):,} of "

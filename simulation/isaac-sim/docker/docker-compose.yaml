@@ -44,6 +44,28 @@ services:
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
       # Scene to generate; empty falls back to the launch script default
       - SCENE_CONFIG=${SCENE_CONFIG:-}
+      # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
+      # forward the host environment automatically — a var absent here simply
+      # never reaches the launch script, which looks like the script ignoring
+      # the mission rather than like a plumbing gap.
+      - SPAWN_CONFIGS=${SPAWN_CONFIGS:-}
+      - SPAWN_POLY=${SPAWN_POLY:-}
+      - SPAWN_SEED=${SPAWN_SEED:-}
+      - SPAWN_HEIGHT_M=${SPAWN_HEIGHT_M:-}
+      - SPAWN_MIN_DIST_M=${SPAWN_MIN_DIST_M:-}
+      - SPAWN_MARGIN_M=${SPAWN_MARGIN_M:-}
+      - ENV_URL=${ENV_URL:-}
+      - STAGE_SCALE=${STAGE_SCALE:-}
+      - OVERHEAD_CENTER_X_M=${OVERHEAD_CENTER_X_M:-}
+      - OVERHEAD_CENTER_Y_M=${OVERHEAD_CENTER_Y_M:-}
+      - RESULTS_SCENE=${RESULTS_SCENE:-}
+      - GT_ANNOTATIONS=${GT_ANNOTATIONS:-off}
+      # The generated wildfire plat: where its baked archetypes come from, and
+      # what `airstack://` resolves to. A pod's clone carries neither the bake
+      # nor the AEC packs, so both must point at Nucleus there.
+      - ARCH_DIR=${ARCH_DIR:-}
+      - AIRSTACK_ASSET_ROOT=${AIRSTACK_ASSET_ROOT:-}
+      - PEOPLE_POLES=${PEOPLE_POLES:-}
       # Pegasus physics tuning — read by pegasus/simulator/params.py
       - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}
       - ARDUPILOT_PHYSICS_HZ=${ARDUPILOT_PHYSICS_HZ:-800}
@@ -130,6 +152,28 @@ services:
       - ISAAC_SIM_USE_STANDALONE=true
       - ISAAC_SIM_HEADLESS=true
       - SCENE_CONFIG=${SCENE_CONFIG:-}
+      # Spawn + scene knobs a mission sets in its `env:`. Compose does NOT
+      # forward the host environment automatically — a var absent here simply
+      # never reaches the launch script, which looks like the script ignoring
+      # the mission rather than like a plumbing gap.
+      - SPAWN_CONFIGS=${SPAWN_CONFIGS:-}
+      - SPAWN_POLY=${SPAWN_POLY:-}
+      - SPAWN_SEED=${SPAWN_SEED:-}
+      - SPAWN_HEIGHT_M=${SPAWN_HEIGHT_M:-}
+      - SPAWN_MIN_DIST_M=${SPAWN_MIN_DIST_M:-}
+      - SPAWN_MARGIN_M=${SPAWN_MARGIN_M:-}
+      - ENV_URL=${ENV_URL:-}
+      - STAGE_SCALE=${STAGE_SCALE:-}
+      - OVERHEAD_CENTER_X_M=${OVERHEAD_CENTER_X_M:-}
+      - OVERHEAD_CENTER_Y_M=${OVERHEAD_CENTER_Y_M:-}
+      - RESULTS_SCENE=${RESULTS_SCENE:-}
+      - GT_ANNOTATIONS=${GT_ANNOTATIONS:-off}
+      # The generated wildfire plat: where its baked archetypes come from, and
+      # what `airstack://` resolves to. A pod's clone carries neither the bake
+      # nor the AEC packs, so both must point at Nucleus there.
+      - ARCH_DIR=${ARCH_DIR:-}
+      - AIRSTACK_ASSET_ROOT=${AIRSTACK_ASSET_ROOT:-}
+      - PEOPLE_POLES=${PEOPLE_POLES:-}
     # Publish the WebRTC livestream ports to the pod NS. Bridge-mode +
     # publish (the conservative choice) keeps the rest of the stack on
     # airstack_network for DDS multicast.

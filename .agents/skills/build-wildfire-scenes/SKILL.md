@@ -60,8 +60,15 @@ Launchers: `house_damage_test_launch_script.py` (severe bench),
 `slice_mesh_plane(cap=True)` logs "try running pip install mapbox-earcut" and
 returns EMPTY, which surfaced as `wood_debris` returning nothing to unpack).
 `fracture.ensure_deps()` installs all three at runtime; the Dockerfile only
-pins the first two, so a fresh container pays one pip install on its first
-fracture. A container that has been up for a while has them; **`airstack
+pins the first two — and **a fresh container does NOT pay one pip install, it
+pays one RUINED RUN.** trimesh (4.5.1) caches engine availability in a
+module-level `_engines` list at import time, so a package installed after
+`import trimesh` is invisible to that process: every `slice_mesh_plane` logs
+`No available triangulation engine!`, every tree bakes with ZERO debris, and
+the manifest and banner still look complete. Measured 2026-08-24 after a
+container recreate. Before the first fracture in a new container run
+`docker exec isaac-sim /isaac-sim/python.sh -m pip install manifold3d shapely
+mapbox_earcut`, or run any fracture launcher once and throw the result away. A container that has been up for a while has them; **`airstack
 down` throws them away** — see the tmux relaunch in
 [run-isaac-sim-launcher](../run-isaac-sim-launcher/SKILL.md).
 
@@ -988,6 +995,23 @@ Gotchas found the hard way:
 
 Collapse geometry is independent of wall colour, so palette and scorch stay
 runtime binds and never multiply the ~78 geometry bakes.
+
+# People, and the cars they sit in
+
+Survivor placement, the RenderPeople rigs, opening a car cabin so an occupant
+is visible, the authored road blockage and the host-side dry run that gates an
+Isaac build all live in
+[place-people-in-scenes](../place-people-in-scenes/SKILL.md). Two things from
+there that bite THIS pipeline directly:
+
+- **Do not roll or pitch a baked archetype.** It was settled by PhysX and its
+  debris laid flat at z=0, all frozen into one object, so turning it about X
+  or Y tips the debris field with it.
+- **A palette must be able to read what a palette wrote.** `bake_archetypes`
+  builds each house with its style's palette ALREADY applied, so re-colouring
+  a baked archetype has to match the palette's own output surfaces, not just
+  the kit defaults — matching only the kit's left every rebind silently
+  rebinding zero subsets.
 
 # Known gaps
 

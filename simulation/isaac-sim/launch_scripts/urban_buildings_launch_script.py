@@ -5,7 +5,7 @@ Five urban buildings assembled piece by piece from a modular façade kit
 
     ISAAC_SIM_SCRIPT_NAME=urban_buildings_launch_script.py airstack up isaac-sim
 
-One building per kit family — apartment block, office, brownstone, glass
+One building per kit family — apartment block, office, brownstone, brick
 commercial, podium-and-tower — in a row along +X with their fronts facing -Y,
 so a camera south of the origin sees all five. No drone, no sensors, no ROS 2
 bridge: this boots fast and is only about whether the kit assembles.
@@ -160,6 +160,10 @@ def aim_camera(stage, eye, target):
     if not cam:
         cam = UsdGeom.Camera.Define(stage, Sdf.Path(CAM))
         cam.GetClippingRangeAttr().Set(Gf.Vec2f(0.5, 5000.0))
+        # Kit's default is a 50 mm lens (~24 deg); 18 mm (~60 deg) frames a
+        # whole building from 1.6 x its size, which the poses assume.
+        cam.GetFocalLengthAttr().Set(18.0)
+        cam.GetHorizontalApertureAttr().Set(20.955)
     xf = UsdGeom.Xformable(cam)
     xf.ClearXformOpOrder()
     xf.AddTranslateOp().Set(Gf.Vec3d(*eye))
@@ -232,20 +236,25 @@ class UrbanBuildingsApp:
         report_missing(stage, placements)
         add_sky(stage, "")
 
-        self.poses = [("front", (0.0, -95.0, 28.0), (0.0, 0.0, 10.0)),
-                      ("aerial", (0.0, -70.0, 90.0), (0.0, 0.0, 0.0)),
-                      ("east_end", (95.0, -60.0, 35.0), (40.0, 0.0, 12.0))]
-        for s, x, w, d in where:
-            self.poses.append((s, (x + w * 0.9, -(d / 2 + max(w, 22.0) * 1.1), 14.0),
-                               (x, 0.0, 8.0)))
+        # Kit's default camera is ~60 deg horizontal, so 1.6 x the largest
+        # dimension frames a building with a margin.
+        span = where[-1][1] + where[-1][2] / 2 - (where[0][1] - where[0][2] / 2)
+        self.poses = [("front", (0.0, -1.3 * span, 0.35 * span), (0.0, 0.0, 12.0)),
+                      ("aerial", (0.0, -0.4 * span, 1.5 * span), (0.0, 0.0, 0.0)),
+                      ("east_end", (0.8 * span, -0.6 * span, 0.3 * span),
+                       (0.25 * span, 0.0, 12.0))]
+        for s, x, w, d, h in where:
+            dist = 1.6 * max(w, d, h)
+            self.poses.append((s, (x + 0.6 * dist, -(d / 2 + 0.8 * dist),
+                                   0.5 * h + 0.35 * dist), (x, 0.0, h / 2)))
         aim_camera(stage, *self.poses[0][1:])
 
         print("\n" + "=" * 70)
         print("URBAN BUILDINGS READY")
         print(f"  seed {SEED}   gap {GAP_M} m   colliders {'on' if COLLIDERS else 'off'}"
               f"   strip {'on' if STRIP else 'off'}")
-        for s, x, w, d in where:
-            print(f"    {s:<18} x={x:+7.1f}  {w:.0f} x {d:.0f} m   "
+        for s, x, w, d, h in where:
+            print(f"    {s:<18} x={x:+7.1f}  {w:.0f} x {d:.0f} m, {h:.0f} m tall   "
                   f"{urban_building.STYLES[s]['note']}")
         print("  reload: see the snippet in this script's docstring")
         print("=" * 70 + "\n")

@@ -13,9 +13,34 @@ float32 max_altitude_agl 15.0
 float32 min_flight_speed
 float32 max_flight_speed
 float32 confidence_threshold 0.95
+# Optional raven_nav tuning overrides. A sentinel (<0, or <1 for the count) means
+# "unset" -> raven_nav.yaml default is used. Settable per-scene in the mission file.
+float32 score_threshold -1.0
+float32 voxel_score_threshold -1.0
+float32 voxel_min_confidence -1.0
+int32 voxel_min_cluster_size -1
+# Consensus bundle length (tasks per robot; head executed, tail reserved). 1-3.
+int32 bundle_len -1
 # Optional cap on accumulated instances. 0 = unlimited; task completes only on
 # coverage criterion or operator cancel.
 int32 max_instances 0
+# Simulated-time budget in seconds. 0 = unlimited (the task ends on the coverage
+# criterion or an operator/mission cancel, as before).
+#
+# The mission runner's timeout_s is WALL clock, and Isaac Sim's real-time factor
+# falls as drones are added (~0.46 at 2 robots, ~0.34 at 3, ~0.27 at 4), so the
+# same wall budget buys progressively less simulated search and fleet sizes are
+# not comparable. Setting this makes the budget the same in the simulated world
+# for every fleet. Sim time is read from the odometry header stamps, which the
+# sim publishes; keep timeout_s comfortably above the expected wall equivalent
+# so it stays a safety net rather than the binding limit.
+float32 max_sim_seconds 0.0
+# Debug/manual-fly mode: bring up rayfronts + raven and publish all their
+# visualization (grouped rays, frontiers, bounding boxes, discoveries) but do
+# NOT command the drone — the operator flies it manually (e.g. via the
+# navigate / fixed-trajectory task from GCS) to inspect what rayfronts detects.
+# Also settable per-node via the SEMANTIC_SEARCH_DEBUG env var.
+bool debug false
 ---
 # Result
 bool success

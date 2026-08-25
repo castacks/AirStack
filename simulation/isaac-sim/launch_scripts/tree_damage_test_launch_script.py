@@ -120,7 +120,7 @@ BEECH = _VEG + "/brownstone/Assets/Vegetation/Trees/American_Beech.usd"
 _AEC_NAT = "airstack://scene_gen/assets/aec/brownstone/Materials/Base/Natural"
 GRASS_PNG = _AEC_NAT + "/Grass_Cut/Grass_Cut_BaseColor.png"
 BURNT_PNG = ("airstack://scene_gen/assets/materials/megascans/"
-             "Burnt_Forest_Floor/T_uhwpehcdy_2K_B.png")
+             "Burnt_Forest_Floor/T_uhwpehcdy_4K_B.png")
 # The baked scar covers this square, centred on the row. Square because
 # `ground_burn_map` bakes a square image over `region_m` — a non-square region
 # would need per-axis UVs, and there is no reason to want one here.
@@ -174,8 +174,10 @@ UNITS = [
 #               the banding.
 #   soot_fine   the same, at ~3x the triplanar frequency — smaller features,
 #               so a repeat is harder to pick out.
-#   burnt_floor the Megascans Burnt_Forest_Floor surface bound directly. One
-#               tile per ~9 m, real normal and ORM maps, no bark identity.
+#   REJECTED: binding Megascans Burnt_Forest_Floor directly. It tiled well
+#               (one tile per ~9 m) and carried real normal/ORM maps, but a
+#               photographed GROUND surface wrapped on a trunk reads as ground.
+#               No tree in this dataset carries it; the row no longer offers it.
 #   char_map    the house pipeline's own Burn_Char_Ref, world triplanar. The
 #               material a collapsed building is made of, on a tree.
 # Unit 3, tree by tree. WHY THIS REPLACED THE "GRADED CROWN" UNIT: a graded
@@ -189,10 +191,9 @@ MIXED_LEVELS = ("scorched", "scorched", "torched", "snag", "fallen")
 
 MAT_ROW_Y = 58.0
 MAT_ROW = [
-    ("A", "soot (own bark)",     -60.0, "soot"),
-    ("B", "soot, fine grain",    -20.0, "soot_fine"),
-    ("C", "burnt forest floor",   20.0, "burnt_floor"),
-    ("D", "house char map",       60.0, "char_map"),
+    ("A", "soot (own bark)",     -40.0, "soot"),
+    ("B", "soot, fine grain",      0.0, "soot_fine"),
+    ("C", "house char map",       40.0, "char_map"),
 ]
 
 # Which units smoke, and how hard. A cold snag does not; a bed of burnt duff
@@ -289,8 +290,6 @@ def build_placements(rng):
 
 def bark_material(style, mats):
     """Resolve a bark treatment to (material prim path, triplanar scale)."""
-    if style == "burnt_floor":
-        return mats["burnt"], (0.28, 0.28)
     if style == "char_map":
         return mats["char"], (0.28, 0.28)
     if style == "soot_fine":

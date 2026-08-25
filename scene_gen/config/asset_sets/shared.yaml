@@ -23,6 +23,11 @@
 #   sidewalk  benches used only on street frontage
 #   tree      planters big enough to hold a street tree
 #   stump     trees that are stumps — park scatter only, never potted
+#   residential / livery / commercial / rv / vintage
+#             what KIND of vehicle an entry is, so a suburban driveway does not
+#             draw a taxi — see the `cars` block for the full note
+#   glass_separable
+#             a vehicle whose glass is its own mesh and can be removed
 
 asset_root: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Library/Stages/"
                             # prefix for relative usds.* paths; URLs / absolute paths pass through
@@ -56,7 +61,12 @@ fallback_sizes:
   plant:         [1.0, 1.0]
   streetlight:   [1.0, 1.0]
   bench:         [2.0, 0.6, 0.9]
-  car:           [4.5, 2.0, 1.5]
+  # MEASURED, AND ON THE POOL'S OWN AXIS. Every car in `usds.cars` is authored
+  # with its nose on local -Y (hence `yaw-offset: 90` on all of them), so its
+  # LENGTH is y and its WIDTH is x — Muyang/Vehicle_A measures 2.15 x 5.44 m in
+  # Isaac. The old [4.5, 2.0] had the axes the other way round, which made a
+  # fallback car 2 m long and 4.5 m wide to anything fitting one into a space.
+  car:           [2.15, 5.44, 1.5]
   fire_hydrant:  [0.5, 0.5, 0.9]
   trash_can:     [0.8, 0.8, 1.2]
   traffic_light: [1.0, 1.0, 6.0]
@@ -255,32 +265,144 @@ usds:
       yaw-offset: 90.0
       tags: ["park"]
 
+  # ONE POOL, TAGGED BY WHAT EACH VEHICLE IS. This was a flat list and every
+  # consumer drew from it uniformly, so with a construction truck, a motorhome,
+  # a squad car and a taxi among seven entries, ~55% of the cars parked on a
+  # suburban DRIVEWAY were livery, commercial or oversize. The fix is not to
+  # delete them — a downtown wants a taxi and an evacuation wants a police car
+  # — it is to say which is which and let the pass choose.
+  #
+  # These are CAPABILITIES in the `pools.load_tagged` sense, the same mechanism
+  # the fence pools use, so an entry may carry several and the sub-pools may
+  # overlap. `suburb_scene.build_cars` draws `residential` for driveways and
+  # kerb parking, with `vintage` at `cars.vintage_chance`; `livery`,
+  # `commercial` and `rv` stay reachable by their own tags for a later
+  # evacuation-scenario pass.
+  #
+  #   residential      a car you would find parked outside a house
+  #   livery           taxi, police — reads wrong on a private drive
+  #   commercial       work vehicles
+  #   rv               oversize; a drive that holds one is the exception
+  #   vintage          period car — residential, but rare
+  #   glass_separable  THE GLASS IS ITS OWN MESH, bound to a material whose
+  #                    shader declares a fractional opacity, so
+  #                    `detail/vehicles.strip_glass` can deactivate it and let
+  #                    the camera see people inside. Measured per asset:
+  #                    130 (`window` 0.8, `glass` 0.2), Nissan (`Material`,
+  #                    `Material_009` 0.25), motorhome (`windows` 0.51),
+  #                    ZIS (`Glass`, `*Glass` 0.25).
+  #                    The Muyang vehicles carry no tag because there is
+  #                    nothing to strip: each is ONE mesh (`LOD0`, ~2.3k pts)
+  #                    with NO material binding and its windows painted into
+  #                    the base-colour texture.
+  #                    This matters because the renderer forces fractional
+  #                    opacity to 1.0 (`kit/mdl/rtx/UsdPreviewSurface.mdl`
+  #                    holds `enable_specular_transmission = false`), so every
+  #                    car window renders OPAQUE and removing the glass is the
+  #                    only way to see through it.
   cars:
+    # THREE CARS CARRY `residential`, AND IT IS A DELIBERATE SHORTLIST:
+    # `130`, `Nissan_Fairlady_Z` and the GMC van. Those are the three that
+    # survived the occupant bench (`car_occupants_launch_script.py`) — the
+    # only ones a person can be SEEN inside, which on this plat is most of
+    # what a car is for. `Car_01_0` and `Vehicle_A` are correctly sized and
+    # perfectly good parked cars, but their windows are painted into a
+    # single-mesh texture with no separable glass, so an occupant in one is
+    # invisible from every angle; they are tagged `parked_only` and nothing
+    # currently draws them. Livery and commercial keep their own tags.
+    #
+    # YAW-OFFSET IS 90 ON EVERY CIVILIAN CAR, and it briefly was not. A
+    # top-down capture appeared to show them pointing along +Y at a heading of
+    # 0, so the offset was zeroed to "correct" it; the capture was itself
+    # rotated a quarter turn by a degenerate look-at in the snapshot helper
+    # (`simulation/isaac-sim/utils/snapshots.py`), and the cars had been right
+    # all along. What settled it was an EYE-LEVEL view, where a car seen
+    # head-on cannot be confused with one seen from the side: at 90 the car
+    # and its occupant both face the heading.
+    #
+    # The lesson is about the method rather than the number — a plumb camera
+    # has no horizontal component to derive an up-vector from, so never read a
+    # bearing off a straight-down shot without checking which way the frame is
+    # oriented. Measure a new vehicle from the side with
+    # `car_occupants_launch_script.py`.
+    # SCALE MEASURED AGAINST A REAL CAR, NOT LEFT AT THE PACK DEFAULT. At the
+    # 0.01 every cm-authored asset gets, this measures 1.22 x 2.94 m with an
+    # 0.86 m roof — two thirds of a sedan, which is why a 1.75 m person stood
+    # beside one looked like a giant and why `people._gridlock` refused to seat
+    # an occupant (it needs a 1.18 m roof for a head to clear it). 0.016 puts
+    # it at 1.95 x 4.70 x 1.38 m, an American sedan. Verify any NEW car the
+    # same way: place a human next to it, or read the `[scene_gen] measured
+    # car:` line the resolver prints on every run.
     - usd: "RetroNeighborhood/130.usdz"
-      scale: 0.01
+      scale: 0.016
       axis-up: "Y"           # authored Y-up; fixed to Z-up for Isaac Sim
       yaw-offset: 90.0
+      tags: ["residential", "glass_separable"]
     - usd: "RetroNeighborhood/FREE_GMC_Motorhome_reimagined_low_poly.usdz"
       scale: 0.01
       axis-up: "Y"
       yaw-offset: 90.0
+      tags: ["residential", "rv", "glass_separable"]
+    # Same correction as the 130 above. Measured 1.19 x 2.80 x 0.79 m at 0.01
+    # against a real S30 240Z's 1.63 x 4.12 x 1.28 m; 0.015 lands on
+    # 1.78 x 4.19 x 1.19 m.
+    # NOT `glass_separable`, and this is an asset defect rather than a policy.
+    # Its transparent materials are called `Material` and `Material_009` and
+    # are bound to the ROOF AND BODY PANELS as well as the windows, while every
+    # mesh is named `Object_N` — so there is nothing, in the name or in the
+    # binding, that separates glass from car. `strip_glass` correctly removed
+    # everything at opacity 0.25 and turned it into a convertible with no
+    # pillars. An occupant in this one is visible through the windscreen only.
     - usd: "RetroNeighborhood/Nissan_Fairlady_Z_S30240Z_1978.usdz"
-      scale: 0.01
+      scale: 0.015
       axis-up: "Y"
       yaw-offset: 90.0
-    # Commented out, reason not recorded — all RetroNeighborhood .usdz at
-    # scale 0.01, axis-up Y: FREE_Merc_Hovercar (a hovercar, so not a street
-    # car), Old_Rusty_Car, ZIS-101A_Sport_1938.
+      tags: ["residential"]
+    # ZIS-101A_Sport_1938 IS OUT, and it was in briefly on the strength of its
+    # modelled interior and separate door meshes — the best occupant car in the
+    # pool, on paper. MEASURED, it is 6.95 x 10.48 m at scale 0.01: wider than
+    # a residential carriageway and nearly twice the length of a real ZIS-101,
+    # and its bbox sits ~57 m off the origin, so the pivot is wrong too. Same
+    # class of defect as Old_Rusty_Car below, found the same way. The lesson is
+    # the one at the top of `suburban.yaml`: MEASURE BEFORE ADDING — a car
+    # chosen from its mesh list rather than its bounding box is a car nobody
+    # has actually looked at.
+    # STILL OUT, now with the reason recorded. FREE_Merc_Hovercar is a
+    # hovercar, so not a street car. Old_Rusty_Car is BROKEN: it measures
+    # 17 x 21 m because a ground plane is baked into the asset, so it paves a
+    # lot wherever it lands. Do not add it back without fixing the asset.
     - usd: "Dmytro/Assets/Game/ModernCityEnvironment01/Meshes/SK_ConstructionTruck01FullyRigged.usd"
-    - usd: "Muyang/DownTown/Assets/Vehicle_A.usd"
+      tags: ["commercial"]
+    # THE KIT'S OWN CAR, and the best-matched vehicle in the pool for a
+    # suburb: it ships with `ModularNeighborhood`, which is where every house
+    # on this plat comes from, so it is the same art direction rather than a
+    # downtown prop parked on a lawn. MEASURED 2.26 x 5.02 x 1.71 m at 0.01 —
+    # correct out of the box, unlike the RetroNeighborhood pair below.
+    #
+    # `Car_01_0.usd` is the GEOMETRY. `Car_01.usd`, `Car_02.usd` and
+    # `Car_Glass_01.usd` beside it in the kit are MATERIALS, not vehicles —
+    # opening one gives an empty bbox — and the mesh binds them per GeomSubset
+    # (`Section0` body, `Section1` glass) exactly as the house modules do.
+    # That also means its glass is a SUBSET rather than its own mesh, so
+    # `detail/vehicles.strip_glass` (which deactivates whole meshes) cannot
+    # take it off: this one is NOT tagged `glass_separable`, and its windows
+    # rely on the glass material's own `opacityTexture`.
+    - usd: "Muyang/ModularNeighborhood/Assets/Car_01_0.usd"
       scale: 0.01
       yaw-offset: 90.0
+      tags: ["parked_only"]
+    - usd: "Muyang/DownTown/Assets/Vehicle_A.usd"
+      scale: 0.01
+      yaw-offset: 90.0       # measured 2.15 x 5.44 m: the long axis IS local Y
+      tags: ["parked_only"]
     - usd: "Muyang/DownTown/Assets/Vehicle_Police.usd"
       scale: 0.01
       yaw-offset: 90.0
+      tags: ["livery"]
     - usd: "Muyang/DownTown/Assets/Vehicle_Taxi.usd"
       scale: 0.01
       yaw-offset: 90.0
+      tags: ["livery"]
 
   # RenderPeople rigged humans: cm-authored (scale 0.01), art faces -Y
   # (yaw-offset 90). UsdSkel rigs with no animation clip — the generator

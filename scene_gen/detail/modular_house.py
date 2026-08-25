@@ -171,7 +171,31 @@ POOL_EDGE = "Swimming_Pool_Edge_01"       # 2.5 m coping, drops 3 m
 POOL_CORNER = "Swimming_Pool_Curve_01"
 # The coping is the z=0 datum; the water surface sits below it.
 POOL_WATER_Z_M = -0.35
+# Clear ground between the BACK WALL and the near lip of the water. Read by
+# `pool_at`, which used to centre the pool in whatever rear it was given: that
+# was the only sensible answer while a pool lot was granted ~9.5 m of rear, and
+# it is the wrong one now that it asks for 20 — centring puts 8 m of nothing on
+# both sides and no lawn anywhere, where a real back garden has its lawn
+# between the house and the water.
 POOL_SETBACK_M = 9.0        # from the house, so it clears the fence
+# Walk at the house end of the pool, and at the fence end. The rear walk is the
+# wider of the two on purpose: it is the side people actually stand on, and a
+# coping hard against a privacy fence has nowhere to put a chair.
+POOL_WALK_M = 2.5
+POOL_REAR_WALK_M = 3.0
+# Coping half-band. The `Swimming_Pool_Edge_01` modules are laid CENTRED on the
+# pool rectangle, so they straddle its edge; this is how far the grass is cut
+# back inside that rectangle so it runs under the coping rather than stopping
+# short of it, and equally how far the coping's outer face stands outside it.
+POOL_COPING_M = 0.16
+# PAVED APRON, outside the coping. A pool surround is walkable deck, not lawn
+# to the water's edge: ANSI/APSP-3 asks 4 ft (1.22 m) of unobstructed deck all
+# round a residential pool, and 1.5 m is the built width that still fits inside
+# what `pool_at` already reserves — 2.5 m of clear ground at the house end and
+# 3.0 m at the fence — so both ends keep lawn instead of being paved out to the
+# boundary. Drawn by `suburb_scene.apply_ground`, which is where ground-level
+# slabs and the z ladder they sit on live; this module only says how wide.
+POOL_APRON_M = 1.5
 # Yard depths, front and back, both on the 5 m module. MODULE SCOPE because
 # `pool_at` and `dress_plot` both size against the back yard and must agree:
 # it has to hold a 5 m pool with clearance at each end, or the pool lands on
@@ -331,6 +355,26 @@ DRESSING_REBIND = {
 }
 
 _ROOF_TRIM = {"Win_Roof_Style_01"}
+
+
+# A PALETTE MUST BE ABLE TO READ WHAT A PALETTE WROTE. The sets above are the
+# surfaces the KIT ships with, which is all `apply_palette` ever saw while it
+# only ever ran on a house `build_building` had just assembled. A BAKED
+# archetype is different: `bake_archetypes_launch_script` builds each house
+# WITH ITS STYLE'S PALETTE ALREADY APPLIED, so a baked cottage's walls are
+# `Wood_01_White` and a baked villa's are `Stucco_01_Inst` — none of which is
+# `Cladding_01`, so re-palettising one matched nothing and silently rebound
+# zero subsets. That is exactly what the assembled plat did to its row homes:
+# 62 units asked for a colour each and all 62 kept the archetype's.
+#
+# So the read sets are the kit's surfaces UNION every surface a palette can
+# produce. Wall and gable take the same material in every palette but
+# `siding_cream`, so a surface that lands in both sets resolves to the same
+# new material either way and the wall-first order costs nothing.
+_WALL_SURFACES = _WALL_SURFACES | {
+    v["wall"] for v in PALETTES.values() if v.get("wall")}
+_GABLE_SURFACES = _GABLE_SURFACES | {
+    v["gable"] for v in PALETTES.values() if v.get("gable")}
 ROOF_TRIM_WHITE = "Stucco_01_Inst"     # flat untextured white, no streaking
 
 
@@ -697,6 +741,58 @@ def build_building(style, x, y, yaw, rng, category=None):
 # ---------------------------------------------------------------------------
 # Plot dressing
 # ---------------------------------------------------------------------------
+def _outset_ring(ring, g):
+    """A 4-corner pool ring grown by *g* on every side, still rotated with it.
+
+    Ring order is `pool_at`'s: corner 0 nearest the house and edge 0 along the
+    long side, so the corners are (-,-) (+,-) (+,+) (-,+) in the (edge,
+    left-normal) frame and each one moves out along both.
+    """
+    ex = float(ring[1][0]) - float(ring[0][0])
+    ey = float(ring[1][1]) - float(ring[0][1])
+    L = math.hypot(ex, ey) or 1.0
+    ux, uy = ex / L, ey / L
+    return [(float(qx) + g * (ux * sx - uy * sy),
+             float(qy) + g * (uy * sx + ux * sy))
+            for (qx, qy), (sx, sy) in zip(list(ring)[:4],
+                                          ((-1, -1), (1, -1), (1, 1), (-1, 1)))]
+
+
+def pool_rings(water_ring):
+    """``(coping_outer, apron_outer)`` for a pool whose water is *water_ring*.
+
+    The ring `pool_at` returns is the WATER: the pool rectangle already inset
+    by one coping half-band. The `Swimming_Pool_Edge_01` modules are laid
+    centred on that rectangle, so the stone's outer face is two half-bands out
+    — which is where the apron starts, so the slab meets the coping rather than
+    drawing over it and hiding it.
+    """
+    g = 2.0 * POOL_COPING_M
+    return _outset_ring(water_ring, g), _outset_ring(water_ring,
+                                                     g + POOL_APRON_M)
+
+
+def _coping_run(side_m, module_m=2.5):
+    """Offsets of the coping modules along one pool side, centre-relative.
+
+    COVER THE SIDE, DO NOT TILE IT. The count was `int(side / 2.5)`, i.e.
+    floor — so a 4 m short side got ONE 2.5 m module and 1.5 m of it had no
+    coping at all, and the pool read as an open-ended U rather than a
+    rectangle. Flooring is right for tiling something that must not overhang;
+    a coping is the opposite case, because these modules are identical and
+    overlapping two of them is invisible while a gap between them is the
+    first thing you see.
+
+    So: ceil the count and spread the modules evenly across the side. They
+    overlap wherever the side is not a whole number of modules (a 4 m side
+    takes two at a 2.0 m pitch, overlapping 0.5 m) and the run always reaches
+    both corners.
+    """
+    n = max(1, int(math.ceil(float(side_m) / float(module_m) - 1e-9)))
+    pitch = float(side_m) / n
+    return [-float(side_m) / 2.0 + (k + 0.5) * pitch for k in range(n)]
+
+
 def pool_at(style, x, y, yaw, force=None, rear_m=None):
     """A pool behind *style*, as ``(placements, hole_polygon)`` or ``(None, None)``.
 
@@ -722,14 +818,27 @@ def pool_at(style, x, y, yaw, force=None, rear_m=None):
     # whether or not the lot reached that far, which is why the pools were not
     # where the houses are and the poolside chairs ended up in the street.
     rear = BACK_YARD_M if rear_m is None else float(rear_m)
-    # 2.5 m of walk at each end, and a 4 m-deep pool between them — which is
-    # what `suburb_parcel.pool_rear_m` asks the plat for. A 5 m-deep pool needed
-    # 11 m of rear and essentially no real lot had it.
-    gap0, gap1 = front_y + d + 2.5, front_y + d + rear - 2.5
-    if gap1 - gap0 < 4.0:
-        return None, None
     pw, pd = 8.0, 4.0        # rectangular, sized to a real back garden
-    py = (gap0 + gap1) / 2.0
+    # A walk at each end and the pool between them is the floor — which is what
+    # `suburb_parcel.pool_rear_min_m` asks the plat for. A 5 m-deep pool needed
+    # 11 m of rear and essentially no real lot had it.
+    if rear < POOL_WALK_M + pd + POOL_REAR_WALK_M:
+        return None, None
+    # WHERE IN THE REAR YARD, which stopped being "the middle" the moment a
+    # pool lot started asking for 20 m of it (`suburb_parcel.pool_rear_m`).
+    # Centred, the water sat 8 m off the back wall AND 8 m off the fence: a
+    # pool floating in the garden with a strip of lawn on either side and room
+    # for nothing on either. So it is pushed BACK to `POOL_SETBACK_M` from the
+    # house — the constant that already says how far a pool stands off the
+    # building — which collects the lawn into one usable piece between the
+    # house and the water. Clamped so the far coping never comes closer than
+    # `POOL_REAR_WALK_M` to the rear lot line, and never nearer the house than
+    # `POOL_WALK_M`: on a lot the block only granted the minimum rear, the two
+    # clamps meet and the pool sits between its two walks with no lawn, which
+    # is the old behaviour and the only thing that fits.
+    near = max(POOL_WALK_M,
+               min(POOL_SETBACK_M, rear - POOL_REAR_WALK_M - pd))
+    py = front_y + d + near + pd / 2.0
     out = []
 
     def add(usd, lx, ly, lz, lyaw, sub, scale=SCALE):
@@ -740,20 +849,18 @@ def pool_at(style, x, y, yaw, force=None, rear_m=None):
     for k in range(int(pw / pd)):
         add(POOL_FLOOR, -pw / 2 + (k + 0.5) * pd, py, POOL_WATER_Z_M, 0.0,
             "pool", scale=SCALE * pd / 20.0)
-    for k in range(int(pw / 2.5)):
-        o = -pw / 2 + (k + 0.5) * 2.5
+    for o in _coping_run(pw):
         for yy, yw in ((py - pd / 2, 90.0), (py + pd / 2, 270.0)):
             ex, ey = _pivot_xy(POOL_EDGE, o, yy, yw)
             add(POOL_EDGE, ex, ey, 0.0, yw, "pool_edge")
-    for k in range(int(pd / 2.5)):
-        o = -pd / 2 + (k + 0.5) * 2.5
+    for o in _coping_run(pd):
         for xx, yw in ((-pw / 2, 180.0), (pw / 2, 0.0)):
             ex, ey = _pivot_xy(POOL_EDGE, xx, py + o, yw)
             add(POOL_EDGE, ex, ey, 0.0, yw, "pool_edge")
 
     # The hole is the water rectangle INSET by the coping, so the grass meets
     # the outside of the coping rather than stopping short of it.
-    hw, hd = pw / 2 - 0.16, pd / 2 - 0.16
+    hw, hd = pw / 2 - POOL_COPING_M, pd / 2 - POOL_COPING_M
     hole = []
     for lx, ly in ((-hw, py - hd), (hw, py - hd), (hw, py + hd), (-hw, py + hd)):
         wx, wy = _rot(lx, ly, yaw)
@@ -826,8 +933,11 @@ def plan_lot(lot, style, rng=None):
             "pool_ok": rear >= POOL_REAR_NEED_M}
 
 
-# What `pool_at` needs behind the house: a walk, the pool, a walk.
-POOL_REAR_NEED_M = 2.5 + 4.0 + 2.5
+# What `pool_at` needs behind the house: a walk, the pool, a rear walk. Derived
+# from the same constants `pool_at` tests against, because it was a second copy
+# of the sum and the two have already disagreed once — `plan_lot` reported
+# `pool_ok` on a 9.2 m rear that `pool_at` then refused.
+POOL_REAR_NEED_M = POOL_WALK_M + 4.0 + POOL_REAR_WALK_M
 
 
 def dress_plot(style, x, y, yaw, rng, lot_w=None, lot_d=None):
@@ -919,13 +1029,11 @@ def dress_plot(style, x, y, yaw, rng, lot_w=None, lot_d=None):
             # in X, so a run parallel to X is yaw 90 and one parallel to Y is
             # yaw 0 — and each panel needs the pivot correction, its origin
             # being 1.0 m from one end of the 2.5 m module.
-            for k in range(int(pw / 2.5)):
-                o = -pw / 2 + (k + 0.5) * 2.5
+            for o in _coping_run(pw):
                 for yy, yw in ((py - pd / 2, 90.0), (py + pd / 2, 270.0)):
                     ex, ey = _pivot_xy(POOL_EDGE, o, yy, yw)
                     add(POOL_EDGE, ex, ey, 0.0, yw, "pool_edge")
-            for k in range(int(pd / 2.5)):
-                o = -pd / 2 + (k + 0.5) * 2.5
+            for o in _coping_run(pd):
                 for xx, yw in ((-pw / 2, 180.0), (pw / 2, 0.0)):
                     ex, ey = _pivot_xy(POOL_EDGE, xx, py + o, yw)
                     add(POOL_EDGE, ex, ey, 0.0, yw, "pool_edge")

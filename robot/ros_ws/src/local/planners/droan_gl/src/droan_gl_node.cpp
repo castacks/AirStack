@@ -454,9 +454,13 @@ private:
     const auto goal = goal_handle->get_goal();
     cancel_requested_ = false;
 
-    // Feed the goal path into the planner
-    global_plan->set_global_plan(
-        std::make_shared<nav_msgs::msg::Path>(goal->global_plan));
+    // A goal with a path sets the plan and completes on arrival. An EMPTY goal
+    // is a pure activator: leave the plan alone (steer by the global_plan topic,
+    // e.g. raven) and run until cancelled — keeps a single steering source.
+    const bool have_goal_plan = !goal->global_plan.poses.empty();
+    if (have_goal_plan)
+      global_plan->set_global_plan(
+          std::make_shared<nav_msgs::msg::Path>(goal->global_plan));
 
     // Set trajectory controller to ADD_SEGMENT mode
     auto mode_req = std::make_shared<airstack_msgs::srv::TrajectoryMode::Request>();
@@ -466,9 +470,10 @@ private:
     else
       RCLCPP_WARN(get_logger(), "set_trajectory_mode service not available");
 
-    // Goal position is the last pose in the path
+    // Goal position is the last pose in the path (only meaningful when the goal
+    // carries one; an activator goal runs until cancelled).
     geometry_msgs::msg::Point goal_pos;
-    if (!goal->global_plan.poses.empty())
+    if (have_goal_plan)
       goal_pos = goal->global_plan.poses.back().pose.position;
 
     rclcpp::Rate rate(1.0);
@@ -498,7 +503,7 @@ private:
         feedback->current_position.z = tracking_point_odom_.pose.position.z;
         goal_handle->publish_feedback(feedback);
 
-        if (dist < goal->goal_tolerance_m) {
+        if (have_goal_plan && dist < goal->goal_tolerance_m) {
           restore_track_mode();
           auto result = std::make_shared<NavigateTask::Result>();
           result->success = true;

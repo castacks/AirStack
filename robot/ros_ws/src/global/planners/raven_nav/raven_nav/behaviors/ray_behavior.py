@@ -1,13 +1,26 @@
 import numpy as np
 from nav_msgs.msg import Path
-from geometry_msgs.msg import PoseStamped, Point
+from geometry_msgs.msg import PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import String
 
 from raven_nav.behaviors.frontier_behavior import _points_in_polygon
+from raven_nav.behaviors.pursuit_stuck import (
+    RAY_APPROACH_VARIANTS, ray_variant_waypoints)
+from coordination_bringup.frame_utils import dir_to_quat
 
 
 class RayBehavior:
+    # Weight on bearing continuity (same direction as / origin moving along the
+    # committed bearing) when picking which ray to follow.
+    DIR_WEIGHT = 20.0
+
+    # When a ray approach is stuck, try alternate approach waypoints for the
+    # SAME lead (see pursuit_stuck). Only after all variants fail does the lead
+    # go on a cooldown so the drone stops orbiting an unreachable viewpoint.
+    STUCK_COOLDOWN_S = 60.0
+    STUCK_GROUP_RADIUS_M = 6.0
+
     def __init__(self, get_clock, current_target_publisher=None,
                  score_threshold=0.68,
                  min_altitude=1.5, max_altitude=100.0):
@@ -24,9 +37,44 @@ class RayBehavior:
         self.ray_groups = []
         self.assigned_target = None
 
+        # Per-lead approach-variant cursor and cooldown, keyed by a coarse XY of
+        # the chosen investigation point. Advanced by note_stuck() (called by the
+        # node when the pursuit stuck monitor fires). {xy_key: {'variant','until'}}
+        self._approach_state: dict = {}
+
     def condition_check(self):
         return self.assigned_target is not None and any(
             g.label == self.assigned_target for g in self.ray_groups)
+
+    def _now_s(self) -> float:
+        return self.get_clock().now().nanoseconds * 1e-9
+
+    def _lead_key(self, origin):
+        # Coarse XY bucket so the same lead maps to one strike record across
+        # small origin jitter (rays for one target cluster within a few metres).
+        o = np.asarray(origin, dtype=float)
+        return (int(round(o[0] / self.STUCK_GROUP_RADIUS_M)),
+                int(round(o[1] / self.STUCK_GROUP_RADIUS_M)))
+
+    def note_stuck(self) -> None:
+        """Called by the node when the pursuit stuck monitor fires while in
+        ray mode: advance the current lead to its next approach variant, and
+        start a cooldown once every variant has been tried."""
+        best = getattr(self, '_last_best_group', None)
+        if best is None:
+            return
+        key = self._lead_key(best.avg_origin)
+        st = self._approach_state.setdefault(key, {'variant': 0, 'until': 0.0})
+        st['variant'] += 1
+        if st['variant'] >= RAY_APPROACH_VARIANTS:
+            # Exhausted all approaches — park this lead for a while and reset so
+            # it can be retried later (targets/obstacles may have changed).
+            st['until'] = self._now_s() + self.STUCK_COOLDOWN_S
+            st['variant'] = 0
+
+    def _lead_on_cooldown(self, origin) -> bool:
+        st = self._approach_state.get(self._lead_key(origin))
+        return bool(st and self._now_s() < st['until'])
 
     def execute(self, cur_pose_np, waypoint_locked, target_waypoint1,
                 target_waypoint2, publisher_dict, assigned_target=None,
@@ -62,45 +110,73 @@ class RayBehavior:
             if not groups:
                 return waypoint_locked, target_waypoint1, target_waypoint2
 
-        # Prefer forward groups when any exist — avoid backtracking toward
-        # an already-passed cluster. If the assigned target's rays are all
-        # behind us, fall back to all groups so the drone turns toward them.
-        forward_groups = [
-            g for g in groups
-            if np.dot(g.avg_dir[:2],
-                      g.avg_origin[:2] + g.avg_dir[:2] - cur_pose_np[:2]) > 0
-        ]
+        # Drop leads whose approaches all failed recently (cooldown from
+        # note_stuck) so the drone stops orbiting an unreachable viewpoint —
+        # unless every remaining lead is cooling down, in which case keep them
+        # (better a retry than no target at all).
+        reachable = [g for g in groups if not self._lead_on_cooldown(g.avg_origin)]
+        if reachable:
+            groups = reachable
+
+        # Prefer groups whose investigation waypoint (origin + dir*6 m, where the
+        # drone is actually sent) is ahead of the drone — don't backtrack to a ray
+        # for the same target seen from a viewpoint we've already passed. "Ahead"
+        # is along the committed bearing when following a target; fall back to all
+        # groups only if every one is behind (then the drone turns around).
+        if assigned_dir is not None:
+            af = np.asarray(assigned_dir, dtype=float)[:2]
+            af = af / (np.linalg.norm(af) + 1e-6)
+            forward_groups = [
+                g for g in groups
+                if float(np.dot(g.avg_origin[:2] + g.avg_dir[:2] * 6.0
+                                - cur_pose_np[:2], af)) > 0
+            ]
+        else:
+            forward_groups = [
+                g for g in groups
+                if np.dot(g.avg_dir[:2],
+                          g.avg_origin[:2] + g.avg_dir[:2] - cur_pose_np[:2]) > 0
+            ]
         candidates = forward_groups if forward_groups else groups
 
         self.current_target = target
         if self.current_target_pub is not None:
             self.current_target_pub.publish(String(data=target))
 
-        # Auction may have picked a SPECIFIC group hypothesis (per-group bids).
-        # If so, lock onto the candidate whose (avg_origin, avg_dir) is
-        # closest to it — keeps us pursuing the same physical target across
-        # ticks rather than thrashing to whichever ray group is densest now.
+        # Weighted pick: prefer the ray with the same direction as the committed
+        # bearing AND an origin moving along it (staying on one physical target),
+        # falling back to the closest when nothing matches well.
         if (assigned_origin is not None and assigned_dir is not None):
             ao = np.asarray(assigned_origin, dtype=float)
             ad = np.asarray(assigned_dir, dtype=float)
             ad_n = ad / (np.linalg.norm(ad) + 1e-6)
-            def _affinity(g):
-                # Combine origin proximity (m) and direction alignment (deg-ish).
-                origin_d = float(np.linalg.norm(g.avg_origin - ao))
+            def _cost(g):
+                c = float(g.avg_dist_to_robot)
                 gd = np.asarray(g.avg_dir, dtype=float)
                 gd_n = gd / (np.linalg.norm(gd) + 1e-6)
-                dot = float(np.clip(np.dot(gd_n, ad_n), -1.0, 1.0))
-                # Lower = better. 1.0 - cos goes 0..2; scale to roughly match m.
-                return origin_d + 20.0 * (1.0 - dot)
-            best = min(candidates, key=_affinity)
+                c += self.DIR_WEIGHT * (1.0 - float(np.dot(gd_n, ad_n)))
+                rel = np.asarray(g.avg_origin, dtype=float) - ao
+                rn = float(np.linalg.norm(rel))
+                if rn > 1.0:
+                    c += self.DIR_WEIGHT * (1.0 - float(np.dot(rel / rn, ad_n)))
+                return c
+            best = min(candidates, key=_cost)
         else:
-            # Fallback: pick closest dense group (old behavior).
             k = 5.0
             best = min(candidates,
                        key=lambda g: g.avg_dist_to_robot - k * g.num_rays)
 
-        target_waypoint1 = best.avg_origin + best.avg_dir * 6.0
-        target_waypoint2 = best.avg_origin + best.avg_dir * 12.0
+        # Approach variant for this lead: 0 = canonical (origin + dir*6/*12);
+        # higher variants sidestep / climb / stop short after stuck strikes.
+        self._last_best_group = best
+        st = self._approach_state.get(self._lead_key(best.avg_origin))
+        variant = st['variant'] if st else 0
+        bd = np.asarray(best.avg_dir, dtype=float)
+        bd = bd / (np.linalg.norm(bd) + 1e-6)
+        target_waypoint1, target_waypoint2 = ray_variant_waypoints(
+            best.avg_origin, bd, variant)
+        target_waypoint1 = self._clamp_alt(target_waypoint1)
+        target_waypoint2 = self._clamp_alt(target_waypoint2)
 
         path = Path()
         path.header.stamp = self.get_clock().now().to_msg()
@@ -119,6 +195,13 @@ class RayBehavior:
         self._visualize_filtered_rays(groups, publisher_dict)
         return waypoint_locked, target_waypoint1, target_waypoint2
 
+    def _clamp_alt(self, wp):
+        """Keep a variant waypoint inside the altitude band (a climb variant or
+        a downward bearing must not push the goal out of the flyable envelope)."""
+        wp = np.asarray(wp, dtype=float).copy()
+        wp[2] = float(np.clip(wp[2], self.min_altitude, self.max_altitude))
+        return wp
+
     def _visualize_filtered_rays(self, groups, publisher_dict):
         pub = publisher_dict['filtered_rays']
         self._clear_filtered_rays(pub)
@@ -135,8 +218,7 @@ class RayBehavior:
             rr, gg, bb = colors[i % len(colors)]
             for k in range(g.num_rays):
                 p0 = g.ray_origins[k]
-                d = g.ray_dirs[k]
-                p1 = p0 + arrow_length * (d / (np.linalg.norm(d) + 1e-6))
+                qx, qy, qz, qw = dir_to_quat(g.ray_dirs[k])
                 arrow = Marker()
                 arrow.header.frame_id = 'map'
                 arrow.header.stamp = self.get_clock().now().to_msg()
@@ -144,13 +226,16 @@ class RayBehavior:
                 arrow.id = j
                 arrow.type = Marker.ARROW
                 arrow.action = Marker.ADD
-                arrow.points = [
-                    Point(x=float(p0[0]), y=float(p0[1]), z=float(p0[2])),
-                    Point(x=float(p1[0]), y=float(p1[1]), z=float(p1[2])),
-                ]
-                arrow.scale.x = 0.6
-                arrow.scale.y = 1.2
-                arrow.scale.z = 0.75
+                arrow.pose.position.x = float(p0[0])
+                arrow.pose.position.y = float(p0[1])
+                arrow.pose.position.z = float(p0[2])
+                arrow.pose.orientation.x = qx
+                arrow.pose.orientation.y = qy
+                arrow.pose.orientation.z = qz
+                arrow.pose.orientation.w = qw
+                arrow.scale.x = arrow_length
+                arrow.scale.y = 0.4
+                arrow.scale.z = 0.4
                 arrow.color.r = rr
                 arrow.color.g = gg
                 arrow.color.b = bb

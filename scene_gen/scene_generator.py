@@ -2923,8 +2923,17 @@ def build_city(config: dict, resolver: SizeResolver):
 _HUMAN_POSES = {
     # Natural stand: arms lowered to the sides, slight elbow relaxation.
     "idle": {
-        "upperarm_l": ((0.0, 1.0, 0.0), 45.0),
-        "upperarm_r": ((0.0, 1.0, 0.0), -45.0),
+        # REST IS AN A-POSE, NOT A T-POSE, and the difference is 45 degrees of
+        # shoulder. MEASURED on rp_carla: shoulder (0.158, 1.389), hand
+        # (0.513, 1.035) — the arm already hangs 45 deg below horizontal, which
+        # is Epic's A-posed mannequin reference. Read the hand against the
+        # PELVIS instead of the shoulder and it looks like a T-pose; that
+        # mistake produced a "+-78" correction that swings the hand 0.30 m
+        # ACROSS the body with the wrist rising.
+        # Swept 40..120 in 5s: +40 puts the hand 7 mm off plumb under the
+        # shoulder, and every larger value carries it inboard.
+        "upperarm_l": ((0.0, 1.0, 0.0), 40.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -40.0),
         "lowerarm_l": ((0.0, 1.0, 0.0), 8.0),
         "lowerarm_r": ((0.0, 1.0, 0.0), -8.0),
     },
@@ -2941,6 +2950,301 @@ _HUMAN_POSES = {
         "thigh_r": ((1.0, 0.0, 0.0), 14.0),       # right leg back
         "calf_r": ((1.0, 0.0, 0.0), 18.0),        # trailing knee bent
     },
+    # ---- SURVIVOR POSES (disaster/people.py). ALL FIVE ARE VERIFY ON SIGHT:
+    # they were derived from the rig's geometry, not seen. Each carries the
+    # arithmetic that produced it so the next reader can correct rather than
+    # re-guess.
+    #
+    # THE ONE RULE THE WHOLE BLOCK TURNS ON. A limb at rest points DOWN (-Z);
+    # writing that direction as ``v(a) = (0, sin a, -cos a)`` makes an X-axis
+    # delta of `a` degrees exactly "swing the limb through a about the hip".
+    # Facing is -Y, so NEGATIVE a swings a limb FORWARD and positive a swings
+    # it BACK — which is what the `walk` entry above already encodes
+    # (thigh_l -20 = "left leg forward"). A delta on a CHILD stacks on top of
+    # its parent's, because `_pose_joint_transforms` rebuilds each joint from
+    # the parent's already-posed world frame: a calf delta of +79 on a thigh
+    # at -102 leaves the calf at -23, i.e. 79 degrees of knee flexion.
+    #
+    # Segment lengths used below are the UE4 mannequin's at 1.80 m: thigh
+    # 0.45 m, shin 0.42 m, ankle-to-sole 0.08 m, pelvis at 0.95 m. The pack is
+    # 1.73-1.86 m, so `_POSE_Z_OFFSET` is applied SCALED BY MEASURED HEIGHT.
+
+    # Sitting on the ground, legs out in front with a slight knee bend — the
+    # posture people take when they have stopped and are waiting, which is
+    # most of what a refuge area is. Hip 102 deg, knee 79 deg.
+    #   knee  = pelvis + 0.45 * v(-102) = pelvis + (0, -0.440, +0.094)
+    #   ankle = knee   + 0.42 * v(-23)  = pelvis + (0, -0.827, -0.070)
+    # so the soles end 0.15 m under the pelvis and 0.83 m in front of it: the
+    # seat and the heels are both on the ground, which is the check that makes
+    # this pose self-consistent rather than merely plausible.
+    "sit_ground": {
+        # MEASURED off rp_carla (thigh 0.472, calf 0.364), not derived: -102/+79
+        # was a CHAIR sit — the shin hung down, so the ankle finished 0.237 m
+        # BELOW the hip and 0.60 m in front, and the z-offset that grounds the
+        # seat then puts the feet 0.17 m under the asphalt. Legs-out sitting
+        # needs the thigh horizontal and the knee nearly straight: the ankle
+        # then lands 0.836 m forward and level with the hip, so seat and heels
+        # reach the ground together, which is the check the old comment claimed
+        # and the old numbers failed.
+        "thigh_l": ((1.0, 0.0, 0.0), -90.0),
+        "thigh_r": ((1.0, 0.0, 0.0), -90.0),
+        "calf_l": ((1.0, 0.0, 0.0), 3.0),
+        "calf_r": ((1.0, 0.0, 0.0), 3.0),
+        "foot_l": ((1.0, 0.0, 0.0), 12.0),        # relax the ankle, toes up
+        "foot_r": ((1.0, 0.0, 0.0), 12.0),
+        "spine_02": ((1.0, 0.0, 0.0), 8.0),       # lean back onto the hands
+        "upperarm_l": ((0.0, 1.0, 0.0), 52.0),    # arms down, slightly wider
+        "upperarm_r": ((0.0, 1.0, 0.0), -52.0),   # than `idle` — propping
+        "upperarm_l+": ((1.0, 0.0, 0.0), 22.0),   # ...and back behind the hip
+        "upperarm_r+": ((1.0, 0.0, 0.0), 22.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), 8.0),
+        "lowerarm_r": ((0.0, 1.0, 0.0), -8.0),
+    },
+    # Sitting on an EDGE — a kerb, a pool coping, a low wall — legs hanging.
+    # Hip 90 (thigh straight forward, level), knee 90 (shin straight down):
+    #   knee  = pelvis + 0.45 * v(-90) = pelvis + (0, -0.45, 0)
+    #   ankle = knee   + 0.42 * v(0)   = pelvis + (0, -0.45, -0.42)
+    # The caller passes the SEAT SURFACE as z; `_POSE_Z_OFFSET` drops the
+    # pelvis onto it and the soles then hang 0.50 m below it.
+    "sit_edge": {
+        "thigh_l": ((1.0, 0.0, 0.0), -90.0),
+        "thigh_r": ((1.0, 0.0, 0.0), -90.0),
+        "calf_l": ((1.0, 0.0, 0.0), 90.0),
+        "calf_r": ((1.0, 0.0, 0.0), 90.0),
+        "spine_02": ((1.0, 0.0, 0.0), 4.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 48.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -48.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), 10.0),
+        "lowerarm_r": ((0.0, 1.0, 0.0), -10.0),
+    },
+    # In a car seat. `sit_edge` with the thighs a couple of degrees ABOVE
+    # level (a car seat pan is reclined, not a bench), the shins swept forward
+    # to the pedals rather than plumb, and the torso leaning in toward the
+    # wheel with the elbows carried forward. Knee flexion 78 rather than 90:
+    # a driver's legs are extended, which is also what keeps the knees clear
+    # of a low dashboard.
+    "seated_car": {
+        "thigh_l": ((1.0, 0.0, 0.0), -88.0),
+        "thigh_r": ((1.0, 0.0, 0.0), -88.0),
+        "calf_l": ((1.0, 0.0, 0.0), 78.0),
+        "calf_r": ((1.0, 0.0, 0.0), 78.0),
+        "spine_02": ((1.0, 0.0, 0.0), -10.0),     # slight forward lean
+        "upperarm_l": ((0.0, 1.0, 0.0), 46.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -46.0),
+        "upperarm_l+": ((1.0, 0.0, 0.0), -26.0),  # elbows forward: hands on
+        "upperarm_r+": ((1.0, 0.0, 0.0), -26.0),  # the wheel
+        "lowerarm_l": ((1.0, 0.0, 0.0), -44.0),
+        "lowerarm_r": ((1.0, 0.0, 0.0), -44.0),
+    },
+    # A PASSENGER, rather than a driver: the same seated legs as
+    # `seated_car`, with the arms hanging at the sides instead of carried
+    # forward onto a wheel. Nobody in the passenger seat holds their arms out
+    # in front of them, and the forward-elbow posture reads as reaching
+    # through the windscreen when there is no wheel modelled to reach for —
+    # which is what these assets have, since none of them models an interior
+    # a hand could rest on. Arm angles are `sit_edge`'s.
+    "seated_car_arms_down": {
+        "thigh_l": ((1.0, 0.0, 0.0), -88.0),
+        "thigh_r": ((1.0, 0.0, 0.0), -88.0),
+        "calf_l": ((1.0, 0.0, 0.0), 78.0),
+        "calf_r": ((1.0, 0.0, 0.0), 78.0),
+        "spine_02": ((1.0, 0.0, 0.0), -6.0),
+        "upperarm_l": ((0.0, 1.0, 0.0), 48.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -48.0),
+        "lowerarm_l": ((0.0, 1.0, 0.0), 10.0),
+        "lowerarm_r": ((0.0, 1.0, 0.0), -10.0),
+    },
+    # Waving with the right arm — the single most useful pose in this set,
+    # because a raised arm is what makes a person READ as a person from
+    # altitude rather than as a post. The right arm rests along -X, and
+    # `v -> R_y(a) v` sends (-1, 0, 0) to (-cos a, 0, sin a): a = +78 puts it
+    # up and 12 deg out to the right. The forearm takes -15 more about Y so
+    # the hand is outboard of the elbow instead of stacked over it.
+    "wave": {
+        "upperarm_l": ((0.0, 1.0, 0.0), 45.0),    # left arm as `idle`
+        "lowerarm_l": ((0.0, 1.0, 0.0), 8.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), 78.0),
+        "lowerarm_r": ((0.0, 1.0, 0.0), -15.0),
+    },
+    # Deep crouch — down beside a car, or over somebody. Hip 100, knee 137:
+    #   knee  = pelvis + 0.45 * v(-100) = pelvis + (0, -0.443, +0.078)
+    #   ankle = knee   + 0.42 * v(+37)  = pelvis + (0, -0.190, -0.257)
+    # The soles come up 0.61 m from their rest height, which is exactly the
+    # `_POSE_Z_OFFSET` that puts them back on the ground; the pelvis then sits
+    # 0.34 m up, a real squat.
+    "crouch": {
+        # -100/+137 raked the shin back ~50 deg, leaving the ankle only 0.25 m
+        # forward of a knee 0.47 m forward — a squat nobody balances in. These
+        # put the shin near vertical: knee 0.40 forward and 0.25 down, ankle
+        # 0.08 forward and 0.42 down, so the sole is flat under the knee and
+        # the hip rides at 0.57 m.
+        "thigh_l": ((1.0, 0.0, 0.0), -58.0),
+        "thigh_r": ((1.0, 0.0, 0.0), -58.0),
+        "calf_l": ((1.0, 0.0, 0.0), 120.0),
+        "calf_r": ((1.0, 0.0, 0.0), 120.0),
+        # Cancel the shin's net rotation so the sole returns to plantigrade.
+        "foot_l": ((1.0, 0.0, 0.0), -62.0),
+        "foot_r": ((1.0, 0.0, 0.0), -62.0),
+        "spine_02": ((1.0, 0.0, 0.0), -14.0),     # weight forward over the feet
+        "upperarm_l": ((0.0, 1.0, 0.0), 40.0),
+        "upperarm_r": ((0.0, 1.0, 0.0), -40.0),
+        "upperarm_l+": ((1.0, 0.0, 0.0), -18.0),  # forearms forward over the
+        "upperarm_r+": ((1.0, 0.0, 0.0), -18.0),  # knees
+        "lowerarm_l": ((1.0, 0.0, 0.0), -50.0),
+        "lowerarm_r": ((1.0, 0.0, 0.0), -50.0),
+    },
+}
+
+# Metres to ADD to a placement's z so the pose's own support surface lands on
+# the z the caller named. Necessary because a pose is authored as joint
+# rotations about a FIXED root: the pelvis does not move, so bending the legs
+# lifts the feet off the ground instead of lowering the body onto it, and a
+# figure posed `sit_ground` at its standing z floats with its seat at hip
+# height.
+#
+# THE SUPPORT SURFACE DIFFERS BY POSE, and that is the whole contract:
+#
+#   idle / walk / wave   the SOLES. Nothing moves below the hip, so 0.
+#   sit_ground           the SEAT, on the ground. The posed soles end 0.15 m
+#                        below the pelvis (see the pose), so dropping the
+#                        pelvis to 0.15 puts seat and heels down together:
+#                        0.15 - 0.95 = -0.80.
+#   sit_edge / seated_car the SEAT, on whatever the caller is sitting them on
+#                        — a kerb, a coping, a car seat. The caller passes the
+#                        SEAT-TOP z; -0.85 drops the pelvis to 0.10 above it
+#                        (the buttock mesh hangs ~0.10 below the pelvis JOINT,
+#                        so 0.10 is contact, not float) and the legs then hang
+#                        0.50 m below the seat.
+#   crouch               the SOLES again, but they have risen 0.61 m (see the
+#                        pose), so -0.61 puts them back.
+#
+# Values are for the 1.80 m mannequin the poses were derived on. Scale them by
+# `measured_height / 1.80` — `disaster.people._pose_dz` does — because the pack
+# runs 1.73-1.86 m and an unscaled offset buries the short characters.
+POSE_REF_HEIGHT_M = 1.80
+
+# WHERE THE HIP HAS TO LAND for the poses whose support is the GROUND, in
+# metres above it. These replace a scaled `_POSE_Z_OFFSET` because that scales
+# by TOTAL HEIGHT, and hip height does not track it across this pack: sophia is
+# 1.784 m on a 0.899 m hip, carla 1.731 m on a 0.983 m hip — a 12% spread in
+# the ratio, which is +-7 cm on a seated figure. One global number cannot serve
+# all six rigs, which is what "THE MALE CHARACTERS SIT 0.15 M HIGH" in
+# `disaster/people.py` was really recording. Measuring each rig's own hip
+# removes the class of error rather than retuning it per pack.
+# Solve GROUND poses for the contact itself rather than for a hip height.
+# Targeting the hip still floats a rig whose buttock-to-hip distance differs
+# (sophia sat 6 cm proud with her hip exactly on target), because that distance
+# varies too. The contact point does not: put the named part on z=0 and the
+# figure is right whatever its proportions.
+#   sole  the whole foot is flat on the ground (a squat)
+#   heel  a toes-up sitting foot rocks back onto its heel, which sits well
+#         above the sole plane — measured as a fraction of the rig's own
+#         rest ankle height, so it scales with the foot.
+_POSE_GROUND_CONTACT = {
+    "sit_ground": "heel",
+    "crouch": "sole",
+}
+_HEEL_FRAC = 0.45
+
+_RIG_HIP_CACHE: dict = {}
+
+
+def rig_hip_height(usd: str):
+    """Rest height of a rig's pelvis above its soles, metres, or None.
+
+    None whenever the asset cannot be opened — the host-side planner runs with
+    no Nucleus, and a pose plan there must still work off the legacy table
+    rather than raise.
+    """
+    if usd in _RIG_HIP_CACHE:
+        return _RIG_HIP_CACHE[usd]
+    hip = None
+    try:
+        stage = Usd.Stage.Open(usd)
+        if stage is not None:
+            prim = next((p for p in stage.Traverse()
+                         if p.GetTypeName() == "Skeleton"), None)
+            if prim is not None:
+                data = _read_skeleton(usd)
+                if data is not None:
+                    joints, rest = data
+                    leaf = [str(j).rsplit("/", 1)[-1] for j in joints]
+                    if "pelvis" in leaf:
+                        _l, world = _pose_joint_transforms(joints, rest, {})
+                        mpu = UsdGeom.GetStageMetersPerUnit(stage) or 0.01
+                        hip = world[leaf.index("pelvis")].ExtractTranslation()[2] * mpu
+    except Exception:                                  # a bad rig is data
+        hip = None
+    _RIG_HIP_CACHE[usd] = hip
+    return hip
+
+
+def _ground_contact_drop(usd: str, pose: str, contact: str):
+    """Drop that puts *pose*'s contact point on z=0 for THIS rig, or None.
+
+    At rest the character stands on the ground, so its rest ankle height IS
+    that rig's ankle-to-sole distance — and it runs 0.090 to 0.148 m across
+    this pack, which is most of why one global offset never fitted.
+    """
+    data = _read_skeleton(usd)
+    deltas = _HUMAN_POSES.get(pose)
+    if data is None or not deltas:
+        return None
+    joints, rest = data
+    leaf = [str(j).rsplit("/", 1)[-1] for j in joints]
+    if "foot_l" not in leaf:
+        return None
+    try:
+        stage = Usd.Stage.Open(usd)
+        mpu = (UsdGeom.GetStageMetersPerUnit(stage) or 0.01) if stage else 0.01
+        i = leaf.index("foot_l")
+        _l0, rest_w = _pose_joint_transforms(joints, rest, {})
+        _l1, posed_w = _pose_joint_transforms(joints, rest, deltas)
+        ankle_rest = rest_w[i].ExtractTranslation()[2] * mpu
+        ankle_posed = posed_w[i].ExtractTranslation()[2] * mpu
+    except Exception:
+        return None
+    below = ankle_rest * (_HEEL_FRAC if contact == "heel" else 1.0)
+    return -(ankle_posed - below)
+
+
+def pose_z_offset(usd: str, pose: str, height_m: float) -> float:
+    """Metres to drop a posed figure so its support reaches the surface.
+
+    Ground poses are solved against the RIG's own measured hip; everything else
+    falls back to `_POSE_Z_OFFSET` scaled by stature, which is right for a pose
+    the caller places on a seat.
+    """
+    if not pose:
+        return 0.0
+    contact = _POSE_GROUND_CONTACT.get(pose)
+    if contact is not None:
+        drop = _ground_contact_drop(usd, pose, contact)
+        if drop is not None:
+            return drop
+    off = float(_POSE_Z_OFFSET.get(pose, 0.0))
+    if off == 0.0:
+        return 0.0
+    ref = POSE_REF_HEIGHT_M
+    return off * (float(height_m) / ref if ref > 0 else 1.0)
+
+_POSE_Z_OFFSET = {
+    "idle": 0.0,
+    "walk": 0.0,
+    "wave": 0.0,
+    # Hip 0.13 m up seated / 0.57 m in a squat, measured on the 1.731 m rig and
+    # scaled into this table's 1.80 m reference by _pose_dz.
+    # -0.88 grounds the 1.73 m rig but buries the tall males: hip height does
+    # NOT track total height here (sophia is 1.784 m on a 0.899 m hip, carla
+    # 1.731 m on a 0.983 m hip), so _pose_dz's height scaling cannot serve all
+    # six. -0.85 is the value that puts every rig in tools/pose_check.py's
+    # band. The structural fix is to derive the drop from each rig's MEASURED
+    # hip rather than from its height — see that tool's header.
+    "sit_ground": -0.85,
+    "sit_edge": -0.85,
+    "seated_car": -0.85,
+    "seated_car_arms_down": -0.85,
+    "crouch": -0.43,
 }
 
 
@@ -3154,6 +3458,16 @@ def apply_placements(stage,
             # Reference composed nothing typed (missing/broken asset) — the
             # holder prim is typeless and can't carry transform ops.
             print(f"[scene_gen] WARN: {usd} composed no Xformable prim at {prim_path}")
+            continue
+        # A harvested piece carries the full 4x4 it had in its source scene
+        # (row-major, translation in metres); author it verbatim rather than
+        # re-deriving Euler angles from it.
+        if p.get("matrix"):
+            m = Gf.Matrix4d(*[float(v) for row in p["matrix"] for v in row])
+            for k in range(3):
+                m[3][k] = m[3][k] * ssf
+            xform.ClearXformOpOrder()
+            xform.AddTransformOp().Set(m)
             continue
         # Instancing goes on AFTER the transform ops: the ops live on the
         # instance root, which is still editable, while the referenced geometry

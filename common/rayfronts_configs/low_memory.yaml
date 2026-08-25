@@ -1,9 +1,59 @@
+# defaults:
+#   - _self_
+#   - override mapping: "semantic_ray_frontiers_map"
+#   - override encoder: "radseg"
+#   - override vis: ros
+#   - override messaging_service: ros
+#   - override feat_compressor: null # Set to null to disable
+#   - extras
+
+# # Disable logging to files
+# hydra:
+#   output_subdir: null
+#   run:
+#     dir: .
+
+# dataset:
+#   frame_skip: 2
+# # How many frames should be batched before processing.
+# batch_size: 1
+
+# # Imposing a depth limit on the data such that to test limited depth scenarios
+# # Set to a negative number to not use a limit
+# depth_limit: 30
+
+# # Which pytorch interpolation mode for rgb and feature interpolation 
+# # (Depth and Segmentation always use nearest-exact)
+# interp_mode: bilinear
+
+# querying:
+
+#   # Whether to query in compressed feature space or decompress first. Only used
+#   # if feat_compressor was used.
+#   compressed: False
+
+#   # Whether softmax probability is computed across queries or not.
+#   # If you want results to be independent of other queries set this to false.
+#   # Image queries are seperated from text queries. i.e the softmax is computed
+#   # separately for the text query group and the image query group.
+#   compute_prob: True
+
+#   # How often should the mapping server update query results in the map.
+#   period: 10
+
+# seed: 17
+
+
+
+
+
 defaults:
   - default
   - override mapping: semantic_ray_frontiers_map
   - override encoder: radseg
   - override vis: ros
   - override messaging_service: ros
+  - override feat_compressor: pca
   - _self_
 
 compile: False
@@ -14,24 +64,51 @@ depth_limit: 20.0
 #   model_version: radio_v2.5-b
 #   lang_model: siglip
 
+querying:
+  compressed: True
+  compute_prob: True
+
+
 dataset:
-  rgb_resolution: [480, 304] #[480, 304]
-  depth_resolution: [480, 304] #[480, 304]
-  frame_skip: 5
+  rgb_resolution: [480, 480]  #[480, 304]
+  depth_resolution: [480, 480]  #[480, 304]
+  frame_skip: 10
 
 mapping:
   vox_size: 0.50
-  #max_pts_per_frame: 300 #-1
-  #max_empty_pts_per_frame: 20000
-  max_rays_per_frame: 250 #500
-  #fronti_subsampling: 8
-  #fronti_subsampling_min_fronti: 20
-  #ray_tracing: False
-  vox_accum_period: 4 #4
-  ray_accum_period: 8 #4
-  ray_accum_phase: 4 #2
-  #ray_erosion: 0
+  vox_accum_period: 1 #4
+
+  max_pts_per_frame: 1000 #-1
+  max_empty_pts_per_frame: 3000
+  max_rays_per_frame: 500 #500
+
+  fronti_subsampling: 5
+  fronti_subsampling_min_fronti: 9
+  
+  ray_tracing: False
+  ray_accum_period: 1 #4
+  ray_accum_phase: 0 #2
+  ray_erosion: 0
+
+
+  occ_pruning_period: 128
+
+  # Tolerance when consolidating voxels into bigger ones.
+  occ_pruning_tolerance: 2
+
+  # How often do we prune semantic voxels to reflect occupancy (That is erase
+  # semantic voxels that are no longer occupied). Set to -1 to disable.
+  sem_pruning_period: 32
+
+  # Voxels with log-odds occupancy <= this value are removed.
+  sem_pruning_thresh: 5
+
   #global_encoding: True
 
+feat_compressor:
+  out_dim: 100
+  # null = fit the PCA basis online on the first frame. For a better basis,
+  # fit offline with scripts/fit_feat_compressor and set the file path.
+  path: null
 
 

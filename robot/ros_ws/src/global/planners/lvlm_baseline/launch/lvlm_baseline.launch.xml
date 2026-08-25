@@ -1,0 +1,14 @@
+<launch>
+  <!--
+    Standalone launch for the FPV+LVLM navigation baseline. In the osmo missions
+    semantic_search_task spawns the node directly via `ros2 run` with per-goal
+    parameter overrides (target_objects, altitudes); this launch file is for
+    manual / single-robot runs. Topics are namespaced by ROBOT_NAME inside the
+    node, so no remaps are needed here.
+  -->
+  <node pkg="lvlm_baseline" exec="lvlm_baseline_node" name="lvlm_baseline" output="screen">
+    <param from="$(find-pkg-share lvlm_baseline)/config/lvlm_baseline.yaml"
+           allow_substs="true" />
+    <param name="use_sim_time" value="true" />
+  </node>
+</launch>

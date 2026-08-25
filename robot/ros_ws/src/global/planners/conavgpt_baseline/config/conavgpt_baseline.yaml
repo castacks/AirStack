@@ -1,0 +1,21 @@
+conavgpt_assigner:
+  ros__parameters:
+    # HuggingFace model id, shared with lvlm_baseline so one cached download
+    # serves both baselines.
+    model_path: 'OpenGVLab/InternVL3-2B'
+    # 'image+text' is the method. 'text' is the ablation that answers the same
+    # question from coordinates alone, isolating what the rendered map buys.
+    prompt_mode: 'image+text'
+    # Where conavgpt_rounds.jsonl is appended. Set at spawn by
+    # semantic_search_task to /root/.cache/raven_results; empty disables.
+    results_dir: ''
+    # Enough for a team-sized JSON object plus whatever preamble a 2B model
+    # insists on writing before it.
+    max_new_tokens: 256
+    # Rendered BEV edge in pixels. The vision encoder retiles a square image
+    # into 448 px tiles, so below ~512 the region numbers stop being legible.
+    map_px: 768
+    # A request older than this when the worker reaches it is answered with a
+    # fallback instead: raven_nav has moved on, and a stale team assignment is
+    # worse than none.
+    request_timeout_s: 60.0

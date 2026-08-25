@@ -14,13 +14,35 @@ services:
       - RECORD_BAGS=${RECORD_BAGS}
       # docker compose interpolation to env variables
       - AUTONOMY_ROLE=${AUTONOMY_ROLE:-full}
-      - URDF_FILE=${URDF_FILE}  
+      - FRONTIER_ONLY_BASELINE=${FRONTIER_ONLY_BASELINE:-false}
+      - VLFM_BASELINE=${VLFM_BASELINE:-false}
+      - VLFM_USE_VOXEL_TARGETS=${VLFM_USE_VOXEL_TARGETS:-false}
+      - VLFM_VALUE_WEIGHT=${VLFM_VALUE_WEIGHT:-300.0}
+      - VLFM_RAY_BLACKLIST=${VLFM_RAY_BLACKLIST:-false}
+      - CONAVGPT_BASELINE=${CONAVGPT_BASELINE:-false}
+      - CONAVGPT_LEADER_ID=${CONAVGPT_LEADER_ID:-1}
+      - CONAVGPT_ROUND_PERIOD_S=${CONAVGPT_ROUND_PERIOD_S:-30.0}
+      - CONAVGPT_MAX_REGIONS=${CONAVGPT_MAX_REGIONS:-12}
+      - CONAVGPT_ASSIGNMENT_TTL_S=${CONAVGPT_ASSIGNMENT_TTL_S:-90.0}
+      - CONAVGPT_REPLAN_ON_REACH_M=${CONAVGPT_REPLAN_ON_REACH_M:-8.0}
+      # Empty = auto (highest card no rayfronts claims); -1 = don't pin.
+      - CONAVGPT_ASSIGNER_GPU=${CONAVGPT_ASSIGNER_GPU:-}
+      - RAYFRONTS_COMPUTE_PROB=${RAYFRONTS_COMPUTE_PROB:-True}
+      - LVLM_BASELINE=${LVLM_BASELINE:-false}
+      - URDF_FILE=${URDF_FILE}
       # MAVROS
       - OFFBOARD_BASE_PORT=${OFFBOARD_BASE_PORT}
       - ONBOARD_BASE_PORT=${ONBOARD_BASE_PORT}
       - ROBOT_NAME_MAP_CONFIG_FILE=${ROBOT_NAME_MAP_CONFIG_FILE:-default_robot_name_map.yaml}
       - DEBUG_RVIZ=${DEBUG_RVIZ:-false}
+      # Container-wide so EVERY process (tmux nodes, ddsrouter, docker exec)
+      # uses the same transports; a LARGE_DATA participant and a default
+      # (UDP) participant in different containers share no data channel.
+      - FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA
     volumes:
+      # shared /dev/shm: required for Fast DDS shared-memory transport
+      # across containers (see common/fastdds.xml)
+      - /dev/shm:/dev/shm
       # display stuff
       - $HOME/.Xauthority:/.Xauthority
       - /tmp/.X11-unix:/tmp/.X11-unix

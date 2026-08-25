@@ -89,6 +89,19 @@ _LATCHED_QOS = QoSProfile(
 )
 
 
+# Per-robot diag log → /tmp/relay_<robot>.log (get_logger() goes to tmux, uncollected).
+_DIAG_FILE = None
+
+
+def _diag(line):
+    if _DIAG_FILE is None:
+        return
+    try:
+        _DIAG_FILE.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {line}\n")
+    except Exception:
+        pass
+
+
 # ── Goal builders ────────────────────────────────────────────────────────────
 # Each converts a JSON dict into a typed Goal message.
 
@@ -179,6 +192,14 @@ def _build_semantic_search_goal(d, ts):
     g.min_flight_speed = float(d.get('min_flight_speed', 0))
     g.max_flight_speed = float(d.get('max_flight_speed', 0))
     g.confidence_threshold = float(d.get('confidence_threshold', 0.95))
+    # Optional raven_nav tuning overrides (sentinel = use raven_nav.yaml default).
+    g.score_threshold = float(d.get('score_threshold', -1.0))
+    g.voxel_score_threshold = float(d.get('voxel_score_threshold', -1.0))
+    g.voxel_min_confidence = float(d.get('voxel_min_confidence', -1.0))
+    g.voxel_min_cluster_size = int(d.get('voxel_min_cluster_size', -1))
+    g.bundle_len = int(d.get('bundle_len', -1))
+    # Simulated-time budget; 0 = unlimited (wall-clock timeout_s only).
+    g.max_sim_seconds = float(d.get('max_sim_seconds', 0.0))
     area = d.get('search_area', {})
     g.search_area = _build_polygon_from_global(area.get('points', []), ts)
     return g
@@ -303,8 +324,10 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
             return
         node0.get_logger().info(f'[relay] {topic}: goal: {goal_msg}')
 
-        if not client.wait_for_server(timeout_sec=5.0):
+        _t = time.monotonic()
+        if not client.wait_for_server(timeout_sec=20.0):
             node0.get_logger().warn(f'[relay] {topic}: robot server not available')
+            _diag(f'{topic} SERVER_UNAVAILABLE after {time.monotonic() - _t:.1f}s')
             _publish_result(False, 'Robot action server not available')
             return
 
@@ -313,10 +336,24 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
             feedback_callback=_on_feedback,
         )
 
+        # Bound the accept wait so a stuck/loaded domain-N link can't spin here
+        # forever, but generous enough to survive load spikes on the robot domain.
+        _t = time.monotonic()
+        accept_deadline = _t + 40.0
         while not send_future.done():
+            if time.monotonic() > accept_deadline:
+                node0.get_logger().warn(
+                    f'[relay] {topic}: goal-accept timed out — robot server did '
+                    f'not respond')
+                _diag(f'{topic} ACCEPT_TIMEOUT after {time.monotonic() - _t:.1f}s')
+                _publish_result(
+                    False, 'Robot did not respond to goal (accept timed out)')
+                return
             executorN.spin_once(timeout_sec=0.05)
 
         robot_goal_handle = send_future.result()
+        _diag(f'{topic} ACCEPTED in {time.monotonic() - _t:.1f}s '
+              f'accepted={robot_goal_handle.accepted}')
         if not robot_goal_handle.accepted:
             node0.get_logger().warn(f'[relay] {topic}: robot rejected goal')
             _publish_result(False, 'Robot rejected goal')
@@ -335,7 +372,9 @@ def _make_relay(node0, nodeN, executorN, topic, suffix, action_type,
             result_future = robot_goal_handle.get_result_async()
             cancel_sent = False
             cancel_deadline = None
-            CANCEL_TIMEOUT_SEC = 10.0
+            # Generous so a task running an on-cancel finalize (semantic_search
+            # compiles metrics) still returns its result before we force CANCEL.
+            CANCEL_TIMEOUT_SEC = 90.0
 
             while not result_future.done():
                 if cancel_event.is_set():
@@ -448,6 +487,12 @@ def main(args=None):
     robot_name = tmp.declare_parameter('robot_name', 'robot_1').value
     robot_domain = tmp.declare_parameter('robot_domain', 1).value
     tmp.destroy_node()
+
+    global _DIAG_FILE
+    try:
+        _DIAG_FILE = open(f'/tmp/relay_{robot_name}.log', 'a', buffering=1)
+    except Exception:
+        _DIAG_FILE = None
 
     ctxN = rclpy.Context()
     ctxN.init(args=[], domain_id=int(robot_domain))

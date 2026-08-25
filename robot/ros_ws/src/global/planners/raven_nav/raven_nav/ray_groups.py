@@ -26,12 +26,12 @@ import numpy as np
 @dataclass
 class RayGroup:
     label: str
-    ray_origins: np.ndarray              # (N, 3)
-    ray_dirs:    np.ndarray              # (N, 3) normalized
-    ray_scores:  np.ndarray              # (N,)   score for the assigned label
+    ray_origins: np.ndarray
+    ray_dirs:    np.ndarray
+    ray_scores:  np.ndarray
 
-    avg_origin:        np.ndarray = field(init=False)  # (3,)
-    avg_dir:           np.ndarray = field(init=False)  # (3,) normalized
+    avg_origin:        np.ndarray = field(init=False)
+    avg_dir:           np.ndarray = field(init=False)
     num_rays:          int        = field(init=False)
     avg_score:         float      = field(init=False)
     max_score:         float      = field(init=False)
@@ -48,6 +48,28 @@ class RayGroup:
         dists = np.linalg.norm(self.ray_origins - robot_pos[None, :], axis=1)
         self.min_dist_to_robot = float(dists.min())
         self.avg_dist_to_robot = float(dists.mean())
+
+
+# Cross-tick association for ray bearings; loose on origin since origins drift
+# as the drone flies.
+RAY_GROUP_DIR_COS = float(np.cos(np.deg2rad(20.0)))
+RAY_GROUP_ORIGIN_M = 15.0
+
+
+def same_ray_group(a: RayGroup, b: RayGroup,
+                   dir_cos: float = RAY_GROUP_DIR_COS,
+                   origin_m: float = RAY_GROUP_ORIGIN_M) -> bool:
+    """Same target across ticks: same label, XY dirs within dir_cos, origins
+    within origin_m."""
+    if a.label != b.label:
+        return False
+    ad = a.avg_dir[:2]
+    bd = b.avg_dir[:2]
+    ad = ad / (np.linalg.norm(ad) + 1e-6)
+    bd = bd / (np.linalg.norm(bd) + 1e-6)
+    if float(np.dot(ad, bd)) < dir_cos:
+        return False
+    return float(np.linalg.norm(a.avg_origin[:2] - b.avg_origin[:2])) <= origin_m
 
 
 def compute_ray_groups(
@@ -77,7 +99,7 @@ def compute_ray_groups(
     # score above threshold but background dominating (e.g. sim_sky=0.97,
     # sim_water_tower=0.96).
     target_set = set(label_indices)
-    overall_best = np.argmax(ray_scores, axis=1)         # (N,)
+    overall_best = np.argmax(ray_scores, axis=1)
     is_target_winner = np.array(
         [int(c) in target_set for c in overall_best], dtype=bool)
     winner_score = ray_scores[np.arange(len(ray_scores)), overall_best]
@@ -93,12 +115,21 @@ def compute_ray_groups(
 
     # 3. per-ray label = the global argmax (already known to be a target)
     best_cols_global = overall_best[keep]
+
+    # 3b. Canonical order so the order-sensitive greedy clustering is identical
+    # on every robot (frame-invariant: peer frames differ by a constant offset).
+    order = np.lexsort((
+        ray_origins[keep, 2], ray_origins[keep, 1], ray_origins[keep, 0],
+        ray_dirs[keep, 1], ray_dirs[keep, 0], best_cols_global))
+    keep = keep[order]
+    best_cols_global = overall_best[keep]
     per_label = [query_labels[c] for c in best_cols_global]
     per_score = ray_scores[keep, best_cols_global]
 
     # 4. greedy per-label clustering on XY direction
-    dirs_keep = ray_dirs[keep]
-    xy_dirs = dirs_keep[:, :2]
+    keep_origins = ray_origins[keep]
+    keep_dirs = ray_dirs[keep]
+    xy_dirs = keep_dirs[:, :2]
     norms = np.linalg.norm(xy_dirs, axis=1, keepdims=True)
     xy_norm = xy_dirs / (norms + 1e-6)
     angle_cos = np.cos(np.deg2rad(angle_thresh_deg))
@@ -123,8 +154,6 @@ def compute_ray_groups(
                 'rays': [xy_dir], 'centroid': xy_dir.copy(),
             })
 
-    keep_origins = ray_origins[keep]
-    keep_dirs = ray_dirs[keep]
     groups: List[RayGroup] = []
     for b in buckets:
         idx = b['indices']

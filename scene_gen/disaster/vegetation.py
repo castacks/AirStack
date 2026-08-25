@@ -942,14 +942,16 @@ def char_bole(stage, info, parent_path, rng, coverage=0.9, scorch_height=1.0,
               brightness=0.55, verbose=False):
     """Soot the trunk. Returns the number of binds.
 
-    `material_path` BINDS A READY-MADE MATERIAL instead of compositing one,
-    and `Burnt_Forest_Floor` is why the option exists. That megascans surface
-    is a photographed charred ground: it is authored world-triplanar at
-    `texture_scale` 0.11 — one tile per ~9 m — so at trunk scale there is no
-    visible repeat at all, and it carries real normal and ORM maps that a
-    composited diffuse-only map cannot. Compositing keeps the species' own
-    bark identity; binding this throws that away and looks better doing it.
-    Which is right is a judgement, so both are here.
+    `material_path` BINDS A READY-MADE MATERIAL instead of compositing one.
+    NO TREE IN THIS DATASET USES IT — leave it empty and take the composite.
+
+    It existed for `Burnt_Forest_Floor`, and that was judged and REJECTED. The
+    megascans surface tiles beautifully at trunk scale (world-triplanar at
+    `texture_scale` 0.11, one tile per ~9 m, with real normal and ORM maps a
+    composited diffuse-only map cannot carry) — and it still reads wrong,
+    because a photographed piece of GROUND wrapped around a trunk reads as
+    ground. Losing the species' bark identity was the stated cost; looking
+    like the forest floor standing up was the one that decided it.
 
     `wash_weight` defaults to 0 here and to 0.52 on a wall. A wall's map
     covers it once and the up-wash carries real information; a bark map tiles
@@ -1661,11 +1663,30 @@ def debris_spec(level):
 def wood_debris(stage, info, out_parent, rng, n_pieces=9, radius_m=6.5,
                 band=(0.02, 0.30), piece_len=(0.30, 1.90),
                 thick_m=(0.05, 0.20), ground_z=0.0, simulate_above_m=0.8,
-                verbose=False):
+                len_bias=2.2, min_aspect=2.0, heading_deg=None,
+                spread_deg=70.0, verbose=False):
     """Broken lengths of the tree's OWN trunk, round its foot. `loose`.
 
-    `piece_len` is the length range, drawn with a strong bias to the SMALL
-    end, because real debris is mostly small with a few large pieces in it.
+    `piece_len` is the length range, drawn with a bias to the SMALL end set by
+    `len_bias` (the exponent on a 0..1 draw): 2.2 puts roughly three quarters
+    of the pieces in the bottom third, which is what a burnt stand sheds. A
+    WIND event sheds the opposite — whole limbs and long splits rather than
+    charcoal — so `disaster.tornado`'s tree path passes ~1.1 and a wider,
+    thicker range with it.
+
+    `min_aspect` IS A GATE THAT WILL SILENTLY EAT PLANK-SHAPED PIECES. It
+    rejects anything stubbier than `min_aspect:1`, and the 2.0 default is
+    there to throw away the chips a clip landing on the trunk's edge produces.
+    A board is wide by definition, so a caller asking for wide pieces has to
+    lower it as well as raising `thick_m` — otherwise every attempt is
+    rejected, the `n_pieces * 6` budget is burnt, and the function returns
+    nothing with no error anywhere.
+
+    `heading_deg` BIASES WHERE THE PIECES LAND. None (the default) scatters
+    them isotropically about the trunk, which is what falls off a burning
+    tree. Given a heading, pieces are thrown within `spread_deg` of it — the
+    signature of wind rather than of gravity, and the reason a fallen stand in
+    a tornado track reads as having been blown rather than as having rotted.
 
     `thick_m` IS THE ONE THAT MATTERS, and splitting the trunk lengthwise was
     the wrong way to get it. A wedge of a trunk is as thick as the trunk is
@@ -1700,6 +1721,18 @@ def wood_debris(stage, info, out_parent, rng, n_pieces=9, radius_m=6.5,
     carry to rest, which is most of a build. Pieces big enough for the landing
     to read — a metre of trunk, which can come to rest against a stump or
     across another log — still fall.
+
+    `n_pieces` COUNTS BOTH, and it used to count only the simulated ones. The
+    loop condition was `len(made) < n_pieces`, where `made` is the SIMULATED
+    list, so a seated stick — which is most of what this makes, and all of
+    what it makes at the light levels — never counted towards the target. At
+    `scorched` the longest piece the recipe can cut is 0.70 m, under the 0.8 m
+    `simulate_above_m` threshold, so `made` stayed empty by construction and
+    the loop always ran to its `n_pieces * 6` attempt cap. The result was 224
+    to 570 debris meshes under a tree asked for about forty, at six times the
+    slicing cost — and it read as a woodpile rather than as what fell off a
+    burnt tree. Counting every accepted piece makes `n_pieces` mean what its
+    name says and makes the attempt cap the fallback it was meant to be.
     """
     import numpy as np
     from trimesh.transformations import rotation_matrix
@@ -1747,11 +1780,12 @@ def wood_debris(stage, info, out_parent, rng, n_pieces=9, radius_m=6.5,
     made, seated = [], []
     tries = 0
     p_lo, p_hi = float(piece_len[0]), float(piece_len[1])
-    while len(made) < int(n_pieces) and tries < int(n_pieces) * 6:
+    n_want, n_try = int(n_pieces), int(n_pieces) * 6
+    while len(made) + len(seated) < n_want and tries < n_try:
         tries += 1
         # Biased to the small end: `** 2.2` puts roughly three quarters of the
         # draws in the bottom third of the range.
-        seg_h = p_lo + (p_hi - p_lo) * (rng.random() ** 2.2)
+        seg_h = p_lo + (p_hi - p_lo) * (rng.random() ** float(len_bias))
         z0 = rng.uniform(float(s_lo[2]),
                          max(float(s_lo[2]), float(s_hi[2]) - seg_h))
         try:
@@ -1799,7 +1833,7 @@ def wood_debris(stage, info, out_parent, rng, n_pieces=9, radius_m=6.5,
         # A stick, not a chip: reject anything that came back stubbier than
         # about 2:1, which is what a clip landing on the very edge produces.
         e = sorted(float(v) for v in piece.extents)
-        if e[2] < 0.10 or e[2] < e[1] * 2.0:
+        if e[2] < 0.10 or e[2] < e[1] * float(min_aspect):
             continue
 
         c = np.asarray(piece.centroid, dtype=float)
@@ -1811,7 +1845,14 @@ def wood_debris(stage, info, out_parent, rng, n_pieces=9, radius_m=6.5,
             rng.uniform(1.15, 1.95) if big else (0.5 * math.pi
                                                  + rng.uniform(-0.12, 0.12)),
             (rng.uniform(-1, 1), rng.uniform(-1, 1), 0.0), c))
-        ang = rng.uniform(0.0, 2.0 * math.pi)
+        if heading_deg is None:
+            ang = rng.uniform(0.0, 2.0 * math.pi)
+        else:
+            # A LOBE, NOT A RAY. Debris from a tree that went over in a wind
+            # lies downwind of it in a fan; a hard heading with no spread
+            # puts every piece on one line, which reads as a fence.
+            hs = math.radians(float(spread_deg))
+            ang = math.radians(float(heading_deg)) + rng.uniform(-hs, hs)
         # Small pieces land close in and big ones get thrown further, which is
         # what a pile of debris actually grades like.
         bias = 0.35 + 0.65 * min(1.0, seg_h / max(1e-6, p_hi))
@@ -2063,18 +2104,35 @@ def ash_ring(stage, path, x_m, y_m, radius_m, rng, mat_prim_path="",
 
 def burn_tree(stage, tree_path, level, parent_path, out_parent, rng,
               bole_material="", bole_scale_uv=(0.28, 0.28), debris=True,
-              debris_scale=1.0, limbs=True, ground_z=0.0, verbose=False):
+              debris_scale=1.0, limbs=True, ground_z=0.0,
+              seated_collide=True, verbose=False):
     """Take one placed tree to *level*. Returns a dict of what it produced.
 
-    `{"statics": [...], "loose": [...], "info": <survey>}` — the caller hands
-    `loose` to `disaster.settle` and `statics` to it as collision geometry,
-    exactly as the house benches do.
+    `{"statics": [...], "loose": [...], "seated": [...], "info": <survey>}` —
+    the caller hands `loose` to `disaster.settle` and `statics` to it as
+    collision geometry, exactly as the house benches do. `seated` is the small
+    ground debris: geometry that is already at rest and is never simulated.
 
     `bole_material` binds a ready-made material to the wood instead of
     compositing soot onto the species' own bark — see `char_bole`.
+
+    `seated_collide=False` KEEPS THE STICKS AND DROPS THEIR COLLIDERS. Every
+    seated piece used to be appended to `statics`, which means `settle` cooks
+    a triangle-mesh collider for each one — hundreds per tree, 36,734 static
+    colliders on the last full block — purely so that a handful of loose logs
+    could land on them. Nothing else in the scene ever touches them: they are
+    laid flat on the ground by arithmetic and the solver never moves them. A
+    log that lands on the bare ground instead of on top of a 5-20 cm stick
+    ends up within a stick's thickness of where it would otherwise have been,
+    which is not a difference anyone can see, and the cooking cost is real.
+    The pieces themselves are unaffected — they are still authored, still
+    bound, still exported — so this changes the collision set only, and it is
+    the right default for the archetype bake where the whole point is to pay
+    the physics cost once and keep it small.
     """
     info = survey(stage, tree_path, verbose=verbose)
-    res = {"statics": [], "loose": [], "info": info, "level": level}
+    res = {"statics": [], "loose": [], "seated": [], "info": info,
+           "level": level}
     if not info.get("bole") and not info.get("leaf_pi"):
         return res
 
@@ -2103,9 +2161,12 @@ def burn_tree(stage, tree_path, level, parent_path, out_parent, rng,
                                       radius_m=rad, ground_z=ground_z,
                                       verbose=verbose)
         res["loose"] += _loose
-        # Seated debris is static geometry, not a body: it goes to the solver
-        # as something to land ON, never as something to settle.
-        res["statics"] += _seated
+        # Seated debris is static geometry, not a body: it never settles. It
+        # only reaches the solver at all as something to land ON, and under
+        # `seated_collide=False` it does not even do that — see the docstring.
+        res["seated"] += _seated
+        if seated_collide:
+            res["statics"] += _seated
 
     # ORDER MATTERS. Geometry LAST: `snap` and `topple` deactivate the bole,
     # and a material bound to a prim that no longer exists is not an error,
@@ -2170,7 +2231,17 @@ def burn_tree(stage, tree_path, level, parent_path, out_parent, rng,
     # EVERYTHING GENERATED, IN ONE PLACE. `_write_mesh` binds nothing, so a
     # per-pass bind is a per-pass chance to forget — and the symptom (grey
     # untextured debris) looks like a lighting problem, not a missing bind.
-    made = res["statics"] + res["loose"]
+    #
+    # `seated` is listed EXPLICITLY rather than being reached through
+    # `statics`: with `seated_collide=False` it is not in `statics` any more,
+    # and binding by collision role would have quietly unbound every stick the
+    # moment its collider went away. Deduped because with `seated_collide=True`
+    # the same paths are in both lists.
+    made, _seen = [], set()
+    for _p in res["statics"] + res["loose"] + res["seated"]:
+        if _p not in _seen:
+            _seen.add(_p)
+            made.append(_p)
     if made:
         bind_all(stage, made,
                  wood_material(stage, info, parent_path, coverage=max(cov, 0.9),
@@ -2178,4 +2249,401 @@ def burn_tree(stage, tree_path, level, parent_path, out_parent, rng,
                                scale_uv=bole_scale_uv, brightness=0.55),
                  verbose=verbose)
 
+    return res
+
+
+# ===========================================================================
+# WIND DAMAGE — the tornado path
+#
+# A separate entry point from `burn_tree`, and the reason is one branch. That
+# function's stage 4a is gated on the LEVEL NAME rather than on an argument:
+#
+#     if level in ("scorched", "torched", "snag", "fallen", "stump"):
+#         strip_to_trunk(...)
+#
+# and `strip_to_trunk` deactivates every PointInstancer in the tree plus every
+# mesh named branch/leaf/needle/twig/foliage. There is no parameter that
+# reaches it. Since "the leaves stay on" is the entire difference between a
+# windthrown tree and a burnt one, a wind path cannot go through `burn_tree`
+# without editing the branch that makes the burnt path correct.
+#
+# THE DOMAIN FACT THIS ENCODES, and it is the mirror of the one the wildfire
+# skill records: a burnt stand STANDS. Immediately behind a fire front you are
+# looking at a field of black poles, and a scene full of downed trunks reads
+# as windthrow rather than as fire. Run that backwards and it is the rule
+# here — a tornado track is downed trunks, root plates in the air, and green
+# crowns lying on the ground, because the foliage is still on the tree when
+# the photograph is taken. `fall_chance` is 0.12 over there and the majority
+# case over here.
+# ===========================================================================
+
+WIND_LEVELS = ("pristine", "limbed", "leaning", "fallen", "snapped")
+
+# level -> (defoliate_keep, defoliate_keep_top, limbs_down, geometry)
+#
+# `limbs_down` is a count of crown instances baked into real falling limbs by
+# `fell_branches` — the function the wildfire path deliberately never calls,
+# whose docstring reserves it for "a wind or storm-damage pass". This is that
+# pass.
+_WIND_PLAN = {
+    "pristine": (1.00, 1.00, 0,  None),
+    # EF0-EF1. Standing and whole; the crown is thinned and a few limbs are
+    # on the ground under it. Leaves are still GREEN — the browning pass is
+    # a fire effect and is not called anywhere on this path.
+    "limbed":   (0.80, 0.60, 10, None),
+    # Root-sprung. Tipped but alive and entirely intact, which is a real and
+    # very common outcome and the cheapest one to author.
+    "leaning":  (1.00, 1.00, 4,  "lean"),
+    # Uprooted. The whole tree on the ground with its crown, root plate
+    # levered up at the base.
+    "fallen":   (0.94, 0.88, 8,  "uproot"),
+    # Bole broken partway up. THE ONE LEVEL THAT LOSES ITS CROWN, and that is
+    # correct rather than a compromise: a snapped bole's crown is somewhere
+    # else entirely. It is also the rarest, because it takes the most wind.
+    "snapped":  (1.00, 1.00, 0,  "snap"),
+}
+
+# level -> (n_pieces, piece_len_m, scatter_radius_m)
+#
+# LARGER THAN THE BURNT RECIPE ON EVERY AXIS, and that is the request:
+# `_DEBRIS` runs 0.25-2.2 m because a fire reduces wood to charcoal and
+# splinters. Wind BREAKS it, so what is on the ground is limb-sized. Fewer
+# pieces, each of them bigger, thrown further.
+_WIND_DEBRIS = {
+    "limbed":  (26,  (0.55, 2.40), 9.0),
+    "leaning": (16,  (0.50, 2.00), 8.0),
+    "fallen":  (54,  (0.70, 3.60), 14.0),
+    "snapped": (78,  (0.80, 4.20), 17.0),
+}
+
+# Thicker than the burnt stock too. A burnt stick is 5-20 cm through; a limb
+# torn off a live tree is 10-30 cm, and the aspect gate has to come down with
+# it or every attempt is rejected — see `wood_debris`.
+_WIND_THICK = (0.10, 0.30)
+
+
+def wind_plan(level):
+    """`(keep_base, keep_top, limbs_down, geometry)` for a wind level."""
+    if level not in _WIND_PLAN:
+        raise ValueError("unknown wind level {0!r}; expected one of {1}"
+                         .format(level, ", ".join(WIND_LEVELS)))
+    return _WIND_PLAN[level]
+
+
+def plain_wood(stage, parent_path, texture="", scale_uv=(0.30, 0.30),
+               brightness=1.0):
+    """A NOT-CHARRED wood material for wind debris. Returns the Material.
+
+    `wood_material` cannot produce this and it is worth saying why, because
+    the obvious fix does not work: it routes through
+    `damage.scorched_material`, whose `level` indexes `damage.SOOT_LEVELS`,
+    and the LOWEST entry in that table is 0.52 coverage. There is no bucket
+    below "half sooted" — the composite path is a burn compositor and cannot
+    be asked for clean timber. So this builds the material directly.
+
+    With no `texture`, falls back to `disaster.planks`' own sawn-lumber
+    surface, which is the same material the plank debris field carries: a
+    snapped limb and a broken stud lying beside it then agree.
+    """
+    from . import damage, planks
+
+    if texture:
+        return damage._pbr(stage, "{0}/WindLooks/wood_{1}".format(
+            parent_path, abs(hash(texture)) % 10000),
+            (brightness, brightness * 0.97, brightness * 0.93), 0.80,
+            texture=texture, scale_uv=scale_uv)
+    return planks.wood_material(stage, parent_path + "/WindLooks/timber",
+                                tile_m=1.1)
+
+
+def tip_tree(stage, tree_path, lean_deg, azimuth_deg=0.0, lift_m=0.0):
+    """Rotate a WHOLE placed tree about its own base. Returns the lean applied.
+
+    THIS IS THE CHEAPEST CORRECT THING IN THE WHOLE PIPELINE, and it only
+    works because of what a tornado does and a fire does not. A burnt tree has
+    to be cut: its crown is gone, its bole is charred to a different degree
+    over its height, and the piece that falls is a section rather than the
+    tree. A windthrown tree is the SAME TREE, rotated — crown, instancers,
+    materials and all — so there is no mesh surgery, no fracture, no physics
+    and no per-instance quaternion arithmetic. `topple` exists because the
+    burnt case cannot do this; the wind case can.
+
+    Rotating the PARENT is also what carries the crown down with the trunk,
+    which `topple` explicitly gives up on: its docstring records that rotating
+    a PointInstancer's own per-instance `orientations` "scatters twigs at
+    impossible angles". Nothing here touches them — they are children of the
+    prim being rotated and they come along.
+
+    THE PIVOT IS THE LOCAL ORIGIN, which on every tree in this library is the
+    base of the trunk, so the tree hinges where a real one hinges. The op
+    order is rebuilt as translate -> orient -> scale: rotation must come after
+    scale in application order (i.e. before it in the list) or the tree is
+    scaled along the tilted axes and comes out sheared.
+
+    `lift_m` raises the base, which is what a root plate levering out of the
+    ground actually does — and it is also what keeps the far side of the crown
+    from sinking metres below grade, since rotating about the base drives
+    anything that was on the downwind side of the trunk under the lawn.
+    """
+    from pxr import Gf, UsdGeom
+
+    prim = stage.GetPrimAtPath(tree_path)
+    if not prim or not prim.IsValid():
+        return 0.0
+    xf = UsdGeom.Xformable(prim)
+
+    # Read what is there by NAME rather than by position: the tree may have
+    # been placed by `apply_placements` (translate + rotateZ + scale) or by a
+    # bake grid (translate + scale), and assuming an order is how a scale gets
+    # silently dropped.
+    vals = {}
+    for op in xf.GetOrderedXformOps():
+        vals[op.GetOpName().split(":")[-1]] = op.Get()
+    xf.SetXformOpOrder([])
+
+    t = vals.get("translate") or Gf.Vec3d(0.0, 0.0, 0.0)
+    xf.AddTranslateOp().Set(Gf.Vec3d(float(t[0]), float(t[1]),
+                                     float(t[2]) + float(lift_m)))
+    if "rotateZ" in vals and vals["rotateZ"] is not None:
+        xf.AddRotateZOp().Set(float(vals["rotateZ"]))
+    a = math.radians(float(azimuth_deg))
+    # Perpendicular to the fall direction, so tipping about it carries the
+    # crown toward that azimuth — the same construction `topple` uses.
+    axis = Gf.Vec3d(-math.sin(a), math.cos(a), 0.0)
+    # BUILT FROM COMPONENTS. `Gf.Rotation(...).GetQuat()` is a Quatd and
+    # `AddOrientOp()` defaults to FLOAT precision, so handing the Quatd
+    # straight over relies on a cross-precision constructor. Reading the real
+    # and imaginary parts out and rebuilding a Quatf cannot depend on that.
+    _q = Gf.Rotation(axis, float(lean_deg)).GetQuat()
+    _im = _q.GetImaginary()
+    xf.AddOrientOp().Set(Gf.Quatf(float(_q.GetReal()),
+                                  float(_im[0]), float(_im[1]),
+                                  float(_im[2])))
+    sc = vals.get("scale")
+    if sc is not None:
+        xf.AddScaleOp().Set(Gf.Vec3f(float(sc[0]), float(sc[1]), float(sc[2])))
+    return float(lean_deg)
+
+
+def root_plate(stage, path, x_m, y_m, radius_m, azimuth_deg, rng,
+               mat_prim_path="", tilt_deg=68.0, ssf=1.0, n=14):
+    """The disc of soil and roots a windthrown tree levers out of the ground.
+
+    THE SIGNATURE FEATURE, and it is what tells a fallen tree from a felled
+    one at any distance: a tree that was cut leaves a stump, a tree that blew
+    over leaves a two-to-four-metre wheel of earth standing on edge with the
+    trunk running away from it. In `tornado.jpeg` these are the dark spots at
+    the head of each downed trunk.
+
+    Nearly vertical rather than flat, tilted back against the fall. An
+    irregular rim for the same reason `scar_patch` wobbles its outline at
+    three frequencies — a clean circle is exactly the shape the eye picks out
+    as authored.
+    """
+    from pxr import Gf, Sdf, UsdGeom, UsdShade
+
+    a = math.radians(float(azimuth_deg))
+    ux, uy = math.cos(a), math.sin(a)
+    # Plate normal is the fall direction tipped back from vertical.
+    t = math.radians(float(tilt_deg))
+    # In-plane axes: `e1` across the fall (horizontal), `e2` up-and-back.
+    e1 = (-uy, ux, 0.0)
+    e2 = (-ux * math.cos(t), -uy * math.cos(t), math.sin(t))
+
+    # A TRIANGLE FAN ABOUT A REAL CENTRE VERTEX, not one n-gon. A single
+    # concave-ish 14-gon is legal USD and every renderer triangulates it
+    # differently; a fan is unambiguous and costs one extra point.
+    cz = float(radius_m) * 0.45
+    pts = [Gf.Vec3f(x_m * ssf, y_m * ssf, cz * ssf)]
+    for i in range(int(n)):
+        th = 2.0 * math.pi * i / float(n)
+        r = float(radius_m) * (1.0 + 0.20 * math.sin(3.0 * th + 0.7)
+                               + 0.11 * math.sin(7.0 * th + 2.1)
+                               + rng.uniform(-0.07, 0.07))
+        c, s2 = math.cos(th) * r, math.sin(th) * r
+        # Sit the disc's own centre a little above grade so its lower half is
+        # buried — a root plate is a hole in the ground with the plug beside
+        # it, not a coin balanced on the lawn.
+        px = x_m + e1[0] * c + e2[0] * s2
+        py = y_m + e1[1] * c + e2[1] * s2
+        pz = e1[2] * c + e2[2] * s2 + cz
+        pts.append(Gf.Vec3f(px * ssf, py * ssf, pz * ssf))
+
+    m = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
+    m.CreatePointsAttr(pts)
+    counts, idx = [], []
+    for i in range(int(n)):
+        counts.append(3)
+        idx += [0, 1 + i, 1 + (i + 1) % int(n)]
+    m.CreateFaceVertexCountsAttr(counts)
+    m.CreateFaceVertexIndicesAttr(idx)
+    nrm = Gf.Vec3f(ux * math.sin(t), uy * math.sin(t), math.cos(t))
+    m.CreateNormalsAttr([nrm] * len(pts))
+    m.CreateSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
+    m.CreateDisplayColorAttr([Gf.Vec3f(0.20, 0.15, 0.10)])
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    zs = [p[2] for p in pts]
+    m.CreateExtentAttr([Gf.Vec3f(min(xs), min(ys), min(zs)),
+                        Gf.Vec3f(max(xs), max(ys), max(zs))])
+    if mat_prim_path:
+        mat = UsdShade.Material(stage.GetPrimAtPath(mat_prim_path))
+        if mat:
+            UsdShade.MaterialBindingAPI(m.GetPrim()).Bind(mat)
+    return path
+
+
+def wind_tree(stage, tree_path, level, parent_path, out_parent, rng,
+              azimuth_deg=0.0, wood_material_path="", soil_material_path="",
+              debris=True, debris_scale=1.0, ground_z=0.0,
+              seated_collide=True, verbose=False):
+    """Take one tree apart with WIND. The tornado counterpart of `burn_tree`.
+
+    Returns the same dict shape — `{"statics", "loose", "seated", "info",
+    "level"}` — so a bake launcher can treat the two interchangeably.
+
+    `azimuth_deg` is which way the wind was going. Everything directional
+    reads it: the lean, the fall, and the lobe the debris lands in. Baking an
+    archetype should leave it at 0 (fall toward +X) and let the assembly's own
+    yaw aim the finished tree, because a baked archetype is yawed into place
+    and an azimuth authored inside it comes out pointing wherever the
+    placement happens to face.
+
+    ORDER IS LOAD-BEARING, and it is the same order `burn_tree` documents:
+
+      1. DEBRIS IS CUT FIRST. `snap` deactivates the bole, and
+         `fracture.prim_to_mesh` on a deactivated prim returns nothing — so a
+         debris pass after the geometry pass silently yields zero pieces.
+      2. `tip_tree` comes LAST for the tipped levels, because it moves the
+         whole tree and anything already written in world space (debris,
+         limbs, the root plate) would be left behind if it ran first.
+
+    NOTHING HERE CHARS. `scorch_foliage` and `char_bole` are not called and
+    the level table has zeros where `burn_tree`'s has coverages, so the only
+    materials this authors are plain timber and soil.
+    """
+    res = {"statics": [], "loose": [], "seated": [], "info": None,
+           "level": level}
+    info = survey(stage, tree_path, verbose=verbose)
+    res["info"] = info
+    if not info.get("bole") and not info.get("leaf_pi"):
+        return res
+    keep, keep_top, n_limbs, geom = wind_plan(level)
+
+    # Black_Oak's woody branchlet prototype ships with NO material binding, so
+    # repair it before anything is rotated into view — the same asset defect
+    # `burn_tree` opens with.
+    bind_bark(stage, info, verbose=verbose)
+
+    # ---- 1. debris, BEFORE any geometry pass -----------------------------
+    spec = _WIND_DEBRIS.get(level) if debris else None
+    if spec:
+        n_d, plen, rad = spec
+        n_d = max(0, int(round(n_d * float(debris_scale))))
+        if n_d > 0:
+            _loose, _seated = wood_debris(
+                stage, info, out_parent, rng, n_pieces=n_d, piece_len=plen,
+                radius_m=rad, thick_m=_WIND_THICK, ground_z=ground_z,
+                # NEARLY UNIFORM lengths, against the burnt path's 2.2. What
+                # a wind leaves under a tree is limbs, and a distribution
+                # tuned to produce mostly charcoal produces mostly nothing
+                # you can see.
+                len_bias=1.15,
+                # The gate has to come down with the thickness — see
+                # `wood_debris`. At 2.0 a 0.30 m-thick piece would have to be
+                # 0.6 m long to survive, which throws away most of the range
+                # just asked for.
+                min_aspect=1.25,
+                heading_deg=float(azimuth_deg), spread_deg=62.0,
+                verbose=verbose)
+            res["loose"] += _loose
+            res["seated"] += _seated
+            if seated_collide:
+                res["statics"] += _seated
+
+    # ---- 2. crown thinning (NOT stripping) -------------------------------
+    # `strip_to_trunk` is never called on this path. `defoliate` removes a
+    # SHARE of the leaf instances with a height gradient, which is what wind
+    # does — it strips the exposed top harder than the sheltered interior —
+    # and leaves a thinner but still green crown.
+    if keep < 1.0 or keep_top < 1.0:
+        defoliate(stage, info, rng, keep=keep, keep_top=keep_top,
+                  verbose=verbose)
+
+    # ---- 3. limbs down ---------------------------------------------------
+    if n_limbs > 0:
+        res["loose"] += fell_branches(stage, info, out_parent, rng,
+                                      count=int(n_limbs), prefer_large=True,
+                                      verbose=verbose)
+
+    # ---- 4. geometry -----------------------------------------------------
+    plate = None
+    if geom == "snap":
+        s, l = snap(stage, info, out_parent, rng,
+                    # HIGHER THAN THE BURNT BREAK. A fire burns through a
+                    # trunk low, where the flame front sat; wind snaps it
+                    # where the section can no longer carry the crown's
+                    # moment, which is up in the merchantable length. A stub
+                    # at a third of the tree reads as a burnt snag, one at
+                    # half to two thirds reads as a break.
+                    height_frac=rng.uniform(0.42, 0.66),
+                    tilt_deg=(4.0, 16.0), verbose=verbose)
+        res["statics"] += s
+        res["loose"] += l
+    elif geom in ("lean", "uproot"):
+        if geom == "lean":
+            lean = rng.uniform(19.0, 38.0)
+            lift = 0.0
+            r_plate = 0.0
+        else:
+            # NOT FLAT. 72-82 degrees leaves the trunk a few degrees off
+            # horizontal, which is where a real one comes to rest — its crown
+            # is holding it up. Laying it at 90 puts the bole IN the ground
+            # and reads as a log that was placed there.
+            lean = rng.uniform(72.0, 82.0)
+            # The lift is the root plate's own radius, which is both why the
+            # base is off the ground and how far up it is.
+            r_plate = rng.uniform(1.6, 3.0)
+            lift = r_plate * 0.62
+        tip_tree(stage, tree_path, lean, azimuth_deg=float(azimuth_deg),
+                 lift_m=lift)
+        if r_plate > 0.0:
+            from pxr import UsdGeom as _UG
+
+            # THE BASE, NOT THE BOUNDING-BOX CENTRE. The bbox of a tree lying
+            # down is centred halfway along its trunk, which would put the
+            # root plate in the middle of the crown. `tip_tree` pivots about
+            # the local origin and leaves the translate op holding it, so the
+            # translate IS the base — read it back rather than measuring.
+            base = stage.GetPrimAtPath(tree_path)
+            cx = cy = 0.0
+            for op in _UG.Xformable(base).GetOrderedXformOps():
+                if op.GetOpName().split(":")[-1] == "translate":
+                    v = op.Get()
+                    cx, cy = float(v[0]), float(v[1])
+                    break
+            plate = root_plate(
+                stage, "{0}/rootplate_{1}".format(
+                    out_parent, _tag(info, tree_path)),
+                cx, cy, r_plate, float(azimuth_deg) + 180.0, rng,
+                mat_prim_path=soil_material_path, ssf=1.0)
+            res["statics"].append(plate)
+
+    # ---- 5. one material for everything generated ------------------------
+    made, seen = [], set()
+    for p in res["statics"] + res["loose"] + res["seated"]:
+        if p not in seen and p != plate:
+            seen.add(p)
+            made.append(p)
+    if made:
+        mat = None
+        if wood_material_path:
+            from pxr import UsdShade as _US
+            mat = _US.Material(stage.GetPrimAtPath(wood_material_path)) or None
+        if not mat:
+            mat = plain_wood(stage, parent_path,
+                             texture=material_texture(
+                                 stage.GetPrimAtPath(info["bark_mat"])
+                                 if info.get("bark_mat") else None) or "")
+        bind_all(stage, made, mat, verbose=verbose)
     return res

@@ -1,4 +1,5 @@
 import time
+from dataclasses import dataclass
 
 import numpy as np
 import scipy.ndimage
@@ -7,7 +8,9 @@ from geometry_msgs.msg import PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA
 
+from raven_nav.discoveries import same_instance_xy
 from raven_nav.ray_targets import ray_aabb_hits
+from raven_nav.track_confirmation import TemporalConfirmer
 
 # Relaxed fallback: cluster center is accepted if it sits within this many
 # metres of the committed ray's line, AND is in front of the drone. Tolerates
@@ -15,29 +18,173 @@ from raven_nav.ray_targets import ray_aabb_hits
 # voxel cluster actually consolidates (sensor noise, mapper smoothing).
 RAY_TO_CLUSTER_RELAXED_M = 8.0
 
+# Surface gap (m) under which two AABBs across ticks are the same cluster.
+TRACK_ASSOC_MARGIN_M = 2.0
+
+# EMA weight for the track centroid + score (size is not EMA'd, see _merge_obs).
+TRACK_MERGE_ALPHA = 0.3
+
+# Sightings at which the persistence factor of confidence saturates to 1.0.
+PERSISTENCE_FULL_HITS = 10
+
+# Containment suppression: drop a box this fraction (or more) of whose volume is
+# inside a larger box — keeps only the bigger one of a nested pair.
+CONTAIN_SUPPRESS_FRAC = 0.7
+
+# Reachability: a waypoint within this of any voxel is blocked. Only when the
+# locked approach waypoint becomes blocked (the cluster grew into it) is it
+# re-stood-off in STANDOFF_STEP_M steps up to STANDOFF_MAX_M; if nothing is
+# clear the object envelops the approach — it's already observed, mark visited.
+WAYPOINT_CLEARANCE_M = 1.5
+STANDOFF_STEP_M = 0.5
+STANDOFF_MAX_M = 6.0
+
+# Visited geometry — ONE definition, shared with the auction AABBs in
+# raven_nav_node. Arrival is surface distance; same-INSTANCE is overlap-based
+# (discoveries.same_instance_xy) — a gap radius cascades visits across
+# adjacent buildings when boxes bloat.
+VISIT_REACH_M = 3.0   # drone within this of a target's nearest voxel => reached
+VOX_HALF_M = 0.25     # half the 0.5 m voxel edge; a drone on a voxel reads 0
+VISIT_MATCH_M = 5.0   # point-feature (ray-lead) same-instance radius; boxes use overlap
+
+
+def aabb_surface_dist(ca, sa, cb, sb) -> float:
+    """Surface-to-surface gap between two axis-aligned boxes (0 if they overlap).
+    Pass sa or sb as zeros to treat that argument as a point."""
+    ca, sa, cb, sb = (np.asarray(v, dtype=float) for v in (ca, sa, cb, sb))
+    gap = np.maximum(np.abs(ca[:3] - cb[:3]) - (sa[:3] + sb[:3]) / 2.0, 0.0)
+    return float(np.linalg.norm(gap))
+
+
+# Cap on stored voxels per cluster. The reach test only needs the nearest one,
+# and a uniform subsample preserves that to well under a voxel.
+REACH_POINT_CAP = 400
+# Reach fallback for a peer-shared box this robot mapped but never scored above
+# threshold: measure to its own voxels sitting inside that box. The margin
+# absorbs the peer's box being slightly tighter than our own mapping; the floor
+# keeps a couple of stray voxels from standing in for the object.
+IN_BOX_MARGIN_M = 1.0
+IN_BOX_MIN_VOX = 10
+
+
+def voxel_reach_dist(p, points, center, size) -> float:
+    """Distance from a point to a cluster, measured to its nearest OWN voxel.
+
+    An AABB over a sparse or elongated cluster can be far larger than the thing
+    it contains, so `aabb_surface_dist` reports 0 while the drone is metres from
+    any actual surface — that is how a target gets marked visited without the
+    drone ever going near it. Measuring to the nearest voxel removes the
+    inflation. Half a voxel is subtracted so sitting on a voxel reads 0 rather
+    than 0.25.
+
+    Falls back to the box only when the caller found no voxels at all — see
+    _reach_points, which supplies this robot's in-box voxels for a peer-shared
+    box it mapped but never scored above threshold."""
+    if points is None or len(points) == 0:
+        return aabb_surface_dist(p, np.zeros(3), center, size)
+    d = np.linalg.norm(np.asarray(points, dtype=float)
+                       - np.asarray(p, dtype=float)[:3], axis=1)
+    return float(max(0.0, d.min() - VOX_HALF_M))
+
+
+def waypoint_arrival_counts(cur_pose, wp2, c, s) -> bool:
+    """Near-waypoint arrival only counts for the cluster the waypoint serves:
+    standoffs sit within STANDOFF_MAX_M of their box, so a top-ranked cluster
+    farther than that from the waypoint is a different target (re-ranked after
+    a visit) and must not be marked visited from here."""
+    return (wp2 is not None
+            and float(np.linalg.norm(np.asarray(cur_pose, dtype=float)
+                                     - np.asarray(wp2, dtype=float)))
+            < VISIT_REACH_M
+            and aabb_surface_dist(wp2, np.zeros(3), c, s)
+            <= STANDOFF_MAX_M + 2.0)
+
+
+def _contained_frac(inner_bbox, outer_bbox) -> float:
+    """Fraction of inner's AABB volume that lies within outer's AABB."""
+    ci, hi = np.asarray(inner_bbox[:3]), np.asarray(inner_bbox[3:6]) / 2.0
+    co, ho = np.asarray(outer_bbox[:3]), np.asarray(outer_bbox[3:6]) / 2.0
+    ov = np.clip(np.minimum(ci + hi, co + ho) - np.maximum(ci - hi, co - ho),
+                 0.0, None)
+    vol_i = float(np.prod(np.maximum(2.0 * hi, 1e-6)))
+    return float(np.prod(ov)) / vol_i
+
+
+@dataclass
+class _VoxelObs:
+    bbox: list
+    label: str
+    score: float = 1.0
+    seen: int = 1
+    # This robot's OWN above-threshold voxels for the cluster, world frame,
+    # subsampled to REACH_POINT_CAP. None for anything not detected locally —
+    # notably a peer's shared box, which arrives as geometry only (boxes are
+    # what the fleet gossips; voxels are far too large to share). _reach_points
+    # then substitutes this robot's raw voxels inside that box, so arrival is
+    # still judged against the object rather than the shared box surface.
+    points: 'np.ndarray | None' = None
+
 
 class VoxelBehavior:
-    def __init__(self, get_clock, score_threshold=0.7, min_cluster_size=30):
+    def __init__(self, get_clock, score_threshold=0.7, min_cluster_size=30,
+                 confirm_hits=3, track_max_misses=4, proximity_engage_m=12.0,
+                 min_confidence=0.0):
         self.get_clock = get_clock
         self.name = 'Voxel-based'
         self.score_threshold = score_threshold
         self.min_cluster_size = min_cluster_size
+        # Drop confirmed clusters below this confidence (0 = report all).
+        self.min_confidence = min_confidence
+        # Engage voxel-mode on a cluster within this range even without a ray
+        # commitment (fix: finish nearby targets while exploring).
+        self.proximity_engage_m = proximity_engage_m
+        # Hysteresis: cluster currently being approached.
+        self._held_center = None
+        # Remembered-box center to fly to when no live cluster (go-to-box).
+        self._goto_bb_center = None
+        # Deconfliction for proximity engage (set by the node each tick):
+        # fresh peer XY positions (id-tagged) + points peers are committed to.
+        self.fresh_peer_points = []
+        self.peer_committed_points = []
+        self.my_id = 0
         # {cluster_id: [cx,cy,cz,sx,sy,sz]}
         self.target_voxel_clusters = {}
-        # {cluster_id: query_label}
         self.cluster_query_map = {}
+        # cid -> this robot's own voxels for that cluster (None if peer-shared).
+        self.cluster_points = {}
+        # Latest raw voxel cloud, for the peer-box reach fallback.
+        self._last_vox_xyz = None
+        self.cluster_confidence = {}
         self.visited_clusters = []
         self.unvisited_clusters = []
+        # Per-instance (label, center, size) visited record for STATUS only —
+        # separate from visited_clusters (nav) so it never affects path choice.
+        self.visited_instances = []
+        # Peer-VISITED BBs [cx,cy,cz,sx,sy,sz], set each tick by the node.
+        self.peer_visited_bbs = []
         self.completed_queries = set()
         self.prev_voxel_cluster_ids = 0
+        self._confirmer = TemporalConfirmer(
+            confirm_hits=confirm_hits, max_misses=track_max_misses)
+        # Stuck-recovery: when the straight-back standoff is unreachable, rotate
+        # the approach azimuth around the held cluster instead of giving up.
+        # Cursor advanced by note_stuck(); 0 = head-on (unchanged behaviour).
+        self._approach_azimuth_variant = 0
 
     def reset(self):
         self.target_voxel_clusters.clear()
         self.cluster_query_map.clear()
+        self.cluster_points.clear()
+        self.cluster_confidence.clear()
         self.visited_clusters = []
         self.unvisited_clusters = []
+        self.visited_instances = []
+        self.peer_visited_bbs = []
         self.completed_queries = set()
         self.prev_voxel_cluster_ids = 0
+        self._held_center = None
+        self._goto_bb_center = None
+        self._confirmer.reset()
 
     def _cluster_matches_committed_ray(self, cluster, committed_origin,
                                        committed_dir) -> bool:
@@ -47,7 +194,7 @@ class VoxelBehavior:
           (b) the cluster center is within RAY_TO_CLUSTER_RELAXED_M of the
               ray line AND in front of the drone.
         """
-        bb = np.asarray(cluster, dtype=float)   # [cx,cy,cz,sx,sy,sz]
+        bb = np.asarray(cluster, dtype=float)
         d = np.asarray(committed_dir, dtype=float)
         d_norm = np.linalg.norm(d)
         if d_norm < 1e-6:
@@ -82,120 +229,287 @@ class VoxelBehavior:
                 c, committed_origin, committed_dir)
         }
 
+    def _candidate_clusters(self, clusters_dict, committed_origin, committed_dir,
+                            cur_pose):
+        """Clusters eligible for voxel-mode: those matching the committed ray PLUS
+        any within proximity_engage_m of the drone (deconflicted). The proximity
+        set lets a committed drone finish a closer target instead of flying to a
+        far ray/frontier one — voxel execute then approaches the nearest."""
+        out = {}
+        if committed_origin is None or committed_dir is None:
+            # No auction commitment -> don't voxel-engage; the drone explores
+            # (frontier). Prevents an unassigned drone grabbing a cluster the
+            # auction gave to someone else.
+            return out
+        out.update(self._filter_to_committed_ray(
+            clusters_dict, committed_origin, committed_dir))
+        if cur_pose is not None:
+            cur = np.asarray(cur_pose, dtype=float)
+            for i, c in clusters_dict.items():
+                if i in out:
+                    continue
+                center = np.asarray(c[:3], dtype=float)
+                if self._cuboid_distance(cur, np.zeros(3), center,
+                                         np.asarray(c[3:6], dtype=float)) \
+                        > self.proximity_engage_m:
+                    continue
+                if self._peer_blocks_proximity(center, cur):
+                    continue
+                out[i] = c
+        return out
+
+    # Cluster proximity (m) under which a peer's committed point claims it.
+    _PEER_CLAIM_M = 10.0
+
+    def _peer_blocks_proximity(self, center, cur) -> bool:
+        """Defer a proximity engage when a fresh peer is closer to the cluster
+        (id tiebreak) or is committed to it — so two drones don't grab the same
+        cluster. Self-corrects as a busy peer moves away."""
+        c2 = np.asarray(center, dtype=float)[:2]
+        my_d = float(np.linalg.norm(c2 - np.asarray(cur, dtype=float)[:2]))
+        for pid, p in self.fresh_peer_points:
+            pd = float(np.linalg.norm(c2 - np.asarray(p, dtype=float)[:2]))
+            if pd < my_d or (abs(pd - my_d) < 1e-3
+                             and pid is not None and pid < self.my_id):
+                return True
+        for cp in self.peer_committed_points:
+            if float(np.linalg.norm(
+                    c2 - np.asarray(cp, dtype=float)[:2])) <= self._PEER_CLAIM_M:
+                return True
+        return False
+
     def condition_check(self, vox_xyz, vox_scores, query_labels, target_objects,
                         threshold=None, committed_origin=None,
-                        committed_dir=None):
+                        committed_dir=None, cur_pose=None,
+                        committed_bb_center=None):
+        """True when voxel-mode should run: an unvisited live cluster exists, or
+        the drone is committed to a remembered (stale) box with no live voxels
+        yet and should fly to it (go-to-box) until its voxels reappear."""
+        self._goto_bb_center = None
         if threshold is None:
             threshold = self.score_threshold
-        """vox_xyz: (N,3) FLU. vox_scores: (N,Q) softmax. labels parallel sim_* cols.
 
-        Returns True iff there is at least one unvisited high-confidence voxel
-        cluster for one of the target_objects. When True, voxel-mode takes
-        over for fine approach + 3m arrival detection.
-        """
         if vox_xyz is None or vox_scores is None or not target_objects:
-            return False
+            return self._engage_goto(committed_bb_center)
         if len(vox_xyz) == 0:
-            return False
+            return self._engage_goto(committed_bb_center)
 
         label_indices = [
             query_labels.index(t) for t in target_objects
             if t in query_labels
         ]
         if not label_indices:
-            return False
-        relevant_scores = vox_scores[:, label_indices]   # (N, len(label_indices))
-        mask = (relevant_scores > threshold).any(axis=1)
-        indices = np.where(mask)[0]
+            return self._engage_goto(committed_bb_center)
 
-        if len(indices) == 0:
-            return False
+        raw_obs = self._extract_clusters(
+            vox_xyz, vox_scores, label_indices, target_objects, threshold)
+        confirmed = self._confirmer.update(
+            raw_obs, match=self._same_cluster, merge=self._merge_obs)
+        confirmed = self._suppress_contained(confirmed)
 
-        # 3D connected-component labeling on high-confidence voxels.
-        filtered_vox = np.round(vox_xyz[indices], 3)
-        vox_size = 0.5
-
-        min_coords = filtered_vox.min(axis=0)
-        norm_coords = ((filtered_vox - min_coords) / vox_size).astype(int)
-        max_coords = norm_coords.max(axis=0) + 1
-        occupancy = np.zeros(tuple(max_coords.tolist()), dtype=np.uint8)
-        for x, y, z in norm_coords:
-            occupancy[x, y, z] = 1
-
-        structure = np.ones((3, 3, 3), dtype=np.uint8)
-        labeled, num_components = scipy.ndimage.label(occupancy, structure=structure)
-
-        label_ids = np.array([labeled[x, y, z] for x, y, z in norm_coords])
+        # Kept for the reach fallback on peer boxes this robot has mapped but
+        # not scored above threshold — see _reach_points.
+        self._last_vox_xyz = vox_xyz
 
         self.target_voxel_clusters.clear()
         self.cluster_query_map.clear()
-        vox_cluster_count = 0
-
-        for label_val in range(1, num_components + 1):
-            idx = np.where(label_ids == label_val)[0]
-            if len(idx) < self.min_cluster_size:
+        self.cluster_points.clear()
+        self.cluster_confidence.clear()
+        cid = 0
+        for obs in confirmed:
+            conf = float(obs.score) * min(1.0, obs.seen / PERSISTENCE_FULL_HITS)
+            if conf < self.min_confidence:
                 continue
+            self.target_voxel_clusters[cid] = obs.bbox
+            self.cluster_query_map[cid] = obs.label
+            self.cluster_points[cid] = obs.points
+            self.cluster_confidence[cid] = conf
+            cid += 1
 
-            coords = norm_coords[idx]
-            min_voxel = coords.min(axis=0)
-            max_voxel = coords.max(axis=0)
-            min_world = min_voxel * vox_size + min_coords
-            max_world = (max_voxel + 1) * vox_size + min_coords
-            center = (min_world + max_world) / 2
-            size = max_world - min_world
-
-            cx, cy, cz = center[0], center[1], center[2]
-            sx, sy, sz = size[0], size[1], size[2]
-
-            cluster_scores = relevant_scores[idx]
-            best_local = int(cluster_scores.mean(axis=0).argmax())
-            best_label = target_objects[best_local] if best_local < len(target_objects) else target_objects[0]
-
-            self.target_voxel_clusters[vox_cluster_count] = [cx, cy, cz, sx, sy, sz]
-            self.cluster_query_map[vox_cluster_count] = best_label
-            vox_cluster_count += 1
-
-        # Per-instance filter: only consider clusters that geometrically
-        # match the drone's auctioned ray commitment. Without this, voxel-mode
-        # would happily steal House_B when the drone was assigned House_A.
-        ray_filtered = self._filter_to_committed_ray(
-            self.target_voxel_clusters, committed_origin, committed_dir)
+        # Candidates: ray-matched clusters when committed, else clusters near the
+        # drone. The ray filter keeps voxel-mode from stealing House_B when the
+        # drone is committed to House_A.
+        ray_filtered = self._candidate_clusters(
+            self.target_voxel_clusters, committed_origin, committed_dir, cur_pose)
 
         self.unvisited_clusters = [
             (idx, cluster) for idx, cluster in ray_filtered.items()
             if not self._is_near_visited(
                 np.array(cluster[:3]), np.array(cluster[3:6]), self.visited_clusters)
+            and not self._is_near_peer_visited(
+                np.array(cluster[:3]), np.array(cluster[3:6]))
         ]
 
-        return len(self.unvisited_clusters) > 0
+        return len(self.unvisited_clusters) > 0 or self._engage_goto(
+            committed_bb_center)
+
+    def _engage_goto(self, committed_bb_center) -> bool:
+        """Arm go-to-box mode only when committed to a genuinely stale box: no
+        live cluster near it and no peer has visited it. Live boxes fall through
+        to normal voxel/ray/frontier handling."""
+        if committed_bb_center is None:
+            self._goto_bb_center = None
+            return False
+        c = np.asarray(committed_bb_center, dtype=float)[:3]
+        if self._is_near_peer_visited(c, np.zeros(3)):
+            self._goto_bb_center = None
+            return False
+        for bb in self.target_voxel_clusters.values():
+            if float(np.linalg.norm(np.asarray(bb[:3], dtype=float) - c)) <= 5.0:
+                self._goto_bb_center = None
+                return False
+        self._goto_bb_center = c
+        return True
+
+    def _suppress_contained(self, confirmed):
+        """Drop a box mostly inside a larger SAME-label box (over-split fragments
+        of one object); a different-label box inside another's bbox is kept."""
+        order = sorted(
+            confirmed,
+            key=lambda o: float(np.prod(np.asarray(o.bbox[3:6]))), reverse=True)
+        kept: list = []
+        for o in order:
+            if any(o.label == k.label
+                   and _contained_frac(o.bbox, k.bbox) >= CONTAIN_SUPPRESS_FRAC
+                   for k in kept):
+                continue
+            kept.append(o)
+        return kept
+
+    def _same_cluster(self, a: _VoxelObs, b: _VoxelObs) -> bool:
+        if a.label != b.label:
+            return False
+        return self._cuboid_distance(
+            np.array(a.bbox[:3]), np.array(a.bbox[3:6]),
+            np.array(b.bbox[:3]), np.array(b.bbox[3:6])) <= TRACK_ASSOC_MARGIN_M
+
+    def _merge_obs(self, a: _VoxelObs, b: _VoxelObs) -> _VoxelObs:
+        """EMA the centroid + score; take this frame's size. Keeps the track label
+        (per-label clustering + same-label matching keep it consistent)."""
+        al = TRACK_MERGE_ALPHA
+        a_bb = np.asarray(a.bbox, dtype=float)
+        b_bb = np.asarray(b.bbox, dtype=float)
+        center = (1.0 - al) * a_bb[:3] + al * b_bb[:3]
+        size = b_bb[3:6]
+        score = (1.0 - al) * a.score + al * b.score
+        # Keep this frame's voxels: they are the current view of the object,
+        # matching the size field. A track that stops being observed keeps its
+        # last set rather than dropping to box-only.
+        pts = b.points if b.points is not None else a.points
+        return _VoxelObs(bbox=[*center.tolist(), *size.tolist()],
+                         label=a.label, score=score, seen=a.seen + 1,
+                         points=pts)
+
+    def _extract_clusters(self, vox_xyz, vox_scores, label_indices,
+                          target_objects, threshold):
+        """Per-label clusters: each voxel is assigned to its single highest-scoring
+        target (argmax), and connected-components runs within each label — so
+        adjacent objects of different classes stay separate and correctly named."""
+        relevant_scores = vox_scores[:, label_indices]
+        best_t = relevant_scores.argmax(axis=1)
+        best_s = relevant_scores.max(axis=1)
+        vox_size = 0.5
+        obs = []
+        for t in range(len(label_indices)):
+            sel = np.where((best_t == t) & (best_s > threshold))[0]
+            if len(sel) < self.min_cluster_size:
+                continue
+            obs.extend(self._cluster_one_label(
+                vox_xyz[sel], relevant_scores[sel], t, target_objects, vox_size))
+        return obs
+
+    def _cluster_one_label(self, label_vox, label_scores, t, target_objects,
+                           vox_size):
+        """26-connected components over one target label's voxels.
+
+        No peak-splitting: measured across all six ablation scenes it never
+        recovered a target a merged component missed, and only ever added boxes
+        — Shipyard 29 -> 68 for the same 17 targets, and ConstructionSite 7 -> 37
+        false positives. Adjacent instances sharing a component (two cafe tables
+        3.5 m apart) stay merged, which the nav criterion tolerates: the drone
+        flies to the nearest voxel of the cluster either way.
+        """
+        out = []
+        filtered_vox = np.round(label_vox, 3)
+        min_coords = filtered_vox.min(axis=0)
+        norm_coords = ((filtered_vox - min_coords) / vox_size).astype(int)
+        max_coords = norm_coords.max(axis=0) + 1
+        occupancy = np.zeros(tuple(max_coords.tolist()), dtype=np.uint8)
+        occupancy[norm_coords[:, 0], norm_coords[:, 1], norm_coords[:, 2]] = 1
+        labeled, num = scipy.ndimage.label(
+            occupancy, structure=np.ones((3, 3, 3), dtype=np.uint8))
+        comp_ids = labeled[norm_coords[:, 0], norm_coords[:, 1], norm_coords[:, 2]]
+        label = target_objects[t] if t < len(target_objects) else target_objects[0]
+        for cv in range(1, num + 1):
+            idx = np.where(comp_ids == cv)[0]
+            if len(idx) < self.min_cluster_size:
+                continue
+            coords = norm_coords[idx]
+            comp_scores = label_scores[idx]
+            min_world = coords.min(axis=0) * vox_size + min_coords
+            max_world = (coords.max(axis=0) + 1) * vox_size + min_coords
+            center = (min_world + max_world) / 2
+            size = max_world - min_world
+            mean_scores = comp_scores.mean(axis=0)
+            # World-frame voxels of this component, subsampled. The reach test
+            # measures to the nearest of these rather than to the box, so a
+            # sparse cluster cannot be "reached" from outside it.
+            world = coords * vox_size + min_coords + vox_size / 2.0
+            if len(world) > REACH_POINT_CAP:
+                step = int(np.ceil(len(world) / REACH_POINT_CAP))
+                world = world[::step]
+            out.append(_VoxelObs(
+                bbox=[center[0], center[1], center[2],
+                      size[0], size[1], size[2]],
+                label=label,
+                score=float(mean_scores[t]),
+                points=np.asarray(world, dtype=np.float32)))
+        return out
 
     def execute(self, vox_xyz, vox_scores, query_labels, cur_pose_np,
                 waypoint_locked, target_waypoint, target_waypoint2, publisher_dict,
-                committed_origin=None, committed_dir=None):
+                committed_origin=None, committed_dir=None,
+                committed_bb_center=None):
         voxel_bbox_pub = publisher_dict.get('voxel_bbox')
         if voxel_bbox_pub:
             self._visualize_clusters(voxel_bbox_pub)
 
         path_pub = publisher_dict['path']
 
-        # Same per-instance ray filter as in condition_check — keep the
-        # candidate pool tied to the drone's committed target.
-        ray_filtered = self._filter_to_committed_ray(
-            self.target_voxel_clusters, committed_origin, committed_dir)
+        ray_filtered = self._candidate_clusters(
+            self.target_voxel_clusters, committed_origin, committed_dir, cur_pose_np)
         self.unvisited_clusters = [
             (idx, cluster) for idx, cluster in ray_filtered.items()
             if not self._is_near_visited(
                 np.array(cluster[:3]), np.array(cluster[3:6]), self.visited_clusters)
+            and not self._is_near_peer_visited(
+                np.array(cluster[:3]), np.array(cluster[3:6]))
         ]
-        # If the drone's commitment moved off this cluster bucket (peer
-        # outbid, target completed, etc.) we'd have no candidates — fall back
-        # gracefully without crashing the path publish below.
         if not self.unvisited_clusters:
+            if self._goto_bb_center is not None and cur_pose_np is not None:
+                self._publish_goto_path(self._goto_bb_center, cur_pose_np, path_pub)
             return waypoint_locked, target_waypoint, target_waypoint2
 
         sorted_clusters = sorted(
             self.unvisited_clusters,
             key=lambda item: np.linalg.norm(cur_pose_np - np.array(item[1][:3])))
+
+        # Hysteresis: keep approaching the held cluster if still a candidate and
+        # not much farther than the nearest, so it doesn't swap between near-equal
+        # clusters.
+        if self._held_center is not None and len(sorted_clusters) > 1:
+            d_near = np.linalg.norm(cur_pose_np - np.array(sorted_clusters[0][1][:3]))
+            for k, (idx, cl) in enumerate(sorted_clusters):
+                if np.linalg.norm(np.array(cl[:3]) - self._held_center) <= 3.0:
+                    if np.linalg.norm(cur_pose_np - np.array(cl[:3])) <= d_near + 5.0:
+                        sorted_clusters.insert(0, sorted_clusters.pop(k))
+                    break
+        new_held = np.array(sorted_clusters[0][1][:3], dtype=float)
+        # A different cluster is now the target -> restart approach head-on.
+        if (self._held_center is None
+                or float(np.linalg.norm(new_held - self._held_center)) > 3.0):
+            self._approach_azimuth_variant = 0
+        self._held_center = new_held
 
         path = Path()
         path.header.stamp = self.get_clock().now().to_msg()
@@ -227,12 +541,37 @@ class VoxelBehavior:
                 continue
             t_hit = tmin if tmin > 0 else tmax
             surface_point = cur_pose_np + dir_norm * t_hit
-            adjacent = surface_point - dir_norm * 1.0  # 1m in front
+            adjacent = surface_point - dir_norm * 1.0
+
+            # Stuck recovery: after a stuck strike (note_stuck) approach the
+            # cluster from a rotated azimuth instead of head-on. approach_dir
+            # points drone->cluster rotated about +Z; the standoff then sits on
+            # that side of the box surface (variant 0 == head-on == unchanged).
+            approach_dir = self._approach_dir(center, cur_pose_np)
+            if approach_dir is not None and self._approach_azimuth_variant % \
+                    len(self._APPROACH_AZIMUTHS) != 0:
+                half_extent = self._box_half_extent_along(half_sizes, approach_dir)
+                surface_point = center - approach_dir * half_extent
+                stand_dir = approach_dir
+            else:
+                stand_dir = dir_norm
 
             if i == 0:
                 if not waypoint_locked:
-                    target_waypoint2 = adjacent
+                    target_waypoint2 = self._clear_standoff(
+                        surface_point, stand_dir, vox_xyz)
+                    if target_waypoint2 is None:
+                        self.visited_clusters.append(cluster)
+                        break
                     waypoint_locked = True
+                elif self._point_near_voxels(target_waypoint2, vox_xyz):
+                    new_wp = self._clear_standoff(surface_point, stand_dir, vox_xyz)
+                    if new_wp is None:
+                        self.visited_clusters.append(cluster)
+                        waypoint_locked = False
+                        target_waypoint2 = None
+                        break
+                    target_waypoint2 = new_wp
 
                 alpha = 0.8
                 mid = cur_pose_np * (1 - alpha) + target_waypoint2 * alpha
@@ -250,35 +589,182 @@ class VoxelBehavior:
 
         path_pub.publish(path)
 
-        # Mark cluster visited only on a previously-locked waypoint within 3m.
-        # NOTE: tracking is per-INSTANCE (the cluster's AABB) via visited_clusters
-        # + the 10 m _is_near_visited spatial filter. We deliberately do NOT add
-        # the label to completed_queries here — the label set would retire the
-        # whole class fleet-wide after a single instance, so a "find all houses"
-        # task would stop after one house. Per-instance dedup is enough; the
-        # task-level instance_id system handles cross-drone deduplication of
-        # the discovery output.
-        if waypoint_was_locked and target_waypoint2 is not None and \
-                np.linalg.norm(cur_pose_np - target_waypoint2) < 3.0:
-            if sorted_clusters:
-                arrived_idx, arrived_cluster = sorted_clusters[0]
-                self.visited_clusters.append(arrived_cluster)
-            waypoint_locked = False
+        # Completion uses the target's AABB, not voxel/standoff proximity: mark it
+        # visited once the drone is within VISIT_REACH_M of the cluster AABB
+        # *surface* (0 if inside it), or has reached its standoff waypoint. The
+        # AABB-surface test stops the drone getting stuck circling when the exact
+        # standoff is unreachable. Per-instance only (NOT completed_queries — that
+        # would retire the whole class fleet-wide after one instance). visited_clusters
+        # gates nav re-targeting; visited_instances is the status/auction record.
+        if sorted_clusters:
+            arrived_idx, arrived = sorted_clusters[0]
+            c = np.array(arrived[:3], dtype=float)
+            s = np.array(arrived[3:6], dtype=float)
+            near_aabb = voxel_reach_dist(
+                cur_pose_np, self._reach_points(arrived_idx, c, s),
+                c, s) <= VISIT_REACH_M
+            near_wp = (waypoint_was_locked and waypoint_arrival_counts(
+                cur_pose_np, target_waypoint2, c, s))
+            if near_aabb or near_wp:
+                label = self.cluster_query_map.get(arrived_idx, '')
+                if not self.is_visited(c, s, label):
+                    self.visited_instances.append((label, c, s))
+                if not self._is_near_visited(c, s, self.visited_clusters):
+                    self.visited_clusters.append(arrived)
+                waypoint_locked = False
 
         return waypoint_locked, target_waypoint, target_waypoint2
 
-    def _is_near_visited(self, center, size, visited_clusters, threshold=10.0):
+    def _is_near_visited(self, center, size, visited_clusters):
         return any(
-            self._cuboid_distance(center, size,
-                                  np.array(v[:3]), np.array(v[3:6])) < threshold
+            same_instance_xy(center, size, np.array(v[:3]), np.array(v[3:6]))
             for v in visited_clusters)
 
+    def _is_near_peer_visited(self, center, size):
+        """True if a peer already visited this target (same instance = overlap)."""
+        return any(
+            same_instance_xy(center, size, np.array(bb[:3]), np.array(bb[3:6]))
+            for bb in self.peer_visited_bbs)
+
     def _cuboid_distance(self, ca, sa, cb, sb):
-        ha, hb = sa / 2.0, sb / 2.0
-        dx = max(abs(ca[0] - cb[0]) - (ha[0] + hb[0]), 0)
-        dy = max(abs(ca[1] - cb[1]) - (ha[1] + hb[1]), 0)
-        dz = max(abs(ca[2] - cb[2]) - (ha[2] + hb[2]), 0)
-        return np.sqrt(dx**2 + dy**2 + dz**2)
+        return aabb_surface_dist(ca, sa, cb, sb)
+
+    def _reach_points(self, cid, center, size):
+        """Voxels the reach test should measure to, best available first.
+
+        1. This robot's own above-threshold cluster voxels, when it detected the
+           target itself.
+        2. Otherwise ANY of this robot's mapped voxels inside the box. A peer
+           shares geometry only, so a box whose contents this robot has mapped
+           but not scored above threshold would otherwise fall back to the box
+           surface — and stop the drone 3 m off a surface that may sit well
+           outside the actual object. The voxels in there are the object
+           whether or not this robot's score cleared the gate.
+        3. None -> caller falls back to the box, correct only when this robot
+           has never observed that volume at all.
+        """
+        pts = self.cluster_points.get(cid)
+        if pts is not None and len(pts):
+            return pts
+        vox = self._last_vox_xyz
+        if vox is None or len(vox) == 0:
+            return None
+        c = np.asarray(center, dtype=float)
+        h = np.asarray(size, dtype=float) / 2.0 + IN_BOX_MARGIN_M
+        v = np.asarray(vox, dtype=float)[:, :3]
+        inside = np.all(np.abs(v - c) <= h, axis=1)
+        n = int(inside.sum())
+        if n < IN_BOX_MIN_VOX:
+            return None
+        pts = v[inside]
+        if n > REACH_POINT_CAP:
+            pts = pts[::int(np.ceil(n / REACH_POINT_CAP))]
+        return pts
+
+    def mark_arrivals(self, cur_pose_np, radius_m=VISIT_REACH_M):
+        """Flag detected clusters within radius_m of the drone as visited
+        (per-instance, label-scoped) without driving navigation. Call after
+        condition_check() has populated target_voxel_clusters."""
+        if cur_pose_np is None:
+            return
+        cur = np.asarray(cur_pose_np, dtype=float)
+        for cid, cluster in self.target_voxel_clusters.items():
+            center = np.array(cluster[:3], dtype=float)
+            size = np.array(cluster[3:6], dtype=float)
+            label = self.cluster_query_map.get(cid, '')
+            if self.is_visited(center, size, label):
+                continue
+            if voxel_reach_dist(cur, self._reach_points(cid, center, size),
+                                center, size) < radius_m:
+                self.visited_instances.append((label, center, size))
+
+    def is_visited(self, center, size, label):
+        """True if (center, size, label) matches a previously marked-visited
+        instance: same label and same physical instance (xy overlap)."""
+        for vlabel, vcenter, vsize in self.visited_instances:
+            if vlabel != label:
+                continue
+            if same_instance_xy(center, size, vcenter, vsize):
+                return True
+        return False
+
+    def _point_near_voxels(self, point, vox_xyz, clearance=WAYPOINT_CLEARANCE_M):
+        """True if the waypoint sits within clearance of any mapped voxel."""
+        if vox_xyz is None or len(vox_xyz) == 0:
+            return False
+        d2 = ((np.asarray(vox_xyz, dtype=float)
+               - np.asarray(point, dtype=float)) ** 2).sum(axis=1)
+        return bool(d2.min() < clearance * clearance)
+
+    # Approach azimuths tried on successive stuck strikes (degrees around +Z,
+    # relative to head-on): head-on, then swing to either side, then behind.
+    _APPROACH_AZIMUTHS = (0.0, 40.0, -40.0, 80.0, -80.0, 140.0)
+
+    def note_stuck(self) -> None:
+        """Called by the node when the pursuit stuck monitor fires in voxel
+        mode: advance to the next approach azimuth for the held cluster so the
+        next standoff is computed from a different side. Force a re-plan by
+        clearing the hold so execute() recomputes the waypoint this tick."""
+        self._approach_azimuth_variant += 1
+
+    def _approach_dir(self, center, cur_pose_np):
+        """Unit drone->cluster bearing rotated by the current stuck azimuth
+        variant, so a blocked head-on corridor can be retried from the side."""
+        d = np.asarray(center, dtype=float) - np.asarray(cur_pose_np, dtype=float)
+        n = float(np.linalg.norm(d))
+        if n < 1e-6:
+            return None
+        d = d / n
+        idx = self._approach_azimuth_variant % len(self._APPROACH_AZIMUTHS)
+        deg = self._APPROACH_AZIMUTHS[idx]
+        if deg == 0.0:
+            return d
+        a = np.deg2rad(deg)
+        c, s = float(np.cos(a)), float(np.sin(a))
+        out = np.array([c * d[0] - s * d[1], s * d[0] + c * d[1], d[2]])
+        on = float(np.linalg.norm(out))
+        return out / on if on > 1e-6 else d
+
+    @staticmethod
+    def _box_half_extent_along(half_sizes, u) -> float:
+        """Distance from an AABB centre to its surface along unit direction u
+        (first face hit): min_i(h_i / |u_i|) over axes with |u_i|>0."""
+        h = np.asarray(half_sizes, dtype=float)
+        u = np.abs(np.asarray(u, dtype=float))
+        ts = [h[k] / u[k] for k in range(3) if u[k] > 1e-9]
+        return float(min(ts)) if ts else float(np.max(h))
+
+    def _clear_standoff(self, surface_point, dir_norm, vox_xyz,
+                        base=1.0, step=STANDOFF_STEP_M, max_standoff=STANDOFF_MAX_M):
+        """Pull the approach point back from the surface (toward the drone) until
+        it clears all voxels; None if nothing within max_standoff is free."""
+        s = base
+        while s <= max_standoff:
+            wp = surface_point - dir_norm * s
+            if not self._point_near_voxels(wp, vox_xyz):
+                return wp
+            s += step
+        return None
+
+    def _publish_goto_path(self, target, cur_pose_np, path_pub):
+        """Steer toward a remembered box center with no live voxels yet. droan
+        follows /global_plan; on approach the voxels reappear and normal
+        voxel-mode + mark_arrivals take over and confirm it visited."""
+        target = np.asarray(target, dtype=float)
+        path = Path()
+        path.header.stamp = self.get_clock().now().to_msg()
+        path.header.frame_id = 'map'
+        d = target - cur_pose_np
+        if float(np.linalg.norm(d)) >= 1e-6:
+            for wp in (cur_pose_np + d * 0.5, target):
+                ps = PoseStamped()
+                ps.header = path.header
+                ps.pose.position.x = float(wp[0])
+                ps.pose.position.y = float(wp[1])
+                ps.pose.position.z = float(wp[2])
+                ps.pose.orientation.w = 1.0
+                path.poses.append(ps)
+        path_pub.publish(path)
 
     def _visualize_clusters(self, pub):
         markers = MarkerArray()

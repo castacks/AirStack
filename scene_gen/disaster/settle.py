@@ -61,8 +61,31 @@ def _iter(prim):
 
 def prepare(stage, loose_paths, static_paths, gravity=-9.81,
             scene_path="/World/physicsScene", kick=0.0, rng=None,
-            dynamic_approximation="convexHull", approx_map=None, gpu=True):
-    """Physics scene, static colliders, and a rigid body per loose piece."""
+            dynamic_approximation="convexHull", approx_map=None, gpu=True,
+            bias=None, max_speed=None, damping=None):
+    """Physics scene, static colliders, and a rigid body per loose piece.
+
+    `bias` IS THE WIND, and it is what separates a collapse from a tornado.
+    `kick` is deliberately zero-mean — it exists only to break the perfect
+    interlock of a Voronoi partition so gravity can take hold — so a scene
+    settled with it alone drops every piece into its own footprint. That is
+    correct for a fire and wrong for a wind event, where the whole read is
+    that material ended up somewhere DOWNTRACK of where it started.
+
+    `bias=(bx, by, bz)` in m/s is added to every body's initial velocity, so
+    the pile is thrown as it falls rather than after. Two ceilings will
+    silently eat it if they are left alone, and both are raised by passing
+    them explicitly:
+
+      * `max_speed` -> `maxLinearVelocity`, 4.0 m/s by default. A 12 m/s
+        throw authored against that cap comes out as a 4 m/s one and the
+        debris lands a third of the way out, which looks like the bias "not
+        working" rather than like a clamp.
+      * `damping` -> `linearDamping`, 0.55 by default, which bleeds better
+        than half the speed away every second. Fine for a piece that is only
+        meant to topple; ruinous for one meant to travel.
+
+    Leave all three None and this behaves exactly as it did before."""
     import random as _random
 
     from pxr import Gf, Sdf, UsdPhysics, UsdShade
@@ -164,9 +187,10 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
         # balls: every contact converts a drop into lateral speed and the pile
         # sprays outward. Real rubble is lossy — it lands, grinds, and stops.
         px = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
-        px.CreateLinearDampingAttr(0.55)
+        px.CreateLinearDampingAttr(0.55 if damping is None else float(damping))
         px.CreateAngularDampingAttr(2.2)
-        px.CreateMaxLinearVelocityAttr(4.0)
+        px.CreateMaxLinearVelocityAttr(
+            4.0 if max_speed is None else float(max_speed))
         px.CreateMaxAngularVelocityAttr(5.0)
         # THE EXPLOSION KNOB. When PhysX finds two bodies overlapping it pushes
         # them apart, and by default it may do so at any speed — which turns
@@ -187,15 +211,22 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
         # Just enough to break the interlock. The previous values — 0.9 m/s
         # with +-25 rad/s of spin, i.e. four revolutions a second — were an
         # explosion, not a nudge.
-        if kick > 0.0:
+        # `bias` rides on top of it: same random nudge, offset by a constant
+        # wind vector, so pieces still separate from each other AND all go the
+        # same way. Spin is left zero-mean whatever the bias — a board thrown
+        # downwind tumbles, it does not roll about one axis.
+        bx, by, bz = (0.0, 0.0, 0.0) if bias is None else (
+            float(bias[0]), float(bias[1]), float(bias[2]))
+        if kick > 0.0 or bias is not None:
             body.CreateVelocityAttr(Gf.Vec3f(
-                float(rng.uniform(-kick, kick)),
-                float(rng.uniform(-kick, kick)),
-                0.0))
+                bx + float(rng.uniform(-kick, kick)),
+                by + float(rng.uniform(-kick, kick)),
+                bz))
+            spin = max(kick, 1.4 if bias is not None else 0.0)
             body.CreateAngularVelocityAttr(Gf.Vec3f(
-                float(rng.uniform(-kick, kick)),
-                float(rng.uniform(-kick, kick)),
-                float(rng.uniform(-kick, kick))))
+                float(rng.uniform(-spin, spin)),
+                float(rng.uniform(-spin, spin)),
+                float(rng.uniform(-spin, spin))))
         UsdPhysics.MassAPI.Apply(prim).CreateDensityAttr(420.0)   # timber
         bodies.append(prim)
         n_body += 1
@@ -278,7 +309,8 @@ def _step(steps, dt=1.0 / 60.0):
 
 def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         gravity=-9.81, kick=0.0, rng=None, bake_result=True,
-        dynamic_approximation="convexHull", approx_map=None, gpu=True):
+        dynamic_approximation="convexHull", approx_map=None, gpu=True,
+        bias=None, max_speed=None, damping=None):
     """prepare -> step physics -> measure -> bake. Returns a short report.
 
     MEASURES WHAT MOVED. A settle that silently does nothing looks identical
@@ -296,7 +328,8 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     info = prepare(stage, loose_paths, static_paths, gravity=gravity,
                    kick=kick, rng=rng,
                    dynamic_approximation=dynamic_approximation,
-                   approx_map=approx_map, gpu=gpu)
+                   approx_map=approx_map, gpu=gpu, bias=bias,
+                   max_speed=max_speed, damping=damping)
     if not info["bodies"]:
         carb.log_warn("[settle] nothing to settle")
         return info
@@ -376,9 +409,15 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
                   else "  <-- RAISE THE STEP BUDGET"))
         print("[settle]   drop  mean {0:+.2f} m   (down = collapsing)".format(
             info["drop_mean"]))
-        print("[settle]   spread mean {0:.2f} m / max {1:.2f} m   "
-              "(large = exploding)".format(info["spread_mean"],
-                                           info["spread_max"]))
+        # THE READING INVERTS WHEN THERE IS A BIAS. Horizontal spread is the
+        # explosion diagnostic for a collapse and the SUCCESS criterion for a
+        # wind event — a tornado settle that reports 0.6 m of spread is one
+        # that threw nothing. Label it by which run this was, or the next
+        # person tunes the bias down until the "warning" goes away.
+        print("[settle]   spread mean {0:.2f} m / max {1:.2f} m   ({2})".format(
+            info["spread_mean"], info["spread_max"],
+            "large = thrown downwind, which is the point" if bias is not None
+            else "large = exploding"))
         if info["moved_max"] < 0.01:
             print("[settle] NOTHING MOVED — the solver did not run, or every "
                   "body was already resting and interlocked")

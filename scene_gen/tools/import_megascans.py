@@ -51,6 +51,12 @@ NAMES = {
     "road_line": "Road_Line",
     "brick_wall_worn": "Brick_Wall_Worn",
     "damaged_asphalt": "Damaged_Asphalt",
+    "worn_pavement": "Worn_Pavement",
+    # TORNADO GROUND. The scour along a track is bare wet soil where the turf
+    # was peeled off, so the pack that matters is a plain mud rather than
+    # anything with structure in it — see `disaster/tornado.py`.
+    "soil_mud": "Soil_Mud",
+    "military_trenches_ground_dirt": "Dirt_Rough",
 }
 
 _TEMPLATE = '''#usda 1.0
@@ -144,7 +150,12 @@ def convert(zip_path, verbose=True):
     # Set here rather than edited afterwards so a re-import cannot silently
     # revert it — which is exactly what happened when the asphalt pack was
     # replaced.
-    tile = 0.11 if any(k in name for k in ("Asphalt", "Floor", "Ground")) else 0.35
+    # "Soil"/"Mud"/"Dirt" join the ground list for the same reason "Floor" is
+    # on it: these are laid over tens of metres of open ground, and a 2.9 m
+    # tile on a plate that size is a visible grid.
+    tile = (0.11 if any(k in name for k in ("Asphalt", "Floor", "Ground",
+                                            "Soil", "Mud", "Dirt"))
+            else 0.35)
     lines.append('        float2 inputs:texture_scale = ({0}, {0})'.format(tile))
     lines.append('        bool inputs:project_uvw = 1')
     lines.append('        bool inputs:world_or_object = 1')

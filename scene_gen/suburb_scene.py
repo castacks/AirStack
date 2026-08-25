@@ -53,6 +53,13 @@ _Z_STOPBAR = 0.205
 # The front walk sits just over the drive: the two meet at the kerb, and
 # coplanar ribbons z-fight precisely where a viewer is looking.
 _Z_WALK = 0.17
+# THE POOL APRON TAKES THE DRIVE'S RUNG. It is the same thing — private paving
+# laid straight on the block grass — and it overlaps no other surface, a pool
+# being in the rear yard where neither drive nor walk reaches. Sharing a tuned
+# rung beats inventing an offset, and being ABOVE the burn overlay (which sits
+# between grass and asphalt) is what makes the apron come through the fire
+# unmarked, the same answer `damage.INCOMBUSTIBLE` gives the pool itself.
+_Z_POOL_APRON = _Z_DRIVE
 WALK_W_M = 1.2      # a US front walk; 1.1-1.4 m is the whole range
 UV_DRIVE_M = 2.5    # Driveway_Brick_Old_01: a brick course, not a road
 UV_PATH_M = 2.0     # Concrete_02: slab joints at walk scale
@@ -337,6 +344,19 @@ def _rect_box(corners):
             ax / la, ay / la, la * 0.5, lb * 0.5)
 
 
+def _near_polygon(p, poly, pad=0.0):
+    """Is *p* inside *poly* or within *pad* of any of its edges?"""
+    if sn.point_in_polygon(poly, p):
+        return True
+    if pad <= 0.0:
+        return False
+    n = len(poly)
+    for i in range(n):
+        if sn.seg_seg_dist(poly[i], poly[(i + 1) % n], p, p) < pad:
+            return True
+    return False
+
+
 def _in_rect(p, rect, pad=0.0):
     """Is *p* inside the AXIS-ALIGNED ``(x0, y0, x1, y1)`` grown by *pad*?"""
     return (rect[0] - pad <= p[0] <= rect[2] + pad
@@ -384,6 +404,16 @@ def paving_keepout(parcels, step_m=1.0):
             if plan and plan.get("path"):
                 out += _sample_polyline(list(plan["path"]), step_m,
                                         WALK_W_M * 0.5)
+        # ROW-HOME PAVING, which has no `drives` entry to hang off — a cluster
+        # block's `drives` list is empty by construction. `row_housing`
+        # publishes its court, its one access drive and every footway as
+        # (a, b, half-width) axes for exactly this: they are rectangles, so
+        # each is one straight run and the same sampler covers them. Without
+        # it the tree passes plant on the court, which is both the parking and
+        # the refuge.
+        for cl in (p.get("clusters") or ()):
+            for (a, b, hw) in cl["paving"]:
+                out += _sample_polyline([a, b], step_m, hw)
     return out
 
 
@@ -572,6 +602,14 @@ def _planting_cfg(config):
         # lot usually has free ground within its own cell — one dart threw that
         # away and left holes exactly where the ground was tightest.
         "darts": max(1, int(cfg.get("open_tree_darts", 4))),
+        # ...and how far a TREE stands off a pool's water rectangle, measured
+        # from the rect edge. Much bigger than `clear_m` because it is not a
+        # crown radius: the wildfire pass replaces every tree with a baked
+        # burnt archetype that scatters wood debris 7.5-10.5 m about its trunk
+        # (`disaster/vegetation.py` `_DEBRIS`), and at the 3 m crown clearance
+        # that rubble landed in the water. Defined in `suburb_parcel.DEFAULTS`;
+        # `suburb_yardplan` reads the same key.
+        "pool_clear_m": float(cfg.get("pool_tree_clear_m", 11.0) or 0.0),
     }
 
 
@@ -814,6 +852,13 @@ def apply_park_ground(stage, config, park, gnd, ssf, mats):
         # pack ships, and a bare-earth playground floor is what it looks like.
         "playground":          ((0.85, 0.76, 0.60), dirt_mat,    _Z_PARK_SURF),
         "picnic":              ((0.42, 0.50, 0.31), turf,        _Z_PARK_SURF),
+        # THE REFUGE LOT, on the ROAD asphalt and at the COURT's rung of the z
+        # ladder. Both halves of that matter: it is a car park, so it is the
+        # material the streets are laid in rather than a court surface — and it
+        # is a park surface laid on the park's grass, so it sits at
+        # `_Z_PARK_SURF` with the court slabs and not at `_Z_ASPHALT`, which is
+        # 4 cm higher and would leave a lip where the apron crosses the verge.
+        "parking":             ((0.21, 0.23, 0.26), asphalt_mat, _Z_PARK_SURF),
     }
     for i, z in enumerate(park["zones"]):
         spec = SURF.get(z["kind"])
@@ -823,6 +868,18 @@ def apply_park_ground(stage, config, park, gnd, ssf, mats):
         if _make_polygon(stage, f"{gnd}/park_{z['kind']}_{i}", z["corners"],
                          zz, ssf, 4.0, col, mat) is not None:
             n["slab"] += 1
+        # AND THE APRON, which is the same slab and not a separate feature: it
+        # is the bellmouth from the frame street's kerb into the lot, so it is
+        # the same material at the same height. Drawn as its own polygon
+        # because it is a trapezoid the lot rectangle cannot express, and it
+        # reaches OUTSIDE the park rect across the verge.
+        if z["kind"] == "parking":
+            lot = spk.parking_info(park)
+            if lot and len(lot.get("apron") or ()) >= 3:
+                if _make_polygon(stage, f"{gnd}/park_parking_apron_{i}",
+                                 lot["apron"], zz, ssf, 4.0, col,
+                                 mat) is not None:
+                    n["slab"] += 1
 
     # Line work, at the regulation dimensions suburb_park already solves for.
     for i, z in enumerate(park["zones"]):
@@ -832,6 +889,13 @@ def apply_park_ground(stage, config, park, gnd, ssf, mats):
         elif z["kind"] == "basketball_compound":
             lines = [(spk.basketball_markings(), c["centre"], c["yaw"])
                      for c in z.get("courts", [])]
+        elif z["kind"] == "parking":
+            # BAY LINES, exactly as a court's markings: local polylines in the
+            # facility's own frame, drawn white through the same ribbon path.
+            # `suburb_park` solves the striping (back lines shared between
+            # back-to-back rows, dividers merged across them), so this is the
+            # same one-liner the pitch is.
+            lines = [(z.get("lines") or [], z["centre"], z["yaw"])]
         # NO TENNIS LINE WORK. The tennis court is a WHOLE ASSET and its paint
         # comes with it — `park.yaml` says so where it declares the pool ("its
         # markings come with it, so suburb_park places the enclosure and fence
@@ -912,6 +976,7 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
     z_dash = _Z_DASH * _zs
     z_stopbar = _Z_STOPBAR * _zs
     z_walk = _Z_WALK * _zs
+    z_pool_apron = _Z_POOL_APRON * _zs
     z_park_surf = _Z_PARK_SURF * _zs
     z_park_path = _Z_PARK_PATH * _zs
     uv_asphalt = float(roads_cfg.get("asphalt_uv_scale_m", 4.0))
@@ -1089,6 +1154,76 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
                     (0.62, 0.61, 0.58), path_mat) is not None:
                 n_walk += 1
 
+    # -- ROW-HOME CLUSTERS: the court, the one drive, the footways ----------
+    #
+    # None of this can ride on the driveway loop above, because a cluster
+    # block's `drives` list is EMPTY: that loop pairs `p["drives"][di]` with
+    # `p["houses"][di]` by ordinal, so a cluster block contributing drives
+    # would mis-pair every one of them against a row unit.
+    #
+    # THE RUNG IS `_Z_PARK_SURF`, the same one the park's own refuge lot uses,
+    # and for the same reason: this is a private paved area laid OVER the block
+    # grass and UNDER the public carriageway, which is exactly where the drive
+    # apron has to disappear into the road. The footways go a rung higher
+    # again, at `_Z_WALK`, because they meet the court on a shared edge and two
+    # coplanar ribbons z-fight precisely where both are visible.
+    #
+    # THE COMMUNAL GREEN IS NOT DRAWN. `row_housing` publishes it and it is
+    # deliberately left as geometry nobody paints: the block's own lawn already
+    # covers that ground with the same mown grass at `z_grass`, so a second
+    # coplanar sheet would buy nothing and z-fight for it. It is published so a
+    # consumer that wants to treat communal ground differently — a different
+    # mow, a wildfire fuel class, somewhere to stand people — knows where it is.
+    n_court = n_row_walk = 0
+    for pi, p in enumerate(parcels):
+        for ci, cl in enumerate(p.get("clusters") or ()):
+            for key, col in (("court", (0.21, 0.23, 0.26)),
+                             ("drive", (0.21, 0.23, 0.26))):
+                if _make_polygon(stage, f"{gnd}/row_{key}_{pi}_{ci}",
+                                 cl[key], z_park_surf, ssf, uv_asphalt, col,
+                                 asphalt_mat) is not None:
+                    n_court += 1
+            for wi, (a, b) in enumerate(cl["walks"]):
+                if _make_ribbon(stage, f"{gnd}/row_walk_{pi}_{ci}_{wi}",
+                                [a, b], float(cl["walk_w_m"]) / 2.0, z_walk,
+                                ssf, UV_PATH_M, (0.62, 0.61, 0.58),
+                                path_mat) is not None:
+                    n_row_walk += 1
+    if n_court:
+        print(f"[suburb_scene] row-home ground: {n_court} court/drive slabs, "
+              f"{n_row_walk} footways")
+
+    # THE POOL APRON, the paved band between the coping and the lawn.
+    #
+    # GROUND, NOT A PLACEMENT, and that is the whole of the damage question:
+    # the scorch, consume and settle passes only ever walk the placement list,
+    # so there is nothing here for them to burn, soot or collapse — and the
+    # apron's rung is above the burn overlay's, so it comes through the fire
+    # unmarked like the drive. That is what `damage.INCOMBUSTIBLE` says about
+    # the pool it surrounds, reached by the mechanism the ground already has
+    # rather than by a second special case.
+    #
+    # A FRAME, NOT A SLAB: filled, it would draw over the water the lawn was
+    # cut open to reveal. The hole is the COPING's outer face, not the water
+    # ring, so the slab meets the stone instead of covering it.
+    #
+    # Nothing downstream changes. `pool_rects` still means the water — the
+    # rectangle the ground meshes and `ground_base` are cut by, the one
+    # `people._pool_people` measures and `pool_tree_clear_m` clears debris
+    # from — and the apron is drawn OVER the lawn exactly as a driveway is,
+    # so it needs no cut of its own.
+    n_apron = 0
+    if pool_rects:
+        from detail import modular_house as mh
+        apron_mat = _load_mat("pool_apron") or path_mat
+        for i, rect in enumerate(pool_rects):
+            coping, apron = mh.pool_rings(rect)
+            for k, q in enumerate(polygon_minus_convex(apron, coping)):
+                if _make_polygon(stage, f"{gnd}/pool_apron_{i}_{k}", q,
+                                 z_pool_apron, ssf, UV_PATH_M,
+                                 (0.62, 0.61, 0.58), apron_mat) is not None:
+                    n_apron += 1
+
     # 2) MARKINGS, the vocabulary the urban scene paints.
     #
     #    A LOCAL STREET CARRIES NO CENTRELINE — MUTCD 3B.01 warrants one by
@@ -1161,7 +1296,9 @@ def apply_ground(stage, config, net, blocks, parcels, region, parent_path, ssf,
     print(f"[suburb_scene] ground: {n_road} road ribbons "
           f"({n_road_alt} on the road tile), {n_bulb} turnarounds, "
           f"{n_grass} block meshes ({n_rough} rough/undeveloped), "
-          f"{n_drive} driveways ({n_drive_alt} asphalt), {n_walk} front walks")
+          f"{n_drive} driveways ({n_drive_alt} asphalt), {n_walk} front "
+          f"walks, {n_apron} pool apron pieces around "
+          f"{len(pool_rects or ())} pool(s)")
     print(f"[suburb_scene] markings: {n_dash} centreline dashes on collectors "
           f"({n_dash_cut} suppressed at junctions), {n_x} crossings "
           f"({n_xbar} bars), {n_stop} stop bars")
@@ -1494,6 +1631,592 @@ def build_frontage(config, resolver, net, blocks, rng, pools):
     print(f"[suburb_scene] frontage: {len(out)} props, {n_corner} tiles dropped "
           f"at junction corners, {n_walk_road} tiles and {n_prop_road} "
           f"lamps/hydrants dropped for landing on the road")
+    return out
+
+
+# ---------------------------------------------------------------------------
+# parked cars
+# ---------------------------------------------------------------------------
+
+_CAR_TAG_RESIDENTIAL = "residential"
+_CAR_TAG_VINTAGE = "vintage"
+_CAR_TAG_GLASS = "glass_separable"
+
+# Kerb parking runs on these classes and no others. An arterial or a collector
+# is the through road: `apply_ground` paints it a centreline precisely because
+# it carries traffic, and a rank of parked cars down it reads as a high street
+# rather than as a suburb. GENERATION.md's locale table says the same thing the
+# other way round — the suburban column is "sparse on-street; cars belong in
+# driveways beside houses".
+_CAR_KERB_CLASSES = frozenset(("local", "cul_de_sac"))
+
+# Point-like things already standing that a parked car may not sit on, and how
+# far its BODYWORK has to stop from each — distances are point-to-box, not
+# point-to-centre, so a 5 m car is not held 5 m off everything.
+#
+# A TREE IS ITS TRUNK HERE, NOT ITS CANOPY. `resolver.get` measures a tree's
+# bounding box, which on the pool's Black_Oak is 25 m across; using that would
+# refuse the kerb of every planted street, and a car parked under overhanging
+# branches is the normal case rather than a fault. 1.2 m clears a bole.
+#
+# `sidewalk` is in the list on purpose: a kerb car overlapping a pavement tile
+# IS parked on the pavement, and the tiles are the only record of where the
+# pavement went. The driveway pass skips this one entry — a drive crosses the
+# pavement by definition, which is what a dropped kerb is.
+#
+# A category not named here does not block. New props should be added here
+# deliberately, with a distance, rather than inheriting a guess.
+_CAR_POINT_CLEAR_M = {
+    "fire_hydrant": 3.0,
+    "sidewalk": 1.0,
+    "streetlight": 1.2,
+    "sign": 1.0,
+    "trash_can": 0.8,
+    "bench": 1.0,
+    "bike_rack": 1.0,
+    "play_structure": 2.0,
+    "park_feature": 2.0,
+    "tree": 1.2,
+    "plant": 0.8,
+}
+
+
+def _obb_corners(cx, cy, ux, uy, hl, hw):
+    """Corner ring of an oriented box: centre, unit long axis, half extents."""
+    vx, vy = -uy, ux
+    return [(cx + ux * a * hl + vx * b * hw, cy + uy * a * hl + vy * b * hw)
+            for a, b in ((-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0))]
+
+
+def _seg_box(a, b, half_w):
+    """A fence run as an oriented box, or None when it is degenerate."""
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    L = math.hypot(dx, dy)
+    if L < 1e-6:
+        return None
+    return _obb_corners((a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5,
+                        dx / L, dy / L, L * 0.5, float(half_w))
+
+
+class _CarKeepout:
+    """"Is there room for this car here?" — boxes and points on one grid.
+
+    TWO KINDS OF BLOCKER, because the scene records them two ways.
+
+    Houses, garages and fence runs arrive from `suburb_parcel` as exact
+    rectangles, so they are tested box-against-box with
+    `suburb_parcel._obb_overlap` — the same separating-axis test that pass used
+    to place them, so the two cannot end up disagreeing about whether a car is
+    inside a garage.
+
+    Everything else is a PLACEMENT: a point plus the per-category clearance in
+    `_CAR_POINT_CLEAR_M`. A point is measured to the car's box rather than to
+    its centre, which is what makes those clearances readable as "how far off
+    the bodywork". Junction and cul-de-sac keep-outs go in the same way, as a
+    point with a radius, so one query answers every reason a slot can fail and
+    names which one it was.
+
+    Same hash-grid trick, and the same reason, as `_RoadIndex` and `_ObbIndex`:
+    every blocker registers in each cell its own extent touches, so one sweep
+    over the cells the car covers is the whole search.
+    """
+
+    def __init__(self, cell=12.0):
+        self.cell = float(cell)
+        self.pts = {}
+        self.boxes = {}
+
+    def _keys(self, x0, y0, x1, y1):
+        for gx in range(int(math.floor(x0 / self.cell)),
+                        int(math.floor(x1 / self.cell)) + 1):
+            for gy in range(int(math.floor(y0 / self.cell)),
+                            int(math.floor(y1 / self.cell)) + 1):
+                yield (gx, gy)
+
+    def add_point(self, p, clear, tag):
+        x, y, c = float(p[0]), float(p[1]), float(clear)
+        item = (x, y, c, tag)
+        for k in self._keys(x - c, y - c, x + c, y + c):
+            self.pts.setdefault(k, []).append(item)
+
+    def add_box(self, corners, tag):
+        if not corners or len(corners) < 4:
+            return
+        xs = [q[0] for q in corners]
+        ys = [q[1] for q in corners]
+        item = ([(float(q[0]), float(q[1])) for q in corners], tag)
+        for k in self._keys(min(xs), min(ys), max(xs), max(ys)):
+            self.boxes.setdefault(k, []).append(item)
+
+    def hit(self, cx, cy, ux, uy, hl, hw, pad=0.0):
+        """The tag of the first thing this car box runs into, or None."""
+        corners = _obb_corners(cx, cy, ux, uy, hl, hw)
+        reach = math.hypot(hl, hw) + float(pad)
+        seen_b, seen_p = set(), set()
+        for k in self._keys(cx - reach, cy - reach, cx + reach, cy + reach):
+            for item in self.boxes.get(k, ()):
+                if id(item) in seen_b:
+                    continue
+                seen_b.add(id(item))
+                if sp._obb_overlap(corners, item[0], pad):
+                    return item[1]
+            for item in self.pts.get(k, ()):
+                if id(item) in seen_p:
+                    continue
+                seen_p.add(id(item))
+                px, py, clear, tag = item
+                vx, vy = px - cx, py - cy
+                dx = abs(vx * ux + vy * uy) - hl
+                dy = abs(-vx * uy + vy * ux) - hw
+                if math.hypot(max(dx, 0.0), max(dy, 0.0)) <= clear + pad:
+                    return tag
+        return None
+
+
+def build_cars(config, resolver, net, parcels, rng, pools,
+               existing=(), info=None):
+    """Parked cars — nose-in on driveways, sparse and one-way at the kerb.
+
+    Cars are category "car" (a `BURNABLE`), so the wildfire assembly consumes
+    or chars the ones the front reaches. Kept OUT of `instance_categories` for
+    that reason: a car must be authorable to be damaged — and to have its GLASS
+    removed (`detail/vehicles.strip_glass`), which is the only way the camera
+    sees anybody sitting in one. Capped, because an un-instanced fleet is real
+    geometry.
+
+    THE POOL IS SELECTED BY TAG, not taken whole. One flat `cars` list served
+    the downtown and the suburb alike and the draw was uniform, so with a
+    construction truck, a motorhome, a squad car and a taxi among the entries
+    roughly half of every driveway held a livery, commercial or oversize
+    vehicle. `shared.yaml` now tags them and this draws `residential`, plus
+    `vintage` at `cars.vintage_chance`; the rest stay reachable under their own
+    tags for a later evacuation pass. Same `pools.load_tagged` mechanism as
+    `lot_fences`. `detail/modular_house.CARS` recorded the residential-only
+    list and the reasoning years ago; nothing on the live path had ever read it.
+
+    FACING, DERIVED. `pools.place` composes ``yaw_deg = desired + yaw-offset``,
+    where *desired* is the world bearing the art's FRONT should point
+    (`shared.yaml orientation.car_front`: "0 = car art faces +X"). Every entry
+    in the pool declares ``yaw-offset: 90``, i.e. its art faces local -Y — which
+    the one measured asset confirms: `Muyang/.../Vehicle_A.usd` is
+    2.15 x 5.44 m, so its long axis IS local Y and only a +-90 correction can
+    put the nose on the heading; 0 or 180 leaves it broadside.
+
+    `modular_house.CAR_YAW_EXTRA = 90.0` IS NOT A SECOND ART CORRECTION and
+    must not be added here. That module works in a fixed lot frame whose drive
+    always runs along local +Y (`kerb_y = front_y - FRONT_YARD_M`, so +Y is
+    kerb -> house) and places its car at ``lot_yaw + cyaw + CAR_YAW_EXTRA``:
+    *desired* = ``lot_yaw + 90``, which is that drive's own bearing. Its comment
+    — "these come in broadside to the drive without it" — is precisely the
+    symptom of passing ``lot_yaw`` instead. Here the bearing is measured from
+    the real run (a -> b is kerb -> garage; see `suburb_parcel` and
+    `modular_house.plan_lot`), so the 90 is already in it.
+
+    What paper cannot settle is the 180: whether the art faces -Y (nose-in, as
+    assumed) or +Y (every car backed into its drive). A bounding box does not
+    know nose from tail. **VERIFY ON SIGHT** — and if they are all reversed,
+    flip the pool's `yaw-offset` in `shared.yaml` rather than patching a 180
+    in here, because `city_detail` and `modular_house` read the same offset.
+
+    ROW-HOME COURTS ARE A THIRD PASS, between the two. A cluster has no
+    driveways at all — `suburb_parcel` emits an empty `drives` list for the
+    block — so without this its cars would be the handful the kerb pass leaves
+    on the street outside, and the one thing the morphology concentrates would
+    be the one thing missing from it. See `cars.court_occupancy`.
+
+    KERB PARKING IS ONE-WAY PER KERB. The old pass drew a side per slot and
+    derived the heading from that side, so two cars on the same kerb faced each
+    other. Right-hand traffic: the right of the direction of travel is
+    ``(t.y, -t.x)`` (`suburb_net._perp` is the LEFT normal), so a car on that
+    kerb faces +t and a car on the opposite kerb faces -t. Both kerbs are used;
+    each is walked separately so the two ranks do not mirror.
+    """
+    raw = _raw_pool(config, "cars")
+    res = pools.load_tagged(raw, _CAR_TAG_RESIDENTIAL)
+    vintage = pools.load_tagged(raw, _CAR_TAG_VINTAGE)
+    glassy = frozenset(pools.load_tagged(raw, _CAR_TAG_GLASS))
+    if not res:
+        # An asset set nobody has tagged still builds. It gets the old
+        # undifferentiated fleet and says so, rather than placing nothing and
+        # leaving a reader to work out that a tag went missing.
+        res = pools.load(raw)
+        if res:
+            print("[suburb_scene] cars: pool carries no `residential` tag — "
+                  "falling back to every entry")
+    if not res:
+        print("[suburb_scene] cars: no `cars` pool in asset set")
+        return []
+
+    ccfg = config.get("cars", {}) or {}
+    drive_chance = float(ccfg.get("driveway_chance", 0.55))
+    street_density = float(ccfg.get("street_density", 0.12))
+    cap = int(ccfg.get("max_cars", 700))
+    vintage_chance = float(ccfg.get("vintage_chance", 0.06)) if vintage else 0.0
+    spacing = ccfg.get("slot_spacing_m") or (7.0, 9.0)
+    sp_lo, sp_hi = float(spacing[0]), float(spacing[-1])
+    gap_chance = float(ccfg.get("slot_gap_chance", 0.18))
+    junction_clear = float(ccfg.get("junction_clear_m", 8.0))
+    kerb_gap = float(ccfg.get("kerb_gap_m", 0.35))
+    rear_clear = float(ccfg.get("drive_rear_clear_m", 1.0))
+    nose_clear = float(ccfg.get("drive_nose_clear_m", 0.8))
+    apron_clear = float(ccfg.get("apron_clear_m", 1.5))
+    hyd_clear = float(ccfg.get("hydrant_clear_m", 3.0))
+
+    def _pick():
+        # ONE rng draw either way, so the sequence does not depend on whether
+        # there is a vintage sub-pool: seeds stay comparable across asset sets.
+        v = rng.random()
+        if vintage and v < vintage_chance:
+            return vintage[rng.randrange(len(vintage))]
+        return res[rng.randrange(len(res))]
+
+    def _dims(usd):
+        """(length along the nose, width across it) in metres, MEASURED.
+
+        `resolver.get` returns the world-XY footprint of the UNROTATED asset
+        (the Y-up correction is already folded in). Its world rotation is
+        ``desired + yaw-offset``, so the box sits at ``yaw-offset`` to the
+        heading and the extent along the heading is the projection of the box
+        through that angle. For the whole pool (`yaw-offset: 90`) this reduces
+        to length = sy, width = sx.
+        """
+        fp = resolver.get(usd, "car", scale=pools.scale_of(usd),
+                          axis_up=pools.axis_of(usd))
+        yo = math.radians(pools.yaw_of(usd))
+        c, s = abs(math.cos(yo)), abs(math.sin(yo))
+        sx, sy = float(fp.get("sx", 4.5)), float(fp.get("sy", 2.0))
+        ln, wd = c * sx + s * sy, s * sx + c * sy
+        # A CAR IS NEVER WIDER THAN IT IS LONG. If the projection says
+        # otherwise the asset's `yaw-offset` and its measured box disagree, and
+        # the only recoverable reading is the one that fits a car. This affects
+        # the FIT numbers only — the yaw is authored from the offset either way,
+        # so a genuinely wrong offset still shows up as a broadside car.
+        return (ln, wd) if ln >= wd else (wd, ln)
+
+    # -- what a car may not sit on -----------------------------------------
+    # Two indexes, because a driveway crosses the pavement and a kerb slot must
+    # not. Everything else is common to both.
+    keep = _CarKeepout()
+    keep_kerb = _CarKeepout()
+    for p in parcels:
+        for h in (p.get("houses") or ()):
+            keep.add_box(h.get("corners"), "house")
+            g = h.get("garage")
+            if g:
+                keep.add_box(g.get("corners"), "garage")
+            for seg in (h.get("fence_segs") or ()):
+                # A fence panel is thin; give it real width so a car cannot
+                # straddle one through the gap between two sample points.
+                b = _seg_box(seg[0], seg[1], 0.3)
+                if b:
+                    keep.add_box(b, "fence")
+    for q in (existing or ()):
+        cat = str(q.get("category", ""))
+        if cat == "car":
+            # A CAR ALREADY ON THE GROUND, as a BOX. Nothing places cars
+            # before this pass today, so this is defensive rather than
+            # load-bearing — but the three ranks below are only self-consistent
+            # because they all share `keep`, and `disaster.people` parks three
+            # MORE ranks after this one and tests against `info_out["cars"]`.
+            # The day a pass parks a car before this one, a point clearance out
+            # of `_CAR_POINT_CLEAR_M` would be the wrong shape for it (a 4.6 m
+            # box is not a disc), and the failure would be two cars in the same
+            # bay rather than an error. Same derivation the pass uses for its
+            # own cars: `_dims` for the extents, and the heading is the
+            # placement's yaw with the pool's art offset taken back off.
+            _ln, _wd = _dims(q["usd"])
+            _a = math.radians(float(q.get("yaw_deg", 0.0))
+                              - pools.yaw_of(q["usd"]))
+            keep.add_box(_obb_corners(float(q.get("x_m", 0.0)),
+                                      float(q.get("y_m", 0.0)),
+                                      math.cos(_a), math.sin(_a),
+                                      _ln * 0.5, _wd * 0.5), "car")
+            continue
+        if cat == "fence":
+            # FENCES THAT ARE NOT ON A LOT LINE. The `fence_segs` above are the
+            # lot perimeters and are the authoritative geometry for them, but
+            # the park draws its own runs (`_park_placements`) and those are in
+            # no parcel record at all — a kerb car on the frame street could
+            # stand in one. This picks them up from the placements instead.
+            #
+            # ORIENTATION WITHOUT A CONVENTION. The two fence passes compose
+            # their yaw differently (the lot pass adds `_fence_geom`'s
+            # `yaw_fix`, the park pass does not), so reading a run direction
+            # back out of `yaw_deg` would mean knowing which pass authored it.
+            # A fence module is longer than it is thick BY CONSTRUCTION — the
+            # fact `_fence_geom` is built on — so the world long axis follows
+            # from the measured footprint and the final yaw, whichever pass
+            # produced it.
+            fp = resolver.get(q["usd"], "fence",
+                              scale=float(q.get("scale", 1.0)),
+                              axis_up=q.get("axis_up", "Z"))
+            sx, sy = float(fp.get("sx", 0.0)), float(fp.get("sy", 0.0))
+            # A SQUARE footprint is the un-measured `fallback_sizes` default,
+            # and a square has no long axis: any orientation would be a guess,
+            # and guessing 90 degrees wrong lays the panel ACROSS the boundary
+            # — the exact failure `_fence_geom` exists to prevent. Skip instead.
+            if max(sx, sy) <= 1e-6 or max(sx, sy) < min(sx, sy) * 1.05:
+                continue
+            a = math.radians(float(q.get("yaw_deg", 0.0)))
+            if sy > sx:
+                a += math.pi / 2.0
+                ln, th = sy, sx
+            else:
+                ln, th = sx, sy
+            keep.add_box(_obb_corners(float(q.get("x_m", 0.0)),
+                                      float(q.get("y_m", 0.0)),
+                                      math.cos(a), math.sin(a),
+                                      ln * 0.5, min(th, 0.6) * 0.5), "fence")
+            continue
+        clear = _CAR_POINT_CLEAR_M.get(cat)
+        if clear is None:
+            continue
+        if cat == "fire_hydrant":
+            clear = hyd_clear
+        (keep_kerb if cat == "sidewalk" else keep).add_point(
+            (float(q.get("x_m", 0.0)), float(q.get("y_m", 0.0))), clear, cat)
+
+    # Junctions and turnarounds, kerb-only. `junction_clear` is measured from
+    # the edge of the asphalt BLOB, not from the node — the same semantics as
+    # `city_detail._place_parked_cars`, which bans the junction box grown by
+    # its `junction_clear_m`. No jurisdiction lets you park across a crossing,
+    # and `_junction_radius` is already what every other pass in this file
+    # measures a junction by.
+    for n in net.nodes.values():
+        if n.road_degree(net) >= 3:
+            keep_kerb.add_point(n.p, junction_clear + _junction_radius(net, n),
+                                "junction")
+    bulb_r = float((config.get("suburb_net") or {}).get(
+        "bulb_radius_m", sn.DEFAULTS["bulb_radius_m"]))
+    for e in net.edges.values():
+        if e.street_type == "lollipop":
+            # The turnaround is a DISC of carriageway, not a kerb: there is no
+            # side of it to park along, and the centreline test cannot see it.
+            keep_kerb.add_point(e.pts[-1], bulb_r + 1.0, "bulb")
+
+    # Drives and front walks, as the ribbons `apply_ground` will actually draw.
+    # This is the apron keep-out: a car at the kerb must not stand across
+    # somebody's dropped kerb. `front_gaps` is where those ribbons cross the
+    # lot line, and `paving_keepout` is derived from the same parcel data, so
+    # the two cannot drift.
+    apron = _PavingIndex(paving_keepout(parcels), clear_m=apron_clear)
+    road = _RoadIndex(net)
+    region = (info or {}).get("region")
+
+    def _off_plate(corners):
+        if not region:
+            return False
+        x0, y0, x1, y1 = region
+        return any(q[0] < x0 or q[0] > x1 or q[1] < y0 or q[1] > y1
+                   for q in corners)
+
+    def _on_apron(corners, cx, cy):
+        pts = list(corners) + [(cx, cy)]
+        pts += [((corners[i][0] + corners[(i + 1) % 4][0]) * 0.5,
+                 (corners[i][1] + corners[(i + 1) % 4][1]) * 0.5)
+                for i in range(4)]
+        return any(apron.on_paving(q) for q in pts)
+
+    out = []
+    why = {}
+    n_drive = 0
+
+    def _reject(where, tag):
+        """Tally a refused slot. The PASS is part of the key: "fence 12" says
+        nothing on its own, and the two passes fail for different reasons."""
+        k = where + ":" + tag
+        why[k] = why.get(k, 0) + 1
+
+    # -- 1) DRIVEWAYS ------------------------------------------------------
+    # One car per lot, nose toward the garage, sized to the drive it is on.
+    # `driveway_chance` defaults to 0.55: a real suburb at midday has a car in
+    # about half its driveways — the rest are at work — and 1.0 reads as an
+    # evacuation, which is a scenario this file does not decide.
+    for pi, p in enumerate(parcels):
+        p_houses = p.get("houses") or []
+        for di, d in enumerate(p.get("drives") or ()):
+            take = rng.random() < drive_chance
+            if not take or len(out) >= cap:
+                continue
+            plan = p_houses[di].get("plan") if di < len(p_houses) else None
+            run = (plan.get("drive") if (plan and plan.get("drive"))
+                   else (d.get("a"), d.get("b")))
+            if not run or len(run) < 2 or not run[0] or not run[1]:
+                continue
+            a, b = run[0], run[1]
+            dx, dy = b[0] - a[0], b[1] - a[1]
+            L = math.hypot(dx, dy)
+            if L < 1e-6:
+                continue
+            ux, uy = dx / L, dy / L          # kerb -> garage, the way it faces
+            usd = _pick()
+            ln, wd = _dims(usd)
+            # ROOM FOR THE CAR THAT WAS DRAWN, not for a nominal one. The rear
+            # bumper stays `rear_clear` inside the kerb line so the tail is not
+            # hanging over the footway, and the nose stops `nose_clear` short
+            # of the garage face. A drive that cannot hold both plus the car
+            # keeps its car; there is no second draw, because retrying until
+            # something fits biases short drives toward the smallest asset.
+            slack = L - nose_clear - ln - rear_clear
+            if slack < 0.0:
+                _reject("drive", "drive_too_short")
+                continue
+            # Nose up to the garage, then let it sit back by up to a metre —
+            # a drive with every car pressed against the door reads as parked
+            # by a machine.
+            back = rng.uniform(0.0, min(1.0, slack))
+            s_c = L - nose_clear - back - ln * 0.5
+            cx, cy = a[0] + ux * s_c, a[1] + uy * s_c
+            hl, hw = ln * 0.5, wd * 0.5
+            corners = _obb_corners(cx, cy, ux, uy, hl, hw)
+            if _off_plate(corners):
+                _reject("drive", "off_plate")
+                continue
+            # A lot beside a turnaround can have its frontage inside the
+            # carriageway (`_RoadIndex` says why the block polygon is not
+            # trustworthy as a kerb line), and the tail is the end that would
+            # be out there.
+            if any(road.on_road(q) for q in corners[:2] + [(cx, cy)]):
+                _reject("drive", "road")
+                continue
+            tag = keep.hit(cx, cy, ux, uy, hl, hw)
+            if tag is not None:
+                _reject("drive", tag)
+                continue
+            yaw = math.degrees(math.atan2(uy, ux)) + rng.uniform(-1.5, 1.5)
+            q = pools.place(resolver, usd, "car", cx, cy, yaw, rng)
+            q["role"] = "driveway"
+            # Indexes `parcels[pi]["houses"][di]` and `parcels[pi]["drives"][di]`
+            # — the pair is the lot, since a drive and its house share an index.
+            q["lot_index"] = [pi, di]
+            q["glass_separable"] = usd in glassy
+            out.append(q)
+            keep.add_box(corners, "car")
+            n_drive += 1
+
+    # -- 1b) ROW-HOME COURTS -----------------------------------------------
+    # A cluster's cars are ALL HERE, because that is the morphology: no unit
+    # has a driveway, so the court holds every vehicle the development owns.
+    # It is also why the court matters to this dataset — a detached plat
+    # spreads its cars one per drive, a cluster concentrates them on one slab
+    # with one way out.
+    #
+    # `court_occupancy` is a share of BAYS, not of dwellings, and it is high on
+    # purpose: `bays_per_dwelling` already sized the supply at 1.75 per unit,
+    # so a court at 0.6 is holding roughly one car per dwelling — about what
+    # `driveway_chance` (0.55) leaves in a detached street at midday.
+    #
+    # The bay geometry comes from `row_housing`, which publishes it in the same
+    # shape `suburb_park.parking_info` uses, so this reads a cluster court and
+    # the park's refuge lot through one code path.
+    court_share = float(ccfg.get("court_occupancy", 0.6))
+    n_court = 0
+    for p in parcels:
+        for cl in (p.get("clusters") or ()):
+            for bay in cl["parking"]["bays"]:
+                if rng.random() >= court_share or len(out) >= cap:
+                    continue
+                usd = _pick()
+                ln, wd = _dims(usd)
+                cx, cy = float(bay["centre"][0]), float(bay["centre"][1])
+                yaw = float(bay["yaw_deg"])
+                a = math.radians(yaw)
+                ux, uy = math.cos(a), math.sin(a)
+                corners = _obb_corners(cx, cy, ux, uy, ln * 0.5, wd * 0.5)
+                if _off_plate(corners):
+                    _reject("court", "off_plate")
+                    continue
+                # A 5.5 m bay does not hold every asset in the pool nose to
+                # tail, and one that overhangs into the aisle blocks the only
+                # route out. Same "no second draw" rule the driveway pass
+                # keeps: retrying until something fits biases the court toward
+                # the smallest car.
+                tag = keep.hit(cx, cy, ux, uy, ln * 0.5, wd * 0.5)
+                if tag is not None:
+                    _reject("court", tag)
+                    continue
+                q = pools.place(resolver, usd, "car", cx, cy,
+                                yaw + rng.uniform(-2.0, 2.0), rng)
+                q["role"] = "court"
+                q["glass_separable"] = usd in glassy
+                out.append(q)
+                keep.add_box(corners, "car")
+                n_court += 1
+
+    # -- 2) KERB PARKING ---------------------------------------------------
+    # `street_density` defaults to 0.12: GENERATION.md's locale table calls
+    # suburban on-street parking "sparse" against the downtown's "dense both
+    # sides", and at 7-9 m slots that is roughly one car per 65 m of kerb.
+    n_kerb = 0
+    for e in net.edges.values():
+        if getattr(e, "road_class", "") not in _CAR_KERB_CLASSES:
+            continue
+        pts = e.pts
+        L = sn.polyline_length(pts)
+        half_w = float(getattr(e, "half_w", 4.0))
+        for side in (1.0, -1.0):
+            s = rng.uniform(0.0, sp_hi)
+            while s < L - 3.0:
+                # Draw the step and the coin FIRST and unconditionally, so the
+                # rng sequence does not depend on which slots were taken.
+                step = rng.uniform(sp_lo, sp_hi)
+                if rng.random() < gap_chance:
+                    # A break in the rank — an apron, a hydrant, a neighbour
+                    # who drove to work. Without it the occupied slots sit on
+                    # an exact lattice, which reads as a car park.
+                    step += rng.uniform(4.0, 12.0)
+                take = rng.random() < street_density
+                s_here, s = s, s + step
+                if not take or len(out) >= cap:
+                    continue
+                usd = _pick()
+                ln, wd = _dims(usd)
+                hl, hw = ln * 0.5, wd * 0.5
+                # Hard against the kerb, `kerb_gap` of gutter showing. The
+                # inner flank must still leave the centreline clear, or the car
+                # is parked in the oncoming lane.
+                off = half_w - hw - kerb_gap
+                if off - hw < 0.2:
+                    _reject("kerb", "street_too_narrow")
+                    continue
+                # TANGENT AT THIS SLOT'S OWN s. A local street is a polyline
+                # with real curvature; one tangent per edge parks the far end
+                # of a bend at an angle to its own kerb.
+                c = sn.point_at(pts, s_here)
+                t = sn.tangent_at(pts, s_here)
+                ux, uy = t[0] * side, t[1] * side        # direction of travel
+                nx, ny = t[1] * side, -t[0] * side       # right of that
+                cx, cy = c[0] + nx * off, c[1] + ny * off
+                corners = _obb_corners(cx, cy, ux, uy, hl, hw)
+                if _off_plate(corners):
+                    _reject("kerb", "off_plate")
+                    continue
+                if _on_apron(corners, cx, cy):
+                    _reject("kerb", "apron")
+                    continue
+                tag = keep.hit(cx, cy, ux, uy, hl, hw)
+                if tag is None:
+                    tag = keep_kerb.hit(cx, cy, ux, uy, hl, hw)
+                if tag is not None:
+                    _reject("kerb", tag)
+                    continue
+                yaw = math.degrees(math.atan2(uy, ux)) + rng.uniform(-1.5, 1.5)
+                q = pools.place(resolver, usd, "car", cx, cy, yaw, rng)
+                q["role"] = "kerb"
+                q["edge_id"] = int(getattr(e, "id", -1))
+                q["kerb_side"] = int(side)
+                q["s_m"] = round(s_here, 2)
+                q["glass_separable"] = usd in glassy
+                out.append(q)
+                # Half a metre of bumper-to-bumper gap to the next one.
+                keep.add_box(_obb_corners(cx, cy, ux, uy, hl + 0.5, hw), "car")
+                n_kerb += 1
+
+    n_glass = sum(1 for q in out if q.get("glass_separable"))
+    print(f"[suburb_scene] cars: {len(out)} placed — {n_drive} on driveways, "
+          f"{n_court} in row-home courts, "
+          f"{n_kerb} at the kerb; {n_glass} with strippable glass; "
+          f"rejected {dict(sorted(why.items()))}")
     return out
 
 
@@ -1923,7 +2646,8 @@ def build_open_planting(config, resolver, net, blocks, rng, pools,
       lots       every `lot_corners` rectangle: house, drive, garage, pool and
                  yard planting all live inside one, and `suburb_yardplan` owns
                  that ground
-      pools      the rectangles `build_placements` cut out of the lawn
+      pools      the rectangles `build_placements` cut out of the lawn, at
+                 `pool_tree_clear_m` rather than `clear_m` — see `blocked`
       park       the park rect, when its content was built into it
       standing   everything already placed, via `_GROUND_OCCUPANTS`
 
@@ -1976,6 +2700,17 @@ def build_open_planting(config, resolver, net, blocks, rng, pools,
     keepout += [b for b in (_rect_box(r) for r in (pool_rects or ()))
                 if b is not None]
     lot_idx = _ObbIndex(keepout, reach=max(20.0, pc["clear_m"] + 1.0))
+    # AND THE POOLS AGAIN, ON THEIR OWN, AT THE DEBRIS RADIUS. Above they are
+    # in `lot_idx` and get `clear_m` — 3 m, a small crown — which keeps a tree
+    # out of the water and nothing more. That is not enough here, because a
+    # tree in this dataset is a tree until the wildfire pass runs and then it
+    # is a burnt archetype shedding wood debris over 7.5-10.5 m
+    # (`disaster/vegetation.py` `_DEBRIS`). The second index costs one more
+    # cell lookup and holds the trunk out at `pool_clear_m`.
+    pool_only = [b for b in (_rect_box(r) for r in (pool_rects or ()))
+                 if b is not None]
+    pool_idx = (_ObbIndex(pool_only, reach=max(20.0, pc["pool_clear_m"] + 1.0))
+                if (pool_only and pc["pool_clear_m"] > 0.0) else None)
     # TWO GRIDS, TWO RADII. What is already standing only has to be cleared —
     # `clear_m`, a small crown radius — while two trees from THIS pass owe each
     # other the full `gap_m`. One grid at the larger radius would hold new
@@ -1989,6 +2724,10 @@ def build_open_planting(config, resolver, net, blocks, rng, pools,
 
     pave = _PavingIndex(paving_keepout(parcels),
                         clear_m=float(pc["clear_m"]) * 0.5)
+    _apron = ((pinfo.get("parking") or {}).get("apron")
+              if isinstance(pinfo, dict) else None)
+    apron_poly = [tuple(map(float, c)) for c in _apron] \
+        if _apron and len(_apron) >= 3 else None
 
     def blocked(q):
         """Why *q* cannot take a tree, or None."""
@@ -2004,6 +2743,8 @@ def build_open_planting(config, resolver, net, blocks, rng, pools,
             return "road"
         if lot_idx.nearest(q) <= pc["clear_m"]:
             return "lot"
+        if pool_idx is not None and pool_idx.nearest(q) <= pc["pool_clear_m"]:
+            return "pool"
         # THE HOUSE TOO, not just its lot. A garage wing is allowed to sit on or
         # over the side lot line, and a lot's front half-width is chord-clamped
         # on a curving frontage — so a footprint can stick out past the
@@ -2012,6 +2753,14 @@ def build_open_planting(config, resolver, net, blocks, rng, pools,
         if house_idx.nearest(q) <= pc["clear_m"]:
             return "lot"
         if park_rect is not None and _in_rect(q, park_rect, pc["clear_m"]):
+            return "park"
+        # THE PARKING APRON LEAVES THE PARK RECT. The refuge lot itself sits
+        # inside `park_rect` and is covered by the test above, but its drive
+        # runs from the lot's mouth out across the verge to the street kerb —
+        # exactly the band the park-surround planting fills. Without this a
+        # tree or two per seed stood on the drive.
+        if apron_poly is not None and _near_polygon(q, apron_poly,
+                                                    pc["clear_m"]):
             return "park"
         if standing.near(q, pc["clear_m"]):
             return "standing"
@@ -2172,9 +2921,51 @@ def house_catalogue(config, resolver, pools, yaw_off=-90.0):
     return out
 
 
+def _record_pool(out, ring, house_index):
+    """One pool, described for a pass that has to put PEOPLE around it.
+
+    `pool_holes` on its own is a list of anonymous quadrilaterals: it says
+    where the water is and nothing about which house owns it, which way it
+    faces, or where the coping ends — and those are exactly what a later
+    placement pass needs, because a sunbather goes on the deck facing the
+    water and a lounger is laid along the pool's long axis, not across it.
+    All three are recoverable HERE and nowhere later, so they are recorded
+    here.
+
+    `yaw_deg` is the LONG axis: `modular_house.pool_at` authors the ring
+    starting at the corner nearest the house and running along the 8 m side
+    first, so the first edge is the length by construction.
+
+    `deck_ring` is the coping's outer face. The 2.5 m `Swimming_Pool_Edge_01`
+    modules are laid centred on the pool rectangle, and the water ring handed
+    over here is that rectangle already inset by one coping half-band so the
+    grass runs under the coping — so the outer face is TWO half-bands out from
+    the ring we have. It is a coping, not a patio: ~0.3 m of walkable stone
+    either side, which is where the chairs go.
+    """
+    from detail import modular_house as mh
+    cx = sum(float(q[0]) for q in ring[:4]) / 4.0
+    cy = sum(float(q[1]) for q in ring[:4]) / 4.0
+    ex = float(ring[1][0]) - float(ring[0][0])
+    ey = float(ring[1][1]) - float(ring[0][1])
+    L = math.hypot(ex, ey) or 1.0
+    ux, uy = ex / L, ey / L
+    deck = mh.pool_rings(ring)[0]
+    out.append({
+        # Index into `info_out["house_instances"]` under `assembly`, and the
+        # same modular-house ordinal without it — `n_mod` counts kit houses in
+        # the order they are built either way.
+        "house_index": int(house_index),
+        "water_ring": [(float(q[0]), float(q[1])) for q in ring[:4]],
+        "centre": (cx, cy),
+        "yaw_deg": math.degrees(math.atan2(uy, ux)),
+        "deck_ring": deck,
+    })
+
+
 def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
                      catalogue=None, pool_holes_out=None, net=None,
-                     house_instances=None):
+                     house_instances=None, pool_info_out=None):
     """Houses, lot furniture and parcel trees, with per-asset corrections.
 
     TWO TREE POOLS, picked on the `kind` stamp `suburb_parcel` already emits.
@@ -2270,16 +3061,32 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
                 # whole-house art faces +X — hence the +90. Getting that wrong
                 # turns every house sideways to its own street.
                 from detail import modular_house as mh
-                pal = mh.STYLES[ent["style"]].get("palette")
+                # THE HOUSE RECORD'S PALETTE WINS. `suburb_parcel` stamps one
+                # on every ROW HOME (`detail/row_housing.PALETTE_SETS`) so a
+                # terrace does not come out as ten identical walls; a detached
+                # lot carries none and falls back to the style's own, which is
+                # what every house here did before.
+                pal = h.get("palette") or mh.STYLES[ent["style"]].get("palette")
                 # ASSEMBLY MODE: record the (style, pose) and DO NOT build the
                 # ~28 modules — the 1600 plat references a pre-baked damaged
                 # archetype at this pose instead (see `disaster.bake`). The
                 # drive / walk / pool below still run, because they are cheap
                 # and `apply_ground` needs `h["plan"]`.
                 if house_instances is not None:
+                    # `palette` IS CARRIED THROUGH, and today nothing on the
+                    # assembly path reads it: `suburb_assemble_launch_script`
+                    # references a pre-baked `house_<style>_<level>.usd` per
+                    # instance and never calls `mh.apply_palette`, so an
+                    # assembled plat is currently one wall colour per style
+                    # whatever this says. It is published anyway because the
+                    # rebind is a RUNTIME bind on already-built geometry — the
+                    # wildfire skill's "collapse geometry is independent of
+                    # wall colour" is the same fact — so a launcher that wants
+                    # per-unit colour needs only to walk these prims, and the
+                    # alternative is baking a variant archetype per palette.
                     house_instances.append(dict(
                         style=ent["style"], x=h["c"][0], y=h["c"][1],
-                        yaw=yaw + 90.0))
+                        yaw=yaw + 90.0, palette=pal, row=bool(h.get("row"))))
                 else:
                     parts = mh.build_building(ent["style"], h["c"][0],
                                               h["c"][1], yaw + 90.0, rng,
@@ -2306,6 +3113,8 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
                 if pool:
                     out += pool
                     pool_holes.append(hole)
+                    if pool_info_out is not None:
+                        _record_pool(pool_info_out, hole, n_mod - 1)
             elif ent is None or "style" in ent:
                 # No measurement, so no wing: without the two centroids there is
                 # no way to place it beside its parent rather than inside it.
@@ -2434,14 +3243,20 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
     # from the start; the parcel pass never did, so a frontage or yard tree
     # could be stationed on top of one. `pool_holes` is filled by this same
     # function as the houses are placed, so by here it is complete.
+    #
+    # AT THE DEBRIS RADIUS, NOT AT A CROWN RADIUS. `clear_m` (3 m) only kept
+    # the trunk out of the water; the wildfire pass turns every one of these
+    # into a burnt archetype scattering wood debris 7.5-10.5 m about the trunk
+    # (`disaster/vegetation.py` `_DEBRIS`), which at 3 m lands in the pool.
+    _pool_clear = float(pc.get("pool_clear_m", 11.0) or 0.0)
     pool_boxes = [b for b in (_rect_box(r) for r in pool_holes) if b is not None]
-    pool_idx = _ObbIndex(pool_boxes, reach=max(20.0, float(pc.get("clear_m", 3.0)) + 1.0))
+    pool_idx = _ObbIndex(pool_boxes, reach=max(20.0, _pool_clear + 1.0))
     n_tree = n_tree_paved = n_tree_pool = 0
     for u, tx, ty in tree_jobs:
         if pave.on_paving((tx, ty)):
             n_tree_paved += 1
             continue
-        if pool_boxes and pool_idx.nearest((tx, ty)) <= float(pc.get("clear_m", 3.0)):
+        if pool_boxes and pool_idx.nearest((tx, ty)) <= _pool_clear:
             n_tree_pool += 1
             continue
         out.append(pools.place(resolver, u, "tree", tx, ty,
@@ -2449,7 +3264,8 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
         n_tree += 1
     print(f"[suburb_scene] parcel trees: {n_tree} planted, "
           f"{n_tree_paved} dropped for landing on a drive or a front walk, "
-          f"{n_tree_pool} dropped for landing in a pool")
+          f"{n_tree_pool} dropped for standing within {_pool_clear:.1f} m "
+          f"of a pool")
 
     print(f"[suburb_scene] lot furniture: {n_gar} garages, "
           f"{n_fence} fence modules "
@@ -2477,7 +3293,13 @@ def generate_suburb_on_stage(stage, config,
     scripts are interchangeable. `info_out`, if given, receives what a later
     pass laying a surface on the ground needs and cannot recover from the
     placements: `region` (x0, y0, x1, y1), `pool_rects` (the water holes, as
-    corner rings) and `z_scale` (the ladder factor `apply_ground` used).
+    corner rings), `pools` (the same pools described — owner house, water ring,
+    centre, facing and coping outline; see `_record_pool`) and `z_scale` (the
+    ladder factor `apply_ground` used) — plus `cars`, `park`, and the LAYOUT
+    (`net`, `blocks`, `parcels`, `open_polys`) for a pass that has to reason
+    about where things are rather than only place more of them. See the
+    `info_out.update` call at the end of this function for what each carries
+    and why it cannot be recovered downstream.
     """
     if isinstance(config, str):
         config = sg.load_config(config)
@@ -2562,6 +3384,12 @@ def generate_suburb_on_stage(stage, config,
                   f"would not fit the smallest measured house "
                   f"({min(e['w'] for e in catalogue):.1f} m)")
     if catalogue and catalogue[0].get("style"):
+        # ...AND WHICH STYLE EACH ENTRY IS. `row_housing` names its mixes in
+        # STYLES (a `terrace` development, a `cottage` one) and has to resolve
+        # each to the `size_index` this function will place; `house_sizes` is
+        # `(w, d)` pairs and cannot answer that. Aligned with it index for
+        # index, so the two cannot drift.
+        pcfg["house_styles"] = [e.get("style") for e in catalogue]
         # THE PLAT ASKS THE KIT WHERE THE OPENINGS ARE. `suburb_parcel` breaks
         # the front fence for whatever crosses the front lot line; only this
         # module knows which style lands on which lot, so it answers rather
@@ -2590,12 +3418,23 @@ def generate_suburb_on_stage(stage, config,
     # art turns out to be ~16 m across, a 17-26 m lot genuinely cannot fit it.
     # That is a real answer about the plat, not a failure, but it has to be
     # visible rather than silently thinning the streets.
-    if pstats.get("size_rejected") or pstats.get("keepout_rejected"):
+    if (pstats.get("size_rejected") or pstats.get("keepout_rejected")
+            or pstats.get("skew_yield")):
+        # `skew_yield` is the newest of the three and the one worth watching:
+        # a lot refused because its rectangle would have overlapped a
+        # neighbour's across a block corner that is more than 30 degrees off
+        # square. That overlap is what put one house's fence run inside the
+        # next one's garden — 22% of all runs before the rule went in.
         print(f"[suburb_scene]   {pstats.get('size_rejected', 0)} lots refused "
               f"for house size, {pstats.get('keepout_rejected', 0)} for "
-              f"standing on a cul-de-sac turnaround")
+              f"standing on a cul-de-sac turnaround, "
+              f"{pstats.get('skew_yield', 0)} at a skewed block corner")
 
     _pool_holes = []
+    # ...and the same pools DESCRIBED, for a later pass that has to stand
+    # people around them. See `_record_pool`: the rings alone cannot say which
+    # house owns a pool, which way it faces or where its coping is.
+    _pool_info = []
     # `net` is for the fences and nothing else: a lot line is a straight chord
     # across a block face that curves, so the only authority on where the road
     # actually is happens to be the centrelines. See `_trim_offroad`.
@@ -2603,7 +3442,8 @@ def generate_suburb_on_stage(stage, config,
     placements = build_placements(config, resolver, parcels, rng, pools,
                                   house_instances=_house_instances,
                                   yaw_off=yaw_off, catalogue=catalogue,
-                                  pool_holes_out=_pool_holes, net=net)
+                                  pool_holes_out=_pool_holes, net=net,
+                                  pool_info_out=_pool_info)
     # -- the park ------------------------------------------------------------
     # suburb_net reserves the ground and frames it with a street; the park's own
     # content is generated here, into that reserve. Generating it separately and
@@ -2616,16 +3456,39 @@ def generate_suburb_on_stage(stage, config,
         px0, py0, px1, py1 = pinfo["rect"]
         pcfg = dict(config.get("suburb_park") or {})
         pcfg["region_m"] = [px1 - px0, py1 - py0]
-        park = spk.plan(rng, pcfg)
         # spk.plan works in a region centred on the origin; shift it into place.
         dx = (px0 + px1) / 2.0
         dy = (py0 + py1) / 2.0
+        # THE ENTRANCES GO IN, in the park's own frame. The refuge parking lot
+        # is the one facility sited from outside the park — it has to be on a
+        # street, so it takes the real entrance nearest the courts and runs an
+        # apron out to that entrance's kerb. Without this `suburb_park` invents
+        # a south gate and the drive lands on grass. See its `plan` docstring.
+        pcfg.setdefault("entrances", [
+            {"gate": (e["gate"][0] - dx, e["gate"][1] - dy),
+             "p": (e["p"][0] - dx, e["p"][1] - dy),
+             "dir": e["dir"], "side": e["side"]}
+            for e in pinfo.get("entrances", ())])
+        park = spk.plan(rng, pcfg)
         park = _shift_park(park, dx, dy)
         placements += _park_placements(config, resolver, park, rng, pools)
         ps = spk.stats(park)
+        # THE REFUGE LOT, published in world coords for the later people/cars
+        # pass. Read AFTER the shift, because that is what puts the slab where
+        # it really is; `spk.parking_info` resolves the bays and the apron off
+        # the shifted centre (they are stored in the facility's own frame so
+        # `_shift_park` cannot leave them behind). None when `parking` is off.
+        lot = spk.parking_info(park)
+        if lot is not None:
+            pinfo["parking"] = lot
         print(f"[suburb_scene] park: {pinfo['size'][0]:.0f} x "
               f"{pinfo['size'][1]:.0f} m, {len(pinfo['entrances'])} entrances, "
               f"zones {ps['zones']}")
+        if lot is not None:
+            print(f"[suburb_scene] park refuge lot: {lot['w']:.0f} x "
+                  f"{lot['d']:.0f} m, {len(lot['bays'])} bays at "
+                  f"({lot['centre'][0]:.0f}, {lot['centre'][1]:.0f}), apron to "
+                  f"({lot['entrance'][0]:.0f}, {lot['entrance'][1]:.0f})")
 
     # Same discs the parcel pass used, so the two agree on where the
     # pavement is — the yard pass plats inside `lot_corners`, and a lot's
@@ -2660,6 +3523,45 @@ def generate_suburb_on_stage(stage, config,
         pool_rects=_pool_holes,
         park_rect=(pinfo["rect"] if (park is not None and pinfo) else None))
     placements += build_signs(config, resolver, net, rng, pools)
+    # AFTER EVERYTHING ELSE, and handed what is already standing. A parked car
+    # is the last thing onto the ground and the only pass that has to fit a
+    # 5 m box between a fence, a hydrant and a street tree — so like
+    # `build_open_planting` it takes `existing` and tests against it, rather
+    # than being placed blind and landing in a hedge.
+    _cars = build_cars(config, resolver, net, parcels, rng, pools,
+                       existing=placements, info=info)
+    placements += _cars
+    # -- THE POOL SWEEP, and it is a net rather than the mechanism -----------
+    # Four passes plant trees (parcel verge, yardplan, open planting, and the
+    # park's own content) and each now holds its trunks `pool_tree_clear_m`
+    # off the water on its own. This drops anything that still got through,
+    # from any pass, present or future — the invariant "no tree within the
+    # burnt archetype's debris radius of a pool" is worth one O(trees) sweep
+    # rather than a promise that four call sites all remembered.
+    #
+    # DROPPED, NOT MOVED: every one of those passes has already tested its
+    # candidate against the roads, the lots, the paving and its neighbours, so
+    # the only honest thing to do with a tree that fails one more test is not
+    # to plant it. Expect this to print 0 — a non-zero count means a pass got
+    # its rings late or not at all, which is the failure this catches.
+    _pool_clear = float(_planting_cfg(config)["pool_clear_m"])
+    if _pool_holes and _pool_clear > 0.0:
+        _pidx = _ObbIndex([b for b in (_rect_box(r) for r in _pool_holes)
+                           if b is not None],
+                          reach=max(20.0, _pool_clear + 1.0))
+        _kept, _cut = [], 0
+        for q in placements:
+            if (str(q.get("category", "")).endswith("tree")
+                    and _pidx.nearest((q.get("x_m", 0.0),
+                                       q.get("y_m", 0.0))) <= _pool_clear):
+                _cut += 1
+                continue
+            _kept.append(q)
+        if _cut:
+            print(f"[suburb_scene] pool sweep: {_cut} tree(s) dropped within "
+                  f"{_pool_clear:.1f} m of a pool — a planting pass is not "
+                  f"seeing the pool rings")
+        placements = _kept
     import collections as _c
     print("[suburb_scene] placements by category: %s"
           % dict(_c.Counter(p["category"] for p in placements)))
@@ -2698,6 +3600,32 @@ def generate_suburb_on_stage(stage, config,
                             ["tree", "plant", "sidewalk", "streetlight",
                              "fire_hydrant", "sign", "crosswalk", "fence",
                              "play_structure"])))
+    # GLASS OFF THE CARS, and it has to be here: `apply_placements` writes
+    # `prim_path` back onto each placement dict as it authors it, so this is
+    # the first moment there is a prim to edit. Only the assets tagged
+    # `glass_separable` in `shared.yaml` have anything to strip — the Muyang
+    # vehicles are one unbound mesh with their windows in the texture — and the
+    # point of stripping at all is that this renderer forces fractional opacity
+    # to 1.0, so a window that is "80% transparent" renders solid and hides
+    # whoever is sitting behind it. See `detail/vehicles`.
+    # EVERY CAR, not just the tagged ones. `glass_separable` says a mesh binds
+    # a transparent material; it does not say what to remove, and the two
+    # assets it gets wrong it gets wrong in opposite directions — see
+    # `vehicles.CABIN_RULES`. `open_cabin` applies the per-asset rule, so a car
+    # whose glass is one named mesh is handled and a car whose windows are
+    # painted into its texture is skipped without pretending otherwise.
+    if _cars and bool((config.get("cars") or {}).get("strip_glass", True)):
+        from detail import vehicles as _veh
+        _n_car, _n_mesh = 0, 0
+        for q in _cars:
+            if not q.get("prim_path"):
+                continue
+            k = _veh.open_cabin(stage, q["prim_path"], q.get("usd", ""))
+            _n_mesh += k
+            _n_car += 1 if k else 0
+        print(f"[suburb_scene] car cabins: {_n_mesh} mesh(es) deactivated on "
+              f"{_n_car} of {len(_cars)} cars")
+
     # AFTER placement, because it needs each prim_path. The kit ships exactly
     # ONE wall texture, so without this every modular house is the same cream.
     # A no-op when the kit is off: nothing carries a `palette`.
@@ -2712,7 +3640,74 @@ def generate_suburb_on_stage(stage, config,
     if info_out is not None:
         info_out.update(region=tuple(info["region"]),
                         pool_rects=[list(r) for r in _pool_holes],
-                        z_scale=ground_z_scale(config, info["region"]))
+                        # The same pools with their owner, their facing and
+                        # their coping — see `_record_pool`. In BOTH modes:
+                        # the pools are built on the non-assembly path too,
+                        # and a people pass has no way to recover any of this
+                        # from `pool_rects`.
+                        pools=_pool_info,
+                        # THE SAME DICTS THAT WERE AUTHORED, not copies — so
+                        # each one already carries the `prim_path`
+                        # `apply_placements` wrote back, alongside `role`,
+                        # `lot_index`/`edge_id` and `glass_separable`. A later
+                        # scenario pass (occupants, an evacuation queue) needs
+                        # to find the cars and know which ones it can see into,
+                        # and none of that is recoverable from the stage.
+                        cars=_cars,
+                        z_scale=ground_z_scale(config, info["region"]),
+                        # THE LAYOUT ITSELF, for a pass that has to reason
+                        # about WHERE things are rather than only re-place
+                        # them. `disaster.people` needs all four and can
+                        # recover none of them: the street graph (which road
+                        # is a collector, which way it runs, how wide the
+                        # carriageway is — an evacuation queue is a lane, not
+                        # a point), the block polygons and the platted lots
+                        # (open ground is a block interior MINUS its lots),
+                        # and every house's real box and inward normal (a
+                        # front yard is `c - n * (d/2 + k)`, which nothing
+                        # downstream of `house_instances` can compute: that
+                        # list carries only style, centre and yaw).
+                        #
+                        # Handed over BY REFERENCE, deliberately. These are
+                        # large and a consumer only reads them; copying a
+                        # 500-lot parcel list per build to protect against a
+                        # caller that might mutate it is a cost paid every
+                        # run for a bug nobody has.
+                        net=net, blocks=blocks, parcels=parcels,
+                        # OPEN LAND, as polygons. Every parcel subdivision the
+                        # plat left whole — INCLUDING the ones `_merge_open_land`
+                        # folded into the park, which stopped being blocks and
+                        # so appear in no `blocks` list at all (see
+                        # `build_open_planting`'s docstring for why that is the
+                        # bare ground the eye actually goes to).
+                        open_polys=[list(q) for q in
+                                    (info.get("undeveloped_polys") or ())])
+        # THE PARK, IN BOTH MODES. `info["park"]` is `suburb_net`'s reserve
+        # record — rect, poly, entrances — plus `parking`, the refuge lot's
+        # schedule of bays in world coords (see `suburb_park.parking_info`).
+        # The survivors/cars pass needs the bays and cannot recover them from
+        # the stage: a slab with paint on it says nothing about where a car
+        # goes. Published unconditionally because the park is built on the
+        # non-assembly path too — gating it on `assembly` would have made the
+        # lot invisible to exactly the launch scripts that build one scene.
+        if info.get("park"):
+            info_out["park"] = info["park"]
+        # THE ROW-HOME COURTS, in `suburb_park.parking_info`'s exact schema.
+        # `disaster.people`'s `parking_refuge` reads one lot out of
+        # `info["park"]["parking"]`; a cluster court is the same object —
+        # bare asphalt with a bay schedule, one apron to one street — and on a
+        # plat with row homes there are several of them, spread through the
+        # fabric instead of concentrated in the park. Published unconditionally
+        # (an empty list when the feature is off) so a consumer can read the
+        # key without a default, and BY REFERENCE like `parcels` above.
+        info_out["clusters"] = [
+            {"block": pi, "index": cl["index"], "mix": cl["mix"],
+             "palette_set": cl["palette_set"], "units": cl["units"],
+             "court": cl["court"], "drive": cl["drive"],
+             "walks": cl["walks"], "greens": cl["greens"],
+             "parking": cl["parking"]}
+            for pi, p in enumerate(parcels)
+            for cl in (p.get("clusters") or ())]
         if assembly:
             info_out["house_instances"] = _house_instances or []
             info_out["tree_instances"] = _tree_instances

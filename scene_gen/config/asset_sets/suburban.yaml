@@ -62,6 +62,12 @@ usds:
     grass_park: "airstack://scene_gen/assets/materials/Grass_Countryside.usda"
     dirt: "airstack://scene_gen/assets/materials/Dirt.usda"
     mulch: "airstack://scene_gen/assets/materials/Mulch_Brown.usda"
+    # The paved band `apply_ground` lays around a pool's coping. Worn pavement
+    # rather than the road asphalt: a pool surround is a poured domestic slab
+    # that has sat in the weather, and the asphalt swatch is tiled at road
+    # scale (~9 m) where this surface is 1.5 m wide. Falls back to `path` if a
+    # set does not name it.
+    pool_apron: "airstack://scene_gen/assets/materials/megascans/Worn_Pavement.usda"
 
   # ---- LOT FURNITURE  (owners: suburb_lots.py, suburb_scene.build_placements)
   # Fences run as MODULES butted end to end along a lot boundary, so what each
@@ -562,3 +568,66 @@ usds:
     #     so it places as a signboard rather than as posts.
     #   741e5442… "Street Props" — a bench, bins, cones and barriers, i.e. an
     #     assortment dropped wherever a street-name sign was asked for.
+
+  # ---- VEHICLES: NOT OVERRIDDEN HERE, AND THAT IS THE POINT ------------------
+  # The suburb parks residential cars only, but it does NOT get that by
+  # replacing `shared.yaml`'s `cars` pool with a shorter list. A bare key
+  # REPLACES the inherited pool (see the `extends` note at the top of this
+  # file), so a residential-only override here would delete the police car, the
+  # taxi, the construction truck and the motorhome from the suburb entirely —
+  # and an evacuation scene set in this same suburb needs exactly those.
+  #
+  # `shared.yaml` tags each entry instead, and `suburb_scene.build_cars` draws
+  # the `residential` tag for driveways and kerb parking (plus `vintage` at
+  # `cars.vintage_chance`). Same mechanism as `lot_fences` above. The knobs are
+  # in the preset, under `cars:`.
+  #
+  # `_normalize_usd_list` reads exactly `usd`, `scale`, `axis-up`, `yaw-offset`
+  # and `tags` — there is no per-entry `weight`, so "rare" is a config chance
+  # over a tag sub-pool, not a number written next to the asset.
+
+  # ---- PEOPLE: the /Projects/SEI-COA copy, plus the three POSED statics ------
+  # A BARE KEY REPLACES the inherited pool (see the `extends` note at the top),
+  # which is exactly what is wanted here: `shared.yaml` points `humans` at
+  # `Library/Stages/Muyang/People/Assets/`, and the same six rigged files also
+  # live under the project's own People pack, which is where the posed statics
+  # are. Replacing rather than appending stops the suburb from drawing each
+  # rigged character twice under two URLs. Downtown keeps `shared.yaml`'s copy
+  # and is unchanged.
+  #
+  # ABSOLUTE `omniverse://` URLs on purpose. `_normalize_usd_list` runs every
+  # entry through `_join_asset_root`, which passes anything carrying a scheme
+  # straight through — so these do not move if `asset_root` is repointed, which
+  # is right for a pack that lives outside the shared library.
+  #
+  # MEASURED IN ISAAC, all nine: Z-up, authored in centimetres (`scale: 0.01`),
+  # art facing -Y (`yaw-offset: 90`), 1.73-1.86 m tall.
+  #
+  # TWO KINDS, and the tag is the difference that matters to a placement pass:
+  #
+  #   rigged          a 95-joint UE4 skeleton (`root/pelvis/spine_01/.../head`,
+  #                   `upperarm_l`, `thigh_r`, ...) with NO animation clip, so
+  #                   it composes in a T/A-pose unless something authors one.
+  #                   `scene_generator._HUMAN_POSES` does, by world-axis joint
+  #                   deltas — these are the only entries that can be sat down,
+  #                   put in a car seat, or made to wave. One mesh, ~11k points.
+  #   posed_standing  no skeleton at all: a photogrammetry-style static, 50-100k
+  #                   points, frozen standing. `_bind_human_pose` caches None
+  #                   for these and leaves them alone, so they are usable ONLY
+  #                   where a standing figure is wanted — and they are worth
+  #                   having there, because six characters over sixty people is
+  #                   a crowd of sextuplets.
+  humans:
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/People/Assets/rp_carla_rigged_001_ue4.usd", scale: 0.01, yaw-offset: 90, tags: ["rigged"]}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/People/Assets/rp_claudia_rigged_002_ue4.usd", scale: 0.01, yaw-offset: 90, tags: ["rigged"]}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/People/Assets/rp_eric_rigged_001_ue4.usd", scale: 0.01, yaw-offset: 90, tags: ["rigged"]}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/People/Assets/rp_manuel_rigged_001_ue4.usd", scale: 0.01, yaw-offset: 90, tags: ["rigged"]}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/People/Assets/rp_nathan_rigged_003_ue4.usd", scale: 0.01, yaw-offset: 90, tags: ["rigged"]}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/People/Assets/rp_sophia_rigged_003_ue4.usd", scale: 0.01, yaw-offset: 90, tags: ["rigged"]}
+    # VERIFY ON SIGHT: scale and yaw-offset are carried over from the rigged
+    # six (same vendor, same export). If one of these three faces the wrong way
+    # while the rigged ones look right, fix it with a per-entry `yaw-offset`
+    # here rather than by rotating anything in `disaster/people.py`.
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/People/Assets/rp_dennis_posed_004.usd", scale: 0.01, yaw-offset: 90, tags: ["posed_standing"]}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/People/Assets/rp_fabienne_percy_posed_001.usd", scale: 0.01, yaw-offset: 90, tags: ["posed_standing"]}
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/People/Assets/rp_mei_posed_001.usd", scale: 0.01, yaw-offset: 90, tags: ["posed_standing"]}

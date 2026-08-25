@@ -26,11 +26,19 @@ services:
     # we use tmux sd-keys so that the session stays alive
     environment:
       - ROBOT_NAME_SOURCE=container_name # see .bashrc
+      - NUM_ROBOTS=${NUM_ROBOTS:-1}      # comms_model derives MAX_RELAY_HOPS = N-1
+      # Gossip radio range in metres, read by coordination_bringup/comms_model.py.
+      # Set per mission (or per `environments:` entry) so one sweep can mix ranges;
+      # 5000 = effectively unlimited, i.e. full comms.
+      - COMMS_RANGE_M=${COMMS_RANGE_M:-5000}
       - AUTOLAUNCH=${AUTOLAUNCH:-true}
       - NVIDIA_DRIVER_CAPABILITIES=all
       - LAUNCH_PACKAGE=desktop_bringup  # desktop_bringup adds RViz; real robots use autonomy_bringup
       - AUTONOMY_ROLE=full
       - SIM_IP=${SIM_IP:-172.31.0.200}
+      # GT annotation scene for semantic_search finalize scoring; set per
+      # environment by the mission runner (osmo `environments:` RESULTS_SCENE).
+      - RESULTS_SCENE=${RESULTS_SCENE:-RetroNeighborhood}
       # FCU_URL and TGT_SYSTEM not set, dynamically calculated in interface.launch.py
     # 'command' uses variables so that it can be shared across robot-desktop and robot-l4t, with different launch packages and roles.
     command: >

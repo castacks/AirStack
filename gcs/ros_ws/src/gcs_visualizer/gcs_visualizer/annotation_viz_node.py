@@ -30,6 +30,8 @@ from ament_index_python.packages import get_package_share_directory
 from geometry_msgs.msg import Point
 from rcl_interfaces.msg import SetParametersResult
 from rclpy.node import Node
+from rclpy.qos import (DurabilityPolicy, HistoryPolicy, QoSProfile,
+                       ReliabilityPolicy)
 from std_msgs.msg import ColorRGBA
 from visualization_msgs.msg import Marker, MarkerArray
 
@@ -38,8 +40,13 @@ from gcs_visualizer.gcs_utils import multiply_quaternions
 
 TOPIC = '/gcs/annotations/bboxes'
 FRAME_ID = 'map'
-PUBLISH_PERIOD_S = 0.2  # 5 Hz so live-tuned edits show up promptly
-MARKER_LIFETIME_S = 2
+# The GT is static, so publish it ONCE on a latched (TRANSIENT_LOCAL) topic
+# rather than streaming it. Late subscribers (Foxglove, the mcap recorder) still
+# receive the last sample on connect — same as /tf_static — so the bag stores one
+# annotation message instead of thousands. Re-published only on a live edit
+# (annotation_tuner param change) or scene change. Lifetime 0 = persist forever
+# (no periodic refresh to keep it alive in RViz/Foxglove).
+MARKER_LIFETIME_S = 0
 
 _BOX_CORNERS = [
     (-1, -1, -1), (+1, -1, -1), (+1, +1, -1), (-1, +1, -1),
@@ -72,10 +79,10 @@ class AnnotationViz(Node):
     def __init__(self):
         super().__init__('annotation_viz_node')
 
-        # TODO: derive from ISAAC_SIM_SCRIPT_NAME / ENV_NAME once the multi-drone
-        # launch path exports a stable scene identifier — until then the
-        # operator has to set this in source or via launch param.
-        self.declare_parameter('scene_name', 'AbandonedFactory')
+        # scene_name is wired from the RESULTS_SCENE env var via the launch file
+        # ($(env RESULTS_SCENE RetroNeighborhood)); the mission runner sets it per
+        # environment so multi-scene missions show each iteration's own GT.
+        self.declare_parameter('scene_name', 'RetroNeighborhood')
         for name in self.TUNING_PARAMS:
             self.declare_parameter(name, 0.0)
 
@@ -91,8 +98,13 @@ class AnnotationViz(Node):
         self.annotations = []
         self._load_scene(self.scene_name)
 
-        self.pub = self.create_publisher(MarkerArray, TOPIC, 10)
-        self.create_timer(PUBLISH_PERIOD_S, self._publish)
+        # Latched: publish once; late joiners get the last sample on subscribe.
+        latched_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            history=HistoryPolicy.KEEP_LAST, depth=1)
+        self.pub = self.create_publisher(MarkerArray, TOPIC, latched_qos)
+        self._publish()   # once; re-published only on param/scene change
 
         self.add_on_set_parameters_callback(self._on_set_params)
 

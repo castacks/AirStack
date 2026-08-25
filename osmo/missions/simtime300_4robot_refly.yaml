@@ -1,0 +1,1068 @@
+# simtime300_4robot_refly
+#
+# The five 4-robot environments that produced no bag in simtime300_4robot_a/b.
+# Each failed identically, for all four methods:
+#
+#     "robots [1, 2, 3, 4] not ready within 900s (connected so far: [])"
+#
+# steps_ok=0 — the run aborted before takeoff, so it was never a spawn or
+# navigation problem. ddsrouter kept dying during bring-up (oom_dmesg.log shows
+# repeated "ddsrouter vanished"), though not from memory pressure: oom_kill=0 on
+# every container, peak RSS ~1.3 GB. These are the heaviest scenes and with four
+# robots the stack simply did not come up inside the readiness gate.
+#
+# So two things change here:
+#   * ready.timeout_s 900 -> 2400, the actual failure mode. 900 s was inherited
+#     from the 2- and 3-robot missions and never scaled with fleet size.
+#   * fresh SPAWN_CONFIGS, drawn inside each scene's spawn rectangle with the
+#     widest spacing the rectangle allows. The previous layouts clustered all
+#     four drones within ~10 m; these are 8 m (4.5 m in shipyard_s3, whose rectangle is only 8 x 12 m) apart.
+#
+# 20 environments = 5 environments x 4 methods, 300 s of simulated search.
+
+name: simtime300_4robot_refly
+nas_dest: /volume4/dsta/raven-simtime300/
+stack:
+  services:
+  - isaac-sim
+  - robot-desktop
+  - gcs
+env:
+  NUM_ROBOTS: 4
+  RAYFRONTS_COMPUTE_PROB: 'True'
+  ISAAC_SIM_HEADLESS: 'true'
+  ISAAC_SIM_USE_STANDALONE: 'true'
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  PLAY_SIM_ON_START: 'true'
+  FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+baseline_templates:
+  frontier:
+    FRONTIER_ONLY_BASELINE: 'true'
+    VLFM_BASELINE: 'false'
+    LVLM_BASELINE: 'false'
+    method: frontier
+  vlfm:
+    FRONTIER_ONLY_BASELINE: 'false'
+    VLFM_BASELINE: 'true'
+    LVLM_BASELINE: 'false'
+    method: vlfm
+  lvlm:
+    FRONTIER_ONLY_BASELINE: 'false'
+    VLFM_BASELINE: 'false'
+    LVLM_BASELINE: 'true'
+    method: lvlm
+  multiraven:
+    FRONTIER_ONLY_BASELINE: 'false'
+    VLFM_BASELINE: 'false'
+    LVLM_BASELINE: 'false'
+    method: multi-raven
+scene_templates:
+  downtownwest:
+    ENV_URL: Library/Stages/Dmytro/downtown_edited_v3_818.usd
+    STAGE_SCALE: '1.0'
+    SPAWN_HEIGHT_M: '0.2'
+    RESULTS_SCENE: DowntownWest
+    query: fountain, car, truck
+    background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill,
+      water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof,
+      window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway,
+      utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast,
+      ground
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 50
+    search_area:
+      points:
+      - x: 160.0
+        y: 100.0
+        z: 0.0
+      - x: 160.0
+        y: -100.0
+        z: 0.0
+      - x: -260.0
+        y: -100.0
+        z: 0.0
+      - x: -260.0
+        y: 100.0
+        z: 0.0
+  moderncitydowntown:
+    ENV_URL: Library/Stages/Dmytro/ModernCityDowntown.stage.usd
+    STAGE_SCALE: '1.0'
+    SPAWN_HEIGHT_M: '0.2'
+    RESULTS_SCENE: ModernCityDowntown
+    query: yellow truck, obelisk, bankomat, cafe table, car
+    background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill,
+      water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof,
+      window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway,
+      utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast,
+      ground
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 30
+    search_area:
+      points:
+      - x: -100.0
+        y: -110.0
+        z: 0.0
+      - x: -100.0
+        y: 100.0
+        z: 0.0
+      - x: 80.0
+        y: 100.0
+        z: 0.0
+      - x: 80.0
+        y: -110.0
+        z: 0.0
+  retroneighborhood:
+    ENV_URL: Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd
+    STAGE_SCALE: '0.01'
+    SPAWN_HEIGHT_M: '0.2'
+    RESULTS_SCENE: RetroNeighborhood
+    query: house, bus stop, blue container, red container
+    background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill,
+      water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof,
+      window, door, warehouse, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+      pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+    voxel_score_threshold: 0.6
+    score_threshold: -1
+    voxel_min_cluster_size: 50
+    search_area:
+      points:
+      - x: -150.0
+        y: -110.0
+        z: 0.0
+      - x: -150.0
+        y: 70.0
+        z: 0.0
+      - x: 170.0
+        y: 70.0
+        z: 0.0
+      - x: 170.0
+        y: -110.0
+        z: 0.0
+  fireacademy:
+    ENV_URL: Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd
+    STAGE_SCALE: '0.01'
+    SPAWN_HEIGHT_M: '0.2'
+    RESULTS_SCENE: FireAcademy
+    query: red building, water tower, fuel tank, radio tower
+    background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill,
+      water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building facade, roof, window, door,
+      warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, electrical
+      pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 30
+    search_area:
+      points:
+      - x: 13.0
+        y: -135.0
+        z: 0.0
+      - x: 135.0
+        y: -13.0
+        z: 0.0
+      - x: 13.0
+        y: 135.0
+        z: 0.0
+      - x: -135.0
+        y: 13.0
+        z: 0.0
+  constructionsite:
+    ENV_URL: Library/Stages/ConstructionSite/ConstructionSite.stage.usd
+    STAGE_SCALE: '0.01'
+    SPAWN_HEIGHT_M: '0.2'
+    RESULTS_SCENE: ConstructionSite
+    query: forklift, tower crane, blue tarp
+    background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill,
+      water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof,
+      window, door, warehouse, house, garage, shed, hangar, fence, railing, parking lot, runway, utility
+      pole, electrical pole, power line, street lamp, street light, traffic signal, sign, ground
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 80
+    search_area:
+      points:
+      - x: 95.0
+        y: 65.0
+        z: 0.0
+      - x: 95.0
+        y: -90.0
+        z: 0.0
+      - x: -75.0
+        y: -90.0
+        z: 0.0
+      - x: -75.0
+        y: 65.0
+        z: 0.0
+  abandonedfactory:
+    ENV_URL: Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd
+    STAGE_SCALE: '1.0'
+    SPAWN_HEIGHT_M: '1.0'
+    RESULTS_SCENE: AbandonedFactory
+    query: building, water tower, white silo
+    background_queries: pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond,
+      rubble, tree, shrub, hedge, forest, tree canopy, building facade, wall, roof, window, door, warehouse,
+      house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical
+      pole, power line, street lamp, street light, traffic signal, sign, ground
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 30
+    search_area:
+      points:
+      - x: 45.0
+        y: 102.0
+        z: 0.0
+      - x: 45.0
+        y: -97.0
+        z: 0.0
+      - x: -109.0
+        y: -97.0
+        z: 0.0
+      - x: -109.0
+        y: 102.0
+        z: 0.0
+  militarybase:
+    ENV_URL: Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd
+    STAGE_SCALE: '1.0'
+    SPAWN_HEIGHT_M: '1.0'
+    RESULTS_SCENE: MilitaryBase
+    query: guard tower, radio tower, bridge, helicopter
+    background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill,
+      water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof,
+      window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway,
+      utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast,
+      ground
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 50
+    search_area:
+      points:
+      - x: 1295.0
+        y: 360.0
+        z: 0.0
+      - x: 1000.0
+        y: 360.0
+        z: 0.0
+      - x: 1000.0
+        y: -165.0
+        z: 0.0
+      - x: 1295.0
+        y: -165.0
+        z: 0.0
+  shipyard:
+    ENV_URL: Library/Stages/Dmytro/edit_v1_shipyard.usd
+    STAGE_SCALE: '1.0'
+    SPAWN_HEIGHT_M: '2.0'
+    RESULTS_SCENE: Shipyard
+    query: ship, crane
+    background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill,
+      water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof,
+      window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway,
+      utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast,
+      ground
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 50
+    search_area:
+      points:
+      - x: -250.0
+        y: 250.0
+        z: 0.0
+      - x: 250.0
+        y: 250.0
+        z: 0.0
+      - x: 250.0
+        y: -250.0
+        z: 0.0
+      - x: -250.0
+        y: -250.0
+        z: 0.0
+environments:
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  method: multi-raven
+  ENV_URL: Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '1.0'
+  RESULTS_SCENE: MilitaryBase
+  query: guard tower, radio tower, bridge, helicopter
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: 1295.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: -165.0
+      z: 0.0
+    - x: 1295.0
+      y: -165.0
+      z: 0.0
+  name: militarybase_s2_multiraven_full_4r
+  SPAWN_CONFIGS: '[{"x_m": 1023.817, "y_m": 336.914, "orient": [0.0, 0.0, -0.474993215292999, 0.8799894575650431]},
+    {"x_m": 1015.095, "y_m": 325.615, "orient": [0.0, 0.0, -0.43056664396956107, 0.9025587876148508]},
+    {"x_m": 1014.723, "y_m": 342.551, "orient": [0.0, 0.0, 0.11912682834770193, 0.9928790453866055]},
+    {"x_m": 1013.972, "y_m": 334.386, "orient": [0.0, 0.0, -0.8603891721326119, 0.5096375893485082]}]'
+  COMMS_RANGE_M: 5000
+- FRONTIER_ONLY_BASELINE: 'true'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  method: frontier
+  ENV_URL: Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '1.0'
+  RESULTS_SCENE: MilitaryBase
+  query: guard tower, radio tower, bridge, helicopter
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: 1295.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: -165.0
+      z: 0.0
+    - x: 1295.0
+      y: -165.0
+      z: 0.0
+  name: militarybase_s2_frontier_full_4r
+  SPAWN_CONFIGS: '[{"x_m": 1023.817, "y_m": 336.914, "orient": [0.0, 0.0, -0.474993215292999, 0.8799894575650431]},
+    {"x_m": 1015.095, "y_m": 325.615, "orient": [0.0, 0.0, -0.43056664396956107, 0.9025587876148508]},
+    {"x_m": 1014.723, "y_m": 342.551, "orient": [0.0, 0.0, 0.11912682834770193, 0.9928790453866055]},
+    {"x_m": 1013.972, "y_m": 334.386, "orient": [0.0, 0.0, -0.8603891721326119, 0.5096375893485082]}]'
+  COMMS_RANGE_M: 5000
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'true'
+  LVLM_BASELINE: 'false'
+  method: vlfm
+  ENV_URL: Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '1.0'
+  RESULTS_SCENE: MilitaryBase
+  query: guard tower, radio tower, bridge, helicopter
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: 1295.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: -165.0
+      z: 0.0
+    - x: 1295.0
+      y: -165.0
+      z: 0.0
+  name: militarybase_s2_vlfm_full_4r
+  SPAWN_CONFIGS: '[{"x_m": 1023.817, "y_m": 336.914, "orient": [0.0, 0.0, -0.474993215292999, 0.8799894575650431]},
+    {"x_m": 1015.095, "y_m": 325.615, "orient": [0.0, 0.0, -0.43056664396956107, 0.9025587876148508]},
+    {"x_m": 1014.723, "y_m": 342.551, "orient": [0.0, 0.0, 0.11912682834770193, 0.9928790453866055]},
+    {"x_m": 1013.972, "y_m": 334.386, "orient": [0.0, 0.0, -0.8603891721326119, 0.5096375893485082]}]'
+  COMMS_RANGE_M: 5000
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'true'
+  method: lvlm
+  ENV_URL: Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '1.0'
+  RESULTS_SCENE: MilitaryBase
+  query: guard tower, radio tower, bridge, helicopter
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: 1295.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: -165.0
+      z: 0.0
+    - x: 1295.0
+      y: -165.0
+      z: 0.0
+  name: militarybase_s2_lvlm_full_4r
+  SPAWN_CONFIGS: '[{"x_m": 1023.817, "y_m": 336.914, "orient": [0.0, 0.0, -0.474993215292999, 0.8799894575650431]},
+    {"x_m": 1015.095, "y_m": 325.615, "orient": [0.0, 0.0, -0.43056664396956107, 0.9025587876148508]},
+    {"x_m": 1014.723, "y_m": 342.551, "orient": [0.0, 0.0, 0.11912682834770193, 0.9928790453866055]},
+    {"x_m": 1013.972, "y_m": 334.386, "orient": [0.0, 0.0, -0.8603891721326119, 0.5096375893485082]}]'
+  COMMS_RANGE_M: 5000
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  method: multi-raven
+  ENV_URL: Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '1.0'
+  RESULTS_SCENE: MilitaryBase
+  query: guard tower, radio tower, bridge, helicopter
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: 1295.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: -165.0
+      z: 0.0
+    - x: 1295.0
+      y: -165.0
+      z: 0.0
+  name: militarybase_s3_multiraven_full_4r
+  SPAWN_CONFIGS: '[{"x_m": 1209.142, "y_m": 207.253, "orient": [0.0, 0.0, 0.11251531853351844, 0.9936499902356467]},
+    {"x_m": 1201.444, "y_m": 216.626, "orient": [0.0, 0.0, -0.9687495255280342, 0.24804103851824316]},
+    {"x_m": 1198.93, "y_m": 207.486, "orient": [0.0, 0.0, -0.9660684342400935, 0.2582862372734836]}, {"x_m":
+    1210.273, "y_m": 217.481, "orient": [0.0, 0.0, 0.55853962998132, 0.8294778367987479]}]'
+  COMMS_RANGE_M: 5000
+- FRONTIER_ONLY_BASELINE: 'true'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  method: frontier
+  ENV_URL: Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '1.0'
+  RESULTS_SCENE: MilitaryBase
+  query: guard tower, radio tower, bridge, helicopter
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: 1295.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: -165.0
+      z: 0.0
+    - x: 1295.0
+      y: -165.0
+      z: 0.0
+  name: militarybase_s3_frontier_full_4r
+  SPAWN_CONFIGS: '[{"x_m": 1209.142, "y_m": 207.253, "orient": [0.0, 0.0, 0.11251531853351844, 0.9936499902356467]},
+    {"x_m": 1201.444, "y_m": 216.626, "orient": [0.0, 0.0, -0.9687495255280342, 0.24804103851824316]},
+    {"x_m": 1198.93, "y_m": 207.486, "orient": [0.0, 0.0, -0.9660684342400935, 0.2582862372734836]}, {"x_m":
+    1210.273, "y_m": 217.481, "orient": [0.0, 0.0, 0.55853962998132, 0.8294778367987479]}]'
+  COMMS_RANGE_M: 5000
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'true'
+  LVLM_BASELINE: 'false'
+  method: vlfm
+  ENV_URL: Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '1.0'
+  RESULTS_SCENE: MilitaryBase
+  query: guard tower, radio tower, bridge, helicopter
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: 1295.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: -165.0
+      z: 0.0
+    - x: 1295.0
+      y: -165.0
+      z: 0.0
+  name: militarybase_s3_vlfm_full_4r
+  SPAWN_CONFIGS: '[{"x_m": 1209.142, "y_m": 207.253, "orient": [0.0, 0.0, 0.11251531853351844, 0.9936499902356467]},
+    {"x_m": 1201.444, "y_m": 216.626, "orient": [0.0, 0.0, -0.9687495255280342, 0.24804103851824316]},
+    {"x_m": 1198.93, "y_m": 207.486, "orient": [0.0, 0.0, -0.9660684342400935, 0.2582862372734836]}, {"x_m":
+    1210.273, "y_m": 217.481, "orient": [0.0, 0.0, 0.55853962998132, 0.8294778367987479]}]'
+  COMMS_RANGE_M: 5000
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'true'
+  method: lvlm
+  ENV_URL: Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '1.0'
+  RESULTS_SCENE: MilitaryBase
+  query: guard tower, radio tower, bridge, helicopter
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: 1295.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: 360.0
+      z: 0.0
+    - x: 1000.0
+      y: -165.0
+      z: 0.0
+    - x: 1295.0
+      y: -165.0
+      z: 0.0
+  name: militarybase_s3_lvlm_full_4r
+  SPAWN_CONFIGS: '[{"x_m": 1209.142, "y_m": 207.253, "orient": [0.0, 0.0, 0.11251531853351844, 0.9936499902356467]},
+    {"x_m": 1201.444, "y_m": 216.626, "orient": [0.0, 0.0, -0.9687495255280342, 0.24804103851824316]},
+    {"x_m": 1198.93, "y_m": 207.486, "orient": [0.0, 0.0, -0.9660684342400935, 0.2582862372734836]}, {"x_m":
+    1210.273, "y_m": 217.481, "orient": [0.0, 0.0, 0.55853962998132, 0.8294778367987479]}]'
+  COMMS_RANGE_M: 5000
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  method: multi-raven
+  ENV_URL: Library/Stages/Dmytro/edit_v1_shipyard.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '2.0'
+  RESULTS_SCENE: Shipyard
+  query: ship, crane
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: -250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: -250.0
+      z: 0.0
+    - x: -250.0
+      y: -250.0
+      z: 0.0
+  name: shipyard_s1_multiraven_full_4r
+  SPAWN_CONFIGS: '[{"x_m": -59.769, "y_m": -10.422, "orient": [0.0, 0.0, 0.803235534485405, 0.5956615449564844]},
+    {"x_m": -55.863, "y_m": -22.763, "orient": [0.0, 0.0, 0.9995769288563738, 0.029085448218306085]},
+    {"x_m": -68.696, "y_m": -9.539, "orient": [0.0, 0.0, -0.9991145413497601, 0.04207295168464733]}, {"x_m":
+    -63.03, "y_m": -18.63, "orient": [0.0, 0.0, -0.6866540850832827, 0.7269842965555996]}]'
+  COMMS_RANGE_M: 5000
+- FRONTIER_ONLY_BASELINE: 'true'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  method: frontier
+  ENV_URL: Library/Stages/Dmytro/edit_v1_shipyard.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '2.0'
+  RESULTS_SCENE: Shipyard
+  query: ship, crane
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: -250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: -250.0
+      z: 0.0
+    - x: -250.0
+      y: -250.0
+      z: 0.0
+  name: shipyard_s1_frontier_full_4r
+  SPAWN_CONFIGS: '[{"x_m": -59.769, "y_m": -10.422, "orient": [0.0, 0.0, 0.803235534485405, 0.5956615449564844]},
+    {"x_m": -55.863, "y_m": -22.763, "orient": [0.0, 0.0, 0.9995769288563738, 0.029085448218306085]},
+    {"x_m": -68.696, "y_m": -9.539, "orient": [0.0, 0.0, -0.9991145413497601, 0.04207295168464733]}, {"x_m":
+    -63.03, "y_m": -18.63, "orient": [0.0, 0.0, -0.6866540850832827, 0.7269842965555996]}]'
+  COMMS_RANGE_M: 5000
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'true'
+  LVLM_BASELINE: 'false'
+  method: vlfm
+  ENV_URL: Library/Stages/Dmytro/edit_v1_shipyard.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '2.0'
+  RESULTS_SCENE: Shipyard
+  query: ship, crane
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: -250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: -250.0
+      z: 0.0
+    - x: -250.0
+      y: -250.0
+      z: 0.0
+  name: shipyard_s1_vlfm_full_4r
+  SPAWN_CONFIGS: '[{"x_m": -59.769, "y_m": -10.422, "orient": [0.0, 0.0, 0.803235534485405, 0.5956615449564844]},
+    {"x_m": -55.863, "y_m": -22.763, "orient": [0.0, 0.0, 0.9995769288563738, 0.029085448218306085]},
+    {"x_m": -68.696, "y_m": -9.539, "orient": [0.0, 0.0, -0.9991145413497601, 0.04207295168464733]}, {"x_m":
+    -63.03, "y_m": -18.63, "orient": [0.0, 0.0, -0.6866540850832827, 0.7269842965555996]}]'
+  COMMS_RANGE_M: 5000
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'true'
+  method: lvlm
+  ENV_URL: Library/Stages/Dmytro/edit_v1_shipyard.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '2.0'
+  RESULTS_SCENE: Shipyard
+  query: ship, crane
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: -250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: -250.0
+      z: 0.0
+    - x: -250.0
+      y: -250.0
+      z: 0.0
+  name: shipyard_s1_lvlm_full_4r
+  SPAWN_CONFIGS: '[{"x_m": -59.769, "y_m": -10.422, "orient": [0.0, 0.0, 0.803235534485405, 0.5956615449564844]},
+    {"x_m": -55.863, "y_m": -22.763, "orient": [0.0, 0.0, 0.9995769288563738, 0.029085448218306085]},
+    {"x_m": -68.696, "y_m": -9.539, "orient": [0.0, 0.0, -0.9991145413497601, 0.04207295168464733]}, {"x_m":
+    -63.03, "y_m": -18.63, "orient": [0.0, 0.0, -0.6866540850832827, 0.7269842965555996]}]'
+  COMMS_RANGE_M: 5000
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  method: multi-raven
+  ENV_URL: Library/Stages/Dmytro/edit_v1_shipyard.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '2.0'
+  RESULTS_SCENE: Shipyard
+  query: ship, crane
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: -250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: -250.0
+      z: 0.0
+    - x: -250.0
+      y: -250.0
+      z: 0.0
+  name: shipyard_s2_multiraven_full_4r
+  SPAWN_CONFIGS: '[{"x_m": -126.922, "y_m": 64.554, "orient": [0.0, 0.0, 0.036042110026175016, 0.9993502720792451]},
+    {"x_m": -117.898, "y_m": 55.878, "orient": [0.0, 0.0, 0.16386347990119046, 0.9864830256799516]}, {"x_m":
+    -135.343, "y_m": 58.172, "orient": [0.0, 0.0, 0.4656569845323553, 0.8849652946620188]}, {"x_m": -126.873,
+    "y_m": 53.374, "orient": [0.0, 0.0, 0.950862437551313, 0.30961367032800013]}]'
+  COMMS_RANGE_M: 5000
+- FRONTIER_ONLY_BASELINE: 'true'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  method: frontier
+  ENV_URL: Library/Stages/Dmytro/edit_v1_shipyard.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '2.0'
+  RESULTS_SCENE: Shipyard
+  query: ship, crane
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: -250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: -250.0
+      z: 0.0
+    - x: -250.0
+      y: -250.0
+      z: 0.0
+  name: shipyard_s2_frontier_full_4r
+  SPAWN_CONFIGS: '[{"x_m": -126.922, "y_m": 64.554, "orient": [0.0, 0.0, 0.036042110026175016, 0.9993502720792451]},
+    {"x_m": -117.898, "y_m": 55.878, "orient": [0.0, 0.0, 0.16386347990119046, 0.9864830256799516]}, {"x_m":
+    -135.343, "y_m": 58.172, "orient": [0.0, 0.0, 0.4656569845323553, 0.8849652946620188]}, {"x_m": -126.873,
+    "y_m": 53.374, "orient": [0.0, 0.0, 0.950862437551313, 0.30961367032800013]}]'
+  COMMS_RANGE_M: 5000
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'true'
+  LVLM_BASELINE: 'false'
+  method: vlfm
+  ENV_URL: Library/Stages/Dmytro/edit_v1_shipyard.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '2.0'
+  RESULTS_SCENE: Shipyard
+  query: ship, crane
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: -250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: -250.0
+      z: 0.0
+    - x: -250.0
+      y: -250.0
+      z: 0.0
+  name: shipyard_s2_vlfm_full_4r
+  SPAWN_CONFIGS: '[{"x_m": -126.922, "y_m": 64.554, "orient": [0.0, 0.0, 0.036042110026175016, 0.9993502720792451]},
+    {"x_m": -117.898, "y_m": 55.878, "orient": [0.0, 0.0, 0.16386347990119046, 0.9864830256799516]}, {"x_m":
+    -135.343, "y_m": 58.172, "orient": [0.0, 0.0, 0.4656569845323553, 0.8849652946620188]}, {"x_m": -126.873,
+    "y_m": 53.374, "orient": [0.0, 0.0, 0.950862437551313, 0.30961367032800013]}]'
+  COMMS_RANGE_M: 5000
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'true'
+  method: lvlm
+  ENV_URL: Library/Stages/Dmytro/edit_v1_shipyard.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '2.0'
+  RESULTS_SCENE: Shipyard
+  query: ship, crane
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: -250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: -250.0
+      z: 0.0
+    - x: -250.0
+      y: -250.0
+      z: 0.0
+  name: shipyard_s2_lvlm_full_4r
+  SPAWN_CONFIGS: '[{"x_m": -126.922, "y_m": 64.554, "orient": [0.0, 0.0, 0.036042110026175016, 0.9993502720792451]},
+    {"x_m": -117.898, "y_m": 55.878, "orient": [0.0, 0.0, 0.16386347990119046, 0.9864830256799516]}, {"x_m":
+    -135.343, "y_m": 58.172, "orient": [0.0, 0.0, 0.4656569845323553, 0.8849652946620188]}, {"x_m": -126.873,
+    "y_m": 53.374, "orient": [0.0, 0.0, 0.950862437551313, 0.30961367032800013]}]'
+  COMMS_RANGE_M: 5000
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  method: multi-raven
+  ENV_URL: Library/Stages/Dmytro/edit_v1_shipyard.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '2.0'
+  RESULTS_SCENE: Shipyard
+  query: ship, crane
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: -250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: -250.0
+      z: 0.0
+    - x: -250.0
+      y: -250.0
+      z: 0.0
+  name: shipyard_s3_multiraven_full_4r
+  SPAWN_CONFIGS: '[{"x_m": 49.412, "y_m": -201.639, "orient": [0.0, 0.0, 0.4170306681283227, 0.9088924148877274]},
+    {"x_m": 48.738, "y_m": -210.879, "orient": [0.0, 0.0, 0.20089513011452895, 0.9796127534369213]}, {"x_m":
+    47.247, "y_m": -206.526, "orient": [0.0, 0.0, 0.7682383382230374, 0.6401639287591155]}, {"x_m": 52.281,
+    "y_m": -207.166, "orient": [0.0, 0.0, 0.0024147276804175476, 0.9999970845408648]}]'
+  COMMS_RANGE_M: 5000
+- FRONTIER_ONLY_BASELINE: 'true'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'false'
+  method: frontier
+  ENV_URL: Library/Stages/Dmytro/edit_v1_shipyard.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '2.0'
+  RESULTS_SCENE: Shipyard
+  query: ship, crane
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: -250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: -250.0
+      z: 0.0
+    - x: -250.0
+      y: -250.0
+      z: 0.0
+  name: shipyard_s3_frontier_full_4r
+  SPAWN_CONFIGS: '[{"x_m": 49.412, "y_m": -201.639, "orient": [0.0, 0.0, 0.4170306681283227, 0.9088924148877274]},
+    {"x_m": 48.738, "y_m": -210.879, "orient": [0.0, 0.0, 0.20089513011452895, 0.9796127534369213]}, {"x_m":
+    47.247, "y_m": -206.526, "orient": [0.0, 0.0, 0.7682383382230374, 0.6401639287591155]}, {"x_m": 52.281,
+    "y_m": -207.166, "orient": [0.0, 0.0, 0.0024147276804175476, 0.9999970845408648]}]'
+  COMMS_RANGE_M: 5000
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'true'
+  LVLM_BASELINE: 'false'
+  method: vlfm
+  ENV_URL: Library/Stages/Dmytro/edit_v1_shipyard.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '2.0'
+  RESULTS_SCENE: Shipyard
+  query: ship, crane
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: -250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: -250.0
+      z: 0.0
+    - x: -250.0
+      y: -250.0
+      z: 0.0
+  name: shipyard_s3_vlfm_full_4r
+  SPAWN_CONFIGS: '[{"x_m": 49.412, "y_m": -201.639, "orient": [0.0, 0.0, 0.4170306681283227, 0.9088924148877274]},
+    {"x_m": 48.738, "y_m": -210.879, "orient": [0.0, 0.0, 0.20089513011452895, 0.9796127534369213]}, {"x_m":
+    47.247, "y_m": -206.526, "orient": [0.0, 0.0, 0.7682383382230374, 0.6401639287591155]}, {"x_m": 52.281,
+    "y_m": -207.166, "orient": [0.0, 0.0, 0.0024147276804175476, 0.9999970845408648]}]'
+  COMMS_RANGE_M: 5000
+- FRONTIER_ONLY_BASELINE: 'false'
+  VLFM_BASELINE: 'false'
+  LVLM_BASELINE: 'true'
+  method: lvlm
+  ENV_URL: Library/Stages/Dmytro/edit_v1_shipyard.usd
+  STAGE_SCALE: '1.0'
+  SPAWN_HEIGHT_M: '2.0'
+  RESULTS_SCENE: Shipyard
+  query: ship, crane
+  background_queries: concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water,
+    pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window,
+    door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility
+    pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground
+  voxel_score_threshold: 0.5
+  score_threshold: -1
+  voxel_min_cluster_size: 50
+  search_area:
+    points:
+    - x: -250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: 250.0
+      z: 0.0
+    - x: 250.0
+      y: -250.0
+      z: 0.0
+    - x: -250.0
+      y: -250.0
+      z: 0.0
+  name: shipyard_s3_lvlm_full_4r
+  SPAWN_CONFIGS: '[{"x_m": 49.412, "y_m": -201.639, "orient": [0.0, 0.0, 0.4170306681283227, 0.9088924148877274]},
+    {"x_m": 48.738, "y_m": -210.879, "orient": [0.0, 0.0, 0.20089513011452895, 0.9796127534369213]}, {"x_m":
+    47.247, "y_m": -206.526, "orient": [0.0, 0.0, 0.7682383382230374, 0.6401639287591155]}, {"x_m": 52.281,
+    "y_m": -207.166, "orient": [0.0, 0.0, 0.0024147276804175476, 0.9999970845408648]}]'
+  COMMS_RANGE_M: 5000
+command_route: gcs
+environment_order: grouped
+iterations: 1
+iteration_attempts: 3
+ready:
+  timeout_s: 2400
+record:
+  enabled: true
+  scope: both
+  required: true
+  topics:
+  - /tf
+  - /tf_static
+  - /{robot}/odometry_conversion/odometry
+  - /gcs/robot_markers
+  - /gcs/payload/{robot}/filtered_rays
+  - /gcs/payload/{robot}/filtered_frontiers
+  - /gcs/payload/{robot}/explored_area_coverage
+  - /gcs/payload/{robot}/confirmed_targets
+  - /gcs/payload/{robot}/auction_table
+  - /gcs/sim_ground
+  - /gcs/annotations/bboxes
+  robot_topics:
+  - /robot_{n}/rayfronts/voxel_rgb
+  - /robot_{n}/rayfronts/msg_serv/voxels_sim/all
+on_step_failure: abort_iteration
+steps:
+- run:
+    container: robot_1
+    cmd: python3 -c "import torch; torch.hub.load('NVlabs/RADIO', 'radio_model', version='c-radio_v3-b',
+      skip_validation=True, adaptor_names=['siglip2','sam'])"
+    timeout_s: 900
+    attempts: 5
+    retry_delay_s: 15
+- run:
+    container: robot_1
+    cmd: python3 -c "from huggingface_hub import snapshot_download; snapshot_download('OpenGVLab/InternVL3-2B')"
+    timeout_s: 900
+    attempts: 5
+    retry_delay_s: 15
+- action:
+    task: takeoff
+    goal:
+      target_altitude_m: 12.0
+      velocity_m_s: 1.0
+    timeout_s: 180
+- wait: 5
+- action:
+    task: semantic_search
+    timeout_s: 2400
+    cancel_on_timeout: true
+    pass_on_feedback: true
+    goal:
+      query: '{{env.query}}'
+      background_queries: '{{env.background_queries}}'
+      search_area: '{{env.search_area}}'
+      min_altitude_agl: 5.0
+      max_altitude_agl: 20.0
+      min_flight_speed: 0.5
+      max_flight_speed: 1.0
+      confidence_threshold: 0.95
+      voxel_score_threshold: '{{env.voxel_score_threshold}}'
+      score_threshold: '{{env.score_threshold}}'
+      voxel_min_cluster_size: '{{env.voxel_min_cluster_size}}'
+      bundle_len: 3
+      max_sim_seconds: 300

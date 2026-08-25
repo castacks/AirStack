@@ -201,6 +201,7 @@ def _load_and_merge_config(config_file):
 def launch_dds_router(context, *args, **kwargs):
     config_file = LaunchConfiguration('config_file').perform(context)
     args_str = LaunchConfiguration('args').perform(context)
+    log_filter = LaunchConfiguration('log_filter').perform(context)
 
     # Parse args string: space-separated "key:=value" pairs, e.g. "gcs_domain:=0 foo:=bar"
     variables = {}
@@ -246,10 +247,17 @@ def launch_dds_router(context, *args, **kwargs):
     tmp.write(content)
     tmp.close()
 
+    # Tee ddsrouter stdout to /tmp/ddsrouter_<config-stem>.log (per-config name
+    # so the main + gossip routers don't collide) so mission log collection can
+    # grab it — its discovery/liveliness logs are otherwise lost to the tmux.
+    log_path = f"/tmp/ddsrouter_{os.path.splitext(os.path.basename(config_file))[0]}.log"
     return [
         LogInfo(msg=f"[dds_router] Final interpolated config:\n{content}"),
         ExecuteProcess(
-            cmd=['ddsrouter', '-c', tmp.name],
+            cmd=['bash', '-c',
+                 f"stdbuf -oL -eL ddsrouter -c '{tmp.name}' "
+                 f"--log-filter '{log_filter}' "
+                 f"2>&1 | tee -a '{log_path}'"],
             env={
                 **os.environ,
                 # ddsrouter is installed under /usr/local and needs its runtime libs.
@@ -279,5 +287,6 @@ def generate_launch_description():
                 'substitutions in the config file, e.g. "gcs_domain:=0 foo:=bar".'
             ),
         ),
+        DeclareLaunchArgument('log_filter', default_value='DDSROUTER'),
         OpaqueFunction(function=launch_dds_router),
     ])

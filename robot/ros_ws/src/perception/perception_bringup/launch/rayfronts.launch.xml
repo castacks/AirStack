@@ -2,6 +2,13 @@
   <arg name="config_name" default="low_memory"/>
   <arg name="dataset"     default="ros2isaacsim"/>
   <arg name="query_period" default="10"/>
+  <!-- False publishes raw cosine similarities instead of a softmax over the
+       query set. Raw scores are vocabulary-independent: adding or removing a
+       background query leaves the other columns untouched, so a recorded run
+       can be re-scored offline against any SUBSET of the labels it carried.
+       Under softmax every column shifts when the vocabulary changes, which
+       makes that ablation impossible without re-flying. -->
+  <arg name="compute_prob" default="$(env RAYFRONTS_COMPUTE_PROB True)"/>
 
   <!--
     Bridge: republish nav_msgs/Odometry as geometry_msgs/PoseStamped so rayfronts
@@ -10,10 +17,26 @@
   -->
   <node pkg="perception_bringup" exec="odom_to_pose_stamped.py"
         name="odom_to_pose_stamped" output="screen">
+    <param name="use_sim_time" value="true"/>
     <param name="input_topic"
            value="/robot_$(env ROS_DOMAIN_ID)/odometry_conversion/odometry"/>
     <param name="output_topic"
            value="/robot_$(env ROS_DOMAIN_ID)/odometry_conversion/pose_stamped"/>
+  </node>
+
+  <!--
+    Hold a silent subscription on rayfronts' per-query voxel heatmaps
+    (.../voxels_sim/q{q}_{label}) and the rgb voxel map (.../voxel_rgb) so
+    rayfronts actually publishes them: it only streams a voxel topic while it
+    has a subscriber, and the DDS router's reader alone does not count.
+    Discovery-based because the per-query names are dynamic per mission query.
+    This is what makes those clouds reach the GCS
+    (/rayfronts_debug/<robot>/{voxels_sim/q...,voxel_rgb}).
+  -->
+  <node pkg="perception_bringup" exec="voxel_keepalive_node.py"
+        name="voxel_keepalive" output="screen">
+    <param name="topic_pattern"
+           value="^/robot_$(env ROS_DOMAIN_ID)/rayfronts/(msg_serv/voxels_sim/q[0-9]+|voxel_rgb)"/>
   </node>
 
   <!--
@@ -36,10 +59,14 @@
          vis.topic_prefix=/robot_$(env ROS_DOMAIN_ID)/rayfronts
          querying.text_query_mode=prompts
          querying.query_file=null
-         querying.compute_prob=True
+         querying.compute_prob=$(var compute_prob)
          querying.period=$(var query_period)"
     cwd="/opt/rayfronts"
     output="screen">
     <env name="HYDRA_FULL_ERROR" value="1"/>
+    <!-- Long mapping runs fragment the CUDA allocator (OOM with tens of GiB
+         "reserved but unallocated"); expandable segments avoids that. -->
+    <env name="PYTORCH_CUDA_ALLOC_CONF" value="expandable_segments:True"/>
+    <env name="PYTORCH_ALLOC_CONF" value="expandable_segments:True"/>
   </executable>
 </launch>

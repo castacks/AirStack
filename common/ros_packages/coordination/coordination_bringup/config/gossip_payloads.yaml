@@ -32,23 +32,35 @@ payload_topics:
   - topic: "/{robot_name}/filtered_rays"
     type: "visualization_msgs/msg/MarkerArray"
 
-  # Raw frontiers (raven_nav) — post-altitude+polygon filter, pre-clustering.
-  # Peers cluster the union of (own + peer) raw frontiers to expand their own
-  # candidate pool. Each robot still publishes its own filtered viewpoints
-  # locally on /<robot>/frontier_viewpoints (NOT shared via gossip).
-  - topic: "/{robot_name}/raw_frontiers"
+  # Shared frontiers (raven_nav) — post-altitude+polygon filter, pre-clustering.
+  # Peers merge these into their own frontier candidate pool
+  # (peer_state.peer_frontiers → frontier_behavior.py). Bounded (current
+  # boundary, recomputed each tick — not accumulating), so safe to gossip.
+  - topic: "/{robot_name}/shared_frontiers"
     type: "sensor_msgs/msg/PointCloud2"
 
-  # # Kept frontiers (raven_nav) — post altitude + polygon + zone filter.
-  # # Debug/visualization only: peers don't consume these (each computes its
-  # # own kept set from raw_frontiers). Gossiped so the GCS can render the
-  # # shrinking explorable area per drone in Foxglove.
-  # - topic: "/{robot_name}/kept_frontiers"
-  #   type: "sensor_msgs/msg/PointCloud2"
+  # Filtered frontiers (raven_nav) — post altitude + polygon + zone filter.
+  # Debug/visualization only: peers don't consume these (each computes its
+  # own filtered set from shared_frontiers). Gossiped so the GCS can render the
+  # shrinking explorable area per drone in Foxglove.
+  - topic: "/{robot_name}/filtered_frontiers"
+    type: "sensor_msgs/msg/PointCloud2"
 
-  # # RGB voxel map (rayfronts) — semantic 3D map for GCS visualization.
+  # RGB voxel map (rayfronts) — semantic 3D map for GCS visualization ONLY.
   # - topic: "/{robot_name}/rayfronts/voxel_rgb"
   #   type: "sensor_msgs/msg/PointCloud2"
+
+  # # Per-query semantic voxel cloud (rayfronts) — x,y,z + sim_0..N similarity per
+  # # query. GCS visualization ONLY (colour by sim_K in Foxglove; sim_0 = first
+  # # query).
+  # - topic: "/{robot_name}/rayfronts/msg_serv/voxels_sim/all"
+  #   type: "sensor_msgs/msg/PointCloud2"
+  #   name: "voxels_sim"
+  #   # Published in RDF (camera-optical); rotate RDF→FLU before the ENU translation
+  #   # (same swap raven applies in _vox_all_cb) so it lands in the right place.
+  #   rotate_rdf_to_flu: true
+  #   min_interval_s: 30.0
+
 
   # Active raven_nav behavior ('frontier'/'ray'/'voxel'/'idle'). Used by peer
   # raven_nav instances to decide whether to treat that robot's waypoint as a
@@ -59,11 +71,6 @@ payload_topics:
   # Per-target bids from the ray-mode auction. Higher = closer = wins.
   - topic: "/{robot_name}/bids"
     type: "airstack_msgs/msg/BidVector"
-
-  # JSON-encoded list of target labels this robot has marked complete. Peers
-  # use this to permanently exclude those targets from their own claim pool.
-  - topic: "/{robot_name}/completed_targets"
-    type: "std_msgs/msg/String"
 
   # Label this robot is currently committed to ("" if uncommitted). Peers
   # use this together with raw bids to resolve double-commit collisions
@@ -77,11 +84,11 @@ payload_topics:
   - topic: "/{robot_name}/shared_rays"
     type: "sensor_msgs/msg/PointCloud2"
 
-  # Completed-frontier zones (raven_nav) — XY centers of regions a robot has
-  # cleared. Peers union their own zones with these to skip nearby frontiers
-  # and to feed the novelty cost in frontier selection.
-  - topic: "/{robot_name}/raven_nav/completed_frontier_zones"
-    type: "sensor_msgs/msg/PointCloud2"
+  # Explored-area coverage (raven_nav) — XY centers of cells a robot has
+  # observed. Peers union their own coverage with these to skip nearby
+  # frontiers and to feed the novelty cost in frontier selection.
+  - topic: "/{robot_name}/raven_nav/explored_area_coverage"
+    type: "coordination_msgs/msg/CoverageGrid"
 
   # Confirmed target AABBs (raven_nav, fed from voxel_behavior) — JSON list of
   # [{label, cx, cy, cz, sx, sy, sz, status, confidence, ts}]. Peers anchor ray
@@ -89,11 +96,35 @@ payload_topics:
   - topic: "/{robot_name}/raven_nav/confirmed_targets"
     type: "std_msgs/msg/String"
 
+  # Serviced ray-leads (raven_nav) — JSON [{label, x, y, z} in global ENU] for
+  # leads a robot reached and confirmed. Peers drop them from the consensus task
+  # table so completed leads aren't re-pursued (keeps the table bounded).
+  - topic: "/{robot_name}/raven_nav/served_leads"
+    type: "std_msgs/msg/String"
+
+  # Unified auction table (raven_nav) — JSON {visited_bbs, available[]} in global
+  # ENU with per-target state + assigned robot. GCS builds the combined overlay
+  # from this (no separate marker topic needed).
+  - topic: "/{robot_name}/raven_nav/auction_table"
+    type: "std_msgs/msg/String"
+
+  # Accumulated ray-lead bearings (raven_nav) — JSON [{label, ox,oy,oz, dx,dy,dz}]
+  # global ENU. Shares the persistent lead memory so the task table is consistent.
+  - topic: "/{robot_name}/raven_nav/ray_leads"
+    type: "std_msgs/msg/String"
+
+  # Explore bid (raven_nav) — JSON {"d": <m>}: distance to this robot's nearest
+  # viable frontier (-1 = none). Peers price this robot's decline ("outside
+  # option") in the shared task consensus.
+  - topic: "/{robot_name}/raven_nav/explore_bid"
+    type: "std_msgs/msg/String"
+
+  # Co-NavGPT assignment (conavgpt_assigner_node, leader robot only) — JSON
+  # {round, assignments{robot_id: region_id}, model, latency_s, fallback, ...}.
+  # One VLM answer for the whole team, so non-leaders can only get it here.
+  - topic: "/{robot_name}/conavgpt/assignment"
+    type: "std_msgs/msg/String"
+
   # ── Add more payloads below ────────────────────────────────────────────────
   # - topic: "/{robot_name}/your/topic"
   #   type: "your_msgs/msg/YourType"
-  - topic: "/{robot_name}/rayfronts/msg_serv/rays_sim/all"
-    type: "sensor_msgs/msg/PointCloud2"
-
-
-  

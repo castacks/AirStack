@@ -39,8 +39,20 @@ import os
 
 import numpy as np
 
+# THE RESOLUTION IS IN THE FILENAME, so this constant is coupled to whichever
+# Megascans pack was last imported. `tools/import_megascans.py` REPLACES a
+# surface in place — a newer pack deletes the older maps rather than sitting
+# beside them — so swapping the 2K pack for the 4K one left this pointing at a
+# file that no longer existed, and every band of the ground scar came back
+# `References an asset that can not be found`. The overlay does not fail
+# loudly when that happens; it just draws untextured.
+#
+# Kept as a literal rather than globbed because this module is pure Python and
+# builds a URL that has to resolve on the host, in the container and off
+# Nucleus alike — there is no directory here to list. Re-point it after an
+# import; the id (`uhwpehcdy`) is the surface and only the `_4K_` changes.
 BURNT_TEXTURE = ("airstack://scene_gen/assets/materials/megascans/"
-                 "Burnt_Forest_Floor/T_uhwpehcdy_2K_B.png")
+                 "Burnt_Forest_Floor/T_uhwpehcdy_4K_B.png")
 
 # Pass through `SimulationApp(launch_config={"extra_args": KIT_ARGS})`.
 KIT_ARGS = ["--/rtx/raytracing/fractionalCutoutOpacity=true",
@@ -61,8 +73,8 @@ def knobs_from_env(span_m):
         cell_m=_f("GROUND_CELL", "3.0"),
         bands=int(os.environ.get("GROUND_BANDS", "12")),
         tile_m=_f("GROUND_TILE_M", "0") or None,        # None = whole overlay
-        op_range=(_f("GROUND_OPACITY_MIN", "0.14"),
-                  _f("GROUND_OPACITY_MAX", "0.85")),
+        op_range=(_f("GROUND_OPACITY_MIN", "0.30"),
+                  _f("GROUND_OPACITY_MAX", "0.97")),
         edge_m=edge,
         finger_m=_f("GROUND_FINGER_M", "0") or 0.8 * edge,
         # UNBURNED ISLANDS OFF BY DEFAULT. They are a real mixed-severity
@@ -324,10 +336,16 @@ def build_overlay(stage, coverage_at, region, ssf, z_m, *, material_parent,
     ny = max(1, int(round((y1 - y0) / float(cell_m))))
     dx, dy = (x1 - x0) / nx, (y1 - y0) / ny
 
+    # The shared lattice both the bucketing and the meshing read, so a cell's
+    # corners are the SAME numbers as its neighbour's — see the note by the
+    # quad loop for why that, and not an overlap, is what removes the seam.
+    ex_ = [x0 + i * dx for i in range(nx + 1)]
+    ey_ = [y0 + i * dy for i in range(ny + 1)]
+
     buckets, n_skip = {}, 0
     for iy in range(ny):
         for ix in range(nx):
-            ax, ay = x0 + ix * dx, y0 + iy * dy
+            ax, ay = ex_[ix], ey_[iy]
             cov = float(coverage_at(ax + dx * 0.5, ay + dy * 0.5))
             if cov <= 0.06:
                 continue
@@ -335,7 +353,7 @@ def build_overlay(stage, coverage_at, region, ssf, z_m, *, material_parent,
                 n_skip += 1
                 continue
             buckets.setdefault(
-                min(int(bands) - 1, int(cov * int(bands))), []).append((ax, ay))
+                min(int(bands) - 1, int(cov * int(bands))), []).append((ix, iy))
     if not buckets:
         if verbose:
             print("[ground] coverage is zero everywhere — nothing to draw")
@@ -353,11 +371,61 @@ def build_overlay(stage, coverage_at, region, ssf, z_m, *, material_parent,
             stage, "{0}/BurnLooks/band_{1}".format(material_parent, b), op,
             tile_m=tile, center=center, texture=texture)
         pts, counts, idx = [], [], []
-        e = 0.02          # hairline overlap, so cells in a band show no seam
-        for (ax, ay) in cells:
+        # MERGE THE CELLS INTO RECTANGLES BEFORE AUTHORING THEM.
+        #
+        # A band is a set of 3 m cells on a lattice, and authoring it as one
+        # quad per cell printed a dark 3 m GRID across the whole burn — over
+        # lawn, scar and road alike. It is not a gap and it is not the cell
+        # overlap an earlier cut blamed (removing that changed nothing): this
+        # renderer is a RAY TRACER and the material is TRANSLUCENT, so a ray
+        # passing near the shared edge of two coplanar quads registers a hit on
+        # BOTH and composites the band's opacity twice. Every interior edge in
+        # the band is therefore drawn as a line, and a lattice of them is a
+        # grid.
+        #
+        # Sharing vertices does not help, because the double hit is in the ray
+        # traversal rather than in a rasteriser's fill rule. What helps is
+        # having FEWER INTERIOR EDGES, so the cells are greedy-meshed into
+        # maximal rectangles first (runs along x, then runs of identical runs
+        # merged along y — the standard voxel-surface trick). On the shipped
+        # plat that takes band 8 from 15,353 quads to a few hundred, and what
+        # edges remain follow the scar's own irregular outline instead of a
+        # regular grid, so there is nothing periodic left for the eye to lock
+        # onto.
+        cellset = set(cells)
+        rects = []
+        while cellset:
+            ix, iy = min(cellset)
+            w = 1
+            while (ix + w, iy) in cellset:
+                w += 1
+            h = 1
+            while all((ix + k, iy + h) in cellset for k in range(w)):
+                h += 1
+            for jy in range(iy, iy + h):
+                for jx in range(ix, ix + w):
+                    cellset.discard((jx, jy))
+            rects.append((ix, iy, w, h))
+        # DO NOT OVERLAP THE CELLS. An earlier cut grew every quad by a 0.02 m
+        # hairline "so cells in a band show no seam", which is the right move
+        # for OPAQUE patches and precisely wrong here: this material is
+        # translucent, so a 4 cm strip drawn twice composites its opacity twice
+        # and comes out darker than either neighbour. The result was a dark
+        # lattice at the cell pitch over the whole burn — a 3 m grid printed
+        # across the scar, ground, roads and lawns alike, which is what the
+        # first assembled plat showed.
+        #
+        # Seams do not need an overlap, they need EXACTLY SHARED EDGES: two
+        # coplanar quads that agree bit-for-bit on their common corners leave
+        # no gap under any rasterisation rule. `ax + dx` and `x0 + (ix+1)*dx`
+        # are not bit-identical in floating point, which is what made the
+        # seams appear and the overlap look necessary — so the corners come
+        # from a precomputed lattice and every quad reads its own from it.
+        for (ix, iy, w, h) in rects:
+            ax, bx = ex_[ix], ex_[ix + w]
+            ay, by = ey_[iy], ey_[iy + h]
             k = len(pts)
-            for (px, py) in ((ax - e, ay - e), (ax + dx + e, ay - e),
-                             (ax + dx + e, ay + dy + e), (ax - e, ay + dy + e)):
+            for (px, py) in ((ax, ay), (bx, ay), (bx, by), (ax, by)):
                 pts.append(Gf.Vec3f(px * ssf, py * ssf, z_m * ssf))
             counts.append(4)
             idx += [k, k + 1, k + 2, k + 3]
@@ -376,6 +444,6 @@ def build_overlay(stage, coverage_at, region, ssf, z_m, *, material_parent,
         UsdShade.MaterialBindingAPI(m.GetPrim()).Bind(mat)
         made.append(path)
         if verbose:
-            print("[ground] band {0:2d}: {1:5d} cells  opacity {2:.2f}".format(
-                b, len(cells), op))
+            print("[ground] band {0:2d}: {1:5d} cells -> {2:4d} rect(s)  "
+                  "opacity {3:.2f}".format(b, len(cells), len(rects), op))
     return made

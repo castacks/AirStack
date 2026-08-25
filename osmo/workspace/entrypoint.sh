@@ -259,12 +259,17 @@ else
   export COMPOSE_PROFILES="${COMPOSE_PROFILES:-desktop,isaac-sim}"
 fi
 
+# OSMO_AIRSTACK_UP=false skips `airstack up` and goes straight to sleep — the
+# pod is fully set up (sshd, dockerd, clone, creds) for the caller to drive.
+# The airstack-mission.yaml workflow uses this hook: it runs this entrypoint
+# for setup only, then hands off to osmo/workspace/mission_launcher.sh (from
+# the clone, so the mission engine ships with the branch — no image rebuild).
 cd "$AIRSTACK_ROOT"
 if [ "${OSMO_AIRSTACK_UP:-true}" = "true" ]; then
   log "airstack up (COMPOSE_PROFILES=$COMPOSE_PROFILES, NUM_ROBOTS=$NUM_ROBOTS, livestream=$ISAAC_SIM_LIVESTREAM)"
   ./airstack.sh up || log "WARN: airstack up exited non-zero — pod stays alive for debugging via SSH"
 else
-  log "OSMO_AIRSTACK_UP=false — skipping airstack up; SSH in and run ./airstack.sh up manually"
+  log "OSMO_AIRSTACK_UP=false — skipping airstack up; caller drives the stack"
 fi
 
 # ─── 7. Sleep ──────────────────────────────────────────────────────────────

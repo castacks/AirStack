@@ -325,6 +325,11 @@ def prim_to_mesh(stage, prim_path):
 def _seeds(mesh, n, rng, mode="uniform", focus=None, axis=None):
     """Voronoi seed points. Their arrangement is what decides the break.
 
+    Modes: `uniform` (isotropic rubble), `char` (the alligator grid of burnt
+    timber), `splinter` (long shards), `focus` (denser toward a point) and
+    `plank` (an anisotropic LATTICE, so the cells are rectangular boards —
+    what a wall blown apart by wind comes to pieces as; see that branch).
+
     `axis` OVERRIDES the "long axis is the grain" assumption, and a tree is
     why it exists. Black_Oak's woody bole measures 20.6 x 19.8 x 17.2 m —
     its limbs reach further than it is tall — so `argmax(span)` picks X and
@@ -368,6 +373,74 @@ def _seeds(mesh, n, rng, mode="uniform", focus=None, axis=None):
                     [0.55 if a == axis else 0.35 for a in range(3)]) / max(
                         n_long, 2)
                 pts.append(q)
+        return np.asarray(pts)
+
+    if mode == "plank":
+        # BOARDS, NOT CHIPS — the tornado mode. A Voronoi diagram of a REGULAR
+        # LATTICE is a grid of boxes, exactly: every cell is the set of points
+        # nearer its own lattice site than any other, and for a rectangular
+        # lattice those bisectors are three families of parallel planes. So
+        # anisotropic lattice SPACING gives anisotropic BOXES, and spacing that
+        # is long along `axis` and short across it gives planks.
+        #
+        # This is the opposite construction to `char`, which is also a lattice
+        # but a DENSE-along / SPARSE-across one, because a crack pattern runs
+        # across the grain. A wall coming apart in a wind does not crack, it
+        # DELAMINATES: the sheathing lets go along its fasteners and what is
+        # left is boards and panels the size the mill cut them, which is why
+        # `tornado.jpeg` shows a debris field of pale rectangles rather than
+        # the black gravel a burnt house leaves.
+        #
+        # THE JITTER IS SMALL AND IT IS NOT OPTIONAL. Zero jitter gives cells
+        # that are identical to the millimetre, and a hundred identical boxes
+        # reads as a crate of bricks. 0.18 of the cell pitch keeps every piece
+        # recognisably a board and no two the same.
+        cross = [a for a in range(3) if a != axis]
+        # Aim for cells `ar` times longer along the grain than across it. Solve
+        # n = n_long * n_a * n_b subject to that ratio on the physical spans.
+        ar = 5.0
+        s_l, s_a, s_b = span[axis], span[cross[0]], span[cross[1]]
+        # Cell edge lengths (e_l, e_a, e_b) with e_l = ar * e_cross, and
+        # (s_l/e_l) * (s_a/e_a) * (s_b/e_b) = n.
+        e_c = max(1e-4, (s_l * s_a * s_b / (ar * max(n, 1))) ** (1.0 / 3.0))
+
+        def _counts(edge):
+            return {axis: max(1, int(round(s_l / (ar * edge)))),
+                    cross[0]: max(1, int(round(s_a / edge))),
+                    cross[1]: max(1, int(round(s_b / edge)))}
+
+        # THE `max(1, ...)` CLAMPS OVERSHOOT, AND ON A THIN MODULE THEY
+        # OVERSHOOT HARD. `e_c` solves the cell count exactly, but a wall is
+        # 0.2 m thick and a roof panel 0.1 m, so the across-thickness count
+        # rounds to 0 and is clamped up to 1 — which multiplies the product by
+        # 1/0.34 rather than leaving it alone. Two clamped axes and a request
+        # for 14 cells comes back as 50.
+        #
+        # That is not a cosmetic overshoot. Every extra cell is a rigid body
+        # in the settle, and the archetype bake settles every house in the
+        # library at once: a 4x overshoot across 40 damaged archetypes is tens
+        # of thousands of bodies, which is where PhysX stops being fast and
+        # starts being a reason the bake did not finish. Grow the cell until
+        # the product is within `cap` of what was asked for.
+        cap = 1.6
+        counts = _counts(e_c)
+        for _ in range(6):
+            prod = counts[0] * counts[1] * counts[2]
+            if prod <= cap * max(n, 1):
+                break
+            e_c *= (prod / (cap * max(n, 1))) ** (1.0 / 3.0)
+            counts = _counts(e_c)
+        pts = []
+        for i in range(counts[0]):
+            for j in range(counts[1]):
+                for k in range(counts[2]):
+                    idx = (i, j, k)
+                    q = np.empty(3)
+                    for a in range(3):
+                        step = span[a] / counts[a]
+                        q[a] = (lo[a] + step * (idx[a] + 0.5)
+                                + (rng.random() - 0.5) * step * 0.18)
+                    pts.append(q)
         return np.asarray(pts)
 
     if mode == "splinter":
@@ -533,7 +606,8 @@ def _write_mesh(stage, path, mesh, centre_on_centroid=True):
 
 def fracture_partial(stage, prim_path, out_parent, n_pieces, rng,
                      cut_frac=0.5, mode="char", rough=0.035, shrink=0.97,
-                     ragged=0.22, deactivate=True, consume=0.30, axis=None):
+                     ragged=0.22, deactivate=True, consume=0.30, axis=None,
+                     min_volume_frac=0.004):
     """Break a wall so that only its upper part comes down.
 
     NO STRAIGHT CUT. The first version sliced the module at a flat plane and
@@ -561,7 +635,8 @@ def fracture_partial(stage, prim_path, out_parent, n_pieces, rng,
         return [], []
 
     frags = fracture_mesh(mesh, n_pieces, rng, mode=mode, rough=rough,
-                          shrink=shrink, consume=consume, axis=axis)
+                          shrink=shrink, consume=consume, axis=axis,
+                          min_volume_frac=min_volume_frac)
     if not frags:
         return [], []
 
@@ -609,13 +684,21 @@ def fracture_partial(stage, prim_path, out_parent, n_pieces, rng,
 def fracture_prim(stage, prim_path, out_parent, n_pieces, rng,
                   mode="uniform", rough=0.035, shrink=0.97,
                   deactivate=True, verbose=True, consume=0.30,
-                  consume_pool=1.25, axis=None):
+                  consume_pool=1.25, axis=None, min_volume_frac=0.004):
     """Fracture a placed module in the stage. Returns the new prim paths.
 
     Fragments are authored around their OWN centroid with the centroid in the
     transform, not baked into the points — otherwise every piece would rotate
     about the world origin once physics takes hold, which sends the pile into
     orbit.
+
+    `min_volume_frac` IS EXPOSED FOR THIN PANELS. The cull compares a
+    fragment's BOUNDING-BOX volume against this fraction of the source
+    module's, which is generous to a stubby chunk and hostile to a sheet: a
+    2.4 x 1.2 x 0.015 m piece of sheathing has a hundredth the bbox volume of
+    a cube with the same longest edge, so the 0.004 default discards exactly
+    the broken panels a wind-damage field is made of. `disaster.wind_flow`
+    passes 0.0008.
     """
     from pxr import Gf, Sdf, UsdGeom, Vt
 
@@ -627,7 +710,7 @@ def fracture_prim(stage, prim_path, out_parent, n_pieces, rng,
     frags = fracture_mesh(mesh, n_pieces, rng, mode=mode, rough=rough,
                           shrink=shrink, consume=consume,
                           consume_pool=consume_pool, axis=axis,
-                          verbose=verbose)
+                          min_volume_frac=min_volume_frac, verbose=verbose)
     if not frags:
         if verbose:
             print("[fracture] {0}: {1} faces, watertight={2}, extents={3} "

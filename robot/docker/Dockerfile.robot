@@ -407,9 +407,19 @@ FROM runtime AS runtime-rayfronts
 COPY ./common/rayfronts          /opt/rayfronts
 COPY ./common/rayfronts_configs/ /opt/rayfronts/rayfronts/configs/
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      cmake build-essential python3-dev \
+      cmake build-essential python3-dev python3-venv \
  && cd /opt/rayfronts && CMAKE_INSTALL_PREFIX=/usr/local ./compile.sh \
  && rm -rf /var/lib/apt/lists/*
+
+# FPV+LVLM baseline runs in an isolated venv. --system-site-packages reuses the
+# system torch / numpy(1.26) / rclpy / cv_bridge, so only the LVLM-specific deps
+# (transformers/bitsandbytes/accelerate) live in the venv and can't perturb
+# rayfronts' system transformers. numpy stays system 1.26 (cv_bridge needs <2);
+# the venv's transformers shadows the system's only for the venv's python.
+# semantic_search_task launches lvlm_baseline_node with /opt/lvlm-venv/bin/python.
+RUN python3 -m venv --system-site-packages /opt/lvlm-venv \
+ && /opt/lvlm-venv/bin/pip install --no-cache-dir \
+      "transformers==4.57.6" bitsandbytes accelerate "numpy<2"
 
 FROM ${FINAL_STAGE} AS final
 

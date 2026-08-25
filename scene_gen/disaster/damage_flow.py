@@ -133,4 +133,20 @@ def damage_building(stage, parent, items, tag, level, finish, mats, rng, nrng):
                 else:
                     UsdShade.MaterialBindingAPI(pr).Bind(
                         damage._pick(rng, finish or "char", mats))
+
+    # DOORS DON'T STAND IN A COLLAPSE. A door is a thin combustible fixture in
+    # a wall; once the walls fail it is gone too. The fracture loop above only
+    # touches walls/floors/roofs, so without this a pristine door stands
+    # upright in the rubble (the `_FELL` table already says doors fall at
+    # partial_collapse and worse). Consume them at those levels.
+    if level in ("partial_collapse", "burned_out", "rubble"):
+        for q in items:
+            if damage._sub_of(q.get("category")) not in ("door", "door_slot"):
+                continue
+            if damage.is_incombustible(q.get("category")):
+                continue
+            pth = q.get("prim_path")
+            pr = stage.GetPrimAtPath(pth) if pth else None
+            if pr and pr.IsValid() and pr.IsActive():
+                pr.SetActive(False)
     return frags

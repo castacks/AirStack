@@ -35,7 +35,10 @@ from raven_nav.ray_groups import RayGroup
 # Thresholds — tune in sim. Documented in the design doc.
 EPS_MAX_M = 5.0
 T_MIN_M = 5.0
-ANGLE_MIN_DEG = 15.0
+# Min ray-angle to trust a triangulation. Lowered 15→10 so two drones
+# approaching one target from similar directions are flagged same-instance
+# earlier (the tight EPS_MAX gate still rejects genuinely different targets).
+ANGLE_MIN_DEG = 10.0
 ANGLE_PARALLEL_DEG = 8.0
 NOMINAL_RANGE_M = 25.0
 MIN_SCORE = 0.6
@@ -44,12 +47,12 @@ MIN_SCORE = 0.6
 @dataclass
 class RayTarget:
     label: str
-    position: np.ndarray                       # (3,)
+    position: np.ndarray
     contributing_group_ids: List[int]
-    status: str = 'unconfirmed'                # unconfirmed | confirmed | visited
+    status: str = 'unconfirmed'
     confidence: float = 0.0
     last_update_ts: float = 0.0
-    bb_id: Optional[int] = None                # set when attached to a known AABB
+    bb_id: Optional[int] = None
     position_cov: np.ndarray = field(default_factory=lambda: np.eye(3) * 100.0)
 
 
@@ -223,7 +226,7 @@ def build_targets(
     n = len(groups)
 
     # Step 1: BB pre-filter.
-    bb_attachments: dict = {}  # bb_id -> [group_idx, ...]
+    bb_attachments: dict = {}
     consumed = [False] * n
     for i, g in enumerate(groups):
         for bb_id, bb_label, bb in known_bbs:
@@ -294,7 +297,9 @@ def build_targets(
         scores = [m.avg_score for m in members]
         if len(idxs) == 1:
             m = members[0]
-            pos = m.avg_origin + m.avg_dir * NOMINAL_RANGE_M
+            # Single bearing: keep it as the ray (origin), unprojected — range is
+            # unknown, so don't invent a far point.
+            pos = np.asarray(m.avg_origin, dtype=float)
             status = 'unconfirmed'
             cov = np.eye(3) * (NOMINAL_RANGE_M ** 2)
         else:

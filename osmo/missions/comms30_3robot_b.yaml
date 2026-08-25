@@ -1,0 +1,444 @@
+# comms30_3robot_b — degraded comms (R = 30 m), 3 robots, vlfm + lvlm.
+#
+# Same scenes, starts, queries, thresholds and search areas as the full-comms
+# benchmark; the ONLY difference is the radio. comms_model.py is pinned to
+# COMMS_RANGE_M = 30.0 with MAX_RELAY_HOPS = NUM_ROBOTS, so a peer is heard only
+# within 30 m (Euclidean, altitude included) and messages relay at most once per
+# robot. The earlier runs used 5000 m, i.e. effectively unlimited.
+#
+# Split two methods per file so four jobs can run concurrently. Results land
+# under a SEPARATE nas_dest (/volume4/dsta/raven-comms30/) so degraded-comms runs are never
+# mixed with the full-comms benchmark.
+#
+#   8 scenes x 3 starts = 24 environments x 2 methods = 48 runs
+#
+#   airstack osmo:mission osmo/missions/comms30_3robot_b.yaml --pool <gpu-pool>
+
+name: comms30_3robot_b
+
+# Upload results (mcap bags + logs) to airlab-storage, then auto-teardown once
+# the upload succeeds (needs the airlab-storage OSMO credential — airstack
+# osmo:setup). Override the path with osmo:mission --nas-dest.
+nas_dest: /volume4/dsta/raven-comms30/
+
+stack:
+  services: [isaac-sim, robot-desktop, gcs]
+
+env:
+  NUM_ROBOTS: 3
+  ISAAC_SIM_HEADLESS: "true"
+  ISAAC_SIM_USE_STANDALONE: "true"
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  PLAY_SIM_ON_START: "true"
+  # voxel_score_threshold below is a SOFTMAX PROBABILITY — rayfronts computes
+  # softmax(100 * cos_sim) over the registered vocabulary. Set explicitly so a
+  # sticky env var from an earlier mission (raven_ablation runs it False) cannot
+  # leave raw cosines in place: those top out near 0.16, so a 0.50 gate would
+  # reject every voxel and the run would silently detect nothing.
+  RAYFRONTS_COMPUTE_PROB: "True"
+
+# ── scene templates ────────────────────────────────────────────────────────
+# Per-scene inputs (map, stage scale, spawn height, query, thresholds, search
+# area), anchored once and merged into that scene's three spawn entries via
+# `<<:` so all three start locations run byte-identical settings. STAGE_SCALE
+# and SPAWN_HEIGHT_M are set on EVERY scene on purpose: mission_runner.apply_env
+# only merges env vars, so an omitted key silently inherits the previous
+# iteration's value. `scene_templates` is not a recognized top-level mission
+# key — the runner ignores it; it exists only to hold the anchors.
+  frontier: &frontier
+    FRONTIER_ONLY_BASELINE: "true"
+    VLFM_BASELINE: "false"
+    LVLM_BASELINE: "false"
+    method: frontier
+
+  vlfm: &vlfm
+    FRONTIER_ONLY_BASELINE: "false"
+    VLFM_BASELINE: "true"
+    LVLM_BASELINE: "false"
+    method: vlfm
+
+  lvlm: &lvlm
+    FRONTIER_ONLY_BASELINE: "false"
+    VLFM_BASELINE: "false"
+    LVLM_BASELINE: "true"
+    method: lvlm
+
+  # No flag set -> the default full-coordination raven stack.
+  multiraven: &multiraven
+    FRONTIER_ONLY_BASELINE: "false"
+    VLFM_BASELINE: "false"
+    LVLM_BASELINE: "false"
+    method: multi-raven
+
+scene_templates:
+  downtownwest: &downtownwest
+    ENV_URL: "Library/Stages/Dmytro/downtown_edited_v3_818.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "DowntownWest"
+    query: "fountain, car, truck"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 50
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
+    search_area:
+      points:
+        - {x: 160.0, y: 100.0, z: 0.0}
+        - {x: 160.0, y: -100.0, z: 0.0}
+        - {x: -260.0, y: -100.0, z: 0.0}
+        - {x: -260.0, y: 100.0, z: 0.0}
+
+  moderncitydowntown: &moderncitydowntown
+    ENV_URL: "Library/Stages/Dmytro/ModernCityDowntown.stage.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "ModernCityDowntown"
+    query: "yellow truck, obelisk, bankomat, cafe table, car"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 30
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
+    search_area:
+      points:
+        - {x: -100.0, y: -110.0, z: 0.0}
+        - {x: -100.0, y: 100.0, z: 0.0}
+        - {x: 80.0, y: 100.0, z: 0.0}
+        - {x: 80.0, y: -110.0, z: 0.0}
+
+  retroneighborhood: &retroneighborhood
+    ENV_URL: "Library/Stages/RetroNeighborhood/RetroNeighborhood.stage.usd"
+    STAGE_SCALE: "0.01"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "RetroNeighborhood"
+    query: "house, bus stop, blue container, red container"
+    voxel_score_threshold: 0.6
+    score_threshold: -1
+    voxel_min_cluster_size: 50
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
+    search_area:
+      points:
+        - {x: -150.0, y: -110.0, z: 0.0}
+        - {x: -150.0, y: 70.0, z: 0.0}
+        - {x: 170.0, y: 70.0, z: 0.0}
+        - {x: 170.0, y: -110.0, z: 0.0}
+
+  fireacademy: &fireacademy
+    ENV_URL: "Projects/AirStack/scenes/urban/allegheny_county_fire_academy/fire_academy.scene.usd"
+    STAGE_SCALE: "0.01"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "FireAcademy"
+    query: "red building, water tower, fuel tank, radio tower"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 30
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building facade, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
+    search_area:
+      points:
+        - {x: 13.0, y: -135.0, z: 0.0}
+        - {x: 135.0, y: -13.0, z: 0.0}
+        - {x: 13.0, y: 135.0, z: 0.0}
+        - {x: -135.0, y: 13.0, z: 0.0}
+
+  constructionsite: &constructionsite
+    ENV_URL: "Library/Stages/ConstructionSite/ConstructionSite.stage.usd"
+    STAGE_SCALE: "0.01"
+    SPAWN_HEIGHT_M: "0.2"
+    RESULTS_SCENE: "ConstructionSite"
+    query: "forklift, tower crane, blue tarp"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 80
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, ground"
+    # Widened to a rectangle: the s3 spawn (x ~ -55) and two query props sat
+    # outside the old quadrilateral (x[-40,76] y[-71,50]).
+    search_area:
+      points:
+        - {x: 95.0, y: 65.0, z: 0.0}
+        - {x: 95.0, y: -90.0, z: 0.0}
+        - {x: -75.0, y: -90.0, z: 0.0}
+        - {x: -75.0, y: 65.0, z: 0.0}
+
+  abandonedfactory: &abandonedfactory
+    ENV_URL: "Library/Stages/AbandonedFactory/AbandonedFactory.stage.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "1.0"
+    RESULTS_SCENE: "AbandonedFactory"
+    query: "building, water tower, white silo"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 30
+    background_queries: "pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, ground"
+    search_area:
+      points:
+        - {x: 45.0, y: 102.0, z: 0.0}
+        - {x: 45.0, y: -97.0, z: 0.0}
+        - {x: -109.0, y: -97.0, z: 0.0}
+        - {x: -109.0, y: 102.0, z: 0.0}
+
+  militarybase: &militarybase
+    ENV_URL: "Library/Stages/Dmytro/MilitaryBase_t_x1100_y200_z0_o_x0_y0_z90.scene.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "1.0"
+    RESULTS_SCENE: "MilitaryBase"
+    query: "guard tower, radio tower, bridge, helicopter"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 50
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
+    # Widened: the s2 spawn (1015, 325..341) sat outside the old x>=1030,
+    # y<=320 rectangle.
+    search_area:
+      points:
+        - {x: 1295.0, y: 360.0, z: 0.0}
+        - {x: 1000.0, y: 360.0, z: 0.0}
+        - {x: 1000.0, y: -165.0, z: 0.0}
+        - {x: 1295.0, y: -165.0, z: 0.0}
+
+  shipyard: &shipyard
+    ENV_URL: "Library/Stages/Dmytro/edit_v1_shipyard.usd"
+    STAGE_SCALE: "1.0"
+    SPAWN_HEIGHT_M: "2.0"
+    RESULTS_SCENE: "Shipyard"
+    query: "ship, crane"
+    voxel_score_threshold: 0.5
+    score_threshold: -1
+    voxel_min_cluster_size: 50
+    background_queries: "concrete, pavement, sidewalk, dirt, gravel, sand, soil, grass, mountain, hill, water, pond, rubble, tree, shrub, hedge, forest, tree canopy, building, building facade, wall, roof, window, door, warehouse, house, garage, shed, hangar, fence, railing, stairs, parking lot, runway, utility pole, electrical pole, power line, street lamp, street light, traffic signal, sign, mast, ground"
+    search_area:
+      points:
+        - {x: -250.0, y: 250.0, z: 0.0}
+        - {x: 250.0, y: 250.0, z: 0.0}
+        - {x: 250.0, y: -250.0, z: 0.0}
+        - {x: -250.0, y: -250.0, z: 0.0}
+
+# ── 24 runs: 8 scenes x 3 start locations ──────────────────────────────────
+# Each scene merges its template above and pins SPAWN_CONFIGS — a fixed
+# (x_m, y_m, orient) per drone, where orient is a yaw-only quaternion [x,y,z,w].
+# Every layout is inside its spawn rectangle with all three drones >= 3 m apart.
+# These 24 SPAWN_CONFIGS are IDENTICAL in multi_raven_mission / frontier_exploration
+# / vlfm_baseline / lvlm_baseline — change one, change all four.
+environments:
+  - <<: [*downtownwest, *vlfm]
+    name: downtownwest_s1_vlfm
+    SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0.0, 0.0, 0.698, 0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0.0, 0.0, 0.736, 0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0.0, 0.0, 0.784, 0.621]}]'
+  - <<: [*downtownwest, *lvlm]
+    name: downtownwest_s1_lvlm
+    SPAWN_CONFIGS: '[{"x_m": -1.0, "y_m": -41.0, "orient": [0.0, 0.0, 0.698, 0.716]}, {"x_m": 3.0, "y_m": -35.0, "orient": [0.0, 0.0, 0.736, 0.677]}, {"x_m": 7.0, "y_m": -30.0, "orient": [0.0, 0.0, 0.784, 0.621]}]'
+  - <<: [*downtownwest, *vlfm]
+    name: downtownwest_s2_vlfm
+    SPAWN_CONFIGS: '[{"x_m": -33.0, "y_m": 59.0, "orient": [0.0, 0.0, -0.8583, 0.5132]}, {"x_m": -25.0, "y_m": 62.0, "orient": [0.0, 0.0, -0.561, 0.8278]}, {"x_m": -16.0, "y_m": 64.5, "orient": [0.0, 0.0, -0.1586, 0.9873]}]'
+  - <<: [*downtownwest, *lvlm]
+    name: downtownwest_s2_lvlm
+    SPAWN_CONFIGS: '[{"x_m": -33.0, "y_m": 59.0, "orient": [0.0, 0.0, -0.8583, 0.5132]}, {"x_m": -25.0, "y_m": 62.0, "orient": [0.0, 0.0, -0.561, 0.8278]}, {"x_m": -16.0, "y_m": 64.5, "orient": [0.0, 0.0, -0.1586, 0.9873]}]'
+  - <<: [*downtownwest, *vlfm]
+    name: downtownwest_s3_vlfm
+    SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}, {"x_m": -115.5, "y_m": 3.0, "orient": [0.0, 0.0, -0.013, 0.9999]}, {"x_m": -111.0, "y_m": 6.5, "orient": [0.0, 0.0, 0.4108, 0.9117]}]'
+  - <<: [*downtownwest, *lvlm]
+    name: downtownwest_s3_lvlm
+    SPAWN_CONFIGS: '[{"x_m": -120.0, "y_m": -0.5, "orient": [0.0, 0.0, -0.4343, 0.9007]}, {"x_m": -115.5, "y_m": 3.0, "orient": [0.0, 0.0, -0.013, 0.9999]}, {"x_m": -111.0, "y_m": 6.5, "orient": [0.0, 0.0, 0.4108, 0.9117]}]'
+  - <<: [*moderncitydowntown, *vlfm]
+    name: moderncitydowntown_s1_vlfm
+    SPAWN_CONFIGS: '[{"x_m": -17.273, "y_m": -57.947, "orient": [0.0, 0.0, -0.9896, 0.1438]}, {"x_m": -13.396, "y_m": -53.247, "orient": [0.0, 0.0, 0.4571, 0.8894]}, {"x_m": -17.857, "y_m": -48.541, "orient": [0.0, 0.0, -0.632, 0.775]}]'
+  - <<: [*moderncitydowntown, *lvlm]
+    name: moderncitydowntown_s1_lvlm
+    SPAWN_CONFIGS: '[{"x_m": -17.273, "y_m": -57.947, "orient": [0.0, 0.0, -0.9896, 0.1438]}, {"x_m": -13.396, "y_m": -53.247, "orient": [0.0, 0.0, 0.4571, 0.8894]}, {"x_m": -17.857, "y_m": -48.541, "orient": [0.0, 0.0, -0.632, 0.775]}]'
+  - <<: [*moderncitydowntown, *vlfm]
+    name: moderncitydowntown_s2_vlfm
+    SPAWN_CONFIGS: '[{"x_m": 36.2, "y_m": -5.5, "orient": [0.0, 0.0, 0.8872, 0.4613]}, {"x_m": 36.2, "y_m": -9.0, "orient": [0.0, 0.0, 0.9991, 0.0432]}, {"x_m": 36.2, "y_m": -12.5, "orient": [0.0, 0.0, 0.9237, -0.3831]}]'
+  - <<: [*moderncitydowntown, *lvlm]
+    name: moderncitydowntown_s2_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 36.2, "y_m": -5.5, "orient": [0.0, 0.0, 0.8872, 0.4613]}, {"x_m": 36.2, "y_m": -9.0, "orient": [0.0, 0.0, 0.9991, 0.0432]}, {"x_m": 36.2, "y_m": -12.5, "orient": [0.0, 0.0, 0.9237, -0.3831]}]'
+  - <<: [*moderncitydowntown, *vlfm]
+    name: moderncitydowntown_s3_vlfm
+    SPAWN_CONFIGS: '[{"x_m": -70.5, "y_m": -8.9, "orient": [0.0, 0.0, -0.3872, 0.922]}, {"x_m": -68.0, "y_m": -10.7, "orient": [0.0, 0.0, 0.0387, 0.9993]}, {"x_m": -65.5, "y_m": -8.9, "orient": [0.0, 0.0, 0.4574, 0.8893]}]'
+  - <<: [*moderncitydowntown, *lvlm]
+    name: moderncitydowntown_s3_lvlm
+    SPAWN_CONFIGS: '[{"x_m": -70.5, "y_m": -8.9, "orient": [0.0, 0.0, -0.3872, 0.922]}, {"x_m": -68.0, "y_m": -10.7, "orient": [0.0, 0.0, 0.0387, 0.9993]}, {"x_m": -65.5, "y_m": -8.9, "orient": [0.0, 0.0, 0.4574, 0.8893]}]'
+  - <<: [*retroneighborhood, *vlfm]
+    name: retroneighborhood_s1_vlfm
+    SPAWN_CONFIGS: '[{"x_m": 6.764, "y_m": -1.767, "orient": [0.0, 0.0, -0.1193, 0.9929]}, {"x_m": -0.354, "y_m": 2.251, "orient": [0.0, 0.0, 0.8743, 0.4854]}, {"x_m": 2.939, "y_m": 5.117, "orient": [0.0, 0.0, -0.7931, 0.6091]}]'
+  - <<: [*retroneighborhood, *lvlm]
+    name: retroneighborhood_s1_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 6.764, "y_m": -1.767, "orient": [0.0, 0.0, -0.1193, 0.9929]}, {"x_m": -0.354, "y_m": 2.251, "orient": [0.0, 0.0, 0.8743, 0.4854]}, {"x_m": 2.939, "y_m": 5.117, "orient": [0.0, 0.0, -0.7931, 0.6091]}]'
+  - <<: [*retroneighborhood, *vlfm]
+    name: retroneighborhood_s2_vlfm
+    SPAWN_CONFIGS: '[{"x_m": 118.5, "y_m": -15.0, "orient": [0.0, 0.0, 0.9063, 0.4226]}, {"x_m": 121.5, "y_m": -20.0, "orient": [0.0, 0.0, 1.0, 0.0]}, {"x_m": 118.5, "y_m": -25.0, "orient": [0.0, 0.0, 0.9063, -0.4226]}]'
+  - <<: [*retroneighborhood, *lvlm]
+    name: retroneighborhood_s2_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 118.5, "y_m": -15.0, "orient": [0.0, 0.0, 0.9063, 0.4226]}, {"x_m": 121.5, "y_m": -20.0, "orient": [0.0, 0.0, 1.0, 0.0]}, {"x_m": 118.5, "y_m": -25.0, "orient": [0.0, 0.0, 0.9063, -0.4226]}]'
+  - <<: [*retroneighborhood, *vlfm]
+    name: retroneighborhood_s3_vlfm
+    SPAWN_CONFIGS: '[{"x_m": 2.0, "y_m": -72.0, "orient": [0.0, 0.0, 0.2869, 0.958]}, {"x_m": 6.0, "y_m": -80.0, "orient": [0.0, 0.0, 0.6649, 0.747]}, {"x_m": 1.0, "y_m": -88.0, "orient": [0.0, 0.0, 0.9183, 0.396]}]'
+  - <<: [*retroneighborhood, *lvlm]
+    name: retroneighborhood_s3_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 2.0, "y_m": -72.0, "orient": [0.0, 0.0, 0.2869, 0.958]}, {"x_m": 6.0, "y_m": -80.0, "orient": [0.0, 0.0, 0.6649, 0.747]}, {"x_m": 1.0, "y_m": -88.0, "orient": [0.0, 0.0, 0.9183, 0.396]}]'
+  - <<: [*fireacademy, *vlfm]
+    name: fireacademy_s1_vlfm
+    SPAWN_CONFIGS: '[{"x_m": 27.34, "y_m": 5.359, "orient": [0.0, 0.0, 0.9757, 0.2192]}, {"x_m": 25.982, "y_m": 12.241, "orient": [0.0, 0.0, -0.2076, 0.9782]}, {"x_m": 26.223, "y_m": 15.534, "orient": [0.0, 0.0, -0.3285, 0.9445]}]'
+  - <<: [*fireacademy, *lvlm]
+    name: fireacademy_s1_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 27.34, "y_m": 5.359, "orient": [0.0, 0.0, 0.9757, 0.2192]}, {"x_m": 25.982, "y_m": 12.241, "orient": [0.0, 0.0, -0.2076, 0.9782]}, {"x_m": 26.223, "y_m": 15.534, "orient": [0.0, 0.0, -0.3285, 0.9445]}]'
+  - <<: [*fireacademy, *vlfm]
+    name: fireacademy_s2_vlfm
+    SPAWN_CONFIGS: '[{"x_m": 5.57, "y_m": 29.69, "orient": [0.0, 0.0, -0.9581, 0.2865]}, {"x_m": 8.02, "y_m": 31.76, "orient": [0.0, 0.0, -0.7472, 0.6646]}, {"x_m": 10.46, "y_m": 33.82, "orient": [0.0, 0.0, -0.3964, 0.9181]}]'
+  - <<: [*fireacademy, *lvlm]
+    name: fireacademy_s2_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 5.57, "y_m": 29.69, "orient": [0.0, 0.0, -0.9581, 0.2865]}, {"x_m": 8.02, "y_m": 31.76, "orient": [0.0, 0.0, -0.7472, 0.6646]}, {"x_m": 10.46, "y_m": 33.82, "orient": [0.0, 0.0, -0.3964, 0.9181]}]'
+  - <<: [*fireacademy, *vlfm]
+    name: fireacademy_s3_vlfm
+    SPAWN_CONFIGS: '[{"x_m": -46.4, "y_m": 12.8, "orient": [0.0, 0.0, -0.5535, 0.8328]}, {"x_m": -49.2, "y_m": 17.2, "orient": [0.0, 0.0, -0.1497, 0.9887]}, {"x_m": -44.8, "y_m": 18.8, "orient": [0.0, 0.0, 0.2822, 0.9594]}]'
+  - <<: [*fireacademy, *lvlm]
+    name: fireacademy_s3_lvlm
+    SPAWN_CONFIGS: '[{"x_m": -46.4, "y_m": 12.8, "orient": [0.0, 0.0, -0.5535, 0.8328]}, {"x_m": -49.2, "y_m": 17.2, "orient": [0.0, 0.0, -0.1497, 0.9887]}, {"x_m": -44.8, "y_m": 18.8, "orient": [0.0, 0.0, 0.2822, 0.9594]}]'
+  - <<: [*constructionsite, *vlfm]
+    name: constructionsite_s1_vlfm
+    SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0.0, 0.0, 0.2886, 0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0.0, 0.0, -0.2699, 0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0.0, 0.0, 0.9137, 0.4063]}]'
+  - <<: [*constructionsite, *lvlm]
+    name: constructionsite_s1_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 22.99, "y_m": -4.679, "orient": [0.0, 0.0, 0.2886, 0.9575]}, {"x_m": 25.203, "y_m": 0.448, "orient": [0.0, 0.0, -0.2699, 0.9629]}, {"x_m": 22.903, "y_m": -1.579, "orient": [0.0, 0.0, 0.9137, 0.4063]}]'
+  - <<: [*constructionsite, *vlfm]
+    name: constructionsite_s2_vlfm
+    SPAWN_CONFIGS: '[{"x_m": -22.9, "y_m": -30.5, "orient": [0.0, 0.0, -0.1647, 0.9863]}, {"x_m": -22.9, "y_m": -34.5, "orient": [0.0, 0.0, 0.2676, 0.9635]}, {"x_m": -22.9, "y_m": -38.5, "orient": [0.0, 0.0, 0.6497, 0.7602]}]'
+  - <<: [*constructionsite, *lvlm]
+    name: constructionsite_s2_lvlm
+    SPAWN_CONFIGS: '[{"x_m": -22.9, "y_m": -30.5, "orient": [0.0, 0.0, -0.1647, 0.9863]}, {"x_m": -22.9, "y_m": -34.5, "orient": [0.0, 0.0, 0.2676, 0.9635]}, {"x_m": -22.9, "y_m": -38.5, "orient": [0.0, 0.0, 0.6497, 0.7602]}]'
+  - <<: [*constructionsite, *vlfm]
+    name: constructionsite_s3_vlfm
+    SPAWN_CONFIGS: '[{"x_m": 54.0, "y_m": -58.0, "orient": [0.0, 0.0, 0.9426, 0.334]}, {"x_m": 48.2, "y_m": -53.3, "orient": [0.0, 0.0, 0.9426, 0.334]}, {"x_m": 42.4, "y_m": -48.6, "orient": [0.0, 0.0, 0.9426, 0.334]}]'
+  - <<: [*constructionsite, *lvlm]
+    name: constructionsite_s3_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 54.0, "y_m": -58.0, "orient": [0.0, 0.0, 0.9426, 0.334]}, {"x_m": 48.2, "y_m": -53.3, "orient": [0.0, 0.0, 0.9426, 0.334]}, {"x_m": 42.4, "y_m": -48.6, "orient": [0.0, 0.0, 0.9426, 0.334]}]'
+  - <<: [*abandonedfactory, *vlfm]
+    name: abandonedfactory_s1_vlfm
+    SPAWN_CONFIGS: '[{"x_m": 20.458, "y_m": 1.499, "orient": [0.0, 0.0, 0.1166, 0.9932]}, {"x_m": 20.46, "y_m": 4.676, "orient": [0.0, 0.0, -0.9881, 0.1541]}, {"x_m": 20.476, "y_m": 8.299, "orient": [0.0, 0.0, 0.4036, 0.9149]}]'
+  - <<: [*abandonedfactory, *lvlm]
+    name: abandonedfactory_s1_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 20.458, "y_m": 1.499, "orient": [0.0, 0.0, 0.1166, 0.9932]}, {"x_m": 20.46, "y_m": 4.676, "orient": [0.0, 0.0, -0.9881, 0.1541]}, {"x_m": 20.476, "y_m": 8.299, "orient": [0.0, 0.0, 0.4036, 0.9149]}]'
+  - <<: [*abandonedfactory, *vlfm]
+    name: abandonedfactory_s2_vlfm
+    SPAWN_CONFIGS: '[{"x_m": 4.2, "y_m": 58.0, "orient": [0.0, 0.0, -0.998, 0.063]}, {"x_m": 6.6, "y_m": 60.0, "orient": [0.0, 0.0, -0.8779, 0.4789]}, {"x_m": 4.2, "y_m": 61.9, "orient": [0.0, 0.0, -0.5932, 0.805]}]'
+  - <<: [*abandonedfactory, *lvlm]
+    name: abandonedfactory_s2_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 4.2, "y_m": 58.0, "orient": [0.0, 0.0, -0.998, 0.063]}, {"x_m": 6.6, "y_m": 60.0, "orient": [0.0, 0.0, -0.8779, 0.4789]}, {"x_m": 4.2, "y_m": 61.9, "orient": [0.0, 0.0, -0.5932, 0.805]}]'
+  - <<: [*abandonedfactory, *vlfm]
+    name: abandonedfactory_s3_vlfm
+    SPAWN_CONFIGS: '[{"x_m": -64.5, "y_m": -5.5, "orient": [0.0, 0.0, -0.3551, 0.9348]}, {"x_m": -68.5, "y_m": -2.5, "orient": [0.0, 0.0, 0.0733, 0.9973]}, {"x_m": -64.5, "y_m": 0.5, "orient": [0.0, 0.0, 0.4879, 0.8729]}]'
+  - <<: [*abandonedfactory, *lvlm]
+    name: abandonedfactory_s3_lvlm
+    SPAWN_CONFIGS: '[{"x_m": -64.5, "y_m": -5.5, "orient": [0.0, 0.0, -0.3551, 0.9348]}, {"x_m": -68.5, "y_m": -2.5, "orient": [0.0, 0.0, 0.0733, 0.9973]}, {"x_m": -64.5, "y_m": 0.5, "orient": [0.0, 0.0, 0.4879, 0.8729]}]'
+  - <<: [*militarybase, *vlfm]
+    name: militarybase_s1_vlfm
+    SPAWN_CONFIGS: '[{"x_m": 1110.0, "y_m": 220.0, "orient": [0.0, 0.0, -0.585, 0.811]}, {"x_m": 1116.0, "y_m": 227.0, "orient": [0.0, 0.0, -0.606, 0.795]}, {"x_m": 1122.0, "y_m": 234.0, "orient": [0.0, 0.0, -0.625, 0.78]}]'
+  - <<: [*militarybase, *lvlm]
+    name: militarybase_s1_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 1110.0, "y_m": 220.0, "orient": [0.0, 0.0, -0.585, 0.811]}, {"x_m": 1116.0, "y_m": 227.0, "orient": [0.0, 0.0, -0.606, 0.795]}, {"x_m": 1122.0, "y_m": 234.0, "orient": [0.0, 0.0, -0.625, 0.78]}]'
+  - <<: [*militarybase, *vlfm]
+    name: militarybase_s2_vlfm
+    SPAWN_CONFIGS: '[{"x_m": 1015.0, "y_m": 325.0, "orient": [0.0, 0.0, -0.8289, 0.5594]}, {"x_m": 1023.0, "y_m": 333.0, "orient": [0.0, 0.0, -0.5149, 0.8573]}, {"x_m": 1031.0, "y_m": 341.0, "orient": [0.0, 0.0, -0.1043, 0.9945]}]'
+  - <<: [*militarybase, *lvlm]
+    name: militarybase_s2_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 1015.0, "y_m": 325.0, "orient": [0.0, 0.0, -0.8289, 0.5594]}, {"x_m": 1023.0, "y_m": 333.0, "orient": [0.0, 0.0, -0.5149, 0.8573]}, {"x_m": 1031.0, "y_m": 341.0, "orient": [0.0, 0.0, -0.1043, 0.9945]}]'
+  - <<: [*militarybase, *vlfm]
+    name: militarybase_s3_vlfm
+    SPAWN_CONFIGS: '[{"x_m": 1200.0, "y_m": 209.0, "orient": [0.0, 0.0, -0.9858, 0.1679]}, {"x_m": 1204.0, "y_m": 214.0, "orient": [0.0, 0.0, -0.8225, 0.5688]}, {"x_m": 1207.0, "y_m": 219.0, "orient": [0.0, 0.0, -0.5051, 0.8631]}]'
+  - <<: [*militarybase, *lvlm]
+    name: militarybase_s3_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 1200.0, "y_m": 209.0, "orient": [0.0, 0.0, -0.9858, 0.1679]}, {"x_m": 1204.0, "y_m": 214.0, "orient": [0.0, 0.0, -0.8225, 0.5688]}, {"x_m": 1207.0, "y_m": 219.0, "orient": [0.0, 0.0, -0.5051, 0.8631]}]'
+  - <<: [*shipyard, *vlfm]
+    name: shipyard_s1_vlfm
+    SPAWN_CONFIGS: '[{"x_m": -66.066, "y_m": -11.867, "orient": [0.0, 0.0, -0.9089, 0.417]}, {"x_m": -68.796, "y_m": -14.581, "orient": [0.0, 0.0, -0.6509, 0.7591]}, {"x_m": -61.737, "y_m": -14.407, "orient": [0.0, 0.0, 0.2744, 0.9616]}]'
+  - <<: [*shipyard, *lvlm]
+    name: shipyard_s1_lvlm
+    SPAWN_CONFIGS: '[{"x_m": -66.066, "y_m": -11.867, "orient": [0.0, 0.0, -0.9089, 0.417]}, {"x_m": -68.796, "y_m": -14.581, "orient": [0.0, 0.0, -0.6509, 0.7591]}, {"x_m": -61.737, "y_m": -14.407, "orient": [0.0, 0.0, 0.2744, 0.9616]}]'
+  - <<: [*shipyard, *vlfm]
+    name: shipyard_s2_vlfm
+    SPAWN_CONFIGS: '[{"x_m": 56.0, "y_m": -54.0, "orient": [0.0, 0.0, 0.984, 0.1784]}, {"x_m": 48.0, "y_m": -51.0, "orient": [0.0, 0.0, 0.984, 0.1784]}, {"x_m": 40.0, "y_m": -48.0, "orient": [0.0, 0.0, 0.984, 0.1784]}]'
+  - <<: [*shipyard, *lvlm]
+    name: shipyard_s2_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 56.0, "y_m": -54.0, "orient": [0.0, 0.0, 0.984, 0.1784]}, {"x_m": 48.0, "y_m": -51.0, "orient": [0.0, 0.0, 0.984, 0.1784]}, {"x_m": 40.0, "y_m": -48.0, "orient": [0.0, 0.0, 0.984, 0.1784]}]'
+  - <<: [*shipyard, *vlfm]
+    name: shipyard_s3_vlfm
+    SPAWN_CONFIGS: '[{"x_m": 48.5, "y_m": -203.0, "orient": [0.0, 0.0, 0.45, 0.893]}, {"x_m": 51.5, "y_m": -206.5, "orient": [0.0, 0.0, 0.7853, 0.6192]}, {"x_m": 48.5, "y_m": -209.5, "orient": [0.0, 0.0, 0.9734, 0.2293]}]'
+  - <<: [*shipyard, *lvlm]
+    name: shipyard_s3_lvlm
+    SPAWN_CONFIGS: '[{"x_m": 48.5, "y_m": -203.0, "orient": [0.0, 0.0, 0.45, 0.893]}, {"x_m": 51.5, "y_m": -206.5, "orient": [0.0, 0.0, 0.7853, 0.6192]}, {"x_m": 48.5, "y_m": -209.5, "orient": [0.0, 0.0, 0.9734, 0.2293]}]'
+
+command_route: gcs
+
+# grouped: each entry runs `iterations` times in a row, in file order, so a
+# scene's three start locations are adjacent. iterations is PER ENTRY —
+# total runs = iterations * 24.
+environment_order: grouped
+iterations: 1
+
+# Redo an iteration (clean down→up→fly→down) if a step up to and including
+# semantic_search fails — i.e. the precondition steps fail, or semantic_search
+# never gets feedback after its own retries. Up to 3 attempts per iteration.
+iteration_attempts: 3
+
+ready:
+  timeout_s: 600
+
+record:
+  enabled: true
+  scope: gcs
+  required: true
+  topics:
+    - /tf
+    - /tf_static
+    - /{robot}/odometry_conversion/odometry
+    - /gcs/robot_markers
+    - /gcs/payload/{robot}/filtered_rays
+    - /gcs/payload/{robot}/filtered_frontiers
+    - /gcs/payload/{robot}/explored_area_coverage
+    - /gcs/payload/{robot}/confirmed_targets
+    - /gcs/payload/{robot}/auction_table
+    - /gcs/payload/{robot}/voxel_rgb
+    - /gcs/sim_ground
+    - /gcs/annotations/bboxes
+    - /rayfronts_debug/{robot}/voxels_sim/all
+    - /rayfronts_debug/{robot}/voxel_rgb
+
+on_step_failure: abort_iteration
+
+steps:
+  - run:
+      container: robot_1
+      cmd: python3 -c "import torch; torch.hub.load('NVlabs/RADIO', 'radio_model', version='c-radio_v3-b', skip_validation=True, adaptor_names=['siglip2','sam'])"
+      timeout_s: 900
+      attempts: 5
+      retry_delay_s: 15
+
+  - action:
+      task: takeoff
+      goal: {target_altitude_m: 12.0, velocity_m_s: 1.0}
+      timeout_s: 180
+
+  - wait: 5
+
+  # Run budget = 15 min OR 80% explored, whichever first (cancel_on_timeout lets
+  # semantic_search_task run its compile + metrics finalize on the deadline).
+  # pass_on_feedback: the iteration only needs the search to RUN — pass as soon
+  # as feedback is seen, regardless of outcome; redo the iteration only if no
+  # feedback arrives after the retries.
+  - action:
+      task: semantic_search
+      timeout_s: 900
+      cancel_on_timeout: true
+      pass_on_feedback: true
+      goal:
+        query: "{{env.query}}"
+        background_queries: "{{env.background_queries}}"
+        search_area: "{{env.search_area}}"
+        min_altitude_agl: 5.0
+        max_altitude_agl: 20.0
+        min_flight_speed: 0.5
+        max_flight_speed: 1.0
+        confidence_threshold: 0.95
+        # Per-scene voxel similarity gate (see each scene template above).
+        voxel_score_threshold: "{{env.voxel_score_threshold}}"
+        # Per-scene ray score gate + voxel cluster size (-1 on an entry = raven_nav default).
+        score_threshold: "{{env.score_threshold}}"
+        voxel_min_cluster_size: "{{env.voxel_min_cluster_size}}"
+        # Consensus bundle length (head executed, tail reserved + replanned).
+        bundle_len: 3

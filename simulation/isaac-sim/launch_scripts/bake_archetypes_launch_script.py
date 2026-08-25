@@ -12,6 +12,17 @@ SAME code the live scene uses (`disaster.damage_flow`, `disaster.vegetation`),
 settles the whole grid in one pass, and exports each object re-centred to the
 origin via `disaster.bake`. The 1600 launcher then references
 `house_<style>_<level>.usd` / `tree_<species>_<level>.usd` at each placement.
+
+Env knobs:
+
+    ARCH_DIR    output directory (default `scene_gen/assets/archetypes`)
+    ARCH_SEED   rng seed (default 7)
+    ARCH_KINDS  which halves to rebuild — `house,tree` (default), `tree`,
+                `house`. Houses are most of the ~570 s wall time and their
+                geometry changes far less often than the vegetation passes do,
+                so `ARCH_KINDS=tree` turns the iteration loop from ten minutes
+                into two. The manifest is MERGED on a restricted run (see
+                `merge_manifest`) so the untouched half survives it.
 """
 
 import math
@@ -53,6 +64,9 @@ SEED = int(os.environ.get("ARCH_SEED", "7"))
 OUT_DIR = os.environ.get(
     "ARCH_DIR", os.path.join(_SCENE_GEN_DIR, "assets", "archetypes"))
 GRID = 40.0
+KINDS = set(k.strip().lower()
+            for k in os.environ.get("ARCH_KINDS", "house,tree").split(",")
+            if k.strip())
 
 HOUSE_LEVELS = ("pristine", "scorched", "roof_collapsed",
                 "partial_collapse", "burned_out", "rubble")
@@ -86,6 +100,45 @@ def build_ground_and_light(stage):
     key.AddRotateXYZOp().Set(Gf.Vec3f(-45.0, 0.0, 30.0))
 
 
+def merge_manifest(path, records, kinds):
+    """The new records, plus whatever the manifest already had for OTHER kinds.
+
+    A RESTRICTED RUN MUST NOT DELETE THE HALF IT DID NOT BUILD. `ARCH_KINDS`
+    exists so a vegetation change can be re-baked without paying for 48 houses
+    that did not change — but the USD files for those houses stay on disk, so
+    a manifest rewritten from this run's records alone would claim they are
+    gone. `suburb_reload_launch_script` drives entirely off the manifest and
+    would then load a plat with no buildings in it, and the failure would look
+    like a bake bug rather than a bookkeeping one.
+
+    Identity is `(kind, style-or-species, level)`, which is exactly what the
+    filename encodes, so a record from this run replaces the record for the
+    same archetype and nothing else. Kinds we rebuilt are dropped wholesale
+    first, so an archetype REMOVED from the tables (a species retired from
+    `TREE_SPECIES`, say) does not linger in the manifest for ever.
+    """
+    old = []
+    if os.path.exists(path):
+        try:
+            old = bake.read_manifest(path)
+        except Exception as exc:
+            print("[arch] existing manifest unreadable, replacing it: "
+                  "{0}".format(exc))
+            old = []
+
+    def key(r):
+        return (r.get("kind"), r.get("style") or r.get("species"),
+                r.get("level"))
+
+    fresh = set(key(r) for r in records)
+    kept = [r for r in old
+            if r.get("kind") not in kinds and key(r) not in fresh]
+    if kept:
+        print("[arch] manifest: keeping {0} record(s) for kind(s) not built "
+              "this run".format(len(kept)))
+    return kept + records
+
+
 def main():
     omni.timeline.get_timeline_interface().stop()
     ctx = omni.usd.get_context()
@@ -103,11 +156,16 @@ def main():
     t_build0 = time.time()
 
     # ---- HOUSES: build every (style, level) on a grid ----------------------
+    # The grid geometry is computed whether or not houses are built this run,
+    # because the TREE rows are placed below the house block and their Y must
+    # not move between a full bake and an `ARCH_KINDS=tree` one — otherwise a
+    # partial re-bake would sit the trees on top of a house grid that is not
+    # there this time but is there in the files already on disk.
     styles = list(mh.STYLES.keys())
     hcombos = [(st, lv) for st in styles for lv in HOUSE_LEVELS]
-    ncol = int(math.ceil(math.sqrt(len(hcombos))))
+    ncol = max(1, int(math.ceil(math.sqrt(len(hcombos)))))
     house_specs = []          # [style, level, X, Y, parent, placements, frags]
-    for idx, (st, lv) in enumerate(hcombos):
+    for idx, (st, lv) in enumerate(hcombos if "house" in KINDS else []):
         X, Y = (idx % ncol) * GRID, (idx // ncol) * GRID
         parent = "{0}/h_{1}_{2}".format(PARENT, st, lv)
         UsdGeom.Scope.Define(stage, Sdf.Path(parent))
@@ -144,10 +202,11 @@ def main():
 
     # ---- TREES: reference each species, burn to each level -----------------
     tree_specs = []           # [species, level, X, Y, tree_path, extra_paths]
+    tree_loose = []           # tree debris -> convexDecomposition (no float)
     tcombos = [(sp, lv) for sp in TREE_SPECIES for lv in TREE_LEVELS]
-    tcol = int(math.ceil(math.sqrt(len(tcombos))))
+    tcol = max(1, int(math.ceil(math.sqrt(len(tcombos)))))
     y0 = (len(hcombos) // ncol + 2) * GRID    # trees below the house grid
-    for idx, (sp, lv) in enumerate(tcombos):
+    for idx, (sp, lv) in enumerate(tcombos if "tree" in KINDS else []):
         X = (idx % tcol) * GRID
         Y = y0 + (idx // tcol) * GRID
         tp = "{0}/t_{1}_{2}".format(PARENT, sp, lv)
@@ -159,12 +218,23 @@ def main():
         for _ in range(2):
             omni.kit.app.get_app().update()
         rng = random.Random(SEED + (abs(hash((sp, lv))) % 100000))
+        # `seated_collide=False`: the small ground sticks are geometry, not
+        # collision. Cooking a triangle mesh for each of several hundred per
+        # tree so that a couple of loose logs can land on them is most of the
+        # static-collider count and buys nothing you can see — see `burn_tree`.
         res = veg.burn_tree(stage, tp, lv, PARENT, PARENT + "/tdeb_%s_%s" % (sp, lv),
-                            rng, debris_scale=0.5, ground_z=0.0, verbose=False)
+                            rng, debris_scale=0.375, ground_z=0.0,
+                            seated_collide=False, verbose=False)
+        # `seated` listed explicitly now that it is no longer inside `statics`.
+        # `info["made"]` already covers it, but relying on that would make the
+        # export depend on a bookkeeping side effect of another module.
+        # `bake.export_object` dedupes, so the overlap costs nothing.
         extra = list(res.get("statics", [])) + list(res.get("loose", [])) \
+            + list(res.get("seated", [])) \
             + list((res.get("info") or {}).get("made", []))
         all_loose.extend(res.get("loose", []))
         all_static.extend(res.get("statics", []))
+        tree_loose.extend(res.get("loose", []))
         tree_specs.append([sp, lv, X, Y, tp, extra])
     print("[arch] built {0} tree grid cells".format(len(tree_specs)))
 
@@ -178,17 +248,20 @@ def main():
     for _ in range(20):
         omni.kit.app.get_app().update()
     if all_loose:
+        approx_map = {pth: "convexDecomposition" for pth in tree_loose}
         settle.run(stage, all_loose, all_static, steps=420, kick=0.15,
-                   rng=random.Random(SEED), bake_result=True)
+                   rng=random.Random(SEED), bake_result=True,
+                   approx_map=approx_map)
     for _ in range(10):
         omni.kit.app.get_app().update()
 
     # ---- export every archetype, re-centred to the origin ------------------
     records, miss = [], 0
 
-    def _safe_export(paths, out, rec, meta):
+    def _safe_export(paths, out, rec, meta, drop=False):
         try:
-            if bake.export_object(stage, None, paths, out, recenter=rec):
+            if bake.export_object(stage, None, paths, out, recenter=rec,
+                                  drop_to_ground=drop):
                 m, ok, ms = bake.validate(out)
                 records.append(dict(usd=os.path.abspath(out), meshes=m,
                                     bound_missing=ms, **meta))
@@ -207,19 +280,25 @@ def main():
         miss += _safe_export(
             [tp] + extra,
             os.path.join(OUT_DIR, "tree_{0}_{1}.usd".format(sp, lv)),
-            (X, Y, 0.0), dict(kind="tree", species=sp, level=lv))
-    bake.write_manifest(os.path.join(OUT_DIR, "archetypes.json"), records)
+            (X, Y, 0.0), dict(kind="tree", species=sp, level=lv),
+            drop=True)
+    man_path = os.path.join(OUT_DIR, "archetypes.json")
+    merged = merge_manifest(man_path, records, KINDS)
+    bake.write_manifest(man_path, merged)
     dt = time.time() - t_build0
-    nh = sum(1 for r in records if r["kind"] == "house")
-    nt = sum(1 for r in records if r["kind"] == "tree")
+    nh = sum(1 for r in merged if r["kind"] == "house")
+    nt = sum(1 for r in merged if r["kind"] == "tree")
     sz = sum(os.path.getsize(r["usd"]) for r in records
              if os.path.exists(r["usd"])) / 1e6
+    nm = sum(r["meshes"] for r in records)
 
     print("\n" + "=" * 72)
-    print("ARCHETYPE BAKE")
-    print("  {0} house + {1} tree archetypes -> {2}".format(nh, nt, OUT_DIR))
-    print("  {0:.0f} MB, built+baked in {1:.0f} s, {2} unresolved material(s)"
-          .format(sz, dt, miss))
+    print("ARCHETYPE BAKE  (kinds: {0})".format(",".join(sorted(KINDS))))
+    print("  manifest: {0} house + {1} tree archetypes -> {2}"
+          .format(nh, nt, OUT_DIR))
+    print("  this run: {0} archetype(s), {1} mesh(es), {2:.0f} MB, "
+          "{3:.0f} s, {4} unresolved material(s)"
+          .format(len(records), nm, sz, dt, miss))
     print("=" * 72 + "\n")
 
     app = omni.kit.app.get_app()

@@ -14,7 +14,12 @@ def generate_launch_description():
     )
     return LaunchDescription([
         ExecuteProcess(
-            cmd=['ddsrouter', '-c', config],
+            # Tee to /tmp/ddsrouter_gcs_gossip.log so mission log collection grabs
+            # the GCS gossip router's discovery/liveliness logs.
+            cmd=['bash', '-c',
+                 f"stdbuf -oL -eL ddsrouter -c '{config}' "
+                 f"--log-filter 'DDSROUTER|DDSPIPE|FASTDDS' "
+                 f"2>&1 | tee -a /tmp/ddsrouter_gcs_gossip.log"],
             env={
                 **os.environ,
                 # ddsrouter runtime libs are installed under /usr/local/lib.

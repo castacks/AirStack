@@ -30,7 +30,6 @@ from builtin_interfaces.msg import Duration
 from coordination_msgs.msg import PeerProfile as PeerProfileMsg
 from coordination_bringup.peer_profile import PeerProfile
 from visualization_msgs.msg import Marker
-from std_msgs.msg import ColorRGBA
 from geometry_msgs.msg import Point as GPoint
 import json
 
@@ -45,6 +44,8 @@ _GOSSIP_ORIGIN_ALT = 90.0
 
 _GOSSIP_SEEN_SIZE = 50
 
+# Must match gossip_node GOSSIP_QOS (BEST_EFFORT/VOLATILE — gossip is
+# lossy-by-design; markers persist via lifetime=0, not reliable delivery).
 GOSSIP_QOS = QoSProfile(
     reliability=ReliabilityPolicy.BEST_EFFORT,
     durability=DurabilityPolicy.VOLATILE,
@@ -70,10 +71,11 @@ class PayloadVisualizerNode(Node):
         self._last_stamp    = {}
         self._alt_ground    = None
         self._payload_cache = {}
+        self._coverage_cells = {}   # robot → accumulated explored-area cell set
         self._pubs          = {}
         self._seen: OrderedDict = OrderedDict()
 
-        # Side length of each observed-cell cube in /completed_zones.
+        # Side length of each observed-cell cube in /explored_area_coverage.
         # Keep in sync with raven_nav_node's coverage_cell_size_m.
         self.declare_parameter('completed_cell_size_m', 0.5)
         self._completed_cell_size_m = float(
@@ -169,11 +171,115 @@ class PayloadVisualizerNode(Node):
             m.lifetime = Duration(sec=2, nanosec=0)
         self._pub_for(f'/gcs/payload/{robot_name}/filtered_rays', MarkerArray).publish(out_ma)
 
+    # state -> RGB for the auction-table overlay.
+    _AUCTION_COLOR = {
+        'ray': (1.0, 0.55, 0.0),
+        'bb-observing': (0.1, 0.7, 1.0), 'bb-visited': (0.5, 0.5, 0.5)}
+
+    def _handle_auction_table(self, robot_name, msg, i, now):
+        """Build the combined consensus-table overlay from raven's JSON auction
+        table (global ENU = GCS 'map'): a box/sphere per available target colored
+        by state with an assigned-robot label. Visited BBs are drawn dim."""
+        try:
+            data = json.loads(msg.data) if msg.data else {}
+        except (ValueError, AttributeError):
+            return
+        out = MarkerArray()
+        clear = Marker()
+        clear.header.frame_id = 'map'
+        clear.ns = f'{robot_name}_auction'
+        clear.action = Marker.DELETEALL
+        out.markers.append(clear)
+        mid = i * 100000
+
+        def _box(it, rgb, alpha, is_bb, suffix):
+            nonlocal mid
+            try:
+                x, y, z = float(it['x']), float(it['y']), float(it.get('z', 0.0))
+            except (KeyError, TypeError, ValueError):
+                return
+            sx = float(it.get('sx', 0.0)) or 3.0
+            sy = float(it.get('sy', 0.0)) or 3.0
+            sz = float(it.get('sz', 0.0)) or 3.0
+            m = Marker()
+            m.header.frame_id = 'map'
+            m.header.stamp = now
+            m.ns = f'{robot_name}_auction_{suffix}'
+            m.id = mid
+            m.action = Marker.ADD
+            m.color.r, m.color.g, m.color.b, m.color.a = (*rgb, alpha)
+            m.lifetime = Duration(sec=0, nanosec=0)
+            if (not is_bb) and 'dx' in it:
+                # Lone ray-lead: same fixed length as the filtered_rays arrows
+                # (2 m) so the auction shows the filtered rays as-is. Shorten a
+                # downward arrow so its tip stays above ground (no underground rays).
+                L = 2.0
+                dz = float(it['dz'])
+                if dz < -1e-3:
+                    L = min(L, max(z - 0.3, 0.0) / (-dz))
+                m.type = Marker.ARROW
+                m.points = [
+                    GPoint(x=x, y=y, z=z),
+                    GPoint(x=x + float(it['dx']) * L, y=y + float(it['dy']) * L,
+                           z=z + dz * L)]
+                m.scale.x, m.scale.y, m.scale.z = 0.4, 1.0, 0.0
+                m.color.a = max(alpha, 0.8)
+            else:
+                m.type = Marker.CUBE if is_bb else Marker.SPHERE
+                m.pose.position.x, m.pose.position.y, m.pose.position.z = x, y, z
+                m.pose.orientation.w = 1.0
+                m.scale.x, m.scale.y, m.scale.z = (
+                    max(sx, 1.0), max(sy, 1.0), max(sz, 1.0))
+            out.markers.append(m)
+            mid += 1
+            txt = Marker()
+            txt.header.frame_id = 'map'
+            txt.header.stamp = now
+            txt.ns = f'{robot_name}_auction_labels'
+            txt.id = mid
+            txt.type = Marker.TEXT_VIEW_FACING
+            txt.action = Marker.ADD
+            txt.pose.position.x, txt.pose.position.y = x, y
+            txt.pose.position.z = z + max(sz, 1.0) / 2.0 + 1.2
+            txt.pose.orientation.w = 1.0
+            txt.scale.z = 1.2
+            txt.color.r, txt.color.g, txt.color.b, txt.color.a = (*rgb, 1.0)
+            aid = it.get('assigned')
+            lab = str(it.get('label', '?'))
+            st = str(it.get('status', ''))
+            # Rays: just the query. BBs: query + [observing]/[visited] (no 'bb-').
+            tag = f' [{st[3:]}]' if st.startswith('bb-') else ''
+            who = f' -> r{aid}' if aid is not None else ''
+            sl = it.get('slot')
+            if aid is not None and sl is not None and _bundle_count.get(aid, 0) >= 2:
+                who += f' [{sl + 1}]'   # position in this robot's bundle (1 = head)
+            txt.text = f'{lab}{tag}{who}'
+            txt.lifetime = Duration(sec=0, nanosec=0)
+            out.markers.append(txt)
+            mid += 1
+
+        # Bundle position [1..N] is shown in each target's label (below); only a
+        # real bundle (>=2 tasks for one robot) gets the suffix.
+        _bundle_count = {}
+        for it in data.get('available', []):
+            aid = it.get('assigned')
+            if aid is not None:
+                _bundle_count[aid] = _bundle_count.get(aid, 0) + 1
+        for it in data.get('available', []):
+            st = str(it.get('status', 'ray'))
+            _box(it, self._AUCTION_COLOR.get(st, (1.0, 1.0, 1.0)), 0.45,
+                 st.startswith('bb'), 'available')
+        for it in data.get('visited_bbs', []):
+            _box({**it, 'status': 'bb-visited'}, (0.4, 0.4, 0.4), 0.18,
+                 True, 'visited')
+        self._pub_for(
+            f'/gcs/payload/{robot_name}/auction_table', MarkerArray).publish(out)
+
     def _handle_raw_frontiers(self, robot_name, msg, i, now):
         color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
         marker = point_cloud2_to_cube_marker(
             msg, 0.0, 0.0, self._display_z_offset(),
-            ns=f'{robot_name}_raw_frontiers',
+            ns=f'{robot_name}_shared_frontiers',
             marker_id=i * 100000,
             stamp=now,
             lifetime=Duration(sec=2, nanosec=0),
@@ -186,7 +292,7 @@ class PayloadVisualizerNode(Node):
         marker.colors = []
         out = MarkerArray()
         out.markers.append(marker)
-        self._pub_for(f'/gcs/payload/{robot_name}/raw_frontiers', MarkerArray).publish(out)
+        self._pub_for(f'/gcs/payload/{robot_name}/shared_frontiers', MarkerArray).publish(out)
 
     def _handle_navigation_mode(self, robot_name, msg, i, now):
         # Pure passthrough — no spatial transform needed for a String.
@@ -200,7 +306,7 @@ class PayloadVisualizerNode(Node):
         color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
         marker = point_cloud2_to_cube_marker(
             msg, 0.0, 0.0, self._display_z_offset(),
-            ns=f'{robot_name}_kept_frontiers',
+            ns=f'{robot_name}_filtered_frontiers',
             marker_id=i * 100000 + 200,
             stamp=now,
             lifetime=Duration(sec=2, nanosec=0),
@@ -214,25 +320,28 @@ class PayloadVisualizerNode(Node):
         out = MarkerArray()
         out.markers.append(marker)
         self._pub_for(
-            f'/gcs/payload/{robot_name}/kept_frontiers', MarkerArray).publish(out)
+            f'/gcs/payload/{robot_name}/filtered_frontiers', MarkerArray).publish(out)
 
     def _handle_completed_zones(self, robot_name, msg, i, now):
-        """Observed-cell grid gossiped by raven_nav (one (x,y) per cell).
-        Renders as a single TRIANGLE_LIST marker — two triangles per cell
-        form a flat square lying on the ground (z=0.05). One marker for N
-        cells, so render cost stays linear and Foxglove only has one entry
-        to toggle per robot."""
-        from sensor_msgs_py import point_cloud2 as pc2
-        color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
-        try:
-            pts = list(pc2.read_points(msg, field_names=('x', 'y'),
-                                       skip_nans=True))
-        except Exception:
+        """Explored-area coverage bitmask → one TRIANGLE_LIST marker."""
+        import numpy as np
+        if msg.width == 0 or msg.height == 0:
             return
+        sig = (msg.width, msg.height, bytes(msg.data))
+        if self._coverage_cells.get(robot_name) == sig:
+            return
+        self._coverage_cells[robot_name] = sig
+        bits = np.unpackbits(np.frombuffer(bytes(msg.data), dtype=np.uint8))
+        occ = bits[:msg.width * msg.height].reshape(msg.height, msg.width)
+        jj, ii = np.nonzero(occ)
+        res = float(msg.resolution)
+        xs = (msg.origin_x + (ii + 0.5) * res).tolist()
+        ys = (msg.origin_y + (jj + 0.5) * res).tolist()
+        color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
         m = Marker()
         m.header.frame_id = 'map'
         m.header.stamp = now
-        m.ns = f'{robot_name}_completed_zones'
+        m.ns = f'{robot_name}_explored_area_coverage'
         m.id = i * 100000
         m.type = Marker.TRIANGLE_LIST
         m.action = Marker.ADD
@@ -244,13 +353,10 @@ class PayloadVisualizerNode(Node):
         m.color.g = color[1]
         m.color.b = color[2]
         m.color.a = 0.45
-        m.lifetime = Duration(sec=3, nanosec=0)
-        half = 0.5 * self._completed_cell_size_m
+        m.lifetime = Duration(sec=0, nanosec=0)
+        half = 0.5 * res
         z = 0.05
-        for p in pts:
-            cx = float(p[0])
-            cy = float(p[1])
-            # Two triangles forming the cell's flat square (CCW from above).
+        for cx, cy in zip(xs, ys):
             v00 = GPoint(x=cx - half, y=cy - half, z=z)
             v10 = GPoint(x=cx + half, y=cy - half, z=z)
             v11 = GPoint(x=cx + half, y=cy + half, z=z)
@@ -259,7 +365,7 @@ class PayloadVisualizerNode(Node):
         out = MarkerArray()
         out.markers.append(m)
         self._pub_for(
-            f'/gcs/payload/{robot_name}/completed_zones', MarkerArray).publish(out)
+            f'/gcs/payload/{robot_name}/explored_area_coverage', MarkerArray).publish(out)
 
     def _handle_confirmed_targets(self, robot_name, msg, i, now):
         """JSON-encoded list of confirmed-target AABBs from raven_nav. Each
@@ -267,13 +373,8 @@ class PayloadVisualizerNode(Node):
         spatial extent of every found house/tower/etc. Status drives color:
         green=visited, yellow=observing, gray=other.
 
-        Z note: gossip passes String payloads through untransformed (see
-        gossip_node._transform_to_global — only PointCloud2 and MarkerArray
-        get rewritten to global ENU). So the JSON's cx,cy,cz are still in
-        the sender's local 'map' frame, where z=0 is the drone's odom
-        origin (≈ ground). The GCS display map shares that z=0 ground
-        reference, so we use cz directly — adding _display_z_offset would
-        sink the boxes below ground when terrain MSL > 90 m (Lisbon, etc).
+        Frame: raven gossips these in global ENU (= GCS 'map'); z is AGL
+        (z=0 ≈ ground), so cx,cy,cz are used directly.
         """
         try:
             items = json.loads(msg.data) if msg.data else []
@@ -282,6 +383,12 @@ class PayloadVisualizerNode(Node):
         if not isinstance(items, list):
             return
         out = MarkerArray()
+        # lifetime=0 persists markers, so clear stale ones each publish in case
+        # the target list shrinks or re-orders.
+        clear = Marker()
+        clear.header.frame_id = 'map'
+        clear.action = Marker.DELETEALL
+        out.markers.append(clear)
         for j, it in enumerate(items):
             try:
                 cx = float(it.get('cx', 0.0))
@@ -319,7 +426,7 @@ class PayloadVisualizerNode(Node):
             box.color.g = rgb[1]
             box.color.b = rgb[2]
             box.color.a = 0.25
-            box.lifetime = Duration(sec=3, nanosec=0)
+            box.lifetime = Duration(sec=0, nanosec=0)
             out.markers.append(box)
             # Label above the box.
             txt = Marker()
@@ -339,152 +446,46 @@ class PayloadVisualizerNode(Node):
             txt.color.b = 1.0
             txt.color.a = 1.0
             txt.text = f'{label} [{status or "?"}]'
-            txt.lifetime = Duration(sec=3, nanosec=0)
+            txt.lifetime = Duration(sec=0, nanosec=0)
             out.markers.append(txt)
         self._pub_for(
             f'/gcs/payload/{robot_name}/confirmed_targets', MarkerArray).publish(out)
 
     def _handle_rgb_voxels(self, robot_name, msg, i, now):
-        size = 0.5
+        # Keep rayfronts' native per-voxel RGB (the semantic map) — do NOT recolor
+        # per robot. Visualization only; raven_nav never consumes this.
         cubes = point_cloud2_to_cube_marker(
             msg, 0.0, 0.0, self._display_z_offset(),
             ns=f'{robot_name}_voxel_rgb',
             marker_id=i * 100000,
             stamp=now,
             lifetime=Duration(sec=2, nanosec=0),
-            scale=size,
+            scale=0.5,
         )
         out = MarkerArray()
         if cubes is not None:
             out.markers.append(cubes)
-            color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
-            edges = self._build_cube_edges(
-                cubes.points, size,
-                ns=f'{robot_name}_voxel_rgb_edges',
-                marker_id=i * 100000 + 1,
-                stamp=now,
-                color=color,
-                lifetime=Duration(sec=2, nanosec=0),
-            )
-            out.markers.append(edges)
         self._pub_for(f'/gcs/payload/{robot_name}/voxel_rgb', MarkerArray).publish(out)
 
-    @staticmethod
-    def _build_cube_edges(centers, size, ns, marker_id, stamp, color, lifetime):
-        from geometry_msgs.msg import Point as GPoint
-        from std_msgs.msg import ColorRGBA
-        h = size / 2.0 * 1.03
-        corners = [
-            (-h, -h, -h), ( h, -h, -h), ( h,  h, -h), (-h,  h, -h),
-            (-h, -h,  h), ( h, -h,  h), ( h,  h,  h), (-h,  h,  h),
-        ]
-        edge_idx = [
-            (0, 1), (1, 2), (2, 3), (3, 0),
-            (4, 5), (5, 6), (6, 7), (7, 4),
-            (0, 4), (1, 5), (2, 6), (3, 7),
-        ]
-        m = Marker()
-        m.header.frame_id = 'map'
-        m.header.stamp = stamp
-        m.ns = ns
-        m.id = marker_id
-        m.type = Marker.LINE_LIST
-        m.action = Marker.ADD
-        m.pose.orientation.w = 1.0
-        m.scale.x = 0.04
-        m.color.r = color[0]
-        m.color.g = color[1]
-        m.color.b = color[2]
-        m.color.a = 1.0
-        m.lifetime = lifetime
-        pts = []
-        for c in centers:
-            cx, cy, cz = c.x, c.y, c.z
-            for a, b in edge_idx:
-                ax, ay, az = corners[a]
-                bx, by, bz = corners[b]
-                pts.append(GPoint(x=cx + ax, y=cy + ay, z=cz + az))
-                pts.append(GPoint(x=cx + bx, y=cy + by, z=cz + bz))
-        m.points = pts
-        return m
-
-    # DWN → ENU: rotate 90° clockwise about Y, then 90° clockwise about Z.
-    # R = Rz(-90°) @ Ry(-90°)  →  (x, y, z) → (y, z, x)
-    _RAYS_DWN_TO_ENU = (
-        (0.0, 0.0, 1.0),
-        (1.0, 0.0, 0.0),
-        (0.0, 1.0, 0.0),
-    )
-
-    def _handle_rays_sim_all(self, robot_name, msg, i, now):
-        """All rayfronts rays as a LINE_LIST. The cloud arrives in the rayfronts
-        global DWN frame; a single rotation matrix maps both ray origins and
-        directions into ENU for display."""
-        import math
-        from sensor_msgs_py import point_cloud2 as pc2
-
-        bz = self._display_z_offset()
-        arrow_len = 2.0
-        color = ROBOT_COLORS[i % len(ROBOT_COLORS)]
-        R = self._RAYS_DWN_TO_ENU
-
-        try:
-            pts = list(pc2.read_points(msg, field_names=('x', 'y', 'z', 'theta', 'phi'),
-                                       skip_nans=True))
-        except Exception:
-            return
-        if not pts:
-            return
-
-        m = Marker()
-        m.header.frame_id = 'map'
-        m.header.stamp = now
-        m.ns = f'{robot_name}_rays_sim_all'
-        m.id = i * 100000
-        m.type = Marker.LINE_LIST
-        m.action = Marker.ADD
-        m.pose.orientation.w = 1.0
-        m.scale.x = 0.08
-        m.color.r = color[0]
-        m.color.g = color[1]
-        m.color.b = color[2]
-        m.color.a = 0.5
-        m.lifetime = Duration(sec=2, nanosec=0)
-
-        def rot(v):
-            return (R[0][0] * v[0] + R[0][1] * v[1] + R[0][2] * v[2],
-                    R[1][0] * v[0] + R[1][1] * v[1] + R[1][2] * v[2],
-                    R[2][0] * v[0] + R[2][1] * v[1] + R[2][2] * v[2])
-
-        for p in pts:
-            px, py, pz = rot((float(p[0]), float(p[1]), float(p[2])))
-            theta = math.radians(float(p[3]))
-            phi = math.radians(float(p[4]))
-            # Direction from spherical angles in the source frame, then the
-            # same rotation as the origins (theta=azimuth, phi=polar from Z —
-            # matches raven_nav's decode of this cloud).
-            d = (math.cos(theta) * math.sin(phi),
-                 math.sin(theta) * math.sin(phi),
-                 math.cos(phi))
-            dx, dy, dz = rot(d)
-            m.points.append(GPoint(x=px, y=py, z=pz + bz))
-            m.points.append(GPoint(x=px + arrow_len * dx,
-                                   y=py + arrow_len * dy,
-                                   z=pz + bz + arrow_len * dz))
-
-        out = MarkerArray()
-        out.markers.append(m)
-        self._pub_for(f'/gcs/payload/{robot_name}/rays_sim_all', MarkerArray).publish(out)
+    def _handle_voxels_sim(self, robot_name, msg, i, now):
+        # rayfronts per-query semantic voxel cloud (x,y,z + sim_0..N), already in
+        # global ENU from gossip. Republished as-is (plus the display z-offset) so
+        # Foxglove can colour voxels by any sim_K field (sim_0 = first query).
+        # DEBUG visualization only; raven_nav never consumes this.
+        out = transform_point_cloud2(msg, 0.0, 0.0, self._display_z_offset())
+        out.header.stamp = now
+        self._pub_for(f'/gcs/payload/{robot_name}/voxels_sim', PointCloud2).publish(out)
 
     PAYLOAD_HANDLERS = {
         'filtered_rays':              ('visualization_msgs/msg/MarkerArray', _handle_filtered_rays),
-        'raw_frontiers':              ('sensor_msgs/msg/PointCloud2',        _handle_raw_frontiers),
-        'kept_frontiers':             ('sensor_msgs/msg/PointCloud2',        _handle_kept_frontiers),
-        'completed_frontier_zones':   ('sensor_msgs/msg/PointCloud2',        _handle_completed_zones),
+        'shared_frontiers':           ('sensor_msgs/msg/PointCloud2',        _handle_raw_frontiers),
+        'filtered_frontiers':         ('sensor_msgs/msg/PointCloud2',        _handle_kept_frontiers),
+        'explored_area_coverage':       ('coordination_msgs/msg/CoverageGrid', _handle_completed_zones),
         'voxel_rgb':                  ('sensor_msgs/msg/PointCloud2',        _handle_rgb_voxels),
+        'voxels_sim':                 ('sensor_msgs/msg/PointCloud2',        _handle_voxels_sim),
         'navigation_mode':            ('std_msgs/msg/String',                _handle_navigation_mode),
         'confirmed_targets':          ('std_msgs/msg/String',                _handle_confirmed_targets),
-        'all':                        ('sensor_msgs/msg/PointCloud2',        _handle_rays_sim_all),
+        'auction_table':              ('std_msgs/msg/String',                _handle_auction_table),
     }
 
 
