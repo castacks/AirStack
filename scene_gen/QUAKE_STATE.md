@@ -51,13 +51,22 @@ not yet re-measured), still-moving 0, settle 8 s sim / 14.6 s phase. Findability
 (`findability.py --config urban_quake_tiny --seeds 1,2,3`): PASS, 12/12 clear.
 
 **Open after this pass, in priority order:**
-0. **THE BAKE'S SETTLE DID NOT SETTLE — fix in tree, UNVALIDATED until the next re-bake.**
+0. **THE BAKE'S SETTLE DID NOT SETTLE — fix LANDED (599c2573), UNVALIDATED.**
    `archetypes/bake.py` now builds, settles, exports and UNLOADS one cell at a time
    (`_settle_cell` / `_export_cell` / `_unload`, `SETTLE_STEPS` 420 -> 900 as a ceiling with
-   `settle.run`'s early exit) and `write_manifest` MERGES (`library.merge_manifest`). Needs
-   one `bake_cli --config urban_quake_tiny --used-only` in the container to confirm: expect
-   no Vulkan OOM, `[settle] drop median` clearly negative per cell, and pancaked archetypes
-   that are piles. The measured failure it replaces: `bake_cli --config urban_quake_tiny --used-only`
+   `settle.run`'s early exit); a cell is exported ONLY if its settle converged (0 still
+   moving, 0 through the floor at the fragment centroid) — otherwise `[stage-a] REJECTED`
+   and Stage B falls back down the ladder; the stats land in each manifest record under
+   `settle`; `write_manifest` MERGES (`library.merge_manifest`); and a settled wreck's
+   fragments export MERGED into one static mesh per material with a trimesh collider
+   (`disaster/bake.export_object`, `merge_fragments=True`). Nothing of this has run in Kit
+   yet. The validating run is ONE `bake_cli --config urban_quake_tiny --used-only` in the
+   isaac-sim container (~25 min); it should show: no `Out of GPU memory` in the Kit log,
+   per-cell `[settle] drop median` clearly negative (metres, not centimetres), 0 REJECTED
+   lines for the structure cells, `"converged": true` in `manifest.json`, and pancaked /
+   partial_collapse archetypes that render as PILES in `SNAP_DIR=` review captures. If
+   cells are rejected, the gate is doing its job — the fix is then in the settle, not in
+   the gate. The measured failure it replaces: `bake_cli --config urban_quake_tiny --used-only`
    (2026-08-25): 16 cells resident on one stage, GPU out of memory from cell 6 onward
    (26,888 Vulkan OOM errors), then ONE settle over 5,064 bodies: 975 s, 4825 still moving
    at 420/420 steps, drop median -0.02 m, spread max 179 m. Nothing fell, so every baked
