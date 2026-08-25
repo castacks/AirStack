@@ -6,6 +6,11 @@ This page describes what the node visualizes today, the topic naming convention,
 
 ![Full GCS Foxglove view — overhead-textured 3D panel on top, Robot Tasks panel and per-robot camera + depth feeds along the bottom](foxglove_full_screen.png)
 
+<video controls muted loop playsinline preload="metadata" style="max-width: 100%;">
+  <source src="../../assets/media/foxglove_demo.mp4" type="video/mp4">
+</video>
+*Foxglove during a live 3-robot Isaac Sim run: the 3D panel draws each drone's trajectory (Circle / Figure-8 `FixedTrajectoryTask` patterns) while the per-robot tabs show Robot Tasks and live camera + depth feeds.*
+
 ## Connecting to Foxglove and loading the custom layout
 
 **The `NUM_ROBOTS`-matched layout loads automatically — no manual import.** On every GCS container startup, `gcs/foxglove_extensions/render_layout.py` renders an `<N>`-robot layout from the single-robot template (`gcs/foxglove_extensions/airstack_default.json`) and seeds it straight into the Foxglove desktop app's local layout store (`/root/.config/Foxglove/studio-datastores/layouts-local/airstack_default_<N>_robots` — bind-mounted from `gcs/docker/Foxglove`, so it persists across container restarts). `gcs.launch.xml` then opens Foxglove with a deep link that both connects to `ws://localhost:8765` and selects that layout by id, so the app comes up showing **AirStack default (`<N>` robots)** immediately.

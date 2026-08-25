@@ -351,6 +351,29 @@ out-of-trunk modules:
   cross-checked against `NUM_ROBOTS` after the handshake; the emulator is
   installed as a Kit extension so launch scripts can import it
 
+### Landing page & simulation camera/lighting (alpha.13)
+
+- **Docs landing page redesigned** around four demonstrated pillars
+  (one-command bring-up, sim-to-vehicle code parity, full-stack CI, agent
+  readiness): real quickstart commands with copy buttons, the actual
+  `airstack ready` checklist, a live test-mark matrix, and a fresh
+  autoplay hero video (Isaac full-warehouse and office, Foxglove's live
+  3-robot trajectory traces, MS AirSim neighborhood and ZhangJiajie) —
+  40 s / 5.4 MB, replacing the 37 MB splash GIF. Per-simulator and Foxglove
+  clips are embedded in their docs sections, and the architecture image is
+  now an unedited full-system desktop capture (sim + GCS + CLI, live).
+- **Isaac launch scripts grew camera/spawn/lighting env knobs**
+  (`pegasus_app.py`, plumbed through the isaac-sim compose service):
+  `ISAAC_SIM_FOLLOW_CAM` / `_OFFSET` — a smoothed viewport chase camera
+  tracking a drone via live Pegasus vehicle state (also fixes the black
+  viewport at spawn on cm-authored stages; on by default, `off` disables);
+  `ISAAC_SIM_SPAWN_XY` — recenter the spawn row away from a cluttered scene
+  origin; `ISAAC_SIM_LIGHT_BOOST` — multiply the scene's own lights
+  (de-instances light-bearing subtrees first, so e.g. the NVIDIA office's
+  121 instanceable ceiling lights become editable);
+  `ISAAC_SIM_FOLLOW_CAM_LIGHT` — headlight riding the follow camera;
+  `ISAAC_SIM_DOME_LIGHT` — dome-light intensity/exposure override.
+
 ## 0.19.0 — 2026-08-22
 
 The launch-workflow and CI-infrastructure release preceding the modular

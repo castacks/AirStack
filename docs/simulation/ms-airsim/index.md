@@ -2,6 +2,11 @@
 
 [Microsoft AirSim (legacy)](https://microsoft.github.io/AirSim/) is an open-source simulator for drones built on Unreal Engine, with built-in PX4 SITL integration.
 
+<video controls muted loop playsinline preload="metadata" style="max-width: 100%;">
+  <source src="../../assets/media/ms_airsim_demo.mp4" type="video/mp4">
+</video>
+*The AirStack autonomy stack flying `TakeoffTask` + `FixedTrajectoryTask` patterns in the AirSimNH neighborhood scene (`airstack up --sim airsim --robots 2 --scene neighborhood`).*
+
 ## Overview
 
 Microsoft AirSim (legacy) provides an alternative simulation backend for AirStack, offering:
