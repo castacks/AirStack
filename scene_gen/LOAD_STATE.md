@@ -176,8 +176,16 @@ fractured live, and anything past the cap keeps the tilt-and-sink stand-in — a
 intact model rotated and sunk, not damaged geometry. Capped live is minutes and
 mostly stand-ins; uncapped live is correct and tens of minutes.
 
-**All of the above is arithmetic on two measurements. Measure it before acting:**
-`urban_quake_showcase` live vs baked, cold and warm, four rows.
+**Decided 2026-08-25 (orchestrator), on this projection plus Mission 1's
+independent 62 s/building: no live-path fallback.** `airstack up` stays on the
+baked library — with its known frozen mid-air shards — until the per-cell bake
+fix is validated. Correct-but-unloadable is not better than known-bad.
+
+So this is deliberately NOT measured in full: confirming a 10-20 minute number
+that two independent estimates agree on would spend container time to learn
+nothing. What gets measured is `urban_quake_showcase` **baked**, cold and warm,
+plus **one** live row at `max_buildings: 2` so the per-building cost is on the
+board for the next person who asks.
 
 ## Open, in priority order
 
@@ -187,8 +195,8 @@ mostly stand-ins; uncapped live is correct and tens of minutes.
 2. A/B the shader-cache mount: two cold starts in a row.
 3. Re-baseline `urban_quake_tiny` post-archetype-fix (`bfb42c7e`) — the PRE-FIX
    rows measured a scene whose two wrecked buildings composed empty.
-4. `urban_quake_showcase` live vs baked, cold and warm — see the projection
-   above. Decides whether `airstack up` can fall back to the live path.
+4. `urban_quake_showcase` baked, cold and warm, plus one live row at
+   `max_buildings: 2` — see the projection above for why not the full matrix.
 5. Scaling curve: `urban_quake_showcase`, then a large map, to see how
    generate / damage / renderer-warmup scale before committing to the cache.
 6. `urban_quake_large` does not exist yet and has to be agreed with Mission 1,
