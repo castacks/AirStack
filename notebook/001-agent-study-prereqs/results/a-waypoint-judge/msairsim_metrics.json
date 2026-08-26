@@ -1,0 +1,80 @@
+{
+  "system/test_waypoint_flight.TestWaypointFlight.test_px4_ready[msairsim-rob#1-iter0]": {
+    "airstack_up_duration_s": {
+      "value": 0.56,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.ready_duration_sys_s": {
+      "value": 14.57,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "airstack_down_duration_s": {
+      "value": 10.8,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_waypoint_flight.TestWaypointFlight.test_takeoff[msairsim-rob#1-iter0]": {
+    "robot_1.altitude_error_m": {
+      "value": -0.047,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.overshoot_m": {
+      "value": 0.008,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.takeoff_duration_sim_s": {
+      "value": 9.765,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_waypoint_flight.TestWaypointFlight.test_waypoint_route[msairsim-rob#1-iter0]": {
+    "robot_1.navigate_action_success": {
+      "value": 1.0,
+      "unit": "",
+      "direction": "higher_is_better"
+    },
+    "robot_1.waypoint_success": {
+      "value": 1.0,
+      "unit": "",
+      "direction": "higher_is_better"
+    },
+    "robot_1.waypoints_reached": {
+      "value": 3.0,
+      "unit": "",
+      "direction": "higher_is_better"
+    },
+    "robot_1.route_time_sim_s": {
+      "value": 88.883,
+      "unit": "s",
+      "direction": "lower_is_better"
+    },
+    "robot_1.worst_closest_approach_m": {
+      "value": 5.929,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.final_goal_error_m": {
+      "value": 0.888,
+      "unit": "m",
+      "direction": "lower_is_better"
+    }
+  },
+  "system/test_waypoint_flight.TestWaypointFlight.test_landing[msairsim-rob#1-iter0]": {
+    "robot_1.final_altitude_m": {
+      "value": -0.149,
+      "unit": "m",
+      "direction": "lower_is_better"
+    },
+    "robot_1.land_duration_sim_s": {
+      "value": 14.46,
+      "unit": "s",
+      "direction": "lower_is_better"
+    }
+  }
+}

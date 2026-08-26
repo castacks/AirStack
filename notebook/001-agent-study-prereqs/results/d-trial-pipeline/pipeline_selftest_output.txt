@@ -1,0 +1,4 @@
+CAP_OK: refusal exit=75 distinct from failure; open-loop message; ordered judge_log
+REPEATABILITY_OK: invariant fields + ablation manifests identical across independent trials
+config_sha256: a163b9f0068f2649c88c210c32439f2621a888b9683bd4869c3581b1811ed452
+prompt_sha256: 00964c0572cc3b585ff5b9cb635a14669f0c614e91194640a7176d89ed7ba7dc

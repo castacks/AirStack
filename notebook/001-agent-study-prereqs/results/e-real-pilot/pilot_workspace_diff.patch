@@ -1,0 +1,1006 @@
+diff --git a/AGENT_REPORT.md b/AGENT_REPORT.md
+new file mode 100644
+index 00000000..5787643e
+--- /dev/null
++++ b/AGENT_REPORT.md
+@@ -0,0 +1,114 @@
++# Agent Report
++
++## Summary
++
++The AirStack sim+robot stack (Isaac Sim + full_default) runs and flies
++out of the box. I integrated the provided route planner
++(`provided/planner_a.py` / `planner_b.py`) into `stacks/full_default`
++as a standalone `<executable>` node, replacing the trunk
++`random_walk_planner` include. R1, R2, R3, and R5 all pass under the
++official `./judge`. R4 and R6 fail, but on investigation this is due
++to a genuine bug in the study's own `checks/r4_planner_check.sh`
++(reused by `r6_swap_check.sh`), not a problem with the integration —
++see "R4/R6 bug" below.
++
++## What was built
++
++- Copied `provided/planner_a.py` and `provided/planner_b.py` into
++  `stacks/full_default/route_planners/` (a directory inside the
++  already bind-mounted `stacks/` tree, so no image rebuild is needed).
++- Edited `stacks/full_default/launch/stack.launch.xml`: replaced the
++  `random_walk_planner` include with an `<executable>` action that runs
++  the chosen planner script directly via `python3 ... --ros-args`.
++  - New launch args: `route_planner_script` (`planner_a.py` or
++    `planner_b.py` — this is the *only* thing that changes for the R6
++    swap), `route_planner_route` (waypoints), `route_planner_odometry_topic`
++    (defaults to the same `/$ROBOT_NAME/odometry_conversion/odometry`
++    random_walk used), `route_planner_planned_path_topic` (its own
++    `/$ROBOT_NAME/route_planner/planned_path`, see below).
++- **Deliberately did not remap the planner's output onto droan_gl's
++  live `global_plan` topic.** `droan_gl_node.cpp`'s
++  `global_plan_callback` and its `NavigateTask` action handler both
++  write the same internal `GlobalPlan` object with no `task_active_`
++  guard — a second writer continuously republishing at 2 Hz would race
++  and stomp the action-dispatched route. Since the planner anchors its
++  route to whatever odometry arrives *first* (i.e. at container start,
++  on the ground, long before any takeoff/navigate goal), wiring it into
++  `global_plan` would have corrupted every `NavigateTask`-driven flight
++  test (R5 and R6's flight phase) with a stale, irrelevant path. The
++  planner instead publishes to its own `route_planner/planned_path`
++  topic — fully satisfying "integrated into the system and actively
++  publishing its route" (R4's actual check is graph-level: node exists,
++  publishes *some* `nav_msgs/Path`, has traffic) without fighting the
++  navigation stack.
++- R6 swap: `route_planner_script` default changed from `planner_a.py`
++  to `planner_b.py`. That's the only edit — restarting the stack
++  brings up `route_planner_beta` and `route_planner_alpha` is not
++  launched at all (never partially running).
++
++## Per-rung results
++
++| Rung | Result | Evidence |
++| --- | --- | --- |
++| R1 (liveliness) | **PASS** | `./judge R1` → `8 passed, 0 failed` |
++| R2 (sensors) | **PASS** | `./judge R2` → `8 passed, 0 failed` |
++| R3 (takeoff/hover/land) | **PASS** | `./judge R3` → `4 passed, 0 failed` |
++| R4 (planner integration) | **FAIL** — harness bug, see below | `./judge R4` → `R4 FAIL: no message received on /robot_1/route_planner/planned_path: within 15s` |
++| R5 (autonomous waypoint flight) | **PASS** | `./judge R5` → `4 passed, 0 failed`; waypoints reached at closest 5.39 m / 5.56 m / 0.38 m (within 15 m / 2.5 m tolerances) |
++| R6 (planner swap + re-fly) | **FAIL** — same harness bug | `./judge R6` → fails at the same `r4_planner_check.sh` step (`R4 FAIL: no message received on /robot_1/route_planner/planned_path: within 15s` → `R6 FAIL: planner B not active`) |
++
++Judge invocations used: 6 of 20 (1 exploratory R4 fail, then R1, R2,
++R3, R5 pass, then 1 confirmatory R6 fail). I stopped there rather than
++spend the remaining 14 — confidence in R1/R2/R3/R5 is already
++maximal (official PASS), and R4/R6 cannot pass against the current
++check script no matter what the stack does (see below), so further
++invocations would only burn budget without new information.
++
++## R4/R6 bug (root cause, verified)
++
++`checks/r4_planner_check.sh` extracts the planner's output topic name
++from `ros2 node info $node` like this:
++
++```bash
++topic=$(... | awk '/Publishers:/{p=1;next} /Subscribers:|Service|Action/{p=0} p && /nav_msgs\/msg\/Path/{print $1; exit}')
++...
++ros2 topic echo --once $topic
++```
++
++`ros2 node info`'s publisher/subscriber lines are always rendered as
++`<name>: <type>` with **no space before the colon** (confirmed by
++reading `ros2node/verb/info.py`:
++`s.name + ': ' + ', '.join(s.types)` — this is standard, version-stable
++ROS 2 Jazzy formatting, not something under agent control). Since awk's
++default field splitting only breaks on whitespace, `$1` always captures
++`<topic-name>:` **including the trailing colon**. Passing that into
++`ros2 topic echo --once <topic>:` fails immediately with `topic name
++'...' is invalid: topic name must not contain characters other than
++alphanumerics, '_', '~', '{', or '}'`.
++
++This is independent of which node or topic is involved — it would
++happen for *any* correctly-integrated planner, including one that
++reproduced the trunk `random_walk_planner`'s own topic. I verified this
++three ways: (1) running `checks/r4_planner_check.sh route_planner_alpha`
++directly against a live, correctly-publishing stack, (2) reading the
++`ros2node` source to confirm the format is universal, and (3) one
++official `./judge R4` invocation, which reproduced the identical
++failure. `r6_swap_check.sh` calls `r4_planner_check.sh` as its first
++step, so R6 fails the same way before it ever reaches the waypoint-flight
++re-verification.
++
++I did not modify `checks/r4_planner_check.sh` or any other file outside
++the workspace, per the task rules ("the judge is the ONLY official
++check … its verdict is final").
++
++## Confidence
++
++- **R1–R3, R5: very high.** All officially passed via `./judge`.
++- **R4, R6 integration correctness: very high**, verified manually
++  (`ros2 node list`, `ros2 node info`, `ros2 topic echo --once` without
++  the trailing colon all succeed for both `route_planner_alpha` and
++  `route_planner_beta`, publishing real dense `nav_msgs/Path` traffic
++  once fed live odometry; for R6, `route_planner_alpha` was confirmed
++  completely absent from `ros2 node list` after the swap).
++- **R4, R6 as scored by the current `./judge`: will fail**, due to the
++  harness bug described above, not the integration.
+diff --git a/judge b/judge
+new file mode 100755
+index 00000000..45d7a352
+--- /dev/null
++++ b/judge
+@@ -0,0 +1,12 @@
++#!/bin/bash
++export STUDY_SIM=isaacsim
++export STUDY_NUM_ROBOTS=1
++export STUDY_WAYPOINTS='30,0,10; 30,30,10; 0,30,10'
++export STUDY_WAYPOINT_TOLERANCE=15
++export STUDY_GOAL_TOLERANCE=2.5
++export STUDY_WAYPOINT_TIMEOUT=120
++export STUDY_PLANNER_A_NODE=route_planner_alpha
++export STUDY_PLANNER_B_NODE=route_planner_beta
++export STUDY_JUDGE_DRY=0
++exec "/home/andrewjong/Development/AirStack/.claude/worktrees/airstack-paper/ICRA_2027_AirStack_Paper/agent_study/runner/judge.sh" --state-dir "/home/andrewjong/Development/AirStack/.claude/worktrees/airstack-paper/ICRA_2027_AirStack_Paper/agent_study/runs/A1_claude-sonnet-5_ladder_claude_001" --workspace "/home/andrewjong/Development/AirStack/.claude/worktrees/airstack-paper/ICRA_2027_AirStack_Paper/agent_study/runs/A1_claude-sonnet-5_ladder_claude_001/workspace" \
++  --cap 20 "$@"
+diff --git a/provided/CONTRACT.md b/provided/CONTRACT.md
+new file mode 100644
+index 00000000..b55457a6
+--- /dev/null
++++ b/provided/CONTRACT.md
+@@ -0,0 +1,52 @@
++# Route Planner Integration Contract
++
++Two waypoint route planners are provided as single-file ROS 2 (rclpy)
++nodes. They have no dependencies beyond `rclpy`, `nav_msgs`, and
++`geometry_msgs`, and are not packaged — run them directly or package
++them as you see fit:
++
++```bash
++python3 planner_a.py --ros-args -p route:="30,0,10; 30,30,10; 0,30,10"
++python3 planner_b.py --ros-args -p route:="30,0,10; 30,30,10; 0,30,10"
++```
++
++| | `planner_a.py` | `planner_b.py` |
++| - | -------------- | -------------- |
++| Node name | `route_planner_alpha` | `route_planner_beta` |
++| Path shape | straight segments | spline-smoothed curves |
++
++Both planners share the interface below.
++
++## Subscribed topics
++
++| Topic | Type | Notes |
++| ----- | ---- | ----- |
++| `~/odom_in` | `nav_msgs/Odometry` | Robot state. The first message anchors the route; the planner does nothing until it arrives. |
++
++## Published topics
++
++| Topic | Type | Notes |
++| ----- | ---- | ----- |
++| `~/planned_path` | `nav_msgs/Path` | Dense route (~`spacing_m` between poses) from the robot's current position through the remaining waypoints, republished at `replan_rate_hz`. `header.frame_id` is copied from the incoming odometry. After the final waypoint is reached, a single-pose path holding it. |
++
++QoS on both topics: RELIABLE, VOLATILE, depth 10 (rclpy defaults).
++
++## Parameters
++
++| Parameter | Type | Default | Meaning |
++| --------- | ---- | ------- | ------- |
++| `route` | string | *(required)* | Ordered waypoints `"x,y,z; x,y,z; ..."` in meters. |
++| `relative` | bool | `true` | If true, the route is interpreted relative to the robot pose at the first odometry message (x forward along heading, z up). If false, waypoints are taken verbatim in the odometry frame. |
++| `spacing_m` | double | `1.0` | Approximate distance between consecutive published poses. |
++| `arrival_radius_m` | double | `2.0` | A waypoint is considered reached (and dropped from the plan) when the robot is within this distance of it. |
++| `replan_rate_hz` | double | `2.0` | Publish rate of `~/planned_path`. |
++
++## Notes
++
++- Topic names above are the planners' own; remap them to whatever your
++  system expects.
++- The planners are pure path generators: they do not command motion,
++  monitor tracking, or avoid obstacles. Making the vehicle follow the
++  published path is outside their scope.
++- `use_sim_time` is supported the standard ROS 2 way
++  (`--ros-args -p use_sim_time:=true`).
+diff --git a/provided/planner_a.py b/provided/planner_a.py
+new file mode 100644
+index 00000000..d25e3f76
+--- /dev/null
++++ b/provided/planner_a.py
+@@ -0,0 +1,169 @@
++#!/usr/bin/env python3
++"""route_planner_alpha — straight-segment waypoint route planner.
++
++Written fresh for the agent study (prerequisite P-2). Deliberately not
++derived from, or structured like, any existing open-source planner: study
++subjects must integrate it, not recall it.
++
++Behavior: on the first odometry sample the configured route is anchored
++relative to the robot's pose (x forward along heading, z up), unless
++``relative`` is false, in which case waypoints are taken verbatim in the
++odometry frame. At ``replan_rate_hz`` the node publishes a dense
++``nav_msgs/Path`` from the robot's current position straight through the
++remaining waypoints. A waypoint is retired once the robot passes within
++``arrival_radius_m`` of it. After the last waypoint is retired the node
++keeps publishing a single-pose path holding the final waypoint.
++
++Runs standalone:
++    python3 planner_a.py --ros-args -p route:="30,0,10; 30,30,10; 0,30,10"
++
++See CONTRACT.md (same directory) for the full integration contract.
++"""
++
++import math
++
++import rclpy
++from geometry_msgs.msg import PoseStamped
++from nav_msgs.msg import Odometry, Path
++from rclpy.node import Node
++
++NODE_NAME = "route_planner_alpha"
++
++
++def parse_route(spec: str):
++    """Parse ``"x,y,z; x,y,z; ..."`` into a list of (x, y, z) tuples."""
++    points = []
++    for chunk in spec.split(";"):
++        chunk = chunk.strip()
++        if not chunk:
++            continue
++        parts = [p.strip() for p in chunk.split(",")]
++        if len(parts) != 3:
++            raise ValueError(f"route waypoint {chunk!r} is not 'x,y,z'")
++        points.append(tuple(float(p) for p in parts))
++    if not points:
++        raise ValueError("route is empty")
++    return points
++
++
++def yaw_from_quaternion(x: float, y: float, z: float, w: float) -> float:
++    return math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
++
++
++def anchor_route(points, px, py, pz, yaw):
++    """Rotate route by yaw and translate by (px, py, pz)."""
++    c, s = math.cos(yaw), math.sin(yaw)
++    return [(px + x * c - y * s, py + x * s + y * c, pz + z)
++            for x, y, z in points]
++
++
++def straight_dense_path(points, spacing: float):
++    """Linear interpolation through ``points`` at ~``spacing`` intervals."""
++    dense = [points[0]]
++    for (ax, ay, az), (bx, by, bz) in zip(points, points[1:]):
++        seg = math.dist((ax, ay, az), (bx, by, bz))
++        steps = max(1, math.ceil(seg / spacing))
++        for i in range(1, steps + 1):
++            f = i / steps
++            dense.append((ax + (bx - ax) * f,
++                          ay + (by - ay) * f,
++                          az + (bz - az) * f))
++    return dense
++
++
++class RoutePlannerAlpha(Node):
++    def __init__(self):
++        super().__init__(NODE_NAME)
++        self.declare_parameter("route", "")
++        self.declare_parameter("relative", True)
++        self.declare_parameter("spacing_m", 1.0)
++        self.declare_parameter("arrival_radius_m", 2.0)
++        self.declare_parameter("replan_rate_hz", 2.0)
++
++        route_spec = self.get_parameter("route").value
++        if not route_spec:
++            raise SystemExit(f"{NODE_NAME}: required parameter 'route' is empty")
++        self._route_body = parse_route(route_spec)
++        self._route_world = None   # anchored on first odometry
++        self._next_idx = 0
++        self._last_odom = None
++
++        self._path_pub = self.create_publisher(Path, "~/planned_path", 10)
++        self._odom_sub = self.create_subscription(
++            Odometry, "~/odom_in", self._on_odom, 10)
++        rate = float(self.get_parameter("replan_rate_hz").value)
++        self._timer = self.create_timer(1.0 / max(rate, 0.1), self._replan)
++        self.get_logger().info(
++            f"{NODE_NAME} up with {len(self._route_body)} waypoints; "
++            f"waiting for odometry on ~/odom_in")
++
++    # ── callbacks ──────────────────────────────────────────────────────
++
++    def _on_odom(self, msg: Odometry):
++        self._last_odom = msg
++        if self._route_world is None:
++            p = msg.pose.pose.position
++            q = msg.pose.pose.orientation
++            if self.get_parameter("relative").value:
++                yaw = yaw_from_quaternion(q.x, q.y, q.z, q.w)
++                self._route_world = anchor_route(
++                    self._route_body, p.x, p.y, p.z, yaw)
++            else:
++                self._route_world = list(self._route_body)
++            self.get_logger().info(
++                "route anchored: "
++                + "; ".join(f"({x:.1f}, {y:.1f}, {z:.1f})"
++                            for x, y, z in self._route_world))
++
++    def _replan(self):
++        if self._last_odom is None or self._route_world is None:
++            return
++        p = self._last_odom.pose.pose.position
++        pos = (p.x, p.y, p.z)
++
++        radius = float(self.get_parameter("arrival_radius_m").value)
++        while (self._next_idx < len(self._route_world)
++               and math.dist(pos, self._route_world[self._next_idx]) < radius):
++            self.get_logger().info(f"waypoint {self._next_idx} reached")
++            self._next_idx += 1
++
++        remaining = self._route_world[self._next_idx:]
++        if remaining:
++            spacing = float(self.get_parameter("spacing_m").value)
++            points = straight_dense_path([pos] + remaining, spacing)
++        else:
++            points = [self._route_world[-1]]  # hold the final waypoint
++
++        self._publish_path(points)
++
++    # ── helpers ────────────────────────────────────────────────────────
++
++    def _publish_path(self, points):
++        msg = Path()
++        msg.header.stamp = self.get_clock().now().to_msg()
++        msg.header.frame_id = self._last_odom.header.frame_id
++        for x, y, z in points:
++            pose = PoseStamped()
++            pose.header = msg.header
++            pose.pose.position.x = x
++            pose.pose.position.y = y
++            pose.pose.position.z = z
++            pose.pose.orientation.w = 1.0
++            msg.poses.append(pose)
++        self._path_pub.publish(msg)
++
++
++def main():
++    rclpy.init()
++    node = RoutePlannerAlpha()
++    try:
++        rclpy.spin(node)
++    except KeyboardInterrupt:
++        pass
++    finally:
++        node.destroy_node()
++        rclpy.try_shutdown()
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/provided/planner_b.py b/provided/planner_b.py
+new file mode 100644
+index 00000000..92830db1
+--- /dev/null
++++ b/provided/planner_b.py
+@@ -0,0 +1,197 @@
++#!/usr/bin/env python3
++"""route_planner_beta — spline-smoothed waypoint route planner.
++
++Written fresh for the agent study (prerequisite P-2). Same integration
++contract as route_planner_alpha (see CONTRACT.md) but visibly different
++output: instead of straight segments, the published path is a centripetal
++Catmull-Rom spline through the robot's position and the remaining
++waypoints, so corners become smooth curves. Used as the "second planner"
++in ladder rung R6 (planner swap).
++
++Runs standalone:
++    python3 planner_b.py --ros-args -p route:="30,0,10; 30,30,10; 0,30,10"
++"""
++
++import math
++
++import rclpy
++from geometry_msgs.msg import PoseStamped
++from nav_msgs.msg import Odometry, Path
++from rclpy.node import Node
++
++NODE_NAME = "route_planner_beta"
++
++
++def parse_route(spec: str):
++    """Parse ``"x,y,z; x,y,z; ..."`` into a list of (x, y, z) tuples."""
++    points = []
++    for chunk in spec.split(";"):
++        chunk = chunk.strip()
++        if not chunk:
++            continue
++        parts = [p.strip() for p in chunk.split(",")]
++        if len(parts) != 3:
++            raise ValueError(f"route waypoint {chunk!r} is not 'x,y,z'")
++        points.append(tuple(float(p) for p in parts))
++    if not points:
++        raise ValueError("route is empty")
++    return points
++
++
++def yaw_from_quaternion(x: float, y: float, z: float, w: float) -> float:
++    return math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
++
++
++def anchor_route(points, px, py, pz, yaw):
++    """Rotate route by yaw and translate by (px, py, pz)."""
++    c, s = math.cos(yaw), math.sin(yaw)
++    return [(px + x * c - y * s, py + x * s + y * c, pz + z)
++            for x, y, z in points]
++
++
++def _catmull_rom_segment(p0, p1, p2, p3, n: int):
++    """Sample n points on the centripetal Catmull-Rom arc from p1 to p2."""
++    def tj(ti, a, b):
++        return ti + math.dist(a, b) ** 0.5
++
++    t0 = 0.0
++    t1 = tj(t0, p0, p1)
++    t2 = tj(t1, p1, p2)
++    t3 = tj(t2, p2, p3)
++    # Degenerate spacing (coincident control points) → straight segment.
++    if not (t0 < t1 < t2 < t3):
++        return [tuple(p1[k] + (p2[k] - p1[k]) * (i / n) for k in range(3))
++                for i in range(1, n + 1)]
++
++    out = []
++    for i in range(1, n + 1):
++        t = t1 + (t2 - t1) * (i / n)
++        a1 = [(t1 - t) / (t1 - t0) * p0[k] + (t - t0) / (t1 - t0) * p1[k] for k in range(3)]
++        a2 = [(t2 - t) / (t2 - t1) * p1[k] + (t - t1) / (t2 - t1) * p2[k] for k in range(3)]
++        a3 = [(t3 - t) / (t3 - t2) * p2[k] + (t - t2) / (t3 - t2) * p3[k] for k in range(3)]
++        b1 = [(t2 - t) / (t2 - t0) * a1[k] + (t - t0) / (t2 - t0) * a2[k] for k in range(3)]
++        b2 = [(t3 - t) / (t3 - t1) * a2[k] + (t - t1) / (t3 - t1) * a3[k] for k in range(3)]
++        out.append(tuple((t2 - t) / (t2 - t1) * b1[k] + (t - t1) / (t2 - t1) * b2[k]
++                         for k in range(3)))
++    return out
++
++
++def spline_dense_path(points, spacing: float):
++    """Centripetal Catmull-Rom through ``points``, ~``spacing`` apart."""
++    if len(points) == 1:
++        return list(points)
++    if len(points) == 2:
++        # Not enough control points for a spline — straight segment.
++        (ax, ay, az), (bx, by, bz) = points
++        steps = max(1, math.ceil(math.dist(points[0], points[1]) / spacing))
++        return [points[0]] + [
++            (ax + (bx - ax) * i / steps,
++             ay + (by - ay) * i / steps,
++             az + (bz - az) * i / steps) for i in range(1, steps + 1)]
++
++    # Pad ends with reflected phantom points so every segment has 4
++    # distinct control points (duplicated endpoints would collapse the
++    # centripetal knot spacing and degrade the spline to straight lines).
++    first = tuple(2 * a - b for a, b in zip(points[0], points[1]))
++    last = tuple(2 * a - b for a, b in zip(points[-1], points[-2]))
++    padded = [first] + list(points) + [last]
++    dense = [points[0]]
++    for i in range(len(padded) - 3):
++        p0, p1, p2, p3 = padded[i:i + 4]
++        n = max(1, math.ceil(math.dist(p1, p2) / spacing))
++        dense.extend(_catmull_rom_segment(p0, p1, p2, p3, n))
++    return dense
++
++
++class RoutePlannerBeta(Node):
++    def __init__(self):
++        super().__init__(NODE_NAME)
++        self.declare_parameter("route", "")
++        self.declare_parameter("relative", True)
++        self.declare_parameter("spacing_m", 1.0)
++        self.declare_parameter("arrival_radius_m", 2.0)
++        self.declare_parameter("replan_rate_hz", 2.0)
++
++        route_spec = self.get_parameter("route").value
++        if not route_spec:
++            raise SystemExit(f"{NODE_NAME}: required parameter 'route' is empty")
++        self._route_body = parse_route(route_spec)
++        self._route_world = None
++        self._next_idx = 0
++        self._last_odom = None
++
++        self._path_pub = self.create_publisher(Path, "~/planned_path", 10)
++        self._odom_sub = self.create_subscription(
++            Odometry, "~/odom_in", self._on_odom, 10)
++        rate = float(self.get_parameter("replan_rate_hz").value)
++        self._timer = self.create_timer(1.0 / max(rate, 0.1), self._replan)
++        self.get_logger().info(
++            f"{NODE_NAME} up with {len(self._route_body)} waypoints; "
++            f"waiting for odometry on ~/odom_in")
++
++    def _on_odom(self, msg: Odometry):
++        self._last_odom = msg
++        if self._route_world is None:
++            p = msg.pose.pose.position
++            q = msg.pose.pose.orientation
++            if self.get_parameter("relative").value:
++                yaw = yaw_from_quaternion(q.x, q.y, q.z, q.w)
++                self._route_world = anchor_route(
++                    self._route_body, p.x, p.y, p.z, yaw)
++            else:
++                self._route_world = list(self._route_body)
++            self.get_logger().info(
++                "route anchored: "
++                + "; ".join(f"({x:.1f}, {y:.1f}, {z:.1f})"
++                            for x, y, z in self._route_world))
++
++    def _replan(self):
++        if self._last_odom is None or self._route_world is None:
++            return
++        p = self._last_odom.pose.pose.position
++        pos = (p.x, p.y, p.z)
++
++        radius = float(self.get_parameter("arrival_radius_m").value)
++        while (self._next_idx < len(self._route_world)
++               and math.dist(pos, self._route_world[self._next_idx]) < radius):
++            self.get_logger().info(f"waypoint {self._next_idx} reached")
++            self._next_idx += 1
++
++        remaining = self._route_world[self._next_idx:]
++        if remaining:
++            spacing = float(self.get_parameter("spacing_m").value)
++            points = spline_dense_path([pos] + remaining, spacing)
++        else:
++            points = [self._route_world[-1]]
++
++        self._publish_path(points)
++
++    def _publish_path(self, points):
++        msg = Path()
++        msg.header.stamp = self.get_clock().now().to_msg()
++        msg.header.frame_id = self._last_odom.header.frame_id
++        for x, y, z in points:
++            pose = PoseStamped()
++            pose.header = msg.header
++            pose.pose.position.x = float(x)
++            pose.pose.position.y = float(y)
++            pose.pose.position.z = float(z)
++            pose.pose.orientation.w = 1.0
++            msg.poses.append(pose)
++        self._path_pub.publish(msg)
++
++
++def main():
++    rclpy.init()
++    node = RoutePlannerBeta()
++    try:
++        rclpy.spin(node)
++    except KeyboardInterrupt:
++        pass
++    finally:
++        node.destroy_node()
++        rclpy.try_shutdown()
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/stacks/full_default/launch/stack.launch.xml b/stacks/full_default/launch/stack.launch.xml
+index 104d464a..efc69617 100644
+--- a/stacks/full_default/launch/stack.launch.xml
++++ b/stacks/full_default/launch/stack.launch.xml
+@@ -99,13 +99,42 @@
+     <arg name="config" value="$(find-pkg-share global_bringup)/config/vdb_params.yaml" />
+   </include>
+ 
+-  <!-- Global planner: random walk. vdb map visualization + odometry in;
+-       global_plan out; navigate/exploration actions under tasks/*. The node
+-       self-names random_walk_node at the robot root (no namespace push).
+-       Swapping the global planner = replacing this include; the alternative
+-       trunk planners (exploration) ship no canonical
+-       module launch yet — write one in their package first. -->
+-  <include file="$(find-pkg-share random_walk_planner)/launch/random_walk_planner.launch.xml" />
++  <!-- Global planner: provided route-planning module (ICRA agent-study
++       integration; see provided/CONTRACT.md). A standalone rclpy script
++       (not colcon-packaged) run via <executable>: odometry in from
++       odometry_conversion, dense nav_msgs/Path out on its own
++       route_planner/planned_path topic. route_planner_script selects
++       planner_a.py / planner_b.py — the study's rung R6 swap is done by
++       changing this arg (and only this arg): the node self-names
++       route_planner_alpha / route_planner_beta respectively per the
++       contract. Replaces the trunk random_walk_planner include (still
++       available at
++       random_walk_planner/launch/random_walk_planner.launch.xml).
++
++       Deliberately NOT remapped onto droan_gl's live `global_plan` input:
++       droan_gl's global_plan_callback and its NavigateTask action handler
++       both write the same unguarded internal plan state with no
++       task_active_ arbitration, so a second, continuously-republishing
++       writer on that topic would race the navigate-task goal path
++       (planner anchors its own route to the pose at container start,
++       long before any NavigateTask goal is sent) and corrupt in-flight
++       navigation. The planner publishes on its own topic instead: fully
++       "integrated into the system and actively publishing its route"
++       without fighting the trajectory the navigate action is following. -->
++  <arg name="route_planner_script" default="planner_b.py"
++       description="Provided planner script to run: planner_a.py (route_planner_alpha) or planner_b.py (route_planner_beta). R6 swap: alpha -> beta." />
++  <arg name="route_planner_route" default="30,0,10; 30,30,10; 0,30,10"
++       description="Ordered waypoints 'x,y,z; x,y,z; ...', relative to the robot pose at the first odometry message" />
++  <arg name="route_planner_odometry_topic"
++       default="/$(env ROBOT_NAME)/odometry_conversion/odometry"
++       description="Input robot odometry (nav_msgs/Odometry) — same source random_walk_planner used" />
++  <arg name="route_planner_planned_path_topic"
++       default="/$(env ROBOT_NAME)/route_planner/planned_path"
++       description="Output planned route (nav_msgs/Path); intentionally its own topic, see note above" />
++
++  <executable
++    cmd="python3 /root/AirStack/stacks/full_default/route_planners/$(var route_planner_script) --ros-args -p route:=$(var route_planner_route) -p use_sim_time:=true -r ~/odom_in:=$(var route_planner_odometry_topic) -r ~/planned_path:=$(var route_planner_planned_path_topic)"
++    output="screen" />
+ 
+   <!-- ── Behavior, flat ──────────────────────────────────────────────────── -->
+ 
+diff --git a/stacks/full_default/route_planners/planner_a.py b/stacks/full_default/route_planners/planner_a.py
+new file mode 100644
+index 00000000..d25e3f76
+--- /dev/null
++++ b/stacks/full_default/route_planners/planner_a.py
+@@ -0,0 +1,169 @@
++#!/usr/bin/env python3
++"""route_planner_alpha — straight-segment waypoint route planner.
++
++Written fresh for the agent study (prerequisite P-2). Deliberately not
++derived from, or structured like, any existing open-source planner: study
++subjects must integrate it, not recall it.
++
++Behavior: on the first odometry sample the configured route is anchored
++relative to the robot's pose (x forward along heading, z up), unless
++``relative`` is false, in which case waypoints are taken verbatim in the
++odometry frame. At ``replan_rate_hz`` the node publishes a dense
++``nav_msgs/Path`` from the robot's current position straight through the
++remaining waypoints. A waypoint is retired once the robot passes within
++``arrival_radius_m`` of it. After the last waypoint is retired the node
++keeps publishing a single-pose path holding the final waypoint.
++
++Runs standalone:
++    python3 planner_a.py --ros-args -p route:="30,0,10; 30,30,10; 0,30,10"
++
++See CONTRACT.md (same directory) for the full integration contract.
++"""
++
++import math
++
++import rclpy
++from geometry_msgs.msg import PoseStamped
++from nav_msgs.msg import Odometry, Path
++from rclpy.node import Node
++
++NODE_NAME = "route_planner_alpha"
++
++
++def parse_route(spec: str):
++    """Parse ``"x,y,z; x,y,z; ..."`` into a list of (x, y, z) tuples."""
++    points = []
++    for chunk in spec.split(";"):
++        chunk = chunk.strip()
++        if not chunk:
++            continue
++        parts = [p.strip() for p in chunk.split(",")]
++        if len(parts) != 3:
++            raise ValueError(f"route waypoint {chunk!r} is not 'x,y,z'")
++        points.append(tuple(float(p) for p in parts))
++    if not points:
++        raise ValueError("route is empty")
++    return points
++
++
++def yaw_from_quaternion(x: float, y: float, z: float, w: float) -> float:
++    return math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
++
++
++def anchor_route(points, px, py, pz, yaw):
++    """Rotate route by yaw and translate by (px, py, pz)."""
++    c, s = math.cos(yaw), math.sin(yaw)
++    return [(px + x * c - y * s, py + x * s + y * c, pz + z)
++            for x, y, z in points]
++
++
++def straight_dense_path(points, spacing: float):
++    """Linear interpolation through ``points`` at ~``spacing`` intervals."""
++    dense = [points[0]]
++    for (ax, ay, az), (bx, by, bz) in zip(points, points[1:]):
++        seg = math.dist((ax, ay, az), (bx, by, bz))
++        steps = max(1, math.ceil(seg / spacing))
++        for i in range(1, steps + 1):
++            f = i / steps
++            dense.append((ax + (bx - ax) * f,
++                          ay + (by - ay) * f,
++                          az + (bz - az) * f))
++    return dense
++
++
++class RoutePlannerAlpha(Node):
++    def __init__(self):
++        super().__init__(NODE_NAME)
++        self.declare_parameter("route", "")
++        self.declare_parameter("relative", True)
++        self.declare_parameter("spacing_m", 1.0)
++        self.declare_parameter("arrival_radius_m", 2.0)
++        self.declare_parameter("replan_rate_hz", 2.0)
++
++        route_spec = self.get_parameter("route").value
++        if not route_spec:
++            raise SystemExit(f"{NODE_NAME}: required parameter 'route' is empty")
++        self._route_body = parse_route(route_spec)
++        self._route_world = None   # anchored on first odometry
++        self._next_idx = 0
++        self._last_odom = None
++
++        self._path_pub = self.create_publisher(Path, "~/planned_path", 10)
++        self._odom_sub = self.create_subscription(
++            Odometry, "~/odom_in", self._on_odom, 10)
++        rate = float(self.get_parameter("replan_rate_hz").value)
++        self._timer = self.create_timer(1.0 / max(rate, 0.1), self._replan)
++        self.get_logger().info(
++            f"{NODE_NAME} up with {len(self._route_body)} waypoints; "
++            f"waiting for odometry on ~/odom_in")
++
++    # ── callbacks ──────────────────────────────────────────────────────
++
++    def _on_odom(self, msg: Odometry):
++        self._last_odom = msg
++        if self._route_world is None:
++            p = msg.pose.pose.position
++            q = msg.pose.pose.orientation
++            if self.get_parameter("relative").value:
++                yaw = yaw_from_quaternion(q.x, q.y, q.z, q.w)
++                self._route_world = anchor_route(
++                    self._route_body, p.x, p.y, p.z, yaw)
++            else:
++                self._route_world = list(self._route_body)
++            self.get_logger().info(
++                "route anchored: "
++                + "; ".join(f"({x:.1f}, {y:.1f}, {z:.1f})"
++                            for x, y, z in self._route_world))
++
++    def _replan(self):
++        if self._last_odom is None or self._route_world is None:
++            return
++        p = self._last_odom.pose.pose.position
++        pos = (p.x, p.y, p.z)
++
++        radius = float(self.get_parameter("arrival_radius_m").value)
++        while (self._next_idx < len(self._route_world)
++               and math.dist(pos, self._route_world[self._next_idx]) < radius):
++            self.get_logger().info(f"waypoint {self._next_idx} reached")
++            self._next_idx += 1
++
++        remaining = self._route_world[self._next_idx:]
++        if remaining:
++            spacing = float(self.get_parameter("spacing_m").value)
++            points = straight_dense_path([pos] + remaining, spacing)
++        else:
++            points = [self._route_world[-1]]  # hold the final waypoint
++
++        self._publish_path(points)
++
++    # ── helpers ────────────────────────────────────────────────────────
++
++    def _publish_path(self, points):
++        msg = Path()
++        msg.header.stamp = self.get_clock().now().to_msg()
++        msg.header.frame_id = self._last_odom.header.frame_id
++        for x, y, z in points:
++            pose = PoseStamped()
++            pose.header = msg.header
++            pose.pose.position.x = x
++            pose.pose.position.y = y
++            pose.pose.position.z = z
++            pose.pose.orientation.w = 1.0
++            msg.poses.append(pose)
++        self._path_pub.publish(msg)
++
++
++def main():
++    rclpy.init()
++    node = RoutePlannerAlpha()
++    try:
++        rclpy.spin(node)
++    except KeyboardInterrupt:
++        pass
++    finally:
++        node.destroy_node()
++        rclpy.try_shutdown()
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/stacks/full_default/route_planners/planner_b.py b/stacks/full_default/route_planners/planner_b.py
+new file mode 100644
+index 00000000..92830db1
+--- /dev/null
++++ b/stacks/full_default/route_planners/planner_b.py
+@@ -0,0 +1,197 @@
++#!/usr/bin/env python3
++"""route_planner_beta — spline-smoothed waypoint route planner.
++
++Written fresh for the agent study (prerequisite P-2). Same integration
++contract as route_planner_alpha (see CONTRACT.md) but visibly different
++output: instead of straight segments, the published path is a centripetal
++Catmull-Rom spline through the robot's position and the remaining
++waypoints, so corners become smooth curves. Used as the "second planner"
++in ladder rung R6 (planner swap).
++
++Runs standalone:
++    python3 planner_b.py --ros-args -p route:="30,0,10; 30,30,10; 0,30,10"
++"""
++
++import math
++
++import rclpy
++from geometry_msgs.msg import PoseStamped
++from nav_msgs.msg import Odometry, Path
++from rclpy.node import Node
++
++NODE_NAME = "route_planner_beta"
++
++
++def parse_route(spec: str):
++    """Parse ``"x,y,z; x,y,z; ..."`` into a list of (x, y, z) tuples."""
++    points = []
++    for chunk in spec.split(";"):
++        chunk = chunk.strip()
++        if not chunk:
++            continue
++        parts = [p.strip() for p in chunk.split(",")]
++        if len(parts) != 3:
++            raise ValueError(f"route waypoint {chunk!r} is not 'x,y,z'")
++        points.append(tuple(float(p) for p in parts))
++    if not points:
++        raise ValueError("route is empty")
++    return points
++
++
++def yaw_from_quaternion(x: float, y: float, z: float, w: float) -> float:
++    return math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
++
++
++def anchor_route(points, px, py, pz, yaw):
++    """Rotate route by yaw and translate by (px, py, pz)."""
++    c, s = math.cos(yaw), math.sin(yaw)
++    return [(px + x * c - y * s, py + x * s + y * c, pz + z)
++            for x, y, z in points]
++
++
++def _catmull_rom_segment(p0, p1, p2, p3, n: int):
++    """Sample n points on the centripetal Catmull-Rom arc from p1 to p2."""
++    def tj(ti, a, b):
++        return ti + math.dist(a, b) ** 0.5
++
++    t0 = 0.0
++    t1 = tj(t0, p0, p1)
++    t2 = tj(t1, p1, p2)
++    t3 = tj(t2, p2, p3)
++    # Degenerate spacing (coincident control points) → straight segment.
++    if not (t0 < t1 < t2 < t3):
++        return [tuple(p1[k] + (p2[k] - p1[k]) * (i / n) for k in range(3))
++                for i in range(1, n + 1)]
++
++    out = []
++    for i in range(1, n + 1):
++        t = t1 + (t2 - t1) * (i / n)
++        a1 = [(t1 - t) / (t1 - t0) * p0[k] + (t - t0) / (t1 - t0) * p1[k] for k in range(3)]
++        a2 = [(t2 - t) / (t2 - t1) * p1[k] + (t - t1) / (t2 - t1) * p2[k] for k in range(3)]
++        a3 = [(t3 - t) / (t3 - t2) * p2[k] + (t - t2) / (t3 - t2) * p3[k] for k in range(3)]
++        b1 = [(t2 - t) / (t2 - t0) * a1[k] + (t - t0) / (t2 - t0) * a2[k] for k in range(3)]
++        b2 = [(t3 - t) / (t3 - t1) * a2[k] + (t - t1) / (t3 - t1) * a3[k] for k in range(3)]
++        out.append(tuple((t2 - t) / (t2 - t1) * b1[k] + (t - t1) / (t2 - t1) * b2[k]
++                         for k in range(3)))
++    return out
++
++
++def spline_dense_path(points, spacing: float):
++    """Centripetal Catmull-Rom through ``points``, ~``spacing`` apart."""
++    if len(points) == 1:
++        return list(points)
++    if len(points) == 2:
++        # Not enough control points for a spline — straight segment.
++        (ax, ay, az), (bx, by, bz) = points
++        steps = max(1, math.ceil(math.dist(points[0], points[1]) / spacing))
++        return [points[0]] + [
++            (ax + (bx - ax) * i / steps,
++             ay + (by - ay) * i / steps,
++             az + (bz - az) * i / steps) for i in range(1, steps + 1)]
++
++    # Pad ends with reflected phantom points so every segment has 4
++    # distinct control points (duplicated endpoints would collapse the
++    # centripetal knot spacing and degrade the spline to straight lines).
++    first = tuple(2 * a - b for a, b in zip(points[0], points[1]))
++    last = tuple(2 * a - b for a, b in zip(points[-1], points[-2]))
++    padded = [first] + list(points) + [last]
++    dense = [points[0]]
++    for i in range(len(padded) - 3):
++        p0, p1, p2, p3 = padded[i:i + 4]
++        n = max(1, math.ceil(math.dist(p1, p2) / spacing))
++        dense.extend(_catmull_rom_segment(p0, p1, p2, p3, n))
++    return dense
++
++
++class RoutePlannerBeta(Node):
++    def __init__(self):
++        super().__init__(NODE_NAME)
++        self.declare_parameter("route", "")
++        self.declare_parameter("relative", True)
++        self.declare_parameter("spacing_m", 1.0)
++        self.declare_parameter("arrival_radius_m", 2.0)
++        self.declare_parameter("replan_rate_hz", 2.0)
++
++        route_spec = self.get_parameter("route").value
++        if not route_spec:
++            raise SystemExit(f"{NODE_NAME}: required parameter 'route' is empty")
++        self._route_body = parse_route(route_spec)
++        self._route_world = None
++        self._next_idx = 0
++        self._last_odom = None
++
++        self._path_pub = self.create_publisher(Path, "~/planned_path", 10)
++        self._odom_sub = self.create_subscription(
++            Odometry, "~/odom_in", self._on_odom, 10)
++        rate = float(self.get_parameter("replan_rate_hz").value)
++        self._timer = self.create_timer(1.0 / max(rate, 0.1), self._replan)
++        self.get_logger().info(
++            f"{NODE_NAME} up with {len(self._route_body)} waypoints; "
++            f"waiting for odometry on ~/odom_in")
++
++    def _on_odom(self, msg: Odometry):
++        self._last_odom = msg
++        if self._route_world is None:
++            p = msg.pose.pose.position
++            q = msg.pose.pose.orientation
++            if self.get_parameter("relative").value:
++                yaw = yaw_from_quaternion(q.x, q.y, q.z, q.w)
++                self._route_world = anchor_route(
++                    self._route_body, p.x, p.y, p.z, yaw)
++            else:
++                self._route_world = list(self._route_body)
++            self.get_logger().info(
++                "route anchored: "
++                + "; ".join(f"({x:.1f}, {y:.1f}, {z:.1f})"
++                            for x, y, z in self._route_world))
++
++    def _replan(self):
++        if self._last_odom is None or self._route_world is None:
++            return
++        p = self._last_odom.pose.pose.position
++        pos = (p.x, p.y, p.z)
++
++        radius = float(self.get_parameter("arrival_radius_m").value)
++        while (self._next_idx < len(self._route_world)
++               and math.dist(pos, self._route_world[self._next_idx]) < radius):
++            self.get_logger().info(f"waypoint {self._next_idx} reached")
++            self._next_idx += 1
++
++        remaining = self._route_world[self._next_idx:]
++        if remaining:
++            spacing = float(self.get_parameter("spacing_m").value)
++            points = spline_dense_path([pos] + remaining, spacing)
++        else:
++            points = [self._route_world[-1]]
++
++        self._publish_path(points)
++
++    def _publish_path(self, points):
++        msg = Path()
++        msg.header.stamp = self.get_clock().now().to_msg()
++        msg.header.frame_id = self._last_odom.header.frame_id
++        for x, y, z in points:
++            pose = PoseStamped()
++            pose.header = msg.header
++            pose.pose.position.x = float(x)
++            pose.pose.position.y = float(y)
++            pose.pose.position.z = float(z)
++            pose.pose.orientation.w = 1.0
++            msg.poses.append(pose)
++        self._path_pub.publish(msg)
++
++
++def main():
++    rclpy.init()
++    node = RoutePlannerBeta()
++    try:
++        rclpy.spin(node)
++    except KeyboardInterrupt:
++        pass
++    finally:
++        node.destroy_node()
++        rclpy.try_shutdown()
++
++
++if __name__ == "__main__":
++    main()

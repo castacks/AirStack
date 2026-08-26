@@ -1,0 +1,10 @@
+{"t":"2026-08-25T06:55:59Z","event":"run","rung":"R4","exit":1,"scoring":0}
+{"t":"2026-08-25T07:01:34Z","event":"run","rung":"R1","exit":0,"scoring":0}
+{"t":"2026-08-25T07:12:25Z","event":"run","rung":"R2","exit":0,"scoring":0}
+{"t":"2026-08-25T07:14:41Z","event":"run","rung":"R3","exit":0,"scoring":0}
+{"t":"2026-08-25T07:18:08Z","event":"run","rung":"R5","exit":0,"scoring":0}
+{"t":"2026-08-25T07:20:02Z","event":"run","rung":"R6","exit":1,"scoring":0}
+{"t":"2026-08-25T07:25:26Z","event":"run","rung":"R1","exit":0,"scoring":1}
+{"t":"2026-08-25T07:36:01Z","event":"run","rung":"R2","exit":0,"scoring":1}
+{"t":"2026-08-25T07:38:07Z","event":"run","rung":"R3","exit":0,"scoring":1}
+{"t":"2026-08-25T07:38:08Z","event":"run","rung":"R4","exit":1,"scoring":1}

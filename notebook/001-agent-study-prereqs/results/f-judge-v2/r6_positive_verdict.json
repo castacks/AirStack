@@ -1,0 +1,105 @@
+{
+  "success": true,
+  "num_odom_samples": 37828,
+  "tolerance_m": 15.0,
+  "budget_s_per_waypoint": 120.0,
+  "waypoints": [
+    {
+      "index": 0,
+      "target": [
+        0.0,
+        0.01,
+        0.01
+      ],
+      "closest_approach_m": 0.018,
+      "reached": true,
+      "elapsed_from_prev_s": 0.0,
+      "within_budget": true
+    },
+    {
+      "index": 1,
+      "target": [
+        14.77,
+        -1.68,
+        4.93
+      ],
+      "closest_approach_m": 6.506,
+      "reached": true,
+      "elapsed_from_prev_s": 6.72,
+      "within_budget": true
+    },
+    {
+      "index": 2,
+      "target": [
+        28.97,
+        -0.86,
+        9.66
+      ],
+      "closest_approach_m": 2.919,
+      "reached": true,
+      "elapsed_from_prev_s": 35.7,
+      "within_budget": true
+    },
+    {
+      "index": 3,
+      "target": [
+        33.66,
+        13.77,
+        10.64
+      ],
+      "closest_approach_m": 2.695,
+      "reached": true,
+      "elapsed_from_prev_s": 13.41,
+      "within_budget": true
+    },
+    {
+      "index": 4,
+      "target": [
+        30.94,
+        28.81,
+        10.03
+      ],
+      "closest_approach_m": 2.067,
+      "reached": true,
+      "elapsed_from_prev_s": 15.0,
+      "within_budget": true
+    },
+    {
+      "index": 5,
+      "target": [
+        16.88,
+        31.87,
+        10.01
+      ],
+      "closest_approach_m": 0.883,
+      "reached": true,
+      "elapsed_from_prev_s": 12.51,
+      "within_budget": true
+    },
+    {
+      "index": 6,
+      "target": [
+        1.02,
+        30.01,
+        10.01
+      ],
+      "closest_approach_m": 0.146,
+      "reached": true,
+      "elapsed_from_prev_s": 17.07,
+      "within_budget": true
+    },
+    {
+      "index": 7,
+      "target": [
+        0.01,
+        30.0,
+        10.01
+      ],
+      "closest_approach_m": 0.027,
+      "reached": true,
+      "elapsed_from_prev_s": 1.05,
+      "within_budget": true
+    }
+  ],
+  "total_time_s": 1260.99
+}

@@ -1,0 +1,9 @@
+[judge] invocation 1/2 — rung R5
+[judge] DRY RUN — rung R5 recorded, no simulation executed
+spammer: invocation 1 exit=0
+[judge] invocation 2/2 — rung R5
+[judge] DRY RUN — rung R5 recorded, no simulation executed
+spammer: invocation 2 exit=0
+spammer: invocation 3 exit=75
+spammer: invocation 4 exit=75
+spammer: invocation 5 exit=75

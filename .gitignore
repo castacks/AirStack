@@ -90,9 +90,11 @@ simulation/ms-airsim/assets/scenes/*
 # Test results
 tests/results/
 
-# Per-feature agent notebook (design specs + test results) — local-only, feeds PR descriptions.
+# Per-feature agent notebook: TRACKED on the airstack-paper branch (the
+# agent-study notebook must travel between machines; develop keeps it
+# local-only via its own .gitignore — expect a trivial conflict here on
+# rebase, resolve in favor of this branch).
 # See .agents/skills/use-feature-notebook
-/notebook/
 
 # Local-only — embedded sibling repo, not part of this branch
 common/rayfronts/

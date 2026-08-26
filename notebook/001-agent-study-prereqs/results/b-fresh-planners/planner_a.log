@@ -1,0 +1,20 @@
+[INFO] [1785887634.742975342] [route_planner_alpha]: route_planner_alpha up with 2 waypoints; waiting for odometry on ~/odom_in
+[INFO] [1785887638.311932387] [route_planner_alpha]: route anchored: (11.0, 2.0, 5.5); (11.0, 12.0, 5.5)
+Traceback (most recent call last):
+  File "/home/andrewjong/Development/AirStack/.claude/worktrees/airstack-paper/ICRA_2027_AirStack_Paper/agent_study/planners/planner_a.py", line 169, in <module>
+    main()
+  File "/home/andrewjong/Development/AirStack/.claude/worktrees/airstack-paper/ICRA_2027_AirStack_Paper/agent_study/planners/planner_a.py", line 160, in main
+    rclpy.spin(node)
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/__init__.py", line 247, in spin
+    executor.spin_once()
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 926, in spin_once
+    self._spin_once_impl(timeout_sec)
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 907, in _spin_once_impl
+    handler, entity, node = self.wait_for_ready_callbacks(
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 877, in wait_for_ready_callbacks
+    return next(self._cb_iter)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 785, in _wait_for_ready_callbacks
+    raise ExternalShutdownException()
+rclpy.executors.ExternalShutdownException

@@ -482,6 +482,26 @@ block submission. Task ownership lives in
 to the submodule's `main`; the parent repo tracks the pointer on the
 `airstack-paper` branch (not `main`).
 
+### Agent study (Sec. VI-C) — continuation pointers
+
+The exploratory agent study is implemented and in progress. To continue
+it (any machine, any session), read in order:
+
+1. [`ICRA_2027_AirStack_Paper/agent_study/HANDOFF.md`](ICRA_2027_AirStack_Paper/agent_study/HANDOFF.md)
+   — current state, campaign blocker, new-machine setup, hazards
+2. [`ICRA_2027_AirStack_Paper/agent_study_protocol.md`](ICRA_2027_AirStack_Paper/agent_study_protocol.md)
+   — canonical design + Amendment 1 + P-1…P-8 statuses
+3. [`notebook/001-agent-study-prereqs/`](notebook/001-agent-study-prereqs/)
+   — status-tracked design spec and the full experimental record
+   (`results/results_summary.md`, sections (a)–(h))
+
+NOTE: on this branch `notebook/` is TRACKED (the study record must
+travel between machines), overriding develop's local-only notebook
+convention; expect a trivial `.gitignore` conflict on rebases. The
+study assets (planners, prompts, judge, runner) are PRIVATE to the
+paper submodule until the study concludes — never copy them into the
+public repo.
+
 ## Key Differences from CLAUDE.md
 
 This guide supersedes `CLAUDE.md` (which now symlinks here). Key updates:

@@ -1,0 +1,88 @@
+[r5-provenance] bringing the agent's stack up
+[r5-provenance] waiting for px4 (0s; container=workspace-robot-desktop-1)
+[r5-provenance] waiting for px4 (60s; container=workspace-robot-desktop-1)
+[r5-provenance] px4 ready in 71s
+[r5-provenance] planner /route_planner_beta publishing on /robot_1/route_planner/planned_path
+[r5-provenance] route geometry ok: 94.4m, 2 heading changes
+[r5-provenance] 8 checkpoints from planner route
+[r5-provenance] commanding takeoff (the ONLY judge-driven motion)
+[r5-provenance] observing flight (cap 900s); the integration must fly the route
+[r5-provenance] drone stationary — flight concluded
+[r5-provenance] ex": 1,
+      "target": [
+        1.66,
+        14.76,
+        4.92
+      ],
+      "closest_approach_m": 14.931,
+      "reached": true,
+      "elapsed_from_prev_s": 8.37,
+      "within_budget": true
+    },
+    {
+      "index": 2,
+      "target": [
+        0.83,
+        28.96,
+        9.65
+      ],
+      "closest_approach_m": 29.013,
+      "reached": false
+    },
+    {
+      "index": 3,
+      "target": [
+        -13.8,
+        33.64,
+        10.63
+      ],
+      "closest_approach_m": 36.395,
+      "reached": false
+    },
+    {
+      "index": 4,
+      "target": [
+        -28.84,
+        30.91,
+        10.02
+      ],
+      "closest_approach_m": 42.283,
+      "reached": false
+    },
+    {
+      "index": 5,
+      "target": [
+        -31.89,
+        16.85,
+        10.0
+      ],
+      "closest_approach_m": 36.039,
+      "reached": false
+    },
+    {
+      "index": 6,
+      "target": [
+        -30.02,
+        0.99,
+        10.0
+      ],
+      "closest_approach_m": 29.878,
+      "reached": false
+    },
+    {
+      "index": 7,
+      "target": [
+        -30.0,
+        -0.02,
+        10.0
+      ],
+      "closest_approach_m": 29.831,
+      "reached": false
+    }
+  ],
+  "total_time_s": 151.89
+}
+
+[r5-provenance] FAIL: flown track did not follow the planner route in order
+
+[exited with code 1]

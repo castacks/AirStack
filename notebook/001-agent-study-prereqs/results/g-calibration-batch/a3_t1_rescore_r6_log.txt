@@ -1,0 +1,22 @@
+      "elapsed_from_prev_s": 2.58,
+      "within_budget": true
+    },
+    {
+      "index": 7,
+      "target": [
+        -0.45,
+        29.99,
+        11.7
+      ],
+      "closest_approach_m": 1.245,
+      "reached": true,
+      "elapsed_from_prev_s": 0.16,
+      "within_budget": true
+    }
+  ],
+  "total_time_s": 108.62
+}
+
+[r5-provenance] PASS: flight followed the planner route (8 checkpoints, goal error 1.25m)
+
+[exited with code 0]

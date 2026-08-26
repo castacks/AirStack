@@ -1,0 +1,14 @@
+AirStack Test Run Summary
+Run directory: 2026-08-04_20-11-05
+Overall: 4 passed, 0 failed, 0 skipped (4 tests)
+
+── isaacsim-rob#1 ──
+Result: PASSED
+
+(no key metrics recorded)
+
+Phase wall times:
+  test_px4_ready: 88.5s (PASSED)
+  test_takeoff: 15.2s (PASSED)
+  test_landing: 34.7s (PASSED)
+  test_waypoint_route: 84.9s (PASSED)

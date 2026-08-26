@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "trial_id": "A1_claude-sonnet-5_ladder_claude_001",
+  "campaign": "2026-08-icra27-vic-pilot",
+  "arm": "A1",
+  "model": "claude-sonnet-5",
+  "task": "ladder",
+  "trial_index": 1,
+  "config_sha256": "a585da537a2ef7b7ec9a7acd8aa59368676f4fd552d043105d7b0479f8290555",
+  "prompt_sha256": "00964c0572cc3b585ff5b9cb635a14669f0c614e91194640a7176d89ed7ba7dc",
+  "airstack_commit": "e5889c06408ead7b14f1dfd15b66e6f8d00453da",
+  "runner_commit": "1b1424a7001d19f61e29ddacdb4c7ee5a9ff4e9d",
+  "smoke": false,
+  "started_utc": "2026-08-25T06:35:36Z",
+  "finished_utc": "2026-08-25T07:38:08Z",
+  "wallclock_s": 3751.7,
+  "judge_cap": 20,
+  "judge_invocations": 6,
+  "judge_refusals": 0,
+  "agent": {
+    "mode": "claude",
+    "exit_code": 0,
+    "timed_out": false,
+    "tokens_in": 562,
+    "tokens_out": 168257,
+    "cost_usd": 22.94822947999999,
+    "agent_wallclock_s": 2734.9
+  },
+  "rungs": {
+    "R1": "pass",
+    "R2": "pass",
+    "R3": "pass",
+    "R4": "fail",
+    "R5": "skipped",
+    "R6": "skipped"
+  },
+  "highest_rung_passed": "R3"
+}

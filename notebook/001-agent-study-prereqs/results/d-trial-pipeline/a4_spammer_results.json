@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "trial_id": "A4_none_ladder_mock-judge_spammer_001",
+  "campaign": "2026-08-icra27-vic-pilot",
+  "arm": "A4",
+  "model": "none",
+  "task": "ladder",
+  "trial_index": 1,
+  "config_sha256": "a163b9f0068f2649c88c210c32439f2621a888b9683bd4869c3581b1811ed452",
+  "prompt_sha256": "4284ec6840e7c6a05926eb024015f84344697eb4f7a0d4f46f81f82d724a34a6",
+  "airstack_commit": "e5889c06408ead7b14f1dfd15b66e6f8d00453da",
+  "runner_commit": "2da408d949a4c0d16fc180a9703e8966bb9c4e39",
+  "smoke": true,
+  "started_utc": "2026-08-25T01:44:01Z",
+  "finished_utc": "2026-08-25T01:44:03Z",
+  "wallclock_s": 2.1,
+  "judge_cap": 0,
+  "judge_invocations": 0,
+  "judge_refusals": 5,
+  "agent": {
+    "mode": "mock:runner/mock_agents/judge_spammer.sh",
+    "exit_code": 0,
+    "timed_out": false,
+    "tokens_in": null,
+    "tokens_out": null,
+    "cost_usd": null,
+    "agent_wallclock_s": 0.1
+  },
+  "rungs": {
+    "R1": "not_scored",
+    "R2": "not_scored",
+    "R3": "not_scored",
+    "R4": "not_scored",
+    "R5": "not_scored",
+    "R6": "not_scored"
+  },
+  "highest_rung_passed": null
+}

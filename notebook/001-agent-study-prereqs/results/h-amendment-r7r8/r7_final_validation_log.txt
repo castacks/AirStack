@@ -1,0 +1,83 @@
+stack.launch.xml patched: planner_b.py
+reference solution applied (planner_b.py) to /home/andrewjong/Development/AirStack/.claude/worktrees/airstack-paper/ICRA_2027_AirStack_Paper/agent_study/runs/A1_none_ladder_mock-noop_agent_009/workspace
+[r5-provenance] R7 route issued (seed 725270): 43.9,22.5,10.0; 17.4,9.5,10.0; 42.2,6.2,10.0
+[r5-provenance] bringing the agent's stack up
+[r5-provenance] waiting for px4 (0s; container=workspace-robot-desktop-1)
+[r5-provenance] waiting for px4 (64s; container=workspace-robot-desktop-1)
+[r5-provenance] px4 ready in 80s
+[r5-provenance] planner /route_planner_beta publishing on /robot_1/global_plan
+[r5-provenance] R7 conformance ok: planner path passes all issued waypoints
+[r5-provenance] 8 checkpoints from planner route
+[r5-provenance] commanding takeoff (the ONLY judge-driven motion)
+[r5-provenance] observing flight (cap 900s); the integration must fly the route
+[r5-provenance] "elapsed_from_prev_s": 15.27,
+      "within_budget": true
+    },
+    {
+      "index": 3,
+      "target": [
+        40.33,
+        20.61,
+        8.6
+      ],
+      "closest_approach_m": 3.779,
+      "reached": true,
+      "elapsed_from_prev_s": 21.45,
+      "within_budget": true
+    },
+    {
+      "index": 4,
+      "target": [
+        33.08,
+        18.17,
+        10.46
+      ],
+      "closest_approach_m": 1.185,
+      "reached": true,
+      "elapsed_from_prev_s": 0.0,
+      "within_budget": true
+    },
+    {
+      "index": 5,
+      "target": [
+        19.2,
+        11.4,
+        10.08
+      ],
+      "closest_approach_m": 1.938,
+      "reached": true,
+      "elapsed_from_prev_s": 75.99,
+      "within_budget": true
+    },
+    {
+      "index": 6,
+      "target": [
+        29.27,
+        7.17,
+        10.0
+      ],
+      "closest_approach_m": 0.111,
+      "reached": true,
+      "elapsed_from_prev_s": 0.0,
+      "within_budget": true
+    },
+    {
+      "index": 7,
+      "target": [
+        42.2,
+        6.2,
+        10.0
+      ],
+      "closest_approach_m": 0.08,
+      "reached": true,
+      "elapsed_from_prev_s": 0.0,
+      "within_budget": true
+    }
+  ],
+  "total_time_s": 1189.02
+}
+
+[r5-provenance] R7 clearance: {"samples": 35669, "min_clearance_m": -0.874, "required_m": 1.0, "violation": true}
+[r5-provenance] FAIL: obstacle clearance violated (see r7_clearance.json)
+
+[exited with code 1]

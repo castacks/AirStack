@@ -1,0 +1,80 @@
+[r5-provenance] bringing the agent's stack up
+[r5-provenance] waiting for px4 (0s; container=workspace-robot-desktop-1)
+[r5-provenance] waiting for px4 (64s; container=workspace-robot-desktop-1)
+[r5-provenance] px4 ready in 71s
+[r5-provenance] planner /robot_1/route_planner_beta publishing on /robot_1/global_plan
+[r5-provenance] route geometry ok: 94.4m, 2 heading changes
+[r5-provenance] 8 checkpoints from planner route
+[r5-provenance] commanding takeoff (the ONLY judge-driven motion)
+[r5-provenance] observing flight (cap 900s); the integration must fly the route
+[r5-provenance] drone stationary — flight concluded
+[r5-provenance] d_from_prev_s": 76.02,
+      "within_budget": true
+    },
+    {
+      "index": 3,
+      "target": [
+        33.67,
+        13.78,
+        10.62
+      ],
+      "closest_approach_m": 2.521,
+      "reached": true,
+      "elapsed_from_prev_s": 14.85,
+      "within_budget": true
+    },
+    {
+      "index": 4,
+      "target": [
+        30.94,
+        28.81,
+        10.0
+      ],
+      "closest_approach_m": 1.875,
+      "reached": true,
+      "elapsed_from_prev_s": 15.54,
+      "within_budget": true
+    },
+    {
+      "index": 5,
+      "target": [
+        16.88,
+        31.87,
+        9.98
+      ],
+      "closest_approach_m": 1.37,
+      "reached": true,
+      "elapsed_from_prev_s": 12.69,
+      "within_budget": true
+    },
+    {
+      "index": 6,
+      "target": [
+        1.02,
+        30.02,
+        9.98
+      ],
+      "closest_approach_m": 1.173,
+      "reached": true,
+      "elapsed_from_prev_s": 17.04,
+      "within_budget": true
+    },
+    {
+      "index": 7,
+      "target": [
+        0.01,
+        30.0,
+        9.98
+      ],
+      "closest_approach_m": 1.216,
+      "reached": true,
+      "elapsed_from_prev_s": 1.08,
+      "within_budget": true
+    }
+  ],
+  "total_time_s": 238.53
+}
+
+[r5-provenance] PASS: flight followed the planner route (8 checkpoints, goal error 1.22m)
+
+[exited with code 0]

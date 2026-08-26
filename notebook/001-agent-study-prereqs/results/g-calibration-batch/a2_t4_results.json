@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "trial_id": "A2_claude-sonnet-5_ladder_claude_004",
+  "campaign": "2026-08-icra27-vic-v2",
+  "arm": "A2",
+  "model": "claude-sonnet-5",
+  "task": "ladder",
+  "trial_index": 4,
+  "config_sha256": "8c7182f2ca1a24c4928b06b3ffb4d09a0f91a75bbb2ae528a469820834643c98",
+  "prompt_sha256": "53c5356488f4337952ae65f29b75e8b3a4bb5449db1bb0c9467a9278fe41744b",
+  "airstack_commit": "e5889c06408ead7b14f1dfd15b66e6f8d00453da",
+  "runner_commit": "1d7f8e84959d7819969511d2b37cf66dd27b73db",
+  "smoke": false,
+  "started_utc": "2026-08-25T21:43:24Z",
+  "finished_utc": "2026-08-25T22:23:49Z",
+  "wallclock_s": 2425.6,
+  "judge_cap": 20,
+  "judge_invocations": 0,
+  "judge_refusals": 0,
+  "agent": {
+    "mode": "claude",
+    "exit_code": 0,
+    "timed_out": false,
+    "tokens_in": 194,
+    "tokens_out": 79739,
+    "cost_usd": 6.66037559,
+    "agent_wallclock_s": 1775.9
+  },
+  "rungs": {
+    "R6": "fail",
+    "R5": "pass",
+    "R4": "implied",
+    "R3": "implied",
+    "R2": "implied",
+    "R1": "implied"
+  },
+  "highest_rung_passed": "R5"
+}
