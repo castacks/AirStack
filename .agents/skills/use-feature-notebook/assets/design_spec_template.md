@@ -1,6 +1,6 @@
 # Design Spec: <Feature Title>
 
-> Notebook entry: `notebook/NNN-feature-slug/` · Date started: YYYY-MM-DD · Last updated: YYYY-MM-DD · Branch: `<branch-name>`
+> Notebook entry: `notebook/NNN-feature-slug/` · Date started: YYYY-MM-DD HH:MM · Last updated: YYYY-MM-DD HH:MM · Branch: `<branch-name>` · Commit: `<short-sha>` <!-- branch/commit: git rev-parse --abbrev-ref HEAD / git rev-parse --short HEAD -->
 >
 > **Status: `DESIGN/TODO`** <!-- DESIGN/TODO → WIP → DONE. Overall status = least-advanced section below. Update as you work. -->
 
