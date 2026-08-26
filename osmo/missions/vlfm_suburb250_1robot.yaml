@@ -1,0 +1,309 @@
+# vlfm_wildfire_1robot — VLFM on the procedural wildfire suburb, 1 drone.
+#
+# BLIP-2 ITM scores the live RGB, the score is painted into a value map over
+# the camera cone, and the frontier in the highest-value cell wins. The scorer
+# is 2.5 GiB and 17 ms a call, so one instance would serve a fleet; at 1 robot
+# it barely registers.
+#
+# NO semantic_search_task. The planner is launched directly by a `run` step
+# below — the mission runner's escape hatch is an arbitrary shell command, so a
+# baseline needs no runner changes and no raven_nav involvement. This arm builds
+# its own RGBD map, its own frontiers and its own actuation.
+#
+# Submit:
+#   airstack osmo:mission osmo/missions/vlfm_suburb250_1robot.yaml \
+#     --pool coasei --branch krrishj/disaster-dataset \
+#     --workflow osmo/workflows/airstack-mission-1gpu.yaml
+#
+# Schema: osmo/missions/README.md
+
+name: vlfm_suburb250_1robot
+nas_dest: /volume2/coa-sei
+
+stack:
+  services: [isaac-sim, robot-desktop, gcs]
+
+method: vlfm
+
+env:
+  NUM_ROBOTS: 1
+  ISAAC_SIM_HEADLESS: "true"
+  ISAAC_SIM_CUDA_DEVICES: "0"
+  ISAAC_SIM_USE_STANDALONE: "true"
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  PLAY_SIM_ON_START: "true"
+
+  # A preset names a KIND of place; these pick the instance. 250 x 250 m of
+  # UNDAMAGED suburb -- no preset file of its own, and the same three vars
+  # switch it to any size or disaster.
+  SCENE_CONFIG: suburb
+  REGION_M: "250x250"
+  DISASTER_TYPE: "none"
+  AIRSTACK_ASSET_ROOT: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA"
+  # A rect inside the block. The derived default spawn sits at (302, -144) on
+  # the 1600x1200 wildfire plat, which is off the edge of a 250 m region.
+  SPAWN_POLY: '[[-100,-100],[100,100]]'
+  SPAWN_HEIGHT_M: "1.0"
+  PEOPLE_POLES: "1"
+
+  # CoNavGPT reads no lidar and neither does any arm here; it costs ~3x the sim
+  # rate, which lands entirely on wall clock for a sim-time-bounded run.
+  ENABLE_LIDAR: "false"
+
+  # ZED tilted 30 deg down. Read by BOTH the launch script (which tilts the
+  # mount) and search_planner (which uses it as camera_pitch_rad), because TF
+  # walks the URDF and the URDF models no pitch.
+  ZED_PITCH_DEG: "30"
+
+  # Publish the MEASURED world->map transform. `map` is anchored at the takeoff
+  # point, so identity is a 340 m error at this spawn.
+  MAP_ANCHOR_ENU: "true"
+
+  # Every raven-side arm OFF: this mission does not use semantic_search_task.
+  CONAVGPT_BASELINE: "false"
+  FRONTIER_ONLY_BASELINE: "false"
+  VLFM_BASELINE: "false"
+  LVLM_BASELINE: "false"
+  COMMS_RANGE_M: 5000
+  RESULTS_SCENE: Suburb250Undamaged
+  # ONE GPU. Measured on a 16 GB card: Isaac Sim, a 4-bit VLM, YOLO-World and
+  # MobileSAM all CO-RESIDENT at 12.0 of 16.3 GB with cameras publishing at
+  # 53 Hz. On a 48 GB card Isaac (~10 GB on this plat) plus the largest service
+  # here (5.9 GB) leaves ~30 GB spare. The "Isaac needs a card to itself" claim
+  # this stack used to carry was correlation, not causation — the real cause of
+  # that incident was a stale DDS profile in the isaac-sim image.
+  #
+  # CONAVGPT2_VLM_GPU is therefore unset: nothing is pinned, and the service
+  # shares GPU 0 with the sim.
+  # Emit ground truth from the LAYOUT GENERATOR: survivor boxes come from the
+  # people pass's own humans.json, so the GT and the scenario cannot disagree.
+  # Written to both annotation dirs and drawn on /gcs/annotations/bboxes.
+  GT_ANNOTATIONS: "on"
+
+
+ready:
+  timeout_s: 1800
+  poll_interval_s: 10
+
+up_timeout_s: 3600
+iterations: 1
+iteration_attempts: 2
+on_step_failure: abort_iteration
+command_route: gcs
+
+record:
+  enabled: true
+  scope: both
+  required: true
+  topics:
+    - /tf
+    - /tf_static
+    - /{robot}/odometry_conversion/odometry
+    - /{robot}/interface/mavros/global_position/global
+    - /{robot}/global_plan
+    - /gcs/robot_markers
+    - /gcs/sim_ground
+    - /gcs/annotations/bboxes
+    - /{robot}/occupancy
+    - /{robot}/frontiers
+    - /{robot}/frontier_cloud
+    - /{robot}/voxel_map
+    - /{robot}/value_map
+    - /{robot}/search/markers
+    - /{robot}/search/round_stats
+    - /{robot}/search/run_complete
+  robot_topics:
+    - /tf
+    - /tf_static
+    - /robot_{n}/odometry_conversion/odometry
+    - /robot_{n}/global_plan
+    - /robot_{n}/occupancy
+    - /robot_{n}/frontiers
+    - /robot_{n}/value_map
+    - /robot_{n}/search/map_image
+    - /robot_{n}/search/round_stats
+    - /robot_{n}/search/run_complete
+    - /robot_{n}/search/agent_image
+    # The 3D map and the frontier set the method actually reasons over, plus
+    # the target/detection markers -- without these a bag shows where the
+    # drone went but not why it went there.
+    - /robot_{n}/voxel_map
+    - /robot_{n}/frontier_cloud
+    - /robot_{n}/search/markers
+    - /robot_{n}/vdb_mapping/vdb_map_pointcloud
+    - /robot_{n}/interface/mavros/state
+    - /robot_{n}/sensors/front_stereo/left/image_rect
+
+steps:
+  # Detector weights. YOLO-World runs IN-PROCESS in every arm — the target
+  # detection and the visit-and-blacklist behaviour are shared, so no arm can
+  # win by having a better detector. CLIP is imported by set_classes(), which
+  # upstream calls in the detector's constructor: no clip, no planner.
+  - run:
+      container: robot_1
+      cmd: |
+        set -e
+        mkdir -p /root/.cache/conavgpt2_weights
+        cd /root/.cache/conavgpt2_weights
+        for f in yolov8l-world.pt mobile_sam.pt; do
+          [ -s "$f" ] || python3 -c "
+        from ultralytics.utils.downloads import attempt_download_asset
+        attempt_download_asset('$f')"
+        done
+        python3 -c "import clip" 2>/dev/null || \
+          pip install --break-system-packages --no-cache-dir --no-deps \
+            "clip @ git+https://github.com/ultralytics/CLIP.git"
+        python3 -c "
+        import clip
+        clip.load('ViT-B/32', device='cpu',
+                  download_root='/root/.cache/conavgpt2_weights/clip')
+        print('detector weights ready')"
+      timeout_s: 900
+      attempts: 3
+      retry_delay_s: 15
+
+  # BLIP-2 ITM, the scorer VLFM actually uses. 2.5 GiB and 17 ms a call, so ONE
+  # instance serves a fleet — it scores single frames with no history, which is
+  # what makes interleaving robots safe.
+  - run:
+      container: robot_1
+      cmd: /opt/lvlm-venv/bin/python -c "import os; from huggingface_hub import snapshot_download; print('weights at', snapshot_download('Salesforce/blip2-itm-vit-g'))"
+      timeout_s: 1800
+      attempts: 3
+      retry_delay_s: 30
+
+  - run:
+      container: robot_1
+      cmd: |
+        mkdir -p /tmp/search
+        GPU="${CONAVGPT2_VLM_GPU:-}"
+        if [ -n "$GPU" ] && [ "$GPU" != "-1" ]; then export CUDA_VISIBLE_DEVICES="$GPU"; fi
+        nohup /opt/lvlm-venv/bin/python -m search_baselines.itm_server \
+          --port 8100 --device cuda:0 \
+          --metrics-jsonl /tmp/search/itm_requests.jsonl \
+          > /tmp/search/itm_server.log 2>&1 &
+        echo $! > /tmp/search/itm.pid
+        sleep 5
+        kill -0 "$(cat /tmp/search/itm.pid)" 2>/dev/null && echo ITM_STARTED || {
+          echo ITM_DEAD; tail -n 40 /tmp/search/itm_server.log; exit 1; }
+      timeout_s: 180
+      attempts: 3
+      retry_delay_s: 20
+
+  - run:
+      container: robot_1
+      cmd: |
+        for i in $(seq 1 60); do
+          curl -sf http://localhost:8100/health | grep -q '"status": *"ok"' && {
+            echo ITM_READY; curl -s http://localhost:8100/health; echo; exit 0; }
+          kill -0 "$(cat /tmp/search/itm.pid)" 2>/dev/null || {
+            echo ITM_EXITED; tail -n 40 /tmp/search/itm_server.log; exit 1; }
+          sleep 10
+        done
+        echo ITM_NOT_READY; tail -n 40 /tmp/search/itm_server.log; exit 1
+      timeout_s: 660
+
+  - action:
+      task: takeoff
+      goal: {target_altitude_m: 12.0, velocity_m_s: 2.0}
+      timeout_s: 300
+
+  - wait: 5
+
+  # The planner. Backgrounded, and AFTER any service gate above: the node's
+  # preflight is fatal, so launching it before its endpoint exists kills it.
+  - run:
+      container: robot_1
+      cmd: |
+        mkdir -p /tmp/search
+        CFG=$(ros2 pkg prefix search_baselines)/share/search_baselines/config
+        nohup ros2 launch search_baselines vlfm.launch.xml \
+          scene_params_file:=$CFG/suburb_mini.yaml \
+          > /tmp/search/planner.log 2>&1 &
+        echo $! > /tmp/search/planner.pid
+        sleep 20
+        if kill -0 "$(cat /tmp/search/planner.pid)" 2>/dev/null; then
+          echo PLANNER_STARTED; grep -a "search_planner starting" /tmp/search/planner.log || true
+        else
+          echo PLANNER_DEAD; tail -n 60 /tmp/search/planner.log; exit 1
+        fi
+      timeout_s: 240
+      attempts: 2
+      retry_delay_s: 15
+
+  # Gate on SIM time, not wall clock: RTF varies with scene and card, so two
+  # runs of equal wall duration cover different amounts of ground. The node
+  # latches run_complete when max_sim_seconds is spent.
+  - run:
+      container: robot_1
+      robots: [1]
+      cmd: |
+        for i in $(seq 1 240); do
+          if timeout 10 ros2 topic echo /robot_1/search/run_complete --once 2>/dev/null | grep -q "data: true"; then
+            echo RUN_COMPLETE; exit 0
+          fi
+          kill -0 "$(cat /tmp/search/planner.pid)" 2>/dev/null || {
+            echo PLANNER_EXITED; tail -n 60 /tmp/search/planner.log; exit 1; }
+          sleep 15
+        done
+        echo RUN_DID_NOT_COMPLETE; tail -n 40 /tmp/search/planner.log; exit 1
+      timeout_s: 3900
+
+  # `record:` captures ROS topics only. The round table and any server metrics
+  # live on the container filesystem and would die with it at `airstack down`.
+  - run:
+      container: robot_1
+      cmd: |
+        DEST=/root/AirStack/results/vlfm_suburb250
+        mkdir -p "$DEST"
+        cp -v /tmp/search/*.jsonl "$DEST"/ 2>/dev/null || echo "no jsonl"
+        cp -v /tmp/search/*.log "$DEST"/ 2>/dev/null || true
+        cp -v /tmp/conavgpt2/search_planner_rounds.jsonl "$DEST"/ 2>/dev/null || true
+        curl -s http://localhost:8100/metrics > "$DEST"/itm_metrics.json 2>/dev/null || true
+
+        # The whole rcl log tree: per-node stdout that never reaches a topic,
+        # which is where a node that died quietly says why.
+        tar czf "$DEST"/ros_logs.tgz -C /root/.ros log 2>/dev/null || true
+
+        # DETECTOR SUMMARY, distilled from the planner log. This is the number
+        # that decides whether an arm could have found anything at all: the
+        # goal class is only accumulated when it clears sem_threshold, so a run
+        # with a high detection count and a low goal_max found nothing because
+        # the detector never proposed the target, not because the search was
+        # bad.
+        {
+          echo "# ticks with a detection / total"
+          grep -ac "targets:" /tmp/search/planner.log
+          grep -a "targets:" /tmp/search/planner.log | grep -acv "'n': 0,"
+          echo "# best goal_max seen"
+          grep -ao "goal_max': [0-9.]*" /tmp/search/planner.log \
+            | sort -t' ' -k2 -g | tail -1
+          echo "# ticks that ACCUMULATED the goal"
+          grep -a "targets:" /tmp/search/planner.log | grep -acv "object_pcd 0 pts"
+          echo "# classes proposed"
+          grep -ao "top': \[[^]]*\]" /tmp/search/planner.log | sort | uniq -c | sort -rn | head -20
+          echo "# goal reached / released"
+          grep -ac "reached goal" /tmp/search/planner.log
+          echo "# ITM keyframes"
+          grep -ac "vlfm: score" /tmp/search/planner.log
+        } > "$DEST"/detector_summary.txt 2>&1 || true
+
+        ros2 topic list > "$DEST"/topics.txt 2>/dev/null || true
+        ls -la "$DEST"
+      timeout_s: 180
+    optional: true
+
+  - run:
+      container: robot_1
+      cmd: |
+        kill "$(cat /tmp/search/planner.pid)" 2>/dev/null || true
+        kill "$(cat /tmp/search/itm.pid)" 2>/dev/null || true
+        sleep 3; echo stopped
+      timeout_s: 60
+    optional: true
+
+  - action:
+      task: land
+      goal: {}
+      timeout_s: 240
+    optional: true
