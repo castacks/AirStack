@@ -221,6 +221,15 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
         _off = Gf.Vec3d(rx, ry, rz)
 
     out = Usd.Stage.CreateNew(out_path)
+    # CARRY THE SOURCE STAGE'S UP AXIS AND SCALE. `CreateNew` defaults to
+    # Y-up, while everything baked here is authored Z-up (the bake script sets
+    # `UsdGeom.SetStageUpAxis(stage, z)`). Losing it makes every archetype
+    # DECLARE Y-up over Z-up geometry, and Kit then applies a 90 deg X
+    # correction when the plat references it — houses arrive turned on their
+    # side. Nothing downstream re-checks this, and the geometry itself is
+    # perfectly fine, so it reads as a layout or yaw bug rather than metadata.
+    UsdGeom.SetStageUpAxis(out, UsdGeom.GetStageUpAxis(src_stage))
+    UsdGeom.SetStageMetersPerUnit(out, UsdGeom.GetStageMetersPerUnit(src_stage))
     UsdGeom.Scope.Define(out, root)
     out.SetDefaultPrim(out.GetPrimAtPath(root))
     UsdGeom.Scope.Define(out, root + "/Looks")

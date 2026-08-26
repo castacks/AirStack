@@ -40,3 +40,10 @@ search_planner:
     # Per metre of travel, subtracted from value. 0 is pure argmax, which will
     # cross the whole map for a marginally better cell.
     vlfm_distance_penalty: 0.004
+
+    # 12 candidates rather than the 6 auto-scaling gives at 240 m. The cap
+    # exists because CoNavGPT2 puts one BEV image (~290 tokens) per frontier in
+    # the VLM prompt; VLFM only does a value-map lookup per candidate, so the
+    # cost is negligible and more candidates give the z-stratifier more heights
+    # to spread across.
+    max_frontiers: 12

@@ -1,0 +1,43 @@
+# 250 x 250 m undamaged suburb (scene_gen preset suburb_mini_clean.yaml).
+#
+# The DETECTION CONTROL scene. The modular-house preview gave the detector
+# nothing to lock onto — YOLO-World returned only low-confidence 'person'
+# there and never once proposed 'house' — so this is the same search stack
+# over a block of intact, well-separated houses. If 'house' is detectable at
+# all from cruise altitude, it is detectable here.
+#
+# The drone spawns at the block centre (DRONE_XY=0,0), so map coordinates
+# equal world coordinates and the search area is just the block plus a pad.
+search_planner:
+  ros__parameters:
+    map_extent_m: 280.0        # 250 m block + pad; 480 cells -> ~58 cm
+    search_area_xy: [-130.0, -130.0,
+                      130.0, -130.0,
+                      130.0,  130.0,
+                     -130.0,  130.0]
+
+    # Suburban houses top out near 10 m.
+    min_altitude_agl_m: 8.0
+    max_altitude_agl_m: 25.0
+    frontier_z_min_m: 3.0
+    frontier_z_max_m: 20.0
+    flight_altitude_m: 12.0
+    inspect_altitude_m: 8.0
+
+    # PERSON, not 'house'. Measured on real frames from this scene:
+    #   person  0.67, 0.65, 0.48, 0.35, 0.30
+    #   car     0.69, 0.59
+    #   house   0.013   (tree 0.032, roof 0.031 -- at conf floor 0.01)
+    # YOLO-World is effectively blind to buildings in oblique aerial synthetic
+    # renders and sharp on people in the same frames, and people are what the
+    # scene actually places (40 of them) and what a SAR benchmark searches for.
+    goal_name: 'person'
+    detection_classes: ['person', 'car', 'house', 'tree']
+
+    max_sim_seconds: 600.0
+
+    # Arrival radii. 2.5 m is the disc the drone must reach; the planner
+    # releases its lock at unlock_radius, which must be >= the tolerance or
+    # it lets go before droan considers the goal reached.
+    goal_tolerance_m: 2.5
+    frontier_unlock_radius_m: 4.0

@@ -61,6 +61,11 @@ class VoxelMap:
         self.dims = np.maximum(
             1, np.ceil((self.hi - self.lo) / self.vox).astype(int))
         self.grid = np.zeros(tuple(self.dims), dtype=np.uint8)  # UNOBSERVED
+        # Persistent frontier set, rayfronts-style: {flat_index: gain}.
+        # Frontiers ACCUMULATE and are invalidated only where a new
+        # observation actually touched the map — see `frontiers_persistent`.
+        self._fronti = {}
+        self._last_bbox = None   # (i0,j0,k0,i1,j1,k1) of the last integrate
 
     # ── indexing ──────────────────────────────────────────────────────────
     def to_idx(self, pts):
@@ -81,12 +86,18 @@ class VoxelMap:
 
     # ── integration ───────────────────────────────────────────────────────
     def integrate(self, cam_xyz, points, carve_samples=24, max_points=20000,
-                  rng=None):
+                  rng=None, max_range_m=None):
         """Carve free space to `points` and mark the returns occupied.
 
         Occupied is written AFTER empty so a surface is not erased by the rays
         of its neighbours: many rays pass close to a wall and their samples land
         in the wall's own voxel, and if free won the surface would dissolve.
+
+        `max_range_m` is the range past which stereo depth is not trusted. A
+        return beyond it means "nothing found within range", NOT a surface: the
+        ray is carved out to the limit and no voxel is marked occupied. Without
+        this every frame stamps a shell of false obstacles at the depth horizon,
+        which is what puts solid voxels in open air at heights nothing reaches.
         """
         pts = np.asarray(points, dtype=np.float64)
         pts = pts[np.isfinite(pts).all(axis=1)]
@@ -97,6 +108,17 @@ class VoxelMap:
             pts = pts[rng.choice(pts.shape[0], max_points, replace=False)]
 
         cam = np.asarray(cam_xyz, dtype=np.float64).reshape(1, 3)
+
+        # Split at the range limit: everything carves, only in-range returns
+        # occupy.
+        occ_pts = pts
+        if max_range_m is not None and max_range_m > 0.0:
+            d = np.linalg.norm(pts - cam, axis=1)
+            far = d > float(max_range_m)
+            if far.any():
+                dirs = (pts - cam) / np.maximum(d[:, None], 1e-9)
+                pts = np.where(far[:, None], cam + dirs * float(max_range_m), pts)
+                occ_pts = pts[~far]
 
         # EMPTY: samples along each ray, stopping just short of the return so
         # the surface voxel is not carved by its own ray.
@@ -110,8 +132,25 @@ class VoxelMap:
             self.grid.reshape(-1)[flat] = EMPTY
             n_free = flat.size
 
+        # The ACTIVE WINDOW: every voxel this observation could have changed.
+        # Frontier refresh is confined to it, so a frontier the drone is no
+        # longer looking at survives instead of being recomputed away.
+        touched = fidx if fidx.shape[0] else None
+        if occ_pts.shape[0]:
+            _o = self.to_idx(occ_pts)
+            _o = _o[self._inside(_o)]
+            if _o.shape[0]:
+                touched = _o if touched is None else np.vstack([touched, _o])
+        if touched is not None and touched.shape[0]:
+            lo = touched.min(axis=0)
+            hi = touched.max(axis=0)
+            self._last_bbox = (int(lo[0]), int(lo[1]), int(lo[2]),
+                               int(hi[0]), int(hi[1]), int(hi[2]))
+
         # OCCUPIED last, so surfaces survive.
-        oidx = self.to_idx(pts)
+        if occ_pts.shape[0] == 0:
+            return n_free, 0
+        oidx = self.to_idx(occ_pts)
         oidx = oidx[self._inside(oidx)]
         n_occ = 0
         if oidx.shape[0]:
@@ -170,6 +209,122 @@ class VoxelMap:
             np.add.at(gain, inv, unobs)
             idx, unobs = idx[first], gain
         return self.to_world(idx), unobs
+
+    def frontiers_persistent(self, neighborhood_r=1, min_unobserved=4,
+                             min_empty=2, min_occupied=0, subsampling=4,
+                             subsampling_min_fronti=10, z_range=None):
+        """Frontiers the way rayfronts maintains them: ACCUMULATE globally,
+        invalidate locally.
+
+        `frontiers()` recomputes the whole set from the whole map on every
+        call. That makes the candidate set unstable: the frontier a robot
+        committed to is usually absent from the next call (it either got
+        observed on arrival, or fell out of a top-N), so a goal cannot be held
+        and the robot parks on a target nothing re-selects.
+
+        rayfronts instead keeps a persistent set and only re-evaluates the
+        ACTIVE WINDOW — the bbox of the voxels the latest observation actually
+        wrote (`frontier_vdb_map.update_frontiers`):
+
+            outside = frontiers outside the bbox      -> KEPT untouched
+            inside  = recomputed from the current map -> REPLACES the old ones
+
+        so a frontier behind the robot survives until the robot looks there
+        again. Defaults are rayfronts' own (r=1, min_unobserved=4,
+        min_empty=2, min_occupied=0, subsampling=4, min_fronti=10).
+
+        Returns (frontiers (N,3) world, gain (N,)) over the WHOLE accumulated
+        set, not just this tick's window.
+        """
+        if not _HAVE_SCIPY:
+            raise RuntimeError('scipy is required for frontier extraction')
+        bbox = self._last_bbox
+        if bbox is None:
+            return np.zeros((0, 3)), np.zeros((0,))
+
+        r = int(neighborhood_r)
+        i0, j0, k0, i1, j1, k1 = bbox
+        # Pad by r so a cell on the window edge still sees its full
+        # neighbourhood, then clip back to the window when selecting.
+        pi0, pj0, pk0 = max(0, i0 - r), max(0, j0 - r), max(0, k0 - r)
+        pi1 = min(self.dims[0] - 1, i1 + r)
+        pj1 = min(self.dims[1] - 1, j1 + r)
+        pk1 = min(self.dims[2] - 1, k1 + r)
+        sub = self.grid[pi0:pi1 + 1, pj0:pj1 + 1, pk0:pk1 + 1]
+        if sub.size == 0:
+            return self._fronti_arrays()
+
+        k = 2 * r + 1
+        box = np.ones((k, k, k), dtype=np.float32)
+        cnt = {}
+        for state, name in ((UNOBSERVED, 'unobs'), (EMPTY, 'empty'),
+                            (OCCUPIED, 'occ')):
+            m = (sub == state).astype(np.float32)
+            cnt[name] = ndimage.convolve(m, box, mode='constant', cval=0.0)
+        # The cell itself is counted by the box; discount it.
+        sel = ((sub == EMPTY)
+               & (cnt['unobs'] >= min_unobserved)
+               & (cnt['empty'] - 1 >= min_empty)
+               & (cnt['occ'] >= min_occupied))
+        # Only cells genuinely inside the active window are authoritative;
+        # the pad ring exists to give them correct neighbour counts.
+        sel[:i0 - pi0, :, :] = False
+        sel[:, :j0 - pj0, :] = False
+        sel[:, :, :k0 - pk0] = False
+        if pi1 > i1: sel[i1 - pi0 + 1:, :, :] = False
+        if pj1 > j1: sel[:, j1 - pj0 + 1:, :] = False
+        if pk1 > k1: sel[:, :, k1 - pk0 + 1:] = False
+
+        idx = np.argwhere(sel)
+        if idx.shape[0]:
+            idx = idx + np.array([pi0, pj0, pk0])
+            gains = cnt['unobs'][sel]
+        else:
+            gains = np.zeros((0,))
+
+        if z_range is not None and idx.shape[0]:
+            zw = self.to_world(idx)[:, 2]
+            keep = (zw >= z_range[0]) & (zw <= z_range[1])
+            idx, gains = idx[keep], gains[keep]
+
+        # Voxel-grid subsample, as rayfronts does: group on a lattice
+        # `subsampling` times coarser and keep only groups with enough
+        # frontier cells in them, so a single stray voxel is not a frontier.
+        ss = max(1, int(subsampling))
+        fresh = {}
+        if idx.shape[0]:
+            keys = idx // ss
+            for n in range(idx.shape[0]):
+                kk = (int(keys[n, 0]), int(keys[n, 1]), int(keys[n, 2]))
+                e = fresh.get(kk)
+                if e is None:
+                    fresh[kk] = [idx[n].astype(np.float64), float(gains[n]), 1]
+                else:
+                    e[0] = e[0] + idx[n]
+                    e[1] += float(gains[n])
+                    e[2] += 1
+            fresh = {kk: v for kk, v in fresh.items()
+                     if v[2] >= subsampling_min_fronti}
+
+        # Invalidate the window in the accumulated set, then insert the fresh
+        # ones. A key survives only if its cell lies OUTSIDE the active bbox.
+        lo = (i0 // ss, j0 // ss, k0 // ss)
+        hi = (i1 // ss, j1 // ss, k1 // ss)
+        self._fronti = {
+            kk: v for kk, v in self._fronti.items()
+            if not (lo[0] <= kk[0] <= hi[0] and lo[1] <= kk[1] <= hi[1]
+                    and lo[2] <= kk[2] <= hi[2])}
+        for kk, v in fresh.items():
+            self._fronti[kk] = (v[0] / v[2], v[1] / v[2])
+        return self._fronti_arrays()
+
+    def _fronti_arrays(self):
+        """The accumulated set as (world (N,3), gain (N,))."""
+        if not self._fronti:
+            return np.zeros((0, 3)), np.zeros((0,))
+        idx = np.array([v[0] for v in self._fronti.values()], dtype=np.float64)
+        gain = np.array([v[1] for v in self._fronti.values()], dtype=np.float64)
+        return self.to_world(idx), gain
 
     def as_points(self, states=(EMPTY, OCCUPIED), max_points=200000, rng=None):
         """Voxel centres and an RGB per state, for a PointCloud2.

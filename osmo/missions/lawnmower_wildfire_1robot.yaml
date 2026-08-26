@@ -13,7 +13,7 @@
 #
 # Submit:
 #   airstack osmo:mission osmo/missions/lawnmower_wildfire_1robot.yaml \
-#     --pool <gpu-pool> --branch <branch> \
+#     --pool coasei --branch krrishj/disaster-dataset \
 #     --workflow osmo/workflows/airstack-mission-1gpu.yaml
 #
 # Schema: osmo/missions/README.md

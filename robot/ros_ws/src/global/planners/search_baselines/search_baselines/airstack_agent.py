@@ -74,6 +74,43 @@ class AirStackAgent(ROS_Agent):
         self.obj_det_seg.yolo_model_w_classes.set_classes(self.classes)
         self.goal_id = self.classes.index(goal_name)
 
+        # Record what the detector actually returns. Upstream consumes
+        # detections inside mapping() and keeps nothing when the class/
+        # confidence gate rejects them, so "no target" and "target seen but
+        # filtered out" are indistinguishable from outside — which is the
+        # difference between a broken detector and a wrong threshold.
+        self.last_detection = {'n': 0, 'top': [], 'goal_hits': 0}
+        _inner = self.obj_det_seg.detect
+
+        def _detect(image, *a, **kw):
+            det = _inner(image, *a, **kw)
+            try:
+                conf = getattr(det, 'confidence', None)
+                cid = getattr(det, 'class_id', None)
+                n = 0 if conf is None else len(conf)
+                top = []
+                if n:
+                    order = sorted(range(n), key=lambda i: -float(conf[i]))[:5]
+                    top = [(self.classes[int(cid[i])]
+                            if cid is not None and int(cid[i]) < len(self.classes)
+                            else '?', round(float(conf[i]), 3)) for i in order]
+                hits, gmax = 0, 0.0
+                if n and cid is not None:
+                    gc = [float(conf[i]) for i in range(n)
+                          if int(cid[i]) == self.goal_id]
+                    hits = len(gc)
+                    gmax = max(gc) if gc else 0.0
+                # goal_max is the number that decides everything: it separates
+                # "the detector never proposes the goal class" from "it does,
+                # below sem_threshold".
+                self.last_detection = {'n': n, 'top': top, 'goal_hits': hits,
+                                       'goal_max': round(gmax, 3)}
+            except Exception:
+                pass
+            return det
+
+        self.obj_det_seg.detect = _detect
+
         # get_transform_matrix() below ignores these, but upstream code paths read
         # them, so keep them well-defined rather than None.
         self.init_sim_position = np.zeros(3)

@@ -92,14 +92,25 @@ search_planner:
     #             each carries its own z, which becomes the waypoint altitude.
     frontier_source: 'slab2d'
     voxel_size_m: 2.0
+    # Range past which stereo depth is not a surface measurement. Returns
+    # beyond it carve free space but mark nothing occupied.
+    voxel_max_range_m: 20.0
     voxel_carve_samples: 24          # samples along each ray when carving free
     voxel_max_points_per_tick: 20000
     voxel_neighborhood_r: 1          # (2r+1)^3 box, as rayfronts' neighborhood_r
-    voxel_min_unobserved: 3          # rayfronts' min_unobserved
-    voxel_min_empty: 1
+    # EXACTLY rayfronts' frontier_vdb_map defaults, so this arm's frontier
+    # definition is the same object as the one in RayFronts.
+    voxel_min_unobserved: 4          # rayfronts' fronti_min_unobserved
+    voxel_min_empty: 2               # rayfronts' fronti_min_empty
     # rayfronts can demand a nearby surface to suppress frontiers in open sky.
     # Indoors that helps; from the air it would delete the frontiers that matter.
-    voxel_min_occupied: 0
+    voxel_min_occupied: 0            # rayfronts' fronti_min_occupied
+    # Frontiers ACCUMULATE and are invalidated only inside the bbox each
+    # observation wrote (rayfronts update_frontiers). These two are its
+    # voxel-grid subsample: group on a lattice N times coarser and keep only
+    # groups holding at least `min_cells` frontier voxels.
+    frontier_subsampling: 4          # rayfronts' fronti_subsampling
+    frontier_subsampling_min_cells: 10   # rayfronts' fronti_subsampling_min_fronti
     voxel_frontier_subsample: 2
     # Height span of the voxel MAP (map-frame metres) — NOT the flight band.
     # The map must contain the ground and the buildings or nothing is ever
@@ -141,7 +152,7 @@ search_planner:
 
     # ── actuation ───────────────────────────────────────────────────────────
     flight_altitude_m: 15.0
-    goal_tolerance_m: 6.0
+    goal_tolerance_m: 2.5
     nav_goal_timeout_s: 60.0
     goal_change_threshold_m: 5.0
     path_extension_m: 2.0

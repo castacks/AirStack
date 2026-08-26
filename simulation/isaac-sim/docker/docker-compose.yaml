@@ -47,6 +47,13 @@ services:
       - ISAAC_SIM_HEADLESS=${ISAAC_SIM_HEADLESS:-false}
       # Scene to generate; empty falls back to the launch script default
       - SCENE_CONFIG=${SCENE_CONFIG:-}
+      # Spec overrides: a preset names a KIND of scene, these pick the
+      # instance (size, disaster, severity). Unset leaves the preset alone.
+      - REGION_M=${REGION_M:-}
+      - DISASTER_TYPE=${DISASTER_TYPE:-}
+      - SEVERITY=${SEVERITY:-}
+      - HOUSE_YAW_OFFSET_DEG=${HOUSE_YAW_OFFSET_DEG:-}
+      - DUMP_HOUSE_POSES=${DUMP_HOUSE_POSES:-}
       # Must match the robot/gcs containers — mixed transport modes across
       # containers have no common data channel, and the isaacsim ros2 bridge
       # ships its own Fast DDS whose SHM segments are incompatible with the
@@ -198,6 +205,13 @@ services:
       # import) and a compose default silently overrides both.
       - ENABLE_LIDAR=${ENABLE_LIDAR:-}
       - SCENE_CONFIG=${SCENE_CONFIG:-}
+      # Spec overrides: a preset names a KIND of scene, these pick the
+      # instance (size, disaster, severity). Unset leaves the preset alone.
+      - REGION_M=${REGION_M:-}
+      - DISASTER_TYPE=${DISASTER_TYPE:-}
+      - SEVERITY=${SEVERITY:-}
+      - HOUSE_YAW_OFFSET_DEG=${HOUSE_YAW_OFFSET_DEG:-}
+      - DUMP_HOUSE_POSES=${DUMP_HOUSE_POSES:-}
       # Must match the robot/gcs containers — mixed transport modes across
       # containers have no common data channel, and the isaacsim ros2 bridge
       # ships its own Fast DDS whose SHM segments are incompatible with the

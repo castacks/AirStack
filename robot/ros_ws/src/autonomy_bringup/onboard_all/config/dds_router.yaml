@@ -83,6 +83,12 @@ allowlist:
   # cloud, so the bandwidth argument below does not reach them.
   - name: "rt/$(env ROBOT_NAME)/voxel_map"
   - name: "rt/$(env ROBOT_NAME)/value_map"
+  # Frontier candidates as a CLOUD as well as markers: a viewer can scale
+  # point size on a cloud, which markers fix at publish time.
+  - name: "rt/$(env ROBOT_NAME)/frontier_cloud"
+  # The vdb_mapping occupancy cloud — the lidar/depth map the local
+  # planner builds, distinct from the planner's own voxel_map above.
+  - name: "rt/$(env ROBOT_NAME)/vdb_mapping/vdb_map_pointcloud"
 
   # rayfronts semantic voxel clouds are NOT bridged. They are Foxglove debug
   # visualisation only — no autonomy module and no offline analysis consumes

@@ -64,6 +64,7 @@ name ("tornado") resolved against presets/ and low_level/compiled/.
 """
 
 import argparse
+import copy
 import datetime
 import os
 import sys
@@ -644,6 +645,22 @@ def compile_spec(spec: dict, base: dict) -> dict:
     if spec.get("overrides"):
         deep_merge(cfg, spec["overrides"])
 
+    # REGION IS THE ONE EXCEPTION to "overrides win", because it is not just a
+    # setting — the disaster above was already COMPILED against it (`region` at
+    # the top of this function). Five presets repeat `region_m` under
+    # `overrides.layout` as well as at the top level, so without this the merge
+    # silently restored the preset's size and left a fire field sized for a
+    # different one: a 250 m burn on a 1600 m plat, and `REGION_M` a no-op on
+    # exactly the purpose-built presets. Re-assert it so the plat and the
+    # disaster agree, and so the top-level key means what it looks like.
+    if "region_m" in spec:
+        _ovr = ((spec.get("overrides") or {}).get("layout") or {}).get("region_m")
+        if _ovr is not None and list(map(float, _ovr)) != list(map(float, spec["region_m"])):
+            print("[compile_disaster] overrides.layout.region_m {0} ignored; "
+                  "the spec's region_m {1} is authoritative (the disaster is "
+                  "compiled against it)".format(_ovr, spec["region_m"]))
+        cfg.setdefault("layout", {})["region_m"] = spec["region_m"]
+
     # Compilation is a build step; leaving the high-level keys in the output
     # would suggest editing them there has an effect. Keep them only as
     # provenance in the header comment.
@@ -693,7 +710,8 @@ def resolve_config_path(name_or_path: str) -> str:
         "  available:\n" + "\n".join(available))
 
 
-def load_scene_config(name_or_path: str, base_path: str = None) -> dict:
+def load_scene_config(name_or_path: str, base_path: str = None,
+                      spec_overrides: dict = None) -> dict:
     """Load a scene config at **either** level and return a low-level dict.
 
     A high-level disaster spec is compiled in memory against *base_path*
@@ -715,6 +733,25 @@ def load_scene_config(name_or_path: str, base_path: str = None) -> dict:
         cfg = yaml.safe_load(f)
     if not isinstance(cfg, dict):
         raise ValueError(f"{path}: config must be a mapping")
+
+    # Applied BEFORE compilation, so overriding `disaster-type` actually
+    # changes what gets compiled rather than leaving a compiled disaster
+    # section behind that the launcher then has to remember to ignore.
+    if spec_overrides:
+        applied = {k: v for k, v in spec_overrides.items() if v is not None}
+        if applied:
+            cfg = dict(cfg)
+            # `overrides` is DEEP-MERGED, not replaced: it is the preset's own
+            # low-level escape hatch and clobbering it would silently drop
+            # everything the preset set there (materials, roads, instancing).
+            _ovr = applied.pop("overrides", None)
+            cfg.update(applied)
+            if _ovr:
+                merged = copy.deepcopy(cfg.get("overrides") or {})
+                deep_merge(merged, _ovr)
+                cfg["overrides"] = merged
+                applied["overrides"] = _ovr
+            print(f"[compile_disaster] spec overrides: {applied}")
 
     if is_high_level(cfg):
         base_path = base_path or DEFAULT_BASE

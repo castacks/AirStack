@@ -3039,6 +3039,25 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
             # faces ACROSS it toward the kerb, which is the tangent rotated by
             # `yaw_off`. That assumes the art faces +X; see the preset comment.
             yaw = h["yaw_deg"] + yaw_off
+            # DUMP_HOUSE_POSES=1 writes the frame this house was placed in, so
+            # "the houses face the wrong way" can be measured instead of
+            # eyeballed: lot centre, frontage tangent, inward normal, the
+            # tangent's own yaw, the offset applied, and the final yaw.
+            if os.environ.get("DUMP_HOUSE_POSES", "").strip() in ("1", "true"):
+                try:
+                    _dump = globals().setdefault("_HOUSE_POSE_DUMP", [])
+                    _dump.append({"c": list(h["c"]), "u": list(h["u"]),
+                                  "n": list(h["n"]),
+                                  "yaw_deg": float(h["yaw_deg"]),
+                                  "yaw_off": float(yaw_off),
+                                  "yaw_final_kit": float(yaw) + 90.0})
+                    # Flush every time: 26 houses is nothing, and atexit does
+                    # not fire if Kit is killed.
+                    import json as _json
+                    with open("/tmp/house_poses.json", "w") as fh:
+                        _json.dump(_dump, fh)
+                except Exception as _e:
+                    print("[dump] failed:", _e)
             ent = None
             if catalogue and h.get("size_index") is not None:
                 ent = catalogue[int(h["size_index"]) % len(catalogue)]

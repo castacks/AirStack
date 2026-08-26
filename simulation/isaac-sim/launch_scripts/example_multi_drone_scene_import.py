@@ -202,6 +202,87 @@ if _GENERATED:
         "1", "true", "yes")
     BURN_FRAC = float(os.environ.get("MINI_BURN_FRAC", "0.45"))
     ELAPSED = float(os.environ.get("MINI_ELAPSED", "0"))
+
+    # SPEC OVERRIDES. A preset names a KIND of scene (suburb, downtown); these
+    # pick the instance of it, so "a 250 m undamaged suburb" needs no preset
+    # file of its own:
+    #
+    #   SCENE_CONFIG=suburb REGION_M=250x250 DISASTER_TYPE=none
+    #
+    # Merged into the high-level spec BEFORE it compiles, so DISASTER_TYPE=none
+    # compiles to a config with no disaster rather than one the launcher has to
+    # remember to skip. Unset leaves the preset's own value alone.
+    def _region_m(raw):
+        """REGION_M as "250", "250x250" or "250,250" -> [w, h] metres.
+
+        A bare number is square: "250" and "250x250" mean the same thing to
+        anyone asking for a 250 m block.
+        """
+        if not raw:
+            return None
+        parts = [p for p in raw.replace("x", ",").replace("X", ",").split(",")
+                 if p.strip()]
+        try:
+            vals = [float(p) for p in parts]
+        except ValueError:
+            raise SystemExit("REGION_M={0!r}: expected N, NxN or N,N".format(raw))
+        # Delimiter-only input ("x", ",", ",,") filters down to NOTHING. Without
+        # this it returned [], which is not None, so it was applied as an
+        # override and wrote an EMPTY region — compiling fine for
+        # `disaster-type: none` and only exploding much later inside the
+        # generator, or as an unpack error out of compile_disaster.
+        if not vals:
+            raise SystemExit("REGION_M={0!r}: no number in it; expected N, NxN "
+                             "or N,N".format(raw))
+        vals = [vals[0], vals[0]] if len(vals) == 1 else vals[:2]
+        if any(v <= 0.0 for v in vals):
+            raise SystemExit("REGION_M={0!r}: sides must be positive, got "
+                             "{1}".format(raw, vals))
+        return vals
+
+    _dtype = os.environ.get("DISASTER_TYPE", "").strip() or None
+    _sev = os.environ.get("SEVERITY", "").strip()
+    _severity = float(_sev) if _sev else None
+
+    # SEVERITY GATES THE DISASTER, so asking for one without it is a silent
+    # no-op. `compile_spec` picks the compiler with
+    #     fn = DISASTERS[dtype] if severity > 0.0 else compile_none
+    # and the generic presets (`suburb`, `downtown`, `suburb_net`) ship
+    # `severity: 0.0`. So `DISASTER_TYPE=wildfire` alone compiles through
+    # compile_none and yields a PRISTINE plat that looks like the request
+    # worked. Give an asked-for disaster a real default instead; 0.6 is what
+    # suburb_wildfire.yaml uses.
+    if _dtype and _dtype.lower() != "none" and _severity is None:
+        _severity = 0.6
+        print("[spawn] DISASTER_TYPE={0} with no SEVERITY -> defaulting to 0.6 "
+              "(severity 0 compiles to no disaster at all)".format(_dtype),
+              flush=True)
+
+    SPEC_OVERRIDES = {
+        "region_m": _region_m(os.environ.get("REGION_M", "").strip()),
+        "disaster-type": _dtype,
+        "severity": _severity,
+    }
+
+    # Which way a house faces. `h["yaw_deg"]` is the frontage TANGENT (along
+    # the street) and the house must face ACROSS it at the kerb, so the plat
+    # adds this offset. -90 is the code default and what every purpose-built
+    # suburb preset sets; expose it so a scene whose houses look turned can be
+    # corrected in one restart instead of a source edit.
+    _hyaw = os.environ.get("HOUSE_YAW_OFFSET_DEG", "").strip()
+    if _hyaw:
+        SPEC_OVERRIDES["overrides"] = {
+            "suburb_parcel": {"house_yaw_offset_deg": float(_hyaw)}}
+        print("[spawn] HOUSE_YAW_OFFSET_DEG={0} (default -90)".format(_hyaw),
+              flush=True)
+    # MINI_SEED already drives layout/damage/vegetation through build_scene's
+    # `seed`; carry it into the spec too so the two cannot disagree.
+    if os.environ.get("MINI_SEED", "").strip():
+        SPEC_OVERRIDES["seed"] = SEED
+    if any(v is not None for v in SPEC_OVERRIDES.values()):
+        print("[spawn] spec overrides: {0}".format(
+            {k: v for k, v in SPEC_OVERRIDES.items() if v is not None}),
+            flush=True)
     # off | ground | all. The plat is ~10^5 prims and `add_colliders` is a
     # Python recursion that prints per mesh, so a full pass is minutes of log
     # spam — and mostly futile: houses and trees are referenced INSTANCEABLE
@@ -587,7 +668,7 @@ class PegasusApp:
         st = build_scene(stage, SCENE_CONFIG, s, arch_dir=ARCH_DIR, seed=SEED,
                          burn_frac=BURN_FRAC, elapsed=ELAPSED, poles=POLES,
                          parent_path=SCENE_PARENT, people_json=PEOPLE_JSON,
-                         info_out=info)
+                         info_out=info, spec_overrides=SPEC_OVERRIDES)
         # The extra_args form only covers startup; re-assert once the stage is
         # composed so car glass stays see-through for the whole run.
         for _key in ("/rtx/raytracing/fractionalCutoutOpacity",

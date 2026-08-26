@@ -104,6 +104,26 @@ def compile_suburban(spec):
         "cars": {"density": 0.04},
         "humans": {"sidewalk_spacing_m": 150.0, "per_block": [0, 1]},
         "parks": {"playground_chance": 0.7},
+        # HOUSES COME FROM THE MODULAR KIT, not the whole-house USD pack.
+        #
+        # This is a locale property, not a per-preset one: every purpose-built
+        # suburb preset already turns it on, and the generic `suburb` preset
+        # did not — so it silently fell through to `house_catalogue` art, which
+        # uses a DIFFERENT yaw convention (the art path applies `yaw` while the
+        # kit path applies `yaw + 90`). The result was a plat whose houses were
+        # turned 90 degrees relative to their own driveways, with nothing in
+        # the config to suggest the two presets differed.
+        #
+        # The lot sizing comes with it: the [21, 30] knee was measured against
+        # the whole-house pack, whose widest entry is ~16 m, and the kit's
+        # L-plans are 20 m — narrower lots reject them and the plat thins out.
+        "suburb_parcel": {
+            "modular_houses": True,
+            "modular_share": 1.0,
+            "lot_width_m": [30.0, 44.0],
+            "min_lot_depth_m": 21.0,
+            "house_yaw_offset_deg": -90.0,
+        },
     }
 
 

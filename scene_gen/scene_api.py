@@ -352,7 +352,7 @@ def _apply_sky(stage, config, sky_fn):
 def build_scene(stage, scene_config, scene_scale_factor, *,
                 arch_dir=None, seed=11, burn_frac=0.45, elapsed=None,
                 poles=False, parent_path=PARENT_DEFAULT, people_json=None,
-                sky_fn=None, info_out=None):
+                sky_fn=None, info_out=None, spec_overrides=None):
     """Author a whole generated plat into *stage*. Returns a stats dict.
 
     Args:
@@ -381,6 +381,13 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
                             *arch_dir* is a URL. None -> `<local
                             archetypes>/humans_<seed>.json`.
         sky_fn:             `fn(stage, sky_path)`; None -> `scene_prep.add_sky`.
+        spec_overrides:     dict merged into the HIGH-LEVEL spec before it
+                            compiles, so a caller can pick a preset and then
+                            change `region_m`, `disaster-type`, `seed` or
+                            `severity` without a preset file per combination.
+                            Applied pre-compile, so `disaster-type: none`
+                            really compiles to no disaster. Ignored when
+                            *scene_config* is already a dict.
         info_out:           optional dict, filled with the raw internals a
                             caller may want afterwards (`binfo`, `placements`,
                             `records`, `blockers`, `config`, `arch`).
@@ -393,7 +400,8 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
     parent = parent_path.rstrip("/")
     ssf = scene_scale_factor
     config = (scene_config if isinstance(scene_config, dict)
-              else load_scene_config(scene_config))
+              else load_scene_config(scene_config,
+                                     spec_overrides=spec_overrides))
     cfg_name = (scene_config if isinstance(scene_config, str)
                 else str(config.get("name", "<dict>")))
     arch_dir = arch_dir or default_arch_dir()
@@ -414,6 +422,24 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
     arch = load_archetypes(arch_dir)
 
     # 2) FIRE FIELD
+    #
+    # Is there a fire at all? Every damage pass below keys off `age()`:
+    # archetype damage level per house and tree, fence consumption, prop soot,
+    # the ground scar, the Damaged_Asphalt rebind.
+    #
+    # THE TEST IS THE `fire` SECTION, not whether `disaster` is non-empty.
+    # `disaster-type: none` compiles to a disaster dict that is FULL of keys
+    # with every fraction set to 0.0 and NO `fire` key at all — so a
+    # truthiness test on `disaster` passes and gates nothing. `fire.DEFAULTS`
+    # then supplies a complete wildfire, `burn_frac` (0.45) picks how much of
+    # it to apply, and an undamaged preset comes out scorched: burnt trees, a
+    # ground scar, collapsed archetypes, Damaged_Asphalt drives. No disaster
+    # setting reaches any of it.
+    _fire_cfg = (config.get("disaster") or {}).get("fire") or {}
+    # `enabled: false` is honoured by disaster.fire.apply_wildfire but by none
+    # of the damage passes here, so without this a scene with the flag off
+    # still scorches.
+    has_disaster = bool(_fire_cfg) and bool(_fire_cfg.get("enabled", True))
     fcfg = dict(fire.DEFAULTS)
     fcfg.update((config.get("disaster") or {}).get("fire") or {})
     ox, oy = fcfg["origin_m"]
@@ -437,6 +463,10 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
                   smoulder_s=0.25 * span, ash_after_s=0.45 * span)
 
     def age(x, y):
+        # -1 is "the front never reached here", i.e. pristine. With no
+        # disaster that is true everywhere.
+        if not has_disaster:
+            return -1.0
         t = arrival(x, y)
         return -1.0 if not math.isfinite(t) else elapsed - t
 
@@ -692,15 +722,25 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
     region = tuple(binfo.get("region") or (-800, -600, 800, 600))
     zs = float(binfo.get("z_scale") or ss.ground_z_scale(config, region))
     burn_z = (ss._Z_GRASS + 0.5 * (ss._Z_ASPHALT - ss._Z_GRASS)) * zs
-    kn = ground.knobs_from_env(max(region[2] - region[0], region[3] - region[1]))
-    cov = ground.feathered_coverage(
-        arrival, elapsed, (ox, oy), region, np.random.default_rng(seed + 23),
-        edge_m=kn["edge_m"], finger_m=kn["finger_m"], islands=kn["islands"])
-    made = ground.build_overlay(
-        stage, cov, region, ssf, burn_z, material_parent=parent,
-        cell_m=kn["cell_m"], bands=kn["bands"], tile_m=kn["tile_m"],
-        op_range=kn["op_range"],
-        skip=ground.skip_rects(binfo.get("pool_rects") or (), pad=0.0))
+    # The scar reads straight off the fire field rather than off `age`, so it
+    # needs the gate explicitly.
+    if has_disaster:
+        kn = ground.knobs_from_env(
+            max(region[2] - region[0], region[3] - region[1]))
+        cov = ground.feathered_coverage(
+            arrival, elapsed, (ox, oy), region, np.random.default_rng(seed + 23),
+            edge_m=kn["edge_m"], finger_m=kn["finger_m"], islands=kn["islands"])
+        made = ground.build_overlay(
+            stage, cov, region, ssf, burn_z, material_parent=parent,
+            cell_m=kn["cell_m"], bands=kn["bands"], tile_m=kn["tile_m"],
+            op_range=kn["op_range"],
+            skip=ground.skip_rects(binfo.get("pool_rects") or (), pad=0.0))
+    else:
+        # [] not 0: `made` is the list of overlay bands and the stats dict
+        # below reports len(made).
+        made = []
+        print("[scene] no disaster in config — pristine plat: no ground scar, "
+              "no scorch, no damage archetypes")
 
     # FIRE-DAMAGED PAVING -> Damaged_Asphalt. `apply_ground` builds the road
     # and drive ribbons before any fire field exists, so re-bind here. Brick
@@ -772,8 +812,12 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
             "seed": seed, "scene_config": cfg_name,
             "elapsed_s": round(elapsed, 1), "span_s": round(span, 1),
             "burn_frac": burn_frac,
-            "fire_origin_m": [ox, oy],
-            "fire_heading_deg": float(fcfg["heading_deg"]),
+            # None rather than fire.DEFAULTS: a pristine or tornado plat has no
+            # fire, and recording one at [0, 0] heading 45 deg puts a fiction
+            # into the ground truth an evaluation reads back.
+            "fire_origin_m": ([ox, oy] if has_disaster else None),
+            "fire_heading_deg": (float(fcfg["heading_deg"])
+                                 if has_disaster else None),
             "blockers": p_blockers,
         })
         print("[scene] people: {0} authored, ground truth -> {1}"

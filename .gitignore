@@ -142,3 +142,17 @@ scene_gen/assets/baked/
 scene_gen/assets/archetypes/
 scene_gen/assets/materials/scorched/
 nucleus_upload/
+
+# ---- model weights ----------------------------------------------------------
+# Never source: every one of these is fetched at runtime (ultralytics
+# auto-download, HuggingFace hub) or baked into the image. They are also large
+# enough to matter — robot/docker/cache alone is ~29 GB, already ignored above.
+# Listed by extension as well as by path so a weight dropped anywhere (the
+# ultralytics default is the CWD, which is how yolov8l-world.pt landed in
+# robot/ros_ws/) does not get committed by accident.
+*.pt
+*.pth
+*.safetensors
+*.onnx
+*.ckpt
+robot/ros_ws/weights/

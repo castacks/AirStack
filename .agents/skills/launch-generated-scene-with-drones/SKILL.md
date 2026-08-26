@@ -1,6 +1,6 @@
 ---
 name: launch-generated-scene-with-drones
-description: Fly PX4 drones in a scene that is BUILT in-process by scene_gen instead of loaded from a finished USD. Covers `scene_gen/scene_api.build_scene` (the one entry point, its signature and its load-bearing internal order), the `SCENE_CONFIG`-vs-`ENV_URL` switch in `example_multi_drone_scene_import.py`, the archetype bake on Nucleus, and the six traps that make a generated scene different from a loaded one — STAGE_SCALE, the borrowed sky, fractionalCutoutOpacity, the Pegasus base env, the overhead framing and the spawn contract. Read before wiring a generated scene into a mission or touching either launcher.
+description: Fly PX4 drones in a scene that is BUILT in-process by scene_gen instead of loaded from a finished USD. Covers `scene_gen/scene_api.build_scene` (the one entry point, its signature and its load-bearing internal order), the `SCENE_CONFIG`-vs-`ENV_URL` switch in `example_multi_drone_scene_import.py`, the archetype bake on Nucleus, and the six traps that make a generated scene different from a loaded one — STAGE_SCALE, the borrowed sky, fractionalCutoutOpacity, the Pegasus base env, the overhead framing and the spawn contract. Also covers PARAMETERISING a preset — `REGION_M`, `DISASTER_TYPE`, `SEVERITY` are merged into the spec before it compiles, so "a 250 m undamaged suburb" is env vars on the canonical launcher, NOT a new preset file and NOT a new launch script — and why a `*_preview_launch_script.py` can never fly (no drone, no world.step, no overhead camera). Read before wiring a generated scene into a mission, changing a scene's size or disaster, or touching either launcher.
 license: Apache-2.0
 metadata:
   author: AirLab CMU
@@ -156,6 +156,9 @@ Read by the drone launcher only when `SCENE_CONFIG` is set, and by
 | env | default | does |
 |---|---|---|
 | `SCENE_CONFIG` | — (drones) / `suburb_wildfire` (assemble) | preset name. **Setting it is what selects the generated path.** |
+| `REGION_M` | preset's `region_m` | plat size in metres: `250`, `250x250` or `250,250`. A bare number is square. |
+| `DISASTER_TYPE` | preset's | `none` \| `wildfire` \| `tornado` \| `earthquake` \| `explosion` \| `flood`. `none` gives an UNDAMAGED plat. |
+| `SEVERITY` | preset's | `0..1` damage severity. |
 | `MINI_SEED` | `11` | the one seed. |
 | `MINI_BURN_FRAC` | `0.45` | share of houses inside the burn. |
 | `MINI_ELAPSED` | `0` | seconds of fire; overrides `MINI_BURN_FRAC`. |
@@ -165,6 +168,89 @@ Read by the drone launcher only when `SCENE_CONFIG` is set, and by
 | `AIRSTACK_ASSET_ROOT` | repo | repoints `airstack://`. **Read by `scene_generator` at IMPORT time** — it must be in the environment before the process starts; nothing in either launcher writes it. |
 | `SUBURB_COLLIDERS` | `ground` | drone launcher only: `off` \| `ground` \| `all`. |
 | `SNAP_DIR` | — | assemble launcher only: viewport captures (see run-isaac-sim-launcher §5). |
+
+### A preset is a KIND of scene, not one scene
+
+`REGION_M` / `DISASTER_TYPE` / `SEVERITY` are merged into the high-level spec
+**before it compiles** (`load_scene_config(..., spec_overrides=...)` ->
+`build_scene(..., spec_overrides=...)`), so `DISASTER_TYPE=none` compiles to a
+config with no disaster rather than one the launcher has to remember to skip.
+
+So a 250 m undamaged suburb is a command, not a file:
+
+```bash
+SCENE_CONFIG=suburb REGION_M=250x250 DISASTER_TYPE=none \
+ISAAC_SIM_SCRIPT_NAME=example_multi_drone_scene_import.py \
+airstack up isaac-sim
+```
+
+**Do not add a preset file per size/disaster combination**, and do not copy a
+preset just to switch the disaster off. Presets name a kind of place
+(`suburb`, `downtown`); the env vars pick the instance.
+
+A new env var must ALSO be declared in the isaac-sim service blocks of
+`simulation/isaac-sim/docker/docker-compose.yaml` (there are two — the
+livestream service repeats the list). Setting it in `.env` alone changes
+nothing inside the container, and the failure is SILENT: the launcher reads an
+empty string, falls back to the preset, and builds a perfectly good scene of
+the wrong size. Check with:
+
+```bash
+docker exec isaac-sim bash -lc 'echo "[$REGION_M] [$DISASTER_TYPE]"'
+```
+
+The launcher prints `[spawn] spec overrides: {...}` when any override lands.
+No such line means none did.
+
+### SEVERITY gates the disaster — asking for one without it is a no-op
+
+`compile_spec` picks the compiler with
+
+```python
+fn = DISASTERS[dtype] if severity > 0.0 else compile_none
+```
+
+and the GENERIC presets (`suburb`, `downtown`, `suburb_net`) ship
+`severity: 0.0`. So `DISASTER_TYPE=wildfire` on `suburb` compiles through
+`compile_none` and gives a PRISTINE plat that looks like the request worked.
+The launcher now defaults an asked-for disaster to `severity: 0.6`; set
+`SEVERITY` explicitly to choose. The purpose-built presets carry their own
+(`suburb_wildfire` 0.6, `suburb_tornado` 0.82).
+
+### `disaster-type: none` did NOT mean undamaged until the fire gate
+
+`disaster-type: none` compiles to a disaster dict that is **non-empty with
+every fraction 0.0 and no `fire` key** — so a truthiness test on `disaster`
+gates nothing. `build_scene` step 2 then did `fcfg = dict(fire.DEFAULTS)`,
+`burn_frac` (0.45) picked how much to apply, and an "undamaged" plat came out
+with burnt trees, a ground scar, Damaged_Asphalt drives and
+`collapsed`/`burned_out` house archetypes. The gate is
+
+```python
+_fire_cfg = (config.get("disaster") or {}).get("fire") or {}
+has_disaster = bool(_fire_cfg) and bool(_fire_cfg.get("enabled", True))
+```
+
+**Wildfire is the only type with a `fire` key**, and the only damaged type
+whose `damaged_fraction`/`destroyed_fraction` stay 0.0 — so gating on those
+fractions instead is exactly backwards. Tornado/earthquake damage never
+touches `age()`: it runs inside `generate_suburb_on_stage`, before the fire
+field exists, off `damaged_fraction`/`destroyed_fraction`/`disaster.field`.
+Gating fire therefore cannot un-damage a tornado scene.
+
+### Never fly a `*_preview_launch_script.py`
+
+`suburb_preview`, `modular_house_preview` and friends are LAYOUT VIEWERS. They
+build the plat and stop there — no drone, no `world.step()` (so ROS graphs
+never tick and every sensor topic is advertised but silent), no overhead
+camera, no GT annotations, no livestream config. Pointing a search stack at one
+gives a scene with nothing to fly, and the silence looks like a DDS fault.
+
+`example_multi_drone_scene_import.py` is the launcher that flies. It already
+does drones, `SPAWN_POLY`, headless/livestream, colliders, the overhead map
+camera and scene annotations, for ANY preset — which is the whole reason the
+`SCENE_CONFIG` switch exists. Reach for a preview launcher only to LOOK at a
+layout.
 
 Drone-side, generated path only:
 
