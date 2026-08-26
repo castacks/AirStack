@@ -484,12 +484,15 @@ to the submodule's `main`; the parent repo tracks the pointer on the
 
 ### Agent study (Sec. VI-C) — continuation pointers
 
-The exploratory agent study is implemented and in progress. To continue
-it (any machine, any session), read in order:
+The exploratory agent study is implemented and in progress. It lives in
+the PRIVATE submodule [`agent_study/`](agent_study/)
+(andrewjong/airstack-agent-study) on this branch; the paper submodule
+holds Overleaf content only. To continue the study (any machine, any
+session), `git submodule update --init agent_study` and read in order:
 
-1. [`ICRA_2027_AirStack_Paper/agent_study/HANDOFF.md`](ICRA_2027_AirStack_Paper/agent_study/HANDOFF.md)
+1. [`agent_study/HANDOFF.md`](agent_study/HANDOFF.md)
    — current state, campaign blocker, new-machine setup, hazards
-2. [`ICRA_2027_AirStack_Paper/agent_study_protocol.md`](ICRA_2027_AirStack_Paper/agent_study_protocol.md)
+2. [`agent_study/agent_study_protocol.md`](agent_study/agent_study_protocol.md)
    — canonical design + Amendment 1 + P-1…P-8 statuses
 3. [`notebook/001-agent-study-prereqs/`](notebook/001-agent-study-prereqs/)
    — status-tracked design spec and the full experimental record
@@ -498,9 +501,9 @@ it (any machine, any session), read in order:
 NOTE: on this branch `notebook/` is TRACKED (the study record must
 travel between machines), overriding develop's local-only notebook
 convention; expect a trivial `.gitignore` conflict on rebases. The
-study assets (planners, prompts, judge, runner) are PRIVATE to the
-paper submodule until the study concludes — never copy them into the
-public repo.
+study assets (planners, prompts, judge, reference solution) are the
+study's answer key: they stay in the PRIVATE agent_study repo until
+the study concludes — never copy them into the public repo.
 
 ## Key Differences from CLAUDE.md
 

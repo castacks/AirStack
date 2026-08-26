@@ -15,3 +15,6 @@
 [submodule "ICRA_2027_AirStack_Paper"]
 	path = ICRA_2027_AirStack_Paper
 	url = git@github.com:andrewjong/ICRA_2027_AirStack_Paper.git
+[submodule "agent_study"]
+	path = agent_study
+	url = git@github.com:andrewjong/airstack-agent-study.git

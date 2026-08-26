@@ -4,12 +4,15 @@
 >
 > **Status: `WIP`** <!-- P-1/P-2 DONE; P-3..P-8 not started -->
 >
-> **Canonical spec:** `ICRA_2027_AirStack_Paper/agent_study_protocol.md`
-> (private paper submodule) is the authoritative design document for this
-> work — arms A1–A4, milestone ladder, add-on tasks, run budget,
-> guardrails, and the P-1…P-8 prerequisite specs live there and are
-> status-tracked there. This notebook entry wraps it with per-prerequisite
-> implementation status and holds the raw validation artifacts locally.
+> **Canonical spec:** `agent_study/agent_study_protocol.md` (in the
+> PRIVATE `agent_study/` submodule; moved 2026-08-26 from the paper
+> submodule, which is now Overleaf-only) is the authoritative design
+> document for this work — arms A1–A4, milestone ladder, add-on tasks,
+> run budget, guardrails, and the P-1…P-8 prerequisite specs live there
+> and are status-tracked there. This notebook entry wraps it with
+> per-prerequisite implementation status and holds the raw validation
+> artifacts. Historical `ICRA_2027_AirStack_Paper/agent_study/...`
+> paths in older sections refer to the pre-move location.
 
 ## 1. Problem Context
 
