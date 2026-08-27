@@ -119,18 +119,56 @@ def _side_at(cum, s):
 # because the district `size` bias multiplies in on top and washes it out. `plain` used to sit at scale 1.00, so "no fence, no garage" landed
 # on mid-sized houses and the correlation was invisible; it is now genuinely the
 # small end. `pool` is the top of that same ladder.
+#
+# THE FENCE WEIGHTS ARE 1.85x WHAT THE PLAT USED TO DRAW, AND THE NUMBER IS
+# MEASURED, NOT CHOSEN. `suburb_scene` now takes a lot's fence away outright
+# when it cannot close the back yard (`_FENCE_ON_GARDENLESS_LOT` and the sweep
+# beside it), so the share PLATTED and the share you can SEE stopped being the
+# same number. On seed 3 the old weights platted 152 fenced lots and 121 of
+# those had a back yard to close; after the sweep only 70 kept their fence. The
+# ask was to put the visible count back on that 121, so:
+#
+#     k = 1.00 -> 70 closed     k = 1.60 -> 108     k = 1.85 -> 121
+#     k = 1.30 -> 80            k = 1.80 -> 115     k = 1.90 -> 129
+#
+# 1.85 is where it lands, and the response is chunky rather than smooth (1.75
+# comes back 105) because archetypes are assigned in RUNS along a frontage —
+# one draw moves a whole terrace, so the count steps in fives and tens. It is
+# also mildly SUPERLINEAR, which is the interesting part: a lot's side boundary
+# is usually its neighbour's fence, so fencing more lots does not merely add
+# fenced lots, it closes yards that were open on one side.
+#
+# HOW THE WEIGHT MOVES, and it is not a scale-and-renormalise. `plain` and
+# `fenced` are the same package with and without a fence, and so are `garage`
+# and `full`; the increase is shifted WITHIN those two pairs, split in
+# proportion to the headroom each has. That keeps P(garage) and P(pool)
+# EXACTLY where they were — scaling the three fenced entries and renormalising
+# would have quietly raised the garage rate with them, and the garage rate is
+# somebody else's calibration.
+#
+# ...AND IT IS CAPPED AT 0.95 PER DISTRICT. `loose` starts at 0.60 fenced and
+# `estate` at 0.85, so 1.85x asks both for more than one, and letting them
+# saturate empties `plain` and `garage` out of those districts entirely — the
+# small-bare-plot end of the size ladder these packages exist to encode simply
+# stops existing above `normal` density. The ceiling costs nothing measurable
+# (seed 3 comes back 121 either way) and leaves one lot in twenty unfenced,
+# which is what a low-density district actually looks like.
+#
+# What it costs elsewhere, measured on seed 3: 589 houses -> 578, mean lot
+# 31.0 x 29.6 m -> 30.8 x 29.8 m. The archetypes carry a `scale` as well as a
+# fence, so moving weight up the ladder does move the lots — by 1%.
 ARCHETYPES = {
     # name          weight  garage   fence  pool   lot scale
-    "plain":       {"w": 0.30, "garage": 0.0, "fence": 0.0, "pool": 0.0,
+    "plain":       {"w": 0.083, "garage": 0.0, "fence": 0.0, "pool": 0.0,
                     "scale": 0.55},   # small, bare plot
-    "fenced":      {"w": 0.22, "garage": 0.0, "fence": 1.0, "pool": 0.0,
+    "fenced":      {"w": 0.437, "garage": 0.0, "fence": 1.0, "pool": 0.0,
                     "scale": 0.80},
-    "garage":      {"w": 0.24, "garage": 1.0, "fence": 0.0, "pool": 0.0,
+    "garage":      {"w": 0.066, "garage": 1.0, "fence": 0.0, "pool": 0.0,
                     "scale": 1.05},
-    "full":        {"w": 0.18, "garage": 1.0, "fence": 1.0, "pool": 0.0,
+    "full":        {"w": 0.354, "garage": 1.0, "fence": 1.0, "pool": 0.0,
                     "scale": 1.35},
     # The big ones: wider lot, deeper setback, everything on it — pool included.
-    "large":       {"w": 0.06, "garage": 1.0, "fence": 1.0, "pool": 1.0,
+    "large":       {"w": 0.060, "garage": 1.0, "fence": 1.0, "pool": 1.0,
                     "scale": 1.90},
 }
 
@@ -146,14 +184,22 @@ ARCHETYPES = {
 # estate-sized, against 63% in the estate towns. So the authored weights are
 # right for a MIXED tract and badly wrong for a district that is meant to BE
 # low-density.
+#
+# EVERY ROW HAS BEEN THROUGH THE SAME 1.85x SHIFT as `ARCHETYPES` above — see
+# the note there for where the number comes from and why the weight moves
+# within the plain/fenced and garage/full pairs rather than across the table.
+# The `large` share is untouched in all four, because it is the one entry set
+# from a measurement of its own (the 63% below) rather than from a fence rate.
+# The fenced share each row now carries: tight 0.74, normal 0.85, loose 0.95,
+# estate 0.95 — the last two at the ceiling.
 ARCH_BY_DENSITY = {
-    "tight":  {"plain": 0.45, "fenced": 0.30, "garage": 0.15,
-               "full": 0.09, "large": 0.01},
+    "tight":  {"plain": 0.195, "fenced": 0.555, "garage": 0.065,
+               "full": 0.175, "large": 0.010},
     "normal": None,          # the weights authored on ARCHETYPES
-    "loose":  {"plain": 0.15, "fenced": 0.18, "garage": 0.25,
-               "full": 0.30, "large": 0.12},
-    "estate": {"plain": 0.05, "fenced": 0.07, "garage": 0.10,
-               "full": 0.18, "large": 0.60},   # 0.60 ~ the measured 63%
+    "loose":  {"plain": 0.019, "fenced": 0.311, "garage": 0.031,
+               "full": 0.519, "large": 0.120},
+    "estate": {"plain": 0.017, "fenced": 0.103, "garage": 0.033,
+               "full": 0.247, "large": 0.600},   # 0.60 ~ the measured 63%
 }
 
 
@@ -1234,6 +1280,97 @@ def _extend_to_meet(a, b, lines, blockers, reach=3.0, lateral=0.75):
             continue
         out[k] = grown
     return out[0], out[1]
+
+
+# HOW LONG A TIP PAST THE LAST JOIN IS STILL A STUB, and it is measured, not
+# judged by eye. See `_trim_stub_tips`. On seed 3 at the shipped weights, 2 m
+# trims 30 runs and 34.9 m (median 1.11 m, worst 1.88 m). 4 m trims 66 runs and
+# 136.3 m instead — and the extra 36 are not stubs, they are side lines whose
+# next corner post is simply further along, so the suburb comes back with 12
+# MORE dangling fence ends (56 against 44) and not one additional overshoot
+# removed. 2 m takes everything this pass can take.
+_STUB_TIP_M = 2.0
+
+
+def _trim_stub_tips(lines, max_tip=_STUB_TIP_M, tol=0.35, min_len=2.0,
+                    cos_tol=0.985):
+    """Cut every standing run back to the last fence that meets it.
+
+    THE OTHER HALF OF A T-JOIN, AND NOTHING CUTS IT TODAY. `_clip_seg_cross`
+    only ever trims the NEWCOMER, and it deliberately declines to fire at all
+    when the meeting is within `pad` of an end — "a T-join within 35 cm of
+    either end is a join, not a crossing", which is right for the newcomer and
+    leaves the standing run's tip hanging past the join. `_line_union` then
+    makes it worse on purpose: a shared side line is grown out to the DEEPER of
+    the two lots, so the shallower lot's rear run lands in the middle of it and
+    the tip beyond is fence enclosing nobody's garden.
+
+    Measured on seed 3 before this existed: 23 of the 146 dangling fence ends
+    sat 0.48-3.61 m (median 1.60 m, 36 m of fence in total) past a point where
+    another run's end touched their own line. That is the classic builder's
+    tell in reverse — a real fence stops AT the corner post.
+
+    WHAT IT COSTS, STATED. At the fence rate this module now ships it removes
+    30 runs' worth of overshoot and the suburb comes back with FOUR MORE
+    dangling ends, not fewer (44 against 40). That is not the trim failing: a
+    shortened boundary is re-tiled from scratch by `_fence_run` — every module
+    in it moves, and the `_FenceGrid` clash trim downstream then lands
+    differently — so any change of this size moves the dangling count by a few
+    either way. The overshoot it removes is a fact about the plat; the four is
+    tiler noise, and the honest reading is that this fixes a real defect and is
+    neutral on the metric that happens to be easiest to count.
+
+    A POST-PASS OVER THE BLOCK, NOT A CUT INSIDE `_cut_run`, and that ordering
+    is the whole reason it is correct. Inside the lot loop "the last thing that
+    meets this run" is a moving target: the deeper neighbour's rear run has not
+    been platted yet, so trimming there would cut away exactly the length that
+    is about to be needed. Here every lot on the block is issued and the answer
+    is a fact. `fence_lines` is per block and so is this.
+
+    *max_tip* is what keeps a legitimately longer side run: past a T-join is
+    not the same as past the LAST T-join, and a run carrying on 8 m to reach a
+    deeper lot's rear corner has that corner's own join further along it, so
+    the tip measured here is small by construction whenever the run is right.
+
+    *cos_tol* excludes a run that is COLLINEAR with this one. A neighbour's run
+    ending in the middle of this line is not a corner post, it is the same
+    boundary fenced twice — `_line_dupe`'s business, and cutting here would
+    turn one long fence into a shorter one for no gain.
+    """
+    n = 0
+    live = [e for e in lines if e[2] is not None]
+    for entry in live:
+        a, b = entry[0], entry[1]
+        ln = _dist(a, b)
+        if ln < min_len:
+            continue
+        d = _unit(_sub(b, a))
+        ts = []
+        for other in live:
+            if other is entry:
+                continue
+            oe = _unit(_sub(other[0], other[1]))
+            if abs(_dot(d, oe)) >= cos_tol:
+                continue
+            for q in (other[0], other[1]):
+                t = _dot(_sub(q, a), d)
+                if not (0.0 <= t <= ln):
+                    continue
+                if _dist(q, _add(a, _mul(d, t))) <= tol:
+                    ts.append(t)
+        if not ts:
+            continue
+        hi, lo = max(ts), min(ts)
+        cut_a, cut_b = a, b
+        if tol < ln - hi <= max_tip and hi >= min_len:
+            cut_b = _add(a, _mul(d, hi))
+        if tol < lo <= max_tip and _dot(_sub(cut_b, a), d) - lo >= min_len:
+            cut_a = _add(a, _mul(d, lo))
+        if cut_a is a and cut_b is b:
+            continue
+        _relay(entry, (cut_a, cut_b), None, None)
+        n += 1
+    return n
 
 
 def _front_runs(lo, hi, gaps, min_len=1.5):
@@ -2530,6 +2667,11 @@ def parcel_blocks(blocks, rng, cfg=None):
                 continue
             trees.append({"c": q, "r": r, "kind": "back"})
             want -= 1
+
+        # EVERY LOT ON THIS BLOCK IS NOW ISSUED, which is the only point at
+        # which "what meets this run" is a fact rather than a guess about a
+        # neighbour not platted yet. See `_trim_stub_tips`.
+        _trim_stub_tips(fence_lines)
 
         out.append({"block": poly, "density": dens, "houses": houses,
                     "drives": drives, "trees": trees,

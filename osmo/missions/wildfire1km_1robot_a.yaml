@@ -1,0 +1,350 @@
+# wildfire1km_1robot_a — 1 drone on the 1 km x 1 km generated WILDFIRE suburb,
+# the MODEL-HEAVY pair: vlfm (BLIP-2 ITM value map) then conavgpt2 (generative
+# VLM frontier assignment). Two baselines in one file via `environments:` +
+# environment_order: grouped, so the runner does a clean down -> up -> fly ->
+# down per baseline (iterations: 1 => 2 iterations total: vlfm, then conavgpt2).
+#
+# The pair split (a = model-heavy, b = detector-only) keeps the two GPU model
+# servers — BLIP-2 ITM :8100 (vlfm) and the generative VLM :8000 (conavgpt2) —
+# in the SAME file, brought up per-baseline by START_ITM_SERVER / START_VLM_SERVER
+# on each `environments:` entry. Both share the ONE detector :8200 that every arm
+# uses. All three servers live on the offboard-compute container (in stack.services).
+#
+# METHOD SELECTION is by templating: each environment entry carries a lowercase
+# `method:` (read by the runner's substitute_env as {{env.method}} AND by
+# resolve_method for the results dir name), so the single planner-launch step
+# below reads `{{env.method}}.launch.xml`. No compose change was needed —
+# mission_runner.substitute_env already templates {{env.KEY}} into step strings.
+#
+# NO semantic_search_task. Each baseline is the shared search_planner launched
+# directly by a `run` step; only nav_mode + the scorer differ between arms, and
+# the map / frontiers / search polygon / actuation are identical (that is what
+# makes them comparable). ONE scene file — config/suburb_wildfire_1km.yaml —
+# serves all arms.
+#
+# Submit (all four wildfire1km missions run on the SAME existing 1-GPU workflow;
+# GPU/pool sizing is the workflow's concern, so this file sets no `gpu:` key):
+#   airstack osmo:mission osmo/missions/wildfire1km_1robot_a.yaml \
+#     --pool coasei --branch krrishj/disaster-dataset \
+#     --workflow osmo/workflows/airstack-mission-1gpu.yaml
+#
+# Schema: osmo/missions/README.md ; method matrix + scaling: benchmark-disaster-dataset skill.
+
+name: wildfire1km_1robot_a
+nas_dest: /volume2/coa-sei
+
+stack:
+  # offboard-compute hosts the shared model servers (detector :8200 always,
+  # ITM :8100 for vlfm, generative VLM :8000 for conavgpt2). It starts them
+  # from the START_*_SERVER flags each environment entry exports.
+  services: [isaac-sim, robot-desktop, gcs, offboard-compute]
+
+env:
+  # ── shared model endpoints (all point at the offboard-compute container) ──
+  # The planner reads these from env ($(env DETECTOR_URL ...), etc. in
+  # planner.yaml); the defaults already target offboard-compute, set explicitly
+  # for clarity. Harmless to a baseline that never contacts a given server.
+  DETECTOR_URL: "http://offboard-compute:8200"
+  ITM_URL: "http://offboard-compute:8100"
+  VLM_URL: "http://offboard-compute:8000/v1"
+  # The detector SERVER'S weights (wildfire scene => open-vocab yolov8l-world).
+  # In server mode this, not the scene's yolo_world_weights, is what runs; it
+  # must name the SAME file the scene layer does or the planner logs a mismatch.
+  CONAVGPT2_YOLO_WORLD_WEIGHTS: "/root/.cache/conavgpt2_weights/yolov8l-world.pt"
+
+  NUM_ROBOTS: 1
+  ISAAC_SIM_HEADLESS: "true"
+  ISAAC_SIM_CUDA_DEVICES: "0"
+  ISAAC_SIM_USE_STANDALONE: "true"
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  PLAY_SIM_ON_START: "true"
+
+  # ── the 1 km wildfire scene ──────────────────────────────────────────────
+  # A preset names a KIND of place; these three vars pick the instance. suburb +
+  # 1000x1000 + wildfire. DISASTER_TYPE without SEVERITY compiles to NO disaster
+  # (compile_none), so SEVERITY is REQUIRED — 0.6 is what suburb_wildfire uses
+  # and the launcher's own default for an asked-for disaster.
+  SCENE_CONFIG: suburb
+  REGION_M: "1000x1000"
+  DISASTER_TYPE: "wildfire"
+  SEVERITY: "0.6"
+  AIRSTACK_ASSET_ROOT: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA"
+  # ONE drone near the block centre on the x = -30 kerb (the block is
+  # world-centred, spanning +-500 m). Keeping the spawn near centre is what lets
+  # suburb_wildfire_1km.yaml use a 1080 m extent instead of one sized to a corner.
+  SPAWN_CONFIGS: '[{"x_m": -30.0, "y_m": 0.0, "orient": [0.0, 0.0, 0.0, 1.0]}]'
+  SPAWN_HEIGHT_M: "0.5"
+  # People poles are the ANSWER KEY (a 25 m magenta pole over every survivor
+  # group); OFF for a scored run so a camera-driven planner cannot steer by them.
+  # PEOPLE_POLES: "1"
+
+  # No arm here reads lidar; it costs ~3x the sim rate, all of it wall clock on
+  # a sim-time-bounded run.
+  ENABLE_LIDAR: "false"
+
+  # ZED tilted 30 deg down: read by BOTH the launch script (tilts the mount) and
+  # search_planner (its camera_pitch_rad default), because TF walks the URDF and
+  # the URDF models no pitch. A 30 deg tilt fills the top-down occupancy map
+  # under the drone that a level mount leaves as a hole. 720x450 = 1.5x the
+  # Pegasus default, i.e. 1.5x the pixels on a person at every altitude.
+  ZED_PITCH_DEG: "30"
+  ZED_WIDTH: "720"
+  ZED_HEIGHT: "450"
+
+  # Publish the MEASURED world->map transform; `map` is anchored at the takeoff
+  # point, so identity would be a large error at this spawn.
+  MAP_ANCHOR_ENU: "true"
+
+  # Every raven-side arm OFF: these baselines do not use semantic_search_task.
+  CONAVGPT_BASELINE: "false"
+  FRONTIER_ONLY_BASELINE: "false"
+  VLFM_BASELINE: "false"
+  LVLM_BASELINE: "false"
+  COMMS_RANGE_M: 5000
+  RESULTS_SCENE: SuburbWildfire1km
+  # Ground truth from the LAYOUT GENERATOR (survivor boxes from the people pass's
+  # own humans.json), written to both annotation dirs and drawn on
+  # /gcs/annotations/bboxes.
+  GT_ANNOTATIONS: "on"
+
+# Two baselines, one clean down->up->fly->down each (grouped, iterations: 1).
+environment_order: grouped
+iterations: 1
+environments:
+  # vlfm — BLIP-2 ITM scorer on :8100. Detector on, VLM off.
+  - name: vlfm
+    method: vlfm            # -> {{env.method}}.launch.xml  and the results dir label
+    model_port: "8100"      # -> the extra /health + /metrics port the gate/poller watch
+    START_DETECTOR_SERVER: "true"
+    START_ITM_SERVER: "true"
+    START_VLM_SERVER: "false"
+  # conavgpt2 — generative VLM on :8000. Detector on, ITM off. 7B nf4 (~5.9 GiB)
+  # is the field-deployable size and OSMO's card holds it beside Isaac + YOLO.
+  - name: conavgpt2
+    method: conavgpt2
+    model_port: "8000"
+    START_DETECTOR_SERVER: "true"
+    START_ITM_SERVER: "false"
+    START_VLM_SERVER: "true"
+    CONAVGPT2_VLM_MODEL: "Qwen/Qwen2.5-VL-7B-Instruct"
+    CONAVGPT2_VLM_QUANT: "nf4"
+    OPENAI_BASE_URL: "http://offboard-compute:8000/v1"
+
+ready:
+  timeout_s: 1800
+  poll_interval_s: 10
+
+up_timeout_s: 3600
+iteration_attempts: 2
+on_step_failure: abort_iteration
+command_route: gcs
+
+record:
+  enabled: true
+  scope: both
+  required: true
+  topics:
+    - /{robot}/odometry_conversion/odometry
+    - /{robot}/interface/mavros/global_position/global
+    - /{robot}/global_plan
+    - /gcs/robot_markers
+    - /gcs/sim_ground
+    - /gcs/annotations/bboxes
+    - /sim/overhead/image
+    - /sim/overhead/spec
+    - /sim/overhead/center_x
+    - /sim/overhead/center_y
+    - /{robot}/occupancy
+    - /{robot}/frontiers
+    - /{robot}/frontier_cloud
+    - /{robot}/voxel_map
+    - /{robot}/value_map
+    - /{robot}/search/markers
+    - /{robot}/search/round_stats
+    - /{robot}/search/run_complete
+  robot_topics:
+    - /tf
+    - /tf_static
+    - /robot_{n}/odometry_conversion/odometry
+    - /robot_{n}/global_plan
+    - /robot_{n}/occupancy
+    - /robot_{n}/frontiers
+    - /robot_{n}/value_map
+    - /robot_{n}/search/map_image
+    - /robot_{n}/search/round_stats
+    - /robot_{n}/search/run_complete
+    - /robot_{n}/search/agent_image
+    - /robot_{n}/voxel_map
+    - /robot_{n}/frontier_cloud
+    - /robot_{n}/search/markers
+    - /robot_{n}/interface/mavros/state
+    - /robot_{n}/sensors/front_stereo/left/image_rect
+
+steps:
+  # 1. Wait for the offboard-compute servers this baseline needs: the detector
+  #    (:8200, every arm) plus the model server named by {{env.model_port}}
+  #    (:8100 vlfm / :8000 conavgpt2). offboard-compute loads weights BEFORE
+  #    binding each port, so a port that answers /health is genuinely ready —
+  #    a cold 7B download at startup can take many minutes, hence the long loop.
+  - run:
+      container: robot_1
+      cmd: |
+        MP="{{env.model_port}}"
+        echo "waiting for offboard-compute: detector :8200${MP:+ + model :$MP}"
+        for i in $(seq 1 360); do
+          d=$(curl -sf http://offboard-compute:8200/health 2>/dev/null | grep -c '"status": *"ok"')
+          if [ -n "$MP" ]; then
+            m=$(curl -sf "http://offboard-compute:$MP/health" 2>/dev/null | grep -c '"status": *"ok"')
+          else
+            m=1
+          fi
+          if [ "$d" = "1" ] && [ "$m" = "1" ]; then
+            echo OFFBOARD_READY
+            curl -s http://offboard-compute:8200/health | head -c 300; echo
+            [ -n "$MP" ] && { curl -s "http://offboard-compute:$MP/health" | head -c 200; echo; }
+            exit 0
+          fi
+          sleep 15
+        done
+        echo OFFBOARD_NOT_READY; exit 1
+      timeout_s: 5700
+      attempts: 2
+      retry_delay_s: 20
+
+  # 2. Server-metrics BACKLOG POLLER. Backgrounded, samples every ~15 s for the
+  #    whole flight into one JSONL, so a reader can tell whether mean latency or
+  #    the failed-request count climbs over the run (the backlog question).
+  #    Captures all three ports every tick; a server that isn't running for this
+  #    baseline records {} (which itself shows which servers were live). Fields:
+  #    detector -> calls, mean_ms, yolo_mean_ms, sam_mean_ms, throughput_hz,
+  #    errors, vocab_switches; itm -> calls, mean_ms, throughput_hz; vlm ->
+  #    count, errors, inflight, max_concurrency_observed, queue_wait_s,
+  #    latency_s, throughput_req_s.
+  - run:
+      container: robot_1
+      cmd: |
+        mkdir -p /tmp/search
+        : > /tmp/search/server_metrics.jsonl
+        nohup bash -c '
+          for i in $(seq 1 420); do
+            ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            det=$(curl -s --max-time 5 http://offboard-compute:8200/metrics 2>/dev/null); [ -n "$det" ] || det="{}"
+            itm=$(curl -s --max-time 5 http://offboard-compute:8100/metrics 2>/dev/null); [ -n "$itm" ] || itm="{}"
+            vlm=$(curl -s --max-time 5 http://offboard-compute:8000/metrics 2>/dev/null); [ -n "$vlm" ] || vlm="{}"
+            printf "{\"ts\":\"%s\",\"detector\":%s,\"itm\":%s,\"vlm\":%s}\n" "$ts" "$det" "$itm" "$vlm" >> /tmp/search/server_metrics.jsonl
+            sleep 15
+          done
+        ' > /tmp/search/server_metrics_poller.log 2>&1 &
+        echo $! > /tmp/search/poller.pid
+        echo POLLER_STARTED pid=$(cat /tmp/search/poller.pid)
+      timeout_s: 60
+
+  # 3. Takeoff into the flight band (15-40 m AGL for this scene).
+  - action:
+      task: takeoff
+      goal: {target_altitude_m: 20.0, velocity_m_s: 2.0}
+      timeout_s: 300
+
+  - wait: 5
+
+  # 4. The planner — the METHOD is the launch file ({{env.method}}), the SCENE is
+  #    the argument. Backgrounded, and AFTER the server gate: the node's preflight
+  #    (ITM for vlfm, VLM for conavgpt2) is FATAL, so launching before the endpoint
+  #    exists kills it. The 600 s SIM budget starts at the planner's first data
+  #    tick here (post-takeoff), NOT at sim start.
+  - run:
+      container: robot_1
+      cmd: |
+        mkdir -p /tmp/search
+        CFG=$(ros2 pkg prefix search_baselines)/share/search_baselines/config
+        nohup ros2 launch search_baselines {{env.method}}.launch.xml \
+          scene_params_file:=$CFG/suburb_wildfire_1km.yaml \
+          > /tmp/search/planner.log 2>&1 &
+        echo $! > /tmp/search/planner.pid
+        sleep 20
+        if kill -0 "$(cat /tmp/search/planner.pid)" 2>/dev/null; then
+          echo PLANNER_STARTED; grep -a "search_planner starting" /tmp/search/planner.log || true
+        else
+          echo PLANNER_DEAD; tail -n 60 /tmp/search/planner.log; exit 1
+        fi
+      timeout_s: 240
+      attempts: 2
+      retry_delay_s: 15
+
+  # 5. Gate on SIM time: the node latches run_complete when max_sim_seconds
+  #    (600, in the scene file) of SIM /clock time is spent from first data tick.
+  - run:
+      container: robot_1
+      robots: [1]
+      cmd: |
+        for i in $(seq 1 300); do
+          if timeout 10 ros2 topic echo /robot_1/search/run_complete --once 2>/dev/null | grep -q "data: true"; then
+            echo RUN_COMPLETE; exit 0
+          fi
+          kill -0 "$(cat /tmp/search/planner.pid)" 2>/dev/null || {
+            echo PLANNER_EXITED; tail -n 60 /tmp/search/planner.log; exit 1; }
+          sleep 15
+        done
+        echo RUN_DID_NOT_COMPLETE; tail -n 40 /tmp/search/planner.log; exit 1
+      timeout_s: 4800
+
+  # 6. Per-run RESULTS + planner-side backlog signals. `record:` captures ROS
+  #    topics only; the round table, planner log and server metrics live on the
+  #    container filesystem and would die at `airstack down`. DEST includes the
+  #    method so the two baselines in this file do not overwrite each other.
+  - run:
+      container: robot_1
+      cmd: |
+        DEST=/root/AirStack/results/wildfire1km_1robot_a/{{env.method}}
+        mkdir -p "$DEST"
+        cp -v /tmp/search/*.log "$DEST"/ 2>/dev/null || true
+        cp -v /tmp/search/server_metrics.jsonl "$DEST"/ 2>/dev/null || true
+        cp -v /tmp/conavgpt2/search_planner_rounds.jsonl "$DEST"/ 2>/dev/null || true
+        {
+          echo "# ticks with a detection / total"
+          grep -ac "targets:" /tmp/search/planner.log
+          grep -a "targets:" /tmp/search/planner.log | grep -acv "'n': 0,"
+          echo "# best goal_max (goal-class confidence; 0 => detector never proposed the goal)"
+          grep -ao "goal_max': [0-9.]*" /tmp/search/planner.log | sort -t' ' -k2 -g | tail -1
+          echo "# people visited / given up / goals blacklisted"
+          grep -ac "target VISITED" /tmp/search/planner.log
+          grep -ac "GIVING UP" /tmp/search/planner.log
+          grep -ac "BLACKLISTED" /tmp/search/planner.log
+          echo "# vlfm keyframes: last 'N scored, M failed' + view-score failures"
+          grep -aoE "[0-9]+ scored, [0-9]+ failed" /tmp/search/planner.log | tail -1
+          grep -ac "view score failed" /tmp/search/planner.log
+          echo "# conavgpt2 rounds: last few total_s/server_s, overran count, parse-failure count"
+          grep -aoE "total_s=[0-9.]+.*server_s=[0-9.]+" /tmp/search/planner.log | tail -3
+          grep -ac "overran" /tmp/search/planner.log
+          grep -ac "parse" /tmp/search/planner.log
+          echo "# detector-call failures seen by the planner"
+          grep -acE "detector.*(fail|error|timeout)" /tmp/search/planner.log
+        } > "$DEST"/summary.txt 2>&1
+        cat "$DEST"/summary.txt
+      timeout_s: 180
+    optional: true
+
+  # 7. Final server /metrics snapshot (whole-run aggregates) + poller stop.
+  - run:
+      container: robot_1
+      cmd: |
+        DEST=/root/AirStack/results/wildfire1km_1robot_a/{{env.method}}
+        mkdir -p "$DEST"
+        curl -s http://offboard-compute:8200/metrics > "$DEST"/detector_metrics_final.json 2>/dev/null || true
+        curl -s http://offboard-compute:8100/metrics > "$DEST"/itm_metrics_final.json 2>/dev/null || true
+        curl -s http://offboard-compute:8000/metrics > "$DEST"/vlm_metrics_final.json 2>/dev/null || true
+        echo "# detector:"; cat "$DEST"/detector_metrics_final.json; echo
+        echo "# itm:";      cat "$DEST"/itm_metrics_final.json; echo
+        echo "# vlm:";      cat "$DEST"/vlm_metrics_final.json; echo
+        echo "# poller samples: $(wc -l < /tmp/search/server_metrics.jsonl 2>/dev/null || echo 0)"
+        kill "$(cat /tmp/search/poller.pid)" 2>/dev/null || true
+        kill "$(cat /tmp/search/planner.pid)" 2>/dev/null || true
+        sleep 2; echo stopped
+      timeout_s: 120
+    optional: true
+
+  - action:
+      task: land
+      goal: {}
+      timeout_s: 240
+    optional: true

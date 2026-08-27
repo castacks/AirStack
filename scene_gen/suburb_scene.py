@@ -2542,12 +2542,17 @@ class _FenceGrid:
                             int(math.floor(y1 / self.cell)) + 1):
                 yield (gx, gy)
 
-    def _entry(self, x, y, yaw_deg, length):
+    def _entry(self, x, y, yaw_deg, length, usd=None):
         a = math.radians(yaw_deg)
         ux, uy = math.cos(a), math.sin(a)
         h = length / 2.0
+        # `usd` RIDES ALONG AT THE END so `free` never has to look at it. It is
+        # there for `asset_on`, which asks a different question of the same
+        # index — "what is standing here", not "is anything" — and building a
+        # second index of the same modules to answer it would be two things to
+        # keep in step for one extra string per module.
         return (self._core(x, y, yaw_deg, length), x, y, ux, uy, h,
-                (x - ux * h, y - uy * h), (x + ux * h, y + uy * h))
+                (x - ux * h, y - uy * h), (x + ux * h, y + uy * h), usd)
 
     def _reach_box(self, x, y, yaw_deg, length):
         """The module grown by the doubling reach on every side.
@@ -2592,10 +2597,63 @@ class _FenceGrid:
                     return False
         return True
 
-    def add(self, x, y, yaw_deg, length):
-        e = self._entry(x, y, yaw_deg, length)
+    def add(self, x, y, yaw_deg, length, usd=None):
+        e = self._entry(x, y, yaw_deg, length, usd)
         for k in self._keys(self._reach_box(x, y, yaw_deg, length)):
             self.cells.setdefault(k, []).append(e)
+
+    def asset_on(self, p0, p1, reach=1.2, cos_tol=0.985):
+        """The asset already standing along ``p0 -> p1``, or ``None``.
+
+        WHOSE FENCE IS ON MY BOUNDARY. A shared side line is drawn ONCE, by
+        whichever of the two lots the plat issued first, with THAT lot's asset
+        (`suburb_parcel._relay`) — so the second lot never sees a `fence_segs`
+        entry for it and picks its own asset for the boundaries it does own.
+        The result is a lot showing a picket down one side and close-board down
+        the other, and `fence_check`'s "one fence asset per house" waves it
+        through because it only inspects `h["_fence_pick"]`, which is honestly
+        one string. Measured on seed 3: of the 121 lots that end up keeping
+        fence, 46 stood in two different assets before this existed and none do
+        after; 174 lots adopt rather than draw. It also takes 338 modules out
+        of the suburb (3,600 -> 3,262) and 18 dangling ends (62 -> 44), because
+        two neighbours in the same module length abut instead of nearly.
+
+        LONGEST WINS, not nearest or first. A lot corner has two boundaries
+        meeting on it and a query along one of them clips the far end of the
+        other; taking whichever module the scan reached first would adopt the
+        neighbour on the WRONG side about as often as the right one. Total
+        overlapped length is the honest measure of "this asset is the fence on
+        this line".
+
+        `reach` and `cos_tol` are `_YARD_FENCE_REACH_M` and `_DOUBLE_COS`
+        respectively — the two tolerances this module already uses for "the
+        same boundary" and "the same bearing"; the caller passes the first so
+        the constant stays defined next to the other yard tolerances.
+        """
+        dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+        ln = math.hypot(dx, dy)
+        if ln < 1e-6:
+            return None
+        ux, uy = dx / ln, dy / ln
+        seen, hits = set(), {}
+        for k in self._keys(_fence_box((p0[0] + p1[0]) / 2.0,
+                                       (p0[1] + p1[1]) / 2.0,
+                                       math.degrees(math.atan2(dy, dx)),
+                                       ln + 2 * reach, 2 * reach)):
+            for e in self.cells.get(k, ()):
+                if id(e) in seen or e[8] is None:
+                    continue
+                seen.add(id(e))
+                if abs(e[3] * ux + e[4] * uy) < cos_tol:
+                    continue
+                if sn.seg_seg_dist(p0, p1, e[6], e[7]) > reach:
+                    continue
+                t0 = (e[6][0] - p0[0]) * ux + (e[6][1] - p0[1]) * uy
+                t1 = (e[7][0] - p0[0]) * ux + (e[7][1] - p0[1]) * uy
+                lo, hi = max(min(t0, t1), 0.0), min(max(t0, t1), ln)
+                if hi > lo:
+                    hits[e[8]] = hits.get(e[8], 0.0) + (hi - lo)
+        return max(hits, key=hits.get) if hits else None
 
 
 # ---------------------------------------------------------------------------
@@ -2658,10 +2716,39 @@ _YARD_SAMPLE_M = 1.0
 # rather than two that drift.
 _YARD_MIN_GARDEN_M = 4.0
 
+# MAY A LOT WITH NO GARDEN KEEP ITS FENCE? No, and the measurement is what
+# settles it rather than the principle, because the principle cuts both ways.
+#
+# A fifth of the lots the plat fences have no usable garden behind the back
+# wall (`_rear_yard_edges` returns `[]`) — a deep house on a shallow lot; 31 of
+# 152 at the weights this pass inherited, 55 of 303 at the ones it ships. No
+# return run and no amount of re-platting can make those close, so under
+# all-or-nothing they are the one bucket the sweep cannot decide on its own.
+# The case for KEEPING them is real: a lot's side line is SHARED, so a
+# gardenless lot's fence is often the very run that closes the NEIGHBOUR's
+# garden, and stripping it would take the neighbour down with it.
+#
+# Measured on seed 3 at the shipped weights, that fear is worth 11 lots.
+# KEEPING them: 187 lots show fence, 132 back yards close, 4,678 modules, 117
+# dangling ends. DROPPING them: 121 lots show fence, 121 close, 3,262 modules,
+# 44 dangling ends. So the 66 gardenless lots buy 11 neighbours' enclosures and
+# pay for them with 1,416 modules and 73 loose ends — they were carrying nearly
+# two thirds of the free-standing fence in the suburb, which is precisely what
+# "a fence enclosing nothing" looks like from a camera.
+#
+# The cost, stated: ~55 lots a seed that the plat drew a fence on show none, and
+# the rate calibration in `suburb_parcel.ARCHETYPES` is what puts the visible
+# count back. In exchange, EVERY fence module in the scene stands on the
+# boundary of a back yard that is closed, which is what lets Phase 5 state
+# `fence_fragment` over every lot with a module instead of carving out an
+# exception for these.
+_FENCE_ON_GARDENLESS_LOT = False
 
-def _rear_yard_edges(h):
-    """The three boundaries that close a back yard — ``[left, right, rear]``,
-    each an ``(p0, p1)`` pair — or ``[]`` when this lot has no yard to close.
+
+def _lot_lines(h, from_depth=0.0):
+    """This lot's ``[left, right, rear]`` boundaries as ``(p0, p1)`` pairs,
+    the side pair starting *from_depth* in from the frontage. ``[]`` if the
+    record cannot support them.
 
     STRUCK FROM THE PUBLISHED NUMBERS, NOT FROM `lot_corners`. Four passes
     currently re-derive "the rear yard" from three different sources —
@@ -2672,6 +2759,40 @@ def _rear_yard_edges(h):
     was ISSUED on, so a rectangle struck from them is the lot, and it cannot
     drift from a fourth thing nobody remembered to update.
 
+    LEFT IS THE `-u` SIDE, the same convention `lot_corners` uses for its
+    front_left and the plat uses for `ffl`, so an edge index means the same
+    thing here as it does there.
+
+    *from_depth* IS THE ONLY THING THAT SEPARATES THE TWO CALLERS, which is
+    why they share this. `_rear_yard_edges` wants the strip behind the building
+    line — the ground a fence has to close. The asset adoption in
+    `build_placements` wants the WHOLE side line, front yard included, because
+    the neighbour's fence it is looking for was platted from the frontage inset
+    and a query that started at the building line would miss the front half of
+    it. Same three lines, two starting depths; written out twice they drift,
+    and a rear-yard edge a metre off the boundary the fence stands on is a yard
+    nothing can ever close.
+    """
+    p, u, n = h.get("frontage"), h.get("u"), h.get("n")
+    lw, ld = h.get("lot_width"), h.get("lot_depth")
+    if not (p and u and n) or not lw or not ld:
+        return []
+    ld = float(ld)
+    hw = float(lw) / 2.0
+
+    def at(along, deep):
+        return (p[0] + u[0] * along + n[0] * deep,
+                p[1] + u[1] * along + n[1] * deep)
+
+    l0, l1 = at(-hw, from_depth), at(-hw, ld)
+    r0, r1 = at(hw, from_depth), at(hw, ld)
+    return [(l0, l1), (r0, r1), (l1, r1)]
+
+
+def _rear_yard_edges(h):
+    """The three boundaries that close a back yard — ``[left, right, rear]``,
+    each an ``(p0, p1)`` pair — or ``[]`` when this lot has no yard to close.
+
     THE FRONT EDGE IS OMITTED ON PURPOSE, and it is not an oversight: the
     yard's fourth side is the house. The strip runs from `_building_line_depth`
     — the front wall, which is where a real fenced back yard is closed and
@@ -2679,32 +2800,18 @@ def _rear_yard_edges(h):
     yards stand inside it. A wall is not a coverage question, and testing the
     front as if it were would fail every lot in the suburb.
 
-    LEFT IS THE `-u` SIDE, the same convention `lot_corners` uses for its
-    front_left and the plat uses for `ffl`, so an edge index means the same
-    thing here as it does there.
-
     `[]` MEANS "NOTHING TO ENCLOSE", and the test for it is the GARDEN behind
     the back wall (`_YARD_MIN_GARDEN_M`), not the depth of the strip returned:
     the strip includes the house, so it is 10-20 m deep on a lot with no garden
-    at all and would wave through every one of them.
+    at all and would wave through every one of them. Measured on seed 3, 190 of
+    578 houses fail it and 55 of those had been given fence anyway.
     """
     stop = _building_line_depth(h)
-    p, u, n = h.get("frontage"), h.get("u"), h.get("n")
-    lw, ld = h.get("lot_width"), h.get("lot_depth")
-    if stop is None or not (p and u and n) or not lw or not ld:
+    if stop is None or not h.get("lot_depth"):
         return []
-    ld = float(ld)
-    if ld - stop - float(h["d"]) < _YARD_MIN_GARDEN_M:
+    if float(h["lot_depth"]) - stop - float(h["d"]) < _YARD_MIN_GARDEN_M:
         return []
-    hw = float(lw) / 2.0
-
-    def at(along, deep):
-        return (p[0] + u[0] * along + n[0] * deep,
-                p[1] + u[1] * along + n[1] * deep)
-
-    l0, l1 = at(-hw, stop), at(-hw, ld)
-    r0, r1 = at(hw, stop), at(hw, ld)
-    return [(l0, l1), (r0, r1), (l1, r1)]
+    return _lot_lines(h, stop)
 
 
 def _edge_cover(p0, p1, fences=(), trees=()):
@@ -2992,6 +3099,176 @@ def _fence_run(p0, p1, mod_len, min_fit=0.45, max_fit=1.15):
     return [(p0[0] + ux * (i + 0.5) * step,
              p0[1] + uy * (i + 0.5) * step, yaw, fit)
             for i in range(n)]
+
+
+def _lay_fence_run(a, b, h, mod_len, road, taken, trim_bl):
+    """One boundary through every cut, as ``(run, why)``.
+
+    THE ORDER OF THE CUTS IS THE WHOLE CONTENT OF THIS FUNCTION, and it used to
+    live inline in `build_placements` where it was written once and then had to
+    be written again for the gate returns. Every cut CONSUMES THE ONE BEFORE
+    IT: re-deriving the road trim from the raw `(a, b)` instead of from the
+    building-line cut silently threw that cut away — 175 runs trimmed, 46
+    modules actually removed — and that mistake is exactly what a second copy
+    of the chain invites. One copy, two callers, no chance of it.
+
+    *why* names which cut took the run, for the counters the caller prints:
+    ``front`` (nothing behind the building line), ``road`` (carriageway),
+    ``fit`` (`_fence_run`'s band) or ``clash`` (ground another fence holds).
+    ``clash`` is also returned WITH a run, because the clash trim usually keeps
+    the longest free stretch rather than dropping the boundary.
+    """
+    span = (a, b)
+    if trim_bl:
+        span = _trim_to_building_line(span[0], span[1], h)
+        if span is None:
+            return None, "front"
+    if road is not None:
+        span = _trim_offroad(span[0], span[1], road, _FENCE_ROAD_MARGIN_M)
+        if span is None:
+            return None, "road"
+    run = _fence_run(span[0], span[1], mod_len)
+    if not run:
+        return None, "fit"
+    # LAST GUARD: ground another fence already stands on. The parcel pass cuts
+    # a boundary where it crosses a standing one, but it only knows about its
+    # own block, and `fit` stretches a module past the length the cut was made
+    # for. Modules inside one run abut exactly, so the survivors are taken as
+    # the LONGEST CONTIGUOUS stretch of free ones — a run with a hole punched
+    # in its middle is the defect this whole pass exists to remove.
+    free = [taken.free(fx, fy, fyaw, mod_len * fit)
+            for (fx, fy, fyaw, fit) in run]
+    if all(free):
+        return run, None
+    lo = hi = cur = None
+    for i, ok in enumerate(free + [False]):
+        if ok:
+            cur = (i, i) if cur is None else (cur[0], i)
+        elif cur is not None:
+            if lo is None or cur[1] - cur[0] > hi - lo:
+                lo, hi = cur
+            cur = None
+    if lo is None:
+        return None, "clash"
+    return run[lo:hi + 1], "clash"
+
+
+def _run_span(run, mod_len, tag):
+    """A laid run's two END POINTS, recovered from the modules themselves.
+
+    THE SPAN THAT WAS ASKED FOR IS NOT THE SPAN THAT STANDS. `_fence_run`
+    re-tiles the boundary, the `fit` scale makes every module longer or shorter
+    than authored, and the clash trim may have cut the run back to its longest
+    free stretch — so the only honest source for "where does this fence
+    actually begin and end" is the surviving module CENTRES and their own
+    scaled length. It is the same reconstruction `tools/fence_png._ends` does
+    from the placements, which is what makes `h["fence_drawn"]` and the plan
+    agree by construction rather than by two guesses happening to match.
+
+    Modules in one run abut and share a yaw, so the run is one span and the two
+    outer half-lengths are all that is needed.
+    """
+    ang = math.radians(run[0][2])
+    ux, uy = math.cos(ang), math.sin(ang)
+    e0 = mod_len * run[0][3] / 2.0
+    e1 = mod_len * run[-1][3] / 2.0
+    return ((run[0][0] - ux * e0, run[0][1] - uy * e0),
+            (run[-1][0] + ux * e1, run[-1][1] + uy * e1), tag)
+
+
+# HOW SHORT A GATE RETURN IS STILL WORTH BUILDING. `_front_runs` drops a front
+# stub under 1.5 m as a two-panel orphan and this is the same judgement about
+# the same kind of run, so it is the same number.
+_RETURN_MIN_M = 1.5
+
+
+def _gate_returns(h, drawn):
+    """The short cross runs that close a front-open lot's two side yards.
+
+    THE U THAT YOU CAN WALK STRAIGHT INTO. A lot whose front yard is left open
+    has its side fences cut back to the building line (`_trim_to_building_line`)
+    and they stop THERE, on the side lot line — while the house's front corner
+    is `half_lot_width - half_house_width` inboard of that point. Measured on
+    seed 3 that gap is 4.9 m at the tenth percentile, 10.0 m median and 18.3 m
+    at the ninetieth: the "enclosed" back yard was a U you could walk into at
+    either side yard without breaking stride, on 116 of the 121 lots that end
+    up keeping fence.
+
+    IT IS NOT A DANGLING-END FIX, whatever it looks like. Measured on seed 3
+    these 378 runs put 559 modules on the ground and the suburb comes back with
+    SEVEN MORE free fence ends (44 against 37), because a return that the road
+    trim or a clash shortens no longer touches the side run it was struck from.
+    The count was the wrong thing to optimise: a U open at both ends scores two
+    free ends and reads as no enclosure at all, while a closed perimeter with a
+    gate in it scores two and reads as a garden. The enclosure test is what
+    this is for, and `_yard_enclosed` cannot see the difference either — the
+    return is perpendicular to all three yard edges, so it moves `fence_cover`
+    by about one sample. It is here because the yard is not enclosed without
+    it, and no number in this pass says so.
+
+    A REAL FENCED BACK YARD IS BUILT WITH A RETURN, and the gate goes in it:
+    the side fence stops level with the front of the house and turns in to the
+    wall. That is the run this emits — from the side run's own drawn end,
+    across to the house's side face at the same depth. Taking the DRAWN end
+    rather than the building line is the point: the side run may have been cut
+    further back by the road trim or by a clash, and a return struck from where
+    the fence was ASKED to stop would start in mid-air a few metres from where
+    it does stop.
+
+    BROKEN BY `front_gaps`, THE SAME OPENINGS THE FRONT RUN BREAKS AT. The
+    return crosses the drive by construction — the drive runs up the side yard
+    from the kerb to the garage door, which is ON the building line — so it has
+    to give way to it exactly as the front fence does. Reading the house's own
+    published `front_gaps` rather than re-deriving the apron means the gap in
+    the return and the gap in the front fence are the same ribbon, and a change
+    to how the plat sites a drive moves both.
+
+    NOT PLATTED, DERIVED. This is deliberately not a fourth entry in
+    `suburb_parcel`'s `cand`: the return's position depends on where the side
+    run ACTUALLY ended, which is three cuts downstream of the plat, and a
+    boundary the plat published would be re-registered, re-deduplicated against
+    the neighbour and shared — and this run is not shared. It is one lot's own
+    gate.
+
+    Returns a list of ``(p0, p1)``; the caller puts them through the same cut
+    chain as every other run.
+    """
+    p, u, n, c = h.get("frontage"), h.get("u"), h.get("n"), h.get("c")
+    w, d = h.get("w"), h.get("d")
+    stop = _building_line_depth(h)
+    if stop is None or not (p and u and n and c) or not w or not d:
+        return []
+    hw = float(w) / 2.0
+    back = stop + float(d)                      # depth of the house's back wall
+    gaps = [(float(g[0]), float(g[1])) for g in (h.get("front_gaps") or ())]
+    out = []
+    for (a, b, tag) in drawn:
+        if tag == "low":
+            continue
+        ex, ey = b[0] - a[0], b[1] - a[1]
+        # A SIDE RUN, NOT THE REAR ONE. The rear run lies along `u` and a
+        # "return" struck off its end would run up the middle of the garden.
+        if abs(ex * n[0] + ey * n[1]) <= abs(ex * u[0] + ey * u[1]):
+            continue
+        end = a if ((a[0] - p[0]) * n[0] + (a[1] - p[1]) * n[1]
+                    < (b[0] - p[0]) * n[0] + (b[1] - p[1]) * n[1]) else b
+        lat = (end[0] - p[0]) * u[0] + (end[1] - p[1]) * u[1]
+        dep = (end[0] - p[0]) * n[0] + (end[1] - p[1]) * n[1]
+        # BEHIND THE BACK WALL THERE IS NOTHING TO RETURN TO. A side run whose
+        # front end is already past the house is a fence down the back garden
+        # only; turning it in at that depth would wall the garden in half.
+        # Such a lot simply does not close, and the all-or-nothing sweep in
+        # `build_placements` is what deals with it.
+        if dep > back + 0.5 or abs(lat) <= hw:
+            continue
+        wall = hw if lat > 0.0 else -hw
+        lo, hi = min(lat, wall), max(lat, wall)
+        for (x0, x1) in sp._front_runs(lo, hi, gaps, min_len=_RETURN_MIN_M):
+            out.append(((p[0] + u[0] * x0 + n[0] * dep,
+                         p[1] + u[1] * x0 + n[1] * dep),
+                        (p[0] + u[0] * x1 + n[0] * dep,
+                         p[1] + u[1] * x1 + n[1] * dep)))
+    return out
 
 
 # Placement categories that OCCUPY GROUND, i.e. that the infill has to keep
@@ -3437,6 +3714,14 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
     fence_taken = _FenceGrid()
     fence_road = _RoadIndex(net) if net is not None else None
     n_fence_road = n_fence_clash = n_fence_front = 0
+    n_fence_adopt = n_fence_return = 0
+    # EVERY MODULE THIS LOT PUT ON THE GROUND, keyed by `id(house record)`.
+    # The all-or-nothing sweep after the loop has to be able to take a lot's
+    # fence back OUT of `out`, and a placement carries no owner — so the
+    # ownership is recorded as it is built rather than reconstructed by
+    # matching coordinates afterwards, which is guesswork against a scene where
+    # two neighbours' modules abut to the centimetre.
+    lot_mods = {}
 
     out = []
     n_gar = n_fence = 0
@@ -3596,7 +3881,10 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
             # Set here rather than inside the `if`, so an unfenced house ends
             # up with an empty list rather than no key at all: a consumer has to
             # be able to tell "this lot has no fence" from "nobody wrote the
-            # field", and `.get("fence_drawn")` alone cannot.
+            # field", and `.get("fence_drawn")` alone cannot. The all-or-nothing
+            # sweep after this loop can still empty it again — a lot that cannot
+            # close its back yard ends up here indistinguishable from one the
+            # plat never fenced, which is the point of the rule.
             drawn = []
             if segs and fence_pool:
                 # ONE ASSET PER HOUSE, ACROSS EVERY BOUNDARY. The pick used to
@@ -3604,101 +3892,113 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
                 # one side and a railing across the front — a repair, not a
                 # fence. `_fence_pick` chooses it once for the whole perimeter,
                 # having seen all of this house's runs at once.
+                #
+                # ...AND THE NEIGHBOUR'S PERIMETER IS PART OF MINE. A shared
+                # side line is drawn once, by the lot the plat issued first,
+                # with THAT lot's asset — so choosing freely here puts a
+                # different fence down one side of the lot from the other.
+                # `asset_on` asks the ground what is already standing on this
+                # lot's own boundaries and adopts it; only a lot with nothing
+                # on any of its lines draws a new one.
                 uf = h.get("_fence_pick")
                 if uf not in fence_mod:
-                    uf = _fence_pick(fence_pool, fence_mod, segs, rng)
+                    uf = next((u for u in
+                               (fence_taken.asset_on(q0, q1,
+                                                     reach=_YARD_FENCE_REACH_M)
+                                for (q0, q1) in _lot_lines(h))
+                               if u in fence_mod), None)
+                    if uf is None:
+                        uf = _fence_pick(fence_pool, fence_mod, segs, rng)
+                    else:
+                        n_fence_adopt += 1
                     h["_fence_pick"] = uf
                 mod_len, _mod_th, mod_h, mod_fix = (fence_mod[uf] if uf
                                                    else (0.0, 0.0, 0.0, 0.0))
                 # `place` adds the entry's yaw-offset; the measured fix is the
                 # authority for fences, so cancel the declaration out.
                 mod_yaw = mod_fix - pools.yaw_of(uf) if uf else 0.0
-                # IS THE FRONT YARD CLOSED? Only if this house has a front
-                # run AND its one asset is short enough to lay it. Both halves
-                # matter: the `fenced` package is platted without a front run
-                # at all, and a house whose asset is over the front-yard cap
-                # skips the runs it does have. Either way the side fences must
-                # not then run on to the pavement — see `_trim_to_building_line`.
-                front_open = (mod_h > _FRONT_FENCE_MAX_H_M
-                              or not any(t == "low" for (_a, _b, t) in segs))
-                for (a, b, tag) in (segs if uf else ()):
-                    # A "low" run is the FRONT boundary. This house has one
-                    # asset for its whole perimeter, so the front is either
-                    # fenced with that asset or left open — see
-                    # `_FRONT_FENCE_MAX_H_M`.
-                    if tag == "low" and mod_h > _FRONT_FENCE_MAX_H_M:
-                        continue
-                    span = (a, b)
-                    if front_open and tag != "low":
-                        span = _trim_to_building_line(a, b, h)
-                        if span is None:
-                            n_fence_front += 1
-                            continue
-                    if fence_road is not None:
-                        # FROM `span`, NOT FROM (a, b). Re-deriving from the
-                        # raw segment here silently threw away the
-                        # building-line cut above — 175 runs trimmed, 46
-                        # modules actually removed. Every cut in this chain
-                        # has to consume the one before it.
-                        span = _trim_offroad(span[0], span[1], fence_road,
-                                             _FENCE_ROAD_MARGIN_M)
-                        if span is None:
-                            n_fence_road += 1
-                            continue
-                    run = _fence_run(span[0], span[1], mod_len)
-                    if not run:
-                        continue
-                    # LAST GUARD: ground another fence already stands on. The
-                    # parcel pass cuts a boundary where it crosses a standing
-                    # one, but it only knows about its own block, and `fit`
-                    # stretches a module past the length the cut was made for.
-                    # Modules inside one run abut exactly, so the survivors are
-                    # taken as the LONGEST CONTIGUOUS stretch of free ones —
-                    # a run with a hole punched in its middle is the defect
-                    # this whole pass exists to remove.
-                    free = [fence_taken.free(fx, fy, fyaw, mod_len * fit)
-                            for (fx, fy, fyaw, fit) in run]
-                    if not all(free):
-                        n_fence_clash += 1
-                        lo = hi = None
-                        cur = None
-                        for i, ok in enumerate(free + [False]):
-                            if ok:
-                                cur = (i, i) if cur is None else (cur[0], i)
-                            elif cur is not None:
-                                if lo is None or cur[1] - cur[0] > hi - lo:
-                                    lo, hi = cur
-                                cur = None
-                        if lo is None:
-                            continue
-                        run = run[lo:hi + 1]
+
+                def _lay(a, b, tag, trim_bl, _h=h, _uf=uf, _ml=mod_len,
+                         _my=mod_yaw, _drawn=drawn):
+                    """Put one boundary on the ground; return `why` it did not.
+
+                    THREE THINGS HAVE TO HAPPEN TOGETHER or the pass lies to
+                    itself: the modules go in `out`, the ground they hold goes
+                    in `fence_taken` so the next run cannot stand on it, and
+                    the span goes in `drawn` because that — not `fence_segs` —
+                    is what every later pass reads as "the fence". They were
+                    written out once per boundary before the gate returns
+                    existed; a second copy for the returns is a second place to
+                    forget one of the three.
+                    """
+                    nonlocal n_fence
+                    run, why = _lay_fence_run(a, b, _h, _ml, fence_road,
+                                              fence_taken, trim_bl)
+                    if run is None:
+                        return why
+                    n_fence += len(run)
                     for (fx, fy, fyaw, fit) in run:
-                        fence_taken.add(fx, fy, fyaw, mod_len * fit)
-                        out.append(pools.place(resolver, uf, "fence", fx, fy,
-                                               fyaw + mod_yaw, rng,
-                                               scale_mul=fit))
-                        n_fence += 1
-                    # WHAT WAS DRAWN, FROM THE MODULES THAT WERE DRAWN. `span`
-                    # is what this run was ASKED for, and it is still not the
-                    # truth at this point: `_fence_run` re-tiles it, the `fit`
-                    # scale makes each module longer or shorter than authored,
-                    # and the clash trim above may have cut the run back to its
-                    # longest free stretch. So the ends are recovered from the
-                    # surviving module CENTRES and their own scaled length —
-                    # the same reconstruction `tools/fence_png._ends` does from
-                    # the placements, which is what makes the record and the
-                    # plan agree by construction rather than by two guesses.
-                    # Modules in one run abut and share a yaw, so the run is one
-                    # span and the two outer half-lengths are all that is needed.
-                    _ang = math.radians(run[0][2])
-                    _ux, _uy = math.cos(_ang), math.sin(_ang)
-                    _e0 = mod_len * run[0][3] / 2.0
-                    _e1 = mod_len * run[-1][3] / 2.0
-                    drawn.append(((run[0][0] - _ux * _e0,
-                                   run[0][1] - _uy * _e0),
-                                  (run[-1][0] + _ux * _e1,
-                                   run[-1][1] + _uy * _e1),
-                                  tag))
+                        fence_taken.add(fx, fy, fyaw, _ml * fit, _uf)
+                        pl = pools.place(resolver, _uf, "fence", fx, fy,
+                                         fyaw + _my, rng, scale_mul=fit)
+                        out.append(pl)
+                        lot_mods.setdefault(id(_h), []).append(pl)
+                    _drawn.append(_run_span(run, _ml, tag))
+                    return why
+
+                # THE FRONT GOES DOWN FIRST, so `front_open` can be read off
+                # what SURVIVED rather than off what was platted. It used to be
+                # computed from `segs` and the asset height alone, before
+                # anything was laid — and after that the front run can still be
+                # deleted by `_trim_offroad`, by `_fence_run`'s fit band or by
+                # the `_FenceGrid` clash trim. When it is, the sides have
+                # already been told the front is closed and are never cut back;
+                # they then run out to `fence_front_inset_m` — 2.5 m off the
+                # kerb — and stop in mid-air, which is precisely the defect
+                # `_trim_to_building_line` exists to kill.
+                #
+                # HONESTLY: THIS FIXES NOTHING TODAY. Instrumented over seeds
+                # 1, 3, 5 and 7, not one lot loses every front run after laying
+                # them, so the two forms agree on the shipped preset — and they
+                # agree only because the front now goes down FIRST and takes
+                # `fence_taken` before the sides can clash with it. The old
+                # form was a prediction about three later cuts and this one is
+                # an observation; a taller module, a wider road margin or a
+                # narrower fit band turns the prediction wrong silently and
+                # leaves side fences standing on the pavement.
+                #
+                # A "low" run is the FRONT boundary. This house has one asset
+                # for its whole perimeter, so the front is either fenced with
+                # that asset or left open — see `_FRONT_FENCE_MAX_H_M`.
+                for (a, b, tag) in (segs if uf else ()):
+                    if tag != "low" or mod_h > _FRONT_FENCE_MAX_H_M:
+                        continue
+                    why = _lay(a, b, tag, False)
+                    n_fence_road += int(why == "road")
+                    n_fence_clash += int(why == "clash")
+                front_open = not drawn
+                for (a, b, tag) in (segs if uf else ()):
+                    if tag == "low":
+                        continue
+                    why = _lay(a, b, tag, front_open)
+                    n_fence_front += int(why == "front")
+                    n_fence_road += int(why == "road")
+                    n_fence_clash += int(why == "clash")
+                # THE GATE RETURNS, LAST, because they are struck from where
+                # the side runs actually ENDED — see `_gate_returns`. They are
+                # tagged "return" rather than "privacy" so a consumer can tell
+                # a platted boundary from a run this pass derived; nothing
+                # downstream keys off the tag except to exclude "low".
+                if front_open:
+                    for (a, b) in _gate_returns(h, list(drawn)):
+                        _before = len(drawn)
+                        why = _lay(a, b, "return", False)
+                        n_fence_road += int(why == "road")
+                        n_fence_clash += int(why == "clash")
+                        # FROM `drawn`, NOT FROM `why`. A run that clashed can
+                        # still have laid its longest free stretch, so `why` is
+                        # not "did nothing go down" — the list is.
+                        n_fence_return += int(len(drawn) > _before)
             h["fence_drawn"] = drawn
         for t in p["trees"]:
             cp = (street_pool if t.get("kind") in ("street", "front")
@@ -3712,7 +4012,7 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
             # drive actually runs — is only stamped as its houses are placed.
             # Filtering here would test against a half-built map.
             tree_jobs.append((u, t["c"][0], t["c"][1]))
-    # WHAT THE FENCE ACTUALLY ENCLOSES, written back onto every house record.
+    # ALL OR NOTHING: A LOT THAT CANNOT CLOSE ITS BACK YARD KEEPS NO FENCE.
     #
     # A SECOND PASS, AND IT HAS TO BE. A lot's side boundary is SHARED, and
     # `suburb_parcel._relay` hands it to whichever of the two lots was issued
@@ -3728,37 +4028,110 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
     # render and cannot be reproduced from the seed. Here, every module in the
     # suburb is standing and the answer is a fact about the ground.
     #
+    # ...AND IT ITERATES, because removing a lot's fence can un-close the
+    # neighbour whose side line that fence WAS. The loop only ever deletes, so
+    # it is monotone and terminates. Measured on seed 3 it settles in four
+    # rounds — 144 lots, then 29, then 7, then 2 — so ONE SWEEP WOULD LEAVE 38
+    # LOTS fenced and open, which is one in four of the fence you can see and
+    # exactly the fragment this pass exists to remove. The per-round tail is
+    # printed below rather than only asserted here, because "one sweep is
+    # enough" is the kind of claim that quietly stops being true.
+    #
     # FENCES ONLY, DELIBERATELY. `_yard_enclosed` takes trees as well, and a
     # treeline encloses a garden just as a fence does — but `suburb_yardplan`
     # runs after this function and is what plants them, so there is nothing to
     # hand it yet. `enclosure` therefore records the FENCE half of the answer;
     # the yard pass calls `_yard_enclosed` again with its own trees, and that
-    # second answer is the one a seating gate should believe.
+    # second answer is the one a seating gate should believe. It is also why
+    # the gate here is the fence bar and not the tree bar: a lot dropped for
+    # having no fenced enclosure is exactly the lot Phase 3 plants a screen on.
     _all_houses = [h for _p in parcels for h in _p["houses"]]
-    _drawn_all = [(a, b) for h in _all_houses
-                  for (a, b, _t) in (h.setdefault("fence_drawn", []) or ())]
+    for h in _all_houses:
+        h.setdefault("fence_drawn", [])
+    n_drop = n_drop_bare = 0
+    # PER ROUND, NOT JUST THE TOTAL. The claim that one sweep is not enough is
+    # the only reason this loop exists, and it is the kind of claim that
+    # silently stops being true; printing the tail makes it checkable from any
+    # run's log instead of from a comment written once.
+    rounds = []
+    while True:
+        _drawn_all = [(a, b) for h in _all_houses
+                      for (a, b, _t) in h["fence_drawn"]]
+        _doomed = []
+        for h in _all_houses:
+            if not h["fence_drawn"]:
+                continue
+            if not _rear_yard_edges(h):
+                if not _FENCE_ON_GARDENLESS_LOT:
+                    _doomed.append(h)
+                    n_drop_bare += 1
+                continue
+            if not _yard_enclosed(h, fences=_drawn_all)[0]:
+                _doomed.append(h)
+        if not _doomed:
+            break
+        for h in _doomed:
+            h["fence_drawn"] = []
+        n_drop += len(_doomed)
+        rounds.append(len(_doomed))
+    _gone = set()
+    for h in _all_houses:
+        if not h["fence_drawn"]:
+            for _pl in lot_mods.pop(id(h), ()):
+                _gone.add(id(_pl))
+    if _gone:
+        # BY IDENTITY, NOT BY INDEX. `out` has had houses, garage wings and kit
+        # modules appended between one lot's fence and the next, so a lot's
+        # placements are not a contiguous slice of it; and two neighbours'
+        # modules abut to the centimetre, so matching on coordinates would take
+        # the wrong one. `lot_mods` recorded the objects themselves.
+        out[:] = [_pl for _pl in out if id(_pl) not in _gone]
+        n_fence -= len(_gone)
+    # WHAT THE FENCE ENCLOSES, written back onto every house record.
     n_yard = n_yard_closed = 0
+    _drawn_all = [(a, b) for h in _all_houses for (a, b, _t) in h["fence_drawn"]]
     for h in _all_houses:
         _edges = _rear_yard_edges(h)
         if not _edges:
             # NOT A GAP IN THE RECORD — a lot with no garden behind its back
-            # wall. Both keys are written as None so the absence is stated
+            # wall. All three keys are written as None so the absence is stated
             # rather than inferred from a missing key.
-            h["rear_yard"] = None
+            h["enclosure_poly"] = None
+            h["rear_edges"] = None
             h["enclosure"] = None
             continue
+        # THE THREE EDGES THEMSELVES, HANDED DOWN AS DATA. The yard pass cannot
+        # import this module to call `_rear_yard_edges` — `suburb_scene` imports
+        # `suburb_yardplan` at module scope, so the arrow only points one way —
+        # and re-deriving them there would put a FOURTH definition of "the rear
+        # yard" in the tree, which is the complaint that started this work.
+        # `[left, right, rear]`, left being the `-u` side.
+        h["rear_edges"] = _edges
+        # THE ENCLOSURE, AND IT IS NOT THE GARDEN. This polygon starts at the
+        # BUILDING LINE — the front face of the house — because that is where a
+        # real fenced back yard is closed and where the gate goes, so it
+        # CONTAINS the house and both side yards. It was called `rear_yard`
+        # until this pass, which is a name that invites a consumer to drop
+        # furniture anywhere inside it and put a bench on the roof. It is the
+        # region the fence encloses; the plantable garden is that region minus
+        # the house footprint, and `suburb_yardplan` already measures that for
+        # itself from `lot_depth` and the back wall.
+        #
         # RING ORDER, THE SAME ONE `lot_corners` USES: front-left, front-right,
-        # rear-right, rear-left, with "front" here meaning the building line.
-        # `_rear_yard_edges` returns [left, right, rear] and left is the `-u`
-        # side, so the corners fall straight out of the first two edges.
-        h["rear_yard"] = [_edges[0][0], _edges[1][0], _edges[1][1], _edges[0][1]]
+        # rear-right, rear-left, with "front" here meaning the building line, so
+        # a consumer that walks `lot_corners` walks this the same way.
+        h["enclosure_poly"] = [_edges[0][0], _edges[1][0],
+                               _edges[1][1], _edges[0][1]]
         _closed, _cover = _yard_enclosed(h, fences=_drawn_all)
         h["enclosure"] = {"fence_cover": _cover, "closed": _closed}
         n_yard += 1
         n_yard_closed += 1 if _closed else 0
     print(f"[suburb_scene] rear yards: {n_yard} lots with a usable back garden, "
           f"{n_yard_closed} of them closed by fence alone "
-          f"(cover >= {_YARD_FENCE_COVER:.2f} on all three edges)")
+          f"(cover >= {_YARD_FENCE_COVER:.2f} on all three edges); "
+          f"{n_drop} lots stripped of fence they could not close in "
+          f"{len(rounds)} sweeps {rounds} "
+          f"({n_drop_bare} of them for having no garden)")
     # PAVING KEEP-OUT, now that every parcel has its houses and their plans.
     # A frontage tree is placed out on the verge on purpose, and a driveway
     # crosses that verge to reach the kerb — so the two collide by
@@ -3797,7 +4170,9 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
           f"{n_fence} fence modules "
           f"({n_fence_road} runs dropped off the carriageway, "
           f"{n_fence_clash} shortened off a standing fence, "
-          f"{n_fence_front} left in an open front yard)")
+          f"{n_fence_front} left in an open front yard, "
+          f"{n_fence_return} gate returns, "
+          f"{n_fence_adopt} lots adopting a neighbour's asset)")
     if fence_pool and fence_road is None:
         print("[suburb_scene] WARNING: no street net handed to build_placements"
               " — fences are not being checked against the carriageway")

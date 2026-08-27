@@ -162,6 +162,28 @@ def compile_none(sev, spec, region):
     }
 
 
+def magnitude_to_severity(mag):
+    """Moment/Richter magnitude of a SHALLOW crustal event with the city at
+    its epicentre -> the 0..1 severity this compiler works in.
+
+    Two published relations, chained:
+      * epicentral intensity   I0 = 1.5 * M - 1.5   (Gutenberg & Richter
+        1956, M = 2/3 I0 + 1; ~10 km focal depth), capped at XII;
+      * EMS-98 damage: intensity VI = DG1-2 in URM, VII = DG2-3 (parapet and
+        chimney falls, Lorca 2011 M5.1 / Napa 2014 M6.0), VIII = DG3-4
+        (Christchurch 2011 M6.2 URM), IX-X = DG4-5 widespread (Kobe 1995
+        M6.9 core, Izmit 1999 M7.6, Antakya 2023 M7.8), XI-XII = total.
+    The ladder cuts in quake_flow are calibrated at intensity X-XI, so
+    severity 1.0 == I0 >= XI and severity ~0.3 == I0 VII.
+
+        M   5.0  5.5  6.0  6.5  7.0  7.5  8.0  8.5+
+        I0  VI   VI+  VII+ VIII IX   IX+  X+   XI-XII
+        sev .08  .29  .42  .54  .67  .79  .92  1.0
+    """
+    i0 = min(12.0, 1.5 * float(mag) - 1.5)
+    return max(0.05, min(1.0, (i0 - 5.0) / 6.0))
+
+
 def compile_earthquake(sev, spec, region):
     """Ground shaking: structures fail in place.
 
@@ -169,9 +191,32 @@ def compile_earthquake(sev, spec, region):
     straight down at the facades rather than flying; poles shake down but
     nothing is blown anywhere, so light objects tip over where they stood.
     Attenuates radially from the epicenter over a wide radius.
+
+    `spec.magnitude` (optional) additionally shapes the FIELD: a great
+    earthquake (M >= 7.5) has a rupture tens to hundreds of km long, so a
+    200-1000 m plate is shaken uniformly — the core widens to ~60 % of the
+    plate and the far corners keep ~85 %. A moderate event (M 5-6.5) has a
+    km-scale source and a real gradient across a district (Christchurch: CBD
+    intensity IX, 3 km away VII), which the radial field models. Liquefaction
+    needs duration: essentially absent below M 5.5, widespread from M 7.5
+    (Youd & Perkins 1978 magnitude scaling), so the soft-soil rate is scaled
+    by `liq`.
     """
     w, h = region
     cx, cy = spec.get("epicenter", [0.0, 0.0])
+    mag = spec.get("magnitude")
+    if mag is not None:
+        mag = float(mag)
+        uni = max(0.0, min(1.0, (mag - 6.5) / 2.5))     # 0 at M6.5, 1 at M9
+        liq = max(0.0, min(1.0, (mag - 5.5) / 2.0))     # 0 at M5.5, 1 at M7.5
+        # a great earthquake is not "the worst block everywhere": Antakya /
+        # Kahramanmaras 2023 (M7.8) collapsed ~10-15 % of the stock district-
+        # wide, but M9-class shaking sustained for 3-5 minutes (Tohoku 2011,
+        # Chile 1960) takes the URM stock to DG4-5 nearly everywhere. Over-
+        # drive the grade draw past the ladder's calibration point.
+        over = max(0.0, min(1.0, (mag - 8.0) / 1.5))    # 0 at M8, 1 at M9.5
+    else:
+        uni, liq, over = 0.0, 1.0, 0.0
     return {
         "damaged_fraction": lerp(0.05, 0.35, sev),
         "destroyed_fraction": lerp(0.02, 0.55, sev),
@@ -207,10 +252,10 @@ def compile_earthquake(sev, spec, region):
         "field": {
             "kind": "radial",
             "center": [float(cx), float(cy)],
-            "radius_m": round(max(w, h) * lerp(0.10, 0.28, sev), 1),
-            "falloff_m": round(max(w, h) * 0.45, 1),
+            "radius_m": round(max(w, h) * lerp(lerp(0.10, 0.28, sev), 0.60, uni), 1),
+            "falloff_m": round(max(w, h) * lerp(0.45, 0.60, uni), 1),
             "inside": 1.0,
-            "outside": lerp(0.05, 0.35, sev),
+            "outside": lerp(lerp(0.05, 0.35, sev), 0.85, uni),
         },
         # ---- the urban building pass (`disaster/quake.py`) reads these ----
         # `grade_scale` multiplies the field before the EMS-98 grade draw, so
@@ -218,22 +263,27 @@ def compile_earthquake(sev, spec, region):
         # Reaches 1.0 at severity ~0.8: the ladder cuts are calibrated at
         # intensity 1.0, and 0.93 at severity 0.85 drew ZERO pancakes on a
         # 47-building plate (city 9) where 1.0 draws ~4.
-        "grade_scale": min(1.0, lerp(0.55, 1.1, sev)),
+        # 0.3 + 0.85 sev: 0.55 at severity 0.29 (M5.5 -> URM DG3 at most,
+        # no collapses), 1.0 from severity 0.82. The earlier 0.55-1.1 gave an
+        # M5.5 core a 22 % URM collapse rate, which a Lorca never had.
+        "grade_scale": min(1.0, 0.3 + 0.85 * sev) + 0.35 * over,
         # The liquefaction patch: one ellipse, sized to the plate, placed
         # AWAY from the epicentre by default (the ground fails where the soil
         # is soft, not where the shaking is worst — and near the epicentre
         # nothing is left standing to tilt). `spec: soft-soil: false` turns
         # it off; `soft-soil: {center: [x, y], rx_m, ry_m, rate, angle_deg}`
         # overrides any part of it.
-        "soft_soil": _soft_soil(sev, spec, region),
+        "soft_soil": _soft_soil(sev, spec, region, liq),
         # Ground dust round DG4-5: reach in building heights, band opacity.
         "dust": {"reach_h5": lerp(0.7, 1.2, sev), "reach_h4": lerp(0.35, 0.6, sev),
                  "opacity_max": lerp(0.25, 0.45, sev)},
     }
 
 
-def _soft_soil(sev, spec, region):
-    """The earthquake's soft-soil ellipse, from severity and the plate."""
+def _soft_soil(sev, spec, region, liq=1.0):
+    """The earthquake's soft-soil ellipse, from severity and the plate;
+    `liq` (0..1, from the magnitude) scales the rate — no liquefaction in a
+    short, small event."""
     w, h = region
     user = spec.get("soft-soil", spec.get("soft_soil"))
     if user is False:
@@ -241,15 +291,18 @@ def _soft_soil(sev, spec, region):
     user = user if isinstance(user, dict) else {}
     cx, cy = spec.get("epicenter", [0.0, 0.0])
     # opposite quadrant to the epicentre, clamped inside the plate
-    dx = -0.28 * w if float(cx) >= 0.0 else 0.28 * w
-    dy = 0.26 * h if float(cy) <= 0.0 else -0.26 * h
+    # centre 0.22 / radius 0.26 of the plate: the ellipse stays INSIDE the
+    # plate (0.48 w), so its boils and fissures do not land in the void
+    # beside a 200 m city (two-city run 2).
+    dx = -0.22 * w if float(cx) >= 0.0 else 0.22 * w
+    dy = 0.20 * h if float(cy) <= 0.0 else -0.20 * h
     out = {
         "center": [float(v) for v in user.get("center", [dx, dy])],
-        "rx_m": float(user.get("rx_m", round(0.36 * w, 1))),
-        "ry_m": float(user.get("ry_m", round(0.24 * h, 1))),
+        "rx_m": float(user.get("rx_m", round(0.26 * w, 1))),
+        "ry_m": float(user.get("ry_m", round(0.20 * h, 1))),
         "angle_deg": float(user.get("angle_deg", 25.0)),
         # share of the still-standing buildings inside it that settle / tilt
-        "rate": float(user.get("rate", round(lerp(0.25, 0.85, sev), 2))),
+        "rate": float(user.get("rate", round(lerp(0.25, 0.85, sev) * liq, 2))),
     }
     return out
 
@@ -653,6 +706,17 @@ def compile_spec(spec: dict, base: dict) -> dict:
             f"unknown disaster-type {dtype!r}; expected one of "
             f"{', '.join(sorted(DISASTERS))}")
 
+    if "magnitude" in spec and spec.get("magnitude") is not None:
+        # `magnitude` is the physical knob and it DEFINES severity: a preset
+        # carries `severity: 0.85` as its default, and a MAGNITUDE override
+        # that silently lost to it gave an "M5.5" city ten DG3s and a pancake
+        # (two-city run 1, 2026-08-27). To pin severity with a magnitude, set
+        # `overrides.disaster.grade_scale` instead.
+        _m_sev = magnitude_to_severity(spec["magnitude"])
+        if "severity" in spec and abs(float(spec["severity"]) - _m_sev) > 1e-6:
+            print("[compile_disaster] magnitude {0} sets severity {1:.2f} (spec severity "
+                  "{2} ignored)".format(spec["magnitude"], _m_sev, spec["severity"]))
+        spec = dict(spec, severity=_m_sev)
     sev = float(spec.get("severity", 1.0))
     if not 0.0 <= sev <= 1.0:
         raise ValueError(f"severity must be in [0, 1], got {sev}")
@@ -707,7 +771,7 @@ def compile_spec(spec: dict, base: dict) -> dict:
     # would suggest editing them there has an effect. Keep them only as
     # provenance in the header comment.
     for k in ("disaster-type", "disaster_type", "severity", "overrides",
-              "epicenter", "heading_deg", "asset-set",
+              "epicenter", "magnitude", "heading_deg", "asset-set",
               "presets_path",
               "preset_file"):
         cfg.pop(k, None)

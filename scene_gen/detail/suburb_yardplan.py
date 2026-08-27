@@ -109,14 +109,16 @@ DEFAULTS = {
     "rear_depth_fallback_m": 16.0,
     # -- A BACK YARD IS ENCLOSED BY A FENCE OR BY A TREELINE ------------------
     # ...or it is open ground. Only the first half of that was reachable. On
-    # seed 3 of the shipped preset, of the 363 lots that have a real back
-    # garden (>= `patio_min_rear_yard_m` behind the back wall):
+    # seed 3 of the shipped preset, before this row existed, of the 363 lots
+    # that have a real back garden (>= `patio_min_rear_yard_m` behind the back
+    # wall):
     #
     #     fenced closed   82        screened by trees    5
     #     part-screened   57        wide open          219
     #
     # judging a yard enclosed when all three of its edges are at least 60%
-    # within reach of a fence module or of a canopy, sampled every metre.
+    # within reach of a fence module or of a canopy, sampled every metre —
+    # which is `suburb_scene._yard_enclosed`, and is now what asks.
     #
     # Five. Not because trees are scarce — this pass plants 2,637 of them —
     # but because none of them is planted AS A BOUNDARY. The rear canopy slot
@@ -135,21 +137,25 @@ DEFAULTS = {
     #
     # Share of the ELIGIBLE lots: no fence of their own, a back garden deep
     # enough to be worth screening, and a side line that is not inside their
-    # own building. On seed 3 that population is 245 of 479 lots, and this
+    # own building. On seed 3 that population is 285 of 479 lots, and this
     # pass is deliberately a MINORITY of it. A suburb where every unfenced
     # back garden is walled in trees is as wrong as one where none are, and it
     # is worse for what comes after: an enclosed yard is what qualifies a lot
-    # for seating, so this number sets how much garden furniture the suburb
-    # grows. At 0.40 the roll takes 86 lots, and 95 back yards come out
-    # screened — the extra nine are neighbours picking up a shared side line
-    # off somebody else's row, which is what a boundary planting does. Against
-    # 82 fenced, that is roughly one screened back garden per fenced one, and
-    # it leaves 124 of the 363 still wide open, which is the point.
+    # for SEATING, so this number is also how much garden furniture the suburb
+    # grows. At 0.40 the roll takes 105 lots and 120 back yards come out
+    # screened by `suburb_scene._yard_enclosed` — the extra fifteen are
+    # neighbours picking up a shared side line off somebody else's row, which
+    # is what a boundary planting does. Against 72 closed by fence, that is
+    # rather more than one screened garden per fenced one, and it still leaves
+    # 165 of the 407 wide open and 50 part-screened, which is the point. (Those
+    # four counts move by a handful run to run as the fence pass changes what
+    # it manages to close; the RATIO is the stable part and is what this knob
+    # sets.)
     #
-    # It is also the whole cost of this slot: a screen is ~10 trunks, so 86
-    # lots is 865 trees on top of the 2,637 this pass already plants — 3,830
-    # to 4,690 across the scene, +22%. Doubling the share doubles that, and
-    # the canopy is the only thing in the yard pass with a real point cost.
+    # It is also the whole cost of this slot: a screen is ~10 trunks, so the
+    # roll is ~1,000 trees on top of the ~2,600 the rest of this pass plants.
+    # Doubling the share doubles that, and the canopy is the only thing in the
+    # yard pass with a real point cost.
     "screen_chance": 0.40,
     # SPACING IS DERIVED FROM THE TREE ACTUALLY DRAWN, not from this knob.
     # `yard_trees` spans 3.02 m of crown (Douglas_Fir) to 25.42 m (Black_Oak)
@@ -211,6 +217,45 @@ DEFAULTS = {
     # 2.43, so on a measured run this floor costs 0.19 m of clearance and on an
     # unmeasured one it is what keeps the furniture out of the strip gardens.
     "patio_extent_fallback_m": 2.62,
+    # -- ...AND IT HAS TO BE AN ARRANGEMENT, NOT A PROP -----------------------
+    # What stood here was one item drawn from `{ParkBench01, Kalmar_TblChr}`,
+    # dropped at `rng.uniform` across the whole rear band, turned by
+    # `rng.choice([0.0, 180.0])`. Three separate randomnesses and no
+    # composition: a bench alone in the middle of a lawn, at an angle to
+    # everything, is what the scene actually contained 358 times.
+    #
+    # A patio is a place, not an object. It sits ON the ground behind the back
+    # door, offset to one side of the wall rather than centred on it, with the
+    # table set squared to the house and the seat in a fixed relation to the
+    # table. So the group is composed in the lot's own (along, deep) frame,
+    # anchored on the back wall, and placed as ONE footprint under ONE yaw.
+    #
+    # Walking room between the table set and the bench, edge to edge. It is
+    # what makes the two read as a pair rather than as two props that happen to
+    # be near each other: under ~0.5 m they touch and the bench looks shoved
+    # against the chairs, over ~1.5 m the gap is wider than the bench is deep
+    # and the pair falls apart into two objects again. It is also what the
+    # group costs in garden depth — `clear_house` + table + this + bench is
+    # 4.7 m on the measured pool, against `patio_min_rear_yard_m` of 4.0, so
+    # every centimetre here is a shallow garden that gets the table alone.
+    "patio_bench_gap_m": 0.9,
+    # Where along the back wall the patio sits, as a fraction of the HALF-WIDTH
+    # of the house — so it scales with the building instead of being a metre
+    # count that is off-centre on a cottage and against the wall of a villa.
+    # 0.0 centres the group on the back door, which is the one place a patio
+    # never is; 1.0 puts it off the corner of the house entirely, with nothing
+    # to sit against. 0.55 is a little past halfway along the wall, which is
+    # where a slab gets laid: clear of the door, still under the eaves.
+    "patio_side_off_frac": 0.55,
+    # The bin by the back door. `yard_props` has carried a `bin`-tagged
+    # TrashCan (0.51 m, 630 points) since the pool was written and NOTHING in
+    # the generator has ever placed it. Not every household leaves it out at
+    # the back — some keep it down the side or in the garage, neither of which
+    # this pass models — so it is a coin weighted toward yes rather than a
+    # fixture. At 1.0 every single back wall in the suburb has the same bin
+    # against it, which reads as a repeated asset; at 0.0 the pool entry goes
+    # back to being dead weight.
+    "patio_bin_chance": 0.6,
     # -- side yards: the gap between neighbouring houses, previously EMPTY ----
     # The gap is `suburb_parcel.house_gap_m` (4.0 m) only on the tightest lots;
     # frontage is scaled per block by the density class (tight 0.78 to estate
@@ -261,6 +306,24 @@ DEFAULTS = {
     # as rare as `yard_trees` priced them.
     "tree_size_sharp": 3.0,
 }
+
+
+# -- WHAT COUNTS AS AN ENCLOSED BACK YARD, MIRRORED FROM `suburb_scene` -------
+# `suburb_scene` owns this question. It publishes `_YARD_SCREEN_COVER` (0.60),
+# `_YARD_SCREEN_SLACK_M` (1.5) and `_YARD_SAMPLE_M` (1.0), writes the fence
+# half of the answer onto every house record as `h["enclosure"]`, and strikes
+# the three edges the answer is measured over as `h["rear_edges"]`. THOSE
+# CONSTANTS ARE THE SOURCE OF TRUTH; these three are copies.
+#
+# Copied and not imported because the import would be a cycle: `suburb_scene`
+# imports this module at module scope, so this module cannot import it back.
+# The alternative — a fourth pass inventing its own bar for "screened" — is
+# precisely the disease the enclosure work was written to cure, so the numbers
+# are duplicated and labelled instead of re-derived. If they move over there,
+# move them here.
+_SCREEN_COVER = 0.60             # suburb_scene._YARD_SCREEN_COVER
+_SCREEN_SLACK_M = 1.5            # suburb_scene._YARD_SCREEN_SLACK_M
+_EDGE_SAMPLE_M = 1.0             # suburb_scene._YARD_SAMPLE_M
 
 
 class _Solids:
@@ -384,6 +447,137 @@ def _seg_dist(px, py, a, b):
     t = 0.0 if L2 <= 1e-9 else max(0.0, min(1.0, ((px - ax) * vx
                                                  + (py - ay) * vy) / L2))
     return math.hypot(px - (ax + vx * t), py - (ay + vy * t))
+
+
+class _Fences:
+    """EVERY fence module in the suburb, on a hash grid. Not just this lot's.
+
+    `free()` used to ask `h["fence_segs"]` — this lot's own platted perimeter —
+    and that was wrong in both directions at once:
+
+        it missed the NEIGHBOUR'S fence.   A side boundary is shared and
+            `suburb_parcel._relay` gives it to whichever lot was issued first,
+            so the panels down this garden's left-hand side are usually the
+            other lot's record. The screen row makes that bite: it deliberately
+            plants a metre inside the boundary, which is exactly where the
+            neighbour's fence stands.
+        it invented fence THAT WAS NEVER BUILT. `fence_segs` is the plat's
+            proposal and every cut happens downstream in `build_placements`
+            without being written back, so a lot whose fence was trimmed away
+            module by module still vetoed planting along a line with nothing
+            on it.
+
+    Both are the same fix: index what was actually DRAWN, over every house,
+    once. `fence_drawn` when the record carries it, the plat when it does not —
+    the same fallback and the same reason as the screen row's `fenced` test.
+
+    Inserted by INFLATED BOUNDING BOX and queried in the point's own cell, the
+    pattern `_Solids` uses: a span is up to 40 m long and a cell is 16, so a
+    handful of cells hold it and a false positive costs one segment distance.
+    """
+
+    CELL = 16.0
+
+    def __init__(self, houses, reach):
+        self.reach = float(reach)
+        self.g = {}
+        self.n = 0
+        for h in houses:
+            spans = h.get("fence_drawn")
+            if spans is None:
+                spans = h.get("fence_segs")
+            for s in (spans or ()):
+                if len(s) >= 2 and s[0] and s[1]:
+                    self._add(s[0], s[1])
+
+    def _add(self, a, b):
+        r = self.reach
+        for gx in range(int(math.floor((min(a[0], b[0]) - r) / self.CELL)),
+                        int(math.floor((max(a[0], b[0]) + r) / self.CELL)) + 1):
+            for gy in range(int(math.floor((min(a[1], b[1]) - r) / self.CELL)),
+                            int(math.floor((max(a[1], b[1]) + r) / self.CELL)) + 1):
+                self.g.setdefault((gx, gy), []).append((a, b))
+        self.n += 1
+
+    def clear(self, x, y, pad):
+        """Is (x, y) further than *pad* from every fence module in the scene?"""
+        for (a, b) in self.g.get((int(math.floor(x / self.CELL)),
+                                  int(math.floor(y / self.CELL))), ()):
+            if _seg_dist(x, y, a, b) < pad:
+                return False
+        return True
+
+
+class _Canopies:
+    """The trees THIS PASS planted, as discs already grown by the screen slack.
+
+    Only used to answer "is this edge screened", which is why it stores the
+    inflated radius squared and nothing else: the question is never "how far to
+    the nearest tree", it is "does anything reach this sample".
+
+    A grid and not `suburb_scene._edge_cover`'s bounding-box prefilter, because
+    the two are asked in opposite shapes. That one is handed the whole suburb
+    per edge and rejects it per source; this one is built ONCE for ~3,500 trees
+    and then asked ~30 samples x 3 edges x ~400 lots, where a per-call scan of
+    the tree list is the ~10^8 tests that must not happen.
+    """
+
+    CELL = 8.0
+
+    def __init__(self, slack=_SCREEN_SLACK_M):
+        self.slack = float(slack)
+        self.g = {}
+        self.n = 0
+
+    def add(self, x, y, r):
+        rr = float(r) + self.slack
+        for gx in range(int(math.floor((x - rr) / self.CELL)),
+                        int(math.floor((x + rr) / self.CELL)) + 1):
+            for gy in range(int(math.floor((y - rr) / self.CELL)),
+                            int(math.floor((y + rr) / self.CELL)) + 1):
+                self.g.setdefault((gx, gy), []).append((x, y, rr * rr))
+        self.n += 1
+
+    def covers(self, x, y):
+        for (px, py, r2) in self.g.get((int(math.floor(x / self.CELL)),
+                                        int(math.floor(y / self.CELL))), ()):
+            if (x - px) ** 2 + (y - py) ** 2 <= r2:
+                return True
+        return False
+
+    def __len__(self):
+        return self.n
+
+
+def _screen_cover(edges, canopies):
+    """The WEAKEST of *edges*' screen covers, in ``[0, 1]``.
+
+    A minimum and never a mean, for `suburb_scene._yard_enclosed`'s reason: two
+    sides planted and the rear left open is not two thirds of an enclosure, it
+    is a yard you walk into from the back. Sampled at `_EDGE_SAMPLE_M` and
+    counted the same way that function counts, so "screened" means the same
+    thing on both sides of the module boundary — the answer is only ever
+    compared against `_SCREEN_COVER`, and a metre of resolution on a 10-40 m
+    edge already decides that more finely than the decision needs.
+    """
+    if not edges:
+        return 0.0
+    worst = 1.0
+    for (p0, p1) in edges:
+        dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+        ln = math.hypot(dx, dy)
+        if ln < 1e-6:
+            return 0.0
+        n = max(2, int(math.ceil(ln / _EDGE_SAMPLE_M)) + 1)
+        hit = 0
+        for i in range(n):
+            t = i / float(n - 1)
+            if canopies.covers(p0[0] + dx * t, p0[1] + dy * t):
+                hit += 1
+        worst = min(worst, hit / float(n))
+        if worst <= 0.0:
+            break
+    return worst
 
 
 def _rng_pair(v, fallback):
@@ -569,25 +763,72 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
     _pp = lib.pool("yard_props")
     mailboxes = _tagged(_pp, "mailbox")
     patio_props = [e for e in _pp if "patio" in e["tags"] or "shed" in e["tags"]]
-    # MEASURED FOOTPRINT PER PROP, so the fit test in the rear yard is against
-    # the thing actually being placed instead of a constant. `max(sx, sy)` on
-    # BOTH axes deliberately: the entry's own `yaw` offset and the +-180 flip
-    # below decide which face turns to the house, so a bench that is 2.62 m one
-    # way and 0.79 m the other must not be let into a garden that only holds it
-    # end-on. Category "plant" because that is what `emit` charges these as, and
-    # `patio_extent_fallback_m` is a FLOOR under the answer rather than a
-    # fallback — see the note on it in DEFAULTS.
+    # THE BIN, BY THE SAME LITERAL TEST AND NOT BY `_tagged`. `_tagged` falls
+    # back to the WHOLE pool when nothing carries the tag, which is right for
+    # the mailbox slot and would stand a table-and-chairs against the back wall
+    # here. The suburban pool does carry one `bin` entry; a pool that does not
+    # must place nothing, not something else.
+    bin_props = [e for e in _pp if "bin" in e["tags"]]
+    # MEASURED FOOTPRINT PER PROP, RESOLVED ONTO THE LOT'S OWN AXES.
+    #
+    # This used to be one number per prop, `max(sx, sy)`, and the reason was
+    # sound at the time: the +-180 flip the old slot rolled per prop meant
+    # nothing here could say which face would turn to the house, so a bench
+    # 2.62 m one way and 0.79 m the other had to be refused any garden that
+    # only held it end-on. The group has ONE yaw and it is the house's, so the
+    # question is now answerable: `sx` runs along the frontage and `sy` runs
+    # deep, unless the entry's own `yaw` correction turns the asset a quarter
+    # turn, in which case they swap. Keeping the square would have cost the
+    # composition its shape — the bench is 0.79 m deep and treating it as
+    # 2.62 m deep adds 1.8 m to the depth every group needs, which is a large
+    # share of the back gardens in the suburb.
+    #
+    # Category "plant" because that is what `emit` charges these as.
+    # `patio_extent_fallback_m` is still a FLOOR, but it is now applied to the
+    # GROUP's box rather than to each piece — see the note on it in DEFAULTS:
+    # its job is to catch an unmeasured run, where every prop answers with the
+    # one `fallback_sizes.plant` and a group would otherwise measure a metre
+    # across and be admitted to gardens that cannot hold it.
     patio_fallback = float(cfg.get("patio_extent_fallback_m", 2.62))
     patio_min_yard = float(cfg.get("patio_min_rear_yard_m", 4.0))
-    patio_ext = {}
-    for _e in patio_props:
+    bench_gap = max(0.0, float(cfg.get("patio_bench_gap_m", 0.9)))
+    patio_side_frac = float(cfg.get("patio_side_off_frac", 0.55))
+    bin_chance = float(cfg.get("patio_bin_chance", 0.6))
+    prop_axes = {}
+    for _e in list(patio_props) + list(bin_props):
         _fp = (resolver.get(_e["usd"], "plant", scale=_e.get("scale", 1.0),
                             axis_up=_e.get("axis_up", "Z"))
                if resolver is not None else None)
-        patio_ext[_e["usd"]] = max(
-            patio_fallback,
-            float((_fp or {}).get("sx", 0.0) or 0.0),
-            float((_fp or {}).get("sy", 0.0) or 0.0))
+        _sx = float((_fp or {}).get("sx", 0.0) or 0.0)
+        _sy = float((_fp or {}).get("sy", 0.0) or 0.0)
+        # A quarter-turn correction swaps the axes; anything else is a nudge
+        # and leaves them where they are. Modulo 180 because a half turn maps
+        # a rectangle onto itself.
+        _yo = abs(float(_e.get("yaw", 0.0))) % 180.0
+        _ea, _ed = ((_sy, _sx) if 45.0 <= _yo < 135.0 else (_sx, _sy))
+        # NOTHING IS ZERO METRES ACROSS. With no resolver at all the answer is
+        # 0.0 on both axes, and a zero here is a prop that clears every wall,
+        # fits every garden and needs no room — the composition would collapse
+        # onto a point. The smallest thing the pool stocks measures 0.51 m, so
+        # half a metre is the floor below which an answer is a missing
+        # measurement rather than a small object. The real protection against
+        # an unmeasured run is `patio_extent_fallback_m` on the GROUP box.
+        prop_axes[_e["usd"]] = (max(0.5, _ea), max(0.5, _ed))
+    # THE CENTREPIECE AND THE SEAT, PICKED ONCE FOR THE WHOLE SUBURB rather
+    # than drawn per lot, because the composition is a relation between two
+    # SPECIFIC things and a random pair has no relation to compose. The table
+    # set is whichever patio entry is squarest — `Kalmar_TblChr` is 2.43 x 2.42
+    # and already a table WITH chairs, i.e. an arrangement in one asset — and
+    # the seat is whichever is longest and thinnest, which is `ParkBench01` at
+    # 2.62 x 0.79. Chosen by measurement and not by name so a pool that swaps
+    # either asset still composes; a pool with only one patio entry makes it
+    # the centrepiece and places no bench.
+    def _oblong(e):
+        a, d = prop_axes.get(e["usd"], (0.0, 0.0))
+        return (max(a, d) / max(min(a, d), 1e-6))
+    _sorted_patio = sorted(patio_props, key=_oblong)
+    tbl_e = _sorted_patio[0] if _sorted_patio else None
+    bench_e = _sorted_patio[-1] if len(_sorted_patio) > 1 else None
 
     # ROW HOMES ARE NOT PLANTED HERE, and the reason is the first line of this
     # module's docstring: every dimension is read off THE LOT, and an attached
@@ -667,6 +908,10 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
     # excluded from being PLANTED, not from being planted AROUND.
     solids = _Solids(all_houses, pad_max=max(2.0, clear_house + 1.0),
                      rings=keepout_rings)
+    # ...and every fence in the suburb, for the same reason and at the same
+    # time: see `_Fences` on why asking one lot's own `fence_segs` was wrong in
+    # both directions. Built from `all_houses` so a row home's fence counts too.
+    fence_ix = _Fences(all_houses, clear_fence)
     # THE POOLS AGAIN, AT A MUCH BIGGER RADIUS AND FOR TREES ONLY.
     # `keepout_rings` already goes into `solids` above, which stops anything
     # being planted IN the water — a 2.6 m margin, the generic one a house
@@ -690,6 +935,12 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
 
     out = []
     placed_trees = _Spacing(tree_sep)
+    # EVERY TREE THIS PASS PLANTS, AS A DISC, for the seating gate. Kept as a
+    # flat list and indexed after the planting loop rather than as it grows:
+    # the whole point of the second pass is that a lot's screen is often partly
+    # its NEIGHBOUR's row, and an index consulted while it is still being
+    # filled answers about a half-planted suburb.
+    canopies = []
     tally = {}
     n_side_tree = n_side_shrub = n_rear_tree = n_front_tree = 0
     n_keepout = 0
@@ -702,6 +953,26 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
     # WHICH question refused it: no back garden at all, a garden too small for
     # the prop drawn, or a garden with something already standing in the spot.
     n_patio = n_patio_nogarden = n_patio_nofit = n_patio_blocked = 0
+    # The seating gate, split by WHY. `patio_open` is the headline and the
+    # whole reason this phase exists: it was 294 of 358 groups standing in a
+    # garden open to the block behind it, and it has to read 0. `seat_fenced`
+    # and `seat_screened` are the two ways a yard qualifies, reported apart
+    # because they are different mechanisms and either one silently failing
+    # would otherwise hide inside the total.
+    n_patio_open = n_patio_noedges = n_seat_fenced = n_seat_screened = 0
+    n_patio_pieces = n_patio_solo = n_bin = 0
+    # What the whole-suburb fence index changed, both ways. `fence_neighbour`
+    # is the bug it was built for: a station refused by a fence that is not
+    # this lot's, which the old per-lot test waved through. `fence_ghost` is
+    # the other direction — a station the plat's untrimmed proposal used to
+    # veto with nothing actually standing there.
+    n_fence_nb = n_fence_ghost = 0
+    # Lots carrying a back garden, stashed by the planting loop for the seating
+    # pass. Frames are STASHED AND NOT RE-DERIVED: four passes re-deriving "the
+    # rear yard" three different ways is the defect this work exists to remove,
+    # and a fifth derivation inside this same module would be the worst of
+    # them.
+    seat_jobs = []
     # The screen row, split the same way. `screen_eligible` is the population
     # the chance rolls against — unfenced lots with a back garden — so a
     # screen count that looks thin says whether the ROLL or the GROUND refused
@@ -759,6 +1030,28 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
         tally[category] = tally.get(category, 0) + 1
         return True
 
+    def free_at(x, y, pad, own=()):
+        """Nothing built here, and no fence ANYWHERE IN THE SUBURB through it.
+
+        *own* is this lot's platted perimeter and is used for NOTHING but the
+        two counters: it is what the old per-lot test asked, so comparing the
+        two answers is what says how much the whole-suburb index moved. The
+        decision is `fence_ix`'s alone.
+        """
+        nonlocal n_fence_nb, n_fence_ghost
+        if not solids.clear(x, y, pad):
+            return False
+        hit_own = any(len(sg) >= 2
+                      and _seg_dist(x, y, sg[0], sg[1]) < clear_fence
+                      for sg in own)
+        if not fence_ix.clear(x, y, clear_fence):
+            if not hit_own:
+                n_fence_nb += 1
+            return False
+        if hit_own:
+            n_fence_ghost += 1
+        return True
+
     for h, area in zip(houses, lot_area):
         budget.open(area)
         cx, cy = h["c"]
@@ -814,13 +1107,8 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
             gar = None
 
         def free(x, y, pad):
-            """Nothing built here, and no fence of this lot's through it."""
-            if not solids.clear(x, y, pad):
-                return False
-            for seg in fences:
-                if len(seg) >= 2 and _seg_dist(x, y, seg[0], seg[1]) < clear_fence:
-                    return False
-            return True
+            """This lot's view of `free_at`. See it, and `_Fences`."""
+            return free_at(x, y, pad, fences)
 
         def plant_tree(along, deep, pad, entry=None):
             """Emit a tree at a local-frame point if everything allows it.
@@ -856,6 +1144,13 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
                               t=_size_t(wall, t_near, t_far), sharp=t_sharp)
             if emit(entry, x, y, rng.uniform(0, 360), "tree", budget.tree):
                 placed_trees.add(x, y)
+                # THE RADIUS THE SCREEN WALK ASSUMED, recorded with the trunk.
+                # The seating gate has to ask the same question the screen row
+                # answered — does this canopy reach the boundary — so it must
+                # use the same crown, not a second estimate of it.
+                canopies.append((x, y, max(crown_r.get(entry["usd"],
+                                                       screen_step / 2.0),
+                                           tree_sep / 2.0)))
                 return entry
             return None
 
@@ -958,15 +1253,14 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
         # EVERYTHING THAT PLANTS RUNS BEFORE ANYTHING THAT FURNISHES, and the
         # ordering is load-bearing rather than tidy. The patio slot used to sit
         # between the boundary row and the canopy, which put the one decision
-        # that has to know whether the garden is enclosed AHEAD of the two
-        # passes that enclose it — a treeline planted afterwards cannot qualify
-        # a seat that is already standing. It is not free: the furniture now
-        # meets a garden that has already been planted, and every station the
-        # canopy or the screen took is one `free()` refuses the table. Measured
-        # on seed 3 it costs nothing net — 358 patio sets before, 360 after the
-        # reorder alone (the darts land on different ground once they are drawn
-        # in a different order), 358 with the screen row also in, and
-        # `patio_blocked` 4 -> 1 -> 3.
+        # that has to know whether the garden is enclosed AHEAD of the passes
+        # that enclose it — a treeline planted afterwards cannot qualify a seat
+        # that is already standing. It has since gone further than a reorder:
+        # seating is a SECOND PASS over the whole suburb, after this loop, for
+        # the reason set out where it lives. Nothing in this loop furnishes
+        # anything any more, and the ordering above survives so that the canopy
+        # and the screen still take their ground before the seating pass asks
+        # `free()` for a patio.
         #
         # The boundary row now follows the REAL rear lot line and spans the
         # REAL lot width. Both were constants (16 m back, +-half the HOUSE
@@ -1121,35 +1415,210 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
         #   is there a garden at all      rear_yard >= patio_min_rear_yard_m
         #   does this prop fit in it      wall clearance + its measured extent,
         #                                 deep AND across the frontage
-        # and the station is then clamped into the band where the FOOTPRINT
-        # clears both the back wall and the rear lot line — the old code placed
-        # a centre point and tested it with a flat 1.4 m pad, which is why a
+        # and the group is then anchored in the band where the FOOTPRINT clears
+        # both the back wall and the rear lot line — the old code placed a
+        # centre point and tested it with a flat 1.4 m pad, which is why a
         # 2.6 m prop could still straddle the fence in a garden that passed.
+        #
+        # NOTHING IS PLACED HERE ANY MORE. The lot's frame is stashed and the
+        # seating runs in a second pass over the whole suburb — see the block
+        # after this loop for why it has to.
         if patio_props and rear_yard >= patio_min_yard:
-            e = _pick(patio_props, rng)
-            half_p = patio_ext.get((e or {}).get("usd"), patio_fallback) / 2.0
-            d_lo = half_d + clear_house + half_p
-            d_hi = depth - half_p
-            a_lim = half_lot - inset - half_p
-            if e is not None and d_hi >= d_lo and a_lim > 0.0:
-                # The old spread, kept where the garden has room for it, and
-                # clamped rather than replaced where it does not: on a deep lot
-                # this is the same draw it always was.
-                px = min(max(rng.uniform(-half_lot * 0.5, half_lot * 0.5),
-                             -a_lim), a_lim)
-                py = min(max(half_d + (depth - half_d) * rng.uniform(0.35, 0.65),
-                             d_lo), d_hi)
-                x, y = world(px, py)
-                if free(x, y, half_p):
-                    if emit(e, x, y, yaw_deg + rng.choice([0.0, 180.0]),
-                            "plant", budget.other):
-                        n_patio += 1
-                else:
-                    n_patio_blocked += 1
-            else:
-                n_patio_nofit += 1
+            seat_jobs.append({
+                "h": h, "c": (cx, cy), "u": u, "n": n, "fences": fences,
+                "half_w": half_w, "half_d": half_d, "half_lot": half_lot,
+                "yaw": yaw_deg, "depth": depth,
+                # Which side the drive is, or None. The patio goes on the OTHER
+                # one: the back door is not the garage door.
+                "gar_along": (g_along if gar is not None else None)})
         elif patio_props:
             n_patio_nogarden += 1
+
+    # ---- SEATING: A COMPOSED GROUP, AND ONLY IN AN ENCLOSED BACK YARD ------
+    # The rule, in the user's words: only trees in unfenced back yards; seating
+    # if the back is somewhat fenced BY TREES; nothing for completely open
+    # backs; and the seating has to be an arrangement, not random.
+    #
+    # WHY A SECOND PASS. A lot's screen is very often not a lot's own trees. A
+    # side boundary is shared, and the screen row plants a metre inside it, so
+    # the row that closes this garden's left-hand side belongs to the neighbour
+    # — who, in a single loop, has not been planted yet when this lot is asked
+    # whether it is enclosed. `build_placements` hit exactly this asking the
+    # same question about fences and answered it the same way, and measured the
+    # cost at one lot in 85 — small, because it walks lots in RING order and a
+    # neighbour is nearly always issued next.
+    #
+    # THIS PASS DOES NOT WALK IN RING ORDER. It shuffles, deliberately (see the
+    # note on `rng.shuffle` above: unshuffled, the purse spends the whole canopy
+    # on the first streets laid), so the lot that plants the row down this
+    # garden's side is at a uniformly random point in the order. Replaying the
+    # emission order against an in-loop gate: it would have refused 12 of the
+    # 118 screened lots on seed 3, 4 of 72 on seed 1 and 8 of 136 on seed 5 —
+    # one in ten, not one in eighty-five. And every one of them is a bench
+    # deleted because of the order the shuffle happened to produce, which is a
+    # defect that cannot be reproduced from the seed and reads in a render as a
+    # garden that is mysteriously bare. Here every tree in the suburb is
+    # standing and the answer is a fact about the ground.
+    #
+    # THE GATE IS READ OFF THE RECORD, NOT RE-DERIVED. `h["enclosure"]` is the
+    # fence half, computed in `build_placements` from the modules that actually
+    # went down; `h["rear_edges"]` is the three boundaries the answer is
+    # measured over, struck from the numbers the lot was ISSUED on. Both are
+    # `suburb_scene`'s, and a fifth pass in this repo inventing its own rear
+    # yard is the exact disease being cured. So a lot whose record does not
+    # publish the edges gets NO SEATING rather than a locally invented
+    # rectangle — `patio_no_edges` says loudly when that happens.
+    #
+    # ...with one exception that is not a fallback: a yard whose FENCE already
+    # closed it needs no edges to prove it, because `build_placements` already
+    # measured that over those same edges. Only the tree half needs them here.
+    screen_ix = _Canopies(_SCREEN_SLACK_M)
+    for (_cx, _cy, _cr) in canopies:
+        screen_ix.add(_cx, _cy, _cr)
+    tbl_a, tbl_d = prop_axes.get((tbl_e or {}).get("usd"), (0.0, 0.0))
+    bch_a, bch_d = prop_axes.get((bench_e or {}).get("usd"), (0.0, 0.0))
+    for job in seat_jobs:
+        h = job["h"]
+        # -- the gate -------------------------------------------------------
+        if bool((h.get("enclosure") or {}).get("closed")):
+            n_seat_fenced += 1
+        else:
+            edges = h.get("rear_edges") or ()
+            if not edges:
+                n_patio_noedges += 1
+                continue
+            if _screen_cover(edges, screen_ix) < _SCREEN_COVER:
+                n_patio_open += 1
+                continue
+            n_seat_screened += 1
+
+        cx, cy = job["c"]
+        u, n = job["u"], job["n"]
+        half_w, half_d = job["half_w"], job["half_d"]
+        half_lot, depth, yaw_deg = job["half_lot"], job["depth"], job["yaw"]
+        fences = job["fences"]
+
+        def world(along, deep):
+            return (cx + u[0] * along + n[0] * deep,
+                    cy + u[1] * along + n[1] * deep)
+
+        # -- the composition ------------------------------------------------
+        # ONE YAW FOR THE WHOLE GROUP, and it is the house's. `yaw_deg` is the
+        # frontage tangent — the mailbox slot above establishes the convention
+        # — so at `yaw_deg` a prop's long axis runs parallel to the back wall,
+        # which is how furniture is set out on a patio and is the entire
+        # difference from `rng.choice([0.0, 180.0])` per prop. The bench takes
+        # the half turn, so the two are mirror images about the group's centre
+        # and read as a set from above.
+        #
+        # HONEST ABOUT WHAT IS NOT KNOWN HERE: which way a bench's seat looks
+        # is a property of the asset's own facing axis, and nothing in the pool
+        # records it — `entry["yaw"]` is the only correction available and both
+        # patio entries carry none. Squaring both to the same wall makes the
+        # pair read correctly either way; settling which of the two looks at
+        # the house needs the asset on a stage.
+        #
+        # Offsets are measured from the TABLE's centre, and the table is
+        # anchored hard against the back wall band, because that is where a
+        # patio slab is laid. The bench is set BEYOND it, out toward the
+        # garden: wall, table, seat, lawn.
+        grp = [(tbl_e, 0.0, tbl_a, tbl_d, yaw_deg)]
+        if bench_e is not None:
+            grp.append((bench_e, tbl_d / 2.0 + bench_gap + bch_d / 2.0,
+                        bch_a, bch_d, yaw_deg + 180.0))
+        # -- does the GROUP fit, as one footprint ---------------------------
+        # THE BOX, NOT THE PIECES. The old test asked whether one prop's extent
+        # cleared the wall and the lot line; a pair set out deep needs the span
+        # from the front of the table to the back of the bench, and testing the
+        # bench alone is how a composed group ends up with its far half over
+        # the rear boundary.
+        #
+        # A SHALLOW GARDEN GETS THE TABLE ON ITS OWN rather than nothing. The
+        # pair needs `clear_house` + 2.42 + `patio_bench_gap_m` + 0.79 = 4.7 m
+        # behind the back wall on the measured pool, against a
+        # `patio_min_rear_yard_m` of 4.0 — so a band of real gardens can hold a
+        # table set and not a group. It is a narrow band and it is not
+        # theoretical: 5 of the 180 groups on seed 3 land in it, and 0 lots
+        # fail to fit even the table. `Kalmar_TblChr` is a table WITH chairs,
+        # which is already an arrangement, and it is still anchored and squared
+        # rather than dropped at random: that is a smaller garden, not a
+        # regression to the old behaviour.
+        stations = None
+        for members in ([grp, grp[:1]] if len(grp) > 1 else [grp]):
+            # THE FALLBACK IS A FLOOR ON THE BOX, ON ALL THREE SIDES. On an
+            # unmeasured run every piece answers with the same generic size and
+            # the group would measure a metre square: it would be admitted to
+            # gardens that cannot hold it, and — because the anchor is struck
+            # off the box's own near face — stood half inside the back wall.
+            ga = max(patio_fallback, max(m[2] for m in members))
+            gd_lo = min(-patio_fallback / 2.0,
+                        min(m[1] - m[3] / 2.0 for m in members))
+            gd_hi = max(gd_lo + patio_fallback,
+                        max(m[1] + m[3] / 2.0 for m in members))
+            d_anchor = half_d + clear_house - gd_lo
+            a_lim = half_lot - inset - ga / 2.0
+            if d_anchor + gd_hi > depth or a_lim <= 0.0:
+                continue
+            # WHERE ALONG THE WALL. Off to one side, and to the side the car is
+            # NOT on: `suburb_parcel` reserves the garage box and runs the drive
+            # up to it, so the back door and the slab are on the other half of
+            # the wall. With no garage there is no reason to prefer a side and
+            # it is a coin flip, which is the one randomness a patio is allowed.
+            gs = job["gar_along"]
+            side = ((-1.0 if gs > 0.0 else 1.0) if gs is not None
+                    else (1.0 if rng.random() < 0.5 else -1.0))
+            a_anchor = min(max(side * half_w * patio_side_frac,
+                               -a_lim), a_lim)
+            stations = [(e, world(a_anchor, d_anchor + do), yw, ea, ed)
+                        for (e, do, ea, ed, yw) in members]
+            break
+        if stations is None:
+            n_patio_nofit += 1
+            continue
+        # EVERY PIECE CLEARS THE GROUND, not just the anchor. A group that
+        # passes as a box can still have its bench inside the neighbour's fence
+        # or under a screen tree planted an hour ago in pass one.
+        if not all(free_at(st[1][0], st[1][1],
+                           max(patio_fallback, st[3], st[4]) / 2.0, fences)
+                   for st in stations):
+            n_patio_blocked += 1
+            continue
+        # THE CENTREPIECE DECIDES. If the purse or a turnaround refuses the
+        # table there is no group to hang a bench off, and a bench standing
+        # alone at the far offset of a group that was never placed is worse
+        # than the empty lawn it replaces.
+        e0, (x0, y0), yw0, _a0, _d0 = stations[0]
+        if not emit(e0, x0, y0, yw0, "plant", budget.other):
+            n_patio_blocked += 1
+            continue
+        n_patio += 1
+        n_patio_pieces += 1
+        for (e, (x, y), yw, _ea, _ed) in stations[1:]:
+            if emit(e, x, y, yw, "plant", budget.other):
+                n_patio_pieces += 1
+        if len(stations) < 2:
+            n_patio_solo += 1
+        # -- and the bin by the back door -----------------------------------
+        # Against the wall, on the house side of the patio — between the slab
+        # and the back door rather than out in the garden, which is the one
+        # place a wheelie bin never stands. It takes no part in the group's fit
+        # test: at 0.51 m it is the smallest thing this pass places, it lives
+        # inside the wall band the table has already cleared, and folding it
+        # into the box would push the whole group a half metre further out for
+        # an object that is allowed to be refused on its own.
+        if bin_props and rng.random() < bin_chance:
+            be = _pick(bin_props, rng)
+            b_a, b_d = prop_axes.get((be or {}).get("usd"), (0.6, 0.6))
+            b_lim = half_lot - inset - b_a / 2.0
+            bx, by = world(min(max(a_anchor - side * (ga / 2.0 + 0.5
+                                                      + b_a / 2.0),
+                                   -b_lim), b_lim),
+                           half_d + clear_house + b_d / 2.0)
+            if b_lim > 0.0 \
+                    and free_at(bx, by, max(b_a, b_d) / 2.0, fences) \
+                    and emit(be, bx, by, yaw_deg, "plant", budget.other):
+                n_bin += 1
+                n_patio_pieces += 1
 
     stats = {"lots": len(houses), "placed": len(out), "tally": tally,
              # Row homes seen and deliberately left alone. Reported so a run
@@ -1183,6 +1652,30 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
              # back wall, i.e. houses that do not have a back garden to furnish.
              "patio": n_patio, "patio_no_garden": n_patio_nogarden,
              "patio_no_fit": n_patio_nofit, "patio_blocked": n_patio_blocked,
+             # THE ONE NUMBER THIS PHASE IS JUDGED ON. Lots refused seating
+             # for a garden that is neither fenced nor screened — not a failure
+             # count but a WORKLOAD count, because it is exactly what the pass
+             # used to furnish anyway. 294 of the 358 props on seed 3 stood in
+             # an open back yard before any of the enclosure work; run the old
+             # slot against today's fences and screens and it is still 169 of
+             # 358, and this counter reads 183. A zero here alongside a zero
+             # `patio` means the gate is stuck shut, not that every back garden
+             # in the suburb is enclosed.
+             "patio_open": n_patio_open,
+             # ...and lots the gate could not judge because the record carries
+             # no `rear_edges`. Should be 0 against a `suburb_scene` that
+             # publishes them; anything else means this module and that one
+             # have drifted apart and every unfenced garden in the suburb is
+             # silently going without seating.
+             "patio_no_edges": n_patio_noedges,
+             "seat_fenced": n_seat_fenced, "seat_screened": n_seat_screened,
+             # Props, not groups: a group is 2 or 3 of them. `patio_solo` is
+             # the shallow gardens that took the table set alone.
+             "patio_pieces": n_patio_pieces, "patio_solo": n_patio_solo,
+             "bins": n_bin,
+             # What the whole-suburb fence index moved, both ways — see
+             # `_Fences`. `fence_neighbour` is the bug it fixes.
+             "fence_neighbour": n_fence_nb, "fence_ghost": n_fence_ghost,
              # The screen row. `screen_eligible` is the denominator
              # `screen_chance` rolls against — unfenced lots with a back
              # garden and a side line clear of their own building — so a thin
@@ -1217,10 +1710,22 @@ def report(stats):
           f"{stats.get('screen_eligible', 0)} unfenced lots with a back garden"
           f" ({stats.get('screen_trees', 0)} trunks, "
           f"{stats.get('screen_blocked', 0)} stations refused)\n"
-          f"[yardplan]   {stats.get('patio', 0)} patio sets "
-          f"({stats.get('patio_no_garden', 0)} lots have no back garden, "
-          f"{stats.get('patio_no_fit', 0)} too small for the prop drawn, "
-          f"{stats.get('patio_blocked', 0)} with the spot taken)\n"
+          f"[yardplan]   {stats.get('patio', 0)} seating groups "
+          f"({stats.get('patio_pieces', 0)} props: "
+          f"{stats.get('seat_fenced', 0)} in a fenced back yard, "
+          f"{stats.get('seat_screened', 0)} in a tree-screened one, "
+          f"{stats.get('patio_solo', 0)} too shallow for the bench, "
+          f"{stats.get('bins', 0)} bins)\n"
+          f"[yardplan]   refused: {stats.get('patio_open', 0)} back yards "
+          f"neither fenced nor screened, "
+          f"{stats.get('patio_no_garden', 0)} with no back garden at all, "
+          f"{stats.get('patio_no_fit', 0)} too small for the group, "
+          f"{stats.get('patio_blocked', 0)} with the spot taken"
+          + (f", {stats['patio_no_edges']} with no rear_edges on the record"
+             if stats.get('patio_no_edges') else "") + "\n"
+          f"[yardplan]   fences: {stats.get('fence_neighbour', 0)} stations "
+          f"refused by a NEIGHBOUR's fence, {stats.get('fence_ghost', 0)} "
+          f"freed from a platted one that was never built\n"
           f"[yardplan]   {stats['points']:,} of {int(stats['budget']):,} points "
           f"({pct:.0f}%), {stats['refused']} refused on budget "
           f"({stats.get('tree_points', 0):,} of "

@@ -1,0 +1,130 @@
+# Scene overlay for a 1 km x 1 km generated WILDFIRE suburb
+# (SCENE_CONFIG=suburb  REGION_M=1000x1000  DISASTER_TYPE=wildfire  SEVERITY=0.6).
+#
+# ONE scene file serves all four arms — vlfm / conavgpt2 / frontier / lawnmower.
+# Every method launch file takes scene_params_file:=.../suburb_wildfire_1km.yaml
+# and layers it LAST (after planner.yaml then the method overlay), so the scene
+# has the last word on geometry while nav_mode / the scorer / frontier_source
+# come from the METHOD overlay and are NOT set here.
+#
+# Derived from suburb_wildfire.yaml (the 1700 m plat) SCALED to 1 km, and from
+# suburb_mini.yaml's WORLD-frame search-area pattern. Rules cited are from
+# .agents/skills/benchmark-disaster-dataset/SKILL.md sections 3, 4, 5, 6, 9.z.
+search_planner:
+  ros__parameters:
+
+    # ── map geometry ────────────────────────────────────────────────────────
+    # map_cells is FIXED at 480 (upstream stamps robot markers on the candidate
+    # images in 480-pixel coordinates), so map_extent_m sets CELL SIZE, not cell
+    # count (§5). The generated 1 km block is world-centred at the origin, so it
+    # spans x,y in [-500, 500].
+    #
+    # frame_mode is 'local' (planner.yaml default): the grid is centred on the
+    # TAKEOFF POINT, and the search area below is authored in WORLD, so the
+    # half-extent must reach the far edge of the polygon FROM the spawn:
+    #     required half-extent = 480 (polygon half) + 30 (max |spawn_x|) = 510 m
+    # The fleet spawns clustered at x = -30 (see the missions' SPAWN_CONFIGS),
+    # so 30 m is the worst-case spawn offset. 1080 m of extent gives a 540 m
+    # half (30 m spare) at 2.25 m/cell — between the 0.50 m bench and the
+    # 3.54 m plat.
+    map_extent_m: 1080.0
+    frame_mode: 'local'
+
+    # WORLD frame (§9.z): the planner subtracts its measured map origin
+    # (enu(GPS fix) - odom, the map_anchor_node derivation) once on the first
+    # tick with a fix, so the polygon is authored in scene/world coordinates and
+    # EVERY robot cuts the SAME strips from it regardless of where each spawned.
+    # Covers the 1 km block minus a 20 m edge margin.
+    search_area_frame: 'world'
+    search_area_xy: [-480.0, -480.0,
+                      480.0, -480.0,
+                      480.0,  480.0,
+                     -480.0,  480.0]
+
+    # frontier_threshold_points counts CELLS ALONG THE FRONTIER BOUNDARY, so its
+    # physical meaning moves with cell size — and cell size moves with extent
+    # because map_cells is fixed (§5). At 2.25 m/cell, 9 cells is ~20 m of
+    # boundary, the same order as the bench's 10 m (20 cells @ 0.50 m) and the
+    # plat's ~21 m (6 cells @ 3.54 m). Left at the default 20 it would discard
+    # any frontier shorter than 45 m, which is most of them.
+    frontier_threshold_points: 9
+
+    # From the air the SMALL frontier regions are gaps between houses; the big
+    # ones are the open ground nobody has covered. Keep the largest (§5) —
+    # upstream's default keeps the smallest, which is right indoors and wrong
+    # from a drone.
+    frontier_order: 'largest'
+
+    # 2.25 m cells make a fine voxel pointless (it would be many times finer
+    # than the grid it rasterises into) and the per-tick cloud is the cost that
+    # scales on a large scene; 1.0 m matches the plat (§5).
+    scene_voxel_m: 1.0
+
+    # ── run budget ──────────────────────────────────────────────────────────
+    # SIM seconds. The budget starts at the planner's FIRST data tick
+    # (camera + depth + odom), which only happens AFTER the planner is launched
+    # — i.e. AFTER takeoff — so takeoff and transit are NOT counted. The node
+    # then counts this much SIM /clock time and latches
+    # /{robot}/search/run_complete = true (planner_node._sim_budget_spent /
+    # _finish_run). Matches the other baselines' 600 s so a run covers the same
+    # amount of SIMULATED search regardless of real-time factor. One drone will
+    # not cover 960 x 960 m in 600 s; that is fine — the run ends on sim time
+    # and coverage is a reported number, not a pass criterion.
+    max_sim_seconds: 600.0
+
+    # The mount tilt is NOT set here. camera_pitch_rad defaults to ZED_PITCH_DEG
+    # — the SAME variable the Isaac launch script reads to tilt the physical
+    # camera — so the two cannot disagree. Setting it here would silently
+    # decouple the planner from the mount (§9 trap 4).
+
+    # ── search bounds / actuation ─────────────────────────────────────────────
+    # Wildfire canopy and damaged structures top out near 15 m; the drone flies
+    # the band ABOVE them and descends only to confirm a detection. The frontier
+    # band is a SEPARATE question from the flight band (§4): frontiers may sit
+    # from just above head height up over the rooflines, while the drone is
+    # clamped to 15-40 m AGL. Mirrors suburb_wildfire.yaml (the plat profile).
+    obstacle_min_z_m: 2.0
+    obstacle_max_z_m: 15.0
+    frontier_z_min_m: 3.0
+    frontier_z_max_m: 20.0
+    min_altitude_agl_m: 15.0
+    max_altitude_agl_m: 40.0
+    flight_altitude_m: 20.0
+    # Drop to 10 m AGL once a target is seen, so the confirmation pass is an
+    # actual look rather than a cruise-altitude flyover — without diving into the
+    # canopy the plat profile flies over.
+    inspect_altitude_m: 10.0
+    depth_max_m: 80.0
+
+    # Arrival radii on a 2.25 m grid. frontier_unlock_radius_m must be
+    # >= goal_tolerance_m or the lock releases before droan considers the goal
+    # reached (§3).
+    goal_tolerance_m: 5.0
+    frontier_unlock_radius_m: 8.0
+
+    # ── detector ──────────────────────────────────────────────────────────────
+    # ONE gate, measured, never inherited (§6). 0.65 keeps the confident real
+    # people measured on this scene and sits above the ~0.32 false-positive band;
+    # it matches planner.yaml and every other layer, so the DETECTOR is not the
+    # thing that differs between arms — the selection policy is. Upstream's 0.85
+    # is an indoor close-range number and finds nobody at aerial range.
+    sem_threshold: 0.65
+
+    # The mission searches for SURVIVORS. YOLO-World is effectively blind to
+    # buildings in oblique aerial renders and sharp on people in the same frames
+    # (§6), and people are what a SAR benchmark is scored on.
+    goal_name: 'person'
+    detection_classes: ['person', 'car', 'truck', 'house', 'building', 'tree',
+                        'smoke', 'fire', 'road', 'rubble']
+
+    # Open-vocab (yolov8l-world) for the wildfire scene (§6). In SERVER mode the
+    # offboard detector's own --yolo-weights is what actually runs, so this must
+    # name the SAME file (CONAVGPT2_YOLO_WORLD_WEIGHTS in the missions) or the
+    # planner logs DETECTOR MISMATCH.
+    yolo_world_weights: '/root/.cache/conavgpt2_weights/yolov8l-world.pt'
+    mobile_sam_weights: '/root/.cache/conavgpt2_weights/mobile_sam.pt'
+    ultralytics_weights_dir: '/root/.cache/conavgpt2_weights'
+
+    # The mcap carries the map render; the PNGs would be one per agent per tick
+    # for the whole run.
+    save_debug_images: false

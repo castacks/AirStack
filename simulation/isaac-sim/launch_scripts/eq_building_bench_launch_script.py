@@ -27,6 +27,17 @@ Env:
     KEEP_PHYSICS    1 leaves bodies live instead of baking
     SNAP_DIR        viewport captures, MUST be under /isaac-sim/.nvidia-omniverse/logs/
     EQ_FIT_ALL      1 fits out every storey (default: only what a recipe opens)
+    EQ_MILD_TILT    "<deg>,<sink_m>": give every `pristine` column the CITY
+                    assembly's mild lean + ground response (agent C)
+    EQ_YAW          build every column at this yaw (default 0) — the only way
+                    to see a recipe the way the CITY runs it (agent C)
+    EQ_NEIGHBOUR    "<style>,<gap_m>,<side>": a second PRISTINE kit building
+                    that clear of every column on that side (S/E/N/W), static
+                    for the settle, so the PAIR recipes (`lean_on`,
+                    `collapse_onto`, `pounding`) have something to fall into.
+                    The review cameras then frame the pair, not the column.
+                        EQ_STYLE=apartment_tall EQ_RECIPES=lean_on \
+                        EQ_NEIGHBOUR=walkup,6.0,E
 """
 
 import math
@@ -38,7 +49,8 @@ import time
 import carb
 from isaacsim import SimulationApp
 
-simulation_app = SimulationApp(launch_config={"headless": False})
+# ISAAC_SIM_HEADLESS=true renders off-screen; the captures still work.
+simulation_app = SimulationApp(launch_config={"headless": os.environ.get("ISAAC_SIM_HEADLESS", "false").strip().lower() in ("1", "true", "yes")})
 
 from isaacsim.core.utils.extensions import enable_extension
 
@@ -72,6 +84,21 @@ SETTLE_STEPS = int(os.environ.get("SETTLE_STEPS", "2200"))
 KEEP_PHYSICS = os.environ.get("KEEP_PHYSICS", "0") not in ("0", "", "false")
 SNAP_DIR = os.environ.get("SNAP_DIR", "").strip()
 FIT_ALL = os.environ.get("EQ_FIT_ALL", "0") not in ("0", "", "false")
+# --- AGENT C: EQ_MILD_TILT="<deg>,<sink_m>" ---------------------------------
+# Applies the CITY assembly's mild lean (quake._tilt_prim's matrix + ground
+# response) to every `pristine` column, so a bench row can show the city path
+# and the baked TILT recipe next to each other. Empty = off.
+_MT = os.environ.get("EQ_MILD_TILT", "").strip()
+MILD_TILT = None
+if _MT:
+    _f = [q.strip() for q in _MT.split(",") if q.strip()]
+    MILD_TILT = (float(_f[0]), float(_f[1]) if len(_f) > 1 else 0.8)
+# EQ_YAW builds every column at that yaw instead of 0. The bench and the bake
+# have only ever built at yaw 0, which is why a pivot that was rotated into
+# world and then rotated again by `_to_world` survived in three recipes: it is
+# the identity at yaw 0 and 41 % of a city plat is at yaw 90 or 270.
+YAW = float(os.environ.get("EQ_YAW", "0") or 0)
+# --- end AGENT C ------------------------------------------------------------
 
 
 def build_ground_and_light(stage):
@@ -129,6 +156,35 @@ def main():
     dims = {st: ub.footprint(ub.STYLES[st]) + (ub.height(ub.STYLES[st]),) for st in STYLES}
     big = max(max(w, d) for w, d, _h in dims.values())
     spacing = float(os.environ.get("EQ_SPACING", "0") or 0) or max(50.0, 2.6 * big)
+
+    # --- AGENT D: EQ_NEIGHBOUR=<style>,<gap_m>,<side> -----------------------
+    # A second, PRISTINE kit building `gap_m` clear of EVERY column building on
+    # `side` (S/E/N/W), placed before the recipes run and registered as static
+    # for the settle, so a pair recipe (`lean_on`, `collapse_onto`,
+    # `pounding`) has something to fall into. The recipes see it through
+    # `ctx["neighbours"]` (`quake_flow.d_set_neighbours`).
+    NB = os.environ.get("EQ_NEIGHBOUR", "").strip()
+    nb_style, nb_gap, nb_side = None, 0.4, "E"
+    nbW = nbD = nbH = 0.0
+    if NB:
+        _f = [q.strip() for q in NB.split(",")]
+        nb_style = _f[0] or None
+        if len(_f) > 1 and _f[1]:
+            nb_gap = float(_f[1])
+        if len(_f) > 2 and _f[2]:
+            nb_side = _f[2].upper()[:1]
+        if nb_style not in ub.STYLES:
+            raise RuntimeError("EQ_NEIGHBOUR: unknown style {0}".format(nb_style))
+        nbW, nbD = ub.footprint(ub.STYLES[nb_style])
+        nbH = ub.height(ub.STYLES[nb_style])
+        # a PAIR is wider than one building: keep each column clear of the
+        # next column's neighbour
+        spacing = max(spacing, 1.35 * (big + nb_gap + max(nbW, nbD)) + 14.0)
+        print("[eq_bench] neighbour {0}: {1} x {2} m, {3} m tall, {4:.2f} m gap "
+              "on the {5} side; column spacing {6:.0f} m".format(
+                  nb_style, nbW, nbD, nbH, nb_gap, nb_side, spacing))
+    # --- end AGENT D -------------------------------------------------------
+
     x0 = -0.5 * spacing * (len(RECIPES) - 1)
     y0 = -0.5 * spacing * (len(STYLES) - 1)
     spec = ub.STYLES[STYLE]
@@ -142,11 +198,37 @@ def main():
             x, y = x0 + i * spacing, y0 + r * spacing
             parent = "{0}/b{1}".format(PARENT, k)
             UsdGeom.Scope.Define(stage, Sdf.Path(parent))
-            pls = ub.build_building(st, x, y, 0.0, random.Random(SEED))
+            pls = ub.build_building(st, x, y, YAW, random.Random(SEED))   # EQ_YAW (agent C)
             sg.apply_placements(stage, pls, parent, ssf)
             cols.append(dict(i=k, col=i, rec=rec, x=x, y=y, parent=parent, pls=pls,
                              style=st, W=dims[st][0], D=dims[st][1], H=dims[st][2]))
             k += 1
+    # --- AGENT D: place one neighbour per column and register the pair ------
+    nb_all = []
+    if nb_style:
+        _NRM = {"S": (0.0, -1.0), "N": (0.0, 1.0), "E": (1.0, 0.0), "W": (-1.0, 0.0)}
+        _ox, _oy = _NRM[nb_side]
+        for c in cols:
+            # the two facing half-depths plus the clear gap between the walls
+            _B = c["D"] if nb_side in ("S", "N") else c["W"]
+            _Bn = nbD if nb_side in ("S", "N") else nbW
+            _off = _B / 2.0 + nb_gap + _Bn / 2.0
+            nx, ny = c["x"] + _ox * _off, c["y"] + _oy * _off
+            nparent = "{0}/nb{1}".format(PARENT, c["i"])
+            UsdGeom.Scope.Define(stage, Sdf.Path(nparent))
+            npls = ub.build_building(nb_style, nx, ny, 0.0, random.Random(SEED + 17))
+            sg.apply_placements(stage, npls, nparent, ssf)
+            c["nb_pls"] = npls
+            c["nb_xy"] = (nx, ny, nbW, nbD, nbH)
+            qf.d_set_neighbours("b{0}".format(c["i"]), [
+                qf.d_neighbour(nb_style, npls, nx, ny, 0.0, nb_side, nb_gap,
+                               parent=nparent, tag="nb{0}".format(c["i"]))])
+            nb_all += npls
+        ub.apply_glass_tint(stage, nb_all)
+        print("[eq_bench] {0} neighbour building(s) placed on the {1} side".format(
+            len(cols), nb_side))
+    # --- end AGENT D -------------------------------------------------------
+
     n_glass = ub.apply_glass_tint(stage, [p for c in cols for p in c["pls"]])
     for _ in range(5):
         omni.kit.app.get_app().update()
@@ -165,13 +247,44 @@ def main():
         if rec == "pristine":
             static += [p["prim_path"] for p in c["pls"] if p.get("prim_path")]
             c["notes"] = []
+            # --- AGENT C: EQ_MILD_TILT=<deg>,<sink_m> -----------------------
+            # The CITY path on a `pristine` column: `quake._tilt_prim`'s matrix
+            # and ground response, applied to the kit pieces instead of to a
+            # referenced archetype, so the reviewer can compare the city's mild
+            # lean with the baked TILT recipe side by side in one row. This is
+            # the only place the assembly-side code is exercised on the bench.
+            if MILD_TILT:
+                from disaster import quake as qk           # no SimulationApp
+                mrng = random.Random(SEED + 101 * c["i"])
+                mm = qk._c_mass({"x_m": c["x"], "y_m": c["y"], "z_m": 0.0,
+                                 "yaw_deg": YAW},
+                                {"W": c["W"], "D": c["D"], "H": c["H"]}, ssf)
+                M, gg = qf._c_tilt_matrix(mm, mrng.choice(["S", "E", "N", "W"]),
+                                          MILD_TILT[0], MILD_TILT[1],
+                                          max_drop_m=qf.C_MAX_DROP_M)
+                qf._transform_prims(
+                    stage, [p["prim_path"] for p in c["pls"] if p.get("prim_path")], M)
+                qk._c_tilt_ground(stage, c["parent"], mm, M, mrng, geom=gg,
+                                  mats=mats, tag="mild{0}".format(c["i"]),
+                                  scope=c["parent"] + "/quake_tilt")
+                c["notes"] = ["mild tilt (city path): {0:.1f} deg toward {1}, "
+                              "sunk {2:.2f} m (low -{3:.2f} m, high +{4:.2f} m)".format(
+                                  MILD_TILT[0], gg["low"], gg["sink"], gg["drop"],
+                                  gg["rise"])]
+                for _n in c["notes"]:
+                    print("[eq_bench]     " + _n)
+            # --- end AGENT C ------------------------------------------------
             continue
-        recipes = rec if rec.startswith("DG") else [(rec, {})]
+        # a LEVEL (DG1..DG5 and the three foundation levels, looked up in
+        # `quake_flow.LADDER` for this style's construction type) or a bare
+        # recipe name. `SETTLE`/`TILT`/`OV` used to fall through to
+        # `RECIPES["TILT"]` and raise KeyError.
+        recipes = rec if (rec.startswith("DG") or rec in qf.FOUNDATION) else [(rec, {})]
         rng = random.Random(SEED + 101 * c["i"])
         nrng = np.random.default_rng(SEED + 101 * c["i"])
         tb = time.time()
         res = qf.wreck_building(stage, c["parent"], c["style"], c["pls"], c["x"], c["y"],
-                                0.0, recipes, rng, nrng, mats, "b{0}".format(c["i"]),
+                                YAW, recipes, rng, nrng, mats, "b{0}".format(c["i"]),
                                 fit_storeys=None, mat_cache=cache)
         loose += res["loose"]
         static += res["static_extra"]
@@ -185,6 +298,23 @@ def main():
             print("[eq_bench]     " + n)
     for _ in range(10):
         omni.kit.app.get_app().update()
+
+    # --- AGENT D: the neighbours are static for the settle, and the review
+    # cameras frame the PAIR rather than the column building ----------------
+    if nb_style:
+        _lo = set(loose)
+        for c in cols:
+            static += [p["prim_path"] for p in c.get("nb_pls", [])
+                       if p.get("prim_path") and p["prim_path"] not in _lo]
+            nx, ny, _w, _d, _h = c["nb_xy"]
+            ax0 = min(c["x"] - c["W"] / 2.0, nx - _w / 2.0)
+            ax1 = max(c["x"] + c["W"] / 2.0, nx + _w / 2.0)
+            ay0 = min(c["y"] - c["D"] / 2.0, ny - _d / 2.0)
+            ay1 = max(c["y"] + c["D"] / 2.0, ny + _d / 2.0)
+            c["x"], c["y"] = (ax0 + ax1) / 2.0, (ay0 + ay1) / 2.0
+            c["W"], c["D"] = ax1 - ax0, ay1 - ay0
+            c["H"] = max(c["H"], _h)
+    # --- end AGENT D -------------------------------------------------------
 
     # 3) settle — gravity only, per-body outward velocities, masonry density
     if loose:
@@ -250,11 +380,18 @@ def main():
             traceback.print_exc()
             print("[eq_bench] snapshots FAILED: {0}".format(exc))
 
-    timeline.play()
+    print("EQ BENCH DONE")
+    # Headless (ISAAC_SIM_HEADLESS=true) there is nobody to review the stage:
+    # exit once the captures are on disk unless KEEP_OPEN=1. The GUI path
+    # keeps the app open for the review cameras, as before.
+    _keep = (os.environ.get("KEEP_OPEN", "").strip() == "1"
+             or os.environ.get("ISAAC_SIM_HEADLESS", "false").strip().lower() not in ("1", "true", "yes"))
     app = omni.kit.app.get_app()
-    while simulation_app.is_running():
-        app.update()
-    timeline.stop()
+    if _keep:
+        timeline.play()
+        while simulation_app.is_running():
+            app.update()
+        timeline.stop()
     simulation_app.close()
 
 

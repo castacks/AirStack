@@ -69,6 +69,47 @@ THE INVARIANTS, and why each is one.
       exactly by construction — the question worth asking is whether a lot's run
       meets its neighbour's on the same bearing. Asserted as a rate, not as
       zero: a run legitimately stops at a wall, at a bulb, and at a kerb.
+
+  no fence that encloses nothing  (`fence_fragment`)
+      A lot carrying fence modules whose back yard those modules do not close.
+      This is the defect the eye reads as "the fences are broken" — 76 of the
+      155 fenced lots on seed 3 before the enclosure rework, each of them a
+      three-sided U you walk into at either side yard. `build_placements` now
+      strips a lot that cannot complete its perimeter, iterating to a fixed
+      point because deleting one lot's fence can un-close the neighbour whose
+      side line that fence was (4 sweeps on seed 3: 144, 29, 7, 2 lots).
+
+      STATED OVER EVERY LOT WITH A MODULE, WITH NO EXCEPTION, which it could
+      not be until the same pass also dropped the gardenless-fenced-lot
+      carve-out. A lot with under 4 m of garden behind its back wall has no
+      yard that can ever close; while those kept their fence this had to except
+      them by name, and an exception written into a test is the defect hiding
+      inside the test that states it. They are stripped too now — 55 of them on
+      seed 3 — so the rule is the whole rule.
+
+  no seating in an open back yard  (`seating_unenclosed`)
+      A garden bench or table set standing in a yard that neither a fence nor a
+      treeline encloses. 294 of the 358 patio props on seed 3 stood in one
+      before this work; the target is zero and this gates on zero.
+
+      JUDGED BY `suburb_scene._yard_enclosed`, THE SHIPPED PREDICATE, imported
+      rather than restated for the reason the whole enclosure rework exists:
+      four passes had re-derived "the rear yard" from three different sources
+      and no two agreed. Fences are `h["fence_drawn"]` (what went down, not
+      what the plat proposed) and trees are the YARD PASS's canopies only —
+      `suburb_yardplan` screens a yard with the trees it planted itself and
+      indexes nothing else, so a checker counting the parcel pass's verge trees
+      as well would be a looser gate than the one being checked.
+
+      ATTRIBUTED BY THE LOT'S OWN LOCAL FRAME, NOT BY NEAREST HOUSE CENTRE.
+      A seating group is anchored `patio_side_off_frac` (0.55) of a half width
+      off the back door, so on a narrow lot the nearest house centre to it is
+      frequently the NEIGHBOUR's: measured on seed 3, nearest-centre reports 1
+      prop in an open yard that is in fact sitting in a fenced one, and during
+      the seating work that mis-attribution produced two such false positives.
+      `fence_png._LotIndex` asks each lot's own `frontage`/`u`/`n`/`lot_width`/
+      `lot_depth` instead — the five numbers the lot was ISSUED on, and the same
+      five `suburb_scene._lot_lines` strikes the enclosure edges from.
 """
 
 import argparse
@@ -80,7 +121,8 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
 
 from fence_png import (build, modules, classify, house_assets,   # noqa: E402
-                       continuity)
+                       continuity, houses, canopies, seating,
+                       seating_unenclosed, fence_fragment, enclosure_state)
 # `fence_png` puts scene_gen on the path when it imports; this is the same
 # `_corner_deg` the plat gates on, imported rather than restated so the test
 # and the rule can never disagree about what "off square" means.
@@ -237,13 +279,42 @@ def check(seed, config_name="suburb_net", verbose=False):
     tres_n, tres_m, tres_skew, tres_worst = trespass(scene)
     runs = sum(len(h.get("fence_segs") or ())
                for p in scene["parcels"] for h in p["houses"])
+    hs = houses(scene)
+    trees = canopies(scene)
+    state = enclosure_state(scene, trees)
+    seat_bad = seating_unenclosed(scene, trees, state)
+    frag = fence_fragment(scene)
 
     stats = {"seed": seed, "modules": len(mods),
              "on_road": len(bad["on_road"]), "in_bulb": len(bad["in_bulb"]),
              "crossing": len(bad["crossing"]), "doubled": len(bad["doubled"]),
              "on_drive": len(bad["on_drive"]),
-             "houses_fenced": sum(assets.values()),
+             # LOTS THAT ACTUALLY KEEP A FENCE. This used to be
+             # `sum(assets.values())` — the number of houses that CHOSE an
+             # asset in `_fence_pick` — and it read 311 on seed 3 where 121
+             # lots have a module on the ground. The gap is the all-or-nothing
+             # sweep: a lot picks its asset before its perimeter is laid, and
+             # 182 of them are stripped afterwards for a yard they could not
+             # close. Reporting the pick made the fence look three times as
+             # common as it is, which is the one thing a rate calibration is
+             # read off. The pick count is still here as `fence_picked`
+             # because it is the denominator `houses_multi_asset` is a count
+             # out of.
+             "lots_fenced": sum(1 for h in hs if h.get("fence_drawn")),
+             "fence_picked": sum(assets.values()),
              "houses_multi_asset": multi, "gate_modules": len(gates),
+             # THE ENCLOSURE, which is what the fence is for. `yards_open` is
+             # not a failure — a back garden with no fence and no treeline is
+             # correct and common — it is the denominator that says whether
+             # `seating_unenclosed` reading 0 means the gate works or means
+             # every garden in the suburb happens to be enclosed.
+             "yards_fenced": sum(1 for v in state.values() if v == "fenced"),
+             "yards_screened": sum(1 for v in state.values()
+                                   if v == "screened"),
+             "yards_open": sum(1 for v in state.values() if v == "open"),
+             "fence_fragment": len(frag),
+             "seating": len(seating(scene)),
+             "seating_unenclosed": len(seat_bad),
              # The PLAT-level defect, on the runs rather than on the modules.
              "runs": runs, "trespass_runs": tres_n,
              "trespass_m": round(tres_m, 1),
@@ -272,6 +343,28 @@ def check(seed, config_name="suburb_net", verbose=False):
                 for i in sorted(bad[key])[:8]:
                     fails.append(f"      at ({mods[i]['x']:.1f}, "
                                  f"{mods[i]['y']:.1f})")
+    # THE TWO ENCLOSURE INVARIANTS, gated rather than reported for the same
+    # reason `on_drive` is: both are guarantees a single edit can silently
+    # take away. `fence_fragment` goes the moment anything stops iterating the
+    # all-or-nothing sweep to a fixed point (one sweep alone leaves 38 fenced
+    # lots open on seed 3); `seating_unenclosed` goes the moment the seating
+    # gate is moved back ahead of the planting slot, because a yard cannot be
+    # screened by trees that have not been planted yet.
+    if frag:
+        fails.append(f"{len(frag)} lots carry fence modules that do not "
+                     f"enclose their back yard")
+        if verbose:
+            for h in frag[:8]:
+                fails.append(f"      lot at ({h['c'][0]:.1f}, "
+                             f"{h['c'][1]:.1f}), "
+                             f"{len(h['fence_drawn'])} spans")
+    if seat_bad:
+        fails.append(f"{len(seat_bad)} seating props standing in a back yard "
+                     f"that is neither fenced nor tree-screened")
+        if verbose:
+            for (pt, usd) in seat_bad[:8]:
+                fails.append(f"      {usd.rsplit('/', 1)[-1]} at "
+                             f"({pt[0]:.1f}, {pt[1]:.1f})")
     if multi:
         fails.append(f"{multi} houses showing more than one fence asset")
     if gates:

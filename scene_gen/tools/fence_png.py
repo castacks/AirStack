@@ -19,6 +19,8 @@ of the four invariants is coloured:
     pink     the module stands ACROSS A DRIVEWAY — its core intersects the
              paving that `apply_ground` will lay for that lot (the house
              plan's drive when the kit supplies one, else the plat's)
+    violet   a SEATING PROP standing in a back yard that is neither fenced
+             nor tree-screened — see THE YARD LAYER below
     red dot  a DANGLING END — a module end that meets nothing: no other
              module, no wall, no garage. Two of these a metre apart on one
              line are the gap the eye reads between neighbours' fences.
@@ -28,6 +30,44 @@ fence that ought to break for them can be seen not to.
 
 A clean plan is grey-green fences on white lots, drives passing through
 openings, and nothing else.
+
+THE YARD LAYER
+--------------
+A FENCE IS ONLY EVER JUDGED BY WHAT IT ENCLOSES, and for most of this tool's
+life `build` stopped one call short of being able to show that. It ran the plat
+and `build_placements` and then returned — so the plate showed the fence and not
+the garden, and the defect the user actually reported (a bench standing in a
+back yard wide open to the block behind it) was invisible on every plate this
+tool had ever drawn. `suburb_yardplan` imports `math`, `suburb_yards` and
+`suburb_net` and nothing else — no pxr, no stage — so the whole yard pass runs
+on the host as-is, and `build` now calls it.
+
+What that buys the picture, drawn under the fences:
+
+    pale green wash    the lot's enclosure — the region behind its BUILDING
+                       LINE, which contains the house — closed by fence alone
+    pale olive wash    ...closed by a treeline instead
+    no wash            a back garden that is open ground, or a lot with no
+                       garden behind its back wall at all
+    green discs        every canopy the yard pass planted, at the crown radius
+                       the SCREEN WALK itself used, so a wash you can see is a
+                       wash you can check against the trees drawing it
+    grey-green discs   the parcel pass's own verge and lot trees. Drawn paler
+                       because they are real trees that the seating gate does
+                       NOT count — `suburb_yardplan` screens a yard with the
+                       canopies it planted itself and indexes nothing else — so
+                       a yard ringed in grey-green and washed as open is the
+                       code behaving as written, not a plate that disagrees
+                       with itself.
+    blue squares       a seating prop — table set, bench or bin
+    violet squares     ...standing in a yard that is neither.
+
+DRAWING 4,700 CANOPIES WITHOUT LOSING THE FENCE. The two tree passes put ~3,500
+and ~1,200 discs on a 1600 x 1200 m plate, at 1.5-13 m radius; drawn as opaque
+patches they cover the lot lines, the drives and every fence module on the
+plate. They go down as one `EllipseCollection` each, at low alpha, with no edge
+in the overview, UNDER the houses and the drives and well under the fences —
+the fence stays the top thing on the plate, which is the point of the plate.
 
 MODULE SIZES ARE MEASURED, NOT DECLARED. `_plans/fence_modules_measured.json`
 (written by tools/measure_fences.py from the USD files themselves, under a
@@ -81,6 +121,7 @@ from compile_disaster import (resolve_config_path, compile_spec,   # noqa: E402
                               DEFAULT_BASE)
 from layout import suburb_net as sn                                # noqa: E402
 from detail import suburb_parcel as sp                             # noqa: E402
+from detail import suburb_yardplan as yp                           # noqa: E402
 from plan_png import measured_sizes, StubResolver                  # noqa: E402
 
 
@@ -237,11 +278,43 @@ def _sizes(cfg):
 # ---------------------------------------------------------------------------
 
 def build(seed=None, config_name="suburb_net", house_instances=None):
-    """The suburb, up to and including `build_placements`, on the host.
+    """The suburb, up to and including the YARD PASS, on the host.
 
     Mirrors `suburb_scene.generate_suburb_on_stage` step for step down to the
-    rng seeding, minus everything that needs a stage: the park, the yard
-    planting, the frontage props and the ground. Those cannot move a fence.
+    rng seeding, minus everything that needs a stage: the park, the frontage
+    props and the ground. Those cannot move a fence.
+
+    THE YARD PASS IS NOT ONE OF THEM, and leaving it out is what made the plate
+    unable to show the defect that started this work. `suburb_yardplan` is
+    geometry and the standard library — `math`, `suburb_yards`, `suburb_net` —
+    so it runs here exactly as it runs in the build, and it is what plants the
+    trees that screen a garden and the seating that must not stand in an open
+    one.
+
+    IT RUNS LAST, ON THE SAME `rng`, AND THAT ORDERING IS THE WHOLE CARE OF IT.
+    `yp.plan` draws thousands of times from the shared generator; called before
+    `build_placements`, or handed a generator of its own, every downstream draw
+    in the suburb moves and the plate stops being a picture of the scene it
+    claims to check. Called here — after the last placement is laid, with
+    nothing after it — it cannot move a fence, and the fence module count is
+    unchanged to the module: 2846 / 3262 / 3478 / 3896 on seeds 1 / 3 / 5 / 7,
+    before and after.
+
+    WHAT IT STILL IS NOT THE REAL SCENE'S YARD. The build runs the PARK between
+    `build_placements` and `yp.plan`, and the park draws from the same rng — so
+    the species and the stations here are a different sample from the ones the
+    stage gets. Every question this tool and `fence_check` ask is a question
+    about a suburb, not about that suburb: "does a seated lot have an
+    enclosure" has to hold for every draw or it does not hold at all. A plate
+    that had to match the stage tree for tree would have to build the park, and
+    the park needs a stage.
+
+    `pool_holes` IS CAPTURED RATHER THAN THROWN AWAY. `build_placements` fills
+    it with every swimming pool the kit stamped, and `generate_suburb_on_stage`
+    hands that same list to `yp.plan` as `keepout_rings`; passing `[]` here
+    instead would plant 452 trees (seed 3) inside water that the build keeps
+    them out of, and each of those is a canopy that can screen a yard the real
+    one does not.
     """
     path = resolve_config_path(config_name)
     cfg = compile_spec(yaml.safe_load(open(path)),
@@ -278,14 +351,19 @@ def build(seed=None, config_name="suburb_net", house_instances=None):
     # keeps out of a turnaround is drawn standing in one (and vice versa).
     bulb_r = float((cfg.get("suburb_net") or {}).get(
         "bulb_radius_m", sn.DEFAULTS["bulb_radius_m"]))
+    pool_holes = []
     placements = ss.build_placements(cfg, res, parcels, rng, pools,
                                      yaw_off=yaw_off, catalogue=catalogue,
-                                     pool_holes_out=[], net=net,
+                                     pool_holes_out=pool_holes, net=net,
                                      house_instances=house_instances)
+    yard, ystats = yp.plan(cfg, parcels, rng, resolver=res,
+                           keepout_discs=pcfg.get("keepout_discs"),
+                           keepout_rings=pool_holes)
     return {"cfg": cfg, "res": res, "pools": pools, "net": net,
             "house_instances": house_instances or [],
             "blocks": blocks, "info": info, "parcels": parcels,
-            "placements": placements,
+            "placements": placements, "yard": yard, "ystats": ystats,
+            "pool_holes": pool_holes,
             "discs": [((float(c[0]), float(c[1])), float(r))
                       for (c, r) in pcfg["keepout_discs"]],
             "bulb_r": bulb_r, "seed": int(cfg.get("seed", 0))}
@@ -480,6 +558,32 @@ def dangling(scene, mods, tol=0.35):
       lot rectangle and the house depth, so this agrees with the trim by
       construction rather than by a tolerance.
 
+      THE GATE OPENING.  `suburb_scene._gate_returns` turns each side run in to
+      the house's front corner, and the return crosses the drive by
+      construction — the drive runs up the side yard to a garage door standing
+      ON the building line. So the return is broken by the lot's own
+      `front_gaps`, exactly as the front run is, and BOTH SIDES OF THAT BREAK
+      are ends in mid-air that are correct. Uncounted, that is what made the
+      gate returns look like a regression: 376 returns on seed 3 took the free
+      ends from 37 to 44 while closing 116 of the 121 fenced yards, and the
+      report said the fence had got worse. It had not — 17 of those 44 sit on
+      an opening the plat put there deliberately.
+
+      AT THE EDGE OF THE OPENING, NOT ANYWHERE INSIDE IT. `_front_runs` cuts a
+      run at `offset +- half_width` and nowhere else, so a legitimate end sits
+      ON one of those two lines; an end in the MIDDLE of a drive corridor is a
+      run stopping on asphalt, which is a different defect and one `on_drive`
+      already colours. Measured on seeds 1/3/5/7 the two readings differ by a
+      single end (75 -> 35 against 75 -> 36 on seed 7), so this costs nothing
+      and refuses to launder the case it should not.
+
+      This is a paved opening's twin and not a duplicate of it: the paving test
+      asks about the RIBBON `apply_ground` lays, which is the plat's drive or
+      the kit plan's, and it is trimmed by `pad=-0.30`; `front_gaps` is the
+      union of the KIT's own door and garage-door gaps with the plat's drive,
+      and the return is cut on that union. Where the two agree the end is
+      excused twice, which costs nothing.
+
     Everything else is a fence stopping in mid-air. Returned as points, with
     what each is nearest to for the report.
     """
@@ -502,6 +606,25 @@ def dangling(scene, mods, tol=0.35):
                 stops.append((f[0] + (r[0] - f[0]) * t,
                               f[1] + (r[1] - f[1]) * t))
     pave = [b for b in (_ribbon_box(r) for r in drives(scene)) if b is not None]
+    # THE GATE OPENINGS, in each lot's own frame. Kept as the frame rather than
+    # resolved to world points because a `front_gaps` entry is a LINE, not a
+    # point: the run that stops on it may be the front fence at the 2.5 m
+    # inset, a gate return at the building line, or anything between, and the
+    # depth band below is what covers all of them. 1,046 openings on seed 3.
+    gates = []
+    for par in scene["parcels"]:
+        for h in par["houses"]:
+            p, u, n, d = h.get("frontage"), h.get("u"), h.get("n"), h.get("d")
+            stop = ss._building_line_depth(h)
+            if stop is None or not (p and u and n) or not d:
+                continue
+            # The deepest a `front_gaps` cut can reach: `_gate_returns` refuses
+            # a side run whose front end is past `back + 0.5`, and the front run
+            # is shallower still. Past that depth an end on the drive's bearing
+            # is a fence in the back garden, not a fence at the gate.
+            deep_max = stop + float(d) + 0.5
+            for (o, hw) in (h.get("front_gaps") or ()):
+                gates.append((p, u, n, float(o), float(hw), deep_max))
 
     walls = []
     for par in scene["parcels"]:
@@ -554,6 +677,12 @@ def dangling(scene, mods, tol=0.35):
             if any(sp._obb_overlap(sp._corners(pt[0], pt[1], 0.02, 0.02, 1.0, 0.0),
                                    b, pad=-0.30) for b in pave):
                 continue                      # ends at a drive or walk opening
+            if any(abs(abs((pt[0] - p[0]) * u[0] + (pt[1] - p[1]) * u[1] - o)
+                       - hw) <= tol + 0.5
+                   and -tol <= ((pt[0] - p[0]) * n[0]
+                                + (pt[1] - p[1]) * n[1]) <= dmax + tol
+                   for (p, u, n, o, hw, dmax) in gates):
+                continue                      # ends at its own gate opening
             if road.on_road(pt, margin=ss._FENCE_ROAD_MARGIN_M + tol) \
                     if hasattr(road, "on_road") else False:
                 out.append((pt, i, "kerb"))
@@ -608,6 +737,290 @@ def continuity(scene, mods, tol=0.25):
 
 
 # ---------------------------------------------------------------------------
+# the yard — what the fence is there to enclose
+# ---------------------------------------------------------------------------
+
+def houses(scene):
+    """Every house record in the suburb, flat and in plat order."""
+    return [h for par in scene["parcels"] for h in par["houses"]]
+
+
+def _yard_cfg(scene):
+    """`suburb_yardplan`'s effective config, resolved the way `plan` resolves
+    it — its `DEFAULTS` under the preset's own `suburb_yardplan` block, with
+    `suburb_yards` accepted as the legacy key. Written out here because `plan`
+    keeps the merged dict local and this tool has to ask it two questions.
+    """
+    cfg = dict(yp.DEFAULTS)
+    cfg.update(scene["cfg"].get("suburb_yardplan")
+               or scene["cfg"].get("suburb_yards") or {})
+    return cfg
+
+
+def canopies(scene):
+    """The yard pass's trees as ``(x, y, radius)`` — THE GATE'S OWN POPULATION.
+
+    RECONSTRUCTED, BECAUSE `plan` DOES NOT PUBLISH THEM. It builds this list
+    internally (`canopies`, fed to `_Canopies` for the seating gate) and returns
+    only the placements, so the radius has to be recovered here. It is recovered
+    from `yp._crown_radii` — the shipped function, the same one the screen walk
+    spaces its stations with — under the same two floors `plant_tree` applies
+    when it records a trunk:
+
+        max(crown_r.get(usd, screen_step / 2), tree_min_separation_m / 2)
+
+    Those two floors are the only thing restated here, and they are restated
+    rather than re-invented: a radius guessed differently from the one the
+    screen walk used would draw a wash the trees on the plate do not support,
+    and would let `fence_check` pass a yard the build refused to seat.
+    Measured on seed 3: 3,470 canopies, 1.51 m to 12.71 m.
+
+    THE PARCEL PASS'S TREES ARE NOT IN HERE, and that is the point of the
+    function existing separately from `parcel_canopies`. `suburb_yardplan`
+    indexes the canopies IT planted and nothing else, so those are the only
+    trees that can qualify a seat — and a checker judging enclosure over a
+    larger set than the gate used would wave through exactly the props the gate
+    would have refused.
+    """
+    lib = yp._Lib(scene["cfg"])
+    pool = lib.pool("yard_trees") or lib.pool("trees")
+    crown = yp._crown_radii(pool, scene["res"])
+    ycfg = _yard_cfg(scene)
+    step = max(1.0, float(ycfg.get("screen_step_m", 4.5)))
+    sep = float(ycfg["tree_min_separation_m"])
+    return [(p["x_m"], p["y_m"],
+             max(crown.get(p["usd"], step / 2.0), sep / 2.0))
+            for p in scene["yard"] if p.get("category") == "tree"]
+
+
+def parcel_canopies(scene):
+    """The PARCEL pass's trees as ``(x, y, radius)`` — for the plate only.
+
+    `suburb_parcel` stations a verge tree and a lot tree of its own and
+    `build_placements` plants them, ~1,200 a seed. They are real trees standing
+    on real ground and a plate that omitted them would show gardens barer than
+    they are — but they are drawn paler and they are NOT handed to any
+    enclosure test, because the seating gate cannot see them either. Radius is
+    half the measured crown width, `_crown_radii`'s own definition, asked of the
+    resolver per placement rather than per pool entry: these come from several
+    pools and the placement is the only record of which entry was drawn.
+    """
+    out = []
+    for p in scene["placements"]:
+        if p.get("category") != "tree":
+            continue
+        fp = scene["res"].get(p["usd"], "tree", scale=p.get("scale", 1.0),
+                              axis_up=p.get("axis_up", "Z"))
+        out.append((p["x_m"], p["y_m"],
+                    0.5 * max(float(fp.get("sx", 0.0) or 0.0),
+                              float(fp.get("sy", 0.0) or 0.0))))
+    return out
+
+
+def seating(scene):
+    """Every seating-group prop the yard pass placed.
+
+    BY THE POOL'S OWN LITERAL TAG TEST, not by category: `emit` charges the
+    table set, the bench, the bin, the mailboxes and every shrub as `"plant"`,
+    so category cannot tell a garden bench from a foundation shrub. `plan`
+    selects its patio pool as the `yard_props` entries tagged `patio` or `shed`
+    and this asks the identical question of the identical pool — deliberately
+    NOT `_tagged`, which falls back to the WHOLE pool when no entry carries the
+    tag and would hand this function every mailbox in the suburb.
+
+    THE BIN IS LEFT OUT, and that is not an oversight. It is tagged `bin`, it is
+    placed against the back wall INSIDE the group, and it is emitted only after
+    the group's centrepiece is down — so it can never stand in a yard the group
+    did not already qualify, and counting it would inflate the seating count
+    with an object that is not seating. Measured on seed 3: 392 props by this
+    test across 199 groups, plus 122 bins.
+    """
+    _pp = yp._Lib(scene["cfg"]).pool("yard_props")
+    usds = {e["usd"] for e in _pp
+            if "patio" in e["tags"] or "shed" in e["tags"]}
+    return [p for p in scene["yard"]
+            if p.get("category") == "plant" and p["usd"] in usds]
+
+
+class _LotIndex:
+    """Which lots a world point stands in, by each lot's OWN LOCAL FRAME.
+
+    NOT BY NEAREST HOUSE CENTRE, and that is the whole reason this class is
+    here rather than a two-line loop. A bench sits at the side of a garden, and
+    on a narrow lot the nearest house centre to it is frequently the
+    NEIGHBOUR's — the two centres are one lot width apart and the bench is
+    offset `patio_side_off_frac` (0.55) of a half width toward the boundary. Two
+    of the props on seed 3 score to the wrong lot that way, and during Phase 4
+    both were reported as seating in an open yard when the yard they were
+    actually in was fenced. The lot frame cannot make that mistake: `frontage`,
+    `u`, `n`, `lot_width` and `lot_depth` are the numbers the lot was ISSUED on,
+    the same five `suburb_scene._lot_lines` strikes the enclosure edges from.
+
+    A POINT CAN BE IN TWO LOTS AT ONCE and the answer is a LIST. A lot is a
+    rectangle hung off one frontage, so two lots hung off two frontages of the
+    same block genuinely overlap in the corner between them — this is the same
+    fact `fence_check.trespass` measures, and on seed 3 it puts 8 of 392 seating
+    props inside two lot rectangles. The caller decides what to do with two
+    owners; inventing a single winner here would be inventing the very
+    nearest-centre guess this exists to avoid.
+
+    Hash-gridded on the lot bounding box: 392 props against 578 lots is a
+    quarter of a million frame transforms as a scan, and this tool is run in a
+    loop over four seeds.
+    """
+
+    CELL = 40.0
+
+    def __init__(self, hs):
+        self.hs = list(hs)
+        self.g = collections.defaultdict(list)
+        for i, h in enumerate(self.hs):
+            lc = h.get("lot_corners")
+            if not lc:
+                continue
+            xs = [q[0] for q in lc]
+            ys = [q[1] for q in lc]
+            for gx in range(int(math.floor(min(xs) / self.CELL)),
+                            int(math.floor(max(xs) / self.CELL)) + 1):
+                for gy in range(int(math.floor(min(ys) / self.CELL)),
+                                int(math.floor(max(ys) / self.CELL)) + 1):
+                    self.g[(gx, gy)].append(i)
+
+    def at(self, x, y):
+        """Indices into the house list of every lot containing ``(x, y)``."""
+        out = []
+        for i in self.g.get((int(math.floor(x / self.CELL)),
+                             int(math.floor(y / self.CELL))), ()):
+            h = self.hs[i]
+            p, u, n = h.get("frontage"), h.get("u"), h.get("n")
+            lw, ld = h.get("lot_width"), h.get("lot_depth")
+            if not (p and u and n) or not lw or not ld:
+                continue
+            dx, dy = x - p[0], y - p[1]
+            along = dx * u[0] + dy * u[1]
+            deep = dx * n[0] + dy * n[1]
+            if abs(along) <= float(lw) / 2.0 and 0.0 <= deep <= float(ld):
+                out.append(i)
+        return out
+
+
+def drawn_fences(scene):
+    """Every fence span that actually became modules, as ``(a, b)`` pairs.
+
+    `h["fence_drawn"]` and not `h["fence_segs"]`: the second is what the PLAT
+    proposed and three cuts stand between it and the ground. Flat over the whole
+    suburb because a lot's left-hand boundary is very often its neighbour's
+    right-hand one, drawn once with the neighbour's asset — an enclosure test
+    handed only this lot's own spans would call half the fenced lots open.
+    """
+    return [(a, b) for h in houses(scene)
+            for (a, b, _t) in (h.get("fence_drawn") or ())]
+
+
+def enclosure_state(scene, trees=None):
+    """``{id(house): state}`` for every lot, state being one of
+
+        ``"fenced"``    the back yard closes on fence alone
+        ``"screened"``  it closes, but a treeline is doing some of it
+        ``"open"``      it has a back garden and nothing encloses it
+        ``None``        it has no back garden behind its back wall to enclose
+
+    THE SHIPPED PREDICATE DECIDES, NOT A COPY OF IT. `_yard_enclosed` is
+    `suburb_scene`'s, it is what `build_placements` gated the all-or-nothing
+    fence sweep on, and calling it here is what stops this tool from being the
+    fifth pass in the tree with its own opinion about what an enclosed yard is.
+    The fence half is read off `h["enclosure"]["closed"]`, which that same
+    function wrote.
+
+    IT IS NOT BIT-FOR-BIT `suburb_yardplan`'s SEATING GATE, and the difference
+    is worth knowing before reading a plate. The gate asks "all three edges
+    fenced" OR "all three edges screened"; `_yard_enclosed` asks per EDGE and
+    ORs there, so a yard fenced down one side and screened down the other
+    passes here and is refused a seat there. That makes this the WEAKER test,
+    which is the safe direction for a checker — anything the gate seated passes
+    it — and on seeds 1/3/5/7 the two answers are in fact identical on every
+    lot, so the wash on the plate is the gate's answer in practice as well as
+    in principle.
+    """
+    trees = canopies(scene) if trees is None else trees
+    fences = drawn_fences(scene)
+    out = {}
+    for h in houses(scene):
+        if not h.get("rear_edges"):
+            out[id(h)] = None
+        elif bool((h.get("enclosure") or {}).get("closed")):
+            out[id(h)] = "fenced"
+        elif ss._yard_enclosed(h, fences=fences, trees=trees)[0]:
+            out[id(h)] = "screened"
+        else:
+            out[id(h)] = "open"
+    return out
+
+
+def seating_unenclosed(scene, trees=None, state=None):
+    """Seating props standing in a yard nothing encloses — ``[(pt, usd)]``.
+
+    THE ONE NUMBER THE WHOLE ENCLOSURE REWORK IS JUDGED ON. Before it, 294 of
+    the 358 patio props on seed 3 stood in a back garden open to the block
+    behind it; the target is zero and `fence_check` gates on zero.
+
+    A PROP IN TWO LOTS IS EXCUSED BY EITHER OF THEM. `_LotIndex` returns every
+    lot whose rectangle contains the prop and two lot rectangles genuinely
+    overlap in a block corner, so "which lot was this placed for" has no answer
+    from the record — `plan` does not publish the owner. Flagging a prop only
+    when EVERY containing lot is open is the reading that cannot produce a false
+    positive, and a regression that removed the gate would put props in lots
+    that are open on all counts, so it cannot hide one either. On seed 3 it is 8
+    props of 392 that have two owners at all.
+
+    A PROP IN NO LOT AT ALL IS FLAGGED. It is a different defect — furniture
+    that escaped every lot rectangle — and it has never been seen; folding it in
+    here is cheaper than a counter nobody reads, and the point carries its own
+    coordinates for the plate.
+    """
+    hs = houses(scene)
+    state = enclosure_state(scene, trees) if state is None else state
+    ix = _LotIndex(hs)
+    out = []
+    for p in seating(scene):
+        pt = (p["x_m"], p["y_m"])
+        owners = ix.at(pt[0], pt[1])
+        if not any(state.get(id(hs[i])) in ("fenced", "screened")
+                   for i in owners):
+            out.append((pt, p["usd"]))
+    return out
+
+
+def fence_fragment(scene):
+    """Lots carrying fence modules whose back yard is not closed by them.
+
+    A FENCE THAT ENCLOSES NOTHING is what the eye reads as "the fences are
+    broken", and it was 76 of the 155 fenced lots on seed 3 before the rework.
+    `build_placements` now sweeps them — a lot that cannot complete its
+    perimeter is stripped of fence entirely, iterated to a fixed point because
+    deleting one lot's fence can un-close the neighbour whose side line it was —
+    so this asserts the result.
+
+    STATED OVER EVERY LOT WITH A MODULE, WITH NO EXCEPTION. It could not be,
+    until Phase 2 also dropped the gardenless-fenced-lot carve-out: a lot with
+    under 4 m of garden behind its back wall has no yard that can ever close,
+    and while those kept their fence this had to except them by name — which is
+    an exception that hides exactly the defect it is stated over. They are
+    stripped too now (55 of them on seed 3), so `_rear_yard_edges` returning
+    `[]` makes `_yard_enclosed` answer False and a lot like that shows up here
+    rather than being waved past.
+
+    RECOMPUTED, NOT READ OFF `h["enclosure"]["closed"]`. That flag is written by
+    the same function in the same pass that does the stripping; a check that
+    read it would be asserting that the pass agrees with itself. Measuring the
+    modules against the edges again, from the outside, is what makes this a test.
+    """
+    fences = drawn_fences(scene)
+    return [h for h in houses(scene)
+            if h.get("fence_drawn") and not ss._yard_enclosed(h, fences)[0]]
+
+
+# ---------------------------------------------------------------------------
 # the picture
 # ---------------------------------------------------------------------------
 
@@ -615,12 +1028,29 @@ _DEFECT_COLOUR = [("on_road", "#e02020"), ("in_bulb", "#c020c0"),
                   ("crossing", "#ff8800"), ("doubled", "#00b8d0"),
                   ("on_drive", "#ff2090")]
 
+# THE YARD LAYER'S PALETTE. Two rules held it together: nothing in it may be a
+# colour already spent on a fence defect above, and nothing that is CORRECT may
+# be a saturated colour — the plate's job is that a defect is the only thing on
+# it that shouts. Hence washes at 15% and canopies at 30%, and one violet that
+# is nowhere else in the plate.
+#
+# Violet rather than a sixth alarm red: `on_road` red is already the colour of
+# the small dangling-end dots, and a seating prop is drawn as a SQUARE of about
+# the same size — two different defects that are both small red marks in a
+# garden is exactly the ambiguity the per-defect colouring exists to prevent.
+_SEAT_COLOUR = "#3f5fa8"          # a prop in a yard something encloses
+_SEAT_BAD_COLOUR = "#7a00cc"      # ...in a yard nothing does
+_ENCLOSURE_WASH = {"fenced": "#7fb069", "screened": "#b6ae5a"}
+_CANOPY_COLOUR = "#6ea364"         # the yard pass's trees — these screen a yard
+_PARCEL_CANOPY_COLOUR = "#a9b6a5"  # the parcel pass's — these do not
+
 
 def draw(scene, mods, bad, out_path, zoom=None, title=""):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    from matplotlib.collections import PolyCollection, LineCollection
+    from matplotlib.collections import (PolyCollection, LineCollection,
+                                        EllipseCollection)
     from matplotlib.patches import Circle
 
     if zoom:
@@ -655,16 +1085,50 @@ def draw(scene, mods, bad, out_path, zoom=None, title=""):
         ax.add_patch(Circle(c, scene["bulb_r"], facecolor="#f0e0f0",
                             edgecolor="#c8a0c8", lw=0.7, zorder=1.5))
 
-    lots, houses = [], []
-    for par in scene["parcels"]:
-        for h in par["houses"]:
-            if h.get("lot_corners"):
-                lots.append(h["lot_corners"])
-            houses.append(h["corners"])
+    hrecs = houses(scene)
+    lots, house_boxes = [], []
+    for h in hrecs:
+        if h.get("lot_corners"):
+            lots.append(h["lot_corners"])
+        house_boxes.append(h["corners"])
+    # -- the yard, under the lot lines ------------------------------------
+    # ORDER IS THE READABILITY. Wash, then the two tree layers, then the lot
+    # lines on top of all three: the lot line is 0.4 pt of near-white and a
+    # canopy drawn over it erases the boundary the wash is a claim about.
+    # Everything here stays below the houses (3), the paving (3.1) and the
+    # fence (4) — a plate where the trees hide the fence is not a fence plate.
+    trees_y = canopies(scene)
+    trees_p = parcel_canopies(scene)
+    state = enclosure_state(scene, trees_y)
+    wash = collections.defaultdict(list)
+    for h in hrecs:
+        st = state.get(id(h))
+        if st in _ENCLOSURE_WASH and h.get("enclosure_poly"):
+            wash[st].append(h["enclosure_poly"])
+    for st, polys in wash.items():
+        ax.add_collection(PolyCollection(
+            polys, facecolors=_ENCLOSURE_WASH[st], edgecolors="none",
+            alpha=0.15, zorder=2.2))
+    # ONE COLLECTION PER TREE PASS, NOT ONE PATCH PER TREE. 4,663 `Circle`
+    # patches on seed 3 is the difference between a plate that renders in
+    # seconds and one that does not; `EllipseCollection` in `xy` units takes
+    # the true measured diameter and still scales with the axes on a zoom.
+    for discs, colour in ((trees_p, _PARCEL_CANOPY_COLOUR),
+                          (trees_y, _CANOPY_COLOUR)):
+        if not discs:
+            continue
+        d = [2.0 * t[2] for t in discs]
+        ax.add_collection(EllipseCollection(
+            d, d, [0.0] * len(d), units="xy",
+            offsets=[(t[0], t[1]) for t in discs],
+            offset_transform=ax.transData, facecolors=colour,
+            edgecolors=(colour if zoom else "none"),
+            linewidths=0.3, alpha=(0.42 if zoom else 0.30),
+            zorder=(2.3 if colour == _PARCEL_CANOPY_COLOUR else 2.35)))
     ax.add_collection(PolyCollection(lots, facecolors="none",
                                      edgecolors="#e2e2e2", linewidths=0.4,
                                      zorder=2.5))
-    ax.add_collection(PolyCollection(houses, facecolors="#efe6d8",
+    ax.add_collection(PolyCollection(house_boxes, facecolors="#efe6d8",
                                      edgecolors="#c8bba4", linewidths=0.4,
                                      zorder=3))
 
@@ -700,6 +1164,31 @@ def draw(scene, mods, bad, out_path, zoom=None, title=""):
                             facecolor="none", edgecolor=colour, lw=1.0,
                             alpha=0.85, zorder=6))
 
+    # -- the seating, over the fence -------------------------------------
+    # DRAWN AT A FLOOR ON TRUE SIZE. A table set is 2.43 m square and a bench
+    # 2.62 x 0.79 m; at 1600 m across the plate that is under two pixels, so
+    # the marker is `max(true, span/220)` — 7.3 m of plate at the overview,
+    # 2.5 m on a 90 m zoom, i.e. the real object once you are close enough to
+    # judge it. Over the fence rather than under it because the question this
+    # marker answers is "what is this prop standing in", and a prop hidden by
+    # the fence module beside it answers nothing.
+    seat_bad = {pt for (pt, _u) in seating_unenclosed(scene, trees_y, state)}
+    side = max(2.5, span / 220.0)
+    ok_sq, bad_sq = [], []
+    for pr in seating(scene):
+        pt = (pr["x_m"], pr["y_m"])
+        (bad_sq if pt in seat_bad else ok_sq).append(
+            sp._corners(pt[0], pt[1], side, side, 1.0, 0.0))
+    ax.add_collection(PolyCollection(ok_sq, facecolors=_SEAT_COLOUR,
+                                     edgecolors="none", alpha=0.85, zorder=6))
+    ax.add_collection(PolyCollection(bad_sq, facecolors=_SEAT_BAD_COLOUR,
+                                     edgecolors=_SEAT_BAD_COLOUR,
+                                     linewidths=0.8, zorder=6.5))
+    for pt in seat_bad:
+        ax.add_patch(Circle(pt, span / 260.0, facecolor="none",
+                            edgecolor=_SEAT_BAD_COLOUR, lw=1.0, alpha=0.85,
+                            zorder=6.6))
+
     ends = dangling(scene, mods)
     open_ends = [e for e in ends if e[2] == "open"]
     if open_ends:
@@ -714,9 +1203,22 @@ def draw(scene, mods, bad, out_path, zoom=None, title=""):
     counts = ", ".join(f"{n} {len(bad.get(n, ()))}" for n, _c in _DEFECT_COLOUR)
     src = ("sizes MEASURED from USD" if SIZE_SOURCE["measured"]
            else "sizes from asset-set comments / manifest")
-    ax.set_title(f"{title}  {len(mods)} fence modules — {counts}, "
-                 f"dangling ends {len(open_ends)}  [{src}]",
-                 fontsize=11, color="#333333")
+    # THE YARD LINE OF THE TITLE, and `seating_unenclosed` is reported in the
+    # same breath as `on_drive` on purpose: both are gated at zero in
+    # `fence_check`, and a plate whose title does not carry the number is a
+    # plate you have to go and run the checker to trust.
+    n_frag = len(fence_fragment(scene))
+    n_fenced = sum(1 for h in hrecs if h.get("fence_drawn"))
+    st = collections.Counter(state.values())
+    ax.set_title(
+        f"{title}  {len(mods)} fence modules on {n_fenced} lots — {counts}, "
+        f"dangling ends {len(open_ends)}, fence_fragment {n_frag}  [{src}]"
+        f"\nyards: {st['fenced']} fenced, {st['screened']} tree-screened, "
+        f"{st['open']} open, {st[None]} with no back garden  |  "
+        f"{len(ok_sq) + len(bad_sq)} seating props, seating_unenclosed "
+        f"{len(bad_sq)}  |  {len(trees_y)} yard canopies "
+        f"(+{len(trees_p)} parcel)",
+        fontsize=11, color="#333333")
     os.makedirs(os.path.dirname(os.path.abspath(out_path)) or ".",
                 exist_ok=True)
     fig.savefig(out_path, bbox_inches="tight", facecolor="white")
@@ -773,6 +1275,25 @@ def main():
     front = [h for h in fenced if any(t == "low" for (_a, _b, t) in h["fence_segs"])]
     print(f"  fenced houses {len(fenced)}, with a front run {len(front)}; "
           f"of those art_garage=False {sum(1 for h in front if not h.get('art_garage'))}")
+    # THE YARD PASS'S OWN REPORT, printed rather than swallowed. `build` runs
+    # `yp.plan` and `plan` says nothing on its own — the seating gate's split
+    # (`seat_fenced` / `seat_screened` / `patio_open`) is the line that says
+    # WHY a garden is bare, and it is the first thing to read when the count of
+    # seating props on the plate looks wrong.
+    yp.report(scene["ystats"])
+    trees_y = canopies(scene)
+    state = enclosure_state(scene, trees_y)
+    st = collections.Counter(state.values())
+    print(f"  yards: {st['fenced']} closed by fence, {st['screened']} by a "
+          f"treeline, {st['open']} open, {st[None]} with no back garden "
+          f"(of {len(houses(scene))} lots)")
+    print(f"  fence on {sum(1 for h in houses(scene) if h.get('fence_drawn'))} "
+          f"lots; fence_fragment {len(fence_fragment(scene))}")
+    print(f"  seating props {len(seating(scene))}, seating_unenclosed "
+          f"{len(seating_unenclosed(scene, trees_y, state))}")
+    print(f"  canopies: {len(trees_y)} from the yard pass (these can screen a "
+          f"yard), {len(parcel_canopies(scene))} from the parcel pass "
+          f"(these cannot)")
     print(f"[fence_png] wrote {args.out}")
 
 

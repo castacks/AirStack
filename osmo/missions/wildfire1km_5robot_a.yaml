@@ -1,0 +1,359 @@
+# wildfire1km_5robot_a — 5 drones on the 1 km x 1 km generated WILDFIRE suburb,
+# the MODEL-HEAVY pair: vlfm then conavgpt2. Two baselines in one file via
+# `environments:` + environment_order: grouped (iterations: 1 => 2 iterations:
+# vlfm, then conavgpt2), a clean down -> up -> fly -> down each.
+#
+# ONE detector :8200, ONE BLIP-2 ITM :8100 (vlfm) or ONE generative VLM :8000
+# (conavgpt2) serve the whole FLEET from the offboard-compute container — the
+# models are stateless (one frame in, an answer out), so five planners share one
+# copy of each instead of loading five. The backlog poller (step 2) exists to
+# answer exactly the question that matters at fleet scale: does the shared
+# server's mean latency or failed-request count climb as five robots hammer it?
+# NOTE: vlfm's keyframe period is left at its shipped 0.2 s (in vlfm.yaml). Per
+# the skill's fleet budget one ITM scorer comfortably serves ~3 robots at 5 Hz;
+# five is above that, so the ITM /metrics in the poller SHOULD be read to see
+# whether the scorer saturates — that is the measurement, not an assumption.
+#
+# METHOD SELECTION by templating: each environment entry's lowercase `method:`
+# -> {{env.method}}.launch.xml and the results dir. ONE scene file —
+# config/suburb_wildfire_1km.yaml — serves both arms; only nav_mode + the scorer
+# differ. Each planner cuts the 1 km search area into NUM_ROBOTS STRIPS and flies
+# its own (sector_partition: 'strips' in vlfm.yaml). conavgpt2 deliberately does
+# NOT sector (it inherits planner.yaml's sector_partition: 'none' — the paper's
+# method assigns whole-map frontiers), so its five drones share the whole area.
+#
+# Submit (SAME existing 1-GPU workflow as the 1-robot missions — the user runs
+# even the 5-robot files on 1gpu; GPU/pool sizing is the workflow's concern, so
+# this file sets no `gpu:` key. On that single card Isaac + five robot stacks +
+# the offboard server all co-reside):
+#   airstack osmo:mission osmo/missions/wildfire1km_5robot_a.yaml \
+#     --pool coasei --branch krrishj/disaster-dataset \
+#     --workflow osmo/workflows/airstack-mission-1gpu.yaml
+#
+# Schema: osmo/missions/README.md ; method matrix + scaling: benchmark-disaster-dataset skill.
+
+name: wildfire1km_5robot_a
+nas_dest: /volume2/coa-sei
+
+stack:
+  services: [isaac-sim, robot-desktop, gcs, offboard-compute]
+
+env:
+  DETECTOR_URL: "http://offboard-compute:8200"
+  ITM_URL: "http://offboard-compute:8100"
+  VLM_URL: "http://offboard-compute:8000/v1"
+  CONAVGPT2_YOLO_WORLD_WEIGHTS: "/root/.cache/conavgpt2_weights/yolov8l-world.pt"
+
+  NUM_ROBOTS: 5
+  ISAAC_SIM_HEADLESS: "true"
+  ISAAC_SIM_CUDA_DEVICES: "0"
+  ISAAC_SIM_USE_STANDALONE: "true"
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  PLAY_SIM_ON_START: "true"
+
+  SCENE_CONFIG: suburb
+  REGION_M: "1000x1000"
+  DISASTER_TYPE: "wildfire"
+  SEVERITY: "0.6"
+  AIRSTACK_ASSET_ROOT: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA"
+  # FIVE drones ~6 m apart on the x = -30 kerb near the block centre (domain_id =
+  # list index). The cluster stays within 12 m of y=0, so max |spawn| is 30 m
+  # (x), which is what suburb_wildfire_1km.yaml's 1080 m extent is sized for.
+  # example_multi_drone_scene_import.py takes the fleet from len(SPAWN_CONFIGS),
+  # which must equal NUM_ROBOTS.
+  SPAWN_CONFIGS: >-
+    [{"x_m": -30.0, "y_m": -12.0, "orient": [0.0, 0.0, 0.0, 1.0]},
+     {"x_m": -30.0, "y_m":  -6.0, "orient": [0.0, 0.0, 0.0, 1.0]},
+     {"x_m": -30.0, "y_m":   0.0, "orient": [0.0, 0.0, 0.0, 1.0]},
+     {"x_m": -30.0, "y_m":   6.0, "orient": [0.0, 0.0, 0.0, 1.0]},
+     {"x_m": -30.0, "y_m":  12.0, "orient": [0.0, 0.0, 0.0, 1.0]}]
+  SPAWN_HEIGHT_M: "0.5"
+  # People poles are the ANSWER KEY; OFF for a scored run.
+  # PEOPLE_POLES: "1"
+
+  ENABLE_LIDAR: "false"
+
+  ZED_PITCH_DEG: "30"
+  ZED_WIDTH: "720"
+  ZED_HEIGHT: "450"
+
+  MAP_ANCHOR_ENU: "true"
+
+  CONAVGPT_BASELINE: "false"
+  FRONTIER_ONLY_BASELINE: "false"
+  VLFM_BASELINE: "false"
+  LVLM_BASELINE: "false"
+  COMMS_RANGE_M: 5000
+  RESULTS_SCENE: SuburbWildfire1km
+  GT_ANNOTATIONS: "on"
+
+environment_order: grouped
+iterations: 1
+environments:
+  - name: vlfm
+    method: vlfm
+    model_port: "8100"
+    START_DETECTOR_SERVER: "true"
+    START_ITM_SERVER: "true"
+    START_VLM_SERVER: "false"
+  - name: conavgpt2
+    method: conavgpt2
+    model_port: "8000"
+    START_DETECTOR_SERVER: "true"
+    START_ITM_SERVER: "false"
+    START_VLM_SERVER: "true"
+    CONAVGPT2_VLM_MODEL: "Qwen/Qwen2.5-VL-7B-Instruct"
+    CONAVGPT2_VLM_QUANT: "nf4"
+    OPENAI_BASE_URL: "http://offboard-compute:8000/v1"
+
+ready:
+  # Five PX4 airframes plus a 1 km scene build take longer than one; be generous.
+  timeout_s: 2400
+  poll_interval_s: 10
+
+up_timeout_s: 3600
+iteration_attempts: 2
+on_step_failure: abort_iteration
+command_route: gcs
+
+record:
+  enabled: true
+  scope: both
+  required: true
+  topics:
+    - /{robot}/odometry_conversion/odometry
+    - /{robot}/interface/mavros/global_position/global
+    - /{robot}/global_plan
+    - /gcs/robot_markers
+    - /gcs/sim_ground
+    - /gcs/annotations/bboxes
+    - /sim/overhead/image
+    - /sim/overhead/spec
+    - /sim/overhead/center_x
+    - /sim/overhead/center_y
+    - /{robot}/occupancy
+    - /{robot}/frontiers
+    - /{robot}/frontier_cloud
+    - /{robot}/voxel_map
+    - /{robot}/value_map
+    - /{robot}/search/markers
+    - /{robot}/search/round_stats
+    - /{robot}/search/run_complete
+  robot_topics:
+    - /tf
+    - /tf_static
+    - /robot_{n}/odometry_conversion/odometry
+    - /robot_{n}/global_plan
+    - /robot_{n}/occupancy
+    - /robot_{n}/frontiers
+    - /robot_{n}/value_map
+    - /robot_{n}/search/map_image
+    - /robot_{n}/search/round_stats
+    - /robot_{n}/search/run_complete
+    - /robot_{n}/search/agent_image
+    - /robot_{n}/voxel_map
+    - /robot_{n}/frontier_cloud
+    - /robot_{n}/search/markers
+    - /robot_{n}/interface/mavros/state
+    - /robot_{n}/sensors/front_stereo/left/image_rect
+
+steps:
+  # 1. Wait for the offboard-compute servers this baseline needs (detector :8200
+  #    + the model server named by {{env.model_port}} — :8100 vlfm / :8000
+  #    conavgpt2). Cold 7B download can take many minutes; the loop is long.
+  - run:
+      container: robot_1
+      cmd: |
+        MP="{{env.model_port}}"
+        echo "waiting for offboard-compute: detector :8200${MP:+ + model :$MP}"
+        for i in $(seq 1 360); do
+          d=$(curl -sf http://offboard-compute:8200/health 2>/dev/null | grep -c '"status": *"ok"')
+          if [ -n "$MP" ]; then
+            m=$(curl -sf "http://offboard-compute:$MP/health" 2>/dev/null | grep -c '"status": *"ok"')
+          else
+            m=1
+          fi
+          if [ "$d" = "1" ] && [ "$m" = "1" ]; then
+            echo OFFBOARD_READY
+            curl -s http://offboard-compute:8200/health | head -c 300; echo
+            [ -n "$MP" ] && { curl -s "http://offboard-compute:$MP/health" | head -c 200; echo; }
+            exit 0
+          fi
+          sleep 15
+        done
+        echo OFFBOARD_NOT_READY; exit 1
+      timeout_s: 5700
+      attempts: 2
+      retry_delay_s: 20
+
+  # 2. Server-metrics BACKLOG POLLER (fleet-wide; ONE poller in robot_1 watches
+  #    the single shared server). Samples every ~15 s for the whole flight.
+  #    Fields: detector -> calls, mean_ms, yolo_mean_ms, sam_mean_ms,
+  #    throughput_hz, errors, vocab_switches; itm -> calls, mean_ms,
+  #    throughput_hz; vlm -> count, errors, inflight, max_concurrency_observed,
+  #    queue_wait_s, latency_s, throughput_req_s. Reading mean_ms / errors /
+  #    queue_wait_s rising with time is the fleet backlog answer.
+  - run:
+      container: robot_1
+      cmd: |
+        mkdir -p /tmp/search
+        : > /tmp/search/server_metrics.jsonl
+        nohup bash -c '
+          for i in $(seq 1 500); do
+            ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            det=$(curl -s --max-time 5 http://offboard-compute:8200/metrics 2>/dev/null); [ -n "$det" ] || det="{}"
+            itm=$(curl -s --max-time 5 http://offboard-compute:8100/metrics 2>/dev/null); [ -n "$itm" ] || itm="{}"
+            vlm=$(curl -s --max-time 5 http://offboard-compute:8000/metrics 2>/dev/null); [ -n "$vlm" ] || vlm="{}"
+            printf "{\"ts\":\"%s\",\"detector\":%s,\"itm\":%s,\"vlm\":%s}\n" "$ts" "$det" "$itm" "$vlm" >> /tmp/search/server_metrics.jsonl
+            sleep 15
+          done
+        ' > /tmp/search/server_metrics_poller.log 2>&1 &
+        echo $! > /tmp/search/poller.pid
+        echo POLLER_STARTED pid=$(cat /tmp/search/poller.pid)
+      timeout_s: 60
+
+  # 3. Takeoff — all five robots in parallel via the GCS relay.
+  - action:
+      task: takeoff
+      goal: {target_altitude_m: 20.0, velocity_m_s: 2.0}
+      timeout_s: 300
+      robots: all
+
+  - wait: 5
+
+  # 4. ONE planner per robot, each IN ITS OWN CONTAINER on its OWN DDS domain.
+  #
+  #    WHY NOT `container: robot_{n}` (the bug in vlfm_suburb250_3robot.yaml):
+  #    the runner maps a `robot_<n>` target to robot container 1 with only
+  #    ROS_DOMAIN_ID=n exported (_run_one), so ALL five planners would launch
+  #    inside robot-desktop-1 — sharing one container's CPU/GPU, and all keeping
+  #    ROBOT_NAME=robot_1 (which the shell sets once at container startup). The
+  #    node derives its strip from ROBOT_NAME (sector_index: -1), so every
+  #    planner would take slice 0 and drive robot_1. Wrong on both counts.
+  #
+  #    THE FIX: target the Nth robot CONTAINER by its literal compose name. The
+  #    runner routes a non-`robot_`/`gcs`/`pod` target through the "<other> ->
+  #    literal container name" path (docker exec, no ROS sourcing, no domain), so
+  #    the cmd sources the container's own /root/.bashrc (which resolves
+  #    ROBOT_NAME + ROS_DOMAIN_ID from the container NAME via robot_name_map and
+  #    sources the workspace) and then pins ROBOT_NAME=robot_{n}/ROS_DOMAIN_ID={n}
+  #    explicitly so the result is deterministic even if the .bashrc DNS trick is
+  #    slow under docker exec. The `{n}` in the container name fans the step out
+  #    over all robots => exactly ONE planner in EACH robot-desktop-N on domain N.
+  #
+  #    Container name: compose derives the project from the checkout dir basename;
+  #    on an OSMO pod the clone is /root/AirStack, so the prefix is `airstack-`
+  #    (a LOCAL run from a differently-named dir would need that dir's prefix).
+  - run:
+      container: airstack-robot-desktop-{n}
+      cmd: |
+        source /root/.bashrc >/dev/null 2>&1 || true
+        export ROBOT_NAME=robot_{n}
+        export ROS_DOMAIN_ID={n}
+        mkdir -p /tmp/search
+        CFG=$(ros2 pkg prefix search_baselines)/share/search_baselines/config
+        nohup ros2 launch search_baselines {{env.method}}.launch.xml \
+          scene_params_file:=$CFG/suburb_wildfire_1km.yaml \
+          > /tmp/search/planner.log 2>&1 &
+        echo $! > /tmp/search/planner.pid
+        sleep 25
+        if kill -0 "$(cat /tmp/search/planner.pid)" 2>/dev/null; then
+          echo PLANNER_STARTED robot_{n}
+          grep -a -E "sector [0-9]+/|search_planner starting" /tmp/search/planner.log | head -2 || true
+        else
+          echo PLANNER_DEAD robot_{n}; tail -n 60 /tmp/search/planner.log; exit 1
+        fi
+      timeout_s: 300
+      attempts: 2
+      retry_delay_s: 15
+
+  # 5. Gate on SIM time for EVERY robot: the step fans out over all containers,
+  #    each waiting for ITS robot's run_complete (latched at 600 sim-s from that
+  #    robot's first data tick). The step passes only when all five are complete.
+  - run:
+      container: airstack-robot-desktop-{n}
+      cmd: |
+        source /root/.bashrc >/dev/null 2>&1 || true
+        export ROS_DOMAIN_ID={n}
+        for i in $(seq 1 300); do
+          if timeout 10 ros2 topic echo /{robot}/search/run_complete --once 2>/dev/null | grep -q "data: true"; then
+            echo RUN_COMPLETE {robot}; exit 0
+          fi
+          kill -0 "$(cat /tmp/search/planner.pid)" 2>/dev/null || {
+            echo PLANNER_EXITED {robot}; tail -n 60 /tmp/search/planner.log; exit 1; }
+          sleep 15
+        done
+        echo RUN_DID_NOT_COMPLETE {robot}; tail -n 40 /tmp/search/planner.log; exit 1
+      timeout_s: 4800
+
+  # 6. Per-ROBOT results + planner-side backlog signals, collected in each
+  #    container. DEST includes the method (no cross-baseline overwrite) and the
+  #    robot (no cross-robot overwrite).
+  - run:
+      container: airstack-robot-desktop-{n}
+      cmd: |
+        source /root/.bashrc >/dev/null 2>&1 || true
+        DEST=/root/AirStack/results/wildfire1km_5robot_a/{{env.method}}/{robot}
+        mkdir -p "$DEST"
+        cp -v /tmp/search/*.log "$DEST"/ 2>/dev/null || true
+        cp -v /tmp/conavgpt2/search_planner_rounds.jsonl "$DEST"/ 2>/dev/null || true
+        {
+          echo "# ticks with a detection / total"
+          grep -ac "targets:" /tmp/search/planner.log
+          grep -a "targets:" /tmp/search/planner.log | grep -acv "'n': 0,"
+          echo "# best goal_max (goal-class confidence; 0 => detector never proposed the goal)"
+          grep -ao "goal_max': [0-9.]*" /tmp/search/planner.log | sort -t' ' -k2 -g | tail -1
+          echo "# people visited / given up / goals blacklisted"
+          grep -ac "target VISITED" /tmp/search/planner.log
+          grep -ac "GIVING UP" /tmp/search/planner.log
+          grep -ac "BLACKLISTED" /tmp/search/planner.log
+          echo "# vlfm keyframes: last 'N scored, M failed' + view-score failures"
+          grep -aoE "[0-9]+ scored, [0-9]+ failed" /tmp/search/planner.log | tail -1
+          grep -ac "view score failed" /tmp/search/planner.log
+          echo "# conavgpt2 rounds: last few total_s/server_s, overran count, parse-failure count"
+          grep -aoE "total_s=[0-9.]+.*server_s=[0-9.]+" /tmp/search/planner.log | tail -3
+          grep -ac "overran" /tmp/search/planner.log
+          grep -ac "parse" /tmp/search/planner.log
+          echo "# detector-call failures seen by the planner"
+          grep -acE "detector.*(fail|error|timeout)" /tmp/search/planner.log
+        } > "$DEST"/summary.txt 2>&1
+        cat "$DEST"/summary.txt
+      timeout_s: 180
+      expect_success: false
+
+  # 7. Fleet server /metrics snapshot (whole-run aggregates) + poller/planner
+  #    stop. robot_1 == robot-desktop-1, where the poller wrote its JSONL.
+  - run:
+      container: robot_1
+      cmd: |
+        DEST=/root/AirStack/results/wildfire1km_5robot_a/{{env.method}}
+        mkdir -p "$DEST"
+        cp -v /tmp/search/server_metrics.jsonl "$DEST"/ 2>/dev/null || true
+        cp -v /tmp/search/server_metrics_poller.log "$DEST"/ 2>/dev/null || true
+        curl -s http://offboard-compute:8200/metrics > "$DEST"/detector_metrics_final.json 2>/dev/null || true
+        curl -s http://offboard-compute:8100/metrics > "$DEST"/itm_metrics_final.json 2>/dev/null || true
+        curl -s http://offboard-compute:8000/metrics > "$DEST"/vlm_metrics_final.json 2>/dev/null || true
+        echo "# detector:"; cat "$DEST"/detector_metrics_final.json; echo
+        echo "# itm:";      cat "$DEST"/itm_metrics_final.json; echo
+        echo "# vlm:";      cat "$DEST"/vlm_metrics_final.json; echo
+        echo "# poller samples: $(wc -l < /tmp/search/server_metrics.jsonl 2>/dev/null || echo 0)"
+        kill "$(cat /tmp/search/poller.pid)" 2>/dev/null || true
+        sleep 2; echo stopped
+      timeout_s: 120
+      expect_success: false
+
+  # 8. Stop each planner (per container).
+  - run:
+      container: airstack-robot-desktop-{n}
+      cmd: |
+        kill "$(cat /tmp/search/planner.pid)" 2>/dev/null || true
+        sleep 1; echo stopped robot_{n}
+      timeout_s: 60
+    optional: true
+
+  - action:
+      task: land
+      goal: {}
+      timeout_s: 240
+      robots: all
+    optional: true

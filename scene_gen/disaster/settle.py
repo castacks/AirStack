@@ -321,11 +321,76 @@ def _step(steps, dt=1.0 / 60.0):
         return "timeline"
 
 
+# ---------------------------------------------------------------------------
+# Post-settle ledge cull (earthquake path; off unless asked for)
+# ---------------------------------------------------------------------------
+# A fragment that comes to rest on a window sill, a cornice or a string
+# course halfway up an otherwise standing façade reads as a flake stuck to
+# the wall, not as debris — a 0.3 m chunk does not balance on a 0.1 m ledge
+# in the reconnaissance photographs, it bounces off and lands in the street.
+# Callers register the footprint of each STILL-STANDING building and the
+# settle deletes anything that finished in the narrow band just outside the
+# wall line, above head height. Inside the footprint is left alone (that is
+# debris resting on a floor slab, which is right), and so is anything
+# further out than the band (that is the rubble heap).
+LEDGE_ZONES = []            # [(cx, cy, W, D, yaw_deg, z0)]
+LEDGE_Z_MIN = 3.0           # m above the building's base: above any windrow
+#                             (research: shed-wall windrows are 1-2 m deep)
+LEDGE_BAND_M = 1.5          # how far outside the wall line still counts as
+#                             "on a ledge" rather than "on the pile"
+
+
+def register_ledge_zone(cx, cy, W, D, yaw_deg=0.0, z0=0.0):
+    """Declare one still-standing building's footprint for the cull."""
+    LEDGE_ZONES.append((float(cx), float(cy), float(W), float(D),
+                        float(yaw_deg), float(z0)))
+
+
+def clear_ledge_zones():
+    del LEDGE_ZONES[:]
+
+
+def _cull_ledges(stage, bodies, zones=None, z_min=None, band_m=None):
+    """Deactivate every body resting on a façade ledge. Returns the count."""
+    import math
+
+    from pxr import UsdGeom
+
+    zones = LEDGE_ZONES if zones is None else zones
+    if not zones:
+        return 0
+    z_min = LEDGE_Z_MIN if z_min is None else float(z_min)
+    band = LEDGE_BAND_M if band_m is None else float(band_m)
+    xf = UsdGeom.XformCache()
+    n = 0
+    for prim in bodies:
+        if not prim or not prim.IsValid() or not prim.IsActive():
+            continue
+        p = xf.GetLocalToWorldTransform(prim).ExtractTranslation()
+        for cx, cy, W, D, yaw, z0 in zones:
+            if p[2] - z0 < z_min:
+                continue
+            a = math.radians(-yaw)
+            dx, dy = p[0] - cx, p[1] - cy
+            lx = dx * math.cos(a) - dy * math.sin(a)
+            ly = dx * math.sin(a) + dy * math.cos(a)
+            ex = abs(lx) - W / 2.0
+            ey = abs(ly) - D / 2.0
+            if ex <= 0.0 and ey <= 0.0:
+                break                      # inside: on a floor slab, keep
+            out = math.hypot(max(ex, 0.0), max(ey, 0.0))
+            if out <= band:
+                prim.SetActive(False)
+                n += 1
+                break
+    return n
+
+
 def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         gravity=-9.81, kick=0.0, rng=None, bake_result=True,
         dynamic_approximation="convexHull", approx_map=None, gpu=True,
         bias=None, max_speed=None, damping=None, velocity_map=None,
-        density=420.0):
+        density=420.0, cull_ledges=None):
     """prepare -> step physics -> measure -> bake. Returns a short report.
 
     MEASURES WHAT MOVED. A settle that silently does nothing looks identical
@@ -410,6 +475,21 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
     info["spread_max"] = float(np.max(dh)) if dh else 0.0
 
     info["solve_s"] = _time.time() - _t0
+    # THE LEDGE CULL, off by default. `cull_ledges=True` (or the env var, so
+    # the bench and the bake can turn it on without a code change) deletes
+    # the handful of fragments that finished balanced on a sill or a cornice
+    # of a building that is still standing — see LEDGE_ZONES above. A list
+    # of (cx, cy, W, D, yaw, z0) tuples may be passed instead of True to
+    # override the registry.
+    if cull_ledges is None:
+        import os as _os
+        cull_ledges = _os.environ.get("SETTLE_CULL_LEDGES", "").strip() \
+            not in ("", "0", "false", "False")
+    if cull_ledges:
+        zones = None if cull_ledges is True else cull_ledges
+        info["culled_ledges"] = _cull_ledges(stage, info["bodies"], zones)
+        info["bodies"] = [b for b in info["bodies"] if b and b.IsValid()
+                          and b.IsActive()]
     info["baked"] = bake(stage, info["bodies"]) if bake_result else 0
     if settle_note:
         print("[settle] {0} rigid, {1} static, driver={2}, baked {3}".format(
@@ -417,6 +497,9 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
             info["baked"]))
         print("[settle]   {0:.1f}s solving ({1})".format(
             info.get("solve_s", 0.0), "GPU" if gpu else "CPU"))
+        if info.get("culled_ledges"):
+            print("[settle]   {0} body(s) culled off façade ledges "
+                  "({1} zone(s))".format(info["culled_ledges"], len(LEDGE_ZONES)))
         print("[settle]   {0} of {1} steps used; {2} body(s) STILL MOVING at "
               "bake time{3}".format(
                   info.get("steps_used", steps), steps,

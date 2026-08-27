@@ -524,6 +524,106 @@ def roughen(mesh, rng, amount=0.035):
     return mesh
 
 
+# ---------------------------------------------------------------------------
+# A COHERENT roughening field — the fix for "the intact roof is a crack mosaic"
+# ---------------------------------------------------------------------------
+#
+# `roughen` above draws a NEW phase per fragment and derives its frequency and
+# its amplitude from THAT FRAGMENT's own size. For a pile of debris that is
+# right: every piece is scarred differently and no two look alike. For a piece
+# that is only PARTLY broken it is wrong twice over:
+#
+#   * two cells that shared a Voronoi face are displaced by different noise,
+#     so the face opens up — every cell boundary in the SURVIVING part of a
+#     slab becomes a visible crack, and a roof judged cell-by-cell comes out
+#     as a mosaic of flat polygons (the user's "unnatural rectangular/square
+#     parts broken off");
+#   * the amplitude is a FRACTION of the piece, so a 5 m cell is displaced by
+#     0.06 m at rough=0.012 and a 0.4 m cell by 0.005 m — the big surviving
+#     cells get the big scars, which is backwards.
+#
+# `noise_field` returns one function of WORLD POSITION with an amplitude in
+# METRES and a fixed wavelength, so vertices that coincide stay coincident and
+# every piece is scarred at the same physical scale.
+def noise_field(rng, amp_m=0.03, lam_m=1.1):
+    """(phase, angular frequency, amplitude) for `roughen_field`."""
+    return (np.asarray(rng.random(3) * 100.0, dtype=float),
+            6.2832 / max(float(lam_m), 1e-3), float(amp_m))
+
+
+def roughen_field(mesh, field):
+    """`roughen`, but from a shared position-keyed field (see `noise_field`)."""
+    if field is None:
+        return mesh
+    ph, f, amp = field
+    v = np.asarray(mesh.vertices, dtype=float)
+    if not len(v):
+        return mesh
+    d = np.stack([np.sin(v[:, 1] * f + ph[0]) * np.cos(v[:, 2] * f + ph[1]),
+                  np.sin(v[:, 2] * f + ph[1]) * np.cos(v[:, 0] * f + ph[2]),
+                  np.sin(v[:, 0] * f + ph[2]) * np.cos(v[:, 1] * f + ph[0])], -1)
+    d += 0.45 * np.stack([np.sin(v[:, 1] * f * 2.7 + ph[2]),
+                          np.sin(v[:, 2] * f * 2.7 + ph[0]),
+                          np.sin(v[:, 0] * f * 2.7 + ph[1])], -1)
+    mesh.vertices = v + d * amp
+    return mesh
+
+
+def inset(mesh, gap_m):
+    """Pull every face `gap_m` toward the centroid, PER AXIS.
+
+    `fracture_mesh` insets by a RATIO (`shrink=0.97`), which is 0.6 cm on a
+    0.4 m chip and 8 cm on a 5 m slab cell: on a big surviving slab that ratio
+    is what draws the long dark crack lines the user called out. A gap in
+    metres is the same hairline whatever the cell is, and 0 means the cells
+    butt exactly — which is what a slab that did NOT break should look like.
+    """
+    v = np.asarray(mesh.vertices, dtype=float)
+    if not len(v) or gap_m <= 0.0:
+        return mesh
+    c = np.asarray(mesh.centroid, dtype=float)
+    half = np.maximum(np.asarray(mesh.extents, dtype=float) * 0.5, 1e-4)
+    s = np.clip(1.0 - float(gap_m) / half, 0.25, 1.0)
+    mesh.vertices = c + (v - c) * s
+    return mesh
+
+
+def _cell(mesh, pts, i):
+    """The Voronoi cell of seed `i` clipped out of `mesh`, or None.
+
+    NEAREST-FIRST WITH AN EARLY-OUT. The straightforward loop slices against
+    all N-1 other seeds, so a fracture costs N*(N-1) plane cuts and refining
+    anything is unaffordable. But the bisector against seed q sits at |q-p|/2
+    from p, so once the cell's own circumradius r is below that the plane
+    cannot touch it — and with the seeds sorted by distance, no later one can
+    either. The result is EXACTLY the same partition (this is the standard
+    clipping bound, not an approximation); it just stops early, at ~15-25 cuts
+    per cell however many seeds there are, which is what makes the two-scale
+    fracture below affordable.
+    """
+    p = np.asarray(pts[i], dtype=float)
+    d = np.linalg.norm(np.asarray(pts, dtype=float) - p, axis=1)
+    frag = mesh
+    for j in np.argsort(d):
+        j = int(j)
+        if j == i or d[j] < 1e-9:
+            continue
+        v = np.asarray(frag.vertices, dtype=float)
+        if not len(v):
+            return None
+        if 0.5 * float(d[j]) > float(np.max(np.linalg.norm(v - p, axis=1))):
+            break
+        q = np.asarray(pts[j], dtype=float)
+        try:
+            frag = slice_plane(frag, -(q - p) / float(d[j]), (p + q) * 0.5,
+                               cap=True)
+        except Exception:
+            return None
+        if frag is None or not len(frag.faces):
+            return None
+    return frag
+
+
 def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
                   min_volume_frac=0.004, rough=0.035, shrink=0.97,
                   consume=0.30, consume_pool=1.25, axis=None, aspect=None,
@@ -558,17 +658,30 @@ def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
     # `verbose=False` hid the count. One line per empty module is cheap.
     n_exc = n_empty = n_cull = 0
     first_exc = None
+    _P = np.asarray(pts, dtype=float)
     for i, p in enumerate(pts):
         frag = mesh
-        for j, q in enumerate(pts):
+        # NEAREST-FIRST, WITH THE CLIPPING EARLY-OUT (see `_cell`): the
+        # bisector against a seed |q-p| away sits |q-p|/2 from p, so once the
+        # cell's own circumradius is smaller than that the plane cannot touch
+        # it and — the seeds being sorted — nor can any later one. Same
+        # partition, ~15-25 cuts per cell instead of N-1, which is what makes
+        # the refinement in `fracture_split` affordable at all.
+        _d = np.linalg.norm(_P - np.asarray(p, dtype=float), axis=1)
+        for j in np.argsort(_d):
+            j = int(j)
             if i == j:
                 continue
-            d = q - p
-            n = float(np.linalg.norm(d))
+            q = pts[j]
+            n = float(_d[j])
             if n < 1e-9:
                 continue
+            _v = np.asarray(frag.vertices, dtype=float)
+            if len(_v) and 0.5 * n > float(np.max(np.linalg.norm(
+                    _v - np.asarray(p, dtype=float), axis=1))):
+                break
             try:
-                frag = slice_plane(frag, -d / n, (p + q) * 0.5, cap=True)
+                frag = slice_plane(frag, -(q - p) / n, (p + q) * 0.5, cap=True)
             except Exception as exc:
                 frag = None
                 n_exc += 1
@@ -642,6 +755,230 @@ def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
               "watertight={3})".format(len(pts), len(out), len(mesh.faces),
                                        mesh.is_watertight))
     return out
+
+
+# ---------------------------------------------------------------------------
+# TWO-SCALE FRACTURE ALONG A BREAK LINE
+# ---------------------------------------------------------------------------
+#
+# THE PROBLEM THIS SOLVES. `fracture_partial` and the earthquake path's
+# `_break_split` both fracture a piece once and then decide, CELL BY CELL,
+# which cells come away. The surviving edge is therefore a chain of whole
+# Voronoi cell walls — and a 20 m roof cut with the 10-15 seeds those callers
+# can afford has 4-5 m cells, so the "ragged" edge is a chain of 4 m FLAT
+# PLANES. From 20 m up that reads as a ruler-straight shear line with a few
+# triangular flakes, which is exactly what the review called out.
+#
+# Refining the whole piece is not the fix: N seeds cost N*(N-1) plane cuts
+# (before `_cell`'s early-out), and the part of the slab that did NOT break
+# then comes out as a crack mosaic of small polygons — a different wrong look.
+#
+# So the cut is made at TWO SCALES. Coarse cells everywhere; then every cell
+# the break line actually crosses is re-fractured on its own, with the seeds
+# packed ALONG the line at `edge_cell_m`, and only then judged. What comes out
+# is metre-scale cells away from the break and 0.3 m teeth at it, for the cost
+# of a dozen small extra fractures. Two further touches finish the edge:
+#
+#   CHEW — a share of the small static cells touching the line come away
+#   anyway (a bite out of the stub) and a share of the loose ones that
+#   STRADDLE the line stay put (a piece left hanging). Without it the edge is
+#   still a clean partition of the cells, just a finer one.
+#
+#   GAPS IN METRES — see `inset`. Statics butt with a 0.8 mm hairline so the
+#   surviving slab reads as one slab, a `crack_frac` share of the cells at the
+#   rim open a 1 cm crack that radiates out of the break, and only the loose
+#   pieces take the full separation PhysX needs.
+SPLIT_EDGE_CELL_M = 0.35     # tooth size at the break line
+SPLIT_BAND_M = 0.9           # how far from the line the fine cells reach
+SPLIT_EDGE_MAX = 16          # edge seeds per refined cell (prim-count ceiling)
+SPLIT_REFINE_MAX = 12        # cells refined per call (time ceiling)
+
+
+def _inside_convex(cell, P):
+    """Boolean mask of the points of P inside a CONVEX cell, by its own face
+    planes. Cheap and exact for a Voronoi cell; meaningless for the open
+    shells the kit façades are, which is why the caller falls back to the
+    bounding box when this keeps almost nothing."""
+    try:
+        fn = np.asarray(cell.face_normals, dtype=float)
+        fc = np.asarray(cell.triangles_center, dtype=float)
+        if not len(fn):
+            return np.zeros(len(P), dtype=bool)
+        off = np.einsum("ij,ij->i", fn, fc)
+        return np.all(P.dot(fn.T) - off[None, :] <= 1e-6, axis=1)
+    except Exception:
+        return np.zeros(len(P), dtype=bool)
+
+
+def _probe(cell, judge):
+    """(n_true, n_samples) of `judge` over the cell: its centroid and its
+    extreme vertices. A cell with a mixed verdict is one the break line
+    crosses."""
+    v = np.asarray(cell.vertices, dtype=float)
+    if not len(v):
+        return 0, 1
+    if len(v) > 14:
+        v = v[::max(1, len(v) // 14)]
+    P = np.vstack([np.asarray(cell.centroid, dtype=float)[None, :], v])
+    t = 0
+    for q in P:
+        if judge(q):
+            t += 1
+    return t, len(P)
+
+
+def _refine_cell(cell, judge, rng, edge_cell_m, edge_max, sub_min,
+                 samples=240, bulk=3):
+    """Re-fracture ONE cell with the seeds packed along the break line."""
+    lo, hi = cell.bounds
+    P = rng.uniform(lo, hi, size=(int(samples), 3))
+    ins = _inside_convex(cell, P)
+    if int(ins.sum()) >= 24:
+        P = P[ins]
+    lab = np.array([bool(judge(q)) for q in P], dtype=bool)
+    A, B = P[lab], P[~lab]
+    if not len(A) or not len(B):
+        return []
+    near = float(edge_cell_m) * 2.0
+    band = []
+    for g, o in ((A, B), (B, A)):
+        dd = np.linalg.norm(g[:, None, :] - o[None, :, :], axis=2).min(axis=1)
+        if len(g[dd < near]):
+            band.append(g[dd < near])
+    if not band:
+        return []
+    band = np.vstack(band)
+    # A POISSON PICK, NOT A COUNT. Spreading the edge seeds at `edge_cell_m`
+    # fixes the TOOTH SIZE and lets the number follow from how much of the
+    # line runs through this cell — a cell the line only clips gets three
+    # seeds, one it runs the length of gets `edge_max`. Every extra cell is a
+    # prim and, on the loose side, a rigid body, so the cap matters.
+    sep = float(edge_cell_m) * 0.85
+    keep = np.zeros((0, 3))
+    for i in rng.permutation(len(band)):
+        q = band[int(i)]
+        if len(keep) and float(np.min(np.linalg.norm(keep - q, axis=1))) < sep:
+            continue
+        keep = np.vstack([keep, q[None, :]])
+        if len(keep) >= int(edge_max):
+            break
+    if len(keep) < 2:
+        return []
+    rest = np.vstack([A, B])
+    seeds = [keep[i] for i in range(len(keep))]
+    for i in rng.permutation(len(rest))[:int(bulk)]:
+        seeds.append(rest[int(i)])
+    seeds = np.asarray(seeds, dtype=float)
+    subs = []
+    for i in range(len(seeds)):
+        f = _cell(cell, seeds, i)
+        if f is None or not len(f.faces):
+            continue
+        if float(np.prod(np.maximum(f.extents, 1e-9))) < sub_min:
+            continue
+        subs.append(f)
+    return subs
+
+
+def fracture_split(mesh, n_pieces, judge, rng,
+                   edge_cell_m=SPLIT_EDGE_CELL_M, edge_max=SPLIT_EDGE_MAX,
+                   refine_max=SPLIT_REFINE_MAX, refine=True,
+                   rough_m=0.03, rough_lam_m=1.1,
+                   gap_loose_m=0.008, gap_static_m=0.0008,
+                   gap_crack_m=0.010, crack_frac=0.18,
+                   chew_out=0.18, chew_in=0.12, edge_consume=0.5,
+                   max_loose_m=None,
+                   min_volume_frac=0.0015, mode="uniform", focus=None,
+                   axis=None, aspect=None, verbose=False):
+    """Fracture `mesh` and split the fragments by `judge(point) -> bool`
+    (True = this point is on the side that COMES AWAY), resolving the break
+    line at a second, much finer scale. Returns (static_meshes, loose_meshes).
+
+    `judge` is evaluated in whatever frame the mesh is in — `prim_to_mesh`
+    returns world space, so the earthquake judges work in world coordinates.
+    """
+    if mesh is None or not len(mesh.faces):
+        return [], []
+    bbox_vol = float(np.prod(np.maximum(mesh.extents, 1e-6)))
+    keep_min = bbox_vol * float(min_volume_frac)
+    sub_min = (0.35 * float(edge_cell_m)) ** 3
+
+    pts = _seeds(mesh, int(n_pieces), rng, mode=mode, focus=focus,
+                 axis=axis, aspect=aspect)
+    field = noise_field(rng, amp_m=rough_m, lam_m=rough_lam_m)
+
+    cells = []
+    for i in range(len(pts)):
+        f = _cell(mesh, pts, i)
+        if f is None or not len(f.faces):
+            continue
+        if float(np.prod(np.maximum(f.extents, 1e-9))) < keep_min:
+            continue
+        cells.append(f)
+    if not cells:
+        return [], []
+
+    straddle, plain = [], []
+    for c in cells:
+        t, n = _probe(c, judge)
+        (straddle if 0 < t < n else plain).append((c, bool(t * 2 >= n)))
+    # biggest straddlers first: their cell walls are the long straight ones,
+    # and if the ceiling bites it should bite the cells that matter least.
+    straddle.sort(key=lambda cb: -float(np.prod(np.maximum(cb[0].extents, 1e-9))))
+
+    # (mesh, loose, at_edge, straddles)
+    out = [(c, s, False, False) for c, s in plain]
+    n_ref = 0
+    for k, (c, side) in enumerate(straddle):
+        subs = (_refine_cell(c, judge, rng, edge_cell_m, edge_max, sub_min)
+                if (refine and k < int(refine_max)) else [])
+        if not subs:
+            out.append((c, side, True, True))
+            continue
+        n_ref += 1
+        for s in subs:
+            t, n = _probe(s, judge)
+            out.append((s, bool(t * 2 >= n), True, 0 < t < n))
+
+    statics, looses = [], []
+    n_eaten = 0
+    for msh, loose, at_edge, strad in out:
+        if at_edge:
+            if not loose and rng.random() < float(chew_out):
+                loose = True          # a tooth bitten out of the stub
+            elif loose and strad and rng.random() < float(chew_in):
+                loose = False         # a piece left hanging over the break
+        # EVERY REFINED LOOSE CELL IS A RIGID BODY. The refinement is there to
+        # make the SURVIVING edge read; the pieces that came off it are debris
+        # among a lot of other debris, and keeping all of them tripled the
+        # body count of a bench (840 -> 2243 on one commercial row, settle
+        # 42 s -> 99 s). A share of the small ones is simply not authored.
+        if loose and at_edge and rng.random() < float(edge_consume):
+            n_eaten += 1
+            continue
+        # AND NO 8 m SPLINTERS. `plank` seeding on a whole roof box produces
+        # the odd cell that runs most of the length of the slab; on the ground
+        # it reads as a scaffold board, not as debris, and it is exactly the
+        # "large clean pale sheet" the DG5 review objected to. A loose piece
+        # longer than `max_loose_m` is under the pile, so it is not authored.
+        if (loose and max_loose_m
+                and float(np.max(msh.extents)) > float(max_loose_m)):
+            n_eaten += 1
+            continue
+        roughen_field(msh, field)
+        if loose:
+            inset(msh, gap_loose_m)
+            looses.append(msh)
+        else:
+            inset(msh, gap_crack_m if (at_edge and rng.random() < float(crack_frac))
+                  else gap_static_m)
+            statics.append(msh)
+    if verbose:
+        print("[fracture]   split: {0} coarse ({1} crossed, {2} refined) -> "
+              "{3} static + {4} loose ({5} edge chips dropped)".format(
+                  len(cells), len(straddle), n_ref, len(statics), len(looses),
+                  n_eaten))
+    return statics, looses
 
 
 def _write_mesh(stage, path, mesh, centre_on_centroid=True):

@@ -91,6 +91,13 @@ services:
       # Earthquake scene knobs (downtown_quake / bake_quake / eq_building_bench
       # launchers). Same rule: a var not listed here never reaches the script.
       - EPICENTER=${EPICENTER:-}
+      - MAGNITUDE=${MAGNITUDE:-}
+      - CITIES=${CITIES:-}
+      - CITY_SIZE_M=${CITY_SIZE_M:-}
+      - CITY_GAP_M=${CITY_GAP_M:-}
+      - CITY_SEEDS=${CITY_SEEDS:-}
+      - QUAKE_INTERACT=${QUAKE_INTERACT:-}
+      - KEEP_OPEN=${KEEP_OPEN:-}
       - SOFT_SOIL=${SOFT_SOIL:-}
       - QUAKE_SEED=${QUAKE_SEED:-}
       - QUAKE_TILT=${QUAKE_TILT:-}
@@ -267,6 +274,13 @@ services:
       # Earthquake scene knobs (downtown_quake / bake_quake / eq_building_bench
       # launchers). Same rule: a var not listed here never reaches the script.
       - EPICENTER=${EPICENTER:-}
+      - MAGNITUDE=${MAGNITUDE:-}
+      - CITIES=${CITIES:-}
+      - CITY_SIZE_M=${CITY_SIZE_M:-}
+      - CITY_GAP_M=${CITY_GAP_M:-}
+      - CITY_SEEDS=${CITY_SEEDS:-}
+      - QUAKE_INTERACT=${QUAKE_INTERACT:-}
+      - KEEP_OPEN=${KEEP_OPEN:-}
       - SOFT_SOIL=${SOFT_SOIL:-}
       - QUAKE_SEED=${QUAKE_SEED:-}
       - QUAKE_TILT=${QUAKE_TILT:-}

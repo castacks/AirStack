@@ -47,7 +47,7 @@ import time
 import carb
 from isaacsim import SimulationApp
 
-simulation_app = SimulationApp(launch_config={"headless": False})
+simulation_app = SimulationApp(launch_config={"headless": os.environ.get("ISAAC_SIM_HEADLESS", "false").strip().lower() in ("1", "true", "yes")})
 
 from isaacsim.core.utils.extensions import enable_extension
 
@@ -75,7 +75,7 @@ PARENT = "/World/stage/generated"
 # 4, not 7: seed 7 rolls "no balconies" on every balcony-capable style
 # (the planner draws one balcony mode per band), so the concrete families
 # had nothing for `balcony_fail` to break. Measured host-side over seeds 1-12.
-SEED = int(os.environ.get("ARCH_SEED", "4"))
+SEED = int(os.environ.get("ARCH_SEED") or "4")
 OUT_DIR = os.environ.get(
     "ARCH_DIR", os.path.join(_SCENE_GEN_DIR, "assets", "archetypes_quake"))
 # THE 250 m MIX. Nothing taller than ~60 m: an 88-103 m skyscraper on a
@@ -90,8 +90,8 @@ STYLES = [q.strip() for q in os.environ.get(
     "ARCH_STYLES", ",".join(DEFAULT_STYLES)).split(",") if q.strip()]
 GRADES = [q.strip() for q in os.environ.get(
     "ARCH_GRADES", "DG0,DG1,DG2,DG3,DG4,DG5,SETTLE,TILT,OV").split(",") if q.strip()]
-VARIANTS = max(1, int(os.environ.get("ARCH_VARIANTS", "1")))
-SETTLE_STEPS = int(os.environ.get("SETTLE_STEPS", "2200"))
+VARIANTS = max(1, int(os.environ.get("ARCH_VARIANTS") or "1"))
+SETTLE_STEPS = int(os.environ.get("SETTLE_STEPS") or "2200")
 
 
 def build_ground_and_light(stage):
@@ -245,8 +245,11 @@ def main():
     print("=" * 72 + "\n")
 
     app = omni.kit.app.get_app()
-    while simulation_app.is_running():
-        app.update()
+    # headless: exit once the manifest is written (KEEP_OPEN=1 to stay)
+    if (os.environ.get("KEEP_OPEN", "").strip() == "1"
+             or os.environ.get("ISAAC_SIM_HEADLESS", "false").strip().lower() not in ("1", "true", "yes")):
+        while simulation_app.is_running():
+            app.update()
     simulation_app.close()
 
 
