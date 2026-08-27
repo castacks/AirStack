@@ -16,7 +16,15 @@ search_planner:
 
     # ── inputs (every topic is a parameter; these are the AirStack names) ────
     rgb_topic_template: '/{robot}/sensors/front_stereo/left/image_rect'
-    depth_topic_template: '/{robot}/sensors/front_stereo/left/depth_ground_truth'
+    # RIGHT, not left. The ZED subgraph publishes depth off the RIGHT render
+    # product (`/{robot}/sensors/front_stereo/right/depth_ground_truth`);
+    # rgb and camera_info are on the left. Pointed at `left`, the sync had one
+    # live stream and one topic with no publisher, so it never emitted a pair
+    # and every tick exited at "waiting for rgb/depth/camera_info/odometry" —
+    # which reads as a camera fault and is a topic-name bug. Verified with
+    # `ros2 topic info -v`: search_planner was absent from the right topic's
+    # subscriber list entirely.
+    depth_topic_template: '/{robot}/sensors/front_stereo/right/depth_ground_truth'
     camera_info_topic_template: '/{robot}/sensors/front_stereo/left/camera_info'
     odom_topic_template: '/{robot}/odometry_conversion/odometry'
     navsat_topic_template: '/{robot}/interface/mavros/global_position/raw/fix'
@@ -95,6 +103,10 @@ search_planner:
     # Range past which stereo depth is not a surface measurement. Returns
     # beyond it carve free space but mark nothing occupied.
     voxel_max_range_m: 20.0
+    # A NAVIGATION map, not a survey: voxels not re-observed for this long go
+    # back to unobserved and the frontiers in them are dropped, so the map
+    # stays local to the drone. 0 keeps the whole scene.
+    voxel_forget_after_s: 60.0
     voxel_carve_samples: 24          # samples along each ray when carving free
     voxel_max_points_per_tick: 20000
     voxel_neighborhood_r: 1          # (2r+1)^3 box, as rayfronts' neighborhood_r
@@ -148,7 +160,15 @@ search_planner:
     # ── target ──────────────────────────────────────────────────────────────
     goal_name: 'person'
     detection_classes: ['person', 'car', 'truck', 'house', 'building', 'tree', 'smoke', 'fire']
-    sem_threshold: 0.5             # NEEDS TUNING - upstream 0.85, indoor close range
+    # ONE THRESHOLD FOR EVERY ARM AND EVERY SCENE. The detector is shared, so
+    # it must not be a source of difference between arms — the same reason the
+    # arms share one map, one frontier source and one actuation. Every method
+    # and scene overlay is pinned to this same 0.65; upstream's 0.85 is an
+    # indoor close-range number and is unreachable at aerial range (measured:
+    # real people top out at 0.70 on the wildfire plat, 0.67 on suburb_mini).
+    # 0.65 sits above the highest FALSE positive measured on the house bench
+    # (a spurious `person` at 0.32) and under the confident real detections.
+    sem_threshold: 0.65
 
     # ── actuation ───────────────────────────────────────────────────────────
     flight_altitude_m: 15.0
@@ -156,6 +176,13 @@ search_planner:
     nav_goal_timeout_s: 60.0
     goal_change_threshold_m: 5.0
     path_extension_m: 2.0
+    # Speed by INTENT, set on droan_gl's `max_velocity` parameter: transit
+    # to a frontier / lane goal at explore_speed_mps, the approach to a
+    # detected person at target_speed_mps. Not applied by the gpt arm. 0 on
+    # either leaves droan's own default (2 m/s).
+    explore_speed_mps: 3.0
+    target_speed_mps: 1.5
+    droan_node_template: '/{robot}/droan/disparity_expander_node'
     # How droan_gl is driven.
     #   'activator'      one EMPTY NavigateTask goal; droan enters ADD_SEGMENT
     #                    and steers by the global_plan TOPIC this node
@@ -204,8 +231,54 @@ search_planner:
     mobile_sam_weights: ''         # '' -> ultralytics resolves 'mobile_sam.pt'
     ultralytics_weights_dir: ''   # '' -> ultralytics' relative 'weights' (the CWD!)
 
+    # WHERE YOLO + MobileSAM RUN.
+    #   'local'   one model pair loaded INSIDE this planner process (~1.6 GiB
+    #             of VRAM each). With NUM_ROBOTS=3 that is three copies of the
+    #             same weights on one card, answering identically.
+    #   'server'  a shared detector service; this process loads nothing at all
+    #             and posts each frame to `detector_url`. Safe to share because
+    #             detection is STATELESS — one frame in, boxes and masks out,
+    #             no history — the same property that lets one BLIP-2 ITM
+    #             scorer serve the fleet. The three weights parameters above
+    #             then configure the SERVER, not this node.
+    #
+    # There is no silent fallback: 'server' with an unreachable service is
+    # fatal at startup, because a detector that quietly returns nothing is
+    # indistinguishable from a search that found nobody.
+    #
+    # Start ONE, on the offboard-compute container, before any planner:
+    #   ./airstack.sh up offboard-compute
+    detector_mode: 'local'
+    # An env override with a default, because a run that has no
+    # offboard-compute container — an OSMO pod, a single-box bench — must be
+    # able to point every arm at a server it DOES have without editing three
+    # config layers. The launch file loads all three layers with
+    # allow_substs="true".
+    #
+    # TWO TRAPS, both paid for once:
+    #  * allow_substs evaluates the WHOLE FILE, COMMENTS INCLUDED. Writing the
+    #    substitution syntax in a comment (with the literal dollar-paren-env)
+    #    makes launch try to resolve it and every launch dies with
+    #    "environment variable '...' does not exist". Never write that syntax
+    #    in a comment in a file loaded this way.
+    #  * a variable that is SET BUT EMPTY beats the default and yields an empty
+    #    URL. That is why the compose files pass these through by BARE NAME
+    #    (unset stays unset) instead of `VAR=${VAR:-}`.
+    detector_url: '$(env DETECTOR_URL http://offboard-compute:8200)'
+    # Per call, and generous on purpose: a full-resolution PNG plus YOLO+SAM is
+    # tens to hundreds of ms, and the first call after start-up can queue behind
+    # another robot's.
+    detector_timeout_s: 30.0
+
     # ── VLM backend (OpenAI-compatible; NOT OpenAI) ─────────────────────────
-    vlm_base_url: ''               # '' -> OPENAI_BASE_URL -> http://localhost:8000/v1
+    # The generative endpoint, on the SAME shared host as the detector and the
+    # ITM scorer — one container holds every model the fleet talks to, and a
+    # robot container holds none. Start it there with
+    # `START_VLM_SERVER=true ./airstack.sh up offboard-compute`.
+    # A non-empty value here BEATS $OPENAI_BASE_URL; set it back to '' to hand
+    # the choice to the environment (-> OPENAI_BASE_URL -> localhost:8000/v1),
+    # which is what a single-container bench wants.
+    vlm_base_url: '$(env VLM_URL http://offboard-compute:8000/v1)'
     vlm_model: ''                  # '' -> CONAVGPT2_VLM_MODEL -> Qwen/Qwen2.5-VL-3B-Instruct
     vlm_api_key: ''                # '' -> OPENAI_API_KEY -> EMPTY
     vlm_timeout_s: 60.0
@@ -239,7 +312,12 @@ search_planner:
     # The BLIP-2 ITM service (conavgpt2.blip2_itm_server). SEPARATE from the
     # generative endpoint: different model, different job, and only this one is
     # fast enough (17 ms) to serve a fleet from one instance.
-    vlfm_itm_url: 'http://localhost:8100'
+    # Shared, on the offboard-compute container with the detector and the
+    # generative VLM. Start it with
+    # `START_ITM_SERVER=true ./airstack.sh up offboard-compute`; a VLFM robot
+    # then makes two HTTP calls per tick to that one host (YOLO + BLIP-2), and
+    # neither goes over DDS.
+    vlfm_itm_url: '$(env ITM_URL http://offboard-compute:8100)'
     vlfm_prompt: ''                # '' -> the server's "Seems like there is a {target} ahead."
     # [rows, cols] tiles per keyframe. [1,1] is canonical whole-frame VLFM.
     # Larger because BLIP-2 resizes to 224x224 and a 13 px person in a 946 px

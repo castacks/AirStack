@@ -423,6 +423,308 @@ def spacing_for_footprint(altitude_m, hfov_rad, overlap_frac=0.2):
     return swath * (1.0 - ov)
 
 
+def subdivide(path, leg_m, closed=False):
+    """Insert points so that no two consecutive waypoints are further apart
+    than `leg_m`. Returns an (N, 2) array; the original vertices are kept and
+    the inserted ones are evenly spaced along each segment.
+
+    WHY. A lane on a 300 m sector is a 300 m segment, and its ends are the
+    only waypoints `boustrophedon` emits. Handing a lane END to the local
+    planner is one goal 300 m away; that is the same shape as the whole path
+    from droan_gl's point of view (a far pose it steers straight at, with no
+    intermediate progress it can be judged on and nothing to skip if the end
+    is unreachable). Cutting every segment into legs turns the path into the
+    stream of short, discrete goals a frontier arm produces — one at a time,
+    each a few tens of metres out.
+
+    `closed=True` also cuts the wrap segment from the last vertex back to the
+    first, which on a loop is the long diagonal transit across the sector.
+    Degenerate inputs pass through unchanged: fewer than 2 points, or a
+    non-positive / non-finite `leg_m`.
+    """
+    p = np.asarray(path, dtype=np.float64).reshape(-1, 2)
+    if len(p) < 2 or not np.isfinite(leg_m) or leg_m <= 0.0:
+        return p.copy()
+    out = [p[0]]
+    pairs = list(zip(p[:-1], p[1:]))
+    if closed:
+        pairs.append((p[-1], p[0]))
+    for a, b in pairs:
+        d = float(np.hypot(*(b - a)))
+        n = max(1, int(math.ceil(d / float(leg_m) - 1e-9)))
+        for k in range(1, n + 1):
+            out.append(a + (b - a) * (k / n))
+    if closed:
+        out = out[:-1]                      # the wrap ends on p[0], already first
+    return np.asarray(out, dtype=np.float64).reshape(-1, 2)
+
+
+class SweepGoal:
+    """What `Sweep.update` hands back: the goal to fly to now and the point
+    after it (so the caller can publish a two-pose path with a heading THROUGH
+    the goal), plus where in the sweep it sits.
+
+    `z` / `through_z` are the altitudes for the leg TO the goal and for the
+    leg AFTER it (None when the sweep has no `z_fn`). Publishing the through
+    pose at the NEXT leg's height is what lets a drone that popped over a
+    canopy descend diagonally toward the next goal instead of dropping
+    straight back down onto the one it has already reached. `lift` counts
+    how many stall lifts this goal has had; `lifted` is set on the tick the
+    lift happened.
+    """
+
+    __slots__ = ('xy', 'through', 'index', 'phase', 'lap', 'skipped',
+                 'z', 'through_z', 'lift', 'lifted')
+
+    def __init__(self, xy, through, index, phase, lap, skipped,
+                 z=None, through_z=None, lift=0, lifted=False):
+        self.xy = xy
+        self.through = through
+        self.index = index
+        self.phase = phase
+        self.lap = lap
+        self.skipped = skipped
+        self.z = z
+        self.through_z = through_z
+        self.lift = lift
+        self.lifted = lifted
+
+    def __repr__(self):
+        zs = ('' if self.z is None
+              else f' z={self.z:.1f}->{self.through_z:.1f}')
+        return (f'SweepGoal({self.phase} #{self.index} lap {self.lap} '
+                f'xy=({self.xy[0]:.1f}, {self.xy[1]:.1f}) '
+                f'through=({self.through[0]:.1f}, {self.through[1]:.1f}){zs}'
+                f'{" SKIPPED" if self.skipped else ""}'
+                f'{" LIFTED" if self.lifted else ""})')
+
+
+class Sweep:
+    """Discrete-goal sequencer over a coverage path: transit first, then lanes.
+
+    This is the piece that makes the lawnmower drive the drone the way the
+    frontier arms do. Those hand droan_gl ONE goal at a time — a frontier a few
+    tens of metres out, then the next once it is reached — and the local
+    planner owns everything in between. A coverage path is a different object:
+    an ordered list that is hundreds of metres long. Sending it whole, or
+    sending its lane ends one by one, is the same mistake at two scales. This
+    class turns the path into that stream of goals:
+
+      1. TRANSIT.  The drone is wherever it took off. The first goals walk it
+         in straight legs of at most `leg_m` to the ENTRY POINT of the sweep
+         (`boustrophedon(start_xy=...)` already puts the nearest lane end
+         first). Flown ONCE.
+      2. SWEEP.    The lane loop, cut into legs of at most `leg_m` (see
+         `subdivide`), flown until the caller stops asking. The wrap at the end
+         of the loop goes back to the START OF THE LOOP, never through the
+         transit again.
+
+    Each `update` returns the CURRENT goal and the point after it, so the
+    caller can publish `[goal, through]` — two poses, exactly the shape the
+    frontier arms publish, with the heading through the goal running along
+    the lane rather than from wherever the drone happens to be.
+
+    ADVANCING. A goal is done when the drone is within `reach_m` of it, OR
+    when the drone has passed it: ahead of it along the direction to the
+    next goal and within `reach_m` laterally of that line. The second rule
+    matters because droan_gl steers by distance to the PATH, not to the
+    pose: given `[goal, through]` it happily cuts onto the segment past the
+    goal without ever entering the reach disc, and a reach-only rule would
+    then hold that goal forever while the drone sat on the next one.
+
+    STALL. No progress toward the current goal for `stall_s` seconds (best
+    distance not improved by `progress_m`) LIFTS it first — `z_fn` is asked
+    again with one more stall lift, so a goal blocked by something the
+    known-obstacle surface did not list gets flown over before it is given
+    up on — and only after `stall_lifts` lifts skips it. A lane end inside a
+    tree canopy, or a leg the local planner finds no safe rollout for, would
+    otherwise stall the whole run; the frontier arms get the same protection
+    from their lock/swap logic and the lawnmower had none. `resume(now)`
+    resets that clock after the caller has deliberately paused the sweep
+    (a target detour), so the pause is not read as a stall. 0 disables it.
+
+    ALTITUDE. Reach is judged in XY ONLY: a goal reached at any height is
+    reached, so a drone that went over a canopy is not asked to come back
+    down onto the goal it is already above. `z_fn(p, q, lift)` returns the
+    height to fly the leg p->q at (the caller's clearance surface over the
+    known obstacles, plus `lift` stall lifts); each goal carries its own
+    leg's z and the NEXT leg's z for the through pose.
+
+    Pure numpy, clock injected, so the whole thing is unit-testable.
+    """
+
+    def __init__(self, loop_xy, reach_m, leg_m=0.0, start_xy=None,
+                 stall_s=0.0, progress_m=0.5, z_fn=None, stall_lifts=0):
+        loop = np.asarray(loop_xy, dtype=np.float64).reshape(-1, 2)
+        self.loop = (subdivide(loop, leg_m, closed=True)
+                     if leg_m > 0.0 and len(loop) >= 2 else loop.copy())
+        self.transit = np.zeros((0, 2), dtype=np.float64)
+        if start_xy is not None and len(self.loop) > 0:
+            s = np.asarray(start_xy, dtype=np.float64).reshape(2)
+            if np.isfinite(s).all():
+                # Legs from the start to the entry point; the entry point
+                # itself is loop[0], so only the intermediate points are kept.
+                seg = subdivide(np.array([s, self.loop[0]]), leg_m)
+                self.transit = seg[1:-1].copy()
+        self.reach_m = float(reach_m)
+        self.stall_s = float(stall_s)
+        self.progress_m = float(progress_m)
+        self.z_fn = z_fn
+        self.stall_lifts = int(stall_lifts)
+        self.lifts = {}                 # waypoint index -> stall lifts so far
+        self.idx = 0
+        self.lap = 0
+        self._best_d = None
+        self._progress_t = None
+
+    # ── indexing ─────────────────────────────────────────────────────────────
+
+    def __len__(self):
+        return len(self.transit) + len(self.loop)
+
+    def point(self, k):
+        """Waypoint k of the combined sequence (transit, then loop)."""
+        nt = len(self.transit)
+        if k < nt:
+            return self.transit[k]
+        return self.loop[(k - nt) % len(self.loop)]
+
+    def _next(self, k):
+        """Index after k. Past the end of the loop, wraps to the loop's start —
+        not to the transit, which is flown once."""
+        k += 1
+        if k >= len(self):
+            k = len(self.transit)
+        return k
+
+    @property
+    def phase(self):
+        return 'transit' if self.idx < len(self.transit) else 'sweep'
+
+    # ── progress ─────────────────────────────────────────────────────────────
+
+    def _reached(self, cur, k):
+        p = self.point(k)
+        d = float(np.hypot(*(p - cur)))
+        if d <= self.reach_m:
+            return True
+        q = self.point(self._next(k))
+        seg = q - p
+        l2 = float(seg @ seg)
+        if l2 <= 1e-12:
+            return False
+        t = float((cur - p) @ seg) / l2
+        if t <= 0.0:
+            return False
+        foot = p + min(t, 1.0) * seg
+        return float(np.hypot(*(cur - foot))) <= self.reach_m
+
+    def _advance_to(self, k):
+        # The index only ever moves forward, so moving backward means the
+        # wrap from the end of the loop to its start: one lap done.
+        if k < self.idx:
+            self.lap += 1
+        self.idx = k
+        self._best_d = None
+        self._progress_t = None
+
+    def override(self, k, xy):
+        """Replace waypoint k in place. For a caller whose actuation cannot
+        reach the point as authored — a lane end that the occupancy grid clips
+        to its edge — so that reach is judged against the goal the drone was
+        actually sent, not the one it can never arrive at."""
+        nt = len(self.transit)
+        p = np.asarray(xy, dtype=np.float64).reshape(2)
+        if k < nt:
+            self.transit[k] = p
+        else:
+            self.loop[(k - nt) % len(self.loop)] = p
+
+    def blocked(self, now=None):
+        """The current goal has just been found to be INSIDE an obstacle (the
+        caller saw occupied voxels there). Same ladder as a stall, but now:
+        lift the goal if lifts remain, else skip it. Returns 'lifted',
+        'skipped' or None (no waypoints)."""
+        if len(self) == 0:
+            return None
+        k = self.idx
+        if self.z_fn is not None and self.lifts.get(k, 0) < self.stall_lifts:
+            self.lifts[k] = self.lifts.get(k, 0) + 1
+            self._best_d = None
+            self._progress_t = float(now) if now is not None else None
+            return 'lifted'
+        self._advance_to(self._next(k))
+        if now is not None:
+            self._progress_t = float(now)
+        return 'skipped'
+
+    def resume(self, now):
+        """The caller paused the sweep (target detour); do not count the pause
+        as a stall on the current goal."""
+        self._best_d = None
+        self._progress_t = float(now) if now is not None else None
+
+    def update(self, cur_xy, now=None):
+        """Advance past whatever is reached and return the current goal, or
+        None if the sweep has no waypoints at all (a degenerate sector — the
+        caller holds station, as `next_waypoint` does)."""
+        n = len(self)
+        if n == 0:
+            return None
+        cur = np.asarray(cur_xy, dtype=np.float64).reshape(2)
+        if not np.isfinite(cur).all():
+            return self._goal(False)
+
+        k = self.idx
+        for _ in range(n):
+            if not self._reached(cur, k):
+                break
+            k = self._next(k)
+        else:
+            # Everything is within reach (a path smaller than the reach
+            # radius): hold the current index rather than spinning.
+            k = self.idx
+        if k != self.idx:
+            self._advance_to(k)
+
+        skipped = lifted = False
+        if self.stall_s > 0.0 and now is not None:
+            d = float(np.hypot(*(self.point(self.idx) - cur)))
+            if self._best_d is None or d < self._best_d - self.progress_m:
+                self._best_d = d
+                self._progress_t = float(now)
+            elif (float(now) - self._progress_t) > self.stall_s:
+                k = self.idx
+                if self.z_fn is not None and self.lifts.get(k, 0) < self.stall_lifts:
+                    # UP BEFORE OUT: something unlisted is in the way, so try
+                    # the same goal higher before writing the leg off.
+                    self.lifts[k] = self.lifts.get(k, 0) + 1
+                    self._best_d = d
+                    self._progress_t = float(now)
+                    lifted = True
+                else:
+                    self._advance_to(self._next(self.idx))
+                    self._best_d = float(np.hypot(*(self.point(self.idx) - cur)))
+                    self._progress_t = float(now)
+                    skipped = True
+        return self._goal(skipped, lifted)
+
+    def _leg_z(self, k):
+        """Altitude for the leg ending at waypoint k, or None without z_fn."""
+        if self.z_fn is None:
+            return None
+        prev = self.point(k - 1) if k > 0 else self.point(k)
+        return float(self.z_fn(prev, self.point(k), int(self.lifts.get(k, 0))))
+
+    def _goal(self, skipped, lifted=False):
+        k = self.idx
+        nk = self._next(k)
+        return SweepGoal(self.point(k).copy(), self.point(nk).copy(),
+                         k, self.phase, self.lap, skipped,
+                         z=self._leg_z(k), through_z=self._leg_z(nk),
+                         lift=int(self.lifts.get(k, 0)), lifted=lifted)
+
+
 # ── self-test ────────────────────────────────────────────────────────────────
 
 def _seg_dist(pts, segs):
@@ -651,6 +953,71 @@ def _selftest():
     assert n_auto < n_cross
     print(f"[7] axis='auto' on the 30x12 rectangle runs along the long side: "
           f'{n_auto} lanes vs {n_cross} across  OK')
+
+    # 8. subdivide + Sweep: the path becomes a stream of short goals, transit
+    #    first, and nothing longer than a leg is ever handed out.
+    leg = 25.0
+    path = boustrophedon(sq * 30.0, 100.0, axis='x')          # 300 m square, 3 lanes
+    fine = subdivide(path, leg, closed=True)
+    steps = np.linalg.norm(np.diff(np.vstack([fine, fine[:1]]), axis=0), axis=1)
+    assert steps.max() <= leg + 1e-9, f'a leg of {steps.max():.2f} m > {leg}'
+    assert all(any(np.allclose(v, f_) for f_ in fine) for v in path), \
+        'subdivide dropped an original vertex'
+    assert np.array_equal(subdivide(path, 0.0), path), 'leg 0 must pass through'
+    start = np.array([-90.0, -60.0])
+    sw = Sweep(path, reach_m=8.0, leg_m=leg, start_xy=start, stall_s=30.0)
+    assert sw.phase == 'transit' and len(sw.transit) > 0
+    d0 = float(np.hypot(*(sw.loop[0] - start)))
+    assert len(sw.transit) == math.ceil(d0 / leg) - 1, (len(sw.transit), d0)
+    # Fly it: teleport to each goal in turn and count what was handed out.
+    cur, t, goals, phases = start.copy(), 0.0, [], []
+    for _ in range(4 * len(sw)):
+        g = sw.update(cur, t)
+        goals.append(g.xy.copy())
+        phases.append(g.phase)
+        assert float(np.hypot(*(g.xy - cur))) <= leg + 1e-9, \
+            f'goal {g} is {np.hypot(*(g.xy - cur)):.1f} m from the drone'
+        cur = g.xy.copy()
+        t += 1.0
+        if sw.lap >= 2:
+            break
+    assert phases[0] == 'transit' and 'sweep' in phases
+    assert phases.index('sweep') == len(sw.transit), 'transit flown once, in order'
+    assert 'transit' not in phases[phases.index('sweep'):], 'the wrap re-flew the transit'
+    assert sw.lap >= 2
+    seen = [min(np.hypot(*(v - g)) for g in goals) for v in path]
+    assert max(seen) <= 1e-6, f'a lane end was never a goal (worst {max(seen):.2f} m)'
+    print(f'[8] 300 m square, 3 lanes at 100 m, legs <= {leg:.0f} m: '
+          f'{len(sw.transit)} transit goals then a {len(sw.loop)}-goal loop; '
+          f'flown by teleport every goal was <= {leg:.0f} m out, the transit '
+          f'was flown once, every lane end became a goal, {sw.lap} laps  OK')
+
+    # Passing abeam counts as reached (droan cuts onto the segment past the
+    # goal without entering the reach disc); wide of the line does not.
+    sw2 = Sweep(np.array([[0.0, 0.0], [100.0, 0.0], [100.0, 50.0], [0.0, 50.0]]),
+                reach_m=5.0, leg_m=0.0)
+    g = sw2.update(np.array([-30.0, 0.0]))
+    assert g.index == 0, 'behind the goal is not reached'
+    g = sw2.update(np.array([12.0, 3.0]))
+    assert g.index == 1, f'past the goal, on the line: should advance ({g})'
+    g = sw2.update(np.array([140.0, 30.0]))
+    assert g.index == 1, f'past the goal but 30 m wide of the line: hold ({g})'
+    # Stall: no progress for stall_s skips the goal; resume() forgives a pause.
+    sw3 = Sweep(np.array([[0.0, 0.0], [100.0, 0.0], [100.0, 50.0], [0.0, 50.0]]),
+                reach_m=5.0, leg_m=0.0, stall_s=30.0)
+    far = np.array([-50.0, 0.0])
+    assert sw3.update(far, 0.0).index == 0
+    assert sw3.update(far, 29.0).index == 0 and not sw3.update(far, 29.5).skipped
+    g = sw3.update(far, 31.0)
+    assert g.skipped and g.index == 1, f'stalled 31 s: expected a skip ({g})'
+    sw3.resume(200.0)
+    g = sw3.update(far, 229.0)
+    assert not g.skipped and g.index == 1, 'resume() must restart the stall clock'
+    assert sw3.update(np.array([-49.0, 0.0]), 231.0).index == 1, 'progress resets it'
+    assert Sweep(np.zeros((0, 2)), 5.0).update(np.zeros(2)) is None
+    print('[8] abeam rule advances on the line and holds wide of it; stall skips '
+          'after stall_s, resume() and progress both reset the clock; an empty '
+          'loop yields None  OK')
     print('lawnmower.py: all self-tests passed')
 
 

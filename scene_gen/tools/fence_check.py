@@ -241,6 +241,7 @@ def check(seed, config_name="suburb_net", verbose=False):
     stats = {"seed": seed, "modules": len(mods),
              "on_road": len(bad["on_road"]), "in_bulb": len(bad["in_bulb"]),
              "crossing": len(bad["crossing"]), "doubled": len(bad["doubled"]),
+             "on_drive": len(bad["on_drive"]),
              "houses_fenced": sum(assets.values()),
              "houses_multi_asset": multi, "gate_modules": len(gates),
              # The PLAT-level defect, on the runs rather than on the modules.
@@ -257,7 +258,14 @@ def check(seed, config_name="suburb_net", verbose=False):
     for key, msg in (("on_road", "fence modules standing on a carriageway"),
                      ("in_bulb", "fence modules inside a turnaround"),
                      ("crossing", "fence modules crossing another fence"),
-                     ("doubled", "fence modules doubled on one boundary")):
+                     ("doubled", "fence modules doubled on one boundary"),
+                     # A FENCE ACROSS ITS OWN DRIVEWAY. Gated, not merely
+                     # reported, because the fix is structural and cheap to
+                     # lose: `suburb_parcel` derives ONE `drive_off` that the
+                     # front opening, the side and rear cuts and the paved
+                     # ribbon all read. Anything that re-introduces a second
+                     # opinion about where the drive is shows up here first.
+                     ("on_drive", "fence modules standing across a driveway")):
         if stats[key]:
             fails.append(f"{stats[key]} {msg}")
             if verbose:

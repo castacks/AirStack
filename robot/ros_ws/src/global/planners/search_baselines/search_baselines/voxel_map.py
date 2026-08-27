@@ -61,6 +61,12 @@ class VoxelMap:
         self.dims = np.maximum(
             1, np.ceil((self.hi - self.lo) / self.vox).astype(int))
         self.grid = np.zeros(tuple(self.dims), dtype=np.uint8)  # UNOBSERVED
+        # WHEN each voxel was last written (integrate count). The map is a
+        # NAVIGATION aid — free space to fly through and frontiers to pick —
+        # not a survey of the scene, so `forget_older_than` lets the far past
+        # go back to UNOBSERVED and the memory stays local to the drone.
+        self._stamp = np.zeros(tuple(self.dims), dtype=np.uint32)
+        self.tick = 0
         # Persistent frontier set, rayfronts-style: {flat_index: gain}.
         # Frontiers ACCUMULATE and are invalidated only where a new
         # observation actually touched the map — see `frontiers_persistent`.
@@ -126,10 +132,12 @@ class VoxelMap:
         free = cam[:, None, :] + (pts[:, None, :] - cam[:, None, :]) * t
         fidx = self.to_idx(free.reshape(-1, 3))
         fidx = fidx[self._inside(fidx)]
+        self.tick += 1
         n_free = 0
         if fidx.shape[0]:
             flat = np.unique(self._flat(fidx))
             self.grid.reshape(-1)[flat] = EMPTY
+            self._stamp.reshape(-1)[flat] = self.tick
             n_free = flat.size
 
         # The ACTIVE WINDOW: every voxel this observation could have changed.
@@ -156,8 +164,32 @@ class VoxelMap:
         if oidx.shape[0]:
             flat = np.unique(self._flat(oidx))
             self.grid.reshape(-1)[flat] = OCCUPIED
+            self._stamp.reshape(-1)[flat] = self.tick
             n_occ = flat.size
         return n_free, n_occ
+
+    def forget_older_than(self, max_age_ticks):
+        """Voxels not written for more than `max_age_ticks` integrates go
+        back to UNOBSERVED, and the persistent frontiers standing in them are
+        dropped. Returns (voxels forgotten, frontiers dropped). 0 disables."""
+        max_age = int(max_age_ticks)
+        if max_age <= 0:
+            return 0, 0
+        old = (self.grid != UNOBSERVED) & ((self.tick - self._stamp) > max_age)
+        n = int(old.sum())
+        if n:
+            self.grid[old] = UNOBSERVED
+        dropped = 0
+        if self._fronti:
+            keep = {}
+            for kk, v in self._fronti.items():
+                idx = np.clip(np.round(v[0]).astype(int), 0, self.dims - 1)
+                if self.grid[idx[0], idx[1], idx[2]] == UNOBSERVED:
+                    dropped += 1
+                else:
+                    keep[kk] = v
+            self._fronti = keep
+        return n, dropped
 
     # ── frontiers ─────────────────────────────────────────────────────────
     def frontiers(self, neighborhood_r=1, min_unobserved=1, min_empty=1,

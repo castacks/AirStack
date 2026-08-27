@@ -912,13 +912,29 @@ def plan_lot(lot, style, rng=None):
     # The kerb end of each run: the frontage anchor slid along the street to sit
     # square in front of whatever it serves, so a drive runs straight in rather
     # than cutting diagonally across the yard.
+    #
+    # ON A TURNAROUND THE KERB IS AN ARC and `u` is its TANGENT, so sliding
+    # along `u` walks off the paving as the arc curves away — and `frontage`
+    # there is the LOT LINE, which `_arc_cap_bulbs` already leaves a verge short
+    # of the asphalt. Measured on seeds 3/7/11, that ended every cul-de-sac
+    # drive 3.7-4.5 m and every walk 3.0-3.7 m outside the turnaround: the gap
+    # between the end of the drive and the kerb. `kerb_arc` is the (centre,
+    # paved radius) `suburb_parcel` publishes for exactly this; strike the run
+    # RADIALLY to it, which is what that module's own platted drive does.
     fr = lot.get("frontage") or c
-    kerb_d = (fr[0] + u[0] * door_x, fr[1] + u[1] * door_x)
-    path = (kerb_d, door)
+    ka = lot.get("kerb_arc")
+
+    def kerb(local_x, target):
+        if not ka:
+            return (fr[0] + u[0] * local_x, fr[1] + u[1] * local_x)
+        (ax, ay), rp = ka
+        ang = math.atan2(target[1] - ay, target[0] - ax)
+        return (ax + rp * math.cos(ang), ay + rp * math.sin(ang))
+
+    path = (kerb(door_x, door), door)
     drive = None
     if garage is not None:
-        kerb_g = (fr[0] + u[0] * garage_x, fr[1] + u[1] * garage_x)
-        drive = (kerb_g, garage)
+        drive = (kerb(garage_x, garage), garage)
 
     # Rear space, measured: lot depth less how far the house sits in, less half
     # its own depth. Halving (lot_depth - d) understates it by the whole

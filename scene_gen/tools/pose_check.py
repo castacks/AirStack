@@ -76,7 +76,6 @@ DEFAULT_RIGS = [_LIB + n for n in (
 EXPECT = {
     "idle":       {"contact": "sole", "hip_m": (0.80, 1.10)},
     "walk":       {"contact": "sole", "hip_m": (0.80, 1.10)},
-    "wave":       {"contact": "sole", "hip_m": (0.80, 1.10)},
     "sit_ground": {"contact": "heel", "hip_m": (0.05, 0.25)},
     "crouch":     {"contact": "sole", "hip_m": (0.35, 0.75)},
     # Seated-on-a-thing poses are placed by the CALLER at a seat height, so

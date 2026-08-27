@@ -6,6 +6,7 @@
   <arg name="method_params_file" />
   <arg name="scene_params_file" />
   <arg name="num_robots" default="$(env NUM_ROBOTS 1)" />
+  <arg name="team_mode" default="false" />
   <arg name="results_dir" default="" />
 
   <node pkg="search_baselines" exec="search_planner" name="search_planner"
@@ -13,7 +14,13 @@
     <param from="$(find-pkg-share search_baselines)/config/planner.yaml"
            allow_substs="true" />
     <param name="use_sim_time" value="true" />
+    <!-- One planner per robot container on its own domain: it drives ONE
+         robot (num_robots 1) but cuts the search area into NUM_ROBOTS
+         sectors and takes the slice ROBOT_NAME says is its own. team_mode
+         is the old single-process-for-the-whole-team layout, which needs
+         every robot's topics on one domain. -->
     <param name="num_robots" value="$(var num_robots)" />
+    <param name="team_mode" value="$(var team_mode)" />
     <param name="results_dir" value="$(var results_dir)" />
     <!-- method then scene, so the scene has the last word on geometry -->
     <param from="$(var method_params_file)" allow_substs="true" />

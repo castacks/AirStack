@@ -27,6 +27,10 @@ stack:
 method: frontier
 
 env:
+  # No offboard-compute container on a pod — the shared model services run
+  # in robot_1, so redirect the planner's endpoints at localhost. Unset,
+  # they default to http://offboard-compute:PORT (the local stack).
+  DETECTOR_URL: "http://localhost:8200"
   NUM_ROBOTS: 1
   ISAAC_SIM_HEADLESS: "true"
   ISAAC_SIM_CUDA_DEVICES: "0"
@@ -114,10 +118,11 @@ record:
     - /robot_{n}/search/agent_image
 
 steps:
-  # Detector weights. YOLO-World runs IN-PROCESS in every arm — the target
-  # detection and the visit-and-blacklist behaviour are shared, so no arm can
-  # win by having a better detector. CLIP is imported by set_classes(), which
-  # upstream calls in the detector's constructor: no clip, no planner.
+  # Detector weights, fetched once into the shared cache. Every arm detects and
+  # they all use the SAME detector — no arm can win by having a better one — but
+  # it no longer runs in-process: the next step starts it as a service. CLIP is
+  # imported by set_classes(), which upstream calls in the detector's
+  # constructor: no clip, no open-vocabulary detector.
   - run:
       container: robot_1
       cmd: |
@@ -140,6 +145,45 @@ steps:
       timeout_s: 900
       attempts: 3
       retry_delay_s: 15
+
+  # THE DETECTOR IS A SHARED SERVICE now, not a model inside the planner
+  # process (search_baselines/detector_server.py). Detection is stateless — one
+  # frame in, boxes and masks out — so one instance serves every robot, and N
+  # planners each loading YOLO *and* MobileSAM is N copies of one answer on one
+  # card. Locally that instance lives in the `offboard-compute` container; a pod
+  # has no such container, so it runs HERE and DETECTOR_URL (env: above) points
+  # the planner at localhost. The planner PREFLIGHTS it and dies if it is
+  # missing — deliberately, since a detector that silently finds nothing looks
+  # exactly like a search that found nobody.
+  #
+  # The checkpoint is the SERVER'S: in server mode the scene's
+  # `yolo_world_weights` configures nothing, so this must name the same file the
+  # scene layer does (suburb_wildfire -> yolov8l-world.pt) or the planner logs
+  # DETECTOR MISMATCH.
+  - run:
+      container: robot_1
+      cmd: |
+        mkdir -p /tmp/search
+        nohup /opt/lvlm-venv/bin/python -m search_baselines.detector_server \
+          --port 8200 --device cuda:0 \
+          --yolo-weights /root/.cache/conavgpt2_weights/yolov8l-world.pt \
+          --sam-weights /root/.cache/conavgpt2_weights/mobile_sam.pt \
+          --weights-dir /root/.cache/conavgpt2_weights \
+          --metrics-jsonl /tmp/search/detector_requests.jsonl \
+          > /tmp/search/detector_server.log 2>&1 &
+        echo $! > /tmp/search/detector.pid
+        # Weights load BEFORE the port binds, so a port that answers is ready.
+        for i in $(seq 1 60); do
+          curl -sf http://localhost:8200/health | grep -q '"status": *"ok"' && {
+            echo DETECTOR_READY; curl -s http://localhost:8200/health | head -c 400; echo; exit 0; }
+          kill -0 "$(cat /tmp/search/detector.pid)" 2>/dev/null || {
+            echo DETECTOR_DEAD; tail -n 40 /tmp/search/detector_server.log; exit 1; }
+          sleep 5
+        done
+        echo DETECTOR_NOT_READY; tail -n 40 /tmp/search/detector_server.log; exit 1
+      timeout_s: 420
+      attempts: 2
+      retry_delay_s: 20
 
   - action:
       task: takeoff

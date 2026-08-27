@@ -62,8 +62,19 @@ def _iter(prim):
 def prepare(stage, loose_paths, static_paths, gravity=-9.81,
             scene_path="/World/physicsScene", kick=0.0, rng=None,
             dynamic_approximation="convexHull", approx_map=None, gpu=True,
-            bias=None, max_speed=None, damping=None):
+            bias=None, max_speed=None, damping=None, velocity_map=None,
+            density=420.0):
     """Physics scene, static colliders, and a rigid body per loose piece.
+
+    `velocity_map` is `{prim_path: (vx, vy, vz)}` in m/s, a PER-BODY initial
+    velocity added on top of `kick`/`bias`. The earthquake path needs it: a
+    masonry wall failing out of plane rotates about its base and its top
+    travels OUTWARD, so fragments high on the wall start with a lateral
+    velocity that grows with height and the pile lands as a fan on the
+    street rather than as a heap at the foot of the wall. A single `bias`
+    cannot express that (it is one vector for the whole scene) and `kick`
+    is zero-mean by design. `density` is kg/m3 for every body (420 = timber,
+    the historical default; concrete/masonry pass ~2000).
 
     `bias` IS THE WIND, and it is what separates a collapse from a tornado.
     `kick` is deliberately zero-mean — it exists only to break the perfect
@@ -217,7 +228,10 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
         # downwind tumbles, it does not roll about one axis.
         bx, by, bz = (0.0, 0.0, 0.0) if bias is None else (
             float(bias[0]), float(bias[1]), float(bias[2]))
-        if kick > 0.0 or bias is not None:
+        vm = (velocity_map or {}).get(path)
+        if vm is not None:
+            bx, by, bz = bx + float(vm[0]), by + float(vm[1]), bz + float(vm[2])
+        if kick > 0.0 or bias is not None or vm is not None:
             body.CreateVelocityAttr(Gf.Vec3f(
                 bx + float(rng.uniform(-kick, kick)),
                 by + float(rng.uniform(-kick, kick)),
@@ -227,7 +241,7 @@ def prepare(stage, loose_paths, static_paths, gravity=-9.81,
                 float(rng.uniform(-spin, spin)),
                 float(rng.uniform(-spin, spin)),
                 float(rng.uniform(-spin, spin))))
-        UsdPhysics.MassAPI.Apply(prim).CreateDensityAttr(420.0)   # timber
+        UsdPhysics.MassAPI.Apply(prim).CreateDensityAttr(float(density))
         bodies.append(prim)
         n_body += 1
 
@@ -310,7 +324,8 @@ def _step(steps, dt=1.0 / 60.0):
 def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
         gravity=-9.81, kick=0.0, rng=None, bake_result=True,
         dynamic_approximation="convexHull", approx_map=None, gpu=True,
-        bias=None, max_speed=None, damping=None):
+        bias=None, max_speed=None, damping=None, velocity_map=None,
+        density=420.0):
     """prepare -> step physics -> measure -> bake. Returns a short report.
 
     MEASURES WHAT MOVED. A settle that silently does nothing looks identical
@@ -329,7 +344,8 @@ def run(stage, loose_paths, static_paths, steps=360, settle_note=True,
                    kick=kick, rng=rng,
                    dynamic_approximation=dynamic_approximation,
                    approx_map=approx_map, gpu=gpu, bias=bias,
-                   max_speed=max_speed, damping=damping)
+                   max_speed=max_speed, damping=damping,
+                   velocity_map=velocity_map, density=density)
     if not info["bodies"]:
         carb.log_warn("[settle] nothing to settle")
         return info

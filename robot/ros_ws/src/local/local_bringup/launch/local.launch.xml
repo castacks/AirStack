@@ -75,6 +75,11 @@
             <param name="graph_nodes" value="10" />
             <param name="expansion_radius" value="2." />
             <param name="seen_radius" value="1." />
+            <!-- 1, not the historical 2: a vertical takeoff leaves droan a column of
+                 views under the hover point and every candidate "unseen" (see
+                 droan_gl_node.cpp). One view is enough to leave the pad; the graph
+                 refills with overlapping views as soon as the drone moves. -->
+            <param name="min_seen_views" value="1" />
             <param name="dt" value="0.2" />
             <param name="ht" value="7." />
             <param name="downsample_scale" value="2" />

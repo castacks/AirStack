@@ -66,3 +66,9 @@ def vlm_server():
 
 def itm_server():
     run('search_baselines.itm_server', ['fastapi', 'uvicorn', 'transformers'])
+
+
+def detector_server():
+    # ultralytics and torch are in SYSTEM python too, but fastapi/uvicorn are
+    # not — so this server takes the same hand-off as the other two.
+    run('search_baselines.detector_server', ['fastapi', 'uvicorn', 'ultralytics'])

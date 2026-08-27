@@ -1,6 +1,6 @@
 ---
 name: launch-generated-scene-with-drones
-description: Fly PX4 drones in a scene that is BUILT in-process by scene_gen instead of loaded from a finished USD. Covers `scene_gen/scene_api.build_scene` (the one entry point, its signature and its load-bearing internal order), the `SCENE_CONFIG`-vs-`ENV_URL` switch in `example_multi_drone_scene_import.py`, the archetype bake on Nucleus, and the six traps that make a generated scene different from a loaded one — STAGE_SCALE, the borrowed sky, fractionalCutoutOpacity, the Pegasus base env, the overhead framing and the spawn contract. Also covers PARAMETERISING a preset — `REGION_M`, `DISASTER_TYPE`, `SEVERITY` are merged into the spec before it compiles, so "a 250 m undamaged suburb" is env vars on the canonical launcher, NOT a new preset file and NOT a new launch script — and why a `*_preview_launch_script.py` can never fly (no drone, no world.step, no overhead camera). Read before wiring a generated scene into a mission, changing a scene's size or disaster, or touching either launcher.
+description: Fly PX4 drones in a scene that is BUILT in-process by scene_gen instead of loaded from a finished USD. Covers `scene_gen/scene_api.build_scene` (the one entry point, its signature and its load-bearing internal order), the `SCENE_CONFIG`-vs-`ENV_URL` switch in `example_multi_drone_scene_import.py`, the archetype bake on Nucleus, and the six traps that make a generated scene different from a loaded one — STAGE_SCALE, the borrowed sky, fractionalCutoutOpacity, the Pegasus base env, the overhead framing and the spawn contract. Also covers PARAMETERISING a preset — `REGION_M`, `DISASTER_TYPE`, `SEVERITY` are merged into the spec before it compiles, so "a 250 m undamaged suburb" is env vars on the canonical launcher, NOT a new preset file and NOT a new launch script — why a `*_preview_launch_script.py` can never fly (no drone, no world.step, no overhead camera), which of TWO house sources a preset selects and why they are rotated 90 deg apart, and how `airstack://` resolves to LOCAL files or to Nucleus depending on AIRSTACK_ASSET_ROOT. Read before wiring a generated scene into a mission, changing a scene's size or disaster, or touching either launcher.
 license: Apache-2.0
 metadata:
   author: AirLab CMU
@@ -251,6 +251,92 @@ does drones, `SPAWN_POLY`, headless/livestream, colliders, the overhead map
 camera and scene annotations, for ANY preset — which is the whole reason the
 `SCENE_CONFIG` switch exists. Reach for a preview launcher only to LOOK at a
 layout.
+
+### Two house sources, two yaw conventions
+
+`suburb_parcel.modular_houses` selects where houses come from, and the two
+sources are rotated 90 deg from each other:
+
+| `modular_houses` | source | yaw applied |
+|---|---|---|
+| `true` | the MODULAR KIT (`detail/modular_house.build_building`), facade at local **-Y** | `yaw_deg + yaw_off + 90` |
+| falsy | `house_catalogue` — whole-house ART USDs, facade at **+X** | `yaw_deg + yaw_off` (plus a per-asset offset) |
+
+Both are internally consistent. The trap is that they are selected by a config
+key that says nothing about rotation: every purpose-built suburb preset set
+`modular_houses: true`, the GENERIC `suburb` preset did not, so `SCENE_CONFIG=suburb`
+silently fell through to the art path and produced a plat whose houses were
+turned 90 deg relative to their own driveways — with nothing in the config to
+suggest the two presets differed.
+
+It is now set on the **suburban LOCALE** (`compile_locale.compile_suburban`),
+so every suburban preset gets the kit plus the lot sizing it needs
+(`lot_width_m: [30, 44]` — the `[21, 30]` knee was measured against the
+whole-house pack, whose widest entry is ~16 m, and the kit's L-plans are 20 m;
+narrower lots reject them and the plat thins out).
+
+**Diagnosing "the houses face the wrong way".** Do not start at the yaw
+arithmetic — it was correct the whole time. Measure, in this order:
+
+1. the LOT frame vs the road: `|drive . n|` should be ~1 (driveways run across
+   the street). Measured 0.987.
+2. the placement: `facade . (-n)` should be 1.0. Measured 1.000 on all 25
+   houses via `DUMP_HOUSE_POSES=1`, which writes `/tmp/house_poses.json`.
+3. the ARCHETYPE: the door prim should sit on -Y of the asset's own centre.
+   Measured `dy = -5.72`.
+
+All three passing means the geometry is fine and the SOURCE is wrong — check
+`modular_houses` before touching `house_yaw_offset_deg`.
+
+### LOCAL assets vs NUCLEUS — which one a run actually uses
+
+`airstack://` is resolved by `scene_gen/scene_generator.py` at IMPORT time:
+
+| `AIRSTACK_ASSET_ROOT` | `airstack://scene_gen/...` resolves to |
+|---|---|
+| unset (local default) | the REPO — `<repo>/scene_gen/...`, i.e. local files |
+| `omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA` | Nucleus |
+
+`.env` does NOT set it, so a local `airstack up` uses local assets; the OSMO
+missions set it explicitly, so a pod uses Nucleus. Both are intended — but it
+means **a local run and an OSMO run can be reading different files**, and the
+one that bites is the damage bake.
+
+`nucleus_upload/` (6.1 GB) is the STAGING MIRROR for the Nucleus side. Its tree
+mirrors `scene_gen/assets/` exactly so `airstack://` paths resolve unchanged
+after upload:
+
+| staged | size | what |
+|---|---|---|
+| `materials/` | 369 MB | our material wrappers, megascans, burn/scorch maps |
+| `aec/` | 5.7 GB | vendor AEC packs (trees, props, Natural MDLs) |
+| `archetypes/` | 95 MB | the 78 baked house/tree damage archetypes |
+
+**Edit both, or the two diverge silently.** `scene_gen/assets/archetypes/` is
+UNTRACKED (gitignored), so nothing in git catches a drift between the repo copy
+and the staged copy. This has already happened once: the archetype up-axis fix
+(§ below) was applied to the repo copy and NOT to `nucleus_upload/`, so the repo
+was Z-up while the staging tree was still Y-up — an upload would have shipped
+the broken ones to every pod while local looked correct. Check with:
+
+```bash
+# in the isaac-sim container, both trees should report Z
+for d in scene_gen/assets/archetypes nucleus_upload/scene_gen/assets/archetypes; do
+  ... UsdGeom.GetStageUpAxis(Usd.Stage.Open(f)) over $d/*.usd
+done
+```
+
+### Baked archetypes must carry the SOURCE stage's up axis
+
+`Usd.Stage.CreateNew` defaults to **Y-up**. `disaster/bake.py:export_object`
+creates the per-archetype stage that way while everything baked into it is
+authored Z-up (the bake script sets `SetStageUpAxis(stage, z)`), so all 78
+archetypes DECLARED Y-up over Z-up geometry and Kit applied a 90 deg X
+correction when the plat referenced them. `export_object` now copies
+`GetStageUpAxis` and `GetStageMetersPerUnit` from the source stage.
+
+Nothing downstream re-checks this and the geometry itself is fine, so it
+presents as a layout or yaw bug rather than as metadata.
 
 Drone-side, generated path only:
 

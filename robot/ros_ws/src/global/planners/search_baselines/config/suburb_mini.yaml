@@ -10,19 +10,57 @@
 # equal world coordinates and the search area is just the block plus a pad.
 search_planner:
   ros__parameters:
-    map_extent_m: 280.0        # 250 m block + pad; 480 cells -> ~58 cm
+    # THE GRID IS CENTRED ON THE TAKEOFF POINT, and the search area below is
+    # authored in WORLD, so the extent has to reach the far corner of the
+    # polygon FROM WHEREVER THE DRONE SPAWNS:
+    #
+    #     required half-extent = 130 m (the polygon) + max(|spawn_x|, |spawn_y|)
+    #
+    # and map_cells is fixed at 480, so extent alone sets the cell size. At
+    # 300 m the usable half is 148 m, which only covers a spawn within +-18 m
+    # of the block centre — the old (16.5, 18) sat exactly on that limit. The
+    # spawn is now (-30, 25) (open ground; the old one was on the collector
+    # carriageway — see .env), which needs 130 + 30 = 160 m of half-extent.
+    # 320 gives 165 m at 67 cm cells, against 300's 62 cm: a 5 cm coarser cell
+    # to buy 30 m of spawn freedom.
+    #
+    # MOVE THE SPAWN FURTHER AND THIS MUST GROW WITH IT, or lane ends past the
+    # grid edge are clipped and _lawnmower_pick warns on every one of them.
+    map_extent_m: 320.0
+    # WORLD frame. The planner's own frame is this robot's `map`, anchored at
+    # its takeoff point, so a polygon written as world coordinates but read as
+    # map coordinates is displaced by the spawn offset — the drone then
+    # confines itself to a square 16.5 m east and 18 m north of the block it
+    # was meant to search. 'world' makes the planner subtract its measured map
+    # origin (enu(GPS) - odom, same derivation as map_anchor_node) once.
+    search_area_frame: 'world'
     search_area_xy: [-130.0, -130.0,
                       130.0, -130.0,
                       130.0,  130.0,
                      -130.0,  130.0]
 
     # Suburban houses top out near 10 m.
-    min_altitude_agl_m: 8.0
+    # THE DRONE MUST BE ABLE TO GET DOWN TO A PERSON.
+    #
+    # A standing human is ~1.7 m. At the previous 8 m floor the closest the
+    # drone could ever be was 8 m up with the camera pitched 30 deg down, and
+    # YOLO-World measured 0.67 on a person only at close range — so the run
+    # flew the whole 600 s at 11-15 m and detected nothing. The descent is also
+    # CIRCULAR at that floor: `inspect_altitude_m` only engages once
+    # `found_goal` is set, and `found_goal` needs a detection the drone cannot
+    # get without descending.
+    min_altitude_agl_m: 2.0
     max_altitude_agl_m: 25.0
-    frontier_z_min_m: 3.0
+    # Frontiers may sit from just above the ground up to well over the roofs.
+    # 0.2 m lets a frontier form at ground level, which is where a person is,
+    # so the search can actually be pulled down to them.
+    frontier_z_min_m: 0.2
     frontier_z_max_m: 20.0
     flight_altitude_m: 12.0
-    inspect_altitude_m: 8.0
+    # Standoff above whatever was detected, not a fixed AGL: 3 m over a person
+    # on the ground puts them at a usable pixel size without risking the tree
+    # canopy the drone flew into on the last run.
+    inspect_altitude_m: 3.0
 
     # PERSON, not 'house'. Measured on real frames from this scene:
     #   person  0.67, 0.65, 0.48, 0.35, 0.30
@@ -32,7 +70,16 @@ search_planner:
     # renders and sharp on people in the same frames, and people are what the
     # scene actually places (40 of them) and what a SAR benchmark searches for.
     goal_name: 'person'
-    detection_classes: ['person', 'car', 'house', 'tree']
+    # CLOSED-SET COCO, not YOLO-World. We are only ever looking for humans, so
+    # the open vocabulary buys nothing and costs 4.4x the latency. Measured on
+    # the wildfire frame (people ~38 px tall):
+    #   yolov8x  (COCO)  6 people, top 0.85 / 0.73 / 0.62 / 0.49   237 ms
+    #   yolov8l-world    5 people, top 0.84 / 0.72 / 0.58 / 0.54  1030 ms
+    # `person` is COCO id 0; airstack_agent picks the id off the checkpoint's
+    # own names when the model has no set_classes. `detection_classes` is
+    # IGNORED on this path — the vocabulary is the model's.
+    yolo_world_weights: '/root/.cache/conavgpt2_weights/yolov8x.pt'
+    detection_classes: ['person']
 
     max_sim_seconds: 600.0
 
@@ -41,3 +88,23 @@ search_planner:
     # it lets go before droan considers the goal reached.
     goal_tolerance_m: 2.5
     frontier_unlock_radius_m: 4.0
+
+    # Obstacle band, in m AGL. Anything standing inside it marks the 2D grid
+    # OCCUPIED. It has to start BELOW the altitude floor or the drone flies
+    # inside its own obstacle layer once it descends: at floor 2.0 with a band
+    # starting at 2.0, every low structure the drone drops alongside becomes an
+    # obstacle at exactly its own height and the local planner has nowhere to
+    # go. 1.0 keeps kerbs and lawn out of it while still catching fences,
+    # cars, people and everything taller.
+    obstacle_min_z_m: 1.0
+    obstacle_max_z_m: 15.0
+
+    # LEAVE THIS AT 640x480. Upstream's `Global_Map_Proc` render composites the
+    # FPV into a HARDCODED 480x640x3 canvas, so raising it dies every tick with
+    #   could not broadcast input array from shape (720,960,3) into (480,640,3)
+    # The camera gain survives regardless: the ZED now delivers 720x450 instead
+    # of 480x300, and the resize to 640x480 keeps ~640x450 of real detail
+    # against the old ~480x300 — +33% horizontally, +50% vertically on target.
+    # Raising this needs upstream's canvas raised with it.
+    frame_width: 640
+    frame_height: 480

@@ -9,10 +9,12 @@
   <arg name="scene_params_file" />
   <arg name="num_robots" default="$(env NUM_ROBOTS 1)" />
   <arg name="results_dir" default="" />
-  <!-- conavgpt2_paper.yaml restores upstream's own cadence and threshold; pass
-       the base config instead for the scene tuned values. -->
+  <!-- conavgpt2.yaml: nav_mode gpt, upstream's own cadence and threshold, AND
+       the same voxel3d frontier source vlfm.yaml / frontier.yaml fly, so the
+       arms share one candidate list. paper.yaml is the 2D-faithful variant
+       (no frontier source -> planner.yaml's slab2d, upstream's own map). -->
   <arg name="method_params_file"
-       default="$(find-pkg-share search_baselines)/config/paper.yaml" />
+       default="$(find-pkg-share search_baselines)/config/conavgpt2.yaml" />
 
   <include file="$(find-pkg-share search_baselines)/launch/_planner.launch.xml">
     <arg name="method_params_file" value="$(var method_params_file)" />

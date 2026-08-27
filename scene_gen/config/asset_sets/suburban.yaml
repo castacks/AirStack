@@ -452,9 +452,10 @@ usds:
     #   Goldflame_Spirea  101k  0.32 x 0.31 x 0.20 — 101k for a 30 cm plant.
 
   # Yard furniture. Tagged by ROLE, because the pass places each where it
-  # belongs: `shed` in a far corner facing the house, `patio` and `bin` against
-  # the house wall, `mailbox` at the street edge. All bound, all cheap — the
-  # whole prop pool costs less than two trees.
+  # belongs: `patio` and `bin` against the house wall, `mailbox` at the street
+  # edge, and `shed` — currently UNSTOCKED, see the note below — in a far
+  # corner facing the house. All bound, all cheap — the whole prop pool costs
+  # less than two trees.
   yard_props:
     - {usd: "airstack://scene_gen/assets/aec/brownstone/Props/Mailbox/MailboxType01.usd", scale: 0.01,
        points: 264, weight: 1.0, tags: ["mailbox"]}   # 0.65 x 0.52 x 1.34 m
@@ -464,18 +465,23 @@ usds:
        points: 630, weight: 1.0, tags: ["bin"]}       # 0.51 x 0.51 x 0.73 m
     - {usd: "airstack://scene_gen/assets/aec/brownstone/Props/ParkBench01/ParkBench01.usd", scale: 0.01,
        points: 1463, weight: 0.6, tags: ["patio"]}    # 2.62 x 0.79 x 0.39 m — a garden seat
-    - {usd: "airstack://scene_gen/assets/aec/brownstone/Props/MobilaShelter/MobilaShelter.usd", scale: 0.01,
-       points: 11698, weight: 1.0, tags: ["shed"]}    # 2.14 x 1.95 x 2.33 m
-      # UNVERIFIED BY EYE, and the one aesthetic call in this file. Authored as
-      # a transit shelter — Frame + Roof, binding Steel_Blued_Frame and
-      # Glass_OpticalWFrit — but at 2.1 x 2.0 x 2.3 m it is shed-sized, and a
-      # steel-and-glass box that size in a back garden reads as a greenhouse or
-      # garden room. It is the ONLY structure in either AEC pack at domestic
-      # scale. If it renders as an obvious bus stop, drop this one line.
     - {usd: "airstack://scene_gen/assets/aec/brownstone/Props/Kalmar_TblChr/Kalmar_TblChr.usd", scale: 0.01,
        points: 60806, weight: 1.0, tags: ["patio"]}   # 2.43 x 2.42 x 1.01 m — table and chairs
       # 10/10 bound, ash and cast steel. As expensive as a whole tree, hence
       # `patio_chance` rather than one per garden.
+    #
+    # RENDERED AND REJECTED: MobilaShelter (Props/MobilaShelter, 11,698 points,
+    # 2.14 x 1.95 x 2.33 m), which carried the `shed` tag here. It was the only
+    # AEC structure at domestic scale and was taken on the guess that a
+    # steel-and-glass box that size would read as a greenhouse or a garden
+    # room. It does not: on screen it is unmistakably the transit shelter it
+    # was authored as, and a bus stop in a back garden is worse than an empty
+    # lawn. `urban.yaml` had already barred it from `bus_stops` for facing the
+    # wrong way, so it is now used NOWHERE — the scene's bus stops come from
+    # that pool's real shelter asset. DO NOT PUT IT BACK. There is consequently
+    # no `shed`-tagged prop in this pool at all, which is a deliberate hole and
+    # not an oversight: `suburb_yardplan` and `suburb_yards` both skip the shed
+    # slot when nothing carries the tag rather than falling back to the pool.
     #
     # MEASURED AND REJECTED: every Planter_* and PlanterFence* in both packs
     # payloads live vegetation, which is where their cost comes from —
@@ -586,6 +592,88 @@ usds:
   # and `tags` — there is no per-entry `weight`, so "rare" is a config chance
   # over a tag sub-pool, not a number written next to the asset.
 
+
+  # ---- VEHICLES, APPENDED: the 2026-08-26 standalone drop --------------------
+  # `cars+`, not `cars:` — the note above is the whole reason. A bare key would
+  # replace `shared.yaml`'s pool and delete the police car, the taxi, the
+  # construction truck and the motorhome from the suburb, and the motorhome and
+  # the 130 are two of the only THREE vehicles a person can be seen inside.
+  #
+  # WHAT THIS BUYS. `build_cars` draws the `residential` tag for driveways and
+  # kerb parking, and that tag had exactly three members — so a suburb of 500
+  # houses parked the same three cars over and over. Five more take it to
+  # eight. Five, not seven: `generic_sedan` and `red_car` came in tagged
+  # `residential` and were retagged `parked_only` on cost — see the note on
+  # them below.
+  #
+  # MEASURED, because this file's own rule is measure-before-adding and two
+  # vehicles have already been thrown out for failing it (ZIS-101A at
+  # 6.95 x 10.48 m, Old_Rusty_Car with a ground plane baked in). All eleven:
+  # metres, Z-up, base at z = 0, 4.4-5.4 m long and 1.7-2.2 m wide except the
+  # bus. So NO `scale:` and NO `axis-up:`.
+  #
+  # AND NO `yaw-offset` EITHER, which is the one thing that differs from every
+  # car above. The RetroNeighborhood and Muyang vehicles carry 90 because their
+  # long axis is local Y; these are authored nose along +X, which is what the
+  # generator already expects at yaw 0. Measured sx > sy on all eleven.
+  #
+  # NOT ONE OF THEM IS `glass_separable`, and it is not an oversight. Screened
+  # before they went in — open the stage, walk every Mesh, look for one whose
+  # name says glass or whose bound material carries a fractional opacity —
+  # every one is a SINGLE merged mesh with painted-on windows and no
+  # transparent material anywhere. That is the `Vehicle_A` case, not the
+  # `Nissan` one: there is nothing for `vehicles.strip_glass` to remove and no
+  # mesh worth naming. They are all listed in `vehicles.CABIN_RULES` as
+  # unopenable so the occupant planner never seats a labelled target inside one
+  # — `can_open_cabin` returns True for a car it has not heard of, so silence
+  # there would have been the wrong answer, not a neutral one.
+  #
+  # The two burnt shells carry `wreck`, a tag NOTHING reads today. They are
+  # recorded rather than dropped: a wildfire scene wants them, but placing them
+  # is the disaster pass's job and no such pass exists yet — and tagging them
+  # `residential` would park a burnt-out car in the driveway of an untouched
+  # house, which is what `parked_only` exists to prevent for other assets.
+  cars+:
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_sedan.usdc", tags: ["residential"]}
+      # 4.60 x 1.76 x 1.31 m, 2,840 pts — low-poly saloon
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_coupe.usdc", tags: ["residential"]}
+      # 4.60 x 1.89 x 1.36 m, 3,557 pts — low-poly coupe
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_wagon.usdc", tags: ["residential"]}
+      # 4.60 x 1.73 x 1.39 m, 1,648 pts — low-poly estate
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_pickup.usdc", tags: ["residential"]}
+      # 4.60 x 2.03 x 1.65 m, 5,180 pts — low-poly pickup — the one truck a driveway actually gets
+    # ---- PRICED OUT, and kept so nobody re-adds them -----------------------
+    # `parked_only`, which is this library's existing word for "stays in the
+    # pool, nothing currently draws it" — the same tag `Car_01_0` and
+    # `Vehicle_A` carry in `shared.yaml`.
+    #
+    # These two are 79,181 and 55,818 points against 1,648-10,215 for every
+    # other vehicle in the drop: MEASURED on `suburb_wildfire_1000`, they took
+    # 24% of the placements and 89% of the new cars' 3.37M points. A car is
+    # ~200 px of a survey frame, and nothing in that budget reaches the camera
+    # — both are single merged meshes with painted-on windows (see the
+    # `glass_separable` note above), so the detail cannot even buy the one
+    # thing a drone dataset wants from a car, which is a person visible inside
+    # it. Paying 30x for a saloon that reads identically at altitude and holds
+    # nobody is the whole argument.
+    #
+    # Re-tag to `residential` if a ground-level or driveway-close shot ever
+    # needs the fidelity; the cost is the number above, per instance.
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/generic_sedan.usdc", tags: ["parked_only"]}
+      # 4.98 x 2.16 x 1.50 m, 79,181 pts — saloon, as authored
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/red_car.usdc", tags: ["parked_only"]}
+      # 4.40 x 1.90 x 1.56 m, 55,818 pts — small hatchback
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/delivery_van.usdc", tags: ["residential", "commercial"]}
+      # 4.84 x 2.21 x 2.32 m, 840 pts — panel van — BOTH tags: a parcel van on a residential street is ordinary, unlike the construction truck
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/police_car.usdc", tags: ["livery"]}
+      # 5.40 x 2.00 x 1.46 m, 60,479 pts — squad car — `livery`, so it never parks in a driveway
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/citybus.usdc", tags: ["commercial"]}
+      # 9.48 x 2.41 x 2.40 m, 10,215 pts — 9.5 m transit bus — NEVER residential; it does not fit a drive and `build_cars` would refuse it anyway
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/burned_car_01.usdc", tags: ["wreck"]}
+      # 4.80 x 2.02 x 1.39 m, 1,804 pts — burnt-out shell
+    - {usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/burned_car_02.usdc", tags: ["wreck"]}
+      # 4.80 x 2.04 x 1.34 m, 1,429 pts — burnt-out shell
+
   # ---- PEOPLE: the /Projects/SEI-COA copy, plus the three POSED statics ------
   # A BARE KEY REPLACES the inherited pool (see the `extends` note at the top),
   # which is exactly what is wanted here: `shared.yaml` points `humans` at
@@ -610,7 +698,7 @@ usds:
   #                   it composes in a T/A-pose unless something authors one.
   #                   `scene_generator._HUMAN_POSES` does, by world-axis joint
   #                   deltas — these are the only entries that can be sat down,
-  #                   put in a car seat, or made to wave. One mesh, ~11k points.
+  #                   put in a car seat, or crouched. One mesh, ~11k points.
   #   posed_standing  no skeleton at all: a photogrammetry-style static, 50-100k
   #                   points, frozen standing. `_bind_human_pose` caches None
   #                   for these and leaves them alone, so they are usable ONLY

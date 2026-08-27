@@ -32,14 +32,17 @@ allowlist:
   - name: "rt/$(env ROBOT_NAME)/sensors/front_stereo/right/depth_ground_truth"
   - name: "rt/$(env ROBOT_NAME)/perception/stereo_image_proc/point_cloud"
 
-  # TRANSFORMS. Without these the GCS domain has odometry but no frames, so
-  # Foxglove's 3D panel has nothing to place the robot — or anything published
-  # in `map` — against, and every marker silently fails to render. The GCS
-  # publishes no transforms of its own, so although the router is bidirectional
-  # this only ever flows robot -> gcs. Note the missions' `record:` gcs-scope
-  # list already asks for /tf and /tf_static; until now that recorded nothing.
-  - name: "rt/tf"
-  - name: "rt/tf_static"
+  # TRANSFORMS ARE DELIBERATELY NOT BRIDGED (the multi-raven convention).
+  # Every robot's `map` is its OWN takeoff-anchored frame, and TF frames carry
+  # no robot prefix — so bridging /tf puts N different `map`s (and N
+  # `world->map`s once MAP_ANCHOR_ENU is on) onto one GCS tree, where they
+  # fight the GCS's own identity `world->map` and drag every `map`-stamped
+  # layer around by whichever robot's transform arrived last. The GCS never
+  # needs them: gcs_visualizer draws each robot from its GPS fix and translates
+  # every robot-local topic (trajectory, plan, vdb, rayfronts, the
+  # search_planner overlays) by that robot's boot ENU into the GLOBAL `map`
+  # it publishes itself. Record /tf in the ROBOT scope (`record.robot_topics`);
+  # a gcs-scope /tf entry records nothing, by design.
 
   # state information
   - name: "rt/$(env ROBOT_NAME)/odometry_conversion/odometry"

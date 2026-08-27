@@ -229,6 +229,7 @@ class _RoadIndex:
     def __init__(self, net, cell=40.0):
         self.cell = float(cell)
         self.cells = {}
+        self.segs = []
         for e in net.edges.values():
             if e.road_class == "boundary":
                 continue
@@ -237,6 +238,7 @@ class _RoadIndex:
             for i in range(len(e.pts) - 1):
                 a, b = e.pts[i], e.pts[i + 1]
                 seg = (a, b, hw)
+                self.segs.append(seg)
                 cx0 = int(math.floor((min(a[0], b[0]) - grow) / self.cell))
                 cx1 = int(math.floor((max(a[0], b[0]) + grow) / self.cell))
                 cy0 = int(math.floor((min(a[1], b[1]) - grow) / self.cell))
@@ -253,6 +255,62 @@ class _RoadIndex:
             if sn.seg_seg_dist(p, p, a, b) < hw + margin:
                 return True
         return False
+
+    def nearest(self, p):
+        """``(dist, half_w, foot, interior)`` for the closest centreline.
+
+        A LINEAR SCAN, not the grid hash. The hash only registers a segment in
+        the cells its own ``half_w + _PAD`` reaches, so it answers "is this on
+        the road?" and cannot answer "where is the road?" for a point that has
+        drifted further than that — which is exactly the case this exists for.
+        Lamps sit at 120 m spacing, so the scan runs tens of times.
+
+        *interior* is False when the closest point is a segment ENDPOINT: a
+        junction or a cul-de-sac bulb, where the kerb is an arc rather than a
+        line parallel to the centreline. The half-width model does not
+        describe those, so callers must not snap to them.
+        """
+        best = (1e9, 0.0, p, False)
+        for (a, b, hw) in self.segs:
+            vx, vy = b[0] - a[0], b[1] - a[1]
+            L2 = vx * vx + vy * vy
+            t = 0.0 if L2 <= 0.0 else ((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / L2
+            tc = max(0.0, min(1.0, t))
+            foot = (a[0] + tc * vx, a[1] + tc * vy)
+            d = math.hypot(p[0] - foot[0], p[1] - foot[1])
+            if d < best[0]:
+                best = (d, hw, foot, 1e-6 < tc < 1.0 - 1e-6)
+        return best
+
+    # How far the block boundary may sit off the kerb before a kerbside prop is
+    # measured from the road instead. `blocks_from_faces` insets each face by
+    # half that road's width, so the two agree to rounding along a straight
+    # frontage; where `offset_polygon` hits its mitre limit the boundary drifts
+    # inward and lamps offset from it stood up to 14.6 m back from the asphalt
+    # (~15% beyond 4 m over seeds 1/2/3/42 at 400 m). 0.75 m is wider than any
+    # rounding and far narrower than any real drift.
+    _KERB_TOL_M = 0.75
+
+    def verge(self, p, inward_n, standoff):
+        """Where a kerbside prop goes: *standoff* metres in from the KERB.
+
+        Returns ``(point, inward_normal)``. Normally that is *p* offset along
+        *inward_n*, because the block boundary IS the kerb. Where the boundary
+        has drifted, the point is rebuilt from the centreline and the normal
+        comes with it, so the prop also FACES the street it stands on.
+        Junction and bulb ends are left alone — see `nearest`.
+        """
+        fallback = (sn._add(p, sn._mul(inward_n, standoff)), inward_n)
+        d, hw, foot, interior = self.nearest(p)
+        if not interior or abs(d - hw) <= self._KERB_TOL_M:
+            return fallback
+        ox, oy = p[0] - foot[0], p[1] - foot[1]
+        L = math.hypot(ox, oy)
+        if L < 1e-6:
+            return fallback
+        out = (ox / L, oy / L)                  # centreline -> block side
+        return ((foot[0] + out[0] * (hw + standoff),
+                 foot[1] + out[1] * (hw + standoff)), out)
 
 
 # ---------------------------------------------------------------------------
@@ -1369,18 +1427,27 @@ class AssetPools:
         return 90.0 if self.axis_of(p) == "Y" else 0.0
 
     def place(self, resolver, usd, category, x, y, yaw, rng=None,
-              z_extra=0.0, scale_mul=1.0):
-        """One placement dict with every correction applied."""
+              z_extra=0.0, scale_mul=1.0, raw_pivot=False):
+        """One placement dict with every correction applied.
+
+        *raw_pivot* anchors the asset's ORIGIN at (x, y) instead of its bbox
+        centre. `apply_placements` re-centres on the bbox by default, which is
+        right for a prop whose pivot is arbitrary and wrong for one whose pivot
+        is the part that meets the ground — see the lamps in `build_frontage`.
+        """
         sc = self.scale_of(usd) * scale_mul
         au = self.axis_of(usd)
         fp = resolver.get(usd, category, scale=sc, axis_up=au)
-        return {
+        out = {
             "usd": usd, "x_m": x, "y_m": y,
             "z_m": fp.get("base", 0.0) + z_extra,
             "yaw_deg": yaw + self.yaw_of(usd),
             "roll_deg": self.roll_of(usd), "pitch_deg": 0.0,
             "scale": sc, "category": category, "axis_up": au,
         }
+        if raw_pivot:
+            out["raw_pivot"] = True
+        return out
 
 
 def _raw_pool(config, *path):
@@ -1603,9 +1670,19 @@ def build_frontage(config, resolver, net, blocks, rng, pools):
             s += step
 
         # -- lamps and hydrants, on their own rhythm along the verge -------
-        for pool, sp_m, cat in ((lamps, lamp_sp, "streetlight"),
-                                (hyd, hyd_sp, "fire_hydrant"),
-                                (bins, bin_sp, "trash_can")):
+        # A STREET LIGHT IS ANCHORED BY ITS POLE, NOT BY ITS BOUNDING BOX.
+        # SM_StreetLight is an L: a 0.40 m pole at the asset origin and a
+        # 2.79 m mast arm cantilevered off it, so the bbox centre sits out in
+        # mid-air under the arm at cy = -1.35 m. `apply_placements` centres the
+        # BBOX on the requested point by default, which stood the pole
+        # 1.6 + 1.35 = 2.95 m back from the kerb -- past the 2.5 m
+        # `fence_front_inset_m`, i.e. inside the garden. Anchoring the pivot
+        # puts the pole on the verge at 1.6 m and lets the arm reach out over
+        # the carriageway, which is what the arm is for. Hydrants and bins
+        # measure cy = -0.04 m, so centring them is the same as anchoring them.
+        for pool, sp_m, cat, pivot in ((lamps, lamp_sp, "streetlight", True),
+                                       (hyd, hyd_sp, "fire_hydrant", False),
+                                       (bins, bin_sp, "trash_can", False)):
             if not pool or sp_m <= 0.0:
                 continue
             s = rng.uniform(0.0, sp_m)
@@ -1614,7 +1691,7 @@ def build_frontage(config, resolver, net, blocks, rng, pools):
                     p = sn.point_at(ring, s)
                     t = sn.tangent_at(ring, s)
                     n = sp._inward(poly, p, t)
-                    q = sn._add(p, sn._mul(n, verge))
+                    q, n = road.verge(p, n, verge)
                     # A lamp or hydrant standing in the carriageway is worse
                     # than a missing one, so the margin here is wider than for
                     # a flat paving slab: it must clear the kerb, not touch it.
@@ -1626,7 +1703,7 @@ def build_frontage(config, resolver, net, blocks, rng, pools):
                         # so the kerb is at -n.
                         yaw = math.degrees(math.atan2(-n[1], -n[0]))
                         out.append(pools.place(resolver, u, cat, q[0], q[1],
-                                               yaw, rng))
+                                               yaw, rng, raw_pivot=pivot))
                 s += sp_m
     print(f"[suburb_scene] frontage: {len(out)} props, {n_corner} tiles dropped "
           f"at junction corners, {n_walk_road} tiles and {n_prop_road} "
@@ -2336,6 +2413,73 @@ def _fence_module(resolver, pools, usd):
     return (max(0.3, sx), max(0.02, sy), float(fp.get("sz") or 0.0), 0.0)
 
 
+def _building_line_depth(h):
+    """This lot's BUILDING LINE as a depth along `n` from `frontage`, or None.
+
+    ONE EXPRESSION, TWO CALLERS, AND THAT IS THE WHOLE POINT OF IT EXISTING.
+    The side fence is cut back to this line (`_trim_to_building_line`) and the
+    rear yard that fence encloses starts at it (`_rear_yard_edges`). Spelled out
+    twice — four dot products each — the two can disagree, and a rear yard whose
+    front edge is a metre off the line the fence was cut to is a yard the fence
+    can never close. Written once, they cannot.
+
+    IT IS THE FRONT FACE OF THE HOUSE, NOT ITS BACK WALL. `c` is the house
+    centre and `d` its depth along `n`, so `c·n - d/2` is the front wall. A
+    fenced American back yard is closed level with the front of the house, with
+    the gate in that line — the house and both side yards stand INSIDE the
+    fence, and only the front lawn is outside it.
+
+    `None` when the record is missing any of the four fields, which is a
+    placeholder house or a record from an older plat. Both callers fall back on
+    it rather than guessing a building line, because a guessed one moves a fence.
+    """
+    p, n, c, d = h.get("frontage"), h.get("n"), h.get("c"), h.get("d")
+    if not (p and n and c and d):
+        return None
+    return (c[0] - p[0]) * n[0] + (c[1] - p[1]) * n[1] - float(d) / 2.0
+
+
+def _trim_to_building_line(a, b, h, keep_m=2.0):
+    """A side run cut back to the front of the HOUSE, for a lot whose front
+    yard is left open. Returns the surviving ``(a, b)`` or ``None``.
+
+    WHY. A lot's fence is platted as one closed rectangle at
+    `fence_front_inset_m` — 2.5 m in off the lot line, which is a stride from
+    the sidewalk. That is right when the front run closes it, and wrong the
+    moment it does not: a 6 ft close-board panel over the front-yard height cap
+    (`_FRONT_FENCE_MAX_H_M`) skips its front runs by design, and the `fenced`
+    package never had one, so 161 of the 344 fence ends on seed 3 were a side
+    fence walking out to the kerb and stopping in mid-air. That is the loudest
+    tell in the whole street: no US lot fences its side yard to the pavement
+    and leaves the front open.
+
+    What a real fenced back yard does is stop LEVEL WITH THE FRONT OF THE
+    HOUSE, and the gate goes in that line. The building line is recovered from
+    the record rather than published as a fourth number — `c`, `d`, `frontage`
+    and `n` are all already there and cannot disagree with each other — and
+    `_building_line_depth` owns that one expression, because `_rear_yard_edges`
+    strikes the yard this run encloses from the very same line.
+
+    *keep_m* is the shortest stub worth laying; below it the run is dropped
+    rather than left as a two-panel orphan against the house corner.
+    """
+    p, n = h.get("frontage"), h.get("n")
+    stop = _building_line_depth(h)
+    if stop is None:
+        return (a, b)
+    da = (a[0] - p[0]) * n[0] + (a[1] - p[1]) * n[1]
+    db = (b[0] - p[0]) * n[0] + (b[1] - p[1]) * n[1]
+    if da >= stop and db >= stop:
+        return (a, b)                     # already behind the building line
+    if da < stop and db < stop:
+        return None                       # entirely in the front yard
+    t = (stop - da) / (db - da)
+    q = (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
+    span = (q, b) if da < db else (a, q)
+    dx, dy = span[1][0] - span[0][0], span[1][1] - span[0][1]
+    return span if math.hypot(dx, dy) >= keep_m else None
+
+
 def _fence_box(x, y, yaw_deg, length, thick):
     """One module as its true oriented rectangle, for the overlap test."""
     a = math.radians(yaw_deg)
@@ -2454,6 +2598,256 @@ class _FenceGrid:
             self.cells.setdefault(k, []).append(e)
 
 
+# ---------------------------------------------------------------------------
+# is this back yard enclosed?
+# ---------------------------------------------------------------------------
+# THE QUESTION NOTHING IN THIS TREE COULD ASK. `fence_segs` is read in three
+# places and every one of them asks only "is a panel in my way" — never "is this
+# ground enclosed". That hole is why 294 of the 358 patio props on seed 3 stand
+# in a back yard that is wide open to the block behind it, and why more than
+# half the fenced lots show fence that encloses nothing. Enclosure is one
+# question, so it gets one answer, and it lives beside `_FenceGrid` because it
+# is the same KIND of question: what is standing on this ground.
+#
+# A FENCE AND A TREELINE ARE BOTH BOUNDARIES, AND THEY ARE NOT JUDGED THE SAME.
+# A built fence either runs the whole line or it is not a fence: a 3 m hole in a
+# close-board run reads as a gate at best and a demolition at worst. A row of
+# crowns is the opposite — sky between the trunks still reads as the end of the
+# garden, and a row that closed canopy-to-canopy along its entire length would
+# be a hedge, not a treeline. Hence two bars, and the tree bar is the lower one.
+#
+# AND THE TWO ARE NEVER POOLED. A single combined coverage number would pass an
+# edge half-covered by fence and half by trees, and that is not an enclosed yard
+# — it is a gappy fence standing next to some trees. Whatever closes an edge has
+# to close the WHOLE edge on its own, so the two covers are measured separately,
+# each against its own bar, and only then OR'd.
+_YARD_FENCE_COVER = 0.85
+_YARD_SCREEN_COVER = 0.60
+
+# HOW CLOSE A FENCE MUST BE TO COUNT AS THIS YARD'S BOUNDARY. The yard edges
+# below are struck from `lot_width`, which is ARCLENGTH along the block ring;
+# the fence the plat lays is struck from the two shared boundary STATIONS, which
+# is a chord across that same arc. On a curving face the two disagree by
+# construction. Measured over the 221 side runs on seed 3, |lot_width/2| minus
+# the run's own lateral offset is 0.00 m median and 0.68 m at the 90th
+# percentile, so 1.2 m absorbs all but the tightest arcs — and it is also
+# `suburb_parcel._line_dupe`'s tolerance, so this pass and the plat already
+# agree that two lines this close are one boundary.
+_YARD_FENCE_REACH_M = 1.2
+
+# ...and how much a canopy is grown by before it is asked to close an edge. A
+# tree planted ON the lot line stands in the neighbour's garden, so
+# `suburb_yardplan` holds its boundary row `lot_inset_m` (0.9 m) inboard. The
+# slack is what lets a row planted properly inside the line still read as
+# standing on it, with 0.6 m over the inset for the dart that landed short.
+_YARD_SCREEN_SLACK_M = 1.5
+
+# Edge sampling step. See `_edge_cover` on why this is sampled at all.
+_YARD_SAMPLE_M = 1.0
+
+# THE SHORTEST GARDEN WORTH CALLING A GARDEN, measured BEHIND THE BACK WALL.
+# `suburb_parcel` plats `lot_depth` per block and probes it against the block
+# polygon, so it can land behind the house's own back wall: measured on seed 3,
+# 182 of 589 houses have under 4 m of garden and the worst has -24 m of it.
+# 4 m is `suburb_yardplan`'s own `patio_min_rear_yard_m`, so "this lot has a
+# rear yard" here and "something can be seated in it" there are one threshold
+# rather than two that drift.
+_YARD_MIN_GARDEN_M = 4.0
+
+
+def _rear_yard_edges(h):
+    """The three boundaries that close a back yard — ``[left, right, rear]``,
+    each an ``(p0, p1)`` pair — or ``[]`` when this lot has no yard to close.
+
+    STRUCK FROM THE PUBLISHED NUMBERS, NOT FROM `lot_corners`. Four passes
+    currently re-derive "the rear yard" from three different sources —
+    `lot_corners` (chord-clamped, so on a curving face it is metres narrow of
+    the boundary the fence was actually platted on), `lot_depth` minus a
+    measured distance, and a 16 m constant — and no two of them agree.
+    `frontage`, `u`, `n`, `lot_width` and `lot_depth` are the numbers the lot
+    was ISSUED on, so a rectangle struck from them is the lot, and it cannot
+    drift from a fourth thing nobody remembered to update.
+
+    THE FRONT EDGE IS OMITTED ON PURPOSE, and it is not an oversight: the
+    yard's fourth side is the house. The strip runs from `_building_line_depth`
+    — the front wall, which is where a real fenced back yard is closed and
+    where the gate goes — to the rear lot line, so the house and both side
+    yards stand inside it. A wall is not a coverage question, and testing the
+    front as if it were would fail every lot in the suburb.
+
+    LEFT IS THE `-u` SIDE, the same convention `lot_corners` uses for its
+    front_left and the plat uses for `ffl`, so an edge index means the same
+    thing here as it does there.
+
+    `[]` MEANS "NOTHING TO ENCLOSE", and the test for it is the GARDEN behind
+    the back wall (`_YARD_MIN_GARDEN_M`), not the depth of the strip returned:
+    the strip includes the house, so it is 10-20 m deep on a lot with no garden
+    at all and would wave through every one of them.
+    """
+    stop = _building_line_depth(h)
+    p, u, n = h.get("frontage"), h.get("u"), h.get("n")
+    lw, ld = h.get("lot_width"), h.get("lot_depth")
+    if stop is None or not (p and u and n) or not lw or not ld:
+        return []
+    ld = float(ld)
+    if ld - stop - float(h["d"]) < _YARD_MIN_GARDEN_M:
+        return []
+    hw = float(lw) / 2.0
+
+    def at(along, deep):
+        return (p[0] + u[0] * along + n[0] * deep,
+                p[1] + u[1] * along + n[1] * deep)
+
+    l0, l1 = at(-hw, stop), at(-hw, ld)
+    r0, r1 = at(hw, stop), at(hw, ld)
+    return [(l0, l1), (r0, r1), (l1, r1)]
+
+
+def _edge_cover(p0, p1, fences=(), trees=()):
+    """Fraction of the edge p0->p1 that something stands on, in ``[0, 1]``.
+
+    ONE PREDICATE, TWO KINDS OF BOUNDARY. *fences* are ``(a, b)`` module centre
+    lines, *trees* are ``(x, y, radius)`` canopies, and a sample counts if
+    EITHER reaches it. That is the point of the signature: "is this edge fenced"
+    and "is this edge screened" are the same measurement against different
+    furniture, and written twice they drift. `_yard_enclosed` nevertheless calls
+    this once per source kind rather than once with both — see its note on why
+    pooling them is a bug — and the combined call is here for a caller that
+    genuinely means "covered by anything at all".
+
+    SAMPLED, NOT INTEGRATED. The exact covered length is a union of intervals,
+    got by projecting every segment and every disc onto the edge, and it is not
+    worth the algebra: the answer is only ever compared against 0.85 or 0.60, so
+    a metre of resolution on a 10-40 m edge already decides two bars' worth more
+    than the decision needs — and sampling takes a new source shape without a
+    new projection.
+
+    PREFILTERED BY BOUNDING BOX, NOT BY A HASH GRID, and that is a considered
+    choice rather than the lazy one. The sample loop is the expensive half:
+    ~30 samples against the ~4,000 yard trees a full suburb plants is 120,000
+    distance tests for ONE edge, and 600 houses x 3 edges of that is the scan
+    the caller must not do. One bbox reject per source is four comparisons and
+    drops those 4,000 to the handful actually near this edge, which kills the
+    sample factor — the term that hurts. An `_Occupancy` grid would beat it on
+    paper, but it has to be BUILT, and this is called a few times per house
+    against a list the caller already holds: building an index per call costs
+    more than the scan it saves, and hoisting one out to `build_placements`
+    would put a cell size on a question with no natural cell (a fence run is
+    20 m long, a canopy 2 m across).
+    """
+    dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+    ln = math.hypot(dx, dy)
+    if ln < 1e-6:
+        return 0.0
+    reach = _YARD_FENCE_REACH_M
+    x0, x1 = min(p0[0], p1[0]), max(p0[0], p1[0])
+    y0, y1 = min(p0[1], p1[1]), max(p0[1], p1[1])
+    # Each surviving fence is unpacked ONCE into the projection it is about to
+    # be asked for `n` times: origin, direction, squared length. Recomputing it
+    # per sample is the same arithmetic 30 times over.
+    near_f = []
+    for (a, b) in fences:
+        if (max(a[0], b[0]) < x0 - reach or min(a[0], b[0]) > x1 + reach
+                or max(a[1], b[1]) < y0 - reach or min(a[1], b[1]) > y1 + reach):
+            continue
+        ex, ey = b[0] - a[0], b[1] - a[1]
+        near_f.append((a[0], a[1], ex, ey, max(ex * ex + ey * ey, 1e-12)))
+    near_t = []
+    for t in trees:
+        r = float(t[2]) + _YARD_SCREEN_SLACK_M
+        if (t[0] < x0 - r or t[0] > x1 + r or t[1] < y0 - r or t[1] > y1 + r):
+            continue
+        near_t.append((float(t[0]), float(t[1]), r * r))
+    if not near_f and not near_t:
+        return 0.0
+    n = max(2, int(math.ceil(ln / _YARD_SAMPLE_M)) + 1)
+    rr = reach * reach
+    hit = 0
+    for i in range(n):
+        s = i / float(n - 1)
+        qx, qy = p0[0] + dx * s, p0[1] + dy * s
+        covered = False
+        for (tx, ty, tr2) in near_t:
+            if (qx - tx) ** 2 + (qy - ty) ** 2 <= tr2:
+                covered = True
+                break
+        if not covered:
+            for (ax, ay, ex, ey, e2) in near_f:
+                t = ((qx - ax) * ex + (qy - ay) * ey) / e2
+                t = 0.0 if t < 0.0 else (1.0 if t > 1.0 else t)
+                if (qx - ax - ex * t) ** 2 + (qy - ay - ey * t) ** 2 <= rr:
+                    covered = True
+                    break
+        if covered:
+            hit += 1
+    return hit / float(n)
+
+
+def _yard_enclosed(h, fences=(), trees=()):
+    """``(closed, min_cover)`` for this house's back yard.
+
+    THE WEAKEST EDGE DECIDES, which is why the answer is a MINIMUM and never a
+    mean. Two sides fenced and the rear left open is not 67% of a yard; it is an
+    open yard with a fence down two sides of it, and you walk in off the block
+    behind. A mean would score that 0.67 and any bar low enough to reject it
+    would also reject a yard with a gate in one side.
+
+    EACH SOURCE AGAINST ITS OWN BAR, THEN OR'd. `_edge_cover` will take both
+    source kinds at once and calling it that way here would be the bug: a fence
+    over half an edge plus trees over the other half comes back 1.00 and passes,
+    when what is actually standing there is a gappy fence next to some trees. So
+    the fence cover and the tree cover are measured separately, tested against
+    `_YARD_FENCE_COVER` and `_YARD_SCREEN_COVER`, and only then OR'd per edge.
+
+    `min_cover` IS A DIAGNOSTIC, NOT WHAT `closed` IS DERIVED FROM. It is the
+    weakest edge's best source — max(fence, tree) per edge, min over the three —
+    and because the two sources sit on different scales there is no single
+    threshold on this number that reproduces the test above. Called with fences
+    only, as `build_placements` does, it IS the minimum per-edge fence cover,
+    which is exactly what `enclosure["fence_cover"]` records.
+
+    A lot with no usable rear yard comes back ``(False, 0.0)``. That is not the
+    same as an open yard, and a caller that needs to tell them apart asks
+    `_rear_yard_edges` — nothing here can distinguish "wide open" from "there
+    was never a garden".
+    """
+    edges = _rear_yard_edges(h)
+    if not edges:
+        return (False, 0.0)
+    # ONE REJECT FOR THE WHOLE YARD before the three edges are walked. Every
+    # source that survives an edge's own bbox test necessarily lies inside the
+    # yard's, so this is a strict prefilter and not a second, looser rule; it
+    # exists because the caller hands in the WHOLE suburb's fences and trees,
+    # and doing the reject once per house instead of once per edge is a third of
+    # the work for two lines. `_edge_cover` still rejects again on the shortlist,
+    # which is what actually narrows 4,000 trees down to the four beside an edge.
+    xs = [q[0] for e in edges for q in e]
+    ys = [q[1] for e in edges for q in e]
+    x0, x1 = min(xs) - _YARD_FENCE_REACH_M, max(xs) + _YARD_FENCE_REACH_M
+    y0, y1 = min(ys) - _YARD_FENCE_REACH_M, max(ys) + _YARD_FENCE_REACH_M
+    near_f = [(a, b) for (a, b) in fences
+              if not (max(a[0], b[0]) < x0 or min(a[0], b[0]) > x1
+                      or max(a[1], b[1]) < y0 or min(a[1], b[1]) > y1)]
+    near_t = []
+    for t in trees:
+        # Grown by the canopy's OWN radius, not by a pool maximum: a 25 m
+        # Black_Oak reaches into a yard a 3 m Douglas_Fir cannot, and one
+        # shared grow would drag every small tree in the block through.
+        g = float(t[2]) + _YARD_SCREEN_SLACK_M
+        if not (t[0] < x0 - g or t[0] > x1 + g
+                or t[1] < y0 - g or t[1] > y1 + g):
+            near_t.append(t)
+    closed = True
+    worst = 1.0
+    for (a, b) in edges:
+        fc = _edge_cover(a, b, fences=near_f) if near_f else 0.0
+        tc = _edge_cover(a, b, trees=near_t) if near_t else 0.0
+        if not (fc >= _YARD_FENCE_COVER or tc >= _YARD_SCREEN_COVER):
+            closed = False
+        worst = min(worst, max(fc, tc))
+    return (closed, worst)
+
+
 # WHICH FENCE A HOUSE GETS, weighted toward a full-height panel. A fenced US
 # back yard is a 6 ft wood or chain-link fence; a 3 ft picket or rail right
 # round a lot is real but is the minority case, and 3:1 is what keeps it one.
@@ -2541,7 +2935,7 @@ def _trim_offroad(p0, p1, road, margin, step=0.75):
             (p0[0] + ux * t1, p0[1] + uy * t1))
 
 
-def _fence_run(p0, p1, mod_len, min_fit=0.60, max_fit=1.15):
+def _fence_run(p0, p1, mod_len, min_fit=0.45, max_fit=1.15):
     """Module centres, yaw and fit-scale for a fence along p0->p1.
 
     THE RUN IS COVERED END TO END. Laying whole modules and dropping the
@@ -2562,8 +2956,18 @@ def _fence_run(p0, p1, mod_len, min_fit=0.60, max_fit=1.15):
         return []
     n_hi = max(1, int(math.ceil(length / mod_len - 1e-9)))   # squeeze to fit
     n_lo = max(1, n_hi - 1)                                  # stretch to fit
+    # THE BAND IS ASYMMETRIC ON PURPOSE, and wider on the squeeze side than it
+    # was. With only the two adjacent counts and a symmetric [0.60, 1.15], a
+    # 7.0 m boundary against a 5.95 m module needed 0.588 (n=2) or 1.176 (n=1)
+    # — both a hair outside — so the WHOLE RUN was dropped and the boundary
+    # stood bare. Measured over 1..60 m at four module sizes, that left
+    # stretches of up to 7 m unfenced, which is the "incomplete fence" in a
+    # render. A squeezed panel is merely short; a stretched one towers over a
+    # bungalow, which is why the cap stays at 1.15 while the floor drops.
+    # n_hi + 1 is included so a run one squeeze short of fitting has somewhere
+    # to go rather than falling off the band.
     best = None
-    for n in {n_hi, n_lo}:
+    for n in {n_hi, n_lo, n_hi + 1}:
         fit = length / (n * mod_len)
         if fit < min_fit or fit > max_fit:
             continue
@@ -3022,7 +3426,7 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
               f"turned {mf:+.0f} deg (declared {pools.yaw_of(u):+.0f})")
     fence_taken = _FenceGrid()
     fence_road = _RoadIndex(net) if net is not None else None
-    n_fence_road = n_fence_clash = 0
+    n_fence_road = n_fence_clash = n_fence_front = 0
 
     out = []
     n_gar = n_fence = 0
@@ -3193,6 +3597,14 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
                 # `place` adds the entry's yaw-offset; the measured fix is the
                 # authority for fences, so cancel the declaration out.
                 mod_yaw = mod_fix - pools.yaw_of(uf) if uf else 0.0
+                # IS THE FRONT YARD CLOSED? Only if this house has a front
+                # run AND its one asset is short enough to lay it. Both halves
+                # matter: the `fenced` package is platted without a front run
+                # at all, and a house whose asset is over the front-yard cap
+                # skips the runs it does have. Either way the side fences must
+                # not then run on to the pavement — see `_trim_to_building_line`.
+                front_open = (mod_h > _FRONT_FENCE_MAX_H_M
+                              or not any(t == "low" for (_a, _b, t) in segs))
                 for (a, b, tag) in (segs if uf else ()):
                     # A "low" run is the FRONT boundary. This house has one
                     # asset for its whole perimeter, so the front is either
@@ -3201,8 +3613,18 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
                     if tag == "low" and mod_h > _FRONT_FENCE_MAX_H_M:
                         continue
                     span = (a, b)
+                    if front_open and tag != "low":
+                        span = _trim_to_building_line(a, b, h)
+                        if span is None:
+                            n_fence_front += 1
+                            continue
                     if fence_road is not None:
-                        span = _trim_offroad(a, b, fence_road,
+                        # FROM `span`, NOT FROM (a, b). Re-deriving from the
+                        # raw segment here silently threw away the
+                        # building-line cut above — 175 runs trimmed, 46
+                        # modules actually removed. Every cut in this chain
+                        # has to consume the one before it.
+                        span = _trim_offroad(span[0], span[1], fence_road,
                                              _FENCE_ROAD_MARGIN_M)
                         if span is None:
                             n_fence_road += 1
@@ -3289,7 +3711,8 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
     print(f"[suburb_scene] lot furniture: {n_gar} garages, "
           f"{n_fence} fence modules "
           f"({n_fence_road} runs dropped off the carriageway, "
-          f"{n_fence_clash} shortened off a standing fence)")
+          f"{n_fence_clash} shortened off a standing fence, "
+          f"{n_fence_front} left in an open front yard)")
     if fence_pool and fence_road is None:
         print("[suburb_scene] WARNING: no street net handed to build_placements"
               " — fences are not being checked against the carriageway")
@@ -3300,83 +3723,35 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
 # entry point
 # ---------------------------------------------------------------------------
 
-def generate_suburb_on_stage(stage, config,
-                             parent_path: str = "/World/stage/generated",
-                             scene_scale_factor: float = 1.0,
-                             snap_to_ground: bool = False,
-                             info_out: dict = None,
-                             assembly: bool = False) -> list:
-    """Build the graph-based suburb onto a live stage. Returns placements.
+def parcel_config(config, net, catalogue, pcfg=None):
+    """The `suburb_parcel` config the plat is run with — ONE function.
 
-    Same shape as `generate_scene.generate_scene_on_stage` so the launch
-    scripts are interchangeable. `info_out`, if given, receives what a later
-    pass laying a surface on the ground needs and cannot recover from the
-    placements: `region` (x0, y0, x1, y1), `pool_rects` (the water holes, as
-    corner rings), `pools` (the same pools described — owner house, water ring,
-    centre, facing and coping outline; see `_record_pool`) and `z_scale` (the
-    ladder factor `apply_ground` used) — plus `cars`, `park`, and the LAYOUT
-    (`net`, `blocks`, `parcels`, `open_polys`) for a pass that has to reason
-    about where things are rather than only place more of them. See the
-    `info_out.update` call at the end of this function for what each carries
-    and why it cannot be recovered downstream.
+    Everything that couples the parcel pass to the rest of the build lives
+    here: the turnaround keep-outs, the measured house sizes and the lot
+    floor derived from them, and — the one that decides whether a front fence
+    breaks for the drive — `front_openings`, the kit's answer to "where do
+    this style's door and garage cross the front lot line".
+
+    SHARED WITH tools/fence_png.py ON PURPOSE. The host-side plan used to
+    rebuild a copy of this block and had drifted: it never installed
+    `front_openings`, so every lot it drew was fenced straight across its
+    drive while the real build broke the fence for half of them. A picture
+    built from a different config than the scene is not a picture of the
+    scene.
     """
-    if isinstance(config, str):
-        config = sg.load_config(config)
-
-    seed = int(config.get("seed", 0))
-    rng = random.Random(seed + 7717)
-
-    layout_cfg = dict(config.get("suburb_net") or {})
-    region = config.get("layout", {}).get("region_m") or [1600.0, 1200.0]
-    w_m, h_m = float(region[0]), float(region[1])
-
-    net, blocks, info = sn.generate(w_m, h_m, rng, layout_cfg)
-    stats = sn.stats(net, blocks, info["region"])
-    print(f"[suburb_scene] {w_m:.0f} x {h_m:.0f} m  seed {seed}")
-    print(sn.format_stats(stats))
-
-    # Undeveloped parcels are land the plat has not built on -- drainage
-    # reserve, woodland, or simply not sold yet. suburb_net marks them; skipping
-    # them here is what makes that mark mean anything, otherwise the sparseness
-    # is invisible because every parcel still gets its row of houses.
-    buildable = [b for b in blocks if not b.get("undeveloped")]
-    n_open = len(blocks) - len(buildable)
-
+    pcfg = dict(config.get("suburb_parcel") or {}) if pcfg is None else pcfg
     # THE TURNAROUND IS PAVEMENT THE BLOCK POLYGON DOES NOT KNOW ABOUT.
     # `apply_ground` discs every lollipop end at `bulb_radius_m` while the block
     # boundary runs straight past it, so lots there were sited on the
     # carriageway — 25-43 houses a seed standing in the road. The bulb is the
     # authority on where the road is, so it goes to the parcel pass as a
     # keep-out. The margin is a front yard on top of the paving.
-    pcfg = dict(config.get("suburb_parcel") or {})
     bulb_r = float(sn.DEFAULTS["bulb_radius_m"])
     margin = float(pcfg.get("bulb_margin_m", 3.0))
     pcfg.setdefault("keepout_discs",
                     [(e.pts[-1], bulb_r + margin) for e in net.edges.values()
                      if e.street_type == "lollipop"])
 
-    # MEASURE BEFORE SITING. The resolver must exist before the parcel pass:
-    # that pass can only stop guessing footprints if it is handed real ones, and
-    # the measurement is what folds each garage wing into its parent's.
-    resolver = sg._make_resolver(config)
-    pools = AssetPools(config)
-    yaw_off = float((config.get("suburb_parcel") or {})
-                    .get("house_yaw_offset_deg", -90.0))
-    # The kit takes precedence when the preset asks for it. Both catalogues
-    # publish `(w, d)`, so everything downstream — the lot floor, the packer's
-    # overlap test, `house_sizes` — is identical either way.
-    catalogue = modular_catalogue(config)
-    if catalogue:
-        # Before a single prim is written: does every style's roof cover its
-        # footprint, and does every style have a front door? Both have been
-        # wrong in ways only a render revealed.
-        from detail import modular_house as _mh
-        _mh.check()
-        print(f"[suburb_scene] modular kit: {len(catalogue)} styles, "
-              f"{min(e['w'] for e in catalogue):.0f}-"
-              f"{max(e['w'] for e in catalogue):.0f} m wide")
-    else:
-        catalogue = house_catalogue(config, resolver, pools, yaw_off)
     if catalogue and pcfg.get("house_sizes") is None:
         pcfg["house_sizes"] = [(e["w"], e["d"]) for e in catalogue]
         # A LOT NARROWER THAN THE SMALLEST HOUSE CAN NEVER BE BUILT ON. The
@@ -3427,6 +3802,74 @@ def generate_suburb_on_stage(stage, config,
             return gaps
 
         pcfg["front_openings"] = _front_openings
+    return pcfg
+
+
+def generate_suburb_on_stage(stage, config,
+                             parent_path: str = "/World/stage/generated",
+                             scene_scale_factor: float = 1.0,
+                             snap_to_ground: bool = False,
+                             info_out: dict = None,
+                             assembly: bool = False) -> list:
+    """Build the graph-based suburb onto a live stage. Returns placements.
+
+    Same shape as `generate_scene.generate_scene_on_stage` so the launch
+    scripts are interchangeable. `info_out`, if given, receives what a later
+    pass laying a surface on the ground needs and cannot recover from the
+    placements: `region` (x0, y0, x1, y1), `pool_rects` (the water holes, as
+    corner rings), `pools` (the same pools described — owner house, water ring,
+    centre, facing and coping outline; see `_record_pool`) and `z_scale` (the
+    ladder factor `apply_ground` used) — plus `cars`, `park`, and the LAYOUT
+    (`net`, `blocks`, `parcels`, `open_polys`) for a pass that has to reason
+    about where things are rather than only place more of them. See the
+    `info_out.update` call at the end of this function for what each carries
+    and why it cannot be recovered downstream.
+    """
+    if isinstance(config, str):
+        config = sg.load_config(config)
+
+    seed = int(config.get("seed", 0))
+    rng = random.Random(seed + 7717)
+
+    layout_cfg = dict(config.get("suburb_net") or {})
+    region = config.get("layout", {}).get("region_m") or [1600.0, 1200.0]
+    w_m, h_m = float(region[0]), float(region[1])
+
+    net, blocks, info = sn.generate(w_m, h_m, rng, layout_cfg)
+    stats = sn.stats(net, blocks, info["region"])
+    print(f"[suburb_scene] {w_m:.0f} x {h_m:.0f} m  seed {seed}")
+    print(sn.format_stats(stats))
+
+    # Undeveloped parcels are land the plat has not built on -- drainage
+    # reserve, woodland, or simply not sold yet. suburb_net marks them; skipping
+    # them here is what makes that mark mean anything, otherwise the sparseness
+    # is invisible because every parcel still gets its row of houses.
+    buildable = [b for b in blocks if not b.get("undeveloped")]
+    n_open = len(blocks) - len(buildable)
+
+    # MEASURE BEFORE SITING. The resolver must exist before the parcel pass:
+    # that pass can only stop guessing footprints if it is handed real ones, and
+    # the measurement is what folds each garage wing into its parent's.
+    resolver = sg._make_resolver(config)
+    pools = AssetPools(config)
+    yaw_off = float((config.get("suburb_parcel") or {})
+                    .get("house_yaw_offset_deg", -90.0))
+    # The kit takes precedence when the preset asks for it. Both catalogues
+    # publish `(w, d)`, so everything downstream — the lot floor, the packer's
+    # overlap test, `house_sizes` — is identical either way.
+    catalogue = modular_catalogue(config)
+    if catalogue:
+        # Before a single prim is written: does every style's roof cover its
+        # footprint, and does every style have a front door? Both have been
+        # wrong in ways only a render revealed.
+        from detail import modular_house as _mh
+        _mh.check()
+        print(f"[suburb_scene] modular kit: {len(catalogue)} styles, "
+              f"{min(e['w'] for e in catalogue):.0f}-"
+              f"{max(e['w'] for e in catalogue):.0f} m wide")
+    else:
+        catalogue = house_catalogue(config, resolver, pools, yaw_off)
+    pcfg = parcel_config(config, net, catalogue)
     parcels = sp.parcel_blocks(buildable, rng, pcfg)
     pstats = sp.stats(parcels)
     print(f"[suburb_scene] {pstats['houses']} houses, {pstats['trees']} trees "

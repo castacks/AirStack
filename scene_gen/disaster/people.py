@@ -70,6 +70,20 @@ every person is `alive: true`: this dataset is about finding LIVE people, and a
 prone body reads as a different labelling problem. The knob exists (and reuses
 `scene_generator`'s prone-casualty geometry — face-down, arms-down pose, lifted
 by half the body depth) so the other dataset is one config line away.
+
+POSTURE RULES (reviewed 2026-08-26, both on sight):
+
+  * NOBODY WAVES, in any scene. The raised-arm pose read as a mannequin with
+    a broken limb. It is gone from `scene_generator._HUMAN_POSES`, and
+    `add_person` raises on it rather than letting a stale chooser through.
+  * IN AN UNDAMAGED SCENE NOBODY SITS OR LIES ON THE GROUND. With nothing to
+    flee, a person sitting on a lawn, crouching on a turnaround or face-down
+    on a drive is a person the scene cannot explain. Seated is allowed only
+    on a SEAT the caller supplies — a car seat (`in_vehicle`, occupants are
+    fine) or a bench (`seat=`, parks and the urban kit have them). With
+    `peacetime` set (`resolve_cfg(..., has_disaster=False)`) `add_person`
+    coerces any other `sit_ground` / `sit_edge` / `crouch` / prone request to
+    a stander and counts it, and `casualty_share` is ignored.
 """
 
 import json
@@ -146,6 +160,12 @@ DEFAULTS = {
 # simply out of scope for this benchmark.
 SCENARIOS = ("parking_refuge", "open_ground", "pools", "gridlock",
              "cul_de_sac", "at_home")
+
+# See POSTURE RULES in the module docstring. `BANNED_POSES` are refused
+# everywhere; `GROUND_POSES` are refused in peacetime unless the caller
+# supplies the seat (`in_vehicle` or `seat`).
+BANNED_POSES = ("wave",)
+GROUND_POSES = ("sit_ground", "sit_edge", "crouch")
 
 # House damage levels that read as "this house did not shelter anybody" — the
 # ones a pool refugee is sheltering FROM, and the ones whose floor plate is
@@ -877,10 +897,40 @@ def _car_placement(ctx, usd, x, y, heading_deg, role):
 # the planner
 # ---------------------------------------------------------------------------
 
-def resolve_cfg(config):
-    """The `people:` block merged over `DEFAULTS`, one nesting level deep."""
+# WHAT PEOPLE ARE DOING WHEN NOTHING HAS HAPPENED.
+#
+# `DEFAULTS["scenarios"]` is a WILDFIRE EVACUATION mix: parking_refuge 0.30,
+# gridlock 0.25, open_ground 0.20, pools 0.10 — 85% of the population posed as
+# evacuees, sheltering in a refuge lot, jammed in a queue, or standing in a
+# swimming pool. Correct for a fire; absurd for an untouched suburb, where it
+# put an evacuation queue and a refuge lot into a scene with nothing to flee.
+#
+# In peacetime people are at home, in their yards, and on the street they live
+# on. `at_home` and `cul_de_sac` are the two postures that mean that; the
+# ambient sidewalk walkers `scene_generator` scatters are the rest.
+PEACETIME_SCENARIOS = {
+    "at_home":        {"share": 0.70},
+    "cul_de_sac":     {"share": 0.30},
+    "parking_refuge": {"share": 0.0},
+    "gridlock":       {"share": 0.0},
+    "open_ground":    {"share": 0.0},
+    "pools":          {"share": 0.0},
+}
+
+
+def resolve_cfg(config, has_disaster=True):
+    """The `people:` block merged over `DEFAULTS`, one nesting level deep.
+
+    With *has_disaster* False the evacuation shares are replaced by
+    `PEACETIME_SCENARIOS` BEFORE the `people:` block is applied, so a preset
+    can still override either way and an explicit `people.scenarios` entry
+    always wins.
+    """
     out = dict(DEFAULTS)
     out["scenarios"] = {k: dict(v) for k, v in DEFAULTS["scenarios"].items()}
+    if not has_disaster:
+        for name, sub in PEACETIME_SCENARIOS.items():
+            out["scenarios"].setdefault(name, {}).update(sub)
     block = (config or {}).get("people") or {}
     for key, val in block.items():
         if key == "scenarios":
@@ -888,6 +938,9 @@ def resolve_cfg(config):
                 out["scenarios"].setdefault(name, {}).update(sub or {})
         else:
             out[key] = val
+    # NOT overridable from the preset: whether the scene is damaged is a fact
+    # about the scene, and the posture rules hang off it (docstring).
+    out["peacetime"] = not has_disaster
     return out
 
 
@@ -930,6 +983,10 @@ class _Plan:
         # and the three passes fail in different places for different reasons.
         self.car_why = {}
         self.notes = []
+        # POSTURE RULES (module docstring). `coerced` counts every request a
+        # scenario made that the rules turned into a stander, by pose.
+        self.peacetime = bool(cfg.get("peacetime", False))
+        self.coerced = {}
 
     # -- assets ----------------------------------------------------------
     def pick_human(self, pose, prone=False):
@@ -954,7 +1011,22 @@ class _Plan:
 
     # -- people ----------------------------------------------------------
     def add_person(self, scenario, group, x, y, z_ground, yaw, pose,
-                   in_vehicle=None, prone=False, note=None, usd=None):
+                   in_vehicle=None, prone=False, note=None, usd=None,
+                   seat=None):
+        # POSTURE RULES, enforced at the one door every person comes through.
+        # *seat* names the thing a `sit_edge` is on when it is not a car
+        # ("bench", "wall"); a scenario that puts somebody on a seat it can
+        # actually see passes it, and nothing else does.
+        if pose in BANNED_POSES:
+            raise ValueError("pose %r is banned in every scene (people."
+                             "BANNED_POSES); a chooser still offers it" % pose)
+        if (self.peacetime and in_vehicle is None and seat is None
+                and (prone or pose in GROUND_POSES)):
+            why = "prone" if prone else str(pose)
+            self.coerced[why] = self.coerced.get(why, 0) + 1
+            prone, pose = False, "idle"
+            # The seat height a sitter was handed is not a stander's ground.
+            z_ground = 0.0 if str(why) == "sit_edge" else z_ground
         # *usd* pins the character. Only the pool stander needs it, and it
         # needs it for a real reason: how deep to sink somebody so the water
         # cuts them at mid-chest depends on THAT character's height, so
@@ -1054,6 +1126,11 @@ def plan_people(cfg, ctx, rng=None):
 
     _apply_casualties(plan)
 
+    if plan.coerced:
+        plan.notes.append(
+            "peacetime posture rules turned %s request(s) into standers: %s"
+            % (sum(plan.coerced.values()), dict(sorted(plan.coerced.items()))))
+
     print("[people] planned {0} of {1} requested; {2} car(s), {3} blocker(s)"
           .format(len(plan.humans), int(cfg.get("total", 0)),
                   len(plan.cars), len(plan.blockers)))
@@ -1085,6 +1162,12 @@ def _apply_casualties(plan):
     module docstring for why alive is the default rather than a setting."""
     share = float(plan.cfg.get("casualty_share", 0.0) or 0.0)
     if share <= 0.0 or not plan.humans:
+        return
+    if plan.peacetime:
+        # A face-down body in an undamaged suburb is a body the scene cannot
+        # explain — POSTURE RULES, module docstring.
+        plan.notes.append("casualty_share %.2f ignored: peacetime scene, "
+                          "nobody lies on the ground" % share)
         return
     pool = [i for i, r in enumerate(plan.records)
             if r["in_vehicle"] is None and r["scenario"] != "pools"]
@@ -1289,7 +1372,7 @@ def _one_refuge_lot(plan, lot, want, li):
     else:
         seeds = [(cx, cy)] * n_groups
     r_lo, r_hi = [float(v) for v in scfg.get("cluster_r_m", [2.0, 9.0])]
-    # STANDING ONLY at a refuge lot. The seated, crouching and waving variants
+    # STANDING ONLY at a refuge lot. The seated and crouching variants
     # are authored and grounded (tools/pose_check.py passes them on all six
     # rigs) — they are cut here because upright is the silhouette that survives
     # being looked at from capture altitude, and a lot full of one clean
@@ -1398,7 +1481,7 @@ def _open_ground(plan, want):
             if not plan.ground.free(x, y, house_m=None, solid_m=3.0,
                                     road_margin=2.0):
                 continue
-            pose = rng.choice(["idle"] * 6 + ["sit_ground"] * 4 + ["wave"])
+            pose = rng.choice(["idle"] * 6 + ["sit_ground"] * 4)
             yaw = math.degrees(math.atan2(sy - y, sx - x)) + rng.uniform(-60, 60)
             plan.add_person("open_ground", g, x, y, 0.0, yaw, pose)
             placed += 1
@@ -2127,7 +2210,7 @@ def _queue_bystanders(plan, queue, want, half_w, qi=0):
         if not plan.ground.free(x, y, road=True, house_m=1.5, solid_m=0.55,
                                 props=False):
             continue
-        pose = rng.choice(["idle"] * 5 + ["wave"] * 2 + ["crouch"])
+        pose = rng.choice(["idle"] * 7 + ["crouch"])
         plan.add_person("gridlock", qi * 10 + 0, x, y, 0.0,
                         head + rng.choice([90.0, -90.0, 180.0])
                         + rng.uniform(-25, 25), pose)
@@ -2252,6 +2335,11 @@ def _front_yard(plan, group, h, car, want):
     # each of those has to end with a person in the front yard rather than
     # with a person missing, which is what the quota arithmetic assumes.
     kinds = ["by_car" if car else "yard", "step", "yard"]
+    if plan.peacetime:
+        # No front step to sit on that the kit actually builds (the "step"
+        # below is a nominal 0.18 m line), and nobody sits on the ground in an
+        # undamaged scene — POSTURE RULES. Standing in the yard or by the car.
+        kinds = ["by_car" if car else "yard", "yard"]
     for i in range(want):
         kind = kinds[i % len(kinds)]
         if kind == "by_car" and car is None:
@@ -2303,8 +2391,7 @@ def _front_yard(plan, group, h, car, want):
                 y = h["y"] - ny * (front + out) + uy * off
                 if plan.ground.free(x, y, house_m=1.0, solid_m=0.6):
                     yaw = math.degrees(math.atan2(-ny, -nx)) + rng.uniform(-90, 90)
-                    plan.add_person("at_home", group, x, y, 0.0, yaw,
-                                    rng.choice(["idle", "idle", "wave"]))
+                    plan.add_person("at_home", group, x, y, 0.0, yaw, "idle")
                     break
 
 
@@ -2442,10 +2529,13 @@ def _cul_de_sac(plan, want):
                 rr = r * rng.uniform(0.30, 0.95)
                 x, y = cx + math.cos(a) * rr, cy + math.sin(a) * rr
                 if plan.ground.free(x, y, road=False):
+                    # A crouch beside the car is a disaster posture; on a
+                    # quiet dead end everybody is on their feet.
+                    pose = ("idle" if plan.peacetime
+                            else rng.choice(["idle", "idle", "crouch"]))
                     plan.add_person(
                         "cul_de_sac", gi, x, y, 0.0,
-                        rng.uniform(0.0, 360.0),
-                        rng.choice(["idle", "idle", "wave", "crouch"]),
+                        rng.uniform(0.0, 360.0), pose,
                         note="on the turnaround")
                     placed += 1
                     break

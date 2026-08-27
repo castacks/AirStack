@@ -199,17 +199,59 @@ def compile_earthquake(sev, spec, region):
         "strewn_topple_fraction": 0.4,
         "humans_prone_fraction": lerp(0.05, 0.55, sev),
         "humans_strewn": lerp_pair([0, 2], [4, 10], sev),
-        # Wide radial attenuation — the whole city feels it, the epicenter
-        # feels it worst. Never fully zero anywhere.
+        # Radial attenuation from the epicentre, AS FRACTIONS OF THE PLATE so
+        # `region_m` and `severity` move it together: the full-intensity core
+        # is 10-28 % of the plate's long side and the far corners keep 5-35 %.
+        # (0.15-0.45 / 0.55 put an entire 250 m downtown at intensity 1.0 and
+        # a quarter of its buildings pancaked; measured 2026-08-26.)
         "field": {
             "kind": "radial",
             "center": [float(cx), float(cy)],
-            "radius_m": round(max(w, h) * lerp(0.15, 0.45, sev), 1),
-            "falloff_m": round(max(w, h) * 0.55, 1),
+            "radius_m": round(max(w, h) * lerp(0.10, 0.28, sev), 1),
+            "falloff_m": round(max(w, h) * 0.45, 1),
             "inside": 1.0,
-            "outside": lerp(0.1, 0.45, sev),
+            "outside": lerp(0.05, 0.35, sev),
         },
+        # ---- the urban building pass (`disaster/quake.py`) reads these ----
+        # `grade_scale` multiplies the field before the EMS-98 grade draw, so
+        # severity compresses the ladder as well as shrinking the core.
+        # Reaches 1.0 at severity ~0.8: the ladder cuts are calibrated at
+        # intensity 1.0, and 0.93 at severity 0.85 drew ZERO pancakes on a
+        # 47-building plate (city 9) where 1.0 draws ~4.
+        "grade_scale": min(1.0, lerp(0.55, 1.1, sev)),
+        # The liquefaction patch: one ellipse, sized to the plate, placed
+        # AWAY from the epicentre by default (the ground fails where the soil
+        # is soft, not where the shaking is worst — and near the epicentre
+        # nothing is left standing to tilt). `spec: soft-soil: false` turns
+        # it off; `soft-soil: {center: [x, y], rx_m, ry_m, rate, angle_deg}`
+        # overrides any part of it.
+        "soft_soil": _soft_soil(sev, spec, region),
+        # Ground dust round DG4-5: reach in building heights, band opacity.
+        "dust": {"reach_h5": lerp(0.7, 1.2, sev), "reach_h4": lerp(0.35, 0.6, sev),
+                 "opacity_max": lerp(0.25, 0.45, sev)},
     }
+
+
+def _soft_soil(sev, spec, region):
+    """The earthquake's soft-soil ellipse, from severity and the plate."""
+    w, h = region
+    user = spec.get("soft-soil", spec.get("soft_soil"))
+    if user is False:
+        return False
+    user = user if isinstance(user, dict) else {}
+    cx, cy = spec.get("epicenter", [0.0, 0.0])
+    # opposite quadrant to the epicentre, clamped inside the plate
+    dx = -0.28 * w if float(cx) >= 0.0 else 0.28 * w
+    dy = 0.26 * h if float(cy) <= 0.0 else -0.26 * h
+    out = {
+        "center": [float(v) for v in user.get("center", [dx, dy])],
+        "rx_m": float(user.get("rx_m", round(0.36 * w, 1))),
+        "ry_m": float(user.get("ry_m", round(0.24 * h, 1))),
+        "angle_deg": float(user.get("angle_deg", 25.0)),
+        # share of the still-standing buildings inside it that settle / tilt
+        "rate": float(user.get("rate", round(lerp(0.25, 0.85, sev), 2))),
+    }
+    return out
 
 
 def compile_tornado(sev, spec, region):

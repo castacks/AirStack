@@ -103,12 +103,13 @@ search_planner:
     #   at threshold 0.40  ->  2
     #   at threshold 0.25  ->  3
     #
-    # 0.6: comfortably above the highest FALSE positive measured on the house
+    # 0.65: comfortably above the highest FALSE positive measured on the house
     # bench (a spurious `person` at 0.32 in a scene containing no people) and
-    # still under the real detections above. Keeps the two confident people and
-    # drops the 0.287 tail — precision over recall, deliberately, because a
-    # false survivor sends the drone across the plat for nothing.
-    sem_threshold: 0.6
+    # still under the confident real detections above. Keeps the 0.701 person,
+    # drops the 0.601 and the 0.287 tail — precision over recall, deliberately,
+    # because a false survivor sends the drone across the plat for nothing.
+    # Matches planner.yaml so the gate is identical on every arm and scene.
+    sem_threshold: 0.65
 
     # ── target ─────────────────────────────────────────────────────────────
     # The mission searches for survivors; the plat places 59 of them.

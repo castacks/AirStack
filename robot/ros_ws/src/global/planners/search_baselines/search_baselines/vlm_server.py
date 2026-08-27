@@ -286,7 +286,8 @@ def parse_messages(messages: List[Dict[str, Any]], max_images: int
                 if len(images) > max_images:
                     raise ValueError(
                         f"{len(images)} images in one request exceeds --max-images "
-                        f"{max_images}; a CoNavGPT round carries at most 6")
+                        f"{max_images}; a CoNavGPT round carries one BEV per "
+                        f"frontier, up to the planner's max_frontiers_limit (12)")
             else:
                 raise ValueError(f"unsupported content part type {ptype!r}")
         chat.append({"role": role, "content": parts})
@@ -780,7 +781,11 @@ def parse_args(argv=None):
                    help="per-image ceiling. Qwen2.5-VL's dynamic resolution makes "
                         "this the real token budget: a 6-image round costs up to "
                         "6 x max_pixels/784 visual tokens")
-    p.add_argument("--max-images", type=int, default=6,
+    # 12, NOT upstream's 6: the planner derives `max_frontiers` from the scene
+    # extent (6 at 240 m, 8 at 300 m, 12 at the cap), and a request the server
+    # refuses is a round the drone flies on a stale assignment. Match
+    # planner_node's max_frontiers_limit.
+    p.add_argument("--max-images", type=int, default=12,
                    help="reject prompts carrying more; upstream Frontier_Det() caps at 6")
     p.add_argument("--default-max-tokens", type=int, default=128)
     p.add_argument("--max-tokens-cap", type=int, default=1024,

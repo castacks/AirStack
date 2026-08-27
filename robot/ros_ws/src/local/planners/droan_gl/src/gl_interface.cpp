@@ -1,3 +1,6 @@
+#include <cstdlib>
+#include <string>
+#include <iostream>
 #include <droan_gl/gl_interface.hpp>
 
 /**
@@ -333,6 +336,22 @@ void GLInterface::evaluate_trajectories(const airstack_msgs::msg::Odometry &look
   if (!gl_inited)
     return;
 
+  // A new speed cap from the `max_velocity` parameter: rewrite every
+  // rollout's vel_max and re-upload the params SSBO. Here, not in the
+  // setter, because only this thread owns the GL context.
+  if (pending_vel_max > 0.f && pending_vel_max != vel_max)
+  {
+    vel_max = pending_vel_max;
+    pending_vel_max = -1.f;
+    for (auto &p : traj_params)
+      p.vel_max = vel_max;
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, params_ssbo);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0,
+                    traj_params.size() * sizeof(TrajectoryParams), traj_params.data());
+    RCLCPP_INFO_STREAM(node->get_logger(), "[droan_gl] rollout speed cap -> "
+                                              << vel_max << " m/s");
+  }
+
   // transform look ahead
   airstack_msgs::msg::Odometry look_ahead_odom;
   if (!tflib::transform_odometry(tf_buffer, look_ahead, look_ahead_frame, look_ahead_frame, &look_ahead_odom))
@@ -477,7 +496,24 @@ float GLInterface::gl_toc()
  */
 void GLInterface::initGL(int original_width, int original_height, int downsampled_width, int downsampled_height)
 {
-  if (!glfwInit())
+  // BACKEND CHOICE IS EXPLICIT, and EGL comes FIRST.
+  //
+  // This used to read `if (!glfwInit())` — i.e. use EGL only when GLFW fails.
+  // In a headless container DISPLAY points at Xvfb, a SOFTWARE X server, so
+  // glfwInit() succeeds, the context is llvmpipe, and every trajectory rollout
+  // rasterises on the CPU: droan_gl measured 72-100% of a core with an idle
+  // RTX 5070 Ti sitting in the same container. EGL with EGL_DEFAULT_DISPLAY
+  // picks up the nvidia vendor and gets a hardware context with no X at all,
+  // which is what this node wants everywhere it actually runs.
+  //
+  // DROAN_GL_BACKEND=glfw forces the old behaviour for a desktop with a real
+  // X server; `egl` (default) prefers hardware and falls back to GLFW if EGL
+  // cannot initialise.
+  const char *backend_env = std::getenv("DROAN_GL_BACKEND");
+  const std::string backend = backend_env ? std::string(backend_env) : std::string("egl");
+  bool have_ctx = false;
+
+  if (backend != "glfw")
   {
     static const EGLint configAttribs[] = {
         EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
@@ -506,16 +542,57 @@ void GLInterface::initGL(int original_width, int original_height, int downsample
     eglBindAPI(EGL_OPENGL_API);
     EGLContext eglCtx = eglCreateContext(eglDpy, eglCfg, EGL_NO_CONTEXT,
                                          NULL);
-    eglMakeCurrent(eglDpy, eglSurf, eglSurf, eglCtx);
-    if (!gladLoadGLLoader((GLADloadproc)eglGetProcAddress))
-      std::cout << "Failed to initialize GLAD!" << std::endl;
+    if (eglDpy != EGL_NO_DISPLAY && eglCtx != EGL_NO_CONTEXT &&
+        eglMakeCurrent(eglDpy, eglSurf, eglSurf, eglCtx))
+    {
+      if (!gladLoadGLLoader((GLADloadproc)eglGetProcAddress))
+        std::cout << "[droan_gl] EGL: failed to initialize GLAD" << std::endl;
+      else
+        have_ctx = true;
+    }
+    if (!have_ctx)
+      std::cout << "[droan_gl] EGL context unavailable, falling back to GLFW"
+                << std::endl;
   }
-  else
+
+  if (!have_ctx)
   {
+    if (!glfwInit())
+    {
+      std::cout << "[droan_gl] FATAL: neither EGL nor GLFW could be initialised"
+                << std::endl;
+      return;
+    }
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
     window_ = glfwCreateWindow(640, 480, "Offscreen", nullptr, nullptr);
     glfwMakeContextCurrent(window_);
     gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+  }
+
+  // SAY WHICH GPU (or which software rasteriser) actually answered. A node
+  // named *_gl silently running on llvmpipe is invisible in a log and obvious
+  // in `top`, which is a bad trade; one line here settles it.
+  {
+    const GLubyte *vnd = glGetString(GL_VENDOR);
+    const GLubyte *rnd = glGetString(GL_RENDERER);
+    const GLubyte *ver = glGetString(GL_VERSION);
+    const std::string renderer = rnd ? reinterpret_cast<const char *>(rnd) : "<null>";
+    const bool software =
+        renderer.find("llvmpipe") != std::string::npos ||
+        renderer.find("softpipe") != std::string::npos ||
+        renderer.find("swrast") != std::string::npos ||
+        renderer.find("SWR") != std::string::npos;
+    std::cout << "[droan_gl] context=" << (have_ctx ? "EGL" : "GLFW")
+              << "  vendor=" << (vnd ? reinterpret_cast<const char *>(vnd) : "<null>")
+              << "  renderer=" << renderer
+              << "  version=" << (ver ? reinterpret_cast<const char *>(ver) : "<null>")
+              << std::endl;
+    if (software)
+      std::cout << "[droan_gl] WARNING: SOFTWARE RASTERISER — every rollout is "
+                   "on the CPU. Expect ~1 core at full load. Set "
+                   "DROAN_GL_BACKEND=egl and make sure the nvidia EGL vendor "
+                   "(/usr/share/glvnd/egl_vendor.d/10_nvidia.json) is visible."
+                << std::endl;
   }
 
   // for(float p = -90.f; p < 90.f + 1.f; p += 5.f){
@@ -531,7 +608,7 @@ void GLInterface::initGL(int original_width, int original_height, int downsample
       params.vel_desired[0] = sin(yaw);
       params.vel_desired[1] = cos(yaw);
       params.vel_desired[2] = sin(pitch); // 0.f;
-      params.vel_max = 2.f;
+      params.vel_max = vel_max;   // the `max_velocity` parameter, 2 m/s as shipped
 
       traj_params.push_back(params);
     }

@@ -3,6 +3,7 @@ import ast
 import time
 import requests
 import json
+import re
 import base64
 import openai
 from openai import OpenAI
@@ -175,10 +176,71 @@ def _reset_last_call(model, num_frontier):
         "completion_tokens": None,
         "total_tokens": None,
         "parse": "failed",
+        "lenient": False,
         "invalid_ids": [],
         "errors": [],
         "response_text": None,
     })
+
+
+_ASSIGN_RE = re.compile(r'"robot_(\d+)"\s*:\s*"frontier_(\d+)"')
+
+
+def parse_assignment(text, num_agents, num_frontier):
+    """`{robot_i: frontier_k}` out of a model reply, or None.
+
+    Strict first (`ast.literal_eval` of the whole JSON object), then LENIENT:
+    the `"robot_i": "frontier_k"` pairs pulled by regex. The lenient path is
+    what makes a TRUNCATED reply usable — a small VLM answers for one robot
+    per image it was shown (robot_0..robot_6 for seven BEVs) and then starts
+    a "reason", so at max_tokens the JSON is cut mid-string and the strict
+    parse raises `unterminated string literal`. Measured on the 250 m suburb
+    with Qwen2.5-VL-3B: 12 of 13 rounds failed that way, each after FIVE
+    26-second retries with the planner blocked. Every one of them carried a
+    complete, valid `robot_0` assignment in its first line.
+
+    Extra robots the model invented are dropped; a missing or out-of-range id
+    for a robot that exists is a failure (None), as before.
+    """
+    pairs = None
+    try:
+        obj = ast.literal_eval(text)
+        if isinstance(obj, dict):
+            pairs = {k: str(v) for k, v in obj.items() if str(k).startswith("robot_")}
+    except (SyntaxError, ValueError, TypeError):
+        pairs = None
+    lenient = pairs is None
+    if pairs is None:
+        pairs = {f"robot_{a}": f"frontier_{b}" for a, b in _ASSIGN_RE.findall(text or "")}
+    out = {}
+    for i in range(num_agents):
+        v = pairs.get(f"robot_{i}")
+        if v is None:
+            LAST_CALL["parse"] = "too_few_robots"
+            return None
+        try:
+            k = int(str(v).split('_')[1])
+        except (IndexError, ValueError):
+            LAST_CALL["parse"] = "bad_json"
+            return None
+        if k < 0 or k >= num_frontier:
+            LAST_CALL["invalid_ids"].append({"robot": i, "frontier": v})
+            LAST_CALL["parse"] = "invalid_frontier_id"
+            return None
+        out[f"robot_{i}"] = f"frontier_{k}"
+    if lenient:
+        LAST_CALL["lenient"] = True
+        m = re.search(r'"reason"\s*:\s*"([^"]*)', text or "")
+        if m:
+            out["reason"] = m.group(1)
+    else:
+        try:
+            r = ast.literal_eval(text).get("reason")
+            if r:
+                out["reason"] = str(r)
+        except Exception:
+            pass
+    return out
 
 
 def chat_with_gpt4v(chat_history, model=None):
@@ -186,8 +248,12 @@ def chat_with_gpt4v(chat_history, model=None):
     model = model or CONFIG.model
     client = get_client()
     _reset_last_call(model, num_frontier)
-    retries = 5    
-    while retries > 0:  
+    # TWO attempts, not five. A failed generation costs a full decode (26 s
+    # on the 3B model) and nothing flies while it runs; the lenient parser
+    # above already recovers the truncated case, so retries are only for a
+    # dead endpoint.
+    retries = 2
+    while retries > 0:
         try: 
             LAST_CALL["attempts"] += 1
             _t0 = time.time()
@@ -196,7 +262,10 @@ def chat_with_gpt4v(chat_history, model=None):
                 response_format = { "type": "json_object" },
                 messages=chat_history,
                 temperature=0.1,
-                max_tokens=100,
+                # 160, not upstream's 100: the assignment lines plus a short
+                # reason. The lenient parser copes with a cut-off, but a reply
+                # that fits is a reply that carries its reason into the log.
+                max_tokens=160,
             )
             _dt = time.time() - _t0
             LAST_CALL["last_server_s"] = _dt
@@ -211,32 +280,15 @@ def chat_with_gpt4v(chat_history, model=None):
             LAST_CALL["response_text"] = (response_message or "")[:512]
             print(model + " response: ")
             print(response_message)
-            try:
-                ground_json = ast.literal_eval(response_message)
-                # Make sure ground_json has the right size
-                if len(ground_json) >= CONFIG.num_agents:
-                    # Check if each "robot_i" frontier is in a valid range
-                    is_valid = True
-                    for i in range(CONFIG.num_agents):
-                        # If out of range, set is_valid to False and break
-                        if int(ground_json[f"robot_{i}"].split('_')[1]) >= num_frontier:
-                            LAST_CALL["invalid_ids"].append(
-                                {"robot": i, "frontier": ground_json[f"robot_{i}"]})
-                            is_valid = False
-                            break
-
-                    # If still valid after the loop, we're done, return
-                    if is_valid:
-                        LAST_CALL["parse"] = "ok" if LAST_CALL["attempts"] == 1 else "retried"
-                        return ground_json
-                    LAST_CALL["parse"] = "invalid_frontier_id"
-                else:
-                    LAST_CALL["parse"] = "too_few_robots"
-
-            except (SyntaxError, ValueError) as e:
-                LAST_CALL["parse"] = "bad_json"
-                LAST_CALL["errors"].append(f"parse: {e}")
-                print(response_message)
+            ground_json = parse_assignment(response_message or "",
+                                           CONFIG.num_agents, num_frontier)
+            if ground_json is not None:
+                LAST_CALL["parse"] = "ok" if LAST_CALL["attempts"] == 1 else "retried"
+                if LAST_CALL.get("lenient"):
+                    LAST_CALL["parse"] += "_lenient"
+                return ground_json
+            LAST_CALL["errors"].append(f"parse: {LAST_CALL['parse']}: "
+                                       f"{(response_message or '')[:80]!r}")
         except openai.APIError as e:
             #Handle API error here, e.g. retry or log
             LAST_CALL["errors"].append(f"api: {e}")

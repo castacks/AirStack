@@ -3054,18 +3054,13 @@ _HUMAN_POSES = {
         "lowerarm_l": ((0.0, 1.0, 0.0), 10.0),
         "lowerarm_r": ((0.0, 1.0, 0.0), -10.0),
     },
-    # Waving with the right arm — the single most useful pose in this set,
-    # because a raised arm is what makes a person READ as a person from
-    # altitude rather than as a post. The right arm rests along -X, and
-    # `v -> R_y(a) v` sends (-1, 0, 0) to (-cos a, 0, sin a): a = +78 puts it
-    # up and 12 deg out to the right. The forearm takes -15 more about Y so
-    # the hand is outboard of the elbow instead of stacked over it.
-    "wave": {
-        "upperarm_l": ((0.0, 1.0, 0.0), 45.0),    # left arm as `idle`
-        "lowerarm_l": ((0.0, 1.0, 0.0), 8.0),
-        "upperarm_r": ((0.0, 1.0, 0.0), 78.0),
-        "lowerarm_r": ((0.0, 1.0, 0.0), -15.0),
-    },
+    # THERE IS NO `wave`, AND THERE MUST NOT BE ONE. A raised-arm pose was
+    # authored here on the argument that it is the most distinctive human
+    # silhouette from altitude; in the rendered scene the arm reads as a
+    # broken limb and the figure as a mannequin (reviewed 2026-08-26, cut on
+    # sight). Every placement pass draws from idle / walk / the seated and
+    # crouched postures below; `_bind_human_pose` REFUSES a pose name that is
+    # not in this table rather than silently leaving the rig in its A-pose.
     # Deep crouch — down beside a car, or over somebody. Hip 100, knee 137:
     #   knee  = pelvis + 0.45 * v(-100) = pelvis + (0, -0.443, +0.078)
     #   ankle = knee   + 0.42 * v(+37)  = pelvis + (0, -0.190, -0.257)
@@ -3104,7 +3099,7 @@ _HUMAN_POSES = {
 #
 # THE SUPPORT SURFACE DIFFERS BY POSE, and that is the whole contract:
 #
-#   idle / walk / wave   the SOLES. Nothing moves below the hip, so 0.
+#   idle / walk          the SOLES. Nothing moves below the hip, so 0.
 #   sit_ground           the SEAT, on the ground. The posed soles end 0.15 m
 #                        below the pelvis (see the pose), so dropping the
 #                        pelvis to 0.15 puts seat and heels down together:
@@ -3217,6 +3212,7 @@ def pose_z_offset(usd: str, pose: str, height_m: float) -> float:
     """
     if not pose:
         return 0.0
+    _check_pose(pose)
     contact = _POSE_GROUND_CONTACT.get(pose)
     if contact is not None:
         drop = _ground_contact_drop(usd, pose, contact)
@@ -3231,7 +3227,6 @@ def pose_z_offset(usd: str, pose: str, height_m: float) -> float:
 _POSE_Z_OFFSET = {
     "idle": 0.0,
     "walk": 0.0,
-    "wave": 0.0,
     # Hip 0.13 m up seated / 0.57 m in a squat, measured on the 1.731 m rig and
     # scaled into this table's 1.80 m reference by _pose_dz.
     # -0.88 grounds the 1.73 m rig but buries the tall males: hip height does
@@ -3298,6 +3293,20 @@ def _read_skeleton(asset_url: str):
     return list(joints), list(rest)
 
 
+def _check_pose(pose):
+    """A pose name that is not in `_HUMAN_POSES` is a BUG, not a no-op.
+
+    `_HUMAN_POSES.get(pose)` returning None used to mean "leave the rig
+    alone", which for a rigged RenderPeople character is the A-pose bind
+    pose — so a typo, or a pose that has since been removed (`wave`),
+    rendered a mannequin with its arms out and nobody was told. Refuse.
+    """
+    if pose and pose not in _HUMAN_POSES:
+        raise ValueError(
+            "unknown human pose %r; allowed: %s. There is deliberately no 'wave'"
+            " pose any more — see _HUMAN_POSES." % (pose, sorted(_HUMAN_POSES)))
+
+
 def _bind_human_pose(stage, prim, usd: str, pose: str, pose_cache: dict):
     """Author a static pose animation under the placed human *prim* (a
     reference to *usd*) and bind it to the composed Skeleton. Posed local
@@ -3305,6 +3314,7 @@ def _bind_human_pose(stage, prim, usd: str, pose: str, pose_cache: dict):
     *pose_cache*; assets without a readable skeleton cache ``None`` and stay
     in their authored pose.
     """
+    _check_pose(pose)
     key = (usd, pose)
     if key not in pose_cache:
         deltas = _HUMAN_POSES.get(pose)

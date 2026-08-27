@@ -1058,6 +1058,69 @@ def _seg_box(a, b, t=0.04):
     return _corners(m[0], m[1], _dist(a, b), t, d[0], d[1])
 
 
+def _drive_box(d):
+    """A drive record ``{a, b, w}`` as its oriented paving rectangle.
+
+    The SAME rectangle `tools/fence_png` draws and `apply_ground` lays, so "the
+    fence stands on the drive" is one claim tested once rather than two modules
+    each deriving the asphalt from the run.
+    """
+    a, b, w = d["a"], d["b"], float(d.get("w", 3.0))
+    ln = _dist(a, b)
+    if ln < 1e-6:
+        return _corners(a[0], a[1], w, w, 1.0, 0.0)
+    u_ = _unit(_sub(b, a))
+    m = _mul(_add(a, b), 0.5)
+    return _corners(m[0], m[1], ln, w, u_[0], u_[1])
+
+
+def _clip_seg_paving(a, b, box, pad=0.10):
+    """Open a fence run where the DRIVEWAY crosses it.
+
+    A fence does not stand across the drive of the house it belongs to. The
+    front run has always known that — `_front_runs` punches the opening out of
+    it — but a drive crosses the front line at `drive_off`, and on a narrow lot
+    that offset is at or past the side line: the drive then runs up the side
+    yard and straight through the SIDE fence, which no cut ever looked at.
+    Measured on seed 3, 32 modules across 15 drives, 13 of them on a side or
+    rear run and the rest on a front run whose opening had been cut in the wrong
+    place. Both halves of that are what this closes.
+
+    Same contract as :func:`_clip_seg` — trim to the obstruction, do not pass
+    through it — with two differences that come from what a drive is:
+
+      * IT NEVER DELETES A RUN FOR BEING CROSSED IN THE MIDDLE. `_clip_seg`
+        refuses a mid-run obstruction because a building in the middle of a
+        boundary means the boundary was platted through a house. A drive in the
+        middle of a run is ordinary, and the answer there is the longer
+        surviving side: a fence that stops at the drive reads correctly, a
+        boundary left bare does not.
+      * A 1.5 m FLOOR, not 2.0: the piece that survives is the long one by
+        construction, and the short stub between a drive and a lot corner is
+        still a fence somebody built.
+
+    The apron is the drive's own oriented box, so the opening is as wide as the
+    paving and no wider; the 0.6 m breathing room either side is already in
+    `drive_half` where the front opening is struck.
+    """
+    if not _obb_overlap(_seg_box(a, b), box, pad=-pad):
+        return a, b
+    d = _unit(_sub(b, a))
+    ln = _dist(a, b)
+    ts = [_dot(_sub(q, a), d) for q in box]
+    t0, t1 = min(ts) - pad, max(ts) + pad
+    if t0 <= 0.0 and t1 >= ln:
+        return None                       # the drive covers the whole run
+    head = None if t0 <= 0.0 else (a, _add(a, _mul(d, t0)))
+    tail = None if t1 >= ln else (_add(a, _mul(d, t1)), b)
+    if head is None:
+        return tail if _dist(*tail) >= 1.5 else None
+    if tail is None:
+        return head if _dist(*head) >= 1.5 else None
+    keep = head if _dist(*head) >= _dist(*tail) else tail
+    return keep if _dist(*keep) >= 1.5 else None
+
+
 def _clip_seg(a, b, box, pad=0.10):
     """Trim a fence run back to where a building stands on it.
 
@@ -1089,6 +1152,90 @@ def _clip_seg(a, b, box, pad=0.10):
     return (a, b) if _dist(a, b) >= 2.0 else None
 
 
+def _extend_to_meet(a, b, lines, blockers, reach=3.0, lateral=0.75):
+    """Push a run's ends the last metre or two onto a fence already standing.
+
+    THE GAP BETWEEN TWO NEIGHBOURS' BACK YARDS, which is the one defect in this
+    pass a flythrough shows and no invariant caught. Every lot strikes its rear
+    corners as ``boundary_station + n * lot_depth`` using ITS OWN inward normal
+    and ITS OWN probed depth. Two lots share the side station and agree on
+    nothing else: `lot_depth` is probed per lot against the block polygon and
+    `n` is the normal at each lot's own midpoint, so on a curving face the two
+    rear lines land 1-4 m apart. The side fence between them is deduped to one
+    run and `_line_union`'d out to the DEEPER of the two, and the shallower
+    lot's rear run then stops in mid-air a metre and a half short of it.
+    Measured on seed 3: 22 rear ends within 1.5 m of a neighbour's fence and
+    not touching it, plus 18 more within 6 m.
+
+    A surveyor's answer would be to make the two lots agree on the rear line,
+    but they legitimately do not — the block is a different depth at each
+    station, which is exactly what `_probe_depth` is for. What a BUILDER does is
+    run the fence the extra metre until it meets the one already there, and that
+    is what this does: cast each end along the run's OWN direction and stop at
+    the first standing fence within *reach*.
+
+    Two ways a fence can be met, and both are needed:
+
+      crossing      the standing run is at an angle — a rear line meeting the
+                    side line it should have landed on. Ordinary ray/segment
+                    intersection.
+      collinear     the standing run is the NEIGHBOUR'S REAR FENCE, parallel
+                    and a hair off line, so the ray never crosses it. Its
+                    nearest endpoint is projected onto the ray instead, and
+                    accepted if it lies within *lateral* of it — 0.75 m, which
+                    is wider than any module is thick and far under the 6 m
+                    side yard that separates two genuinely different lines.
+
+    *reach* is 3.0 m: `_FenceGrid._DOUBLE_M`, the distance below which two
+    parallel fences are already held to be one fence drawn twice. Nothing that
+    close is a second boundary, so nothing that close can be wrongly joined.
+
+    An extension that would push the run into a wall is refused — the run was
+    already cut at the buildings, and gaining a metre of fence is not worth
+    putting it through a garage.
+    """
+    a, b = tuple(a), tuple(b)
+    d = _unit(_sub(b, a))
+    standing = [(e[0], e[1]) for e in lines if e[2] is not None]
+    if not standing:
+        return a, b
+    out = [a, b]
+    for k, (origin, step) in enumerate(((a, _mul(d, -1.0)), (b, d))):
+        best = None
+        for (q0, q1) in standing:
+            e = _unit(_sub(q1, q0))
+            den = step[0] * e[1] - step[1] * e[0]
+            w = _sub(q0, origin)
+            if abs(den) < 1e-6:                       # parallel: project instead
+                for q in (q0, q1):
+                    t = _dot(_sub(q, origin), step)
+                    if not (1e-3 < t <= reach):
+                        continue
+                    if (_dist(_add(origin, _mul(step, t)), q) <= lateral
+                            and (best is None or t < best)):
+                        best = t
+                continue
+            t = (w[0] * e[1] - w[1] * e[0]) / den     # along the ray, in metres
+            u_ = (w[0] * step[1] - w[1] * step[0]) / den
+            if not (1e-3 < t <= reach):
+                continue
+            if not (-lateral <= u_ <= _dist(q0, q1) + lateral):
+                continue
+            if best is None or t < best:
+                best = t
+        if best is None:
+            continue
+        grown = _add(origin, _mul(step, best))
+        # A wall OR a drive. Gaining a metre of fence is not worth putting it
+        # through a garage, and it is certainly not worth putting it back
+        # across the driveway `_cut_run` just opened.
+        if any(_obb_overlap(_seg_box(out[1 - k], grown), box, pad=-0.10)
+               for box in blockers):
+            continue
+        out[k] = grown
+    return out[0], out[1]
+
+
 def _front_runs(lo, hi, gaps, min_len=1.5):
     """`[lo, hi]` less every `(centre, half_width)` opening in *gaps*.
 
@@ -1110,18 +1257,27 @@ def _front_runs(lo, hi, gaps, min_len=1.5):
     return runs
 
 
-def _clip_standing(lines, box):
-    """Re-cut fences already standing where a new garage has just landed.
+def _clip_standing(lines, box, clip=_clip_seg):
+    """Re-cut fences already standing where a new garage — or DRIVE — landed.
 
     Lots are issued along the frontage in order, so the neighbour fenced the
     shared line before this lot existed and could not have known a garage was
     coming. The line stays REGISTERED in *lines* either way, so no third lot
     lays another one down it.
+
+    THE DRIVE NEEDS THE SAME TREATMENT, and not having it is why the driveway
+    cut did not close all the way. `_cut_run` opens a fence for every apron
+    ALREADY on the block, which is the right rule for the lot laying the fence
+    and no rule at all for the lot that comes next: A fences the shared side
+    line, B is issued, B's drive runs up that line, and nothing goes back. That
+    left 1-4 modules a seed across a drive — always the neighbour's, never the
+    lot's own. Passing `clip=_clip_seg_paving` re-cuts them here, at the moment
+    the drive is struck, exactly as a late garage re-cuts them.
     """
     for e in lines:
         if e[2] is None:
             continue
-        cut = _clip_seg(e[0], e[1], box)
+        cut = clip(e[0], e[1], box)
         if cut is not None and cut[0] is e[0] and cut[1] is e[1]:
             continue                                   # untouched
         i = e[2].index(e[3])
@@ -1994,11 +2150,41 @@ def parcel_blocks(blocks, rng, cfg=None):
             # `suburb_scene` actually draws. Everything that has to stay off the
             # drive and the walk now reads the same numbers instead of each
             # re-deriving them from a guess.
+            # THE BUG THIS REPLACES. There were two drives and they disagreed.
+            # `art_gaps` is the KIT's answer — where this style's front door and
+            # garage door cross the front line — and it is what `front_gaps`
+            # took. The drive that actually gets PAVED is `plan_lot`'s when the
+            # kit stamped a garage and this pass's `drives[]` entry otherwise,
+            # and that entry was struck at `g_off` or at `side * h_w * 0.30`
+            # from a coin flip. So:
+            #
+            #   art has a door but NO garage  ->  `art_gaps` is non-empty (the
+            #       door), the `if not front_gaps` fallback never fires, and the
+            #       PLAT's drive gets no opening at all. That is every
+            #       garage-less kit style — cottage, two_storey, wide_house,
+            #       terrace — and on seed 3 it was 19 front-fence modules
+            #       standing across their own driveway.
+            #   art HAS a garage  ->  the drive is paved at the kit's `garage_x`
+            #       while this pass recorded one at `side * h_w * 0.30`, so
+            #       every consumer of `drives[]` aimed at the wrong strip.
+            #
+            # Hence `drive_off` / `drive_half`: the kit's garage opening when
+            # the kit has one, this pass's own otherwise. `drives[]` below is
+            # struck from it, so the plat and the kit now name the same ribbon,
+            # and the fence gives way to that one ribbon everywhere.
+            art_drive = next((g for g in (art_gaps or ())
+                              if len(g) > 2 and g[2] == "drive"), None)
+            if art_drive is not None:
+                drive_off, drive_half = float(art_drive[0]), float(art_drive[1])
+            else:
+                drive_off = g_off if garage is not None else side * h_w * 0.30
+                drive_half = (g_w if garage is not None else dw) / 2.0 + 0.6
+            # The front opening is the union of the kit's crossings and the
+            # plat's drive — the second only when the kit did not supply one,
+            # or the same drive is cut out twice.
             front_gaps = [(g[0], g[1]) for g in (art_gaps or ())]
-            if not front_gaps:
-                front_gaps = [((g_off if garage is not None
-                                else side * h_w * 0.30),
-                               (g_w if garage is not None else dw) / 2.0 + 0.6)]
+            if art_drive is None:
+                front_gaps.append((drive_off, drive_half))
 
             # --- fences -------------------------------------------------------
             # ONE PERIMETER, PULLED BACK OFF THE KERB. `fence_front_inset_m`
@@ -2015,7 +2201,13 @@ def parcel_blocks(blocks, rng, cfg=None):
             # honour, not a second asset pool: `suburb_scene` draws one asset
             # per house and simply skips a "low" run its asset is too tall for.
             fence_segs = []
-            if spec["fence"] > 0.0:
+            # NO FENCE ON A CUL-DE-SAC LOT. A wedge lot is a pie slice off the
+            # turnaround arc: its side lines converge toward the bulb centre,
+            # so a perimeter fence reads as a wedge of panels narrowing to a
+            # point at the kerb. It is the one place the fence does not look
+            # like a fence, so these lots get none.
+            wants_fence = spec["fence"] > 0.0 and wedge is None
+            if wants_fence:
                 f_in = float(c["fence_front_inset_m"])
                 if wedge is not None:
                     # SAME PERIMETER, STRUCK RADIALLY. The two side runs start
@@ -2025,12 +2217,28 @@ def parcel_blocks(blocks, rng, cfg=None):
                     # is the doubled-fence defect the plan colours cyan.
                     ffl = _ray(a_c, a_r0 + f_in, wedge["a_l"])
                     ffr = _ray(a_c, a_r0 + f_in, wedge["a_r"])
+                    fence_rl, fence_rr = rl, rr
                 else:
-                    ffl = _add(fl, _mul(n, f_in))
-                    ffr = _add(fr, _mul(n, f_in))
+                    # SIDE FENCES MEET THE NEIGHBOUR'S. `half` above is
+                    # chord-clamped so the HOUSE lot never overruns its
+                    # neighbour; on a curving face that leaves the lot corner
+                    # short of the true boundary, and two neighbours' fences
+                    # stop short of each other with a strip of nobody's land
+                    # between them. The BOUNDARY is the station the two lots
+                    # SHARE, so anchoring the fence there makes them meet
+                    # exactly instead of nearly. The house keeps the clamped
+                    # corners — only the fence is widened.
+                    _b0, _b1 = point_at(ring, st), point_at(ring, s)
+                    # Which station is on the -u side; do not assume ordering.
+                    if _dot(_sub(_b0, p), u) > _dot(_sub(_b1, p), u):
+                        _b0, _b1 = _b1, _b0
+                    ffl = _add(_b0, _mul(n, f_in))
+                    ffr = _add(_b1, _mul(n, f_in))
+                    fence_rl = _add(_b0, _mul(n, lot_depth))
+                    fence_rr = _add(_b1, _mul(n, lot_depth))
                 pf = _add(p, _mul(n, f_in))
-                cand = [(ffl, rl, "privacy"), (ffr, rr, "privacy"),
-                        (rl, rr, "privacy")]
+                cand = [(ffl, fence_rl, "privacy"), (ffr, fence_rr, "privacy"),
+                        (fence_rl, fence_rr, "privacy")]
                 blockers = [corners] + [h["corners"] for h in houses] \
                     + [g["corners"] for g in garages]
                 if arch in ("full", "large"):
@@ -2068,16 +2276,29 @@ def parcel_blocks(blocks, rng, cfg=None):
                             cand.append((_add(pf, _mul(u, x0)),
                                          _add(pf, _mul(u, x1)), "low"))
 
+                # EVERY DRIVE THAT CROSSES THIS LOT, as an oriented apron: this
+                # lot's own, and those of the lots already issued on this block,
+                # because two lots overlap in a block corner and the neighbour's
+                # drive is as real a piece of asphalt as your own.
+                _d0 = _add(p, _mul(u, drive_off))
+                aprons = [_drive_box(d) for d in drives[-8:]]
+                aprons.append(_drive_box({"a": _d0,
+                                          "b": _add(_d0, _mul(n, setback + 0.6)),
+                                          "w": 2.0 * drive_half}))
+
                 def _cut_run(a, b):
-                    """Trim a boundary out of the pavement, the walls and any
-                    fence already standing across it — in that order.
+                    """Trim a boundary out of the pavement, the walls, the
+                    DRIVEWAY and any fence already standing across it — in that
+                    order.
 
                     Pavement first, because it is the cut that can take the
                     whole run: a lot beside a bulb has its two side lines
                     running out of the turnaround, and there is no point asking
                     which wall a fence stops at when the front half of it is on
-                    the road. Fences last, because a run already shortened by a
-                    wall may no longer cross anything.
+                    the road. The drive comes after the walls, because a run
+                    already stopped at a garage wall may no longer reach the
+                    apron in front of it. Fences last, because a run already
+                    shortened by a wall may no longer cross anything.
                     """
                     cut = (a, b)
                     for (dc, dr) in blk_discs:
@@ -2086,6 +2307,10 @@ def parcel_blocks(blocks, rng, cfg=None):
                             return None
                     for box in blockers:         # includes this lot's own
                         cut = _clip_seg(cut[0], cut[1], box)
+                        if cut is None:
+                            return None
+                    for box in aprons:
+                        cut = _clip_seg_paving(cut[0], cut[1], box)
                         if cut is None:
                             return None
                     for entry in fence_lines:
@@ -2123,6 +2348,9 @@ def parcel_blocks(blocks, rng, cfg=None):
                             _relay(dupe, grown, fence_segs, tag)
                         continue
                     cut = _cut_run(a, b)
+                    if cut is not None:
+                        cut = _extend_to_meet(cut[0], cut[1], fence_lines,
+                                              blockers)
                     if cut is None:
                         # A building or another fence stands on this boundary
                         # for its whole length. Still registered, so the
@@ -2148,7 +2376,21 @@ def parcel_blocks(blocks, rng, cfg=None):
                            "has_garage": spec["garage"] > 0.0,
                            # In the ART, not as a separate box beside the house.
                            "art_garage": art_garage,
-                           "has_fence": spec["fence"] > 0.0,
+                           "has_fence": wants_fence,
+                           # Cul-de-sac lot. Recorded because the fence
+                           # rule keys off it and nothing downstream
+                           # could otherwise tell a wedge lot apart.
+                           "wedge_lot": wedge is not None,
+                           # THE KERB, WHEN IT IS AN ARC. `frontage` is the LOT
+                           # LINE and `u` the TANGENT there, so a kerb end slid
+                           # along `u` sits on the tangent at the lot-line
+                           # radius, outside the paving by the verge
+                           # `_arc_cap_bulbs` left plus the tangent bulge.
+                           # `modular_house.plan_lot` cannot recover the
+                           # turnaround from the record, so it is published:
+                           # (centre, PAVED radius), None on a straight lot.
+                           "kerb_arc": ((a_c, float(arc["rp"]))
+                                        if wedge is not None else None),
                            # ...and only if the BLOCK actually granted enough
                            # for one. `_probe_depth` can come back short on a
                            # shallow or awkward block, and a pool half in the
@@ -2183,12 +2425,12 @@ def parcel_blocks(blocks, rng, cfg=None):
             # the house so it lands beside the door rather than through it — and
             # when this lot reserved a garage box, up to that instead, which is
             # where a drive on a real lot goes. Same `side` either way.
-            if garage is not None:
-                a0 = _add(p, _mul(u, g_off))
-                a1 = _add(a0, _mul(n, setback + 0.2))
-            else:
-                a0 = _add(p, _mul(u, side * h_w * 0.30))
-                a1 = _add(a0, _mul(n, setback + 0.5))
+            # ...at `drive_off` — the ONE offset the front-fence opening and the
+            # fence cuts above were struck from, so the paving and the gap in
+            # the fence are the same ribbon by construction rather than by two
+            # guesses happening to agree.
+            a0 = _add(p, _mul(u, drive_off))
+            a1 = _add(a0, _mul(n, setback + (0.2 if garage is not None else 0.5)))
             if wedge is not None:
                 # AIM IT AT THE TURNAROUND. Offsetting along the tangent puts
                 # the apron on the tangent LINE, which leaves the kerb behind
@@ -2199,6 +2441,11 @@ def parcel_blocks(blocks, rng, cfg=None):
                 # radius, and every drive on the head points at its centre.
                 a0 = _ray(a_c, arc["rp"], math.atan2(a1[1] - a_c[1],
                                                      a1[0] - a_c[0]))
+            # ...and the fences the earlier lots already stood on this line
+            # get out of its way, the same way they do for a late garage.
+            _clip_standing(fence_lines, _drive_box({"a": a0, "b": a1,
+                                                    "w": 2.0 * drive_half}),
+                           clip=_clip_seg_paving)
             drives.append({"a": a0, "b": a1, "w": dw,
                            # A garage apron IS the pad; without one it is the
                            # `garage_share` coin flip as before.

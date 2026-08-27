@@ -252,9 +252,12 @@ usds:
       scale: 0.01          # 0.56 x 0.52 x 1.62 m
 
   # REPLACES the inherited pool (no `+`) so the AEC MobilaShelter cannot be used
-  # as a bus stop — it does not read as a shelter. It stays in the library for
-  # other uses. It also carried NO yaw-offset while the real shelter carries
-  # 180, so the MobilaShelters were the ones standing backwards to the kerb.
+  # as a bus stop — it does not read as a shelter. It also carried NO
+  # yaw-offset while the real shelter carries 180, so the MobilaShelters were
+  # the ones standing backwards to the kerb. It has since come out of the
+  # suburban `yard_props` too (see `asset_sets/suburban.yaml`) and is now used
+  # NOWHERE in any scene: on screen it is unmistakably a transit shelter, and
+  # the one place a transit shelter belongs is this pool, which has a real one.
   bus_stops:
     - usd: "Muyang/DownTown/Assets/BusStop.usd"
       scale: 0.01

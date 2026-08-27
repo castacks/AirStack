@@ -2,7 +2,22 @@
   ros__parameters:
     # parameters
     metric_depth_scale: 1.0  # units size of a meter. depth value corresponds to this many meters
-    downsample_scale: 1.0  # the ratio to scale down the disparity image before processing. DROAN expects 960x600. So if the incoming image is 480x300, set this to 0.5 so that it scales up
+    # DIVISOR on the incoming disparity image: processed size = size / this.
+    # (Hence the old note: at 480x300, 0.5 scales UP to the 960x600 DROAN wants.)
+    #
+    # 1.5 TAKES THE 720x450 ZED BACK TO 480x300 for the obstacle pipeline only.
+    # The camera was raised to 720x450 because target PIXEL HEIGHT is what gates
+    # detection — YOLO needs a person ~20 px tall — but that is 2.25x the pixels
+    # through BOTH this node and droan_gl (which then halves again to 360x225
+    # instead of 240x150). droan_gl went to ~73% CPU and the left image fell
+    # ~2 s behind the depth, so the planner's rgb/depth synchroniser (slop
+    # 0.10 s) never matched and every tick exited at "waiting for rgb/depth".
+    #
+    # Scaling down HERE restores both stages to exactly their old budget
+    # (480x300 here, 240x150 in droan_gl) while the planner and the detector
+    # still receive the full 720x450 frame. Obstacle avoidance never needed the
+    # extra pixels; the detector is the only consumer that does.
+    downsample_scale: 1.0
     baseline_fallback: 0.12 # if the baseline is 0 from the camera_info, use this value instead
     lut_max_disparity: 180  # maximum disparity value in the disparity image
     # expansion_radius: 0.325  # 0.325 is the spirit drone blade to blade

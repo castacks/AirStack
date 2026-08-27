@@ -223,6 +223,11 @@ private:
   airstack_msgs::msg::Odometry look_ahead;
   std::string look_ahead_frame;
   std::vector<TrajectoryParams> traj_params;
+  // A new rollout speed cap requested from the ROS thread (`max_velocity`
+  // parameter). Applied on the GL thread at the next evaluate_trajectories,
+  // because the params live in an SSBO that only that context may touch.
+  float pending_vel_max = -1.f;
+  float vel_max = 2.f;
   float dt, ht;
   GLuint traj_shader, collision_shader, traj_collision_shader;
   GLuint common_ubo, collision_info_ubo;
@@ -242,6 +247,11 @@ public:
                    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr fg_bg_cloud_pub,
                    rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub);
   void evaluate_trajectories(const airstack_msgs::msg::Odometry &look_ahead, std::vector<TrajectoryPoint> &trajectory_points, tf2::Transform &look_ahead_to_target_tf);
+  /** Cap every rollout's speed at `v` m/s (thread-safe: applied on the GL
+   *  thread before the next evaluation). The planner raises it for transit
+   *  and lowers it for a target approach. */
+  void set_vel_max(float v) { if (v > 0.f) pending_vel_max = v; }
+  float get_vel_max() const { return vel_max; }
 
   int get_traj_size();
   void check_gl_error();

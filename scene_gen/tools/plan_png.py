@@ -44,7 +44,11 @@ import yaml                                                    # noqa: E402
 
 # "# 21.1 x  6.8 x 14.2 m" — the format every measured comment already uses.
 _SIZE = re.compile(r"#\s*([\d.]+)\s*x\s*([\d.]+)\s*x\s*([\d.]+)\s*m")
-_USD = re.compile(r'["\']([^"\']+\.usda?)["\']')
+# `.usdc` too: every asset in the 2026-08-26 building drop is a `.usdc`, and
+# without it they scraped no size, fell back to `fallback_sizes.house` and drew
+# as 100 identical 30 x 20 m boxes — a plan that looks like a packing bug and
+# is not one.
+_USD = re.compile(r'["\']([^"\']+\.usd[ac]?)["\']')
 
 
 def measured_sizes(paths):
@@ -125,7 +129,31 @@ _COLOUR = {"rowhouse": "#b5651d", "midrise": "#7f8fa6",
            "tower": "#4b5d73", "park": "#5f8d4e"}
 
 
-def draw(cfg, layout, placements, res, out_path, title=""):
+def _model_colour(usd):
+    """A stable colour per MODEL, so the plan can be read for repetition.
+
+    Typology colouring answers "is the zoning right"; it cannot answer "is the
+    same building standing three times on one street", which is the other half
+    of whether a city looks generated. Here two footprints of the same colour
+    are the same asset, so a cluster of one colour IS the defect — no legend
+    needed and no counting.
+
+    Hue from a hash of the basename, spread with the golden ratio so adjacent
+    hash values land far apart on the wheel; saturation and value jittered off
+    the same hash so two models that collide in hue still separate.
+    """
+    import colorsys
+    h = 0
+    for ch in os.path.basename(str(usd)):
+        h = (h * 131 + ord(ch)) & 0xFFFFFFFF
+    hue = ((h * 0.6180339887) % 1.0)
+    sat = 0.45 + 0.40 * (((h >> 8) & 0xFF) / 255.0)
+    val = 0.55 + 0.40 * (((h >> 16) & 0xFF) / 255.0)
+    r, g, b = colorsys.hsv_to_rgb(hue, sat, val)
+    return "#%02x%02x%02x" % (int(r * 255), int(g * 255), int(b * 255))
+
+
+def draw(cfg, layout, placements, res, out_path, title="", by_model=False):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -168,7 +196,7 @@ def draw(cfg, layout, placements, res, out_path, title=""):
                                    facecolor=colour, edgecolor="none", zorder=z))
             n_park[cat] = n_park.get(cat, 0) + 1
 
-    counts = {}
+    counts, models = {}, {}
     for p in placements:
         if p.get("category") not in ("house", "building"):
             continue
@@ -184,8 +212,11 @@ def draw(cfg, layout, placements, res, out_path, title=""):
                 str(p.get("usd", ""))):
             t = "midrise"
         counts[t] = counts.get(t, 0) + 1
+        models[os.path.basename(str(p.get("usd", "")))] = 1
+        face = (_model_colour(p.get("usd", "")) if by_model
+                else _COLOUR.get(t, "#7f8fa6"))
         ax.add_patch(Rectangle((p["x_m"] - w / 2, p["y_m"] - h / 2), w, h,
-                               facecolor=_COLOUR.get(t, "#7f8fa6"),
+                               facecolor=face,
                                edgecolor="#111", lw=0.3, zorder=3))
 
     ax.set_xlim(x0, x1)
@@ -196,7 +227,10 @@ def draw(cfg, layout, placements, res, out_path, title=""):
     legend = "   ".join(f"{k} {v}" for k, v in sorted(counts.items()))
     park = "  ".join(f"{k} {v}" for k, v in sorted(n_park.items()))
     sub = f"{len(layout.get('blocks', []))} blocks   " \
-          f"{len(layout.get('road_corridors', []))} corridors   {legend}"
+          f"{len(layout.get('road_corridors', []))} corridors   {legend}   " \
+          f"{len(models)} distinct models"
+    if by_model:
+        sub += "  (one colour per model — a cluster of one colour is a repeat)"
     if park:
         sub += f"\npark: {park}"
     if res.guessed:
@@ -276,13 +310,17 @@ def main():
     # Defaults into the repo, not /tmp: a plan is meant to be looked at, and a
     # scratch path nobody can find is the same as not writing one. Gitignored.
     ap.add_argument("--out", default="")
+    ap.add_argument("--by-model", action="store_true",
+                    help="colour each building by MODEL instead of by "
+                         "typology — reads for repetition, not for zoning")
     a = ap.parse_args()
     if not a.out:
         d = os.path.join(_SCENE_GEN, "_plans")
         os.makedirs(d, exist_ok=True)
         a.out = os.path.join(d, f"{a.config}.png")
     cfg, layout, placements, res = build(a.config)
-    draw(cfg, layout, placements, res, a.out, title=a.config)
+    draw(cfg, layout, placements, res, a.out, title=a.config,
+         by_model=a.by_model)
     if a.json:
         dump_json(cfg, layout, placements, res,
                   os.path.splitext(a.out)[0] + ".json")

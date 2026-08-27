@@ -195,6 +195,28 @@ def _tagged(pool, tag):
     return hit or pool
 
 
+# The roles the prop slots below place. Used only to tell "this pool carries no
+# role tags at all" from "this pool is tagged and simply does not stock one".
+_PROP_ROLES = frozenset(("shed", "patio", "bin", "mailbox"))
+
+
+def _role(pool, tag):
+    """Entries for prop role *tag* — STRICT when the pool is tagged at all.
+
+    `_tagged`'s fall back to the whole pool is right for an UNTAGGED pool, where
+    it is the only way an old config keeps working. It is wrong for a pool that
+    is tagged and deliberately does not stock a role: the shipped suburban pool
+    has no `shed` since the AEC MobilaShelter came out of it (it rendered as the
+    transit shelter it was authored as), and under `_tagged` that hole made
+    every garden's shed slot draw from the WHOLE pool — a wheelie bin or a
+    mailbox stood in the far corner of the lawn, angled to face the house.
+    """
+    hit = [e for e in pool if tag in e["tags"]]
+    if hit:
+        return hit
+    return [] if any(e["tags"] & _PROP_ROLES for e in pool) else list(pool)
+
+
 def _weighted(rng, entries):
     total = sum(e["weight"] for e in entries)
     if total <= 0.0:
@@ -796,7 +818,7 @@ def plant(config: dict, yards: list, placements: list, resolver, rng) -> dict:
             chance = float(style.get(f"{name}_chance", 0.0))
             if not props or rng.random() >= chance:
                 continue
-            pool = budget.other.affordable(_tagged(props, cat_tag))
+            pool = budget.other.affordable(_role(props, cat_tag))
             if not pool:
                 continue
             e = _weighted(rng, pool)
@@ -930,7 +952,6 @@ _MEASURED = {
     "Hibiscus":               (2.31,  2.13,  1.64, 195_688),
     "Yew":                    (1.23,  1.24,  0.73, 324_028),
     # prop
-    "MobilaShelter":          (2.14,  1.95,  2.33,  11_698),
     "Kalmar_TblChr":          (2.43,  2.42,  1.01,  60_806),
     "ParkBench01":            (2.62,  0.79,  0.39,   1_463),
     "TrashCan":               (0.51,  0.51,  0.73,     630),
@@ -987,8 +1008,13 @@ def _selftest_config(budget=25_000_000):
                 _entry("Hibiscus", 195_688, 0.05),
                 _entry("Yew", 324_028, 0.03),
             ],
+            # NO `shed` ENTRY, matching the shipped pool: the AEC
+            # MobilaShelter was the only one and came out of
+            # `asset_sets/suburban.yaml` for rendering as the transit shelter it
+            # was authored as. The shed slot therefore draws from an empty
+            # `_role` list here, which is exactly what it does in a real run —
+            # that is the case worth exercising, not a stand-in that hides it.
             "yard_props": [
-                _entry("MobilaShelter", 11_698, 1.0, ["shed"]),
                 _entry("Kalmar_TblChr", 60_806, 1.0, ["patio"]),
                 _entry("ParkBench01", 1_463, 1.0, ["patio"]),
                 _entry("TrashCan", 630, 1.0, ["bin"]),

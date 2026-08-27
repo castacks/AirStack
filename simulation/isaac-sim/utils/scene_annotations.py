@@ -46,6 +46,18 @@ DEFAULT_CLASS_MAP = {
     "plot_pool": "pool",
     "props": "prop",
     "person": "person",
+    # AMBIENT HUMANS. `scene_generator` scatters sidewalk/park/lawn people with
+    # category "human" (scene_generator.py:2625 and friends) — a DIFFERENT
+    # system from the survivor plan in `disaster/people.py`. Without this line
+    # every one of them was dropped from the GT, so the sim showed far more
+    # people than the annotations listed and any recall metric counted a real
+    # person as a false positive.
+    #
+    # No double-count: the survivor plan's own humans are applied under
+    # `<parent>/people` and reach the GT through `boxes_from_people` (records),
+    # while the `placements` list handed to `boxes_from_placements` is the
+    # generator's, which does not include them.
+    "human": "person",
 }
 
 # Every category starting with one of these becomes that class. Buildings are
@@ -132,6 +144,53 @@ def boxes_from_placements(stage, placements, class_map=None, min_size_m=0.2):
                 "size_xyz_m": [round(s, 3) for s in size],
             },
         })
+    return boxes
+
+
+def boxes_from_scopes(stage, scopes, min_size_m=0.5):
+    """World-AABB boxes for the DIRECT children of named scopes.
+
+    For a scene built BY REFERENCE (`scene_api.build_scene`): the houses and
+    trees are not placements at all — each is one prim under `<parent>/inst`
+    (`h_<i>`, `t_<i>`, `blocker_<i>`) referencing an archetype, so there is
+    nothing for `boxes_from_placements` to walk. One box per child prim, class
+    by name prefix; `scopes` is `[(prim_path, {prefix: class}), ...]` and an
+    empty prefix matches every child. These are the OBSTACLES the 3D
+    lawnmower flies over (`search_baselines/clearance.py`), and they draw on
+    the GCS like every other class.
+    """
+    from pxr import Usd, UsdGeom
+
+    cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    boxes = []
+    for path, rules in scopes:
+        scope = stage.GetPrimAtPath(path)
+        if not scope or not scope.IsValid():
+            continue
+        for child in scope.GetChildren():
+            name = child.GetName()
+            cls = None
+            for prefix, c in rules.items():
+                if name.startswith(prefix):
+                    cls = c
+                    break
+            if not cls:
+                continue
+            rng = cache.ComputeWorldBound(child).ComputeAlignedRange()
+            if rng.IsEmpty():
+                continue
+            lo = [rng.GetMin()[i] for i in range(3)]
+            hi = [rng.GetMax()[i] for i in range(3)]
+            size = [hi[i] - lo[i] for i in range(3)]
+            if max(size) < min_size_m:
+                continue
+            boxes.append({
+                "class": cls,
+                "bbox_world": {
+                    "center_xyz_m": [round((lo[i] + hi[i]) / 2.0, 3) for i in range(3)],
+                    "size_xyz_m": [round(v, 3) for v in size],
+                },
+            })
     return boxes
 
 

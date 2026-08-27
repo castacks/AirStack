@@ -1,6 +1,7 @@
 """suburb_net_png.py — top-down plan of a `suburb_net` layout.
 
     python3 tools/suburb_net_png.py --seed 3 --out /tmp/suburb.png
+    python3 tools/suburb_net_png.py --config suburb_wildfire_1000 --lots
 
 Draws the network the way it will be built: each street as a stroked polyline
 at its true kerb-to-kerb width, blocks as the polygon faces between them. No
@@ -10,6 +11,17 @@ merge sensibly, which is a question about the plan and not about materials.
 Roads are drawn with round joins and butt caps so a junction shows exactly the
 geometry the graph has: if two streets do not actually meet, the picture shows
 the gap rather than papering over it with a patch.
+
+`--config` IS THE ENTRY POINT NOW, and the reason is that there is no longer
+one suburb. `suburb_net`, `suburb_wildfire`, `suburb_wildfire_500`,
+`suburb_wildfire_1000`, `suburb_tornado` and `suburb_mini_wildfire` each plat
+a different region at a different seed off a different `suburb_net` /
+`suburb_parcel` block — so a preview whose region, seed and knobs are hardwired
+to one of them is a preview of the wrong thing, and it looks exactly like a
+correct one. Naming the config takes all five from the compiled preset, which
+is the same thing `plan_png --config` does for the city. `--width`, `--height`,
+`--seed` and `--set` still win where they are given explicitly, so sweeping one
+knob off a real preset stays a one-flag job.
 """
 
 import argparse
@@ -78,6 +90,9 @@ def _preset_parcel_cfg():
     Read from the preset rather than duplicated here: a second copy of
     `house_gap_m` in a preview tool is a copy that goes stale the first time
     the real one is tuned.
+
+    THE DEFAULT ONLY. `--config` (below) supersedes this for any named preset
+    and is the right entry point now that there is more than one suburb.
     """
     import os as _os
     try:
@@ -101,12 +116,76 @@ def _preset_parcel_cfg():
                 return dict(v["suburb_parcel"])
     return {}
 
-def _plan_cars(seed, net, parcels):
+
+def _stub_pxr():
+    """Satisfy `import pxr` with empty modules, but ONLY if it is not installed.
+
+    Two callers below reach code that imports `pxr` at module scope and then
+    never calls into it — `compile_disaster` (via `scene_generator`, for
+    `validate_config`) and `suburb_scene` (for `build_cars`, which is pure
+    geometry). Both are perfectly runnable on a host with no USD.
+
+    THE `try` IS LOAD-BEARING RATHER THAN TIDY. `sys.modules.setdefault` wins
+    over a module that has not been imported YET, so stubbing unconditionally
+    would shadow a perfectly good `usd-core` for the rest of the process. On a
+    host that HAS the bindings that is a silent downgrade, and it would look
+    like a broken car pass rather than like this line.
+
+    It is a stub, not a shim: anything that actually authors USD still has to
+    have the real thing. `--cars` is safe here only because `build_cars`
+    decides WHERE cars go and never opens a stage.
+    """
+    import types as _types
+    try:
+        import pxr                          # noqa: F401
+        return
+    except ImportError:
+        pass
+    for _m in ("pxr", "pxr.Gf", "pxr.Sdf", "pxr.Usd", "pxr.UsdGeom",
+               "pxr.UsdShade", "pxr.UsdSkel", "pxr.Vt", "pxr.UsdPhysics"):
+        sys.modules.setdefault(_m, _types.ModuleType(_m))
+    for _n in ("Gf", "Sdf", "Usd", "UsdGeom", "UsdShade", "UsdSkel", "Vt",
+               "UsdPhysics"):
+        if not hasattr(sys.modules["pxr"], _n):
+            setattr(sys.modules["pxr"], _n, _types.SimpleNamespace())
+
+
+def _preset(name):
+    """``(region, seed, suburb_net, suburb_parcel)`` from a named scene config.
+
+    COMPILED, not read raw. A preset is a high-level spec whose plat knobs live
+    under `overrides:` and whose region can also come from the locale, so
+    `yaml.safe_load` on the file gets a partial answer — `load_scene_config`
+    runs the same compilation the build does. That is the whole point of a
+    preview: it has to plat on the terms the scene will.
+
+    Stubs `pxr` for the import, the way `plan_png` does. `compile_disaster`
+    reaches `scene_generator` for `validate_config`, and nothing this tool
+    calls afterwards touches a USD API.
+    """
+    _stub_pxr()
+    from compile_disaster import load_scene_config
+    cfg = load_scene_config(name)
+    region = (cfg.get("layout") or {}).get("region_m") or [1600.0, 1200.0]
+    return (float(region[0]), float(region[1]), int(cfg.get("seed", 0)),
+            dict(cfg.get("suburb_net") or {}),
+            dict(cfg.get("suburb_parcel") or {}))
+
+
+def _plan_cars(seed, net, parcels, config_name="suburb_net"):
     """`suburb_scene.build_cars` run for the plan, as drawable boxes.
 
-    NEEDS `pxr` — `suburb_scene` imports it at module scope, which is why the
-    rest of this tool does not touch it. `pip install usd-core` is enough; so
-    is Isaac's own python. The flag is opt-in for exactly that reason.
+    `suburb_scene` imports `pxr` at module scope, which is why the rest of this
+    tool does not touch it — but `build_cars` itself is pure geometry, so
+    `_stub_pxr` is enough and this runs on a bare host. Real bindings are used
+    when they are installed and are still what an actual build needs.
+
+    *config_name* IS THE PRESET THE PLAT WAS CUT FROM, and it has to be: this
+    read `suburb_net` unconditionally, so a plan of `suburb_wildfire_1000`
+    overlaid cars drawn against `suburb_net`'s `cars:` knobs and — worse — its
+    asset pool. Same failure mode as the parcel config above, and the picture
+    gives no sign of it. `driveway_chance`, `street_density`, `max_cars` and
+    the `residential` tag membership all move between presets.
 
     A PLAN PREVIEW, NOT THE BUILD. Two differences, both worth knowing before
     judging a picture:
@@ -121,6 +200,10 @@ def _plan_cars(seed, net, parcels):
     """
     import sys as _sys
     _sys.path.insert(0, os.path.dirname(_HERE))
+    # Independently of `--config`, which may or may not have done this already.
+    # Without it `--cars` worked only when a preset was also named, purely
+    # because `_preset` ran first — a coupling nothing in the flags suggests.
+    _stub_pxr()
     try:
         import suburb_scene as ss
         import compile_disaster as cd
@@ -129,7 +212,7 @@ def _plan_cars(seed, net, parcels):
         print(f"  --cars needs the USD python bindings ({e}); "
               f"try `pip install usd-core`")
         return []
-    cfg = cd.load_scene_config("suburb_net")
+    cfg = cd.load_scene_config(config_name)
     cfg["measure_usds"] = False
     resolver = _sg._make_resolver(cfg)
     pools = ss.AssetPools(cfg)
@@ -399,9 +482,21 @@ def draw(net, blks, info, out_path, title="", show_nodes=True, parcels=None,
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--seed", type=int, default=1)
-    ap.add_argument("--width", type=float, default=1600.0)
-    ap.add_argument("--height", type=float, default=1200.0)
+    # DEFAULTS ARE None SO "NOT GIVEN" IS DISTINGUISHABLE FROM "GIVEN THE
+    # DEFAULT". `--config` supplies all three, and `--seed 1` on a preset that
+    # seeds 10 has to mean something different from omitting it — which a
+    # default of 1 cannot express. The fallbacks below restore the old values
+    # when neither is given.
+    ap.add_argument("--config", default="", metavar="NAME",
+                    help="take region, seed and the suburb_net / suburb_parcel "
+                         "blocks from a named scene config (compiled, the way "
+                         "the build reads it) instead of from the defaults "
+                         "below — which are `suburb_net`'s and are the wrong "
+                         "plat for every other suburb preset. --width/--height/"
+                         "--seed/--set still win where given.")
+    ap.add_argument("--seed", type=int, default=None)
+    ap.add_argument("--width", type=float, default=None)
+    ap.add_argument("--height", type=float, default=None)
     ap.add_argument("--out", default="_plans/suburb_net.png")
     ap.add_argument("--no-nodes", action="store_true")
     ap.add_argument("--no-detail", action="store_true",
@@ -428,7 +523,26 @@ def main():
                          "bindings: pip install usd-core)")
     args = ap.parse_args()
 
-    cfg = {}
+    # THE PRESET IS A FLOOR, NOT A CEILING. It fills whatever the command line
+    # left alone; anything given explicitly wins, so a preset can be swept one
+    # knob at a time without copying a new one first.
+    preset_net, preset_parcel = {}, {}
+    if args.config:
+        pw, ph, pseed, preset_net, preset_parcel = _preset(args.config)
+        if args.width is None:
+            args.width = pw
+        if args.height is None:
+            args.height = ph
+        if args.seed is None:
+            args.seed = pseed
+    if args.seed is None:
+        args.seed = 1
+    if args.width is None:
+        args.width = 1600.0
+    if args.height is None:
+        args.height = 1200.0
+
+    cfg = dict(preset_net)
     for kv in args.set:
         k, _, v = kv.partition("=")
         try:
@@ -480,7 +594,10 @@ def main():
         # scene started passing cul-de-sac keep-outs and a wider side yard, the
         # plan was drawing houses the build would never place. Both now derive
         # the keep-out discs from the same place: the bulbs `apply_ground` paves.
-        pcfg = dict(_preset_parcel_cfg())
+        # `--config` wins: `_preset_parcel_cfg` is hardwired to
+        # `suburb_net.yaml`, which is the right default and the wrong answer
+        # for any other preset.
+        pcfg = dict(preset_parcel or _preset_parcel_cfg())
         # `--set` reaches the PARCEL pass as well as the net, so a knob like
         # `row_share` can be swept from the command line the way the net knobs
         # already can. Harmless in the other direction: `parcel_blocks` reads
@@ -531,7 +648,8 @@ def main():
         if parcels is None:
             print("  --cars needs the detail pass; drop --no-detail")
         else:
-            cars = _plan_cars(args.seed, net, parcels)
+            cars = _plan_cars(args.seed, net, parcels,
+                              args.config or "suburb_net")
             n_dr = sum(1 for c in cars if c["role"] == "driveway")
             print("  %d cars: %d on driveways, %d at the kerb"
                   % (len(cars), n_dr, len(cars) - n_dr))
@@ -540,7 +658,11 @@ def main():
     if not os.path.isabs(out):
         out = os.path.join(os.path.dirname(_HERE), out)
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    title = (f"suburb_net seed {args.seed} — {s['blocks']} blocks, "
+    # NAME THE PRESET IN THE PICTURE. A plan captioned `suburb_net` that is
+    # actually a 1000 m wildfire cut is the same wrong-preview problem one step
+    # later, and a PNG outlives the shell it was made in.
+    title = (f"{args.config or 'suburb_net'} seed {args.seed} — "
+             f"{s['blocks']} blocks, "
              f"{s['dead_end_pct']:.0f}% dead ends, "
              f"{s['three_way_pct']:.0f}% three-way, "
              f"{s['km_per_km2']:.1f} km/km²"

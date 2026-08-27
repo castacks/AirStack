@@ -258,7 +258,6 @@ overrides:
     lot_width_m: [22.0, 32.0]
     # SIDE YARD between neighbours. 4 m put a 20 m house 2 m off the next one;
     # 6 m is a real gap without thinning the street much (702 houses vs 865).
-    house_gap_m: 4.5
     # DISTRICTS. Density was one independent draw per BLOCK, so a tight block
     # could sit between two estate blocks on the same street — noise, not
     # variety. Seeds this far apart on a jittered grid, nearest seed wins, so a

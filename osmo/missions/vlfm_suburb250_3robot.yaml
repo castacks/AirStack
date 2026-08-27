@@ -1,0 +1,251 @@
+# vlfm_wildfire_1robot — VLFM on the procedural wildfire suburb, 1 drone.
+#
+# BLIP-2 ITM scores the live RGB, the score is painted into a value map over
+# the camera cone, and the frontier in the highest-value cell wins. The scorer
+# is 2.5 GiB and 17 ms a call, so one instance would serve a fleet; at 1 robot
+# it barely registers.
+#
+# NO semantic_search_task. The planner is launched directly by a `run` step
+# below — the mission runner's escape hatch is an arbitrary shell command, so a
+# baseline needs no runner changes and no raven_nav involvement. This arm builds
+# its own RGBD map, its own frontiers and its own actuation.
+#
+# Submit:
+#   airstack osmo:mission osmo/missions/vlfm_suburb250_1robot.yaml \
+#     --pool coasei --branch krrishj/disaster-dataset \
+#     --workflow osmo/workflows/airstack-mission-1gpu.yaml
+#
+# Schema: osmo/missions/README.md
+
+name: vlfm_suburb250_3robot
+nas_dest: /volume2/coa-sei
+
+stack:
+  services: [isaac-sim, robot-desktop, gcs, offboard-compute]
+
+method: vlfm
+
+env:
+  # No offboard-compute container on a pod — the shared model services run
+  # in robot_1, so redirect the planner's endpoints at localhost. Unset,
+  # they default to http://offboard-compute:PORT (the local stack).
+  # ONE detector + ONE BLIP-2 ITM for the fleet, on the offboard-compute
+  # container (robot/docker/docker-compose.yaml); every robot posts to it.
+  DETECTOR_URL: "http://offboard-compute:8200"
+  ITM_URL: "http://offboard-compute:8100"
+  START_DETECTOR_SERVER: "true"
+  START_ITM_SERVER: "true"
+  START_VLM_SERVER: "false"
+  CONAVGPT2_YOLO_WORLD_WEIGHTS: "/root/.cache/conavgpt2_weights/yolov8x.pt"
+  NUM_ROBOTS: 3
+  ISAAC_SIM_HEADLESS: "true"
+  ISAAC_SIM_CUDA_DEVICES: "0"
+  ISAAC_SIM_USE_STANDALONE: "true"
+  ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
+  PLAY_SIM_ON_START: "true"
+
+  # A preset names a KIND of place; these pick the instance. 250 x 250 m of
+  # UNDAMAGED suburb -- no preset file of its own, and the same three vars
+  # switch it to any size or disaster.
+  SCENE_CONFIG: suburb
+  REGION_M: "250x250"
+  DISASTER_TYPE: "none"
+  AIRSTACK_ASSET_ROOT: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA"
+  # A rect inside the block. The derived default spawn sits at (302, -144) on
+  # the 1600x1200 wildfire plat, which is off the edge of a 250 m region.
+  # THREE DRONES 6 m apart on one kerb (domain_id = list index). Each planner
+  # cuts the search area into NUM_ROBOTS strips and flies its own.
+  SPAWN_CONFIGS: '[{"x_m": -30.0, "y_m": 25.0, "orient": [0.0, 0.0, 0.7071, -0.7071]}, {"x_m": -30.0, "y_m": 31.0, "orient": [0.0, 0.0, 0.7071, -0.7071]}, {"x_m": -30.0, "y_m": 19.0, "orient": [0.0, 0.0, 0.7071, -0.7071]}]'
+  SPAWN_HEIGHT_M: "1.0"
+  PEOPLE_POLES: "1"
+
+  # CoNavGPT reads no lidar and neither does any arm here; it costs ~3x the sim
+  # rate, which lands entirely on wall clock for a sim-time-bounded run.
+  ENABLE_LIDAR: "false"
+
+  # ZED tilted 30 deg down. Read by BOTH the launch script (which tilts the
+  # mount) and search_planner (which uses it as camera_pitch_rad), because TF
+  # walks the URDF and the URDF models no pitch.
+  ZED_PITCH_DEG: "30"
+  # 1.5x the Pegasus default (480x300). Target PIXEL HEIGHT gates detection —
+  # a person needs ~20 px to clear a 0.5 threshold — and this raises it at
+  # every altitude without costing flight time.
+  ZED_WIDTH: "720"
+  ZED_HEIGHT: "450"
+
+  # Publish the MEASURED world->map transform. `map` is anchored at the takeoff
+  # point, so identity is a 340 m error at this spawn.
+  MAP_ANCHOR_ENU: "true"
+
+  # Every raven-side arm OFF: this mission does not use semantic_search_task.
+  CONAVGPT_BASELINE: "false"
+  FRONTIER_ONLY_BASELINE: "false"
+  VLFM_BASELINE: "false"
+  LVLM_BASELINE: "false"
+  COMMS_RANGE_M: 5000
+  RESULTS_SCENE: Suburb250Undamaged
+  # ONE GPU. Measured on a 16 GB card: Isaac Sim, a 4-bit VLM, YOLO-World and
+  # MobileSAM all CO-RESIDENT at 12.0 of 16.3 GB with cameras publishing at
+  # 53 Hz. On a 48 GB card Isaac (~10 GB on this plat) plus the largest service
+  # here (5.9 GB) leaves ~30 GB spare. The "Isaac needs a card to itself" claim
+  # this stack used to carry was correlation, not causation — the real cause of
+  # that incident was a stale DDS profile in the isaac-sim image.
+  #
+  # CONAVGPT2_VLM_GPU is therefore unset: nothing is pinned, and the service
+  # shares GPU 0 with the sim.
+  # Emit ground truth from the LAYOUT GENERATOR: survivor boxes come from the
+  # people pass's own humans.json, so the GT and the scenario cannot disagree.
+  # Written to both annotation dirs and drawn on /gcs/annotations/bboxes.
+  GT_ANNOTATIONS: "on"
+
+
+ready:
+  timeout_s: 1800
+  poll_interval_s: 10
+
+up_timeout_s: 3600
+iterations: 1
+iteration_attempts: 2
+on_step_failure: abort_iteration
+command_route: gcs
+
+record:
+  enabled: true
+  scope: both
+  required: true
+  topics:
+    # /tf is NOT bridged to the GCS (per-robot `map` frames would collide on
+    # one tree — see dds_router.yaml); it is recorded in the robot scope below.
+    - /{robot}/odometry_conversion/odometry
+    - /{robot}/interface/mavros/global_position/global
+    - /{robot}/global_plan
+    - /gcs/robot_markers
+    # STATIC, latched, ONE message each: the sim ground plane and the GT
+    # bounding boxes. A count of 1 in `ros2 bag info` is correct, not a
+    # dropped topic.
+    - /gcs/sim_ground
+    - /gcs/annotations/bboxes
+    # The top-down orthographic view of the whole plat, published by the sim
+    # on domain 0 (so it needs no DDS bridging). The frame every trajectory
+    # plot wants as its background, and the only view that shows coverage
+    # against the WHOLE region rather than against what the drone happened to
+    # map. `spec`/`center_x`/`center_y` carry the metres-per-pixel and origin
+    # needed to put map coordinates on it.
+    - /sim/overhead/image
+    - /sim/overhead/spec
+    - /sim/overhead/center_x
+    - /sim/overhead/center_y
+    - /{robot}/occupancy
+    - /{robot}/frontiers
+    - /{robot}/frontier_cloud
+    - /{robot}/voxel_map
+    - /{robot}/value_map
+    - /{robot}/search/markers
+    - /{robot}/search/round_stats
+    - /{robot}/search/run_complete
+  robot_topics:
+    - /tf
+    - /tf_static
+    - /robot_{n}/odometry_conversion/odometry
+    - /robot_{n}/global_plan
+    - /robot_{n}/occupancy
+    - /robot_{n}/frontiers
+    - /robot_{n}/value_map
+    - /robot_{n}/search/map_image
+    - /robot_{n}/search/round_stats
+    - /robot_{n}/search/run_complete
+    - /robot_{n}/search/agent_image
+    # The 3D map and the frontier set the method actually reasons over, plus
+    # the target/detection markers -- without these a bag shows where the
+    # drone went but not why it went there.
+    - /robot_{n}/voxel_map
+    - /robot_{n}/frontier_cloud
+    - /robot_{n}/search/markers
+    - /robot_{n}/vdb_mapping/vdb_map_pointcloud
+    - /robot_{n}/interface/mavros/state
+    - /robot_{n}/sensors/front_stereo/left/image_rect
+
+steps:
+  # The servers are started by offboard-compute itself; wait for both.
+  - run:
+      container: robot_1
+      cmd: |
+        for i in $(seq 1 90); do
+          d=$(curl -sf http://offboard-compute:8200/health 2>/dev/null | grep -c '"status": *"ok"')
+          t=$(curl -sf http://offboard-compute:8100/health 2>/dev/null | grep -c '"status": *"ok"')
+          if [ "$d" = "1" ] && [ "$t" = "1" ]; then
+            echo OFFBOARD_READY; curl -s http://offboard-compute:8200/health | head -c 300; echo
+            curl -s http://offboard-compute:8100/health | head -c 200; echo; exit 0
+          fi
+          sleep 10
+        done
+        echo OFFBOARD_NOT_READY; exit 1
+      timeout_s: 960
+      attempts: 2
+      retry_delay_s: 20
+  - action:
+      task: takeoff
+      goal: {target_altitude_m: 12.0, velocity_m_s: 2.0}
+      timeout_s: 300
+  - wait: 5
+  # One planner per robot, in ITS container: `container: robot_{n}` fans the
+  # step out over every robot. Each cuts the area into NUM_ROBOTS strips.
+  - run:
+      container: robot_{n}
+      cmd: |
+        mkdir -p /tmp/search
+        CFG=$(ros2 pkg prefix search_baselines)/share/search_baselines/config
+        nohup ros2 launch search_baselines vlfm.launch.xml \
+          scene_params_file:=$CFG/suburb_mini.yaml \
+          > /tmp/search/planner.log 2>&1 &
+        echo $! > /tmp/search/planner.pid
+        sleep 25
+        if kill -0 "$(cat /tmp/search/planner.pid)" 2>/dev/null; then
+          echo PLANNER_STARTED; grep -a -E "sector [0-9]+/|search_planner starting" /tmp/search/planner.log | head -2 || true
+        else
+          echo PLANNER_DEAD; tail -n 60 /tmp/search/planner.log; exit 1
+        fi
+      timeout_s: 240
+      attempts: 2
+      retry_delay_s: 15
+  - run:
+      container: robot_{n}
+      cmd: |
+        for i in $(seq 1 240); do
+          if timeout 10 ros2 topic echo /{robot}/search/run_complete --once 2>/dev/null | grep -q "data: true"; then
+            echo RUN_COMPLETE; exit 0
+          fi
+          kill -0 "$(cat /tmp/search/planner.pid)" 2>/dev/null || {
+            echo PLANNER_EXITED; tail -n 60 /tmp/search/planner.log; exit 1; }
+          sleep 15
+        done
+        echo RUN_DID_NOT_COMPLETE; tail -n 40 /tmp/search/planner.log; exit 1
+      timeout_s: 3900
+  - run:
+      container: robot_{n}
+      cmd: |
+        DEST=/root/AirStack/results/vlfm_suburb250_3robot/{robot}
+        mkdir -p "$DEST"
+        cp -v /tmp/search/*.log "$DEST"/ 2>/dev/null || true
+        cp -v /tmp/conavgpt2/search_planner_rounds.jsonl "$DEST"/ 2>/dev/null || true
+        {
+          echo "# ticks with a detection / total"
+          grep -ac "targets:" /tmp/search/planner.log
+          grep -a "targets:" /tmp/search/planner.log | grep -acv "'n': 0,"
+          echo "# people visited / given up / goals blacklisted"
+          grep -ac "target VISITED" /tmp/search/planner.log
+          grep -ac "GIVING UP" /tmp/search/planner.log
+          grep -ac "BLACKLISTED" /tmp/search/planner.log
+        } > "$DEST"/summary.txt 2>&1
+        cat "$DEST"/summary.txt
+      timeout_s: 120
+      expect_success: false
+  - run:
+      container: robot_1
+      cmd: |
+        DEST=/root/AirStack/results/vlfm_suburb250_3robot
+        curl -s http://offboard-compute:8100/metrics > "$DEST"/itm_metrics.json 2>/dev/null || true
+        curl -s http://offboard-compute:8200/metrics > "$DEST"/detector_metrics.json 2>/dev/null || true
+        cat "$DEST"/itm_metrics.json; echo; cat "$DEST"/detector_metrics.json; echo
+      timeout_s: 60
+      expect_success: false

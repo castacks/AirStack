@@ -9,11 +9,20 @@
 # round number: spacing wider than the footprint leaves unobserved gaps between
 # lanes and would understate what this baseline actually achieves.
 #
-# Needs NO GPU service.
+# Needs no model for SELECTION -- the lanes are the plan -- but it detects
+# like every other arm, on the shared detector service (offboard-compute:8200).
 search_planner:
   ros__parameters:
     nav_mode: 'lawnmower'
     vlm_preflight: false
+
+    # The DETECTOR is shared, even though the selection policy needs no model:
+    # every arm detects, and three planner processes each holding their own
+    # YOLO + MobileSAM is three copies of one stateless answer on one card.
+    # This arm is the first to be flown off the shared service; the other arms
+    # follow once it has flown. Needs `./airstack.sh up offboard-compute`
+    # BEFORE launch — an unreachable service is fatal, by design.
+    detector_mode: 'server'
 
     # 0 -> derived from flight_altitude_m, the camera hfov and the overlap below.
     lawnmower_spacing_m: 0.0
@@ -23,7 +32,58 @@ search_planner:
     lawnmower_axis: 'auto'
     lawnmower_reach_radius_m: 8.0
 
-    # Sector the region and stay in it. At 1 robot this is the padded region
-    # itself, so the pipeline is exercised without changing behaviour.
+    # HOW THE PATH REACHES THE DRONE. Never whole, and never as bare lane
+    # ends either — a lane end on a 260 m sector is one goal 260 m out, which
+    # droan_gl steers straight at with nothing to be judged on in between and
+    # nothing to skip if it cannot get there. Instead the drone is walked to
+    # the nearest lane end in legs of at most this many metres (the transit),
+    # then along the lanes in legs of the same length, ONE goal at a time on
+    # /global_plan as a two-pose path (the goal, then the next lane point) —
+    # exactly the way a frontier is sent. Comparable to a frontier hop.
+    lawnmower_leg_m: 25.0
+    # No progress toward the current leg for this long -> skip it. The
+    # frontier arms have lock/swap to get off an unreachable goal; a lane leg
+    # inside a tree canopy would otherwise stall the whole run.
+    # 12, not 30: a stall now LIFTS the goal before it skips it (below), so
+    # the first reaction to a blocked leg is cheap and the whole wait for a
+    # genuinely unreachable one is 3 x 12 s, not 30.
+    lawnmower_stall_s: 12.0
+    lawnmower_stall_lift_m: 5.0
+    lawnmower_stall_lifts: 2
+
+    # ── the 3D lawnmower ──────────────────────────────────────────────────
+    # A lane goal at cruise inside a tree canopy is unreachable, and the
+    # sweep used to sit on it for the stall timer and then leave that ground
+    # unswept. A coverage path is planned over a KNOWN map, so this arm reads
+    # the layout generator's ground truth — the scene's annotation JSON
+    # (house / tree / car boxes; the launcher writes it with GT_ANNOTATIONS
+    # on, under RESULTS_SCENE) — and flies each leg at
+    #   max(flight_altitude_m, tallest box along the leg + clearance)
+    # clamped to the altitude band, dropping back to cruise over open ground
+    # so the detector keeps its pixels. Reach is judged in XY only and the
+    # through pose carries the NEXT leg's height, so a drone that popped over
+    # a canopy descends toward the next goal instead of back onto this one.
+    # The frontier / VLFM arms do NOT get this file: their map is what they
+    # have seen. State that asymmetry when the arms are compared.
+    known_obstacles_file: ''           # '' -> look the scene up
+    known_obstacles_scene: ''          # '' -> $RESULTS_SCENE
+    known_obstacle_classes: ['house', 'building', 'tree', 'car', 'truck']
+    obstacle_clearance_m: 3.0          # above the box top
+    obstacle_inflate_m: 2.0            # box grown sideways; droan's own margin
+
+    # The three-state voxel map, so the sweep's own map is visible on the GCS
+    # (/robot_N/voxel_map) exactly as the frontier arms' is. Nothing in this
+    # arm SELECTS from it — the lanes are the plan — it is the shared source
+    # running as it does for every other arm.
+    frontier_source: 'voxel3d'
+    voxel_size_m: 2.0
+
+    # Sector the region and stay in it. At 1 robot this is the region itself,
+    # so the pipeline is exercised without changing behaviour.
     sector_partition: 'strips'
-    search_area_pad_m: 25.0
+    # NO pad. The other arms fly the unpadded search_area_xy, and the lanes
+    # must cover the same ground or the comparison is not controlled. It also
+    # has to FIT: goals are grid cells, and a padded sector wider than
+    # map_extent_m has its lane ends clipped to the map edge (suburb_mini is
+    # +-130 m in a 280 m map — a 25 m pad put every lane end 15 m past it).
+    search_area_pad_m: 0.0

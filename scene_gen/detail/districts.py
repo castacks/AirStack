@@ -455,12 +455,15 @@ def _new_placement(entry, x, y, yaw, category="house"):
 # ---------------------------------------------------------------------------
 
 class _Skyline:
-    """Samples a building height, per typology.
+    """Samples a building height, per typology, and decides WHICH model.
 
-    Two effects compose. The typology supplies a log-normal target —
+    Three effects compose. The typology supplies a log-normal height target —
     right-skewed, so most draws are low and a few are tall. `neighbour_weight`
     then pulls the draw toward the mean of nearby buildings already decided, so
     height varies gradually along a street instead of independently per lot.
+    Finally the draw among the models that MATCH that height is damped twice
+    over, by how often each one is already standing and by whether one of them
+    is standing within sight — see `_pick`.
     """
 
     def __init__(self, cfg: dict, rng):
@@ -471,10 +474,52 @@ class _Skyline:
         # an exact match is usually unavailable, and always taking the nearest
         # re-quantises the distribution onto a handful of heights.
         self.pick_sigma = float(cfg.get("pick_sigma", 0.30))
+        # -- GLOBAL REPEAT: how much of the city is this one model? -----------
         # 0 restores pure height matching; 1 makes an asset's odds inversely
         # proportional to how many times it is already standing in the city.
+        # ABOVE 1 it is superlinear, which is the point: at the historical 0.6
+        # a model already used five times still drew at 35% of an unused one's
+        # odds, so with a small library the same few kept winning. The library
+        # is no longer small (`asset_sets/urban_v2.yaml` takes tower to 32 and
+        # midrise to 93), and a penalty that actually bites is what converts
+        # that into buildings on the ground rather than entries in a file.
+        #
+        # THE DEFAULT IS THE HISTORICAL 0.6 and the presets carry the real
+        # value — `downtown.yaml` has always set 1.0, `downtown_1000.yaml` sets
+        # 2.2. Changing the default would silently restyle every existing
+        # downtown scene, including the earthquake one, which is not this
+        # change's business.
         self.repeat = float(cfg.get("repeat_penalty", 0.6))
+        # -- LOCAL REPEAT: is this model already standing within sight? -------
+        # The global count says nothing about WHERE, and where is what a viewer
+        # sees: two identical towers across one street read as a copy-paste no
+        # matter how balanced the city-wide histogram is. Every instance inside
+        # `repeat_radius_m` multiplies the model's weight by
+        # `repeat_local_penalty`, so a second instance next door is a ~50x
+        # handicap and a third is ~2500x.
+        #
+        # A MULTIPLIER AND NOT A BAN, deliberately. A gap whose only fitting
+        # model is one already nearby has to be filled with something, and a
+        # hard exclusion there either leaves a hole or falls back to a rule
+        # nobody can see. At 0.02 the near model still wins when it is the only
+        # candidate and effectively never wins when it is not.
+        #
+        # OFF BY DEFAULT — `repeat_radius_m: 0` makes the whole term inert —
+        # for the same reason `repeat_penalty` keeps its old default: a scene
+        # opts in. `downtown_1000.yaml` does.
+        self.local_r2 = float(cfg.get("repeat_radius_m", 0.0)) ** 2
+        self.local_pen = float(cfg.get("repeat_local_penalty", 0.02))
+        # ...and GRADED BY DISTANCE inside that radius, because a flat count is
+        # not what the eye does: a twin 30 m away across the street and one
+        # 145 m away at the far end of the district are not the same defect and
+        # a binary test scores them identically. Each copy contributes
+        # `1 + falloff * (1 - d/R)` to the exponent, so at the default 2.0 an
+        # adjacent twin costs pen^3 (a 125,000x handicap) and one at the rim
+        # costs pen^1 (50x), with everything between graded smoothly. 0
+        # restores the flat count.
+        self.local_falloff = float(cfg.get("repeat_local_falloff", 2.0))
         self.used: dict = {}            # usd -> times placed
+        self.at: dict = {}              # usd -> [(x, y)] of each placement
         self.placed: list = []          # (x, y, height_m)
 
     def target(self, typ: dict, x: float, y: float) -> float:
@@ -494,46 +539,126 @@ class _Skyline:
                              + self.w * math.log(max(mean, 0.5)))
         return t
 
-    def choose(self, candidates, target: float):
+    def choose(self, candidates, target: float, x: float = 0.0, y: float = 0.0):
+        """Draw one model for a slot at *(x, y)*.
+
+        *(x, y)* is the corner the building will be seated at, which is exactly
+        where the packer puts it (`cx = x0 + bw/2`), so it is the true position
+        to within half a footprint. That is well inside `repeat_radius_m` and is
+        the best available answer: which model lands here is not decided yet, so
+        neither is its centre.
+        """
         if not candidates:
             return None
         if target <= 0.0:
-            return self._pick(candidates, [1.0] * len(candidates))
+            return self._pick(candidates, [1.0] * len(candidates), x, y)
         lt = math.log(target)
         w = [math.exp(-((math.log(max(e[3]["sz"], 0.5)) - lt) ** 2)
                       / (2.0 * self.pick_sigma ** 2)) for e in candidates]
         if sum(w) <= 1e-12:
-            return min(candidates,
-                       key=lambda e: abs(math.log(max(e[3]["sz"], 0.5)) - lt))
-        return self._pick(candidates, w)
+            # Nothing is anywhere near the target height. Falling straight to
+            # the nearest match here is what used to hand every such slot to the
+            # SAME model, so the penalties get a say: rank by height distance,
+            # then let `_pick` choose among the close ones.
+            w = [1.0 / (1.0 + abs(math.log(max(e[3]["sz"], 0.5)) - lt))
+                 for e in candidates]
+        return self._pick(candidates, w, x, y)
 
-    def _pick(self, candidates, w):
-        """Weighted draw, damped by how often each asset has already been used.
+    def _near(self, usd, x, y):
+        """Distance-graded count of copies of *usd* inside `repeat_radius_m`.
+
+        Returns a float: each copy contributes `1 + local_falloff * (1 - d/R)`,
+        so it is >= the plain count and rises as the copies get closer. Used as
+        the exponent on `repeat_local_penalty`.
+        """
+        w = 0.0
+        for (px, py) in self.at.get(usd, ()):
+            d2 = (px - x) ** 2 + (py - y) ** 2
+            if d2 <= self.local_r2:
+                d = math.sqrt(d2 / self.local_r2) if self.local_r2 else 0.0
+                w += 1.0 + self.local_falloff * (1.0 - d)
+        return w
+
+    def _pick(self, candidates, w, x, y):
+        """Weighted draw, damped by how often each model is used and by whether
+        one is already standing within sight of *(x, y)*.
 
         Height match alone concentrates the city on a handful of models: an
         asset is eligible whenever it FITS, so small footprints win far more
         slots than large ones and one model ends up a fifth of every building in
-        the scene. Dividing by (1 + uses)^repeat_penalty leaves the height
-        match in charge of WHICH band gets picked while spreading the draw
-        across the models inside that band.
+        the scene. Two dampers act on the height weight rather than replacing
+        it, so the height distribution survives and only the choice WITHIN a
+        height band moves:
+
+        * `(1 + uses) ** -repeat_penalty` — the city-wide histogram. Superlinear
+          at the default 1.5, so the tail of a big library actually gets used.
+        * `repeat_local_penalty ** (copies within repeat_radius_m)` — the thing
+          a viewer sees. This is the strong one by design: a model with one copy
+          across the street is at 2% of its odds, with two at 0.04%.
+
+        ROW HOUSES NEVER REACH HERE, and that is the exemption. A terrace is
+        laid by `_lay_terrace`/`_tile_run`, which never consult the skyline —
+        a brownstone row IS the same house repeated, that is what a terrace is,
+        and penalising the repeat would destroy the one typology whose whole
+        character is uniformity.
         """
         if self.repeat > 0.0:
             w = [wi / ((1.0 + self.used.get(e[0], 0)) ** self.repeat)
                  for e, wi in zip(candidates, w)]
+        if 0.0 <= self.local_pen < 1.0 and self.local_r2 > 0.0:
+            w = [wi * (self.local_pen ** self._near(e[0], x, y))
+                 for e, wi in zip(candidates, w)]
         total = sum(w)
         if total <= 1e-12:
-            return candidates[self.rng.randrange(len(candidates))]
+            # Every candidate is penalised into the floor — the slot's only
+            # fitting models are all standing nearby. Something has to go here,
+            # so fall back deterministically rather than to chance: FEWEST
+            # COPIES NEARBY first, global count only as the tie-break. That
+            # order is the whole point — a twin 40 m away is what a viewer sees
+            # and a flat city-wide histogram is not, so the visible term has to
+            # win when the two disagree.
+            chosen = min(candidates, key=lambda e: (self._near(e[0], x, y),
+                                                    self.used.get(e[0], 0)))
+            return self._take(chosen, x, y)
         r = self.rng.random() * total
         for e, wi in zip(candidates, w):
             r -= wi
             if r <= 0.0:
-                self.used[e[0]] = self.used.get(e[0], 0) + 1
-                return e
-        self.used[candidates[-1][0]] = self.used.get(candidates[-1][0], 0) + 1
-        return candidates[-1]
+                return self._take(e, x, y)
+        return self._take(candidates[-1], x, y)
+
+    def _take(self, e, x, y):
+        """Book a model as used at *(x, y)* and return it."""
+        self.used[e[0]] = self.used.get(e[0], 0) + 1
+        self.at.setdefault(e[0], []).append((float(x), float(y)))
+        return e
 
     def record(self, x, y, height):
         self.placed.append((x, y, height))
+
+    def note(self, usd, x, y):
+        """Book a model that some EARLIER pass already stood at *(x, y)*.
+
+        `infill_blocks` builds a second `_Skyline` over a city `rezone_blocks`
+        has already filled, and without this that instance starts with an empty
+        histogram and an empty position index: both repeat penalties see 123
+        infill buildings and none of the 297 already standing, so the smallest
+        model that fits a leftover gap wins every leftover gap in the city. The
+        heights were already being carried across (`record`); this carries the
+        identities, which is what the penalties are actually about.
+        """
+        if not usd:
+            return
+        self.used[usd] = self.used.get(usd, 0) + 1
+        self.at.setdefault(usd, []).append((float(x), float(y)))
+
+    def diversity(self):
+        """``(models_used, placements, share_of_the_most_used)`` — the numbers
+        the two penalties exist to move, so a run can be judged without a
+        render."""
+        n = sum(self.used.values())
+        return (len(self.used), n,
+                (max(self.used.values()) / n) if n else 0.0)
 
 
 # ---------------------------------------------------------------------------
@@ -856,8 +981,22 @@ def _lay_terrace(rect, pool, rng, facing_deg: float, alley_m: float,
     Rows inside a run butt end to end with no gap — a terrace shares walls, and
     the 2.5 m packing gap between them is exactly what makes a row read as
     detached houses. Between runs there IS a gap: a side alley or a vacant lot.
+
+    DEPTH IS THE POOL'S DEEPEST, NOT ITS SHALLOWEST, and that only started to
+    matter when the pool stopped being eight brownstones of identical depth.
+    `_terrace_strips` uses this number twice — for the strip itself and for the
+    admissible block-short-side band `[2*depth + alley, 2*depth + alley_max]` —
+    while each house below is then seated on the street edge at ITS OWN depth.
+    With `urban_v2`'s seven standalone terrace houses in the pool (3.9-8.4 m
+    against the brownstones' 21.1 m) the minimum put that band at [10, 18] m,
+    which no downtown block is in: every terrace block would have been refused
+    and rebuilt as mid-rise, and the rowhouse typology would have come out at
+    ZERO with nothing anywhere reporting why. The maximum leaves the band
+    exactly where the brownstones tuned it and lets a shallow house sit on the
+    same frontage line with a deeper back alley behind it, which is what a
+    mixed-depth terrace actually looks like.
     """
-    depth = min(e[3]["sx"] for e in pool)
+    depth = max(e[3]["sx"] for e in pool)
     out = []
     for (sx0, sy0, sx1, sy1), axis, near_lo in (
             strips if strips is not None
@@ -894,8 +1033,31 @@ def _lay_terrace(rect, pool, rng, facing_deg: float, alley_m: float,
 # morphology: pack
 # ---------------------------------------------------------------------------
 
+def _street_reach(block_rect, max_m: float):
+    """``reach(x0, y0, w, h) -> bool`` — does this footprint touch a street?
+
+    A building needs a face on the public way. Nothing in the packer knew that:
+    it fills whatever rectangle it is handed, and the second row it stacks
+    inside a frontage band, or anything `infill_blocks` drops in a courtyard,
+    is a building with no way in. Measured on `downtown_1000` seed 42 before
+    this existed: 122 of 419 packed buildings (29%) stood more than 10 m in
+    from every edge of their own block and 75 more than 25 m — landlocked.
+
+    *block_rect* is the block ALREADY INSET by `block_inset`, i.e. the sidewalk
+    line, so a building seated hard against it measures 0. `max_m` is how much
+    setback still counts as fronting the street; 0 disables the whole test.
+    """
+    if max_m <= 0.0:
+        return None
+    bx0, by0, bx1, by1 = block_rect
+
+    def reach(x0, y0, w, h):
+        return min(x0 - bx0, y0 - by0, bx1 - (x0 + w), by1 - (y0 + h)) <= max_m
+    return reach
+
+
 def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
-               area_band: float = 0.55):
+               area_band: float = 0.55, reach=None):
     """Guillotine-pack *pool* into *rect*; returns ``[(entry, cx, cy, yaw)]``.
 
     Candidates are tried largest-footprint-first so a gap closes with one big
@@ -909,6 +1071,15 @@ def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
     models took 66% of all buildings and why the skyline's repeat penalty had
     nothing to act on. Widening it puts real choice in the band; the packer
     still prefers big, it just no longer decides alone.
+
+    IT IS THE PACKER'S GREED KNOB and it is now settable per scene
+    (`districts.pack_area_band`). The trade is real in both directions: too
+    narrow and the biggest fitting model wins every equivalent gap however hard
+    the skyline penalises repeats, because there is nothing else in the band to
+    give it; too wide and a small building wins a big gap, leaving slack that
+    reads as unbuilt block interior. What the band must NOT be used for is
+    diversity on its own — that is the skyline's two penalties. This just has
+    to leave them something to choose between.
     """
     out, stack = [], [tuple(rect)]
     while stack:
@@ -923,13 +1094,22 @@ def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
                 fits.append((e, sx, sy, 0.0))
             if sy <= w and sx <= h and abs(sx - sy) > 1e-6:
                 fits.append((e, sy, sx, 90.0))
+        if reach is not None:
+            # A CANDIDATE THAT CANNOT REACH THE STREET IS NOT A CANDIDATE, and
+            # if none of them can, this sub-rectangle stays bare. Falling back
+            # to "place something anyway" is what produced the landlocked
+            # courtyard buildings in the first place: a gap with no frontage is
+            # a courtyard, and a courtyard is a legitimate thing for a block to
+            # have. Cost is real and intended — more open block interior.
+            fits = [f for f in fits if reach(x0, y0, f[1], f[2])]
         if not fits:
             continue
         best = max(f[1] * f[2] for f in fits)
         top = [f for f in fits if f[1] * f[2] >= best * area_band]
         along = w >= h
         oriented = [f for f in top if (f[1] >= f[2]) == along] or top
-        chosen = sky.choose([f[0] for f in oriented], sky.target(typ, x0, y0))
+        chosen = sky.choose([f[0] for f in oriented], sky.target(typ, x0, y0),
+                            x0, y0)
         e, bw, bh, yaw = next(f for f in oriented if f[0] is chosen)
 
         cx, cy = x0 + bw / 2.0, y0 + bh / 2.0
@@ -992,6 +1172,11 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
     bleed = float((cfg.get("zoning") or {}).get("bleed", 0.12))
     exclusions = config.get("exclusions") or []
     sky = _Skyline(cfg, rng)
+    # The packer's greed, per scene. See `_pack_free`.
+    area_band = float(cfg.get("pack_area_band", 0.55))
+    # How far in from the sidewalk line a building may sit and still count as
+    # fronting the street. 0 disables the test. See `_street_reach`.
+    frontage_max = float(cfg.get("frontage_max_m", 0.0))
     parks = set(park_blocks(layout, placements))
 
     # Ruins and their debris are immovable; everything else already standing
@@ -1067,7 +1252,9 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
         if str(typ.get("morphology", "pack")) == "terrace" and not local:
             gaps = typ.get("run_gap_m") or (3.0, 9.0)
             alley = float(typ.get("alley_m", 6.0))
-            depth0 = min(e[3]["sx"] for e in pool)
+            # The pool's DEEPEST, matching `_lay_terrace` — a quad sized off
+            # the shallowest house would cut four strips no brownstone fits in.
+            depth0 = max(e[3]["sx"] for e in pool)
             road_w = float(typ.get("street_w_m", 11.4))
             quad = None
             # A terrace SUPERBLOCK: four rows around an internal street, the
@@ -1129,9 +1316,10 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
                     counts[  # the refused terrace no longer counts as one
                         "rowhouse_refused"] = counts.get("rowhouse_refused", 0) + 1
                     min_side = min(min(e[3]["sx"], e[3]["sy"]) for e in pool)
+                    reach = _street_reach(rect, frontage_max)
                     for fr in free_rects(rect, local, min_side):
                         laid += _pack_free(fr, pool, gap, min_side, rng, sky,
-                                           typ)
+                                           typ, area_band, reach)
             elif quad:
                 # A SUPERBLOCK IS ENTIRELY ITS OWN. Four rows and their street
                 # are the whole composition, so nothing else is built here —
@@ -1152,9 +1340,14 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
             laid = []
             min_side = min(min(e[3]["sx"], e[3]["sy"]) for e in pool)
             band = float(typ.get("perimeter_depth_m", 0.0))
+            # Measured against the BLOCK, not against the band rectangle it is
+            # packing: the band's inner edge is a courtyard boundary, not a
+            # street, and a building seated against it fronts nothing.
+            reach = _street_reach(rect, frontage_max)
             for outer in _perimeter_rects(rect, band, min_side):
                 for fr in free_rects(outer, local, min_side):
-                    laid += _pack_free(fr, pool, gap, min_side, rng, sky, typ)
+                    laid += _pack_free(fr, pool, gap, min_side, rng, sky, typ,
+                                       area_band, reach)
 
         for entry, cx, cy, yaw in laid:
             if exclusions and _in_exclusion(cx, cy, exclusions):
@@ -1198,6 +1391,24 @@ def rezone_blocks(config: dict, layout: dict, placements: list, resolver, rng,
     print(f"[districts] rezoned {len(typ_of)} blocks -> {added} buildings "
           f"({len(doomed)} replaced, {n_paving} paving tiles removed from "
           f"terrace yards)   {detail}")
+    # WHAT THE TWO REPEAT PENALTIES ACTUALLY DID. "the city looks copy-pasted"
+    # has cost several rounds of guessing, and it is one number: the share of
+    # every packed building taken by the single most-used model. Terraces are
+    # not in it — they are laid by `_lay_terrace`, which never draws from here.
+    n_models, n_packed, top_share = sky.diversity()
+    if n_packed:
+        pool_size = len({e[0] for n in typologies
+                         for e in (pool_of.get(n) or ())
+                         if str((typologies[n] or {}).get("morphology",
+                                                          "pack")) != "terrace"})
+        print(f"[districts] model diversity: {n_models} of {pool_size} models "
+              f"used across {n_packed} packed buildings, "
+              f"top model {100.0 * top_share:.1f}% "
+              f"(repeat_penalty={sky.repeat}, "
+              f"repeat_radius_m={math.sqrt(sky.local_r2):.0f}, "
+              f"repeat_local_penalty={sky.local_pen}, "
+              f"repeat_local_falloff={sky.local_falloff}, "
+              f"pack_area_band={area_band})")
     # Per-typology accounting, because "I don't see any X" has cost several
     # rounds of guessing. A typology can come out at zero for four different
     # reasons and they are indistinguishable in the viewport: no block was
@@ -1264,11 +1475,29 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
         {"house", "play_structure", "trail", "tree", "bus_stop",
          "traffic_light", "debris_pile"}, margin)
     sky = _Skyline(dcfg, rng)
+    area_band = float(dcfg.get("pack_area_band", 0.55))
+    frontage_max = float(dcfg.get("frontage_max_m", 0.0))
+    # INFILL USED TO UNDO THE PERIMETER MORPHOLOGY. `rezone_blocks` packs a
+    # `perimeter_depth_m` band and leaves the middle open on purpose — "a dense
+    # urban block is built to its edges with the slack in the MIDDLE" — and
+    # then this pass ran `free_rects` over the WHOLE block and filled that
+    # middle back in. Every building it put there was landlocked by
+    # construction. With this on, infill sees the same band the block was built
+    # from and the courtyard survives.
+    #
+    # DEFAULT OFF, like the repeat penalties and `frontage_max_m`: turning it on
+    # takes `downtown.yaml` from 223 buildings to 190 (its infill drops from 43
+    # gaps / 40 buildings to 5 / 7), and restyling that scene — and the
+    # earthquake one built on it — is not this change's business.
+    # `downtown_1000.yaml` sets it true.
+    perimeter_only = bool(dcfg.get("infill", {}).get("perimeter_only", False))
     for p in placements:
         if p.get("category") == "house":
             fp = resolver.get(p["usd"], "house", scale=p.get("scale"),
                               axis_up=p.get("axis_up", "Z"))
             sky.record(float(p["x_m"]), float(p["y_m"]), fp["sz"])
+            # ...and WHICH model, and where. See `_Skyline.note`.
+            sky.note(str(p.get("usd") or ""), float(p["x_m"]), float(p["y_m"]))
 
     parks = set(park_blocks(layout, placements))
     typ_of = layout.get("_typology_of") or {}
@@ -1286,20 +1515,27 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
         rect = (blk[0] + inset, blk[1] + inset, blk[2] - inset, blk[3] - inset)
         typ = dict(tcfg)
         typ["name"] = tname
-        for fr in free_rects(rect, obstacles, min_gap):
-            gaps += 1
-            gap_area += (fr[2] - fr[0]) * (fr[3] - fr[1])
-            for entry, cx, cy, yaw in _pack_free(fr, pool, gap, min_gap, rng,
-                                                 sky, typ):
-                if exclusions and _in_exclusion(cx, cy, exclusions):
-                    continue
-                placements.append(_new_placement(entry, cx, cy, yaw))
-                obstacles.append(_rect_of(placements[-1], resolver,
-                                          margin=margin))
-                added += 1
+        reach = _street_reach(rect, frontage_max)
+        band = float(tcfg.get("perimeter_depth_m", 0.0)) if perimeter_only else 0.0
+        for outer in _perimeter_rects(rect, band, min_gap):
+            for fr in free_rects(outer, obstacles, min_gap):
+                gaps += 1
+                gap_area += (fr[2] - fr[0]) * (fr[3] - fr[1])
+                for entry, cx, cy, yaw in _pack_free(
+                        fr, pool, gap, min_gap, rng, sky, typ, area_band,
+                        reach):
+                    if exclusions and _in_exclusion(cx, cy, exclusions):
+                        continue
+                    placements.append(_new_placement(entry, cx, cy, yaw))
+                    obstacles.append(_rect_of(placements[-1], resolver,
+                                              margin=margin))
+                    added += 1
 
+    n_models, n_packed, top_share = sky.diversity()
     print(f"[districts] infill: {gaps} unbuilt gaps ({gap_area:,.0f} m2) "
-          f"-> {added} buildings")
+          f"-> {added} buildings; {n_models} models in play across "
+          f"{n_packed} (the city so far), top model "
+          f"{100.0 * top_share:.1f}%")
     return added
 
 

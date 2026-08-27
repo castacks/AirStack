@@ -120,11 +120,10 @@ DEFAULTS = {
         # in the scene and the most visible: with the structure gone there is
         # nothing left to occlude them, so a standing figure on a debris field
         # is a vertical object on a horizontal one.
-        "on_the_rubble": {"share": 0.28, "per_wreck": [1, 3],
-                          # A minority are signalling. Worth its own draw
-                          # because a waving figure is the single most
-                          # distinctive human silhouette from altitude.
-                          "wave_share": 0.22},
+        # Standing or walking on the pile. NOBODY WAVES: the raised-arm pose
+        # read as a mannequin on review and was removed from the pose table
+        # (scene_generator._HUMAN_POSES); a `wave_share` here is ignored.
+        "on_the_rubble": {"share": 0.28, "per_wreck": [1, 3]},
 
         # THE ANCHOR SCENARIO. 3-6 people working at ONE collapsed house —
         # the shape Chiu's 92%-not-alone figure implies, and the shape that
@@ -339,8 +338,7 @@ def _on_the_rubble(f, n):
             s = f.spot(w["x"], w["y"], 0.0, max(3.0, w["fp"] * 0.55))
             if s is None:
                 continue
-            pose = ("wave" if f.rng.random() < spec.get("wave_share", 0.2)
-                    else f.rng.choice(("idle", "walk", "walk")))
+            pose = f.rng.choice(("idle", "walk", "walk"))
             if f.add(s[0], s[1], z, f.rng.uniform(0.0, 360.0), pose,
                      "on_the_rubble", note=w["level"]):
                 made += 1
@@ -547,7 +545,7 @@ def _in_vehicle(f, n):
             del a
             if f.add(s[0], s[1], 0.0,
                      _bearing(s[0], s[1], c["x"], c["y"]),
-                     f.rng.choice(("idle", "idle", "wave")), "in_vehicle",
+                     "idle", "in_vehicle",
                      note="at a displaced vehicle"):
                 made += 1
 

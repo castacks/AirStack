@@ -14,7 +14,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 from sensor_msgs.msg import NavSatFix, Image, PointCloud2
-from nav_msgs.msg import Odometry, Path
+from nav_msgs.msg import OccupancyGrid, Odometry, Path
 from visualization_msgs.msg import Marker, MarkerArray
 from builtin_interfaces.msg import Duration
 from geometry_msgs.msg import Point, TransformStamped
@@ -23,7 +23,8 @@ from tf2_ros import StaticTransformBroadcaster
 
 from gcs_visualizer.gcs_utils import (
     gps_to_enu, multiply_quaternions, rotate_vector, transform_marker_array,
-    transform_point_cloud2, voxel_sim_cloud_to_scene_update,
+    transform_point_cloud2, translate_occupancy_grid, translate_point_cloud2,
+    voxel_sim_cloud_to_scene_update,
     voxel_sim_cloud_to_cube_marker, fluorescent,
     ORIGIN_LAT, ORIGIN_LON, ROBOT_COLORS,
 )
@@ -76,6 +77,49 @@ RGB_VOXELS_SUFFIX = '/rayfronts/voxel_rgb'
 # translation so the republished cloud lands in the global 'map' frame.
 RDF_TO_FLU_QUAT = (-0.5, 0.5, -0.5, 0.5)
 
+# search_baselines (search_planner) overlay topics, bridged from the robot
+# domain by the DDS router. EVERY ONE OF THEM IS IN THE ROBOT'S LOCAL `map`,
+# which is anchored at that robot's TAKEOFF POINT — the same frame as its
+# odometry, `/global_plan` and `trajectory_vis`, all of which this node
+# already translates by the robot's boot ENU before drawing. Drawn raw on the
+# GCS (whose `map` is global ENU: sim ground, GT boxes, robot meshes) they
+# land at the WORLD ORIGIN instead of next to the drone, offset by exactly the
+# spawn point — 100 m on the 250 m suburb, 340 m on the wildfire plat. Each is
+# republished translated under `/gcs/<robot><suffix>`; the rendered layout
+# points at those, never at the raw names.
+SEARCH_OVERLAY_TOPICS = {
+    '/occupancy':      OccupancyGrid,
+    '/value_map':      OccupancyGrid,
+    '/frontiers':      MarkerArray,
+    '/search/markers': MarkerArray,
+    '/frontier_cloud': PointCloud2,
+    '/voxel_map':      PointCloud2,
+}
+_SEARCH_OVERLAY_TYPE_NAMES = {
+    OccupancyGrid: 'nav_msgs/msg/OccupancyGrid',
+    MarkerArray:   'visualization_msgs/msg/MarkerArray',
+    PointCloud2:   'sensor_msgs/msg/PointCloud2',
+}
+# BEST_EFFORT, because that is what the DDS router RE-OFFERS on this domain
+# for the two PointCloud2 topics (measured with `ros2 topic info -v` on the
+# GCS: voxel_map / frontier_cloud arrive BEST_EFFORT+VOLATILE, the MarkerArray
+# and OccupancyGrid ones RELIABLE) — whatever the planner itself publishes
+# (RELIABLE+TRANSIENT_LOCAL). A RELIABLE reader is INCOMPATIBLE with a
+# best-effort writer and silently gets nothing ("New publisher discovered ...
+# offering incompatible QoS"), which is how the voxel map and frontier cloud
+# went missing on the GCS while occupancy and the markers drew fine. A
+# best-effort reader matches both kinds; the clouds are ~1 Hz and latched by
+# the republish below, so a dropped fragment costs one tick, not the layer.
+SEARCH_OVERLAY_SUB_QOS = QoSProfile(
+    reliability=ReliabilityPolicy.BEST_EFFORT,
+    durability=DurabilityPolicy.VOLATILE,
+    history=HistoryPolicy.KEEP_LAST,
+    depth=2,
+)
+# How many GPS/odom pairs to average before the map origin is LOCKED. One
+# sample is noise; ten is what coordination_bringup/map_anchor_node uses.
+MAP_ORIGIN_SAMPLES = 10
+
 # OBJ mesh axis correction quaternion (belly -Z, nose +X)
 AXIS_CORRECTION = (-0.5, -0.5, 0.5, 0.5)
 
@@ -119,9 +163,24 @@ class FoxgloveVisualizerNode(Node):
         # Captures robot_name from /robot_1/rayfronts/voxel_rgb -> 'robot_1'
         self._rgb_voxels_pattern = re.compile(
             rf'^/({re.escape(self._prefix)}_\w+){re.escape(RGB_VOXELS_SUFFIX)}$')
+        # Captures (robot_name, suffix) for the search_planner overlays, e.g.
+        # /robot_1/search/markers -> ('robot_1', '/search/markers').
+        self._search_pattern = re.compile(
+            rf'^/({re.escape(self._prefix)}_\w+)('
+            + '|'.join(re.escape(s) for s in SEARCH_OVERLAY_TOPICS) + r')$')
 
         self._gps_positions  = {}
+        # robot_name -> the robot's `map` ORIGIN in global ENU (x, y, z). The
+        # takeoff point, i.e. what every robot-local message has to be shifted
+        # by to land on the GCS canvas. Named "boot" historically because it
+        # used to be the first GPS fix this node happened to hear — which is
+        # the takeoff point only if the GCS was up before the drone moved.
+        # Now MEASURED as enu(fix) - odom at the same instant, like
+        # map_anchor_node, so a GCS (re)started mid-flight gets the same
+        # answer; the first-fix value remains the fallback until odom arrives.
         self._gps_boot       = {}
+        self._boot_samples: dict = {}   # robot_name -> [(dx, dy, dz), ...] until locked
+        self._odom_xyz: dict = {}       # robot_name -> last odom position (map frame)
         self._orientations   = {}
         self._trajectories   = {}
         self._global_plans   = {}
@@ -134,10 +193,21 @@ class FoxgloveVisualizerNode(Node):
         self._subscribed_odom = set()
         self._subscribed_traj = set()
         self._subscribed_plan = set()
+        self._subscribed_search = set()
+        self._search_pubs: dict = {}    # source topic -> republish publisher
 
         # Make 'map' a known frame on the GCS domain so Foxglove resolves it.
-        # The robot side already publishes the same identity static TF
-        # (robot.launch.xml world_to_map_broadcaster).
+        #
+        # On the GCS, `map` IS global ENU — everything this package publishes
+        # (robot meshes, sim ground, GT boxes, the translated overlays) is in
+        # world coordinates stamped `map` — so world->map is identity HERE by
+        # definition, and this is the ONLY transform the GCS tree should ever
+        # hold. Robot TF is deliberately not bridged (dds_router.yaml): each
+        # robot's `map` is its own takeoff-anchored frame under the same
+        # unprefixed name, so bridging N of them (plus N measured world->maps
+        # from map_anchor_node) onto this tree makes every `map`-stamped layer
+        # follow whichever robot's transform arrived last. This node places
+        # robots from their GPS fix and translates their local topics itself.
         self._static_tf_broadcaster = StaticTransformBroadcaster(self)
         t = TransformStamped()
         t.header.stamp = self.get_clock().now().to_msg()
@@ -380,6 +450,88 @@ class FoxgloveVisualizerNode(Node):
                     self.get_logger().info(
                         f'Subscribed to rayfronts rgb voxels: {topic} -> {out_topic}')
 
+            if topic not in self._subscribed_search:
+                m = self._search_pattern.match(topic)
+                if m:
+                    name, suffix = m.group(1), m.group(2)
+                    msg_type = SEARCH_OVERLAY_TOPICS[suffix]
+                    if _SEARCH_OVERLAY_TYPE_NAMES[msg_type] in type_list:
+                        out_topic = f'/gcs/{name}{suffix}'
+                        # Latched, like the planner's own: a Foxglove panel
+                        # that connects mid-run draws the current map at once.
+                        self._search_pubs[topic] = self.create_publisher(
+                            msg_type, out_topic, LATCHED_QOS)
+                        self.create_subscription(
+                            msg_type, topic,
+                            lambda msg, n=name, t=topic: self._search_overlay_callback(msg, n, t),
+                            SEARCH_OVERLAY_SUB_QOS,
+                        )
+                        self._subscribed_search.add(topic)
+                        self.get_logger().info(
+                            f'Subscribed to search_planner overlay: {topic} -> {out_topic}')
+
+    def _search_overlay_callback(self, msg, robot_name: str, src_topic: str):
+        """Republish a search_planner overlay shifted into the GCS `map`.
+
+        Pure translation by this robot's map origin (its takeoff point in
+        global ENU) — the robot's `map` and the GCS's `map` share axes and
+        differ only by that offset. Held back, not passed through, until the
+        origin is known: an untranslated grid on the canvas is exactly the
+        "everything is at the world origin" picture this exists to prevent.
+        """
+        pub = self._search_pubs.get(src_topic)
+        if pub is None:
+            return
+        boot = self._gps_boot.get(robot_name)
+        if boot is None:
+            self.get_logger().warn(
+                f'awaiting GPS + odom for {robot_name} to place {src_topic}',
+                throttle_duration_sec=10.0)
+            return
+        bx, by, bz = float(boot[0]), float(boot[1]), float(boot[2])
+        if isinstance(msg, MarkerArray):
+            out = transform_marker_array(msg, bx, by, bz)
+        elif isinstance(msg, PointCloud2):
+            out = translate_point_cloud2(msg, bx, by, bz)
+        elif isinstance(msg, OccupancyGrid):
+            out = translate_occupancy_grid(msg, bx, by, bz)
+        else:
+            return
+        pub.publish(out)
+
+    def _update_map_origin(self, robot_name: str, enu_xyz) -> None:
+        """Refine `_gps_boot[robot]` = enu(fix) - odom, then lock it.
+
+        The first fix alone is kept as the estimate until odom is available
+        (the historical behaviour, and still right when the drone has not
+        moved). Once both are in hand the difference IS the map origin
+        regardless of where the drone is now, so a GCS started mid-flight
+        agrees with one started before takeoff. Averaged over
+        MAP_ORIGIN_SAMPLES pairs, then frozen — a moving origin would make
+        every overlay swim.
+        """
+        samples = self._boot_samples.get(robot_name)
+        if samples is None:
+            return                           # locked (or never started)
+        od = self._odom_xyz.get(robot_name)
+        if od is None:
+            return
+        samples.append((enu_xyz[0] - od[0], enu_xyz[1] - od[1], enu_xyz[2] - od[2]))
+        n = len(samples)
+        dx = sum(s[0] for s in samples) / n
+        dy = sum(s[1] for s in samples) / n
+        dz = sum(s[2] for s in samples) / n
+        self._gps_boot[robot_name] = (dx, dy, dz)
+        if n >= MAP_ORIGIN_SAMPLES:
+            spread = max(max(abs(s[0] - dx), abs(s[1] - dy)) for s in samples)
+            self._boot_samples[robot_name] = None
+            self.get_logger().info(
+                f'{robot_name} map origin locked at ENU ({dx:.2f}, {dy:.2f}, '
+                f'{dz:.2f}) [{n} samples, spread {spread:.2f} m]')
+            if robot_name in self._vdb_markers:
+                self._vdb_global[robot_name] = _translate_marker(
+                    self._vdb_markers[robot_name], dx, dy, dz)
+
     def _try_lock_ground(self, robot_name: str) -> None:
         """Lock _alt_ground = msl - odom_z for the first robot with both signals.
 
@@ -417,11 +569,15 @@ class FoxgloveVisualizerNode(Node):
         pos = gps_to_enu(msg.latitude, msg.longitude, msg.altitude, self._alt_ground)
         self._gps_positions[robot_name] = pos
         if robot_name not in self._gps_boot:
+            # First estimate of this robot's map origin: where it is now.
+            # Exact only if it has not moved yet — refined below.
             self._gps_boot[robot_name] = pos
+            self._boot_samples.setdefault(robot_name, [])
             if robot_name in self._vdb_markers:
                 bx, by, bz = pos
                 self._vdb_global[robot_name] = _translate_marker(
                     self._vdb_markers[robot_name], bx, by, bz)
+        self._update_map_origin(robot_name, pos)
 
         # Re-publish on /gcs/<robot>/location with frame_id='map' so the
         # Foxglove Map panel will accept it as a location source. lat/lon
@@ -445,7 +601,9 @@ class FoxgloveVisualizerNode(Node):
         self._orientations[robot_name] = (o.x, o.y, o.z, o.w)
         # odom is in 'map' frame anchored to the robot's takeoff point, so
         # position.z is altitude above takeoff (≈ AGL of the actual ground).
-        self._odom_z[robot_name] = msg.pose.pose.position.z
+        p = msg.pose.pose.position
+        self._odom_z[robot_name] = p.z
+        self._odom_xyz[robot_name] = (p.x, p.y, p.z)
         self._try_lock_ground(robot_name)
 
     def _traj_callback(self, msg: MarkerArray, robot_name: str):

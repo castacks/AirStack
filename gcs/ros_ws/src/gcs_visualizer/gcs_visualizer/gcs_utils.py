@@ -227,3 +227,62 @@ def voxel_sim_cloud_to_cube_marker(cloud, bx, by, bz, q, ns, stamp,
 
 
 transform_point_cloud2 = _transform_pc2
+
+
+# ── robot-local `map` -> GCS global-ENU `map` ────────────────────────────────
+#
+# Every robot's `map` is anchored at ITS OWN TAKEOFF POINT (PX4's local origin
+# comes from the GPS home, which the sim derives from the spawn pose). The
+# GCS's `map` is global ENU — the frame the sim ground, the GT boxes and the
+# robot meshes are drawn in. A robot-local message drawn as-is on the GCS
+# therefore lands at the world origin instead of next to the drone, offset by
+# exactly the spawn point. These two helpers are the pure-translation versions
+# of `transform_marker_array` for the message types the search planner
+# publishes; both are vectorised because `voxel_map` carries up to 120k points
+# at ~1 Hz and `frame_utils.transform_point_cloud2` unpacks per point.
+
+def translate_point_cloud2(cloud, bx, by, bz):
+    """Return a copy of `cloud` with x/y/z shifted by (bx, by, bz), frame 'map'.
+
+    Only the three float32 coordinate fields are touched; rgb / intensity /
+    anything else passes through byte-for-byte. Falls back to the original
+    message if the layout is not the plain float32 xyz the planner emits.
+    """
+    import numpy as np
+
+    offs = {f.name: (f.offset, f.datatype) for f in cloud.fields
+            if f.name in ('x', 'y', 'z')}
+    if len(offs) != 3 or any(dt != 7 for _, dt in offs.values()):   # 7 = FLOAT32
+        return cloud
+    n = int(cloud.width) * int(cloud.height)
+    ps = int(cloud.point_step)
+    if n == 0 or ps == 0 or len(cloud.data) < n * ps:
+        return cloud
+    buf = np.frombuffer(bytes(cloud.data), dtype=np.uint8)[:n * ps].copy()
+    view = buf.reshape(n, ps)
+    for name, delta in (('x', bx), ('y', by), ('z', bz)):
+        o = offs[name][0]
+        col = view[:, o:o + 4].view(np.float32).reshape(n)
+        col += np.float32(delta)          # in place: `col` is a view into buf
+    out = copy.copy(cloud)
+    out.header = copy.copy(cloud.header)
+    out.header.frame_id = 'map'
+    out.data = buf.tobytes()
+    return out
+
+
+def translate_occupancy_grid(grid, bx, by, bz):
+    """Return a copy of an OccupancyGrid whose origin is shifted by (bx, by, bz).
+
+    A grid is positioned entirely by `info.origin`, so this is the whole
+    transform; the cell data is shared, not copied.
+    """
+    out = copy.copy(grid)
+    out.header = copy.copy(grid.header)
+    out.header.frame_id = 'map'
+    out.info = copy.copy(grid.info)
+    out.info.origin = copy.deepcopy(grid.info.origin)
+    out.info.origin.position.x += bx
+    out.info.origin.position.y += by
+    out.info.origin.position.z += bz
+    return out

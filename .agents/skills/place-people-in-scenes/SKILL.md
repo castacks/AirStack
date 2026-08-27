@@ -1,6 +1,7 @@
 ---
 name: place-people-in-scenes
-description: Put survivors (and the cars they are in) into a disaster scene — where they go and why, the RenderPeople rigs, the pose/z-offset machinery, and the long list of things that make a person or an occupant INVISIBLE. Read before touching scene_gen/disaster/people.py, scene_gen/detail/vehicles.py, _HUMAN_POSES, or any launcher that authors humans. Most of the failures here are silent: the placement succeeds and you see nothing.
+description: >-
+  Put survivors (and the cars they are in) into a disaster scene — where they go and why, the RenderPeople rigs, the pose/z-offset machinery, and the long list of things that make a person or an occupant INVISIBLE. Read before touching scene_gen/disaster/people.py, scene_gen/detail/vehicles.py, _HUMAN_POSES, or any launcher that authors humans. Most of the failures here are silent: the placement succeeds and you see nothing.
 license: Apache-2.0
 metadata:
   author: AirLab CMU
@@ -76,6 +77,35 @@ Structure interiors are out of scope for this benchmark.
 ---
 
 # THE BUG CATALOGUE
+
+## Posture rules — hard, reviewed on sight (2026-08-26)
+
+**Nobody waves, in any scene.** The raised-arm pose looked like a mannequin
+with a broken limb. It is gone from `scene_generator._HUMAN_POSES`,
+`_bind_human_pose` / `pose_z_offset` raise on any pose name not in that table
+(an unknown name used to leave the rig silently in its A-pose), and
+`people.add_person` raises on `people.BANNED_POSES`. Do not add it back, and
+do not add a `wave_share` to a scenario — `tornado_people` ignores one.
+
+**In an undamaged scene nobody sits or lies on the ground.** A person sitting
+on a lawn, crouching on a turnaround, or face-down on a drive with nothing to
+flee is a person the scene cannot explain. `resolve_cfg(..., has_disaster=False)`
+sets `peacetime`, and with it:
+
+- `add_person` turns any `sit_ground` / `sit_edge` / `crouch` / `prone`
+  request into a stander and counts it (`plan.coerced`, printed as a note);
+- `at_home` drops its nominal-front-step `sit_edge`, `cul_de_sac` drops the
+  crouch, `casualty_share` is ignored;
+- **seated is allowed only on a seat the caller can see**: a car seat
+  (`in_vehicle=` — occupants are fine, they are the harder detection case) or
+  a bench (`seat="bench"`, parks and the urban kit place them). Nothing sits
+  on a bench yet; when a scenario does, pass `seat=` and the seat pan height,
+  and verify the facing on the bench first — the bench assets' front is not
+  recorded anywhere.
+
+Disaster scenes keep `sit_ground` (open-ground refuge), `sit_edge` (kerb,
+front step, coping), `crouch` and prone — those postures are the story there.
+`scene_gen/tests/test_people_rules.py` pins all of the above without Isaac.
 
 ## Making a person visible at all
 

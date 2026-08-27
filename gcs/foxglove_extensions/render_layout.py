@@ -89,11 +89,24 @@ def inject_search_planner(layout: dict) -> None:
 
     Frontier markers are opaque: they are the decision being visualised.
     """
+    # /gcs/robot_1/..., NOT /robot_1/... . The raw topics are in the ROBOT'S
+    # `map`, anchored at its takeoff point; the GCS `map` is global ENU (sim
+    # ground, GT boxes, robot meshes). Drawn raw they sit at the world origin,
+    # a spawn-offset away from the drone. foxglove_visualizer_node republishes
+    # each one translated by the robot's map origin under /gcs/<robot>/... —
+    # the same treatment trajectory_vis, global_plan and the vdb map get.
     for pid, cfg in layout.get('configById', {}).items():
         if not (pid.startswith('3D!') and isinstance(cfg, dict)):
             continue
         topics = cfg.setdefault('topics', {})
-        topics['/robot_1/occupancy'] = {
+        # The raw robot-local names must not linger from an older layout: an
+        # operator who toggles one on sees the grid jump to the origin and
+        # reads it as a planner bug.
+        for raw in ('/robot_1/occupancy', '/robot_1/frontiers',
+                    '/robot_1/frontier_cloud', '/robot_1/voxel_map',
+                    '/robot_1/value_map', '/robot_1/search/markers'):
+            topics.pop(raw, None)
+        topics['/gcs/robot_1/occupancy'] = {
             'visible': True,
             'colorMode': 'custom',
             'alpha': 0.25,
@@ -107,7 +120,40 @@ def inject_search_planner(layout: dict) -> None:
             'invalidColor': _robot_color_hex(1),   # 101 target  -> robot colour
             'frameLocked': False,
         }
-        topics['/robot_1/frontiers'] = {'visible': True}
+        topics['/gcs/robot_1/frontiers'] = {'visible': True}
+        # Robot, trail, raw detections (magenta), target lifecycle and the
+        # search-area outline — the layer that answers "has it seen anything".
+        topics['/gcs/robot_1/search/markers'] = {'visible': True}
+        # The same frontiers as a cloud, so the viewer sets the point size
+        # instead of the publisher. Green = committed goal, orange = candidate.
+        topics['/gcs/robot_1/frontier_cloud'] = {
+            'visible': True,
+            'pointShape': 'circle',
+            'pointSize': 12,
+            'colorField': 'rgb',
+            'colorMode': 'rgb',
+        }
+        # OCCUPIED voxels of the three-state map behind `frontier_source:
+        # voxel3d`, in the scene's real colours. Off by default: ~10^5 cubes.
+        topics['/gcs/robot_1/voxel_map'] = {
+            'visible': False,
+            'pointShape': 'cube',
+            'cubeSize': 0.6,
+            'colorField': 'rgb',
+            'colorMode': 'rgb',
+        }
+        # VLFM's field on the SAME grid geometry as occupancy, so the two
+        # overlay cell-for-cell. -1 = never scored, transparent.
+        topics['/gcs/robot_1/value_map'] = {
+            'visible': False,
+            'colorMode': 'custom',
+            'alpha': 0.5,
+            'minColor': '#1a0033',
+            'maxColor': _robot_color_hex(1),
+            'unknownColor': '#00000000',
+            'invalidColor': '#00000000',
+            'frameLocked': False,
+        }
         # GT from the layout generator (scene_annotations.py). Namespaced per
         # class, so house/car/tree/person can be toggled independently.
         topics['/gcs/annotations/bboxes'] = {'visible': True}

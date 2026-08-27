@@ -261,7 +261,7 @@ def main():
     if "A" in UNITS:
         w = wreck_at(ax, ay, "leveled", "wide_house", 16.0)
         run("A", "on_the_rubble", {"wrecks": [w], "intact": []}, 4,
-            per_wreck=[4, 4], wave_share=0.35)
+            per_wreck=[4, 4])
 
     # ---- B: the hard one — partially buried --------------------------------
     bx, by = _UNIT_XY["B"]

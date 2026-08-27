@@ -281,3 +281,75 @@ services:
       TEST_EXIT_CODE=$$?;
       echo \"Tests completed with exit code: $$TEST_EXIT_CODE\";
       exit $$TEST_EXIT_CODE"
+
+  # ===================================================================================================================
+  # OFFBOARD COMPUTE — the fleet's shared model servers, and nothing else.
+  #
+  # Every arm detects, and detection is STATELESS: one frame in, boxes and masks
+  # out, no per-robot history. So N planners each loading their own YOLO +
+  # MobileSAM is N copies of the same weights on one card producing identical
+  # answers — at NUM_ROBOTS=3 that is ~4.8 GiB where 1.6 GiB will do. The same
+  # argument the BLIP-2 ITM scorer was already built on; this container is where
+  # all of them live (detector :8200 now, ITM :8100 and the generative VLM :8000
+  # behind START_* flags for phase 2).
+  #
+  # It runs the ROBOT IMAGE — which already carries torch, ultralytics,
+  # supervision and the /opt/lvlm-venv serving stack, so there is nothing to
+  # build — but NOT the autonomy stack: no bringup, no tmux launch, no robot
+  # name, no ROS domain, no DDS participant. Planners reach it over plain HTTP
+  # on the docker bridge (`http://offboard-compute:8200`), so none of this
+  # traffic goes near the DDS router.
+  #
+  #   ./airstack.sh up offboard-compute        # start it (once, before any planner)
+  #   docker exec offboard-compute curl -s localhost:8200/health
+  #   docker exec offboard-compute tail -f /tmp/offboard/detector_server.log
+  #
+  # NOT a robot: replicas is pinned to 1 and NUM_ROBOTS does not apply to it.
+  offboard-compute:
+    profiles:
+      - desktop
+      - desktop_split
+    container_name: offboard-compute
+    hostname: offboard-compute
+    extends:
+      file: ./robot-base-docker-compose.yaml
+      service: robot_base
+    image: *desktop_image
+    environment:
+      # No robot identity and no domain: this container publishes no topics and
+      # subscribes to none. (An interactive shell here prints the .bashrc
+      # "ROBOT_NAME_SOURCE not valid" warning — that is the intended path.)
+      - ROBOT_NAME_SOURCE=none
+      - ROS_DOMAIN_ID=99
+      - AUTOLAUNCH=false
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      # Which servers this container starts. Phase 1: the detector only.
+      - START_DETECTOR_SERVER=${START_DETECTOR_SERVER:-true}
+      - START_ITM_SERVER=${START_ITM_SERVER:-false}
+      - START_VLM_SERVER=${START_VLM_SERVER:-false}
+      - DETECTOR_PORT=${DETECTOR_PORT:-8200}
+      - ITM_PORT=${ITM_PORT:-8100}
+      - VLM_PORT=${VLM_PORT:-8000}
+      - OFFBOARD_DEVICE=${OFFBOARD_DEVICE:-cuda:0}
+      # The same weights the planner's own parameters name, mounted from
+      # robot/docker/cache via robot_base.
+      - CONAVGPT2_YOLO_WORLD_WEIGHTS=${CONAVGPT2_YOLO_WORLD_WEIGHTS:-/root/.cache/conavgpt2_weights/yolov8l-world.pt}
+      - CONAVGPT2_SAM_WEIGHTS=${CONAVGPT2_SAM_WEIGHTS:-/root/.cache/conavgpt2_weights/mobile_sam.pt}
+      - CONAVGPT2_ULTRALYTICS_WEIGHTS_DIR=${CONAVGPT2_ULTRALYTICS_WEIGHTS_DIR:-/root/.cache/conavgpt2_weights}
+      # Open-vocabulary prompt the server starts with. Clients send their own
+      # with every request; this only saves the first switch.
+      - DETECTOR_CLASSES=${DETECTOR_CLASSES:-}
+    # The start script lives in the mounted workspace next to the servers it
+    # starts, so it can be changed without rebuilding the image.
+    command: >
+      bash /root/AirStack/robot/ros_ws/src/global/planners/search_baselines/scripts/offboard_compute.sh
+    networks:
+      - airstack_network
+    deploy:
+      replicas: 1
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

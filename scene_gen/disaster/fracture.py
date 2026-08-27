@@ -552,6 +552,12 @@ def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
     pts = _seeds(mesh, int(n_pieces), rng, mode=mode, focus=focus,
                  axis=axis, aspect=aspect)
     keep, out = [], []
+    # WHY A MODULE YIELDED NOTHING is reported, always. The earthquake bake
+    # lost ten of sixteen style rows to fractures that came back empty with
+    # no line in any log: `slice_plane` failures were swallowed here and
+    # `verbose=False` hid the count. One line per empty module is cheap.
+    n_exc = n_empty = n_cull = 0
+    first_exc = None
     for i, p in enumerate(pts):
         frag = mesh
         for j, q in enumerate(pts):
@@ -563,15 +569,27 @@ def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
                 continue
             try:
                 frag = slice_plane(frag, -d / n, (p + q) * 0.5, cap=True)
-            except Exception:
+            except Exception as exc:
                 frag = None
+                n_exc += 1
+                if first_exc is None:
+                    first_exc = "{0}: {1}".format(type(exc).__name__, exc)
             if frag is None or not len(frag.faces):
+                if frag is not None:
+                    n_empty += 1
                 break
         if frag is None or not len(frag.faces):
             continue
         if float(np.prod(np.maximum(frag.extents, 1e-9))) < keep_min:
+            n_cull += 1
             continue
         keep.append(roughen(frag, rng, amount=rough))
+    if not keep:
+        print("[fracture] EMPTY: {0} seeds -> 0 fragments (slice exceptions {1}, "
+              "empty slices {2}, culled {3}; faces {4}, extents {5}, watertight "
+              "{6}){7}".format(len(pts), n_exc, n_empty, n_cull, len(mesh.faces),
+                               np.round(mesh.extents, 2), mesh.is_watertight,
+                               "  first: " + first_exc if first_exc else ""))
 
     # WOOD BURNS AWAY, it does not merely break. A collapsed timber building
     # leaves far less material than it was built from, so a share of the

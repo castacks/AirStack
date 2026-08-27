@@ -3,6 +3,12 @@
 # from `vendor/arguments.py`; anything upstream ships that is NOT here is
 # omitted deliberately and the reason is given.
 #
+# NOT the launch default any more. conavgpt2.launch.xml loads conavgpt2.yaml,
+# which carries these same values PLUS `frontier_source: voxel3d` so the arm
+# is offered the same 3D candidate list as vlfm / frontier. This file sets no
+# frontier source on purpose — it inherits planner.yaml's `slab2d`, upstream's
+# own 2D map — and exists for a run that must be the paper's method end to end.
+#
 # Paper: Co-NavGPT: Multi-Robot Cooperative Visual Semantic Navigation Using
 # Vision Language Models — arXiv 2310.07937v3. Upstream commit 891ba099.
 search_planner:
@@ -15,15 +21,31 @@ search_planner:
     # round_period_s: 0 is what selects that branch — any positive value
     # replaces upstream's cadence with a timer.
     round_period_s: 0.0
+
+    # The DETECTOR is SHARED — one YOLO + MobileSAM on the offboard-compute
+    # container for the whole fleet, `detector_url` in planner.yaml. Detection
+    # is stateless (one frame in, boxes and masks out, no history), so
+    # interleaving robots is safe; three planner processes each loading their
+    # own copy would be 3x the VRAM for identical answers. Every arm uses the
+    # same one, which is also what keeps the comparison controlled: no arm can
+    # win by having a different detector.
+    # Needs `./airstack.sh up offboard-compute` BEFORE launch — an unreachable
+    # service is fatal, by design (a silent local fallback would turn a missing
+    # service into "found nobody").
+    detector_mode: 'server'
     num_local_steps: 25            # arguments.py:40
     plan_period_s: 1.0             # one tick == one agent step
 
     # ── detector ───────────────────────────────────────────────────────────
-    # arguments.py:51. Tuned for indoor close range; at 15-40 m AGL a
-    # YOLO-World box rarely clears 0.85, so this makes `found_goal` far rarer
-    # than the scene-tuned 0.5. That is the paper's number, and the point of
-    # this file.
-    sem_threshold: 0.85
+    # arguments.py:51 is 0.85, and this file otherwise exists to reproduce
+    # upstream's numbers — but NOT this one. At 15-40 m AGL a YOLO-World box
+    # rarely clears 0.85, so the paper's value makes `found_goal` essentially
+    # unreachable and the arm would be losing on DETECTION rather than on the
+    # 2D-vs-3D map difference this file is meant to isolate. Pinned to the same
+    # 0.65 every other arm uses (see planner.yaml). The 2D map, the cadence and
+    # num_local_steps are still the paper's; the detector gate is deliberately
+    # not.
+    sem_threshold: 0.65
 
     # ── NOT replicated, and why ────────────────────────────────────────────
     # map_size_cm 2400 / map_resolution 5 / map_height_cm 130 (arguments.py:

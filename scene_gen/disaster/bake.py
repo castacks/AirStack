@@ -230,7 +230,13 @@ def export_object(src_stage, _flat_unused, obj_paths, out_path, root="/Baked",
     # perfectly fine, so it reads as a layout or yaw bug rather than metadata.
     UsdGeom.SetStageUpAxis(out, UsdGeom.GetStageUpAxis(src_stage))
     UsdGeom.SetStageMetersPerUnit(out, UsdGeom.GetStageMetersPerUnit(src_stage))
-    UsdGeom.Scope.Define(out, root)
+    # AN XFORM, NOT A SCOPE. `scene_generator.apply_placements` references
+    # an asset onto a TYPELESS holder prim so the asset's own root type wins
+    # — and a Scope is not Xformable, so every transform op was skipped and
+    # 46 earthquake archetypes composed on top of each other at the origin.
+    # `scene_api._ref` never saw this because it defines its holder as an
+    # Xform first. An Xform root composes correctly under either.
+    UsdGeom.Xform.Define(out, root)
     out.SetDefaultPrim(out.GetPrimAtPath(root))
     UsdGeom.Scope.Define(out, root + "/Looks")
 

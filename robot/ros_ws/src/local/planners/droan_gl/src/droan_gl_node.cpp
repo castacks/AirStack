@@ -90,8 +90,11 @@ private:
   std::vector<TrajectoryPoint> trajectory_points;
   vis::MarkerArray traj_markers;
   bool visualize;
+  int min_seen_views;
 
   GLInterface *gl_interface;
+  double max_velocity;
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_cb_handle;
   GlobalPlan *global_plan;
   RewindMonitor *rewind_monitor;
 
@@ -138,10 +141,48 @@ public:
     look_ahead_frame = airstack::get_param(this, "look_ahead_frame", std::string("look_ahead_point_stabilized"));
     rewind_info_frame = airstack::get_param(this, "rewind_info_frame", std::string("base_link_stabilized"));
     visualize = airstack::get_param(this, "visualize", true);
+    // How many stored camera views must have SEEN a trajectory point (found it
+    // in front of the observed surface) before it counts as free. 2 is the
+    // historical hardcoded value. It deadlocks after a VERTICAL takeoff: the
+    // graph then holds a column of views stacked under the hover point, the
+    // airspace around the drone is inside at most ONE of them, every candidate
+    // is "unseen", no trajectory is ever published — and no new view is
+    // stored until the drone moves 1 m. Measured on the 250 m suburb bench:
+    // 0 free trajectories for 40 min at hover with the plan 13 m away.
+    // 1 lets the current view alone free a point, which is what breaks the
+    // deadlock; raise it back once the drone is moving if two-view
+    // confirmation matters more than getting off the pad.
+    min_seen_views = airstack::get_param(this, "min_seen_views", 2);
 
     look_ahead_valid = false;
 
     gl_interface = new GLInterface(this, tf_buffer);
+    // `max_velocity`: the rollout speed cap, LIVE. The search planners set it
+    // per intent (3 m/s crossing the sector, 1.5 m/s approaching a person);
+    // droan_gl used to hard-code 2 m/s in its trajectory params.
+    max_velocity = airstack::get_param(this, "max_velocity", 2.0);
+    gl_interface->set_vel_max((float)max_velocity);
+    param_cb_handle = this->add_on_set_parameters_callback(
+        [this](const std::vector<rclcpp::Parameter> &params) {
+          rcl_interfaces::msg::SetParametersResult res;
+          res.successful = true;
+          for (const auto &p : params)
+          {
+            if (p.get_name() == "max_velocity")
+            {
+              double v = p.as_double();
+              if (v <= 0.0 || v > 15.0)
+              {
+                res.successful = false;
+                res.reason = "max_velocity must be in (0, 15] m/s";
+                break;
+              }
+              max_velocity = v;
+              gl_interface->set_vel_max((float)v);
+            }
+          }
+          return res;
+        });
     global_plan = new GlobalPlan(this, tf_buffer);
     rewind_monitor = new RewindMonitor(this);
 
@@ -271,7 +312,7 @@ private:
         collision_markers.add_point(state.x(), state.y(), state.z());
         traj_status = COLLISION;
       }
-      else if (seen > 1)
+      else if (seen >= min_seen_views)
         free_markers.add_point(state.x(), state.y(), state.z());
       else
       {

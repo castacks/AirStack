@@ -1,0 +1,58 @@
+# Co-NavGPT2 as a METHOD overlay — nav_mode, the paper's own cadence and
+# threshold, and the SAME frontier source the other arms fly. The launch
+# default for conavgpt2.launch.xml.
+#
+# Pair it with a SCENE overlay, exactly as vlfm.yaml is:
+#   method_params_file:=.../config/conavgpt2.yaml
+#   scene_params_file:=.../config/suburb_wildfire.yaml
+#
+# paper.yaml is the 2D-faithful variant: identical cadence and threshold, but
+# it deliberately sets NO frontier source and so inherits planner.yaml's
+# `slab2d`, which is upstream's own map. Pass it when the question is "what
+# does the paper's method do", not "how does its selection policy compare".
+search_planner:
+  ros__parameters:
+    nav_mode: 'gpt'
+
+    # The DETECTOR is SHARED — one YOLO + MobileSAM on the offboard-compute
+    # container for the whole fleet, `detector_url` in planner.yaml. Detection
+    # is stateless (one frame in, boxes and masks out, no history), so
+    # interleaving robots is safe; three planner processes each loading their
+    # own copy would be 3x the VRAM for identical answers. Every arm uses the
+    # same one, which is also what keeps the comparison controlled: no arm can
+    # win by having a different detector.
+    # Needs `./airstack.sh up offboard-compute` BEFORE launch — an unreachable
+    # service is fatal, by design (a silent local fallback would turn a missing
+    # service into "found nobody").
+    detector_mode: 'server'
+
+    # ── ASSIGNMENT CADENCE — the paper's, exactly (see paper.yaml) ──────────
+    # Upstream re-assigns every `num_local_steps` AGENT STEPS: round_period_s
+    # 0 selects that branch; one tick of the plan loop is one agent step.
+    round_period_s: 0.0
+    num_local_steps: 25            # arguments.py:40
+    plan_period_s: 1.0
+
+    # arguments.py:51 is 0.85 — the paper's INDOOR close-range number. NOT
+    # used: the detector gate is held identical across every arm and scene at
+    # 0.65 (see planner.yaml), because a threshold that differs by arm makes
+    # the detector, not the search policy, the thing under comparison.
+    sem_threshold: 0.65
+
+    # ── 3D frontiers, identical to vlfm.yaml / frontier.yaml ───────────────
+    # This is what makes the arms comparable: the SAME voxel map, the SAME
+    # candidate list, and only the selection policy differs. Co-NavGPT is a 2D
+    # method — the VLM sees one top-down BEV per candidate and nothing of its
+    # height — so what changes for it is (a) candidates exist at every height
+    # the camera has seen through instead of one slab, and (b) the waypoint
+    # flies at the chosen frontier's own z (planner_node._frontier_altitude).
+    # Candidates that share a grid cell at different heights are collapsed to
+    # the better-ranked one before the BEVs are cut, so every "frontier N"
+    # image the VLM is shown has that frontier drawn on it.
+    frontier_source: 'voxel3d'
+    voxel_size_m: 2.0
+
+    # max_frontiers stays DERIVED (planner.yaml: 6 at 240 m, linear, capped at
+    # 12) rather than vlfm.yaml's flat 12: for this arm every candidate is
+    # another ~290-token BEV image in the prompt and more prefill time, which
+    # is the bound that number exists for.

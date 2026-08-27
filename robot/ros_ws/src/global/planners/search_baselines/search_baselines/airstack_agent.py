@@ -12,8 +12,11 @@ Those three are overridden here so the vendored tree stays as close to upstream
 as possible.
 """
 
+import threading
+
 import numpy as np
 
+from conavgpt2.vendor.agents import ros2_agents
 from conavgpt2.vendor.agents.ros2_agents import ROS_Agent
 
 # ENU map frame (x fwd/east, y left/north, z up) -> upstream's open3d convention,
@@ -23,6 +26,41 @@ from conavgpt2.vendor.agents.ros2_agents import ROS_Agent
 # The class list upstream's ROS_Agent hardcodes before it resolves the goal.
 # Reproduced here only so the subclass can tell whether a goal will survive
 # `super().__init__`; the vendored file is not edited.
+# CLOSED-SET CHECKPOINTS NEED A no-op `set_classes`.
+#
+# The VENDORED `Object_Detection_and_Segmentation.__init__` calls
+# `yolo_model_w_classes.set_classes(classes)` unconditionally
+# (utils/detection_segmentation.py:49) — inside the constructor, before this
+# subclass gets control. A COCO checkpoint has no such method and raises there,
+# so selecting yolov8x killed the planner at start-up.
+#
+# `YOLOWorld` is a SEPARATE CLASS, not a subclass of `YOLO` (verified), so
+# attaching a no-op to `YOLO` cannot shadow the real open-vocabulary method —
+# open-vocab models keep their own. This is preferred over editing the vendored
+# file, which stays a clean copy of upstream.
+try:
+    from ultralytics import YOLO as _UltralyticsYOLO
+    if not hasattr(_UltralyticsYOLO, 'set_classes'):
+        def _set_classes_noop(self, classes):
+            """Closed-set model: the vocabulary is fixed, so this is a no-op.
+
+            `AirStackAgent` resolves `goal_id` from the checkpoint's own
+            `names` instead of from the requested list.
+            """
+            return None
+        # TAGGED, because the probe below asks `hasattr(model, 'set_classes')`
+        # to decide open-vocab vs closed-set — and installing this shim would
+        # otherwise answer YES for a COCO checkpoint. That sent yolov8x down
+        # the open-vocab path: `self.classes` became the requested ['person']
+        # while the model kept emitting COCO ids 0-79, and the first non-person
+        # detection crashed the vendored overlay with
+        # `IndexError: list index out of range` (visualization.py:46).
+        _set_classes_noop._noop = True
+        _UltralyticsYOLO.set_classes = _set_classes_noop
+except Exception:      # ultralytics absent -> the planner fails later, clearly
+    pass
+
+
 UPSTREAM_CLASSES = ['chair', 'bed', 'potted plant', 'toilet', 'tv_screen',
                     'couch', 'person', 'sink']
 
@@ -41,9 +79,19 @@ def o3d_xz_to_map_xy(o3d_x, o3d_z):
     return float(o3d_x), float(-o3d_z)
 
 
+# The vendored `ROS_Agent.__init__` CONSTRUCTS the detector itself — line 87 of
+# ros2_agents.py, before this subclass gets any control — and that constructor
+# is what puts YOLO and MobileSAM on the GPU. To run against the shared service
+# instead, the name it looks up has to be replaced for the duration of that
+# call; there is no injection point and the vendored tree stays a clean copy of
+# upstream. Serialised because the name being swapped is module-global.
+_DETECTOR_PATCH_LOCK = threading.Lock()
+
+
 class AirStackAgent(ROS_Agent):
     def __init__(self, args, agent_id, goal_name, classes=None,
-                 depth_min_m=0.5, depth_max_m=60.0, depth_border_px=0):
+                 depth_min_m=0.5, depth_max_m=60.0, depth_border_px=0,
+                 detector=None):
         self._depth_min_m = float(depth_min_m)
         self._depth_max_m = float(depth_max_m)
         self._depth_border_px = int(depth_border_px)
@@ -60,19 +108,59 @@ class AirStackAgent(ROS_Agent):
         # list — 'car', 'smoke', anything aerial — raises before the subclass
         # gets to substitute its own vocabulary. Hand the base a name it is
         # guaranteed to have and correct the three fields immediately after.
-        super().__init__(args, agent_id,
-                         goal_name if goal_name in UPSTREAM_CLASSES else 'person',
-                         None, None)
+        base_goal = goal_name if goal_name in UPSTREAM_CLASSES else 'person'
+        if detector is None:
+            super().__init__(args, agent_id, base_goal, None, None)
+        else:
+            # `detector` is already-built (a detector_client.RemoteDetector),
+            # so nothing is loaded locally: no YOLO, no MobileSAM, no CUDA
+            # context for either. The factory swallows the three arguments the
+            # vendored constructor passes (args, classes, device) — the remote
+            # model's vocabulary is set below through the same
+            # `set_classes` path an in-process model takes.
+            with _DETECTOR_PATCH_LOCK:
+                original = ros2_agents.Object_Detection_and_Segmentation
+                ros2_agents.Object_Detection_and_Segmentation = (
+                    lambda _args, _classes, _device: detector)
+                try:
+                    super().__init__(args, agent_id, base_goal, None, None)
+                finally:
+                    ros2_agents.Object_Detection_and_Segmentation = original
         self.goal_name = goal_name
 
-        if classes:
-            # YOLO-World is open-vocabulary: re-setting the prompt vocabulary on the
-            # already-built model avoids editing upstream's hardcoded indoor list.
-            self.classes = list(classes)
-        if goal_name not in self.classes:
-            self.classes = list(self.classes) + [goal_name]
-        self.obj_det_seg.yolo_model_w_classes.set_classes(self.classes)
-        self.goal_id = self.classes.index(goal_name)
+        # OPEN-VOCAB (YOLO-World) vs CLOSED-SET (COCO). A COCO checkpoint has no
+        # `set_classes` — its vocabulary is fixed — so calling it raises, and the
+        # class ids are the model's OWN, not our list's. Measured on the
+        # wildfire frame: yolov8x (COCO) matches yolov8l-world on people
+        # (top 0.85 vs 0.84) at 237 ms against 1030 ms, because it runs no
+        # text-embedding match. Worth taking whenever the goal is a COCO class.
+        model = self.obj_det_seg.yolo_model_w_classes
+        # A REAL set_classes, not the shim above.
+        _sc = getattr(model, 'set_classes', None)
+        self._open_vocab = _sc is not None and not getattr(_sc, '_noop', False)
+        if self._open_vocab:
+            if classes:
+                # Re-setting the prompt vocabulary on the already-built model
+                # avoids editing upstream's hardcoded indoor list.
+                self.classes = list(classes)
+            if goal_name not in self.classes:
+                self.classes = list(self.classes) + [goal_name]
+            model.set_classes(self.classes)
+            self.goal_id = self.classes.index(goal_name)
+        else:
+            # The checkpoint's own names, so `goal_id` indexes what the model
+            # actually emits. `person` is COCO id 0.
+            names = dict(getattr(model, 'names', {}) or {})
+            self.classes = [names[k] for k in sorted(names)]
+            match = [i for i, n in names.items()
+                     if str(n).lower() == str(goal_name).lower()]
+            if not match:
+                raise ValueError(
+                    f"goal_name {goal_name!r} is not a class of this closed-set "
+                    f"detector. Available: {sorted(set(names.values()))[:12]}... "
+                    "Use an open-vocabulary checkpoint (yolov8*-world.pt) for a "
+                    "goal outside the model's vocabulary.")
+            self.goal_id = int(match[0])
 
         # Record what the detector actually returns. Upstream consumes
         # detections inside mapping() and keeps nothing when the class/

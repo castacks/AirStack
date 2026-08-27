@@ -553,7 +553,8 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
     # people themselves are held back until 4c.
     resolver = sg._make_resolver(config)
     apools = ss.AssetPools(config)
-    pcfg = ppl.resolve_cfg(config)
+    # Peacetime postures when there is no fire: see people.PEACETIME_SCENARIOS.
+    pcfg = ppl.resolve_cfg(config, has_disaster=has_disaster)
     pctx = ppl.build_ctx(config, binfo, placements, resolver, apools,
                          age, elapsed, span, arch=arch, levels=hlevels)
     p_cars, p_blockers, p_humans, p_recs = ppl.plan_people(

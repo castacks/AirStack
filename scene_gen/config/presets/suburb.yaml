@@ -378,6 +378,15 @@ overrides:
   # the shed, the patio set and the bin. The `neighbourhoods:` block below
   # takes that further per type, keyed on the same names `suburb_lots.types`
   # uses.
+  #
+  # `shed_chance` IS CURRENTLY DEAD and left in on purpose. The suburban asset
+  # set no longer stocks a `shed`-tagged prop — the AEC MobilaShelter came out
+  # of it for rendering as the transit shelter it was authored as — so the slot
+  # draws from an empty pool and places nothing. The knobs stay so the slot
+  # comes back on its own the day a real garden shed is added, and they are
+  # NOT silently repurposed: `suburb_yards._role` refuses to fall back to the
+  # whole prop pool for a role that is not stocked, which would otherwise have
+  # stood a wheelie bin in the far corner of every back garden.
   suburb_yards:
     layout_key: lot_yards       # where suburb_lots publishes its lot records
 

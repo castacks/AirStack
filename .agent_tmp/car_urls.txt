@@ -1,0 +1,11 @@
+omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/burned_car_01/burned_car_01.usdc
+omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/burned_car_02/burned_car_02.usdc
+omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/citybus/citybus.usdc
+omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/delivery_van/delivery_van.usdc
+omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/generic_sedan/generic_sedan.usdc
+omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_coupe/lowpoly_coupe.usdc
+omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_pickup/lowpoly_pickup.usdc
+omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_sedan/lowpoly_sedan.usdc
+omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/lowpoly_wagon/lowpoly_wagon.usdc
+omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/police_car/police_car.usdc
+omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/cars/red_car/red_car.usdc

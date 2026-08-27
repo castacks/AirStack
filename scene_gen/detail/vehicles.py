@@ -254,6 +254,31 @@ CABIN_RULES = {
     "Vehicle_Taxi.usd":                            {"strip": False, "extra": ()},
     "Vehicle_Police.usd":                          {"strip": False, "extra": ()},
     "Car_01_0.usd":                                {"strip": False, "extra": ()},
+    # ---- the 2026-08-26 standalone drop: ALL painted-on glass ---------------
+    # Screened structurally before they went into any pool (open the stage,
+    # walk every Mesh, look for one whose name says glass or whose bound
+    # material carries a fractional opacity): every one of the eleven is a
+    # SINGLE merged mesh with no separable glass and no transparent material
+    # anywhere — the `Vehicle_A` case exactly, not the `Nissan` one. There is
+    # nothing for `strip_glass` to remove and no mesh worth naming in `extra`.
+    #
+    # THEY ARE HERE PRECISELY SO THEY ARE NOT UNKNOWN. `can_open_cabin` returns
+    # True for a car it has never heard of, on the reasoning that ordinary
+    # glass is the commoner case — so leaving them out would let the occupant
+    # planner seat people in them, and every one of those people would be a
+    # labelled target invisible from every angle. They stay in the pool as
+    # parked cars, which is all they can do.
+    "burned_car_01.usdc":                          {"strip": False, "extra": ()},
+    "burned_car_02.usdc":                          {"strip": False, "extra": ()},
+    "citybus.usdc":                                {"strip": False, "extra": ()},
+    "delivery_van.usdc":                           {"strip": False, "extra": ()},
+    "generic_sedan.usdc":                          {"strip": False, "extra": ()},
+    "lowpoly_coupe.usdc":                          {"strip": False, "extra": ()},
+    "lowpoly_pickup.usdc":                         {"strip": False, "extra": ()},
+    "lowpoly_sedan.usdc":                          {"strip": False, "extra": ()},
+    "lowpoly_wagon.usdc":                          {"strip": False, "extra": ()},
+    "police_car.usdc":                             {"strip": False, "extra": ()},
+    "red_car.usdc":                                {"strip": False, "extra": ()},
 }
 
 

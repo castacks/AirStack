@@ -1,6 +1,30 @@
 # Geometric control — the floor a semantic method has to beat.
-# Nearest in-bounds frontier, no VLM, no ITM, no GPU service.
+# Nearest in-bounds frontier, no VLM, no ITM. Needs no model of its OWN --
+# but it detects like every other arm, so it uses the shared detector
+# service (offboard-compute:8200) rather than loading YOLO in-process.
 search_planner:
   ros__parameters:
     nav_mode: 'nearest'
+
+    # The DETECTOR is SHARED — one YOLO + MobileSAM on the offboard-compute
+    # container for the whole fleet, `detector_url` in planner.yaml. Detection
+    # is stateless (one frame in, boxes and masks out, no history), so
+    # interleaving robots is safe; three planner processes each loading their
+    # own copy would be 3x the VRAM for identical answers. Every arm uses the
+    # same one, which is also what keeps the comparison controlled: no arm can
+    # win by having a different detector.
+    # Needs `./airstack.sh up offboard-compute` BEFORE launch — an unreachable
+    # service is fatal, by design (a silent local fallback would turn a missing
+    # service into "found nobody").
+    detector_mode: 'server'
     vlm_preflight: false
+
+    # ── a SECTOR of its own, like the lawnmower ──────────────────────────
+    # In a fleet the search area is cut into NUM_ROBOTS strips and this robot
+    # flies the one ROBOT_NAME names; inside it the method roams as it likes
+    # (frontiers and the value map are only offered in-sector, and a person
+    # seen across the line is another drone's). Pad 0 so every arm — lawnmower
+    # included — is held to exactly the same ground. At NUM_ROBOTS=1 this is
+    # the whole area and a no-op.
+    sector_partition: 'strips'
+    search_area_pad_m: 0.0

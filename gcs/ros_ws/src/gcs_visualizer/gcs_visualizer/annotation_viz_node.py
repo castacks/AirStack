@@ -106,7 +106,80 @@ class AnnotationViz(Node):
         self.pub = self.create_publisher(MarkerArray, TOPIC, latched_qos)
         self._publish()   # once; re-published only on param/scene change
 
+        # WAIT FOR THE FILE. On a GENERATED scene the GT does not exist when
+        # this node starts: isaac-sim writes `annotations/<scene>.json` partway
+        # through scene generation, which finishes minutes after the GCS comes
+        # up. Publishing once at startup therefore latched an EMPTY MarkerArray
+        # for the whole run — a recorded bag shows the topic present with a
+        # single 0-marker message, and a viewer that connects later gets that
+        # empty sample. Poll until it appears, then publish for real and stop.
+        self._retry_timer = None
+        if not self.annotations:
+            self._retry_left = int(self._p_int('annotation_retry_count', 120))
+            self._retry_timer = self.create_timer(5.0, self._retry_load)
+            self.get_logger().info(
+                f'no annotations yet at {self.scene_path} — polling every 5 s '
+                f'({self._retry_left} tries)')
+        # AND WATCH IT AFTERWARDS. The GCS comes up before the scene is
+        # built, so the file that exists at startup is the PREVIOUS run's GT;
+        # the launcher rewrites it minutes later (houses, trees, cars, this
+        # run's people). Loaded-once meant every run showed the run before.
+        # Reload and republish whenever the file's mtime changes.
+        self._file_mtime = self._mtime()
+        self._watch_timer = self.create_timer(5.0, self._watch_file)
+
         self.add_on_set_parameters_callback(self._on_set_params)
+
+    def _p_int(self, name, default):
+        try:
+            self.declare_parameter(name, default)
+        except Exception:
+            pass
+        try:
+            return int(self.get_parameter(name).value)
+        except Exception:
+            return default
+
+    def _mtime(self):
+        try:
+            return os.path.getmtime(self.scene_path)
+        except OSError:
+            return None
+
+    def _watch_file(self):
+        """Reload + republish when the annotation file is rewritten."""
+        m = self._mtime()
+        if m is None or m == self._file_mtime:
+            return
+        self._file_mtime = m
+        try:
+            self._load_scene(self.scene_name)
+        except Exception as exc:          # a half-written file: try next tick
+            self.get_logger().warn(f'annotation reload failed: {exc}')
+            self._file_mtime = None
+            return
+        self._publish()
+        self.get_logger().info(
+            f'annotation file changed — reloaded {len(self.annotations)} '
+            f'boxes from {self.scene_path} and republished')
+
+    def _retry_load(self):
+        """Re-attempt the load until the scene writes its GT, then stop."""
+        self._retry_left -= 1
+        self._load_scene(self.scene_name)
+        if self.annotations:
+            self._publish()
+            self.get_logger().info(
+                f'annotations appeared: {len(self.annotations)} box(es) from '
+                f'{self.scene_path}')
+            self._retry_timer.cancel()
+            self._retry_timer = None
+        elif self._retry_left <= 0:
+            self.get_logger().warn(
+                f'giving up waiting for {self.scene_path}; '
+                'the GT topic stays empty for this run')
+            self._retry_timer.cancel()
+            self._retry_timer = None
 
     # ------------------------------------------------------------------ JSON
 
@@ -148,7 +221,11 @@ class AnnotationViz(Node):
     def _load_scene(self, scene_name):
         path = self._scene_path_for(scene_name)
         if not os.path.exists(path):
-            self.get_logger().error(f'Annotation file not found: {path}')
+            # Throttled: on a generated scene this is the EXPECTED state for
+            # the first minutes while isaac-sim writes the GT, and the retry
+            # timer would otherwise log it every 5 s for the whole wait.
+            self.get_logger().warn(f'Annotation file not found: {path}',
+                                   throttle_duration_sec=30.0)
             self.scene_name = scene_name
             self.scene_path = path
             self.annotations = []

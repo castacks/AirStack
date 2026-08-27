@@ -66,6 +66,16 @@ services:
       - MAP_ANCHOR_ENU=${MAP_ANCHOR_ENU:-}
       # Takeoff height above the ground plane; the z half of that offset.
       - SPAWN_HEIGHT_M=${SPAWN_HEIGHT_M:-}
+      # WHERE THE SHARED MODEL SERVICES ARE. Unset -> the planner configs'
+      # own defaults (the offboard-compute container). Passed by BARE NAME on
+      # purpose: `VAR=${VAR:-}` would define them as EMPTY, and an empty value
+      # BEATS the `$(env VAR default)` default in the params file, which is how
+      # a run ends up posting frames to "". Set them (mission `env:` or the
+      # shell) only to redirect, e.g. DETECTOR_URL=http://localhost:8200 on a
+      # pod that has no offboard-compute container.
+      - DETECTOR_URL
+      - ITM_URL
+      - VLM_URL
       - RAYFRONTS_COMPUTE_PROB=${RAYFRONTS_COMPUTE_PROB:-True}
       - LVLM_BASELINE=${LVLM_BASELINE:-false}
       - URDF_FILE=${URDF_FILE}

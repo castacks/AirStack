@@ -15,9 +15,24 @@
 search_planner:
   ros__parameters:
     nav_mode: 'frontier'
+
+    # The DETECTOR is SHARED — one YOLO + MobileSAM on the offboard-compute
+    # container for the whole fleet, `detector_url` in planner.yaml. Detection
+    # is stateless (one frame in, boxes and masks out, no history), so
+    # interleaving robots is safe; three planner processes each loading their
+    # own copy would be 3x the VRAM for identical answers. Every arm uses the
+    # same one, which is also what keeps the comparison controlled: no arm can
+    # win by having a different detector.
+    # Needs `./airstack.sh up offboard-compute` BEFORE launch — an unreachable
+    # service is fatal, by design (a silent local fallback would turn a missing
+    # service into "found nobody").
+    detector_mode: 'server'
     vlm_preflight: false
 
     frontier_source: 'voxel3d'
+    # 24 candidates, like the vlfm overlay: the derived default caps at 12,
+    # and the unreachable-frontier blacklist wants alternatives to fall back to.
+    max_frontiers: 24
     visit_cost_weight: 1.0
     # Radius of the visit deposit. Roughly the ground the camera resolves at
     # cruise, so flying over an area marks about what it actually observed.
@@ -27,7 +42,12 @@ search_planner:
     # revisiting before the first pass is finished.
     visit_cost_decay_per_s: 0.0
 
-    # Sector the region and stay in it. At 1 robot this is the padded region
-    # itself, so the pipeline is exercised without changing behaviour.
+    # Sector the region and stay in it. At 1 robot this is the region itself,
+    # so the pipeline is exercised without changing behaviour.
     sector_partition: 'strips'
-    search_area_pad_m: 25.0
+    # NO pad, same as lawnmower.yaml. The other arms fly the unpadded
+    # search_area_xy; a padded frontier arm searches ground no one else sees,
+    # which breaks the "same search area, only the selection policy differs"
+    # control the comparison rests on. A pad also has to FIT: goals are grid
+    # cells, and a sector wider than map_extent_m gets clipped at the map edge.
+    search_area_pad_m: 0.0

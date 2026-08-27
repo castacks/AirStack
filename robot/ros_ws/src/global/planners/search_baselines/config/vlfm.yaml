@@ -11,6 +11,18 @@ search_planner:
   ros__parameters:
     nav_mode: 'vlfm'
 
+    # The DETECTOR is SHARED — one YOLO + MobileSAM on the offboard-compute
+    # container for the whole fleet, `detector_url` in planner.yaml. Detection
+    # is stateless (one frame in, boxes and masks out, no history), so
+    # interleaving robots is safe; three planner processes each loading their
+    # own copy would be 3x the VRAM for identical answers. Every arm uses the
+    # same one, which is also what keeps the comparison controlled: no arm can
+    # win by having a different detector.
+    # Needs `./airstack.sh up offboard-compute` BEFORE launch — an unreachable
+    # service is fatal, by design (a silent local fallback would turn a missing
+    # service into "found nobody").
+    detector_mode: 'server'
+
     # 3D frontiers. VLFM flies in 3D in the raven baselines, and a 2D slab can
     # only ever hand it candidates at one height. Ray carving also gives the
     # empty-vs-unobserved distinction the frontier definition needs, which the
@@ -20,7 +32,10 @@ search_planner:
 
     # Needs NO generative VLM. BLIP-2 ITM is 2.5 GiB against Qwen-7B's 5.9 GiB,
     # and preflight for the chat endpoint is skipped in this mode.
-    vlfm_itm_url: 'http://localhost:8100'
+    # The scorer lives on the shared offboard-compute container next to the
+    # detector, so this arm makes TWO calls to that host per tick (YOLO on the
+    # frame, BLIP-2 on the keyframe tiles) and holds no model of its own.
+    vlfm_itm_url: '$(env ITM_URL http://offboard-compute:8100)'
 
     # 2x3 tiles per keyframe, rows collapsed by max, columns painted into their
     # own bearing. Measured on a fire scene with ~8 people, each ~3 px after
@@ -41,9 +56,20 @@ search_planner:
     # cross the whole map for a marginally better cell.
     vlfm_distance_penalty: 0.004
 
-    # 12 candidates rather than the 6 auto-scaling gives at 240 m. The cap
+    # 24 candidates (was 12, was the 6 auto-scaling gives at 240 m). The cap
     # exists because CoNavGPT2 puts one BEV image (~290 tokens) per frontier in
     # the VLM prompt; VLFM only does a value-map lookup per candidate, so the
     # cost is negligible and more candidates give the z-stratifier more heights
-    # to spread across.
-    max_frontiers: 12
+    # to spread across — and, with the unreachable-frontier blacklist, more
+    # alternatives to fall back to when one is dropped.
+    max_frontiers: 24
+
+    # ── a SECTOR of its own, like the lawnmower ──────────────────────────
+    # In a fleet the search area is cut into NUM_ROBOTS strips and this robot
+    # flies the one ROBOT_NAME names; inside it the method roams as it likes
+    # (frontiers and the value map are only offered in-sector, and a person
+    # seen across the line is another drone's). Pad 0 so every arm — lawnmower
+    # included — is held to exactly the same ground. At NUM_ROBOTS=1 this is
+    # the whole area and a no-op.
+    sector_partition: 'strips'
+    search_area_pad_m: 0.0

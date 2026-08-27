@@ -107,6 +107,99 @@ DEFAULTS = {
     # the rear boundary on the shallow half of them, which is how the pass this
     # replaces put 17-26 trees a seed inside somebody else's house.
     "rear_depth_fallback_m": 16.0,
+    # -- A BACK YARD IS ENCLOSED BY A FENCE OR BY A TREELINE ------------------
+    # ...or it is open ground. Only the first half of that was reachable. On
+    # seed 3 of the shipped preset, of the 363 lots that have a real back
+    # garden (>= `patio_min_rear_yard_m` behind the back wall):
+    #
+    #     fenced closed   82        screened by trees    5
+    #     part-screened   57        wide open          219
+    #
+    # Five. Not because trees are scarce — this pass plants 2,637 of them —
+    # but because none of them is planted AS A BOUNDARY. The rear canopy slot
+    # throws 2-4 darts at the middle of the back garden, which is a copse and
+    # never an edge, and the one row that does walk the real rear lot line
+    # (`rear_boundary_step_m`, below) plants SHRUBS, which are off by default
+    # and would not screen anything if they were on.
+    #
+    # So this is that row, planted with trees, along the three edges that
+    # actually enclose a back yard: both side lines from the BUILDING LINE
+    # back, and the rear line. Those three are exactly what a fence encloses
+    # when it closes — `suburb_scene._trim_to_building_line` cuts a side run
+    # to the front of the house for the same reason — so a screened yard and
+    # a fenced one come out the same shape and one predicate downstream can
+    # read either.
+    #
+    # Share of the ELIGIBLE lots: no fence of their own, and a back garden
+    # deep enough to be worth screening. On seed 3 that population is 259 of
+    # 479 lots, and this pass is deliberately a MINORITY of it. A suburb where
+    # every unfenced back garden is walled in trees is as wrong as one where
+    # none are, and it is worse for what comes after: an enclosed yard is what
+    # qualifies a lot for seating, so this number sets how much garden
+    # furniture the suburb grows. 0.40 lands 96 screened yards on seed 3
+    # (from 5), against 82 fenced — a visible minority, roughly one screened
+    # back garden for every fenced one.
+    "screen_chance": 0.40,
+    # SPACING IS DERIVED FROM THE TREE ACTUALLY DRAWN, not from this knob.
+    # `yard_trees` spans 3.02 m of crown (Douglas_Fir) to 25.42 m (Black_Oak)
+    # and the draw is weighted, so the measured canopy RADIUS in this scene is
+    # p10 1.51 m / median 1.51 m / p90 5.24 m — a factor of three and a half.
+    # Any single number is therefore wrong twice over: at 4.5 m the oaks stand
+    # in each other and the firs leave a 1.5 m hole between every pair, which
+    # is a row of trees and not a screen. So the walk advances by the crown it
+    # just planted plus the crown it is about to plant (see `_crown_radii`),
+    # which closes canopy-to-canopy whatever the draw hands it.
+    #
+    # This knob is what is left when that cannot be done: a run with no
+    # resolver, or `measure_usds: false` with the assets unreachable, where
+    # every entry answers with the one `fallback_sizes.tree` and a "derived"
+    # step is a fiction. It is also the advance used to step PAST a refused
+    # station, where there is no drawn crown to measure. 4.5 m because that is
+    # what the shrub boundary row above is spaced at and two boundary rows in
+    # one module should not disagree about what a boundary row is, and because
+    # it clears `tree_min_separation_m` (3.0) — a fallback step at or under
+    # the separation floor is a row the spacing grid deletes every other tree
+    # from.
+    "screen_step_m": 4.5,
+    # How far inside the boundary the trunks stand. Held off the line for the
+    # reasons `lot_inset_m` (0.9) gives — the survey line, and the neighbour's
+    # garage, which is allowed to sit hard on it — and no further, because a
+    # screen that stands back from the line stops screening: the strip you
+    # left is the gap you can see through from next door, and the two
+    # neighbours' rows on a shared boundary then sit far enough apart that
+    # `tree_min_separation_m` no longer merges them into the one treeline a
+    # shared line should be. 1.0 m is that inset plus a decimetre for a trunk,
+    # which is thicker than the shrub the general inset was written for.
+    "screen_inset_m": 1.0,
+    # -- THE PATIO SET NEEDS A BACK GARDEN TO STAND IN ------------------------
+    # How much open ground there has to be BEHIND THE BACK WALL, inside the lot
+    # inset, before the lot is offered patio furniture at all. The test used to
+    # be a bare `+ 2.0` on top of `clear_house_m`, i.e. 2.6 m — narrower than
+    # the table-and-chairs set itself (2.43 m measured), so the furniture was
+    # admitted to gardens that could not hold it and ended up half inside the
+    # house or over the rear fence. Worse, `lot_depth` is platted per block and
+    # the house is sized from the kit independently of it, so a measured 7.7% of
+    # lots on the shipped preset (seed 1) have their rear lot line BEHIND their
+    # own back wall — those houses have no back garden at all, and a table and
+    # chairs on one stood in the neighbour's garden or in the next street.
+    #
+    # 4.0 m is a garden rather than a fit: the widest prop plus its stand-off
+    # off the wall (`clear_house_m` 0.6 + 2.62 = 3.22 m) would technically fit
+    # at 3.3, but a dining set filling a strip wall-to-fence, with no lawn left
+    # either side of it, reads as a mistake from the air rather than a garden.
+    # The FIT is enforced separately and from the MEASURED footprint of the prop
+    # actually drawn, so this knob only has to say how much garden is enough.
+    "patio_min_rear_yard_m": 4.0,
+    # FLOOR under the measured extent of a patio prop, not merely a fallback.
+    # It has to be a floor because an unmeasured run is not detectable from the
+    # answer: with `measure_usds: false` the resolver returns the generic
+    # `fallback_sizes.plant` (1.0 m) for every prop in the pool, which is a
+    # perfectly plausible number and a third of the truth, so a plain fallback
+    # would silently admit every tight garden. 2.62 m is the widest thing the
+    # shipped pool holds (ParkBench01); the next widest is the table set at
+    # 2.43, so on a measured run this floor costs 0.19 m of clearance and on an
+    # unmeasured one it is what keeps the furniture out of the strip gardens.
+    "patio_extent_fallback_m": 2.62,
     # -- side yards: the gap between neighbouring houses, previously EMPTY ----
     # The gap is `suburb_parcel.house_gap_m` (4.0 m) only on the tightest lots;
     # frontage is scaled per block by the density class (tight 0.78 to estate
@@ -321,6 +414,32 @@ def _canopy_ranks(pool, resolver):
     return ranks
 
 
+def _crown_radii(pool, resolver):
+    """``{usd: half the MEASURED crown width}``, or ``{}`` when unmeasurable.
+
+    The screen row's spacing is this and nothing else: it walks a boundary
+    advancing by the crown it just planted plus the crown it is about to, so
+    the canopies close whatever the weighted draw hands it. A fixed step
+    cannot, because the pool is not one size — Douglas_Fir is 3.02 m across
+    and Black_Oak 25.42 m, and both are common draws at the far end of a lot.
+
+    Same key as `_canopy_ranks` and for the same reason: ``max(sx, sy)`` is
+    crown WIDTH, which is what decides whether two neighbouring trees touch.
+    Empty rather than a guess when there is no resolver — the caller then
+    falls back to `screen_step_m`, which is honest about being a constant,
+    where a fabricated radius would not be.
+    """
+    if resolver is None:
+        return {}
+    out = {}
+    for e in pool:
+        fp = resolver.get(e["usd"], "tree", scale=e.get("scale", 1.0),
+                          axis_up=e.get("axis_up", "Z"))
+        out[e["usd"]] = 0.5 * max(float(fp.get("sx", 0.0) or 0.0),
+                                  float(fp.get("sy", 0.0) or 0.0))
+    return out
+
+
 def _size_t(dist_m, near_m, far_m):
     """Where a tree *dist_m* from its own house wall sits on the size ramp.
 
@@ -423,14 +542,41 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
     shrubs = (lib.pool("yard_shrubs") or lib.pool("plants")) \
         if cfg.get("yard_shrubs_enabled", False) else []
     trees = lib.pool("yard_trees") or lib.pool("trees")
-    # SPLIT BY TAG. `yard_props` holds mailboxes, a bin, patio furniture and a
-    # shelter, and the kerb slot below drew from ALL of them — so two thirds of
-    # the time the "mailbox at the kerb" was a table-and-chairs, a garden bench
-    # or a 2.3 m transit shelter, standing in the street. Each now goes where it
-    # belongs.
+    # SPLIT BY TAG. `yard_props` holds mailboxes, a bin, patio furniture and (it
+    # used to) a shelter, and the kerb slot below drew from ALL of them — so two
+    # thirds of the time the "mailbox at the kerb" was a table-and-chairs, a
+    # garden bench or a 2.3 m transit shelter, standing in the street. Each now
+    # goes where it belongs.
+    #
+    # `shed` is still read because the slot is still here; the shipped suburban
+    # pool no longer STOCKS one (see the note in `asset_sets/suburban.yaml` —
+    # the AEC MobilaShelter read as the bus stop it was authored as), so on that
+    # pool this list is the two patio entries and nothing else. An empty tag
+    # must stay empty: `_tagged` falls back to the whole pool when nothing
+    # carries the tag, which is right for the mailbox slot and would put a bin
+    # in the far corner of every garden here.
     _pp = lib.pool("yard_props")
     mailboxes = _tagged(_pp, "mailbox")
     patio_props = [e for e in _pp if "patio" in e["tags"] or "shed" in e["tags"]]
+    # MEASURED FOOTPRINT PER PROP, so the fit test in the rear yard is against
+    # the thing actually being placed instead of a constant. `max(sx, sy)` on
+    # BOTH axes deliberately: the entry's own `yaw` offset and the +-180 flip
+    # below decide which face turns to the house, so a bench that is 2.62 m one
+    # way and 0.79 m the other must not be let into a garden that only holds it
+    # end-on. Category "plant" because that is what `emit` charges these as, and
+    # `patio_extent_fallback_m` is a FLOOR under the answer rather than a
+    # fallback — see the note on it in DEFAULTS.
+    patio_fallback = float(cfg.get("patio_extent_fallback_m", 2.62))
+    patio_min_yard = float(cfg.get("patio_min_rear_yard_m", 4.0))
+    patio_ext = {}
+    for _e in patio_props:
+        _fp = (resolver.get(_e["usd"], "plant", scale=_e.get("scale", 1.0),
+                            axis_up=_e.get("axis_up", "Z"))
+               if resolver is not None else None)
+        patio_ext[_e["usd"]] = max(
+            patio_fallback,
+            float((_fp or {}).get("sx", 0.0) or 0.0),
+            float((_fp or {}).get("sy", 0.0) or 0.0))
 
     # ROW HOMES ARE NOT PLANTED HERE, and the reason is the first line of this
     # module's docstring: every dimension is read off THE LOT, and an attached
@@ -497,6 +643,12 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
     t_near = float(cfg.get("tree_size_near_m", 3.0))
     t_far = float(cfg.get("tree_size_far_m", 18.0))
     t_sharp = float(cfg.get("tree_size_sharp", 3.0))
+    # THE SCREEN ROW. Radii measured once for the whole suburb, exactly as the
+    # ranking above is: both are properties of the pool, not of the lot.
+    screen_chance = float(cfg.get("screen_chance", 0.40))
+    screen_step = max(1.0, float(cfg.get("screen_step_m", 4.5)))
+    screen_inset = float(cfg.get("screen_inset_m", 1.0))
+    crown_r = _crown_radii(trees, resolver)
 
     # Every building in the suburb, before anything is planted — one pass over
     # the same `houses` list, so the neighbours are covered too.
@@ -535,6 +687,16 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
     _discs = [((float(c[0]), float(c[1])), float(r))
               for (c, r) in (keepout_discs or ())]
     n_side_narrow = n_side_blocked = n_pool_tree = 0
+    # The patio slot, split four ways so a drop in the furniture count says
+    # WHICH question refused it: no back garden at all, a garden too small for
+    # the prop drawn, or a garden with something already standing in the spot.
+    n_patio = n_patio_nogarden = n_patio_nofit = n_patio_blocked = 0
+    # The screen row, split the same way. `screen_eligible` is the population
+    # the chance rolls against — unfenced lots with a back garden — so a
+    # screen count that looks thin says whether the ROLL or the GROUND refused
+    # it, and `screen_blocked` says how much of a rolled row the walls, the
+    # neighbours' canopies and the purse ate.
+    n_screen_lot = n_screen_elig = n_screen_tree = n_screen_blocked = 0
 
     def emit(entry, x, y, yaw, category, purse):
         """Charge the purse, then place. Returns False if unaffordable.
@@ -649,17 +811,25 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
                     return False
             return True
 
-        def plant_tree(along, deep, pad):
+        def plant_tree(along, deep, pad, entry=None):
             """Emit a tree at a local-frame point if everything allows it.
 
             SIZE COMES FREE HERE. `along`/`deep` are already in the house's own
             frame, so the distance from the wall is two subtractions against the
             half-footprint -- no index, no neighbour search, and it is the right
             house by construction: the tree belongs to this lot.
+
+            Returns THE ENTRY PLANTED, or None. It used to return a bool and
+            every caller still reads it as one, which is why this is safe; the
+            screen row needs to know which species landed, because its next
+            station is one crown further on and the crowns differ by a factor
+            of eight. *entry* is the other half of that: a caller that has
+            already drawn a species — because it had to, to know how far to
+            step — hands it in rather than having a second one drawn here.
             """
             x, y = world(along, deep)
             if not placed_trees.ok(x, y) or not free(x, y, pad):
-                return False
+                return None
             # A TREE ONLY. The station is not re-tried anywhere else: a lot
             # with a pool in it has less plantable rear yard than one without,
             # which is the correct answer and is why the count drops slightly
@@ -667,15 +837,16 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
             if pool_water is not None and not pool_water.clear(x, y, pool_clear):
                 nonlocal n_pool_tree
                 n_pool_tree += 1
-                return False
-            wall = math.hypot(max(abs(along) - half_w, 0.0),
-                              max(abs(deep) - half_d, 0.0))
-            if emit(_pick(trees, rng, ranks=t_ranks,
-                          t=_size_t(wall, t_near, t_far), sharp=t_sharp),
-                    x, y, rng.uniform(0, 360), "tree", budget.tree):
+                return None
+            if entry is None:
+                wall = math.hypot(max(abs(along) - half_w, 0.0),
+                                  max(abs(deep) - half_d, 0.0))
+                entry = _pick(trees, rng, ranks=t_ranks,
+                              t=_size_t(wall, t_near, t_far), sharp=t_sharp)
+            if emit(entry, x, y, rng.uniform(0, 360), "tree", budget.tree):
                 placed_trees.add(x, y)
-                return True
-            return False
+                return entry
+            return None
 
         # -- front: foundation row along the TRUE front wall ---------------
         n_row = int(rng.uniform(row_lo, row_hi + 0.999))
@@ -790,16 +961,55 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
                          "plant", budget.other)
                 a += step
 
-        # -- rear: the patio set and the shed, which is where they belong ---
+        # -- rear: the patio set, which needs a back garden to stand in -----
         # These were only ever reachable through the kerb slot above, which is
         # how a garden table and a shelter ended up on the road.
-        if patio_props and depth > half_d + clear_house + 2.0:
-            px = rng.uniform(-half_lot * 0.5, half_lot * 0.5)
-            py = half_d + (depth - half_d) * rng.uniform(0.35, 0.65)
-            x, y = world(px, py)
-            if free(x, y, 1.4):
-                emit(_pick(patio_props, rng), x, y,
-                     yaw_deg + rng.choice([0.0, 180.0]), "plant", budget.other)
+        #
+        # A HOUSE WITH NO BACK GARDEN GETS NO PATIO FURNITURE. The old test was
+        # `depth > half_d + clear_house + 2.0` — 2.6 m of ground behind the back
+        # wall, less than the 2.43 m the table set is across — and it admitted
+        # 427 of 479 lots on the shipped preset (seed 1), 82 of them with under
+        # 5 m of garden and 37 with a platted rear lot line BEHIND their own
+        # back wall. `lot_depth` is sampled per block and the house is sized
+        # from the kit independently of it, so those lots are not a bug in the
+        # plat; they are houses that genuinely have no back garden, and a dining
+        # set on one stood in the neighbour's plot or in the next street.
+        #
+        # So the gate is now two separate questions, and both are asked against
+        # the REAL prop rather than a constant:
+        #   is there a garden at all      rear_yard >= patio_min_rear_yard_m
+        #   does this prop fit in it      wall clearance + its measured extent,
+        #                                 deep AND across the frontage
+        # and the station is then clamped into the band where the FOOTPRINT
+        # clears both the back wall and the rear lot line — the old code placed
+        # a centre point and tested it with a flat 1.4 m pad, which is why a
+        # 2.6 m prop could still straddle the fence in a garden that passed.
+        rear_yard = depth - half_d          # behind the back wall, inside inset
+        if patio_props and rear_yard >= patio_min_yard:
+            e = _pick(patio_props, rng)
+            half_p = patio_ext.get((e or {}).get("usd"), patio_fallback) / 2.0
+            d_lo = half_d + clear_house + half_p
+            d_hi = depth - half_p
+            a_lim = half_lot - inset - half_p
+            if e is not None and d_hi >= d_lo and a_lim > 0.0:
+                # The old spread, kept where the garden has room for it, and
+                # clamped rather than replaced where it does not: on a deep lot
+                # this is the same draw it always was.
+                px = min(max(rng.uniform(-half_lot * 0.5, half_lot * 0.5),
+                             -a_lim), a_lim)
+                py = min(max(half_d + (depth - half_d) * rng.uniform(0.35, 0.65),
+                             d_lo), d_hi)
+                x, y = world(px, py)
+                if free(x, y, half_p):
+                    if emit(e, x, y, yaw_deg + rng.choice([0.0, 180.0]),
+                            "plant", budget.other):
+                        n_patio += 1
+                else:
+                    n_patio_blocked += 1
+            else:
+                n_patio_nofit += 1
+        elif patio_props:
+            n_patio_nogarden += 1
 
         # Canopy over the back garden. The count comes off the AREA the lot
         # actually has behind the house — clamped by `rear_trees` at both ends —
@@ -847,7 +1057,12 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
              # ...and tree stations refused for standing inside the burnt
              # archetype's debris radius of a pool. Same argument: zero here on
              # a preset that has pools means the rings never arrived.
-             "pool_trees": n_pool_tree}
+             "pool_trees": n_pool_tree,
+             # The patio slot. `patio_no_garden` is the headline: lots whose
+             # rear lot line leaves less than `patio_min_rear_yard_m` behind the
+             # back wall, i.e. houses that do not have a back garden to furnish.
+             "patio": n_patio, "patio_no_garden": n_patio_nogarden,
+             "patio_no_fit": n_patio_nofit, "patio_blocked": n_patio_blocked}
     return out, stats
 
 
@@ -869,6 +1084,10 @@ def report(stats):
           f"{stats.get('side_no_room', 0)} side strips too narrow, "
           f"{stats.get('side_no_spot', 0)} with no spot left, "
           f"{stats.get('pool_trees', 0)} inside a pool's debris radius\n"
+          f"[yardplan]   {stats.get('patio', 0)} patio sets "
+          f"({stats.get('patio_no_garden', 0)} lots have no back garden, "
+          f"{stats.get('patio_no_fit', 0)} too small for the prop drawn, "
+          f"{stats.get('patio_blocked', 0)} with the spot taken)\n"
           f"[yardplan]   {stats['points']:,} of {int(stats['budget']):,} points "
           f"({pct:.0f}%), {stats['refused']} refused on budget "
           f"({stats.get('tree_points', 0):,} of "

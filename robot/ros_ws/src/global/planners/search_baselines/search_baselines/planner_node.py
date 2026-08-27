@@ -23,12 +23,15 @@ Three things are ours rather than upstream's, and only these three:
 Everything between the pixels and the goal point is upstream's code.
 """
 
+import colorsys
 import json
 import math
 import os
+import re
 import signal
 import threading
 import time
+import traceback
 from argparse import Namespace
 
 import numpy as np
@@ -73,6 +76,7 @@ try:
     from search_baselines import vlm_client
     from search_baselines import itm_client as vlfm_scorer
     from search_baselines import lawnmower as lm
+    from search_baselines import clearance as clr
     from search_baselines import sector as sect
     from search_baselines.value_map import ValueMap
     from search_baselines.visit_cost import VisitCost
@@ -97,6 +101,40 @@ R_FLU_TO_RDF = np.array([
     [-1.0, 0.0, 0.0],
     [0.0, -1.0, 0.0],
 ])
+
+# PER-ROBOT COLOUR — THE GCS's, NOT OUR OWN. The GCS visualizer draws every
+# robot (mesh, trajectory, global plan) in `gcs_utils.ROBOT_COLORS[N-1]`,
+# passed through `fluorescent()`; a sector outline, trail or lane set drawn
+# in a different palette does not read as belonging to that drone. Mirrored
+# here because gcs_utils is a GCS package the robot image does not carry.
+# KEEP IN SYNC with gcs_utils.ROBOT_COLORS / fluorescent and
+# render_layout._robot_color_hex.
+ROBOT_COLORS = [
+    (0.90, 0.10, 0.10),   # robot_1
+    (0.10, 0.70, 0.20),   # robot_2
+    (0.20, 0.40, 1.00),   # robot_3
+    (1.00, 0.55, 0.00),
+    (0.70, 0.30, 0.90),
+    (0.00, 0.80, 0.85),
+    (1.00, 0.85, 0.10),
+    (1.00, 0.40, 0.70),
+    (0.40, 0.80, 0.40),
+    (0.55, 0.27, 0.07),
+    (0.30, 0.30, 0.30),
+    (0.95, 0.95, 0.95),
+]
+
+
+def _fluorescent(color):
+    """gcs_utils.fluorescent: full value, saturation boosted 1.25x."""
+    h, s_, _ = colorsys.rgb_to_hsv(*color)
+    return colorsys.hsv_to_rgb(h, min(1.0, s_ * 1.25), 1.0)
+
+
+def robot_rgb(index0):
+    """The GCS colour of robot `index0 + 1` (robot_N -> ROBOT_COLORS[N-1])."""
+    return _fluorescent(ROBOT_COLORS[int(index0) % len(ROBOT_COLORS)])
+
 
 DEFAULT_CLASSES = [
     'person', 'car', 'truck', 'house', 'building', 'tree', 'smoke', 'fire',
@@ -140,6 +178,18 @@ class CoNavGPT2Node(Node):
         # meaningful where the other robots' sensor topics are actually visible
         # (a bridged domain); see README.
         self._num_robots = int(self._p('num_robots', int(os.environ.get('NUM_ROBOTS', '1'))))
+        # THE TEAM is not the robots this process drives. AirStack runs one
+        # planner per robot container on its own ROS domain, so outside
+        # team_mode this process drives ONE robot (its own) while `num_robots`
+        # — NUM_ROBOTS from the launch — is the TEAM size, used to cut the
+        # search area into that many sectors. team_mode is the old
+        # one-process-for-the-whole-team layout (every robot's topics on one
+        # domain). launch_xml cannot switch a <param> on a condition, so the
+        # node does it.
+        self._team_mode = bool(self._p('team_mode', False))
+        team_size = max(1, self._num_robots)
+        if not self._team_mode:
+            self._num_robots = 1
         names = [n for n in self._p('robot_names', ['']) if n]
         if not names:
             template = self._p('robot_name_template', 'robot_{i}')
@@ -149,6 +199,13 @@ class CoNavGPT2Node(Node):
                 names = [os.environ['ROBOT_NAME']]
         self._robots = names
         self._num_robots = len(self._robots)
+        # THE TEAM is not the robots this process drives. AirStack runs one
+        # planner per robot container on its own ROS domain, so `num_robots`
+        # is 1 there — but the sector partition has to be cut into as many
+        # slices as there are DRONES, or every container computes "1 of 1"
+        # and all three sweep the whole area. `sector_count` is the team size
+        # (the launch passes NUM_ROBOTS); 0 falls back to num_robots.
+        self._sector_count = int(self._p('sector_count', 0)) or team_size
 
         self._rgb_tpl = self._p(
             'rgb_topic_template', '/{robot}/sensors/front_stereo/left/image_rect')
@@ -256,6 +313,22 @@ class CoNavGPT2Node(Node):
         # rescaled to match, so this is a resize, not a crop.
         self._frame_w = int(self._p('frame_width', 640))
         self._frame_h = int(self._p('frame_height', 480))
+        # UPSTREAM'S RENDER CANVAS IS FIXED AT 640x480. `Global_Map_Proc`
+        # composites the FPV into a hardcoded 480x640x3 array, so any other
+        # size dies EVERY TICK with
+        #   could not broadcast input array from shape (H,W,3) into (480,640,3)
+        # which reads as a camera fault rather than a config error. Fail here,
+        # once, with the reason. Raising the camera's own resolution is the
+        # supported way to get more pixels on target: the planner resizes the
+        # incoming frame to this, so a 720x450 ZED still delivers ~640x450 of
+        # real detail against 480x300's upscaled ~480x300.
+        if (self._frame_w, self._frame_h) != (640, 480):
+            raise ValueError(
+                f'frame_width/frame_height must be 640x480, got '
+                f'{self._frame_w}x{self._frame_h}: upstream Global_Map_Proc '
+                'renders into a hardcoded 480x640x3 canvas and any other size '
+                'fails on every tick. Raise ZED_WIDTH/ZED_HEIGHT instead — the '
+                'camera resolution is what sets pixels on target.')
 
         # ── map geometry ──────────────────────────────────────────────────────
         # Upstream ships map_size_cm=2400 — a 24x24 m map, sized for a quadruped
@@ -333,6 +406,11 @@ class CoNavGPT2Node(Node):
         # Past this, stereo depth is not a surface measurement. Matches the
         # range rayfronts trusts.
         self._vox_max_range = float(self._p('voxel_max_range_m', 20.0))
+        # A NAVIGATION map, not a survey. Voxels last written more than this
+        # many seconds ago go back to unobserved (and the frontiers standing
+        # in them are dropped), so the map stays local to the drone instead
+        # of accumulating the whole scene. 0 keeps everything.
+        self._vox_forget_s = float(self._p('voxel_forget_after_s', 60.0))
         self._vox_carve_samples = int(self._p('voxel_carve_samples', 24))
         self._vox_max_points = int(self._p('voxel_max_points_per_tick', 20000))
         self._vox_neigh_r = int(self._p('voxel_neighborhood_r', 1))
@@ -362,6 +440,9 @@ class CoNavGPT2Node(Node):
         self._voxel_map = None
         self._frontier_z = []
         self._frontier_candidates = []
+        # robot index -> (goal cell, z) the last time the goal's height was
+        # resolved from the candidate list; see _frontier_altitude.
+        self._goal_z_cache = {}
 
         # ── VLFM (nav_mode 'vlfm') ───────────────────────────────────────────
         # Score the CURRENT view against the target, paint it over the ground the
@@ -397,8 +478,36 @@ class CoNavGPT2Node(Node):
         self._unlock_radius = float(self._p('frontier_unlock_radius_m', 8.0))
         self._locked_goal = None
         self._locked_goal_xy = None   # map-frame xy of the committed goal
+        self._marker_offset = None    # grid -> map, same as the published path
         self._locked_score = None
         self._locked_at = 0.0
+        # ── unreachable frontiers: stall -> blacklist -> release ──────────
+        # A voxel frontier can sit inside a house or under a canopy: droan_gl
+        # sees every approach in collision, publishes hover, and the lock/swap
+        # rule above never lets go — a rival has to beat the held score by
+        # 35 %, and the held one keeps scoring well precisely because nobody
+        # has looked there. Measured on the 250 m suburb: both people found and
+        # visited in 60 s, then parked for the rest of the run 16 m from a
+        # frontier at (15.5, 23.6). The lawnmower arm already had a stall
+        # timer; this is the same idea for the frontier arms, with a memory so
+        # the same cell cannot be picked again the next tick. This is DIFFERENT
+        # from the visit cost below: that discourages re-covering explored
+        # ground, this removes a frontier the drone physically cannot reach.
+        self._stall_s = float(self._p('frontier_stall_s', 20.0))
+        self._stall_dist = float(self._p('frontier_stall_dist_m', 1.5))
+        self._blacklist_r = float(self._p('frontier_blacklist_radius_m', 8.0))
+        self._blacklist_ttl = float(self._p('frontier_blacklist_ttl_s', 0.0))  # 0 = never expires
+        self._frontier_blacklist = []   # [(x, y, t)] in GRID-frame metres, like _locked_goal_xy
+        self._progress_xy = None
+        self._progress_t = 0.0
+        # The same watchdog for TARGET visits: an instance the drone cannot
+        # reach (droan sees every approach in collision) is marked visited —
+        # which is already the target blacklist — instead of being held
+        # forever. Measured: 7 of 8 instances visited in 3 min, then parked
+        # 40 m short of the 8th for the rest of the run.
+        self._tgt_progress_xy = None
+        self._tgt_progress_t = 0.0
+        self._tgt_active_since = 0.0
 
         # ── frontier arm: visit cost, not a blacklist ────────────────────────
         # Blacklisting a visited frontier removes it permanently, which ends
@@ -417,8 +526,50 @@ class CoNavGPT2Node(Node):
         self._lm_overlap = float(self._p('lawnmower_overlap_frac', 0.2))
         self._lm_axis = str(self._p('lawnmower_axis', 'auto'))
         self._lm_reach = float(self._p('lawnmower_reach_radius_m', 8.0))
+        # The path is NEVER sent whole, and neither are its lane ends: the
+        # lanes are cut into legs of at most this many metres and handed to
+        # droan ONE AT A TIME, the way a frontier is, after a transit of the
+        # same legs from wherever the drone is to the entry point of the
+        # sweep. See lawnmower.Sweep for why a lane end alone is not enough.
+        self._lm_leg_m = float(self._p('lawnmower_leg_m', 25.0))
+        # No progress toward the current goal for this long -> skip it. The
+        # frontier arms have lock/swap to get off an unreachable goal; a
+        # lane leg inside a tree canopy would otherwise stall the whole run.
+        self._lm_stall_s = float(self._p('lawnmower_stall_s', 30.0))
+        # ── the 3D lawnmower: known obstacles and the clearance surface ─────
+        # A lane goal at cruise height inside a tree canopy is a goal droan
+        # can never reach; the sweep used to sit on it for `lawnmower_stall_s`
+        # and then leave that ground unswept. A coverage path is planned over
+        # a KNOWN map, so this arm reads the layout generator's own ground
+        # truth (the scene's annotation JSON — house / tree / car boxes, the
+        # same file the GCS draws) and flies each leg at
+        # max(cruise, tallest box along the leg + clearance), clamped to the
+        # flight band. See search_baselines/clearance.py. The frontier arms
+        # do NOT get this: their map is what they have seen.
+        self._obst_file = str(self._p('known_obstacles_file', ''))
+        self._obst_scene = str(self._p('known_obstacles_scene', ''))
+        self._obst_classes = [str(c) for c in self._p(
+            'known_obstacle_classes', list(clr.OBSTACLE_CLASSES)) if c]
+        self._obst_clear = float(self._p('obstacle_clearance_m', 3.0))
+        self._obst_inflate = float(self._p('obstacle_inflate_m', 2.0))
+        # Stall handling, up before out: a goal with no progress for
+        # lawnmower_stall_s is flown `lawnmower_stall_lift_m` higher first
+        # (something unlisted is in the way), `lawnmower_stall_lifts` times,
+        # and only then skipped.
+        self._lm_lift_m = float(self._p('lawnmower_stall_lift_m', 5.0))
+        self._lm_lifts = int(self._p('lawnmower_stall_lifts', 2))
+        self._obstacles_world = None     # KnownObstacles as authored (world)
+        self._obstacles = None           # ... in this robot's MAP frame
+        self._lm_leg_z = None            # (goal z, through z) of the current leg
         self._lm_path = None
         self._lm_idx = 0
+        self._lm_sweep = None
+        # (goal, through) of the current leg in GRID-frame metres, for
+        # _build_path: the second pose is the next lane point, not a 2 m
+        # extension, so droan has the lane's heading and progress along it.
+        self._lm_leg = None
+        self._lm_last_pick_t = None
+        self._lm_phase = None
         # The BLIP-2 ITM service. Separate from the generative endpoint on
         # purpose: they are different models doing different jobs, and only this
         # one is fast enough to share across a fleet.
@@ -441,6 +592,22 @@ class CoNavGPT2Node(Node):
         poly = [float(v) for v in (self._p('search_area_xy', [0.0]) or [])]
         self._search_poly = (np.asarray(poly, dtype=float).reshape(-1, 2)
                              if len(poly) >= 6 and len(poly) % 2 == 0 else None)
+        # WHICH FRAME `search_area_xy` IS AUTHORED IN. 'map' is this robot's
+        # local map, anchored at ITS TAKEOFF POINT — so a polygon written as
+        # scene/world coordinates but read as map coordinates is displaced by
+        # the spawn offset, and the drone confines itself to the wrong square
+        # (16.5 m x 18 m off on the 250 m suburb, 340 m on the wildfire plat).
+        # 'world' converts the polygon ONCE, the first tick the map origin is
+        # known — measured as enu(GPS fix) - odom at the same instant, the same
+        # derivation map_anchor_node and the GCS use — and the sector split /
+        # pad above are translation-invariant, so they were applied in world
+        # and simply move with it. Lawnmower lanes are shifted with it too.
+        self._search_area_frame = str(self._p('search_area_frame', 'map')).lower()
+        if self._search_area_frame not in ('map', 'world'):
+            raise ValueError(
+                f"search_area_frame must be 'map' or 'world', got "
+                f"{self._search_area_frame!r}")
+        self._search_poly_converted = (self._search_area_frame != 'world')
         self._min_alt = float(self._p('min_altitude_agl_m', 0.0))
         self._max_alt = float(self._p('max_altitude_agl_m', 0.0))
 
@@ -459,7 +626,7 @@ class CoNavGPT2Node(Node):
             idx = (self._sector_index if self._sector_index >= 0
                    else max(0, self._robot_index_of_self()))
             try:
-                sub = sect.sector_for(self._search_poly, self._num_robots, idx,
+                sub = sect.sector_for(self._search_poly, self._sector_count, idx,
                                       mode=self._sector_mode,
                                       axis=self._sector_axis,
                                       margin_m=self._sector_pad)
@@ -470,11 +637,11 @@ class CoNavGPT2Node(Node):
                 # of confining it. Refuse rather than fly unbounded.
                 if sub is None or len(sub) < 3:
                     raise ValueError(
-                        f'sector {idx} of {self._num_robots} came back empty; '
+                        f'sector {idx} of {self._sector_count} came back empty; '
                         'refusing to run unbounded')
                 self._search_poly = np.asarray(sub, dtype=float)
                 self.get_logger().info(
-                    f'sector {idx + 1}/{self._num_robots} ({self._sector_mode}, '
+                    f'sector {idx + 1}/{self._sector_count} ({self._sector_mode}, '
                     f'pad {self._sector_pad:.0f} m): {len(self._search_poly)} pts, '
                     f'{sect.polygon_area(self._search_poly):.0f} m2')
             except Exception as exc:
@@ -520,6 +687,20 @@ class CoNavGPT2Node(Node):
         self._nav_timeout = float(self._p('nav_goal_timeout_s', 60.0))
         self._goal_change_m = float(self._p('goal_change_threshold_m', 5.0))
         self._path_extension_m = float(self._p('path_extension_m', 2.0))
+        # FLIGHT SPEED BY INTENT. droan_gl's rollouts are capped by its
+        # `max_velocity` parameter (2 m/s as shipped). Crossing the sector to
+        # a frontier or a lane goal is transit — nothing is being inspected —
+        # so it goes at `explore_speed_mps`; the moment a detected person
+        # becomes the goal the cap drops to `target_speed_mps` so the
+        # approach and the look are flown slowly. Set on droan's parameter
+        # service the tick the intent changes, and never for the gpt arm,
+        # whose paper flies one speed (0 on either leaves droan alone).
+        self._explore_speed = float(self._p('explore_speed_mps', 3.0))
+        self._target_speed = float(self._p('target_speed_mps', 1.5))
+        self._droan_node_tpl = str(self._p(
+            'droan_node_template', '/{robot}/droan/disparity_expander_node'))
+        self._speed_set = {}             # robot index -> last speed requested
+        self._speed_clients = {}
         # How droan_gl is driven. 'activator' sends ONE empty NavigateTask and
         # steers by the /global_plan topic this node already publishes every
         # tick; 'goal_per_round' sends a fresh goal carrying the path. See
@@ -609,6 +790,19 @@ class CoNavGPT2Node(Node):
             except Exception as exc:
                 self.get_logger().warn(
                     f'could not pin ultralytics weights_dir to {ultra_dir}: {exc}')
+        # WHERE THE DETECTOR RUNS. 'server' calls the shared YOLO+MobileSAM
+        # service and loads NOTHING here; 'local' is the old behaviour, one
+        # model pair per planner process. Detection is stateless — one frame in,
+        # boxes and masks out, no history — which is what makes one instance
+        # safe for a fleet, the same argument as the ITM scorer. Three robots
+        # each loading their own copy is 3x the VRAM for identical answers.
+        # There is NO silent fallback: 'server' with an unreachable server is
+        # fatal at startup, because a run that quietly detects nothing looks
+        # exactly like a search that found nobody.
+        self._detector_mode = str(self._p('detector_mode', 'local')).strip().lower()
+        self._detector_url = str(self._p(
+            'detector_url', 'http://offboard-compute:8200')).rstrip('/')
+        self._detector_timeout = float(self._p('detector_timeout_s', 30.0))
 
         # ── VLM backend ───────────────────────────────────────────────────────
         base_url, model, api_key = vlm_client.resolve(
@@ -655,6 +849,8 @@ class CoNavGPT2Node(Node):
         self._goal_points = []
         self._round = 0
         self._last_round_start = None
+        # An in-flight VLM round (gpt arm): the tick never waits for it.
+        self._pending_round = None
         self._stop = False
         self._sim_t0 = None
         self._run_complete = False
@@ -676,10 +872,20 @@ class CoNavGPT2Node(Node):
         self._agent_image_pubs = []
         self._nav_clients = []
         for i, robot in enumerate(self._robots):
+            # ON THE REENTRANT GROUP, like every other subscription here.
+            # Left on the node's DEFAULT group these two were the only
+            # callbacks that never fired: `camera_info` (Reentrant) arrived
+            # 15 times while `rgbd callback fired` stayed at 0, and the same
+            # subscription code standalone delivered 564 syncs in 20 s against
+            # the same live topics. The default group is MUTUALLY EXCLUSIVE and
+            # `use_sim_time` puts the high-rate /clock subscription in it, so
+            # one callback at a time meant the images never got a turn.
             rgb_sub = message_filters.Subscriber(
-                self, Image, self._rgb_tpl.format(robot=robot), qos_profile=sensor_qos)
+                self, Image, self._rgb_tpl.format(robot=robot),
+                qos_profile=sensor_qos, callback_group=self._cbg)
             depth_sub = message_filters.Subscriber(
-                self, Image, self._depth_tpl.format(robot=robot), qos_profile=sensor_qos)
+                self, Image, self._depth_tpl.format(robot=robot),
+                qos_profile=sensor_qos, callback_group=self._cbg)
             sync = message_filters.ApproximateTimeSynchronizer(
                 [rgb_sub, depth_sub], queue_size=self._sync_queue, slop=self._sync_slop)
             sync.registerCallback(
@@ -694,7 +900,7 @@ class CoNavGPT2Node(Node):
                 Odometry, self._odom_tpl.format(robot=robot),
                 lambda msg, idx=i: self._odom_callback(idx, msg),
                 sensor_qos, callback_group=self._cbg)
-            if self._frame_mode == 'global_enu':
+            if self._frame_mode == 'global_enu' or self._search_area_frame == 'world':
                 self.create_subscription(
                     NavSatFix, self._navsat_tpl.format(robot=robot),
                     lambda msg, idx=i: self._navsat_callback(idx, msg),
@@ -761,6 +967,8 @@ class CoNavGPT2Node(Node):
         self._stats_path = os.path.join(
             self._results_dir or self._dump_location, 'search_planner_rounds.jsonl')
 
+        self._load_known_obstacles()
+
         self._tf_buffer = tf2_ros.Buffer(cache_time=rclpy.duration.Duration(seconds=30.0))
         self._tf_listener = tf2_ros.TransformListener(self._tf_buffer, self)
 
@@ -780,12 +988,30 @@ class CoNavGPT2Node(Node):
     # ── parameters ────────────────────────────────────────────────────────────
 
     def _robot_index_of_self(self):
-        """This container's index in `robot_names`, from ROBOT_NAME. Each robot
-        runs its own planner, so 'which slice is mine' is answered locally."""
+        """This container's index in the TEAM, from ROBOT_NAME. Each robot
+        runs its own planner, so 'which slice is mine' is answered locally.
+
+        With num_robots=1 the names list is just [ROBOT_NAME], whose index is
+        always 0 — so robot_2 and robot_3 would take slice 0 too. Read the
+        trailing number off the name instead (robot_N -> N - robot_index_base)
+        and fall back to the list only when that fails."""
         me = os.environ.get('ROBOT_NAME', '')
+        m = re.search(r'(\d+)$', me)
+        if m:
+            base = int(self._p_cached('robot_index_base', 1))
+            idx = int(m.group(1)) - base
+            if 0 <= idx < max(1, self._sector_count):
+                return idx
         if me in self._robots:
             return self._robots.index(me)
         return 0
+
+    def _p_cached(self, name, default):
+        """A parameter already declared, or `default`."""
+        try:
+            return self.get_parameter(name).value
+        except Exception:
+            return default
 
     def _p(self, name, default):
         return self.declare_parameter(name, default).value
@@ -841,12 +1067,71 @@ class CoNavGPT2Node(Node):
                     raise RuntimeError(
                         f'vlfm: no BLIP-2 ITM server at {self._vlfm_url} ({exc}). '
                         'Start it with: ros2 run search_baselines itm_server') from exc
+            # The DETECTOR, shared or local. Preflighted exactly like the ITM
+            # scorer above and fatal for the same reason: the alternative to a
+            # loud death is a run whose detector silently answers "nobody
+            # here", which is indistinguishable from a search that failed.
+            # Imported here rather than in the module header because it is only
+            # reachable from this method, and the header's import block is what
+            # decides _VENDOR_OK.
+            det_health = None
+            if self._detector_mode == 'server':
+                from search_baselines import detector_client
+                try:
+                    det_health = detector_client.health(
+                        self._detector_url, timeout=self._detector_timeout)
+                except Exception as exc:
+                    raise RuntimeError(
+                        f'detector_mode=server but no detector service at '
+                        f'{self._detector_url} ({exc}). Start ONE for the whole '
+                        f'fleet on the offboard-compute container:\n'
+                        f'  ./airstack.sh up offboard-compute\n'
+                        f'  (or, by hand) docker exec -d offboard-compute bash -lc '
+                        f"'ros2 run search_baselines detector_server'\n"
+                        f'  then check: curl -s {self._detector_url}/health\n'
+                        f'Set detector_mode:=local to load YOLO+SAM in this '
+                        f'process instead.') from exc
+                self.get_logger().info(
+                    f'detector: shared service @ {self._detector_url} '
+                    f'({det_health.get("yolo_weights")} + '
+                    f'{det_health.get("sam_weights")} on '
+                    f'{det_health.get("device")}, '
+                    f'{"open-vocab" if det_health.get("open_vocab") else "closed-set"}, '
+                    f'{det_health.get("gpu_gib")} GiB) — nothing loaded locally')
+                # THE CHECKPOINT IS THE SERVER'S, NOT THE SCENE'S. Scene layers
+                # pin `yolo_world_weights` (suburb_mini asks for closed-set
+                # yolov8x, the wildfire plat for open-vocab yolov8l-world), and
+                # in server mode that parameter configures nothing — the server
+                # was started with whatever it was started with. Silently flying
+                # a different detector than the scene names would change what
+                # the arm can see, so say so loudly.
+                served = str(det_health.get('yolo_weights') or '')
+                # Already declared in the parameter block; read back rather than
+                # threading a new attribute through it.
+                want = str(self._p_cached('yolo_world_weights', '') or '')
+                if want and os.path.basename(want) != os.path.basename(served):
+                    self.get_logger().warn(
+                        f'DETECTOR MISMATCH: this scene asks for '
+                        f'{want}, the shared server at {self._detector_url} '
+                        f'is running {served}. In server mode the SERVER wins. '
+                        f'Restart it with --yolo-weights {want} (compose: '
+                        f'CONAVGPT2_YOLO_WORLD_WEIGHTS) or set '
+                        f'detector_mode:=local.')
+            elif self._detector_mode != 'local':
+                raise RuntimeError(
+                    f"detector_mode must be 'server' or 'local', got "
+                    f'{self._detector_mode!r}')
             agents = []
             for i in range(self._num_robots):
+                detector = None
+                if self._detector_mode == 'server':
+                    detector = detector_client.RemoteDetector(
+                        classes=self._classes, base_url=self._detector_url,
+                        timeout=self._detector_timeout, health_info=det_health)
                 agent = AirStackAgent(
                     self._args, i, self._goal_name, classes=self._classes,
                     depth_min_m=self._depth_min_m, depth_max_m=self._depth_max_m,
-                    depth_border_px=self._depth_border_px)
+                    depth_border_px=self._depth_border_px, detector=detector)
                 agent.save_debug_images = self._save_debug_images
                 agents.append(agent)
             self._map_process = Global_Map_Proc(self._args)
@@ -896,12 +1181,24 @@ class CoNavGPT2Node(Node):
                         'over an unbounded region has no lanes to fly)')
                 spacing = self._lm_spacing
                 if spacing <= 0.0:
-                    with self._lock:
-                        hfov = self._obs[0].get('hfov_rad')
+                    # WAIT FOR camera_info, do not demand it. With the detector
+                    # served remotely this init finishes in well under a
+                    # second — before the first CameraInfo has been received
+                    # — where the local YOLO load used to hide the race behind
+                    # 30 s of weights loading. All three fleet planners died
+                    # here on the first three-drone run.
+                    hfov = None
+                    for _ in range(120):                       # <= 60 s
+                        with self._lock:
+                            hfov = self._obs[0].get('hfov_rad')
+                        if hfov or self._stop:
+                            break
+                        time.sleep(0.5)
                     if not hfov:
                         raise RuntimeError(
                             'lawnmower spacing is derived from the camera footprint '
-                            'but no camera_info has arrived yet')
+                            'but no camera_info arrived within 60 s — is the '
+                            f'camera publishing on {self._info_tpl}?')
                     spacing = lm.spacing_for_footprint(
                         self._altitude, hfov, self._lm_overlap)
                 self._lm_path = lm.boustrophedon(
@@ -916,9 +1213,10 @@ class CoNavGPT2Node(Node):
                 # coverage begins.
                 self._lm_needs_anchor = True
                 self.get_logger().info(
-                    f'lawnmower: {len(self._lm_path)} waypoints, lane spacing '
+                    f'lawnmower: {len(self._lm_path)} lane points, lane spacing '
                     f'{spacing:.1f} m ({self._lm_overlap:.0%} overlap at '
-                    f'{self._altitude:.0f} m), axis={self._lm_axis}')
+                    f'{self._altitude:.0f} m), axis={self._lm_axis}; flown as '
+                    f'legs <= {self._lm_leg_m:.0f} m, one goal at a time')
             if self._nav_mode == 'vlfm':
                 size = self._map_size_cm // self._map_resolution
                 self._value_map = ValueMap(
@@ -941,6 +1239,13 @@ class CoNavGPT2Node(Node):
     # ── subscriptions ─────────────────────────────────────────────────────────
 
     def _rgbd_callback(self, i, rgb_msg, depth_msg):
+        # Fires-or-not is the one thing the "waiting for rgb/depth" message
+        # cannot distinguish: a callback that never runs and one that runs and
+        # throws look identical from _snapshot(). Counted so the log says which.
+        self._rgbd_hits = getattr(self, '_rgbd_hits', 0) + 1
+        if self._rgbd_hits in (1, 10, 100) or self._rgbd_hits % 500 == 0:
+            self.get_logger().info(
+                f'[{self._robots[i]}] rgbd callback fired x{self._rgbd_hits}')
         try:
             rgb = self._bridge.imgmsg_to_cv2(rgb_msg, desired_encoding='rgb8')
             depth = self._bridge.imgmsg_to_cv2(depth_msg, desired_encoding='passthrough')
@@ -1009,6 +1314,42 @@ class CoNavGPT2Node(Node):
         self.get_logger().info(
             f'[{self._robots[i]}] boot_enu = {self._boot_enu[i][:2].round(2).tolist()}')
 
+    def _place_search_area(self):
+        """world -> map for `search_area_xy`, once. False while it cannot yet.
+
+        Only does anything for `search_area_frame: world`. The map origin is
+        `_boot_enu[0]` (enu(fix) - odom, set by `_navsat_callback`); until a
+        fix has arrived the tick is held, because a sector applied in the
+        wrong frame is exactly the failure this exists to remove.
+        """
+        if self._search_poly_converted or self._search_poly is None:
+            return True
+        b = self._boot_enu[0]
+        if b is None:
+            self.get_logger().info(
+                'search_area_frame=world: waiting for a GPS fix to place the '
+                "search area in this robot's map", throttle_duration_sec=10.0)
+            return False
+        shift = np.array([float(b[0]), float(b[1])])
+        self._search_poly = np.asarray(self._search_poly, dtype=float) - shift
+        lanes = getattr(self, '_lm_path', None)
+        if lanes is not None and len(lanes):
+            self._lm_path = np.asarray(lanes, dtype=float).reshape(-1, 2) - shift
+        # The known obstacles are authored in the same WORLD frame as the
+        # polygon, so they move by the same vector — z included, so a box top
+        # is compared against the takeoff-anchored altitude the legs fly at.
+        if self._obstacles_world is not None:
+            self._obstacles = self._obstacles_world.shifted(
+                float(b[0]), float(b[1]), float(b[2]) if len(b) > 2 else 0.0)
+        self._search_poly_converted = True
+        self.get_logger().info(
+            f'search area authored in WORLD: map origin is at world '
+            f'({b[0]:.1f}, {b[1]:.1f}), polygon shifted by ({-b[0]:.1f}, '
+            f'{-b[1]:.1f}) into map; {len(self._search_poly)} pts, '
+            f'x[{self._search_poly[:, 0].min():.0f}, {self._search_poly[:, 0].max():.0f}] '
+            f'y[{self._search_poly[:, 1].min():.0f}, {self._search_poly[:, 1].max():.0f}]')
+        return True
+
     def _offset(self, i):
         """XY translation from this robot's local `map` frame into the grid frame.
 
@@ -1073,7 +1414,9 @@ class CoNavGPT2Node(Node):
             try:
                 self._tick()
             except Exception as exc:
-                self.get_logger().error(f'search_planner tick failed: {exc}', throttle_duration_sec=5.0)
+                self.get_logger().error(
+                    f'search_planner tick failed: {exc}\n'
+                    + traceback.format_exc(), throttle_duration_sec=5.0)
             sleep_for = self._plan_period_s - (time.time() - started)
             if sleep_for > 0:
                 time.sleep(sleep_for)
@@ -1147,6 +1490,8 @@ class CoNavGPT2Node(Node):
         if self._sim_budget_spent():
             self._finish_run()
             return
+        if not self._place_search_area():
+            return
 
         merged = o3d.geometry.PointCloud()
         visited_vis, vis_pose_pred, grid_pose, o3d_pose = [], [], [], []
@@ -1165,6 +1510,15 @@ class CoNavGPT2Node(Node):
                     throttle_duration_sec=10.0)
                 return
             offsets.append(offset)
+            # THE ONE TRANSFORM. `_build_path` publishes `grid - offset`, and
+            # the drone flies that correctly, so `grid - offset` IS the map
+            # frame. Every marker must use the SAME transform or the picture
+            # disagrees with the plan: markers were drawn from raw
+            # `grid_to_map_xy` and rendered offset from the drone by exactly
+            # this vector. Stored per-tick so the marker pass cannot silently
+            # use a different one.
+            if i == 0:
+                self._marker_offset = offset
             pose = pose.copy()
             pose[:3, 3] = pose[:3, 3] + offset
             obs = {'rgb': snap[i]['rgb'], 'depth': snap[i]['depth'],
@@ -1231,6 +1585,16 @@ class CoNavGPT2Node(Node):
             assignment_due = (not self._goal_points
                               or step % self._num_local_steps == self._num_local_steps - 1)
         self._frontier_candidates = list(target_point_list)
+        # THE GOAL MUST STILL BE FREE. A frontier is chosen where nothing has
+        # been observed yet; by the time the drone is on its way the camera
+        # has seen that ground, and if what it saw is a canopy or a wall the
+        # goal is now INSIDE occupied voxels and no local planner will ever
+        # arrive. Re-checked every tick against the live map, for every arm.
+        if self._recheck_goals():
+            assignment_due = True
+        pend = self._pending_round
+        if pend is not None and pend.get('done'):
+            assignment_due = True          # the VLM's answer is in: apply it now
         if assignment_due and not found_goal:
             self._assign(target_edge_map, target_point_list, top_view_map,
                          vis_pose_pred, obstacle_map, explored_map, grid_pose, step)
@@ -1310,6 +1674,14 @@ class CoNavGPT2Node(Node):
             # recompute-everything-every-tick set has unstable identity — the
             # committed frontier is usually gone from the next tick's set, so
             # no goal can be held.
+            if self._vox_forget_s > 0.0:
+                n_forgot, n_dropped = self._voxel_map.forget_older_than(
+                    max(1, int(round(self._vox_forget_s / max(self._plan_period_s, 1e-3)))))
+                if n_forgot:
+                    self.get_logger().info(
+                        f'voxel3d: forgot {n_forgot} voxels older than '
+                        f'{self._vox_forget_s:.0f} s ({n_dropped} frontiers with them)',
+                        throttle_duration_sec=30.0)
             fr, gain = self._voxel_map.frontiers_persistent(
                 neighborhood_r=self._vox_neigh_r,
                 min_unobserved=self._vox_min_unobs,
@@ -1322,31 +1694,60 @@ class CoNavGPT2Node(Node):
                 return edge, []
 
             # Inside the search area, if one is set — cheaper here than after
-            # they have been turned into candidates.
-            keep = self._points_in_polygon(fr[:, :2], self._search_poly)
+            # they have been turned into candidates. IN THE MAP FRAME: `fr` is
+            # grid-frame metres (the voxel map is fed the offset poses) and
+            # `search_area_xy` is authored in the map frame, so the same
+            # `_to_map_arr` the pick functions apply goes here too. Without it
+            # the polygon is displaced by `_marker_offset` at the source, and
+            # the gpt arm — which has no pick-side filter of its own — is
+            # offered the wrong sector.
+            keep = self._points_in_polygon(self._to_map_arr(fr[:, :2]),
+                                           self._search_poly)
+            # And not blacklisted as unreachable (see _stall_watchdog).
+            keep &= ~self._blacklisted_mask(fr[:, :2])
             fr, gain = fr[keep], gain[keep]
             if fr.shape[0] == 0:
                 return edge, []
 
-            order = self._rank_frontiers(fr, gain)
+            # Rank EVERYTHING, then offer the first max_frontiers DISTINCT
+            # cells. Stratified candidates at two heights over the same
+            # ground project to the same grid cell, and the gpt arm's
+            # candidate images are cut from this edge map BY LABEL
+            # (`target_edge_map == i+1`, chat_utils.get_all_candidate_maps):
+            # a later disc written over an earlier one erased that label, so
+            # the VLM was shown a blank map for "frontier N" — and could still
+            # pick it. Dropping a 2D duplicate is lossless for the other arms:
+            # value lookup, rank gain and visit cost are all functions of the
+            # cell, so the better-ranked twin would have won anyway.
+            order = self._rank_frontiers(fr, gain, cap=fr.shape[0])
             pts_out = []
-            for rank, k in enumerate(order):
+            r = 2
+            for k in order:
+                if len(pts_out) >= self._max_frontiers:
+                    break
                 i, j = agent.map_xy_to_grid(float(fr[k, 0]), float(fr[k, 1]))
+                disc = edge[max(0, i - r):min(size, i + r + 1),
+                            max(0, j - r):min(size, j + r + 1)]
+                free = disc == 0
+                if not free.any():
+                    continue      # entirely under an earlier candidate's disc
+                # Label only the free part of the disc, so every offered
+                # candidate owns at least one pixel of the BEV render and the
+                # marker path, and labels stay 1..N in list order.
+                disc[free] = len(pts_out) + 1
                 pts_out.append([i, j])
                 self._frontier_z.append(float(fr[k, 2]))
-                # Label the cell (and a small disc) so the BEV render and the
-                # marker path show something at this candidate's location.
-                r = 2
-                edge[max(0, i - r):min(size, i + r + 1),
-                     max(0, j - r):min(size, j + r + 1)] = rank + 1
             return edge, pts_out
         except Exception as exc:
             self.get_logger().warn(f'voxel3d frontier extraction failed: {exc}',
                                    throttle_duration_sec=10.0)
             return edge, []
 
-    def _rank_frontiers(self, fr, gain):
+    def _rank_frontiers(self, fr, gain, cap=None):
         """Indices of the frontiers to offer, best first.
+
+        `cap` overrides max_frontiers: _voxel_frontiers asks for the whole
+        order and stops itself, because it drops cell-duplicates on the way.
 
         Unobserved-neighbour count IS the information gain, so ranking by it
         alone is unambiguous — but it is also degenerate: the least-observed
@@ -1356,9 +1757,10 @@ class CoNavGPT2Node(Node):
         the band. Levels are visited in order of their best frontier, so the
         single best candidate overall is still rank 0.
         """
+        cap = self._max_frontiers if cap is None else int(cap)
         order = np.argsort(-gain)
         if not self._fr_z_stratify:
-            return order[:self._max_frontiers]
+            return order[:cap]
 
         levels = {}
         for k in order:
@@ -1376,7 +1778,7 @@ class CoNavGPT2Node(Node):
             for z in by_gain:
                 if rnd < len(levels[z]):
                     picked.append(levels[z][rnd])
-                    if len(picked) >= self._max_frontiers:
+                    if len(picked) >= cap:
                         return np.asarray(picked, dtype=int)
         return np.asarray(picked, dtype=int)
 
@@ -1461,12 +1863,10 @@ class CoNavGPT2Node(Node):
         if not target_point_list:
             return None
         xy = np.array([agent.grid_to_map_xy(p[0], p[1]) for p in target_point_list])
-        keep = self._points_in_polygon(xy, self._search_poly)
+        keep = self._points_in_polygon(self._to_map_arr(xy), self._search_poly)
+        keep &= ~self._blacklisted_mask(xy)
         if not keep.any():
-            self.get_logger().warn(
-                f'vlfm: all {len(xy)} frontiers are outside the search area',
-                throttle_duration_sec=15.0)
-            return None
+            return self._recover_into_area(agent, len(xy))
         idx = np.flatnonzero(keep)
         here = np.array(self._agent_xy(agent))
 
@@ -1491,6 +1891,76 @@ class CoNavGPT2Node(Node):
                 throttle_duration_sec=15.0)
         return self._commit(list(target_point_list[best]), best_score, xy[best], here)
 
+    def _to_map_arr(self, xy):
+        """Vectorised `_to_map`, for the search-area test.
+
+        `search_area_xy` is authored in the MAP frame, so grid coordinates must
+        be brought into it before the point-in-polygon test — otherwise the
+        polygon is effectively offset by `_marker_offset` and the robot is
+        judged out of bounds while it is well inside its sector.
+        """
+        off = self._marker_offset
+        if off is None or xy.size == 0:
+            return xy
+        return xy - np.array([off[0], off[1]], dtype=float)
+
+    def _to_map(self, x, y):
+        """Grid-frame metres -> the map frame the markers are stamped with.
+
+        Identical to what `_build_path` applies, so a marker and the waypoint
+        it represents can never land in different places.
+        """
+        off = self._marker_offset
+        if off is None:
+            return float(x), float(y)
+        return float(x - off[0]), float(y - off[1])
+
+    def _map_to_grid_xy(self, x, y):
+        """Inverse of `_to_map`: map-frame metres -> grid-frame metres."""
+        off = self._marker_offset
+        if off is None:
+            return float(x), float(y)
+        return float(x + off[0]), float(y + off[1])
+
+    def _map_to_grid(self, agent, x, y):
+        """A MAP-frame point -> the grid cell `_goal_points` holds.
+
+        `agent.map_xy_to_grid` takes GRID-frame metres. Feeding it a map-frame
+        point directly (a lane waypoint, the sector centroid — anything
+        authored in config coordinates) produces a cell that `_build_path`
+        then shifts by `-offset` on the way out, so the drone is sent to the
+        point minus the offset: off by the whole grid-to-map vector, which on
+        a scene with a map origin is the width of the sector.
+        """
+        gx, gy = self._map_to_grid_xy(x, y)
+        return list(agent.map_xy_to_grid(gx, gy))
+
+    def _recover_into_area(self, agent, n_out):
+        """A goal that pulls the robot back INSIDE the search area.
+
+        Filtering frontiers to the search area is correct — an arm must not be
+        credited for ground it was not asked to cover. Returning None when the
+        filter empties is not: the planner then holds its last goal, and a
+        robot that has just driven itself to the boundary sits on it for the
+        rest of the run. That reads as a stuck local planner and is a search
+        that gave up.
+
+        The area centroid is always inside a convex sector and is the cheapest
+        target that re-enters one; once back in, ordinary frontier selection
+        takes over again.
+        """
+        if self._search_poly is None:
+            return None
+        cx, cy = sect.polygon_centroid(self._search_poly)
+        here = self._to_map(*self._agent_xy(agent))
+        what = (f'all {n_out} frontiers outside the search area' if n_out
+                else 'no frontier candidates')
+        self.get_logger().warn(
+            f'{what} — steering to the sector centroid '
+            f'({cx:.0f}, {cy:.0f}), {math.dist(here, (cx, cy)):.0f} m away',
+            throttle_duration_sec=15.0)
+        return self._map_to_grid(agent, float(cx), float(cy))
+
     def _frontier_pick(self, target_point_list, agent):
         """Frontier maximising information gain MINUS accumulated visit cost.
 
@@ -1504,12 +1974,10 @@ class CoNavGPT2Node(Node):
         if not target_point_list:
             return None
         xy = np.array([agent.grid_to_map_xy(p[0], p[1]) for p in target_point_list])
-        keep = self._points_in_polygon(xy, self._search_poly)
+        keep = self._points_in_polygon(self._to_map_arr(xy), self._search_poly)
+        keep &= ~self._blacklisted_mask(xy)
         if not keep.any():
-            self.get_logger().warn(
-                f'frontier: all {len(xy)} candidates are outside the sector',
-                throttle_duration_sec=15.0)
-            return None
+            return self._recover_into_area(agent, len(xy))
         idx = np.flatnonzero(keep)
         here = np.array(self._agent_xy(agent))
 
@@ -1544,28 +2012,253 @@ class CoNavGPT2Node(Node):
         return self._commit(list(target_point_list[best]), best_score, best_xy, here)
 
     def _lawnmower_pick(self, agent):
-        """The next lane waypoint, as a grid cell.
+        """The next lane goal, as a grid cell — ONE short goal, never the path.
 
-        Wraps at the end of the path — the caller runs until the sim budget is
-        spent, so the lanes are a loop and a second pass is expected, not an
-        overrun.
+        Same actuation as every other arm: the cell goes into `_goal_points`,
+        `_command` publishes a two-pose path on /global_plan and the activator
+        NavigateTask keeps droan_gl steering by it. What differs from a
+        frontier pick is only where the point comes from: a `lawnmower.Sweep`
+        that walks the drone to the sector in legs of `lawnmower_leg_m`, then
+        along the lanes in legs of the same length, advancing as each is
+        reached or passed and skipping one the drone makes no progress on.
+
+        FRAMES. The lanes are authored in the MAP frame (from search_area_xy);
+        the agent's position and `_goal_points` are in the GRID frame. Both
+        conversions go through the same offset `_build_path` applies, so the
+        goal the drone is sent lands on the lane it was cut from.
         """
         if self._lm_path is None or len(self._lm_path) == 0:
             return None
-        here = np.array(self._agent_xy(agent))
-        if self._lm_needs_anchor:
+        now = time.time()
+        here = np.array(self._to_map(*self._agent_xy(agent)))
+        if self._lm_needs_anchor or self._lm_sweep is None:
             self._lm_needs_anchor = False
+            # DIFFERENT EDGES FOR DIFFERENT DRONES. `boustrophedon(start_xy)`
+            # enters at the lane end nearest the hint; a fleet spawned in one
+            # cluster would all enter their strips at the same edge and sweep
+            # in step, which leaves the far edges of every sector for last.
+            # Odd robots are hinted with the sector corner FARTHEST from them
+            # instead, so neighbouring drones start at opposite ends.
+            idx = self._robot_index_of_self() or 0
+            hint = (float(here[0]), float(here[1]))
+            if idx % 2 == 1:
+                poly = np.asarray(self._search_poly, dtype=float)
+                far = poly[int(np.argmax(np.linalg.norm(poly - here, axis=1)))]
+                hint = (float(far[0]), float(far[1]))
+                self.get_logger().info(
+                    f'lawnmower: robot index {idx} enters at the FAR edge '
+                    f'({hint[0]:.0f}, {hint[1]:.0f}) so neighbours start apart')
             self._lm_path = lm.boustrophedon(
                 self._search_poly, self._lm_spacing_used,
-                axis=self._lm_axis, start_xy=(float(here[0]), float(here[1])))
+                axis=self._lm_axis, start_xy=hint)
             self._lm_idx = 0
+            self._lm_sweep = lm.Sweep(
+                self._lm_path, reach_m=self._lm_reach, leg_m=self._lm_leg_m,
+                start_xy=here, stall_s=self._lm_stall_s,
+                z_fn=self._lm_leg_z_for, stall_lifts=self._lm_lifts)
+            n_ob = len(self._obstacles) if self._obstacles is not None else 0
+            self.get_logger().info(
+                f'lawnmower: clearance surface over {n_ob} known obstacle(s), '
+                f'+{self._obst_clear:.1f} m, cruise {self._altitude:.0f} m, '
+                f'band [{self._min_alt:.0f}, {self._max_alt:.0f}] m; stall '
+                f'{self._lm_stall_s:.0f} s -> lift {self._lm_lift_m:.0f} m '
+                f'x{self._lm_lifts} then skip')
+            entry = self._lm_sweep.loop[0]
             self.get_logger().info(
                 f'lawnmower: anchored at ({here[0]:.0f}, {here[1]:.0f}); '
-                f'first waypoint ({self._lm_path[0][0]:.0f}, '
-                f'{self._lm_path[0][1]:.0f})')
-        self._lm_idx, wp = lm.next_waypoint(
-            self._lm_path, here, self._lm_idx, self._lm_reach)
-        return list(agent.map_xy_to_grid(float(wp[0]), float(wp[1])))
+                f'transit {len(self._lm_sweep.transit) + 1} leg(s) to the '
+                f'entry ({entry[0]:.0f}, {entry[1]:.0f}) '
+                f'{float(np.hypot(*(entry - here))):.0f} m away, then a '
+                f'{len(self._lm_sweep.loop)}-goal loop over '
+                f'{len(self._lm_path)} lane points, legs <= '
+                f'{self._lm_leg_m:.0f} m, reach {self._lm_reach:.0f} m')
+        elif (self._lm_last_pick_t is not None
+              and now - self._lm_last_pick_t > max(5.0, 3.0 * self._plan_period_s)):
+            # The sweep was paused (a target detour holds _assign off), not
+            # stalled: restart the stall clock rather than skipping a leg.
+            self._lm_sweep.resume(now)
+            self.get_logger().info(
+                'lawnmower: resuming the sweep after a detour',
+                throttle_duration_sec=5.0)
+        self._lm_last_pick_t = now
+
+        g = self._lm_sweep.update(here, now)
+        if g is None:
+            return None
+        if g.index != self._lm_idx and g.z is not None:
+            # Say once per goal what height the leg is flown at and why.
+            top, k = ((self._obstacles.top_along(
+                self._lm_sweep.point(max(0, g.index - 1)), g.xy))
+                if self._obstacles is not None and len(self._obstacles)
+                else (None, -1))
+            if top is not None and g.z > self._altitude + 0.05:
+                self.get_logger().info(
+                    f'lawnmower: goal #{g.index} leg flown at {g.z:.1f} m — '
+                    f'{self._obstacles.classes[k]} top {top:.1f} m under it '
+                    f'(+{self._obst_clear:.1f} m); next leg {g.through_z:.1f} m')
+        self._lm_idx = g.index
+        if g.lifted:
+            self.get_logger().warn(
+                f'lawnmower: no progress on goal #{g.index} for '
+                f'{self._lm_stall_s:.0f} s — lifting it to {g.z:.1f} m '
+                f'(lift {g.lift} of {self._lm_lifts})')
+        if g.skipped:
+            self.get_logger().warn(
+                f'lawnmower: no progress on goal #{g.index - 1} for '
+                f'{self._lm_stall_s:.0f} s after {self._lm_lifts} lift(s) — '
+                f'skipping to ({g.xy[0]:.0f}, {g.xy[1]:.0f})')
+        if g.phase != self._lm_phase:
+            self._lm_phase = g.phase
+            self.get_logger().info(
+                f'lawnmower: {g.phase} (lap {g.lap + 1}) from '
+                f'({here[0]:.0f}, {here[1]:.0f}) — goal #{g.index} '
+                f'({g.xy[0]:.0f}, {g.xy[1]:.0f}) '
+                f'{float(np.hypot(*(g.xy - here))):.0f} m away')
+        cell = self._map_to_grid(agent, float(g.xy[0]), float(g.xy[1]))
+        # `map_xy_to_grid` CLIPS to the grid. A lane point past the map edge
+        # (a padded sector wider than map_extent_m) comes back as the edge
+        # cell, and the drone is sent there — so judge reach against THAT, or
+        # the sweep waits at every clipped lane end for the stall timer.
+        sent = np.array(self._to_map(*agent.grid_to_map_xy(*cell)))
+        res_m = agent.args.map_resolution / 100.0
+        if float(np.hypot(*(sent - g.xy))) > 2.0 * res_m:
+            self.get_logger().warn(
+                f'lawnmower: goal #{g.index} ({g.xy[0]:.0f}, {g.xy[1]:.0f}) is '
+                f'outside the occupancy grid; clipped to ({sent[0]:.0f}, '
+                f'{sent[1]:.0f}). The sector (search_area_xy + '
+                f'search_area_pad_m) does not fit map_extent_m — shrink the '
+                'pad or grow the map', throttle_duration_sec=30.0)
+            self._lm_sweep.override(g.index, sent)
+            g.xy = sent
+        self._lm_leg = (self._map_to_grid_xy(float(g.xy[0]), float(g.xy[1])),
+                        self._map_to_grid_xy(float(g.through[0]), float(g.through[1])))
+        self._lm_leg_z = ((float(g.z), float(g.through_z))
+                          if g.z is not None and g.through_z is not None else None)
+        return cell
+
+    def _lm_leg_z_for(self, p, q, lift=0):
+        """Altitude for the lane leg p->q (map frame): the clearance surface
+        over the known obstacles, plus `lift` stall lifts, in the flight band.
+        Cruise when nothing stands under the leg — the detector's height."""
+        top = None
+        if self._obstacles is not None and len(self._obstacles):
+            top, _k = self._obstacles.top_along(p, q)
+        return clr.leg_z(top, self._altitude, self._obst_clear,
+                         lo=self._min_alt, hi=self._max_alt,
+                         lift_m=float(lift) * self._lm_lift_m)
+
+    def _load_known_obstacles(self):
+        """The scene's ground-truth obstacle boxes, as authored (WORLD).
+
+        `known_obstacles_file` wins; else `known_obstacles_scene` (default
+        $RESULTS_SCENE, the name the launcher writes the GT under) is looked
+        up in raven_nav's annotations dir — the SOURCE tree first, because
+        that is where the launcher writes and the installed share copy is
+        whatever colcon last saw. No file is not an error: the arm flies at
+        cruise everywhere and relies on the stall lift, and says so."""
+        path = self._obst_file
+        scene = self._obst_scene or os.environ.get('RESULTS_SCENE', '').strip()
+        if not path and scene:
+            # `<scene>_obstacles.json` is what the launcher writes for the
+            # houses / trees / cars (the GT file itself is people only);
+            # `<scene>.json` is accepted too, for a hand-authored scene whose
+            # one file carries every class — the class filter below sorts it.
+            # THE SOURCE TREE, not a sibling of wherever this file runs from.
+            # Under colcon this module executes from build/search_baselines/,
+            # whose sibling build/raven_nav/annotations is a stale copy from
+            # raven_nav's last build — the launcher writes into
+            # src/global/planners/raven_nav/annotations. Walk up to the
+            # workspace root and go down the source path from there.
+            here = os.path.dirname(os.path.abspath(__file__))
+            dirs = []
+            anc = here
+            for _ in range(8):
+                anc = os.path.dirname(anc)
+                cand = os.path.join(anc, 'src', 'global', 'planners',
+                                    'raven_nav', 'annotations')
+                if os.path.isdir(cand):
+                    dirs.append(cand)
+                    break
+            dirs.append(os.path.normpath(os.path.join(
+                here, '..', '..', 'raven_nav', 'annotations')))
+            try:
+                from ament_index_python.packages import get_package_share_directory
+                dirs.append(os.path.join(get_package_share_directory('raven_nav'),
+                                         'annotations'))
+            except Exception:
+                pass
+            cands = [os.path.join(d, f'{scene}{suffix}.json')
+                     for suffix in ('_obstacles', '') for d in dirs]
+            path = next((c for c in cands if os.path.exists(c)), '')
+        if not path or not os.path.exists(path):
+            self.get_logger().warn(
+                f'known obstacles: no annotation file (file={self._obst_file!r}, '
+                f'scene={scene!r}) — lane legs fly at cruise everywhere; only the '
+                'stall lift can get the lawnmower over a canopy')
+            return
+        try:
+            boxes = clr.load_boxes(path, self._obst_classes)
+        except Exception as exc:
+            self.get_logger().warn(f'known obstacles: {path} unreadable: {exc}')
+            return
+        self._obstacles_world = clr.KnownObstacles(boxes, self._obst_inflate)
+        # In a map-frame scene the boxes are used as authored; the world
+        # shift, when there is one, is applied by _place_search_area.
+        if self._search_area_frame != 'world':
+            self._obstacles = self._obstacles_world
+        tally = {}
+        for c in self._obstacles_world.classes:
+            tally[c] = tally.get(c, 0) + 1
+        tops = self._obstacles_world.top
+        self.get_logger().info(
+            f'known obstacles: {len(boxes)} boxes from {path} '
+            f'({", ".join(f"{v} {k}" for k, v in sorted(tally.items()))}); '
+            f'tops {tops.min():.1f}-{tops.max():.1f} m'
+            + (' (world frame, shifted into map with the search area)'
+               if self._search_area_frame == 'world' else '')
+            if len(boxes) else
+            f'known obstacles: {path} holds no {self._obst_classes} boxes — '
+            'was the launcher run with GT_ANNOTATIONS on?')
+
+    def _blacklisted_mask(self, xy):
+        """True for every row of `xy` (grid-frame metres, Nx2) inside
+        `frontier_blacklist_radius_m` of a blacklisted frontier."""
+        xy = np.asarray(xy, dtype=float).reshape(-1, 2)
+        mask = np.zeros(xy.shape[0], dtype=bool)
+        if not self._frontier_blacklist or xy.shape[0] == 0:
+            return mask
+        now = time.time()
+        if self._blacklist_ttl > 0.0:
+            self._frontier_blacklist = [
+                b for b in self._frontier_blacklist if now - b[2] <= self._blacklist_ttl]
+        for bx, by, _ in self._frontier_blacklist:
+            mask |= np.hypot(xy[:, 0] - bx, xy[:, 1] - by) <= self._blacklist_r
+        return mask
+
+    def _stall_watchdog(self, here, now):
+        """Blacklist and release the held goal when the drone stops making
+        progress toward it. Returns True if the lock was just released."""
+        here_t = (float(here[0]), float(here[1]))
+        if (self._progress_xy is None
+                or math.dist(here_t, self._progress_xy) >= self._stall_dist):
+            self._progress_xy, self._progress_t = here_t, now
+            return False
+        if (self._locked_goal is None or self._stall_s <= 0.0
+                or now - self._progress_t < self._stall_s
+                or now - self._locked_at < self._stall_s):
+            return False
+        gx, gy = (self._locked_goal_xy if self._locked_goal_xy is not None
+                  else (float('nan'), float('nan')))
+        self._frontier_blacklist.append((gx, gy, now))
+        self.get_logger().warn(
+            f'frontier ({gx:.0f}, {gy:.0f}) unreachable: no progress for '
+            f'{now - self._progress_t:.0f} s at ({here_t[0]:.0f}, {here_t[1]:.0f}), '
+            f'{math.dist(here_t, (gx, gy)):.0f} m short — BLACKLISTED '
+            f'(r={self._blacklist_r:.0f} m, {len(self._frontier_blacklist)} total), '
+            'releasing the lock')
+        self._locked_goal, self._locked_score, self._locked_goal_xy = None, None, None
+        self._progress_t = now
+        return True
 
     def _commit(self, cand, cand_score, cand_xy, here):
         """Hold the current target unless the challenger is clearly better.
@@ -1575,6 +2268,7 @@ class CoNavGPT2Node(Node):
         at neither.
         """
         now = time.time()
+        self._stall_watchdog(here, now)
         if self._locked_goal is None:
             self._locked_goal, self._locked_score, self._locked_at = \
                 cand, cand_score, now
@@ -1627,53 +2321,49 @@ class CoNavGPT2Node(Node):
 
     def _assign(self, target_edge_map, target_point_list, top_view_map,
                 vis_pose_pred, obstacle_map, explored_map, grid_pose, step):
+        prev_goals = list(self._goal_points)
         self._goal_points = []
         map_size = obstacle_map.shape[0]
 
         if self._nav_mode == 'gpt':
-            if len(target_point_list) > 0 and step >= self._warmup_steps:
-                round_start = time.time()
-                since_last = (None if self._last_round_start is None
-                              else round_start - self._last_round_start)
-                self._last_round_start = round_start
-                self._round += 1
-
-                # Request build: rendering one top-view per frontier and base64ing
-                # them is the part that grows with frontier count on OUR side.
-                t_build = time.time()
-                candidate_maps = chat_utils.get_all_candidate_maps(
-                    target_edge_map, top_view_map, vis_pose_pred)
-                message = chat_utils.message_prepare(
-                    system_prompt.system_prompt, candidate_maps, self._goal_name)
-                build_s = time.time() - t_build
-                payload_bytes = sum(len(b.getvalue()) for b in candidate_maps)
-
-                t_call = time.time()
-                assignment = chat_utils.chat_with_gpt4v(message)
-                call_s = time.time() - t_call
-
-                self._record_round(assignment, len(target_point_list), candidate_maps,
-                                   payload_bytes, build_s, call_s, since_last)
-                if self._publish_vis:
-                    self._publish_vlm_image(candidate_maps)
-                for i in range(self._num_robots):
-                    self._goal_points.append(self._resolve_frontier(
-                        assignment, i, target_point_list, map_size))
+            # THE VLM ROUND IS ASYNCHRONOUS. A round is a generation of
+            # seconds (26 s per attempt on the 3B model), and it used to run
+            # INSIDE the tick: no /global_plan was published while it ran, so
+            # a slow or failing round parked the drone for minutes (the
+            # measured stall on the 250 m suburb). Now the request is built and
+            # sent from a worker thread, the tick keeps commanding the current
+            # goal, and the answer is applied on the tick it arrives — against
+            # the candidate list the VLM was actually shown.
+            pend = self._pending_round
+            if pend is not None and pend.get('done'):
+                self._pending_round = None
+                self._apply_round(pend, map_size)
+                return
+            if pend is None and len(target_point_list) > 0 and step >= self._warmup_steps:
+                self._start_round(target_edge_map, target_point_list, top_view_map,
+                                  vis_pose_pred)
+            # Meanwhile: the goal already being flown, or the nearest
+            # candidate when there is none (t=0, or a goal just blacklisted).
+            if prev_goals and len(prev_goals) >= self._num_robots:
+                self._goal_points = prev_goals
             else:
-                for _ in range(self._num_robots):
-                    self._goal_points.append(self._random_goal(map_size))
+                for i in range(self._num_robots):
+                    self._goal_points.append(
+                        self._nearest_candidate(target_point_list, self._agents[i])
+                        or self._fallback_goal(self._agents[i], map_size))
 
         elif self._nav_mode == 'vlfm':
             for i in range(self._num_robots):
                 pick = self._vlfm_pick(target_point_list, self._agents[i])
                 self._goal_points.append(
-                    pick if pick is not None else self._random_goal(map_size))
+                    pick if pick is not None
+                    else self._fallback_goal(self._agents[i], map_size))
 
         elif self._nav_mode == 'frontier':
             for i in range(self._num_robots):
                 self._goal_points.append(
                     self._frontier_pick(target_point_list, self._agents[i])
-                    or self._random_goal(map_size))
+                    or self._fallback_goal(self._agents[i], map_size))
 
         elif self._nav_mode == 'lawnmower':
             # No frontier is consulted at all: the lane path IS the plan. The
@@ -1682,7 +2372,7 @@ class CoNavGPT2Node(Node):
             for i in range(self._num_robots):
                 self._goal_points.append(
                     self._lawnmower_pick(self._agents[i])
-                    or self._random_goal(map_size))
+                    or self._fallback_goal(self._agents[i], map_size))
 
         elif self._nav_mode == 'nearest':
             for i in range(self._num_robots):
@@ -1690,15 +2380,165 @@ class CoNavGPT2Node(Node):
                     explored_map, obstacle_map, grid_pose[i],
                     threshold_point=self._frontier_threshold)
                 self._goal_points.append(
-                    points[0] if points else self._random_goal(map_size))
+                    points[0] if points
+                    else self._fallback_goal(self._agents[i], map_size))
         else:
             raise ValueError(f'unknown nav_mode {self._nav_mode!r}')
 
+    def _start_round(self, target_edge_map, target_point_list, top_view_map,
+                     vis_pose_pred):
+        """Kick off one VLM round on a worker thread. Everything the round
+        needs is SNAPSHOTTED here, because the map, the frontier list and the
+        robot poses will all have moved by the time the answer comes back."""
+        round_start = time.time()
+        since_last = (None if self._last_round_start is None
+                      else round_start - self._last_round_start)
+        self._last_round_start = round_start
+        self._round += 1
+        pend = {'done': False, 'round': self._round, 'since_last': since_last,
+                'target_point_list': [list(p) for p in target_point_list],
+                'edge': np.array(target_edge_map, copy=True),
+                'top_view': np.array(top_view_map, copy=True),
+                'vis_pose': [list(v) for v in vis_pose_pred],
+                'assignment': None, 'candidate_maps': [], 'payload_bytes': 0,
+                'build_s': 0.0, 'call_s': 0.0, 'call': {}, 'error': None}
+
+        def _work():
+            try:
+                t_build = time.time()
+                cms = chat_utils.get_all_candidate_maps(
+                    pend['edge'], pend['top_view'], pend['vis_pose'])
+                message = chat_utils.message_prepare(
+                    system_prompt.system_prompt, cms, self._goal_name)
+                pend['build_s'] = time.time() - t_build
+                pend['payload_bytes'] = sum(len(b.getvalue()) for b in cms)
+                pend['candidate_maps'] = cms
+                t_call = time.time()
+                pend['assignment'] = chat_utils.chat_with_gpt4v(message)
+                pend['call_s'] = time.time() - t_call
+                pend['call'] = dict(chat_utils.LAST_CALL)
+            except Exception as exc:          # noqa: BLE001
+                pend['error'] = f'{exc}\n{traceback.format_exc()}'
+            finally:
+                pend['done'] = True
+
+        self._pending_round = pend
+        threading.Thread(target=_work, name='vlm-round', daemon=True).start()
+
+    def _apply_round(self, pend, map_size):
+        """The VLM's answer, resolved against the list it was shown."""
+        if pend.get('error'):
+            self.get_logger().error(
+                f"[search_planner] round {pend['round']} raised: {pend['error']}")
+        assignment = pend.get('assignment') or {}
+        tpl = pend['target_point_list']
+        self._record_round(assignment, len(tpl), pend['candidate_maps'],
+                           pend['payload_bytes'], pend['build_s'], pend['call_s'],
+                           pend['since_last'], call=pend.get('call'))
+        if self._publish_vis and pend['candidate_maps']:
+            self._publish_vlm_image(pend['candidate_maps'])
+        self._goal_points = []
+        for i in range(self._num_robots):
+            self._goal_points.append(self._resolve_frontier(assignment, i, tpl, map_size))
+
+    def _nearest_candidate(self, target_point_list, agent):
+        """The closest offered frontier to this agent, or None."""
+        if not target_point_list:
+            return None
+        here = np.array(self._agent_xy(agent))
+        xy = np.array([agent.grid_to_map_xy(p[0], p[1]) for p in target_point_list])
+        return list(target_point_list[int(np.argmin(np.linalg.norm(xy - here, axis=1)))])
+
+    def _goal_voxel_blocked(self, i, agent):
+        """True when this robot's goal, at the height it will be flown, sits
+        in or beside an OCCUPIED voxel of the live map (26-neighbourhood: one
+        voxel of margin, the same reach droan's expansion gives an obstacle).
+        False without a voxel map or without a goal."""
+        vm = self._voxel_map
+        if vm is None or i >= len(self._goal_points):
+            return False
+        goal = self._goal_points[i]
+        gx, gy = agent.grid_to_map_xy(goal[0], goal[1])       # voxel-map frame
+        z = None
+        if self._nav_mode == 'lawnmower' and getattr(self, '_lm_leg_z', None):
+            z = self._lm_leg_z[0]
+        if z is None:
+            z = self._frontier_altitude(i)
+        if z is None:
+            z = self._clamp_alt(self._altitude)
+        idx = vm.to_idx(np.array([[gx, gy, float(z)]]))[0]
+        lo = np.maximum(idx - 1, 0)
+        hi = np.minimum(idx + 2, vm.dims)
+        if np.any(hi <= lo):
+            return False
+        return bool((vm.grid[lo[0]:hi[0], lo[1]:hi[1], lo[2]:hi[2]] == VOX_OCCUPIED).any())
+
+    def _recheck_goals(self):
+        """Drop every goal the map now says is inside an obstacle. Returns
+        True if any goal was dropped (the caller re-assigns this tick).
+
+        Per arm: vlfm / frontier / gpt / nearest BLACKLIST the point (so the
+        source stops offering it) and release it; the lawnmower LIFTS the leg
+        (then skips it), which is its own version of the same ladder."""
+        if self._voxel_map is None or self._agents is None:
+            return False
+        now = time.time()
+        if self._track_instances and self._active_target is not None:
+            # FLYING TO A PERSON. A detection whose approach point sits in
+            # occupied voxels — a canopy, a roofline — is a place the drone
+            # can never get to, and holding it parks the search on what is
+            # most likely a false positive. Give it up: mark it VISITED (the
+            # same book-keeping a reached instance gets, so it is never picked
+            # again) and let the frontier search resume.
+            agent = self._agents[0]
+            tx, ty = self._active_target
+            z = self._waypoint_z(agent)
+            vm = self._voxel_map
+            idx = vm.to_idx(np.array([[float(tx), float(ty), float(z)]]))[0]
+            lo, hi = np.maximum(idx - 1, 0), np.minimum(idx + 2, vm.dims)
+            if np.all(hi > lo) and bool(
+                    (vm.grid[lo[0]:hi[0], lo[1]:hi[1], lo[2]:hi[2]] == VOX_OCCUPIED).any()):
+                mx, my = self._to_map(tx, ty)
+                self._visited_targets.append((float(tx), float(ty)))
+                self.get_logger().warn(
+                    f'target at ({mx:.0f}, {my:.0f}) sits inside occupied voxels at '
+                    f'{z:.0f} m — unreachable, likely a false positive; GIVING UP '
+                    f'(marked visited, {len(self._visited_targets)} total)')
+                self._active_target = None
+                self._goal_points = []
+                return True
+            return False                      # a reachable person: not a frontier
+        if not self._goal_points:
+            return False
+        dropped = False
+        for i, agent in enumerate(self._agents):
+            if not self._goal_voxel_blocked(i, agent):
+                continue
+            goal = self._goal_points[i]
+            gx, gy = agent.grid_to_map_xy(goal[0], goal[1])
+            mx, my = self._to_map(gx, gy)
+            if self._nav_mode == 'lawnmower' and self._lm_sweep is not None:
+                what = self._lm_sweep.blocked(now)
+                self.get_logger().warn(
+                    f'lawnmower: goal #{self._lm_idx} ({mx:.0f}, {my:.0f}) is inside '
+                    f'newly observed voxels — {what}')
+            else:
+                self._frontier_blacklist.append((float(gx), float(gy), now))
+                self._locked_goal, self._locked_score, self._locked_goal_xy = None, None, None
+                self.get_logger().warn(
+                    f'goal ({mx:.0f}, {my:.0f}) is inside newly observed voxels — '
+                    f'BLACKLISTED (r={self._blacklist_r:.0f} m, '
+                    f'{len(self._frontier_blacklist)} total), re-picking now')
+            dropped = True
+        if dropped:
+            self._goal_points = []
+        return dropped
+
     def _record_round(self, assignment, num_frontiers, candidate_maps,
-                      payload_bytes, build_s, call_s, since_last):
+                      payload_bytes, build_s, call_s, since_last, call=None):
         """Per-round telemetry: JSONL under the results dir, a String topic so it
         lands in the mcap, and one INFO line."""
-        call = dict(chat_utils.LAST_CALL)
+        call = dict(chat_utils.LAST_CALL) if call is None else dict(call)
         server_s = call.get('server_s') or 0.0
         total_s = build_s + call_s
         budget = (self._round_period_s if self._round_period_s > 0.0
@@ -1735,7 +2575,15 @@ class CoNavGPT2Node(Node):
             # `n_above_threshold` is what existed. See LAST_DET's note: the cap
             # keeps the SMALLEST regions, so a non-empty `areas_dropped` means
             # the biggest frontiers were the ones withheld.
-            'frontier_det': dict(explored_map_utils.LAST_DET),
+            # Under voxel3d `Frontier_Det` never runs and LAST_DET stays
+            # empty, so report what the 3D source offered instead — count and
+            # heights, the one thing the slab could never say.
+            'frontier_det': (
+                {'source': 'voxel3d', 'n_offered': num_frontiers,
+                 'max_frontiers': self._max_frontiers,
+                 'z_m': [round(float(z), 1) for z in self._frontier_z]}
+                if self._frontier_source == 'voxel3d'
+                else dict(explored_map_utils.LAST_DET)),
             'errors': call.get('errors'),
             'response_text': call.get('response_text'),
             'assignment': {k: str(v) for k, v in (assignment or {}).items()},
@@ -1786,6 +2634,25 @@ class CoNavGPT2Node(Node):
         action = np.random.rand(2) * (map_size - 1)
         return [int(action[0]), int(action[1])]
 
+    def _fallback_goal(self, agent, map_size):
+        """Where a robot goes when there is NO candidate: the sector centroid
+        if a search area is set, else upstream's random cell.
+
+        The polygon is applied at the SOURCE (`_voxel_frontiers`), so "every
+        frontier is out of bounds" reaches `_assign` as an EMPTY list, never
+        as a list `_recover_into_area` gets to reject. Without this a drone
+        that has driven itself to the sector edge — and every drone at t=0,
+        before the first carve — was sent to a random cell of the whole grid,
+        up to half the extent outside its sector, re-drawn every tick. Shared
+        by every arm; the gpt arm in particular has no pick function of its
+        own in which to recover.
+        """
+        if self._search_poly is not None:
+            goal = self._recover_into_area(agent, 0)
+            if goal is not None:
+                return goal
+        return self._random_goal(map_size)
+
     # ── actuation ─────────────────────────────────────────────────────────────
 
     def _instance_centroids(self, agent):
@@ -1800,6 +2667,22 @@ class CoNavGPT2Node(Node):
         pcd = getattr(agent, 'object_pcd', None)
         if pcd is None or len(pcd.points) < self._inst_min_pts:
             return []
+        # DOWNSAMPLE FIRST. `object_pcd` only ever grows (upstream appends every
+        # detection's points and retires none), and DBSCAN's neighbour search
+        # at eps 4 m over a cloud that dense is quadratic in practice: at ~23k
+        # points this call alone held the plan loop for 10-17 s per tick
+        # (py-spy: every sample inside cluster_dbscan), so the drone was
+        # re-planned at 0.07 Hz and the viz topics looked dead. A 0.5 m voxel
+        # grid caps the cloud at one point per half-metre cell — a person is a
+        # handful of cells, a house a few hundred — and the centroids come out
+        # the same (measured 0.5 m of the GT people either way).
+        try:
+            vox = max(0.25, min(1.0, self._inst_eps / 8.0))
+            ds = pcd.voxel_down_sample(vox)
+            if len(ds.points) >= self._inst_min_pts:
+                pcd = ds
+        except Exception:
+            pass
         pts = np.asarray(pcd.points)
         try:
             labels = np.array(pcd.cluster_dbscan(
@@ -1866,10 +2749,30 @@ class CoNavGPT2Node(Node):
         suppresses a revisit.
         """
         try:
-            here = self._agent_xy(agent)
+            here = self._to_map(*self._agent_xy(agent))
             # camera_position is open3d (x, y, z); map z is its y, the same
             # convention the voxel integration uses.
             z = float(agent.camera_position[1])
+            # FRAME CHECK. Markers are drawn from GRID coordinates
+            # (`grid_to_map_xy`) while the search-area outline is drawn from
+            # CONFIG coordinates. If those two frames disagree, the outline
+            # lands correctly and every marker is offset — which is exactly
+            # what a rolling local map does once the robot starts away from
+            # the map origin. Logging both against ODOMETRY (true map frame)
+            # makes the offset a number instead of an impression.
+            od = self._obs[0].get('odom')
+            if od is not None:
+                try:
+                    ox, oy = float(od[0, 3]), float(od[1, 3])
+                    dx, dy = here[0] - ox, here[1] - oy
+                    self.get_logger().info(
+                        f'frame check: odom=({ox:.1f}, {oy:.1f}) '
+                        f'grid_to_map=({here[0]:.1f}, {here[1]:.1f}) '
+                        f'offset=({dx:+.1f}, {dy:+.1f}) '
+                        f'origins_grid={list(map(int, agent.origins_grid))}',
+                        throttle_duration_sec=10.0)
+                except Exception:
+                    pass
             if (not self._trail
                     or math.dist(self._trail[-1][:2], here)
                     >= self._trail_min_step_m):
@@ -1894,7 +2797,8 @@ class CoNavGPT2Node(Node):
             r.pose.position.x, r.pose.position.y, r.pose.position.z = (
                 float(here[0]), float(here[1]), z)
             r.scale.x = r.scale.y = r.scale.z = 4.0
-            r.color = ColorRGBA(r=0.1, g=0.6, b=1.0, a=0.95)
+            cr, cg, cb = robot_rgb(self._robot_index_of_self() or 0)
+            r.color = ColorRGBA(r=cr, g=cg, b=cb, a=0.95)
             ma.markers.append(r)
 
             lbl = _mk('search_robot_id', 0, Marker.TEXT_VIEW_FACING)
@@ -1908,7 +2812,7 @@ class CoNavGPT2Node(Node):
             if len(self._trail) > 1:
                 t = _mk('search_trail', 0, Marker.LINE_STRIP)
                 t.scale.x = 0.6
-                t.color = ColorRGBA(r=0.1, g=0.6, b=1.0, a=0.55)
+                t.color = ColorRGBA(r=cr, g=cg, b=cb, a=0.55)
                 t.points = [Point(x=p[0], y=p[1], z=p[2]) for p in self._trail]
                 ma.markers.append(t)
 
@@ -1926,13 +2830,13 @@ class CoNavGPT2Node(Node):
                 dm.scale.x = dm.scale.y = dm.scale.z = 1.0
                 dm.color = ColorRGBA(r=1.0, g=0.1, b=0.85, a=0.8)
                 for q in pts:
-                    mx, my = o3d_xz_to_map_xy(float(q[0]), float(q[2]))
+                    mx, my = self._to_map(*o3d_xz_to_map_xy(float(q[0]), float(q[2])))
                     dm.points.append(Point(x=mx, y=my, z=float(q[1])))
                 ma.markers.append(dm)
 
                 dl = _mk('search_detection_id', 0, Marker.TEXT_VIEW_FACING)
                 c = np.asarray(pcd.points).mean(axis=0)
-                cx, cy = o3d_xz_to_map_xy(float(c[0]), float(c[2]))
+                cx, cy = self._to_map(*o3d_xz_to_map_xy(float(c[0]), float(c[2])))
                 dl.pose.position.x, dl.pose.position.y = cx, cy
                 dl.pose.position.z = float(c[1]) + 8.0
                 dl.scale.z = 2.5
@@ -1941,13 +2845,114 @@ class CoNavGPT2Node(Node):
                            f'{len(self._target_instances)} instance(s)')
                 ma.markers.append(dl)
 
+            # THE SEARCH AREA ITSELF, so "is it looking in the right place"
+            # is answerable by looking. Drawn every tick rather than latched:
+            # a sector is derived from num_robots and the robot index, so it
+            # can change between runs and a stale latched outline would be
+            # worse than none.
+            if self._search_poly is not None and len(self._search_poly) >= 3:
+                area = _mk('search_area', 0, Marker.LINE_STRIP)
+                area.scale.x = 1.2
+                area.color = ColorRGBA(r=cr, g=cg, b=cb, a=0.95)
+                ring = list(self._search_poly) + [self._search_poly[0]]
+                for q in ring:
+                    area.points.append(
+                        Point(x=float(q[0]), y=float(q[1]), z=0.5))
+                ma.markers.append(area)
+
+                al = _mk('search_area_id', 0, Marker.TEXT_VIEW_FACING)
+                cx, cy = sect.polygon_centroid(self._search_poly)
+                al.pose.position.x, al.pose.position.y = float(cx), float(cy)
+                al.pose.position.z = 3.0
+                al.scale.z = 4.0
+                al.color = ColorRGBA(r=cr, g=cg, b=cb, a=0.9)
+                al.text = f'{self._robots[0]} search area'
+                ma.markers.append(al)
+
+                # THE LAWNMOWER'S LANES. This arm plans the WHOLE coverage
+                # path at start-up and then flies it one <= lawnmower_leg_m
+                # leg at a time, so /global_plan only ever carries the current
+                # leg: from outside, an on-plan sweep and a drone wandering
+                # look identical. Drawing the plan is what makes "is it
+                # covering the sector" answerable by looking, and it is the
+                # only view that shows the ground the sweep has NOT reached
+                # yet — which is where an undetected survivor would be.
+                #
+                # MAP frame, drawn RAW with no _to_map, exactly like the
+                # sector ring above: `_lm_path` is cut from `search_area_xy`
+                # and `_place_search_area` shifts both by the same offset.
+                # (Contrast the robot/target markers, which start in GRID
+                # coordinates and must be transformed.)
+                if (self._nav_mode == 'lawnmower'
+                        and self._lm_path is not None and len(self._lm_path) >= 2):
+                    lanes = _mk('search_lanes', 0, Marker.LINE_STRIP)
+                    lanes.scale.x = 0.8
+                    lanes.color = ColorRGBA(r=cr, g=cg, b=cb, a=0.30)
+                    lanes.points = [Point(x=float(q[0]), y=float(q[1]), z=1.0)
+                                    for q in self._lm_path]
+                    ma.markers.append(lanes)
+
+                    sw = self._lm_sweep
+                    if sw is not None and len(sw.loop):
+                        nt = len(sw.transit)
+                        # The one-time walk from the takeoff point to the
+                        # entry lane end. Distinct from the lanes because it
+                        # covers nothing and is flown once, so time spent
+                        # here is overhead, not coverage.
+                        if nt:
+                            tr = _mk('search_lane_transit', 0, Marker.LINE_STRIP)
+                            tr.scale.x = 0.6
+                            tr.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=0.35)
+                            tr.points = [Point(x=float(q[0]), y=float(q[1]), z=1.0)
+                                         for q in sw.transit]
+                            ma.markers.append(tr)
+
+                        # Progress THIS LAP, solid over the dim plan. Reset
+                        # every lap rather than left filled in: the sweep
+                        # repeats until the sim budget runs out, and a bar
+                        # that stays full after lap 1 stops being a progress
+                        # indicator at all. The lap count is in the label.
+                        li = max(0, int(sw.idx) - nt)
+                        done = sw.loop[:li + 1]
+                        if len(done) >= 2:
+                            dn = _mk('search_lanes_done', 0, Marker.LINE_STRIP)
+                            dn.scale.x = 1.6
+                            dn.color = ColorRGBA(r=cr, g=cg, b=cb, a=0.95)
+                            dn.points = [Point(x=float(q[0]), y=float(q[1]), z=1.2)
+                                         for q in done]
+                            ma.markers.append(dn)
+
+                        # The leg being flown right now, drawn at the reach
+                        # radius so the disc IS the tolerance that retires it.
+                        g = sw.point(int(sw.idx))
+                        gm = _mk('search_lane_goal', 0, Marker.SPHERE)
+                        gm.pose.position.x = float(g[0])
+                        gm.pose.position.y = float(g[1])
+                        gm.pose.position.z = 1.5
+                        gm.scale.x = gm.scale.y = gm.scale.z = 2.0 * self._lm_reach
+                        gm.color = ColorRGBA(r=1.0, g=0.85, b=0.1, a=0.35)
+                        ma.markers.append(gm)
+
+                        gl = _mk('search_lanes_id', 0, Marker.TEXT_VIEW_FACING)
+                        gl.pose.position.x = float(g[0])
+                        gl.pose.position.y = float(g[1])
+                        gl.pose.position.z = 6.0
+                        gl.scale.z = 2.5
+                        gl.color = ColorRGBA(r=cr, g=cg, b=cb, a=0.9)
+                        gl.text = (
+                            f'lawnmower {sw.phase} {li}/{len(sw.loop)} '
+                            f'lap {int(sw.lap) + 1} | '
+                            f'{self._lm_spacing_used:.0f} m lanes')
+                        ma.markers.append(gl)
+
             active = self._active_target
             for k, xy in enumerate(self._target_instances):
                 done = self._is_visited(xy)
                 is_active = (active is not None
                              and math.dist(active, xy) < 1e-6)
                 d = _mk('search_target', k, Marker.CYLINDER)
-                d.pose.position.x, d.pose.position.y = float(xy[0]), float(xy[1])
+                _tx, _ty = self._to_map(float(xy[0]), float(xy[1]))
+                d.pose.position.x, d.pose.position.y = _tx, _ty
                 d.pose.position.z = 0.5
                 # Visited discs show the geofence itself; unvisited ones are
                 # drawn small, because their extent is not yet meaningful.
@@ -1960,7 +2965,7 @@ class CoNavGPT2Node(Node):
                 ma.markers.append(d)
 
                 tl = _mk('search_target_id', k, Marker.TEXT_VIEW_FACING)
-                tl.pose.position.x, tl.pose.position.y = float(xy[0]), float(xy[1])
+                tl.pose.position.x, tl.pose.position.y = _tx, _ty
                 tl.pose.position.z = 6.0
                 tl.scale.z = 2.5
                 tl.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=0.9)
@@ -1994,7 +2999,21 @@ class CoNavGPT2Node(Node):
         """Refresh instances, retire any the drone has now reached, and choose
         the nearest unvisited one. Returns that target, or None."""
         pcd = getattr(agent, 'object_pcd', None)
-        self._target_instances = self._instance_centroids(agent)
+        inst = self._instance_centroids(agent)
+        # ONLY MY SECTOR. A detection across the boundary is another drone's
+        # to visit; chasing it leaves my own ground unswept and has two
+        # drones converge on one person. Judged in the MAP frame, the frame
+        # `search_area_xy` is authored in (same test the frontier picks use).
+        if inst and self._search_poly is not None:
+            keep = self._points_in_polygon(self._to_map_arr(np.asarray(inst)),
+                                           self._search_poly)
+            n_out = int((~keep).sum())
+            if n_out:
+                self.get_logger().info(
+                    f'targets: ignoring {n_out} instance(s) outside this '
+                    'sector', throttle_duration_sec=15.0)
+            inst = [t for t, k in zip(inst, keep) if k]
+        self._target_instances = inst
         self.get_logger().info(
             f'targets: object_pcd {len(pcd.points) if pcd is not None else 0} pts '
             f'| found_goal {bool(getattr(agent, "found_goal", False))} '
@@ -2019,11 +3038,34 @@ class CoNavGPT2Node(Node):
                     f'{sum(1 for t in self._target_instances if not self._is_visited(t))} '
                     'unvisited in view')
 
+        # Stalled on the target chosen last tick -> give it up (see __init__).
+        now = time.time()
+        if self._active_target is not None and self._stall_s > 0.0:
+            here_t = (float(here[0]), float(here[1]))
+            if (self._tgt_progress_xy is None
+                    or math.dist(here_t, self._tgt_progress_xy) >= self._stall_dist):
+                self._tgt_progress_xy, self._tgt_progress_t = here_t, now
+            elif (now - self._tgt_progress_t >= self._stall_s
+                  and now - self._tgt_active_since >= self._stall_s):
+                tx, ty = float(self._active_target[0]), float(self._active_target[1])
+                self._visited_targets.append((tx, ty))
+                self.get_logger().warn(
+                    f'target ({tx:.1f}, {ty:.1f}) unreachable: no progress for '
+                    f'{now - self._tgt_progress_t:.0f} s at ({here_t[0]:.0f}, '
+                    f'{here_t[1]:.0f}), {math.dist(here_t, (tx, ty)):.0f} m short — '
+                    f'marked VISITED (blacklisted), {len(self._visited_targets)} done')
+                self._tgt_progress_t = now
+                self._active_target = None
+
         unvisited = [t for t in self._target_instances if not self._is_visited(t)]
         if not unvisited:
             self._active_target = None
             return None
+        prev = self._active_target
         self._active_target = min(unvisited, key=lambda t: math.dist(here, t))
+        if prev is None or math.dist(prev, self._active_target) > 1e-6:
+            self._tgt_active_since = now
+            self._tgt_progress_xy, self._tgt_progress_t = (float(here[0]), float(here[1])), now
         return self._active_target
 
     def _goal_xy(self, i, agent):
@@ -2039,7 +3081,7 @@ class CoNavGPT2Node(Node):
             return o3d_xz_to_map_xy(p[0], p[2])
         return agent.grid_to_map_xy(*self._goal_points[i])
 
-    def _build_path(self, agent, goal_xy, offset):
+    def _build_path(self, agent, goal_xy, offset, through_xy=None):
         """The Path droan_gl steers by.
 
         'waypoints' (default) is raven_nav's shape: the goal, then one point
@@ -2047,10 +3089,24 @@ class CoNavGPT2Node(Node):
         final pose rather than stopping dead on it. Two poses, and the local
         planner owns everything between here and there.
 
+        `through_xy` replaces that second pose with a point the caller already
+        knows the drone should continue to — the lawnmower's next lane point —
+        so the heading through the goal is the LANE's, not the approach's, and
+        droan gets progress credit along it. Still two poses.
+
         'fmm_path' prepends upstream's own FMM waypoints. See `plan_output`.
         """
         if self._plan_output == 'waypoints':
             cur = self._agent_xy(agent)
+            if through_xy is not None and math.dist(through_xy, goal_xy) > 1e-6:
+                pts = [tuple(goal_xy), tuple(through_xy)]
+                # THE LAWNMOWER'S OWN HEIGHTS: this leg's clearance z on the
+                # goal, the NEXT leg's on the through pose, so the drone
+                # descends toward the next goal rather than onto this one.
+                leg_z = getattr(self, '_lm_leg_z', None)
+                if leg_z is not None:
+                    return self._path_msg(pts, offset, [leg_z[0], leg_z[1]])
+                return self._path_msg(pts, offset, self._waypoint_z(agent))
             d = np.array(goal_xy) - np.array(cur)
             n = float(np.linalg.norm(d))
             direction = d / n if n > 1e-6 else np.array([1.0, 0.0])
@@ -2076,6 +3132,27 @@ class CoNavGPT2Node(Node):
         cleaned.append(tuple(np.array(cleaned[-1]) + direction * self._path_extension_m))
         return self._path_msg(cleaned, offset, self._waypoint_z(agent))
 
+    def _on_target(self, agent):
+        """True while `_goal_xy` is overriding the planner's pick with a
+        detected target — the same two conditions, restated."""
+        if self._track_instances:
+            return self._active_target is not None
+        return bool(getattr(agent, 'found_goal', False)
+                    and getattr(agent, 'nearest_point', None) is not None)
+
+    def _through_xy(self, agent):
+        """Second pose for `_build_path`, when the pick supplied one.
+
+        Only the lawnmower sets `_lm_leg`; every other arm leaves it None and
+        gets the approach-direction extension. Not conditioned on nav_mode,
+        so the actuation stays shared. A target detour overrides the lane
+        goal in `_goal_xy`, so the lane's continuation must not be attached
+        to it either."""
+        leg = getattr(self, '_lm_leg', None)
+        if leg is None or self._on_target(agent):
+            return None
+        return leg[1]
+
     def _agent_xy(self, agent):
         """Where this agent currently is, in map-frame metres."""
         return agent.grid_to_map_xy(*agent.current_grid_pose)
@@ -2084,18 +3161,29 @@ class CoNavGPT2Node(Node):
         """Height of the frontier this robot was assigned, when the frontier
         source supplies one. A 2D slab cannot, so this returns None there and
         the caller falls back to the configured cruise altitude."""
-        if self._frontier_source != 'voxel3d' or not self._frontier_z:
+        if self._frontier_source != 'voxel3d':
             return None
         try:
             goal = self._goal_points[i]
         except (IndexError, TypeError):
             return None
+        cell = (int(goal[0]), int(goal[1]))
         # _goal_points holds grid cells; match it back to the candidate it came
         # from so the z belongs to THIS frontier and not to whichever was last.
         for k, p in enumerate(self._frontier_candidates):
-            if int(p[0]) == int(goal[0]) and int(p[1]) == int(goal[1]):
-                if k < len(self._frontier_z):
-                    return self._clamp_alt(self._frontier_z[k])
+            if (int(p[0]), int(p[1])) == cell and k < len(self._frontier_z):
+                z = self._clamp_alt(self._frontier_z[k])
+                self._goal_z_cache[i] = (cell, z)
+                return z
+        # The list is re-extracted every tick, and the assigned frontier is
+        # carved away as the drone closes on it — that is what arriving at a
+        # frontier means. A fresh lookup then finds nothing and the waypoint
+        # would jump to cruise mid-approach; for the gpt arm, which holds a
+        # goal for a whole round, that is most of the approach. While the goal
+        # cell is unchanged the height it was assigned at stands.
+        cached = self._goal_z_cache.get(i)
+        if cached is not None and cached[0] == cell:
+            return cached[1]
         return None
 
     def _waypoint_z(self, agent):
@@ -2136,24 +3224,64 @@ class CoNavGPT2Node(Node):
 
     def _path_msg(self, pts, offset, z=None):
         z = self._altitude if z is None else z
+        # One z for the whole path, or one per pose.
+        zs = (list(z) if isinstance(z, (list, tuple, np.ndarray))
+              else [z] * len(pts))
         path = Path()
         path.header.stamp = self.get_clock().now().to_msg()
         path.header.frame_id = self._map_frame
-        for x, y in pts:
+        for (x, y), pz in zip(pts, zs):
             ps = PoseStamped()
             ps.header = path.header
             # The grid lives in the merge frame; droan_gl wants this robot's own
             # local 'map', so drop the boot_enu offset back off on the way out.
             ps.pose.position.x = float(x - offset[0])
             ps.pose.position.y = float(y - offset[1])
-            ps.pose.position.z = float(z)
+            ps.pose.position.z = float(pz)
             ps.pose.orientation.w = 1.0
             path.poses.append(ps)
         return path
 
+    def _set_local_speed(self, i, mps):
+        """Ask this robot's droan to cap its rollouts at `mps` (asynchronous,
+        idempotent). Logged once per change; a missing service is logged
+        once and then left alone."""
+        # The gpt arm is exempt: the paper flies one speed. Decided HERE, so
+        # the actuation path (_command) stays identical for every arm.
+        if self._nav_mode == 'gpt' or mps <= 0.0 or self._speed_set.get(i) == mps:
+            return
+        from rcl_interfaces.msg import Parameter, ParameterValue, ParameterType
+        from rcl_interfaces.srv import SetParameters
+        cli = self._speed_clients.get(i)
+        if cli is None:
+            cli = self.create_client(
+                SetParameters,
+                self._droan_node_tpl.format(robot=self._robots[i]) + '/set_parameters',
+                callback_group=self._cbg)
+            self._speed_clients[i] = cli
+        if not cli.service_is_ready():
+            if self._speed_set.get(i) != 'unavailable':
+                self.get_logger().warn(
+                    f'[{self._robots[i]}] droan parameter service not up yet at '
+                    f'{cli.srv_name}; speed left as droan has it',
+                    throttle_duration_sec=30.0)
+                self._speed_set[i] = 'unavailable'
+            return
+        req = SetParameters.Request()
+        pv = ParameterValue(type=ParameterType.PARAMETER_DOUBLE, double_value=float(mps))
+        req.parameters = [Parameter(name='max_velocity', value=pv)]
+        cli.call_async(req)
+        self._speed_set[i] = mps
+        self.get_logger().info(
+            f'[{self._robots[i]}] droan max_velocity -> {mps:.1f} m/s '
+            f'({"target approach" if mps == self._target_speed else "transit"})')
+
     def _command(self, i, agent, offset):
+        self._set_local_speed(
+            i, self._target_speed if self._on_target(agent) else self._explore_speed)
         goal_xy = self._goal_xy(i, agent)
-        path = self._build_path(agent, goal_xy, offset)
+        path = self._build_path(agent, goal_xy, offset,
+                                through_xy=self._through_xy(agent))
         self._plan_pubs[i].publish(path)
 
         if self._nav_activation == 'activator':
@@ -2336,8 +3464,11 @@ class CoNavGPT2Node(Node):
             msg.info.height = size
             # Lower-left CORNER of cell (0, 0), not its centre: upstream floors
             # into the grid, so cell i spans [(i - ox) * res, (i - ox + 1) * res).
-            msg.info.origin.position.x = -ox * res
-            msg.info.origin.position.y = -(size - oy) * res
+            # Grid-frame corner -> map frame, the same shift every marker and
+            # the published path get (identity in frame_mode 'local').
+            _gx, _gy = self._to_map(-ox * res, -(size - oy) * res)
+            msg.info.origin.position.x = _gx
+            msg.info.origin.position.y = _gy
             msg.info.origin.position.z = self._occupancy_z
             msg.info.origin.orientation.w = 1.0
             msg.data = data.reshape(-1).tolist()
@@ -2360,8 +3491,9 @@ class CoNavGPT2Node(Node):
             msg.info.resolution = res
             msg.info.width = vm.size
             msg.info.height = vm.size
-            msg.info.origin.position.x = -ox * res
-            msg.info.origin.position.y = -(vm.size - oy) * res
+            _gx, _gy = self._to_map(-ox * res, -(vm.size - oy) * res)
+            msg.info.origin.position.x = _gx
+            msg.info.origin.position.y = _gy
             # Just above the occupancy layer so the two do not z-fight.
             msg.info.origin.position.z = self._occupancy_z + 0.25
             msg.info.origin.orientation.w = 1.0
@@ -2391,6 +3523,12 @@ class CoNavGPT2Node(Node):
             arr = np.zeros(xyz.shape[0], dtype=[
                 ('x', np.float32), ('y', np.float32), ('z', np.float32),
                 ('rgb', np.uint32)])
+            # The voxel map is integrated in the GRID frame (the camera poses
+            # it carves from had the merge offset added), so shift back like
+            # everything else published in `map`. Identity in 'local' mode.
+            _off = self._marker_offset
+            if _off is not None:
+                xyz = xyz - np.array([_off[0], _off[1], 0.0], dtype=xyz.dtype)
             arr['x'], arr['y'], arr['z'] = (xyz[:, 0], xyz[:, 1], xyz[:, 2])
             arr['rgb'] = packed
             msg = PointCloud2()
@@ -2468,7 +3606,7 @@ class CoNavGPT2Node(Node):
                           else ColorRGBA(r=0.9, g=0.25, b=0.1, a=0.7))
                 if self._frontier_style in ('cells', 'both'):
                     self._add_region(ma, edge, k, stamp, colour, res, agent)
-                cx, cy = agent.grid_to_map_xy(p[0], p[1])
+                cx, cy = self._to_map(*agent.grid_to_map_xy(p[0], p[1]))
                 # The frontier's OWN height when the source supplies one. Drawing
                 # 3D frontiers at a single altitude would hide the only thing
                 # that distinguishes them from the 2D slab.
@@ -2500,7 +3638,7 @@ class CoNavGPT2Node(Node):
             goal_xy = getattr(self, '_locked_goal_xy', None)
             pts = []
             for k, p in enumerate(target_point_list):
-                cx, cy = agent.grid_to_map_xy(p[0], p[1])
+                cx, cy = self._to_map(*agent.grid_to_map_xy(p[0], p[1]))
                 cz = (self._frontier_z[k] if k < len(self._frontier_z)
                       else self._altitude)
                 is_goal = (goal_xy is not None
@@ -2555,7 +3693,7 @@ class CoNavGPT2Node(Node):
         zk = (self._frontier_z[k] if k < len(self._frontier_z)
               else self._altitude)
         for ci, cj in cells[::stride]:
-            gx, gy = agent.grid_to_map_xy(int(ci), int(cj))
+            gx, gy = self._to_map(*agent.grid_to_map_xy(int(ci), int(cj)))
             m.points.append(Point(x=float(gx), y=float(gy), z=float(zk)))
         if m.points:
             ma.markers.append(m)

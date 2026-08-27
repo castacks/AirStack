@@ -88,6 +88,22 @@ services:
       # what `airstack://` resolves to. A pod's clone carries neither the bake
       # nor the AEC packs, so both must point at Nucleus there.
       - ARCH_DIR=${ARCH_DIR:-}
+      # Earthquake scene knobs (downtown_quake / bake_quake / eq_building_bench
+      # launchers). Same rule: a var not listed here never reaches the script.
+      - EPICENTER=${EPICENTER:-}
+      - SOFT_SOIL=${SOFT_SOIL:-}
+      - QUAKE_SEED=${QUAKE_SEED:-}
+      - QUAKE_TILT=${QUAKE_TILT:-}
+      - QUAKE_GROUND=${QUAKE_GROUND:-}
+      - ARCH_STYLES=${ARCH_STYLES:-}
+      - ARCH_GRADES=${ARCH_GRADES:-}
+      - ARCH_SEED=${ARCH_SEED:-}
+      - ARCH_VARIANTS=${ARCH_VARIANTS:-}
+      - SETTLE_STEPS=${SETTLE_STEPS:-}
+      - SNAP_DIR=${SNAP_DIR:-}
+      - EQ_STYLE=${EQ_STYLE:-}
+      - EQ_RECIPES=${EQ_RECIPES:-}
+      - EQ_SEED=${EQ_SEED:-}
       - AIRSTACK_ASSET_ROOT=${AIRSTACK_ASSET_ROOT:-}
       - PEOPLE_POLES=${PEOPLE_POLES:-}
       # Preview-scene knobs (modular_house_preview_launch_script.py). Same rule
@@ -104,6 +120,8 @@ services:
       # method but CoNavGPT assumes; search_planner reads the same var so the
       # planner's camera_pitch_rad cannot disagree with the mount.
       - ZED_PITCH_DEG=${ZED_PITCH_DEG:-}
+      - ZED_WIDTH=${ZED_WIDTH:-}
+      - ZED_HEIGHT=${ZED_HEIGHT:-}
       # Pegasus physics tuning — read by pegasus/simulator/params.py
       - PX4_PHYSICS_HZ=${PX4_PHYSICS_HZ:-100}
       - ARDUPILOT_PHYSICS_HZ=${ARDUPILOT_PHYSICS_HZ:-800}
@@ -246,6 +264,22 @@ services:
       # what `airstack://` resolves to. A pod's clone carries neither the bake
       # nor the AEC packs, so both must point at Nucleus there.
       - ARCH_DIR=${ARCH_DIR:-}
+      # Earthquake scene knobs (downtown_quake / bake_quake / eq_building_bench
+      # launchers). Same rule: a var not listed here never reaches the script.
+      - EPICENTER=${EPICENTER:-}
+      - SOFT_SOIL=${SOFT_SOIL:-}
+      - QUAKE_SEED=${QUAKE_SEED:-}
+      - QUAKE_TILT=${QUAKE_TILT:-}
+      - QUAKE_GROUND=${QUAKE_GROUND:-}
+      - ARCH_STYLES=${ARCH_STYLES:-}
+      - ARCH_GRADES=${ARCH_GRADES:-}
+      - ARCH_SEED=${ARCH_SEED:-}
+      - ARCH_VARIANTS=${ARCH_VARIANTS:-}
+      - SETTLE_STEPS=${SETTLE_STEPS:-}
+      - SNAP_DIR=${SNAP_DIR:-}
+      - EQ_STYLE=${EQ_STYLE:-}
+      - EQ_RECIPES=${EQ_RECIPES:-}
+      - EQ_SEED=${EQ_SEED:-}
       - AIRSTACK_ASSET_ROOT=${AIRSTACK_ASSET_ROOT:-}
       - PEOPLE_POLES=${PEOPLE_POLES:-}
       # Preview-scene knobs (modular_house_preview_launch_script.py). Same rule
@@ -262,6 +296,8 @@ services:
       # method but CoNavGPT assumes; search_planner reads the same var so the
       # planner's camera_pitch_rad cannot disagree with the mount.
       - ZED_PITCH_DEG=${ZED_PITCH_DEG:-}
+      - ZED_WIDTH=${ZED_WIDTH:-}
+      - ZED_HEIGHT=${ZED_HEIGHT:-}
     # Publish the WebRTC livestream ports to the pod NS. Bridge-mode +
     # publish (the conservative choice) keeps the rest of the stack on
     # airstack_network for DDS multicast.

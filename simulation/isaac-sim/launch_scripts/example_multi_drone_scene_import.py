@@ -310,6 +310,16 @@ DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/
 # cannot drift apart; any other consumer of this tilt must do likewise.
 ZED_PITCH_DEG = float(os.environ.get("ZED_PITCH_DEG", "").strip() or 0.0)
 
+# ZED RESOLUTION. Pegasus defaults to 480x300, and TARGET PIXEL HEIGHT is what
+# gates detection: measured on a wildfire frame, YOLO needs a person ~20 px
+# tall to clear a 0.5 threshold and is blind by ~9 px. At 12 m cruise with the
+# camera pitched down, 480x300 puts a person under that floor, so the drone
+# flies over people and detects nothing. Raising this is the one fix that does
+# NOT cost flight time and does not depend on descending first.
+# 720x450 is 1.5x linear, i.e. 1.5x the pixels on target at every altitude.
+ZED_WIDTH = int(os.environ.get("ZED_WIDTH", "").strip() or 720)
+ZED_HEIGHT = int(os.environ.get("ZED_HEIGHT", "").strip() or 450)
+
 # RTX lidar per drone. Defaults to ON, which is what this launcher has always
 # done — an UNSET value means "unchanged", not "off", because the compose file
 # forwards ENABLE_LIDAR empty rather than false (each launcher owns its own
@@ -603,6 +613,8 @@ class PegasusApp:
                 camera_name="ZEDCamera",
                 camera_offset=[0.21, 0.0, 0.05],
                 camera_rotation_offset=[0.0, ZED_PITCH_DEG, 0.0],
+                frame_width=ZED_WIDTH,
+                frame_height=ZED_HEIGHT,
             )
 
             if ENABLE_LIDAR:
@@ -737,10 +749,30 @@ class PegasusApp:
         placements = (st or {}).get("placements") if isinstance(st, dict) else None
         if placements:
             boxes += sa.boxes_from_placements(stage, placements)
-        if not boxes:
+        # THE OBSTACLES go to a SEPARATE file. The GT the GCS draws and the
+        # scorer reads is PEOPLE ONLY — that is what the benchmark searches
+        # for, and a box per house and tree is noise there. But a by-reference
+        # scene has no placements for its houses and trees (each is one
+        # referenced prim under <parent>/inst), and the 3D lawnmower needs
+        # exactly those to fly over (search_baselines/clearance.py). So they
+        # are measured off the stage the same way and written as
+        # `<scene>_obstacles.json` beside the GT, where only the planner's
+        # known-obstacle loader looks. Cars come from the survivor plan's own
+        # scope; the kerb/driveway fleet is inside the referenced plat.
+        parent = ((st or {}).get("parent") if isinstance(st, dict) else None) \
+            or "/World/stage/generated"
+        obstacles = sa.boxes_from_scopes(stage, [
+            (parent + "/inst", {"h_": "house", "t_": "tree", "blocker_": "tree"}),
+            (parent + "/people_cars", {"": "car"}),
+        ])
+        if not boxes and not obstacles:
             print("[annotations] nothing to write (no people_json, no placements)")
             return
-        sa.write_annotations(scene, boxes, sa.annotation_dirs(repo))
+        if boxes:
+            sa.write_annotations(scene, boxes, sa.annotation_dirs(repo))
+        if obstacles:
+            sa.write_annotations(scene + "_obstacles", obstacles,
+                                 sa.annotation_dirs(repo))
 
     def _print_scene_banner(self, st):
         r = st["region"]

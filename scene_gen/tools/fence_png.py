@@ -16,8 +16,23 @@ of the four invariants is coloured:
     orange   the module CROSSES another module — hairline cores intersect
     cyan     the module is DOUBLED — a second fence parallel to it, within a
              metre, overlapping it along the line
+    pink     the module stands ACROSS A DRIVEWAY — its core intersects the
+             paving that `apply_ground` will lay for that lot (the house
+             plan's drive when the kit supplies one, else the plat's)
+    red dot  a DANGLING END — a module end that meets nothing: no other
+             module, no wall, no garage. Two of these a metre apart on one
+             line are the gap the eye reads between neighbours' fences.
 
-A clean plan is grey-green fences on white lots, and nothing else.
+Drives are drawn as blue-grey ribbons and front walks as thinner ones, so a
+fence that ought to break for them can be seen not to.
+
+A clean plan is grey-green fences on white lots, drives passing through
+openings, and nothing else.
+
+MODULE SIZES ARE MEASURED, NOT DECLARED. `_plans/fence_modules_measured.json`
+(written by tools/measure_fences.py from the USD files themselves, under a
+headless Isaac python) is read first; the asset-set comments and the objaverse
+manifest are the fallback, and the title says which was used.
 
 WHY IT RUNS ON THE HOST
 -----------------------
@@ -150,11 +165,16 @@ def _glb_size(uid, target_m, fit="footprint"):
     return (ext[0] * k, ext[2] * k, ext[1] * k)      # Y-up source -> Z-up world
 
 
+MEASURED_JSON = os.path.join(_SCENE_GEN, "_plans", "fence_modules_measured.json")
+SIZE_SOURCE = {"measured": 0, "declared": 0}
+
+
 def _sizes(cfg):
     """`{basename: (sx, sy, sz)}` for everything the scene can ask about."""
     sets = os.path.join(_SCENE_GEN, "config", "asset_sets")
     out = measured_sizes([os.path.join(sets, f) for f in os.listdir(sets)
                           if f.endswith(".yaml")])
+    SIZE_SOURCE["declared"] = len(out)
     man_path = os.path.join(_SCENE_GEN, "assets", "objaverse", "manifest.yaml")
     man = {}
     if os.path.exists(man_path):
@@ -181,6 +201,34 @@ def _sizes(cfg):
                 print(f"[fence_png] {uid[:8]}… not converted yet — sized "
                       f"{sz[0]:.2f} x {sz[1]:.2f} x {sz[2]:.2f} m from its "
                       f"source glb (run prepare_assets.py)")
+    # THE REAL THING, when it exists: bboxes read off the USD files under a
+    # headless Isaac python (tools/measure_fences.py). Overrides the comments
+    # and the manifest for every fence module it covers.
+    if os.path.exists(MEASURED_JSON):
+        meas = (json.load(open(MEASURED_JSON)) or {}).get("modules") or {}
+        for u, rec in meas.items():
+            # `footprint` IS `scene_generator._measure_footprint`'s answer at the
+            # entry's own scale and axis-up — the same call the build makes — so
+            # it is the only field worth reading. The old `resolver` field it
+            # replaced was written by a `SizeResolver` that had fallen back, and
+            # every module in it read 4.00 x 4.00 x 3.00 m: `fallback_sizes`
+            # ["fence"], stamped "MEASURED from USD" in this tool's own title.
+            # A fallback is not a measurement, so an entry that has not got the
+            # real thing is SKIPPED here rather than trusted.
+            fp = rec.get("footprint") or {}
+            if all(isinstance(fp.get(k), (int, float)) for k in ("sx", "sy", "sz")):
+                sz = (float(fp["sx"]), float(fp["sy"]), float(fp["sz"]))
+            elif (rec.get("raw") or {}).get("size_m"):
+                sz = tuple(float(v) for v in rec["raw"]["size_m"])
+            else:
+                continue
+            name = os.path.basename(str(u))
+            if name in out and out[name] == sz:
+                continue                      # already recorded under its twin key
+            out[name] = sz
+            SIZE_SOURCE["measured"] += 1
+            print(f"[fence_png] {name[:44]}: "
+                  f"{sz[0]:.3f} x {sz[1]:.3f} x {sz[2]:.3f} m MEASURED from USD")
     return out
 
 
@@ -210,24 +258,13 @@ def build(seed=None, config_name="suburb_net", house_instances=None):
                                     dict(cfg.get("suburb_net") or {}))
     buildable = [b for b in blocks if not b.get("undeveloped")]
 
-    pcfg = dict(cfg.get("suburb_parcel") or {})
-    bulb_r = float(sn.DEFAULTS["bulb_radius_m"])
-    pcfg.setdefault("keepout_discs",
-                    [(e.pts[-1], bulb_r + float(pcfg.get("bulb_margin_m", 3.0)))
-                     for e in net.edges.values()
-                     if e.street_type == "lollipop"])
     pools = ss.AssetPools(cfg)
-    yaw_off = float(pcfg.get("house_yaw_offset_deg", -90.0))
+    yaw_off = float((cfg.get("suburb_parcel") or {}).get("house_yaw_offset_deg", -90.0))
     catalogue = ss.modular_catalogue(cfg)
-    if catalogue and pcfg.get("house_sizes") is None:
-        pcfg["house_sizes"] = [(e["w"], e["d"]) for e in catalogue]
-        tight = min(d["lot"] for d in sp.DENSITY.values())
-        need = (min(e["w"] for e in catalogue)
-                + float(pcfg.get("house_gap_m", 4.0)) * 0.5)
-        lw = sp._rng_pair(pcfg.get("lot_width_m", [21.0, 30.0]), (21.0, 30.0))
-        if lw[0] < need / tight:
-            pcfg["lot_width_m"] = [need / tight,
-                                   max(lw[1], need / tight * 1.35)]
+    # THE SAME CONFIG THE BUILD RUNS THE PLAT WITH — see `parcel_config`. This
+    # tool used to carry its own copy of that block, and the copy never
+    # installed `front_openings`, so it drew every front fence unbroken.
+    pcfg = ss.parcel_config(cfg, net, catalogue)
     parcels = sp.parcel_blocks(buildable, rng, pcfg)
     # `house_instances` IS THE ASSEMBLY CONTRACT, passed straight through.
     # Given a list, `build_placements` records each house's (style, pose) into
@@ -236,6 +273,11 @@ def build(seed=None, config_name="suburb_net", house_instances=None):
     # to count them correctly: the modules carry no per-building id, so
     # counting placements counts modules and over-reports by more than an
     # order of magnitude. Default None keeps every existing caller unchanged.
+    # `apply_ground` discs every lollipop end at this radius; the fence pass
+    # and this tool both have to disc the same ground or a module the build
+    # keeps out of a turnaround is drawn standing in one (and vice versa).
+    bulb_r = float((cfg.get("suburb_net") or {}).get(
+        "bulb_radius_m", sn.DEFAULTS["bulb_radius_m"]))
     placements = ss.build_placements(cfg, res, parcels, rng, pools,
                                      yaw_off=yaw_off, catalogue=catalogue,
                                      pool_holes_out=[], net=net,
@@ -302,7 +344,7 @@ def classify(scene, mods, cell=8.0):
     road = ss._RoadIndex(scene["net"])
     bulb_r = scene["bulb_r"]
     bad = {"on_road": set(), "in_bulb": set(), "crossing": set(),
-           "doubled": set()}
+           "doubled": set(), "on_drive": set(on_drive(scene, mods))}
 
     for i, m in enumerate(mods):
         if road.on_road((m["x"], m["y"])):
@@ -355,6 +397,171 @@ def classify(scene, mods, cell=8.0):
     return bad
 
 
+def drives(scene):
+    """Every drive and front walk the ground pass will lay, as ribbons.
+
+    THE SAME RULE `apply_ground` / `_paving_keepout` use: the house plan's
+    drive when the kit stamped one (an attached garage), else the plat's own
+    `drives[di]`. Whatever is drawn here is what gets paved.
+    """
+    out = []
+    for p in scene["parcels"]:
+        hs = p.get("houses") or []
+        for di, d in enumerate(p.get("drives") or ()):
+            h = hs[di] if di < len(hs) else None
+            plan = (h or {}).get("plan")
+            if plan and plan.get("drive"):
+                run, src = plan["drive"], "plan"
+            else:
+                run, src = (d["a"], d["b"]), "plat"
+            out.append({"a": tuple(run[0]), "b": tuple(run[-1]),
+                        "w": float(d.get("w", 3.0)), "src": src,
+                        "house": h, "kind": "drive"})
+            if plan and plan.get("path"):
+                out.append({"a": tuple(plan["path"][0]),
+                            "b": tuple(plan["path"][-1]), "w": ss.WALK_W_M,
+                            "src": "plan", "house": h, "kind": "walk"})
+    return out
+
+
+def _ribbon_box(r):
+    ax, ay = r["a"]
+    bx, by = r["b"]
+    L = math.hypot(bx - ax, by - ay)
+    if L < 1e-6:
+        return None
+    return sp._corners((ax + bx) / 2.0, (ay + by) / 2.0, L, r["w"],
+                       (bx - ax) / L, (by - ay) / L)
+
+
+def on_drive(scene, mods):
+    """Indices of modules whose hairline core crosses a drive ribbon."""
+    boxes = [(_ribbon_box(r), r) for r in drives(scene) if r["kind"] == "drive"]
+    boxes = [(b, r) for b, r in boxes if b is not None]
+    cores = [_core(m) for m in mods]
+    grid = collections.defaultdict(list)
+    for i, (b, _r) in enumerate(boxes):
+        for gx in range(int(math.floor(min(q[0] for q in b) / 16.0)),
+                        int(math.floor(max(q[0] for q in b) / 16.0)) + 1):
+            for gy in range(int(math.floor(min(q[1] for q in b) / 16.0)),
+                            int(math.floor(max(q[1] for q in b) / 16.0)) + 1):
+                grid[(gx, gy)].append(i)
+    hit = {}
+    for k, m in enumerate(mods):
+        for i in grid.get((int(math.floor(m["x"] / 16.0)),
+                           int(math.floor(m["y"] / 16.0))), ()):
+            if sp._obb_overlap(cores[k], boxes[i][0]):
+                hit[k] = boxes[i][1]
+                break
+    return hit
+
+
+def dangling(scene, mods, tol=0.35):
+    """Module ends that meet nothing within *tol* — and that OUGHT to.
+
+    An end is closed by another module's centre line, a house or garage wall
+    (the fence is cut AT the wall, so the end sits on it), or the road edge
+    (a run trimmed off the carriageway ends at the kerb margin).
+
+    TWO MORE ENDINGS ARE LEGITIMATE, and counting them was what kept this
+    number pinned near 350 while the fences themselves got better — a metric
+    that cannot go down is a metric nobody reads:
+
+      A PAVED OPENING.  The front run breaks for the drive and the walk, by
+      design (`_front_runs`). Both sides of that break are ends in mid-air and
+      both are correct; the gap is the gate. Any end sitting on a drive or walk
+      ribbon is one of them.
+
+      THE BUILDING LINE.  A lot whose front yard is left open — its asset is
+      over `_FRONT_FENCE_MAX_H_M`, or its package never had a front run — has
+      its side fences cut back level with the front of the house
+      (`suburb_scene._trim_to_building_line`). That is where a real privacy
+      fence ends and where the gate goes. The two points are computed from the
+      lot rectangle and the house depth, so this agrees with the trim by
+      construction rather than by a tolerance.
+
+    Everything else is a fence stopping in mid-air. Returned as points, with
+    what each is nearest to for the report.
+    """
+    # The legal front termini: where each lot's two side lines cross the front
+    # of its house. `lot_corners` is (front_left, front_right, rear_right,
+    # rear_left), so the side lines are 0->3 and 1->2.
+    stops = []
+    for par in scene["parcels"]:
+        for h in par["houses"]:
+            lc, p0, n, c, d = (h.get("lot_corners"), h.get("frontage"),
+                               h.get("n"), h.get("c"), h.get("d"))
+            if not (lc and p0 and n and c and d):
+                continue
+            depth = (c[0] - p0[0]) * n[0] + (c[1] - p0[1]) * n[1] - float(d) / 2.0
+            for (f, r) in ((lc[0], lc[3]), (lc[1], lc[2])):
+                ln = math.hypot(r[0] - f[0], r[1] - f[1])
+                if ln < 1e-6:
+                    continue
+                t = depth / ln
+                stops.append((f[0] + (r[0] - f[0]) * t,
+                              f[1] + (r[1] - f[1]) * t))
+    pave = [b for b in (_ribbon_box(r) for r in drives(scene)) if b is not None]
+
+    walls = []
+    for par in scene["parcels"]:
+        for h in par["houses"]:
+            walls.append(h["corners"])
+            if h.get("garage"):
+                walls.append(h["garage"]["corners"])
+    wgrid = collections.defaultdict(list)
+    for i, b in enumerate(walls):
+        for gx in range(int(math.floor((min(q[0] for q in b) - 1) / 16.0)),
+                        int(math.floor((max(q[0] for q in b) + 1) / 16.0)) + 1):
+            for gy in range(int(math.floor((min(q[1] for q in b) - 1) / 16.0)),
+                            int(math.floor((max(q[1] for q in b) + 1) / 16.0)) + 1):
+                wgrid[(gx, gy)].append(i)
+    mgrid = collections.defaultdict(list)
+    lines = [_ends(m) for m in mods]
+    for i, (p0, p1) in enumerate(lines):
+        for gx in range(int(math.floor((min(p0[0], p1[0]) - 1) / 16.0)),
+                        int(math.floor((max(p0[0], p1[0]) + 1) / 16.0)) + 1):
+            for gy in range(int(math.floor((min(p0[1], p1[1]) - 1) / 16.0)),
+                            int(math.floor((max(p0[1], p1[1]) + 1) / 16.0)) + 1):
+                mgrid[(gx, gy)].append(i)
+    road = ss._RoadIndex(scene["net"])
+
+    def near_wall(pt):
+        for i in wgrid.get((int(math.floor(pt[0] / 16.0)),
+                            int(math.floor(pt[1] / 16.0))), ()):
+            b = walls[i]
+            for k in range(4):
+                if sn.seg_seg_dist(pt, pt, b[k], b[(k + 1) % 4]) <= tol + 0.15:
+                    return True
+        return False
+
+    out = []
+    for i, (p0, p1) in enumerate(lines):
+        for pt in (p0, p1):
+            closed = False
+            for j in mgrid.get((int(math.floor(pt[0] / 16.0)),
+                                int(math.floor(pt[1] / 16.0))), ()):
+                if j == i:
+                    continue
+                if sn.seg_seg_dist(pt, pt, lines[j][0], lines[j][1]) <= tol:
+                    closed = True
+                    break
+            if closed or near_wall(pt):
+                continue
+            if any(abs(pt[0] - q[0]) <= tol + 0.5 and abs(pt[1] - q[1]) <= tol + 0.5
+                   for q in stops):
+                continue                      # ends at its own building line
+            if any(sp._obb_overlap(sp._corners(pt[0], pt[1], 0.02, 0.02, 1.0, 0.0),
+                                   b, pad=-0.30) for b in pave):
+                continue                      # ends at a drive or walk opening
+            if road.on_road(pt, margin=ss._FENCE_ROAD_MARGIN_M + tol) \
+                    if hasattr(road, "on_road") else False:
+                out.append((pt, i, "kerb"))
+                continue
+            out.append((pt, i, "open"))
+    return out
+
+
 def house_assets(scene):
     """`{n distinct fence assets: n houses}` — one is the only legal answer."""
     out = collections.Counter()
@@ -405,7 +612,8 @@ def continuity(scene, mods, tol=0.25):
 # ---------------------------------------------------------------------------
 
 _DEFECT_COLOUR = [("on_road", "#e02020"), ("in_bulb", "#c020c0"),
-                  ("crossing", "#ff8800"), ("doubled", "#00b8d0")]
+                  ("crossing", "#ff8800"), ("doubled", "#00b8d0"),
+                  ("on_drive", "#ff2090")]
 
 
 def draw(scene, mods, bad, out_path, zoom=None, title=""):
@@ -460,6 +668,19 @@ def draw(scene, mods, bad, out_path, zoom=None, title=""):
                                      edgecolors="#c8bba4", linewidths=0.4,
                                      zorder=3))
 
+    # Drives and walks, under the fences: what the ground pass will pave.
+    rib_d, rib_w = [], []
+    for r in drives(scene):
+        b = _ribbon_box(r)
+        if b is None:
+            continue
+        (rib_d if r["kind"] == "drive" else rib_w).append(b)
+    ax.add_collection(PolyCollection(rib_d, facecolors="#b9c6d6",
+                                     edgecolors="#8fa3bd", linewidths=0.3,
+                                     zorder=3.2))
+    ax.add_collection(PolyCollection(rib_w, facecolors="#d8dde4",
+                                     edgecolors="none", zorder=3.1))
+
     flagged = {}
     for name, colour in _DEFECT_COLOUR:
         for i in bad.get(name, ()):
@@ -479,12 +700,22 @@ def draw(scene, mods, bad, out_path, zoom=None, title=""):
                             facecolor="none", edgecolor=colour, lw=1.0,
                             alpha=0.85, zorder=6))
 
+    ends = dangling(scene, mods)
+    open_ends = [e for e in ends if e[2] == "open"]
+    if open_ends:
+        ax.scatter([e[0][0] for e in open_ends], [e[0][1] for e in open_ends],
+                   s=(9.0 if zoom else 3.0), c="#d01010", marker="o",
+                   linewidths=0, zorder=7)
+
     ax.set_xlim(x0, x1)
     ax.set_ylim(y0, y1)
     ax.set_aspect("equal")
     ax.axis("off")
     counts = ", ".join(f"{n} {len(bad.get(n, ()))}" for n, _c in _DEFECT_COLOUR)
-    ax.set_title(f"{title}  {len(mods)} fence modules — {counts}",
+    src = ("sizes MEASURED from USD" if SIZE_SOURCE["measured"]
+           else "sizes from asset-set comments / manifest")
+    ax.set_title(f"{title}  {len(mods)} fence modules — {counts}, "
+                 f"dangling ends {len(open_ends)}  [{src}]",
                  fontsize=11, color="#333333")
     os.makedirs(os.path.dirname(os.path.abspath(out_path)) or ".",
                 exist_ok=True)
@@ -499,6 +730,11 @@ def main():
     ap.add_argument("--out", default="_plans/fences.png")
     ap.add_argument("--zoom", default="", metavar="X,Y,R",
                     help="centre and half-extent in metres, e.g. -640,500,90")
+    # What this plate is OF, in the title. A zoom is worthless in a report
+    # without it: two 90 m squares of suburb look alike, and the reader cannot
+    # tell a before from an after or a garage-less lot from a curved face.
+    ap.add_argument("--title", default="",
+                    help="prefix for the figure title")
     args = ap.parse_args()
 
     scene = build(args.seed, args.config)
@@ -509,13 +745,34 @@ def main():
         zx, zy, zr = (float(v) for v in args.zoom.split(","))
         zoom = (zx, zy, zr)
     draw(scene, mods, bad, args.out, zoom=zoom,
-         title=f"seed {scene['seed']}")
+         title=(f"{args.title}  " if args.title else "")
+         + f"seed {scene['seed']}")
 
     print(f"[fence_png] seed {scene['seed']}: {len(mods)} modules")
     for name, _c in _DEFECT_COLOUR:
         print(f"  {name:>9}: {len(bad[name])}")
     print(f"  houses by distinct fence assets: {dict(house_assets(scene))}")
     print(f"  continuity: {continuity(scene, mods)}")
+    ends = dangling(scene, mods)
+    n_open = sum(1 for e in ends if e[2] == "open")
+    print(f"  dangling ends: {n_open} open ({len(ends) - n_open} at a kerb) "
+          f"of {2 * len(mods)} module ends")
+    hit = on_drive(scene, mods)
+    by_style = collections.Counter()
+    by_src = collections.Counter()
+    for r in hit.values():
+        h = r.get("house") or {}
+        by_src[r["src"]] += 1
+        by_style[(h.get("archetype"), h.get("art_garage"))] += 1
+    lots = {id(r.get("house")) for r in hit.values()}
+    print(f"  on_drive: {len(hit)} modules across {len(lots)} drives "
+          f"(drive from {dict(by_src)}; by (archetype, art_garage) "
+          f"{dict(by_style)})")
+    fenced = [h for par in scene["parcels"] for h in par["houses"]
+              if h.get("fence_segs")]
+    front = [h for h in fenced if any(t == "low" for (_a, _b, t) in h["fence_segs"])]
+    print(f"  fenced houses {len(fenced)}, with a front run {len(front)}; "
+          f"of those art_garage=False {sum(1 for h in front if not h.get('art_garage'))}")
     print(f"[fence_png] wrote {args.out}")
 
 

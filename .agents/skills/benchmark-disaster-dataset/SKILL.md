@@ -1,6 +1,6 @@
 ---
 name: benchmark-disaster-dataset
-description: Run a search-and-rescue BENCHMARK on the disaster dataset — bring the whole stack up from `.env`, fly a method, and read its results. Covers the method matrix (raven_nav, frontier-only, LVLM, conavgpt_baseline, and the `search_baselines` arms launched by name — vlfm / conavgpt2 / nearest — off one shared planner), its three config layers, the `.env`-driven `airstack down` / `airstack up isaac-sim robot-desktop gcs` procedure, the per-run `docker exec` sequence (ITM or VLM server, takeoff, planner), VLFM's BLIP-2 ITM value map and the whole-frame anti-correlation finding, 3D voxel frontiers, what has to SCALE when the scene size changes, the Foxglove layers, and the traps that cost a run — stale DDS profiles, orphaned PX4, identity world->map, a detector threshold that finds nobody, two different things called VLFM, and topics that never reach the GCS. Read before running or tuning any benchmark, and before submitting one to OSMO.
+description: Run a search-and-rescue BENCHMARK on the disaster dataset — bring the whole stack up from `.env`, fly a method, and read its results. Covers the method matrix (raven_nav, frontier-only, LVLM, conavgpt_baseline, and the `search_baselines` arms launched by name — vlfm / conavgpt2 / nearest — off one shared planner), its three config layers, the `.env`-driven `airstack down` / `airstack up isaac-sim robot-desktop gcs` procedure, the per-run `docker exec` sequence (ITM or VLM server, takeoff, planner), VLFM's BLIP-2 ITM value map and the whole-frame anti-correlation finding, 3D voxel frontiers, what has to SCALE when the scene size changes, the Foxglove layers, and the traps that cost a run — stale DDS profiles, orphaned PX4, identity world->map, a detector threshold that finds nobody, two different things called VLFM, topics that never reach the GCS, a goal class the detector cannot see, a goal lock that never releases on arrival, and a missing setup.cfg that kills every mission at launch. Also covers rayfronts-style PERSISTENT frontier accumulation (keep-outside / replace-inside the active window) and the search/markers and frontier_cloud viz topics. Read before running or tuning any benchmark, and before submitting one to OSMO.
 license: Apache-2.0
 metadata:
   author: AirLab CMU
@@ -42,13 +42,30 @@ run is named after the METHOD.
 | **conavgpt2** | `conavgpt2.launch.xml` | a generative VLM picks from numbered top-down BEVs | `vlm_server` on :8000, ~5.9 GiB at 7B nf4 |
 | **vlfm** | `vlfm.launch.xml` | BLIP-2 ITM scores the live RGB into a VALUE MAP; highest-value cell wins, minus a distance penalty (§3) | `itm_server` on :8100, ~2.5 GiB |
 | **nearest** | `nearest.launch.xml` | closest in-bounds frontier, no model at all | nothing, no GPU service |
+| **frontier** | `frontier.launch.xml` | information gain minus visit cost — VLFM without the VLM | nothing, no GPU service |
+| **lawnmower** | `lawnmower.launch.xml` | NO frontier: boustrophedon lanes over the sector, fed to droan as short legs (see below) | nothing, no GPU service |
 
-All three are ONE node — `search_planner`, with `nav_mode` as a parameter — and
+All of them are ONE node — `search_planner`, with `nav_mode` as a parameter — and
 that is the experiment rather than a convenience. They build the SAME map from
 the SAME frames, apply the SAME search polygon and altitude bounds, and steer
 through the SAME droan actuation, so **a difference in results is attributable
 to the selection policy and to nothing else**. Two separate implementations
 would each have to be argued equivalent before any comparison meant anything.
+
+**The lawnmower never sends its path to the drone.** droan_gl steers by the
+closest point of the Path it holds, so a whole coverage path — or a bare lane
+end 260 m out, which is the same thing at a different scale — gives it one far
+pose to fly straight at with nothing to skip if it is unreachable. Instead
+`lawnmower.Sweep` walks the drone to the nearest lane end in legs of
+`lawnmower_leg_m` (25 m), then along the lanes in legs of the same length, ONE
+goal per tick through the same `_command` as the frontier arms (activator
+NavigateTask + a two-pose `/global_plan`: the goal, then the next lane point).
+A leg is done when reached or passed abeam; one with no progress for
+`lawnmower_stall_s` is skipped. `search_area_pad_m` is 0 for this arm so it
+flies exactly the area the others do — and so its lane ends fit the grid: a
+padded sector wider than `map_extent_m` has its lane ends clipped to the map
+edge (clamped and warned about, but fix the config). Verified offline by
+`tests/test_lawnmower_baseline.py` — no sim needed.
 
 **`conavgpt2` is no longer a package you launch — it is a LEAF LIBRARY.**
 `conavgpt2/conavgpt2/vendor/` holds the vendored upstream code and nothing else:
@@ -86,24 +103,42 @@ $EDITOR .env            # scene, spawn, method, model — see the CoNavGPT2 bloc
 `ISAAC_SIM_SCRIPT_NAME`, the robot autonomy stack, and the GCS with Foxglove.
 Nothing else is needed to get a flying drone.
 
-Three things are genuinely per-run and stay as `docker exec`. **Start only the
-service your method needs** — `vlfm` never contacts the generative endpoint and
-does not preflight it, and `nearest` needs neither:
+**THE MODELS DO NOT LIVE IN THE ROBOT CONTAINERS.** They run in one container
+of their own, `offboard-compute`, and every robot reaches them over plain HTTP
+on the docker bridge. That is not tidiness: at `NUM_ROBOTS=3` a model loaded
+in-process is loaded three times on one card, and the detector — which EVERY arm
+runs — is the worst offender, because YOLO and MobileSAM both come with it. All
+three services are stateless (one frame in, an answer out, no per-robot
+history), so interleaving robots cannot produce cross-talk. Frames travel in the
+request body, so none of this is DDS traffic and none of it touches
+`dds_router.yaml`.
+
+```bash
+# 1. THE SHARED MODELS. Start ONCE, before any planner, and leave it up. The
+#    detector serves every arm; the other two are opt-in per run.
+#    (Runs the robot image; loads weights BEFORE binding the port, so a port
+#     that answers means ready.)
+./airstack.sh up offboard-compute                          # detector :8200
+START_ITM_SERVER=true ./airstack.sh up offboard-compute    # + vlfm's scorer :8100
+START_VLM_SERVER=true ./airstack.sh up offboard-compute    # + conavgpt2's VLM :8000
+
+until docker exec offboard-compute curl -sf localhost:8200/health | grep -q ok; do sleep 5; done
+docker exec offboard-compute tail -f /tmp/offboard/detector_server.log
+docker exec offboard-compute curl -s localhost:8200/metrics   # calls, mean_ms, vocab_switches
+```
+
+`detector_mode: 'server'` is set in every method config and `detector_url`
+defaults to `http://offboard-compute:8200`; the planner PREFLIGHTS it and dies
+with an actionable message if it is not there. That is deliberate — there is no
+local fallback, because a detector that silently answers "nothing here" is
+indistinguishable from a search that found nobody. `detector_mode: 'local'`
+restores the old one-model-per-planner behaviour for a bench with no shared host.
+
+Then the two genuinely per-run steps, in the ROBOT container:
 
 ```bash
 R=disaster-dataset-robot-desktop-1
 CFG='$(ros2 pkg prefix search_baselines)/share/search_baselines/config'
-
-# 1a. the SCORER — vlfm only. One instance serves the whole fleet (§3).
-docker exec -d $R bash -lc 'sws && ros2 run search_baselines itm_server'
-until docker exec $R bash -lc 'curl -sf localhost:8100/health | grep -q ok'; do sleep 5; done
-
-# 1b. the generative VLM — conavgpt2 only, in the robot container -> hence localhost
-docker exec -d $R bash -lc 'mkdir -p /tmp/conavgpt2 && nohup /opt/lvlm-venv/bin/python \
-  -m search_baselines.vlm_server --port 8000 --device cuda:0 --model "$CONAVGPT2_VLM_MODEL" \
-  --quantization "${CONAVGPT2_VLM_QUANT:-nf4}" --compute-dtype bfloat16 \
-  --metrics-jsonl /tmp/conavgpt2/vlm_requests.jsonl > /tmp/conavgpt2/vlm_server.log 2>&1'
-until docker exec $R bash -lc 'curl -sf localhost:8000/health | grep -q ok'; do sleep 10; done
 
 # 2. takeoff
 docker exec $R bash -lc 'ros2 action send_goal /robot_1/tasks/takeoff \
@@ -119,8 +154,9 @@ docker exec $R bash -c "tmux new-window -t bringup -n search; tmux send-keys -t 
 Swap `vlfm.launch.xml` for `conavgpt2.launch.xml` or `nearest.launch.xml` and
 change NOTHING else — same scene file, same map, same bounds, same actuation.
 That is the whole point of the shared node, and it is also the cheapest way to
-get a control arm: `nearest` needs no GPU service and can be flown while a model
-is still downloading.
+get a control arm: `nearest` and `frontier` need no VLM at all — only the shared
+detector, which every arm needs — so they can be flown while a big model is
+still downloading.
 
 **Restart the ROBOT stack after every sim restart.** Sim time resets to 0 and the
 robot keeps stale TF and PX4 state; the symptom is `TakeoffTask rejected: state
@@ -132,7 +168,8 @@ Watch it:
 docker exec $R bash -c 'tail -f /tmp/conavgpt2/live.log' \
   | grep --line-buffered -E "round [0-9]+ \||sim budget|Traceback"
 docker exec $R python3 /tmp/show_rounds.py     # round table WITH the VLM's reasoning
-docker exec $R curl -s localhost:8100/metrics  # vlfm: calls, mean_ms, throughput_hz
+docker exec offboard-compute curl -s localhost:8100/metrics  # vlfm scorer: calls, mean_ms
+docker exec offboard-compute curl -s localhost:8200/metrics  # detector: calls, mean_ms, vocab_switches
 ```
 
 ### The three config layers
@@ -144,13 +181,19 @@ every method):
 | layer | file | owns |
 |---|---|---|
 | base | `config/planner.yaml` | every parameter and its default — topics, frames, cadence, actuation |
-| method | `config/vlfm.yaml`, `config/paper.yaml`, `config/nearest.yaml` | `nav_mode`, the scorer, the frontier source. Nothing scene-specific |
-| scene | `config/modular_house.yaml`, `config/suburb_wildfire.yaml` | extent, obstacle band, search polygon, altitude bands, `sem_threshold` — and it wins |
+| method | `config/vlfm.yaml`, `config/conavgpt2.yaml` (`paper.yaml` is its 2D-faithful variant), `config/frontier.yaml`, `config/nearest.yaml` | `nav_mode`, the scorer, the frontier source. Nothing scene-specific |
+| scene | `config/modular_house.yaml`, `config/suburb_mini.yaml`, `config/suburb_wildfire.yaml` | extent, obstacle band, search polygon, altitude bands — and it wins |
 
-The scene layer goes LAST deliberately. `paper.yaml` restores upstream's own
-numbers (assignment every 25 agent steps, `sem_threshold: 0.85`), which describe
+The scene layer goes LAST deliberately. `conavgpt2.yaml` (and `paper.yaml`)
+restore upstream's own numbers (assignment every 25 agent steps), which describe
 a 24 m indoor grid seen by a quadruped; only the scene knows it is a 1700 m plat
-(§5, §6). Keep anything the scene must own OUT of the launch args: an individual
+(§5). **`sem_threshold` is the exception — it is no longer layered at all**: every
+layer pins the same 0.65, so the detector gate cannot differ by arm or by scene
+(§6). `conavgpt2.yaml` ALSO sets
+`frontier_source: voxel3d`, identical to `vlfm.yaml` / `frontier.yaml`, so the
+three arms are offered one candidate list; `paper.yaml` sets no source and
+inherits `slab2d` — until 2026-08-26 it was the launch default, so every
+conavgpt2 run before then flew the 2D slab while vlfm flew the voxel map. Keep anything the scene must own OUT of the launch args: an individual
 `<param name>` BEATS a `<param from>` file in launch_xml whatever order they
 appear in, so an arg default silently overrides a whole overlay.
 
@@ -164,7 +207,28 @@ and more than one robot:
 | `/{robot}/frontiers` | `MarkerArray` — the candidates the selector was offered |
 | `/{robot}/occupancy` | `OccupancyGrid` — the shared RGBD map |
 | `/{robot}/value_map` | `OccupancyGrid` on the SAME geometry — VLFM's field, `-1` where nothing has been scored (§3) |
-| `/{robot}/voxel_map` | `PointCloud2` — the three-state voxel map, `frontier_source: voxel3d` only (§4) |
+| `/{robot}/voxel_map` | `PointCloud2` — OCCUPIED voxels only, `frontier_source: voxel3d` only (§4). Free voxels are in the grid but NOT published: drawing them renders open air as solid and the map reads as though everything were an obstacle |
+| `/{robot}/frontier_cloud` | `PointCloud2` — the same candidates as a CLOUD. A MarkerArray fixes point size at publish time; a cloud lets the viewer scale it, which is the difference between frontiers that read as dots over a 278 m plat and frontiers that swallow it. Green = the committed goal, orange = candidate |
+| `/{robot}/search/markers` | `MarkerArray` in the MAP frame — robot, flight trail, and the target lifecycle. Namespaces: `search_detection` (magenta cubes, the RAW detector cloud before clustering — the layer that answers "has it seen anything at all"), `search_detection_id`, `search_target` (RED found / YELLOW visiting / GREEN visited, drawn at the geofence radius so the green disc IS the region that suppresses a revisit), `search_target_id`, `search_robot`, `search_trail`, `search_area` (the sector outline, red for robot_1). **`lawnmower` only:** `search_lanes` (the WHOLE planned boustrophedon path, dim — the only view of ground the sweep has not reached yet), `search_lanes_done` (the same lanes solid up to the current goal, reset every lap), `search_lane_transit` (white, the one-time walk from takeoff to the entry lane end — overhead, not coverage), `search_lane_goal` (amber sphere at `lawnmower_reach_radius_m`, the leg being flown now), `search_lanes_id` (phase / index / lap / lane spacing). A new NAMESPACE needs no GCS or layout change — `foxglove_visualizer_node` translates and republishes the whole MarkerArray, and `render_layout.py` toggles this topic at topic level, not per namespace |
+
+**All six are in the ROBOT'S `map`, anchored at its TAKEOFF POINT — the frame
+its odometry, `/global_plan` and `trajectory_vis` are in.** The GCS's `map` is
+global ENU (sim ground, GT boxes, `/gcs/robot_markers`). Drawn raw on the GCS
+they sit at the WORLD ORIGIN, a spawn-offset away from the drone (100 m on
+the 250 m suburb at spawn (72, 74); 340 m on the wildfire plat) — while the
+drone mesh, trail and global plan look right, because
+`foxglove_visualizer_node` translates THOSE by the robot's map origin before
+drawing. It now does the same for these six and republishes them under
+`/gcs/{robot}/occupancy`, `/gcs/{robot}/frontiers`, `/gcs/{robot}/frontier_cloud`,
+`/gcs/{robot}/voxel_map`, `/gcs/{robot}/value_map`, `/gcs/{robot}/search/markers`;
+the rendered layout points at those. **On the GCS, always view the `/gcs/`
+names; the raw `/robot_N/` names are only right on the robot-domain
+Foxglove (`:8775`).** The offset is measured as `enu(GPS fix) - odometry`
+(averaged over 10 pairs, then locked), the same way `map_anchor_node` does,
+so a GCS started mid-flight agrees with one started before takeoff. It is a
+VISUAL bug only: the planner, droan and the drone all live in the robot's
+`map` and agree with each other — the `frame check:` log line (odom vs
+`grid_to_map`) reads `offset=(+0.0, +0.0)` throughout. |
 | `/{robot}/search/map_image` | upstream's own top-down render |
 | `/{robot}/search/vlm_prompt_image` | exactly what the generative VLM was shown |
 | `/{robot}/search/round_stats` | per-round telemetry (also JSONL under the results dir) |
@@ -205,9 +269,11 @@ failed call is the absence of a claim, and the value map is not told otherwise.
 
 ### The scorer is a SHARED service
 
-`ros2 run search_baselines itm_server` — `Salesforce/blip2-itm-vit-g` on port
-8100. One instance serves every robot and every method that wants image-text
-matching. **That is safe because VLFM scores single frames with no history**:
+`Salesforce/blip2-itm-vit-g` on port 8100 of the **offboard-compute** container
+(`START_ITM_SERVER=true ./airstack.sh up offboard-compute`; by hand,
+`ros2 run search_baselines itm_server`). One instance serves every robot and
+every method that wants image-text matching — as does the detector on :8200
+beside it, so a VLFM robot makes two HTTP calls per tick to that one host. **That is safe because VLFM scores single frames with no history**:
 there is no per-robot state on the scorer, so requests from different robots
 interleave with no cross-talk. It is NOT true of the generative endpoint
 conavgpt2 uses, where a shared server still serialises on one GPU lock for
@@ -274,20 +340,40 @@ frontiers keep trading places, and it arrives at neither. So a pick is HELD:
 |---|---|---|
 | `frontier_lock_s` | 6.0 | minimum hold before a swap is even considered |
 | `frontier_swap_margin_frac` | 0.35 | a rival must beat the held score by 35% of it |
-| `frontier_unlock_radius_m` | 8.0 | arriving within this releases the lock |
+| `frontier_unlock_radius_m` | 4.0 | arriving within this releases the lock. Must be >= `goal_tolerance_m` (2.5) or the lock lets go before droan considers the goal reached |
 
 **This is NOT from the VLFM paper.** It is modelled on raven_nav's
-`frontier_behavior`, and the reference implementation was not available here to
-check against. Say so plainly in any write-up: it is a deviation, and it is the
-kind of deviation that changes a trajectory plot.
+`frontier_behavior`. Say so plainly in any write-up: it is a deviation, and the
+kind that changes a trajectory plot.
+
+**THE ARRIVAL TEST IS ON THE LOCKED GOAL, NOT THE CHALLENGER.** The release
+used to read
+
+```python
+if dist(here, cand_xy) <= unlock_radius and list(cand) == list(self._locked_goal):
+```
+
+— it required the CHALLENGER to be the same grid cell as the locked goal. The
+candidate set is re-extracted every tick, so that cell is rarely in it again,
+the condition never fired, and the drone flew to its frontier and PARKED there
+for the rest of the run. It reads exactly like a stuck local planner and is
+not one: droan is steering fine, nothing is re-issuing a goal. If a run ends
+with the drone hovering over a frontier it already reached, check
+`grep "reached goal"` in the planner log first — no lines means this.
 
 ---
 
 ## 4. 3D frontiers (`frontier_source: voxel3d`)
 
-Orthogonal to `nav_mode`. It is a parameter of the SHARED planner, so CoNavGPT2
-can use it too — `slab2d` (the default) is upstream's behaviour, `voxel3d` is
-the 3D one, and either can be paired with any method.
+Orthogonal to `nav_mode`. It is a parameter of the SHARED planner, and every
+method overlay that is launched by name now sets it (`conavgpt2.yaml`,
+`vlfm.yaml`, `frontier.yaml`) — `slab2d` (planner.yaml's default, what
+`paper.yaml` inherits) is upstream's behaviour, `voxel3d` is the 3D one, and
+either can be paired with any method. For the gpt arm the candidate images are
+cut from the edge map BY LABEL, so `_voxel_frontiers` offers one candidate per
+grid cell (z-duplicates collapsed to the better-ranked one) and stamps only
+free pixels; see `search_baselines/README.md` and
+`tests/test_conavgpt2_baseline.py`.
 
 **Why.** Upstream's `Map_Extraction` collapses the merged cloud into ONE
 altitude slab, so every frontier it produces is at the same height BY
@@ -318,6 +404,41 @@ Everything untouched stays unobserved.
 Each frontier carries its own z, and that z becomes the waypoint altitude
 (clamped into the flight band), so fixed-height flying goes away.
 
+### Frontiers ACCUMULATE — rayfronts' scheme, not recompute-every-tick
+
+The parameters are rayfronts' own (`frontier_vdb_map` defaults):
+`neighborhood_r=1`, `min_unobserved=4`, `min_empty=2`, `min_occupied=0`,
+`frontier_subsampling=4`, `frontier_subsampling_min_cells=10`.
+
+So is the UPDATE RULE, and it is the part that matters. rayfronts keeps a
+PERSISTENT global frontier set and re-evaluates only the ACTIVE WINDOW — the
+bbox of the voxels the latest observation actually wrote:
+
+```python
+outside_mask = any(frontiers < bbox_min) or any(frontiers > bbox_max)
+self.frontiers = self.frontiers[outside_mask]        # KEEP everything outside
+self.frontiers = cat([self.frontiers, update])       # REPLACE only inside
+```
+
+A frontier behind the robot survives until the robot looks there again.
+`VoxelMap.frontiers_persistent()` reproduces this; `VoxelMap.frontiers()` is
+the old recompute-everything call and is kept only for the standalone tests.
+
+**Why it is not a detail.** Recomputing the whole set every tick gives the
+candidates UNSTABLE IDENTITY: the frontier the planner committed to is usually
+absent from the next tick's set — it either got observed on arrival or fell out
+of the top-N — so no goal can be held, and the commitment logic in §3 has
+nothing stable to hold. Recompute-every-tick also produces a SHELL: measured on
+a stationary drone, all 12 candidates sat 19.1-22.9 m away (mean 21.1, spread
+3.8) in every direction, tracing the sensing horizon rather than unexplored
+structure. That shell is *correct* frontier behaviour for a single viewpoint —
+it only becomes informative once the observed volume grows, which is exactly
+what accumulation gives you.
+
+Verified: 9 frontiers after one observation, 19 after a second 30 m away with
+all 9 originals surviving, re-observation REPLACES rather than duplicates, and
+18/19 keys persist across ticks.
+
 ### Why not `vdb_mapping`, which is already in the stack
 
 It publishes `vdb_map_pointcloud` / `vdb_map_visualization`, and those are
@@ -343,6 +464,69 @@ to leave behind. The map has to contain the ground and the buildings; the flight
 band still filters where the drone actually goes.
 
 ---
+
+## 4b. The 3D lawnmower, sectors per drone, and the GT / obstacle files
+
+**Lane legs clear known obstacles (2026-08-26).** `lawnmower.yaml` reads the
+scene's obstacle boxes and flies each leg at `max(cruise, top + 3 m)`, clamped
+to the band, with the through pose at the NEXT leg's height and reach judged
+in xy only (see search_baselines/README.md). A stall lifts the goal 5 m twice
+before skipping. Log lines: `known obstacles: N boxes from ...`, `lawnmower:
+goal #k leg flown at Z m — tree top T m under it`, `lifting it to Z m`.
+
+**Two annotation files per scene**, both written by
+`example_multi_drone_scene_import.py` with `GT_ANNOTATIONS=on` under
+`RESULTS_SCENE`, into gcs_visualizer/annotations and raven_nav/annotations:
+`<scene>.json` is PEOPLE ONLY (the GT the GCS draws and the scorer reads) and
+`<scene>_obstacles.json` holds houses / trees / cars measured off the composed
+stage (`scene_annotations.boxes_from_scopes`) — read only by the planner's
+`_load_known_obstacles`. `annotation_viz_node` now reloads the GT when the file
+changes, because the GCS comes up before the scene is built and used to show
+the previous run's people for the whole run.
+
+**Fleet.** NUM_ROBOTS=3 + three `SPAWN_CONFIGS` entries; each robot container
+runs its own planner (`num_robots` is the TEAM size, `team_mode: false` makes
+the node drive one robot and cut NUM_ROBOTS strips, taking slice `robot_N`-1).
+Targets outside the sector are ignored. All arms detect on the shared
+`offboard-compute` server (§2); the VLM / ITM servers start there with
+`START_VLM_SERVER` / `START_ITM_SERVER` in `.env`, and the detector checkpoint
+is `CONAVGPT2_YOLO_WORLD_WEIGHTS` (yolov8x for suburb_mini, yolov8l-world for
+the wildfire plat — the server's choice wins over the scene's).
+
+**Goals are re-checked against the live voxel map every tick (all arms).**
+A frontier is chosen where nothing has been observed; if the goal voxel (±1)
+turns OCCUPIED as the drone approaches, gpt/vlfm/frontier/nearest BLACKLIST it
+and re-pick that tick, the lawnmower lifts then skips the leg. A PERSON whose
+approach point is inside occupied voxels is given up (marked visited, log
+`GIVING UP`) — a detection the drone can never reach is treated as a false
+positive rather than parked on.
+
+**The voxel map forgets.** `voxel_forget_after_s` (60 s) returns voxels not
+re-observed within the window to unobserved and drops the frontiers in them:
+the map is for navigation and frontier picking, not a survey of the scene.
+
+**The CoNavGPT round no longer blocks the tick.** The VLM call runs on a
+worker thread; the tick keeps commanding the current goal (or the nearest
+candidate) and applies the answer on the tick it arrives, against the list the
+VLM was shown. The vendored parser is lenient (a reply cut off mid-"reason"
+still yields `robot_0`), retries are 2 not 5, `max_tokens` 160. Measured
+before: 12/13 rounds failed at 26 s x 5 retries with `/global_plan` silent —
+that was the "stuck" drone. The VLM server accepts up to 12 images per request
+(`--max-images`), matching `max_frontiers_limit`.
+
+**Speed by intent.** droan_gl's rollout cap is now a LIVE parameter
+(`max_velocity`, 2 m/s as shipped; `robot/ros_ws/src/local/planners/droan_gl`).
+Every arm except gpt sets it from `_command`: `explore_speed_mps` (3.0) while
+crossing the sector to a frontier / lane goal, `target_speed_mps` (1.5) the
+moment a detected person is the goal. Log: `droan max_velocity -> 3.0 m/s
+(transit)`. 0 on either leaves droan alone.
+
+**Colours and entry edges in a fleet.** `search/markers` (robot, trail,
+sector outline, lanes) use the GCS's own `ROBOT_COLORS[N-1]` through
+`fluorescent()`, so robot_2 is the same green on the GCS's mesh and on its
+sector. Lawnmower robots with an odd index enter their strip at the corner
+FARTHEST from the spawn (`lawnmower: robot index 1 enters at the FAR edge`), so
+drones spawned together do not sweep in step.
 
 ## 5. The numbers that MUST scale with the scene
 
@@ -403,11 +587,32 @@ ground nobody has covered). Use `'largest'` on the plats.
 
 ---
 
-## 6. Detector thresholds — measure, never inherit
+## 6. Detector thresholds — ONE gate, measured, never inherited
 
-`sem_threshold` gates every target. Upstream's 0.85 is an INDOOR CLOSE-RANGE
-number and finds nothing at aerial range. Measured with YOLO-World on this
-dataset, 2026-08-25:
+**There are two thresholds in series, and only the second is configurable.**
+
+| | value | where |
+|---|---|---|
+| raw YOLO NMS floor | `conf=0.1`, HARDCODED | `conavgpt2/vendor/utils/detection_segmentation.py:57` |
+| goal-class gate `sem_threshold` | 0.65, every layer | `vendor/agents/ros2_agents.py:195` — `class_id == goal_id and confidence > sem_threshold` |
+
+The 0.1 floor is identical for every arm and is not a ROS parameter; anything
+below it never leaves the detector. `sem_threshold` is what sets `found_goal`,
+plants `nearest_point` and triggers the descend-and-confirm pass.
+
+**`sem_threshold` is pinned to 0.65 in EVERY layer** — `planner.yaml`,
+`conavgpt2.yaml`, `paper.yaml`, `suburb_wildfire.yaml` — deliberately, and
+`tests/test_conavgpt2_baseline.py` and `tests/test_frontier_baseline.py` assert
+it. The detector is shared by every arm, so a gate that differs by arm makes the
+DETECTOR the thing under comparison instead of the search policy: conavgpt2 used
+to carry upstream's 0.85 while vlfm ran 0.5, which meant `found_goal` differed
+between arms for a reason that was not the selection policy at all. Same
+reasoning as the shared map, the shared frontier source and the shared
+actuation. `paper.yaml` is faithful to the paper on the 2D map, the cadence and
+`num_local_steps`, and deliberately NOT on this.
+
+Upstream's 0.85 is an INDOOR CLOSE-RANGE number and finds nothing at aerial
+range. Measured with YOLO-World on this dataset, 2026-08-25:
 
 | scene | what the detector produced |
 |---|---|
@@ -416,10 +621,58 @@ dataset, 2026-08-25:
 | fire scene with ~6-8 real people | `person` 0.743 / 0.648 / 0.571, `car` 0.87, `truck` 0.76 |
 | same, at the ZED's 480x300 | `person` 0.701 / 0.601 — one confident detection lost |
 
-So: 0.85 keeps **zero** people. 0.6 keeps the confident ones and sits above the
-0.32 false-positive band measured on the bench. **Run this check on a real frame
-of your scene before trusting any threshold** — it is a five-minute test that
-prevents a whole mission finding nobody.
+So: 0.85 keeps **zero** people. 0.65 keeps the confident ones and sits above
+the 0.32 false-positive band measured on the bench — precision over recall,
+deliberately, because a false survivor sends the drone across the plat for
+nothing. **Run this check on a real frame of your scene before trusting any
+threshold** — it is a five-minute test that prevents a whole mission finding
+nobody. If a scene genuinely needs a different number, change it in
+`planner.yaml` so it moves for EVERY arm at once; a per-scene or per-method
+override re-breaks the comparison and trips the parity assertions.
+
+Note the detector MODEL is still per-scene, and matters as much as the number:
+`suburb_mini.yaml` runs closed-set COCO `yolov8x.pt` (`person` only, 237 ms),
+while `suburb_wildfire.yaml` / `modular_house.yaml` run open-vocab
+`yolov8l-world.pt` (1030 ms). `vlfm_min_confidence: 0.02` is NOT a detector
+threshold — it is the VLFM value-map floor below which a cell counts as
+unscored.
+
+### The goal class must be one the detector can actually see
+
+Measured on the 250 m undamaged suburb, 2026-08-26, from real frames in flight:
+
+| goal class | best confidence ever produced |
+|---|---|
+| `person` | **0.67**, 0.65, 0.48, 0.35, 0.30 |
+| `car` | 0.69, 0.59 |
+| `tree` | 0.032 |
+| `roof` / `rooftop` / `suburban house` | 0.031 |
+| **`house`** | **0.013** |
+
+Swept at conf floor 0.01, at 640 and 1280, and on a 2x upscale: **YOLO-World is
+effectively blind to buildings in oblique aerial synthetic renders** while
+scoring people in the SAME frames at 0.67. It is trained on ground-level web
+imagery; a roof seen at 30 deg from 12 m is nowhere in that distribution.
+
+The failure this produces is silent and expensive. Upstream accumulates
+`object_pcd` only when `goal_id == class_id`, so with `goal_name: 'house'` every
+one of those 0.67 `person` detections is DISCARDED on the spot — no cloud, no
+clustering, no target markers. Watched live it looks like the drone flying
+straight to a group of survivors, hovering over them, and leaving: the planner
+genuinely never knew they were there.
+
+**So: `goal_name` is not cosmetic, and the log line that tells you is
+`goal_max`.** The planner logs, per tick,
+
+```
+targets: object_pcd N pts | found_goal B | instances N | visited N |
+         detector {'n': N, 'top': [(class, conf), ...], 'goal_hits': N, 'goal_max': X}
+```
+
+`goal_max` is the best confidence the GOAL class reached. `n` high with
+`goal_max` 0.0 means the detector is working and the goal class is wrong — a
+completely different fix from raising or lowering `sem_threshold`. The OSMO
+missions write this to `detector_summary.txt` for exactly this reason.
 
 Two structural facts about the detector worth knowing:
 
@@ -451,10 +704,18 @@ Layers, and who owns each:
 | layer | topic | notes |
 |---|---|---|
 | sim ground | `/gcs/sim_ground` | needs an overhead camera in the launcher; OPAQUE (`ground_alpha`) so overlays read |
-| occupancy | `/robot_1/occupancy` | 4 classes out of a 3-class message: -1 transparent, 0 white, 100 black, **101 = target** via `invalidColor` |
-| frontiers | `/robot_1/frontiers` | `frontier_marker_style`: `centroids` (default) / `cells` / `both` |
-| value map | `/robot_1/value_map` | `vlfm` only. SAME grid geometry as occupancy, so the two overlay cell-for-cell and you can see which frontier the field is pointing at; `-1` is "never scored" and draws transparent |
-| voxel map | `/robot_1/voxel_map` | the three-state cloud `frontier_source: voxel3d` extracts from; robot domain only, not bridged |
+| occupancy | `/gcs/robot_1/occupancy` | 4 classes out of a 3-class message: -1 transparent, 0 white, 100 black, **101 = target** via `invalidColor` |
+| frontiers | `/gcs/robot_1/frontiers` | `frontier_marker_style`: `centroids` (default) / `cells` / `both` |
+| frontier cloud | `/gcs/robot_1/frontier_cloud` | the same candidates as a cloud, viewer-scaled; green = committed goal |
+| search markers | `/gcs/robot_1/search/markers` | robot, trail, raw detections (magenta), targets, search-area outline |
+| value map | `/gcs/robot_1/value_map` | `vlfm` only. SAME grid geometry as occupancy, so the two overlay cell-for-cell and you can see which frontier the field is pointing at; `-1` is "never scored" and draws transparent |
+| voxel map | `/gcs/robot_1/voxel_map` | the three-state cloud `frontier_source: voxel3d` extracts from; bridged, off by default in the layout (~10^5 cubes) |
+
+The `/gcs/robot_1/...` names are `foxglove_visualizer_node`'s copies of the
+robot's `/robot_1/...` topics, shifted by that robot's map origin into global
+ENU (§2). **The raw `/robot_1/...` names are ALSO visible on the GCS** (the
+router bridges them) and draw at the world origin there — if a layer sits on
+the origin while the drone is 100 m away, you have toggled a raw one on.
 | ground truth | `/gcs/annotations/bboxes` | generated by the layout generator, per-class namespaces |
 | drone | `/tf` | **must be bridged** — see the world->map trap below |
 
@@ -500,7 +761,11 @@ a GT generated at run time never reaches it without a rebuild.
    `/global_plan`, occupancy) then renders that far from the sim ground and the
    GCS markers, both of which are world ENU. `MAP_ANCHOR_ENU=true` swaps in a
    node that MEASURES it. Default off: making it truthful changes the frame every
-   recorded mission replays in.
+   recorded mission replays in. **It does NOT fix the GCS picture**: the GCS
+   publishes its own identity `world->map` (its `map` IS world ENU) and draws
+   robot-local topics by translating them, so on the GCS domain there are two
+   publishers of that edge and the display frame must stay `map` (§7). What
+   fixes the GCS picture is the `/gcs/robot_N/...` republish (§2).
 4. **The camera tilt must be told to BOTH sides.** `ZED_PITCH_DEG` tilts the
    mount AND is `search_planner`'s default `camera_pitch_rad`, because TF walks the URDF
    and the URDF models no pitch. Set it in one place or not at all.
@@ -532,6 +797,98 @@ a GT generated at run time never reaches it without a rebuild.
 
 ---
 
+### 9.y The drone takes off and never moves — four separate reasons, measured 2026-08-26
+
+All four happened in ONE session on the 250 m suburb, and each alone parks the
+drone at the takeoff point with a healthy-looking planner. Check them in this
+order; the signature of each is distinct.
+
+1. **droan_gl has no second view (`min_seen_views`).** droan only flies a
+   trajectory point it has SEEN in >= N stored camera views (`droan/traj_debug`:
+   everything beyond `seen_radius` = 1 m in `unseen_points`, `free_points`
+   only inside 1 m). After a VERTICAL takeoff its 10 stored views are a column
+   under the hover point, and with the ZED pitched down the airspace around
+   the drone is inside at most one of them — and no new view is stored until
+   the drone moves 1 m. Historically hardcoded 2; now the `min_seen_views`
+   parameter (`local.launch.xml`, set to 1). `python3 traj_geom.py`-style
+   count of free vs unseen points by distance is the test.
+2. **The planner's tick is seconds long, and PX4 drops OFFBOARD.**
+   `_instance_centroids` ran DBSCAN over the ever-growing `object_pcd`
+   (23k points -> 10-17 s per tick, py-spy: every sample in
+   `cluster_dbscan`, 500 % CPU). The sim stalls (`simulator_mavlink poll
+   timeout`, timesync RTT 650 ms), the setpoint stream gaps past
+   `COM_OF_LOSS_T` = 1 s, PX4 logs `Failsafe activated ... Nav state: 2`, and
+   NOTHING re-requests OFFBOARD (the MAVROS interface only does that in the
+   takeoff sequence). `ros2 topic echo .../mavros/state` showing anything but
+   OFFBOARD after takeoff is this. The cloud is now voxel-downsampled before
+   clustering (1.0 Hz tick); the failsafe still needs a stack restart.
+3. **A planner that died without cancelling latches droan.** droan_gl's
+   `task_active_` is a bare bool; a killed planner leaves it set and every
+   later activator is `Rejecting NavigateTask goal: task already active`
+   (planner side: `droan_gl activator not accepted — retrying`). Cancel-all
+   on `/robot_1/tasks/navigate/_action/cancel_goal` (zero goal id) clears it
+   without a restart.
+4. **An unreachable frontier is held forever.** Both people found and
+   visited in 60 s, then the drone parked 16 m from a voxel frontier inside a
+   house: droan publishes hover, `droan/stuck` is true, and the lock/swap rule
+   never releases (a rival must beat the held score by 35 %). The planner now
+   has a stall watchdog (`frontier_stall_s` 20 s without 1.5 m of progress ->
+   the goal is BLACKLISTED within `frontier_blacklist_radius_m` 8 m at the
+   frontier source and in both pick functions, lock released; log line
+   `frontier (x, y) unreachable ... BLACKLISTED`).
+
+Not a reason, though it looks like one: `pid_controller: failed to transform
+tracking point` at a few per second is TF lookups losing the race under CPU
+load; the takeoff still worked through it.
+
+### 9.z `search_area_xy` is in the ROBOT'S map — say `search_area_frame: world`
+
+The planner's frame is this robot's takeoff-anchored `map`, so a polygon
+written as scene coordinates but read as map coordinates is displaced by the
+spawn offset — (16.5, 18) m on this bench, 340 m on the plat — and the drone
+confines itself to the wrong square. `search_area_frame: 'world'` (scene
+overlays) makes the planner subtract its measured map origin
+(`enu(fix) - odom`, the `map_anchor_node` derivation) once, on the first tick
+with a GPS fix (log: `search area authored in WORLD ... polygon shifted by`).
+Size `map_extent_m` to contain the SHIFTED polygon (300 m here, not 280).
+Lawnmower lanes are shifted with it.
+
+### 9.w The GCS cloud layers need a BEST_EFFORT reader
+
+The DDS router re-offers `/robot_N/voxel_map` and `/robot_N/frontier_cloud`
+on the GCS domain as BEST_EFFORT+VOLATILE (the MarkerArray / OccupancyGrid
+topics come through RELIABLE). A RELIABLE subscriber is incompatible and
+silently receives nothing — `New publisher discovered ... offering
+incompatible QoS` in the gcs_visualizer log, and the voxel map and frontier
+cloud simply absent while occupancy and the markers draw. `ros2 topic info -v`
+on the GCS shows the writer's QoS; the republisher subscribes best-effort.
+
+### 9.x A missing `setup.cfg` kills every mission at `ros2 launch`
+
+`search_baselines` is `ament_python`. An ament_python package needs
+
+```ini
+[develop]
+script_dir=$base/lib/search_baselines
+[install]
+install_scripts=$base/lib/search_baselines
+```
+
+Without it colcon installs the console scripts to `install/<pkg>/bin/` instead
+of `install/<pkg>/lib/<pkg>/`, `colcon build` reports SUCCESS, and every launch
+dies instantly with
+
+```
+package 'search_baselines' found at '...', but libexec directory
+'.../install/search_baselines/lib/search_baselines' does not exist
+```
+
+`build_type: ament_python` in `package.xml` is NOT enough — that was already
+correct when this broke. It would have failed all four OSMO missions at step
+one. Check with `ls install/search_baselines/lib/search_baselines/`.
+
+---
+
 ## 10. What has NOT been flown yet
 
 Everything in §3 and §4 is bench-measured or unit-tested in isolation. **None of
@@ -540,8 +897,8 @@ and do not let a clean startup log stand in for a result:
 
 | capability | how far it has been taken | what is missing |
 |---|---|---|
-| `frontier_source: voxel3d` | unit-tested standalone (§4): carving, the neighbour predicate, the z-band filter, 2 ms extraction on 108k voxels | never run against sim depth in flight; no frontier from it has ever been flown to |
-| the VLFM value map driving a run | the scorer, the tiling and the fusion are each measured in isolation (§3) | no full run where the value map chose the frontiers end to end |
+| `frontier_source: voxel3d` | unit-tested standalone (§4) AND flown against sim depth on the 250 m suburb, 2026-08-26: frontiers at 6 distinct heights, the drone reaches them and releases | no completed 600 s run; the persistent-accumulation rewrite (§4) is newer than any long run |
+| the VLFM value map driving a run | the scorer, the tiling and the fusion are each measured in isolation (§3); in flight it scores ~380 keyframes with 0 failures at ~90 ms | no full 600 s run where the value map chose the frontiers end to end |
 | the frontier band (`frontier_z_min_m` / `frontier_z_max_m`) | set on both scene overlays | never exercised in flight; the failure it fixes was diagnosed, not re-tested afterwards |
 
 The discipline is the one §6 applies to detector thresholds: run it against a
@@ -578,7 +935,8 @@ Before submitting, check all of:
       `vlm_server` on :8000 for `conavgpt2`, neither for `nearest`
 - [ ] the robot image is newer than `Dockerfile.robot`'s last change (`clip` for
       YOLO-World's `set_classes`; the mission self-heals but a rebuild is clean)
-- [ ] `sem_threshold` measured on a real frame of THAT scene (§6)
+- [ ] `sem_threshold` left at the shared 0.65 — or, if the scene truly needs
+      another number, changed in `planner.yaml` for every arm at once (§6)
 - [ ] `map_extent_m` sized to the scene, and the cell-unit params rescaled (§5)
 - [ ] the planner is launched AFTER the `/health` gate — the `conavgpt2` arm's
       VLM preflight is fatal, so a bringup-time launch dies before the server

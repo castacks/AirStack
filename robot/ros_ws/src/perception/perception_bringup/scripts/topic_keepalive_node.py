@@ -79,6 +79,10 @@ TOPICS = [
     ('frontiers',                                     MarkerArray,   False, DEFAULT_QOS),
     ('search/markers',                                MarkerArray,   False, DEFAULT_QOS),
     ('frontier_cloud',                                PointCloud2,   False, SENSOR_QOS),
+    # VLFM's value map: same grid geometry as `occupancy`. In the DDS
+    # allowlist, but an allowlisted topic with no local reader still never
+    # crosses — the router bridges on discovery.
+    ('value_map',                                     OccupancyGrid, False, DEFAULT_QOS),
     ('search/map_image',                              Image,         False, DEFAULT_QOS),
     ('search/round_stats',                            String,        False, DEFAULT_QOS),
     # The three-state voxel map (free / occupied / frontier) the 3D frontier

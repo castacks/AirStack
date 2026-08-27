@@ -71,6 +71,15 @@ _TRAIL_Z = 0.015
 # the whole interior at z=0.02 — on top of the grass at z=0.01. The categories
 # only this module emits are listed too, so a re-run replaces its own work
 # instead of doubling it.
+# Categories anchored by the asset ORIGIN rather than by the bounding-box
+# centre. A lamp is an L -- SM_StreetLight is a 0.40 m pole with a 2.79 m mast
+# arm, so its bbox centre sits 1.35 m off the pole, out under the arm. Letting
+# `apply_placements` centre the bbox walks the pole that far off the trail it
+# was placed against. The pole is what stands on the ground, so the pole is
+# what gets anchored; see `suburb_scene.build_frontage` for the same fix on
+# the street verge.
+_PIVOT_ANCHORED = frozenset(("streetlight",))
+
 _OWNED = ("trail", "concrete", "bench", "streetlight", "trash_can", "tree",
           "plant", "rock", "human", "play_structure", "house", "park_feature",
           "fence")
@@ -530,13 +539,15 @@ def build(config: dict, layout: dict, placements: list, resolver, rng) -> int:
                  <= max_canopy] or tree_usds
 
     def add(usd, x, y, z, yaw, category, scale=None):
-        placements.append({
-            "usd": usd, "x_m": x, "y_m": y, "z_m": z,
-            "yaw_deg": yaw + lib.yaw_offset(usd),
-            "roll_deg": 90.0 if lib.axis_up(usd) == "Y" else 0.0,
-            "pitch_deg": 0.0,
-            "scale": lib.scale(usd) if scale is None else scale,
-            "category": category, "axis_up": lib.axis_up(usd)})
+        p = {"usd": usd, "x_m": x, "y_m": y, "z_m": z,
+             "yaw_deg": yaw + lib.yaw_offset(usd),
+             "roll_deg": 90.0 if lib.axis_up(usd) == "Y" else 0.0,
+             "pitch_deg": 0.0,
+             "scale": lib.scale(usd) if scale is None else scale,
+             "category": category, "axis_up": lib.axis_up(usd)}
+        if category in _PIVOT_ANCHORED:
+            p["raw_pivot"] = True
+        placements.append(p)
 
     # Everything build_city put inside a park comes out — including its paving.
     n_before = len(placements)

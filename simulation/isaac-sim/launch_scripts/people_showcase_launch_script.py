@@ -25,7 +25,7 @@ THE ROW, LEFT TO RIGHT
 ----------------------
   x=-180  A  refuge: parking lot   asphalt slab with painted bays, three cars
                                    nosed in, a group standing / sitting /
-                                   waving between them. 14 of the Camp Fire's
+                                   crouching between them. 14 of the Camp Fire's
                                    31 refuge areas were car parks.
   x=-100  B  refuge: open ground   the same group on bare lawn, nothing to
                                    burn within 15 m. The control for A: same
@@ -48,7 +48,7 @@ THE ROW, LEFT TO RIGHT
                                    BECAUSE the roof fell in.
 
   y=+70   POSE ROW                 one character per pose at 6 m spacing:
-                                   idle, walk, wave, crouch, sit_ground,
+                                   idle, walk, crouch, sit_ground,
                                    sit_edge (on a low wall), seated_car (on a
                                    seat-height block). Same rig, same scale, so
                                    any pose that is wrong is wrong HERE, next
@@ -151,7 +151,8 @@ _POOL_HD = POOL_D_M / 2.0 - mh.POOL_COPING_M
 POOL_HOLE = (-20.0 - _POOL_HL, -_POOL_HD, -20.0 + _POOL_HL, _POOL_HD)
 
 POSE_ROW_Y = 70.0
-POSE_ROW = ["idle", "walk", "wave", "crouch", "sit_ground", "sit_edge",
+# No `wave`: removed from scene_generator._HUMAN_POSES on review.
+POSE_ROW = ["idle", "walk", "crouch", "sit_ground", "sit_edge",
             "seated_car"]
 
 
@@ -410,8 +411,8 @@ class Bench:
                                           (-6.6, -6.0, 90.0),
                                           (7.0, 4.0, 200.0))):
             self.car(cx + ox, oy, hd)
-        # The group: two clusters, mixed posture, one waving.
-        grp = [(-2.0, -1.0, "idle"), (0.4, 0.6, "idle"), (1.9, -1.6, "wave"),
+        # The group: two clusters, mixed posture.
+        grp = [(-2.0, -1.0, "idle"), (0.4, 0.6, "idle"), (1.9, -1.6, "idle"),
                (-1.2, 2.2, "sit_ground"), (2.8, 1.4, "sit_ground"),
                (-3.4, 1.0, "crouch")]
         for (ox, oy, pose) in grp:
@@ -429,7 +430,7 @@ class Bench:
     # -- B: open ground --------------------------------------------------
     def unit_b(self, stage, ssf, mats, cx, arch):
         """The same postures on bare lawn — A's control."""
-        grp = [(-2.2, -0.8, "idle"), (0.0, 0.0, "idle"), (2.1, 0.9, "wave"),
+        grp = [(-2.2, -0.8, "idle"), (0.0, 0.0, "idle"), (2.1, 0.9, "idle"),
                (-0.9, 2.4, "sit_ground"), (1.6, -2.2, "sit_ground"),
                (3.2, -0.4, "crouch")]
         for (ox, oy, pose) in grp:
