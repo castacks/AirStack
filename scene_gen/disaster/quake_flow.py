@@ -879,6 +879,16 @@ T_EDGE_CELL_SCALE = float(_os.environ.get("EQ_SOLID_EDGE", "1.0"))
 # material over all its faces, as in round 2) — the knob to try first when a
 # bench run is slower than it should be.
 T_CORE_ON = _os.environ.get("EQ_SOLID_CORE", "1").strip() not in ("0", "false", "no")
+# CHUNKS NEED FEWER CELLS THAN PLATES, and this is the lever for it. The
+# round-2 seed counts were chosen for a SHEET, where a Voronoi cell has almost
+# no bbox volume and `fracture_mesh`'s `min_volume_frac` throws most of them
+# away; the same count on a solid keeps far more of them, which is where the
+# +30% prim count of a solid DG5 column comes from. Seeds are multiplied by
+# this on any solidified piece. Default 1.0 = round-2 counts (measured within
+# the 1.5x prim budget anyway); `EQ_SOLID_N=0.85` buys ~15% back and, if
+# anything, reads BETTER for masonry — a URM heap is whole bricks and brick
+# clusters, not gravel.
+T_SOLID_N_SCALE = float(_os.environ.get("EQ_SOLID_N", "1.0"))
 
 
 def _t_is_glass(stage, path, texture=None):
@@ -1035,6 +1045,8 @@ def _break(stage, parent, el, tag, n, rng, nrng, mats, cache, btype,
     # the module's bbox (a kit wall with a projecting bay measures 1.07 m
     # across and is 0.38 m of brick). Only `_break` knows which is which.
     kw.setdefault("blocky_m", solid_m)
+    if solid_m and T_SOLID_N_SCALE != 1.0:
+        n = max(3, int(round(n * T_SOLID_N_SCALE)))
     if partial is not None:
         st, lo = fracture.fracture_partial(
             stage, path, out, n_pieces=n, rng=nrng, cut_frac=partial,
@@ -1163,6 +1175,8 @@ def _break_split(ctx, path, n, judge, mat_fn, rough=ROUGH_M,
     kw.setdefault("blocky_m", solid_m)                          # _p_
     if solid_m:
         edge_cell_m = float(edge_cell_m) * T_EDGE_CELL_SCALE
+        if T_SOLID_N_SCALE != 1.0:
+            n = max(3, int(round(n * T_SOLID_N_SCALE)))
     st_m, lo_m = fracture.fracture_split(
         mesh, n, judge, ctx["nrng"], mode=mode, aspect=aspect, **kw,
         # _p_: floor 0.008 -> 0.002. A mortar joint is FLAT; 8 mm of noise on
@@ -1724,7 +1738,7 @@ def _p_macroblocks(ctx, mass, side, from_storey=1):
     z_mid = (lv[from_storey + max(1, n_up // 2)]
              if (n_up >= 3 and rng.random() < 0.6) else None)
 
-    blocks, edge_els = {}, []
+    blocks, edge_els, feet = {}, [], {}
     for e in list(_els(ctx, mass=mass, side=side)):
         if e["role"] not in ("wall", "corner", "parapet", "parapet_corner",
                              "balcony"):
@@ -1738,25 +1752,113 @@ def _p_macroblocks(ctx, mass, side, from_storey=1):
         at_foot = abs(e["z"] - z_lo) < 0.6 and e["role"] == "wall"
         cross_h = (z_mid is not None
                    and e["z"] - 0.05 < z_mid < e["z"] + e["h"] + 0.05)
-        if cross_v or cross_h or at_foot:
-            edge_els.append((e, bool(cross_v and not (at_foot or cross_h))))
+        key = (sum(1 for q in tv if t0 >= q),
+               0 if (z_mid is None or e["z"] < z_mid) else 1)
+        if cross_v or cross_h:
+            edge_els.append((e, bool(cross_v and not cross_h)))
             continue
-        blocks.setdefault((sum(1 for q in tv if t0 >= q),
-                           0 if (z_mid is None or e["z"] < z_mid) else 1),
-                          []).append(e)
+        # THE FOOT ROW BELONGS TO ITS BLOCK, NOT TO THE EDGE SET, AND THIS IS
+        # A CORRECTNESS BUG NOT A TASTE ONE. Diced as an edge, a foot module
+        # loses its top 8-42 %, so a block that then stays STANDING or LEANING
+        # is supported by nothing and hangs 2-3 m in the air — agent T saw
+        # exactly that ("a brick panel floating in the sky",
+        # T_fin2_urm/1_commercial_DG5_street.png). A block only gets its
+        # support cut away if it is going over.
+        (feet if at_foot else blocks).setdefault(key, []).append(e)
 
-    n_over = n_lean = n_stay = 0
-    for key, els in blocks.items():
-        paths = [q for q in (_p_monolith(ctx, e, tag="{0}{1}".format(*key))
-                             for e in els) if q]
-        if not paths:
+    n_over = n_lean = n_stay = n_shed = n_cell = 0
+    kw0 = kw = _p_frac_kw(ctx)
+
+    def _dice(e, lo_frac, hi_frac, amp_frac=0.24):
+        """One module cut by a bond staircase at `lo..hi` of its own height:
+        above the line comes away, below it survives. Returns nothing; it
+        books the pieces itself."""
+        pth = e["p"].get("prim_path")
+        if not pth:
+            return
+        tx = damage.bound_texture(ctx["stage"], pth)
+        z0 = e["z"] + e["h"] * rng.uniform(lo_frac, hi_frac)
+        st_d, lo_d = _break_split(
+            ctx, pth, 10 + rng.randrange(4),
+            _p_zline_judge(m, side, z0, rng, btype=btype,
+                           amp=e["h"] * amp_frac, loose_above=True,
+                           pitch=pitch),
+            _mat_fn(ctx, tx, 0.35),
+            static_mat=(_clad_material(ctx["stage"], ctx["parent"],
+                                       ctx["cache"], tx) if tx else None),
+            **kw)
+        for q in lo_d:
+            v = 0.4 + rng.uniform(0.0, 0.8)
+            ctx["velocity"][q] = (ox * v, oy * v, 0.05 * v)
+        _a_dustify(ctx, lo_d)
+        ctx["loose"] += lo_d
+        ctx["static_extra"] += st_d
+        e["dead"] = True
+
+    # DRAW EVERY FATE FIRST, THEN MAKE SURE THE PEEL ACTUALLY PEELS. This is
+    # the DG4 recipe for a wall that came off; a draw in which no block goes
+    # over is not a rarer outcome, it is the wrong recipe. (Benches P_urm4/5/6
+    # all came out 0 overturned / 1 leaning / 2 standing on seed 4 — the same
+    # three draws every time, because the seed is fixed.)
+    order = sorted(set(list(blocks) + list(feet)))
+    fate = {}
+    for key in order:
+        fate[key] = rng.random()
+    if order and not any(fate[k] < 0.62 for k in order):
+        fate[max(order, key=lambda k: len(blocks.get(k, ())))] = 0.0
+
+    for key in order:
+        els = blocks.get(key, [])
+        r = fate[key]
+        foot_els = feet.get(key, [])
+        # a foot under a block that is going over is cut low (the peel's own
+        # ragged base); a foot under one that stays up keeps nearly its whole
+        # height, so it still carries the block
+        for fe in foot_els:
+            if r < 0.62 or not els:
+                _dice(fe, 0.08, 0.42, amp_frac=0.26)
+            else:
+                _dice(fe, 0.72, 0.92, amp_frac=0.11)
+            n_cell += 1
+        if not els:
             continue
         t_lo = min(_p_el_t(m, side, e) for e in els)
         t_hi = max(_p_el_t(m, side, e) + float(m["module"]) for e in els)
         zb = min(e["z"] for e in els)
         px, py = _to_world(m, *_p_wall_point(m, side, 0.5 * (t_lo + t_hi)))
-        r = rng.random()
-        if r < 0.45:
+        # A BLOCK THAT GOES OVER DOES NOT LAND WHOLE. R, on the mechanism:
+        # a wall "becomes a field of bricks only AFTER a block falls and
+        # lands". So an overturning block sheds a share of its modules into
+        # brick clusters — they travel with the block and arrive as rubble —
+        # while the rest arrive as a recognisable section of wall lying in the
+        # street, which is what the Christchurch photographs show. Round 3's
+        # first bench kept every module whole and put two clean pale
+        # rectangles on the pavement, which is the "rectangular breakage"
+        # complaint back again in a bigger size.
+        # `out_of_plane` is the recipe for a wall that PEELED OFF, so
+        # overturning is the majority fate; leaning and standing are the
+        # rocking cantilevers that did not complete. At 0.45 a three-block
+        # wall came out 0 overturned / 1 leaning / 2 standing (P_urm4) and
+        # nothing reached the street.
+        shed = rng.uniform(0.3, 0.6) if r < 0.62 else 0.0
+        paths, brk = [], []
+        for e in els:
+            if shed and rng.random() < shed:
+                st_e, lo_e = _break(
+                    ctx["stage"], ctx["parent"], e, ctx["tag"],
+                    12 + rng.randrange(6), rng, ctx["nrng"], ctx["mats"],
+                    ctx["cache"], btype, inner_p=0.4, consume=0.25, **kw0)
+                brk += list(st_e) + list(lo_e)
+                e["dead"] = True
+                n_shed += 1
+            else:
+                q = _p_monolith(ctx, e, tag="{0}{1}".format(*key))
+                if q:
+                    paths.append(q)
+        paths += brk
+        if not paths:
+            continue
+        if r < 0.62:
             # OVERTURNED. Rotating +theta about the LEFT perpendicular of the
             # outward run swings the wall's up-vector toward outward, i.e. the
             # top leads and the block ends flat in the street — which is what
@@ -1773,10 +1875,12 @@ def _p_macroblocks(ctx, mass, side, from_storey=1):
                 _transform_prims(ctx["stage"], paths,
                                  _translate(0.0, 0.0, -drop))
             for q in paths:
-                ctx["velocity"][q] = (ox * 0.2, oy * 0.2, -0.2)
+                ctx["velocity"][q] = (ox * rng.uniform(0.15, 0.5),
+                                      oy * rng.uniform(0.15, 0.5), -0.2)
+            _a_dustify(ctx, brk, p=0.7)
             ctx["loose"] += paths
             n_over += 1
-        elif r < 0.76:
+        elif r < 0.86:
             # STILL LEANING — the rocking cantilever that did not go over.
             _transform_prims(ctx["stage"], paths,
                              _rot_about((px, py, zb), (-oy, ox, 0.0),
@@ -1787,8 +1891,6 @@ def _p_macroblocks(ctx, mass, side, from_storey=1):
             ctx["static_extra"] += paths        # cracked out, still standing
             n_stay += 1
 
-    kw = _p_frac_kw(ctx)
-    n_cell = 0
     for e, is_v in edge_els:
         path = e["p"].get("prim_path")
         if not path:
@@ -1821,8 +1923,8 @@ def _p_macroblocks(ctx, mass, side, from_storey=1):
         e["dead"] = True
         n_cell += 1
     return ("macroblocks {0}: {1} overturned, {2} leaning, {3} standing, "
-            "{4} modules diced on the cracks".format(side, n_over, n_lean,
-                                                     n_stay, n_cell))
+            "{4} modules diced on the cracks, {5} shed into brick on the way "
+            "down".format(side, n_over, n_lean, n_stay, n_cell, n_shed))
 
 
 def _p_lintels(ctx, m, n=None, base=None, tag="lintel"):
@@ -2471,7 +2573,7 @@ def _spall(ctx, mass, rate=0.15, storeys=None):
 
 def _break_box(stage, path, n, rng, nrng, mat, inner_mat=None, inner_p=0.5,
                mode="uniform", aspect=None, consume=0.0, consume_pool=1.6,
-               max_piece_m=None):
+               max_piece_m=None, **kw):
     """Fracture an authored box (slab / column) into chunks. Returns paths.
 
     `consume_pool` is exposed (round 2): 1.6 lets middling pieces into the
@@ -2486,7 +2588,7 @@ def _break_box(stage, path, n, rng, nrng, mat, inner_mat=None, inner_p=0.5,
                                   verbose=False, consume=consume,
                                   consume_pool=consume_pool,
                                   max_piece_m=max_piece_m,
-                                  min_volume_frac=0.0008)
+                                  min_volume_frac=0.0008, **kw)  # _p_
     for pth in made:
         _bind(stage, pth, inner_mat if (inner_mat is not None
                                         and rng.random() < inner_p) else mat)
@@ -2686,30 +2788,40 @@ def r_glass_fallout(ctx, frac=0.4, mass=None):
 # (scene_gen/tools/_g_glass_probe.py / _g_glass_rects.py / _g_uv.py):
 #
 # * `SM_MBuilding05_SkyscraperFacade_B` is a 5 x 1 x 3 m BOX shell: two glass
-#   quads (outer at y = -1, inner at y = 0) and four `SkyscraperLedge` faces
-#   — top, bottom and the two vertical returns. So the module is already a
-#   1 m deep glazing pocket with a ledge at every storey line: exactly the
-#   cage and the "stripe" the research says must survive. Nothing has to be
-#   built for it; it only has to be LEFT ALONE.
+#   quads (outer at y = -1, inner at y = 0) and four `SkyscraperLedge` faces —
+#   top, bottom, and the two vertical returns. So the module is already a 1 m
+#   deep glazing pocket with a ledge at every storey line: exactly the cage and
+#   the "stripe" the research says must survive. Nothing has to be built for
+#   it; it only has to be LEFT ALONE.
 # * The mullion grid is PAINTED, not modelled: material
-#   `MI_MBuilding05_SkyscraperWindows`, a 128 x 128 tile holding TWO panes
-#   with the mullion at 70/128 of its width and a transom along the top and
-#   bottom edge. The mesh UVs put u_tex = 0.3326 per metre on every
-#   skyscraper face (1.663 over a 5 m facade, 1.995 over the 6 m corner run)
-#   and exactly ONE tile over the 3 m storey.
+#   `MI_MBuilding05_SkyscraperWindows`, a 128 x 128 tile holding TWO panes with
+#   the mullion at 70/128 of its width and a transom along the top and bottom
+#   edge. The mesh UVs put u_tex = 0.3326 per metre on every skyscraper face
+#   (1.663 over a 5 m facade, 1.995 over the 6 m corner run) and exactly ONE
+#   tile over the 3 m storey.
 #   -> the painted pane grid is mullions at (k + 0.0)/0.3326 and
-#      (k + 0.5469)/0.3326 metres from the piece's u-origin: panes 1.645 m
-#      and 1.362 m wide, alternating, one row per storey, ~2.89 m tall.
-#   -> AUTHOR ON THAT GRID and inset the authored opening by half a painted
-#      mullion, and the painted cage is still there around every hole, in
-#      perfect register, for free. That is the whole trick: no mullion
-#      geometry has to be generated for the cage to read.
+#      (k + 0.5469)/0.3326 metres from the piece's u-origin: panes 1.645 m and
+#      1.362 m wide alternating, one row per storey, ~2.89 m tall.
+#   -> AUTHOR ON THAT GRID and inset the opening by half a painted mullion, and
+#      the painted cage survives around every hole in perfect register for
+#      free. No mullion geometry is needed for the cage to read, and nothing
+#      can drift out of alignment because the grid comes from the same UVs the
+#      renderer samples.
 # * Podium and shopfront glazing IS separate geometry (`M_MBuilding05_Glass`,
-#   `M_MBuilding04_Glass`, `MI_Glass_Building_A`, opacity 0.698), measured
-#   into `_G_SHOP_FACES` below. Family 02 (office) and family 01 (apartment)
-#   have NO glazing geometry at all — their windows are painted into the
-#   façade map — so the storefront recipe can only put the glass on the
-#   pavement there. That is stated, not hidden.
+#   `M_MBuilding04_Glass`, `MI_Glass_Building_A`, opacity 0.698), measured into
+#   `_G_SHOP_FACES`. Families 02 (office) and 01 (apartment) have NO glazing
+#   geometry at all — their windows are painted into the façade map — so the
+#   storefront recipe can only put the glass on the pavement there. Stated,
+#   not hidden.
+#
+# ★ PRIM BUDGET (reviewer constraint: a scene must not take hours to load).
+#   Everything below accumulates into MERGED meshes: one opening mesh, one
+#   mullion-bar mesh, one crack mesh and one crazed mesh per (mass, side,
+#   storey), one debris mesh per (mass, side), one gasket mesh per building.
+#   A DG5 tower is ~200 lost panes and lands at well under 100 authored prims
+#   — the same order as round 2's shard field, which was 68 loose boxes for a
+#   result nobody wanted. Materials are five per building, in the building's
+#   own `QuakeLooks` scope, never per pane.
 # ---------------------------------------------------------------------------
 
 # The painted curtain-wall pane grid, measured off the UVs (see above).
@@ -2717,46 +2829,71 @@ G_TILE_PER_M = 0.3326          # texture tiles per metre along the wall
 G_TILE_MULLION = 0.5469        # 70/128: where the mullion sits inside a tile
 G_PANE_INSET = 0.075           # m: keep the PAINTED mullion visible round a hole
 G_MIN_PANE_M = 0.55            # m: merge the module-seam sliver into its neighbour
-G_MULLION_W = 0.085            # m: an authored bar, when one is added for relief
-G_MULLION_PROUD = 0.055        # m: how far it stands off the glass line
+G_MULLION_W = 0.105            # m: an authored bar, for relief on the cage
+G_MULLION_PROUD = 0.075        # m: how far it stands off the glass line
+G_TRANSOM_H = 0.185            # m: the floor line. The elevation stays STRIPED.
+G_SLAB_H = 0.24                # m: the slab edge you see through an empty frame
 G_BENT_MM = (0.010, 0.040)     # mullions bent 10-40 mm at the band corners [8.7]
-G_MAX_DEBRIS = 460             # authored debris prims per building, hard cap
-G_MAX_BARS = 240               # authored mullion bars per building, hard cap
+G_MAX_DEBRIS = 1500            # debris QUADS per building (they share meshes,
+#                                so this costs vertices, not prims — but the
+#                                vertices are what set the archetype USD size,
+#                                and the round-2 tower DG5 archetype is 786 kB)
+G_HEAP_PANES = 38              # panes that get a full granular heap; beyond
+#                                that the belt is already continuous and more
+#                                clumps only cost bytes
+G_MAX_BARS = 900               # mullion bars per building (they share meshes)
 
 # Glazed FACES of a kit piece, in `_piece_frame` / `_b_face_pt` coordinates:
 #   (plane, u0, u1, v0, v1, out, recess, tex_at_u0, tex_per_m)
-# `plane` "front" is the piece's own frame; "left" is the corner piece's
-# second elevation (the x = xmin plane), built by `_g_left_frame`.
+# `plane` "front" is the piece's own frame; "left" is the corner piece's second
+# elevation (the x = xmin plane), built by `_g_left_frame`.
 # `out` is where the glass plane is (0 = 2 cm proud of the piece face);
-# `recess` is how far back the authored opening is pushed so the pocket has
-# depth. v0/v1 are piece-local heights: the transom lines measured off the
-# texture sit at z = 0.02 and z = 2.91 of every 3 m module.
+# `recess` is how far back the authored opening is pushed. v0/v1 are
+# piece-local heights: the transom lines measured off the texture sit at
+# z = 0.02 and z = 2.91 of every 3 m module.
+#
+# ★ THE RECESS MUST BE SHALLOW. The first bench pushed the opening 0.86 m back,
+# into the module's own 1 m pocket, to get depth for free. Seen from a 40 deg
+# oblique that quad PARALLAXES by 0.86 x tan(40) = 0.7 m — half a pane — so
+# every hole slid off the painted mullion it was meant to sit behind, its
+# silhouette was clipped by the box's ledges, and the band came out as black
+# blobs with slanted, tapering edges (G_tow2/5_tower_g_glass5_sw.png). That is
+# the "triangular" failure the user objected to, arriving by a route nobody had
+# looked at. Depth now comes from the mullion bars standing 55 mm PROUD and
+# from the module's own ledges; the dark quad sits ~0.1 m back, where it cannot
+# drift off the grid.
 _G_CW_FACES = {
     "SM_MBuilding05_SkyscraperFacade_B": [
-        ("front", 0.0, 5.0, 0.02, 2.91, -0.02, 0.86, 0.001, 0.3326)],
+        ("front", 0.0, 5.0, 0.02, 2.91, -0.02, 0.012, 0.001, 0.3326)],
     "SM_MBuilding05_SkyscraperFacade_A": [
-        ("front", 0.0, 5.0, 0.02, 2.91, -0.02, 0.30, 0.001, 0.3326)],
+        ("front", 0.0, 5.0, 0.02, 2.91, -0.02, 0.010, 0.001, 0.3326)],
     "SM_MBuilding05_SkyscraperCorner_B": [
-        ("front", -1.0, 5.0, 0.02, 2.91, -0.02, 0.86, 0.3335, 0.3325),
-        ("left", 0.0, 6.0, 0.02, 2.91, -0.02, 0.86, 1.996, -0.3325)],
+        ("front", -1.0, 5.0, 0.02, 2.91, -0.02, 0.012, 0.3335, 0.3325),
+        ("left", 0.0, 6.0, 0.02, 2.91, -0.02, 0.012, 1.996, -0.3325)],
     "SM_MBuilding05_SkyscraperCorner_A": [
-        ("front", 0.0, 5.0, 0.02, 2.91, -0.02, 0.30, 0.001, 0.3326),
-        ("left", 0.0, 5.0, 0.02, 2.91, -0.02, 0.30, 1.664, -0.3326)],
+        ("front", 0.0, 5.0, 0.02, 2.91, -0.02, 0.010, 0.001, 0.3326),
+        ("left", 0.0, 5.0, 0.02, 2.91, -0.02, 0.010, 1.664, -0.3326)],
 }
 
 # IN-PLANE fixed glazing that exists as geometry, measured the same way:
 #   name -> [(u0, u1, v0, v1, out)]  (one rectangle per opening)
-# These are shopfronts, arcade windows and lobby walls — Zhao Xi'an's
-# in-plane ladder applies to them, NOT the curtain-wall medians [§12 8.3].
+# Shopfronts, arcade windows, lobby walls and sashes — Zhao Xi'an's in-plane
+# ladder applies to these, NOT the curtain-wall medians [§12 8.3].
 _G_SHOP_FACES = {
     # family 04 brick commercial: the stone arcade and the top floor
     "SM_MBuilding04_FirstFloor_A": [(1.118, 2.882, 2.652, 5.689, -0.909)],
     "SM_MBuilding04_FirstFloor_B": [(0.750, 3.250, 1.052, 5.610, -0.811)],
-    "SM_MBuilding04_TopFloor_A":   [(0.732, 3.268, 0.600, 2.400, -0.905)],
+    # _g2_: `SM_MBuilding04_TopFloor_A` used to be here as ONE rectangle
+    # (0.732, 3.268, 0.600, 2.400, -0.905) — the bounding box of the whole
+    # glass SUBSET, which spans two separate windows AND the brick pier between
+    # them, so emptying it blanked the pier too. It is now four measured
+    # rectangles (two windows, two lights each) in `_G2_WIN_FACES`. Moved, not
+    # duplicated: a module in both tables would get two dark quads 5 cm apart
+    # and z-fight.
     # family 05 podium lobby — 4.8 m BEHIND the arcade face
     "SM_MBuilding05_FirstFloor_A": [(0.271, 4.729, 0.575, 3.075, -4.823)],
     "SM_MBuilding05_FirstFloor_B": [(0.270, 4.730, 0.790, 2.610, -4.820)],
-    # CivilianArea sashes (civic hall / offices)
+    # CivilianArea sashes (civic hall / offices) and the church lights
     "SM_SingleWindow_01a": [(1.008, 1.492, 0.508, 1.728, -0.175)],
     "SM_SingleWindow_01b": [(1.008, 1.492, 0.508, 1.728, -0.175)],
     "SM_DoubleWindow_01a": [(0.643, 1.857, 0.508, 1.728, -0.195)],
@@ -2769,8 +2906,8 @@ _G_SHOP_FACES = {
 # `out` and `crack` are fractions of ALL panes on the mass, NOT of the band —
 # inside the band the local density is far higher, which is the point.
 # `storeys` is the height of the contiguous band; `sides` the number of
-# elevations it wraps.  DG5's 0.40-0.55 replaces the old 0.85, which is
-# outside the field record.
+# elevations it wraps. DG5's 0.40-0.55 replaces the old 0.85, which is outside
+# the field record.
 G_GRADE = {
     1: dict(out=(0.000, 0.010), crack=(0.010, 0.030), storeys=(1, 1), sides=1,
             bend=0, peel=False, gaskets=(2, 6)),
@@ -2784,11 +2921,11 @@ G_GRADE = {
             bend=6, peel=True, gaskets=(1, 4)),
 }
 
-# Glass type modifiers [§12 8.13]. `crack_k` scales the cracked-and-retained
-# share, `out_k` the fallout share, `precar` is the share of cracked panes
-# that are in FEMA E-74's state 3 ("shatters but remains in its frame in a
-# precarious position").  Fully tempered has NO retained state: 6/6 specimens
-# cracked and fell out at the same drift.
+# Glass type modifiers [§12 8.13]. `crack_k` scales cracked-and-retained,
+# `out_k` fallout, `precar` the share of cracked panes in FEMA E-74's state 3
+# ("shatters but remains in its frame in a precarious position"). Fully
+# tempered has NO retained state: 6/6 specimens cracked and fell at the same
+# drift.
 G_GLASS_KIND = {
     "tempered":  dict(crack_k=0.05, out_k=1.00, precar=0.00, debris="dice"),
     "annealed":  dict(crack_k=1.00, out_k=0.85, precar=0.10, debris="plates"),
@@ -2812,28 +2949,39 @@ def g_scene_reset(peel_budget=1):
 
 
 def _g_mat(ctx, key):
-    """Agent G's material set, made lazily under the building's QuakeLooks.
+    """Agent G's material palette — FIVE per building, never per pane.
 
     Linear albedo (screen grey ~ linear ** 0.42), same convention as
     `materials()`. Broken glass is DARK GREY-GREEN, never white: a 0.2 m
     fragment of float glass on asphalt is a dark fleck that occasionally
     glints, and a heap of tempered dice is darker still because every facet
-    scatters.
-    """
+    scatters."""
     from pxr import UsdShade
     from . import damage
     flat = {
         # the interior seen through an empty frame: a shadowed pocket, not a
         # black void — the ledge returns above and below catch some light
-        "open": ((0.022, 0.021, 0.019), 0.92),
-        # anodised aluminium mullion, dusty
-        "mullion": ((0.055, 0.058, 0.060), 0.45),
+        # MEASURED AGAINST THE KIT. The painted mullion in
+        # `MI_MBuilding05_SkyscraperWindows_BaseColor.png` is RGB 85/86/94
+        # sRGB = 0.09 linear, and the first opening at 0.042 linear rendered
+        # only a shade darker than it — so two adjacent empty panes merged
+        # into one black blob with the painted grid invisible inside it
+        # (G_tow3/5_tower_g_glass5_sw.png). The hole has to go DARKER than the
+        # mullion and the mullion has to match the painted one, or the cage
+        # cannot read against the hole.
+        "open": ((0.020, 0.019, 0.017), 0.92),
+        # anodised aluminium mullion, dusty — the kit's own painted value
+        "mullion": ((0.095, 0.098, 0.102), 0.45),
+        # the floor slab edge seen through an empty frame. This is what makes
+        # a hole read as a hole rather than as a dark reflection, and it is
+        # also the stripe the research insists survives [§12 8.7].
+        "slab": ((0.165, 0.158, 0.145), 0.95),
         # a crazed laminated pane: thousands of cracks scatter light, so it
         # goes PALE — but 0.10 linear is ~0.37 on screen, not paper
         "crazed": ((0.100, 0.112, 0.118), 0.34),
-        # a pile of 3-12 mm tempered dice. delta_mm = 122100 / U_D gives
-        # 5.5 mm at 100 MPa surface compression [§12 8.4]; ~100 000 per
-        # 1.5 x 1.8 m pane, so this is an instanced CLUMP, never the dice.
+        # a pile of 3-12 mm tempered dice. delta_mm = 122100 / U_D gives 5.5 mm
+        # at 100 MPa surface compression [§12 8.4]; ~100 000 per 1.5 x 1.8 m
+        # pane, so this is a merged CLUMP mesh, never the dice.
         "dice": ((0.030, 0.042, 0.038), 0.55),
         # an EPDM gasket extruded out of the pocket in a ribbon — the DG1
         # signature, and it fails 24 % below the cracking drift
@@ -2847,14 +2995,195 @@ def _g_mat(ctx, key):
     return m
 
 
+# --- the mesh accumulator --------------------------------------------------
+# Every authored piece of glass art goes into one of these and is emitted as a
+# single merged mesh. Vertices are never shared between faces, so the renderer
+# gets flat per-face normals without a normals attribute.
+def _g_acc():
+    return {"P": [], "c": [], "i": []}
+
+
+def _g_quad(acc, p0, p1, p2, p3):
+    n = len(acc["P"])
+    acc["P"] += [p0, p1, p2, p3]
+    acc["c"].append(4)
+    acc["i"] += [n, n + 1, n + 2, n + 3]
+
+
+def _g_face_quad(acc, fr, u0, u1, v0, v1, out):
+    _g_quad(acc, _b_face_pt(fr, u0, v0, out), _b_face_pt(fr, u1, v0, out),
+            _b_face_pt(fr, u1, v1, out), _b_face_pt(fr, u0, v1, out))
+
+
+def _g_face_soft(acc, fr, u0, u1, v0, v1, out, r=None, n=4):
+    """An opening with ROUNDED corners, as a triangle fan.
+
+    A measured glazing rectangle is the bounding box of the glass, and on the
+    kit's arcades the glass is ARCHED — so a square-cornered quad laid over it
+    is a rectangular hole punched through an arch head, which is exactly the
+    "rectangular cut-out" the user has rejected twice
+    (G_shop2/3_commercial_g_glass4_sw.png). Rounding the corners costs 8 extra
+    triangles and reads correctly under an arch, a segmental head or a plain
+    square frame."""
+    w, h = u1 - u0, v1 - v0
+    if w <= 0 or h <= 0:
+        return
+    r = min(0.45, 0.30 * min(w, h)) if r is None else r
+    if r < 0.03:
+        _g_face_quad(acc, fr, u0, u1, v0, v1, out)
+        return
+    ring = []
+    for (cu, cv, a0) in ((u1 - r, v1 - r, 0.0), (u0 + r, v1 - r, math.pi / 2.0),
+                         (u0 + r, v0 + r, math.pi), (u1 - r, v0 + r, 1.5 * math.pi)):
+        for k in range(n + 1):
+            a = a0 + 0.5 * math.pi * k / float(n)
+            ring.append((cu + r * math.cos(a), cv + r * math.sin(a)))
+    c = _b_face_pt(fr, 0.5 * (u0 + u1), 0.5 * (v0 + v1), out)
+    P = [c] + [_b_face_pt(fr, uu, vv, out) for (uu, vv) in ring]
+    N = len(ring)
+    counts, idx = [], []
+    for k in range(N):
+        counts.append(3)
+        idx += [0, 1 + k, 1 + (k + 1) % N]
+    base = len(acc["P"])
+    acc["P"] += P
+    acc["c"] += counts
+    acc["i"] += [base + q for q in idx]
+
+
+def _g_box(acc, cx, cy, cz, sx, sy, sz, yaw_rad):
+    """A box, merged. Six independent quads so the normals stay crisp."""
+    ca, sa = math.cos(yaw_rad), math.sin(yaw_rad)
+    hx, hy, hz = sx / 2.0, sy / 2.0, sz / 2.0
+    def P(dx, dy, dz):
+        return (cx + ca * dx - sa * dy, cy + sa * dx + ca * dy, cz + dz)
+    a = [P(-hx, -hy, -hz), P(hx, -hy, -hz), P(hx, hy, -hz), P(-hx, hy, -hz),
+         P(-hx, -hy, hz), P(hx, -hy, hz), P(hx, hy, hz), P(-hx, hy, hz)]
+    for f in ((0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4),
+              (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)):
+        _g_quad(acc, a[f[0]], a[f[1]], a[f[2]], a[f[3]])
+
+
+def _g_ground_quad(acc, cx, cy, z, sx, sy, yaw_rad, tilt=0.0):
+    """A flat plate lying on the ground, with a couple of degrees of tilt so a
+    field of them does not glint all at once."""
+    ca, sa = math.cos(yaw_rad), math.sin(yaw_rad)
+    hx, hy = sx / 2.0, sy / 2.0
+    pts = []
+    for (dx, dy, dz) in ((-hx, -hy, -tilt), (hx, -hy, tilt),
+                         (hx, hy, tilt * 0.5), (-hx, hy, -tilt * 0.5)):
+        pts.append((cx + ca * dx - sa * dy, cy + sa * dx + ca * dy, z + dz))
+    _g_quad(acc, *pts)
+
+
+def _g_crack_strip(acc, fr, u0, v0, u1, v1, out, rng, width=0.016, n_seg=None,
+                   jag=0.10):
+    """One jagged crack line as a quad strip, merged.
+
+    The same construction as `_b_crack` (agent B, round 2), but accumulating
+    instead of defining a prim: a 200-pane building would otherwise be a
+    thousand two-triangle meshes."""
+    n = n_seg or rng.randrange(4, 8)
+    du, dv = u1 - u0, v1 - v0
+    L = math.hypot(du, dv) or 1.0
+    line, off = [], 0.0
+    for k in range(n + 1):
+        t = k / float(n)
+        off = (0.0 if k in (0, n)
+               else max(-jag, min(jag, -0.55 * off + rng.uniform(-jag, jag))))
+        pu, pv = -dv / L, du / L
+        line.append((u0 + du * t + pu * off, v0 + dv * t + pv * off))
+    prev = None
+    for k, (uu, vv) in enumerate(line):
+        j = min(len(line) - 1, k + 1)
+        h = max(0, k - 1)
+        tu, tv = line[j][0] - line[h][0], line[j][1] - line[h][1]
+        tl = math.hypot(tu, tv) or 1.0
+        qu, qv = -tv / tl, tu / tl
+        # taper: widest at the corner it grew from, closing to nothing
+        w = width * max(0.12, 1.0 - 0.85 * (k / float(n)))
+        cur = (_b_face_pt(fr, uu + qu * w / 2.0, vv + qv * w / 2.0, out),
+               _b_face_pt(fr, uu - qu * w / 2.0, vv - qv * w / 2.0, out))
+        if prev is not None:
+            _g_quad(acc, prev[0], cur[0], cur[1], prev[1])
+        prev = cur
+
+
+def _g_emit(ctx, acc, mat, kind, owner=None):
+    """Turn one accumulator into a single mesh prim."""
+    if not acc or not acc["c"]:
+        return None
+    path = _b_face_mesh(ctx, (acc["P"], acc["c"], acc["i"]), mat, kind)
+    if owner:
+        _g_follow(ctx, path, owner)
+    return path
+
+
+def _g_follow(ctx, path, owner):
+    """Register an authored prim that is STUCK TO A WALL, with the wall's world
+    transform at the moment it was authored.
+
+    Every glass recipe authors from the ELEMENT RECORDS (`e["x"]`, `e["z"]`),
+    which are the building's pristine coordinates and are never updated when a
+    later recipe moves the building. So a curtain wall drawn before
+    `soft_storey` or `tilt_sink` would be left hanging in the air where the
+    tower used to be. `r_glass_follow` replays the owner's own delta onto these
+    prims afterwards; it goes LAST in any ladder whose grade moves the shell.
+    Ground debris is deliberately NOT registered — glass that has already
+    landed stays on the pavement while the building sinks into it."""
+    if not path or not owner:
+        return path
+    from pxr import UsdGeom
+    fol = ctx.setdefault("g_follow", {})
+    rec = fol.get(owner)
+    if rec is None:
+        prim = ctx["stage"].GetPrimAtPath(owner)
+        if not prim or not prim.IsValid():
+            return path
+        rec = {"M0": UsdGeom.XformCache().GetLocalToWorldTransform(prim),
+               "paths": []}
+        fol[owner] = rec
+    rec["paths"].append(path)
+    return path
+
+
+def r_glass_follow(ctx):
+    """Move the authored glass art by whatever its wall did after it was drawn.
+
+    `_transform_prims` post-multiplies (p' = p * local * M), so if a wall's
+    world transform went W0 -> W1 the delta is M = W0^-1 * W1, and applying
+    that same M to the art puts it back on the wall. If the wall has been
+    deleted meanwhile (a peel, an infill blow-out) the art goes with it."""
+    from pxr import Gf, UsdGeom
+    fol = ctx.pop("g_follow", None)
+    if not fol:
+        return
+    xf = UsdGeom.XformCache()
+    moved = dropped = 0
+    for owner, rec in fol.items():
+        prim = ctx["stage"].GetPrimAtPath(owner)
+        if not prim or not prim.IsValid() or not prim.IsActive():
+            for p in rec["paths"]:
+                _deactivate(ctx["stage"], p)
+            dropped += len(rec["paths"])
+            continue
+        M = rec["M0"].GetInverse() * xf.GetLocalToWorldTransform(prim)
+        if Gf.IsClose(M, Gf.Matrix4d(1.0), 1e-7):
+            continue
+        moved += _transform_prims(ctx["stage"], rec["paths"], M)
+    if moved or dropped:
+        ctx["notes"].append(
+            "glass_follow: {0} art mesh(es) carried with their wall, {1} "
+            "dropped with a deleted module".format(moved, dropped))
+
+
 def _g_left_frame(e, meas, fr):
     """The frame of a CORNER piece's second elevation (its x = xmin plane).
 
     A `SkyscraperCorner_B` is an L-shaped box glazed on both exposed faces;
     `_piece_frame` only describes the first. The second runs along the piece's
     local +Y with local -X outward, so it is the same frame rotated -90 deg
-    about the piece's far corner (mesh (0, ymax)).
-    """
+    about the piece's far corner (mesh (0, ymax))."""
     if not meas:
         return None
     sx, sy, sz, xmin, ymin, zmin = meas
@@ -2922,9 +3251,9 @@ def _g_pane_edges(f):
                     edges.add(u)
         k += 1
     es = sorted(edges)
-    # merge the module-seam sliver into its neighbour: a 0.35 m pane going
-    # dark reads as a slot cut in the wall, and the kit's texture phase resets
-    # at every module so one always falls at the joint
+    # merge the module-seam sliver into its neighbour: a 0.35 m pane going dark
+    # reads as a slot cut in the wall, and the kit's texture phase resets at
+    # every module so one always falls at the joint
     keep = [es[0]]
     for u in es[1:]:
         if u - keep[-1] < G_MIN_PANE_M and u < es[-1] - 1e-6:
@@ -2959,11 +3288,10 @@ def _g_panes(ctx, mass=None):
 def _g_profile(ctx, m, rng, profile=None):
     """Which storey racked hardest — the drift profile [§12 8.6].
 
-    A moment frame peaks in the LOWER THIRD (not at the ground floor); a
-    core tower in the upper third; a podium-and-tower at the transition
-    (Plaza Mayor, Concepción); a roof-diaphragm push takes the top storey
-    only (Wenchuan, Qingchuan TCM Hospital). Returns (peak_index, name).
-    """
+    A moment frame peaks in the LOWER THIRD (not at the ground floor); a core
+    tower in the upper third; a podium-and-tower at the transition (Plaza
+    Mayor, Concepción); a roof-diaphragm push takes the top storey only
+    (Wenchuan, Qingchuan TCM Hospital). Returns (peak_index, name)."""
     n = max(1, len(m["levels"]))
     if profile is None:
         r = rng.random()
@@ -2994,13 +3322,30 @@ def _g_band(ctx, m, grade, rng, profile=None):
     else:
         s0 = max(0, min(n - k, peak - rng.randint(0, max(0, k - 1))))
         s1 = min(n - 1, s0 + k - 1)
-    sides = _pick_sides(ctx, g["sides"])
-    return set(range(s0, s1 + 1)), sides, pname
+    return set(range(s0, s1 + 1)), _g_pick_sides(ctx, g["sides"]), pname
+
+
+def _g_pick_sides(ctx, n):
+    """The elevations the band wraps — ADJACENT first, opposite last.
+
+    `_pick_sides` draws the rest at random, so a two-sided band came out as
+    S+N: the two faces that cannot both be the high-drift side of the same
+    torsion. The field is the other way round — Chile 2010's confined-masonry
+    school failed at the CORNER because full-height glazing on one face threw
+    the building into torsion, and Mexico City's NBS survey found 42 % of
+    failures were CORNER buildings [§12 8.6, 8.15]. So the second elevation is
+    a neighbour of the first, and the far face is only reached at DG5."""
+    rng = ctx["rng"]
+    first = rng.choice(["S", "S", "E", "W", "N"])       # front-biased
+    nb = {"S": ["E", "W"], "N": ["E", "W"], "E": ["S", "N"], "W": ["S", "N"]}[first]
+    rng.shuffle(nb)
+    order = [first] + nb + [_opposite(first)]
+    return order[:max(1, min(4, int(n)))]
 
 
 def _g_kind(ctx, glass, rng):
-    """Glass type. Modern towers are mostly fully tempered or FT-laminated;
-    the field's bad performers are older annealed infill glazing with a few
+    """Glass type. Modern towers are mostly fully tempered or FT-laminated; the
+    field's bad performers are older annealed infill glazing with a few
     millimetres of clearance [§12 8.12]. Drawn when the caller says nothing,
     which is also where the per-building variety comes from."""
     if glass in G_GLASS_KIND:
@@ -3009,276 +3354,10 @@ def _g_kind(ctx, glass, rng):
     return "tempered" if r < 0.55 else ("annealed" if r < 0.85 else "laminated")
 
 
-def _g_quad(ctx, fr, u0, u1, v0, v1, out, mat, kind="pane"):
-    P = [_b_face_pt(fr, u0, v0, out), _b_face_pt(fr, u1, v0, out),
-         _b_face_pt(fr, u1, v1, out), _b_face_pt(fr, u0, v1, out)]
-    return _b_face_mesh(ctx, (P, [4], [0, 1, 2, 3]), mat, kind)
-
-
-def _g_bar(ctx, fr, u, v, length, height, out, mat, along=True, shift=0.0,
-           kind="mull"):
-    """One authored mullion / transom bar, flush on the wall plane.
-
-    The painted cage already reads; these are for RELIEF at the band edges
-    and for the bent mullions (10-40 mm) the research asks for at the band
-    corners. The piece frame's local +X runs along `u`, so a box rotated by
-    the frame yaw lines up with the wall."""
-    cx, cy, _z = _b_face_pt(fr, u, v, out)
-    if shift:
-        ox, oy, _o = _b_face_pt(fr, u, v, out + shift)
-        cx, cy = ox, oy
-    sx = length if along else G_MULLION_W
-    sz = G_MULLION_W if along else height
-    path = "{0}/{1}_{2}_{3}".format(ctx["parent"], kind, ctx["tag"], _uid(ctx))
-    _box(ctx["stage"], path, cx, cy, v, sx, G_MULLION_W * 1.05, sz,
-         math.degrees(fr[2]), mat)
-    ctx["authored"].append(path)
-    return path
-
-
-def _g_corner_cracks(ctx, fr, ua, ub_, va, vb, out, mat, rng, n=None):
-    """A corner-rooted crack set on ONE pane.
-
-    "Crack propagation starts along the edges near diagonally opposed corners
-    of glass panels where glass-to-aluminium contacts are made" [§12 8.5].
-    So: pick two DIAGONALLY OPPOSED corners, and fan 2-3 jagged lines inward
-    from each, ~45 deg and dying before mid-pane. Never a centre spiderweb —
-    that is an impact signature and reads as a thrown rock.
-    """
-    made = []
-    w, h = ub_ - ua, vb - va
-    diag = rng.random() < 0.5
-    corners = ([(ua, va, 1, 1), (ub_, vb, -1, -1)] if diag
-               else [(ub_, va, -1, 1), (ua, vb, 1, -1)])
-    if rng.random() < 0.35:                     # one corner only, the DS1 state
-        corners = corners[:1]
-    for (cu, cv, su, sv) in corners:
-        for k in range(n or rng.randint(2, 3)):
-            reach = rng.uniform(0.28, 0.62)
-            a = rng.uniform(0.20, 1.35)         # fan about the diagonal
-            du = su * w * reach * math.cos(a)
-            dv = sv * h * reach * math.sin(a)
-            made.append(_b_crack(ctx, fr, cu + su * 0.02, cv + sv * 0.02,
-                                 cu + du, cv + dv, mat,
-                                 width=rng.uniform(0.008, 0.020),
-                                 proud=out + 0.012,
-                                 n_seg=rng.randint(3, 6), jag=0.06))
-    return made
-
-
-def _g_crazed(ctx, fr, ua, ub_, va, vb, out, rng):
-    """FEMA E-74 state 3: "shatters but remains in its frame or anchorage in a
-    precarious position, liable to fall out at any time" — the ONE legitimate
-    hanging pane, and only on laminated / annealed / film-retained glazing.
-    A crazed pane goes pale because every crack scatters, so it is a dense
-    fine mesh over a pale overlay, not a hole."""
-    made = [_g_quad(ctx, fr, ua + 0.02, ub_ - 0.02, va + 0.02, vb - 0.02,
-                    out + 0.006, _g_mat(ctx, "crazed"), "crazed")]
-    mat = ctx["mats"]["crack"]
-    for k in range(rng.randint(7, 12)):
-        u0 = rng.uniform(ua, ub_)
-        v0 = rng.uniform(va, vb)
-        a = rng.uniform(0, 3.14)
-        L = rng.uniform(0.18, 0.75)
-        made.append(_b_crack(ctx, fr, u0, v0, u0 + L * math.cos(a),
-                             v0 + L * math.sin(a), mat, width=0.007,
-                             proud=out + 0.014,
-                             n_seg=3, jag=0.05))
-    return made
-
-
-def _g_gasket(ctx, fr, u, va, vb, out, rng):
-    """A dry EPDM gasket extruded out of its pocket and hanging in a ribbon.
-
-    Gasket failure happens 24 % BELOW the cracking drift [§12 8.7], so this is
-    the DG1 signature: Northridge's towers lost their rubber gaskets by the
-    hundred and almost no glass at all."""
-    v0 = rng.uniform(va + 0.2, vb - 0.9)
-    L = rng.uniform(0.35, 0.95)
-    lean = rng.uniform(-0.10, 0.10)
-    P = [_b_face_pt(fr, u, v0, out + 0.02),
-         _b_face_pt(fr, u + 0.045, v0, out + 0.02),
-         _b_face_pt(fr, u + 0.045 + lean, v0 - L, out + 0.06),
-         _b_face_pt(fr, u + lean, v0 - L, out + 0.06)]
-    return _b_face_mesh(ctx, (P, [4], [0, 1, 2, 3]), _g_mat(ctx, "gasket"),
-                        "gasket")
-
-
-def _g_drop(ctx, m, side, u_world, base_hint=None):
-    """Where a fallen pane lands.
-
-    No reconnaissance report anywhere gives a measured glass throw distance
-    [§12 8.9]; the model is a derivation from construction drop-zone practice:
-    mode 0.05-0.10 H, p90 0.33 H, tail to 0.75 H, hard clip H/2, radius
-    inversely proportional to fragment mass-per-area — so tempered dice land
-    almost straight down in a compact heap and whole panes flutter out.
-    Returns (wx, wy, z, r).
-    """
-    rng = ctx["rng"]
-    H = max(3.0, m["top"] - m["z0"])
-    q = rng.random()
-    if q < 0.72:
-        r = H * rng.uniform(0.03, 0.11)
-    elif q < 0.94:
-        r = H * rng.uniform(0.11, 0.33)
-    else:
-        r = H * rng.uniform(0.33, 0.60)
-    r = min(r, 0.5 * H, 18.0)
-    ox, oy = _outward(m, side)
-    wx, wy = u_world[0] + ox * r, u_world[1] + oy * r
-    # a tower standing on a podium sheds onto the PODIUM ROOF until the
-    # debris clears the setback, and only then reaches the street
-    z = m["z0"]
-    main = ctx["info"]["masses"].get("main")
-    if base_hint is not None:
-        z = base_hint
-    elif main is not None and m is not main and m["z0"] > main["z0"] + 0.5:
-        lx, ly = _to_local(main, wx, wy)
-        if abs(lx) > main["W"] / 2.0 or abs(ly) > main["D"] / 2.0:
-            z = main["z0"]
-    return wx, wy, z, r
-
-
-def _g_dice_heap(ctx, m, side, u_world, area, kind, tag="dice"):
-    """The pile under an empty frame.
-
-    Christchurch, verbatim: "Damage to toughened glass was typically observed
-    as an empty frame and a pile of glass fragments on the footpath", and
-    "the tempered glass fragments tend to fall from the frame or anchorage in
-    CLUSTERS" [§12 8.4]. So a compact heap plus a thin scatter skirt, footprint
-    ~1.2 x the panel area (FEMA P-58's own consequence function), and NEVER
-    100 000 individual dice — a 1.5 x 1.8 m tempered pane is ~100 000
-    fragments and 40 kg.
-    """
-    rng = ctx["rng"]
-    if ctx.get("g_debris", 0) >= G_MAX_DEBRIS:
-        return []
-    made = []
-    wx, wy, z, r = _g_drop(ctx, m, side, u_world)
-    foot = math.sqrt(max(0.4, 1.2 * area))          # 1.2 x panel area
-    dice = _g_mat(ctx, "dice")
-    shard = ctx["mats"]["glass_shard"]
-    if kind == "blanket":
-        # FT-laminated: the interlayer holds thousands of crumbs and the unit
-        # "tends to fold and fall like a heavy blanket" [§12 8.4]
-        path = "{0}/gmat_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
-        _box(ctx["stage"], path, wx, wy, z + 0.035, foot * rng.uniform(0.8, 1.2),
-             foot * rng.uniform(0.5, 0.9), 0.06, rng.uniform(0, 180), dice)
-        made.append(path)
-        n_sk = rng.randint(2, 5)
-    elif kind == "plates":
-        # annealed: "large, jagged shards", cracks running at 45 deg
-        for k in range(rng.randint(3, 6)):
-            s = rng.uniform(0.22, 0.62)
-            path = "{0}/gpl_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
-            _box(ctx["stage"], path,
-                 wx + rng.uniform(-foot, foot) * 0.6,
-                 wy + rng.uniform(-foot, foot) * 0.6, z + 0.010,
-                 s, s * rng.uniform(0.35, 0.9), 0.014, rng.uniform(0, 180), shard)
-            made.append(path)
-        n_sk = rng.randint(5, 10)
-    else:
-        # tempered: 3-12 mm hexagonal dice, ~100 000 per pane. A CLUMP proxy:
-        # a few flattened lumps that read as a granular heap, and the skirt.
-        for k in range(rng.randint(3, 5)):
-            s = foot * rng.uniform(0.30, 0.62)
-            path = "{0}/gdi_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
-            _a_lump(ctx["stage"], path,
-                    wx + rng.uniform(-0.45, 0.45) * foot,
-                    wy + rng.uniform(-0.45, 0.45) * foot,
-                    z + rng.uniform(0.012, 0.05),
-                    s, rng, mat=dice, jitter=0.42)
-            made.append(path)
-        n_sk = rng.randint(6, 12)
-    # the skirt: single dice and, on tempered glass, the few 100-250 mm
-    # SPIKES certified toughened glass still produces (the 1988 Croydon
-    # fatality) [§12 8.4]
-    for k in range(n_sk):
-        d = foot * rng.uniform(0.7, 2.4)
-        a = rng.uniform(0, 6.283)
-        s = (rng.uniform(0.10, 0.25) if (kind == "dice" and rng.random() < 0.15)
-             else rng.uniform(0.03, 0.09))
-        path = "{0}/gsk_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
-        _box(ctx["stage"], path, wx + d * math.cos(a), wy + d * math.sin(a),
-             z + 0.006, s, s * rng.uniform(0.3, 1.0), 0.011,
-             rng.uniform(0, 180), shard)
-        made.append(path)
-    ctx["g_debris"] = ctx.get("g_debris", 0) + len(made)
-    ctx["authored"] += made
-    return made
-
-
-def _g_follow(ctx, path, owner):
-    """Register an authored prim that is STUCK TO A WALL, with the wall's
-    world transform at the moment it was authored.
-
-    Every glass recipe authors from the ELEMENT RECORDS (`e["x"]`, `e["z"]`),
-    which are the building's pristine coordinates and are never updated when
-    a later recipe moves the building. So a curtain wall drawn before
-    `soft_storey` or `tilt_sink` would be left hanging in the air where the
-    tower used to be. `r_glass_follow` replays the owner's own delta onto
-    these prims afterwards; it goes LAST in any ladder whose grade moves the
-    shell. Ground debris is deliberately NOT registered — glass that has
-    already landed stays on the pavement while the building sinks into it.
-    """
-    if not path or not owner:
-        return path
-    from pxr import UsdGeom
-    fol = ctx.setdefault("g_follow", {})
-    rec = fol.get(owner)
-    if rec is None:
-        prim = ctx["stage"].GetPrimAtPath(owner)
-        if not prim or not prim.IsValid():
-            return path
-        rec = {"M0": UsdGeom.XformCache().GetLocalToWorldTransform(prim),
-               "paths": []}
-        fol[owner] = rec
-    rec["paths"].append(path)
-    return path
-
-
-def _g_follow_all(ctx, paths, owner):
-    for p in (paths or []):
-        _g_follow(ctx, p, owner)
-    return paths
-
-
-def r_glass_follow(ctx):
-    """Move the authored glass art by whatever its wall did after it was drawn.
-
-    `_transform_prims` post-multiplies (p' = p * local * M), so if a wall's
-    world transform went W0 -> W1 the delta is M = W0^-1 * W1, and applying
-    that same M to the art puts it back on the wall. If the wall has been
-    deleted meanwhile (a peel, an infill blow-out) the art goes with it.
-    """
-    from pxr import Gf
-    from pxr import UsdGeom
-    fol = ctx.pop("g_follow", None)
-    if not fol:
-        return
-    xf = UsdGeom.XformCache()
-    moved = dropped = 0
-    for owner, rec in fol.items():
-        prim = ctx["stage"].GetPrimAtPath(owner)
-        if not prim or not prim.IsValid() or not prim.IsActive():
-            for p in rec["paths"]:
-                _deactivate(ctx["stage"], p)
-            dropped += len(rec["paths"])
-            continue
-        M = rec["M0"].GetInverse() * xf.GetLocalToWorldTransform(prim)
-        if Gf.IsClose(M, Gf.Matrix4d(1.0), 1e-7):
-            continue
-        moved += _transform_prims(ctx["stage"], rec["paths"], M)
-    if moved or dropped:
-        ctx["notes"].append(
-            "glass_follow: {0} art prim(s) carried with their wall, "
-            "{1} dropped with a deleted module".format(moved, dropped))
-
-
 def _g_side_w(side, sides):
     """Kobe 1995: southerly-oriented glazing above 70 % damaged, northerly
-    below 15 % [§12 8.6]. One elevation carries the band; the neighbours get
-    a little; the far side almost nothing."""
+    below 15 % [§12 8.6]. One elevation carries the band; the neighbours get a
+    little; the far side almost nothing."""
     if not sides:
         return 1.0
     try:
@@ -3288,9 +3367,196 @@ def _g_side_w(side, sides):
     return (1.0, 0.62, 0.34)[i] if i < 3 else 0.12
 
 
-def _g_pane_world(p):
-    fr = p["f"]["fr"]
-    return _b_face_pt(fr, 0.5 * (p["ua"] + p["ub"]), p["va"], p["f"]["out"])
+def _g_add_corner_cracks(acc, fr, ua, ub_, va, vb, out, rng, n=None):
+    """A corner-rooted crack set on ONE pane.
+
+    "Crack propagation starts along the edges near diagonally opposed corners
+    of glass panels where glass-to-aluminium contacts are made" [§12 8.5]. So:
+    two DIAGONALLY OPPOSED corners, 2-3 jagged lines fanning inward from each,
+    reaching well past mid-pane. Never a centre spiderweb — that is an impact
+    signature and reads as a thrown rock."""
+    w, h = ub_ - ua, vb - va
+    diag = rng.random() < 0.5
+    corners = ([(ua, va, 1, 1), (ub_, vb, -1, -1)] if diag
+               else [(ub_, va, -1, 1), (ua, vb, 1, -1)])
+    if rng.random() < 0.35:                     # one corner only — the DS1 state
+        corners = corners[:1]
+    for (cu, cv, su, sv) in corners:
+        # THE CRUSH ZONE. FEMA P-58's DS1 photograph is a short conchoidal
+        # CRUSHING patch where the glass bore on the aluminium, with the
+        # radials fanning out of it [§12 8.5]. Without it the fan reads as a
+        # scratch or an insect on the glass (G_tow4/3_tower_g_glass3_ne.png);
+        # with it, the eye finds the corner first and the fan explains itself.
+        cw = min(0.22, 0.16 * w)
+        ch = min(0.26, 0.10 * h)
+        _g_quad(acc,
+                _b_face_pt(fr, cu, cv, out + 0.016),
+                _b_face_pt(fr, cu + su * cw, cv, out + 0.016),
+                _b_face_pt(fr, cu + su * cw * 0.45, cv + sv * ch, out + 0.016),
+                _b_face_pt(fr, cu, cv + sv * ch, out + 0.016))
+        for k in range(n or rng.randint(1, 2)):
+            reach = rng.uniform(0.45, 0.95)
+            a = rng.uniform(0.20, 1.35)         # fan about the diagonal
+            du = su * w * reach * math.cos(a)
+            dv = sv * h * reach * math.sin(a)
+            _g_crack_strip(acc, fr, cu + su * 0.015, cv + sv * 0.015,
+                           cu + du, cv + dv, out + 0.014, rng,
+                           width=rng.uniform(0.038, 0.062),
+                           n_seg=rng.randint(3, 6), jag=0.05)
+
+
+def _g_add_crazed(acc_pale, acc_crack, fr, ua, ub_, va, vb, out, rng):
+    """FEMA E-74 state 3: "shatters but remains in its frame or anchorage in a
+    precarious position, liable to fall out at any time" — the ONE legitimate
+    hanging pane, and only on laminated / annealed / film-retained glazing. A
+    crazed pane goes pale because every crack scatters, so it is a dense fine
+    mesh over a pale overlay, not a hole."""
+    _g_face_quad(acc_pale, fr, ua + 0.02, ub_ - 0.02, va + 0.02, vb - 0.02,
+                 out + 0.006)
+    for k in range(rng.randint(6, 10)):
+        u0 = rng.uniform(ua, ub_)
+        v0 = rng.uniform(va, vb)
+        a = rng.uniform(0, 3.14)
+        L = rng.uniform(0.25, 0.90)
+        _g_crack_strip(acc_crack, fr, u0, v0, u0 + L * math.cos(a),
+                       v0 + L * math.sin(a), out + 0.016, rng, width=0.016,
+                       n_seg=3, jag=0.05)
+
+
+def _g_add_gasket(acc, fr, u, va, vb, out, rng):
+    """A dry EPDM gasket extruded out of its pocket and hanging in a ribbon.
+
+    Gasket failure happens 24 % BELOW the cracking drift [§12 8.7], so this is
+    the DG1 signature: Northridge's towers lost their rubber gaskets by the
+    hundred and almost no glass at all."""
+    v0 = rng.uniform(va + 0.2, vb - 0.9)
+    L = rng.uniform(0.35, 0.95)
+    lean = rng.uniform(-0.10, 0.10)
+    _g_quad(acc, _b_face_pt(fr, u, v0, out + 0.02),
+            _b_face_pt(fr, u + 0.045, v0, out + 0.02),
+            _b_face_pt(fr, u + 0.045 + lean, v0 - L, out + 0.06),
+            _b_face_pt(fr, u + lean, v0 - L, out + 0.06))
+
+
+def _g_drop(ctx, m, side, u_world):
+    """Where a fallen pane lands.
+
+    No reconnaissance report anywhere gives a measured glass throw distance
+    [§12 8.9]; the model is a derivation from construction drop-zone practice:
+    mode 0.05-0.10 H, p90 0.33 H, tail to 0.75 H, hard clip H/2, radius
+    inversely proportional to fragment mass-per-area — so tempered dice land
+    almost straight down in a compact heap and whole panes flutter out.
+    A tower standing on a podium sheds onto the PODIUM ROOF until the debris
+    clears the setback, and only then reaches the street."""
+    rng = ctx["rng"]
+    # the DROP HEIGHT of this pane above the surface it lands on, not the
+    # building height: a pane on the tower's first storey is three metres above
+    # the podium roof and lands at its own foot, and using H for every pane
+    # threw the low ones metres out
+    H = max(3.0, m["top"] - m["z0"])
+    drop = max(1.5, u_world[2] - m["z0"])
+    q = rng.random()
+    if q < 0.72:
+        r = drop * rng.uniform(0.05, 0.14)
+    elif q < 0.94:
+        r = drop * rng.uniform(0.14, 0.36)
+    else:
+        r = drop * rng.uniform(0.36, 0.70)
+    ox, oy = _outward(m, side)
+    z = m["z0"]
+    main = ctx["info"]["masses"].get("main")
+    elevated = (main is not None and m is not main
+                and m["z0"] > main["z0"] + 0.5)
+    if elevated and rng.random() < 0.32:
+        # A SETBACK ROOF IS NOT A SINK. Most of a tower's glass lands on the
+        # podium roof and stays there — but a share of it goes over the edge
+        # (whole panes flutter; the Tachikawa argument in [§12 8.9] says a
+        # released pane tumbles, and the DG5 street is described as "glass over
+        # the plaza"). Without this the whole tower's loss is invisible from
+        # the street, which is the one view the reviewer looks at.
+        setback = max(main["W"], main["D"]) * 0.5
+        r = setback + drop * rng.uniform(0.10, 0.45)
+    r = min(r, 0.5 * (H + drop), 22.0)
+    wx, wy = u_world[0] + ox * r, u_world[1] + oy * r
+    if elevated:
+        lx, ly = _to_local(main, wx, wy)
+        if abs(lx) > main["W"] / 2.0 or abs(ly) > main["D"] / 2.0:
+            z = main["z0"]
+    return wx, wy, z, r
+
+
+def _g_add_debris(ctx, acc, m, side, u_world, area, kind, density=1.0):
+    """The glass under an empty frame — flat, granular and LOW.
+
+    Christchurch, verbatim: "Damage to toughened glass was typically observed
+    as an empty frame and a pile of glass fragments on the footpath", and "the
+    tempered glass fragments tend to fall from the frame or anchorage in
+    CLUSTERS" [§12 8.4]. Footprint ~1.2 x the panel area (FEMA P-58's own
+    consequence function), and NEVER 100 000 dice — a 1.5 x 1.8 m tempered pane
+    is ~100 000 fragments and 40 kg.
+
+    ★ SIZE. The first bench read `foot` (the SPREAD of the pile, ~2.3 m for a
+    full pane) as the size of each lump and dropped 1.4 m dark-green
+    polyhedra: a field of tents (G_tow2/5_tower_g_glass5_close.png). The pile
+    is 3-8 cm DEEP over a couple of metres, so it is flat mats and flecks, not
+    boulders."""
+    rng = ctx["rng"]
+    if ctx.get("g_debris", 0) >= G_MAX_DEBRIS:
+        return 0
+    wx, wy, z, r = _g_drop(ctx, m, side, u_world)
+    foot = math.sqrt(max(0.4, 1.2 * area))          # 1.2 x panel area
+    n = 0
+
+    def _plate(cx, cy, sx, sy, zz, tilt=0.012):
+        _g_ground_quad(acc, cx, cy, zz, sx, sy, rng.uniform(0, 6.283), tilt)
+
+    if kind == "blanket":
+        # FT-laminated: the interlayer holds thousands of crumbs and the unit
+        # "tends to fold and fall like a heavy blanket" [§12 8.4]
+        _plate(wx, wy, foot * rng.uniform(0.7, 1.0), foot * rng.uniform(0.4, 0.7),
+               z + 0.05, 0.05)
+        n += 1
+        n_sk = max(1, int(round(3 * density)))
+        sk = (0.06, 0.16)
+    elif kind == "plates":
+        # annealed: "large, jagged shards", cracks running at 45 deg
+        for k in range(max(1, int(round(rng.randint(2, 4) * density)))):
+            s = rng.uniform(0.22, 0.55)
+            _plate(wx + rng.uniform(-0.5, 0.5) * foot,
+                   wy + rng.uniform(-0.5, 0.5) * foot, s,
+                   s * rng.uniform(0.35, 0.9), z + 0.012)
+            n += 1
+        n_sk = max(2, int(round(6 * density)))
+        sk = (0.05, 0.14)
+    else:
+        # tempered: 3-12 mm dice. A GRANULAR mat, 3-8 cm deep — which means a
+        # tight cluster of many small pieces, not two big plates: at
+        # foot x 0.3 a "clump" is a 0.7 m sheet and the pile reads as tarpaulin
+        # (G_tow4/5_tower_g_glass5_close.png). The quads share one mesh, so
+        # the cost of granularity is vertices, not prims.
+        for k in range(max(4, int(round(rng.randint(11, 17) * density)))):
+            rr = abs(rng.gauss(0.0, 0.30)) * foot
+            a = rng.uniform(0, 6.283)
+            s = rng.uniform(0.08, 0.22)
+            _plate(wx + rr * math.cos(a), wy + rr * math.sin(a),
+                   s, s * rng.uniform(0.55, 1.0),
+                   z + rng.uniform(0.008, 0.055) * max(0.2, 1.0 - rr / foot),
+                   0.018)
+            n += 1
+        n_sk = max(2, int(round(7 * density)))
+        sk = (0.04, 0.10)
+    # the skirt: single dice and, on tempered glass, the few 100-250 mm SPIKES
+    # certified toughened glass still produces (the 1988 Croydon fatality)
+    for k in range(n_sk):
+        d = foot * rng.uniform(0.6, 2.2)
+        a = rng.uniform(0, 6.283)
+        s = (rng.uniform(0.11, 0.25) if (kind == "dice" and rng.random() < 0.12)
+             else rng.uniform(*sk))
+        _plate(wx + d * math.cos(a), wy + d * math.sin(a), s,
+               s * rng.uniform(0.3, 0.9), z + 0.008, 0.006)
+        n += 1
+    ctx["g_debris"] = ctx.get("g_debris", 0) + n
+    return n
 
 
 def r_curtain_wall(ctx, grade=3, glass=None, mass=None, profile=None,
@@ -3299,8 +3565,8 @@ def r_curtain_wall(ctx, grade=3, glass=None, mass=None, profile=None,
     """A curtain-wall tower loses its GLASS in a BAND, and keeps its cage.
 
     The replacement for `r_glass_fallout`. Every number is from
-    `earthquake_research.md` §12 (table 8.13 for the per-grade fractions,
-    8.6 for the band, 8.4 for the debris, 8.5 for the crack art, 8.7 for what
+    `earthquake_research.md` §12 (table 8.13 for the per-grade fractions, 8.6
+    for the band, 8.4 for the debris, 8.5 for the crack art, 8.7 for what
     stays). Nothing is deleted: the module, its ledges, its transoms and its
     painted mullion grid all survive, and a dark opening is authored inside
     each lost pane, inset by half a painted mullion so the cage still reads.
@@ -3324,7 +3590,7 @@ def r_curtain_wall(ctx, grade=3, glass=None, mass=None, profile=None,
     by_mass = {}
     for p in panes:
         by_mass.setdefault(p["mass"], []).append(p)
-    n_out_all = n_crack_all = 0
+    n_out_all = n_crack_all = n_mesh = 0
     for tag, ps in sorted(by_mass.items()):
         m = ctx["info"]["masses"].get(tag) or ctx["info"]["masses"]["main"]
         band, bsides, pname = _g_band(ctx, m, grade, rng, profile)
@@ -3352,8 +3618,8 @@ def r_curtain_wall(ctx, grade=3, glass=None, mass=None, profile=None,
         out = ps[:n_out]
         rest = ps[n_out:]
         # ISOLATED SURVIVORS INSIDE THE BAND. Mexico City 1985, 90 Durango:
-        # "loss of glazing apart from top three floors (EXCEPT ONE PANEL)".
-        # A band with no survivor in it reads as a cut-out. [§12 8.6]
+        # "loss of glazing apart from top three floors (EXCEPT ONE PANEL)". A
+        # band with no survivor in it reads as a cut-out. [§12 8.6]
         n_surv = min(len(out), rng.randint(1, 3) if n_out > 6 else 0)
         for k in range(n_surv):
             i = rng.randrange(0, max(1, len(out)))
@@ -3362,87 +3628,148 @@ def r_curtain_wall(ctx, grade=3, glass=None, mass=None, profile=None,
         for k in range(min(len(rest), rng.randint(0, 2))):
             j = rng.randrange(0, len(rest))
             out.append(rest.pop(j))
-        crack = [q for q in rest if q["storey"] in band
-                 or rng.random() < 0.10][:n_crack]
-        # --- author -------------------------------------------------------
-        openm = _g_mat(ctx, "open")
-        mullm = _g_mat(ctx, "mullion")
-        crackm = ctx["mats"]["crack"]
-        bars = 0
+        # CRACKED PANES FOLLOW THE SAME SCORE, not just the band's storeys.
+        # Filtering on `storey in band` alone put cracks on all four
+        # elevations (the band is a storey range, and every face has those
+        # storeys), so a DG3 tower came out veiled in cobwebs on the faces
+        # that never racked (G_final_tower/3_tower_DG3_nw.png). `rest` is
+        # already sorted by the score, which carries the side weight.
+        crack = rest[:n_crack]
+        # --- author, merged --------------------------------------------------
+        # one mesh per (kind, side, storey); debris one per (kind, side)
+        accs, owners = {}, {}
+
+        def A(k_, side, storey, owner=None):
+            key = (k_, side, storey)
+            a = accs.get(key)
+            if a is None:
+                a = accs[key] = _g_acc()
+                owners[key] = owner
+            return a
+
         band_lo, band_hi = min(band), max(band)
+        bars, seen_bar = 0, set()
+        # spread the heaps evenly along the band instead of thinning every one:
+        # a continuous belt of good clumps reads better than a uniform drizzle,
+        # and it is what the reconnaissance describes — "an empty frame and a
+        # PILE of glass fragments on the footpath" [§12 8.4]
+        step = max(1, int(math.ceil(len(out) / float(G_HEAP_PANES))))
+        heaped = set(id(q) for q in sorted(
+            out, key=lambda q: (q["side"], q["storey"], q["ua"]))[::step])
+        dens = 1.0
         for p in out:
             f = p["f"]
+            own = f["e"]["p"].get("prim_path")
             ua, ub_ = p["ua"] + G_PANE_INSET, p["ub"] - G_PANE_INSET
             va, vb = p["va"] + G_PANE_INSET, p["vb"] - G_PANE_INSET
             if ub_ - ua < 0.12 or vb - va < 0.12:
                 continue
-            own = f["e"]["p"].get("prim_path")
-            ctx["authored"].append(_g_follow(ctx,
-                _g_quad(ctx, f["fr"], ua, ub_, va, vb,
-                        f["out"] - f["recess"], openm, "opening"), own))
-            edge = p["storey"] in (band_lo, band_hi)
-            if bars < G_MAX_BARS and (edge or rng.random() < 0.28):
-                # relief on the cage where the eye stops: the band's top and
-                # bottom line. The painted mullion carries the rest.
+            _g_face_quad(A("open", p["side"], p["storey"], own), f["fr"],
+                         ua, ub_, va, vb, f["out"] - f["recess"])
+            # THE SLAB EDGE. Look through an empty curtain-wall frame and the
+            # first thing you see is the floor slab: a pale horizontal band
+            # across the bottom of the opening. It is the cue that turns a
+            # dark rectangle into a HOLE (a mirror-glazed tower has plenty of
+            # dark rectangles that are only reflections), and it is the stripe
+            # the research says survives [§12 8.7].
+            _g_face_quad(A("slab", p["side"], p["storey"], own), f["fr"],
+                         ua, ub_, min(vb, va + G_TRANSOM_H),
+                         min(vb, va + G_TRANSOM_H + G_SLAB_H),
+                         f["out"] - f["recess"] + 0.004)
+            # THE CAGE, in relief. The painted mullion already holds the grid;
+            # these bars give it a shadow and a lit edge so two adjacent empty
+            # panes cannot merge into one black blob.
+            if bars < G_MAX_BARS:
+                ab = A("mull", p["side"], p["storey"], own)
                 for uu in (p["ua"], p["ub"]):
-                    _g_follow(ctx, _g_bar(
-                        ctx, f["fr"], uu, 0.5 * (p["va"] + p["vb"]),
-                        G_MULLION_W, p["vb"] - p["va"],
-                        f["out"] + G_MULLION_PROUD, mullm, along=False), own)
+                    key = (id(f["fr"]), round(uu, 2), p["storey"])
+                    if key in seen_bar:
+                        continue
+                    seen_bar.add(key)
+                    cx, cy, _z = _b_face_pt(f["fr"], uu, p["va"],
+                                            f["out"] + G_MULLION_PROUD)
+                    _g_box(ab, cx, cy, 0.5 * (p["va"] + p["vb"]), G_MULLION_W,
+                           G_MULLION_W * 1.05, p["vb"] - p["va"], f["fr"][2])
                     bars += 1
-                _g_follow(ctx, _g_bar(
-                    ctx, f["fr"], 0.5 * (p["ua"] + p["ub"]),
-                    p["va"] + 0.03, p["ub"] - p["ua"], G_MULLION_W,
-                    f["out"] + G_MULLION_PROUD, mullm, along=True), own)
-                bars += 1
-            _g_dice_heap(ctx, m, p["side"], _g_pane_world(p),
-                         (p["ub"] - p["ua"]) * (p["vb"] - p["va"]),
-                         km["debris"])
-        # bent mullions at the band corners — the glass plastically deforms
-        # the aluminium as it rotates into the frame [§12 8.7]. 10-40 mm.
+                # the TRANSOM is a flat strip, not a box: a box here is six
+                # quads for a line that reads at 20-80 m as a shadow, and the
+                # pale slab band directly above it already carries the depth.
+                # 600 boxes vs 400 quads is the difference between 1.6x and
+                # 1.2x the round-2 archetype size.
+                for (vv, key2) in ((p["va"], "lo"), (p["vb"], "hi")):
+                    key = (id(f["fr"]), round(0.5 * (p["ua"] + p["ub"]), 2),
+                           p["storey"], key2)
+                    if key in seen_bar:
+                        continue
+                    seen_bar.add(key)
+                    v0 = vv if key2 == "lo" else vv - G_TRANSOM_H
+                    _g_face_quad(ab, f["fr"], p["ua"], p["ub"], v0,
+                                 v0 + G_TRANSOM_H, f["out"] + 0.030)
+                    bars += 1
+            if id(p) in heaped:
+                _g_add_debris(ctx, A("dice", p["side"], None), m, p["side"],
+                              _b_face_pt(f["fr"], 0.5 * (p["ua"] + p["ub"]),
+                                         p["va"], f["out"]),
+                              (p["ub"] - p["ua"]) * (p["vb"] - p["va"]),
+                              km["debris"], density=dens)
+        # bent mullions at the band corners — the glass plastically deforms the
+        # aluminium as it rotates into the frame [§12 8.7]. 10-40 mm.
         bent = [q for q in out if q["storey"] in (band_lo, band_hi)]
         rng.shuffle(bent)
         for p in bent[:g["bend"]]:
-            _g_follow(ctx, _g_bar(
-                ctx, p["f"]["fr"], p["ua"], 0.5 * (p["va"] + p["vb"]),
-                G_MULLION_W, p["vb"] - p["va"],
-                p["f"]["out"] + G_MULLION_PROUD, mullm, along=False,
-                shift=rng.uniform(*G_BENT_MM), kind="bentmull"),
-                p["f"]["e"]["p"].get("prim_path"))
+            f = p["f"]
+            cx, cy, _z = _b_face_pt(f["fr"], p["ua"], p["va"],
+                                    f["out"] + G_MULLION_PROUD
+                                    + rng.uniform(*G_BENT_MM))
+            _g_box(A("mull", p["side"], p["storey"],
+                     f["e"]["p"].get("prim_path")),
+                   cx, cy, 0.5 * (p["va"] + p["vb"]), G_MULLION_W,
+                   G_MULLION_W * 1.05, p["vb"] - p["va"], f["fr"][2])
         for p in crack:
             f = p["f"]
             own = f["e"]["p"].get("prim_path")
             if km["precar"] > 0 and rng.random() < km["precar"]:
-                ctx["authored"] += _g_follow_all(ctx, _g_crazed(
-                    ctx, f["fr"], p["ua"], p["ub"], p["va"], p["vb"],
-                    f["out"], rng), own)
+                _g_add_crazed(A("crazed", p["side"], p["storey"], own),
+                              A("crack", p["side"], p["storey"], own),
+                              f["fr"], p["ua"], p["ub"], p["va"], p["vb"],
+                              f["out"], rng)
             else:
-                ctx["authored"] += _g_follow_all(ctx, _g_corner_cracks(
-                    ctx, f["fr"], p["ua"], p["ub"], p["va"], p["vb"],
-                    f["out"], crackm, rng), own)
+                _g_add_corner_cracks(A("crack", p["side"], p["storey"], own),
+                                     f["fr"], p["ua"], p["ub"], p["va"],
+                                     p["vb"], f["out"], rng)
         # gaskets go first — 24 % below the cracking drift, and hundreds per
         # tower at Northridge with almost no broken glass [§12 8.7]
         pool = [q for q in ps if q["storey"] in band] or ps
         for k in range(rng.randint(*g["gaskets"])):
             q = pool[rng.randrange(len(pool))]
-            ctx["authored"].append(_g_follow(ctx,
-                _g_gasket(ctx, q["f"]["fr"], q["ua"] + 0.03, q["va"], q["vb"],
-                          q["f"]["out"], rng),
-                q["f"]["e"]["p"].get("prim_path")))
+            _g_add_gasket(A("gasket", q["side"], None,
+                            q["f"]["e"]["p"].get("prim_path")),
+                          q["f"]["fr"], q["ua"] + 0.03, q["va"], q["vb"],
+                          q["f"]["out"], rng)
+        mats = {"open": _g_mat(ctx, "open"), "mull": _g_mat(ctx, "mullion"),
+                "crazed": _g_mat(ctx, "crazed"), "dice": _g_mat(ctx, "dice"),
+                "gasket": _g_mat(ctx, "gasket"), "crack": ctx["mats"]["crack"],
+                "slab": _g_mat(ctx, "slab")}
+        for (k_, side, storey), a in sorted(
+                accs.items(), key=lambda kv: str(kv[0])):
+            if _g_emit(ctx, a, mats[k_], "g" + k_, owners[(k_, side, storey)]):
+                n_mesh += 1
         n_out_all += len(out)
         n_crack_all += len(crack)
         ctx["notes"].append(
-            "curtain_wall DG{0} {1} {2}: band storeys {3}-{4} on {5}, "
-            "{6}/{7} panes out ({8:.0f} %), {9} cracked/retained".format(
-                grade, kind, tag, band_lo, band_hi, "+".join(bsides),
+            "curtain_wall DG{0} {1} {2} ({3}): band storeys {4}-{5} on {6}, "
+            "{7}/{8} panes out ({9:.0f} %), {10} cracked/retained".format(
+                grade, kind, tag, pname, band_lo, band_hi, "+".join(bsides),
                 len(out), len(ps), 100.0 * len(out) / max(1, len(ps)),
                 len(crack)))
     if peel is None:
         peel = g["peel"]
     if peel:
         _g_peel(ctx, mass=mass, kind=km["debris"])
-    ctx["notes"].append("curtain_wall: {0} out, {1} cracked, {2} debris prims"
-                        .format(n_out_all, n_crack_all, ctx.get("g_debris", 0)))
+    ctx["notes"].append(
+        "curtain_wall: {0} out, {1} cracked, {2} debris quads, {3} authored "
+        "mesh(es)".format(n_out_all, n_crack_all, ctx.get("g_debris", 0),
+                          n_mesh))
 
 
 def _g_peel(ctx, mass=None, kind="dice"):
@@ -3455,8 +3782,7 @@ def _g_peel(ctx, mass=None, kind="dice"):
     mullions at first level lost and buckled, due to downward movement of the
     curtain wall system relative to the pavement" — whole-unit loss is a
     GROUND-FLOOR phenomenon [§12 8.8, 8.6]. So: at most one per SCENE, one
-    storey, one elevation, as low as the curtain wall goes.
-    """
+    storey, one elevation, as low as the curtain wall goes."""
     if _G_PEEL_BUDGET[0] <= 0:
         return
     rng = ctx["rng"]
@@ -3473,6 +3799,7 @@ def _g_peel(ctx, mass=None, kind="dice"):
     run = run[:max(1, min(2, len(run)))]
     m = ctx["info"]["masses"].get(run[0]["mass"]) or ctx["info"]["masses"]["main"]
     ox, oy = _outward(m, side)
+    acc, dacc = _g_acc(), _g_acc()
     gone = 0
     for e in run:
         if not _deactivate(ctx["stage"], e["p"].get("prim_path")):
@@ -3484,42 +3811,38 @@ def _g_peel(ctx, mass=None, kind="dice"):
         fr = _piece_frame(e)
         if fr is None:
             continue
-        mull = _g_mat(ctx, "mullion")
         d = rng.uniform(1.4, 3.2)
         for k in range(4):
-            u = 0.35 + k * 1.45
-            x, y, _z = _b_face_pt(fr, u, m["z0"], d)
-            path = "{0}/gpeel_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
-            _box(ctx["stage"], path, x + ox * rng.uniform(-0.4, 0.4),
-                 y + oy * rng.uniform(-0.4, 0.4), m["z0"] + 0.06,
-                 rng.uniform(2.2, 3.0), 0.09, 0.10,
-                 math.degrees(fr[2]) + rng.uniform(-14, 14), mull)
-            ctx["authored"].append(path)
+            x, y, _z = _b_face_pt(fr, 0.35 + k * 1.45, m["z0"], d)
+            _g_box(acc, x + ox * rng.uniform(-0.4, 0.4),
+                   y + oy * rng.uniform(-0.4, 0.4), m["z0"] + 0.06,
+                   rng.uniform(2.2, 3.0), 0.09, 0.10,
+                   fr[2] + math.radians(rng.uniform(-14, 14)))
         for k in range(2):
             x, y, _z = _b_face_pt(fr, 2.5, m["z0"], d + rng.uniform(-0.6, 0.6))
-            path = "{0}/gpeelt_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
-            _box(ctx["stage"], path, x, y, m["z0"] + 0.10, 0.10, 0.09,
-                 rng.uniform(3.4, 4.6), math.degrees(fr[2]) + 90.0 + rng.uniform(-10, 10),
-                 mull)
-            ctx["authored"].append(path)
-        _g_dice_heap(ctx, m, side, _b_face_pt(fr, 2.5, m["z0"] + 0.2, 0.0),
-                     10.0, kind)
+            _g_box(acc, x, y, m["z0"] + 0.10, 0.10, 0.09,
+                   rng.uniform(3.4, 4.6),
+                   fr[2] + math.pi / 2.0 + math.radians(rng.uniform(-10, 10)))
+        _g_add_debris(ctx, dacc, m, side,
+                      _b_face_pt(fr, 2.5, m["z0"] + 0.2, 0.0), 10.0, kind)
     if gone:
+        _g_emit(ctx, acc, _g_mat(ctx, "mullion"), "gpeel")
+        _g_emit(ctx, dacc, _g_mat(ctx, "dice"), "gpeeldice")
         _G_PEEL_BUDGET[0] -= 1
         ctx["g_peel"] = True
         ctx["notes"].append(
-            "curtain_wall: ONE whole-unit peel ({0} module(s), storey {1}, "
-            "{2} side) — scene budget now {3}".format(
-                gone, lo, side, _G_PEEL_BUDGET[0]))
+            "curtain_wall: ONE whole-unit peel ({0} module(s), storey {1}, {2} "
+            "side) — scene budget now {3}".format(gone, lo, side,
+                                                  _G_PEEL_BUDGET[0]))
 
 
-# In-plane fixed glazing — shopfronts, arcade windows, lobby walls, URM
-# sashes. Zhao Xi'an's Wenchuan survey keyed the glass to the adjacent brick
-# wall's state, which is exactly our grade [§12 8.3]:
+# In-plane fixed glazing — shopfronts, arcade windows, lobby walls, URM sashes.
+# Zhao Xi'an's Wenchuan survey keyed the glass to the adjacent brick wall's
+# state, which is exactly our grade [§12 8.3]:
 #   < 1/800   nothing            |  1/500-1/300  "glass breaks in large numbers"
 #   1/300-1/150 "frames buckle, bulge outward, even flung out; glass basically
-#               shattered and scattered; often only the empty window opening
-#               is left"        |  > 1/150  windows vanish with the wall.
+#               shattered and scattered; often only the empty window opening is
+#               left"           |  > 1/150  windows vanish with the wall.
 # Ferndale 2010 gives the only published cracked-share for a shopfront row:
 # "50 % of the glazing on Main Street was cracked" [§12 8.10] -> DG2.
 G_SHOP_GRADE = {
@@ -3533,7 +3856,6 @@ G_SHOP_GRADE = {
 
 def _g_shop_openings(ctx, mass=None, sides=None, storeys=None):
     """Every measured in-plane glazed opening on the building."""
-    from detail import urban_building as ub
     out = []
     for e in _els(ctx, role=("wall", "corner")):
         rects = _G_SHOP_FACES.get(e["name"])
@@ -3556,77 +3878,62 @@ def _g_shop_openings(ctx, mass=None, sides=None, storeys=None):
     return out
 
 
-def _g_rack_frame(ctx, op, lean, rng):
+def _g_add_rack(acc, op, lean, rng):
     """Zhao's high-drift state: "frames buckle, bulge outward, even flung out".
 
     The frame is squeezed into a PARALLELOGRAM with the sash still rectangular
-    inside it (Wenchuan, verbatim) [§12 8.15]. Drawn as leaning jamb/mullion
-    bars across the opening plus a head bar bowed out of plane, standing proud
-    of the glass line so the lean is visible against the reveal.
-    """
-    fr, mull = op["fr"], _g_mat(ctx, "mullion")
+    inside it (Wenchuan, verbatim) [§12 8.15]. Leaning jamb/mullion bars across
+    the opening plus a head bar bowed out of plane, standing proud of the glass
+    line so the lean is visible against the reveal."""
+    fr = op["fr"]
     h = op["vb"] - op["va"]
     w = op["ub"] - op["ua"]
     n = max(2, int(round(w / 1.3)) + 1)
-    made = []
     for k in range(n):
         u = op["ua"] + w * (k / float(n - 1)) if n > 1 else op["ua"] + w / 2.0
         # a leaning jamb: two stacked boxes offset along the wall, so the
         # parallelogram reads without a shear transform on the mesh
         for t in (0.28, 0.75):
-            cu = u + lean * h * t
-            path = "{0}/grack_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
-            cx, cy, _z = _b_face_pt(fr, cu, op["va"], op["out"] + 0.10)
-            _box(ctx["stage"], path, cx, cy, op["va"] + h * t,
-                 G_MULLION_W, G_MULLION_W, h * 0.48,
-                 math.degrees(fr[2]), mull)
-            made.append(path)
-    # the head, bulged outward
+            cx, cy, _z = _b_face_pt(fr, u + lean * h * t, op["va"],
+                                    op["out"] + 0.10)
+            _g_box(acc, cx, cy, op["va"] + h * t, G_MULLION_W, G_MULLION_W,
+                   h * 0.48, fr[2])
     cx, cy, _z = _b_face_pt(fr, op["ua"] + w / 2.0, op["vb"] - 0.10,
                             op["out"] + 0.10 + abs(lean) * 1.6)
-    path = "{0}/grackh_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
-    _box(ctx["stage"], path, cx, cy, op["vb"] - 0.10, w * 0.94, G_MULLION_W,
-         G_MULLION_W, math.degrees(fr[2]) + rng.uniform(-3.0, 3.0), mull)
-    made.append(path)
-    ctx["authored"] += made
-    return made
+    _g_box(acc, cx, cy, op["vb"] - 0.10, w * 0.94, G_MULLION_W, G_MULLION_W,
+           fr[2] + math.radians(rng.uniform(-3.0, 3.0)))
 
 
-def _g_sill_glass(ctx, op, kind, rng, heavy=1.0):
+def _g_add_sill(ctx, acc, op, kind, rng, heavy=1.0):
     """"The sill buried in rubble and glass" — the storefront signature.
 
     FEMA E-74 Fig. 6.3.1.4-6, observed: every pane gone, the vertical mullions
     bowed one way, the sill buried, the interior visible. Storefront glass is
-    also the dangerous kind: FEMA P-58 puts the serious-injury rate per
-    fallout unit at 0.25 for storefront against 0.02 for curtain wall [§12 8.9].
-    """
+    also the dangerous kind: FEMA P-58 puts the serious-injury rate per fallout
+    unit at 0.25 for storefront against 0.02 for curtain wall [§12 8.9]."""
     if ctx.get("g_debris", 0) >= G_MAX_DEBRIS:
-        return []
+        return 0
     fr, m = op["fr"], op["m"]
-    made = []
-    shard = ctx["mats"]["glass_shard"]
-    dice = _g_mat(ctx, "dice")
     w = op["ub"] - op["ua"]
-    n = max(3, int(round(7 * heavy * max(0.6, w / 2.5))))
+    n = max(5, int(round(16 * heavy * max(0.6, w / 2.5))))
     for k in range(n):
-        u = rng.uniform(op["ua"] - 0.3, op["ub"] + 0.3)
-        # most of it drops straight down inside the reveal, a little washes
-        # out onto the pavement
-        o = (op["out"] + rng.uniform(0.15, 1.0) if rng.random() < 0.7
-             else rng.uniform(0.4, 2.4))
+        u = rng.uniform(op["ua"] - 0.25, op["ub"] + 0.25)
+        # THE SILL IS BURIED — 3 in 4 pieces land inside the reveal, in a dense
+        # line against the frame, and only the rest washes out onto the
+        # pavement. Storefront glass falls almost straight down: it is a metre
+        # or two above the footpath, not forty [§12 8.9].
+        o = (op["out"] + rng.uniform(0.05, 0.55) if rng.random() < 0.75
+             else rng.uniform(0.3, 1.8))
         x, y, _z = _b_face_pt(fr, u, m["z0"], o)
-        path = "{0}/gsill_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
-        if rng.random() < 0.45:
-            _a_lump(ctx["stage"], path, x, y, m["z0"] + 0.03,
-                    rng.uniform(0.22, 0.55), rng, mat=dice, jitter=0.4)
-        else:
-            s = rng.uniform(0.10, 0.40)
-            _box(ctx["stage"], path, x, y, m["z0"] + 0.008, s,
-                 s * rng.uniform(0.3, 0.9), 0.013, rng.uniform(0, 180), shard)
-        made.append(path)
-    ctx["g_debris"] = ctx.get("g_debris", 0) + len(made)
-    ctx["authored"] += made
-    return made
+        # annealed shopfront glass is "large jagged shards" but 0.7 m plates
+        # lying flat read as tarpaulin from the pavement; 0.10-0.35 m with a
+        # few larger ones is what a swept-up shopfront actually looks like.
+        s = (rng.uniform(0.10, 0.35) if rng.random() < 0.82
+             else rng.uniform(0.35, 0.60))
+        _g_ground_quad(acc, x, y, m["z0"] + 0.010 + rng.uniform(0.0, 0.03), s,
+                       s * rng.uniform(0.3, 0.9), rng.uniform(0, 6.283), 0.012)
+    ctx["g_debris"] = ctx.get("g_debris", 0) + n
+    return n
 
 
 def _g_sill_litter(ctx, mass="main", sides=None, storey=0, density=1.0):
@@ -3634,34 +3941,35 @@ def _g_sill_litter(ctx, mass="main", sides=None, storey=0, density=1.0):
 
     Families 01 (stone apartment), 02 (office) and 03 (brownstone) have no
     glazing geometry at all — the windows are in the façade map — so there is
-    nothing to open there and honesty is a windrow of glass at the foot of
-    the wall instead of a guessed rectangle. Banded under the glazed storey,
-    which is already better than the round-2 shard field's spray on all four
-    sides at random depth.
-    """
+    nothing to open there, and honesty is a windrow of glass at the foot of the
+    wall instead of a guessed rectangle. Banded under the glazed storey, which
+    is already better than the round-2 shard field's spray on all four sides at
+    a random depth."""
     rng = ctx["rng"]
     m = ctx["info"]["masses"].get(mass) or ctx["info"]["masses"]["main"]
-    shard = ctx["mats"]["glass_shard"]
-    made = []
+    acc = _g_acc()
+    n = 0
     for side in (sides or ("S",)):
-        ox, oy = _outward(m, side)
         L = m["W"] if side in ("S", "N") else m["D"]
-        n = max(3, int(round(8 * density * L / 20.0)))
-        for k in range(n):
-            t = rng.uniform(-0.46, 0.46) * L
-            d = rng.uniform(0.25, 2.2)
+        # A WINDROW, not a sprinkle. Shopfront glass falls a metre or two, so
+        # it lies in a line against the wall under the glazed storey — Loma
+        # Prieta's Watsonville Main Street, "the sill buried in rubble and
+        # glass" [§12 8.9]. Density is per metre of frontage.
+        for k in range(max(6, int(round(38 * density * L / 20.0)))):
+            t = rng.uniform(-0.48, 0.48) * L
+            d = abs(rng.gauss(0.0, 0.75)) + 0.15      # hugs the wall
             if side in ("S", "N"):
                 lx, ly = t, (-m["D"] / 2.0 - d if side == "S" else m["D"] / 2.0 + d)
             else:
                 lx, ly = (-m["W"] / 2.0 - d if side == "W" else m["W"] / 2.0 + d), t
             wx, wy = _to_world(m, lx, ly)
-            s = rng.uniform(0.08, 0.34)
-            path = "{0}/glit_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
-            _box(ctx["stage"], path, wx, wy, m["z0"] + 0.008, s,
-                 s * rng.uniform(0.3, 0.9), 0.013, rng.uniform(0, 180), shard)
-            made.append(path)
-    ctx["authored"] += made
-    return made
+            s = rng.uniform(0.10, 0.40)
+            _g_ground_quad(acc, wx, wy, m["z0"] + 0.010, s,
+                           s * rng.uniform(0.3, 0.9), rng.uniform(0, 6.283),
+                           0.010)
+            n += 1
+    _g_emit(ctx, acc, ctx["mats"]["glass_shard"], "glit")
+    return n
 
 
 def r_storefront_glass(ctx, grade=3, mass=None, sides=None, storeys=None,
@@ -3671,28 +3979,35 @@ def r_storefront_glass(ctx, grade=3, mass=None, sides=None, storeys=None,
     NOT the curtain-wall medians: these panes are IN PLANE with the wall, so
     they take the wall's own drift, and the record is harsh — Loma Prieta's
     Watsonville Main Street, Northridge's storefronts, Türkiye 2023 where the
-    glazed retail storey is what MADE the soft storey that collapsed. The
-    ladder is Zhao Xi'an's (G_SHOP_GRADE above).
+    glazed retail storey is what MADE the soft storey. The ladder is Zhao
+    Xi'an's (`G_SHOP_GRADE` above).
 
-    Where the kit has no glazing geometry (families 01/02/03 — painted
-    windows) this lays the glass at the sill and nothing else; see
-    `_g_sill_litter`.
-    """
+    _g2_ (round 3): the building's PUNCHED windows are done here too, by
+    `r_window_glass` — so every ladder that already asks for `storefront_glass`
+    gets them without a ladder change. The sill-litter fallback now fires only
+    when the building has NEITHER shopfront glazing NOR a measured window, which
+    on the 16 styles means the stone apartment's arcade ground floor and the
+    civic portico and nothing else."""
     rng = ctx["rng"]
     grade = int(max(1, min(5, grade)))
     g = G_SHOP_GRADE[grade]
     km = G_GLASS_KIND.get(glass, G_GLASS_KIND["annealed"])
     ops = _g_shop_openings(ctx, mass=mass, sides=sides, storeys=storeys)
+    n_win = 0
+    if not ctx.get("g2_win_done"):
+        ctx["g2_win_done"] = True
+        n_win = r_window_glass(ctx, grade=grade, mass=mass, sides=sides,
+                               storeys=storeys, glass=glass)
     if not ops:
-        if litter:
-            n = len(_g_sill_litter(
+        if litter and not n_win:
+            n = _g_sill_litter(
                 ctx, mass=mass or "main",
                 sides=sides or _pick_sides(ctx, 2 if grade >= 3 else 1),
-                density=g["sill"]))
+                density=g["sill"])
             ctx["notes"].append(
-                "storefront_glass DG{0}: no glazing geometry on this kit "
-                "family (painted windows) — {1} glass pieces at the sill"
-                .format(grade, n))
+                "storefront_glass DG{0}: no glazing geometry on this kit family "
+                "(painted windows, and no punched window either) — {1} glass "
+                "pieces at the sill".format(grade, n))
         return
     # the ground storey is where the drift and the shopfronts are
     for op in ops:
@@ -3700,35 +4015,663 @@ def r_storefront_glass(ctx, grade=3, mass=None, sides=None, storeys=None,
     ops.sort(key=lambda q: -q["s"])
     n_out = int(round(g["out"] * len(ops)))
     n_crack = int(round(g["crack"] * len(ops)))
-    openm = _g_mat(ctx, "open")
-    crackm = ctx["mats"]["crack"]
+    accs, owners = {}, {}
+
+    def A(k_, side, owner=None):
+        key = (k_, side)
+        a = accs.get(key)
+        if a is None:
+            a = accs[key] = _g_acc()
+            owners[key] = owner
+        return a
+
     n_rack = 0
     for op in ops[:n_out]:
         own = op["e"]["p"].get("prim_path")
-        ctx["authored"].append(_g_follow(ctx,
-            _g_quad(ctx, op["fr"], op["ua"] + 0.03, op["ub"] - 0.03,
-                    op["va"] + 0.03, op["vb"] - 0.03, op["out"] - 0.03,
-                    openm, "shopopen"), own))
+        _g_face_soft(A("open", op["side"], own), op["fr"], op["ua"] + 0.03,
+                     op["ub"] - 0.03, op["va"] + 0.03, op["vb"] - 0.03,
+                     op["out"] - 0.03)
+        # the lit floor inside the empty shopfront — same job as the curtain
+        # wall's slab edge: it says HOLE, not dark reflection
+        _g_face_quad(A("slab", op["side"], own), op["fr"], op["ua"] + 0.06,
+                     op["ub"] - 0.06, op["va"] + 0.04,
+                     min(op["vb"], op["va"] + 0.18), op["out"] - 0.026)
         if g["rack"] > 0 and rng.random() < 0.75:
-            _g_follow_all(ctx, _g_rack_frame(
-                ctx, op, rng.choice((-1.0, 1.0)) * g["rack"], rng), own)
+            _g_add_rack(A("mull", op["side"], own), op,
+                        rng.choice((-1.0, 1.0)) * g["rack"], rng)
             n_rack += 1
-        _g_sill_glass(ctx, op, km["debris"], rng, heavy=g["sill"])
+        _g_add_sill(ctx, A("dice", op["side"]), op, km["debris"], rng,
+                    heavy=g["sill"])
     for op in ops[n_out:n_out + n_crack]:
         own = op["e"]["p"].get("prim_path")
         if km["precar"] > 0 and rng.random() < km["precar"]:
-            ctx["authored"] += _g_follow_all(ctx, _g_crazed(
-                ctx, op["fr"], op["ua"], op["ub"], op["va"], op["vb"],
-                op["out"], rng), own)
+            _g_add_crazed(A("crazed", op["side"], own),
+                          A("crack", op["side"], own), op["fr"], op["ua"],
+                          op["ub"], op["va"], op["vb"], op["out"], rng)
         else:
-            ctx["authored"] += _g_follow_all(ctx, _g_corner_cracks(
-                ctx, op["fr"], op["ua"], op["ub"], op["va"], op["vb"],
-                op["out"], crackm, rng), own)
+            _g_add_corner_cracks(A("crack", op["side"], own), op["fr"],
+                                 op["ua"], op["ub"], op["va"], op["vb"],
+                                 op["out"], rng)
         if rng.random() < 0.35 * g["sill"]:
-            _g_sill_glass(ctx, op, km["debris"], rng, heavy=0.3)
+            _g_add_sill(ctx, A("dice", op["side"]), op, km["debris"], rng,
+                        heavy=0.3)
+    mats = {"open": _g_mat(ctx, "open"), "mull": _g_mat(ctx, "mullion"),
+            "crazed": _g_mat(ctx, "crazed"), "dice": _g_mat(ctx, "dice"),
+            "crack": ctx["mats"]["crack"], "slab": _g_mat(ctx, "slab")}
+    n_mesh = 0
+    for key, a in sorted(accs.items(), key=lambda kv: str(kv[0])):
+        if _g_emit(ctx, a, mats[key[0]], "s" + key[0], owners[key]):
+            n_mesh += 1
     ctx["notes"].append(
-        "storefront_glass DG{0}: {1}/{2} openings emptied, {3} cracked, "
-        "{4} frames racked".format(grade, n_out, len(ops), n_crack, n_rack))
+        "storefront_glass DG{0}: {1}/{2} openings emptied, {3} cracked, {4} "
+        "frames racked, {5} authored mesh(es)".format(
+            grade, n_out, len(ops), n_crack, n_rack, n_mesh))
+
+
+# ---------------------------------------------------------------------------
+# _g2_ (round 3, agent G2) — PUNCHED WINDOWS
+# ---------------------------------------------------------------------------
+# Agent G's gap, item 1, verbatim: "families 01/02/03 (apartment / office /
+# brownstone kits) have no glazing geometry in `_G_SHOP_FACES`, so an office
+# DG3 gets 82 pieces of glass on the pavement and not one broken window."
+# `_g_glass_rects.py` keys on the bound MATERIAL, and those three families
+# paint their glass into the façade map, so it found nothing on them — which
+# is most of the city.
+#
+# The REVEALS are real geometry, though, so the openings are MEASURABLE, not
+# guessable. `scene_gen/tools/_g2_win_rects.py` rasterises every kit module in
+# `_piece_frame` coordinates, takes the module's largest outward-facing plane
+# as the wall, and finds the HOLES in it; a second pass picks up glass-material
+# subsets for the modules that glaze a whole bay and therefore punch no hole at
+# all (the Downtown_West shopfronts). `scene_gen/tools/_g2_curate.py` then
+# throws out the arcades, plant screens, stoops and cornice reveals it also
+# finds. Raw sweep + audit trail: `scene_gen/_plans/glazing_probe/`.
+#
+# Three measurement traps, all of which cost a sweep:
+#  (a) The flood that finds "outside" must be blocked by geometry AT ANY DEPTH,
+#      not just by the wall. A FRENCH window runs to the bottom edge of its own
+#      module (`SM_MBuilding03_Facade_B_Upper`, u 0.79..3.21, v 0.00..2.61), so
+#      a flood seeded on the raster border walks straight into it. The reveal
+#      behind it does cover those cells.
+#  (b) …and the component must be CLIPPED at the outside, not discarded on
+#      contact with it, or every French window is thrown away again.
+#  (c) The dark quad goes on the SHALLOWEST light of the deepest glazing
+#      CLUSTER, not on the deepest plane. A kit window is a stepped reveal with
+#      two lights at different depths (fam01 Facade_A: lower light 0.25 m back,
+#      upper 0.20 m); a quad behind the deepest one leaves the upper light
+#      still showing its painted glass, and a quad on the first reveal step
+#      sits 8 cm behind the wall and reads flat.
+#
+# WHY THIS IS NOT `_G_CW_FACES`. A curtain-wall pane is hung off the slab edges
+# and takes RELATIVE movement (1.4-2 % drift, "as long as the building does not
+# collapse, the curtain wall will not fail"); a punched window is IN PLANE with
+# its wall and takes the wall's own drift, and Zhao Xi'an's Wenchuan ladder is
+# harsh from 0.2 % [§12 8.3]. Same building, two orders of severity — that is
+# the whole tower-vs-street contrast in the field record.
+_G2_WIN_FACES = {
+    "SM_MBuilding01_Facade_A": [
+        (0.95, 1.95, 0.629, 2.222, -0.37, 0.907, 1.987, 0.58, 2.28),
+        (3.05, 4.05, 0.629, 2.222, -0.37, 3.007, 4.087, 0.58, 2.26),
+    ],
+    "SM_MBuilding01_Facade_B": [
+        (0.802, 1.322, 0.629, 2.222, -0.37, 0.767, 1.367, 0.58, 2.28),
+        (2.247, 2.767, 0.629, 2.222, -0.37, 2.207, 2.807, 0.58, 2.28),
+        (3.7, 4.22, 0.629, 2.222, -0.37, 3.667, 4.267, 0.58, 2.28),
+    ],
+    "SM_MBuilding01_Facade_C": [
+        (0.86, 2.04, 0.189, 0.918, -0.17, 0.86, 2.04, 0.18, 0.92),
+        (2.96, 4.14, 0.2, 0.9, -0.17, 2.96, 4.14, 0.2, 0.9),
+        (0.95, 1.95, 1.257, 2.85, -0.3, 0.9, 2.0, 1.2, 2.9),
+        (3.05, 4.05, 1.257, 2.85, -0.3, 3.02, 4.1, 1.22, 2.9),
+    ],
+    "SM_MBuilding01_Facade_D": [
+        (0.72, 1.42, 0.189, 0.918, -0.17, 0.72, 1.42, 0.18, 0.92),
+        (2.16, 2.86, 0.189, 0.918, -0.17, 2.16, 2.86, 0.18, 0.92),
+        (3.6, 4.3, 0.189, 0.918, -0.17, 3.6, 4.3, 0.18, 0.92),
+        (0.802, 1.322, 1.257, 2.85, -0.3, 0.76, 1.36, 1.2, 2.9),
+        (2.247, 2.767, 1.257, 2.85, -0.3, 2.2, 2.8, 1.2, 2.9),
+        (3.7, 4.22, 1.257, 2.85, -0.3, 3.66, 4.26, 1.2, 2.9),
+    ],
+    "SM_MBuilding02_Facade_A": [
+        (0.302, 1.102, 0.6, 2.33, -0.3, 0.2, 1.18, 0.52, 2.5),
+        (1.6, 2.4, 0.6, 2.33, -0.3, 1.52, 2.48, 0.52, 2.5),
+        (2.898, 3.698, 0.6, 2.33, -0.3, 2.82, 3.8, 0.52, 2.5),
+    ],
+    "SM_MBuilding02_Facade_B": [
+        (0.85, 1.65, 0.6, 2.33, -0.3, 0.76, 1.74, 0.52, 2.5),
+        (2.35, 3.15, 0.6, 2.33, -0.3, 2.26, 3.24, 0.52, 2.5),
+    ],
+    "SM_MBuilding02_Facade_C": [
+        (0.52, 3.5, 0.52, 2.48, -0.2, 0.52, 3.5, 0.52, 2.48),
+    ],
+    "SM_MBuilding02_FirstFloor_B": [
+        (1.52, 6.5, 0.699, 3.999, -0.46, 1.52, 6.5, -0.001, 3.999),
+        (1.52, 6.5, 4.519, 5.499, -0.46, 1.52, 6.5, 4.519, 5.499),
+    ],
+    "SM_MBuilding02_FirstFloor_C": [
+        (1.24, 2.8, -0.001, 2.619, -0.32, 1.24, 2.8, -0.001, 2.619),
+        (3.255, 4.78, -0.0, 2.619, -0.39, 3.22, 4.78, -0.001, 2.619),
+        (5.2, 6.76, -0.001, 2.619, -0.32, 5.2, 6.76, -0.001, 2.619),
+        (1.327, 2.705, 3.675, 5.399, -0.4, 1.24, 2.8, 3.579, 5.499),
+        (3.305, 4.695, 3.675, 5.399, -0.4, 3.22, 4.78, 3.579, 5.499),
+        (5.295, 6.673, 3.675, 5.399, -0.4, 5.2, 6.76, 3.579, 5.499),
+    ],
+    "SM_MBuilding02_FirstFloor_E": [
+        (1.238, 3.4, 0.799, 5.399, -0.55, 1.14, 3.5, -0.001, 5.499),
+        (4.6, 6.763, 0.799, 5.399, -0.55, 4.52, 6.86, -0.001, 5.499),
+    ],
+    "SM_MBuilding03_Facade_A": [
+        (0.963, 3.037, 0.735, 2.209, -0.63, 0.8, 3.2, 0.46, 2.52),
+    ],
+    "SM_MBuilding03_Facade_B_Bottom": [
+        (0.963, 3.037, 0.735, 2.209, -0.25, 0.8, 3.2, 0.46, 3.02),
+    ],
+    "SM_MBuilding03_Facade_B_Middle": [
+        (0.963, 3.037, 0.9, 2.374, -0.25, 0.8, 3.2, -0.0, 3.02),
+    ],
+    "SM_MBuilding03_Facade_B_Upper": [
+        (0.963, 3.037, 0.815, 2.289, -0.63, 0.8, 3.2, -0.0, 2.6),
+    ],
+    "SM_MBuilding03_Facade_C": [
+        (0.963, 1.859, 0.735, 2.248, -0.15, 0.94, 1.88, 0.7, 2.28),
+        (2.141, 3.037, 0.735, 2.248, -0.15, 2.12, 3.06, 0.7, 2.28),
+    ],
+    "SM_MBuilding03_FirstFloor_A": [
+        (1.3, 2.7, 0.0, 2.2, -1.6, 1.257, 2.737, -0.0, 2.24),
+        (1.257, 2.737, 2.3, 2.86, -1.53, 1.257, 2.737, 2.3, 2.86),
+        (1.257, 2.737, 2.94, 3.56, -1.55, 1.257, 2.737, 2.94, 3.56),
+    ],
+    "SM_MBuilding04_Facade_A": [
+        (0.732, 1.572, 0.6, 1.46, -0.24, 0.64, 1.66, 0.52, 2.48),
+        (2.412, 3.272, 0.6, 1.46, -0.24, 2.34, 3.36, 0.52, 2.48),
+        (0.732, 1.572, 1.55, 2.41, -0.19, 0.64, 1.66, 0.52, 2.48),
+        (2.412, 3.272, 1.55, 2.41, -0.19, 2.34, 3.36, 0.52, 2.48),
+    ],
+    "SM_MBuilding04_TopFloor_A": [
+        (0.732, 1.572, 0.6, 1.46, -0.91, 0.64, 1.66, 0.52, 2.48),
+        (2.412, 3.272, 0.6, 1.46, -0.91, 2.34, 3.36, 0.52, 2.48),
+        (0.732, 1.572, 1.55, 2.41, -0.86, 0.64, 1.66, 0.52, 2.48),
+        (2.412, 3.272, 1.55, 2.41, -0.86, 2.34, 3.36, 0.52, 2.48),
+    ],
+    "SM_build_b_mod_lvl1_storefront_b_wall3m": [
+        (0.102, 2.902, 0.728, 4.188, -0.22, 0.102, 2.902, 0.728, 4.188),
+    ],
+    "SM_build_b_mod_lvl1_storefront_b_wall5m": [
+        (0.115, 2.435, 0.728, 4.188, -0.22, 0.115, 2.435, 0.728, 4.188),
+        (2.655, 4.935, 0.728, 4.188, -0.22, 2.655, 4.935, 0.728, 4.188),
+    ],
+    "SM_build_b_mod_lvl2_doublewindow": [
+        (0.475, 2.235, 0.366, 2.206, -0.9, 0.36, 2.32, 0.26, 4.42),
+        (2.775, 4.535, 0.366, 2.206, -0.9, 2.68, 4.64, 0.26, 4.42),
+        (0.49, 2.21, 2.295, 4.275, -0.87, 0.36, 2.32, 0.26, 4.42),
+        (2.79, 4.53, 2.295, 4.275, -0.87, 2.68, 4.64, 0.26, 4.42),
+    ],
+    "SM_build_b_mod_lvl2_singlewindow": [
+        (0.479, 2.519, 0.38, 2.22, -0.9, 0.36, 2.64, 0.24, 4.42),
+        (0.494, 2.514, 2.316, 4.256, -0.87, 0.36, 2.64, 0.24, 4.42),
+    ],
+    "SM_build_b_mod_lvl2_widewindow": [
+        (0.822, 4.222, 0.357, 2.917, -0.82, 0.72, 4.28, 0.24, 4.42),
+        (0.807, 4.207, 2.97, 4.29, -0.78, 0.72, 4.28, 0.24, 4.42),
+    ],
+    "SM_build_b_mod_lvl3_doublewindow": [
+        (0.483, 2.223, 0.367, 1.967, -0.9, 0.36, 2.32, 0.26, 3.88),
+        (2.783, 4.523, 0.367, 1.967, -0.9, 2.68, 4.64, 0.26, 3.88),
+        (0.498, 2.198, 2.064, 3.704, -0.87, 0.36, 2.32, 0.26, 3.88),
+        (2.798, 4.518, 2.064, 3.704, -0.87, 2.68, 4.64, 0.26, 3.88),
+    ],
+    "SM_build_b_mod_lvl3_singlewindow": [
+        (0.481, 2.521, 0.381, 1.961, -0.9, 0.36, 2.64, 0.24, 3.86),
+        (0.496, 2.516, 2.067, 3.687, -0.87, 0.36, 2.64, 0.24, 3.86),
+    ],
+}
+
+
+# Zhao Xi'an's IN-PLANE ladder [§12 8.3], keyed to the adjacent wall's state —
+# which is exactly what a DG number is:
+#   1/800-1/500 fine wall cracks       -> glass intact
+#   1/500-1/300 X-cracks               -> "glass breaks in large numbers"
+#   1/300-1/150 bricks falling         -> "frames buckle, bulge outward, even
+#                                         flung out; glass basically shattered
+#                                         and scattered; often only the empty
+#                                         window opening is left"
+#   > 1/150     masonry collapses      -> the windows vanish with the wall
+# plus the only published percentage for a shopfront row: Ferndale, 2010 M6.5
+# Eureka, "50 % of the glazing on Main Street was CRACKED" [§12 8-6] — a state
+# with far more panes in it than "out", which is why `crack` outruns `out`
+# until DG3.
+#
+# `out` and `crack` are fractions of EVERY measured opening on the building.
+# They are small because a building is not one storey: the openings are sorted
+# by a score that is ~1.0 inside the racked band on the street face and 0.04
+# on a face that never moved, so 0.18 of the whole building is most of the
+# band. `crack_w` below spreads cracking WIDER than fallout on purpose —
+# cracking starts at a lower drift, so it reaches storeys the band does not.
+G2_WIN_GRADE = {
+    1: dict(out=0.005, crack=0.04, storeys=1, sides=1, rack=0.00, sill=0.15),
+    2: dict(out=0.030, crack=0.22, storeys=2, sides=1, rack=0.00, sill=0.50),
+    3: dict(out=0.180, crack=0.22, storeys=2, sides=2, rack=0.20, sill=0.90),
+    4: dict(out=0.340, crack=0.14, storeys=3, sides=2, rack=0.70, sill=1.00),
+    5: dict(out=0.500, crack=0.06, storeys=99, sides=3, rack=0.85, sill=1.00),
+}
+
+# "Opening sashes fared better than fixed lights" — Mexico City 1985 [M9], and
+# Wenchuan's "open casements survived" [W8]; the Chi-Chi survey says the same
+# ("fixed lights damaged far more than opening sashes"). A casement or a
+# double-hung sash can rotate a little inside its frame before it bears, so it
+# has clearance a fixed light does not. A fixed share of the openings is drawn
+# as openable and scored down by G2_SASH_K, which is what leaves survivors
+# scattered through a band instead of a clean stencil.
+G2_SASH_SHARE = 0.32
+G2_SASH_K = 0.28
+
+# The rack, from the Wenchuan photographs [§12 8.15]: the frame is squeezed
+# into a PARALLELOGRAM with the sash still RECTANGULAR inside it, and at the
+# high-drift end it "bulges outward". `lean` is u per unit v (a 0.10 lean over
+# a 1.8 m opening is 180 mm of skew, which is what a 1/150 storey does to a
+# 3 m storey height); `bulge` is how far the head bows out of plane.
+G2_LEAN = (0.045, 0.130)
+G2_BULGE = (0.04, 0.14)
+G2_SASH_DROP = (0.03, 0.11)      # m: the jammed sash sits down in its frame
+G2_BAR = 0.075                   # m: authored frame bar, square section
+G2_PROUD = 0.045                 # m: how far it stands off the glass line
+
+# ★ WHAT MAKES AN EMPTIED PUNCHED WINDOW READ — and it is NOT darkness.
+# On a mirror curtain wall agent G found that half the façade is already dark,
+# so an authored dark rectangle has to fight reflections; on these families it
+# is worse. `SM_MBuilding02_Facade_A`'s painted window is very nearly BLACK in
+# the façade map (G2_win1/0_office_pristine_nw.png), so a 0.020-linear quad
+# laid over it is invisible at 40 m — the whole band of 32 emptied windows at
+# DG3 read as "slightly darker windows".
+# Two cues carry it instead, and both are in the record:
+#   * the FLOOR of the room, a pale band across the bottom of the opening. The
+#     five bench cameras that matter look DOWN, so an empty opening shows its
+#     floor; an intact one cannot. Same job as agent G's slab edge.
+#   * the CORNER REMNANT. FEMA E-74's tower photograph, per `eq_round3_R.md`
+#     §3: "one pane missing out of ~12 … a dark TRIANGULAR REMNANT still lodged
+#     at the head of the opening". A pale crazed triangle against a black hole
+#     is the most legible thing on the whole façade at 40 m, and it is the one
+#     triangle the research actually asks for — a remnant IN the frame, never a
+#     fragment on the ground.
+G2_FLOOR_BAND = (0.24, 0.40)     # m: the pale floor seen through the opening
+G2_REMNANT_P = 0.45              # share of emptied openings keeping a remnant
+G2_REMNANT_M = (0.14, 0.85)      # m: min/max leg of one — a FRAGMENT, and on a
+#                                  wide shopfront bay a share of the pane is
+#                                  metres across, which reads as an awning
+
+
+def _g2_openings(ctx, mass=None, sides=None, storeys=None):
+    """Every measured PUNCHED window on the building, as records.
+
+    Same record shape as `_g_shop_openings` (so `_g_add_rack` / `_g_add_sill`
+    still take one) plus the reveal rectangle `h*`, which is the hole in the
+    wall rather than the glass inside it."""
+    out = []
+    for e in _els(ctx, role=("wall", "corner")):
+        rects = _G2_WIN_FACES.get(e["name"])
+        if not rects:
+            continue
+        if mass is not None and e["mass"] != mass:
+            continue
+        if sides and e["side"] not in sides:
+            continue
+        if storeys is not None and e["storey"] not in storeys:
+            continue
+        fr = _piece_frame(e)
+        if fr is None:
+            continue
+        m = ctx["info"]["masses"].get(e["mass"]) or ctx["info"]["masses"]["main"]
+        for r in rects:
+            u0, u1, v0, v1, o = r[:5]
+            hu0, hu1, hv0, hv1 = r[5:9] if len(r) >= 9 else (u0, u1, v0, v1)
+            out.append({"fr": fr, "ua": u0, "ub": u1, "va": e["z"] + v0,
+                        "vb": e["z"] + v1, "out": o, "e": e, "m": m,
+                        "hua": hu0, "hub": hu1, "hva": e["z"] + hv0,
+                        "hvb": e["z"] + hv1,
+                        "side": e["side"], "storey": e["storey"],
+                        "mass": e["mass"]})
+    return out
+
+
+def _g2_band(ctx, m, grade, rng, profile=None):
+    """(storeys that racked, elevations, profile name) for a PUNCHED-window
+    building.
+
+    Unlike a curtain wall, an in-plane window follows its own storey's drift,
+    and on URM/RC stock the drift concentrates LOW — the soft/open ground
+    storey and the one above it (Zhao: "lower story obtained higher damage
+    than higher story"; Chi-Chi: near-field lower storeys first) [§12 8.3,
+    8.6]. So the profile draw is biased to `frame_low` where `_g_profile`
+    spreads it evenly."""
+    g = G2_WIN_GRADE[grade]
+    n = max(1, len(m["levels"]))
+    if profile is None:
+        r = rng.random()
+        profile = ("frame_low" if r < 0.72 else
+                   "transition" if r < 0.92 else "top_diaphragm")
+    peak, pname = _g_profile(ctx, m, rng, profile)
+    k = min(n, max(1, min(int(g["storeys"]), n)))
+    if grade >= 5:
+        s0, s1 = 0, max(0, int(math.ceil(n * 0.6)) - 1)
+    else:
+        s0 = max(0, min(n - k, peak - rng.randint(0, max(0, k - 1))))
+        s1 = min(n - 1, s0 + k - 1)
+    return set(range(s0, s1 + 1)), _g_pick_sides(ctx, g["sides"]), pname
+
+
+def _g2_is_sash(op):
+    """Is this opening an OPENABLE sash rather than a fixed light?
+
+    Drawn from the opening's own coordinates, not from the rng, so the same
+    window is the same kind on every re-run and at every grade — a building
+    does not swap its casements for fixed lights between DG2 and DG3. Rolled
+    by hand and not with `hash()`, which Python 3 randomises per process
+    (PYTHONHASHSEED), so `hash()` would make the bake non-reproducible."""
+    h = 0
+    for c in op["e"]["name"]:
+        h = (h * 131 + ord(c)) & 0xFFFFFFFF
+    for q in (op["ua"], op["va"], op["e"]["x"], op["e"]["y"]):
+        h = (h * 131 + int(round(q * 100.0))) & 0xFFFFFFFF
+    return (h % 1000) / 1000.0 < G2_SASH_SHARE
+
+
+def _g2_add_rack(acc, op, lean, rng, bulge=0.0):
+    """The high-drift state, from the Wenchuan photographs [§12 8.15]:
+
+    *"frames buckle, bulge outward, even flung out; glass basically shattered
+    and scattered; often only the empty window opening is left"* — and,
+    verbatim, the frames are *"squeezed into parallelograms with the sashes
+    still rectangular and intact inside"*.
+
+    So: the JAMBS lean (the frame goes to a parallelogram, drawn as stacked
+    boxes offset along the wall so no shear transform is needed on the mesh),
+    the HEAD bows out of plane, and the SASH is a rectangle — four thin bars,
+    unsheared, sitting a few centimetres down in its own frame because it has
+    jammed. The sash is the point of the whole thing: a parallelogram alone
+    reads as a modelling error, a rectangle inside a parallelogram reads as a
+    building that moved."""
+    fr = op["fr"]
+    hu0, hu1 = op["hua"], op["hub"]
+    hv0, hv1 = op["hva"], op["hvb"]
+    w, h = hu1 - hu0, hv1 - hv0
+    if w <= 0.2 or h <= 0.2:
+        return
+    o = op["out"] + G2_PROUD
+    # the two jambs, leaning: three stacked boxes each
+    for u_ in (hu0, hu1):
+        for t in (0.18, 0.5, 0.82):
+            cx, cy, _z = _b_face_pt(fr, u_ + lean * h * (t - 0.5), hv0, o)
+            _g_box(acc, cx, cy, hv0 + h * t, G2_BAR, G2_BAR, h * 0.36, fr[2])
+    # the head, bowed OUT of plane, and the sill
+    for (v_, bo) in ((hv1 - G2_BAR, bulge), (hv0 + G2_BAR, 0.25 * bulge)):
+        cx, cy, _z = _b_face_pt(fr, 0.5 * (hu0 + hu1) + lean * h * 0.5 * (
+            1.0 if v_ > 0.5 * (hv0 + hv1) else -1.0), v_, o + bo)
+        _g_box(acc, cx, cy, v_, w * 0.98, G2_BAR, G2_BAR,
+               fr[2] + math.radians(rng.uniform(-2.5, 2.5)))
+    # THE SASH: still rectangular, dropped and shoved to one side
+    du = lean * h * rng.uniform(0.25, 0.55)
+    dv = -rng.uniform(*G2_SASH_DROP)
+    su0, su1 = hu0 + 0.10 + du, hu1 - 0.10 + du
+    sv0, sv1 = hv0 + 0.10 + dv, hv1 - 0.10 + dv
+    for (a, b, c, d) in ((su0, su0, sv0, sv1), (su1, su1, sv0, sv1),
+                         (su0, su1, sv0, sv0), (su0, su1, sv1, sv1)):
+        cu, cv = 0.5 * (a + b), 0.5 * (c + d)
+        cx, cy, _z = _b_face_pt(fr, cu, cv, o + 0.02 + bulge * 0.5)
+        _g_box(acc, cx, cy, cv, max(G2_BAR, b - a), G2_BAR * 0.8,
+               max(G2_BAR, d - c), fr[2])
+
+
+def _g2_add_remnant(acc, op, rng):
+    """A jagged shard still lodged in a corner of an empty opening.
+
+    FEMA E-74 Fig. 6.3.1.4-1, observed [`eq_round3_R.md` §3]: one pane gone,
+    the mullions straight, and "a dark triangular remnant still lodged at the
+    head of the opening". It is authored PALE (the crazed material) rather than
+    dark, because a shattered edge scatters and because the hole behind it is
+    already as dark as this kit gets — the remnant is the contrast, not the
+    hole."""
+    fr = op["fr"]
+    ua, ub_ = op["ua"] + 0.02, op["ub"] - 0.02
+    va, vb = op["va"] + 0.02, op["vb"] - 0.02
+    w, h = ub_ - ua, vb - va
+    if w < 0.25 or h < 0.25:
+        return
+    corners = [(ua, vb, 1, -1), (ub_, vb, -1, -1), (ua, va, 1, 1),
+               (ub_, va, -1, 1)]
+    rng.shuffle(corners)
+    # the head corners first: glass hangs from the head, it does not sit on the
+    # sill (the sill sweeps clear, which is where `_g2_add_sill` puts it)
+    corners.sort(key=lambda c: 0 if c[3] < 0 else 1)
+    for (cu, cv, su, sv) in corners[:rng.randint(1, 2)]:
+        # CAPPED IN METRES, not only as a share. On a 5 x 2.6 m shopfront bay
+        # 0.55 x width is a 2.7 m shard, which renders as an awning or a
+        # curtain, not as broken glass (G2_win5/3_office_g2_win3_street.png,
+        # first cut). A remnant lodged in a frame is a fragment: 0.3-1.0 m.
+        du = su * min(G2_REMNANT_M[1], w * rng.uniform(0.22, 0.55))
+        dv = sv * min(G2_REMNANT_M[1] * 1.2, h * rng.uniform(0.22, 0.60))
+        if abs(du) < G2_REMNANT_M[0] or abs(dv) < G2_REMNANT_M[0]:
+            continue
+        # a jagged hypotenuse, 3 segments, so the shard is not a clean triangle
+        pts = [(cu, cv), (cu + du, cv)]
+        for k in (0.66, 0.33):
+            pts.append((cu + du * k + rng.uniform(-0.05, 0.05) * w,
+                        cv + dv * (1.0 - k) + rng.uniform(-0.05, 0.05) * h))
+        pts.append((cu, cv + dv))
+        # FANNED FROM THE CORNER, not emitted as one n-gon: the jagged
+        # hypotenuse can leave the polygon slightly concave, and Hydra fans an
+        # n-gon from its first vertex, which on a concave polygon folds a
+        # sliver back over itself.
+        P = [_b_face_pt(fr, uu, vv, op["out"] + 0.010) for (uu, vv) in pts]
+        for k in range(1, len(P) - 1):
+            base = len(acc["P"])
+            acc["P"] += [P[0], P[k], P[k + 1]]
+            acc["c"].append(3)
+            acc["i"] += [base, base + 1, base + 2]
+
+
+def _g2_add_sill(ctx, acc, op, rng, heavy=1.0):
+    """The glass that stays ON the sill, inside the reveal.
+
+    Not the same thing as the fall zone: a punched window's sill is a 0.1-0.3 m
+    ledge and it catches a line of shards that never reach the street. It is
+    also the only part of the debris that is visible from ABOVE on an upper
+    storey, which matters because five of the seven bench cameras look down."""
+    if ctx.get("g_debris", 0) >= G_MAX_DEBRIS:
+        return 0
+    fr = op["fr"]
+    hu0, hu1 = op["hua"], op["hub"]
+    n = max(3, int(round(7 * heavy * max(0.5, (hu1 - hu0) / 1.2))))
+    for k in range(n):
+        u = rng.uniform(hu0 + 0.04, hu1 - 0.04)
+        o = op["out"] + rng.uniform(0.04, 0.9) * abs(op["out"]) * 0.9
+        x, y, _z = _b_face_pt(fr, u, op["hva"], min(-0.02, o))
+        s = rng.uniform(0.07, 0.24)
+        _g_ground_quad(acc, x, y, op["hva"] + 0.012 + rng.uniform(0.0, 0.02),
+                       s, s * rng.uniform(0.3, 0.9), fr[2] + rng.uniform(-0.5, 0.5),
+                       0.010)
+    ctx["g_debris"] = ctx.get("g_debris", 0) + n
+    return n
+
+
+def r_window_glass(ctx, grade=3, mass=None, sides=None, storeys=None,
+                   glass="annealed", profile=None, scatter=False,
+                   band_sides=None):
+    """The four FEMA E-74 states on a building's PUNCHED windows.
+
+    Families 01/02/03/04 and the Downtown_West terrace, i.e. every URM and RC
+    building in the city that is not a curtain-wall tower. `r_storefront_glass`
+    calls this, so every ladder that already asks for `storefront_glass` gets
+    it with no ladder change.
+
+    grade 1  a few CRACKED panes, corner-rooted, on one racked storey; 0-1 out.
+             (FEMA E-74's tower photograph, and Baird's level 1: "some cracked
+             panes; none broken".)
+    grade 2  Ferndale: ~half the street face CRACKED, a few panes out. Baird's
+             level 2: "extensive cracked glass; little broken glass".
+    grade 3  Zhao's 1/500-1/300 band: "glass breaks in large numbers" on the
+             storeys that racked — the FRAMES STAY.
+    grade 4  Zhao's 1/300-1/150 band: "often only the empty window opening is
+             left", frames racked into parallelograms and bulging outward with
+             the sash jammed rectangular inside.
+    grade 5  the same, over the lower 60 % of the building. (At DG5 proper the
+             wall itself goes, and `masonry_collapse` / `pancake` take the
+             windows with it.)
+
+    `glass` defaults to ANNEALED, not to the curtain wall's tempered-heavy
+    draw: the field's bad performers are old float glass in putty or a few
+    millimetres of clearance [§12 8.12], which is what this stock is.
+    `scatter=True` drops the band for i.i.d. single-pane loss — right only for
+    a stiff, acceleration-driven building (Aleppo 2023, Türkiye's "scattered
+    single panes" away from the collapsed soft storeys) [§12 8.6].
+
+    `sides` and `band_sides` are NOT the same thing and the difference is a
+    footgun. `sides` FILTERS the opening set — "this building is only glazed on
+    the south and east" — so the per-grade fractions are then fractions of that
+    subset. `band_sides` leaves every opening in play and only says which
+    elevations the band lands on, which is what a caller who just wants the
+    damage pointed at a camera means."""
+    rng = ctx["rng"]
+    grade = int(max(1, min(5, grade)))
+    g = G2_WIN_GRADE[grade]
+    km = G_GLASS_KIND.get(glass, G_GLASS_KIND["annealed"])
+    ops = _g2_openings(ctx, mass=mass, sides=sides, storeys=storeys)
+    if not ops:
+        return 0
+    by_mass = {}
+    for op in ops:
+        by_mass.setdefault(op["mass"], []).append(op)
+    n_out_all = n_crack_all = n_rack = n_mesh = 0
+    for tag, group in sorted(by_mass.items()):
+        m = ctx["info"]["masses"].get(tag) or ctx["info"]["masses"]["main"]
+        band, bsides, pname = _g2_band(ctx, m, grade, rng, profile)
+        if band_sides or sides:
+            bsides = list(band_sides or sides)
+        if scatter:
+            band, pname = set(range(len(m["levels"]))), "scatter"
+        for op in group:
+            d = 0 if op["storey"] in band else min(
+                abs(op["storey"] - s) for s in band)
+            # FALLOUT is banded hard; CRACKING is not. Cracking starts at a
+            # lower drift than fallout on every curve in [§12 8.13], so it
+            # reaches storeys the fallout band never touches — which is also
+            # the only way Ferndale's "50 % of the glazing on Main Street"
+            # comes out as a STREET rather than as one storey.
+            w = 1.0 if d == 0 else (0.18 if d == 1 else 0.04)
+            cw = 1.0 if d == 0 else (0.60 if d == 1 else 0.30)
+            if scatter:
+                w = cw = 0.45 + 0.55 * rng.random()
+            sw = _g_side_w(op["side"], bsides)
+            area = max(0.2, (op["ub"] - op["ua"]) * (op["vb"] - op["va"]))
+            # a wide squat pane is the most vulnerable pane on any façade
+            # (D_clear grows with h_p/b_p) [§12 8.2]
+            ar = (op["ub"] - op["ua"]) / max(0.2, op["vb"] - op["va"])
+            av = max(0.8, min(1.35, 0.75 + 0.5 * ar))
+            sk = G2_SASH_K if _g2_is_sash(op) else 1.0
+            j = rng.uniform(0.72, 1.32)
+            op["s"] = w * sw * av * sk * j
+            op["sc"] = cw * sw * av * sk * j
+            op["area"] = area
+        group.sort(key=lambda q: -q["s"])
+        n_out = int(round(g["out"] * len(group)))
+        out = group[:n_out]
+        rest = group[n_out:]
+        # survivors inside the band and a couple of strays outside it: a band
+        # with no survivor in it reads as a cut-out [§12 8.6]
+        if n_out > 5:
+            for k in range(rng.randint(1, 3)):
+                if out:
+                    rest.append(out.pop(rng.randrange(len(out))))
+            for k in range(rng.randint(0, 2)):
+                if rest:
+                    out.append(rest.pop(rng.randrange(len(rest))))
+        rest.sort(key=lambda q: -q["sc"])
+        crack = rest[:int(round(g["crack"] * len(group)))]
+        accs, owners = {}, {}
+
+        def A(k_, side, storey, owner=None):
+            key = (k_, side, storey)
+            a = accs.get(key)
+            if a is None:
+                a = accs[key] = _g_acc()
+                owners[key] = owner
+            return a
+
+        for op in out:
+            own = op["e"]["p"].get("prim_path")
+            fr = op["fr"]
+            # THE EMPTY OPENING. Rounded corners, because a measured rectangle
+            # laid over an arched or segmental head is the square cut-out the
+            # user has rejected twice; and it goes at the glazing depth, so
+            # every reveal step, transom and mullion in FRONT of it survives —
+            # "the empty window opening is left", not a hole in the wall.
+            # a SMALL radius: `_g_face_soft`'s default (0.30 x the short side)
+            # is sized for the fam04 arcade's arched heads and turns a 0.7 m
+            # sash into an ellipse. A punched window has a square or a
+            # segmental head, so it wants just enough rounding to stop the
+            # quad reading as a stencil.
+            _g_face_soft(A("open", op["side"], op["storey"], own), fr,
+                         op["ua"] + 0.02, op["ub"] - 0.02,
+                         op["va"] + 0.02, op["vb"] - 0.02, op["out"],
+                         r=min(0.11, 0.13 * min(op["ub"] - op["ua"],
+                                                op["vb"] - op["va"])), n=3)
+            # THE FLOOR OF THE ROOM: a pale band across the bottom of the
+            # opening. This, and not the darkness of the quad, is what says
+            # HOLE on a façade whose painted windows are already black.
+            fb = rng.uniform(*G2_FLOOR_BAND)
+            _g_face_quad(A("slab", op["side"], op["storey"], own), fr,
+                         op["ua"] + 0.05, op["ub"] - 0.05, op["va"] + 0.03,
+                         min(op["vb"] - 0.05, op["va"] + 0.03 + fb),
+                         op["out"] + 0.006)
+            if rng.random() < G2_REMNANT_P:
+                _g2_add_remnant(A("crazed", op["side"], op["storey"], own),
+                                op, rng)
+            if g["rack"] > 0 and rng.random() < g["rack"]:
+                _g2_add_rack(A("mull", op["side"], op["storey"], own), op,
+                             rng.choice((-1.0, 1.0)) * rng.uniform(*G2_LEAN),
+                             rng, bulge=rng.uniform(*G2_BULGE))
+                n_rack += 1
+            _g2_add_sill(ctx, A("dice", op["side"], op["storey"], own), op,
+                         rng, heavy=g["sill"])
+            # THE FALL ZONE: 1.2 x the panel area on the pavement, annealed
+            # jagged plates or tempered dice by kind, thrown by the drop-height
+            # model in `_g_drop` (mode 0.05-0.10 H, p90 0.33 H) [§12 8.9].
+            # Never registered with `_g_follow`: glass that has already landed
+            # stays on the pavement while the building leans into it.
+            _g_add_debris(ctx, A("dice", op["side"], None), m, op["side"],
+                          _b_face_pt(fr, 0.5 * (op["hua"] + op["hub"]),
+                                     op["hva"], 0.0),
+                          op["area"], km["debris"], density=g["sill"])
+        for op in crack:
+            own = op["e"]["p"].get("prim_path")
+            if km["precar"] > 0 and rng.random() < km["precar"]:
+                _g_add_crazed(A("crazed", op["side"], op["storey"], own),
+                              A("crack", op["side"], op["storey"], own),
+                              op["fr"], op["ua"], op["ub"], op["va"],
+                              op["vb"], op["out"], rng)
+            else:
+                _g_add_corner_cracks(A("crack", op["side"], op["storey"], own),
+                                     op["fr"], op["ua"], op["ub"], op["va"],
+                                     op["vb"], op["out"], rng)
+            if rng.random() < 0.22 * g["sill"]:
+                _g2_add_sill(ctx, A("dice", op["side"], op["storey"], own), op,
+                             rng, heavy=0.25)
+        mats = {"open": _g_mat(ctx, "open"), "mull": _g_mat(ctx, "mullion"),
+                "crazed": _g_mat(ctx, "crazed"), "dice": _g_mat(ctx, "dice"),
+                "crack": ctx["mats"]["crack"], "slab": _g_mat(ctx, "slab")}
+        for key, a in sorted(accs.items(), key=lambda kv: str(kv[0])):
+            if _g_emit(ctx, a, mats[key[0]], "w" + key[0], owners[key]):
+                n_mesh += 1
+        n_out_all += len(out)
+        n_crack_all += len(crack)
+        ctx["notes"].append(
+            "window_glass DG{0} {1} {2} ({3}): band storeys {4}-{5} on {6}, "
+            "{7}/{8} openings emptied, {9} cracked".format(
+                grade, glass, tag, pname, min(band), max(band),
+                "+".join(bsides), len(out), len(group), len(crack)))
+    ctx["notes"].append(
+        "window_glass: {0} out, {1} cracked, {2} frames racked, {3} authored "
+        "mesh(es)".format(n_out_all, n_crack_all, n_rack, n_mesh))
+    return len(ops)
 
 
 def r_infill_fail(ctx, storeys=1, frac=0.4, mass="main"):
@@ -4144,7 +5087,10 @@ def r_out_of_plane(ctx, sides=1, from_storey=1, mass="main", which=None):
             st, lo = _break(ctx["stage"], ctx["parent"], e, ctx["tag"],
                             10 + rng.randrange(6), rng, nrng, ctx["mats"],
                             ctx["cache"], ctx["info"]["type"], inner_p=0.35,
-                            partial=None, consume=0.34, **_p_frac_kw(ctx))
+                            # _p_/round 3: 0.34 was tuned to HIDE plates —
+                            # a kit fragment is a solid brick chunk now, so
+                            # thinning it that hard just empties the fan.
+                            partial=None, consume=0.22, **_p_frac_kw(ctx))
             # Outward speed grows with height: the wall rotates about its
             # foot, so the top leads.
             for pth in lo:
@@ -4387,7 +5333,8 @@ def r_pancake(ctx, mass="main", pitch_m=None):
             st, lo = _break(stage, ctx["parent"], e, ctx["tag"],
                             15 + rng.randrange(7), rng, nrng, ctx["mats"],
                             ctx["cache"], info["type"], inner_p=0.5,
-                            partial=partial, consume=0.62, max_piece_m=1.0,
+                            # _p_/round 3: was 0.62 / 1.0 m against plates
+                            partial=partial, consume=0.55, max_piece_m=1.2,
                             **_p_frac_kw(ctx))        # _p_ prisms, not shards
             ox, oy = _outward(m, e["side"])
             H = max(1.0, m["top"] - m["z0"])
@@ -4942,7 +5889,11 @@ def r_masonry_collapse(ctx, mass="main", keep_stub=True):
                 st, lo = _break(stage, ctx["parent"], e, ctx["tag"],
                                 18 + rng.randrange(7), rng, nrng, ctx["mats"],
                                 ctx["cache"], info["type"], inner_p=0.45,
-                                partial=None, consume=0.75, max_piece_m=0.9,
+                                # _p_/round 3: 0.75 / 0.9 m were tuned
+                                # against 1.2-2 m foil PLATES landing on the
+                                # crown. The cells are brick clusters now, so
+                                # the cap can rise and fewer need thinning.
+                                partial=None, consume=0.66, max_piece_m=1.2,
                                 **_p_frac_kw(ctx))
             ox, oy = _outward(m, e["side"])
             for pth in lo:
@@ -8579,6 +9530,9 @@ RECIPES = {
     # _g_ (round 3): `glass_loss` / `glass_fallout` are now shims onto these
     "curtain_wall": r_curtain_wall,
     "storefront_glass": r_storefront_glass,
+    # _g2_ (round 3): `storefront_glass` already calls this, so no ladder
+    # names it; it is here so a bench line and a future ladder can.
+    "window_glass": r_window_glass,
     "glass_follow": r_glass_follow,
     "glass_loss": r_glass_loss,
     "glass_fallout": r_glass_fallout,
@@ -8615,6 +9569,48 @@ def _g_bench_recipe(grade):
 
 for _g in range(1, 6):
     RECIPES["g_glass{0}".format(_g)] = _g_bench_recipe(_g)
+
+
+# _g2_ (round 3) BENCH ENTRIES: the PUNCHED windows on their own, with no
+# shopfront and no curtain wall in the frame, so a bench column shows exactly
+# what `r_window_glass` authored.
+def _g2_bench_recipe(grade):
+    def _r(ctx, **kw):
+        # THE BAND IS FORCED ONTO THE STREET ELEVATION for the bench, and only
+        # for the bench. `_g_pick_sides` is front-biased but still draws N or W
+        # about half the time, and the bench's `street` and `close` cameras are
+        # fixed on the S face — so half the review columns showed an undamaged
+        # wall and the reviewer had to go hunting in the obliques. The shipped
+        # ladders call `r_window_glass` through `r_storefront_glass` with no
+        # `sides`, so the city keeps the random draw (Kobe: south-facing > 70 %
+        # damaged, north-facing < 15 %, so a per-building azimuth IS the field).
+        kw.setdefault("band_sides", ("S", "E"))
+        r_window_glass(ctx, grade=grade, **kw)
+        r_glass_follow(ctx)
+    _r.__name__ = "r_g2_win{0}".format(grade)
+    _r.__doc__ = "window_glass at DG{0}, nothing else.".format(grade)
+    return _r
+
+
+for _g in range(1, 6):
+    RECIPES["g2_win{0}".format(_g)] = _g2_bench_recipe(_g)
+
+
+def _g2_follow_probe(ctx, **kw):
+    """BENCH ONLY — the `r_glass_follow` proof for punched windows.
+
+    Glazes every storey and every elevation at DG3 (so there is art ABOVE the
+    storey that is about to be crushed, which a normal band would not
+    guarantee), then crushes a mid storey, then follows. Read the two counters
+    in the note: art on the crushed storey must be DROPPED with its module and
+    art above it must be CARRIED. If "carried" is 0 while the block above
+    visibly moved, the follow is broken."""
+    r_window_glass(ctx, grade=3, band_sides=("S", "E", "N", "W"), scatter=True)
+    r_mid_storey(ctx)
+    r_glass_follow(ctx)
+
+
+RECIPES["g2_follow"] = _g2_follow_probe
 
 
 # ---------------------------------------------------------------------------

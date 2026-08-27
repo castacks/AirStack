@@ -423,6 +423,35 @@ class QuakeCityApp:
 
     def run(self):
         app = omni.kit.app.get_app()
+        # _o_ WHAT "READY" LEAVES OUT. The TIMING banner above stops when the
+        # USD is authored; the scene is not usable until Hydra has synced it
+        # and the RTX BLASes are built, which is the first `app.update()`
+        # after that. So: prim count, the first frame, and the steady-state
+        # frame time — the three numbers the "scenes must not take hours to
+        # load" constraint is actually about. Costs ~2 s and prints one line.
+        try:
+            n_prims = sum(1 for _ in self.stage.Traverse())
+            _t = time.time()
+            app.update()
+            first_s = time.time() - _t
+            for _ in range(10):
+                app.update()
+            _n = 60
+            _t = time.time()
+            for _ in range(_n):
+                app.update()
+            _dt = time.time() - _t
+            try:
+                import omni.kit.viewport.utility as _vp
+                _res = "{0}x{1}".format(*_vp.get_active_viewport().resolution)
+            except Exception:
+                _res = "?"
+            print("[quake_city] HYDRA  {0} stage prims, first frame {1:.1f} s, "
+                  "{2:.1f} fps / {3:.0f} ms per frame at {4}".format(
+                      n_prims, first_s, _n / _dt if _dt else 0.0,
+                      1000.0 * _dt / _n, _res), flush=True)
+        except Exception as exc:
+            print("[quake_city] hydra timing failed: {0}".format(exc))
         if SNAP_DIR:
             try:
                 import importlib.util as _ilu

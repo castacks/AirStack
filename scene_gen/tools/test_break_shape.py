@@ -48,7 +48,8 @@ QF = os.path.join(ROOT, "disaster", "quake_flow.py")
 FR = os.path.join(ROOT, "disaster", "fracture.py")
 
 QF_WANT = {"_p_staircase", "_p_wobble", "_a_torn"}
-FR_WANT = {"_p_axes", "_p_brick_seeds", "_p_prism_seeds", "_p_is_sliver"}
+FR_WANT = {"_p_axes", "_p_brick_seeds", "_p_prism_seeds", "_p_is_sliver",
+           "_seeds"}
 
 
 class _Box(object):
@@ -101,7 +102,30 @@ def check_calls(paths=(QF, FR)):
     reported as DONE, because Kit still exits 0 after a python error and the
     runner matches `^EXIT 0`. Two runs and twenty minutes. It is a five-line
     AST walk to catch offline."""
+    import builtins
+    import symtable
     bad = []
+    # ...and every NAME a function reads as a global actually exists at module
+    # level. `_break_box` gained a `**kw` FORWARD without its `**kw` PARAMETER
+    # (a half-applied edit), which is a plain NameError the keyword check below
+    # cannot see; it killed bench P_rc6 48 s in and the runner said DONE.
+    for path in paths:
+        src = open(path).read()
+        st = symtable.symtable(src, path, "exec")
+        top = set(st.get_identifiers())
+        bi = set(dir(builtins))
+
+        def walk(t):
+            for ch in t.get_children():
+                if ch.get_type() == "function":
+                    for sym in ch.get_symbols():
+                        nm = sym.get_name()
+                        if sym.is_global() and nm not in top and nm not in bi:
+                            bad.append("%s  %s() reads undefined global %r"
+                                       % (os.path.basename(path),
+                                          ch.get_name(), nm))
+                walk(ch)
+        walk(st)
     for path in paths:
         tree = ast.parse(open(path).read())
         sigs = {}
@@ -269,6 +293,23 @@ def check_math():
         if float(d.min(axis=1).mean()) < 0.22:
             bad.append("prism %d: mean spacing %.3f m under the 0.22 m "
                        "thickness" % (seed, float(d.min(axis=1).mean())))
+
+    # --- the DISPATCH, not just the helper --------------------------------
+    # `_seeds` resolves its own `axis` argument to the LONG axis for
+    # char/splinter/plank before any later branch reads it, so `prism` — whose
+    # `axis` means the THIN one — was handed the long axis and spread its
+    # seeds along the member. Every prism cell then spanned the whole piece.
+    # Test the dispatch, because the helper alone was correct throughout.
+    for dims in ((0.12, 7.96, 2.65), (4.0, 0.4, 3.5), (20.9, 16.9, 0.3),
+                 (10.0, 5.0, 0.25), (0.45, 0.45, 3.4)):
+        P = ns["_seeds"](_Box((0, 0, 0), dims), 12, np.random.default_rng(4),
+                         mode="prism")
+        sp = np.array([float(np.ptp(P[:, k])) for k in range(3)])
+        want = int(np.argmin(np.asarray(dims, dtype=float)))
+        if int(np.argmin(sp)) != want or sp[want] > 1e-9:
+            bad.append("_seeds(prism) on %s spread %s — seeds must be ONE "
+                       "layer across the thinnest axis (%d)"
+                       % (dims, np.round(sp, 3).tolist(), want))
 
     # --- sliver rejection --------------------------------------------------
     sv = ns["_p_is_sliver"]

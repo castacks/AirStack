@@ -92,6 +92,12 @@ GRADES = [q.strip() for q in os.environ.get(
     "ARCH_GRADES", "DG0,DG1,DG2,DG3,DG4,DG5,SETTLE,TILT,OV").split(",") if q.strip()]
 VARIANTS = max(1, int(os.environ.get("ARCH_VARIANTS") or "1"))
 SETTLE_STEPS = int(os.environ.get("SETTLE_STEPS") or "2200")
+# _o_ MERGE. ON for this driver unless told otherwise (`.env` leaks EMPTY
+# strings for everything compose forwards, so `or "on"` and not a default
+# argument). `both` also writes the UNMERGED file under `<ARCH_DIR>/_raw/`
+# from the SAME settled geometry, which is the only honest before/after: a
+# second bake would diverge on the rng and measure a different building.
+MERGE = bake.merge_mode(os.environ.get("BAKE_MERGE", "").strip() or "on")
 
 
 def build_ground_and_light(stage):
@@ -218,18 +224,48 @@ def main():
             omni.kit.app.get_app().update()
         # export the row now, so a crash later still leaves it on disk
         for st_, level, X, Y, paths in row:
-            out = os.path.join(OUT_DIR, "bld_{0}_{1}.usd".format(st_, level))
+            name = "bld_{0}_{1}.usd".format(st_, level)
+            out = os.path.join(OUT_DIR, name)
             try:
-                if bake.export_object(stage, None, paths, out, recenter=(X, Y, 0.0)):
+                raw_mb = raw_prims = None
+                if MERGE == "both":                                   # _o_
+                    raw_dir = os.path.join(OUT_DIR, "_raw")
+                    os.makedirs(raw_dir, exist_ok=True)
+                    rout = os.path.join(raw_dir, name)
+                    rs = {}
+                    if bake.export_object(stage, None, paths, rout,
+                                          recenter=(X, Y, 0.0), merge="off",
+                                          stats_out=rs):
+                        raw_mb = round(os.path.getsize(rout) / 1e6, 2)
+                        raw_prims = rs.get("out_prims")
+                es = {}
+                if bake.export_object(stage, None, paths, out,
+                                      recenter=(X, Y, 0.0),
+                                      merge=("off" if MERGE == "off" else "on"),
+                                      stats_out=es):
                     m, ok, ms = bake.validate(out)
+                    mb = round(os.path.getsize(out) / 1e6, 2)
+                    print("[qarch]   {0:<34} {1:6.2f} MB  {2:6d} prims  "
+                          "({3} src meshes -> {4} merged + {5} kept, {6} mats)"
+                          .format(name, mb, es.get("out_prims", 0),
+                                  es.get("src_meshes", 0), es.get("merged_prims", 0),
+                                  es.get("kept_src", 0), es.get("materials", 0))
+                          + ("" if raw_mb is None else
+                             "   [raw {0:.2f} MB / {1} prims]".format(raw_mb, raw_prims)))
                     records.append(dict(usd=os.path.abspath(out), meshes=m,
                                         bound_missing=ms, kind="bld", style=st_,
                                         level=level, W=W, D=D, H=H,
                                         family=spec.get("family"),
                                         type=qf.FAMILY_TYPE.get(spec.get("family")),
+                                        mb=mb, prims=es.get("out_prims"),
+                                        src_meshes=es.get("src_meshes"),
+                                        merge=es.get("mode"),
+                                        raw_mb=raw_mb, raw_prims=raw_prims,
                                         **timing.get((st_, level), {}), **settle_info))
                     miss += ms
             except Exception as exc:
+                import traceback
+                traceback.print_exc()
                 print("[qarch] export FAILED for {0}: {1}".format(os.path.basename(out), exc))
         man_path = os.path.join(OUT_DIR, "archetypes.json")
         # read-merge-write under a file lock: bake_quake_headless.sh runs two

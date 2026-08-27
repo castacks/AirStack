@@ -1133,9 +1133,22 @@ def _p_prism_seeds(mesh, n, rng, keep=None, jitter=None, aspect=None,
 # so it says nothing about the large end. So: b/a (no blades, no needles) is
 # enforced on EVERY piece; c/b (no flakes) only under `sliver_max_m`, i.e. on
 # the debris that has to read as rubble.
-SLIVER_BA = 0.6
-SLIVER_CB = 0.5
-SLIVER_MAX_M = 1.2
+# THE SEED PASS IS OFF BY DEFAULT AND THE FRAGMENT CULL IS ON.
+# `_p_sliver_seeds` costs a whole extra cell pass (~+50 % on a fracture) and
+# on a `brick` or `prism` LATTICE it now almost never finds anything, because
+# the only needles a lattice makes are the ribbons the module boundary clips —
+# and `_p_sliver_cull` removes those at the end for free, along with the ones
+# the break-line refinement makes, which the seed pass cannot see at all.
+# `EQ_SLIVER_SEEDS=1` turns it back on (it merges rather than deletes, so it
+# is the better answer when a hole in a static would show).
+SLIVER_SEED_PASS = os.environ.get("EQ_SLIVER_SEEDS", "0").strip() not in (
+    "0", "", "false", "no")
+SLIVER_BA = 0.6              # b/a: needles. ENFORCED (seeds and fragments).
+SLIVER_CB = 0.5              # c/b: flakes. NOT enforced by rejection — see
+SLIVER_MAX_M = 1.2           # `_p_sliver_seeds`. It is set by the cell size
+                             # against the material thickness instead
+                             # (`BRICK_BLOCKY`). These two remain as the
+                             # acceptance-test vocabulary and `_p_is_sliver`.
 
 
 def _p_is_sliver(extents, ba=SLIVER_BA, cb=SLIVER_CB, max_m=SLIVER_MAX_M):
@@ -1184,7 +1197,11 @@ def _p_cover_shell(mesh, axis, cover_m):
     return out if (out is not None and len(out.faces)) else None
 
 
-def _p_sliver_cull(frags, sliver, verbose=False, where=""):
+SLIVER_MAX_DROP = 0.40       # a rejection pass may never take more than this
+
+
+def _p_sliver_cull(frags, sliver, verbose=False, where="",
+                   max_drop=SLIVER_MAX_DROP):
     """Drop the finished fragments that are still needles.
 
     `_p_sliver_seeds` works on SEEDS, which is the right place for it — the
@@ -1197,20 +1214,44 @@ def _p_sliver_cull(frags, sliver, verbose=False, where=""):
 
     So the b/a rule is enforced once more at the end, on the geometry rather
     than on the seeds. A dropped needle leaves a hairline notch in a static
-    and one less stick in the debris; both are better than the stick."""
+    and one less stick in the debris; both are better than the stick.
+
+    `max_drop` IS NOT OPTIONAL AND IT IS NOT A TUNING KNOB. Before the
+    `_seeds` axis bug (§3.0 of the notes) was found, every prism cell of a
+    pancaked facade was a needle, so this cull removed ALL of them —
+    `fracture_prim` then returns early on the empty list **without
+    deactivating the source**, and bench P_rc4 rendered a DG5 "pancake" as an
+    INTACT six-storey office standing on a rubble skirt. When a predicate
+    wants to reject most of the input, the predicate is wrong for that input;
+    the safe answer is to drop only the worst `max_drop` share and let the
+    rest through."""
     if not sliver or not frags:
         return frags, 0
     sv = (tuple(sliver) if isinstance(sliver, (tuple, list))
           else (SLIVER_BA, SLIVER_CB, SLIVER_MAX_M))
-    out, n = [], 0
+    ratios = []
     for f in frags:
         try:
-            ext = np.asarray(f.extents, dtype=float)
+            a, b, _c = sorted((float(q) for q in np.asarray(
+                f.extents, dtype=float)), reverse=True)
+            ratios.append(1e9 if a <= 1e-6 else b / a)
         except Exception:
-            out.append(f)
-            continue
-        a, b, _c = sorted((float(q) for q in ext), reverse=True)
-        if a > 1e-6 and (b / a) < float(sv[0]):
+            ratios.append(1e9)
+    ba = float(sv[0])
+    n_bad = sum(1 for q in ratios if q < ba)
+    cap = int(math.floor(float(max_drop) * len(frags)))
+    if n_bad > cap:
+        # only the WORST `cap` go; see the docstring for the DG5 office that
+        # stayed standing when this rule did not exist
+        thresh = sorted(ratios)[max(0, cap - 1)] if cap > 0 else -1.0
+        ba = min(ba, thresh if cap > 0 else -1.0)
+        if verbose:
+            print("[fracture]   sliver cull CAPPED{0}: {1}/{2} were needles, "
+                  "dropping {3}".format((" " + where) if where else "",
+                                        n_bad, len(frags), cap))
+    out, n = [], 0
+    for f, q in zip(frags, ratios):
+        if q < ba:
             n += 1
             continue
         out.append(f)
@@ -1221,8 +1262,28 @@ def _p_sliver_cull(frags, sliver, verbose=False, where=""):
 
 
 def _p_sliver_seeds(mesh, pts, rng, ba=SLIVER_BA, cb=SLIVER_CB,
-                    max_m=SLIVER_MAX_M, min_keep=3, verbose=False):
-    """Delete the seeds whose cell is a sliver and return the rest.
+                    max_m=SLIVER_MAX_M, min_keep=3, max_drop=0.35,
+                    verbose=False):
+    """Delete the seeds whose cell is a NEEDLE and return the rest.
+
+    NEEDLES ONLY (b/a), NOT FLAKES (c/b), AND THIS IS THE BUG THAT COST THE
+    MOST THIS ROUND. A `prism` cell is thin BY CONSTRUCTION — the member is
+    0.2-0.4 m thick and the cell is 0.8 m across, so c/b is ~0.25 and every
+    single cell fails the flakiness rule. Running the full predicate here
+    therefore deleted the entire lattice down to `min_keep`, and three
+    surviving seeds in a 4 x 3.5 m module gave cells 3.89 m long with
+    a/b = 10: on bench P_rc3, 98 % of the pancake facade fragments were
+    sticks, and the DG5 pile rendered as a scrapyard of dowels. The rejection
+    made exactly the shape it was written to remove.
+
+    Flakiness is not something to reject after the fact; it is set by the CELL
+    SIZE against the MATERIAL THICKNESS, which is what `BRICK_BLOCKY` does in
+    `_p_brick_seeds`. What rejection is good for is the degenerate ribbon a
+    module boundary clips out, and that is a b/a failure.
+
+    `max_drop` is the second half of the lesson: a rejection pass may never
+    remove more than this share of the seeds. If it wants to, the predicate is
+    wrong for this input and the safe answer is to leave the lattice alone.
 
     MERGING INTO THE LARGEST NEIGHBOUR IS THE SAME THING AS DELETING THE SEED.
     In a Voronoi diagram the region a deleted site occupied is redistributed
@@ -1243,9 +1304,15 @@ def _p_sliver_seeds(mesh, pts, rng, ba=SLIVER_BA, cb=SLIVER_CB,
         f = _cell(mesh, P, i)
         if f is None or not len(f.faces):
             continue                      # empty cells are culled anyway
-        if _p_is_sliver(f.extents, ba, cb, max_m):
+        e = np.sort(np.asarray(f.extents, dtype=float))[::-1]
+        if e[0] > 1e-6 and (e[1] / e[0]) < float(ba):
             bad.append(i)
     if not bad or len(P) - len(bad) < int(min_keep):
+        return P
+    if len(bad) > float(max_drop) * len(P):
+        if verbose:
+            print("[fracture]   sliver pass DECLINED: {0}/{1} seeds would go, "
+                  "over the {2:.0%} ceiling".format(len(bad), len(P), max_drop))
         return P
     if verbose:
         print("[fracture]   sliver pass: {0}/{1} seeds merged away".format(
@@ -1341,6 +1408,15 @@ def _seeds(mesh, n, rng, mode="uniform", focus=None, axis=None,
     """
     lo, hi = mesh.bounds
     span = np.maximum(hi - lo, 1e-6)
+    # _p_: KEEP THE CALLER'S `axis` BEFORE IT IS OVERWRITTEN. The next line
+    # resolves `axis` to the LONG axis for `char`/`splinter`/`plank`, whose
+    # meaning of `axis` is "the grain". `prism`'s meaning is the opposite —
+    # the THIN axis, the one seeds must NOT be spread along — so reading the
+    # resolved value handed it the long axis and every prism cell came out
+    # spanning the whole member: 3.89 m facade sticks at a/b = 10, 11.5 m
+    # partition bars, and a DG5 pancake pile that rendered as a scrapyard of
+    # dowels (benches P_rc1..P_rc4).
+    _axis_in = axis
     axis = int(np.argmax(span)) if axis is None else int(axis)
     others = [a for a in range(3) if a != axis]
 
@@ -1479,8 +1555,7 @@ def _seeds(mesh, n, rng, mode="uniform", focus=None, axis=None,
                               leaves=leaves, blocky_m=blocky_m)
     if mode == "prism":
         return _p_prism_seeds(mesh, n, rng, keep=keep, jitter=jitter,
-                              aspect=aspect, axis=(axis if axis is not None
-                                                   else None))
+                              aspect=aspect, axis=_axis_in)
     # --- end _p_ ----------------------------------------------------------
 
     if mode == "splinter":
@@ -1656,7 +1731,7 @@ def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
                  jitter=jitter, leaves=leaves, blocky_m=blocky_m)
     # _p_ round 3: drop the seeds whose cell would come out a blade or a
     # wafer and let their neighbours absorb them (see `_p_sliver_seeds`).
-    if sliver:
+    if sliver and SLIVER_SEED_PASS:
         _sv = (tuple(sliver) if isinstance(sliver, (tuple, list))
                else (SLIVER_BA, SLIVER_CB, SLIVER_MAX_M))
         pts = _p_sliver_seeds(mesh, pts, rng, ba=_sv[0], cb=_sv[1],
@@ -1980,7 +2055,7 @@ def fracture_split(mesh, n_pieces, judge, rng,
     pts = _seeds(mesh, int(n_pieces), rng, mode=mode, focus=focus,
                  axis=axis, aspect=aspect, brick=brick, keep=keep_frac,
                  jitter=jitter, leaves=leaves, blocky_m=blocky_m)
-    if sliver:                                                     # _p_
+    if sliver and SLIVER_SEED_PASS:                                # _p_
         _sv = (tuple(sliver) if isinstance(sliver, (tuple, list))
                else (SLIVER_BA, SLIVER_CB, SLIVER_MAX_M))
         pts = _p_sliver_seeds(mesh, pts, rng, ba=_sv[0], cb=_sv[1],
@@ -2028,6 +2103,20 @@ def fracture_split(mesh, n_pieces, judge, rng,
     n_eaten = n_sliv = 0
     _sv_ba = ((tuple(sliver)[0] if isinstance(sliver, (tuple, list))
                else SLIVER_BA) if sliver else None)
+    # THE SAME CEILING AS `_p_sliver_cull`, and for the same reason: a cull
+    # that wants to take most of the piece means the predicate is wrong for
+    # this input, and an emptied `_break_split` leaves the wall standing.
+    if _sv_ba is not None:
+        _r = []
+        for _m, _l, _ae, _s in out:
+            _x = np.sort(np.asarray(_m.extents, dtype=float))[::-1]
+            _r.append(1e9 if _x[0] <= 1e-6 else _x[1] / _x[0])
+        _cap = int(math.floor(SLIVER_MAX_DROP * len(_r)))
+        if sum(1 for q in _r if q < _sv_ba) > _cap:
+            _sv_ba = (sorted(_r)[_cap - 1] if _cap > 0 else None)
+            if verbose:
+                print("[fracture]   split sliver cull CAPPED at {0}/{1}".format(
+                    _cap, len(_r)))
     for msh, loose, at_edge, strad in out:
         # _p_ FINAL NEEDLE CULL — see `_p_sliver_cull` for why the seed pass
         # is not enough.

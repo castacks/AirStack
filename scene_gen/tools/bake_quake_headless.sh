@@ -21,6 +21,9 @@ ARCH_DIR=${ARCH_DIR:-/isaac-sim/AirStack/scene_gen/assets/archetypes_quake}
 ARCH_GRADES=${ARCH_GRADES:-DG0,DG1,DG2,DG3,DG4,DG5,SETTLE,TILT,OV}
 ARCH_SEED=${ARCH_SEED:-4}
 SETTLE_STEPS=${SETTLE_STEPS:-2200}
+# _o_ merge: on|off|both. `both` also writes the UNMERGED twin to
+# $ARCH_DIR/_raw/ from the same settled stage, which is the only honest A/B.
+BAKE_MERGE=${BAKE_MERGE:-on}
 LOG=${LOG:-/tmp/quake_bake_headless.log}
 echo "$(date +%H:%M:%S) bake start: ${STYLES[*]} -> $ARCH_DIR grades $ARCH_GRADES" | tee -a "$LOG"
 t0=$(date +%s)
@@ -29,6 +32,7 @@ for st in "${STYLES[@]}"; do
   ( LAUNCHER=bake_quake_archetypes_launch_script.py TIMEOUT_S=3000 \
     "$HERE/eq_bench.sh" "bake_$st" ARCH_DIR="$ARCH_DIR" ARCH_STYLES="$st" ARCH_GRADES="$ARCH_GRADES" \
       ARCH_SEED="$ARCH_SEED" SETTLE_STEPS="$SETTLE_STEPS" SETTLE_CULL_LEDGES=1 \
+      BAKE_MERGE="$BAKE_MERGE" \
       > "/tmp/bake_$st.out" 2>&1
     echo "$(date +%H:%M:%S) $st: $(grep -o 'DONE in [0-9]* s\|FAILED in [0-9]* s\|TIMEOUT' /tmp/bake_$st.out | tail -1)" | tee -a "$LOG"
     grep "\[qarch\]\|EMPTY\|Traceback" "/tmp/bake_$st.out" | tail -12 >> "$LOG" ) &

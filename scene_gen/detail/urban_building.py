@@ -932,7 +932,22 @@ def apply_glass_tint(stage, placements):
             continue
         for prim in Usd.PrimRange(root):
             sh = UsdShade.Shader(prim)
-            if not sh or sh.GetIdAttr().Get() != "UsdUVTexture":
+            if not sh:
+                continue
+            sid = sh.GetIdAttr().Get()
+            if sid == "UsdPreviewSurface":
+                # The kit's curtain wall is a PERFECT MIRROR (metallic 1.0,
+                # roughness 0.0): from the street a pristine tower shows
+                # hard-edged black triangles and diagonal bars — reflections
+                # of the podium posts and the next tower — which read as
+                # damage (earthquake round 3, agent G). Real IGU glass is a
+                # slightly soft reflector; GLASS_ROUGHNESS is the knob.
+                r = sh.GetInput("roughness")
+                rv = r.Get() if r else None
+                if rv is not None and float(rv) < 0.05:
+                    sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(float(GLASS_ROUGHNESS))
+                continue
+            if sid != "UsdUVTexture":
                 continue
             f = sh.GetInput("file")
             v = f.Get() if f else None
@@ -941,6 +956,9 @@ def apply_glass_tint(stage, placements):
             sh.CreateInput("scale", Sdf.ValueTypeNames.Float4).Set(Gf.Vec4f(*rgb, 1.0))
             n += 1
     return n
+
+
+GLASS_ROUGHNESS = 0.22   # curtain-wall roughness when the kit's shader is a perfect mirror
 
 
 # ---------------------------------------------------------------------------

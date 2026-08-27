@@ -1,6 +1,362 @@
 [
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_dw_terrace_DG0.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_DG0.usd",
+  "meshes": 171,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "office",
+  "level": "DG0",
+  "W": 32.0,
+  "D": 16.0,
+  "H": 19.0,
+  "family": "02",
+  "type": "rc",
+  "settle_s": 107.7,
+  "settle_solve_s": 97.3,
+  "settle_bodies": 2191,
+  "settle_steps": 2500,
+  "still_moving": 0
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_DG1.usd",
+  "meshes": 304,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "office",
+  "level": "DG1",
+  "W": 32.0,
+  "D": 16.0,
+  "H": 19.0,
+  "family": "02",
+  "type": "rc",
+  "fracture_s": 0.4,
+  "loose": 5,
+  "settle_s": 107.7,
+  "settle_solve_s": 97.3,
+  "settle_bodies": 2191,
+  "settle_steps": 2500,
+  "still_moving": 0
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_DG2.usd",
+  "meshes": 609,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "office",
+  "level": "DG2",
+  "W": 32.0,
+  "D": 16.0,
+  "H": 19.0,
+  "family": "02",
+  "type": "rc",
+  "fracture_s": 1.6,
+  "loose": 76,
+  "settle_s": 107.7,
+  "settle_solve_s": 97.3,
+  "settle_bodies": 2191,
+  "settle_steps": 2500,
+  "still_moving": 0
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_DG3.usd",
+  "meshes": 940,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "office",
+  "level": "DG3",
+  "W": 32.0,
+  "D": 16.0,
+  "H": 19.0,
+  "family": "02",
+  "type": "rc",
+  "fracture_s": 4.7,
+  "loose": 265,
+  "settle_s": 107.7,
+  "settle_solve_s": 97.3,
+  "settle_bodies": 2191,
+  "settle_steps": 2500,
+  "still_moving": 0
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_DG4.usd",
+  "meshes": 1762,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "office",
+  "level": "DG4",
+  "W": 32.0,
+  "D": 16.0,
+  "H": 19.0,
+  "family": "02",
+  "type": "rc",
+  "fracture_s": 17.6,
+  "loose": 396,
+  "settle_s": 107.7,
+  "settle_solve_s": 97.3,
+  "settle_bodies": 2191,
+  "settle_steps": 2500,
+  "still_moving": 0
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_DG5.usd",
+  "meshes": 4824,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "office",
+  "level": "DG5",
+  "W": 32.0,
+  "D": 16.0,
+  "H": 19.0,
+  "family": "02",
+  "type": "rc",
+  "fracture_s": 44.4,
+  "loose": 995,
+  "settle_s": 107.7,
+  "settle_solve_s": 97.3,
+  "settle_bodies": 2191,
+  "settle_steps": 2500,
+  "still_moving": 0
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_SETTLE.usd",
+  "meshes": 520,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "office",
+  "level": "SETTLE",
+  "W": 32.0,
+  "D": 16.0,
+  "H": 19.0,
+  "family": "02",
+  "type": "rc",
+  "fracture_s": 1.2,
+  "loose": 6,
+  "settle_s": 107.7,
+  "settle_solve_s": 97.3,
+  "settle_bodies": 2191,
+  "settle_steps": 2500,
+  "still_moving": 0
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_TILT.usd",
+  "meshes": 897,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "office",
+  "level": "TILT",
+  "W": 32.0,
+  "D": 16.0,
+  "H": 19.0,
+  "family": "02",
+  "type": "rc",
+  "fracture_s": 2.2,
+  "loose": 5,
+  "settle_s": 107.7,
+  "settle_solve_s": 97.3,
+  "settle_bodies": 2191,
+  "settle_steps": 2500,
+  "still_moving": 0
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_OV.usd",
+  "meshes": 1136,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "office",
+  "level": "OV",
+  "W": 32.0,
+  "D": 16.0,
+  "H": 19.0,
+  "family": "02",
+  "type": "rc",
+  "fracture_s": 7.7,
+  "loose": 443,
+  "settle_s": 107.7,
+  "settle_solve_s": 97.3,
+  "settle_bodies": 2191,
+  "settle_steps": 2500,
+  "still_moving": 0
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_DG0.usd",
+  "meshes": 131,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "apartment",
+  "level": "DG0",
+  "W": 22.0,
+  "D": 17.0,
+  "H": 18.0,
+  "family": "01",
+  "type": "urm",
+  "settle_s": 158.0,
+  "settle_solve_s": 144.1,
+  "settle_bodies": 3247,
+  "settle_steps": 3000,
+  "still_moving": 0
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_DG1.usd",
+  "meshes": 211,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "apartment",
+  "level": "DG1",
+  "W": 22.0,
+  "D": 17.0,
+  "H": 18.0,
+  "family": "01",
+  "type": "urm",
+  "fracture_s": 0.2,
+  "loose": 2,
+  "settle_s": 158.0,
+  "settle_solve_s": 144.1,
+  "settle_bodies": 3247,
+  "settle_steps": 3000,
+  "still_moving": 0
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_DG2.usd",
+  "meshes": 317,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "apartment",
+  "level": "DG2",
+  "W": 22.0,
+  "D": 17.0,
+  "H": 18.0,
+  "family": "01",
+  "type": "urm",
+  "fracture_s": 0.6,
+  "loose": 17,
+  "settle_s": 158.0,
+  "settle_solve_s": 144.1,
+  "settle_bodies": 3247,
+  "settle_steps": 3000,
+  "still_moving": 0
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_DG3.usd",
+  "meshes": 2373,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "apartment",
+  "level": "DG3",
+  "W": 22.0,
+  "D": 17.0,
+  "H": 18.0,
+  "family": "01",
+  "type": "urm",
+  "fracture_s": 24.5,
+  "loose": 698,
+  "settle_s": 158.0,
+  "settle_solve_s": 144.1,
+  "settle_bodies": 3247,
+  "settle_steps": 3000,
+  "still_moving": 0
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_DG4.usd",
+  "meshes": 3808,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "apartment",
+  "level": "DG4",
+  "W": 22.0,
+  "D": 17.0,
+  "H": 18.0,
+  "family": "01",
+  "type": "urm",
+  "fracture_s": 44.4,
+  "loose": 1207,
+  "settle_s": 158.0,
+  "settle_solve_s": 144.1,
+  "settle_bodies": 3247,
+  "settle_steps": 3000,
+  "still_moving": 0
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_DG5.usd",
+  "meshes": 4283,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "apartment",
+  "level": "DG5",
+  "W": 22.0,
+  "D": 17.0,
+  "H": 18.0,
+  "family": "01",
+  "type": "urm",
+  "fracture_s": 62.9,
+  "loose": 840,
+  "settle_s": 158.0,
+  "settle_solve_s": 144.1,
+  "settle_bodies": 3247,
+  "settle_steps": 3000,
+  "still_moving": 0
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_SETTLE.usd",
+  "meshes": 356,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "apartment",
+  "level": "SETTLE",
+  "W": 22.0,
+  "D": 17.0,
+  "H": 18.0,
+  "family": "01",
+  "type": "urm",
+  "fracture_s": 1.2,
+  "loose": 3,
+  "settle_s": 158.0,
+  "settle_solve_s": 144.1,
+  "settle_bodies": 3247,
+  "settle_steps": 3000,
+  "still_moving": 0
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_TILT.usd",
+  "meshes": 551,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "apartment",
+  "level": "TILT",
+  "W": 22.0,
+  "D": 17.0,
+  "H": 18.0,
+  "family": "01",
+  "type": "urm",
+  "fracture_s": 1.4,
+  "loose": 7,
+  "settle_s": 158.0,
+  "settle_solve_s": 144.1,
+  "settle_bodies": 3247,
+  "settle_steps": 3000,
+  "still_moving": 0
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_OV.usd",
+  "meshes": 952,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "apartment",
+  "level": "OV",
+  "W": 22.0,
+  "D": 17.0,
+  "H": 18.0,
+  "family": "01",
+  "type": "urm",
+  "fracture_s": 7.9,
+  "loose": 473,
+  "settle_s": 158.0,
+  "settle_solve_s": 144.1,
+  "settle_bodies": 3247,
+  "settle_steps": 3000,
+  "still_moving": 0
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_dw_terrace_DG0.usd",
   "meshes": 97,
   "bound_missing": 0,
   "kind": "bld",
@@ -18,7 +374,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_dw_terrace_DG1.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_dw_terrace_DG1.usd",
   "meshes": 132,
   "bound_missing": 0,
   "kind": "bld",
@@ -38,7 +394,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_dw_terrace_DG2.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_dw_terrace_DG2.usd",
   "meshes": 193,
   "bound_missing": 0,
   "kind": "bld",
@@ -58,7 +414,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_dw_terrace_DG3.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_dw_terrace_DG3.usd",
   "meshes": 1487,
   "bound_missing": 0,
   "kind": "bld",
@@ -78,7 +434,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_dw_terrace_DG4.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_dw_terrace_DG4.usd",
   "meshes": 2202,
   "bound_missing": 0,
   "kind": "bld",
@@ -98,7 +454,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_dw_terrace_DG5.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_dw_terrace_DG5.usd",
   "meshes": 3152,
   "bound_missing": 0,
   "kind": "bld",
@@ -118,7 +474,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_dw_terrace_SETTLE.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_dw_terrace_SETTLE.usd",
   "meshes": 327,
   "bound_missing": 0,
   "kind": "bld",
@@ -138,7 +494,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_dw_terrace_TILT.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_dw_terrace_TILT.usd",
   "meshes": 589,
   "bound_missing": 0,
   "kind": "bld",
@@ -158,7 +514,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_dw_terrace_OV.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_dw_terrace_OV.usd",
   "meshes": 701,
   "bound_missing": 0,
   "kind": "bld",
@@ -178,7 +534,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_commercial_mid_DG0.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_commercial_mid_DG0.usd",
   "meshes": 187,
   "bound_missing": 0,
   "kind": "bld",
@@ -196,7 +552,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_commercial_mid_DG1.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_commercial_mid_DG1.usd",
   "meshes": 333,
   "bound_missing": 0,
   "kind": "bld",
@@ -216,7 +572,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_commercial_mid_DG2.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_commercial_mid_DG2.usd",
   "meshes": 541,
   "bound_missing": 0,
   "kind": "bld",
@@ -236,7 +592,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_commercial_mid_DG3.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_commercial_mid_DG3.usd",
   "meshes": 1755,
   "bound_missing": 0,
   "kind": "bld",
@@ -256,7 +612,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_commercial_mid_DG4.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_commercial_mid_DG4.usd",
   "meshes": 3392,
   "bound_missing": 0,
   "kind": "bld",
@@ -276,7 +632,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_commercial_mid_DG5.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_commercial_mid_DG5.usd",
   "meshes": 7729,
   "bound_missing": 0,
   "kind": "bld",
@@ -296,7 +652,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_commercial_mid_SETTLE.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_commercial_mid_SETTLE.usd",
   "meshes": 494,
   "bound_missing": 0,
   "kind": "bld",
@@ -316,7 +672,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_commercial_mid_TILT.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_commercial_mid_TILT.usd",
   "meshes": 699,
   "bound_missing": 0,
   "kind": "bld",
@@ -336,7 +692,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_commercial_mid_OV.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_commercial_mid_OV.usd",
   "meshes": 918,
   "bound_missing": 0,
   "kind": "bld",
@@ -356,7 +712,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_brownstone_row_DG0.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_brownstone_row_DG0.usd",
   "meshes": 211,
   "bound_missing": 0,
   "kind": "bld",
@@ -374,7 +730,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_brownstone_row_DG1.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_brownstone_row_DG1.usd",
   "meshes": 340,
   "bound_missing": 0,
   "kind": "bld",
@@ -394,7 +750,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_brownstone_row_DG2.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_brownstone_row_DG2.usd",
   "meshes": 404,
   "bound_missing": 0,
   "kind": "bld",
@@ -414,7 +770,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_brownstone_row_DG3.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_brownstone_row_DG3.usd",
   "meshes": 3681,
   "bound_missing": 0,
   "kind": "bld",
@@ -434,7 +790,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_brownstone_row_DG4.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_brownstone_row_DG4.usd",
   "meshes": 5054,
   "bound_missing": 0,
   "kind": "bld",
@@ -454,7 +810,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_brownstone_row_DG5.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_brownstone_row_DG5.usd",
   "meshes": 5427,
   "bound_missing": 0,
   "kind": "bld",
@@ -474,7 +830,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_brownstone_row_SETTLE.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_brownstone_row_SETTLE.usd",
   "meshes": 510,
   "bound_missing": 0,
   "kind": "bld",
@@ -494,7 +850,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_brownstone_row_TILT.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_brownstone_row_TILT.usd",
   "meshes": 649,
   "bound_missing": 0,
   "kind": "bld",
@@ -514,7 +870,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_brownstone_row_OV.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_brownstone_row_OV.usd",
   "meshes": 1581,
   "bound_missing": 0,
   "kind": "bld",
@@ -534,7 +890,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_highrise_04_DG0.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_highrise_04_DG0.usd",
   "meshes": 268,
   "bound_missing": 0,
   "kind": "bld",
@@ -552,7 +908,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_highrise_04_DG1.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_highrise_04_DG1.usd",
   "meshes": 434,
   "bound_missing": 0,
   "kind": "bld",
@@ -572,7 +928,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_highrise_04_DG2.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_highrise_04_DG2.usd",
   "meshes": 613,
   "bound_missing": 0,
   "kind": "bld",
@@ -592,7 +948,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_highrise_04_DG3.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_highrise_04_DG3.usd",
   "meshes": 1741,
   "bound_missing": 0,
   "kind": "bld",
@@ -612,7 +968,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_highrise_04_DG4.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_highrise_04_DG4.usd",
   "meshes": 4804,
   "bound_missing": 0,
   "kind": "bld",
@@ -632,7 +988,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_highrise_04_DG5.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_highrise_04_DG5.usd",
   "meshes": 7957,
   "bound_missing": 0,
   "kind": "bld",
@@ -652,7 +1008,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_highrise_04_SETTLE.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_highrise_04_SETTLE.usd",
   "meshes": 583,
   "bound_missing": 0,
   "kind": "bld",
@@ -672,7 +1028,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_highrise_04_TILT.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_highrise_04_TILT.usd",
   "meshes": 931,
   "bound_missing": 0,
   "kind": "bld",
@@ -692,7 +1048,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_highrise_04_OV.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_highrise_04_OV.usd",
   "meshes": 937,
   "bound_missing": 0,
   "kind": "bld",
@@ -712,7 +1068,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_department_store_DG0.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_department_store_DG0.usd",
   "meshes": 159,
   "bound_missing": 0,
   "kind": "bld",
@@ -730,7 +1086,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_department_store_DG1.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_department_store_DG1.usd",
   "meshes": 247,
   "bound_missing": 0,
   "kind": "bld",
@@ -750,7 +1106,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_department_store_DG2.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_department_store_DG2.usd",
   "meshes": 500,
   "bound_missing": 0,
   "kind": "bld",
@@ -770,7 +1126,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_department_store_DG3.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_department_store_DG3.usd",
   "meshes": 2111,
   "bound_missing": 0,
   "kind": "bld",
@@ -790,7 +1146,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_department_store_DG4.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_department_store_DG4.usd",
   "meshes": 3557,
   "bound_missing": 0,
   "kind": "bld",
@@ -810,7 +1166,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_department_store_DG5.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_department_store_DG5.usd",
   "meshes": 8108,
   "bound_missing": 0,
   "kind": "bld",
@@ -830,7 +1186,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_department_store_SETTLE.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_department_store_SETTLE.usd",
   "meshes": 555,
   "bound_missing": 0,
   "kind": "bld",
@@ -850,7 +1206,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_department_store_TILT.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_department_store_TILT.usd",
   "meshes": 1002,
   "bound_missing": 0,
   "kind": "bld",
@@ -870,7 +1226,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_department_store_OV.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_department_store_OV.usd",
   "meshes": 1086,
   "bound_missing": 0,
   "kind": "bld",
@@ -890,7 +1246,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_commercial_DG0.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_commercial_DG0.usd",
   "meshes": 114,
   "bound_missing": 0,
   "kind": "bld",
@@ -908,7 +1264,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_commercial_DG1.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_commercial_DG1.usd",
   "meshes": 186,
   "bound_missing": 0,
   "kind": "bld",
@@ -928,7 +1284,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_commercial_DG2.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_commercial_DG2.usd",
   "meshes": 282,
   "bound_missing": 0,
   "kind": "bld",
@@ -948,7 +1304,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_commercial_DG3.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_commercial_DG3.usd",
   "meshes": 615,
   "bound_missing": 0,
   "kind": "bld",
@@ -968,7 +1324,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_commercial_DG4.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_commercial_DG4.usd",
   "meshes": 896,
   "bound_missing": 0,
   "kind": "bld",
@@ -988,7 +1344,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_commercial_DG5.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_commercial_DG5.usd",
   "meshes": 3244,
   "bound_missing": 0,
   "kind": "bld",
@@ -1008,7 +1364,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_brownstone_DG0.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_brownstone_DG0.usd",
   "meshes": 127,
   "bound_missing": 0,
   "kind": "bld",
@@ -1026,7 +1382,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_brownstone_DG1.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_brownstone_DG1.usd",
   "meshes": 192,
   "bound_missing": 0,
   "kind": "bld",
@@ -1046,7 +1402,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_brownstone_DG2.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_brownstone_DG2.usd",
   "meshes": 241,
   "bound_missing": 0,
   "kind": "bld",
@@ -1066,7 +1422,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_brownstone_DG3.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_brownstone_DG3.usd",
   "meshes": 2843,
   "bound_missing": 0,
   "kind": "bld",
@@ -1086,7 +1442,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_brownstone_DG4.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_brownstone_DG4.usd",
   "meshes": 3094,
   "bound_missing": 0,
   "kind": "bld",
@@ -1106,7 +1462,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_brownstone_DG5.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_brownstone_DG5.usd",
   "meshes": 3100,
   "bound_missing": 0,
   "kind": "bld",
@@ -1126,7 +1482,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_brownstone_SETTLE.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_brownstone_SETTLE.usd",
   "meshes": 342,
   "bound_missing": 0,
   "kind": "bld",
@@ -1146,7 +1502,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_brownstone_TILT.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_brownstone_TILT.usd",
   "meshes": 562,
   "bound_missing": 0,
   "kind": "bld",
@@ -1166,7 +1522,7 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_brownstone_OV.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_brownstone_OV.usd",
   "meshes": 951,
   "bound_missing": 0,
   "kind": "bld",
@@ -1186,7 +1542,185 @@
   "still_moving": 1
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_wide_DG0.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_civic_offices_DG0.usd",
+  "meshes": 225,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "civic_offices",
+  "level": "DG0",
+  "W": 30.0,
+  "D": 20.0,
+  "H": 12.5,
+  "family": "civ",
+  "type": "rc",
+  "settle_s": 179.8,
+  "settle_solve_s": 163.6,
+  "settle_bodies": 3742,
+  "settle_steps": 3000,
+  "still_moving": 1
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_civic_offices_DG1.usd",
+  "meshes": 746,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "civic_offices",
+  "level": "DG1",
+  "W": 30.0,
+  "D": 20.0,
+  "H": 12.5,
+  "family": "civ",
+  "type": "rc",
+  "fracture_s": 1.4,
+  "loose": 21,
+  "settle_s": 179.8,
+  "settle_solve_s": 163.6,
+  "settle_bodies": 3742,
+  "settle_steps": 3000,
+  "still_moving": 1
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_civic_offices_DG2.usd",
+  "meshes": 910,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "civic_offices",
+  "level": "DG2",
+  "W": 30.0,
+  "D": 20.0,
+  "H": 12.5,
+  "family": "civ",
+  "type": "rc",
+  "fracture_s": 4.1,
+  "loose": 127,
+  "settle_s": 179.8,
+  "settle_solve_s": 163.6,
+  "settle_bodies": 3742,
+  "settle_steps": 3000,
+  "still_moving": 1
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_civic_offices_DG3.usd",
+  "meshes": 1292,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "civic_offices",
+  "level": "DG3",
+  "W": 30.0,
+  "D": 20.0,
+  "H": 12.5,
+  "family": "civ",
+  "type": "rc",
+  "fracture_s": 10.0,
+  "loose": 352,
+  "settle_s": 179.8,
+  "settle_solve_s": 163.6,
+  "settle_bodies": 3742,
+  "settle_steps": 3000,
+  "still_moving": 1
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_civic_offices_DG4.usd",
+  "meshes": 2699,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "civic_offices",
+  "level": "DG4",
+  "W": 30.0,
+  "D": 20.0,
+  "H": 12.5,
+  "family": "civ",
+  "type": "rc",
+  "fracture_s": 32.9,
+  "loose": 871,
+  "settle_s": 179.8,
+  "settle_solve_s": 163.6,
+  "settle_bodies": 3742,
+  "settle_steps": 3000,
+  "still_moving": 1
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_civic_offices_DG5.usd",
+  "meshes": 4682,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "civic_offices",
+  "level": "DG5",
+  "W": 30.0,
+  "D": 20.0,
+  "H": 12.5,
+  "family": "civ",
+  "type": "rc",
+  "fracture_s": 70.8,
+  "loose": 2053,
+  "settle_s": 179.8,
+  "settle_solve_s": 163.6,
+  "settle_bodies": 3742,
+  "settle_steps": 3000,
+  "still_moving": 1
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_civic_offices_SETTLE.usd",
+  "meshes": 794,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "civic_offices",
+  "level": "SETTLE",
+  "W": 30.0,
+  "D": 20.0,
+  "H": 12.5,
+  "family": "civ",
+  "type": "rc",
+  "fracture_s": 2.3,
+  "loose": 6,
+  "settle_s": 179.8,
+  "settle_solve_s": 163.6,
+  "settle_bodies": 3742,
+  "settle_steps": 3000,
+  "still_moving": 1
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_civic_offices_TILT.usd",
+  "meshes": 1050,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "civic_offices",
+  "level": "TILT",
+  "W": 30.0,
+  "D": 20.0,
+  "H": 12.5,
+  "family": "civ",
+  "type": "rc",
+  "fracture_s": 3.1,
+  "loose": 6,
+  "settle_s": 179.8,
+  "settle_solve_s": 163.6,
+  "settle_bodies": 3742,
+  "settle_steps": 3000,
+  "still_moving": 1
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_civic_offices_OV.usd",
+  "meshes": 1187,
+  "bound_missing": 0,
+  "kind": "bld",
+  "style": "civic_offices",
+  "level": "OV",
+  "W": 30.0,
+  "D": 20.0,
+  "H": 12.5,
+  "family": "civ",
+  "type": "rc",
+  "fracture_s": 7.4,
+  "loose": 306,
+  "settle_s": 179.8,
+  "settle_solve_s": 163.6,
+  "settle_bodies": 3742,
+  "settle_steps": 3000,
+  "still_moving": 1
+ },
+ {
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_wide_DG0.usd",
   "meshes": 272,
   "bound_missing": 0,
   "kind": "bld",
@@ -1204,7 +1738,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_wide_DG1.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_wide_DG1.usd",
   "meshes": 908,
   "bound_missing": 0,
   "kind": "bld",
@@ -1224,7 +1758,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_wide_DG2.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_wide_DG2.usd",
   "meshes": 1015,
   "bound_missing": 0,
   "kind": "bld",
@@ -1244,7 +1778,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_wide_DG3.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_wide_DG3.usd",
   "meshes": 1369,
   "bound_missing": 0,
   "kind": "bld",
@@ -1264,7 +1798,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_wide_DG4.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_wide_DG4.usd",
   "meshes": 3006,
   "bound_missing": 0,
   "kind": "bld",
@@ -1284,7 +1818,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_wide_DG5.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_wide_DG5.usd",
   "meshes": 7847,
   "bound_missing": 0,
   "kind": "bld",
@@ -1304,7 +1838,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_wide_SETTLE.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_wide_SETTLE.usd",
   "meshes": 800,
   "bound_missing": 0,
   "kind": "bld",
@@ -1324,7 +1858,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_wide_TILT.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_wide_TILT.usd",
   "meshes": 1263,
   "bound_missing": 0,
   "kind": "bld",
@@ -1344,7 +1878,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_wide_OV.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_wide_OV.usd",
   "meshes": 1676,
   "bound_missing": 0,
   "kind": "bld",
@@ -1364,7 +1898,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_long_DG0.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_long_DG0.usd",
   "meshes": 198,
   "bound_missing": 0,
   "kind": "bld",
@@ -1382,7 +1916,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_long_DG1.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_long_DG1.usd",
   "meshes": 351,
   "bound_missing": 0,
   "kind": "bld",
@@ -1402,7 +1936,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_long_DG2.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_long_DG2.usd",
   "meshes": 423,
   "bound_missing": 0,
   "kind": "bld",
@@ -1422,7 +1956,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_long_DG3.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_long_DG3.usd",
   "meshes": 3781,
   "bound_missing": 0,
   "kind": "bld",
@@ -1442,7 +1976,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_long_DG4.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_long_DG4.usd",
   "meshes": 5629,
   "bound_missing": 0,
   "kind": "bld",
@@ -1462,7 +1996,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_long_DG5.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_long_DG5.usd",
   "meshes": 6698,
   "bound_missing": 0,
   "kind": "bld",
@@ -1482,7 +2016,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_long_SETTLE.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_long_SETTLE.usd",
   "meshes": 504,
   "bound_missing": 0,
   "kind": "bld",
@@ -1502,7 +2036,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_long_TILT.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_long_TILT.usd",
   "meshes": 631,
   "bound_missing": 0,
   "kind": "bld",
@@ -1522,7 +2056,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_long_OV.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_long_OV.usd",
   "meshes": 1557,
   "bound_missing": 0,
   "kind": "bld",
@@ -1542,7 +2076,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_tower_DG0.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_tower_DG0.usd",
   "meshes": 186,
   "bound_missing": 0,
   "kind": "bld",
@@ -1560,7 +2094,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_tower_DG1.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_tower_DG1.usd",
   "meshes": 520,
   "bound_missing": 0,
   "kind": "bld",
@@ -1580,7 +2114,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_tower_DG2.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_tower_DG2.usd",
   "meshes": 589,
   "bound_missing": 0,
   "kind": "bld",
@@ -1600,7 +2134,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_tower_DG3.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_tower_DG3.usd",
   "meshes": 820,
   "bound_missing": 0,
   "kind": "bld",
@@ -1620,7 +2154,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_tower_DG4.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_tower_DG4.usd",
   "meshes": 1846,
   "bound_missing": 0,
   "kind": "bld",
@@ -1640,7 +2174,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_tower_DG5.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_tower_DG5.usd",
   "meshes": 910,
   "bound_missing": 0,
   "kind": "bld",
@@ -1660,7 +2194,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_tower_SETTLE.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_tower_SETTLE.usd",
   "meshes": 735,
   "bound_missing": 0,
   "kind": "bld",
@@ -1680,7 +2214,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_tower_TILT.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_tower_TILT.usd",
   "meshes": 988,
   "bound_missing": 0,
   "kind": "bld",
@@ -1700,7 +2234,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_tower_OV.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_tower_OV.usd",
   "meshes": 187,
   "bound_missing": 0,
   "kind": "bld",
@@ -1720,7 +2254,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_walkup_DG0.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_walkup_DG0.usd",
   "meshes": 209,
   "bound_missing": 0,
   "kind": "bld",
@@ -1738,7 +2272,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_walkup_DG1.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_walkup_DG1.usd",
   "meshes": 304,
   "bound_missing": 0,
   "kind": "bld",
@@ -1758,7 +2292,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_walkup_DG2.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_walkup_DG2.usd",
   "meshes": 417,
   "bound_missing": 0,
   "kind": "bld",
@@ -1778,7 +2312,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_walkup_DG3.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_walkup_DG3.usd",
   "meshes": 3011,
   "bound_missing": 0,
   "kind": "bld",
@@ -1798,7 +2332,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_walkup_DG4.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_walkup_DG4.usd",
   "meshes": 4547,
   "bound_missing": 0,
   "kind": "bld",
@@ -1818,7 +2352,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_walkup_DG5.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_walkup_DG5.usd",
   "meshes": 6401,
   "bound_missing": 0,
   "kind": "bld",
@@ -1838,7 +2372,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_walkup_SETTLE.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_walkup_SETTLE.usd",
   "meshes": 470,
   "bound_missing": 0,
   "kind": "bld",
@@ -1858,7 +2392,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_walkup_TILT.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_walkup_TILT.usd",
   "meshes": 664,
   "bound_missing": 0,
   "kind": "bld",
@@ -1878,7 +2412,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_walkup_OV.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_walkup_OV.usd",
   "meshes": 1253,
   "bound_missing": 0,
   "kind": "bld",
@@ -1898,7 +2432,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_tall_DG0.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_tall_DG0.usd",
   "meshes": 247,
   "bound_missing": 0,
   "kind": "bld",
@@ -1916,7 +2450,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_tall_DG1.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_tall_DG1.usd",
   "meshes": 405,
   "bound_missing": 0,
   "kind": "bld",
@@ -1936,7 +2470,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_tall_DG2.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_tall_DG2.usd",
   "meshes": 537,
   "bound_missing": 0,
   "kind": "bld",
@@ -1956,7 +2490,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_tall_DG3.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_tall_DG3.usd",
   "meshes": 3510,
   "bound_missing": 0,
   "kind": "bld",
@@ -1976,7 +2510,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_tall_DG4.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_tall_DG4.usd",
   "meshes": 6403,
   "bound_missing": 0,
   "kind": "bld",
@@ -1996,7 +2530,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_tall_DG5.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_tall_DG5.usd",
   "meshes": 7940,
   "bound_missing": 0,
   "kind": "bld",
@@ -2016,7 +2550,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_tall_SETTLE.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_tall_SETTLE.usd",
   "meshes": 557,
   "bound_missing": 0,
   "kind": "bld",
@@ -2036,7 +2570,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_tall_TILT.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_tall_TILT.usd",
   "meshes": 800,
   "bound_missing": 0,
   "kind": "bld",
@@ -2056,7 +2590,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_tall_OV.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_apartment_tall_OV.usd",
   "meshes": 1332,
   "bound_missing": 0,
   "kind": "bld",
@@ -2076,7 +2610,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_plain_DG0.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_plain_DG0.usd",
   "meshes": 221,
   "bound_missing": 0,
   "kind": "bld",
@@ -2094,7 +2628,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_plain_DG1.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_plain_DG1.usd",
   "meshes": 702,
   "bound_missing": 0,
   "kind": "bld",
@@ -2114,7 +2648,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_plain_DG2.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_plain_DG2.usd",
   "meshes": 1022,
   "bound_missing": 0,
   "kind": "bld",
@@ -2134,7 +2668,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_plain_DG3.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_plain_DG3.usd",
   "meshes": 1346,
   "bound_missing": 0,
   "kind": "bld",
@@ -2154,7 +2688,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_plain_DG4.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_plain_DG4.usd",
   "meshes": 2558,
   "bound_missing": 0,
   "kind": "bld",
@@ -2174,7 +2708,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_plain_DG5.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_plain_DG5.usd",
   "meshes": 8316,
   "bound_missing": 0,
   "kind": "bld",
@@ -2194,7 +2728,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_plain_SETTLE.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_plain_SETTLE.usd",
   "meshes": 714,
   "bound_missing": 0,
   "kind": "bld",
@@ -2214,7 +2748,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_plain_TILT.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_plain_TILT.usd",
   "meshes": 1115,
   "bound_missing": 0,
   "kind": "bld",
@@ -2234,7 +2768,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_plain_OV.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_office_plain_OV.usd",
   "meshes": 1454,
   "bound_missing": 0,
   "kind": "bld",
@@ -2254,7 +2788,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_commercial_SETTLE.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_commercial_SETTLE.usd",
   "meshes": 356,
   "bound_missing": 0,
   "kind": "bld",
@@ -2274,7 +2808,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_commercial_TILT.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_commercial_TILT.usd",
   "meshes": 591,
   "bound_missing": 0,
   "kind": "bld",
@@ -2294,7 +2828,7 @@
   "still_moving": 0
  },
  {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_commercial_OV.usd",
+  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake_o/bld_commercial_OV.usd",
   "meshes": 493,
   "bound_missing": 0,
   "kind": "bld",
@@ -2311,702 +2845,6 @@
   "settle_solve_s": 2.0,
   "settle_bodies": 38,
   "settle_steps": 1000,
-  "still_moving": 0
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_DG0.usd",
-  "meshes": 171,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "office",
-  "level": "DG0",
-  "W": 32.0,
-  "D": 16.0,
-  "H": 19.0,
-  "family": "02",
-  "type": "rc",
-  "mb": 0.5,
-  "prims": 269,
-  "src_meshes": 171,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "settle_s": 190.9,
-  "settle_solve_s": 179.7,
-  "settle_bodies": 2448,
-  "settle_steps": 3000,
-  "still_moving": 1
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_DG1.usd",
-  "meshes": 302,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "office",
-  "level": "DG1",
-  "W": 32.0,
-  "D": 16.0,
-  "H": 19.0,
-  "family": "02",
-  "type": "rc",
-  "mb": 1.07,
-  "prims": 450,
-  "src_meshes": 532,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 1.5,
-  "loose": 43,
-  "settle_s": 190.9,
-  "settle_solve_s": 179.7,
-  "settle_bodies": 2448,
-  "settle_steps": 3000,
-  "still_moving": 1
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_DG2.usd",
-  "meshes": 294,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "office",
-  "level": "DG2",
-  "W": 32.0,
-  "D": 16.0,
-  "H": 19.0,
-  "family": "02",
-  "type": "rc",
-  "mb": 1.23,
-  "prims": 446,
-  "src_meshes": 634,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 2.3,
-  "loose": 97,
-  "settle_s": 190.9,
-  "settle_solve_s": 179.7,
-  "settle_bodies": 2448,
-  "settle_steps": 3000,
-  "still_moving": 1
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_DG3.usd",
-  "meshes": 266,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "office",
-  "level": "DG3",
-  "W": 32.0,
-  "D": 16.0,
-  "H": 19.0,
-  "family": "02",
-  "type": "rc",
-  "mb": 2.21,
-  "prims": 418,
-  "src_meshes": 923,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 4.9,
-  "loose": 244,
-  "settle_s": 190.9,
-  "settle_solve_s": 179.7,
-  "settle_bodies": 2448,
-  "settle_steps": 3000,
-  "still_moving": 1
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_DG4.usd",
-  "meshes": 276,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "office",
-  "level": "DG4",
-  "W": 32.0,
-  "D": 16.0,
-  "H": 19.0,
-  "family": "02",
-  "type": "rc",
-  "mb": 6.42,
-  "prims": 389,
-  "src_meshes": 2076,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 31.0,
-  "loose": 436,
-  "settle_s": 190.9,
-  "settle_solve_s": 179.7,
-  "settle_bodies": 2448,
-  "settle_steps": 3000,
-  "still_moving": 1
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_DG5.usd",
-  "meshes": 46,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "office",
-  "level": "DG5",
-  "W": 32.0,
-  "D": 16.0,
-  "H": 19.0,
-  "family": "02",
-  "type": "rc",
-  "mb": 5.48,
-  "prims": 96,
-  "src_meshes": 3663,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 44.4,
-  "loose": 1176,
-  "settle_s": 190.9,
-  "settle_solve_s": 179.7,
-  "settle_bodies": 2448,
-  "settle_steps": 3000,
-  "still_moving": 1
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_SETTLE.usd",
-  "meshes": 300,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "office",
-  "level": "SETTLE",
-  "W": 32.0,
-  "D": 16.0,
-  "H": 19.0,
-  "family": "02",
-  "type": "rc",
-  "mb": 0.84,
-  "prims": 434,
-  "src_meshes": 512,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 1.4,
-  "loose": 3,
-  "settle_s": 190.9,
-  "settle_solve_s": 179.7,
-  "settle_bodies": 2448,
-  "settle_steps": 3000,
-  "still_moving": 1
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_TILT.usd",
-  "meshes": 303,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "office",
-  "level": "TILT",
-  "W": 32.0,
-  "D": 16.0,
-  "H": 19.0,
-  "family": "02",
-  "type": "rc",
-  "mb": 0.89,
-  "prims": 437,
-  "src_meshes": 881,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 2.5,
-  "loose": 6,
-  "settle_s": 190.9,
-  "settle_solve_s": 179.7,
-  "settle_bodies": 2448,
-  "settle_steps": 3000,
-  "still_moving": 1
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_office_OV.usd",
-  "meshes": 291,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "office",
-  "level": "OV",
-  "W": 32.0,
-  "D": 16.0,
-  "H": 19.0,
-  "family": "02",
-  "type": "rc",
-  "mb": 1.97,
-  "prims": 451,
-  "src_meshes": 1105,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 9.5,
-  "loose": 443,
-  "settle_s": 190.9,
-  "settle_solve_s": 179.7,
-  "settle_bodies": 2448,
-  "settle_steps": 3000,
-  "still_moving": 1
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_DG0.usd",
-  "meshes": 131,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "apartment",
-  "level": "DG0",
-  "W": 22.0,
-  "D": 17.0,
-  "H": 18.0,
-  "family": "01",
-  "type": "urm",
-  "mb": 0.49,
-  "prims": 173,
-  "src_meshes": 131,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "settle_s": 325.2,
-  "settle_solve_s": 308.6,
-  "settle_bodies": 3870,
-  "settle_steps": 2500,
-  "still_moving": 0
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_DG1.usd",
-  "meshes": 168,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "apartment",
-  "level": "DG1",
-  "W": 22.0,
-  "D": 17.0,
-  "H": 18.0,
-  "family": "01",
-  "type": "urm",
-  "mb": 0.86,
-  "prims": 299,
-  "src_meshes": 212,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 0.2,
-  "loose": 5,
-  "settle_s": 325.2,
-  "settle_solve_s": 308.6,
-  "settle_bodies": 3870,
-  "settle_steps": 2500,
-  "still_moving": 0
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_DG2.usd",
-  "meshes": 174,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "apartment",
-  "level": "DG2",
-  "W": 22.0,
-  "D": 17.0,
-  "H": 18.0,
-  "family": "01",
-  "type": "urm",
-  "mb": 1.1,
-  "prims": 328,
-  "src_meshes": 255,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 0.6,
-  "loose": 16,
-  "settle_s": 325.2,
-  "settle_solve_s": 308.6,
-  "settle_bodies": 3870,
-  "settle_steps": 2500,
-  "still_moving": 0
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_DG3.usd",
-  "meshes": 168,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "apartment",
-  "level": "DG3",
-  "W": 22.0,
-  "D": 17.0,
-  "H": 18.0,
-  "family": "01",
-  "type": "urm",
-  "mb": 8.38,
-  "prims": 344,
-  "src_meshes": 2116,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 28.9,
-  "loose": 718,
-  "settle_s": 325.2,
-  "settle_solve_s": 308.6,
-  "settle_bodies": 3870,
-  "settle_steps": 2500,
-  "still_moving": 0
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_DG4.usd",
-  "meshes": 142,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "apartment",
-  "level": "DG4",
-  "W": 22.0,
-  "D": 17.0,
-  "H": 18.0,
-  "family": "01",
-  "type": "urm",
-  "mb": 15.13,
-  "prims": 333,
-  "src_meshes": 3346,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 57.3,
-  "loose": 1034,
-  "settle_s": 325.2,
-  "settle_solve_s": 308.6,
-  "settle_bodies": 3870,
-  "settle_steps": 2500,
-  "still_moving": 0
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_DG5.usd",
-  "meshes": 47,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "apartment",
-  "level": "DG5",
-  "W": 22.0,
-  "D": 17.0,
-  "H": 18.0,
-  "family": "01",
-  "type": "urm",
-  "mb": 20.28,
-  "prims": 121,
-  "src_meshes": 5282,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 105.9,
-  "loose": 1649,
-  "settle_s": 325.2,
-  "settle_solve_s": 308.6,
-  "settle_bodies": 3870,
-  "settle_steps": 2500,
-  "still_moving": 0
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_SETTLE.usd",
-  "meshes": 170,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "apartment",
-  "level": "SETTLE",
-  "W": 22.0,
-  "D": 17.0,
-  "H": 18.0,
-  "family": "01",
-  "type": "urm",
-  "mb": 0.79,
-  "prims": 301,
-  "src_meshes": 361,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 1.0,
-  "loose": 6,
-  "settle_s": 325.2,
-  "settle_solve_s": 308.6,
-  "settle_bodies": 3870,
-  "settle_steps": 2500,
-  "still_moving": 0
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_TILT.usd",
-  "meshes": 166,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "apartment",
-  "level": "TILT",
-  "W": 22.0,
-  "D": 17.0,
-  "H": 18.0,
-  "family": "01",
-  "type": "urm",
-  "mb": 0.81,
-  "prims": 283,
-  "src_meshes": 588,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 1.8,
-  "loose": 4,
-  "settle_s": 325.2,
-  "settle_solve_s": 308.6,
-  "settle_bodies": 3870,
-  "settle_steps": 2500,
-  "still_moving": 0
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_apartment_OV.usd",
-  "meshes": 154,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "apartment",
-  "level": "OV",
-  "W": 22.0,
-  "D": 17.0,
-  "H": 18.0,
-  "family": "01",
-  "type": "urm",
-  "mb": 1.97,
-  "prims": 313,
-  "src_meshes": 890,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 9.5,
-  "loose": 438,
-  "settle_s": 325.2,
-  "settle_solve_s": 308.6,
-  "settle_bodies": 3870,
-  "settle_steps": 2500,
-  "still_moving": 0
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_civic_offices_DG0.usd",
-  "meshes": 227,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "civic_offices",
-  "level": "DG0",
-  "W": 30.0,
-  "D": 20.0,
-  "H": 12.5,
-  "family": "civ",
-  "type": "rc",
-  "mb": 1.08,
-  "prims": 1274,
-  "src_meshes": 225,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "settle_s": 188.2,
-  "settle_solve_s": 168.4,
-  "settle_bodies": 4488,
-  "settle_steps": 1500,
-  "still_moving": 0
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_civic_offices_DG1.usd",
-  "meshes": 537,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "civic_offices",
-  "level": "DG1",
-  "W": 30.0,
-  "D": 20.0,
-  "H": 12.5,
-  "family": "civ",
-  "type": "rc",
-  "mb": 1.81,
-  "prims": 1605,
-  "src_meshes": 770,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 2.0,
-  "loose": 38,
-  "settle_s": 188.2,
-  "settle_solve_s": 168.4,
-  "settle_bodies": 4488,
-  "settle_steps": 1500,
-  "still_moving": 0
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_civic_offices_DG2.usd",
-  "meshes": 518,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "civic_offices",
-  "level": "DG2",
-  "W": 30.0,
-  "D": 20.0,
-  "H": 12.5,
-  "family": "civ",
-  "type": "rc",
-  "mb": 3.97,
-  "prims": 1504,
-  "src_meshes": 912,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 4.9,
-  "loose": 119,
-  "settle_s": 188.2,
-  "settle_solve_s": 168.4,
-  "settle_bodies": 4488,
-  "settle_steps": 1500,
-  "still_moving": 0
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_civic_offices_DG3.usd",
-  "meshes": 482,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "civic_offices",
-  "level": "DG3",
-  "W": 30.0,
-  "D": 20.0,
-  "H": 12.5,
-  "family": "civ",
-  "type": "rc",
-  "mb": 7.24,
-  "prims": 1282,
-  "src_meshes": 1274,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 12.0,
-  "loose": 320,
-  "settle_s": 188.2,
-  "settle_solve_s": 168.4,
-  "settle_bodies": 4488,
-  "settle_steps": 1500,
-  "still_moving": 0
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_civic_offices_DG4.usd",
-  "meshes": 385,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "civic_offices",
-  "level": "DG4",
-  "W": 30.0,
-  "D": 20.0,
-  "H": 12.5,
-  "family": "civ",
-  "type": "rc",
-  "mb": 19.57,
-  "prims": 940,
-  "src_meshes": 3003,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 47.2,
-  "loose": 1257,
-  "settle_s": 188.2,
-  "settle_solve_s": 168.4,
-  "settle_bodies": 4488,
-  "settle_steps": 1500,
-  "still_moving": 0
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_civic_offices_DG5.usd",
-  "meshes": 40,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "civic_offices",
-  "level": "DG5",
-  "W": 30.0,
-  "D": 20.0,
-  "H": 12.5,
-  "family": "civ",
-  "type": "rc",
-  "mb": 19.72,
-  "prims": 82,
-  "src_meshes": 5225,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 76.7,
-  "loose": 2460,
-  "settle_s": 188.2,
-  "settle_solve_s": 168.4,
-  "settle_bodies": 4488,
-  "settle_steps": 1500,
-  "still_moving": 0
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_civic_offices_SETTLE.usd",
-  "meshes": 529,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "civic_offices",
-  "level": "SETTLE",
-  "W": 30.0,
-  "D": 20.0,
-  "H": 12.5,
-  "family": "civ",
-  "type": "rc",
-  "mb": 1.46,
-  "prims": 1612,
-  "src_meshes": 787,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 2.6,
-  "loose": 3,
-  "settle_s": 188.2,
-  "settle_solve_s": 168.4,
-  "settle_bodies": 4488,
-  "settle_steps": 1500,
-  "still_moving": 0
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_civic_offices_TILT.usd",
-  "meshes": 533,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "civic_offices",
-  "level": "TILT",
-  "W": 30.0,
-  "D": 20.0,
-  "H": 12.5,
-  "family": "civ",
-  "type": "rc",
-  "mb": 1.48,
-  "prims": 1618,
-  "src_meshes": 972,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 3.3,
-  "loose": 5,
-  "settle_s": 188.2,
-  "settle_solve_s": 168.4,
-  "settle_bodies": 4488,
-  "settle_steps": 1500,
-  "still_moving": 0
- },
- {
-  "usd": "/isaac-sim/AirStack/scene_gen/assets/archetypes_quake/bld_civic_offices_OV.usd",
-  "meshes": 524,
-  "bound_missing": 0,
-  "kind": "bld",
-  "style": "civic_offices",
-  "level": "OV",
-  "W": 30.0,
-  "D": 20.0,
-  "H": 12.5,
-  "family": "civ",
-  "type": "rc",
-  "mb": 2.95,
-  "prims": 1555,
-  "src_meshes": 1190,
-  "merge": "on",
-  "raw_mb": null,
-  "raw_prims": null,
-  "fracture_s": 9.1,
-  "loose": 286,
-  "settle_s": 188.2,
-  "settle_solve_s": 168.4,
-  "settle_bodies": 4488,
-  "settle_steps": 1500,
   "still_moving": 0
  }
 ]

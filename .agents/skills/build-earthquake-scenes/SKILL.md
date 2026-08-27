@@ -221,7 +221,36 @@ lowering it further; the guillotine packer leaves the slack at the block edge).
   for half the DG3s. Sizes come from the world bound (`_mono_dims`), so the
   layout's 0/90/180/270 yaws are exact and a 45 deg one would be overestimated.
 
-# The bug catalogue
+# Round 3 (2026-08-27): triangles, glass, solid walls, load time
+
+The user's second review (two-city scene): breaks "very triangular — like
+something added to the edge of a rectangular break"; glass towers "just had
+some panes disappear, random panes hanging"; "I don't believe we can't
+fracture zero-wall-thickness buildings"; and "optimize after we get the look
+— scenes can't take hours to load". Research FIRST this time
+(`_plans/earthquake_research.md` §11-§13, the field dump
+`eq_round3_glass_recon_dump.md`, the implementer summary `eq_round3_R.md`),
+then the census, then the code. Agent notes: `eq_round3_{M,R,T,P,G,G2,O}.md`.
+
+| finding | what changed |
+|---|---|
+| census: 121/134 buildings fail the boundary-edge / back-face tests (16/16 kit styles; 105/118 of the urban_v2 drop) — but the kit walls are TWO SKINS with no rim (0.14-0.70 m apart), 01/02/03 façades have no back face, roofs are two triangles at 0.000 m | `scene_gen/tools/wall_thickness_census.sh` (40 s, no Kit), JSON + tables in `eq_round3_M.md` |
+| the round-2 triangles were (a) failed CAPS — `slice_plane(cap=True)` fanning each open section into one 2-3 m triangle — and (b) 3-D Voronoi seeds in a member thinner than the cell pitch | `fracture.solidify` before every slice (`EQ_SOLID=1`, `T_SOLID_M` per type/role, glass stays a thin closed plate; `EQ_SOLID_N` seed scale, 0.85 recommended); seeding from the plane of weakness: `mode="brick"` (running-bond lattice, course/stretcher pitch, clusters by `keep`), `mode="prism"` (2-D seeds extruded through the thickness), staircase judges quantised to the bond (`_p_staircase`), rocking MACROBLOCKS for out-of-plane, lintels/quoins as monoliths, sliver rejection (needles only), no surface roughening (`P_ROUGH_M` 0.003) |
+| acceptance test for shape | `scene_gen/tools/test_break_shape.py` on a bench's `frags.jsonl` (`EQ_DUMP_FRAGS=1`): oblique-face area, EI, blades, pieces > 2 m, equidimensional share, FI. Round-3 finals: oblique 0.1 %, EI 2-15 %, blades < 2 %, 166-172 rafts > 2 m; FI 33-37 % and equidimensional 38-42 % still miss R's demolition-waste numbers — those are for 50 mm-screened waste and would cost 4x the body count at the metre scale (documented, not chased) |
+| glass: curtain-wall frame failure 1 in 371; loss is a contiguous BAND on the racked storeys; cracked-but-retained only for annealed/laminated; cracks corner-rooted; DG5 "out" 40-55 % not 85 %; no curtain-wall tower has collapsed in ten events | `r_curtain_wall` (bands per drift profile, survivors inside, cage + spandrels kept, corner-crack strips, crazed laminated panes, gasket strips, dice piles ≈ 1.2 x panel area, one merged mesh per (kind, side, storey), ≤ 5 materials, no bodies), `r_storefront_glass` + `r_window_glass` (Zhao's in-plane ladder: cracked → many out → empty openings with racked/bulging frames, sashes jammed rectangular in parallelogram frames, sill litter; `_G2_WIN_FACES` = 65 MEASURED openings on 25 kit modules, provenance under `_plans/glazing_probe/`), `r_glass_follow` (glass rides its wall through any later mover); `rc_glass` ladder rewritten; the kit's mirror curtain wall softened (`urban_building.GLASS_ROUGHNESS` 0.22) |
+| the tower's mullion grid is PAINTED (0.3326 tiles/m, panes 1.645 / 1.362 x 2.89 m) and `SkyscraperFacade_B` is a 5 x 1 x 3 m glazed box with a ledge per storey | openings authored on the painted grid so the painted cage frames every hole; the cage/stripe already existed and only had to be left alone |
+| duration, not magnitude, drives engineered-frame collapse (42 s vs 6 s record: -29 % capacity); magnitude is a poor severity proxy (Christchurch M6.2 > M7.1) | `disaster.duration_boost` (1.0 at M6.5 → 2.5 at M9+) multiplies the rc DG4/DG5 share in `level_for_intensity`; URM untouched |
+| load time was NOT the archetype USD read: it was Hydra sync + collider cooking of ~300k prims, and the live pairs | `bake.py` merge at export (`BAKE_MERGE=on`, default in the driver; `both` writes a `_raw` twin): one mesh per (material x shading signature) for unique geometry, material dedup by network fingerprint, flat faceVarying normals → uniform, dead specs dropped; repeats (kit modules) left alone (crate already shares their points — merging them GREW files); PointInstancer measured and rejected (`_a_lump` corners are jittered, not prototypes). Two 200 m cities: env→ready 142 s → 78 s, 297k → 93k prims, first frame 16 s → 1.6 s, library 749 → 425 MB, 20 copies of a DG5 to first frame 5.6 s → 0.5 s; look unchanged (`_o_geom_diff`, control run) |
+
+Still open after round 3 (also in Known gaps): live pairs are 62 % of the city
+load (bake pairs as archetypes-of-two); `bld_apartment_tall_DG5` 33 MB
+(1.4 M points); the 8.2 m curved corner bay of family 02 has no glazing
+entry; DG1-DG2 glass is sub-pixel from the air (correct per the record,
+unsatisfying); `_shard_field` at agent D's two call sites is round-2 code;
+`dw_terrace`'s `storefront_a_3_5m` piece is 1.5 m off between the asset and
+`ub.PIECES`; no cars/cordon under glass fall zones; timber deck plates on
+the DG5 crown.
+
 
 **Kit roof tiles are ZERO-THICKNESS QUADS.** `SM_MBuilding01_Roof` is
 5 x 5 x 0.000 m, four points. Fractured, they come out as paper and PhysX
@@ -421,6 +450,52 @@ lowers the tower heights — measured 6 blocks / ~36 buildings on the dry run.
 ---
 
 
+## Round 3 additions (2026-08-27)
+
+* **The kit walls are two skins with no rim, not zero-thickness.** The census
+  (`scene_gen/tools/wall_thickness_census.sh`, notes `eq_round3_M.md`) found
+  121 of 134 buildings "zero-wall-thickness" by boundary-edge / back-face
+  tests — 16/16 kit styles, 105/118 of the urban_v2 drop — but agent T's ray
+  probe showed the kit walls are DOUBLE-SIDED (0.14-0.70 m between sheets)
+  with the rim missing, while MBuilding01/02/03 façades have no back face at
+  all, and every roof tile is two triangles at 0.000 m.
+* **The "triangles" were failed caps.** `slice_plane(cap=True)` cannot cap an
+  open mesh: vtkCutter returns open polylines and the stripper fans each into
+  one 2-3 m triangle, so every fragment carried two or three sheets. That —
+  plus 3-D Voronoi seeds in a thin skin — was the round-2 "very triangular"
+  look. `fracture.solidify` (cap small rims, extrude single skins to a real
+  thickness, reveals round openings) runs before slicing (`EQ_SOLID=1`
+  default, thickness table `T_SOLID_M` per type/role, glass stays a thin
+  CLOSED plate); a cap that still fails retries uncapped instead of leaving
+  the module whole.
+* **`ValueError: No available triangulation engine!` was an import-order
+  bug**, not the polygon and not (only) the install race: `trimesh.creation`
+  resolves its engines once at import, and `ensure_deps` pip-installed
+  `shapely` after trimesh was imported. `_reload_trimesh()` purges the
+  modules after an install. Symptom: every EMPTY line in a bake log carries
+  that message.
+* **Wall solidification is cheap** (0.6-1.5x faces per module, +40 %
+  fracture, settle 0.58x because solid fragments cook real convex hulls); a
+  per-vertex normal offset is NOT usable on this kit (65 % of vertices sit on
+  folds > 60 deg — mitring fired 0.9 m spikes).
+* **`vtkContourTriangulator` can hang** (13+ min on a degenerate contour);
+  it is opt-in (`FRACTURE_CAP=contour`), the default fan cap is safe.
+* **Break patterns are material grids, not noise** (research §11): masonry
+  cracks stair-step through mortar joints (riser = k x course, run = m x
+  half-stretcher), fragments are bricks and brick clusters (60-80 % single /
+  half bricks by count), out-of-plane failure is 1-4 rocking MACROBLOCKS;
+  concrete fragments are prisms with faces normal to the surface, slabs hinge
+  and hang as bay-sized rafts, spall = the cover thickness. Demolition rubble
+  is blocky (FI < 15 %, EI < 25 %, ~0 blades).
+* **Glass keeps its cage** (research §12 and `eq_round3_glass_recon_dump.md`):
+  curtain-wall frame failure was 1 system in 371 at Christchurch; loss is a
+  contiguous band on the racked storeys; cracked-but-retained exists only for
+  annealed/laminated (tempered: crack drift = fallout drift); cracks are
+  corner-rooted; no curtain-wall tower collapsed in ten reviewed events.
+* **Duration, not magnitude, is the extra severity driver for engineered
+  frames** (research §13): `duration_boost` (1.0 at M6.5 -> 2.5 at M9+)
+  multiplies the rc DG4/DG5 share in the grade draw; URM is unchanged.
+
 ## Round 2 additions
 
 * **The flat palette is LINEAR albedo** (`damage._pbr` -> `diffuse_color_constant`;
@@ -559,6 +634,10 @@ the fractions above are what they are.
 | `EQ_NEIGHBOUR` | bench | `<style>,<gap_m>,<side>` — a pristine neighbour for lean_on / collapse_onto / pounding |
 | `EQ_MILD_TILT`, `EQ_YAW` | bench | `<deg>,<sink>` runs the CITY's `_tilt_prim` path on a `pristine` column; build the column at a yaw |
 | `ISAAC_SIM_HEADLESS`, `KEEP_OPEN` | all | off-screen; stay open after the captures |
+| `EQ_SOLID` (1), `EQ_SOLID_N` (1.0; 0.85 = -16 % fracture time), `EQ_SOLID_CORE`, `EQ_SOLID_EDGE`, `FRACTURE_CAP` (fan / contour — contour can hang) | bench, bake | round 3: solid walls before slicing |
+| `EQ_SLIVER` (1), `EQ_SLIVER_SEEDS`, `EQ_DUMP_FRAGS` (1 writes `frags.jsonl` for `test_break_shape.py`) | bench | round 3: needle rejection; shape acceptance dump |
+| `BAKE_MERGE` (on / off / both), `BAKE_MERGE_REPEAT`, `BAKE_MERGE_UNIFORM_N` | bake | round 3: export-time consolidation (`both` keeps a `_raw` twin for `_o_geom_diff`) |
+| `MAGNITUDE` → `duration_boost` (compiled) | city | round 3: rc DG4/DG5 share x 1.0-2.5 |
 
 **Preset (`config/presets/downtown_earthquake.yaml`):** `severity`, `region_m`,
 `epicenter`, `seed`, optional top-level `soft-soil: false | {center, rx_m,
@@ -590,6 +669,10 @@ add its `bld_<style>_DG0.usd` here and bake it (`bake_quake_by_style.sh
 | `C_TILT_PIVOT_FRAC` 0.35, `C_DROP_REF` 1.8, `C_RISE_REF` 0.9, `C_CREST_M`, `C_REACH_M`, `C_GAP_W`/`C_GAP_D`, `C_BOIL_DROP`, `C_FISSURE_M`, `_C_TEX` | the ground response: pivot, crest and reach vs sink, gap size, boil threshold, ground looks |
 | `r_lean_on(max_deg, crush_m, sink_frac, crush_storeys, band_storeys)`, `r_collapse_onto(storeys, spill_frac)`, `r_pounding(p_break, corner_m)`, `D_LEAN_MIN_INTENSITY` | pair recipes |
 | `MONO_RUIN_MIN_H` 35, `MONO_HEAVY_DEG/SINK`, `MONO_MILD_P/DEG/SINK` (quake.py) | what a monolith may do |
+| `T_SOLID_M` (urm wall 0.38, parapet 0.25, rc wall 0.20), `T_GLASS_M` 0.010 | round 3: solidified thickness per type/role |
+| `P_BOND` / `P_STYLE_BOND` (course / stretcher / wythe per style), `P_ROUGH_M` 0.003, `BRICK_BLOCKY` 1.5, `BRICK_NMAX` 2.4, `PRISM_AR_MAX` 2.2, `SLIVER_MAX_DROP` 0.40 | round 3: the brick lattice and prism seeding |
+| `G_GRADE`, `G_GLASS_KIND`, `G_SHOP_GRADE`, `_G_PEEL_BUDGET`, `G2_WIN_GRADE`, `G2_SASH_SHARE`, `G2_LEAN/BULGE`, `G2_FLOOR_BAND`, `G2_REMNANT_P/M`, `_G_CW_FACES` / `_G_SHOP_FACES` / `_G2_WIN_FACES` (measured pane tables) | round 3: glass per grade, per glass type; which faces are glazed |
+| `GLASS_ROUGHNESS` 0.22 (`detail/urban_building.py`) | the kit's mirror curtain wall softened |
 | `materials()` colours | the dusty palette |
 
 **Scene (`disaster/quake.py`):** `_soft_soil` (reads `disaster.soft_soil`),
