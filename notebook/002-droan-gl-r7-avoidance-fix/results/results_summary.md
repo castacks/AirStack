@@ -1,7 +1,7 @@
 # 002 — droan_gl obstacle-avoidance fix: results summary
 
 **Session: 2026-08-26 17:30 → 2026-08-27 (overnight), RTX 5090 box.**
-21 full judge-evaluated Isaac flights (fresh seeded routes each), plus
+~25 full judge-evaluated Isaac flights (fresh seeded routes each), plus
 live introspection runs. Full per-run log: `../design_spec.md`
 (experiment table); raw artifacts under `a-reproduce-diagnose/` and
 `c-tuning-iterations/`.
@@ -42,9 +42,10 @@ live introspection runs. Full per-run log: `../design_spec.md`
 | 7 | Retreat/turn arcs blocked as `unseen` though the vehicle just flew there | breadcrumb corridor (flown positions override unseen; collision still wins) |
 | 8 | Committed-path flyout: when boxed, the controller flies the stale committed segment through now-known-occupied space (0.07–0.47 m shaves) | 360° LiDAR close-range veto (2 m) + PAUSE collision brake (boxed + LiDAR < 4 m) |
 
-Explicitly rejected after testing: auto-REWIND commanding (correlated
-with 3 ballistic-tumble crashes — controller mode-churn timeline
-corruption), veto radius 1.5 m (physical impact), expansion 3.0 m
+Explicitly rejected after testing: auto-REWIND commanding AND the appended-segment breadcrumb-retreat
+unstick (both reproduce ballistic-tumble crashes — a committed-trajectory
+discontinuity is raced by the controller's virtual-time tracker at
+unbounded speed; controller-level safe-retreat primitive needed), veto radius 1.5 m (physical impact), expansion 3.0 m
 (seals the field's 5 m pillar spacing), unconditional PAUSE (deadlocks
 turns — motion is what sweeps the camera), strict vote at all ranges
 (far-field noise makes hovering an absorbing state).
@@ -55,8 +56,8 @@ turns — motion is what sweeps the camera), strict vote at all ranges
 |---------|---------|
 | (a) Reproduce + diagnose | ✅ — but root cause was FIRST the judge (no pillars loaded), THEN the stack (8 defects) |
 | (b) Perception in isolation | ✅ pillars produce valid disparity (shading gradient suffices for BM); fg/bg map populated; LiDAR sees pillars (94–341 returns) |
-| (c) End-to-end R7 | ✅ solvability demonstrated (2 full passes, clearances 2.05/1.05 m); ⚠️ pass is seed-dependent — hard draws stall safely (budget/corridor fail, never crash/violate); R7 budget recalibration pending lead |
-| (d) No regression | ✅ R6 passes (goal error 0.07 m); R8 run recorded below |
+| (c) End-to-end R7 | ⚠️ solvability demonstrated mid-tuning (2 full passes, clearances 2.05/1.05 m, earlier configs); the frozen SAFE config (pause-brake-only) completes routes in-order/in-budget but stalls short on hard draws — no crashes/violations; re-demonstration under frozen params pending the lead's R7 budget decision |
+| (d) No regression | ✅ R6 passes (goal error 0.07 m); R8 passes (landed at rest, z offset −0.01 m, frozen config) |
 | (e) Freeze | commits + config re-pin recorded below |
 
 ## Judge/harness changes needing lead sign-off

@@ -142,6 +142,22 @@ closest-point after a 30 s fully-blocked pause) also added.
   (auto_rewind default false); the PAUSE collision brake is decoupled
   (auto_pause, lidar-proximity-gated) and retained.**
 
+**Final-hours addendum (02:00–02:30):** the range-aware vote
+(close_vote_range 8 m: strict `min_votes 2` near, ratio 0.45 far)
+reconciled R6 (goal error 0.07 m PASS) with R7 close-range protection.
+The ballistic-tumble crash then REPRODUCED WITH REWIND DISABLED (same
+z≈14 dive near pillar 11, two runs) — the true culprit is any
+droan-appended motion command that leaves a discontinuity in the
+controller's committed trajectory (my breadcrumb-retreat unstick, and
+equally REWIND): the virtual-time tracker races the gap at unbounded
+speed. The unstick is gated OFF by default (`auto_unstick: false`,
+commit 891ca138); a controller-level safe-retreat primitive is
+repo-issue material. Under the frozen PAUSE-brake-only config, R7 hard
+draws stall cleanly (in-order, in-budget flights that end short of the
+goal when boxed near it) — no crashes, no violations; R7 full-pass
+demonstrations remain runs 5 and 12 (earlier configs) pending the
+lead's budget recalibration.
+
 **FINAL STACK CONFIG (frozen for handoff):** deviation_weight 2.0,
 z asym (below-plan weight 4.0, cap 3 m), max_deviation 10 (lateral),
 collision vote = range-aware (min_votes 2; close 8 m strict; far ratio
