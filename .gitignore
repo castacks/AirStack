@@ -158,6 +158,9 @@ nucleus_upload/
 robot/ros_ws/weights/
 
 osmo/results/*
+# OSMO mission bag/log staging (bind-mounted at /osmo_bags); keep the dir, drop the payload
+osmo/bags/*
+!osmo/bags/.gitkeep
 osmo/weights/*
 .agent_logs/*
 .agent_tmp/*

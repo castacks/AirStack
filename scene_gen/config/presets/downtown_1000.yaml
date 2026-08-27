@@ -937,6 +937,42 @@ overrides:
     # real choice a little further down the size range and the penalties are
     # now strong enough to use it.
     pack_area_band: 0.45
+    # ---- LANDMARKS: the tall tail the height model cannot reach -------------
+    # MEASURED, seed 42, instrumenting all 141 tower slots: the 231 m
+    # Amar_Tower was placed ZERO times and only 3 of 103 towers cleared 110 m.
+    # Two compounding causes, neither of which is the `height_max_m` cap (that
+    # was reached ONCE in 141 draws, and raising it to 250 changed nothing):
+    #
+    #   * THE TARGET NEVER GETS HIGH ENOUGH. `neighbour_weight: 0.5` blends
+    #     every draw halfway, in log space, toward the mean height already
+    #     standing within `neighbour_radius_m` — the midrise carpet. Configured
+    #     median 85 m, OBSERVED targets p50 74 m / p90 104 m / max 140 m, and
+    #     not one of 141 reached 150 m. Short neighbours beget shorter targets.
+    #   * `pick_sigma` IS A GAUSSIAN IN LOG HEIGHT, so the falloff is
+    #     exponential. Against a 74 m target Amar_Tower scored 0.000533 — a
+    #     0.01% share of that draw. Averaged over every slot it reached: 0.33%,
+    #     i.e. 0.04 expected placements in a whole city.
+    #
+    # Tuning the distribution cannot fix this. Raising `height_sigma` fattens
+    # the tail and the neighbour blend flattens it straight back (measured: max
+    # height stayed 131 m at sigma 0.62 AND 0.75). Raising the median works but
+    # lifts the WHOLE skyline instead of giving it a tail, and costs buildings.
+    #
+    # So the tail is authored rather than hoped for: this many slots may ignore
+    # the height match AND the packer's area band — the latter matters because
+    # a tall tower is slender (Amar_Tower is 2,064 m2 against MBuilding02's
+    # 8,752) and the band dropped it from 92% of the slots it physically fit
+    # in, before the skyline was ever asked. Landmarks still obey
+    # `frontage_max_m`, still draw among themselves under both repeat
+    # penalties, and are never spent by the infill pass.
+    #
+    # 5 at a 100 m floor, not 3 at 110: the floor is what decides how many
+    # DISTINCT models can be a landmark, and 100 m admits six of them against
+    # two. Measured, that is the difference between 98 and 108 of 125 models
+    # used — spending all five landmarks on the same two towers is its own kind
+    # of copy-paste.
+    landmark_count: 5
+    landmark_min_height_m: 100.0
     # ---- STREET ACCESS -----------------------------------------------------
     # A building needs a face on the public way, and nothing in the packer knew
     # that: it fills whatever rectangle it is handed, so the second row it

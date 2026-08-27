@@ -143,9 +143,9 @@ workflow:
     default:
       # One robot, one card. CPU/memory come down with the fleet; storage stays
       # generous because the plat build and the mcap bags are unchanged by it.
-      cpu: 42
+      cpu: 40
       gpu: 1
-      memory: 64Gi
+      memory: 210Gi
       storage: 400Gi
 
   timeout:

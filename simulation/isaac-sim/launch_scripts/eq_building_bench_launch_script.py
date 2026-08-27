@@ -360,6 +360,15 @@ def main():
                     "ne": ((x + d * 0.75, y + d * 0.95, 0.55 * d + 0.4 * H), (x, y, H * 0.3)),
                     "nw": ((x - d * 0.75, y + d * 0.95, 0.55 * d + 0.4 * H), (x, y, H * 0.3)),
                     "street": ((x - 0.3 * d, y - 0.9 * d - D / 2.0, 2.2), (x, y, H * 0.35)),
+                    # _t_ (round 3): A PERSON'S VIEW OF THE RUBBLE. `street`
+                    # stands 0.9*d back, which on a 22 m building is 35 m —
+                    # far enough that a fragment is a few pixels and nobody
+                    # can tell a 0.4 m chunk of brick from a sheet of foil.
+                    # This one stands on the pavement at eye height a couple
+                    # of metres off the pile, which is where wall thickness
+                    # either reads or does not.
+                    "close": ((x - W * 0.22, y - D / 2.0 - 7.0, 1.7),
+                              (x - W * 0.10, y - D / 2.0 + 1.5, 1.1)),
                 }
                 for vname, (eye, tgt) in views.items():
                     cpath = "/World/ReviewCams/b{0}_{1}".format(c["i"], vname)

@@ -31,6 +31,28 @@ _GENERATED = bool(SCENE_CONFIG)
 # after the stage is composed (see PegasusApp._build_generated_scene).
 _CUTOUT_ARGS = ["--/rtx/raytracing/fractionalCutoutOpacity=true",
                 "--/rtx/pathtracing/fractionalCutoutOpacity=true"]
+
+# MULTI-GPU RENDERING (opt-in). Isaac distributes MULTI-CAMERA rendering across
+# GPUs — the drones' ZED render products spread over the visible cards, which is
+# the multi-drone bottleneck (PhysX stays on the primary device and is not the
+# limit for a handful of drones). Off by default, so single-GPU missions are
+# byte-for-byte unchanged.
+#   ISAAC_SIM_MULTIGPU=N     enable, cap the pool at N GPUs (maxGpuCount)
+#   ISAAC_SIM_MULTIGPU=true  enable, auto-allocate over every visible GPU
+# NEEDS the cards visible too: ISAAC_SIM_CUDA_DEVICES="0,1[,...]" (-> the
+# container's CUDA_VISIBLE_DEVICES) and a workflow that requests >1 GPU
+# (osmo/workflows/airstack-mission-2gpu.yaml). currentGpuCount is the readback
+# that confirms it took (see the benchmark scripts).
+_MULTIGPU = os.environ.get("ISAAC_SIM_MULTIGPU", "").strip().lower()
+_MULTIGPU_ARGS = []
+if _MULTIGPU and _MULTIGPU not in ("0", "1", "false", "off", "no"):
+    _MULTIGPU_ARGS = ["--/renderer/multiGpu/enabled=true",
+                      "--/renderer/multiGpu/autoEnable=true"]
+    if _MULTIGPU.isdigit():
+        _MULTIGPU_ARGS.append(f"--/renderer/multiGpu/maxGpuCount={int(_MULTIGPU)}")
+    print(f"[isaac] multi-GPU rendering ON (ISAAC_SIM_MULTIGPU={_MULTIGPU}, "
+          f"CUDA_VISIBLE_DEVICES={os.environ.get('CUDA_VISIBLE_DEVICES', '<unset>')}): "
+          f"{_MULTIGPU_ARGS}", flush=True)
 _LIVESTREAM = _GENERATED and os.environ.get(
     "ISAAC_SIM_LIVESTREAM", "").lower() == "true"
 
@@ -50,12 +72,12 @@ elif _LIVESTREAM:
         "hide_ui": False,
         "renderer": "RaytracedLighting",
         "display_options": 3286,
-        "extra_args": _CUTOUT_ARGS,
+        "extra_args": _CUTOUT_ARGS + _MULTIGPU_ARGS,
     })
 else:
     simulation_app = SimulationApp(launch_config={
         "headless": os.getenv("ISAAC_SIM_HEADLESS", "false").lower() == "true",
-        "extra_args": _CUTOUT_ARGS,
+        "extra_args": _CUTOUT_ARGS + _MULTIGPU_ARGS,
     })
 
 if _GENERATED:

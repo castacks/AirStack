@@ -165,6 +165,11 @@ eq_round2_{A,B,C,D}.md`.
   (a 16 GB card holds two fracturing benches; three do not fit). Captures
   under `~/docker/isaac-sim/logs/<snap>/`, the launcher's stdout in
   `<snap>.log` beside it (`docker logs` is empty).
+* A CITY run wants the card to itself: two concurrent two-city runs with
+  live pairs and the round-2 archetypes (a DG5 is ~4k static prims now) hit
+  `ERROR_OUT_OF_DEVICE_MEMORY` and segfaulted in `librtx.scenedb` (final_2city,
+  2026-08-27). Bench and bake rows fit two at a time; cities run with
+  `GPU_SLOTS=1` or after the other slot is free.
 * `PYTHONUNBUFFERED=1` is load-bearing: Kit hard-exits on `close()` and
   block-buffered prints never reach the log, so the DONE banner was lost.
 * `.env` leaks EMPTY strings for every var compose forwards (`SETTLE_STEPS`,
@@ -209,7 +214,9 @@ lowering it further; the guillotine packer leaves the slack at the block edge).
   silently ignored, which composed both cities at the origin once). A
   soil-bound void plane sits under the row. Captures are prefixed `cN_`.
 * `ASSET_SET=urban_quake_v2` adds a minority of standalone monoliths and the
-  six ruin towers. `quake._mono_pass` gives a monolith what a rigid body can
+  six ruin towers — OPT-IN: those `standalone/buildings/intact` models came
+  up as untextured cream boxes (their materials do not resolve in Isaac), so
+  the deliverable uses the kit-only `urban_quake`. `quake._mono_pass` gives a monolith what a rigid body can
   show: ruin swap for a DG5 tower, heavy lean + ground for DG4-5, mild lean
   for half the DG3s. Sizes come from the world bound (`_mono_dims`), so the
   layout's 0/90/180/270 yaws are exact and a 45 deg one would be overestimated.
@@ -598,6 +605,31 @@ prints DG5 > ~25 % of buildings has too large a core for its plate; one that
 prints `SETTLE 0, TILT 0` has its patch on the collapsed side of town.
 
 # Known gaps
+
+Round 2 (2026-08-27), still open:
+
+* (was wrongly written up as "zero-thickness quads fail to fracture") The 169
+  `[fracture] EMPTY` modules in `commercial`'s round-2 bake all carry
+  `first: ValueError: No available triangulation engine!` — trimesh's cap
+  triangulation (`mapbox_earcut`) was not importable in THAT process: a fresh
+  container, two bakes starting together, both racing `fracture.ensure_deps`'
+  pip install. The pieces themselves are ordinary open-shell kit panels
+  (4 triangles, 4 x 0.7 x 3 m) and a 454-face cornice, and they fracture fine
+  once the engine imports. Symptom to recognise: every EMPTY line in a log
+  with the same `first:`; cure: re-bake that style (`ensure_deps` now checks
+  the engine and serialises the install).
+* In a LIVE city pair only the leaner is rebuilt from the kit; the neighbour
+  stays a reference, so its contact damage is authored bands, not fracture
+  ("0 module(s) crushed on the neighbour" in the banner is expected).
+* `r_collapse_onto` lands little of the thrown mass on the neighbour's roof.
+* `urban_quake_v2`'s standalone monoliths and ruin towers render untextured.
+* Pounding scars need a gap under `QUAKE_POUND_GAP` (1.5 m); the packer's
+  `building_gap_m` 2.0 gives a closest pair of ~2-2.4 m, so cities print
+  "0 pounding scar(s)" unless the preset goes lower.
+* The downtown-quake path is NOT wired into the drone launcher
+  (`scene_api.build_scene` is the suburb builder and the launcher's banner /
+  annotations read suburb-only stats); `downtown_quake_launch_script.py` is
+  the looking launcher.
 
 - **Lateral spreading** (whole rafts of buildings translated 5-50 m over a
   torn road) is not built; fissures and boils on the soft-soil patch stand

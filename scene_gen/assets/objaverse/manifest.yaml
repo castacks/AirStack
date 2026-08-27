@@ -589,16 +589,16 @@ assets:
     usd: 8712f53da0e04736802f1bc84ca7df97/8712f53da0e04736802f1bc84ca7df97.usdc
   8c8fd4fa06eb4b1c8db5bd3584892f3c:
     author: aecoviz
-    baked_scale: 4.090909
+    baked_scale: 0.815132
     faces: 1110
-    fit: footprint
+    fit: height
     license: by
     size_m:
-    - 1.8
-    - 0.573
-    - 3.764
+    - 0.359
+    - 0.114
+    - 0.75
     source: https://sketchfab.com/3d-models/8c8fd4fa06eb4b1c8db5bd3584892f3c
-    target_size_m: 1.8
+    target_size_m: 0.75
     texture_res: 2048
     textures: 3
     title: 'Bike Rack #4'

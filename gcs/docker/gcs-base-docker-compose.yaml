@@ -88,3 +88,8 @@ services:
       - ../ros_ws:/root/AirStack/gcs/ros_ws:rw
       # bags
       - ../bags:/bags:rw
+      # OSMO mission bags: host bind mount (gitignored osmo/bags/) so
+      # `ros2 bag record` writes straight to the pod disk next to the
+      # results tree; the runner MOVES them (same fs) instead of a slow
+      # docker cp of tens of GB. Shared by every recorder (one host dir).
+      - ../../osmo/bags:/osmo_bags:rw

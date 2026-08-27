@@ -82,7 +82,16 @@ env:
 
   NUM_ROBOTS: 5
   ISAAC_SIM_HEADLESS: "true"
-  ISAAC_SIM_CUDA_DEVICES: "0"
+  # TWO-GPU RUN (compare RTF vs the 1-GPU baseline). Isaac spreads the five
+  # drones' camera rendering across both cards (ISAAC_SIM_MULTIGPU wires the
+  # --/renderer/multiGpu flags in the launch script); PhysX stays on the
+  # primary. SUBMIT THIS MISSION ON osmo/workflows/airstack-mission-2gpu.yaml
+  # (gpu: 2) — the 1-gpu workflow only exposes one card, so multiGpu no-ops.
+  # The offboard detector+VLM servers stay on their reserved card (default
+  # OFFBOARD_DEVICE=cuda:0); at 2 GPUs both are used by Isaac, so the servers
+  # co-tenant — watch the RTF and the server /metrics to see the trade.
+  ISAAC_SIM_CUDA_DEVICES: "0,1"
+  ISAAC_SIM_MULTIGPU: "2"
   ISAAC_SIM_USE_STANDALONE: "true"
   ISAAC_SIM_SCRIPT_NAME: example_multi_drone_scene_import.py
   PLAY_SIM_ON_START: "true"

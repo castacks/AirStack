@@ -80,14 +80,78 @@ def ensure_deps(verbose=True):
     if verbose:
         print("[fracture] installing {0} (not in this image yet)"
               .format(", ".join(missing)))
+    # ONE installer at a time: two bakes starting together in a fresh
+    # container both ran this, one imported a half-installed mapbox_earcut,
+    # and every slice in that process died with "No available triangulation
+    # engine" (169 EMPTY modules in one style, 2026-08-27). The lock lives in
+    # /tmp of the container; the loser re-checks the imports after waiting.
+    import fcntl
     try:
-        subprocess.check_call(
-            [sys.executable, "-m", "pip", "install", "--no-cache-dir",
-             "--disable-pip-version-check", "-q"] + missing)
+        with open("/tmp/fracture_deps.lock", "w") as lk:
+            fcntl.flock(lk, fcntl.LOCK_EX)
+            still = []
+            for m in missing:
+                try:
+                    __import__(m)
+                except ImportError:
+                    still.append(m)
+            if still:
+                subprocess.check_call(
+                    [sys.executable, "-m", "pip", "install", "--no-cache-dir",
+                     "--disable-pip-version-check", "-q"] + still)
+            fcntl.flock(lk, fcntl.LOCK_UN)
     except Exception as exc:
         print("[fracture] could not install {0}: {1}".format(missing, exc))
         return False
+    # prove the engine trimesh caps with is importable in THIS process
+    for m in missing:
+        try:
+            __import__(m)
+        except ImportError as exc:
+            print("[fracture] {0} still not importable after install: {1}".format(m, exc))
+            return False
+    # AND PROVE TRIMESH CAN SEE IT. `trimesh.creation` resolves its
+    # triangulation engines ONCE, at import, into a module-level `_engines`
+    # list; a pip install that lands after trimesh was first imported changes
+    # nothing, and every capped slice in the process then dies with
+    # "ValueError: No available triangulation engine!" — 169 empty modules in
+    # one style on 2026-08-27, and six more in the commercial re-bake at 09:11
+    # where `shapely` was the package installed late. Purging trimesh from
+    # sys.modules makes the next `import trimesh` (they are all function-local
+    # in this file) re-resolve the engines.
+    _reload_trimesh(verbose=verbose)
     return True
+
+
+def _triangulation_ok():
+    """True when trimesh has a live cap-triangulation engine RIGHT NOW."""
+    try:
+        import trimesh.creation as tc
+    except Exception:
+        return False
+    eng = getattr(tc, "_engines", None)
+    if eng is None:
+        return True                     # a trimesh version without the table
+    return any(bool(ok) for _, ok in eng)
+
+
+def _reload_trimesh(verbose=True):
+    """Drop trimesh (and the modules it probes) so the next import re-resolves
+    its triangulation engines. Returns True when capping will work."""
+    import importlib
+    if _triangulation_ok():
+        return True
+    importlib.invalidate_caches()
+    for name in [k for k in list(sys.modules)
+                 if k == "trimesh" or k.startswith("trimesh.")
+                 or k in ("shapely", "mapbox_earcut", "manifold3d")
+                 or k.startswith("shapely.")]:
+        sys.modules.pop(name, None)
+    ok = _triangulation_ok()
+    if verbose:
+        print("[fracture] trimesh reloaded after install; cap engine {0}"
+              .format("live" if ok else "STILL DEAD — caps will be skipped"))
+    return ok
 
 
 
@@ -115,6 +179,7 @@ def ensure_deps(verbose=True):
 # else — the same thing trimesh caps and no more.
 
 _BACKEND = os.environ.get("FRACTURE_BACKEND", "auto").strip().lower()
+_N_CAPFAIL = 0
 _VTK = None
 
 
@@ -223,20 +288,45 @@ def _vtk_slice(mesh, normal, origin, cap=True):
         cut.SetInputData(pd)
         cut.SetCutFunction(plane)
         cut.Update()
-        strip = vtk.vtkStripper()
-        strip.SetInputConnection(cut.GetOutputPort())
-        strip.Update()
-        loops = strip.GetOutput()
-        if loops.GetNumberOfLines():
-            face = vtk.vtkPolyData()
-            face.SetPoints(loops.GetPoints())
-            face.SetPolys(loops.GetLines())
-            fill = vtk.vtkTriangleFilter()
-            fill.SetInputData(face)
-            fill.Update()
+        filled = None
+        # vtkContourTriangulator, NOT stripper + triangle filter. The old
+        # recipe handed each polyline to `vtkTriangleFilter` as if it were one
+        # polygon, so a section with a HOLE in it — every cut through a wall
+        # with a window, and every cut through a solidified module, whose
+        # section is a ring — came back as the outer loop filled solid plus
+        # the inner loop filled solid on top of it. That is the 2-3 m
+        # triangular sheet lying across a fragment in the round-2 renders, and
+        # it is what the user saw as "very TRIANGULAR" breakage. The contour
+        # triangulator is built for exactly this: nested closed contours in a
+        # plane, filled with the odd-even rule.
+        try:
+            ct = vtk.vtkContourTriangulator()
+            ct.SetInputConnection(cut.GetOutputPort())
+            ct.Update()
+            out = ct.GetOutput()
+            if out.GetNumberOfPolys():
+                filled = out
+        except Exception:
+            filled = None
+        if filled is None:
+            # open contours (a shell that was never closed) — the triangulator
+            # refuses them, so fall back to the old fan
+            strip = vtk.vtkStripper()
+            strip.SetInputConnection(cut.GetOutputPort())
+            strip.Update()
+            loops = strip.GetOutput()
+            if loops.GetNumberOfLines():
+                face = vtk.vtkPolyData()
+                face.SetPoints(loops.GetPoints())
+                face.SetPolys(loops.GetLines())
+                fill = vtk.vtkTriangleFilter()
+                fill.SetInputData(face)
+                fill.Update()
+                filled = fill.GetOutput()
+        if filled is not None and filled.GetNumberOfPolys():
             app = vtk.vtkAppendPolyData()
             app.AddInputData(kept)
-            app.AddInputData(fill.GetOutput())
+            app.AddInputData(filled)
             app.Update()
             clean = vtk.vtkCleanPolyData()
             clean.SetInputConnection(app.GetOutputPort())
@@ -264,8 +354,26 @@ def slice_plane(mesh, normal, origin, cap=True):
         except Exception as exc:
             print("[fracture] vtk slice failed ({0}); using trimesh"
                   .format(exc))
-    return slice_mesh_plane(mesh, plane_normal=normal, plane_origin=origin,
-                            cap=cap)
+    try:
+        return slice_mesh_plane(mesh, plane_normal=normal, plane_origin=origin,
+                                cap=cap)
+    except Exception as exc:
+        # AN UNCAPPED FRAGMENT BEATS NO FRAGMENT. The cap is what needs
+        # shapely + earcut, and when the engine is dead (or the section
+        # polygon is degenerate) the exception used to propagate, every cell
+        # of the module came back None, `fracture_prim` returned [] and — this
+        # is the damaging part — returned WITHOUT deactivating the source, so
+        # the wall stayed whole in an overturn. Retry once without the cap:
+        # the piece is then open on its cut face, which is a worse-looking
+        # fragment and a far better outcome than an undamaged building.
+        if not cap:
+            raise
+        global _N_CAPFAIL
+        _N_CAPFAIL += 1
+        if _N_CAPFAIL <= 3:
+            print("[fracture] cap failed ({0}); slicing uncapped".format(exc))
+        return slice_mesh_plane(mesh, plane_normal=normal,
+                                plane_origin=origin, cap=False)
 
 
 def _tri(counts, indices):
@@ -320,6 +428,380 @@ def prim_to_mesh(stage, prim_path):
     mesh = trimesh.Trimesh(vertices=np.vstack(verts),
                            faces=np.vstack(faces), process=True)
     return mesh if len(mesh.faces) else None
+
+
+# ---------------------------------------------------------------------------
+# SOLIDIFY — close an open shell into a solid before it is cut
+# ---------------------------------------------------------------------------
+#
+# WHAT THE KIT ART ACTUALLY IS. Round 3 started from "the walls have zero
+# thickness". They do not — `tools/_t_shell_probe.py` on `bld_commercial_DG0`
+# and a ray probe through each module say:
+#
+#   * every one of the 114 meshes is OPEN (`is_watertight` False), which is why
+#     the pipeline believed they were sheets;
+#   * but a wall module is DOUBLE-SIDED: on the commercial kit wall, 27.8 m2 of
+#     face points out (y -9.37..-8.58, the relieved façade) and 28.0 m2 points
+#     in (y -8.58..-8.30). Measured wall thickness, median 0.14-0.68 m; the
+#     plain storey band is exactly 0.70 m. The material is THERE;
+#   * what is missing is the RIM. 134 of 4433 edges on the main wall component
+#     are used by one face only — the top, bottom and side edges are never
+#     closed, and `trimesh.repair.fill_holes` will not close them (it only
+#     handles 3- and 4-vertex holes; measured: `ok=False`, still not
+#     watertight).
+#
+# WHY AN OPEN RIM WRECKS THE FRACTURE. `slice_plane(cap=True)` caps a cut by
+# taking the cross-section and triangulating it. On a closed mesh that section
+# is a closed loop and the cap is the real cut face. On a mesh with an open rim
+# it is a set of OPEN POLYLINES, and vtkStripper + vtkTriangleFilter fan them
+# into enormous flat triangles that span the whole fragment. That is what the
+# round-2 fragments are: renders of twelve cells off one commercial wall show
+# every one carrying two or three 2-3 m triangular sheets and `is_watertight`
+# False on all twelve. It is also, precisely, the user's round-3 note that the
+# breakage "looks very TRIANGULAR" — those triangles are not a break pattern,
+# they are failed caps.
+#
+# WHAT THIS DOES, per connected component:
+#
+#   CAP    the component is a closed volume with a few small holes (a column
+#          with open ends, a cornice band open where it was cut from the strip)
+#          -> fan-fill each boundary loop and keep the real geometry, real
+#          thickness and real window reveals. Accepted only when the caps come
+#          to less than `cap_area_frac` of the component: capping the module's
+#          whole front rim would hang a 4 x 7 m sheet across the façade.
+#
+#   EXTRUDE  the component is a sheet, or its rim is too big to cap -> keep the
+#          FRONT surface (the faces pointing away from `ref`), translate a copy
+#          of it onto a plane `thickness_m` behind the innermost front point,
+#          and stitch the two with side quads along every boundary edge. The
+#          façade relief is kept exactly; the openings keep their holes and
+#          their loops become REVEAL faces `thickness_m` deep, which is what
+#          makes a broken window edge show wall depth; the back is flat, so it
+#          cannot fold through itself the way a normal-offset does (measured:
+#          a per-vertex normal offset on this art produced 0.9 m spikes out of
+#          the top and bottom rims, because 65% of the wall's vertices sit on
+#          folds sharper than 60 degrees).
+#
+#   DROP   too small to matter and not closeable. It has to be dropped, not
+#          left: ONE open sheet anywhere in the mesh puts open polylines back
+#          into every cut and the fan caps come back with them.
+#
+# THICKNESS IS NOT ONE NUMBER. A Boston/NYC URM bearing wall is 3-4 wythes at
+# ~110 mm a wythe (_plans/earthquake_research.md, damage 12: "outer wythe
+# ~110 mm thick"), so 0.33-0.44 m; a parapet is one or two wythes; an RC infill
+# panel is a single block leaf ~0.20 m; a floor slab is 150-250 mm (research
+# §3.9); and GLASS IS 6-12 mm — a pane must stay a plate or a curtain wall
+# turns into a brick wall. The role table lives in `quake_flow`, which is where
+# the role is known; this module only takes metres.
+
+
+def _weld(mesh, tol=1e-5):
+    """Merge vertices by position. Kit art splits them at every UV seam, so a
+    wall that is one surface arrives as a thousand loose triangles and EVERY
+    edge looks like a boundary edge."""
+    import trimesh
+    v = np.asarray(mesh.vertices, dtype=float)
+    f = np.asarray(mesh.faces, dtype=np.int64)
+    key = np.round(v / float(tol)).astype(np.int64)
+    _, first, inv = np.unique(key, axis=0, return_index=True,
+                              return_inverse=True)
+    inv = np.asarray(inv).ravel()
+    nf = inv[f]
+    ok = (nf[:, 0] != nf[:, 1]) & (nf[:, 1] != nf[:, 2]) & (nf[:, 2] != nf[:, 0])
+    return trimesh.Trimesh(vertices=v[first], faces=nf[ok], process=False)
+
+
+def _labels(faces, n_vert):
+    """Connected-component label per face, by shared vertex. Union-find, so it
+    needs neither scipy nor networkx — neither is guaranteed in the Kit python
+    and `trimesh.graph` silently needs one of them."""
+    parent = np.arange(int(n_vert), dtype=np.int64)
+
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    for tri in faces:
+        r = find(int(tri[0]))
+        for k in (1, 2):
+            q = find(int(tri[k]))
+            if q != r:
+                parent[q] = r
+    roots = np.array([find(int(t[0])) for t in faces], dtype=np.int64)
+    _, lab = np.unique(roots, return_inverse=True)
+    return np.asarray(lab).ravel()
+
+
+def _boundary(faces):
+    """The DIRECTED boundary edges of a face set — those used by one face."""
+    de = np.vstack([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]])
+    key = np.sort(de, axis=1)
+    _, inv, cnt = np.unique(key, axis=0, return_inverse=True,
+                            return_counts=True)
+    return de[cnt[np.asarray(inv).ravel()] == 1]
+
+
+def _loops(bound):
+    """Chain directed boundary edges into cycles. Non-manifold rims give short
+    broken chains; those are returned too and the caller judges them."""
+    nxt = {}
+    for a, b in bound:
+        nxt.setdefault(int(a), []).append(int(b))
+    out, used = [], set()
+    for a0 in list(nxt):
+        for b0 in list(nxt.get(a0, ())):
+            if (a0, b0) in used:
+                continue
+            loop, a, b = [a0], a0, b0
+            while True:
+                used.add((a, b))
+                loop.append(b)
+                if b == a0:
+                    break
+                nx = [q for q in nxt.get(b, ()) if (b, q) not in used]
+                if not nx:
+                    break
+                a, b = b, nx[0]
+                if len(loop) > 20000:
+                    break
+            if loop[0] == loop[-1] and len(loop) > 3:
+                out.append(loop[:-1])
+    return out
+
+
+def _fan(v, loop):
+    """Triangle fan from a loop's centroid. Faces + the one new vertex."""
+    c = v[loop].mean(0)
+    n = len(v)
+    tri = [(loop[i], loop[(i + 1) % len(loop)], n) for i in range(len(loop))]
+    return np.asarray(tri, dtype=np.int64), c
+
+
+def _tri_area(v, f):
+    if not len(f):
+        return 0.0
+    return float(np.linalg.norm(np.cross(v[f[:, 1]] - v[f[:, 0]],
+                                         v[f[:, 2]] - v[f[:, 0]]),
+                                axis=1).sum() * 0.5)
+
+
+def _front_axis(v, f, ref):
+    """The component's OUTWARD axis: the dominant direction of its face
+    normals (the largest eigenvector of the area-weighted normal covariance —
+    for a slab that is the slab normal, for a sill it is up), oriented away
+    from `ref`. A near-vertical axis with no useful `ref` cue points UP, so a
+    sill or a cornice thickens downward, which is the way one hangs."""
+    n = np.cross(v[f[:, 1]] - v[f[:, 0]], v[f[:, 2]] - v[f[:, 0]])
+    a = np.linalg.norm(n, axis=1)
+    nh = n / np.maximum(a[:, None], 1e-16)
+    M = (nh[:, :, None] * nh[:, None, :] * a[:, None, None]).sum(0)
+    w, vec = np.linalg.eigh(M)
+    u = vec[:, int(np.argmax(w))]
+    u = u / max(float(np.linalg.norm(u)), 1e-12)
+    c = v[np.unique(f)].mean(0)
+    d = 0.0 if ref is None else float(np.dot(u, np.asarray(ref, dtype=float) * -1.0 + c))
+    if abs(d) < 1e-3:
+        d = float(u[2])          # vertical-ish and no cue: outward = up
+    return u if d > 0 else -u
+
+
+def _extrude_front(v, f, u, t, front_cos=0.10, flip_back=False):
+    """Front faces -> a solid `t` deep, its back on a single flat plane.
+
+    A FLAT BACK, not a normal offset. The kit walls are relieved by up to
+    0.8 m; offsetting every vertex along its own normal makes the offset
+    surface fold through itself at every sharp fold (65% of this wall's
+    vertices), and mitreing the folds fires 0.9 m spikes out of the rim. A
+    common back plane cannot self-intersect, and the piece comes out at least
+    `t` thick everywhere and thicker under a projecting bay — which is what a
+    bay is."""
+    n = np.cross(v[f[:, 1]] - v[f[:, 0]], v[f[:, 2]] - v[f[:, 0]])
+    nh = n / np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-16)
+    d = nh @ u
+    ff = f[d > float(front_cos)]
+    if len(ff) < 2:
+        # NO OUTWARD FACE AT ALL. Either the component is the INNER lining of a
+        # wall whose outer sheet is a component of its own (the storey band is
+        # literally two parallel quads 0.70 m apart) — in which case it must be
+        # dropped, because the outer sheet already becomes the solid and a
+        # second slab would sit in the room behind it — or the art is simply
+        # wound inward and this sheet IS the façade. The caller resolves that:
+        # it drops these on the first pass and only flips them if the WHOLE
+        # module came out empty.
+        if not flip_back:
+            return None, None
+        ff = f[d < -float(front_cos)][:, ::-1]
+        if len(ff) < 2:
+            return None, None
+    vi = np.unique(ff)
+    s = v @ u
+    back = float(s[vi].min()) - float(t)
+    v2 = v + u[None, :] * (back - s)[:, None]
+    nv = len(v)
+    faces = [ff, ff[:, ::-1] + nv]
+    b = _boundary(ff)
+    if len(b):
+        a0, b0 = b[:, 0], b[:, 1]
+        faces.append(np.column_stack([a0, a0 + nv, b0 + nv]))
+        faces.append(np.column_stack([a0, b0 + nv, b0]))
+    return np.vstack([v, v2]), np.vstack(faces)
+
+
+SOLID_MIN_AREA = 0.03        # m2: below this a component is dropped, not
+                             # solidified — a bolt head is not a wall, and an
+                             # open one left in would break every cut cap
+SOLID_CAP_FRAC = 0.20        # fan caps may not exceed this share of the
+                             # component's area (above it the "hole" is the
+                             # module's own front rim, and capping it hangs a
+                             # sheet across the façade)
+SOLID_FRONT_COS = 0.10       # a face counts as front-facing above this
+SOLID_FEATURE_FRAC = 0.9     # never thicker than this times the component's
+                             # own second-smallest extent
+
+
+def is_shell(mesh, min_open=1):
+    """True when the mesh still has boundary edges after welding — i.e. it is
+    open, so cutting it produces fan caps rather than real cut faces."""
+    if mesh is None or not len(mesh.faces):
+        return False
+    m = _weld(mesh)
+    f = np.asarray(m.faces, dtype=np.int64)
+    return len(f) > 0 and len(_boundary(f)) >= int(min_open)
+
+
+def solidify(mesh, thickness_m, inward=True, ref=None,
+             min_area_m2=SOLID_MIN_AREA, cap_area_frac=SOLID_CAP_FRAC,
+             front_cos=SOLID_FRONT_COS, feature_frac=SOLID_FEATURE_FRAC,
+             weld_tol=1e-5, verbose=False):
+    """Close an open shell into a solid at least `thickness_m` thick.
+
+    CONTRACT (agents P and G build on this):
+      * ANY mesh, any thickness, world units in metres. A mesh that is already
+        watertight comes back UNCHANGED (`is` the same object) — that is how
+        the authored `_box` slabs pass through. `thickness_m <= 0` also returns
+        it unchanged, which is how a caller disables the whole thing.
+      * The OUTER surface never moves. Whatever the component's front faces
+        were, they are still exactly where they were, with their relief, their
+        openings and their UVs; the new material is added behind them. A
+        solidified module therefore still lines up with the intact one beside
+        it.
+      * `ref` is a point INSIDE the building (a mass centre is what
+        `quake_flow` passes). Every component is thickened away from it. Each
+        component decides independently, so a sill thickens downward while the
+        wall beside it thickens inward. `ref=None` falls back to each
+        component's own dominant normal, which for kit art is arbitrary — pass
+        a ref for anything whose outer face has to stay put.
+      * WINDOW AND DOOR OPENINGS SURVIVE as openings, and their boundary loops
+        become reveal faces `thickness_m` deep. That is the point: a broken
+        opening then shows wall depth instead of a paper edge.
+      * Components below `min_area_m2`, and components that cannot be closed,
+        are DROPPED. They cannot be passed through: one open sheet anywhere
+        puts the fan caps back into every cut.
+      * Returns a new trimesh. The input is not modified. `.is_watertight` is
+        normally True; it can be False on art with non-manifold rims, and the
+        slicing path tolerates that (see `fracture_mesh`) — but the caps get
+        worse the further from watertight it is, so `verbose=True` reports it.
+    """
+    import trimesh
+
+    t = float(thickness_m)
+    if mesh is None or not len(mesh.faces) or t <= 0.0:
+        return mesh
+    if mesh.is_watertight:
+        return mesh
+
+    m = _weld(mesh, tol=weld_tol)
+    v = np.asarray(m.vertices, dtype=float)
+    f = np.asarray(m.faces, dtype=np.int64)
+    if not len(f):
+        return mesh
+    lab = _labels(f, len(v))
+
+    def build(flip_back):
+        V, F = [v], []
+        st = dict(cap=0, ext=0, keep=0, drop=0, a_drop=0.0)
+        for c in np.unique(lab):
+            fc = f[lab == c]
+            area = _tri_area(v, fc)
+            b = _boundary(fc)
+            if not len(b):                    # already closed — a real solid
+                F.append(fc)
+                st["keep"] += 1
+                continue
+            if area < float(min_area_m2):
+                st["drop"] += 1
+                st["a_drop"] += area
+                continue
+            # -- CAP: a volume with holes in it. Cheap, and it keeps the real
+            #    geometry, so it is tried first.
+            loops = _loops(b)
+            caps, cverts, cap_area = [], [], 0.0
+            for lp in loops:
+                tri, cen = _fan(v, lp)
+                tri = tri.copy()
+                tri[tri == len(v)] = len(v) + len(cverts)
+                cverts.append(cen)
+                caps.append(tri)
+                cap_area += _tri_area(np.vstack([v, np.asarray(cverts)]), tri)
+            if (loops and sum(len(lp) for lp in loops) == len(b)
+                    and cap_area <= float(cap_area_frac) * area):
+                base = sum(len(q) for q in V)
+                caps = [q + np.where(q >= len(v), base - len(v), 0) for q in caps]
+                V.append(np.asarray(cverts, dtype=float))
+                F.append(fc)
+                F += caps
+                st["cap"] += 1
+                continue
+            # -- EXTRUDE: a sheet, or a rim too big to cap.
+            vi = np.unique(fc)
+            ext = np.sort(v[vi].max(0) - v[vi].min(0))
+            tc = min(t, float(feature_frac) * max(float(ext[1]), 1e-3))
+            u = _front_axis(v, fc, ref)
+            vv, ffc = _extrude_front(v, fc, u, tc, front_cos=front_cos,
+                                     flip_back=flip_back)
+            if ffc is None:
+                st["drop"] += 1
+                st["a_drop"] += area
+                continue
+            base = sum(len(q) for q in V)
+            ffc = np.where(ffc >= len(v), ffc - len(v) + base, ffc)
+            V.append(vv[len(v):])
+            F.append(ffc)
+            st["ext"] += 1
+        return V, F, st
+
+    V, F, st = build(False)
+    if not F:
+        # EVERY component faced the wrong way: the art is wound inward, so the
+        # sheets ARE the façade. Redo, flipping them.
+        V, F, st = build(True)
+    if not F:
+        return mesh
+    # process=False ON PURPOSE. Merging by position would weld the back
+    # vertices of two front faces that sit at DIFFERENT depths but the same
+    # position on the flat back plane — which is every relief ridge and every
+    # bay on this art — and that turns a clean closed surface into a
+    # non-manifold one (measured on the commercial wall: 0 open edges and
+    # `is_watertight` still False, purely from edges shared by four faces).
+    # Only the degenerate triangles are dropped.
+    VV = np.vstack(V)
+    FF = np.vstack(F)
+    a = np.linalg.norm(np.cross(VV[FF[:, 1]] - VV[FF[:, 0]],
+                                VV[FF[:, 2]] - VV[FF[:, 0]]), axis=1)
+    FF = FF[a > 1e-10]
+    out = trimesh.Trimesh(vertices=VV, faces=FF, process=False)
+    if not len(out.faces):
+        return mesh
+    if verbose:
+        print("[fracture]   solidify {0:.3f} m: {1} -> {2} faces; {3} parts "
+              "({4} capped, {5} extruded, {6} already closed, {7} dropped "
+              "= {8:.2f} m2); watertight {9}".format(
+                  t, len(mesh.faces), len(out.faces), len(np.unique(lab)),
+                  st["cap"], st["ext"], st["keep"], st["drop"], st["a_drop"],
+                  out.is_watertight))
+    return out
 
 
 def _seeds(mesh, n, rng, mode="uniform", focus=None, axis=None,
@@ -915,7 +1397,8 @@ def fracture_split(mesh, n_pieces, judge, rng,
                    chew_out=0.18, chew_in=0.12, edge_consume=0.5,
                    max_loose_m=None,
                    min_volume_frac=0.0015, mode="uniform", focus=None,
-                   axis=None, aspect=None, verbose=False):
+                   axis=None, aspect=None, solid_m=None, solid_ref=None,
+                   verbose=False):
     """Fracture `mesh` and split the fragments by `judge(point) -> bool`
     (True = this point is on the side that COMES AWAY), resolving the break
     line at a second, much finer scale. Returns (static_meshes, loose_meshes).
@@ -925,6 +1408,8 @@ def fracture_split(mesh, n_pieces, judge, rng,
     """
     if mesh is None or not len(mesh.faces):
         return [], []
+    if solid_m:
+        mesh = solidify(mesh, solid_m, ref=solid_ref, verbose=verbose)
     bbox_vol = float(np.prod(np.maximum(mesh.extents, 1e-6)))
     keep_min = bbox_vol * float(min_volume_frac)
     sub_min = (0.35 * float(edge_cell_m)) ** 3
@@ -1055,10 +1540,67 @@ def _write_mesh(stage, path, mesh, centre_on_centroid=True):
     return path
 
 
+def face_subset(stage, path, axis, cos=0.30, name="core", mesh=None):
+    """A `materialBind` GeomSubset of every face that is NOT the façade.
+
+    A solidified fragment carries two kinds of face: the outer ones, which are
+    the module's own cladding and must keep the cladding material, and the
+    ones this pipeline invented — the cut faces, the back, and the reveals
+    round an opening — which are the inside of the wall and must read as brick
+    or concrete core. A prim takes one material, so the core faces go into a
+    subset the caller binds separately.
+
+    `axis` is the module's OUTWARD direction; a face is façade when its normal
+    is within `acos(cos)` of it. Returns the subset's prim, or None when the
+    split is degenerate (all faces one way — a fragment entirely off the back,
+    which the caller should simply bind to the core material whole).
+    """
+    from pxr import UsdGeom, Vt
+
+    pr = stage.GetPrimAtPath(path)
+    if not pr or not pr.IsValid():
+        return None
+    m = UsdGeom.Mesh(pr)
+    if mesh is not None:
+        # PASS THE TRIMESH IN when you have it. Reading points and indices
+        # back out of USD and converting the Vt arrays is the expensive half
+        # of this function, and every caller in this pipeline has just
+        # authored the prim from a trimesh it still holds.
+        v = np.asarray(mesh.vertices, dtype=float)
+        f = np.asarray(mesh.faces, dtype=np.int64)
+    else:
+        pts = m.GetPointsAttr().Get()
+        idx = m.GetFaceVertexIndicesAttr().Get()
+        cnt = m.GetFaceVertexCountsAttr().Get()
+        if (not pts or not idx or not cnt
+                or int(min(cnt)) != 3 or int(max(cnt)) != 3):
+            return None
+        v = np.asarray([[q[0], q[1], q[2]] for q in pts], dtype=float)
+        f = np.asarray(idx, dtype=np.int64).reshape(-1, 3)
+    if len(f) < 2:
+        return None
+    n = np.cross(v[f[:, 1]] - v[f[:, 0]], v[f[:, 2]] - v[f[:, 0]])
+    n = n / np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-16)
+    u = np.asarray(axis, dtype=float)
+    u = u / max(float(np.linalg.norm(u)), 1e-12)
+    sel = np.where((n @ u) <= float(cos))[0]
+    if not len(sel) or len(sel) == len(f):
+        return None
+    try:
+        sub = UsdGeom.Subset.CreateGeomSubset(
+            m, name, UsdGeom.Tokens.face,
+            Vt.IntArray([int(i) for i in sel]), "materialBind",
+            UsdGeom.Tokens.nonOverlapping)
+    except Exception:
+        return None
+    return sub.GetPrim()
+
+
 def fracture_partial(stage, prim_path, out_parent, n_pieces, rng,
                      cut_frac=0.5, mode="char", rough=0.035, shrink=0.97,
                      ragged=0.22, deactivate=True, consume=0.30, axis=None,
-                     min_volume_frac=0.004, aspect=None, max_piece_m=None):
+                     min_volume_frac=0.004, aspect=None, max_piece_m=None,
+                     solid_m=None, solid_ref=None):
     """Break a wall so that only its upper part comes down.
 
     NO STRAIGHT CUT. The first version sliced the module at a flat plane and
@@ -1084,6 +1626,8 @@ def fracture_partial(stage, prim_path, out_parent, n_pieces, rng,
     mesh = prim_to_mesh(stage, prim_path)
     if mesh is None:
         return [], []
+    if solid_m:
+        mesh = solidify(mesh, solid_m, ref=solid_ref)
 
     frags = fracture_mesh(mesh, n_pieces, rng, mode=mode, rough=rough,
                           shrink=shrink, consume=consume, axis=axis,
@@ -1137,7 +1681,7 @@ def fracture_prim(stage, prim_path, out_parent, n_pieces, rng,
                   mode="uniform", rough=0.035, shrink=0.97,
                   deactivate=True, verbose=True, consume=0.30,
                   consume_pool=1.25, axis=None, min_volume_frac=0.004,
-                  aspect=None, max_piece_m=None):
+                  aspect=None, max_piece_m=None, solid_m=None, solid_ref=None):
     """Fracture a placed module in the stage. Returns the new prim paths.
 
     Fragments are authored around their OWN centroid with the centroid in the
@@ -1160,6 +1704,8 @@ def fracture_prim(stage, prim_path, out_parent, n_pieces, rng,
         if verbose:
             print("[fracture] no readable mesh under {0}".format(prim_path))
         return []
+    if solid_m:
+        mesh = solidify(mesh, solid_m, ref=solid_ref, verbose=verbose)
     frags = fracture_mesh(mesh, n_pieces, rng, mode=mode, rough=rough,
                           shrink=shrink, consume=consume,
                           consume_pool=consume_pool, axis=axis,

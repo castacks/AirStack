@@ -6,6 +6,10 @@
 # `disaster/quake.assemble`'s monolith pass gives it only what a rigid body
 # can show: a foundation failure (lean + sink with the ground response), and,
 # for a tower drawn at DG5, a swap for one of the six `ruin_tower_*` models.
+# OPT-IN ONLY (2026-08-27): the `standalone/buildings/intact` monoliths render
+# as UNTEXTURED cream boxes in Isaac (final_2city_v2 captures) — whatever their
+# materials reference is not resolving from Nucleus — so they read as massing
+# models beside the kit. The deliverable scenes use `urban_quake` (kit only).
 # Keep them a MINORITY: the packer picks by height fit, and 4 towers + 8
 # blocks against 16 kit styles still took 46 % of a 200 m plate (R_mono1) —
 # 2 towers + 3 blocks here. An M9 core must not fill with rigid boxes.

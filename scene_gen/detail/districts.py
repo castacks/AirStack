@@ -518,9 +518,53 @@ class _Skyline:
         # costs pen^1 (50x), with everything between graded smoothly. 0
         # restores the flat count.
         self.local_falloff = float(cfg.get("repeat_local_falloff", 2.0))
+        # -- LANDMARKS: the tall tail the height model cannot reach -----------
+        # A downtown has a few buildings well above its own norm, and the
+        # log-normal cannot produce them here for two compounding reasons,
+        # both measured on `downtown_1000` seed 42 over 141 tower slots:
+        #
+        #   * the target never gets high enough. Median 85 m and sigma 0.45
+        #     should reach 150 m occasionally, but `neighbour_weight` blends
+        #     each draw halfway (in log space) toward the mean height already
+        #     standing within `neighbour_radius_m` — which is the midrise
+        #     carpet — so the OBSERVED targets ran p50 74 m, p90 104 m, max
+        #     140 m. Not one of 141 reached 150 m. It is a feedback loop:
+        #     short neighbours beget shorter targets.
+        #   * `pick_sigma` is a Gaussian in LOG height, so the falloff is
+        #     exponential. Against a 74 m target the 231 m Amar_Tower scored
+        #     0.000533 — a 0.01% share of the draw. Over every slot it reached,
+        #     its mean win probability was 0.33%, i.e. 0.04 expected placements.
+        #
+        # Raising the cap does nothing (the cap was reached once in 141), and
+        # raising the median lifts the WHOLE skyline rather than giving it a
+        # tail. So a landmark is authored as a budget instead of hoped for as a
+        # tail event: `landmark_count` slots may ignore the height match and
+        # the packer's area band, and take a tall model outright.
+        #
+        # 0 disables it, which is the default — `downtown.yaml` and the
+        # earthquake preset keep the pure log-normal they were tuned with.
+        self.landmark_budget = int(cfg.get("landmark_count", 0))
+        self.landmark_min_h = float(cfg.get("landmark_min_height_m", 110.0))
+
         self.used: dict = {}            # usd -> times placed
         self.at: dict = {}              # usd -> [(x, y)] of each placement
         self.placed: list = []          # (x, y, height_m)
+
+    def landmark_picks(self, fits):
+        """The tall entries in *fits* if a landmark is still owed, else ().
+
+        *fits* is the packer's PRE-BAND list, and that is deliberate: a tall
+        tower is usually slender (Amar_Tower is 2,064 m2 against MBuilding02's
+        8,752) and the area band drops it from 92% of the slots it fits in
+        before the skyline is ever consulted. A landmark that only competed
+        inside the band would be a landmark that never gets built.
+        """
+        if self.landmark_budget <= 0:
+            return ()
+        return tuple(f for f in fits if f[0][3]["sz"] >= self.landmark_min_h)
+
+    def took_landmark(self):
+        self.landmark_budget -= 1
 
     def target(self, typ: dict, x: float, y: float) -> float:
         med = float((typ or {}).get("height_median_m", 0.0))
@@ -1094,6 +1138,11 @@ def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
                 fits.append((e, sx, sy, 0.0))
             if sy <= w and sx <= h and abs(sx - sy) > 1e-6:
                 fits.append((e, sy, sx, 90.0))
+        # A LANDMARK SLOT SKIPS THE AREA BAND. Asked before the band because
+        # that is what the band would remove — see `_Skyline.landmark_picks`.
+        # Still subject to `reach`: a 231 m tower with no street frontage is
+        # the same defect as a 12 m one with none.
+        marks = sky.landmark_picks(fits)
         if reach is not None:
             # A CANDIDATE THAT CANNOT REACH THE STREET IS NOT A CANDIDATE, and
             # if none of them can, this sub-rectangle stays bare. Falling back
@@ -1104,12 +1153,22 @@ def _pack_free(rect, pool, gap: float, min_side: float, rng, sky, typ,
             fits = [f for f in fits if reach(x0, y0, f[1], f[2])]
         if not fits:
             continue
-        best = max(f[1] * f[2] for f in fits)
-        top = [f for f in fits if f[1] * f[2] >= best * area_band]
-        along = w >= h
-        oriented = [f for f in top if (f[1] >= f[2]) == along] or top
-        chosen = sky.choose([f[0] for f in oriented], sky.target(typ, x0, y0),
-                            x0, y0)
+        if marks:
+            marks = [f for f in marks if f in fits]      # survived `reach`
+        if marks:
+            # The tallest band, drawn among themselves so the repeat penalties
+            # still decide WHICH landmark — two identical towers facing each
+            # other is no better for being tall.
+            oriented = marks
+            chosen = sky.choose([f[0] for f in oriented], 0.0, x0, y0)
+            sky.took_landmark()
+        else:
+            best = max(f[1] * f[2] for f in fits)
+            top = [f for f in fits if f[1] * f[2] >= best * area_band]
+            along = w >= h
+            oriented = [f for f in top if (f[1] >= f[2]) == along] or top
+            chosen = sky.choose([f[0] for f in oriented],
+                                sky.target(typ, x0, y0), x0, y0)
         e, bw, bh, yaw = next(f for f in oriented if f[0] is chosen)
 
         cx, cy = x0 + bw / 2.0, y0 + bh / 2.0
@@ -1475,6 +1534,11 @@ def infill_blocks(config: dict, layout: dict, placements: list, resolver,
         {"house", "play_structure", "trail", "tree", "bus_stop",
          "traffic_light", "debris_pile"}, margin)
     sky = _Skyline(dcfg, rng)
+    # NO LANDMARKS IN INFILL. This is a second `_Skyline` over the same config,
+    # so it would otherwise be handed its own full `landmark_count` and double
+    # the tall towers — and a landmark is by definition the thing a block was
+    # zoned for, not something dropped into whatever gap was left over.
+    sky.landmark_budget = 0
     area_band = float(dcfg.get("pack_area_band", 0.55))
     frontage_max = float(dcfg.get("frontage_max_m", 0.0))
     # INFILL USED TO UNDO THE PERIMETER MORPHOLOGY. `rezone_blocks` packs a

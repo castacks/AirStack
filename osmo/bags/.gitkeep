@@ -1,0 +1,3 @@
+# OSMO mission bag/log staging — mounted into the stack containers as
+# /osmo_bags so `ros2 bag record` writes straight to the pod disk. Contents
+# are gitignored; this .gitkeep keeps the mount source present on a fresh clone.

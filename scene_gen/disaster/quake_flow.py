@@ -259,6 +259,17 @@ def describe(style, placements, x, y, yaw):
         lx, ly = _to_local(m, e["x"], e["y"])
         e["side"] = _side_of(m, lx, ly)
         e["lx"], e["ly"] = lx, ly
+        # _t_ (round 3): the two things `fracture.solidify` needs and nothing
+        # downstream of `_break` can otherwise work out — where the INSIDE of
+        # this piece's mass is (a wall is thickened toward it, so the façade
+        # never moves) and which way the piece faces out (the façade/core
+        # material split). Both are pure functions of `m`, which only this
+        # loop has: every placement in the bench lives under one shared
+        # `/World/stage/generated`, so a bbox of the prim's parent is the
+        # whole scene, not the building.
+        e["ref"] = (m["cx"], m["cy"], 0.5 * (m["z0"] + m["top"]))
+        ox, oy = _outward(m, e["side"])
+        e["out"] = (ox, oy, 0.0)
     return {"style": style, "family": spec.get("family", "01"),
             "type": FAMILY_TYPE.get(spec.get("family", "01"), "urm"),
             "x": x, "y": y, "yaw": yaw, "masses": masses, "elements": els,
@@ -778,6 +789,152 @@ def fit_interior(stage, parent, info, mats, rng, storeys=None,
 # ---------------------------------------------------------------------------
 # Fracture wrappers
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# ROUND 3 — WALL THICKNESS (agent T)
+# ---------------------------------------------------------------------------
+#
+# The user, on the round-2 city: "I don't believe that we can't fracture
+# zero-wall-thickness buildings." The premise turned out to be wrong in an
+# instructive way. Measured (`tools/_t_shell_probe.py` + a ray probe on
+# `bld_commercial_DG0.usd`): every kit mesh is OPEN — that much was true — but
+# a wall module is DOUBLE-SIDED, 27.8 m2 of face pointing out and 28.0 m2
+# pointing in, with a measured wall thickness of 0.14-0.68 m and the plain
+# storey band exactly 0.70 m. The material was always there. What is missing is
+# the RIM: 134 of 4433 edges on the main wall component belong to one face
+# only, so `is_watertight` is False, and `slice_plane(cap=True)` then has to
+# cap an OPEN polyline — which VTK's stripper fans into 2-3 m triangular
+# sheets. Those sheets are the "foil plates", and they are also, literally, the
+# "looks very TRIANGULAR" of the round-3 review: not a break pattern, a failed
+# cap.
+#
+# `fracture.solidify` closes the module before it is cut, and these are the
+# thicknesses it is given.
+#
+# THE NUMBERS. A Boston/NYC URM bearing wall is three or four wythes on the
+# lower storeys at ~110 mm a wythe (_plans/earthquake_research.md, damage row
+# 12: "outer wythe ~110 mm thick, peels in 2-10 m2 sheets"), so 0.33-0.44 m;
+# a brownstone front is heavier still; a parapet is one or two wythes above the
+# roof line; an RC frame's infill is a single block leaf at ~0.20 m; a floor
+# slab is 150-250 mm (research §3.9, "horizontal shelves 150-250 mm thick");
+# and glass is 6-12 mm, which is why it has its own entry — solidifying a pane
+# to wall thickness would turn a curtain wall into a brick wall.
+T_SOLID_M = {
+    "urm": {"wall": 0.38, "corner": 0.40, "parapet": 0.25,
+            "parapet_corner": 0.25, "balcony": 0.18, "roof": 0.20,
+            "portico": 0.30, "pediment": 0.25, "ornament": 0.15,
+            None: 0.30},
+    "rc": {"wall": 0.20, "corner": 0.22, "parapet": 0.18,
+           "parapet_corner": 0.18, "balcony": 0.16, "roof": 0.22,
+           "portico": 0.22, "pediment": 0.18, "ornament": 0.12,
+           None: 0.20},
+}
+# A glazed frame is the same frame; only the PANE is thin, and the pane is a
+# prim of its own in this kit (agent G owns what happens to it).
+T_SOLID_M["rc_glass"] = dict(T_SOLID_M["rc"], wall=0.16)
+T_GLASS_M = 0.010            # 6-12 mm; a pane stays a plate
+T_BROWNSTONE_M = 0.40        # a brownstone front is four wythes plus the stone
+# Turn the whole round-3 thickness path off with EQ_SOLID=0 — the round-2 look
+# and the round-2 timings come straight back, which is the comparison to make
+# when something looks wrong.
+T_SOLID_ON = _os.environ.get("EQ_SOLID", "1").strip() not in ("0", "false", "no")
+# Solidifying multiplies nothing on this art (the back sheet and the 42
+# sub-0.03 m2 trinkets in a wall module are dropped, so face counts come out
+# 0.98-1.25x), but a SOLID cell does not need the plate-era refinement: the
+# reason for 0.32 m teeth was that a 1 m plate cell read as a sheet of card.
+# This scales `edge_cell_m` up for solidified pieces; 1.0 keeps round 2's.
+T_EDGE_CELL_SCALE = float(_os.environ.get("EQ_SOLID_EDGE", "1.0"))
+# The façade/core face split costs one GeomSubset prim and one material bind
+# per fragment. EQ_SOLID_CORE=0 skips it (every fragment then takes one
+# material over all its faces, as in round 2) — the knob to try first when a
+# bench run is slower than it should be.
+T_CORE_ON = _os.environ.get("EQ_SOLID_CORE", "1").strip() not in ("0", "false", "no")
+
+
+def _t_is_glass(stage, path, texture=None):
+    """Is this module a glazing panel? Name-based, because that is all the kit
+    offers — the material is `glass`/`Glass_*` and the texture, if any, has it
+    in the URL."""
+    if texture and "glass" in str(texture).lower():
+        return True
+    try:
+        from pxr import UsdShade
+        pr = stage.GetPrimAtPath(path)
+        if pr and pr.IsValid():
+            bm = UsdShade.MaterialBindingAPI(pr).ComputeBoundMaterial()[0]
+            if bm and "glass" in bm.GetPath().name.lower():
+                return True
+    except Exception:
+        pass
+    return "glass" in str(path).lower()
+
+
+def _t_thickness(btype, role, style=None, stage=None, path=None, texture=None):
+    """Wall thickness in metres for one piece. None = do not solidify."""
+    if not T_SOLID_ON:
+        return None
+    if stage is not None and path and _t_is_glass(stage, path, texture):
+        return T_GLASS_M
+    tbl = T_SOLID_M.get(btype) or T_SOLID_M["urm"]
+    t = tbl.get(role, tbl[None])
+    if style and "brownstone" in str(style) and role in ("wall", "corner"):
+        t = T_BROWNSTONE_M
+    return t
+
+
+def _t_el(ctx, path):
+    """The element record for a prim path, or None."""
+    for e in ctx["info"]["elements"]:
+        if e["p"].get("prim_path") == path:
+            return e
+    return None
+
+
+def _t_ref(ctx, e=None):
+    """A point INSIDE the building — solidify thickens every piece toward it,
+    which is what keeps the façade where it was."""
+    if e is not None and e.get("ref"):
+        return e["ref"]
+    m = ctx["info"]["masses"].get((e or {}).get("mass") or "main") \
+        or ctx["info"]["masses"]["main"]
+    return (m["cx"], m["cy"], 0.5 * (m["z0"] + m["top"]))
+
+
+def _t_core_mat(stage, parent, mats, btype, rng):
+    """The inside of a wall: brick and mortar for masonry, dark concrete for a
+    frame. Drawn per fragment so a heap is not one flat colour."""
+    if btype == "urm":
+        r = rng.random()
+        key = "brick" if r < 0.55 else ("mortar" if r < 0.85 else "plaster")
+    else:
+        r = rng.random()
+        key = "dark_concrete" if r < 0.6 else ("concrete" if r < 0.85 else "mortar")
+    return mats.get(key) or mats.get("plaster")
+
+
+def _t_core_bind(stage, parent, paths, out, mats, btype, rng, solid_m=None):
+    """Give every fragment a BRICK CORE.
+
+    A solidified fragment carries the module's own cladding on the faces that
+    were the façade and pipeline-invented geometry everywhere else — the cut
+    faces, the back, and the reveal round an opening. One prim takes one
+    material, so the invented faces go into a `materialBind` GeomSubset and
+    that subset gets the core. Without this a chunk is a brick-textured box on
+    all six sides, and the broken edge of a window shows brickwork running the
+    wrong way across the reveal instead of a mortar core."""
+    from . import fracture
+    if not T_CORE_ON or not out or not solid_m or solid_m <= T_GLASS_M:
+        return 0
+    n = 0
+    for pth in paths:
+        sub = fracture.face_subset(stage, pth, out, cos=0.30)
+        if sub is None:
+            continue
+        _bind(stage, str(sub.GetPath()),
+              _t_core_mat(stage, parent, mats, btype, rng))
+        n += 1
+    return n
+
+
 def _chunk_material(stage, parent, cache, texture, mats, btype, rng,
                     inner_p):
     if rng.random() < inner_p or not texture:
@@ -793,7 +950,8 @@ def _chunk_material(stage, parent, cache, texture, mats, btype, rng,
 
 def _break(stage, parent, el, tag, n, rng, nrng, mats, cache, btype,
            inner_p=0.35, partial=None, mode="uniform", rough=0.012,
-           min_volume_frac=0.002, consume=0.0, max_piece_m=None):
+           min_volume_frac=0.002, consume=0.0, max_piece_m=None,
+           solid_m=None, style=None, core=True):
     """Fracture one element. Returns (static_paths, loose_paths).
 
     `consume` drops that share of the fragments, LARGEST first (the fracture
@@ -808,19 +966,31 @@ def _break(stage, parent, el, tag, n, rng, nrng, mats, cache, btype,
         return [], []
     tex = damage.bound_texture(stage, path)
     out = "{0}/brk_{1}_{2}".format(parent, tag, path.rsplit("/", 1)[-1])
+    # ROUND 3: close the module into a solid before cutting it, and thicken it
+    # TOWARD THE BUILDING so the façade does not move (`el["ref"]`, set in
+    # `describe`). `solid_m=0` from a caller disables it for that piece.
+    if solid_m is None:
+        solid_m = _t_thickness(btype, el.get("role"), style=style,
+                               stage=stage, path=path, texture=tex)
+    ref = el.get("ref")
     if partial is not None:
         st, lo = fracture.fracture_partial(
             stage, path, out, n_pieces=n, rng=nrng, cut_frac=partial,
             mode=mode, rough=rough, consume=consume * 0.5,
-            min_volume_frac=min_volume_frac, max_piece_m=max_piece_m)
+            min_volume_frac=min_volume_frac, max_piece_m=max_piece_m,
+            solid_m=solid_m, solid_ref=ref)
     else:
         st, lo = [], fracture.fracture_prim(
             stage, path, out, n_pieces=n, rng=nrng, mode=mode, rough=rough,
             verbose=False, consume=consume, consume_pool=1.6,
-            min_volume_frac=min_volume_frac, max_piece_m=max_piece_m)
+            min_volume_frac=min_volume_frac, max_piece_m=max_piece_m,
+            solid_m=solid_m, solid_ref=ref)
     for pth in list(st) + list(lo):
         _bind(stage, pth, _chunk_material(stage, parent, cache, tex, mats,
                                           btype, rng, inner_p))
+    if core:
+        _t_core_bind(stage, parent, list(st) + list(lo), el.get("out"), mats,
+                     btype, rng, solid_m=solid_m)
     return list(st), list(lo)
 
 
@@ -862,7 +1032,7 @@ def _break_split(ctx, path, n, judge, mat_fn, rough=ROUGH_M,
                  static_mat=None, refine=True, edge_cell_m=EDGE_CELL_M,
                  chew=(CHEW_OUT, CHEW_IN), crack_frac=CRACK_FRAC,
                  refine_max=REFINE_MAX, gap_static_m=GAP_STATIC_M,
-                 max_loose_m=None, edge_consume=0.5):
+                 max_loose_m=None, edge_consume=0.5, solid_m=None, core=True):
     """Fracture *path* and split the fragments by `judge(centroid) -> bool`
     (True = comes loose). The rest stay as STATIC stubs, so the surviving
     edge is made of real cell boundaries: this is `fracture_partial` with a
@@ -882,9 +1052,24 @@ def _break_split(ctx, path, n, judge, mat_fn, rough=ROUGH_M,
     mesh = fracture.prim_to_mesh(stage, path)
     if mesh is None:
         return [], []
+    # ROUND 3 (agent T): the piece is closed into a solid of its real wall
+    # thickness FIRST, so the two-scale split cuts a wall and not a sheet, and
+    # the surviving stub shows masonry depth on its broken edge instead of a
+    # paper rim. The role and the interior reference come from the element
+    # record; a piece the recipes authored themselves (a `_box` slab) is
+    # already watertight and `solidify` returns it untouched.
+    _e = _t_el(ctx, path)
+    if solid_m is None:
+        solid_m = _t_thickness(ctx["info"]["type"],
+                               (_e or {}).get("role"),
+                               style=ctx["info"].get("style"), stage=stage,
+                               path=path)
+    if solid_m:
+        edge_cell_m = float(edge_cell_m) * T_EDGE_CELL_SCALE
     st_m, lo_m = fracture.fracture_split(
         mesh, n, judge, ctx["nrng"], mode=mode, aspect=aspect,
         rough_m=max(0.008, min(0.06, float(rough))),
+        solid_m=solid_m, solid_ref=_t_ref(ctx, _e),
         edge_cell_m=edge_cell_m, edge_max=EDGE_MAX,
         refine=bool(refine) and int(refine_max) > 0,
         refine_max=refine_max, min_volume_frac=min_volume_frac,
@@ -905,6 +1090,10 @@ def _break_split(ctx, path, n, judge, mat_fn, rough=ROUGH_M,
             fracture._write_mesh(stage, fp, f)
             _bind(stage, fp, mf if mf is not None else mat_fn())
             sink.append(fp)
+    if core and _e is not None:
+        _t_core_bind(stage, ctx["parent"], st + lo, _e.get("out"),
+                     ctx["mats"], ctx["info"]["type"], ctx["rng"],
+                     solid_m=solid_m)
     src = stage.GetPrimAtPath(path)
     if src and src.IsValid():
         src.SetActive(False)
@@ -2066,7 +2255,7 @@ def _roof_box(ctx, e, thick=None):
 
 
 def _break_box_like(ctx, e, n, timber=False, consume=0.0, dusty=False,
-                    consume_pool=None, max_piece_m=None):
+                    consume_pool=None, max_piece_m=None, solid_m=None):
     """Fracture a kit ROOF piece: swap it for a solid slab first.
 
     `dusty` is the collapse variant: the boards take the dark joist tint and
@@ -2078,8 +2267,14 @@ def _break_box_like(ctx, e, n, timber=False, consume=0.0, dusty=False,
     if not box:
         return []
     out = box + "_brk"
+    # `solid_m` is plumbed for symmetry with `_break` / `_break_split` and is
+    # normally a NO-OP here: `_roof_box` authors a closed `_box`, and
+    # `solidify` returns a watertight mesh untouched. It matters only if a
+    # caller ever points this at a kit roof tile directly (a zero-thickness
+    # quad), which is exactly the case `_roof_box` exists to avoid.
     made = fracture.fracture_prim(ctx["stage"], box, out, n_pieces=n,
-                                  rng=ctx["nrng"],
+                                  rng=ctx["nrng"], solid_m=solid_m,
+                                  solid_ref=_t_ref(ctx, e),
                                   mode=("plank" if timber else "uniform"),
                                   aspect=((1.4, 3.0) if timber else None),
                                   rough=0.01, verbose=False, consume=consume,

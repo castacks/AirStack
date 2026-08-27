@@ -89,7 +89,12 @@ DEFAULT_ROBOT_RECORD_TOPICS = [
 
 # In-container staging dir for bag recordings (docker cp'd out before the
 # stack goes down).
-BAG_STAGING_DIR = "/tmp/osmo_bags"
+# The stack containers bind-mount the host's gitignored osmo/bags/ here, so
+# `ros2 bag record` writes straight to the pod disk and collect() MOVES the
+# bags (same filesystem) instead of a 20-minute docker cp of tens of GB.
+BAG_STAGING_DIR = "/osmo_bags"
+# Host side of that mount, relative to the airstack root (set on the Recorder).
+HOST_BAG_STAGING_REL = ("osmo", "bags")
 # Copying bags out of a container and pushing them to the NAS both scale with
 # bag size. A mission recording the full-rate semantic voxel cloud produces
 # tens of GB per iteration rather than a few, so these are env-tunable instead
@@ -633,8 +638,10 @@ class Recorder:
     SIG_IGN, so it would never be delivered; rosbag2 handles SIGTERM the
     same way.) Bags are docker cp'd to the host before the stack goes down."""
 
-    def __init__(self, robot_container, mission, num_robots, setup_bash):
+    def __init__(self, robot_container, mission, num_robots, setup_bash,
+                 airstack_root="."):
         self.robot_container = robot_container
+        self.root = airstack_root
         self.cfg = mission["record"]
         self.scope = self.cfg.get("scope", "gcs")
         self.num_robots = num_robots
@@ -761,15 +768,32 @@ class Recorder:
         if not self.active:
             return
         dest_dir.mkdir(parents=True, exist_ok=True)
-        for container in {c for c, _ in self.active}:
-            r = sh(["docker", "cp", f"{container}:{BAG_STAGING_DIR}/.", str(dest_dir)],
-                   timeout=BAG_COPY_TIMEOUT_S)
-            if r.returncode != 0:
-                log(f"WARN: docker cp of bags from {container} failed: "
-                    f"{r.stderr.strip()[:200]}")
+        # The recorders write onto the host bind mount (osmo/bags -> /osmo_bags
+        # in every container), so the bags are already on the pod disk next to
+        # the results tree: a same-filesystem MOVE, not a 20-minute docker cp of
+        # tens of GB through the Docker API. Fall back to docker cp only if the
+        # mount is absent (a stack brought up before this mount existed).
+        host_staging = Path(self.root).joinpath(*HOST_BAG_STAGING_REL)
+        staged = ([p for p in host_staging.iterdir() if p.name != ".gitkeep"]
+                  if host_staging.is_dir() else [])
+        if staged:
+            used = "host move"
+            for item in staged:
+                target = dest_dir / item.name
+                if target.exists():
+                    (shutil.rmtree if target.is_dir() else os.remove)(target)
+                shutil.move(str(item), str(target))
+        else:
+            used = "docker cp"
+            for container in {c for c, _ in self.active}:
+                r = sh(["docker", "cp", f"{container}:{BAG_STAGING_DIR}/.", str(dest_dir)],
+                       timeout=BAG_COPY_TIMEOUT_S)
+                if r.returncode != 0:
+                    log(f"WARN: docker cp of bags from {container} failed: "
+                        f"{r.stderr.strip()[:200]}")
         self.active = []
         mcaps = list(dest_dir.rglob("*.mcap"))
-        log(f"collected {len(mcaps)} mcap file(s) → {dest_dir}")
+        log(f"collected {len(mcaps)} mcap file(s) → {dest_dir} ({used})")
 
 
 # ── step execution ─────────────────────────────────────────────────────────
@@ -1603,7 +1627,8 @@ def run_iteration(stack, mission, iter_dir):
         # iteration's compile doesn't pick up a prior iteration's files.
         docker_exec(container, "rm -rf /root/.cache/raven_results", timeout=15)
 
-        recorder = Recorder(container, mission, stack.num_robots, stack.setup_bash)
+        recorder = Recorder(container, mission, stack.num_robots, stack.setup_bash,
+                            stack.root)
         recorder.start()
 
         steps = []
