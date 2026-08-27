@@ -180,6 +180,10 @@ def _reload_trimesh(verbose=True):
 
 _BACKEND = os.environ.get("FRACTURE_BACKEND", "auto").strip().lower()
 _N_CAPFAIL = 0
+# `contour` = vtkContourTriangulator (correct for sections with holes, can
+# hang on degenerate contours); `fan` = stripper + triangle filter (fast,
+# fills a hole solid, never hangs). See the note in `_vtk_slice`.
+_CAP = os.environ.get("FRACTURE_CAP", "fan").strip().lower()
 _VTK = None
 
 
@@ -289,28 +293,37 @@ def _vtk_slice(mesh, normal, origin, cap=True):
         cut.SetCutFunction(plane)
         cut.Update()
         filled = None
-        # vtkContourTriangulator, NOT stripper + triangle filter. The old
-        # recipe handed each polyline to `vtkTriangleFilter` as if it were one
-        # polygon, so a section with a HOLE in it — every cut through a wall
-        # with a window, and every cut through a solidified module, whose
-        # section is a ring — came back as the outer loop filled solid plus
-        # the inner loop filled solid on top of it. That is the 2-3 m
-        # triangular sheet lying across a fragment in the round-2 renders, and
-        # it is what the user saw as "very TRIANGULAR" breakage. The contour
-        # triangulator is built for exactly this: nested closed contours in a
-        # plane, filled with the odd-even rule.
-        try:
-            ct = vtk.vtkContourTriangulator()
-            ct.SetInputConnection(cut.GetOutputPort())
-            ct.Update()
-            out = ct.GetOutput()
-            if out.GetNumberOfPolys():
-                filled = out
-        except Exception:
-            filled = None
+        # vtkContourTriangulator IS THE RIGHT FILTER AND IT IS NOT THE DEFAULT.
+        # It fills nested closed contours with the odd-even rule, so a section
+        # with a HOLE in it — a cut through a wall with a window, or through
+        # any solidified module, whose section is a ring — comes out as a ring
+        # instead of the outer loop filled solid PLUS the inner loop filled
+        # solid on top, which is what `vtkStripper` + `vtkTriangleFilter`
+        # gives. On clean input it also costs the same: measured over 4 cuts
+        # of a commercial wall module, 0.5 ms/cap either way.
+        #
+        # BUT IT CAN HANG. On the first solid bench (T_sol1_urm / T_sol1_rc,
+        # 2026-08-27) both runs sat in `ct.Update()` for 13+ minutes on a
+        # single cut — py-spy has them at `_vtk_slice` line 305 sample after
+        # sample — where the equivalent round-2 column took 41 s END TO END.
+        # The trigger is a DEGENERATE contour: the flat back plane a solidified
+        # module is built on makes coincident and self-overlapping section
+        # segments where a bay passes in front of the wall behind it, and the
+        # triangulator's loop assembly does not terminate usefully on those.
+        # There is no way to time-box a VTK `Update()`, so it is opt-in:
+        # FRACTURE_CAP=contour to use it, `fan` (the default) for the filter
+        # that cannot hang.
+        if _CAP == "contour":
+            try:
+                ct = vtk.vtkContourTriangulator()
+                ct.SetInputConnection(cut.GetOutputPort())
+                ct.Update()
+                out = ct.GetOutput()
+                if out.GetNumberOfPolys():
+                    filled = out
+            except Exception:
+                filled = None
         if filled is None:
-            # open contours (a shell that was never closed) — the triangulator
-            # refuses them, so fall back to the old fan
             strip = vtk.vtkStripper()
             strip.SetInputConnection(cut.GetOutputPort())
             strip.Update()
@@ -534,6 +547,48 @@ def _labels(faces, n_vert):
     return np.asarray(lab).ravel()
 
 
+def _fix_winding(faces):
+    """Flip faces until neighbours traverse their shared edge in OPPOSITE
+    directions — the definition of a consistently wound surface. Plain BFS
+    over edge adjacency; numpy + dicts, no scipy, no networkx."""
+    f = np.array(faces, dtype=np.int64, copy=True)
+    edge = {}
+    for i, tri in enumerate(f):
+        a, b, c = int(tri[0]), int(tri[1]), int(tri[2])
+        for u, w in ((a, b), (b, c), (c, a)):
+            edge.setdefault((u, w) if u < w else (w, u), []).append(i)
+    seen = np.zeros(len(f), dtype=bool)
+
+    def travels(i, key):
+        tri = f[i]
+        a, b, c = int(tri[0]), int(tri[1]), int(tri[2])
+        for u, w in ((a, b), (b, c), (c, a)):
+            if (u, w) == key or (w, u) == key:
+                return u < w
+        return None
+
+    for start in range(len(f)):
+        if seen[start]:
+            continue
+        seen[start] = True
+        stack = [start]
+        while stack:
+            i = stack.pop()
+            tri = f[i]
+            a, b, c = int(tri[0]), int(tri[1]), int(tri[2])
+            for u, w in ((a, b), (b, c), (c, a)):
+                key = (u, w) if u < w else (w, u)
+                mine = u < w
+                for j in edge.get(key, ()):
+                    if j == i or seen[j]:
+                        continue
+                    seen[j] = True
+                    if travels(j, key) == mine:      # same way round: flipped
+                        f[j] = f[j][::-1]
+                    stack.append(j)
+    return f
+
+
 def _boundary(faces):
     """The DIRECTED boundary edges of a face set — those used by one face."""
     de = np.vstack([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]])
@@ -717,6 +772,14 @@ def solidify(mesh, thickness_m, inward=True, ref=None,
     f = np.asarray(m.faces, dtype=np.int64)
     if not len(f):
         return mesh
+    # WINDING FIRST. `_extrude_front` picks the front faces by the sign of
+    # `normal . outward`, and that sign comes from the face winding — so a
+    # component with one flipped triangle loses that triangle from the front
+    # set and comes out with a hole in it, which is the one defect that puts
+    # the fan caps back. Measured 0 disagreeing pairs on the commercial kit
+    # wall (the art is clean), but `prim_to_mesh` welds several placed prims
+    # into one mesh and nothing guarantees they agree.
+    f = _fix_winding(f)
     lab = _labels(f, len(v))
 
     def build(flip_back):
@@ -804,14 +867,459 @@ def solidify(mesh, thickness_m, inward=True, ref=None,
     return out
 
 
+# ---------------------------------------------------------------------------
+# _p_  ROUND 3: SEEDING FROM THE MECHANISM, NOT FROM A RANDOM CLOUD
+# ---------------------------------------------------------------------------
+#
+# THE DIAGNOSIS (agent R, _plans/eq_round3_R.md §0). A 3-D Voronoi of random
+# seeds cut out of a wall whose thickness (0.02-0.4 m) is far under the cell
+# pitch (0.3-1.0 m) can only produce THIN POLYGONAL PLATES with acute corners
+# — the "TRIANGULAR" look the user reported. Nothing about brick or concrete
+# produced it; the seeder did. Measured demolition debris is BLOCKY: mean
+# Flakiness Index 7.3-12.9 %, Elongation Index 13.1-23.9 %, 55-74 %
+# equidimensional, and "almost no particles that can be characterised as
+# blades". The two legitimate triangles are both METRES across (an infill
+# quadrant cut by a stair-stepped X, a wall-corner rocking wedge).
+#
+# So the seeds have to sit on the planes of weakness:
+#   `brick`  — a running-bond lattice. Cell faces land on MORTAR JOINTS,
+#              because the pitch is GIVEN (a brick has a size) rather than
+#              solved from the seed count.
+#   `prism`  — ONE seed layer at the mid-plane of a member, so every cell
+#              spans the full thickness and every cut face is normal to the
+#              surface. A mode-I crack in a plate runs through the thickness;
+#              it does not shave a flake off the middle of it.
+#
+# Both are lattices with SMALL jitter, and the size variety comes from site
+# DROPOUT (`keep`) — a cell next to a deleted site absorbs it exactly, so what
+# comes out is 2-8-brick clusters among single bricks rather than a machined
+# grid. That is `plank`'s trick, and it is the only one of `plank`'s that
+# survives here: `plank`'s 0.34-of-pitch jitter would move a seed most of a
+# brick and destroy the courses.
+
+# US modular brick 194 x 92 x 57 mm actual with a 9.5 mm (3/8 in) joint, and
+# heritage (NZ/UK/AU) 230 x 110 x 76 mm — research §11. (stretcher, course,
+# wythe) pitch in metres: three modular courses are 8 in exactly.
+BRICK_MODULAR = (0.203, 0.0677, 0.092)
+BRICK_HERITAGE = (0.240, 0.086, 0.110)
+BRICK_JITTER = 0.10          # x the BRICK pitch, not the cell pitch. Half a
+                             # mortar joint; anything more interpenetrates the
+                             # units and the courses stop reading.
+BRICK_KEEP = 0.62            # share of lattice sites that survive (R: 0.55-0.70)
+BRICK_CAP = 1.7              # cells may overshoot the caller's budget by this
+                             # much before the cluster is grown. A TRUE single
+                             # -brick lattice on one 4 x 3 m module is ~3500
+                             # cells = 3500 rigid bodies; see `_p_brick_seeds`.
+
+
+def _p_axes(span, thin=None):
+    """(thin, course, length) axis indices for a wall-like box: the thinnest
+    axis is the wythe direction, Z is the course direction if it is not the
+    thin one, and what is left runs along the wall."""
+    t = int(np.argmin(span)) if thin is None else int(thin)
+    rest = [a for a in range(3) if a != t]
+    c = 2 if 2 in rest else int(rest[int(np.argmin([span[a] for a in rest]))])
+    l = [a for a in rest if a != c][0]
+    return t, c, l
+
+
+BRICK_BLOCKY = 1.5           # a cluster may be at most this many times the
+                             # wall's own thickness across, so a "brick
+                             # cluster" cannot come out a plate
+BRICK_NMAX = 2.4             # ...but only as far as this multiple of the
+                             # caller's budget. Past it the body count wins.
+
+
+def _p_brick_seeds(mesh, n, rng, pitch=None, keep=None, jitter=None,
+                   leaves=1, cap=BRICK_CAP, blocky_m=None,
+                   blocky=BRICK_BLOCKY, n_max=BRICK_NMAX):
+    """A RUNNING-BOND lattice. Cells are whole brick clusters; their faces are
+    mortar joints.
+
+    THE PITCH IS GIVEN, NOT SOLVED. That is the whole point and it is the one
+    line that separates this from `plank`: a brick is 203 x 67.7 mm whatever
+    the caller's seed budget is, so the cell edges are `m x half-stretcher` by
+    `k x course` — integer multiples — and a break through the lattice is a
+    STAIRCASE quantised to the grid rather than a continuous wobble.
+
+    WHAT IS CAPPED, AND WHY (be blunt about this — it is the one honest
+    compromise in the mode). One kit wall module is ~4 x 3 m; a true single
+    -brick lattice through 0.38 m of wall is 44 courses x 20 stretchers x 4
+    wythes = ~3500 cells, i.e. ~3500 rigid bodies from ONE module, and a
+    commercial building has ninety of them. So the caller's `n` still sets the
+    budget and the CLUSTER is grown until the lattice fits it — but the
+    cluster is always an integer number of courses and half-stretchers, so
+    every cell is still a whole number of bricks and every face is still a
+    joint. The single bricks that dominate a real pile by count (60-80 %) come
+    from the authored heap (`quake_flow._heap` / `_a_lump`), which is where the
+    mass of the pile lives anyway.
+
+    `leaves` cuts the wall through its thickness into that many leaves — 1
+    (the default) keeps a cell the full depth of the wall, which is what keeps
+    it blocky. 2 is the cavity wall whose outer leaf peels off outwards.
+    """
+    lo, hi = mesh.bounds
+    span = np.maximum(hi - lo, 1e-6)
+    p_l, p_c, p_t = [float(q) for q in (pitch or BRICK_MODULAR)]
+    keep = BRICK_KEEP if keep is None else float(keep)
+    jit = BRICK_JITTER if jitter is None else float(jitter)
+    t, c, l = _p_axes(span)
+    # The wythe count the wall actually has, so a "leaf" is a real leaf.
+    n_t = max(1, min(int(leaves), int(round(span[t] / max(p_t, 1e-4)))))
+    # Build for MORE sites than asked: `keep` deletes a third of them.
+    target = max(2.0, float(n) / max(0.2, keep)) / float(n_t)
+    unit_l, unit_c = p_l * 0.5, p_c        # half a stretcher, one course
+    edge = math.sqrt(max(span[l] * span[c], 1e-6) / target)
+    m_l = max(1, int(round(edge / unit_l)))
+    k_c = max(1, int(round(edge / unit_c)))
+    for _ in range(8):
+        n_l = max(1, int(math.ceil(span[l] / (m_l * unit_l))))
+        n_c = max(1, int(math.ceil(span[c] / (k_c * unit_c))))
+        if n_l * n_c <= cap * target:
+            break
+        # grow the cluster on whichever axis has the finer cell, so the
+        # cluster stays square-ish rather than turning into a course-high band
+        if m_l * unit_l <= k_c * unit_c:
+            m_l += 1
+        else:
+            k_c += 1
+    # A CELL MUST NOT BE MUCH WIDER THAN THE WALL IS DEEP. 0.9 m of face on
+    # 0.38 m of masonry is c/b = 0.42, which the acceptance test calls flaky
+    # and is right to: it is a PLATE of brickwork, not a lump of it. So the
+    # cluster is shrunk toward `blocky` x the wall thickness — as far as
+    # `n_max` x the caller's budget and no further, because a 4 x 7 m module
+    # at 0.5 m cells is ~110 rigid bodies and a building has ninety modules.
+    # `blocky_m` is the MATERIAL thickness (the caller's `solid_m`), NOT the
+    # module's bbox: a kit wall with a projecting bay measures 1.07 m across
+    # and is 0.38 m of brick. (Measured on P_urm1 before this clamp existed:
+    # brick-mode Flakiness Index 28.6 %, equidimensional 42 %.)
+    lim = float(blocky) * float(blocky_m if blocky_m else span[t])
+    if lim > unit_l:
+        for _ in range(24):
+            if m_l * unit_l <= lim and k_c * unit_c <= lim:
+                break
+            nm, nk = m_l, k_c
+            if m_l * unit_l > lim and (m_l * unit_l >= k_c * unit_c
+                                       or k_c * unit_c <= lim):
+                nm = m_l - 1
+            else:
+                nk = k_c - 1
+            if nm < 1 or nk < 1:
+                break
+            tot = (max(1, int(math.ceil(span[l] / (nm * unit_l))))
+                   * max(1, int(math.ceil(span[c] / (nk * unit_c)))))
+            if tot > n_max * target:
+                break
+            m_l, k_c = nm, nk
+    cell_l, cell_c = m_l * unit_l, k_c * unit_c
+    n_l = max(1, int(math.ceil(span[l] / cell_l)))
+    n_c = max(1, int(math.ceil(span[c] / cell_c)))
+    pts = []
+    for j in range(n_c):
+        # RUNNING BOND: alternate cell rows shift by exactly one half
+        # stretcher. Because every run is an integer number of half
+        # stretchers, the shift lands the head joints of one row on the middle
+        # of the units below — which is what a bricklayer does and what makes
+        # the break line step instead of running straight down a perpend.
+        off = unit_l if (j % 2) else 0.0
+        # THE COURSE JITTER IS DRAWN PER ROW, NOT PER SITE. A bed joint is one
+        # continuous plane across the wall: jittering each site's height
+        # separately tilts every cell boundary in the row by a different
+        # amount and the courses stop reading as courses. Head joints do vary
+        # from unit to unit, so the stretcher jitter stays per site.
+        cz = (lo[c] + min(span[c], cell_c * (j + 0.5))
+              + (rng.random() - 0.5) * 2.0 * jit * unit_c)
+        for i in range(n_l + 1):
+            cx = lo[l] + off + cell_l * (i + 0.5)
+            if cx > hi[l] + cell_l * 0.25:
+                continue
+            for k in range(n_t):
+                q = np.empty(3)
+                q[l] = cx + (rng.random() - 0.5) * 2.0 * jit * unit_l
+                q[c] = cz
+                # NO jitter through the thickness: the seed sits on the wall's
+                # mid-plane (or the leaf's), so the bisector planes are
+                # perpendicular to the face and the cell keeps the full wall
+                # depth instead of being shaved into a plate.
+                q[t] = lo[t] + span[t] * (k + 0.5) / n_t
+                pts.append(q)
+    if len(pts) > 3 and keep < 1.0:
+        m = max(2, int(round(len(pts) * keep)))
+        sel = rng.permutation(len(pts))[:m]
+        pts = [pts[int(i)] for i in sel]
+    return np.asarray(pts)
+
+
+PRISM_AR_MAX = 2.2           # in-plane cell aspect ceiling: no sticks
+
+
+def _p_prism_seeds(mesh, n, rng, keep=None, jitter=None, aspect=None,
+                   axis=None, pitch=None, ar_max=PRISM_AR_MAX):
+    """ONE seed layer at the mid-plane: cells are PRISMS through the member.
+
+    "Never put a 3-D seed inside a member thinner than the cell pitch" (R §2)
+    — that one line is what produced the shards. With every seed coplanar,
+    every bisector plane is perpendicular to that plane, so every cut face is
+    normal to the member's surface, which is what a mode-I crack in a plate
+    does: it runs THROUGH the thickness.
+
+    `aspect` (lo, hi) stretches the in-plane lattice along its long axis, for
+    a slab that should raft along the beam lines rather than dice.
+    """
+    lo, hi = mesh.bounds
+    span = np.maximum(hi - lo, 1e-6)
+    t = int(np.argmin(span)) if axis is None else int(axis)
+    u, v = [a for a in range(3) if a != t]
+    if span[u] < span[v]:
+        u, v = v, u                      # u is the long in-plane axis
+    keep = 1.0 if keep is None else float(keep)
+    jit = 0.26 if jitter is None else float(jitter)
+    ar = 1.0
+    if aspect is not None:
+        ar = float(aspect[0]) + (float(aspect[1]) - float(aspect[0])) * float(
+            rng.random())
+    target = max(2.0, float(n) / max(0.2, keep))
+    if pitch is not None:
+        e_u, e_v = float(pitch[0]), float(pitch[1])
+    else:
+        # (s_u/e_u) * (s_v/e_v) = target with e_u = ar * e_v
+        e_v = max(1e-3, math.sqrt(span[u] * span[v] / (ar * target)))
+        e_u = ar * e_v
+    n_u = max(1, int(round(span[u] / e_u)))
+    n_v = max(1, int(round(span[v] / e_v)))
+    # NO STICKS. On a member with extreme in-plane proportions the count solve
+    # rounds the short way down to ONE and the cells come out as bars:
+    # measured on bench P_urm1, prism fragments of 11.47 x 0.41 x 0.28 m, a
+    # fan of pale dowels on the crown of the DG5 heap. Grow the count on
+    # whichever axis carries the longer cell until the in-plane aspect is
+    # under `ar_max`. Capped at 4x the budget so a 12 m x 0.3 m bar cannot
+    # turn into a hundred bodies.
+    if aspect is None:
+        for _ in range(48):
+            cu, cv = span[u] / n_u, span[v] / n_v
+            if max(cu, cv) <= float(ar_max) * max(min(cu, cv), 1e-9):
+                break
+            if n_u * n_v >= 4.0 * target:
+                break
+            if cu > cv:
+                n_u += 1
+            else:
+                n_v += 1
+    pts = []
+    for i in range(n_u):
+        for j in range(n_v):
+            q = np.empty(3)
+            su, sv = span[u] / n_u, span[v] / n_v
+            q[u] = lo[u] + su * (i + 0.5) + (rng.random() - 0.5) * su * jit * 2.0
+            q[v] = lo[v] + sv * (j + 0.5) + (rng.random() - 0.5) * sv * jit * 2.0
+            q[t] = lo[t] + span[t] * 0.5
+            pts.append(q)
+    if len(pts) > 3 and keep < 1.0:
+        m = max(2, int(round(len(pts) * keep)))
+        sel = rng.permutation(len(pts))[:m]
+        pts = [pts[int(i)] for i in sel]
+    return np.asarray(pts)
+
+
+# SLIVER REJECTION (R §2.4). With sorted cell axes a >= b >= c, require
+# b/a >= 0.6 and c/b >= 0.5, merging failures into the largest neighbour —
+# which for a Voronoi diagram is EXACTLY "delete the seed": the neighbouring
+# cells expand to absorb the vacated region with no gap and no overlap.
+#
+# THE c/b RULE HAS A CARVE-OUT AND IT IS DELIBERATE. A 5 x 4 x 0.2 m slab raft
+# fails c/b by a mile, and R wants those: "a collapsed RC building has >= 3
+# pieces > 2 m holding 25-40 % of the volume", slabs "hinge and hang". The
+# flakiness data behind the 0.5 is crushed demolition waste screened to 50 mm,
+# so it says nothing about the large end. So: b/a (no blades, no needles) is
+# enforced on EVERY piece; c/b (no flakes) only under `sliver_max_m`, i.e. on
+# the debris that has to read as rubble.
+SLIVER_BA = 0.6
+SLIVER_CB = 0.5
+SLIVER_MAX_M = 1.2
+
+
+def _p_is_sliver(extents, ba=SLIVER_BA, cb=SLIVER_CB, max_m=SLIVER_MAX_M):
+    a, b, c = sorted((float(q) for q in extents), reverse=True)
+    if a < 1e-6:
+        return True
+    if b / a < float(ba):
+        return True
+    return a <= float(max_m) and b > 1e-9 and (c / b) < float(cb)
+
+
+def _p_cover_shell(mesh, axis, cover_m):
+    """The outer `cover_m` of a member, as its own mesh.
+
+    "Spalling is typically within the cover" — ACI 318 §20.6 gives 38 mm on
+    beams and columns, 19 mm on slabs, measured to the tie, so THE SPALL SHELL
+    IS THE COVER and nothing thicker ever flakes off a frame. Round 2 broke
+    the whole 0.20 m member for a spall and shed slabs of wall.
+
+    This is the ONE legitimate flake in the whole round: 19-38 mm thick,
+    0.1-0.5 m across, slightly curved because it follows the bar cage. It is
+    also the one place sliver rejection must be turned OFF — by construction
+    a cover flake fails c/b, and it is right to.
+
+    `axis` is the piece's outward normal (`describe()`'s `e["out"]`).
+    """
+    if mesh is None or not len(mesh.faces) or not cover_m:
+        return None
+    u = np.asarray(axis, dtype=float)
+    n = float(np.linalg.norm(u))
+    if n < 1e-9:
+        return None
+    u = u / n
+    v = np.asarray(mesh.vertices, dtype=float)
+    if not len(v):
+        return None
+    d = v.dot(u)
+    if float(d.max() - d.min()) <= float(cover_m) * 1.2:
+        return None                     # already thinner than its own cover
+    o = u * (float(d.max()) - float(cover_m))
+    try:
+        # `slice_plane` keeps the side the normal points TO (see `_cell`).
+        out = slice_plane(mesh, u, o, cap=True)
+    except Exception:
+        return None
+    return out if (out is not None and len(out.faces)) else None
+
+
+def _p_sliver_cull(frags, sliver, verbose=False, where=""):
+    """Drop the finished fragments that are still needles.
+
+    `_p_sliver_seeds` works on SEEDS, which is the right place for it — the
+    neighbours absorb the vacated region exactly. But it cannot see two things
+    that come later: the cells the module's own boundary clipped into ribbons,
+    and the sub-cells the break-line refinement makes out of random points. On
+    bench P_rc1 that produced 30.91 x 0.25 x 0.23 m bars off a pancaked slab
+    strip — a scrapyard of dowels on top of the pile — and the same shape in
+    the URM heap at 11.5 m.
+
+    So the b/a rule is enforced once more at the end, on the geometry rather
+    than on the seeds. A dropped needle leaves a hairline notch in a static
+    and one less stick in the debris; both are better than the stick."""
+    if not sliver or not frags:
+        return frags, 0
+    sv = (tuple(sliver) if isinstance(sliver, (tuple, list))
+          else (SLIVER_BA, SLIVER_CB, SLIVER_MAX_M))
+    out, n = [], 0
+    for f in frags:
+        try:
+            ext = np.asarray(f.extents, dtype=float)
+        except Exception:
+            out.append(f)
+            continue
+        a, b, _c = sorted((float(q) for q in ext), reverse=True)
+        if a > 1e-6 and (b / a) < float(sv[0]):
+            n += 1
+            continue
+        out.append(f)
+    if n and verbose:
+        print("[fracture]   sliver cull{0}: {1} needles dropped".format(
+            (" " + where) if where else "", n))
+    return out, n
+
+
+def _p_sliver_seeds(mesh, pts, rng, ba=SLIVER_BA, cb=SLIVER_CB,
+                    max_m=SLIVER_MAX_M, min_keep=3, verbose=False):
+    """Delete the seeds whose cell is a sliver and return the rest.
+
+    MERGING INTO THE LARGEST NEIGHBOUR IS THE SAME THING AS DELETING THE SEED.
+    In a Voronoi diagram the region a deleted site occupied is redistributed
+    to exactly its neighbours, in proportion to how close each is — no gap, no
+    overlap, no extra code. So the whole of R's "merge failures into the
+    largest neighbour" is one boolean mask over the seed array.
+
+    Costs ONE extra cell pass, so it is opt-in (`sliver=` on the fracture
+    calls). On a `brick` or `prism` lattice it usually removes only the
+    boundary cells the module's own edge clipped into wafers — which is the
+    right answer for those too: the last part-column of bricks goes with the
+    column beside it."""
+    P = np.asarray(pts, dtype=float)
+    if len(P) < int(min_keep) + 1:
+        return P
+    bad = []
+    for i in range(len(P)):
+        f = _cell(mesh, P, i)
+        if f is None or not len(f.faces):
+            continue                      # empty cells are culled anyway
+        if _p_is_sliver(f.extents, ba, cb, max_m):
+            bad.append(i)
+    if not bad or len(P) - len(bad) < int(min_keep):
+        return P
+    if verbose:
+        print("[fracture]   sliver pass: {0}/{1} seeds merged away".format(
+            len(bad), len(P)))
+    m = np.ones(len(P), dtype=bool)
+    m[np.asarray(bad, dtype=int)] = False
+    return P[m]
+
+
+# --- _p_ FRAGMENT SHAPE DUMP -------------------------------------------
+# `EQ_DUMP_FRAGS=1` on the bench line writes one JSON line per authored
+# fragment to `EQ_DUMP_FRAGS_PATH` (default /tmp/eq_frags.jsonl), which
+# `scene_gen/tools/test_break_shape.py` reads on the HOST and scores against
+# R §5. Off by default and costs nothing when off.
+_P_DUMP = os.environ.get("EQ_DUMP_FRAGS", "").strip() not in ("", "0", "false", "no")
+_P_DUMP_PATH = (os.environ.get("EQ_DUMP_FRAGS_PATH", "").strip()
+                # SNAP_DIR is what eq_bench.sh mounts through to the host, so
+                # the dump lands beside the PNGs with no extra plumbing.
+                or (os.path.join(os.environ["SNAP_DIR"], "frags.jsonl")
+                    if os.environ.get("SNAP_DIR", "").strip()
+                    else "/tmp/eq_frags.jsonl"))
+
+
+def _p_dump(frags, tag="", mode="", loose=True, src=None):
+    """Record fragment shape statistics. `perp`/`face` are the area-weighted
+    shares of the piece's surface that lie within 20 deg of perpendicular to,
+    and of parallel to, its own thinnest axis — for a brick cell or a prism
+    those two account for nearly all of it, and whatever is left over is the
+    oblique shard face this round exists to remove."""
+    if not _P_DUMP or not frags:
+        return
+    import json
+    rows = []
+    for f in frags:
+        try:
+            ext = np.asarray(f.extents, dtype=float)
+            a, b, c = sorted((float(q) for q in ext), reverse=True)
+            t = int(np.argmin(ext))
+            fn = np.asarray(f.face_normals, dtype=float)
+            ar = np.asarray(f.area_faces, dtype=float)
+            dot = np.abs(fn[:, t])
+            tot = float(ar.sum()) or 1.0
+            rows.append({
+                "tag": tag, "mode": mode, "loose": bool(loose),
+                "a": round(a, 4), "b": round(b, 4), "c": round(c, 4),
+                "vol": round(float(np.prod(np.maximum(ext, 1e-9))), 6),
+                "perp": round(float(ar[dot <= 0.342].sum()) / tot, 4),
+                "face": round(float(ar[dot >= 0.940].sum()) / tot, 4),
+                "src": ([round(float(q), 3) for q in src]
+                        if src is not None else None),
+                "nf": int(len(fn))})
+        except Exception:
+            continue
+    if not rows:
+        return
+    try:
+        with open(_P_DUMP_PATH, "a") as fh:
+            for r in rows:
+                fh.write(json.dumps(r) + "\n")
+    except Exception as exc:
+        print("[fracture] _p_dump failed: {0}".format(exc))
+
+
 def _seeds(mesh, n, rng, mode="uniform", focus=None, axis=None,
-           aspect=None):
+           aspect=None, brick=None, keep=None, jitter=None, leaves=1,
+           blocky_m=None):
     """Voronoi seed points. Their arrangement is what decides the break.
 
     Modes: `uniform` (isotropic rubble), `char` (the alligator grid of burnt
-    timber), `splinter` (long shards), `focus` (denser toward a point) and
+    timber), `splinter` (long shards), `focus` (denser toward a point),
     `plank` (an anisotropic LATTICE, so the cells are rectangular boards —
-    what a wall blown apart by wind comes to pieces as; see that branch).
+    what a wall blown apart by wind comes to pieces as; see that branch),
+    and the two round-3 masonry/concrete modes `brick` and `prism` (see
+    `_p_brick_seeds` / `_p_prism_seeds`).
 
     `axis` OVERRIDES the "long axis is the grain" assumption, and a tree is
     why it exists. Black_Oak's woody bole measures 20.6 x 19.8 x 17.2 m —
@@ -965,6 +1473,16 @@ def _seeds(mesh, n, rng, mode="uniform", focus=None, axis=None,
             pts = [pts[int(i)] for i in sel]
         return np.asarray(pts)
 
+    # --- _p_ ROUND 3: the two modes that come from a MECHANISM ------------
+    if mode == "brick":
+        return _p_brick_seeds(mesh, n, rng, brick, keep=keep, jitter=jitter,
+                              leaves=leaves, blocky_m=blocky_m)
+    if mode == "prism":
+        return _p_prism_seeds(mesh, n, rng, keep=keep, jitter=jitter,
+                              aspect=aspect, axis=(axis if axis is not None
+                                                   else None))
+    # --- end _p_ ----------------------------------------------------------
+
     if mode == "splinter":
         p = rng.uniform(lo, hi, size=(n, 3))
         for a in others:
@@ -1109,7 +1627,9 @@ def _cell(mesh, pts, i):
 def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
                   min_volume_frac=0.004, rough=0.035, shrink=0.97,
                   consume=0.30, consume_pool=1.25, axis=None, aspect=None,
-                  max_piece_m=None, verbose=False):
+                  max_piece_m=None, verbose=False,
+                  brick=None, keep_frac=None, jitter=None, leaves=1,
+                  sliver=None, dump_tag="", blocky_m=None):
     """Split one trimesh into Voronoi fragments. Returns a list of trimeshes.
 
     SLICING, NOT BOOLEANS. The first version intersected the mesh with a cell
@@ -1132,7 +1652,15 @@ def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
     keep_min = bbox_vol * float(min_volume_frac)
 
     pts = _seeds(mesh, int(n_pieces), rng, mode=mode, focus=focus,
-                 axis=axis, aspect=aspect)
+                 axis=axis, aspect=aspect, brick=brick, keep=keep_frac,
+                 jitter=jitter, leaves=leaves, blocky_m=blocky_m)
+    # _p_ round 3: drop the seeds whose cell would come out a blade or a
+    # wafer and let their neighbours absorb them (see `_p_sliver_seeds`).
+    if sliver:
+        _sv = (tuple(sliver) if isinstance(sliver, (tuple, list))
+               else (SLIVER_BA, SLIVER_CB, SLIVER_MAX_M))
+        pts = _p_sliver_seeds(mesh, pts, rng, ba=_sv[0], cb=_sv[1],
+                              max_m=_sv[2], verbose=verbose)
     keep, out = [], []
     # WHY A MODULE YIELDED NOTHING is reported, always. The earthquake bake
     # lost ten of sixteen style rows to fractures that came back empty with
@@ -1231,6 +1759,8 @@ def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
     # round-2 review of the DG5 city: "a sea of large thin flat plates"). A
     # collapse recipe passes `max_piece_m` and nothing bigger than that is
     # authored; the material is in the heap, which is what carries the mass.
+    keep, _n_sliv = _p_sliver_cull(keep, sliver, verbose=verbose,
+                                   where="(mesh)")            # _p_
     if max_piece_m and keep:
         lim = float(max_piece_m)
         ext = np.array([float(np.max(f.extents)) for f in keep])
@@ -1262,6 +1792,8 @@ def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
         print("[fracture]   {0} seeds -> {1} fragments (src {2} faces, "
               "watertight={3})".format(len(pts), len(out), len(mesh.faces),
                                        mesh.is_watertight))
+    _p_dump(out, dump_tag, mode, loose=True,      # _p_ (no-op unless dumping)
+            src=mesh.extents)
     return out
 
 
@@ -1336,10 +1868,32 @@ def _probe(cell, judge):
 
 
 def _refine_cell(cell, judge, rng, edge_cell_m, edge_max, sub_min,
-                 samples=240, bulk=3):
-    """Re-fracture ONE cell with the seeds packed along the break line."""
+                 samples=240, bulk=3, brick=None, flat_axis=None):
+    """Re-fracture ONE cell with the seeds packed along the break line.
+
+    `brick` (a (stretcher, course, wythe) pitch) makes the refinement sit on
+    the SINGLE-BRICK lattice instead of on random points — which is what makes
+    the tooth at a masonry break line a brick rather than a polygon, and what
+    leaves the odd single brick protruding. It is affordable exactly here and
+    nowhere else: one coarse cell is ~0.5 m, so the lattice inside it is a few
+    dozen sites, where the same pitch over a whole 4 x 3 m module is ~3500
+    (see `_p_brick_seeds`).
+
+    `flat_axis` does the same job for `prism`: the refinement seeds are
+    collapsed onto ONE plane through the member, so the teeth at the break
+    line are prisms through the full thickness like every other cell. Without
+    it the coarse cut is prismatic and the refined EDGE — the part anyone
+    actually looks at — goes back to a 3-D Voronoi of random points in a
+    0.2 m plate, i.e. shards. Measured on P_urm1 before this line existed:
+    prism fragments came out at Elongation Index 68 % and 22 % blades."""
     lo, hi = cell.bounds
-    P = rng.uniform(lo, hi, size=(int(samples), 3))
+    if brick:                                                          # _p_
+        P = _p_brick_seeds(cell, max(24, int(edge_max) * 4), rng,
+                           pitch=brick, keep=1.0, leaves=1)
+        if len(P) < 8:
+            P = rng.uniform(lo, hi, size=(int(samples), 3))
+    else:
+        P = rng.uniform(lo, hi, size=(int(samples), 3))
     ins = _inside_convex(cell, P)
     if int(ins.sum()) >= 24:
         P = P[ins]
@@ -1377,6 +1931,9 @@ def _refine_cell(cell, judge, rng, edge_cell_m, edge_max, sub_min,
     for i in rng.permutation(len(rest))[:int(bulk)]:
         seeds.append(rest[int(i)])
     seeds = np.asarray(seeds, dtype=float)
+    if flat_axis is not None:                                          # _p_
+        a = int(flat_axis)
+        seeds[:, a] = 0.5 * (float(lo[a]) + float(hi[a]))
     subs = []
     for i in range(len(seeds)):
         f = _cell(cell, seeds, i)
@@ -1398,7 +1955,9 @@ def fracture_split(mesh, n_pieces, judge, rng,
                    max_loose_m=None,
                    min_volume_frac=0.0015, mode="uniform", focus=None,
                    axis=None, aspect=None, solid_m=None, solid_ref=None,
-                   verbose=False):
+                   brick=None, keep_frac=None, jitter=None, leaves=1,
+                   sliver=None, cover_m=None, cover_axis=None,
+                   dump_tag="", blocky_m=None, verbose=False):
     """Fracture `mesh` and split the fragments by `judge(point) -> bool`
     (True = this point is on the side that COMES AWAY), resolving the break
     line at a second, much finer scale. Returns (static_meshes, loose_meshes).
@@ -1410,13 +1969,26 @@ def fracture_split(mesh, n_pieces, judge, rng,
         return [], []
     if solid_m:
         mesh = solidify(mesh, solid_m, ref=solid_ref, verbose=verbose)
+    if cover_m and cover_axis is not None:                          # _p_
+        _sh = _p_cover_shell(mesh, cover_axis, cover_m)
+        if _sh is not None:
+            mesh = _sh
     bbox_vol = float(np.prod(np.maximum(mesh.extents, 1e-6)))
     keep_min = bbox_vol * float(min_volume_frac)
     sub_min = (0.35 * float(edge_cell_m)) ** 3
 
     pts = _seeds(mesh, int(n_pieces), rng, mode=mode, focus=focus,
-                 axis=axis, aspect=aspect)
+                 axis=axis, aspect=aspect, brick=brick, keep=keep_frac,
+                 jitter=jitter, leaves=leaves, blocky_m=blocky_m)
+    if sliver:                                                     # _p_
+        _sv = (tuple(sliver) if isinstance(sliver, (tuple, list))
+               else (SLIVER_BA, SLIVER_CB, SLIVER_MAX_M))
+        pts = _p_sliver_seeds(mesh, pts, rng, ba=_sv[0], cb=_sv[1],
+                              max_m=_sv[2], verbose=verbose)
     field = noise_field(rng, amp_m=rough_m, lam_m=rough_lam_m)
+    # `prism` seeds one layer at the member's mid-plane; the refinement has to
+    # honour the same plane or the break line goes back to shards.
+    _flat = int(np.argmin(mesh.extents)) if mode == "prism" else None    # _p_
 
     cells = []
     for i in range(len(pts)):
@@ -1441,7 +2013,8 @@ def fracture_split(mesh, n_pieces, judge, rng,
     out = [(c, s, False, False) for c, s in plain]
     n_ref = 0
     for k, (c, side) in enumerate(straddle):
-        subs = (_refine_cell(c, judge, rng, edge_cell_m, edge_max, sub_min)
+        subs = (_refine_cell(c, judge, rng, edge_cell_m, edge_max, sub_min,
+                             brick=brick, flat_axis=_flat)
                 if (refine and k < int(refine_max)) else [])
         if not subs:
             out.append((c, side, True, True))
@@ -1452,8 +2025,17 @@ def fracture_split(mesh, n_pieces, judge, rng,
             out.append((s, bool(t * 2 >= n), True, 0 < t < n))
 
     statics, looses = [], []
-    n_eaten = 0
+    n_eaten = n_sliv = 0
+    _sv_ba = ((tuple(sliver)[0] if isinstance(sliver, (tuple, list))
+               else SLIVER_BA) if sliver else None)
     for msh, loose, at_edge, strad in out:
+        # _p_ FINAL NEEDLE CULL — see `_p_sliver_cull` for why the seed pass
+        # is not enough.
+        if _sv_ba is not None:
+            _e = np.sort(np.asarray(msh.extents, dtype=float))[::-1]
+            if _e[0] > 1e-6 and (_e[1] / _e[0]) < _sv_ba:
+                n_sliv += 1
+                continue
         if at_edge:
             if not loose and rng.random() < float(chew_out):
                 loose = True          # a tooth bitten out of the stub
@@ -1486,9 +2068,12 @@ def fracture_split(mesh, n_pieces, judge, rng,
             statics.append(msh)
     if verbose:
         print("[fracture]   split: {0} coarse ({1} crossed, {2} refined) -> "
-              "{3} static + {4} loose ({5} edge chips dropped)".format(
-                  len(cells), len(straddle), n_ref, len(statics), len(looses),
-                  n_eaten))
+              "{3} static + {4} loose ({5} edge chips, {6} needles dropped)"
+              .format(len(cells), len(straddle), n_ref, len(statics),
+                      len(looses), n_eaten, n_sliv))
+    _p_dump(statics, dump_tag, mode, loose=False,   # _p_ (no-op unless dumping)
+            src=mesh.extents)
+    _p_dump(looses, dump_tag, mode, loose=True, src=mesh.extents)
     return statics, looses
 
 
@@ -1600,7 +2185,7 @@ def fracture_partial(stage, prim_path, out_parent, n_pieces, rng,
                      cut_frac=0.5, mode="char", rough=0.035, shrink=0.97,
                      ragged=0.22, deactivate=True, consume=0.30, axis=None,
                      min_volume_frac=0.004, aspect=None, max_piece_m=None,
-                     solid_m=None, solid_ref=None):
+                     solid_m=None, solid_ref=None, **kw):
     """Break a wall so that only its upper part comes down.
 
     NO STRAIGHT CUT. The first version sliced the module at a flat plane and
@@ -1632,7 +2217,7 @@ def fracture_partial(stage, prim_path, out_parent, n_pieces, rng,
     frags = fracture_mesh(mesh, n_pieces, rng, mode=mode, rough=rough,
                           shrink=shrink, consume=consume, axis=axis,
                           aspect=aspect, min_volume_frac=min_volume_frac,
-                          max_piece_m=max_piece_m)
+                          max_piece_m=max_piece_m, **kw)
     if not frags:
         return [], []
 
@@ -1681,7 +2266,8 @@ def fracture_prim(stage, prim_path, out_parent, n_pieces, rng,
                   mode="uniform", rough=0.035, shrink=0.97,
                   deactivate=True, verbose=True, consume=0.30,
                   consume_pool=1.25, axis=None, min_volume_frac=0.004,
-                  aspect=None, max_piece_m=None, solid_m=None, solid_ref=None):
+                  aspect=None, max_piece_m=None, solid_m=None, solid_ref=None,
+                  **kw):
     """Fracture a placed module in the stage. Returns the new prim paths.
 
     Fragments are authored around their OWN centroid with the centroid in the
@@ -1710,7 +2296,7 @@ def fracture_prim(stage, prim_path, out_parent, n_pieces, rng,
                           shrink=shrink, consume=consume,
                           consume_pool=consume_pool, axis=axis,
                           aspect=aspect, min_volume_frac=min_volume_frac,
-                          max_piece_m=max_piece_m, verbose=verbose)
+                          max_piece_m=max_piece_m, verbose=verbose, **kw)
     if not frags:
         if verbose:
             print("[fracture] {0}: {1} faces, watertight={2}, extents={3} "

@@ -103,20 +103,24 @@ on_step_failure: abort_iteration
 command_route: gcs
 
 record:
+  # LEAN, like the raven missions (reasonable bag sizes). scope: gcs = ONE
+  # recorder on domain 0; the DDS router bridges every /robot_N viz topic here,
+  # so no separate per-robot recorder and NO raw robot sensor streams.
+  #
+  # NO /sim/overhead/image -- a 2048x2048 image published EVERY sim tick
+  # (~12 MB/frame, ungated) that was ~90% of a 300 GB bag. /gcs/sim_ground is
+  # the SAME overhead rendered by the GCS visualizer as a LATCHED ground marker
+  # (published ONCE, persisted), so the bag keeps the top-down view for one
+  # message instead of thousands. No image topics at all (image_rect,
+  # agent_image, map_image go with the per-robot recorder).
   enabled: true
-  scope: both
+  scope: gcs
   required: true
   topics:
+    - /tf
+    - /tf_static
     - /{robot}/odometry_conversion/odometry
-    - /{robot}/interface/mavros/global_position/global
     - /{robot}/global_plan
-    - /gcs/robot_markers
-    - /gcs/sim_ground
-    - /gcs/annotations/bboxes
-    - /sim/overhead/image
-    - /sim/overhead/spec
-    - /sim/overhead/center_x
-    - /sim/overhead/center_y
     - /{robot}/occupancy
     - /{robot}/frontiers
     - /{robot}/frontier_cloud
@@ -125,23 +129,9 @@ record:
     - /{robot}/search/markers
     - /{robot}/search/round_stats
     - /{robot}/search/run_complete
-  robot_topics:
-    - /tf
-    - /tf_static
-    - /robot_{n}/odometry_conversion/odometry
-    - /robot_{n}/global_plan
-    - /robot_{n}/occupancy
-    - /robot_{n}/frontiers
-    - /robot_{n}/value_map
-    - /robot_{n}/search/map_image
-    - /robot_{n}/search/round_stats
-    - /robot_{n}/search/run_complete
-    - /robot_{n}/search/agent_image
-    - /robot_{n}/voxel_map
-    - /robot_{n}/frontier_cloud
-    - /robot_{n}/search/markers
-    - /robot_{n}/interface/mavros/state
-    - /robot_{n}/sensors/front_stereo/left/image_rect
+    - /gcs/robot_markers
+    - /gcs/sim_ground
+    - /gcs/annotations/bboxes
 
 steps:
   # 1. Wait for the offboard-compute detector (:8200). No model server for these

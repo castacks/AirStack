@@ -162,50 +162,35 @@ on_step_failure: abort_iteration
 command_route: gcs
 
 record:
+  # LEAN, like the raven missions (reasonable bag sizes). scope: gcs = ONE
+  # recorder on domain 0; the DDS router bridges every /robot_N viz topic here,
+  # so no separate per-robot recorder and NO raw robot sensor streams.
+  #
+  # NO /sim/overhead/image -- a 2048x2048 image published EVERY sim tick
+  # (~12 MB/frame, ungated) that was ~90% of a 300 GB bag. /gcs/sim_ground is
+  # the SAME overhead rendered by the GCS visualizer as a LATCHED ground marker
+  # (published ONCE, persisted), so the bag keeps the top-down view for one
+  # message instead of thousands. No image topics at all (image_rect,
+  # agent_image, map_image go with the per-robot recorder).
   enabled: true
-  scope: both
+  scope: gcs
   required: true
-  # gcs-scope recorder: ONE mcap on the GCS domain (0). The team planner
-  # publishes its team topics on domain 0 under robots[0]'s namespace (robot_1),
-  # so they are recorded NATIVELY here (no bridge) — listed as literals, not
-  # /{robot}/, because there is exactly ONE set for the whole team. The
-  # per-robot state topics are recorded through the DDS router's existing
-  # bridge.
   topics:
-    # ONE team map / frontier / value set + the round table + the run gate,
-    # under robot_1 (planner_node uses robots[0] for every team publisher).
-    - /robot_1/occupancy
-    - /robot_1/frontiers
-    - /robot_1/frontier_cloud
-    - /robot_1/voxel_map
-    - /robot_1/value_map
-    - /robot_1/search/markers
-    - /robot_1/search/map_image
-    - /robot_1/search/round_stats
-    - /robot_1/search/run_complete
-    # Per-robot state, bridged onto domain 0 for all five.
+    - /tf
+    - /tf_static
     - /{robot}/odometry_conversion/odometry
     - /{robot}/global_plan
-    - /{robot}/interface/mavros/global_position/global
-    # Fleet overview + ground truth, as in _a.
+    - /{robot}/occupancy
+    - /{robot}/frontiers
+    - /{robot}/frontier_cloud
+    - /{robot}/voxel_map
+    - /{robot}/value_map
+    - /{robot}/search/markers
+    - /{robot}/search/round_stats
+    - /{robot}/search/run_complete
     - /gcs/robot_markers
     - /gcs/sim_ground
     - /gcs/annotations/bboxes
-    - /sim/overhead/image
-    - /sim/overhead/spec
-    - /sim/overhead/center_x
-    - /sim/overhead/center_y
-  # robot-scope recorders: one mcap per robot on its OWN domain, for the
-  # per-robot data (including mavros/state, which is NOT bridged). The team
-  # topics live only on domain 0, so they are not repeated here.
-  robot_topics:
-    - /tf
-    - /tf_static
-    - /robot_{n}/odometry_conversion/odometry
-    - /robot_{n}/global_plan
-    - /robot_{n}/interface/mavros/state
-    - /robot_{n}/interface/mavros/global_position/global
-    - /robot_{n}/sensors/front_stereo/left/image_rect
 
 steps:
   # 1. Wait for the offboard-compute servers this arm needs: detector :8200 and

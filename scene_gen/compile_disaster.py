@@ -215,8 +215,15 @@ def compile_earthquake(sev, spec, region):
         # Chile 1960) takes the URM stock to DG4-5 nearly everywhere. Over-
         # drive the grade draw past the ladder's calibration point.
         over = max(0.0, min(1.0, (mag - 8.0) / 1.5))    # 0 at M8, 1 at M9.5
+        # research §13: shaking DURATION (M5-6 ~5-20 s, M6.5-7.5 ~20-60 s,
+        # M8+ 2-6 min) cuts the collapse capacity of engineered frames
+        # (-29 % median for a 42 s vs 6 s record); the boost multiplies the
+        # DG4/DG5 share of rc / rc_glass in the grade draw, 1.0 at M6.5,
+        # 2.0 at M8, 2.5 at M9+. Brittle URM is left alone.
+        dur = 1.0 + 1.0 * max(0.0, min(1.0, (mag - 6.5) / 1.5)) \
+            + 0.5 * max(0.0, min(1.0, (mag - 8.0) / 1.0))
     else:
-        uni, liq, over = 0.0, 1.0, 0.0
+        uni, liq, over, dur = 0.0, 1.0, 0.0, 1.0
     return {
         "damaged_fraction": lerp(0.05, 0.35, sev),
         "destroyed_fraction": lerp(0.02, 0.55, sev),
@@ -267,6 +274,7 @@ def compile_earthquake(sev, spec, region):
         # no collapses), 1.0 from severity 0.82. The earlier 0.55-1.1 gave an
         # M5.5 core a 22 % URM collapse rate, which a Lorca never had.
         "grade_scale": min(1.0, 0.3 + 0.85 * sev) + 0.35 * over,
+        "duration_boost": round(dur, 2),
         # The liquefaction patch: one ellipse, sized to the plate, placed
         # AWAY from the epicentre by default (the ground fails where the soil
         # is soft, not where the shaking is worst — and near the epicentre

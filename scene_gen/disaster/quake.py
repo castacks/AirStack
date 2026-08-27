@@ -159,6 +159,7 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
     rng = random.Random(seed + 4242)
     soft = _soft_soil(config, random.Random(seed + 77))
     grade_scale = float(dis.get("grade_scale", 1.0))
+    dur_boost = float(dis.get("duration_boost", 1.0))     # research §13; rc types only
     if foundation_rate is None:
         soil_cfg = dis.get("soft_soil") if isinstance(dis.get("soft_soil"), dict) else {}
         foundation_rate = float(soil_cfg.get("rate", 0.55))
@@ -182,7 +183,8 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
         btype = rec.get("type") or qf.FAMILY_TYPE.get(rec.get("family", ""), "urm")
         x, y = float(p["x_m"]), float(p["y_m"])
         inten = float(field(x, y))
-        grade = qf.level_for_intensity(inten * grade_scale, btype, rng)
+        grade = qf.level_for_intensity(inten * grade_scale, btype, rng,
+                                       duration_boost=dur_boost)
         n += 1
         chosen = None
         if grade != "DG0":
@@ -481,7 +483,8 @@ def _mono_pass(stage, config, placements, field, grade_scale, rng, ssf, records,
         W, D, H = (v / ssf for v in dims)
         x, y = float(p["x_m"]), float(p["y_m"])
         inten = float(field(x, y))
-        grade = qf.level_for_intensity(inten * grade_scale, "rc", rng)
+        grade = qf.level_for_intensity(inten * grade_scale, "rc", rng,
+                                       duration_boost=float((config.get("disaster") or {}).get("duration_boost", 1.0)))
         rec = {"W": W, "D": D, "H": H}
         n += 1
         label = grade

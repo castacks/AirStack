@@ -84,22 +84,22 @@ LADDER = {
     "urm": {
         "DG0": [],
         "DG1": [("facade_scars", {"frac": 0.10}), ("rooftop_fail", {"frac": 0.3}),
-                ("glass_loss", {"frac": 0.08})],
+                ("storefront_glass", {"grade": 1})],
         "DG2": [("parapet_fall", {"sides": 1, "frac": 0.5}),
                 ("facade_scars", {"frac": 0.18}), ("rooftop_fail", {"frac": 0.5}),
                 ("signage_fail", {}),
-                ("glass_loss", {"frac": 0.25})],
+                ("storefront_glass", {"grade": 2})],
         "DG3": [("parapet_fall", {"sides": 2, "frac": 0.8}),
                 ("corner_fail", {"storeys": 2}),
                 ("roof_hole", {"frac": 0.25}),
                 ("facade_scars", {"frac": 0.22}), ("rooftop_fail", {"frac": 0.7}),
                 ("signage_fail", {}),
-                ("glass_loss", {"frac": 0.45})],
+                ("storefront_glass", {"grade": 3})],
         "DG4": [("out_of_plane", {"sides": 1, "from_storey": 1}),
                 ("parapet_fall", {"sides": 3, "frac": 0.9}),
                 ("roof_hole", {"frac": 0.35}), ("rooftop_fail", {"frac": 0.8}),
                 ("facade_scars", {"frac": 0.18}),
-                ("glass_loss", {"frac": 0.7})],
+                ("storefront_glass", {"grade": 4})],
         "DG5": [("masonry_collapse", {})],
     },
     "rc": {
@@ -107,37 +107,68 @@ LADDER = {
         # `facade_scars` is URM-only since round 2 (plaster loss over brick);
         # a cracked RC frame shows as a few dropped infill panels instead.
         "DG1": [("infill_fail", {"storeys": 1, "frac": 0.12}), ("rooftop_fail", {"frac": 0.3}),
-                ("glass_loss", {"frac": 0.1})],
+                ("storefront_glass", {"grade": 1})],
         "DG2": [("infill_fail", {"storeys": 1, "frac": 0.35}),
                 ("rooftop_fail", {"frac": 0.5}),
                 ("signage_fail", {}),
                 ("balcony_fail", {"frac": 0.3}),
                 ("parapet_fall", {"sides": 1, "frac": 0.4}),
-                ("glass_loss", {"frac": 0.3})],
+                ("storefront_glass", {"grade": 2})],
         "DG3": [("infill_fail", {"storeys": 2, "frac": 0.55}),
                 ("balcony_fail", {"frac": 0.6}),
                 ("rooftop_fail", {"frac": 0.7}),
                 ("signage_fail", {}),
                 ("parapet_fall", {"sides": 2, "frac": 0.6}),
-                ("glass_loss", {"frac": 0.5})],
+                ("storefront_glass", {"grade": 3})],
         # soft storey OR mid-storey: the bake draws one per style
+        # _g_: the shopfront is authored BEFORE the storey moves (the glass
+        # recipes read the building's pristine element records) and
+        # `glass_follow` replays the storey's own delta onto that art.
         "DG4": [("balcony_fail", {"frac": 0.7}),
+                ("storefront_glass", {"grade": 4}),
                 ("storey_collapse", {}), ("rooftop_fail", {"frac": 0.8}),
-                ("glass_loss", {"frac": 0.6})],
+                ("glass_follow", {})],
         "DG5": [("pancake", {})],
     },
+    # _g_ (round 3) — the glass tower ladder, rebuilt on
+    # `earthquake_research.md` §12 table 8.13. Two recipes now, because the
+    # two systems fail by different mechanisms and at drifts an order of
+    # magnitude apart: the CURTAIN WALL is hung off the slab edges and takes
+    # relative movement (it tolerates 1.4-2 % drift and "as long as the
+    # building does not collapse, the curtain wall will not fail"), while the
+    # PODIUM SHOPFRONT is in plane with its wall and follows the wall's own
+    # drift ("glass breaks in large numbers" at 0.2-0.33 %). That single
+    # distinction is the whole tower-vs-street contrast in the field record —
+    # one pane gone with the frame pristine up top, every pane gone with the
+    # frame racked at street level (FEMA E-74 Figs. 6.3.1.4-1 and -6).
+    # The old `glass_fallout(frac=0.06/0.2/0.45/0.7/0.85)` deleted kit modules
+    # and its DG5 was outside the record by 30 points; the "out" fractions now
+    # live in `G_GRADE` and top out at 40-55 %.
     "rc_glass": {
         "DG0": [],
-        "DG1": [("glass_fallout", {"frac": 0.06})],
-        "DG2": [("glass_fallout", {"frac": 0.2}),
-                ("parapet_fall", {"sides": 1, "frac": 0.3})],
-        "DG3": [("glass_fallout", {"frac": 0.45}),
+        "DG1": [("curtain_wall", {"grade": 1}),
+                ("storefront_glass", {"grade": 1}),
+                ("glass_follow", {})],
+        "DG2": [("curtain_wall", {"grade": 2}),
+                ("storefront_glass", {"grade": 2}),
+                ("parapet_fall", {"sides": 1, "frac": 0.3}),
+                ("glass_follow", {})],
+        "DG3": [("curtain_wall", {"grade": 3}),
+                ("storefront_glass", {"grade": 3}),
                 ("parapet_fall", {"sides": 2, "frac": 0.6}),
-                ("infill_fail", {"storeys": 1, "frac": 0.4})],
-        "DG4": [("glass_fallout", {"frac": 0.7}),
-                ("soft_storey", {"storey": 0, "lean_deg": 2.5})],
-        "DG5": [("glass_fallout", {"frac": 0.85}),
-                ("tilt_sink", {"tilt_deg": 9.0, "sink_m": 1.4})],
+                ("infill_fail", {"storeys": 1, "frac": 0.4}),
+                ("glass_follow", {})],
+        # Türkiye 2023, recommendation #3: the glazed retail storey is what
+        # MAKES the soft storey. So the podium is de-glazed first and leans
+        # second, and the tower above it stays a banded cage.
+        "DG4": [("curtain_wall", {"grade": 4}),
+                ("storefront_glass", {"grade": 4}),
+                ("soft_storey", {"storey": 0, "lean_deg": 2.5}),
+                ("glass_follow", {})],
+        "DG5": [("curtain_wall", {"grade": 5}),
+                ("storefront_glass", {"grade": 5}),
+                ("tilt_sink", {"tilt_deg": 9.0, "sink_m": 1.4}),
+                ("glass_follow", {})],
     },
 }
 
@@ -902,12 +933,30 @@ def _t_ref(ctx, e=None):
 def _t_core_mat(stage, parent, mats, btype, rng):
     """The inside of a wall: brick and mortar for masonry, dark concrete for a
     frame. Drawn per fragment so a heap is not one flat colour."""
+    r = rng.random()
     if btype == "urm":
-        r = rng.random()
-        key = "brick" if r < 0.55 else ("mortar" if r < 0.85 else "plaster")
+        # BRICK-HEAVY. The first solid bench (T_sol2_urm close-up) drew brick
+        # 55% and flat mortar/plaster the rest, and the flat greys won the
+        # read: the cut faces are the LARGEST faces on a chunk and they catch
+        # the light, so a 45% share of untextured grey turns a brick chunk
+        # into a concrete block. `plaster` is out of this mix entirely — it is
+        # a finish, not a core, and at 0.62 on screen it is the palest thing
+        # in the palette.
+        key = "brick" if r < 0.70 else ("mortar" if r < 0.90 else "dark_concrete")
     else:
-        r = rng.random()
-        key = "dark_concrete" if r < 0.6 else ("concrete" if r < 0.85 else "mortar")
+        # NOT `concrete`. That is the Worn_Pavement map, and on a 0.5 m chunk
+        # its moss and joint grid read as a mossy boulder (visible all over
+        # T_sol2_rc's close-up) — the same objection `_a_dustify` already
+        # records against it. Mortar-grey with dark concrete for depth.
+        # A SHARE OF BRICK EVEN IN A FRAME. `mortar`, `dark_concrete` and
+        # `plaster_dusty` are all FLAT colours — a heap made only of those
+        # reads as grey plastic (T_sol3_rc close-up), because nothing in it
+        # has any surface at all. The infill panels of an RC frame of this
+        # period ARE masonry (research §3.2, "RC frame with unreinforced
+        # infill"), so a fifth of the core faces take the brick map and give
+        # the pile something to catch the light on.
+        key = ("mortar" if r < 0.35 else "dark_concrete" if r < 0.63
+               else "brick" if r < 0.85 else "plaster_dusty")
     return mats.get(key) or mats.get("plaster")
 
 
@@ -943,7 +992,16 @@ def _chunk_material(stage, parent, cache, texture, mats, btype, rng,
             key = "brick" if r < 0.45 else ("mortar" if r < 0.75 else "plaster")
         else:
             r = rng.random()
-            key = "concrete" if r < 0.5 else ("dark_concrete" if r < 0.8 else "plaster")
+            # NOT `concrete` (round 3, agent T). That key is the Worn_Pavement
+            # megascans map; on a 0.5 m chunk its moss and joint grid read as
+            # a MOSSY BOULDER — visible all over the office close-ups
+            # (T_sol3_rc, T_sol4_rc) — which is the same objection
+            # `_a_dustify` already records against it ("the green-and-white
+            # striped mattress"). `_a_dustify` only rescues ~70 % of a
+            # collapse's fragments from it and nothing at all on a piece that
+            # is still standing on the building.
+            key = ("dark_concrete" if r < 0.5
+                   else ("mortar" if r < 0.8 else "plaster"))
         return mats.get(key)
     return _clad_material(stage, parent, cache, texture)
 
@@ -951,7 +1009,7 @@ def _chunk_material(stage, parent, cache, texture, mats, btype, rng,
 def _break(stage, parent, el, tag, n, rng, nrng, mats, cache, btype,
            inner_p=0.35, partial=None, mode="uniform", rough=0.012,
            min_volume_frac=0.002, consume=0.0, max_piece_m=None,
-           solid_m=None, style=None, core=True):
+           solid_m=None, style=None, core=True, **kw):
     """Fracture one element. Returns (static_paths, loose_paths).
 
     `consume` drops that share of the fragments, LARGEST first (the fracture
@@ -973,21 +1031,38 @@ def _break(stage, parent, el, tag, n, rng, nrng, mats, cache, btype,
         solid_m = _t_thickness(btype, el.get("role"), style=style,
                                stage=stage, path=path, texture=tex)
     ref = el.get("ref")
+    # _p_: the brick cluster is clamped against the MATERIAL thickness, not
+    # the module's bbox (a kit wall with a projecting bay measures 1.07 m
+    # across and is 0.38 m of brick). Only `_break` knows which is which.
+    kw.setdefault("blocky_m", solid_m)
     if partial is not None:
         st, lo = fracture.fracture_partial(
             stage, path, out, n_pieces=n, rng=nrng, cut_frac=partial,
             mode=mode, rough=rough, consume=consume * 0.5,
             min_volume_frac=min_volume_frac, max_piece_m=max_piece_m,
-            solid_m=solid_m, solid_ref=ref)
+            solid_m=solid_m, solid_ref=ref, **kw)          # _p_ pass-through
     else:
         st, lo = [], fracture.fracture_prim(
             stage, path, out, n_pieces=n, rng=nrng, mode=mode, rough=rough,
             verbose=False, consume=consume, consume_pool=1.6,
             min_volume_frac=min_volume_frac, max_piece_m=max_piece_m,
-            solid_m=solid_m, solid_ref=ref)
+            solid_m=solid_m, solid_ref=ref, **kw)          # _p_ pass-through
+    # WITH A CORE SUBSET THE PRIM BINDING IS THE FAÇADE, FULL STOP. `inner_p`
+    # exists because a fragment could only carry one material and some of them
+    # had to show the inside; now the inside has faces of its own, so drawing
+    # an interior material for the whole prim would paint it over the cladding
+    # as well and undo the split.
+    # ...but NOT zero. `_a_dustify` greys a collapse's fragments by swapping
+    # the PRIM binding (plaster/concrete/mortar -> dusty), so forcing every
+    # prim to the cladding took the dust coat off the whole heap and left it
+    # a clean brick quarry. A fifth still draw an interior material for the
+    # prim; with the core subset on top that reads as a dust-coated chunk
+    # with masonry showing where it broke.
+    ip = (0.18 if (core and solid_m and T_CORE_ON and tex)
+          else inner_p)
     for pth in list(st) + list(lo):
         _bind(stage, pth, _chunk_material(stage, parent, cache, tex, mats,
-                                          btype, rng, inner_p))
+                                          btype, rng, ip))
     if core:
         _t_core_bind(stage, parent, list(st) + list(lo), el.get("out"), mats,
                      btype, rng, solid_m=solid_m)
@@ -1032,7 +1107,8 @@ def _break_split(ctx, path, n, judge, mat_fn, rough=ROUGH_M,
                  static_mat=None, refine=True, edge_cell_m=EDGE_CELL_M,
                  chew=(CHEW_OUT, CHEW_IN), crack_frac=CRACK_FRAC,
                  refine_max=REFINE_MAX, gap_static_m=GAP_STATIC_M,
-                 max_loose_m=None, edge_consume=0.5, solid_m=None, core=True):
+                 max_loose_m=None, edge_consume=0.5, solid_m=None, core=True,
+                 **kw):
     """Fracture *path* and split the fragments by `judge(centroid) -> bool`
     (True = comes loose). The rest stay as STATIC stubs, so the surviving
     edge is made of real cell boundaries: this is `fracture_partial` with a
@@ -1064,11 +1140,35 @@ def _break_split(ctx, path, n, judge, mat_fn, rough=ROUGH_M,
                                (_e or {}).get("role"),
                                style=ctx["info"].get("style"), stage=stage,
                                path=path)
+    # _p_ ROUND 3: NOTHING DEFAULTS TO `uniform` ANY MORE.
+    # `uniform` is a 3-D Voronoi of random seeds, and in a member thinner than
+    # the cell pitch that can only produce thin plates with acute corners —
+    # the "TRIANGULAR" look, and 60 % of the flaky fragments in the first
+    # round-3 bench came through callers that simply never passed a mode
+    # (`_ragged_neighbours`, `_ragged_slabs`, `_a_slab_rim`, `_droop_strip`,
+    # `r_parapet_fall`, ...). A caller that still wants it says so explicitly.
+    # A kit ELEMENT breaks as its construction type does; anything else here
+    # is an authored `_box` slab or strip, which is a plate and rafts.
+    if mode == "uniform":
+        _pk = (_p_frac_kw(ctx) if (_e is not None and _e.get("role") not in
+                                   (None, "roof", "slab"))
+               else _p_slab_kw(ctx))
+        mode = _pk.pop("mode")
+        if rough is None or abs(float(rough) - ROUGH_M) < 1e-9:
+            rough = _pk.pop("rough")
+        else:
+            _pk.pop("rough", None)
+        for _k, _v in _pk.items():
+            kw.setdefault(_k, _v)
+    kw.setdefault("blocky_m", solid_m)                          # _p_
     if solid_m:
         edge_cell_m = float(edge_cell_m) * T_EDGE_CELL_SCALE
     st_m, lo_m = fracture.fracture_split(
-        mesh, n, judge, ctx["nrng"], mode=mode, aspect=aspect,
-        rough_m=max(0.008, min(0.06, float(rough))),
+        mesh, n, judge, ctx["nrng"], mode=mode, aspect=aspect, **kw,
+        # _p_: floor 0.008 -> 0.002. A mortar joint is FLAT; 8 mm of noise on
+        # an 0.068 m course is an eighth of a brick and turns the units into
+        # pebbles. Nothing that passed >= 0.008 before is affected.
+        rough_m=max(0.002, min(0.06, float(rough))),
         solid_m=solid_m, solid_ref=_t_ref(ctx, _e),
         edge_cell_m=edge_cell_m, edge_max=EDGE_MAX,
         refine=bool(refine) and int(refine_max) > 0,
@@ -1282,6 +1382,579 @@ def _toward_judge(m, side, frac, rng, btype=None, z0=0.0, span_z=None):
             u = W / 2.0 - lx
         return u < frac * reach + wob(c[2] - float(z0))
     return judge
+
+
+# ---------------------------------------------------------------------------
+# _p_  ROUND 3 — THE BREAK PATTERN *IS* THE PLANE OF WEAKNESS
+# ---------------------------------------------------------------------------
+#
+# The user, on the two-city review: "it looks very TRIANGULAR now, like
+# something was added to the edge of the rectangular breakage. Figure out the
+# pattern in which it would break naturally and mimic that."
+#
+# That is an exact description of what round 2 did: a straight cut with teeth
+# appended (`_a_torn` / `_a_stepped` wobbles added to a plane) over a 3-D
+# Voronoi of random seeds, which in a wall thinner than the cell pitch can
+# only make thin plates with acute corners. Real break lines are not decorated
+# afterwards — they ARE the planes of weakness. Measured demolition debris is
+# BLOCKY (Flakiness Index 7-13 %, Elongation 13-24 %, 55-74 % equidimensional,
+# "almost no blades"); the only legitimate triangles are metres across.
+#
+#   MASONRY   the wall is a running-bond LATTICE (`fracture._p_brick_seeds`)
+#             and the break line is a STAIRCASE QUANTISED TO IT: risers are k
+#             whole courses (k 1-4), runs are m whole half-stretchers (m 1-8).
+#             `_a_stepped` drew both CONTINUOUSLY — an 0.137 m riser is not a
+#             number a brick wall can make.
+#   CONCRETE  the member is cut into PRISMS through its full thickness
+#             (`fracture._p_prism_seeds`), the line tears (`_a_torn` is right
+#             for concrete and is called unchanged), and what flakes is the
+#             COVER, 19-38 mm, and nothing else.
+#
+# Round 2's `_a_*` helpers are frozen: they are CALLED here, never edited.
+# Sources: _plans/eq_round3_R.md §1-§2, _plans/earthquake_research.md §11.
+
+# (stretcher, course, wythe) pitch in metres. US modular brick 194 x 92 x 57 mm
+# actual with a 9.5 mm (3/8 in) joint -> three courses are 8 in exactly;
+# heritage (NZ/UK/AU) brick 230 x 110 x 76 mm. Research §11.
+P_BOND = {"modular": (0.203, 0.0677, 0.092),
+          "heritage": (0.240, 0.086, 0.110)}
+# Which stock a style is built of. The stone-fronted and older terrace styles
+# take the larger heritage unit, which also gives the library two visibly
+# different course heights instead of one.
+P_STYLE_BOND = {"brownstone": "heritage", "brownstone_row": "heritage",
+                "walkup": "heritage", "dw_terrace": "heritage",
+                "church": "heritage"}
+# R §1.5, verbatim: "Do NOT chew or roughen the faces. A mortar joint is flat.
+# ROUGH_M = 0.028 is half a joint width and turns bricks into pebbles — use
+# <= 0.003 m only to break the specular."
+P_ROUGH_M = 0.003
+P_ROUGH_RC_M = 0.006     # a concrete fracture surface is aggregate-rough at
+                         # 5-10 mm; still a quarter of round 2's 0.028.
+P_BRICK_KEEP = 0.62      # site dropout -> 2-8 brick clusters (R: 0.55-0.70)
+P_PRISM_KEEP = 0.80
+P_RUN_K = (1, 8)         # horizontal run = m x half stretcher (0.10-0.81 m)
+P_RISE_K = (1, 4)        # riser          = k x course        (0.068-0.27 m)
+P_VRUN_K = (2, 6)        # a line running UP the wall: run in z, in courses
+P_VRISE_K = (1, 4)       #                             riser sideways, in halves
+# Plastic-hinge length Lp = 0.08 L + 0.022 d_b f_y ~= 0.42 m for a 3 m column
+# with 20 mm bars at f_y 400 (R §2) — the height of the spalled zone and of the
+# bar lantern, and the only place a column loses its cover.
+P_LP_M = 0.42
+# ACI 318 §20.6 cover, measured to the tie. "Spalling is typically within the
+# cover", so the spall shell IS the cover and nothing thicker ever flakes.
+P_COVER_M = {"wall": 0.038, "corner": 0.038, "slab": 0.019, "roof": 0.019,
+             "parapet": 0.038, "parapet_corner": 0.038, "balcony": 0.019,
+             None: 0.038}
+# Sliver rejection (R §2.4), passed through to `fracture._p_sliver_seeds`:
+# b/a >= 0.6 on every piece, c/b >= 0.5 only under 1.2 m — see that function
+# for why the large end is exempt (rafts are legitimately plate-like).
+P_SLIVER = (0.6, 0.5, 1.2)
+# Sliver rejection costs ONE extra cell pass per fracture. EQ_SLIVER=0 turns
+# it off everywhere — the first knob to reach for if a bench run is over the
+# fracture-time budget, since a `brick` or `prism` lattice is structurally
+# blocky and the pass mostly removes the wafers the module's own rim clipped.
+P_SLIVER_ON = _os.environ.get("EQ_SLIVER", "1").strip() not in ("0", "false", "no")
+
+
+def _p_pitch(ctx=None, style=None):
+    """(stretcher, course, wythe) pitch for this building's brick."""
+    st = str(style if style is not None
+             else ((ctx or {}).get("info", {}) or {}).get("style", ""))
+    for k, bond in P_STYLE_BOND.items():
+        if k in st:
+            return P_BOND[bond]
+    return P_BOND["modular"]
+
+
+def _p_staircase(rng, amp, span_m, run_pitch, rise_pitch,
+                 run_k=P_RUN_K, rise_k=P_RISE_K):
+    """A staircase f(t), t in METRES along the line, QUANTISED TO THE BOND.
+
+    Every value of f is an exact integer multiple of `rise_pitch` and every
+    step happens at an exact integer multiple of `run_pitch`, because that is
+    the only kind of line a bonded wall can tear along: the bed joints are the
+    weak planes and the perpends are staggered half a unit, so the tear runs
+    along a bed joint for a whole number of half-stretchers, drops a whole
+    number of courses at a perpend, and repeats. (FEMA 306 Ch. 7: weak mortar
+    and sound units -> "cracks stair-step through head and bed joints".)
+
+    `_a_stepped` has the right RANGES and the wrong arithmetic — it draws run
+    and riser from continuous uniforms, so the line lands between courses and
+    the wall stops reading as bonded. This is that function with the two
+    uniforms replaced by integers, and the reflect-don't-clamp behaviour kept
+    (a clamped walk rides the rail and comes out as a straight line with
+    notches)."""
+    rise_pitch = max(1e-4, float(rise_pitch))
+    run_pitch = max(1e-4, float(run_pitch))
+    lim = max(1, int(math.floor(max(float(amp), rise_pitch) / rise_pitch)))
+    ts, ys = [0.0], [0.0]
+    t, j = 0.0, 0
+    guard = 0
+    while t < float(span_m) + run_pitch * run_k[1] and guard < 4000:
+        guard += 1
+        t += rng.randint(int(run_k[0]), int(run_k[1])) * run_pitch
+        step = rng.randint(int(rise_k[0]), int(rise_k[1])) * (
+            1 if rng.random() < 0.5 else -1)
+        nj = j + step
+        if nj > lim or nj < -lim:
+            nj = j - step                     # turn round, do not ride the rail
+            if nj > lim or nj < -lim:
+                nj = max(-lim, min(lim, j))
+        j = int(nj)
+        ts.append(t)
+        ys.append(j * rise_pitch)
+
+    def f(tm):
+        i = bisect.bisect_right(ts, float(tm)) - 1
+        return ys[max(0, min(len(ys) - 1, i))]
+    return f
+
+
+def _p_wobble(rng, amp, span_m, btype="rc", vertical=False, pitch=None):
+    """The break-line offset for a construction type — the `_p_` replacement
+    for `_a_wobble`. Masonry gets the bond-quantised staircase; concrete keeps
+    `_a_torn`, which is the right model for it (the crack follows the
+    aggregate and the cover spalls ahead of it, so the line is smooth at the
+    metre scale and rough at the decimetre scale)."""
+    if btype != "urm":
+        return _a_torn(rng, amp, span_m)
+    p_l, p_c, _p_t = pitch or P_BOND["modular"]
+    if vertical:
+        # the line runs UP the wall: the runs are in COURSES and the risers
+        # step sideways by half stretchers
+        return _p_staircase(rng, amp, span_m, p_c, p_l * 0.5,
+                            run_k=P_VRUN_K, rise_k=P_VRISE_K)
+    return _p_staircase(rng, amp, span_m, p_l * 0.5, p_c,
+                        run_k=P_RUN_K, rise_k=P_RISE_K)
+
+
+def _p_zline_judge(m, side, z0, rng, btype="rc", amp=0.5, loose_above=True,
+                   pitch=None):
+    """`_a_zline_judge` on the bond: a HORIZONTAL break at height `z0` that
+    staircases along the courses (urm) or tears (rc)."""
+    wob = _p_wobble(rng, amp, _a_side_span(m, side), btype, vertical=False,
+                    pitch=pitch)
+
+    def judge(c):
+        zb = float(z0) + wob(_a_side_t(m, side, c))
+        return (c[2] > zb) if loose_above else (c[2] < zb)
+    return judge
+
+
+def _p_edge_judge(m, side, depth_m, rng, btype=None, pitch=None):
+    """`_edge_judge` on the bond: within a staircasing/tearing depth of the
+    mass's `side` wall line, measured inward."""
+    W, D = m["W"], m["D"]
+    wob = _p_wobble(rng, depth_m * 0.55, _a_side_span(m, side), btype or "rc",
+                    vertical=False, pitch=pitch)
+
+    def judge(c):
+        lx, ly = _to_local(m, c[0], c[1])
+        if side == "S":
+            d, t = ly + D / 2.0, lx + W / 2.0
+        elif side == "N":
+            d, t = D / 2.0 - ly, lx + W / 2.0
+        elif side == "W":
+            d, t = lx + W / 2.0, ly + D / 2.0
+        else:
+            d, t = W / 2.0 - lx, ly + D / 2.0
+        return d < depth_m + wob(t)
+    return judge
+
+
+def _p_toward_judge(m, side, frac, rng, btype=None, z0=0.0, span_z=None,
+                    pitch=None):
+    """`_toward_judge` on the bond — the line runs UP the wall, so masonry
+    tooths vertically (runs of a few courses, risers of half a brick)."""
+    W, D = m["W"], m["D"]
+    reach = (D if side in ("S", "N") else W)
+    if span_z is None:
+        span_z = max(6.0, float(m.get("top", 12.0)) - float(m.get("z0", 0.0)))
+    wob = _p_wobble(rng, 0.45, max(3.0, float(span_z)), btype or "rc",
+                    vertical=True, pitch=pitch)
+
+    def judge(c):
+        lx, ly = _to_local(m, c[0], c[1])
+        if side == "S":
+            u = ly + D / 2.0
+        elif side == "N":
+            u = D / 2.0 - ly
+        elif side == "W":
+            u = lx + W / 2.0
+        else:
+            u = W / 2.0 - lx
+        return u < frac * reach + wob(c[2] - float(z0))
+    return judge
+
+
+def _p_vcrack_judge(m, side, t0, rng, btype="urm", amp=0.45, pitch=None,
+                    loose_hi=True):
+    """A VERTICAL crack `t0` metres along the `side` wall — the crack at a
+    wall return or an opening reveal that bounds a macroblock. FEMA 306: at a
+    corner the crack is vertical and the corner is "punched outward"."""
+    z0 = float(m.get("z0", 0.0))
+    span_z = max(3.0, float(m.get("top", 12.0)) - z0)
+    wob = _p_wobble(rng, amp, span_z, btype, vertical=True, pitch=pitch)
+
+    def judge(c):
+        t = _a_side_t(m, side, c)
+        line = float(t0) + wob(c[2] - z0)
+        return (t > line) if loose_hi else (t < line)
+    return judge
+
+
+def _p_frac_kw(ctx, leaves=1, keep=None, rough=None):
+    """The fracture kwargs for this construction type, in one place.
+
+    Everything that touches masonry passes `mode="brick"` with the bond pitch;
+    everything that touches concrete passes `mode="prism"`. Both get sliver
+    rejection and near-zero surface roughening. Splat this into `_break` /
+    `_break_split` — both grew a `**kw` pass-through for it."""
+    btype = ctx["info"]["type"]
+    tag = "{0}|{1}".format(ctx.get("tag", ""), btype)   # for EQ_DUMP_FRAGS
+    if btype == "urm":
+        return dict(mode="brick", brick=_p_pitch(ctx),
+                    keep_frac=(P_BRICK_KEEP if keep is None else float(keep)),
+                    leaves=int(leaves), dump_tag=tag,
+                    sliver=(P_SLIVER if P_SLIVER_ON else None),
+                    rough=(P_ROUGH_M if rough is None else float(rough)))
+    return dict(mode="prism",
+                keep_frac=(P_PRISM_KEEP if keep is None else float(keep)),
+                dump_tag=tag, sliver=(P_SLIVER if P_SLIVER_ON else None),
+                rough=(P_ROUGH_RC_M if rough is None else float(rough)))
+
+
+def _p_wall_point(m, side, t):
+    """Local (lx, ly) on the mass's `side` wall line, `t` metres along it."""
+    W, D = m["W"], m["D"]
+    if side == "S":
+        return (t - W / 2.0, -D / 2.0)
+    if side == "N":
+        return (t - W / 2.0, D / 2.0)
+    if side == "W":
+        return (-W / 2.0, t - D / 2.0)
+    return (W / 2.0, t - D / 2.0)
+
+
+def _p_el_t(m, side, e):
+    """Distance in metres along the `side` wall to a kit piece's LEFT end."""
+    return ((e["lx"] + m["W"] / 2.0) if side in ("S", "N")
+            else (e["ly"] + m["D"] / 2.0))
+
+
+def _p_monolith(ctx, e, tag="mb"):
+    """One kit module as ONE solid rigid body — a MACROBLOCK, not rubble.
+
+    A URM wall failing out of plane is a RIGID-BODY MECHANISM, not a fracture:
+    it rocks on three horizontal cracks (top, bottom, mid-height) and
+    overturns, and 318 Canterbury URM buildings gave "cracking that delineates
+    relatively undamaged masonry macroblocks" with out-of-plane failure at
+    65 % of all observations. So a standing damaged URM wall is 1-4 big
+    internally-intact blocks — it becomes a field of bricks only AFTER a block
+    falls and lands. Dicing the whole wall into cells, which is what round 2
+    did, is the one thing the mechanism says not to do.
+
+    Returns the new prim path (the module solidified, written as one mesh, the
+    source deactivated), or None."""
+    from . import damage, fracture
+    stage = ctx["stage"]
+    path = e["p"].get("prim_path")
+    if not path:
+        return None
+    mesh = fracture.prim_to_mesh(stage, path)
+    if mesh is None or not len(mesh.faces):
+        return None
+    solid_m = _t_thickness(ctx["info"]["type"], e.get("role"),
+                           style=ctx["info"].get("style"), stage=stage,
+                           path=path)
+    if solid_m:
+        try:
+            mesh = fracture.solidify(mesh, solid_m, ref=_t_ref(ctx, e))
+        except Exception as exc:
+            print("[quake] _p_monolith solidify failed: {0}".format(exc))
+    out = "{0}/mb_{1}_{2}_{3}".format(ctx["parent"], ctx["tag"], tag,
+                                      path.rsplit("/", 1)[-1])
+    try:
+        fracture._write_mesh(stage, out, mesh)
+    except Exception as exc:
+        print("[quake] _p_monolith write failed: {0}".format(exc))
+        return None
+    tex = damage.bound_texture(stage, path)
+    mat = (_clad_material(stage, ctx["parent"], ctx["cache"], tex) if tex
+           else ctx["mats"].get("brick"))
+    _bind(stage, out, mat)
+    _t_core_bind(stage, ctx["parent"], [out], e.get("out"), ctx["mats"],
+                 ctx["info"]["type"], ctx["rng"], solid_m=solid_m)
+    src = stage.GetPrimAtPath(path)
+    if src and src.IsValid():
+        src.SetActive(False)
+    e["dead"] = True
+    return out
+
+
+def _p_macroblocks(ctx, mass, side, from_storey=1):
+    """Out-of-plane failure as the mechanism it is: cut the MACROBLOCKS first,
+    dice only the edges and the part that hits the ground.
+
+    Three horizontal cracks (top of wall, bottom, mid-height) plus vertical
+    cracks at the corners and openings partition the wall into 1-4 blocks.
+    Each block then draws its own fate — overturned into the street, still
+    leaning out, or cracked and standing — which is exactly the spread the
+    Canterbury survey reports (rocking cantilevers that went, and rocking
+    cantilevers that did not). Only the modules the cracks RUN THROUGH are
+    fractured, and those are fractured on the bond, so the edge that survives
+    is a staircase of whole bricks.
+
+    Returns a note string for `ctx["notes"]`."""
+    from . import damage
+    rng = ctx["rng"]
+    m = ctx["info"]["masses"][mass]
+    btype = ctx["info"]["type"]
+    pitch = _p_pitch(ctx)
+    span = _a_side_span(m, side)
+    lv = m["levels"]
+    z_lo = lv[from_storey] if from_storey < len(lv) else m["z0"]
+    ox, oy = _outward(m, side)
+
+    # 1-2 interior vertical cracks -> 2-3 blocks across; one mid-height crack
+    # in the taller half of the peel when there is room for one.
+    n_v = 1 + (1 if rng.random() < 0.55 else 0)
+    tv = sorted(rng.uniform(0.24, 0.76) * span for _ in range(n_v))
+    n_up = len(lv) - from_storey
+    z_mid = (lv[from_storey + max(1, n_up // 2)]
+             if (n_up >= 3 and rng.random() < 0.6) else None)
+
+    blocks, edge_els = {}, []
+    for e in list(_els(ctx, mass=mass, side=side)):
+        if e["role"] not in ("wall", "corner", "parapet", "parapet_corner",
+                             "balcony"):
+            continue
+        if (e["storey"] < from_storey
+                and e["role"] not in ("parapet", "parapet_corner")):
+            continue
+        t0 = _p_el_t(m, side, e)
+        t1 = t0 + max(1.0, float(m["module"]))
+        cross_v = any(t0 - 0.25 < q < t1 + 0.25 for q in tv)
+        at_foot = abs(e["z"] - z_lo) < 0.6 and e["role"] == "wall"
+        cross_h = (z_mid is not None
+                   and e["z"] - 0.05 < z_mid < e["z"] + e["h"] + 0.05)
+        if cross_v or cross_h or at_foot:
+            edge_els.append((e, bool(cross_v and not (at_foot or cross_h))))
+            continue
+        blocks.setdefault((sum(1 for q in tv if t0 >= q),
+                           0 if (z_mid is None or e["z"] < z_mid) else 1),
+                          []).append(e)
+
+    n_over = n_lean = n_stay = 0
+    for key, els in blocks.items():
+        paths = [q for q in (_p_monolith(ctx, e, tag="{0}{1}".format(*key))
+                             for e in els) if q]
+        if not paths:
+            continue
+        t_lo = min(_p_el_t(m, side, e) for e in els)
+        t_hi = max(_p_el_t(m, side, e) + float(m["module"]) for e in els)
+        zb = min(e["z"] for e in els)
+        px, py = _to_world(m, *_p_wall_point(m, side, 0.5 * (t_lo + t_hi)))
+        r = rng.random()
+        if r < 0.45:
+            # OVERTURNED. Rotating +theta about the LEFT perpendicular of the
+            # outward run swings the wall's up-vector toward outward, i.e. the
+            # top leads and the block ends flat in the street — which is what
+            # the Christchurch photographs show, whole wall sections lying on
+            # the footpath with their courses still legible.
+            _transform_prims(ctx["stage"], paths,
+                             _rot_about((px, py, zb), (-oy, ox, 0.0),
+                                        rng.uniform(76.0, 98.0)))
+            # A block whose foot was 8 m up is now lying flat 8 m in the air.
+            # Set it down just over the windrow and let the settle seat it,
+            # rather than dropping a 6 m rigid body into the pile.
+            drop = max(0.0, zb - m["z0"] - rng.uniform(0.4, 1.1))
+            if drop > 0.05:
+                _transform_prims(ctx["stage"], paths,
+                                 _translate(0.0, 0.0, -drop))
+            for q in paths:
+                ctx["velocity"][q] = (ox * 0.2, oy * 0.2, -0.2)
+            ctx["loose"] += paths
+            n_over += 1
+        elif r < 0.76:
+            # STILL LEANING — the rocking cantilever that did not go over.
+            _transform_prims(ctx["stage"], paths,
+                             _rot_about((px, py, zb), (-oy, ox, 0.0),
+                                        rng.uniform(9.0, 26.0)))
+            ctx["static_extra"] += paths
+            n_lean += 1
+        else:
+            ctx["static_extra"] += paths        # cracked out, still standing
+            n_stay += 1
+
+    kw = _p_frac_kw(ctx)
+    n_cell = 0
+    for e, is_v in edge_els:
+        path = e["p"].get("prim_path")
+        if not path:
+            continue
+        tex = damage.bound_texture(ctx["stage"], path)
+        if is_v:
+            q = min(tv, key=lambda z: abs(
+                z - (_p_el_t(m, side, e) + float(m["module"]) * 0.5)))
+            judge = _p_vcrack_judge(m, side, q, rng, btype=btype, amp=0.42,
+                                    pitch=pitch, loose_hi=(rng.random() < 0.5))
+        else:
+            z_ref = (z_mid if (z_mid is not None
+                               and e["z"] < z_mid < e["z"] + e["h"]) else z_lo)
+            z0 = min(max(z_ref + e["h"] * rng.uniform(0.08, 0.42),
+                         e["z"] + 0.2), e["z"] + e["h"] - 0.2)
+            judge = _p_zline_judge(m, side, z0, rng, btype=btype,
+                                   amp=e["h"] * 0.26, loose_above=True,
+                                   pitch=pitch)
+        st, lo = _break_split(
+            ctx, path, 10 + rng.randrange(4), judge, _mat_fn(ctx, tex, 0.35),
+            static_mat=(_clad_material(ctx["stage"], ctx["parent"],
+                                       ctx["cache"], tex) if tex else None),
+            **kw)
+        for pth in lo:
+            v = 0.4 + rng.uniform(0.0, 0.8)
+            ctx["velocity"][pth] = (ox * v, oy * v, 0.05 * v)
+        _a_dustify(ctx, lo)
+        ctx["loose"] += lo
+        ctx["static_extra"] += st
+        e["dead"] = True
+        n_cell += 1
+    return ("macroblocks {0}: {1} overturned, {2} leaning, {3} standing, "
+            "{4} modules diced on the cracks".format(side, n_over, n_lean,
+                                                     n_stay, n_cell))
+
+
+def _p_lintels(ctx, m, n=None, base=None, tag="lintel"):
+    """The only large pieces in a masonry pile: LINTELS, QUOINS, sills, arch
+    heads and cornice runs, which bypass the fracture entirely.
+
+    R §1.7 and the acceptance test both make this explicit — "URM heap:
+    largest piece = a lintel/quoin monolith, not a wall shard". Christchurch:
+    the fallen debris "had collapsed into individual bricks rather than as
+    larger chunks of masonry debris", so a pile whose biggest piece is a 1.5 m
+    plate of wall is wrong twice over: too big for the bricks and too thin for
+    the stones. These are authored, not cut, because that is what they are —
+    single dressed stones that were never bonded into the field."""
+    rng = ctx["rng"]
+    n = int(n if n is not None else rng.randrange(3, 7))
+    base = m["z0"] if base is None else float(base)
+    mats = ctx["mats"]
+    made = []
+    for i in range(n):
+        r = rng.random()
+        if r < 0.55:                 # a LINTEL / cornice run: long and heavy
+            sx = rng.uniform(1.1, 2.2)
+            sy = rng.uniform(0.20, 0.32)
+            sz = rng.uniform(0.18, 0.30)
+        elif r < 0.85:               # a QUOIN / sill block: a dressed cube
+            sx = rng.uniform(0.36, 0.58)
+            sy = rng.uniform(0.28, 0.42)
+            sz = rng.uniform(0.24, 0.38)
+        else:                        # an arch head / coping stone
+            sx = rng.uniform(0.7, 1.1)
+            sy = rng.uniform(0.30, 0.45)
+            sz = rng.uniform(0.22, 0.34)
+        lx = rng.uniform(-0.44, 0.44) * m["W"]
+        ly = rng.uniform(-0.44, 0.44) * m["D"]
+        wx, wy = _to_world(m, lx, ly)
+        path = "{0}/{1}_{2}_{3:02d}".format(ctx["parent"], ctx["tag"], tag, i)
+        _box(ctx["stage"], path, wx, wy,
+             base + sz * 0.5 + rng.uniform(0.05, 0.6),
+             sx, sy, sz, yaw_deg=rng.uniform(0.0, 360.0),
+             mat=_a_mat(ctx, "brick_dusty" if rng.random() < 0.5 else "dust"))
+        made.append(path)
+    ctx["loose"] += made
+    return made
+
+
+def _p_slab_kw(ctx, keep=None, rough=None):
+    """A floor slab, a roof deck or a strip cut off one is NOT masonry however
+    masonry the building is: it is a PLATE, and Fardis's slab rule is that the
+    crack "extends into the slab at right angles to the beam, sometimes
+    joining up with a similar crack from a parallel beam" — bay-sized
+    rectangular RAFTS bounded by beam lines. So a slab is always `prism`:
+    2-D seeds extruded through the full thickness, never a 3-D seed inside a
+    0.2 m plate."""
+    return dict(mode="prism",
+                keep_frac=(P_PRISM_KEEP if keep is None else float(keep)),
+                sliver=(P_SLIVER if P_SLIVER_ON else None),
+                dump_tag="{0}|slab".format(ctx.get("tag", "")),
+                rough=(P_ROUGH_RC_M if rough is None else float(rough)))
+
+
+def _p_ragged_courses(ctx, mass, storey, sides=None, band=(0.28, 0.85),
+                      above=True, below=True, n_seeds=None, p=0.92,
+                      near=None):
+    """`_a_ragged_courses` with the round-3 break pattern.
+
+    Same job — destroy the kit's horizontal module seam at a removed storey,
+    which is the top and the bottom of the "unnatural rectangular part broken
+    off" — but the band edge is now a bond-quantised staircase on masonry
+    (`_p_zline_judge`) and the cells are brick clusters rather than a 3-D
+    Voronoi of a thin panel. `_a_ragged_courses` itself is frozen (round 2);
+    the recipes this round owns call this instead.
+
+    Returns the same dict of paths keyed `above_static` / `above_loose` /
+    `below_static` / `below_loose`."""
+    from . import damage
+    rng = ctx["rng"]
+    m = ctx["info"]["masses"][mass]
+    btype = ctx["info"]["type"]
+    pitch = _p_pitch(ctx)
+    kw = _p_frac_kw(ctx)
+    lv = m["levels"]
+    out = {"above_static": [], "above_loose": [],
+           "below_static": [], "below_loose": []}
+    z_lo = lv[storey] if storey < len(lv) else m["top"]
+    z_hi = lv[storey + 1] if storey + 1 < len(lv) else m["top"]
+    jobs = []
+    if above and storey + 1 < len(lv):
+        jobs.append((storey + 1, z_hi, True, "above"))     # its BOTTOM edge
+    if below and storey - 1 >= 0:
+        jobs.append((storey - 1, z_lo, False, "below"))    # its TOP edge
+    for st_i, z_ref, is_above, key in jobs:
+        for e in list(_els(ctx, mass=mass, role=("wall", "corner", "balcony"),
+                           storey=st_i)):
+            if sides is not None and e["side"] not in sides:
+                continue
+            if near is not None and not near(e):
+                continue
+            if rng.random() >= p:
+                continue
+            path = e["p"].get("prim_path")
+            if not path:
+                continue
+            b = rng.uniform(*band)
+            tex = damage.bound_texture(ctx["stage"], path)
+            z0 = z_ref + b if is_above else z_ref - b
+            judge = _p_zline_judge(m, e["side"], z0, rng, btype=btype,
+                                   amp=b * 0.8, loose_above=not is_above,
+                                   pitch=pitch)
+            keep_mat = (_clad_material(ctx["stage"], ctx["parent"],
+                                       ctx["cache"], tex) if tex else None)
+            # `refine_max=4` and 8 coarse cells: a band on a wall module is a
+            # small feature and there are two whole storeys of them.
+            s, l = _break_split(ctx, path, n_seeds or (7 + rng.randrange(3)),
+                                judge, _mat_fn(ctx, tex, 0.4),
+                                static_mat=keep_mat, refine_max=4,
+                                edge_cell_m=0.38, **kw)
+            if not s:
+                ctx["loose"] += l
+                e["dead"] = True
+                out[key + "_loose"] += l
+                continue
+            ox, oy = _outward(m, e["side"])
+            for q in l:
+                v = rng.uniform(0.2, 0.9)
+                ctx["velocity"][q] = (ox * v, oy * v, 0.0)
+            ctx["loose"] += l
+            out[key + "_static"] += s
+            out[key + "_loose"] += l
+            e["dead"] = True
+        if key == "below":
+            ctx["static_extra"] += out["below_static"]
+    return out
 
 
 def _mat_fn(ctx, texture, inner_p=0.35):
@@ -1755,14 +2428,32 @@ def _spall(ctx, mass, rate=0.15, storeys=None):
         tex = damage.bound_texture(ctx["stage"], path)
         # the top 8-26 % of the module goes: a course or two, not a storey
         z0 = e["z"] + e["h"] * rng.uniform(0.74, 0.92)
+        # _p_ ROUND 3, AND THE TWO CONSTRUCTION TYPES DIVERGE HERE.
+        #   urm: a spall is the top COURSES coming off, so the line staircases
+        #        on the bond and the pieces are brick clusters.
+        #   rc:  "spalling is typically within the cover" (ACI 318 §20.6
+        #        cover 38 mm to the tie), so what comes off is a COVER FLAKE —
+        #        `solid_m` is the cover, not the wall, and the flake is
+        #        19-38 mm thick and 0.1-0.5 m across. Round 2 broke the full
+        #        0.20 m member here and shed slabs of wall for a "spall".
+        _kw = dict(_p_frac_kw(ctx))
+        if btype != "urm":
+            # the member keeps its real thickness; only its outer COVER is
+            # sliced off and broken (`fracture._p_cover_shell`). Sliver
+            # rejection is turned OFF for it: a cover flake fails c/b by
+            # construction, and it is the one piece that is right to.
+            _kw["cover_m"] = P_COVER_M.get(e.get("role"), P_COVER_M[None])
+            _kw["cover_axis"] = e.get("out")
+            _kw["sliver"] = None
         st, lo = _break_split(
             ctx, path, 9 + rng.randrange(4),
-            _a_zline_judge(m, e["side"], z0, rng, btype=btype,
-                           amp=e["h"] * 0.11, loose_above=True),
+            _p_zline_judge(m, e["side"], z0, rng, btype=btype,
+                           amp=e["h"] * 0.11, loose_above=True,
+                           pitch=_p_pitch(ctx)),
             _mat_fn(ctx, tex, 0.55),
             static_mat=_clad_material(ctx["stage"], ctx["parent"],
                                       ctx["cache"], tex) if tex else None,
-            refine_max=5, edge_cell_m=0.30)
+            refine_max=5, edge_cell_m=0.30, **_kw)
         if not st:
             # the whole module came away — that is a hole, not a spall
             continue
@@ -1791,6 +2482,7 @@ def _break_box(stage, path, n, rng, nrng, mat, inner_mat=None, inner_p=0.5,
     out = path + "_brk"
     made = fracture.fracture_prim(stage, path, out, n_pieces=n, rng=nrng,
                                   mode=mode, aspect=aspect, rough=0.012,
+                                  dump_tag="box|" + path.rsplit("/", 1)[-1],
                                   verbose=False, consume=consume,
                                   consume_pool=consume_pool,
                                   max_piece_m=max_piece_m,
@@ -1900,10 +2592,14 @@ def r_parapet_fall(ctx, sides=1, frac=0.5, mass="main"):
 
 
 def r_glass_loss(ctx, frac=0.3):
-    """Windows in an opaque façade: the kit bakes glass into each module, so
-    there is nothing to remove — this only scatters a glass shard field on
-    the sidewalk under `frac` of the façade. Cheap and authored."""
-    _shard_field(ctx, frac, height_bias=0.6)
+    """DEPRECATED (agent G, round 3) — kept so old baked ladders still run.
+
+    It only ever scattered a shard field on all four sides at a random depth,
+    which is neither banded nor tied to any opening. `r_storefront_glass` is
+    the replacement; `frac` is mapped onto its grade so a call site that has
+    not been updated still gets the right severity."""
+    grade = 1 + bisect.bisect_right([0.12, 0.28, 0.48, 0.65], float(frac))
+    r_storefront_glass(ctx, grade=grade)
 
 
 def _shard_field(ctx, frac, height_bias=0.6, mass="main", sides=None):
@@ -1940,30 +2636,1099 @@ def _shard_field(ctx, frac, height_bias=0.6, mass="main", sides=None):
 
 
 def r_glass_fallout(ctx, frac=0.4, mass=None):
-    """Curtain-wall modules (family 05 `Skyscraper*`) removed at random,
-    biased to the lower storeys and to one face; shard field below."""
+    """DEPRECATED (agent G, round 3) — a shim onto `r_curtain_wall`.
+
+    The old body `_deactivate`d whole `Skyscraper*` kit MODULES with
+    probability `frac x height x side`, which is what the user saw and
+    objected to: "you just made some glass disappear, with random glass panes
+    hanging in a few areas". Deleting a module deletes the mullion cage, the
+    transoms and the 1 m ledge with it, and Bernoulli sampling cannot make a
+    band. Both are answered in `r_curtain_wall`; `frac` maps onto its grade
+    so any call site or baked ladder that still names `glass_fallout` gets
+    the corrected behaviour at the severity it asked for."""
+    grade = 1 + bisect.bisect_right([0.12, 0.32, 0.55, 0.78], float(frac))
+    r_curtain_wall(ctx, grade=grade, mass=mass)
+
+
+# ---------------------------------------------------------------------------
+# ROUND 3, agent G — GLASS.  "What happens to glass buildings in earthquakes?"
+#
+# The round-2 answer (`r_glass_fallout`) deleted whole kit MODULES at random,
+# which is wrong in the four ways `earthquake_research.md` §12 measures:
+#
+#  1. Only the GLASS leaves. The aluminium mullion cage, the transoms, the
+#     glazing pockets, the gaskets and the spandrels stay: frame failure was
+#     ONE façade system in 371 at Christchurch, and heavy cladding was 94 %
+#     operational-or-IO [§12 8.7]. A de-glazed curtain wall is a CAGE, not a
+#     hole, and the elevation stays STRIPED.
+#  2. Loss is a contiguous BAND on the storeys that racked — Mexico City 1985,
+#     90 Durango: "loss of glazing apart from top three floors (except one
+#     panel)"; Wenchuan Qingchuan: the top storey only, from a roof-diaphragm
+#     push; Tōhoku NILIM 647: 26 panes on ONE elevation and none opposite.
+#     An i.i.d. scatter is right only for ACCELERATION-driven loss on a stiff
+#     building (Aleppo 2023) [§12 8.6].
+#  3. There is a cracked-but-retained state, and FEMA E-74 names four
+#     (unbroken / cracked-and-retained / shattered-but-precarious / fallen
+#     out). It belongs to ANNEALED and LAMINATED glass only: fully tempered
+#     cracks and falls out at the SAME drift, 6/6 specimens — an empty frame
+#     and a pile of dice on the footpath [§12 8.3, 8.4].
+#  4. Cracks are CORNER-ROOTED. "Crack propagation starts along the edges near
+#     diagonally opposed corners of glass panels" [§12 8.5]. A centre-rooted
+#     spiderweb is an impact signature and reads as a thrown rock.
+#
+# And the quantities were far too high: at Christchurch's MMI IX "nearly half
+# of all glazed lightweight claddings had glazing damage", 64 % of all façade
+# systems were still operational, and NO modern curtain-wall tower has
+# collapsed in any of the ten events reviewed. 85 % pane loss (the old DG5)
+# is outside the record; the ceiling is ~55 % [§12 8.10, 8.13].
+#
+# HOW THE KIT IS BUILT, measured rather than assumed
+# (scene_gen/tools/_g_glass_probe.py / _g_glass_rects.py / _g_uv.py):
+#
+# * `SM_MBuilding05_SkyscraperFacade_B` is a 5 x 1 x 3 m BOX shell: two glass
+#   quads (outer at y = -1, inner at y = 0) and four `SkyscraperLedge` faces
+#   — top, bottom and the two vertical returns. So the module is already a
+#   1 m deep glazing pocket with a ledge at every storey line: exactly the
+#   cage and the "stripe" the research says must survive. Nothing has to be
+#   built for it; it only has to be LEFT ALONE.
+# * The mullion grid is PAINTED, not modelled: material
+#   `MI_MBuilding05_SkyscraperWindows`, a 128 x 128 tile holding TWO panes
+#   with the mullion at 70/128 of its width and a transom along the top and
+#   bottom edge. The mesh UVs put u_tex = 0.3326 per metre on every
+#   skyscraper face (1.663 over a 5 m facade, 1.995 over the 6 m corner run)
+#   and exactly ONE tile over the 3 m storey.
+#   -> the painted pane grid is mullions at (k + 0.0)/0.3326 and
+#      (k + 0.5469)/0.3326 metres from the piece's u-origin: panes 1.645 m
+#      and 1.362 m wide, alternating, one row per storey, ~2.89 m tall.
+#   -> AUTHOR ON THAT GRID and inset the authored opening by half a painted
+#      mullion, and the painted cage is still there around every hole, in
+#      perfect register, for free. That is the whole trick: no mullion
+#      geometry has to be generated for the cage to read.
+# * Podium and shopfront glazing IS separate geometry (`M_MBuilding05_Glass`,
+#   `M_MBuilding04_Glass`, `MI_Glass_Building_A`, opacity 0.698), measured
+#   into `_G_SHOP_FACES` below. Family 02 (office) and family 01 (apartment)
+#   have NO glazing geometry at all — their windows are painted into the
+#   façade map — so the storefront recipe can only put the glass on the
+#   pavement there. That is stated, not hidden.
+# ---------------------------------------------------------------------------
+
+# The painted curtain-wall pane grid, measured off the UVs (see above).
+G_TILE_PER_M = 0.3326          # texture tiles per metre along the wall
+G_TILE_MULLION = 0.5469        # 70/128: where the mullion sits inside a tile
+G_PANE_INSET = 0.075           # m: keep the PAINTED mullion visible round a hole
+G_MIN_PANE_M = 0.55            # m: merge the module-seam sliver into its neighbour
+G_MULLION_W = 0.085            # m: an authored bar, when one is added for relief
+G_MULLION_PROUD = 0.055        # m: how far it stands off the glass line
+G_BENT_MM = (0.010, 0.040)     # mullions bent 10-40 mm at the band corners [8.7]
+G_MAX_DEBRIS = 460             # authored debris prims per building, hard cap
+G_MAX_BARS = 240               # authored mullion bars per building, hard cap
+
+# Glazed FACES of a kit piece, in `_piece_frame` / `_b_face_pt` coordinates:
+#   (plane, u0, u1, v0, v1, out, recess, tex_at_u0, tex_per_m)
+# `plane` "front" is the piece's own frame; "left" is the corner piece's
+# second elevation (the x = xmin plane), built by `_g_left_frame`.
+# `out` is where the glass plane is (0 = 2 cm proud of the piece face);
+# `recess` is how far back the authored opening is pushed so the pocket has
+# depth. v0/v1 are piece-local heights: the transom lines measured off the
+# texture sit at z = 0.02 and z = 2.91 of every 3 m module.
+_G_CW_FACES = {
+    "SM_MBuilding05_SkyscraperFacade_B": [
+        ("front", 0.0, 5.0, 0.02, 2.91, -0.02, 0.86, 0.001, 0.3326)],
+    "SM_MBuilding05_SkyscraperFacade_A": [
+        ("front", 0.0, 5.0, 0.02, 2.91, -0.02, 0.30, 0.001, 0.3326)],
+    "SM_MBuilding05_SkyscraperCorner_B": [
+        ("front", -1.0, 5.0, 0.02, 2.91, -0.02, 0.86, 0.3335, 0.3325),
+        ("left", 0.0, 6.0, 0.02, 2.91, -0.02, 0.86, 1.996, -0.3325)],
+    "SM_MBuilding05_SkyscraperCorner_A": [
+        ("front", 0.0, 5.0, 0.02, 2.91, -0.02, 0.30, 0.001, 0.3326),
+        ("left", 0.0, 5.0, 0.02, 2.91, -0.02, 0.30, 1.664, -0.3326)],
+}
+
+# IN-PLANE fixed glazing that exists as geometry, measured the same way:
+#   name -> [(u0, u1, v0, v1, out)]  (one rectangle per opening)
+# These are shopfronts, arcade windows and lobby walls — Zhao Xi'an's
+# in-plane ladder applies to them, NOT the curtain-wall medians [§12 8.3].
+_G_SHOP_FACES = {
+    # family 04 brick commercial: the stone arcade and the top floor
+    "SM_MBuilding04_FirstFloor_A": [(1.118, 2.882, 2.652, 5.689, -0.909)],
+    "SM_MBuilding04_FirstFloor_B": [(0.750, 3.250, 1.052, 5.610, -0.811)],
+    "SM_MBuilding04_TopFloor_A":   [(0.732, 3.268, 0.600, 2.400, -0.905)],
+    # family 05 podium lobby — 4.8 m BEHIND the arcade face
+    "SM_MBuilding05_FirstFloor_A": [(0.271, 4.729, 0.575, 3.075, -4.823)],
+    "SM_MBuilding05_FirstFloor_B": [(0.270, 4.730, 0.790, 2.610, -4.820)],
+    # CivilianArea sashes (civic hall / offices)
+    "SM_SingleWindow_01a": [(1.008, 1.492, 0.508, 1.728, -0.175)],
+    "SM_SingleWindow_01b": [(1.008, 1.492, 0.508, 1.728, -0.175)],
+    "SM_DoubleWindow_01a": [(0.643, 1.857, 0.508, 1.728, -0.195)],
+    "SM_DoubleWindow_01b": [(0.643, 1.857, 0.508, 1.728, -0.195)],
+    "SM_Church_Window_02": [(0.903, 1.847, 0.709, 2.983, -0.145)],
+    "SM_Church_Window_03": [(0.934, 1.816, 0.705, 2.409, -0.145)],
+}
+
+# Per-grade curtain-wall damage, from `earthquake_research.md` §12 table 8.13.
+# `out` and `crack` are fractions of ALL panes on the mass, NOT of the band —
+# inside the band the local density is far higher, which is the point.
+# `storeys` is the height of the contiguous band; `sides` the number of
+# elevations it wraps.  DG5's 0.40-0.55 replaces the old 0.85, which is
+# outside the field record.
+G_GRADE = {
+    1: dict(out=(0.000, 0.010), crack=(0.010, 0.030), storeys=(1, 1), sides=1,
+            bend=0, peel=False, gaskets=(2, 6)),
+    2: dict(out=(0.020, 0.050), crack=(0.050, 0.120), storeys=(1, 2), sides=1,
+            bend=0, peel=False, gaskets=(3, 9)),
+    3: dict(out=(0.100, 0.200), crack=(0.150, 0.300), storeys=(2, 4), sides=2,
+            bend=2, peel=False, gaskets=(3, 8)),
+    4: dict(out=(0.250, 0.400), crack=(0.250, 0.400), storeys=(4, 8), sides=2,
+            bend=4, peel=True, gaskets=(2, 6)),
+    5: dict(out=(0.400, 0.550), crack=(0.200, 0.350), storeys=(6, 99), sides=3,
+            bend=6, peel=True, gaskets=(1, 4)),
+}
+
+# Glass type modifiers [§12 8.13]. `crack_k` scales the cracked-and-retained
+# share, `out_k` the fallout share, `precar` is the share of cracked panes
+# that are in FEMA E-74's state 3 ("shatters but remains in its frame in a
+# precarious position").  Fully tempered has NO retained state: 6/6 specimens
+# cracked and fell out at the same drift.
+G_GLASS_KIND = {
+    "tempered":  dict(crack_k=0.05, out_k=1.00, precar=0.00, debris="dice"),
+    "annealed":  dict(crack_k=1.00, out_k=0.85, precar=0.10, debris="plates"),
+    "laminated": dict(crack_k=1.35, out_k=0.17, precar=0.55, debris="blanket"),
+}
+
+# Whole-unit peel: 1 façade system in 371 in the field, 5.2 % drift in the lab
+# [§12 8.8]. AT MOST ONE PER SCENE, low down, one elevation. The budget is a
+# module global because a scene is many `wreck_building` calls in one process;
+# the assembly resets it with `g_scene_reset`.
+_G_PEEL_BUDGET = [1]
+
+
+def g_scene_reset(peel_budget=1):
+    """Call once per SCENE (city / bake / bench row) before wrecking anything.
+
+    Rare events are capped per scene, not per building — one whole-unit
+    curtain-wall peel in the whole city, which is already generous against
+    1-in-371 façade systems."""
+    _G_PEEL_BUDGET[0] = int(peel_budget)
+
+
+def _g_mat(ctx, key):
+    """Agent G's material set, made lazily under the building's QuakeLooks.
+
+    Linear albedo (screen grey ~ linear ** 0.42), same convention as
+    `materials()`. Broken glass is DARK GREY-GREEN, never white: a 0.2 m
+    fragment of float glass on asphalt is a dark fleck that occasionally
+    glints, and a heap of tempered dice is darker still because every facet
+    scatters.
+    """
+    from pxr import UsdShade
+    from . import damage
+    flat = {
+        # the interior seen through an empty frame: a shadowed pocket, not a
+        # black void — the ledge returns above and below catch some light
+        "open": ((0.022, 0.021, 0.019), 0.92),
+        # anodised aluminium mullion, dusty
+        "mullion": ((0.055, 0.058, 0.060), 0.45),
+        # a crazed laminated pane: thousands of cracks scatter light, so it
+        # goes PALE — but 0.10 linear is ~0.37 on screen, not paper
+        "crazed": ((0.100, 0.112, 0.118), 0.34),
+        # a pile of 3-12 mm tempered dice. delta_mm = 122100 / U_D gives
+        # 5.5 mm at 100 MPa surface compression [§12 8.4]; ~100 000 per
+        # 1.5 x 1.8 m pane, so this is an instanced CLUMP, never the dice.
+        "dice": ((0.030, 0.042, 0.038), 0.55),
+        # an EPDM gasket extruded out of the pocket in a ribbon — the DG1
+        # signature, and it fails 24 % below the cracking drift
+        "gasket": ((0.013, 0.013, 0.012), 0.88),
+    }
+    rgb, rough = flat[key]
+    path = ctx["parent"] + "/QuakeLooks/g_" + key
+    m = UsdShade.Material.Get(ctx["stage"], path)
+    if not m:
+        m = damage._pbr(ctx["stage"], path, rgb, rough)
+    return m
+
+
+def _g_left_frame(e, meas, fr):
+    """The frame of a CORNER piece's second elevation (its x = xmin plane).
+
+    A `SkyscraperCorner_B` is an L-shaped box glazed on both exposed faces;
+    `_piece_frame` only describes the first. The second runs along the piece's
+    local +Y with local -X outward, so it is the same frame rotated -90 deg
+    about the piece's far corner (mesh (0, ymax)).
+    """
+    if not meas:
+        return None
+    sx, sy, sz, xmin, ymin, zmin = meas
+    ox, oy, yaw, w, h, depth, dw = fr
+    if dw:
+        return None
+    ymax = ymin + sy
+    ca, sa = math.cos(yaw), math.sin(yaw)
+    return (e["x"] - sa * ymax, e["y"] + ca * ymax, yaw - math.pi / 2.0,
+            sy, sz, xmin - 0.02, False)
+
+
+def _g_face_side(m, fr):
+    """Which wall of the mass a face looks out of. `_b_face_pt` pushes a point
+    outward by (sin(yaw), -cos(yaw)), so that vector is the face normal."""
+    yaw = fr[2]
+    nx, ny = math.sin(yaw), -math.cos(yaw)
+    best, bd = "S", -9.9
+    for s in ("S", "E", "N", "W"):
+        ox, oy = _outward(m, s)
+        d = nx * ox + ny * oy
+        if d > bd:
+            best, bd = s, d
+    return best
+
+
+def _g_faces(ctx, e):
+    """Every glazed FACE of one curtain-wall kit piece."""
+    from detail import urban_building as ub
+    spec = _G_CW_FACES.get(e["name"])
+    if not spec:
+        return []
+    fr = _piece_frame(e)
+    if not fr:
+        return []
+    meas = ub.PIECES.get(e["name"])
+    m = ctx["info"]["masses"].get(e["mass"]) or ctx["info"]["masses"]["main"]
+    out = []
+    for (plane, u0, u1, v0, v1, o, recess, tex0, texm) in spec:
+        f = fr if plane == "front" else _g_left_frame(e, meas, fr)
+        if f is None:
+            continue
+        out.append({"fr": f, "u0": u0, "u1": u1, "v0": e["z"] + v0,
+                    "v1": e["z"] + v1, "out": o, "recess": recess,
+                    "tex0": tex0, "texm": texm, "e": e, "plane": plane,
+                    "side": _g_face_side(m, f), "mass": e["mass"],
+                    "storey": e["storey"]})
+    return out
+
+
+def _g_pane_edges(f):
+    """Pane boundaries along a face, ON the painted mullion grid."""
+    u0, u1, t0, tm = f["u0"], f["u1"], f["tex0"], f["texm"]
+    if abs(tm) < 1e-6:
+        return [u0, u1]
+    lo, hi = sorted((t0 + tm * u0, t0 + tm * u1))
+    edges = {u0, u1}
+    k = int(math.floor(lo)) - 1
+    while k <= int(math.ceil(hi)) + 1:
+        for off in (0.0, G_TILE_MULLION):
+            t = k + off
+            if lo - 1e-9 <= t <= hi + 1e-9:
+                u = (t - t0) / tm
+                if u0 + 0.12 < u < u1 - 0.12:
+                    edges.add(u)
+        k += 1
+    es = sorted(edges)
+    # merge the module-seam sliver into its neighbour: a 0.35 m pane going
+    # dark reads as a slot cut in the wall, and the kit's texture phase resets
+    # at every module so one always falls at the joint
+    keep = [es[0]]
+    for u in es[1:]:
+        if u - keep[-1] < G_MIN_PANE_M and u < es[-1] - 1e-6:
+            continue
+        keep.append(u)
+    if len(keep) > 2 and keep[-1] - keep[-2] < G_MIN_PANE_M:
+        keep.pop(-2)
+    return keep
+
+
+def _g_panes(ctx, mass=None):
+    """Every curtain-wall PANE on the building, as records."""
+    out = []
+    for e in _els(ctx, role=("wall", "corner")):
+        if e["name"] not in _G_CW_FACES:
+            continue
+        if mass is not None and e["mass"] != mass:
+            continue
+        for f in _g_faces(ctx, e):
+            es = _g_pane_edges(f)
+            for i in range(len(es) - 1):
+                ua, ub_ = es[i], es[i + 1]
+                if ub_ - ua < 0.25:
+                    continue
+                out.append({"f": f, "ua": ua, "ub": ub_, "va": f["v0"],
+                            "vb": f["v1"], "side": f["side"],
+                            "storey": f["storey"], "mass": f["mass"],
+                            "w": ub_ - ua, "h": f["v1"] - f["v0"]})
+    return out
+
+
+def _g_profile(ctx, m, rng, profile=None):
+    """Which storey racked hardest — the drift profile [§12 8.6].
+
+    A moment frame peaks in the LOWER THIRD (not at the ground floor); a
+    core tower in the upper third; a podium-and-tower at the transition
+    (Plaza Mayor, Concepción); a roof-diaphragm push takes the top storey
+    only (Wenchuan, Qingchuan TCM Hospital). Returns (peak_index, name).
+    """
+    n = max(1, len(m["levels"]))
+    if profile is None:
+        r = rng.random()
+        profile = ("frame_low" if r < 0.45 else
+                   "transition" if r < 0.73 else
+                   "core_upper" if r < 0.90 else "top_diaphragm")
+    if profile == "frame_low":
+        peak = int(n * rng.uniform(0.08, 0.33))
+    elif profile == "transition":
+        peak = 0 if n <= 2 else int(n * rng.uniform(0.30, 0.55))
+    elif profile == "core_upper":
+        peak = int(n * rng.uniform(0.55, 0.85))
+    else:
+        peak = n - 1
+    return max(0, min(n - 1, peak)), profile
+
+
+def _g_band(ctx, m, grade, rng, profile=None):
+    """(set of storeys, [sides], profile name) — the contiguous band."""
+    g = G_GRADE[grade]
+    n = max(1, len(m["levels"]))
+    peak, pname = _g_profile(ctx, m, rng, profile)
+    lo_s, hi_s = g["storeys"]
+    k = min(n, rng.randint(lo_s, min(hi_s, max(lo_s, n))))
+    if grade >= 5:
+        # "lower half of the tower + the whole podium" [8.13]
+        s0, s1 = 0, max(0, int(math.ceil(n * 0.55)) - 1)
+    else:
+        s0 = max(0, min(n - k, peak - rng.randint(0, max(0, k - 1))))
+        s1 = min(n - 1, s0 + k - 1)
+    sides = _pick_sides(ctx, g["sides"])
+    return set(range(s0, s1 + 1)), sides, pname
+
+
+def _g_kind(ctx, glass, rng):
+    """Glass type. Modern towers are mostly fully tempered or FT-laminated;
+    the field's bad performers are older annealed infill glazing with a few
+    millimetres of clearance [§12 8.12]. Drawn when the caller says nothing,
+    which is also where the per-building variety comes from."""
+    if glass in G_GLASS_KIND:
+        return glass
+    r = rng.random()
+    return "tempered" if r < 0.55 else ("annealed" if r < 0.85 else "laminated")
+
+
+def _g_quad(ctx, fr, u0, u1, v0, v1, out, mat, kind="pane"):
+    P = [_b_face_pt(fr, u0, v0, out), _b_face_pt(fr, u1, v0, out),
+         _b_face_pt(fr, u1, v1, out), _b_face_pt(fr, u0, v1, out)]
+    return _b_face_mesh(ctx, (P, [4], [0, 1, 2, 3]), mat, kind)
+
+
+def _g_bar(ctx, fr, u, v, length, height, out, mat, along=True, shift=0.0,
+           kind="mull"):
+    """One authored mullion / transom bar, flush on the wall plane.
+
+    The painted cage already reads; these are for RELIEF at the band edges
+    and for the bent mullions (10-40 mm) the research asks for at the band
+    corners. The piece frame's local +X runs along `u`, so a box rotated by
+    the frame yaw lines up with the wall."""
+    cx, cy, _z = _b_face_pt(fr, u, v, out)
+    if shift:
+        ox, oy, _o = _b_face_pt(fr, u, v, out + shift)
+        cx, cy = ox, oy
+    sx = length if along else G_MULLION_W
+    sz = G_MULLION_W if along else height
+    path = "{0}/{1}_{2}_{3}".format(ctx["parent"], kind, ctx["tag"], _uid(ctx))
+    _box(ctx["stage"], path, cx, cy, v, sx, G_MULLION_W * 1.05, sz,
+         math.degrees(fr[2]), mat)
+    ctx["authored"].append(path)
+    return path
+
+
+def _g_corner_cracks(ctx, fr, ua, ub_, va, vb, out, mat, rng, n=None):
+    """A corner-rooted crack set on ONE pane.
+
+    "Crack propagation starts along the edges near diagonally opposed corners
+    of glass panels where glass-to-aluminium contacts are made" [§12 8.5].
+    So: pick two DIAGONALLY OPPOSED corners, and fan 2-3 jagged lines inward
+    from each, ~45 deg and dying before mid-pane. Never a centre spiderweb —
+    that is an impact signature and reads as a thrown rock.
+    """
+    made = []
+    w, h = ub_ - ua, vb - va
+    diag = rng.random() < 0.5
+    corners = ([(ua, va, 1, 1), (ub_, vb, -1, -1)] if diag
+               else [(ub_, va, -1, 1), (ua, vb, 1, -1)])
+    if rng.random() < 0.35:                     # one corner only, the DS1 state
+        corners = corners[:1]
+    for (cu, cv, su, sv) in corners:
+        for k in range(n or rng.randint(2, 3)):
+            reach = rng.uniform(0.28, 0.62)
+            a = rng.uniform(0.20, 1.35)         # fan about the diagonal
+            du = su * w * reach * math.cos(a)
+            dv = sv * h * reach * math.sin(a)
+            made.append(_b_crack(ctx, fr, cu + su * 0.02, cv + sv * 0.02,
+                                 cu + du, cv + dv, mat,
+                                 width=rng.uniform(0.008, 0.020),
+                                 proud=out + 0.012,
+                                 n_seg=rng.randint(3, 6), jag=0.06))
+    return made
+
+
+def _g_crazed(ctx, fr, ua, ub_, va, vb, out, rng):
+    """FEMA E-74 state 3: "shatters but remains in its frame or anchorage in a
+    precarious position, liable to fall out at any time" — the ONE legitimate
+    hanging pane, and only on laminated / annealed / film-retained glazing.
+    A crazed pane goes pale because every crack scatters, so it is a dense
+    fine mesh over a pale overlay, not a hole."""
+    made = [_g_quad(ctx, fr, ua + 0.02, ub_ - 0.02, va + 0.02, vb - 0.02,
+                    out + 0.006, _g_mat(ctx, "crazed"), "crazed")]
+    mat = ctx["mats"]["crack"]
+    for k in range(rng.randint(7, 12)):
+        u0 = rng.uniform(ua, ub_)
+        v0 = rng.uniform(va, vb)
+        a = rng.uniform(0, 3.14)
+        L = rng.uniform(0.18, 0.75)
+        made.append(_b_crack(ctx, fr, u0, v0, u0 + L * math.cos(a),
+                             v0 + L * math.sin(a), mat, width=0.007,
+                             proud=out + 0.014,
+                             n_seg=3, jag=0.05))
+    return made
+
+
+def _g_gasket(ctx, fr, u, va, vb, out, rng):
+    """A dry EPDM gasket extruded out of its pocket and hanging in a ribbon.
+
+    Gasket failure happens 24 % BELOW the cracking drift [§12 8.7], so this is
+    the DG1 signature: Northridge's towers lost their rubber gaskets by the
+    hundred and almost no glass at all."""
+    v0 = rng.uniform(va + 0.2, vb - 0.9)
+    L = rng.uniform(0.35, 0.95)
+    lean = rng.uniform(-0.10, 0.10)
+    P = [_b_face_pt(fr, u, v0, out + 0.02),
+         _b_face_pt(fr, u + 0.045, v0, out + 0.02),
+         _b_face_pt(fr, u + 0.045 + lean, v0 - L, out + 0.06),
+         _b_face_pt(fr, u + lean, v0 - L, out + 0.06)]
+    return _b_face_mesh(ctx, (P, [4], [0, 1, 2, 3]), _g_mat(ctx, "gasket"),
+                        "gasket")
+
+
+def _g_drop(ctx, m, side, u_world, base_hint=None):
+    """Where a fallen pane lands.
+
+    No reconnaissance report anywhere gives a measured glass throw distance
+    [§12 8.9]; the model is a derivation from construction drop-zone practice:
+    mode 0.05-0.10 H, p90 0.33 H, tail to 0.75 H, hard clip H/2, radius
+    inversely proportional to fragment mass-per-area — so tempered dice land
+    almost straight down in a compact heap and whole panes flutter out.
+    Returns (wx, wy, z, r).
+    """
     rng = ctx["rng"]
-    info = ctx["info"]
-    targets = [e for e in _els(ctx, role=("wall", "corner"))
-               if "Skyscraper" in e["name"] and (mass is None or e["mass"] == mass)]
-    if not targets:
+    H = max(3.0, m["top"] - m["z0"])
+    q = rng.random()
+    if q < 0.72:
+        r = H * rng.uniform(0.03, 0.11)
+    elif q < 0.94:
+        r = H * rng.uniform(0.11, 0.33)
+    else:
+        r = H * rng.uniform(0.33, 0.60)
+    r = min(r, 0.5 * H, 18.0)
+    ox, oy = _outward(m, side)
+    wx, wy = u_world[0] + ox * r, u_world[1] + oy * r
+    # a tower standing on a podium sheds onto the PODIUM ROOF until the
+    # debris clears the setback, and only then reaches the street
+    z = m["z0"]
+    main = ctx["info"]["masses"].get("main")
+    if base_hint is not None:
+        z = base_hint
+    elif main is not None and m is not main and m["z0"] > main["z0"] + 0.5:
+        lx, ly = _to_local(main, wx, wy)
+        if abs(lx) > main["W"] / 2.0 or abs(ly) > main["D"] / 2.0:
+            z = main["z0"]
+    return wx, wy, z, r
+
+
+def _g_dice_heap(ctx, m, side, u_world, area, kind, tag="dice"):
+    """The pile under an empty frame.
+
+    Christchurch, verbatim: "Damage to toughened glass was typically observed
+    as an empty frame and a pile of glass fragments on the footpath", and
+    "the tempered glass fragments tend to fall from the frame or anchorage in
+    CLUSTERS" [§12 8.4]. So a compact heap plus a thin scatter skirt, footprint
+    ~1.2 x the panel area (FEMA P-58's own consequence function), and NEVER
+    100 000 individual dice — a 1.5 x 1.8 m tempered pane is ~100 000
+    fragments and 40 kg.
+    """
+    rng = ctx["rng"]
+    if ctx.get("g_debris", 0) >= G_MAX_DEBRIS:
+        return []
+    made = []
+    wx, wy, z, r = _g_drop(ctx, m, side, u_world)
+    foot = math.sqrt(max(0.4, 1.2 * area))          # 1.2 x panel area
+    dice = _g_mat(ctx, "dice")
+    shard = ctx["mats"]["glass_shard"]
+    if kind == "blanket":
+        # FT-laminated: the interlayer holds thousands of crumbs and the unit
+        # "tends to fold and fall like a heavy blanket" [§12 8.4]
+        path = "{0}/gmat_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
+        _box(ctx["stage"], path, wx, wy, z + 0.035, foot * rng.uniform(0.8, 1.2),
+             foot * rng.uniform(0.5, 0.9), 0.06, rng.uniform(0, 180), dice)
+        made.append(path)
+        n_sk = rng.randint(2, 5)
+    elif kind == "plates":
+        # annealed: "large, jagged shards", cracks running at 45 deg
+        for k in range(rng.randint(3, 6)):
+            s = rng.uniform(0.22, 0.62)
+            path = "{0}/gpl_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
+            _box(ctx["stage"], path,
+                 wx + rng.uniform(-foot, foot) * 0.6,
+                 wy + rng.uniform(-foot, foot) * 0.6, z + 0.010,
+                 s, s * rng.uniform(0.35, 0.9), 0.014, rng.uniform(0, 180), shard)
+            made.append(path)
+        n_sk = rng.randint(5, 10)
+    else:
+        # tempered: 3-12 mm hexagonal dice, ~100 000 per pane. A CLUMP proxy:
+        # a few flattened lumps that read as a granular heap, and the skirt.
+        for k in range(rng.randint(3, 5)):
+            s = foot * rng.uniform(0.30, 0.62)
+            path = "{0}/gdi_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
+            _a_lump(ctx["stage"], path,
+                    wx + rng.uniform(-0.45, 0.45) * foot,
+                    wy + rng.uniform(-0.45, 0.45) * foot,
+                    z + rng.uniform(0.012, 0.05),
+                    s, rng, mat=dice, jitter=0.42)
+            made.append(path)
+        n_sk = rng.randint(6, 12)
+    # the skirt: single dice and, on tempered glass, the few 100-250 mm
+    # SPIKES certified toughened glass still produces (the 1988 Croydon
+    # fatality) [§12 8.4]
+    for k in range(n_sk):
+        d = foot * rng.uniform(0.7, 2.4)
+        a = rng.uniform(0, 6.283)
+        s = (rng.uniform(0.10, 0.25) if (kind == "dice" and rng.random() < 0.15)
+             else rng.uniform(0.03, 0.09))
+        path = "{0}/gsk_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
+        _box(ctx["stage"], path, wx + d * math.cos(a), wy + d * math.sin(a),
+             z + 0.006, s, s * rng.uniform(0.3, 1.0), 0.011,
+             rng.uniform(0, 180), shard)
+        made.append(path)
+    ctx["g_debris"] = ctx.get("g_debris", 0) + len(made)
+    ctx["authored"] += made
+    return made
+
+
+def _g_follow(ctx, path, owner):
+    """Register an authored prim that is STUCK TO A WALL, with the wall's
+    world transform at the moment it was authored.
+
+    Every glass recipe authors from the ELEMENT RECORDS (`e["x"]`, `e["z"]`),
+    which are the building's pristine coordinates and are never updated when
+    a later recipe moves the building. So a curtain wall drawn before
+    `soft_storey` or `tilt_sink` would be left hanging in the air where the
+    tower used to be. `r_glass_follow` replays the owner's own delta onto
+    these prims afterwards; it goes LAST in any ladder whose grade moves the
+    shell. Ground debris is deliberately NOT registered — glass that has
+    already landed stays on the pavement while the building sinks into it.
+    """
+    if not path or not owner:
+        return path
+    from pxr import UsdGeom
+    fol = ctx.setdefault("g_follow", {})
+    rec = fol.get(owner)
+    if rec is None:
+        prim = ctx["stage"].GetPrimAtPath(owner)
+        if not prim or not prim.IsValid():
+            return path
+        rec = {"M0": UsdGeom.XformCache().GetLocalToWorldTransform(prim),
+               "paths": []}
+        fol[owner] = rec
+    rec["paths"].append(path)
+    return path
+
+
+def _g_follow_all(ctx, paths, owner):
+    for p in (paths or []):
+        _g_follow(ctx, p, owner)
+    return paths
+
+
+def r_glass_follow(ctx):
+    """Move the authored glass art by whatever its wall did after it was drawn.
+
+    `_transform_prims` post-multiplies (p' = p * local * M), so if a wall's
+    world transform went W0 -> W1 the delta is M = W0^-1 * W1, and applying
+    that same M to the art puts it back on the wall. If the wall has been
+    deleted meanwhile (a peel, an infill blow-out) the art goes with it.
+    """
+    from pxr import Gf
+    from pxr import UsdGeom
+    fol = ctx.pop("g_follow", None)
+    if not fol:
         return
-    masses = sorted({e["mass"] for e in targets})
-    bad_side = rng.choice(["S", "E", "N", "W"])
-    n_removed = 0
-    for e in targets:
-        m = info["masses"][e["mass"]]
-        H = max(1.0, m["top"] - m["z0"])
-        hfrac = (e["z"] - m["z0"]) / H
-        p = frac * (1.35 - 0.7 * hfrac) * (1.45 if e["side"] == bad_side else 0.8)
-        if rng.random() < p:
-            if _deactivate(ctx["stage"], e["p"].get("prim_path")):
-                e["dead"] = True
-                n_removed += 1
-    for mt in masses:
-        _shard_field(ctx, frac * 1.6, mass=mt)
-    ctx["notes"].append("glass_fallout: {0} module(s) of {1}".format(
-        n_removed, len(targets)))
+    xf = UsdGeom.XformCache()
+    moved = dropped = 0
+    for owner, rec in fol.items():
+        prim = ctx["stage"].GetPrimAtPath(owner)
+        if not prim or not prim.IsValid() or not prim.IsActive():
+            for p in rec["paths"]:
+                _deactivate(ctx["stage"], p)
+            dropped += len(rec["paths"])
+            continue
+        M = rec["M0"].GetInverse() * xf.GetLocalToWorldTransform(prim)
+        if Gf.IsClose(M, Gf.Matrix4d(1.0), 1e-7):
+            continue
+        moved += _transform_prims(ctx["stage"], rec["paths"], M)
+    if moved or dropped:
+        ctx["notes"].append(
+            "glass_follow: {0} art prim(s) carried with their wall, "
+            "{1} dropped with a deleted module".format(moved, dropped))
+
+
+def _g_side_w(side, sides):
+    """Kobe 1995: southerly-oriented glazing above 70 % damaged, northerly
+    below 15 % [§12 8.6]. One elevation carries the band; the neighbours get
+    a little; the far side almost nothing."""
+    if not sides:
+        return 1.0
+    try:
+        i = list(sides).index(side)
+    except ValueError:
+        return 0.055
+    return (1.0, 0.62, 0.34)[i] if i < 3 else 0.12
+
+
+def _g_pane_world(p):
+    fr = p["f"]["fr"]
+    return _b_face_pt(fr, 0.5 * (p["ua"] + p["ub"]), p["va"], p["f"]["out"])
+
+
+def r_curtain_wall(ctx, grade=3, glass=None, mass=None, profile=None,
+                   sides=None, out_frac=None, crack_frac=None, peel=None,
+                   scatter=False):
+    """A curtain-wall tower loses its GLASS in a BAND, and keeps its cage.
+
+    The replacement for `r_glass_fallout`. Every number is from
+    `earthquake_research.md` §12 (table 8.13 for the per-grade fractions,
+    8.6 for the band, 8.4 for the debris, 8.5 for the crack art, 8.7 for what
+    stays). Nothing is deleted: the module, its ledges, its transoms and its
+    painted mullion grid all survive, and a dark opening is authored inside
+    each lost pane, inset by half a painted mullion so the cage still reads.
+
+    grade      1..5 (EMS-98 damage grade for this building)
+    glass      "tempered" | "annealed" | "laminated"; None draws one
+    profile    "frame_low" | "transition" | "core_upper" | "top_diaphragm"
+    scatter    True = acceleration-driven loss on a STIFF building: drop the
+               band and scatter single panes (Aleppo 2023 [§12 8.6]). This is
+               what the round-2 code drew by accident, and it is right only
+               here.
+    """
+    rng = ctx["rng"]
+    grade = int(max(1, min(5, grade)))
+    g = G_GRADE[grade]
+    panes = _g_panes(ctx, mass)
+    if not panes:
+        return
+    kind = _g_kind(ctx, glass, rng)
+    km = G_GLASS_KIND[kind]
+    by_mass = {}
+    for p in panes:
+        by_mass.setdefault(p["mass"], []).append(p)
+    n_out_all = n_crack_all = 0
+    for tag, ps in sorted(by_mass.items()):
+        m = ctx["info"]["masses"].get(tag) or ctx["info"]["masses"]["main"]
+        band, bsides, pname = _g_band(ctx, m, grade, rng, profile)
+        if sides:
+            bsides = list(sides)
+        if scatter:
+            band, pname = set(range(len(m["levels"]))), "scatter"
+        of = out_frac if out_frac is not None else rng.uniform(*g["out"])
+        cf = crack_frac if crack_frac is not None else rng.uniform(*g["crack"])
+        of *= km["out_k"]
+        cf *= km["crack_k"]
+        n_out = int(round(of * len(ps)))
+        n_crack = int(round(cf * len(ps)))
+        for p in ps:
+            d = 0 if p["storey"] in band else min(
+                abs(p["storey"] - s) for s in band)
+            w = 1.0 if d == 0 else (0.16 if d == 1 else 0.04)
+            if scatter:
+                w = 0.45 + 0.55 * rng.random()
+            # a wide ribbon pane is the most vulnerable pane on any facade:
+            # D_clear grows with h_p/b_p, so squat panes fail first [§12 8.2]
+            w *= max(0.75, min(1.35, p["w"] / 1.5))
+            p["s"] = w * _g_side_w(p["side"], bsides) * rng.uniform(0.7, 1.3)
+        ps.sort(key=lambda q: -q["s"])
+        out = ps[:n_out]
+        rest = ps[n_out:]
+        # ISOLATED SURVIVORS INSIDE THE BAND. Mexico City 1985, 90 Durango:
+        # "loss of glazing apart from top three floors (EXCEPT ONE PANEL)".
+        # A band with no survivor in it reads as a cut-out. [§12 8.6]
+        n_surv = min(len(out), rng.randint(1, 3) if n_out > 6 else 0)
+        for k in range(n_surv):
+            i = rng.randrange(0, max(1, len(out)))
+            rest.append(out.pop(i))
+        # and a few strays outside it — the band is not a stencil
+        for k in range(min(len(rest), rng.randint(0, 2))):
+            j = rng.randrange(0, len(rest))
+            out.append(rest.pop(j))
+        crack = [q for q in rest if q["storey"] in band
+                 or rng.random() < 0.10][:n_crack]
+        # --- author -------------------------------------------------------
+        openm = _g_mat(ctx, "open")
+        mullm = _g_mat(ctx, "mullion")
+        crackm = ctx["mats"]["crack"]
+        bars = 0
+        band_lo, band_hi = min(band), max(band)
+        for p in out:
+            f = p["f"]
+            ua, ub_ = p["ua"] + G_PANE_INSET, p["ub"] - G_PANE_INSET
+            va, vb = p["va"] + G_PANE_INSET, p["vb"] - G_PANE_INSET
+            if ub_ - ua < 0.12 or vb - va < 0.12:
+                continue
+            own = f["e"]["p"].get("prim_path")
+            ctx["authored"].append(_g_follow(ctx,
+                _g_quad(ctx, f["fr"], ua, ub_, va, vb,
+                        f["out"] - f["recess"], openm, "opening"), own))
+            edge = p["storey"] in (band_lo, band_hi)
+            if bars < G_MAX_BARS and (edge or rng.random() < 0.28):
+                # relief on the cage where the eye stops: the band's top and
+                # bottom line. The painted mullion carries the rest.
+                for uu in (p["ua"], p["ub"]):
+                    _g_follow(ctx, _g_bar(
+                        ctx, f["fr"], uu, 0.5 * (p["va"] + p["vb"]),
+                        G_MULLION_W, p["vb"] - p["va"],
+                        f["out"] + G_MULLION_PROUD, mullm, along=False), own)
+                    bars += 1
+                _g_follow(ctx, _g_bar(
+                    ctx, f["fr"], 0.5 * (p["ua"] + p["ub"]),
+                    p["va"] + 0.03, p["ub"] - p["ua"], G_MULLION_W,
+                    f["out"] + G_MULLION_PROUD, mullm, along=True), own)
+                bars += 1
+            _g_dice_heap(ctx, m, p["side"], _g_pane_world(p),
+                         (p["ub"] - p["ua"]) * (p["vb"] - p["va"]),
+                         km["debris"])
+        # bent mullions at the band corners — the glass plastically deforms
+        # the aluminium as it rotates into the frame [§12 8.7]. 10-40 mm.
+        bent = [q for q in out if q["storey"] in (band_lo, band_hi)]
+        rng.shuffle(bent)
+        for p in bent[:g["bend"]]:
+            _g_follow(ctx, _g_bar(
+                ctx, p["f"]["fr"], p["ua"], 0.5 * (p["va"] + p["vb"]),
+                G_MULLION_W, p["vb"] - p["va"],
+                p["f"]["out"] + G_MULLION_PROUD, mullm, along=False,
+                shift=rng.uniform(*G_BENT_MM), kind="bentmull"),
+                p["f"]["e"]["p"].get("prim_path"))
+        for p in crack:
+            f = p["f"]
+            own = f["e"]["p"].get("prim_path")
+            if km["precar"] > 0 and rng.random() < km["precar"]:
+                ctx["authored"] += _g_follow_all(ctx, _g_crazed(
+                    ctx, f["fr"], p["ua"], p["ub"], p["va"], p["vb"],
+                    f["out"], rng), own)
+            else:
+                ctx["authored"] += _g_follow_all(ctx, _g_corner_cracks(
+                    ctx, f["fr"], p["ua"], p["ub"], p["va"], p["vb"],
+                    f["out"], crackm, rng), own)
+        # gaskets go first — 24 % below the cracking drift, and hundreds per
+        # tower at Northridge with almost no broken glass [§12 8.7]
+        pool = [q for q in ps if q["storey"] in band] or ps
+        for k in range(rng.randint(*g["gaskets"])):
+            q = pool[rng.randrange(len(pool))]
+            ctx["authored"].append(_g_follow(ctx,
+                _g_gasket(ctx, q["f"]["fr"], q["ua"] + 0.03, q["va"], q["vb"],
+                          q["f"]["out"], rng),
+                q["f"]["e"]["p"].get("prim_path")))
+        n_out_all += len(out)
+        n_crack_all += len(crack)
+        ctx["notes"].append(
+            "curtain_wall DG{0} {1} {2}: band storeys {3}-{4} on {5}, "
+            "{6}/{7} panes out ({8:.0f} %), {9} cracked/retained".format(
+                grade, kind, tag, band_lo, band_hi, "+".join(bsides),
+                len(out), len(ps), 100.0 * len(out) / max(1, len(ps)),
+                len(crack)))
+    if peel is None:
+        peel = g["peel"]
+    if peel:
+        _g_peel(ctx, mass=mass, kind=km["debris"])
+    ctx["notes"].append("curtain_wall: {0} out, {1} cracked, {2} debris prims"
+                        .format(n_out_all, n_crack_all, ctx.get("g_debris", 0)))
+
+
+def _g_peel(ctx, mass=None, kind="dice"):
+    """The one rare event: a whole curtain-wall UNIT peels off, glass and
+    mullions together.
+
+    Christchurch, one system in 371: aluminium screwed to a timber sub-frame,
+    "multiple sections completely detaching along one side of the building at
+    the second floor fell to the ground"; Mexico City 1985: "glazing and
+    mullions at first level lost and buckled, due to downward movement of the
+    curtain wall system relative to the pavement" — whole-unit loss is a
+    GROUND-FLOOR phenomenon [§12 8.8, 8.6]. So: at most one per SCENE, one
+    storey, one elevation, as low as the curtain wall goes.
+    """
+    if _G_PEEL_BUDGET[0] <= 0:
+        return
+    rng = ctx["rng"]
+    cands = [e for e in _els(ctx, role=("wall",))
+             if e["name"] in _G_CW_FACES and (mass is None or e["mass"] == mass)]
+    if not cands:
+        return
+    lo = min(e["storey"] for e in cands)
+    side = rng.choice(sorted({e["side"] for e in cands}))
+    run = [e for e in cands if e["storey"] == lo and e["side"] == side]
+    if not run:
+        return
+    run.sort(key=lambda e: (e["lx"], e["ly"]))
+    run = run[:max(1, min(2, len(run)))]
+    m = ctx["info"]["masses"].get(run[0]["mass"]) or ctx["info"]["masses"]["main"]
+    ox, oy = _outward(m, side)
+    gone = 0
+    for e in run:
+        if not _deactivate(ctx["stage"], e["p"].get("prim_path")):
+            continue
+        e["dead"] = True
+        gone += 1
+        # the unit on the pavement: a flat aluminium lattice, still gridded,
+        # lying just clear of the wall with its glass shed round it
+        fr = _piece_frame(e)
+        if fr is None:
+            continue
+        mull = _g_mat(ctx, "mullion")
+        d = rng.uniform(1.4, 3.2)
+        for k in range(4):
+            u = 0.35 + k * 1.45
+            x, y, _z = _b_face_pt(fr, u, m["z0"], d)
+            path = "{0}/gpeel_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
+            _box(ctx["stage"], path, x + ox * rng.uniform(-0.4, 0.4),
+                 y + oy * rng.uniform(-0.4, 0.4), m["z0"] + 0.06,
+                 rng.uniform(2.2, 3.0), 0.09, 0.10,
+                 math.degrees(fr[2]) + rng.uniform(-14, 14), mull)
+            ctx["authored"].append(path)
+        for k in range(2):
+            x, y, _z = _b_face_pt(fr, 2.5, m["z0"], d + rng.uniform(-0.6, 0.6))
+            path = "{0}/gpeelt_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
+            _box(ctx["stage"], path, x, y, m["z0"] + 0.10, 0.10, 0.09,
+                 rng.uniform(3.4, 4.6), math.degrees(fr[2]) + 90.0 + rng.uniform(-10, 10),
+                 mull)
+            ctx["authored"].append(path)
+        _g_dice_heap(ctx, m, side, _b_face_pt(fr, 2.5, m["z0"] + 0.2, 0.0),
+                     10.0, kind)
+    if gone:
+        _G_PEEL_BUDGET[0] -= 1
+        ctx["g_peel"] = True
+        ctx["notes"].append(
+            "curtain_wall: ONE whole-unit peel ({0} module(s), storey {1}, "
+            "{2} side) — scene budget now {3}".format(
+                gone, lo, side, _G_PEEL_BUDGET[0]))
+
+
+# In-plane fixed glazing — shopfronts, arcade windows, lobby walls, URM
+# sashes. Zhao Xi'an's Wenchuan survey keyed the glass to the adjacent brick
+# wall's state, which is exactly our grade [§12 8.3]:
+#   < 1/800   nothing            |  1/500-1/300  "glass breaks in large numbers"
+#   1/300-1/150 "frames buckle, bulge outward, even flung out; glass basically
+#               shattered and scattered; often only the empty window opening
+#               is left"        |  > 1/150  windows vanish with the wall.
+# Ferndale 2010 gives the only published cracked-share for a shopfront row:
+# "50 % of the glazing on Main Street was cracked" [§12 8.10] -> DG2.
+G_SHOP_GRADE = {
+    1: dict(out=0.00, crack=0.10, rack=0.0, sill=0.25),
+    2: dict(out=0.06, crack=0.50, rack=0.0, sill=0.55),
+    3: dict(out=0.35, crack=0.35, rack=0.06, sill=0.90),
+    4: dict(out=0.70, crack=0.15, rack=0.16, sill=1.00),
+    5: dict(out=0.92, crack=0.04, rack=0.24, sill=1.00),
+}
+
+
+def _g_shop_openings(ctx, mass=None, sides=None, storeys=None):
+    """Every measured in-plane glazed opening on the building."""
+    from detail import urban_building as ub
+    out = []
+    for e in _els(ctx, role=("wall", "corner")):
+        rects = _G_SHOP_FACES.get(e["name"])
+        if not rects:
+            continue
+        if mass is not None and e["mass"] != mass:
+            continue
+        if sides and e["side"] not in sides:
+            continue
+        if storeys is not None and e["storey"] not in storeys:
+            continue
+        fr = _piece_frame(e)
+        if fr is None:
+            continue
+        m = ctx["info"]["masses"].get(e["mass"]) or ctx["info"]["masses"]["main"]
+        for (u0, u1, v0, v1, o) in rects:
+            out.append({"fr": fr, "ua": u0, "ub": u1, "va": e["z"] + v0,
+                        "vb": e["z"] + v1, "out": o, "e": e, "m": m,
+                        "side": e["side"], "storey": e["storey"]})
+    return out
+
+
+def _g_rack_frame(ctx, op, lean, rng):
+    """Zhao's high-drift state: "frames buckle, bulge outward, even flung out".
+
+    The frame is squeezed into a PARALLELOGRAM with the sash still rectangular
+    inside it (Wenchuan, verbatim) [§12 8.15]. Drawn as leaning jamb/mullion
+    bars across the opening plus a head bar bowed out of plane, standing proud
+    of the glass line so the lean is visible against the reveal.
+    """
+    fr, mull = op["fr"], _g_mat(ctx, "mullion")
+    h = op["vb"] - op["va"]
+    w = op["ub"] - op["ua"]
+    n = max(2, int(round(w / 1.3)) + 1)
+    made = []
+    for k in range(n):
+        u = op["ua"] + w * (k / float(n - 1)) if n > 1 else op["ua"] + w / 2.0
+        # a leaning jamb: two stacked boxes offset along the wall, so the
+        # parallelogram reads without a shear transform on the mesh
+        for t in (0.28, 0.75):
+            cu = u + lean * h * t
+            path = "{0}/grack_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
+            cx, cy, _z = _b_face_pt(fr, cu, op["va"], op["out"] + 0.10)
+            _box(ctx["stage"], path, cx, cy, op["va"] + h * t,
+                 G_MULLION_W, G_MULLION_W, h * 0.48,
+                 math.degrees(fr[2]), mull)
+            made.append(path)
+    # the head, bulged outward
+    cx, cy, _z = _b_face_pt(fr, op["ua"] + w / 2.0, op["vb"] - 0.10,
+                            op["out"] + 0.10 + abs(lean) * 1.6)
+    path = "{0}/grackh_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
+    _box(ctx["stage"], path, cx, cy, op["vb"] - 0.10, w * 0.94, G_MULLION_W,
+         G_MULLION_W, math.degrees(fr[2]) + rng.uniform(-3.0, 3.0), mull)
+    made.append(path)
+    ctx["authored"] += made
+    return made
+
+
+def _g_sill_glass(ctx, op, kind, rng, heavy=1.0):
+    """"The sill buried in rubble and glass" — the storefront signature.
+
+    FEMA E-74 Fig. 6.3.1.4-6, observed: every pane gone, the vertical mullions
+    bowed one way, the sill buried, the interior visible. Storefront glass is
+    also the dangerous kind: FEMA P-58 puts the serious-injury rate per
+    fallout unit at 0.25 for storefront against 0.02 for curtain wall [§12 8.9].
+    """
+    if ctx.get("g_debris", 0) >= G_MAX_DEBRIS:
+        return []
+    fr, m = op["fr"], op["m"]
+    made = []
+    shard = ctx["mats"]["glass_shard"]
+    dice = _g_mat(ctx, "dice")
+    w = op["ub"] - op["ua"]
+    n = max(3, int(round(7 * heavy * max(0.6, w / 2.5))))
+    for k in range(n):
+        u = rng.uniform(op["ua"] - 0.3, op["ub"] + 0.3)
+        # most of it drops straight down inside the reveal, a little washes
+        # out onto the pavement
+        o = (op["out"] + rng.uniform(0.15, 1.0) if rng.random() < 0.7
+             else rng.uniform(0.4, 2.4))
+        x, y, _z = _b_face_pt(fr, u, m["z0"], o)
+        path = "{0}/gsill_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
+        if rng.random() < 0.45:
+            _a_lump(ctx["stage"], path, x, y, m["z0"] + 0.03,
+                    rng.uniform(0.22, 0.55), rng, mat=dice, jitter=0.4)
+        else:
+            s = rng.uniform(0.10, 0.40)
+            _box(ctx["stage"], path, x, y, m["z0"] + 0.008, s,
+                 s * rng.uniform(0.3, 0.9), 0.013, rng.uniform(0, 180), shard)
+        made.append(path)
+    ctx["g_debris"] = ctx.get("g_debris", 0) + len(made)
+    ctx["authored"] += made
+    return made
+
+
+def _g_sill_litter(ctx, mass="main", sides=None, storey=0, density=1.0):
+    """Glass on the pavement under a storey whose windows are PAINTED.
+
+    Families 01 (stone apartment), 02 (office) and 03 (brownstone) have no
+    glazing geometry at all — the windows are in the façade map — so there is
+    nothing to open there and honesty is a windrow of glass at the foot of
+    the wall instead of a guessed rectangle. Banded under the glazed storey,
+    which is already better than the round-2 shard field's spray on all four
+    sides at random depth.
+    """
+    rng = ctx["rng"]
+    m = ctx["info"]["masses"].get(mass) or ctx["info"]["masses"]["main"]
+    shard = ctx["mats"]["glass_shard"]
+    made = []
+    for side in (sides or ("S",)):
+        ox, oy = _outward(m, side)
+        L = m["W"] if side in ("S", "N") else m["D"]
+        n = max(3, int(round(8 * density * L / 20.0)))
+        for k in range(n):
+            t = rng.uniform(-0.46, 0.46) * L
+            d = rng.uniform(0.25, 2.2)
+            if side in ("S", "N"):
+                lx, ly = t, (-m["D"] / 2.0 - d if side == "S" else m["D"] / 2.0 + d)
+            else:
+                lx, ly = (-m["W"] / 2.0 - d if side == "W" else m["W"] / 2.0 + d), t
+            wx, wy = _to_world(m, lx, ly)
+            s = rng.uniform(0.08, 0.34)
+            path = "{0}/glit_{1}_{2}".format(ctx["parent"], ctx["tag"], _uid(ctx))
+            _box(ctx["stage"], path, wx, wy, m["z0"] + 0.008, s,
+                 s * rng.uniform(0.3, 0.9), 0.013, rng.uniform(0, 180), shard)
+            made.append(path)
+    ctx["authored"] += made
+    return made
+
+
+def r_storefront_glass(ctx, grade=3, mass=None, sides=None, storeys=None,
+                       glass="annealed", litter=True):
+    """Shopfronts, arcade windows, lobby glazing and URM sashes.
+
+    NOT the curtain-wall medians: these panes are IN PLANE with the wall, so
+    they take the wall's own drift, and the record is harsh — Loma Prieta's
+    Watsonville Main Street, Northridge's storefronts, Türkiye 2023 where the
+    glazed retail storey is what MADE the soft storey that collapsed. The
+    ladder is Zhao Xi'an's (G_SHOP_GRADE above).
+
+    Where the kit has no glazing geometry (families 01/02/03 — painted
+    windows) this lays the glass at the sill and nothing else; see
+    `_g_sill_litter`.
+    """
+    rng = ctx["rng"]
+    grade = int(max(1, min(5, grade)))
+    g = G_SHOP_GRADE[grade]
+    km = G_GLASS_KIND.get(glass, G_GLASS_KIND["annealed"])
+    ops = _g_shop_openings(ctx, mass=mass, sides=sides, storeys=storeys)
+    if not ops:
+        if litter:
+            n = len(_g_sill_litter(
+                ctx, mass=mass or "main",
+                sides=sides or _pick_sides(ctx, 2 if grade >= 3 else 1),
+                density=g["sill"]))
+            ctx["notes"].append(
+                "storefront_glass DG{0}: no glazing geometry on this kit "
+                "family (painted windows) — {1} glass pieces at the sill"
+                .format(grade, n))
+        return
+    # the ground storey is where the drift and the shopfronts are
+    for op in ops:
+        op["s"] = (1.0 if op["storey"] == 0 else 0.45) * rng.uniform(0.7, 1.3)
+    ops.sort(key=lambda q: -q["s"])
+    n_out = int(round(g["out"] * len(ops)))
+    n_crack = int(round(g["crack"] * len(ops)))
+    openm = _g_mat(ctx, "open")
+    crackm = ctx["mats"]["crack"]
+    n_rack = 0
+    for op in ops[:n_out]:
+        own = op["e"]["p"].get("prim_path")
+        ctx["authored"].append(_g_follow(ctx,
+            _g_quad(ctx, op["fr"], op["ua"] + 0.03, op["ub"] - 0.03,
+                    op["va"] + 0.03, op["vb"] - 0.03, op["out"] - 0.03,
+                    openm, "shopopen"), own))
+        if g["rack"] > 0 and rng.random() < 0.75:
+            _g_follow_all(ctx, _g_rack_frame(
+                ctx, op, rng.choice((-1.0, 1.0)) * g["rack"], rng), own)
+            n_rack += 1
+        _g_sill_glass(ctx, op, km["debris"], rng, heavy=g["sill"])
+    for op in ops[n_out:n_out + n_crack]:
+        own = op["e"]["p"].get("prim_path")
+        if km["precar"] > 0 and rng.random() < km["precar"]:
+            ctx["authored"] += _g_follow_all(ctx, _g_crazed(
+                ctx, op["fr"], op["ua"], op["ub"], op["va"], op["vb"],
+                op["out"], rng), own)
+        else:
+            ctx["authored"] += _g_follow_all(ctx, _g_corner_cracks(
+                ctx, op["fr"], op["ua"], op["ub"], op["va"], op["vb"],
+                op["out"], crackm, rng), own)
+        if rng.random() < 0.35 * g["sill"]:
+            _g_sill_glass(ctx, op, km["debris"], rng, heavy=0.3)
+    ctx["notes"].append(
+        "storefront_glass DG{0}: {1}/{2} openings emptied, {3} cracked, "
+        "{4} frames racked".format(grade, n_out, len(ops), n_crack, n_rack))
 
 
 def r_infill_fail(ctx, storeys=1, frac=0.4, mass="main"):
@@ -2026,7 +3791,8 @@ def r_corner_fail(ctx, storeys=2, mass="main", corner=None):
             continue
         st, lo = _break(ctx["stage"], ctx["parent"], e, ctx["tag"],
                         8 + rng.randrange(5), rng, nrng, ctx["mats"],
-                        ctx["cache"], ctx["info"]["type"], inner_p=0.4)
+                        ctx["cache"], ctx["info"]["type"], inner_p=0.4,
+                        **_p_frac_kw(ctx))            # _p_ brick / prism cells
         ox, oy = _outward(m, e["side"])
         for pth in lo:
             v = rng.uniform(0.2, 0.8)
@@ -2048,9 +3814,12 @@ def r_corner_fail(ctx, storeys=2, mass="main", corner=None):
             if not path:
                 continue
             tex = damage.bound_texture(ctx["stage"], path)
-            # the line runs UP the wall, so masonry tooths vertically
-            wob = _a_wobble(rng, 0.85, max(6.0, m["top"] - m["z0"]),
-                            ctx["info"]["type"], vertical=True)
+            # the line runs UP the wall, so masonry tooths vertically —
+            # _p_: on the BOND now (runs of whole courses, risers of half
+            # stretchers) rather than a continuous walk
+            wob = _p_wobble(rng, 0.85, max(6.0, m["top"] - m["z0"]),
+                            ctx["info"]["type"], vertical=True,
+                            pitch=_p_pitch(ctx))
             keep_r = d - rng.uniform(1.0, 3.0)
 
             def judge(c, _k=keep_r, _w=wob, _z=m["z0"]):
@@ -2059,7 +3828,8 @@ def r_corner_fail(ctx, storeys=2, mass="main", corner=None):
             st, lo = _break_split(
                 ctx, path, 9 + rng.randrange(4), judge, _mat_fn(ctx, tex, 0.35),
                 static_mat=_clad_material(ctx["stage"], ctx["parent"],
-                                          ctx["cache"], tex) if tex else None)
+                                          ctx["cache"], tex) if tex else None,
+                **_p_frac_kw(ctx))                    # _p_
             ox, oy = _outward(m, e["side"])
             for q in lo:
                 v = rng.uniform(0.3, 1.0)
@@ -2095,7 +3865,8 @@ def r_corner_fail(ctx, storeys=2, mass="main", corner=None):
             # THE WOBBLE RUNS IN ARC LENGTH, NOT IN RADIANS. `_wander` keyed on
             # atan2 put one cycle over the whole quarter-turn, so the notch's
             # edge was a smooth arc — a compass line rather than a break.
-            wob = _a_wobble(rng, 1.1, max(4.0, 1.6 * rr), btype)
+            wob = _p_wobble(rng, 1.1, max(4.0, 1.6 * rr), btype,
+                            pitch=_p_pitch(ctx))      # _p_
 
             def judge(c, _r=rr, _w=wob):
                 lx, ly = _to_local(m, c[0], c[1])
@@ -2103,9 +3874,12 @@ def r_corner_fail(ctx, storeys=2, mass="main", corner=None):
                 return math.hypot(lx - cx, ly - cy) < _r + _w(th * _r)
             from pxr import UsdShade
             bm = UsdShade.MaterialBindingAPI(ctx["stage"].GetPrimAtPath(strip)).ComputeBoundMaterial()[0]
+            # _p_: the strip is a SLAB, not masonry — prisms through its
+            # full thickness, whatever the building is built of.
             st, lo = _break_split(ctx, strip, 12 + rng.randrange(5), judge, mat_fn,
-                                  min_volume_frac=0.0008, rough=ROUGH_STRIP_M,
-                                  static_mat=bm if bm else None)
+                                  min_volume_frac=0.0008,
+                                  static_mat=bm if bm else None,
+                                  **_p_slab_kw(ctx, rough=ROUGH_STRIP_M))
             statics += st
             loose += lo
             _a_edge_bars(ctx, st, btype, m, sd)
@@ -2143,7 +3917,7 @@ def r_corner_fail(ctx, storeys=2, mass="main", corner=None):
     # corner: the rest of that storey is undamaged and should stay so.
     k0 = min(top_storeys) if top_storeys else 0
     if k0 > 0:
-        _a_ragged_courses(
+        _p_ragged_courses(                            # _p_ (was _a_)
             ctx, mass, k0, sides=c_sides, above=False, below=True,
             band=(0.25, 0.75), p=0.9,
             near=lambda e: math.hypot(e["lx"] - cx, e["ly"] - cy) < reach + 5.0)
@@ -2274,6 +4048,7 @@ def _break_box_like(ctx, e, n, timber=False, consume=0.0, dusty=False,
     # quad), which is exactly the case `_roof_box` exists to avoid.
     made = fracture.fracture_prim(ctx["stage"], box, out, n_pieces=n,
                                   rng=ctx["nrng"], solid_m=solid_m,
+                                  dump_tag="roofbox|" + box.rsplit("/", 1)[-1],
                                   solid_ref=_t_ref(ctx, e),
                                   mode=("plank" if timber else "uniform"),
                                   aspect=((1.4, 3.0) if timber else None),
@@ -2316,6 +4091,18 @@ def r_out_of_plane(ctx, sides=1, from_storey=1, mass="main", which=None):
     chosen = which or _pick_sides(ctx, sides)
     for side in chosen:
         ox, oy = _outward(m, side)
+        # _p_ ROUND 3: FOR MASONRY THIS IS A MECHANISM, NOT A FRACTURE.
+        # Out-of-plane failure is rigid-body rocking on three horizontal
+        # cracks (top, bottom, mid-height) plus vertical cracks at the corners
+        # and openings; 318 Canterbury URM buildings gave "cracking that
+        # delineates relatively undamaged masonry MACROBLOCKS", with
+        # out-of-plane at 65 % of all observations. A standing damaged URM
+        # wall is 1-4 big intact blocks — it becomes a field of bricks only
+        # after a block falls. Round 2 diced the whole wall into cells, which
+        # is the one thing the mechanism says not to do.
+        if btype == "urm":
+            ctx["notes"].append(_p_macroblocks(ctx, mass, side,
+                                               from_storey=from_storey))
         for e in list(_els(ctx, mass=mass, side=side)):
             if e["role"] not in ("wall", "corner", "parapet", "parapet_corner", "balcony"):
                 continue
@@ -2333,11 +4120,13 @@ def r_out_of_plane(ctx, sides=1, from_storey=1, mass="main", which=None):
                 tex = damage.bound_texture(ctx["stage"], path)
                 st, lo = _break_split(
                     ctx, path, 10 + rng.randrange(4),
-                    _a_zline_judge(m, side, z0, rng, btype=btype,
-                                   amp=e["h"] * 0.30, loose_above=True),
+                    _p_zline_judge(m, side, z0, rng, btype=btype,      # _p_
+                                   amp=e["h"] * 0.30, loose_above=True,
+                                   pitch=_p_pitch(ctx)),
                     _mat_fn(ctx, tex, 0.35),
                     static_mat=_clad_material(ctx["stage"], ctx["parent"],
-                                              ctx["cache"], tex) if tex else None)
+                                              ctx["cache"], tex) if tex else None,
+                    **_p_frac_kw(ctx))
                 for pth in lo:
                     v = 0.4 + rng.uniform(0.0, 0.8)
                     ctx["velocity"][pth] = (ox * v, oy * v, 0.05 * v)
@@ -2355,7 +4144,7 @@ def r_out_of_plane(ctx, sides=1, from_storey=1, mass="main", which=None):
             st, lo = _break(ctx["stage"], ctx["parent"], e, ctx["tag"],
                             10 + rng.randrange(6), rng, nrng, ctx["mats"],
                             ctx["cache"], ctx["info"]["type"], inner_p=0.35,
-                            partial=None, consume=0.34)
+                            partial=None, consume=0.34, **_p_frac_kw(ctx))
             # Outward speed grows with height: the wall rotates about its
             # foot, so the top leads.
             for pth in lo:
@@ -2382,7 +4171,7 @@ def r_out_of_plane(ctx, sides=1, from_storey=1, mass="main", which=None):
         # line unless it is torn too (`from_storey` walls that drew the 20%
         # "no partial break" branch, and the whole of `from_storey - 1`).
         if from_storey >= 1:
-            _a_ragged_courses(ctx, mass, from_storey, sides=(side,),
+            _p_ragged_courses(ctx, mass, from_storey, sides=(side,),   # _p_
                               above=False, below=True, band=(0.3, 0.9), p=0.9)
         r_droop(ctx, mass=mass, side=side, storeys=opened, p=0.45)
         _disturb_interior(ctx, mass, opened, side=side)
@@ -2418,7 +4207,7 @@ def r_soft_storey(ctx, storey=0, mass="main", lean_deg=None, crush_m=None,
     #    not `_els` any more, so `above` below would miss them).
     # p HIGH: one module in four left with a clean bottom edge is one 5 m
     # ruler line across the seam, and that is the thing the eye finds.
-    courses = _a_ragged_courses(ctx, mass, storey, band=(0.3, 0.95), p=0.92)
+    courses = _p_ragged_courses(ctx, mass, storey, band=(0.3, 0.95), p=0.92)
     # ...and BOTH slabs the gap exposes: the one under the crushed storey (it
     # stays put) and the one the block above sits on, whose edge is the pale
     # straight line across the seam in the first bench shot. The upper one is
@@ -2435,7 +4224,8 @@ def r_soft_storey(ctx, storey=0, mass="main", lean_deg=None, crush_m=None,
             continue
         st, lo = _break(ctx["stage"], ctx["parent"], e, ctx["tag"],
                         8 + rng.randrange(5), rng, nrng, ctx["mats"],
-                        ctx["cache"], info["type"], inner_p=0.5, consume=0.45)
+                        ctx["cache"], info["type"], inner_p=0.5, consume=0.45,
+                        **_p_frac_kw(ctx))            # _p_ brick / prism cells
         sx, sy = _outward(m, e["side"])
         push = rng.uniform(0.8, 2.2)
         M = _translate(sx * push, sy * push, 0.0)
@@ -2597,7 +4387,8 @@ def r_pancake(ctx, mass="main", pitch_m=None):
             st, lo = _break(stage, ctx["parent"], e, ctx["tag"],
                             15 + rng.randrange(7), rng, nrng, ctx["mats"],
                             ctx["cache"], info["type"], inner_p=0.5,
-                            partial=partial, consume=0.62, max_piece_m=1.0)
+                            partial=partial, consume=0.62, max_piece_m=1.0,
+                            **_p_frac_kw(ctx))        # _p_ prisms, not shards
             ox, oy = _outward(m, e["side"])
             H = max(1.0, m["top"] - m["z0"])
             for pth in lo:
@@ -2624,7 +4415,7 @@ def r_pancake(ctx, mass="main", pitch_m=None):
             if "_{0}_".format(mt) in pth:
                 ctx["loose"] += _break_box(stage, pth, 4, rng, nrng,
                                            _a_mat(ctx, "plaster_dusty"),
-                                           consume=0.5)
+                                           consume=0.5, mode="prism")  # _p_
                 fit["all"] = [q for q in fit["all"] if q != pth]
         # slabs: RE-AUTHOR as a stack (not simulated — a stack of thin boxes
         # is exactly what PhysX does worst), each with its own small tilt and
@@ -2663,11 +4454,12 @@ def r_pancake(ctx, mass="main", pitch_m=None):
                                           ctx["mats"]["concrete"])
                 st, lo = _break_split(
                     ctx, strip, 10 + rng.randrange(4),
-                    _edge_judge(m, sd, d, rng, btype=info["type"]),
+                    _p_edge_judge(m, sd, d, rng, btype=info["type"]),   # _p_
                     lambda: (_a_mat(ctx, "concrete_dusty") if rng.random() < 0.6
                              else _a_mat(ctx, "dust")),
                     min_volume_frac=0.0008, static_mat=km if km else None,
-                    refine_max=6, max_loose_m=2.6, rough=ROUGH_STRIP_M)
+                    refine_max=6, max_loose_m=2.6,
+                    **_p_slab_kw(ctx, rough=ROUGH_STRIP_M))
                 # `cur` is deactivated by the next split, so only the FINAL
                 # remainder plus every side's statics ride the stack
                 cur, sts = rem, sts + st
@@ -3124,11 +4916,13 @@ def r_masonry_collapse(ctx, mass="main", keep_stub=True):
                 tex = damage.bound_texture(stage, path)
                 st, lo = _break_split(
                     ctx, path, 10 + rng.randrange(4),
-                    _a_zline_judge(m, e["side"], z0, rng, btype=info["type"],
-                                   amp=e["h"] * 0.30, loose_above=True),
+                    _p_zline_judge(m, e["side"], z0, rng, btype=info["type"],
+                                   amp=e["h"] * 0.30, loose_above=True,
+                                   pitch=_p_pitch(ctx)),               # _p_
                     _mat_fn(ctx, tex, 0.5),
                     static_mat=_clad_material(ctx["stage"], ctx["parent"],
-                                              ctx["cache"], tex) if tex else None)
+                                              ctx["cache"], tex) if tex else None,
+                    **_p_frac_kw(ctx))
             else:
                 # SMALLER, FAR FEWER, AND CAPPED. 8-12 cells on a kit module
                 # sheds 1.2-2 m plates; they land last, ON the crown of the
@@ -3141,10 +4935,15 @@ def r_masonry_collapse(ctx, mass="main", keep_stub=True):
                 # `consume` 0.75 leaves a quarter of them — enough to read as
                 # recognisable façade among the rubble, too few to cover it.
                 # The material is not lost, it is in the heap.
+                # _p_: `brick` cells, so what lands is brick CLUSTERS with
+                # joint faces rather than plates of wall. The cap and the
+                # consume stay: they are what keeps the crown of the heap
+                # rubble rather than façade.
                 st, lo = _break(stage, ctx["parent"], e, ctx["tag"],
                                 18 + rng.randrange(7), rng, nrng, ctx["mats"],
                                 ctx["cache"], info["type"], inner_p=0.45,
-                                partial=None, consume=0.75, max_piece_m=0.9)
+                                partial=None, consume=0.75, max_piece_m=0.9,
+                                **_p_frac_kw(ctx))
             ox, oy = _outward(m, e["side"])
             for pth in lo:
                 zf = min(1.0, max(0.0, (e["z"] - m["z0"]) / H))
@@ -3186,13 +4985,19 @@ def r_masonry_collapse(ctx, mass="main", keep_stub=True):
             if "_{0}_".format(mt) in pth:
                 ctx["loose"] += _break_box(stage, pth, 8, rng, nrng,
                                            _a_mat(ctx, "plaster_dusty"),
-                                           consume=0.45)
+                                           consume=0.45, mode="prism")  # _p_
         for (pm, i), props in fit["props"].items():
             if pm == mt:
                 _a_bury_props(ctx, props, m["z0"], H * 0.28)
         # THE PILE IS H/3 (FEMA's 0.33 air-space factor; Amatrice LiDAR gives
         # ~5 m heaps for 2-4 storey stone). Masonry spreads 0.4-0.7 H.
         _heap(ctx, m, m["z0"], H * 0.28, rng.uniform(0.2, 0.34), fill=True)
+        # _p_: the LINTELS, QUOINS and sill stones — the only large pieces in
+        # a masonry pile, and the acceptance test's own criterion ("largest
+        # piece = a lintel/quoin monolith, not a wall shard"). They bypass the
+        # fracture because that is what they are: single dressed stones that
+        # were never bonded into the field.
+        _p_lintels(ctx, m, base=m["z0"] + H * 0.10)
 
 
 def r_tilt_sink(ctx, tilt_deg=8.0, sink_m=1.0, azimuth=None, max_drop_m=2.6):
@@ -4842,10 +6647,17 @@ def r_roof_hole(ctx, mass="main", frac=None):
                                        if rng.random() < 0.6
                                        else _a_mat(ctx, "concrete_dusty")),
                               min_volume_frac=0.0005,
-                              mode=("plank" if btype == "urm" else "uniform"),
-                              aspect=((1.4, 2.8) if btype == "urm" else None),
                               static_mat=bm if bm else None,
-                              crack_frac=0.30, max_loose_m=3.2)
+                              crack_frac=0.30, max_loose_m=3.2,
+                              # _p_: a TIMBER deck really does come apart into
+                              # boards, so `plank` stays for urm (and sliver
+                              # rejection stays OFF there — a board IS an
+                              # elongated piece). A concrete diaphragm does
+                              # not: it cracks normal to its beams into
+                              # rectangular rafts, so rc gets `prism`.
+                              **(dict(mode="plank", aspect=(1.4, 2.8),
+                                      rough=0.010) if btype == "urm"
+                                 else _p_slab_kw(ctx)))
         ctx["loose"] += lo
         ctx["static_extra"] += st
         ctx["authored"] += st
@@ -4898,7 +6710,7 @@ def r_roof_hole(ctx, mass="main", frac=None):
                                        else _a_mat(ctx, "dust")),
                               min_volume_frac=0.0006,
                               static_mat=km if km else None, crack_frac=0.28,
-                              max_loose_m=3.2)
+                              max_loose_m=3.2, **_p_slab_kw(ctx))    # _p_
         fit["slabs"][(mass, top)] = None
         fit["all"] = [q for q in fit["all"] if q != pth] + st
         ctx["loose"] += lo
@@ -6764,6 +8576,10 @@ RECIPES = {
     "tilt_severe": r_tilt_severe,
     "overturn": r_overturn,
     "parapet_fall": r_parapet_fall,
+    # _g_ (round 3): `glass_loss` / `glass_fallout` are now shims onto these
+    "curtain_wall": r_curtain_wall,
+    "storefront_glass": r_storefront_glass,
+    "glass_follow": r_glass_follow,
     "glass_loss": r_glass_loss,
     "glass_fallout": r_glass_fallout,
     "infill_fail": r_infill_fail,
@@ -6779,6 +8595,26 @@ RECIPES = {
     "collapse_onto": r_collapse_onto,
     "pounding": r_pounding,
 }
+
+
+# _g_ (round 3) BENCH ENTRIES. `EQ_RECIPES` on the command line can only name
+# a grade or a bare recipe, and a recipe with kwargs is not expressible there —
+# so the glass alone, at every grade, gets five named wrappers. They are the
+# only way to review the glass without the fracture/settle path in the frame,
+# and they are what `scene_gen/tools/eq_bench.sh <snap> EQ_RECIPES=g_glass3`
+# runs.
+def _g_bench_recipe(grade):
+    def _r(ctx, **kw):
+        r_curtain_wall(ctx, grade=grade, **kw)
+        r_storefront_glass(ctx, grade=grade)
+        r_glass_follow(ctx)
+    _r.__name__ = "r_g_glass{0}".format(grade)
+    _r.__doc__ = "curtain_wall + storefront_glass at DG{0}, nothing else.".format(grade)
+    return _r
+
+
+for _g in range(1, 6):
+    RECIPES["g_glass{0}".format(_g)] = _g_bench_recipe(_g)
 
 
 # ---------------------------------------------------------------------------
@@ -6830,7 +8666,7 @@ def wreck_building(stage, parent, style, placements, x, y, yaw, recipes,
     return ctx
 
 
-def level_for_intensity(i, btype, rng, jitter=0.05):
+def level_for_intensity(i, btype, rng, jitter=0.05, duration_boost=1.0):
     """Field intensity (0..1) -> EMS-98 grade for a construction type.
 
     NOT A THRESHOLD ON THE FIELD. Thresholding makes every building inside
@@ -6852,6 +8688,15 @@ def level_for_intensity(i, btype, rng, jitter=0.05):
         "rc":       (0.20, 0.36, 0.50, 0.78, 0.90),
         "rc_glass": (0.55, 0.72, 0.85, 0.98, 0.995),
     }[btype]
+    # DURATION (research §13): a long record (M8+, 2-6 min) lowers the
+    # collapse capacity of ENGINEERED frames — spectrally-equivalent 42 s vs
+    # 6 s records: median collapse capacity -29 %, P(collapse) 11 % vs 1.4 %
+    # — while brittle URM changes little. `duration_boost` (1..2.5, compiled
+    # from the magnitude) multiplies the DG4/DG5 SHARE of the rc types:
+    # cut' = 1 - boost * (1 - cut).
+    if duration_boost > 1.0 and btype in ("rc", "rc_glass"):
+        b_ = max(1.0, float(duration_boost))
+        cuts = cuts[:3] + tuple(max(cuts[2] + 0.02, 1.0 - b_ * (1.0 - c)) for c in cuts[3:])
     g = 0
     for c in cuts:
         if v >= c:
