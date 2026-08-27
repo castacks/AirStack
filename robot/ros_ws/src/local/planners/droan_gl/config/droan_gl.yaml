@@ -68,6 +68,10 @@
     # collision brake (controller PAUSE when boxed near an obstacle) —
     # independent of auto_rewind
     auto_pause: true
+    # breadcrumb-retreat unstick: OFF — appended retreat segments race the
+    # controller's virtual-time tracking across the discontinuity
+    # (ballistic dives observed); needs a controller-level primitive
+    auto_unstick: false
     # breadcrumb corridor: recently flown positions are treated as
     # verified-free for the 'unseen' check (collision still overrides),
     # making retreat/turn arcs plannable with a forward-only camera

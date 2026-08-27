@@ -89,7 +89,7 @@ private:
   float deviation_weight, z_deviation_weight, progress_weight, collision_seen_ratio, max_deviation, max_below_plan;
   int collision_min_votes;
   float close_vote_range;
-  bool auto_rewind, auto_pause;
+  bool auto_rewind, auto_pause, auto_unstick;
   float auto_rewind_blocked_threshold, auto_rewind_duration;
   bool rewinding_ = false;
   double no_safe_traj_since_ = -1., rewind_until_ = -1.;
@@ -184,6 +184,7 @@ public:
     max_below_plan = airstack::get_param(this, "max_below_plan", 3.0);
     auto_rewind = airstack::get_param(this, "auto_rewind", false);
     auto_pause = airstack::get_param(this, "auto_pause", true);
+    auto_unstick = airstack::get_param(this, "auto_unstick", false);
     breadcrumb_radius = airstack::get_param(this, "breadcrumb_radius", 1.5);
     breadcrumb_spacing = airstack::get_param(this, "breadcrumb_spacing", 1.0);
     breadcrumb_max = airstack::get_param(this, "breadcrumb_max", 150);
@@ -566,7 +567,14 @@ private:
       // segment (never the controller's stateful REWIND mode), which
       // moves the camera and reopens planning. Also re-seed the plan
       // progress in case the window ran ahead of the vehicle.
-      if (paused_ && now_s - paused_since_ > 5. && breadcrumbs_.size() >= 2)
+      // DEFAULT OFF: appending a retreat segment mid-pause creates a
+      // discontinuity in the controller's committed trajectory that its
+      // virtual-time tracker races through at unbounded speed (observed
+      // ballistic dives; the controller's REWIND mode trips the same
+      // weakness). Do not enable until the trajectory controller offers
+      // a safe retreat primitive.
+      if (auto_unstick && paused_ && now_s - paused_since_ > 5. &&
+          breadcrumbs_.size() >= 2)
       {
         // Re-seed plan progress ONLY if the current window is genuinely
         // unreachable (ran ahead of the vehicle): an unconditional global
