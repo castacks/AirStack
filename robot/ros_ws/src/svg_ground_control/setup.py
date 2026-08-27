@@ -35,6 +35,8 @@ setup(
             'safe_teleop = svg_ground_control.safe_teleop.teleop_node:main',
             'pad_view = svg_ground_control.safe_teleop.view:main',
             'velocity_preview = svg_ground_control.safe_teleop.velocity:main',
+            'joy_topic_view = svg_ground_control.safe_teleop.joy_view:main',
+            'teleop_monitor = svg_ground_control.safe_teleop.monitor:main',
         ],
     },
 )

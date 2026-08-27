@@ -5,7 +5,8 @@
 #
 # Tests one question: do the sticks move the drone, and does the altitude
 # hold when the left stick is released. One drone, so the CBF has no pair to
-# constrain — see xbox_teleop_test.yaml for the multi-drone CBF test.
+# constrain — see teleop.md for the 3-drone squeeze test with a hand-flown
+# intruder (swarm_sim.yaml, scenario:=squeeze teleop_drones:=drone_3).
 #
 # Spawn the sim with NUM_ROBOTS=1 and run launch_sim_interfaces.sh 1.
 

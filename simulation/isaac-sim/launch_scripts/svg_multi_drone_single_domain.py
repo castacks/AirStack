@@ -64,6 +64,12 @@ DRONE_USD = "~/.local/share/ov/data/documents/Kit/shared/exts/pegasus.simulator/
 NUM_ROBOTS = int(os.environ.get("NUM_ROBOTS", "3"))
 SVG_DOMAIN_ID = int(os.environ.get("SVG_DOMAIN_ID", "0"))
 ENABLE_LIDAR = os.environ.get("ENABLE_LIDAR", "false").lower() == "true"
+ENABLE_CAMERA = os.environ.get("ENABLE_CAMERA", "false").lower() == "true"
+# Which drones get a stereo camera. Each one is four render products, and they
+# dominate the step time, so this defaults to the last drone (the intruder)
+# rather than all of them.
+CAMERA_DRONES = [n.strip() for n in os.environ.get("CAMERA_DRONES", "").split(",")
+                 if n.strip()]
 
 
 def _parse_drone_modes():
@@ -139,6 +145,20 @@ def spawn_drone(index: int):
         init_pos=[init_x, 0.0, 0.07],
         init_orient=[0.0, 0.0, 0.0, 1.0],
     )
+
+    wants_camera = (robot_name in CAMERA_DRONES if CAMERA_DRONES
+                    else index == NUM_ROBOTS)
+    if ENABLE_CAMERA and wants_camera:
+        from pegasus.simulator.ogn.api.spawn_zed_camera import (
+            add_zed_stereo_camera_subgraph)
+        add_zed_stereo_camera_subgraph(
+            parent_graph_handle=graph_handle,
+            drone_prim=drone_prim,
+            robot_name=robot_name,
+            camera_name=f"ZEDCamera_{index}",
+            camera_offset=[0.2, 0.0, -0.05],
+            camera_rotation_offset=[0.0, 0.0, 0.0],
+        )
 
     if ENABLE_LIDAR:
         from pegasus.simulator.ogn.api.spawn_ouster_lidar import (

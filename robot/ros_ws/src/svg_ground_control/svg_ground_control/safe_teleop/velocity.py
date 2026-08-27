@@ -27,18 +27,18 @@ from . import view
 from .latch import FREEZE_BUTTON, ButtonToggle
 from .pad import list_devices, open_pad
 
-# Axis indices for an Xbox pad on the Linux joystick interface. Sticks read
-# NEGATIVE when pushed up, hence the -1.0 signs below.
+# Axis indices and signs for an Xbox pad as reported on /joy.
 FORWARD_AXIS = 4        # right stick up/down
 LEFT_AXIS = 3           # right stick left/right
 CLIMB_AXIS = 1          # left stick up/down
-FORWARD_SIGN = -1.0
+YAW_AXIS = 0            # left stick left/right
+FORWARD_SIGN = 1.0
 LEFT_SIGN = -1.0
-CLIMB_SIGN = -1.0
+CLIMB_SIGN = 1.0
+YAW_SIGN = 1.0
+YAW_RATE_RAD_S = 1.0
 
-# The lock covers the whole left stick, both axes. Only the vertical one feeds
-# a command today; the horizontal one is yaw, which nothing downstream reads
-# yet, and it is in here so the lock still covers it once it does.
+# The lock covers the whole left stick: altitude and yaw.
 LOCKED_AXES = (0, 1)
 
 DEADZONE = 0.15
@@ -68,6 +68,7 @@ class Command:
     vx: float
     vy: float
     vz: float
+    yaw_rate: float
     target_altitude: float
     altitude: float
     held: bool
@@ -90,9 +91,10 @@ class VelocityMapper:
                  min_altitude=MIN_ALTITUDE_M, max_altitude=MAX_ALTITUDE_M,
                  deadzone_width=DEADZONE,
                  forward_axis=FORWARD_AXIS, left_axis=LEFT_AXIS,
-                 climb_axis=CLIMB_AXIS, lock_button=FREEZE_BUTTON,
+                 climb_axis=CLIMB_AXIS, yaw_axis=YAW_AXIS,
+                 yaw_rate=YAW_RATE_RAD_S, lock_button=FREEZE_BUTTON,
                  forward_sign=FORWARD_SIGN, left_sign=LEFT_SIGN,
-                 climb_sign=CLIMB_SIGN):
+                 climb_sign=CLIMB_SIGN, yaw_sign=YAW_SIGN):
         self.max_speed = max_speed
         self.climb_rate = climb_rate
         self.altitude_gain = altitude_gain
@@ -103,9 +105,12 @@ class VelocityMapper:
         self.forward_axis = forward_axis
         self.left_axis = left_axis
         self.climb_axis = climb_axis
+        self.yaw_axis = yaw_axis
+        self.yaw_rate = yaw_rate
         self.forward_sign = forward_sign
         self.left_sign = left_sign
         self.climb_sign = climb_sign
+        self.yaw_sign = yaw_sign
         self.lock = ButtonToggle(lock_button)
         self.target_altitude: float | None = None
 
@@ -119,7 +124,7 @@ class VelocityMapper:
 
         # A vanished pad must not leave the last stick deflection latched.
         if not state.connected:
-            return self._command(0.0, 0.0, altitude)
+            return self._command(0.0, 0.0, altitude, 0.0)
 
         forward = deadzone(state.axis(self.forward_axis),
                            self.deadzone_width) * self.forward_sign
@@ -128,6 +133,9 @@ class VelocityMapper:
         climb = 0.0 if locked else (
             deadzone(state.axis(self.climb_axis),
                      self.deadzone_width) * self.climb_sign)
+        yaw = 0.0 if locked else (
+            deadzone(state.axis(self.yaw_axis),
+                     self.deadzone_width) * self.yaw_sign)
 
         # This is the whole difference from a direct mapping: the stick moves
         # the target, it does not set the velocity.
@@ -135,14 +143,16 @@ class VelocityMapper:
             self.min_altitude, self.target_altitude + climb * self.climb_rate * dt))
 
         return self._command(forward * self.max_speed, left * self.max_speed,
-                             altitude)
+                             altitude, yaw * self.yaw_rate)
 
-    def _command(self, vx: float, vy: float, altitude: float) -> Command:
+    def _command(self, vx: float, vy: float, altitude: float,
+                 yaw_rate: float = 0.0) -> Command:
         error = self.target_altitude - altitude
         vz = max(-self.max_climb_speed,
                  min(self.max_climb_speed, error * self.altitude_gain))
         # + 0.0 turns -0.0 back into 0.0, which otherwise displays as "-0.00".
         return Command(vx=vx + 0.0, vy=vy + 0.0, vz=vz,
+                       yaw_rate=yaw_rate + 0.0,
                        target_altitude=self.target_altitude,
                        altitude=altitude, held=self.lock.engaged)
 

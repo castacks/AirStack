@@ -103,6 +103,7 @@ class DroneHandle:
         self.cmd_pub = None
         self.robot_command_client = None
         self.teleop_twist = np.zeros(3)
+        self.teleop_yaw_rate = 0.0
         self.last_teleop_time = None
 
     @property
@@ -491,6 +492,9 @@ class SwarmCommander(Node):
     def teleop_callback(self, drone: DroneHandle, msg: TwistStamped):
         l = msg.twist.linear
         drone.teleop_twist = np.array([l.x, l.y, l.z])
+        # Yaw bypasses the CBF: the filter constrains positions, and turning
+        # in place cannot change separation.
+        drone.teleop_yaw_rate = float(msg.twist.angular.z)
         drone.last_teleop_time = self.get_clock().now()
 
     def goal_callback(self, index: int, msg: PoseStamped):
@@ -851,6 +855,11 @@ class SwarmCommander(Node):
         msg.twist.linear.x = float(velocity[0])
         msg.twist.linear.y = float(velocity[1])
         msg.twist.linear.z = float(velocity[2])
+        if drone.role == 'teleop':
+            stale = (drone.last_teleop_time is None
+                     or (now - drone.last_teleop_time)
+                     > Duration(seconds=self.teleop_timeout))
+            msg.twist.angular.z = 0.0 if stale else drone.teleop_yaw_rate
         drone.cmd_pub.publish(msg)
 
     # ------------------------------------------------------------------

@@ -24,6 +24,7 @@ from .pad import PadState
 from .velocity import (ALTITUDE_GAIN, CLIMB_AXIS, CLIMB_RATE_MPS, CLIMB_SIGN,
                        DEADZONE, FORWARD_AXIS, FORWARD_SIGN, LEFT_AXIS,
                        LEFT_SIGN, MAX_ALTITUDE_M, MAX_CLIMB_SPEED_MPS,
+                       YAW_AXIS, YAW_RATE_RAD_S, YAW_SIGN,
                        MAX_SPEED_MPS, MIN_ALTITUDE_M, VelocityMapper)
 from .latch import FREEZE_BUTTON
 
@@ -58,6 +59,9 @@ class SafeTeleopNode(Node):
         self.declare_parameter('forward_sign', FORWARD_SIGN)
         self.declare_parameter('left_sign', LEFT_SIGN)
         self.declare_parameter('climb_sign', CLIMB_SIGN)
+        self.declare_parameter('yaw_axis', YAW_AXIS)
+        self.declare_parameter('yaw_sign', YAW_SIGN)
+        self.declare_parameter('yaw_rate_rad_s', YAW_RATE_RAD_S)
 
         def value(name):
             return self.get_parameter(name).value
@@ -74,6 +78,9 @@ class SafeTeleopNode(Node):
             left_axis=int(value('left_axis')),
             climb_axis=int(value('climb_axis')),
             lock_button=int(value('lock_button')),
+            yaw_axis=int(value('yaw_axis')),
+            yaw_sign=float(value('yaw_sign')),
+            yaw_rate=float(value('yaw_rate_rad_s')),
             forward_sign=float(value('forward_sign')),
             left_sign=float(value('left_sign')),
             climb_sign=float(value('climb_sign')),
@@ -146,7 +153,7 @@ class SafeTeleopNode(Node):
             self.get_logger().info(
                 f'left stick {"locked" if command.held else "released"}, '
                 f'target altitude {command.target_altitude:.2f} m')
-        self.publish(command.vx, command.vy, command.vz)
+        self.publish(command.vx, command.vy, command.vz, command.yaw_rate)
 
     def pad_state(self, connected: bool) -> PadState:
         """A Joy message as the PadState the mapper expects."""
@@ -156,13 +163,14 @@ class SafeTeleopNode(Node):
                         raw_axes=tuple(int(a * 32767) for a in axes),
                         buttons=buttons, connected=connected)
 
-    def publish(self, vx: float, vy: float, vz: float):
+    def publish(self, vx: float, vy: float, vz: float, yaw_rate: float = 0.0):
         msg = TwistStamped()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = 'map'
         msg.twist.linear.x = vx
         msg.twist.linear.y = vy
         msg.twist.linear.z = vz
+        msg.twist.angular.z = yaw_rate
         self.publisher.publish(msg)
 
 
