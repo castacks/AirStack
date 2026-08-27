@@ -132,9 +132,9 @@ for drone in "${DRONES[@]}"; do
     TOPICS+=(
         "/${drone}/pose"
         "/${drone}/odometry_conversion/odometry"
-        "/${drone}/policy_commander/obs"
-        "/${drone}/policy_commander/action"
-        "/${drone}/policy_commander/waypoint"
+        # "/${drone}/policy_commander/obs"
+        # "/${drone}/policy_commander/action"
+        # "/${drone}/policy_commander/waypoint"
         "/${drone}/fmu/in/vehicle_visual_odometry"
         "/${drone}/fmu/in/trajectory_setpoint"
         "/${drone}/fmu/in/offboard_control_mode"

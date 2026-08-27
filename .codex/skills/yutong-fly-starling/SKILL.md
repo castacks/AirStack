@@ -29,6 +29,9 @@ Treat these as the known-good lab values unless the user says they changed:
 - NatNet multicast: `239.255.42.99`; command port `1510`; data port `1511`.
 - Current BV ROS domain: `ROS_DOMAIN_ID=1`.
 - Current BV Micro XRCE-DDS agent UDP port: `8892`.
+- Current BV PX4 MAVLink system ID: `MAV_SYS_ID=3`; launch the PX4 interface
+  with `target_systems:=3` so vehicle commands target BV rather than system 1.
+- Current Motive ball rigid body: `VolleyBall`.
 - Current two-drone lab endpoint for `drone_2`: VOXL IP `192.168.50.11`,
   Micro XRCE-DDS agent UDP port `8889`, and ROS domain `1`. AirStation
   verified its network reachability and namespaced DDS topics on 2026-08-17,
@@ -112,6 +115,18 @@ If source changes were made or pulled, rebuild the relevant packages inside the 
 ```bash
 docker exec airstack-robot-desktop-1 bash -lc 'sws >/dev/null; bws --packages-select robot_interface px4_interface svg_ground_control'
 ```
+
+Before launching `policy_commander`, verify its Python inference dependencies.
+The `v0.18.0` robot image observed on AirStation did not include them even
+though the repository pins them in `svg_ground_control/requirements-policy.txt`:
+
+```bash
+docker exec airstack-robot-desktop-1 bash -lc 'python3 -c "import stable_baselines3, gymnasium"'
+docker exec airstack-robot-desktop-1 bash -lc 'python3 -m pip install --break-system-packages --no-cache-dir -r /root/AirStack/robot/ros_ws/src/svg_ground_control/requirements-policy.txt'
+```
+
+The install is container-local and must be repeated after the container is
+recreated unless the dependencies have been added to a rebuilt robot image.
 
 ## Start the Lab Stack
 
@@ -206,12 +221,12 @@ to unicast does not help when the Motive NatNet server itself is unavailable.
 BV direct-FMU interfaces:
 
 ```bash
-tmux new-session -d -s real_interfaces "bash -lc 'sws; ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_3'"
-tmux new-session -d -s mocap_bridge "bash -lc 'sws; ros2 run svg_ground_control mocap_bridge --ros-args --params-file $(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/trajectory_commander_drone3_fmu_hover.yaml'"
+tmux new-session -d -s real_interfaces "bash -lc 'sws; ros2 launch svg_ground_control real_interfaces.launch.py drones:=drone_3 target_systems:=3'"
+tmux new-session -d -s mocap_bridge "bash -lc 'sws; ros2 run svg_ground_control mocap_bridge --ros-args --params-file $(ros2 pkg prefix svg_ground_control)/share/svg_ground_control/config/drone_soccer/trajectory_commander_drone3_fmu_hover.yaml -p extra_body_names:=[VolleyBall]'"
 ```
 
-The current Motive ball rigid body is `SoccerBall`. The real-hardware mocap
-configs publish its shared Kalman state on `/SoccerBall/mocap_odometry` with
+The current Motive ball rigid body is `VolleyBall`. The real-hardware mocap
+bridge publishes its shared Kalman state on `/VolleyBall/mocap_odometry` with
 position noise `0.004 m`, acceleration noise `0.1 m/s²`, and initial velocity
 noise `1.7 m/s`. Soccer policies use that ball odometry, while drone velocity
 continues to come from PX4/onboard-EKF odometry.
@@ -229,7 +244,7 @@ tmux attach -t mocap_bridge
 
 Detach with `Ctrl-b d`. If a session was killed, restart only that session.
 
-NatNet logs should show Motive server IP `192.168.50.5`, client IP `192.168.50.6`, the `drone_3` rigid body, and mocap framerate near `120.00`.
+NatNet logs should show Motive server IP `192.168.50.5`, client IP `192.168.50.6`, both `drone_3` and `VolleyBall`, and mocap framerate near `120.00`.
 
 ## Core Checks Before Any Arm
 
@@ -337,7 +352,7 @@ If `/trajectory_setpoint` has a publisher but no messages, it usually means no u
 
 ## Rosbag Recording
 
-If Motive has a rigid body named `SoccerBall`, NatNet should publish `/SoccerBall/pose` after the NatNet bridge is restarted or refreshed.
+With the current `VolleyBall` rigid body, NatNet should publish `/VolleyBall/pose` after the NatNet bridge is restarted or refreshed.
 
 For flight/test data, start recording before arming and stop after landing/disarming. Use the repo helper from the AirStack root:
 

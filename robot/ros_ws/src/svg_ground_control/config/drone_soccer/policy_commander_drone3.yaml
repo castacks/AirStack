@@ -14,17 +14,23 @@
     drone: "drone_3"
     ball_name: "VolleyBall"
     model_path: "/root/drone_soccer/drone_soccer/saved_policies/train_tune_dynamic.zip"
-    # Soccer goal used by the policy observation: ENU (x, y, z) = (0, -8, 0).
-    # The current policy observation is planar, so only x/y are consumed.
-    target_x: 2.0
-    target_y: 4.0
+    # Moving ball goal used by the planar policy observation. The reference
+    # is rotated 90 degrees so its long axis is Y. It starts at (0, +1.5)
+    # and resets its phase whenever /policy_commander/start is called.
+    target_x: 0.0
+    target_y: 0.0
+    goal_trajectory: "figure8"
+    goal_radius: 1.5
+    goal_period_s: 32.0
+    goal_phase_rad: 0.0
+    goal_rotation_rad: 1.5707963267948966
     policy_dt: 0.1
     deterministic: true
     action_low: [-3.0, -3.0, 0.5]
     action_high: [3.0, 3.0, 1.5]
     # Absolute ENU waypoint fence: policy commands cannot exceed +/-3 m in XY.
     bounds_min: [-4.0, -5.0, 0.5]
-    bounds_max: [4.0, -0.7, 1.5]
+    bounds_max: [4.0, 5.0, 1.5]
     # Policy Z is active; the resulting absolute altitude is clamped below.
     odom_topic_template: "/{name}/odometry_conversion/odometry"
     ball_odom_topic_template: "/{name}/mocap_odometry"

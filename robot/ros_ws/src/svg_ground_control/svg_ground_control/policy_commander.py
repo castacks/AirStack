@@ -33,6 +33,68 @@ from svg_ground_control.ball_state import BallStateTracker
 from svg_ground_control.trajectory_commander_core import clamp_position, vector3
 
 
+def compute_goal_reference(
+    trajectory_type: str,
+    elapsed_s: float,
+    center_xy: np.ndarray,
+    radius_m: float,
+    period_s: float,
+    phase_rad: float = 0.0,
+    rotation_rad: float = 0.0,
+) -> np.ndarray:
+    """Evaluate the policy's planar ball-goal reference trajectory.
+
+    Before spatial rotation, periodic references start at
+    ``center + [radius, 0]`` when ``phase_rad`` is zero. Circles move
+    counter-clockwise in the ENU frame; figure eights use a Gerono
+    lemniscate.
+
+    Args:
+        trajectory_type: ``fixed``, ``circle``, or ``figure8``.
+        elapsed_s: Time since the reference trajectory was started.
+        center_xy: Fixed goal or circle center in ENU meters.
+        radius_m: Circle radius or figure-eight half-width in meters.
+        period_s: Period in seconds.
+        phase_rad: Initial trajectory phase in radians.
+        rotation_rad: Counter-clockwise spatial rotation in ENU radians.
+
+    Returns:
+        Goal XY position in ENU meters, shaped ``(2,)``.
+    """
+    trajectory = trajectory_type.strip().lower()
+    center = np.asarray(center_xy, dtype=np.float32).reshape(2)
+    if trajectory == 'fixed':
+        return center.copy()
+    if trajectory not in ('circle', 'figure8'):
+        raise ValueError(
+            f'goal_trajectory must be fixed, circle, or figure8, got '
+            f'{trajectory_type!r}')
+    if radius_m < 0.0:
+        raise ValueError('goal_radius must be non-negative')
+    if period_s <= 0.0:
+        raise ValueError(
+            'goal_period_s must be positive for a periodic trajectory')
+
+    angle = phase_rad + 2.0 * np.pi * float(elapsed_s) / period_s
+    if trajectory == 'circle':
+        base_offset = radius_m * np.array(
+            [np.cos(angle), np.sin(angle)], dtype=np.float32)
+    else:
+        # Gerono lemniscate: radius is the half-width and the maximum vertical
+        # displacement is radius / 2. Phase zero starts at the rightmost tip.
+        base_offset = radius_m * np.array(
+            [np.cos(angle), np.sin(angle) * np.cos(angle)],
+            dtype=np.float32,
+        )
+    cos_rotation = np.cos(rotation_rad)
+    sin_rotation = np.sin(rotation_rad)
+    offset = np.array([
+        cos_rotation * base_offset[0] - sin_rotation * base_offset[1],
+        sin_rotation * base_offset[0] + cos_rotation * base_offset[1],
+    ], dtype=np.float32)
+    return center + offset
+
+
 def enu_waypoint_to_ned(waypoint: np.ndarray) -> np.ndarray:
     """Convert an ENU XYZ position waypoint to PX4's NED coordinates.
 
@@ -136,6 +198,11 @@ class PolicyCommander(Node):
         self.declare_parameter('model_path', '')
         self.declare_parameter('target_x', 3.0)
         self.declare_parameter('target_y', 0.0)
+        self.declare_parameter('goal_trajectory', 'fixed')
+        self.declare_parameter('goal_radius', 0.0)
+        self.declare_parameter('goal_period_s', 8.0)
+        self.declare_parameter('goal_phase_rad', 0.0)
+        self.declare_parameter('goal_rotation_rad', 0.0)
         self.declare_parameter('policy_dt', 0.02)
         self.declare_parameter('deterministic', True)
         self.declare_parameter('action_low', [-3.0, -3.0, 0.3])
@@ -169,10 +236,29 @@ class PolicyCommander(Node):
         if not Path(model_path).is_file():
             raise FileNotFoundError(f'model_path not found: {model_path}')
 
-        self.target_xy = np.array([
+        self.goal_center_xy = np.array([
             float(self.get_parameter('target_x').value),
             float(self.get_parameter('target_y').value),
         ], dtype=np.float32)
+        self.goal_trajectory = str(
+            self.get_parameter('goal_trajectory').value).strip().lower()
+        self.goal_radius = float(self.get_parameter('goal_radius').value)
+        self.goal_period_s = float(
+            self.get_parameter('goal_period_s').value)
+        self.goal_phase_rad = float(
+            self.get_parameter('goal_phase_rad').value)
+        self.goal_rotation_rad = float(
+            self.get_parameter('goal_rotation_rad').value)
+        self.target_xy = compute_goal_reference(
+            self.goal_trajectory,
+            0.0,
+            self.goal_center_xy,
+            self.goal_radius,
+            self.goal_period_s,
+            self.goal_phase_rad,
+            self.goal_rotation_rad,
+        )
+        self._goal_reference_start = self.get_clock().now()
         self.action_low = np.asarray(
             self.get_parameter('action_low').value, dtype=np.float32)
         self.action_high = np.asarray(
@@ -252,6 +338,8 @@ class PolicyCommander(Node):
                 Float32MultiArray, f'{prefix}/action', 10)
             self.waypoint_pub = self.create_publisher(
                 Float32MultiArray, f'{prefix}/waypoint', 10)
+            self.goal_pub = self.create_publisher(
+                Float32MultiArray, f'{prefix}/goal', 10)
 
         self.create_service(Trigger, '~/start', self._handle_start)
         self.create_service(Trigger, '~/stop', self._handle_stop)
@@ -265,9 +353,23 @@ class PolicyCommander(Node):
             f'PolicyCommander ready | drone={self.drone} ball={ball_name} '
             f'odom={odom_topic} ball_odom={ball_odom_topic} '
             f'trajectory_out={trajectory_topic} '
-            f'offboard_out={offboard_mode_topic} obs_dim={OBS_DIM}')
+            f'offboard_out={offboard_mode_topic} obs_dim={OBS_DIM} '
+            f'goal={self.goal_trajectory} '
+            f'center={self.goal_center_xy.tolist()} '
+            f'radius={self.goal_radius:.3f}m period={self.goal_period_s:.3f}s '
+            f'rotation={self.goal_rotation_rad:.3f}rad')
 
     def _handle_start(self, _request, response):
+        self._goal_reference_start = self.get_clock().now()
+        self.target_xy = compute_goal_reference(
+            self.goal_trajectory,
+            0.0,
+            self.goal_center_xy,
+            self.goal_radius,
+            self.goal_period_s,
+            self.goal_phase_rad,
+            self.goal_rotation_rad,
+        )
         self.running = True
         response.success = True
         response.message = 'policy loop publishing enabled'
@@ -311,6 +413,21 @@ class PolicyCommander(Node):
             return False
         return True
 
+    def _update_goal_reference(self) -> None:
+        """Update the observation goal from the configured reference clock."""
+        elapsed_s = (
+            self.get_clock().now() - self._goal_reference_start
+        ).nanoseconds * 1e-9
+        self.target_xy = compute_goal_reference(
+            self.goal_trajectory,
+            elapsed_s,
+            self.goal_center_xy,
+            self.goal_radius,
+            self.goal_period_s,
+            self.goal_phase_rad,
+            self.goal_rotation_rad,
+        )
+
     def _build_observation(self) -> np.ndarray | None:
         odom = self._latest_drone_odom
         ball = self._ball_tracker.state
@@ -337,7 +454,8 @@ class PolicyCommander(Node):
             self.target_xy,
         )
 
-    def _publish_debug(self, obs: np.ndarray, action: np.ndarray, waypoint: np.ndarray):
+    def _publish_debug(self, obs: np.ndarray, action: np.ndarray,
+                       waypoint: np.ndarray) -> None:
         if not self.publish_debug:
             return
         obs_msg = Float32MultiArray()
@@ -349,6 +467,9 @@ class PolicyCommander(Node):
         wpt_msg = Float32MultiArray()
         wpt_msg.data = [float(x) for x in waypoint]
         self.waypoint_pub.publish(wpt_msg)
+        goal_msg = Float32MultiArray()
+        goal_msg.data = [float(x) for x in self.target_xy]
+        self.goal_pub.publish(goal_msg)
 
     def _publish_fmu_setpoint(self, waypoint: np.ndarray) -> None:
         """Publish a position setpoint and PX4 Offboard heartbeat directly."""
@@ -389,6 +510,7 @@ class PolicyCommander(Node):
                 throttle_duration_sec=2.0)
             return
 
+        self._update_goal_reference()
         obs = self._build_observation()
         if obs is None:
             return

@@ -148,6 +148,46 @@ observation from PX4 odometry plus ball mocap, and publishes PX4
 `/{name}/fmu/in/offboard_control_mode`. The policy's full 3D waypoint is used.
 The resulting absolute waypoint is clamped to `[-3, 3] m` in ENU X/Y and to
 the configured altitude bounds.
+
+The ball goal supplied to the policy observation can be `fixed`, `circle`, or
+`figure8`. `target_x` and `target_y` specify the fixed goal or periodic-curve
+center. `goal_radius`, `goal_period_s`, and `goal_phase_rad` configure the
+periodic modes. `goal_rotation_rad` then rotates the complete curve
+counter-clockwise in ENU around its center. Calling `/policy_commander/start`
+resets the reference phase. Before rotation, phase zero starts at
+`(target_x + goal_radius, target_y)`. The current XY reference is published on
+`<debug_topic_prefix>/goal` as
+`std_msgs/Float32MultiArray`.
+
+The circle moves counter-clockwise in ENU. The figure eight is a Gerono
+lemniscate with `goal_radius` as its half-width and half that value as its
+maximum vertical displacement:
+
+```text
+x = target_x + goal_radius * cos(theta)
+y = target_y + goal_radius * sin(theta) * cos(theta)
+theta = goal_phase_rad + 2*pi*time/goal_period_s
+[x_rot]   [cos(rotation) -sin(rotation)] [x - target_x]
+[y_rot] = [sin(rotation)  cos(rotation)] [y - target_y]
+```
+
+```yaml
+target_x: 0.0
+target_y: 0.0
+goal_trajectory: "circle"
+goal_radius: 1.5
+goal_period_s: 8.0
+goal_phase_rad: 0.0
+goal_rotation_rad: 0.0
+```
+
+Select the figure eight without changing the other parameters:
+
+```yaml
+goal_trajectory: "figure8"
+goal_rotation_rad: 1.5707963267948966  # long axis along ENU Y
+```
+
 Install in the robot container:
 
 ```bash

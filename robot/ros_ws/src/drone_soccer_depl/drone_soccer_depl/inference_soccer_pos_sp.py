@@ -34,7 +34,7 @@ POLICY_RATE_HZ = 10.0
 OBSERVATION_SIZE = 20
 ACTION_SIZE = 4
 NORMALIZATION_EPSILON = 1.0e-2
-MAX_YAW_OFFSET_RAD = math.radians(30.0)
+MAX_YAW_OFFSET_RAD = math.radians(20.0)
 DEFAULT_CHECKPOINT_NAME = "model_700.pt"
 
 
@@ -130,6 +130,9 @@ class DroneSoccerOffboard(Node):
 
         package_share = Path(get_package_share_directory("drone_soccer_depl"))
         default_checkpoint = package_share / DEFAULT_CHECKPOINT_NAME
+        docker_path = "/root/AirStack/robot/ros_ws/src/drone_soccer_depl"
+        ckpt_name = "model_999.pt"
+        default_checkpoint = os.path.join(docker_path, ckpt_name)
         environment_robot_name = os.environ.get("ROBOT_NAME", "").strip("/")
         environment_name_is_valid = (
             re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", environment_robot_name)
@@ -144,10 +147,10 @@ class DroneSoccerOffboard(Node):
         self.declare_parameter("robot_name", default_robot_name)
         self.declare_parameter("fmu_prefix", "")
         self.declare_parameter(
-            "ball_odometry_topic", "/SoccerBall/mocap_odometry"
+            "ball_odometry_topic", "/VolleyBall/mocap_odometry"
         )
         self.declare_parameter("goal_pose_topic", "")
-        self.declare_parameter("target_x_ned", 4.0)
+        self.declare_parameter("target_x_ned", 0.0)
         self.declare_parameter("target_y_ned", 0.0)
         self.declare_parameter("next_target_x_ned", 0.0)
         self.declare_parameter("next_target_y_ned", 0.0)

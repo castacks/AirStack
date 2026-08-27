@@ -136,7 +136,7 @@ For each drone `{name}` (e.g. `drone_1`):
 | `/{name}/fmu/in/trajectory_setpoint` | out | `px4_msgs/TrajectorySetpoint` | policy_commander → PX4 (PPO deploy) |
 | `/{name}/fmu/in/offboard_control_mode` | out | `px4_msgs/OffboardControlMode` | policy_commander → PX4 Offboard heartbeat |
 | `/policy_commander/{start,stop}` | call | `std_srvs/Trigger` | you → policy_commander |
-| `/policy_commander/obs`, `/action`, `/waypoint` | out | `std_msgs/Float32MultiArray` | policy debug (optional bags) |
+| `/policy_commander/obs`, `/action`, `/waypoint`, `/goal` | out | `std_msgs/Float32MultiArray` | policy debug; `goal` is the current ball-goal XY reference |
 | `/{name}/fmu/visual_odometry_in` | out | `nav_msgs/Odometry` | mocap_bridge → px4_interface (hardware) |
 | `/svg/viz/markers` | out | `visualization_msgs/MarkerArray` | commander → RViz (all drones, world frame) |
 | `/swarm_commander/{takeoff,start,hold,land,reset_fence}` | call | `std_srvs/Trigger` | you → commander |
