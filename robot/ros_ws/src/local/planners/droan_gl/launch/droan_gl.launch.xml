@@ -18,6 +18,9 @@
   <arg name="droan_gl_disparity_topic"
        default="/$(env ROBOT_NAME)/perception/stereo_image_proc/disparity"
        description="Input disparity image (stereo_msgs/DisparityImage)" />
+  <arg name="droan_gl_lidar_topic"
+       default="/$(env ROBOT_NAME)/sensors/ouster/point_cloud"
+       description="Input filtered LiDAR cloud (sensor_msgs/PointCloud2) for the close-range collision veto" />
   <arg name="droan_gl_camera_info_topic"
        default="/$(env ROBOT_NAME)/sensors/front_stereo/right/camera_info"
        description="Input camera info for the disparity camera (sensor_msgs/CameraInfo); right camera because the baseline is encoded in the right projection matrix" />
@@ -44,6 +47,7 @@
     <push-ros-namespace namespace="droan" />
     <set_remap from="disparity" to="$(var droan_gl_disparity_topic)" />
     <set_remap from="camera_info" to="$(var droan_gl_camera_info_topic)" />
+    <set_remap from="lidar_cloud" to="$(var droan_gl_lidar_topic)" />
     <set_remap from="global_plan" to="$(var droan_gl_global_plan_topic)" />
     <set_remap from="look_ahead" to="$(var droan_gl_look_ahead_topic)" />
     <set_remap from="tracking_point" to="$(var droan_gl_tracking_point_topic)" />

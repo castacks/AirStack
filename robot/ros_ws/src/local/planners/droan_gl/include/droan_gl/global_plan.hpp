@@ -51,13 +51,25 @@ private:
   nav_msgs::msg::Path path;
   Trajectory global_plan;
 
+  // Monotonic progress along the plan (arc length, meters). Closest-point
+  // queries are windowed around it so routes that double back on
+  // themselves cannot be shortcut: an unwindowed global closest-point
+  // search jumps to a later leg wherever legs pass near each other,
+  // deleting the excursion between them from the plan being followed.
+  double progress_s;
+  bool progress_reseed_pending_;
+  double progress_back_m, progress_window_m;
+  double yaw_smoothing_alpha;
+
   bool update_global_plan();
+  bool windowed_closest(const tf2::Vector3 &p, double *deviation, double *s_at, tf2::Vector3 *closest);
 
 public:
   GlobalPlan(rclcpp::Node *node, tf2_ros::Buffer *tf_buffer);
   void set_global_plan(const nav_msgs::msg::Path::SharedPtr msg);
   void trim(const airstack_msgs::msg::Odometry &msg);
-  std::tuple<float, float> get_distance(float x, float y, float z);
+  void reseed_progress(const airstack_msgs::msg::Odometry &msg);
+  std::tuple<float, float, float> get_distance(float x, float y, float z);
   void publish_vis(rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub);
   void apply_smooth_yaw(airstack_msgs::msg::TrajectoryXYZVYaw &best_traj_msg, const airstack_msgs::msg::Odometry look_ahead);
 };

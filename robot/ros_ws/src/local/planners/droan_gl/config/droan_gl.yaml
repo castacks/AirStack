@@ -9,15 +9,80 @@
     rewind_info_frame: base_link_stabilized
     visualize: true
 
+    # trajectory scoring: cost = deviation_weight * (distance from the
+    # global plan) - progress_weight * (arc length along it). The old
+    # hardcoded 1:1 tradeoff let the planner trade unbounded deviation
+    # (including altitude dives) for path progress.
+    deviation_weight: 2.0
+    # penalty per meter a candidate ends BELOW the plan (above is free)
+    z_deviation_weight: 4.0
+    progress_weight: 1.0
+    # a trajectory point is unsafe when
+    # collision > collision_seen_ratio * seen (across map keyframes);
+    # 1.0 = legacy strict majority, lower = more conservative
+    collision_seen_ratio: 0.45
+    # minimum keyframes flagging collision for a point to be unsafe
+    # (absolute vote with a noise floor; free-space votes cannot
+    # dilute it — most 'free' votes are just invalid-disparity holes)
+    collision_min_votes: 2
+    # within this range of the vehicle, collision_min_votes vetoes
+    # outright (near-field stereo is reliable); beyond it, seen votes
+    # may dilute per collision_seen_ratio (far-field is noisy)
+    close_vote_range: 8.0
+    # candidates ending farther than this from the global plan are
+    # rejected outright (anti-fly-away bound; hold position instead)
+    max_deviation: 10.0
+    # hard cap on how far BELOW the plan a candidate may end (meters);
+    # above-plan is unrestricted
+    max_below_plan: 3.0
+    # monotonic progress window along the global plan (meters):
+    # closest-point queries only look progress_back_m behind and
+    # progress_window_m ahead of the progress already made, so
+    # routes that double back cannot be shortcut
+    progress_back_m: 5.0
+    progress_window_m: 25.0
+    # heading smoothing along published trajectories: higher tracks the
+    # motion direction faster, keeping obstacles ahead-of-motion inside
+    # the forward-only camera FOV (0.1 = legacy heavy lag)
+    yaw_smoothing_alpha: 0.4
+
     # graph / expansion (see gl_interface.cpp)
-    graph_nodes: 10
-    expansion_radius: 2.0
+    graph_nodes: 20
+    expansion_radius: 2.5
     seen_radius: 1.0
     dt: 0.2
     ht: 7.0
     downsample_scale: 2
     graph_distance_threshold: 1.0
-    graph_angle_threshold: 30.0  # degrees
+    graph_angle_threshold: 15.0  # degrees
+
+    # in-node recovery: when no safe candidate exists for
+    # all_in_collision_duration_threshold seconds (and the vehicle has
+    # displaced >8 m since startup), command the trajectory controller's
+    # REWIND mode for all_in_collision_rewind_duration seconds, then
+    # resume ADD_SEGMENT. Disable when a behavior executive owns rewind.
+    # REWIND is the most stateful controller mode; commanding it from the
+    # planner risks tracking-timeline corruption (ballistic-tumble crashes
+    # observed). The PAUSE collision brake below does not depend on this.
+    auto_rewind: false
+    # collision brake (controller PAUSE when boxed near an obstacle) —
+    # independent of auto_rewind
+    auto_pause: true
+    # breadcrumb corridor: recently flown positions are treated as
+    # verified-free for the 'unseen' check (collision still overrides),
+    # making retreat/turn arcs plannable with a forward-only camera
+    breadcrumb_radius: 1.5
+    breadcrumb_spacing: 1.0
+    breadcrumb_max: 150
+    # 360-degree LiDAR close-range collision veto (fills the stereo
+    # camera's FOV holes; only adds collision evidence, never removes)
+    lidar_veto: true
+    lidar_veto_radius: 2.0
+    lidar_voxel: 1.0
+    # brake (controller PAUSE) when boxed AND the lidar reports an
+    # obstacle closer than this; farther boxed states keep stock
+    # momentum dynamics (needed to sweep the camera through turns)
+    auto_brake_range: 4.0
 
     # rewind monitor (see rewind_monitor.cpp)
     all_in_collision_duration_threshold: 2.0

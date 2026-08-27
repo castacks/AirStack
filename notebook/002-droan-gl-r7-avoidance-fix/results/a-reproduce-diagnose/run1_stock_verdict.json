@@ -1,0 +1,105 @@
+{
+  "success": false,
+  "num_odom_samples": 31832,
+  "tolerance_m": 15.0,
+  "budget_s_per_waypoint": 120.0,
+  "waypoints": [
+    {
+      "index": 0,
+      "target": [
+        -0.01,
+        -0.0,
+        -0.01
+      ],
+      "closest_approach_m": 0.016,
+      "reached": true,
+      "elapsed_from_prev_s": 0.0,
+      "within_budget": true
+    },
+    {
+      "index": 1,
+      "target": [
+        15.0,
+        -0.43,
+        3.64
+      ],
+      "closest_approach_m": 5.748,
+      "reached": true,
+      "elapsed_from_prev_s": 23.67,
+      "within_budget": true
+    },
+    {
+      "index": 2,
+      "target": [
+        30.13,
+        -0.95,
+        7.32
+      ],
+      "closest_approach_m": 0.556,
+      "reached": true,
+      "elapsed_from_prev_s": 17.43,
+      "within_budget": true
+    },
+    {
+      "index": 3,
+      "target": [
+        41.96,
+        5.63,
+        10.38
+      ],
+      "closest_approach_m": 0.977,
+      "reached": true,
+      "elapsed_from_prev_s": 15.48,
+      "within_budget": true
+    },
+    {
+      "index": 4,
+      "target": [
+        40.9,
+        20.51,
+        10.41
+      ],
+      "closest_approach_m": 2.191,
+      "reached": true,
+      "elapsed_from_prev_s": 252.48,
+      "within_budget": false
+    },
+    {
+      "index": 5,
+      "target": [
+        35.86,
+        26.58,
+        10.0
+      ],
+      "closest_approach_m": 0.158,
+      "reached": true,
+      "elapsed_from_prev_s": 11.85,
+      "within_budget": true
+    },
+    {
+      "index": 6,
+      "target": [
+        33.19,
+        11.75,
+        10.0
+      ],
+      "closest_approach_m": 0.254,
+      "reached": true,
+      "elapsed_from_prev_s": 0.0,
+      "within_budget": true
+    },
+    {
+      "index": 7,
+      "target": [
+        30.7,
+        -2.7,
+        10.0
+      ],
+      "closest_approach_m": 0.191,
+      "reached": true,
+      "elapsed_from_prev_s": 24.72,
+      "within_budget": true
+    }
+  ],
+  "total_time_s": 1062.15
+}
