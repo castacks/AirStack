@@ -57,7 +57,13 @@ env:
   # cuts the search area into NUM_ROBOTS strips and flies its own.
   SPAWN_CONFIGS: '[{"x_m": -30.0, "y_m": 25.0, "orient": [0.0, 0.0, 0.7071, -0.7071]}, {"x_m": -30.0, "y_m": 31.0, "orient": [0.0, 0.0, 0.7071, -0.7071]}, {"x_m": -30.0, "y_m": 19.0, "orient": [0.0, 0.0, 0.7071, -0.7071]}]'
   SPAWN_HEIGHT_M: "1.0"
-  PEOPLE_POLES: "1"
+  # OFF for a scored run: a 25 m magenta pole over every survivor group is the
+  # answer key standing in the scene the drones are searching, and a
+  # camera-driven planner can steer by it rather than by what it detects. The
+  # markers are still authored on every run, just deactivated — toggle
+  # `/World/stage/generated/_people_poles` active in the stage tree to look at
+  # the result afterwards.
+  # PEOPLE_POLES: "1"
 
   # CoNavGPT reads no lidar and neither does any arm here; it costs ~3x the sim
   # rate, which lands entirely on wall clock for a sim-time-bounded run.

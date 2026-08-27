@@ -59,10 +59,15 @@ env:
   SPAWN_CONFIGS: '[{"x_m": 302.4, "y_m": -144.3, "orient": [0.0, 0.0, 0.9342, 0.3568]}]'
   SPAWN_HEIGHT_M: "0.5"
 
-  # Locator poles ON for this run: the point of it is to look at the result in
-  # Foxglove, and 59 people over 1600 x 1200 m are otherwise unfindable. They
-  # carry no semantic label, so they generate no annotation.
-  PEOPLE_POLES: "1"
+  # Locator poles OFF, though looking at the result in Foxglove is still the
+  # point of this run. 59 people over 1600 x 1200 m are unfindable by eye, but
+  # a 25 m magenta pole over each group is the answer key standing in the scene
+  # while a camera-driven planner flies it — it can steer by the poles rather
+  # than by what it detects, which is a worse problem than an unreadable replay.
+  # It costs nothing now: the markers are authored on every run and left
+  # deactivated, so toggle `/World/stage/generated/_people_poles` active in the
+  # stage tree AFTER the run and the replay reads exactly as it did before.
+  # PEOPLE_POLES: "1"
 
   CONAVGPT_BASELINE: "true"
   # The VLM the CoNavGPT node queries: a search_baselines.vlm_server the steps below

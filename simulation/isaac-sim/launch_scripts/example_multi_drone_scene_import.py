@@ -198,6 +198,10 @@ if _GENERATED:
     # FILESYSTEM even when the bake it is named after lives on Nucleus.
     PEOPLE_JSON = os.environ.get("PEOPLE_JSON") or os.path.join(
         LOCAL_ARCH_DIR, "humans_{0}.json".format(SEED))
+    # REVEALS the survivor markers; it does not create them. They are authored
+    # deactivated on every run, so a searcher never sees them by default and
+    # anyone who wants to look flips `<parent>/_people_poles` active in the
+    # stage tree instead of re-assembling the plat.
     POLES = os.environ.get("PEOPLE_POLES", "").strip().lower() in (
         "1", "true", "yes")
     BURN_FRAC = float(os.environ.get("MINI_BURN_FRAC", "0.45"))

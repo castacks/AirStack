@@ -86,6 +86,9 @@ add a number to the dict, not a `print` inside the API.
 
 Also exported: `default_arch_dir()`, `load_archetypes(arch_dir)`,
 `build_people_poles`, `build_row_poles`, `LOCAL_ARCH_DIR`, `PARENT_DEFAULT`.
+`build_people_poles` takes `active=` and authors its scope either way, so
+`stats["poles"]` counts what a viewer can SEE (0 on a default run) while
+`stats["poles_authored"]` counts the deactivated set waiting in the layer.
 
 **The module imports standalone.** Module level is stdlib + numpy + pxr, the
 same bar the rest of `scene_gen` holds; `omni.client` (URL archetype listing)
@@ -164,7 +167,7 @@ Read by the drone launcher only when `SCENE_CONFIG` is set, and by
 | `MINI_ELAPSED` | `0` | seconds of fire; overrides `MINI_BURN_FRAC`. |
 | `ARCH_DIR` | local bake, else `$AIRSTACK_ASSET_ROOT/scene_gen/assets/archetypes` | the damage bake; local path or URL. |
 | `PEOPLE_JSON` | `scene_gen/assets/archetypes/humans_<seed>.json` | survivor ground truth. Filesystem only. |
-| `PEOPLE_POLES` | off | `1`/`true`/`yes` authors the locator markers. |
+| `PEOPLE_POLES` | off | `1`/`true`/`yes` REVEALS the locator markers. It does not create them: the magenta survivor poles are authored on every run and left deactivated, so the usual route is to toggle `<parent>/_people_poles` active in the stage tree — no re-assembly. **Not in a scored run:** a 25 m pole over every survivor group is the answer key, and a camera-driven planner can steer by it. |
 | `AIRSTACK_ASSET_ROOT` | repo | repoints `airstack://`. **Read by `scene_generator` at IMPORT time** — it must be in the environment before the process starts; nothing in either launcher writes it. |
 | `SUBURB_COLLIDERS` | `ground` | drone launcher only: `off` \| `ground` \| `all`. |
 | `SNAP_DIR` | — | assemble launcher only: viewport captures (see run-isaac-sim-launcher §5). |
@@ -476,7 +479,9 @@ env:
   AIRSTACK_ASSET_ROOT: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA"
   SPAWN_CONFIGS: '[{"x_m": 302.4, "y_m": -144.3, "orient": [0, 0, 0.9342, 0.3568]}]'
   SPAWN_HEIGHT_M: "0.5"
-  PEOPLE_POLES: "1"
+  # PEOPLE_POLES: "1"   <- do NOT copy this into a scored run; see the env
+  #                        table above. The poles are authored deactivated
+  #                        anyway, so toggle the prim after the run instead.
 ready:
   timeout_s: 1800
 ```

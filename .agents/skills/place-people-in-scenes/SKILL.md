@@ -118,11 +118,21 @@ certain than fighting the planting passes for a gap, and a burnt stand with a
 hole in it is what a fire leaves anyway.
 
 **Sixty people over 1600 x 1200 m are individually invisible.** Finding them
-to judge them costs more than judging them does. `PEOPLE_POLES=1` authors one
-25 m magenta pole per GROUP (not per person) under a single scope
-`/World/stage/generated/_people_poles`; row-home courts get cyan poles under
-`/_rowhome_poles`. Deactivate the scope prim for clean captures. The launcher
+to judge them costs more than judging them does. One 25 m magenta pole per
+GROUP (not per person) is authored on EVERY run under a single scope
+`/World/stage/generated/_people_poles`, and left DEACTIVATED — so nothing is
+visible by default and looking costs a prim toggle rather than a re-assembly.
+Activate that one scope prim in the stage tree to reveal the whole set;
+`PEOPLE_POLES=1` does the same at build time. Row-home courts get cyan poles
+under `/_rowhome_poles`, and those are still only built when the env var is
+set — they mark BUILDINGS, so they give a searcher nothing. The launcher
 prints each pole's scenario, group size and coordinates — fly to those.
+
+**NEVER LEAVE THEM ACTIVE IN A SCORED RUN.** A 25 m magenta pole over every
+survivor group is the answer key standing in the scene the drones are
+searching, and a camera-driven planner can steer by it rather than by what it
+detects. Every `osmo/missions/*.yaml` that had `PEOPLE_POLES: "1"` now carries
+it commented out for that reason. Toggle the prim AFTER the run instead.
 
 **A lone figure is unfindable; a group is not.** `at_home` with `houses: [3,6]`
 split five people across five houses — one 1.7 m person per front yard.
@@ -353,5 +363,5 @@ at ~30 locations is a very different set from 95 at 8.
 | `queues`, `fire_chance`, `blocker_gap_m` | `gridlock` | number of jams; whether each burns; how far the head stands back |
 | `bulbs`, `cars` | `cul_de_sac` | fewer bulbs = bigger clusters |
 | `casualty_share` | top level | 0.0 by default — this set is about finding LIVE people |
-| `PEOPLE_POLES=1` | env | locator poles |
+| `PEOPLE_POLES=1` | env | reveals the locator poles at build time. They are authored deactivated on every run, so the prim toggle is the usual route. NOT in a scored run — see above. |
 | `PEOPLE_JSON` | env | ground-truth path |

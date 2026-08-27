@@ -77,7 +77,10 @@ ENV_URL = SIMULATION_ENVIRONMENTS["Default Environment"]
 # it is named after lives on Nucleus.
 PEOPLE_JSON = os.environ.get("PEOPLE_JSON") or os.path.join(
     LOCAL_ARCH_DIR, "humans_{0}.json".format(SEED))
-# PEOPLE_POLES=1 authors the magenta group markers.
+# PEOPLE_POLES=1 REVEALS the magenta survivor group markers. They are authored
+# on every run and deactivated, because this is a benchmark for FINDING people
+# and a 25 m pole over each group is the answer key — but they are one prim
+# toggle away in the stage tree (`.../_people_poles`) when you want to look.
 POLES = os.environ.get("PEOPLE_POLES", "").strip().lower() in ("1", "true", "yes")
 # MINI_BURN_FRAC is the share of houses inside the burn; MINI_ELAPSED still
 # overrides outright.

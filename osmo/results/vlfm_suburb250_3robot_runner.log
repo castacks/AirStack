@@ -75,3 +75,25 @@ fi
 done
 echo RUN_DID_NOT_COMPLETE; tail -n 40 /tmp/search/planner.log; exit 1
  → robots [1, 2, 3]
+[mission 00:26:39] step 5: FAILED (295.35s)
+[mission 00:26:39] recorders stopped: ['gcs', 'robot_1', 'robot_2', 'robot_3']
+[mission 00:26:49] WARN: docker cp of bags from disaster-dataset-gcs-1 failed: Error response from daemon: No such container: disaster-dataset-gcs-1
+[mission 00:26:49] collected 3 mcap file(s) → /home/krrishjain/SEI-COA/disaster-dataset/osmo/results/vlfm_suburb250_3robot/2026-08-27_04-12-44/iter_001__vlfm/bags
+[mission 00:26:49] airstack down  (NUM_ROBOTS=3, COMPOSE_PROFILES=<from .env>)
+[mission 00:26:49] iteration 1 failed on attempt 1/2; artifacts → iter_001__vlfm_failed_attempt_1; redoing
+[mission 00:26:49] iteration 1: attempt 2/2
+[mission 00:26:49] airstack status  (NUM_ROBOTS=3, COMPOSE_PROFILES=<from .env>)
+[mission 00:26:49] airstack up isaac-sim robot-desktop gcs offboard-compute (NUM_ROBOTS=3, COMPOSE_PROFILES=<from .env>)
+[mission 00:26:49] ERROR: iteration aborted: airstack up failed (exit 1):
+[0;32m[INFO][0m Starting services...
+ Network disaster-dataset_airstack_network Creating 
+ Network disaster-dataset_airstack_network Created 
+ Container isaac-sim Creating 
+ Container disaster-dataset-robot-desktop-3 Creating 
+ Container disaster-dataset-gcs-1 Creating 
+ Container disaster-dataset-robot-desktop-1 Restart 
+ Container disaster-dataset-robot-desktop-2 Creating 
+ Container offboard-compute Creating 
+Error response from daemon: container is marked for removal and cannot be started
+[mission 00:26:49] airstack down  (NUM_ROBOTS=3, COMPOSE_PROFILES=<from .env>)
+[mission 00:26:50] mission complete: 0/1 iteration(s) passed; results in /home/krrishjain/SEI-COA/disaster-dataset/osmo/results/vlfm_suburb250_3robot/2026-08-27_04-12-44

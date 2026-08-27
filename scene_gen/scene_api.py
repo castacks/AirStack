@@ -222,20 +222,36 @@ def build_row_poles(stage, clusters, ssf, parent=PARENT_DEFAULT):
     return n
 
 
-def build_people_poles(stage, recs, ssf, parent=PARENT_DEFAULT):
-    """One magenta pole at each survivor group's centroid. Returns the count.
+def build_people_poles(stage, recs, ssf, parent=PARENT_DEFAULT, active=False):
+    """One magenta pole at each survivor group's centroid.
+
+    Returns the number of poles AUTHORED, which is not the number visible —
+    see below. `active` decides whether they render.
 
     Sixty people over 1600 x 1200 m are individually invisible until you are
     almost on top of them. One pole per GROUP (a group is the thing you fly
     to), magenta because nothing in a burn scar is. All under one scope so the
     set switches off with a single prim, and carrying NO semantic label, so a
     run that forgets to disable it still produces no annotation for it.
+
+    ALWAYS AUTHORED, ALMOST NEVER ACTIVE, and the distinction is the point.
+    This is a benchmark for FINDING people: a magenta pole 25 m tall standing
+    over every survivor group hands the searcher the answer, so the default has
+    to be that nobody sees them. But building them only on request means the
+    only way to look is to re-run the whole assembly — minutes, and a different
+    stage — which in practice means the aid never gets used.
+    So the scope and its poles are always written into the layer and the SCOPE
+    PRIM is deactivated: a deactivated subtree is not composed, so it does not
+    render, does not collide, is not traversed and cannot be labelled, and
+    toggling `active` on that one prim in the stage tree brings the whole set
+    back with no rebuild. That is what `active` sets, and it is why the caller
+    no longer guards the call.
     """
     groups = {}
     for r in recs:
         groups.setdefault((r["scenario"], int(r.get("group", 0))), []).append(r)
     root = parent + POLE_SCOPE
-    UsdGeom.Scope.Define(stage, Sdf.Path(root))
+    scope = UsdGeom.Scope.Define(stage, Sdf.Path(root))
     n = 0
     for (scenario, gi), members in sorted(groups.items()):
         cx = sum(float(m["x"]) for m in members) / len(members)
@@ -252,6 +268,10 @@ def build_people_poles(stage, recs, ssf, parent=PARENT_DEFAULT):
         # An unlit-looking marker reads at any time of day and in smoke.
         UsdGeom.Gprim(cyl).CreateDisplayOpacityAttr([1.0])
         n += 1
+    # LAST, not first: deactivating the scope before its children are defined
+    # would author them under an inactive parent, and `UsdGeom.Cylinder.Define`
+    # on a path whose ancestor is inactive does not compose a prim to write to.
+    scope.GetPrim().SetActive(bool(active))
     return n
 
 
@@ -373,8 +393,14 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
                             toward.
         elapsed:            seconds of fire, overriding *burn_frac* outright.
                             None / 0 -> derive from *burn_frac*.
-        poles:              author the magenta survivor + cyan row-home locator
-                            markers. A LOOKING aid: unlabelled, own scopes.
+        poles:              REVEAL the locator markers. A LOOKING aid:
+                            unlabelled, own scopes. The magenta survivor poles
+                            are authored either way and deactivated when this
+                            is False — flip `<parent>/_people_poles` active in
+                            the stage tree to see them without re-assembling.
+                            The cyan row-home poles are still built only when
+                            this is True; they mark BUILDINGS, not people, so
+                            they give a searcher nothing.
         parent_path:        stage path the plat is authored under.
         people_json:        survivor ground truth. Written with plain `open()`,
                             so it must be a FILESYSTEM path even when
@@ -804,7 +830,7 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
     # through `apply_placements` because that is what binds each `pose` onto
     # the character's own UsdSkel rig, and NOT instanced, because the pose
     # animation is authored inside each prim.
-    n_people = n_poles = n_rowp = 0
+    n_people = n_poles = n_rowp = n_authored = 0
     if p_humans:
         sg.apply_placements(stage, p_humans, parent + "/people", ssf,
                             resolver=resolver, instance_categories=set())
@@ -823,12 +849,24 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
         })
         print("[scene] people: {0} authored, ground truth -> {1}"
               .format(n_people, people_json))
+        # THE SURVIVOR MARKERS ARE BUILT UNCONDITIONALLY AND DEACTIVATED
+        # UNLESS ASKED FOR. `poles` no longer decides whether they exist, only
+        # whether they render — see `build_people_poles`. A search benchmark
+        # must not hand the searcher the answer by default, and an aid that
+        # costs a full re-assembly to look at is an aid nobody uses.
+        n_authored = build_people_poles(stage, p_recs, ssf, parent,
+                                        active=poles)
+        n_poles = n_authored if poles else 0
         if poles:
-            n_poles = build_people_poles(stage, p_recs, ssf, parent)
             n_rowp = build_row_poles(stage, binfo.get("clusters"), ssf, parent)
             print("[scene] poles: {0} survivor (magenta, {1}{2}) + {3} "
                   "row-home (cyan, {1}{4}) — deactivate the scope to hide"
                   .format(n_poles, parent, POLE_SCOPE, n_rowp, ROW_POLE_SCOPE))
+        else:
+            print("[scene] poles: {0} survivor marker(s) authored INACTIVE at "
+                  "{1}{2} — activate that prim to reveal survivor locations "
+                  "(or set PEOPLE_POLES=1)".format(n_authored, parent,
+                                                   POLE_SCOPE))
 
     if info_out is not None:
         info_out.update({"binfo": binfo, "placements": placements,
@@ -853,5 +891,11 @@ def build_scene(stage, scene_config, scene_scale_factor, *,
                                                 if _r.get("alive")),
         "people_tally": _ptally, "people_json": people_json,
         "cars": len(p_cars), "blockers": len(p_blockers),
+        # `poles` counts markers a viewer can actually SEE, so it is 0 on a
+        # default run and every existing consumer stays truthful — the drone
+        # launcher prints its "locator marker(s)" line only when this is
+        # non-zero. `poles_authored` is the survivor set sitting in the layer
+        # deactivated, waiting to be switched on.
         "poles": n_poles + n_rowp,
+        "poles_authored": n_authored,
     }

@@ -2604,10 +2604,12 @@ class _FenceGrid:
 # THE QUESTION NOTHING IN THIS TREE COULD ASK. `fence_segs` is read in three
 # places and every one of them asks only "is a panel in my way" — never "is this
 # ground enclosed". That hole is why 294 of the 358 patio props on seed 3 stand
-# in a back yard that is wide open to the block behind it, and why more than
-# half the fenced lots show fence that encloses nothing. Enclosure is one
-# question, so it gets one answer, and it lives beside `_FenceGrid` because it
-# is the same KIND of question: what is standing on this ground.
+# in a back yard that is wide open to the block behind it, and why 67 of the 152
+# lots that got fence on that seed have fence enclosing nothing at all: 36 whose
+# back yard is left open on at least one edge, and 31 more that have no garden
+# behind the house to enclose. Enclosure is one question, so it gets one answer,
+# and it lives beside `_FenceGrid` because it is the same KIND of question: what
+# is standing on this ground.
 #
 # A FENCE AND A TREELINE ARE BOTH BOUNDARIES, AND THEY ARE NOT JUDGED THE SAME.
 # A built fence either runs the whole line or it is not a fence: a 3 m hole in a
@@ -2628,11 +2630,13 @@ _YARD_SCREEN_COVER = 0.60
 # below are struck from `lot_width`, which is ARCLENGTH along the block ring;
 # the fence the plat lays is struck from the two shared boundary STATIONS, which
 # is a chord across that same arc. On a curving face the two disagree by
-# construction. Measured over the 221 side runs on seed 3, |lot_width/2| minus
-# the run's own lateral offset is 0.00 m median and 0.68 m at the 90th
-# percentile, so 1.2 m absorbs all but the tightest arcs — and it is also
-# `suburb_parcel._line_dupe`'s tolerance, so this pass and the plat already
-# agree that two lines this close are one boundary.
+# construction, so this is not a fudge factor — it is the width of a known
+# disagreement. Measured over the 221 platted side runs on seed 3, |lot_width/2|
+# minus the run's own lateral offset is 0.00 m median and 0.68 m at the 90th
+# percentile; and end to end, 274 of the 284 privacy runs actually DRAWN sit
+# within 1 m of one of their own lot's three yard edges. 1.2 m clears that with
+# room, and it is also `suburb_parcel._line_dupe`'s tolerance, so this pass and
+# the plat already agree that two lines this close are one boundary.
 _YARD_FENCE_REACH_M = 1.2
 
 # ...and how much a canopy is grown by before it is asked to close an edge. A
@@ -2723,17 +2727,22 @@ def _edge_cover(p0, p1, fences=(), trees=()):
     new projection.
 
     PREFILTERED BY BOUNDING BOX, NOT BY A HASH GRID, and that is a considered
-    choice rather than the lazy one. The sample loop is the expensive half:
-    ~30 samples against the ~4,000 yard trees a full suburb plants is 120,000
-    distance tests for ONE edge, and 600 houses x 3 edges of that is the scan
-    the caller must not do. One bbox reject per source is four comparisons and
-    drops those 4,000 to the handful actually near this edge, which kills the
-    sample factor — the term that hurts. An `_Occupancy` grid would beat it on
-    paper, but it has to be BUILT, and this is called a few times per house
-    against a list the caller already holds: building an index per call costs
-    more than the scan it saves, and hoisting one out to `build_placements`
-    would put a cell size on a question with no natural cell (a fence run is
-    20 m long, a canopy 2 m across).
+    choice rather than the lazy one. The sample loop is the expensive half, and
+    the caller hands in the WHOLE suburb: ~30 samples against a few thousand
+    trees is ~10^5 distance tests for ONE edge, times three edges, times ~600
+    houses — the scan that must not happen. A bbox reject is four comparisons
+    per source and drops those thousands to the handful actually beside this
+    edge, which kills the SAMPLE factor, the term that hurts. Measured on
+    seed 3: `_yard_enclosed` over 407 rear yards against all 1,344 parcel trees
+    runs in 0.04 s.
+
+    An `_Occupancy` grid would beat it on paper and was rejected anyway. It has
+    to be BUILT, and this is called a few times per house against a list the
+    caller already holds — building an index per call costs more than the scan
+    it saves — while hoisting one index out to `build_placements` would put a
+    cell size on a question that has no natural cell: a fence run is 20 m long
+    and a canopy 2 m across, so whichever the cell is sized for, the other one
+    registers in every cell it touches or misses queries a cell away.
     """
     dx, dy = p1[0] - p0[0], p1[1] - p0[1]
     ln = math.hypot(dx, dy)
@@ -2753,11 +2762,12 @@ def _edge_cover(p0, p1, fences=(), trees=()):
         ex, ey = b[0] - a[0], b[1] - a[1]
         near_f.append((a[0], a[1], ex, ey, max(ex * ex + ey * ey, 1e-12)))
     near_t = []
-    for t in trees:
-        r = float(t[2]) + _YARD_SCREEN_SLACK_M
-        if (t[0] < x0 - r or t[0] > x1 + r or t[1] < y0 - r or t[1] > y1 + r):
+    for tr in trees:
+        r = float(tr[2]) + _YARD_SCREEN_SLACK_M
+        if (tr[0] < x0 - r or tr[0] > x1 + r
+                or tr[1] < y0 - r or tr[1] > y1 + r):
             continue
-        near_t.append((float(t[0]), float(t[1]), r * r))
+        near_t.append((float(tr[0]), float(tr[1]), r * r))
     if not near_f and not near_t:
         return 0.0
     n = max(2, int(math.ceil(ln / _YARD_SAMPLE_M)) + 1)
@@ -2829,14 +2839,14 @@ def _yard_enclosed(h, fences=(), trees=()):
               if not (max(a[0], b[0]) < x0 or min(a[0], b[0]) > x1
                       or max(a[1], b[1]) < y0 or min(a[1], b[1]) > y1)]
     near_t = []
-    for t in trees:
+    for tr in trees:
         # Grown by the canopy's OWN radius, not by a pool maximum: a 25 m
         # Black_Oak reaches into a yard a 3 m Douglas_Fir cannot, and one
         # shared grow would drag every small tree in the block through.
-        g = float(t[2]) + _YARD_SCREEN_SLACK_M
-        if not (t[0] < x0 - g or t[0] > x1 + g
-                or t[1] < y0 - g or t[1] > y1 + g):
-            near_t.append(t)
+        g = float(tr[2]) + _YARD_SCREEN_SLACK_M
+        if not (tr[0] < x0 - g or tr[0] > x1 + g
+                or tr[1] < y0 - g or tr[1] > y1 + g):
+            near_t.append(tr)
     closed = True
     worst = 1.0
     for (a, b) in edges:
@@ -3582,6 +3592,12 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
                                            ax, ay, yaw, rng))
                     n_gar += 1
             segs = list(h.get("fence_segs") or ())
+            # THE SPANS THAT SURVIVE EVERY CUT BELOW, for `h["fence_drawn"]`.
+            # Set here rather than inside the `if`, so an unfenced house ends
+            # up with an empty list rather than no key at all: a consumer has to
+            # be able to tell "this lot has no fence" from "nobody wrote the
+            # field", and `.get("fence_drawn")` alone cannot.
+            drawn = []
             if segs and fence_pool:
                 # ONE ASSET PER HOUSE, ACROSS EVERY BOUNDARY. The pick used to
                 # be cached per TAG, which still let a lot show a picket down
@@ -3662,6 +3678,28 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
                                                fyaw + mod_yaw, rng,
                                                scale_mul=fit))
                         n_fence += 1
+                    # WHAT WAS DRAWN, FROM THE MODULES THAT WERE DRAWN. `span`
+                    # is what this run was ASKED for, and it is still not the
+                    # truth at this point: `_fence_run` re-tiles it, the `fit`
+                    # scale makes each module longer or shorter than authored,
+                    # and the clash trim above may have cut the run back to its
+                    # longest free stretch. So the ends are recovered from the
+                    # surviving module CENTRES and their own scaled length —
+                    # the same reconstruction `tools/fence_png._ends` does from
+                    # the placements, which is what makes the record and the
+                    # plan agree by construction rather than by two guesses.
+                    # Modules in one run abut and share a yaw, so the run is one
+                    # span and the two outer half-lengths are all that is needed.
+                    _ang = math.radians(run[0][2])
+                    _ux, _uy = math.cos(_ang), math.sin(_ang)
+                    _e0 = mod_len * run[0][3] / 2.0
+                    _e1 = mod_len * run[-1][3] / 2.0
+                    drawn.append(((run[0][0] - _ux * _e0,
+                                   run[0][1] - _uy * _e0),
+                                  (run[-1][0] + _ux * _e1,
+                                   run[-1][1] + _uy * _e1),
+                                  tag))
+            h["fence_drawn"] = drawn
         for t in p["trees"]:
             cp = (street_pool if t.get("kind") in ("street", "front")
                   else open_pool)
@@ -3674,6 +3712,53 @@ def build_placements(config, resolver, parcels, rng, pools, yaw_off=-90.0,
             # drive actually runs — is only stamped as its houses are placed.
             # Filtering here would test against a half-built map.
             tree_jobs.append((u, t["c"][0], t["c"][1]))
+    # WHAT THE FENCE ACTUALLY ENCLOSES, written back onto every house record.
+    #
+    # A SECOND PASS, AND IT HAS TO BE. A lot's side boundary is SHARED, and
+    # `suburb_parcel._relay` hands it to whichever of the two lots was issued
+    # first — so the fence that closes this house's left-hand side is often not
+    # this house's fence, and at the moment its own runs go down the neighbour
+    # who owns that side may be a parcel the loop has not reached. Judged
+    # in-loop on seed 3 the answer is 84 closed against 85 here: only one lot,
+    # because lots are issued in ring order and a neighbour is nearly always
+    # issued next. ONE IS THE POINT. The in-loop answer is not "close enough",
+    # it is order-dependent — the same suburb platted from the other end of the
+    # ring would lose a different lot — and an enclosure test that depends on
+    # traversal order is the kind of thing that reads as a random defect in a
+    # render and cannot be reproduced from the seed. Here, every module in the
+    # suburb is standing and the answer is a fact about the ground.
+    #
+    # FENCES ONLY, DELIBERATELY. `_yard_enclosed` takes trees as well, and a
+    # treeline encloses a garden just as a fence does — but `suburb_yardplan`
+    # runs after this function and is what plants them, so there is nothing to
+    # hand it yet. `enclosure` therefore records the FENCE half of the answer;
+    # the yard pass calls `_yard_enclosed` again with its own trees, and that
+    # second answer is the one a seating gate should believe.
+    _all_houses = [h for _p in parcels for h in _p["houses"]]
+    _drawn_all = [(a, b) for h in _all_houses
+                  for (a, b, _t) in (h.setdefault("fence_drawn", []) or ())]
+    n_yard = n_yard_closed = 0
+    for h in _all_houses:
+        _edges = _rear_yard_edges(h)
+        if not _edges:
+            # NOT A GAP IN THE RECORD — a lot with no garden behind its back
+            # wall. Both keys are written as None so the absence is stated
+            # rather than inferred from a missing key.
+            h["rear_yard"] = None
+            h["enclosure"] = None
+            continue
+        # RING ORDER, THE SAME ONE `lot_corners` USES: front-left, front-right,
+        # rear-right, rear-left, with "front" here meaning the building line.
+        # `_rear_yard_edges` returns [left, right, rear] and left is the `-u`
+        # side, so the corners fall straight out of the first two edges.
+        h["rear_yard"] = [_edges[0][0], _edges[1][0], _edges[1][1], _edges[0][1]]
+        _closed, _cover = _yard_enclosed(h, fences=_drawn_all)
+        h["enclosure"] = {"fence_cover": _cover, "closed": _closed}
+        n_yard += 1
+        n_yard_closed += 1 if _closed else 0
+    print(f"[suburb_scene] rear yards: {n_yard} lots with a usable back garden, "
+          f"{n_yard_closed} of them closed by fence alone "
+          f"(cover >= {_YARD_FENCE_COVER:.2f} on all three edges)")
     # PAVING KEEP-OUT, now that every parcel has its houses and their plans.
     # A frontage tree is placed out on the verge on purpose, and a driveway
     # crosses that verge to reach the kerb — so the two collide by

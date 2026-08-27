@@ -115,6 +115,9 @@ DEFAULTS = {
     #     fenced closed   82        screened by trees    5
     #     part-screened   57        wide open          219
     #
+    # judging a yard enclosed when all three of its edges are at least 60%
+    # within reach of a fence module or of a canopy, sampled every metre.
+    #
     # Five. Not because trees are scarce — this pass plants 2,637 of them —
     # but because none of them is planted AS A BOUNDARY. The rear canopy slot
     # throws 2-4 darts at the middle of the back garden, which is a copse and
@@ -130,15 +133,23 @@ DEFAULTS = {
     # a fenced one come out the same shape and one predicate downstream can
     # read either.
     #
-    # Share of the ELIGIBLE lots: no fence of their own, and a back garden
-    # deep enough to be worth screening. On seed 3 that population is 259 of
-    # 479 lots, and this pass is deliberately a MINORITY of it. A suburb where
-    # every unfenced back garden is walled in trees is as wrong as one where
-    # none are, and it is worse for what comes after: an enclosed yard is what
-    # qualifies a lot for seating, so this number sets how much garden
-    # furniture the suburb grows. 0.40 lands 96 screened yards on seed 3
-    # (from 5), against 82 fenced — a visible minority, roughly one screened
-    # back garden for every fenced one.
+    # Share of the ELIGIBLE lots: no fence of their own, a back garden deep
+    # enough to be worth screening, and a side line that is not inside their
+    # own building. On seed 3 that population is 245 of 479 lots, and this
+    # pass is deliberately a MINORITY of it. A suburb where every unfenced
+    # back garden is walled in trees is as wrong as one where none are, and it
+    # is worse for what comes after: an enclosed yard is what qualifies a lot
+    # for seating, so this number sets how much garden furniture the suburb
+    # grows. At 0.40 the roll takes 86 lots, and 95 back yards come out
+    # screened — the extra nine are neighbours picking up a shared side line
+    # off somebody else's row, which is what a boundary planting does. Against
+    # 82 fenced, that is roughly one screened back garden per fenced one, and
+    # it leaves 124 of the 363 still wide open, which is the point.
+    #
+    # It is also the whole cost of this slot: a screen is ~10 trunks, so 86
+    # lots is 865 trees on top of the 2,637 this pass already plants — 3,830
+    # to 4,690 across the scene, +22%. Doubling the share doubles that, and
+    # the canopy is the only thing in the yard pass with a real point cost.
     "screen_chance": 0.40,
     # SPACING IS DERIVED FROM THE TREE ACTUALLY DRAWN, not from this knob.
     # `yard_trees` spans 3.02 m of crown (Douglas_Fir) to 25.42 m (Black_Oak)
@@ -944,6 +955,19 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
                         n_side_shrub += 1
 
         # -- rear: massed along the boundary, canopy over the middle -------
+        # EVERYTHING THAT PLANTS RUNS BEFORE ANYTHING THAT FURNISHES, and the
+        # ordering is load-bearing rather than tidy. The patio slot used to sit
+        # between the boundary row and the canopy, which put the one decision
+        # that has to know whether the garden is enclosed AHEAD of the two
+        # passes that enclose it — a treeline planted afterwards cannot qualify
+        # a seat that is already standing. It is not free: the furniture now
+        # meets a garden that has already been planted, and every station the
+        # canopy or the screen took is one `free()` refuses the table. Measured
+        # on seed 3 it costs nothing net — 358 patio sets before, 360 after the
+        # reorder alone (the darts land on different ground once they are drawn
+        # in a different order), 358 with the screen row also in, and
+        # `patio_blocked` 4 -> 1 -> 3.
+        #
         # The boundary row now follows the REAL rear lot line and spans the
         # REAL lot width. Both were constants (16 m back, +-half the HOUSE
         # width) and both were wrong: lots plat 21-40 m deep, so a flat 16 m
@@ -952,6 +976,7 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
         # side boundaries on every lot wider than its building.
         step = max(1.0, float(cfg.get("rear_boundary_step_m", 4.5)))
         depth = rear_line - inset
+        rear_yard = depth - half_d          # behind the back wall, inside inset
         if shrubs and depth > half_d + clear_house:
             a = -half_lot + inset
             while a <= half_lot - inset:
@@ -960,6 +985,122 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
                     emit(_pick(shrubs, rng), x, y, rng.uniform(0, 360),
                          "plant", budget.other)
                 a += step
+
+        # -- rear: THE SCREEN — a treeline on the lots with no fence --------
+        # The row above, planted with trees instead of with shrubs that are
+        # switched off, and carried round the two side lines as well: see
+        # `screen_chance` in DEFAULTS for why it is those three edges and not
+        # the back garden's own three.
+        #
+        # WHETHER THE LOT IS FENCED IS ASKED OF `fence_drawn`, NOT `fence_segs`.
+        # `fence_segs` is the perimeter the PLAT proposed, and every cut that
+        # shortens or deletes it happens downstream inside `build_placements`
+        # — `_trim_to_building_line`, `_trim_offroad`, `_fence_run` returning
+        # nothing, the `_FenceGrid` clash trim — with none of them written back
+        # onto the record. So a lot whose fence was taken away module by module
+        # still carries a full rectangle in `fence_segs`, and screening off
+        # that refuses a treeline to gardens with nothing at all standing round
+        # them. `fence_drawn` is what actually survived. Read it when it is
+        # there and fall back to the plat when it is not — an older record, or
+        # a caller planning before any placement exists — where over-reporting
+        # the fence is at least the safe direction: it screens too few gardens
+        # rather than enclosing one twice.
+        _drawn = h.get("fence_drawn")
+        fenced = bool(fences if _drawn is None else _drawn)
+        # A side line needs somewhere to stand. `half_lot` is floored at
+        # `half_w + 0.4` for lots whose platted frontage is narrower than their
+        # own building, and on those the side line runs THROUGH the house: every
+        # station would be refused by `free()` and the roll would be spent on a
+        # lot that could never have been screened. Asked here rather than
+        # inside the walk so `screen_eligible` means what it says.
+        side_room = (half_lot - screen_inset) - (half_w + clear_house)
+        if trees and not fenced and rear_yard >= patio_min_yard \
+                and side_room > 0.0:
+            n_screen_elig += 1
+            if rng.random() < screen_chance:
+                n_screen_lot += 1
+                a_e = half_lot - screen_inset
+                d_e = rear_line - screen_inset
+                runs = []
+                for sgn in (-1.0, 1.0):
+                    d0 = -half_d                       # the building line
+                    if gar is not None and sgn * g_along > 0.0:
+                        # THE CAR'S SIDE. `suburb_parcel` reserves the box and
+                        # the drive runs up to the front of it; nothing in this
+                        # pass is told where that paving is, and the side-yard
+                        # slot above dodges it the same way — by starting
+                        # behind the box. So this side of the screen begins at
+                        # the back of the garage. On the 59 of 479 lots (seed
+                        # 3) that reserve one, that edge then falls short of
+                        # the building line and the yard reads part-screened
+                        # rather than screened, which is the truth about it:
+                        # you can walk up the drive straight into the garden.
+                        d0 = max(d0, g_deep + g_hd + clear_house)
+                    runs.append((sgn * a_e, d0, sgn * a_e, d_e))
+                # ...and the rear line joins their far ends. The corners are
+                # shared deliberately and left to `tree_min_separation_m` to
+                # arbitrate: two runs meet there wanting the same three metres
+                # of ground and exactly one of them should get it.
+                runs.append((-a_e, d_e, a_e, d_e))
+                for (a0, d0, a1, d1) in runs:
+                    L = math.hypot(a1 - a0, d1 - d0)
+                    if L < 1.0:
+                        continue
+                    ua, ud = (a1 - a0) / L, (d1 - d0) / L
+                    s = 0.0                 # how far the canopy line reaches
+                    while s < L:
+                        # THE SPECIES IS DRAWN BEFORE THE STATION IS FIXED, and
+                        # that inversion is the whole mechanism: `s` is where
+                        # the last crown ended, so the next trunk belongs one
+                        # of ITS OWN radii further on, and the radius is a
+                        # property of the draw. Picking a station first and
+                        # then a tree gives back the fixed step this exists to
+                        # avoid. `t` is taken at the frontier rather than at
+                        # the station it settles on — a radius apart, against
+                        # an 18 m ramp, which is inside the noise.
+                        wall = math.hypot(max(abs(a0 + ua * s) - half_w, 0.0),
+                                          max(abs(d0 + ud * s) - half_d, 0.0))
+                        e = _pick(trees, rng, ranks=t_ranks,
+                                  t=_size_t(wall, t_near, t_far), sharp=t_sharp)
+                        # Half the fallback step when the pool was never
+                        # measured, and never under half the separation floor:
+                        # below that the walk lays a row `_Spacing` deletes
+                        # every other tree from and then reports as blocked.
+                        r = max(crown_r.get((e or {}).get("usd"),
+                                            screen_step / 2.0), tree_sep / 2.0)
+                        sc = min(s + r, L)
+                        if plant_tree(a0 + ua * sc, d0 + ud * sc,
+                                      clear_house, entry=e) is not None:
+                            n_screen_tree += 1
+                            s = sc + r
+                        else:
+                            # No crown was planted, so there is no crown to
+                            # measure a step from: walk on by the constant and
+                            # try again. The ground may open up two metres
+                            # further along — a neighbour's canopy is a disc,
+                            # not a wall.
+                            n_screen_blocked += 1
+                            s += screen_step
+
+        # Canopy over the back garden. The count comes off the AREA the lot
+        # actually has behind the house — clamped by `rear_trees` at both ends —
+        # so the deep estate garden gets its four and the shallow tight one
+        # still gets its one. The 0.75 coin flip for ONE tree that this replaces
+        # left a quarter of the gardens with no canopy and the rest with a
+        # single trunk.
+        b_lo = half_d + clear_house
+        b_hi = rear_line - inset
+        if trees and b_hi - b_lo >= 1.0 \
+                and rng.random() < float(cfg["rear_tree_chance"]):
+            usable = (b_hi - b_lo) * max(0.0, 2.0 * (half_lot - inset))
+            want = int(max(rear_lo, min(rear_hi, round(usable / rear_area))))
+            for i in range(want):
+                for _d in range(darts):
+                    a = rng.uniform(-half_lot + inset, half_lot - inset)
+                    d = rng.uniform(b_lo, b_hi)
+                    if plant_tree(a, d, clear_house):
+                        n_rear_tree += 1
+                        break
 
         # -- rear: the patio set, which needs a back garden to stand in -----
         # These were only ever reachable through the kerb slot above, which is
@@ -984,7 +1125,6 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
         # clears both the back wall and the rear lot line — the old code placed
         # a centre point and tested it with a flat 1.4 m pad, which is why a
         # 2.6 m prop could still straddle the fence in a garden that passed.
-        rear_yard = depth - half_d          # behind the back wall, inside inset
         if patio_props and rear_yard >= patio_min_yard:
             e = _pick(patio_props, rng)
             half_p = patio_ext.get((e or {}).get("usd"), patio_fallback) / 2.0
@@ -1010,26 +1150,6 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
                 n_patio_nofit += 1
         elif patio_props:
             n_patio_nogarden += 1
-
-        # Canopy over the back garden. The count comes off the AREA the lot
-        # actually has behind the house — clamped by `rear_trees` at both ends —
-        # so the deep estate garden gets its four and the shallow tight one
-        # still gets its one. The 0.75 coin flip for ONE tree that this replaces
-        # left a quarter of the gardens with no canopy and the rest with a
-        # single trunk.
-        b_lo = half_d + clear_house
-        b_hi = rear_line - inset
-        if trees and b_hi - b_lo >= 1.0 \
-                and rng.random() < float(cfg["rear_tree_chance"]):
-            usable = (b_hi - b_lo) * max(0.0, 2.0 * (half_lot - inset))
-            want = int(max(rear_lo, min(rear_hi, round(usable / rear_area))))
-            for i in range(want):
-                for _d in range(darts):
-                    a = rng.uniform(-half_lot + inset, half_lot - inset)
-                    d = rng.uniform(b_lo, b_hi)
-                    if plant_tree(a, d, clear_house):
-                        n_rear_tree += 1
-                        break
 
     stats = {"lots": len(houses), "placed": len(out), "tally": tally,
              # Row homes seen and deliberately left alone. Reported so a run
@@ -1062,7 +1182,16 @@ def plan(config, parcels, rng, resolver=None, keepout_discs=None,
              # rear lot line leaves less than `patio_min_rear_yard_m` behind the
              # back wall, i.e. houses that do not have a back garden to furnish.
              "patio": n_patio, "patio_no_garden": n_patio_nogarden,
-             "patio_no_fit": n_patio_nofit, "patio_blocked": n_patio_blocked}
+             "patio_no_fit": n_patio_nofit, "patio_blocked": n_patio_blocked,
+             # The screen row. `screen_eligible` is the denominator
+             # `screen_chance` rolls against — unfenced lots with a back
+             # garden and a side line clear of their own building — so a thin
+             # screen count says whether the ROLL or the GROUND refused it.
+             # `screen_blocked` is stations `free()`, `_Spacing` or the purse
+             # turned down: a high number against a low `screen_trees` means
+             # the boundary is already full, not that the walk is broken.
+             "screen_lots": n_screen_lot, "screen_eligible": n_screen_elig,
+             "screen_trees": n_screen_tree, "screen_blocked": n_screen_blocked}
     return out, stats
 
 
@@ -1084,6 +1213,10 @@ def report(stats):
           f"{stats.get('side_no_room', 0)} side strips too narrow, "
           f"{stats.get('side_no_spot', 0)} with no spot left, "
           f"{stats.get('pool_trees', 0)} inside a pool's debris radius\n"
+          f"[yardplan]   {stats.get('screen_lots', 0)} boundary screens of "
+          f"{stats.get('screen_eligible', 0)} unfenced lots with a back garden"
+          f" ({stats.get('screen_trees', 0)} trunks, "
+          f"{stats.get('screen_blocked', 0)} stations refused)\n"
           f"[yardplan]   {stats.get('patio', 0)} patio sets "
           f"({stats.get('patio_no_garden', 0)} lots have no back garden, "
           f"{stats.get('patio_no_fit', 0)} too small for the prop drawn, "
