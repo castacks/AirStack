@@ -1,4 +1,23 @@
-# AirStack batch mission workflow on OSMO.
+# AirStack batch mission workflow on OSMO — SINGLE GPU.
+#
+# Identical to airstack-mission.yaml except `resources:`. Everything shares one
+# card: Isaac Sim, the robot's rayfronts, and (under CONAVGPT_BASELINE) the
+# InternVL3-2B assigner. `_pick_rayfronts_gpu()` and `_pick_conavgpt_gpu()` both
+# return None at n_gpus <= 1, so nothing is pinned and they simply co-tenant.
+#
+# THIS IS THE THING TO WATCH ON THE FIRST RUN. The 4-GPU sizing exists because a
+# rayfronts that lands on Isaac Sim's card died of CUDA OOM and silently cost
+# that drone the whole mission. At one robot the budget is roughly Isaac ~10 GB
+# + rayfronts' RADIO encoder + ~2.2 GB of 8-bit InternVL3, which fits a 48 GB
+# card comfortably and a 24 GB card only just. If rayfronts reports OOM in the
+# robot log, move to airstack-mission.yaml (gpu: 4) rather than tuning.
+#
+# NOT FOR osmo/missions/conavgpt_wildfire_1robot.yaml. That one adds a
+# conavgpt2 VLM server to the same card and the pair broke Isaac Sim two
+# different ways: `robots [1] not ready within 1800s` + NV_ERR_NO_MEMORY on an
+# OSMO submission, and locally an RTX render graph that failed every frame
+# ("Render Graph on device 0 has failed during recording") so no camera image
+# was ever published. It runs on osmo/workflows/airstack-mission-2gpu.yaml.
 #
 # Same workspace image and pod layout as airstack-dev.yaml, but instead of a
 # single `airstack up` for an interactive session, this runs a batch mission:
@@ -44,7 +63,7 @@
 # then tears itself down — no laptop fetch needed. See mission_launcher.sh.
 
 workflow:
-  name: airstack-mission
+  name: airstack-mission-1gpu
   groups:
   - name: airstack
     tasks:
@@ -122,18 +141,12 @@ workflow:
 
   resources:
     default:
-      # Sized for 3-robot missions: one GPU per rayfronts instance PLUS one
-      # for Isaac Sim, which is pinned to GPU 0. At gpu: 3 the third robot
-      # landed on the sim's GPU and its rayfronts died with a CUDA OOM, which
-      # silently cost that drone the whole mission.
-      cpu: 30
-      gpu: 4
-      memory: 96Gi
-      # Same sizing rationale as airstack-dev.yaml (inner image set alone
-      # exceeds 100Gi extracted), plus headroom for per-iteration mcap
-      # recordings — bump if a mission records camera/LiDAR over many
-      # iterations.
-      storage: 700Gi
+      # One robot, one card. CPU/memory come down with the fleet; storage stays
+      # generous because the plat build and the mcap bags are unchanged by it.
+      cpu: 42
+      gpu: 1
+      memory: 64Gi
+      storage: 400Gi
 
   timeout:
     # With keep-alive the pod sleeps after the mission until this expires (then

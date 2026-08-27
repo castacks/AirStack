@@ -144,5 +144,30 @@ allowlist:
   # control commands
   - name: "rt/$(env ROBOT_NAME)/fixed_trajectory_generator/fixed_trajectory_command"
 
+  # tasks/navigate ACTION — bridged for the COOPERATIVE Co-NavGPT2 team run
+  # (wildfire1km_5robot_conavgpt2.yaml) ONLY. There, ONE team_mode planner runs
+  # on the shared GCS domain and drives every robot, so its rclpy ActionClient
+  # to /$(env ROBOT_NAME)/tasks/navigate has to reach droan_gl's NavigateTask
+  # server on THIS robot's own domain. In every OTHER deployment the planner
+  # runs in the robot container on the robot's domain (co-domain with droan) and
+  # this bridge is unused — the action goes native, so these entries were absent
+  # until the team run needed them.
+  #
+  # An action = 2 topics (status, feedback) + 3 services (send_goal, get_result,
+  # cancel_goal) under <action>/_action/. The activator sends ONE empty goal per
+  # robot and thereafter steers by the already-bridged /global_plan TOPIC, so
+  # this carries a one-shot goal plus its status/feedback/result and the shutdown
+  # cancel — kilobytes, negligible beside the 5x already-bridged image streams.
+  # (mavros/global_position/global is already bridged, so the team planner's
+  # navsat needs no entry — it points navigate's config at that topic.)
+  - name: "rt/$(env ROBOT_NAME)/tasks/navigate/_action/status"
+  - name: "rt/$(env ROBOT_NAME)/tasks/navigate/_action/feedback"
+  - name: "rq/$(env ROBOT_NAME)/tasks/navigate/_action/send_goalRequest"
+  - name: "rr/$(env ROBOT_NAME)/tasks/navigate/_action/send_goalReply"
+  - name: "rq/$(env ROBOT_NAME)/tasks/navigate/_action/get_resultRequest"
+  - name: "rr/$(env ROBOT_NAME)/tasks/navigate/_action/get_resultReply"
+  - name: "rq/$(env ROBOT_NAME)/tasks/navigate/_action/cancel_goalRequest"
+  - name: "rr/$(env ROBOT_NAME)/tasks/navigate/_action/cancel_goalReply"
+
   # gossip peer profiles are bridged by the dedicated gossip_dds_router (domain 99),
   # NOT here — having it in both routers causes message flooding/amplification.

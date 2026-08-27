@@ -132,6 +132,88 @@ block is — total collapse is a minority even in Antakya.
 
 ---
 
+# Round 2 (2026-08-27): the review, and what it changed
+
+The user's review of city 9 named six things; each was traced to a cause on
+the bench before anything was changed, and each fix is a set of functions with
+an owner prefix (`_a_` ragged breaks, `_b_` props and scars, `_c_` ground,
+`_d_` pairs) so the next reader can find the round's work by grep.
+
+| review item | cause (measured) | fix |
+|---|---|---|
+| floating tanks / AC units | `dress_roof` authored plant at the pristine roof height as STATIC; any recipe that moved or removed the roof left it hanging | `_b_settle_roof_plant` hands every plant prim to the solver after the recipes (rests on an intact roof, drops through a hole, rides a tilt, buried on total collapse); tanks are one merged mesh; per-object edge inset |
+| no soil where a building tilted / sank | round 1 put one small `_berm` ring on the hot side only, and the CITY's mild lean (`_tilt_prim`) had no ground at all; the heave was on the wrong side (rotation sign) | `_c_ground_response`: heave wedge + buckled slabs + kerb on the low side, opened gap + exposed raft + lip on the high side, subsidence dish for settlement, mud line, fissures, boils; used by all four foundation recipes AND by `quake._tilt_prim`; everything clamped to the plate |
+| straight shear lines | single-scale Voronoi (4-5 m cells) judged cell by cell; `shrink` is a ratio (8 cm on a 5 m cell = a black crack); `roughen` per fragment crazes the survivor; kit module seams; box-shaped roof-hole outline | `fracture.fracture_split` — two-scale split (dense 0.3 m cells along the break, refinement of boundary cells, chewed edges both ways), `roughen_field`/`inset` in metres; stepped course judges for URM, torn lines for RC; neighbouring storeys/bays lose a ragged band so no edge is a seam; `_a_roofify` converts a whole roof at once (no seam), face normals on fragments |
+| white debris and wooden Xs | `damage._pbr` colours are LINEAR albedo: `plaster` 0.66 rendered 0.84 (white); scars were proud white blobs and 45 mm bars; signs were plaster boxes; glass white; `planks` tint is a no-op with a texture bound | palette darkened (`plaster` 0.32, `mortar` 0.24 linear; `plaster_dusty` etc.), recessed dark spall patches + jagged crack polylines within the pier, painted sign panels, tinted glass, `SETTLE_CULL_LEDGES` drops fragments resting on sills; heap material mix table |
+| rectangular roof-collapse pieces | `r_roof_hole` outline was a rounded box; margins were rectangles | `_a_hole_outline` (closed wobbly polygon), sagging rim pieces, dropped pieces on the floor below, radiating cracks |
+| buildings interacting | never modelled; `_blocked` refused any overturn toward a neighbour | `r_lean_on` (bearing failure to the contact angle, both buildings damaged at the contact), `r_collapse_onto` (upper storeys thrown onto a lower roof, punch-through), `r_pounding`, `_d_party_collapse` for terraces; `quake._d_interactions` runs a capped number of pairs LIVE at assembly (`QUAKE_INTERACT`, ~35 s each) and the rest geometrically |
+
+Also in this round: `magnitude` (compile_disaster), several cities in one
+stage (`CITIES`), monoliths (`urban_quake_v2`), the headless serialised runner
+(`scene_gen/tools/eq_bench.sh`) and the two-at-a-time bake driver
+(`bake_quake_headless.sh`). The agents' full notes: `scene_gen/_plans/
+eq_round2_{A,B,C,D}.md`.
+
+## Headless: how the bench, bake and city are run now
+
+    scene_gen/tools/eq_bench.sh <snap> EQ_STYLE=commercial EQ_RECIPES=DG3,DG5 EQ_SEED=4 SETTLE_STEPS=2200
+    LAUNCHER=downtown_quake_launch_script.py scene_gen/tools/eq_bench.sh city CITIES=M9.5,M5.5 CITY_SIZE_M=200
+    scene_gen/tools/bake_quake_headless.sh            # all 16 styles, two Isaac processes at a time
+
+* `docker exec` + `ISAAC_SIM_HEADLESS=true`, NOT the tmux pane, so several
+  agents can queue runs; at most `GPU_SLOTS` (2) processes run on the card
+  (a 16 GB card holds two fracturing benches; three do not fit). Captures
+  under `~/docker/isaac-sim/logs/<snap>/`, the launcher's stdout in
+  `<snap>.log` beside it (`docker logs` is empty).
+* `PYTHONUNBUFFERED=1` is load-bearing: Kit hard-exits on `close()` and
+  block-buffered prints never reach the log, so the DONE banner was lost.
+* `.env` leaks EMPTY strings for every var compose forwards (`SETTLE_STEPS`,
+  `SCENE_CONFIG=suburb`, ...): the runner supplies defaults, the launchers
+  read ints with `os.environ.get(X) or default`. A city run that reports
+  "0 buildings" compiled the SUBURB preset — check `SCENE_CONFIG`.
+* The city prints its TIMING banner BEFORE its captures: the runner waits for
+  `snapshots ->` or `EXIT 0`, never the banner.
+* Editing `eq_bench.sh` while a run is in flight kills that run (bash reads
+  the script incrementally).
+
+## Building interaction (agent D)
+
+A pair is (leaner, neighbour). `_d_pairs` scores standing DG0-DG3 buildings
+whose top can reach a neighbour (`H sin(theta) - B (1 - cos(theta))` over the
+gap, min 4 deg, max 26 deg) and the OV candidates `_blocked` refused; only
+buildings with `intensity x grade_scale >= D_LEAN_MIN_INTENSITY` (0.6)
+qualify, so an M5.5 city gets none. The first `QUAKE_INTERACT` pairs run the
+recipe LIVE (the archetype steps aside, the kit is rebuilt in place,
+fractured and settled — ~35 s a pair, 400-450 bodies); the rest up to
+`QUAKE_INTERACT_PAIRS` are geometric (rigid lean to the contact angle, authored
+spall bands, static wedge). Known gap: the neighbour is still a reference, so
+a live pair damages the leaner and authors bands on the neighbour rather than
+fracturing it. Pounding needs a real party wall: the preset's
+`packing.building_gap_m` is 2.0 now (was 6.0 — read the comment there before
+lowering it further; the guillotine packer leaves the slack at the block edge).
+
+## Magnitude, several cities, monoliths
+
+* `magnitude:` in a spec (or `MAGNITUDE=` on the launch line) DEFINES severity
+  through `compile_disaster.magnitude_to_severity` (I0 = 1.5 M - 1.5, EMS-98
+  intensity -> ladder) and shapes the field: M >= 7.5 shakes a plate uniformly
+  (core 60 %, corners 85 %), M >= 8 over-drives the grade draw (`grade_scale`
+  up to 1.35 at M9.5: a great earthquake is not "the worst block everywhere",
+  it is worse), liquefaction scales from 0 at M5.5 to full at M7.5. Measured
+  on a 200 m plate: M9.5 -> ~40 % DG5, 10 % DG4, 3 lean-ons; M5.5 -> DG0-DG2
+  with one or two DG3 and nothing on the ground.
+* `CITIES=M9.5,M5.5 CITY_SIZE_M=200 CITY_GAP_M=100 [CITY_SEEDS=3,5]` builds a
+  row of plates west->east, each generated under its own `generated_cN`
+  parent in city-local metres and then TRANSLATED (the parent must be an
+  `Xform` — the generator's holder is typeless and a translate on it is
+  silently ignored, which composed both cities at the origin once). A
+  soil-bound void plane sits under the row. Captures are prefixed `cN_`.
+* `ASSET_SET=urban_quake_v2` adds a minority of standalone monoliths and the
+  six ruin towers. `quake._mono_pass` gives a monolith what a rigid body can
+  show: ruin swap for a DG5 tower, heavy lean + ground for DG4-5, mild lean
+  for half the DG3s. Sizes come from the world bound (`_mono_dims`), so the
+  layout's 0/90/180/270 yaws are exact and a 45 deg one would be overestimated.
+
 # The bug catalogue
 
 **Kit roof tiles are ZERO-THICKNESS QUADS.** `SM_MBuilding01_Roof` is
@@ -331,6 +413,59 @@ lowers the tower heights — measured 6 blocks / ~36 buildings on the dry run.
 
 ---
 
+
+## Round 2 additions
+
+* **The flat palette is LINEAR albedo** (`damage._pbr` -> `diffuse_color_constant`;
+  screen ~= linear ** 0.42). `plaster` 0.66 rendered 0.84 — white. A dark
+  debris colour is 0.02-0.09 linear; author new tints as `screen ** 2.38` and
+  never bind bare `plaster` / `mortar` / `dark_concrete` to something in a heap.
+* **A tint does nothing once a texture is bound**: OmniPBR's
+  `diffuse_color_constant` is what the map REPLACES; `diffuse_tint` multiplies,
+  `albedo_desaturation` desaturates (`/isaac-sim/kit/mdl/core/Base/OmniPBR.mdl`).
+  `planks.wood_material(tint=...)` is therefore a no-op; `_c_look` sets the
+  multiplier + desaturation after `_pbr`. Setting `albedo_brightness` too stacks
+  (black mud).
+* **Megascans packs bound BY REFERENCE sample UV space** on an authored mesh —
+  one flat patch per fragment. Go through `_pbr(texture=...)` (`project_uvw`,
+  world-space repeats per metre); `_C_TEX`/`_c_look` do.
+* **`shrink` is a ratio and `roughen` is per fragment** — right for a pile,
+  wrong for a partial break (long black cracks, a crazed survivor). Partial
+  breaks use `fracture_split` / `roughen_field` / `inset` in metres.
+* **A size cap on fragments needs a floor** or it culls the whole module, and
+  `fracture_prim` then returns early WITHOUT deactivating the source (a DG5 came
+  out as intact floor plates in mid-air). The cap never takes more than half.
+* **A roof converted piecemeal has a straight material seam**: `_a_roofify`
+  converts a mass's whole roof at once; `_roof_box` binds damaged asphalt, not
+  pavement. Fragments need authored face normals or Hydra smooth-shades them
+  (pillows, and a light line where a strip meets a `_box`).
+* **A recipe that kills the only roof tile starves every later recipe** —
+  `_roof_box` registers its slabs in `ctx["roof_slabs"]`, `r_roof_hole` falls
+  back to them.
+* **`_transform_prims` post-multiplies per occurrence** — dedupe the path list.
+  A rebar tuft is authored in world space: place it AFTER the transform.
+* **The overturn fell the wrong way**: `-angle` about the base-edge axis folded
+  the block back over its own footprint; `+angle` lays it outward over `side`,
+  which is what the crater, the shove and `_blocked`'s sweep assumed. The tilt
+  pivots also double-rotated the yaw (`_outward` then `_to_world`) — invisible
+  at yaw 0, wrong on a placed city building; `_SIDE_NORMAL` + `_c_tilt_matrix`.
+* **A negative base under a fractional power is a `complex`, not an error**,
+  and an `except TypeError` round the call turned it into silently-missing
+  ground. No broad excepts round a helper you own.
+* **`EQ_RECIPES=TILT|SETTLE|OV` raised `KeyError`** in the bench (only `DG*` was
+  mapped through the ladder) while the runner still said DONE — fixed, and the
+  runner now needs the DONE banner or `EXIT 0`.
+* **Four agents editing one 6000-line module**: a bench can import a half-written
+  function of someone else's; read the traceback's function name before
+  believing it is yours, rerun. `faces += ...` inside a nested function rebinds
+  the name (`UnboundLocalError`) — use `.extend()`.
+* **`fracture_partial` can only take the TOP off a module**: a band clipping a
+  module's foot removes 88 % of it. Skip modules a band only clips from below.
+* **A hole-cutting recipe must not fracture the tiles it passes near** (one
+  tile of margin), and a heap authored over the hole hides the hole.
+* **A squat block cannot lean on anything** (`H sin(theta) - B (1 - cos(theta))`
+  is 1.4 m for a 22 x 40 m block at 30 deg): `r_lean_on` says so and does nothing.
+
 # Current knob values, and why
 
 | knob | value | why |
@@ -408,6 +543,15 @@ the fractions above are what they are.
 | `SNAP_DIR` | all | captures, under `/isaac-sim/.nvidia-omniverse/logs/` |
 | `ARCH_STYLES`, `ARCH_GRADES`, `ARCH_SEED`, `ARCH_VARIANTS`, `SETTLE_STEPS` | bake | which styles / levels, façade seed (4), variants per level, physics ceiling |
 | `EQ_STYLE`, `EQ_RECIPES`, `EQ_SEED`, `EQ_SPACING`, `KEEP_PHYSICS` | bench | rows, columns, seed, pitch, leave bodies live |
+| `MAGNITUDE` | city | e.g. `9.5` — defines severity and the field shape (see Round 2); `SEVERITY` still pins the plain path |
+| `CITIES`, `CITY_SIZE_M`, `CITY_GAP_M`, `CITY_SEEDS` | city | a row of plates, one magnitude/severity each |
+| `ASSET_SET` | city | `urban_quake` (kit only) or `urban_quake_v2` (+ monoliths and ruin towers) |
+| `QUAKE_INTERACT`, `QUAKE_INTERACT_PAIRS`, `QUAKE_POUND_GAP` | city | live pairs (default 3, 0 = geometric only), total pairs, pounding gap threshold |
+| `SETTLE_CULL_LEDGES` | bench, bake | `1` deletes bodies that came to rest on sills / cornices (19-142 per row) |
+| `EQ_REFINE_MAX` | bench, bake | second-scale refinement cap for `fracture_split` (0 = single scale, 3-4x cheaper, straight edges again) |
+| `EQ_NEIGHBOUR` | bench | `<style>,<gap_m>,<side>` — a pristine neighbour for lean_on / collapse_onto / pounding |
+| `EQ_MILD_TILT`, `EQ_YAW` | bench | `<deg>,<sink>` runs the CITY's `_tilt_prim` path on a `pristine` column; build the column at a yaw |
+| `ISAAC_SIM_HEADLESS`, `KEEP_OPEN` | all | off-screen; stay open after the captures |
 
 **Preset (`config/presets/downtown_earthquake.yaml`):** `severity`, `region_m`,
 `epicenter`, `seed`, optional top-level `soft-soil: false | {center, rx_m,
@@ -433,7 +577,12 @@ add its `bld_<style>_DG0.usd` here and bake it (`bake_quake_by_style.sh
 | `FAMILY_TYPE` | kit family -> `urm` / `rc` / `rc_glass` |
 | `SLAB_T`, `WALL_INSET`, `COLUMN_W`, `FURNITURE`, `FURNITURE_PER_100M2` | the fit-out |
 | recipe kwargs (`frac`, `sides`, `storeys`, `from_storey`, `tilt_deg`, `sink_m`, `angle_deg`, …) | per-recipe strength; every recipe takes its numbers as kwargs so a ladder entry can dial it |
-| `_heap` args (`spread_frac`, `depth_m`), `RAFT_T`, `ROOF_T` | rubble geometry |
+| `_heap` args (`spread_frac`, `depth_m`), `RAFT_T`, `ROOF_T`, `HEAP_MIX`, `A_DEBRIS` | rubble geometry and its material mix per construction type |
+| `EDGE_CELL_M` 0.32, `EDGE_MAX` 16, `REFINE_MAX` 12, `CHEW_OUT` 0.20, `CHEW_IN` 0.14, `CRACK_FRAC` 0.16, `GAP_*`, `ROUGH_M`, `STEP_H`/`STEP_V` | the two-scale break line: cell size along the break, refinement, chewed edges, radiating cracks, masonry course toothing |
+| `B_ROOF_PLANT_BURIED` 0.55, `SCARS_MAX_PROJ`, `r_facade_scars(patches, cracks, crack_p, crumb_p)` | roof plant on total collapse; scar counts |
+| `C_TILT_PIVOT_FRAC` 0.35, `C_DROP_REF` 1.8, `C_RISE_REF` 0.9, `C_CREST_M`, `C_REACH_M`, `C_GAP_W`/`C_GAP_D`, `C_BOIL_DROP`, `C_FISSURE_M`, `_C_TEX` | the ground response: pivot, crest and reach vs sink, gap size, boil threshold, ground looks |
+| `r_lean_on(max_deg, crush_m, sink_frac, crush_storeys, band_storeys)`, `r_collapse_onto(storeys, spill_frac)`, `r_pounding(p_break, corner_m)`, `D_LEAN_MIN_INTENSITY` | pair recipes |
+| `MONO_RUIN_MIN_H` 35, `MONO_HEAVY_DEG/SINK`, `MONO_MILD_P/DEG/SINK` (quake.py) | what a monolith may do |
 | `materials()` colours | the dusty palette |
 
 **Scene (`disaster/quake.py`):** `_soft_soil` (reads `disaster.soft_soil`),

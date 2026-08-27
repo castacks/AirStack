@@ -92,6 +92,7 @@ services:
       # launchers). Same rule: a var not listed here never reaches the script.
       - EPICENTER=${EPICENTER:-}
       - MAGNITUDE=${MAGNITUDE:-}
+      - ASSET_SET=${ASSET_SET:-}
       - CITIES=${CITIES:-}
       - CITY_SIZE_M=${CITY_SIZE_M:-}
       - CITY_GAP_M=${CITY_GAP_M:-}
@@ -275,6 +276,7 @@ services:
       # launchers). Same rule: a var not listed here never reaches the script.
       - EPICENTER=${EPICENTER:-}
       - MAGNITUDE=${MAGNITUDE:-}
+      - ASSET_SET=${ASSET_SET:-}
       - CITIES=${CITIES:-}
       - CITY_SIZE_M=${CITY_SIZE_M:-}
       - CITY_GAP_M=${CITY_GAP_M:-}

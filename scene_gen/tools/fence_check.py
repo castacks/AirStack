@@ -210,9 +210,12 @@ def trespass(scene, cell=25.0):
     """
     skew_deg = float((scene.get("cfg", {}).get("suburb_parcel") or {}).get(
         "junction_skew_clear_deg", sp.DEFAULTS["junction_skew_clear_deg"]))
-    houses = [h for p in scene["parcels"] for h in p["houses"]]
+    # `fence_png.houses`, not a second copy of the comprehension — the name is
+    # now imported at module scope and a local list under the same name would
+    # shadow it for the rest of this function.
+    hs = houses(scene)
     lots, keys = [], []
-    for h in houses:
+    for h in hs:
         q = h.get("lot_corners")
         lots.append(q)
         if not q:
@@ -233,7 +236,7 @@ def trespass(scene, cell=25.0):
                 grid.setdefault((ax, ay), []).append(i)
 
     n, total, skew, worst = 0, 0.0, 0, []
-    for hi, h in enumerate(houses):
+    for hi, h in enumerate(hs):
         for seg in (h.get("fence_segs") or ()):
             a, b = seg[0], seg[1]
             m = ((a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0)
@@ -258,8 +261,8 @@ def trespass(scene, cell=25.0):
                 n += 1
                 total += best
                 worst.append((best, m))
-                if who is not None and h.get("n") and houses[who].get("n"):
-                    th = sp._corner_deg(h["n"], houses[who]["n"])
+                if who is not None and h.get("n") and hs[who].get("n"):
+                    th = sp._corner_deg(h["n"], hs[who]["n"])
                     if 20.0 <= th <= 160.0 and abs(th - 90.0) > skew_deg:
                         skew += 1
     worst.sort(reverse=True)

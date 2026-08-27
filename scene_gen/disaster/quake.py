@@ -220,7 +220,10 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
         # inside the patch the weight is 0.35-1.0 (not (1-r^2), which fell to
         # nothing by mid-radius and left one settled building in a 250 m
         # scene); a small chance anywhere on the plate as well
-        p_found = (foundation_rate * (0.35 + 0.65 * soil_w)) if soil_w > 0.0 else 0.05
+        # off the patch: a small chance that scales with the patch's own rate,
+        # so an M5.5 (rate 0, no liquefaction) settles nothing at all
+        p_found = ((foundation_rate * (0.35 + 0.65 * soil_w)) if soil_w > 0.0
+                   else 0.05 * min(1.0, foundation_rate / 0.5))
         if grade in ("DG0", "DG1", "DG2", "DG3") and rng.random() < p_found:
             r = rng.random()
             if slender > 1.5 and not ov_used and r < 0.3 and inten > 0.4 \
@@ -273,6 +276,17 @@ def assemble(stage, config, placements, arch_dir, seed=11, ssf=1.0,
                   "SETTLE {4}, TILT {5}, OV {6}".format(
                       soft.centre[0], soft.centre[1], soft.radii[0], soft.radii[1],
                       n_found["SETTLE"], n_found["TILT"], n_found["OV"]))
+    # MONOLITHS (asset set urban_quake_v2): standalone buildings that are not
+    # kit archetypes. Rigid bodies only — see `_mono_pass`.
+    try:
+        n_mono = _mono_pass(stage, config, placements, field, grade_scale, rng, ssf,
+                            records, tally, bounds=_c_plate_bounds(config, ssf),
+                            verbose=verbose)
+        n += n_mono
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        print("[quake] monolith pass FAILED: {0}".format(exc))
     stats = {"buildings": n, "tally": tally, "tilted": tilted, "missing": missing,
              "records": records, "foundation": n_found,
              "soft_soil": (soft.centre + soft.radii) if soft else None}
@@ -412,9 +426,102 @@ def _bld_masses(records, manifest, placements):
         p = by_prim.get(r["prim"]) or {}
         rec = manifest.get((r["style"], "DG0")) or {}
         out.append((float(r["x"]), float(r["y"]), float(p.get("yaw_deg", 0.0)),
-                    float(rec.get("W", 20.0)), float(rec.get("D", 20.0)),
-                    float(rec.get("H", 12.0)), r["grade"]))
+                    float(r.get("W", rec.get("W", 20.0))), float(r.get("D", rec.get("D", 20.0))),
+                    float(r.get("H", rec.get("H", 12.0))), r["grade"]))
     return out
+
+
+def _mono_dims(stage, prim, p):
+    """(W, D, H) of a placed monolith in ITS OWN yaw frame, from the world
+    bound: the layout places at 0/90/180/270, where the world box is exact."""
+    cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                              [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
+    rng_ = cache.ComputeWorldBound(prim).ComputeAlignedRange()
+    if rng_.IsEmpty():
+        return None
+    lo, hi = rng_.GetMin(), rng_.GetMax()
+    sx, sy, sz = hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]
+    yaw = float(p.get("yaw_deg", 0.0)) % 180.0
+    if 45.0 < yaw < 135.0:
+        sx, sy = sy, sx
+    return float(sx), float(sy), float(sz)
+
+
+def _mono_pass(stage, config, placements, field, grade_scale, rng, ssf, records,
+               tally, bounds=None, verbose=True):
+    """Damage for buildings that are NOT kit archetypes (standalone monoliths
+    from `urban_quake_v2`). They cannot be fractured, so the vocabulary is
+    what a rigid body can show — drawn as RC on the same ladder cuts:
+      * DG5 on a tower (H >= MONO_RUIN_MIN_H) with a `destroyed` pool:
+        the model is swapped for a ruin tower (its own footprint, same spot);
+      * DG4-DG5 otherwise: a HEAVY foundation failure — 5-10 deg lean, 0.8-
+        1.6 m sink, ground response (Adapazari's intact-but-leaning blocks);
+      * DG3: half of them a mild lean (2-4 deg, 0.3-0.5 m);
+      * DG0-DG2: untouched (the dust halo of the neighbours still reaches it).
+    Records carry W/D/H so the ground pass and the pounding pass see them;
+    `mono=True` keeps them out of the live interaction rebuild."""
+    ruins = []
+    for e in ((config.get("usds") or {}).get("buildings") or {}).get("destroyed") or []:
+        u = e.get("usd") if isinstance(e, dict) else e
+        if u:
+            ruins.append(str(u))
+    n = 0
+    n_ruin = n_heavy = n_mild = 0
+    for p in placements:
+        style, _ = style_of(p.get("usd"))
+        if style or p.get("category") != "house":
+            continue
+        path = p.get("prim_path")
+        prim = stage.GetPrimAtPath(path) if path else None
+        if not prim or not prim.IsValid():
+            continue
+        dims = _mono_dims(stage, prim, p)
+        if not dims:
+            continue
+        W, D, H = (v / ssf for v in dims)
+        x, y = float(p["x_m"]), float(p["y_m"])
+        inten = float(field(x, y))
+        grade = qf.level_for_intensity(inten * grade_scale, "rc", rng)
+        rec = {"W": W, "D": D, "H": H}
+        n += 1
+        label = grade
+        if grade == "DG5" and ruins and H >= MONO_RUIN_MIN_H:
+            u = rng.choice(ruins)
+            refs = prim.GetReferences()
+            refs.ClearReferences()
+            refs.AddReference(u)
+            prim.Load()
+            p["usd"] = u
+            n_ruin += 1
+        elif grade in ("DG4", "DG5"):
+            deg = rng.uniform(*MONO_HEAVY_DEG)
+            snk = rng.uniform(*MONO_HEAVY_SINK)
+            _tilt_prim(stage, prim, p, rec, deg, snk, rng, ssf, bounds=bounds)
+            label = "TILT" if grade == "DG5" else "DG4+tilt"
+            n_heavy += 1
+        elif grade == "DG3" and rng.random() < MONO_MILD_P:
+            deg = rng.uniform(*MONO_MILD_DEG)
+            snk = rng.uniform(*MONO_MILD_SINK)
+            _tilt_prim(stage, prim, p, rec, deg, snk, rng, ssf, bounds=bounds)
+            label = "DG3+tilt"
+            n_mild += 1
+        tally[label] = tally.get(label, 0) + 1
+        records.append(dict(style="mono", x=x, y=y, intensity=round(inten, 3),
+                            grade=label, prim=path, W=round(W, 1), D=round(D, 1),
+                            H=round(H, 1), mono=True))
+    if verbose and n:
+        print("[quake] {0} monolith(s): {1} ruin swap(s), {2} heavy lean(s), {3} mild "
+              "lean(s)".format(n, n_ruin, n_heavy, n_mild))
+    return n
+
+
+# monolith knobs (see `_mono_pass`)
+MONO_RUIN_MIN_H = 35.0          # m: only a tower becomes a ruin tower
+MONO_HEAVY_DEG = (5.0, 10.0)    # Adapazari 1999: 4-12 deg on intact blocks
+MONO_HEAVY_SINK = (0.8, 1.6)
+MONO_MILD_P = 0.5
+MONO_MILD_DEG = (2.0, 4.0)
+MONO_MILD_SINK = (0.3, 0.5)
 
 
 def ground_effects(stage, config, stats, placements, arch_dir, parent, ssf,
@@ -723,6 +830,9 @@ def _d_pairs(blds, hints=None, max_deg=26.0, min_deg=4.0, min_face=4.0,
     return picked
 
 
+D_LEAN_MIN_INTENSITY = 0.6     # field x grade_scale under a lean-on candidate
+
+
 def _d_interactions(stage, config, stats, placements, arch_dir, parent=None,
                     ssf=1.0, seed=11, live=None, pairs=None, hints=None,
                     settle_steps=1800, verbose=True):
@@ -736,7 +846,15 @@ def _d_interactions(stage, config, stats, placements, arch_dir, parent=None,
     recs = stats.get("records", [])
     by_prim = {p.get("prim_path"): p for p in placements}
     blds = []
+    # a bearing failure needs strong shaking under the leaner: gate on the
+    # field (times the compiled grade_scale) so an M5.5 city, where nothing
+    # collapses, does not get three 22-degree lean-ons (two-city run 5)
+    gs = float((config.get("disaster") or {}).get("grade_scale", 1.0))
     for k, r in enumerate(recs):
+        if r.get("mono"):
+            continue                       # a monolith has no kit to rebuild
+        if float(r.get("intensity", 1.0)) * gs < D_LEAN_MIN_INTENSITY:
+            continue
         p = by_prim.get(r["prim"]) or {}
         rec = manifest.get((r["style"], "DG0")) or {}
         blds.append((float(r["x"]), float(r["y"]), float(p.get("yaw_deg", 0.0)),
@@ -774,7 +892,7 @@ def _d_interactions(stage, config, stats, placements, arch_dir, parent=None,
         ma = qf.d_box_mass(a[0], a[1], a[2], a[3], a[4], a[5])
         mb = qf.d_box_mass(b[0], b[1], b[2], b[3], b[4], b[5])
         nb = qf.d_box_neighbour(mb["cx"], mb["cy"], mb["yaw"], mb["W"], mb["D"],
-                                mb["H"], pr["side"], max(0.02, pr["gap"]))
+                                b[5], pr["side"], max(0.02, pr["gap"]))   # H: d_box_mass has no "H" key
         tag = "ix{0}".format(k)
         done = False
         if n_l < n_live:

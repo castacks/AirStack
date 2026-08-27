@@ -232,7 +232,14 @@ def main():
             except Exception as exc:
                 print("[qarch] export FAILED for {0}: {1}".format(os.path.basename(out), exc))
         man_path = os.path.join(OUT_DIR, "archetypes.json")
-        bake.write_manifest(man_path, merge_manifest(man_path, records))
+        # read-merge-write under a file lock: bake_quake_headless.sh runs two
+        # styles at once and the last writer would otherwise drop the other's
+        # records
+        import fcntl
+        with open(man_path + ".lock", "w") as _lk:
+            fcntl.flock(_lk, fcntl.LOCK_EX)
+            bake.write_manifest(man_path, merge_manifest(man_path, records))
+            fcntl.flock(_lk, fcntl.LOCK_UN)
         y += pitch + 20.0
 
     dt = time.time() - t0

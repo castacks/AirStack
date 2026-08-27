@@ -104,17 +104,19 @@ LADDER = {
     },
     "rc": {
         "DG0": [],
-        "DG1": [("facade_scars", {"frac": 0.08}), ("rooftop_fail", {"frac": 0.3}),
+        # `facade_scars` is URM-only since round 2 (plaster loss over brick);
+        # a cracked RC frame shows as a few dropped infill panels instead.
+        "DG1": [("infill_fail", {"storeys": 1, "frac": 0.12}), ("rooftop_fail", {"frac": 0.3}),
                 ("glass_loss", {"frac": 0.1})],
         "DG2": [("infill_fail", {"storeys": 1, "frac": 0.35}),
-                ("facade_scars", {"frac": 0.15}), ("rooftop_fail", {"frac": 0.5}),
+                ("rooftop_fail", {"frac": 0.5}),
                 ("signage_fail", {}),
                 ("balcony_fail", {"frac": 0.3}),
                 ("parapet_fall", {"sides": 1, "frac": 0.4}),
                 ("glass_loss", {"frac": 0.3})],
         "DG3": [("infill_fail", {"storeys": 2, "frac": 0.55}),
                 ("balcony_fail", {"frac": 0.6}),
-                ("facade_scars", {"frac": 0.18}), ("rooftop_fail", {"frac": 0.7}),
+                ("rooftop_fail", {"frac": 0.7}),
                 ("signage_fail", {}),
                 ("parapet_fall", {"sides": 2, "frac": 0.6}),
                 ("glass_loss", {"frac": 0.5})],
@@ -347,8 +349,12 @@ def materials(stage, parent):
     # collapse is under that dust. Every flat colour here sits at 0.45-0.68
     # luma on purpose.
     flat = {
-        "plaster": ((0.66, 0.62, 0.55), 1.0),
-        "mortar": ((0.58, 0.55, 0.50), 1.0),
+        # LINEAR albedo (damage._pbr): screen grey ~ linear^0.42, so the
+        # first values (0.66 / 0.58) rendered 0.84 / 0.79 — the "white
+        # debris" of round 1. 0.32 / 0.24 -> ~0.62 / ~0.55 on screen: a
+        # light dusty plaster and a mortar bed, not paper.
+        "plaster": ((0.32, 0.30, 0.265), 1.0),
+        "mortar": ((0.24, 0.225, 0.205), 1.0),
         "rebar": ((0.30, 0.19, 0.13), 0.55),
         "glass": ((0.62, 0.78, 0.80), 0.12),
         "timber": ((0.48, 0.36, 0.24), 0.9),
@@ -785,7 +791,7 @@ def _chunk_material(stage, parent, cache, texture, mats, btype, rng,
 
 def _break(stage, parent, el, tag, n, rng, nrng, mats, cache, btype,
            inner_p=0.35, partial=None, mode="uniform", rough=0.012,
-           min_volume_frac=0.002, consume=0.0):
+           min_volume_frac=0.002, consume=0.0, max_piece_m=None):
     """Fracture one element. Returns (static_paths, loose_paths).
 
     `consume` drops that share of the fragments, LARGEST first (the fracture
@@ -804,12 +810,12 @@ def _break(stage, parent, el, tag, n, rng, nrng, mats, cache, btype,
         st, lo = fracture.fracture_partial(
             stage, path, out, n_pieces=n, rng=nrng, cut_frac=partial,
             mode=mode, rough=rough, consume=consume * 0.5,
-            min_volume_frac=min_volume_frac)
+            min_volume_frac=min_volume_frac, max_piece_m=max_piece_m)
     else:
         st, lo = [], fracture.fracture_prim(
             stage, path, out, n_pieces=n, rng=nrng, mode=mode, rough=rough,
             verbose=False, consume=consume, consume_pool=1.6,
-            min_volume_frac=min_volume_frac)
+            min_volume_frac=min_volume_frac, max_piece_m=max_piece_m)
     for pth in list(st) + list(lo):
         _bind(stage, pth, _chunk_material(stage, parent, cache, tex, mats,
                                           btype, rng, inner_p))
@@ -840,6 +846,13 @@ GAP_LOOSE_M = 0.008      # separation PhysX needs between two loose cells
 GAP_STATIC_M = 0.0008    # hairline: a surviving slab must read as ONE slab
 GAP_CRACK_M = 0.011      # a crack radiating out of the break
 ROUGH_M = 0.028          # scar amplitude in METRES, not a fraction of the cell
+# ...but a strip cut off a `_box` with `_split_strip` butts against a FLAT
+# remainder box, and the remainder cannot be roughened (it has eight corner
+# points; displacing them warps the box). A 2.8 cm scar on the strip's cells
+# and none on the remainder is a tone step along the cut, and from nadir that
+# step is a straight line right across the roof — the complaint again, in a
+# mild form. 8 mm is invisible at 20 m and still breaks the specular at 2 m.
+ROUGH_STRIP_M = 0.008
 
 
 def _break_split(ctx, path, n, judge, mat_fn, rough=ROUGH_M,
@@ -893,6 +906,12 @@ def _break_split(ctx, path, n, judge, mat_fn, rough=ROUGH_M,
     src = stage.GetPrimAtPath(path)
     if src and src.IsValid():
         src.SetActive(False)
+    # A LATER RECIPE CAN BREAK WHAT AN EARLIER ONE MADE STATIC (roof_hole
+    # running on the slab corner_fail authored, for one), and a deactivated
+    # prim left in `static_extra` becomes a collider request PhysX cannot
+    # satisfy. Drop it here rather than at every call site.
+    if path in ctx["static_extra"]:
+        ctx["static_extra"] = [q for q in ctx["static_extra"] if q != path]
     return st, lo
 
 
@@ -1186,6 +1205,8 @@ def _split_strip(ctx, path, m, side, depth, mat):
         pr.SetActive(False)
     if path in ctx.get("roof_slabs", ()):
         ctx["roof_slabs"].append(rem)      # the remainder IS still that roof
+    if path in ctx["static_extra"]:
+        ctx["static_extra"] = [q for q in ctx["static_extra"] if q != path]
     return rem, strip
 
 
@@ -1223,16 +1244,28 @@ def _ragged_slabs(ctx, mass, side, storeys, depth=(0.8, 2.6)):
         st, lo = _break_split(ctx, strip, 12 + rng.randrange(5),
                               _edge_judge(m, side, d, rng, btype=btype),
                               slab_mat, min_volume_frac=0.0008,
-                              static_mat=keep_m if keep_m else None)
+                              static_mat=keep_m if keep_m else None,
+                              rough=ROUGH_STRIP_M)
         fit["slabs"][(mt, i)] = rem
         fit["all"] = [q for q in fit["all"] if q != pth] + [rem] + st
         ctx["loose"] += lo
         ctx["static_extra"] += [rem] + st
         _a_edge_bars(ctx, st, btype, m, side)
     # the roof over the failed side: the strip along it, no more
-    for e in list(_els(ctx, mass=mass, role="roof")):
-        box = _roof_box(ctx, e)
-        if not box:
+    W_, D_ = m["W"], m["D"]
+    for box, _blx, _bly in _a_roofify(ctx, mass):
+        # ONLY THE SLABS THAT REACH THE FAILED WALL. On a multi-tile roof
+        # `_split_strip` cuts relative to the SLAB's own edge, so a slab in the
+        # middle of the roof would lose a strip in the middle of the roof.
+        try:
+            _, _, _, _sx, _sy, _, _ = _box_dims(ctx["stage"], box)
+        except Exception:
+            continue
+        half = (_sy if side in ("S", "N") else _sx) * 0.5
+        near = ((_bly + D_ / 2.0) if side == "S" else
+                (D_ / 2.0 - _bly) if side == "N" else
+                (_blx + W_ / 2.0) if side == "W" else (W_ / 2.0 - _blx))
+        if near - half > 1.0:
             continue
         d = rng.uniform(*depth)
         rem, strip = _split_strip(ctx, box, m, side, d + 2.2, mats["concrete"])
@@ -1242,12 +1275,11 @@ def _ragged_slabs(ctx, mass, side, storeys, depth=(0.8, 2.6)):
                               lambda: (_a_mat(ctx, "timber_dusty")
                                        if (btype == "urm" and rng.random() < 0.5)
                                        else _a_mat(ctx, "concrete_dusty")),
-                              min_volume_frac=0.0006,
+                              min_volume_frac=0.0006, rough=ROUGH_STRIP_M,
                               static_mat=bm if bm else None, max_loose_m=3.2)
         ctx["loose"] += lo
         ctx["static_extra"] += [rem] + st
         ctx["authored"].append(rem)
-        e["dead"] = True
 
 
 def _a_edge_bars(ctx, statics, btype, m, side, n=None, p=0.6):
@@ -1315,7 +1347,7 @@ def _a_slab_rim(ctx, mass, storey, n_sides=2, depth=(0.4, 1.3), bars=True):
             lambda: (_a_mat(ctx, "timber_dusty") if btype == "urm"
                      else _a_mat(ctx, "dust")),
             min_volume_frac=0.0008, static_mat=km if km else None,
-            refine_max=6, max_loose_m=2.6)
+            refine_max=6, max_loose_m=2.6, rough=ROUGH_STRIP_M)
         ctx["loose"] += lo
         sts += st
         ctx["authored"].append(rem)
@@ -1504,10 +1536,21 @@ def _pivot_of(ctx, path):
 
 def _spall(ctx, mass, rate=0.15, storeys=None):
     """Small losses off otherwise intact walls — a top course here, a
-    corner there — so the standing sides are not showroom-clean."""
-    from . import fracture, damage
-    rng, nrng = ctx["rng"], ctx["nrng"]
+    corner there — so the standing sides are not showroom-clean.
+
+    ROUND 2: `fracture_partial` (the single-scale path) cut this at a smooth
+    wobble over 8-12 whole cells of a 4 m module, so a spall came out as a
+    RECTANGULAR notch with one pale flap hanging in it — a machined hole, which
+    is the complaint this whole round is about, on the one recipe that touches
+    otherwise undamaged elevations and therefore appears on nearly every
+    building in the city. It goes through `_break_split` with `_a_zline_judge`
+    now: the line steps along the courses on masonry and tears on concrete, the
+    cells the line crosses are refined, and the surviving wall keeps ITS OWN
+    cladding (`static_mat`) so only the loss shows."""
+    from . import damage
+    rng = ctx["rng"]
     m = ctx["info"]["masses"][mass]
+    btype = ctx["info"]["type"]
     top = len(m["levels"]) - 1
     for e in list(_els(ctx, mass=mass, role=("wall", "corner"))):
         if storeys is not None and e["storey"] not in storeys:
@@ -1519,18 +1562,25 @@ def _spall(ctx, mass, rate=0.15, storeys=None):
         if not path:
             continue
         tex = damage.bound_texture(ctx["stage"], path)
-        st, lo = fracture.fracture_partial(
-            ctx["stage"], path, "{0}/brk_{1}_{2}".format(ctx["parent"], ctx["tag"],
-                                                         path.rsplit("/", 1)[-1]),
-            n_pieces=8 + rng.randrange(4), rng=nrng,
-            cut_frac=rng.uniform(0.72, 0.9), mode="uniform", rough=0.01,
-            consume=0.0, min_volume_frac=0.0015)
-        mf = _mat_fn(ctx, tex, 0.3)
-        for q in st + lo:
-            _bind(ctx["stage"], q, _b_dusty(ctx, mf()))
+        # the top 8-26 % of the module goes: a course or two, not a storey
+        z0 = e["z"] + e["h"] * rng.uniform(0.74, 0.92)
+        st, lo = _break_split(
+            ctx, path, 9 + rng.randrange(4),
+            _a_zline_judge(m, e["side"], z0, rng, btype=btype,
+                           amp=e["h"] * 0.11, loose_above=True),
+            _mat_fn(ctx, tex, 0.55),
+            static_mat=_clad_material(ctx["stage"], ctx["parent"],
+                                      ctx["cache"], tex) if tex else None,
+            refine_max=5, edge_cell_m=0.30)
+        if not st:
+            # the whole module came away — that is a hole, not a spall
+            continue
+        # WHAT COMES OFF A WALL IS DUST-COLOURED, and what is left behind in
+        # the recess is the wall's own inner face, not a bright flap.
+        _a_dustify(ctx, lo, p=0.85)
         ox, oy = _outward(m, e["side"])
         for q in lo:
-            v = rng.uniform(0.4, 1.2)
+            v = rng.uniform(0.3, 0.9)
             ctx["velocity"][q] = (ox * v, oy * v, 0.0)
         ctx["loose"] += lo
         ctx["static_extra"] += st
@@ -1538,7 +1588,8 @@ def _spall(ctx, mass, rate=0.15, storeys=None):
 
 
 def _break_box(stage, path, n, rng, nrng, mat, inner_mat=None, inner_p=0.5,
-               mode="uniform", aspect=None, consume=0.0, consume_pool=1.6):
+               mode="uniform", aspect=None, consume=0.0, consume_pool=1.6,
+               max_piece_m=None):
     """Fracture an authored box (slab / column) into chunks. Returns paths.
 
     `consume_pool` is exposed (round 2): 1.6 lets middling pieces into the
@@ -1551,6 +1602,7 @@ def _break_box(stage, path, n, rng, nrng, mat, inner_mat=None, inner_p=0.5,
                                   mode=mode, aspect=aspect, rough=0.012,
                                   verbose=False, consume=consume,
                                   consume_pool=consume_pool,
+                                  max_piece_m=max_piece_m,
                                   min_volume_frac=0.0008)
     for pth in made:
         _bind(stage, pth, inner_mat if (inner_mat is not None
@@ -1861,7 +1913,7 @@ def r_corner_fail(ctx, storeys=2, mass="main", corner=None):
             from pxr import UsdShade
             bm = UsdShade.MaterialBindingAPI(ctx["stage"].GetPrimAtPath(strip)).ComputeBoundMaterial()[0]
             st, lo = _break_split(ctx, strip, 12 + rng.randrange(5), judge, mat_fn,
-                                  min_volume_frac=0.0008,
+                                  min_volume_frac=0.0008, rough=ROUGH_STRIP_M,
                                   static_mat=bm if bm else None)
             statics += st
             loose += lo
@@ -1878,14 +1930,14 @@ def r_corner_fail(ctx, storeys=2, mass="main", corner=None):
         fit["all"] = [q for q in fit["all"] if q != pth] + [rem] + st
         ctx["loose"] += lo
         ctx["static_extra"] += [rem] + st
-    for e in list(_els(ctx, mass=mass, role="roof")):
-        # only tiles that reach the corner; the rest stay kit tiles (and
-        # stay available to `roof_hole`, which runs after this on DG3-4)
-        if math.hypot(e["lx"] - cx, e["ly"] - cy) > reach + 7.0 and \
-                max(m["W"], m["D"]) > 12.0 and len(list(_els(ctx, mass=mass, role="roof"))) > 1:
-            continue
-        box = _roof_box(ctx, e)
-        if not box:
+    # THE WHOLE ROOF BECOMES SLABS (`_a_roofify`) even though only the ones
+    # near the corner get broken: a roof that is half kit tile and half
+    # authored slab has a straight material seam across it.
+    roofs = _a_roofify(ctx, mass)
+    for box, blx, bly in roofs:
+        # only slabs that reach the corner are BROKEN; the rest stay whole
+        if math.hypot(blx - cx, bly - cy) > reach + 7.0 and \
+                max(m["W"], m["D"]) > 12.0 and len(roofs) > 1:
             continue
         rem, st, lo = _corner_break(
             box, lambda: (_a_mat(ctx, "timber_dusty")
@@ -1894,7 +1946,6 @@ def r_corner_fail(ctx, storeys=2, mass="main", corner=None):
         ctx["loose"] += lo
         ctx["static_extra"] += [rem] + st
         ctx["authored"].append(rem)
-        e["dead"] = True
     # THE FLOOR OF THE NOTCH IS A KIT SEAM. The lowest removed storey leaves
     # the modules under it with a level top edge on the slab line — the
     # horizontal half of the "rectangular part broken off". Only near the
@@ -2013,7 +2064,7 @@ def _roof_box(ctx, e, thick=None):
 
 
 def _break_box_like(ctx, e, n, timber=False, consume=0.0, dusty=False,
-                    consume_pool=None):
+                    consume_pool=None, max_piece_m=None):
     """Fracture a kit ROOF piece: swap it for a solid slab first.
 
     `dusty` is the collapse variant: the boards take the dark joist tint and
@@ -2032,6 +2083,7 @@ def _break_box_like(ctx, e, n, timber=False, consume=0.0, dusty=False,
                                   rough=0.01, verbose=False, consume=consume,
                                   consume_pool=(consume_pool if consume_pool
                                                 else (1.05 if dusty else 1.6)),
+                                  max_piece_m=max_piece_m,
                                   min_volume_frac=0.0008)
     mat = _a_roof_mat(ctx)
     for pth in made:
@@ -2346,9 +2398,9 @@ def r_pancake(ctx, mass="main", pitch_m=None):
             # them, which is why its mound was 2.2k bodies of dark glazing and
             # white panel with no rubble visible between them.
             st, lo = _break(stage, ctx["parent"], e, ctx["tag"],
-                            10 + rng.randrange(6), rng, nrng, ctx["mats"],
+                            15 + rng.randrange(7), rng, nrng, ctx["mats"],
                             ctx["cache"], info["type"], inner_p=0.5,
-                            partial=partial, consume=0.34)
+                            partial=partial, consume=0.62, max_piece_m=1.0)
             ox, oy = _outward(m, e["side"])
             H = max(1.0, m["top"] - m["z0"])
             for pth in lo:
@@ -2357,6 +2409,7 @@ def r_pancake(ctx, mass="main", pitch_m=None):
                 ctx["velocity"][pth] = (ox * v * rng.uniform(0.5, 1.2),
                                         oy * v * rng.uniform(0.5, 1.2), 0.0)
             _a_dustify(ctx, lo + st)
+            _a_lay_flat(ctx, lo + st)
             ctx["loose"] += lo + st
             e["dead"] = True
         # columns -> short chunks (they are what the slabs crush)
@@ -2417,7 +2470,7 @@ def r_pancake(ctx, mass="main", pitch_m=None):
                     lambda: (_a_mat(ctx, "concrete_dusty") if rng.random() < 0.6
                              else _a_mat(ctx, "dust")),
                     min_volume_frac=0.0008, static_mat=km if km else None,
-                    refine_max=6, max_loose_m=2.6)
+                    refine_max=6, max_loose_m=2.6, rough=ROUGH_STRIP_M)
                 # `cur` is deactivated by the next split, so only the FINAL
                 # remainder plus every side's statics ride the stack
                 cur, sts = rem, sts + st
@@ -2633,6 +2686,99 @@ def _a_bury_props(ctx, props, base_z, heap_h, keep=0.3):
     return kept
 
 
+# RUBBLE IS NOT A CRATE OF BOXES. `_heap` authored every chunk with `_box`,
+# which can only take a YAW — so a pile of a thousand of them is a thousand
+# upright rectangular blocks, and next to the thin plates the kit shells shed
+# it reads as packing crates under broken crockery (round-2 review of the DG5
+# city). A lump is the same eight points with each corner pulled about and the
+# whole thing turned on all three axes, which costs the same and reads as
+# broken masonry.
+def _a_lump(stage, path, cx, cy, cz, s, rng, mat=None, jitter=0.3):
+    from pxr import Gf, Sdf, UsdGeom, Vt
+    hx = s * 0.5
+    hy = s * rng.uniform(0.45, 1.0) * 0.5
+    hz = s * rng.uniform(0.35, 0.85) * 0.5
+    # a random orientation, built from two turns rather than a full rotation
+    # matrix so this stays cheap over the ~1500 chunks a dome needs
+    ya, pa, ra = (rng.uniform(0, 6.2832), rng.uniform(-0.9, 0.9),
+                  rng.uniform(-0.9, 0.9))
+    cy_, sy_ = math.cos(ya), math.sin(ya)
+    cp, sp = math.cos(pa), math.sin(pa)
+    cr, sr = math.cos(ra), math.sin(ra)
+    pts = []
+    for dz in (-hz, hz):
+        for dx, dy in ((-hx, -hy), (hx, -hy), (hx, hy), (-hx, hy)):
+            x = dx * (1.0 + rng.uniform(-jitter, jitter))
+            y = dy * (1.0 + rng.uniform(-jitter, jitter))
+            z = dz * (1.0 + rng.uniform(-jitter, jitter))
+            y, z = y * cp - z * sp, y * sp + z * cp
+            x, z = x * cr - z * sr, x * sr + z * cr
+            x, y = x * cy_ - y * sy_, x * sy_ + y * cy_
+            pts.append(Gf.Vec3f(float(x), float(y), float(z)))
+    faces = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4),
+             (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
+    me = UsdGeom.Mesh.Define(stage, Sdf.Path(path))
+    me.CreatePointsAttr(Vt.Vec3fArray(pts))
+    me.CreateFaceVertexCountsAttr(Vt.IntArray([4] * 6))
+    me.CreateFaceVertexIndicesAttr(Vt.IntArray([i for f in faces for i in f]))
+    me.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+    lo_ = [min(q[k] for q in pts) for k in range(3)]
+    hi_ = [max(q[k] for q in pts) for k in range(3)]
+    me.CreateExtentAttr([Gf.Vec3f(*map(float, lo_)), Gf.Vec3f(*map(float, hi_))])
+    UsdGeom.Xformable(me).AddTranslateOp().Set(Gf.Vec3d(cx, cy, cz))
+    if mat is not None:
+        _bind(stage, path, mat)
+    return path
+
+
+def _a_lay_flat(ctx, paths, p=0.8, tilt=(3.0, 34.0), thin_frac=0.55):
+    """Turn a share of these fragments FLAT before the settle starts.
+
+    A kit wall is an open SHELL, so every cell of it is a thin PLATE, and a
+    plate dropped with an outward kick lands on edge about as often as flat:
+    the DG5 masonry heap came out as a field of tiles standing at angles
+    (reviewer, `A_fin5_urm/2_commercial_DG5_ne.png` — "like shattered tiles").
+    A slab of masonry that slid off a wall lies down, so each piece is turned
+    so its THINNEST axis points roughly up, then tumbled a little; PhysX keeps
+    it there because that is already its resting orientation. Pieces that are
+    not plates (`thin_frac` of the longest axis or more) are left alone."""
+    from pxr import UsdGeom
+    rng = ctx["rng"]
+    stage = ctx["stage"]
+    xf = UsdGeom.XformCache()
+    n = 0
+    for pth in paths:
+        if rng.random() > p:
+            continue
+        pr = stage.GetPrimAtPath(pth)
+        if not pr or not pr.IsValid():
+            continue
+        pts = UsdGeom.Mesh(pr).GetPointsAttr().Get()
+        if not pts or len(pts) < 4:
+            continue
+        ext = [max(q[k] for q in pts) - min(q[k] for q in pts) for k in range(3)]
+        big = max(ext) or 1.0
+        thin = int(min(range(3), key=lambda k: ext[k]))
+        if ext[thin] > thin_frac * big:
+            continue                       # already a chunk, leave it
+        c = xf.GetLocalToWorldTransform(pr).ExtractTranslation()
+        piv = (c[0], c[1], c[2])
+        # thin axis -> +Z
+        if thin == 0:
+            M = _rot_about(piv, (0.0, 1.0, 0.0), 90.0)
+        elif thin == 1:
+            M = _rot_about(piv, (1.0, 0.0, 0.0), 90.0)
+        else:
+            M = _rot_about(piv, (0.0, 0.0, 1.0), 0.0)
+        a = rng.uniform(0.0, 6.2832)
+        M = M * _rot_about(piv, (math.cos(a), math.sin(a), 0.0),
+                           rng.uniform(*tilt)) \
+              * _rot_about(piv, (0.0, 0.0, 1.0), rng.uniform(0, 360))
+        _transform_prims(stage, [pth], M)
+        n += 1
+    return n
+
+
 def _heap(ctx, m, base, h, spread_frac, fill=True, sides=None,
           depth_m=None, along=None, tag="heap", mat_fn=None, offset_m=0.0):
     """A heap of solid chunks — the mass of a collapse, AUTHORED.
@@ -2669,15 +2815,17 @@ def _heap(ctx, m, base, h, spread_frac, fill=True, sides=None,
         if not _c_ok(ctx, wx, wy):
             return                         # off the plate (see `_c_ok`)
         path = "{0}/{1}_{2}_{3}".format(ctx["parent"], tag, ctx["tag"], _uid(ctx))
-        _box(ctx["stage"], path, wx, wy, z, s, s * rng.uniform(0.5, 1.0),
-             s * rng.uniform(0.35, 0.7), rng.uniform(0, 180), _mat(dusty))
+        _a_lump(ctx["stage"], path, wx, wy, z, s, rng, _mat(dusty))
         made.append(path)
 
     if fill:
         reach = spread_frac * Hm
         RX, RY = W / 2.0 + reach, D / 2.0 + reach
         vol = (math.pi * RX * RY * h) / 2.0
-        n = int(min(2600, max(120, vol * 0.55 / 0.9)))
+        # DENSITY: heap chunks are STATIC colliders, so they are far cheaper
+        # than a rigid body and they are the only thing that can outnumber the
+        # shell plates. 1.6x the old density and a 4200 ceiling.
+        n = int(min(5600, max(200, vol * 1.4 / 0.9)))
         for k in range(n):
             u, v = rng.uniform(-1, 1), rng.uniform(-1, 1)
             r = math.hypot(u, v)
@@ -2693,6 +2841,24 @@ def _heap(ctx, m, base, h, spread_frac, fill=True, sides=None,
             # the crown carries the fines
             dusty = 0.35 * max(0.0, 1.0 - r * 1.3) if h > 0.5 else 0.0
             _chunk(u * RX, v * RY, zc, sz, dusty)
+        # THE FINES SETTLE ON TOP. A scatter of small dust-coloured lumps ON
+        # the surface of the dome, which is what makes a pile read as a pile
+        # rather than as a heap of objects.
+        if h > 0.5:
+            # A SKIN, NOT A SPRINKLE. These sit ON the dome's surface and they
+            # are what the camera sees first, so there have to be enough of
+            # them to hold the surface between the shell fragments that land on
+            # top: 0.42 n rather than 0.22, brick-sized, and drawn almost
+            # entirely from the dust tints (the fines settle last and on top —
+            # brick stays lower down, which is the mix the surveys describe).
+            for k in range(int(n * 0.42)):
+                u, v = rng.uniform(-1, 1), rng.uniform(-1, 1)
+                r = math.hypot(u, v)
+                if r > 1.0:
+                    continue
+                sz = 0.15 + 0.33 * rng.random() ** 1.5
+                _chunk(u * RX, v * RY,
+                       base + h * max(0.0, 1.0 - r ** 1.6) + sz * 0.45, sz, 0.85)
     else:
         depth = depth_m if depth_m is not None else 1.2
         reach = max(1.5, spread_frac * Hm)
@@ -2742,8 +2908,11 @@ def r_masonry_collapse(ctx, mass="main", keep_stub=True):
                 # A MASONRY building's roof is a timber deck, and it comes
                 # apart into boards and rafters, not into concrete plates:
                 # many small pieces, most of them lost into the heap.
-                ctx["loose"] += _break_box_like(ctx, e, 52, timber=True,
-                                                consume=0.68, dusty=True)
+                _deck = _break_box_like(ctx, e, 52, timber=True,
+                                        consume=0.85, dusty=True,
+                                        max_piece_m=1.0)
+                _a_lay_flat(ctx, _deck)
+                ctx["loose"] += _deck
                 e["dead"] = True
                 continue
             # THE STUB'S TOP IS A STEPPED EDGE, NOT A LEVEL ONE. `_break`'s
@@ -2764,20 +2933,34 @@ def r_masonry_collapse(ctx, mass="main", keep_stub=True):
                     static_mat=_clad_material(ctx["stage"], ctx["parent"],
                                               ctx["cache"], tex) if tex else None)
             else:
-                # SMALLER AND THINNER. 8-12 cells on a kit module sheds 1.2-2 m
-                # plates, and they land last, on the CROWN of the heap, so the
-                # pile reads as sheets over rubble however good the rubble is.
+                # SMALLER, FAR FEWER, AND CAPPED. 8-12 cells on a kit module
+                # sheds 1.2-2 m plates; they land last, ON the crown of the
+                # heap, and the pile reads as shattered tiles over rubble
+                # however good the rubble under them is — no number of authored
+                # lumps can win that, because the plates are always on top.
+                # The only lever that works is how MANY there are: 18-24 cells
+                # put the median near 0.8 m, the 0.9 m cap takes the big end
+                # (it keeps the smallest half, so cap and consume compose), and
+                # `consume` 0.75 leaves a quarter of them — enough to read as
+                # recognisable façade among the rubble, too few to cover it.
+                # The material is not lost, it is in the heap.
                 st, lo = _break(stage, ctx["parent"], e, ctx["tag"],
-                                12 + rng.randrange(6), rng, nrng, ctx["mats"],
+                                18 + rng.randrange(7), rng, nrng, ctx["mats"],
                                 ctx["cache"], info["type"], inner_p=0.45,
-                                partial=None, consume=0.42)
+                                partial=None, consume=0.75, max_piece_m=0.9)
             ox, oy = _outward(m, e["side"])
             for pth in lo:
                 zf = min(1.0, max(0.0, (e["z"] - m["z0"]) / H))
-                v = 0.3 + 1.8 * zf
-                ctx["velocity"][pth] = (ox * v * rng.uniform(0.4, 1.1),
-                                        oy * v * rng.uniform(0.4, 1.1), 0.0)
-            _a_dustify(ctx, lo)
+                # GENTLER THAN IT WAS (0.3 + 1.8 zf). A plate thrown at 2 m/s
+                # arrives at the pile edge-first and stays there; a total
+                # collapse drops nearly straight down anyway — the outward fan
+                # belongs to `out_of_plane`, not to this.
+                v = 0.2 + 0.9 * zf
+                ctx["velocity"][pth] = (ox * v * rng.uniform(0.3, 1.0),
+                                        oy * v * rng.uniform(0.3, 1.0),
+                                        -0.4 * rng.random())
+            _a_dustify(ctx, lo, p=0.9)
+            _a_lay_flat(ctx, lo)
             ctx["loose"] += lo
             ctx["static_extra"] += st
             e["dead"] = True
@@ -2795,8 +2978,12 @@ def r_masonry_collapse(ctx, mass="main", keep_stub=True):
                 made = _break_box(stage, pth, 54 + rng.randrange(16), rng, nrng,
                                   _a_mat(ctx, "timber_dusty"),
                                   _a_mat(ctx, "brick_dusty"), 0.45,
-                                  mode="plank", aspect=(1.8, 3.6), consume=0.80,
-                                  consume_pool=1.05)
+                                  mode="plank", aspect=(1.8, 3.6), consume=0.88,
+                                  consume_pool=1.05, max_piece_m=1.0)
+                # boards lie DOWN, and a board that came through a collapse is
+                # under the dust like everything else
+                _a_dustify(ctx, made, p=0.5)
+                _a_lay_flat(ctx, made, p=0.9)
                 ctx["loose"] += made
         for pth in fit["partitions"]:
             if "_{0}_".format(mt) in pth:
@@ -3158,28 +3345,32 @@ def _c_noise(rng, freqs=(0.45, 1.3, 3.1), amps=(0.55, 0.30, 0.15)):
 # it is not enough to pick a megascans pack, it has to be bound through
 # `damage._pbr(texture=...)`, which sets `project_uvw` + `world_or_object` and
 # scales in repeats per METRE.
-# (texture, tint, roughness, repeats per metre, albedo_brightness, desaturation)
+# (texture, TINT, roughness, repeats per metre, desaturation)
 #
-# THE TINT DOES NOTHING ON ITS OWN. `damage._pbr` sets `diffuse_color_constant`
-# to the tint, and `planks.wood_material`'s comment says that multiplies the
-# map — it does not, at least not in this OmniPBR: three benches at 0.40, 0.33
-# and 0.22 rendered the soil the SAME bright orange, while changing the
-# TEXTURE changed the look immediately. OmniPBR's albedo-map controls are
-# `albedo_brightness` (multiplier) and `albedo_desaturation`, and those are
-# set below through the shader directly. Desaturation matters as much as
-# brightness: a neutral multiplier cannot take the orange out of a mud map,
-# it only makes it a darker orange.
+# THE TINT HAS TO GO ON `diffuse_tint`. `damage._pbr` puts it on
+# `diffuse_color_constant`, and `planks.wood_material`'s comment says that
+# multiplies the map — it does not. OmniPBR.mdl (kit/mdl/core/Base) is
+# explicit: `diffuse_color_constant` is "the albedo base color" (what the map
+# REPLACES), `diffuse_tint` is "multiplied over the final albedo color", and
+# `albedo_desaturation` "desaturates the albedo map". Three benches at tint
+# 0.40, 0.33 and 0.22 rendered the soil identically bright before this was
+# found. Desaturation is not optional either: a neutral multiplier cannot take
+# the orange out of an orange mud map, it only makes a darker orange.
+# The tints below are multipliers over the map as it renders untinted, and
+# they are BRACKETED rather than guessed: at 1.0 (the benches before the fix)
+# the soil read as orange paint, at 0.09 (the bench that stacked both
+# multipliers) as black mud. These sit near the geometric mean of the two.
 _C_TEX = {
-    "soil":  ("megascans/Soil_Mud/T_pjuph20_1K_B.jpg", (0.22, 0.21, 0.20), 0.98, (0.70, 0.70), 0.42, 0.50),
-    "silt":  ("megascans/Dirt_Rough/T_yd0lfcqcc_1k_B.png", (0.30, 0.30, 0.31), 0.96, (0.55, 0.55), 0.55, 0.60),
+    "soil":  ("megascans/Soil_Mud/T_pjuph20_1K_B.jpg", (0.34, 0.33, 0.32), 0.98, (0.70, 0.70), 0.55),
+    "silt":  ("megascans/Dirt_Rough/T_yd0lfcqcc_1k_B.png", (0.42, 0.42, 0.43), 0.96, (0.55, 0.55), 0.65),
     # NOT Worn_Pavement: its map carries green moss in the joints, and a 1.2 m
     # kerb block at 0.38 repeats/m showed one big square of it — a row of them
     # along a wall read as green mosaic tiles. Damaged_Asphalt is a plain grey
     # cracked surface; brightened it is concrete, darkened it is the road.
-    "pave":  ("megascans/Damaged_Asphalt/T_vizcebf_2K_B.png", (0.60, 0.59, 0.57), 0.90, (0.55, 0.55), 0.80, 0.25),
-    "asph":  ("megascans/Damaged_Asphalt/T_vizcebf_2K_B.png", (0.38, 0.38, 0.37), 0.92, (0.30, 0.30), 0.70, 0.35),
-    "raft":  ("megascans/Damaged_Asphalt/T_vizcebf_2K_B.png", (0.32, 0.32, 0.31), 0.95, (0.28, 0.28), 0.60, 0.35),
-    "brick": ("megascans/Brick_Wall_Worn/T_sexkaitb_1K_B.jpg", (0.42, 0.36, 0.32), 0.92, (0.70, 0.70), 0.72, 0.20),
+    "pave":  ("megascans/Damaged_Asphalt/T_vizcebf_2K_B.png", (0.50, 0.50, 0.49), 0.90, (0.55, 0.55), 0.25),
+    "asph":  ("megascans/Damaged_Asphalt/T_vizcebf_2K_B.png", (0.32, 0.32, 0.32), 0.92, (0.30, 0.30), 0.35),
+    "raft":  ("megascans/Damaged_Asphalt/T_vizcebf_2K_B.png", (0.30, 0.30, 0.30), 0.95, (0.28, 0.28), 0.35),
+    "brick": ("megascans/Brick_Wall_Worn/T_sexkaitb_1K_B.jpg", (0.48, 0.40, 0.36), 0.92, (0.70, 0.70), 0.15),
 }
 _C_FALLBACK = {"soil": "soil", "silt": "soil", "pave": "concrete",
                "asph": "dark_concrete", "raft": "dark_concrete", "brick": "brick"}
@@ -3194,7 +3385,7 @@ def _c_look(ctx, key):
     got = mats.get(k)
     if got is not None:
         return got
-    rel, rgb, rough, scale, bright, desat = _C_TEX[key]
+    rel, rgb, rough, scale, desat = _C_TEX[key]
     try:
         import scene_generator as sg
         from pxr import Gf, Sdf, UsdShade
@@ -3206,14 +3397,10 @@ def _c_look(ctx, key):
                 "airstack://scene_gen/assets/materials/" + rel, ""))
         sh = UsdShade.Shader.Get(ctx["stage"], path + "/Shader")
         if sh:
-            sh.CreateInput("albedo_brightness",
-                           Sdf.ValueTypeNames.Float).Set(float(bright))
-            sh.CreateInput("albedo_desaturation",
-                           Sdf.ValueTypeNames.Float).Set(float(desat))
-            # belt and braces: whichever of the two names this OmniPBR build
-            # honours as the map multiplier
             sh.CreateInput("diffuse_tint",
                            Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*rgb))
+            sh.CreateInput("albedo_desaturation",
+                           Sdf.ValueTypeNames.Float).Set(float(desat))
     except Exception as exc:
         print("[quake_flow] ground look {0} unavailable ({1})".format(key, exc))
         got = mats.get(_C_FALLBACK[key])
@@ -4169,7 +4356,12 @@ def r_overturn(ctx, angle_deg=None, side="S"):
     # 2) the rigid body: everything else, raft included, about the base edge
     raft = _raft(ctx, m)
     paths = _everything(ctx) + [raft] + carried + list(ctx.pop("c_carry", []))
-    M = _rot_about((px, py, m["z0"]), (ax, ay, 0.0), -abs(angle))
+    # +angle about (-oy, ox) lays the top OUTWARD over `side` (the edge it
+    # pivots on). The first version used -angle, which folded the block back
+    # over its own footprint toward the opposite side — so the crater, the
+    # shove and `quake._blocked`'s sweep all disagreed with the fall (found
+    # by agent C's matrix check, 2026-08-27).
+    M = _rot_about((px, py, m["z0"]), (ax, ay, 0.0), abs(angle))
     _transform_prims(ctx["stage"], paths, M)
     _transform_prims(ctx["stage"], [q for q in ctx["loose"]], M)
     ctx["static_extra"] += paths
@@ -4234,7 +4426,8 @@ def _droop_strip(ctx, slab_path, m, side, depth_m, angle_deg, tear=True):
             _edge_judge(m, side, d, rng, btype=ctx["info"]["type"]),
             lambda: (_a_mat(ctx, "concrete_dusty") if rng.random() < 0.55
                      else _a_mat(ctx, "dust")),
-            min_volume_frac=0.0008, static_mat=km if km else None)
+            min_volume_frac=0.0008, static_mat=km if km else None,
+            rough=ROUGH_STRIP_M)
         group = [s_rem] + st
         ctx["loose"] += lo
         ctx["authored"] += [s_rem]
@@ -4322,6 +4515,36 @@ def _a_roof_slabs(ctx):
     return out
 
 
+def _a_roofify(ctx, mass):
+    """Swap EVERY kit roof tile of `mass` for an authored slab; return
+    [(path, lx, ly)] in the mass frame.
+
+    ALL OF THEM, not just the one a recipe is about to break. A multi-tile
+    roof (the office family has several) converted piecemeal comes out half kit
+    tile and half authored slab with a dead-straight MATERIAL seam between
+    them — the "straight line across the roof" complaint in its purest form
+    (reviewer, round 2: `D_rc2/1_office_wide_collapse_onto_sw.png`, and again
+    in `A_fin_rc/0_office_roof_hole_top.png` after the slab material had been
+    changed once). Two greys that do not match cannot be made to match by
+    picking a better grey; the roof has to be ONE material. Idempotent: called
+    again it just re-reports the slabs (including the remainders
+    `_split_strip` has since cut out of them)."""
+    m = ctx["info"]["masses"][mass]
+    thick = 0.14 if ctx["info"]["type"] == "urm" else ROOF_T
+    for e in list(_els(ctx, mass=mass, role="roof")):
+        if _roof_box(ctx, e, thick=thick):
+            e["dead"] = True
+    out = []
+    for p in _a_roof_slabs(ctx):
+        try:
+            cx_, cy_ = _box_dims(ctx["stage"], p)[:2]
+        except Exception:
+            continue
+        lx_, ly_ = _to_local(m, cx_, cy_)
+        out.append((p, lx_, ly_))
+    return out
+
+
 def _a_hole_outline(rng, lobes=(1, 4)):
     """An irregular closed outline: radius(theta) about 1.0, in a frame where
     the hole is a unit circle. Returns (rad, rmax).
@@ -4397,17 +4620,7 @@ def r_roof_hole(ctx, mass="main", frac=None):
     # TARGETS: the kit roof tiles this mass still has, plus any slab an
     # EARLIER recipe already authored in their place (see `_roof_box`).
     from pxr import UsdShade
-    targets = []
-    for e in list(_els(ctx, mass=mass, role="roof")):
-        targets.append((e, e["lx"], e["ly"]))
-    if not targets:
-        for p in _a_roof_slabs(ctx):
-            try:
-                cx_, cy_ = _box_dims(ctx["stage"], p)[:2]
-            except Exception:
-                continue
-            lx_, ly_ = _to_local(m, cx_, cy_)
-            targets.append((p, lx_, ly_))
+    targets = _a_roofify(ctx, mass)
 
     n_hit, rim_st, own_loose = 0, [], []
     for tgt, tlx, tly in targets:
@@ -4416,12 +4629,7 @@ def r_roof_hole(ctx, mass="main", frac=None):
         if (abs(tlx - hcx) > hw * rmax + 2.6
                 or abs(tly - hcy) > hd * rmax + 2.6):
             continue
-        if isinstance(tgt, dict):
-            box = _roof_box(ctx, tgt, thick=(0.14 if btype == "urm" else ROOF_T))
-        else:
-            box = tgt
-        if not box:
-            continue
+        box = tgt
         bm = UsdShade.MaterialBindingAPI(ctx["stage"].GetPrimAtPath(box)).ComputeBoundMaterial()[0]
         # MORE, SMALLER, DARKER PIECES. At 14-20 `plank` cells over a 22 x 18 m
         # roof box the cells are ~4 m and the aspect stretches the worst of
@@ -4447,8 +4655,6 @@ def r_roof_hole(ctx, mass="main", frac=None):
         rim_st += st
         own_loose += lo
         n_hit += len(lo)
-        if isinstance(tgt, dict):
-            tgt["dead"] = True
     # THE RIM SAGS. A diaphragm that lets go does not shear off flush: the
     # boards and the slab strips at the edge stay attached and hinge down into
     # the hole (every USAR photograph of a collapsed roof shows the rim
@@ -5791,16 +5997,12 @@ def _d_ground_response(ctx, m, side, sink_m, lift_m=0.0):
     as torn paper — and the berm is what says "the ground failed"."""
     fn = globals().get("_c_ground_response")
     if callable(fn):
-        try:
-            # agent C's unified entry point: low side + how far it dropped +
-            # how far the other side came up. Everything below is the
-            # fallback for a tree where that does not exist yet.
-            return fn(ctx, m, low_side=side, drop_m=sink_m, rise_m=lift_m)
-        except TypeError:
-            try:
-                return fn(ctx, m, side, sink_m)
-            except TypeError:
-                pass
+        # agent C's unified entry point: low side + how far it dropped + how
+        # far the other side came up. NOT wrapped in `except TypeError` any
+        # more: a TypeError raised INSIDE it (a complex number from a
+        # negative base, round 2) silently degraded every lean to the old
+        # berms. Everything below is the fallback for a tree without it.
+        return fn(ctx, m, low_side=side, drop_m=sink_m, rise_m=lift_m)
     rng = ctx["rng"]
     _berm(ctx, m, side, crest_m=0.35 + 0.5 * min(1.0, sink_m / 1.5), reach_m=2.4)
     _berm(ctx, m, _opposite(side), crest_m=max(0.25, min(1.1, 0.7 * lift_m)),

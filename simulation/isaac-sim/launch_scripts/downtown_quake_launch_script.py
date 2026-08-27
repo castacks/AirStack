@@ -23,6 +23,8 @@ Env:
     QUAKE_GROUND   0 skips the ground pass (dust halo, fissures, boils, pounding)
     SNAP_DIR       viewport captures under /isaac-sim/.nvidia-omniverse/logs/<name>
     REGION_M / DISASTER_TYPE / SEVERITY   spec overrides, as on the drone launcher
+    ASSET_SET      asset set override: urban_quake (kit only, default of the preset) or
+                   urban_quake_v2 (kit + a few standalone monoliths + ruin towers)
     MAGNITUDE      e.g. 6.0 — sets severity AND the field shape from the research
                    (compile_disaster.magnitude_to_severity); SEVERITY, if also set, wins
     CITIES         TWO OR MORE CITIES IN ONE STAGE: "M9.5,M5.5" (magnitudes) or
@@ -155,6 +157,9 @@ def _spec_overrides():
     m = os.environ.get("MAGNITUDE", "").strip()
     if m:
         ov["magnitude"] = float(m.lstrip("Mm"))
+    aset = os.environ.get("ASSET_SET", "").strip()
+    if aset:
+        ov["asset-set"] = aset           # e.g. urban_quake_v2 (kit + monoliths)
     e = os.environ.get("EPICENTER", "").strip()
     if e:
         parts = [float(v) for v in e.replace("x", ",").split(",") if v.strip()]
@@ -263,9 +268,7 @@ def _void_ground(stage, cities, ssf):
     # bind the quake palette's triplanar soil so the gap reads as bare earth
     try:
         from disaster import quake_flow as _qf
-        from pxr import UsdShade
-        soil = _qf.materials(stage, PARENT + "_void")["soil"]
-        UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(UsdShade.Material(stage.GetPrimAtPath(soil)))
+        _qf._bind(stage, path, _qf.materials(stage, PARENT + "_void")["soil"])
     except Exception as exc:
         print("[quake_city] void ground material: {0}".format(exc))
     print("[quake_city] void ground {0:.0f} x {1:.0f} m under {2} cities; {3} default "

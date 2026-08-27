@@ -1,0 +1,29 @@
+# ASSET SET: urban_quake_v2 — the earthquake kit library (`urban_quake`) plus
+# a MINORITY of the 2026-08-26 standalone monoliths, for variety.
+#
+# The kit archetypes are the only buildings the quake pipeline can take apart
+# storey by storey. A standalone monolith cannot be fractured, so
+# `disaster/quake.assemble`'s monolith pass gives it only what a rigid body
+# can show: a foundation failure (lean + sink with the ground response), and,
+# for a tower drawn at DG5, a swap for one of the six `ruin_tower_*` models.
+# Keep them a MINORITY: the packer picks by height fit, and 4 towers + 8
+# blocks against 16 kit styles still took 46 % of a 200 m plate (R_mono1) —
+# 2 towers + 3 blocks here. An M9 core must not fill with rigid boxes.
+extends: urban_quake
+usds:
+  buildings:
+    tower+:
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/office_tower/office_tower.usdc"
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/tower/podium_highrise/podium_highrise.usdc"
+    midrise+:
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_01/block_01.usdc"
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_04/block_04.usdc"
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/intact/midrise/block_07/block_07.usdc"
+    # the six ruined high-rises (48-70 m): what a DG5 monolith TOWER becomes
+    destroyed+:
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_01/ruin_tower_01.usdc"
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_02/ruin_tower_02.usdc"
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_03/ruin_tower_03.usdc"
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_04/ruin_tower_04.usdc"
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_05/ruin_tower_05.usdc"
+      - usd: "omniverse://airlab-nucleus.andrew.cmu.edu:443/Projects/SEI-COA/scene_gen/assets/standalone/buildings/destroyed/tower/ruin_tower_06/ruin_tower_06.usdc"

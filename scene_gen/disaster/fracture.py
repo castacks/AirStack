@@ -627,7 +627,7 @@ def _cell(mesh, pts, i):
 def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
                   min_volume_frac=0.004, rough=0.035, shrink=0.97,
                   consume=0.30, consume_pool=1.25, axis=None, aspect=None,
-                  verbose=False):
+                  max_piece_m=None, verbose=False):
     """Split one trimesh into Voronoi fragments. Returns a list of trimeshes.
 
     SLICING, NOT BOOLEANS. The first version intersected the mesh with a cell
@@ -739,6 +739,32 @@ def fracture_mesh(mesh, n_pieces, rng, mode="uniform", focus=None,
         rng.shuffle(pool)
         dropped = set(pool[:n_drop])
         keep = [f for i, f in enumerate(keep) if i not in dropped]
+
+    # AN ABSOLUTE CEILING ON A PIECE, not a share of them.
+    #
+    # `consume` is a probabilistic bias and it cannot guarantee anything: a kit
+    # wall is an open SHELL, so every cell of it is a thin PLATE, and a total
+    # collapse that keeps even a handful of 2-3 m plates reads as broken
+    # crockery rather than rubble however good the heap under them is (the
+    # round-2 review of the DG5 city: "a sea of large thin flat plates"). A
+    # collapse recipe passes `max_piece_m` and nothing bigger than that is
+    # authored; the material is in the heap, which is what carries the mass.
+    if max_piece_m and keep:
+        lim = float(max_piece_m)
+        ext = np.array([float(np.max(f.extents)) for f in keep])
+        under = [f for f, e in zip(keep, ext) if e <= lim]
+        # A FLOOR, OR THE CAP EATS THE WHOLE MODULE. A kit wall cut into a
+        # dozen cells has cells 1.2-1.5 m long, so a 1.1 m cap culled nearly
+        # all of them — and `fracture_prim` returns early on an empty list
+        # WITHOUT deactivating the source, so the wall stayed whole and the
+        # building came out as intact floor plates hanging in the air
+        # (A_fin3_urm DG5). The cap is for the outliers; it may never take
+        # more than half.
+        floor = max(3, int(round(len(keep) * 0.5)))
+        if len(under) < floor:
+            order = list(np.argsort(ext))
+            under = [keep[int(i)] for i in order[:floor]]
+        keep = under
 
     for frag in keep:
         # SHRINK ABOUT THE CENTROID. Voronoi cells share exact boundaries, so
@@ -981,6 +1007,30 @@ def fracture_split(mesh, n_pieces, judge, rng,
     return statics, looses
 
 
+def _face_normals(mesh):
+    """faceVarying normals: the geometric normal of each triangle, three times.
+
+    WITHOUT THESE A FRAGMENT IS SMOOTH-SHADED. A fractured piece has no
+    authored normals, so Hydra averages them at the vertices and a flat cut
+    face comes out as a pillow — and where a fractured STRIP butts against an
+    authored `_box` remainder (which does carry faceVarying normals) the two
+    shade differently, so the join shows as a thin light line straight across
+    the roof even when the geometry matches to a millimetre. That line was
+    still visible after the gap and the scar amplitude had both been taken
+    down; it is a shading seam, not a crack.
+    """
+    from pxr import Gf, Vt
+    v = np.asarray(mesh.vertices, dtype=float)
+    f = np.asarray(mesh.faces)
+    if not len(f):
+        return None
+    n = np.cross(v[f[:, 1]] - v[f[:, 0]], v[f[:, 2]] - v[f[:, 0]])
+    ln = np.linalg.norm(n, axis=1, keepdims=True)
+    n = n / np.maximum(ln, 1e-12)
+    n = np.repeat(n, 3, axis=0)
+    return Vt.Vec3fArray([Gf.Vec3f(*map(float, q)) for q in n])
+
+
 def _write_mesh(stage, path, mesh, centre_on_centroid=True):
     """One trimesh -> one UsdGeom.Mesh, optionally centred on its centroid."""
     from pxr import Gf, Sdf, UsdGeom, Vt
@@ -994,6 +1044,10 @@ def _write_mesh(stage, path, mesh, centre_on_centroid=True):
     m.CreateFaceVertexCountsAttr(Vt.IntArray([3] * len(mesh.faces)))
     m.CreateFaceVertexIndicesAttr(Vt.IntArray(
         [int(x) for x in np.asarray(mesh.faces).ravel()]))
+    nrm = _face_normals(mesh)
+    if nrm is not None:
+        m.CreateNormalsAttr(nrm)
+        m.SetNormalsInterpolation(UsdGeom.Tokens.faceVarying)
     m.CreateExtentAttr([Gf.Vec3f(*map(float, v.min(0))),
                         Gf.Vec3f(*map(float, v.max(0)))])
     m.CreateSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)
@@ -1004,7 +1058,7 @@ def _write_mesh(stage, path, mesh, centre_on_centroid=True):
 def fracture_partial(stage, prim_path, out_parent, n_pieces, rng,
                      cut_frac=0.5, mode="char", rough=0.035, shrink=0.97,
                      ragged=0.22, deactivate=True, consume=0.30, axis=None,
-                     min_volume_frac=0.004, aspect=None):
+                     min_volume_frac=0.004, aspect=None, max_piece_m=None):
     """Break a wall so that only its upper part comes down.
 
     NO STRAIGHT CUT. The first version sliced the module at a flat plane and
@@ -1033,7 +1087,8 @@ def fracture_partial(stage, prim_path, out_parent, n_pieces, rng,
 
     frags = fracture_mesh(mesh, n_pieces, rng, mode=mode, rough=rough,
                           shrink=shrink, consume=consume, axis=axis,
-                          aspect=aspect, min_volume_frac=min_volume_frac)
+                          aspect=aspect, min_volume_frac=min_volume_frac,
+                          max_piece_m=max_piece_m)
     if not frags:
         return [], []
 
@@ -1082,7 +1137,7 @@ def fracture_prim(stage, prim_path, out_parent, n_pieces, rng,
                   mode="uniform", rough=0.035, shrink=0.97,
                   deactivate=True, verbose=True, consume=0.30,
                   consume_pool=1.25, axis=None, min_volume_frac=0.004,
-                  aspect=None):
+                  aspect=None, max_piece_m=None):
     """Fracture a placed module in the stage. Returns the new prim paths.
 
     Fragments are authored around their OWN centroid with the centroid in the
@@ -1109,7 +1164,7 @@ def fracture_prim(stage, prim_path, out_parent, n_pieces, rng,
                           shrink=shrink, consume=consume,
                           consume_pool=consume_pool, axis=axis,
                           aspect=aspect, min_volume_frac=min_volume_frac,
-                          verbose=verbose)
+                          max_piece_m=max_piece_m, verbose=verbose)
     if not frags:
         if verbose:
             print("[fracture] {0}: {1} faces, watertight={2}, extents={3} "
@@ -1130,6 +1185,10 @@ def fracture_prim(stage, prim_path, out_parent, n_pieces, rng,
         m.CreateFaceVertexCountsAttr(Vt.IntArray([3] * len(f.faces)))
         m.CreateFaceVertexIndicesAttr(Vt.IntArray(
             [int(x) for x in np.asarray(f.faces).ravel()]))
+        nrm = _face_normals(f)
+        if nrm is not None:
+            m.CreateNormalsAttr(nrm)
+            m.SetNormalsInterpolation(UsdGeom.Tokens.faceVarying)
         m.CreateExtentAttr([Gf.Vec3f(*map(float, v.min(0))),
                             Gf.Vec3f(*map(float, v.max(0)))])
         m.CreateSubdivisionSchemeAttr().Set(UsdGeom.Tokens.none)

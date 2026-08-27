@@ -219,7 +219,7 @@ overrides:
     # sidewalk. It is not sidewalk, it is the block's own leftover. A bigger gap
     # spreads the same buildings across the whole block, putting the slack
     # BETWEEN them instead of all of it at the edge.
-    building_gap_m: 6.0
+    building_gap_m: 2.0   # was 6.0 (see above); lean-on / pounding pairs need close neighbours (round 2) — watch the block margins
     park_block_chance: 0.0
     min_parks: 0
     max_parks: 0
