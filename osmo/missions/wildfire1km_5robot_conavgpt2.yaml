@@ -133,12 +133,14 @@ env:
   GT_ANNOTATIONS: "on"
 
 ready:
-  # Five PX4 airframes + a 1 km scene build + the GCS action_relay for five
-  # robots take longer than one; be generous.
-  timeout_s: 2400
+  # A 1 km wildfire plat is ~16x the 250 m bench: its scene build (Nucleus
+  # asset load + procedural gen + fire/scorch/settle damage passes) all runs
+  # BEFORE PX4 reports ready, so this wait must cover it for all five airframes. 4200 s here vs
+  # 1800 on the 250 m bench.
+  timeout_s: 4200
   poll_interval_s: 10
 
-up_timeout_s: 3600
+up_timeout_s: 5400
 iterations: 1
 iteration_attempts: 2
 on_step_failure: abort_iteration

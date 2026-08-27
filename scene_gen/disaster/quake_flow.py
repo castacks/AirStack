@@ -358,7 +358,9 @@ def materials(stage, parent):
         "rebar": ((0.30, 0.19, 0.13), 0.55),
         "glass": ((0.62, 0.78, 0.80), 0.12),
         "timber": ((0.48, 0.36, 0.24), 0.9),
-        "dark_concrete": ((0.40, 0.40, 0.38), 1.0),
+        # 0.12 linear -> ~0.41 on screen (was 0.40 -> 0.68: the pancake lift shaft
+        # and every "dark" chunk rendered pale grey)
+        "dark_concrete": ((0.12, 0.115, 0.105), 1.0),
         "crack": ((0.11, 0.10, 0.09), 1.0),
         # ---- round 2 (agent B): the user's "random white debris" ----
         # 0.66 luma plaster is the brightest thing in the set and it is what
