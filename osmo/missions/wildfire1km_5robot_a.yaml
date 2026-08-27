@@ -96,15 +96,12 @@ environments:
     START_DETECTOR_SERVER: "true"
     START_ITM_SERVER: "true"
     START_VLM_SERVER: "false"
-  - name: conavgpt2
-    method: conavgpt2
-    model_port: "8000"
-    START_DETECTOR_SERVER: "true"
-    START_ITM_SERVER: "false"
-    START_VLM_SERVER: "true"
-    CONAVGPT2_VLM_MODEL: "Qwen/Qwen2.5-VL-7B-Instruct"
-    CONAVGPT2_VLM_QUANT: "nf4"
-    OPENAI_BASE_URL: "http://offboard-compute:8000/v1"
+  # conavgpt2 at 5 robots is NOT here: it is a COOPERATIVE method (one merged
+  # map, one VLM call assigns a frontier to every robot per round — arXiv
+  # 2310.07937), which needs a single team_mode planner seeing all robots, not
+  # 5 sectored planners. That deployment (offboard central planner on the GCS
+  # domain, robots' sensors bridged by the DDS router) lives in its own mission
+  # file wildfire1km_5robot_conavgpt2.yaml. This file runs vlfm only at 5 robots.
 
 ready:
   # Five PX4 airframes plus a 1 km scene build take longer than one; be generous.

@@ -277,7 +277,8 @@ def _sizes(cfg):
 # the scene
 # ---------------------------------------------------------------------------
 
-def build(seed=None, config_name="suburb_net", house_instances=None):
+def build(seed=None, config_name="suburb_net", house_instances=None,
+          region_m=None):
     """The suburb, up to and including the YARD PASS, on the host.
 
     Mirrors `suburb_scene.generate_suburb_on_stage` step for step down to the
@@ -315,6 +316,15 @@ def build(seed=None, config_name="suburb_net", house_instances=None):
     instead would plant 452 trees (seed 3) inside water that the build keeps
     them out of, and each of those is a canopy that can screen a yard the real
     one does not.
+
+    *region_m* OVERRIDES THE PRESET'S OWN EXTENT, for a caller that wants the
+    real code path at a size a test suite can afford. `suburb_net.generate` is
+    14.4 s of the 16 s this function costs on the shipped 1600 x 1200 m preset —
+    the street network is the expensive half and it is superlinear in area — so
+    `tests/` builds a few hundred metres of suburb and gets the same passes,
+    the same records and the same invariants in about a second. Nothing else is
+    touched: at the default `None` this is the shipped preset exactly, which is
+    what `fence_check` and the plates run.
     """
     path = resolve_config_path(config_name)
     cfg = compile_spec(yaml.safe_load(open(path)),
@@ -326,6 +336,9 @@ def build(seed=None, config_name="suburb_net", house_instances=None):
     res = StubResolver(_sizes(cfg), cfg.get("fallback_sizes"))
 
     rng = random.Random(int(cfg.get("seed", 0)) + 7717)
+    if region_m is not None:
+        cfg.setdefault("layout", {})["region_m"] = [float(region_m[0]),
+                                                    float(region_m[1])]
     region = (cfg.get("layout", {}) or {}).get("region_m") or [1600.0, 1200.0]
     net, blocks, info = sn.generate(float(region[0]), float(region[1]), rng,
                                     dict(cfg.get("suburb_net") or {}))

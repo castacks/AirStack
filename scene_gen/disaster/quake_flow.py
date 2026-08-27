@@ -1184,6 +1184,8 @@ def _split_strip(ctx, path, m, side, depth, mat):
     pr = stage.GetPrimAtPath(path)
     if pr and pr.IsValid():
         pr.SetActive(False)
+    if path in ctx.get("roof_slabs", ()):
+        ctx["roof_slabs"].append(rem)      # the remainder IS still that roof
     return rem, strip
 
 
@@ -1999,6 +2001,14 @@ def _roof_box(ctx, e, thick=None):
              top - T / 2.0, sx, sy, T, 0.0, mat)
     pr.SetActive(False)
     ctx["authored"].append(box)
+    # REGISTER IT. Once a recipe has swapped a kit roof tile for a slab, the
+    # tile is `dead` and no later recipe can find it through `_els`; on a
+    # single-tile roof (`commercial` is one 22 x 18 m tile) that meant DG3's
+    # `corner_fail` consumed the whole roof and `roof_hole`, which runs after
+    # it, reported "25% of the roof, 0 pieces down" — an intact roof at the
+    # grade whose whole point is a hole in it. `_a_roof_slabs` gives the later
+    # recipe the boxes to work on instead.
+    ctx.setdefault("roof_slabs", []).append(box)
     return box
 
 
@@ -2385,10 +2395,16 @@ def r_pancake(ctx, mass="main", pitch_m=None):
             # deck of cards. One or two sides of each are torn off along a
             # wandering line and the pieces join the pile.
             cur, sts = pth, []
-            sides = [rng.choice(("S", "E", "N", "W"))]
-            if rng.random() < 0.45:
-                sides.append(rng.choice([s for s in ("S", "E", "N", "W")
-                                         if s != sides[0]]))
+            # THE TOP PLATE IS THE ONE THE NADIR CAMERA SEES, so it loses
+            # three or four sides; the ones buried in the stack lose one or
+            # two, which is all that shows and all the fracture budget is
+            # worth. (The first pass tore 1-2 sides on every plate and the
+            # DG5 top view was a pale tiled rectangle with two ruler edges.)
+            allside = ["S", "E", "N", "W"]
+            rng.shuffle(allside)
+            top_plate = (i >= n_lv - 1)
+            sides = allside[:(3 + (1 if rng.random() < 0.5 else 0))
+                            if top_plate else (2 if rng.random() < 0.45 else 1)]
             for sd in sides:
                 km = UsdShade.MaterialBindingAPI(
                     stage.GetPrimAtPath(cur)).ComputeBoundMaterial()[0]
@@ -2422,6 +2438,14 @@ def r_pancake(ctx, mass="main", pitch_m=None):
             M = _translate(jx, jy, z - self_z) * _rot_about(
                 (m["cx"], m["cy"], z), taxis, tilt)
             _transform_prims(stage, group, M)
+            # A PANCAKED SLAB IS NOT A CLEAN FLOOR. The fit-out binds slabs
+            # with the pale pavement map, which is right for a floor seen
+            # through a hole and reads from the air as a sheet of bathroom
+            # tile on the crown of the pile; every plate in the stack is under
+            # dust and broken concrete, so it takes the same dark asphalt map
+            # the authored roof slabs do.
+            for q in group:
+                _bind(stage, q, _a_roof_mat(ctx))
             stack += group
             n_plates += 1
             # rebar tufts at slab edges
@@ -3134,26 +3158,28 @@ def _c_noise(rng, freqs=(0.45, 1.3, 3.1), amps=(0.55, 0.30, 0.15)):
 # it is not enough to pick a megascans pack, it has to be bound through
 # `damage._pbr(texture=...)`, which sets `project_uvw` + `world_or_object` and
 # scales in repeats per METRE.
-# (relative texture, tint = final albedo, roughness, repeats per metre)
+# (texture, tint, roughness, repeats per metre, albedo_brightness, desaturation)
+#
+# THE TINT DOES NOTHING ON ITS OWN. `damage._pbr` sets `diffuse_color_constant`
+# to the tint, and `planks.wood_material`'s comment says that multiplies the
+# map — it does not, at least not in this OmniPBR: three benches at 0.40, 0.33
+# and 0.22 rendered the soil the SAME bright orange, while changing the
+# TEXTURE changed the look immediately. OmniPBR's albedo-map controls are
+# `albedo_brightness` (multiplier) and `albedo_desaturation`, and those are
+# set below through the shader directly. Desaturation matters as much as
+# brightness: a neutral multiplier cannot take the orange out of a mud map,
+# it only makes it a darker orange.
 _C_TEX = {
-    # Dark and DESATURATED. At (0.40, 0.33, 0.25) the mud came out orange and
-    # a wide fan of it read as a paint spill; liquefaction ejecta in the
-    # Christchurch photographs is grey silt, and turned subsoil is dark brown.
-    # `diffuse_color_constant` MULTIPLIES the map (planks.wood_material relies
-    # on the same thing), so a NEUTRAL tint only darkens: it cannot take the
-    # saturation out of a map. Soil_Mud is a strongly orange map and at
-    # (0.40, 0.33, 0.25) a wide fan of it still read as a paint spill, so the
-    # tint compensates — B >= R — and sits low enough to be earth in daylight.
-    "soil":  ("megascans/Soil_Mud/T_pjuph20_1K_B.jpg", (0.22, 0.21, 0.20), 0.98, (0.70, 0.70)),
-    "silt":  ("megascans/Dirt_Rough/T_yd0lfcqcc_1k_B.png", (0.30, 0.30, 0.31), 0.96, (0.55, 0.55)),
+    "soil":  ("megascans/Soil_Mud/T_pjuph20_1K_B.jpg", (0.22, 0.21, 0.20), 0.98, (0.70, 0.70), 0.42, 0.50),
+    "silt":  ("megascans/Dirt_Rough/T_yd0lfcqcc_1k_B.png", (0.30, 0.30, 0.31), 0.96, (0.55, 0.55), 0.55, 0.60),
     # NOT Worn_Pavement: its map carries green moss in the joints, and a 1.2 m
     # kerb block at 0.38 repeats/m showed one big square of it — a row of them
     # along a wall read as green mosaic tiles. Damaged_Asphalt is a plain grey
     # cracked surface; brightened it is concrete, darkened it is the road.
-    "pave":  ("megascans/Damaged_Asphalt/T_vizcebf_2K_B.png", (0.60, 0.59, 0.57), 0.90, (0.55, 0.55)),
-    "asph":  ("megascans/Damaged_Asphalt/T_vizcebf_2K_B.png", (0.38, 0.38, 0.37), 0.92, (0.30, 0.30)),
-    "raft":  ("megascans/Damaged_Asphalt/T_vizcebf_2K_B.png", (0.32, 0.32, 0.31), 0.95, (0.28, 0.28)),
-    "brick": ("megascans/Brick_Wall_Worn/T_sexkaitb_1K_B.jpg", (0.42, 0.36, 0.32), 0.92, (0.70, 0.70)),
+    "pave":  ("megascans/Damaged_Asphalt/T_vizcebf_2K_B.png", (0.60, 0.59, 0.57), 0.90, (0.55, 0.55), 0.80, 0.25),
+    "asph":  ("megascans/Damaged_Asphalt/T_vizcebf_2K_B.png", (0.38, 0.38, 0.37), 0.92, (0.30, 0.30), 0.70, 0.35),
+    "raft":  ("megascans/Damaged_Asphalt/T_vizcebf_2K_B.png", (0.32, 0.32, 0.31), 0.95, (0.28, 0.28), 0.60, 0.35),
+    "brick": ("megascans/Brick_Wall_Worn/T_sexkaitb_1K_B.jpg", (0.42, 0.36, 0.32), 0.92, (0.70, 0.70), 0.72, 0.20),
 }
 _C_FALLBACK = {"soil": "soil", "silt": "soil", "pave": "concrete",
                "asph": "dark_concrete", "raft": "dark_concrete", "brick": "brick"}
@@ -3168,15 +3194,26 @@ def _c_look(ctx, key):
     got = mats.get(k)
     if got is not None:
         return got
-    rel, rgb, rough, scale = _C_TEX[key]
+    rel, rgb, rough, scale, bright, desat = _C_TEX[key]
     try:
         import scene_generator as sg
+        from pxr import Gf, Sdf, UsdShade
         from . import damage
+        path = "{0}/QuakeLooks/c_{1}".format(ctx["parent"], key)
         got = damage._pbr(
-            ctx["stage"], "{0}/QuakeLooks/c_{1}".format(ctx["parent"], key),
-            rgb, rough, tint=rgb, scale_uv=scale,
+            ctx["stage"], path, rgb, rough, tint=rgb, scale_uv=scale,
             texture=sg._join_asset_root(
                 "airstack://scene_gen/assets/materials/" + rel, ""))
+        sh = UsdShade.Shader.Get(ctx["stage"], path + "/Shader")
+        if sh:
+            sh.CreateInput("albedo_brightness",
+                           Sdf.ValueTypeNames.Float).Set(float(bright))
+            sh.CreateInput("albedo_desaturation",
+                           Sdf.ValueTypeNames.Float).Set(float(desat))
+            # belt and braces: whichever of the two names this OmniPBR build
+            # honours as the map multiplier
+            sh.CreateInput("diffuse_tint",
+                           Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*rgb))
     except Exception as exc:
         print("[quake_flow] ground look {0} unavailable ({1})".format(key, exc))
         got = mats.get(_C_FALLBACK[key])
@@ -4274,6 +4311,17 @@ def r_balcony_fail(ctx, mass="main", frac=0.5):
         n_hang, n_drop, len(bals)))
 
 
+def _a_roof_slabs(ctx):
+    """Authored roof slabs still on the stage — what an earlier recipe left
+    where the kit roof tiles used to be. See the note in `_roof_box`."""
+    out = []
+    for p in ctx.get("roof_slabs", []):
+        pr = ctx["stage"].GetPrimAtPath(p)
+        if pr and pr.IsValid() and pr.IsActive():
+            out.append(p)
+    return out
+
+
 def _a_hole_outline(rng, lobes=(1, 4)):
     """An irregular closed outline: radius(theta) about 1.0, in a frame where
     the hole is a unit circle. Returns (rad, rmax).
@@ -4346,17 +4394,34 @@ def r_roof_hole(ctx, mass="main", frac=None):
         lx, ly = _to_local(m, c[0], c[1])
         return _r_of(lx, ly)[1] < 1.0
 
-    n_hit, rim_st, own_loose = 0, [], []
+    # TARGETS: the kit roof tiles this mass still has, plus any slab an
+    # EARLIER recipe already authored in their place (see `_roof_box`).
+    from pxr import UsdShade
+    targets = []
     for e in list(_els(ctx, mass=mass, role="roof")):
-        # only tiles that actually reach INTO the hole are touched; a 6 m
+        targets.append((e, e["lx"], e["ly"]))
+    if not targets:
+        for p in _a_roof_slabs(ctx):
+            try:
+                cx_, cy_ = _box_dims(ctx["stage"], p)[:2]
+            except Exception:
+                continue
+            lx_, ly_ = _to_local(m, cx_, cy_)
+            targets.append((p, lx_, ly_))
+
+    n_hit, rim_st, own_loose = 0, [], []
+    for tgt, tlx, tly in targets:
+        # only pieces that actually reach INTO the hole are touched; a 6 m
         # margin fractured most of the roof and the crack mosaic came back
-        if (abs(e["lx"] - hcx) > hw * rmax + 2.6
-                or abs(e["ly"] - hcy) > hd * rmax + 2.6):
+        if (abs(tlx - hcx) > hw * rmax + 2.6
+                or abs(tly - hcy) > hd * rmax + 2.6):
             continue
-        box = _roof_box(ctx, e, thick=(0.14 if btype == "urm" else ROOF_T))
+        if isinstance(tgt, dict):
+            box = _roof_box(ctx, tgt, thick=(0.14 if btype == "urm" else ROOF_T))
+        else:
+            box = tgt
         if not box:
             continue
-        from pxr import UsdShade
         bm = UsdShade.MaterialBindingAPI(ctx["stage"].GetPrimAtPath(box)).ComputeBoundMaterial()[0]
         # MORE, SMALLER, DARKER PIECES. At 14-20 `plank` cells over a 22 x 18 m
         # roof box the cells are ~4 m and the aspect stretches the worst of
@@ -4382,7 +4447,8 @@ def r_roof_hole(ctx, mass="main", frac=None):
         rim_st += st
         own_loose += lo
         n_hit += len(lo)
-        e["dead"] = True
+        if isinstance(tgt, dict):
+            tgt["dead"] = True
     # THE RIM SAGS. A diaphragm that lets go does not shear off flush: the
     # boards and the slab strips at the edge stay attached and hinge down into
     # the hole (every USAR photograph of a collapsed roof shows the rim
@@ -4783,6 +4849,8 @@ def r_facade_scars(ctx, frac=0.22, mass=None, patches=(1, 2), crack_p=0.45,
                 if rng.random() < 0.5:
                     band = 1.0 - band
                 ra = min(ra, width * 0.11)
+                rv = min(rv, ra * 1.7)     # else a 0.4 m pier gives a 1.6 m
+                #                            tall sliver that reads as a flame
                 u = width * band
                 v = e["z"] + rng.uniform(rv + 0.4, max(rv + 0.5, height - rv - 0.4))
             else:
