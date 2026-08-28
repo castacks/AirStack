@@ -49,9 +49,11 @@ def clearance_profile(pts, pillars):
         if z < FLY_Z:
             prof.append(None)
             continue
-        d = min(math.dist((x, y), (px, py)) - pr
-                for px, py, pr, ph in pillars if z <= ph)
-        prof.append(d)
+        ds = [math.dist((x, y), (px, py)) - pr
+              for px, py, pr, ph in pillars if z <= ph]
+        # no qualifying pillar = flying above the whole field (droan_gl's
+        # vertical-escape behavior reaches z > 18 m) — clearance undefined
+        prof.append(min(ds) if ds else None)
     return prof
 
 
@@ -179,6 +181,53 @@ def main():
         fig.savefig(fname, dpi=130)
         plt.close(fig)
         print('wrote', fname)
+
+    # ------------- droan_gl vs MIGHTY on the same eval field -------------
+    # droan_gl's campaign-v5 solvability validation (study/droan-gl-avoidance-
+    # fix, notebook 008/009) flew the SAME eval field; routes are fresh per
+    # evaluation, so this is a same-field (not same-route) comparison.
+    droan_dir = STUDY / 'runs/ref_validation_r7_b240_001'
+    droan_runs = []
+    for dd in sorted(droan_dir.glob('r5_artifacts_*'),
+                     key=lambda p: p.stat().st_mtime):
+        rj, oc = dd / 'r7_route.json', dd / 'odom.csv'
+        if not (rj.exists() and oc.exists()):
+            continue
+        seed = json.loads(rj.read_text())['seed']
+        droan_runs.append((seed, parse_route(json.loads(rj.read_text())['route']),
+                           load_csv(oc)))
+    # last five = the yaw-sweep-config validation (droan_gl's best config)
+    droan_runs = droan_runs[-5:]
+
+    fig, axes = plt.subplots(2, 5, figsize=(22, 10))
+    for ax, (seed, route, pts) in zip(axes[0], droan_runs):
+        prof = [c for c in clearance_profile(pts, eval_pillars)
+                if c is not None]
+        mc = min(prof) if prof else None
+        # outcome label: clearance shave vs incomplete route
+        fly = [(x, y) for x, y, z in pts if z >= FLY_Z]
+        d_end = math.dist(fly[-1], route[-1][:2]) if fly else float('inf')
+        outcome = ('FAIL: clearance shave' if mc is not None and mc < 1.0
+                   else f'FAIL: stopped {d_end:.0f} m short')
+        draw_run(ax, pts, route, eval_pillars,
+                 title=f'droan_gl (yaw-sweep cfg), seed {seed}\n{outcome}',
+                 clearance=mc)
+    for ax, (label, route, pts) in zip(axes[1], runs):
+        prof = [c for c in clearance_profile(pts, eval_pillars)
+                if c is not None]
+        draw_run(ax, pts, route, eval_pillars,
+                 title=label + '\nPASS',
+                 clearance=min(prof) if prof else None)
+    fig.suptitle('Same eval pillar field, fresh routes per run: '
+                 'droan_gl campaign-v5 validation (top, 0/5) vs '
+                 'MIGHTY official v6 (bottom, 5/5)\n'
+                 'EVAL field shown — answer-key material, study-internal only',
+                 fontsize=14)
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    out = e / 'fig_droan_vs_mighty.png'
+    fig.savefig(out, dpi=120)
+    plt.close(fig)
+    print('wrote', out)
 
     # clearance profiles (distances only — no layout information)
     fig, ax = plt.subplots(figsize=(11, 5))
