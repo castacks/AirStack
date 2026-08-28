@@ -1,0 +1,2 @@
+ROUTE=42.8,-2.7,10.0; 24.6,13.0,10.0; 39.5,-1.0,10.0
+MODE=follower (global_plan topic)

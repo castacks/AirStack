@@ -4,11 +4,15 @@
 >
 > Campaign: `Agent study (paper Sec. VI-C)` — primary (R7 prerequisite). Secondary: `Modular AirStack (RFC #379/#380)` — the lead explicitly wants this integration to **stress-test the external-module workflow** (`airstack module add`), so module-system friction findings are a deliverable, not incidental.
 >
-> **Status: `WIP`** (2.1/2.2 DONE — module builds on Jazzy, all 44 upstream
-> gtests pass, standalone smoke passes; 2.3 DONE — full_mighty stack flies in
-> Isaac: takeoff → 3-wp NavigateTask route (closest approaches
-> 0.12/0.20/0.13 m, z stable) → land, all through the untouched seams;
-> 2.4 WIP (practice pillar-field flights in progress); 2.5 TODO)
+> **Status: `WIP`** (2.1/2.2/2.3 DONE — module builds on Jazzy, 44/44
+> gtests, smoke passes, full_mighty flies takeoff→route→land in Isaac
+> through the untouched seams; 2.4 DONE — practice pillar field 5/5 action
+> runs PASS (min clearances 1.06–1.37 m) + follower-mode (global_plan
+> topic, study route contract) validated; 2.5 WIP — campaign v6 pinned
+> (study/mighty-swap 89097539, asm_mighty v0.1.0-dev1 at PRIVATE
+> castacks/asm_mighty), judge deltas implemented (R7 budget 240 s,
+> practice/eval split with judge-time eval-scene staging), reference
+> workspace prepared; solvability batch pending)
 
 ## 1. Problem Context
 

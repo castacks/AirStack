@@ -173,6 +173,7 @@ nav:
           - full_default: stacks/full_default/README.md
           - full_droan_cpu: stacks/full_droan_cpu/README.md
           - full_macvo: stacks/full_macvo/README.md
+          - full_mighty: stacks/full_mighty/README.md
           - lite_default: stacks/lite_default/README.md
           - lite_offload_global: stacks/lite_offload_global/README.md
       - Modules Catalog:
