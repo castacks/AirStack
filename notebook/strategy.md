@@ -45,7 +45,10 @@ reference-solvability re-demonstration under frozen params) — see
 [008-droan-gl-r7-avoidance-fix](008-droan-gl-r7-avoidance-fix/design_spec.md).
 In parallel: prose-ifying `main.tex` section by section, and the
 release gate (7 paper-blocking items; ~63 tasks still `\task{}` in
-`release_gate_and_tasks.tex` as of today).
+`release_gate_and_tasks.tex` as of today). Watch item: this branch now
+sits on post-restructure develop (rebased 2026-08-27) while the
+study's pins and judge budgets predate the restructure — a re-pin
+means a new campaign id (see §Direction log).
 
 Hard calendar gates: **2026-09-15** ICRA submission; case-study
 interviews and release-gate items must land before the final claims
@@ -103,7 +106,7 @@ come from the entries' own labels.
 | Release gate / v1.0 readiness | The seven paper-blocking items (clone-and-run, verified hardware path, …) | — (no notebook entries yet) | ~63 open `\task{}` vs 1 `\done{}` in `release_gate_and_tasks.tex` |
 | Modular AirStack (RFC #379/#380) | Monolith → modules, stacks, fleets — built to support the paper's modularity positioning: module swapping (C1) and easy upstreaming of features from forked projects (lead, recorded 2026-08-27) | [002-rfc-modular-airstack](002-rfc-modular-airstack/design_spec.md) | `WIP` per its header (impl merged to develop 2026-08-24 as PRs #388–#396; release mechanics, module CI tags, P3 dispatch smoke open) |
 | Launch & CLI developer experience | Kill sim-launch friction — intent flags, readiness signal, scene selection, command groups — purely for developer usage and adoption (lead, recorded 2026-08-27) | [001-pre-rfc-workflow-cleanup](001-pre-rfc-workflow-cleanup/design_spec.md), [003-scene-flag](003-scene-flag/design_spec.md), [004-osmo-command-group](004-osmo-command-group/design_spec.md) | 001 `DONE`; 003 `DONE`; 004 results PASS (no header status) |
-| Docs & public presentation | Accurate, Diátaxis-organized docs site and a demo-video landing page — likewise for developer usage and adoption (lead, recorded 2026-08-27) | [005-landing-page-demo-video](005-landing-page-demo-video/design_spec.md), [006-diataxis-docs-audit](006-diataxis-docs-audit/design_spec.md) | 005 deliverables committed 2026-08-24/25; 006 audit done, 9-commit overhaul branch built — **merge to develop not recorded** |
+| Docs & public presentation | Accurate, Diátaxis-organized docs site and a demo-video landing page — likewise for developer usage and adoption (lead, recorded 2026-08-27) | [005-landing-page-demo-video](005-landing-page-demo-video/design_spec.md), [006-diataxis-docs-audit](006-diataxis-docs-audit/design_spec.md) | 005 deliverables committed 2026-08-24/25; 006 `DONE` — overhaul merged to develop 2026-08-25 as PR #404 (`66e62efd`) |
 
 ## Direction log
 
@@ -113,6 +116,26 @@ a standing choice flipped. Routine feature completions that don't move
 the strategy get no entry. Format: `### YYYY-MM-DD — what happened`,
 answering *what we learned or decided, what it changed, link to the
 evidence*.
+
+### 2026-08-27 — airstack-paper rebased onto latest develop; restructure flagged as an agent-study variable
+
+`airstack-paper` was rebased onto develop @ `d4a04df6`, so the paper
+branch now sits on the fully restructured platform: the RFC #379/#380
+modular architecture (merged to develop 2026-08-24) plus develop's
+newest docs/sim commits — including the Diátaxis overhaul, whose merge
+(PR #404, 2026-08-25, `66e62efd`) closes the "merge not recorded" gap
+previously flagged in §Campaigns. **Lead's note (2026-08-27): the
+restructure will impact the agent study and may impact its numbers.**
+The study's pinned workspaces, reference solution, and calibrated
+judge budgets predate the modular restructure; re-pinning onto
+post-restructure code changes the task surface agents face (stack
+entry launch files instead of layer bringups, the module CLI, the
+reorganized docs), so results measured across the pin change cannot
+be pooled — per the existing campaign-id-bump rule, a re-pin means a
+new campaign id and recalibration where budgets were tuned on the old
+tree. Evidence: [agent_study/HANDOFF.md](../agent_study/HANDOFF.md),
+[007 design spec](007-agent-study-prereqs/design_spec.md),
+[008 results](008-droan-gl-r7-avoidance-fix/results/results_summary.md).
 
 ### 2026-08-27 — strategy layer created; log seeded retroactively; notebook consolidated
 
@@ -170,7 +193,7 @@ the answer key) moved from the paper submodule to the PRIVATE
 local-only convention) so the experimental record travels between
 machines. Runs retention policy added after a 248 GB log leak.
 Evidence: [agent_study/HANDOFF.md](../agent_study/HANDOFF.md), commits
-`de6417a3`, `65b800dc`, `5d138f96`.
+`9592bedc`, `2d5550ee`, `9caeb33c`.
 
 ### 2026-08-25 — Amendment 1: R7/R8 completeness rungs; campaign v4 blocked same day
 
@@ -207,7 +230,7 @@ Lead decision 2026-08-24: **skip the human reference-integration
 baseline** (test plan (c)) — study proceeds without it, revisit before
 submission. Evidence:
 [007 design spec §2.8, §3(c),(e)](007-agent-study-prereqs/design_spec.md),
-commits `69f30648`, `0dfe6a2c`.
+commits `20e4cbad`, `34d7bf34`.
 
 ### 2026-08-19 → 2026-08-25 — platform sprint: modular AirStack shipped; DX + docs overhauled (develop track)
 
@@ -248,7 +271,7 @@ integrated (+34k LOC on 110k base, 97 % additive). AGENTS.md pointed
 at positioning.md as mandatory reading. Evidence:
 [positioning.md §Evidence hierarchy](../ICRA_2027_AirStack_Paper/paper_positioning.md),
 [007 design spec](007-agent-study-prereqs/design_spec.md), commits
-`29d86cec`, `c8f98f7f`, `dd13017a`, `6fdd3329`, `b145660d`.
+`7607a72d`, `abb6046d`, `407ec557`, `eeeb0aa8`, `823dec5e`.
 
 ### 2026-07-20 → 2026-07-21 — paper founded: positioning, claims, case-study corrections, release gate
 
@@ -263,6 +286,6 @@ AirStack** (its hardware was a ground robot on a different stack) —
 and the release-gate checklist + six-question case-study instrument
 established (2026-07-21). Evidence:
 [positioning.md](../ICRA_2027_AirStack_Paper/paper_positioning.md),
-commits `f5e71b6d`, `9c244723`, `05849733`, `796848e2`, `101cb865`,
-`5ca9598f`. (Positioning.md dates the discussions only as "July–August
+commits `96020591`, `e3e39baa`, `e76a0ea5`, `db14d880`, `c601a270`,
+`d4d2ee41`. (Positioning.md dates the discussions only as "July–August
 2026"; the dates here are the first commits recording each decision.)
